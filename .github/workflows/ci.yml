@@ -30,4 +30,8 @@ jobs:
       - name: Check docs index
         if: runner.os == 'Linux'
         run: .claude/scripts/check-docs-index.sh
-      - run: ./gradlew build
+      - name: Install virtual display
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      # UI tests (TestFX) need a display: Xvfb on Linux, the native one on macOS.
+      - run: ${{ runner.os == 'Linux' && 'xvfb-run -a ' || '' }}./gradlew build

@@ -28,8 +28,11 @@ jobs:
           distribution: temurin
           java-version: 25
       - uses: gradle/actions/setup-gradle@v6
+      - name: Install virtual display
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb
       - name: Publish ide fat jar
-        run: ./gradlew build :ide:publishFatJarPublicationToGitHubPackagesRepository -PreleaseVersion="${GITHUB_REF_NAME#v}"
+        run: ${{ runner.os == 'Linux' && 'xvfb-run -a ' || '' }}./gradlew build :ide:publishFatJarPublicationToGitHubPackagesRepository -PreleaseVersion="${GITHUB_REF_NAME#v}"
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
