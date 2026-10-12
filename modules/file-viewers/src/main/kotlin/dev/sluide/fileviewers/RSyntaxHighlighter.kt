@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import org.fife.ui.rsyntaxtextarea.SyntaxConstants
 import org.fife.ui.rsyntaxtextarea.Token
 import org.fife.ui.rsyntaxtextarea.TokenMakerFactory
 import org.fife.ui.rsyntaxtextarea.TokenTypes
@@ -13,6 +14,8 @@ import javax.swing.text.Segment
  * lexer's style for these words, and an identifier in [stringPrefixes] directly before a string (like the `f` of
  * `f'…'`) is styled as part of the string. Lexer errors are never shown: a viewer must not flag valid code that a
  * lexer does not know yet.
+ *
+ * The configured languages are in the companion object, so RSyntaxTextArea stays confined to this file.
  */
 internal class RSyntaxHighlighter(
     private val syntaxStyle: String,
@@ -91,4 +94,15 @@ internal class RSyntaxHighlighter(
 
             else -> null
         }
+
+    companion object {
+        /** The Python lexer predates Python 3 in places; these corrections bring it up to date. */
+        val python =
+            RSyntaxHighlighter(
+                SyntaxConstants.SYNTAX_STYLE_PYTHON,
+                keywords = setOf("async", "await", "nonlocal"),
+                builtins = setOf("print", "exec"),
+                stringPrefixes = setOf("f", "r", "b", "u", "rb", "br", "fr", "rf"),
+            )
+    }
 }
