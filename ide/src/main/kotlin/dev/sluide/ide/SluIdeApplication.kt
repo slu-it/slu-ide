@@ -13,14 +13,14 @@ class SluIdeConfiguration
 
 /** JavaFX application that owns the lifecycle of the Spring context. */
 class SluIdeApplication : Application() {
-
     private lateinit var context: ConfigurableApplicationContext
 
     override fun init() {
-        context = SpringApplicationBuilder(SluIdeConfiguration::class.java)
-            .web(WebApplicationType.NONE)
-            .headless(false)
-            .run(*parameters.raw.toTypedArray())
+        context =
+            SpringApplicationBuilder(SluIdeConfiguration::class.java)
+                .web(WebApplicationType.NONE)
+                .headless(false)
+                .run(*parameters.raw.toTypedArray())
     }
 
     override fun start(primaryStage: Stage) {

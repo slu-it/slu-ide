@@ -9,7 +9,6 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 
 class ProjectServiceTest {
-
     @TempDir
     lateinit var dir: Path
 

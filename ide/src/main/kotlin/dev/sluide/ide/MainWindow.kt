@@ -22,12 +22,12 @@ class MainWindow(
     private val projectService: ProjectService,
     private val fileExplorer: FileExplorerView,
 ) {
-
     fun show(stage: Stage) {
-        val root = BorderPane().apply {
-            top = MenuBar(fileMenu(stage))
-            center = SplitPane(fileExplorer).apply { setDividerPositions(0.25) }
-        }
+        val root =
+            BorderPane().apply {
+                top = MenuBar(fileMenu(stage))
+                center = SplitPane(fileExplorer).apply { setDividerPositions(0.25) }
+            }
 
         projectService.projectFolder.subscribe { folder ->
             fileExplorer.open(folder)
@@ -39,18 +39,20 @@ class MainWindow(
     }
 
     private fun fileMenu(stage: Stage): Menu {
-        val openFolder = MenuItem("Open Folder…").apply {
-            accelerator = KeyCodeCombination(KeyCode.O, KeyCombination.SHORTCUT_DOWN)
-            setOnAction { chooseFolder(stage) }
-        }
+        val openFolder =
+            MenuItem("Open Folder…").apply {
+                accelerator = KeyCodeCombination(KeyCode.O, KeyCombination.SHORTCUT_DOWN)
+                setOnAction { chooseFolder(stage) }
+            }
         return Menu("File", null, openFolder)
     }
 
     private fun chooseFolder(stage: Stage) {
-        val chooser = DirectoryChooser().apply {
-            title = "Open Folder"
-            projectService.projectFolder.get()?.let { initialDirectory = it.toFile() }
-        }
+        val chooser =
+            DirectoryChooser().apply {
+                title = "Open Folder"
+                projectService.projectFolder.get()?.let { initialDirectory = it.toFile() }
+            }
         chooser.showDialog(stage)?.let { projectService.open(it.toPath()) }
     }
 }

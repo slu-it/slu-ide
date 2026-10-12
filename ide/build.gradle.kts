@@ -22,17 +22,19 @@ dependencies {
 
 // The fat jar contains the JavaFX natives of the build platform only (see docs/adr/0003), so every
 // platform is published under its own artifactId: ide-linux-x64, ide-linux-aarch64, ide-mac-aarch64, ...
-val platform: String = run {
-    val os = System.getProperty("os.name").lowercase()
-    val arch = System.getProperty("os.arch").lowercase()
-    val osName = when {
-        "linux" in os -> "linux"
-        "mac" in os -> "mac"
-        else -> error("Unsupported operating system for publishing: $os")
+val platform: String =
+    run {
+        val os = System.getProperty("os.name").lowercase()
+        val arch = System.getProperty("os.arch").lowercase()
+        val osName =
+            when {
+                "linux" in os -> "linux"
+                "mac" in os -> "mac"
+                else -> error("Unsupported operating system for publishing: $os")
+            }
+        val archName = if (arch == "aarch64" || arch == "arm64") "aarch64" else "x64"
+        "$osName-$archName"
     }
-    val archName = if (arch == "aarch64" || arch == "arm64") "aarch64" else "x64"
-    "$osName-$archName"
-}
 
 publishing {
     publications {

@@ -9,7 +9,6 @@ import java.nio.file.Path
 /** Holds the folder that is currently opened as project. Observe [projectFolder] to react to changes. */
 @Service
 class ProjectService {
-
     private val _projectFolder = ReadOnlyObjectWrapper<Path?>()
 
     val projectFolder: ReadOnlyObjectProperty<Path?> = _projectFolder.readOnlyProperty

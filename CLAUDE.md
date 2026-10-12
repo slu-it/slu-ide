@@ -8,6 +8,7 @@ Lightweight IDE in Kotlin (JDK 25) with Spring Boot and JavaFX, built with Gradl
 
 ## Commands
 - Build and test everything: `./gradlew build`
+- Format Kotlin: `./gradlew spotlessApply` (ktlint via Spotless, rules in `.editorconfig`); `build` fails on violations
 - Fat jar: `./gradlew :ide:bootJar` (JavaFX natives are included for the build platform only)
 - Check the docs index: `.claude/scripts/check-docs-index.sh`
 

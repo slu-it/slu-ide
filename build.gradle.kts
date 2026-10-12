@@ -3,6 +3,21 @@ plugins {
     alias(libs.plugins.kotlin.spring) apply false
     alias(libs.plugins.spring.boot) apply false
     alias(libs.plugins.javafx) apply false
+    alias(libs.plugins.spotless)
+}
+
+// `./gradlew spotlessApply` formats, `spotlessCheck` (part of `check`/`build`) verifies. Rules: .editorconfig
+spotless {
+    kotlin {
+        target("**/*.kt")
+        targetExclude("**/build/**")
+        ktlint(libs.versions.ktlint.get())
+    }
+    kotlinGradle {
+        target("**/*.gradle.kts")
+        targetExclude("**/build/**")
+        ktlint(libs.versions.ktlint.get())
+    }
 }
 
 allprojects {
@@ -14,7 +29,10 @@ allprojects {
 // Shared configuration for every Kotlin module (modules/* and ide).
 subprojects {
     pluginManager.withPlugin("org.jetbrains.kotlin.jvm") {
-        val javaVersion = rootProject.libs.versions.java.get().toInt()
+        val javaVersion =
+            rootProject.libs.versions.java
+                .get()
+                .toInt()
 
         extensions.configure<org.jetbrains.kotlin.gradle.dsl.KotlinJvmProjectExtension> {
             jvmToolchain(javaVersion)

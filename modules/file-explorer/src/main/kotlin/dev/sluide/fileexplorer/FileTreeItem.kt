@@ -9,8 +9,9 @@ import java.nio.file.Path
  * A tree node for a file or folder. The children of a folder are read from disk the first
  * time they are requested, so deep trees and symlink cycles are never traversed eagerly.
  */
-class FileTreeItem(path: Path) : TreeItem<Path>(path) {
-
+class FileTreeItem(
+    path: Path,
+) : TreeItem<Path>(path) {
     private val directory: Boolean = Files.isDirectory(path)
     private var childrenLoaded = false
 

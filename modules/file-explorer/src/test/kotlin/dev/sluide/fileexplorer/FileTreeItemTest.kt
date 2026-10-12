@@ -11,7 +11,6 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class FileTreeItemTest {
-
     @TempDir
     lateinit var root: Path
 

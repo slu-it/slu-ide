@@ -11,7 +11,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class DirectoryListingTest {
-
     @TempDir
     lateinit var root: Path
 
