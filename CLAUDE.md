@@ -18,6 +18,10 @@ Lightweight IDE in Kotlin (JDK 25) with Spring Boot and JavaFX, built with Gradl
 - Any module using JavaFX applies the `javafx` plugin (see ADR 0003).
 - Significant decisions get an ADR (`docs/adr/template.md`); new features get a page in `docs/features/`.
   Always add new docs to `docs/index.md` with a one-line summary.
+- JavaFX is not published with Gradle metadata: never declare `org.openjfx:*` dependencies directly (they resolve
+  to empty stub jars); use the `javafx` plugin block as in `ide/build.gradle.kts`.
+- JavaFX controls cannot be instantiated without a running toolkit, so tests must not create them.
+- Downloads with `curl` need `-L` (redirects) plus checksum verification; a 169-byte "zip" is a redirect page.
 - The sandbox has no display: the JavaFX window cannot be started there. Say so instead of claiming UI was verified.
 - Commits: small, one logical step each, imperative subject line. No Claude attribution lines or session links
   in commits or PRs (also enforced in `.claude/settings.json`).
