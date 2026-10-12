@@ -4,11 +4,11 @@ import dev.sluide.editor.EditorArea
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
+import dev.sluide.fileviewers.PythonFileViewer
 import org.springframework.boot.WebApplicationType
 import org.springframework.boot.builder.SpringApplicationBuilder
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertIs
 
 /**
  * Verifies component scanning across modules. Beans stay lazy because JavaFX controls cannot be
@@ -30,12 +30,14 @@ class SpringWiringTest {
                         EditorArea::class.java,
                         FileViewers::class.java,
                         DefaultTextFileViewer::class.java,
+                        PythonFileViewer::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")
                 }
                 // Needs no JavaFX toolkit, so the viewer chain can be created for real.
-                assertIs<DefaultTextFileViewer>(context.getBean(FileViewers::class.java).viewers.last())
+                val viewers = context.getBean(FileViewers::class.java).viewers
+                assertEquals(listOf(PythonFileViewer::class, DefaultTextFileViewer::class), viewers.map { it::class })
             }
     }
 }

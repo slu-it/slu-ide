@@ -12,6 +12,9 @@ javafx {
 
 dependencies {
     implementation(libs.spring.context)
+    // Code views: RichTextFX renders, RSyntaxTextArea only provides its lexers (ADR 0005).
+    implementation(libs.richtextfx)
+    implementation(libs.rsyntaxtextarea)
 
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)

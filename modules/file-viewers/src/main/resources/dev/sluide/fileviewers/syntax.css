@@ -1,0 +1,48 @@
+/* Syntax colours for CodeFileViewer; class names come from TokenStyle. */
+
+.code-view .code-area {
+    -fx-font-family: "Monospaced";
+    -fx-background-color: -fx-control-inner-background;
+}
+
+.code-view .lineno {
+    -fx-background-color: derive(-fx-control-inner-background, -4%);
+    -fx-text-fill: #999999;
+    -fx-font-family: "Monospaced";
+    -fx-font-style: normal;
+    -fx-padding: 0 8 0 4;
+}
+
+.code-view .keyword {
+    -fx-fill: #0033b3;
+    -fx-font-weight: bold;
+}
+
+.code-view .type {
+    -fx-fill: #000080;
+}
+
+.code-view .builtin {
+    -fx-fill: #871094;
+}
+
+.code-view .string {
+    -fx-fill: #067d17;
+}
+
+.code-view .number {
+    -fx-fill: #1750eb;
+}
+
+.code-view .comment {
+    -fx-fill: #8c8c8c;
+    -fx-font-style: italic;
+}
+
+.code-view .annotation {
+    -fx-fill: #9e880d;
+}
+
+.code-view .operator {
+    -fx-fill: #333333;
+}
