@@ -53,10 +53,10 @@ internal class TabStrip(
     }
 
     /** Tabs that are cut off or scrolled out of view, in tab order. */
-    fun hiddenFiles(): List<OpenFile> = overflow.hidden(first).map { headers[it].file }
+    fun hiddenFiles(): List<OpenFile> = overflow.hidden(first).mapNotNull { headers.getOrNull(it)?.file }
 
     /** Tabs that are completely visible, in tab order. */
-    fun visibleFiles(): List<OpenFile> = overflow.visible(first).map { headers[it].file }
+    fun visibleFiles(): List<OpenFile> = overflow.visible(first).mapNotNull { headers.getOrNull(it)?.file }
 
     private fun rebuildHeaders() {
         val old = headers.associateBy { it.file }
@@ -150,6 +150,8 @@ internal class TabStrip(
     ) : HBox() {
         init {
             styleClass += "editor-tab"
+            // Positioned and sized by TabStrip.layoutChildren; the viewport Pane must not resize it to its pref size.
+            isManaged = false
             val close =
                 Button("×").apply {
                     styleClass += "close-button"

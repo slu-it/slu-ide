@@ -5,6 +5,8 @@ import javafx.scene.Scene
 import javafx.scene.control.TreeCell
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
+import javafx.scene.input.MouseButton
+import javafx.scene.input.MouseEvent
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -124,4 +126,47 @@ class FileExplorerViewUiTest {
 
     private fun pressKey(code: KeyCode) =
         Event.fireEvent(view, KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, false, false, false))
+
+    @Test
+    fun `double-click on a file requests opening it, on a folder it does not`(robot: FxRobot) {
+        val folder = project.resolve("sub").createDirectories()
+        val file = project.resolve("a.txt").createFile()
+        val requested = mutableListOf<Path>()
+        view.onOpenFile = { requested.add(it) }
+        robot.interact { view.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val cells = robot.lookup(".tree-cell").queryAllAs(TreeCell::class.java).filter { it.item != null }
+        robot.interact {
+            doubleClick(cells.single { it.item == file })
+            doubleClick(cells.single { it.item == folder })
+        }
+
+        assertEquals(listOf(file), requested)
+    }
+
+    private fun doubleClick(cell: TreeCell<*>) =
+        Event.fireEvent(
+            cell,
+            MouseEvent(
+                MouseEvent.MOUSE_CLICKED,
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                MouseButton.PRIMARY,
+                2,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                true,
+                null,
+            ),
+        )
 }
