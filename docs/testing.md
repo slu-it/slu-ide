@@ -23,5 +23,16 @@ and uses software rendering (`-Dprism.order=sw`).
 - Native dialogs (`DirectoryChooser`) cannot be driven by TestFX; test the logic behind them (`ProjectService`).
 - Keep logic out of controls so most behavior stays in fast unit tests.
 
-## Manual run
-For an end-to-end look at the real app in the sandbox, see the display workflow in `CLAUDE.md`.
+## Running and screenshotting the real app (headless Linux sandbox)
+```bash
+.claude/scripts/setup-display.sh          # installs Xvfb + GTK libs + xdotool/ImageMagick, starts display :99
+export DISPLAY=:99
+./gradlew :ide:bootJar
+java -Dprism.order=sw -jar ide/build/libs/ide-*.jar &
+import -window root shot.png              # screenshot
+xdotool key ctrl+o                         # drive the UI
+```
+- There is no window manager: dialogs get no keyboard focus until you run `xdotool windowfocus <id>`
+  (find the id with `xdotool search --name '<title>'`) and appear partly off-screen.
+- The GTK folder chooser opens in its "Recent" view: pick a sidebar bookmark and click Open instead of typing a path.
+- Stop Xvfb when done; never claim the UI was verified unless you actually ran it.

@@ -5,27 +5,23 @@ Lightweight IDE in Kotlin (JDK 25) with Spring Boot and JavaFX, built with Gradl
 ## Orient yourself
 - Read `docs/index.md` first; open only the documents relevant to your task. Do not read all of `docs/`.
 - Layout: `ide/` (app, fat jar), `modules/<name>/` (one Gradle module per capability), `docs/`, `.claude/`, `.github/`.
+  Module and package rules: `docs/architecture.md`.
 
 ## Commands
-- Build and test everything: `./gradlew build` (unit tests in `test`, TestFX UI tests in `uiTest`; the latter needs a display)
+- Build and test everything: `./gradlew build` (unit tests in `test`, TestFX UI tests in `uiTest`, which needs a display)
 - Format Kotlin: `./gradlew spotlessApply` (ktlint via Spotless, rules in `.editorconfig`); `build` fails on violations
 - Fat jar: `./gradlew :ide:bootJar` (JavaFX natives are included for the build platform only)
 - Check the docs index: `.claude/scripts/check-docs-index.sh`
 
 ## Rules for everyone
 - Kotlin only. All versions live in `gradle/libs.versions.toml`; never hard-code versions in module builds.
-- Code lives under the package `dev.sluide.<module>` so Spring component scanning finds it.
-- Feature modules never depend on `ide`. Details: `docs/architecture.md`.
-- Any module using JavaFX applies the `javafx` plugin (see ADR 0003).
-- Significant decisions get an ADR (`docs/adr/template.md`); new features get a page in `docs/features/`.
-  Always add new docs to `docs/index.md` with a one-line summary.
-- JavaFX is not published with Gradle metadata: never declare `org.openjfx:*` dependencies directly (they resolve
-  to empty stub jars); use the `javafx` plugin block as in `ide/build.gradle.kts`.
-- JavaFX controls need a running toolkit: tests that create them are TestFX tests tagged `@Tag("ui")` (see `docs/testing.md`).
-- Downloads with `curl` need `-L` (redirects) plus checksum verification; a 169-byte "zip" is a redirect page.
-- Headless Linux sandbox: run `.claude/scripts/setup-display.sh` (installs Xvfb + GTK libs, starts display `:99`), then
-  `DISPLAY=:99 java -Dprism.order=sw -jar ide/build/libs/ide-*.jar` and use `import -window root x.png` / `xdotool`.
-  Dialogs need `xdotool windowfocus <id>` (no window manager). Never claim UI was verified without actually running it.
+- JavaFX: never declare `org.openjfx:*` dependencies directly (no Gradle metadata, they resolve to empty stub jars);
+  apply the `javafx` plugin as in `ide/build.gradle.kts` (ADR 0003).
+- Tests that create JavaFX controls are TestFX tests tagged `@Tag("ui")`; running or screenshotting the UI in a
+  headless sandbox: `docs/testing.md`. Never claim UI was verified without actually running it.
+- Significant decisions get an ADR (`docs/adr/template.md`), new features a page in `docs/features/`;
+  add every new doc to `docs/index.md` with a one-line summary.
+- `curl` downloads need `-L` (redirects) and checksum verification; a 169-byte "zip" is a redirect page.
 - Commits: small, one logical step each, imperative subject line. No Claude attribution lines or session links
   in commits or PRs (also enforced in `.claude/settings.json`).
 
