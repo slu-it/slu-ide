@@ -25,8 +25,10 @@ private val log = System.getLogger(FileWatcher::class.java.name)
  * Events of one directory are collected until it has been quiet for [quietPeriod]; then each listener is called once
  * with all changed paths (each path once), via [dispatch]. The application uses the JavaFX thread; tests may pass
  * their own dispatcher and a shorter quiet period.
+ *
+ * The bean has an explicit name because Spring Boot's SSL auto-configuration already defines one called "fileWatcher".
  */
-@Component
+@Component("sluideFileWatcher")
 class FileWatcher(
     private val dispatch: (Runnable) -> Unit,
     private val quietPeriod: Duration,

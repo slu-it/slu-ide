@@ -6,6 +6,7 @@ import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.PythonFileViewer
+import dev.sluide.filewatcher.FileWatcher
 import org.springframework.boot.WebApplicationType
 import org.springframework.boot.builder.SpringApplicationBuilder
 import kotlin.test.Test
@@ -33,6 +34,7 @@ class SpringWiringTest {
                         FileViewers::class.java,
                         DefaultTextFileViewer::class.java,
                         PythonFileViewer::class.java,
+                        FileWatcher::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")
