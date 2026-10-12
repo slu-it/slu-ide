@@ -22,18 +22,46 @@ abstract class CodeFileViewer internal constructor(
     override fun canOpen(file: Path): Boolean =
         file.extension.lowercase() in extensions && Files.isReadable(file) && isTextFile(file)
 
-    override fun open(file: Path): Node {
-        val text = file.readText()
-        val area =
-            CodeArea(text).apply {
+    override fun open(file: Path): FileView = CodeFileView(file)
+
+    private inner class CodeFileView(
+        private val file: Path,
+    ) : FileView {
+        private val area =
+            CodeArea().apply {
                 isEditable = false
                 paragraphGraphicFactory = LineNumberFactory.get(this)
-                if (text.isNotEmpty()) setStyleSpans(0, styleSpans(text))
-                moveTo(0)
             }
-        return VirtualizedScrollPane(area).apply {
-            styleClass += "code-view"
-            stylesheets += checkNotNull(CodeFileViewer::class.java.getResource("syntax.css")).toExternalForm()
+        private val pane =
+            VirtualizedScrollPane(area).apply {
+                styleClass += "code-view"
+                stylesheets += checkNotNull(CodeFileViewer::class.java.getResource("syntax.css")).toExternalForm()
+            }
+
+        init {
+            show(file.readText())
+            area.moveTo(0)
+        }
+
+        override val node: Node get() = pane
+
+        override fun reload() {
+            val text = file.readText()
+            if (text == area.text) return
+            val caret = area.caretPosition
+            val scrollX = pane.estimatedScrollX
+            val scrollY = pane.estimatedScrollY
+            show(text)
+            area.moveTo(caret.coerceAtMost(text.length))
+            // Moving the caret makes the area follow it during the next layout; lay out now, then scroll back.
+            pane.layout()
+            pane.scrollXToPixel(scrollX)
+            pane.scrollYToPixel(scrollY)
+        }
+
+        private fun show(text: String) {
+            area.replaceText(text)
+            if (text.isNotEmpty()) area.setStyleSpans(0, styleSpans(text))
         }
     }
 

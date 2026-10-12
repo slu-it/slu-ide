@@ -1,5 +1,6 @@
 package dev.sluide.editor
 
+import dev.sluide.fileviewers.FileView
 import javafx.scene.Group
 import java.nio.file.Path
 import kotlin.test.Test
@@ -11,7 +12,15 @@ import kotlin.test.assertSame
 class OpenFilesTest {
     private val openFiles = OpenFiles()
 
-    private fun open(name: String) = openFiles.open(Path.of("/project", name), Group())
+    private fun open(name: String) =
+        openFiles.open(
+            Path.of("/project", name),
+            object : FileView {
+                override val node = Group()
+
+                override fun reload() {}
+            },
+        )
 
     private fun names() = openFiles.files.map { it.name }
 

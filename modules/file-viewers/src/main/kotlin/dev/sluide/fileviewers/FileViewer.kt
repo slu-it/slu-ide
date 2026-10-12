@@ -14,5 +14,18 @@ interface FileViewer {
 
     /** Creates the view for [file], which [canOpen] accepted. */
     @Throws(IOException::class)
-    fun open(file: Path): Node
+    fun open(file: Path): FileView
+}
+
+/** A file shown by a [FileViewer]. */
+interface FileView {
+    /** The JavaFX node displaying the file. */
+    val node: Node
+
+    /**
+     * Reads the file again and shows the new content, keeping scroll position and caret as far as possible.
+     * Does nothing if the content did not change; on an [IOException] the old content stays.
+     */
+    @Throws(IOException::class)
+    fun reload()
 }

@@ -16,6 +16,7 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 /** Renders the real viewer in a stage. Needs a display, see the `uiTest` Gradle task. */
 @Tag("ui")
@@ -36,11 +37,45 @@ class DefaultTextFileViewerUiTest {
     fun `shows the file content read-only`(robot: FxRobot) {
         val file = dir.resolve("Main.kt").apply { writeText("fun main() {}\n") }
 
-        robot.interact { container.children.setAll(DefaultTextFileViewer().open(file)) }
+        robot.interact { container.children.setAll(DefaultTextFileViewer().open(file).node) }
         WaitForAsyncUtils.waitForFxEvents()
 
         val text = robot.lookup(".text-area").queryAs(TextArea::class.java)
         assertEquals("fun main() {}\n", text.text)
         assertFalse(text.isEditable)
+    }
+
+    @Test
+    fun `reload shows the new content and keeps the scroll position`(robot: FxRobot) {
+        val file = dir.resolve("long.txt").apply { writeText((1..300).joinToString("\n") { "line $it" }) }
+        val view = DefaultTextFileViewer().open(file)
+        val area = view.node as TextArea
+        robot.interact { container.children.setAll(view.node) }
+        robot.interact { area.scrollTop = 1000.0 }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        file.writeText((1..301).joinToString("\n") { "line $it" })
+        robot.interact { view.reload() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertTrue(area.text.endsWith("line 301"))
+        assertEquals(1000.0, area.scrollTop, 1.0)
+    }
+
+    @Test
+    fun `reload after the file got shorter clamps the caret`(robot: FxRobot) {
+        val file = dir.resolve("short.txt").apply { writeText("a fairly long first version") }
+        val view = DefaultTextFileViewer().open(file)
+        val area = view.node as TextArea
+        robot.interact {
+            container.children.setAll(view.node)
+            area.positionCaret(area.length)
+        }
+
+        file.writeText("short")
+        robot.interact { view.reload() }
+
+        assertEquals("short", area.text)
+        assertEquals(5, area.caretPosition)
     }
 }

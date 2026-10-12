@@ -1,5 +1,6 @@
 package dev.sluide.editor
 
+import dev.sluide.fileviewers.FileView
 import javafx.beans.property.ReadOnlyObjectProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.collections.FXCollections
@@ -10,8 +11,10 @@ import java.nio.file.Path
 /** A file shown in a tab together with the view that displays it. */
 internal class OpenFile(
     val path: Path,
-    val content: Node,
+    val view: FileView,
 ) {
+    val content: Node get() = view.node
+
     val name: String get() = (path.fileName ?: path).toString()
 }
 
@@ -25,13 +28,13 @@ internal class OpenFiles {
 
     fun find(path: Path): OpenFile? = _files.firstOrNull { it.path == path }
 
-    /** Adds a tab for [path] showing [content] and selects it. */
+    /** Adds a tab for [path] showing [view] and selects it. */
     fun open(
         path: Path,
-        content: Node,
+        view: FileView,
     ): OpenFile {
         require(find(path) == null) { "Already open: $path" }
-        return OpenFile(path, content).also {
+        return OpenFile(path, view).also {
             _files += it
             _selected.set(it)
         }

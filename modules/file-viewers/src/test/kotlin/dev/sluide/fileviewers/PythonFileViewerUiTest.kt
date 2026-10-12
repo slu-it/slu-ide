@@ -3,6 +3,7 @@ package dev.sluide.fileviewers
 import javafx.scene.Scene
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
+import org.fxmisc.flowless.VirtualizedScrollPane
 import org.fxmisc.richtext.CodeArea
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -38,7 +39,7 @@ class PythonFileViewerUiTest {
         val source = "def main():  # entry\n    return 'done'\n"
         val file = dir.resolve("main.py").apply { writeText(source) }
 
-        robot.interact { container.children.setAll(PythonFileViewer().open(file)) }
+        robot.interact { container.children.setAll(PythonFileViewer().open(file).node) }
         WaitForAsyncUtils.waitForFxEvents()
 
         val area = robot.lookup(".code-area").queryAs(CodeArea::class.java)
@@ -54,9 +55,45 @@ class PythonFileViewerUiTest {
     fun `shows an empty file`(robot: FxRobot) {
         val file = dir.resolve("empty.py").apply { writeText("") }
 
-        robot.interact { container.children.setAll(PythonFileViewer().open(file)) }
+        robot.interact { container.children.setAll(PythonFileViewer().open(file).node) }
         WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals("", robot.lookup(".code-area").queryAs(CodeArea::class.java).text)
+    }
+
+    @Test
+    fun `reload shows and highlights the new content and keeps the scroll position`(robot: FxRobot) {
+        val file = dir.resolve("long.py").apply { writeText((1..300).joinToString("\n") { "x$it = $it" }) }
+        val view = PythonFileViewer().open(file)
+        val pane = view.node as VirtualizedScrollPane<*>
+        robot.interact { container.children.setAll(view.node) }
+        robot.interact { pane.scrollYToPixel(1000.0) }
+        WaitForAsyncUtils.waitForFxEvents()
+        val before = pane.estimatedScrollY
+
+        file.writeText((1..300).joinToString("\n") { "x$it = $it" } + "\ndef added(): pass")
+        robot.interact { view.reload() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val area = robot.lookup(".code-area").queryAs(CodeArea::class.java)
+        assertTrue(area.text.endsWith("def added(): pass"))
+        assertTrue("keyword" in area.getStyleOfChar(area.text.lastIndexOf("def") + 1))
+        assertTrue(before > 500.0, "scrolled down before the reload")
+        assertEquals(before, pane.estimatedScrollY, 20.0)
+    }
+
+    @Test
+    fun `reload after the file got shorter clamps the caret`(robot: FxRobot) {
+        val file = dir.resolve("main.py").apply { writeText("print('a fairly long first version')\n") }
+        val view = PythonFileViewer().open(file)
+        robot.interact { container.children.setAll(view.node) }
+        val area = robot.lookup(".code-area").queryAs(CodeArea::class.java)
+        robot.interact { area.moveTo(area.length) }
+
+        file.writeText("x = 1")
+        robot.interact { view.reload() }
+
+        assertEquals("x = 1", area.text)
+        assertEquals(5, area.caretPosition)
     }
 }

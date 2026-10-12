@@ -1,6 +1,5 @@
 package dev.sluide.fileviewers
 
-import javafx.scene.Node
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.io.path.extension
@@ -22,7 +21,7 @@ class FileViewersTest {
     ) : FileViewer {
         override fun canOpen(file: Path) = file.extension == extension
 
-        override fun open(file: Path): Node = error("not needed")
+        override fun open(file: Path): FileView = error("not needed")
     }
 
     @Test

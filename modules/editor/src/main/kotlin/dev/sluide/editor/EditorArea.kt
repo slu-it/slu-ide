@@ -35,13 +35,13 @@ class EditorArea(
             return true
         }
         val viewer = fileViewers.viewerFor(path) ?: return false
-        val content =
+        val view =
             try {
                 viewer.open(path)
             } catch (_: IOException) {
                 return false
             }
-        openFiles.open(path, content)
+        openFiles.open(path, view)
         return true
     }
 
