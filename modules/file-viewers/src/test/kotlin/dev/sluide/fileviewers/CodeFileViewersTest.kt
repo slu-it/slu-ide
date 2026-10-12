@@ -22,6 +22,7 @@ class CodeFileViewersTest {
             JavaScriptFileViewer() to listOf("app.js", "module.mjs", "config.cjs"),
             TypeScriptFileViewer() to listOf("app.ts", "types.d.ts", "module.mts", "config.cts"),
             JsonFileViewer() to listOf("package.json", "tsconfig.jsonc"),
+            XmlFileViewer() to listOf("pom.xml", "schema.xsd", "style.xsl", "transform.xslt", "icon.svg", "view.fxml"),
         )
 
     private val others = listOf("notes.txt", "README", "py")

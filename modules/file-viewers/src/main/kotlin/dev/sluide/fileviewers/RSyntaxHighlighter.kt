@@ -127,6 +127,18 @@ internal class RSyntaxHighlighter(
 
             TokenTypes.OPERATOR -> TokenStyle.OPERATOR
 
+            // Markup (XML, HTML): DTDs and processing instructions are shown like annotations, entities like numbers.
+            TokenTypes.MARKUP_TAG_DELIMITER, TokenTypes.MARKUP_TAG_NAME, TokenTypes.MARKUP_CDATA_DELIMITER,
+            -> TokenStyle.TAG
+
+            TokenTypes.MARKUP_TAG_ATTRIBUTE -> TokenStyle.ATTRIBUTE
+
+            TokenTypes.MARKUP_TAG_ATTRIBUTE_VALUE, TokenTypes.MARKUP_CDATA -> TokenStyle.STRING
+
+            TokenTypes.MARKUP_DTD, TokenTypes.MARKUP_PROCESSING_INSTRUCTION -> TokenStyle.ANNOTATION
+
+            TokenTypes.MARKUP_ENTITY_REFERENCE -> TokenStyle.NUMBER
+
             else -> null
         }
 
@@ -174,6 +186,8 @@ internal class RSyntaxHighlighter(
                 SyntaxConstants.SYNTAX_STYLE_JSON_WITH_COMMENTS,
                 tokenStyles = mapOf(TokenTypes.VARIABLE to TokenStyle.PROPERTY),
             )
+
+        val xml = RSyntaxHighlighter(SyntaxConstants.SYNTAX_STYLE_XML)
 
         /** The Kotlin lexer knows no raw strings and misses `package`. */
         val kotlin =

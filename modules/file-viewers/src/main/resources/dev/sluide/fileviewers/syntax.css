@@ -47,6 +47,14 @@
     -fx-fill: #871094;
 }
 
+.code-view .tag {
+    -fx-fill: #000080;
+}
+
+.code-view .attribute {
+    -fx-fill: #0000ff;
+}
+
 .code-view .operator {
     -fx-fill: #333333;
 }

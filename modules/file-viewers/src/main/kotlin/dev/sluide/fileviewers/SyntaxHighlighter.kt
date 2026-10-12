@@ -12,6 +12,8 @@ internal enum class TokenStyle(
     COMMENT("comment"),
     ANNOTATION("annotation"),
     PROPERTY("property"),
+    TAG("tag"),
+    ATTRIBUTE("attribute"),
     OPERATOR("operator"),
 }
 
