@@ -126,6 +126,8 @@ internal class RSyntaxHighlighter(
         }
 
     companion object {
+        val java = RSyntaxHighlighter(SyntaxConstants.SYNTAX_STYLE_JAVA)
+
         /** The Kotlin lexer knows no raw strings and misses `package`. */
         val kotlin =
             RSyntaxHighlighter(
