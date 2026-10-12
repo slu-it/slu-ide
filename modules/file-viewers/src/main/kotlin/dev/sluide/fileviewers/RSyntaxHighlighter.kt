@@ -15,7 +15,9 @@ import javax.swing.text.Segment
  * - [tokenStyles] overrides the style of whole token types;
  * - an identifier in [stringPrefixes] directly before a string (like the `f` of `f'…'`) is part of the string;
  * - [rawStringDelimiter] (e.g. Kotlin's `"""`) marks everything up to the closing delimiter as string, for lexers
- *   that do not know multi-line raw strings.
+ *   that do not know multi-line raw strings;
+ * - [lineRules] are regexes applied to every line; text in a named group whose name is a [TokenStyle.styleClass]
+ *   (e.g. `(?<property>…)`) gets that style and replaces the lexer's spans there, except inside comments.
  *
  * Lexer errors are never shown: a viewer must not flag valid code that a lexer does not know yet.
  *
@@ -29,8 +31,44 @@ internal class RSyntaxHighlighter(
     private val tokenStyles: Map<Int, TokenStyle> = emptyMap(),
     private val stringPrefixes: Set<String> = emptySet(),
     private val rawStringDelimiter: String? = null,
+    private val lineRules: List<Regex> = emptyList(),
 ) : SyntaxHighlighter {
+    /** For each line rule, the styles that have a named group in it. */
+    private val ruleStyles: List<Pair<Regex, List<TokenStyle>>> =
+        lineRules.map { rule -> rule to TokenStyle.entries.filter { "(?<${it.styleClass}>" in rule.pattern } }
+
     override fun highlight(text: String): List<HighlightSpan> {
+        val lexed = lex(text)
+        if (lineRules.isEmpty()) return lexed
+        val comments = lexed.filter { it.style == TokenStyle.COMMENT }
+        val ruled =
+            applyLineRules(text).filter { rule -> comments.none { it.overlaps(rule) } }
+        return (lexed.filter { span -> ruled.none { it.overlaps(span) } } + ruled).sortedBy { it.start }
+    }
+
+    private fun applyLineRules(text: String): List<HighlightSpan> {
+        val spans = mutableListOf<HighlightSpan>()
+        var lineStart = 0
+        for (line in text.split('\n')) {
+            val content = line.removeSuffix("\r")
+            for ((rule, styles) in ruleStyles) {
+                for (match in rule.findAll(content)) {
+                    for (style in styles) {
+                        val range = match.groups[style.styleClass]?.range ?: continue
+                        if (range.isEmpty()) continue
+                        val span = HighlightSpan(lineStart + range.first, lineStart + range.last + 1, style)
+                        if (spans.none { it.overlaps(span) }) spans += span
+                    }
+                }
+            }
+            lineStart += line.length + 1
+        }
+        return spans
+    }
+
+    private fun HighlightSpan.overlaps(other: HighlightSpan) = start < other.end && other.start < end
+
+    private fun lex(text: String): List<HighlightSpan> {
         // Lexers keep state in their token list, so every call gets its own instance.
         val lexer = TokenMakerFactory.getDefaultInstance().getTokenMaker(syntaxStyle)
         val chars = text.toCharArray()
@@ -194,6 +232,39 @@ internal class RSyntaxHighlighter(
 
         /** Also lexes embedded `<script>` (JavaScript) and `<style>` (CSS) content. */
         val html = RSyntaxHighlighter(SyntaxConstants.SYNTAX_STYLE_HTML)
+
+        /** Start of a YAML value: after `key:` or a list item's `-`. */
+        private const val YAML_VALUE = """(?:^\s*-|:)[ \t]+"""
+
+        /** End of a YAML value: optional trailing comment. */
+        private const val YAML_END = """[ \t]*(?:#.*)?$"""
+
+        /**
+         * The YAML lexer only knows comments and quoted strings, so line rules add keys, numbers, booleans/null,
+         * anchors, aliases, tags and document markers. Block scalar content (after `|` or `>`) is not recognised.
+         */
+        val yaml =
+            RSyntaxHighlighter(
+                SyntaxConstants.SYNTAX_STYLE_YAML,
+                lineRules =
+                    listOf(
+                        // Key: quoted, or plain (not starting with an indicator character), up to ": " or a final ":".
+                        Regex(
+                            """^\s*(?:-\s+)*(?<property>"[^"]*"|'[^']*'|""" +
+                                """[^\s#'"\[\]{}&*!|>%@`,-][^#]*?)\s*:(?=\s|$)""",
+                        ),
+                        Regex(
+                            YAML_VALUE +
+                                """(?<number>[-+]?(?:0x[0-9a-fA-F]+|0o[0-7]+|\d[\d_]*(?:\.\d*)?(?:[eE][-+]?\d+)?""" +
+                                """|\.\d+(?:[eE][-+]?\d+)?|\.(?:inf|Inf|INF|nan|NaN|NAN)))""" + YAML_END,
+                        ),
+                        Regex(
+                            YAML_VALUE + """(?<keyword>true|True|TRUE|false|False|FALSE|null|Null|NULL|~)""" + YAML_END,
+                        ),
+                        Regex("""(?:^|\s)(?<annotation>[&*][\w.-]+|!!?[\w/.-]*)"""),
+                        Regex("""^(?<keyword>---|\.\.\.)(?=\s|$)"""),
+                    ),
+            )
 
         /** The Kotlin lexer knows no raw strings and misses `package`. */
         val kotlin =
