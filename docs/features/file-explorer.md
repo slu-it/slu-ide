@@ -10,4 +10,8 @@
   are not traversed eagerly. Unreadable folders appear empty.
 - Double-click or Enter on a file calls `onOpenFile` (folders keep their expand behavior). `MainWindow` passes the
   file to the editor area, which opens it only if a file viewer accepts it ([editor-tabs.md](editor-tabs.md)).
-- Not yet implemented: file icons, refreshing on file-system changes, context menu.
+- Changes on disk show up by themselves. Every loaded folder is watched ([file-watching.md](file-watching.md)), and
+  on a change `FileTreeItem.refresh()` re-reads it. Unchanged items are kept, so expanded folders stay expanded
+  and the selection stays.
+- Manual refresh: "Refresh" in the tree's context menu, or F5, re-reads all loaded folders.
+- Not yet implemented: file icons, file operations (new, rename, delete) in the context menu.

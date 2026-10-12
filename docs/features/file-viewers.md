@@ -2,8 +2,9 @@
 
 **Module:** `modules/file-viewers` (package `dev.sluide.fileviewers`)
 
-- `FileViewer` is the extension point: `canOpen(file)` decides cheaply whether the viewer can show a file,
-  `open(file)` creates a read-only JavaFX node for it.
+- `FileViewer` is the extension point: `canOpen(file)` decides cheaply whether the viewer can show a file, and
+  `open(file)` creates a read-only `FileView` for it. A `FileView` has the JavaFX `node` and `reload()`, which
+  re-reads the file and keeps the scroll position and caret; the editor calls it when the file changes on disk.
 - `FileViewers` asks every `FileViewer` bean in turn and uses the first that agrees. `DefaultTextFileViewer` is always
   asked last ([ADR 0004](../adr/0004-file-viewer-selection.md)). Returns `null` if no viewer agrees.
 - `DefaultTextFileViewer` shows any text file in a non-editable, monospaced `TextArea`. A file is text if its

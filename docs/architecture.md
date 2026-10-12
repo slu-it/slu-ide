@@ -7,7 +7,7 @@ assembled from Gradle modules.
 | Path | Purpose |
 |------|---------|
 | `ide/` | Application module: launcher, Spring Boot configuration, main window. Produces the fat jar (`./gradlew :ide:bootJar`). |
-| `modules/<name>/` | One Gradle module per IDE capability: `file-explorer`, `editor` (tabs), `file-viewers` (views of files). |
+| `modules/<name>/` | One Gradle module per IDE capability: `file-explorer`, `editor` (tabs), `file-viewers` (views of files), `file-watcher` (changes on disk). |
 | `gradle/libs.versions.toml` | Single place for dependency and plugin versions. |
 | `docs/` | This documentation. Start at [index.md](index.md). |
 | `.claude/` | Claude Code settings, agents, rules, scripts. |
@@ -18,8 +18,11 @@ assembled from Gradle modules.
 - Feature modules expose UI as JavaFX nodes/controls registered as Spring beans (`@Component`), so `ide` can inject them.
 - Cross-module state (e.g. the current project folder) lives in `ide` or a shared module, and modules receive it
   through their public API (e.g. `FileExplorerView.open(path)`), not by reaching into each other.
-- Documented module dependencies: `editor` -> `file-viewers` (`api`): the editor area asks `FileViewers` for the
-  view of a file ([ADR 0004](adr/0004-file-viewer-selection.md)).
+- Documented module dependencies (all `api`):
+  - `file-explorer` -> `file-watcher` and `editor` -> `file-watcher`: loaded folders and open files are watched
+    ([ADR 0006](adr/0006-file-watching.md)).
+  - `editor` -> `file-viewers`: the editor area asks `FileViewers` for the view of a file
+    ([ADR 0004](adr/0004-file-viewer-selection.md)).
 - Shared build configuration (JDK toolchain, test setup, Spring BOM) is in the root `build.gradle.kts`.
 
 ## Runtime
