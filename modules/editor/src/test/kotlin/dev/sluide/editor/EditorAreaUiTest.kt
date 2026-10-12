@@ -2,6 +2,8 @@ package dev.sluide.editor
 
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
+import dev.sluide.filewatcher.FileWatcher
+import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.Scene
@@ -13,6 +15,7 @@ import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.stage.Stage
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.io.TempDir
@@ -21,6 +24,7 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
+import kotlin.io.path.deleteExisting
 import kotlin.io.path.name
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
@@ -29,6 +33,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 /** Renders the real editor area in a stage. Needs a display, see the `uiTest` Gradle task. */
 @Tag("ui")
@@ -39,12 +45,16 @@ class EditorAreaUiTest {
 
     private lateinit var stage: Stage
     private lateinit var editor: EditorArea
+    private val watcher = FileWatcher(Platform::runLater, 50.milliseconds)
+
+    @AfterEach
+    fun closeWatcher() = watcher.close()
 
     @Start
     fun start(stage: Stage) {
         this.stage = stage
         val fallback = DefaultTextFileViewer()
-        editor = EditorArea(FileViewers(listOf(fallback), fallback))
+        editor = EditorArea(FileViewers(listOf(fallback), fallback), watcher)
         stage.scene = Scene(editor, 800.0, 400.0)
         stage.show()
     }
@@ -340,5 +350,78 @@ class EditorAreaUiTest {
                 null,
             ),
         )
+    }
+
+    @Test
+    fun `an edit on disk reloads the shown content`(robot: FxRobot) {
+        val a = textFile("a.txt", "first")
+        open(robot, a)
+
+        a.writeText("second")
+
+        eventually(robot) { assertEquals("second", shownText(robot)) }
+        assertEquals(a, editor.selectedPath)
+    }
+
+    @Test
+    fun `deleting a file on disk closes its tab`(robot: FxRobot) {
+        val a = textFile("a.txt")
+        val b = textFile("b.txt")
+        open(robot, a, b)
+
+        b.deleteExisting()
+
+        eventually(robot) { assertEquals(listOf("a.txt"), tabTitles(robot)) }
+        assertEquals("content of a.txt", shownText(robot))
+    }
+
+    @Test
+    fun `a file that became binary is closed`(robot: FxRobot) {
+        val a = textFile("a.txt")
+        open(robot, a)
+
+        a.writeBytes(byteArrayOf(0x00, 0x01, 0x02))
+
+        eventually(robot) { assertEquals(emptyList(), tabTitles(robot)) }
+    }
+
+    @Test
+    fun `closing tabs ends their watches`(robot: FxRobot) {
+        val files = listOf("a.txt", "b.txt", "c.txt").map { textFile(it) }
+        open(robot, *files.toTypedArray())
+        assertEquals(3, editor.watchCount)
+
+        robot.interact { editor.openFiles.closeOthers(checkNotNull(editor.openFiles.find(files[0]))) }
+        assertEquals(1, editor.watchCount)
+
+        robot.interact { editor.closeAll() }
+        assertEquals(0, editor.watchCount)
+
+        files[0].writeText("changed after closing")
+        Thread.sleep(300)
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(emptyList(), tabTitles(robot))
+    }
+
+    /** Repeats [assertion] on the FX thread until it passes; the JDK may poll for file changes on macOS. */
+    private fun eventually(
+        robot: FxRobot,
+        assertion: () -> Unit,
+    ) {
+        val deadline = System.nanoTime() + 20.seconds.inWholeNanoseconds
+        while (true) {
+            WaitForAsyncUtils.waitForFxEvents()
+            var failure: AssertionError? = null
+            robot.interact {
+                try {
+                    assertion()
+                } catch (e: AssertionError) {
+                    failure = e
+                }
+            }
+            val error = failure ?: return
+            if (System.nanoTime() > deadline) throw error
+            Thread.sleep(50)
+        }
     }
 }

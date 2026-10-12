@@ -54,7 +54,11 @@ class MainWindowUiTest {
         this.stage = stage
         fileExplorer = FileExplorerView(watcher)
         val fallback = DefaultTextFileViewer()
-        MainWindow(projectService, fileExplorer, EditorArea(FileViewers(listOf(fallback), fallback))).show(stage)
+        MainWindow(
+            projectService,
+            fileExplorer,
+            EditorArea(FileViewers(listOf(fallback), fallback), watcher),
+        ).show(stage)
     }
 
     @Test

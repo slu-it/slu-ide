@@ -13,6 +13,8 @@ javafx {
 dependencies {
     // Deliberate module API dependency: the editor asks the file viewers for the view of a file.
     api(project(":modules:file-viewers"))
+    // Deliberate module API dependency: open files are watched for changes on disk (ADR 0006).
+    api(project(":modules:file-watcher"))
     implementation(libs.spring.context)
 
     testImplementation(libs.testfx.core)
