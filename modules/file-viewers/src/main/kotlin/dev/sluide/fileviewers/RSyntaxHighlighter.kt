@@ -12,8 +12,9 @@ import javax.swing.text.Segment
  *
  * Some lexers lag behind their language, so words can be reclassified: [keywords] and [builtins] override the
  * lexer's style for these words, and an identifier in [stringPrefixes] directly before a string (like the `f` of
- * `f'…'`) is styled as part of the string. Lexer errors are never shown: a viewer must not flag valid code that a
- * lexer does not know yet.
+ * `f'…'`) is styled as part of the string. For lexers that do not know multi-line raw strings, [rawStringDelimiter]
+ * (e.g. Kotlin's `"""`) marks everything up to the closing delimiter as string. Lexer errors are never shown: a viewer
+ * must not flag valid code that a lexer does not know yet.
  *
  * The configured languages are in the companion object, so RSyntaxTextArea stays confined to this file.
  */
@@ -22,31 +23,60 @@ internal class RSyntaxHighlighter(
     private val keywords: Set<String> = emptySet(),
     private val builtins: Set<String> = emptySet(),
     private val stringPrefixes: Set<String> = emptySet(),
+    private val rawStringDelimiter: String? = null,
 ) : SyntaxHighlighter {
     override fun highlight(text: String): List<HighlightSpan> {
         // Lexers keep state in their token list, so every call gets its own instance.
         val lexer = TokenMakerFactory.getDefaultInstance().getTokenMaker(syntaxStyle)
         val chars = text.toCharArray()
         val spans = mutableListOf<HighlightSpan>()
-        var lineStart = 0
+        // Lexing goes line by line; `start` is where lexing continues, usually the start of a line.
+        var start = 0
         // The last token type of a line tells the lexer how the next line starts, e.g. inside a """ string.
         var state = TokenTypes.NULL
-        while (lineStart <= chars.size) {
-            val newline = text.indexOf('\n', lineStart).let { if (it < 0) chars.size else it }
-            val lineEnd = if (newline > lineStart && chars[newline - 1] == '\r') newline - 1 else newline
-            var token: Token? = lexer.getTokenList(Segment(chars, lineStart, lineEnd - lineStart), state, lineStart)
+        while (start <= chars.size) {
+            val newline = text.indexOf('\n', start).let { if (it < 0) chars.size else it }
+            val lineEnd = if (newline > start && chars[newline - 1] == '\r') newline - 1 else newline
+            var token: Token? = lexer.getTokenList(Segment(chars, start, lineEnd - start), state, start)
             var lastType = TokenTypes.NULL
+            var rawStringEnd = -1
             while (token != null) {
                 lastType = token.type
                 if (token.isPaintable) {
+                    rawStringEnd = rawStringEnd(text, token)
+                    if (rawStringEnd >= 0) {
+                        spans += HighlightSpan(token.offset, rawStringEnd, TokenStyle.STRING)
+                        break
+                    }
                     styleOf(token)?.let { spans += HighlightSpan(token.offset, token.offset + token.length(), it) }
                 }
                 token = token.nextToken
             }
-            state = lastType
-            lineStart = newline + 1
+            if (rawStringEnd >= 0) {
+                // Continue right after the raw string, which may be on a later line, with a fresh lexer state.
+                start = rawStringEnd
+                state = TokenTypes.NULL
+            } else {
+                start = newline + 1
+                state = lastType
+            }
         }
         return spans
+    }
+
+    /** End offset of the raw string starting at [token], or -1 if [token] does not start one. */
+    private fun rawStringEnd(
+        text: String,
+        token: Token,
+    ): Int {
+        val delimiter = rawStringDelimiter ?: return -1
+        if (styleOf(token.type) != TokenStyle.STRING || !text.startsWith(delimiter, token.offset)) return -1
+        val close = text.indexOf(delimiter, token.offset + delimiter.length)
+        if (close < 0) return text.length
+        // Kotlin allows extra quotes right before the closing delimiter: """a"""" ends after the last quote.
+        var end = close + delimiter.length
+        while (end < text.length && text[end] == delimiter.last()) end++
+        return end
     }
 
     private fun styleOf(token: Token): TokenStyle? {
@@ -96,6 +126,14 @@ internal class RSyntaxHighlighter(
         }
 
     companion object {
+        /** The Kotlin lexer knows no raw strings and misses `package`. */
+        val kotlin =
+            RSyntaxHighlighter(
+                SyntaxConstants.SYNTAX_STYLE_KOTLIN,
+                keywords = setOf("package"),
+                rawStringDelimiter = "\"\"\"",
+            )
+
         /** The Python lexer predates Python 3 in places; these corrections bring it up to date. */
         val python =
             RSyntaxHighlighter(

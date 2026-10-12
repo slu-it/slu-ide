@@ -8,13 +8,18 @@
   asked last ([ADR 0004](../adr/0004-file-viewer-selection.md)). Returns `null` if no viewer agrees.
 - `DefaultTextFileViewer` shows any text file in a non-editable, monospaced `TextArea`. A file is text if its
   first 8 KiB contain no NUL byte and are valid UTF-8 (`isTextFile`); empty files are text, files over 10 MiB are not.
-- `PythonFileViewer` shows `.py`, `.pyw` and `.pyi` text files with syntax highlighting and line numbers,
-  read-only. Corrections for its outdated lexer: `async`/`await`/`nonlocal` are keywords, `print`/`exec` are builtins,
-  and string prefixes like `f` belong to the string.
-- Code viewers extend `CodeFileViewer(extensions, highlighter)`. It renders a RichTextFX `CodeArea`, colours the
-  tokens from a `SyntaxHighlighter` (`RSyntaxHighlighter` = RSyntaxTextArea lexers, [ADR 0005](../adr/0005-syntax-highlighting.md)),
-  and is styled by `syntax.css`. Token classes: `keyword`, `type`, `builtin`, `string`, `number`, `comment`,
-  `annotation`, `operator`.
+- Code viewers extend `CodeFileViewer(extensions, highlighter)` and show text files with syntax highlighting and line
+  numbers, read-only. They render a RichTextFX `CodeArea`, colour the tokens from a `SyntaxHighlighter`
+  (`RSyntaxHighlighter` = RSyntaxTextArea lexers, [ADR 0005](../adr/0005-syntax-highlighting.md)) and are styled by
+  `syntax.css`. Token classes: `keyword`, `type`, `builtin`, `string`, `number`, `comment`, `annotation`, `operator`.
+- Highlighted languages, with the corrections for outdated lexers (configured in `RSyntaxHighlighter`'s companion):
+
+  | Viewer | Extensions | Corrections to the lexer |
+  |--------|------------|--------------------------|
+  | `PythonFileViewer` | `.py`, `.pyw`, `.pyi` | `async`/`await`/`nonlocal` keywords, `print`/`exec` builtins, string prefixes like `f` belong to the string |
+  | `KotlinFileViewer` | `.kt`, `.kts` | `package` keyword; multi-line raw strings (`"""…"""`). Known gap: ranges like `1..2` show as two numbers |
+
 - To add a viewer, implement `FileViewer` as a `@Component` in any module below `dev.sluide`. For a language with an
-  RSyntaxTextArea lexer, extend `CodeFileViewer` like `PythonFileViewer` does.
-- Not yet implemented: highlighting for other languages, dark theme, other encodings, image or binary views.
+  RSyntaxTextArea lexer, add its highlighter to `RSyntaxHighlighter`'s companion, extend `CodeFileViewer` like
+  `PythonFileViewer` does, and add a row to `CodeFileViewersTest` and a `<Language>HighlightingTest`.
+- Not yet implemented: dark theme, other encodings, image or binary views.
