@@ -18,6 +18,8 @@ springBoot {
 dependencies {
     implementation(libs.spring.boot.starter)
     implementation(project(":modules:file-explorer"))
+    implementation(project(":modules:file-viewers"))
+    implementation(project(":modules:editor"))
 
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)

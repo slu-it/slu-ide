@@ -1,5 +1,6 @@
 package dev.sluide.ide
 
+import dev.sluide.editor.EditorArea
 import dev.sluide.fileexplorer.FileExplorerView
 import javafx.scene.Scene
 import javafx.scene.control.Menu
@@ -16,18 +17,21 @@ import org.springframework.stereotype.Component
 
 private const val APP_NAME = "SluIde"
 
-/** The main IDE window: menu bar on top, file explorer on the left. */
+/** The main IDE window: menu bar on top, file explorer on the left, open files in tabs on the right. */
 @Component
 class MainWindow(
     private val projectService: ProjectService,
     private val fileExplorer: FileExplorerView,
+    private val editorArea: EditorArea,
 ) {
     fun show(stage: Stage) {
         val root =
             BorderPane().apply {
                 top = MenuBar(fileMenu(stage))
-                center = SplitPane(fileExplorer).apply { setDividerPositions(0.25) }
+                center = SplitPane(fileExplorer, editorArea).apply { setDividerPositions(0.25) }
             }
+
+        fileExplorer.onOpenFile = { editorArea.open(it) }
 
         projectService.projectFolder.subscribe { folder ->
             fileExplorer.open(folder)

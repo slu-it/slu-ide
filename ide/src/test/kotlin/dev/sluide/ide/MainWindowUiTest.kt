@@ -1,7 +1,12 @@
 package dev.sluide.ide
 
+import dev.sluide.editor.EditorArea
 import dev.sluide.fileexplorer.FileExplorerView
+import dev.sluide.fileviewers.DefaultTextFileViewer
+import dev.sluide.fileviewers.FileViewers
+import javafx.scene.control.Label
 import javafx.scene.control.MenuBar
+import javafx.scene.control.TextArea
 import javafx.scene.control.TreeCell
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
@@ -18,6 +23,7 @@ import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
 import kotlin.io.path.name
+import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -30,11 +36,14 @@ class MainWindowUiTest {
 
     private val projectService = ProjectService()
     private lateinit var stage: Stage
+    private lateinit var fileExplorer: FileExplorerView
 
     @Start
     fun start(stage: Stage) {
         this.stage = stage
-        MainWindow(projectService, FileExplorerView()).show(stage)
+        fileExplorer = FileExplorerView()
+        val fallback = DefaultTextFileViewer()
+        MainWindow(projectService, fileExplorer, EditorArea(FileViewers(listOf(fallback), fallback))).show(stage)
     }
 
     @Test
@@ -76,5 +85,22 @@ class MainWindowUiTest {
                 .sortedBy { it.index }
                 .mapNotNull { it.text }
         assertEquals(listOf(project.name, ".git", "README.md"), names)
+    }
+
+    @Test
+    fun `opening a file in the explorer shows it in a read-only tab`(robot: FxRobot) {
+        val readme = project.resolve("README.md").apply { writeText("# Hello") }
+        robot.interact { projectService.open(project) }
+
+        robot.interact { fileExplorer.onOpenFile?.invoke(readme) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(
+            listOf("README.md"),
+            robot.lookup(".editor-tab .label").queryAllAs(Label::class.java).map { it.text },
+        )
+        val text = robot.lookup(".editor-content .text-area").queryAs(TextArea::class.java)
+        assertEquals("# Hello", text.text)
+        assertEquals(false, text.isEditable)
     }
 }
