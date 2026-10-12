@@ -268,12 +268,15 @@ class EditorAreaUiTest {
         val files = listOf("a.txt", "b.txt", "c.txt", "d.txt").map { textFile(it) }
         open(robot, *files.toTypedArray())
         val b = checkNotNull(editor.openFiles.find(files[1]))
+        val menu = editor.tabStrip.contextMenuOf(b)
+        // Without a window manager the popup may hide again right away, so record that it was shown at all.
+        var shown = false
+        menu.showingProperty().subscribe { showing -> if (showing) shown = true }
 
         robot.interact { requestContextMenu(tabLabel(robot, "b.txt")) }
         WaitForAsyncUtils.waitForFxEvents()
 
-        val menu = editor.tabStrip.contextMenuOf(b)
-        assertTrue(menu.isShowing)
+        assertTrue(shown)
         val items = menu.items.filterNot { it is SeparatorMenuItem }
         assertEquals(
             listOf("Close", "Close Others", "Close Tabs to the Left", "Close Tabs to the Right", "Close All"),
