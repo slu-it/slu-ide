@@ -7,7 +7,9 @@ import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.Label
+import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.control.TextArea
+import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.stage.Stage
@@ -259,5 +261,81 @@ class EditorAreaUiTest {
         assertEquals(emptyList(), tabTitles(robot))
         assertNull(shownText(robot))
         assertNull(editor.selectedPath)
+    }
+
+    @Test
+    fun `right-click on a tab opens a menu with close actions for that tab`(robot: FxRobot) {
+        val files = listOf("a.txt", "b.txt", "c.txt", "d.txt").map { textFile(it) }
+        open(robot, *files.toTypedArray())
+        val b = checkNotNull(editor.openFiles.find(files[1]))
+
+        robot.interact { requestContextMenu(tabLabel(robot, "b.txt")) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val menu = editor.tabStrip.contextMenuOf(b)
+        assertTrue(menu.isShowing)
+        val items = menu.items.filterNot { it is SeparatorMenuItem }
+        assertEquals(
+            listOf("Close", "Close Others", "Close Tabs to the Left", "Close Tabs to the Right", "Close All"),
+            items.map { it.text },
+        )
+        assertTrue(items.none { it.isDisable })
+        assertEquals(files.last(), editor.selectedPath, "right-click does not select the tab")
+
+        robot.interact {
+            menu.hide()
+            items.single { it.text == "Close Tabs to the Right" }.fire()
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(listOf("a.txt", "b.txt"), tabTitles(robot))
+        assertEquals(files[1], editor.selectedPath)
+    }
+
+    @Test
+    fun `context menu disables actions that would close nothing`(robot: FxRobot) {
+        val a = textFile("a.txt")
+        open(robot, a)
+
+        robot.interact { requestContextMenu(tabLabel(robot, "a.txt")) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val menu = editor.tabStrip.contextMenuOf(checkNotNull(editor.openFiles.find(a)))
+        val disabled = menu.items.filter { it !is SeparatorMenuItem && it.isDisable }.map { it.text }
+        assertEquals(listOf("Close Others", "Close Tabs to the Left", "Close Tabs to the Right"), disabled)
+        robot.interact { menu.hide() }
+    }
+
+    @Test
+    fun `context menu Close Others and Close All`(robot: FxRobot) {
+        val files = listOf("a.txt", "b.txt", "c.txt").map { textFile(it) }
+        open(robot, *files.toTypedArray())
+        val menu = editor.tabStrip.contextMenuOf(checkNotNull(editor.openFiles.find(files[0])))
+
+        robot.interact { menu.items.single { it.text == "Close Others" }.fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(listOf("a.txt"), tabTitles(robot))
+        assertEquals("content of a.txt", shownText(robot))
+
+        robot.interact { menu.items.single { it.text == "Close All" }.fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(emptyList(), tabTitles(robot))
+    }
+
+    /** Sends a context menu request through the scene graph, like a right-click, without OS input. */
+    private fun requestContextMenu(node: Node) {
+        val bounds = node.localToScreen(node.boundsInLocal)
+        Event.fireEvent(
+            node,
+            ContextMenuEvent(
+                ContextMenuEvent.CONTEXT_MENU_REQUESTED,
+                1.0,
+                1.0,
+                bounds.minX + 1,
+                bounds.minY + 1,
+                false,
+                null,
+            ),
+        )
     }
 }

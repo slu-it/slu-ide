@@ -80,4 +80,56 @@ class OpenFilesTest {
         assertEquals(emptyList(), names())
         assertNull(openFiles.selected.get())
     }
+
+    @Test
+    fun `closing others keeps and selects the given tab`() {
+        open("a.txt")
+        val b = open("b.txt")
+        open("c.txt")
+
+        openFiles.closeOthers(b)
+
+        assertEquals(listOf("b.txt"), names())
+        assertSame(b, openFiles.selected.get())
+    }
+
+    @Test
+    fun `closing tabs to the right keeps a selection left of them`() {
+        val a = open("a.txt")
+        val b = open("b.txt")
+        open("c.txt")
+        open("d.txt")
+        openFiles.select(a)
+
+        openFiles.closeRightOf(b)
+
+        assertEquals(listOf("a.txt", "b.txt"), names())
+        assertSame(a, openFiles.selected.get())
+    }
+
+    @Test
+    fun `closing tabs to the left selects the given tab if the selected one was closed`() {
+        val a = open("a.txt")
+        open("b.txt")
+        val c = open("c.txt")
+        open("d.txt")
+        openFiles.select(a)
+
+        openFiles.closeLeftOf(c)
+
+        assertEquals(listOf("c.txt", "d.txt"), names())
+        assertSame(c, openFiles.selected.get())
+    }
+
+    @Test
+    fun `nothing to close left of the first or right of the last tab`() {
+        val a = open("a.txt")
+        val b = open("b.txt")
+
+        openFiles.closeLeftOf(a)
+        openFiles.closeRightOf(b)
+
+        assertEquals(listOf("a.txt", "b.txt"), names())
+        assertSame(b, openFiles.selected.get())
+    }
 }

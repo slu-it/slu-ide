@@ -4,9 +4,11 @@ import javafx.css.PseudoClass
 import javafx.event.EventTarget
 import javafx.scene.Node
 import javafx.scene.control.Button
+import javafx.scene.control.ContextMenu
 import javafx.scene.control.Label
 import javafx.scene.control.MenuButton
 import javafx.scene.control.MenuItem
+import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.control.Tooltip
 import javafx.scene.input.MouseButton
 import javafx.scene.layout.HBox
@@ -144,10 +146,18 @@ internal class TabStrip(
     private fun Node.contains(target: EventTarget): Boolean =
         generateSequence(target as? Node) { it.parent }.any { it === this }
 
-    /** One tab: file name (full path as tooltip) and a close button. Clicking it selects the file. */
+    /** The context menu of the tab showing [file]. */
+    fun contextMenuOf(file: OpenFile): ContextMenu = headers.single { it.file === file }.menu
+
+    /**
+     * One tab: file name (full path as tooltip) and a close button. Clicking it selects the file,
+     * right-clicking opens a menu with close actions.
+     */
     private inner class TabHeader(
         val file: OpenFile,
     ) : HBox() {
+        val menu: ContextMenu by lazy(::createMenu)
+
         init {
             styleClass += "editor-tab"
             // Positioned and sized by TabStrip.layoutChildren; the viewport Pane must not resize it to its pref size.
@@ -166,6 +176,37 @@ internal class TabStrip(
                 if (event.button == MouseButton.PRIMARY && !close.contains(event.target)) openFiles.select(file)
             }
             setOnMouseClicked { if (it.button == MouseButton.MIDDLE) openFiles.close(file) }
+            setOnContextMenuRequested { event ->
+                menu.show(this, event.screenX, event.screenY)
+                event.consume()
+            }
+        }
+
+        private fun createMenu(): ContextMenu {
+            fun item(
+                text: String,
+                action: () -> Unit,
+            ) = MenuItem(text).apply { setOnAction { action() } }
+            val closeOthers = item("Close Others") { openFiles.closeOthers(file) }
+            val closeLeft = item("Close Tabs to the Left") { openFiles.closeLeftOf(file) }
+            val closeRight = item("Close Tabs to the Right") { openFiles.closeRightOf(file) }
+            return ContextMenu(
+                item("Close") { openFiles.close(file) },
+                SeparatorMenuItem(),
+                closeOthers,
+                closeLeft,
+                closeRight,
+                SeparatorMenuItem(),
+                item("Close All") { openFiles.closeAll() },
+            ).apply {
+                styleClass += "tab-context-menu"
+                setOnShowing {
+                    val index = openFiles.files.indexOf(file)
+                    closeOthers.isDisable = openFiles.files.size <= 1
+                    closeLeft.isDisable = index <= 0
+                    closeRight.isDisable = index >= openFiles.files.lastIndex
+                }
+            }
         }
     }
 }

@@ -9,6 +9,9 @@
 - One tab per file: the file name as title, the full path as tooltip. Clicking a tab selects it.
 - Tabs close via their × button or a middle click. Closing the selected tab selects its right neighbour, or the left
   one if there is none.
+- Right-clicking a tab opens a context menu: Close, Close Others, Close Tabs to the Left, Close Tabs to the Right,
+  Close All. Entries that would close nothing are disabled. Close Others selects the clicked tab; closing to the
+  left/right keeps the selection unless the selected tab was closed, then the clicked tab is selected.
 - Opening a different project folder closes all tabs ([open-folder.md](open-folder.md)).
 - When the tabs do not fit, ‹ and › buttons appear. They scroll the tab row one tab at a time without changing the
   selection. A ▾ dropdown lists every tab that is cut off or out of view, and choosing one selects it and scrolls it

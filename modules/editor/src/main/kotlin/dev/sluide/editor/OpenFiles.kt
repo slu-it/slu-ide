@@ -54,6 +54,22 @@ internal class OpenFiles {
 
     fun closeAll() = closeAll(_files.toList(), keep = null)
 
+    /** Closes every tab except [file] and selects it. */
+    fun closeOthers(file: OpenFile) {
+        closeAll(_files.filter { it !== file }, keep = file)
+        select(file)
+    }
+
+    /** Closes the tabs left of [file]; if the selected tab was among them, [file] becomes selected. */
+    fun closeLeftOf(file: OpenFile) = closeAll(_files.subList(0, indexOfOpen(file)).toList(), keep = file)
+
+    /** Closes the tabs right of [file]; if the selected tab was among them, [file] becomes selected. */
+    fun closeRightOf(file: OpenFile) =
+        closeAll(_files.subList(indexOfOpen(file) + 1, _files.size).toList(), keep = file)
+
+    private fun indexOfOpen(file: OpenFile): Int =
+        _files.indexOf(file).also { require(it >= 0) { "Not open: ${file.path}" } }
+
     /** Removes [toClose] in one list change; if the selected file is among them, [keep] becomes selected. */
     private fun closeAll(
         toClose: Collection<OpenFile>,

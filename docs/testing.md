@@ -36,7 +36,7 @@ xdotool key ctrl+o                         # drive the UI
 ```
 - There is no window manager: dialogs get no keyboard focus until you run `xdotool windowfocus <id>`
   (find the id with `xdotool search --name '<title>'`) and appear partly off-screen.
-- Without a window manager, popups (menus, `MenuButton` dropdowns) close as soon as the mouse moves onto them;
-  open them by click and choose items with the arrow keys and Enter.
+- Without a window manager, popups (menus, dropdowns, context menus) close as soon as the mouse is over them, and
+  context menus never appear. Start one to test them: `apt-get install -y openbox` once, then `openbox &`.
 - The GTK folder chooser opens in its "Recent" view: pick a sidebar bookmark and click Open instead of typing a path.
 - Stop Xvfb when done; never claim the UI was verified unless you actually ran it.
