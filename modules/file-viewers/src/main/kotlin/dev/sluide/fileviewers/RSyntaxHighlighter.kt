@@ -10,11 +10,14 @@ import javax.swing.text.Segment
  * [SyntaxHighlighter] based on the lexers of RSyntaxTextArea (ADR 0005). Only the lexers are used, no Swing
  * component. [syntaxStyle] is one of the `SyntaxConstants.SYNTAX_STYLE_*` values, e.g. `"text/python"`.
  *
- * Some lexers lag behind their language, so words can be reclassified: [keywords], [types] and [builtins] override
- * the lexer's style for these words, [tokenStyles] overrides the style of whole token types, and an identifier in [stringPrefixes] directly before a string (like the `f` of
- * `f'…'`) is styled as part of the string. For lexers that do not know multi-line raw strings, [rawStringDelimiter]
- * (e.g. Kotlin's `"""`) marks everything up to the closing delimiter as string. Lexer errors are never shown: a viewer
- * must not flag valid code that a lexer does not know yet.
+ * Some lexers lag behind their language, so they can be corrected:
+ * - [keywords], [types] and [builtins] override the lexer's style for these words;
+ * - [tokenStyles] overrides the style of whole token types;
+ * - an identifier in [stringPrefixes] directly before a string (like the `f` of `f'…'`) is part of the string;
+ * - [rawStringDelimiter] (e.g. Kotlin's `"""`) marks everything up to the closing delimiter as string, for lexers
+ *   that do not know multi-line raw strings.
+ *
+ * Lexer errors are never shown: a viewer must not flag valid code that a lexer does not know yet.
  *
  * The configured languages are in the companion object, so RSyntaxTextArea stays confined to this file.
  */
@@ -188,6 +191,9 @@ internal class RSyntaxHighlighter(
             )
 
         val xml = RSyntaxHighlighter(SyntaxConstants.SYNTAX_STYLE_XML)
+
+        /** Also lexes embedded `<script>` (JavaScript) and `<style>` (CSS) content. */
+        val html = RSyntaxHighlighter(SyntaxConstants.SYNTAX_STYLE_HTML)
 
         /** The Kotlin lexer knows no raw strings and misses `package`. */
         val kotlin =

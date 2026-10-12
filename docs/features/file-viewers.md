@@ -23,6 +23,7 @@
   | `TypeScriptFileViewer` | `.ts`, `.mts`, `.cts` | keywords such as `type`, `readonly`, `as`, `keyof`, `satisfies`; types `unknown`, `never`, `object`, `symbol`, `bigint`; decorators |
   | `JsonFileViewer` | `.json`, `.jsonc` | keys as `property`; `//` comments allowed (`/* */` are not recognised) |
   | `XmlFileViewer` | `.xml`, `.xsd`, `.xsl`, `.xslt`, `.svg`, `.fxml` | none needed; DTDs/processing instructions styled as `annotation`, entities as `number`, CDATA as `string` |
+  | `HtmlFileViewer` | `.html`, `.htm`, `.xhtml` | none needed; embedded `<script>`/`<style>` are highlighted as JavaScript/CSS. Known gap: unquoted attribute values look like attribute names |
 
 - To add a viewer, implement `FileViewer` as a `@Component` in any module below `dev.sluide`. For a language with an
   RSyntaxTextArea lexer, add its highlighter to `RSyntaxHighlighter`'s companion, extend `CodeFileViewer` like
