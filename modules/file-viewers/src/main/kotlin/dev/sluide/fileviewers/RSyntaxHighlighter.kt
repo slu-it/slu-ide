@@ -10,8 +10,8 @@ import javax.swing.text.Segment
  * [SyntaxHighlighter] based on the lexers of RSyntaxTextArea (ADR 0005). Only the lexers are used, no Swing
  * component. [syntaxStyle] is one of the `SyntaxConstants.SYNTAX_STYLE_*` values, e.g. `"text/python"`.
  *
- * Some lexers lag behind their language, so words can be reclassified: [keywords] and [builtins] override the
- * lexer's style for these words, and an identifier in [stringPrefixes] directly before a string (like the `f` of
+ * Some lexers lag behind their language, so words can be reclassified: [keywords], [types] and [builtins] override
+ * the lexer's style for these words, [tokenStyles] overrides the style of whole token types, and an identifier in [stringPrefixes] directly before a string (like the `f` of
  * `f'…'`) is styled as part of the string. For lexers that do not know multi-line raw strings, [rawStringDelimiter]
  * (e.g. Kotlin's `"""`) marks everything up to the closing delimiter as string. Lexer errors are never shown: a viewer
  * must not flag valid code that a lexer does not know yet.
@@ -21,7 +21,9 @@ import javax.swing.text.Segment
 internal class RSyntaxHighlighter(
     private val syntaxStyle: String,
     private val keywords: Set<String> = emptySet(),
+    private val types: Set<String> = emptySet(),
     private val builtins: Set<String> = emptySet(),
+    private val tokenStyles: Map<Int, TokenStyle> = emptyMap(),
     private val stringPrefixes: Set<String> = emptySet(),
     private val rawStringDelimiter: String? = null,
 ) : SyntaxHighlighter {
@@ -85,6 +87,7 @@ internal class RSyntaxHighlighter(
         return when {
             word in builtins -> TokenStyle.BUILTIN
             word in keywords -> TokenStyle.KEYWORD
+            word in types -> TokenStyle.TYPE
             word.lowercase() in stringPrefixes && isStringStart(token.nextToken) -> TokenStyle.STRING
             else -> styleOf(token.type)
         }
@@ -95,7 +98,9 @@ internal class RSyntaxHighlighter(
 
     private fun isStringStart(token: Token?): Boolean = token != null && styleOf(token.type) == TokenStyle.STRING
 
-    private fun styleOf(type: Int): TokenStyle? =
+    private fun styleOf(type: Int): TokenStyle? = tokenStyles[type] ?: defaultStyleOf(type)
+
+    private fun defaultStyleOf(type: Int): TokenStyle? =
         when (type) {
             TokenTypes.RESERVED_WORD, TokenTypes.RESERVED_WORD_2, TokenTypes.LITERAL_BOOLEAN,
             TokenTypes.PREPROCESSOR,
@@ -131,6 +136,34 @@ internal class RSyntaxHighlighter(
         /** The JavaScript lexer treats the module keyword `from` and `undefined` as identifiers. */
         val javaScript =
             RSyntaxHighlighter(SyntaxConstants.SYNTAX_STYLE_JAVASCRIPT, keywords = setOf("from", "undefined"))
+
+        /**
+         * The TypeScript lexer misses many keywords and types of current TypeScript and reports decorators as markup
+         * attributes.
+         */
+        val typeScript =
+            RSyntaxHighlighter(
+                SyntaxConstants.SYNTAX_STYLE_TYPESCRIPT,
+                keywords =
+                    setOf(
+                        "type",
+                        "readonly",
+                        "constructor",
+                        "as",
+                        "is",
+                        "declare",
+                        "keyof",
+                        "namespace",
+                        "from",
+                        "satisfies",
+                        "infer",
+                        "override",
+                        "asserts",
+                        "undefined",
+                    ),
+                types = setOf("unknown", "never", "object", "symbol", "bigint"),
+                tokenStyles = mapOf(TokenTypes.MARKUP_TAG_ATTRIBUTE to TokenStyle.ANNOTATION),
+            )
 
         /** The Kotlin lexer knows no raw strings and misses `package`. */
         val kotlin =
