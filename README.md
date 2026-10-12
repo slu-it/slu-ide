@@ -3,7 +3,8 @@
 A lightweight IDE written in Kotlin, using Spring Boot and JavaFX.
 
 Currently it can open a folder as project (File → Open Folder…) and shows its complete content, including hidden
-files, in a file explorer. Text files open read-only in tabs (double-click or Enter in the explorer), Python files with syntax highlighting.
+files, in a file explorer. Text files open read-only in tabs (double-click or Enter in the explorer), source files of common languages (Kotlin, Java, Python, JavaScript, TypeScript, JSON, XML, HTML, YAML) with syntax
+highlighting.
 
 ## Requirements
 - JDK 25

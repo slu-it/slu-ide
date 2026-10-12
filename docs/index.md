@@ -20,4 +20,4 @@ Keep it up to date: every new ADR or feature description must be added here with
 - [features/open-folder.md](features/open-folder.md) — File → Open Folder… sets the current project folder (`ProjectService`).
 - [features/file-explorer.md](features/file-explorer.md) — Tree view of the project folder incl. hidden files, lazy loading, sort order, opening files (double-click/Enter).
 - [features/editor-tabs.md](features/editor-tabs.md) — Central area with one closable tab per open file, tab context menu (close others/left/right/all), scroll arrows and a dropdown for tabs that do not fit.
-- [features/file-viewers.md](features/file-viewers.md) — `FileViewer` extension point, viewer selection, the read-only `DefaultTextFileViewer` (text detection rules) and the syntax-highlighted `PythonFileViewer` / `CodeFileViewer`.
+- [features/file-viewers.md](features/file-viewers.md) — `FileViewer` extension point, viewer selection, the read-only `DefaultTextFileViewer` (text detection rules) and the syntax-highlighted `CodeFileViewer`s (Python, Kotlin, Java, JavaScript, TypeScript, JSON, XML, HTML, YAML).

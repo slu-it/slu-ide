@@ -15,8 +15,10 @@ dependency per language. JavaFX itself only has plain text controls.
   jar without dependencies and covers about 50 languages. Only the lexers are used, never its Swing editor.
 - Both stay behind our own interface. `SyntaxHighlighter` returns `HighlightSpan`s with our own `TokenStyle`s, and
   only `RSyntaxHighlighter` imports `org.fife.*`.
-- Lexers that lag behind their language are corrected per language: extra keywords and builtins, and string
-  prefixes. Lexer errors are never shown, so valid but newer syntax (e.g. Python's `1_000`) is not flagged.
+- Lexers that lag behind their language are corrected per language in `RSyntaxHighlighter`'s companion. The
+  corrections are: extra keywords, types and builtins; restyling whole token types; string prefixes; multi-line raw
+  strings; and per-line regex rules, which YAML needs because its lexer is very basic. Lexer errors are never shown,
+  so valid but newer syntax (e.g. Python's `1_000`) is not flagged.
 
 Rejected:
 - **TextMate grammars via Eclipse tm4e:** the best language coverage, but only snapshot Maven builds exist.
