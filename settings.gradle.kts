@@ -16,4 +16,5 @@ dependencyResolutionManagement {
 
 include("modules:file-explorer")
 include("modules:file-viewers")
+include("modules:editor")
 include("ide")

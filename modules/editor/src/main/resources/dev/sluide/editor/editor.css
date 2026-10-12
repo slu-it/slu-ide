@@ -1,0 +1,36 @@
+.tab-strip {
+    -fx-background-color: -fx-outer-border, -fx-body-color;
+    -fx-background-insets: 0, 0 0 1 0;
+}
+
+.editor-tab {
+    -fx-alignment: center-left;
+    -fx-spacing: 4;
+    -fx-padding: 4 4 4 10;
+    -fx-border-color: transparent -fx-box-border transparent transparent;
+}
+
+.editor-tab:hover {
+    -fx-background-color: derive(-fx-base, 5%);
+}
+
+.editor-tab:selected {
+    -fx-background-color: -fx-control-inner-background;
+    -fx-border-color: -fx-accent -fx-box-border transparent transparent;
+    -fx-border-width: 2 1 0 0;
+}
+
+.editor-tab .close-button,
+.tab-strip .scroll-left,
+.tab-strip .scroll-right,
+.tab-strip .overflow-menu {
+    -fx-background-color: transparent;
+    -fx-padding: 0 6 0 6;
+}
+
+.editor-tab .close-button:hover,
+.tab-strip .scroll-left:hover,
+.tab-strip .scroll-right:hover,
+.tab-strip .overflow-menu:hover {
+    -fx-background-color: derive(-fx-base, -10%);
+}
