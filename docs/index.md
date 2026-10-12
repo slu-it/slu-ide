@@ -4,12 +4,12 @@ Entry point for agents: read this file first, then open only the documents relev
 Keep it up to date: every new ADR or feature description must be added here with a one-line summary.
 
 ## Overview
-- [architecture.md](architecture.md) — Module layout, dependency rules, how Spring and JavaFX are combined, where to put new code.
+- [architecture.md](architecture.md) — Module layout, dependency rules, runtime startup, CI and release process.
 
 ## Decisions (ADRs)
 - [adr/0001-tech-stack.md](adr/0001-tech-stack.md) — Kotlin on JDK 25, Spring Boot, JavaFX, Gradle multi-module build.
 - [adr/0002-spring-inside-javafx.md](adr/0002-spring-inside-javafx.md) — A non-web Spring context is started and stopped by the JavaFX `Application`; UI parts are Spring beans.
-- [adr/0003-javafx-platform-jars.md](adr/0003-javafx-platform-jars.md) — JavaFX comes from the OpenJFX Gradle plugin because Maven Central has no Gradle metadata; fat jars are platform-specific.
+- [adr/0003-javafx-platform-jars.md](adr/0003-javafx-platform-jars.md) — JavaFX comes from the OpenJFX Gradle plugin; fat jars are platform-specific, so releases are built and published per OS/arch (no Windows).
 - [adr/template.md](adr/template.md) — Template for new ADRs.
 
 ## Features

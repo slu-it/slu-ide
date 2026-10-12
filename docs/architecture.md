@@ -29,3 +29,10 @@ assembled from Gradle modules.
 ## Package convention
 `dev.sluide.<module>` per module, e.g. `dev.sluide.fileexplorer`, `dev.sluide.ide`. All must live below
 `dev.sluide` to be found by component scanning.
+
+## Build and release
+- **CI** (`.github/workflows/ci.yml`): `./gradlew build` on Linux and macOS for every push to `main`/`master` and every PR.
+- **Release** (`.github/workflows/release.yml`): pushing a tag `vX.Y.Z` publishes `dev.sluide:ide-<os>-<arch>:X.Y.Z`
+  (the fat jar) to https://maven.pkg.github.com/slu-it/slu-ide. The version comes from the tag via `-PreleaseVersion`.
+  Platforms: linux-x64, linux-aarch64, mac-aarch64, mac-x64 ([ADR 0003](adr/0003-javafx-platform-jars.md)).
+- Local builds use version `0.1.0-SNAPSHOT`; the publish setup lives in `ide/build.gradle.kts`.

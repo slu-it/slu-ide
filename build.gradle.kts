@@ -7,7 +7,8 @@ plugins {
 
 allprojects {
     group = "dev.sluide"
-    version = "0.1.0-SNAPSHOT"
+    // CI passes -PreleaseVersion=<x.y.z> when building from a release tag.
+    version = providers.gradleProperty("releaseVersion").getOrElse("0.1.0-SNAPSHOT")
 }
 
 // Shared configuration for every Kotlin module (modules/* and ide).
