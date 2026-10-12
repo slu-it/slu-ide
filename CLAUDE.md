@@ -23,7 +23,9 @@ Lightweight IDE in Kotlin (JDK 25) with Spring Boot and JavaFX, built with Gradl
   to empty stub jars); use the `javafx` plugin block as in `ide/build.gradle.kts`.
 - JavaFX controls cannot be instantiated without a running toolkit, so tests must not create them.
 - Downloads with `curl` need `-L` (redirects) plus checksum verification; a 169-byte "zip" is a redirect page.
-- The sandbox has no display: the JavaFX window cannot be started there. Say so instead of claiming UI was verified.
+- Headless Linux sandbox: run `.claude/scripts/setup-display.sh` (installs Xvfb + GTK libs, starts display `:99`), then
+  `DISPLAY=:99 java -Dprism.order=sw -jar ide/build/libs/ide-*.jar` and use `import -window root x.png` / `xdotool`.
+  Dialogs need `xdotool windowfocus <id>` (no window manager). Never claim UI was verified without actually running it.
 - Commits: small, one logical step each, imperative subject line. No Claude attribution lines or session links
   in commits or PRs (also enforced in `.claude/settings.json`).
 
