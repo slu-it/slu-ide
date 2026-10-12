@@ -22,11 +22,12 @@ private val log = System.getLogger(FileWatcher::class.java.name)
  * Reports changes in watched directories (ADR 0006). A directory is watched without its subfolders; listeners get
  * the paths of entries that were created, modified or deleted, or the directory itself if events were lost.
  *
- * Events of one directory are collected until it has been quiet for [quietPeriod], then each listener gets every
- * changed path once, via [dispatch] (the JavaFX thread in the application).
+ * Events of one directory are collected until it has been quiet for [quietPeriod]; then each listener is called once
+ * with all changed paths (each path once), via [dispatch]. The application uses the JavaFX thread; tests may pass
+ * their own dispatcher and a shorter quiet period.
  */
 @Component
-class FileWatcher internal constructor(
+class FileWatcher(
     private val dispatch: (Runnable) -> Unit,
     private val quietPeriod: Duration,
 ) : AutoCloseable {
@@ -34,7 +35,7 @@ class FileWatcher internal constructor(
     constructor() : this(Platform::runLater, 200.milliseconds)
 
     private class Subscription(
-        val listener: (Path) -> Unit,
+        val listener: (List<Path>) -> Unit,
     ) {
         @Volatile var active = true
     }
@@ -55,10 +56,10 @@ class FileWatcher internal constructor(
     private var service: WatchService? = null
     private var closed = false
 
-    /** Calls [listener] for changes in [directory] until the returned handle is closed. Never throws. */
+    /** Calls [listener] with the changed paths in [directory] until the returned handle is closed. Never throws. */
     fun watch(
         directory: Path,
-        listener: (Path) -> Unit,
+        listener: (List<Path>) -> Unit,
     ): AutoCloseable {
         val dir = directory.toAbsolutePath().normalize()
         val subscription = Subscription(listener)
@@ -183,9 +184,7 @@ class FileWatcher internal constructor(
             dispatch(
                 Runnable {
                     for (subscription in subscriptions) {
-                        for (path in paths) {
-                            if (subscription.active) notify(subscription, path)
-                        }
+                        if (subscription.active) notify(subscription, paths)
                     }
                 },
             )
@@ -194,12 +193,12 @@ class FileWatcher internal constructor(
 
     private fun notify(
         subscription: Subscription,
-        path: Path,
+        paths: List<Path>,
     ) {
         try {
-            subscription.listener(path)
+            subscription.listener(paths)
         } catch (e: RuntimeException) {
-            log.log(System.Logger.Level.WARNING, "File change listener failed for $path", e)
+            log.log(System.Logger.Level.WARNING, "File change listener failed for $paths", e)
         }
     }
 }

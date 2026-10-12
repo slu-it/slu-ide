@@ -34,11 +34,13 @@ class FileWatcherTest {
     @AfterEach
     fun closeWatcher() = watcher.close()
 
-    private class Recorder : (Path) -> Unit {
+    private class Recorder : (List<Path>) -> Unit {
         val paths = CopyOnWriteArrayList<Path>()
+        val calls = CopyOnWriteArrayList<List<Path>>()
 
-        override fun invoke(path: Path) {
-            paths.add(path)
+        override fun invoke(changed: List<Path>) {
+            calls.add(changed)
+            paths.addAll(changed)
         }
 
         fun awaitPath(expected: Path) = await("$expected reported, got $paths") { expected in paths }
@@ -63,7 +65,7 @@ class FileWatcherTest {
     }
 
     @Test
-    fun `a burst of changes is reported once per path in few dispatches`() {
+    fun `a burst of changes is reported once per path in few calls`() {
         val recorder = Recorder()
         watcher.watch(dir, recorder)
         val files = (1..50).map { dir.resolve("file-$it.txt") }
@@ -73,7 +75,8 @@ class FileWatcherTest {
         Thread.sleep(200)
 
         assertEquals(recorder.paths.toSet().size, recorder.paths.size, "each path once")
-        assertTrue(dispatches.size <= 5, "events are combined, but got ${dispatches.size} dispatches")
+        assertTrue(recorder.calls.size <= 5, "events are combined, but got ${recorder.calls.size} calls")
+        assertEquals(recorder.calls.size, dispatches.size, "one dispatch per batch")
     }
 
     @Test
