@@ -15,5 +15,18 @@
       "Bash(git log*)",
       "Bash(.claude/scripts/check-docs-index.sh)"
     ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/scripts/docs-index-hook.sh"
+          }
+        ]
+      }
+    ]
   }
 }
