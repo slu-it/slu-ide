@@ -14,14 +14,16 @@ without the user reopening the project. Projects can be large, and we load folde
   - every folder whose children the explorer has loaded;
   - the parent folder of every open file.
   Directories are watched one by one, not recursively. Watches share one `WatchKey` per directory.
-- Events of a directory are collected until it has been quiet for 200 ms. Each listener then gets one call with
-  every changed path once, on the JavaFX thread. A `git checkout` therefore causes one refresh per folder, not
+- Events of a directory are collected until it has been quiet for 200 ms, but at most 1 s, so constant changes still
+  show. Each listener then gets one call with every changed path once, on the JavaFX thread. A `git checkout` therefore causes one refresh per folder, not
   hundreds.
 - Reactions:
   - the explorer re-reads the folder and keeps unchanged items, so expansion and selection survive;
   - a tab reloads its file and keeps the scroll position;
   - a tab whose file was deleted, renamed away or became unviewable (e.g. binary) closes.
-- "Refresh" in the explorer's context menu (and F5) re-reads all loaded folders by hand.
+- A deleted directory ends its watch, so users watch again after each change; folders that are deleted and recreated
+  (e.g. `build/`) keep being followed.
+- "Refresh" in the explorer's context menu (and F5) re-reads all loaded folders by hand and renews their watches.
 
 Rejected for now: `io.methvin:directory-watcher`, which uses native FSEvents on macOS and watches whole trees. It
 can replace the implementation behind `FileWatcher` if the JDK's macOS behaviour turns out too slow.

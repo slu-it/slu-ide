@@ -22,9 +22,13 @@ private val log = System.getLogger(FileWatcher::class.java.name)
  * Reports changes in watched directories (ADR 0006). A directory is watched without its subfolders; listeners get
  * the paths of entries that were created, modified or deleted, or the directory itself if events were lost.
  *
- * Events of one directory are collected until it has been quiet for [quietPeriod]; then each listener is called once
- * with all changed paths (each path once), via [dispatch]. The application uses the JavaFX thread; tests may pass
+ * Events of one directory are collected until it has been quiet for [quietPeriod], but at most 5 × [quietPeriod] for
+ * directories that keep changing; then each listener is called once with all changed paths (each path once), via
+ * [dispatch]. The application uses the JavaFX thread; tests may pass
  * their own dispatcher and a shorter quiet period.
+ *
+ * If a watched directory is deleted, its listeners get the directory itself one last time and then nothing more;
+ * call [watch] again (e.g. when it reappears) to follow the new directory.
  *
  * The bean has an explicit name because Spring Boot's SSL auto-configuration already defines one called "fileWatcher".
  */
@@ -48,13 +52,17 @@ class FileWatcher(
     ) {
         val subscriptions = mutableListOf<Subscription>()
         val pending = LinkedHashSet<Path>()
+        var firstPendingNanos = 0L
         var lastEventNanos = 0L
         var valid = true
     }
 
+    private val maxDelay = quietPeriod * 5
     private val lock = Any()
     private val byDirectory = HashMap<Path, Watched>()
-    private val byKey = HashMap<WatchKey, Watched>()
+
+    // Usually one directory per key; two paths to the same directory (e.g. via a symlink) share the key.
+    private val byKey = HashMap<WatchKey, MutableList<Watched>>()
     private var service: WatchService? = null
     private var closed = false
 
@@ -67,10 +75,11 @@ class FileWatcher(
         val subscription = Subscription(listener)
         synchronized(lock) {
             if (closed) return AutoCloseable {}
-            val watched = byDirectory[dir] ?: register(dir) ?: return AutoCloseable {}
+            // A deleted (invalid) directory is registered again, e.g. after it was recreated.
+            val watched = byDirectory[dir]?.takeIf { it.valid } ?: register(dir) ?: return AutoCloseable {}
             watched.subscriptions += subscription
+            return AutoCloseable { unsubscribe(watched, subscription) }
         }
-        return AutoCloseable { unsubscribe(dir, subscription) }
     }
 
     override fun close() {
@@ -99,7 +108,7 @@ class FileWatcher(
             }
         return Watched(dir, key).also {
             byDirectory[dir] = it
-            byKey[key] = it
+            byKey.getOrPut(key) { mutableListOf() } += it
         }
     }
 
@@ -115,21 +124,24 @@ class FileWatcher(
         }
 
     private fun unsubscribe(
-        dir: Path,
+        watched: Watched,
         subscription: Subscription,
     ) {
         subscription.active = false
         synchronized(lock) {
-            val watched = byDirectory[dir] ?: return
             watched.subscriptions -= subscription
             if (watched.subscriptions.isEmpty()) forget(watched)
         }
     }
 
     private fun forget(watched: Watched) {
-        watched.key.cancel()
-        byDirectory.remove(watched.directory)
-        byKey.remove(watched.key)
+        byDirectory.remove(watched.directory, watched)
+        val sharing = byKey[watched.key] ?: return
+        sharing -= watched
+        if (sharing.isEmpty()) {
+            byKey.remove(watched.key)
+            watched.key.cancel()
+        }
     }
 
     private fun run(service: WatchService) {
@@ -150,32 +162,43 @@ class FileWatcher(
     private fun collect(key: WatchKey) {
         synchronized(lock) {
             val events = key.pollEvents()
-            val watched = byKey[key] ?: return
-            for (event in events) {
-                // OVERFLOW events have no entry: report the directory, meaning "anything may have changed".
-                val changed = (event.context() as? Path)?.let(watched.directory::resolve) ?: watched.directory
-                watched.pending.add(changed)
+            val valid = key.reset()
+            val now = System.nanoTime()
+            for (watched in byKey[key].orEmpty()) {
+                if (watched.pending.isEmpty()) watched.firstPendingNanos = now
+                for (event in events) {
+                    // OVERFLOW events have no entry: report the directory, meaning "anything may have changed".
+                    watched.pending.add(
+                        (event.context() as? Path)?.let(watched.directory::resolve) ?: watched.directory,
+                    )
+                }
+                // An invalid key means the directory itself is gone: report it, deliver, then drop it.
+                if (!valid) {
+                    watched.valid = false
+                    watched.pending.add(watched.directory)
+                }
+                watched.lastEventNanos = now
             }
-            watched.lastEventNanos = System.nanoTime()
-            // An invalid key means the directory itself is gone; deliver what is pending, then drop it.
-            if (!key.reset()) watched.valid = false
         }
     }
 
-    /** Nanoseconds until the next directory with pending events has been quiet long enough; `null` if none. */
+    private fun Watched.dueNanos(): Long =
+        minOf(lastEventNanos + quietPeriod.inWholeNanoseconds, firstPendingNanos + maxDelay.inWholeNanoseconds)
+
+    /** Nanoseconds until the next directory with pending events is due; `null` if none. */
     private fun nanosUntilNextFlush(): Long? =
-        byDirectory.values
+        byKey.values
+            .flatten()
             .filter { it.pending.isNotEmpty() }
-            .minOfOrNull { it.lastEventNanos + quietPeriod.inWholeNanoseconds - System.nanoTime() }
+            .minOfOrNull { it.dueNanos() - System.nanoTime() }
             ?.coerceAtLeast(0)
 
     private fun flushQuietDirectories() {
         val batches = mutableListOf<Pair<List<Path>, List<Subscription>>>()
         synchronized(lock) {
             val now = System.nanoTime()
-            for (watched in byDirectory.values.toList()) {
-                val quiet = now - watched.lastEventNanos >= quietPeriod.inWholeNanoseconds
-                if (watched.pending.isNotEmpty() && quiet) {
+            for (watched in byKey.values.flatten()) {
+                if (watched.pending.isNotEmpty() && now >= watched.dueNanos()) {
                     batches += watched.pending.toList() to watched.subscriptions.toList()
                     watched.pending.clear()
                 }

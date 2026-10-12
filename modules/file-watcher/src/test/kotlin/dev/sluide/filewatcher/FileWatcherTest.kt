@@ -2,6 +2,7 @@ package dev.sluide.filewatcher
 
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
@@ -119,6 +120,60 @@ class FileWatcherTest {
 
         recorder.awaitPath(inside)
         assertTrue(recorder.paths.none { it.fileName.toString() == "outside.txt" })
+    }
+
+    @Test
+    fun `a deleted directory is reported, and watching it again after recreation works`() {
+        val sub = dir.resolve("sub").createDirectories()
+        val first = Recorder()
+        watcher.watch(sub, first)
+
+        sub.deleteExisting()
+        first.awaitPath(sub)
+
+        sub.createDirectories()
+        val second = Recorder()
+        watcher.watch(sub, second)
+        val file = sub.resolve("after.txt").apply { writeText("x") }
+        second.awaitPath(file)
+    }
+
+    @Test
+    fun `a directory that keeps changing is still reported`() {
+        val recorder = Recorder()
+        watcher.watch(dir, recorder)
+        val file = dir.resolve("log.txt")
+
+        // A change every 20 ms never leaves the 50 ms quiet period; the 250 ms maximum delay must still deliver.
+        val start = System.nanoTime()
+        var deliveredWhileWriting = false
+        while (System.nanoTime() - start < TimeUnit.SECONDS.toNanos(3)) {
+            file.writeText("${System.nanoTime()}")
+            Thread.sleep(20)
+            if (file in recorder.paths) {
+                deliveredWhileWriting = true
+                break
+            }
+        }
+        assertTrue(deliveredWhileWriting, "reported while the changes continued")
+    }
+
+    @Test
+    fun `two paths to the same directory are both watched`() {
+        val real = dir.resolve("real").createDirectories()
+        val link = Files.createSymbolicLink(dir.resolve("link"), real)
+        val viaReal = Recorder()
+        val viaLink = Recorder()
+        val realHandle = watcher.watch(real, viaReal)
+        watcher.watch(link, viaLink)
+
+        real.resolve("a.txt").writeText("x")
+        viaReal.awaitPath(real.resolve("a.txt"))
+        viaLink.awaitPath(link.resolve("a.txt"))
+
+        realHandle.close()
+        real.resolve("b.txt").writeText("x")
+        viaLink.awaitPath(link.resolve("b.txt"))
     }
 
     @Test

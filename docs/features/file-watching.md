@@ -8,8 +8,12 @@
     notifications;
   - created, modified and deleted entries are reported. If the OS lost events, the directory itself is reported,
     meaning "anything may have changed".
-- Events of a directory are combined until it has been quiet for 200 ms, then each listener gets one call on the
-  JavaFX thread. Tests pass their own dispatcher and a shorter quiet period to the constructor.
+- Events of a directory are combined until it has been quiet for 200 ms, or for at most 1 s if it keeps changing (e.g.
+  a growing log file). Then each listener gets one call on the JavaFX thread. Tests pass their own dispatcher and a
+  shorter quiet period to the constructor.
+- A deleted directory is reported one last time as the directory itself, and then its watch ends. The explorer and
+  the editor watch again after every change, so a folder that is deleted and recreated (e.g. `build/`) keeps being
+  followed. Two paths to the same directory (e.g. via a symlink) are both watched.
 - Directories that cannot be watched (missing, no permission) give a handle that does nothing; `watch` never
   throws.
 - Users:
