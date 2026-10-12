@@ -128,6 +128,10 @@ internal class RSyntaxHighlighter(
     companion object {
         val java = RSyntaxHighlighter(SyntaxConstants.SYNTAX_STYLE_JAVA)
 
+        /** The JavaScript lexer treats the module keyword `from` and `undefined` as identifiers. */
+        val javaScript =
+            RSyntaxHighlighter(SyntaxConstants.SYNTAX_STYLE_JAVASCRIPT, keywords = setOf("from", "undefined"))
+
         /** The Kotlin lexer knows no raw strings and misses `package`. */
         val kotlin =
             RSyntaxHighlighter(

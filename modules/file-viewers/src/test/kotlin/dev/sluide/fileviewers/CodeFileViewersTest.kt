@@ -19,6 +19,7 @@ class CodeFileViewersTest {
             PythonFileViewer() to listOf("main.py", "gui.pyw", "types.pyi", "LEGACY.PY"),
             KotlinFileViewer() to listOf("Main.kt", "build.gradle.kts"),
             JavaFileViewer() to listOf("Main.java"),
+            JavaScriptFileViewer() to listOf("app.js", "module.mjs", "config.cjs"),
         )
 
     private val others = listOf("notes.txt", "README", "py")
