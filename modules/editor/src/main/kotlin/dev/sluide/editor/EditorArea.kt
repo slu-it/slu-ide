@@ -45,6 +45,8 @@ class EditorArea(
         return true
     }
 
+    fun closeAll() = openFiles.closeAll()
+
     /** The paths of all open files in tab order. */
     val openPaths: List<Path> get() = openFiles.files.map { it.path }
 

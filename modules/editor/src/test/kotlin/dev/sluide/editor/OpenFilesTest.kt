@@ -69,4 +69,15 @@ class OpenFilesTest {
 
         assertSame(b, openFiles.selected.get())
     }
+
+    @Test
+    fun `closing all tabs clears the selection`() {
+        open("a.txt")
+        open("b.txt")
+
+        openFiles.closeAll()
+
+        assertEquals(emptyList(), names())
+        assertNull(openFiles.selected.get())
+    }
 }

@@ -33,7 +33,9 @@ class MainWindow(
 
         fileExplorer.onOpenFile = { editorArea.open(it) }
 
+        // Fires only when the folder really changes, so reopening the current folder keeps the open tabs.
         projectService.projectFolder.subscribe { folder ->
+            editorArea.closeAll()
             fileExplorer.open(folder)
             stage.title = folder?.let { "${it.fileName ?: it} – $APP_NAME" } ?: APP_NAME
         }

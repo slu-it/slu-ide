@@ -51,4 +51,16 @@ internal class OpenFiles {
             _selected.set(_files.getOrNull(index) ?: _files.getOrNull(index - 1))
         }
     }
+
+    fun closeAll() = closeAll(_files.toList(), keep = null)
+
+    /** Removes [toClose] in one list change; if the selected file is among them, [keep] becomes selected. */
+    private fun closeAll(
+        toClose: Collection<OpenFile>,
+        keep: OpenFile?,
+    ) {
+        if (toClose.isEmpty()) return
+        _files.removeAll(toClose.toSet())
+        if (_selected.get() in toClose) _selected.set(keep)
+    }
 }

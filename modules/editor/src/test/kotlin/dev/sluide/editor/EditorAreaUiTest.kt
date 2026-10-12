@@ -248,4 +248,16 @@ class EditorAreaUiTest {
             )
         }
     }
+
+    @Test
+    fun `closeAll removes all tabs and the shown content`(robot: FxRobot) {
+        open(robot, textFile("a.txt"), textFile("b.txt"))
+
+        robot.interact { editor.closeAll() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(emptyList(), tabTitles(robot))
+        assertNull(shownText(robot))
+        assertNull(editor.selectedPath)
+    }
 }

@@ -34,6 +34,9 @@ class MainWindowUiTest {
     @TempDir
     lateinit var project: Path
 
+    @TempDir
+    lateinit var otherProject: Path
+
     private val projectService = ProjectService()
     private lateinit var stage: Stage
     private lateinit var fileExplorer: FileExplorerView
@@ -95,12 +98,30 @@ class MainWindowUiTest {
         robot.interact { fileExplorer.onOpenFile?.invoke(readme) }
         WaitForAsyncUtils.waitForFxEvents()
 
-        assertEquals(
-            listOf("README.md"),
-            robot.lookup(".editor-tab .label").queryAllAs(Label::class.java).map { it.text },
-        )
+        assertEquals(listOf("README.md"), tabTitles(robot))
         val text = robot.lookup(".editor-content .text-area").queryAs(TextArea::class.java)
         assertEquals("# Hello", text.text)
         assertEquals(false, text.isEditable)
     }
+
+    @Test
+    fun `opening another folder closes all tabs, reopening the current one keeps them`(robot: FxRobot) {
+        val readme = project.resolve("README.md").apply { writeText("# Hello") }
+        robot.interact {
+            projectService.open(project)
+            fileExplorer.onOpenFile?.invoke(readme)
+        }
+
+        robot.interact { projectService.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(listOf("README.md"), tabTitles(robot))
+
+        robot.interact { projectService.open(otherProject) }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(emptyList(), tabTitles(robot))
+        assertEquals(0, robot.lookup(".editor-content .text-area").queryAll<TextArea>().size)
+    }
+
+    private fun tabTitles(robot: FxRobot): List<String> =
+        robot.lookup(".editor-tab .label").queryAllAs(Label::class.java).map { it.text }
 }
