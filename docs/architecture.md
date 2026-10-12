@@ -7,7 +7,7 @@ assembled from Gradle modules.
 | Path | Purpose |
 |------|---------|
 | `ide/` | Application module: launcher, Spring Boot configuration, main window. Produces the fat jar (`./gradlew :ide:bootJar`). |
-| `modules/<name>/` | One Gradle module per IDE capability (currently `file-explorer`). |
+| `modules/<name>/` | One Gradle module per IDE capability: `file-explorer`, `editor` (tabs), `file-viewers` (views of files). |
 | `gradle/libs.versions.toml` | Single place for dependency and plugin versions. |
 | `docs/` | This documentation. Start at [index.md](index.md). |
 | `.claude/` | Claude Code settings, agents, rules, scripts. |
@@ -18,6 +18,8 @@ assembled from Gradle modules.
 - Feature modules expose UI as JavaFX nodes/controls registered as Spring beans (`@Component`), so `ide` can inject them.
 - Cross-module state (e.g. the current project folder) lives in `ide` or a shared module, and modules receive it
   through their public API (e.g. `FileExplorerView.open(path)`), not by reaching into each other.
+- Documented module dependencies: `editor` -> `file-viewers` (`api`): the editor area asks `FileViewers` for the
+  view of a file ([ADR 0004](adr/0004-file-viewer-selection.md)).
 - Shared build configuration (JDK toolchain, test setup, Spring BOM) is in the root `build.gradle.kts`.
 
 ## Runtime
@@ -27,7 +29,7 @@ assembled from Gradle modules.
 4. `SluIdeApplication.stop()` closes the Spring context.
 
 ## Package convention
-`dev.sluide.<module>` per module, e.g. `dev.sluide.fileexplorer`, `dev.sluide.ide`. All must live below
+`dev.sluide.<module>` per module, e.g. `dev.sluide.fileexplorer`, `dev.sluide.fileviewers`, `dev.sluide.ide`. All must live below
 `dev.sluide` to be found by component scanning.
 
 ## Build and release

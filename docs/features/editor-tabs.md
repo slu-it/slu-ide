@@ -1,0 +1,18 @@
+# Editor Tabs
+
+**Module:** `modules/editor` (package `dev.sluide.editor`), depends on `modules/file-viewers`
+
+- `EditorArea` (Spring `@Component`) is the central area right of the file explorer. `open(path)` shows a file in a
+  new tab, using the view from `FileViewers`, and selects it. A file that is already open just gets its tab selected.
+  If no viewer can open the file, nothing happens and `open` returns `false`.
+- Files are shown read-only.
+- One tab per file: the file name as title, the full path as tooltip. Clicking a tab selects it.
+- Tabs close via their × button or a middle click. Closing the selected tab selects its right neighbour, or the left
+  one if there is none.
+- When the tabs do not fit, ‹ and › buttons appear. They scroll the tab row one tab at a time without changing the
+  selection. A ▾ dropdown lists every tab that is cut off or out of view, and choosing one selects it and scrolls it
+  into view. The selected tab is always scrolled into view when it changes.
+- Structure: `OpenFiles` (model: open files and the selection), `TabOverflow` (which tabs fit, scroll positions),
+  `TabStrip` (header row and layout), styles in `editor.css`.
+- Not yet implemented: editing, closing all tabs when the project changes, keyboard shortcuts for tabs, reordering
+  tabs by drag and drop.

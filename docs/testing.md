@@ -19,6 +19,8 @@ and uses software rendering (`-Dprism.order=sw`).
   through the scene graph (`robot.lookup(".tree-cell")`). Examples: `FileExplorerViewUiTest`, `MainWindowUiTest`.
 - Change state via `robot.interact { ... }` followed by `WaitForAsyncUtils.waitForFxEvents()`, not via synthetic
   mouse/keyboard input. Synthetic input needs OS permissions on macOS and is flaky on virtual displays.
+- To test real mouse handling (e.g. a press that must not reach a parent), fire `MouseEvent`s at the node with
+  `Event.fireEvent` instead of calling `Button.fire()`, which skips the mouse handlers. Example: `EditorAreaUiTest`.
 - `lookup(...).queryAllAs(...)` returns nodes in no particular order; sort (e.g. by `TreeCell.index`) before asserting.
 - Native dialogs (`DirectoryChooser`) cannot be driven by TestFX; test the logic behind them (`ProjectService`).
 - Keep logic out of controls so most behavior stays in fast unit tests.
@@ -28,11 +30,13 @@ and uses software rendering (`-Dprism.order=sw`).
 .claude/scripts/setup-display.sh          # installs Xvfb + GTK libs + xdotool/ImageMagick, starts display :99
 export DISPLAY=:99
 ./gradlew :ide:bootJar
-java -Dprism.order=sw -jar ide/build/libs/ide-*.jar &
+java -Dprism.order=sw -jar ide/build/libs/ide-0.1.0-SNAPSHOT.jar &   # not ide-*.jar: that also matches -plain.jar
 import -window root shot.png              # screenshot
 xdotool key ctrl+o                         # drive the UI
 ```
 - There is no window manager: dialogs get no keyboard focus until you run `xdotool windowfocus <id>`
   (find the id with `xdotool search --name '<title>'`) and appear partly off-screen.
+- Without a window manager, popups (menus, `MenuButton` dropdowns) close as soon as the mouse moves onto them;
+  open them by click and choose items with the arrow keys and Enter.
 - The GTK folder chooser opens in its "Recent" view: pick a sidebar bookmark and click Open instead of typing a path.
 - Stop Xvfb when done; never claim the UI was verified unless you actually ran it.
