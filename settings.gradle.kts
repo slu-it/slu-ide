@@ -14,4 +14,4 @@ dependencyResolutionManagement {
     }
 }
 
-// Modules are registered here as they are created.
+include("modules:file-explorer")
