@@ -11,7 +11,7 @@
 - Code viewers extend `CodeFileViewer(extensions, highlighter)` and show text files with syntax highlighting and line
   numbers, read-only. They render a RichTextFX `CodeArea`, colour the tokens from a `SyntaxHighlighter`
   (`RSyntaxHighlighter` = RSyntaxTextArea lexers, [ADR 0005](../adr/0005-syntax-highlighting.md)) and are styled by
-  `syntax.css`. Token classes: `keyword`, `type`, `builtin`, `string`, `number`, `comment`, `annotation`, `operator`.
+  `syntax.css`. Token classes: `keyword`, `type`, `builtin`, `string`, `number`, `comment`, `annotation`, `property`, `operator`.
 - Highlighted languages, with the corrections for outdated lexers (configured in `RSyntaxHighlighter`'s companion):
 
   | Viewer | Extensions | Corrections to the lexer |
@@ -21,6 +21,7 @@
   | `JavaFileViewer` | `.java` | none needed (text blocks, records, sealed types work) |
   | `JavaScriptFileViewer` | `.js`, `.mjs`, `.cjs` | `from`/`undefined` keywords; `${…}` in template literals stays unstyled code |
   | `TypeScriptFileViewer` | `.ts`, `.mts`, `.cts` | keywords such as `type`, `readonly`, `as`, `keyof`, `satisfies`; types `unknown`, `never`, `object`, `symbol`, `bigint`; decorators |
+  | `JsonFileViewer` | `.json`, `.jsonc` | keys as `property`; `//` comments allowed (`/* */` are not recognised) |
 
 - To add a viewer, implement `FileViewer` as a `@Component` in any module below `dev.sluide`. For a language with an
   RSyntaxTextArea lexer, add its highlighter to `RSyntaxHighlighter`'s companion, extend `CodeFileViewer` like

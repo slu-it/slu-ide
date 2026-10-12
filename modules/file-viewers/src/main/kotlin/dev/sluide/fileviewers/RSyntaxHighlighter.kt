@@ -165,6 +165,16 @@ internal class RSyntaxHighlighter(
                 tokenStyles = mapOf(TokenTypes.MARKUP_TAG_ATTRIBUTE to TokenStyle.ANNOTATION),
             )
 
+        /**
+         * JSON with `//` comments, which many config files (e.g. `tsconfig.json`) use; plain JSON lexes the same.
+         * The lexer reports object keys as variables.
+         */
+        val json =
+            RSyntaxHighlighter(
+                SyntaxConstants.SYNTAX_STYLE_JSON_WITH_COMMENTS,
+                tokenStyles = mapOf(TokenTypes.VARIABLE to TokenStyle.PROPERTY),
+            )
+
         /** The Kotlin lexer knows no raw strings and misses `package`. */
         val kotlin =
             RSyntaxHighlighter(

@@ -11,6 +11,7 @@ internal enum class TokenStyle(
     NUMBER("number"),
     COMMENT("comment"),
     ANNOTATION("annotation"),
+    PROPERTY("property"),
     OPERATOR("operator"),
 }
 

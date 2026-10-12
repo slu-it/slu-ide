@@ -43,6 +43,10 @@
     -fx-fill: #9e880d;
 }
 
+.code-view .property {
+    -fx-fill: #871094;
+}
+
 .code-view .operator {
     -fx-fill: #333333;
 }
