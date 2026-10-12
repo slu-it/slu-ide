@@ -45,8 +45,31 @@ subprojects {
             add("testRuntimeOnly", rootProject.libs.junit.platform.launcher)
         }
 
-        tasks.withType<Test>().configureEach {
-            useJUnitPlatform()
+        // Plain unit tests never need a display. UI tests (JUnit tag "ui", TestFX) run in `uiTest`, part of `check`.
+        // Linux without DISPLAY (e.g. a headless sandbox) skips them unless CI is set; start a virtual display
+        // with .claude/scripts/setup-display.sh to run them there.
+        tasks.named<Test>("test") {
+            useJUnitPlatform { excludeTags("ui") }
         }
+
+        val testSourceSet = extensions.getByType<SourceSetContainer>().named("test")
+        val displayAvailable =
+            providers.environmentVariable("DISPLAY").isPresent ||
+                providers.environmentVariable("CI").isPresent ||
+                !System.getProperty("os.name").lowercase().contains("linux")
+
+        val uiTest =
+            tasks.register<Test>("uiTest") {
+                description = "Runs TestFX UI tests (JUnit tag 'ui'); needs a display."
+                group = "verification"
+                testClassesDirs = testSourceSet.get().output.classesDirs
+                classpath = testSourceSet.get().runtimeClasspath
+                useJUnitPlatform { includeTags("ui") }
+                // Software rendering is the most reliable pipeline on virtual displays.
+                systemProperty("prism.order", "sw")
+                onlyIf("a display is available") { displayAvailable }
+                shouldRunAfter(tasks.named("test"))
+            }
+        tasks.named("check") { dependsOn(uiTest) }
     }
 }

@@ -7,7 +7,7 @@ Lightweight IDE in Kotlin (JDK 25) with Spring Boot and JavaFX, built with Gradl
 - Layout: `ide/` (app, fat jar), `modules/<name>/` (one Gradle module per capability), `docs/`, `.claude/`, `.github/`.
 
 ## Commands
-- Build and test everything: `./gradlew build`
+- Build and test everything: `./gradlew build` (unit tests in `test`, TestFX UI tests in `uiTest`; the latter needs a display)
 - Format Kotlin: `./gradlew spotlessApply` (ktlint via Spotless, rules in `.editorconfig`); `build` fails on violations
 - Fat jar: `./gradlew :ide:bootJar` (JavaFX natives are included for the build platform only)
 - Check the docs index: `.claude/scripts/check-docs-index.sh`
@@ -21,7 +21,7 @@ Lightweight IDE in Kotlin (JDK 25) with Spring Boot and JavaFX, built with Gradl
   Always add new docs to `docs/index.md` with a one-line summary.
 - JavaFX is not published with Gradle metadata: never declare `org.openjfx:*` dependencies directly (they resolve
   to empty stub jars); use the `javafx` plugin block as in `ide/build.gradle.kts`.
-- JavaFX controls cannot be instantiated without a running toolkit, so tests must not create them.
+- JavaFX controls need a running toolkit: tests that create them are TestFX tests tagged `@Tag("ui")` (see `docs/testing.md`).
 - Downloads with `curl` need `-L` (redirects) plus checksum verification; a 169-byte "zip" is a redirect page.
 - Headless Linux sandbox: run `.claude/scripts/setup-display.sh` (installs Xvfb + GTK libs, starts display `:99`), then
   `DISPLAY=:99 java -Dprism.order=sw -jar ide/build/libs/ide-*.jar` and use `import -window root x.png` / `xdotool`.

@@ -6,6 +6,8 @@ Keep it up to date: every new ADR or feature description must be added here with
 ## Overview
 - [architecture.md](architecture.md) — Module layout, dependency rules, runtime startup, CI and release process.
 
+- [testing.md](testing.md) — Unit vs. TestFX UI tests, `uiTest` task, display handling locally and in CI, how to write UI tests.
+
 ## Decisions (ADRs)
 - [adr/0001-tech-stack.md](adr/0001-tech-stack.md) — Kotlin on JDK 25, Spring Boot, JavaFX, Gradle multi-module build.
 - [adr/0002-spring-inside-javafx.md](adr/0002-spring-inside-javafx.md) — A non-web Spring context is started and stopped by the JavaFX `Application`; UI parts are Spring beans.

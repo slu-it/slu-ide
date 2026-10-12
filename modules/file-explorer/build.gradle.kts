@@ -12,4 +12,7 @@ javafx {
 
 dependencies {
     implementation(libs.spring.context)
+
+    testImplementation(libs.testfx.core)
+    testImplementation(libs.testfx.junit5)
 }

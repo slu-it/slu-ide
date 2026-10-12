@@ -18,6 +18,9 @@ springBoot {
 dependencies {
     implementation(libs.spring.boot.starter)
     implementation(project(":modules:file-explorer"))
+
+    testImplementation(libs.testfx.core)
+    testImplementation(libs.testfx.junit5)
 }
 
 // The fat jar contains the JavaFX natives of the build platform only (see docs/adr/0003), so every
