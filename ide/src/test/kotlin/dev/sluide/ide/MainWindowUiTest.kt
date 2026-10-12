@@ -4,6 +4,8 @@ import dev.sluide.editor.EditorArea
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
+import dev.sluide.filewatcher.FileWatcher
+import javafx.application.Platform
 import javafx.scene.control.Label
 import javafx.scene.control.MenuBar
 import javafx.scene.control.TextArea
@@ -12,6 +14,7 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
 import javafx.stage.Stage
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.io.TempDir
@@ -26,6 +29,7 @@ import kotlin.io.path.name
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.time.Duration.Companion.milliseconds
 
 /** Shows the real main window. Needs a display, see the `uiTest` Gradle task. */
 @Tag("ui")
@@ -40,11 +44,15 @@ class MainWindowUiTest {
     private val projectService = ProjectService()
     private lateinit var stage: Stage
     private lateinit var fileExplorer: FileExplorerView
+    private val watcher = FileWatcher(Platform::runLater, 50.milliseconds)
+
+    @AfterEach
+    fun closeWatcher() = watcher.close()
 
     @Start
     fun start(stage: Stage) {
         this.stage = stage
-        fileExplorer = FileExplorerView()
+        fileExplorer = FileExplorerView(watcher)
         val fallback = DefaultTextFileViewer()
         MainWindow(projectService, fileExplorer, EditorArea(FileViewers(listOf(fallback), fallback))).show(stage)
     }

@@ -11,6 +11,8 @@ javafx {
 }
 
 dependencies {
+    // Deliberate module API dependency: loaded folders are watched for changes (ADR 0006).
+    api(project(":modules:file-watcher"))
     implementation(libs.spring.context)
 
     testImplementation(libs.testfx.core)

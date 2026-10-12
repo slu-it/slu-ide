@@ -1,5 +1,7 @@
 package dev.sluide.fileexplorer
 
+import dev.sluide.filewatcher.FileWatcher
+import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.Scene
 import javafx.scene.control.TreeCell
@@ -8,6 +10,7 @@ import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.stage.Stage
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.io.TempDir
@@ -18,12 +21,15 @@ import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
+import kotlin.io.path.deleteExisting
 import kotlin.io.path.name
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 /** Renders the real view in a stage. Needs a display, see the `uiTest` Gradle task. */
 @Tag("ui")
@@ -33,13 +39,17 @@ class FileExplorerViewUiTest {
     lateinit var project: Path
 
     private lateinit var view: FileExplorerView
+    private val watcher = FileWatcher(Platform::runLater, 50.milliseconds)
 
     @Start
     fun start(stage: Stage) {
-        view = FileExplorerView()
+        view = FileExplorerView(watcher)
         stage.scene = Scene(view, 400.0, 600.0)
         stage.show()
     }
+
+    @AfterEach
+    fun closeWatcher() = watcher.close()
 
     private fun renderedNames(robot: FxRobot): List<String> =
         robot
@@ -169,4 +179,99 @@ class FileExplorerViewUiTest {
                 null,
             ),
         )
+
+    @Test
+    fun `files created and deleted on disk appear and disappear`(robot: FxRobot) {
+        project.resolve("existing.txt").createFile()
+        robot.interact { view.open(project) }
+
+        val created = project.resolve("created.txt").createFile()
+        eventually(robot) { assertEquals(listOf(project.name, "created.txt", "existing.txt"), renderedNames(robot)) }
+
+        created.deleteExisting()
+        eventually(robot) { assertEquals(listOf(project.name, "existing.txt"), renderedNames(robot)) }
+    }
+
+    @Test
+    fun `changes inside an expanded subfolder appear and keep the expansion`(robot: FxRobot) {
+        project.resolve("sub").createDirectories()
+        robot.interact { view.open(project) }
+        robot.interact {
+            view.root.children
+                .single()
+                .isExpanded = true
+        }
+
+        project.resolve("sub/inner.txt").createFile()
+        project.resolve("top.txt").createFile()
+
+        eventually(robot) {
+            assertEquals(listOf(project.name, "sub", "inner.txt", "top.txt"), renderedNames(robot))
+        }
+    }
+
+    @Test
+    fun `Refresh in the context menu re-reads loaded folders`(robot: FxRobot) {
+        // Without working watches, only a manual refresh can show the new file.
+        val unwatched = FileWatcher(Platform::runLater, 50.milliseconds).apply { close() }
+        lateinit var manual: FileExplorerView
+        robot.interact {
+            manual = FileExplorerView(unwatched)
+            view.scene.root = manual
+            manual.open(project)
+        }
+        project.resolve("late.txt").createFile()
+
+        val refresh = manual.contextMenu.items.single()
+        assertEquals("Refresh", refresh.text)
+        robot.interact { refresh.fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(listOf(project.name, "late.txt"), renderedNames(robot))
+    }
+
+    @Test
+    fun `F5 refreshes`(robot: FxRobot) {
+        val unwatched = FileWatcher(Platform::runLater, 50.milliseconds).apply { close() }
+        lateinit var manual: FileExplorerView
+        robot.interact {
+            manual = FileExplorerView(unwatched)
+            view.scene.root = manual
+            manual.open(project)
+        }
+        project.resolve("late.txt").createFile()
+
+        robot.interact {
+            Event.fireEvent(manual, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.F5, false, false, false, false))
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(listOf(project.name, "late.txt"), renderedNames(robot))
+    }
+
+    /** Repeats [assertion] on the FX thread until it passes; the JDK may poll for file changes on macOS. */
+    private fun eventually(
+        robot: FxRobot,
+        assertion: () -> Unit,
+    ) {
+        val deadline = System.nanoTime() + 20.seconds.inWholeNanoseconds
+        while (true) {
+            WaitForAsyncUtils.waitForFxEvents()
+            try {
+                var failure: AssertionError? = null
+                robot.interact {
+                    try {
+                        assertion()
+                    } catch (e: AssertionError) {
+                        failure = e
+                    }
+                }
+                failure?.let { throw it }
+                return
+            } catch (e: AssertionError) {
+                if (System.nanoTime() > deadline) throw e
+                Thread.sleep(50)
+            }
+        }
+    }
 }
