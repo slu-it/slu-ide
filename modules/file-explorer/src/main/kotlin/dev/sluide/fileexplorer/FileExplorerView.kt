@@ -50,20 +50,36 @@ class FileExplorerView(
         this.root = root?.let { FileTreeItem(it, ::watch).apply { isExpanded = true } }
     }
 
-    /** Reads every loaded folder again, e.g. if a change on disk was missed. */
+    /** Reads every loaded folder again and renews its watch, e.g. if a change on disk was missed. */
     fun refreshAll() {
-        (root as? FileTreeItem)?.loadedFolders()?.forEach(FileTreeItem::refresh)
+        (root as? FileTreeItem)?.loadedFolders()?.forEach { folder ->
+            folder.refresh()
+            watch(folder)
+        }
         closeWatchesOfVanishedFolders()
     }
 
     private fun watch(folder: FileTreeItem) {
         val path = folder.value
         watches.remove(path)?.close()
-        watches[path] = fileWatcher.watch(path) { onFolderChanged(folder) }
+        watches[path] = fileWatcher.watch(path) { changed -> onFolderChanged(folder, changed) }
     }
 
-    private fun onFolderChanged(folder: FileTreeItem) {
+    private fun onFolderChanged(
+        folder: FileTreeItem,
+        changed: List<Path>,
+    ) {
         folder.refresh()
+        // The folder itself is reported when events were lost or it was deleted; watch it anew if it is there.
+        if (folder.value in changed && Files.isDirectory(folder.value)) watch(folder)
+        // A loaded subfolder that was deleted and recreated (e.g. build/) has new content and needs a new watch.
+        folder.children
+            .filterIsInstance<FileTreeItem>()
+            .filter { it.isLoaded && it.value in changed }
+            .forEach { subfolder ->
+                subfolder.refresh()
+                watch(subfolder)
+            }
         closeWatchesOfVanishedFolders()
     }
 

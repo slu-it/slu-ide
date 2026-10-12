@@ -13,5 +13,5 @@
 - Changes on disk show up by themselves. Every loaded folder is watched ([file-watching.md](file-watching.md)), and
   on a change `FileTreeItem.refresh()` re-reads it. Unchanged items are kept, so expanded folders stay expanded
   and the selection stays.
-- Manual refresh: "Refresh" in the tree's context menu, or F5, re-reads all loaded folders.
+- Manual refresh: "Refresh" in the tree's context menu, or F5, re-reads all loaded folders and renews their watches.
 - Not yet implemented: file icons, file operations (new, rename, delete) in the context menu.

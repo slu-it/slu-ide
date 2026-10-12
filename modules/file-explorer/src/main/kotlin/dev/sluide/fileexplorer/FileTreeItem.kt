@@ -19,6 +19,9 @@ class FileTreeItem(
 
     override fun isLeaf(): Boolean = !directory
 
+    /** Whether the children of this folder have been read. */
+    val isLoaded: Boolean get() = childrenLoaded
+
     override fun getChildren(): ObservableList<TreeItem<Path>> {
         val children = super.getChildren()
         if (directory && !childrenLoaded) {

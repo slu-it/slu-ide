@@ -24,6 +24,7 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
+import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteExisting
 import kotlin.io.path.name
 import kotlin.io.path.writeBytes
@@ -401,6 +402,21 @@ class EditorAreaUiTest {
         Thread.sleep(300)
         WaitForAsyncUtils.waitForFxEvents()
         assertEquals(emptyList(), tabTitles(robot))
+    }
+
+    @Test
+    fun `an open file keeps reloading after its folder was deleted and recreated`(robot: FxRobot) {
+        val folder = dir.resolve("gen").createDirectories()
+        val file = folder.resolve("out.txt").apply { writeText("v1") }
+        open(robot, file)
+
+        folder.toFile().deleteRecursively()
+        folder.createDirectories()
+        file.writeText("v2")
+        eventually(robot) { assertEquals("v2", shownText(robot)) }
+
+        file.writeText("v3")
+        eventually(robot) { assertEquals("v3", shownText(robot)) }
     }
 
     /** Repeats [assertion] on the FX thread until it passes; the JDK may poll for file changes on macOS. */

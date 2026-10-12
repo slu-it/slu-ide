@@ -54,13 +54,18 @@ class EditorArea(
             } catch (_: IOException) {
                 return false
             }
-        val openFile = openFiles.open(path, view)
+        watch(openFiles.open(path, view))
+        return true
+    }
+
+    private fun watch(openFile: OpenFile) {
+        val path = openFile.path
+        watches.remove(openFile)?.close()
         watches[openFile] =
             fileWatcher.watch(path.parent) { changed ->
-                // The folder itself is reported when events were lost: check the file anyway.
+                // The folder itself is reported when events were lost or it was deleted: check the file anyway.
                 if (path in changed || path.parent in changed) onChangedOnDisk(openFile)
             }
-        return true
     }
 
     private fun onChangedOnDisk(openFile: OpenFile) {
@@ -75,6 +80,8 @@ class EditorArea(
         } catch (_: IOException) {
             // Keep showing the last content; the next change will try again.
         }
+        // Renew the watch: the folder may have been deleted and recreated, which ends the old one.
+        watch(openFile)
     }
 
     fun closeAll() = openFiles.closeAll()

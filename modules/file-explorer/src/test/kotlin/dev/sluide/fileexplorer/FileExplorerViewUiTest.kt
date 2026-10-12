@@ -249,6 +249,27 @@ class FileExplorerViewUiTest {
         assertEquals(listOf(project.name, "late.txt"), renderedNames(robot))
     }
 
+    @Test
+    fun `a deleted and recreated subfolder keeps being watched`(robot: FxRobot) {
+        val sub = project.resolve("sub").createDirectories()
+        robot.interact { view.open(project) }
+        robot.interact {
+            view.root.children
+                .single()
+                .isExpanded = true
+        }
+
+        sub.toFile().deleteRecursively()
+        sub.createDirectories()
+        sub.resolve("first.txt").createFile()
+        eventually(robot) { assertEquals(listOf(project.name, "sub", "first.txt"), renderedNames(robot)) }
+
+        sub.resolve("second.txt").createFile()
+        eventually(robot) {
+            assertEquals(listOf(project.name, "sub", "first.txt", "second.txt"), renderedNames(robot))
+        }
+    }
+
     /** Repeats [assertion] on the FX thread until it passes; the JDK may poll for file changes on macOS. */
     private fun eventually(
         robot: FxRobot,
