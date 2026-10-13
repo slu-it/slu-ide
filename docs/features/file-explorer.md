@@ -15,4 +15,9 @@
   on a change `FileTreeItem.refresh()` re-reads it. Unchanged items are kept, so expanded folders stay expanded
   and the selection stays.
 - Manual refresh: "Refresh" in the tree's context menu, or F5, re-reads all loaded folders and renews their watches.
-- Not yet implemented: file icons, file operations (new, rename, delete) in the context menu.
+- Icons ([ADR 0012](../adr/0012-file-icons.md), `FileIcon`/`fileIconFor`): open or closed folder; language icons for
+  the code viewer types (Kotlin, Java, Python, JavaScript, TypeScript, HTML, JSON, XML, YAML) and Markdown, by
+  extension; any other file gets a document icon if a viewer can open it (`canOpenFile`, set by `MainWindow` to
+  `EditorArea.canOpen`) and a "?" file icon if not (binary). Colours per type in `file-explorer.css`, light and dark;
+  the icon size follows the explorer font.
+- Not yet implemented: file operations (new, rename, delete) in the context menu.

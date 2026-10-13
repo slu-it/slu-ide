@@ -5,7 +5,8 @@
 
 - `EditorArea` (Spring `@Component`) is the central area right of the file explorer. `open(path)` shows a file in a
   new tab, using the view from `FileViewers`, and selects it. A file that is already open just gets its tab selected.
-  If no viewer can open the file, nothing happens and `open` returns `false`.
+  If no viewer can open the file, nothing happens and `open` returns `false`; `canOpen(path)` asks that beforehand
+  (the file explorer uses it to pick text or binary icons).
 - Files are shown read-only, in the editor font from the settings ([settings.md](settings.md)); open views follow
   font changes.
 - Tabs do not have to show files: `open(tab: EditorTab)` adds any tab (title, which may change, tooltip and content
