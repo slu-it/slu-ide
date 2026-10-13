@@ -1,5 +1,6 @@
 package dev.sluide.terminal
 
+import com.jediterm.core.input.MouseEvent
 import com.jediterm.core.typeahead.TerminalTypeAheadManager
 import com.jediterm.core.typeahead.TypeAheadTerminalModel
 import com.jediterm.core.util.TermSize
@@ -9,6 +10,7 @@ import com.jediterm.terminal.TerminalDisplay
 import com.jediterm.terminal.TerminalExecutorServiceManager
 import com.jediterm.terminal.TerminalStarter
 import com.jediterm.terminal.TtyBasedArrayDataStream
+import com.jediterm.terminal.emulator.mouse.MouseEventProcessingSettings
 import com.jediterm.terminal.model.JediTerminal
 import com.jediterm.terminal.model.StyleState
 import com.jediterm.terminal.model.TerminalTextBuffer
@@ -81,6 +83,22 @@ internal class TerminalSession(
 
     /** Sends input typed or pasted by the user to the shell. */
     fun send(bytes: ByteArray) = starter.sendBytes(bytes, true)
+
+    /**
+     * Sends a mouse event at a screen cell (0-based) to the running program, encoded as the program asked for. Without
+     * mouse reports, a wheel turn in a full-screen program is sent as arrow keys. Returns whether anything was sent.
+     */
+    fun sendMouse(
+        column: Int,
+        row: Int,
+        event: MouseEvent,
+    ): Boolean =
+        terminal.onMouseEvent(
+            column,
+            row,
+            event,
+            MouseEventProcessingSettings(true, buffer.isUsingAlternateBuffer, true),
+        )
 
     /** Resizes the screen buffer and tells the shell about the new size. */
     fun resize(size: TermSize) = starter.postResize(size, RequestOrigin.User)

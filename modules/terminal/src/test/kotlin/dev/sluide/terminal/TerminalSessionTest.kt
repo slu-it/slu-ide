@@ -1,9 +1,11 @@
 package dev.sluide.terminal
 
+import com.jediterm.core.input.MouseEvent
 import com.jediterm.core.util.TermSize
 import com.jediterm.terminal.CursorShape
 import com.jediterm.terminal.TerminalColor
 import com.jediterm.terminal.TerminalDisplay
+import com.jediterm.terminal.emulator.mouse.MouseButtonCodes
 import com.jediterm.terminal.emulator.mouse.MouseFormat
 import com.jediterm.terminal.emulator.mouse.MouseMode
 import com.jediterm.terminal.model.TerminalSelection
@@ -127,6 +129,55 @@ class TerminalSessionTest {
         // Not `kill $!`: macOS's /bin/sh (bash 3.2) treats `!` as history expansion in interactive shells.
         run("kill %1; wait")
         await("no programs") { session.runningPrograms().isEmpty() }
+    }
+
+    /** Starts `cat -v` after [modes] were switched on, so the bytes the terminal sends show up as text. */
+    private fun startCatWith(modes: String) {
+        start()
+        run("printf '$modes'; echo ready; cat -v")
+        awaitLine("ready")
+    }
+
+    @Test
+    fun `a wheel turn is reported to programs that asked for mouse reports`() {
+        // Alternate screen, mouse reports for clicks and the wheel, SGR format: what Claude Code's fullscreen TUI does.
+        startCatWith("\\033[?1049h\\033[?1000h\\033[?1006h")
+
+        assertTrue(session.sendMouse(4, 2, TerminalMouse.wheel(up = true, Modifiers(), 3)))
+        assertTrue(session.sendMouse(4, 2, TerminalMouse.wheel(up = false, Modifiers(), 3)))
+        session.send("\r".toByteArray())
+
+        // Once per wheel event, at 1-based column 5, row 3; 64 is up, 65 down.
+        awaitLine("^[[<64;5;3M^[[<65;5;3M")
+    }
+
+    @Test
+    fun `a wheel turn in a full-screen program without mouse reports is sent as arrow keys`() {
+        startCatWith("\\033[?1049h")
+
+        assertTrue(session.sendMouse(0, 0, TerminalMouse.wheel(up = false, Modifiers(), 3)))
+        session.send("\r".toByteArray())
+
+        awaitLine("^[[B^[[B^[[B")
+    }
+
+    @Test
+    fun `nothing is sent for the wheel on the normal screen without mouse reports`() {
+        start()
+
+        assertFalse(session.sendMouse(0, 0, TerminalMouse.wheel(up = true, Modifiers(), 3)))
+    }
+
+    @Test
+    fun `clicks are reported to programs that asked for them`() {
+        startCatWith("\\033[?1000h\\033[?1006h")
+
+        val left = MouseButtonCodes.LEFT
+        assertTrue(session.sendMouse(1, 0, TerminalMouse.event(MouseEvent.Type.PRESSED, left, Modifiers())))
+        assertTrue(session.sendMouse(1, 0, TerminalMouse.event(MouseEvent.Type.RELEASED, left, Modifiers())))
+        session.send("\r".toByteArray())
+
+        awaitLine("^[[<0;2;1M^[[<0;2;1m")
     }
 
     @Test

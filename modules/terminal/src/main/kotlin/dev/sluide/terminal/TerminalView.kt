@@ -7,6 +7,7 @@ import com.jediterm.terminal.RequestOrigin
 import com.jediterm.terminal.StyledTextConsumer
 import com.jediterm.terminal.TerminalDisplay
 import com.jediterm.terminal.TextStyle
+import com.jediterm.terminal.emulator.mouse.MouseButtonCodes
 import com.jediterm.terminal.emulator.mouse.MouseFormat
 import com.jediterm.terminal.emulator.mouse.MouseMode
 import com.jediterm.terminal.model.CharBuffer
@@ -37,6 +38,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.floor
 import kotlin.math.round
 import com.jediterm.core.Color as TermColor
+import com.jediterm.core.input.MouseEvent as TermMouseEvent
 
 private val COPY = KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN)
 private val PASTE = KeyCodeCombination(KeyCode.V, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN)
@@ -86,6 +88,8 @@ internal class TerminalView(
 
     @Volatile private var selection: TerminalSelection? = null
 
+    @Volatile private var mouseMode = MouseMode.MOUSE_REPORTING_NONE
+
     @Volatile private var windowTitle = ""
 
     private val repaintPending = AtomicBoolean()
@@ -117,6 +121,8 @@ internal class TerminalView(
         addEventHandler(ScrollEvent.SCROLL, ::onScroll)
         addEventHandler(MouseEvent.MOUSE_PRESSED, ::onMousePressed)
         addEventHandler(MouseEvent.MOUSE_DRAGGED, ::onMouseDragged)
+        addEventHandler(MouseEvent.MOUSE_RELEASED, ::onMouseReleased)
+        addEventHandler(MouseEvent.MOUSE_MOVED, ::onMouseMoved)
         val contextMenu =
             ContextMenu(
                 MenuItem("Copy").apply { setOnAction { copySelection() } },
@@ -203,8 +209,23 @@ internal class TerminalView(
     private fun KeyEvent.modifiers() =
         Modifiers(shift = isShiftDown, control = isControlDown, alt = isAltDown, meta = isMetaDown)
 
+    private fun MouseEvent.modifiers() =
+        Modifiers(shift = isShiftDown, control = isControlDown, alt = isAltDown, meta = isMetaDown)
+
+    private fun ScrollEvent.modifiers() =
+        Modifiers(shift = isShiftDown, control = isControlDown, alt = isAltDown, meta = isMetaDown)
+
     private fun onScroll(event: ScrollEvent) {
-        if (event.deltaY == 0.0 || session.buffer.isUsingAlternateBuffer) return
+        if (event.deltaY == 0.0) return
+        val fullScreen = session.buffer.isUsingAlternateBuffer
+        if (fullScreen || mouseMode != MouseMode.MOUSE_REPORTING_NONE) {
+            // Full-screen programs scroll themselves: the wheel is reported to them, or sent as arrow keys.
+            val wheel = TerminalMouse.wheel(up = event.deltaY > 0, event.modifiers(), SCROLL_LINES)
+            if (sendMouse(event.x, event.y, wheel) || fullScreen) {
+                event.consume()
+                return
+            }
+        }
         val lines = if (event.deltaY > 0) -SCROLL_LINES else SCROLL_LINES
         scrollOrigin = (scrollOrigin + lines).coerceIn(-session.buffer.historyLinesCount, 0)
         paint()
@@ -213,6 +234,10 @@ internal class TerminalView(
 
     private fun onMousePressed(event: MouseEvent) {
         requestFocus()
+        if (reportMouse(event, TermMouseEvent.Type.PRESSED)) {
+            selectionAnchor = null
+            return
+        }
         if (event.button != MouseButton.PRIMARY) return
         selection = null
         selectionAnchor = cellAt(event)
@@ -222,10 +247,62 @@ internal class TerminalView(
     private var selectionAnchor: Point? = null
 
     private fun onMouseDragged(event: MouseEvent) {
+        if (reportMouse(event, TermMouseEvent.Type.DRAGGED)) return
         val anchor = selectionAnchor ?: return
         if (!event.isPrimaryButtonDown) return
         selection = TerminalSelection(anchor, cellAt(event))
         paint()
+    }
+
+    private fun onMouseReleased(event: MouseEvent) {
+        reportMouse(event, TermMouseEvent.Type.RELEASED)
+    }
+
+    private fun onMouseMoved(event: MouseEvent) {
+        reportMouse(event, TermMouseEvent.Type.MOVED)
+    }
+
+    /**
+     * Reports a click, drag or move to the running program if it asked for mouse reports, unless Shift is held, which
+     * selects text as usual. Returns whether the event was meant for the program.
+     */
+    private fun reportMouse(
+        event: MouseEvent,
+        type: TermMouseEvent.Type,
+    ): Boolean {
+        if (mouseMode == MouseMode.MOUSE_REPORTING_NONE || event.isShiftDown) return false
+        val button =
+            when (type) {
+                TermMouseEvent.Type.MOVED -> {
+                    MouseButtonCodes.NONE
+                }
+
+                // Drag events do not reliably name the button on all platforms, the held buttons do.
+                TermMouseEvent.Type.DRAGGED -> {
+                    TerminalMouse.heldButton(
+                        event.isPrimaryButtonDown,
+                        event.isMiddleButtonDown,
+                    )
+                }
+
+                else -> {
+                    TerminalMouse.button(event.button)
+                }
+            } ?: return false
+        sendMouse(event.x, event.y, TerminalMouse.event(type, button, event.modifiers()))
+        event.consume()
+        return true
+    }
+
+    /** Lets the emulator encode [event] at the screen cell under ([x], [y]) for the program; `true` if it sent bytes. */
+    private fun sendMouse(
+        x: Double,
+        y: Double,
+        event: TermMouseEvent,
+    ): Boolean {
+        val column = floor(x / cell.width).toInt().coerceIn(0, size.columns - 1)
+        val row = floor(y / cell.height).toInt().coerceIn(0, size.rows - 1)
+        return session.sendMouse(column, row, event)
     }
 
     /**
@@ -421,7 +498,9 @@ internal class TerminalView(
 
     override fun getSelection(): TerminalSelection? = selection
 
-    override fun terminalMouseModeSet(mouseMode: MouseMode) {}
+    override fun terminalMouseModeSet(mouseMode: MouseMode) {
+        this.mouseMode = mouseMode
+    }
 
     override fun setMouseFormat(mouseFormat: MouseFormat) {}
 

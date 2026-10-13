@@ -12,6 +12,7 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
+import javafx.scene.input.ScrollEvent
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
 import org.junit.jupiter.api.AfterEach
@@ -180,6 +181,60 @@ class TerminalUiTest {
                 false,
                 false,
                 false,
+                null,
+            ),
+        )
+    }
+
+    @Test
+    fun `the mouse wheel is reported to full-screen programs that ask for it, not used for scrollback`(
+        robot: FxRobot,
+    ) {
+        val tab = open(robot)
+        val view = tab.view
+        // Like Claude Code's fullscreen TUI: alternate screen, mouse reports in SGR format.
+        type(robot, view, "printf '\\033[?1049h\\033[?1000h\\033[?1006h'; echo ready; cat -v")
+        eventually { assertTrue("ready" in view.screenText().lines(), view.screenText()) }
+
+        robot.interact {
+            scroll(view, 2.5 * view.cell.width, 1.5 * view.cell.height, deltaY = 40.0)
+            Event.fireEvent(view, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.ENTER, false, false, false, false))
+        }
+
+        eventually { assertTrue("^[[<64;3;2M" in view.screenText().lines(), view.screenText()) }
+        assertEquals(0, view.scrollOrigin)
+    }
+
+    private fun scroll(
+        view: TerminalView,
+        x: Double,
+        y: Double,
+        deltaY: Double,
+    ) {
+        val scene = view.localToScene(x, y)
+        Event.fireEvent(
+            view,
+            ScrollEvent(
+                ScrollEvent.SCROLL,
+                scene.x,
+                scene.y,
+                scene.x,
+                scene.y,
+                false,
+                false,
+                false,
+                false,
+                false,
+                false,
+                0.0,
+                deltaY,
+                0.0,
+                deltaY,
+                ScrollEvent.HorizontalTextScrollUnits.NONE,
+                0.0,
+                ScrollEvent.VerticalTextScrollUnits.NONE,
+                0.0,
+                0,
                 null,
             ),
         )
