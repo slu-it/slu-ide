@@ -12,6 +12,8 @@ import dev.sluide.settings.ThemedWindows
 import dev.sluide.terminal.Terminals
 import javafx.scene.Scene
 import javafx.scene.control.Alert
+import javafx.scene.control.ButtonBar
+import javafx.scene.control.ButtonType
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuBar
 import javafx.scene.control.MenuItem
@@ -55,6 +57,12 @@ class MainWindow(
             }.showAndWait()
     }
 
+    /**
+     * Asked before the window is closed while tabs still run something, with their warnings; returns whether to close
+     * it. Shows a confirmation dialog; tests replace it, since it blocks.
+     */
+    internal var confirmCloseWindow: (Stage, List<String>) -> Boolean = ::showCloseWindowDialog
+
     /** The project folder of this window; `null` until a folder is opened in it. */
     val folder: Path? get() = projectService.projectFolder.get()
 
@@ -78,6 +86,12 @@ class MainWindow(
             fileExplorer.open(folder)
             gitStatus.open(folder)
             stage.title = folder?.let { "${it.fileName ?: it} – $APP_NAME" } ?: APP_NAME
+        }
+
+        // Closing the window ends its terminals and commands: ask once, listing all of them.
+        stage.setOnCloseRequest { event ->
+            val warnings = editorArea.tabs.mapNotNull { it.closeWarning }
+            if (warnings.isNotEmpty() && !confirmCloseWindow(stage, warnings)) event.consume()
         }
 
         stage.scene = Scene(root, 1000.0, 700.0)
@@ -160,6 +174,20 @@ class MainWindow(
      */
     internal fun openFolder(folder: Path) {
         if (this.folder == null) projectService.open(folder) else projectWindows.open(folder)
+    }
+
+    private fun showCloseWindowDialog(
+        stage: Stage,
+        warnings: List<String>,
+    ): Boolean {
+        val close = ButtonType("Close", ButtonBar.ButtonData.OK_DONE)
+        val alert =
+            Alert(Alert.AlertType.CONFIRMATION, warnings.joinToString("\n"), close, ButtonType.CANCEL).apply {
+                initOwner(stage)
+                title = "Close Window"
+                headerText = "Close this window anyway?"
+            }
+        return alert.showAndWait().orElse(ButtonType.CANCEL) == close
     }
 
     /** Closes all tabs (ending their terminals) and stops watching the folder; called when the window is closed. */

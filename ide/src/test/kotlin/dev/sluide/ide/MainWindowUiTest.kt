@@ -19,6 +19,7 @@ import dev.sluide.settings.ThemeSettings
 import dev.sluide.settings.ThemedWindows
 import dev.sluide.terminal.Terminals
 import javafx.application.Platform
+import javafx.event.Event
 import javafx.scene.control.Label
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuBar
@@ -28,6 +29,7 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
 import javafx.stage.Stage
+import javafx.stage.WindowEvent
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Tag
@@ -331,6 +333,46 @@ class MainWindowUiTest {
         assertEquals(emptyList(), tabTitles(robot))
         assertEquals(0, terminals.openCount)
         assertEquals(0, fileExplorer.root?.children?.size ?: 0)
+    }
+
+    @Test
+    fun `closing the window asks once while tabs run something, Cancel keeps it open`(robot: FxRobot) {
+        robot.interact { projectService.open(project) }
+        robot.interact { editorArea.open(terminals.open(project, "Job 1", "sleep 300")) }
+        robot.interact { editorArea.open(terminals.open(project, "Job 2", "sleep 300")) }
+        val asked = mutableListOf<List<String>>()
+        var answer = false
+        mainWindow.confirmCloseWindow = { _, warnings ->
+            asked += warnings
+            answer
+        }
+
+        robot.interact { requestClose() }
+        assertEquals(listOf(listOf("Job 1 is still running: sleep 300", "Job 2 is still running: sleep 300")), asked)
+        assertTrue(stage.isShowing)
+        assertEquals(2, terminals.openCount)
+
+        answer = true
+        robot.interact { requestClose() }
+        assertEquals(2, asked.size)
+        assertFalse(stage.isShowing)
+    }
+
+    @Test
+    fun `closing the window does not ask when nothing runs`(robot: FxRobot) {
+        robot.interact { projectService.open(project) }
+        mainWindow.confirmCloseWindow = { _, _ -> error("must not ask") }
+
+        robot.interact { requestClose() }
+
+        assertFalse(stage.isShowing)
+    }
+
+    /** Asks to close the window like its close button does; closes it unless a handler consumes the request. */
+    private fun requestClose() {
+        val event = WindowEvent(stage, WindowEvent.WINDOW_CLOSE_REQUEST)
+        Event.fireEvent(stage, event)
+        if (!event.isConsumed) stage.hide()
     }
 
     @Test
