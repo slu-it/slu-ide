@@ -163,6 +163,13 @@
 .file-marker-modified    { -fx-fill: #1e63c8; }
 .file-marker-ignored     { -fx-fill: #ef8a00; }
 
+/* On the selection bar the markers get a ring in the selection's text colour, so they stand out in both themes. */
+.tree-cell:selected .file-marker {
+    -fx-stroke: -fx-selection-bar-text;
+    -fx-stroke-type: outside;
+    -fx-stroke-width: 1;
+}
+
 @media (prefers-color-scheme: dark) {
     .file-marker-unversioned { -fx-fill: #ef6461; }
     .file-marker-added       { -fx-fill: #5cbf62; }
