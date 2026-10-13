@@ -6,3 +6,4 @@ out/
 .kotlin/
 .claude/settings.local.json
 .DS_Store
+tmp/
