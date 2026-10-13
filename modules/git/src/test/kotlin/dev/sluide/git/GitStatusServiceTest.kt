@@ -1,0 +1,142 @@
+package dev.sluide.git
+
+import dev.sluide.filewatcher.FileWatcher
+import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assumptions.assumeTrue
+import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Path
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
+import kotlin.io.path.createDirectories
+import kotlin.io.path.writeText
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+import kotlin.test.fail
+import kotlin.time.Duration.Companion.milliseconds
+
+/** Runs the real git in a temporary repository; skipped if git is not installed. */
+class GitStatusServiceTest {
+    @TempDir
+    lateinit var repo: Path
+
+    private val git = GitCli("git", testGitEnvironment())
+
+    // Everything dispatched runs on this test's thread, in run(), like on the JavaFX thread.
+    private val dispatched = LinkedBlockingQueue<Runnable>()
+    private val watcher = FileWatcher({ dispatched += it }, 50.milliseconds)
+    private val service = GitStatusService(git, watcher) { dispatched += it }
+
+    @BeforeEach
+    fun createRepository() {
+        assumeTrue(git.available, "git is not installed")
+        git("init", "-q")
+        git("config", "user.name", "Test")
+        git("config", "user.email", "test@example.com")
+        repo.resolve("tracked.kt").writeText("val a = 1\n")
+        repo.resolve(".gitignore").writeText("build/\n*.log\n")
+        git("add", ".")
+        git("commit", "-q", "-m", "Initial commit")
+    }
+
+    @AfterEach
+    fun close() {
+        service.close()
+        watcher.close()
+    }
+
+    private fun git(vararg arguments: String) {
+        val process =
+            ProcessBuilder(listOf("git") + arguments)
+                .directory(repo.toFile())
+                .redirectErrorStream(true)
+                .apply { environment().putAll(testGitEnvironment()) }
+                .start()
+        val output = process.inputStream.readAllBytes().decodeToString()
+        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
+    }
+
+    /** Runs dispatched tasks until [condition] holds. */
+    private fun awaitSnapshot(condition: (GitStatusSnapshot) -> Boolean): GitStatusSnapshot {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
+        while (!condition(service.snapshot.get())) {
+            val remaining = deadline - System.nanoTime()
+            if (remaining <= 0) fail("Timed out; last snapshot: ${service.snapshot.get()}")
+            dispatched.poll(remaining, TimeUnit.NANOSECONDS)?.run()
+        }
+        return service.snapshot.get()
+    }
+
+    @Test
+    fun `reports unversioned, added, modified and ignored files of the opened repository`() {
+        repo.resolve("tracked.kt").writeText("val a = 2\n")
+        repo.resolve("new.kt").writeText("")
+        git("add", "new.kt")
+        repo.resolve("scratch.kt").writeText("")
+        repo.resolve("debug.log").writeText("")
+        repo.resolve("build/libs").createDirectories()
+        repo.resolve("build/libs/app.jar").writeText("")
+
+        service.open(repo)
+        assertTrue(service.active)
+        val snapshot = awaitSnapshot { it.root != null }
+
+        assertEquals(GitStatus.MODIFIED, snapshot.fileStatus(repo.resolve("tracked.kt")))
+        assertEquals(GitStatus.ADDED, snapshot.fileStatus(repo.resolve("new.kt")))
+        assertEquals(GitStatus.UNVERSIONED, snapshot.fileStatus(repo.resolve("scratch.kt")))
+        assertEquals(GitStatus.IGNORED, snapshot.fileStatus(repo.resolve("debug.log")))
+        assertEquals(GitStatus.IGNORED, snapshot.fileStatus(repo.resolve("build/libs/app.jar")))
+        assertEquals(setOf(GitStatus.IGNORED), snapshot.folderStatuses(repo.resolve("build")))
+        assertEquals(
+            listOf(GitStatus.UNVERSIONED, GitStatus.ADDED, GitStatus.MODIFIED),
+            snapshot.folderStatuses(repo).toList(),
+        )
+    }
+
+    @Test
+    fun `changes in the git folder update the status by themselves`() {
+        repo.resolve("new.kt").writeText("")
+        service.open(repo)
+        awaitSnapshot { it.fileStatus(repo.resolve("new.kt")) == GitStatus.UNVERSIONED }
+
+        git("add", "new.kt")
+        awaitSnapshot { it.fileStatus(repo.resolve("new.kt")) == GitStatus.ADDED }
+
+        git("commit", "-q", "-m", "Add new.kt")
+        awaitSnapshot { it.fileStatus(repo.resolve("new.kt")) == null }
+    }
+
+    @Test
+    fun `refresh picks up changes in the working tree`() {
+        service.open(repo)
+        awaitSnapshot { it.root != null }
+
+        repo.resolve("tracked.kt").writeText("val a = 3\n")
+        service.refresh()
+        awaitSnapshot { it.fileStatus(repo.resolve("tracked.kt")) == GitStatus.MODIFIED }
+    }
+
+    @Test
+    fun `folders without a git folder and closing the project follow nothing`() {
+        val plain = repo.resolve("plain").createDirectories()
+        service.open(plain)
+        assertFalse(service.active)
+        assertEquals(GitStatusSnapshot.EMPTY, service.snapshot.get())
+
+        service.open(repo)
+        awaitSnapshot { it.root != null }
+        service.open(null)
+        assertFalse(service.active)
+        assertEquals(GitStatusSnapshot.EMPTY, service.snapshot.get())
+    }
+
+    @Test
+    fun `without git nothing is followed`() {
+        val noGit = GitStatusService(GitCli(repo.resolve("no-such-git").toString(), System.getenv()), watcher) {}
+        noGit.open(repo)
+        assertFalse(noGit.active)
+        noGit.close()
+    }
+}
