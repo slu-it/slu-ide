@@ -25,6 +25,10 @@
 - Open files are watched ([file-watching.md](file-watching.md)). When a file changes on disk, its tab reloads and
   keeps its scroll position and caret (`FileView.reload`). When the file is deleted, renamed away or can no longer
   be shown (e.g. it became binary), its tab closes.
+- Diffs ([git-diff.md](git-diff.md)): `diffOf(path)` returns a `TextDiff` for files to show side by side with their
+  original (`FileViewers.openDiff`), `null` for the normal view. It is asked when a file is opened, when it changes on
+  disk and for all open files on `refreshDiffs()`; a tab then swaps between diff and normal view in place
+  (`OpenFile.view`, inside a stable content node), keeping its position and selection.
 - Every window has its own editor area ([open-folder.md](open-folder.md)).
 - When the tabs do not fit, ‹ and › buttons appear. They scroll the tab row one tab at a time without changing the
   selection. A ▾ dropdown lists every tab that is cut off or out of view, and choosing one selects it and scrolls it

@@ -1,6 +1,9 @@
 package dev.sluide.editor
 
+import dev.sluide.fileviewers.DiffFileView
+import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewers
+import dev.sluide.fileviewers.TextDiff
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
@@ -19,7 +22,7 @@ import java.nio.file.Path
 /**
  * Central area showing open files read-only, one tab per file, and other [EditorTab]s such as terminals. Open files
  * are watched: a tab reloads when its file changes on disk and closes when the file is deleted or can no longer be
- * shown (e.g. it became binary).
+ * shown (e.g. it became binary). Files with a diff ([diffOf]) are shown side by side with their original instead.
  */
 @Component
 // One instance per IDE window (the "window" scope of the ide module, ADR 0014).
@@ -38,6 +41,12 @@ class EditorArea(
      */
     var confirmClose: (warnings: List<String>) -> Boolean = ::showCloseDialog
     private val watches = mutableMapOf<EditorTab, AutoCloseable>()
+
+    /**
+     * The diff of a file against its original (e.g. the last commit) if it is to be shown as a diff, `null` to show it
+     * normally (ADR 0015). Asked when a file is opened, when it changes on disk and on [refreshDiffs].
+     */
+    var diffOf: (Path) -> TextDiff? = { null }
 
     /** The editor font as CSS; file views inherit it from their node. */
     private val editorCss = fontSettings.font(FontArea.EDITOR).map(FontSpec::toCss)
@@ -85,12 +94,20 @@ class EditorArea(
         val viewer = fileViewers.viewerFor(path) ?: return false
         val view =
             try {
-                viewer.open(path)
+                diffOf(path)?.let { fileViewers.openDiff(path, it) } ?: viewer.open(path)
             } catch (_: IOException) {
                 return false
             }
         watch(editorTabs.open(path, view))
         return true
+    }
+
+    /**
+     * Asks [diffOf] again for every open file: files get a diff view or the normal one as needed, diff views show the
+     * new diff. Call it when the answers may have changed (e.g. a commit).
+     */
+    fun refreshDiffs() {
+        editorTabs.files.forEach { if (fileViewers.viewerFor(it.path) != null) updateView(it) }
     }
 
     /** Adds [tab] after the open tabs and selects it. Its [EditorTab.dispose] is called when it is closed. */
@@ -113,14 +130,32 @@ class EditorArea(
             editorTabs.close(openFile)
             return
         }
-        try {
-            openFile.view.reload()
-        } catch (_: IOException) {
-            // Keep showing the last content; the next change will try again.
-        }
+        updateView(openFile)
         // Renew the watch: the folder may have been deleted and recreated, which ends the old one.
         watch(openFile)
     }
+
+    /** Shows the file's current content, swapping between diff and normal view as [diffOf] says. */
+    private fun updateView(openFile: OpenFile) {
+        val path = openFile.path
+        try {
+            val diff = diffOf(path)
+            when (val view = openFile.view) {
+                is DiffFileView -> {
+                    if (diff != null) view.show(diff) else openFile.view = normalView(path) ?: return
+                }
+
+                else -> {
+                    val diffView = diff?.let { fileViewers.openDiff(path, it) }
+                    if (diffView != null) openFile.view = diffView else view.reload()
+                }
+            }
+        } catch (_: IOException) {
+            // Keep showing the last content; the next change will try again.
+        }
+    }
+
+    private fun normalView(path: Path): FileView? = fileViewers.viewerFor(path)?.open(path)
 
     private fun showCloseDialog(warnings: List<String>): Boolean {
         val close = ButtonType("Close", ButtonBar.ButtonData.OK_DONE)

@@ -21,4 +21,6 @@ dependencies {
 
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
+    // Diff views are RichTextFX code areas; the tests read their text.
+    testImplementation(libs.richtextfx)
 }

@@ -2,7 +2,9 @@ package dev.sluide.editor
 
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
+import dev.sluide.fileviewers.LineChange
 import dev.sluide.fileviewers.PythonFileViewer
+import dev.sluide.fileviewers.TextDiff
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
@@ -22,6 +24,7 @@ import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.stage.Stage
+import org.fxmisc.richtext.CodeArea
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -389,6 +392,54 @@ class EditorAreaUiTest {
 
         eventually(robot) { assertEquals("second", shownText(robot)) }
         assertEquals(a, editor.selectedPath)
+    }
+
+    /** The texts of the code areas of the shown diff, left to right; empty if no diff is shown. */
+    private fun shownDiff(robot: FxRobot): List<String> =
+        robot
+            .lookup(".editor-content .diff-view .code-area")
+            .queryAllAs(CodeArea::class.java)
+            .sortedBy { it.localToScene(0.0, 0.0).x }
+            .map { it.text }
+
+    @Test
+    fun `files with a diff open side by side and switch views when the diff comes or goes`(robot: FxRobot) {
+        val a = textFile("a.txt", "new\n")
+        var diff: TextDiff? = TextDiff("old\n", listOf(LineChange(0..0, 0..0)))
+        editor.diffOf = { diff }
+        open(robot, a)
+        val tab = editor.selectedTab
+
+        assertEquals(listOf("old", "new"), shownDiff(robot))
+        assertNull(shownText(robot))
+
+        diff = null
+        robot.interact { editor.refreshDiffs() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(emptyList(), shownDiff(robot))
+        assertEquals("new\n", shownText(robot))
+
+        diff = TextDiff("older\n", listOf(LineChange(0..0, 0..0)))
+        robot.interact { editor.refreshDiffs() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(listOf("older", "new"), shownDiff(robot))
+        assertSame(tab, editor.selectedTab)
+        assertEquals(listOf(a), editor.openPaths)
+    }
+
+    @Test
+    fun `an edit on disk asks for the diff again`(robot: FxRobot) {
+        val a = textFile("a.txt", "one\n")
+        editor.diffOf = { path ->
+            val changed = path.toFile().readText() != "one\n"
+            TextDiff("one\n", if (changed) listOf(LineChange(0..0, 0..0)) else emptyList())
+        }
+        open(robot, a)
+        assertEquals(listOf("one", "one"), shownDiff(robot))
+
+        a.writeText("two\n")
+
+        eventually(robot) { assertEquals(listOf("one", "two"), shownDiff(robot)) }
     }
 
     @Test

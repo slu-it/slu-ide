@@ -8,6 +8,7 @@ import javafx.beans.value.ObservableValue
 import javafx.collections.FXCollections
 import javafx.collections.ObservableList
 import javafx.scene.Node
+import javafx.scene.layout.StackPane
 import java.nio.file.Path
 
 /** Something shown in a tab of the editor area: an open file, a terminal, … */
@@ -31,10 +32,13 @@ interface EditorTab {
     fun dispose() {}
 }
 
-/** A file shown in a tab together with the view that displays it. */
+/**
+ * A file shown in a tab together with the view that displays it. The view can be replaced (e.g. by a diff view) while
+ * the tab and its [content] stay the same.
+ */
 internal class OpenFile(
     val path: Path,
-    val view: FileView,
+    view: FileView,
 ) : EditorTab {
     val name: String get() = (path.fileName ?: path).toString()
 
@@ -42,7 +46,13 @@ internal class OpenFile(
 
     override val tooltip: String get() = path.toString()
 
-    override val content: Node get() = view.node
+    override val content = StackPane(view.node)
+
+    var view: FileView = view
+        set(value) {
+            field = value
+            content.children.setAll(value.node)
+        }
 }
 
 /** The tabs open in the editor area, in tab order, and the selected one. */
