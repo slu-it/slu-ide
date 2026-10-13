@@ -1,6 +1,11 @@
 package dev.sluide.fileexplorer
 
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.settings.FontArea
+import dev.sluide.settings.FontSettings
+import dev.sluide.settings.FontSpec
+import dev.sluide.settings.FontStyle
+import dev.sluide.settings.SettingsStore
 import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.Scene
@@ -38,12 +43,18 @@ class FileExplorerViewUiTest {
     @TempDir
     lateinit var project: Path
 
+    @TempDir
+    lateinit var settingsDir: Path
+
     private lateinit var view: FileExplorerView
+    private lateinit var fontSettings: FontSettings
     private val watcher = FileWatcher(Platform::runLater, 50.milliseconds)
 
     @Start
     fun start(stage: Stage) {
-        view = FileExplorerView(watcher)
+        fontSettings =
+            FontSettings(SettingsStore(settingsDir.resolve("settings.properties")), FontSettings.systemDefaults())
+        view = FileExplorerView(watcher, fontSettings)
         stage.scene = Scene(view, 400.0, 600.0)
         stage.show()
     }
@@ -216,7 +227,7 @@ class FileExplorerViewUiTest {
         val unwatched = FileWatcher(Platform::runLater, 50.milliseconds).apply { close() }
         lateinit var manual: FileExplorerView
         robot.interact {
-            manual = FileExplorerView(unwatched)
+            manual = FileExplorerView(unwatched, fontSettings)
             view.scene.root = manual
             manual.open(project)
         }
@@ -235,7 +246,7 @@ class FileExplorerViewUiTest {
         val unwatched = FileWatcher(Platform::runLater, 50.milliseconds).apply { close() }
         lateinit var manual: FileExplorerView
         robot.interact {
-            manual = FileExplorerView(unwatched)
+            manual = FileExplorerView(unwatched, fontSettings)
             view.scene.root = manual
             manual.open(project)
         }
@@ -294,5 +305,24 @@ class FileExplorerViewUiTest {
                 Thread.sleep(50)
             }
         }
+    }
+
+    @Test
+    fun `the tree uses the explorer font and follows its changes`(robot: FxRobot) {
+        project.resolve("README.md").createFile()
+        robot.interact { view.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        robot.interact { fontSettings.apply(mapOf(FontArea.EXPLORER to FontSpec("Serif", 19.0, FontStyle.BOLD))) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val cell =
+            robot
+                .lookup(".tree-cell")
+                .queryAllAs(TreeCell::class.java)
+                .first { it.text == "README.md" }
+        assertEquals(19.0, cell.font.size)
+        assertEquals("Serif", cell.font.family)
+        assertTrue("Bold" in cell.font.style, cell.font.style)
     }
 }

@@ -2,7 +2,13 @@ package dev.sluide.editor
 
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
+import dev.sluide.fileviewers.PythonFileViewer
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.settings.FontArea
+import dev.sluide.settings.FontSettings
+import dev.sluide.settings.FontSpec
+import dev.sluide.settings.FontStyle
+import dev.sluide.settings.SettingsStore
 import javafx.application.Platform
 import javafx.beans.property.SimpleStringProperty
 import javafx.event.Event
@@ -46,8 +52,12 @@ class EditorAreaUiTest {
     @TempDir
     lateinit var dir: Path
 
+    @TempDir
+    lateinit var settingsDir: Path
+
     private lateinit var stage: Stage
     private lateinit var editor: EditorArea
+    private lateinit var fontSettings: FontSettings
     private val watcher = FileWatcher(Platform::runLater, 50.milliseconds)
 
     @AfterEach
@@ -57,7 +67,9 @@ class EditorAreaUiTest {
     fun start(stage: Stage) {
         this.stage = stage
         val fallback = DefaultTextFileViewer()
-        editor = EditorArea(FileViewers(listOf(fallback), fallback), watcher)
+        fontSettings =
+            FontSettings(SettingsStore(settingsDir.resolve("settings.properties")), FontSettings.systemDefaults())
+        editor = EditorArea(FileViewers(listOf(fallback, PythonFileViewer()), fallback), watcher, fontSettings)
         stage.scene = Scene(editor, 800.0, 400.0)
         stage.show()
     }
@@ -540,6 +552,34 @@ class EditorAreaUiTest {
         robot.interact { editor.closeAll() }
         assertEquals(emptyList(), tabTitles(robot))
         assertEquals(1, asked.size, "closing all for another folder does not ask")
+    }
+
+    @Test
+    fun `open text and code views use the editor font and follow its changes`(robot: FxRobot) {
+        val text = textFile("notes.txt")
+        val code = textFile("main.py", "print(1)")
+        open(robot, text, code)
+        val serif = FontSpec("Serif", 21.0, FontStyle.ITALIC)
+
+        robot.interact { fontSettings.apply(mapOf(FontArea.EDITOR to serif)) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val codeText =
+            robot
+                .lookup(".editor-content .code-area .text")
+                .queryAllAs(javafx.scene.text.Text::class.java)
+                .first { it.text.contains("print") }
+        assertEquals(21.0, codeText.font.size, "code view text inherits the size")
+        assertEquals("Serif", codeText.font.family)
+        robot.interact { editor.editorTabs.select(checkNotNull(editor.editorTabs.find(text))) }
+        WaitForAsyncUtils.waitForFxEvents()
+        val area = robot.lookup(".editor-content .text-area").queryAs(TextArea::class.java)
+        assertEquals(21.0, area.font.size)
+        assertTrue("Italic" in area.font.style || "Oblique" in area.font.style, area.font.style)
+
+        val closed = checkNotNull(editor.editorTabs.find(text))
+        robot.interact { editor.editorTabs.close(closed) }
+        assertFalse(closed.content.styleProperty().isBound, "closed views are unbound")
     }
 
     /** Repeats [assertion] on the FX thread until it passes; the JDK may poll for file changes on macOS. */

@@ -1,14 +1,14 @@
-/* Syntax colours for CodeFileViewer; class names come from TokenStyle. */
+/* Syntax colours for CodeFileViewer; class names come from TokenStyle. The font is inherited from the view's node. */
 
 .code-view .code-area {
-    -fx-font-family: "Monospaced";
+    /* RichTextFX's own stylesheet sets a monospace family on .code-area; take the font from the view instead. */
+    -fx-font-family: inherit;
     -fx-background-color: -fx-control-inner-background;
 }
 
 .code-view .lineno {
     -fx-background-color: derive(-fx-control-inner-background, -4%);
     -fx-text-fill: #999999;
-    -fx-font-family: "Monospaced";
     -fx-font-style: normal;
     -fx-padding: 0 8 0 4;
 }

@@ -1,6 +1,9 @@
 package dev.sluide.fileexplorer
 
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.settings.FontArea
+import dev.sluide.settings.FontSettings
+import dev.sluide.settings.FontSpec
 import javafx.scene.control.ContextMenu
 import javafx.scene.control.MenuItem
 import javafx.scene.control.TreeCell
@@ -19,6 +22,7 @@ import java.nio.file.Path
 @Component
 class FileExplorerView(
     private val fileWatcher: FileWatcher,
+    fontSettings: FontSettings,
 ) : TreeView<Path>() {
     /** Called with a file the user wants to open (double-click or Enter). Never called for folders. */
     var onOpenFile: ((Path) -> Unit)? = null
@@ -27,6 +31,8 @@ class FileExplorerView(
 
     init {
         setCellFactory { PathCell() }
+        // The cells inherit the font.
+        styleProperty().bind(fontSettings.font(FontArea.EXPLORER).map(FontSpec::toCss))
         addEventHandler(KeyEvent.KEY_PRESSED) { event ->
             val selected = selectionModel.selectedItem?.value
             when {

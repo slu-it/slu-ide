@@ -5,6 +5,8 @@ import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.settings.FontSettings
+import dev.sluide.settings.SettingsStore
 import dev.sluide.terminal.Terminals
 import javafx.application.Platform
 import javafx.scene.control.Label
@@ -43,11 +45,15 @@ class MainWindowUiTest {
     @TempDir
     lateinit var otherProject: Path
 
+    @TempDir
+    lateinit var settingsDir: Path
+
     private val projectService = ProjectService()
     private lateinit var stage: Stage
     private lateinit var fileExplorer: FileExplorerView
     private lateinit var editorArea: EditorArea
     private lateinit var mainWindow: MainWindow
+    private lateinit var fontSettings: FontSettings
     private val watcher = FileWatcher(Platform::runLater, 50.milliseconds)
     private val terminals = Terminals()
 
@@ -60,9 +66,11 @@ class MainWindowUiTest {
     @Start
     fun start(stage: Stage) {
         this.stage = stage
-        fileExplorer = FileExplorerView(watcher)
+        fontSettings =
+            FontSettings(SettingsStore(settingsDir.resolve("settings.properties")), FontSettings.systemDefaults())
+        fileExplorer = FileExplorerView(watcher, fontSettings)
         val fallback = DefaultTextFileViewer()
-        editorArea = EditorArea(FileViewers(listOf(fallback), fallback), watcher)
+        editorArea = EditorArea(FileViewers(listOf(fallback), fallback), watcher, fontSettings)
         mainWindow = MainWindow(projectService, fileExplorer, editorArea, terminals)
         mainWindow.show(stage)
     }

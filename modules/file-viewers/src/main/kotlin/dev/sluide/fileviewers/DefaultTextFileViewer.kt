@@ -2,7 +2,6 @@ package dev.sluide.fileviewers
 
 import javafx.scene.Node
 import javafx.scene.control.TextArea
-import javafx.scene.text.Font
 import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path
@@ -19,10 +18,7 @@ class DefaultTextFileViewer : FileViewer {
         private val file: Path,
     ) : FileView {
         private val area =
-            TextArea(file.readText()).apply {
-                isEditable = false
-                font = Font.font("Monospaced", font.size)
-            }
+            TextArea(file.readText()).apply { isEditable = false }
 
         override val node: Node get() = area
 

@@ -13,6 +13,8 @@ javafx {
 dependencies {
     // Deliberate module API dependency: loaded folders are watched for changes (ADR 0006).
     api(project(":modules:file-watcher"))
+    // Deliberate module API dependency: the tree uses the explorer font from the settings (ADR 0008).
+    api(project(":modules:settings"))
     implementation(libs.spring.context)
 
     testImplementation(libs.testfx.core)

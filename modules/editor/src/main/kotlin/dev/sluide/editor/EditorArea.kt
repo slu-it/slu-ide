@@ -2,6 +2,9 @@ package dev.sluide.editor
 
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.settings.FontArea
+import dev.sluide.settings.FontSettings
+import dev.sluide.settings.FontSpec
 import javafx.collections.ListChangeListener
 import javafx.scene.control.Alert
 import javafx.scene.control.ButtonBar
@@ -21,6 +24,7 @@ import java.nio.file.Path
 class EditorArea(
     private val fileViewers: FileViewers,
     private val fileWatcher: FileWatcher,
+    fontSettings: FontSettings,
 ) : BorderPane() {
     internal val editorTabs = EditorTabs()
     internal val tabStrip = TabStrip(editorTabs) { warnings -> confirmClose(warnings) }
@@ -32,11 +36,26 @@ class EditorArea(
     var confirmClose: (warnings: List<String>) -> Boolean = ::showCloseDialog
     private val watches = mutableMapOf<EditorTab, AutoCloseable>()
 
+    /** The editor font as CSS; file views inherit it from their node. */
+    private val editorCss = fontSettings.font(FontArea.EDITOR).map(FontSpec::toCss)
+
     init {
-        // Every way of closing a tab removes it from the list, so this ends all watches.
+        // Every way of opening or closing a tab changes the list: file views get the editor font, closed ones lose
+        // their watch and font binding.
         editorTabs.tabs.addListener(
             ListChangeListener { change ->
-                while (change.next()) change.removed.forEach { watches.remove(it)?.close() }
+                while (change.next()) {
+                    change.removed.forEach { tab ->
+                        watches.remove(tab)?.close()
+                        // Unbinding also lets the shared font binding forget the closed view.
+                        if (tab is OpenFile) tab.content.styleProperty().unbind()
+                    }
+                    change.addedSubList.filterIsInstance<OpenFile>().forEach {
+                        it.content.styleProperty().bind(
+                            editorCss,
+                        )
+                    }
+                }
             },
         )
         styleClass += "editor-area"
