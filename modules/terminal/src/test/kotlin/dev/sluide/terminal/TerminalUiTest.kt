@@ -264,7 +264,7 @@ class TerminalUiTest {
             root.children.setAll(job.content)
         }
 
-        assertEquals("Job 1 is still running sleep 300.", job.closeWarning)
+        assertEquals("Job 1 is still running: sleep 300", job.closeWarning)
         eventually {
             assertTrue(quick.view.exited.get())
             assertEquals(null, quick.closeWarning)

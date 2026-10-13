@@ -15,7 +15,7 @@
 - While the shell runs programs (foreground or background jobs), closing the tab from the UI (×, middle click,
   context menu) asks first: "Terminal 1 is still running java." Cancel keeps the tab. Tabs that run a command
   (`Terminals.open(folder, name, command)`, e.g. Docker sandboxes) ask as long as the command runs ("Claude Code 1 is
-  still running sbx run claude ."): the login shell runs the command in its own process, so there are no child
+  still running: sbx run claude ."): the login shell runs the command in its own process, so there are no child
   programs to look for. Opening another project folder
   closes all tabs without asking, and quitting SluIde ends all shells without asking (`Terminals` is closed with the
   Spring context).

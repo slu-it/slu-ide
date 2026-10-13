@@ -28,7 +28,7 @@ internal class TerminalTab(
      */
     override val closeWarning: String?
         get() {
-            if (command != null) return if (view.session.isAlive) "$name is still running $command." else null
+            if (command != null) return if (view.session.isAlive) "$name is still running: $command" else null
             return view.session
                 .runningPrograms()
                 .distinct()
