@@ -12,6 +12,8 @@ import dev.sluide.settings.FontsPage
 import dev.sluide.settings.SettingsDialog
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.SettingsStore
+import dev.sluide.settings.ThemeSettings
+import dev.sluide.settings.ThemedWindows
 import dev.sluide.terminal.Terminals
 import javafx.application.Platform
 import javafx.scene.control.Label
@@ -84,6 +86,7 @@ class MainWindowUiTest {
                 editorArea,
                 terminals,
                 SettingsPages(listOf(FontsPage(fontSettings))),
+                ThemedWindows(ThemeSettings(SettingsStore(settingsDir.resolve("settings.properties")))),
             )
         mainWindow.show(stage)
     }

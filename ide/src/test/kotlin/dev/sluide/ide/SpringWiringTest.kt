@@ -11,6 +11,8 @@ import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontsPage
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.SettingsStore
+import dev.sluide.settings.ThemeSettings
+import dev.sluide.settings.ThemedWindows
 import dev.sluide.terminal.Terminals
 import org.springframework.boot.WebApplicationType
 import org.springframework.boot.builder.SpringApplicationBuilder
@@ -45,6 +47,8 @@ class SpringWiringTest {
                         SettingsStore::class.java,
                         SettingsPages::class.java,
                         FontsPage::class.java,
+                        ThemeSettings::class.java,
+                        ThemedWindows::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")

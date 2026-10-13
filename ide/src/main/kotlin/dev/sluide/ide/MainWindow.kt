@@ -4,6 +4,7 @@ import dev.sluide.editor.EditorArea
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.settings.SettingsDialog
 import dev.sluide.settings.SettingsPages
+import dev.sluide.settings.ThemedWindows
 import dev.sluide.terminal.Terminals
 import javafx.scene.Scene
 import javafx.scene.control.Menu
@@ -30,11 +31,13 @@ class MainWindow(
     private val editorArea: EditorArea,
     private val terminals: Terminals,
     private val settingsPages: SettingsPages,
+    private val themedWindows: ThemedWindows,
 ) {
     /** Shows the settings dialog and waits until it is closed; tests replace it, since it blocks. */
     internal var showSettings: (Stage) -> Unit = { stage -> SettingsDialog(settingsPages.pages, stage).showAndWait() }
 
     fun show(stage: Stage) {
+        themedWindows.install()
         val root =
             BorderPane().apply {
                 top = MenuBar(fileMenu(stage), terminalMenu())
