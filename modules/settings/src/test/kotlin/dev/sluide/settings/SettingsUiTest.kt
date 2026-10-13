@@ -1,8 +1,12 @@
 package dev.sluide.settings
 
+import javafx.event.Event
+import javafx.scene.Node
 import javafx.scene.control.Button
 import javafx.scene.control.ButtonType
 import javafx.scene.control.Label
+import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyEvent
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
@@ -186,6 +190,28 @@ class SettingsUiTest {
         assertEquals(defaults[FontArea.TERMINAL], fontsPage.model.draft(FontArea.TERMINAL).get())
         close(robot, dialog, ButtonType.CANCEL)
     }
+
+    @Test
+    fun `enter in a typed font name or size commits it and keeps the dialog open`(robot: FxRobot) {
+        val dialog = open(robot, fontsPage)
+        val editor = fontsPage.rows.getValue(FontArea.EDITOR)
+
+        robot.interact {
+            editor.family.editor.text = "Serif"
+            enter(editor.family)
+            editor.size.editor.text = "17"
+            enter(editor.size)
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertTrue(dialog.isShowing)
+        assertEquals(FontSpec("Serif", 17.0), fontsPage.model.draft(FontArea.EDITOR).get())
+        assertEquals(defaults[FontArea.EDITOR], settings.font(FontArea.EDITOR).get(), "not applied by Enter")
+        close(robot, dialog, ButtonType.CANCEL)
+    }
+
+    private fun enter(node: Node) =
+        Event.fireEvent(node, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.ENTER, false, false, false, false))
 
     @Test
     fun `fonts have the chosen weight and posture`(robot: FxRobot) {

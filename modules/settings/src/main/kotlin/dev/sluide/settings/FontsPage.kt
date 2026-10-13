@@ -10,6 +10,8 @@ import javafx.scene.control.SpinnerValueFactory
 import javafx.scene.control.TextArea
 import javafx.scene.control.TreeItem
 import javafx.scene.control.TreeView
+import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyEvent
 import javafx.scene.layout.GridPane
 import javafx.scene.layout.Priority
 import javafx.scene.layout.VBox
@@ -124,6 +126,19 @@ class FontsPage(
             }
         val style = ComboBox<FontStyle>().apply { items.setAll(FontStyle.entries) }
         val restore = Button("Restore Defaults").apply { setOnAction { model.restoreDefaults(area) } }
+        // Enter commits a typed value; without this it would also press the dialog's default button (OK).
+        family.addEventFilter(KeyEvent.KEY_PRESSED) { event ->
+            if (event.code == KeyCode.ENTER) {
+                family.commitValue()
+                event.consume()
+            }
+        }
+        size.addEventFilter(KeyEvent.KEY_PRESSED) { event ->
+            if (event.code == KeyCode.ENTER) {
+                size.commitValue()
+                event.consume()
+            }
+        }
 
         // Controls → draft. Unknown family names typed into the box are not taken.
         var updating = false
@@ -208,15 +223,13 @@ class FontsPage(
         }
         val regular =
             listOf(
-                text(" ~/my-project\n", Color.web("#d4d4d4")),
-                text("total 3  README.md  build.gradle.kts  src\n", Color.web("#d4d4d4")),
+                text(":~/my-project$ ls\n", Color.web("#d4d4d4")),
+                text("README.md  build.gradle.kts  src\n", Color.web("#d4d4d4")),
             )
         terminalPreview = regular
         return TextFlow(
             text("user@host", Color.web("#00cd00")),
             regular[0],
-            text("$ ", Color.web("#d4d4d4")),
-            text("ls\n", Color.web("#d4d4d4")),
             regular[1],
             text("BUILD SUCCESSFUL", Color.web("#cd0000"), bold = true),
         ).apply {

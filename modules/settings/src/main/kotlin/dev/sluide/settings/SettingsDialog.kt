@@ -29,7 +29,11 @@ class SettingsDialog(
     }
 
     val apply = ButtonType("Apply", ButtonBar.ButtonData.APPLY)
-    internal val tree = TreeView(TreeItem(Entry("Settings", null))).apply { isShowRoot = false }
+    internal val tree =
+        TreeView(TreeItem(Entry("Settings", null))).apply {
+            isShowRoot = false
+            minWidth = 160.0
+        }
     private val pageTitle = Label().apply { styleClass += "settings-page-title" }
     private val content = StackPane()
 
