@@ -23,6 +23,7 @@ dependencies {
     implementation(project(":modules:file-watcher"))
     implementation(project(":modules:terminal"))
     implementation(project(":modules:settings"))
+    implementation(project(":modules:docker-sandbox"))
 
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)

@@ -1,5 +1,8 @@
 package dev.sluide.ide
 
+import dev.sluide.dockersandbox.DockerSandbox
+import dev.sluide.dockersandbox.SandboxAction
+import dev.sluide.dockersandbox.SandboxNotAllowedException
 import dev.sluide.editor.EditorArea
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.settings.SettingsDialog
@@ -7,6 +10,7 @@ import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.ThemedWindows
 import dev.sluide.terminal.Terminals
 import javafx.scene.Scene
+import javafx.scene.control.Alert
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuBar
 import javafx.scene.control.MenuItem
@@ -30,17 +34,27 @@ class MainWindow(
     private val fileExplorer: FileExplorerView,
     private val editorArea: EditorArea,
     private val terminals: Terminals,
+    private val dockerSandbox: DockerSandbox,
     private val settingsPages: SettingsPages,
     private val themedWindows: ThemedWindows,
 ) {
     /** Shows the settings dialog and waits until it is closed; tests replace it, since it blocks. */
     internal var showSettings: (Stage) -> Unit = { stage -> SettingsDialog(settingsPages.pages, stage).showAndWait() }
 
+    /** Shows an error message and waits until it is closed; tests replace it, since it blocks. */
+    internal var showError: (Stage, String) -> Unit = { stage, message ->
+        Alert(Alert.AlertType.ERROR, message)
+            .apply {
+                initOwner(stage)
+                headerText = null
+            }.showAndWait()
+    }
+
     fun show(stage: Stage) {
         themedWindows.install()
         val root =
             BorderPane().apply {
-                top = MenuBar(fileMenu(stage), terminalMenu())
+                top = MenuBar(fileMenu(stage), terminalMenu(), dockerSandboxMenu(stage))
                 center = SplitPane(fileExplorer, editorArea).apply { setDividerPositions(0.25) }
             }
 
@@ -85,6 +99,37 @@ class MainWindow(
     internal fun openTerminal() {
         val folder = projectService.projectFolder.get() ?: Path.of(System.getProperty("user.home"))
         editorArea.open(terminals.open(folder))
+    }
+
+    /** The sandbox actions; each is enabled only where it may run, which is checked again when it is started. */
+    private fun dockerSandboxMenu(stage: Stage): Menu {
+        val items =
+            SandboxAction.entries.associateWith { action ->
+                MenuItem(action.title).apply { setOnAction { openSandbox(stage, action) } }
+            }
+
+        fun updateItems() =
+            items.forEach { (action, item) ->
+                item.isDisable = dockerSandbox.problem(action, projectService.projectFolder.get()) != null
+            }
+        projectService.projectFolder.subscribe { _ -> updateItems() }
+        return Menu("Docker Sandbox", null, *items.values.toTypedArray()).apply {
+            // Also picks up an sbxenv.yaml created or deleted since the folder was opened.
+            setOnShowing { updateItems() }
+        }
+    }
+
+    private fun openSandbox(
+        stage: Stage,
+        action: SandboxAction,
+    ) {
+        val folder = projectService.projectFolder.get()
+        try {
+            if (folder == null) throw SandboxNotAllowedException("No folder is open.")
+            editorArea.open(dockerSandbox.open(action, folder))
+        } catch (e: SandboxNotAllowedException) {
+            showError(stage, "${action.title} cannot be started. ${e.message}")
+        }
     }
 
     private fun chooseFolder(stage: Stage) {

@@ -1,5 +1,6 @@
 package dev.sluide.ide
 
+import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editor.EditorArea
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.DefaultTextFileViewer
@@ -40,6 +41,7 @@ import kotlin.io.path.name
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 
 /** Shows the real main window. Needs a display, see the `uiTest` Gradle task. */
@@ -54,6 +56,10 @@ class MainWindowUiTest {
 
     @TempDir
     lateinit var settingsDir: Path
+
+    /** The home folder of the Docker sandboxes; `project` and `otherProject` are not below it. */
+    @TempDir
+    lateinit var home: Path
 
     private val projectService = ProjectService()
     private lateinit var stage: Stage
@@ -85,6 +91,7 @@ class MainWindowUiTest {
                 fileExplorer,
                 editorArea,
                 terminals,
+                DockerSandbox(terminals, home, System.getenv()),
                 SettingsPages(listOf(FontsPage(fontSettings))),
                 ThemedWindows(ThemeSettings(SettingsStore(settingsDir.resolve("settings.properties")))),
             )
@@ -229,6 +236,54 @@ class MainWindowUiTest {
         assertEquals(emptyList(), tabTitles(robot))
         assertEquals(0, terminals.openCount)
     }
+
+    @Test
+    fun `offers Docker Sandbox - Claude Code and Environment, disabled without a folder`(robot: FxRobot) {
+        val items = sandboxItems(robot)
+
+        assertEquals(listOf("Claude Code", "Environment"), items.map { it.text })
+        assertEquals(listOf(true, true), items.map { it.isDisable })
+    }
+
+    @Test
+    fun `the sandbox actions are disabled for the home folder and folders not below it`(robot: FxRobot) {
+        home.resolve("sbxenv.yaml").createFile()
+        project.resolve("sbxenv.yaml").createFile()
+
+        for (folder in listOf(home, project)) {
+            robot.interact { projectService.open(folder) }
+            assertEquals(listOf(true, true), sandboxItems(robot).map { it.isDisable }, "$folder")
+        }
+    }
+
+    @Test
+    fun `Environment is enabled below the home folder once the folder has an sbxenv yaml`(robot: FxRobot) {
+        val folder = home.resolve("work/project").createDirectories()
+        robot.interact { projectService.open(folder) }
+        assertEquals(listOf(false, true), sandboxItems(robot).map { it.isDisable })
+
+        folder.resolve("sbxenv.yaml").createFile()
+        robot.interact { menu(robot, "Docker Sandbox").onShowing.handle(null) }
+
+        assertEquals(listOf(false, false), sandboxItems(robot).map { it.isDisable })
+    }
+
+    @Test
+    fun `starting a sandbox where it may not run shows an error and opens no tab`(robot: FxRobot) {
+        val errors = mutableListOf<String>()
+        mainWindow.showError = { _, message -> errors += message }
+        robot.interact { projectService.open(home) }
+
+        // Fired directly: the menu would not offer it, the start is checked again.
+        robot.interact { sandboxItems(robot).first().fire() }
+
+        assertEquals(1, errors.size)
+        assertTrue(errors.single().startsWith("Claude Code cannot be started. Docker sandboxes run only"), errors[0])
+        assertEquals(emptyList(), tabTitles(robot))
+        assertEquals(0, terminals.openCount)
+    }
+
+    private fun sandboxItems(robot: FxRobot) = menu(robot, "Docker Sandbox").items.toList()
 
     private fun menu(
         robot: FxRobot,
