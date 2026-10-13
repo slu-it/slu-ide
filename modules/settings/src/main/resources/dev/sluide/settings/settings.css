@@ -1,0 +1,23 @@
+.settings-page {
+    -fx-padding: 12;
+}
+
+.settings-page-title {
+    -fx-font-size: 1.3em;
+    -fx-font-weight: bold;
+    -fx-padding: 0 0 12 0;
+}
+
+.fonts-page .section-title {
+    -fx-font-weight: bold;
+    -fx-padding: 8 0 0 0;
+}
+
+.fonts-page .preview-caption {
+    -fx-text-fill: derive(-fx-text-base-color, 40%);
+}
+
+.fonts-page .terminal-preview {
+    -fx-background-color: #1e1e1e;
+    -fx-padding: 6;
+}

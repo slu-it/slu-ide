@@ -1,0 +1,200 @@
+package dev.sluide.settings
+
+import javafx.scene.control.Button
+import javafx.scene.control.ButtonType
+import javafx.scene.control.Label
+import javafx.scene.layout.StackPane
+import javafx.stage.Stage
+import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.api.io.TempDir
+import org.testfx.api.FxRobot
+import org.testfx.framework.junit5.ApplicationExtension
+import org.testfx.framework.junit5.Start
+import org.testfx.util.WaitForAsyncUtils
+import java.nio.file.Path
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertSame
+import kotlin.test.assertTrue
+
+/** Shows the settings dialog with the real Fonts page. Needs a display, see the `uiTest` Gradle task. */
+@Tag("ui")
+@ExtendWith(ApplicationExtension::class)
+class SettingsUiTest {
+    @TempDir
+    lateinit var dir: Path
+
+    private lateinit var stage: Stage
+    private val defaults =
+        mapOf(
+            FontArea.EXPLORER to FontSpec("System", 13.0),
+            FontArea.EDITOR to FontSpec("Monospaced", 13.0),
+            FontArea.TERMINAL to FontSpec("Monospaced", 14.0),
+        )
+    private val settings by lazy { FontSettings(SettingsStore(dir.resolve("settings.properties")), defaults) }
+    private val fontsPage by lazy { FontsPage(settings) }
+
+    /** A second page in another group, to check the tree. */
+    private class OtherPage : SettingsPage {
+        var applied = 0
+        override val path = listOf("Other", "Things")
+        override val node = Label("other page")
+
+        override fun load() {}
+
+        override fun apply() {
+            applied++
+        }
+    }
+
+    @Start
+    fun start(stage: Stage) {
+        this.stage = stage
+        stage.scene = javafx.scene.Scene(StackPane(), 200.0, 100.0)
+        stage.show()
+    }
+
+    private fun open(
+        robot: FxRobot,
+        vararg pages: SettingsPage,
+    ): SettingsDialog {
+        lateinit var dialog: SettingsDialog
+        robot.interact {
+            dialog = SettingsDialog(SettingsPages(pages.toList()).pages, stage)
+            dialog.show()
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        return dialog
+    }
+
+    private fun close(
+        robot: FxRobot,
+        dialog: SettingsDialog,
+        button: ButtonType,
+    ) = robot.interact { (dialog.dialogPane.lookupButton(button) as Button).fire() }
+
+    @Test
+    fun `the tree groups the pages, selecting a group shows its first page`(robot: FxRobot) {
+        val other = OtherPage()
+        val dialog = open(robot, other, fontsPage)
+
+        val groups =
+            dialog.tree.root.children
+                .map { it.value.name }
+        assertEquals(listOf("Display", "Other"), groups)
+        assertEquals(
+            listOf("Fonts"),
+            dialog.tree.root.children[0]
+                .children
+                .map { it.value.name },
+        )
+        assertSame(fontsPage, dialog.shownPage, "the first page is shown")
+
+        robot.interact { dialog.tree.selectionModel.select(dialog.tree.root.children[1]) }
+        assertSame(other, dialog.shownPage)
+        robot.interact { dialog.select(listOf("Display", "Fonts")) }
+        assertSame(fontsPage, dialog.shownPage)
+
+        close(robot, dialog, ButtonType.CANCEL)
+        assertEquals(0, other.applied)
+    }
+
+    @Test
+    fun `the preview follows the edits, the IDE settings change only on apply`(robot: FxRobot) {
+        val dialog = open(robot, fontsPage)
+        val editor = fontsPage.rows.getValue(FontArea.EDITOR)
+
+        robot.interact {
+            editor.size.valueFactory.value = 20.0
+            editor.style.value = FontStyle.BOLD_ITALIC
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val previewFont = fontsPage.editorPreview.font
+        assertEquals(20.0, previewFont.size)
+        assertTrue(previewFont.style.contains("Bold") && previewFont.style.contains("Italic"), previewFont.style)
+        assertEquals(defaults[FontArea.EDITOR], settings.font(FontArea.EDITOR).get(), "not applied yet")
+
+        close(robot, dialog, dialog.apply)
+        assertEquals(FontSpec("Monospaced", 20.0, FontStyle.BOLD_ITALIC), settings.font(FontArea.EDITOR).get())
+        assertTrue(dialog.isShowing, "Apply keeps the dialog open")
+        close(robot, dialog, ButtonType.OK)
+        assertFalse(dialog.isShowing)
+    }
+
+    @Test
+    fun `cancel drops the edits, the next dialog shows the current settings`(robot: FxRobot) {
+        val first = open(robot, fontsPage)
+        val terminal = fontsPage.rows.getValue(FontArea.TERMINAL)
+        robot.interact { terminal.size.valueFactory.value = 30.0 }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(
+            30.0,
+            fontsPage.terminalPreview
+                .first()
+                .font.size,
+        )
+
+        close(robot, first, ButtonType.CANCEL)
+        assertEquals(defaults[FontArea.TERMINAL], settings.font(FontArea.TERMINAL).get())
+
+        val second = open(robot, fontsPage)
+        assertEquals(14.0, terminal.size.value)
+        assertEquals(
+            14.0,
+            fontsPage.terminalPreview
+                .first()
+                .font.size,
+        )
+        close(robot, second, ButtonType.CANCEL)
+    }
+
+    @Test
+    fun `restore defaults and the explorer preview`(robot: FxRobot) {
+        robot.interact { settings.apply(mapOf(FontArea.EXPLORER to FontSpec("Monospaced", 18.0, FontStyle.BOLD))) }
+        val dialog = open(robot, fontsPage)
+        val explorer = fontsPage.rows.getValue(FontArea.EXPLORER)
+        assertEquals("Monospaced", explorer.family.value)
+        assertTrue("-fx-font-size: 18px" in fontsPage.explorerPreview.style)
+
+        robot.interact { explorer.restoreDefaults.fire() }
+        assertEquals("System", explorer.family.value)
+        assertEquals(FontStyle.REGULAR, explorer.style.value)
+        assertTrue("-fx-font-size: 13px" in fontsPage.explorerPreview.style)
+
+        close(robot, dialog, ButtonType.OK)
+        assertEquals(defaults[FontArea.EXPLORER], settings.font(FontArea.EXPLORER).get())
+    }
+
+    @Test
+    fun `the terminal offers monospaced families only and typed unknown names are not taken`(robot: FxRobot) {
+        val dialog = open(robot, fontsPage)
+        val terminal = fontsPage.rows.getValue(FontArea.TERMINAL)
+
+        assertTrue("Monospaced" in terminal.family.items)
+        assertTrue(terminal.family.items.all { it == "Monospaced" || FontsPage.isMonospaced(it) })
+        assertTrue(
+            fontsPage.rows
+                .getValue(FontArea.EDITOR)
+                .family.items.size >= terminal.family.items.size,
+        )
+
+        robot.interact { terminal.family.value = "No Such Font" }
+        assertEquals("Monospaced", terminal.family.value)
+        assertEquals(defaults[FontArea.TERMINAL], fontsPage.model.draft(FontArea.TERMINAL).get())
+        close(robot, dialog, ButtonType.CANCEL)
+    }
+
+    @Test
+    fun `fonts have the chosen weight and posture`(robot: FxRobot) {
+        robot.interact {
+            val bold = FontSpec("Monospaced", 15.0, FontStyle.BOLD).toFont()
+            assertEquals(15.0, bold.size)
+            assertTrue("Bold" in bold.style && "Italic" !in bold.style, bold.style)
+            val italic = FontSpec("Monospaced", 15.0, FontStyle.ITALIC).toFont()
+            assertTrue("Italic" in italic.style && "Bold" !in italic.style, italic.style)
+        }
+    }
+}
