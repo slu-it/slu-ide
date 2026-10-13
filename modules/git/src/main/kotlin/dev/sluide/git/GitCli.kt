@@ -47,6 +47,56 @@ class GitCli(
         return run(arguments, root, 10.seconds)
     }
 
+    /**
+     * The content of [file] at `HEAD` in the repository at [root], with the filters (line endings, smudge) a checkout
+     * would apply, or `null` if git is not available, fails (e.g. the file is not in `HEAD`) or takes longer than 3 s.
+     */
+    fun headContent(
+        root: Path,
+        file: Path,
+    ): String? {
+        val path = relativePath(root, file) ?: return null
+        if (!available) return null
+        return run(listOf("cat-file", "--filters", "HEAD:$path"), root, 3.seconds)
+    }
+
+    /**
+     * The output of `git diff -U0` between `HEAD` and the working tree for [file] in the repository at [root] (see
+     * [GitDiffParser]), or `null` if git is not available, fails or takes longer than 3 s.
+     */
+    fun diffToHead(
+        root: Path,
+        file: Path,
+    ): String? {
+        val path = relativePath(root, file) ?: return null
+        if (!available) return null
+        val arguments =
+            listOf(
+                "--no-optional-locks",
+                // File names are not patterns, even with * or ? in them.
+                "--literal-pathspecs",
+                "diff",
+                "--no-color",
+                "--no-ext-diff",
+                "--no-textconv",
+                "-U0",
+                "HEAD",
+                "--",
+                path,
+            )
+        return run(arguments, root, 3.seconds)
+    }
+
+    /** [file] relative to [root], `/`-separated as git wants it; `null` if it is not inside [root]. */
+    private fun relativePath(
+        root: Path,
+        file: Path,
+    ): String? {
+        val relative = root.relativize(file).normalize()
+        if (relative.toString().isEmpty() || relative.startsWith("..")) return null
+        return relative.joinToString("/")
+    }
+
     private fun run(
         arguments: List<String>,
         directory: Path?,

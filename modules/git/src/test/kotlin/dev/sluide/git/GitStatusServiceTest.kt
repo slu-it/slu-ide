@@ -13,6 +13,7 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.test.fail
 import kotlin.time.Duration.Companion.milliseconds
@@ -116,6 +117,30 @@ class GitStatusServiceTest {
         repo.resolve("tracked.kt").writeText("val a = 3\n")
         service.refresh()
         awaitSnapshot { it.fileStatus(repo.resolve("tracked.kt")) == GitStatus.MODIFIED }
+    }
+
+    @Test
+    fun `diff gives the content at HEAD and the changed lines`() {
+        repo.resolve("lines.txt").writeText("a\nb\nc\nd\n")
+        repo.resolve("star*.txt").writeText("one\n")
+        repo.resolve("starX.txt").writeText("one\n")
+        git("add", ".")
+        git("commit", "-q", "-m", "More files")
+        repo.resolve("lines.txt").writeText("a\nB\nc\nd\ne\n")
+        repo.resolve("star*.txt").writeText("two\n")
+        repo.resolve("starX.txt").writeText("zero\none\n")
+        assertNull(service.diff(repo.resolve("lines.txt")), "no repository followed yet")
+        service.open(repo)
+
+        assertEquals(
+            GitDiff("a\nb\nc\nd\n", listOf(GitHunk(1..1, 1..1), GitHunk(4 until 4, 4..4))),
+            service.diff(repo.resolve("lines.txt")),
+        )
+        // The name is not a pattern: starX.txt is not part of this diff.
+        assertEquals(GitDiff("one\n", listOf(GitHunk(0..0, 0..0))), service.diff(repo.resolve("star*.txt")))
+        assertEquals(GitDiff("val a = 1\n", emptyList()), service.diff(repo.resolve("tracked.kt")))
+        assertNull(service.diff(repo.resolve("untracked.txt").apply { writeText("") }))
+        assertNull(service.diff(repo.parent.resolve("outside.txt")))
     }
 
     @Test

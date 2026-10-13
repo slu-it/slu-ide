@@ -79,6 +79,18 @@ class GitStatusService(
         }
     }
 
+    /**
+     * How [file] differs from its version at `HEAD` (ADR 0015), or `null` if no repository is followed, the file is not
+     * in `HEAD`, or git fails. Runs git on the calling thread (two quick calls for one file).
+     */
+    fun diff(file: Path): GitDiff? {
+        val root = target?.root ?: return null
+        val path = file.toAbsolutePath().normalize()
+        val original = git.headContent(root, path) ?: return null
+        val output = git.diffToHead(root, path) ?: return null
+        return GitDiff(original, GitDiffParser.parse(output))
+    }
+
     private fun watchGitFolder(root: Path) {
         val gitFolder = root.resolve(".git")
         // A .git file (worktrees, submodules) cannot be watched; the handle then does nothing.
