@@ -13,6 +13,8 @@ import com.jediterm.terminal.model.CharBuffer
 import com.jediterm.terminal.model.SelectionUtil
 import com.jediterm.terminal.model.TerminalSelection
 import com.jediterm.terminal.util.CharUtils
+import dev.sluide.settings.FontSpec
+import dev.sluide.settings.FontStyle
 import javafx.application.Platform
 import javafx.beans.property.ReadOnlyBooleanProperty
 import javafx.beans.property.ReadOnlyBooleanWrapper
@@ -30,7 +32,6 @@ import javafx.scene.input.MouseEvent
 import javafx.scene.input.ScrollEvent
 import javafx.scene.layout.Region
 import javafx.scene.text.Font
-import javafx.scene.text.FontWeight
 import javafx.scene.text.Text
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.floor
@@ -49,13 +50,24 @@ private const val SCROLL_LINES = 3
 internal class TerminalView(
     startSession: (TerminalDisplay, TermSize) -> TerminalSession,
     private val colors: TerminalColors = TerminalColors(),
-    font: Font = Font.font("Monospaced", 13.0),
+    font: FontSpec = FontSpec("Monospaced", 13.0),
 ) : Region(),
     TerminalDisplay {
     private val canvas = Canvas()
-    private val regularFont = font
-    private val boldFont = Font.font(font.family, FontWeight.BOLD, font.size)
-    private val cell = CellSize.of(font)
+    private var fonts = Fonts(font)
+
+    /** The font of normal text; bold and italic text use the bolder or italic variant of it. */
+    var font: FontSpec
+        get() = fonts.spec
+        set(value) {
+            if (value == fonts.spec) return
+            fonts = Fonts(value)
+            // Lays out with the new cell size: resizes the grid, tells the shell and repaints.
+            requestLayout()
+        }
+
+    /** The cell size of the current font. */
+    internal val cell: CellSize get() = fonts.cell
     private val keys =
         TerminalKeys(encode = {
             code,
@@ -318,7 +330,7 @@ internal class TerminalView(
         val gc = canvas.graphicsContext2D
         val styleColors = colors.of(style)
         val top = row * cell.height
-        gc.font = if (style.hasOption(TextStyle.Option.BOLD)) boldFont else regularFont
+        gc.font = fonts.of(style.hasOption(TextStyle.Option.BOLD), style.hasOption(TextStyle.Option.ITALIC))
         for (i in 0 until characters.length) {
             val column = x + i
             val left = column * cell.width
@@ -429,6 +441,26 @@ internal class TerminalView(
     private companion object {
         val isMac = System.getProperty("os.name").lowercase().contains("mac")
     }
+}
+
+/** The variants of [spec] the terminal draws with: text that is bold or italic adds that to the spec's style. */
+private class Fonts(
+    val spec: FontSpec,
+) {
+    private val variants = mutableMapOf<Pair<Boolean, Boolean>, Font>()
+
+    val cell = CellSize.of(of(bold = false, italic = false))
+
+    fun of(
+        bold: Boolean,
+        italic: Boolean,
+    ): Font =
+        variants.getOrPut(bold to italic) {
+            val wantBold = spec.style.bold || bold
+            val wantItalic = spec.style.italic || italic
+            val style = FontStyle.entries.single { it.bold == wantBold && it.italic == wantItalic }
+            spec.copy(style = style).toFont()
+        }
 }
 
 /** The size of one character cell of a monospaced font, and the grid of cells that fits into an area. */

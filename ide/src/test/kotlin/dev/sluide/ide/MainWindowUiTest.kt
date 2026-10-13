@@ -55,7 +55,7 @@ class MainWindowUiTest {
     private lateinit var mainWindow: MainWindow
     private lateinit var fontSettings: FontSettings
     private val watcher = FileWatcher(Platform::runLater, 50.milliseconds)
-    private val terminals = Terminals()
+    private lateinit var terminals: Terminals
 
     @AfterEach
     fun close() {
@@ -68,6 +68,7 @@ class MainWindowUiTest {
         this.stage = stage
         fontSettings =
             FontSettings(SettingsStore(settingsDir.resolve("settings.properties")), FontSettings.systemDefaults())
+        terminals = Terminals(fontSettings)
         fileExplorer = FileExplorerView(watcher, fontSettings)
         val fallback = DefaultTextFileViewer()
         editorArea = EditorArea(FileViewers(listOf(fallback), fallback), watcher, fontSettings)

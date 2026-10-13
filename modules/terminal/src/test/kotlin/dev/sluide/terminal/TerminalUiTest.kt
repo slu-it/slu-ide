@@ -1,5 +1,9 @@
 package dev.sluide.terminal
 
+import dev.sluide.settings.FontArea
+import dev.sluide.settings.FontSettings
+import dev.sluide.settings.FontSpec
+import dev.sluide.settings.SettingsStore
 import javafx.event.Event
 import javafx.scene.Scene
 import javafx.scene.image.WritableImage
@@ -9,7 +13,6 @@ import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.StackPane
-import javafx.scene.text.Font
 import javafx.stage.Stage
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
@@ -34,7 +37,13 @@ class TerminalUiTest {
     @TempDir
     lateinit var dir: Path
 
-    private val terminals = Terminals()
+    @TempDir
+    lateinit var settingsDir: Path
+
+    private val fontSettings by lazy {
+        FontSettings(SettingsStore(settingsDir.resolve("settings.properties")), FontSettings.systemDefaults())
+    }
+    private val terminals by lazy { Terminals(fontSettings) }
     private lateinit var stage: Stage
     private lateinit var root: StackPane
 
@@ -126,7 +135,7 @@ class TerminalUiTest {
         type(robot, view, "clear; echo copy-\$((6 * 7))-please")
         eventually { assertTrue("copy-42-please" in view.screenText().lines()) }
         val row = view.screenText().lines().indexOf("copy-42-please")
-        val cell = CellSize.of(Font.font("Monospaced", 13.0))
+        val cell = view.cell
         val y = (row + 0.5) * cell.height
 
         robot.interact {
@@ -188,6 +197,37 @@ class TerminalUiTest {
             Event.fireEvent(tab.view, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.C, false, true, false, false))
         }
         eventually { assertEquals(null, tab.closeWarning) }
+    }
+
+    @Test
+    fun `a running terminal follows font changes and tells the shell its new size`(robot: FxRobot) {
+        val tab = open(robot)
+        val before = tab.view.cell
+
+        fun shellSize(): String {
+            type(robot, tab.view, "clear; echo size=\$(stty size | tr ' ' x)")
+            lateinit var line: String
+            eventually {
+                line =
+                    tab.view
+                        .screenText()
+                        .lines()
+                        .single { it.startsWith("size=") }
+            }
+            return line
+        }
+        val sizeBefore = shellSize()
+
+        robot.interact { fontSettings.apply(mapOf(FontArea.TERMINAL to FontSpec("Monospaced", 26.0))) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(26.0, tab.view.font.size)
+        assertTrue(tab.view.cell.width > before.width * 1.5, "cells grow: ${before.width} -> ${tab.view.cell.width}")
+        eventually { assertTrue(shellSize() != sizeBefore, "the shell sees fewer rows and columns than $sizeBefore") }
+
+        robot.interact { tab.dispose() }
+        robot.interact { fontSettings.apply(mapOf(FontArea.TERMINAL to FontSpec("Monospaced", 10.0))) }
+        assertEquals(26.0, tab.view.font.size, "closed terminals no longer follow the settings")
     }
 
     @Test
