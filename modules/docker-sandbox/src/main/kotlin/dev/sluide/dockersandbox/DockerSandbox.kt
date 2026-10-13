@@ -1,0 +1,58 @@
+package dev.sluide.dockersandbox
+
+import dev.sluide.editor.EditorTab
+import dev.sluide.terminal.Terminals
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.stereotype.Component
+import java.nio.file.Path
+import kotlin.io.path.isRegularFile
+
+/** Thrown when a sandbox may not be started in a folder; the message says why. */
+class SandboxNotAllowedException(
+    message: String,
+) : RuntimeException(message)
+
+/**
+ * Starts Docker sandboxes (`sbx`) in terminal tabs. They run only in folders below the user's home folder (see
+ * [SandboxFolder]): [problem] tells the menu whether an action can run, and [open] checks again before it starts one.
+ */
+@Component
+class DockerSandbox(
+    private val terminals: Terminals,
+    /** The user's home folder. */
+    private val home: Path,
+    /** The environment of the started shells. */
+    private val environment: Map<String, String>,
+) {
+    @Autowired
+    constructor(terminals: Terminals) : this(terminals, Path.of(System.getProperty("user.home")), System.getenv())
+
+    private val started = mutableMapOf<SandboxAction, Int>()
+
+    /** Why [action] cannot run in [folder] (`null`: no folder is open), or `null` if it can. */
+    fun problem(
+        action: SandboxAction,
+        folder: Path?,
+    ): String? {
+        if (folder == null) return "No folder is open."
+        SandboxFolder.check(folder, home)?.let { return it }
+        val required = action.requiredFile ?: return null
+        return if (folder.resolve(required).isRegularFile()) null else "There is no $required in $folder."
+    }
+
+    /**
+     * Runs [action] in a terminal tab in [folder], named e.g. "Claude Code 1", and returns the tab. Must be called on
+     * the FX thread.
+     *
+     * @throws SandboxNotAllowedException if [problem] reports one, also when the menu should not have offered it.
+     */
+    fun open(
+        action: SandboxAction,
+        folder: Path,
+    ): EditorTab {
+        // Checked again here, on the very folder the terminal starts in, not only when the menu is shown.
+        problem(action, folder)?.let { throw SandboxNotAllowedException(it) }
+        val number = started.merge(action, 1, Int::plus)
+        return terminals.open(folder, "${action.title} $number", action.command, environment)
+    }
+}
