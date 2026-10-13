@@ -11,12 +11,13 @@ internal class TerminalTab(
     private val name: String,
     folder: Path,
     val view: TerminalView,
+    command: String? = null,
     private val onDisposed: (TerminalTab) -> Unit = {},
 ) : EditorTab {
     override val title: ObservableValue<String> =
         Bindings.createStringBinding({ if (view.exited.get()) "$name (exited)" else name }, view.exited)
 
-    override val tooltip: String = "Terminal in $folder"
+    override val tooltip: String = "Terminal in $folder" + (command?.let { ": $it" } ?: "")
 
     override val content: Node get() = view
 

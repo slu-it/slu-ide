@@ -286,6 +286,23 @@ class TerminalUiTest {
     }
 
     @Test
+    fun `a command runs in a login shell in its own named tab, which shows when it ends`(robot: FxRobot) {
+        lateinit var tab: TerminalTab
+        robot.interact {
+            val environment = System.getenv() + ("SHELL" to "/bin/sh")
+            tab = terminals.open(dir, "Job 1", "pwd; echo ran-\$((40 + 2))", environment) as TerminalTab
+            root.children.setAll(tab.content)
+        }
+
+        eventually {
+            val lines = tab.view.screenText().lines()
+            assertTrue(dir.toString() in lines && "ran-42" in lines, tab.view.screenText())
+            assertEquals("Job 1 (exited)", tab.title.value)
+        }
+        assertEquals("Terminal in $dir: pwd; echo ran-\$((40 + 2))", tab.tooltip)
+    }
+
+    @Test
     fun `the tab shows when the shell exits, closing it ends the shell`(robot: FxRobot) {
         val first = open(robot)
         type(robot, first.view, "exit")

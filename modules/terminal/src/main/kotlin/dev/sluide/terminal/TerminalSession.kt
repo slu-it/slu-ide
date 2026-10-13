@@ -180,7 +180,18 @@ internal class TerminalSession(
 
     companion object {
         /** The user's login shell, falling back to `/bin/bash`, started as a login shell like a terminal app does. */
-        fun defaultShell(): List<String> =
-            listOf(System.getenv("SHELL")?.takeIf { it.isNotBlank() } ?: "/bin/bash", "-l")
+        fun defaultShell(): List<String> = listOf(userShell(System.getenv()), "-l")
+
+        /**
+         * The login shell (`SHELL` in [environment]) running [command] and then ending, with the login environment
+         * (e.g. its `PATH`).
+         */
+        fun loginShellRunning(
+            command: String,
+            environment: Map<String, String>,
+        ): List<String> = listOf(userShell(environment), "-l", "-c", command)
+
+        private fun userShell(environment: Map<String, String>) =
+            environment["SHELL"]?.takeIf { it.isNotBlank() } ?: "/bin/bash"
     }
 }
