@@ -1,5 +1,7 @@
 package dev.sluide.settings
 
+import javafx.application.ColorScheme
+import javafx.beans.property.SimpleObjectProperty
 import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.control.Button
@@ -39,6 +41,10 @@ class SettingsUiTest {
         )
     private val settings by lazy { FontSettings(SettingsStore(dir.resolve("settings.properties")), defaults) }
     private val fontsPage by lazy { FontsPage(settings) }
+    private val themeSettings by lazy {
+        ThemeSettings(SettingsStore(dir.resolve("settings.properties")), SimpleObjectProperty(ColorScheme.LIGHT))
+    }
+    private val appearancePage by lazy { AppearancePage(themeSettings) }
 
     /** A second page in another group, to check the tree. */
     private class OtherPage : SettingsPage {
@@ -208,6 +214,31 @@ class SettingsUiTest {
         assertEquals(FontSpec("Serif", 17.0), fontsPage.model.draft(FontArea.EDITOR).get())
         assertEquals(defaults[FontArea.EDITOR], settings.font(FontArea.EDITOR).get(), "not applied by Enter")
         close(robot, dialog, ButtonType.CANCEL)
+    }
+
+    @Test
+    fun `the theme changes the dialog on apply, cancel keeps the current theme`(robot: FxRobot) {
+        robot.interact { ThemedWindows(themeSettings).install() }
+        val dialog = open(robot, appearancePage, fontsPage)
+        robot.interact { dialog.select(listOf("Display", "Appearance")) }
+        assertSame(appearancePage, dialog.shownPage)
+        assertEquals(Theme.SYSTEM, appearancePage.theme.value)
+
+        robot.interact { appearancePage.theme.value = Theme.DARK }
+        assertEquals(ColorScheme.LIGHT, dialog.dialogPane.scene.preferences.colorScheme, "not applied yet")
+
+        close(robot, dialog, dialog.apply)
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(Theme.DARK, themeSettings.theme.get())
+        assertEquals(ColorScheme.DARK, dialog.dialogPane.scene.preferences.colorScheme)
+        assertEquals(ColorScheme.DARK, stage.scene.preferences.colorScheme)
+
+        robot.interact { appearancePage.theme.value = Theme.LIGHT }
+        close(robot, dialog, ButtonType.CANCEL)
+        assertEquals(Theme.DARK, themeSettings.theme.get())
+        val second = open(robot, appearancePage)
+        assertEquals(Theme.DARK, appearancePage.theme.value)
+        close(robot, second, ButtonType.CANCEL)
     }
 
     private fun enter(node: Node) =

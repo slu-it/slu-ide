@@ -7,6 +7,7 @@ import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.PythonFileViewer
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.settings.AppearancePage
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontsPage
 import dev.sluide.settings.SettingsPages
@@ -49,6 +50,7 @@ class SpringWiringTest {
                         FontsPage::class.java,
                         ThemeSettings::class.java,
                         ThemedWindows::class.java,
+                        AppearancePage::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")
