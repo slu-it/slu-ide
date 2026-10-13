@@ -21,14 +21,16 @@ Keep it up to date: every new ADR or feature description must be added here with
 - [adr/0010-docker-sandbox.md](adr/0010-docker-sandbox.md) — Docker sandboxes run as the process of a terminal tab, only in folders strictly below the home folder (real paths), checked in the menu and again on start.
 - [adr/0011-native-app-packaging.md](adr/0011-native-app-packaging.md) — jpackage builds SluIde.app / a disk image with a jlink runtime (`:ide:jpackageImage`, `:ide:jpackageDmg`), attached to GitHub releases; not notarized, allowed once via Open Anyway.
 - [adr/0012-file-icons.md](adr/0012-file-icons.md) — File explorer icons from Ikonli's Material Design Icons pack (one style), covering every file type icon of the pack, chosen by folder state, file name, extension and readability, coloured per type in CSS; pack comparison.
+- [adr/0013-git-status.md](adr/0013-git-status.md) — Git status from `git status --porcelain=v2 --ignored` (no JGit, no own `.gitignore` parser), checked for at startup, followed only for folders with `.git`, refreshed in the background; markers in the explorer.
 - [adr/template.md](adr/template.md) — Template for new ADRs.
 
 ## Features
 - [features/open-folder.md](features/open-folder.md) — File → Open Folder… sets the current project folder (`ProjectService`).
-- [features/file-explorer.md](features/file-explorer.md) — Tree view of the project folder incl. hidden files, lazy loading, sort order, opening files (double-click/Enter), live updates and Refresh (context menu/F5).
+- [features/file-explorer.md](features/file-explorer.md) — Tree view of the project folder incl. hidden files, lazy loading, sort order, opening files (double-click/Enter), live updates and Refresh (context menu/F5), file icons, markers.
 - [features/editor-tabs.md](features/editor-tabs.md) — Central area with one closable tab per open file or other `EditorTab` (e.g. terminals), tab context menu (close others/left/right/all), scroll arrows and a dropdown for tabs that do not fit.
 - [features/settings.md](features/settings.md) — File → Settings… (Ctrl+,): page tree, OK/Apply/Cancel, Display → Appearance (Light/Dark/System theme), Display → Fonts (font, size, style for explorer, editor, terminal) with preview, stored per user.
 - [features/terminal.md](features/terminal.md) — Terminal → New Terminal (Ctrl+Shift+T) opens the user's shell in the project folder as an editor tab; colours, full-screen programs, scrollback, copy/paste.
 - [features/docker-sandbox.md](features/docker-sandbox.md) — Docker Sandbox → Claude Code (`sbx run claude .`) / Environment (`sbx env run`, needs `sbxenv.yaml`) in a terminal tab, only below the home folder.
+- [features/git-status.md](features/git-status.md) — Git status bubbles in the file explorer (red unversioned, green added, blue modified, orange ignored), folder aggregation, when it updates.
 - [features/file-watching.md](features/file-watching.md) — `FileWatcher`: per-directory watches, combined events on the FX thread, used by explorer and editor.
 - [features/file-viewers.md](features/file-viewers.md) — `FileViewer` extension point, viewer selection, the read-only `DefaultTextFileViewer` (text detection rules) and the syntax-highlighted `CodeFileViewer`s (Python, Kotlin, Java, JavaScript, TypeScript, JSON, XML, HTML, YAML).

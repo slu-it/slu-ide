@@ -1,0 +1,46 @@
+# 0013. Git status from the git command line, shown as markers in the file explorer
+
+- Status: accepted
+- Date: 2026-10-13
+
+## Context
+The file explorer should show the git status of files and folders: unversioned, added, modified and ignored. Ignored
+files need the rules of every `.gitignore` in the tree, `.git/info/exclude` and the user's global excludes file
+(`core.excludesFile`), with negations, anchors and `**`.
+
+Options considered:
+- **The `git` command line**: `git status --porcelain=v2 -z --ignored` is a stable, machine-readable format and
+  applies all ignore rules exactly as the user's git does. Needs git installed.
+- **Eclipse JGit**: pure Java, has a `StatusCommand` and `IgnoreNode` for `.gitignore` files. Works without git, but
+  adds about 3 MB and can differ from real git in edge cases (newer index formats, config options, attributes).
+- **Our own `.gitignore` parser** next to the CLI: two sources of truth that can disagree, for no gain.
+
+## Decision
+- A new module `modules/git` (package `dev.sluide.git`) runs the `git` command line; no library.
+- `GitCli` checks once at startup (`git --version` when the bean is created, 3 s timeout) whether git is available.
+  Without it, SluIde shows no git information.
+- `GitStatusService.open(folder)` follows a repository only if git is available and the opened folder itself has
+  `.git` (a folder, or a file as in worktrees and submodules). It runs
+  `git --no-optional-locks status --porcelain=v2 -z --ignored` on a background thread (`sluide-git`, 10 s timeout):
+  - after opening;
+  - when the explorer reports changes in a loaded folder or a manual refresh;
+  - when the `.git` folder changes (index, `HEAD`: staging, commits, checkouts), watched with `FileWatcher`.
+  Requests during a run are combined into one more run; results for a folder that is no longer open are dropped.
+- No optional locks (also `GIT_OPTIONAL_LOCKS=0`): otherwise `git status` may rewrite `.git/index`, which would
+  trigger the `.git` watch again and again.
+- `GitStatusParser` turns the records into statuses: `?` unversioned, `!` ignored, index `A` and renames/copies added,
+  everything else (changes, deletions, conflicts) modified. Untracked and ignored folders come as `dir/` without their
+  content, which keeps the call cheap for `build/` or `node_modules/`; `GitStatusSnapshot` lets everything inside
+  inherit their status. A folder shows each status found below it, except ignored ones.
+- The explorer does not depend on `git`: it has a generic `FileMarker` and a `markers` callback, and `MainWindow` maps
+  `GitStatus` to `FileMarker` (as with `canOpenFile` in ADR 0012). `git` depends on `file-watcher`.
+
+## Consequences
+- The status is exactly git's, including global excludes, with no ignore logic of our own.
+- Opening a subfolder of a repository, or running `git init` after opening a folder, shows no markers until a
+  repository root is opened (again).
+- Edits in folders the explorer has not loaded are only noticed with the next `.git` change or refresh (F5).
+- A GUI app on macOS started from the Finder has a minimal `PATH`: git is found as `/usr/bin/git`, which works only
+  with the Xcode Command Line Tools installed (otherwise macOS may offer to install them). Not verified on macOS.
+- Each refresh starts a process; for very large repositories `git status` may take noticeable time, which happens
+  in the background and keeps the last markers meanwhile.
