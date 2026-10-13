@@ -7,6 +7,7 @@ import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitCli
+import dev.sluide.git.GitStatus
 import dev.sluide.git.GitStatusService
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
@@ -20,6 +21,7 @@ import dev.sluide.settings.ThemedWindows
 import dev.sluide.terminal.Terminals
 import javafx.application.Platform
 import javafx.event.Event
+import javafx.scene.Node
 import javafx.scene.control.Label
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuBar
@@ -193,6 +195,40 @@ class MainWindowUiTest {
 
         robot.interact { mainWindow.dispose() }
         assertFalse(gitStatus.active)
+    }
+
+    @Test
+    fun `modified files open as a diff against HEAD until they are committed`(robot: FxRobot) {
+        assumeTrue(git.available, "git is not installed")
+        runGit("init", "-q")
+        project.resolve("tracked.md").writeText("one\ntwo\n")
+        runGit("add", ".")
+        runGit("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "-m", "Initial commit")
+        project.resolve("tracked.md").writeText("one\nTWO\nthree\n")
+        project.resolve("new.md").writeText("new\n")
+
+        robot.interact { projectService.open(project) }
+        eventually(robot) {
+            assertEquals(GitStatus.MODIFIED, gitStatus.snapshot.get().fileStatus(project.resolve("tracked.md")))
+        }
+
+        fun showsDiff() = robot.lookup(".editor-content .diff-view").tryQuery<Node>().isPresent
+        robot.interact { editorArea.open(project.resolve("new.md")) }
+        assertFalse(showsDiff(), "untracked files open normally")
+        robot.interact { editorArea.open(project.resolve("tracked.md")) }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertTrue(showsDiff())
+        val titles =
+            robot
+                .lookup(".diff-title")
+                .queryAllAs(Label::class.java)
+                .map { it.text }
+                .toSet()
+        assertEquals(setOf("HEAD", "Working Tree"), titles)
+
+        runGit("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "-am", "Change")
+        eventually(robot) { assertFalse(showsDiff(), "clean files show normally") }
+        assertEquals(project.resolve("tracked.md"), editorArea.selectedPath)
     }
 
     private fun runGit(vararg arguments: String) {

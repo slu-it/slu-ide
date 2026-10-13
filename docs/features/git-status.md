@@ -20,5 +20,6 @@
   markers change when it is done.
 - `GitStatusService.snapshot` holds the latest `GitStatusSnapshot` (`fileStatus`, `folderStatuses`), replaced only
   when something changed.
-- Not yet implemented: branch name, diff or blame, git commands from the IDE, repositories in subfolders or above the
+- Modified files open as a diff against `HEAD` ([git-diff.md](git-diff.md)); `GitStatusService.diff(file)` reads it.
+- Not yet implemented: branch name, blame, git commands from the IDE, repositories in subfolders or above the
   opened folder.

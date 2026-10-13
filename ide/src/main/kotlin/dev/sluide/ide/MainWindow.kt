@@ -79,7 +79,12 @@ class MainWindow(
         // Git status markers, if git is installed and the folder is a repository (ADR 0013).
         fileExplorer.markers = { path, directory -> gitStatus.snapshot.get().markers(path, directory) }
         fileExplorer.onFilesChanged = gitStatus::refresh
-        gitStatus.snapshot.subscribe { _ -> fileExplorer.refreshMarkers() }
+        // Modified files open as a diff against HEAD, and switch when their status changes (ADR 0015).
+        editorArea.diffOf = gitStatus::textDiff
+        gitStatus.snapshot.subscribe { _ ->
+            fileExplorer.refreshMarkers()
+            editorArea.refreshDiffs()
+        }
 
         // A window gets its folder once (ADR 0014); other folders open in new windows.
         projectService.projectFolder.subscribe { folder ->
