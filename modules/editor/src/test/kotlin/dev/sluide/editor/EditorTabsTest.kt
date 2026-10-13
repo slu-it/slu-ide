@@ -1,6 +1,7 @@
 package dev.sluide.editor
 
 import dev.sluide.fileviewers.FileView
+import javafx.beans.property.SimpleStringProperty
 import javafx.scene.Group
 import java.nio.file.Path
 import kotlin.test.Test
@@ -8,12 +9,13 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
-class OpenFilesTest {
-    private val openFiles = OpenFiles()
+class EditorTabsTest {
+    private val tabs = EditorTabs()
 
     private fun open(name: String) =
-        openFiles.open(
+        tabs.open(
             Path.of("/project", name),
             object : FileView {
                 override val node = Group()
@@ -22,7 +24,21 @@ class OpenFilesTest {
             },
         )
 
-    private fun names() = openFiles.files.map { it.name }
+    private class DisposableTab(
+        name: String,
+    ) : EditorTab {
+        var disposed = 0
+
+        override val title = SimpleStringProperty(name)
+        override val tooltip = name
+        override val content = Group()
+
+        override fun dispose() {
+            disposed++
+        }
+    }
+
+    private fun names() = tabs.tabs.map { it.title.value }
 
     @Test
     fun `opening appends a tab and selects it`() {
@@ -30,15 +46,15 @@ class OpenFilesTest {
         val b = open("b.txt")
 
         assertEquals(listOf("a.txt", "b.txt"), names())
-        assertSame(b, openFiles.selected.get())
+        assertSame(b, tabs.selected.get())
     }
 
     @Test
     fun `finds open files by path and refuses to open them twice`() {
         val a = open("a.txt")
 
-        assertSame(a, openFiles.find(Path.of("/project", "a.txt")))
-        assertNull(openFiles.find(Path.of("/project", "other.txt")))
+        assertSame(a, tabs.find(Path.of("/project", "a.txt")))
+        assertNull(tabs.find(Path.of("/project", "other.txt")))
         assertFailsWith<IllegalArgumentException> { open("a.txt") }
     }
 
@@ -47,13 +63,13 @@ class OpenFilesTest {
         val a = open("a.txt")
         val b = open("b.txt")
         val c = open("c.txt")
-        openFiles.select(b)
+        tabs.select(b)
 
-        openFiles.close(b)
+        tabs.close(b)
 
         assertEquals(listOf("a.txt", "c.txt"), names())
-        assertSame(c, openFiles.selected.get())
-        assertSame(a, openFiles.files.first())
+        assertSame(c, tabs.selected.get())
+        assertSame(a, tabs.tabs.first())
     }
 
     @Test
@@ -61,11 +77,11 @@ class OpenFilesTest {
         val a = open("a.txt")
         val b = open("b.txt")
 
-        openFiles.close(b)
-        assertSame(a, openFiles.selected.get())
+        tabs.close(b)
+        assertSame(a, tabs.selected.get())
 
-        openFiles.close(a)
-        assertNull(openFiles.selected.get())
+        tabs.close(a)
+        assertNull(tabs.selected.get())
         assertEquals(emptyList(), names())
     }
 
@@ -74,9 +90,9 @@ class OpenFilesTest {
         val a = open("a.txt")
         val b = open("b.txt")
 
-        openFiles.close(a)
+        tabs.close(a)
 
-        assertSame(b, openFiles.selected.get())
+        assertSame(b, tabs.selected.get())
     }
 
     @Test
@@ -84,10 +100,10 @@ class OpenFilesTest {
         open("a.txt")
         open("b.txt")
 
-        openFiles.closeAll()
+        tabs.closeAll()
 
         assertEquals(emptyList(), names())
-        assertNull(openFiles.selected.get())
+        assertNull(tabs.selected.get())
     }
 
     @Test
@@ -96,10 +112,10 @@ class OpenFilesTest {
         val b = open("b.txt")
         open("c.txt")
 
-        openFiles.closeOthers(b)
+        tabs.closeOthers(b)
 
         assertEquals(listOf("b.txt"), names())
-        assertSame(b, openFiles.selected.get())
+        assertSame(b, tabs.selected.get())
     }
 
     @Test
@@ -108,12 +124,12 @@ class OpenFilesTest {
         val b = open("b.txt")
         open("c.txt")
         open("d.txt")
-        openFiles.select(a)
+        tabs.select(a)
 
-        openFiles.closeRightOf(b)
+        tabs.closeRightOf(b)
 
         assertEquals(listOf("a.txt", "b.txt"), names())
-        assertSame(a, openFiles.selected.get())
+        assertSame(a, tabs.selected.get())
     }
 
     @Test
@@ -122,12 +138,12 @@ class OpenFilesTest {
         open("b.txt")
         val c = open("c.txt")
         open("d.txt")
-        openFiles.select(a)
+        tabs.select(a)
 
-        openFiles.closeLeftOf(c)
+        tabs.closeLeftOf(c)
 
         assertEquals(listOf("c.txt", "d.txt"), names())
-        assertSame(c, openFiles.selected.get())
+        assertSame(c, tabs.selected.get())
     }
 
     @Test
@@ -135,10 +151,40 @@ class OpenFilesTest {
         val a = open("a.txt")
         val b = open("b.txt")
 
-        openFiles.closeLeftOf(a)
-        openFiles.closeRightOf(b)
+        tabs.closeLeftOf(a)
+        tabs.closeRightOf(b)
 
         assertEquals(listOf("a.txt", "b.txt"), names())
-        assertSame(b, openFiles.selected.get())
+        assertSame(b, tabs.selected.get())
+    }
+
+    @Test
+    fun `other tabs open between files and are not found by path`() {
+        open("a.txt")
+        val terminal = DisposableTab("Terminal 1")
+        tabs.open(terminal)
+        val b = open("b.txt")
+
+        assertEquals(listOf("a.txt", "Terminal 1", "b.txt"), names())
+        assertEquals(listOf("a.txt", "b.txt"), tabs.files.map { it.name })
+        assertSame(b, tabs.selected.get())
+        assertFailsWith<IllegalArgumentException> { tabs.open(terminal) }
+    }
+
+    @Test
+    fun `closed tabs are disposed once, however they are closed`() {
+        val one = DisposableTab("one").also(tabs::open)
+        val two = DisposableTab("two").also(tabs::open)
+        val three = DisposableTab("three").also(tabs::open)
+        val four = DisposableTab("four").also(tabs::open)
+
+        tabs.close(one)
+        tabs.close(one)
+        tabs.closeRightOf(three)
+        tabs.closeOthers(three)
+
+        assertEquals(listOf(1, 1, 0, 1), listOf(one, two, three, four).map { it.disposed })
+        tabs.closeAll()
+        assertTrue(listOf(one, two, three, four).all { it.disposed == 1 })
     }
 }

@@ -7,6 +7,9 @@
   new tab, using the view from `FileViewers`, and selects it. A file that is already open just gets its tab selected.
   If no viewer can open the file, nothing happens and `open` returns `false`.
 - Files are shown read-only.
+- Tabs do not have to show files: `open(tab: EditorTab)` adds any tab (title, which may change, tooltip and content
+  node) and selects it, e.g. a terminal ([terminal.md](terminal.md)). Every way of closing a tab calls its
+  `EditorTab.dispose()` once. `openPaths` and `selectedPath` only report file tabs.
 - One tab per file: the file name as title, the full path as tooltip. Clicking a tab selects it.
 - Tabs close via their × button or a middle click. Closing the selected tab selects its right neighbour, or the left
   one if there is none.
@@ -20,7 +23,7 @@
 - When the tabs do not fit, ‹ and › buttons appear. They scroll the tab row one tab at a time without changing the
   selection. A ▾ dropdown lists every tab that is cut off or out of view, and choosing one selects it and scrolls it
   into view. The selected tab is always scrolled into view when it changes.
-- Structure: `OpenFiles` (model: open files and the selection), `TabOverflow` (which tabs fit, scroll positions),
+- Structure: `EditorTabs` (model: open tabs, `OpenFile` for files, and the selection), `TabOverflow` (which tabs fit, scroll positions),
   `TabStrip` (header row and layout), styles in `editor.css`.
 - Not yet implemented: editing, keyboard shortcuts for tabs, reordering
   tabs by drag and drop.

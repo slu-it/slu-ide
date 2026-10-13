@@ -23,7 +23,7 @@ private val SELECTED: PseudoClass = PseudoClass.getPseudoClass("selected")
  * one tab at a time and a dropdown lists the tabs that are not completely visible.
  */
 internal class TabStrip(
-    private val openFiles: OpenFiles,
+    private val editorTabs: EditorTabs,
 ) : Region() {
     private val viewport = Pane().apply { styleClass += "tab-viewport" }
     private val viewportClip = Rectangle()
@@ -34,7 +34,7 @@ internal class TabStrip(
         MenuButton().apply {
             styleClass += "overflow-menu"
             isFocusTraversable = false
-            setOnShowing { items.setAll(hiddenFiles().map(::menuItem)) }
+            setOnShowing { items.setAll(hiddenTabs().map(::menuItem)) }
         }
 
     private var headers: List<TabHeader> = emptyList()
@@ -46,24 +46,24 @@ internal class TabStrip(
         styleClass += "tab-strip"
         viewport.clip = viewportClip
         children.addAll(viewport, scrollLeftButton, scrollRightButton, overflowMenu)
-        openFiles.files.subscribe(::rebuildHeaders)
-        openFiles.selected.subscribe { selected ->
-            headers.forEach { it.pseudoClassStateChanged(SELECTED, it.file === selected) }
+        editorTabs.tabs.subscribe(::rebuildHeaders)
+        editorTabs.selected.subscribe { selected ->
+            headers.forEach { it.pseudoClassStateChanged(SELECTED, it.tab === selected) }
             revealSelected = true
             requestLayout()
         }
     }
 
     /** Tabs that are cut off or scrolled out of view, in tab order. */
-    fun hiddenFiles(): List<OpenFile> = overflow.hidden(first).mapNotNull { headers.getOrNull(it)?.file }
+    fun hiddenTabs(): List<EditorTab> = overflow.hidden(first).mapNotNull { headers.getOrNull(it)?.tab }
 
     /** Tabs that are completely visible, in tab order. */
-    fun visibleFiles(): List<OpenFile> = overflow.visible(first).mapNotNull { headers.getOrNull(it)?.file }
+    fun visibleTabs(): List<EditorTab> = overflow.visible(first).mapNotNull { headers.getOrNull(it)?.tab }
 
     private fun rebuildHeaders() {
-        val old = headers.associateBy { it.file }
-        headers = openFiles.files.map { old[it] ?: TabHeader(it) }
-        headers.forEach { it.pseudoClassStateChanged(SELECTED, it.file === openFiles.selected.get()) }
+        val old = headers.associateBy { it.tab }
+        headers = editorTabs.tabs.map { old[it] ?: TabHeader(it) }
+        headers.forEach { it.pseudoClassStateChanged(SELECTED, it.tab === editorTabs.selected.get()) }
         viewport.children.setAll(headers)
         revealSelected = true
         requestLayout()
@@ -74,9 +74,9 @@ internal class TabStrip(
         requestLayout()
     }
 
-    private fun menuItem(file: OpenFile) =
-        MenuItem(file.name).apply {
-            setOnAction { openFiles.select(file) }
+    private fun menuItem(tab: EditorTab) =
+        MenuItem(tab.title.value).apply {
+            setOnAction { editorTabs.select(tab) }
         }
 
     override fun computePrefHeight(width: Double): Double {
@@ -117,7 +117,7 @@ internal class TabStrip(
         first = overflow.clamp(first)
         if (revealSelected) {
             revealSelected = false
-            val selected = headers.indexOfFirst { it.file === openFiles.selected.get() }
+            val selected = headers.indexOfFirst { it.tab === editorTabs.selected.get() }
             if (selected >= 0) first = overflow.reveal(selected, first)
         }
         scrollLeftButton.isDisable = first == 0
@@ -146,15 +146,15 @@ internal class TabStrip(
     private fun Node.contains(target: EventTarget): Boolean =
         generateSequence(target as? Node) { it.parent }.any { it === this }
 
-    /** The context menu of the tab showing [file]. */
-    fun contextMenuOf(file: OpenFile): ContextMenu = headers.single { it.file === file }.menu
+    /** The context menu of the header of [tab]. */
+    fun contextMenuOf(tab: EditorTab): ContextMenu = headers.single { it.tab === tab }.menu
 
     /**
-     * One tab: file name (full path as tooltip) and a close button. Clicking it selects the file,
+     * One tab: its title (with a tooltip) and a close button. Clicking it selects the tab,
      * right-clicking opens a menu with close actions.
      */
     private inner class TabHeader(
-        val file: OpenFile,
+        val tab: EditorTab,
     ) : HBox() {
         val menu: ContextMenu by lazy(::createMenu)
 
@@ -166,16 +166,19 @@ internal class TabStrip(
                 Button("×").apply {
                     styleClass += "close-button"
                     isFocusTraversable = false
-                    setOnAction { openFiles.close(file) }
+                    setOnAction { editorTabs.close(tab) }
                 }
-            children.addAll(Label(file.name), close)
-            Tooltip.install(this, Tooltip(file.path.toString()))
+            val title = Label().apply { textProperty().bind(tab.title) }
+            // Headers are unmanaged, so a longer or shorter title does not lay out the strip again by itself.
+            title.textProperty().subscribe { _ -> this@TabStrip.requestLayout() }
+            children.addAll(title, close)
+            Tooltip.install(this, Tooltip(tab.tooltip))
             // Pressing the close button must not select the tab first. Consuming the press on the button instead
             // would keep the button from arming, so it would never fire.
             setOnMousePressed { event ->
-                if (event.button == MouseButton.PRIMARY && !close.contains(event.target)) openFiles.select(file)
+                if (event.button == MouseButton.PRIMARY && !close.contains(event.target)) editorTabs.select(tab)
             }
-            setOnMouseClicked { if (it.button == MouseButton.MIDDLE) openFiles.close(file) }
+            setOnMouseClicked { if (it.button == MouseButton.MIDDLE) editorTabs.close(tab) }
             setOnContextMenuRequested { event ->
                 menu.show(this, event.screenX, event.screenY)
                 event.consume()
@@ -187,24 +190,24 @@ internal class TabStrip(
                 text: String,
                 action: () -> Unit,
             ) = MenuItem(text).apply { setOnAction { action() } }
-            val closeOthers = item("Close Others") { openFiles.closeOthers(file) }
-            val closeLeft = item("Close Tabs to the Left") { openFiles.closeLeftOf(file) }
-            val closeRight = item("Close Tabs to the Right") { openFiles.closeRightOf(file) }
+            val closeOthers = item("Close Others") { editorTabs.closeOthers(tab) }
+            val closeLeft = item("Close Tabs to the Left") { editorTabs.closeLeftOf(tab) }
+            val closeRight = item("Close Tabs to the Right") { editorTabs.closeRightOf(tab) }
             return ContextMenu(
-                item("Close") { openFiles.close(file) },
+                item("Close") { editorTabs.close(tab) },
                 SeparatorMenuItem(),
                 closeOthers,
                 closeLeft,
                 closeRight,
                 SeparatorMenuItem(),
-                item("Close All") { openFiles.closeAll() },
+                item("Close All") { editorTabs.closeAll() },
             ).apply {
                 styleClass += "tab-context-menu"
                 setOnShowing {
-                    val index = openFiles.files.indexOf(file)
-                    closeOthers.isDisable = openFiles.files.size <= 1
+                    val index = editorTabs.tabs.indexOf(tab)
+                    closeOthers.isDisable = editorTabs.tabs.size <= 1
                     closeLeft.isDisable = index <= 0
-                    closeRight.isDisable = index >= openFiles.files.lastIndex
+                    closeRight.isDisable = index >= editorTabs.tabs.lastIndex
                 }
             }
         }

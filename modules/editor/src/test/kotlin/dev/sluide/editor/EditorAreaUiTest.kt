@@ -4,6 +4,7 @@ import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.filewatcher.FileWatcher
 import javafx.application.Platform
+import javafx.beans.property.SimpleStringProperty
 import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.Scene
@@ -33,6 +34,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -150,7 +152,14 @@ class EditorAreaUiTest {
         assertTrue(strip.scrollLeftButton.isVisible)
         assertTrue(strip.scrollRightButton.isVisible)
         assertTrue(strip.overflowMenu.isVisible)
-        assertEquals("file-number-7.txt", strip.visibleFiles().last().name, "selected tab is scrolled into view")
+        assertEquals(
+            "file-number-7.txt",
+            strip
+                .visibleTabs()
+                .last()
+                .title.value,
+            "selected tab is scrolled into view",
+        )
         assertTrue(strip.scrollRightButton.isDisable, "already at the end")
     }
 
@@ -161,7 +170,7 @@ class EditorAreaUiTest {
         open(robot, *files)
         val strip = editor.tabStrip
 
-        fun firstVisibleIndex() = files.indexOf(strip.visibleFiles().first().path)
+        fun firstVisibleIndex() = files.indexOf((strip.visibleTabs().first() as OpenFile).path)
         val before = firstVisibleIndex()
 
         robot.interact { strip.scrollLeftButton.fire() }
@@ -182,7 +191,7 @@ class EditorAreaUiTest {
         robot.interact { strip.overflowMenu.show() }
         WaitForAsyncUtils.waitForFxEvents()
         val items = strip.overflowMenu.items
-        assertEquals(strip.hiddenFiles().map { it.name }, items.map { it.text })
+        assertEquals(strip.hiddenTabs().map { it.title.value }, items.map { it.text })
         assertEquals("file-number-0.txt", items.first().text)
 
         robot.interact {
@@ -192,7 +201,13 @@ class EditorAreaUiTest {
         WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(files.first(), editor.selectedPath)
-        assertEquals("file-number-0.txt", strip.visibleFiles().first().name)
+        assertEquals(
+            "file-number-0.txt",
+            strip
+                .visibleTabs()
+                .first()
+                .title.value,
+        )
         assertEquals("content of file-number-0.txt", shownText(robot))
     }
 
@@ -278,7 +293,7 @@ class EditorAreaUiTest {
     fun `right-click on a tab opens a menu with close actions for that tab`(robot: FxRobot) {
         val files = listOf("a.txt", "b.txt", "c.txt", "d.txt").map { textFile(it) }
         open(robot, *files.toTypedArray())
-        val b = checkNotNull(editor.openFiles.find(files[1]))
+        val b = checkNotNull(editor.editorTabs.find(files[1]))
         val menu = editor.tabStrip.contextMenuOf(b)
         // Without a window manager the popup may hide again right away, so record that it was shown at all.
         var shown = false
@@ -314,7 +329,7 @@ class EditorAreaUiTest {
         robot.interact { requestContextMenu(tabLabel(robot, "a.txt")) }
         WaitForAsyncUtils.waitForFxEvents()
 
-        val menu = editor.tabStrip.contextMenuOf(checkNotNull(editor.openFiles.find(a)))
+        val menu = editor.tabStrip.contextMenuOf(checkNotNull(editor.editorTabs.find(a)))
         val disabled = menu.items.filter { it !is SeparatorMenuItem && it.isDisable }.map { it.text }
         assertEquals(listOf("Close Others", "Close Tabs to the Left", "Close Tabs to the Right"), disabled)
         robot.interact { menu.hide() }
@@ -324,7 +339,7 @@ class EditorAreaUiTest {
     fun `context menu Close Others and Close All`(robot: FxRobot) {
         val files = listOf("a.txt", "b.txt", "c.txt").map { textFile(it) }
         open(robot, *files.toTypedArray())
-        val menu = editor.tabStrip.contextMenuOf(checkNotNull(editor.openFiles.find(files[0])))
+        val menu = editor.tabStrip.contextMenuOf(checkNotNull(editor.editorTabs.find(files[0])))
 
         robot.interact { menu.items.single { it.text == "Close Others" }.fire() }
         WaitForAsyncUtils.waitForFxEvents()
@@ -392,7 +407,7 @@ class EditorAreaUiTest {
         open(robot, *files.toTypedArray())
         assertEquals(3, editor.watchCount)
 
-        robot.interact { editor.openFiles.closeOthers(checkNotNull(editor.openFiles.find(files[0]))) }
+        robot.interact { editor.editorTabs.closeOthers(checkNotNull(editor.editorTabs.find(files[0]))) }
         assertEquals(1, editor.watchCount)
 
         robot.interact { editor.closeAll() }
@@ -417,6 +432,40 @@ class EditorAreaUiTest {
 
         file.writeText("v3")
         eventually(robot) { assertEquals("v3", shownText(robot)) }
+    }
+
+    @Test
+    fun `other tabs show their content, follow title changes and are disposed on close`(robot: FxRobot) {
+        val a = textFile("a.txt")
+        open(robot, a)
+        var disposed = false
+        val shellTitle = SimpleStringProperty("Terminal 1")
+        val tab =
+            object : EditorTab {
+                override val title = shellTitle
+                override val tooltip = "a terminal"
+                override val content = Label("terminal content").apply { styleClass += "other-content" }
+
+                override fun dispose() {
+                    disposed = true
+                }
+            }
+
+        robot.interact { editor.open(tab) }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(listOf("a.txt", "Terminal 1"), tabTitles(robot))
+        assertSame(tab, editor.selectedTab)
+        assertNull(editor.selectedPath)
+        assertEquals(listOf(a), editor.openPaths)
+        assertTrue(robot.lookup(".editor-content .other-content").tryQuery<Node>().isPresent)
+
+        robot.interact { shellTitle.set("vim README.md") }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(listOf("a.txt", "vim README.md"), tabTitles(robot))
+
+        robot.interact { editor.closeAll() }
+        assertTrue(disposed)
+        assertEquals(0, editor.watchCount)
     }
 
     /** Repeats [assertion] on the FX thread until it passes; the JDK may poll for file changes on macOS. */
