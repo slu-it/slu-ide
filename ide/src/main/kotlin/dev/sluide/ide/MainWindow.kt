@@ -2,6 +2,7 @@ package dev.sluide.ide
 
 import dev.sluide.editor.EditorArea
 import dev.sluide.fileexplorer.FileExplorerView
+import dev.sluide.terminal.Terminals
 import javafx.scene.Scene
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuBar
@@ -14,20 +15,22 @@ import javafx.scene.layout.BorderPane
 import javafx.stage.DirectoryChooser
 import javafx.stage.Stage
 import org.springframework.stereotype.Component
+import java.nio.file.Path
 
 private const val APP_NAME = "SluIde"
 
-/** The main IDE window: menu bar on top, file explorer on the left, open files in tabs on the right. */
+/** The main IDE window: menu bar on top, file explorer on the left, open files and terminals in tabs on the right. */
 @Component
 class MainWindow(
     private val projectService: ProjectService,
     private val fileExplorer: FileExplorerView,
     private val editorArea: EditorArea,
+    private val terminals: Terminals,
 ) {
     fun show(stage: Stage) {
         val root =
             BorderPane().apply {
-                top = MenuBar(fileMenu(stage))
+                top = MenuBar(fileMenu(stage), terminalMenu())
                 center = SplitPane(fileExplorer, editorArea).apply { setDividerPositions(0.25) }
             }
 
@@ -51,6 +54,22 @@ class MainWindow(
                 setOnAction { chooseFolder(stage) }
             }
         return Menu("File", null, openFolder)
+    }
+
+    private fun terminalMenu(): Menu {
+        val newTerminal =
+            MenuItem("New Terminal").apply {
+                // Ctrl+Shift+letter is not sent to the shell, so this also works while a terminal has the focus.
+                accelerator = KeyCodeCombination(KeyCode.T, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN)
+                setOnAction { openTerminal() }
+            }
+        return Menu("Terminal", null, newTerminal)
+    }
+
+    /** Opens a terminal tab in the project folder, or in the home folder if no project is open. */
+    internal fun openTerminal() {
+        val folder = projectService.projectFolder.get() ?: Path.of(System.getProperty("user.home"))
+        editorArea.open(terminals.open(folder))
     }
 
     private fun chooseFolder(stage: Stage) {

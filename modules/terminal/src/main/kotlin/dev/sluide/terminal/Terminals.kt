@@ -19,8 +19,8 @@ class Terminals : AutoCloseable {
         return TerminalTab("Terminal ${++started}", folder, view, onDisposed = open::remove).also(open::add)
     }
 
-    /** The number of terminals whose tab is not closed yet, for tests. */
-    internal val openCount: Int get() = open.size
+    /** The number of terminals whose tab is not closed yet. */
+    val openCount: Int get() = open.size
 
     override fun close() = open.toList().forEach(TerminalTab::dispose)
 }

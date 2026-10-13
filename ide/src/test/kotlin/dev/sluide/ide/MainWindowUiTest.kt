@@ -5,8 +5,10 @@ import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.terminal.Terminals
 import javafx.application.Platform
 import javafx.scene.control.Label
+import javafx.scene.control.Menu
 import javafx.scene.control.MenuBar
 import javafx.scene.control.TextArea
 import javafx.scene.control.TreeCell
@@ -44,21 +46,25 @@ class MainWindowUiTest {
     private val projectService = ProjectService()
     private lateinit var stage: Stage
     private lateinit var fileExplorer: FileExplorerView
+    private lateinit var editorArea: EditorArea
+    private lateinit var mainWindow: MainWindow
     private val watcher = FileWatcher(Platform::runLater, 50.milliseconds)
+    private val terminals = Terminals()
 
     @AfterEach
-    fun closeWatcher() = watcher.close()
+    fun close() {
+        terminals.close()
+        watcher.close()
+    }
 
     @Start
     fun start(stage: Stage) {
         this.stage = stage
         fileExplorer = FileExplorerView(watcher)
         val fallback = DefaultTextFileViewer()
-        MainWindow(
-            projectService,
-            fileExplorer,
-            EditorArea(FileViewers(listOf(fallback), fallback), watcher),
-        ).show(stage)
+        editorArea = EditorArea(FileViewers(listOf(fallback), fallback), watcher)
+        mainWindow = MainWindow(projectService, fileExplorer, editorArea, terminals)
+        mainWindow.show(stage)
     }
 
     @Test
@@ -69,15 +75,9 @@ class MainWindowUiTest {
 
     @Test
     fun `offers File - Open Folder with Ctrl+O`(robot: FxRobot) {
-        val fileMenu =
-            robot
-                .lookup(".menu-bar")
-                .queryAs(MenuBar::class.java)
-                .menus
-                .single()
+        val fileMenu = menu(robot, "File")
         val openFolder = fileMenu.items.single()
 
-        assertEquals("File", fileMenu.text)
         assertEquals("Open Folder…", openFolder.text)
         val accelerator = openFolder.accelerator as KeyCodeCombination
         assertEquals(KeyCode.O, accelerator.code)
@@ -133,6 +133,44 @@ class MainWindowUiTest {
         assertEquals(emptyList(), tabTitles(robot))
         assertEquals(0, robot.lookup(".editor-content .text-area").queryAll<TextArea>().size)
     }
+
+    @Test
+    fun `offers Terminal - New Terminal with Ctrl+Shift+T`(robot: FxRobot) {
+        val newTerminal = menu(robot, "Terminal").items.single()
+
+        assertEquals("New Terminal", newTerminal.text)
+        val accelerator = newTerminal.accelerator as KeyCodeCombination
+        assertEquals(KeyCode.T, accelerator.code)
+        assertEquals(KeyCombination.ModifierValue.DOWN, accelerator.shortcut)
+        assertEquals(KeyCombination.ModifierValue.DOWN, accelerator.shift)
+    }
+
+    @Test
+    fun `a new terminal opens as a tab in the project folder, opening another folder closes it`(robot: FxRobot) {
+        robot.interact { projectService.open(project) }
+
+        robot.interact { menu(robot, "Terminal").items.single().fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(listOf("Terminal 1"), tabTitles(robot))
+        val tab = checkNotNull(editorArea.selectedTab)
+        assertEquals("Terminal in $project", tab.tooltip)
+
+        robot.interact { projectService.open(otherProject) }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(emptyList(), tabTitles(robot))
+        assertEquals(0, terminals.openCount)
+    }
+
+    private fun menu(
+        robot: FxRobot,
+        text: String,
+    ): Menu =
+        robot
+            .lookup(".menu-bar")
+            .queryAs(MenuBar::class.java)
+            .menus
+            .single { it.text == text }
 
     private fun tabTitles(robot: FxRobot): List<String> =
         robot.lookup(".editor-tab .label").queryAllAs(Label::class.java).map { it.text }
