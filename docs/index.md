@@ -22,10 +22,11 @@ Keep it up to date: every new ADR or feature description must be added here with
 - [adr/0011-native-app-packaging.md](adr/0011-native-app-packaging.md) — jpackage builds SluIde.app / a disk image with a jlink runtime (`:ide:jpackageImage`, `:ide:jpackageDmg`), attached to GitHub releases; not notarized, allowed once via Open Anyway.
 - [adr/0012-file-icons.md](adr/0012-file-icons.md) — File explorer icons from Ikonli's Material Design Icons pack (one style), covering every file type icon of the pack, chosen by folder state, file name, extension and readability, coloured per type in CSS; pack comparison.
 - [adr/0013-git-status.md](adr/0013-git-status.md) — Git status from `git status --porcelain=v2 --ignored` (no JGit, no own `.gitignore` parser), checked for at startup, followed only for folders with `.git`, refreshed in the background; markers in the explorer.
+- [adr/0014-project-windows.md](adr/0014-project-windows.md) — One project per window: Open Folder opens a new window unless the window has no folder yet; Spring scope `window` for per-window beans (`ProjectWindows`); one confirmation when closing a window with running tabs.
 - [adr/template.md](adr/template.md) — Template for new ADRs.
 
 ## Features
-- [features/open-folder.md](features/open-folder.md) — File → Open Folder… sets the current project folder (`ProjectService`).
+- [features/open-folder.md](features/open-folder.md) — File → Open Folder… opens a folder in the empty window or a new one (one project per window), closing a window asks once while its tabs run something.
 - [features/file-explorer.md](features/file-explorer.md) — Tree view of the project folder incl. hidden files, lazy loading, sort order, opening files (double-click/Enter), live updates and Refresh (context menu/F5), file icons, markers.
 - [features/editor-tabs.md](features/editor-tabs.md) — Central area with one closable tab per open file or other `EditorTab` (e.g. terminals), tab context menu (close others/left/right/all), scroll arrows and a dropdown for tabs that do not fit.
 - [features/settings.md](features/settings.md) — File → Settings… (Ctrl+,): page tree, OK/Apply/Cancel, Display → Appearance (Light/Dark/System theme), Display → Fonts (font, size, style for explorer, editor, terminal) with preview, stored per user.

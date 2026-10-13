@@ -11,8 +11,8 @@
   action), whose tooltip shows folder and command. The command runs in the user's login shell (`$SHELL -l -c`), so
   `sbx` must be on its `PATH`. When `sbx` ends, the tab shows "(exited)".
 - Closing a tab while `sbx` still runs (×, middle click, context menu) asks first; Cancel keeps the sandbox running.
-  After it has ended, the tab closes without asking. Opening another folder or quitting SluIde closes it without
-  asking, like every terminal.
+  After it has ended, the tab closes without asking. Closing the window asks once for all its running tabs, like for
+  every terminal.
 - Sandboxes run **only in folders below the user's home folder**: never in the home folder itself, a folder above it
   or outside it. Folders are compared by their real paths, so symbolic links and `..` do not get around this.
 - Enforced twice:

@@ -1,11 +1,20 @@
 # Open Folder
 
-**Module:** `ide` — `MainWindow`, `ProjectService`
+**Module:** `ide` — `MainWindow`, `ProjectService`, `ProjectWindows`; decision in
+[ADR 0014](../adr/0014-project-windows.md)
 
-- Menu **File → Open Folder…** (Ctrl/Cmd+O) shows a `DirectoryChooser`, starting in the current project folder.
-- The chosen folder becomes the *current project folder*, held by `ProjectService.projectFolder` (observable,
-  read-only; changed only via `ProjectService.open`, which rejects non-directories).
-- On change, `MainWindow` closes all editor tabs, passes the folder to the file explorer and the git status
-  ([git-status.md](git-status.md)), and sets the window title to
-  `<folder name> – SluIde`. Reopening the current folder is no change, so tabs and explorer stay as they are.
-- Nothing is persisted yet: the IDE starts without a project.
+- Menu **File → Open Folder…** (Ctrl/Cmd+O) shows a `DirectoryChooser`, starting in the window's project folder.
+- One project folder per window:
+  - in a window without a folder (the window at startup), the chosen folder opens in that window;
+  - otherwise it opens in a new window, placed 30 px below and right of the current one. The current window and its
+    tabs stay as they are;
+  - if a window already shows the folder, that window comes to the front instead.
+- A window's folder is held by its `ProjectService.projectFolder` (observable, read-only, set once via
+  `ProjectService.open`, which rejects non-directories and a second, different folder). `MainWindow` passes it to the
+  file explorer and the git status ([git-status.md](git-status.md)) and sets the window title to
+  `<folder name> – SluIde`.
+- Every window has its own explorer, editor area, terminals, Docker sandboxes and git status (Spring scope `window`).
+- Closing a window while its tabs still run something (terminal programs, Docker sandboxes and other commands) asks
+  once, listing them: "Close this window anyway?". Cancel keeps the window; Close ends them. Without running tabs it
+  closes right away. Closing the last window quits SluIde. Tests replace the dialog via `MainWindow.confirmCloseWindow`.
+- Nothing is persisted yet: the IDE starts with one window without a project.

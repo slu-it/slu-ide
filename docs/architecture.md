@@ -16,6 +16,7 @@ assembled from Gradle modules.
 ## Module rules
 - Feature modules (`modules/*`) never depend on `ide`. `ide` depends on all feature modules and wires them together.
 - Feature modules expose UI as JavaFX nodes/controls registered as Spring beans (`@Component`), so `ide` can inject them.
+  Beans that hold the state of one window (a project) are `@Scope("window")`.
 - Cross-module state (e.g. the current project folder) lives in `ide` or a shared module, and modules receive it
   through their public API (e.g. `FileExplorerView.open(path)`), not by reaching into each other.
 - Documented module dependencies (all `api`):
@@ -34,8 +35,12 @@ assembled from Gradle modules.
 ## Runtime
 1. `SluIdeLauncher.main` calls `Application.launch(SluIdeApplication)`.
 2. `SluIdeApplication.init()` starts a non-web Spring context scanning `dev.sluide` ([ADR 0002](adr/0002-spring-inside-javafx.md)).
-3. `SluIdeApplication.start()` asks the `MainWindow` bean to build and show the scene.
-4. `SluIdeApplication.stop()` closes the Spring context.
+3. `SluIdeApplication.start()` asks `ProjectWindows` to show the first window in the primary stage.
+4. Each window gets its own instances of the beans with `@Scope("window")` (`WindowScope`, [ADR 0014](adr/0014-project-windows.md)):
+   `MainWindow`, `ProjectService`, `FileExplorerView`, `EditorArea`, `Terminals`, `DockerSandbox`, `GitStatusService`.
+   They are created when the window opens and destroyed (`close()`) when it closes. Singletons must not depend on
+   them.
+5. When the last window is closed, `SluIdeApplication.stop()` closes the Spring context.
 
 ## Package convention
 `dev.sluide.<module>` per module, e.g. `dev.sluide.fileexplorer`, `dev.sluide.fileviewers`, `dev.sluide.ide`. All must live below

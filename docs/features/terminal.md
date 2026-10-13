@@ -16,9 +16,8 @@
   context menu) asks first: "Terminal 1 is still running java." Cancel keeps the tab. Tabs that run a command
   (`Terminals.open(folder, name, command)`, e.g. Docker sandboxes) ask as long as the command runs ("Claude Code 1 is
   still running: sbx run claude ."): the login shell runs the command in its own process, so there are no child
-  programs to look for. Opening another project folder
-  closes all tabs without asking, and quitting SluIde ends all shells without asking (`Terminals` is closed with the
-  Spring context).
+  programs to look for. Closing the window asks once for all its tabs ([open-folder.md](open-folder.md)) and then ends
+  its shells (each window has its own `Terminals`, closed with the window).
 - Font: the terminal font from the settings ([settings.md](settings.md)); running terminals follow changes and tell
   the shell the new grid size.
 - Display: 16, 256 and true colours, bold, underline, inverse, dim; full-screen programs (`vim`, `less`, `top`) with
@@ -41,5 +40,5 @@
 - Structure: `Terminals` (Spring bean: opens terminals, ends them on shutdown), `TerminalTab` (`EditorTab`),
   `TerminalView` (canvas, input, selection; JediTerm `TerminalDisplay`), `TerminalSession` (pty4j process and
   JediTerm emulator), `TerminalKeys` (key translation), `TerminalMouse` (mouse translation), `TerminalColors` (palette).
-- Not yet implemented: asking before opening another folder or quitting while programs run, window titles set by programs,
+- Not yet implemented: window titles set by programs,
   clickable links, search, colour settings, split terminals, Windows shells.
