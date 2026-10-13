@@ -6,6 +6,8 @@ import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.git.GitCli
+import dev.sluide.git.GitStatusService
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontSpec
@@ -27,6 +29,7 @@ import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
 import javafx.stage.Stage
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.io.TempDir
@@ -70,9 +73,16 @@ class MainWindowUiTest {
     private val watcher = FileWatcher(Platform::runLater, 50.milliseconds)
     private lateinit var terminals: Terminals
 
+    // Without the user's global git configuration, which could ignore other files.
+    private val gitEnvironment =
+        System.getenv() + mapOf("GIT_CONFIG_GLOBAL" to "/dev/null", "GIT_CONFIG_NOSYSTEM" to "1")
+    private val git = GitCli("git", gitEnvironment)
+    private val gitStatus = GitStatusService(git, watcher)
+
     @AfterEach
     fun close() {
         terminals.close()
+        gitStatus.close()
         watcher.close()
     }
 
@@ -92,6 +102,7 @@ class MainWindowUiTest {
                 editorArea,
                 terminals,
                 DockerSandbox(terminals, home, System.getenv()),
+                gitStatus,
                 SettingsPages(listOf(FontsPage(fontSettings))),
                 ThemedWindows(ThemeSettings(SettingsStore(settingsDir.resolve("settings.properties")))),
             )
@@ -131,6 +142,78 @@ class MainWindowUiTest {
                 .sortedBy { it.index }
                 .mapNotNull { it.text }
         assertEquals(listOf(project.name, ".git", "README.md"), names)
+    }
+
+    @Test
+    fun `a git repository shows its status as markers in the explorer and follows staging`(robot: FxRobot) {
+        assumeTrue(git.available, "git is not installed")
+        runGit("init", "-q")
+        project.resolve(".gitignore").writeText("*.log\n")
+        project.resolve("tracked.md").writeText("one")
+        runGit("add", ".")
+        runGit("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "-m", "Initial commit")
+        project.resolve("tracked.md").writeText("two")
+        project.resolve("new.md").createFile()
+        project.resolve("debug.log").createFile()
+
+        robot.interact { projectService.open(project) }
+
+        eventually(robot) {
+            assertEquals(listOf("file-marker-modified"), markersOf(robot, "tracked.md"))
+            assertEquals(listOf("file-marker-unversioned"), markersOf(robot, "new.md"))
+            assertEquals(listOf("file-marker-ignored"), markersOf(robot, "debug.log"))
+            assertEquals(listOf("file-marker-unversioned", "file-marker-modified"), markersOf(robot, project.name))
+            assertEquals(emptyList(), markersOf(robot, ".gitignore"))
+        }
+
+        runGit("add", "new.md")
+        eventually(robot) { assertEquals(listOf("file-marker-added"), markersOf(robot, "new.md")) }
+
+        robot.interact { projectService.open(otherProject) }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(emptyList(), markersOf(robot, otherProject.name))
+    }
+
+    private fun runGit(vararg arguments: String) {
+        val process =
+            ProcessBuilder(listOf("git") + arguments)
+                .directory(project.toFile())
+                .redirectErrorStream(true)
+                .apply { environment().putAll(gitEnvironment) }
+                .start()
+        val output = process.inputStream.readAllBytes().decodeToString()
+        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
+    }
+
+    /** The style classes of the markers shown after [name] in the explorer, in order. */
+    private fun markersOf(
+        robot: FxRobot,
+        name: String,
+    ): List<String> =
+        robot
+            .lookup(".tree-cell")
+            .queryAllAs(TreeCell::class.java)
+            .first { it.text == name }
+            .graphic
+            .lookupAll(".file-marker")
+            .filter { it.parent.isVisible }
+            .sortedBy { it.localToScene(0.0, 0.0).x }
+            .map { node -> node.styleClass.single { it != "file-marker" } }
+
+    /** Repeats [assertion] on the FX thread until it passes or 20 s are over. */
+    private fun eventually(
+        robot: FxRobot,
+        assertion: () -> Unit,
+    ) {
+        val deadline = System.nanoTime() + 20_000_000_000L
+        while (true) {
+            WaitForAsyncUtils.waitForFxEvents()
+            var failure: Throwable? = null
+            robot.interact { failure = runCatching(assertion).exceptionOrNull() }
+            val error = failure ?: return
+            if (System.nanoTime() > deadline) throw error
+            Thread.sleep(50)
+        }
     }
 
     @Test

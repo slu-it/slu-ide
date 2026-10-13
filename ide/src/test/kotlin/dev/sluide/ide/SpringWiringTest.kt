@@ -7,6 +7,8 @@ import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.PythonFileViewer
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.git.GitCli
+import dev.sluide.git.GitStatusService
 import dev.sluide.settings.AppearancePage
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontsPage
@@ -51,6 +53,8 @@ class SpringWiringTest {
                         ThemeSettings::class.java,
                         ThemedWindows::class.java,
                         AppearancePage::class.java,
+                        GitCli::class.java,
+                        GitStatusService::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")

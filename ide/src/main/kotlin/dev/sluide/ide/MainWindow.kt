@@ -5,6 +5,7 @@ import dev.sluide.dockersandbox.SandboxAction
 import dev.sluide.dockersandbox.SandboxNotAllowedException
 import dev.sluide.editor.EditorArea
 import dev.sluide.fileexplorer.FileExplorerView
+import dev.sluide.git.GitStatusService
 import dev.sluide.settings.SettingsDialog
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.ThemedWindows
@@ -35,6 +36,7 @@ class MainWindow(
     private val editorArea: EditorArea,
     private val terminals: Terminals,
     private val dockerSandbox: DockerSandbox,
+    private val gitStatus: GitStatusService,
     private val settingsPages: SettingsPages,
     private val themedWindows: ThemedWindows,
 ) {
@@ -60,11 +62,16 @@ class MainWindow(
 
         fileExplorer.onOpenFile = { editorArea.open(it) }
         fileExplorer.canOpenFile = editorArea::canOpen
+        // Git status markers, if git is installed and the folder is a repository (ADR 0013).
+        fileExplorer.markers = { path, directory -> gitStatus.snapshot.get().markers(path, directory) }
+        fileExplorer.onFilesChanged = gitStatus::refresh
+        gitStatus.snapshot.subscribe { _ -> fileExplorer.refreshMarkers() }
 
         // Fires only when the folder really changes, so reopening the current folder keeps the open tabs.
         projectService.projectFolder.subscribe { folder ->
             editorArea.closeAll()
             fileExplorer.open(folder)
+            gitStatus.open(folder)
             stage.title = folder?.let { "${it.fileName ?: it} – $APP_NAME" } ?: APP_NAME
         }
 
