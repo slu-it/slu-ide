@@ -16,12 +16,14 @@ Keep it up to date: every new ADR or feature description must be added here with
 - [adr/0005-syntax-highlighting.md](adr/0005-syntax-highlighting.md) — Code views render with RichTextFX and tokenize with the RSyntaxTextArea lexers behind our own `SyntaxHighlighter`; alternatives considered.
 - [adr/0006-file-watching.md](adr/0006-file-watching.md) — JDK `WatchService` behind `FileWatcher`, watching loaded folders and open files only; combined events, macOS caveat.
 - [adr/0007-terminal.md](adr/0007-terminal.md) — Terminals use pty4j and the JediTerm core (from JetBrains' repository, restricted to its group) with our own JavaFX canvas view; alternatives considered.
+- [adr/0008-settings.md](adr/0008-settings.md) — Settings live in `modules/settings` as Spring beans with JavaFX properties, stored in `~/.sluide/settings.properties`; dialog built from `SettingsPage` beans.
 - [adr/template.md](adr/template.md) — Template for new ADRs.
 
 ## Features
 - [features/open-folder.md](features/open-folder.md) — File → Open Folder… sets the current project folder (`ProjectService`).
 - [features/file-explorer.md](features/file-explorer.md) — Tree view of the project folder incl. hidden files, lazy loading, sort order, opening files (double-click/Enter), live updates and Refresh (context menu/F5).
 - [features/editor-tabs.md](features/editor-tabs.md) — Central area with one closable tab per open file or other `EditorTab` (e.g. terminals), tab context menu (close others/left/right/all), scroll arrows and a dropdown for tabs that do not fit.
+- [features/settings.md](features/settings.md) — File → Settings… (Ctrl+,): page tree, OK/Apply/Cancel, Display → Fonts (font, size, style for explorer, editor, terminal) with preview, stored per user.
 - [features/terminal.md](features/terminal.md) — Terminal → New Terminal (Ctrl+Shift+T) opens the user's shell in the project folder as an editor tab; colours, full-screen programs, scrollback, copy/paste.
 - [features/file-watching.md](features/file-watching.md) — `FileWatcher`: per-directory watches, combined events on the FX thread, used by explorer and editor.
 - [features/file-viewers.md](features/file-viewers.md) — `FileViewer` extension point, viewer selection, the read-only `DefaultTextFileViewer` (text detection rules) and the syntax-highlighted `CodeFileViewer`s (Python, Kotlin, Java, JavaScript, TypeScript, JSON, XML, HTML, YAML).

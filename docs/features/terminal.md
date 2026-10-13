@@ -16,6 +16,8 @@
   context menu) asks first: "Terminal 1 is still running java." Cancel keeps the tab. Opening another project folder
   closes all tabs without asking, and quitting SluIde ends all shells without asking (`Terminals` is closed with the
   Spring context).
+- Font: the terminal font from the settings ([settings.md](settings.md)); running terminals follow changes and tell
+  the shell the new grid size.
 - Display: 16, 256 and true colours, bold, underline, inverse, dim; full-screen programs (`vim`, `less`, `top`) with
   the alternate screen. The grid follows the size of the tab, and the shell is told about every resize.
 - Keyboard: the terminal takes the focus when its tab is shown. Enter, Tab, Esc, Backspace, arrows, Home/End,
@@ -29,4 +31,4 @@
   `TerminalView` (canvas, input, selection; JediTerm `TerminalDisplay`), `TerminalSession` (pty4j process and
   JediTerm emulator), `TerminalKeys` (key translation), `TerminalColors` (palette).
 - Not yet implemented: asking before opening another folder or quitting while programs run, mouse reporting to programs (e.g. clicking in `vim`), window titles set by programs,
-  clickable links, search, font and colour settings, split terminals, Windows shells.
+  clickable links, search, colour settings, split terminals, Windows shells.

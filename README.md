@@ -4,7 +4,8 @@ A lightweight IDE written in Kotlin, using Spring Boot and JavaFX.
 
 Currently it can open a folder as project (File → Open Folder…) and shows its complete content, including hidden
 files, in a file explorer. Text files open read-only in tabs (double-click or Enter in the explorer), source files of common languages (Kotlin, Java, Python, JavaScript, TypeScript, JSON, XML, HTML, YAML) with syntax
-highlighting. Terminal → New Terminal (Ctrl+Shift+T) opens a shell in the project folder as a tab.
+highlighting. Terminal → New Terminal (Ctrl+Shift+T) opens a shell in the project folder as a tab. File → Settings… (Ctrl+,) sets
+the fonts of the explorer, the editor and the terminal.
 
 ## Requirements
 - JDK 25
@@ -22,7 +23,7 @@ The fat jar contains JavaFX natives for the platform it was built on only (Linux
 | Path | Content |
 |------|---------|
 | `ide/` | Application: launcher, window, fat jar |
-| `modules/` | Feature modules (`file-explorer`, `editor`, `file-viewers`, `file-watcher`, `terminal`) |
+| `modules/` | Feature modules (`file-explorer`, `editor`, `file-viewers`, `file-watcher`, `terminal`, `settings`) |
 | `docs/` | Architecture, ADRs and feature descriptions, starting at [`docs/index.md`](docs/index.md) |
 | `.claude/` | Claude Code settings, agents, rules and scripts |
 | `.github/` | CI and release workflows |

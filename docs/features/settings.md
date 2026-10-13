@@ -1,0 +1,23 @@
+# Settings
+
+**Module:** `modules/settings` (package `dev.sluide.settings`), decision in [ADR 0008](../adr/0008-settings.md)
+
+- File → Settings… (Ctrl+, / Cmd+,) opens the settings dialog: a tree of pages on the left, the selected page on the
+  right. Selecting a group (e.g. Display) shows its first page.
+- OK applies all edits and closes, Apply applies and keeps the dialog open, Cancel drops the edits. Nothing changes
+  in the IDE before OK or Apply. The dialog always opens with the current settings.
+- Settings are stored in `~/.sluide/settings.properties` and apply live to open views. Values that cannot be used
+  (e.g. an unknown style) fall back to the defaults.
+- Display → Fonts: font, size (6–72) and style (Regular, Bold, Italic, Bold Italic) separately for
+  - File Explorer (default: the system UI font),
+  - Editor, i.e. all open file views (default: Monospaced at the system font size); syntax highlighting keeps its
+    own bold/italic tokens,
+  - Terminal (default: Monospaced 13). Only monospaced fonts are offered, so columns line up; bold and italic text
+    use the bolder or italic variant of the chosen font. The shell is told the new grid size.
+  - Font names can be typed; Enter takes a name only if it is in the list. "Restore Defaults" resets one area.
+  - A preview below shows a sample tree, editor text and terminal output in the edited fonts.
+- Structure: `FontSpec`, `FontStyle`, `FontArea` (values), `SettingsStore` (properties file), `FontSettings` (Spring
+  bean, properties per area), `SettingsPage`/`SettingsPages` (pages as beans), `SettingsDialog`, `FontsPage` with
+  `FontsPageModel` (drafts). Users: `FileExplorerView`, `EditorArea` (binds every open file view), `Terminals`
+  (each `TerminalView` follows the terminal font).
+- Not yet implemented: font settings for menus and dialogs, line spacing, per-project settings, other setting pages.

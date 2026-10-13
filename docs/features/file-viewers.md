@@ -7,7 +7,7 @@
   re-reads the file and keeps the scroll position and caret; the editor calls it when the file changes on disk.
 - `FileViewers` asks every `FileViewer` bean in turn and uses the first that agrees. `DefaultTextFileViewer` is always
   asked last ([ADR 0004](../adr/0004-file-viewer-selection.md)). Returns `null` if no viewer agrees.
-- `DefaultTextFileViewer` shows any text file in a non-editable, monospaced `TextArea`. A file is text if its
+- `DefaultTextFileViewer` shows any text file in a non-editable `TextArea`. A file is text if its
   first 8 KiB contain no NUL byte and are valid UTF-8 (`isTextFile`); empty files are text, files over 10 MiB are not.
 - Code viewers extend `CodeFileViewer(extensions, highlighter)` and show text files with syntax highlighting and line
   numbers, read-only. They render a RichTextFX `CodeArea`, colour the tokens from a `SyntaxHighlighter`
@@ -27,6 +27,9 @@
   | `HtmlFileViewer` | `.html`, `.htm`, `.xhtml` | none needed; embedded `<script>`/`<style>` are highlighted as JavaScript/CSS. Known gap: unquoted attribute values look like attribute names |
   | `YamlFileViewer` | `.yaml`, `.yml` | the lexer only knows comments and quoted strings; line rules add keys (`property`), numbers, `true`/`false`/`null`/`~`, anchors/aliases/tags (`annotation`) and `---`/`...`. Known gap: block scalar content (after `\|`/`>`) is not shown as string |
 
+- Views set no font of their own: they inherit the editor font that `EditorArea` sets on their node
+  ([settings.md](settings.md)). `syntax.css` makes the RichTextFX code area inherit it too, since RichTextFX's own
+  stylesheet sets a monospace family on `.code-area`.
 - To add a viewer, implement `FileViewer` as a `@Component` in any module below `dev.sluide`. For a language with an
   RSyntaxTextArea lexer, add its highlighter to `RSyntaxHighlighter`'s companion, extend `CodeFileViewer` like
   `PythonFileViewer` does, and add a row to `CodeFileViewersTest` and a `<Language>HighlightingTest`.
