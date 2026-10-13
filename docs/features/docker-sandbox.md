@@ -1,0 +1,22 @@
+# Docker Sandbox
+
+**Module:** `modules/docker-sandbox` (package `dev.sluide.dockersandbox`), depends on `modules/terminal`; menu in
+`ide` (`MainWindow`); decision in [ADR 0010](../adr/0010-docker-sandbox.md)
+
+- Menu **Docker Sandbox**:
+  - **Claude Code** runs `sbx run claude .` in the project folder.
+  - **Environment** runs `sbx env run` in the project folder; it needs an `sbxenv.yaml` in the folder (not in
+    subfolders).
+- Each opens a terminal tab ([terminal.md](terminal.md)) named "Claude Code 1", "Environment 1", … (numbered per
+  action), whose tooltip shows folder and command. The command runs in the user's login shell (`$SHELL -l -c`), so
+  `sbx` must be on its `PATH`. When `sbx` ends, the tab shows "(exited)".
+- Sandboxes run **only in folders below the user's home folder**: never in the home folder itself, a folder above it
+  or outside it. Folders are compared by their real paths, so symbolic links and `..` do not get around this.
+- Enforced twice:
+  - The menu items are disabled when no folder is open, the folder is not below the home folder, or (Environment)
+    `sbxenv.yaml` is missing. This is re-evaluated each time the menu opens and when the folder changes.
+  - Starting checks the same again on the folder the terminal starts in; if it fails, an error dialog says why
+    ("Claude Code cannot be started. Docker sandboxes run only in folders below your home folder …") and no tab
+    opens.
+- Structure: `DockerSandbox` (Spring bean: `problem(action, folder)`, `open(action, folder)`), `SandboxAction`
+  (title, command, required file), `SandboxFolder` (the folder rule).

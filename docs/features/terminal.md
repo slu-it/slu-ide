@@ -32,6 +32,9 @@
   still selects text; the right button always opens the context menu.
 - Copy and paste: dragging selects text. Ctrl+Shift+C / Ctrl+Shift+V (Cmd+Shift+C/V on macOS) or the context menu
   copy it and paste the clipboard. Pastes use bracketed paste when the shell asks for it.
+- Other modules can run a command in a terminal tab: `Terminals.open(folder, name, command)` runs it with
+  `$SHELL -l -c` in a tab with the given name; the tab shows "(exited)" when the command ends (used by
+  [docker-sandbox.md](docker-sandbox.md)).
 - Structure: `Terminals` (Spring bean: opens terminals, ends them on shutdown), `TerminalTab` (`EditorTab`),
   `TerminalView` (canvas, input, selection; JediTerm `TerminalDisplay`), `TerminalSession` (pty4j process and
   JediTerm emulator), `TerminalKeys` (key translation), `TerminalMouse` (mouse translation), `TerminalColors` (palette).
