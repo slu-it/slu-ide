@@ -6,6 +6,7 @@ import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontSpec
 import dev.sluide.settings.FontStyle
 import dev.sluide.settings.SettingsStore
+import javafx.application.ColorScheme
 import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.Scene
@@ -14,20 +15,25 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
+import javafx.scene.paint.Color
 import javafx.stage.Stage
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.io.TempDir
+import org.kordamp.ikonli.javafx.FontIcon
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
 import kotlin.io.path.deleteExisting
 import kotlin.io.path.name
+import kotlin.io.path.writeBytes
+import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -324,5 +330,107 @@ class FileExplorerViewUiTest {
         assertEquals(19.0, cell.font.size)
         assertEquals("Serif", cell.font.family)
         assertTrue("Bold" in cell.font.style, cell.font.style)
+    }
+
+    private fun cellNamed(
+        robot: FxRobot,
+        name: String,
+    ): TreeCell<*> =
+        robot
+            .lookup(".tree-cell")
+            .queryAllAs(TreeCell::class.java)
+            .first { it.text == name }
+
+    private fun iconOf(
+        robot: FxRobot,
+        name: String,
+    ): FontIcon = cellNamed(robot, name).graphic as FontIcon
+
+    @Test
+    fun `shows an icon per file type, readable or binary for unknown types`(robot: FxRobot) {
+        project.resolve("sub").createDirectories()
+        project.resolve("Main.kt").createFile()
+        project.resolve("notes.txt").createFile()
+        project.resolve("blob.bin").createFile()
+        val checked = mutableListOf<String>()
+        view.canOpenFile = { file ->
+            checked += file.name
+            file.name != "blob.bin"
+        }
+
+        robot.interact { view.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        robot.interact {
+            assertEquals(FileIcon.FOLDER_OPEN.ikon, iconOf(robot, project.name).iconCode)
+            assertEquals(FileIcon.FOLDER.ikon, iconOf(robot, "sub").iconCode)
+            assertEquals(FileIcon.KOTLIN.ikon, iconOf(robot, "Main.kt").iconCode)
+            assertEquals(FileIcon.TEXT.ikon, iconOf(robot, "notes.txt").iconCode)
+            assertEquals(FileIcon.BINARY.ikon, iconOf(robot, "blob.bin").iconCode)
+            assertTrue("file-icon-kotlin" in iconOf(robot, "Main.kt").styleClass)
+            // The colour comes from file-explorer.css.
+            assertEquals(Color.web("#7f52ff"), iconOf(robot, "Main.kt").iconColor)
+        }
+        // Only files without a known extension are checked, each once however often its cell is rendered.
+        robot.interact { view.refresh() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(listOf("blob.bin", "notes.txt"), checked.sorted())
+    }
+
+    @Test
+    fun `the folder icon opens and closes with the folder`(robot: FxRobot) {
+        project.resolve("sub").createDirectories()
+        robot.interact { view.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        robot.interact { view.root.isExpanded = false }
+        WaitForAsyncUtils.waitForFxEvents()
+        robot.interact { assertEquals(FileIcon.FOLDER.ikon, iconOf(robot, project.name).iconCode) }
+
+        robot.interact { view.root.isExpanded = true }
+        WaitForAsyncUtils.waitForFxEvents()
+        robot.interact { assertEquals(FileIcon.FOLDER_OPEN.ikon, iconOf(robot, project.name).iconCode) }
+    }
+
+    @Test
+    fun `a file that changes on disk is checked again`(robot: FxRobot) {
+        val file = project.resolve("data")
+        file.writeBytes(byteArrayOf(0, 1, 2))
+        view.canOpenFile = { 0.toByte() !in Files.readAllBytes(it) }
+        robot.interact { view.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+        robot.interact { assertEquals(FileIcon.BINARY.ikon, iconOf(robot, "data").iconCode) }
+
+        file.writeText("now text")
+
+        eventually(robot) { assertEquals(FileIcon.TEXT.ikon, iconOf(robot, "data").iconCode) }
+    }
+
+    @Test
+    fun `icons are sized to the explorer font`(robot: FxRobot) {
+        project.resolve("README.md").createFile()
+        robot.interact { view.open(project) }
+        robot.interact { fontSettings.apply(mapOf(FontArea.EXPLORER to FontSpec("Serif", 20.0))) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        robot.interact { assertEquals(25, iconOf(robot, "README.md").iconSize) }
+    }
+
+    @Test
+    fun `icon colours follow the theme`(robot: FxRobot) {
+        project.resolve("Main.kt").createFile()
+        robot.interact { view.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        fun kotlinColor(scheme: ColorScheme): Any? {
+            robot.interact { view.scene.preferences.colorScheme = scheme }
+            WaitForAsyncUtils.waitForFxEvents()
+            var color: Any? = null
+            robot.interact { color = iconOf(robot, "Main.kt").iconColor }
+            return color
+        }
+        assertEquals(Color.web("#7f52ff"), kotlinColor(ColorScheme.LIGHT))
+        assertEquals(Color.web("#a78bfa"), kotlinColor(ColorScheme.DARK))
+        assertEquals(Color.web("#7f52ff"), kotlinColor(ColorScheme.LIGHT))
     }
 }

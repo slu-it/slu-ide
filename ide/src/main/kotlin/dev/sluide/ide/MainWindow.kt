@@ -59,6 +59,7 @@ class MainWindow(
             }
 
         fileExplorer.onOpenFile = { editorArea.open(it) }
+        fileExplorer.canOpenFile = editorArea::canOpen
 
         // Fires only when the folder really changes, so reopening the current folder keeps the open tabs.
         projectService.projectFolder.subscribe { folder ->

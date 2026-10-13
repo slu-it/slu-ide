@@ -1,5 +1,6 @@
 package dev.sluide.fileexplorer
 
+import javafx.beans.property.SimpleObjectProperty
 import javafx.collections.ObservableList
 import javafx.scene.control.TreeItem
 import java.nio.file.Files
@@ -16,6 +17,15 @@ class FileTreeItem(
 ) : TreeItem<Path>(path) {
     private val directory: Boolean = Files.isDirectory(path)
     private var childrenLoaded = false
+
+    /** Whether this is a folder; decided when the item is created. */
+    val isDirectory: Boolean get() = directory
+
+    /**
+     * Cached result of the explorer's check whether this file can be opened (it may read the file); `null` until it
+     * is checked, and again after the file changed. The cells listen to it to update their icon.
+     */
+    internal val readable = SimpleObjectProperty<Boolean?>(null)
 
     override fun isLeaf(): Boolean = !directory
 

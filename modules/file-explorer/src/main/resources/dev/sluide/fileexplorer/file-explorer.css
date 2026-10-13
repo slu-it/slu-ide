@@ -1,0 +1,33 @@
+/*
+ * Colours of the file icons (FileIcon). Single-class selectors only, so the dark rules apply in the dark theme
+ * only and override the light ones (ADR 0009).
+ */
+
+.file-icon-folder { -fx-icon-color: #c99a2e; }
+.file-icon-text { -fx-icon-color: -fx-text-base-color; }
+.file-icon-binary { -fx-icon-color: #9a9a9a; }
+.file-icon-kotlin { -fx-icon-color: #7f52ff; }
+.file-icon-java { -fx-icon-color: #e76f00; }
+.file-icon-python { -fx-icon-color: #3572a5; }
+.file-icon-javascript { -fx-icon-color: #b8a000; }
+.file-icon-typescript { -fx-icon-color: #3178c6; }
+.file-icon-html { -fx-icon-color: #e34c26; }
+.file-icon-json { -fx-icon-color: #8a6d3b; }
+.file-icon-xml { -fx-icon-color: #0060ac; }
+.file-icon-yaml { -fx-icon-color: #8a6d3b; }
+.file-icon-markdown { -fx-icon-color: #4a5568; }
+
+@media (prefers-color-scheme: dark) {
+    .file-icon-folder { -fx-icon-color: #e0b553; }
+    .file-icon-binary { -fx-icon-color: #6f6f6f; }
+    .file-icon-kotlin { -fx-icon-color: #a78bfa; }
+    .file-icon-java { -fx-icon-color: #f0913a; }
+    .file-icon-python { -fx-icon-color: #5b9bd5; }
+    .file-icon-javascript { -fx-icon-color: #e8d44d; }
+    .file-icon-typescript { -fx-icon-color: #5a9ae6; }
+    .file-icon-html { -fx-icon-color: #f06a4a; }
+    .file-icon-json { -fx-icon-color: #c9a86a; }
+    .file-icon-xml { -fx-icon-color: #4a9ad8; }
+    .file-icon-yaml { -fx-icon-color: #c9a86a; }
+    .file-icon-markdown { -fx-icon-color: #a0aec0; }
+}

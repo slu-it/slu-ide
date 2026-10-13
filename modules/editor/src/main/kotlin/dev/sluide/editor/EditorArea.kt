@@ -66,6 +66,9 @@ class EditorArea(
         editorTabs.selected.subscribe { selected -> content.children.setAll(listOfNotNull(selected?.content)) }
     }
 
+    /** Whether a [dev.sluide.fileviewers.FileViewer] can show [file], i.e. whether [open] would open it. */
+    fun canOpen(file: Path): Boolean = fileViewers.viewerFor(file) != null
+
     /**
      * Shows [file] in a tab: selects its tab if it is already open, otherwise opens a new one with the first
      * [dev.sluide.fileviewers.FileViewer] that can show it. Returns `false` if no viewer can show or read it.
