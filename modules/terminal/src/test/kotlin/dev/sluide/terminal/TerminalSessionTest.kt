@@ -124,7 +124,8 @@ class TerminalSessionTest {
         // Ctrl+C ends the foreground program, the background job keeps running.
         session.send(byteArrayOf(3))
         await("one program left") { session.runningPrograms() == listOf("sleep") }
-        run("kill \$!; wait")
+        // Not `kill $!`: macOS's /bin/sh (bash 3.2) treats `!` as history expansion in interactive shells.
+        run("kill %1; wait")
         await("no programs") { session.runningPrograms().isEmpty() }
     }
 
