@@ -59,7 +59,7 @@ class SettingsDialog(
             SplitPane(tree, pageArea).apply {
                 setDividerPositions(0.25)
                 SplitPane.setResizableWithParent(tree, false)
-                setPrefSize(900.0, 620.0)
+                setPrefSize(1000.0, 640.0)
             }
         dialogPane.stylesheets +=
             checkNotNull(SettingsDialog::class.java.getResource("settings.css")).toExternalForm()

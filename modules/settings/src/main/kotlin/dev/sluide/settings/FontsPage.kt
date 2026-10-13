@@ -14,6 +14,7 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.layout.GridPane
 import javafx.scene.layout.Priority
+import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
 import javafx.scene.paint.Color
 import javafx.scene.text.Font
@@ -86,7 +87,10 @@ class FontsPage(
                 }
             val row = row(area, families)
             rows[area] = row
-            grid.addRow(index + 1, Label(area.label), row.family, row.size, row.style, row.restoreDefaults)
+            // Labels and buttons keep their full text; the family box gives up width first.
+            val label = Label(area.label).apply { minWidth = Region.USE_PREF_SIZE }
+            row.restoreDefaults.minWidth = Region.USE_PREF_SIZE
+            grid.addRow(index + 1, label, row.family, row.size, row.style, row.restoreDefaults)
         }
         val terminalNote =
             Label("The terminal lists monospaced fonts only, so its columns line up.").apply {
@@ -116,6 +120,7 @@ class FontsPage(
                 items.setAll(families)
                 isEditable = true
                 prefWidth = 260.0
+                minWidth = 120.0
                 visibleRowCount = 15
             }
         val size =
