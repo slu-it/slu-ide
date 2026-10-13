@@ -7,6 +7,8 @@ ktlint = "1.8.0"
 testfx = "4.0.18"
 richtextfx = "0.11.7"
 rsyntaxtextarea = "4.0.1"
+pty4j = "0.14.0"
+jediterm = "3.76"
 
 [libraries]
 spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
@@ -18,6 +20,8 @@ testfx-junit5 = { module = "org.testfx:testfx-junit5", version.ref = "testfx" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 richtextfx = { module = "org.fxmisc.richtext:richtextfx", version.ref = "richtextfx" }
 rsyntaxtextarea = { module = "com.fifesoft:rsyntaxtextarea", version.ref = "rsyntaxtextarea" }
+pty4j = { module = "org.jetbrains.pty4j:pty4j", version.ref = "pty4j" }
+jediterm-core = { module = "org.jetbrains.jediterm:jediterm-core", version.ref = "jediterm" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
