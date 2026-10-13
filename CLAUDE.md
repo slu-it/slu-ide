@@ -24,5 +24,6 @@ Lightweight IDE in Kotlin (JDK 25) with Spring Boot and JavaFX, built with Gradl
 - `curl` downloads need `-L` (redirects) and checksum verification; a 169-byte "zip" is a redirect page.
 - Commits: small, one logical step each, imperative subject line. No Claude attribution lines or session links
   in commits or PRs (also enforced in `.claude/settings.json`).
+- Git: commit finished steps without asking; never push. The user pushes.
 
 Role-specific guidance lives in `.claude/agents/`, topic rules in `.claude/rules/`.
