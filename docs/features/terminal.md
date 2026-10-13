@@ -24,11 +24,16 @@
   PgUp/PgDn, Insert/Delete and F1–F12 are sent as xterm sequences, Ctrl+letter as control characters (Ctrl+C, Ctrl+D, …).
   Alt+letter sends Esc and the letter, except on macOS, where Option types characters. Ctrl+Shift+letter and Cmd
   shortcuts are not sent to the shell, so menu shortcuts keep working.
-- Scrollback: the mouse wheel scrolls through the history (not in full-screen programs). Typing scrolls back down.
+- Scrollback: the mouse wheel scrolls through the history. Typing scrolls back down. Full-screen programs scroll
+  themselves: the wheel is reported to them if they asked for mouse reports (e.g. Claude Code's fullscreen TUI,
+  `vim` with `mouse=a`), otherwise sent as Up/Down arrow keys (e.g. `less`, `man`).
+- Mouse: programs that ask for mouse reports (normal, button-motion and any-motion tracking; xterm, UTF-8, SGR and urxvt
+  formats, encoded by JediTerm) get left and middle clicks, drags, moves and the wheel, with Ctrl/Alt. Shift+drag
+  still selects text; the right button always opens the context menu.
 - Copy and paste: dragging selects text. Ctrl+Shift+C / Ctrl+Shift+V (Cmd+Shift+C/V on macOS) or the context menu
   copy it and paste the clipboard. Pastes use bracketed paste when the shell asks for it.
 - Structure: `Terminals` (Spring bean: opens terminals, ends them on shutdown), `TerminalTab` (`EditorTab`),
   `TerminalView` (canvas, input, selection; JediTerm `TerminalDisplay`), `TerminalSession` (pty4j process and
-  JediTerm emulator), `TerminalKeys` (key translation), `TerminalColors` (palette).
-- Not yet implemented: asking before opening another folder or quitting while programs run, mouse reporting to programs (e.g. clicking in `vim`), window titles set by programs,
+  JediTerm emulator), `TerminalKeys` (key translation), `TerminalMouse` (mouse translation), `TerminalColors` (palette).
+- Not yet implemented: asking before opening another folder or quitting while programs run, window titles set by programs,
   clickable links, search, colour settings, split terminals, Windows shells.
