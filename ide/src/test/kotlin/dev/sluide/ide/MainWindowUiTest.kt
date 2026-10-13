@@ -33,6 +33,7 @@ import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.io.TempDir
+import org.springframework.beans.factory.support.DefaultListableBeanFactory
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
@@ -44,6 +45,7 @@ import kotlin.io.path.name
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -72,6 +74,15 @@ class MainWindowUiTest {
     private lateinit var fontSettings: FontSettings
     private val watcher = FileWatcher(Platform::runLater, 50.milliseconds)
     private lateinit var terminals: Terminals
+
+    /** The folders the window asked to open in other windows. */
+    private val openedElsewhere = mutableListOf<Path>()
+    private val projectWindows =
+        object : ProjectWindows(DefaultListableBeanFactory()) {
+            override fun open(folder: Path) {
+                openedElsewhere.add(folder)
+            }
+        }
 
     // Without the user's global git configuration, which could ignore other files.
     private val gitEnvironment =
@@ -105,6 +116,7 @@ class MainWindowUiTest {
                 gitStatus,
                 SettingsPages(listOf(FontsPage(fontSettings))),
                 ThemedWindows(ThemeSettings(SettingsStore(settingsDir.resolve("settings.properties")))),
+                projectWindows,
             )
         mainWindow.show(stage)
     }
@@ -169,9 +181,8 @@ class MainWindowUiTest {
         runGit("add", "new.md")
         eventually(robot) { assertEquals(listOf("file-marker-added"), markersOf(robot, "new.md")) }
 
-        robot.interact { projectService.open(otherProject) }
-        WaitForAsyncUtils.waitForFxEvents()
-        assertEquals(emptyList(), markersOf(robot, otherProject.name))
+        robot.interact { mainWindow.dispose() }
+        assertFalse(gitStatus.active)
     }
 
     private fun runGit(vararg arguments: String) {
@@ -231,21 +242,22 @@ class MainWindowUiTest {
     }
 
     @Test
-    fun `opening another folder closes all tabs, reopening the current one keeps them`(robot: FxRobot) {
+    fun `the first folder opens in the window, later ones in other windows, keeping the tabs`(robot: FxRobot) {
         val readme = project.resolve("README.md").apply { writeText("# Hello") }
         robot.interact {
-            projectService.open(project)
+            mainWindow.openFolder(project)
             fileExplorer.onOpenFile?.invoke(readme)
         }
+        assertEquals(project, mainWindow.folder)
+        assertEquals(emptyList(), openedElsewhere)
 
-        robot.interact { projectService.open(project) }
+        robot.interact { mainWindow.openFolder(otherProject) }
         WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(listOf(otherProject), openedElsewhere)
+        assertEquals(project, mainWindow.folder)
+        assertEquals("${project.name} – SluIde", stage.title)
         assertEquals(listOf("README.md"), tabTitles(robot))
-
-        robot.interact { projectService.open(otherProject) }
-        WaitForAsyncUtils.waitForFxEvents()
-        assertEquals(emptyList(), tabTitles(robot))
-        assertEquals(0, robot.lookup(".editor-content .text-area").queryAll<TextArea>().size)
     }
 
     @Test
@@ -304,7 +316,7 @@ class MainWindowUiTest {
     }
 
     @Test
-    fun `a new terminal opens as a tab in the project folder, opening another folder closes it`(robot: FxRobot) {
+    fun `a new terminal opens as a tab in the project folder, disposing the window ends it`(robot: FxRobot) {
         robot.interact { projectService.open(project) }
 
         robot.interact { menu(robot, "Terminal").items.single().fire() }
@@ -314,10 +326,11 @@ class MainWindowUiTest {
         val tab = checkNotNull(editorArea.selectedTab)
         assertEquals("Terminal in $project", tab.tooltip)
 
-        robot.interact { projectService.open(otherProject) }
+        robot.interact { mainWindow.dispose() }
         WaitForAsyncUtils.waitForFxEvents()
         assertEquals(emptyList(), tabTitles(robot))
         assertEquals(0, terminals.openCount)
+        assertEquals(0, fileExplorer.root?.children?.size ?: 0)
     }
 
     @Test
@@ -329,14 +342,17 @@ class MainWindowUiTest {
     }
 
     @Test
-    fun `the sandbox actions are disabled for the home folder and folders not below it`(robot: FxRobot) {
+    fun `the sandbox actions are disabled for the home folder`(robot: FxRobot) {
         home.resolve("sbxenv.yaml").createFile()
-        project.resolve("sbxenv.yaml").createFile()
+        robot.interact { projectService.open(home) }
+        assertEquals(listOf(true, true), sandboxItems(robot).map { it.isDisable })
+    }
 
-        for (folder in listOf(home, project)) {
-            robot.interact { projectService.open(folder) }
-            assertEquals(listOf(true, true), sandboxItems(robot).map { it.isDisable }, "$folder")
-        }
+    @Test
+    fun `the sandbox actions are disabled for folders not below the home folder`(robot: FxRobot) {
+        project.resolve("sbxenv.yaml").createFile()
+        robot.interact { projectService.open(project) }
+        assertEquals(listOf(true, true), sandboxItems(robot).map { it.isDisable })
     }
 
     @Test

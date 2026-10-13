@@ -2,12 +2,17 @@ package dev.sluide.ide
 
 import javafx.beans.property.ReadOnlyObjectProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
+import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Service
 import java.nio.file.Files
 import java.nio.file.Path
 
-/** Holds the folder that is currently opened as project. Observe [projectFolder] to react to changes. */
+/**
+ * Holds the project folder of one window. It is set once: other folders open in other windows (ADR 0014). Observe
+ * [projectFolder] to react to it.
+ */
 @Service
+@Scope(WINDOW_SCOPE)
 class ProjectService {
     private val _projectFolder = ReadOnlyObjectWrapper<Path?>()
 
@@ -15,6 +20,9 @@ class ProjectService {
 
     fun open(folder: Path) {
         require(Files.isDirectory(folder)) { "Not a directory: $folder" }
-        _projectFolder.set(folder.toAbsolutePath().normalize())
+        val path = folder.toAbsolutePath().normalize()
+        val current = _projectFolder.get()
+        check(current == null || current == path) { "This window already shows $current" }
+        _projectFolder.set(path)
     }
 }

@@ -22,6 +22,7 @@ import javafx.scene.input.MouseButton
 import javafx.scene.layout.HBox
 import javafx.scene.shape.Circle
 import org.kordamp.ikonli.javafx.FontIcon
+import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path
@@ -34,6 +35,8 @@ import kotlin.math.roundToInt
  * [FileMarker]s given by [markers] after its name.
  */
 @Component
+// One instance per IDE window (the "window" scope of the ide module, ADR 0014).
+@Scope("window")
 class FileExplorerView(
     private val fileWatcher: FileWatcher,
     fontSettings: FontSettings,

@@ -1,5 +1,6 @@
 package dev.sluide.ide
 
+import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editor.EditorArea
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.DefaultTextFileViewer
@@ -55,10 +56,30 @@ class SpringWiringTest {
                         AppearancePage::class.java,
                         GitCli::class.java,
                         GitStatusService::class.java,
+                        ProjectWindows::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")
                 }
+                // Every window has its own instance of these (ADR 0014).
+                val windowTypes =
+                    listOf(
+                        MainWindow::class.java,
+                        ProjectService::class.java,
+                        FileExplorerView::class.java,
+                        EditorArea::class.java,
+                        Terminals::class.java,
+                        DockerSandbox::class.java,
+                        GitStatusService::class.java,
+                    )
+                val scoped =
+                    context.beanFactory.beanDefinitionNames.filter {
+                        context.beanFactory.getBeanDefinition(it).scope == WINDOW_SCOPE
+                    }
+                assertEquals(
+                    windowTypes.map { context.getBeanNamesForType(it).single() }.toSet(),
+                    scoped.toSet(),
+                )
                 // Needs no JavaFX toolkit, so the viewer chain can be created for real.
                 val viewers = context.getBean(FileViewers::class.java).viewers
                 assertEquals(context.getBeansOfType(FileViewer::class.java).size, viewers.size, "all viewers are asked")

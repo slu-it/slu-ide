@@ -3,6 +3,7 @@ package dev.sluide.dockersandbox
 import dev.sluide.editor.EditorTab
 import dev.sluide.terminal.Terminals
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.nio.file.Path
 import kotlin.io.path.isRegularFile
@@ -17,6 +18,8 @@ class SandboxNotAllowedException(
  * [SandboxFolder]): [problem] tells the menu whether an action can run, and [open] checks again before it starts one.
  */
 @Component
+// One instance per IDE window (the "window" scope of the ide module, ADR 0014).
+@Scope("window")
 class DockerSandbox(
     private val terminals: Terminals,
     /** The user's home folder. */

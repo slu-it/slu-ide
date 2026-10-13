@@ -11,6 +11,7 @@ import javafx.scene.control.ButtonBar
 import javafx.scene.control.ButtonType
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.StackPane
+import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.io.IOException
 import java.nio.file.Path
@@ -21,6 +22,8 @@ import java.nio.file.Path
  * shown (e.g. it became binary).
  */
 @Component
+// One instance per IDE window (the "window" scope of the ide module, ADR 0014).
+@Scope("window")
 class EditorArea(
     private val fileViewers: FileViewers,
     private val fileWatcher: FileWatcher,

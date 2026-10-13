@@ -2,6 +2,7 @@ package dev.sluide.ide
 
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import kotlin.io.path.createDirectory
 import kotlin.io.path.createFile
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -28,6 +29,15 @@ class ProjectServiceTest {
 
         assertEquals(dir.toAbsolutePath().normalize(), service.projectFolder.get())
         assertEquals(listOf(null, dir.toAbsolutePath().normalize()), seen)
+    }
+
+    @Test
+    fun `a project folder is set once, reopening it changes nothing`() {
+        service.open(dir)
+        service.open(dir.resolve(".").resolve("."))
+
+        assertFailsWith<IllegalStateException> { service.open(dir.resolve("other").createDirectory()) }
+        assertEquals(dir.toAbsolutePath().normalize(), service.projectFolder.get())
     }
 
     @Test

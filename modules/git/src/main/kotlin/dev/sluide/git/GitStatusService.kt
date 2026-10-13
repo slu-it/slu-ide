@@ -5,6 +5,7 @@ import javafx.application.Platform
 import javafx.beans.property.ReadOnlyObjectProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path
@@ -20,6 +21,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  * [dispatch] stands for in tests.
  */
 @Component
+// One instance per IDE window (the "window" scope of the ide module, ADR 0014).
+@Scope("window")
 class GitStatusService(
     private val git: GitCli,
     private val fileWatcher: FileWatcher,

@@ -3,6 +3,7 @@ package dev.sluide.terminal
 import dev.sluide.editor.EditorTab
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
+import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.nio.file.Path
 
@@ -11,6 +12,8 @@ import java.nio.file.Path
  * of the [fontSettings] and follow its changes.
  */
 @Component
+// One instance per IDE window (the "window" scope of the ide module, ADR 0014).
+@Scope("window")
 class Terminals(
     private val fontSettings: FontSettings,
 ) : AutoCloseable {

@@ -23,6 +23,7 @@ import javafx.scene.input.KeyCombination
 import javafx.scene.layout.BorderPane
 import javafx.stage.DirectoryChooser
 import javafx.stage.Stage
+import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.nio.file.Path
 
@@ -30,15 +31,17 @@ private const val APP_NAME = "SluIde"
 
 /** The main IDE window: menu bar on top, file explorer on the left, open files and terminals in tabs on the right. */
 @Component
+@Scope(WINDOW_SCOPE)
 class MainWindow(
     private val projectService: ProjectService,
     private val fileExplorer: FileExplorerView,
     private val editorArea: EditorArea,
-    private val terminals: Terminals,
+    internal val terminals: Terminals,
     private val dockerSandbox: DockerSandbox,
     private val gitStatus: GitStatusService,
     private val settingsPages: SettingsPages,
     private val themedWindows: ThemedWindows,
+    private val projectWindows: ProjectWindows,
 ) {
     /** Shows the settings dialog and waits until it is closed; tests replace it, since it blocks. */
     internal var showSettings: (Stage) -> Unit = { stage -> SettingsDialog(settingsPages.pages, stage).showAndWait() }
@@ -51,6 +54,9 @@ class MainWindow(
                 headerText = null
             }.showAndWait()
     }
+
+    /** The project folder of this window; `null` until a folder is opened in it. */
+    val folder: Path? get() = projectService.projectFolder.get()
 
     fun show(stage: Stage) {
         themedWindows.install()
@@ -67,9 +73,8 @@ class MainWindow(
         fileExplorer.onFilesChanged = gitStatus::refresh
         gitStatus.snapshot.subscribe { _ -> fileExplorer.refreshMarkers() }
 
-        // Fires only when the folder really changes, so reopening the current folder keeps the open tabs.
+        // A window gets its folder once (ADR 0014); other folders open in new windows.
         projectService.projectFolder.subscribe { folder ->
-            editorArea.closeAll()
             fileExplorer.open(folder)
             gitStatus.open(folder)
             stage.title = folder?.let { "${it.fileName ?: it} – $APP_NAME" } ?: APP_NAME
@@ -146,6 +151,21 @@ class MainWindow(
                 title = "Open Folder"
                 projectService.projectFolder.get()?.let { initialDirectory = it.toFile() }
             }
-        chooser.showDialog(stage)?.let { projectService.open(it.toPath()) }
+        chooser.showDialog(stage)?.let { openFolder(it.toPath()) }
+    }
+
+    /**
+     * Opens [folder] in this window if it has no folder yet; otherwise in another window ([ProjectWindows.open]),
+     * which is brought to the front if it already shows [folder].
+     */
+    internal fun openFolder(folder: Path) {
+        if (this.folder == null) projectService.open(folder) else projectWindows.open(folder)
+    }
+
+    /** Closes all tabs (ending their terminals) and stops watching the folder; called when the window is closed. */
+    fun dispose() {
+        editorArea.closeAll()
+        fileExplorer.open(null)
+        gitStatus.open(null)
     }
 }

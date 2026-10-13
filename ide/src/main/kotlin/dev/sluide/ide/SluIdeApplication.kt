@@ -24,7 +24,7 @@ class SluIdeApplication : Application() {
     }
 
     override fun start(primaryStage: Stage) {
-        context.getBean(MainWindow::class.java).show(primaryStage)
+        context.getBean(ProjectWindows::class.java).show(primaryStage)
     }
 
     override fun stop() {
