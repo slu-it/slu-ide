@@ -9,8 +9,13 @@
   `TERM=xterm-256color`. `PWD` is set to the start folder, so shells show it as given, not with symlinks resolved.
 - Tabs are named "Terminal 1", "Terminal 2", …; the tooltip shows the start folder. When the shell exits, the tab
   shows "(exited)" and stays open until it is closed.
-- Closing the tab ends the shell. Opening another project folder closes all tabs, including terminals, and quitting
-  SluIde ends all shells (`Terminals` is closed with the Spring context).
+- Closing the tab ends the shell. Programs it runs get a hangup (SIGHUP) from the closed pseudo terminal: most end,
+  a JVM runs its shutdown hooks. bash also hangs up on its background jobs; `sh` does not, and `nohup` jobs keep
+  running.
+- While the shell runs programs (foreground or background jobs), closing the tab from the UI (×, middle click,
+  context menu) asks first: "Terminal 1 is still running java." Cancel keeps the tab. Opening another project folder
+  closes all tabs without asking, and quitting SluIde ends all shells without asking (`Terminals` is closed with the
+  Spring context).
 - Display: 16, 256 and true colours, bold, underline, inverse, dim; full-screen programs (`vim`, `less`, `top`) with
   the alternate screen. The grid follows the size of the tab, and the shell is told about every resize.
 - Keyboard: the terminal takes the focus when its tab is shown. Enter, Tab, Esc, Backspace, arrows, Home/End,
@@ -23,5 +28,5 @@
 - Structure: `Terminals` (Spring bean: opens terminals, ends them on shutdown), `TerminalTab` (`EditorTab`),
   `TerminalView` (canvas, input, selection; JediTerm `TerminalDisplay`), `TerminalSession` (pty4j process and
   JediTerm emulator), `TerminalKeys` (key translation), `TerminalColors` (palette).
-- Not yet implemented: mouse reporting to programs (e.g. clicking in `vim`), window titles set by programs,
+- Not yet implemented: asking before opening another folder or quitting while programs run, mouse reporting to programs (e.g. clicking in `vim`), window titles set by programs,
   clickable links, search, font and colour settings, split terminals, Windows shells.

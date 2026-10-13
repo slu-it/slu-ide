@@ -8,7 +8,7 @@ import java.nio.file.Path
 
 /** A terminal shown as an editor tab; closing the tab ends its shell and then calls [onDisposed]. */
 internal class TerminalTab(
-    name: String,
+    private val name: String,
     folder: Path,
     val view: TerminalView,
     private val onDisposed: (TerminalTab) -> Unit = {},
@@ -19,6 +19,15 @@ internal class TerminalTab(
     override val tooltip: String = "Terminal in $folder"
 
     override val content: Node get() = view
+
+    /** Asks before closing while the shell runs programs, since closing hangs up on them. */
+    override val closeWarning: String?
+        get() =
+            view.session
+                .runningPrograms()
+                .distinct()
+                .takeIf { it.isNotEmpty() }
+                ?.let { "$name is still running ${it.joinToString(", ")}." }
 
     override fun dispose() {
         view.dispose()

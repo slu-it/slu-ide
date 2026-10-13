@@ -177,6 +177,20 @@ class TerminalUiTest {
     }
 
     @Test
+    fun `the tab warns against closing while a program runs`(robot: FxRobot) {
+        val tab = open(robot)
+        assertEquals(null, tab.closeWarning)
+
+        type(robot, tab.view, "sleep 300")
+        eventually { assertEquals("Terminal 1 is still running sleep.", tab.closeWarning) }
+
+        robot.interact {
+            Event.fireEvent(tab.view, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.C, false, true, false, false))
+        }
+        eventually { assertEquals(null, tab.closeWarning) }
+    }
+
+    @Test
     fun `the tab shows when the shell exits, closing it ends the shell`(robot: FxRobot) {
         val first = open(robot)
         type(robot, first.view, "exit")

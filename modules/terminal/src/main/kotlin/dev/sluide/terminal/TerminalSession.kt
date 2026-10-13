@@ -62,6 +62,23 @@ internal class TerminalSession(
 
     val isAlive: Boolean get() = process.isAlive
 
+    /**
+     * The names of the programs the shell started that are still running (e.g. `java`), in the foreground or as
+     * background jobs; empty when only the shell itself runs.
+     */
+    fun runningPrograms(): List<String> =
+        ProcessHandle
+            .of(process.pid())
+            .map { shell -> shell.children().filter(ProcessHandle::isAlive).toList() }
+            .orElse(emptyList())
+            .map { child ->
+                child
+                    .info()
+                    .command()
+                    .map { Path.of(it).fileName.toString() }
+                    .orElse("a process")
+            }
+
     /** Sends input typed or pasted by the user to the shell. */
     fun send(bytes: ByteArray) = starter.sendBytes(bytes, true)
 

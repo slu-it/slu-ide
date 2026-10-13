@@ -99,6 +99,21 @@ class TerminalSessionTest {
     }
 
     @Test
+    fun `reports the programs the shell runs in the foreground and in the background`() {
+        start()
+        assertEquals(emptyList(), session.runningPrograms())
+
+        run("sleep 300 & sleep 301")
+        await("running programs") { session.runningPrograms() == listOf("sleep", "sleep") }
+
+        // Ctrl+C ends the foreground program, the background job keeps running.
+        session.send(byteArrayOf(3))
+        await("one program left") { session.runningPrograms() == listOf("sleep") }
+        run("kill \$!; wait")
+        await("no programs") { session.runningPrograms().isEmpty() }
+    }
+
+    @Test
     fun `closing ends the shell`() {
         start()
         assertTrue(session.isAlive)
