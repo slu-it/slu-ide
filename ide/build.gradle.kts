@@ -22,6 +22,7 @@ dependencies {
     implementation(project(":modules:editor"))
     implementation(project(":modules:file-watcher"))
     implementation(project(":modules:terminal"))
+    implementation(project(":modules:settings"))
 
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)

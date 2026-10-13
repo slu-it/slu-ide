@@ -2,11 +2,14 @@ package dev.sluide.ide
 
 import dev.sluide.editor.EditorArea
 import dev.sluide.fileexplorer.FileExplorerView
+import dev.sluide.settings.SettingsDialog
+import dev.sluide.settings.SettingsPages
 import dev.sluide.terminal.Terminals
 import javafx.scene.Scene
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuBar
 import javafx.scene.control.MenuItem
+import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.control.SplitPane
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
@@ -26,7 +29,11 @@ class MainWindow(
     private val fileExplorer: FileExplorerView,
     private val editorArea: EditorArea,
     private val terminals: Terminals,
+    private val settingsPages: SettingsPages,
 ) {
+    /** Shows the settings dialog and waits until it is closed; tests replace it, since it blocks. */
+    internal var showSettings: (Stage) -> Unit = { stage -> SettingsDialog(settingsPages.pages, stage).showAndWait() }
+
     fun show(stage: Stage) {
         val root =
             BorderPane().apply {
@@ -53,7 +60,12 @@ class MainWindow(
                 accelerator = KeyCodeCombination(KeyCode.O, KeyCombination.SHORTCUT_DOWN)
                 setOnAction { chooseFolder(stage) }
             }
-        return Menu("File", null, openFolder)
+        val settings =
+            MenuItem("Settings…").apply {
+                accelerator = KeyCodeCombination(KeyCode.COMMA, KeyCombination.SHORTCUT_DOWN)
+                setOnAction { showSettings(stage) }
+            }
+        return Menu("File", null, openFolder, SeparatorMenuItem(), settings)
     }
 
     private fun terminalMenu(): Menu {

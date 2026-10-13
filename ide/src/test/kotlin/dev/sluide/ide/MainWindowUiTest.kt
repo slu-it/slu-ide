@@ -5,7 +5,12 @@ import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
+import dev.sluide.settings.FontSpec
+import dev.sluide.settings.FontsPage
+import dev.sluide.settings.SettingsDialog
+import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.SettingsStore
 import dev.sluide.terminal.Terminals
 import javafx.application.Platform
@@ -72,7 +77,14 @@ class MainWindowUiTest {
         fileExplorer = FileExplorerView(watcher, fontSettings)
         val fallback = DefaultTextFileViewer()
         editorArea = EditorArea(FileViewers(listOf(fallback), fallback), watcher, fontSettings)
-        mainWindow = MainWindow(projectService, fileExplorer, editorArea, terminals)
+        mainWindow =
+            MainWindow(
+                projectService,
+                fileExplorer,
+                editorArea,
+                terminals,
+                SettingsPages(listOf(FontsPage(fontSettings))),
+            )
         mainWindow.show(stage)
     }
 
@@ -85,7 +97,7 @@ class MainWindowUiTest {
     @Test
     fun `offers File - Open Folder with Ctrl+O`(robot: FxRobot) {
         val fileMenu = menu(robot, "File")
-        val openFolder = fileMenu.items.single()
+        val openFolder = fileMenu.items.first()
 
         assertEquals("Open Folder…", openFolder.text)
         val accelerator = openFolder.accelerator as KeyCodeCombination
@@ -141,6 +153,50 @@ class MainWindowUiTest {
         WaitForAsyncUtils.waitForFxEvents()
         assertEquals(emptyList(), tabTitles(robot))
         assertEquals(0, robot.lookup(".editor-content .text-area").queryAll<TextArea>().size)
+    }
+
+    @Test
+    fun `offers File - Settings with Ctrl+Comma, which opens the settings dialog`(robot: FxRobot) {
+        val settings = menu(robot, "File").items.last()
+        assertEquals("Settings…", settings.text)
+        val accelerator = settings.accelerator as KeyCodeCombination
+        assertEquals(KeyCode.COMMA, accelerator.code)
+        assertEquals(KeyCombination.ModifierValue.DOWN, accelerator.shortcut)
+
+        var shownFor: Stage? = null
+        mainWindow.showSettings = { shownFor = it }
+        robot.interact { settings.fire() }
+        assertEquals(stage, shownFor)
+    }
+
+    @Test
+    fun `the settings dialog shows Display - Fonts and applying a font changes the open views`(robot: FxRobot) {
+        val readme = project.resolve("README.md").apply { writeText("# Hello") }
+        robot.interact {
+            projectService.open(project)
+            fileExplorer.onOpenFile?.invoke(readme)
+        }
+        val page = FontsPage(fontSettings)
+        lateinit var dialog: SettingsDialog
+        robot.interact {
+            dialog = SettingsDialog(SettingsPages(listOf(page)).pages, stage)
+            dialog.show()
+        }
+        assertEquals(listOf("Display", "Fonts"), dialog.shownPage?.path)
+
+        robot.interact {
+            page.apply() // nothing edited: nothing changes
+            fontSettings.apply(mapOf(FontArea.EDITOR to FontSpec("Serif", 22.0)))
+            dialog.close()
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(
+            22.0,
+            robot
+                .lookup(".editor-content .text-area")
+                .queryAs(TextArea::class.java)
+                .font.size,
+        )
     }
 
     @Test

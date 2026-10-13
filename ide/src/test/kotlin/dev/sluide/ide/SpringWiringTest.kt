@@ -7,6 +7,10 @@ import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.PythonFileViewer
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.settings.FontSettings
+import dev.sluide.settings.FontsPage
+import dev.sluide.settings.SettingsPages
+import dev.sluide.settings.SettingsStore
 import dev.sluide.terminal.Terminals
 import org.springframework.boot.WebApplicationType
 import org.springframework.boot.builder.SpringApplicationBuilder
@@ -37,6 +41,10 @@ class SpringWiringTest {
                         PythonFileViewer::class.java,
                         FileWatcher::class.java,
                         Terminals::class.java,
+                        FontSettings::class.java,
+                        SettingsStore::class.java,
+                        SettingsPages::class.java,
+                        FontsPage::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")
