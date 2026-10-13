@@ -32,8 +32,10 @@ Options considered:
   everything else (changes, deletions, conflicts) modified. Untracked and ignored folders come as `dir/` without their
   content, which keeps the call cheap for `build/` or `node_modules/`; `GitStatusSnapshot` lets everything inside
   inherit their status. A folder shows each status found below it, except ignored ones.
-- The explorer does not depend on `git`: it has a generic `FileMarker` and a `markers` callback, and `MainWindow` maps
-  `GitStatus` to `FileMarker` (as with `canOpenFile` in ADR 0012). `git` depends on `file-watcher`.
+- Files and ignored folders show their status as the colour of their name; other folders as one bubble per status
+  below them, so a folder's own name never claims a status its content has.
+- The explorer does not depend on `git`: it has a generic `FileMarker`/`FileMarkers` (name colour, bubbles) and a
+  `markers` callback, and `MainWindow` maps `GitStatus` to them (as with `canOpenFile` in ADR 0012). `git` depends on `file-watcher`.
 
 ## Consequences
 - The status is exactly git's, including global excludes, with no ignore logic of our own.

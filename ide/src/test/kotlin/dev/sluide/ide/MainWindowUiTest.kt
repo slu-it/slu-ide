@@ -163,26 +163,33 @@ class MainWindowUiTest {
     fun `a git repository shows its status as markers in the explorer and follows staging`(robot: FxRobot) {
         assumeTrue(git.available, "git is not installed")
         runGit("init", "-q")
-        project.resolve(".gitignore").writeText("*.log\n")
+        project.resolve(".gitignore").writeText("*.log\nbuild/\n")
         project.resolve("tracked.md").writeText("one")
         runGit("add", ".")
         runGit("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "-m", "Initial commit")
         project.resolve("tracked.md").writeText("two")
         project.resolve("new.md").createFile()
         project.resolve("debug.log").createFile()
+        project
+            .resolve("build")
+            .createDirectories()
+            .resolve("out.txt")
+            .createFile()
 
         robot.interact { projectService.open(project) }
 
         eventually(robot) {
-            assertEquals(listOf("file-marker-modified"), markersOf(robot, "tracked.md"))
-            assertEquals(listOf("file-marker-unversioned"), markersOf(robot, "new.md"))
-            assertEquals(listOf("file-marker-ignored"), markersOf(robot, "debug.log"))
+            // Files and ignored folders: coloured names; other folders: bubbles.
+            assertEquals(listOf("file-name-modified"), markersOf(robot, "tracked.md"))
+            assertEquals(listOf("file-name-unversioned"), markersOf(robot, "new.md"))
+            assertEquals(listOf("file-name-ignored"), markersOf(robot, "debug.log"))
+            assertEquals(listOf("file-name-ignored"), markersOf(robot, "build"))
             assertEquals(listOf("file-marker-unversioned", "file-marker-modified"), markersOf(robot, project.name))
             assertEquals(emptyList(), markersOf(robot, ".gitignore"))
         }
 
         runGit("add", "new.md")
-        eventually(robot) { assertEquals(listOf("file-marker-added"), markersOf(robot, "new.md")) }
+        eventually(robot) { assertEquals(listOf("file-name-added"), markersOf(robot, "new.md")) }
 
         robot.interact { mainWindow.dispose() }
         assertFalse(gitStatus.active)
@@ -199,20 +206,26 @@ class MainWindowUiTest {
         assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
     }
 
-    /** The style classes of the markers shown after [name] in the explorer, in order. */
+    /** The style class colouring [name] in the explorer, if any, then those of the bubbles after it, in order. */
     private fun markersOf(
         robot: FxRobot,
         name: String,
-    ): List<String> =
-        robot
-            .lookup(".tree-cell")
-            .queryAllAs(TreeCell::class.java)
-            .first { it.text == name }
-            .graphic
-            .lookupAll(".file-marker")
-            .filter { it.parent.isVisible }
-            .sortedBy { it.localToScene(0.0, 0.0).x }
-            .map { node -> node.styleClass.single { it != "file-marker" } }
+    ): List<String> {
+        val graphic =
+            robot
+                .lookup(".tree-cell")
+                .queryAllAs(TreeCell::class.java)
+                .first { it.text == name }
+                .graphic
+        val nameColour = graphic.lookup(".label").styleClass.filter { it.startsWith("file-name-") }
+        val bubbles =
+            graphic
+                .lookupAll(".file-marker")
+                .filter { it.parent.isVisible }
+                .sortedBy { it.localToScene(0.0, 0.0).x }
+                .map { node -> node.styleClass.single { it != "file-marker" } }
+        return nameColour + bubbles
+    }
 
     /** Repeats [assertion] on the FX thread until it passes or 20 s are over. */
     private fun eventually(

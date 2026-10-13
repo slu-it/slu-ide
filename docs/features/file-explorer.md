@@ -25,8 +25,9 @@
   case-insensitive. Any other file gets a document icon if a viewer can open it (`canOpenFile`, set by `MainWindow` to
   `EditorArea.canOpen`) and a "?" file icon if not (binary). Colours per type or family in `file-explorer.css`, light
   and dark; the icon size follows the explorer font.
-- Markers (`FileMarker`): coloured bubbles after the name, asked from the `markers` callback for each shown entry
-  and again after `refreshMarkers()`. `MainWindow` uses them for the git status ([git-status.md](git-status.md));
-  `onFilesChanged` reports changes on disk and manual refreshes so the status follows. On the selected row they get a
-  ring in the selection's text colour. Colours light and dark in `file-explorer.css`.
+- Markers (`FileMarkers` of `FileMarker`s): a colour for the name and coloured bubbles after it, asked from the
+  `markers` callback for each shown entry and again after `refreshMarkers()`. `MainWindow` uses them for the git
+  status ([git-status.md](git-status.md)); `onFilesChanged` reports changes on disk and manual refreshes so the status
+  follows. On the selected row the name has the selection's text colour, so it stays readable, and bubbles get a ring
+  in that colour. Colours light and dark in `file-explorer.css`.
 - Not yet implemented: file operations (new, rename, delete) in the context menu.

@@ -31,8 +31,8 @@ import kotlin.math.roundToInt
 /**
  * Tree view showing the complete content of a folder, including hidden files. Every folder whose content has been
  * loaded is watched, so changes on disk show up by themselves; "Refresh" (context menu, F5) re-reads all of them.
- * Every entry has a [FileIcon], coloured by type in `file-explorer.css` and sized to the explorer font, and the
- * [FileMarker]s given by [markers] after its name.
+ * Every entry has a [FileIcon], coloured by type in `file-explorer.css` and sized to the explorer font, and is marked
+ * as given by [markers]: a coloured name and bubbles after it.
  */
 @Component
 // One instance per IDE window (the "window" scope of the ide module, ADR 0014).
@@ -51,10 +51,10 @@ class FileExplorerView(
     var canOpenFile: (Path) -> Boolean = { true }
 
     /**
-     * The markers shown after the name of a file or folder (`directory`), in the order given. Asked whenever an
-     * entry is shown; call [refreshMarkers] when the answers change.
+     * How a file or folder (`directory`) is marked: the colour of its name and the bubbles after it. Asked whenever
+     * an entry is shown; call [refreshMarkers] when the answers change.
      */
-    var markers: (path: Path, directory: Boolean) -> List<FileMarker> = { _, _ -> emptyList() }
+    var markers: (path: Path, directory: Boolean) -> FileMarkers = { _, _ -> FileMarkers.NONE }
 
     /** Called after files changed on disk in a loaded folder, and after a manual refresh. */
     var onFilesChanged: () -> Unit = {}
@@ -157,7 +157,8 @@ class FileExplorerView(
         private val icon = FontIcon().apply { iconSizeProperty().bind(fileIconSize) }
         private val iconUpdater = InvalidationListener { updateIcon() }
 
-        // The name is a label in the graphic, so the markers can follow it; it looks like the cell's own text.
+        // The name is a label in the graphic, so the markers can follow it; it looks like the cell's own text unless
+        // a marker colours it.
         private val name =
             Label().apply {
                 fontProperty().bind(this@PathCell.fontProperty())
@@ -170,7 +171,7 @@ class FileExplorerView(
             FileMarker.entries.associateWith { marker ->
                 Circle().apply {
                     radiusProperty().bind(bubbleRadius)
-                    styleClass += listOf(FILE_MARKER_CLASS, marker.styleClass)
+                    styleClass += listOf(FILE_MARKER_CLASS, marker.bubbleStyleClass)
                 }
             }
         private val bubbles =
@@ -185,10 +186,14 @@ class FileExplorerView(
             }
         private val markerUpdater = InvalidationListener { updateMarkers() }
 
+        /** The marker colouring the name, if any; not shown on the selection bar, where it would be hard to read. */
+        private var nameMarker: FileMarker? = null
+
         init {
             // The text stays set (accessibility, lookups by name) but only the graphic is shown.
             contentDisplay = ContentDisplay.GRAPHIC_ONLY
             markerChanges.addListener(WeakInvalidationListener(markerUpdater))
+            selectedProperty().addListener { _ -> updateNameColour() }
             // Folders open and close, and readability is checked later or reset, without a call to updateItem.
             treeItemProperty().addListener { _, old, new ->
                 (old as? FileTreeItem)?.let {
@@ -238,15 +243,27 @@ class FileExplorerView(
         private fun updateMarkers() {
             val treeItem: TreeItem<Path>? = treeItem
             val shown =
-                if (isEmpty ||
-                    treeItem !is FileTreeItem
-                ) {
-                    emptyList()
+                if (isEmpty || treeItem !is FileTreeItem) {
+                    FileMarkers.NONE
                 } else {
                     markers(treeItem.value, treeItem.isDirectory)
                 }
-            bubbles.children.setAll(shown.distinct().map(bubbleOf::getValue))
-            bubbles.isVisible = shown.isNotEmpty()
+            bubbles.children.setAll(shown.bubbles.distinct().map(bubbleOf::getValue))
+            bubbles.isVisible = shown.bubbles.isNotEmpty()
+            nameMarker = shown.name
+            updateNameColour()
+        }
+
+        // CSS cannot set a bound property, so a coloured name is unbound from the cell's text fill.
+        private fun updateNameColour() {
+            val marker = nameMarker
+            name.styleClass.removeAll(nameStyleClasses)
+            if (marker == null || isSelected) {
+                name.textFillProperty().bind(textFillProperty())
+            } else {
+                name.textFillProperty().unbind()
+                name.styleClass += marker.nameStyleClass
+            }
         }
     }
 }
@@ -254,6 +271,7 @@ class FileExplorerView(
 private const val ICON_SCALE = 1.25
 private const val FILE_ICON_CLASS_PREFIX = "file-icon-"
 private const val FILE_MARKER_CLASS = "file-marker"
+private val nameStyleClasses = FileMarker.entries.map(FileMarker::nameStyleClass)
 
 // Bubble radius relative to the icon size, and the gap between bubbles in pixels.
 private const val BUBBLE_SCALE = 0.2

@@ -10,6 +10,7 @@ import javafx.application.ColorScheme
 import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.Scene
+import javafx.scene.control.Label
 import javafx.scene.control.TreeCell
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
@@ -359,20 +360,32 @@ class FileExplorerViewUiTest {
             .sortedBy { it.localToScene(0.0, 0.0).x }
             .map { node -> node.styleClass.single { it != "file-marker" } }
 
+    /** The label showing [name]. */
+    private fun nameLabelOf(
+        robot: FxRobot,
+        name: String,
+    ): Label = cellNamed(robot, name).graphic.lookup(".label") as Label
+
+    /** The style class colouring [name], if any. */
+    private fun nameColourOf(
+        robot: FxRobot,
+        name: String,
+    ): String? = nameLabelOf(robot, name).styleClass.singleOrNull { it.startsWith("file-name-") }
+
     @Test
-    fun `shows the markers given for each entry after its name, in order`(robot: FxRobot) {
+    fun `shows the bubbles given for each entry after its name, in order`(robot: FxRobot) {
         project.resolve("sub").createDirectories()
         project.resolve("changed.kt").createFile()
         project.resolve("clean.kt").createFile()
         var shown =
             mapOf(
-                "sub" to listOf(FileMarker.UNVERSIONED, FileMarker.ADDED, FileMarker.MODIFIED),
-                "changed.kt" to listOf(FileMarker.MODIFIED),
+                "sub" to FileMarkers(bubbles = listOf(FileMarker.UNVERSIONED, FileMarker.ADDED, FileMarker.MODIFIED)),
+                "changed.kt" to FileMarkers(bubbles = listOf(FileMarker.MODIFIED)),
             )
         val asked = mutableListOf<Pair<String, Boolean>>()
         view.markers = { path, directory ->
             asked += path.name to directory
-            shown[path.name].orEmpty()
+            shown[path.name] ?: FileMarkers.NONE
         }
         robot.interact { view.open(project) }
         WaitForAsyncUtils.waitForFxEvents()
@@ -390,13 +403,46 @@ class FileExplorerViewUiTest {
         val bubble = cell.graphic.lookup(".file-marker-modified")
         assertTrue(bubble.localToScene(0.0, 0.0).x > label.localToScene(label.layoutBounds.maxX, 0.0).x)
 
-        shown = mapOf("clean.kt" to listOf(FileMarker.IGNORED))
+        shown = mapOf("clean.kt" to FileMarkers(bubbles = listOf(FileMarker.IGNORED)))
         robot.interact { view.refreshMarkers() }
         WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(emptyList(), markersOf(robot, "sub"))
         assertEquals(emptyList(), markersOf(robot, "changed.kt"))
         assertEquals(listOf("file-marker-ignored"), markersOf(robot, "clean.kt"))
+    }
+
+    @Test
+    fun `colours the name as given and back after a refresh`(robot: FxRobot) {
+        project.resolve("changed.kt").createFile()
+        project.resolve("clean.kt").createFile()
+        var shown = mapOf("changed.kt" to FileMarkers(name = FileMarker.MODIFIED))
+        view.markers = { path, _ -> shown[path.name] ?: FileMarkers.NONE }
+        robot.interact { view.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals("file-name-modified", nameColourOf(robot, "changed.kt"))
+        assertEquals(Color.web("#1e63c8"), nameLabelOf(robot, "changed.kt").textFill)
+        assertEquals(emptyList(), markersOf(robot, "changed.kt"))
+        assertNull(nameColourOf(robot, "clean.kt"))
+        val normal = cellNamed(robot, "clean.kt").textFill
+        assertEquals(normal, nameLabelOf(robot, "clean.kt").textFill)
+
+        // On the selection bar the name has the selection's text colour, so it stays readable.
+        robot.interact { view.selectionModel.select(view.root.children.first { it.value.name == "changed.kt" }) }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertNull(nameColourOf(robot, "changed.kt"))
+        assertEquals(cellNamed(robot, "changed.kt").textFill, nameLabelOf(robot, "changed.kt").textFill)
+        robot.interact { view.selectionModel.clearSelection() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals("file-name-modified", nameColourOf(robot, "changed.kt"))
+
+        shown = emptyMap()
+        robot.interact { view.refreshMarkers() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertNull(nameColourOf(robot, "changed.kt"))
+        assertEquals(normal, nameLabelOf(robot, "changed.kt").textFill)
     }
 
     @Test
@@ -416,20 +462,32 @@ class FileExplorerViewUiTest {
     @Test
     fun `markers have a colour in both themes`(robot: FxRobot) {
         project.resolve("a.kt").createFile()
-        view.markers = { _, _ -> FileMarker.entries }
+        var nameMarker = FileMarker.UNVERSIONED
+        view.markers = { _, _ -> FileMarkers(name = nameMarker, bubbles = FileMarker.entries) }
         robot.interact { view.open(project) }
         WaitForAsyncUtils.waitForFxEvents()
 
-        fun colours() =
+        fun bubbleColours() =
             FileMarker.entries.map {
-                (cellNamed(robot, "a.kt").graphic.lookup(".${it.styleClass}") as Circle).fill
+                (cellNamed(robot, "a.kt").graphic.lookup(".${it.bubbleStyleClass}") as Circle).fill
             }
-        val light = colours()
+
+        // Name colours equal the bubble colours.
+        fun nameColours() =
+            FileMarker.entries.map {
+                nameMarker = it
+                robot.interact { view.refreshMarkers() }
+                WaitForAsyncUtils.waitForFxEvents()
+                nameLabelOf(robot, "a.kt").textFill
+            }
+        val light = bubbleColours()
         assertEquals(Color.web("#d32f2f"), light.first())
+        assertEquals(light, nameColours())
         robot.interact { view.scene.preferences.colorScheme = ColorScheme.DARK }
         WaitForAsyncUtils.waitForFxEvents()
-        val dark = colours()
+        val dark = bubbleColours()
         assertEquals(Color.web("#ef6461"), dark.first())
+        assertEquals(dark, nameColours())
         assertEquals(4, light.distinct().size)
         assertTrue(light.zip(dark).all { (l, d) -> l != d })
     }
