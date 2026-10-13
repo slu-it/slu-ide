@@ -350,7 +350,7 @@ class FileExplorerViewUiTest {
     fun `shows an icon per file type, readable or binary for unknown types`(robot: FxRobot) {
         project.resolve("sub").createDirectories()
         project.resolve("Main.kt").createFile()
-        project.resolve("notes.txt").createFile()
+        project.resolve("notes.adoc").createFile()
         project.resolve("blob.bin").createFile()
         val checked = mutableListOf<String>()
         view.canOpenFile = { file ->
@@ -365,7 +365,7 @@ class FileExplorerViewUiTest {
             assertEquals(FileIcon.FOLDER_OPEN.ikon, iconOf(robot, project.name).iconCode)
             assertEquals(FileIcon.FOLDER.ikon, iconOf(robot, "sub").iconCode)
             assertEquals(FileIcon.KOTLIN.ikon, iconOf(robot, "Main.kt").iconCode)
-            assertEquals(FileIcon.TEXT.ikon, iconOf(robot, "notes.txt").iconCode)
+            assertEquals(FileIcon.TEXT.ikon, iconOf(robot, "notes.adoc").iconCode)
             assertEquals(FileIcon.BINARY.ikon, iconOf(robot, "blob.bin").iconCode)
             assertTrue("file-icon-kotlin" in iconOf(robot, "Main.kt").styleClass)
             // The colour comes from file-explorer.css.
@@ -374,7 +374,7 @@ class FileExplorerViewUiTest {
         // Only files without a known extension are checked, each once however often its cell is rendered.
         robot.interact { view.refresh() }
         WaitForAsyncUtils.waitForFxEvents()
-        assertEquals(listOf("blob.bin", "notes.txt"), checked.sorted())
+        assertEquals(listOf("blob.bin", "notes.adoc"), checked.sorted())
     }
 
     @Test

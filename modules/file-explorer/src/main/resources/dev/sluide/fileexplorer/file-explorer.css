@@ -1,33 +1,158 @@
 /*
- * Colours of the file icons (FileIcon). Single-class selectors only, so the dark rules apply in the dark theme
- * only and override the light ones (ADR 0009).
+ * Colours of the file icons (FileIcon), roughly the colours of each language's or tool's logo. Related types share a
+ * class (images, archives, ...). Single-class selectors only, so the dark rules apply in the dark theme only and
+ * override the light ones (ADR 0009).
  */
 
-.file-icon-folder { -fx-icon-color: #c99a2e; }
-.file-icon-text { -fx-icon-color: -fx-text-base-color; }
-.file-icon-binary { -fx-icon-color: #9a9a9a; }
-.file-icon-kotlin { -fx-icon-color: #7f52ff; }
-.file-icon-java { -fx-icon-color: #e76f00; }
-.file-icon-python { -fx-icon-color: #3572a5; }
+.file-icon-folder     { -fx-icon-color: #c99a2e; }
+.file-icon-text       { -fx-icon-color: -fx-text-base-color; }
+.file-icon-binary     { -fx-icon-color: #9a9a9a; }
+.file-icon-kotlin     { -fx-icon-color: #7f52ff; }
+.file-icon-java       { -fx-icon-color: #e76f00; }
+.file-icon-python     { -fx-icon-color: #3572a5; }
 .file-icon-javascript { -fx-icon-color: #b8a000; }
 .file-icon-typescript { -fx-icon-color: #3178c6; }
-.file-icon-html { -fx-icon-color: #e34c26; }
-.file-icon-json { -fx-icon-color: #8a6d3b; }
-.file-icon-xml { -fx-icon-color: #0060ac; }
-.file-icon-yaml { -fx-icon-color: #8a6d3b; }
-.file-icon-markdown { -fx-icon-color: #4a5568; }
+.file-icon-html       { -fx-icon-color: #e34c26; }
+.file-icon-json       { -fx-icon-color: #8a6d3b; }
+.file-icon-xml        { -fx-icon-color: #0060ac; }
+.file-icon-yaml       { -fx-icon-color: #8a6d3b; }
+.file-icon-markdown   { -fx-icon-color: #4a5568; }
+.file-icon-c          { -fx-icon-color: #555c9e; }
+.file-icon-cpp        { -fx-icon-color: #00599c; }
+.file-icon-csharp     { -fx-icon-color: #68217a; }
+.file-icon-css        { -fx-icon-color: #1572b6; }
+.file-icon-sass       { -fx-icon-color: #cd6799; }
+.file-icon-fortran    { -fx-icon-color: #734f96; }
+.file-icon-go         { -fx-icon-color: #00add8; }
+.file-icon-haskell    { -fx-icon-color: #5e5086; }
+.file-icon-lua        { -fx-icon-color: #000080; }
+.file-icon-php        { -fx-icon-color: #777bb4; }
+.file-icon-r          { -fx-icon-color: #276dc3; }
+.file-icon-ruby       { -fx-icon-color: #cc342d; }
+.file-icon-rust       { -fx-icon-color: #b7410e; }
+.file-icon-swift      { -fx-icon-color: #f05138; }
+.file-icon-dotnet     { -fx-icon-color: #512bd4; }
+.file-icon-react      { -fx-icon-color: #087ea4; }
+.file-icon-vue        { -fx-icon-color: #41b883; }
+.file-icon-graphql    { -fx-icon-color: #e10098; }
+.file-icon-shell      { -fx-icon-color: #4eaa25; }
+.file-icon-powershell { -fx-icon-color: #2671be; }
+.file-icon-console    { -fx-icon-color: #4d4d4d; }
+.file-icon-database   { -fx-icon-color: #336791; }
+.file-icon-notebook   { -fx-icon-color: #f37626; }
+.file-icon-code       { -fx-icon-color: #546e7a; }
+.file-icon-git        { -fx-icon-color: #f05032; }
+.file-icon-github     { -fx-icon-color: #24292f; }
+.file-icon-gitlab     { -fx-icon-color: #e24329; }
+.file-icon-docker     { -fx-icon-color: #1d63ed; }
+.file-icon-kubernetes { -fx-icon-color: #326ce5; }
+.file-icon-terraform  { -fx-icon-color: #7b42bc; }
+.file-icon-ansible    { -fx-icon-color: #1a1918; }
+.file-icon-gradle     { -fx-icon-color: #02303a; }
+.file-icon-make       { -fx-icon-color: #6d4c41; }
+.file-icon-nodejs     { -fx-icon-color: #5fa04e; }
+.file-icon-angular    { -fx-icon-color: #dd0031; }
+.file-icon-webpack    { -fx-icon-color: #1c78c0; }
+.file-icon-babel      { -fx-icon-color: #c9a500; }
+.file-icon-tailwind   { -fx-icon-color: #06b6d4; }
+.file-icon-nuxt       { -fx-icon-color: #00a971; }
+.file-icon-unity      { -fx-icon-color: #222222; }
+.file-icon-unreal     { -fx-icon-color: #313131; }
+.file-icon-android    { -fx-icon-color: #2e9e5b; }
+.file-icon-apple      { -fx-icon-color: #555555; }
+.file-icon-windows    { -fx-icon-color: #0078d4; }
+.file-icon-config     { -fx-icon-color: #607d8b; }
+.file-icon-security   { -fx-icon-color: #00897b; }
+.file-icon-license    { -fx-icon-color: #6d4c41; }
+.file-icon-pdf        { -fx-icon-color: #d32f2f; }
+.file-icon-word       { -fx-icon-color: #2b579a; }
+.file-icon-excel      { -fx-icon-color: #217346; }
+.file-icon-powerpoint { -fx-icon-color: #d24726; }
+.file-icon-table      { -fx-icon-color: #217346; }
+.file-icon-email      { -fx-icon-color: #1976d2; }
+.file-icon-calendar   { -fx-icon-color: #e53935; }
+.file-icon-image      { -fx-icon-color: #8e44ad; }
+.file-icon-vector     { -fx-icon-color: #ef6c00; }
+.file-icon-video      { -fx-icon-color: #c0392b; }
+.file-icon-audio      { -fx-icon-color: #d35400; }
+.file-icon-font       { -fx-icon-color: #607d8b; }
+.file-icon-cad        { -fx-icon-color: #00838f; }
+.file-icon-archive    { -fx-icon-color: #a0522d; }
+.file-icon-package    { -fx-icon-color: #8d6e63; }
 
 @media (prefers-color-scheme: dark) {
-    .file-icon-folder { -fx-icon-color: #e0b553; }
-    .file-icon-binary { -fx-icon-color: #6f6f6f; }
-    .file-icon-kotlin { -fx-icon-color: #a78bfa; }
-    .file-icon-java { -fx-icon-color: #f0913a; }
-    .file-icon-python { -fx-icon-color: #5b9bd5; }
+    .file-icon-folder     { -fx-icon-color: #e0b553; }
+    .file-icon-binary     { -fx-icon-color: #6f6f6f; }
+    .file-icon-kotlin     { -fx-icon-color: #a78bfa; }
+    .file-icon-java       { -fx-icon-color: #f0913a; }
+    .file-icon-python     { -fx-icon-color: #5b9bd5; }
     .file-icon-javascript { -fx-icon-color: #e8d44d; }
     .file-icon-typescript { -fx-icon-color: #5a9ae6; }
-    .file-icon-html { -fx-icon-color: #f06a4a; }
-    .file-icon-json { -fx-icon-color: #c9a86a; }
-    .file-icon-xml { -fx-icon-color: #4a9ad8; }
-    .file-icon-yaml { -fx-icon-color: #c9a86a; }
-    .file-icon-markdown { -fx-icon-color: #a0aec0; }
+    .file-icon-html       { -fx-icon-color: #f06a4a; }
+    .file-icon-json       { -fx-icon-color: #c9a86a; }
+    .file-icon-xml        { -fx-icon-color: #4a9ad8; }
+    .file-icon-yaml       { -fx-icon-color: #c9a86a; }
+    .file-icon-markdown   { -fx-icon-color: #a0aec0; }
+    .file-icon-c          { -fx-icon-color: #8f96d6; }
+    .file-icon-cpp        { -fx-icon-color: #4f8fd0; }
+    .file-icon-csharp     { -fx-icon-color: #b07cc6; }
+    .file-icon-css        { -fx-icon-color: #4fa3e0; }
+    .file-icon-sass       { -fx-icon-color: #e38fb8; }
+    .file-icon-fortran    { -fx-icon-color: #a985cc; }
+    .file-icon-go         { -fx-icon-color: #4fd0ef; }
+    .file-icon-haskell    { -fx-icon-color: #9a8ac4; }
+    .file-icon-lua        { -fx-icon-color: #7a7ae0; }
+    .file-icon-php        { -fx-icon-color: #a3a6d6; }
+    .file-icon-r          { -fx-icon-color: #5d9ae0; }
+    .file-icon-ruby       { -fx-icon-color: #e0605a; }
+    .file-icon-rust       { -fx-icon-color: #de7a4f; }
+    .file-icon-swift      { -fx-icon-color: #f57a66; }
+    .file-icon-dotnet     { -fx-icon-color: #9077e6; }
+    .file-icon-react      { -fx-icon-color: #58c4dc; }
+    .file-icon-vue        { -fx-icon-color: #6fd3a2; }
+    .file-icon-graphql    { -fx-icon-color: #f055b8; }
+    .file-icon-shell      { -fx-icon-color: #78c850; }
+    .file-icon-powershell { -fx-icon-color: #5a9ae0; }
+    .file-icon-console    { -fx-icon-color: #b0b0b0; }
+    .file-icon-database   { -fx-icon-color: #6f9cc4; }
+    .file-icon-notebook   { -fx-icon-color: #f5934f; }
+    .file-icon-code       { -fx-icon-color: #90a4ae; }
+    .file-icon-git        { -fx-icon-color: #f47a63; }
+    .file-icon-github     { -fx-icon-color: #c9d1d9; }
+    .file-icon-gitlab     { -fx-icon-color: #fc6d26; }
+    .file-icon-docker     { -fx-icon-color: #4b8bf5; }
+    .file-icon-kubernetes { -fx-icon-color: #6a96ee; }
+    .file-icon-terraform  { -fx-icon-color: #a77fe0; }
+    .file-icon-ansible    { -fx-icon-color: #d0d0d0; }
+    .file-icon-gradle     { -fx-icon-color: #7fc1c9; }
+    .file-icon-make       { -fx-icon-color: #a1887f; }
+    .file-icon-nodejs     { -fx-icon-color: #84c472; }
+    .file-icon-angular    { -fx-icon-color: #f0526b; }
+    .file-icon-webpack    { -fx-icon-color: #8dd6f9; }
+    .file-icon-babel      { -fx-icon-color: #f5da55; }
+    .file-icon-tailwind   { -fx-icon-color: #38bdf8; }
+    .file-icon-nuxt       { -fx-icon-color: #00dc82; }
+    .file-icon-unity      { -fx-icon-color: #cccccc; }
+    .file-icon-unreal     { -fx-icon-color: #cfcfcf; }
+    .file-icon-android    { -fx-icon-color: #3ddc84; }
+    .file-icon-apple      { -fx-icon-color: #bbbbbb; }
+    .file-icon-windows    { -fx-icon-color: #3b9ef0; }
+    .file-icon-config     { -fx-icon-color: #90a4ae; }
+    .file-icon-security   { -fx-icon-color: #4db6ac; }
+    .file-icon-license    { -fx-icon-color: #bcaaa4; }
+    .file-icon-pdf        { -fx-icon-color: #ef6b6b; }
+    .file-icon-word       { -fx-icon-color: #5a8ad6; }
+    .file-icon-excel      { -fx-icon-color: #4caf74; }
+    .file-icon-powerpoint { -fx-icon-color: #ef7a5c; }
+    .file-icon-table      { -fx-icon-color: #4caf74; }
+    .file-icon-email      { -fx-icon-color: #64b5f6; }
+    .file-icon-calendar   { -fx-icon-color: #ef7070; }
+    .file-icon-image      { -fx-icon-color: #b07cc6; }
+    .file-icon-vector     { -fx-icon-color: #ffa040; }
+    .file-icon-video      { -fx-icon-color: #e06a5c; }
+    .file-icon-audio      { -fx-icon-color: #f08a4a; }
+    .file-icon-font       { -fx-icon-color: #90a4ae; }
+    .file-icon-cad        { -fx-icon-color: #4dd0e1; }
+    .file-icon-archive    { -fx-icon-color: #d08a5c; }
+    .file-icon-package    { -fx-icon-color: #bcaaa4; }
 }

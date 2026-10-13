@@ -15,9 +15,13 @@
   on a change `FileTreeItem.refresh()` re-reads it. Unchanged items are kept, so expanded folders stay expanded
   and the selection stays.
 - Manual refresh: "Refresh" in the tree's context menu, or F5, re-reads all loaded folders and renews their watches.
-- Icons ([ADR 0012](../adr/0012-file-icons.md), `FileIcon`/`fileIconFor`): open or closed folder; language icons for
-  the code viewer types (Kotlin, Java, Python, JavaScript, TypeScript, HTML, JSON, XML, YAML) and Markdown, by
-  extension; any other file gets a document icon if a viewer can open it (`canOpenFile`, set by `MainWindow` to
-  `EditorArea.canOpen`) and a "?" file icon if not (binary). Colours per type in `file-explorer.css`, light and dark;
-  the icon size follows the explorer font.
+- Icons ([ADR 0012](../adr/0012-file-icons.md), `FileIcon`/`fileIconFor`): open or closed folder; for files, every
+  file type icon of Material Design Icons: languages (the code viewer types plus C/C++/C#, Go, Rust, Ruby, PHP, Swift,
+  CSS/Sass, shell, SQL, …, and a generic code icon for other languages), tools (Docker, Gradle, Node.js, Git,
+  Terraform, Make, …), documents (PDF, Word, Excel, PowerPoint, CSV), media (images, video, audio, fonts, 3D/CAD),
+  archives, packages, installers (Android, Apple, Windows) and settings/keys/certificates/lock files. Each `FileIcon`
+  lists its file names (e.g. `Dockerfile`, `package.json`, `LICENSE`), which win, and its extensions, all
+  case-insensitive. Any other file gets a document icon if a viewer can open it (`canOpenFile`, set by `MainWindow` to
+  `EditorArea.canOpen`) and a "?" file icon if not (binary). Colours per type or family in `file-explorer.css`, light
+  and dark; the icon size follows the explorer font.
 - Not yet implemented: file operations (new, rename, delete) in the context menu.
