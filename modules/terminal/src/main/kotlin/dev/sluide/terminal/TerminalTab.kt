@@ -11,7 +11,7 @@ internal class TerminalTab(
     private val name: String,
     folder: Path,
     val view: TerminalView,
-    command: String? = null,
+    private val command: String? = null,
     private val onDisposed: (TerminalTab) -> Unit = {},
 ) : EditorTab {
     override val title: ObservableValue<String> =
@@ -21,14 +21,20 @@ internal class TerminalTab(
 
     override val content: Node get() = view
 
-    /** Asks before closing while the shell runs programs, since closing hangs up on them. */
+    /**
+     * Asks before closing while the shell runs programs, since closing hangs up on them. A tab running a [command]
+     * asks as long as the command runs: the login shell runs a single command in its own process, so the command
+     * has no shell above it whose children could be checked.
+     */
     override val closeWarning: String?
-        get() =
-            view.session
+        get() {
+            if (command != null) return if (view.session.isAlive) "$name is still running $command." else null
+            return view.session
                 .runningPrograms()
                 .distinct()
                 .takeIf { it.isNotEmpty() }
                 ?.let { "$name is still running ${it.joinToString(", ")}." }
+        }
 
     override fun dispose() {
         view.dispose()

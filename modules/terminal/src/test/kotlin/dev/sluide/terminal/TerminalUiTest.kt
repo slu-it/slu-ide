@@ -255,6 +255,23 @@ class TerminalUiTest {
     }
 
     @Test
+    fun `a tab running a command warns against closing until the command has ended`(robot: FxRobot) {
+        lateinit var job: TerminalTab
+        lateinit var quick: TerminalTab
+        robot.interact {
+            job = terminals.open(dir, "Job 1", "sleep 300") as TerminalTab
+            quick = terminals.open(dir, "Job 2", "true") as TerminalTab
+            root.children.setAll(job.content)
+        }
+
+        assertEquals("Job 1 is still running sleep 300.", job.closeWarning)
+        eventually {
+            assertTrue(quick.view.exited.get())
+            assertEquals(null, quick.closeWarning)
+        }
+    }
+
+    @Test
     fun `a running terminal follows font changes and tells the shell its new size`(robot: FxRobot) {
         val tab = open(robot)
         val before = tab.view.cell
