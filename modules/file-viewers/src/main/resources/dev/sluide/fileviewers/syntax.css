@@ -1,4 +1,9 @@
-/* Syntax colours for CodeFileViewer; class names come from TokenStyle. The font is inherited from the view's node. */
+/*
+ * Syntax colours for CodeFileViewer; class names come from TokenStyle. The font is inherited from the view's node.
+ * This stylesheet is added to code views only, so the token rules need no `.code-view` ancestor. They must not have
+ * one: JavaFX 27 applies descendant selectors inside `@media` blocks whatever the colour scheme, so the dark rules
+ * below use single classes, and the light rules use the same specificity so that the dark ones can override them.
+ */
 
 .code-view .code-area {
     /* RichTextFX's own stylesheet sets a monospace family on .code-area; take the font from the view instead. */
@@ -6,55 +11,117 @@
     -fx-background-color: -fx-control-inner-background;
 }
 
-.code-view .lineno {
+.lineno {
     -fx-background-color: derive(-fx-control-inner-background, -4%);
     -fx-text-fill: #999999;
     -fx-font-style: normal;
     -fx-padding: 0 8 0 4;
 }
 
-.code-view .keyword {
+.keyword {
     -fx-fill: #0033b3;
     -fx-font-weight: bold;
 }
 
-.code-view .type {
+.type {
     -fx-fill: #000080;
 }
 
-.code-view .builtin {
+.builtin {
     -fx-fill: #871094;
 }
 
-.code-view .string {
+.string {
     -fx-fill: #067d17;
 }
 
-.code-view .number {
+.number {
     -fx-fill: #1750eb;
 }
 
-.code-view .comment {
+.comment {
     -fx-fill: #8c8c8c;
     -fx-font-style: italic;
 }
 
-.code-view .annotation {
+.annotation {
     -fx-fill: #9e880d;
 }
 
-.code-view .property {
+.property {
     -fx-fill: #871094;
 }
 
-.code-view .tag {
+.tag {
     -fx-fill: #000080;
 }
 
-.code-view .attribute {
+.attribute {
     -fx-fill: #0000ff;
 }
 
-.code-view .operator {
+.operator {
     -fx-fill: #333333;
+}
+
+/*
+ * Dark theme: the colour scheme comes from the window, see ThemedWindows in the settings module. Single classes only
+ * (see above); plain text comes first, so the token colours below win.
+ */
+@media (prefers-color-scheme: dark) {
+    .text {
+        -fx-fill: #a9b7c6;
+    }
+
+    .caret {
+        -fx-stroke: #bbbbbb;
+    }
+
+    .lineno {
+        -fx-text-fill: #606366;
+    }
+
+    .keyword {
+        -fx-fill: #cc7832;
+    }
+
+    .type {
+        -fx-fill: #6fafbd;
+    }
+
+    .builtin {
+        -fx-fill: #b389c5;
+    }
+
+    .string {
+        -fx-fill: #6a8759;
+    }
+
+    .number {
+        -fx-fill: #6897bb;
+    }
+
+    .comment {
+        -fx-fill: #808080;
+    }
+
+    .annotation {
+        -fx-fill: #bbb529;
+    }
+
+    .property {
+        -fx-fill: #9876aa;
+    }
+
+    .tag {
+        -fx-fill: #e8bf6a;
+    }
+
+    .attribute {
+        -fx-fill: #bababa;
+    }
+
+    .operator {
+        -fx-fill: #a9b7c6;
+    }
 }

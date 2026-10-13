@@ -1,7 +1,11 @@
 package dev.sluide.fileviewers
 
+import javafx.application.ColorScheme
 import javafx.scene.Scene
 import javafx.scene.layout.StackPane
+import javafx.scene.paint.Color
+import javafx.scene.paint.Paint
+import javafx.scene.text.Text
 import javafx.stage.Stage
 import org.fxmisc.flowless.VirtualizedScrollPane
 import org.fxmisc.richtext.CodeArea
@@ -49,6 +53,26 @@ class PythonFileViewerUiTest {
         assertTrue("comment" in area.getStyleOfChar(source.indexOf("# entry") + 1))
         assertTrue("string" in area.getStyleOfChar(source.indexOf("'done'") + 1))
         assertTrue(area.getStyleOfChar(source.indexOf("main") + 1).isEmpty())
+    }
+
+    @Test
+    fun `token colours follow the colour scheme of the window`(robot: FxRobot) {
+        val file = dir.resolve("main.py").apply { writeText("def main():\n    pass\n") }
+        robot.interact { container.children.setAll(PythonFileViewer().open(file).node) }
+
+        fun keywordFill(scheme: ColorScheme): Paint {
+            robot.interact { container.scene.preferences.colorScheme = scheme }
+            WaitForAsyncUtils.waitForFxEvents()
+            return robot
+                .lookup(".keyword")
+                .queryAllAs(Text::class.java)
+                .first { it.text == "def" }
+                .fill
+        }
+
+        assertEquals(Color.web("#0033b3"), keywordFill(ColorScheme.LIGHT))
+        assertEquals(Color.web("#cc7832"), keywordFill(ColorScheme.DARK))
+        assertEquals(Color.web("#0033b3"), keywordFill(ColorScheme.LIGHT))
     }
 
     @Test
