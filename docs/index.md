@@ -19,6 +19,7 @@ Keep it up to date: every new ADR or feature description must be added here with
 - [adr/0008-settings.md](adr/0008-settings.md) — Settings live in `modules/settings` as Spring beans with JavaFX properties, stored in `~/.sluide/settings.properties`; dialog built from `SettingsPage` beans.
 - [adr/0009-themes.md](adr/0009-themes.md) — Light/dark/system theme: scene colour-scheme preferences plus `@media (prefers-color-scheme: dark)` rules in each stylesheet; single-class selectors only in dark blocks.
 - [adr/0010-docker-sandbox.md](adr/0010-docker-sandbox.md) — Docker sandboxes run as the process of a terminal tab, only in folders strictly below the home folder (real paths), checked in the menu and again on start.
+- [adr/0011-native-app-packaging.md](adr/0011-native-app-packaging.md) — jpackage builds SluIde.app / a disk image with a jlink runtime (`:ide:jpackageImage`, `:ide:jpackageDmg`), attached to GitHub releases; not notarized, allowed once via Open Anyway.
 - [adr/template.md](adr/template.md) — Template for new ADRs.
 
 ## Features
