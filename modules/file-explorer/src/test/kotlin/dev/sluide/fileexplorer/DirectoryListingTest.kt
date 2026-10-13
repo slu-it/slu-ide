@@ -27,6 +27,19 @@ class DirectoryListingTest {
     }
 
     @Test
+    fun `leaves out the git folder and file but not other git dot-files`() {
+        root.resolve(".git").createDirectories()
+        root.resolve(".github").createDirectories()
+        root.resolve(".gitignore").createFile()
+        val submodule = root.resolve("submodule").createDirectories()
+        submodule.resolve(".git").createFile()
+        submodule.resolve("README.md").createFile()
+
+        assertEquals(listOf(".github", "submodule", ".gitignore"), listDirectory(root).map { it.name })
+        assertEquals(listOf("README.md"), listDirectory(submodule).map { it.name })
+    }
+
+    @Test
     fun `lists folders before files and sorts by name ignoring case`() {
         root.resolve("b.txt").createFile()
         root.resolve("A.txt").createFile()

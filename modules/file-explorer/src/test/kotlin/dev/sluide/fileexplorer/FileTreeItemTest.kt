@@ -29,12 +29,12 @@ class FileTreeItemTest {
 
     @Test
     fun `children of nested folders are loaded lazily`() {
-        root.resolve(".git/objects").createDirectories()
+        root.resolve(".idea/libraries").createDirectories()
         val item = FileTreeItem(root)
 
-        val git = item.children.single()
-        assertEquals(".git", git.value.name)
-        assertEquals(listOf("objects"), git.children.map { it.value.name })
+        val idea = item.children.single()
+        assertEquals(".idea", idea.value.name)
+        assertEquals(listOf("libraries"), idea.children.map { it.value.name })
     }
 
     private fun names(item: FileTreeItem) = item.children.map { it.value.name }

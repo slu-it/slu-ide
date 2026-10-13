@@ -141,8 +141,9 @@ class MainWindowUiTest {
     }
 
     @Test
-    fun `opening a project updates title and explorer including hidden files`(robot: FxRobot) {
+    fun `opening a project updates title and explorer including hidden files except git's`(robot: FxRobot) {
         project.resolve(".git").createDirectories()
+        project.resolve(".hidden").createDirectories()
         project.resolve("README.md").createFile()
 
         robot.interact { projectService.open(project) }
@@ -155,7 +156,7 @@ class MainWindowUiTest {
                 .queryAllAs(TreeCell::class.java)
                 .sortedBy { it.index }
                 .mapNotNull { it.text }
-        assertEquals(listOf(project.name, ".git", "README.md"), names)
+        assertEquals(listOf(project.name, ".hidden", "README.md"), names)
     }
 
     @Test

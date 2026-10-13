@@ -5,7 +5,8 @@
 - `FileExplorerView` is a `TreeView<Path>` (Spring `@Component`). `open(root)` shows the folder with the root
   expanded; `open(null)` clears the view.
 - Uses the explorer font from the settings and follows its changes ([settings.md](settings.md)).
-- Shows everything: hidden files, dot-folders, nested folders. Nothing is filtered.
+- Shows everything: hidden files, dot-folders, nested folders. Only `.git` (folder, or file in worktrees and
+  submodules) is left out.
 - Folders are listed before files; each group is sorted by name, case-insensitively (`listDirectory`).
 - Children are loaded lazily when a folder is first expanded (`FileTreeItem`), so large trees and symlink cycles
   are not traversed eagerly. Unreadable folders appear empty.
