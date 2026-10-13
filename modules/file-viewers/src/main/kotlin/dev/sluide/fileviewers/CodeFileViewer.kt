@@ -17,7 +17,7 @@ import kotlin.io.path.readText
  */
 abstract class CodeFileViewer internal constructor(
     private val extensions: Set<String>,
-    private val highlighter: SyntaxHighlighter,
+    internal val highlighter: SyntaxHighlighter,
 ) : FileViewer {
     override fun canOpen(file: Path): Boolean =
         file.extension.lowercase() in extensions && Files.isReadable(file) && isTextFile(file)
@@ -61,19 +61,23 @@ abstract class CodeFileViewer internal constructor(
 
         private fun show(text: String) {
             area.replaceText(text)
-            if (text.isNotEmpty()) area.setStyleSpans(0, styleSpans(text))
+            if (text.isNotEmpty()) area.setStyleSpans(0, codeStyleSpans(text, highlighter))
         }
     }
+}
 
-    private fun styleSpans(text: String): StyleSpans<Collection<String>> {
-        val builder = StyleSpansBuilder<Collection<String>>()
-        var position = 0
-        for (span in highlighter.highlight(text)) {
-            builder.add(emptyList(), span.start - position)
-            builder.add(listOf(span.style.styleClass), span.end - span.start)
-            position = span.end
-        }
-        builder.add(emptyList(), text.length - position)
-        return builder.create()
+/** The token style classes of [text] found by [highlighter], for a RichTextFX area. */
+internal fun codeStyleSpans(
+    text: String,
+    highlighter: SyntaxHighlighter,
+): StyleSpans<Collection<String>> {
+    val builder = StyleSpansBuilder<Collection<String>>()
+    var position = 0
+    for (span in highlighter.highlight(text)) {
+        builder.add(emptyList(), span.start - position)
+        builder.add(listOf(span.style.styleClass), span.end - span.start)
+        position = span.end
     }
+    builder.add(emptyList(), text.length - position)
+    return builder.create()
 }

@@ -1,0 +1,145 @@
+package dev.sluide.fileviewers
+
+import javafx.scene.Scene
+import javafx.scene.control.Label
+import javafx.scene.layout.StackPane
+import javafx.stage.Stage
+import org.fxmisc.richtext.CodeArea
+import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.api.io.TempDir
+import org.testfx.api.FxRobot
+import org.testfx.framework.junit5.ApplicationExtension
+import org.testfx.framework.junit5.Start
+import org.testfx.util.WaitForAsyncUtils
+import java.nio.file.Path
+import kotlin.io.path.writeText
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+
+/** Renders the side-by-side diff in a stage. Needs a display, see the `uiTest` Gradle task. */
+@Tag("ui")
+@ExtendWith(ApplicationExtension::class)
+class DiffFileViewUiTest {
+    @TempDir
+    lateinit var dir: Path
+
+    private val container = StackPane()
+    private val viewers = FileViewers(listOf(KotlinFileViewer()), DefaultTextFileViewer())
+
+    @Start
+    fun start(stage: Stage) {
+        stage.scene = Scene(container, 800.0, 300.0)
+        stage.show()
+    }
+
+    // Original: one, two, three, four, five; file: one, TWO, three, five, six, seven.
+    private val original = "val one = 1\nval two = 2\nval three = 3\nval four = 4\nval five = 5\n"
+    private val diff =
+        TextDiff(
+            original,
+            listOf(LineChange(1..1, 1..1), LineChange(3..3, 3 until 3), LineChange(5 until 5, 4..5)),
+            "HEAD",
+            "Working Tree",
+        )
+
+    private fun open(robot: FxRobot): Pair<CodeArea, CodeArea> {
+        val file =
+            dir.resolve("Main.kt").apply {
+                writeText("val one = 1\nval TWO = 2\nval three = 3\nval five = 5\nsix()\nseven()\n")
+            }
+        val view = assertNotNull(viewers.openDiff(file, diff))
+        robot.interact { container.children.setAll(view.node) }
+        WaitForAsyncUtils.waitForFxEvents()
+        val areas = robot.lookup(".code-area").queryAllAs(CodeArea::class.java).sortedBy { it.localToScene(0.0, 0.0).x }
+        return areas[0] to areas[1]
+    }
+
+    private fun CodeArea.paragraphClasses() = paragraphs.map { it.paragraphStyle.toList() }
+
+    @Test
+    fun `shows both versions aligned with the changes coloured and highlighted`(robot: FxRobot) {
+        val (left, right) = open(robot)
+
+        assertEquals("val one = 1\nval two = 2\nval three = 3\nval four = 4\nval five = 5\n\n", left.text)
+        assertEquals("val one = 1\nval TWO = 2\nval three = 3\n\nval five = 5\nsix()\nseven()", right.text)
+        val none = emptyList<String>()
+        assertEquals(
+            listOf(none, listOf("diff-modified"), none, listOf("diff-removed"), none, none, none),
+            left.paragraphClasses(),
+        )
+        assertEquals(
+            listOf(none, listOf("diff-modified"), none, none, none, listOf("diff-added"), listOf("diff-added")),
+            right.paragraphClasses(),
+        )
+        assertFalse(left.isEditable || right.isEditable)
+        assertTrue("keyword" in right.getStyleOfChar(right.text.indexOf("val") + 1))
+        val titles =
+            robot
+                .lookup(".diff-title")
+                .queryAllAs(Label::class.java)
+                .map { it.text }
+                .toSet()
+        assertEquals(setOf("HEAD", "Working Tree"), titles)
+    }
+
+    @Test
+    fun `line numbers are the real ones, filler rows have none`(robot: FxRobot) {
+        val (left, right) = open(robot)
+
+        fun numbers(area: CodeArea) =
+            (0 until area.paragraphs.size).map { (area.paragraphGraphicFactory.apply(it) as Label).text.trim() }
+        assertEquals(listOf("1", "2", "3", "4", "5", "", ""), numbers(left))
+        assertEquals(listOf("1", "2", "3", "", "4", "5", "6"), numbers(right))
+        val added = right.paragraphGraphicFactory.apply(5) as Label
+        assertTrue("diff-added" in added.styleClass)
+    }
+
+    @Test
+    fun `scrolling one side scrolls the other`(robot: FxRobot) {
+        val long = (1..200).joinToString("") { "line $it\n" }
+        val file = dir.resolve("long.txt").apply { writeText(long) }
+        val view = assertNotNull(viewers.openDiff(file, TextDiff(long, emptyList())))
+        robot.interact { container.children.setAll(view.node) }
+        WaitForAsyncUtils.waitForFxEvents()
+        val areas = robot.lookup(".code-area").queryAllAs(CodeArea::class.java).toList()
+
+        robot.interact { areas[0].scrollYToPixel(500.0) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val first = areas[0].firstVisibleParToAllParIndex()
+        assertTrue(first > 10, "scrolled to row $first")
+        assertEquals(first, areas[1].firstVisibleParToAllParIndex())
+    }
+
+    @Test
+    fun `show reads the file again and uses the new diff`(robot: FxRobot) {
+        val file = dir.resolve("a.txt").apply { writeText("a\nb\n") }
+        val view = assertNotNull(viewers.openDiff(file, TextDiff("a\n", listOf(LineChange(1 until 1, 1..1)))))
+        robot.interact { container.children.setAll(view.node) }
+
+        file.writeText("a\n")
+        robot.interact { view.show(TextDiff("a\n", emptyList())) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val right = robot.lookup(".code-area").queryAllAs(CodeArea::class.java).maxBy { it.localToScene(0.0, 0.0).x }
+        assertEquals("a", right.text)
+        assertEquals(listOf(emptyList<String>()), right.paragraphClasses())
+    }
+
+    @Test
+    fun `only text viewers show diffs`() {
+        val other =
+            object : FileViewer {
+                override fun canOpen(file: Path) = true
+
+                override fun open(file: Path): FileView = error("not needed")
+            }
+        val file = dir.resolve("a.txt").apply { writeText("a\n") }
+        assertNull(FileViewers(listOf(other), DefaultTextFileViewer()).openDiff(file, TextDiff("", emptyList())))
+    }
+}

@@ -27,6 +27,13 @@
   | `HtmlFileViewer` | `.html`, `.htm`, `.xhtml` | none needed; embedded `<script>`/`<style>` are highlighted as JavaScript/CSS. Known gap: unquoted attribute values look like attribute names |
   | `YamlFileViewer` | `.yaml`, `.yml` | the lexer only knows comments and quoted strings; line rules add keys (`property`), numbers, `true`/`false`/`null`/`~`, anchors/aliases/tags (`annotation`) and `---`/`...`. Known gap: block scalar content (after `\|`/`>`) is not shown as string |
 
+- Diff views: `FileViewers.openDiff(file, TextDiff)` shows a file side by side with an original version (left) in a
+  `DiffFileView`: two read-only RichTextFX code areas with titles from the `TextDiff`, the same highlighting as the
+  file's code viewer (plain for `DefaultTextFileViewer`; other viewers get no diff, `null`). `LineChange`s are
+  `REMOVED` (grey, left only), `MODIFIED` (blue, both sides) or `ADDED` (green, right only), coloured on the line and
+  its number (`diff-*` classes in `syntax.css`). Filler rows keep both sides aligned, line numbers are the real ones,
+  and both sides scroll together. `show(diff)` re-reads the file with a new diff. Used for git diffs
+  ([git-diff.md](git-diff.md)).
 - Views set no font of their own: they inherit the editor font that `EditorArea` sets on their node
   ([settings.md](settings.md)). `syntax.css` makes the RichTextFX code area inherit it too, since RichTextFX's own
   stylesheet sets a monospace family on `.code-area`.

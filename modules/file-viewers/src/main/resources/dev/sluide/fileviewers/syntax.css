@@ -18,6 +18,27 @@
     -fx-padding: 0 8 0 4;
 }
 
+/*
+ * Diff views (SideBySideDiffView): changed lines and their line numbers get a background; after .lineno, so it wins.
+ * Removed grey, modified blue, added green.
+ */
+.diff-removed {
+    -fx-background-color: #e6e6e6;
+}
+
+.diff-modified {
+    -fx-background-color: #dbe7fb;
+}
+
+.diff-added {
+    -fx-background-color: #d9f2d9;
+}
+
+.diff-title {
+    -fx-padding: 3 8 3 8;
+    -fx-font-weight: bold;
+}
+
 .keyword {
     -fx-fill: #0033b3;
     -fx-font-weight: bold;
@@ -79,6 +100,18 @@
 
     .lineno {
         -fx-text-fill: #606366;
+    }
+
+    .diff-removed {
+        -fx-background-color: #3c3f41;
+    }
+
+    .diff-modified {
+        -fx-background-color: #263a57;
+    }
+
+    .diff-added {
+        -fx-background-color: #2a4530;
     }
 
     .keyword {
