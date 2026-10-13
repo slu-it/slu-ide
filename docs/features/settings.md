@@ -8,6 +8,9 @@
   in the IDE before OK or Apply. The dialog always opens with the current settings.
 - Settings are stored in `~/.sluide/settings.properties` and apply live to open views. Values that cannot be used
   (e.g. an unknown style) fall back to the defaults.
+- Display → Appearance: the theme, Light, Dark or System (default; follows the operating system's light or dark mode,
+  also while the IDE runs). It applies to all windows, menus and dialogs, including syntax colours; the terminal stays
+  dark. See [ADR 0009](../adr/0009-themes.md).
 - Display → Fonts: font, size (6–72) and style (Regular, Bold, Italic, Bold Italic) separately for
   - File Explorer (default: the system UI font),
   - Editor, i.e. all open file views (default: Monospaced at the system font size); syntax highlighting keeps its
@@ -18,6 +21,9 @@
   - A preview below shows a sample tree, editor text and terminal output in the edited fonts.
 - Structure: `FontSpec`, `FontStyle`, `FontArea` (values), `SettingsStore` (properties file), `FontSettings` (Spring
   bean, properties per area), `SettingsPage`/`SettingsPages` (pages as beans), `SettingsDialog`, `FontsPage` with
-  `FontsPageModel` (drafts). Users: `FileExplorerView`, `EditorArea` (binds every open file view), `Terminals`
-  (each `TerminalView` follows the terminal font).
-- Not yet implemented: font settings for menus and dialogs, line spacing, per-project settings, other setting pages.
+  `FontsPageModel` (drafts), `Theme`, `ThemeSettings` (Spring bean, theme and colour scheme), `ThemedWindows` (applies
+  the colour scheme and `theme.css` to every window), `AppearancePage` with `AppearancePageModel`. Users:
+  `FileExplorerView`, `EditorArea` (binds every open file view), `Terminals` (each `TerminalView` follows the
+  terminal font), `MainWindow` (installs `ThemedWindows`).
+- Not yet implemented: font settings for menus and dialogs, line spacing, per-project settings, a light terminal,
+  custom colours.
