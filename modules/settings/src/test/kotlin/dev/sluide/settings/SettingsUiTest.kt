@@ -42,7 +42,7 @@ class SettingsUiTest {
     private val settings by lazy { FontSettings(SettingsStore(dir.resolve("settings.properties")), defaults) }
     private val fontsPage by lazy { FontsPage(settings) }
     private val themeSettings by lazy {
-        ThemeSettings(SettingsStore(dir.resolve("settings.properties")), SimpleObjectProperty(ColorScheme.LIGHT))
+        ThemeSettings(SettingsStore(dir.resolve("settings.properties")), { SimpleObjectProperty(ColorScheme.LIGHT) })
     }
     private val appearancePage by lazy { AppearancePage(themeSettings) }
 

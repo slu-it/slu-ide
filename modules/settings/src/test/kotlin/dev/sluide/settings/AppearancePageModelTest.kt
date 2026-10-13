@@ -12,7 +12,7 @@ class AppearancePageModelTest {
     lateinit var dir: Path
 
     private val settings by lazy {
-        ThemeSettings(SettingsStore(dir.resolve("settings.properties")), SimpleObjectProperty(ColorScheme.LIGHT))
+        ThemeSettings(SettingsStore(dir.resolve("settings.properties")), { SimpleObjectProperty(ColorScheme.LIGHT) })
     }
     private val model by lazy { AppearancePageModel(settings) }
 

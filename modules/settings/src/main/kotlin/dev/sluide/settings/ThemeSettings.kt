@@ -19,30 +19,35 @@ private const val KEY = "theme"
 @Component
 class ThemeSettings(
     private val store: SettingsStore,
-    systemColorScheme: ObservableValue<ColorScheme>,
+    systemColorScheme: () -> ObservableValue<ColorScheme>,
 ) {
-    /** Follows the operating system's colour scheme; needs the JavaFX toolkit. */
+    /** Follows the operating system's colour scheme, which can only be read on the FX thread. */
     @Autowired
-    constructor(store: SettingsStore) : this(store, Platform.getPreferences().colorSchemeProperty())
+    constructor(store: SettingsStore) : this(store, { Platform.getPreferences().colorSchemeProperty() })
 
     private val wrapper = ReadOnlyObjectWrapper(read(store.load()) ?: Theme.SYSTEM)
 
     /** The chosen theme. */
     val theme: ReadOnlyObjectProperty<Theme> = wrapper.readOnlyProperty
 
-    /** The colour scheme the theme stands for; for [Theme.SYSTEM] the one of the operating system. */
-    val colorScheme: ObjectBinding<ColorScheme> =
+    /**
+     * The colour scheme the theme stands for; for [Theme.SYSTEM] the one of the operating system. First use must be
+     * on the FX thread.
+     */
+    val colorScheme: ObjectBinding<ColorScheme> by lazy {
+        val system = systemColorScheme()
         Bindings.createObjectBinding(
             {
                 when (wrapper.get()) {
                     Theme.LIGHT -> ColorScheme.LIGHT
                     Theme.DARK -> ColorScheme.DARK
-                    Theme.SYSTEM -> systemColorScheme.value ?: ColorScheme.LIGHT
+                    Theme.SYSTEM -> system.value ?: ColorScheme.LIGHT
                 }
             },
             wrapper,
-            systemColorScheme,
+            system,
         )
+    }
 
     /** Sets the theme and stores it. Must be called on the FX thread. */
     fun apply(theme: Theme) {

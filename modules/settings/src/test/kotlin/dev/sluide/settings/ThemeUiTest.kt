@@ -29,7 +29,7 @@ class ThemeUiTest {
 
     private lateinit var stage: Stage
     private val system = SimpleObjectProperty(ColorScheme.LIGHT)
-    private val settings by lazy { ThemeSettings(SettingsStore(dir.resolve("settings.properties")), system) }
+    private val settings by lazy { ThemeSettings(SettingsStore(dir.resolve("settings.properties")), { system }) }
 
     @Start
     fun start(stage: Stage) {

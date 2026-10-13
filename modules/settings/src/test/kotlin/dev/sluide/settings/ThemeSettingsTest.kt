@@ -18,11 +18,20 @@ class ThemeSettingsTest {
     private val file get() = dir.resolve("config/settings.properties")
     private val system = SimpleObjectProperty(ColorScheme.LIGHT)
 
-    private fun settings() = ThemeSettings(SettingsStore(file), system)
+    private fun settings() = ThemeSettings(SettingsStore(file), { system })
 
     @Test
     fun `without a settings file the system theme is used`() {
         assertEquals(Theme.SYSTEM, settings().theme.get())
+    }
+
+    @Test
+    fun `the system colour scheme is not read on creation, Spring creates the bean off the FX thread`() {
+        val settings = ThemeSettings(SettingsStore(file)) { error("read on creation") }
+
+        settings.apply(Theme.DARK)
+
+        assertEquals(Theme.DARK, settings.theme.get())
     }
 
     @Test
