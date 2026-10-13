@@ -5,8 +5,13 @@ import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontSpec
 import javafx.beans.InvalidationListener
+import javafx.beans.WeakInvalidationListener
+import javafx.beans.property.SimpleIntegerProperty
 import javafx.beans.value.ObservableValue
+import javafx.geometry.Pos
+import javafx.scene.control.ContentDisplay
 import javafx.scene.control.ContextMenu
+import javafx.scene.control.Label
 import javafx.scene.control.MenuItem
 import javafx.scene.control.TreeCell
 import javafx.scene.control.TreeItem
@@ -14,6 +19,8 @@ import javafx.scene.control.TreeView
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
+import javafx.scene.layout.HBox
+import javafx.scene.shape.Circle
 import org.kordamp.ikonli.javafx.FontIcon
 import org.springframework.stereotype.Component
 import java.nio.file.Files
@@ -23,7 +30,8 @@ import kotlin.math.roundToInt
 /**
  * Tree view showing the complete content of a folder, including hidden files. Every folder whose content has been
  * loaded is watched, so changes on disk show up by themselves; "Refresh" (context menu, F5) re-reads all of them.
- * Every entry has a [FileIcon], coloured by type in `file-explorer.css` and sized to the explorer font.
+ * Every entry has a [FileIcon], coloured by type in `file-explorer.css` and sized to the explorer font, and the
+ * [FileMarker]s given by [markers] after its name.
  */
 @Component
 class FileExplorerView(
@@ -38,6 +46,18 @@ class FileExplorerView(
      * without a known extension. It may read the file; it is asked once per file and again after the file changed.
      */
     var canOpenFile: (Path) -> Boolean = { true }
+
+    /**
+     * The markers shown after the name of a file or folder (`directory`), in the order given. Asked whenever an
+     * entry is shown; call [refreshMarkers] when the answers change.
+     */
+    var markers: (path: Path, directory: Boolean) -> List<FileMarker> = { _, _ -> emptyList() }
+
+    /** Called after files changed on disk in a loaded folder, and after a manual refresh. */
+    var onFilesChanged: () -> Unit = {}
+
+    /** Counts calls of [refreshMarkers]; the cells listen to it. */
+    private val markerChanges = SimpleIntegerProperty()
 
     private val watches = mutableMapOf<Path, AutoCloseable>()
 
@@ -80,6 +100,12 @@ class FileExplorerView(
             watch(folder)
         }
         closeWatchesOfVanishedFolders()
+        onFilesChanged()
+    }
+
+    /** Asks [markers] again for every shown entry. */
+    fun refreshMarkers() {
+        markerChanges.set(markerChanges.get() + 1)
     }
 
     private fun watch(folder: FileTreeItem) {
@@ -109,6 +135,7 @@ class FileExplorerView(
                 watch(subfolder)
             }
         closeWatchesOfVanishedFolders()
+        onFilesChanged()
     }
 
     /** Deleted folders are removed from the tree by their parent's refresh; their watches end here. */
@@ -127,7 +154,38 @@ class FileExplorerView(
         private val icon = FontIcon().apply { iconSizeProperty().bind(fileIconSize) }
         private val iconUpdater = InvalidationListener { updateIcon() }
 
+        // The name is a label in the graphic, so the markers can follow it; it looks like the cell's own text.
+        private val name =
+            Label().apply {
+                fontProperty().bind(this@PathCell.fontProperty())
+                textFillProperty().bind(this@PathCell.textFillProperty())
+            }
+        private val bubbleRadius = fileIconSize.map { it * BUBBLE_SCALE }
+
+        // One bubble per marker, reused; without markers the box takes no space.
+        private val bubbleOf =
+            FileMarker.entries.associateWith { marker ->
+                Circle().apply {
+                    radiusProperty().bind(bubbleRadius)
+                    styleClass += listOf(FILE_MARKER_CLASS, marker.styleClass)
+                }
+            }
+        private val bubbles =
+            HBox(BUBBLE_GAP).apply {
+                alignment = Pos.CENTER_LEFT
+                managedProperty().bind(visibleProperty())
+            }
+        private val content =
+            HBox(icon, name, bubbles).apply {
+                alignment = Pos.CENTER_LEFT
+                spacingProperty().bind(this@PathCell.graphicTextGapProperty())
+            }
+        private val markerUpdater = InvalidationListener { updateMarkers() }
+
         init {
+            // The text stays set (accessibility, lookups by name) but only the graphic is shown.
+            contentDisplay = ContentDisplay.GRAPHIC_ONLY
+            markerChanges.addListener(WeakInvalidationListener(markerUpdater))
             // Folders open and close, and readability is checked later or reset, without a call to updateItem.
             treeItemProperty().addListener { _, old, new ->
                 (old as? FileTreeItem)?.let {
@@ -153,7 +211,9 @@ class FileExplorerView(
         ) {
             super.updateItem(item, empty)
             text = if (empty || item == null) null else (item.fileName ?: item).toString()
+            name.text = text
             updateIcon()
+            updateMarkers()
         }
 
         private fun updateIcon() {
@@ -169,10 +229,29 @@ class FileExplorerView(
             icon.iconCode = fileIcon.ikon
             icon.styleClass.removeIf { it.startsWith(FILE_ICON_CLASS_PREFIX) }
             icon.styleClass += fileIcon.styleClass
-            graphic = icon
+            graphic = content
+        }
+
+        private fun updateMarkers() {
+            val treeItem: TreeItem<Path>? = treeItem
+            val shown =
+                if (isEmpty ||
+                    treeItem !is FileTreeItem
+                ) {
+                    emptyList()
+                } else {
+                    markers(treeItem.value, treeItem.isDirectory)
+                }
+            bubbles.children.setAll(shown.distinct().map(bubbleOf::getValue))
+            bubbles.isVisible = shown.isNotEmpty()
         }
     }
 }
 
 private const val ICON_SCALE = 1.25
 private const val FILE_ICON_CLASS_PREFIX = "file-icon-"
+private const val FILE_MARKER_CLASS = "file-marker"
+
+// Bubble radius relative to the icon size, and the gap between bubbles in pixels.
+private const val BUBBLE_SCALE = 0.2
+private const val BUBBLE_GAP = 3.0

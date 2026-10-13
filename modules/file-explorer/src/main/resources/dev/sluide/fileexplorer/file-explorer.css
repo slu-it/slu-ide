@@ -156,3 +156,16 @@
     .file-icon-archive    { -fx-icon-color: #d08a5c; }
     .file-icon-package    { -fx-icon-color: #bcaaa4; }
 }
+
+/* Markers after the names (FileMarker), e.g. the git status: red, green, blue, orange. */
+.file-marker-unversioned { -fx-fill: #d32f2f; }
+.file-marker-added       { -fx-fill: #2e7d32; }
+.file-marker-modified    { -fx-fill: #1e63c8; }
+.file-marker-ignored     { -fx-fill: #ef8a00; }
+
+@media (prefers-color-scheme: dark) {
+    .file-marker-unversioned { -fx-fill: #ef6461; }
+    .file-marker-added       { -fx-fill: #5cbf62; }
+    .file-marker-modified    { -fx-fill: #5a9ae6; }
+    .file-marker-ignored     { -fx-fill: #f5a742; }
+}

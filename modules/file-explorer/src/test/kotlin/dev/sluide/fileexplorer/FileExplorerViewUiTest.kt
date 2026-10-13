@@ -16,6 +16,7 @@ import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.paint.Color
+import javafx.scene.shape.Circle
 import javafx.stage.Stage
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
@@ -344,7 +345,94 @@ class FileExplorerViewUiTest {
     private fun iconOf(
         robot: FxRobot,
         name: String,
-    ): FontIcon = cellNamed(robot, name).graphic as FontIcon
+    ): FontIcon = cellNamed(robot, name).graphic.lookup(".ikonli-font-icon") as FontIcon
+
+    /** The style classes of the markers after [name], in the order they are shown. */
+    private fun markersOf(
+        robot: FxRobot,
+        name: String,
+    ): List<String> =
+        cellNamed(robot, name)
+            .graphic
+            .lookupAll(".file-marker")
+            .filter { it.isVisible && it.parent.isVisible }
+            .sortedBy { it.localToScene(0.0, 0.0).x }
+            .map { node -> node.styleClass.single { it != "file-marker" } }
+
+    @Test
+    fun `shows the markers given for each entry after its name, in order`(robot: FxRobot) {
+        project.resolve("sub").createDirectories()
+        project.resolve("changed.kt").createFile()
+        project.resolve("clean.kt").createFile()
+        var shown =
+            mapOf(
+                "sub" to listOf(FileMarker.UNVERSIONED, FileMarker.ADDED, FileMarker.MODIFIED),
+                "changed.kt" to listOf(FileMarker.MODIFIED),
+            )
+        val asked = mutableListOf<Pair<String, Boolean>>()
+        view.markers = { path, directory ->
+            asked += path.name to directory
+            shown[path.name].orEmpty()
+        }
+        robot.interact { view.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(
+            listOf("file-marker-unversioned", "file-marker-added", "file-marker-modified"),
+            markersOf(robot, "sub"),
+        )
+        assertEquals(listOf("file-marker-modified"), markersOf(robot, "changed.kt"))
+        assertEquals(emptyList(), markersOf(robot, "clean.kt"))
+        assertTrue("sub" to true in asked && "clean.kt" to false in asked, asked.toString())
+        // The markers follow the name.
+        val cell = cellNamed(robot, "changed.kt")
+        val label = cell.graphic.lookup(".label")
+        val bubble = cell.graphic.lookup(".file-marker-modified")
+        assertTrue(bubble.localToScene(0.0, 0.0).x > label.localToScene(label.layoutBounds.maxX, 0.0).x)
+
+        shown = mapOf("clean.kt" to listOf(FileMarker.IGNORED))
+        robot.interact { view.refreshMarkers() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(emptyList(), markersOf(robot, "sub"))
+        assertEquals(emptyList(), markersOf(robot, "changed.kt"))
+        assertEquals(listOf("file-marker-ignored"), markersOf(robot, "clean.kt"))
+    }
+
+    @Test
+    fun `reports changed files and refreshes`(robot: FxRobot) {
+        var reports = 0
+        view.onFilesChanged = { reports++ }
+        robot.interact { view.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        project.resolve("new.txt").createFile()
+        eventually(robot) { assertEquals(1, reports) }
+
+        robot.interact { view.refreshAll() }
+        assertEquals(2, reports)
+    }
+
+    @Test
+    fun `markers have a colour in both themes`(robot: FxRobot) {
+        project.resolve("a.kt").createFile()
+        view.markers = { _, _ -> FileMarker.entries }
+        robot.interact { view.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        fun colours() =
+            FileMarker.entries.map {
+                (cellNamed(robot, "a.kt").graphic.lookup(".${it.styleClass}") as Circle).fill
+            }
+        val light = colours()
+        assertEquals(Color.web("#d32f2f"), light.first())
+        robot.interact { view.scene.preferences.colorScheme = ColorScheme.DARK }
+        WaitForAsyncUtils.waitForFxEvents()
+        val dark = colours()
+        assertEquals(Color.web("#ef6461"), dark.first())
+        assertEquals(4, light.distinct().size)
+        assertTrue(light.zip(dark).all { (l, d) -> l != d })
+    }
 
     @Test
     fun `shows an icon per file type, readable or binary for unknown types`(robot: FxRobot) {
