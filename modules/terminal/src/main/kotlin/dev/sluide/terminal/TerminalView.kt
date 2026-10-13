@@ -34,6 +34,7 @@ import javafx.scene.text.FontWeight
 import javafx.scene.text.Text
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.floor
+import kotlin.math.round
 import com.jediterm.core.Color as TermColor
 
 private val COPY = KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN)
@@ -215,10 +216,13 @@ internal class TerminalView(
         paint()
     }
 
-    /** The cell under the mouse as a buffer position: negative rows are history lines. */
+    /**
+     * The position under the mouse for selecting: the column boundary nearest to it (so dragging across half a
+     * character selects it) and the buffer row, where negative rows are history lines.
+     */
     private fun cellAt(event: MouseEvent) =
         Point(
-            floor(event.x / cell.width).toInt().coerceIn(0, size.columns - 1),
+            round(event.x / cell.width).toInt().coerceIn(0, size.columns),
             floor(event.y / cell.height).toInt().coerceIn(0, size.rows - 1) + scrollOrigin,
         )
 
@@ -358,11 +362,11 @@ internal class TerminalView(
         b: Point,
     ): Pair<Point, Point> = if (a.y < b.y || (a.y == b.y && a.x <= b.x)) a to b else b to a
 
-    /** Whether this cell lies in the selection from the first point up to and including the second. */
+    /** Whether this cell lies in the selection from the first point up to, but excluding, the second, like the copied text. */
     private fun Point.isIn(range: Pair<Point, Point>): Boolean {
         val (start, end) = range
         val afterStart = y > start.y || (y == start.y && x >= start.x)
-        val beforeEnd = y < end.y || (y == end.y && x <= end.x)
+        val beforeEnd = y < end.y || (y == end.y && x < end.x)
         return afterStart && beforeEnd
     }
 

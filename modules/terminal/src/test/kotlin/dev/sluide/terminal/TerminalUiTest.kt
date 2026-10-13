@@ -3,9 +3,13 @@ package dev.sluide.terminal
 import javafx.event.Event
 import javafx.scene.Scene
 import javafx.scene.image.WritableImage
+import javafx.scene.input.Clipboard
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
+import javafx.scene.input.MouseButton
+import javafx.scene.input.MouseEvent
 import javafx.scene.layout.StackPane
+import javafx.scene.text.Font
 import javafx.stage.Stage
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
@@ -19,6 +23,7 @@ import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
@@ -50,7 +55,8 @@ class TerminalUiTest {
             tab = terminals.open(dir) as TerminalTab
             root.children.setAll(tab.content)
         }
-        WaitForAsyncUtils.waitForFxEvents()
+        // Input typed before the prompt would share a line with it.
+        eventually { assertTrue(tab.view.screenText().isNotBlank(), "a prompt") }
         return tab
     }
 
@@ -84,7 +90,7 @@ class TerminalUiTest {
     fun `a terminal tab runs the shell in the folder and shows its output`(robot: FxRobot) {
         val tab = open(robot)
         assertEquals("Terminal 1", tab.title.value)
-        assertTrue(tab.view.isFocused, "focused when shown")
+        assertSame(tab.view, tab.view.scene.focusOwner, "focused when shown")
 
         type(robot, tab.view, "cd . && pwd && echo answer-\$((40 + 2))")
 
@@ -111,6 +117,63 @@ class TerminalUiTest {
                 }
             assertTrue(green, "a green background line is painted")
         }
+    }
+
+    @Test
+    fun `dragging selects text that the copy shortcut puts on the clipboard`(robot: FxRobot) {
+        val tab = open(robot)
+        val view = tab.view
+        type(robot, view, "clear; echo copy-\$((6 * 7))-please")
+        eventually { assertTrue("copy-42-please" in view.screenText().lines()) }
+        val row = view.screenText().lines().indexOf("copy-42-please")
+        val cell = CellSize.of(Font.font("Monospaced", 13.0))
+        val y = (row + 0.5) * cell.height
+
+        robot.interact {
+            Clipboard.getSystemClipboard().clear()
+            mouse(view, MouseEvent.MOUSE_PRESSED, 0.2 * cell.width, y)
+            // Past the middle of the 7th character: the selection includes it.
+            mouse(view, MouseEvent.MOUSE_DRAGGED, 6.6 * cell.width, y)
+            val shortcut = !System.getProperty("os.name").lowercase().contains("mac")
+            Event.fireEvent(
+                view,
+                KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.C, true, shortcut, false, !shortcut),
+            )
+        }
+
+        robot.interact { assertEquals("copy-42", Clipboard.getSystemClipboard().string) }
+    }
+
+    private fun mouse(
+        view: TerminalView,
+        type: javafx.event.EventType<MouseEvent>,
+        x: Double,
+        y: Double,
+    ) {
+        val scene = view.localToScene(x, y)
+        Event.fireEvent(
+            view,
+            MouseEvent(
+                type,
+                scene.x,
+                scene.y,
+                scene.x,
+                scene.y,
+                MouseButton.PRIMARY,
+                1,
+                false,
+                false,
+                false,
+                false,
+                true,
+                false,
+                false,
+                false,
+                false,
+                false,
+                null,
+            ),
+        )
     }
 
     @Test

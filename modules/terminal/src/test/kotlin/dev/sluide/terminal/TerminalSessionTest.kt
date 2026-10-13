@@ -29,6 +29,8 @@ class TerminalSessionTest {
 
     private fun start(size: TermSize = TermSize(80, 24)) {
         session = TerminalSession(dir, NoDisplay, size, command = listOf("/bin/sh"))
+        // Input sent before the prompt is echoed first and its output then shares a line with the prompt.
+        await("a prompt") { screenLines().any { it.isNotBlank() } }
     }
 
     private fun run(command: String) = session.send("$command\r".toByteArray())
@@ -45,10 +47,15 @@ class TerminalSessionTest {
         }
     }
 
-    private fun awaitLine(line: String) {
+    private fun awaitLine(line: String) = await("line '$line'") { line in screenLines() }
+
+    private fun await(
+        what: String,
+        condition: () -> Boolean,
+    ) {
         val deadline = System.nanoTime() + 10.seconds.inWholeNanoseconds
-        while (line !in screenLines()) {
-            check(System.nanoTime() < deadline) { "No line '$line' on screen:\n${screenLines().joinToString("\n")}" }
+        while (!condition()) {
+            check(System.nanoTime() < deadline) { "No $what on screen:\n${screenLines().joinToString("\n")}" }
             Thread.sleep(20)
         }
     }
