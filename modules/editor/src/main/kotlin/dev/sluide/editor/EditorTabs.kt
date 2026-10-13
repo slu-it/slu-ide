@@ -21,6 +21,12 @@ interface EditorTab {
     /** The node shown below the tab strip while the tab is selected. */
     val content: Node
 
+    /**
+     * Why closing the tab from the UI should be confirmed first, e.g. "Terminal 1 is still running java.", or `null`
+     * if it can simply be closed. Not asked when all tabs close because another folder is opened.
+     */
+    val closeWarning: String? get() = null
+
     /** Releases the tab's resources. Called once, when the tab is closed. */
     fun dispose() {}
 }
@@ -88,15 +94,21 @@ internal class EditorTabs {
 
     /** Closes every tab except [tab] and selects it. */
     fun closeOthers(tab: EditorTab) {
-        closeAll(_tabs.filter { it !== tab }, keep = tab)
+        closeAll(othersOf(tab), keep = tab)
         select(tab)
     }
 
     /** Closes the tabs left of [tab]; if the selected tab was among them, [tab] becomes selected. */
-    fun closeLeftOf(tab: EditorTab) = closeAll(_tabs.subList(0, indexOfOpen(tab)).toList(), keep = tab)
+    fun closeLeftOf(tab: EditorTab) = closeAll(leftOf(tab), keep = tab)
 
     /** Closes the tabs right of [tab]; if the selected tab was among them, [tab] becomes selected. */
-    fun closeRightOf(tab: EditorTab) = closeAll(_tabs.subList(indexOfOpen(tab) + 1, _tabs.size).toList(), keep = tab)
+    fun closeRightOf(tab: EditorTab) = closeAll(rightOf(tab), keep = tab)
+
+    fun othersOf(tab: EditorTab): List<EditorTab> = _tabs.filter { it !== tab }
+
+    fun leftOf(tab: EditorTab): List<EditorTab> = _tabs.subList(0, indexOfOpen(tab)).toList()
+
+    fun rightOf(tab: EditorTab): List<EditorTab> = _tabs.subList(indexOfOpen(tab) + 1, _tabs.size).toList()
 
     private fun indexOfOpen(tab: EditorTab): Int =
         _tabs.indexOf(tab).also { require(it >= 0) { "Not open: ${tab.title.value}" } }

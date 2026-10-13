@@ -468,6 +468,80 @@ class EditorAreaUiTest {
         assertEquals(0, editor.watchCount)
     }
 
+    private class WarningTab(
+        name: String,
+        override var closeWarning: String?,
+    ) : EditorTab {
+        override val title = SimpleStringProperty(name)
+        override val tooltip = name
+        override val content = Label(name)
+    }
+
+    @Test
+    fun `closing a tab with a warning asks first and keeps it on cancel`(robot: FxRobot) {
+        val asked = mutableListOf<List<String>>()
+        var answer = false
+        editor.confirmClose = { warnings ->
+            asked += warnings
+            answer
+        }
+        val busy = WarningTab("Terminal 1", "Terminal 1 is still running java.")
+        robot.interact { editor.open(busy) }
+        WaitForAsyncUtils.waitForFxEvents()
+        val close = tabLabel(robot, "Terminal 1").parent.lookup(".close-button") as Button
+
+        robot.interact { close.fire() }
+        assertEquals(listOf(listOf("Terminal 1 is still running java.")), asked)
+        assertEquals(listOf("Terminal 1"), tabTitles(robot))
+
+        answer = true
+        robot.interact { close.fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(emptyList(), tabTitles(robot))
+    }
+
+    @Test
+    fun `tabs without a warning close without asking, close all asks once for all warnings`(robot: FxRobot) {
+        val asked = mutableListOf<List<String>>()
+        editor.confirmClose = { warnings ->
+            asked += warnings
+            false
+        }
+        val idle = WarningTab("Terminal 1", null)
+        val busy1 = WarningTab("Terminal 2", "Terminal 2 is still running vim.")
+        val busy2 = WarningTab("Terminal 3", "Terminal 3 is still running sleep.")
+        val a = textFile("a.txt")
+        open(robot, a)
+        robot.interact { listOf(idle, busy1, busy2).forEach(editor::open) }
+
+        robot.interact {
+            editor.tabStrip
+                .contextMenuOf(busy2)
+                .items
+                .first { it.text == "Close All" }
+                .fire()
+        }
+        assertEquals(listOf(listOf("Terminal 2 is still running vim.", "Terminal 3 is still running sleep.")), asked)
+        assertEquals(listOf("a.txt", "Terminal 1", "Terminal 2", "Terminal 3"), tabTitles(robot))
+
+        robot.interact {
+            editor.tabStrip
+                .contextMenuOf(
+                    busy1,
+                ).items
+                .first { it.text == "Close Tabs to the Left" }
+                .fire()
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(listOf("Terminal 2", "Terminal 3"), tabTitles(robot))
+        assertEquals(1, asked.size, "nothing to confirm for the file and the idle terminal")
+
+        busy1.closeWarning = null
+        robot.interact { editor.closeAll() }
+        assertEquals(emptyList(), tabTitles(robot))
+        assertEquals(1, asked.size, "closing all for another folder does not ask")
+    }
+
     /** Repeats [assertion] on the FX thread until it passes; the JDK may poll for file changes on macOS. */
     private fun eventually(
         robot: FxRobot,

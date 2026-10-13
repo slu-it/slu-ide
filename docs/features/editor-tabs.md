@@ -10,6 +10,10 @@
 - Tabs do not have to show files: `open(tab: EditorTab)` adds any tab (title, which may change, tooltip and content
   node) and selects it, e.g. a terminal ([terminal.md](terminal.md)). Every way of closing a tab calls its
   `EditorTab.dispose()` once. `openPaths` and `selectedPath` only report file tabs.
+- A tab can have a `closeWarning` (e.g. a terminal with a running program). Closing such tabs from the UI (×, middle
+  click, any context menu entry) first shows one confirmation dialog listing the warnings; Cancel closes nothing.
+  `closeAll()` (used when another folder is opened) does not ask. Tests replace the dialog via
+  `EditorArea.confirmClose`.
 - One tab per file: the file name as title, the full path as tooltip. Clicking a tab selects it.
 - Tabs close via their × button or a middle click. Closing the selected tab selects its right neighbour, or the left
   one if there is none.

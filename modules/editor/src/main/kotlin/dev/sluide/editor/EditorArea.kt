@@ -3,6 +3,9 @@ package dev.sluide.editor
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.filewatcher.FileWatcher
 import javafx.collections.ListChangeListener
+import javafx.scene.control.Alert
+import javafx.scene.control.ButtonBar
+import javafx.scene.control.ButtonType
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.StackPane
 import org.springframework.stereotype.Component
@@ -20,7 +23,13 @@ class EditorArea(
     private val fileWatcher: FileWatcher,
 ) : BorderPane() {
     internal val editorTabs = EditorTabs()
-    internal val tabStrip = TabStrip(editorTabs)
+    internal val tabStrip = TabStrip(editorTabs) { warnings -> confirmClose(warnings) }
+
+    /**
+     * Asked before tabs are closed from the UI if some of them have a [EditorTab.closeWarning]; returns whether to
+     * close them. Shows a confirmation dialog; tests replace it.
+     */
+    var confirmClose: (warnings: List<String>) -> Boolean = ::showCloseDialog
     private val watches = mutableMapOf<EditorTab, AutoCloseable>()
 
     init {
@@ -88,7 +97,19 @@ class EditorArea(
         watch(openFile)
     }
 
-    /** Closes all tabs, including the ones that do not show files. */
+    private fun showCloseDialog(warnings: List<String>): Boolean {
+        val close = ButtonType("Close", ButtonBar.ButtonData.OK_DONE)
+        val alert =
+            Alert(Alert.AlertType.CONFIRMATION, warnings.joinToString("\n"), close, ButtonType.CANCEL).apply {
+                val single = warnings.size == 1
+                title = if (single) "Close Tab" else "Close Tabs"
+                headerText = if (single) "Close this tab anyway?" else "Close these tabs anyway?"
+                this@EditorArea.scene?.window?.let(::initOwner)
+            }
+        return alert.showAndWait().orElse(ButtonType.CANCEL) == close
+    }
+
+    /** Closes all tabs without asking, including the ones that do not show files. */
     fun closeAll() = editorTabs.closeAll()
 
     /** The paths of all open files in tab order. */

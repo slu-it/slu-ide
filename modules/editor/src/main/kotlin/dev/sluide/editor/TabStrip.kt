@@ -24,6 +24,8 @@ private val SELECTED: PseudoClass = PseudoClass.getPseudoClass("selected")
  */
 internal class TabStrip(
     private val editorTabs: EditorTabs,
+    /** Asked before tabs with a [EditorTab.closeWarning] are closed, with their warnings; `true` closes them. */
+    private val confirmClose: (warnings: List<String>) -> Boolean = { true },
 ) : Region() {
     private val viewport = Pane().apply { styleClass += "tab-viewport" }
     private val viewportClip = Rectangle()
@@ -143,6 +145,15 @@ internal class TabStrip(
         setOnAction { action() }
     }
 
+    /** Runs [action], which closes [tabs], unless one of them warns against closing and the user cancels. */
+    private fun close(
+        tabs: List<EditorTab>,
+        action: () -> Unit,
+    ) {
+        val warnings = tabs.mapNotNull { it.closeWarning }
+        if (warnings.isEmpty() || confirmClose(warnings)) action()
+    }
+
     private fun Node.contains(target: EventTarget): Boolean =
         generateSequence(target as? Node) { it.parent }.any { it === this }
 
@@ -166,7 +177,7 @@ internal class TabStrip(
                 Button("×").apply {
                     styleClass += "close-button"
                     isFocusTraversable = false
-                    setOnAction { editorTabs.close(tab) }
+                    setOnAction { close(listOf(tab)) { editorTabs.close(tab) } }
                 }
             val title = Label().apply { textProperty().bind(tab.title) }
             // Headers are unmanaged, so a longer or shorter title does not lay out the strip again by itself.
@@ -178,7 +189,7 @@ internal class TabStrip(
             setOnMousePressed { event ->
                 if (event.button == MouseButton.PRIMARY && !close.contains(event.target)) editorTabs.select(tab)
             }
-            setOnMouseClicked { if (it.button == MouseButton.MIDDLE) editorTabs.close(tab) }
+            setOnMouseClicked { if (it.button == MouseButton.MIDDLE) close(listOf(tab)) { editorTabs.close(tab) } }
             setOnContextMenuRequested { event ->
                 menu.show(this, event.screenX, event.screenY)
                 event.consume()
@@ -190,17 +201,19 @@ internal class TabStrip(
                 text: String,
                 action: () -> Unit,
             ) = MenuItem(text).apply { setOnAction { action() } }
-            val closeOthers = item("Close Others") { editorTabs.closeOthers(tab) }
-            val closeLeft = item("Close Tabs to the Left") { editorTabs.closeLeftOf(tab) }
-            val closeRight = item("Close Tabs to the Right") { editorTabs.closeRightOf(tab) }
+            val closeOthers = item("Close Others") { close(editorTabs.othersOf(tab)) { editorTabs.closeOthers(tab) } }
+            val closeLeft =
+                item("Close Tabs to the Left") { close(editorTabs.leftOf(tab)) { editorTabs.closeLeftOf(tab) } }
+            val closeRight =
+                item("Close Tabs to the Right") { close(editorTabs.rightOf(tab)) { editorTabs.closeRightOf(tab) } }
             return ContextMenu(
-                item("Close") { editorTabs.close(tab) },
+                item("Close") { close(listOf(tab)) { editorTabs.close(tab) } },
                 SeparatorMenuItem(),
                 closeOthers,
                 closeLeft,
                 closeRight,
                 SeparatorMenuItem(),
-                item("Close All") { editorTabs.closeAll() },
+                item("Close All") { close(editorTabs.tabs.toList()) { editorTabs.closeAll() } },
             ).apply {
                 styleClass += "tab-context-menu"
                 setOnShowing {
