@@ -4,6 +4,8 @@ name: Release
 # (https://maven.pkg.github.com/slu-it/slu-ide) when a version tag such as v0.1.0 is pushed.
 # JavaFX natives are platform specific (docs/adr/0003-javafx-platform-jars.md), so each platform is
 # built on a matching runner and published as its own artifact: ide-<os>-<arch>.
+# The macOS runner also attaches SluIde-<version>-mac-aarch64.dmg (SluIde.app with its own Java runtime, not
+# notarized, docs/adr/0011-native-app-packaging.md) to the GitHub release of the tag.
 
 on:
   push:
@@ -14,7 +16,7 @@ jobs:
     name: Publish (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
     permissions:
-      contents: read
+      contents: write # create the GitHub release and attach the disk image
       packages: write
     strategy:
       fail-fast: false
@@ -36,3 +38,15 @@ jobs:
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build disk image
+        if: runner.os == 'macOS'
+        run: ./gradlew :ide:jpackageDmg -PreleaseVersion="${GITHUB_REF_NAME#v}"
+      - name: Attach disk image to the GitHub release
+        if: runner.os == 'macOS'
+        run: |
+          dmg="SluIde-${GITHUB_REF_NAME#v}-mac-aarch64.dmg"
+          mv ide/build/jpackage/dmg/*.dmg "$dmg"
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --generate-notes
+          gh release upload "$GITHUB_REF_NAME" "$dmg" --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
