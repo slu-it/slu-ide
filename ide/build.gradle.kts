@@ -45,6 +45,96 @@ val platform: String =
         "$osName-$archName"
     }
 
+// Native app with its own Java runtime (docs/adr/0011-native-app-packaging.md): `jpackageImage` builds SluIde.app on
+// macOS (a launcher folder on Linux), `jpackageDmg` a disk image with it (macOS only). jpackage cannot cross-build,
+// so like the fat jar it is made on each platform for that platform.
+val jdkHome =
+    javaToolchains
+        .launcherFor { languageVersion = JavaLanguageVersion.of(libs.versions.java.get()) }
+        .map { it.metadata.installationPath }
+val isMac = "mac" in System.getProperty("os.name").lowercase()
+
+// The JDK modules the code needs, so the bundled runtime contains only those. jdeps prints them on the last line.
+val appModulesFile = layout.buildDirectory.file("jpackage/modules.txt")
+val appModules =
+    tasks.register<Exec>("appModules") {
+        description = "Lists the JDK modules the application needs (jdeps)."
+        val jars = files(tasks.jar, configurations.runtimeClasspath)
+        val javaVersion = libs.versions.java.get()
+        inputs.files(jars)
+        outputs.file(appModulesFile)
+        executable(jdkHome.get().file("bin/jdeps").asFile)
+        argumentProviders.add {
+            listOf(
+                "--ignore-missing-deps",
+                "--print-module-deps",
+                "--multi-release",
+                javaVersion,
+                "--class-path",
+                jars.asPath,
+            ) + jars.map { it.path }
+        }
+        val output = appModulesFile
+        doFirst { standardOutput = output.get().asFile.outputStream() }
+    }
+
+val jpackageInput =
+    tasks.register<Sync>("jpackageInput") {
+        from(tasks.bootJar)
+        into(layout.buildDirectory.dir("jpackage/input"))
+    }
+
+// macOS requires the first number of the app version to be at least 1; before 1.0 jpackage's default 1.0 is used there.
+val appVersion = version.toString().substringBefore('-').takeUnless { isMac && it.startsWith("0.") }
+
+fun registerJpackage(
+    name: String,
+    type: String,
+    taskDescription: String,
+) = tasks.register<Exec>(name) {
+    description = taskDescription
+    group = "distribution"
+    val destination = layout.buildDirectory.dir("jpackage/$type")
+    val mainJar = tasks.bootJar.flatMap { it.archiveFileName }
+    val modules = appModulesFile
+    val input = jpackageInput.map { it.destinationDir }
+    val version = appVersion
+    val mac = isMac
+    inputs.files(jpackageInput, appModules)
+    outputs.dir(destination)
+    executable(jdkHome.get().file("bin/jpackage").asFile)
+    argumentProviders.add {
+        buildList {
+            addAll(listOf("--type", type, "--name", "SluIde", "--dest", destination.get().asFile.path))
+            addAll(listOf("--input", input.get().path, "--main-jar", mainJar.get()))
+            // Added to what jdeps finds: modules only loaded at runtime (charsets, zip file systems).
+            val extra = listOf("jdk.unsupported", "jdk.charsets", "jdk.zipfs")
+            val found =
+                modules
+                    .get()
+                    .asFile
+                    .readLines()
+                    .last(String::isNotBlank)
+                    .split(",")
+            addAll(listOf("--add-modules", (found + extra).distinct().joinToString(",")))
+            // jpackage's defaults plus compression: shrinks the runtime from about 90 to 60 MB.
+            val jlinkOptions = "--strip-debug --no-man-pages --no-header-files --strip-native-commands --compress zip-6"
+            addAll(listOf("--jlink-options", jlinkOptions))
+            addAll(listOf("--vendor", "SluIde", "--description", "A lightweight IDE"))
+            version?.let { addAll(listOf("--app-version", it)) }
+            if (mac) addAll(listOf("--mac-package-identifier", "dev.sluide.ide", "--mac-package-name", "SluIde"))
+        }
+    }
+    // jpackage refuses to overwrite an existing app or image.
+    doFirst { destination.get().asFile.deleteRecursively() }
+}
+
+registerJpackage("jpackageImage", "app-image", "Builds the native app with its own Java runtime (SluIde.app on macOS).")
+registerJpackage("jpackageDmg", "dmg", "Builds a macOS disk image with SluIde.app.").configure {
+    val mac = isMac
+    onlyIf("running on macOS") { mac }
+}
+
 publishing {
     publications {
         create<MavenPublication>("fatJar") {
