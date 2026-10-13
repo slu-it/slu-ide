@@ -55,10 +55,25 @@ class TerminalSessionTest {
     ) {
         val deadline = System.nanoTime() + 10.seconds.inWholeNanoseconds
         while (!condition()) {
-            check(System.nanoTime() < deadline) { "No $what on screen:\n${screenLines().joinToString("\n")}" }
+            check(System.nanoTime() < deadline) {
+                "No $what. Running programs: ${session.runningPrograms()}, shell children: ${shellChildren()}, " +
+                    "screen:\n${screenLines().joinToString("\n")}"
+            }
             Thread.sleep(20)
         }
     }
+
+    /** All child processes of the shell with their state and command line, to explain failures. */
+    private fun shellChildren(): List<String> =
+        ProcessHandle
+            .of(session.process.pid())
+            .stream()
+            .flatMap { it.children() }
+            .map {
+                "${it.pid()} alive=${it.isAlive} ${it.info().commandLine().orElse(
+                    it.info().command().orElse("?"),
+                )}"
+            }.toList()
 
     @Test
     fun `the shell starts in the given folder`() {
