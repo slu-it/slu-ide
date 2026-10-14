@@ -97,7 +97,8 @@ internal fun alignDiff(
     return rows
 }
 
-private fun IntRange.clampTo(lines: Int): IntRange {
+/** This range cut off to the indices of [lines] lines. */
+internal fun IntRange.clampTo(lines: Int): IntRange {
     val start = first.coerceIn(0, lines)
     return start until (last + 1).coerceIn(start, lines)
 }
