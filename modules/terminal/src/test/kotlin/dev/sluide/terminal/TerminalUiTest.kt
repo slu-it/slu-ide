@@ -7,6 +7,7 @@ import dev.sluide.settings.FontSpec
 import dev.sluide.settings.SettingsStore
 import javafx.event.Event
 import javafx.scene.Scene
+import javafx.scene.control.Button
 import javafx.scene.image.WritableImage
 import javafx.scene.input.Clipboard
 import javafx.scene.input.KeyCode
@@ -129,6 +130,38 @@ class TerminalUiTest {
                 }
             assertTrue(green, "a green background line is painted")
         }
+    }
+
+    @Test
+    fun `the cursor is filled while the terminal has the focus and outlined otherwise`(robot: FxRobot) {
+        val tab = open(robot)
+        val view = tab.view
+        val other = Button("other")
+        robot.interact { root.children.add(0, other) }
+        eventually { assertTrue(view.isFocused, "focused when shown") }
+
+        /** Pixels much brighter than the background: text and the cursor. */
+        fun brightPixels(): Int {
+            lateinit var image: WritableImage
+            robot.interact { image = view.snapshot(null, null) }
+            return (0 until image.height.toInt()).sumOf { y ->
+                (0 until image.width.toInt()).count { x -> image.pixelReader.getColor(x, y).brightness > 0.5 }
+            }
+        }
+        // Until the prompt is complete.
+        var focused = brightPixels()
+        eventually {
+            val previous = focused
+            focused = brightPixels()
+            assertEquals(previous, focused)
+        }
+
+        robot.interact { other.requestFocus() }
+        val unfocused = brightPixels()
+        robot.interact { view.requestFocus() }
+
+        assertTrue(unfocused < focused, "outlined cursor: $unfocused bright pixels, filled: $focused")
+        assertTrue(brightPixels() > unfocused, "filled again")
     }
 
     @Test
