@@ -1,6 +1,7 @@
 package dev.sluide.dockersandbox
 
 import java.io.IOException
+import java.nio.file.Files
 import java.nio.file.Path
 
 /**
@@ -16,6 +17,7 @@ internal object SandboxFolder {
     ): String? {
         val realHome = realPath(home) ?: return "Your home folder $home does not exist."
         val real = realPath(folder) ?: return "The folder $folder does not exist."
+        if (!Files.isDirectory(real)) return "$folder is not a folder."
         if (real != realHome && real.startsWith(realHome)) return null
         return "Docker sandboxes run only in folders below your home folder ($realHome), not in $real."
     }

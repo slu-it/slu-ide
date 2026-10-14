@@ -3,6 +3,7 @@ package dev.sluide.dockersandbox
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
+import kotlin.io.path.createFile
 import kotlin.io.path.createSymbolicLinkPointingTo
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -62,6 +63,18 @@ class SandboxFolderTest {
     @Test
     fun `a missing folder is not allowed`() {
         assertEquals("The folder ${home.resolve("missing")} does not exist.", check(home.resolve("missing")))
+    }
+
+    @Test
+    fun `a file below the home folder is not allowed`() {
+        val file =
+            home
+                .resolve("project")
+                .createDirectories()
+                .resolve("notes.txt")
+                .createFile()
+
+        assertEquals("$file is not a folder.", check(file))
     }
 
     @Test
