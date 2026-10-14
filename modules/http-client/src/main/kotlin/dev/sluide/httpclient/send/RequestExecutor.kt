@@ -1,8 +1,10 @@
 package dev.sluide.httpclient.send
 
+import dev.sluide.httpclient.auth.DigestAuth
 import dev.sluide.httpclient.parse.HttpVersion
 import dev.sluide.httpclient.parse.RequestTags
 import java.net.ConnectException
+import java.net.URI
 import java.net.UnknownHostException
 import java.net.http.HttpClient
 import java.net.http.HttpConnectTimeoutException
@@ -24,13 +26,15 @@ import javax.net.ssl.SSLException
  * hands exactly one [ExchangeResult] per request to `onResult` through [dispatch] (e.g. `Platform::runLater`).
  *
  * `@timeout` is a deadline for the whole exchange, body included; `@connection-timeout` limits connecting. Both
- * default to [DEFAULT_TIMEOUT]. Bodies are read up to [bodyLimit] bytes, then truncated.
+ * default to [DEFAULT_TIMEOUT]. Bodies are read up to [bodyLimit] bytes, then truncated. A `401` with a Digest
+ * challenge to a request with [PreparedRequest.digest] credentials is answered once, with the same body.
  */
 internal class RequestExecutor(
     private val clients: HttpClients,
     executor: Executor? = null,
     private val dispatch: (Runnable) -> Unit = Runnable::run,
     private val bodyLimit: Int = DEFAULT_BODY_LIMIT,
+    private val digest: DigestAuth = DigestAuth(),
 ) : AutoCloseable {
     private val ownExecutor = if (executor == null) Executors.newVirtualThreadPerTaskExecutor() else null
     private val executor: Executor = executor ?: checkNotNull(ownExecutor)
@@ -81,7 +85,8 @@ internal class RequestExecutor(
                         cookieJar = !tags.noCookieJar,
                         connectTimeout = connectTimeout,
                     )
-                result(send(clients.client(key), httpRequest()))
+                val client = clients.client(key)
+                result(answerDigest(client, send(client, httpRequest())))
             } catch (_: CancellationException) {
                 failure("Cancelled", cancelled = true)
             } catch (_: TimeoutException) {
@@ -96,7 +101,11 @@ internal class RequestExecutor(
                 failure(message(e))
             }
 
-        private fun httpRequest(): HttpRequest {
+        /** The request to [uri], with [authorization] added if given. */
+        private fun httpRequest(
+            uri: URI = request.uri,
+            authorization: String? = null,
+        ): HttpRequest {
             val body =
                 if (request.body.isEmpty()) {
                     HttpRequest.BodyPublishers.noBody()
@@ -108,9 +117,31 @@ internal class RequestExecutor(
                     HttpVersion.HTTP_1_1 -> HttpClient.Version.HTTP_1_1
                     HttpVersion.HTTP_2 -> HttpClient.Version.HTTP_2
                 }
-            val builder = HttpRequest.newBuilder(request.uri).method(request.method, body).version(version)
+            val builder = HttpRequest.newBuilder(uri).method(request.method, body).version(version)
             request.headers.forEach { (name, value) -> builder.header(name, value) }
+            authorization?.let { builder.header("Authorization", it) }
             return builder.build()
+        }
+
+        /** Sends the request again with the answer to the Digest challenge of [response], if there is one. */
+        private fun answerDigest(
+            client: HttpClient,
+            response: HttpResponse<CappedBody>,
+        ): HttpResponse<CappedBody> {
+            val credentials = request.digest
+            if (credentials == null || response.statusCode() != 401) return response
+            val headers = response.headers().allValues("WWW-Authenticate")
+            val challenge = DigestAuth.challenge(headers)
+            val authorization = challenge?.let { digest.authorization(it, credentials, request.method, response.uri()) }
+            if (challenge == null || authorization == null) {
+                val problem = DigestAuth.challenges(headers).firstNotNullOfOrNull { it.problem }
+                notes +=
+                    problem?.let { "The Digest challenge cannot be answered: $it" }
+                        ?: "The 401 response has no Digest challenge"
+                return response
+            }
+            notes += "Answered the Digest challenge (${challenge.algorithm ?: "MD5"})"
+            return send(client, httpRequest(response.uri(), authorization))
         }
 
         /** Sends [httpRequest] and waits until the body is read, at most until the deadline. */

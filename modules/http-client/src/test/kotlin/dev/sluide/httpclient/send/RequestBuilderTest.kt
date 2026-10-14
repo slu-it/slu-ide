@@ -1,5 +1,6 @@
 package dev.sluide.httpclient.send
 
+import dev.sluide.httpclient.auth.DigestAuth
 import dev.sluide.httpclient.parse.HttpFileParser
 import dev.sluide.httpclient.parse.HttpVersion
 import dev.sluide.httpclient.vars.DynamicVariables
@@ -243,5 +244,24 @@ class RequestBuilderTest {
     @Test
     fun `refuses unsupported request types`() {
         assertFailsWith<RequestBuildException> { build("GRAPHQL http://x") }
+    }
+
+    @Test
+    fun `takes Digest credentials out of the headers`() {
+        val request = build("@pass = secret", "GET http://x", "Authorization: Digest user {{pass}}")
+
+        assertEquals(null, request.header("Authorization"))
+        assertEquals(DigestAuth.Credentials("user", "secret"), request.digest)
+        assertEquals(null, build("GET http://x", "Authorization: Basic a b").digest)
+    }
+
+    @Test
+    fun `sends a complete Digest answer as written`() {
+        val answer = "Digest username=\"u\", realm=\"r\", nonce=\"n\", uri=\"/\", response=\"abc\""
+
+        val request = build("GET http://x", "Authorization: $answer")
+
+        assertEquals(answer, request.header("Authorization"))
+        assertEquals(null, request.digest)
     }
 }

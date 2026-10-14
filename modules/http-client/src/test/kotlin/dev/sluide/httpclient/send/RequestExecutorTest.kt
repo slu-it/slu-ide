@@ -1,5 +1,6 @@
 package dev.sluide.httpclient.send
 
+import dev.sluide.httpclient.auth.DigestAuth
 import dev.sluide.httpclient.parse.HttpFileParser
 import dev.sluide.httpclient.parse.HttpVersion
 import dev.sluide.httpclient.parse.RequestTags
@@ -9,10 +10,14 @@ import java.net.ServerSocket
 import java.net.URI
 import java.net.http.HttpClient
 import java.nio.file.Path
+import java.security.MessageDigest
 import java.time.Duration
+import java.util.HexFormat
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.DeflaterOutputStream
 import java.util.zip.GZIPOutputStream
 import kotlin.test.AfterTest
@@ -247,5 +252,96 @@ class RequestExecutorTest {
         assertIs<HttpResult>(result.get(10, TimeUnit.SECONDS))
         assertTrue(dispatched.get().isVirtual)
         dispatching.close()
+    }
+
+    @Test
+    fun `answers a Digest challenge once with the same body`() {
+        val requests = CopyOnWriteArrayList<String?>()
+        server.handle("/digest") { exchange ->
+            val authorization = exchange.requestHeaders.getFirst("Authorization")
+            requests += authorization
+            val body = exchange.requestBody.readAllBytes().toString(Charsets.UTF_8)
+            val params =
+                Regex("(\\w+)=(?:\"([^\"]*)\"|([^,\\s]*))").findAll(authorization.orEmpty()).associate {
+                    it.groupValues[1] to it.groupValues[2].ifEmpty { it.groupValues[3] }
+                }
+
+            fun sha(text: String) =
+                HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(text.toByteArray()))
+            val ha1 = sha("user:test realm:secret")
+            val ha2 = sha("${exchange.requestMethod}:${exchange.requestURI}")
+            val expected = sha("$ha1:abc:${params["nc"]}:${params["cnonce"]}:auth:$ha2")
+            if (params["response"] == expected && params["uri"] == exchange.requestURI.toString()) {
+                server.respond(exchange, 200, "welcome $body")
+            } else {
+                server.respond(
+                    exchange,
+                    401,
+                    "",
+                    "WWW-Authenticate" to
+                        "Digest realm=\"test realm\", qop=\"auth\", algorithm=SHA-256, nonce=\"abc\", opaque=\"o\"",
+                )
+            }
+        }
+        val file = HttpFileParser.parse("POST ${server.base}/digest?x=1\nAuthorization: Digest user secret\n\npayload")
+        val request =
+            RequestBuilder(
+                Path.of("a.http"),
+                VariableResolver(null, file.variables),
+            ).build(file.requests.single())
+
+        val result = response(request)
+
+        assertEquals(200, result.status)
+        assertEquals("welcome payload", result.text())
+        assertEquals(2, requests.size)
+        assertEquals(null, requests[0])
+        assertTrue(result.notes.single().contains("SHA-256"), result.notes.toString())
+    }
+
+    @Test
+    fun `answers a Digest challenge only once`() {
+        val count = AtomicInteger()
+        server.handle("/deny") { exchange ->
+            count.incrementAndGet()
+            server.respond(exchange, 401, "", "WWW-Authenticate" to "Digest realm=\"r\", qop=\"auth\", nonce=\"n\"")
+        }
+        val request =
+            server.request("/deny").let {
+                PreparedRequest(
+                    it.uri,
+                    it.method,
+                    it.version,
+                    it.headers,
+                    it.body,
+                    it.notes,
+                    DigestAuth.Credentials("u", "p"),
+                )
+            }
+
+        assertEquals(401, response(request).status)
+        assertEquals(2, count.get())
+    }
+
+    @Test
+    fun `notes 401 responses without a Digest challenge`() {
+        server.handle("/basic") { server.respond(it, 401, "", "WWW-Authenticate" to "Basic realm=\"r\"") }
+        val request =
+            server.request("/basic").let {
+                PreparedRequest(
+                    it.uri,
+                    it.method,
+                    it.version,
+                    it.headers,
+                    it.body,
+                    it.notes,
+                    DigestAuth.Credentials("u", "p"),
+                )
+            }
+
+        val result = response(request)
+
+        assertEquals(401, result.status)
+        assertEquals(1, result.notes.size)
     }
 }

@@ -1,6 +1,7 @@
 package dev.sluide.httpclient.send
 
 import dev.sluide.httpclient.auth.BasicAuth
+import dev.sluide.httpclient.auth.DigestAuth
 import dev.sluide.httpclient.parse.BodyPart
 import dev.sluide.httpclient.parse.HttpFileParser
 import dev.sluide.httpclient.parse.HttpVersion
@@ -19,8 +20,8 @@ import kotlin.io.path.readBytes
 /**
  * Builds the [PreparedRequest] of a [RequestBlock] of [httpFile]: resolves variables everywhere, reads body files
  * (relative to [httpFile]; text files get their variables replaced where they have a value, with a note for the
- * others, other files are sent as they are), lays out
- * multipart and form bodies, encodes Basic credentials and adds default headers.
+ * others, other files are sent as they are), lays out multipart and form bodies, encodes Basic credentials, takes
+ * Digest credentials out of the headers and adds default headers.
  *
  * Throws [UnresolvedVariablesException] with every missing variable, or [RequestBuildException].
  */
@@ -52,6 +53,7 @@ internal class RequestBuilder(
 
         if (block.scripts.isNotEmpty()) notes += "Scripts are not supported; ${block.scripts.size} script(s) not run"
         val uri = RequestUrls.toUri(url, headers.lastOrNull { it.first.equals("Host", ignoreCase = true) }?.second)
+        val digest = headers.firstNotNullOfOrNull { (name, value) -> digestCredentials(name, value) }
         return PreparedRequest(
             uri,
             block.method,
@@ -59,8 +61,14 @@ internal class RequestBuilder(
             headers(headers, notes),
             body,
             notes,
+            digest,
         )
     }
+
+    private fun digestCredentials(
+        name: String,
+        value: String,
+    ) = if (name.equals(AUTHORIZATION, ignoreCase = true)) DigestAuth.credentials(value) else null
 
     private fun headers(
         written: List<Pair<String, String>>,
@@ -74,7 +82,12 @@ internal class RequestBuilder(
                         null
                     }
 
-                    name.equals("Authorization", ignoreCase = true) -> {
+                    // Digest credentials are only sent as the answer to a challenge (see RequestExecutor).
+                    digestCredentials(name, value) != null -> {
+                        null
+                    }
+
+                    name.equals(AUTHORIZATION, ignoreCase = true) -> {
                         name to BasicAuth.normalize(value)
                     }
 
@@ -185,6 +198,7 @@ internal class RequestBuilder(
 
     private companion object {
         const val CONTENT_TYPE = "Content-Type"
+        const val AUTHORIZATION = "Authorization"
 
         /** Headers the JDK client sets itself and refuses; `Host` is allowed (see [HttpClients]). */
         val RESTRICTED =
