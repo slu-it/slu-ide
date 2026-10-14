@@ -105,6 +105,13 @@ internal class TerminalView(
     /** Becomes `true` when the shell has ended. */
     val exited: ReadOnlyBooleanProperty = _exited.readOnlyProperty
 
+    /** Shown on a right click: Copy and Paste. */
+    internal val contextMenu =
+        ContextMenu(
+            MenuItem("Copy").apply { setOnAction { copySelection() } },
+            MenuItem("Paste").apply { setOnAction { paste() } },
+        )
+
     init {
         styleClass += "terminal-view"
         isFocusTraversable = true
@@ -123,11 +130,6 @@ internal class TerminalView(
         addEventHandler(MouseEvent.MOUSE_DRAGGED, ::onMouseDragged)
         addEventHandler(MouseEvent.MOUSE_RELEASED, ::onMouseReleased)
         addEventHandler(MouseEvent.MOUSE_MOVED, ::onMouseMoved)
-        val contextMenu =
-            ContextMenu(
-                MenuItem("Copy").apply { setOnAction { copySelection() } },
-                MenuItem("Paste").apply { setOnAction { paste() } },
-            )
         setOnContextMenuRequested { event ->
             contextMenu.show(this, event.screenX, event.screenY)
             event.consume()

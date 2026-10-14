@@ -10,6 +10,7 @@ import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.image.WritableImage
 import javafx.scene.input.Clipboard
+import javafx.scene.input.DataFormat
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
@@ -30,6 +31,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -187,6 +189,74 @@ class TerminalUiTest {
         }
 
         robot.interact { assertEquals("copy-42", Clipboard.getSystemClipboard().string) }
+    }
+
+    /** Runs `cat -v` after switching bracketed paste [on] or off, so the pasted bytes show up as text. */
+    private fun catWithBracketedPaste(
+        robot: FxRobot,
+        on: Boolean,
+    ): TerminalView {
+        val view = open(robot).view
+        type(robot, view, "clear; printf '\\033[?2004${if (on) "h" else "l"}'; echo ready; cat -v")
+        eventually { assertTrue("ready" in view.screenText().lines(), view.screenText()) }
+        robot.interact { Clipboard.getSystemClipboard().setContent(mapOf(DataFormat.PLAIN_TEXT to "paste-1\npaste-2")) }
+        return view
+    }
+
+    @Test
+    fun `the paste shortcut sends the clipboard, bracketed when the program asks for it`(robot: FxRobot) {
+        val view = catWithBracketedPaste(robot, on = true)
+
+        robot.interact {
+            val shortcut = !System.getProperty("os.name").lowercase().contains("mac")
+            Event.fireEvent(view, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.V, true, shortcut, false, !shortcut))
+            Event.fireEvent(view, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.ENTER, false, false, false, false))
+        }
+
+        // Line breaks are sent as Enter (CR); cat -v shows the brackets' ESC as ^[.
+        eventually {
+            val lines = view.screenText().lines()
+            assertTrue("^[[200~paste-1" in lines && "paste-2^[[201~" in lines, view.screenText())
+        }
+    }
+
+    @Test
+    fun `the context menu pastes the clipboard, unbracketed unless the program asks for it`(robot: FxRobot) {
+        val view = catWithBracketedPaste(robot, on = false)
+
+        robot.interact {
+            view.contextMenu.items
+                .single { it.text == "Paste" }
+                .fire()
+            Event.fireEvent(view, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.ENTER, false, false, false, false))
+        }
+
+        eventually {
+            val lines = view.screenText().lines()
+            assertTrue("paste-1" in lines && "paste-2" in lines, view.screenText())
+        }
+        assertFalse("[200~" in view.screenText(), view.screenText())
+    }
+
+    @Test
+    fun `the wheel scrolls through the history of the normal screen, typing scrolls back down`(robot: FxRobot) {
+        val view = open(robot).view
+        type(robot, view, "seq 1 200")
+        eventually { assertTrue("200" in view.screenText().lines(), view.screenText()) }
+        val x = 2.5 * view.cell.width
+        val y = 1.5 * view.cell.height
+
+        robot.interact { repeat(2) { scroll(view, x, y, deltaY = 40.0) } }
+        assertEquals(-6, view.scrollOrigin, "three lines per wheel step")
+        robot.interact { scroll(view, x, y, deltaY = -40.0) }
+        assertEquals(-3, view.scrollOrigin)
+
+        robot.interact {
+            Event.fireEvent(view, KeyEvent(KeyEvent.KEY_TYPED, "x", "", KeyCode.UNDEFINED, false, false, false, false))
+        }
+        assertEquals(0, view.scrollOrigin)
+        robot.interact { scroll(view, x, y, deltaY = -40.0) }
+        assertEquals(0, view.scrollOrigin, "not below the screen")
     }
 
     private fun mouse(
