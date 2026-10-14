@@ -1,6 +1,7 @@
 /*
  * Code views (CodeView) around their text area, which syntax.css styles: banners at the top, e.g. when the file
- * changed on disk while the view has unsaved changes. Dark rules use single classes, see syntax.css.
+ * changed on disk while the view has unsaved changes, and the find bar above them, with the matches it marks in the
+ * text. Dark rules use single classes, see syntax.css.
  */
 
 .editor-banner {
@@ -14,9 +15,68 @@
     -fx-border-color: transparent transparent #e5d08f transparent;
 }
 
+/* The find bar (FindBar) is UI too. */
+.find-bar {
+    -fx-font-family: "System";
+    -fx-font-style: normal;
+    -fx-font-weight: normal;
+    -fx-padding: 3 6 3 6;
+    -fx-spacing: 3;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
+}
+
+.find-row {
+    -fx-spacing: 3;
+}
+
+.find-query {
+    -fx-pref-column-count: 24;
+}
+
+.find-option, .find-button {
+    -fx-padding: 2 6 2 6;
+    -fx-font-size: 0.9em;
+}
+
+.find-button .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.find-counter {
+    -fx-padding: 0 6 0 6;
+    -fx-font-size: 0.9em;
+    -fx-text-fill: derive(-fx-text-base-color, 30%);
+}
+
+.find-counter:error {
+    -fx-text-fill: #c62828;
+}
+
+/* Matches of the find bar in the text, over the token styles; the selected one stronger. */
+.search-match {
+    -rtfx-background-color: #fbe3a0;
+}
+
+.search-match-current {
+    -rtfx-background-color: #f0b44c;
+}
+
 @media (prefers-color-scheme: dark) {
     .editor-banner {
         -fx-background-color: #4a4128;
         -fx-border-color: transparent transparent #6b5d33 transparent;
+    }
+
+    .find-counter:error {
+        -fx-text-fill: #ef8a80;
+    }
+
+    .search-match {
+        -rtfx-background-color: #5e4f22;
+    }
+
+    .search-match-current {
+        -rtfx-background-color: #8a6a1c;
     }
 }

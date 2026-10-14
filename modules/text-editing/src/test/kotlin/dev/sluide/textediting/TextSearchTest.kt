@@ -2,9 +2,14 @@ package dev.sluide.textediting
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
 
 class TextSearchTest {
     private val plain = SearchOptions()
@@ -81,7 +86,7 @@ class TextSearchTest {
     @Test
     fun `replaces one match`() {
         val result = TextSearch.replace("a foo b", 2..4, "FOO", "bar", plain)
-        assertEquals(ReplaceResult.Replaced(TextEdit(2, 5, "bar", Selection(5)), 1), result)
+        assertEquals(ReplaceResult.Replaced(listOf(TextEdit(2, 5, "bar", Selection(5))), Selection(5)), result)
     }
 
     @Test
@@ -127,11 +132,54 @@ class TextSearchTest {
     }
 
     @Test
-    fun `replaces all matches in one edit`() {
+    fun `replaces all matches with one edit each`() {
         val text = "a foo b Foo c"
         val result = TextSearch.replaceAll(text, "foo", "x", plain)
-        assertEquals(ReplaceResult.Replaced(TextEdit(2, 11, "x b x", Selection(7)), 2), result)
+        val edits = listOf(TextEdit(2, 5, "x", Selection(3)), TextEdit(8, 11, "x", Selection(7)))
+        assertEquals(ReplaceResult.Replaced(edits, Selection(7)), result)
         assertEquals("a x b x c", result.applied(text))
+    }
+
+    @Test
+    fun `finds at most as many matches as asked for`() {
+        assertEquals(SearchResult(listOf(0..0, 1..1), truncated = true), TextSearch.find("aaa", "a", plain, limit = 2))
+        assertEquals(SearchResult(listOf(0..0, 1..1, 2..2)), TextSearch.find("aaa", "a", plain, limit = 3))
+    }
+
+    @Test
+    fun `gives up on a catastrophic regex after the time budget`() {
+        val text = "a".repeat(40) + "c"
+        val started = System.nanoTime()
+
+        assertEquals(
+            SearchResult(emptyList(), TextSearch.TOO_LONG),
+            TextSearch.find(text, "(a+)+\\1b", regex, budget = 50.milliseconds),
+        )
+        // Polynomial, but long enough on a long line.
+        assertEquals(
+            SearchResult(emptyList(), TextSearch.TOO_LONG),
+            TextSearch.find("foo ".repeat(2000), ".*foo.*bar", regex, budget = 50.milliseconds),
+        )
+        assertEquals(
+            ReplaceResult.Invalid(TextSearch.TOO_LONG),
+            TextSearch.replaceAll(text, "(a+)+\\1b", "x", regex, budget = 50.milliseconds),
+        )
+        assertEquals(
+            ReplaceResult.Invalid(TextSearch.TOO_LONG),
+            TextSearch.replace(text, 0..40, "(a+)+\\1c?b|a+c", "x", regex, budget = 50.milliseconds),
+        )
+
+        assertTrue(System.nanoTime() - started < 5_000_000_000L, "gave up in time")
+    }
+
+    @Test
+    fun `reading the text throws once the deadline passed`() {
+        val text = "a".repeat(10_000)
+        val unlimited = DeadlineText(text, 1.minutes)
+        assertEquals(text.length, (0 until text.length).count { unlimited[it] == 'a' })
+
+        val expired = DeadlineText(text, Duration.ZERO)
+        assertFailsWith<SearchTimeoutException> { (0 until text.length).forEach { expired[it] } }
     }
 
     @Test
@@ -157,5 +205,5 @@ class TextSearchTest {
         assertNull(TextSearch.replaceAll("abc", "", "y", plain))
     }
 
-    private fun ReplaceResult?.applied(text: String) = (this as? ReplaceResult.Replaced)?.edit?.applyTo(text)
+    private fun ReplaceResult?.applied(text: String) = (this as? ReplaceResult.Replaced)?.applyTo(text)
 }

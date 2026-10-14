@@ -89,6 +89,9 @@ internal class CodeView(
             stylesheets += checkNotNull(CodeView::class.java.getResource("code-view.css")).toExternalForm()
         }
 
+    /** Finds in the text; shown above the banners. */
+    val findBar = FindBar(area, banners)
+
     private val savedTextWrapper = ReadOnlyStringWrapper()
 
     /** The file's text as last read or saved, with `\n` line breaks; also what the user kept over a change on disk. */
@@ -154,6 +157,7 @@ internal class CodeView(
         undoManager.mark()
         indentStyle = IndentStyle.forFile(file, savedText)
         Nodes.addInputMap(area, editorKeys(area, indentStyle, comment))
+        Nodes.addInputMap(area, findBar.keys)
         // Following the caret keeps the area at the top when it is first laid out; without it, the source side of the
         // Markdown view (in a SplitPane) opened scrolled down.
         area.moveTo(0)
@@ -358,6 +362,7 @@ internal class CodeView(
     override fun dispose() {
         disposed = true
         highlighting.unsubscribe()
+        findBar.dispose()
     }
 
     override fun focusText() = area.requestFocus()
@@ -374,8 +379,9 @@ internal class CodeView(
             dispatch(
                 Runnable {
                     if (disposed || revision != highlighted) return@Runnable
-                    val range = changedSpanRange(area.getStyleSpans(0, area.length), spans) ?: return@Runnable
-                    area.setStyleSpans(range.first, spans.subView(range.first, range.last + 1))
+                    val styles = findBar.overlay(spans)
+                    val range = changedSpanRange(area.getStyleSpans(0, area.length), styles) ?: return@Runnable
+                    area.setStyleSpans(range.first, styles.subView(range.first, range.last + 1))
                 },
             )
         }
@@ -387,7 +393,9 @@ internal class CodeView(
     }
 
     private fun highlight(text: String) {
-        if (text.isNotEmpty() && highlighter != null) area.setStyleSpans(0, codeStyleSpans(text, highlighter))
+        if (text.isNotEmpty() && highlighter != null) {
+            area.setStyleSpans(0, findBar.overlay(codeStyleSpans(text, highlighter)))
+        }
     }
 }
 
