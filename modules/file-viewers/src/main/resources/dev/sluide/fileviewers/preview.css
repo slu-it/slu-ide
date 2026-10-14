@@ -166,3 +166,33 @@ pre.mermaid {
     text-align: center;
     background: transparent;
 }
+
+/* CSV and TSV tables (CsvRenderer). */
+body.csv {
+    padding: 0 0 24px 0;
+}
+
+table.csv-table {
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+table.csv-table th {
+    position: sticky;
+    top: 0;
+    cursor: pointer;
+    background: #f6f8fa;
+    white-space: nowrap;
+}
+
+table.csv-table th.ascending::after { content: " \25B4"; }
+table.csv-table th.descending::after { content: " \25BE"; }
+
+body.dark table.csv-table th {
+    background: #313335;
+}
+
+.csv-note {
+    margin: 12px 16px;
+    color: #59636e;
+}

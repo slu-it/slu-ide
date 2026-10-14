@@ -195,6 +195,23 @@ class PreviewFileViewUiTest {
     }
 
     @Test
+    fun `CSV shows as a table that sorts by a clicked column`(robot: FxRobot) {
+        val file = dir.resolve("data.csv").apply { writeText("name,age\nBob,7\nAda,36\nCy,10\n") }
+        val view = WaitForAsyncUtils.asyncFx<PreviewFileView> { CsvFileViewer().open(file) as PreviewFileView }.get()
+        robot.interact { container.children.setAll(view.node) }
+        awaitLoaded(view)
+        val names =
+            "Array.prototype.map.call(document.querySelectorAll('tbody tr'), " +
+                "function (r) { return r.cells[0].textContent; }).join()"
+
+        assertEquals("Bob,Ada,Cy", view.script(names))
+        view.script("document.querySelectorAll('th')[1].click()")
+        assertEquals("Bob,Cy,Ada", view.script(names))
+        view.script("document.querySelectorAll('th')[1].click()")
+        assertEquals("Ada,Cy,Bob", view.script(names))
+    }
+
+    @Test
     fun `math is typeset by KaTeX`(robot: FxRobot) {
         val (_, view) = show(robot, "Inline \$a^2\$ and\n\n\$\$\n\\frac{1}{2}\n\$\$\n")
 

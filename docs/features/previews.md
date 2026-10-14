@@ -27,3 +27,10 @@ and never navigate the preview (`FileViewHost`, [file-viewers.md](file-viewers.m
 - Image files up to 50 MB open although they are binary: the image on the same checkered page as SVG (click for
   actual size), with its pixel size and file size below. No source side; a changed file is shown again.
 - Modified images open normally, never as a diff.
+
+## CSV and TSV (`.csv`, `.tsv`) — `CsvFileViewer`
+- A table beside the plain text: the first row is the header (sticky); click a header to sort by it, again for
+  descending (numbers as numbers, empty cells last). Side by side, the table scrolls with the source.
+- Parsing follows RFC 4180: quoted fields with delimiters, line breaks and `""`. The delimiter is a tab for `.tsv`;
+  for `.csv` a comma, or `;` if the first line has more of those. Blank lines are skipped; short rows are padded.
+- At most 10,000 rows are shown, with a note saying how many there are.
