@@ -79,8 +79,9 @@ class SettingsStoreTest {
         try {
             assumeTrue(!Files.isWritable(file.parent), "the folder is writable anyway (running as root?)")
 
-            assertFailsWith<IOException> { SettingsStore(file).update(mapOf("theme" to "LIGHT")) }
+            val failure = assertFailsWith<IOException> { SettingsStore(file).update(mapOf("theme" to "LIGHT")) }
 
+            assertEquals("Cannot save settings to $file: AccessDeniedException", failure.message)
             assertEquals("theme=DARK\n", file.readText())
         } finally {
             file.parent.setPosixFilePermissions(PosixFilePermissions.fromString("rwxr-xr-x"))

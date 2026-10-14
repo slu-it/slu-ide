@@ -3,6 +3,7 @@ package dev.sluide.settings
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import java.io.IOException
+import java.nio.file.FileSystemException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
@@ -51,7 +52,7 @@ class SettingsStore(
                 Files.deleteIfExists(temporary)
             }
         } catch (e: IOException) {
-            throw IOException("Cannot save settings to $file ($e)", e)
+            throw IOException("Cannot save settings to $file: ${reason(e)}", e)
         }
     }
 
@@ -69,6 +70,13 @@ class SettingsStore(
             unreadable(e)
         }
     }
+
+    /** Why [e] happened, without the path a `FileSystemException` repeats, e.g. `AccessDeniedException`. */
+    private fun reason(e: IOException): String =
+        when (e) {
+            is FileSystemException -> listOfNotNull(e.javaClass.simpleName, e.reason).joinToString(": ")
+            else -> e.message ?: e.javaClass.simpleName
+        }
 
     private fun unreadable(e: Exception): Map<String, String>? {
         log.log(System.Logger.Level.WARNING, "Cannot read settings from $file", e)

@@ -129,13 +129,18 @@ class SettingsUiTest {
 
         assertTrue(dialog.isShowing, "OK keeps the dialog open")
         assertEquals(1, other.applied, "the other pages are applied")
-        val alert =
-            Window
-                .getWindows()
-                .filterIsInstance<Stage>()
-                .single { it.owner === dialog.dialogPane.scene.window }
-        val pane = alert.scene.root as DialogPane
-        assertTrue("Broken › Page: Cannot save settings to /nowhere" in pane.contentText, pane.contentText)
+        lateinit var pane: DialogPane
+        lateinit var message: String
+        robot.interact {
+            val alert =
+                Window
+                    .getWindows()
+                    .filterIsInstance<Stage>()
+                    .single { it.owner === dialog.dialogPane.scene.window }
+            pane = alert.scene.root as DialogPane
+            message = pane.contentText
+        }
+        assertTrue("Broken › Page: Cannot save settings to /nowhere" in message, message)
 
         robot.interact { (pane.lookupButton(ButtonType.OK) as Button).fire() }
         close(robot, dialog, ButtonType.CANCEL)
@@ -263,6 +268,7 @@ class SettingsUiTest {
             assertSame(appearancePage, dialog.shownPage)
             assertEquals(Theme.DARK, appearancePage.theme.value)
             assertEquals(ColorScheme.DARK, dialog.dialogPane.scene.preferences.colorScheme)
+            assertEquals(ColorScheme.DARK, stage.scene.preferences.colorScheme)
 
             robot.interact { appearancePage.theme.value = Theme.LIGHT }
             assertEquals(ColorScheme.DARK, dialog.dialogPane.scene.preferences.colorScheme, "not applied yet")
