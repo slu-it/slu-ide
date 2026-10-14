@@ -106,8 +106,13 @@ class MainWindow(
             stage.title = folder?.let { "${it.fileName ?: it} – $APP_NAME" } ?: APP_NAME
         }
 
-        // Closing the window ends its terminals and commands: ask once, listing all of them.
+        // Closing the window first asks to save its unsaved files, then, as it ends its terminals and commands, asks
+        // once, listing all of them. Quitting on macOS (Cmd+Q) asks every window to close the same way.
         stage.setOnCloseRequest { event ->
+            if (!editorArea.confirmCloseAll()) {
+                event.consume()
+                return@setOnCloseRequest
+            }
             val warnings = editorArea.tabs.mapNotNull { it.closeWarning }
             if (warnings.isNotEmpty() && !confirmCloseWindow(stage, warnings)) event.consume()
         }

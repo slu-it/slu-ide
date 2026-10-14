@@ -197,22 +197,26 @@ class EditorArea(
      * saving fails.
      */
     private fun confirmClosing(tabs: List<EditorTab>): Boolean {
-        val dirty = tabs.filterIsInstance<OpenFile>().filter { it.isDirty }
-        if (dirty.isNotEmpty()) {
-            when (confirmSave(dirty.map(::shownPath))) {
-                SaveChoice.SAVE -> {
-                    if (!dirty.map(::save).all { it }) return false
-                }
-
-                SaveChoice.DISCARD -> {}
-
-                SaveChoice.CANCEL -> {
-                    return false
-                }
-            }
-        }
+        if (!saveBeforeClosing(tabs)) return false
         val warnings = tabs.mapNotNull { it.closeWarning }
         return warnings.isEmpty() || confirmClose(warnings)
+    }
+
+    /**
+     * Asks to save the files with unsaved changes before all tabs close with the window ([confirmSave]); call it
+     * before [closeAll]. Returns whether to go on closing: `false` if the user cancelled or saving failed.
+     */
+    fun confirmCloseAll(): Boolean = saveBeforeClosing(editorTabs.tabs)
+
+    /** Saves or discards the unsaved changes of the files among [tabs] as [confirmSave] says; `false` to close none. */
+    private fun saveBeforeClosing(tabs: List<EditorTab>): Boolean {
+        val dirty = tabs.filterIsInstance<OpenFile>().filter { it.isDirty }
+        if (dirty.isEmpty()) return true
+        return when (confirmSave(dirty.map(::shownPath))) {
+            SaveChoice.SAVE -> dirty.map(::save).all { it }
+            SaveChoice.DISCARD -> true
+            SaveChoice.CANCEL -> false
+        }
     }
 
     /** The path of [openFile] as questions show it: within the project folder, or in full outside of it. */

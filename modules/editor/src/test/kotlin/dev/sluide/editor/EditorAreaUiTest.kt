@@ -874,6 +874,21 @@ class EditorAreaUiTest {
     }
 
     @Test
+    fun `confirmCloseAll asks once for all edited files and is false when cancelled`(robot: FxRobot) {
+        val a = textFile("a.txt", "a")
+        val b = textFile("b.txt", "b")
+        var answer = SaveChoice.CANCEL
+        val asked = openEdited(robot, a, b) { answer }
+
+        robot.interact { assertFalse(editor.confirmCloseAll()) }
+        answer = SaveChoice.DISCARD
+        robot.interact { assertTrue(editor.confirmCloseAll()) }
+
+        assertEquals(List(2) { listOf("a.txt", "b.txt") }, asked)
+        assertEquals(listOf("a", "b"), listOf(a.readText(), b.readText()))
+    }
+
+    @Test
     fun `a tab whose file cannot be saved stays open`(robot: FxRobot) {
         val fallback = DefaultTextFileViewer()
         val area = EditorArea(FileViewers(listOf(fallback, UnsavableViewer()), fallback), watcher, fontSettings)

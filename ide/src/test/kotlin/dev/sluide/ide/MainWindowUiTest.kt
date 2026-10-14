@@ -2,6 +2,7 @@ package dev.sluide.ide
 
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editor.EditorArea
+import dev.sluide.editor.SaveChoice
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
@@ -555,6 +556,54 @@ class MainWindowUiTest {
         robot.interact { requestClose() }
         assertEquals(2, asked.size)
         assertFalse(stage.isShowing)
+    }
+
+    @Test
+    fun `closing the window asks to save edited files first, Cancel keeps it open`(robot: FxRobot) {
+        val a = project.resolve("a.txt").apply { writeText("a") }
+        robot.interact {
+            projectService.open(project)
+            editorArea.open(a)
+            shownArea(robot).appendText("1")
+            editorArea.open(terminals.open(project, "Job 1", "sleep 300"))
+        }
+        val asked = mutableListOf<String>()
+        var answer = SaveChoice.CANCEL
+        editorArea.confirmSave = { files ->
+            asked += "save $files"
+            answer
+        }
+        mainWindow.confirmCloseWindow = { _, _ ->
+            asked += "close"
+            true
+        }
+
+        robot.interact { requestClose() }
+        assertEquals(listOf("save [a.txt]"), asked)
+        assertTrue(stage.isShowing)
+
+        answer = SaveChoice.SAVE
+        robot.interact { requestClose() }
+        assertEquals(listOf("save [a.txt]", "save [a.txt]", "close"), asked)
+        assertEquals("a1", a.readText())
+        assertFalse(stage.isShowing)
+    }
+
+    @Test
+    fun `closing the window with Don't Save leaves the files as they are`(robot: FxRobot) {
+        val a = project.resolve("a.txt").apply { writeText("a") }
+        robot.interact {
+            projectService.open(project)
+            editorArea.open(a)
+            shownArea(robot).appendText("1")
+        }
+        editorArea.confirmSave = { SaveChoice.DISCARD }
+        mainWindow.confirmCloseWindow = { _, _ -> error("nothing runs") }
+
+        robot.interact { requestClose() }
+
+        assertFalse(stage.isShowing)
+        assertEquals("a", a.readText())
     }
 
     @Test
