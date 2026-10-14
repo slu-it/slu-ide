@@ -42,6 +42,7 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.net.URI
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
@@ -488,4 +489,14 @@ class MainWindowUiTest {
 
     private fun tabTitles(robot: FxRobot): List<String> =
         robot.lookup(".editor-tab .label").queryAllAs(Label::class.java).map { it.text }
+
+    @Test
+    fun `web pages asked for by file views open through the window`() {
+        val opened = mutableListOf<URI>()
+        mainWindow.openWebPage = { opened += it }
+
+        editorArea.openWebPage(URI("https://example.com/docs"))
+
+        assertEquals(listOf(URI("https://example.com/docs")), opened)
+    }
 }

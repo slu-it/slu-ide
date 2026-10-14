@@ -1,6 +1,9 @@
 package dev.sluide.editor
 
 import dev.sluide.fileviewers.DefaultTextFileViewer
+import dev.sluide.fileviewers.FileView
+import dev.sluide.fileviewers.FileViewHost
+import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.LineChange
 import dev.sluide.fileviewers.PythonFileViewer
@@ -33,6 +36,7 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.net.URI
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteExisting
@@ -42,6 +46,7 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -653,5 +658,39 @@ class EditorAreaUiTest {
             if (System.nanoTime() > deadline) throw error
             Thread.sleep(50)
         }
+    }
+
+    /** Opens `.link` files with a view that remembers the host the editor area gives it. */
+    private class HostRecordingViewer : FileViewer {
+        val views = mutableListOf<FileView>()
+
+        override fun canOpen(file: Path) = file.toString().endsWith(".link")
+
+        override fun open(file: Path): FileView =
+            object : FileView {
+                override val node = Label(file.fileName.toString())
+                override var host: FileViewHost? = null
+
+                override fun reload() {}
+            }.also { views += it }
+    }
+
+    @Test
+    fun `file views can open files and web pages through their host`(robot: FxRobot) {
+        val viewer = HostRecordingViewer()
+        val fallback = DefaultTextFileViewer()
+        val area = EditorArea(FileViewers(listOf(fallback, viewer), fallback), watcher, fontSettings)
+        val opened = mutableListOf<URI>()
+        area.openWebPage = { opened += it }
+        robot.interact { stage.scene = Scene(area, 800.0, 400.0) }
+        val other = textFile("other.txt")
+
+        robot.interact { area.open(textFile("readme.link")) }
+        val host = assertNotNull(viewer.views.single().host)
+        robot.interact { assertTrue(host.openFile(other)) }
+        host.openWebPage(URI("https://example.com"))
+
+        assertEquals(other, area.selectedPath)
+        assertEquals(listOf(URI("https://example.com")), opened)
     }
 }

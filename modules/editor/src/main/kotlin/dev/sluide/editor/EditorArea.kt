@@ -2,6 +2,7 @@ package dev.sluide.editor
 
 import dev.sluide.fileviewers.DiffFileView
 import dev.sluide.fileviewers.FileView
+import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.TextDiff
 import dev.sluide.filewatcher.FileWatcher
@@ -17,6 +18,7 @@ import javafx.scene.layout.StackPane
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.io.IOException
+import java.net.URI
 import java.nio.file.Path
 
 /**
@@ -47,6 +49,17 @@ class EditorArea(
      * normally (ADR 0015). Asked when a file is opened, when it changes on disk and on [refreshDiffs].
      */
     var diffOf: (Path) -> TextDiff? = { null }
+
+    /** Shows a web page outside the IDE when a file view asks for it, e.g. for a clicked link; set by the window. */
+    var openWebPage: (URI) -> Unit = {}
+
+    /** Lets the file views open files in this area and web pages through [openWebPage]. */
+    private val viewHost =
+        object : FileViewHost {
+            override fun openFile(file: Path): Boolean = open(file)
+
+            override fun openWebPage(uri: URI) = this@EditorArea.openWebPage(uri)
+        }
 
     /** The editor font as CSS; file views inherit it from their node. */
     private val editorCss = fontSettings.font(FontArea.EDITOR).map(FontSpec::toCss)
@@ -94,7 +107,7 @@ class EditorArea(
         val viewer = fileViewers.viewerFor(path) ?: return false
         val view =
             try {
-                diffOf(path)?.let { fileViewers.openDiff(path, it) } ?: viewer.open(path)
+                hosted(diffOf(path)?.let { fileViewers.openDiff(path, it) } ?: viewer.open(path))
             } catch (_: IOException) {
                 return false
             }
@@ -142,11 +155,11 @@ class EditorArea(
             val diff = diffOf(path)
             when (val view = openFile.view) {
                 is DiffFileView -> {
-                    if (diff != null) view.show(diff) else openFile.view = normalView(path) ?: return
+                    if (diff != null) view.show(diff) else openFile.view = normalView(path)?.let(::hosted) ?: return
                 }
 
                 else -> {
-                    val diffView = diff?.let { fileViewers.openDiff(path, it) }
+                    val diffView = diff?.let { fileViewers.openDiff(path, it) }?.let(::hosted)
                     if (diffView != null) openFile.view = diffView else view.reload()
                 }
             }
@@ -156,6 +169,8 @@ class EditorArea(
     }
 
     private fun normalView(path: Path): FileView? = fileViewers.viewerFor(path)?.open(path)
+
+    private fun hosted(view: FileView): FileView = view.apply { host = viewHost }
 
     private fun showCloseDialog(warnings: List<String>): Boolean {
         val close = ButtonType("Close", ButtonBar.ButtonData.OK_DONE)

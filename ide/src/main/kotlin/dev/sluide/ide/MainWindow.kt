@@ -27,6 +27,7 @@ import javafx.stage.DirectoryChooser
 import javafx.stage.Stage
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
+import java.net.URI
 import java.nio.file.Path
 
 private const val APP_NAME = "SluIde"
@@ -45,6 +46,9 @@ class MainWindow(
     private val themedWindows: ThemedWindows,
     private val projectWindows: ProjectWindows,
 ) {
+    /** Shows a web page in the system browser; tests replace it. */
+    internal var openWebPage: (URI) -> Unit = SystemBrowser::open
+
     /** Shows the settings dialog and waits until it is closed; tests replace it, since it blocks. */
     internal var showSettings: (Stage) -> Unit = { stage -> SettingsDialog(settingsPages.pages, stage).showAndWait() }
 
@@ -81,6 +85,8 @@ class MainWindow(
         fileExplorer.onFilesChanged = gitStatus::refresh
         // Modified files open as a diff against HEAD, and switch when their status changes (ADR 0015).
         editorArea.diffOf = gitStatus::textDiff
+        // Links in file views (e.g. the Markdown preview) to web pages open in the system browser.
+        editorArea.openWebPage = { openWebPage(it) }
         gitStatus.snapshot.subscribe { _ ->
             fileExplorer.refreshMarkers()
             editorArea.refreshDiffs()

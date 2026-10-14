@@ -2,6 +2,7 @@ package dev.sluide.fileviewers
 
 import javafx.scene.Node
 import java.io.IOException
+import java.net.URI
 import java.nio.file.Path
 
 /**
@@ -28,4 +29,21 @@ interface FileView {
      */
     @Throws(IOException::class)
     fun reload()
+
+    /**
+     * Lets the view open other files and web pages, e.g. when a link in it is clicked. Set by whoever shows the view;
+     * views that never open anything ignore it.
+     */
+    var host: FileViewHost?
+        get() = null
+        set(_) {}
+}
+
+/** What a [FileView] can ask of the IDE showing it. */
+interface FileViewHost {
+    /** Shows [file] in the IDE, e.g. in a tab; `false` if it cannot be shown. */
+    fun openFile(file: Path): Boolean
+
+    /** Shows [uri] outside the IDE, e.g. a web page in the system browser. */
+    fun openWebPage(uri: URI)
 }
