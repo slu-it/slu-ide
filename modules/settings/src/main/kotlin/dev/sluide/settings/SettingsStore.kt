@@ -41,13 +41,17 @@ class SettingsStore(
         val properties = Properties()
         stored.forEach(properties::setProperty)
         values.forEach(properties::setProperty)
-        file.parent?.createDirectories()
-        val temporary = Files.createTempFile(file.parent ?: Path.of("."), file.fileName.toString(), ".tmp")
         try {
-            temporary.outputStream().use { properties.store(it, "SluIde settings") }
-            Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
-        } finally {
-            Files.deleteIfExists(temporary)
+            file.parent?.createDirectories()
+            val temporary = Files.createTempFile(file.parent ?: Path.of("."), file.fileName.toString(), ".tmp")
+            try {
+                temporary.outputStream().use { properties.store(it, "SluIde settings") }
+                Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
+            } finally {
+                Files.deleteIfExists(temporary)
+            }
+        } catch (e: IOException) {
+            throw IOException("Cannot save settings to $file ($e)", e)
         }
     }
 

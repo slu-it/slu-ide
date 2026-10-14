@@ -6,11 +6,13 @@ import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.control.Button
 import javafx.scene.control.ButtonType
+import javafx.scene.control.DialogPane
 import javafx.scene.control.Label
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
+import javafx.stage.Window
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.io.TempDir
@@ -18,6 +20,7 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.io.IOException
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -52,6 +55,16 @@ class SettingsUiTest {
         override fun apply() {
             applied++
         }
+    }
+
+    /** A page whose edits cannot be stored. */
+    private class FailingPage : SettingsPage {
+        override val path = listOf("Broken", "Page")
+        override val node = Label("broken page")
+
+        override fun load() {}
+
+        override fun apply() = throw IOException("Cannot save settings to /nowhere")
     }
 
     @Start
@@ -104,6 +117,29 @@ class SettingsUiTest {
 
         close(robot, dialog, ButtonType.CANCEL)
         assertEquals(0, other.applied)
+    }
+
+    @Test
+    fun `pages that cannot be saved are reported, the others are applied, OK keeps the dialog open`(robot: FxRobot) {
+        val other = OtherPage()
+        val dialog = open(robot, FailingPage(), other)
+
+        close(robot, dialog, ButtonType.OK)
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertTrue(dialog.isShowing, "OK keeps the dialog open")
+        assertEquals(1, other.applied, "the other pages are applied")
+        val alert =
+            Window
+                .getWindows()
+                .filterIsInstance<Stage>()
+                .single { it.owner === dialog.dialogPane.scene.window }
+        val pane = alert.scene.root as DialogPane
+        assertTrue("Broken › Page: Cannot save settings to /nowhere" in pane.contentText, pane.contentText)
+
+        robot.interact { (pane.lookupButton(ButtonType.OK) as Button).fire() }
+        close(robot, dialog, ButtonType.CANCEL)
+        assertFalse(dialog.isShowing)
     }
 
     @Test

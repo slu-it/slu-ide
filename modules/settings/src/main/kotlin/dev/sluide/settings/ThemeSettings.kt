@@ -49,7 +49,12 @@ class ThemeSettings(
         )
     }
 
-    /** Sets the theme and stores it. Must be called on the FX thread. */
+    /**
+     * Stores the theme and then sets it. Must be called on the FX thread, which waits for the (small) settings file
+     * to be written.
+     *
+     * @throws java.io.IOException if the theme cannot be stored; it is then not changed either.
+     */
     fun apply(theme: Theme) {
         if (theme == wrapper.get()) return
         store.update(mapOf(KEY to theme.name))

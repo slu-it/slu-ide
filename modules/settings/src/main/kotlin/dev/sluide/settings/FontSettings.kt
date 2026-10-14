@@ -33,7 +33,12 @@ class FontSettings(
     /** The current font of [area]. */
     fun font(area: FontArea): ReadOnlyObjectProperty<FontSpec> = fonts.getValue(area).readOnlyProperty
 
-    /** Sets the fonts of the given areas and stores them. Must be called on the FX thread. */
+    /**
+     * Stores the fonts of the given areas and then sets them. Must be called on the FX thread, which waits for the
+     * (small) settings file to be written.
+     *
+     * @throws java.io.IOException if the fonts cannot be stored; they are then not changed either.
+     */
     fun apply(changes: Map<FontArea, FontSpec>) {
         if (changes.isEmpty()) return
         store.update(changes.flatMap { (area, spec) -> write(area, spec).toList() }.toMap())

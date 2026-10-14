@@ -14,7 +14,11 @@ interface SettingsPage {
     /** Shows the current settings, dropping unapplied edits. Called whenever the dialog opens. */
     fun load()
 
-    /** Applies and stores the page's edits. */
+    /**
+     * Applies and stores the page's edits.
+     *
+     * @throws java.io.IOException if they cannot be stored; the dialog reports it.
+     */
     fun apply()
 }
 
