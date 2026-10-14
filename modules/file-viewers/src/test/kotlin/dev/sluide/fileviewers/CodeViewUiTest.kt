@@ -4,6 +4,7 @@ import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.scene.layout.StackPane
+import javafx.scene.text.Font
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -24,6 +25,7 @@ import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /** Edits files in a real [CodeView]. Needs a display, see the `uiTest` Gradle task. */
@@ -261,6 +263,24 @@ class CodeViewUiTest {
 
         robot.interact { view.save() }
         assertEquals("mine = 1\na = 1\n", file.readText())
+    }
+
+    @Test
+    fun `banners use the system font and give the focus back to the text`(robot: FxRobot) {
+        val file = dir.resolve("main.py").apply { writeText("a = 1\n") }
+        // As the editor area sets the editor font.
+        robot.interact { container.style = "-fx-font-family: \"Monospaced\"; -fx-font-style: italic;" }
+        val view = open(file, robot)
+        robot.interact { view.area.insertText(0, "mine = 1\n") }
+        file.writeText("theirs = 1\n")
+        robot.interact { view.reload() }
+
+        val label = robot.lookup(".editor-banner .label").queryAs(Label::class.java)
+        assertEquals(Font.getDefault().family, label.font.family)
+        assertEquals("Regular", label.font.style)
+
+        robot.interact { bannerButton(robot, "Keep mine").fire() }
+        assertSame(view.area, view.area.scene.focusOwner)
     }
 
     @Test

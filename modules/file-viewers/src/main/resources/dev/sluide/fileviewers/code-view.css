@@ -4,6 +4,10 @@
  */
 
 .editor-banner {
+    /* The view inherits the editor font; banners are UI and use the system font in its size. */
+    -fx-font-family: "System";
+    -fx-font-style: normal;
+    -fx-font-weight: normal;
     -fx-spacing: 8;
     -fx-padding: 4 8 4 8;
     -fx-background-color: #fff4ce;

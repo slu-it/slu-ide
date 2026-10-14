@@ -100,12 +100,18 @@ internal class CodeView(
     private val conflictBanner =
         banner(
             "${file.fileName} changed on disk.",
-            Button("Reload").apply { setOnAction { conflict?.let(::load) } },
-            Button("Keep mine").apply { setOnAction { keepMine() } },
+            Button("Reload").apply { setOnAction { answered { conflict?.let(::load) } } },
+            Button("Keep mine").apply { setOnAction { answered(::keepMine) } },
         )
 
     /** Shown while the file is not valid UTF-8, and so read-only. */
     private val invalidBanner = banner("${file.fileName} is not valid UTF-8; it is shown read-only.")
+
+    /** Runs a banner's [action]; the focus goes back to the text, rather than wherever the vanished button sends it. */
+    private fun answered(action: () -> Unit) {
+        action()
+        area.requestFocus()
+    }
 
     /** Counts the changes of the text, so that highlighting done for an older text is dropped. */
     private var revision = 0L
