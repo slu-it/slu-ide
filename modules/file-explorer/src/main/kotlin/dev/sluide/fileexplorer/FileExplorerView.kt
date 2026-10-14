@@ -42,7 +42,7 @@ class FileExplorerView(
     fontSettings: FontSettings,
 ) : TreeView<Path>() {
     /** Called with a file the user wants to open (double-click or Enter). Never called for folders. */
-    var onOpenFile: ((Path) -> Unit)? = null
+    var onOpenFile: (Path) -> Unit = {}
 
     /**
      * Whether a file can be opened (e.g. by a file viewer), which decides between the text and binary icon for files
@@ -122,11 +122,7 @@ class FileExplorerView(
         changed: List<Path>,
     ) {
         folder.refresh()
-        // A changed file may have become readable or binary.
-        folder.children
-            .filterIsInstance<FileTreeItem>()
-            .filter { !it.isDirectory && it.value in changed }
-            .forEach { it.readable.value = null }
+        folder.forgetReadability(changed)
         // The folder itself is reported when events were lost or it was deleted; watch it anew if it is there.
         if (folder.value in changed && Files.isDirectory(folder.value)) watch(folder)
         // A loaded subfolder that was deleted and recreated (e.g. build/) has new content and needs a new watch.
@@ -149,7 +145,7 @@ class FileExplorerView(
     /** Passes [path] to [onOpenFile] if it is a regular file; returns whether it did. */
     internal fun requestOpen(path: Path): Boolean {
         if (!Files.isRegularFile(path)) return false
-        onOpenFile?.invoke(path)
+        onOpenFile(path)
         return true
     }
 

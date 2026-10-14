@@ -108,4 +108,25 @@ class FileTreeItemTest {
         assertEquals(listOf(root.name, "sub"), loaded)
         assertEquals(listOf(item, sub), item.loadedFolders())
     }
+
+    @Test
+    fun `forgets whether changed files are readable, all of them when the folder itself changed`() {
+        val a = root.resolve("a.txt").createFile()
+        root.resolve("b.txt").createFile()
+        root.resolve("sub").createDirectories()
+        val item = FileTreeItem(root)
+        val children = item.children.filterIsInstance<FileTreeItem>()
+
+        fun readability() = children.associate { it.value.name to it.readable.value }
+
+        fun checkAll() = children.forEach { it.readable.value = true }
+
+        checkAll()
+        item.forgetReadability(listOf(a))
+        assertEquals(mapOf("sub" to true, "a.txt" to null, "b.txt" to true), readability())
+
+        checkAll()
+        item.forgetReadability(listOf(root))
+        assertEquals(mapOf("sub" to true, "a.txt" to null, "b.txt" to null), readability())
+    }
 }

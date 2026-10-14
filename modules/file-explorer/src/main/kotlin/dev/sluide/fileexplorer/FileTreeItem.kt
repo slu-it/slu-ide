@@ -11,7 +11,7 @@ import java.nio.file.Path
  * time they are requested, so deep trees and symlink cycles are never traversed eagerly.
  * [onChildrenLoaded] is called when that happens, for this item and every descendant.
  */
-class FileTreeItem(
+internal class FileTreeItem(
     path: Path,
     private val onChildrenLoaded: (FileTreeItem) -> Unit = {},
 ) : TreeItem<Path>(path) {
@@ -61,6 +61,19 @@ class FileTreeItem(
         listed.forEachIndexed { index, item ->
             if (children.getOrNull(index) !== item) children.add(index, item)
         }
+    }
+
+    /**
+     * Forgets [readable] of the files among the children that are in [changed], or of all of them if this folder is
+     * (events were lost): they may have become readable or binary.
+     */
+    fun forgetReadability(changed: Collection<Path>) {
+        val all = value in changed
+        super
+            .getChildren()
+            .filterIsInstance<FileTreeItem>()
+            .filter { !it.directory && (all || it.value in changed) }
+            .forEach { it.readable.value = null }
     }
 
     /** This item and all descendants whose children are loaded, parents before their children. */
