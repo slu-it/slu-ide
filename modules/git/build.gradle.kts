@@ -7,7 +7,7 @@ plugins {
 javafx {
     // Maven Central publishes no Gradle metadata for JavaFX, so the plugin picks the platform jars.
     version = libs.versions.javafx.get()
-    modules("javafx.controls")
+    modules("javafx.graphics")
 }
 
 dependencies {
