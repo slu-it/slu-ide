@@ -10,6 +10,9 @@
   with a known language is highlighted like the code views. Relative images resolve against the file's folder.
 - Safety: HTML in the file is sanitised (jsoup); scripts, event handlers and `javascript:` links are removed.
 - The preview follows the light or dark theme of the window.
+- Side by side, the preview scrolls with the source: the source line at the top of the source pane is brought to the
+  top of the preview (interpolated between the rendered blocks, which carry their source line as `data-line`). Only
+  this direction: scrolling the preview does not move the source.
 - When the file changes on disk, source and preview update (`FileView.reload`); the preview renders only when the text
-  changed.
+  changed, then returns to the source's line (side by side) or to its own scroll position (preview alone).
 - Modified files open as a diff ([git-diff.md](git-diff.md)) without preview, highlighted as Markdown.

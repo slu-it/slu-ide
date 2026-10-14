@@ -1,6 +1,7 @@
 package dev.sluide.fileviewers
 
 import javafx.application.ColorScheme
+import javafx.application.Platform
 import javafx.beans.property.ObjectProperty
 import javafx.beans.property.SimpleObjectProperty
 import javafx.concurrent.Worker
@@ -44,6 +45,10 @@ internal enum class MarkdownMode(
  * Markdown [file] as highlighted source ([CodeView]) and a rendered preview ([MarkdownRenderer] in a `WebView`),
  * side by side or one of them alone ([mode], chosen in a toolbar). The preview follows the window's colour scheme
  * and is rendered again when the file changes.
+ *
+ * Side by side, the preview scrolls with the source: the source line at the top of the source is brought to the top
+ * of the preview (`sluide.scrollToLine`, interpolating between the blocks' `data-line`). After a reload the preview
+ * goes back to where it was: to the source's line side by side, to its old scroll position when shown alone.
  */
 internal class MarkdownFileView(
     private val file: Path,
@@ -63,6 +68,10 @@ internal class MarkdownFileView(
     private val engine = preview.engine
     private var renderedText: String? = null
     private var dark = false
+    private var syncPending = false
+
+    /** Scroll position of the preview to restore after rendering, when the preview is shown alone. */
+    private var previewScrollY = 0.0
 
     init {
         val buttons =
@@ -85,7 +94,9 @@ internal class MarkdownFileView(
         mode.subscribe { mode ->
             modes.selectToggle(buttons.first { it.userData == mode })
             show(mode)
+            syncScroll()
         }
+        source.area.estimatedScrollYProperty().addListener { _, _, _ -> syncScroll() }
         engine.loadWorker.stateProperty().subscribe { state -> if (state == Worker.State.SUCCEEDED) onLoaded() }
         pane
             .sceneProperty()
@@ -127,14 +138,35 @@ internal class MarkdownFileView(
         val text = source.area.text
         if (text == renderedText) return
         renderedText = text
+        if (isLoaded) previewScrollY = (engine.executeScript("window.scrollY") as Number).toDouble()
         engine.loadContent(MarkdownRenderer.render(text, file.toAbsolutePath().parent))
     }
 
+    private val isLoaded get() = engine.loadWorker.state == Worker.State.SUCCEEDED
+
     private fun onLoaded() {
         applyTheme()
+        if (mode.get() == MarkdownMode.PREVIEW) {
+            engine.executeScript("window.scrollTo(0, $previewScrollY)")
+        } else {
+            syncScroll()
+        }
     }
 
     private fun applyTheme() {
-        if (engine.loadWorker.state == Worker.State.SUCCEEDED) engine.executeScript("sluide.setDark($dark)")
+        if (isLoaded) engine.executeScript("sluide.setDark($dark)")
+    }
+
+    /** Side by side, scrolls the preview to the source's top line, at most once per pulse. */
+    private fun syncScroll() {
+        if (syncPending) return
+        syncPending = true
+        Platform.runLater {
+            syncPending = false
+            val area = source.area
+            if (mode.get() == MarkdownMode.SPLIT && isLoaded && area.visibleParagraphs.isNotEmpty()) {
+                engine.executeScript("sluide.scrollToLine(${area.firstVisibleParToAllParIndex()})")
+            }
+        }
     }
 }

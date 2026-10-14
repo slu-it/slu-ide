@@ -133,6 +133,44 @@ class MarkdownFileViewUiTest {
         assertEquals(false, darkAfter(ColorScheme.LIGHT))
     }
 
+    /** Paragraph `i` (1-based) is on source line `2 * (i - 1)`. */
+    private val longDocument = (1..200).joinToString("\n\n") { "Paragraph $it" } + "\n"
+
+    /** How far the block starting at source [line] is from the top of the preview, in pixels. */
+    private fun MarkdownFileView.offsetOf(line: Int) =
+        (script("document.querySelector('[data-line=\"$line\"]').getBoundingClientRect().top") as Number).toDouble()
+
+    @Test
+    fun `side by side, the preview scrolls with the source`(robot: FxRobot) {
+        val (_, view) = show(robot, longDocument)
+
+        robot.interact { view.source.area.showParagraphAtTop(100) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertTrue((view.script("window.scrollY") as Number).toDouble() > 100.0)
+        assertEquals(0.0, view.offsetOf(100), 5.0)
+    }
+
+    @Test
+    fun `after a reload the preview keeps its place`(robot: FxRobot) {
+        val (file, view) = show(robot, longDocument)
+        robot.interact { view.source.area.showParagraphAtTop(60) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        file.writeText(longDocument + "\nAdded\n")
+        robot.interact { view.reload() }
+        awaitLoaded(view)
+        assertEquals(0.0, view.offsetOf(60), 5.0)
+
+        // Shown alone, the preview goes back to its own scroll position.
+        robot.interact { view.mode.set(MarkdownMode.PREVIEW) }
+        view.script("window.scrollTo(0, 700)")
+        file.writeText(longDocument + "\nChanged\n")
+        robot.interact { view.reload() }
+        awaitLoaded(view)
+        assertEquals(700.0, (view.script("window.scrollY") as Number).toDouble(), 1.0)
+    }
+
     @Test
     fun `diffs of Markdown files are highlighted like the source`(robot: FxRobot) {
         val file = dir.resolve("README.md").apply { writeText("# Title\n") }
