@@ -8,6 +8,7 @@ import javafx.scene.layout.Region
 import javafx.scene.layout.StackPane
 import javafx.scene.paint.Color
 import javafx.stage.Stage
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.io.TempDir
@@ -38,9 +39,16 @@ class ThemeUiTest {
         stage.show()
     }
 
+    private val themed by lazy { ThemedWindows(settings) }
+
     private fun install(robot: FxRobot) {
-        robot.interact { ThemedWindows(settings).install() }
+        robot.interact { themed.install() }
         WaitForAsyncUtils.waitForFxEvents()
+    }
+
+    @AfterEach
+    fun uninstall(robot: FxRobot) {
+        robot.interact { themed.uninstall() }
     }
 
     private fun Region.isDark(): Boolean {
@@ -68,6 +76,18 @@ class ThemeUiTest {
         WaitForAsyncUtils.waitForFxEvents()
         assertTrue((second.scene.root as Region).isDark(), "a window opened later is dark, too")
         robot.interact { second.close() }
+    }
+
+    @Test
+    fun `a window that was open before the install is themed when it gets a new scene`(robot: FxRobot) {
+        install(robot)
+        robot.interact { settings.apply(Theme.DARK) }
+
+        robot.interact { stage.scene = Scene(StackPane(Label("new scene")), 200.0, 100.0) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(ColorScheme.DARK, stage.scene.preferences.colorScheme)
+        assertTrue((stage.scene.root as Region).isDark())
     }
 
     @Test

@@ -249,27 +249,36 @@ class SettingsUiTest {
 
     @Test
     fun `the theme changes the dialog on apply, cancel keeps the current theme`(robot: FxRobot) {
-        robot.interact { ThemedWindows(themeSettings).install() }
-        val dialog = open(robot, appearancePage, fontsPage)
-        robot.interact { dialog.select(listOf("Display", "Appearance")) }
-        assertSame(appearancePage, dialog.shownPage)
-        assertEquals(Theme.SYSTEM, appearancePage.theme.value)
+        val themed = ThemedWindows(themeSettings)
+        robot.interact {
+            themed.install()
+            themeSettings.apply(Theme.DARK)
+        }
+        try {
+            val dialog = open(robot, appearancePage, fontsPage)
+            robot.interact { dialog.select(listOf("Display", "Appearance")) }
+            assertSame(appearancePage, dialog.shownPage)
+            assertEquals(Theme.DARK, appearancePage.theme.value)
+            assertEquals(ColorScheme.DARK, dialog.dialogPane.scene.preferences.colorScheme)
 
-        robot.interact { appearancePage.theme.value = Theme.DARK }
-        assertEquals(ColorScheme.LIGHT, dialog.dialogPane.scene.preferences.colorScheme, "not applied yet")
+            robot.interact { appearancePage.theme.value = Theme.LIGHT }
+            assertEquals(ColorScheme.DARK, dialog.dialogPane.scene.preferences.colorScheme, "not applied yet")
 
-        close(robot, dialog, dialog.apply)
-        WaitForAsyncUtils.waitForFxEvents()
-        assertEquals(Theme.DARK, themeSettings.theme.get())
-        assertEquals(ColorScheme.DARK, dialog.dialogPane.scene.preferences.colorScheme)
-        assertEquals(ColorScheme.DARK, stage.scene.preferences.colorScheme)
+            close(robot, dialog, dialog.apply)
+            WaitForAsyncUtils.waitForFxEvents()
+            assertEquals(Theme.LIGHT, themeSettings.theme.get())
+            assertEquals(ColorScheme.LIGHT, dialog.dialogPane.scene.preferences.colorScheme)
+            assertEquals(ColorScheme.LIGHT, stage.scene.preferences.colorScheme)
 
-        robot.interact { appearancePage.theme.value = Theme.LIGHT }
-        close(robot, dialog, ButtonType.CANCEL)
-        assertEquals(Theme.DARK, themeSettings.theme.get())
-        val second = open(robot, appearancePage)
-        assertEquals(Theme.DARK, appearancePage.theme.value)
-        close(robot, second, ButtonType.CANCEL)
+            robot.interact { appearancePage.theme.value = Theme.DARK }
+            close(robot, dialog, ButtonType.CANCEL)
+            assertEquals(Theme.LIGHT, themeSettings.theme.get())
+            val second = open(robot, appearancePage)
+            assertEquals(Theme.LIGHT, appearancePage.theme.value)
+            close(robot, second, ButtonType.CANCEL)
+        } finally {
+            robot.interact { themed.uninstall() }
+        }
     }
 
     private fun enter(node: Node) =
