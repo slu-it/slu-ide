@@ -2,6 +2,7 @@ package dev.sluide.git
 
 import dev.sluide.filewatcher.FileWatcher
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
@@ -57,7 +58,9 @@ class GitStatusServiceRunsTest {
                 )
                 toFile().setExecutable(true)
             }
-        service = GitStatusService(GitCli(executable.toString(), System.getenv()), watcher) { dispatched += it }
+        val git = GitCli(executable.toString(), System.getenv())
+        service = GitStatusService(git, watcher) { dispatched += it }
+        assumeTrue(git.available, "no /bin/sh to stand in for git")
     }
 
     @AfterEach

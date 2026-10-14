@@ -127,7 +127,7 @@ class GitCli(
         val reader = Thread.ofVirtual().start { process.inputStream.use { it.transferTo(output) } }
         try {
             if (!process.waitFor(timeout.inWholeMilliseconds, TimeUnit.MILLISECONDS)) {
-                process.destroyForcibly()
+                stop(process)
                 log.log(
                     System.Logger.Level.WARNING,
                     "$executable ${arguments.joinToString(" ")} took longer than $timeout",
@@ -137,10 +137,16 @@ class GitCli(
             reader.join()
         } catch (_: InterruptedException) {
             // E.g. the window was closed during a run: stop git too, and keep the interrupt for the caller.
-            process.destroyForcibly()
+            stop(process)
             Thread.currentThread().interrupt()
             return null
         }
         return if (process.exitValue() == 0) output.toString(Charsets.UTF_8) else null
+    }
+
+    /** Kills git and whatever it started (hooks, helpers); the descendants first, as they are lost with git. */
+    private fun stop(process: Process) {
+        process.descendants().forEach { it.destroyForcibly() }
+        process.destroyForcibly()
     }
 }

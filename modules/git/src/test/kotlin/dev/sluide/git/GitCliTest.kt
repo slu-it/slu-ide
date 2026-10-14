@@ -33,16 +33,20 @@ class GitCliTest {
     }
 
     @Test
-    fun `an interrupted run stops git and keeps the interrupt`() {
+    fun `an interrupted run stops git, what it started, and keeps the interrupt`() {
         val pidFile = folder.resolve("pid")
-        // Answers --version; for anything else it becomes a long sleep that writes its process id first.
+        val childFile = folder.resolve("child")
+        // Answers --version; for anything else it starts a sleeping child, writes both process ids and waits.
         val executable =
             folder.resolve("slow-git").apply {
-                writeText("#!/bin/sh\n[ \"$1\" = --version ] && exit 0\necho $$ > '$pidFile'\nexec sleep 60\n")
+                writeText(
+                    "#!/bin/sh\n[ \"$1\" = --version ] && exit 0\n" +
+                        "sleep 10 &\necho $! > '$childFile'\necho $$ > '$pidFile'\nwait\n",
+                )
                 toFile().setExecutable(true)
             }
         val git = GitCli(executable.toString(), System.getenv())
-        assertTrue(git.available)
+        assumeTrue(git.available, "no /bin/sh to stand in for git")
 
         var result: String? = "not finished"
         var interrupted = false
@@ -57,7 +61,9 @@ class GitCliTest {
             Thread.sleep(20)
         }
         val process = ProcessHandle.of(pidFile.readText().trim().toLong())
+        val child = ProcessHandle.of(childFile.readText().trim().toLong())
         assertTrue(process.isPresent, "git runs")
+        assertTrue(child.isPresent, "the child of git runs")
 
         caller.interrupt()
         caller.join(TimeUnit.SECONDS.toMillis(10))
@@ -67,6 +73,9 @@ class GitCliTest {
         assertTrue(interrupted, "the interrupt is kept")
         process.get().onExit().get(10, TimeUnit.SECONDS)
         assertFalse(process.get().isAlive, "git was stopped")
+        // Well before the child would end by itself.
+        child.get().onExit().get(5, TimeUnit.SECONDS)
+        assertFalse(child.get().isAlive, "the child of git was stopped")
     }
 }
 

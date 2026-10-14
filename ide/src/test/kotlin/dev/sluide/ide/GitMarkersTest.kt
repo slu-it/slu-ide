@@ -6,6 +6,7 @@ import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitCli
 import dev.sluide.git.GitStatusService
 import dev.sluide.git.GitStatusSnapshot
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import java.util.concurrent.LinkedBlockingQueue
@@ -36,9 +37,11 @@ class GitMarkersTest {
                 writeText("#!/bin/sh\ncat '$output'\n")
                 toFile().setExecutable(true)
             }
+        val git = GitCli(executable.toString(), System.getenv())
+        assumeTrue(git.available, "no /bin/sh to stand in for git")
         val dispatched = LinkedBlockingQueue<Runnable>()
         val watcher = FileWatcher({ dispatched += it }, 50.milliseconds)
-        val service = GitStatusService(GitCli(executable.toString(), System.getenv()), watcher) { dispatched += it }
+        val service = GitStatusService(git, watcher) { dispatched += it }
         try {
             service.open(root)
             while (service.snapshot.get().root == null) {
