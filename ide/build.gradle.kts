@@ -8,7 +8,7 @@ plugins {
 
 javafx {
     version = libs.versions.javafx.get()
-    modules("javafx.controls")
+    modules("javafx.controls", "javafx.web")
 }
 
 springBoot {

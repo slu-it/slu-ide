@@ -7,7 +7,8 @@ plugins {
 javafx {
     // Maven Central publishes no Gradle metadata for JavaFX, so the plugin picks the platform jars.
     version = libs.versions.javafx.get()
-    modules("javafx.controls")
+    // javafx.web: the Markdown preview is a WebView (ADR 0016).
+    modules("javafx.controls", "javafx.web")
 }
 
 dependencies {
@@ -15,6 +16,9 @@ dependencies {
     // Code views: RichTextFX renders, RSyntaxTextArea only provides its lexers (ADR 0005).
     implementation(libs.richtextfx)
     implementation(libs.rsyntaxtextarea)
+    // Markdown preview: commonmark renders HTML, jsoup sanitises it (ADR 0016).
+    implementation(libs.bundles.commonmark)
+    implementation(libs.jsoup)
 
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
