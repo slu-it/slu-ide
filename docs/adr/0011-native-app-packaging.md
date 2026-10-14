@@ -22,7 +22,8 @@ Alternatives considered:
 - `./gradlew :ide:jpackageImage` builds `ide/build/jpackage/app-image/SluIde.app` on macOS (a `SluIde/` folder with
   `bin/SluIde` on Linux), `:ide:jpackageDmg` a disk image with it (macOS only). Tasks in `ide/build.gradle.kts`.
 - The runtime contains only the JDK modules `jdeps` finds (`appModules` task) plus a few loaded at runtime, and is
-  compressed: about 90 MB instead of over 150 MB.
+  compressed: about 60 MB instead of about 95 MB with jpackage's default jlink options (measured on linux-aarch64
+  with JDK 25).
 - The release workflow attaches `SluIde-<version>-mac-aarch64.dmg` to the GitHub release of the tag.
 - The app is only ad-hoc signed (as jpackage does by default), not notarized.
 

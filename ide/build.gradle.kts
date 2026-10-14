@@ -118,7 +118,7 @@ fun registerJpackage(
                     .last(String::isNotBlank)
                     .split(",")
             addAll(listOf("--add-modules", (found + extra).distinct().joinToString(",")))
-            // jpackage's defaults plus compression: shrinks the runtime from about 90 to 60 MB.
+            // jpackage's defaults plus compression: about 60 MB instead of 95 MB (linux-aarch64, JDK 25; ADR 0011).
             val jlinkOptions = "--strip-debug --no-man-pages --no-header-files --strip-native-commands --compress zip-6"
             addAll(listOf("--jlink-options", jlinkOptions))
             addAll(listOf("--vendor", "SluIde", "--description", "A lightweight IDE"))
