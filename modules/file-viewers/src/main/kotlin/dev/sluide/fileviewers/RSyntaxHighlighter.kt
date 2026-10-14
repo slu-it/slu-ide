@@ -12,7 +12,7 @@ import javax.swing.text.Segment
  *
  * Some lexers lag behind their language, so they can be corrected:
  * - [keywords], [types] and [builtins] override the lexer's style for these words;
- * - [tokenStyles] overrides the style of whole token types;
+ * - [tokenStyles] overrides the style of whole token types; `null` leaves that token type unstyled;
  * - an identifier in [stringPrefixes] directly before a string (like the `f` of `f'…'`) is part of the string;
  * - [rawStringDelimiter] (e.g. Kotlin's `"""`) marks everything up to the closing delimiter as string, for lexers
  *   that do not know multi-line raw strings;
@@ -28,7 +28,7 @@ internal class RSyntaxHighlighter(
     private val keywords: Set<String> = emptySet(),
     private val types: Set<String> = emptySet(),
     private val builtins: Set<String> = emptySet(),
-    private val tokenStyles: Map<Int, TokenStyle> = emptyMap(),
+    private val tokenStyles: Map<Int, TokenStyle?> = emptyMap(),
     private val stringPrefixes: Set<String> = emptySet(),
     private val rawStringDelimiter: String? = null,
     private val lineRules: List<Regex> = emptyList(),
@@ -139,7 +139,7 @@ internal class RSyntaxHighlighter(
 
     private fun isStringStart(token: Token?): Boolean = token != null && styleOf(token.type) == TokenStyle.STRING
 
-    private fun styleOf(type: Int): TokenStyle? = tokenStyles[type] ?: defaultStyleOf(type)
+    private fun styleOf(type: Int): TokenStyle? = if (type in tokenStyles) tokenStyles[type] else defaultStyleOf(type)
 
     private fun defaultStyleOf(type: Int): TokenStyle? =
         when (type) {
