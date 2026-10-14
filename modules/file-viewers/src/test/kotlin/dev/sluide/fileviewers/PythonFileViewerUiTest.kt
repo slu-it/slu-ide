@@ -98,7 +98,7 @@ class PythonFileViewerUiTest {
     @Test
     fun `reload shows and highlights the new content and keeps the scroll position`(robot: FxRobot) {
         val file = dir.resolve("long.py").apply { writeText((1..300).joinToString("\n") { "x$it = $it" }) }
-        val view = PythonFileViewer().open(file)
+        val view = WaitForAsyncUtils.asyncFx<FileView> { PythonFileViewer().open(file) }.get()
         val pane = view.node as VirtualizedScrollPane<*>
         robot.interact { container.children.setAll(view.node) }
         robot.interact { pane.scrollYToPixel(1000.0) }
@@ -119,7 +119,7 @@ class PythonFileViewerUiTest {
     @Test
     fun `reload after the file got shorter clamps the caret`(robot: FxRobot) {
         val file = dir.resolve("main.py").apply { writeText("print('a fairly long first version')\n") }
-        val view = PythonFileViewer().open(file)
+        val view = WaitForAsyncUtils.asyncFx<FileView> { PythonFileViewer().open(file) }.get()
         robot.interact { container.children.setAll(view.node) }
         val area = robot.lookup(".code-area").queryAs(CodeArea::class.java)
         robot.interact { area.moveTo(area.length) }

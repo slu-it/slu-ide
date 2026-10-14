@@ -52,7 +52,7 @@ class DiffFileViewUiTest {
             dir.resolve("Main.kt").apply {
                 writeText("val one = 1\nval TWO = 2\nval three = 3\nval five = 5\nsix()\nseven()\n")
             }
-        val view = assertNotNull(viewers.openDiff(file, diff))
+        val view = openDiff(file, diff)
         robot.interact { container.children.setAll(view.node) }
         WaitForAsyncUtils.waitForFxEvents()
         val areas = robot.lookup(".code-area").queryAllAs(CodeArea::class.java).sortedBy { it.localToScene(0.0, 0.0).x }
@@ -60,6 +60,12 @@ class DiffFileViewUiTest {
     }
 
     private fun CodeArea.paragraphClasses() = paragraphs.map { it.paragraphStyle.toList() }
+
+    /** Opens the diff view on the FX thread, as the editor area does. */
+    private fun openDiff(
+        file: Path,
+        diff: TextDiff,
+    ): DiffFileView = assertNotNull(WaitForAsyncUtils.asyncFx<DiffFileView?> { viewers.openDiff(file, diff) }.get())
 
     @Test
     fun `shows both versions aligned with the changes coloured and highlighted`(robot: FxRobot) {
@@ -103,7 +109,8 @@ class DiffFileViewUiTest {
     fun `scrolling one side scrolls the other`(robot: FxRobot) {
         val long = (1..200).joinToString("") { "line $it\n" }
         val file = dir.resolve("long.txt").apply { writeText(long) }
-        val view = assertNotNull(viewers.openDiff(file, TextDiff(long, emptyList())))
+        val view =
+            openDiff(file, TextDiff(long, emptyList()))
         robot.interact { container.children.setAll(view.node) }
         WaitForAsyncUtils.waitForFxEvents()
         val areas = robot.lookup(".code-area").queryAllAs(CodeArea::class.java).toList()
@@ -119,7 +126,8 @@ class DiffFileViewUiTest {
     @Test
     fun `show reads the file again and uses the new diff`(robot: FxRobot) {
         val file = dir.resolve("a.txt").apply { writeText("a\nb\n") }
-        val view = assertNotNull(viewers.openDiff(file, TextDiff("a\n", listOf(LineChange(1 until 1, 1..1)))))
+        val view =
+            openDiff(file, TextDiff("a\n", listOf(LineChange(1 until 1, 1..1))))
         robot.interact { container.children.setAll(view.node) }
 
         file.writeText("a\n")

@@ -48,7 +48,7 @@ class DefaultTextFileViewerUiTest {
     @Test
     fun `reload shows the new content and keeps the scroll position`(robot: FxRobot) {
         val file = dir.resolve("long.txt").apply { writeText((1..300).joinToString("\n") { "line $it" }) }
-        val view = DefaultTextFileViewer().open(file)
+        val view = WaitForAsyncUtils.asyncFx<FileView> { DefaultTextFileViewer().open(file) }.get()
         val area = view.node as TextArea
         robot.interact { container.children.setAll(view.node) }
         robot.interact { area.scrollTop = 1000.0 }
@@ -65,7 +65,7 @@ class DefaultTextFileViewerUiTest {
     @Test
     fun `reload after the file got shorter clamps the caret`(robot: FxRobot) {
         val file = dir.resolve("short.txt").apply { writeText("a fairly long first version") }
-        val view = DefaultTextFileViewer().open(file)
+        val view = WaitForAsyncUtils.asyncFx<FileView> { DefaultTextFileViewer().open(file) }.get()
         val area = view.node as TextArea
         robot.interact {
             container.children.setAll(view.node)
