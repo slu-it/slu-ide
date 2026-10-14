@@ -233,6 +233,9 @@ internal class RSyntaxHighlighter(
         /** Also lexes embedded `<script>` (JavaScript) and `<style>` (CSS) content. */
         val html = RSyntaxHighlighter(SyntaxConstants.SYNTAX_STYLE_HTML)
 
+        /** SCSS and Sass variables (`$primary`), styled like custom properties. */
+        private val sassVariable = Regex("""(?<annotation>\$[\w-]+)""")
+
         /** Custom properties (`--main`), styled like variables. */
         private val cssCustomProperty = Regex("""(?<![\w-])(?<annotation>--[\w-]+)""")
 
@@ -261,7 +264,24 @@ internal class RSyntaxHighlighter(
         val scss =
             stylesheet(
                 tokenStyles = mapOf(TokenTypes.VARIABLE to TokenStyle.KEYWORD),
-                lineRules = listOf(Regex("""(?<annotation>\$[\w-]+)""")),
+                lineRules = listOf(sassVariable),
+            )
+
+        /**
+         * Indented Sass has no braces, so the lexer reports every word as a selector (`type`). That style is dropped
+         * and line rules restyle properties (`keyword`), mixin definitions and uses (`=m`, `+m`), variables and
+         * selector lines: lines without a `: ` that do not start a rule, variable or comment.
+         */
+        val sass =
+            stylesheet(
+                tokenStyles = mapOf(TokenTypes.DATA_TYPE to null, TokenTypes.VARIABLE to TokenStyle.KEYWORD),
+                lineRules =
+                    listOf(
+                        sassVariable,
+                        Regex("""^\s*(?<keyword>[=+][\w-]+)"""),
+                        Regex("""^\s*(?<keyword>[\w-]+)\s*:(?=\s|$)"""),
+                        Regex("""^(?!.*:(?:\s|$))\s*(?<type>[^\s@=+$/](?:(?!//)[^;])*?)\s*(?://.*)?$"""),
+                    ),
             )
 
         /** Start of a YAML value: after `key:` or a list item's `-`. */

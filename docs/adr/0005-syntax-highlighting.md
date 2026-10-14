@@ -19,7 +19,7 @@ dependency per language. JavaFX itself only has plain text controls.
   corrections are: extra keywords, types and builtins; restyling whole token types; string prefixes; multi-line raw
   strings; and per-line regex rules, which YAML needs because its lexer is very basic. Lexer errors are never shown,
   so valid but newer syntax (e.g. Python's `1_000`) is not flagged.
-- A language may use a related lexer when its own is missing or weaker: CSS and SCSS use the LESS lexer, which handles
+- A language may use a related lexer when its own is missing or weaker: CSS, SCSS and Sass use the LESS lexer, which handles
   nesting and units better than the CSS lexer.
 
 Rejected:

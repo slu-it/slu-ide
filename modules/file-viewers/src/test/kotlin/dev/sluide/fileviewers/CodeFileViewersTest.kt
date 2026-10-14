@@ -28,6 +28,7 @@ class CodeFileViewersTest {
             CssFileViewer() to listOf("site.css"),
             ScssFileViewer() to listOf("_vars.scss"),
             LessFileViewer() to listOf("theme.less"),
+            SassFileViewer() to listOf("old.sass"),
         )
 
     private val others = listOf("notes.txt", "README", "py")

@@ -29,6 +29,7 @@
   | `CssFileViewer` | `.css` | uses the LESS lexer (handles nesting and units better); at-rules like `@media` as `keyword` instead of `string`; custom properties (`--gap`) and `#id`s as `annotation`. Selectors are `type`, properties and pseudo-classes `keyword`. Known gap: some nested selectors show as `keyword` |
   | `ScssFileViewer` | `.scss` | as CSS; `@mixin`/`@include`/`@use` (lexed as LESS variables) as `keyword`; `$variables`, also inside `#{…}`, as `annotation` |
   | `LessFileViewer` | `.less` | as CSS; `@variables` as `annotation` |
+  | `SassFileViewer` | `.sass` | indented syntax; without braces the lexer styles every word as `type`, so that is dropped and line rules add properties (`keyword`), `=mixin`/`+mixin`, `$variables` and selector lines (`type`). Known gap: continuation lines of multi-line values look like selectors |
 
 - Diff views: `FileViewers.openDiff(file, TextDiff)` shows a file side by side with an original version (left) in a
   `DiffFileView`: two read-only RichTextFX code areas with titles from the `TextDiff`, the same highlighting as the
