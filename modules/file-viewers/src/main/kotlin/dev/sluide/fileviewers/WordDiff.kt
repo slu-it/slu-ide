@@ -77,7 +77,9 @@ private class Block(
 
 /**
  * Marks the tokens of [a] and [b] that are not part of their longest common subsequence, or gives `null` if finding it
- * would take more than [maxCells] steps. A common prefix and suffix are matched first.
+ * would take more than [maxCells] steps. A common prefix is matched first. Of equally long subsequences, the one that
+ * matches tokens earliest is taken, so that the end of a changed line is not matched with the end of a line added
+ * after it.
  */
 private fun changedTokens(
     a: List<String>,
@@ -86,18 +88,12 @@ private fun changedTokens(
 ): Pair<BooleanArray, BooleanArray>? {
     var start = 0
     while (start < a.size && start < b.size && a[start] == b[start]) start++
-    var aEnd = a.size
-    var bEnd = b.size
-    while (aEnd > start && bEnd > start && a[aEnd - 1] == b[bEnd - 1]) {
-        aEnd--
-        bEnd--
-    }
-    val n = aEnd - start
-    val m = bEnd - start
+    val n = a.size - start
+    val m = b.size - start
     if (n.toLong() * m > maxCells) return null
     val aChanged = BooleanArray(a.size)
     val bChanged = BooleanArray(b.size)
-    // lcs[i * (m + 1) + j]: the length of the longest common subsequence of a[start + i, aEnd) and b[start + j, bEnd)
+    // lcs[i * (m + 1) + j]: the length of the longest common subsequence of a from start + i and b from start + j
     val lcs = IntArray((n + 1) * (m + 1))
     for (i in n - 1 downTo 0) {
         for (j in m - 1 downTo 0) {

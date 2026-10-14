@@ -34,6 +34,18 @@ class WordDiffTest {
     }
 
     @Test
+    fun `the end of a changed line is matched with its own line, not with a line added after it`() {
+        assertEquals(
+            WordChanges(mapOf(0 to listOf(7..11)), mapOf(0 to listOf(7..12), 1 to listOf(0..11))),
+            wordChanges(
+                listOf("print(\"world\")"),
+                listOf("print(\"SluIde\")", "log(\"added\")"),
+                listOf(LineChange(0..0, 0..1)),
+            ),
+        )
+    }
+
+    @Test
     fun `unchanged lines of a modified block have no changed words`() {
         assertEquals(
             WordChanges(mapOf(0 to listOf(0..0), 2 to listOf(0..0)), mapOf(0 to listOf(0..1), 2 to listOf(0..1))),
@@ -86,10 +98,10 @@ class WordDiffTest {
     }
 
     @Test
-    fun `a common start and end do not count toward the limit`() {
+    fun `a common start does not count toward the limit`() {
         assertEquals(
-            WordChanges(mapOf(0 to listOf(5..5)), mapOf(0 to listOf(5..5))),
-            wordChanges(listOf("same a same"), listOf("same b same"), listOf(LineChange(0..0, 0..0)), maxCells = 1),
+            WordChanges(mapOf(0 to listOf(10..10)), mapOf(0 to listOf(10..10))),
+            wordChanges(listOf("same same a"), listOf("same same b"), listOf(LineChange(0..0, 0..0)), maxCells = 1),
         )
     }
 }
