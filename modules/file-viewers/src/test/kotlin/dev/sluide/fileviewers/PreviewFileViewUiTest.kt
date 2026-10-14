@@ -25,10 +25,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-/** The Markdown view with a real WebView. Needs a display, see the `uiTest` Gradle task. */
+/** The preview view, with Markdown and a real WebView. Needs a display, see the `uiTest` Gradle task. */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
-class MarkdownFileViewUiTest {
+class PreviewFileViewUiTest {
     @TempDir
     lateinit var dir: Path
 
@@ -43,35 +43,35 @@ class MarkdownFileViewUiTest {
     private fun show(
         robot: FxRobot,
         markdown: String,
-    ): Pair<Path, MarkdownFileView> {
+    ): Pair<Path, PreviewFileView> {
         val file = dir.resolve("README.md").apply { writeText(markdown) }
         // A WebView must be created on the FX thread, as the editor area does.
         val view =
             WaitForAsyncUtils
-                .asyncFx<MarkdownFileView> {
+                .asyncFx<PreviewFileView> {
                     MarkdownFileViewer().open(
                         file,
-                    ) as MarkdownFileView
+                    ) as PreviewFileView
                 }.get()
         robot.interact { container.children.setAll(view.node) }
         awaitLoaded(view)
         return file to view
     }
 
-    private fun awaitLoaded(view: MarkdownFileView) {
+    private fun awaitLoaded(view: PreviewFileView) {
         WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
-            WaitForAsyncUtils.asyncFx<Boolean> { view.preview.engine.loadWorker.state == Worker.State.SUCCEEDED }.get()
+            WaitForAsyncUtils.asyncFx<Boolean> { view.webView.engine.loadWorker.state == Worker.State.SUCCEEDED }.get()
         }
         WaitForAsyncUtils.waitForFxEvents()
     }
 
-    private fun MarkdownFileView.script(code: String): Any? =
+    private fun PreviewFileView.script(code: String): Any? =
         WaitForAsyncUtils
             .asyncFx<Any?> {
-                preview.engine.executeScript(code)
+                webView.engine.executeScript(code)
             }.get()
 
-    private fun FxRobot.modeButton(mode: MarkdownMode) =
+    private fun FxRobot.modeButton(mode: PreviewMode) =
         lookup(".markdown-mode").queryAllAs(ToggleButton::class.java).single { it.text == mode.label }
 
     @Test
@@ -79,8 +79,8 @@ class MarkdownFileViewUiTest {
         val (_, view) = show(robot, "# Hello *world*\n\n| a |\n|---|\n| 1 |\n")
 
         val split = robot.lookup(".split-pane").queryAs(SplitPane::class.java)
-        assertEquals<List<Node>>(listOf(view.source.node, view.preview), split.items)
-        assertTrue(robot.modeButton(MarkdownMode.SPLIT).isSelected)
+        assertEquals<List<Node>>(listOf(view.source.node, view.webView), split.items)
+        assertTrue(robot.modeButton(PreviewMode.SPLIT).isSelected)
         val area = robot.lookup(".code-area").queryAs(CodeArea::class.java)
         assertTrue("keyword" in area.getStyleOfChar(1))
         assertEquals("Hello world", view.script("document.querySelector('h1').textContent"))
@@ -92,20 +92,20 @@ class MarkdownFileViewUiTest {
         val (_, view) = show(robot, "# Title\n")
         val split = robot.lookup(".split-pane").queryAs(SplitPane::class.java)
 
-        robot.interact { robot.modeButton(MarkdownMode.PREVIEW).fire() }
-        assertEquals<List<Node>>(listOf(view.preview), split.items)
-        assertEquals(MarkdownMode.PREVIEW, view.mode.get())
+        robot.interact { robot.modeButton(PreviewMode.PREVIEW).fire() }
+        assertEquals<List<Node>>(listOf(view.webView), split.items)
+        assertEquals(PreviewMode.PREVIEW, view.mode.get())
 
-        robot.interact { robot.modeButton(MarkdownMode.SOURCE).fire() }
+        robot.interact { robot.modeButton(PreviewMode.SOURCE).fire() }
         assertEquals<List<Node>>(listOf(view.source.node), split.items)
 
         // Clicking the selected mode again keeps it.
-        robot.interact { robot.modeButton(MarkdownMode.SOURCE).fire() }
-        assertTrue(robot.modeButton(MarkdownMode.SOURCE).isSelected)
+        robot.interact { robot.modeButton(PreviewMode.SOURCE).fire() }
+        assertTrue(robot.modeButton(PreviewMode.SOURCE).isSelected)
         assertEquals<List<Node>>(listOf(view.source.node), split.items)
 
-        robot.interact { robot.modeButton(MarkdownMode.SPLIT).fire() }
-        assertEquals<List<Node>>(listOf(view.source.node, view.preview), split.items)
+        robot.interact { robot.modeButton(PreviewMode.SPLIT).fire() }
+        assertEquals<List<Node>>(listOf(view.source.node, view.webView), split.items)
     }
 
     @Test
@@ -138,7 +138,7 @@ class MarkdownFileViewUiTest {
     private val longDocument = (1..200).joinToString("\n\n") { "Paragraph $it" } + "\n"
 
     /** How far the block starting at source [line] is from the top of the preview, in pixels. */
-    private fun MarkdownFileView.offsetOf(line: Int) =
+    private fun PreviewFileView.offsetOf(line: Int) =
         (script("document.querySelector('[data-line=\"$line\"]').getBoundingClientRect().top") as Number).toDouble()
 
     @Test
@@ -173,7 +173,7 @@ class MarkdownFileViewUiTest {
         assertEquals(0.0, view.offsetOf(60), 5.0)
 
         // Shown alone, the preview goes back to its own scroll position.
-        robot.interact { view.mode.set(MarkdownMode.PREVIEW) }
+        robot.interact { view.mode.set(PreviewMode.PREVIEW) }
         view.script("window.scrollTo(0, 700)")
         file.writeText(longDocument + "\nChanged\n")
         robot.interact { view.reload() }
@@ -219,14 +219,14 @@ class MarkdownFileViewUiTest {
                 robot,
                 "[last](#paragraph-200)\n\n" + longDocument.replace("Paragraph 200", "## Paragraph 200"),
             )
-        robot.interact { view.mode.set(MarkdownMode.PREVIEW) }
+        robot.interact { view.mode.set(PreviewMode.PREVIEW) }
 
         view.script("document.querySelector('a').click()")
         // A navigation would take a moment to start; give it the chance.
         WaitForAsyncUtils.sleep(500, TimeUnit.MILLISECONDS)
         WaitForAsyncUtils.waitForFxEvents()
 
-        assertEquals("", WaitForAsyncUtils.asyncFx<String?> { view.preview.engine.location }.get().orEmpty())
+        assertEquals("", WaitForAsyncUtils.asyncFx<String?> { view.webView.engine.location }.get().orEmpty())
         assertTrue((view.script("window.scrollY") as Number).toDouble() > 1000.0)
         assertEquals("Paragraph 200", view.script("document.getElementById('paragraph-200').textContent"))
     }
@@ -238,15 +238,15 @@ class MarkdownFileViewUiTest {
 
         val locations = mutableListOf<String?>()
         robot.interact {
-            view.preview.engine
+            view.webView.engine
                 .locationProperty()
                 .addListener { _, _, location -> locations += location }
-            view.preview.engine.load(other.toUri().toString())
+            view.webView.engine.load(other.toUri().toString())
         }
         WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
             WaitForAsyncUtils
                 .asyncFx<Boolean> {
-                    view.preview.engine.location
+                    view.webView.engine.location
                         .isNullOrEmpty()
                 }.get() &&
                 view.script("document.querySelector('h1') && document.querySelector('h1').textContent") == "Mine"
@@ -261,8 +261,8 @@ class MarkdownFileViewUiTest {
         val split = robot.lookup(".split-pane").queryAs(SplitPane::class.java)
 
         robot.interact { split.setDividerPositions(0.3) }
-        robot.interact { view.mode.set(MarkdownMode.PREVIEW) }
-        robot.interact { view.mode.set(MarkdownMode.SPLIT) }
+        robot.interact { view.mode.set(PreviewMode.PREVIEW) }
+        robot.interact { view.mode.set(PreviewMode.SPLIT) }
 
         assertEquals(0.3, split.dividerPositions[0], 0.01)
     }

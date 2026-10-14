@@ -29,7 +29,7 @@ Options considered:
 - No link navigates the WebView: the page's script handles anchors itself and hands every other link to the bridge.
   Should the WebView still load another page, the view renders the Markdown again; the bridge is only set on its own
   page.
-- `MarkdownFileView` shows a `CodeView` and a `WebView` in a `SplitPane`, with a toolbar for Source / Split /
+- `PreviewFileView` shows a `CodeView` and a `WebView` in a `SplitPane`, with a toolbar for Source / Split /
   Preview. The preview follows the window's colour scheme by toggling a `dark` class on the page.
 - Kotlin calls the page through `window.sluide`; the page calls back through one bridge object for link clicks.
 

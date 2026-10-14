@@ -1,6 +1,6 @@
 # Markdown preview
 
-**Module:** `file-viewers` — `MarkdownFileViewer`, `MarkdownFileView`, `MarkdownRenderer`; decision in
+**Module:** `file-viewers` — `MarkdownFileViewer` (a `PreviewFileViewer`), `PreviewFileView`, `MarkdownRenderer`; decision in
 [ADR 0016](../adr/0016-markdown-preview.md)
 
 - Markdown files (`.md`, `.markdown`) open as highlighted source (left, like every code view) beside a rendered

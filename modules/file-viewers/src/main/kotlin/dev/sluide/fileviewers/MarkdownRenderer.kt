@@ -73,8 +73,8 @@ internal object MarkdownRenderer {
 
     private val outputSettings = Document.OutputSettings().prettyPrint(false)
 
-    private val stylesheet = resource("markdown-preview.css")
-    private val script = resource("markdown-preview.js")
+    private val stylesheet = resource("preview.css")
+    private val script = resource("preview.js")
 
     /** The preview page of [markdown], a file in [folder]. */
     fun render(
