@@ -7,15 +7,16 @@ plugins {
 }
 
 // `./gradlew spotlessApply` formats, `spotlessCheck` (part of `check`/`build`) verifies. Rules: .editorconfig
+// Targets name the source folders only. With `**/*.kt` plus a `build/` exclude, spotlessKotlin failed twice under
+// parallel execution with "Could not read path …/build/…" while other tasks wrote build/; naming the source folders
+// avoids that walk. A new top-level source folder (e.g. buildSrc/) must be added to the targets.
 spotless {
     kotlin {
-        target("**/*.kt")
-        targetExclude("**/build/**")
+        target("ide/src/**/*.kt", "modules/*/src/**/*.kt")
         ktlint(libs.versions.ktlint.get())
     }
     kotlinGradle {
-        target("**/*.gradle.kts")
-        targetExclude("**/build/**")
+        target("*.gradle.kts", "ide/*.gradle.kts", "modules/*/*.gradle.kts")
         ktlint(libs.versions.ktlint.get())
     }
 }
