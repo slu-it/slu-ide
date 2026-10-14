@@ -98,7 +98,8 @@ internal object PreviewServer {
         private val pages = ConcurrentHashMap.newKeySet<Path>()
 
         private val server =
-            HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0).apply {
+            // 127.0.0.1, not getLoopbackAddress(): with IPv6 preferred that is ::1, which the URLs do not name.
+            HttpServer.create(InetSocketAddress(InetAddress.getByName(HOST), 0), 0).apply {
                 executor = Executors.newVirtualThreadPerTaskExecutor()
                 createContext("/") { exchange ->
                     try {
@@ -110,7 +111,7 @@ internal object PreviewServer {
                     }
                 }
             }
-        val authority = "127.0.0.1:${server.address.port}"
+        val authority = "$HOST:${server.address.port}"
 
         init {
             // The server's dispatcher thread is a daemon only if the thread starting it is, so it never keeps the
@@ -207,11 +208,18 @@ internal object PreviewServer {
         }
     }
 
-    private fun contentType(file: Path): String =
-        contentTypes[file.extension.lowercase()]
-            ?: imageTypes[file.extension.lowercase()]
-            ?: runCatching { Files.probeContentType(file) }.getOrNull()
-            ?: "application/octet-stream"
+    /** The address the servers listen on, and the host name of their URLs. */
+    private const val HOST = "127.0.0.1"
+
+    /** The media type of [file]; text as UTF-8, like the IDE reads it, also for pages without `<meta charset>`. */
+    private fun contentType(file: Path): String {
+        val type =
+            contentTypes[file.extension.lowercase()]
+                ?: imageTypes[file.extension.lowercase()]
+                ?: runCatching { Files.probeContentType(file) }.getOrNull()
+                ?: "application/octet-stream"
+        return if (type.startsWith("text/")) "$type; charset=utf-8" else type
+    }
 
     private val contentTypes =
         mapOf(

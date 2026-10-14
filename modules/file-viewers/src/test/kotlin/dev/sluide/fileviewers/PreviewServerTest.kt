@@ -67,11 +67,17 @@ class PreviewServerTest {
         val page = get(url("site/index.html"))
         assertEquals(200, page.statusCode())
         assertEquals("<h1>Index</h1>", page.body())
-        assertEquals("text/html", page.headers().firstValue("Content-Type").orElse(null))
+        assertEquals("text/html; charset=utf-8", page.headers().firstValue("Content-Type").orElse(null))
         assertEquals("no-store", page.headers().firstValue("Cache-Control").orElse(null))
+        assertEquals("nosniff", page.headers().firstValue("X-Content-Type-Options").orElse(null))
         assertEquals("no-referrer", page.headers().firstValue("Referrer-Policy").orElse(null))
-        assertEquals("text/css", get(url("site/css/style.css")).headers().firstValue("Content-Type").orElse(null))
-        assertEquals("{}", get(url("site/data file #1.json")).body())
+        assertEquals(
+            "text/css; charset=utf-8",
+            get(url("site/css/style.css")).headers().firstValue("Content-Type").orElse(null),
+        )
+        val json = get(url("site/data file #1.json"))
+        assertEquals("{}", json.body())
+        assertEquals("application/json", json.headers().firstValue("Content-Type").orElse(null))
         assertEquals(200, get(url("empty.txt")).statusCode())
     }
 

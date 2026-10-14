@@ -14,8 +14,9 @@ scripts allowed, a `file:` page can read every local file (XHR, `fetch`, iframes
 So only HTML needs confining, and an HTTP origin confines it to what a server hands out.
 
 ## Decision
-- HTML previews are loaded from `PreviewServer`, the JDK's `com.sun.net.httpserver` (no new dependency) on the
-  loopback interface, at `http://127.0.0.1:<port>/<token>/_/…/_/<path in the root>`. The `_` stand for the root's
+- HTML previews are loaded from `PreviewServer`, the JDK's `com.sun.net.httpserver` (no new dependency) bound to
+  `127.0.0.1` (not the JDK's loopback address, which is `::1` when IPv6 is preferred), at
+  `http://127.0.0.1:<port>/<token>/_/…/_/<path in the root>`. The `_` stand for the root's
   folders (one each, from the file system's root down), so a link climbing out of the root (`../other.html`) keeps a
   URL that maps to its file, without the URL naming the user's folders.
 - **Root:** the window's project folder (`FileViewHost.projectFolder`), so pages that use `../` resources work
@@ -30,7 +31,8 @@ So only HTML needs confining, and an HTTP origin confines it to what a server ha
 - **Isolation between roots:** one server, so one origin, per root. A random 128-bit token in every path keeps out other
   local users and pages in a browser that find the port.
 - **Response headers:** `Cache-Control: no-store`, so a reload shows edited styles; `X-Content-Type-Options: nosniff`;
-  `Referrer-Policy: no-referrer`, so remote requests do not carry the token.
+  `Referrer-Policy: no-referrer`, so remote requests do not carry the token. Text types say `charset=utf-8`, the
+  encoding SluIde reads files in, so a page without `<meta charset>` is not decoded with WebKit's default.
 - **Links:** server URLs map back to their files (`PreviewServer.fileFor`), so a clicked link to another file opens it
   in a tab, as before, also outside the root.
 - **Own page:** a URL of the page with a query is not the page itself, and a load the view did not start (a meta
