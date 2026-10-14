@@ -54,4 +54,16 @@ class TextReplacementTest {
         // U+1F600 and U+2F600 (high surrogate D87D) share their low surrogate.
         assertTurns("😀", "𯘀", TextReplacement(0, 2, "𯘀"))
     }
+
+    @Test
+    fun `maps positions of the old text to the new one`() {
+        val replacement = TextReplacement(4, 6, "xyz")
+        assertEquals(2, replacement.map(2))
+        assertEquals(4, replacement.map(4))
+        assertEquals(5, replacement.map(5))
+        assertEquals(7, replacement.map(6))
+        assertEquals(10, replacement.map(9))
+        assertEquals(4, TextReplacement(4, 8, "").map(6))
+        assertEquals(5, TextReplacement(4, 8, "a").map(7))
+    }
 }

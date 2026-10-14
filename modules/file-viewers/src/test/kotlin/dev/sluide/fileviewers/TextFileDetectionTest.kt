@@ -7,7 +7,9 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class TextFileDetectionTest {
@@ -63,5 +65,12 @@ class TextFileDetectionTest {
     fun `missing file and folder are not text`() {
         assertFalse(isTextFile(dir.resolve("missing.txt")))
         assertFalse(isTextFile(dir.resolve("folder").createDirectories()))
+    }
+
+    @Test
+    fun `decodes valid UTF-8 strictly`() {
+        assertEquals("ä€", decodeUtf8("ä€".toByteArray()))
+        assertEquals("", decodeUtf8(ByteArray(0)))
+        assertNull(decodeUtf8(ByteArray(9000) { 'a'.code.toByte() } + 0xE9.toByte()))
     }
 }

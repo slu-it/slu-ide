@@ -1,0 +1,18 @@
+/*
+ * Code views (CodeView) around their text area, which syntax.css styles: banners at the top, e.g. when the file
+ * changed on disk while the view has unsaved changes. Dark rules use single classes, see syntax.css.
+ */
+
+.editor-banner {
+    -fx-spacing: 8;
+    -fx-padding: 4 8 4 8;
+    -fx-background-color: #fff4ce;
+    -fx-border-color: transparent transparent #e5d08f transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+    .editor-banner {
+        -fx-background-color: #4a4128;
+        -fx-border-color: transparent transparent #6b5d33 transparent;
+    }
+}

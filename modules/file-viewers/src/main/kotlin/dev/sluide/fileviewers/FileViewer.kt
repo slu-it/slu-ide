@@ -26,7 +26,9 @@ interface FileView {
 
     /**
      * Reads the file again and shows the new content, keeping scroll position and caret as far as possible.
-     * Does nothing if the content did not change; on an [IOException] the old content stays.
+     * Does nothing if the content did not change; on an [IOException] the old content stays. Never throws away
+     * unsaved changes of an [EditableFileView]: with such changes, the view lets the user choose between them and the
+     * new content.
      */
     @Throws(IOException::class)
     fun reload()

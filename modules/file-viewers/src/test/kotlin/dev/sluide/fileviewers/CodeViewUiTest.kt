@@ -1,6 +1,8 @@
 package dev.sluide.fileviewers
 
 import javafx.scene.Scene
+import javafx.scene.control.Button
+import javafx.scene.control.Label
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
@@ -13,6 +15,7 @@ import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
 import kotlin.io.path.readBytes
 import kotlin.io.path.readText
+import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -115,5 +118,145 @@ class CodeViewUiTest {
 
         assertEquals(3, view.area.caretPosition)
         assertFalse(view.dirty.get())
+    }
+
+    private fun bannerButton(
+        robot: FxRobot,
+        text: String,
+    ): Button = robot.lookup(".editor-banner .button").queryAllAs(Button::class.java).single { it.text == text }
+
+    @Test
+    fun `a file that is not valid UTF-8 is shown read-only and never saved`(robot: FxRobot) {
+        // Valid in the sample that decides whether a file is text, invalid after it.
+        val bytes = ByteArray(9000) { 'a'.code.toByte() } + 0xE9.toByte()
+        val file = dir.resolve("latin1.txt").apply { writeBytes(bytes) }
+        assertTrue(isTextFile(file))
+        val view = open(file, robot)
+
+        assertTrue(view.readOnly)
+        assertFalse(view.area.isEditable)
+        assertEquals(
+            "latin1.txt is not valid UTF-8; it is shown read-only.",
+            robot.lookup(".editor-banner .label").queryAs(Label::class.java).text,
+        )
+        assertTrue(view.area.text.endsWith("a\uFFFD"))
+
+        robot.interact { view.save() }
+        assertContentEquals(bytes, file.readBytes())
+        assertFalse(view.dirty.get())
+
+        file.writeText("fixed\n")
+        robot.interact { view.reload() }
+        assertEquals("fixed\n", view.area.text)
+        assertTrue(view.area.isEditable)
+        assertFalse(view.readOnly)
+    }
+
+    @Test
+    fun `after keeping mine, undoing back to the last save still differs from the file`(robot: FxRobot) {
+        val file = dir.resolve("main.py").apply { writeText("a = 1\n") }
+        val view = open(file, robot)
+        robot.interact { view.area.insertText(0, "mine = 1\n") }
+        file.writeText("theirs = 1\n")
+        robot.interact { view.reload() }
+        robot.interact { bannerButton(robot, "Keep mine").fire() }
+
+        robot.interact { view.area.undo() }
+        assertEquals("a = 1\n", view.area.text)
+        assertTrue(view.dirty.get())
+
+        robot.interact { view.save() }
+        assertEquals("a = 1\n", file.readText())
+        assertFalse(view.dirty.get())
+    }
+
+    @Test
+    fun `a change on disk to the text the view holds makes it clean`(robot: FxRobot) {
+        val file = dir.resolve("main.py").apply { writeText("a = 1\n") }
+        val view = open(file, robot)
+        robot.interact { view.area.appendText("b = 2\n") }
+
+        file.writeText("a = 1\r\nb = 2\r\n")
+        robot.interact { view.reload() }
+
+        assertFalse(view.conflictShown)
+        assertFalse(view.dirty.get())
+        assertEquals("a = 1\nb = 2\n", view.area.text)
+    }
+
+    @Test
+    fun `a change on disk replaces only what changed and keeps caret and undo`(robot: FxRobot) {
+        val file = dir.resolve("main.py").apply { writeText("a = 1\nb = 2\nc = 3\n") }
+        val view = open(file, robot)
+        robot.interact { view.area.moveTo(view.area.text.indexOf("c")) }
+
+        file.writeText("a = 1\nb = 22\nc = 3\n")
+        robot.interact { view.reload() }
+
+        assertEquals("a = 1\nb = 22\nc = 3\n", view.area.text)
+        assertEquals(view.area.text.indexOf("c"), view.area.caretPosition)
+        assertFalse(view.dirty.get())
+        robot.interact { view.area.undo() }
+        assertEquals("a = 1\nb = 2\nc = 3\n", view.area.text, "the reload can be undone")
+    }
+
+    @Test
+    fun `its own save coming back from disk changes nothing`(robot: FxRobot) {
+        val file = dir.resolve("main.py").apply { writeText("a = 1\r\n") }
+        val view = open(file, robot)
+        robot.interact {
+            view.area.insertText(0, "b = 2\n")
+            view.save()
+            // More typing before the file watcher reports the save.
+            view.area.insertText(0, "c = 3\n")
+            view.reload()
+        }
+
+        assertEquals("c = 3\nb = 2\na = 1\n", view.area.text)
+        assertTrue(view.dirty.get())
+        assertFalse(view.conflictShown)
+    }
+
+    @Test
+    fun `a change on disk keeps unsaved changes and offers to reload`(robot: FxRobot) {
+        val file = dir.resolve("main.py").apply { writeText("a = 1\n") }
+        val view = open(file, robot)
+        robot.interact { view.area.insertText(0, "mine = 1\n") }
+
+        file.writeText("theirs = 1\n")
+        robot.interact { view.reload() }
+
+        assertEquals("mine = 1\na = 1\n", view.area.text)
+        assertTrue(view.conflictShown)
+        assertEquals(
+            "main.py changed on disk.",
+            robot.lookup(".editor-banner .label").queryAs(Label::class.java).text,
+        )
+
+        robot.interact { bannerButton(robot, "Reload").fire() }
+
+        assertEquals("theirs = 1\n", view.area.text)
+        assertFalse(view.dirty.get())
+        assertFalse(view.conflictShown)
+    }
+
+    @Test
+    fun `keeping the unsaved changes writes them over the file on the next save`(robot: FxRobot) {
+        val file = dir.resolve("main.py").apply { writeText("a = 1\n") }
+        val view = open(file, robot)
+        robot.interact { view.area.insertText(0, "mine = 1\n") }
+        file.writeText("theirs = 1\n")
+        robot.interact { view.reload() }
+
+        robot.interact { bannerButton(robot, "Keep mine").fire() }
+        assertFalse(view.conflictShown)
+        assertTrue(view.dirty.get())
+
+        // The same content reported again is no new conflict.
+        robot.interact { view.reload() }
+        assertFalse(view.conflictShown)
+
+        robot.interact { view.save() }
+        assertEquals("mine = 1\na = 1\n", file.readText())
     }
 }

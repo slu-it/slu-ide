@@ -3,6 +3,7 @@ package dev.sluide.fileviewers
 import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.CharBuffer
+import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
 import java.nio.file.Files
 import java.nio.file.Path
@@ -45,3 +46,16 @@ private fun isTextSample(sample: ByteArray): Boolean {
     // UTF-8 never decodes to more chars than bytes, so the output buffer cannot overflow.
     return !decoder.decode(ByteBuffer.wrap(sample), CharBuffer.allocate(sample.size), endOfInput).isError
 }
+
+/** [bytes] decoded as UTF-8, or `null` if they are not valid UTF-8. */
+internal fun decodeUtf8(bytes: ByteArray): String? =
+    try {
+        Charsets.UTF_8
+            .newDecoder()
+            .onMalformedInput(CodingErrorAction.REPORT)
+            .onUnmappableCharacter(CodingErrorAction.REPORT)
+            .decode(ByteBuffer.wrap(bytes))
+            .toString()
+    } catch (_: CharacterCodingException) {
+        null
+    }

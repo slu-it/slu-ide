@@ -16,6 +16,17 @@ data class TextReplacement(
     /** [text] with this replacement applied. */
     fun applyTo(text: String): String = text.substring(0, start) + replacement + text.substring(end)
 
+    /**
+     * Where [position] in the old text is after this replacement: positions before the replaced range stay, those
+     * after it move along, those inside it keep their offset from [start] as far as the replacement reaches.
+     */
+    fun map(position: Int): Int =
+        when {
+            position <= start -> position
+            position >= end -> position + replacement.length - (end - start)
+            else -> start + minOf(position - start, replacement.length)
+        }
+
     companion object {
         /**
          * The replacement that turns [old] into [new]: everything between their common prefix and common suffix. It

@@ -98,8 +98,8 @@ class PythonFileViewerUiTest {
     fun `reload shows and highlights the new content and keeps the scroll position`(robot: FxRobot) {
         val file = dir.resolve("long.py").apply { writeText((1..300).joinToString("\n") { "x$it = $it" }) }
         val view = WaitForAsyncUtils.asyncFx<FileView> { PythonFileViewer().open(file) }.get()
-        val pane = view.node as VirtualizedScrollPane<*>
         robot.interact { container.children.setAll(view.node) }
+        val pane = robot.lookup(".code-view").queryAs(VirtualizedScrollPane::class.java)
         robot.interact { pane.scrollYToPixel(1000.0) }
         WaitForAsyncUtils.waitForFxEvents()
         val before = pane.estimatedScrollY
