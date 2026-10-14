@@ -7,7 +7,7 @@ plugins {
 javafx {
     // Maven Central publishes no Gradle metadata for JavaFX, so the plugin picks the platform jars.
     version = libs.versions.javafx.get()
-    // javafx.web: the Markdown preview is a WebView (ADR 0016).
+    // javafx.web: the previews and the image view are WebViews (ADRs 0016, 0017).
     modules("javafx.controls", "javafx.web")
 }
 
