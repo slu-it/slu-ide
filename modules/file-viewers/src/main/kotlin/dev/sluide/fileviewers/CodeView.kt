@@ -92,6 +92,9 @@ internal class CodeView(
     /** Finds in the text; shown above the banners. */
     val findBar = FindBar(area, banners)
 
+    /** Moves the caret to a line the user enters. */
+    val goToLine = GoToLine(area)
+
     private val savedTextWrapper = ReadOnlyStringWrapper()
 
     /** The file's text as last read or saved, with `\n` line breaks; also what the user kept over a change on disk. */
@@ -158,6 +161,7 @@ internal class CodeView(
         indentStyle = IndentStyle.forFile(file, savedText)
         Nodes.addInputMap(area, editorKeys(area, indentStyle, comment))
         Nodes.addInputMap(area, findBar.keys)
+        Nodes.addInputMap(area, goToLine.keys)
         // Following the caret keeps the area at the top when it is first laid out; without it, the source side of the
         // Markdown view (in a SplitPane) opened scrolled down.
         area.moveTo(0)
