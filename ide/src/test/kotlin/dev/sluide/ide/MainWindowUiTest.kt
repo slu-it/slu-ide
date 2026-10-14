@@ -44,9 +44,13 @@ import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.net.URI
 import java.nio.file.Path
+import java.nio.file.attribute.PosixFilePermissions
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
+import kotlin.io.path.exists
 import kotlin.io.path.name
+import kotlin.io.path.readLines
+import kotlin.io.path.setPosixFilePermissions
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -500,14 +504,23 @@ class MainWindowUiTest {
         assertEquals(emptyList(), tabTitles(robot))
         assertEquals(0, terminals.openCount)
 
-        // The failed starts used up no numbers.
-        shellEnvironment["SHELL"] = "/bin/sh"
+        // The failed starts used up no numbers. A stub sbx, first on the PATH of the login shell through the .profile of
+        // the test home folder, so a real sbx on this machine is never started.
+        val calls = home.resolve("sbx-calls.txt")
+        val bin = home.resolve("bin").createDirectories()
+        bin.resolve("sbx").apply {
+            writeText("#!/bin/sh\necho \"$*\" >> '$calls'\n")
+            setPosixFilePermissions(PosixFilePermissions.fromString("rwxr-xr-x"))
+        }
+        home.resolve(".profile").writeText("PATH=\"$bin:\$PATH\"\nexport PATH\n")
+        shellEnvironment += mapOf("SHELL" to "/bin/sh", "HOME" to home.toString())
         robot.interact {
             menu(robot, "Terminal").items.single().fire()
             sandboxItems(robot).first().fire()
         }
         WaitForAsyncUtils.waitForFxEvents()
         assertEquals(listOf("Terminal 1", "Claude Code 1"), tabTitles(robot).map { it.removeSuffix(" (exited)") })
+        eventually(robot) { assertEquals(listOf("run claude ."), calls.takeIf { it.exists() }?.readLines()) }
     }
 
     private fun sandboxItems(robot: FxRobot) = menu(robot, "Docker Sandbox").items.toList()
