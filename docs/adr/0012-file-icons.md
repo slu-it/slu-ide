@@ -24,12 +24,13 @@ Options considered:
     TypeScript or Java).
 
 ## Decision
-- `modules/file-explorer` uses `ikonli-javafx` with `ikonli-materialdesign2-pack` only, so all icons share one
-  style. `FileIcon` maps every icon of the pack that stands for a file type (language, tool, document, media,
-  archive, package, platform, settings/security formats) to file names and extensions; `fileIconFor` picks one by
-  folder state, then file name, then extension, then by whether the file can be opened. Icons for file actions
-  (`file-move`, `file-sync`, …) are not used. Languages without an icon share `file-code`; Gradle uses `elephant`
-  (its logo), Git files `source-branch` (the pack has no Git logo).
+- `modules/file-explorer` uses `ikonli-javafx` with `ikonli-materialdesign2-pack` only, so all icons share one style.
+  `modules/file-viewers` uses the same pack for the arrows of the diff view's toolbar. `FileIcon` maps every icon of the
+  pack that stands for a file type (language, tool, document, media, archive, package, platform, settings/security
+  formats) to file names and extensions; `fileIconFor` picks one by folder state, then file name, then extension, then
+  by whether the file can be opened. Icons for file actions (`file-move`, `file-sync`, …) are not used. Languages
+  without an icon share `file-code`; Gradle uses `elephant` (its logo), Git files `source-branch` (the pack has no Git
+  logo).
 - Gaps: binary files use `file-question-outline` ("cannot be read yet"), YAML uses `code-braces`.
 - Icons are font glyphs coloured per type in `file-explorer.css`, with dark values in a
   `@media (prefers-color-scheme: dark)` block ([ADR 0009](0009-themes.md)), and sized to the explorer font.

@@ -12,13 +12,17 @@ decision in [ADR 0015](../adr/0015-git-diff.md)
   - green: added lines, right side only.
 
   Within modified lines, the words that changed get a stronger blue on both sides; a line added within a modified
-  block is stronger blue as a whole ([ADR 0019](../adr/0019-word-diff.md)). The other side shows empty rows there, so the sides stay aligned; both scroll together. Line numbers are those of
-  each version. Code is highlighted like in the normal view.
+  block is stronger blue as a whole ([ADR 0019](../adr/0019-word-diff.md)). The other side shows empty rows there,
+  so the sides stay aligned; both scroll together. Line numbers are those of each version. Code is highlighted like
+  in the normal view.
+- A toolbar above both sides jumps to the first, previous, next and last change (arrow buttons; F7 and Shift+F7 for
+  next and previous while the diff has focus). A change jumped to is shown a few rows below the top, with the caret
+  on its first row on both sides. Next and previous are seen from the caret, so clicking a row on either side starts
+  from there. The toolbar counts the changes and tells which one the caret is in ("Change 2 of 5").
 - Added and unversioned files open normally, they are new as a whole. Clean files open normally too.
 - The tab follows the status: it turns into a diff when the file becomes modified (an edit, in SluIde's terminal or
   elsewhere) and back into the normal view when it is clean again (a commit, a checkout); a diff updates when the file
   changes. The scroll position resets when the view switches.
 - Files with a text, code or preview viewer (Markdown, HTML, SVG, CSV, notebooks) are shown as a diff of their text,
   highlighted like their source; others (e.g. images) open normally.
-- Not yet implemented: diffs against the index or other commits, reverting changes, navigating from change to
-  change.
+- Not yet implemented: diffs against the index or other commits, reverting changes.

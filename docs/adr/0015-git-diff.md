@@ -30,10 +30,12 @@ Options considered for the diff:
   (`LineChange`s, kind removed/added/modified) and `FileViewers.openDiff`, `editor` asks `EditorArea.diffOf`, and
   `MainWindow` maps `GitDiff` to `TextDiff` for files whose status is modified (`GitDiffs.kt`).
 - The view (`SideBySideDiffView`) is two read-only RichTextFX code areas. Filler rows pad the shorter side of each
-  change, so both sides have the same rows, line by line aligned, and their scroll positions are simply bound
-  together. Line numbers come from our own paragraph graphic factory, empty on filler rows. Highlighting reuses the
-  file's code viewer `SyntaxHighlighter`, or for preview viewers (Markdown, HTML, SVG, CSV, notebooks) the
-  highlighter of their source text; plain text files get none, other viewers (e.g. images) no diff.
+  change, so both sides have the same rows, line by line aligned, and their scroll positions are kept equal (the
+  position of the side scrolled last is copied once it has settled; a bidirectional binding copied the intermediate
+  positions of a side's layout back and forth). Line numbers come from our own paragraph graphic factory, empty on
+  filler rows. Highlighting reuses the file's code viewer `SyntaxHighlighter`, or for preview viewers (Markdown, HTML,
+  SVG, CSV, notebooks) the highlighter of their source text; plain text files get none, other viewers (e.g. images) no
+  diff.
 - An open file tab keeps a stable content node and swaps its `FileView` inside it. `diffOf` is asked when a file is
   opened, when it changes on disk, and for all open files when the git status snapshot changes (`refreshDiffs`).
 
