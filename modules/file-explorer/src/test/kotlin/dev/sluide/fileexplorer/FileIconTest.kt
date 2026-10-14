@@ -68,6 +68,8 @@ class FileIconTest {
                 "Makefile" to FileIcon.MAKE,
                 ".gitignore" to FileIcon.GIT,
                 ".editorconfig" to FileIcon.CONFIG,
+                ".env" to FileIcon.CONFIG,
+                ".eslintrc" to FileIcon.CONFIG,
                 "LICENSE" to FileIcon.LICENSE,
                 "Gemfile" to FileIcon.RUBY,
                 ".gitlab-ci.yml" to FileIcon.GITLAB,

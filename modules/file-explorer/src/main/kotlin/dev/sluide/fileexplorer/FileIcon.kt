@@ -32,7 +32,7 @@ import kotlin.io.path.name
  * related types (all images, all archives, …) share one. A new file type is an entry here and, if it needs a new
  * colour, a rule in the CSS.
  */
-enum class FileIcon(
+internal enum class FileIcon(
     val ikon: Ikon,
     val styleClass: String,
     val extensions: Set<String> = emptySet(),
@@ -241,8 +241,8 @@ enum class FileIcon(
     CONFIG(
         MaterialDesignF.FILE_COG,
         "file-icon-config",
+        // Also the dot-files .env, .editorconfig, .prettierrc and .eslintrc, whose whole name is the extension.
         setOf("ini", "cfg", "conf", "config", "properties", "toml", "env", "editorconfig", "prettierrc", "eslintrc"),
-        setOf(".editorconfig", ".env", ".prettierrc", ".eslintrc"),
     ),
     CERTIFICATE(
         MaterialDesignF.FILE_CERTIFICATE,
@@ -390,7 +390,7 @@ private val iconsByExtension: Map<String, FileIcon> =
  * or else [FileIcon.TEXT] or [FileIcon.BINARY] depending on [readable]. [readable] may read the file, so it is only
  * called for files of no known type.
  */
-fun fileIconFor(
+internal fun fileIconFor(
     path: Path,
     directory: Boolean,
     expanded: Boolean,
