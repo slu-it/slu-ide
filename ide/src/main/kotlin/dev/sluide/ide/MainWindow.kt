@@ -93,6 +93,7 @@ class MainWindow(
         editorArea.openWebPage = { openWebPage(it) }
         // HTML previews are served with the project's files, and only those (ADR 0018).
         editorArea.projectFolder = { folder }
+        editorArea.showError = { showError(stage, it) }
         gitStatus.snapshot.subscribe { _ ->
             fileExplorer.refreshMarkers()
             editorArea.refreshDiffs()
@@ -121,12 +122,24 @@ class MainWindow(
                 accelerator = KeyCodeCombination(KeyCode.O, KeyCombination.SHORTCUT_DOWN)
                 setOnAction { chooseFolder(stage) }
             }
+        // Ctrl+S in a terminal goes to the shell, which consumes the key before the accelerator sees it; Cmd+S on
+        // macOS and Ctrl+Alt+S send nothing to the shell, so they save from a terminal too.
+        val save =
+            MenuItem("Save").apply {
+                accelerator = KeyCodeCombination(KeyCode.S, KeyCombination.SHORTCUT_DOWN)
+                setOnAction { editorArea.save() }
+            }
+        val saveAll =
+            MenuItem("Save All").apply {
+                accelerator = KeyCodeCombination(KeyCode.S, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN)
+                setOnAction { editorArea.saveAll() }
+            }
         val settings =
             MenuItem("Settings…").apply {
                 accelerator = KeyCodeCombination(KeyCode.COMMA, KeyCombination.SHORTCUT_DOWN)
                 setOnAction { showSettings(stage) }
             }
-        return Menu("File", null, openFolder, SeparatorMenuItem(), settings)
+        return Menu("File", null, openFolder, SeparatorMenuItem(), save, saveAll, SeparatorMenuItem(), settings)
     }
 
     private fun terminalMenu(stage: Stage): Menu {

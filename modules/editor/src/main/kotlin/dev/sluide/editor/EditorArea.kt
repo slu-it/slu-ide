@@ -1,6 +1,7 @@
 package dev.sluide.editor
 
 import dev.sluide.fileviewers.DiffFileView
+import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.FileViewers
@@ -10,12 +11,16 @@ import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontSpec
 import javafx.collections.ListChangeListener
+import javafx.scene.control.Alert
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.StackPane
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.io.IOException
 import java.net.URI
+import java.nio.file.AccessDeniedException
+import java.nio.file.FileSystemException
+import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 
 /**
@@ -39,6 +44,9 @@ class EditorArea(
      * close them. Shows a confirmation dialog; tests replace it.
      */
     var confirmClose: (warnings: List<String>) -> Boolean = ::showCloseDialog
+
+    /** Shows an error message, e.g. that a file could not be saved, and waits until it is closed; tests replace it. */
+    var showError: (message: String) -> Unit = ::showErrorDialog
     private val watches = mutableMapOf<EditorTab, AutoCloseable>()
 
     /**
@@ -184,6 +192,43 @@ class EditorArea(
             if (single) "Close this tab anyway?" else "Close these tabs anyway?",
             warnings,
         )
+    }
+
+    /**
+     * Saves the file of the selected tab if it has unsaved changes. Returns `false` if saving failed, after showing
+     * why; the tab keeps its unsaved changes then.
+     */
+    fun save(): Boolean = (editorTabs.selected.get() as? OpenFile)?.let(::save) ?: true
+
+    /** Saves every open file with unsaved changes, like [save]; `false` if one of them could not be saved. */
+    fun saveAll(): Boolean = editorTabs.files.map(::save).all { it }
+
+    private fun save(openFile: OpenFile): Boolean {
+        if (!openFile.isDirty) return true
+        val view = openFile.view as? EditableFileView ?: return true
+        return try {
+            view.save()
+            true
+        } catch (e: IOException) {
+            showError("${openFile.name} could not be saved. ${reason(e)}")
+            false
+        }
+    }
+
+    private fun reason(e: IOException): String =
+        when (e) {
+            is NoSuchFileException -> "Its folder does not exist."
+            is AccessDeniedException -> "Access denied."
+            is FileSystemException -> e.reason ?: e.toString()
+            else -> e.message ?: e.toString()
+        }
+
+    private fun showErrorDialog(message: String) {
+        Alert(Alert.AlertType.ERROR, message)
+            .apply {
+                scene?.window?.let(::initOwner)
+                headerText = null
+            }.showAndWait()
     }
 
     /** Closes all tabs without asking, including the ones that do not show files. */

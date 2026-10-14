@@ -20,15 +20,18 @@ import dev.sluide.settings.ThemeSettings
 import dev.sluide.settings.ThemedWindows
 import dev.sluide.terminal.Terminals
 import javafx.application.Platform
+import javafx.event.ActionEvent
 import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.control.Label
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuBar
+import javafx.scene.control.MenuItem
 import javafx.scene.control.TreeCell
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
+import javafx.scene.input.KeyEvent
 import javafx.scene.text.Text
 import javafx.stage.Stage
 import javafx.stage.WindowEvent
@@ -52,6 +55,7 @@ import kotlin.io.path.createFile
 import kotlin.io.path.exists
 import kotlin.io.path.name
 import kotlin.io.path.readLines
+import kotlin.io.path.readText
 import kotlin.io.path.setPosixFilePermissions
 import kotlin.io.path.writeText
 import kotlin.test.Test
@@ -349,6 +353,92 @@ class MainWindowUiTest {
         val text = robot.lookup(".editor-content .code-area").queryAs(CodeArea::class.java)
         assertEquals("# Hello", text.text)
         assertEquals(true, text.isEditable)
+    }
+
+    private fun fileMenuItem(
+        robot: FxRobot,
+        text: String,
+    ): MenuItem = menu(robot, "File").items.single { it.text == text }
+
+    /** The code area of the selected file tab. */
+    private fun shownArea(robot: FxRobot): CodeArea =
+        robot.lookup(".editor-content .code-area").queryAs(CodeArea::class.java)
+
+    /**
+     * Presses Shortcut+S, with Alt if [alt], on [target] as the keyboard would: unless [target] consumes the key, it
+     * reaches the scene's accelerators.
+     */
+    private fun pressShortcutS(
+        target: Node,
+        alt: Boolean = false,
+    ) {
+        val mac = System.getProperty("os.name").startsWith("Mac")
+        Event.fireEvent(target, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.S, false, !mac, alt, mac))
+    }
+
+    @Test
+    fun `offers File - Save with Ctrl+S and Save All with Ctrl+Alt+S`(robot: FxRobot) {
+        val save = fileMenuItem(robot, "Save").accelerator as KeyCodeCombination
+        assertEquals(KeyCode.S, save.code)
+        assertEquals(KeyCombination.ModifierValue.DOWN, save.shortcut)
+        assertEquals(KeyCombination.ModifierValue.UP, save.alt)
+
+        val saveAll = fileMenuItem(robot, "Save All").accelerator as KeyCodeCombination
+        assertEquals(KeyCode.S, saveAll.code)
+        assertEquals(KeyCombination.ModifierValue.DOWN, saveAll.shortcut)
+        assertEquals(KeyCombination.ModifierValue.DOWN, saveAll.alt)
+    }
+
+    @Test
+    fun `Save saves the selected file, Save All every edited one`(robot: FxRobot) {
+        val a = project.resolve("a.txt").apply { writeText("a") }
+        val b = project.resolve("b.txt").apply { writeText("b") }
+        robot.interact {
+            projectService.open(project)
+            editorArea.open(a)
+            shownArea(robot).appendText("1")
+            editorArea.open(b)
+            shownArea(robot).appendText("2")
+        }
+        assertEquals(listOf("● a.txt", "● b.txt"), tabTitles(robot))
+
+        robot.interact { fileMenuItem(robot, "Save").fire() }
+        assertEquals("b2", b.readText())
+        assertEquals("a", a.readText())
+        assertEquals(listOf("● a.txt", "b.txt"), tabTitles(robot))
+
+        robot.interact { fileMenuItem(robot, "Save All").fire() }
+        assertEquals("a1", a.readText())
+        assertEquals(listOf("a.txt", "b.txt"), tabTitles(robot))
+    }
+
+    @Test
+    fun `the save shortcut works in the editor, and in a terminal Ctrl+S stays the shell's`(robot: FxRobot) {
+        val a = project.resolve("a.txt").apply { writeText("a") }
+        robot.interact {
+            projectService.open(project)
+            editorArea.open(a)
+            shownArea(robot).appendText("1")
+        }
+        robot.interact { pressShortcutS(shownArea(robot)) }
+        assertEquals("a1", a.readText())
+
+        var saves = 0
+        var savesAll = 0
+        fileMenuItem(robot, "Save").addEventHandler(ActionEvent.ACTION) { saves++ }
+        fileMenuItem(robot, "Save All").addEventHandler(ActionEvent.ACTION) { savesAll++ }
+        robot.interact {
+            (checkNotNull(editorArea.selectedTab).content.lookup(".code-area") as CodeArea).appendText("2")
+            editorArea.open(terminals.open(project, "Job", "sleep 300"))
+        }
+        val terminal = checkNotNull(editorArea.selectedTab).content
+        robot.interact { pressShortcutS(terminal) }
+        // Cmd+S on macOS is no key for the shell; Ctrl+S elsewhere is (it stops the output).
+        if (!System.getProperty("os.name").startsWith("Mac")) assertEquals(0, saves)
+
+        robot.interact { pressShortcutS(terminal, alt = true) }
+        assertEquals(1, savesAll)
+        assertEquals("a12", a.readText())
     }
 
     @Test

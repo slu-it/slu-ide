@@ -16,6 +16,7 @@ import dev.sluide.settings.FontSpec
 import dev.sluide.settings.FontStyle
 import dev.sluide.settings.SettingsStore
 import javafx.application.Platform
+import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleStringProperty
 import javafx.event.Event
 import javafx.event.EventType
@@ -37,11 +38,13 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.io.IOException
 import java.net.URI
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteExisting
 import kotlin.io.path.name
+import kotlin.io.path.readText
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.math.abs
@@ -531,6 +534,109 @@ class EditorAreaUiTest {
 
         robot.interact { (checkNotNull(editor.editorTabs.find(a)).view as EditableFileView).save() }
         assertEquals(listOf("a.txt"), tabTitles(robot))
+    }
+
+    @Test
+    fun `save and saveAll save the edited files`(robot: FxRobot) {
+        val a = textFile("a.txt", "a")
+        val b = textFile("b.txt", "b")
+        open(robot, a)
+        robot.interact { shownArea(robot).appendText("1") }
+        open(robot, b)
+        robot.interact { shownArea(robot).appendText("2") }
+
+        robot.interact { assertTrue(editor.save()) }
+        assertEquals(listOf("a", "b2"), listOf(a.readText(), b.readText()))
+
+        robot.interact { assertTrue(editor.saveAll()) }
+        assertEquals(listOf("a1", "b2"), listOf(a.readText(), b.readText()))
+        assertEquals(listOf("a.txt", "b.txt"), tabTitles(robot))
+    }
+
+    /** Opens `.unsavable` files in an edited view whose saving always fails. */
+    private class UnsavableViewer : FileViewer {
+        override fun canOpen(file: Path) = file.toString().endsWith(".unsavable")
+
+        override fun open(file: Path): FileView =
+            object : EditableFileView {
+                override val node = Label("edited")
+                override val dirty = SimpleBooleanProperty(true)
+
+                override fun reload() {}
+
+                override fun save() = throw IOException("Disk full")
+            }
+    }
+
+    @Test
+    fun `save all saves the other files when one cannot be saved`(robot: FxRobot) {
+        val fallback = DefaultTextFileViewer()
+        val area = EditorArea(FileViewers(listOf(fallback, UnsavableViewer()), fallback), watcher, fontSettings)
+        val errors = mutableListOf<String>()
+        area.showError = { errors += it }
+        robot.interact { stage.scene = Scene(area, 800.0, 400.0) }
+        val a = textFile("a.txt", "a")
+        val b = textFile("b.txt", "b")
+        robot.interact {
+            area.open(a)
+            area.open(textFile("notes.unsavable"))
+            area.open(b)
+        }
+        for (file in listOf(a, b)) {
+            robot.interact {
+                area.open(file)
+                robot.lookup(".editor-content .code-area").queryAs(CodeArea::class.java).appendText("1")
+            }
+        }
+
+        robot.interact { assertFalse(area.saveAll()) }
+
+        assertEquals(listOf("a1", "b1"), listOf(a.readText(), b.readText()))
+        assertEquals(listOf("notes.unsavable could not be saved. Disk full"), errors)
+        assertEquals(listOf("a.txt", "\u25cf notes.unsavable", "b.txt"), area.tabs.map { it.title.value })
+    }
+
+    @Test
+    fun `a file that cannot be saved stays edited and the error is shown`(robot: FxRobot) {
+        val fallback = DefaultTextFileViewer()
+        val area = EditorArea(FileViewers(listOf(fallback, UnsavableViewer()), fallback), watcher, fontSettings)
+        val errors = mutableListOf<String>()
+        area.showError = { errors += it }
+        robot.interact { stage.scene = Scene(area, 800.0, 400.0) }
+        val file = textFile("notes.unsavable")
+        robot.interact { area.open(file) }
+
+        robot.interact { assertFalse(area.save()) }
+        robot.interact { assertFalse(area.saveAll()) }
+
+        assertEquals(List(2) { "notes.unsavable could not be saved. Disk full" }, errors)
+        assertEquals(
+            "● notes.unsavable",
+            area.tabs
+                .single()
+                .title.value,
+        )
+    }
+
+    @Test
+    fun `an open editor is not swapped for a diff, not even after saving`(robot: FxRobot) {
+        val a = textFile("a.txt", "new\n")
+        open(robot, a)
+        robot.interact { shownArea(robot).insertText(0, "newer ") }
+
+        editor.diffOf = { TextDiff("old\n", listOf(LineChange(0..0, 0..0))) }
+        robot.interact { editor.refreshDiffs() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals("newer new\n", shownText(robot))
+        assertEquals(emptyList(), shownDiff(robot))
+
+        robot.interact {
+            editor.save()
+            editor.refreshDiffs()
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals("newer new\n", shownText(robot))
+        assertEquals(emptyList(), shownDiff(robot))
     }
 
     /** The texts of the code areas of the shown diff, left to right; empty if no diff is shown. */
