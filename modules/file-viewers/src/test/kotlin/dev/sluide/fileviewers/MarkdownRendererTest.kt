@@ -2,6 +2,7 @@ package dev.sluide.fileviewers
 
 import org.jsoup.Jsoup
 import org.junit.jupiter.api.io.TempDir
+import java.io.RandomAccessFile
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeBytes
@@ -101,6 +102,16 @@ class MarkdownRendererTest {
         assertEquals("docs/other.md", page.selectFirst("a")?.attr("href"))
         // No base: anchors (#part) must stay on the page.
         assertNull(page.selectFirst("base"))
+    }
+
+    @Test
+    fun `local images over 10 MB are not embedded`() {
+        RandomAccessFile(dir.resolve("big.png").toFile(), "rw").use { it.setLength(10L * 1024 * 1024 + 1) }
+        dir.resolve("small.png").writeBytes(byteArrayOf(1))
+
+        val sources = render("![big](big.png) ![small](small.png)").select("img").map { it.attr("src") }
+
+        assertEquals(listOf("big.png", "data:image/png;base64,AQ=="), sources)
     }
 
     @Test

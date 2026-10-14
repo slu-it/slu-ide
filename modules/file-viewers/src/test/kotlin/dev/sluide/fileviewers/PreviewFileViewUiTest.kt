@@ -214,6 +214,24 @@ class PreviewFileViewUiTest {
     }
 
     @Test
+    fun `side by side, a sorted CSV table still scrolls with the source`(robot: FxRobot) {
+        // Row i is on source line i.
+        val csv = "name,n\n" + (1..200).joinToString("") { "r$it,$it\n" }
+        val file = dir.resolve("data.csv").apply { writeText(csv) }
+        val view = WaitForAsyncUtils.asyncFx<PreviewFileView> { CsvFileViewer().open(file) as PreviewFileView }.get()
+        robot.interact { container.children.setAll(view.node) }
+        awaitLoaded(view)
+
+        // Descending by n: the rows are in reverse order.
+        view.script("document.querySelectorAll('th')[1].click(); document.querySelectorAll('th')[1].click()")
+        assertEquals("r200", view.script("document.querySelector('tbody td').textContent"))
+        robot.interact { view.source.area.showParagraphAtTop(150) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(0.0, view.offsetOf(150), 5.0)
+    }
+
+    @Test
     fun `a notebook opens rendered, with its outputs`(robot: FxRobot) {
         val png =
             java.io.ByteArrayOutputStream().also {

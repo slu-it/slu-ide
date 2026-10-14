@@ -105,6 +105,20 @@ class NotebookRendererTest {
     }
 
     @Test
+    fun `raw cells show their text, Markdown outputs are rendered`() {
+        val json =
+            """{"cells":[{"cell_type":"raw","source":["<b>raw</b>\n","*text*"]},
+            {"cell_type":"code","source":"x","outputs":[{"output_type":"display_data",
+              "data":{"text/markdown":"**bold** <script>alert(1)</script>","text/plain":"<Markdown>"}}]}]}"""
+        val page = render(json)
+
+        assertEquals("<b>raw</b>\n*text*", page.selectFirst(".cell.raw pre")?.wholeText())
+        val output = assertNotNull(page.selectFirst(".output"))
+        assertEquals("bold", output.selectFirst("strong")?.text())
+        assertNull(output.selectFirst("script"))
+    }
+
+    @Test
     fun `a notebook without cells is empty, not broken`() {
         val page = render("""{"cells":[]}""")
 

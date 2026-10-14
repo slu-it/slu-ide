@@ -194,6 +194,22 @@ class HtmlPreviewUiTest {
     }
 
     @Test
+    fun `a link clicked in the page opens its file and the page stays`(robot: FxRobot) {
+        val (_, view) = show(robot)
+        val host = RecordingHost()
+        view.host = host
+
+        // The press a click starts with, then WebKit following the link: no navigation of ours.
+        click(robot, view)
+        robot.interact { view.webView.engine.executeScript("document.querySelector('a').click()") }
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { fx { host.files.isNotEmpty() } }
+        awaitPage(view, "Hello")
+
+        assertEquals(listOf(dir.resolve("other.html")), fx { host.files.toList() })
+        assertTrue(!robot.lookup(".preview-notice").query<Node>().isVisible)
+    }
+
+    @Test
     fun `a page that navigates on its own is stopped, not reloaded in a loop`(robot: FxRobot) {
         dir.resolve("other.html").writeText("<h1>Other</h1>")
         val file =
@@ -425,6 +441,23 @@ class HtmlPreviewUiTest {
             assertEquals(listOf<String?>(null), synchronized(referers) { referers.toList() })
         } finally {
             other.stop(0)
+        }
+    }
+
+    @Test
+    fun `reload keeps the scroll position`(robot: FxRobot) {
+        val tall = "<div style=\"height: 5000px\"></div>"
+        val file = dir.resolve("index.html").apply { writeText("<h1>Hello</h1>$tall") }
+        val view = open(robot, file)
+        awaitPage(view, "Hello")
+        fx { view.webView.engine.executeScript("window.scrollTo(0, 700)") }
+
+        file.writeText("<h1>Changed</h1>$tall")
+        robot.interact { view.reload() }
+        awaitPage(view, "Changed")
+
+        WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) {
+            fx { (view.webView.engine.executeScript("window.scrollY") as Number).toDouble() } == 700.0
         }
     }
 
