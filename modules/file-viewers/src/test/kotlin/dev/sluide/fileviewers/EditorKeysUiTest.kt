@@ -129,6 +129,63 @@ class EditorKeysUiTest {
     }
 
     @Test
+    fun `shortcut+d duplicates the line as an undo step of its own`(robot: FxRobot) {
+        val view = open("Main.kt", "a\nb", robot)
+        // Typing right before, which the undo manager would otherwise merge with the copy.
+        robot.interact { view.area.insertText(1, "x") }
+        view.select(2, robot = robot)
+
+        robot.press(view.area, KeyCode.D, shortcut = true)
+        assertEquals("ax\nax\nb", view.area.text)
+        assertEquals(5, view.area.caretPosition, "the caret moves along to the copy")
+
+        robot.interact { view.area.undo() }
+        assertEquals("ax\nb", view.area.text)
+    }
+
+    @Test
+    fun `shortcut+d duplicates the selection and selects the copy`(robot: FxRobot) {
+        val view = open("Main.kt", "abc", robot)
+        view.select(0, 2, robot)
+
+        robot.press(view.area, KeyCode.D, shortcut = true)
+
+        assertEquals("ababc", view.area.text)
+        assertEquals("ab", view.area.selectedText)
+        assertEquals(2, view.area.selection.start)
+    }
+
+    @Test
+    fun `shortcut+shift+k deletes the touched lines`(robot: FxRobot) {
+        val view = open("Main.kt", "a\nb\nc\nd", robot)
+        view.select(2, 5, robot)
+
+        robot.press(view.area, KeyCode.K, shortcut = true, shift = true)
+
+        assertEquals("a\nd", view.area.text)
+        robot.interact { view.area.undo() }
+        assertEquals("a\nb\nc\nd", view.area.text)
+    }
+
+    @Test
+    fun `alt+shift+up and down move the lines with the caret`(robot: FxRobot) {
+        val view = open("Main.kt", "a\nb\nc", robot)
+        view.select(2, robot = robot)
+
+        robot.press(view.area, KeyCode.DOWN, alt = true, shift = true)
+        assertEquals("a\nc\nb", view.area.text)
+        assertEquals(4, view.area.caretPosition)
+
+        robot.press(view.area, KeyCode.UP, alt = true, shift = true)
+        robot.press(view.area, KeyCode.UP, alt = true, shift = true)
+        assertEquals("b\na\nc", view.area.text)
+        assertEquals(0, view.area.caretPosition)
+
+        robot.press(view.area, KeyCode.UP, alt = true, shift = true)
+        assertEquals("b\na\nc", view.area.text, "the first line does not move up")
+    }
+
+    @Test
     fun `keys change nothing in a read-only view`(robot: FxRobot) {
         val file = dir.resolve("latin1.txt").apply { writeBytes(ByteArray(9000) { 'a'.code.toByte() } + 0xE9.toByte()) }
         val view = WaitForAsyncUtils.asyncFx<CodeView> { CodeView(file, null) }.get()
@@ -138,6 +195,9 @@ class EditorKeysUiTest {
         robot.press(view.area, KeyCode.ENTER)
         robot.press(view.area, KeyCode.TAB)
         robot.press(view.area, KeyCode.TAB, shift = true)
+        robot.press(view.area, KeyCode.D, shortcut = true)
+        robot.press(view.area, KeyCode.K, shortcut = true, shift = true)
+        robot.press(view.area, KeyCode.DOWN, alt = true, shift = true)
 
         assertEquals(text, view.area.text)
     }

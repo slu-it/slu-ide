@@ -2,6 +2,7 @@ package dev.sluide.fileviewers
 
 import dev.sluide.textediting.IndentStyle
 import dev.sluide.textediting.Indentation
+import dev.sluide.textediting.LineOperations
 import dev.sluide.textediting.Selection
 import dev.sluide.textediting.TextEdit
 import javafx.event.Event
@@ -16,8 +17,9 @@ import org.fxmisc.wellbehaved.event.InputMap
 /**
  * The editing keys of a code view's [area], taking precedence over RichTextFX's own (add them with
  * `Nodes.addInputMap`): Enter (also with Shift) keeps the indentation, Tab and Shift+Tab indent and outdent in
- * [style]. They act only while the area is editable; otherwise RichTextFX's bindings, which do nothing then either,
- * get the keys.
+ * [style]; Shortcut+D duplicates the selection or line, Shortcut+Shift+K deletes lines, Alt+Shift+Up/Down move them.
+ * They act only while the area is editable; otherwise RichTextFX's bindings, which do nothing then either, get the
+ * keys.
  */
 internal fun editorKeys(
     area: CodeArea,
@@ -33,6 +35,19 @@ internal fun editorKeys(
         area.editOn(keyPressed(KeyCode.TAB, KeyCombination.SHIFT_DOWN)) { text, selection ->
             Indentation.outdent(text, selection, style)
         },
+        area.editOn(keyPressed(KeyCode.D, KeyCombination.SHORTCUT_DOWN), edit = LineOperations::duplicate),
+        area.editOn(
+            keyPressed(KeyCode.K, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
+            edit = LineOperations::deleteLines,
+        ),
+        area.editOn(
+            keyPressed(KeyCode.UP, KeyCombination.ALT_DOWN, KeyCombination.SHIFT_DOWN),
+            edit = LineOperations::moveUp,
+        ),
+        area.editOn(
+            keyPressed(KeyCode.DOWN, KeyCombination.ALT_DOWN, KeyCombination.SHIFT_DOWN),
+            edit = LineOperations::moveDown,
+        ),
     )
 
 /**
