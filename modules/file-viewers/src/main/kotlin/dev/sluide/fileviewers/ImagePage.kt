@@ -21,27 +21,18 @@ internal val imageTypes =
  * the previews' script (`sluide.setDark`).
  */
 internal object ImagePage {
-    private val stylesheet = resource("image-page.css")
-    private val script = resource("preview.js")
+    private val stylesheet = HtmlPage.resource("image-page.css")
+    private val script = HtmlPage.resource("preview.js")
+    private const val SWITCH_SIZE =
+        "document.body.addEventListener('click', function () { document.body.classList.toggle('actual'); });"
 
     fun render(
         bytes: ByteArray,
         type: String,
         dark: Boolean,
     ): String =
-        buildString {
-            append("<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n")
-            append("<style>\n").append(stylesheet).append("</style>\n</head>\n")
-            append(if (dark) "<body class=\"dark\">\n" else "<body>\n")
+        HtmlPage.render(dark, listOf(stylesheet), listOf(script, SWITCH_SIZE)) {
             append("<img alt=\"\" src=\"data:").append(type).append(";base64,")
-            append(Base64.getEncoder().encodeToString(bytes)).append("\">\n")
-            append("<script>\n").append(script)
-            append(
-                "document.body.addEventListener('click', function () { document.body.classList.toggle('actual'); });\n",
-            )
-            append("</script>\n</body>\n</html>\n")
+            append(Base64.getEncoder().encodeToString(bytes)).append("\">")
         }
-
-    private fun resource(name: String) =
-        checkNotNull(ImagePage::class.java.getResource(name)) { "missing $name" }.readText()
 }

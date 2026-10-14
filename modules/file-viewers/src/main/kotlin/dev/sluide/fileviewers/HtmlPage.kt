@@ -1,0 +1,54 @@
+package dev.sluide.fileviewers
+
+/**
+ * The frame of the pages that previews load from a string (Markdown, notebooks, CSV, images): UTF-8, stylesheets
+ * inline in the head, scripts inline at the end of the body. Such a page cannot reference files in the jar, so it
+ * carries what it uses.
+ */
+internal object HtmlPage {
+    /** The text of [name], a resource next to this class: the pages' stylesheets and scripts. */
+    fun resource(name: String): String =
+        checkNotNull(HtmlPage::class.java.getResource(name)) { "missing $name" }.readText()
+
+    /**
+     * A page with [styles] in its head, `dark` (if [dark]) and [classes] on its body, the [content] and then each of
+     * [scripts] in a script element of its own.
+     */
+    fun render(
+        dark: Boolean,
+        styles: List<String>,
+        scripts: List<String>,
+        classes: Collection<String> = emptyList(),
+        content: StringBuilder.() -> Unit,
+    ): String =
+        buildString {
+            append("<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n")
+            for (style in styles) append("<style>\n").append(style).append("\n</style>\n")
+            append("</head>\n")
+            val bodyClasses = (if (dark) listOf("dark") else emptyList()) + classes
+            append(if (bodyClasses.isEmpty()) "<body>\n" else "<body class=\"${bodyClasses.joinToString(" ")}\">\n")
+            content()
+            append('\n')
+            for (script in scripts) append("<script>\n").append(script).append("\n</script>\n")
+            append("</body>\n</html>\n")
+        }
+}
+
+/**
+ * Writes [code] with the tokens of [highlighter] (none: all plain), as fenced code in Markdown and code cells in
+ * notebooks show it: plain parts through [text], tokens through [token] with their CSS class from `syntax.css`.
+ */
+internal fun writeHighlighted(
+    code: String,
+    highlighter: SyntaxHighlighter?,
+    text: (String) -> Unit,
+    token: (text: String, styleClass: String) -> Unit,
+) {
+    var position = 0
+    for (span in highlighter?.highlight(code).orEmpty()) {
+        text(code.substring(position, span.start))
+        token(code.substring(span.start, span.end), span.style.styleClass)
+        position = span.end
+    }
+    text(code.substring(position))
+}

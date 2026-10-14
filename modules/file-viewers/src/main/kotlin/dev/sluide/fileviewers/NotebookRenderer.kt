@@ -198,13 +198,9 @@ internal object NotebookRenderer {
         code: String,
         highlighter: SyntaxHighlighter?,
     ) {
-        var position = 0
-        for (span in highlighter?.highlight(code).orEmpty()) {
-            element.appendText(code.substring(position, span.start))
-            element.appendElement("span").addClass(span.style.styleClass).text(code.substring(span.start, span.end))
-            position = span.end
+        writeHighlighted(code, highlighter, { element.appendText(it) }) { token, styleClass ->
+            element.appendElement("span").addClass(styleClass).text(token)
         }
-        element.appendText(code.substring(position))
     }
 
     /** Moves all of [source]'s nodes into [target], text between and around its elements too. */

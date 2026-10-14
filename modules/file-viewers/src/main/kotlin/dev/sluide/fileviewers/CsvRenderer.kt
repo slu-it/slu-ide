@@ -100,9 +100,9 @@ internal object CsvRenderer {
         return if (first.count { it == ';' } > first.count { it == ',' }) ';' else ','
     }
 
-    private val stylesheet = resource("preview.css")
-    private val script = resource("preview.js")
-    private val tableScript = resource("csv-table.js")
+    private val stylesheet = HtmlPage.resource("preview.css")
+    private val script = HtmlPage.resource("preview.js")
+    private val tableScript = HtmlPage.resource("csv-table.js")
 
     fun render(
         text: String,
@@ -113,10 +113,7 @@ internal object CsvRenderer {
         val header = rows.firstOrNull()
         val body = rows.drop(1)
         val columns = rows.maxOfOrNull { it.cells.size } ?: 0
-        return buildString {
-            append("<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n")
-            append("<style>\n").append(stylesheet).append("</style>\n</head>\n")
-            append(if (dark) "<body class=\"dark csv\">\n" else "<body class=\"csv\">\n")
+        return HtmlPage.render(dark, listOf(stylesheet), listOf(script, tableScript), listOf("csv")) {
             if (header == null) {
                 append("<p class=\"csv-note\">Empty file</p>\n")
             } else {
@@ -141,12 +138,8 @@ internal object CsvRenderer {
                     append(" of ").append("%,d".format(Locale.ROOT, body.size)).append(" rows.</p>\n")
                 }
             }
-            append("<script>\n").append(script).append(tableScript).append("</script>\n</body>\n</html>\n")
         }
     }
 
     private fun escape(text: String) = Entities.escape(text)
-
-    private fun resource(name: String) =
-        checkNotNull(CsvRenderer::class.java.getResource(name)) { "missing $name" }.readText()
 }

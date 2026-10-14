@@ -79,8 +79,8 @@ internal object MarkdownRenderer {
 
     private val outputSettings = Document.OutputSettings().prettyPrint(false)
 
-    private val stylesheet = resource("preview.css")
-    private val script = resource("preview.js")
+    private val stylesheet = HtmlPage.resource("preview.css")
+    private val script = HtmlPage.resource("preview.js")
 
     /** The preview page of [markdown], a file in [folder]. */
     fun render(
@@ -118,32 +118,16 @@ internal object MarkdownRenderer {
     fun page(
         body: Element,
         dark: Boolean,
-    ): String =
-        buildString {
-            append("<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n")
-            append("<style>\n").append(stylesheet).append("</style>\n")
-            val math = body.selectFirst(".math") != null
-            if (math) append("<style>\n").append(Vendor.katexCss).append("\n</style>\n")
-            append("</head>\n")
-            val classes = (body.classNames() + if (dark) setOf("dark") else emptySet()).joinToString(" ")
-            append(if (classes.isEmpty()) "<body>\n" else "<body class=\"$classes\">\n")
-            append(body.html())
-            append("\n<script>\n").append(script).append("</script>\n")
-            if (math) inlineScript(Vendor.katexJs, "sluide.renderMath();")
-            if (body.selectFirst("pre.mermaid") != null) inlineScript(Vendor.mermaidJs, "sluide.renderDiagrams();")
-            append("</body>\n</html>\n")
-        }
-
-    /** Adds the [library] to the page, then runs [start]. */
-    private fun StringBuilder.inlineScript(
-        library: String,
-        start: String,
-    ) {
-        append("<script>\n")
-            .append(library)
-            .append("\n</script>\n<script>")
-            .append(start)
-            .append("</script>\n")
+    ): String {
+        val math = body.selectFirst(".math") != null
+        val diagrams = body.selectFirst("pre.mermaid") != null
+        // Each library in a script of its own, then the call that starts it.
+        val scripts =
+            listOf(script) +
+                (if (math) listOf(Vendor.katexJs, "sluide.renderMath();") else emptyList()) +
+                (if (diagrams) listOf(Vendor.mermaidJs, "sluide.renderDiagrams();") else emptyList())
+        val styles = if (math) listOf(stylesheet, Vendor.katexCss) else listOf(stylesheet)
+        return HtmlPage.render(dark, styles, scripts, body.classNames()) { append(body.html()) }
     }
 
     /** A local image at [src] (relative to [folder] or `file:`) as a `data:` URI, or `null` to keep [src]. */
@@ -170,9 +154,6 @@ internal object MarkdownRenderer {
         if (node !is Block) return
         node.sourceSpans.firstOrNull()?.let { attributes["data-line"] = it.lineIndex.toString() }
     }
-
-    private fun resource(name: String) =
-        checkNotNull(MarkdownRenderer::class.java.getResource(name)) { "missing $name" }.readText()
 
     /** Fenced code, highlighted like the code views when its language is known. */
     private class FencedCodeRenderer(
@@ -208,15 +189,11 @@ internal object MarkdownRenderer {
             html.tag("pre", context.extendAttributes(block, "pre", emptyMap()))
             val codeClass = if (language.isEmpty()) emptyMap() else mapOf("class" to "language-$language")
             html.tag("code", context.extendAttributes(block, "code", codeClass))
-            var position = 0
-            for (span in highlighter?.highlight(code).orEmpty()) {
-                html.text(code.substring(position, span.start))
-                html.tag("span", mapOf("class" to span.style.styleClass))
-                html.text(code.substring(span.start, span.end))
+            writeHighlighted(code, highlighter, html::text) { token, styleClass ->
+                html.tag("span", mapOf("class" to styleClass))
+                html.text(token)
                 html.tag("/span")
-                position = span.end
             }
-            html.text(code.substring(position))
             html.tag("/code")
             html.tag("/pre")
             html.line()
