@@ -7,7 +7,7 @@ assembled from Gradle modules.
 | Path | Purpose |
 |------|---------|
 | `ide/` | Application module: launcher, Spring Boot configuration, main window. Produces the fat jar (`./gradlew :ide:bootJar`). |
-| `modules/<name>/` | One Gradle module per IDE capability: `file-explorer`, `editor` (tabs), `file-viewers` (views of files; the Markdown preview uses `javafx.web`), `file-watcher` (changes on disk), `terminal` (shells in editor tabs), `settings` (settings state, storage and dialog), `docker-sandbox` (`sbx` in terminal tabs), `git` (git status of the open repository). |
+| `modules/<name>/` | One Gradle module per IDE capability: `file-explorer`, `editor` (tabs), `file-viewers` (views of files and side-by-side diffs; the previews of Markdown, HTML, SVG, CSV and notebooks and the image view are `javafx.web` WebViews), `file-watcher` (changes on disk), `terminal` (shells in editor tabs), `settings` (settings state, storage and dialog), `docker-sandbox` (`sbx` in terminal tabs), `git` (git status of the open repository and diffs against `HEAD`). |
 | `gradle/libs.versions.toml` | Single place for dependency and plugin versions. |
 | `docs/` | This documentation. Start at [index.md](index.md). |
 | `.claude/` | Claude Code settings, agents, rules, scripts. |
@@ -27,7 +27,8 @@ assembled from Gradle modules.
   - `terminal` -> `editor`: terminals are shown as `EditorTab`s ([ADR 0007](adr/0007-terminal.md)).
   - `docker-sandbox` -> `terminal`: sandboxes run in terminal tabs ([ADR 0010](adr/0010-docker-sandbox.md)).
   - `git` -> `file-watcher`: the `.git` folder is watched to refresh the status
-    ([ADR 0013](adr/0013-git-status.md)).
+    ([ADR 0013](adr/0013-git-status.md)). Markers and diffs reach the explorer and the editor through `ide`
+    (`MainWindow`), not through module dependencies ([ADR 0015](adr/0015-git-diff.md)).
   - `file-explorer`, `editor`, `terminal` -> `settings`: they use the configured fonts
     ([ADR 0008](adr/0008-settings.md)).
 - Shared build configuration (JDK toolchain, test setup, Spring BOM) is in the root `build.gradle.kts`.
@@ -35,7 +36,8 @@ assembled from Gradle modules.
 ## Runtime
 1. `SluIdeLauncher.main` calls `Application.launch(SluIdeApplication)`.
 2. `SluIdeApplication.init()` starts a non-web Spring context scanning `dev.sluide` ([ADR 0002](adr/0002-spring-inside-javafx.md)).
-3. `SluIdeApplication.start()` asks `ProjectWindows` to show the first window in the primary stage.
+3. `SluIdeApplication.start()` asks `ProjectWindows` to show the first window in the primary stage, with the first
+   folder from the command line; further folders open in new windows.
 4. Each window gets its own instances of the beans with `@Scope("window")` (`WindowScope`, [ADR 0014](adr/0014-project-windows.md)):
    `MainWindow`, `ProjectService`, `FileExplorerView`, `EditorArea`, `Terminals`, `DockerSandbox`, `GitStatusService`.
    They are created when the window opens and destroyed (`close()`) when it closes. Singletons must not depend on
