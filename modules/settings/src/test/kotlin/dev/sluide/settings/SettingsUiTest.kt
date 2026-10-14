@@ -33,13 +33,8 @@ class SettingsUiTest {
     lateinit var dir: Path
 
     private lateinit var stage: Stage
-    private val defaults =
-        mapOf(
-            FontArea.EXPLORER to FontSpec("System", 13.0),
-            FontArea.EDITOR to FontSpec("Monospaced", 13.0),
-            FontArea.TERMINAL to FontSpec("Monospaced", 14.0),
-        )
-    private val settings by lazy { FontSettings(SettingsStore(dir.resolve("settings.properties")), defaults) }
+    private val defaults = TestFonts.defaults
+    private val settings by lazy { TestFonts.settings(dir.resolve("settings.properties")) }
     private val fontsPage by lazy { FontsPage(settings) }
     private val themeSettings by lazy {
         ThemeSettings(SettingsStore(dir.resolve("settings.properties")), { SimpleObjectProperty(ColorScheme.LIGHT) })

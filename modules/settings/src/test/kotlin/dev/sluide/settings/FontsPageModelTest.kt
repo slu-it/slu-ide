@@ -9,13 +9,8 @@ class FontsPageModelTest {
     @TempDir
     lateinit var dir: Path
 
-    private val defaults =
-        mapOf(
-            FontArea.EXPLORER to FontSpec("System", 13.0),
-            FontArea.EDITOR to FontSpec("Monospaced", 13.0),
-            FontArea.TERMINAL to FontSpec("Monospaced", 14.0),
-        )
-    private val settings by lazy { FontSettings(SettingsStore(dir.resolve("settings.properties")), defaults) }
+    private val defaults = TestFonts.defaults
+    private val settings by lazy { TestFonts.settings(dir.resolve("settings.properties")) }
     private val model by lazy { FontsPageModel(settings) }
 
     @Test

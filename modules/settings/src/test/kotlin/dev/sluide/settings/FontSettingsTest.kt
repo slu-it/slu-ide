@@ -13,16 +13,10 @@ class FontSettingsTest {
     @TempDir
     lateinit var dir: Path
 
-    private val defaults =
-        mapOf(
-            FontArea.EXPLORER to FontSpec("System", 13.0),
-            FontArea.EDITOR to FontSpec("Monospaced", 13.0),
-            FontArea.TERMINAL to FontSpec("Monospaced", 14.0),
-        )
-
+    private val defaults = TestFonts.defaults
     private val file get() = dir.resolve("config/settings.properties")
 
-    private fun settings() = FontSettings(SettingsStore(file), defaults)
+    private fun settings() = TestFonts.settings(file)
 
     @Test
     fun `css sets family, size, weight and style`() {
