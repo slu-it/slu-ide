@@ -37,8 +37,10 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
 import kotlin.io.path.createParentDirectories
 import kotlin.io.path.deleteExisting
+import kotlin.io.path.exists
 import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.name
+import kotlin.io.path.readText
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
@@ -432,6 +434,117 @@ class FileExplorerViewUiTest {
 
         assertTrue(newFile.isDisable)
         assertTrue(newFolder.isDisable)
+    }
+
+    @Test
+    fun `Rename renames the clicked entry at once, selects it and reports the move`(robot: FxRobot) {
+        val file = project.resolve("old.txt").apply { writeText("content") }
+        project.resolve("other.txt").createFile()
+        useUnwatchedView(robot)
+        val moves = mutableListOf<Pair<Path, Path>>()
+        view.onMoved = { from, to -> moves += from to to }
+        val asked = mutableListOf<String?>()
+        view.askName = { title, initial, validate ->
+            asked += listOf(title, initial, validate("old.txt"), validate("other.txt"))
+            "new.txt"
+        }
+        robot.interact { view.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val rename = menuItemFor(robot, cellNamed(robot, "old.txt"), "Rename…")
+        assertFalse(rename.isDisable)
+        robot.interact { rename.fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val renamed = project.resolve("new.txt")
+        assertEquals(listOf("Rename", "old.txt", null, "“other.txt” already exists in this folder."), asked)
+        assertEquals("content", renamed.readText())
+        assertEquals(listOf(project.name, "new.txt", "other.txt"), renderedNames(robot))
+        robot.interact { assertEquals(renamed, view.selectionModel.selectedItem?.value) }
+        assertEquals(listOf(file to renamed), moves)
+    }
+
+    @Test
+    fun `a renamed folder keeps its content, stays expanded and is watched again`(robot: FxRobot) {
+        project.resolve("sub/inner.txt").createParentDirectories().createFile()
+        val moves = mutableListOf<Pair<Path, Path>>()
+        view.onMoved = { from, to -> moves += from to to }
+        view.askName = { _, _, _ -> "renamed" }
+        robot.interact { view.open(project) }
+        robot.interact {
+            view.root.children
+                .single()
+                .isExpanded = true
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        robot.interact { view.rename(view.root.children.single() as FileTreeItem) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(listOf(project.resolve("sub") to project.resolve("renamed")), moves)
+        assertEquals(listOf(project.name, "renamed", "inner.txt"), renderedNames(robot))
+        project.resolve("renamed/later.txt").createFile()
+        eventually(
+            robot,
+        ) { assertEquals(listOf(project.name, "renamed", "inner.txt", "later.txt"), renderedNames(robot)) }
+    }
+
+    @Test
+    fun `F2 renames the selected entry, but not the opened folder`(robot: FxRobot) {
+        project.resolve("a.txt").createFile()
+        val asked = mutableListOf<String>()
+        view.askName = { _, initial, _ ->
+            asked += initial
+            null
+        }
+        robot.interact { view.open(project) }
+
+        robot.interact {
+            view.selectionModel.select(view.root.children.single())
+            pressKey(KeyCode.F2)
+            view.selectionModel.select(view.root)
+            pressKey(KeyCode.F2)
+        }
+
+        assertEquals(listOf("a.txt"), asked)
+        assertTrue(project.resolve("a.txt").exists())
+    }
+
+    @Test
+    fun `Rename is disabled for the opened folder and the empty area`(robot: FxRobot) {
+        robot.interact { view.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertTrue(menuItemFor(robot, cellNamed(robot, project.name), "Rename…").isDisable)
+        assertTrue(menuItemFor(robot, view, "Rename…").isDisable)
+    }
+
+    @Test
+    fun `renaming to the same name changes nothing, a failed rename shows the error`(robot: FxRobot) {
+        val file = project.resolve("a.txt").createFile()
+        val moves = mutableListOf<Pair<Path, Path>>()
+        view.onMoved = { from, to -> moves += from to to }
+        val errors = mutableListOf<String>()
+        view.showError = { errors += it }
+        view.askName = { _, initial, _ -> initial }
+        lateinit var item: FileTreeItem
+        robot.interact {
+            view.open(project)
+            item = view.root.children.single() as FileTreeItem
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        robot.interact { view.rename(item) }
+        assertTrue(file.exists())
+        assertEquals(emptyList(), errors)
+
+        view.askName = { _, _, _ ->
+            file.deleteExisting()
+            "b.txt"
+        }
+        robot.interact { view.rename(item) }
+        assertEquals(listOf("Could not rename “a.txt”: $file does not exist."), errors)
+        assertEquals(emptyList(), moves)
     }
 
     /** Repeats [assertion] on the FX thread until it passes; the JDK may poll for file changes on macOS. */

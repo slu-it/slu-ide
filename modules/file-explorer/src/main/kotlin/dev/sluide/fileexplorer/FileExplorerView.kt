@@ -65,6 +65,12 @@ class FileExplorerView(
     var onFilesChanged: () -> Unit = {}
 
     /**
+     * Called after a file or folder was renamed in the explorer, with its old and new path. A folder's content moved
+     * along with it.
+     */
+    var onMoved: (from: Path, to: Path) -> Unit = { _, _ -> }
+
+    /**
      * Asks for a name, starting with `initial`, while `validate` tells what is wrong with it; `null` if cancelled.
      * Shows a dialog; tests replace it, since it blocks.
      */
@@ -108,6 +114,11 @@ class FileExplorerView(
                     refreshAll()
                     event.consume()
                 }
+
+                event.code == KeyCode.F2 && canChange(selectionModel.selectedItem) -> {
+                    rename(selectionModel.selectedItem as FileTreeItem)
+                    event.consume()
+                }
             }
         }
         contextMenu = fileMenu()
@@ -120,15 +131,19 @@ class FileExplorerView(
     private fun fileMenu(): ContextMenu {
         val newFile = MenuItem("New File…").apply { setOnAction { create(menuTarget, folder = false) } }
         val newFolder = MenuItem("New Folder…").apply { setOnAction { create(menuTarget, folder = true) } }
+        val rename = MenuItem("Rename…").apply { setOnAction { menuTarget?.let(::rename) } }
         return ContextMenu(
             newFile,
             newFolder,
+            SeparatorMenuItem(),
+            rename,
             SeparatorMenuItem(),
             MenuItem("Refresh").apply { setOnAction { refreshAll() } },
         ).apply {
             setOnShowing {
                 newFile.isDisable = root == null
                 newFolder.isDisable = root == null
+                rename.isDisable = !canChange(menuTarget)
             }
         }
     }
@@ -215,16 +230,46 @@ class FileExplorerView(
         if (!folder) requestOpen(created)
     }
 
-    /** Shows [path], an entry of [parent], at once, without waiting for the watch, and selects it. */
+    /** Whether [item] can be renamed or deleted: an entry of the opened folder, not the folder itself. */
+    private fun canChange(item: TreeItem<Path>?): Boolean = item is FileTreeItem && item.parent is FileTreeItem
+
+    /**
+     * Asks for a new name of [item] and renames it in its folder, reporting it to [onMoved]. The renamed entry is
+     * selected, a folder stays expanded if it was.
+     */
+    internal fun rename(item: FileTreeItem) {
+        val parent = item.parent as? FileTreeItem ?: return
+        val path = item.value
+        val name =
+            askName("Rename", path.fileName.toString()) {
+                FileOperations.nameProblem(it, parent.value, renaming = path)
+            }
+                ?: return
+        val renamed =
+            try {
+                FileOperations.rename(path, name)
+            } catch (e: FileOperationException) {
+                showError(e.message.orEmpty())
+                return
+            }
+        if (renamed == path) return
+        // The folder and its loaded subfolders have new paths, watched once they are loaded again.
+        watches.keys.filter { it.startsWith(path) }.forEach { watches.remove(it)?.close() }
+        onMoved(path, renamed)
+        select(parent, renamed)?.isExpanded = item.isExpanded
+    }
+
+    /** Shows [path], an entry of [parent], at once, without waiting for the watch, selects and returns it. */
     private fun select(
         parent: FileTreeItem,
         path: Path,
-    ) {
+    ): TreeItem<Path>? {
         parent.isExpanded = true
         // Reads the folder for the first time, or again if it was loaded.
         parent.refresh()
-        val item = parent.children.firstOrNull { it.value == path } ?: return
+        val item = parent.children.firstOrNull { it.value == path } ?: return null
         selectRow(item)
+        return item
     }
 
     /** Selects and focuses [item], scrolling only as far as needed to show it. */
