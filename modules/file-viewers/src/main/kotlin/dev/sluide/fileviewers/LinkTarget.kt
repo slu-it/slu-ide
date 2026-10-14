@@ -4,7 +4,7 @@ import java.net.URI
 import java.net.URISyntaxException
 import java.nio.file.Path
 
-/** Where a link in the Markdown preview leads. */
+/** Where a link in a preview (Markdown, HTML, notebooks, …) leads. */
 internal sealed interface LinkTarget {
     /** A page for the system browser (`http`, `https`, `mailto`). */
     data class WebPage(
@@ -18,7 +18,7 @@ internal sealed interface LinkTarget {
 }
 
 /**
- * Where [href], a link in a Markdown file in [folder], leads: web pages as they are, relative paths resolved against
+ * Where [href], a link in a previewed file in [folder], leads: web pages as they are, relative paths resolved against
  * [folder] without fragment or query (`other.md#part` is `other.md`), scheme-relative ones (`//host/x`) as `https`.
  * `null` for links within the page (`#part`), for other schemes and for links that are no valid URI or path.
  */

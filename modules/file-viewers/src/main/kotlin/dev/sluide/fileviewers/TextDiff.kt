@@ -13,7 +13,8 @@ data class TextDiff(
 
 /**
  * The lines [original] of the original version were replaced by the lines [current] of the file. Both are 0-based;
- * an empty range starts at the line before which lines were added (or after which lines were removed).
+ * an empty range starts at the line before which the other side's lines belong, for added lines (in [original]) and
+ * removed ones (in [current]) alike: `@@ -9,3 +11,0 @@` gives `11 until 11`.
  */
 data class LineChange(
     val original: IntRange,
