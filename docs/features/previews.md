@@ -17,3 +17,13 @@ and never navigate the preview (`FileViewHost`, [file-viewers.md](file-viewers.m
   `location`) is turned back; web pages open in the system browser, files in a tab. Anchors (`#part`) stay.
 - On a change on disk the page reloads at its scroll position. Changes to the files it uses (CSS, images) show on the
   next reload.
+
+## SVG (`.svg`) — `SvgFileViewer`
+- Opens in **Preview**: the image on a checkered background (transparency shows; light or dark with the theme),
+  fitted to the view; a click switches to actual size and back. Source is highlighted as XML.
+- The SVG is shown as an `<img>` (`data:` URI), so its scripts never run.
+
+## Images (png, jpg/jpeg, gif, webp, bmp, ico) — `ImageFileViewer`
+- Image files up to 50 MB open although they are binary: the image on the same checkered page as SVG (click for
+  actual size), with its pixel size and file size below. No source side; a changed file is shown again.
+- Modified images open normally, never as a diff.

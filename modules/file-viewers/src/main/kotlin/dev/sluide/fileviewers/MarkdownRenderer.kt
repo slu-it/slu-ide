@@ -104,7 +104,7 @@ internal object MarkdownRenderer {
         folder: Path,
     ): String? {
         val file = (resolveLink(src, folder) as? LinkTarget.File)?.path ?: return null
-        val type = IMAGE_TYPES[file.extension.lowercase()] ?: return null
+        val type = imageTypes[file.extension.lowercase()] ?: return null
         return try {
             if (!file.isRegularFile() || file.fileSize() > MAX_IMAGE_BYTES) return null
             "data:$type;base64," + Base64.getEncoder().encodeToString(file.readBytes())
@@ -114,18 +114,6 @@ internal object MarkdownRenderer {
     }
 
     private const val MAX_IMAGE_BYTES = 10L * 1024 * 1024
-
-    private val IMAGE_TYPES =
-        mapOf(
-            "png" to "image/png",
-            "jpg" to "image/jpeg",
-            "jpeg" to "image/jpeg",
-            "gif" to "image/gif",
-            "svg" to "image/svg+xml",
-            "webp" to "image/webp",
-            "bmp" to "image/bmp",
-            "ico" to "image/x-icon",
-        )
 
     private fun sourceLine(
         node: Node,

@@ -17,3 +17,10 @@
     -fx-padding: 0;
     -fx-background-insets: 0;
 }
+
+/* Image view (ImageFileView): pixel and file size below the image. */
+.image-status {
+    -fx-padding: 2 8 2 8;
+    -fx-font-size: 0.9em;
+    -fx-text-fill: derive(-fx-text-base-color, 30%);
+}

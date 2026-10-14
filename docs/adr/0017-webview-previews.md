@@ -18,6 +18,10 @@ they come with their own scripts and links and are shown as their author made th
   script of ours, links are caught as navigations: any location other than the file itself (with any anchor) is
   turned back and handed to the view's host, so the preview never shows another page.
 
+- **SVG and images** are shown as an `<img>` with a `data:` URI on a page of ours (`ImagePage`): no file access from the
+  page, and an SVG's scripts never run. Images are the first binary files SluIde opens; `ImageFileViewer` accepts them
+  without the text check, up to 50 MB.
+
 ## Consequences
 - A new rendered format is a `Preview` and a `PreviewFileViewer` subclass.
 - HTML previews show pages as browsers would, but without the page's scripts unless allowed; pages that build their
