@@ -18,7 +18,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** Renders the side-by-side diff in a stage. Needs a display, see the `uiTest` Gradle task. */
@@ -137,17 +136,5 @@ class DiffFileViewUiTest {
         val right = robot.lookup(".code-area").queryAllAs(CodeArea::class.java).maxBy { it.localToScene(0.0, 0.0).x }
         assertEquals("a", right.text)
         assertEquals(listOf(emptyList<String>()), right.paragraphClasses())
-    }
-
-    @Test
-    fun `only text viewers show diffs`() {
-        val other =
-            object : FileViewer {
-                override fun canOpen(file: Path) = true
-
-                override fun open(file: Path): FileView = error("not needed")
-            }
-        val file = dir.resolve("a.txt").apply { writeText("a\n") }
-        assertNull(FileViewers(listOf(other), DefaultTextFileViewer()).openDiff(file, TextDiff("", emptyList())))
     }
 }

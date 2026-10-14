@@ -54,4 +54,11 @@ class FileViewersTest {
 
         assertNull(FileViewers(listOf(fallback), fallback).viewerFor(file))
     }
+
+    @Test
+    fun `only text viewers show diffs`() {
+        val file = dir.resolve("a.txt").apply { writeText("a\n") }
+
+        assertNull(FileViewers(listOf(ExtensionViewer("txt")), fallback).openDiff(file, TextDiff("", emptyList())))
+    }
 }
