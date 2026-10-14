@@ -22,47 +22,53 @@ abstract class CodeFileViewer internal constructor(
     override fun canOpen(file: Path): Boolean =
         file.extension.lowercase() in extensions && Files.isReadable(file) && isTextFile(file)
 
-    override fun open(file: Path): FileView = CodeFileView(file)
+    override fun open(file: Path): FileView = CodeView(file, highlighter)
+}
 
-    private inner class CodeFileView(
-        private val file: Path,
-    ) : FileView {
-        private val area =
-            CodeArea().apply {
-                isEditable = false
-                paragraphGraphicFactory = LineNumberFactory.get(this)
-            }
-        private val pane =
-            VirtualizedScrollPane(area).apply {
-                styleClass += "code-view"
-                stylesheets += checkNotNull(CodeFileViewer::class.java.getResource("syntax.css")).toExternalForm()
-            }
-
-        init {
-            show(file.readText())
-            area.moveTo(0)
+/**
+ * Read-only view of [file] as code highlighted by [highlighter], with line numbers. Used by the code viewers and as
+ * the source side of other views, e.g. the Markdown preview.
+ */
+internal class CodeView(
+    private val file: Path,
+    private val highlighter: SyntaxHighlighter,
+) : FileView {
+    /** The RichTextFX area showing the text, for views that embed this one. */
+    val area =
+        CodeArea().apply {
+            isEditable = false
+            paragraphGraphicFactory = LineNumberFactory.get(this)
+        }
+    private val pane =
+        VirtualizedScrollPane(area).apply {
+            styleClass += "code-view"
+            stylesheets += checkNotNull(CodeView::class.java.getResource("syntax.css")).toExternalForm()
         }
 
-        override val node: Node get() = pane
+    init {
+        show(file.readText())
+        area.moveTo(0)
+    }
 
-        override fun reload() {
-            val text = file.readText()
-            if (text == area.text) return
-            val caret = area.caretPosition
-            val scrollX = pane.estimatedScrollX
-            val scrollY = pane.estimatedScrollY
-            show(text)
-            area.moveTo(caret.coerceAtMost(text.length))
-            // Moving the caret makes the area follow it during the next layout; lay out now, then scroll back.
-            pane.layout()
-            pane.scrollXToPixel(scrollX)
-            pane.scrollYToPixel(scrollY)
-        }
+    override val node: Node get() = pane
 
-        private fun show(text: String) {
-            area.replaceText(text)
-            if (text.isNotEmpty()) area.setStyleSpans(0, codeStyleSpans(text, highlighter))
-        }
+    override fun reload() {
+        val text = file.readText()
+        if (text == area.text) return
+        val caret = area.caretPosition
+        val scrollX = pane.estimatedScrollX
+        val scrollY = pane.estimatedScrollY
+        show(text)
+        area.moveTo(caret.coerceAtMost(text.length))
+        // Moving the caret makes the area follow it during the next layout; lay out now, then scroll back.
+        pane.layout()
+        pane.scrollXToPixel(scrollX)
+        pane.scrollYToPixel(scrollY)
+    }
+
+    private fun show(text: String) {
+        area.replaceText(text)
+        if (text.isNotEmpty()) area.setStyleSpans(0, codeStyleSpans(text, highlighter))
     }
 }
 
