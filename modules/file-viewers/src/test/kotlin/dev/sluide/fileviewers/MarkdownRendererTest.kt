@@ -128,7 +128,7 @@ class MarkdownRendererTest {
         for (tag in listOf("iframe", "object", "embed", "svg", "form", "input", "meta")) {
             assertTrue(body.select(tag).isEmpty(), tag)
         }
-        assertFalse(body.selectFirst("p")!!.hasAttr("style"))
+        assertFalse(assertNotNull(body.selectFirst("p")).hasAttr("style"))
         assertTrue(body.select("a").none { it.hasAttr("href") })
     }
 

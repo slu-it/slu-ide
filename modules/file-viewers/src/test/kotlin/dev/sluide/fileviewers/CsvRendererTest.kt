@@ -3,6 +3,7 @@ package dev.sluide.fileviewers
 import org.jsoup.Jsoup
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 class CsvRendererTest {
@@ -45,15 +46,9 @@ class CsvRendererTest {
         val page = Jsoup.parse(CsvRenderer.render("x,y,z\n1,2\n<b>3</b>,4,5\n", ',', dark = false))
 
         assertEquals(listOf("x", "y", "z"), page.select("thead th").map { it.text() })
-        assertEquals(
-            listOf("1", "2", ""),
-            page
-                .select("tbody tr")
-                .first()!!
-                .select("td")
-                .map { it.text() },
-        )
-        assertEquals("<b>3</b>", page.select("tbody tr")[1].selectFirst("td")!!.text())
+        val rows = page.select("tbody tr")
+        assertEquals(listOf("1", "2", ""), assertNotNull(rows.first()).select("td").map { it.text() })
+        assertEquals("<b>3</b>", rows[1].selectFirst("td")?.text())
         assertEquals(listOf("0", "1", "2"), page.select("tr").map { it.attr("data-line") })
     }
 

@@ -57,14 +57,14 @@ class NotebookRendererTest {
 
     @Test
     fun `outputs show their richest form, sanitised`() {
-        val outputs = render(notebook).select(".cell.code").first()!!.select(".output")
+        val outputs = assertNotNull(render(notebook).select(".cell.code").first()).select(".output")
 
         assertEquals("hi", outputs[0].text())
         assertTrue(outputs[0].hasClass("stdout"))
         assertEquals("1", outputs[1].selectFirst("td")?.text())
         assertNull(outputs[1].selectFirst("script"))
         assertEquals("data:image/png;base64,AQID", outputs[2].selectFirst("img")?.attr("src"))
-        assertTrue(outputs[3].selectFirst("img")!!.attr("src").startsWith("data:image/svg+xml;base64,"))
+        assertTrue(assertNotNull(outputs[3].selectFirst("img")).attr("src").startsWith("data:image/svg+xml;base64,"))
         assertEquals("ValueError: bad", outputs[4].text())
         assertTrue(outputs[4].hasClass("error"))
     }
