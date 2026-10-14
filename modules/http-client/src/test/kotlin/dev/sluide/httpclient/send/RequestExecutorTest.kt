@@ -9,6 +9,7 @@ import java.io.ByteArrayOutputStream
 import java.net.ServerSocket
 import java.net.URI
 import java.net.http.HttpClient
+import java.nio.channels.ClosedByInterruptException
 import java.nio.file.Path
 import java.security.MessageDigest
 import java.time.Duration
@@ -16,6 +17,7 @@ import java.util.HexFormat
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.DeflaterOutputStream
@@ -343,5 +345,71 @@ class RequestExecutorTest {
 
         assertEquals(401, result.status)
         assertEquals(1, result.notes.size)
+    }
+
+    @Test
+    fun `gives exactly one result when preparing throws an error`() {
+        val results = CopyOnWriteArrayList<ExchangeResult>()
+        val done = CountDownLatch(1)
+
+        executor.run(RequestTags(), {
+            results += it
+            done.countDown()
+        }) { throw StackOverflowError("deep") }
+
+        assertTrue(done.await(5, TimeUnit.SECONDS))
+        Thread.sleep(100)
+        val failure = assertIs<HttpFailure>(results.single())
+        assertEquals("Unexpected error: java.lang.StackOverflowError: deep", failure.message)
+    }
+
+    @Test
+    fun `reports a cancel that surfaces as another error while preparing as cancelled`() {
+        val preparing = CountDownLatch(1)
+        val result = CompletableFuture<ExchangeResult>()
+        val running =
+            executor.run(RequestTags(), result::complete) {
+                preparing.countDown()
+                try {
+                    Thread.sleep(10_000)
+                } catch (e: InterruptedException) {
+                    throw java.nio.channels
+                        .ClosedByInterruptException()
+                        .initCause(e)
+                }
+                server.request("/echo")
+            }
+        assertTrue(preparing.await(5, TimeUnit.SECONDS))
+
+        running.cancel()
+
+        val failure = assertIs<HttpFailure>(result.get(5, TimeUnit.SECONDS))
+        assertTrue(failure.cancelled)
+        assertEquals("Cancelled", failure.message)
+    }
+
+    @Test
+    fun `leaves no interrupt behind on a pooled thread`() {
+        val pool =
+            java.util.concurrent.Executors
+                .newSingleThreadExecutor()
+        RequestExecutor(clients, pool).use { pooled ->
+            val preparing = CountDownLatch(1)
+            val first = CompletableFuture<ExchangeResult>()
+            val running =
+                pooled.run(RequestTags(), first::complete) {
+                    preparing.countDown()
+                    Thread.sleep(10_000)
+                    server.request("/echo")
+                }
+            assertTrue(preparing.await(5, TimeUnit.SECONDS))
+            running.cancel()
+            assertIs<HttpFailure>(first.get(5, TimeUnit.SECONDS))
+
+            val interrupted = pool.submit<Boolean> { Thread.currentThread().isInterrupted }.get(5, TimeUnit.SECONDS)
+
+            assertFalse(interrupted)
+        }
+        pool.shutdownNow()
     }
 }

@@ -43,10 +43,28 @@ internal class RequestExecutor(
         request: PreparedRequest,
         tags: RequestTags,
         onResult: (ExchangeResult) -> Unit,
+    ): Cancellable = run(tags, onResult) { request }
+
+    /**
+     * Runs [prepare] on the executor, then sends the request it returns. [prepare] may block (e.g. for token requests)
+     * and add notes; cancelling interrupts it. What it throws becomes the [HttpFailure], with the message as it is.
+     * `@timeout` does not cover the preparation.
+     */
+    fun run(
+        tags: RequestTags,
+        onResult: (ExchangeResult) -> Unit,
+        prepare: (notes: MutableList<String>) -> PreparedRequest,
     ): Cancellable {
-        val exchange = Exchange(request, tags)
+        val exchange = Exchange(tags, prepare)
         executor.execute {
-            val result = exchange.run()
+            val result =
+                try {
+                    exchange.run()
+                } catch (e: Throwable) {
+                    exchange.unexpected(e)
+                }
+            // A late cancel must not leave its interrupt to the next task of a pooled thread.
+            Thread.interrupted()
             dispatch { onResult(result) }
         }
         return Cancellable(exchange::cancel)
@@ -58,26 +76,63 @@ internal class RequestExecutor(
     }
 
     private inner class Exchange(
-        private val request: PreparedRequest,
         private val tags: RequestTags,
+        private val prepare: (MutableList<String>) -> PreparedRequest,
     ) {
         private val timeout = tags.timeout ?: DEFAULT_TIMEOUT
         private val connectTimeout = tags.connectionTimeout ?: DEFAULT_TIMEOUT
-        private val start = System.nanoTime()
-        private val notes = request.notes.toMutableList()
+
+        /** When preparing, then when sending started: the deadline and the elapsed time leave preparation out. */
+        @Volatile
+        private var start = System.nanoTime()
+        private val notes = mutableListOf<String>()
+        private lateinit var request: PreparedRequest
 
         @Volatile
         private var cancelled = false
+
+        /** The thread while it prepares; guarded by [preparingLock] so that [cancel] interrupts only preparation. */
+        private var preparing: Thread? = null
+        private val preparingLock = Any()
 
         @Volatile
         private var current: CompletableFuture<*>? = null
 
         fun cancel() {
             cancelled = true
+            synchronized(preparingLock) { preparing?.interrupt() }
             current?.cancel(true)
         }
 
-        fun run(): ExchangeResult =
+        fun run(): ExchangeResult {
+            val prepareNotes = mutableListOf<String>()
+            try {
+                synchronized(preparingLock) { preparing = Thread.currentThread() }
+                if (cancelled) return failure("Cancelled", cancelled = true)
+                request = prepare(prepareNotes)
+            } catch (_: InterruptedException) {
+                notes += prepareNotes
+                return interrupted()
+            } catch (e: Exception) {
+                notes += prepareNotes
+                // A cancel may surface as another error, e.g. ClosedByInterruptException while reading a file.
+                if (cancelled) return failure("Cancelled", cancelled = true)
+                return failure(e.message ?: e::class.simpleName.orEmpty())
+            } finally {
+                synchronized(preparingLock) { preparing = null }
+            }
+            Thread.interrupted()
+            if (cancelled) return failure("Cancelled", cancelled = true)
+            notes += request.notes + prepareNotes
+            start = System.nanoTime()
+            return send()
+        }
+
+        /** A failure for an error no step expected (e.g. an [Error]), so that there is a result all the same. */
+        fun unexpected(error: Throwable): HttpFailure =
+            if (cancelled) failure("Cancelled", cancelled = true) else failure("Unexpected error: $error")
+
+        private fun send(): ExchangeResult =
             try {
                 val key =
                     HttpClients.ClientKey(
@@ -92,13 +147,12 @@ internal class RequestExecutor(
             } catch (_: TimeoutException) {
                 failure("No complete response within ${describe(timeout)} (@timeout)")
             } catch (_: InterruptedException) {
-                Thread.currentThread().interrupt()
-                failure("Interrupted", cancelled = true)
+                interrupted()
             } catch (e: ExecutionException) {
                 // The JDK aborts a cancelled exchange with an error of its own.
                 if (cancelled) failure("Cancelled", cancelled = true) else failure(message(e.cause ?: e))
             } catch (e: Exception) {
-                failure(message(e))
+                if (cancelled) failure("Cancelled", cancelled = true) else failure(message(e))
             }
 
         /** The request to [uri], with [authorization] added if given. */
@@ -221,6 +275,10 @@ internal class RequestExecutor(
                 }
             }
         }
+
+        /** Interrupted by [cancel] or by [close]. */
+        private fun interrupted(): HttpFailure =
+            if (cancelled) failure("Cancelled", cancelled = true) else failure("Interrupted", cancelled = true)
 
         private fun failure(
             message: String,
