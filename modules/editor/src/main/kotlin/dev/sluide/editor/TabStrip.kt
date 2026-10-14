@@ -36,8 +36,8 @@ private val AUTO_SCROLL_INTERVAL: Duration = Duration.millis(300.0)
  */
 internal class TabStrip(
     private val editorTabs: EditorTabs,
-    /** Asked before tabs with a [EditorTab.closeWarning] are closed, with their warnings; `true` closes them. */
-    private val confirmClose: (warnings: List<String>) -> Boolean = { true },
+    /** Asked before tabs are closed, e.g. about unsaved changes or running programs; `true` closes them. */
+    private val confirmClose: (tabs: List<EditorTab>) -> Boolean = { true },
 ) : Region() {
     private val viewport = Pane().apply { styleClass += "tab-viewport" }
     private val viewportClip = Rectangle()
@@ -254,13 +254,12 @@ internal class TabStrip(
         setOnAction { action() }
     }
 
-    /** Runs [action], which closes [tabs], unless one of them warns against closing and the user cancels. */
+    /** Runs [action], which closes [tabs], unless closing them is not confirmed ([confirmClose]). */
     private fun close(
         tabs: List<EditorTab>,
         action: () -> Unit,
     ) {
-        val warnings = tabs.mapNotNull { it.closeWarning }
-        if (warnings.isEmpty() || confirmClose(warnings)) action()
+        if (confirmClose(tabs)) action()
     }
 
     private fun Node.contains(target: EventTarget): Boolean =

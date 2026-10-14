@@ -33,3 +33,51 @@ internal fun closeConfirmation(
         this.title = title
         headerText = header
     }
+
+/** What to do with unsaved changes before closing, answered by [askToSave]. */
+enum class SaveChoice {
+    /** Save them, then close. */
+    SAVE,
+
+    /** Close without saving them. */
+    DISCARD,
+
+    /** Close nothing. */
+    CANCEL,
+}
+
+/** The buttons of [saveConfirmation] besides Cancel. */
+internal val SAVE_BUTTON = ButtonType("Save", ButtonBar.ButtonData.YES)
+internal val DISCARD_BUTTON = ButtonType("Don't Save", ButtonBar.ButtonData.NO)
+
+/**
+ * Asks whether to save the unsaved changes of the [files] (their paths, listed one per line) before they close: Save,
+ * Don't Save or Cancel. Cancel is also the answer when the dialog is dismissed. Blocks until the dialog is closed; call
+ * it on the FX thread.
+ */
+internal fun askToSave(
+    owner: Window?,
+    files: List<String>,
+): SaveChoice =
+    when (saveConfirmation(owner, files).showAndWait().orElse(ButtonType.CANCEL)) {
+        SAVE_BUTTON -> SaveChoice.SAVE
+        DISCARD_BUTTON -> SaveChoice.DISCARD
+        else -> SaveChoice.CANCEL
+    }
+
+/** The dialog of [askToSave], not shown yet. */
+internal fun saveConfirmation(
+    owner: Window?,
+    files: List<String>,
+): Alert =
+    Alert(
+        Alert.AlertType.CONFIRMATION,
+        files.joinToString("\n"),
+        SAVE_BUTTON,
+        DISCARD_BUTTON,
+        ButtonType.CANCEL,
+    ).apply {
+        owner?.let(::initOwner)
+        title = "Unsaved Changes"
+        headerText = if (files.size == 1) "Save the changes to this file?" else "Save the changes to these files?"
+    }

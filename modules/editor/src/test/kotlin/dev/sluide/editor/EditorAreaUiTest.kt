@@ -787,6 +787,117 @@ class EditorAreaUiTest {
         override val content = Label(name)
     }
 
+    /** Opens [files], edits each and records what [EditorArea.confirmSave] is asked, answering [answer]. */
+    private fun openEdited(
+        robot: FxRobot,
+        vararg files: Path,
+        answer: () -> SaveChoice,
+    ): List<List<String>> {
+        val asked = mutableListOf<List<String>>()
+        editor.projectFolder = { dir }
+        editor.confirmSave = { names ->
+            asked += names
+            answer()
+        }
+        for (file in files) {
+            open(robot, file)
+            robot.interact { shownArea(robot).insertText(0, "edited ") }
+        }
+        return asked
+    }
+
+    @Test
+    fun `closing a tab with unsaved changes asks to save, Cancel keeps it and Don't Save discards them`(
+        robot: FxRobot,
+    ) {
+        val a = textFile("a.txt", "a")
+        var answer = SaveChoice.CANCEL
+        val asked = openEdited(robot, a) { answer }
+        val close = tabLabel(robot, "\u25cf a.txt").parent.lookup(".close-button") as Button
+
+        robot.interact { close.fire() }
+        assertEquals(listOf(listOf("a.txt")), asked)
+        assertEquals(listOf("\u25cf a.txt"), tabTitles(robot))
+
+        answer = SaveChoice.DISCARD
+        robot.interact { close.fire() }
+        assertEquals(emptyList(), tabTitles(robot))
+        assertEquals("a", a.readText())
+    }
+
+    @Test
+    fun `Save saves the files before their tabs close, and close all asks once for all of them`(robot: FxRobot) {
+        val a = textFile("a.txt", "a")
+        val b = textFile("b.txt", "b")
+        val asked = openEdited(robot, a, b) { SaveChoice.SAVE }
+        open(robot, textFile("clean.txt"))
+
+        robot.interact {
+            editor.tabStrip
+                .contextMenuOf(checkNotNull(editor.editorTabs.find(a)))
+                .items
+                .first { it.text == "Close All" }
+                .fire()
+        }
+
+        assertEquals(listOf(listOf("a.txt", "b.txt")), asked)
+        assertEquals(emptyList(), tabTitles(robot))
+        assertEquals(listOf("edited a", "edited b"), listOf(a.readText(), b.readText()))
+    }
+
+    @Test
+    fun `asking to save lists the files by their path in the project, or in full outside of it`(robot: FxRobot) {
+        val app =
+            dir
+                .resolve("app")
+                .createDirectories()
+                .resolve("build.gradle.kts")
+                .apply { writeText("app") }
+        val lib =
+            dir
+                .resolve("lib")
+                .createDirectories()
+                .resolve("build.gradle.kts")
+                .apply { writeText("lib") }
+        val outside = settingsDir.resolve("notes.txt").apply { writeText("notes") }
+        val asked = openEdited(robot, app, lib, outside) { SaveChoice.CANCEL }
+
+        robot.interact {
+            editor.tabStrip
+                .contextMenuOf(editor.tabs.first())
+                .items
+                .first { it.text == "Close All" }
+                .fire()
+        }
+
+        assertEquals(listOf(listOf("app/build.gradle.kts", "lib/build.gradle.kts", outside.toString())), asked)
+    }
+
+    @Test
+    fun `a tab whose file cannot be saved stays open`(robot: FxRobot) {
+        val fallback = DefaultTextFileViewer()
+        val area = EditorArea(FileViewers(listOf(fallback, UnsavableViewer()), fallback), watcher, fontSettings)
+        val errors = mutableListOf<String>()
+        area.showError = { errors += it }
+        area.confirmSave = { SaveChoice.SAVE }
+        robot.interact {
+            stage.scene = Scene(area, 800.0, 400.0)
+            area.open(textFile("notes.unsavable"))
+        }
+        val tab = area.tabs.single()
+
+        robot.interact {
+            area.tabStrip
+                .contextMenuOf(tab)
+                .items
+                .first { it.text == "Close" }
+                .fire()
+        }
+
+        assertEquals(listOf(tab), area.tabs)
+        assertEquals(1, errors.size)
+    }
+
     @Test
     fun `closing a tab with a warning asks first and keeps it on cancel`(robot: FxRobot) {
         val asked = mutableListOf<List<String>>()

@@ -67,4 +67,32 @@ class CloseConfirmationUiTest {
         assertFalse(alert.isShowing)
         assertEquals(CLOSE_BUTTON, alert.result)
     }
+
+    @Test
+    fun `asks to save the listed files with Save, Don't Save and Cancel`(robot: FxRobot) {
+        lateinit var alert: Alert
+        robot.interact { alert = saveConfirmation(stage, listOf("a.txt", "b.kt")) }
+
+        assertEquals(stage, alert.owner)
+        assertEquals("Unsaved Changes", alert.title)
+        assertEquals("Save the changes to these files?", alert.headerText)
+        assertEquals("a.txt\nb.kt", alert.contentText)
+        assertEquals(listOf("Save", "Don't Save", "Cancel"), alert.buttonTypes.map { it.text })
+
+        robot.interact { alert = saveConfirmation(null, listOf("a.txt")) }
+        assertEquals("Save the changes to this file?", alert.headerText)
+    }
+
+    @Test
+    fun `the Don't Save button discards`(robot: FxRobot) {
+        lateinit var alert: Alert
+        robot.interact {
+            alert = saveConfirmation(null, listOf("a.txt"))
+            alert.show()
+            (alert.dialogPane.lookupButton(DISCARD_BUTTON) as Button).fire()
+        }
+
+        assertFalse(alert.isShowing)
+        assertEquals(DISCARD_BUTTON, alert.result)
+    }
 }
