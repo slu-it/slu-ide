@@ -130,8 +130,8 @@ internal enum class PreviewMode(
  *
  * Clicked links never navigate the preview: anchors scroll within it, every other link goes to [host]
  * ([resolveLink]): web pages to the browser, files to SluIde. Pages without our script (e.g. HTML files) do navigate:
- * a navigation away from the [own page][Preview.isOwnPage] right after a click or key press in the preview is the
- * user's, so its target goes to [host] and the page is shown again. Any other navigation (a meta refresh, a script
+ * a navigation away from the [own page][Preview.isOwnPage] within 2 seconds of a mouse press, key press or drop in
+ * the preview is the user's, so its target goes to [host] and the page is shown again. Any other navigation (a meta refresh, a script
  * setting `location`), and the page loading itself again without such input, stops the preview with a notice until
  * the user shows the page again or the file changes, so a page can neither open things on its own nor reload in a
  * loop. A page that cannot be loaded (e.g. no server) stops with a notice too. Only the own page gets the link bridge.
@@ -384,7 +384,7 @@ internal class PreviewFileView(
         return alert.showAndWait().orElse(ButtonType.CANCEL) == run
     }
 
-    /** Whether the user just pressed a mouse button or key in the preview; it counts once. */
+    /** Whether the user just pressed a mouse button or key in the preview, or dropped something; it counts once. */
     private fun isUserInput(): Boolean {
         val input = lastInput ?: return false
         lastInput = null
