@@ -32,6 +32,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
+import kotlin.io.path.createParentDirectories
 import kotlin.io.path.deleteExisting
 import kotlin.io.path.name
 import kotlin.io.path.writeBytes
@@ -212,21 +213,23 @@ class FileExplorerViewUiTest {
     }
 
     @Test
-    fun `changes inside an expanded subfolder appear and keep the expansion`(robot: FxRobot) {
-        project.resolve("sub").createDirectories()
+    fun `changes inside an expanded subfolder appear and keep the expansion and selection`(robot: FxRobot) {
+        val kept = project.resolve("sub/kept.txt").createParentDirectories().createFile()
         robot.interact { view.open(project) }
         robot.interact {
-            view.root.children
-                .single()
-                .isExpanded = true
+            val sub = view.root.children.single()
+            sub.isExpanded = true
+            view.selectionModel.select(sub.children.single())
         }
 
+        // Inserted before the selected file, which moves down a row.
         project.resolve("sub/inner.txt").createFile()
         project.resolve("top.txt").createFile()
 
         eventually(robot) {
-            assertEquals(listOf(project.name, "sub", "inner.txt", "top.txt"), renderedNames(robot))
+            assertEquals(listOf(project.name, "sub", "inner.txt", "kept.txt", "top.txt"), renderedNames(robot))
         }
+        robot.interact { assertEquals(kept, view.selectionModel.selectedItem?.value) }
     }
 
     @Test
