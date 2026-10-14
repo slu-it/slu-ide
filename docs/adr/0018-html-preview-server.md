@@ -49,5 +49,7 @@ So only HTML needs confining, and an HTTP origin confines it to what a server ha
 - Opening an HTML file still loads remote resources it references, as in ADR 0017.
 - A server runs, on virtual threads, for every root that had an HTML preview, until the application exits: one per
   project, plus one per folder of previewed files outside a project. Closing a window does not stop its server.
+- The `WebView`s do stop: a preview whose tab closes, or which a diff view replaces, loads a blank page
+  (`FileView.dispose`), so the page's scripts, timers and requests end with it rather than when it is collected.
 - WebKit honours `Referrer-Policy` (tested), so remote requests do not reveal a page's URL.
 - Generated previews keep `loadContent`; they need no server.

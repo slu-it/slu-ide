@@ -88,6 +88,23 @@ class ImagePreviewUiTest {
     }
 
     @Test
+    fun `a disposed image view shows nothing more`(robot: FxRobot) {
+        val view = fx { ImageFileViewer().open(png("icon.png", 10, 10)) as ImageFileView }
+        robot.interact { container.children.setAll(view.node) }
+        awaitLoaded(view.webView)
+
+        robot.interact { view.dispose() }
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
+            fx { view.webView.engine.loadWorker.state == Worker.State.SUCCEEDED } &&
+                view.webView.script("document.querySelector('img')") == null
+        }
+        assertEquals("about:blank", fx { view.webView.engine.location })
+        // Changing the colour scheme no longer reaches the blank page.
+        robot.interact { container.scene.preferences.colorScheme = ColorScheme.DARK }
+        assertEquals(false, view.webView.script("document.body.classList.contains('dark')"))
+    }
+
+    @Test
     fun `the checkered background follows the colour scheme`(robot: FxRobot) {
         val view = fx { ImageFileViewer().open(png("icon.png", 10, 10)) as ImageFileView }
         robot.interact { container.children.setAll(view.node) }

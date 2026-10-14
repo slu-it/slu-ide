@@ -54,6 +54,7 @@ internal class ImageFileView(
         }
     private var bytes = file.readBytes()
     private var dark = false
+    private var disposed = false
 
     init {
         engine.loadWorker.stateProperty().subscribe { state -> if (state == Worker.State.SUCCEEDED) onLoaded() }
@@ -80,7 +81,14 @@ internal class ImageFileView(
         render()
     }
 
-    private val isLoaded get() = engine.loadWorker.state == Worker.State.SUCCEEDED && isPageFromString(engine.location)
+    /** Stops showing the image; the blank page left is no page of ours. */
+    override fun dispose() {
+        disposed = true
+        engine.load("")
+    }
+
+    private val isLoaded
+        get() = !disposed && engine.loadWorker.state == Worker.State.SUCCEEDED && isPageFromString(engine.location)
 
     private fun render() {
         engine.loadContent(ImagePage.render(bytes, imageTypes.getValue(file.extension.lowercase()), dark))

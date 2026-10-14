@@ -373,6 +373,26 @@ class PreviewFileViewUiTest {
     }
 
     @Test
+    fun `a disposed preview stops its page and stays blank`(robot: FxRobot) {
+        val file = dir.resolve("index.html").apply { writeText("<h1>Served</h1>") }
+        val view = WaitForAsyncUtils.asyncFx<PreviewFileView> { HtmlFileViewer().open(file) as PreviewFileView }.get()
+        robot.interact { container.children.setAll(view.node) }
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
+            view.script("document.querySelector('h1') && document.querySelector('h1').textContent") == "Served"
+        }
+
+        robot.interact { view.dispose() }
+        // A page the view did not start would make it render again; give it the chance.
+        WaitForAsyncUtils.sleep(500, TimeUnit.MILLISECONDS)
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val location = WaitForAsyncUtils.asyncFx<String?> { view.webView.engine.location }.get()
+        assertTrue(isPageFromString(location), "blank, not $location")
+        assertEquals(null, view.script("document.querySelector('h1')"))
+        assertTrue(!robot.lookup(".preview-notice").query<Node>().isVisible)
+    }
+
+    @Test
     fun `the divider keeps its place when switching modes`(robot: FxRobot) {
         val (_, view) = show(robot, "# Title\n")
         val split = robot.lookup(".split-pane").queryAs(SplitPane::class.java)

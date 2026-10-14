@@ -34,7 +34,7 @@ interface EditorTab {
 
 /**
  * A file shown in a tab together with the view that displays it. The view can be replaced (e.g. by a diff view) while
- * the tab and its [content] stay the same.
+ * the tab and its [content] stay the same; the replaced view is disposed, and so is the view when the tab closes.
  */
 internal class OpenFile(
     val path: Path,
@@ -50,9 +50,13 @@ internal class OpenFile(
 
     var view: FileView = view
         set(value) {
+            val old = field
             field = value
             content.children.setAll(value.node)
+            if (old !== value) old.dispose()
         }
+
+    override fun dispose() = view.dispose()
 }
 
 /** The tabs open in the editor area, in tab order, and the selected one. */

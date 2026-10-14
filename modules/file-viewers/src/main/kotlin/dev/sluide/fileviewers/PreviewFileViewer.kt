@@ -289,6 +289,12 @@ internal class PreviewFileView(
         if (stopped && source.area.text != renderedText) resume() else render()
     }
 
+    /** Stops the page: a stopped view renders nothing more until [resume], which nothing calls once it is gone. */
+    override fun dispose() {
+        stopped = true
+        engine.load("")
+    }
+
     private fun show(mode: PreviewMode) {
         if (split.items.size == 2) dividerPosition = split.dividerPositions[0]
         when (mode) {
@@ -328,9 +334,10 @@ internal class PreviewFileView(
         render()
     }
 
-    /** Whether the preview shows its own page, completely loaded. */
+    /** Whether the preview shows its own page, completely loaded; a stopped one shows a blank page. */
     private val isLoaded
-        get() = engine.loadWorker.state == Worker.State.SUCCEEDED && preview.isOwnPage(engine.location, file)
+        get() =
+            !stopped && engine.loadWorker.state == Worker.State.SUCCEEDED && preview.isOwnPage(engine.location, file)
 
     /**
      * The preview left its page. Right after the user's input (e.g. a link clicked in an HTML file) the target opens

@@ -31,6 +31,13 @@ interface FileView {
     fun reload()
 
     /**
+     * Releases what the view holds besides its node, e.g. stops the page of a `WebView` with its scripts, timers and
+     * requests. Called once by whoever shows the view when it is no longer shown (its tab closed, or another view
+     * took its place); the view is not used afterwards. Views that hold nothing do nothing.
+     */
+    fun dispose() {}
+
+    /**
      * Lets the view open other files and web pages, e.g. when a link in it is clicked. Set by whoever shows the view;
      * views that never open anything ignore it.
      */

@@ -14,15 +14,22 @@ import kotlin.test.assertTrue
 class EditorTabsTest {
     private val tabs = EditorTabs()
 
-    private fun open(name: String) =
-        tabs.open(
-            Path.of("/project", name),
-            object : FileView {
-                override val node = Group()
+    private class CountingView : FileView {
+        var disposed = 0
 
-                override fun reload() {}
-            },
-        )
+        override val node = Group()
+
+        override fun reload() {}
+
+        override fun dispose() {
+            disposed++
+        }
+    }
+
+    private fun open(
+        name: String,
+        view: FileView = CountingView(),
+    ) = tabs.open(Path.of("/project", name), view)
 
     private class DisposableTab(
         name: String,
@@ -186,5 +193,32 @@ class EditorTabsTest {
         assertEquals(listOf(1, 1, 0, 1), listOf(one, two, three, four).map { it.disposed })
         tabs.closeAll()
         assertTrue(listOf(one, two, three, four).all { it.disposed == 1 })
+    }
+
+    @Test
+    fun `file views are disposed when replaced and when their tab closes`() {
+        val first = CountingView()
+        val second = CountingView()
+        val file = open("a.txt", first)
+
+        file.view = second
+        assertEquals(listOf(1, 0), listOf(first, second).map { it.disposed })
+        assertSame(second.node, file.content.children.single())
+
+        file.view = second
+        assertEquals(0, second.disposed, "setting the same view again keeps it")
+
+        tabs.close(file)
+        assertEquals(listOf(1, 1), listOf(first, second).map { it.disposed })
+    }
+
+    @Test
+    fun `closing several file tabs disposes each view once`() {
+        val views = List(3) { CountingView() }
+        views.forEachIndexed { i, view -> open("$i.txt", view) }
+
+        tabs.closeAll()
+
+        assertEquals(listOf(1, 1, 1), views.map { it.disposed })
     }
 }
