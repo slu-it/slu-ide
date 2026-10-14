@@ -1,7 +1,11 @@
 package dev.sluide.fileviewers
 
+import javafx.event.Event
 import javafx.scene.Scene
+import javafx.scene.control.Button
 import javafx.scene.control.Label
+import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyEvent
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
 import org.fxmisc.richtext.CodeArea
@@ -70,6 +74,23 @@ class DiffFileViewUiTest {
 
     private fun CodeArea.paragraphClasses() = paragraphs.map { it.paragraphStyle.toList() }
 
+    /** The toolbar button whose tooltip starts with [tooltip]. */
+    private fun FxRobot.navigationButton(tooltip: String) =
+        lookup(".diff-nav").queryAllAs(Button::class.java).single { it.tooltip.text.startsWith(tooltip) }
+
+    private fun FxRobot.counter() = lookup(".diff-counter").queryAs(Label::class.java).text
+
+    private fun FxRobot.press(
+        button: String,
+        left: CodeArea,
+        right: CodeArea,
+    ): Int {
+        interact { navigationButton(button).fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(left.currentParagraph, right.currentParagraph)
+        return right.currentParagraph
+    }
+
     /** Opens the diff view on the FX thread, as the editor area does. */
     private fun openDiff(
         file: Path,
@@ -122,6 +143,66 @@ class DiffFileViewUiTest {
         assertEquals(listOf(CHANGED_WORDS_STYLE), left.getStyleOfChar(left.text.indexOf("old") + 1).toList())
         assertEquals(listOf(CHANGED_WORDS_STYLE), right.getStyleOfChar(right.text.indexOf("new") + 1).toList())
         assertTrue(right.getStyleOfChar(right.text.indexOf("three") + 1).isEmpty())
+    }
+
+    @Test
+    fun `the toolbar jumps between the changes on both sides`(robot: FxRobot) {
+        val (left, right) = open(robot)
+
+        assertEquals("3 changes", robot.counter())
+        assertTrue(robot.navigationButton("Previous").isDisable)
+        assertEquals(1, robot.press("Next", left, right))
+        assertEquals("Change 1 of 3", robot.counter())
+        assertEquals(3, robot.press("Next", left, right))
+        assertEquals(1, robot.press("Previous", left, right))
+        assertEquals(5, robot.press("Last", left, right))
+        assertEquals("Change 3 of 3", robot.counter())
+        assertTrue(robot.navigationButton("Next").isDisable)
+        assertEquals(1, robot.press("First", left, right))
+        assertTrue(robot.navigationButton("Previous").isDisable)
+    }
+
+    @Test
+    fun `F7 and Shift+F7 jump to the next and previous change, seen from the caret on either side`(robot: FxRobot) {
+        val (left, right) = open(robot)
+
+        fun key(shift: Boolean) {
+            robot.interact {
+                Event.fireEvent(right, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.F7, shift, false, false, false))
+            }
+            WaitForAsyncUtils.waitForFxEvents()
+        }
+        robot.interact { left.moveTo(4, 0) }
+        assertEquals("3 changes", robot.counter())
+        key(shift = false)
+        assertEquals(5, right.currentParagraph)
+        key(shift = true)
+        assertEquals(3, right.currentParagraph)
+        assertEquals(3, left.currentParagraph)
+        assertEquals("Change 2 of 3", robot.counter())
+    }
+
+    @Test
+    fun `a change jumped to is scrolled into view`(robot: FxRobot) {
+        val long = (1..200).joinToString("") { "line $it\n" }
+        val file = dir.resolve("long.txt").apply { writeText(long.replace("line 150\n", "changed\n")) }
+        val (left, right) = open(robot, file, TextDiff(long, listOf(LineChange(149..149, 149..149))))
+
+        robot.interact { robot.navigationButton("Next").fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val visible =
+            WaitForAsyncUtils.asyncFx<List<Int>> { listOf(left, right).map { it.firstVisibleParToAllParIndex() } }
+        assertEquals(listOf(146, 146), visible.get())
+    }
+
+    @Test
+    fun `without changes all buttons are disabled`(robot: FxRobot) {
+        val file = dir.resolve("a.txt").apply { writeText("a\n") }
+        open(robot, file, TextDiff("a\n", emptyList()))
+
+        assertEquals("No changes", robot.counter())
+        assertTrue(robot.lookup(".diff-nav").queryAllAs(Button::class.java).all { it.isDisable })
     }
 
     @Test

@@ -21,6 +21,9 @@ dependencies {
     implementation(libs.jsoup)
     // Jupyter notebooks are JSON (ADR 0017).
     implementation(libs.jackson.databind)
+    // Toolbar icons: Material Design Icons, like the file explorer's (ADR 0012).
+    implementation(libs.ikonli.javafx)
+    implementation(libs.ikonli.materialdesign2)
 
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
