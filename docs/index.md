@@ -24,6 +24,7 @@ Keep it up to date: every new ADR or feature description must be added here with
 - [adr/0013-git-status.md](adr/0013-git-status.md) — Git status from `git status --porcelain=v2 --ignored` (no JGit, no own `.gitignore` parser), checked for at startup, followed only for folders with `.git`, refreshed in the background; markers in the explorer.
 - [adr/0014-project-windows.md](adr/0014-project-windows.md) — One project per window: Open Folder opens a new window unless the window has no folder yet; Spring scope `window` for per-window beans (`ProjectWindows`); one confirmation when closing a window with running tabs.
 - [adr/0015-git-diff.md](adr/0015-git-diff.md) — Modified files open as a side-by-side diff against `HEAD` from `git diff -U0`/`git cat-file` (no diff library), synchronous per file, filler rows for aligned scrolling, view swapped in the tab when the status changes.
+- [adr/0016-markdown-preview.md](adr/0016-markdown-preview.md) — Markdown preview: commonmark-java renders sanitised HTML (jsoup) into a JavaFX WebView beside the source; native JavaFX nodes rejected; javafx.web grows the fat jar by ~48 MB.
 - [adr/template.md](adr/template.md) — Template for new ADRs.
 
 ## Features
@@ -34,6 +35,7 @@ Keep it up to date: every new ADR or feature description must be added here with
 - [features/terminal.md](features/terminal.md) — Terminal → New Terminal (Ctrl+Shift+T) opens the user's shell in the project folder as an editor tab; colours, full-screen programs, scrollback, copy/paste.
 - [features/docker-sandbox.md](features/docker-sandbox.md) — Docker Sandbox → Claude Code (`sbx run claude .`) / Environment (`sbx env run`, needs `sbxenv.yaml`) in a terminal tab, only below the home folder.
 - [features/git-status.md](features/git-status.md) — Git status in the file explorer (red unversioned, green added, blue modified, orange ignored): coloured file and ignored-folder names, bubbles on folders for their content, when it updates.
+- [features/markdown-preview.md](features/markdown-preview.md) — Markdown files open as highlighted source beside a rendered, sanitised preview; Source / Split / Preview toolbar, theme-aware.
 - [features/git-diff.md](features/git-diff.md) — Modified files open side by side with `HEAD` (grey removed, blue modified, green added), aligned and scrolled together; tabs switch between diff and normal view with the status.
 - [features/file-watching.md](features/file-watching.md) — `FileWatcher`: per-directory watches, combined events on the FX thread, used by explorer and editor.
 - [features/file-viewers.md](features/file-viewers.md) — `FileViewer` extension point, viewer selection, the read-only `DefaultTextFileViewer` (text detection rules) and the syntax-highlighted `CodeFileViewer`s (Python, Kotlin, Java, JavaScript, TypeScript, JSX, TSX, JSON, XML, HTML, Vue, Svelte, YAML, CSS, SCSS, Sass, LESS, Markdown, MDX).

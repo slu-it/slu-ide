@@ -1,0 +1,19 @@
+/* Markdown view (MarkdownFileView): the toolbar with the Source / Split / Preview toggles above source and preview. */
+
+.markdown-toolbar {
+    -fx-padding: 2 6 2 6;
+    -fx-spacing: 0;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
+}
+
+.markdown-mode {
+    -fx-padding: 2 10 2 10;
+    -fx-font-size: 0.9em;
+    -fx-background-radius: 0;
+}
+
+.markdown-view .split-pane {
+    -fx-padding: 0;
+    -fx-background-insets: 0;
+}

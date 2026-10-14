@@ -29,13 +29,15 @@
   | `HtmlFileViewer` | `.html`, `.htm`, `.xhtml` | none needed; embedded `<script>`/`<style>` are highlighted as JavaScript/CSS. Known gap: unquoted attribute values look like attribute names |
   | `SingleFileComponentViewer` | `.vue`, `.svelte` | as HTML; tag names the lexer does not know (`<template>`, components like `<MyCard>`) are made `tag` by the same whole-tag rules as JSX. Known gaps: `<script lang="ts">` is lexed as JavaScript; template expressions (`{{ … }}`, `{…}`, `{#if}`) are plain text |
   | `YamlFileViewer` | `.yaml`, `.yml` | the lexer only knows comments and quoted strings; line rules add keys (`property`), numbers, `true`/`false`/`null`/`~`, anchors/aliases/tags (`annotation`) and `---`/`...`. Known gap: block scalar content (after `\|`/`>`) is not shown as string |
-  | `MarkdownFileViewer` | `.md`, `.markdown` | headings and bold as `keyword`, emphasis as `type`, inline code as `string` (the lexer calls it preprocessor), links and images as `attribute`, inline HTML as markup with component names as `tag`. Fenced code with a known language (` ```ts `, `~~~python`, any language with a viewer here) is highlighted as that language by `FencedCodeHighlighter`; fences without a language or with an unknown one are `string` |
-  | `MdxFileViewer` | `.mdx` | as Markdown, plus `import`/`export` lines as `keyword` |
+  | `MdxFileViewer` | `.mdx` | headings and bold as `keyword`, emphasis as `type`, inline code as `string`, links and images as `attribute`, inline HTML as markup with component names as `tag`, `import`/`export` lines as `keyword`; fenced code with a known language highlighted as that language (`FencedCodeHighlighter`), other fences `string` |
   | `CssFileViewer` | `.css` | uses the LESS lexer (handles nesting and units better); at-rules (`@media`, `@supports`, `@layer`, …) as `keyword`; custom properties (`--gap`) and `#id`s as `annotation`. Selectors are `type`, properties and pseudo-classes `keyword`. Known gap: some nested selectors show as `keyword` |
   | `ScssFileViewer` | `.scss` | as CSS; `@mixin`/`@include`/`@use` (lexed as LESS variables) as `keyword`; `$variables`, also inside `#{…}`, as `annotation` |
   | `LessFileViewer` | `.less` | as CSS; `@variables` as `annotation`, known CSS at-rules stay `keyword` |
   | `SassFileViewer` | `.sass` | indented syntax; without braces the lexer styles every word as `type`, so that is dropped and line rules add properties (`keyword`), `=mixin`/`+mixin`, `$variables` and selector lines (`type`). Known gaps: a property without a space after the colon (`margin:0`) and continuation lines of multi-line values look like selectors; `url(//…)` starts a comment |
 
+- `MarkdownFileViewer` (`.md`, `.markdown`) is no code viewer: it shows the Markdown source, highlighted like the
+  code views, beside a rendered preview ([markdown-preview.md](markdown-preview.md)). Fenced code in the source is
+  highlighted as its language by `FencedCodeHighlighter` when it names a known one (` ```ts `, `~~~python`).
 - Diff views: `FileViewers.openDiff(file, TextDiff)` shows a file side by side with an original version (left) in a
   `DiffFileView`: two read-only RichTextFX code areas with titles from the `TextDiff`, the same highlighting as the
   file's code viewer (plain for `DefaultTextFileViewer`; other viewers get no diff, `null`). `LineChange`s are

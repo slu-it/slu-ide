@@ -28,7 +28,6 @@ class CodeFileViewersTest {
             HtmlFileViewer() to listOf("index.html", "legacy.htm", "page.xhtml"),
             SingleFileComponentViewer() to listOf("App.vue", "Page.svelte"),
             YamlFileViewer() to listOf("ci.yml", "config.yaml"),
-            MarkdownFileViewer() to listOf("README.md", "notes.markdown"),
             MdxFileViewer() to listOf("docs.mdx"),
             CssFileViewer() to listOf("site.css"),
             ScssFileViewer() to listOf("_vars.scss"),
@@ -36,7 +35,7 @@ class CodeFileViewersTest {
             SassFileViewer() to listOf("old.sass"),
         )
 
-    private val others = listOf("notes.txt", "README", "py")
+    private val others = listOf("notes.txt", "README", "py", "README.md")
 
     private fun file(name: String) = dir.resolve(name).apply { writeText("x = 1\n") }
 

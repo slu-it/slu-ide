@@ -30,6 +30,7 @@ class FileViewers(
         val highlighter =
             when (val viewer = viewerFor(file)) {
                 is CodeFileViewer -> viewer.highlighter
+                is MarkdownFileViewer -> viewer.highlighter
                 is DefaultTextFileViewer -> null
                 else -> return null
             }
