@@ -186,15 +186,40 @@ internal class RSyntaxHighlighter(
     companion object {
         val java = RSyntaxHighlighter(SyntaxConstants.SYNTAX_STYLE_JAVA)
 
+        /**
+         * JSX elements on top of JavaScript or TypeScript, which neither lexer knows: tag names (`<div`, `</div`,
+         * fragments), the `>`/`/>` closing a tag started on the same line, and attributes followed by a value.
+         * A tag name must follow `<` directly and the `<` must not follow a name, so `a < b` and `f<T>(x)` are not
+         * tags. Generic arrow functions (`= <T,>(x: T) =>`) are no tag either, but the lexers read them as E4X markup.
+         */
+        private val jsx =
+            listOf(
+                Regex("""(?:^|(?<=[\s(,={}?:&|>]))(?<tag></?[A-Za-z][\w.:-]*)(?![\w.:-]*\s*(?:,|extends\b))"""),
+                Regex("""(?:^|(?<=[\s(,={}?:&|>]))(?<tag></?>)"""),
+                Regex(
+                    """(?<=(?:^|[\s(,={}?:&|>])</?[A-Za-z][\w.:-]{0,100}(?:\s[^<]{0,300})?)(?<![=-])(?<tag>/?>)""",
+                ),
+                Regex("""(?<tag>/>)"""),
+                Regex("""(?<=\s)(?<!\b(?:const|let|var)\s)(?<attribute>[A-Za-z_][\w:-]*)(?==["'{])"""),
+            )
+
         /** The JavaScript lexer treats the module keyword `from` and `undefined` as identifiers. */
-        val javaScript =
-            RSyntaxHighlighter(SyntaxConstants.SYNTAX_STYLE_JAVASCRIPT, keywords = setOf("from", "undefined"))
+        private fun javaScript(lineRules: List<Regex>) =
+            RSyntaxHighlighter(
+                SyntaxConstants.SYNTAX_STYLE_JAVASCRIPT,
+                keywords = setOf("from", "undefined"),
+                lineRules = lineRules,
+            )
+
+        val javaScript = javaScript(lineRules = emptyList())
+
+        val javaScriptReact = javaScript(lineRules = jsx)
 
         /**
          * The TypeScript lexer misses many keywords and types of current TypeScript and reports decorators as markup
          * attributes.
          */
-        val typeScript =
+        private fun typeScript(lineRules: List<Regex>) =
             RSyntaxHighlighter(
                 SyntaxConstants.SYNTAX_STYLE_TYPESCRIPT,
                 keywords =
@@ -216,7 +241,12 @@ internal class RSyntaxHighlighter(
                     ),
                 types = setOf("unknown", "never", "object", "symbol", "bigint"),
                 tokenStyles = mapOf(TokenTypes.MARKUP_TAG_ATTRIBUTE to TokenStyle.ANNOTATION),
+                lineRules = lineRules,
             )
+
+        val typeScript = typeScript(lineRules = emptyList())
+
+        val typeScriptReact = typeScript(lineRules = jsx)
 
         /**
          * JSON with `//` comments, which many config files (e.g. `tsconfig.json`) use; plain JSON lexes the same.

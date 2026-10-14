@@ -21,6 +21,8 @@ class CodeFileViewersTest {
             JavaFileViewer() to listOf("Main.java"),
             JavaScriptFileViewer() to listOf("app.js", "module.mjs", "config.cjs"),
             TypeScriptFileViewer() to listOf("app.ts", "types.d.ts", "module.mts", "config.cts"),
+            JsxFileViewer() to listOf("Button.jsx"),
+            TsxFileViewer() to listOf("App.tsx"),
             JsonFileViewer() to listOf("package.json", "tsconfig.jsonc"),
             XmlFileViewer() to listOf("pom.xml", "schema.xsd", "style.xsl", "transform.xslt", "icon.svg", "view.fxml"),
             HtmlFileViewer() to listOf("index.html", "legacy.htm", "page.xhtml"),

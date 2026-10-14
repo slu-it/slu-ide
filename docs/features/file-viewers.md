@@ -22,6 +22,8 @@
   | `JavaFileViewer` | `.java` | none needed (text blocks, records, sealed types work) |
   | `JavaScriptFileViewer` | `.js`, `.mjs`, `.cjs` | `from`/`undefined` keywords; `${…}` in template literals stays unstyled code |
   | `TypeScriptFileViewer` | `.ts`, `.mts`, `.cts` | keywords such as `type`, `readonly`, `as`, `keyof`, `satisfies`; types `unknown`, `never`, `object`, `symbol`, `bigint`; decorators |
+  | `JsxFileViewer` | `.jsx` | as JavaScript; line rules add JSX tags (`<Name`, `</Name>`, fragments, a closing `>`/`/>` on the tag's line, as `tag`) and attributes with a value (`attribute`). Known gaps: text between tags is lexed as code (e.g. `for` shows as a keyword), boolean attributes and the `>` of a tag spanning lines are unstyled, a tag inside a string is styled as a tag |
+  | `TsxFileViewer` | `.tsx` | as TypeScript plus JSX like `JsxFileViewer`. Known gap (also in `.ts`): the lexer reads a generic arrow function (`= <T,>(x: T) =>`) as E4X markup for the rest of its line |
   | `JsonFileViewer` | `.json`, `.jsonc` | keys as `property`; `//` comments allowed (`/* */` are not recognised) |
   | `XmlFileViewer` | `.xml`, `.xsd`, `.xsl`, `.xslt`, `.svg`, `.fxml` | none needed; DTDs/processing instructions styled as `annotation`, entities as `number`, CDATA as `string` |
   | `HtmlFileViewer` | `.html`, `.htm`, `.xhtml` | none needed; embedded `<script>`/`<style>` are highlighted as JavaScript/CSS. Known gap: unquoted attribute values look like attribute names |

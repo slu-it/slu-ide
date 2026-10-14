@@ -21,6 +21,7 @@ dependency per language. JavaFX itself only has plain text controls.
   so valid but newer syntax (e.g. Python's `1_000`) is not flagged.
 - A language may use a related lexer when its own is missing or weaker: CSS, SCSS and Sass use the LESS lexer, which handles
   nesting and units better than the CSS lexer.
+- JSX (`.jsx`, `.tsx`) has no lexer; it is the JavaScript or TypeScript lexer plus line rules for tags and attributes.
 
 Rejected:
 - **TextMate grammars via Eclipse tm4e:** the best language coverage, but only snapshot Maven builds exist.
