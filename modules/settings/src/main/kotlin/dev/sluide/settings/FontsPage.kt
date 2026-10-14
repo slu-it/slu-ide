@@ -213,7 +213,11 @@ class FontsPage(
             editorPreview = this
         }
 
-    /** Looks like the terminal: dark background, light text, a coloured prompt and a bold line. */
+    /**
+     * Looks like the terminal: dark background, light text, a coloured prompt and a bold line. The colours (and the
+     * background in `settings.css`) copy the terminal's; keep them in sync with `TerminalColors` in the terminal
+     * module, which `settings` cannot depend on.
+     */
     private fun terminalPreview(): Node {
         val draft = model.draft(FontArea.TERMINAL)
 

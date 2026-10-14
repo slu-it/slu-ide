@@ -18,6 +18,7 @@
     -fx-text-fill: derive(-fx-text-base-color, 40%);
 }
 
+/* The terminal's background; keep in sync with TerminalColors in the terminal module. */
 .fonts-page .terminal-preview {
     -fx-background-color: #1e1e1e;
     -fx-padding: 6;
