@@ -14,7 +14,9 @@
   file to the editor area, which opens it only if a file viewer accepts it ([editor-tabs.md](editor-tabs.md)).
 - Changes on disk show up by themselves. Every loaded folder is watched ([file-watching.md](file-watching.md)), and
   on a change `FileTreeItem.refresh()` re-reads it. Unchanged items are kept, so expanded folders stay expanded
-  and the selection stays.
+  and the selection stays. A loaded subfolder that is deleted and recreated (e.g. `build/`) is watched again.
+- Limitation: if the opened folder itself is deleted, its watch ends; recreated later, it is not watched again (it has
+  no parent in the tree that would notice) until "Refresh"/F5 or reopening it.
 - Manual refresh: "Refresh" in the tree's context menu, or F5, re-reads all loaded folders and renews their watches.
 - Icons ([ADR 0012](../adr/0012-file-icons.md), `FileIcon`/`fileIconFor`): open or closed folder; for files, every
   file type icon of Material Design Icons: languages (the code viewer types plus C/C++/C#, Go, Rust, Ruby, PHP, Swift,
@@ -23,7 +25,8 @@
   archives, packages, installers (Android, Apple, Windows) and settings/keys/certificates/lock files. Each `FileIcon`
   lists its file names (e.g. `Dockerfile`, `package.json`, `LICENSE`), which win, and its extensions, all
   case-insensitive. Any other file gets a document icon if a viewer can open it (`canOpenFile`, set by `MainWindow` to
-  `EditorArea.canOpen`) and a "?" file icon if not (binary). Colours per type or family in `file-explorer.css`, light
+  `EditorArea.canOpen`) and a "?" file icon if not (binary); the answer is cached and asked again when the file
+  changes, or for every file of a folder that lost events. Colours per type or family in `file-explorer.css`, light
   and dark; the icon size follows the explorer font.
 - Markers (`FileMarkers` of `FileMarker`s): a colour for the name and coloured bubbles after it, asked from the
   `markers` callback for each shown entry and again after `refreshMarkers()`. `MainWindow` uses them for the git
