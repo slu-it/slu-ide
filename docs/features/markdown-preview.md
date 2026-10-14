@@ -15,11 +15,13 @@
 - Diagrams: ` ```mermaid ` fences are drawn by Mermaid (bundled, works offline, `securityLevel: 'strict'`), in the
   light or dark Mermaid theme; a theme change draws them again. Invalid diagrams show Mermaid's error instead.
 - Images: local ones (relative to the file's folder, or `file:`; png, jpg, gif, svg, webp, bmp, ico up to 10 MB) are
-  embedded into the page, since a page loaded from a string may not read files. Remote (`https`) images load from the
-  web when the preview renders, as on GitHub.
-- Safety: HTML in the file is sanitised (jsoup); scripts, event handlers, styles, frames, forms, SVG and
-  `javascript:`/`data:` links are removed. Should the preview still end up on another page, it renders the Markdown
-  again, and only its own page can reach the link bridge.
+  embedded into the page, since a page loaded from a string may not read files. Larger ones stay as written and do
+  not show. The 10 MB are per image: a file with many large images makes a large page, read and encoded on the JavaFX
+  thread every time it renders. Remote (`https`) images load from the web when the preview renders, as on GitHub.
+- Safety: HTML in the file is sanitised (jsoup); scripts, event handlers, styles, frames, forms, inputs other than
+  task-list checkboxes, SVG and `javascript:`/`data:` links are removed. Should the preview still end up on another
+  page, it stops with a notice and **Show the page again** ([previews.md](previews.md)), and only its own page can
+  reach the link bridge.
 - Links never navigate the preview. Anchors (`#part`) scroll within it; `http`, `https`, `mailto` and scheme-relative
   (`//host/…`, as `https`) links open in the system browser; relative and `file:` links open the file in a SluIde tab,
   read-only, wherever it is (resolved against the Markdown file's folder, without fragment or query; nothing happens if

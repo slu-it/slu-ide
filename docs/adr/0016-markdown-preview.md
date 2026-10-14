@@ -1,6 +1,6 @@
 # 0016. Markdown preview with commonmark-java in a WebView
 
-- Status: accepted
+- Status: accepted; partly superseded by [0017](0017-webview-previews.md) (pages loaded on their own)
 - Date: 2026-10-14
 
 ## Context
@@ -30,7 +30,8 @@ Options considered:
   images load from the web. Links keep their `href` and are resolved in Kotlin when clicked.
 - No link navigates the WebView: the page's script handles anchors itself and hands every other link to the bridge.
   Should the WebView still load another page, the view renders the Markdown again; the bridge is only set on its own
-  page.
+  page. *Superseded by [ADR 0017](0017-webview-previews.md):* a page the WebView loads on its own now stops the
+  preview with a notice until the user shows it again or the file changes.
 - `PreviewFileView` shows a `CodeView` and a `WebView` in a `SplitPane`, with a toolbar for Source / Split /
   Preview. The preview follows the window's colour scheme by toggling a `dark` class on the page.
 - Kotlin calls the page through `window.sluide`; the page calls back through one bridge object for link clicks.
