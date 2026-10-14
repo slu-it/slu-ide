@@ -212,6 +212,43 @@ class PreviewFileViewUiTest {
     }
 
     @Test
+    fun `a notebook opens rendered, with its outputs`(robot: FxRobot) {
+        val png =
+            java.io.ByteArrayOutputStream().also {
+                javax.imageio.ImageIO.write(
+                    java.awt.image.BufferedImage(40, 30, java.awt.image.BufferedImage.TYPE_INT_RGB),
+                    "png",
+                    it,
+                )
+            }
+        val image =
+            java.util.Base64
+                .getEncoder()
+                .encodeToString(png.toByteArray())
+        val json =
+            """{"metadata": {}, "cells": [{"cell_type": "code", "execution_count": 1, "source": "plot()", """ +
+                """"outputs": [{"output_type": "display_data", "data": {"image/png": "$image"}}]}]}"""
+        val file = dir.resolve("analysis.ipynb").apply { writeText(json) }
+        val view =
+            WaitForAsyncUtils
+                .asyncFx<PreviewFileView> {
+                    NotebookFileViewer().open(
+                        file,
+                    ) as PreviewFileView
+                }.get()
+        robot.interact { container.children.setAll(view.node) }
+        awaitLoaded(view)
+
+        assertEquals(PreviewMode.PREVIEW, view.mode.get())
+        WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) {
+            view.script("document.querySelector('.output img').complete") ==
+                true
+        }
+        assertEquals(40, (view.script("document.querySelector('.output img').naturalWidth") as Number).toInt())
+        assertEquals("In [1]:", view.script("document.querySelector('.prompt').textContent"))
+    }
+
+    @Test
     fun `math is typeset by KaTeX`(robot: FxRobot) {
         val (_, view) = show(robot, "Inline \$a^2\$ and\n\n\$\$\n\\frac{1}{2}\n\$\$\n")
 
@@ -318,7 +355,21 @@ class PreviewFileViewUiTest {
         val fallback = DefaultTextFileViewer()
         val viewers = FileViewers(listOf(MarkdownFileViewer()), fallback)
 
-        val diff = assertNotNull(viewers.openDiff(file, TextDiff("# Old\n", listOf(LineChange(1..1, 1..1)))))
+        val diff =
+            assertNotNull(
+                WaitForAsyncUtils
+                    .asyncFx<DiffFileView?> {
+                        viewers.openDiff(
+                            file,
+                            TextDiff(
+                                "# Old\n",
+                                listOf(
+                                    LineChange(1..1, 1..1),
+                                ),
+                            ),
+                        )
+                    }.get(),
+            )
         robot.interact { container.children.setAll(diff.node) }
         WaitForAsyncUtils.waitForFxEvents()
 

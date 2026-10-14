@@ -34,3 +34,12 @@ and never navigate the preview (`FileViewHost`, [file-viewers.md](file-viewers.m
 - Parsing follows RFC 4180: quoted fields with delimiters, line breaks and `""`. The delimiter is a tab for `.tsv`;
   for `.csv` a comma, or `;` if the first line has more of those. Blank lines are skipped; short rows are padded.
 - At most 10,000 rows are shown, with a note saying how many there are.
+
+## Jupyter notebooks (`.ipynb`) — `NotebookFileViewer`
+- Opens in **Preview**: the notebook as Jupyter shows it, with its stored outputs; Source shows the JSON. Nothing is
+  run. No scroll sync (JSON lines do not match cells).
+- Markdown cells render like Markdown files (math, diagrams, attached images). Code cells are highlighted in the
+  notebook's language (`language_info`, else the kernel's, else Python) with `In [n]:`.
+- Outputs, the richest form first: PNG/JPEG/SVG images, HTML (sanitised like Markdown, e.g. pandas tables), Markdown,
+  plain text; streams (stderr tinted), and errors with their traceback (ANSI colours removed).
+- A file that is no valid JSON shows "Not a valid notebook: …".

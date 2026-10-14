@@ -34,6 +34,8 @@ commonmark-ext-task-list-items = { module = "org.commonmark:commonmark-ext-task-
 commonmark-ext-autolink = { module = "org.commonmark:commonmark-ext-autolink", version.ref = "commonmark" }
 commonmark-ext-heading-anchor = { module = "org.commonmark:commonmark-ext-heading-anchor", version.ref = "commonmark" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
+# Version from the Spring Boot BOM (Jackson 3).
+jackson-databind = { module = "tools.jackson.core:jackson-databind" }
 
 [bundles]
 commonmark = [

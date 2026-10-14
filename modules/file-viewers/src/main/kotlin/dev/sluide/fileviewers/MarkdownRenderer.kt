@@ -16,6 +16,7 @@ import org.commonmark.renderer.html.HtmlNodeRendererContext
 import org.commonmark.renderer.html.HtmlRenderer
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
+import org.jsoup.nodes.Element
 import org.jsoup.safety.Safelist
 import java.io.IOException
 import java.nio.file.Path
@@ -86,28 +87,50 @@ internal object MarkdownRenderer {
         markdown: String,
         folder: Path,
         dark: Boolean = false,
-    ): String {
+    ): String = page(body(markdown, folder), dark)
+
+    /** The rendered, sanitised content of [markdown], a file in [folder], with local images embedded. */
+    fun body(
+        markdown: String,
+        folder: Path,
+    ): Element = sanitized(renderer.render(parser.parse(markdown)), folder)
+
+    /** [html] from a file in [folder], sanitised like rendered Markdown, with local images embedded. */
+    fun sanitized(
+        html: String,
+        folder: Path,
+    ): Element {
         // The base URI only lets jsoup keep relative links; the page itself has no base, so `#part` stays on the page.
-        val base = folder.toUri().toString()
-        val clean = Jsoup.clean(renderer.render(parser.parse(markdown)), base, safelist, outputSettings)
+        val clean = Jsoup.clean(html, folder.toUri().toString(), safelist, outputSettings)
         val body = Jsoup.parseBodyFragment(clean).apply { outputSettings(outputSettings) }.body()
         body.select("img[src]").forEach { image ->
             embeddedImage(image.attr("src"), folder)?.let { image.attr("src", it) }
         }
-        return buildString {
+        return body
+    }
+
+    /**
+     * The preview page around [body] (sanitised content): our stylesheet and script, and KaTeX or Mermaid if it has
+     * math or diagrams.
+     */
+    fun page(
+        body: Element,
+        dark: Boolean,
+    ): String =
+        buildString {
             append("<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n")
             append("<style>\n").append(stylesheet).append("</style>\n")
             val math = body.selectFirst(".math") != null
             if (math) append("<style>\n").append(Vendor.katexCss).append("\n</style>\n")
             append("</head>\n")
-            append(if (dark) "<body class=\"dark\">\n" else "<body>\n")
+            val classes = (body.classNames() + if (dark) setOf("dark") else emptySet()).joinToString(" ")
+            append(if (classes.isEmpty()) "<body>\n" else "<body class=\"$classes\">\n")
             append(body.html())
             append("\n<script>\n").append(script).append("</script>\n")
             if (math) inlineScript(Vendor.katexJs, "sluide.renderMath();")
             if (body.selectFirst("pre.mermaid") != null) inlineScript(Vendor.mermaidJs, "sluide.renderDiagrams();")
             append("</body>\n</html>\n")
         }
-    }
 
     /** Adds the [library] to the page, then runs [start]. */
     private fun StringBuilder.inlineScript(

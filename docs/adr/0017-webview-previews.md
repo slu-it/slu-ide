@@ -31,6 +31,10 @@ they come with their own scripts and links and are shown as their author made th
   - **Mermaid** (MIT, 3.5 MB) draws ` ```mermaid ` fences with `securityLevel: 'strict'` (no HTML in labels, no
     click handlers), from the source kept in `data-source` so that a theme change can draw them again.
 
+- **Notebooks** are rendered by us from their JSON (Jackson, from the Spring Boot BOM): Markdown cells through the
+  Markdown renderer, code highlighted, stored outputs shown. HTML outputs go through the same sanitiser as Markdown,
+  images as `data:` URIs; nothing in a notebook runs.
+
 ## Consequences
 - A new rendered format is a `Preview` and a `PreviewFileViewer` subclass.
 - HTML previews show pages as browsers would, but without the page's scripts unless allowed; pages that build their

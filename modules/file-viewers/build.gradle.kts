@@ -19,6 +19,8 @@ dependencies {
     // Markdown preview: commonmark renders HTML, jsoup sanitises it (ADR 0016).
     implementation(libs.bundles.commonmark)
     implementation(libs.jsoup)
+    // Jupyter notebooks are JSON (ADR 0017).
+    implementation(libs.jackson.databind)
 
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
