@@ -87,7 +87,7 @@ class MainWindow(
         // Git status markers, if git is installed and the folder is a repository (ADR 0013).
         fileExplorer.markers = { path, directory -> gitStatus.snapshot.get().markers(path, directory) }
         fileExplorer.onFilesChanged = gitStatus::refresh
-        // Modified files open as a diff against HEAD, and switch when their status changes (ADR 0015).
+        // The changes of modified files against HEAD are marked in their editors, updated with the status (ADR 0021).
         editorArea.diffOf = gitStatus::textDiff
         // Links in file views (e.g. the Markdown preview) to web pages open in the system browser.
         editorArea.openWebPage = { openWebPage(it) }

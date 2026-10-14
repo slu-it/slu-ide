@@ -1,6 +1,5 @@
 package dev.sluide.editor
 
-import dev.sluide.fileviewers.DiffFileView
 import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewHost
@@ -26,9 +25,9 @@ import java.nio.file.Path
 /**
  * Central area showing open files, one tab per file, and other [EditorTab]s such as terminals. Open files are
  * watched: a tab reloads when its file changes on disk and closes when the file is deleted or can no longer be shown
- * (e.g. it became binary), unless it has unsaved changes. Files with a diff ([diffOf]) open side by side with their
- * original instead, read-only. Edited files are saved with [save] and [saveAll]; closing them asks to save first
- * ([confirmSave]).
+ * (e.g. it became binary), unless it has unsaved changes. The lines changed against an original ([diffOf]) are marked
+ * in the editor ([EditableFileView.showChanges]). Edited files are saved with [save] and [saveAll]; closing them asks
+ * to save first ([confirmSave]).
  */
 @Component
 // One instance per IDE window (the "window" scope of the ide module, ADR 0014).
@@ -59,9 +58,8 @@ class EditorArea(
     private val watches = mutableMapOf<EditorTab, AutoCloseable>()
 
     /**
-     * The diff of a file against its original (e.g. the last commit) if it is to be shown as a diff, `null` to show it
-     * normally (ADR 0015). Asked when a file is opened, and for diff views when their file changes on disk and on
-     * [refreshDiffs]. Until diffs are shown on demand, an open editor is never swapped for its diff (ADR 0020).
+     * The diff of a file against its original (e.g. the last commit), `null` if it has none (ADR 0021). Its changes
+     * are marked in the file's editor. Asked when a file is opened, when it changes on disk and on [refreshDiffs].
      */
     var diffOf: (Path) -> TextDiff? = { null }
 
@@ -127,20 +125,23 @@ class EditorArea(
         val viewer = fileViewers.viewerFor(path) ?: return false
         val view =
             try {
-                hosted(diffOf(path)?.let { fileViewers.openDiff(path, it) } ?: viewer.open(path))
+                hosted(viewer.open(path))
             } catch (_: IOException) {
                 return false
             }
-        watch(editorTabs.open(path, view))
+        val openFile = editorTabs.open(path, view, fileViewers.showsDiffs(viewer))
+        showChanges(openFile)
+        watch(openFile)
         return true
     }
 
-    /**
-     * Asks [diffOf] again for every open diff view: it shows the new diff, or the normal view if there is none anymore;
-     * other views reload. Call it when the answers may have changed (e.g. a commit).
-     */
-    fun refreshDiffs() {
-        editorTabs.files.forEach { if (fileViewers.viewerFor(it.path) != null) updateView(it) }
+    /** Asks [diffOf] again for every open file and marks its changes. Call it when the answers may have changed. */
+    fun refreshDiffs() = editorTabs.files.forEach(::showChanges)
+
+    /** Marks the changes of [openFile]; [diffOf] (git on the FX thread) is only asked for files shown as text. */
+    private fun showChanges(openFile: OpenFile) {
+        val view = openFile.view as? EditableFileView ?: return
+        if (openFile.showsDiffs) view.showChanges(diffOf(openFile.path))
     }
 
     /** Adds [tab] after the open tabs and selects it. Its [EditorTab.dispose] is called when it is closed. */
@@ -168,28 +169,16 @@ class EditorArea(
         watch(openFile)
     }
 
-    /** Shows the file's current content; a diff view is swapped for the normal view once [diffOf] has no diff. */
+    /** Shows the file's current content and marks its changes. */
     private fun updateView(openFile: OpenFile) {
-        val path = openFile.path
         try {
-            when (val view = openFile.view) {
-                is DiffFileView -> {
-                    val diff = diffOf(path)
-                    if (diff != null) view.show(diff) else openFile.view = normalView(path)?.let(::hosted) ?: return
-                }
-
-                // Until diffs are shown on demand, an editor is never swapped for its diff: it may have unsaved
-                // changes, and saving must not take it away.
-                else -> {
-                    view.reload()
-                }
-            }
+            openFile.view.reload()
         } catch (_: IOException) {
             // Keep showing the last content; the next change will try again.
+            return
         }
+        showChanges(openFile)
     }
-
-    private fun normalView(path: Path): FileView? = fileViewers.viewerFor(path)?.open(path)
 
     private fun hosted(view: FileView): FileView = view.apply { host = viewHost }
 

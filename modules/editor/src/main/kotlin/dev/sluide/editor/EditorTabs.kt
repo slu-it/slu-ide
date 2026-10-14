@@ -43,6 +43,8 @@ interface EditorTab {
 internal class OpenFile(
     val path: Path,
     view: FileView,
+    /** Whether the file is shown as text, which can have change markers and a diff. */
+    val showsDiffs: Boolean = false,
 ) : EditorTab {
     val name: String get() = (path.fileName ?: path).toString()
 
@@ -93,9 +95,10 @@ internal class EditorTabs {
     fun open(
         path: Path,
         view: FileView,
+        showsDiffs: Boolean = false,
     ): OpenFile {
         require(find(path) == null) { "Already open: $path" }
-        return OpenFile(path, view).also(::open)
+        return OpenFile(path, view, showsDiffs).also(::open)
     }
 
     /** Adds [tab] at the end and selects it. */

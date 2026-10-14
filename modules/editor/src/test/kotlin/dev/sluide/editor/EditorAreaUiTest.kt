@@ -28,6 +28,7 @@ import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
+import javafx.scene.layout.HBox
 import javafx.stage.Stage
 import org.fxmisc.richtext.CodeArea
 import org.junit.jupiter.api.AfterEach
@@ -618,25 +619,19 @@ class EditorAreaUiTest {
         )
     }
 
-    @Test
-    fun `an open editor is not swapped for a diff, not even after saving`(robot: FxRobot) {
-        val a = textFile("a.txt", "new\n")
-        open(robot, a)
-        robot.interact { shownArea(robot).insertText(0, "newer ") }
-
-        editor.diffOf = { TextDiff("old\n", listOf(LineChange(0..0, 0..0))) }
-        robot.interact { editor.refreshDiffs() }
+    /** The change markers in the gutter of the shown editor by line number; lines without a marker are left out. */
+    private fun shownMarkers(robot: FxRobot): Map<Int, String> {
         WaitForAsyncUtils.waitForFxEvents()
-        assertEquals("newer new\n", shownText(robot))
-        assertEquals(emptyList(), shownDiff(robot))
-
-        robot.interact {
-            editor.save()
-            editor.refreshDiffs()
-        }
-        WaitForAsyncUtils.waitForFxEvents()
-        assertEquals("newer new\n", shownText(robot))
-        assertEquals(emptyList(), shownDiff(robot))
+        return robot
+            .lookup(".editor-content .code-editor .gutter")
+            .queryAllAs(HBox::class.java)
+            .mapNotNull { row ->
+                val line = (row.children[0] as Label).text.trim().toInt()
+                row.children[1]
+                    .styleClass
+                    .singleOrNull { it != "change-marker" }
+                    ?.let { line to it }
+            }.toMap()
     }
 
     /** The texts of the code areas of the shown diff, left to right; empty if no diff is shown. */
@@ -648,45 +643,103 @@ class EditorAreaUiTest {
             .map { it.text }
 
     @Test
-    fun `files with a diff open side by side and switch to the editor when the diff goes, not back`(robot: FxRobot) {
-        val a = textFile("a.txt", "new\n")
-        var diff: TextDiff? = TextDiff("old\n", listOf(LineChange(0..0, 0..0)))
+    fun `files with a diff open in the editor with their changes marked, following the diff`(robot: FxRobot) {
+        val a = textFile("a.txt", "new\nsame\n")
+        var diff: TextDiff? = TextDiff("old\nsame\n", listOf(LineChange(0..0, 0..0)))
         editor.diffOf = { diff }
         open(robot, a)
         val tab = editor.selectedTab
 
-        assertEquals(listOf("old", "new"), shownDiff(robot))
-        assertNull(shownText(robot))
+        assertEquals("new\nsame\n", shownText(robot))
+        assertEquals(emptyList(), shownDiff(robot))
+        assertEquals(mapOf(1 to "diff-modified"), shownMarkers(robot))
 
         diff = null
         robot.interact { editor.refreshDiffs() }
-        WaitForAsyncUtils.waitForFxEvents()
-        assertEquals(emptyList(), shownDiff(robot))
-        assertEquals("new\n", shownText(robot))
+        assertEquals(emptyMap(), shownMarkers(robot))
 
-        // Until diffs are shown on demand, an open editor stays (ADR 0020).
-        diff = TextDiff("older\n", listOf(LineChange(0..0, 0..0)))
+        diff = TextDiff("new\n", listOf(LineChange(1 until 1, 1..1)))
         robot.interact { editor.refreshDiffs() }
-        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(mapOf(2 to "diff-added"), shownMarkers(robot))
         assertEquals(emptyList(), shownDiff(robot))
-        assertEquals("new\n", shownText(robot))
         assertSame(tab, editor.selectedTab)
         assertEquals(listOf(a), editor.openPaths)
+    }
+
+    @Test
+    fun `lines edited apart stay apart when the diffs are asked for again`(robot: FxRobot) {
+        val lines = (1..300).map { "line $it" }
+        val a = textFile("a.txt", lines.joinToString("\n", postfix = "\n"))
+        val diff = TextDiff(lines.joinToString("\n", prefix = "old\n", postfix = "\n"), listOf(LineChange(0..0, 0..0)))
+        editor.diffOf = { diff }
+        open(robot, a)
+        val area = shownArea(robot)
+        robot.interact {
+            area.insertText(area.getAbsolutePosition(1, 0), "edited ")
+            area.insertText(area.getAbsolutePosition(299, 0), "edited ")
+            editor.refreshDiffs()
+        }
+
+        assertEquals(mapOf(1 to "diff-modified", 2 to "diff-modified"), shownMarkers(robot))
+        robot.interact { area.showParagraphAtBottom(300) }
+        assertEquals(mapOf(300 to "diff-modified"), shownMarkers(robot))
+    }
+
+    @Test
+    fun `only files shown as text are asked for their diff`(robot: FxRobot) {
+        val fallback = DefaultTextFileViewer()
+        val area = EditorArea(FileViewers(listOf(fallback, UnsavableViewer()), fallback), watcher, fontSettings)
+        val asked = mutableListOf<String>()
+        area.diffOf = { path ->
+            asked += path.name
+            null
+        }
+        val notes = textFile("notes.unsavable")
+        val a = textFile("a.txt")
+        robot.interact {
+            area.open(notes)
+            area.open(a)
+            area.refreshDiffs()
+        }
+        // Changes on disk may ask again.
+        assertEquals(setOf("a.txt"), asked.toSet())
+    }
+
+    @Test
+    fun `saving keeps the editor and its changes come from the diff again`(robot: FxRobot) {
+        val a = textFile("a.txt", "new\n")
+        editor.diffOf = { path ->
+            if (path.readText() == "new\n") null else TextDiff("new\n", listOf(LineChange(0..0, 0..0)))
+        }
+        open(robot, a)
+        robot.interact { shownArea(robot).insertText(0, "newer ") }
+        assertEquals(mapOf(1 to "diff-modified"), shownMarkers(robot))
+
+        robot.interact { editor.save() }
+
+        eventually(robot) { assertEquals("newer new\n", a.readText()) }
+        robot.interact { editor.refreshDiffs() }
+        assertEquals("newer new\n", shownText(robot))
+        assertEquals(mapOf(1 to "diff-modified"), shownMarkers(robot))
+        assertEquals(emptyList(), shownDiff(robot))
     }
 
     @Test
     fun `an edit on disk asks for the diff again`(robot: FxRobot) {
         val a = textFile("a.txt", "one\n")
         editor.diffOf = { path ->
-            val changed = path.toFile().readText() != "one\n"
-            TextDiff("one\n", if (changed) listOf(LineChange(0..0, 0..0)) else emptyList())
+            // A line removed before the new text, unlike the edit from one to two.
+            if (path.readText() == "one\n") null else TextDiff("zero\ntwo\n", listOf(LineChange(0..0, 0 until 0)))
         }
         open(robot, a)
-        assertEquals(listOf("one", "one"), shownDiff(robot))
+        assertEquals(emptyMap(), shownMarkers(robot))
 
         a.writeText("two\n")
 
-        eventually(robot) { assertEquals(listOf("one", "two"), shownDiff(robot)) }
+        eventually(robot) {
+            assertEquals("two\n", shownText(robot))
+            assertEquals(mapOf(1 to "diff-removed-above"), shownMarkers(robot))
+        }
     }
 
     @Test

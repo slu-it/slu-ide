@@ -33,6 +33,7 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
 import javafx.scene.input.KeyEvent
+import javafx.scene.layout.HBox
 import javafx.scene.text.Text
 import javafx.stage.Stage
 import javafx.stage.WindowEvent
@@ -255,7 +256,7 @@ class MainWindowUiTest {
     }
 
     @Test
-    fun `modified files open as a diff against HEAD until they are committed`(robot: FxRobot) {
+    fun `modified files open in the editor with their changes against HEAD marked`(robot: FxRobot) {
         assumeTrue(git.available, "git is not installed")
         runGit("init", "-q")
         project.resolve("tracked.md").writeText("one\ntwo\n")
@@ -271,29 +272,34 @@ class MainWindowUiTest {
 
         fun showsDiff() = robot.lookup(".editor-content .diff-view").tryQuery<Node>().isPresent
         robot.interact { editorArea.open(project.resolve("new.md")) }
-        assertFalse(showsDiff(), "untracked files open normally")
+        assertEquals(emptyMap(), shownMarkers(robot), "untracked files are new as a whole")
         robot.interact { editorArea.open(project.resolve("tracked.md")) }
-        WaitForAsyncUtils.waitForFxEvents()
-        assertTrue(showsDiff())
-        val titles =
-            robot
-                .lookup(".diff-title")
-                .queryAllAs(Label::class.java)
-                .map { it.text }
-                .toSet()
-        assertEquals(setOf("HEAD", "Working Tree"), titles)
+        assertFalse(showsDiff())
+        assertEquals(mapOf(2 to "diff-modified", 3 to "diff-modified"), shownMarkers(robot))
 
         runGit("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "-am", "Change")
-        eventually(robot) { assertFalse(showsDiff(), "clean files show normally") }
+        eventually(robot) { assertEquals(emptyMap(), shownMarkers(robot), "clean files have no markers") }
         assertEquals(project.resolve("tracked.md"), editorArea.selectedPath)
 
-        // An open editor is not swapped for the diff, e.g. after a save (until diffs are shown on demand, ADR 0020).
+        // Changed again on disk: the editor asks for the diff as soon as the status changes.
         project.resolve("tracked.md").writeText("one\nTWO\nfour\n")
-        eventually(robot) {
-            // The editor area asks for diffs as soon as the status changes.
-            assertEquals(GitStatus.MODIFIED, gitStatus.snapshot.get().fileStatus(project.resolve("tracked.md")))
-        }
+        eventually(robot) { assertEquals(mapOf(3 to "diff-modified"), shownMarkers(robot)) }
         assertFalse(showsDiff())
+    }
+
+    /** The change markers in the gutter of the shown editor by line number; lines without a marker are left out. */
+    private fun shownMarkers(robot: FxRobot): Map<Int, String> {
+        WaitForAsyncUtils.waitForFxEvents()
+        return robot
+            .lookup(".editor-content .code-editor .gutter")
+            .queryAllAs(HBox::class.java)
+            .mapNotNull { row ->
+                val line = (row.children[0] as Label).text.trim().toInt()
+                row.children[1]
+                    .styleClass
+                    .singleOrNull { it != "change-marker" }
+                    ?.let { line to it }
+            }.toMap()
     }
 
     private fun runGit(vararg arguments: String) {
