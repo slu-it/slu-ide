@@ -5,7 +5,7 @@ enum class GitStatus {
     /** Not tracked and not ignored. */
     UNVERSIONED,
 
-    /** New in the index (added, or the new path of a rename or copy). */
+    /** New in the index (added, or the new path of a rename or copy), or about to be (`git add -N`). */
     ADDED,
 
     /** Changed, deleted or in conflict, staged or not. */

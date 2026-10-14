@@ -15,8 +15,9 @@ internal object GitStatusParser {
                 // 1 XY sub mH mI mW hH hI path
                 '1' -> {
                     val fields = record.split(' ', limit = 9)
+                    // Index A: added; worktree A: intent to add (`git add -N`), not in the index yet.
                     if (fields.size == 9) {
-                        statuses[fields[8]] = if (fields[1].first() == 'A') GitStatus.ADDED else GitStatus.MODIFIED
+                        statuses[fields[8]] = if ('A' in fields[1]) GitStatus.ADDED else GitStatus.MODIFIED
                     }
                 }
 
@@ -33,12 +34,13 @@ internal object GitStatusParser {
                     if (fields.size == 11) statuses[fields[10]] = GitStatus.MODIFIED
                 }
 
+                // ? path, ! path
                 '?' -> {
-                    statuses[record.substring(2)] = GitStatus.UNVERSIONED
+                    if (record.length > 2) statuses[record.substring(2)] = GitStatus.UNVERSIONED
                 }
 
                 '!' -> {
-                    statuses[record.substring(2)] = GitStatus.IGNORED
+                    if (record.length > 2) statuses[record.substring(2)] = GitStatus.IGNORED
                 }
 
                 // Empty records (the output ends with NUL) and headers (#) carry no file status.

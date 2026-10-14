@@ -72,6 +72,32 @@ class GitStatusParserTest {
     }
 
     @Test
+    fun `intent-to-add entries are added`() {
+        val statuses =
+            parse(
+                "1 .A N... 000000 000000 100644 0000000 0000000 planned.kt",
+                "1 .M N... 100644 100644 100644 e69de29 e69de29 changed.kt",
+            )
+        assertEquals(mapOf("planned.kt" to GitStatus.ADDED, "changed.kt" to GitStatus.MODIFIED), statuses)
+    }
+
+    @Test
+    fun `records too short for a path are skipped`() {
+        val statuses =
+            parse(
+                "?",
+                "!",
+                "? ",
+                "1 .M N... 100644",
+                "u UU N... 100644",
+                "2 R. N... 100644 100644 100644 e69de29 e69de29 R100",
+                "original.kt",
+                "? notes.txt",
+            )
+        assertEquals(mapOf("notes.txt" to GitStatus.UNVERSIONED), statuses)
+    }
+
+    @Test
     fun `headers and empty output give no statuses`() {
         assertEquals(emptyMap(), GitStatusParser.parse(""))
         assertEquals(emptyMap(), parse("# branch.oid 1234", "# branch.head master"))
