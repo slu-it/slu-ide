@@ -35,4 +35,5 @@ Rejected:
 - Window-scoped beans cannot be injected into singletons; doing so fails at startup ("only inside a window").
 - The explorer and editor area are now created on the FX thread when a window opens, not at context startup.
 - Quitting from the macOS application menu (Cmd+Q) may end the app without close requests, so without the
-  confirmation; not verified, since development runs on Linux.
+  confirmation; not verified, since development runs on Linux. (JavaFX's quit handler asks every window to close,
+  according to its code; see [ADR 0020](0020-editing-and-saving-files.md).)

@@ -7,14 +7,21 @@
   new tab, using the view from `FileViewers`, and selects it. A file that is already open just gets its tab selected.
   If no viewer can open the file, or reading it fails, nothing happens and `open` returns `false`; `canOpen(path)`
   asks the first part beforehand (the file explorer uses it to pick text or binary icons).
-- Files are shown read-only, in the editor font from the settings ([settings.md](settings.md)); open views follow
-  font changes.
+- Files are shown in the editor font from the settings ([settings.md](settings.md)); open views follow font changes.
+  Code, plain text and the sources of previews can be edited and saved ([text-editing.md](text-editing.md)).
+- A file tab whose view has unsaved changes (`EditableFileView.dirty`) shows a dot before its name (`● a.txt`),
+  also after its view was swapped (`OpenFile.dirty`). `save()` saves the selected file, `saveAll()` every edited one
+  (File → Save, Save All); a failure is shown through `showError` (the window's error dialog) and keeps the changes.
 - Tabs do not have to show files: `open(tab: EditorTab)` adds any tab (title, which may change, tooltip and content
   node) and selects it, e.g. a terminal ([terminal.md](terminal.md)). Every way of closing a tab calls its
   `EditorTab.dispose()` once. `openPaths` and `selectedPath` only report file tabs.
+- Closing file tabs with unsaved changes from the UI (×, middle click, any context menu entry) first asks once, listing
+  them: Save, Don't Save or Cancel (`askToSave`, replaced in tests via `EditorArea.confirmSave`). Save saves them and
+  closes nothing if one cannot be saved; Cancel closes nothing. The window asks the same for all its files
+  (`confirmCloseAll()`) before it closes.
 - A tab can have a `closeWarning` (e.g. a terminal with a running program). Closing such tabs from the UI (×, middle
-  click, any context menu entry) first shows one confirmation dialog listing the warnings; Cancel closes nothing.
-  `closeAll()` (used when the window is closed, after the window's own confirmation) does not ask. Tests replace the dialog via
+  click, any context menu entry) then shows one confirmation dialog listing the warnings; Cancel closes nothing.
+  `closeAll()` (used when the window is closed, after the window's own confirmations) does not ask. Tests replace the dialog via
   `EditorArea.confirmClose`. The dialog ("Close this tab anyway?" / "Close these tabs anyway?", Close and Cancel) is
   `askToClose`, which the main window uses for "Close this window anyway?" too.
 - One tab per file: the file name as title, the full path as tooltip. Clicking a tab selects it.
@@ -35,14 +42,16 @@
   (`HostServices.showDocument`, through the `SystemBrowser` bean), and `projectFolder` is the window's project folder
   (`EditorArea.projectFolder`, set by the main window), whose files HTML previews may use.
 - Open files are watched ([file-watching.md](file-watching.md)). When a file changes on disk, its tab reloads and
-  keeps its scroll position and caret (`FileView.reload`); if reading it fails, the tab keeps showing the last content
-  and the next change tries again. When the file is deleted, renamed away or can no longer
-  be shown (e.g. it became binary), its tab closes.
+  keeps its scroll position and caret (`FileView.reload`); unsaved changes are never thrown away, the view offers to
+  reload or keep them instead ([text-editing.md](text-editing.md)). If reading it fails, the tab keeps showing the last
+  content and the next change tries again. When the file is deleted, renamed away or can no longer be shown (e.g. it
+  became binary), its tab closes, unless it has unsaved changes: then it stays and saving recreates the file.
 - Diffs ([git-diff.md](git-diff.md)): `diffOf(path)` returns a `TextDiff` for files to show side by side with their
-  original (`FileViewers.openDiff`), `null` for the normal view. It is asked when a file is opened, when it changes on
-  disk and for all open files on `refreshDiffs()`; a tab then swaps between diff and normal view in place
-  (`OpenFile.view`, inside a stable content node), keeping its tab position and whether it is selected; the scroll
-  position resets ([git-diff.md](git-diff.md)).
+  original (`FileViewers.openDiff`), `null` for the normal view. It is asked when a file is opened, and for diff views
+  when their file changes on disk and on `refreshDiffs()`; a diff view then shows the new diff or swaps to the normal
+  view in place (`OpenFile.view`, inside a stable content node), keeping its tab position and whether it is selected;
+  the scroll position resets ([git-diff.md](git-diff.md)). Until diffs are shown on demand, a normal view is never
+  swapped for a diff.
 - Every window has its own editor area ([open-folder.md](open-folder.md)).
 - When the tabs do not fit, ‹ and › buttons appear. They scroll the tab row one tab at a time without changing the
   selection. A ▾ dropdown lists every tab that is cut off or out of view, and choosing one selects it and scrolls it
@@ -50,5 +59,5 @@
 - Structure: `EditorTabs` (model: open tabs, `OpenFile` for files, and the selection), `TabOverflow` (which tabs fit, scroll positions,
   where a dragged tab belongs),
   `TabStrip` (header row and layout), styles in `editor.css`.
-- Not yet implemented: editing, keyboard shortcuts for tabs, dragging tabs into another window or out of the tab
+- Not yet implemented: keyboard shortcuts for tabs, dragging tabs into another window or out of the tab
   row, cancelling a drag with Escape.

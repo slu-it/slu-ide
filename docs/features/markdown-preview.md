@@ -24,7 +24,7 @@
   reach the link bridge.
 - Links never navigate the preview. Anchors (`#part`) scroll within it; `http`, `https`, `mailto` and scheme-relative
   (`//host/…`, as `https`) links open in the system browser; relative and `file:` links open the file in a SluIde tab,
-  read-only, wherever it is (resolved against the Markdown file's folder, without fragment or query; nothing happens if
+  wherever it is (resolved against the Markdown file's folder, without fragment or query; nothing happens if
   no viewer can show it). The page's script calls one Kotlin bridge
   object (`sluideBridge`), which hands the target to the view's `FileViewHost` ([file-viewers.md](file-viewers.md)).
 - The preview follows the light or dark theme of the window.

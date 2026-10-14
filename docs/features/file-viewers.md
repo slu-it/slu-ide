@@ -3,18 +3,21 @@
 **Module:** `modules/file-viewers` (package `dev.sluide.fileviewers`)
 
 - `FileViewer` is the extension point: `canOpen(file)` decides cheaply whether the viewer can show a file, and
-  `open(file)` creates a read-only `FileView` for it. A `FileView` has the JavaFX `node` and `reload()`, which
-  re-reads the file and keeps the scroll position and caret; the editor calls it when the file changes on disk.
+  `open(file)` creates a `FileView` for it. A `FileView` has the JavaFX `node` and `reload()`, which re-reads the file
+  and keeps the scroll position and caret; the editor calls it when the file changes on disk. It never throws away
+  unsaved changes. Views in which the file can be edited are `EditableFileView`s with `dirty` and `save()`
+  ([text-editing.md](text-editing.md)): code views, plain text and the previews' source. Images and diffs are read-only.
   `dispose()` is called once when the view is no longer shown (its tab closed, or a diff view or normal view took its
   place); previews and the image view stop their `WebView` page there, other views do nothing.
 - `FileViewers` asks every `FileViewer` bean in turn and uses the first that agrees. `DefaultTextFileViewer` is always
   asked last ([ADR 0004](../adr/0004-file-viewer-selection.md)). Returns `null` if no viewer agrees.
-- `DefaultTextFileViewer` shows any text file in a non-editable `TextArea`. A file is text if its
+- `DefaultTextFileViewer` shows any text file as plain text in an editable `CodeView` without highlighting. A file is text if its
   first 8 KiB contain no NUL byte and are valid UTF-8 (`isTextFile`); empty files are text, files over 10 MiB are not.
 - Code viewers extend `CodeFileViewer(extensions, highlighter)` and show text files with syntax highlighting and line
-  numbers, read-only. They render a RichTextFX `CodeArea`, colour the tokens from a `SyntaxHighlighter`
-  (`RSyntaxHighlighter` = RSyntaxTextArea lexers, [ADR 0005](../adr/0005-syntax-highlighting.md)) and are styled by
-  `syntax.css`. Token classes: `keyword`, `type`, `builtin`, `string`, `number`, `comment`, `annotation`, `property`, `tag`, `attribute`, `operator`.
+  numbers in an editable `CodeView`. It renders a RichTextFX `CodeArea`, colours the tokens from a `SyntaxHighlighter`
+  (`RSyntaxHighlighter` = RSyntaxTextArea lexers, [ADR 0005](../adr/0005-syntax-highlighting.md)) and is styled by
+  `syntax.css`; its banners (file changed or deleted on disk) by `code-view.css`. Edited text is highlighted again in
+  the background once typing pauses ([ADR 0020](../adr/0020-editing-and-saving-files.md)). Token classes: `keyword`, `type`, `builtin`, `string`, `number`, `comment`, `annotation`, `property`, `tag`, `attribute`, `operator`.
 - Highlighted languages, with the corrections for outdated lexers (configured in `RSyntaxHighlighter`'s companion):
 
   | Viewer | Extensions | Corrections to the lexer |
@@ -39,8 +42,8 @@
 
 - `ImageFileViewer` shows image files (png, jpg, gif, webp, bmp, ico up to 50 MB), although they are binary
   ([previews.md](previews.md)). It reads and base64-encodes the whole file on the JavaFX thread.
-- Preview viewers (`PreviewFileViewer`) show highlighted source beside a rendered `WebView`, with a Source / Split /
-  Preview toolbar: Markdown ([markdown-preview.md](markdown-preview.md)) and the others in [previews.md](previews.md).
+- Preview viewers (`PreviewFileViewer`) show highlighted, editable source beside a rendered `WebView`, with a Source /
+  Split / Preview toolbar; the preview renders the saved text: Markdown ([markdown-preview.md](markdown-preview.md)) and the others in [previews.md](previews.md).
   Their diffs are highlighted like their source.
 - `MarkdownFileViewer` (`.md`, `.markdown`) is no code viewer: it shows the Markdown source, highlighted like the
   code views, beside a rendered preview ([markdown-preview.md](markdown-preview.md)). Fenced code in the source is

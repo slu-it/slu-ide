@@ -1,6 +1,6 @@
 # 0004. File viewers are asked in turn, the default text viewer last
 
-- Status: accepted
+- Status: accepted; partly superseded by [0020](0020-editing-and-saving-files.md) (views of text are editable)
 - Date: 2026-10-12
 
 ## Context

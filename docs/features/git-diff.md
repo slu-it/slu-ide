@@ -20,9 +20,10 @@ decision in [ADR 0015](../adr/0015-git-diff.md)
   on its first row on both sides. Next and previous are seen from the caret, so clicking a row on either side starts
   from there. The toolbar counts the changes and tells which one the caret is in ("Change 2 of 5").
 - Added and unversioned files open normally, they are new as a whole. Clean files open normally too.
-- The tab follows the status: it turns into a diff when the file becomes modified (an edit, in SluIde's terminal or
-  elsewhere) and back into the normal view when it is clean again (a commit, a checkout); a diff updates when the file
-  changes. The scroll position resets when the view switches.
+- A diff updates when the file changes and turns back into the normal view when the file is clean again (a commit, a
+  checkout); the scroll position resets then. For now (until diffs are shown on demand), an open editor never turns
+  into a diff: it may have unsaved changes, and saving a tracked file must keep it
+  ([text-editing.md](text-editing.md)); the diff shows when the file is opened again.
 - Files with a text, code or preview viewer (Markdown, HTML, SVG, CSV, notebooks) are shown as a diff of their text,
   highlighted like their source; others (e.g. images) open normally.
 - Not yet implemented: diffs against the index or other commits, reverting changes.

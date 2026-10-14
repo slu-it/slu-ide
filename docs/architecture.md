@@ -7,7 +7,7 @@ assembled from Gradle modules.
 | Path | Purpose |
 |------|---------|
 | `ide/` | Application module: launcher, Spring Boot configuration, main window. Produces the fat jar (`./gradlew :ide:bootJar`). |
-| `modules/<name>/` | One Gradle module per IDE capability: `file-explorer`, `editor` (tabs), `file-viewers` (views of files and side-by-side diffs; the previews of Markdown, HTML, SVG, CSV and notebooks and the image view are `javafx.web` WebViews), `file-watcher` (changes on disk), `terminal` (shells in editor tabs), `settings` (settings state, storage and dialog), `docker-sandbox` (`sbx` in terminal tabs), `git` (git status of the open repository and diffs against `HEAD`). |
+| `modules/<name>/` | One Gradle module per IDE capability: `file-explorer`, `editor` (tabs), `file-viewers` (views of files and side-by-side diffs; the previews of Markdown, HTML, SVG, CSV and notebooks and the image view are `javafx.web` WebViews), `file-watcher` (changes on disk), `terminal` (shells in editor tabs), `settings` (settings state, storage and dialog), `docker-sandbox` (`sbx` in terminal tabs), `git` (git status of the open repository and diffs against `HEAD`), `text-editing` (logic of editing text without JavaFX: line endings, changes on disk). |
 | `gradle/libs.versions.toml` | Single place for dependency and plugin versions. |
 | `docs/` | This documentation. Start at [index.md](index.md). |
 | `.claude/` | Claude Code settings, agents, rules, scripts. |
@@ -19,11 +19,13 @@ assembled from Gradle modules.
   Beans that hold the state of one window (a project) are `@Scope("window")`.
 - Cross-module state (e.g. the current project folder) lives in `ide` or a shared module, and modules receive it
   through their public API (e.g. `FileExplorerView.open(path)`), not by reaching into each other.
-- Documented module dependencies (all `api`):
+- Documented module dependencies (`api` unless noted):
   - `file-explorer` -> `file-watcher` and `editor` -> `file-watcher`: loaded folders and open files are watched
     ([ADR 0006](adr/0006-file-watching.md)).
   - `editor` -> `file-viewers`: the editor area asks `FileViewers` for the view of a file
     ([ADR 0004](adr/0004-file-viewer-selection.md)).
+  - `file-viewers` -> `text-editing` (`implementation`): code views keep line endings and decide what a change on disk
+    means for edited text ([ADR 0020](adr/0020-editing-and-saving-files.md)).
   - `terminal` -> `editor`: terminals are shown as `EditorTab`s ([ADR 0007](adr/0007-terminal.md)).
   - `docker-sandbox` -> `terminal`: sandboxes run in terminal tabs and look `sbx` up in the same login shell
     (`loginShellRunning`) ([ADR 0010](adr/0010-docker-sandbox.md)).

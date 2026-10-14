@@ -6,7 +6,8 @@
 [ADR 0018](../adr/0018-html-preview-server.md)
 
 Every preview shows the highlighted source beside the rendered file in a `WebView`, with a toolbar for **Source**,
-**Split** and **Preview**. It updates when the file changes on disk; links open in the system browser or a SluIde tab
+**Split** and **Preview**. The source can be edited; the preview shows the saved text and updates when the file is
+saved or changes on disk; links open in the system browser or a SluIde tab
 and never navigate the preview (`FileViewHost`, [file-viewers.md](file-viewers.md)).
 
 ## HTML (`.html`, `.htm`, `.xhtml`) — `HtmlFileViewer`

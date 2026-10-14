@@ -5,9 +5,10 @@ A lightweight IDE written in Kotlin, using Spring Boot and JavaFX.
 - **Projects:** File → Open Folder… (or `SluIde [folder…]` on the command line) opens a folder; one project per
   window, several windows at once.
 - **File explorer:** the whole folder including hidden files, with file icons, git status colours and live updates.
-- **Files** open read-only in tabs: syntax highlighting for common languages (Kotlin, Java, Python, JavaScript,
-  TypeScript, JSON, XML, YAML, CSS and more), rendered previews beside the source for Markdown, HTML, SVG, CSV and
-  Jupyter notebooks; images on their own page. Files with a text, code or preview viewer that are modified in git
+- **Files** open in tabs to edit and save (File → Save, Ctrl/Cmd+S; Save All), keeping their line endings, with
+  a prompt before unsaved changes are closed: syntax highlighting for common languages (Kotlin, Java, Python,
+  JavaScript, TypeScript, JSON, XML, YAML, CSS and more), rendered previews beside the source for Markdown, HTML, SVG,
+  CSV and Jupyter notebooks; images on their own page. Files with a text, code or preview viewer that are modified in git
   open as a side-by-side diff against `HEAD`.
 - **Terminals** (Terminal → New Terminal, Ctrl+Shift+T) run your shell in the project folder as a tab; **Docker
   sandboxes** (Claude Code, Environment) run `sbx` there.
@@ -45,7 +46,7 @@ it once, then allow it under System Settings → Privacy & Security → Open Any
 | Path | Content |
 |------|---------|
 | `ide/` | Application: launcher, window, fat jar |
-| `modules/` | Feature modules (`file-explorer`, `editor`, `file-viewers`, `file-watcher`, `terminal`, `settings`, `docker-sandbox`, `git`) |
+| `modules/` | Feature modules (`file-explorer`, `editor`, `file-viewers`, `file-watcher`, `terminal`, `settings`, `docker-sandbox`, `git`, `text-editing`) |
 | `docs/` | Architecture, ADRs and feature descriptions, starting at [`docs/index.md`](docs/index.md) |
 | `.claude/` | Claude Code settings, agents, rules and scripts |
 | `.github/` | CI and release workflows |

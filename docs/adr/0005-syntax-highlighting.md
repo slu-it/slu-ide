@@ -1,6 +1,6 @@
 # 0005. Syntax highlighting with RichTextFX and the RSyntaxTextArea lexers
 
-- Status: accepted
+- Status: accepted; partly superseded by [0020](0020-editing-and-saving-files.md) (the code area is editable, edited code is highlighted in the background)
 - Date: 2026-10-12
 
 ## Context

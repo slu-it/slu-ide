@@ -16,6 +16,8 @@
   file explorer and the git status ([git-status.md](git-status.md)) and sets the window title to
   `<folder name> – SluIde`.
 - Every window has its own explorer, editor area, terminals, Docker sandboxes and git status (Spring scope `window`).
+- Closing a window with unsaved files first asks to save them: Save, Don't Save or Cancel
+  ([text-editing.md](text-editing.md)); Cancel keeps the window.
 - Closing a window while its tabs still run something (terminal programs, Docker sandboxes and other commands) asks
   once, listing them: "Close this window anyway?". Cancel keeps the window; Close ends them. Without running tabs it
   closes right away. Closing the last window quits SluIde. Tests replace the dialog via `MainWindow.confirmCloseWindow`.
