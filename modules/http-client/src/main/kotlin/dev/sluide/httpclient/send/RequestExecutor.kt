@@ -139,6 +139,7 @@ internal class RequestExecutor(
                         followRedirects = !tags.noRedirect,
                         cookieJar = !tags.noCookieJar,
                         connectTimeout = connectTimeout,
+                        sslContext = request.sslContext,
                     )
                 val client = clients.client(key)
                 result(answerDigest(client, send(client, httpRequest())))

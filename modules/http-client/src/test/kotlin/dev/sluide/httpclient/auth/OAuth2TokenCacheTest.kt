@@ -1,6 +1,7 @@
 package dev.sluide.httpclient.auth
 
 import dev.sluide.httpclient.send.HttpClients
+import dev.sluide.httpclient.send.SslContexts
 import java.net.http.HttpClient
 import java.time.Duration
 import java.time.Instant
@@ -18,7 +19,7 @@ class OAuth2TokenCacheTest {
     private val endpoint = TokenEndpoint()
     private val clients = HttpClients(proxy = HttpClient.Builder.NO_PROXY)
     private val clock = MutableClock()
-    private val cache = OAuth2TokenCache(OAuth2Client(clients, Duration.ofSeconds(5)), clock)
+    private val cache = OAuth2TokenCache(OAuth2Client(clients, Duration.ofSeconds(5)), SslContexts(), clock)
     private val notes = mutableListOf<String>()
 
     @AfterTest

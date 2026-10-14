@@ -17,11 +17,13 @@ import java.net.http.HttpResponse
 import java.net.http.HttpTimeoutException
 import java.time.Duration
 import java.util.Base64
+import javax.net.ssl.SSLContext
 
 /**
  * Requests tokens from the token endpoint of an [OAuth2Config] (RFC 6749): the Client Credentials and Password grants
  * and refreshing with a refresh token. Calls block until the response is read, at most for [timeout]; an interrupt
- * aborts them with [InterruptedException]. Failures throw [OAuth2Exception].
+ * aborts them with [InterruptedException]. Failures throw [OAuth2Exception]. The `sslContext` of a call is the one of
+ * the environment, so client certificates and `verifyHostCertificate` apply to the token endpoint as well.
  */
 internal class OAuth2Client(
     private val clients: HttpClients,
@@ -37,23 +39,29 @@ internal class OAuth2Client(
         val notes: List<String> = emptyList(),
     )
 
-    fun grant(config: OAuth2Config): TokenResponse {
+    fun grant(
+        config: OAuth2Config,
+        sslContext: SSLContext? = null,
+    ): TokenResponse {
         val parameters = mutableListOf("grant_type" to config.grant.value)
         if (config.grant == OAuth2Config.Grant.PASSWORD) {
             parameters += "username" to config.username.orEmpty()
             parameters += "password" to config.password.orEmpty()
         }
-        return request(config, parameters)
+        return request(config, parameters, sslContext)
     }
 
     fun refresh(
         config: OAuth2Config,
         refreshToken: String,
-    ): TokenResponse = request(config, mutableListOf("grant_type" to "refresh_token", "refresh_token" to refreshToken))
+        sslContext: SSLContext? = null,
+    ): TokenResponse =
+        request(config, mutableListOf("grant_type" to "refresh_token", "refresh_token" to refreshToken), sslContext)
 
     private fun request(
         config: OAuth2Config,
         parameters: MutableList<Pair<String, String>>,
+        sslContext: SSLContext?,
     ): TokenResponse {
         config.scope?.let { parameters += "scope" to it }
         val builder =
@@ -85,7 +93,7 @@ internal class OAuth2Client(
         parameters += config.parameters
         val form = parameters.joinToString("&") { (name, value) -> "${encode(name)}=${encode(value)}" }
         val request = builder.POST(HttpRequest.BodyPublishers.ofString(form)).build()
-        val key = HttpClients.ClientKey(followRedirects = false, cookieJar = false, connectTimeout = timeout)
+        val key = HttpClients.ClientKey(followRedirects = false, cookieJar = false, timeout, sslContext)
         val response =
             try {
                 clients.client(key).send(request, HttpResponse.BodyHandlers.ofByteArray())

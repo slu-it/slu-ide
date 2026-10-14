@@ -35,6 +35,16 @@ internal class HttpClients(
             clients.getOrPut(key) { create(key) }
         }
 
+    /** Stops the clients of [sslContext] after their running exchanges, e.g. because the context was replaced. */
+    fun evict(sslContext: SSLContext) {
+        val stopped =
+            synchronized(lock) {
+                val keys = clients.keys.filter { it.sslContext === sslContext }
+                keys.mapNotNull { clients.remove(it) }
+            }
+        stopped.forEach(HttpClient::shutdown)
+    }
+
     fun clearCookies() {
         cookies.cookieStore.removeAll()
     }

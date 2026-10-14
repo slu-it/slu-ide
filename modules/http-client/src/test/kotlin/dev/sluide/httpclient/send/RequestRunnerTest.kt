@@ -5,13 +5,18 @@ import dev.sluide.httpclient.auth.OAuth2TokenCache
 import dev.sluide.httpclient.auth.TokenEndpoint
 import dev.sluide.httpclient.auth.oauthEnvironment
 import dev.sluide.httpclient.env.Environment
+import dev.sluide.httpclient.env.EnvironmentFiles
+import dev.sluide.httpclient.env.Environments
 import dev.sluide.httpclient.parse.HttpFileParser
+import org.junit.jupiter.api.io.TempDir
 import java.net.http.HttpClient
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.io.path.copyTo
+import kotlin.io.path.writeText
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -24,9 +29,17 @@ class RequestRunnerTest {
     private val endpoint = TokenEndpoint()
     private val clients = HttpClients(proxy = HttpClient.Builder.NO_PROXY)
     private val executor = RequestExecutor(clients)
-    private val tokens = OAuth2TokenCache(OAuth2Client(clients))
-    private val runner = RequestRunner(executor, tokens)
+
+    /** The passphrase prompt; runs on the executor thread. */
+    @Volatile
+    private var prompt: () -> CharArray? = { "secret".toCharArray() }
+    private val sslContexts = SslContexts({ prompt() }, TlsServer.trustedCa(), clients::evict)
+    private val tokens = OAuth2TokenCache(OAuth2Client(clients), sslContexts)
+    private val runner = RequestRunner(executor, tokens, sslContexts)
     private val dev = oauthEnvironment(endpoint.url)
+
+    @TempDir
+    lateinit var folder: Path
 
     @AfterTest
     fun stop() {
@@ -127,5 +140,58 @@ class RequestRunnerTest {
         assertTrue(failure.cancelled)
         assertEquals("Cancelled", failure.message)
         release.countDown()
+    }
+
+    @Test
+    fun `sends the client certificate of the environment`() {
+        TlsServer().use { tls ->
+            val result = assertIs<HttpResult>(run("GET https://localhost:${tls.port}/", mtlsEnvironment()))
+
+            assertEquals("CN=SluIde Test Client", result.body.toString(Charsets.UTF_8))
+        }
+    }
+
+    @Test
+    fun `cancels runs that wait for the passphrase prompt`() {
+        val prompting = CountDownLatch(1)
+        val answer = CountDownLatch(1)
+        prompt = {
+            prompting.countDown()
+            answer.await()
+            "secret".toCharArray()
+        }
+        val mtls = mtlsEnvironment()
+        val (first, firstResult) = start("GET https://localhost:1/", mtls)
+        assertTrue(prompting.await(5, TimeUnit.SECONDS))
+        // The second run waits for the first one's prompt, as both need the same files.
+        val (second, secondResult) = start("GET https://localhost:1/", mtls)
+
+        second.cancel()
+        first.cancel()
+
+        for (result in listOf(firstResult, secondResult)) {
+            val failure = assertIs<HttpFailure>(result.get(5, TimeUnit.SECONDS))
+            assertEquals("Cancelled", failure.message)
+            assertTrue(failure.cancelled)
+        }
+        answer.countDown()
+    }
+
+    /** An environment with the test client certificate and its encrypted key. */
+    private fun mtlsEnvironment(): Environment? {
+        TlsServer.fixture("client.pem").copyTo(folder.resolve("client.pem"))
+        TlsServer.fixture("client-encrypted.key").copyTo(folder.resolve("client.key"))
+        val private =
+            folder.resolve(EnvironmentFiles.PRIVATE).apply {
+                writeText(
+                    """
+                    {"mtls": {"SSLConfiguration": {
+                      "clientCertificate": "client.pem", "clientCertificateKey": {"path": "client.key", "format": "PEM"},
+                      "hasCertificatePassphrase": true
+                    }}}
+                    """.trimIndent(),
+                )
+            }
+        return Environments.load(EnvironmentFiles(null, private))["mtls"]
     }
 }

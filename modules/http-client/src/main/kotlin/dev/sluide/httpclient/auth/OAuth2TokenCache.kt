@@ -1,12 +1,14 @@
 package dev.sluide.httpclient.auth
 
 import dev.sluide.httpclient.env.Environment
+import dev.sluide.httpclient.send.SslContexts
 import dev.sluide.httpclient.vars.DynamicVariables
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
+import javax.net.ssl.SSLContext
 
 /**
  * The OAuth2 tokens of one window, in memory only. A token belongs to an environment name and auth id, and is only
@@ -15,10 +17,12 @@ import java.util.concurrent.locks.ReentrantLock
  * fails or there is none.
  *
  * [token] and [acquire] block during token requests; call them off the FX thread. Concurrent calls for the same
- * environment and id wait for one shared token request. [clear], [clearAll] and [tokens] never block.
+ * environment and id wait for one shared token request. [clear], [clearAll] and [tokens] never block. Token requests
+ * use the environment's `SSLConfiguration` through [sslContexts].
  */
 internal class OAuth2TokenCache(
     private val client: OAuth2Client,
+    private val sslContexts: SslContexts,
     private val clock: Clock = Clock.systemUTC(),
     private val dynamic: DynamicVariables = DynamicVariables(),
 ) {
@@ -64,13 +68,14 @@ internal class OAuth2TokenCache(
         val config = OAuth2Config.of(environment, id, dynamic)
         val key = Key(checkNotNull(environment).name, id)
         val slot = slots.computeIfAbsent(key) { Slot() }
+        val ssl = { environment.ssl?.let(sslContexts::context) }
         val token =
             slot.lock.withLockInterruptibly {
                 val cached = slot.token?.takeIf { it.config == config }
                 when {
                     cached != null && valid(cached) -> cached
-                    cached?.response?.refreshToken != null -> refresh(slot, cached, note)
-                    config.acquireAutomatically -> obtain(slot, config, note)
+                    cached?.response?.refreshToken != null -> refresh(slot, cached, ssl, note)
+                    config.acquireAutomatically -> obtain(slot, config, ssl, note)
                     cached != null -> throw OAuth2Exception("The token for '$id' has expired; acquire it again")
                     else -> throw OAuth2Exception("Acquire the token for '$id' first (Acquire Automatically is off)")
                 }
@@ -87,7 +92,8 @@ internal class OAuth2TokenCache(
         val config = OAuth2Config.of(environment, id, dynamic)
         val key = Key(checkNotNull(environment).name, id)
         val slot = slots.computeIfAbsent(key) { Slot() }
-        val token = slot.lock.withLockInterruptibly { obtain(slot, config, note) }
+        val ssl = { environment.ssl?.let(sslContexts::context) }
+        val token = slot.lock.withLockInterruptibly { obtain(slot, config, ssl, note) }
         return info(key, token)
     }
 
@@ -113,6 +119,7 @@ internal class OAuth2TokenCache(
     private fun refresh(
         slot: Slot,
         cached: Token,
+        ssl: () -> SSLContext?,
         note: (String) -> Unit,
     ): Token {
         val config = cached.config
@@ -121,12 +128,12 @@ internal class OAuth2TokenCache(
         val started = System.nanoTime()
         val response =
             try {
-                client.refresh(config, refreshToken)
+                client.refresh(config, refreshToken, ssl())
             } catch (e: OAuth2Exception) {
                 slot.token = null
                 if (!config.acquireAutomatically) throw e
                 note("Refreshing the token for '${config.id}' failed (${e.message}); acquiring a new one")
-                return obtain(slot, config, note)
+                return obtain(slot, config, ssl, note)
             }
         note("Refreshed the token for '${config.id}' in ${millis(started)} ms")
         response.notes.forEach(note)
@@ -145,11 +152,12 @@ internal class OAuth2TokenCache(
     private fun obtain(
         slot: Slot,
         config: OAuth2Config,
+        ssl: () -> SSLContext?,
         note: (String) -> Unit,
     ): Token {
         val start = clock.instant()
         val started = System.nanoTime()
-        val response = client.grant(config)
+        val response = client.grant(config, ssl())
         note("Acquired the token for '${config.id}' (${config.grant.label}) in ${millis(started)} ms")
         response.notes.forEach(note)
         return store(slot, config, response, start)

@@ -12,11 +12,13 @@ import java.nio.file.Path
 /**
  * The one entry point for running a request of a `.http` file. [run] returns at once: resolving variables, token
  * requests, building and sending all happen on the [executor]'s threads, never on the caller's (the FX) thread, and
- * the result comes back through the executor's `dispatch`.
+ * the result comes back through the executor's `dispatch`. The environment's `SSLConfiguration` (client certificate,
+ * host verification) applies to the request and its token requests; [tokens] should use the same [sslContexts].
  */
 internal class RequestRunner(
     private val executor: RequestExecutor,
     private val tokens: OAuth2TokenCache,
+    private val sslContexts: SslContexts,
     private val dynamic: DynamicVariables = DynamicVariables(),
 ) {
     /**
@@ -35,6 +37,7 @@ internal class RequestRunner(
             val variables = HttpFileParser.parse(fileText).variables
             val auth = RequestTokens(tokens, environment, notes::add)
             val resolver = VariableResolver(environment, variables, dynamic, auth::token)
-            RequestBuilder(httpFile, resolver).build(request)
+            val ssl = environment?.ssl?.let(sslContexts::context)
+            RequestBuilder(httpFile, resolver).build(request).withSslContext(ssl)
         }
 }
