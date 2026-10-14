@@ -2,8 +2,11 @@ package dev.sluide.fileviewers
 
 import javafx.geometry.Insets
 import javafx.geometry.Pos
+import javafx.scene.Cursor
 import javafx.scene.Node
 import javafx.scene.control.Label
+import javafx.scene.input.MouseButton
+import javafx.scene.input.MouseEvent
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Region
 import javafx.scene.text.Font
@@ -31,7 +34,8 @@ interface GutterColumns {
 /**
  * The column left of the text of [area], one row per paragraph: the line number (style class `lineno`, like
  * RichTextFX's `LineNumberFactory`), a thin [change marker][markers] (style class [MARKER_STYLE] plus the
- * [LineMarker.styleClass]) and the nodes of further [columns][addColumn], e.g. icons to run something.
+ * [LineMarker.styleClass]; clicking it calls [onMarkerClicked] while [markersClickable]) and the nodes of further
+ * [columns][addColumn], e.g. icons to run something.
  *
  * The rows are created by the area's paragraph graphic factory, again for a paragraph whenever its index changes. The
  * factory is replaced, so that the area creates all rows again, only when the markers, the number of digits of the
@@ -39,12 +43,22 @@ interface GutterColumns {
  */
 internal class Gutter(
     private val area: CodeArea,
+    /** Called with the paragraph whose change marker was clicked. */
+    private val onMarkerClicked: (paragraph: Int) -> Unit = {},
 ) {
     private val columns = mutableListOf<(Int) -> Node?>()
     private var digits = 0
 
     /** The change marker of each line; lines beyond the list have none. */
     var markers: List<LineMarker?> = emptyList()
+        set(value) {
+            if (value == field) return
+            field = value
+            refresh()
+        }
+
+    /** Whether clicking a marker calls [onMarkerClicked], e.g. only while there is a diff to show. */
+    var markersClickable: Boolean = false
         set(value) {
             if (value == field) return
             field = value
@@ -69,16 +83,27 @@ internal class Gutter(
         digits = digitsOf(area.paragraphs.size)
         val digits = digits
         val markers = markers
+        val clickable = markersClickable
         val columns = columns.toList()
         area.paragraphGraphicFactory =
             IntFunction { paragraph ->
                 val marker =
                     Region().apply {
                         styleClass += MARKER_STYLE
-                        markers.getOrNull(paragraph)?.let { styleClass += it.styleClass }
                         setMinSize(MARKER_WIDTH, 0.0)
                         setPrefSize(MARKER_WIDTH, 0.0)
                         setMaxSize(MARKER_WIDTH, Double.MAX_VALUE)
+                        val kind = markers.getOrNull(paragraph)
+                        kind?.let { styleClass += it.styleClass }
+                        if (kind != null && clickable) {
+                            cursor = Cursor.HAND
+                            // Not pressed into the text: the caret stays where it is.
+                            addEventHandler(MouseEvent.MOUSE_PRESSED) { it.consume() }
+                            addEventHandler(MouseEvent.MOUSE_CLICKED) { event ->
+                                if (event.button == MouseButton.PRIMARY) onMarkerClicked(paragraph)
+                                event.consume()
+                            }
+                        }
                     }
                 HBox(
                     lineNumber(paragraph, digits),

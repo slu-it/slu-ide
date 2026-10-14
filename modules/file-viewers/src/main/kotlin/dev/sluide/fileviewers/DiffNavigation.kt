@@ -15,6 +15,12 @@ internal fun changeBlocks(rows: List<DiffRow>): List<IntRange> {
     return blocks
 }
 
+/** The row of [rows] showing [line] of the file (0-based), or the end for lines beyond them. */
+internal fun rowOfCurrent(
+    rows: List<DiffRow>,
+    line: Int,
+): Int = rows.indexOfFirst { it.current == line }.takeIf { it >= 0 } ?: rows.size
+
 /** Jumps between the changes [blocks] (sorted row ranges) of a diff, seen from a row; `null` where there is none. */
 internal class DiffNavigation(
     val blocks: List<IntRange>,
@@ -28,6 +34,13 @@ internal class DiffNavigation(
 
     /** The last change that ends before [row]; from within a change, the one before it. */
     fun previous(row: Int): IntRange? = blocks.lastOrNull { it.last < row }
+
+    /**
+     * The change a marker on [row] stands for: the one [row] is in, else the one right above it (lines removed
+     * there), else the next one, else the last one.
+     */
+    fun at(row: Int): IntRange? =
+        blocks.firstOrNull { row in it } ?: blocks.firstOrNull { it.last == row - 1 } ?: next(row) ?: last()
 
     /** The index of the change [row] is in. */
     fun indexAt(row: Int): Int? = blocks.indexOfFirst { row in it }.takeIf { it >= 0 }

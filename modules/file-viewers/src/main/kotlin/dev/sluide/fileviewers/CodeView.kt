@@ -60,7 +60,10 @@ internal class CodeView(
     val area = CodeArea()
 
     /** Line numbers, change markers ([showChanges]) and further columns ([addGutterColumn]). */
-    private val gutter = Gutter(area)
+    private val gutter = Gutter(area) { line -> host?.showChanges(file, line) }
+
+    /** Shows the changes when a change marker is clicked. */
+    override var host: FileViewHost? = null
 
     // The default undo manager would also undo highlighting.
     private val undoManager = UndoUtils.plainTextUndoManager(area).also { area.undoManager = it }
@@ -198,6 +201,8 @@ internal class CodeView(
         pendingChanges = null
         changeMarkers.show(diff, savedText, area.text)
         gutter.markers = changeMarkers.markers
+        // Without a diff, the markers show unsaved edits only, and there is no diff to open.
+        gutter.markersClickable = diff != null
     }
 
     /** The diff given to [showChanges] while the conflict banner was shown. */

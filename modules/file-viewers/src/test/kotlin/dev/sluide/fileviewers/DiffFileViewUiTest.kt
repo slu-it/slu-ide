@@ -189,6 +189,27 @@ class DiffFileViewUiTest {
     }
 
     @Test
+    fun `jumps to the change at a line of the file`(robot: FxRobot) {
+        val file =
+            dir.resolve("Main.kt").apply {
+                writeText("val one = 1\nval TWO = 2\nval three = 3\nval five = 5\nsix()\nseven()\n")
+            }
+        val view = openDiff(file, diff)
+        robot.interact { container.children.setAll(view.node) }
+        val (left, right) =
+            robot.lookup(".code-area").queryAllAs(CodeArea::class.java).sortedBy { it.localToScene(0.0, 0.0).x }
+
+        // Line 3 (five) is where four was removed.
+        robot.interact { view.jumpToChangeAt(3) }
+        assertEquals(listOf(3, 3), listOf(left.currentParagraph, right.currentParagraph))
+        assertEquals("Change 2 of 3", robot.counter())
+
+        robot.interact { view.jumpToChangeAt(4) }
+        assertEquals(5, right.currentParagraph)
+        assertEquals("Change 3 of 3", robot.counter())
+    }
+
+    @Test
     fun `F7 and Shift+F7 jump to the next and previous change, seen from the caret on either side`(robot: FxRobot) {
         val (left, right) = open(robot)
 

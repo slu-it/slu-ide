@@ -185,6 +185,8 @@ internal class PreviewFileView(
         set(value) {
             val oldRoot = root
             field = value
+            // Clicking a change marker of the source asks the host for the diff.
+            source.host = value
             // A stopped preview renders with the new root when it resumes.
             if (preview.usesRoot && renderedText != null && !stopped && root != oldRoot) rerender()
         }

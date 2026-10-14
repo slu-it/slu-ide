@@ -81,6 +81,11 @@ class EditorArea(
             override fun openWebPage(uri: URI) = this@EditorArea.openWebPage(uri)
 
             override val projectFolder get() = this@EditorArea.projectFolder()
+
+            override fun showChanges(
+                file: Path,
+                line: Int,
+            ) = showChangesAt(file, line)
         }
 
     /** The editor font as CSS; file views inherit it from their node. */
@@ -192,6 +197,17 @@ class EditorArea(
         openFile.focusInEditor = focused?.takeIf { it.isInside(openFile.editor.node) }
         openFile.diffView = diffView
         diffView.node.requestFocus()
+    }
+
+    /** Shows the diff of the open [file] in its tab, at the change at its [line], e.g. for a clicked change marker. */
+    private fun showChangesAt(
+        file: Path,
+        line: Int,
+    ) {
+        val openFile = editorTabs.find(file.toAbsolutePath().normalize()) ?: return
+        editorTabs.select(openFile)
+        if (openFile.diffView == null) showDiff(openFile)
+        openFile.diffView?.jumpToChangeAt(line)
     }
 
     /**

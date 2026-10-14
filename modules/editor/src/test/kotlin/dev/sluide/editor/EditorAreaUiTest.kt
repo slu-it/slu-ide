@@ -726,6 +726,36 @@ class EditorAreaUiTest {
     }
 
     @Test
+    fun `clicking a change marker shows the diff at its change`(robot: FxRobot) {
+        val lines = (1..80).map { "line $it" }
+        val a = textFile("a.txt", lines.joinToString("\n", postfix = "\n"))
+        val original = lines.toMutableList().apply { set(59, "old line 60") }.joinToString("\n", postfix = "\n")
+        editor.diffOf = { TextDiff(original, listOf(LineChange(59..59, 59..59))) }
+        open(robot, a)
+        robot.interact { shownArea(robot).showParagraphAtTop(50) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val marker =
+            robot
+                .lookup(".editor-content .gutter")
+                .queryAllAs(HBox::class.java)
+                .single { (it.children[0] as Label).text.trim() == "60" }
+                .children[1]
+        for (type in listOf(MouseEvent.MOUSE_PRESSED, MouseEvent.MOUSE_RELEASED, MouseEvent.MOUSE_CLICKED)) {
+            robot.interact { fireMouse(marker, type) }
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val right =
+            robot
+                .lookup(".editor-content .diff-view .code-area")
+                .queryAllAs(CodeArea::class.java)
+                .maxBy { it.localToScene(0.0, 0.0).x }
+        assertEquals(59, right.currentParagraph)
+        assertTrue(right.firstVisibleParToAllParIndex() in 50..59, "shown near the top")
+    }
+
+    @Test
     fun `the Edit button of the diff goes back to the editor`(robot: FxRobot) {
         editor.diffOf = { TextDiff("old\n", listOf(LineChange(0..0, 0..0))) }
         open(robot, textFile("a.txt", "new\n"))

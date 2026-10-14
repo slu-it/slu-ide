@@ -42,6 +42,12 @@ interface DiffFileView : FileView {
     var onBack: (() -> Unit)?
         get() = null
         set(_) {}
+
+    /**
+     * Jumps to the change at [line] of the file (0-based), e.g. the one a change marker on that line stands for: the
+     * change the line is in, else lines removed right above it, else the next change, else the last one.
+     */
+    fun jumpToChangeAt(line: Int) {}
 }
 
 /**
@@ -62,6 +68,7 @@ internal class SideBySideDiffView(
     private val left = Side()
     private val right = Side()
 
+    private var rows = emptyList<DiffRow>()
     private var navigation = DiffNavigation(emptyList())
 
     /** The row of the caret, on either side; changes are found from here. */
@@ -176,8 +183,13 @@ internal class SideBySideDiffView(
         } finally {
             rendering = false
         }
+        this.rows = rows
         navigation = DiffNavigation(changeBlocks(rows))
         updateToolbar()
+    }
+
+    override fun jumpToChangeAt(line: Int) {
+        navigation.at(rowOfCurrent(rows, line))?.let(::jumpTo)
     }
 
     /** Puts both carets at the start of [row]. */

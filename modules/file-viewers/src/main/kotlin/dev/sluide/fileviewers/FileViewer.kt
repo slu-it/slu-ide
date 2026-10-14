@@ -78,4 +78,13 @@ interface FileViewHost {
 
     /** The folder of the project the view belongs to, if any; HTML previews may use its files (ADR 0018). */
     val projectFolder: Path? get() = null
+
+    /**
+     * Shows the changes of [file] against its original side by side, at the change at its [line] (0-based), e.g. when
+     * a change marker is clicked. Does nothing if the IDE has no diff of the file.
+     */
+    fun showChanges(
+        file: Path,
+        line: Int,
+    ) {}
 }

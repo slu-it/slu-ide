@@ -55,5 +55,22 @@ class DiffNavigationTest {
         assertNull(none.last())
         assertNull(none.next(0))
         assertNull(none.previous(1))
+        assertNull(none.at(0))
+    }
+
+    @Test
+    fun `the row of a line of the file`() {
+        assertEquals(listOf(0, 1, 2, 4, 5, 6), (0..5).map { rowOfCurrent(rows, it) })
+        assertEquals(7, rowOfCurrent(rows, 9), "beyond the end")
+    }
+
+    @Test
+    fun `a marker on a line stands for its change, lines removed above it, or the next change`() {
+        // Lines a B c e x y.
+        assertEquals(1..1, navigation.at(rowOfCurrent(rows, 1)), "modified")
+        assertEquals(3..3, navigation.at(rowOfCurrent(rows, 3)), "d removed above e")
+        assertEquals(5..6, navigation.at(rowOfCurrent(rows, 5)), "added")
+        assertEquals(1..1, navigation.at(rowOfCurrent(rows, 0)), "the next change")
+        assertEquals(5..6, navigation.at(rowOfCurrent(rows, 9)), "the last change")
     }
 }

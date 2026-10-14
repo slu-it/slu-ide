@@ -1,8 +1,13 @@
 package dev.sluide.fileviewers
 
+import javafx.event.Event
+import javafx.event.EventType
+import javafx.scene.Cursor
 import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.Label
+import javafx.scene.input.MouseButton
+import javafx.scene.input.MouseEvent
 import javafx.scene.layout.HBox
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
@@ -13,6 +18,7 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.net.URI
 import java.nio.file.Path
 import kotlin.io.path.writeText
 import kotlin.test.Test
@@ -191,6 +197,73 @@ class GutterUiTest {
         assertEquals("A\nb\nc\nd\nnew\ne\n", view.area.text)
         assertEquals(mapOf("1" to "diff-modified", "5" to "diff-added"), markers(robot))
     }
+
+    @Test
+    fun `clicking a change marker asks the host for the changes at its line`(robot: FxRobot) {
+        val view = open("a\nB\nc\n", robot)
+        val asked = mutableListOf<Pair<Path, Int>>()
+        view.host =
+            object : FileViewHost {
+                override fun openFile(file: Path) = false
+
+                override fun openWebPage(uri: URI) {}
+
+                override fun showChanges(
+                    file: Path,
+                    line: Int,
+                ) {
+                    asked += file to line
+                }
+            }
+        robot.interact { view.showChanges(TextDiff("a\nb\nc\n", listOf(LineChange(1..1, 1..1)))) }
+        val caret = view.area.caretPosition
+
+        for (line in listOf("1", "2")) {
+            val marker = rows(robot).getValue(line).children[1]
+            robot.interact {
+                for (type in listOf(MouseEvent.MOUSE_PRESSED, MouseEvent.MOUSE_RELEASED, MouseEvent.MOUSE_CLICKED)) {
+                    Event.fireEvent(marker, mouseEvent(type))
+                }
+            }
+        }
+
+        assertEquals(listOf(dir.resolve("main.py") to 1), asked, "only the marked line")
+        assertEquals(caret, view.area.caretPosition)
+        assertEquals(Cursor.HAND, rows(robot).getValue("2").children[1].cursor)
+
+        // Without a diff, markers of unsaved edits lead nowhere.
+        robot.interact {
+            view.showChanges(null)
+            view.area.insertText(0, "x")
+        }
+        val unsaved = rows(robot).getValue("1").children[1]
+        assertEquals(listOf(Gutter.MARKER_STYLE, "diff-modified"), unsaved.styleClass.toList())
+        assertEquals(null, unsaved.cursor)
+        robot.interact { Event.fireEvent(unsaved, mouseEvent(MouseEvent.MOUSE_CLICKED)) }
+        assertEquals(1, asked.size)
+    }
+
+    private fun mouseEvent(type: EventType<MouseEvent>) =
+        MouseEvent(
+            type,
+            1.0,
+            1.0,
+            1.0,
+            1.0,
+            MouseButton.PRIMARY,
+            1,
+            false,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            true,
+            false,
+            false,
+            null,
+        )
 
     @Test
     fun `the rows are only created again when markers or digits change`(robot: FxRobot) {
