@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.textediting.ReplaceResult
 import dev.sluide.textediting.SearchOptions
 import dev.sluide.textediting.TextSearch
 import javafx.animation.Animation
@@ -35,8 +36,9 @@ import javafx.util.Duration as FxDuration
 
 /**
  * The find bar of a code view's [area], shown at the top of [container] while open: a query with options (match
- * case, whole words, regular expression), previous / next and a counter of the matches ("3 of 12"). Its [keys]
- * open it from the area (Shortcut+F) and go to the next or previous match (F3, Shift+F3).
+ * case, whole words, regular expression), previous / next and a counter of the matches ("3 of 12"), and, opened for
+ * replacing, a row to replace the selected match or all of them. Its [keys] open it from the area (Shortcut+F,
+ * Shortcut+R) and go to the next or previous match (F3, Shift+F3).
  *
  * While open, the matches (at most [MAX_MARKED]) are styled `search-match`, the selected one also
  * `search-match-current`, over the token styles: [overlay] adds them to the styles a highlighting pass applies, and
@@ -56,8 +58,21 @@ internal class FindBar(
     val wholeWord = optionButton("W", "Whole words")
     val regex = optionButton(".*", "Regular expression")
 
-    /** The number of matches and which is selected, or why the query is invalid. */
+    /** The number of matches and which is selected, or why the query or the replacement is invalid. */
     val counter = Label().apply { styleClass += "find-counter" }
+
+    val replacement = TextField().apply { styleClass += "find-replacement" }
+
+    /** The replacement and its buttons, shown when the bar is opened for replacing. */
+    private val replaceRow =
+        HBox(
+            replacement,
+            textButton("Replace", "Replace the selected match and go to the next (Enter)", ::replace),
+            textButton("Replace All", "Replace all matches", ::replaceAll),
+        ).apply {
+            styleClass += "find-row"
+            alignment = Pos.CENTER_LEFT
+        }
 
     val node =
         VBox(
@@ -101,10 +116,14 @@ internal class FindBar(
 
     val isOpen: Boolean get() = node in container.children
 
-    /** Shortcut+F, F3 and Shift+F3 in the area, and Escape while the bar is open. */
+    /** Whether the row for replacing is shown. */
+    val isReplacing: Boolean get() = replaceRow in node.children
+
+    /** Shortcut+F, Shortcut+R, F3 and Shift+F3 in the area, and Escape while the bar is open. */
     val keys: InputMap<KeyEvent> =
         InputMap.sequence(
-            InputMap.consume(keyPressed(KeyCode.F, KeyCombination.SHORTCUT_DOWN)) { open() },
+            InputMap.consume(keyPressed(FIND)) { open() },
+            InputMap.consume(keyPressed(REPLACE)) { open(replacing = true) },
             InputMap.consume(keyPressed(KeyCode.F3)) { next(focus = false) },
             InputMap.consume(keyPressed(KeyCode.F3, KeyCombination.SHIFT_DOWN)) { previous(focus = false) },
             InputMap.consumeWhen(keyPressed(KeyCode.ESCAPE), { isOpen }) { close() },
@@ -117,24 +136,37 @@ internal class FindBar(
         node.addEventFilter(KeyEvent.KEY_PRESSED) { event ->
             when {
                 event.code == KeyCode.ENTER && event.target == query -> if (event.isShiftDown) previous() else next()
+                event.code == KeyCode.ENTER && event.target == replacement -> replace()
                 event.code == KeyCode.ESCAPE -> close()
                 event.code == KeyCode.F3 && event.isShiftDown -> previous()
                 event.code == KeyCode.F3 -> next()
-                FIND.match(event) -> focusQuery()
+                FIND.match(event) -> open(fromSelection = false)
+                REPLACE.match(event) -> open(replacing = true, fromSelection = false)
                 else -> return@addEventFilter
             }
             event.consume()
         }
         area.selectionProperty().subscribe { _ -> if (isOpen && !stale) markCurrent() }
+        replaceRow.disableProperty().bind(area.editableProperty().not())
     }
 
     /**
-     * Shows the bar, with the focus in the query if [focus]. A selection within one line becomes the query, and the
-     * match there is selected.
+     * Shows the bar, with the focus in the query if [focus], with the row for replacing if [replacing]; replacing is
+     * disabled while the area is not editable. If [fromSelection], a selection within one line becomes the query, and
+     * the match there is selected.
      */
-    fun open(focus: Boolean = true) {
+    fun open(
+        replacing: Boolean = false,
+        fromSelection: Boolean = true,
+        focus: Boolean = true,
+    ) {
         val selected = area.selectedText
-        if (selected.isNotEmpty() && '\n' !in selected) query.text = selected
+        if (fromSelection && selected.isNotEmpty() && '\n' !in selected) query.text = selected
+        if (!replacing) {
+            node.children -= replaceRow
+        } else if (!isReplacing) {
+            node.children += replaceRow
+        }
         if (!isOpen) {
             container.children.add(0, node)
             following =
@@ -191,6 +223,60 @@ internal class FindBar(
             search()
         }
         refresh()
+    }
+
+    /**
+     * Replaces the selected match and selects the next one, as one undo step; without a selected match, only selects
+     * the next one. An invalid replacement is shown in the counter.
+     */
+    fun replace() {
+        if (!area.isEditable) return
+        refresh()
+        val index = current
+        if (index == null) {
+            next()
+            return
+        }
+        when (val result = TextSearch.replace(area.text, matches[index], query.text, replacement.text, options)) {
+            is ReplaceResult.Invalid -> {
+                showError(result.message)
+            }
+
+            is ReplaceResult.Replaced -> {
+                area.applyEdits(result.edits, result.selection)
+                find()
+                select(TextSearch.next(matches, result.selection.caret))
+                restyle()
+            }
+
+            null -> {
+                next()
+            }
+        }
+    }
+
+    /**
+     * Replaces all matches (not only the marked ones) as one undo step, each on its own so that the text between them
+     * keeps its styles; the counter tells how many.
+     */
+    fun replaceAll() {
+        if (!area.isEditable) return
+        when (val result = TextSearch.replaceAll(area.text, query.text, replacement.text, options)) {
+            is ReplaceResult.Invalid -> {
+                showError(result.message)
+            }
+
+            is ReplaceResult.Replaced -> {
+                area.applyEdits(result.edits, result.selection)
+                find()
+                restyle()
+                counter.text = if (result.count == 1) "1 replaced" else "${result.count} replaced"
+                // Not an error, although nothing matches any more.
+                counter.pseudoClassStateChanged(ERROR, false)
+            }
+
+            null -> {}
+        }
     }
 
     /** Stops following the text, e.g. when its view is closed. */
@@ -277,6 +363,11 @@ internal class FindBar(
         counter.pseudoClassStateChanged(ERROR, error != null || (count == 0 && query.text.isNotEmpty()))
     }
 
+    private fun showError(message: String) {
+        counter.text = message
+        counter.pseudoClassStateChanged(ERROR, true)
+    }
+
     private fun focusQuery() {
         query.requestFocus()
         query.selectAll()
@@ -322,6 +413,17 @@ internal class FindBar(
         isFocusTraversable = false
     }
 
+    private fun textButton(
+        text: String,
+        tooltip: String,
+        action: () -> Unit,
+    ) = Button(text).apply {
+        styleClass += "find-button"
+        this.tooltip = Tooltip(tooltip)
+        isFocusTraversable = false
+        setOnAction { action() }
+    }
+
     private fun iconButton(
         icon: Ikon,
         tooltip: String,
@@ -334,8 +436,8 @@ internal class FindBar(
     }
 }
 
-/** Shortcut+F, also in the bar: focuses the query again. */
 private val FIND = KeyCodeCombination(KeyCode.F, KeyCombination.SHORTCUT_DOWN)
+private val REPLACE = KeyCodeCombination(KeyCode.R, KeyCombination.SHORTCUT_DOWN)
 
 private val MATCH = listOf("search-match")
 private val CURRENT_MATCH = listOf("search-match", "search-match-current")

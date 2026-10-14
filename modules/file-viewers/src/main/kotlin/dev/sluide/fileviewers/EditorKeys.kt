@@ -93,3 +93,23 @@ internal fun CodeArea.applyEdit(
     selectRange(edit.selection.anchor, edit.selection.caret)
     requestFollowCaret()
 }
+
+/**
+ * Applies [edits] (sorted, not overlapping, offsets in the current text) as one multi-change, so that they are one
+ * undo step of their own and the text between them stays untouched, then selects [selection]. Does nothing without
+ * edits.
+ */
+internal fun CodeArea.applyEdits(
+    edits: List<TextEdit>,
+    selection: Selection,
+) {
+    if (edits.isEmpty()) return
+    undoManager.preventMerge()
+    val change = createMultiChange(edits.size)
+    // From the end, so that each offset is still the same in the text the earlier changes left.
+    for (edit in edits.asReversed()) change.replaceTextAbsolutely(edit.start, edit.end, edit.text)
+    change.commit()
+    undoManager.preventMerge()
+    selectRange(selection.anchor, selection.caret)
+    requestFollowCaret()
+}

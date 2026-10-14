@@ -30,7 +30,7 @@
     -fx-spacing: 3;
 }
 
-.find-query {
+.find-query, .find-replacement {
     -fx-pref-column-count: 24;
 }
 
