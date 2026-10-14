@@ -25,19 +25,18 @@ import java.util.concurrent.ThreadFactory
 
 /**
  * A shell running in a pseudo terminal, started in [folder], whose output is interpreted by the JediTerm emulator into
- * [buffer]. The emulator reads on a background thread and reports changes to [display] from there.
+ * [buffer]. The emulator reads on a background thread and reports changes to [display] from there. Throws
+ * [java.io.IOException] if the shell cannot be started (e.g. [command] does not exist).
  */
 internal class TerminalSession(
     folder: Path,
     display: TerminalDisplay,
     size: TermSize,
-    command: List<String> = defaultShell(),
-    environment: Map<String, String> = System.getenv(),
+    command: List<String>,
+    environment: Map<String, String>,
 ) : AutoCloseable {
-    // The terminal sets the current style, the buffer writes text with it: they must share the state.
-    private val styleState = StyleState()
-    val buffer = TerminalTextBuffer(size.columns, size.rows, styleState)
-    val terminal = JediTerminal(display, buffer, styleState)
+    // Started first: if it fails (IOException), the display has not been called yet, so no repaint of a view without
+    // a session is scheduled.
     val process: PtyProcess =
         PtyProcessBuilder(command.toTypedArray())
             .setDirectory(folder.toString())
@@ -46,6 +45,11 @@ internal class TerminalSession(
             .setInitialRows(size.rows)
             .setRedirectErrorStream(true)
             .start()
+
+    // The terminal sets the current style, the buffer writes text with it: they must share the state.
+    private val styleState = StyleState()
+    val buffer = TerminalTextBuffer(size.columns, size.rows, styleState)
+    val terminal = JediTerminal(display, buffer, styleState)
 
     private val executors = ExecutorServices()
     private val connector = PtyConnector(process, command)
@@ -179,8 +183,11 @@ internal class TerminalSession(
     }
 
     companion object {
-        /** The user's login shell, falling back to `/bin/bash`, started as a login shell like a terminal app does. */
-        fun defaultShell(): List<String> = listOf(userShell(System.getenv()), "-l")
+        /**
+         * The user's shell (`SHELL` in [environment], falling back to `/bin/bash`), started as a login shell like a
+         * terminal app does.
+         */
+        fun defaultShell(environment: Map<String, String>): List<String> = listOf(userShell(environment), "-l")
 
         /**
          * The login shell (`SHELL` in [environment]) running [command] and then ending, with the login environment

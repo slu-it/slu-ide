@@ -31,7 +31,14 @@ class DockerSandboxTest {
 
     @Test
     fun `nothing runs without an open folder`() {
-        for (action in SandboxAction.entries) assertEquals("No folder is open.", sandbox.problem(action, null))
+        for (action in SandboxAction.entries) {
+            assertEquals("No folder is open.", sandbox.problem(action, null))
+            assertEquals(
+                "No folder is open.",
+                assertFailsWith<SandboxNotAllowedException> { sandbox.open(action, null) }.message,
+            )
+        }
+        assertEquals(0, terminals.openCount)
     }
 
     @Test

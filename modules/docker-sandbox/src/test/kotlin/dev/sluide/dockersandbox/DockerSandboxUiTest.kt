@@ -3,6 +3,7 @@ package dev.sluide.dockersandbox
 import dev.sluide.editor.EditorTab
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.SettingsStore
+import dev.sluide.terminal.TerminalStartException
 import dev.sluide.terminal.Terminals
 import javafx.scene.Scene
 import javafx.scene.control.Label
@@ -25,6 +26,7 @@ import kotlin.io.path.setPosixFilePermissions
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -56,6 +58,9 @@ class DockerSandboxUiTest {
 
     private val calls by lazy { root.resolve("sbx-calls.txt") }
 
+    /** The environment of the sandboxes' shells; tests may change it. */
+    private val environment = System.getenv().toMutableMap()
+
     /** A sandbox whose shells find a stub `sbx` that records its folder and arguments in [calls]. */
     private fun sandbox(): DockerSandbox {
         val bin = root.resolve("bin").createDirectories()
@@ -64,15 +69,15 @@ class DockerSandboxUiTest {
             setPosixFilePermissions(PosixFilePermissions.fromString("rwxr-xr-x"))
         }
         home.resolve(".profile").writeText("PATH=\"$bin:\$PATH\"\nexport PATH\n")
-        val environment = System.getenv() + mapOf("HOME" to home.toString(), "SHELL" to "/bin/sh")
+        environment += mapOf("HOME" to home.toString(), "SHELL" to "/bin/sh")
         return DockerSandbox(terminals, home, environment)
     }
 
     private fun run(
         robot: FxRobot,
         action: SandboxAction,
+        sandbox: DockerSandbox = sandbox(),
     ): EditorTab {
-        val sandbox = sandbox()
         lateinit var tab: EditorTab
         robot.interact {
             tab = sandbox.open(action, project)
@@ -103,5 +108,31 @@ class DockerSandboxUiTest {
 
         assertEquals("Environment 1 (exited)", tab.title.value)
         assertEquals(listOf("${project.toRealPath()}: env run"), calls.readLines())
+    }
+
+    @Test
+    fun `tabs are numbered per action`(robot: FxRobot) {
+        project.resolve("sbxenv.yaml").createFile()
+        val sandbox = sandbox()
+
+        val titles =
+            listOf(SandboxAction.CLAUDE_CODE, SandboxAction.CLAUDE_CODE, SandboxAction.ENVIRONMENT)
+                .map { run(robot, it, sandbox).title.value }
+
+        assertEquals(listOf("Claude Code 1 (exited)", "Claude Code 2 (exited)", "Environment 1 (exited)"), titles)
+    }
+
+    @Test
+    fun `a sandbox whose shell cannot be started opens no tab and uses up no number`(robot: FxRobot) {
+        val sandbox = sandbox()
+        environment["SHELL"] = root.resolve("no-shell").toString()
+
+        robot.interact {
+            assertFailsWith<TerminalStartException> { sandbox.open(SandboxAction.CLAUDE_CODE, project) }
+        }
+        assertEquals(0, terminals.openCount)
+
+        environment["SHELL"] = "/bin/sh"
+        assertEquals("Claude Code 1 (exited)", run(robot, SandboxAction.CLAUDE_CODE, sandbox).title.value)
     }
 }

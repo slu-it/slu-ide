@@ -1,5 +1,6 @@
 package dev.sluide.terminal
 
+import dev.sluide.editor.EditorTab
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontSpec
@@ -27,6 +28,7 @@ import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -317,6 +319,27 @@ class TerminalUiTest {
             assertEquals("Job 1 (exited)", tab.title.value)
         }
         assertEquals("Terminal in $dir: pwd; echo ran-\$((40 + 2))", tab.tooltip)
+    }
+
+    @Test
+    fun `a shell that cannot be started opens no tab and uses up no number`(robot: FxRobot) {
+        val environment = System.getenv().toMutableMap()
+        val terminals = Terminals(fontSettings, environment)
+        val shell = dir.resolve("no-shell")
+        environment["SHELL"] = shell.toString()
+
+        robot.interact {
+            val failure = assertFailsWith<TerminalStartException> { terminals.open(dir) }
+            assertTrue(failure.message.orEmpty().startsWith("$shell could not be started in $dir ("), failure.message)
+            assertFailsWith<TerminalStartException> { terminals.open(dir, "Job 1", "true") }
+        }
+        assertEquals(0, terminals.openCount)
+
+        environment["SHELL"] = "/bin/sh"
+        lateinit var tab: EditorTab
+        robot.interact { tab = terminals.open(dir) }
+        assertEquals("Terminal 1", tab.title.value)
+        robot.interact { terminals.close() }
     }
 
     @Test

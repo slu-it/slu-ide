@@ -81,6 +81,9 @@ class MainWindowUiTest {
     private val watcher = FileWatcher(Platform::runLater, 50.milliseconds)
     private lateinit var terminals: Terminals
 
+    /** The environment of the terminals' and sandboxes' shells; tests may change it. */
+    private val shellEnvironment = System.getenv().toMutableMap()
+
     /** The folders the window asked to open in other windows. */
     private val openedElsewhere = mutableListOf<Path>()
     private val projectWindows =
@@ -108,7 +111,7 @@ class MainWindowUiTest {
         this.stage = stage
         fontSettings =
             FontSettings(SettingsStore(settingsDir.resolve("settings.properties")), FontSettings.systemDefaults())
-        terminals = Terminals(fontSettings)
+        terminals = Terminals(fontSettings, shellEnvironment)
         fileExplorer = FileExplorerView(watcher, fontSettings)
         val fallback = DefaultTextFileViewer()
         editorArea = EditorArea(FileViewers(listOf(fallback), fallback), watcher, fontSettings)
@@ -118,7 +121,7 @@ class MainWindowUiTest {
                 fileExplorer,
                 editorArea,
                 terminals,
-                DockerSandbox(terminals, home, System.getenv()),
+                DockerSandbox(terminals, home, shellEnvironment),
                 gitStatus,
                 SettingsPages(listOf(FontsPage(fontSettings))),
                 ThemedWindows(ThemeSettings(SettingsStore(settingsDir.resolve("settings.properties")))),
@@ -474,6 +477,36 @@ class MainWindowUiTest {
         assertTrue(errors.single().startsWith("Claude Code cannot be started. Docker sandboxes run only"), errors[0])
         assertEquals(emptyList(), tabTitles(robot))
         assertEquals(0, terminals.openCount)
+    }
+
+    @Test
+    fun `a terminal or sandbox whose shell cannot be started shows an error and opens no tab`(robot: FxRobot) {
+        val errors = mutableListOf<String>()
+        mainWindow.showError = { _, message -> errors += message }
+        val folder = home.resolve("work/project").createDirectories()
+        robot.interact { projectService.open(folder) }
+        val shell = home.resolve("no-shell")
+        shellEnvironment["SHELL"] = shell.toString()
+
+        robot.interact {
+            menu(robot, "Terminal").items.single().fire()
+            sandboxItems(robot).first().fire()
+        }
+
+        assertEquals(2, errors.size, errors.toString())
+        assertTrue(errors[0].startsWith("The terminal cannot be started. $shell could not be started in $folder ("))
+        assertTrue(errors[1].startsWith("Claude Code cannot be started. $shell could not be started in $folder ("))
+        assertEquals(emptyList(), tabTitles(robot))
+        assertEquals(0, terminals.openCount)
+
+        // The failed starts used up no numbers.
+        shellEnvironment["SHELL"] = "/bin/sh"
+        robot.interact {
+            menu(robot, "Terminal").items.single().fire()
+            sandboxItems(robot).first().fire()
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(listOf("Terminal 1", "Claude Code 1"), tabTitles(robot).map { it.removeSuffix(" (exited)") })
     }
 
     private fun sandboxItems(robot: FxRobot) = menu(robot, "Docker Sandbox").items.toList()

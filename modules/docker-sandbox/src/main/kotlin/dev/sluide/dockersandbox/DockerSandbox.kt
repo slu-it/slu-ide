@@ -37,7 +37,7 @@ class DockerSandbox(
         action: SandboxAction,
         folder: Path?,
     ): String? {
-        if (folder == null) return "No folder is open."
+        if (folder == null) return NO_FOLDER
         SandboxFolder.check(folder, home)?.let { return it }
         val required = action.requiredFile ?: return null
         return if (folder.resolve(required).isRegularFile()) null else "There is no $required in $folder."
@@ -47,15 +47,23 @@ class DockerSandbox(
      * Runs [action] in a terminal tab in [folder], named e.g. "Claude Code 1", and returns the tab. Must be called on
      * the FX thread.
      *
-     * @throws SandboxNotAllowedException if [problem] reports one, also when the menu should not have offered it.
+     * @throws SandboxNotAllowedException if [problem] reports one (e.g. "No folder is open."), also when the menu
+     *   should not have offered it.
+     * @throws dev.sluide.terminal.TerminalStartException if the shell cannot be started; the next tab of [action]
+     *   gets the same number.
      */
     fun open(
         action: SandboxAction,
-        folder: Path,
+        folder: Path?,
     ): EditorTab {
+        if (folder == null) throw SandboxNotAllowedException(NO_FOLDER)
         // Checked again here, on the very folder the terminal starts in, not only when the menu is shown.
         problem(action, folder)?.let { throw SandboxNotAllowedException(it) }
-        val number = started.merge(action, 1, Int::plus)
-        return terminals.open(folder, "${action.title} $number", action.command, environment)
+        val number = started.getOrDefault(action, 0) + 1
+        return terminals
+            .open(folder, "${action.title} $number", action.command, environment)
+            .also { started[action] = number }
     }
 }
+
+private const val NO_FOLDER = "No folder is open."

@@ -10,11 +10,15 @@ import com.jediterm.terminal.emulator.mouse.MouseFormat
 import com.jediterm.terminal.emulator.mouse.MouseMode
 import com.jediterm.terminal.model.TerminalSelection
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
+import java.io.IOException
+import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -27,10 +31,13 @@ class TerminalSessionTest {
     private lateinit var session: TerminalSession
 
     @AfterEach
-    fun close() = session.close()
+    fun close() {
+        if (::session.isInitialized) session.close()
+    }
 
     private fun start(size: TermSize = TermSize(80, 24)) {
-        session = TerminalSession(dir, NoDisplay, size, command = listOf("/bin/sh"))
+        assumeTrue(Files.isExecutable(Path.of("/bin/sh")), "no /bin/sh")
+        session = TerminalSession(dir, NoDisplay, size, listOf("/bin/sh"), System.getenv())
         // Input sent before the prompt is echoed first and its output then shares a line with the prompt.
         await("a prompt") { screenLines().any { it.isNotBlank() } }
     }
@@ -189,6 +196,28 @@ class TerminalSessionTest {
 
         assertTrue(session.process.waitFor(5, TimeUnit.SECONDS))
         assertFalse(session.isAlive)
+    }
+
+    @Test
+    fun `a shell that does not exist cannot be started`() {
+        assertFailsWith<IOException> {
+            TerminalSession(dir, NoDisplay, TermSize(80, 24), listOf(dir.resolve("no-shell").toString()), mapOf())
+        }
+    }
+
+    @Test
+    fun `the user's shell is SHELL, or bash if it is unset or blank`() {
+        assertEquals(listOf("/bin/zsh", "-l"), TerminalSession.defaultShell(mapOf("SHELL" to "/bin/zsh")))
+        assertEquals(listOf("/bin/bash", "-l"), TerminalSession.defaultShell(mapOf()))
+        assertEquals(listOf("/bin/bash", "-l"), TerminalSession.defaultShell(mapOf("SHELL" to " ")))
+        assertEquals(
+            listOf("/bin/bash", "-l", "-c", "sbx env run"),
+            TerminalSession.loginShellRunning("sbx env run", mapOf("SHELL" to "")),
+        )
+        assertEquals(
+            listOf("/bin/zsh", "-l", "-c", "sbx env run"),
+            TerminalSession.loginShellRunning("sbx env run", mapOf("SHELL" to "/bin/zsh")),
+        )
     }
 
     private object NoDisplay : TerminalDisplay {

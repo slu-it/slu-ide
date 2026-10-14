@@ -9,6 +9,7 @@ import dev.sluide.git.GitStatusService
 import dev.sluide.settings.SettingsDialog
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.ThemedWindows
+import dev.sluide.terminal.TerminalStartException
 import dev.sluide.terminal.Terminals
 import javafx.scene.Scene
 import javafx.scene.control.Alert
@@ -74,7 +75,7 @@ class MainWindow(
         themedWindows.install()
         val root =
             BorderPane().apply {
-                top = MenuBar(fileMenu(stage), terminalMenu(), dockerSandboxMenu(stage))
+                top = MenuBar(fileMenu(stage), terminalMenu(stage), dockerSandboxMenu(stage))
                 center = SplitPane(fileExplorer, editorArea).apply { setDividerPositions(0.25) }
             }
 
@@ -125,20 +126,28 @@ class MainWindow(
         return Menu("File", null, openFolder, SeparatorMenuItem(), settings)
     }
 
-    private fun terminalMenu(): Menu {
+    private fun terminalMenu(stage: Stage): Menu {
         val newTerminal =
             MenuItem("New Terminal").apply {
-                // Ctrl+Shift+letter is not sent to the shell, so this also works while a terminal has the focus.
+                // Ctrl+Shift+letter is not sent to the shell, so this also works while a terminal has the focus
+                // (unlike Ctrl+letter shortcuts such as Ctrl+O on Linux, which the terminal sends to the shell).
                 accelerator = KeyCodeCombination(KeyCode.T, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN)
-                setOnAction { openTerminal() }
+                setOnAction { openTerminal(stage) }
             }
         return Menu("Terminal", null, newTerminal)
     }
 
-    /** Opens a terminal tab in the project folder, or in the home folder if no project is open. */
-    internal fun openTerminal() {
+    /**
+     * Opens a terminal tab in the project folder, or in the home folder if no project is open; shows an error if the
+     * shell cannot be started.
+     */
+    internal fun openTerminal(stage: Stage) {
         val folder = projectService.projectFolder.get() ?: Path.of(System.getProperty("user.home"))
-        editorArea.open(terminals.open(folder))
+        try {
+            editorArea.open(terminals.open(folder))
+        } catch (e: TerminalStartException) {
+            showError(stage, "The terminal cannot be started. ${e.message}")
+        }
     }
 
     /** The sandbox actions; each is enabled only where it may run, which is checked again when it is started. */
@@ -163,11 +172,11 @@ class MainWindow(
         stage: Stage,
         action: SandboxAction,
     ) {
-        val folder = projectService.projectFolder.get()
         try {
-            if (folder == null) throw SandboxNotAllowedException("No folder is open.")
-            editorArea.open(dockerSandbox.open(action, folder))
+            editorArea.open(dockerSandbox.open(action, projectService.projectFolder.get()))
         } catch (e: SandboxNotAllowedException) {
+            showError(stage, "${action.title} cannot be started. ${e.message}")
+        } catch (e: TerminalStartException) {
             showError(stage, "${action.title} cannot be started. ${e.message}")
         }
     }
