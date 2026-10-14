@@ -241,7 +241,7 @@ internal enum class FileIcon(
     CONFIG(
         MaterialDesignF.FILE_COG,
         "file-icon-config",
-        // Also the dot-files .env, .editorconfig, .prettierrc and .eslintrc, whose whole name is the extension.
+        // Also the dot-files .env, .editorconfig, .prettierrc and .eslintrc: their extension is the name without the dot.
         setOf("ini", "cfg", "conf", "config", "properties", "toml", "env", "editorconfig", "prettierrc", "eslintrc"),
     ),
     CERTIFICATE(

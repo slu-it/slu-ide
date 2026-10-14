@@ -16,8 +16,8 @@ without the user reopening the project. Projects can be large, and we load folde
   - the `.git` folder of the repository whose status is shown (added with [ADR 0013](0013-git-status.md)).
   Directories are watched one by one, not recursively. Watches share one `WatchKey` per directory.
 - Events of a directory are collected until it has been quiet for 200 ms, but at most 1 s, so constant changes still
-  show. Each listener then gets one call with every changed path once, on the JavaFX thread. A `git checkout` therefore causes one refresh per folder, not
-  hundreds.
+  show. Each listener then gets one call with every changed path once, on the JavaFX thread. A `git checkout`
+  therefore causes one refresh per folder, not hundreds.
 - Reactions:
   - the explorer re-reads the folder and keeps unchanged items, so expansion and selection survive;
   - a tab reloads its file and keeps the scroll position;

@@ -17,7 +17,8 @@
   and the selection stays. A loaded subfolder that is deleted and recreated (e.g. `build/`) is watched again.
 - Limitation: if the opened folder itself is deleted, its watch ends; recreated later, it is not watched again (it has
   no parent in the tree that would notice) until "Refresh"/F5 or reopening it.
-- Manual refresh: "Refresh" in the tree's context menu, or F5, re-reads all loaded folders and renews their watches.
+- Manual refresh: "Refresh" in the tree's context menu, or F5, re-reads all loaded folders, checks again which of
+  their files can be opened (icons) and renews their watches.
 - Icons ([ADR 0012](../adr/0012-file-icons.md), `FileIcon`/`fileIconFor`): open or closed folder; for files, every
   file type icon of Material Design Icons: languages (the code viewer types plus C/C++/C#, Go, Rust, Ruby, PHP, Swift,
   CSS/Sass, shell, SQL, …, and a generic code icon for other languages), tools (Docker, Gradle, Node.js, Git,
@@ -26,8 +27,8 @@
   lists its file names (e.g. `Dockerfile`, `package.json`, `LICENSE`), which win, and its extensions, all
   case-insensitive. Any other file gets a document icon if a viewer can open it (`canOpenFile`, set by `MainWindow` to
   `EditorArea.canOpen`) and a "?" file icon if not (binary); the answer is cached and asked again when the file
-  changes, or for every file of a folder that lost events. Colours per type or family in `file-explorer.css`, light
-  and dark; the icon size follows the explorer font.
+  changes, or for every file of a folder that lost events or on a manual refresh. Colours per type or family in
+  `file-explorer.css`, light and dark; the icon size follows the explorer font.
 - Markers (`FileMarkers` of `FileMarker`s): a colour for the name and coloured bubbles after it, asked from the
   `markers` callback for each shown entry and again after `refreshMarkers()`. `MainWindow` uses them for the git
   status ([git-status.md](git-status.md)); `onFilesChanged` reports changes on disk and manual refreshes so the status

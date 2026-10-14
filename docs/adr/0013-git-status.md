@@ -33,13 +33,15 @@ Options considered:
 - No optional locks (also `GIT_OPTIONAL_LOCKS=0`): otherwise `git status` may rewrite `.git/index`, which would
   trigger the `.git` watch again and again.
 - `GitStatusParser` turns the records into statuses: `?` unversioned, `!` ignored, `A` in the index or worktree
-  (intent to add, `git add -N`) and renames/copies added, everything else (changes, deletions, conflicts) modified. Untracked and ignored folders come as `dir/` without their
-  content, which keeps the call cheap for `build/` or `node_modules/`; `GitStatusSnapshot` lets everything inside
-  inherit their status. A folder shows each status found below it, except ignored ones.
+  (intent to add, `git add -N`) and renames/copies added, everything else (changes, deletions, conflicts) modified.
+  Untracked and ignored folders come as `dir/` without their content, which keeps the call cheap for `build/` or
+  `node_modules/`; `GitStatusSnapshot` lets everything inside inherit their status. A folder shows each status found
+  below it, except ignored ones.
 - Files and ignored folders show their status as the colour of their name; other folders as one bubble per status
   below them, so a folder's own name never claims a status its content has.
 - The explorer does not depend on `git`: it has a generic `FileMarker`/`FileMarkers` (name colour, bubbles) and a
-  `markers` callback, and `MainWindow` maps `GitStatus` to them (as with `canOpenFile` in ADR 0012). `git` depends on `file-watcher`.
+  `markers` callback, and `MainWindow` maps `GitStatus` to them (as with `canOpenFile` in ADR 0012). `git` depends
+  on `file-watcher`.
 
 ## Consequences
 - The status is exactly git's, including global excludes, with no ignore logic of our own.

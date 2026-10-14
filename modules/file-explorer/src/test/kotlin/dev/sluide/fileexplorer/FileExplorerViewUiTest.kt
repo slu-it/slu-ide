@@ -556,6 +556,29 @@ class FileExplorerViewUiTest {
     }
 
     @Test
+    fun `a manual refresh checks files again`(robot: FxRobot) {
+        // Without working watches, only the refresh can notice that the file became text.
+        val unwatched = FileWatcher(Platform::runLater, 50.milliseconds).apply { close() }
+        val file = project.resolve("data")
+        file.writeBytes(byteArrayOf(0, 1, 2))
+        lateinit var manual: FileExplorerView
+        robot.interact {
+            manual = FileExplorerView(unwatched, fontSettings)
+            manual.canOpenFile = { 0.toByte() !in Files.readAllBytes(it) }
+            view.scene.root = manual
+            manual.open(project)
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        robot.interact { assertEquals(FileIcon.BINARY.ikon, iconOf(robot, "data").iconCode) }
+
+        file.writeText("now text")
+        robot.interact { manual.refreshAll() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        robot.interact { assertEquals(FileIcon.TEXT.ikon, iconOf(robot, "data").iconCode) }
+    }
+
+    @Test
     fun `icons are sized to the explorer font`(robot: FxRobot) {
         project.resolve("README.md").createFile()
         robot.interact { view.open(project) }

@@ -38,7 +38,8 @@ Options considered:
 
 ## Consequences
 - A new file type is an enum entry (or a name/extension added to one) and, if needed, a CSS colour; no drawing.
-  Dot-files such as `.env` or `.editorconfig` have their whole name as extension, so the extension maps them.
+  For dot-files such as `.env` or `.editorconfig` the extension is the name without the leading dot, so the
+  extension maps them.
   `FileIconTest` checks that no name or extension is mapped twice and that every style class has a colour.
 - One more library, about 1 MB for the pack. Ikonli releases are infrequent (12.4.0 in April 2025); as the packs are
   fonts, that is low risk.

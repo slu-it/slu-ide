@@ -96,10 +96,14 @@ class FileExplorerView(
         this.root = root?.let { FileTreeItem(it, ::watch).apply { isExpanded = true } }
     }
 
-    /** Reads every loaded folder again and renews its watch, e.g. if a change on disk was missed. */
+    /**
+     * Reads every loaded folder again, checks again whether its files can be opened and renews its watch, e.g. if a
+     * change on disk was missed.
+     */
     fun refreshAll() {
         (root as? FileTreeItem)?.loadedFolders()?.forEach { folder ->
             folder.refresh()
+            folder.forgetReadability(listOf(folder.value))
             watch(folder)
         }
         closeWatchesOfVanishedFolders()
