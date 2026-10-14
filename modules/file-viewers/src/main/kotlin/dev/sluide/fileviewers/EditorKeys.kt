@@ -1,11 +1,14 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.textediting.CommentSyntax
 import dev.sluide.textediting.IndentStyle
 import dev.sluide.textediting.Indentation
+import dev.sluide.textediting.LineComments
 import dev.sluide.textediting.LineOperations
 import dev.sluide.textediting.Selection
 import dev.sluide.textediting.TextEdit
 import javafx.event.Event
+import javafx.scene.input.KeyCharacterCombination
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCombination
 import javafx.scene.input.KeyEvent
@@ -17,13 +20,14 @@ import org.fxmisc.wellbehaved.event.InputMap
 /**
  * The editing keys of a code view's [area], taking precedence over RichTextFX's own (add them with
  * `Nodes.addInputMap`): Enter (also with Shift) keeps the indentation, Tab and Shift+Tab indent and outdent in
- * [style]; Shortcut+D duplicates the selection or line, Shortcut+Shift+K deletes lines, Alt+Shift+Up/Down move them.
- * They act only while the area is editable; otherwise RichTextFX's bindings, which do nothing then either, get the
- * keys.
+ * [style]; Shortcut+D duplicates the selection or line, Shortcut+Shift+K deletes lines, Alt+Shift+Up/Down move them;
+ * Shortcut+/ ([TOGGLE_COMMENT]) comments lines out with [comment] or back in. They act only while the area is
+ * editable; otherwise RichTextFX's bindings, which do nothing then either, get the keys.
  */
 internal fun editorKeys(
     area: CodeArea,
     style: IndentStyle,
+    comment: CommentSyntax,
 ): InputMap<KeyEvent> =
     InputMap.sequence(
         area.editOn(keyPressed(KeyCode.ENTER, KeyCombination.SHIFT_ANY), typing = true) { text, selection ->
@@ -48,7 +52,14 @@ internal fun editorKeys(
             keyPressed(KeyCode.DOWN, KeyCombination.ALT_DOWN, KeyCombination.SHIFT_DOWN),
             edit = LineOperations::moveDown,
         ),
+        area.editOn(keyPressed(TOGGLE_COMMENT)) { text, selection -> LineComments.toggle(text, selection, comment) },
     )
+
+/**
+ * Shortcut+/, matched by the character rather than the key, with or without Shift: on many layouts (e.g. German or
+ * Swedish) `/` is Shift+7.
+ */
+internal val TOGGLE_COMMENT = KeyCharacterCombination("/", KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_ANY)
 
 /**
  * Consumes key presses matching [pattern] while the area is editable, applying the edit that [edit] makes of the

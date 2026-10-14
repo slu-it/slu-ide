@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.textediting.CommentSyntax
 import dev.sluide.textediting.DiskChange
 import dev.sluide.textediting.IndentStyle
 import dev.sluide.textediting.LineEnding
@@ -51,10 +52,13 @@ import java.util.concurrent.Executors
  * offering to reload the file or to keep its own text, which the next save then writes over the file's; until then the
  * view stays dirty, even when undone back to the text saved last. When the file is deleted, a banner says so; saving
  * creates it again.
+ *
+ * Keys for editing ([editorKeys]) indent in the file's [indentStyle] and comment out lines with [comment].
  */
 internal class CodeView(
     private val file: Path,
     private val highlighter: SyntaxHighlighter?,
+    comment: CommentSyntax = CommentSyntax.NONE,
     private val dispatch: (Runnable) -> Unit = Platform::runLater,
 ) : EditableFileView,
     GutterColumns {
@@ -149,7 +153,7 @@ internal class CodeView(
         undoManager.forgetHistory()
         undoManager.mark()
         indentStyle = IndentStyle.forFile(file, savedText)
-        Nodes.addInputMap(area, editorKeys(area, indentStyle))
+        Nodes.addInputMap(area, editorKeys(area, indentStyle, comment))
         // Following the caret keeps the area at the top when it is first laid out; without it, the source side of the
         // Markdown view (in a SplitPane) opened scrolled down.
         area.moveTo(0)

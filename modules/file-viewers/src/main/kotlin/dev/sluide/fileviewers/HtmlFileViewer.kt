@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.textediting.CommentSyntax
 import javafx.scene.web.WebEngine
 import org.springframework.stereotype.Component
 import java.io.IOException
@@ -12,7 +13,8 @@ import java.nio.file.Path
  * in the toolbar, and then reach no files outside the project, nor hidden ones (ADRs 0017 and 0018).
  */
 @Component
-class HtmlFileViewer : PreviewFileViewer(setOf("html", "htm", "xhtml"), RSyntaxHighlighter.html, HtmlPreview)
+class HtmlFileViewer :
+    PreviewFileViewer(setOf("html", "htm", "xhtml"), RSyntaxHighlighter.html, HtmlPreview, CommentSyntax.XML)
 
 /** The HTML file itself, as the author styled it; links leave it and are opened elsewhere by the view. */
 internal object HtmlPreview : Preview {

@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.textediting.CommentSyntax
 import org.springframework.stereotype.Component
 
 /**
@@ -7,4 +8,5 @@ import org.springframework.stereotype.Component
  * with a `<script>` and a `<style>` block.
  */
 @Component
-class SingleFileComponentFileViewer : CodeFileViewer(setOf("vue", "svelte"), RSyntaxHighlighter.singleFileComponent)
+class SingleFileComponentFileViewer :
+    CodeFileViewer(setOf("vue", "svelte"), RSyntaxHighlighter.singleFileComponent, CommentSyntax.XML)

@@ -17,6 +17,7 @@ import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /** The editing keys of a real [CodeView], fired as key events at its area. Needs a display (`uiTest`). */
 @Tag("ui")
@@ -39,7 +40,7 @@ class EditorKeysUiTest {
         robot: FxRobot,
     ): CodeView {
         val file = dir.resolve(name).apply { writeText(text) }
-        val view = WaitForAsyncUtils.asyncFx<CodeView> { CodeView(file, KotlinFileViewer().highlighter) }.get()
+        val view = WaitForAsyncUtils.asyncFx<CodeView> { KotlinFileViewer().open(file) as CodeView }.get()
         robot.interact { container.children.setAll(view.node) }
         return view
     }
@@ -186,9 +187,29 @@ class EditorKeysUiTest {
     }
 
     @Test
+    fun `shortcut+slash comments lines out and in, in the language of the viewer`(robot: FxRobot) {
+        val python = dir.resolve("main.py").apply { writeText("x = 1\ny = 2\n") }
+        val view = WaitForAsyncUtils.asyncFx<CodeView> { PythonFileViewer().open(python) as CodeView }.get()
+        robot.interact { container.children.setAll(view.node) }
+        view.select(0, 7, robot)
+
+        robot.pressToggleComment(view)
+        assertEquals("# x = 1\n# y = 2\n", view.area.text)
+        robot.pressToggleComment(view)
+        assertEquals("x = 1\ny = 2\n", view.area.text)
+
+        val kotlin = open("Main.kt", "    f()", robot)
+        robot.pressToggleComment(kotlin)
+        assertEquals("    // f()", kotlin.area.text)
+    }
+
+    @Test
     fun `keys change nothing in a read-only view`(robot: FxRobot) {
-        val file = dir.resolve("latin1.txt").apply { writeBytes(ByteArray(9000) { 'a'.code.toByte() } + 0xE9.toByte()) }
-        val view = WaitForAsyncUtils.asyncFx<CodeView> { CodeView(file, null) }.get()
+        // Valid UTF-8 in the sample that decides whether a file is text, invalid after it: shown read-only.
+        val bytes = "a = 1\n".repeat(1500).toByteArray() + 0xE9.toByte()
+        val file = dir.resolve("latin1.py").apply { writeBytes(bytes) }
+        val view = WaitForAsyncUtils.asyncFx<CodeView> { PythonFileViewer().open(file) as CodeView }.get()
+        assertTrue(view.readOnly)
         robot.interact { container.children.setAll(view.node) }
         val text = view.area.text
 
@@ -198,7 +219,22 @@ class EditorKeysUiTest {
         robot.press(view.area, KeyCode.D, shortcut = true)
         robot.press(view.area, KeyCode.K, shortcut = true, shift = true)
         robot.press(view.area, KeyCode.DOWN, alt = true, shift = true)
+        robot.pressToggleComment(view)
 
         assertEquals(text, view.area.text)
+    }
+
+    /** Presses Shortcut+/ with the key that types `/` on this keyboard layout, Shift+7 on some. */
+    private fun FxRobot.pressToggleComment(view: CodeView) {
+        val (code, shift) =
+            WaitForAsyncUtils
+                .asyncFx<Pair<KeyCode, Boolean>> {
+                    KeyCode.entries.firstNotNullOf { code ->
+                        listOf(false, true)
+                            .firstOrNull { shift -> TOGGLE_COMMENT.match(keyPress(code, shift)) }
+                            ?.let { code to it }
+                    }
+                }.get()
+        press(view.area, code, shortcut = true, shift = shift)
     }
 }

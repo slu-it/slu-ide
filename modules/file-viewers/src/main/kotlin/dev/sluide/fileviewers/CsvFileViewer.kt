@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.textediting.CommentSyntax
 import javafx.scene.web.WebEngine
 import org.springframework.stereotype.Component
 import java.nio.file.Path
@@ -7,7 +8,8 @@ import kotlin.io.path.extension
 
 /** Shows CSV and TSV files (`.csv`, `.tsv`) as text beside a sortable table ([CsvRenderer]). */
 @Component
-class CsvFileViewer : PreviewFileViewer(setOf("csv", "tsv"), SyntaxHighlighter { emptyList() }, CsvPreview)
+class CsvFileViewer :
+    PreviewFileViewer(setOf("csv", "tsv"), SyntaxHighlighter { emptyList() }, CsvPreview, CommentSyntax.NONE)
 
 /** The rows as a table, scrolling with the source. */
 internal object CsvPreview : Preview {

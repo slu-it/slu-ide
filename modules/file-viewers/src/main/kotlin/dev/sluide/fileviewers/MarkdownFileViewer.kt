@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.textediting.CommentSyntax
 import javafx.scene.web.WebEngine
 import org.springframework.stereotype.Component
 import java.nio.file.Path
@@ -9,7 +10,8 @@ import java.nio.file.Path
  * [MarkdownRenderer].
  */
 @Component
-class MarkdownFileViewer : PreviewFileViewer(setOf("md", "markdown"), RSyntaxHighlighter.markdown, MarkdownPreview)
+class MarkdownFileViewer :
+    PreviewFileViewer(setOf("md", "markdown"), RSyntaxHighlighter.markdown, MarkdownPreview, CommentSyntax.XML)
 
 /** Markdown rendered by [MarkdownRenderer], scrolling with the source. */
 internal object MarkdownPreview : Preview {

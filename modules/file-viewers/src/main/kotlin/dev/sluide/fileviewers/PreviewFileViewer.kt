@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.textediting.CommentSyntax
 import javafx.application.ColorScheme
 import javafx.application.Platform
 import javafx.beans.property.BooleanProperty
@@ -38,17 +39,19 @@ import kotlin.io.path.extension
 
 /**
  * Read-only views of text files with one of the given [extensions] (case-insensitive) as highlighted source beside a
- * rendered [preview] ([PreviewFileView], ADR 0016); see `MarkdownFileViewer`.
+ * rendered [preview] ([PreviewFileView], ADR 0016), the source commenting out lines with [comment]; see
+ * `MarkdownFileViewer`.
  */
 abstract class PreviewFileViewer internal constructor(
     private val extensions: Set<String>,
     internal val highlighter: SyntaxHighlighter,
     private val preview: Preview,
+    internal val comment: CommentSyntax = CommentSyntax.NONE,
 ) : FileViewer {
     override fun canOpen(file: Path): Boolean =
         file.extension.lowercase() in extensions && Files.isReadable(file) && isTextFile(file)
 
-    override fun open(file: Path): FileView = PreviewFileView(file, highlighter, preview)
+    override fun open(file: Path): FileView = PreviewFileView(file, highlighter, preview, comment)
 }
 
 /** How a [PreviewFileView] renders a file. */
@@ -144,10 +147,11 @@ internal class PreviewFileView(
     file: Path,
     highlighter: SyntaxHighlighter,
     private val preview: Preview,
+    comment: CommentSyntax = CommentSyntax.NONE,
 ) : EditableFileView {
     private val file = file.toAbsolutePath().normalize()
 
-    val source = CodeView(file, highlighter)
+    val source = CodeView(file, highlighter, comment)
     val webView = WebView().apply { isContextMenuEnabled = false }
     val mode: ObjectProperty<PreviewMode> = SimpleObjectProperty(preview.defaultMode)
 
