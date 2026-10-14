@@ -1,0 +1,59 @@
+package dev.sluide.fileviewers
+
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+
+class DiffNavigationTest {
+    // a b c d e -> a B c e x y: rows a, b/B, c, d/-, e, -/x, -/y
+    private val rows =
+        alignDiff(5, 6, listOf(LineChange(1..1, 1..1), LineChange(3..3, 3 until 3), LineChange(5 until 5, 4..5)))
+    private val navigation = DiffNavigation(changeBlocks(rows))
+
+    @Test
+    fun `each run of changed rows is a change`() {
+        assertEquals(listOf(1..1, 3..3, 5..6), changeBlocks(rows))
+    }
+
+    @Test
+    fun `changes at the start and the end are found`() {
+        val rows = alignDiff(2, 2, listOf(LineChange(0..0, 0..0), LineChange(1..1, 1..1)))
+        assertEquals(listOf(0..1), changeBlocks(rows))
+        assertEquals(listOf(0..0), changeBlocks(alignDiff(1, 0, listOf(LineChange(0..0, 0 until 0)))))
+    }
+
+    @Test
+    fun `next is the first change after the row`() {
+        assertEquals(1..1, navigation.next(0))
+        assertEquals(3..3, navigation.next(1))
+        assertEquals(5..6, navigation.next(4))
+        assertNull(navigation.next(5))
+    }
+
+    @Test
+    fun `previous is the last change before the row, also from within a change`() {
+        assertNull(navigation.previous(1))
+        assertEquals(1..1, navigation.previous(2))
+        assertEquals(3..3, navigation.previous(5))
+        assertEquals(3..3, navigation.previous(6))
+        assertEquals(5..6, navigation.previous(7))
+    }
+
+    @Test
+    fun `first, last and the change a row is in`() {
+        assertEquals(1..1, navigation.first())
+        assertEquals(5..6, navigation.last())
+        assertEquals(2, navigation.indexAt(6))
+        assertNull(navigation.indexAt(4))
+    }
+
+    @Test
+    fun `without changes there is nowhere to go`() {
+        val none = DiffNavigation(changeBlocks(alignDiff(2, 2, emptyList())))
+        assertEquals(emptyList(), none.blocks)
+        assertNull(none.first())
+        assertNull(none.last())
+        assertNull(none.next(0))
+        assertNull(none.previous(1))
+    }
+}

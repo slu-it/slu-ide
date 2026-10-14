@@ -1,0 +1,34 @@
+package dev.sluide.fileviewers
+
+/** The row ranges of the changes in [rows]: each run of consecutive changed rows is one change. */
+internal fun changeBlocks(rows: List<DiffRow>): List<IntRange> {
+    val blocks = mutableListOf<IntRange>()
+    var start = -1
+    rows.forEachIndexed { index, row ->
+        if (row.kind != null && start < 0) start = index
+        if (row.kind == null && start >= 0) {
+            blocks += start until index
+            start = -1
+        }
+    }
+    if (start >= 0) blocks += start until rows.size
+    return blocks
+}
+
+/** Jumps between the changes [blocks] (sorted row ranges) of a diff, seen from a row; `null` where there is none. */
+internal class DiffNavigation(
+    val blocks: List<IntRange>,
+) {
+    fun first(): IntRange? = blocks.firstOrNull()
+
+    fun last(): IntRange? = blocks.lastOrNull()
+
+    /** The first change that starts after [row]. */
+    fun next(row: Int): IntRange? = blocks.firstOrNull { it.first > row }
+
+    /** The last change that ends before [row]; from within a change, the one before it. */
+    fun previous(row: Int): IntRange? = blocks.lastOrNull { it.last < row }
+
+    /** The index of the change [row] is in. */
+    fun indexAt(row: Int): Int? = blocks.indexOfFirst { row in it }.takeIf { it >= 0 }
+}
