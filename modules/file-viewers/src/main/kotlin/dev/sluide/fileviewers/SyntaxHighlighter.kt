@@ -1,7 +1,7 @@
 package dev.sluide.fileviewers
 
 /** Kinds of highlighted code, independent of the lexer library. [styleClass] is the CSS class in `syntax.css`. */
-internal enum class TokenStyle(
+enum class TokenStyle(
     val styleClass: String,
 ) {
     KEYWORD("keyword"),
@@ -18,7 +18,7 @@ internal enum class TokenStyle(
 }
 
 /** The characters `[start, end)` of a text are styled as [style]. */
-internal data class HighlightSpan(
+data class HighlightSpan(
     val start: Int,
     val end: Int,
     val style: TokenStyle,
@@ -28,7 +28,7 @@ internal data class HighlightSpan(
  * Finds the parts of a source text to highlight. Implementations must be thread-safe: code views highlight edited
  * text on a background thread, other texts on the FX thread at the same time.
  */
-internal fun interface SyntaxHighlighter {
+fun interface SyntaxHighlighter {
     /** Returns spans sorted by position, not overlapping and within [text]; unstyled parts have no span. */
     fun highlight(text: String): List<HighlightSpan>
 }

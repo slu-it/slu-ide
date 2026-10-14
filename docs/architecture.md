@@ -26,6 +26,8 @@ assembled from Gradle modules.
     ([ADR 0004](adr/0004-file-viewer-selection.md)).
   - `file-viewers` -> `text-editing` (`implementation`): code views keep line endings and decide what a change on disk
     means for edited text ([ADR 0020](adr/0020-editing-and-saving-files.md)).
+  - `http-client` -> `file-viewers`: `.http` files are shown in code views, and request bodies and scripts are
+    highlighted with the code views' highlighters (`Highlighters.forLanguage`, [ADR 0005](adr/0005-syntax-highlighting.md)).
   - `terminal` -> `editor`: terminals are shown as `EditorTab`s ([ADR 0007](adr/0007-terminal.md)).
   - `docker-sandbox` -> `terminal`: sandboxes run in terminal tabs and look `sbx` up in the same login shell
     (`loginShellRunning`) ([ADR 0010](adr/0010-docker-sandbox.md)).

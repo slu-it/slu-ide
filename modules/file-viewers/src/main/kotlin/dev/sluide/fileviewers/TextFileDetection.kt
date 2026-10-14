@@ -20,7 +20,7 @@ internal const val MAX_TEXT_FILE_SIZE = 10L * 1024 * 1024
  * Its first [TEXT_SAMPLE_SIZE] bytes must not contain a NUL byte and must be valid UTF-8; a multi-byte
  * character cut off at the end of the sample is fine. Empty files are text. IO errors yield `false`.
  */
-internal fun isTextFile(file: Path): Boolean =
+fun isTextFile(file: Path): Boolean =
     try {
         Files.isRegularFile(file) &&
             Files.size(file) <= MAX_TEXT_FILE_SIZE &&
