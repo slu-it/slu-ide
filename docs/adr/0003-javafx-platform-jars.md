@@ -17,4 +17,5 @@ which selects the jar for the build machine's OS and architecture.
   (linux-x64, linux-aarch64, mac-aarch64) and publishes each fat jar under its own artifactId
   `ide-<os>-<arch>` to the GitHub Packages Maven registry. Windows and Intel Macs are intentionally not supported.
 - Every new module with JavaFX code must apply the plugin and list the JavaFX modules it needs.
-- The sandbox used for development has no display, so the UI cannot be started there.
+- The sandbox used for development has no display of its own: the UI and the UI tests run there on a virtual display
+  (Xvfb), see [testing.md](../testing.md).
