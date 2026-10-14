@@ -25,6 +25,7 @@ dependencies {
     implementation(project(":modules:settings"))
     implementation(project(":modules:docker-sandbox"))
     implementation(project(":modules:git"))
+    implementation(project(":modules:http-client"))
 
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
