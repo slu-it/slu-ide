@@ -30,7 +30,7 @@ and uses software rendering (`-Dprism.order=sw`).
 .claude/scripts/setup-display.sh          # installs Xvfb + GTK libs + xdotool/ImageMagick, starts display :99
 export DISPLAY=:99
 ./gradlew :ide:bootJar
-java -Dprism.order=sw -jar ide/build/libs/ide-0.1.0-SNAPSHOT.jar &   # not ide-*.jar: that also matches -plain.jar
+java -Dprism.order=sw -jar ide/build/libs/ide-0.1.0-SNAPSHOT.jar <folder> &   # not ide-*.jar: that also matches -plain.jar
 import -window root shot.png              # screenshot
 xdotool key ctrl+o                         # drive the UI
 ```
@@ -38,5 +38,8 @@ xdotool key ctrl+o                         # drive the UI
   (find the id with `xdotool search --name '<title>'`) and appear partly off-screen.
 - Without a window manager, popups (menus, dropdowns, context menus) close as soon as the mouse is over them, and
   context menus never appear. Start one to test them: `apt-get install -y openbox` once, then `openbox &`.
-- The GTK folder chooser opens in its "Recent" view: pick a sidebar bookmark and click Open instead of typing a path.
+- Pass the project folder as an argument (above) instead of driving the GTK folder chooser, which opens in its
+  "Recent" view. Files in the explorer open with a double-click (`xdotool mousemove X Y click --repeat 2 1`).
+- If `setup-display.sh` says Xvfb is running but nothing can connect, a stale `/tmp/.X99-lock` is left over: remove it
+  and `/tmp/.X11-unix/X99`, then run the script again.
 - Stop Xvfb when done; never claim the UI was verified unless you actually ran it.

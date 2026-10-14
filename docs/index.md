@@ -27,7 +27,7 @@ Keep it up to date: every new ADR or feature description must be added here with
 - [adr/template.md](adr/template.md) — Template for new ADRs.
 
 ## Features
-- [features/open-folder.md](features/open-folder.md) — File → Open Folder… opens a folder in the empty window or a new one (one project per window), closing a window asks once while its tabs run something.
+- [features/open-folder.md](features/open-folder.md) — File → Open Folder… or `SluIde [folder…]` on the command line opens a folder in the empty window or a new one (one project per window), closing a window asks once while its tabs run something.
 - [features/file-explorer.md](features/file-explorer.md) — Tree view of the project folder incl. hidden files (not `.git`), lazy loading, sort order, opening files (double-click/Enter), live updates and Refresh (context menu/F5), file icons, markers.
 - [features/editor-tabs.md](features/editor-tabs.md) — Central area with one closable tab per open file or other `EditorTab` (e.g. terminals), tab context menu (close others/left/right/all), scroll arrows and a dropdown for tabs that do not fit.
 - [features/settings.md](features/settings.md) — File → Settings… (Ctrl+,): page tree, OK/Apply/Cancel, Display → Appearance (Light/Dark/System theme), Display → Fonts (font, size, style for explorer, editor, terminal) with preview, stored per user.

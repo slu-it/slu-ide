@@ -6,12 +6,18 @@ import org.springframework.boot.WebApplicationType
 import org.springframework.boot.autoconfigure.SpringBootApplication
 import org.springframework.boot.builder.SpringApplicationBuilder
 import org.springframework.context.ConfigurableApplicationContext
+import java.nio.file.Files
+import java.nio.file.InvalidPathException
+import java.nio.file.Path
 
 /** Spring configuration; component scanning covers all SluIde modules below `dev.sluide`. */
 @SpringBootApplication(scanBasePackages = ["dev.sluide"])
 class SluIdeConfiguration
 
-/** JavaFX application that owns the lifecycle of the Spring context. */
+/**
+ * JavaFX application that owns the lifecycle of the Spring context. Folders given on the command line
+ * (`SluIde [folder…]`) are opened at startup: the first in the startup window, every other one in a new window.
+ */
 class SluIdeApplication : Application() {
     private lateinit var context: ConfigurableApplicationContext
 
@@ -24,10 +30,36 @@ class SluIdeApplication : Application() {
     }
 
     override fun start(primaryStage: Stage) {
-        context.getBean(ProjectWindows::class.java).show(primaryStage)
+        val folders = startupFolders(parameters.unnamed)
+        val windows = context.getBean(ProjectWindows::class.java)
+        windows.show(primaryStage, folders.firstOrNull())
+        folders.drop(1).forEach(windows::open)
     }
 
     override fun stop() {
         context.close()
     }
 }
+
+/**
+ * The command-line [args] that are folders, resolved against the working directory. Every other argument is passed
+ * to [warn] and skipped, so a typo does not stop the IDE from starting.
+ */
+internal fun startupFolders(
+    args: List<String>,
+    warn: (String) -> Unit = System.err::println,
+): List<Path> =
+    args.mapNotNull { arg ->
+        val path =
+            try {
+                Path.of(arg)
+            } catch (_: InvalidPathException) {
+                null
+            }
+        if (path != null && Files.isDirectory(path)) {
+            path.toAbsolutePath().normalize()
+        } else {
+            warn("SluIde: not a folder, ignored: $arg")
+            null
+        }
+    }

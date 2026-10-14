@@ -17,4 +17,8 @@
 - Closing a window while its tabs still run something (terminal programs, Docker sandboxes and other commands) asks
   once, listing them: "Close this window anyway?". Cancel keeps the window; Close ends them. Without running tabs it
   closes right away. Closing the last window quits SluIde. Tests replace the dialog via `MainWindow.confirmCloseWindow`.
-- Nothing is persisted yet: the IDE starts with one window without a project.
+- Command line: `SluIde [folder…]` (or `java -jar ide-*.jar [folder…]`) opens the given folders at startup, the
+  first in the startup window and every other one in a new window, like Open Folder. Relative paths resolve against
+  the working directory. Arguments that are not folders are reported on stderr (`SluIde: not a folder, ignored: …`)
+  and skipped (`startupFolders` in `SluIdeApplication.kt`).
+- Nothing is persisted yet: without arguments the IDE starts with one window without a project.
