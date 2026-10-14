@@ -399,6 +399,59 @@ class HttpFileParserTest {
 
     @Test
     fun `parses an empty file`() {
-        assertEquals(HttpFile(emptyList(), emptyList(), emptyList()), HttpFileParser.parse(""))
+        assertEquals(HttpFile(emptyList(), emptyList(), emptyList(), listOf(LineKind.OTHER)), HttpFileParser.parse(""))
+    }
+
+    @Test
+    fun `knows what each line is`() {
+        val file =
+            parse(
+                "@host = http://x",
+                "### First",
+                "# @name first",
+                "# a comment",
+                "< {% request.variables.set('a', 1) %}",
+                "POST {{host}}/a",
+                "    ?b=c",
+                "Content-Type: text/plain",
+                "X-Long: one",
+                "  two",
+                "// header comment",
+                "",
+                "text",
+                "< ./file.txt",
+                "",
+                "> {%",
+                "  client.log('###')",
+                "%}",
+                "<> 2026-01-01.json",
+                "# after",
+            )
+
+        assertEquals(
+            listOf(
+                LineKind.VARIABLE,
+                LineKind.SEPARATOR,
+                LineKind.TAG,
+                LineKind.COMMENT,
+                LineKind.SCRIPT,
+                LineKind.REQUEST_LINE,
+                LineKind.URL_CONTINUATION,
+                LineKind.HEADER,
+                LineKind.HEADER,
+                LineKind.HEADER_CONTINUATION,
+                LineKind.COMMENT,
+                LineKind.OTHER,
+                LineKind.BODY,
+                LineKind.BODY_FILE,
+                LineKind.BODY,
+                LineKind.SCRIPT,
+                LineKind.SCRIPT,
+                LineKind.SCRIPT,
+                LineKind.RESPONSE_REFERENCE,
+                LineKind.COMMENT,
+            ),
+            file.lineKinds,
+        )
     }
 }

@@ -9,7 +9,51 @@ internal data class HttpFile(
     val variables: List<FileVariable>,
     val requests: List<RequestBlock>,
     val problems: List<ParseProblem>,
+    /** What each line of the text is to the parser, by line number; highlighting follows it. */
+    val lineKinds: List<LineKind>,
 )
+
+/** What a line of a `.http` file is to the parser. */
+internal enum class LineKind {
+    /** Blank lines outside bodies and text the parser ignores or rejects. */
+    OTHER,
+
+    /** `###`, optionally followed by the request's name. */
+    SEPARATOR,
+
+    /** `#` or `//`, outside bodies. */
+    COMMENT,
+
+    /** A comment before the request line with one of the request tags (`# @name`, `# @timeout`, …). */
+    TAG,
+
+    /** `@name = value`. */
+    VARIABLE,
+
+    /** Method, URL and version. */
+    REQUEST_LINE,
+
+    /** An indented line continuing the URL. */
+    URL_CONTINUATION,
+
+    /** `Name: value`. */
+    HEADER,
+
+    /** An indented line continuing the previous header's value. */
+    HEADER_CONTINUATION,
+
+    /** Inline body text, blank lines included. */
+    BODY,
+
+    /** `< path` in the body. */
+    BODY_FILE,
+
+    /** A line of a `< {% … %}` or `> {% … %}` script, or a `< file.js`/`> file.js` script reference. */
+    SCRIPT,
+
+    /** `<> previous-response` or `>> response-file` after the body. */
+    RESPONSE_REFERENCE,
+}
 
 /** An in-file variable, `@name = value`. */
 internal data class FileVariable(

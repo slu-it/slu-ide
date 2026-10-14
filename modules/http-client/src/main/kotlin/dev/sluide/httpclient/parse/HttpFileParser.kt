@@ -11,13 +11,14 @@ import java.time.Duration
  */
 internal object HttpFileParser {
     val METHODS = setOf("GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "PATCH", "OPTIONS", "TRACE")
-    private val UNSUPPORTED_METHODS = setOf("WEBSOCKET", "GRAPHQL", "GRPC")
+    internal val UNSUPPORTED_METHODS = setOf("WEBSOCKET", "GRAPHQL", "GRPC")
 
     fun parse(text: String): HttpFile {
         val lines = text.lines()
         val variables = mutableListOf<FileVariable>()
         val requests = mutableListOf<RequestBlock>()
         val problems = mutableListOf<ParseProblem>()
+        val kinds = Array(lines.size) { LineKind.OTHER }
         var start = 0
         var inScript = false
         for ((index, line) in lines.withIndex()) {
@@ -28,7 +29,7 @@ internal object HttpFileParser {
                 }
 
                 index > 0 && isSeparator(line) -> {
-                    Segment(lines, start, index - 1, variables, problems).parse()?.let(requests::add)
+                    Segment(lines, start, index - 1, variables, problems, kinds).parse()?.let(requests::add)
                     start = index
                 }
 
@@ -37,8 +38,8 @@ internal object HttpFileParser {
                 }
             }
         }
-        Segment(lines, start, lines.lastIndex, variables, problems).parse()?.let(requests::add)
-        return HttpFile(variables, requests, problems.sortedBy { it.line })
+        Segment(lines, start, lines.lastIndex, variables, problems, kinds).parse()?.let(requests::add)
+        return HttpFile(variables, requests, problems.sortedBy { it.line }, kinds.toList())
     }
 
     internal fun isSeparator(line: String) = line.startsWith("###")
@@ -51,6 +52,7 @@ internal object HttpFileParser {
         private val last: Int,
         private val variables: MutableList<FileVariable>,
         private val problems: MutableList<ParseProblem>,
+        private val kinds: Array<LineKind>,
     ) {
         private var separatorName: String? = null
         private var nameTag: String? = null
@@ -69,6 +71,7 @@ internal object HttpFileParser {
         fun parse(): RequestBlock? {
             var index = first
             if (isSeparator(lines[first])) {
+                kinds[first] = LineKind.SEPARATOR
                 separatorName = lines[first].trimStart('#').trim().ifEmpty { null }
                 index++
             }
@@ -113,7 +116,7 @@ internal object HttpFileParser {
                 line.isBlank() -> {}
 
                 isComment(line) -> {
-                    tag(index, line)
+                    kinds[index] = if (tag(index, line)) LineKind.TAG else LineKind.COMMENT
                 }
 
                 line.startsWith("@") -> {
@@ -136,6 +139,7 @@ internal object HttpFileParser {
             line: String,
         ): Int {
             if (line.isNotBlank() && line.first().isWhitespace()) {
+                kinds[index] = LineKind.URL_CONTINUATION
                 urlParts += versionStripped(index, line.trim())
                 return index + 1
             }
@@ -152,9 +156,12 @@ internal object HttpFileParser {
                     state = State.BODY
                 }
 
-                isComment(line) -> {}
+                isComment(line) -> {
+                    kinds[index] = LineKind.COMMENT
+                }
 
                 line.first().isWhitespace() && headers.isNotEmpty() -> {
+                    kinds[index] = LineKind.HEADER_CONTINUATION
                     val previous = headers.last()
                     headers[headers.lastIndex] = previous.copy(value = "${previous.value} ${line.trim()}".trim())
                 }
@@ -170,6 +177,7 @@ internal object HttpFileParser {
                         problems +=
                             ParseProblem(index, "Expected a header (Name: value) or a blank line before the body")
                     } else {
+                        kinds[index] = LineKind.HEADER
                         headers += Header(name, line.substring(colon + 1).trim(), index)
                     }
                 }
@@ -183,6 +191,7 @@ internal object HttpFileParser {
         ): Int {
             if (isResponseMarker(line)) return responseMarker(index, line)
             bodyLines += index
+            kinds[index] = if (FILE_REF.matches(line)) LineKind.BODY_FILE else LineKind.BODY
             return index + 1
         }
 
@@ -195,7 +204,11 @@ internal object HttpFileParser {
                     return responseMarker(index, line)
                 }
 
-                line.isNotBlank() && !isComment(line) -> {
+                isComment(line) -> {
+                    kinds[index] = LineKind.COMMENT
+                }
+
+                line.isNotBlank() -> {
                     problems +=
                         ParseProblem(index, "Ignored text after the response handler")
                 }
@@ -203,12 +216,13 @@ internal object HttpFileParser {
             return index + 1
         }
 
+        /** Applies the request tag in the comment [line]; whether it is one ([TAGS]). */
         private fun tag(
             index: Int,
             line: String,
-        ) {
+        ): Boolean {
             val text = line.trimStart('#', '/').trim()
-            val match = TAG.matchEntire(text) ?: return
+            val match = TAG.matchEntire(text) ?: return false
             val (tag, value) = match.destructured
             when (tag) {
                 "name" -> {
@@ -236,6 +250,7 @@ internal object HttpFileParser {
                 }
                 // @no-log and unknown tags are plain comments.
             }
+            return tag in TAGS
         }
 
         private fun duration(
@@ -264,6 +279,7 @@ internal object HttpFileParser {
             if (match == null) {
                 problems += ParseProblem(index, "Expected a variable definition: @name = value")
             } else {
+                kinds[index] = LineKind.VARIABLE
                 variables += FileVariable(match.groupValues[1], match.groupValues[2].trim(), index)
             }
         }
@@ -273,6 +289,7 @@ internal object HttpFileParser {
             line: String,
         ) {
             requestLine = index
+            kinds[index] = LineKind.REQUEST_LINE
             state = State.URL
             val trimmed = line.trim()
             val firstToken = trimmed.substringBefore(' ').substringBefore('\t')
@@ -328,21 +345,15 @@ internal object HttpFileParser {
             kind: ScriptBlock.Kind,
         ): Int {
             val opening = lines[index].substring(1).trim()
-            if (!opening.startsWith("{%")) {
-                scripts += ScriptBlock(kind, index..index)
-                return index + 1
-            }
-            if (opening.indexOf("%}", 2) >= 0) {
-                scripts += ScriptBlock(kind, index..index)
-                return index + 1
-            }
-            val end = (index + 1..last).firstOrNull { "%}" in lines[it] }
-            if (end == null) {
-                problems += ParseProblem(index, "The script is not closed with %}")
-                scripts += ScriptBlock(kind, index..last)
-                return last + 1
-            }
+            val end =
+                if (!opening.startsWith("{%") || opening.indexOf("%}", 2) >= 0) {
+                    index
+                } else {
+                    (index + 1..last).firstOrNull { "%}" in lines[it] }
+                        ?: last.also { problems += ParseProblem(index, "The script is not closed with %}") }
+                }
             scripts += ScriptBlock(kind, index..end)
+            for (line in index..end) kinds[line] = LineKind.SCRIPT
             return end + 1
         }
 
@@ -353,10 +364,12 @@ internal object HttpFileParser {
             state = State.AFTER_BODY
             return when {
                 line.startsWith("<>") -> {
+                    kinds[index] = LineKind.RESPONSE_REFERENCE
                     index + 1
                 }
 
                 line.startsWith(">>") -> {
+                    kinds[index] = LineKind.RESPONSE_REFERENCE
                     problems += ParseProblem(index, "Saving the response to a file (>>) is not supported")
                     index + 1
                 }
@@ -391,13 +404,15 @@ internal object HttpFileParser {
             line.startsWith("<>") || line.startsWith(">>") || RESPONSE_SCRIPT.containsMatchIn(line)
     }
 
+    /** The request tags that have an effect, `# @name` and the others. */
+    private val TAGS = setOf("name", "no-redirect", "no-cookie-jar", "timeout", "connection-timeout")
     private val TAG = Regex("""@([\w-]+)\s*(?:=\s*)?(.*)""")
     private val DURATION = Regex("""(\d+)\s*(ms|s|m)?""")
-    private val VARIABLE = Regex("""@([A-Za-z_][\w.-]*)\s*=(.*)""")
-    private val VERSION = Regex("""\s+HTTP/(\S+)(\s+\(Prior Knowledge\))?\s*$""", RegexOption.IGNORE_CASE)
+    internal val VARIABLE = Regex("""@([A-Za-z_][\w.-]*)\s*=(.*)""")
+    internal val VERSION = Regex("""\s+HTTP/(\S+)(\s+\(Prior Knowledge\))?\s*$""", RegexOption.IGNORE_CASE)
     private val RESPONSE_SCRIPT = Regex("""^>(\s*\{%|\s+\S)""")
 
     /** `< path`, also VS Code's `<@ path` and `<@encoding path` (the encoding is ignored). */
-    private val FILE_REF = Regex("""<(?:@\S*)?\s+(?!\{%)(\S.*)""")
+    internal val FILE_REF = Regex("""<(?:@\S*)?\s+(?!\{%)(\S.*)""")
     private val SCRIPT_START = Regex("""^[<>]\s*\{%""")
 }
