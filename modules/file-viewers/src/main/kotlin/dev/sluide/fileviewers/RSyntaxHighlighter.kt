@@ -313,24 +313,52 @@ internal class RSyntaxHighlighter(
         /**
          * Markdown: headings and bold as keywords, emphasis as type, inline HTML as markup with component names made
          * tags by [markupTags]. The lexer reports inline and fenced code as preprocessor, shown as string here, and
-         * a link's or image's text and target as regex and annotation, both shown as `attribute`.
+         * a link's or image's text and target as regex and annotation, both shown as `attribute`. Fenced code with a
+         * language that [forLanguage] knows is highlighted as that language ([FencedCodeHighlighter]).
          */
-        private fun markdown(lineRules: List<Regex>) =
-            RSyntaxHighlighter(
-                SyntaxConstants.SYNTAX_STYLE_MARKDOWN,
-                tokenStyles =
-                    mapOf(
-                        TokenTypes.PREPROCESSOR to TokenStyle.STRING,
-                        TokenTypes.REGEX to TokenStyle.ATTRIBUTE,
-                        TokenTypes.ANNOTATION to TokenStyle.ATTRIBUTE,
-                    ),
-                lineRules = markupTags + lineRules,
+        private fun markdown(lineRules: List<Regex>): SyntaxHighlighter =
+            FencedCodeHighlighter(
+                RSyntaxHighlighter(
+                    SyntaxConstants.SYNTAX_STYLE_MARKDOWN,
+                    tokenStyles =
+                        mapOf(
+                            TokenTypes.PREPROCESSOR to TokenStyle.STRING,
+                            TokenTypes.REGEX to TokenStyle.ATTRIBUTE,
+                            TokenTypes.ANNOTATION to TokenStyle.ATTRIBUTE,
+                        ),
+                    lineRules = markupTags + lineRules,
+                ),
+                ::forLanguage,
             )
 
         val markdown = markdown(lineRules = emptyList())
 
         /** MDX: Markdown with `import`/`export` lines and JSX components. */
         val mdx = markdown(lineRules = listOf(Regex("""^(?<keyword>import|export)\b""")))
+
+        /** The highlighter for a code fence's [language] (` ```ts `), lower case, or `null` if there is none. */
+        fun forLanguage(language: String): SyntaxHighlighter? =
+            when (language) {
+                "java" -> java
+                "kotlin", "kt", "kts" -> kotlin
+                "python", "py" -> python
+                "javascript", "js", "mjs", "cjs" -> javaScript
+                "jsx" -> javaScriptReact
+                "typescript", "ts" -> typeScript
+                "tsx" -> typeScriptReact
+                "json", "jsonc" -> json
+                "xml", "svg" -> xml
+                "html" -> html
+                "vue", "svelte" -> singleFileComponent
+                "yaml", "yml" -> yaml
+                "css" -> css
+                "scss" -> scss
+                "sass" -> sass
+                "less" -> less
+                "markdown", "md" -> markdown
+                "mdx" -> mdx
+                else -> null
+            }
 
         /** SCSS and Sass variables (`$primary`), styled like custom properties. */
         private val sassVariable = Regex("""(?<annotation>\$[\w-]+)""")
