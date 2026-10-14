@@ -116,8 +116,8 @@ internal class FencedCodeHighlighter(
         val marker = match.groupValues[1]
         val info = match.groupValues[2].trim()
         if (marker[0] == '`' && '`' in info) return null
-        val language = info.split(' ', '\t').first()
-        val highlighter = if (language.isEmpty()) null else languages(language.lowercase())
+        val language = fenceLanguage(info)
+        val highlighter = if (language.isEmpty()) null else languages(language)
         return Fence(lineStart, marker[0], marker.length, contentStart, highlighter)
     }
 
@@ -125,3 +125,11 @@ internal class FencedCodeHighlighter(
         val OPENING = Regex("""^ {0,3}(`{3,}|~{3,})(.*)$""")
     }
 }
+
+/** The language of a code fence's [info] string (` ```ts title="x" ` gives `ts`), lower case; empty if there is none. */
+internal fun fenceLanguage(info: String): String =
+    info
+        .trim()
+        .split(' ', '\t')
+        .first()
+        .lowercase()

@@ -1,0 +1,157 @@
+/*
+ * Rendered Markdown in the preview WebView (MarkdownRenderer). Token classes come from TokenStyle, colours match
+ * syntax.css. Dark colours apply when MarkdownFileView sets the class "dark" on the body.
+ */
+
+body {
+    margin: 0;
+    padding: 16px 24px 48px 24px;
+    font-family: -apple-system, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.6;
+    color: #1f2328;
+    background: #ffffff;
+    word-wrap: break-word;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    margin: 24px 0 16px 0;
+    font-weight: 600;
+    line-height: 1.25;
+}
+
+h1, h2 {
+    padding-bottom: 0.3em;
+    border-bottom: 1px solid #d1d9e0;
+}
+
+h1 { font-size: 2em; }
+h2 { font-size: 1.5em; }
+h3 { font-size: 1.25em; }
+
+body > :first-child {
+    margin-top: 0;
+}
+
+p, ul, ol, blockquote, pre, table, details {
+    margin: 0 0 16px 0;
+}
+
+ul, ol {
+    padding-left: 2em;
+}
+
+li > ul, li > ol {
+    margin-bottom: 0;
+}
+
+li:has(> input[type=checkbox]) {
+    list-style: none;
+}
+
+li > input[type=checkbox] {
+    margin: 0 0.4em 0 -1.4em;
+}
+
+a {
+    color: #0969da;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+blockquote {
+    padding: 0 1em;
+    color: #59636e;
+    border-left: 0.25em solid #d1d9e0;
+}
+
+code, pre {
+    font-family: "JetBrains Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    font-size: 85%;
+}
+
+code {
+    padding: 0.2em 0.4em;
+    border-radius: 6px;
+    background: #eff1f3;
+}
+
+pre {
+    padding: 16px;
+    overflow: auto;
+    line-height: 1.45;
+    border-radius: 6px;
+    background: #f6f8fa;
+}
+
+pre code {
+    padding: 0;
+    font-size: 100%;
+    background: transparent;
+}
+
+table {
+    border-collapse: collapse;
+}
+
+th, td {
+    padding: 6px 13px;
+    border: 1px solid #d1d9e0;
+}
+
+th {
+    font-weight: 600;
+}
+
+tr:nth-child(2n) {
+    background: #f6f8fa;
+}
+
+hr {
+    height: 0.25em;
+    margin: 24px 0;
+    border: 0;
+    background: #d1d9e0;
+}
+
+img {
+    max-width: 100%;
+}
+
+.keyword { color: #0033b3; font-weight: bold; }
+.type { color: #000080; }
+.builtin { color: #871094; }
+.string { color: #067d17; }
+.number { color: #1750eb; }
+.comment { color: #8c8c8c; font-style: italic; }
+.annotation { color: #9e880d; }
+.property { color: #871094; }
+.tag { color: #000080; }
+.attribute { color: #0000ff; }
+.operator { color: #333333; }
+
+body.dark { color: #d1d7e0; background: #2b2b2b; }
+body.dark h1, body.dark h2 { border-bottom-color: #3d444d; }
+body.dark a { color: #4493f8; }
+body.dark blockquote { color: #9198a1; border-left-color: #3d444d; }
+body.dark code { background: #3c3f41; }
+body.dark pre { background: #313335; }
+body.dark pre code { background: transparent; }
+body.dark th, body.dark td { border-color: #3d444d; }
+body.dark tr:nth-child(2n) { background: #313335; }
+body.dark hr { background: #3d444d; }
+body.dark pre { color: #a9b7c6; }
+body.dark .keyword { color: #cc7832; }
+body.dark .type { color: #6fafbd; }
+body.dark .builtin { color: #b389c5; }
+body.dark .string { color: #6a8759; }
+body.dark .number { color: #6897bb; }
+body.dark .comment { color: #808080; }
+body.dark .annotation { color: #bbb529; }
+body.dark .property { color: #9876aa; }
+body.dark .tag { color: #e8bf6a; }
+body.dark .attribute { color: #bababa; }
+body.dark .operator { color: #a9b7c6; }
