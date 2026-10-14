@@ -186,6 +186,10 @@ internal class RSyntaxHighlighter(
     companion object {
         val java = RSyntaxHighlighter(SyntaxConstants.SYNTAX_STYLE_JAVA)
 
+        /** `<name` or `</name` of a markup tag, but not a generic's `<T,>` or `<T extends …>`. */
+        private val markupTagName =
+            Regex("""(?:^|(?<=[\s(,={}?:&|>]))(?<tag></?[A-Za-z][\w.:-]*)(?![\w.:-]*\s*(?:,|extends\b))""")
+
         /**
          * JSX elements on top of JavaScript or TypeScript, which neither lexer knows: tag names (`<div`, `</div`,
          * fragments), the `>`/`/>` closing a tag started on the same line, and attributes followed by a value.
@@ -194,7 +198,7 @@ internal class RSyntaxHighlighter(
          */
         private val jsx =
             listOf(
-                Regex("""(?:^|(?<=[\s(,={}?:&|>]))(?<tag></?[A-Za-z][\w.:-]*)(?![\w.:-]*\s*(?:,|extends\b))"""),
+                markupTagName,
                 Regex("""(?:^|(?<=[\s(,={}?:&|>]))(?<tag></?>)"""),
                 Regex(
                     """(?<=(?:^|[\s(,={}?:&|>])</?[A-Za-z][\w.:-]{0,100}(?:\s[^<]{0,300})?)(?<![=-])(?<tag>/?>)""",
@@ -262,6 +266,13 @@ internal class RSyntaxHighlighter(
 
         /** Also lexes embedded `<script>` (JavaScript) and `<style>` (CSS) content. */
         val html = RSyntaxHighlighter(SyntaxConstants.SYNTAX_STYLE_HTML)
+
+        /**
+         * Vue and Svelte components: HTML, whose lexer styles tag names it does not know (`<template>`, components
+         * like `<MyButton>`) as attributes, so a line rule makes them tags.
+         */
+        val singleFileComponent =
+            RSyntaxHighlighter(SyntaxConstants.SYNTAX_STYLE_HTML, lineRules = listOf(markupTagName))
 
         /** SCSS and Sass variables (`$primary`), styled like custom properties. */
         private val sassVariable = Regex("""(?<annotation>\$[\w-]+)""")

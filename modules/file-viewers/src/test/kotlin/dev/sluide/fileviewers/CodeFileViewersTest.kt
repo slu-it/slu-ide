@@ -26,6 +26,7 @@ class CodeFileViewersTest {
             JsonFileViewer() to listOf("package.json", "tsconfig.jsonc"),
             XmlFileViewer() to listOf("pom.xml", "schema.xsd", "style.xsl", "transform.xslt", "icon.svg", "view.fxml"),
             HtmlFileViewer() to listOf("index.html", "legacy.htm", "page.xhtml"),
+            SingleFileComponentViewer() to listOf("App.vue", "Page.svelte"),
             YamlFileViewer() to listOf("ci.yml", "config.yaml"),
             CssFileViewer() to listOf("site.css"),
             ScssFileViewer() to listOf("_vars.scss"),

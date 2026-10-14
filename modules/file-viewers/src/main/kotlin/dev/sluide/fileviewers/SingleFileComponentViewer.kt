@@ -1,0 +1,10 @@
+package dev.sluide.fileviewers
+
+import org.springframework.stereotype.Component
+
+/**
+ * Shows Vue and Svelte single-file components (`.vue`, `.svelte`) read-only with syntax highlighting: they are HTML
+ * with a `<script>` and a `<style>` block.
+ */
+@Component
+class SingleFileComponentViewer : CodeFileViewer(setOf("vue", "svelte"), RSyntaxHighlighter.singleFileComponent)
