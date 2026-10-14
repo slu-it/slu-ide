@@ -1,6 +1,7 @@
 package dev.sluide.editor
 
 import dev.sluide.fileviewers.DefaultTextFileViewer
+import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.FileViewer
@@ -514,6 +515,22 @@ class EditorAreaUiTest {
 
         eventually(robot) { assertEquals("second", shownText(robot)) }
         assertEquals(a, editor.selectedPath)
+    }
+
+    /** The text area of the shown file view, unless it is a diff. */
+    private fun shownArea(robot: FxRobot): CodeArea =
+        robot.lookup(".editor-content .code-editor .code-area").queryAs(CodeArea::class.java)
+
+    @Test
+    fun `the tab of a file with unsaved changes shows a dot until it is saved`(robot: FxRobot) {
+        val a = textFile("a.txt")
+        open(robot, a)
+
+        robot.interact { shownArea(robot).insertText(0, "edited ") }
+        assertEquals(listOf("● a.txt"), tabTitles(robot))
+
+        robot.interact { (checkNotNull(editor.editorTabs.find(a)).view as EditableFileView).save() }
+        assertEquals(listOf("a.txt"), tabTitles(robot))
     }
 
     /** The texts of the code areas of the shown diff, left to right; empty if no diff is shown. */

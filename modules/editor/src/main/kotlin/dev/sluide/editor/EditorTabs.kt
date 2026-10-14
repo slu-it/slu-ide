@@ -1,9 +1,12 @@
 package dev.sluide.editor
 
+import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileView
+import javafx.beans.property.ReadOnlyBooleanWrapper
 import javafx.beans.property.ReadOnlyObjectProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
-import javafx.beans.property.ReadOnlyStringWrapper
+import javafx.beans.property.SimpleObjectProperty
+import javafx.beans.value.ObservableBooleanValue
 import javafx.beans.value.ObservableValue
 import javafx.collections.FXCollections
 import javafx.collections.ObservableList
@@ -35,6 +38,7 @@ interface EditorTab {
 /**
  * A file shown in a tab together with the view that displays it. The view can be replaced (e.g. by a diff view) while
  * the tab and its [content] stay the same; the replaced view is disposed, and so is the view when the tab closes.
+ * While the view has unsaved changes ([dirty]), the title starts with a dot.
  */
 internal class OpenFile(
     val path: Path,
@@ -42,22 +46,35 @@ internal class OpenFile(
 ) : EditorTab {
     val name: String get() = (path.fileName ?: path).toString()
 
-    override val title: ObservableValue<String> = ReadOnlyStringWrapper(name).readOnlyProperty
+    private val shownView = SimpleObjectProperty(view)
+
+    /** Whether the view is an [EditableFileView] with unsaved changes; follows the view when it is replaced. */
+    val dirty: ObservableValue<Boolean> =
+        shownView.flatMap { (it as? EditableFileView)?.dirty ?: NEVER_DIRTY }
+
+    /** The current value of [dirty]. */
+    val isDirty: Boolean get() = dirty.value == true
+
+    override val title: ObservableValue<String> = dirty.map { if (it) "● $name" else name }
 
     override val tooltip: String get() = path.toString()
 
     override val content = StackPane(view.node)
 
-    var view: FileView = view
+    var view: FileView
+        get() = shownView.get()
         set(value) {
-            val old = field
-            field = value
+            val old = shownView.get()
+            shownView.set(value)
             content.children.setAll(value.node)
             if (old !== value) old.dispose()
         }
 
     override fun dispose() = view.dispose()
 }
+
+/** The [OpenFile.dirty] state of views that cannot be edited. */
+private val NEVER_DIRTY: ObservableBooleanValue = ReadOnlyBooleanWrapper(false).readOnlyProperty
 
 /** The tabs open in the editor area, in tab order, and the selected one. */
 internal class EditorTabs {

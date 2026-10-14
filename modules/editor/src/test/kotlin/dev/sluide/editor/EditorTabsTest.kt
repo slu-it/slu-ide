@@ -1,6 +1,8 @@
 package dev.sluide.editor
 
+import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileView
+import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleStringProperty
 import javafx.collections.ListChangeListener
 import javafx.scene.Group
@@ -25,6 +27,15 @@ class EditorTabsTest {
         override fun dispose() {
             disposed++
         }
+    }
+
+    private class EditedView : EditableFileView {
+        override val node = Group()
+        override val dirty = SimpleBooleanProperty(false)
+
+        override fun reload() {}
+
+        override fun save() = dirty.set(false)
     }
 
     private fun open(
@@ -265,5 +276,32 @@ class EditorTabsTest {
         tabs.closeAll()
 
         assertEquals(listOf(1, 1, 1), views.map { it.disposed })
+    }
+
+    @Test
+    fun `the title of a file with unsaved changes starts with a dot`() {
+        val view = EditedView()
+        val file = open("a.txt", view)
+
+        view.dirty.set(true)
+        assertEquals(listOf("● a.txt"), names())
+        assertTrue(file.isDirty)
+
+        view.save()
+        assertEquals(listOf("a.txt"), names())
+    }
+
+    @Test
+    fun `the dot follows the view when it is replaced`() {
+        val edited = EditedView().apply { dirty.set(true) }
+        val file = open("a.txt", CountingView())
+        val titles = mutableListOf<String>()
+        file.title.subscribe { title -> titles += title }
+
+        file.view = edited
+        file.view = CountingView()
+
+        assertEquals(listOf("a.txt", "● a.txt", "a.txt"), titles)
+        assertEquals(false, file.isDirty)
     }
 }
