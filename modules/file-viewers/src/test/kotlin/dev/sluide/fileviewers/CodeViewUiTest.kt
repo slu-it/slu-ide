@@ -13,6 +13,8 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.TimeUnit
 import kotlin.io.path.readBytes
 import kotlin.io.path.readText
 import kotlin.io.path.writeBytes
@@ -258,5 +260,41 @@ class CodeViewUiTest {
 
         robot.interact { view.save() }
         assertEquals("mine = 1\na = 1\n", file.readText())
+    }
+
+    @Test
+    fun `edited code is highlighted after a pause and styling is no undo step`(robot: FxRobot) {
+        val file = dir.resolve("main.py").apply { writeText("x = 1\n") }
+        val view = open(file, robot)
+
+        robot.interact { view.area.insertText(0, "def f(): pass\n") }
+        WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) { "keyword" in view.area.getStyleOfChar(1) }
+
+        robot.interact { view.area.undo() }
+        assertEquals("x = 1\n", view.area.text)
+        assertFalse(view.dirty.get())
+    }
+
+    @Test
+    fun `highlighting done for an older text is dropped`(robot: FxRobot) {
+        val file = dir.resolve("main.py").apply { writeText("x = 1\n") }
+        val results = ConcurrentLinkedQueue<Runnable>()
+        val view =
+            WaitForAsyncUtils
+                .asyncFx<CodeView> { CodeView(file, PythonFileViewer().highlighter) { results += it } }
+                .get()
+        robot.interact { container.children.setAll(view.node) }
+
+        robot.interact { view.area.insertText(0, "def f(): pass\n") }
+        WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) { results.isNotEmpty() }
+        robot.interact {
+            view.area.insertText(view.area.length, "y = 2\n")
+            results.poll().run()
+        }
+        assertTrue(view.area.getStyleOfChar(1).isEmpty(), "the result for the older text is not applied")
+
+        WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) { results.isNotEmpty() }
+        robot.interact { results.poll().run() }
+        assertTrue("keyword" in view.area.getStyleOfChar(1))
     }
 }

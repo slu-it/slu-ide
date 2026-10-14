@@ -24,7 +24,10 @@ internal data class HighlightSpan(
     val style: TokenStyle,
 )
 
-/** Finds the parts of a source text to highlight. */
+/**
+ * Finds the parts of a source text to highlight. Implementations must be thread-safe: code views highlight edited
+ * text on a background thread, other texts on the FX thread at the same time.
+ */
 internal fun interface SyntaxHighlighter {
     /** Returns spans sorted by position, not overlapping and within [text]; unstyled parts have no span. */
     fun highlight(text: String): List<HighlightSpan>

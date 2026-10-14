@@ -3,6 +3,7 @@ package dev.sluide.fileviewers
 import dev.sluide.textediting.DiskChange
 import dev.sluide.textediting.LineEnding
 import dev.sluide.textediting.TextReplacement
+import javafx.application.Platform
 import javafx.beans.binding.Bindings
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.value.ObservableBooleanValue
@@ -19,8 +20,11 @@ import org.fxmisc.flowless.VirtualizedScrollPane
 import org.fxmisc.richtext.CodeArea
 import org.fxmisc.richtext.LineNumberFactory
 import org.fxmisc.richtext.util.UndoUtils
+import org.reactfx.Subscription
 import java.nio.file.Files
 import java.nio.file.Path
+import java.time.Duration
+import java.util.concurrent.Executors
 
 /**
  * Editable view of [file] as code highlighted by [highlighter] (plain text without one), with line numbers. Used by
@@ -31,6 +35,10 @@ import java.nio.file.Path
  * highlighting. A file that is not valid UTF-8 is shown read-only, with a banner, and never saved: its invalid bytes
  * show as replacement characters, which saving would write back.
  *
+ * Edited text is highlighted again once typing pauses, on a background thread; the result is handed to the FX thread
+ * through [dispatch] (`Platform.runLater`, replaced in tests), and dropped if the text changed meanwhile. Only the
+ * range whose styles changed is restyled.
+ *
  * When the file changes on disk ([reload]), a view without unsaved changes shows the new text, changing only what
  * differs, so caret, scroll position and undo history stay. A view with unsaved changes keeps them and shows a banner
  * offering to reload the file or to keep its own text, which the next save then writes over the file's; until then the
@@ -39,6 +47,7 @@ import java.nio.file.Path
 internal class CodeView(
     private val file: Path,
     private val highlighter: SyntaxHighlighter?,
+    private val dispatch: (Runnable) -> Unit = Platform::runLater,
 ) : EditableFileView {
     /** The RichTextFX area showing the text, for views that embed this one. */
     val area =
@@ -85,6 +94,14 @@ internal class CodeView(
     /** Shown while the file is not valid UTF-8, and so read-only. */
     private val invalidBanner = banner("${file.fileName} is not valid UTF-8; it is shown read-only.")
 
+    /** Counts the changes of the text, so that highlighting done for an older text is dropped. */
+    private var revision = 0L
+
+    /** The revision highlighting was asked for last; the worker skips older requests still waiting for it. */
+    @Volatile private var requested = 0L
+    private var disposed = false
+    private val highlighting: Subscription
+
     init {
         val content = read()
         lineEnding = LineEnding.of(content.raw)
@@ -97,6 +114,12 @@ internal class CodeView(
         // Markdown view (in a SplitPane) opened scrolled down.
         area.moveTo(0)
         area.requestFollowCaret()
+        val pause = Duration.ofMillis(if (savedText.length > LARGE_TEXT) 600 else 150)
+        highlighting =
+            Subscription.multi(
+                area.plainTextChanges().subscribe { revision++ },
+                area.multiPlainChanges().successionEnds(pause).subscribe { highlightInBackground() },
+            )
     }
 
     override val node: Node get() = root
@@ -202,6 +225,30 @@ internal class CodeView(
         if (raw.any { it == '\n' || it == '\r' }) lineEnding = LineEnding.of(raw)
     }
 
+    override fun dispose() {
+        disposed = true
+        highlighting.unsubscribe()
+    }
+
+    private fun highlightInBackground() {
+        val highlighter = highlighter ?: return
+        val text = area.text
+        if (text.isEmpty()) return
+        val highlighted = revision
+        requested = highlighted
+        highlightExecutor.execute {
+            if (requested != highlighted) return@execute
+            val spans = codeStyleSpans(text, highlighter)
+            dispatch(
+                Runnable {
+                    if (disposed || revision != highlighted) return@Runnable
+                    val range = changedSpanRange(area.getStyleSpans(0, area.length), spans) ?: return@Runnable
+                    area.setStyleSpans(range.first, spans.subView(range.first, range.last + 1))
+                },
+            )
+        }
+    }
+
     private fun show(text: String) {
         area.replaceText(text)
         highlight(text)
@@ -217,6 +264,13 @@ private class FileContent(
     val raw: String,
     val valid: Boolean,
 )
+
+/** Texts above this length (about 1 MiB) are highlighted after a longer pause in typing. */
+private const val LARGE_TEXT = 1 shl 20
+
+/** Highlights edited code of all views, one text at a time. */
+private val highlightExecutor =
+    Executors.newSingleThreadExecutor { Thread(it, "sluide-highlight").apply { isDaemon = true } }
 
 /** A bar at the top of a view with [message] and [actions]. */
 private fun banner(

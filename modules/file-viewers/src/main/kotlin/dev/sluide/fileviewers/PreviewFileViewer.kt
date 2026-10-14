@@ -299,6 +299,7 @@ internal class PreviewFileView(
         disposed = true
         stopped = true
         engine.load("")
+        source.dispose()
     }
 
     private fun show(mode: PreviewMode) {
