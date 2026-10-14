@@ -20,5 +20,6 @@
 - Command line: `SluIde [folder…]` (or `java -jar ide-*.jar [folder…]`) opens the given folders at startup, the
   first in the startup window and every other one in a new window, like Open Folder. Relative paths resolve against
   the working directory. Arguments that are not folders are reported on stderr (`SluIde: not a folder, ignored: …`)
-  and skipped (`startupFolders` in `SluIdeApplication.kt`).
+  and skipped (`startupFolders` in `SluIdeApplication.kt`). Arguments are only folders: none are passed to Spring,
+  and arguments of the form `--name=value` (JavaFX "named parameters") are ignored without a warning.
 - Nothing is persisted yet: without arguments the IDE starts with one window without a project.

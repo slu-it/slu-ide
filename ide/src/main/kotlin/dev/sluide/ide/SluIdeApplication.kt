@@ -26,7 +26,8 @@ class SluIdeApplication : Application() {
             SpringApplicationBuilder(SluIdeConfiguration::class.java)
                 .web(WebApplicationType.NONE)
                 .headless(false)
-                .run(*parameters.raw.toTypedArray())
+                // The command-line arguments are folders (startupFolders), not Spring properties.
+                .run()
     }
 
     override fun start(primaryStage: Stage) {
