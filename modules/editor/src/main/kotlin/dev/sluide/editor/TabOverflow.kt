@@ -53,4 +53,20 @@ internal class TabOverflow(
 
     /** Distance from the left edge of the tab at index 0 to the left edge of the tab at [first]. */
     fun offset(first: Int): Double = widths.take(first).sum()
+
+    /**
+     * The index the tab at [dragged] belongs at while its header is dragged with its left edge at [left] (measured like
+     * [offset]): it passes a neighbour on the right once its right edge is beyond that neighbour's centre, and one on
+     * the left once its left edge is before that neighbour's centre. That is the number of other tabs whose centre,
+     * in a row without the dragged tab, lies left of [left].
+     */
+    fun dropIndex(
+        dragged: Int,
+        left: Double,
+    ): Int {
+        var start = 0.0
+        return widths.withIndex().count { (index, width) ->
+            index != dragged && (start + width / 2 < left).also { start += width }
+        }
+    }
 }
