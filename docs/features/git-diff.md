@@ -16,6 +16,7 @@ decision in [ADR 0015](../adr/0015-git-diff.md)
 - The tab follows the status: it turns into a diff when the file becomes modified (an edit, in SluIde's terminal or
   elsewhere) and back into the normal view when it is clean again (a commit, a checkout); a diff updates when the file
   changes. The scroll position resets when the view switches.
-- Only text files with a text or code viewer are shown as diff; others open normally.
+- Files with a text, code or preview viewer (Markdown, HTML, SVG, CSV, notebooks) are shown as a diff of their text,
+  highlighted like their source; others (e.g. images) open normally.
 - Not yet implemented: word-level highlighting within lines, diffs against the index or other commits, reverting
   changes, navigating from change to change.

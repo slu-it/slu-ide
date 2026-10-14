@@ -20,6 +20,10 @@ Options considered for the diff:
 - `GitCli.headContent` and `GitCli.diffToHead` run the two commands; `GitDiffParser` reads only the `@@ -a,b +c,d @@`
   headers into 0-based line ranges (`GitHunk`). `GitStatusService.diff(file)` combines them for the followed
   repository. The base is `HEAD`, so staged and unstaged changes both show.
+- The diff runs as `git --no-optional-locks --literal-pathspecs diff --no-color --no-ext-diff --no-textconv -U0 HEAD
+  -- <file>`. `--literal-pathspecs` makes the file name a name, not a pattern, so `star*.txt` never diffs `starX.txt`
+  too. The other options keep git's output plain hunk headers whatever the user configured (colours, external diff
+  tools, textconv filters) and, as for the status, leave `.git/index` alone.
 - The calls run synchronously on the JavaFX thread: they concern one file and take milliseconds; each has a 3 s
   timeout. A diff opened while git hangs would block for that long.
 - As for the markers, the viewers and the editor do not depend on `git`: `file-viewers` has a generic `TextDiff`
@@ -28,7 +32,8 @@ Options considered for the diff:
 - The view (`SideBySideDiffView`) is two read-only RichTextFX code areas. Filler rows pad the shorter side of each
   change, so both sides have the same rows, line by line aligned, and their scroll positions are simply bound
   together. Line numbers come from our own paragraph graphic factory, empty on filler rows. Highlighting reuses the
-  file's code viewer `SyntaxHighlighter`; plain text files get none, other viewers no diff.
+  file's code viewer `SyntaxHighlighter`, or for preview viewers (Markdown, HTML, SVG, CSV, notebooks) the
+  highlighter of their source text; plain text files get none, other viewers (e.g. images) no diff.
 - An open file tab keeps a stable content node and swaps its `FileView` inside it. `diffOf` is asked when a file is
   opened, when it changes on disk, and for all open files when the git status snapshot changes (`refreshDiffs`).
 

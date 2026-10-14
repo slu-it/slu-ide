@@ -24,12 +24,16 @@ Options considered:
   `git --no-optional-locks status --porcelain=v2 -z --ignored` on a background thread (`sluide-git`, 10 s timeout):
   - after opening;
   - when the explorer reports changes in a loaded folder or a manual refresh;
-  - when the `.git` folder changes (index, `HEAD`: staging, commits, checkouts), watched with `FileWatcher`.
+  - when an entry directly in the `.git` folder changes (`index`, `HEAD`: staging, commits, checkouts), watched with
+    `FileWatcher` without its subfolders (changes only below `.git/refs/` or `.git/logs/` are not noticed). A `.git`
+    file (worktrees, submodules) is not watched; such repositories refresh only on explorer changes or F5.
   Requests during a run are combined into one more run; results for a folder that is no longer open are dropped.
+  Every `open` starts from an empty snapshot. A failing or timed-out run keeps the previous snapshot, so markers
+  stay e.g. after `rm -rf .git` until the folder is opened again.
 - No optional locks (also `GIT_OPTIONAL_LOCKS=0`): otherwise `git status` may rewrite `.git/index`, which would
   trigger the `.git` watch again and again.
-- `GitStatusParser` turns the records into statuses: `?` unversioned, `!` ignored, index `A` and renames/copies added,
-  everything else (changes, deletions, conflicts) modified. Untracked and ignored folders come as `dir/` without their
+- `GitStatusParser` turns the records into statuses: `?` unversioned, `!` ignored, `A` in the index or worktree
+  (intent to add, `git add -N`) and renames/copies added, everything else (changes, deletions, conflicts) modified. Untracked and ignored folders come as `dir/` without their
   content, which keeps the call cheap for `build/` or `node_modules/`; `GitStatusSnapshot` lets everything inside
   inherit their status. A folder shows each status found below it, except ignored ones.
 - Files and ignored folders show their status as the colour of their name; other folders as one bubble per status

@@ -8,18 +8,22 @@
   has `.git`. Other folders, and no folder, show nothing.
 - The file explorer shows the status in colour ([file-explorer.md](file-explorer.md)):
   - red: unversioned (untracked, not ignored);
-  - green: added (new in the index, or the new path of a rename or copy);
+  - green: added (new in the index, the new path of a rename or copy, or intent to add with `git add -N`);
   - blue: modified (changed, deleted or in conflict, staged or not);
   - orange: ignored (`.gitignore`, `.git/info/exclude`, global excludes).
   A file's name is drawn in the colour of its status. An ignored folder, or one inside an ignored folder, has an
   orange name. Any other folder keeps its normal name colour and gets a bubble after it per status found below it, in
   that order; an untracked folder gets only red. Ignored files do not mark their parent folders. Clean files and
   folders are not coloured.
-- Updates by themselves: after changes in a folder the explorer has loaded, after F5/Refresh, and after changes in
-  `.git` (`git add`, commits, checkouts in a terminal or another tool). `git status` runs in the background; the
-  markers change when it is done.
-- `GitStatusService.snapshot` holds the latest `GitStatusSnapshot` (`fileStatus`, `folderStatuses`), replaced only
-  when something changed.
+- Updates by themselves: after changes in a folder the explorer has loaded, after F5/Refresh, and after changes of
+  entries directly in `.git` such as `index` and `HEAD` (`git add`, commits, checkouts in a terminal or another tool;
+  subfolders like `.git/refs/` are not watched). A `.git` file (worktrees, submodules) is not watched, so such
+  repositories update only on explorer changes and F5. `git status` runs in the background; the markers change when
+  it is done.
+- `GitStatusService.snapshot` holds the latest `GitStatusSnapshot` (`fileStatus`, `folderStatuses`). Every `open`
+  resets it to the empty snapshot; after that it is replaced only when something changed. If `git status` fails or
+  takes longer than 10 s, the previous snapshot stays (e.g. markers remain after `rm -rf .git` until the folder is
+  opened again).
 - Modified files open as a diff against `HEAD` ([git-diff.md](git-diff.md)); `GitStatusService.diff(file)` reads it.
 - Not yet implemented: branch name, blame, git commands from the IDE, repositories in subfolders or above the
   opened folder.
