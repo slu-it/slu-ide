@@ -569,7 +569,9 @@ class EditorAreaUiTest {
     }
 
     @Test
-    fun `tabs without a warning close without asking, close all asks once for all warnings`(robot: FxRobot) {
+    fun `tabs without a warning close without asking, close all asks once, closing the window does not`(
+        robot: FxRobot,
+    ) {
         val asked = mutableListOf<List<String>>()
         editor.confirmClose = { warnings ->
             asked += warnings
@@ -607,7 +609,7 @@ class EditorAreaUiTest {
         busy1.closeWarning = null
         robot.interact { editor.closeAll() }
         assertEquals(emptyList(), tabTitles(robot))
-        assertEquals(1, asked.size, "closing all for another folder does not ask")
+        assertEquals(1, asked.size, "closing all with the window does not ask")
     }
 
     @Test

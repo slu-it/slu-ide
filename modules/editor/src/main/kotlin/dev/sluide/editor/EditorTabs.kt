@@ -24,7 +24,7 @@ interface EditorTab {
 
     /**
      * Why closing the tab from the UI should be confirmed first, e.g. "Terminal 1 is still running java.", or `null`
-     * if it can simply be closed. Not asked when all tabs close because another folder is opened.
+     * if it can simply be closed. Not asked when all tabs close with their window, which asks once for all of them.
      */
     val closeWarning: String? get() = null
 
