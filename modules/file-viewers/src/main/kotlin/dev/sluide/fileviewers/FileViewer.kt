@@ -57,6 +57,12 @@ interface EditableFileView : FileView {
     /** Writes the edited text to the file, in place, with the file's line endings; then the view is not [dirty]. */
     @Throws(IOException::class)
     fun save()
+
+    /**
+     * Marks the lines that differ from the original of [diff] (e.g. the last commit) beside the text, for the file as
+     * it is on disk; `null` removes the markers. Views without such markers ignore it.
+     */
+    fun showChanges(diff: TextDiff?) {}
 }
 
 /** What a [FileView] can ask of the IDE showing it. */

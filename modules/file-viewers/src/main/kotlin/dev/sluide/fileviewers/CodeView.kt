@@ -20,7 +20,6 @@ import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
 import org.fxmisc.flowless.VirtualizedScrollPane
 import org.fxmisc.richtext.CodeArea
-import org.fxmisc.richtext.LineNumberFactory
 import org.fxmisc.richtext.util.UndoUtils
 import org.reactfx.Subscription
 import java.nio.file.Files
@@ -30,8 +29,9 @@ import java.time.Duration
 import java.util.concurrent.Executors
 
 /**
- * Editable view of [file] as code highlighted by [highlighter] (plain text without one), with line numbers. Used by
- * the code viewers, for plain text and as the source side of other views, e.g. the Markdown preview.
+ * Editable view of [file] as code highlighted by [highlighter] (plain text without one), with line numbers and
+ * markers of the lines changed against an original ([showChanges]) in its [Gutter]. Used by the code viewers, for
+ * plain text and as the source side of other views, e.g. the Markdown preview.
  *
  * The area holds the text with `\n` line breaks; [save] writes it with the file's [LineEnding]. The view is [dirty]
  * while its undo history is away from where the file was last read or saved; undo only covers the text, not the
@@ -52,12 +52,13 @@ internal class CodeView(
     private val file: Path,
     private val highlighter: SyntaxHighlighter?,
     private val dispatch: (Runnable) -> Unit = Platform::runLater,
-) : EditableFileView {
+) : EditableFileView,
+    GutterColumns {
     /** The RichTextFX area showing the text, for views that embed this one. */
-    val area =
-        CodeArea().apply {
-            paragraphGraphicFactory = LineNumberFactory.get(this)
-        }
+    val area = CodeArea()
+
+    /** Line numbers, change markers ([showChanges]) and further columns ([addGutterColumn]). */
+    private val gutter = Gutter(area)
 
     // The default undo manager would also undo highlighting.
     private val undoManager = UndoUtils.plainTextUndoManager(area).also { area.undoManager = it }
@@ -171,6 +172,14 @@ internal class CodeView(
         hideConflict()
         banners.children -= deletedBanner
     }
+
+    override fun showChanges(diff: TextDiff?) {
+        gutter.markers = diff?.let { LineMarkers.of(it.changes, area.paragraphs.size) }.orEmpty()
+    }
+
+    override fun addGutterColumn(column: (paragraph: Int) -> Node?) = gutter.addColumn(column)
+
+    override fun refreshGutter() = gutter.refresh()
 
     override fun reload() {
         val content =

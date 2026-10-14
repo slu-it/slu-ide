@@ -19,6 +19,29 @@
 }
 
 /*
+ * The gutter of code views (Gutter): line number, change marker and further columns per row. The change markers have
+ * the classes of the diff view below (.diff-added, .diff-modified) in stronger tones, since a thin bar in the diff
+ * view's light colours is hard to see; lines removed above a line get a grey bar at its top. Two classes on one node
+ * (no descendant selector) work in the dark block too.
+ */
+.gutter {
+    -fx-background-color: derive(-fx-control-inner-background, -4%);
+}
+
+.diff-removed-above {
+    -fx-border-color: #949494;
+    -fx-border-width: 3 0 0 0;
+}
+
+.change-marker.diff-added {
+    -fx-background-color: #84c98a;
+}
+
+.change-marker.diff-modified {
+    -fx-background-color: #82a8e6;
+}
+
+/*
  * Diff views (SideBySideDiffView): changed lines and their line numbers get a background; after .lineno, so it wins.
  * Removed grey, modified blue, added green. Within modified lines, the changed words get a stronger blue (ADR 0019).
  */
@@ -120,6 +143,18 @@
 
     .diff-changed-words {
         -rtfx-background-color: #35598c;
+    }
+
+    .diff-removed-above {
+        -fx-border-color: #6e7072;
+    }
+
+    .change-marker.diff-added {
+        -fx-background-color: #4c8a57;
+    }
+
+    .change-marker.diff-modified {
+        -fx-background-color: #4a6fa5;
     }
 
     .keyword {

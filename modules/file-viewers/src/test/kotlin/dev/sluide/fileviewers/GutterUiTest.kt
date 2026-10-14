@@ -1,0 +1,125 @@
+package dev.sluide.fileviewers
+
+import javafx.scene.Scene
+import javafx.scene.control.Label
+import javafx.scene.layout.HBox
+import javafx.scene.layout.StackPane
+import javafx.stage.Stage
+import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.api.io.TempDir
+import org.testfx.api.FxRobot
+import org.testfx.framework.junit5.ApplicationExtension
+import org.testfx.framework.junit5.Start
+import org.testfx.util.WaitForAsyncUtils
+import java.nio.file.Path
+import kotlin.io.path.writeText
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotSame
+import kotlin.test.assertSame
+
+/** The gutter of a real [CodeView]: line numbers, change markers and further columns. Needs a display. */
+@Tag("ui")
+@ExtendWith(ApplicationExtension::class)
+class GutterUiTest {
+    @TempDir
+    lateinit var dir: Path
+
+    private val container = StackPane()
+
+    @Start
+    fun start(stage: Stage) {
+        stage.scene = Scene(container, 500.0, 300.0)
+        stage.show()
+    }
+
+    private fun open(
+        text: String,
+        robot: FxRobot,
+    ): CodeView {
+        val file = dir.resolve("main.py").apply { writeText(text) }
+        val view = WaitForAsyncUtils.asyncFx<CodeView> { CodeView(file, PythonFileViewer().highlighter) }.get()
+        robot.interact { container.children.setAll(view.node) }
+        return view
+    }
+
+    /** The rows of the gutter shown, by their line number. */
+    private fun rows(robot: FxRobot): Map<String, HBox> {
+        WaitForAsyncUtils.waitForFxEvents()
+        return robot
+            .lookup(".${Gutter.GUTTER_STYLE}")
+            .queryAllAs(HBox::class.java)
+            .associateBy { (it.children.first() as Label).text.trim() }
+    }
+
+    /** The marker classes of the rows shown, by line number; rows without a marker are left out. */
+    private fun markers(robot: FxRobot): Map<String, String> =
+        rows(robot)
+            .mapNotNull { (line, row) ->
+                row.children[1]
+                    .styleClass
+                    .singleOrNull { it != Gutter.MARKER_STYLE }
+                    ?.let { line to it }
+            }.toMap()
+
+    @Test
+    fun `every line has its number, padded like RichTextFX's`(robot: FxRobot) {
+        val view = open((1..12).joinToString("\n") { "x = $it" }, robot)
+        val rows = rows(robot)
+        val first = rows.getValue("1").children.first() as Label
+        assertEquals(" 1", first.text)
+        assertEquals(listOf("label", "lineno"), first.styleClass)
+        assertEquals(listOf(Gutter.MARKER_STYLE), rows.getValue("1").children[1].styleClass)
+        assertEquals(12, view.area.paragraphs.size)
+    }
+
+    @Test
+    fun `changes are marked beside their lines until they are cleared`(robot: FxRobot) {
+        // HEAD: a b c e; now: a B c x e (b modified, x added).
+        val view = open("a\nB\nc\nx\ne\n", robot)
+        val diff = TextDiff("a\nb\nc\ne\n", listOf(LineChange(1..1, 1..1), LineChange(3 until 3, 3..3)))
+        robot.interact { view.showChanges(diff) }
+        assertEquals(mapOf("2" to "diff-modified", "4" to "diff-added"), markers(robot))
+
+        robot.interact {
+            view.showChanges(TextDiff("a\nB\nc\nx\nd\ne\n", listOf(LineChange(4..4, 4 until 4))))
+        }
+        assertEquals(mapOf("5" to "diff-removed-above"), markers(robot))
+
+        robot.interact { view.showChanges(null) }
+        assertEquals(emptyMap(), markers(robot))
+    }
+
+    @Test
+    fun `the rows are only created again when markers or digits change`(robot: FxRobot) {
+        val view = open("a\nb\n", robot)
+        val diff = TextDiff("a\n", listOf(LineChange(1 until 1, 1..1)))
+        robot.interact { view.showChanges(diff) }
+        val factory = view.area.paragraphGraphicFactory
+
+        robot.interact { view.showChanges(diff.copy()) }
+        assertSame(factory, view.area.paragraphGraphicFactory, "same markers")
+        robot.interact { view.area.insertText(0, "x") }
+        assertSame(factory, view.area.paragraphGraphicFactory, "same digits")
+
+        robot.interact { view.area.insertText(0, "\n".repeat(8)) }
+        assertNotSame(factory, view.area.paragraphGraphicFactory, "10 lines")
+        assertEquals(" 1", (rows(robot).getValue("1").children.first() as Label).text)
+    }
+
+    @Test
+    fun `further columns show their node of each row, asked again on refresh`(robot: FxRobot) {
+        val view = open("a\nb\nc", robot)
+        var mark = "▶"
+        robot.interact { view.addGutterColumn { paragraph -> if (paragraph == 1) Label(mark) else null } }
+
+        fun shown(): Map<String, List<String>> =
+            rows(robot).mapValues { (_, row) -> row.children.drop(2).map { (it as Label).text } }
+        assertEquals(mapOf("1" to emptyList(), "2" to listOf("▶"), "3" to emptyList()), shown())
+
+        mark = "■"
+        robot.interact { view.refreshGutter() }
+        assertEquals(listOf("■"), shown().getValue("2"))
+    }
+}

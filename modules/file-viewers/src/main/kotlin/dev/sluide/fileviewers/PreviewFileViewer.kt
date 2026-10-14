@@ -297,6 +297,8 @@ internal class PreviewFileView(
         reload()
     }
 
+    override fun showChanges(diff: TextDiff?) = source.showChanges(diff)
+
     override fun reload() {
         if (disposed) return
         source.reload()
