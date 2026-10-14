@@ -18,6 +18,13 @@
   `EditorArea.confirmClose`. The dialog ("Close this tab anyway?" / "Close these tabs anyway?", Close and Cancel) is
   `askToClose`, which the main window uses for "Close this window anyway?" too.
 - One tab per file: the file name as title, the full path as tooltip. Clicking a tab selects it.
+- Dragging a tab header (not its ×) with the left mouse button moves the tab once the mouse has moved 5 px: the
+  header follows the mouse inside the tab row, and the other tabs make room as soon as its right edge passes the
+  centre of the tab to its right, or its left edge the centre of the tab to its left. Releasing the button drops it
+  there; it stays selected. If the tabs do not fit, holding the mouse beyond the left or right end of the row scrolls
+  it one tab every 300 ms, so tabs can be dragged to positions out of view. The tab list reports a move as a
+  permutation (`EditorTabs.move`), so a moved file keeps its watch and font. This is a plain mouse drag within the tab
+  row, not JavaFX drag and drop (`Dragboard`), which is meant for transfers between nodes or applications.
 - Tabs close via their × button or a middle click. Closing the selected tab selects its right neighbour, or the left
   one if there is none.
 - Right-clicking a tab opens a context menu: Close, Close Others, Close Tabs to the Left, Close Tabs to the Right,
@@ -40,7 +47,8 @@
 - When the tabs do not fit, ‹ and › buttons appear. They scroll the tab row one tab at a time without changing the
   selection. A ▾ dropdown lists every tab that is cut off or out of view, and choosing one selects it and scrolls it
   into view. The selected tab is always scrolled into view when it changes.
-- Structure: `EditorTabs` (model: open tabs, `OpenFile` for files, and the selection), `TabOverflow` (which tabs fit, scroll positions),
+- Structure: `EditorTabs` (model: open tabs, `OpenFile` for files, and the selection), `TabOverflow` (which tabs fit, scroll positions,
+  where a dragged tab belongs),
   `TabStrip` (header row and layout), styles in `editor.css`.
-- Not yet implemented: editing, keyboard shortcuts for tabs, reordering
-  tabs by drag and drop.
+- Not yet implemented: editing, keyboard shortcuts for tabs, dragging tabs into another window or out of the tab
+  row, cancelling a drag with Escape.
