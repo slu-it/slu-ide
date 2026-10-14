@@ -20,6 +20,8 @@ import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
 import org.fxmisc.flowless.VirtualizedScrollPane
 import org.fxmisc.richtext.CodeArea
+import org.fxmisc.richtext.model.PlainTextChange
+import org.fxmisc.richtext.model.TwoDimensional
 import org.fxmisc.richtext.util.UndoUtils
 import org.reactfx.Subscription
 import java.nio.file.Files
@@ -111,6 +113,8 @@ internal class CodeView(
     /** Runs a banner's [action]; the focus goes back to the text, rather than wherever the vanished button sends it. */
     private fun answered(action: () -> Unit) {
         action()
+        // The file's text is the saved text now, which a diff given meanwhile is of.
+        pendingChanges?.let { showChanges(it.diff) }
         area.requestFocus()
     }
 
@@ -121,6 +125,9 @@ internal class CodeView(
     @Volatile private var requested = 0L
     private var disposed = false
     private val highlighting: Subscription
+
+    /** The change markers shown in the [gutter], following unsaved edits. */
+    private val changeMarkers: ChangeMarkers
 
     /** Shown while the file does not exist, e.g. after it was deleted while the view had unsaved changes. */
     private val deletedBanner = banner("${file.fileName} was deleted on disk; saving recreates it.")
@@ -143,6 +150,11 @@ internal class CodeView(
                 area.plainTextChanges().subscribe { revision++ },
                 area.multiPlainChanges().successionEnds(pause).subscribe { highlightInBackground() },
             )
+        changeMarkers = ChangeMarkers(savedText)
+        area.multiPlainChanges().subscribe(::moveChangeMarkers)
+        // Undoing reaches the saved text only after the undone change was reported.
+        undoManager.atMarkedPositionProperty().addListener { _, _, atMark -> if (atMark) resetChangeMarkers() }
+        savedTextProperty.addListener { _, _, saved -> changeMarkers.saved(saved, area.text) }
     }
 
     override val node: Node get() = root
@@ -173,8 +185,67 @@ internal class CodeView(
         banners.children -= deletedBanner
     }
 
+    /**
+     * The diff's markers apply to the saved text; unsaved edits move them along ([moveChangeMarkers]). While the file
+     * changed on disk and the view keeps its unsaved changes, the diff (of the file's new text) waits until the banner
+     * is answered, which makes that text the saved one.
+     */
     override fun showChanges(diff: TextDiff?) {
-        gutter.markers = diff?.let { LineMarkers.of(it.changes, area.paragraphs.size) }.orEmpty()
+        if (conflictShown) {
+            pendingChanges = PendingChanges(diff)
+            return
+        }
+        pendingChanges = null
+        changeMarkers.show(diff, savedText, area.text)
+        gutter.markers = changeMarkers.markers
+    }
+
+    /** The diff given to [showChanges] while the conflict banner was shown. */
+    private var pendingChanges: PendingChanges? = null
+
+    private class PendingChanges(
+        val diff: TextDiff?,
+    )
+
+    /**
+     * Moves the change markers along with [changes]: replaced lines become modified, inserted ones added. Of several
+     * changes at once, each is seen in the text as it was before it. Back at the saved text (e.g. after undoing), the
+     * markers are the diff's again.
+     */
+    private fun moveChangeMarkers(changes: List<PlainTextChange>) {
+        val change = changes.singleOrNull()
+        if (change == null) {
+            // Each change's position is in the text after the ones before it: undo them all, then redo one by one.
+            var text = area.text
+            for (c in changes.asReversed()) {
+                text =
+                    text.replaceRange(c.position, c.position + c.inserted.length, c.removed)
+            }
+            for (c in changes) {
+                changeMarkers.edited(LineEdit.at(text, c.position, c.removed, c.inserted))
+                text = text.replaceRange(c.position, c.position + c.removed.length, c.inserted)
+            }
+        } else {
+            val start = change.position
+            // The text before the change and after it is the same as before.
+            val end = start + change.inserted.length
+            changeMarkers.edited(
+                LineEdit.of(
+                    line = area.offsetToPosition(start, TwoDimensional.Bias.Forward).major,
+                    startsLine = start == 0 || area.getText(start - 1, start) == "\n",
+                    endsLine = end == area.length || area.getText(end, end + 1) == "\n",
+                    removed = change.removed,
+                    inserted = change.inserted,
+                ),
+            )
+        }
+        if (undoManager.isAtMarkedPosition) changeMarkers.resetIfUnedited(area.text)
+        gutter.markers = changeMarkers.markers
+    }
+
+    private fun resetChangeMarkers() {
+        changeMarkers.resetIfUnedited(area.text)
+        gutter.markers = changeMarkers.markers
     }
 
     override fun addGutterColumn(column: (paragraph: Int) -> Node?) = gutter.addColumn(column)

@@ -1,6 +1,7 @@
 package dev.sluide.fileviewers
 
 import javafx.scene.Scene
+import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.scene.layout.HBox
 import javafx.scene.layout.StackPane
@@ -18,6 +19,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotSame
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 /** The gutter of a real [CodeView]: line numbers, change markers and further columns. Needs a display. */
 @Tag("ui")
@@ -92,6 +94,105 @@ class GutterUiTest {
     }
 
     @Test
+    fun `markers move along with unsaved edits and return when they are undone`(robot: FxRobot) {
+        // HEAD: a b c; saved: a B c.
+        val view = open("a\nB\nc\n", robot)
+        robot.interact { view.showChanges(TextDiff("a\nb\nc\n", listOf(LineChange(1..1, 1..1)))) }
+
+        robot.interact {
+            view.area.insertText(0, "x")
+            // Enter at the end of c, then a new line d.
+            view.area.insertText(view.area.getAbsolutePosition(2, 1), "\nd")
+            // Lines before line 1.
+            view.area.insertText(0, "0\n1\n")
+        }
+        assertEquals(
+            mapOf("1" to "diff-added", "2" to "diff-added", "3" to "diff-modified", "4" to "diff-modified") +
+                mapOf("6" to "diff-added"),
+            markers(robot),
+        )
+
+        robot.interact {
+            view.area.deleteText(
+                view.area.getAbsolutePosition(0, 0),
+                view.area.getAbsolutePosition(2, 0),
+            )
+        }
+        assertEquals(
+            mapOf("1" to "diff-modified", "2" to "diff-modified", "4" to "diff-added"),
+            markers(robot),
+            "lines removed at the top of the file mark nothing, the first line is modified already",
+        )
+
+        robot.interact { while (view.dirty.get()) view.area.undo() }
+        assertEquals(mapOf("2" to "diff-modified"), markers(robot))
+    }
+
+    @Test
+    fun `a diff shown while the text is edited keeps the unsaved edits marked`(robot: FxRobot) {
+        val view = open("a\nb\n", robot)
+        robot.interact {
+            view.area.insertText(view.area.getAbsolutePosition(1, 1), "\nc")
+            view.showChanges(TextDiff("a\n", listOf(LineChange(1 until 1, 1..1))))
+        }
+        assertEquals(mapOf("2" to "diff-added", "3" to "diff-added"), markers(robot))
+    }
+
+    @Test
+    fun `lines edited apart stay apart after saving`(robot: FxRobot) {
+        val view = open((1..17).joinToString("\n", postfix = "\n") { "x$it = $it" }, robot)
+        robot.interact {
+            view.area.insertText(view.area.getAbsolutePosition(1, 0), "y")
+            view.area.insertText(view.area.getAbsolutePosition(15, 0), "z")
+        }
+        val edited = mapOf("2" to "diff-modified", "16" to "diff-modified")
+        assertEquals(edited, markers(robot))
+
+        robot.interact { view.save() }
+
+        assertEquals(edited, markers(robot))
+    }
+
+    @Test
+    fun `a diff given while the file changed on disk under unsaved edits waits for the banner's answer`(
+        robot: FxRobot,
+    ) {
+        val view = open("a\nb\n", robot)
+        robot.interact { view.area.insertText(0, "x") }
+        dir.resolve("main.py").writeText("a\nb\nc\n")
+        robot.interact { view.reload() }
+        assertTrue(view.conflictShown)
+
+        // The diff of the file's new text against HEAD (a b): c added.
+        robot.interact { view.showChanges(TextDiff("a\nb\n", listOf(LineChange(2 until 2, 2..2)))) }
+        assertEquals(mapOf("1" to "diff-modified"), markers(robot), "still the markers of the unsaved edits")
+
+        robot.interact {
+            robot
+                .lookup(".editor-banner .button")
+                .queryAllAs(Button::class.java)
+                .single { it.text == "Reload" }
+                .fire()
+        }
+        assertEquals("a\nb\nc\n", view.area.text)
+        assertEquals(mapOf("3" to "diff-added"), markers(robot))
+    }
+
+    @Test
+    fun `several changes at once are each marked where they are`(robot: FxRobot) {
+        val view = open("a\nb\nc\nd\ne\n", robot)
+        robot.interact {
+            view.area
+                .createMultiChange()
+                .replaceText(0, 1, "A")
+                .insertText(view.area.getAbsolutePosition(3, 1), "\nnew")
+                .commit()
+        }
+        assertEquals("A\nb\nc\nd\nnew\ne\n", view.area.text)
+        assertEquals(mapOf("1" to "diff-modified", "5" to "diff-added"), markers(robot))
+    }
+
+    @Test
     fun `the rows are only created again when markers or digits change`(robot: FxRobot) {
         val view = open("a\nb\n", robot)
         val diff = TextDiff("a\n", listOf(LineChange(1 until 1, 1..1)))
@@ -100,8 +201,9 @@ class GutterUiTest {
 
         robot.interact { view.showChanges(diff.copy()) }
         assertSame(factory, view.area.paragraphGraphicFactory, "same markers")
-        robot.interact { view.area.insertText(0, "x") }
-        assertSame(factory, view.area.paragraphGraphicFactory, "same digits")
+        // Typing in the added line keeps the markers.
+        robot.interact { view.area.insertText(view.area.getAbsolutePosition(1, 0), "x") }
+        assertSame(factory, view.area.paragraphGraphicFactory, "same markers and digits")
 
         robot.interact { view.area.insertText(0, "\n".repeat(8)) }
         assertNotSame(factory, view.area.paragraphGraphicFactory, "10 lines")
