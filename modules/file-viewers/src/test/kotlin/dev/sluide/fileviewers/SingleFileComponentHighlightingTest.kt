@@ -14,6 +14,7 @@ class SingleFileComponentHighlightingTest {
             |</template>
             |<script setup>
             |const count = ref(0)
+            |if (count.value <limit && ok) go("<b>")
             |</script>
             |<style scoped>
             |.btn { color: red; }
@@ -49,6 +50,8 @@ class SingleFileComponentHighlightingTest {
         assertEquals(setOf(TokenStyle.KEYWORD), vue.stylesOf("const"))
         assertEquals(setOf(TokenStyle.NUMBER), vue.stylesOf("0"))
         assertEquals(setOf(TokenStyle.TYPE), vue.stylesOf(".btn"))
+        assertEquals(setOf(TokenStyle.OPERATOR), vue.stylesOf("<limit"))
+        assertEquals(setOf(TokenStyle.STRING), vue.stylesOf("\"<b>\""))
         assertEquals(setOf(TokenStyle.KEYWORD), vue.stylesOf("color"))
     }
 

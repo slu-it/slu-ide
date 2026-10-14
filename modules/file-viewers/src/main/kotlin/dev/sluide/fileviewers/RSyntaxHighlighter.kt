@@ -17,7 +17,8 @@ import javax.swing.text.Segment
  * - [rawStringDelimiter] (e.g. Kotlin's `"""`) marks everything up to the closing delimiter as string, for lexers
  *   that do not know multi-line raw strings;
  * - [lineRules] are regexes applied to every line; text in a named group whose name is a [TokenStyle.styleClass]
- *   (e.g. `(?<property>…)`) gets that style and replaces the lexer's spans there, except inside comments.
+ *   (e.g. `(?<property>…)`) gets that style and replaces the lexer's spans there, except where the lexer found one
+ *   of the [keptStyles] (by default comments and strings, so that e.g. a `<b>` in a string is no tag).
  *
  * Lexer errors are never shown: a viewer must not flag valid code that a lexer does not know yet.
  *
@@ -32,6 +33,7 @@ internal class RSyntaxHighlighter(
     private val stringPrefixes: Set<String> = emptySet(),
     private val rawStringDelimiter: String? = null,
     private val lineRules: List<Regex> = emptyList(),
+    private val keptStyles: Set<TokenStyle> = setOf(TokenStyle.COMMENT, TokenStyle.STRING),
 ) : SyntaxHighlighter {
     /** For each line rule, the styles that have a named group in it. */
     private val ruleStyles: List<Pair<Regex, List<TokenStyle>>> =
@@ -40,9 +42,9 @@ internal class RSyntaxHighlighter(
     override fun highlight(text: String): List<HighlightSpan> {
         val lexed = lex(text)
         if (lineRules.isEmpty()) return lexed
-        val comments = lexed.filter { it.style == TokenStyle.COMMENT }
+        val kept = lexed.filter { it.style in keptStyles }
         val ruled =
-            applyLineRules(text).filter { rule -> comments.none { it.overlaps(rule) } }
+            applyLineRules(text).filter { rule -> kept.none { it.overlaps(rule) } }
         return (lexed.filter { span -> ruled.none { it.overlaps(span) } } + ruled).sortedBy { it.start }
     }
 
@@ -187,44 +189,75 @@ internal class RSyntaxHighlighter(
     companion object {
         val java = RSyntaxHighlighter(SyntaxConstants.SYNTAX_STYLE_JAVA)
 
-        /** `<name` or `</name` of a markup tag, but not a generic's `<T,>` or `<T extends …>`. */
-        private val markupTagName =
-            Regex("""(?:^|(?<=[\s(,={}?:&|>]))(?<tag></?[A-Za-z][\w.:-]*)(?![\w.:-]*\s*(?:,|extends\b))""")
+        /** Where markup may start in code: at the line start or after whitespace, brackets or an operator. */
+        private const val TAG_START = """(?:^|(?<=[\s(,={}?:&|>]))"""
+
+        /** A JSX/HTML attribute: name, optionally with a quoted or `{…}` value; or a `{...spread}`. */
+        private const val ATTRIBUTE =
+            """(?:[A-Za-z_][\w:.-]*(?:=(?:"[^"]*"|'[^']*'|\{(?:[^{}]|\{[^{}]*})*}))?|\{\.\.\.[^{}]*})"""
+
+        /** Name of an opening tag, e.g. `<Item.Row`. */
+        private const val OPEN_TAG_NAME = """<[A-Za-z][\w.:-]*"""
+
+        /** What follows an opening tag's name up to its end on the same line, not followed by `(`. */
+        private const val OPEN_TAG_REST = """(?:\s+$ATTRIBUTE)*\s*/?>(?!\s*\()"""
 
         /**
-         * JSX elements on top of JavaScript or TypeScript, which neither lexer knows: tag names (`<div`, `</div`,
-         * fragments), the `>`/`/>` closing a tag started on the same line, and attributes followed by a value.
-         * A tag name must follow `<` directly and the `<` must not follow a name, so `a < b` and `f<T>(x)` are not
-         * tags. Generic arrow functions (`= <T,>(x: T) =>`) are no tag either, but the lexers read them as E4X markup.
+         * Tags in JSX and in HTML whose lexer does not know a tag name (`<template>`, components like `<MyCard>`).
+         * Only whole tags count, so that code like `a <b && c > d` or a generic like `<T>(x: T) => T` is no tag:
+         * - an opening tag complete on its line, not followed by `(`: its `<name` and its closing `>` or `/>`;
+         * - an opening tag whose attributes continue on the next lines: its `<name`;
+         * - a closing tag `</name>`, and a `>` or `/>` alone on its line, which ends a tag spanning lines.
          */
-        private val jsx =
+        private val markupTags =
             listOf(
-                markupTagName,
-                Regex("""(?:^|(?<=[\s(,={}?:&|>]))(?<tag></?>)"""),
-                Regex(
-                    """(?<=(?:^|[\s(,={}?:&|>])</?[A-Za-z][\w.:-]{0,100}(?:\s[^<]{0,300})?)(?<![=-])(?<tag>/?>)""",
-                ),
-                Regex("""(?<tag>/>)"""),
-                Regex("""(?<=\s)(?<!\b(?:const|let|var)\s)(?<attribute>[A-Za-z_][\w:-]*)(?==["'{])"""),
+                Regex("""$TAG_START(?<tag>$OPEN_TAG_NAME)(?=$OPEN_TAG_REST|(?:\s+$ATTRIBUTE)*\s*$)"""),
+                Regex("""$TAG_START$OPEN_TAG_NAME(?:\s+$ATTRIBUTE)*\s*(?<tag>/?>)(?!\s*\()"""),
+                Regex("""(?<tag></[A-Za-z][\w.:-]*\s*>)"""),
+                Regex("""^\s*(?<tag>/?>)\s*$"""),
             )
 
+        /**
+         * JSX elements on top of JavaScript or TypeScript, which neither lexer knows: [markupTags], fragments
+         * (`<>`, `</>`) and attributes with a value, either inside a tag started on the same line or on a line of
+         * their own within a tag spanning lines. Boolean attributes are not styled.
+         */
+        private val jsxRules =
+            markupTags +
+                listOf(
+                    Regex("""$TAG_START(?<tag></?>)"""),
+                    Regex(
+                        """(?<=(?:^|[\s(,={}?:&|>])<[A-Za-z][\w.:-]{0,100}\s[^<>]{0,300})""" +
+                            """(?<attribute>[A-Za-z_][\w:-]*)(?==["'{])""",
+                    ),
+                    Regex("""^\s*(?<attribute>[A-Za-z_][\w:-]*)=(?:"[^"]*"|'[^']*'|\{.*})\s*(?:/?>)?\s*$"""),
+                )
+
+        /**
+         * After `= <` the JavaScript and TypeScript lexers switch to E4X markup until the end of the line, so a generic
+         * like `= <T>(x: T) => x` would look like a tag. With JSX, tags come from [jsxRules] only.
+         */
+        private val e4xMarkup: Map<Int, TokenStyle?> =
+            mapOf(TokenTypes.MARKUP_TAG_DELIMITER to null, TokenTypes.MARKUP_TAG_NAME to null)
+
         /** The JavaScript lexer treats the module keyword `from` and `undefined` as identifiers. */
-        private fun javaScript(lineRules: List<Regex>) =
+        private fun javaScript(jsx: Boolean) =
             RSyntaxHighlighter(
                 SyntaxConstants.SYNTAX_STYLE_JAVASCRIPT,
                 keywords = setOf("from", "undefined"),
-                lineRules = lineRules,
+                tokenStyles = if (jsx) e4xMarkup else emptyMap(),
+                lineRules = if (jsx) jsxRules else emptyList(),
             )
 
-        val javaScript = javaScript(lineRules = emptyList())
+        val javaScript = javaScript(jsx = false)
 
-        val javaScriptReact = javaScript(lineRules = jsx)
+        val javaScriptReact = javaScript(jsx = true)
 
         /**
          * The TypeScript lexer misses many keywords and types of current TypeScript and reports decorators as markup
          * attributes.
          */
-        private fun typeScript(lineRules: List<Regex>) =
+        private fun typeScript(jsx: Boolean) =
             RSyntaxHighlighter(
                 SyntaxConstants.SYNTAX_STYLE_TYPESCRIPT,
                 keywords =
@@ -245,13 +278,16 @@ internal class RSyntaxHighlighter(
                         "undefined",
                     ),
                 types = setOf("unknown", "never", "object", "symbol", "bigint"),
-                tokenStyles = mapOf(TokenTypes.MARKUP_TAG_ATTRIBUTE to TokenStyle.ANNOTATION),
-                lineRules = lineRules,
+                tokenStyles =
+                    mapOf(
+                        TokenTypes.MARKUP_TAG_ATTRIBUTE to TokenStyle.ANNOTATION,
+                    ) + if (jsx) e4xMarkup else emptyMap(),
+                lineRules = if (jsx) jsxRules else emptyList(),
             )
 
-        val typeScript = typeScript(lineRules = emptyList())
+        val typeScript = typeScript(jsx = false)
 
-        val typeScriptReact = typeScript(lineRules = jsx)
+        val typeScriptReact = typeScript(jsx = true)
 
         /**
          * JSON with `//` comments, which many config files (e.g. `tsconfig.json`) use; plain JSON lexes the same.
@@ -270,32 +306,48 @@ internal class RSyntaxHighlighter(
 
         /**
          * Vue and Svelte components: HTML, whose lexer styles tag names it does not know (`<template>`, components
-         * like `<MyButton>`) as attributes, so a line rule makes them tags.
+         * like `<MyButton>`) as attributes, so [markupTags] make them tags.
          */
-        val singleFileComponent =
-            RSyntaxHighlighter(SyntaxConstants.SYNTAX_STYLE_HTML, lineRules = listOf(markupTagName))
+        val singleFileComponent = RSyntaxHighlighter(SyntaxConstants.SYNTAX_STYLE_HTML, lineRules = markupTags)
 
         /**
-         * Markdown and MDX: headings and bold as keywords, emphasis as type, inline HTML/JSX as markup. The lexer
-         * reports inline and fenced code as preprocessor, shown as string here; line rules add links (`attribute`)
-         * and MDX's `import`/`export` lines.
+         * Markdown: headings and bold as keywords, emphasis as type, inline HTML as markup with component names made
+         * tags by [markupTags]. The lexer reports inline and fenced code as preprocessor, shown as string here, and
+         * a link's or image's text and target as regex and annotation, both shown as `attribute`.
          */
-        val markdown =
+        private fun markdown(lineRules: List<Regex>) =
             RSyntaxHighlighter(
                 SyntaxConstants.SYNTAX_STYLE_MARKDOWN,
-                tokenStyles = mapOf(TokenTypes.PREPROCESSOR to TokenStyle.STRING),
-                lineRules =
-                    listOf(
-                        Regex("""(?<attribute>!?\[[^\]]*]\([^)]*\))"""),
-                        Regex("""^(?<keyword>import|export)\b"""),
+                tokenStyles =
+                    mapOf(
+                        TokenTypes.PREPROCESSOR to TokenStyle.STRING,
+                        TokenTypes.REGEX to TokenStyle.ATTRIBUTE,
+                        TokenTypes.ANNOTATION to TokenStyle.ATTRIBUTE,
                     ),
+                lineRules = markupTags + lineRules,
             )
+
+        val markdown = markdown(lineRules = emptyList())
+
+        /** MDX: Markdown with `import`/`export` lines and JSX components. */
+        val mdx = markdown(lineRules = listOf(Regex("""^(?<keyword>import|export)\b""")))
 
         /** SCSS and Sass variables (`$primary`), styled like custom properties. */
         private val sassVariable = Regex("""(?<annotation>\$[\w-]+)""")
 
         /** Custom properties (`--main`), styled like variables. */
         private val cssCustomProperty = Regex("""(?<![\w-])(?<annotation>--[\w-]+)""")
+
+        /**
+         * CSS at-rules, which the LESS lexer reports either as regexes (`@media`) or as LESS variables (`@supports`).
+         * Listed, since LESS variables look the same.
+         */
+        private val cssAtRule =
+            Regex(
+                """(?<![\w-])(?<keyword>@(?:charset|container|counter-style|font-face|font-feature-values|import|""" +
+                    """keyframes|layer|media|namespace|page|property|scope|starting-style|supports|""" +
+                    """-webkit-keyframes|plugin))(?![\w-])""",
+            )
 
         /**
          * Stylesheets use the LESS lexer, which copes better with nesting and units than the CSS one. It reports
@@ -307,10 +359,11 @@ internal class RSyntaxHighlighter(
         ) = RSyntaxHighlighter(
             SyntaxConstants.SYNTAX_STYLE_LESS,
             tokenStyles = mapOf(TokenTypes.REGEX to TokenStyle.KEYWORD) + tokenStyles,
-            lineRules = listOf(cssCustomProperty) + lineRules,
+            lineRules = listOf(cssCustomProperty, cssAtRule) + lineRules,
         )
 
-        val css = stylesheet()
+        /** Plain CSS has no LESS variables: what the lexer takes for one is an at-rule (`@supports`). */
+        val css = stylesheet(tokenStyles = mapOf(TokenTypes.VARIABLE to TokenStyle.KEYWORD))
 
         /** LESS variables (`@color`) are styled like CSS custom properties. */
         val less = stylesheet(tokenStyles = mapOf(TokenTypes.VARIABLE to TokenStyle.ANNOTATION))
@@ -355,6 +408,8 @@ internal class RSyntaxHighlighter(
         val yaml =
             RSyntaxHighlighter(
                 SyntaxConstants.SYNTAX_STYLE_YAML,
+                // Quoted keys are strings to the lexer; the key rule makes them properties.
+                keptStyles = setOf(TokenStyle.COMMENT),
                 lineRules =
                     listOf(
                         // Key: quoted, or plain (not starting with an indicator character), up to ": " or a final ":".

@@ -11,10 +11,14 @@ class JsxHighlightingTest {
             |
             |export function App({ items, n }) {
             |  const big = n < limit && n > 0; // <b>not a tag</b>
+            |  if (i <len && j > 0) result="";
+            |  let a=1, b={};
+            |  const note = "a <b>c</b>";
             |  return (
             |    <>
-            |      <ul className="list" onClick={() => select(n)}>
+            |      <ul className="list" onClick={() => select(n)} hidden={a >= b}>
             |        {items.map((i) => <Item.Row key={i.id} label='x' disabled />)}
+            |        <p className="x">{a > b ? 1 : 2}</p>
             |      </ul>
             |      <Footer
             |        year={2024}
@@ -22,6 +26,8 @@ class JsxHighlightingTest {
             |    </>
             |  );
             |}
+            |
+            |function f(a, b="x") {}
             |
             """.trimMargin(),
             RSyntaxHighlighter.javaScriptReact,
@@ -60,6 +66,19 @@ class JsxHighlightingTest {
         assertEquals(setOf(TokenStyle.COMMENT), jsx.stylesOf("// <b>not a tag</b>"))
         assertEquals(setOf(TokenStyle.KEYWORD), jsx.stylesOf("const"))
         assertEquals(emptySet(), jsx.stylesOf("big"))
+    }
+
+    @Test
+    fun `comparisons, assignments and strings are not markup`() {
+        // `<len` is no tag although a `>` follows on the line; the `>` of `>=` and `a > b` inside a tag stay operators.
+        assertEquals(setOf(TokenStyle.OPERATOR), jsx.stylesOf("<len"))
+        assertEquals(setOf(TokenStyle.OPERATOR), jsx.stylesOf(">="))
+        assertEquals(setOf(TokenStyle.OPERATOR), jsx.stylesOf("a > b"))
+        // Assignments and default parameters are no attributes.
+        for (name in listOf("result", "a=1", "b={}", "b=\"x\"")) {
+            assertEquals(emptySet(), jsx.stylesOf(name).filter { it == TokenStyle.ATTRIBUTE }.toSet(), name)
+        }
+        assertEquals(setOf(TokenStyle.STRING), jsx.stylesOf("\"a <b>c</b>\""))
     }
 
     @Test

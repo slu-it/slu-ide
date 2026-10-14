@@ -4,24 +4,25 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class MarkdownHighlightingTest {
-    private val md =
-        Highlighted(
-            """
-            |import { Chart } from "./chart"
-            |
-            |# Getting started
-            |
-            |Some *emphasis*, **bold** and `inline code`, see [the docs](https://example.com/docs).
-            |
-            |```ts
-            |const answer = 42
-            |```
-            |
-            |<Chart data={points} />
-            |
-            """.trimMargin(),
-            RSyntaxHighlighter.markdown,
-        )
+    private val document =
+        """
+        |# Getting started
+        |
+        |Some *emphasis*, **bold** and `inline code`, see [the docs](https://example.com/docs).
+        |export the file as PDF.
+        |
+        |```ts
+        |import x from "y"
+        |handlers[name](event)
+        |```
+        |
+        |<Chart data={points} />
+        |
+        """.trimMargin()
+
+    private val md = Highlighted(document, RSyntaxHighlighter.markdown)
+
+    private val mdx = Highlighted("import { Chart } from \"./chart\"\n\n$document", RSyntaxHighlighter.mdx)
 
     @Test
     fun `headings, emphasis and code`() {
@@ -29,18 +30,35 @@ class MarkdownHighlightingTest {
         assertEquals(setOf(TokenStyle.TYPE), md.stylesOf("*emphasis*"))
         assertEquals(setOf(TokenStyle.KEYWORD), md.stylesOf("**bold**"))
         assertEquals(setOf(TokenStyle.STRING), md.stylesOf("`inline code`"))
-        assertEquals(setOf(TokenStyle.STRING), md.stylesOf("const answer = 42"))
-    }
-
-    @Test
-    fun `links, MDX imports and inline JSX`() {
-        assertEquals(setOf(TokenStyle.ATTRIBUTE), md.stylesOf("[the docs](https://example.com/docs)"))
-        assertEquals(setOf(TokenStyle.KEYWORD), md.stylesOf("import"))
-        assertEquals(emptySet(), md.stylesOf("Chart"))
-        assertEquals(setOf(TokenStyle.TAG), md.stylesOf("<Chart").filterNot { it == TokenStyle.ATTRIBUTE }.toSet())
         assertEquals(emptySet(), md.stylesOf("Some"))
     }
 
     @Test
-    fun `spans are well-formed`() = md.assertWellFormed()
+    fun `fenced code is a string, untouched by line rules`() {
+        assertEquals(setOf(TokenStyle.STRING), md.stylesOf("import x from \"y\""))
+        assertEquals(setOf(TokenStyle.STRING), md.stylesOf("handlers[name](event)"))
+        assertEquals(setOf(TokenStyle.STRING), mdx.stylesOf("import x from \"y\""))
+    }
+
+    @Test
+    fun `links and components`() {
+        assertEquals(setOf(TokenStyle.ATTRIBUTE), md.stylesOf("[the docs](https://example.com/docs)"))
+        assertEquals(setOf(TokenStyle.TAG), md.stylesOf("<Chart"))
+        assertEquals(setOf(TokenStyle.TAG), md.stylesOf("/>"))
+        assertEquals(setOf(TokenStyle.ATTRIBUTE), md.stylesOf("data"))
+    }
+
+    @Test
+    fun `import and export lines are keywords in MDX only`() {
+        assertEquals(setOf(TokenStyle.KEYWORD), mdx.stylesOf("import"))
+        assertEquals(emptySet(), mdx.stylesOf("Chart"))
+        assertEquals(setOf(TokenStyle.KEYWORD), mdx.stylesOf("export"))
+        assertEquals(emptySet(), md.stylesOf("export the file"))
+    }
+
+    @Test
+    fun `spans are well-formed`() {
+        md.assertWellFormed()
+        mdx.assertWellFormed()
+    }
 }

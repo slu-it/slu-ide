@@ -12,7 +12,8 @@ class CssHighlightingTest {
             |@media (min-width: 600px) {
             |  .card { --gap: 4px; padding: var(--gap); }
             |}
-            |.nav { background: url(http://example.com/a.png); }
+            |.nav { background: url(http://example.com/a.png); content: "--not-a-property"; }
+            |@supports (display: grid) { @layer base { .grid { display: grid; } } }
             |
             """.trimMargin(),
             RSyntaxHighlighter.css,
@@ -26,6 +27,8 @@ class CssHighlightingTest {
         assertEquals(setOf(TokenStyle.KEYWORD), css.stylesOf("color"))
         assertEquals(setOf(TokenStyle.KEYWORD), css.stylesOf("@media"))
         assertEquals(setOf(TokenStyle.KEYWORD), css.stylesOf("!important"))
+        assertEquals(setOf(TokenStyle.KEYWORD), css.stylesOf("@supports"))
+        assertEquals(setOf(TokenStyle.KEYWORD), css.stylesOf("@layer"))
     }
 
     @Test
@@ -36,6 +39,7 @@ class CssHighlightingTest {
         assertEquals(setOf(TokenStyle.ANNOTATION), css.stylesOf("--gap", 1))
         assertEquals(setOf(TokenStyle.BUILTIN), css.stylesOf("var"))
         assertEquals(setOf(TokenStyle.COMMENT), css.stylesOf("/* layout */"))
+        assertEquals(setOf(TokenStyle.STRING), css.stylesOf("\"--not-a-property\""))
         // An unquoted URL is no `//` comment.
         assertEquals(emptySet(), css.stylesOf("//example.com"))
     }
