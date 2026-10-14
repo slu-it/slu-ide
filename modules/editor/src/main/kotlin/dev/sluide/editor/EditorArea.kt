@@ -10,9 +10,6 @@ import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontSpec
 import javafx.collections.ListChangeListener
-import javafx.scene.control.Alert
-import javafx.scene.control.ButtonBar
-import javafx.scene.control.ButtonType
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.StackPane
 import org.springframework.context.annotation.Scope
@@ -178,15 +175,13 @@ class EditorArea(
     private fun hosted(view: FileView): FileView = view.apply { host = viewHost }
 
     private fun showCloseDialog(warnings: List<String>): Boolean {
-        val close = ButtonType("Close", ButtonBar.ButtonData.OK_DONE)
-        val alert =
-            Alert(Alert.AlertType.CONFIRMATION, warnings.joinToString("\n"), close, ButtonType.CANCEL).apply {
-                val single = warnings.size == 1
-                title = if (single) "Close Tab" else "Close Tabs"
-                headerText = if (single) "Close this tab anyway?" else "Close these tabs anyway?"
-                this@EditorArea.scene?.window?.let(::initOwner)
-            }
-        return alert.showAndWait().orElse(ButtonType.CANCEL) == close
+        val single = warnings.size == 1
+        return askToClose(
+            scene?.window,
+            if (single) "Close Tab" else "Close Tabs",
+            if (single) "Close this tab anyway?" else "Close these tabs anyway?",
+            warnings,
+        )
     }
 
     /** Closes all tabs without asking, including the ones that do not show files. */
