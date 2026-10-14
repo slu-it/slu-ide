@@ -104,9 +104,11 @@ class MainWindowUiTest {
             }
         }
 
-    // Without the user's global git configuration, which could ignore other files.
+    // Without the user's global git configuration, which could ignore other files, and without inherited `GIT_*`
+    // variables (a build run by `git rebase -x` inherits `GIT_DIR`, which would point at the SluIde repository).
     private val gitEnvironment =
-        System.getenv() + mapOf("GIT_CONFIG_GLOBAL" to "/dev/null", "GIT_CONFIG_NOSYSTEM" to "1")
+        System.getenv().filterKeys { !it.startsWith("GIT_") } +
+            mapOf("GIT_CONFIG_GLOBAL" to "/dev/null", "GIT_CONFIG_NOSYSTEM" to "1")
     private val git = GitCli("git", gitEnvironment)
     private val gitStatus = GitStatusService(git, watcher)
 
@@ -299,8 +301,10 @@ class MainWindowUiTest {
             ProcessBuilder(listOf("git") + arguments)
                 .directory(project.toFile())
                 .redirectErrorStream(true)
-                .apply { environment().putAll(gitEnvironment) }
-                .start()
+                .apply {
+                    environment().clear()
+                    environment().putAll(gitEnvironment)
+                }.start()
         val output = process.inputStream.readAllBytes().decodeToString()
         assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
     }

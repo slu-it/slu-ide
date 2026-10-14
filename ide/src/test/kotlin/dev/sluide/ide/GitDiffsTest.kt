@@ -23,7 +23,8 @@ class GitDiffsTest {
     lateinit var repo: Path
 
     private val gitEnvironment =
-        System.getenv() + mapOf("GIT_CONFIG_GLOBAL" to "/dev/null", "GIT_CONFIG_NOSYSTEM" to "1")
+        System.getenv().filterKeys { !it.startsWith("GIT_") } +
+            mapOf("GIT_CONFIG_GLOBAL" to "/dev/null", "GIT_CONFIG_NOSYSTEM" to "1")
 
     // Everything dispatched runs on this test's thread, like on the JavaFX thread.
     private val dispatched = LinkedBlockingQueue<Runnable>()
@@ -43,8 +44,10 @@ class GitDiffsTest {
             ProcessBuilder(listOf("git") + arguments)
                 .directory(repo.toFile())
                 .redirectErrorStream(true)
-                .apply { environment().putAll(gitEnvironment) }
-                .start()
+                .apply {
+                    environment().clear()
+                    environment().putAll(gitEnvironment)
+                }.start()
         val output = process.inputStream.readAllBytes().decodeToString()
         assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
     }

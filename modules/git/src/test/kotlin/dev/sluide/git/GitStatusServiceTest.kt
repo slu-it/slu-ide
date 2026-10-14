@@ -53,8 +53,10 @@ class GitStatusServiceTest {
             ProcessBuilder(listOf("git") + arguments)
                 .directory(repo.toFile())
                 .redirectErrorStream(true)
-                .apply { environment().putAll(testGitEnvironment()) }
-                .start()
+                .apply {
+                    environment().clear()
+                    environment().putAll(testGitEnvironment())
+                }.start()
         val output = process.inputStream.readAllBytes().decodeToString()
         assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
     }
