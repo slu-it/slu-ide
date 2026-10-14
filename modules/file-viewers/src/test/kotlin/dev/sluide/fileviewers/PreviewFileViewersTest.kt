@@ -66,4 +66,12 @@ class PreviewFileViewersTest {
         assert("src=\"data:image/png;base64,AQID\"" in light)
         assert("<body>" in light && "<body class=\"dark\">" in dark)
     }
+
+    @Test
+    fun `pages loaded from a string have no location of their own`() {
+        assertEquals(
+            listOf(true, true, true, false, false),
+            listOf(null, "", "about:blank", "file:///tmp/a.html", "http://127.0.0.1:1/").map(::isPageFromString),
+        )
+    }
 }

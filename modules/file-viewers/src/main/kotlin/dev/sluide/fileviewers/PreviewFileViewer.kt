@@ -94,7 +94,7 @@ internal interface Preview {
     fun isOwnPage(
         location: String?,
         file: Path,
-    ): Boolean = location.isNullOrEmpty() || location == "about:blank"
+    ): Boolean = isPageFromString(location)
 
     /** Where [href], a link clicked or followed in the page for [file], leads. */
     fun linkTarget(
@@ -105,6 +105,9 @@ internal interface Preview {
     /** What a newly opened view shows. */
     val defaultMode: PreviewMode get() = PreviewMode.SPLIT
 }
+
+/** Whether a `WebView` at [location] shows a page loaded from a string (`loadContent`), which has no location. */
+internal fun isPageFromString(location: String?): Boolean = location.isNullOrEmpty() || location == "about:blank"
 
 /** What a [PreviewFileView] shows. */
 internal enum class PreviewMode(

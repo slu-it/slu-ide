@@ -58,7 +58,7 @@ internal class ImageFileView(
     init {
         engine.loadWorker.stateProperty().subscribe { state -> if (state == Worker.State.SUCCEEDED) onLoaded() }
         // Nothing on the page navigates; something dropped onto it would. Show the image again.
-        engine.locationProperty().subscribe { location -> if (!location.isNullOrEmpty()) render() }
+        engine.locationProperty().subscribe { location -> if (!isPageFromString(location)) render() }
         pane
             .sceneProperty()
             .flatMap { it.preferences.colorSchemeProperty() }
@@ -80,7 +80,7 @@ internal class ImageFileView(
         render()
     }
 
-    private val isLoaded get() = engine.loadWorker.state == Worker.State.SUCCEEDED && engine.location.isNullOrEmpty()
+    private val isLoaded get() = engine.loadWorker.state == Worker.State.SUCCEEDED && isPageFromString(engine.location)
 
     private fun render() {
         engine.loadContent(ImagePage.render(bytes, imageTypes.getValue(file.extension.lowercase()), dark))
