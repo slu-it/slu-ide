@@ -5,8 +5,8 @@
 
 - `EditorArea` (Spring `@Component`) is the central area right of the file explorer. `open(path)` shows a file in a
   new tab, using the view from `FileViewers`, and selects it. A file that is already open just gets its tab selected.
-  If no viewer can open the file, nothing happens and `open` returns `false`; `canOpen(path)` asks that beforehand
-  (the file explorer uses it to pick text or binary icons).
+  If no viewer can open the file, or reading it fails, nothing happens and `open` returns `false`; `canOpen(path)`
+  asks the first part beforehand (the file explorer uses it to pick text or binary icons).
 - Files are shown read-only, in the editor font from the settings ([settings.md](settings.md)); open views follow
   font changes.
 - Tabs do not have to show files: `open(tab: EditorTab)` adds any tab (title, which may change, tooltip and content
@@ -15,7 +15,8 @@
 - A tab can have a `closeWarning` (e.g. a terminal with a running program). Closing such tabs from the UI (×, middle
   click, any context menu entry) first shows one confirmation dialog listing the warnings; Cancel closes nothing.
   `closeAll()` (used when the window is closed, after the window's own confirmation) does not ask. Tests replace the dialog via
-  `EditorArea.confirmClose`.
+  `EditorArea.confirmClose`. The dialog ("Close this tab anyway?" / "Close these tabs anyway?", Close and Cancel) is
+  `askToClose`, which the main window uses for "Close this window anyway?" too.
 - One tab per file: the file name as title, the full path as tooltip. Clicking a tab selects it.
 - Tabs close via their × button or a middle click. Closing the selected tab selects its right neighbour, or the left
   one if there is none.
@@ -24,15 +25,17 @@
   left/right keeps the selection unless the selected tab was closed, then the clicked tab is selected.
 - Every file view gets the editor area as its `FileViewHost`: `openFile` opens a file like the explorer does,
   `openWebPage` calls `EditorArea.openWebPage`, which the main window sets to the system browser
-  (`HostServices.showDocument`, held by `SystemBrowser`), and `projectFolder` is the window's project folder
+  (`HostServices.showDocument`, through the `SystemBrowser` bean), and `projectFolder` is the window's project folder
   (`EditorArea.projectFolder`, set by the main window), whose files HTML previews may use.
 - Open files are watched ([file-watching.md](file-watching.md)). When a file changes on disk, its tab reloads and
-  keeps its scroll position and caret (`FileView.reload`). When the file is deleted, renamed away or can no longer
+  keeps its scroll position and caret (`FileView.reload`); if reading it fails, the tab keeps showing the last content
+  and the next change tries again. When the file is deleted, renamed away or can no longer
   be shown (e.g. it became binary), its tab closes.
 - Diffs ([git-diff.md](git-diff.md)): `diffOf(path)` returns a `TextDiff` for files to show side by side with their
   original (`FileViewers.openDiff`), `null` for the normal view. It is asked when a file is opened, when it changes on
   disk and for all open files on `refreshDiffs()`; a tab then swaps between diff and normal view in place
-  (`OpenFile.view`, inside a stable content node), keeping its position and selection.
+  (`OpenFile.view`, inside a stable content node), keeping its tab position and whether it is selected; the scroll
+  position resets ([git-diff.md](git-diff.md)).
 - Every window has its own editor area ([open-folder.md](open-folder.md)).
 - When the tabs do not fit, ‹ and › buttons appear. They scroll the tab row one tab at a time without changing the
   selection. A ▾ dropdown lists every tab that is cut off or out of view, and choosing one selects it and scrolls it

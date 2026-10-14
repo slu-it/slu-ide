@@ -17,10 +17,14 @@ projects), so that must never happen, also not through a bug in the menu logic.
   timing and the user's shell configuration). When `sbx` ends, the tab shows "(exited)".
 - Folder rule (`SandboxFolder.check`): only folders strictly below the user's home folder, comparing **real paths**
   (`toRealPath()`), so symbolic links and `..` cannot lead to the home folder, above it or outside it; `Path.startsWith`
-  compares path elements, so `/home/bob2` is not below `/home/bob`. Missing folders are rejected.
+  compares path elements, so `/home/bob2` is not below `/home/bob`. Missing folders and files (not folders) are
+  rejected.
 - Enforced twice: the menu disables actions whose `DockerSandbox.problem` is not `null` (recomputed when the menu is
   shown and when the folder changes), and `DockerSandbox.open` checks again on the very folder it passes to the
-  terminal and throws `SandboxNotAllowedException`, which the main window shows as an error.
+  terminal and throws `SandboxNotAllowedException`, which the main window shows as an error. Both take the window's
+  folder as it is (`null` without a folder), so the messages, including "No folder is open.", come from
+  `DockerSandbox`. A shell that cannot be started is reported the same way (`TerminalStartException` from
+  `Terminals`).
 
 ## Consequences
 - The sandbox tab has no shell left after `sbx` ends; users open a normal terminal for that.

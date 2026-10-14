@@ -35,5 +35,6 @@ Options considered:
   (`db2uklzeiyqq6.cloudfront.net`), in addition to Maven Central; restricted networks must allow both.
 - pty4j ships natives for Linux (x64, aarch64), macOS and Windows inside its jar and extracts them at runtime, so
   the per-platform fat jars ([ADR 0003](0003-javafx-platform-jars.md)) work without extra build steps.
-- Rendering, input, selection and clipboard are our code: features like mouse reporting to programs, hyperlinks or
-  search have to be built by us when wanted.
+- Rendering, input, selection and clipboard are our code: features like hyperlinks or search have to be built by us
+  when wanted. Mouse reporting to programs was built this way (`TerminalMouse`, with JediTerm encoding the reports;
+  see [terminal.md](../features/terminal.md)).

@@ -19,9 +19,9 @@ scene only), the terminals, the sandbox numbering and the git status.
   on the FX thread, shows it, and destroys them when the window is hidden (calling `close()` of `AutoCloseable`
   beans such as `Terminals` and `GitStatusService`). Modules only use the string `"window"`, no new dependency.
   Window-scoped: `MainWindow`, `ProjectService`, `FileExplorerView`, `EditorArea`, `Terminals`, `DockerSandbox`,
-  `GitStatusService`. Shared: settings, `FileWatcher`, `FileViewers`, `GitCli`, `ThemedWindows`.
+  `GitStatusService`. Shared: settings, `FileWatcher`, `FileViewers`, `GitCli`, `ThemedWindows`, `SystemBrowser`.
 - **Closing a window** collects the `closeWarning`s of all its tabs and, if there are any, asks once ("Close this
-  window anyway?"). The last window closing quits the app as before.
+  window anyway?", the same `askToClose` dialog as for tabs). The last window closing quits the app as before.
 
 Rejected:
 - **Prototype beans**: every injection point would get its own instance, so `MainWindow` and `DockerSandbox` would
