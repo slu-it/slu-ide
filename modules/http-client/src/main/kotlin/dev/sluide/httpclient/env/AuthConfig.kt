@@ -1,0 +1,164 @@
+package dev.sluide.httpclient.env
+
+import tools.jackson.databind.JsonNode
+
+/**
+ * An auth configuration from `Security.Auth.<id>` of an environment. String values are templates that may contain
+ * `{{variables}}`; they are resolved when a token is acquired.
+ */
+internal data class AuthConfig(
+    val id: String,
+    val type: String?,
+    val grantType: String?,
+    val tokenUrl: String?,
+    val clientId: String?,
+    val clientSecret: String?,
+    val clientCredentials: ClientCredentials,
+    val username: String?,
+    val password: String?,
+    val scope: String?,
+    val customRequestParameters: List<CustomParameter>,
+    val useIdToken: Boolean,
+    val acquireAutomatically: Boolean,
+) {
+    /** How the client id and secret are sent to the token endpoint. */
+    enum class ClientCredentials { BASIC, IN_BODY, NONE }
+
+    /** One value of a `Custom Request Parameters` entry; an array gives one parameter per value. */
+    data class CustomParameter(
+        val name: String,
+        val value: String,
+        val use: ParameterUse,
+    )
+
+    enum class ParameterUse { IN_AUTH_REQUEST, IN_TOKEN_REQUEST, EVERYWHERE }
+
+    internal companion object {
+        /** Reads the configuration [id] from [node], adding what cannot be understood to [problems]. */
+        fun parse(
+            id: String,
+            node: JsonNode,
+            problems: MutableList<String>,
+        ): AuthConfig {
+            fun text(key: String) = node.get(key)?.let(::textOf)
+
+            fun flag(
+                key: String,
+                default: Boolean,
+            ): Boolean {
+                val value = node.get(key) ?: return default
+                return when {
+                    value.isBoolean -> value.booleanValue()
+
+                    value.isString && value.stringValue().lowercase() in
+                        setOf(
+                            "true",
+                            "false",
+                        )
+                    -> value.stringValue().toBoolean()
+
+                    else -> default.also { problems += "Auth \"$id\": \"$key\" must be true or false" }
+                }
+            }
+            return AuthConfig(
+                id = id,
+                type = text("Type"),
+                grantType = text("Grant Type"),
+                tokenUrl = text("Token URL"),
+                clientId = text("Client ID"),
+                clientSecret = text("Client Secret"),
+                clientCredentials = clientCredentials(id, text("Client Credentials"), problems),
+                username = text("Username"),
+                password = text("Password"),
+                scope = text("Scope"),
+                customRequestParameters = customParameters(id, node.get("Custom Request Parameters"), problems),
+                useIdToken = flag("Use ID Token", false),
+                acquireAutomatically = flag("Acquire Automatically", true),
+            )
+        }
+
+        private fun clientCredentials(
+            id: String,
+            value: String?,
+            problems: MutableList<String>,
+        ): ClientCredentials =
+            when (value?.trim()?.lowercase()) {
+                null, "basic" -> {
+                    ClientCredentials.BASIC
+                }
+
+                "in body" -> {
+                    ClientCredentials.IN_BODY
+                }
+
+                "none" -> {
+                    ClientCredentials.NONE
+                }
+
+                else -> {
+                    problems +=
+                        "Auth \"$id\": unknown Client Credentials \"$value\" (basic, in body or none); basic is used"
+                    ClientCredentials.BASIC
+                }
+            }
+
+        private fun customParameters(
+            id: String,
+            node: JsonNode?,
+            problems: MutableList<String>,
+        ): List<CustomParameter> {
+            if (node == null) return emptyList()
+            if (!node.isObject) {
+                problems += "Auth \"$id\": Custom Request Parameters must be an object"
+                return emptyList()
+            }
+            return node.properties().flatMap { (name, value) ->
+                val values = if (value.isArray) value.values() else listOf(value)
+                values.mapNotNull { customParameter(id, name, it, problems) }
+            }
+        }
+
+        private fun customParameter(
+            id: String,
+            name: String,
+            node: JsonNode,
+            problems: MutableList<String>,
+        ): CustomParameter? {
+            if (!node.isObject) return CustomParameter(name, textOf(node), ParameterUse.EVERYWHERE)
+            val value = node.get("Value")
+            if (value == null) {
+                problems += "Auth \"$id\": custom parameter \"$name\" has no Value"
+                return null
+            }
+            val use =
+                when (
+                    node
+                        .get("Use")
+                        ?.let(::textOf)
+                        ?.trim()
+                        ?.lowercase()
+                ) {
+                    null, "everywhere" -> {
+                        ParameterUse.EVERYWHERE
+                    }
+
+                    "in auth request" -> {
+                        ParameterUse.IN_AUTH_REQUEST
+                    }
+
+                    "in token request" -> {
+                        ParameterUse.IN_TOKEN_REQUEST
+                    }
+
+                    else -> {
+                        problems += "Auth \"$id\": custom parameter \"$name\" has an unknown Use; Everywhere is used"
+                        ParameterUse.EVERYWHERE
+                    }
+                }
+            return CustomParameter(name, textOf(value), use)
+        }
+    }
+}
+
+/** A JSON value as text: strings as they are, everything else as JSON. */
+internal fun textOf(node: JsonNode): String = if (node.isString) node.stringValue() else node.toString()
