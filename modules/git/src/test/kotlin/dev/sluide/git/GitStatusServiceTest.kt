@@ -141,6 +141,9 @@ class GitStatusServiceTest {
         assertEquals(GitDiff("val a = 1\n", emptyList()), service.diff(repo.resolve("tracked.kt")))
         assertNull(service.diff(repo.resolve("untracked.txt").apply { writeText("") }))
         assertNull(service.diff(repo.parent.resolve("outside.txt")))
+        // GitCli takes relative paths from the working directory.
+        val relative = Path.of("").toAbsolutePath().relativize(repo.resolve("lines.txt"))
+        assertEquals("a\nb\nc\nd\n", git.headContent(repo, relative))
     }
 
     @Test

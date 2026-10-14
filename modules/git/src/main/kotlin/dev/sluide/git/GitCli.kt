@@ -40,7 +40,7 @@ class GitCli(
      * The output of `git status --porcelain=v2 -z --ignored` for the working tree at [root] (see [GitStatusParser]),
      * or `null` if git is not available, fails or takes longer than 10 s.
      */
-    fun status(root: Path): String? {
+    internal fun status(root: Path): String? {
         if (!available) return null
         // Without optional locks git does not rewrite .git/index, which would trigger our own watch of .git.
         val arguments = listOf("--no-optional-locks", "status", "--porcelain=v2", "-z", "--ignored")
@@ -51,12 +51,12 @@ class GitCli(
      * The content of [file] at `HEAD` in the repository at [root], with the filters (line endings, smudge) a checkout
      * would apply, or `null` if git is not available, fails (e.g. the file is not in `HEAD`) or takes longer than 3 s.
      */
-    fun headContent(
+    internal fun headContent(
         root: Path,
         file: Path,
     ): String? {
-        val path = relativePath(root, file) ?: return null
         if (!available) return null
+        val path = relativePath(root, file) ?: return null
         return run(listOf("cat-file", "--filters", "HEAD:$path"), root, 3.seconds)
     }
 
@@ -64,12 +64,12 @@ class GitCli(
      * The output of `git diff -U0` between `HEAD` and the working tree for [file] in the repository at [root] (see
      * [GitDiffParser]), or `null` if git is not available, fails or takes longer than 3 s.
      */
-    fun diffToHead(
+    internal fun diffToHead(
         root: Path,
         file: Path,
     ): String? {
-        val path = relativePath(root, file) ?: return null
         if (!available) return null
+        val path = relativePath(root, file) ?: return null
         val arguments =
             listOf(
                 "--no-optional-locks",
@@ -87,12 +87,15 @@ class GitCli(
         return run(arguments, root, 3.seconds)
     }
 
-    /** [file] relative to [root], `/`-separated as git wants it; `null` if it is not inside [root]. */
+    /**
+     * [file] relative to [root], `/`-separated as git wants it; `null` if it is not inside [root]. Relative paths are
+     * taken from the working directory.
+     */
     private fun relativePath(
         root: Path,
         file: Path,
     ): String? {
-        val relative = root.relativize(file).normalize()
+        val relative = root.toAbsolutePath().normalize().relativize(file.toAbsolutePath().normalize())
         if (relative.toString().isEmpty() || relative.startsWith("..")) return null
         return relative.joinToString("/")
     }
