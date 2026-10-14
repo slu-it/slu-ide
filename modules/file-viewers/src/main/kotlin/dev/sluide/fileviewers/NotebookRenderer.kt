@@ -197,10 +197,11 @@ internal object NotebookRenderer {
         element.appendText(code.substring(position))
     }
 
+    /** Moves all of [source]'s nodes into [target], text between and around its elements too. */
     private fun appendAll(
         target: Element,
         source: Element,
-    ) = source.children().toList().forEach { target.appendChild(it) }
+    ) = source.childNodes().toList().forEach { target.appendChild(it) }
 
     /** Base64 image data from a notebook (often split into lines) as a `data:` URI. */
     private fun dataUri(

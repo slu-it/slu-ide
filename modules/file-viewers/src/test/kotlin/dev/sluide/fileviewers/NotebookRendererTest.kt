@@ -108,6 +108,20 @@ class NotebookRendererTest {
     }
 
     @Test
+    fun `text around and without elements in HTML outputs and Markdown cells is kept`() {
+        val json =
+            """{"cells":[{"cell_type":"markdown","source":"<section>kept</section>"},
+            {"cell_type":"code","source":"x","outputs":[
+              {"output_type":"execute_result","data":{"text/html":"Total: <b>42</b>","text/plain":"42"}},
+              {"output_type":"display_data","data":{"text/html":"done","text/plain":"<IPython.core.display.HTML>"}}]}]}"""
+        val page = render(json)
+
+        // The sanitiser drops the section, its text stays.
+        assertEquals("kept", page.selectFirst(".cell.markdown")?.text())
+        assertEquals(listOf("Total: 42", "done"), page.select(".output").map { it.text() })
+    }
+
+    @Test
     fun `attachments with encoded names, in raw HTML too`() {
         val json =
             """{"cells":[{"cell_type":"markdown","source":"![a](attachment:my%20plot.png) <img src=\"attachment:b.png\">",
