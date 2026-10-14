@@ -7,7 +7,7 @@ assembled from Gradle modules.
 | Path | Purpose |
 |------|---------|
 | `ide/` | Application module: launcher, Spring Boot configuration, main window. Produces the fat jar (`./gradlew :ide:bootJar`). |
-| `modules/<name>/` | One Gradle module per IDE capability: `file-explorer`, `editor` (tabs), `file-viewers` (views of files, change markers and side-by-side diffs; the previews of Markdown, HTML, SVG, CSV and notebooks and the image view are `javafx.web` WebViews), `file-watcher` (changes on disk), `terminal` (shells in editor tabs), `settings` (settings state, storage and dialog), `docker-sandbox` (`sbx` in terminal tabs), `git` (git status of the open repository and diffs against `HEAD`), `text-editing` (logic of editing text without JavaFX: line endings, changes on disk). |
+| `modules/<name>/` | One Gradle module per IDE capability: `file-explorer`, `editor` (tabs), `file-viewers` (views of files, change markers and side-by-side diffs; the previews of Markdown, HTML, SVG, CSV and notebooks and the image view are `javafx.web` WebViews), `file-watcher` (changes on disk), `terminal` (shells in editor tabs), `settings` (settings state, storage and dialog), `docker-sandbox` (`sbx` in terminal tabs), `git` (git status of the open repository and diffs against `HEAD`), `text-editing` (logic of editing text without JavaFX: line endings, changes on disk, indentation incl. `.editorconfig` via ec4j-core, line operations, comments, find and replace, go to line). |
 | `gradle/libs.versions.toml` | Single place for dependency and plugin versions. |
 | `docs/` | This documentation. Start at [index.md](index.md). |
 | `.claude/` | Claude Code settings, agents, rules, scripts. |
@@ -25,7 +25,10 @@ assembled from Gradle modules.
   - `editor` -> `file-viewers`: the editor area asks `FileViewers` for the view of a file
     ([ADR 0004](adr/0004-file-viewer-selection.md)).
   - `file-viewers` -> `text-editing` (`implementation`): code views keep line endings and decide what a change on disk
-    means for edited text ([ADR 0020](adr/0020-editing-and-saving-files.md)).
+    means for edited text ([ADR 0020](adr/0020-editing-and-saving-files.md)); their keys indent, move and comment
+    lines, find, replace and go to a line with its commands ([ADR 0022](adr/0022-editor-key-bindings.md)).
+    `text-editing` itself depends at runtime only on ec4j-core (besides Kotlin), which reads `.editorconfig`
+    ([ADR 0023](adr/0023-indentation-from-editorconfig.md)).
   - `http-client` -> `file-viewers`: `.http` files are shown in code views, and request bodies and scripts are
     highlighted with the code views' highlighters (`Highlighters.forLanguage`, [ADR 0005](adr/0005-syntax-highlighting.md)).
   - `terminal` -> `editor`: terminals are shown as `EditorTab`s ([ADR 0007](adr/0007-terminal.md)).

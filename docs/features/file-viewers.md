@@ -16,11 +16,13 @@
   asked last ([ADR 0004](../adr/0004-file-viewer-selection.md)). Returns `null` if no viewer agrees.
 - `DefaultTextFileViewer` shows any text file as plain text in an editable `CodeView` without highlighting. A file is text if its
   first 8 KiB contain no NUL byte and are valid UTF-8 (`isTextFile`); empty files are text, files over 10 MiB are not.
-- Code viewers extend `CodeFileViewer(extensions, highlighter)` and show text files with syntax highlighting and line
-  numbers in an editable `CodeView`. It renders a RichTextFX `CodeArea`, colours the tokens from a `SyntaxHighlighter`
+- Code viewers extend `CodeFileViewer(extensions, highlighter, comment)` and show text files with syntax highlighting
+  and line numbers in an editable `CodeView`. It renders a RichTextFX `CodeArea`, colours the tokens from a `SyntaxHighlighter`
   (`RSyntaxHighlighter` = RSyntaxTextArea lexers, [ADR 0005](../adr/0005-syntax-highlighting.md)) and is styled by
-  `syntax.css`; its banners (file changed or deleted on disk) by `code-view.css`. Edited text is highlighted again in
+  `syntax.css`; its banners (file changed or deleted on disk) and find bar by `code-view.css`. Edited text is highlighted again in
   the background once typing pauses ([ADR 0020](../adr/0020-editing-and-saving-files.md)). Token classes: `keyword`, `type`, `builtin`, `string`, `number`, `comment`, `annotation`, `property`, `tag`, `attribute`, `operator`.
+  The viewer's `comment` parameter (a `CommentSyntax`) says how Shortcut+/ comments out lines; preview viewers take
+  one for their source too ([text-editing.md](text-editing.md)).
 - Highlighted languages, with the corrections for outdated lexers (configured in `RSyntaxHighlighter`'s companion):
 
   | Viewer | Extensions | Corrections to the lexer |
