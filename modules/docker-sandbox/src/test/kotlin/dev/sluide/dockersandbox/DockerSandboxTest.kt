@@ -6,6 +6,7 @@ import dev.sluide.terminal.Terminals
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
 import kotlin.test.Test
@@ -24,7 +25,10 @@ class DockerSandboxTest {
     private val terminals by lazy {
         Terminals(FontSettings(SettingsStore(root.resolve("settings.properties")), FontSettings.systemDefaults()))
     }
-    private val sandbox by lazy { DockerSandbox(terminals, home, System.getenv()) }
+    private val sandbox by lazy { sandbox(CompletableFuture.completedFuture(true)) }
+
+    private fun sandbox(sbxInstalled: CompletableFuture<Boolean>) =
+        DockerSandbox(terminals, home, System.getenv(), sbxInstalled)
 
     @AfterEach
     fun close() = terminals.close()
@@ -70,4 +74,28 @@ class DockerSandboxTest {
         assertFailsWith<SandboxNotAllowedException> { sandbox.open(SandboxAction.ENVIRONMENT, project) }
         assertEquals(0, terminals.openCount)
     }
+
+    @Test
+    fun `nothing runs without sbx, or before the check has found it`() {
+        project.resolve("sbxenv.yaml").createFile()
+        val check = CompletableFuture<Boolean>()
+        for (sandbox in listOf(sandbox(CompletableFuture.completedFuture(false)), sandbox(check))) {
+            for (action in SandboxAction.entries) {
+                for (folder in listOf(project, null)) {
+                    assertEquals(SBX_MISSING, sandbox.problem(action, folder))
+                    assertEquals(
+                        SBX_MISSING,
+                        assertFailsWith<SandboxNotAllowedException> { sandbox.open(action, folder) }.message,
+                    )
+                }
+            }
+        }
+        assertEquals(0, terminals.openCount)
+
+        check.complete(true)
+
+        assertNull(sandbox(check).problem(SandboxAction.ENVIRONMENT, project))
+    }
 }
+
+private const val SBX_MISSING = "sbx is not installed (not found on the PATH of your login shell)."

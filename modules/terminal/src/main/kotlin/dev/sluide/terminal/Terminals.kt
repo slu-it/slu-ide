@@ -16,6 +16,15 @@ class TerminalStartException(
 ) : RuntimeException(message, cause)
 
 /**
+ * The command line of the user's login shell (`SHELL` in [environment]) running [command] and then ending, with the
+ * login environment (e.g. its `PATH`): the shell that [Terminals.open] runs a command in.
+ */
+fun loginShellRunning(
+    command: String,
+    environment: Map<String, String>,
+): List<String> = TerminalSession.loginShellRunning(command, environment)
+
+/**
  * Starts terminals as editor tabs and ends their shells when it is closed, together with its window. Terminals use
  * the terminal font of the [fontSettings] and follow its changes.
  */

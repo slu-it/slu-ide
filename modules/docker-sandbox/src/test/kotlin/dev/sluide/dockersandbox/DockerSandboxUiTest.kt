@@ -19,6 +19,7 @@ import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
+import java.util.concurrent.CompletableFuture
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
 import kotlin.io.path.readLines
@@ -70,7 +71,7 @@ class DockerSandboxUiTest {
         }
         home.resolve(".profile").writeText("PATH=\"$bin:\$PATH\"\nexport PATH\n")
         environment += mapOf("HOME" to home.toString(), "SHELL" to "/bin/sh")
-        return DockerSandbox(terminals, home, environment)
+        return DockerSandbox(terminals, home, environment, CompletableFuture.completedFuture(true))
     }
 
     private fun run(
