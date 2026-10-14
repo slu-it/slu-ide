@@ -62,10 +62,10 @@ into an area, and its default undo manager also records style changes, i.e. high
   superseded before the thread got to them, and drops results for an older text; only
   the range between the first and the last changed style is restyled. `RSyntaxHighlighter` creates a fresh lexer per
   call and is otherwise immutable, so it is safe on that thread; `SyntaxHighlighter`s must be thread-safe.
-- **Interim, until diffs are shown on demand:** modified files still open as the read-only diff
-  ([ADR 0015](0015-git-diff.md)), but an open editor is never swapped for its diff: it may have unsaved changes, and
-  saving a tracked file would otherwise take the editor away. A diff still turns back into the editor when the file is
-  clean again.
+- **Interim, until diffs are shown on demand:** modified files still opened as the read-only diff
+  ([ADR 0015](0015-git-diff.md)), but an open editor was never swapped for its diff. Replaced by
+  [ADR 0021](0021-change-markers-and-diffs-on-demand.md): files always open in the editor, with change markers in the
+  gutter, and the diff is shown on demand over the editor.
 
 Rejected:
 - **Plain `TextArea` for plain text:** no line numbers, different keys and behaviour than code.
@@ -86,4 +86,5 @@ Rejected:
 - Only UTF-8 files can be edited; files that are valid UTF-8 only in their first 8 KiB open read-only.
 - Saving is not atomic: a crash or a full disk during the write can leave the file truncated.
 - The pause before highlighting is chosen when the file is opened; a file growing past 1 MiB keeps the short one.
-- Until diffs are shown on demand, a file that becomes modified while open shows no diff until it is opened again.
+- Until diffs were shown on demand ([ADR 0021](0021-change-markers-and-diffs-on-demand.md)), a file that became
+  modified while open showed no diff until it was opened again.

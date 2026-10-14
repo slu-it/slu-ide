@@ -9,8 +9,8 @@
   asks the first part beforehand (the file explorer uses it to pick text or binary icons).
 - Files are shown in the editor font from the settings ([settings.md](settings.md)); open views follow font changes.
   Code, plain text and the sources of previews can be edited and saved ([text-editing.md](text-editing.md)).
-- A file tab whose view has unsaved changes (`EditableFileView.dirty`) shows a dot before its name (`● a.txt`),
-  also after its view was swapped (`OpenFile.dirty`). `save()` saves the selected file, `saveAll()` every edited one
+- A file tab whose editor has unsaved changes (`EditableFileView.dirty`) shows a dot before its name (`● a.txt`),
+  also while its diff is shown (`OpenFile.dirty`). `save()` saves the selected file, `saveAll()` every edited one
   (File → Save, Save All); a failure is shown through `showError` (the window's error dialog) and keeps the changes.
 - Tabs do not have to show files: `open(tab: EditorTab)` adds any tab (title, which may change, tooltip and content
   node) and selects it, e.g. a terminal ([terminal.md](terminal.md)). Every way of closing a tab calls its
@@ -46,12 +46,14 @@
   reload or keep them instead ([text-editing.md](text-editing.md)). If reading it fails, the tab keeps showing the last
   content and the next change tries again. When the file is deleted, renamed away or can no longer be shown (e.g. it
   became binary), its tab closes, unless it has unsaved changes: then it stays and saving recreates the file.
-- Diffs ([git-diff.md](git-diff.md)): `diffOf(path)` returns a `TextDiff` for files to show side by side with their
-  original (`FileViewers.openDiff`), `null` for the normal view. It is asked when a file is opened, and for diff views
-  when their file changes on disk and on `refreshDiffs()`; a diff view then shows the new diff or swaps to the normal
-  view in place (`OpenFile.view`, inside a stable content node), keeping its tab position and whether it is selected;
-  the scroll position resets ([git-diff.md](git-diff.md)). Until diffs are shown on demand, a normal view is never
-  swapped for a diff.
+- Diffs ([git-diff.md](git-diff.md)): `diffOf(path)` returns the `TextDiff` of a file against its original, `null`
+  if it has none. It is asked when a file is opened, when it changes on disk and on `refreshDiffs()`, and its changes
+  are marked in the editor (`EditableFileView.showChanges`). A file tab keeps the view it was opened with, its editor
+  (`OpenFile.editor`), until it closes. `toggleDiff()` (View → Show Changes) shows the diff side by side over it
+  (`FileViewers.openDiff`, `OpenFile.diffView`; the editor is hidden meanwhile and keeps text, caret and undo), or the
+  editor again; `canToggleDiff` tells whether the selected tab has a diff to show. The diff's Edit button and Escape
+  go back (`DiffFileView.onBack`), and so does a diff whose file has none anymore. Clicking a change marker asks the
+  area as `FileViewHost.showChanges(file, line)` to show the diff at that change.
 - Every window has its own editor area ([open-folder.md](open-folder.md)).
 - When the tabs do not fit, ‹ and › buttons appear. They scroll the tab row one tab at a time without changing the
   selection. A ▾ dropdown lists every tab that is cut off or out of view, and choosing one selects it and scrolls it

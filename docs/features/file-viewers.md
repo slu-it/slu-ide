@@ -7,8 +7,11 @@
   and keeps the scroll position and caret; the editor calls it when the file changes on disk. It never throws away
   unsaved changes. Views in which the file can be edited are `EditableFileView`s with `dirty` and `save()`
   ([text-editing.md](text-editing.md)): code views, plain text and the previews' source. Images and diffs are read-only.
-  `dispose()` is called once when the view is no longer shown (its tab closed, or a diff view or normal view took its
-  place); previews and the image view stop their `WebView` page there, other views do nothing.
+  `EditableFileView.showChanges(diff)` marks the lines changed against an original in the gutter of the code view
+  (`Gutter`; code views implement the public column hook `GutterColumns`, e.g. for run icons;
+  [git-diff.md](git-diff.md)). `focusText()` gives the focus to the content (a code view's text).
+  `dispose()` is called once when the view is no longer shown (its tab closed, or a diff view shown over the editor
+  was hidden again); previews and the image view stop their `WebView` page there, other views do nothing.
 - `FileViewers` asks every `FileViewer` bean in turn and uses the first that agrees. `DefaultTextFileViewer` is always
   asked last ([ADR 0004](../adr/0004-file-viewer-selection.md)). Returns `null` if no viewer agrees.
 - `DefaultTextFileViewer` shows any text file as plain text in an editable `CodeView` without highlighting. A file is text if its
@@ -53,8 +56,9 @@
   file's code viewer (plain for `DefaultTextFileViewer`; other viewers get no diff, `null`). `LineChange`s are
   `REMOVED` (grey, left only), `MODIFIED` (blue, both sides) or `ADDED` (green, right only), coloured on the line and
   its number (`diff-*` classes in `syntax.css`). Filler rows keep both sides aligned, line numbers are the real ones,
-  and both sides scroll together. `show(diff)` re-reads the file with a new diff. Used for git diffs
-  ([git-diff.md](git-diff.md)).
+  and both sides scroll together. `show(diff)` re-reads the file with a new diff, `jumpToChangeAt(line)` jumps to the
+  change at a line of the file, and while `onBack` is set, an Edit button and Escape go back. Used for git diffs on
+  demand ([git-diff.md](git-diff.md)).
 - Views set no font of their own: they inherit the editor font that `EditorArea` sets on their node
   ([settings.md](settings.md)). `syntax.css` makes the RichTextFX code area inherit it too, since RichTextFX's own
   stylesheet sets a monospace family on `.code-area`.

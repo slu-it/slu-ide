@@ -34,15 +34,15 @@
 - Only UTF-8 files are edited. A file that turns out not to be valid UTF-8 (only its first 8 KiB decide whether it
   opens) is shown read-only with the banner "*file* is not valid UTF-8; it is shown read-only."; invalid bytes show
   as replacement characters, and it is never saved. It becomes editable once it changes into valid UTF-8 on disk.
-- Until diffs are shown on demand, a file whose git status is modified opens as the read-only diff
-  ([git-diff.md](git-diff.md)); an open editor is never switched to its diff, so saving a tracked file keeps it.
+- Files always open in the editor, also when their git status is modified: the changed lines are marked in the
+  gutter, following unsaved edits, and the read-only diff is shown on demand over the editor, which keeps its unsaved
+  changes, caret and undo history meanwhile ([git-diff.md](git-diff.md)).
 - Structure:
   - `text-editing`: `LineEnding` (detect, normalise, restore), `TextReplacement` (smallest replacement between two
     texts, mapping of positions), `DiskChange` (what a change on disk means for an edited file).
-  - `file-viewers`: `EditableFileView` (`dirty`, `save()`), `CodeView` (editable RichTextFX area with plain-text
-    undo, banners styled by `code-view.css`, highlighting in the background with `changedSpanRange` from
-    `StyleRanges.kt`).
+  - `file-viewers`: `EditableFileView` (`dirty`, `save()`, `showChanges(diff)`), `CodeView` (editable RichTextFX
+    area with plain-text undo, banners styled by `code-view.css`, highlighting in the background with
+    `changedSpanRange` from `StyleRanges.kt`, line numbers and change markers in its `Gutter`).
   - `editor`: `EditorArea.save()`, `saveAll()`, `confirmCloseAll()`, `confirmSave` and `showError` (replaceable in
     tests), `OpenFile.dirty` for the title; `askToSave` / `SaveChoice` in `CloseConfirmation.kt`.
-- Not yet implemented: other encodings than UTF-8, Save As, autosave, change markers in the gutter, find and replace,
-  indentation keys.
+- Not yet implemented: other encodings than UTF-8, Save As, autosave, find and replace, indentation keys.

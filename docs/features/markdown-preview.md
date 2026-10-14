@@ -34,5 +34,5 @@
 - When the file changes on disk, source and preview update (`FileView.reload`); the preview renders only when the text
   changed, then returns to the source's line (side by side) or to its own scroll position (preview alone).
 - The divider keeps its place when switching modes.
-- Known gaps: modified files open as a diff ([git-diff.md](git-diff.md)) without preview, highlighted as Markdown; a
-  tab switching between diff and normal view starts again in Split. Scroll sync goes from source to preview only.
+- Known gaps: the diff of a modified file ([git-diff.md](git-diff.md)) has no preview, it is highlighted as Markdown.
+  Scroll sync goes from source to preview only.

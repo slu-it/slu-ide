@@ -8,8 +8,8 @@ A lightweight IDE written in Kotlin, using Spring Boot and JavaFX.
 - **Files** open in tabs to edit and save (File → Save, Ctrl/Cmd+S; Save All), keeping their line endings, with
   a prompt before unsaved changes are closed: syntax highlighting for common languages (Kotlin, Java, Python,
   JavaScript, TypeScript, JSON, XML, YAML, CSS and more), rendered previews beside the source for Markdown, HTML, SVG,
-  CSV and Jupyter notebooks; images on their own page. Files with a text, code or preview viewer that are modified in git
-  open as a side-by-side diff against `HEAD`.
+  CSV and Jupyter notebooks; images on their own page. Lines changed against `HEAD` in git are marked
+  beside the line numbers, and View → Show Changes (Ctrl/Cmd+Shift+D) shows the side-by-side diff.
 - **Terminals** (Terminal → New Terminal, Ctrl+Shift+T) run your shell in the project folder as a tab; **Docker
   sandboxes** (Claude Code, Environment) run `sbx` there.
 - **Settings** (File → Settings…, Ctrl+,): Light, Dark or System theme and the fonts of explorer, editor and
