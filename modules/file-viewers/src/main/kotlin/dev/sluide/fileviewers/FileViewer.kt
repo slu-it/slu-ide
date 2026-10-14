@@ -1,13 +1,14 @@
 package dev.sluide.fileviewers
 
+import javafx.beans.value.ObservableBooleanValue
 import javafx.scene.Node
 import java.io.IOException
 import java.net.URI
 import java.nio.file.Path
 
 /**
- * Shows the content of a file, read-only. Every Spring bean implementing this interface is asked by
- * [FileViewers] whether it can show a file; [DefaultTextFileViewer] is always asked last.
+ * Shows the content of a file, read-only or editable ([EditableFileView]). Every Spring bean implementing this
+ * interface is asked by [FileViewers] whether it can show a file; [DefaultTextFileViewer] is always asked last.
  */
 interface FileViewer {
     /** Whether this viewer can show [file]. Must be cheap and must not throw. */
@@ -44,6 +45,16 @@ interface FileView {
     var host: FileViewHost?
         get() = null
         set(_) {}
+}
+
+/** A [FileView] in which the file can be edited and saved. */
+interface EditableFileView : FileView {
+    /** Whether the view has changes that are not saved. */
+    val dirty: ObservableBooleanValue
+
+    /** Writes the edited text to the file, in place, with the file's line endings; then the view is not [dirty]. */
+    @Throws(IOException::class)
+    fun save()
 }
 
 /** What a [FileView] can ask of the IDE showing it. */

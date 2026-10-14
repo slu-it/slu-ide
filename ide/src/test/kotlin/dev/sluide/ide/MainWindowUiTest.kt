@@ -278,6 +278,14 @@ class MainWindowUiTest {
         runGit("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "-am", "Change")
         eventually(robot) { assertFalse(showsDiff(), "clean files show normally") }
         assertEquals(project.resolve("tracked.md"), editorArea.selectedPath)
+
+        // An open editor is not swapped for the diff, e.g. after a save (until diffs are shown on demand, ADR 0020).
+        project.resolve("tracked.md").writeText("one\nTWO\nfour\n")
+        eventually(robot) {
+            // The editor area asks for diffs as soon as the status changes.
+            assertEquals(GitStatus.MODIFIED, gitStatus.snapshot.get().fileStatus(project.resolve("tracked.md")))
+        }
+        assertFalse(showsDiff())
     }
 
     private fun runGit(vararg arguments: String) {

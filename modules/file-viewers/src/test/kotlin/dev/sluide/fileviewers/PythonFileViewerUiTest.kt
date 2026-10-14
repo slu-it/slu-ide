@@ -20,7 +20,6 @@ import java.nio.file.Path
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /** Renders the real viewer in a stage. Needs a display, see the `uiTest` Gradle task. */
@@ -39,7 +38,7 @@ class PythonFileViewerUiTest {
     }
 
     @Test
-    fun `shows the file read-only with highlighted tokens`(robot: FxRobot) {
+    fun `shows the file editable with highlighted tokens`(robot: FxRobot) {
         val source = "def main():  # entry\n    return 'done'\n"
         val file = dir.resolve("main.py").apply { writeText(source) }
 
@@ -48,7 +47,7 @@ class PythonFileViewerUiTest {
 
         val area = robot.lookup(".code-area").queryAs(CodeArea::class.java)
         assertEquals(source, area.text)
-        assertFalse(area.isEditable)
+        assertTrue(area.isEditable)
         assertTrue("keyword" in area.getStyleOfChar(source.indexOf("def") + 1))
         assertTrue("comment" in area.getStyleOfChar(source.indexOf("# entry") + 1))
         assertTrue("string" in area.getStyleOfChar(source.indexOf("'done'") + 1))

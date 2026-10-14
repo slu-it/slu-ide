@@ -525,7 +525,7 @@ class EditorAreaUiTest {
             .map { it.text }
 
     @Test
-    fun `files with a diff open side by side and switch views when the diff comes or goes`(robot: FxRobot) {
+    fun `files with a diff open side by side and switch to the editor when the diff goes, not back`(robot: FxRobot) {
         val a = textFile("a.txt", "new\n")
         var diff: TextDiff? = TextDiff("old\n", listOf(LineChange(0..0, 0..0)))
         editor.diffOf = { diff }
@@ -541,10 +541,12 @@ class EditorAreaUiTest {
         assertEquals(emptyList(), shownDiff(robot))
         assertEquals("new\n", shownText(robot))
 
+        // Until diffs are shown on demand, an open editor stays (ADR 0020).
         diff = TextDiff("older\n", listOf(LineChange(0..0, 0..0)))
         robot.interact { editor.refreshDiffs() }
         WaitForAsyncUtils.waitForFxEvents()
-        assertEquals(listOf("older", "new"), shownDiff(robot))
+        assertEquals(emptyList(), shownDiff(robot))
+        assertEquals("new\n", shownText(robot))
         assertSame(tab, editor.selectedTab)
         assertEquals(listOf(a), editor.openPaths)
     }

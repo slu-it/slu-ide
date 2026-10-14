@@ -43,7 +43,8 @@ class EditorArea(
 
     /**
      * The diff of a file against its original (e.g. the last commit) if it is to be shown as a diff, `null` to show it
-     * normally (ADR 0015). Asked when a file is opened, when it changes on disk and on [refreshDiffs].
+     * normally (ADR 0015). Asked when a file is opened, and for diff views when their file changes on disk and on
+     * [refreshDiffs]. Until diffs are shown on demand, an open editor is never swapped for its diff (ADR 0020).
      */
     var diffOf: (Path) -> TextDiff? = { null }
 
@@ -118,8 +119,8 @@ class EditorArea(
     }
 
     /**
-     * Asks [diffOf] again for every open file: files get a diff view or the normal one as needed, diff views show the
-     * new diff. Call it when the answers may have changed (e.g. a commit).
+     * Asks [diffOf] again for every open diff view: it shows the new diff, or the normal view if there is none anymore;
+     * other views reload. Call it when the answers may have changed (e.g. a commit).
      */
     fun refreshDiffs() {
         editorTabs.files.forEach { if (fileViewers.viewerFor(it.path) != null) updateView(it) }
@@ -150,19 +151,20 @@ class EditorArea(
         watch(openFile)
     }
 
-    /** Shows the file's current content, swapping between diff and normal view as [diffOf] says. */
+    /** Shows the file's current content; a diff view is swapped for the normal view once [diffOf] has no diff. */
     private fun updateView(openFile: OpenFile) {
         val path = openFile.path
         try {
-            val diff = diffOf(path)
             when (val view = openFile.view) {
                 is DiffFileView -> {
+                    val diff = diffOf(path)
                     if (diff != null) view.show(diff) else openFile.view = normalView(path)?.let(::hosted) ?: return
                 }
 
+                // Until diffs are shown on demand, an editor is never swapped for its diff: it may have unsaved
+                // changes, and saving must not take it away.
                 else -> {
-                    val diffView = diff?.let { fileViewers.openDiff(path, it) }?.let(::hosted)
-                    if (diffView != null) openFile.view = diffView else view.reload()
+                    view.reload()
                 }
             }
         } catch (_: IOException) {
