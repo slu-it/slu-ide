@@ -85,7 +85,8 @@ internal class RSyntaxHighlighter(
             var rawStringEnd = -1
             while (token != null) {
                 lastType = token.type
-                if (token.isPaintable) {
+                // Some lexers end a line with an empty token that only carries state, e.g. Markdown after ```ts.
+                if (token.isPaintable && token.length() > 0) {
                     rawStringEnd = rawStringEnd(text, token)
                     if (rawStringEnd >= 0) {
                         spans += HighlightSpan(token.offset, rawStringEnd, TokenStyle.STRING)
@@ -273,6 +274,22 @@ internal class RSyntaxHighlighter(
          */
         val singleFileComponent =
             RSyntaxHighlighter(SyntaxConstants.SYNTAX_STYLE_HTML, lineRules = listOf(markupTagName))
+
+        /**
+         * Markdown and MDX: headings and bold as keywords, emphasis as type, inline HTML/JSX as markup. The lexer
+         * reports inline and fenced code as preprocessor, shown as string here; line rules add links (`attribute`)
+         * and MDX's `import`/`export` lines.
+         */
+        val markdown =
+            RSyntaxHighlighter(
+                SyntaxConstants.SYNTAX_STYLE_MARKDOWN,
+                tokenStyles = mapOf(TokenTypes.PREPROCESSOR to TokenStyle.STRING),
+                lineRules =
+                    listOf(
+                        Regex("""(?<attribute>!?\[[^\]]*]\([^)]*\))"""),
+                        Regex("""^(?<keyword>import|export)\b"""),
+                    ),
+            )
 
         /** SCSS and Sass variables (`$primary`), styled like custom properties. */
         private val sassVariable = Regex("""(?<annotation>\$[\w-]+)""")

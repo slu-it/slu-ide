@@ -28,6 +28,7 @@ class CodeFileViewersTest {
             HtmlFileViewer() to listOf("index.html", "legacy.htm", "page.xhtml"),
             SingleFileComponentViewer() to listOf("App.vue", "Page.svelte"),
             YamlFileViewer() to listOf("ci.yml", "config.yaml"),
+            MarkdownFileViewer() to listOf("README.md", "notes.markdown", "docs.mdx"),
             CssFileViewer() to listOf("site.css"),
             ScssFileViewer() to listOf("_vars.scss"),
             LessFileViewer() to listOf("theme.less"),
