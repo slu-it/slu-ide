@@ -122,12 +122,22 @@ class GitCli(
         // Read while git runs, so a large output cannot fill the pipe and block it.
         val output = ByteArrayOutputStream()
         val reader = Thread.ofVirtual().start { process.inputStream.use { it.transferTo(output) } }
-        if (!process.waitFor(timeout.inWholeMilliseconds, TimeUnit.MILLISECONDS)) {
+        try {
+            if (!process.waitFor(timeout.inWholeMilliseconds, TimeUnit.MILLISECONDS)) {
+                process.destroyForcibly()
+                log.log(
+                    System.Logger.Level.WARNING,
+                    "$executable ${arguments.joinToString(" ")} took longer than $timeout",
+                )
+                return null
+            }
+            reader.join()
+        } catch (_: InterruptedException) {
+            // E.g. the window was closed during a run: stop git too, and keep the interrupt for the caller.
             process.destroyForcibly()
-            log.log(System.Logger.Level.WARNING, "$executable ${arguments.joinToString(" ")} took longer than $timeout")
+            Thread.currentThread().interrupt()
             return null
         }
-        reader.join()
         return if (process.exitValue() == 0) output.toString(Charsets.UTF_8) else null
     }
 }

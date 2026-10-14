@@ -3,9 +3,15 @@ package dev.sluide.git
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import java.util.concurrent.TimeUnit
+import kotlin.io.path.exists
+import kotlin.io.path.readText
+import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import kotlin.test.fail
 
 class GitCliTest {
     @TempDir
@@ -25,7 +31,46 @@ class GitCliTest {
         assumeTrue(git.available, "git is not installed")
         assertNull(git.status(folder))
     }
+
+    @Test
+    fun `an interrupted run stops git and keeps the interrupt`() {
+        val pidFile = folder.resolve("pid")
+        // Answers --version; for anything else it becomes a long sleep that writes its process id first.
+        val executable =
+            folder.resolve("slow-git").apply {
+                writeText("#!/bin/sh\n[ \"$1\" = --version ] && exit 0\necho $$ > '$pidFile'\nexec sleep 60\n")
+                toFile().setExecutable(true)
+            }
+        val git = GitCli(executable.toString(), System.getenv())
+        assertTrue(git.available)
+
+        var result: String? = "not finished"
+        var interrupted = false
+        val caller =
+            Thread.ofPlatform().start {
+                result = git.status(folder)
+                interrupted = Thread.currentThread().isInterrupted
+            }
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
+        while (pidFile.readTextOrNull().isNullOrBlank()) {
+            if (System.nanoTime() > deadline) fail("git did not start")
+            Thread.sleep(20)
+        }
+        val process = ProcessHandle.of(pidFile.readText().trim().toLong())
+        assertTrue(process.isPresent, "git runs")
+
+        caller.interrupt()
+        caller.join(TimeUnit.SECONDS.toMillis(10))
+
+        assertFalse(caller.isAlive)
+        assertNull(result)
+        assertTrue(interrupted, "the interrupt is kept")
+        process.get().onExit().get(10, TimeUnit.SECONDS)
+        assertFalse(process.get().isAlive, "git was stopped")
+    }
 }
+
+private fun Path.readTextOrNull(): String? = if (exists()) readText() else null
 
 /** The environment for git in tests: no global or system configuration, so the user's settings do not interfere. */
 internal fun testGitEnvironment(): Map<String, String> =
