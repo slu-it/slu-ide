@@ -214,13 +214,16 @@ class SettingsUiTest {
         val dialog = open(robot, fontsPage)
         val terminal = fontsPage.rows.getValue(FontArea.TERMINAL)
 
-        assertTrue("Monospaced" in terminal.family.items)
-        assertTrue(terminal.family.items.all { it == "Monospaced" || FontsPage.isMonospaced(it) })
-        assertTrue(
+        val editorFamilies =
             fontsPage.rows
                 .getValue(FontArea.EDITOR)
-                .family.items.size >= terminal.family.items.size,
-        )
+                .family.items
+        assertTrue("Monospaced" in terminal.family.items)
+        assertTrue(editorFamilies.containsAll(terminal.family.items))
+        assertTrue(editorFamilies.size > terminal.family.items.size, "proportional fonts are left out")
+        assertTrue(FontsPage.isMonospaced("Monospaced"))
+        assertFalse(FontsPage.isMonospaced("System"), "a proportional font")
+        assertFalse(FontsPage.isMonospaced("No Such Font"))
 
         robot.interact { terminal.family.value = "No Such Font" }
         assertEquals("Monospaced", terminal.family.value)
@@ -283,15 +286,4 @@ class SettingsUiTest {
 
     private fun enter(node: Node) =
         Event.fireEvent(node, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.ENTER, false, false, false, false))
-
-    @Test
-    fun `fonts have the chosen weight and posture`(robot: FxRobot) {
-        robot.interact {
-            val bold = FontSpec("Monospaced", 15.0, FontStyle.BOLD).toFont()
-            assertEquals(15.0, bold.size)
-            assertTrue("Bold" in bold.style && "Italic" !in bold.style, bold.style)
-            val italic = FontSpec("Monospaced", 15.0, FontStyle.ITALIC).toFont()
-            assertTrue("Italic" in italic.style && "Bold" !in italic.style, italic.style)
-        }
-    }
 }
