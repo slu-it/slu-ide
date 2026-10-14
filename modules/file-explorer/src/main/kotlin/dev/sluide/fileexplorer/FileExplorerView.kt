@@ -4,18 +4,23 @@ import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontSpec
+import javafx.application.Platform
 import javafx.beans.InvalidationListener
 import javafx.beans.WeakInvalidationListener
 import javafx.beans.property.SimpleIntegerProperty
 import javafx.beans.value.ObservableValue
 import javafx.geometry.Pos
+import javafx.scene.control.Alert
 import javafx.scene.control.ContentDisplay
 import javafx.scene.control.ContextMenu
 import javafx.scene.control.Label
 import javafx.scene.control.MenuItem
+import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.control.TreeCell
 import javafx.scene.control.TreeItem
 import javafx.scene.control.TreeView
+import javafx.scene.control.skin.VirtualFlow
+import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
@@ -59,6 +64,25 @@ class FileExplorerView(
     /** Called after files changed on disk in a loaded folder, and after a manual refresh. */
     var onFilesChanged: () -> Unit = {}
 
+    /**
+     * Asks for a name, starting with `initial`, while `validate` tells what is wrong with it; `null` if cancelled.
+     * Shows a dialog; tests replace it, since it blocks.
+     */
+    internal var askName: (title: String, initial: String, validate: (String) -> String?) -> String? =
+        { title, initial, validate -> askForName(scene?.window, title, initial, validate) }
+
+    /** Shows an error message and waits until it is closed; tests replace it, since it blocks. */
+    internal var showError: (String) -> Unit = { message ->
+        Alert(Alert.AlertType.ERROR, message)
+            .apply {
+                scene?.window?.let(::initOwner)
+                headerText = null
+            }.showAndWait()
+    }
+
+    /** The entry the context menu was opened for; `null` for the empty area, which stands for the opened folder. */
+    private var menuTarget: FileTreeItem? = null
+
     /** Counts calls of [refreshMarkers]; the cells listen to it. */
     private val markerChanges = SimpleIntegerProperty()
 
@@ -86,7 +110,27 @@ class FileExplorerView(
                 }
             }
         }
-        contextMenu = ContextMenu(MenuItem("Refresh").apply { setOnAction { refreshAll() } })
+        contextMenu = fileMenu()
+        // Cells for entries set the target afterwards; a menu opened by keyboard is for the selected entry.
+        addEventFilter(ContextMenuEvent.CONTEXT_MENU_REQUESTED) { event ->
+            menuTarget = if (event.isKeyboardTrigger) selectionModel.selectedItem as? FileTreeItem else null
+        }
+    }
+
+    private fun fileMenu(): ContextMenu {
+        val newFile = MenuItem("New File…").apply { setOnAction { create(menuTarget, folder = false) } }
+        val newFolder = MenuItem("New Folder…").apply { setOnAction { create(menuTarget, folder = true) } }
+        return ContextMenu(
+            newFile,
+            newFolder,
+            SeparatorMenuItem(),
+            MenuItem("Refresh").apply { setOnAction { refreshAll() } },
+        ).apply {
+            setOnShowing {
+                newFile.isDisable = root == null
+                newFolder.isDisable = root == null
+            }
+        }
     }
 
     /** Shows [root] and its content; `null` clears the view. */
@@ -144,6 +188,52 @@ class FileExplorerView(
     /** Deleted folders are removed from the tree by their parent's refresh; their watches end here. */
     private fun closeWatchesOfVanishedFolders() {
         watches.keys.filterNot(Files::isDirectory).forEach { watches.remove(it)?.close() }
+    }
+
+    /**
+     * Asks for a name and creates a file or [folder] of that name in [target] if it is a folder, else beside it; in the
+     * opened folder for `null`. The new entry is selected, and a new file opened.
+     */
+    internal fun create(
+        target: FileTreeItem?,
+        folder: Boolean,
+    ) {
+        val item = target ?: root as? FileTreeItem ?: return
+        val parent = if (item.isDirectory) item else item.parent as? FileTreeItem ?: return
+        val name =
+            askName(if (folder) "New Folder" else "New File", "") { FileOperations.nameProblem(it, parent.value) }
+                ?: return
+        val operation = if (folder) FileOperations::createFolder else FileOperations::createFile
+        val created =
+            try {
+                operation(parent.value, name)
+            } catch (e: FileOperationException) {
+                showError(e.message.orEmpty())
+                return
+            }
+        select(parent, created)
+        if (!folder) requestOpen(created)
+    }
+
+    /** Shows [path], an entry of [parent], at once, without waiting for the watch, and selects it. */
+    private fun select(
+        parent: FileTreeItem,
+        path: Path,
+    ) {
+        parent.isExpanded = true
+        // Reads the folder for the first time, or again if it was loaded.
+        parent.refresh()
+        val item = parent.children.firstOrNull { it.value == path } ?: return
+        selectRow(item)
+    }
+
+    /** Selects and focuses [item], scrolling only as far as needed to show it. */
+    private fun selectRow(item: TreeItem<Path>) {
+        val row = getRow(item)
+        selectionModel.clearAndSelect(row)
+        // Rows inserted or removed before the focused one move the focus later, away from the selection.
+        Platform.runLater { focusModel.focus(getRow(item)) }
+        (lookup(".virtual-flow") as? VirtualFlow<*>)?.scrollTo(row) ?: scrollTo(row)
     }
 
     /** Passes [path] to [onOpenFile] if it is a regular file; returns whether it did. */
@@ -204,6 +294,9 @@ class FileExplorerView(
                     it.expandedProperty().addListener(iconUpdater)
                     it.readable.addListener(iconUpdater)
                 }
+            }
+            addEventHandler(ContextMenuEvent.CONTEXT_MENU_REQUESTED) {
+                if (!isEmpty) menuTarget = treeItem as? FileTreeItem
             }
             setOnMouseClicked { event ->
                 val path = item

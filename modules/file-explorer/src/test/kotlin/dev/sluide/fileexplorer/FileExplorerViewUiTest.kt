@@ -9,9 +9,12 @@ import dev.sluide.settings.SettingsStore
 import javafx.application.ColorScheme
 import javafx.application.Platform
 import javafx.event.Event
+import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.Label
+import javafx.scene.control.MenuItem
 import javafx.scene.control.TreeCell
+import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
@@ -34,6 +37,7 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
 import kotlin.io.path.createParentDirectories
 import kotlin.io.path.deleteExisting
+import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.name
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
@@ -244,8 +248,7 @@ class FileExplorerViewUiTest {
         }
         project.resolve("late.txt").createFile()
 
-        val refresh = manual.contextMenu.items.single()
-        assertEquals("Refresh", refresh.text)
+        val refresh = manual.contextMenu.items.single { it.text == "Refresh" }
         robot.interact { refresh.fire() }
         WaitForAsyncUtils.waitForFxEvents()
 
@@ -290,6 +293,145 @@ class FileExplorerViewUiTest {
         eventually(robot) {
             assertEquals(listOf(project.name, "sub", "first.txt", "second.txt"), renderedNames(robot))
         }
+    }
+
+    /** Opens the context menu as a right-click on [node] does, and returns its item [text]. */
+    private fun menuItemFor(
+        robot: FxRobot,
+        node: Node,
+        text: String,
+    ): MenuItem {
+        robot.interact {
+            Event.fireEvent(
+                node,
+                ContextMenuEvent(ContextMenuEvent.CONTEXT_MENU_REQUESTED, 1.0, 1.0, 1.0, 1.0, false, null),
+            )
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        val item = view.contextMenu.items.single { it.text == text }
+        robot.interact { view.contextMenu.hide() }
+        return item
+    }
+
+    /** Replaces [view] by one whose watches never report, so only the view itself can show changes. */
+    private fun useUnwatchedView(robot: FxRobot) {
+        val unwatched = FileWatcher(Platform::runLater, 50.milliseconds).apply { close() }
+        robot.interact {
+            val replaced = view
+            view = FileExplorerView(unwatched, fontSettings)
+            replaced.scene.root = view
+        }
+    }
+
+    @Test
+    fun `New File creates a file beside the clicked file, selects and opens it at once`(robot: FxRobot) {
+        project.resolve("sub/taken.txt").createParentDirectories().createFile()
+        useUnwatchedView(robot)
+        val opened = mutableListOf<Path>()
+        view.onOpenFile = { opened.add(it) }
+        val asked = mutableListOf<String?>()
+        view.askName = { title, initial, validate ->
+            asked += listOf(title, initial, validate("taken.txt"), validate("new.txt"))
+            "new.txt"
+        }
+        robot.interact { view.open(project) }
+        robot.interact {
+            view.root.children
+                .single()
+                .isExpanded = true
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val newFile = menuItemFor(robot, cellNamed(robot, "taken.txt"), "New File…")
+        robot.interact { newFile.fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val created = project.resolve("sub/new.txt")
+        assertEquals(listOf("New File", "", "“taken.txt” already exists in this folder.", null), asked)
+        assertTrue(Files.isRegularFile(created))
+        assertEquals(listOf(project.name, "sub", "new.txt", "taken.txt"), renderedNames(robot))
+        robot.interact { assertEquals(created, view.selectionModel.selectedItem?.value) }
+        assertEquals(listOf(created), opened)
+    }
+
+    @Test
+    fun `New Folder creates a folder in the clicked folder and expands it, or in the opened folder`(robot: FxRobot) {
+        project.resolve("sub/inner.txt").createParentDirectories().createFile()
+        useUnwatchedView(robot)
+        val opened = mutableListOf<Path>()
+        view.onOpenFile = { opened.add(it) }
+        var name = "nested"
+        view.askName = { _, _, _ -> name }
+        robot.interact { view.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val inSub = menuItemFor(robot, cellNamed(robot, "sub"), "New Folder…")
+        robot.interact { inSub.fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertTrue(Files.isDirectory(project.resolve("sub/nested")))
+        assertEquals(listOf(project.name, "sub", "nested", "inner.txt"), renderedNames(robot))
+        robot.interact {
+            assertEquals(project.resolve("sub/nested"), view.selectionModel.selectedItem?.value)
+            assertEquals(project.resolve("sub/nested"), view.focusModel.focusedItem?.value)
+        }
+
+        // The empty area below the entries stands for the opened folder.
+        name = "top"
+        val inProject = menuItemFor(robot, view, "New Folder…")
+        robot.interact { inProject.fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertTrue(Files.isDirectory(project.resolve("top")))
+        assertEquals(listOf(project.name, "sub", "nested", "inner.txt", "top"), renderedNames(robot))
+        robot.interact { assertEquals(project.resolve("top"), view.selectionModel.selectedItem?.value) }
+        assertEquals(emptyList(), opened)
+    }
+
+    @Test
+    fun `the focus follows the new entry also when it is inserted before the focused one`(robot: FxRobot) {
+        project.resolve("z.txt").createFile()
+        view.askName = { _, _, _ -> "a" }
+        robot.interact { view.open(project) }
+        robot.interact { view.selectionModel.select(view.root.children.single()) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        robot.interact { view.create(null, folder = true) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        robot.interact {
+            assertEquals(project.resolve("a"), view.selectionModel.selectedItem?.value)
+            assertEquals(project.resolve("a"), view.focusModel.focusedItem?.value)
+        }
+    }
+
+    @Test
+    fun `nothing is created when the name is cancelled, an error is shown when creating fails`(robot: FxRobot) {
+        val sub = project.resolve("sub").createDirectories()
+        val errors = mutableListOf<String>()
+        view.showError = { errors += it }
+        view.askName = { _, _, _ -> null }
+        robot.interact { view.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        robot.interact { view.create(null, folder = false) }
+        assertEquals(listOf("sub"), project.listDirectoryEntries().map { it.name })
+        assertEquals(emptyList(), errors)
+
+        // The folder vanishes while the name is asked for.
+        view.askName = { _, _, _ ->
+            sub.deleteExisting()
+            "late.txt"
+        }
+        robot.interact { view.create(view.root.children.single() as FileTreeItem, folder = false) }
+        assertEquals(listOf("Could not create “late.txt”: ${sub.resolve("late.txt")} does not exist."), errors)
+    }
+
+    @Test
+    fun `New File and New Folder are disabled without an opened folder`(robot: FxRobot) {
+        val newFile = menuItemFor(robot, view, "New File…")
+        val newFolder = view.contextMenu.items.single { it.text == "New Folder…" }
+
+        assertTrue(newFile.isDisable)
+        assertTrue(newFolder.isDisable)
     }
 
     /** Repeats [assertion] on the FX thread until it passes; the JDK may poll for file changes on macOS. */
