@@ -102,9 +102,6 @@ class FileWatcher(
             } catch (e: IOException) {
                 log.log(System.Logger.Level.DEBUG, "Cannot watch $dir", e)
                 return null
-            } catch (e: SecurityException) {
-                log.log(System.Logger.Level.DEBUG, "Cannot watch $dir", e)
-                return null
             }
         return Watched(dir, key).also {
             byDirectory[dir] = it
@@ -145,17 +142,22 @@ class FileWatcher(
     }
 
     private fun run(service: WatchService) {
-        try {
-            while (true) {
+        while (true) {
+            try {
                 val wait = synchronized(lock) { nanosUntilNextFlush() }
                 val key = if (wait == null) service.take() else service.poll(wait, TimeUnit.NANOSECONDS)
                 if (key != null) collect(key)
                 flushQuietDirectories()
+            } catch (_: ClosedWatchServiceException) {
+                // closed: stop watching
+                return
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+                return
+            } catch (e: RuntimeException) {
+                // E.g. the dispatcher failed: the changes of this round are lost, later ones are still reported.
+                log.log(System.Logger.Level.WARNING, "File watching failed; continuing", e)
             }
-        } catch (_: ClosedWatchServiceException) {
-            // closed: stop watching
-        } catch (_: InterruptedException) {
-            Thread.currentThread().interrupt()
         }
     }
 

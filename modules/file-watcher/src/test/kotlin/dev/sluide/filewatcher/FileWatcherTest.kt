@@ -6,6 +6,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteExisting
 import kotlin.io.path.writeText
@@ -174,6 +175,30 @@ class FileWatcherTest {
         realHandle.close()
         real.resolve("b.txt").writeText("x")
         viaLink.awaitPath(link.resolve("b.txt"))
+    }
+
+    @Test
+    fun `a failing dispatcher does not end the watching`() {
+        val failures = AtomicInteger()
+        val failingOnce =
+            FileWatcher(
+                dispatch = {
+                    if (failures.getAndIncrement() == 0) throw IllegalStateException("Toolkit not running")
+                    it.run()
+                },
+                quietPeriod = 50.milliseconds,
+            )
+        try {
+            val recorder = Recorder()
+            failingOnce.watch(dir, recorder)
+
+            dir.resolve("lost.txt").writeText("x")
+            await("the dispatcher was called") { failures.get() > 0 }
+            val file = dir.resolve("later.txt").apply { writeText("x") }
+            recorder.awaitPath(file)
+        } finally {
+            failingOnce.close()
+        }
     }
 
     @Test
