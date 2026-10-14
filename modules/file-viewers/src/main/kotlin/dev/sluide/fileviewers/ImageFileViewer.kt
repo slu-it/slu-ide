@@ -59,7 +59,7 @@ internal class ImageFileView(
     init {
         engine.loadWorker.stateProperty().subscribe { state -> if (state == Worker.State.SUCCEEDED) onLoaded() }
         // Nothing on the page navigates; something dropped onto it would. Show the image again.
-        engine.locationProperty().subscribe { location -> if (!isPageFromString(location)) render() }
+        engine.locationProperty().subscribe { location -> if (!disposed && !isPageFromString(location)) render() }
         pane
             .sceneProperty()
             .flatMap { it.preferences.colorSchemeProperty() }
@@ -74,6 +74,7 @@ internal class ImageFileView(
     override val node: Node get() = pane
 
     override fun reload() {
+        if (disposed) return
         if (file.fileSize() > ImageFileViewer.MAX_IMAGE_BYTES) throw IOException("$file is too large to show")
         val newBytes = file.readBytes()
         if (newBytes.contentEquals(bytes)) return
@@ -81,13 +82,14 @@ internal class ImageFileView(
         render()
     }
 
-    /** Stops showing the image; the blank page left is no page of ours. */
+    /** Stops showing the image for good: the blank page left is no page of ours, and nothing renders again. */
     override fun dispose() {
         disposed = true
         engine.load("")
     }
 
-    private val isLoaded
+    /** Whether the view shows its image page, completely loaded. */
+    internal val isLoaded
         get() = !disposed && engine.loadWorker.state == Worker.State.SUCCEEDED && isPageFromString(engine.location)
 
     private fun render() {

@@ -404,10 +404,21 @@ class PreviewFileViewUiTest {
         WaitForAsyncUtils.sleep(500, TimeUnit.MILLISECONDS)
         WaitForAsyncUtils.waitForFxEvents()
 
-        val location = WaitForAsyncUtils.asyncFx<String?> { view.webView.engine.location }.get()
-        assertTrue(isPageFromString(location), "blank, not $location")
-        assertEquals(null, view.script("document.querySelector('h1')"))
+        fun assertBlank() {
+            val location = WaitForAsyncUtils.asyncFx<String?> { view.webView.engine.location }.get()
+            assertTrue(isPageFromString(location), "blank, not $location")
+            assertEquals(null, view.script("document.querySelector('h1')"))
+        }
+        assertBlank()
         assertTrue(!robot.lookup(".preview-notice").query<Node>().isVisible)
+
+        // Neither a change of the file nor asking to show the page again brings it back.
+        file.writeText("<h1>Changed</h1>")
+        robot.interact { view.reload() }
+        robot.interact { robot.lookup(".preview-notice .button").queryButton().fire() }
+        WaitForAsyncUtils.sleep(500, TimeUnit.MILLISECONDS)
+        WaitForAsyncUtils.waitForFxEvents()
+        assertBlank()
     }
 
     @Test

@@ -21,6 +21,8 @@ import kotlin.io.path.fileSize
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 /** Image and SVG previews with a real WebView. Needs a display, see the `uiTest` Gradle task. */
 @Tag("ui")
@@ -99,9 +101,21 @@ class ImagePreviewUiTest {
                 view.webView.script("document.querySelector('img')") == null
         }
         assertEquals("about:blank", fx { view.webView.engine.location })
-        // Changing the colour scheme no longer reaches the blank page.
+        // The blank page is no image page: the colour scheme does not reach it.
+        assertFalse(fx { view.isLoaded })
         robot.interact { container.scene.preferences.colorScheme = ColorScheme.DARK }
+        assertFalse(fx { view.isLoaded })
         assertEquals(false, view.webView.script("document.body.classList.contains('dark')"))
+
+        // Neither a change of the file nor a page loaded into it shows the image again.
+        png("icon.png", 30, 20)
+        robot.interact { view.reload() }
+        val other = dir.resolve("other.txt").apply { writeText("other") }
+        robot.interact { view.webView.engine.load(other.toUri().toString()) }
+        WaitForAsyncUtils.sleep(500, TimeUnit.MILLISECONDS)
+        WaitForAsyncUtils.waitForFxEvents()
+        assertTrue(fx { view.webView.engine.location }.orEmpty().endsWith("other.txt"))
+        assertEquals(null, view.webView.script("document.querySelector('img')"))
     }
 
     @Test

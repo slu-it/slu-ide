@@ -131,9 +131,10 @@ internal enum class PreviewMode(
  * Clicked links never navigate the preview: anchors scroll within it, every other link goes to [host]
  * ([resolveLink]): web pages to the browser, files to SluIde. Pages without our script (e.g. HTML files) do navigate:
  * a navigation away from the [own page][Preview.isOwnPage] within 2 seconds of a mouse press, key press or drop in
- * the preview is the user's, so its target goes to [host] and the page is shown again. Any other navigation (a meta refresh, a script
- * setting `location`), and the page loading itself again without such input, stops the preview with a notice until
- * the user shows the page again or the file changes, so a page can neither open things on its own nor reload in a
+ * the preview is the user's, so its target goes to [host] and the page is shown again. Any other navigation (a meta
+ * refresh, a script setting `location`), and the page loading itself again without such input, stops the preview
+ * with a notice until the user shows the page again or the file changes, so a page can neither open things on its
+ * own nor reload in a
  * loop. A page that cannot be loaded (e.g. no server) stops with a notice too. Only the own page gets the link bridge.
  *
  * Pages that [offer scripts][Preview.offersScripts] run them only while [scripts] is on, after [confirmScripts]: such
@@ -210,6 +211,9 @@ internal class PreviewFileView(
     /** Whether the preview stopped after the page navigated on its own ([stop]). */
     private var stopped = false
 
+    /** Whether the view was [disposed][dispose]: it stays stopped for good. */
+    private var disposed = false
+
     /** Whether the view started a load that has not finished yet; a load it did not start is the page's own doing. */
     private var loading = false
 
@@ -285,12 +289,14 @@ internal class PreviewFileView(
     override val node: Node get() = pane
 
     override fun reload() {
+        if (disposed) return
         source.reload()
         if (stopped && source.area.text != renderedText) resume() else render()
     }
 
-    /** Stops the page: a stopped view renders nothing more until [resume], which nothing calls once it is gone. */
+    /** Stops the page for good: a disposed view never renders again, not even on [reload] or [resume]. */
     override fun dispose() {
+        disposed = true
         stopped = true
         engine.load("")
     }
@@ -362,6 +368,7 @@ internal class PreviewFileView(
     }
 
     private fun resume() {
+        if (disposed) return
         stopped = false
         noticePane.isVisible = false
         rerender()
