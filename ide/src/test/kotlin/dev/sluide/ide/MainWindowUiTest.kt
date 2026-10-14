@@ -11,6 +11,7 @@ import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitCli
 import dev.sluide.git.GitStatus
 import dev.sluide.git.GitStatusService
+import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontSpec
@@ -66,6 +67,7 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
@@ -123,7 +125,11 @@ class MainWindowUiTest {
         terminals.close()
         gitStatus.close()
         watcher.close()
+        httpSessions.forEach(HttpClientSession::close)
     }
+
+    /** The HTTP client sessions of the windows a test created; closed after it. */
+    private val httpSessions = mutableListOf<HttpClientSession>()
 
     @Start
     fun start(stage: Stage) {
@@ -158,6 +164,7 @@ class MainWindowUiTest {
         SettingsPages(listOf(FontsPage(fontSettings))),
         ThemedWindows(ThemeSettings(SettingsStore(settingsDir.resolve("settings.properties")))),
         projectWindows,
+        HttpClientSession().also(httpSessions::add),
         SystemBrowser(),
     )
 
@@ -190,6 +197,11 @@ class MainWindowUiTest {
     fun `starts with an empty explorer and the plain title`(robot: FxRobot) {
         assertEquals("SluIde", stage.title)
         assertEquals(0, robot.lookup(".tree-cell").queryAllAs(TreeCell::class.java).count { it.text != null })
+    }
+
+    @Test
+    fun `file views find the window's HTTP client session`() {
+        assertIs<HttpClientSession>(editorArea.windowServices.single())
     }
 
     @Test

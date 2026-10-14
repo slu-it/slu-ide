@@ -7,6 +7,7 @@ import dev.sluide.editor.EditorArea
 import dev.sluide.editor.askToClose
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.git.GitStatusService
+import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.settings.SettingsDialog
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.ThemedWindows
@@ -46,6 +47,7 @@ class MainWindow(
     private val settingsPages: SettingsPages,
     private val themedWindows: ThemedWindows,
     private val projectWindows: ProjectWindows,
+    private val httpSession: HttpClientSession,
     systemBrowser: SystemBrowser,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
@@ -100,6 +102,8 @@ class MainWindow(
         // HTML previews are served with the project's files, and only those (ADR 0018).
         editorArea.projectFolder = { folder }
         editorArea.showError = { showError(stage, it) }
+        // Views of .http files share the window's cookies, tokens and chosen environments (ADR 0026).
+        editorArea.windowServices = listOf(httpSession)
         gitStatus.snapshot.subscribe { _ ->
             fileExplorer.refreshMarkers()
             editorArea.refreshDiffs()

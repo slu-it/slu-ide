@@ -15,5 +15,6 @@ dependencies {
     // Deliberate module API dependency: .http files are shown in the file viewers' code views, with their syntax
     // highlighters for request bodies and scripts.
     api(project(":modules:file-viewers"))
+    implementation(libs.spring.context)
     implementation(libs.jackson.databind)
 }

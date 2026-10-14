@@ -8,6 +8,7 @@ import dev.sluide.fileviewers.FileViewers
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitCli
 import dev.sluide.git.GitStatusService
+import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontsPage
 import dev.sluide.settings.SettingsPages
@@ -75,6 +76,7 @@ class ProjectWindowsUiTest {
                     Terminals::class.java,
                     DockerSandbox::class.java,
                     GitStatusService::class.java,
+                    HttpClientSession::class.java,
                 )
                 refresh()
             }

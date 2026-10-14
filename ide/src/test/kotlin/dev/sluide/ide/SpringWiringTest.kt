@@ -10,6 +10,7 @@ import dev.sluide.fileviewers.PythonFileViewer
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitCli
 import dev.sluide.git.GitStatusService
+import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.settings.AppearancePage
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontsPage
@@ -58,6 +59,7 @@ class SpringWiringTest {
                         GitStatusService::class.java,
                         ProjectWindows::class.java,
                         SystemBrowser::class.java,
+                        HttpClientSession::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")
@@ -72,6 +74,7 @@ class SpringWiringTest {
                         Terminals::class.java,
                         DockerSandbox::class.java,
                         GitStatusService::class.java,
+                        HttpClientSession::class.java,
                     )
                 val scoped =
                     context.beanFactory.beanDefinitionNames.filter {
