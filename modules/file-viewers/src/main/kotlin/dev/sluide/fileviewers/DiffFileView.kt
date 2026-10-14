@@ -23,7 +23,8 @@ interface DiffFileView : FileView {
 /**
  * Read-only side-by-side view: the original on the left, the file on the right, with filler rows so that both sides
  * have the same rows and scroll together. Removed, modified and added lines get the [DiffKind] style classes on their
- * paragraph and line number. Text is highlighted with [highlighter] if there is one.
+ * paragraph and line number, and the changed words within modified lines [CHANGED_WORDS_STYLE] (ADR 0019). Text is
+ * highlighted with [highlighter] if there is one.
  */
 internal class SideBySideDiffView(
     private val file: Path,
@@ -68,8 +69,11 @@ internal class SideBySideDiffView(
         val originalLines = textLines(diff.original)
         val currentLines = textLines(text)
         val rows = alignDiff(originalLines.size, currentLines.size, diff.changes)
-        left.show(diff.originalTitle, originalLines, rows.map { row -> row.original?.let { it to row.kind } })
-        right.show(diff.currentTitle, currentLines, rows.map { row -> row.current?.let { it to row.kind } })
+        val words = wordChanges(originalLines, currentLines, diff.changes)
+        val leftRows = rows.map { row -> row.original?.let { it to row.kind } }
+        val rightRows = rows.map { row -> row.current?.let { it to row.kind } }
+        left.show(diff.originalTitle, originalLines, leftRows, words.original)
+        right.show(diff.currentTitle, currentLines, rightRows, words.current)
     }
 
     /** One side: a title above a code area. */
@@ -81,15 +85,19 @@ internal class SideBySideDiffView(
 
         /**
          * Shows [lines] below [title], one per row; a row is a line index and its change, or `null` for a filler row.
+         * [changedWords] are the column ranges of the changed words by line index.
          */
         fun show(
             title: String,
             lines: List<String>,
             rows: List<Pair<Int, DiffKind?>?>,
+            changedWords: Map<Int, List<IntRange>>,
         ) {
             this.title.text = title
             area.replaceText(rows.joinToString("\n") { row -> row?.let { lines[it.first] }.orEmpty() })
-            if (highlighter != null && area.length > 0) area.setStyleSpans(0, styleSpans(lines, rows))
+            if ((highlighter != null || changedWords.isNotEmpty()) && area.length > 0) {
+                area.setStyleSpans(0, styleSpans(lines, rows, changedWords))
+            }
             rows.forEachIndexed { paragraph, row ->
                 val kind = row?.second ?: return@forEachIndexed
                 area.setParagraphStyle(paragraph, listOf(kind.styleClass))
@@ -106,25 +114,47 @@ internal class SideBySideDiffView(
                 }
         }
 
-        /** The highlighting of [lines] laid out on [rows]: each line's tokens, nothing on filler rows. */
+        /**
+         * The styles of [lines] laid out on [rows]: each line's tokens if there is a [highlighter], plus the
+         * [changedWords]; nothing on filler rows.
+         */
         private fun styleSpans(
             lines: List<String>,
             rows: List<Pair<Int, DiffKind?>?>,
+            changedWords: Map<Int, List<IntRange>>,
         ): StyleSpans<Collection<String>> {
-            val text = lines.joinToString("\n")
             val lineStarts = IntArray(lines.size)
             for (i in 1 until lines.size) lineStarts[i] = lineStarts[i - 1] + lines[i - 1].length + 1
-            val highlighted = codeStyleSpans(text, checkNotNull(highlighter))
+            val highlighted = highlighter?.let { codeStyleSpans(lines.joinToString("\n"), it) }
             val builder = StyleSpansBuilder<Collection<String>>()
             rows.forEachIndexed { index, row ->
-                if (row != null && lines[row.first].isNotEmpty()) {
-                    val start = lineStarts[row.first]
-                    highlighted
-                        .subView(start, start + lines[row.first].length)
-                        .forEach { builder.add(it.style, it.length) }
+                val line = row?.first
+                if (line != null && lines[line].isNotEmpty()) {
+                    val length = lines[line].length
+                    val tokens =
+                        highlighted?.subView(lineStarts[line], lineStarts[line] + length)
+                            ?: StyleSpans.singleton<Collection<String>>(emptyList(), length)
+                    val styles = changedWords[line]?.let { tokens.overlay(wordSpans(it, length)) { a, b -> a + b } }
+                    (styles ?: tokens).forEach { builder.add(it.style, it.length) }
                 }
                 if (index < rows.lastIndex) builder.add(emptyList(), 1)
             }
+            return builder.create()
+        }
+
+        /** [CHANGED_WORDS_STYLE] on the column ranges [words] of a line of [length] characters. */
+        private fun wordSpans(
+            words: List<IntRange>,
+            length: Int,
+        ): StyleSpans<Collection<String>> {
+            val builder = StyleSpansBuilder<Collection<String>>()
+            var column = 0
+            for (word in words) {
+                if (word.first > column) builder.add(emptyList(), word.first - column)
+                builder.add(listOf(CHANGED_WORDS_STYLE), word.last + 1 - word.first)
+                column = word.last + 1
+            }
+            if (length > column) builder.add(emptyList(), length - column)
             return builder.create()
         }
     }

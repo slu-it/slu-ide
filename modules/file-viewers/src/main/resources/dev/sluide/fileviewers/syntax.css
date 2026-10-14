@@ -20,7 +20,7 @@
 
 /*
  * Diff views (SideBySideDiffView): changed lines and their line numbers get a background; after .lineno, so it wins.
- * Removed grey, modified blue, added green.
+ * Removed grey, modified blue, added green. Within modified lines, the changed words get a stronger blue (ADR 0019).
  */
 .diff-removed {
     -fx-background-color: #e6e6e6;
@@ -32,6 +32,10 @@
 
 .diff-added {
     -fx-background-color: #d9f2d9;
+}
+
+.diff-changed-words {
+    -rtfx-background-color: #b3cdf5;
 }
 
 .diff-title {
@@ -112,6 +116,10 @@
 
     .diff-added {
         -fx-background-color: #2a4530;
+    }
+
+    .diff-changed-words {
+        -rtfx-background-color: #35598c;
     }
 
     .keyword {

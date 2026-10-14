@@ -46,11 +46,21 @@ class DiffFileViewUiTest {
             "Working Tree",
         )
 
-    private fun open(robot: FxRobot): Pair<CodeArea, CodeArea> {
-        val file =
+    private fun open(robot: FxRobot): Pair<CodeArea, CodeArea> =
+        open(
+            robot,
             dir.resolve("Main.kt").apply {
                 writeText("val one = 1\nval TWO = 2\nval three = 3\nval five = 5\nsix()\nseven()\n")
-            }
+            },
+            diff,
+        )
+
+    /** Shows [file] against [diff], gives the left and the right code area. */
+    private fun open(
+        robot: FxRobot,
+        file: Path,
+        diff: TextDiff,
+    ): Pair<CodeArea, CodeArea> {
         val view = openDiff(file, diff)
         robot.interact { container.children.setAll(view.node) }
         WaitForAsyncUtils.waitForFxEvents()
@@ -90,6 +100,28 @@ class DiffFileViewUiTest {
                 .map { it.text }
                 .toSet()
         assertEquals(setOf("HEAD", "Working Tree"), titles)
+    }
+
+    @Test
+    fun `the changed words of modified lines are marked on both sides, keeping their highlighting`(robot: FxRobot) {
+        val file = dir.resolve("Main.kt").apply { writeText("var x = 2\n") }
+        val (left, right) = open(robot, file, TextDiff("val x = 1\n", listOf(LineChange(0..0, 0..0))))
+
+        for ((area, changed) in listOf(left to "1", right to "2")) {
+            assertEquals(setOf("keyword", CHANGED_WORDS_STYLE), area.getStyleOfChar(1).toSet())
+            assertFalse(CHANGED_WORDS_STYLE in area.getStyleOfChar(area.text.indexOf("x")))
+            assertTrue(CHANGED_WORDS_STYLE in area.getStyleOfChar(area.text.indexOf(changed)))
+        }
+    }
+
+    @Test
+    fun `changed words are marked in plain text too`(robot: FxRobot) {
+        val file = dir.resolve("notes.txt").apply { writeText("one new three\n") }
+        val (left, right) = open(robot, file, TextDiff("one old three\n", listOf(LineChange(0..0, 0..0))))
+
+        assertEquals(listOf(CHANGED_WORDS_STYLE), left.getStyleOfChar(left.text.indexOf("old") + 1).toList())
+        assertEquals(listOf(CHANGED_WORDS_STYLE), right.getStyleOfChar(right.text.indexOf("new") + 1).toList())
+        assertTrue(right.getStyleOfChar(right.text.indexOf("three") + 1).isEmpty())
     }
 
     @Test
