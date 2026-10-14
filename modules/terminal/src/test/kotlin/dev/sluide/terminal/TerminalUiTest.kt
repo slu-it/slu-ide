@@ -140,30 +140,38 @@ class TerminalUiTest {
         val view = tab.view
         val other = Button("other")
         robot.interact { root.children.add(0, other) }
-        eventually { assertTrue(view.isFocused, "focused when shown") }
 
-        /** Pixels much brighter than the background: text and the cursor. */
+        /** Pixels much brighter than the background (text and the cursor), drawn on the FX thread. */
         fun brightPixels(): Int {
-            lateinit var image: WritableImage
-            robot.interact { image = view.snapshot(null, null) }
+            val image = view.snapshot(null, null)
             return (0 until image.height.toInt()).sumOf { y ->
                 (0 until image.width.toInt()).count { x -> image.pixelReader.getColor(x, y).brightness > 0.5 }
             }
         }
-        // Until the prompt is complete.
-        var focused = brightPixels()
+
+        // Repeated until the window has the focus: other test JVMs may show windows on the same display, and nodes only
+        // count as focused in a focused window.
         eventually {
-            val previous = focused
-            focused = brightPixels()
-            assertEquals(previous, focused)
+            var counts = emptyList<Int>()
+            var focus = emptyList<Boolean>()
+            robot.interact {
+                stage.requestFocus()
+                // Focus changes and snapshots in one go, so no shell output is drawn in between.
+                view.requestFocus()
+                val focused = brightPixels()
+                val viewFocused = view.isFocused
+                other.requestFocus()
+                val unfocused = brightPixels()
+                val viewUnfocused = !view.isFocused
+                view.requestFocus()
+                counts = listOf(focused, unfocused, brightPixels())
+                focus = listOf(viewFocused, viewUnfocused, view.isFocused)
+            }
+            assertEquals(listOf(true, true, true), focus, "focus moved as requested")
+            val (focused, unfocused, refocused) = counts
+            assertTrue(unfocused < focused, "outlined cursor: $unfocused bright pixels, filled: $focused")
+            assertEquals(focused, refocused, "filled again")
         }
-
-        robot.interact { other.requestFocus() }
-        val unfocused = brightPixels()
-        robot.interact { view.requestFocus() }
-
-        assertTrue(unfocused < focused, "outlined cursor: $unfocused bright pixels, filled: $focused")
-        assertTrue(brightPixels() > unfocused, "filled again")
     }
 
     @Test
