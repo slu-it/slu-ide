@@ -125,11 +125,24 @@ class MarkdownRendererTest {
             )
 
         val body = page.body()
-        for (tag in listOf("iframe", "object", "embed", "svg", "form", "meta")) {
+        for (tag in listOf("iframe", "object", "embed", "svg", "form", "input", "meta")) {
             assertTrue(body.select(tag).isEmpty(), tag)
         }
         assertFalse(body.selectFirst("p")!!.hasAttr("style"))
         assertTrue(body.select("a").none { it.hasAttr("href") })
+    }
+
+    @Test
+    fun `inputs other than checkboxes are removed`() {
+        val page =
+            render(
+                "<input type=\"text\" value=\"x\"> <input type=\"file\"> <input> " +
+                    "<input type=\"CheckBox\" checked>\n\n- [x] done\n",
+            )
+
+        val inputs = page.select("input")
+        assertEquals(2, inputs.size)
+        assertTrue(inputs.all { it.attr("type").equals("checkbox", ignoreCase = true) })
     }
 
     @Test

@@ -103,6 +103,8 @@ internal object MarkdownRenderer {
         // The base URI only lets jsoup keep relative links; the page itself has no base, so `#part` stays on the page.
         val clean = Jsoup.clean(html, folder.toUri().toString(), safelist, outputSettings)
         val body = Jsoup.parseBodyFragment(clean).apply { outputSettings(outputSettings) }.body()
+        // `input` is allowed for task-list checkboxes; any other input would be a working control.
+        body.select("input:not([type=checkbox])").remove()
         body.select("img[src]").forEach { image ->
             embeddedImage(image.attr("src"), folder)?.let { image.attr("src", it) }
         }

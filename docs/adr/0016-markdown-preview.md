@@ -19,10 +19,12 @@ Options considered:
 - `MarkdownRenderer` renders with commonmark-java (`org.commonmark`) and the GitHub extensions for tables,
   strikethrough, task lists, autolinks and heading anchors. Block elements carry `data-line` (their first source
   line) for scroll sync. Fenced code with a known language is highlighted by the code views' highlighters.
-- The HTML is sanitised with jsoup: `Safelist.relaxed()` plus `del`, `s`, `hr`, `kbd`, `mark`, `details`/`summary`,
-  task-list checkboxes, `class`, `id`, `align` and `data-line` on all elements, and `file:` links. Scripts, `on*`
-  handlers, `style`, frames, forms, SVG and `javascript:`/`data:` links in a Markdown file never reach the WebView.
-  The page then gets our own stylesheet and script.
+- The HTML is sanitised with jsoup: `Safelist.relaxed()` plus `del`, `s`, `hr`, `kbd`, `mark`, `details` (with
+  `open`)/`summary`, task-list checkboxes (`input` with `type`, `checked`, `disabled`; every `input` that is no
+  checkbox is removed after cleaning, so no text field or file picker reaches the page), `class`, `id`, `align` and
+  `data-line` on all elements, `data-source` on `pre` (the source of a diagram), and `file:` links and images.
+  Scripts, `on*` handlers, `style`, frames, forms, SVG and `javascript:`/`data:` links in a Markdown file never reach
+  the WebView. The page then gets our own stylesheet and script.
 - The page has no `<base>`: it is loaded from a string, so WebKit would not load `file:` images through it anyway, and
   with a base an anchor (`#part`) would navigate away. Local images are embedded as `data:` URIs instead; remote
   images load from the web. Links keep their `href` and are resolved in Kotlin when clicked.
