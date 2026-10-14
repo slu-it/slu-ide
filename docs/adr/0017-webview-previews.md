@@ -19,7 +19,8 @@ they come with their own scripts and links and are shown as their author made th
   no script of ours, links are caught as navigations: a location other than the file itself (with any anchor) never
   shows. Right after the user's click or key press in the preview it is handed to the view's host and the file is
   shown again; otherwise (meta refresh, scripts) the preview stops with a notice until the user or a change of the
-  file shows it again, so a page can neither open things on its own nor loop.
+  file shows it again, so a page can neither open things on its own nor loop. The same goes for a page that loads
+  itself again.
 
 - **SVG and images** are shown as an `<img>` with a `data:` URI on a page of ours (`ImagePage`): no file access from the
   page, and an SVG's scripts never run. Images are the first binary files SluIde opens; `ImageFileViewer` accepts them

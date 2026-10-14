@@ -372,6 +372,32 @@ class HtmlPreviewUiTest {
     }
 
     @Test
+    fun `a page that reloads itself in place does not reload forever`(robot: FxRobot) {
+        val file =
+            dir
+                .resolve(
+                    "index.html",
+                ).apply { writeText("<meta http-equiv=\"refresh\" content=\"0\"><h1>Hello</h1>") }
+        val view = open(robot, file)
+        var loads = 0
+        robot.interact {
+            view.webView.engine.loadWorker.stateProperty().subscribe { state ->
+                if (state ==
+                    Worker.State.SUCCEEDED
+                ) {
+                    loads++
+                }
+            }
+        }
+
+        WaitForAsyncUtils.sleep(3, TimeUnit.SECONDS)
+
+        assertTrue(loads <= 2, "loaded $loads times")
+        assertTrue(robot.lookup(".preview-notice").query<Node>().isVisible)
+        assertTrue("reload itself" in view.notice.text)
+    }
+
+    @Test
     fun `requests to other sites do not reveal the page's address`(robot: FxRobot) {
         val referers = mutableListOf<String?>()
         val other = HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0)

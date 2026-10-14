@@ -23,7 +23,7 @@ and never navigate the preview (`FileViewHost`, [file-viewers.md](file-viewers.m
 - **Navigation:** a page other than the file itself never shows. Right after a click or key press in the preview
   (a link, a submitted form), the target opens elsewhere — web pages in the system browser, files in a tab — and the
   file is shown again; links to other files open them in a tab, also links climbing out of the served folder.
-  Without such input (a meta refresh, a script setting `location`, a client-side router
+  Without such input (a meta refresh, a script setting `location` or reloading the page, a client-side router
   changing the address) the preview stops with a notice and **Show the page again**; a change of the file on disk
   shows it again too. So a page can neither open things on its own nor reload in a loop. Anchors (`#part`) stay.
 - If the server cannot start, the preview says so instead of staying blank.

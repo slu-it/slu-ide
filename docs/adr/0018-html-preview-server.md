@@ -33,8 +33,9 @@ So only HTML needs confining, and an HTTP origin confines it to what a server ha
   `Referrer-Policy: no-referrer`, so remote requests do not carry the token.
 - **Links:** server URLs map back to their files (`PreviewServer.fileFor`), so a clicked link to another file opens it
   in a tab, as before, also outside the root.
-- **Own page:** a URL of the page with a query is not the page itself, so a page reloading itself with one stops
-  the preview instead of looping.
+- **Own page:** a URL of the page with a query is not the page itself, and a load the view did not start (a meta
+  refresh in place, `location.reload()`) without the user's input stops the preview, so a page cannot reload in a
+  loop.
 - **Network:** remote requests stay allowed, with or without scripts. Blocking them (a Content Security Policy) would
   break pages that load libraries or styles from CDNs.
 

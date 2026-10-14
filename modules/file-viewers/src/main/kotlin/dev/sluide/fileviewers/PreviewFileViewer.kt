@@ -129,8 +129,9 @@ internal enum class PreviewMode(
  * ([resolveLink]): web pages to the browser, files to SluIde. Pages without our script (e.g. HTML files) do navigate:
  * a navigation away from the [own page][Preview.isOwnPage] right after a click or key press in the preview is the
  * user's, so its target goes to [host] and the page is shown again. Any other navigation (a meta refresh, a script
- * setting `location`) stops the preview with a notice until the user shows the page again or the file changes, so a
- * page can neither open things on its own nor reload in a loop. A page that cannot be loaded (e.g. no server) stops with a notice too. Only the own page gets the link bridge.
+ * setting `location`), and the page loading itself again without such input, stops the preview with a notice until
+ * the user shows the page again or the file changes, so a page can neither open things on its own nor reload in a
+ * loop. A page that cannot be loaded (e.g. no server) stops with a notice too. Only the own page gets the link bridge.
  *
  * Pages that [offer scripts][Preview.offersScripts] run them only while [scripts] is on, after [confirmScripts]: such
  * a page's scripts can read the files of its [root] and send them to the web.
@@ -205,6 +206,9 @@ internal class PreviewFileView(
 
     /** Whether the preview stopped after the page navigated on its own ([stop]). */
     private var stopped = false
+
+    /** Whether the view started a load that has not finished yet; a load it did not start is the page's own doing. */
+    private var loading = false
 
     init {
         val buttons =
@@ -307,6 +311,7 @@ internal class PreviewFileView(
         // A page with scripts may redefine scrollY.
         if (isLoaded) previewScrollY = (engine.executeScript("window.scrollY") as? Number)?.toDouble() ?: 0.0
         try {
+            loading = true
             preview.load(engine, file, text, dark, root)
         } catch (e: IOException) {
             stop("The preview could not be shown: ${e.message}")
@@ -329,9 +334,7 @@ internal class PreviewFileView(
      */
     private fun navigatedAway(location: String) {
         if (stopped) return
-        val input = lastInput
-        if (input != null && System.nanoTime() - input < USER_NAVIGATION_NANOS) {
-            lastInput = null
+        if (isUserInput()) {
             openLink(location)
             Platform.runLater(::rerender)
         } else {
@@ -370,11 +373,25 @@ internal class PreviewFileView(
         return alert.showAndWait().orElse(ButtonType.CANCEL) == run
     }
 
+    /** Whether the user just pressed a mouse button or key in the preview; it counts once. */
+    private fun isUserInput(): Boolean {
+        val input = lastInput ?: return false
+        lastInput = null
+        return System.nanoTime() - input < USER_NAVIGATION_NANOS
+    }
+
     private fun onLoaded() {
         if (stopped) return
         if (!isLoaded) {
             // Not our page (see navigatedAway): show ours again.
             rerender()
+            return
+        }
+        val started = loading
+        loading = false
+        if (!started && !isUserInput()) {
+            // The page loaded itself again (a meta refresh, `location.reload()`), and would keep doing so.
+            stop("The page tried to reload itself. It is not shown, so that it cannot keep doing so.")
             return
         }
         if (preview.hasOwnScript) (engine.executeScript("window") as JSObject).setMember("sluideBridge", bridge)
