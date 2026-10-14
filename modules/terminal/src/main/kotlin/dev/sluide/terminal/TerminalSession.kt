@@ -110,6 +110,9 @@ internal class TerminalSession(
     /** Ends the shell and the emulator thread. */
     override fun close() {
         starter.requestEmulatorStop()
+        // destroy() alone is not enough: it sends SIGTERM, which interactive shells such as bash ignore. Closing the
+        // connector right after it closes the pseudo terminal, and that hangup (SIGHUP) is what ends the shell and
+        // its jobs. Keep both, and do not wait for the process in between.
         process.destroy()
         connector.close()
         executors.shutdownNow()
