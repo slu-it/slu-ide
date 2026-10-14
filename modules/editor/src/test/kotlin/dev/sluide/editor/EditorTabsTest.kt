@@ -1,7 +1,9 @@
 package dev.sluide.editor
 
+import dev.sluide.fileviewers.DiffFileView
 import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileView
+import dev.sluide.fileviewers.TextDiff
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleStringProperty
 import javafx.collections.ListChangeListener
@@ -10,6 +12,7 @@ import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -251,21 +254,68 @@ class EditorTabsTest {
         assertTrue(listOf(one, two, three, four).all { it.disposed == 1 })
     }
 
+    private class CountingDiff : DiffFileView {
+        var disposed = 0
+
+        override val node = Group()
+
+        override fun reload() {}
+
+        override fun show(diff: TextDiff) {}
+
+        override fun dispose() {
+            disposed++
+        }
+    }
+
     @Test
-    fun `file views are disposed when replaced and when their tab closes`() {
-        val first = CountingView()
-        val second = CountingView()
-        val file = open("a.txt", first)
+    fun `a diff over the editor is disposed when hidden or replaced, the editor when the tab closes`() {
+        val editor = CountingView()
+        val first = CountingDiff()
+        val second = CountingDiff()
+        val file = open("a.txt", editor)
 
-        file.view = second
+        file.diffView = first
+        assertSame(first, file.view)
+        assertSame(first.node, file.content.children.last())
+        assertFalse(
+            file.content.children
+                .first()
+                .isVisible,
+            "the editor is hidden",
+        )
+
+        file.diffView = second
+        file.diffView = second
         assertEquals(listOf(1, 0), listOf(first, second).map { it.disposed })
-        assertSame(second.node, file.content.children.single())
 
-        file.view = second
-        assertEquals(0, second.disposed, "setting the same view again keeps it")
+        file.diffView = null
+        assertEquals(1, second.disposed)
+        assertSame(editor, file.view)
+        assertTrue(
+            file.content.children
+                .single()
+                .isVisible,
+        )
+        assertEquals(0, editor.disposed)
 
+        val third = CountingDiff()
+        file.diffView = third
         tabs.close(file)
-        assertEquals(listOf(1, 1), listOf(first, second).map { it.disposed })
+        assertEquals(listOf(1, 1), listOf(editor.disposed, third.disposed))
+    }
+
+    @Test
+    fun `a file has a diff while it knows one or shows one`() {
+        val file = open("a.txt", CountingView())
+        assertFalse(file.hasDiff.get())
+
+        file.diff.set(TextDiff("", emptyList()))
+        assertTrue(file.hasDiff.get())
+
+        file.diffView = CountingDiff()
+        file.diff.set(null)
+        assertTrue(file.hasDiff.get())
     }
 
     @Test
@@ -292,16 +342,17 @@ class EditorTabsTest {
     }
 
     @Test
-    fun `the dot follows the view when it is replaced`() {
-        val edited = EditedView().apply { dirty.set(true) }
-        val file = open("a.txt", CountingView())
+    fun `the dot follows the editor while its diff is shown`() {
+        val edited = EditedView()
+        val file = open("a.txt", edited)
         val titles = mutableListOf<String>()
         file.title.subscribe { title -> titles += title }
 
-        file.view = edited
-        file.view = CountingView()
+        edited.dirty.set(true)
+        file.diffView = CountingDiff()
+        edited.save()
 
         assertEquals(listOf("a.txt", "● a.txt", "a.txt"), titles)
-        assertEquals(false, file.isDirty)
+        assertFalse(file.isDirty)
     }
 }

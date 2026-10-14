@@ -25,10 +25,15 @@ import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.scene.control.SeparatorMenuItem
+import javafx.scene.control.TextField
 import javafx.scene.input.ContextMenuEvent
+import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.HBox
+import javafx.scene.layout.Pane
+import javafx.scene.layout.VBox
 import javafx.stage.Stage
 import org.fxmisc.richtext.CodeArea
 import org.junit.jupiter.api.AfterEach
@@ -115,7 +120,8 @@ class EditorAreaUiTest {
         robot
             .lookup(".editor-content .code-editor .code-area")
             .queryAllAs(CodeArea::class.java)
-            .singleOrNull()
+            // The editor stays below a diff shown over it, hidden.
+            .singleOrNull { area -> generateSequence<Node>(area) { it.parent }.all { it.isVisible } }
             ?.text
 
     @Test
@@ -664,6 +670,179 @@ class EditorAreaUiTest {
         assertEquals(emptyList(), shownDiff(robot))
         assertSame(tab, editor.selectedTab)
         assertEquals(listOf(a), editor.openPaths)
+    }
+
+    private fun pressEscape(
+        robot: FxRobot,
+        target: Node,
+    ) = robot.interact {
+        Event.fireEvent(target, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.ESCAPE, false, false, false, false))
+    }
+
+    @Test
+    fun `the diff shows on demand over the editor, which keeps its unsaved changes, caret and undo`(robot: FxRobot) {
+        val a = textFile("a.txt", "new\n")
+        editor.diffOf = { TextDiff("old\n", listOf(LineChange(0..0, 0..0)), "HEAD", "Working Tree") }
+        open(robot, a)
+        val area = shownArea(robot)
+        robot.interact {
+            area.requestFocus()
+            area.insertText(0, "edited ")
+        }
+        val caret = area.caretPosition
+        assertEquals(true, editor.canToggleDiff.value)
+
+        robot.interact { editor.toggleDiff() }
+        assertEquals(listOf("old", "new"), shownDiff(robot), "the saved file")
+        assertNull(shownText(robot), "the editor is hidden")
+        val titles =
+            robot
+                .lookup(".diff-title")
+                .queryAllAs(Label::class.java)
+                .map { it.text }
+                .toSet()
+        assertEquals(setOf("HEAD", "Working Tree (saved)"), titles)
+        assertEquals(listOf("● a.txt"), tabTitles(robot))
+
+        pressEscape(robot, robot.lookup(".editor-content .diff-view").query())
+        assertEquals(emptyList(), shownDiff(robot))
+        assertSame(area, shownArea(robot))
+        assertEquals("edited new\n", area.text)
+        assertEquals(caret, area.caretPosition)
+        assertSame(area, stage.scene.focusOwner)
+        robot.interact { area.undo() }
+        assertEquals("new\n", area.text)
+
+        robot.interact { editor.toggleDiff() }
+        val titlesWhenClean =
+            robot
+                .lookup(".diff-title")
+                .queryAllAs(Label::class.java)
+                .map { it.text }
+                .toSet()
+        assertEquals(setOf("HEAD", "Working Tree"), titlesWhenClean)
+        robot.interact { editor.toggleDiff() }
+        assertEquals(emptyList(), shownDiff(robot))
+    }
+
+    @Test
+    fun `the Edit button of the diff goes back to the editor`(robot: FxRobot) {
+        editor.diffOf = { TextDiff("old\n", listOf(LineChange(0..0, 0..0))) }
+        open(robot, textFile("a.txt", "new\n"))
+        robot.interact { editor.toggleDiff() }
+
+        robot.interact {
+            robot
+                .lookup(".diff-toolbar .button")
+                .queryAllAs(Button::class.java)
+                .single { it.text == "Edit" }
+                .fire()
+        }
+
+        assertEquals(emptyList(), shownDiff(robot))
+        assertEquals("new\n", shownText(robot))
+    }
+
+    /** Puts a text field above the editor area, to have the focus outside of it. */
+    private fun fieldAbove(robot: FxRobot): TextField {
+        val field = TextField()
+        robot.interact {
+            stage.scene.root = Pane()
+            stage.scene = Scene(VBox(field, editor), 800.0, 400.0)
+        }
+        return field
+    }
+
+    @Test
+    fun `closing the diff gives its focus to the text, also when the editor had none`(robot: FxRobot) {
+        val field = fieldAbove(robot)
+        editor.diffOf = { TextDiff("old\n", listOf(LineChange(0..0, 0..0))) }
+        open(robot, textFile("a.txt", "new\n"))
+        robot.interact {
+            field.requestFocus()
+            editor.toggleDiff()
+        }
+        val diff = robot.lookup(".editor-content .diff-view").query<Node>()
+        assertTrue(stage.scene.focusOwner.isInside(diff), "the diff has the focus")
+
+        pressEscape(robot, diff)
+
+        assertSame(shownArea(robot), stage.scene.focusOwner)
+    }
+
+    @Test
+    fun `a diff going away leaves the focus elsewhere alone`(robot: FxRobot) {
+        val field = fieldAbove(robot)
+        var diff: TextDiff? = TextDiff("old\n", listOf(LineChange(0..0, 0..0)))
+        editor.diffOf = { diff }
+        open(robot, textFile("a.txt", "new\n"))
+        robot.interact { editor.toggleDiff() }
+        robot.interact { field.requestFocus() }
+
+        diff = null
+        robot.interact { editor.refreshDiffs() }
+
+        assertEquals(emptyList(), shownDiff(robot))
+        assertSame(field, stage.scene.focusOwner)
+    }
+
+    private fun Node.isInside(ancestor: Node) = generateSequence(this) { it.parent }.any { it === ancestor }
+
+    @Test
+    fun `closing a tab with unsaved changes while its diff is shown asks to save`(robot: FxRobot) {
+        val a = textFile("a.txt", "a\n")
+        editor.diffOf = { TextDiff("old\n", listOf(LineChange(0..0, 0..0))) }
+        val asked = openEdited(robot, a) { SaveChoice.SAVE }
+        robot.interact { editor.toggleDiff() }
+        val close = tabLabel(robot, "● a.txt").parent.lookup(".close-button") as Button
+
+        robot.interact { close.fire() }
+
+        assertEquals(listOf(listOf("a.txt")), asked)
+        assertEquals("edited a\n", a.readText())
+        assertEquals(emptyList(), tabTitles(robot))
+    }
+
+    @Test
+    fun `Save while the diff is shown saves the editor's text`(robot: FxRobot) {
+        val a = textFile("a.txt", "a\n")
+        editor.diffOf = { TextDiff("old\n", listOf(LineChange(0..0, 0..0))) }
+        openEdited(robot, a) { SaveChoice.CANCEL }
+        robot.interact { editor.toggleDiff() }
+
+        robot.interact { assertTrue(editor.save()) }
+
+        assertEquals("edited a\n", a.readText())
+        assertEquals(listOf("a.txt"), tabTitles(robot))
+    }
+
+    @Test
+    fun `files without a diff have none to show`(robot: FxRobot) {
+        open(robot, textFile("a.txt", "new\n"))
+        assertEquals(false, editor.canToggleDiff.value)
+
+        robot.interact { editor.toggleDiff() }
+
+        assertEquals(emptyList(), shownDiff(robot))
+        assertEquals("new\n", shownText(robot))
+    }
+
+    @Test
+    fun `a shown diff follows the file and gives way to the editor when it goes`(robot: FxRobot) {
+        val a = textFile("a.txt", "one\n")
+        var diff: TextDiff? = TextDiff("zero\n", listOf(LineChange(0..0, 0..0)))
+        editor.diffOf = { diff }
+        open(robot, a)
+        robot.interact { editor.toggleDiff() }
+
+        a.writeText("two\n")
+        eventually(robot) { assertEquals(listOf("zero", "two"), shownDiff(robot)) }
+
+        diff = null
+        robot.interact { editor.refreshDiffs() }
+        assertEquals(emptyList(), shownDiff(robot))
+        assertEquals("two\n", shownText(robot))
+        assertEquals(false, editor.canToggleDiff.value)
     }
 
     @Test

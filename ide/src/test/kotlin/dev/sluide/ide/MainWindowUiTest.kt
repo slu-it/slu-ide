@@ -2,6 +2,7 @@ package dev.sluide.ide
 
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editor.EditorArea
+import dev.sluide.editor.EditorTab
 import dev.sluide.editor.SaveChoice
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.DefaultTextFileViewer
@@ -21,6 +22,7 @@ import dev.sluide.settings.ThemeSettings
 import dev.sluide.settings.ThemedWindows
 import dev.sluide.terminal.Terminals
 import javafx.application.Platform
+import javafx.beans.property.SimpleStringProperty
 import javafx.event.ActionEvent
 import javafx.event.Event
 import javafx.scene.Node
@@ -285,6 +287,63 @@ class MainWindowUiTest {
         project.resolve("tracked.md").writeText("one\nTWO\nfour\n")
         eventually(robot) { assertEquals(mapOf(3 to "diff-modified"), shownMarkers(robot)) }
         assertFalse(showsDiff())
+    }
+
+    @Test
+    fun `View - Show Changes with Shortcut+Shift+D switches between the editor and the diff against HEAD`(
+        robot: FxRobot,
+    ) {
+        assumeTrue(git.available, "git is not installed")
+        runGit("init", "-q")
+        project.resolve("tracked.md").writeText("one\ntwo\n")
+        runGit("add", ".")
+        runGit("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "-m", "Initial commit")
+        project.resolve("tracked.md").writeText("one\nTWO\n")
+        project.resolve("new.md").writeText("new\n")
+        robot.interact { projectService.open(project) }
+        eventually(robot) {
+            assertEquals(GitStatus.MODIFIED, gitStatus.snapshot.get().fileStatus(project.resolve("tracked.md")))
+        }
+        val showChanges = menu(robot, "View").items.single { it.text == "Show Changes" }
+        val accelerator = showChanges.accelerator as KeyCodeCombination
+        assertEquals(KeyCode.D, accelerator.code)
+        assertEquals(KeyCombination.ModifierValue.DOWN, accelerator.shortcut)
+        assertEquals(KeyCombination.ModifierValue.DOWN, accelerator.shift)
+
+        fun diffTitles() = robot.lookup(".editor-content .diff-title").queryAllAs(Label::class.java).map { it.text }
+        robot.interact { editorArea.open(project.resolve("new.md")) }
+        assertTrue(showChanges.isDisable, "untracked files have no diff")
+        robot.interact { editorArea.open(project.resolve("tracked.md")) }
+        assertFalse(showChanges.isDisable)
+
+        val mac = System.getProperty("os.name").startsWith("Mac")
+        robot.interact {
+            Event.fireEvent(
+                shownArea(robot),
+                KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.D, true, !mac, false, mac),
+            )
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(setOf("HEAD", "Working Tree"), diffTitles().toSet())
+
+        robot.interact { showChanges.fire() }
+        assertEquals(emptyList(), diffTitles())
+
+        // Other tabs, e.g. terminals, have no changes to show; switching back enables it again.
+        robot.interact {
+            editorArea.open(
+                object : EditorTab {
+                    override val title = SimpleStringProperty("Terminal 1")
+                    override val tooltip = "Terminal 1"
+                    override val content = Label()
+                },
+            )
+        }
+        assertTrue(showChanges.isDisable)
+        robot.interact { editorArea.open(project.resolve("new.md")) }
+        assertTrue(showChanges.isDisable)
+        robot.interact { editorArea.open(project.resolve("tracked.md")) }
+        assertFalse(showChanges.isDisable)
     }
 
     /** The change markers in the gutter of the shown editor by line number; lines without a marker are left out. */

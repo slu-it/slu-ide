@@ -40,6 +40,9 @@ interface FileView {
      */
     fun dispose() {}
 
+    /** Gives the focus to the content, e.g. the text of a code view; by default to the [node]. */
+    fun focusText() = node.requestFocus()
+
     /**
      * Lets the view open other files and web pages, e.g. when a link in it is clicked. Set by whoever shows the view;
      * views that never open anything ignore it.

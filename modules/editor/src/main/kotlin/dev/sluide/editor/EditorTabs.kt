@@ -1,7 +1,9 @@
 package dev.sluide.editor
 
+import dev.sluide.fileviewers.DiffFileView
 import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileView
+import dev.sluide.fileviewers.TextDiff
 import javafx.beans.property.ReadOnlyBooleanWrapper
 import javafx.beans.property.ReadOnlyObjectProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
@@ -36,43 +38,64 @@ interface EditorTab {
 }
 
 /**
- * A file shown in a tab together with the view that displays it. The view can be replaced (e.g. by a diff view) while
- * the tab and its [content] stay the same; the replaced view is disposed, and so is the view when the tab closes.
- * While the view has unsaved changes ([dirty]), the title starts with a dot.
+ * A file shown in a tab: its [editor], the view it was opened with, which stays until the tab closes, and, on demand,
+ * a [diffView] over it. The editor keeps its text, caret and undo history while the diff is shown. A diff view is
+ * disposed when it is hidden or replaced, all views when the tab closes. While the editor has unsaved changes
+ * ([dirty]), the title starts with a dot.
  */
 internal class OpenFile(
     val path: Path,
-    view: FileView,
+    val editor: FileView,
     /** Whether the file is shown as text, which can have change markers and a diff. */
     val showsDiffs: Boolean = false,
 ) : EditorTab {
     val name: String get() = (path.fileName ?: path).toString()
 
-    private val shownView = SimpleObjectProperty(view)
-
-    /** Whether the view is an [EditableFileView] with unsaved changes; follows the view when it is replaced. */
-    val dirty: ObservableValue<Boolean> =
-        shownView.flatMap { (it as? EditableFileView)?.dirty ?: NEVER_DIRTY }
+    /** Whether the editor is an [EditableFileView] with unsaved changes, also while the diff is shown. */
+    val dirty: ObservableBooleanValue = (editor as? EditableFileView)?.dirty ?: NEVER_DIRTY
 
     /** The current value of [dirty]. */
-    val isDirty: Boolean get() = dirty.value == true
+    val isDirty: Boolean get() = dirty.get()
 
     override val title: ObservableValue<String> = dirty.map { if (it) "● $name" else name }
 
     override val tooltip: String get() = path.toString()
 
-    override val content = StackPane(view.node)
+    private val editorLayer = StackPane(editor.node)
 
-    var view: FileView
-        get() = shownView.get()
+    override val content = StackPane(editorLayer)
+
+    /** The diff of the file against its original as last asked for, `null` if it has none. */
+    val diff = SimpleObjectProperty<TextDiff?>()
+
+    private val diffViewProperty = SimpleObjectProperty<DiffFileView?>()
+
+    /** The diff shown over the editor, which is hidden meanwhile; `null` while the editor is shown. */
+    var diffView: DiffFileView?
+        get() = diffViewProperty.get()
         set(value) {
-            val old = shownView.get()
-            shownView.set(value)
-            content.children.setAll(value.node)
-            if (old !== value) old.dispose()
+            val old = diffViewProperty.get()
+            if (old === value) return
+            diffViewProperty.set(value)
+            old?.let { content.children -= it.node }
+            value?.let { content.children += it.node }
+            editorLayer.isVisible = value == null
+            old?.dispose()
         }
 
-    override fun dispose() = view.dispose()
+    /** What had the focus in the editor when the diff was shown, to get it back afterwards. */
+    var focusInEditor: Node? = null
+
+    /** Whether the file has a [diff] to show, or shows it. */
+    val hasDiff: ObservableBooleanValue = diff.isNotNull.or(diffViewProperty.isNotNull)
+
+    /** The view shown: the diff if it is, otherwise the editor. */
+    val view: FileView get() = diffView ?: editor
+
+    override fun dispose() {
+        diffView?.dispose()
+        editor.dispose()
+    }
 }
 
 /** The [OpenFile.dirty] state of views that cannot be edited. */

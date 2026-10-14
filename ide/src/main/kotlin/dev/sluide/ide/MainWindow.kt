@@ -78,7 +78,7 @@ class MainWindow(
         themedWindows.install()
         val root =
             BorderPane().apply {
-                top = MenuBar(fileMenu(stage), terminalMenu(stage), dockerSandboxMenu(stage))
+                top = MenuBar(fileMenu(stage), viewMenu(), terminalMenu(stage), dockerSandboxMenu(stage))
                 center = SplitPane(fileExplorer, editorArea).apply { setDividerPositions(0.25) }
             }
 
@@ -145,6 +145,17 @@ class MainWindow(
                 setOnAction { showSettings(stage) }
             }
         return Menu("File", null, openFolder, SeparatorMenuItem(), save, saveAll, SeparatorMenuItem(), settings)
+    }
+
+    private fun viewMenu(): Menu {
+        // Switches between the editor of the selected file and its diff against HEAD (ADR 0021).
+        val showChanges =
+            MenuItem("Show Changes").apply {
+                accelerator = KeyCodeCombination(KeyCode.D, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN)
+                disableProperty().bind(editorArea.canToggleDiff.map { !it })
+                setOnAction { editorArea.toggleDiff() }
+            }
+        return Menu("View", null, showChanges)
     }
 
     private fun terminalMenu(stage: Stage): Menu {

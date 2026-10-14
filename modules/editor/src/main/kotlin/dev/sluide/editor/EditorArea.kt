@@ -9,7 +9,11 @@ import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontSpec
+import javafx.beans.property.ReadOnlyBooleanWrapper
+import javafx.beans.value.ObservableBooleanValue
+import javafx.beans.value.ObservableValue
 import javafx.collections.ListChangeListener
+import javafx.scene.Node
 import javafx.scene.control.Alert
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.StackPane
@@ -26,8 +30,8 @@ import java.nio.file.Path
  * Central area showing open files, one tab per file, and other [EditorTab]s such as terminals. Open files are
  * watched: a tab reloads when its file changes on disk and closes when the file is deleted or can no longer be shown
  * (e.g. it became binary), unless it has unsaved changes. The lines changed against an original ([diffOf]) are marked
- * in the editor ([EditableFileView.showChanges]). Edited files are saved with [save] and [saveAll]; closing them asks
- * to save first ([confirmSave]).
+ * in the editor ([EditableFileView.showChanges]); [toggleDiff] shows them side by side over it. Edited files are saved
+ * with [save] and [saveAll]; closing them asks to save first ([confirmSave]).
  */
 @Component
 // One instance per IDE window (the "window" scope of the ide module, ADR 0014).
@@ -138,11 +142,76 @@ class EditorArea(
     /** Asks [diffOf] again for every open file and marks its changes. Call it when the answers may have changed. */
     fun refreshDiffs() = editorTabs.files.forEach(::showChanges)
 
-    /** Marks the changes of [openFile]; [diffOf] (git on the FX thread) is only asked for files shown as text. */
+    /**
+     * Asks [diffOf] for the diff of [openFile] and marks its changes in the editor; a diff shown follows it, or gives
+     * way to the editor once there is no diff anymore. [diffOf] (git on the FX thread) is only asked for files shown
+     * as text.
+     */
     private fun showChanges(openFile: OpenFile) {
-        val view = openFile.view as? EditableFileView ?: return
-        if (openFile.showsDiffs) view.showChanges(diffOf(openFile.path))
+        val editor = openFile.editor as? EditableFileView ?: return
+        if (!openFile.showsDiffs) return
+        val diff = diffOf(openFile.path)
+        openFile.diff.set(diff)
+        editor.showChanges(diff)
+        val diffView = openFile.diffView ?: return
+        if (diff == null) {
+            hideDiff(openFile)
+            return
+        }
+        try {
+            diffView.show(titled(openFile, diff))
+        } catch (_: IOException) {
+            // Keep showing the last diff; the next change will try again.
+        }
     }
+
+    /** Whether the selected tab is a file with a diff, or shows it: whether [toggleDiff] does something. */
+    val canToggleDiff: ObservableValue<Boolean> =
+        editorTabs.selected.flatMap { (it as? OpenFile)?.hasDiff ?: NO_DIFF }.orElse(false)
+
+    /**
+     * Shows the diff of the selected file ([diffOf]) side by side over its editor, or the editor again while the diff
+     * is shown. The diff is of the file as saved; the editor keeps its unsaved changes, caret and undo history
+     * meanwhile. Does nothing unless [canToggleDiff], e.g. for files without changes.
+     */
+    fun toggleDiff() {
+        val openFile = editorTabs.selected.get() as? OpenFile ?: return
+        if (openFile.diffView != null) hideDiff(openFile) else showDiff(openFile)
+    }
+
+    private fun showDiff(openFile: OpenFile) {
+        val diff = openFile.diff.get() ?: return
+        val diffView =
+            try {
+                fileViewers.openDiff(openFile.path, titled(openFile, diff))
+            } catch (_: IOException) {
+                null
+            } ?: return
+        diffView.onBack = { hideDiff(openFile) }
+        val focused = scene?.focusOwner
+        openFile.focusInEditor = focused?.takeIf { it.isInside(openFile.editor.node) }
+        openFile.diffView = diffView
+        diffView.node.requestFocus()
+    }
+
+    /**
+     * Shows the editor of [openFile] again. If the diff had the focus, the editor gets it: where it was when the diff
+     * was shown, or its text.
+     */
+    private fun hideDiff(openFile: OpenFile) {
+        val diffView = openFile.diffView ?: return
+        val diffFocused = scene?.focusOwner?.isInside(diffView.node) == true
+        openFile.diffView = null
+        if (!diffFocused) return
+        val focus = openFile.focusInEditor?.takeIf { it.scene != null && it.isInside(openFile.editor.node) }
+        if (focus != null) focus.requestFocus() else openFile.editor.focusText()
+    }
+
+    /** [diff], whose current side is the file as saved, saying so while the editor has unsaved changes. */
+    private fun titled(
+        openFile: OpenFile,
+        diff: TextDiff,
+    ) = if (openFile.isDirty) diff.copy(currentTitle = "${diff.currentTitle} (saved)") else diff
 
     /** Adds [tab] after the open tabs and selects it. Its [EditorTab.dispose] is called when it is closed. */
     fun open(tab: EditorTab) = editorTabs.open(tab)
@@ -172,7 +241,7 @@ class EditorArea(
     /** Shows the file's current content and marks its changes. */
     private fun updateView(openFile: OpenFile) {
         try {
-            openFile.view.reload()
+            openFile.editor.reload()
         } catch (_: IOException) {
             // Keep showing the last content; the next change will try again.
             return
@@ -238,7 +307,7 @@ class EditorArea(
 
     private fun save(openFile: OpenFile): Boolean {
         if (!openFile.isDirty) return true
-        val view = openFile.view as? EditableFileView ?: return true
+        val view = openFile.editor as? EditableFileView ?: return true
         return try {
             view.save()
             true
@@ -282,3 +351,9 @@ class EditorArea(
     /** The selected tab, if any. */
     val selectedTab: EditorTab? get() = editorTabs.selected.get()
 }
+
+/** The [OpenFile.hasDiff] of tabs that do not show files. */
+private val NO_DIFF: ObservableBooleanValue = ReadOnlyBooleanWrapper(false).readOnlyProperty
+
+/** Whether this node is [ancestor] or within it. */
+private fun Node.isInside(ancestor: Node): Boolean = generateSequence(this) { it.parent }.any { it === ancestor }

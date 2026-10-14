@@ -163,6 +163,32 @@ class DiffFileViewUiTest {
     }
 
     @Test
+    fun `the Edit button and Escape go back while there is somewhere to go back to`(robot: FxRobot) {
+        val file = dir.resolve("Main.kt").apply { writeText("val one = 1\n") }
+        val view = openDiff(file, TextDiff("val one = 0\n", listOf(LineChange(0..0, 0..0))))
+        robot.interact { container.children.setAll(view.node) }
+        val right = robot.lookup(".code-area").queryAllAs(CodeArea::class.java).maxBy { it.localToScene(0.0, 0.0).x }
+
+        fun escape() =
+            robot.interact {
+                Event.fireEvent(
+                    right,
+                    KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.ESCAPE, false, false, false, false),
+                )
+            }
+        val back = robot.lookup(".diff-back").queryAs(Button::class.java)
+        assertFalse(back.isVisible)
+        escape()
+
+        var backs = 0
+        robot.interact { view.onBack = { backs++ } }
+        assertTrue(back.isVisible)
+        robot.interact { back.fire() }
+        escape()
+        assertEquals(2, backs)
+    }
+
+    @Test
     fun `F7 and Shift+F7 jump to the next and previous change, seen from the caret on either side`(robot: FxRobot) {
         val (left, right) = open(robot)
 

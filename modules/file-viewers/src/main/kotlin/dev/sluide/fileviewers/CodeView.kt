@@ -344,6 +344,8 @@ internal class CodeView(
         highlighting.unsubscribe()
     }
 
+    override fun focusText() = area.requestFocus()
+
     private fun highlightInBackground() {
         val highlighter = highlighter ?: return
         val text = area.text

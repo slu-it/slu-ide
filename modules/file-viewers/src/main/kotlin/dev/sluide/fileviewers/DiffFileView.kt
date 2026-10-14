@@ -21,6 +21,7 @@ import org.fxmisc.richtext.model.StyleSpansBuilder
 import org.kordamp.ikonli.Ikon
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignA
+import org.kordamp.ikonli.materialdesign2.MaterialDesignP
 import org.reactfx.value.Var
 import java.io.IOException
 import java.nio.file.Path
@@ -33,6 +34,14 @@ interface DiffFileView : FileView {
     /** Reads the file again and shows it against [diff], keeping the scroll position. */
     @Throws(IOException::class)
     fun show(diff: TextDiff)
+
+    /**
+     * Goes back to where the diff was opened from, e.g. the file's editor; offered in the view (a button, Escape) while
+     * set. Set by whoever shows the view.
+     */
+    var onBack: (() -> Unit)?
+        get() = null
+        set(_) {}
 }
 
 /**
@@ -42,7 +51,8 @@ interface DiffFileView : FileView {
  * highlighted with [highlighter] if there is one.
  *
  * A toolbar above both sides jumps to the first, previous, next and last change, seen from the caret (F7 and
- * Shift+F7 for next and previous), and tells which change the caret is in.
+ * Shift+F7 for next and previous), and tells which change the caret is in. While [onBack] is set, an Edit button on
+ * it and Escape go back.
  */
 internal class SideBySideDiffView(
     private val file: Path,
@@ -66,6 +76,20 @@ internal class SideBySideDiffView(
         navigationButton(MaterialDesignA.ARROW_UP, "Previous change (Shift+F7)") { navigation.previous(row) }
     private val nextButton = navigationButton(MaterialDesignA.ARROW_DOWN, "Next change (F7)") { navigation.next(row) }
     private val lastButton = navigationButton(MaterialDesignA.ARROW_COLLAPSE_DOWN, "Last change") { navigation.last() }
+    private val backButton =
+        Button("Edit", FontIcon(MaterialDesignP.PENCIL)).apply {
+            styleClass += "diff-back"
+            tooltip = Tooltip("Back to the editor (Escape)")
+            isVisible = false
+            managedProperty().bind(visibleProperty())
+            setOnAction { onBack?.invoke() }
+        }
+
+    override var onBack: (() -> Unit)? = null
+        set(value) {
+            field = value
+            backButton.isVisible = value != null
+        }
 
     private val root =
         BorderPane(SplitPane(left.box, right.box)).apply {
@@ -75,6 +99,7 @@ internal class SideBySideDiffView(
             }
             top =
                 HBox(
+                    backButton,
                     counter,
                     Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
                     firstButton,
@@ -86,8 +111,20 @@ internal class SideBySideDiffView(
                     alignment = Pos.CENTER_LEFT
                 }
             addEventFilter(KeyEvent.KEY_PRESSED) { event ->
-                if (event.code != KeyCode.F7) return@addEventFilter
-                (if (event.isShiftDown) navigation.previous(row) else navigation.next(row))?.let(::jumpTo)
+                val back = onBack
+                when {
+                    event.code == KeyCode.F7 -> {
+                        (if (event.isShiftDown) navigation.previous(row) else navigation.next(row))?.let(::jumpTo)
+                    }
+
+                    event.code == KeyCode.ESCAPE && back != null -> {
+                        back()
+                    }
+
+                    else -> {
+                        return@addEventFilter
+                    }
+                }
                 event.consume()
             }
         }
