@@ -15,7 +15,8 @@ read by several feature modules, changed in one dialog, and must survive a resta
   so changes apply live. `FontSettings` is the first.
 - Values are stored by `SettingsStore` as key/value pairs in `~/.sluide/settings.properties`: plain text, easy to
   inspect, back up or delete. Writes go to a temporary file that is then moved into place. Unusable values fall
-  back to defaults.
+  back to defaults; a file that cannot be read at all (e.g. a malformed `\u` escape) counts as no settings, is
+  logged, and is never replaced, so a later write cannot drop the settings in it.
 - Not `java.util.prefs`: it stores in the Windows registry or macOS plists, is hard to inspect, and has no single
   file to back up or reset.
 - The dialog is built from `SettingsPage` beans: each page names its place in the tree (e.g. Display → Fonts) and
