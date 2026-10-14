@@ -34,4 +34,26 @@
   status ([git-status.md](git-status.md)); `onFilesChanged` reports changes on disk and manual refreshes so the status
   follows. On the selected row the name has the selection's text colour, so it stays readable, and bubbles get a ring
   in that colour. Colours light and dark in `file-explorer.css`.
-- Not yet implemented: file operations (new, rename, delete) in the context menu.
+- File operations ([ADR 0024](../adr/0024-file-operations-in-the-explorer.md), `FileOperations`), from the context
+  menu of an entry (right-click, or the context-menu key for the selected one) or of the empty area below the entries,
+  which stands for the opened folder:
+  - New File… / New Folder… create an empty entry in the clicked folder, or beside the clicked file. A new file is
+    opened. Single names only (no `a/b`).
+  - Rename… (F2 on the selected entry) renames within the same folder; the dialog starts with the name, its base name
+    (before the last dot, not a leading one) selected. A folder keeps its content and stays expanded. Changing only
+    the case of a name works on case-insensitive file systems.
+  - Delete… (Delete, or Cmd+Backspace on macOS / Ctrl+Backspace elsewhere, on the selected entry) deletes permanently,
+    a folder with everything in it and a link without its target, after a confirmation that names the entry, says it
+    is not moved to the trash and counts the files with unsaved changes that will be lost. Cancel is the default
+    button. If the entry was selected, the next one (or the one before, or its folder) is selected at once. Deleting
+    runs in the background, so a large folder does not block the IDE; meanwhile the entry cannot be renamed or deleted
+    again. If the entry became something else while asking (e.g. a file a folder), it is not deleted. A failed delete stops at the first entry it cannot delete and can leave a
+    folder partly deleted; the error is shown and `onDeleted` is not called.
+  - The name dialog checks the name while typing (not empty, no `/`, `\` or NUL, not `.`/`..`, no leading or
+    trailing whitespace, no characters the file system cannot store, not taken, on case-insensitive file systems also
+    not in another case) and keeps OK disabled while it shows a problem. Errors on disk (e.g. permissions) are shown in an error dialog.
+  - The result shows at once, without waiting for the folder's watch, and is selected. Rename and Delete are disabled
+    for the opened folder itself.
+  - For open tabs, `onMoved(from, to)` reports renames, `onDeleted(path)` deletions, and `unsavedUnder(path)` is asked
+    for the files with unsaved changes. `MainWindow` does not connect them yet, so tabs of renamed or deleted files
+    behave as for changes outside the IDE ([editor-tabs.md](editor-tabs.md)).
