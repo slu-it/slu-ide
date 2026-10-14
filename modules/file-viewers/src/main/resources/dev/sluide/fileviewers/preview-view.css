@@ -1,19 +1,19 @@
-/* Markdown view (MarkdownFileView): the toolbar with the Source / Split / Preview toggles above source and preview. */
+/* Preview view (PreviewFileView): the toolbar with the Source / Split / Preview toggles above source and preview. */
 
-.markdown-toolbar {
+.preview-toolbar {
     -fx-padding: 2 6 2 6;
     -fx-spacing: 0;
     -fx-background-color: derive(-fx-background, 4%);
     -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
 }
 
-.markdown-mode {
+.preview-mode {
     -fx-padding: 2 10 2 10;
     -fx-font-size: 0.9em;
     -fx-background-radius: 0;
 }
 
-.markdown-view .split-pane {
+.preview-view .split-pane {
     -fx-padding: 0;
     -fx-background-insets: 0;
 }
@@ -23,4 +23,12 @@
     -fx-padding: 2 8 2 8;
     -fx-font-size: 0.9em;
     -fx-text-fill: derive(-fx-text-base-color, 30%);
+}
+
+/* Over a preview whose page navigated on its own (PreviewFileView.stop). */
+.preview-notice {
+    -fx-alignment: center;
+    -fx-spacing: 12;
+    -fx-padding: 24;
+    -fx-background-color: -fx-background;
 }

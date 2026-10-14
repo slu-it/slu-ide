@@ -14,9 +14,11 @@ they come with their own scripts and links and are shown as their author made th
   toolbar; a `Preview` strategy decides how a file is loaded, whether the page brings our script (theme, link bridge,
   scroll sync) and whether it offers to run the page's own scripts. Viewers extend `PreviewFileViewer`.
 - **HTML** is loaded from disk (`WebEngine.load`), not rendered by us, so relative resources work. Its scripts are off
-  by default (`WebEngine.isJavaScriptEnabled`); a toolbar toggle runs them for one tab. Because such a page has no
-  script of ours, links are caught as navigations: any location other than the file itself (with any anchor) is
-  turned back and handed to the view's host, so the preview never shows another page.
+  by default (`WebEngine.isJavaScriptEnabled`); a toolbar toggle runs them for one tab after a warning. Because such a
+  page has no script of ours, links are caught as navigations: a location other than the file itself (with any anchor)
+  never shows. Right after the user's click or key press in the preview it is handed to the view's host and the file
+  is shown again; otherwise (meta refresh, scripts) the preview stops with a notice until the user or a change of the
+  file shows it again, so a page can neither open things on its own nor loop.
 
 - **SVG and images** are shown as an `<img>` with a `data:` URI on a page of ours (`ImagePage`): no file access from the
   page, and an SVG's scripts never run. Images are the first binary files SluIde opens; `ImageFileViewer` accepts them
@@ -39,6 +41,10 @@ they come with their own scripts and links and are shown as their author made th
 - A new rendered format is a `Preview` and a `PreviewFileViewer` subclass.
 - HTML previews show pages as browsers would, but without the page's scripts unless allowed; pages that build their
   content with scripts look empty until then.
-- Opening an HTML file reads the files it references from disk; with scripts allowed, it may also reach the web.
-- The bundled libraries add about 4 MB to the jar (Mermaid 3.5 MB, KaTeX with fonts 0.6 MB); a page with a diagram
-  carries Mermaid's 3.5 MB inline, which takes a moment to load. Updating them is manual (`vendor/README.md`).
+- Opening an HTML file loads what it references, from disk and from the web (tracking images work), even with
+  scripts off.
+- With scripts on, a page can read other local files (`file:` pages may, and JavaFX's `WebEngine` cannot forbid it)
+  and send them to the web; hence the warning. Serving the folder from a local HTTP server would confine it.
+- The fat jar grows from 78 MB to 82 MB (Mermaid 3.5 MB, KaTeX with fonts 0.6 MB, Jackson); a page with a diagram
+  carries Mermaid's 3.5 MB inline, which is parsed again each time the file changes, a noticeable moment with an
+  editor that saves often. Updating the libraries is manual (`vendor/README.md`).

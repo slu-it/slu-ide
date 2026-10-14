@@ -1,8 +1,12 @@
 package dev.sluide.fileviewers
 
 import javafx.concurrent.Worker
+import javafx.event.Event
+import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.ToggleButton
+import javafx.scene.input.MouseButton
+import javafx.scene.input.MouseEvent
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
@@ -77,6 +81,36 @@ class HtmlPreviewUiTest {
         WaitForAsyncUtils.waitForFxEvents()
     }
 
+    /** A mouse press in the preview, as before a click on a link. */
+    private fun click(
+        robot: FxRobot,
+        view: PreviewFileView,
+    ) = robot.interact {
+        Event.fireEvent(
+            view.webView,
+            MouseEvent(
+                MouseEvent.MOUSE_PRESSED,
+                1.0,
+                1.0,
+                1.0,
+                1.0,
+                MouseButton.PRIMARY,
+                1,
+                false,
+                false,
+                false,
+                false,
+                true,
+                false,
+                false,
+                true,
+                false,
+                false,
+                null,
+            ),
+        )
+    }
+
     @Test
     fun `shows the page from disk with its relative styles, without running its scripts`(robot: FxRobot) {
         val (_, view) = show(robot)
@@ -89,11 +123,18 @@ class HtmlPreviewUiTest {
     }
 
     @Test
-    fun `the toolbar lets the page's scripts run`(robot: FxRobot) {
+    fun `the toolbar lets the page's scripts run, after a warning`(robot: FxRobot) {
         val (_, view) = show(robot)
         val toggle = robot.lookup(".preview-scripts").queryAs(ToggleButton::class.java)
         assertTrue(!toggle.isSelected)
 
+        view.confirmScripts = { false }
+        robot.interact { toggle.fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertTrue(!toggle.isSelected)
+        assertEquals("Static", fx { view.webView.engine.title })
+
+        view.confirmScripts = { true }
         robot.interact { toggle.fire() }
         WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { fx { view.webView.engine.title } == "Scripted" }
 
@@ -119,9 +160,11 @@ class HtmlPreviewUiTest {
         val host = RecordingHost()
         view.host = host
 
-        // What a click on a link does: the page navigates.
+        // What a click on a link does: the user presses the mouse, then the page navigates.
+        click(robot, view)
         robot.interact { view.webView.engine.load(dir.resolve("other.html").toUri().toString()) }
         awaitPage(view, "Hello")
+        click(robot, view)
         robot.interact { view.webView.engine.load("https://example.com/") }
         awaitPage(view, "Hello")
         // An anchor on the page itself stays.
@@ -130,6 +173,33 @@ class HtmlPreviewUiTest {
 
         assertEquals(listOf(dir.resolve("other.html")), host.files)
         assertEquals(listOf(URI("https://example.com/")), host.pages)
+    }
+
+    @Test
+    fun `a page that navigates on its own is stopped, not reloaded in a loop`(robot: FxRobot) {
+        dir.resolve("other.html").writeText("<h1>Other</h1>")
+        val file =
+            dir.resolve("index.html").apply {
+                writeText("<meta http-equiv=\"refresh\" content=\"0;url=other.html\"><h1>Hello</h1>")
+            }
+        val view = WaitForAsyncUtils.asyncFx<PreviewFileView> { HtmlFileViewer().open(file) as PreviewFileView }.get()
+        val host = RecordingHost()
+        view.host = host
+        robot.interact { container.children.setAll(view.node) }
+
+        WaitForAsyncUtils.waitFor(
+            10,
+            TimeUnit.SECONDS,
+        ) { fx { robot.lookup(".preview-notice").query<Node>().isVisible } }
+        WaitForAsyncUtils.sleep(1, TimeUnit.SECONDS)
+
+        assertTrue("other.html" in view.notice.text)
+        assertEquals(emptyList(), host.files)
+        // Changing the file shows it again.
+        file.writeText(page)
+        robot.interact { view.reload() }
+        awaitPage(view, "Hello")
+        assertTrue(!robot.lookup(".preview-notice").query<Node>().isVisible)
     }
 
     @Test

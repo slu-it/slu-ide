@@ -10,14 +10,24 @@ import javafx.collections.ListChangeListener
 import javafx.concurrent.Worker
 import javafx.geometry.Pos
 import javafx.scene.Node
+import javafx.scene.control.Alert
+import javafx.scene.control.Button
+import javafx.scene.control.ButtonBar
+import javafx.scene.control.ButtonType
+import javafx.scene.control.Label
 import javafx.scene.control.SplitPane
 import javafx.scene.control.ToggleButton
 import javafx.scene.control.ToggleGroup
 import javafx.scene.control.Tooltip
+import javafx.scene.input.DragEvent
+import javafx.scene.input.KeyEvent
+import javafx.scene.input.MouseEvent
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
+import javafx.scene.layout.StackPane
+import javafx.scene.layout.VBox
 import javafx.scene.web.WebEngine
 import javafx.scene.web.WebView
 import netscape.javascript.JSObject
@@ -95,10 +105,14 @@ internal enum class PreviewMode(
  * to its old scroll position otherwise.
  *
  * Clicked links never navigate the preview: anchors scroll within it, every other link goes to [host]
- * ([resolveLink]): web pages to the browser, files to SluIde. Pages without our script (e.g. HTML files) do navigate;
- * every navigation away from the [own page][Preview.isOwnPage] is turned back and its target handed to [host] the
- * same way. Only the own page gets the link bridge. Pages that [offer scripts][Preview.offersScripts] run them only
- * while [scripts] is on.
+ * ([resolveLink]): web pages to the browser, files to SluIde. Pages without our script (e.g. HTML files) do navigate:
+ * a navigation away from the [own page][Preview.isOwnPage] right after a click or key press in the preview is the
+ * user's, so its target goes to [host] and the page is shown again. Any other navigation (a meta refresh, a script
+ * setting `location`) stops the preview with a notice until the user shows the page again or the file changes, so a
+ * page can neither open things on its own nor reload in a loop. Only the own page gets the link bridge.
+ *
+ * Pages that [offer scripts][Preview.offersScripts] run them only while [scripts] is on, after [confirmScripts]: such
+ * a page is loaded from disk and its scripts can read other local files.
  */
 internal class PreviewFileView(
     file: Path,
@@ -114,11 +128,28 @@ internal class PreviewFileView(
     /** Whether the page's own scripts run, if the preview [offers that][Preview.offersScripts]. */
     val scripts: BooleanProperty = SimpleBooleanProperty(false)
 
+    /** Asks whether to run the page's scripts after a warning; tests replace it, since it blocks. */
+    var confirmScripts: () -> Boolean = ::showScriptsWarning
+
+    /** Shown over the preview when the page navigated on its own; see [stop]. */
+    val notice = Label().apply { isWrapText = true }
+    private val noticePane =
+        VBox(
+            notice,
+            Button("Show the page again").apply { setOnAction { resume() } },
+        ).apply {
+            styleClass += "preview-notice"
+            isVisible = false
+        }
+
+    /** The preview side: the web view, with [notice] over it when stopped. */
+    val previewPane = StackPane(webView, noticePane)
+
     private val split = SplitPane()
     private val modes = ToggleGroup()
     private val pane =
         BorderPane(split).apply {
-            styleClass += "markdown-view"
+            styleClass += "preview-view"
             stylesheets += checkNotNull(PreviewFileView::class.java.getResource("preview-view.css")).toExternalForm()
         }
     private val engine = webView.engine
@@ -137,13 +168,19 @@ internal class PreviewFileView(
     /** Where the divider was when the view last showed both sides. */
     private var dividerPosition = 0.5
 
+    /** When the user last pressed a mouse button or key in the preview, or dropped something onto it. */
+    private var lastInput: Long? = null
+
+    /** Whether the preview stopped after the page navigated on its own ([stop]). */
+    private var stopped = false
+
     init {
         val buttons =
             PreviewMode.entries.map { mode ->
                 ToggleButton(mode.label).apply {
                     toggleGroup = modes
                     userData = mode
-                    styleClass += "markdown-mode"
+                    styleClass += "preview-mode"
                 }
             }
         val extras =
@@ -151,7 +188,7 @@ internal class PreviewFileView(
                 listOf(
                     ToggleButton("Scripts").apply {
                         styleClass += "preview-scripts"
-                        tooltip = Tooltip("Run the page's scripts")
+                        tooltip = Tooltip("Run the page's scripts. They can read files on this computer.")
                         selectedProperty().bindBidirectional(scripts)
                     },
                     Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
@@ -161,15 +198,21 @@ internal class PreviewFileView(
             }
         pane.top =
             HBox(*(extras + buttons).toTypedArray()).apply {
-                styleClass += "markdown-toolbar"
+                styleClass += "preview-toolbar"
                 alignment = Pos.CENTER_RIGHT
             }
         engine.isJavaScriptEnabled = !preview.offersScripts
         scripts.addListener { _, _, allowed ->
-            if (preview.offersScripts) {
-                engine.isJavaScriptEnabled = allowed
-                rerender()
+            if (!preview.offersScripts) return@addListener
+            if (allowed && !confirmScripts()) {
+                Platform.runLater { scripts.set(false) }
+                return@addListener
             }
+            engine.isJavaScriptEnabled = allowed
+            rerender()
+        }
+        for (type in listOf(MouseEvent.MOUSE_PRESSED, KeyEvent.KEY_PRESSED, DragEvent.DRAG_DROPPED)) {
+            webView.addEventFilter(type) { lastInput = System.nanoTime() }
         }
         modes.selectedToggleProperty().subscribe { old, new ->
             // A mode is always selected: clicking the selected button keeps it.
@@ -201,7 +244,7 @@ internal class PreviewFileView(
 
     override fun reload() {
         source.reload()
-        render()
+        if (stopped && source.area.text != renderedText) resume() else render()
     }
 
     private fun show(mode: PreviewMode) {
@@ -212,12 +255,12 @@ internal class PreviewFileView(
             }
 
             PreviewMode.SPLIT -> {
-                split.items.setAll(source.node, webView)
+                split.items.setAll(source.node, previewPane)
                 split.setDividerPositions(dividerPosition)
             }
 
             PreviewMode.PREVIEW -> {
-                split.items.setAll(webView)
+                split.items.setAll(previewPane)
             }
         }
     }
@@ -225,9 +268,10 @@ internal class PreviewFileView(
     /** Renders the source text into the preview, unless it shows that text already. */
     private fun render() {
         val text = source.area.text
-        if (text == renderedText) return
+        if (stopped || text == renderedText) return
         renderedText = text
-        if (isLoaded) previewScrollY = (engine.executeScript("window.scrollY") as Number).toDouble()
+        // A page with scripts may redefine scrollY.
+        if (isLoaded) previewScrollY = (engine.executeScript("window.scrollY") as? Number)?.toDouble() ?: 0.0
         preview.load(engine, file, text, dark)
     }
 
@@ -241,13 +285,55 @@ internal class PreviewFileView(
     private val isLoaded
         get() = engine.loadWorker.state == Worker.State.SUCCEEDED && preview.isOwnPage(engine.location, file)
 
-    /** The preview left its page, e.g. a link in an HTML file: open the target elsewhere and go back. */
+    /**
+     * The preview left its page. Right after the user's input (e.g. a link clicked in an HTML file) the target opens
+     * elsewhere and the page comes back; otherwise the page navigated on its own and the preview [stops][stop].
+     */
     private fun navigatedAway(location: String) {
-        openLink(location)
-        Platform.runLater(::rerender)
+        if (stopped) return
+        val input = lastInput
+        if (input != null && System.nanoTime() - input < USER_NAVIGATION_NANOS) {
+            lastInput = null
+            openLink(location)
+            Platform.runLater(::rerender)
+        } else {
+            stop(location)
+        }
+    }
+
+    /** Shows a blank preview with a notice, until [resume]. */
+    private fun stop(location: String) {
+        stopped = true
+        notice.text = "The page tried to go to $location on its own. It is not shown, so that it cannot keep doing so."
+        noticePane.isVisible = true
+        Platform.runLater { engine.loadContent("") }
+    }
+
+    private fun resume() {
+        stopped = false
+        noticePane.isVisible = false
+        rerender()
+    }
+
+    private fun showScriptsWarning(): Boolean {
+        val run = ButtonType("Run Scripts", ButtonBar.ButtonData.OK_DONE)
+        val alert =
+            Alert(
+                Alert.AlertType.WARNING,
+                "The page's scripts can read files on this computer and send them to the web. " +
+                    "Run them only for pages you trust.",
+                run,
+                ButtonType.CANCEL,
+            ).apply {
+                pane.scene?.window?.let(::initOwner)
+                title = "Run Scripts"
+                headerText = "Run the scripts of ${file.fileName}?"
+            }
+        return alert.showAndWait().orElse(ButtonType.CANCEL) == run
     }
 
     private fun onLoaded() {
+        if (stopped) return
         if (!isLoaded) {
             // Not our page (see navigatedAway): show ours again.
             rerender()
@@ -301,3 +387,6 @@ internal class PreviewFileView(
         fun open(href: String) = openLink(href)
     }
 }
+
+/** How soon after the user's input a navigation counts as the user's: following a link takes a moment. */
+private const val USER_NAVIGATION_NANOS = 2_000_000_000L

@@ -72,14 +72,14 @@ class PreviewFileViewUiTest {
             }.get()
 
     private fun FxRobot.modeButton(mode: PreviewMode) =
-        lookup(".markdown-mode").queryAllAs(ToggleButton::class.java).single { it.text == mode.label }
+        lookup(".preview-mode").queryAllAs(ToggleButton::class.java).single { it.text == mode.label }
 
     @Test
     fun `shows the highlighted source beside the rendered preview`(robot: FxRobot) {
         val (_, view) = show(robot, "# Hello *world*\n\n| a |\n|---|\n| 1 |\n")
 
         val split = robot.lookup(".split-pane").queryAs(SplitPane::class.java)
-        assertEquals<List<Node>>(listOf(view.source.node, view.webView), split.items)
+        assertEquals<List<Node>>(listOf(view.source.node, view.previewPane), split.items)
         assertTrue(robot.modeButton(PreviewMode.SPLIT).isSelected)
         val area = robot.lookup(".code-area").queryAs(CodeArea::class.java)
         assertTrue("keyword" in area.getStyleOfChar(1))
@@ -93,7 +93,7 @@ class PreviewFileViewUiTest {
         val split = robot.lookup(".split-pane").queryAs(SplitPane::class.java)
 
         robot.interact { robot.modeButton(PreviewMode.PREVIEW).fire() }
-        assertEquals<List<Node>>(listOf(view.webView), split.items)
+        assertEquals<List<Node>>(listOf(view.previewPane), split.items)
         assertEquals(PreviewMode.PREVIEW, view.mode.get())
 
         robot.interact { robot.modeButton(PreviewMode.SOURCE).fire() }
@@ -105,7 +105,7 @@ class PreviewFileViewUiTest {
         assertEquals<List<Node>>(listOf(view.source.node), split.items)
 
         robot.interact { robot.modeButton(PreviewMode.SPLIT).fire() }
-        assertEquals<List<Node>>(listOf(view.source.node, view.webView), split.items)
+        assertEquals<List<Node>>(listOf(view.source.node, view.previewPane), split.items)
     }
 
     @Test
@@ -314,26 +314,25 @@ class PreviewFileViewUiTest {
     }
 
     @Test
-    fun `a preview that navigated away shows the Markdown again`(robot: FxRobot) {
+    fun `a preview that navigated on its own stops until shown again`(robot: FxRobot) {
         val (_, view) = show(robot, "# Mine\n")
+        val host = RecordingHost()
+        view.host = host
         val other = dir.resolve("other.html").apply { writeText("<h1>Other</h1>") }
 
-        val locations = mutableListOf<String?>()
-        robot.interact {
-            view.webView.engine
-                .locationProperty()
-                .addListener { _, _, location -> locations += location }
-            view.webView.engine.load(other.toUri().toString())
-        }
-        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
-            WaitForAsyncUtils
-                .asyncFx<Boolean> {
-                    view.webView.engine.location
-                        .isNullOrEmpty()
-                }.get() &&
-                view.script("document.querySelector('h1') && document.querySelector('h1').textContent") == "Mine"
-        }
-        assertTrue(locations.any { it.orEmpty().endsWith("other.html") }, "navigated away: $locations")
+        // No click or key press before: not the user's navigation.
+        robot.interact { view.webView.engine.load(other.toUri().toString()) }
+        WaitForAsyncUtils.waitForFxEvents()
+        WaitForAsyncUtils.sleep(500, TimeUnit.MILLISECONDS)
+
+        assertTrue(robot.lookup(".preview-notice").query<Node>().isVisible)
+        assertTrue("other.html" in view.notice.text)
+        assertEquals(emptyList(), host.files)
+
+        robot.interact { robot.lookup(".preview-notice .button").queryButton().fire() }
+        awaitLoaded(view)
+        assertTrue(!robot.lookup(".preview-notice").query<Node>().isVisible)
+        assertEquals("Mine", view.script("document.querySelector('h1').textContent"))
         assertEquals("function", view.script("typeof sluideBridge.open"))
     }
 
