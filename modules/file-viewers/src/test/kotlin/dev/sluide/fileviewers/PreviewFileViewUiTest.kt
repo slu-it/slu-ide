@@ -182,6 +182,19 @@ class PreviewFileViewUiTest {
     }
 
     @Test
+    fun `mermaid diagrams are drawn, again in the other colour scheme`(robot: FxRobot) {
+        val (_, view) = show(robot, "# Flow\n\n```mermaid\ngraph LR\n  Start --> Stop\n```\n")
+        val drawn = "document.querySelectorAll('pre.mermaid svg').length"
+
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { (view.script(drawn) as Number).toInt() == 1 }
+        assertTrue((view.script("document.querySelector('pre.mermaid svg').textContent") as String).contains("Start"))
+
+        robot.interact { container.scene.preferences.colorScheme = ColorScheme.DARK }
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { (view.script(drawn) as Number).toInt() == 1 }
+        assertTrue((view.script("document.querySelector('pre.mermaid svg').textContent") as String).contains("Stop"))
+    }
+
+    @Test
     fun `math is typeset by KaTeX`(robot: FxRobot) {
         val (_, view) = show(robot, "Inline \$a^2\$ and\n\n\$\$\n\\frac{1}{2}\n\$\$\n")
 

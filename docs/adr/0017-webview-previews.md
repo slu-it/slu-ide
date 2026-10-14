@@ -28,8 +28,13 @@ they come with their own scripts and links and are shown as their author made th
   - **KaTeX** (MIT) typesets Markdown math (`MarkdownMath`, a commonmark extension for `$…$`, `$$` blocks and
     ` ```math `). Its fonts are inlined as woff `data:` URIs; JavaFX's WebKit does not load woff2 that way.
 
+  - **Mermaid** (MIT, 3.5 MB) draws ` ```mermaid ` fences with `securityLevel: 'strict'` (no HTML in labels, no
+    click handlers), from the source kept in `data-source` so that a theme change can draw them again.
+
 ## Consequences
 - A new rendered format is a `Preview` and a `PreviewFileViewer` subclass.
 - HTML previews show pages as browsers would, but without the page's scripts unless allowed; pages that build their
   content with scripts look empty until then.
 - Opening an HTML file reads the files it references from disk; with scripts allowed, it may also reach the web.
+- The bundled libraries add about 4 MB to the jar (Mermaid 3.5 MB, KaTeX with fonts 0.6 MB); a page with a diagram
+  carries Mermaid's 3.5 MB inline, which takes a moment to load. Updating them is manual (`vendor/README.md`).

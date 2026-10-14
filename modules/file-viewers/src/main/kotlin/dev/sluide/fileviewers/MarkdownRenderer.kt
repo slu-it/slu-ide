@@ -31,6 +31,8 @@ import kotlin.io.path.readBytes
  * - every block element carries `data-line`, its first line in the source (0-based), for scroll sync;
  * - fenced code with a known language is highlighted like the code views (`<span class="keyword">`…);
  * - math ([MarkdownMath]) is typeset by KaTeX, bundled in `vendor/katex` and only added to pages that have math;
+ * - ` ```mermaid ` fences are drawn by Mermaid (`vendor/mermaid`, only on pages with diagrams), from the source kept in
+ *   `data-source`, so that they can be drawn again in the other colour scheme;
  * - the HTML is sanitised: Markdown files may contain HTML, and scripts or event handlers must not run;
  * - local images (relative or `file:`) are embedded as `data:` URIs, since a page loaded from a string may not read
  *   files; links keep their `href` as written and are resolved by `MarkdownFileView` when clicked;
@@ -67,6 +69,7 @@ internal object MarkdownRenderer {
             .relaxed()
             .addTags("del", "s", "hr", "input", "details", "summary", "kbd", "mark")
             .addAttributes(":all", "data-line", "class", "id", "align")
+            .addAttributes("pre", "data-source")
             .addAttributes("input", "type", "checked", "disabled")
             .addAttributes("details", "open")
             .addProtocols("a", "href", "file")
@@ -100,13 +103,22 @@ internal object MarkdownRenderer {
             append(if (dark) "<body class=\"dark\">\n" else "<body>\n")
             append(body.html())
             append("\n<script>\n").append(script).append("</script>\n")
-            if (math) {
-                append(
-                    "<script>\n",
-                ).append(Vendor.katexJs).append("\n</script>\n<script>sluide.renderMath();</script>\n")
-            }
+            if (math) inlineScript(Vendor.katexJs, "sluide.renderMath();")
+            if (body.selectFirst("pre.mermaid") != null) inlineScript(Vendor.mermaidJs, "sluide.renderDiagrams();")
             append("</body>\n</html>\n")
         }
+    }
+
+    /** Adds the [library] to the page, then runs [start]. */
+    private fun StringBuilder.inlineScript(
+        library: String,
+        start: String,
+    ) {
+        append("<script>\n")
+            .append(library)
+            .append("\n</script>\n<script>")
+            .append(start)
+            .append("</script>\n")
     }
 
     /** A local image at [src] (relative to [folder] or `file:`) as a `data:` URI, or `null` to keep [src]. */
@@ -149,6 +161,15 @@ internal object MarkdownRenderer {
             val block = node as FencedCodeBlock
             val language = fenceLanguage(block.info.orEmpty())
             val code = block.literal
+            if (language == "mermaid") {
+                html.line()
+                val attributes = mapOf("class" to "mermaid", "data-source" to code)
+                html.tag("pre", context.extendAttributes(block, "pre", attributes))
+                html.text(code)
+                html.tag("/pre")
+                html.line()
+                return
+            }
             if (language == "math") {
                 html.line()
                 html.tag("div", context.extendAttributes(block, "div", mapOf("class" to "math display")))

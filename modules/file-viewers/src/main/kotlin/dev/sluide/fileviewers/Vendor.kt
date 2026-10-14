@@ -10,6 +10,8 @@ import java.util.Base64
 internal object Vendor {
     val katexJs: String by lazy { text("katex/katex.min.js") }
 
+    val mermaidJs: String by lazy { text("mermaid/mermaid.min.js") }
+
     /**
      * KaTeX's stylesheet with its woff fonts inlined; the woff2 and ttf alternatives are dropped. JavaFX's WebKit fails
      * to load woff2 fonts from `data:` URIs.

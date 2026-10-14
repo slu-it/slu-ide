@@ -133,6 +133,18 @@ class MarkdownRendererTest {
     }
 
     @Test
+    fun `mermaid fences become diagrams, with Mermaid only on pages that have one`() {
+        val withDiagram = MarkdownRenderer.render("Intro\n\n```mermaid\ngraph TD; A-->B<script>\n```\n", dir)
+        val diagram = Jsoup.parse(withDiagram).selectFirst("pre.mermaid")
+
+        assertEquals("graph TD; A-->B<script>\n", diagram?.attr("data-source"))
+        assertEquals("graph TD; A-->B<script>\n", diagram?.wholeText())
+        assertEquals("2", diagram?.attr("data-line"))
+        assertTrue(Vendor.mermaidJs in withDiagram && "sluide.renderDiagrams()" in withDiagram)
+        assertFalse(Vendor.mermaidJs in MarkdownRenderer.render("```kotlin\nval x = 1\n```\n", dir))
+    }
+
+    @Test
     fun `the page brings its stylesheet and script`() {
         val page = render("text")
 

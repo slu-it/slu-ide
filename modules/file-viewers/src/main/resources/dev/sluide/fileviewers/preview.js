@@ -28,7 +28,21 @@
             window.scrollTo(0, line === 0 ? 0 : y);
         },
         setDark: function (dark) {
+            var changed = document.body.classList.contains('dark') !== dark;
             document.body.classList.toggle('dark', dark);
+            if (changed && window.mermaid) window.sluide.renderDiagrams();
+        },
+        // Draws the diagrams (```mermaid fences) with Mermaid, which the page includes when it has diagrams, in the
+        // page's colour scheme; again after a change of scheme, from the source in data-source.
+        renderDiagrams: function () {
+            var dark = document.body.classList.contains('dark');
+            mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: dark ? 'dark' : 'default' });
+            var diagrams = document.querySelectorAll('pre.mermaid');
+            for (var i = 0; i < diagrams.length; i++) {
+                diagrams[i].removeAttribute('data-processed');
+                diagrams[i].textContent = diagrams[i].getAttribute('data-source');
+            }
+            return mermaid.run({ nodes: diagrams, suppressErrors: true });
         },
         // Typesets the math (MarkdownMath) with KaTeX, which the page includes when it has math.
         renderMath: function () {
