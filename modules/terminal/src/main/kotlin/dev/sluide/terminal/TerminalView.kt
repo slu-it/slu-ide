@@ -137,7 +137,7 @@ internal class TerminalView(
         // Focus the terminal when its tab is shown, so typing goes to the shell right away.
         sceneProperty().subscribe { scene -> if (scene != null) Platform.runLater(::requestFocus) }
         // The cursor is filled while focused and outlined otherwise.
-        focusedProperty().subscribe { _ -> paint() }
+        focusedProperty().subscribe(::paint)
     }
 
     /** The visible text of the screen, one line per row with trailing blanks removed, for tests. */
