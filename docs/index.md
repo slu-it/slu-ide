@@ -27,6 +27,7 @@ Keep it up to date: every new ADR or feature description must be added here with
 - [adr/0016-markdown-preview.md](adr/0016-markdown-preview.md) — Markdown preview: commonmark-java renders sanitised HTML (jsoup) into a JavaFX WebView beside the source; native JavaFX nodes rejected; javafx.web grows the fat jar by ~48 MB; partly superseded by ADR 0017 (pages that navigate on their own).
 - [adr/0017-webview-previews.md](adr/0017-webview-previews.md) — One `PreviewFileView` (source beside a WebView) for all rendered formats; HTML loaded by URL from the local server (ADR 0018) with its scripts off by default, navigations without user input stop the preview; bundled KaTeX and Mermaid; notebooks rendered from their JSON.
 - [adr/0018-html-preview-server.md](adr/0018-html-preview-server.md) — HTML previews are served from a loopback HTTP server confined to the project folder (no hidden files, no symlinks out), since `file:` pages' scripts can read every local file.
+- [adr/0019-word-diff.md](adr/0019-word-diff.md) — Changed words within modified lines come from a small token LCS over each modified block of git's line diff (no `git --word-diff`, no library), earliest matches preferred, blocks over a million steps left out.
 - [adr/template.md](adr/template.md) — Template for new ADRs.
 
 ## Features

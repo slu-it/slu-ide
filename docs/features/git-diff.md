@@ -10,7 +10,9 @@ decision in [ADR 0015](../adr/0015-git-diff.md)
   - grey: removed lines, left side only;
   - blue: modified lines, both sides;
   - green: added lines, right side only.
-  The other side shows empty rows there, so the sides stay aligned; both scroll together. Line numbers are those of
+
+  Within modified lines, the words that changed get a stronger blue on both sides; a line added within a modified
+  block is stronger blue as a whole ([ADR 0019](../adr/0019-word-diff.md)). The other side shows empty rows there, so the sides stay aligned; both scroll together. Line numbers are those of
   each version. Code is highlighted like in the normal view.
 - Added and unversioned files open normally, they are new as a whole. Clean files open normally too.
 - The tab follows the status: it turns into a diff when the file becomes modified (an edit, in SluIde's terminal or
@@ -18,5 +20,5 @@ decision in [ADR 0015](../adr/0015-git-diff.md)
   changes. The scroll position resets when the view switches.
 - Files with a text, code or preview viewer (Markdown, HTML, SVG, CSV, notebooks) are shown as a diff of their text,
   highlighted like their source; others (e.g. images) open normally.
-- Not yet implemented: word-level highlighting within lines, diffs against the index or other commits, reverting
-  changes, navigating from change to change.
+- Not yet implemented: diffs against the index or other commits, reverting changes, navigating from change to
+  change.
