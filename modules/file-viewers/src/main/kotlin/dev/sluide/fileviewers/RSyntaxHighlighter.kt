@@ -233,6 +233,37 @@ internal class RSyntaxHighlighter(
         /** Also lexes embedded `<script>` (JavaScript) and `<style>` (CSS) content. */
         val html = RSyntaxHighlighter(SyntaxConstants.SYNTAX_STYLE_HTML)
 
+        /** Custom properties (`--main`), styled like variables. */
+        private val cssCustomProperty = Regex("""(?<![\w-])(?<annotation>--[\w-]+)""")
+
+        /**
+         * Stylesheets use the LESS lexer, which copes better with nesting and units than the CSS one. It reports
+         * at-rules like `@media` as regexes; `#id`s become annotations, like variables.
+         */
+        private fun stylesheet(
+            tokenStyles: Map<Int, TokenStyle?> = emptyMap(),
+            lineRules: List<Regex> = emptyList(),
+        ) = RSyntaxHighlighter(
+            SyntaxConstants.SYNTAX_STYLE_LESS,
+            tokenStyles = mapOf(TokenTypes.REGEX to TokenStyle.KEYWORD) + tokenStyles,
+            lineRules = listOf(cssCustomProperty) + lineRules,
+        )
+
+        val css = stylesheet()
+
+        /** LESS variables (`@color`) are styled like CSS custom properties. */
+        val less = stylesheet(tokenStyles = mapOf(TokenTypes.VARIABLE to TokenStyle.ANNOTATION))
+
+        /**
+         * The lexer reads SCSS's `@mixin`, `@include` etc. as LESS variables, so they are made keywords again; `$`
+         * variables (also inside `#{…}`) are styled like custom properties.
+         */
+        val scss =
+            stylesheet(
+                tokenStyles = mapOf(TokenTypes.VARIABLE to TokenStyle.KEYWORD),
+                lineRules = listOf(Regex("""(?<annotation>\$[\w-]+)""")),
+            )
+
         /** Start of a YAML value: after `key:` or a list item's `-`. */
         private const val YAML_VALUE = """(?:^\s*-|:)[ \t]+"""
 

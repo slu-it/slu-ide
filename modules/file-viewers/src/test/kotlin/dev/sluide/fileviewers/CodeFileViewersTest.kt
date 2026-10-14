@@ -25,6 +25,9 @@ class CodeFileViewersTest {
             XmlFileViewer() to listOf("pom.xml", "schema.xsd", "style.xsl", "transform.xslt", "icon.svg", "view.fxml"),
             HtmlFileViewer() to listOf("index.html", "legacy.htm", "page.xhtml"),
             YamlFileViewer() to listOf("ci.yml", "config.yaml"),
+            CssFileViewer() to listOf("site.css"),
+            ScssFileViewer() to listOf("_vars.scss"),
+            LessFileViewer() to listOf("theme.less"),
         )
 
     private val others = listOf("notes.txt", "README", "py")

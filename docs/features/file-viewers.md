@@ -26,6 +26,9 @@
   | `XmlFileViewer` | `.xml`, `.xsd`, `.xsl`, `.xslt`, `.svg`, `.fxml` | none needed; DTDs/processing instructions styled as `annotation`, entities as `number`, CDATA as `string` |
   | `HtmlFileViewer` | `.html`, `.htm`, `.xhtml` | none needed; embedded `<script>`/`<style>` are highlighted as JavaScript/CSS. Known gap: unquoted attribute values look like attribute names |
   | `YamlFileViewer` | `.yaml`, `.yml` | the lexer only knows comments and quoted strings; line rules add keys (`property`), numbers, `true`/`false`/`null`/`~`, anchors/aliases/tags (`annotation`) and `---`/`...`. Known gap: block scalar content (after `\|`/`>`) is not shown as string |
+  | `CssFileViewer` | `.css` | uses the LESS lexer (handles nesting and units better); at-rules like `@media` as `keyword` instead of `string`; custom properties (`--gap`) and `#id`s as `annotation`. Selectors are `type`, properties and pseudo-classes `keyword`. Known gap: some nested selectors show as `keyword` |
+  | `ScssFileViewer` | `.scss` | as CSS; `@mixin`/`@include`/`@use` (lexed as LESS variables) as `keyword`; `$variables`, also inside `#{…}`, as `annotation` |
+  | `LessFileViewer` | `.less` | as CSS; `@variables` as `annotation` |
 
 - Diff views: `FileViewers.openDiff(file, TextDiff)` shows a file side by side with an original version (left) in a
   `DiffFileView`: two read-only RichTextFX code areas with titles from the `TextDiff`, the same highlighting as the
