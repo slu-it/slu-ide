@@ -30,6 +30,7 @@ import org.kordamp.ikonli.javafx.FontIcon
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.nio.file.Files
+import java.nio.file.LinkOption
 import java.nio.file.Path
 import kotlin.math.roundToInt
 
@@ -71,6 +72,30 @@ class FileExplorerView(
     var onMoved: (from: Path, to: Path) -> Unit = { _, _ -> }
 
     /**
+     * The files at or below a path that have unsaved changes; asked before the path is deleted, so the confirmation
+     * can warn that they will be lost.
+     */
+    var unsavedUnder: (Path) -> List<Path> = { emptyList() }
+
+    /**
+     * Called after a file or folder was deleted in the explorer, a folder with everything in it. Not called if deleting
+     * failed, even if it deleted a part of a folder.
+     */
+    var onDeleted: (Path) -> Unit = {}
+
+    /** Asks whether to delete an entry; shows a confirmation dialog, tests replace it, since it blocks. */
+    internal var confirmDelete: (DeleteQuestion) -> Boolean = { askToDelete(scene?.window, it) }
+
+    /** Runs a delete, which may take long (e.g. `node_modules`), away from the JavaFX thread; tests replace it. */
+    internal var runInBackground: (Runnable) -> Unit = { Thread.ofVirtual().name("sluide-delete").start(it) }
+
+    /** Runs the end of a delete on the JavaFX thread; tests replace it. */
+    internal var dispatch: (Runnable) -> Unit = Platform::runLater
+
+    /** The entries being deleted; they and everything in them cannot be renamed or deleted meanwhile. */
+    private val deleting = mutableSetOf<Path>()
+
+    /**
      * Asks for a name, starting with `initial`, while `validate` tells what is wrong with it; `null` if cancelled.
      * Shows a dialog; tests replace it, since it blocks.
      */
@@ -105,6 +130,7 @@ class FileExplorerView(
         stylesheets += checkNotNull(FileExplorerView::class.java.getResource("file-explorer.css")).toExternalForm()
         addEventHandler(KeyEvent.KEY_PRESSED) { event ->
             val selected = selectionModel.selectedItem?.value
+            val changeable = (selectionModel.selectedItem as? FileTreeItem)?.takeIf(::canChange)
             when {
                 event.code == KeyCode.ENTER && selected != null && requestOpen(selected) -> {
                     event.consume()
@@ -115,8 +141,15 @@ class FileExplorerView(
                     event.consume()
                 }
 
-                event.code == KeyCode.F2 && canChange(selectionModel.selectedItem) -> {
-                    rename(selectionModel.selectedItem as FileTreeItem)
+                event.code == KeyCode.F2 && changeable != null -> {
+                    rename(changeable)
+                    event.consume()
+                }
+
+                // On macOS, Cmd+Backspace, as in the Finder: Mac keyboards often have no Delete key.
+                (event.code == KeyCode.DELETE || (event.code == KeyCode.BACK_SPACE && event.isShortcutDown)) &&
+                    changeable != null -> {
+                    delete(changeable)
                     event.consume()
                 }
             }
@@ -132,11 +165,13 @@ class FileExplorerView(
         val newFile = MenuItem("New File…").apply { setOnAction { create(menuTarget, folder = false) } }
         val newFolder = MenuItem("New Folder…").apply { setOnAction { create(menuTarget, folder = true) } }
         val rename = MenuItem("Rename…").apply { setOnAction { menuTarget?.let(::rename) } }
+        val delete = MenuItem("Delete…").apply { setOnAction { menuTarget?.let(::delete) } }
         return ContextMenu(
             newFile,
             newFolder,
             SeparatorMenuItem(),
             rename,
+            delete,
             SeparatorMenuItem(),
             MenuItem("Refresh").apply { setOnAction { refreshAll() } },
         ).apply {
@@ -144,6 +179,7 @@ class FileExplorerView(
                 newFile.isDisable = root == null
                 newFolder.isDisable = root == null
                 rename.isDisable = !canChange(menuTarget)
+                delete.isDisable = !canChange(menuTarget)
             }
         }
     }
@@ -230,8 +266,12 @@ class FileExplorerView(
         if (!folder) requestOpen(created)
     }
 
-    /** Whether [item] can be renamed or deleted: an entry of the opened folder, not the folder itself. */
-    private fun canChange(item: TreeItem<Path>?): Boolean = item is FileTreeItem && item.parent is FileTreeItem
+    /**
+     * Whether [item] can be renamed or deleted: an entry of the opened folder, not the folder itself, and not being
+     * deleted.
+     */
+    private fun canChange(item: TreeItem<Path>?): Boolean =
+        item is FileTreeItem && item.parent is FileTreeItem && deleting.none { item.value.startsWith(it) }
 
     /**
      * Asks for a new name of [item] and renames it in its folder, reporting it to [onMoved]. The renamed entry is
@@ -258,6 +298,70 @@ class FileExplorerView(
         onMoved(path, renamed)
         select(parent, renamed)?.isExpanded = item.isExpanded
     }
+
+    /**
+     * Asks whether to delete [item], warning about the files with [unsavedUnder] that would be lost, and deletes it
+     * permanently in the background, reporting it to [onDeleted]. If it is selected, the entry after it (or before it,
+     * or its folder) is selected right away, before the folder's watch may remove it.
+     */
+    internal fun delete(item: FileTreeItem) {
+        val parent = item.parent as? FileTreeItem ?: return
+        val path = item.value
+        val kind = entryKind(path) ?: return
+        if (!confirmDelete(deleteQuestion(path, kind, unsavedUnder(path).size))) return
+        // The question was about this kind of entry, e.g. not about a folder with everything in it.
+        if (entryKind(path) != kind) {
+            showError("“${path.fileName}” changed while asking and was not deleted.")
+            parent.refresh()
+            return
+        }
+        if (!canChange(item)) return
+        val replacement =
+            if (selectionModel.selectedItem?.value?.startsWith(path) == true) {
+                val siblings = parent.children
+                val index = siblings.indexOf(item)
+                (siblings.getOrNull(index + 1) ?: siblings.getOrNull(index - 1) ?: parent).also(::selectRow)
+            } else {
+                null
+            }
+        deleting.add(path)
+        runInBackground {
+            val failure =
+                try {
+                    FileOperations.delete(path)
+                    null
+                } catch (e: FileOperationException) {
+                    e
+                }
+            dispatch {
+                deleting.remove(path)
+                failure?.let { showError(it.message.orEmpty()) }
+                // Also after a failure, which may have deleted a part.
+                if (isShown(parent)) {
+                    parent.refresh()
+                    closeWatchesOfVanishedFolders()
+                    // Removing an expanded folder above it can lose the selection.
+                    val selected = selectionModel.selectedItem
+                    if (replacement != null && isShown(replacement) && (selected == null || !isShown(selected))) {
+                        selectRow(replacement)
+                    }
+                }
+                if (failure == null) onDeleted(path)
+            }
+        }
+    }
+
+    /** The kind of entry at [path], not following a link; `null` if there is none. */
+    private fun entryKind(path: Path): EntryKind? =
+        when {
+            Files.isSymbolicLink(path) -> EntryKind.LINK
+            Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS) -> EntryKind.FOLDER
+            Files.exists(path, LinkOption.NOFOLLOW_LINKS) -> EntryKind.FILE
+            else -> null
+        }
+
+    /** Whether [item] is still in the tree, e.g. not gone with a folder opened since. */
+    private fun isShown(item: TreeItem<Path>): Boolean = generateSequence(item) { it.parent }.last() === root
 
     /** Shows [path], an entry of [parent], at once, without waiting for the watch, selects and returns it. */
     private fun select(

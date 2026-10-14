@@ -297,16 +297,17 @@ class FileExplorerViewUiTest {
         }
     }
 
-    /** Opens the context menu as a right-click on [node] does, and returns its item [text]. */
+    /** Opens the context menu as a right-click on [node] (or the [keyboard]) does, and returns its item [text]. */
     private fun menuItemFor(
         robot: FxRobot,
         node: Node,
         text: String,
+        keyboard: Boolean = false,
     ): MenuItem {
         robot.interact {
             Event.fireEvent(
                 node,
-                ContextMenuEvent(ContextMenuEvent.CONTEXT_MENU_REQUESTED, 1.0, 1.0, 1.0, 1.0, false, null),
+                ContextMenuEvent(ContextMenuEvent.CONTEXT_MENU_REQUESTED, 1.0, 1.0, 1.0, 1.0, keyboard, null),
             )
         }
         WaitForAsyncUtils.waitForFxEvents()
@@ -545,6 +546,208 @@ class FileExplorerViewUiTest {
         robot.interact { view.rename(item) }
         assertEquals(listOf("Could not rename “a.txt”: $file does not exist."), errors)
         assertEquals(emptyList(), moves)
+    }
+
+    @Test
+    fun `Delete asks, deletes a folder with its content at once, reports it and selects the next entry`(
+        robot: FxRobot,
+    ) {
+        val sub = project.resolve("sub").createDirectories()
+        sub.resolve("deeper/inner.txt").createParentDirectories().createFile()
+        project.resolve("after.txt").createFile()
+        useUnwatchedView(robot)
+        val asked = mutableListOf<Path>()
+        view.unsavedUnder = { path ->
+            asked.add(path)
+            listOf(path.resolve("deeper/inner.txt"), path.resolve("x.txt"))
+        }
+        val questions = mutableListOf<DeleteQuestion>()
+        view.confirmDelete = {
+            questions += it
+            true
+        }
+        val deleted = mutableListOf<Path>()
+        view.onDeleted = { deleted.add(it) }
+        robot.interact { view.open(project) }
+        robot.interact {
+            view.root.children
+                .first()
+                .isExpanded = true
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        // As a right-click does.
+        robot.interact { view.selectionModel.select(view.root.children.first()) }
+
+        val delete = menuItemFor(robot, cellNamed(robot, "sub"), "Delete…")
+        assertFalse(delete.isDisable)
+        robot.interact { delete.fire() }
+
+        // On a background thread; the view itself shows the result.
+        eventually(robot) {
+            assertEquals(listOf(sub), deleted)
+            assertEquals(listOf(project.name, "after.txt"), renderedNames(robot))
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(listOf(sub), asked)
+        assertEquals(listOf(deleteQuestion(sub, EntryKind.FOLDER, 2)), questions)
+        assertFalse(sub.exists())
+        robot.interact {
+            assertEquals(project.resolve("after.txt"), view.selectionModel.selectedItem?.value)
+            assertEquals(project.resolve("after.txt"), view.focusModel.focusedItem?.value)
+        }
+    }
+
+    @Test
+    fun `while an entry is deleted in the background, it cannot be deleted or renamed again`(robot: FxRobot) {
+        val file = project.resolve("a.txt").createFile()
+        project.resolve("b.txt").createFile()
+        val pending = mutableListOf<Runnable>()
+        view.runInBackground = { pending += it }
+        var confirmations = 0
+        view.confirmDelete = {
+            confirmations++
+            true
+        }
+        val deleted = mutableListOf<Path>()
+        view.onDeleted = { deleted.add(it) }
+        robot.interact { view.open(project) }
+        robot.interact {
+            view.selectionModel.select(view.root.children.first())
+            pressKey(KeyCode.DELETE)
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertTrue(file.exists())
+        robot.interact {
+            // The next entry is selected at once.
+            assertEquals(project.resolve("b.txt"), view.selectionModel.selectedItem?.value)
+            view.selectionModel.select(view.root.children.first())
+            pressKey(KeyCode.DELETE)
+        }
+        assertEquals(1, confirmations)
+        assertTrue(menuItemFor(robot, cellNamed(robot, "a.txt"), "Delete…").isDisable)
+        assertTrue(menuItemFor(robot, cellNamed(robot, "a.txt"), "Rename…").isDisable)
+
+        pending.single().run()
+        WaitForAsyncUtils.waitForFxEvents()
+        assertFalse(file.exists())
+        assertEquals(listOf(file), deleted)
+        assertEquals(listOf(project.name, "b.txt"), renderedNames(robot))
+    }
+
+    @Test
+    fun `nothing is deleted unless confirmed, a failed delete shows the error`(robot: FxRobot) {
+        val file = project.resolve("a.txt").createFile()
+        val errors = mutableListOf<String>()
+        view.showError = { errors += it }
+        val deleted = mutableListOf<Path>()
+        view.onDeleted = { deleted.add(it) }
+        view.confirmDelete = { false }
+        lateinit var item: FileTreeItem
+        robot.interact {
+            view.open(project)
+            item = view.root.children.single() as FileTreeItem
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        robot.interact { view.delete(item) }
+        assertTrue(file.exists())
+
+        view.confirmDelete = { true }
+        // The file vanishes before it is deleted.
+        view.runInBackground = { task ->
+            file.deleteExisting()
+            task.run()
+        }
+        robot.interact { view.delete(item) }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(listOf("Could not delete “a.txt”: $file does not exist."), errors)
+        assertEquals(emptyList(), deleted)
+    }
+
+    @Test
+    fun `an entry that changes its kind while asking is not deleted`(robot: FxRobot) {
+        val entry = project.resolve("a").createFile()
+        val errors = mutableListOf<String>()
+        view.showError = { errors += it }
+        val deleted = mutableListOf<Path>()
+        view.onDeleted = { deleted.add(it) }
+        // The question was about a file; now it is a folder.
+        view.confirmDelete = {
+            entry.deleteExisting()
+            entry.resolve("inner.txt").createParentDirectories().createFile()
+            true
+        }
+        lateinit var item: FileTreeItem
+        robot.interact {
+            view.open(project)
+            item = view.root.children.single() as FileTreeItem
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        robot.interact { view.delete(item) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(listOf("“a” changed while asking and was not deleted."), errors)
+        assertTrue(entry.resolve("inner.txt").exists())
+        assertEquals(emptyList(), deleted)
+    }
+
+    @Test
+    fun `the context menu opened by keyboard is for the selected entry`(robot: FxRobot) {
+        project.resolve("a.txt").createFile()
+        val asked = mutableListOf<String>()
+        view.askName = { _, initial, _ ->
+            asked += initial
+            null
+        }
+        robot.interact { view.open(project) }
+        robot.interact { view.selectionModel.select(view.root.children.single()) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val rename = menuItemFor(robot, view, "Rename…", keyboard = true)
+        assertFalse(rename.isDisable)
+        robot.interact { rename.fire() }
+
+        assertEquals(listOf("a.txt"), asked)
+        // A right-click on the empty area is for the opened folder, whatever is selected.
+        assertTrue(menuItemFor(robot, view, "Rename…").isDisable)
+    }
+
+    @Test
+    fun `the Delete key and the shortcut key with Backspace delete the selected entry, but not the opened folder`(
+        robot: FxRobot,
+    ) {
+        project.resolve("a.txt").createFile()
+        project.resolve("b.txt").createFile()
+        val asked = mutableListOf<String>()
+        view.confirmDelete = {
+            asked += it.header
+            false
+        }
+        robot.interact { view.open(project) }
+
+        robot.interact {
+            view.selectionModel.select(view.root.children.first())
+            pressKey(KeyCode.DELETE)
+            view.selectionModel.select(view.root.children.last())
+            pressKey(KeyCode.BACK_SPACE)
+            // Control and Meta, so the shortcut key is down on every platform.
+            Event.fireEvent(view, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.BACK_SPACE, false, true, false, true))
+            view.selectionModel.select(view.root)
+            pressKey(KeyCode.DELETE)
+        }
+
+        assertEquals(listOf("Delete the file “a.txt”?", "Delete the file “b.txt”?"), asked)
+    }
+
+    @Test
+    fun `Delete is disabled for the opened folder and the empty area`(robot: FxRobot) {
+        robot.interact { view.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertTrue(menuItemFor(robot, cellNamed(robot, project.name), "Delete…").isDisable)
+        assertTrue(menuItemFor(robot, view, "Delete…").isDisable)
     }
 
     /** Repeats [assertion] on the FX thread until it passes; the JDK may poll for file changes on macOS. */
