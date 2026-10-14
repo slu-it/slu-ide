@@ -7,4 +7,4 @@ import org.springframework.stereotype.Component
  * with a `<script>` and a `<style>` block.
  */
 @Component
-class SingleFileComponentViewer : CodeFileViewer(setOf("vue", "svelte"), RSyntaxHighlighter.singleFileComponent)
+class SingleFileComponentFileViewer : CodeFileViewer(setOf("vue", "svelte"), RSyntaxHighlighter.singleFileComponent)
