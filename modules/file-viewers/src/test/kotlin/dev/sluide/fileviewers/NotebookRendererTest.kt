@@ -84,4 +84,43 @@ class NotebookRendererTest {
         val error = assertNotNull(render("{ not json").selectFirst(".notebook-error"))
         assertTrue(error.text().startsWith("Not a valid notebook:"))
     }
+
+    @Test
+    fun `notebooks of an unexpected shape are no valid notebooks`() {
+        val shapes =
+            listOf(
+                """{"cells":[{"cell_type":"markdown","source":{"a":1}}]}""",
+                """{"cells":[{"cell_type":"code","source":["x",{}]}]}""",
+                """{"metadata":{"language_info":{"name":{}}},"cells":[]}""",
+            )
+        for (json in shapes) {
+            assertNotNull(render(json).selectFirst(".notebook-error"), json)
+        }
+    }
+
+    @Test
+    fun `HTML outputs that sanitise to nothing fall back to plain text`() {
+        val json =
+            """{"cells":[{"cell_type":"code","source":"fig","outputs":[{"output_type":"display_data",
+            "data":{"text/html":"<div></div><script>Plotly.newPlot()</script>","text/plain":"Figure()"}}]}]}"""
+
+        assertEquals("Figure()", render(json).selectFirst(".output")?.text())
+    }
+
+    @Test
+    fun `attachments with encoded names, in raw HTML too`() {
+        val json =
+            """{"cells":[{"cell_type":"markdown","source":"![a](attachment:my%20plot.png) <img src=\"attachment:b.png\">",
+            "attachments":{"my plot.png":{"image/png":"AQ=="},"b.png":{"image/png":"Ag=="}}}]}"""
+
+        assertEquals(
+            listOf(
+                "data:image/png;base64,AQ==",
+                "data:image/png;base64,Ag==",
+            ),
+            render(json).select("img").map {
+                it.attr("src")
+            },
+        )
+    }
 }

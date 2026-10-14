@@ -74,4 +74,18 @@ class CsvRendererTest {
             Jsoup.parse(CsvRenderer.render("", ',', dark = false)).selectFirst(".csv-note")?.text(),
         )
     }
+
+    @Test
+    fun `a byte order mark does not belong to the first field`() {
+        assertEquals(listOf(listOf("Name, first", "x")), cells("\uFEFF\"Name, first\",x"))
+    }
+
+    @Test
+    fun `tables of semicolon files sort numbers with decimal commas`() {
+        val semicolon = Jsoup.parse(CsvRenderer.render("a;b\n1,5;2", ';', dark = false))
+        val comma = Jsoup.parse(CsvRenderer.render("a,b\n1,2", ',', dark = false))
+
+        assertEquals(",", semicolon.selectFirst("table")?.attr("data-decimal"))
+        assertEquals(".", comma.selectFirst("table")?.attr("data-decimal"))
+    }
 }

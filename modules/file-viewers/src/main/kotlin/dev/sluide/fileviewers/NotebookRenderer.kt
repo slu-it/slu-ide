@@ -4,6 +4,7 @@ import org.jsoup.nodes.Element
 import tools.jackson.core.JacksonException
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
+import java.net.URLDecoder
 import java.nio.file.Path
 import java.util.Base64
 
@@ -13,10 +14,15 @@ import java.util.Base64
  * - code cells highlighted in the notebook's language, with their execution count;
  * - stored outputs: PNG, JPEG and SVG images (as `<img>`), HTML (sanitised like Markdown, e.g. pandas tables), plain
  *   text and streams, and errors with their traceback (ANSI colours removed). Outputs are shown, never run.
+ *
+ * A file that is no JSON, or JSON of another shape, shows "Not a valid notebook".
  */
 internal object NotebookRenderer {
     private val mapper = JsonMapper.builder().build()
     private val ansiCodes = Regex("""\u001B\[[0-9;]*[A-Za-z]""")
+
+    /** Marker path for `attachment:` images, which the sanitiser would drop; see [markdownCell]. */
+    private const val ATTACHMENT = ".sluide-attachment/"
 
     fun render(
         text: String,
@@ -29,22 +35,29 @@ internal object NotebookRenderer {
         folder: Path,
     ): Element {
         val body = Element("body").addClass("notebook")
-        val notebook =
-            try {
-                mapper.readTree(text)
-            } catch (e: JacksonException) {
-                body.appendElement("p").addClass("notebook-error").text("Not a valid notebook: ${e.originalMessage}")
-                return body
-            }
+        try {
+            cells(body, mapper.readTree(text), folder)
+        } catch (e: JacksonException) {
+            // Not JSON, or JSON of another shape (e.g. an object where text belongs).
+            body.empty()
+            body.appendElement("p").addClass("notebook-error").text("Not a valid notebook: ${e.originalMessage}")
+        }
+        return body
+    }
+
+    private fun cells(
+        body: Element,
+        notebook: JsonNode,
+        folder: Path,
+    ) {
         val metadata = notebook.path("metadata")
         val language =
             metadata
                 .path("language_info")
                 .path("name")
                 .asString()
-                .ifEmpty {
-                    metadata.path("kernelspec").path("language").asString()
-                }.ifEmpty { "python" }
+                .ifEmpty { metadata.path("kernelspec").path("language").asString() }
+                .ifEmpty { "python" }
                 .lowercase()
         val highlighter = RSyntaxHighlighter.forLanguage(language)
         for (cell in notebook.path("cells").values()) {
@@ -66,7 +79,6 @@ internal object NotebookRenderer {
                 }
             }
         }
-        return body
     }
 
     private fun markdownCell(
@@ -75,26 +87,21 @@ internal object NotebookRenderer {
         folder: Path,
     ) {
         val div = body.appendElement("div").addClass("cell markdown")
-        // Images attached to the cell (`![x](attachment:name.png)`): the sanitiser drops the `attachment:` scheme, so
-        // they get a marker path first and are embedded afterwards.
-        val markdown = cell.source().replace("(attachment:", "($ATTACHMENT")
-        MarkdownRenderer
-            .body(markdown, folder)
-            .children()
-            .toList()
-            .forEach { div.appendChild(it) }
+        // Images attached to the cell (`![x](attachment:name.png)`, `<img src="attachment:…">`): the sanitiser drops
+        // the `attachment:` scheme, so they get a marker path first and are embedded afterwards.
+        val markdown =
+            cell
+                .source()
+                .replace("](attachment:", "]($ATTACHMENT")
+                .replace("src=\"attachment:", "src=\"$ATTACHMENT")
+        appendAll(div, MarkdownRenderer.body(markdown, folder))
         for (image in div.select("img[src^=$ATTACHMENT]")) {
-            val data = cell.path("attachments").path(image.attr("src").removePrefix(ATTACHMENT))
+            val name = URLDecoder.decode(image.attr("src").removePrefix(ATTACHMENT), Charsets.UTF_8)
+            val data = cell.path("attachments").path(name)
             val type = data.propertyNames().firstOrNull { it.startsWith("image/") }
-            if (type == null) {
-                image.removeAttr("src")
-            } else {
-                image.attr("src", "data:$type;base64,${data.path(type).joined().filterNot(Char::isWhitespace)}")
-            }
+            if (type == null) image.removeAttr("src") else image.attr("src", dataUri(type, data.path(type)))
         }
     }
-
-    private const val ATTACHMENT = ".sluide-attachment/"
 
     private fun codeCell(
         body: Element,
@@ -117,11 +124,8 @@ internal object NotebookRenderer {
         val out = div.appendElement("div").addClass("output")
         when (output.path("output_type").asString()) {
             "stream" -> {
-                out
-                    .addClass(
-                        output.path("name").asString(),
-                    ).appendElement("pre")
-                    .text(stripAnsi(output.path("text").joined()))
+                out.addClass(output.path("name").asString())
+                out.appendElement("pre").text(stripAnsi(output.path("text").joined()))
             }
 
             "error" -> {
@@ -148,40 +152,28 @@ internal object NotebookRenderer {
         folder: Path,
     ) {
         val image = listOf("image/png", "image/jpeg").firstOrNull { data.has(it) }
+        // Plotting libraries often store HTML that is only scripts, which sanitising leaves empty.
+        val html =
+            data
+                .takeIf {
+                    it.has("text/html")
+                }?.let { MarkdownRenderer.sanitized(it.path("text/html").joined(), folder) }
         when {
             image != null -> {
-                out
-                    .appendElement(
-                        "img",
-                    ).attr("src", "data:$image;base64,${data.path(image).joined().filterNot(Char::isWhitespace)}")
+                out.appendElement("img").attr("src", dataUri(image, data.path(image)))
             }
 
             data.has("image/svg+xml") -> {
-                val svg =
-                    Base64.getEncoder().encodeToString(
-                        data.path("image/svg+xml").joined().toByteArray(),
-                    )
+                val svg = Base64.getEncoder().encodeToString(data.path("image/svg+xml").joined().toByteArray())
                 out.appendElement("img").attr("src", "data:image/svg+xml;base64,$svg")
             }
 
-            data.has("text/html") -> {
-                MarkdownRenderer
-                    .sanitized(
-                        data.path("text/html").joined(),
-                        folder,
-                    ).children()
-                    .toList()
-                    .forEach { out.appendChild(it) }
+            html != null && (html.text().isNotBlank() || html.selectFirst("img, table") != null) -> {
+                appendAll(out, html)
             }
 
             data.has("text/markdown") -> {
-                MarkdownRenderer
-                    .body(
-                        data.path("text/markdown").joined(),
-                        folder,
-                    ).children()
-                    .toList()
-                    .forEach { out.appendChild(it) }
+                appendAll(out, MarkdownRenderer.body(data.path("text/markdown").joined(), folder))
             }
 
             data.has("text/plain") -> {
@@ -204,6 +196,17 @@ internal object NotebookRenderer {
         }
         element.appendText(code.substring(position))
     }
+
+    private fun appendAll(
+        target: Element,
+        source: Element,
+    ) = source.children().toList().forEach { target.appendChild(it) }
+
+    /** Base64 image data from a notebook (often split into lines) as a `data:` URI. */
+    private fun dataUri(
+        type: String,
+        base64: JsonNode,
+    ) = "data:$type;base64,${base64.joined().filterNot(Char::isWhitespace)}"
 
     /** A cell's `source`: a string, or a list of lines to join (nbformat allows both). */
     private fun JsonNode.source() = path("source").joined()

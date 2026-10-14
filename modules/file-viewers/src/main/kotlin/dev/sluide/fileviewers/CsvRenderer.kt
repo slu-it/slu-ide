@@ -25,6 +25,8 @@ internal object CsvRenderer {
         delimiter: Char,
     ): List<Row> {
         val rows = mutableListOf<Row>()
+        // Excel's "CSV UTF-8" starts with a byte order mark.
+        val text = text.removePrefix("\uFEFF")
         val cells = mutableListOf<String>()
         val cell = StringBuilder()
         var line = 0
@@ -118,7 +120,10 @@ internal object CsvRenderer {
             if (header == null) {
                 append("<p class=\"csv-note\">Empty file</p>\n")
             } else {
-                append("<table class=\"csv-table\">\n<thead><tr data-line=\"").append(header.line).append("\">")
+                // With `;` between fields, numbers have decimal commas (`1,5`).
+                val decimal = if (delimiter == ';') "," else "."
+                append("<table class=\"csv-table\" data-decimal=\"").append(decimal).append("\">\n")
+                append("<thead><tr data-line=\"").append(header.line).append("\">")
                 for (column in 0 until columns) {
                     append("<th>").append(escape(header.cells.getOrElse(column) { "" })).append("</th>")
                 }

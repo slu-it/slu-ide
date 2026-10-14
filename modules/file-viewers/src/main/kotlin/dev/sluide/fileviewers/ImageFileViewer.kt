@@ -31,7 +31,7 @@ class ImageFileViewer : FileViewer {
 
     override fun open(file: Path): FileView = ImageFileView(file)
 
-    private companion object {
+    internal companion object {
         const val MAX_IMAGE_BYTES = 50L * 1024 * 1024
     }
 }
@@ -73,6 +73,7 @@ internal class ImageFileView(
     override val node: Node get() = pane
 
     override fun reload() {
+        if (file.fileSize() > ImageFileViewer.MAX_IMAGE_BYTES) throw IOException("$file is too large to show")
         val newBytes = file.readBytes()
         if (newBytes.contentEquals(bytes)) return
         bytes = newBytes

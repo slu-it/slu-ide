@@ -71,7 +71,7 @@ class MarkdownRendererTest {
             )
 
         val body = page.body()
-        // Only our own script is left: the one that MarkdownFileView calls.
+        // Only our own script is left: the one that PreviewFileView calls.
         assertEquals(1, body.select("script").size)
         assertFalse("alert(1)" in body.select("script").html())
         assertNotNull(page.selectFirst("details[open] > summary"))

@@ -67,7 +67,13 @@ internal object MarkdownMath : Parser.ParserExtension, HtmlRenderer.HtmlRenderer
             while (scanner.find('$') >= 0) {
                 val contentEnd = scanner.position()
                 val before = scanner.peekPreviousCodePoint()
-                if (before == '\\'.code) {
+                // An odd number of backslashes escapes the dollar; after `\\` it closes the math.
+                if (scanner
+                        .getSource(contentStart, contentEnd)
+                        .content
+                        .takeLastWhile { it == '\\' }
+                        .length % 2 == 1
+                ) {
                     scanner.next()
                     continue
                 }
@@ -143,11 +149,11 @@ internal object MarkdownMath : Parser.ParserExtension, HtmlRenderer.HtmlRenderer
         override fun render(node: Node) {
             when (node) {
                 is MathInline -> {
-                    val tag = if (node.display) "div" else "span"
+                    // A span also for display math: a div would end the paragraph around it. CSS sets it apart.
                     val style = if (node.display) "math display" else "math"
-                    html.tag(tag, context.extendAttributes(node, tag, mapOf("class" to style)))
+                    html.tag("span", context.extendAttributes(node, "span", mapOf("class" to style)))
                     html.text(node.tex)
-                    html.tag("/$tag")
+                    html.tag("/span")
                 }
 
                 is MathBlock -> {

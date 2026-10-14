@@ -36,8 +36,8 @@ import kotlin.io.path.readBytes
  *   `data-source`, so that they can be drawn again in the other colour scheme;
  * - the HTML is sanitised: Markdown files may contain HTML, and scripts or event handlers must not run;
  * - local images (relative or `file:`) are embedded as `data:` URIs, since a page loaded from a string may not read
- *   files; links keep their `href` as written and are resolved by `MarkdownFileView` when clicked;
- * - the page brings its stylesheet and the script that `MarkdownFileView` calls.
+ *   files; links keep their `href` as written and are resolved by `PreviewFileView` when clicked;
+ * - the page brings its stylesheet and the script that `PreviewFileView` calls.
  */
 internal object MarkdownRenderer {
     private val extensions =

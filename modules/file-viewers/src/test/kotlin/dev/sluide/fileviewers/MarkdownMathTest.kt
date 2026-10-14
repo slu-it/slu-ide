@@ -59,4 +59,20 @@ class MarkdownMathTest {
         assertFalse("url(fonts/" in withMath)
         assertFalse(Vendor.katexJs in without || Vendor.katexCss in without)
     }
+
+    @Test
+    fun `display math within a paragraph keeps the paragraph whole`() {
+        val paragraph = render("Energy \$\$E=mc^2\$\$ here").select("p")
+
+        assertEquals(1, paragraph.size)
+        assertEquals("Energy E=mc^2 here", paragraph.text())
+        assertEquals("math display", paragraph.select(".math").attr("class"))
+    }
+
+    @Test
+    fun `backslashes before the closing dollar`() {
+        // `\\` is a TeX line break, so the dollar after it closes the math; `\$` is an escaped dollar.
+        assertEquals(listOf("I:a \\\\"), math("\$a \\\\\$ b"))
+        assertEquals(listOf("I:a \\\$ b"), math("\$a \\\$ b\$"))
+    }
 }

@@ -1,6 +1,6 @@
 /*
- * Rendered Markdown in the preview WebView (MarkdownRenderer). Token classes come from TokenStyle, colours match
- * syntax.css. Dark colours apply when MarkdownFileView sets the class "dark" on the body.
+ * Pages of the preview WebView (MarkdownRenderer, CsvRenderer, NotebookRenderer). Token classes come from TokenStyle, colours match
+ * syntax.css. Dark colours apply when PreviewFileView sets the class "dark" on the body.
  */
 
 body {
@@ -157,6 +157,7 @@ body.dark .attribute { color: #bababa; }
 body.dark .operator { color: #a9b7c6; }
 
 .math.display {
+    display: block;
     margin: 0 0 16px 0;
     overflow-x: auto;
     overflow-y: hidden;
@@ -235,14 +236,14 @@ body.dark table.csv-table th {
 }
 
 body.dark .notebook-error,
-body.dark .notebook .output.error pre {
+body.dark.notebook .output.error pre {
     color: #ff7b72;
 }
 
-body.dark .notebook .output {
+body.dark.notebook .output {
     border-left-color: #3d444d;
 }
 
-body.dark .notebook .output.stderr pre {
+body.dark.notebook .output.stderr pre {
     background: #3b2e2e;
 }
