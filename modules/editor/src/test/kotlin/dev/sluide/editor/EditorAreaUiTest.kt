@@ -17,6 +17,7 @@ import dev.sluide.settings.SettingsStore
 import javafx.application.Platform
 import javafx.beans.property.SimpleStringProperty
 import javafx.event.Event
+import javafx.event.EventType
 import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.Button
@@ -43,6 +44,7 @@ import kotlin.io.path.deleteExisting
 import kotlin.io.path.name
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
+import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -250,6 +252,78 @@ class EditorAreaUiTest {
     }
 
     @Test
+    fun `dragging a tab moves it and keeps it selected`(robot: FxRobot) {
+        val a = textFile("a.txt")
+        val b = textFile("b.txt")
+        val c = textFile("c.txt")
+        open(robot, a, b, c)
+        val width = tabLabel(robot, "a.txt").parent.layoutBounds.width
+
+        dragBy(robot, tabLabel(robot, "a.txt"), width * 2)
+
+        assertEquals(listOf("b.txt", "c.txt", "a.txt"), tabTitles(robot))
+        assertEquals(listOf(b, c, a), editor.openPaths)
+        assertEquals(a, editor.selectedPath)
+        assertEquals("content of a.txt", shownText(robot))
+        assertTrue(robot.lookup(".editor-tab.dragging").queryAll<Node>().isEmpty())
+
+        dragBy(robot, tabLabel(robot, "c.txt"), -width * 5)
+
+        assertEquals(listOf("c.txt", "b.txt", "a.txt"), tabTitles(robot))
+        assertEquals(c, editor.selectedPath)
+    }
+
+    @Test
+    fun `a tab moves only once the mouse moved a few pixels, and not from its close button`(robot: FxRobot) {
+        val a = textFile("a.txt")
+        open(robot, a, textFile("b.txt"))
+
+        dragBy(robot, tabLabel(robot, "a.txt"), 4.0)
+        assertEquals(listOf("a.txt", "b.txt"), tabTitles(robot))
+        assertEquals(a, editor.selectedPath)
+
+        val close = tabLabel(robot, "a.txt").parent.lookup(".close-button")
+        dragBy(robot, close, 300.0, release = false)
+        // Released on the title: a release on the button itself would close the tab, as no exit event disarms it.
+        releaseOn(robot, tabLabel(robot, "a.txt"), 300.0)
+
+        assertEquals(listOf("a.txt", "b.txt"), tabTitles(robot))
+    }
+
+    @Test
+    fun `a dragged file tab keeps its watch and reloads`(robot: FxRobot) {
+        val a = textFile("a.txt", "first")
+        val b = textFile("b.txt")
+        open(robot, a, b)
+
+        dragBy(robot, tabLabel(robot, "a.txt"), 200.0)
+        assertEquals(listOf(b, a), editor.openPaths)
+        assertEquals(2, editor.watchCount)
+
+        a.writeText("second")
+
+        eventually(robot) { assertEquals("second", shownText(robot)) }
+    }
+
+    @Test
+    fun `dragging a tab beyond the edge of an overflowing row scrolls it`(robot: FxRobot) {
+        robot.interact { stage.width = 300.0 }
+        val files = Array(8) { textFile("file-number-$it.txt") }
+        open(robot, *files)
+        open(robot, files.first())
+        val strip = editor.tabStrip
+        val label = tabLabel(robot, "file-number-0.txt")
+
+        dragBy(robot, label, stage.width, release = false)
+        eventually(robot) { assertEquals(files.first(), editor.openPaths.last()) }
+        releaseOn(robot, label, stage.width)
+
+        assertEquals(files.first(), editor.selectedPath)
+        assertEquals(files.first(), (strip.visibleTabs().last() as OpenFile).path)
+        assertTrue(strip.scrollRightButton.isDisable, "scrolled to the end")
+    }
+
+    @Test
     fun `middle click closes a tab`(robot: FxRobot) {
         open(robot, textFile("a.txt"), textFile("b.txt"))
 
@@ -270,31 +344,74 @@ class EditorAreaUiTest {
         button: MouseButton = MouseButton.PRIMARY,
     ) {
         for (type in listOf(MouseEvent.MOUSE_PRESSED, MouseEvent.MOUSE_RELEASED, MouseEvent.MOUSE_CLICKED)) {
-            val down = type == MouseEvent.MOUSE_PRESSED
-            Event.fireEvent(
-                node,
-                MouseEvent(
-                    type,
-                    1.0,
-                    1.0,
-                    1.0,
-                    1.0,
-                    button,
-                    1,
-                    false,
-                    false,
-                    false,
-                    false,
-                    down && button == MouseButton.PRIMARY,
-                    down && button == MouseButton.MIDDLE,
-                    false,
-                    false,
-                    false,
-                    true,
-                    null,
-                ),
-            )
+            fireMouse(node, type, button, buttonDown = type == MouseEvent.MOUSE_PRESSED)
         }
+    }
+
+    /** Fires a mouse event at [node] as if the pointer were at [sceneX], [sceneY], without OS input. */
+    private fun fireMouse(
+        node: Node,
+        type: EventType<MouseEvent>,
+        button: MouseButton = MouseButton.PRIMARY,
+        sceneX: Double = 1.0,
+        sceneY: Double = 1.0,
+        buttonDown: Boolean = true,
+    ) {
+        Event.fireEvent(
+            node,
+            MouseEvent(
+                type,
+                sceneX,
+                sceneY,
+                sceneX,
+                sceneY,
+                button,
+                1,
+                false,
+                false,
+                false,
+                false,
+                buttonDown && button == MouseButton.PRIMARY,
+                buttonDown && button == MouseButton.MIDDLE,
+                false,
+                false,
+                false,
+                true,
+                null,
+            ),
+        )
+    }
+
+    /**
+     * Presses the primary button on the middle of [node] and moves the mouse by [dx] in small steps, then releases it
+     * unless [release] is `false`; the events are fired at [node].
+     */
+    private fun dragBy(
+        robot: FxRobot,
+        node: Node,
+        dx: Double,
+        release: Boolean = true,
+    ) {
+        val bounds = node.layoutBounds
+        val start = node.localToScene(bounds.centerX, bounds.centerY)
+        val steps = (abs(dx) / 5).toInt().coerceAtLeast(1)
+        robot.interact {
+            fireMouse(node, MouseEvent.MOUSE_PRESSED, sceneX = start.x, sceneY = start.y)
+            for (step in 1..steps) {
+                fireMouse(node, MouseEvent.MOUSE_DRAGGED, sceneX = start.x + dx * step / steps, sceneY = start.y)
+            }
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        if (release) releaseOn(robot, node, start.x + dx)
+    }
+
+    private fun releaseOn(
+        robot: FxRobot,
+        node: Node,
+        sceneX: Double,
+    ) {
+        robot.interact { fireMouse(node, MouseEvent.MOUSE_RELEASED, sceneX = sceneX, buttonDown = false) }
+        WaitForAsyncUtils.waitForFxEvents()
     }
 
     @Test

@@ -34,3 +34,7 @@
 .tab-strip .overflow-menu:hover {
     -fx-background-color: derive(-fx-base, -10%);
 }
+
+.editor-tab.dragging {
+    -fx-effect: dropshadow(gaussian, derive(-fx-base, -50%), 8, 0, 0, 1);
+}
