@@ -73,6 +73,9 @@ class EditorArea(
     /** The project folder of the window, whose files HTML previews may use; set by the window. */
     var projectFolder: () -> Path? = { null }
 
+    /** The services of the window that file views may look up ([FileViewHost.windowService]); set by the window. */
+    var windowServices: List<Any> = emptyList()
+
     /** Lets the file views open files in this area and web pages through [openWebPage]. */
     private val viewHost =
         object : FileViewHost {
@@ -86,6 +89,9 @@ class EditorArea(
                 file: Path,
                 line: Int,
             ) = showChangesAt(file, line)
+
+            override fun <T : Any> windowService(type: Class<T>): T? =
+                windowServices.firstOrNull(type::isInstance)?.let(type::cast)
         }
 
     /** The editor font as CSS; file views inherit it from their node. */
