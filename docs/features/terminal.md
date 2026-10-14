@@ -30,12 +30,13 @@
 - Colours: a fixed dark palette (light grey on `#1e1e1e`, xterm colours), whatever the Light/Dark/System theme
   ([settings.md](settings.md)) is.
 - Keyboard: the terminal takes the focus when its tab is shown. Enter, Tab, Esc, Backspace, arrows, Home/End,
-  PgUp/PgDn, Insert/Delete and F1–F12 are sent as xterm sequences, Ctrl+letter as control characters (Ctrl+C, Ctrl+D, …).
-  Alt+letter sends Esc and the letter, except on macOS, where Option types characters. Ctrl+Shift+letter and Cmd
-  shortcuts are not sent to the shell, so menu shortcuts with them keep working (New Terminal, and on macOS all
-  menu shortcuts); so do shortcuts without a letter such as Ctrl+, (Settings). Menu shortcuts that are Ctrl+letter
-  go to the shell instead: on Linux, File → Open Folder (Ctrl+O) does not work while a terminal has the focus; use the
-  menu or click outside the terminal first.
+  PgUp/PgDn, Insert/Delete and F1–F12 are sent as xterm sequences, Ctrl+letter as control characters (Ctrl+C, Ctrl+D, …),
+  and so are Ctrl+Space, Ctrl+2, Ctrl+[, Ctrl+\, Ctrl+] and Ctrl+-. Alt+letter sends Esc and the letter, except on
+  macOS, where Option types characters. Ctrl+Shift+letter and Cmd shortcuts are not sent to the shell, so menu
+  shortcuts with them keep working (New Terminal, and on macOS all menu shortcuts), and so does Ctrl+, (Settings).
+  Menu shortcuts that the terminal sends to the shell do not reach the menu: on Linux, Ctrl+O sends ^O to the shell
+  instead of opening File → Open Folder while a terminal has the focus; use the menu or click outside the terminal
+  first.
 - Scrollback: the mouse wheel scrolls through the history (the last 5000 lines, JediTerm's default; older lines are
   dropped). Typing or pasting scrolls back down. Full-screen programs scroll themselves: the wheel is reported to them
   if they asked for mouse reports (e.g. Claude Code's fullscreen TUI, `vim` with `mouse=a`), otherwise sent as Up/Down
@@ -49,8 +50,8 @@
   `$SHELL -l -c` in a tab with the given name; the tab shows "(exited)" when the command ends (used by
   [docker-sandbox.md](docker-sandbox.md)).
 - Structure: `Terminals` (window-scoped Spring bean: opens terminals, ends them when its window closes),
-  `TerminalTab` (`EditorTab`),
-  `TerminalView` (canvas, input, selection; JediTerm `TerminalDisplay`), `TerminalSession` (pty4j process and
-  JediTerm emulator), `TerminalKeys` (key translation), `TerminalMouse` (mouse translation), `TerminalColors` (palette).
-- Not yet implemented: window titles set by programs,
-  clickable links, search, colour settings (including a light palette), split terminals, Windows shells.
+  `TerminalTab` (`EditorTab`), `TerminalView` (canvas, input, selection; JediTerm `TerminalDisplay`),
+  `TerminalSession` (pty4j process and JediTerm emulator), `TerminalKeys` (key translation), `TerminalMouse` (mouse
+  translation), `TerminalColors` (palette).
+- Not yet implemented: window titles set by programs, clickable links, search, colour settings (including a light
+  palette), split terminals, Windows shells.

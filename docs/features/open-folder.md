@@ -4,7 +4,7 @@
 [ADR 0014](../adr/0014-project-windows.md)
 
 - Menu **File → Open Folder…** (Ctrl/Cmd+O) shows a `DirectoryChooser`, starting in the window's project folder.
-  On Linux, Ctrl+O does nothing while a terminal has the focus: the terminal sends it to the shell
+  On Linux, Ctrl+O does not open the dialog while a terminal has the focus: the terminal sends it to the shell as ^O
   ([terminal.md](terminal.md)); the menu still works.
 - One project folder per window:
   - in a window without a folder (the window at startup), the chosen folder opens in that window;
