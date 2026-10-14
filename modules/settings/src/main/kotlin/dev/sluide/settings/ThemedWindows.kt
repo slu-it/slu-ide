@@ -8,7 +8,8 @@ import java.util.WeakHashMap
 
 /**
  * Gives every window (main window, dialogs, menus, popups) the colour scheme of the [ThemeSettings] and the
- * `theme.css` that styles Modena for it. Other stylesheets add their own `@media (prefers-color-scheme: dark)` rules.
+ * `theme.css` that styles Modena for it. Stylesheets with colours of their own add
+ * `@media (prefers-color-scheme: dark)` rules for them.
  */
 @Component
 class ThemedWindows(

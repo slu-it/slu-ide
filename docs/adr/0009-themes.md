@@ -16,14 +16,18 @@ does not depend on `settings`.
 - `ThemedWindows` sets `Scene.getPreferences().colorScheme` (JavaFX 25+) on every window in `Window.getWindows()`,
   including dialogs and popups, and adds `theme.css`, which re-tints Modena's looked-up colours (`-fx-base`,
   `-fx-background`, …) inside `@media (prefers-color-scheme: dark)` (JavaFX 24+).
-- Every other stylesheet adds its own `@media (prefers-color-scheme: dark)` rules, so modules need no dependency on
-  `settings` to be themed.
+- Stylesheets that set their own colours add `@media (prefers-color-scheme: dark)` rules for them (`syntax.css`,
+  `file-explorer.css`); stylesheets that only use Modena's looked-up colours (`editor.css`, `preview-view.css`,
+  `settings.css` apart from its always-dark terminal preview) need none, `theme.css` re-tints those. Either way modules need no dependency on `settings` to be
+  themed. Pages in a `WebView` (previews, images) are not JavaFX stylesheets: they follow the scene's colour scheme
+  through a `dark` class set from Kotlin, see [ADR 0016](0016-markdown-preview.md).
 - The terminal stays dark in every theme.
 - Not chosen: swapping whole stylesheets per theme (every module would have to know the theme), replacing Modena via
   `Application.setUserAgentStylesheet` (we would have to maintain a complete stylesheet), a third-party theme library.
 
 ## Consequences
-- Dark styling of a new view is a `@media (prefers-color-scheme: dark)` block in its stylesheet.
+- Dark styling of a new view comes for free with Modena's looked-up colours; colours of its own need a
+  `@media (prefers-color-scheme: dark)` block in its stylesheet.
 - JavaFX 27 applies rules with descendant selectors (e.g. `.code-view .keyword`) inside `@media` blocks whatever the
   colour scheme. Dark rules must use single-class selectors, and the light rules they override must have the same
   specificity; `syntax.css` therefore uses single classes, which is safe as it is only added to code views.
