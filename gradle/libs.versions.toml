@@ -12,6 +12,7 @@ jediterm = "3.76"
 ikonli = "12.4.0"
 commonmark = "0.30.0"
 jsoup = "1.23.2"
+ec4j = "1.1.1"
 
 [libraries]
 spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
@@ -34,6 +35,7 @@ commonmark-ext-task-list-items = { module = "org.commonmark:commonmark-ext-task-
 commonmark-ext-autolink = { module = "org.commonmark:commonmark-ext-autolink", version.ref = "commonmark" }
 commonmark-ext-heading-anchor = { module = "org.commonmark:commonmark-ext-heading-anchor", version.ref = "commonmark" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
+ec4j-core = { module = "org.ec4j.core:ec4j-core", version.ref = "ec4j" }
 # Version from the Spring Boot BOM (Jackson 3).
 jackson-databind = { module = "tools.jackson.core:jackson-databind" }
 
