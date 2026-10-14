@@ -91,4 +91,28 @@ class FontSettingsTest {
         assertEquals(defaults[FontArea.EDITOR], settings.font(FontArea.EDITOR).get())
         assertEquals(FontSpec("Serif", 15.0, FontStyle.ITALIC), settings.font(FontArea.TERMINAL).get())
     }
+
+    @Test
+    fun `stored sizes outside the sizes the dialog offers fall back to the defaults`() {
+        file.parent.toFile().mkdirs()
+        file.writeText(
+            """
+            font.explorer.family=Serif
+            font.explorer.size=5.5
+            font.explorer.style=REGULAR
+            font.editor.family=Serif
+            font.editor.size=100
+            font.editor.style=REGULAR
+            font.terminal.family=Serif
+            font.terminal.size=72
+            font.terminal.style=REGULAR
+            """.trimIndent(),
+        )
+
+        val settings = settings()
+
+        assertEquals(defaults[FontArea.EXPLORER], settings.font(FontArea.EXPLORER).get())
+        assertEquals(defaults[FontArea.EDITOR], settings.font(FontArea.EDITOR).get())
+        assertEquals(FontSpec("Serif", 72.0), settings.font(FontArea.TERMINAL).get())
+    }
 }

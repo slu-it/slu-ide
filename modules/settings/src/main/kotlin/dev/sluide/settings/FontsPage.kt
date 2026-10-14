@@ -23,9 +23,6 @@ import javafx.scene.text.TextFlow
 import org.springframework.stereotype.Component
 import kotlin.math.abs
 
-private const val MIN_SIZE = 6.0
-private const val MAX_SIZE = 72.0
-
 /**
  * Display → Fonts: family, size and style of the file explorer, the editor and the terminal, with a preview of the
  * edits. Nothing changes in the IDE until the dialog's OK or Apply.
@@ -125,7 +122,13 @@ class FontsPage(
             }
         val size =
             Spinner<Double>().apply {
-                valueFactory = SpinnerValueFactory.DoubleSpinnerValueFactory(MIN_SIZE, MAX_SIZE, draft.get().size, 1.0)
+                valueFactory =
+                    SpinnerValueFactory.DoubleSpinnerValueFactory(
+                        FontSettings.SIZES.start,
+                        FontSettings.SIZES.endInclusive,
+                        draft.get().size,
+                        1.0,
+                    )
                 isEditable = true
                 prefWidth = 90.0
             }
@@ -167,7 +170,7 @@ class FontsPage(
         draft.subscribe { spec ->
             updating = true
             family.value = spec.family
-            size.valueFactory.value = spec.size.coerceIn(MIN_SIZE, MAX_SIZE)
+            size.valueFactory.value = spec.size.coerceIn(FontSettings.SIZES)
             style.value = spec.style
             updating = false
         }

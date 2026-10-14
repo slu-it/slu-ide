@@ -10,7 +10,8 @@
   the settings file cannot be read), that page changes nothing, the other pages are still applied, an error message
   names the failed pages, and OK keeps the dialog open.
 - Settings are stored in `~/.sluide/settings.properties` and apply live to open views. Values that cannot be used
-  (e.g. an unknown style) fall back to the defaults.
+  (e.g. an unknown style or a size outside 6–72) fall back to the defaults; one unusable value of a font discards
+  that area's whole font (family, size and style), so the area gets its default font.
 - Display → Appearance: the theme, Light, Dark or System (default; follows the operating system's light or dark mode,
   also while the IDE runs). It applies to all windows, menus and dialogs, including syntax colours; the terminal stays
   dark. See [ADR 0009](../adr/0009-themes.md).

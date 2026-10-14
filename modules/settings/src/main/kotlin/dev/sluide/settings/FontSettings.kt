@@ -46,6 +46,9 @@ class FontSettings(
     }
 
     companion object {
+        /** The font sizes that can be chosen; stored sizes outside are unusable. */
+        internal val SIZES = 6.0..72.0
+
         fun systemDefaults(): Map<FontArea, FontSpec> {
             val size = Font.getDefault().size
             return mapOf(
@@ -68,7 +71,7 @@ class FontSettings(
         ): FontSpec? {
             val (familyKey, sizeKey, styleKey) = keys(area)
             val family = stored[familyKey]?.takeIf { it.isNotBlank() } ?: return null
-            val size = stored[sizeKey]?.toDoubleOrNull()?.takeIf { it in 1.0..500.0 } ?: return null
+            val size = stored[sizeKey]?.toDoubleOrNull()?.takeIf { it in SIZES } ?: return null
             val style = stored[styleKey]?.let { name -> FontStyle.entries.find { it.name == name } } ?: return null
             return FontSpec(family, size, style)
         }
