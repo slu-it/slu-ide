@@ -701,6 +701,48 @@ class EditorAreaUiTest {
         assertEquals("content of a.txt", shownText(robot))
     }
 
+    /** The text of the banner shown above the selected file's text, if any. */
+    private fun bannerText(robot: FxRobot): String? =
+        robot
+            .lookup(".editor-content .editor-banner .label")
+            .queryAllAs(Label::class.java)
+            .singleOrNull()
+            ?.text
+
+    @Test
+    fun `a deleted file with unsaved changes keeps its tab, and saving recreates it`(robot: FxRobot) {
+        val a = textFile("a.txt", "a")
+        open(robot, a)
+        robot.interact { shownArea(robot).appendText("1") }
+
+        a.deleteExisting()
+
+        eventually(robot) { assertEquals("a.txt was deleted on disk; saving recreates it.", bannerText(robot)) }
+        assertEquals(listOf("\u25cf a.txt"), tabTitles(robot))
+
+        robot.interact { assertTrue(editor.save()) }
+        assertEquals("a1", a.readText())
+        assertEquals(listOf("a.txt"), tabTitles(robot))
+        eventually(robot) { assertNull(bannerText(robot)) }
+    }
+
+    @Test
+    fun `saving a file whose folder was deleted shows why it failed`(robot: FxRobot) {
+        val folder = dir.resolve("gen").createDirectories()
+        val file = folder.resolve("out.txt").apply { writeText("v1") }
+        val errors = mutableListOf<String>()
+        editor.showError = { errors += it }
+        open(robot, file)
+        robot.interact { shownArea(robot).appendText("2") }
+
+        folder.toFile().deleteRecursively()
+        eventually(robot) { assertNotNull(bannerText(robot)) }
+
+        robot.interact { assertFalse(editor.save()) }
+        assertEquals(listOf("out.txt could not be saved. Its folder does not exist."), errors)
+        assertEquals(listOf("\u25cf out.txt"), tabTitles(robot))
+    }
+
     @Test
     fun `a file that became binary is closed`(robot: FxRobot) {
         val a = textFile("a.txt")

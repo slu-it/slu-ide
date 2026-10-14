@@ -24,9 +24,11 @@ import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 
 /**
- * Central area showing open files read-only, one tab per file, and other [EditorTab]s such as terminals. Open files
- * are watched: a tab reloads when its file changes on disk and closes when the file is deleted or can no longer be
- * shown (e.g. it became binary). Files with a diff ([diffOf]) are shown side by side with their original instead.
+ * Central area showing open files, one tab per file, and other [EditorTab]s such as terminals. Open files are
+ * watched: a tab reloads when its file changes on disk and closes when the file is deleted or can no longer be shown
+ * (e.g. it became binary), unless it has unsaved changes. Files with a diff ([diffOf]) open side by side with their
+ * original instead, read-only. Edited files are saved with [save] and [saveAll]; closing them asks to save first
+ * ([confirmSave]).
  */
 @Component
 // One instance per IDE window (the "window" scope of the ide module, ADR 0014).
@@ -156,8 +158,8 @@ class EditorArea(
 
     private fun onChangedOnDisk(openFile: OpenFile) {
         if (openFile !in editorTabs.tabs) return
-        if (fileViewers.viewerFor(openFile.path) == null) {
-            // Deleted, renamed away, or not viewable anymore.
+        if (fileViewers.viewerFor(openFile.path) == null && !openFile.isDirty) {
+            // Deleted, renamed away, or not viewable anymore. With unsaved changes, the tab stays and its view tells.
             editorTabs.close(openFile)
             return
         }

@@ -15,6 +15,7 @@ import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.TimeUnit
+import kotlin.io.path.deleteExisting
 import kotlin.io.path.readBytes
 import kotlin.io.path.readText
 import kotlin.io.path.writeBytes
@@ -296,5 +297,26 @@ class CodeViewUiTest {
         WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) { results.isNotEmpty() }
         robot.interact { results.poll().run() }
         assertTrue("keyword" in view.area.getStyleOfChar(1))
+    }
+
+    @Test
+    fun `a deleted file keeps the text and saving recreates it`(robot: FxRobot) {
+        val file = dir.resolve("main.py").apply { writeText("a = 1\n") }
+        val view = open(file, robot)
+        robot.interact { view.area.insertText(0, "mine = 1\n") }
+
+        file.deleteExisting()
+        robot.interact { view.reload() }
+
+        assertTrue(view.deletedShown)
+        assertEquals(
+            "main.py was deleted on disk; saving recreates it.",
+            robot.lookup(".editor-banner .label").queryAs(Label::class.java).text,
+        )
+        assertEquals("mine = 1\na = 1\n", view.area.text)
+
+        robot.interact { view.save() }
+        assertEquals("mine = 1\na = 1\n", file.readText())
+        assertFalse(view.deletedShown)
     }
 }

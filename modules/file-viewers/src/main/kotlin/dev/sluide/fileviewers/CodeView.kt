@@ -24,6 +24,7 @@ import org.fxmisc.richtext.LineNumberFactory
 import org.fxmisc.richtext.util.UndoUtils
 import org.reactfx.Subscription
 import java.nio.file.Files
+import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 import java.time.Duration
 import java.util.concurrent.Executors
@@ -44,7 +45,8 @@ import java.util.concurrent.Executors
  * When the file changes on disk ([reload]), a view without unsaved changes shows the new text, changing only what
  * differs, so caret, scroll position and undo history stay. A view with unsaved changes keeps them and shows a banner
  * offering to reload the file or to keep its own text, which the next save then writes over the file's; until then the
- * view stays dirty, even when undone back to the text saved last.
+ * view stays dirty, even when undone back to the text saved last. When the file is deleted, a banner says so; saving
+ * creates it again.
  */
 internal class CodeView(
     private val file: Path,
@@ -113,6 +115,9 @@ internal class CodeView(
     private var disposed = false
     private val highlighting: Subscription
 
+    /** Shown while the file does not exist, e.g. after it was deleted while the view had unsaved changes. */
+    private val deletedBanner = banner("${file.fileName} was deleted on disk; saving recreates it.")
+
     init {
         val content = read()
         lineEnding = LineEnding.of(content.raw)
@@ -140,6 +145,9 @@ internal class CodeView(
     /** Whether the banner about a change on disk that meets unsaved changes is shown. */
     val conflictShown: Boolean get() = conflictBanner in banners.children
 
+    /** Whether the banner about the file being deleted is shown. */
+    val deletedShown: Boolean get() = deletedBanner in banners.children
+
     /** Whether the file is not valid UTF-8 and therefore shown read-only. */
     val readOnly: Boolean get() = invalidBanner in banners.children
 
@@ -155,10 +163,19 @@ internal class CodeView(
         // Typing on would otherwise extend the change before the mark.
         undoManager.preventMerge()
         hideConflict()
+        banners.children -= deletedBanner
     }
 
     override fun reload() {
-        val content = read()
+        val content =
+            try {
+                read()
+            } catch (_: NoSuchFileException) {
+                hideConflict()
+                if (!deletedShown) banners.children += deletedBanner
+                return
+            }
+        banners.children -= deletedBanner
         when (DiskChange.decide(content.raw, savedText, area.text, dirty.get())) {
             DiskChange.IGNORE -> {
                 adoptLineEnding(content.raw)
