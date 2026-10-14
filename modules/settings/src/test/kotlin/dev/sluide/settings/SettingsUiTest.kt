@@ -158,7 +158,7 @@ class SettingsUiTest {
         assertTrue(previewFont.style.contains("Bold") && previewFont.style.contains("Italic"), previewFont.style)
         assertEquals(defaults[FontArea.EDITOR], settings.font(FontArea.EDITOR).get(), "not applied yet")
 
-        close(robot, dialog, dialog.apply)
+        close(robot, dialog, dialog.applyButton)
         assertEquals(FontSpec("Monospaced", 20.0, FontStyle.BOLD_ITALIC), settings.font(FontArea.EDITOR).get())
         assertTrue(dialog.isShowing, "Apply keeps the dialog open")
         close(robot, dialog, ButtonType.OK)
@@ -264,7 +264,7 @@ class SettingsUiTest {
             robot.interact { appearancePage.theme.value = Theme.LIGHT }
             assertEquals(ColorScheme.DARK, dialog.dialogPane.scene.preferences.colorScheme, "not applied yet")
 
-            close(robot, dialog, dialog.apply)
+            close(robot, dialog, dialog.applyButton)
             WaitForAsyncUtils.waitForFxEvents()
             assertEquals(Theme.LIGHT, themeSettings.theme.get())
             assertEquals(ColorScheme.LIGHT, dialog.dialogPane.scene.preferences.colorScheme)

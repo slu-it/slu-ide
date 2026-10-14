@@ -21,7 +21,7 @@ private val log = System.getLogger(SettingsStore::class.java.name)
  */
 @Component
 class SettingsStore(
-    val file: Path,
+    internal val file: Path,
 ) {
     @Autowired
     constructor() : this(Path.of(System.getProperty("user.home"), ".sluide", "settings.properties"))

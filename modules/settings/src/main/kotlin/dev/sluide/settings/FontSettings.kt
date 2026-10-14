@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component
 @Component
 class FontSettings(
     private val store: SettingsStore,
-    val defaults: Map<FontArea, FontSpec>,
+    internal val defaults: Map<FontArea, FontSpec>,
 ) {
     /** Uses the system font for the explorer and a monospaced font for editor and terminal; needs the JavaFX toolkit. */
     @Autowired

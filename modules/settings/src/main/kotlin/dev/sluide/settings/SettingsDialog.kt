@@ -33,7 +33,7 @@ class SettingsDialog(
         override fun toString() = name
     }
 
-    val apply = ButtonType("Apply", ButtonBar.ButtonData.APPLY)
+    internal val applyButton = ButtonType("Apply", ButtonBar.ButtonData.APPLY)
     internal val tree =
         TreeView(TreeItem(Entry("Settings", null))).apply {
             isShowRoot = false
@@ -68,18 +68,18 @@ class SettingsDialog(
             }
         dialogPane.stylesheets +=
             checkNotNull(SettingsDialog::class.java.getResource("settings.css")).toExternalForm()
-        dialogPane.buttonTypes.setAll(ButtonType.OK, ButtonType.CANCEL, apply)
+        dialogPane.buttonTypes.setAll(ButtonType.OK, ButtonType.CANCEL, applyButton)
         dialogPane.lookupButton(ButtonType.OK).addEventFilter(ActionEvent.ACTION) { event ->
             if (!applyAll()) event.consume() // keeps the dialog open, the edits that failed are not lost
         }
-        dialogPane.lookupButton(apply).addEventFilter(ActionEvent.ACTION) { event ->
+        dialogPane.lookupButton(applyButton).addEventFilter(ActionEvent.ACTION) { event ->
             applyAll()
             event.consume() // keeps the dialog open
         }
     }
 
     /** Selects the page at [path] in the tree, e.g. `listOf("Display", "Fonts")`. */
-    fun select(path: List<String>) {
+    internal fun select(path: List<String>) {
         var item = tree.root
         for (name in path) item = item.children.firstOrNull { it.value.name == name } ?: return
         tree.selectionModel.select(item)
