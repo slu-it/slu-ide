@@ -181,6 +181,21 @@ class PreviewFileViewUiTest {
         assertEquals(700.0, (view.script("window.scrollY") as Number).toDouble(), 1.0)
     }
 
+    @Test
+    fun `math is typeset by KaTeX`(robot: FxRobot) {
+        val (_, view) = show(robot, "Inline \$a^2\$ and\n\n\$\$\n\\frac{1}{2}\n\$\$\n")
+
+        assertEquals(2, (view.script("document.querySelectorAll('.math .katex').length") as Number).toInt())
+        assertEquals(1, (view.script("document.querySelectorAll('.katex-display .mfrac').length") as Number).toInt())
+        // The bundled fonts load (JavaFX's WebKit loads woff from data URIs, but not woff2).
+        view.script(
+            "window.fontsLoaded = null; document.fonts.load('16px KaTeX_Main')" +
+                ".then(function (faces) { window.fontsLoaded = faces.length; }, function () { window.fontsLoaded = -1; })",
+        )
+        WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) { view.script("window.fontsLoaded") != null }
+        assertEquals(1, (view.script("window.fontsLoaded") as Number).toInt())
+    }
+
     /** Records what the view asks of the IDE. */
     private class RecordingHost : FileViewHost {
         val files = mutableListOf<Path>()

@@ -30,6 +30,7 @@ import kotlin.io.path.readBytes
  * preview (ADR 0016):
  * - every block element carries `data-line`, its first line in the source (0-based), for scroll sync;
  * - fenced code with a known language is highlighted like the code views (`<span class="keyword">`…);
+ * - math ([MarkdownMath]) is typeset by KaTeX, bundled in `vendor/katex` and only added to pages that have math;
  * - the HTML is sanitised: Markdown files may contain HTML, and scripts or event handlers must not run;
  * - local images (relative or `file:`) are embedded as `data:` URIs, since a page loaded from a string may not read
  *   files; links keep their `href` as written and are resolved by `MarkdownFileView` when clicked;
@@ -43,6 +44,7 @@ internal object MarkdownRenderer {
             TaskListItemsExtension.create(),
             AutolinkExtension.create(),
             HeadingAnchorExtension.create(),
+            MarkdownMath,
         )
 
     private val parser =
@@ -91,10 +93,19 @@ internal object MarkdownRenderer {
         }
         return buildString {
             append("<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n")
-            append("<style>\n").append(stylesheet).append("</style>\n</head>\n")
+            append("<style>\n").append(stylesheet).append("</style>\n")
+            val math = body.selectFirst(".math") != null
+            if (math) append("<style>\n").append(Vendor.katexCss).append("\n</style>\n")
+            append("</head>\n")
             append(if (dark) "<body class=\"dark\">\n" else "<body>\n")
             append(body.html())
-            append("\n<script>\n").append(script).append("</script>\n</body>\n</html>\n")
+            append("\n<script>\n").append(script).append("</script>\n")
+            if (math) {
+                append(
+                    "<script>\n",
+                ).append(Vendor.katexJs).append("\n</script>\n<script>sluide.renderMath();</script>\n")
+            }
+            append("</body>\n</html>\n")
         }
     }
 
@@ -137,8 +148,16 @@ internal object MarkdownRenderer {
         override fun render(node: Node) {
             val block = node as FencedCodeBlock
             val language = fenceLanguage(block.info.orEmpty())
-            val highlighter = if (language.isEmpty()) null else RSyntaxHighlighter.forLanguage(language)
             val code = block.literal
+            if (language == "math") {
+                html.line()
+                html.tag("div", context.extendAttributes(block, "div", mapOf("class" to "math display")))
+                html.text(code.trimEnd())
+                html.tag("/div")
+                html.line()
+                return
+            }
+            val highlighter = if (language.isEmpty()) null else RSyntaxHighlighter.forLanguage(language)
             html.line()
             html.tag("pre", context.extendAttributes(block, "pre", emptyMap()))
             val codeClass = if (language.isEmpty()) emptyMap() else mapOf("class" to "language-$language")

@@ -8,6 +8,9 @@
 - A toolbar above switches between **Source**, **Split** (default) and **Preview**. Clicking the selected mode keeps it.
 - Rendering: CommonMark with GitHub's tables, strikethrough, task lists, autolinks and heading anchors; fenced code
   with a known language is highlighted like the code views.
+- Math, typeset by KaTeX (bundled, works offline): `$…$` inline (no space inside the dollars, no digit after the
+  closing one, so `$5 and $6` stays text; `\$` is a dollar sign), `$$…$$` and blocks between `$$` lines as display
+  math, and ` ```math ` fences. Like a code fence, a `$$` line without a closing one runs to the end of the file.
 - Images: local ones (relative to the file's folder, or `file:`; png, jpg, gif, svg, webp, bmp, ico up to 10 MB) are
   embedded into the page, since a page loaded from a string may not read files. Remote (`https`) images load from the
   web when the preview renders, as on GitHub.

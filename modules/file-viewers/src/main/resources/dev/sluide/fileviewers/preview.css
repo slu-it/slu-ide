@@ -155,3 +155,9 @@ body.dark .property { color: #9876aa; }
 body.dark .tag { color: #e8bf6a; }
 body.dark .attribute { color: #bababa; }
 body.dark .operator { color: #a9b7c6; }
+
+.math.display {
+    margin: 0 0 16px 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+}

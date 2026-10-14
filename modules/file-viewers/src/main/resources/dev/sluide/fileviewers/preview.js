@@ -29,6 +29,18 @@
         },
         setDark: function (dark) {
             document.body.classList.toggle('dark', dark);
+        },
+        // Typesets the math (MarkdownMath) with KaTeX, which the page includes when it has math.
+        renderMath: function () {
+            var elements = document.querySelectorAll('.math');
+            for (var i = 0; i < elements.length; i++) {
+                var element = elements[i];
+                katex.render(element.textContent, element, {
+                    displayMode: element.classList.contains('display'),
+                    throwOnError: false,
+                    trust: false
+                });
+            }
         }
     };
 

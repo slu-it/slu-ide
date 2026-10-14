@@ -22,6 +22,12 @@ they come with their own scripts and links and are shown as their author made th
   page, and an SVG's scripts never run. Images are the first binary files SluIde opens; `ImageFileViewer` accepts them
   without the text check, up to 50 MB.
 
+- **JavaScript libraries** for the previews are bundled in `file-viewers` (`vendor/`, versions and checksums in its
+  README), not loaded from the web: previews work offline and show the same in every version. Pages are loaded from
+  strings and cannot reference files in the jar, so a page gets a library inline, and only when it needs it.
+  - **KaTeX** (MIT) typesets Markdown math (`MarkdownMath`, a commonmark extension for `$…$`, `$$` blocks and
+    ` ```math `). Its fonts are inlined as woff `data:` URIs; JavaFX's WebKit does not load woff2 that way.
+
 ## Consequences
 - A new rendered format is a `Preview` and a `PreviewFileViewer` subclass.
 - HTML previews show pages as browsers would, but without the page's scripts unless allowed; pages that build their
