@@ -239,7 +239,8 @@ internal class PreviewFileView(
             }
         engine.isJavaScriptEnabled = !preview.offersScripts
         scripts.addListener { _, _, allowed ->
-            if (!preview.offersScripts) return@addListener
+            // Also the toggle going back off after the warning was cancelled: nothing changed, nothing to render.
+            if (!preview.offersScripts || engine.isJavaScriptEnabled == allowed) return@addListener
             if (allowed && !confirmScripts()) {
                 Platform.runLater { scripts.set(false) }
                 return@addListener
