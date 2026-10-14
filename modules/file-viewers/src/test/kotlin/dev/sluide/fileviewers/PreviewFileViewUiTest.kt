@@ -4,6 +4,7 @@ import javafx.application.ColorScheme
 import javafx.concurrent.Worker
 import javafx.scene.Node
 import javafx.scene.Scene
+import javafx.scene.control.Button
 import javafx.scene.control.SplitPane
 import javafx.scene.control.ToggleButton
 import javafx.scene.layout.StackPane
@@ -21,9 +22,11 @@ import java.io.IOException
 import java.net.URI
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
+import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -120,6 +123,44 @@ class PreviewFileViewUiTest {
 
         assertEquals("# After\n", robot.lookup(".code-area").queryAs(CodeArea::class.java).text)
         assertEquals("After", view.script("document.querySelector('h1').textContent"))
+    }
+
+    @Test
+    fun `the source is edited and the preview renders it when saved`(robot: FxRobot) {
+        val (file, view) = show(robot, "# Before\n")
+
+        robot.interact { view.source.area.replaceText(2, 8, "After") }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertTrue(view.dirty.get())
+        assertEquals("Before", view.script("document.querySelector('h1').textContent"), "unsaved edits do not render")
+
+        robot.interact { view.save() }
+        awaitLoaded(view)
+
+        assertEquals("# After\n", file.readText())
+        assertFalse(view.dirty.get())
+        assertEquals("After", view.script("document.querySelector('h1').textContent"))
+    }
+
+    @Test
+    fun `keeping unsaved edits over a change on disk renders the file's new text`(robot: FxRobot) {
+        val (file, view) = show(robot, "# Before\n")
+        robot.interact { view.source.area.replaceText(2, 8, "Mine") }
+        file.writeText("# Theirs\n")
+        robot.interact { view.reload() }
+        assertEquals("Before", view.script("document.querySelector('h1').textContent"), "the conflict renders nothing")
+
+        robot.interact {
+            robot
+                .lookup(".editor-banner .button")
+                .queryAllAs(Button::class.java)
+                .single { it.text == "Keep mine" }
+                .fire()
+        }
+        awaitLoaded(view)
+
+        assertEquals("Theirs", view.script("document.querySelector('h1').textContent"))
+        assertEquals("# Mine\n", view.source.area.text)
     }
 
     @Test

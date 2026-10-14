@@ -119,9 +119,9 @@ internal enum class PreviewMode(
 }
 
 /**
- * [file] as highlighted source ([CodeView]) and a rendered [preview] in a `WebView`, side by side or one of them
- * alone ([mode], chosen in a toolbar). The preview follows the window's colour scheme and is rendered again when the
- * file changes.
+ * [file] as highlighted, editable source ([CodeView]) and a rendered [preview] in a `WebView`, side by side or one
+ * of them alone ([mode], chosen in a toolbar). The preview shows the saved text: it follows the window's colour scheme
+ * and is rendered again when the file is saved or changes on disk. Editing and saving are the source's.
  *
  * If the [preview] [syncs scroll][Preview.syncsScroll], side by side the preview scrolls with the source: the source
  * line at the top of the source is brought to the top of the preview (`sluide.scrollToLine`, interpolating between
@@ -144,7 +144,7 @@ internal class PreviewFileView(
     file: Path,
     highlighter: SyntaxHighlighter,
     private val preview: Preview,
-) : FileView {
+) : EditableFileView {
     private val file = file.toAbsolutePath().normalize()
 
     val source = CodeView(file, highlighter)
@@ -269,6 +269,8 @@ internal class PreviewFileView(
         }
         // The visible paragraphs change when the source scrolls, is resized or is shown again (e.g. its tab selected).
         source.area.visibleParagraphs.addListener(ListChangeListener { syncScroll() })
+        // Saved, reloaded, or the user kept the unsaved text over the file's new one, which then counts as saved.
+        source.savedTextProperty.addListener { _, _, _ -> if (!disposed) render() }
         engine.loadWorker.stateProperty().subscribe { state -> if (state == Worker.State.SUCCEEDED) onLoaded() }
         engine.locationProperty().subscribe { location ->
             if (!location.isNullOrEmpty() && !preview.isOwnPage(location, this.file)) navigatedAway(location)
@@ -288,10 +290,17 @@ internal class PreviewFileView(
 
     override val node: Node get() = pane
 
+    override val dirty get() = source.dirty
+
+    override fun save() {
+        source.save()
+        reload()
+    }
+
     override fun reload() {
         if (disposed) return
         source.reload()
-        if (stopped && source.area.text != renderedText) resume() else render()
+        if (stopped && source.savedText != renderedText) resume() else render()
     }
 
     /** Stops the page for good: a disposed view never renders again, not even on [reload] or [resume]. */
@@ -320,9 +329,9 @@ internal class PreviewFileView(
         }
     }
 
-    /** Renders the source text into the preview, unless it shows that text already. */
+    /** Renders the saved source text into the preview, unless it shows that text already. */
     private fun render() {
-        val text = source.area.text
+        val text = source.savedText
         if (stopped || text == renderedText) return
         renderedText = text
         // A page with scripts may redefine scrollY.

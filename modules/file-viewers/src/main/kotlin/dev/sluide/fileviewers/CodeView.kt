@@ -5,6 +5,8 @@ import dev.sluide.textediting.LineEnding
 import dev.sluide.textediting.TextReplacement
 import javafx.application.Platform
 import javafx.beans.binding.Bindings
+import javafx.beans.property.ReadOnlyStringProperty
+import javafx.beans.property.ReadOnlyStringWrapper
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.value.ObservableBooleanValue
 import javafx.geometry.Pos
@@ -71,8 +73,15 @@ internal class CodeView(
             stylesheets += checkNotNull(CodeView::class.java.getResource("code-view.css")).toExternalForm()
         }
 
-    /** The file's text as last read or saved, with `\n` line breaks. */
-    private var savedText: String
+    private val savedTextWrapper = ReadOnlyStringWrapper()
+
+    /** The file's text as last read or saved, with `\n` line breaks; also what the user kept over a change on disk. */
+    val savedTextProperty: ReadOnlyStringProperty = savedTextWrapper.readOnlyProperty
+
+    /** The current value of [savedTextProperty]. */
+    var savedText: String
+        get() = savedTextWrapper.get()
+        private set(value) = savedTextWrapper.set(value)
 
     /** The line ending the file is saved with. */
     private var lineEnding: LineEnding
