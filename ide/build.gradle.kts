@@ -31,7 +31,9 @@ dependencies {
 }
 
 // The fat jar contains the JavaFX natives of the build platform only (see docs/adr/0003), so every
-// platform is published under its own artifactId: ide-linux-x64, ide-linux-aarch64, ide-mac-aarch64, ...
+// platform is published under its own artifactId: ide-linux-x64, ide-linux-aarch64, ide-mac-aarch64. Other systems
+// (e.g. Windows) are not released (see ADR 0003), but can still configure and build locally (not tested); they get
+// the first word of their OS name.
 val platform: String =
     run {
         val os = System.getProperty("os.name").lowercase()
@@ -40,7 +42,7 @@ val platform: String =
             when {
                 "linux" in os -> "linux"
                 "mac" in os -> "mac"
-                else -> error("Unsupported operating system for publishing: $os")
+                else -> os.substringBefore(' ')
             }
         val archName = if (arch == "aarch64" || arch == "arm64") "aarch64" else "x64"
         "$osName-$archName"
