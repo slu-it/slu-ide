@@ -25,10 +25,12 @@ Keep it up to date: every new ADR or feature description must be added here with
 - [adr/0014-project-windows.md](adr/0014-project-windows.md) — One project per window: Open Folder opens a new window unless the window has no folder yet; Spring scope `window` for per-window beans (`ProjectWindows`); one confirmation when closing a window with running tabs.
 - [adr/0015-git-diff.md](adr/0015-git-diff.md) — Modified files open as a side-by-side diff against `HEAD` from `git diff -U0`/`git cat-file` (no diff library), synchronous per file, filler rows for aligned scrolling, view swapped in the tab when the status changes.
 - [adr/0016-markdown-preview.md](adr/0016-markdown-preview.md) — Markdown preview: commonmark-java renders sanitised HTML (jsoup) into a JavaFX WebView beside the source; native JavaFX nodes rejected; javafx.web grows the fat jar by ~48 MB.
+- [adr/0017-webview-previews.md](adr/0017-webview-previews.md) — One `PreviewFileView` (source beside a WebView) for all rendered formats; HTML loaded from disk with its scripts off by default and navigations turned back to the host.
 - [adr/template.md](adr/template.md) — Template for new ADRs.
 
 ## Features
 - [features/open-folder.md](features/open-folder.md) — File → Open Folder… or `SluIde [folder…]` on the command line opens a folder in the empty window or a new one (one project per window), closing a window asks once while its tabs run something.
+- [features/previews.md](features/previews.md) — Rendered previews beside the source: HTML (scripts off unless toggled, links leave via the host).
 - [features/file-explorer.md](features/file-explorer.md) — Tree view of the project folder incl. hidden files (not `.git`), lazy loading, sort order, opening files (double-click/Enter), live updates and Refresh (context menu/F5), file icons, markers.
 - [features/editor-tabs.md](features/editor-tabs.md) — Central area with one closable tab per open file or other `EditorTab` (e.g. terminals), tab context menu (close others/left/right/all), scroll arrows and a dropdown for tabs that do not fit.
 - [features/settings.md](features/settings.md) — File → Settings… (Ctrl+,): page tree, OK/Apply/Cancel, Display → Appearance (Light/Dark/System theme), Display → Fonts (font, size, style for explorer, editor, terminal) with preview, stored per user.

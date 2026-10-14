@@ -25,7 +25,6 @@ class CodeFileViewersTest {
             TsxFileViewer() to listOf("App.tsx"),
             JsonFileViewer() to listOf("package.json", "tsconfig.jsonc"),
             XmlFileViewer() to listOf("pom.xml", "schema.xsd", "style.xsl", "transform.xslt", "icon.svg", "view.fxml"),
-            HtmlFileViewer() to listOf("index.html", "legacy.htm", "page.xhtml"),
             SingleFileComponentViewer() to listOf("App.vue", "Page.svelte"),
             YamlFileViewer() to listOf("ci.yml", "config.yaml"),
             MdxFileViewer() to listOf("docs.mdx"),
@@ -35,7 +34,7 @@ class CodeFileViewersTest {
             SassFileViewer() to listOf("old.sass"),
         )
 
-    private val others = listOf("notes.txt", "README", "py", "README.md")
+    private val others = listOf("notes.txt", "README", "py", "README.md", "index.html")
 
     private fun file(name: String) = dir.resolve(name).apply { writeText("x = 1\n") }
 

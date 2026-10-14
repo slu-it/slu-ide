@@ -2,7 +2,9 @@ package dev.sluide.fileviewers
 
 import javafx.application.ColorScheme
 import javafx.application.Platform
+import javafx.beans.property.BooleanProperty
 import javafx.beans.property.ObjectProperty
+import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleObjectProperty
 import javafx.collections.ListChangeListener
 import javafx.concurrent.Worker
@@ -11,8 +13,11 @@ import javafx.scene.Node
 import javafx.scene.control.SplitPane
 import javafx.scene.control.ToggleButton
 import javafx.scene.control.ToggleGroup
+import javafx.scene.control.Tooltip
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
+import javafx.scene.layout.Priority
+import javafx.scene.layout.Region
 import javafx.scene.web.WebEngine
 import javafx.scene.web.WebView
 import netscape.javascript.JSObject
@@ -48,8 +53,23 @@ internal interface Preview {
     /** Whether the page has `sluide.scrollToLine` and blocks with `data-line`, so it can scroll with the source. */
     val syncsScroll: Boolean get() = false
 
-    /** Whether the page has `sluide.setDark` and follows the colour scheme. */
-    val themed: Boolean get() = true
+    /**
+     * Whether the page brings our script (`preview.js`): it follows the colour scheme (`sluide.setDark`) and hands
+     * link clicks to the view.
+     */
+    val hasOwnScript: Boolean get() = true
+
+    /** Whether the page's own scripts may run when the user allows it (a toolbar toggle, off by default). */
+    val offersScripts: Boolean get() = false
+
+    /**
+     * Whether the preview at [location] still shows the page for [file]; anything else is a navigation away, which
+     * the view turns back. Pages loaded from a string have no location.
+     */
+    fun isOwnPage(
+        location: String?,
+        file: Path,
+    ): Boolean = location.isNullOrEmpty() || location == "about:blank"
 
     /** What a newly opened view shows. */
     val defaultMode: PreviewMode get() = PreviewMode.SPLIT
@@ -75,17 +95,24 @@ internal enum class PreviewMode(
  * to its old scroll position otherwise.
  *
  * Clicked links never navigate the preview: anchors scroll within it, every other link goes to [host]
- * ([resolveLink]): web pages to the browser, files to SluIde. Should the WebView still end up on another page (e.g.
- * something dropped onto it), it renders the Markdown again; only its own page gets the link bridge.
+ * ([resolveLink]): web pages to the browser, files to SluIde. Pages without our script (e.g. HTML files) do navigate;
+ * every navigation away from the [own page][Preview.isOwnPage] is turned back and its target handed to [host] the
+ * same way. Only the own page gets the link bridge. Pages that [offer scripts][Preview.offersScripts] run them only
+ * while [scripts] is on.
  */
 internal class PreviewFileView(
-    private val file: Path,
+    file: Path,
     highlighter: SyntaxHighlighter,
     private val preview: Preview,
 ) : FileView {
+    private val file = file.toAbsolutePath().normalize()
+
     val source = CodeView(file, highlighter)
     val webView = WebView().apply { isContextMenuEnabled = false }
     val mode: ObjectProperty<PreviewMode> = SimpleObjectProperty(preview.defaultMode)
+
+    /** Whether the page's own scripts run, if the preview [offers that][Preview.offersScripts]. */
+    val scripts: BooleanProperty = SimpleBooleanProperty(false)
 
     private val split = SplitPane()
     private val modes = ToggleGroup()
@@ -119,11 +146,31 @@ internal class PreviewFileView(
                     styleClass += "markdown-mode"
                 }
             }
+        val extras =
+            if (preview.offersScripts) {
+                listOf(
+                    ToggleButton("Scripts").apply {
+                        styleClass += "preview-scripts"
+                        tooltip = Tooltip("Run the page's scripts")
+                        selectedProperty().bindBidirectional(scripts)
+                    },
+                    Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
+                )
+            } else {
+                emptyList()
+            }
         pane.top =
-            HBox(*buttons.toTypedArray()).apply {
+            HBox(*(extras + buttons).toTypedArray()).apply {
                 styleClass += "markdown-toolbar"
                 alignment = Pos.CENTER_RIGHT
             }
+        engine.isJavaScriptEnabled = !preview.offersScripts
+        scripts.addListener { _, _, allowed ->
+            if (preview.offersScripts) {
+                engine.isJavaScriptEnabled = allowed
+                rerender()
+            }
+        }
         modes.selectedToggleProperty().subscribe { old, new ->
             // A mode is always selected: clicking the selected button keeps it.
             if (new == null) modes.selectToggle(old) else mode.set(new.userData as PreviewMode)
@@ -136,6 +183,9 @@ internal class PreviewFileView(
         // The visible paragraphs change when the source scrolls, is resized or is shown again (e.g. its tab selected).
         source.area.visibleParagraphs.addListener(ListChangeListener { syncScroll() })
         engine.loadWorker.stateProperty().subscribe { state -> if (state == Worker.State.SUCCEEDED) onLoaded() }
+        engine.locationProperty().subscribe { location ->
+            if (!location.isNullOrEmpty() && !preview.isOwnPage(location, this.file)) navigatedAway(location)
+        }
         pane
             .sceneProperty()
             .flatMap { it.preferences.colorSchemeProperty() }
@@ -178,23 +228,32 @@ internal class PreviewFileView(
         if (text == renderedText) return
         renderedText = text
         if (isLoaded) previewScrollY = (engine.executeScript("window.scrollY") as Number).toDouble()
-        preview.load(engine, file.toAbsolutePath(), text, dark)
+        preview.load(engine, file, text, dark)
     }
 
-    /** Whether the preview shows our rendered page: loaded from a string, it has no location of its own. */
+    /** Renders the preview again even though the text did not change. */
+    private fun rerender() {
+        renderedText = null
+        render()
+    }
+
+    /** Whether the preview shows its own page, completely loaded. */
     private val isLoaded
-        get() =
-            engine.loadWorker.state == Worker.State.SUCCEEDED &&
-                engine.location.let { it.isNullOrEmpty() || it == "about:blank" }
+        get() = engine.loadWorker.state == Worker.State.SUCCEEDED && preview.isOwnPage(engine.location, file)
+
+    /** The preview left its page, e.g. a link in an HTML file: open the target elsewhere and go back. */
+    private fun navigatedAway(location: String) {
+        openLink(location)
+        Platform.runLater(::rerender)
+    }
 
     private fun onLoaded() {
         if (!isLoaded) {
-            // Navigated away from our page: show the Markdown again.
-            renderedText = null
-            render()
+            // Not our page (see navigatedAway): show ours again.
+            rerender()
             return
         }
-        (engine.executeScript("window") as JSObject).setMember("sluideBridge", bridge)
+        if (preview.hasOwnScript) (engine.executeScript("window") as JSObject).setMember("sluideBridge", bridge)
         applyTheme()
         if (!preview.syncsScroll || mode.get() == PreviewMode.PREVIEW) {
             engine.executeScript("window.scrollTo(0, $previewScrollY)")
@@ -204,7 +263,22 @@ internal class PreviewFileView(
     }
 
     private fun applyTheme() {
-        if (isLoaded && preview.themed) engine.executeScript("sluide.setDark($dark)")
+        if (isLoaded && preview.hasOwnScript) engine.executeScript("sluide.setDark($dark)")
+    }
+
+    /** Opens what [href] leads to (see [resolveLink]) through the [host]. */
+    private fun openLink(href: String) {
+        when (val target = resolveLink(href, file.parent)) {
+            is LinkTarget.WebPage -> {
+                host?.openWebPage(target.uri)
+            }
+
+            is LinkTarget.File -> {
+                host?.openFile(target.path)
+            }
+
+            null -> {}
+        }
     }
 
     /** Side by side, scrolls the preview to the source's top line; calls before it ran are merged into one. */
@@ -224,18 +298,6 @@ internal class PreviewFileView(
 
     /** Called by the page's script (`sluideBridge.open(href)`) when a link is clicked. */
     inner class LinkBridge {
-        fun open(href: String) {
-            when (val target = resolveLink(href, file.toAbsolutePath().parent)) {
-                is LinkTarget.WebPage -> {
-                    host?.openWebPage(target.uri)
-                }
-
-                is LinkTarget.File -> {
-                    host?.openFile(target.path)
-                }
-
-                null -> {}
-            }
-        }
+        fun open(href: String) = openLink(href)
     }
 }
