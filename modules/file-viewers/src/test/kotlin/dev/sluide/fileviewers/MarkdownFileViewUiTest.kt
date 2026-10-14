@@ -142,6 +142,15 @@ class MarkdownFileViewUiTest {
         (script("document.querySelector('[data-line=\"$line\"]').getBoundingClientRect().top") as Number).toDouble()
 
     @Test
+    fun `a long document opens at its top`(robot: FxRobot) {
+        val (_, view) = show(robot, longDocument)
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(0, view.source.area.firstVisibleParToAllParIndex())
+        assertEquals(0.0, (view.script("window.scrollY") as Number).toDouble())
+    }
+
+    @Test
     fun `side by side, the preview scrolls with the source`(robot: FxRobot) {
         val (_, view) = show(robot, longDocument)
 

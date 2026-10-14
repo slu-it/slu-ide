@@ -76,6 +76,16 @@ class PythonFileViewerUiTest {
     }
 
     @Test
+    fun `a long file opens at its top`(robot: FxRobot) {
+        val file = dir.resolve("long.py").apply { writeText((1..300).joinToString("\n") { "x$it = $it" }) }
+
+        robot.interact { container.children.setAll(PythonFileViewer().open(file).node) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(0, robot.lookup(".code-area").queryAs(CodeArea::class.java).firstVisibleParToAllParIndex())
+    }
+
+    @Test
     fun `shows an empty file`(robot: FxRobot) {
         val file = dir.resolve("empty.py").apply { writeText("") }
 

@@ -47,7 +47,10 @@ internal class CodeView(
 
     init {
         show(file.readText())
+        // Following the caret keeps the area at the top when it is first laid out; without it, the source side of the
+        // Markdown view (in a SplitPane) opened scrolled down.
         area.moveTo(0)
+        area.requestFollowCaret()
     }
 
     override val node: Node get() = pane
