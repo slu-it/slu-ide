@@ -1,6 +1,7 @@
 package dev.sluide.fileviewers
 
 import dev.sluide.textediting.DiskChange
+import dev.sluide.textediting.IndentStyle
 import dev.sluide.textediting.LineEnding
 import dev.sluide.textediting.TextReplacement
 import javafx.application.Platform
@@ -23,6 +24,7 @@ import org.fxmisc.richtext.CodeArea
 import org.fxmisc.richtext.model.PlainTextChange
 import org.fxmisc.richtext.model.TwoDimensional
 import org.fxmisc.richtext.util.UndoUtils
+import org.fxmisc.wellbehaved.event.Nodes
 import org.reactfx.Subscription
 import java.nio.file.Files
 import java.nio.file.NoSuchFileException
@@ -135,6 +137,9 @@ internal class CodeView(
     /** Shown while the file does not exist, e.g. after it was deleted while the view had unsaved changes. */
     private val deletedBanner = banner("${file.fileName} was deleted on disk; saving recreates it.")
 
+    /** How the editing keys indent, from `.editorconfig` or the text as opened. */
+    val indentStyle: IndentStyle
+
     init {
         val content = read()
         lineEnding = LineEnding.of(content.raw)
@@ -143,6 +148,8 @@ internal class CodeView(
         showReadOnly(!content.valid)
         undoManager.forgetHistory()
         undoManager.mark()
+        indentStyle = IndentStyle.forFile(file, savedText)
+        Nodes.addInputMap(area, editorKeys(area, indentStyle))
         // Following the caret keeps the area at the top when it is first laid out; without it, the source side of the
         // Markdown view (in a SplitPane) opened scrolled down.
         area.moveTo(0)
