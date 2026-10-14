@@ -45,9 +45,10 @@ class MainWindow(
     private val settingsPages: SettingsPages,
     private val themedWindows: ThemedWindows,
     private val projectWindows: ProjectWindows,
+    systemBrowser: SystemBrowser,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
-    internal var openWebPage: (URI) -> Unit = SystemBrowser::open
+    internal var openWebPage: (URI) -> Unit = systemBrowser::open
 
     /** Shows the settings dialog and waits until it is closed; tests replace it, since it blocks. */
     internal var showSettings: (Stage) -> Unit = { stage -> SettingsDialog(settingsPages.pages, stage).showAndWait() }

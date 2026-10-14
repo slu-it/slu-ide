@@ -57,6 +57,7 @@ class SpringWiringTest {
                         GitCli::class.java,
                         GitStatusService::class.java,
                         ProjectWindows::class.java,
+                        SystemBrowser::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")

@@ -126,6 +126,7 @@ class MainWindowUiTest {
                 SettingsPages(listOf(FontsPage(fontSettings))),
                 ThemedWindows(ThemeSettings(SettingsStore(settingsDir.resolve("settings.properties")))),
                 projectWindows,
+                SystemBrowser(),
             )
         mainWindow.show(stage)
     }

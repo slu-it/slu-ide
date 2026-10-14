@@ -30,7 +30,7 @@ class SluIdeApplication : Application() {
     }
 
     override fun start(primaryStage: Stage) {
-        SystemBrowser.hostServices = hostServices
+        context.getBean(SystemBrowser::class.java).hostServices = hostServices
         val folders = startupFolders(parameters.unnamed)
         val windows = context.getBean(ProjectWindows::class.java)
         windows.show(primaryStage, folders.firstOrNull())

@@ -54,7 +54,7 @@ class ProjectWindowsUiTest {
         val store = SettingsStore(dir.resolve("settings/settings.properties"))
         context =
             AnnotationConfigApplicationContext().apply {
-                register(WindowScopeConfiguration::class.java, ProjectWindows::class.java)
+                register(WindowScopeConfiguration::class.java, ProjectWindows::class.java, SystemBrowser::class.java)
                 registerBean(SettingsStore::class.java, Supplier { store })
                 registerBean(FontSettings::class.java, Supplier { FontSettings(store) })
                 registerBean(ThemedWindows::class.java, Supplier { ThemedWindows(ThemeSettings(store)) })
