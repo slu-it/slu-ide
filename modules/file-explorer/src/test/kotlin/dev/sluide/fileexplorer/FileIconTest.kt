@@ -38,6 +38,8 @@ class FileIconTest {
                 "App.tsx" to FileIcon.REACT,
                 "build.sh" to FileIcon.SHELL,
                 "Main.scala" to FileIcon.CODE,
+                "api.http" to FileIcon.HTTP,
+                "users.rest" to FileIcon.HTTP,
                 "photo.jpeg" to FileIcon.JPG,
                 "icon.webp" to FileIcon.IMAGE,
                 "report.pdf" to FileIcon.PDF,

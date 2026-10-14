@@ -86,6 +86,9 @@ internal enum class FileIcon(
     REACT(MaterialDesignR.REACT, "file-icon-react", setOf("jsx", "tsx")),
     VUE(MaterialDesignV.VUEJS, "file-icon-vue", setOf("vue")),
     GRAPHQL(MaterialDesignG.GRAPHQL, "file-icon-graphql", setOf("graphql", "gql", "graphqls")),
+
+    /** Requests of the HTTP client. */
+    HTTP(MaterialDesignA.API, "file-icon-http", setOf("http", "rest")),
     SHELL(
         MaterialDesignB.BASH,
         "file-icon-shell",

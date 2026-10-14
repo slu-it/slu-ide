@@ -35,6 +35,7 @@
 .file-icon-react      { -fx-icon-color: #087ea4; }
 .file-icon-vue        { -fx-icon-color: #41b883; }
 .file-icon-graphql    { -fx-icon-color: #e10098; }
+.file-icon-http       { -fx-icon-color: #2e8b57; }
 .file-icon-shell      { -fx-icon-color: #4eaa25; }
 .file-icon-powershell { -fx-icon-color: #2671be; }
 .file-icon-console    { -fx-icon-color: #4d4d4d; }
@@ -111,6 +112,7 @@
     .file-icon-react      { -fx-icon-color: #58c4dc; }
     .file-icon-vue        { -fx-icon-color: #6fd3a2; }
     .file-icon-graphql    { -fx-icon-color: #f055b8; }
+    .file-icon-http       { -fx-icon-color: #5cc08a; }
     .file-icon-shell      { -fx-icon-color: #78c850; }
     .file-icon-powershell { -fx-icon-color: #5a9ae0; }
     .file-icon-console    { -fx-icon-color: #b0b0b0; }
