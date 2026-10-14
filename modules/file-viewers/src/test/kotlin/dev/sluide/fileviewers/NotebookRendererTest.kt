@@ -92,10 +92,24 @@ class NotebookRendererTest {
                 """{"cells":[{"cell_type":"markdown","source":{"a":1}}]}""",
                 """{"cells":[{"cell_type":"code","source":["x",{}]}]}""",
                 """{"metadata":{"language_info":{"name":{}}},"cells":[]}""",
+                "[]",
+                "42",
+                "{}",
+                """{"cells":"x"}""",
+                "",
             )
         for (json in shapes) {
-            assertNotNull(render(json).selectFirst(".notebook-error"), json)
+            val error = assertNotNull(render(json).selectFirst(".notebook-error"), json)
+            assertTrue(error.text().startsWith("Not a valid notebook: "), json)
         }
+    }
+
+    @Test
+    fun `a notebook without cells is empty, not broken`() {
+        val page = render("""{"cells":[]}""")
+
+        assertNull(page.selectFirst(".notebook-error"))
+        assertEquals(0, page.select(".cell").size)
     }
 
     @Test

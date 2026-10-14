@@ -35,12 +35,22 @@ internal object NotebookRenderer {
         folder: Path,
     ): Element {
         val body = Element("body").addClass("notebook")
-        try {
-            cells(body, mapper.readTree(text), folder)
-        } catch (e: JacksonException) {
-            // Not JSON, or JSON of another shape (e.g. an object where text belongs).
+        val problem =
+            try {
+                val notebook = mapper.readTree(text)
+                if (notebook.isObject && notebook.path("cells").isArray) {
+                    cells(body, notebook, folder)
+                    null
+                } else {
+                    "no JSON object with a list of cells"
+                }
+            } catch (e: JacksonException) {
+                // Not JSON, or JSON of another shape (e.g. an object where text belongs).
+                e.originalMessage
+            }
+        if (problem != null) {
             body.empty()
-            body.appendElement("p").addClass("notebook-error").text("Not a valid notebook: ${e.originalMessage}")
+            body.appendElement("p").addClass("notebook-error").text("Not a valid notebook: $problem")
         }
         return body
     }
