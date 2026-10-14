@@ -13,6 +13,7 @@ import javafx.scene.control.ToggleGroup
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
 import javafx.scene.web.WebView
+import netscape.javascript.JSObject
 import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path
@@ -49,6 +50,9 @@ internal enum class MarkdownMode(
  * Side by side, the preview scrolls with the source: the source line at the top of the source is brought to the top
  * of the preview (`sluide.scrollToLine`, interpolating between the blocks' `data-line`). After a reload the preview
  * goes back to where it was: to the source's line side by side, to its old scroll position when shown alone.
+ *
+ * Clicked links never navigate the preview: anchors scroll within it, every other link goes to [host]
+ * ([resolveLink]): web pages to the browser, files to SluIde.
  */
 internal class MarkdownFileView(
     private val file: Path,
@@ -66,6 +70,11 @@ internal class MarkdownFileView(
             stylesheets += checkNotNull(MarkdownFileView::class.java.getResource("markdown-view.css")).toExternalForm()
         }
     private val engine = preview.engine
+    override var host: FileViewHost? = null
+
+    /** Receives the page's link clicks; held here because the WebView only keeps a weak reference. */
+    private val bridge = LinkBridge()
+
     private var renderedText: String? = null
     private var dark = false
     private var syncPending = false
@@ -145,6 +154,7 @@ internal class MarkdownFileView(
     private val isLoaded get() = engine.loadWorker.state == Worker.State.SUCCEEDED
 
     private fun onLoaded() {
+        (engine.executeScript("window") as JSObject).setMember("sluideBridge", bridge)
         applyTheme()
         if (mode.get() == MarkdownMode.PREVIEW) {
             engine.executeScript("window.scrollTo(0, $previewScrollY)")
@@ -166,6 +176,23 @@ internal class MarkdownFileView(
             val area = source.area
             if (mode.get() == MarkdownMode.SPLIT && isLoaded && area.visibleParagraphs.isNotEmpty()) {
                 engine.executeScript("sluide.scrollToLine(${area.firstVisibleParToAllParIndex()})")
+            }
+        }
+    }
+
+    /** Called by the page's script (`sluideBridge.open(href)`) when a link is clicked. */
+    inner class LinkBridge {
+        fun open(href: String) {
+            when (val target = resolveLink(href, file.toAbsolutePath().parent)) {
+                is LinkTarget.WebPage -> {
+                    host?.openWebPage(target.uri)
+                }
+
+                is LinkTarget.File -> {
+                    host?.openFile(target.path)
+                }
+
+                null -> {}
             }
         }
     }

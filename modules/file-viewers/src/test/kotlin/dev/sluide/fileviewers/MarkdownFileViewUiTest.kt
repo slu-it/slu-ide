@@ -16,6 +16,7 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.net.URI
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.writeText
@@ -169,6 +170,33 @@ class MarkdownFileViewUiTest {
         robot.interact { view.reload() }
         awaitLoaded(view)
         assertEquals(700.0, (view.script("window.scrollY") as Number).toDouble(), 1.0)
+    }
+
+    /** Records what the view asks of the IDE. */
+    private class RecordingHost : FileViewHost {
+        val files = mutableListOf<Path>()
+        val pages = mutableListOf<URI>()
+
+        override fun openFile(file: Path): Boolean = files.add(file)
+
+        override fun openWebPage(uri: URI) {
+            pages += uri
+        }
+    }
+
+    @Test
+    fun `clicked links open through the host and never inside the preview`(robot: FxRobot) {
+        val (_, view) = show(robot, "[web](https://example.com/x) [doc](docs/other.md#part) [here](#title)\n")
+        val host = RecordingHost()
+        view.host = host
+        val page = view.script("location.href")
+
+        for (i in 0..2) view.script("document.querySelectorAll('a')[$i].click()")
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(listOf(URI("https://example.com/x")), host.pages)
+        assertEquals(listOf(dir.resolve("docs/other.md")), host.files)
+        assertEquals(page, view.script("location.href.replace(/#.*$/, '')"))
     }
 
     @Test
