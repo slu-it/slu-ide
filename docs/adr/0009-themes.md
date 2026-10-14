@@ -18,9 +18,10 @@ does not depend on `settings`.
   `-fx-background`, …) inside `@media (prefers-color-scheme: dark)` (JavaFX 24+).
 - Stylesheets that set their own colours add `@media (prefers-color-scheme: dark)` rules for them (`syntax.css`,
   `file-explorer.css`); stylesheets that only use Modena's looked-up colours (`editor.css`, `preview-view.css`,
-  `settings.css` apart from its always-dark terminal preview) need none, `theme.css` re-tints those. Either way modules need no dependency on `settings` to be
-  themed. Pages in a `WebView` (previews, images) are not JavaFX stylesheets: they follow the scene's colour scheme
-  through a `dark` class set from Kotlin, see [ADR 0016](0016-markdown-preview.md).
+  `settings.css` apart from its always-dark terminal preview) need none, `theme.css` re-tints those. Either way
+  modules need no dependency on `settings` to be themed. Pages in a `WebView` (previews, images) are not JavaFX
+  stylesheets: they follow the scene's colour scheme through a `dark` class set from Kotlin, see
+  [ADR 0016](0016-markdown-preview.md).
 - The terminal stays dark in every theme.
 - Not chosen: swapping whole stylesheets per theme (every module would have to know the theme), replacing Modena via
   `Application.setUserAgentStylesheet` (we would have to maintain a complete stylesheet), a third-party theme library.

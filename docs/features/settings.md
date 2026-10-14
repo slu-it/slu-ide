@@ -4,8 +4,8 @@
 
 - File → Settings… (Ctrl+, / Cmd+,) opens the settings dialog: a tree of pages on the left, the selected page on the
   right. Selecting a group (e.g. Display) shows its first page.
-- OK applies all edits and closes, Apply applies and keeps the dialog open, Cancel drops the edits. Nothing changes
-  in the IDE before OK or Apply. The dialog always opens with the current settings.
+- OK applies all edits and closes (unless storing fails, see below), Apply applies and keeps the dialog open, Cancel
+  drops the edits. Nothing changes in the IDE before OK or Apply. The dialog always opens with the current settings.
 - Edits are applied only once they are stored. If a page's edits cannot be stored (e.g. `~/.sluide` is read-only or
   the settings file cannot be read), that page changes nothing, the other pages are still applied, an error message
   names the failed pages, and OK keeps the dialog open.
