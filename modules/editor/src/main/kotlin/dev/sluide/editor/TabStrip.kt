@@ -98,7 +98,7 @@ internal class TabStrip(
         var right = width - insets.right
         val widths = headers.map { snapSizeX(it.prefWidth(-1.0)) }
 
-        val overflows = widths.sum() > right - left
+        val overflows = TabOverflow(widths, right - left).overflows
         for (control in listOf(scrollLeftButton, scrollRightButton, overflowMenu)) {
             control.isVisible = overflows
         }
