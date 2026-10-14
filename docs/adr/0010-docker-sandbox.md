@@ -28,5 +28,7 @@ projects), so that must never happen, also not through a bug in the menu logic.
 
 ## Consequences
 - The sandbox tab has no shell left after `sbx` ends; users open a normal terminal for that.
-- `sbx` must be on the `PATH` of the login shell; other installations are not looked for.
+- `sbx` must be on the `PATH` of the login shell; other installations are not looked for. Each window checks this
+  once when it opens (`command -v sbx` in that shell) and disables the Docker Sandbox menu without it, so `sbx`
+  installed later shows up in new windows only.
 - Projects outside the home folder (e.g. `/opt/work`) cannot use sandboxes from the IDE.

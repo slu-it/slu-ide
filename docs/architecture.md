@@ -25,7 +25,8 @@ assembled from Gradle modules.
   - `editor` -> `file-viewers`: the editor area asks `FileViewers` for the view of a file
     ([ADR 0004](adr/0004-file-viewer-selection.md)).
   - `terminal` -> `editor`: terminals are shown as `EditorTab`s ([ADR 0007](adr/0007-terminal.md)).
-  - `docker-sandbox` -> `terminal`: sandboxes run in terminal tabs ([ADR 0010](adr/0010-docker-sandbox.md)).
+  - `docker-sandbox` -> `terminal`: sandboxes run in terminal tabs and look `sbx` up in the same login shell
+    (`loginShellRunning`) ([ADR 0010](adr/0010-docker-sandbox.md)).
   - `git` -> `file-watcher`: the `.git` folder is watched to refresh the status
     ([ADR 0013](adr/0013-git-status.md)). Markers and diffs reach the explorer and the editor through `ide`
     (`MainWindow`), not through module dependencies ([ADR 0015](adr/0015-git-diff.md)).

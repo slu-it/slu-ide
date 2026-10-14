@@ -48,7 +48,8 @@
   copy it and paste the clipboard. Pastes use bracketed paste when the shell asks for it.
 - Other modules can run a command in a terminal tab: `Terminals.open(folder, name, command)` runs it with
   `$SHELL -l -c` in a tab with the given name; the tab shows "(exited)" when the command ends (used by
-  [docker-sandbox.md](docker-sandbox.md)).
+  [docker-sandbox.md](docker-sandbox.md)). `loginShellRunning(command, environment)` returns that shell's command line,
+  for running a command in the same login environment outside a terminal (the `sbx` check of the sandboxes).
 - Structure: `Terminals` (window-scoped Spring bean: opens terminals, ends them when its window closes),
   `TerminalTab` (`EditorTab`), `TerminalView` (canvas, input, selection; JediTerm `TerminalDisplay`),
   `TerminalSession` (pty4j process and JediTerm emulator), `TerminalKeys` (key translation), `TerminalMouse` (mouse
