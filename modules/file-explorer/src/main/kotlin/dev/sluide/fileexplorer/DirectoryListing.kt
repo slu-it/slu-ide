@@ -6,10 +6,18 @@ import java.nio.file.Path
 
 private const val GIT_ENTRY = ".git"
 
-private val entryOrder: Comparator<Path> =
-    compareBy<Path> { !Files.isDirectory(it) }
-        .thenBy(String.CASE_INSENSITIVE_ORDER) { it.fileName.toString() }
-        .thenBy { it.fileName.toString() }
+private class Entry(
+    val path: Path,
+) {
+    // Looked up once per entry, not per comparison.
+    val directory = Files.isDirectory(path)
+    val name = path.fileName.toString()
+}
+
+private val entryOrder: Comparator<Entry> =
+    compareBy<Entry> { !it.directory }
+        .thenBy(String.CASE_INSENSITIVE_ORDER) { it.name }
+        .thenBy { it.name }
 
 /**
  * Lists the direct children of [directory]: folders first, then files, each sorted by name.
@@ -18,13 +26,16 @@ private val entryOrder: Comparator<Path> =
  * worktrees and submodules) is left out.
  * Unreadable or vanished directories yield an empty list instead of failing.
  */
-fun listDirectory(directory: Path): List<Path> =
+internal fun listDirectory(directory: Path): List<Path> =
     try {
         Files.list(directory).use { entries ->
-            entries.filter { it.fileName.toString() != GIT_ENTRY }.sorted(entryOrder).toList()
+            entries
+                .filter { it.fileName.toString() != GIT_ENTRY }
+                .map(::Entry)
+                .sorted(entryOrder)
+                .map { it.path }
+                .toList()
         }
     } catch (_: IOException) {
-        emptyList()
-    } catch (_: SecurityException) {
         emptyList()
     }
