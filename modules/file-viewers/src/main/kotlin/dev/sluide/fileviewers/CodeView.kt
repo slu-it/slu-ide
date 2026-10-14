@@ -69,6 +69,8 @@ internal class CodeView(
     private val banners = VBox()
     private val root =
         BorderPane(pane).apply {
+            // Unlike `code-view`, which the scroll panes of diff views have too.
+            styleClass += "code-editor"
             top = banners
             stylesheets += checkNotNull(CodeView::class.java.getResource("code-view.css")).toExternalForm()
         }

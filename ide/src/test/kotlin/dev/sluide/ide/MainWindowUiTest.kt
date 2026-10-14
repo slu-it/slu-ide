@@ -25,13 +25,14 @@ import javafx.scene.Node
 import javafx.scene.control.Label
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuBar
-import javafx.scene.control.TextArea
 import javafx.scene.control.TreeCell
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
+import javafx.scene.text.Text
 import javafx.stage.Stage
 import javafx.stage.WindowEvent
+import org.fxmisc.richtext.CodeArea
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Tag
@@ -337,7 +338,7 @@ class MainWindowUiTest {
     }
 
     @Test
-    fun `opening a file in the explorer shows it in a read-only tab`(robot: FxRobot) {
+    fun `opening a file in the explorer shows it in an editable tab`(robot: FxRobot) {
         val readme = project.resolve("README.md").apply { writeText("# Hello") }
         robot.interact { projectService.open(project) }
 
@@ -345,9 +346,9 @@ class MainWindowUiTest {
         WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf("README.md"), tabTitles(robot))
-        val text = robot.lookup(".editor-content .text-area").queryAs(TextArea::class.java)
+        val text = robot.lookup(".editor-content .code-area").queryAs(CodeArea::class.java)
         assertEquals("# Hello", text.text)
-        assertEquals(false, text.isEditable)
+        assertEquals(true, text.isEditable)
     }
 
     @Test
@@ -407,8 +408,9 @@ class MainWindowUiTest {
         assertEquals(
             22.0,
             robot
-                .lookup(".editor-content .text-area")
-                .queryAs(TextArea::class.java)
+                .lookup(".editor-content .code-area .text")
+                .queryAllAs(Text::class.java)
+                .first { it.text.contains("Hello") }
                 .font.size,
         )
     }

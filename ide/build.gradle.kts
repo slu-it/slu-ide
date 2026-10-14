@@ -29,6 +29,8 @@ dependencies {
 
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
+    // File views are RichTextFX code areas; the tests read their text.
+    testImplementation(libs.richtextfx)
 }
 
 // The fat jar contains the JavaFX natives of the build platform only (see docs/adr/0003), so every

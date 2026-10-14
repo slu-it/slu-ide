@@ -23,7 +23,6 @@ import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.scene.control.SeparatorMenuItem
-import javafx.scene.control.TextArea
 import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
@@ -106,10 +105,11 @@ class EditorAreaUiTest {
             .sortedBy { it.localToScene(0.0, 0.0).x }
             .map { it.text }
 
+    /** The text of the shown file view, unless it is a diff. */
     private fun shownText(robot: FxRobot): String? =
         robot
-            .lookup(".editor-content .text-area")
-            .queryAllAs(TextArea::class.java)
+            .lookup(".editor-content .code-editor .code-area")
+            .queryAllAs(CodeArea::class.java)
             .singleOrNull()
             ?.text
 
@@ -750,9 +750,13 @@ class EditorAreaUiTest {
         assertEquals("Serif", codeText.font.family)
         robot.interact { editor.editorTabs.select(checkNotNull(editor.editorTabs.find(text))) }
         WaitForAsyncUtils.waitForFxEvents()
-        val area = robot.lookup(".editor-content .text-area").queryAs(TextArea::class.java)
-        assertEquals(21.0, area.font.size)
-        assertTrue("Italic" in area.font.style || "Oblique" in area.font.style, area.font.style)
+        val plainText =
+            robot
+                .lookup(".editor-content .code-area .text")
+                .queryAllAs(javafx.scene.text.Text::class.java)
+                .first { it.text.contains("content") }
+        assertEquals(21.0, plainText.font.size)
+        assertTrue("Italic" in plainText.font.style || "Oblique" in plainText.font.style, plainText.font.style)
 
         val closed = checkNotNull(editor.editorTabs.find(text))
         robot.interact { editor.editorTabs.close(closed) }
