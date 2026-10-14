@@ -33,8 +33,25 @@ class MarkdownLinksTest {
     }
 
     @Test
+    fun `scheme-relative links are https web pages`() {
+        assertEquals(LinkTarget.WebPage(URI("https://example.com/a")), resolveLink("//example.com/a", folder))
+    }
+
+    @Test
     fun `anchors, other schemes and broken links lead nowhere`() {
-        for (href in listOf("#section", "", "javascript:alert(1)", "ftp://example.com/x", "?only=query", "a[b")) {
+        val hrefs =
+            listOf(
+                "#section",
+                "",
+                "javascript:alert(1)",
+                "ftp://example.com/x",
+                "?only=query",
+                "a[b",
+                "file:foo",
+                "file://server/share/a.md",
+                "a%00b.md",
+            )
+        for (href in hrefs) {
             assertNull(resolveLink(href, folder), href)
         }
     }

@@ -19,8 +19,8 @@ internal sealed interface LinkTarget {
 
 /**
  * Where [href], a link in a Markdown file in [folder], leads: web pages as they are, relative paths resolved against
- * [folder] without fragment or query (`other.md#part` is `other.md`). `null` for links within the page (`#part`),
- * for other schemes and for links that are no valid URI.
+ * [folder] without fragment or query (`other.md#part` is `other.md`), scheme-relative ones (`//host/x`) as `https`.
+ * `null` for links within the page (`#part`), for other schemes and for links that are no valid URI or path.
  */
 internal fun resolveLink(
     href: String,
@@ -28,16 +28,19 @@ internal fun resolveLink(
 ): LinkTarget? {
     val link = href.trim()
     if (link.isEmpty() || link.startsWith("#")) return null
-    val uri =
-        try {
-            URI(link.replace(" ", "%20"))
-        } catch (_: URISyntaxException) {
-            return null
+    return try {
+        val uri = URI(link.replace(" ", "%20"))
+        when (uri.scheme?.lowercase()) {
+            "http", "https", "mailto" -> LinkTarget.WebPage(uri)
+            "file" -> LinkTarget.File(Path.of(URI("file", uri.authority, uri.path, null)).normalize())
+            null if uri.authority != null -> LinkTarget.WebPage(URI("https:$link"))
+            null -> uri.path?.takeIf { it.isNotEmpty() }?.let { LinkTarget.File(folder.resolve(it).normalize()) }
+            else -> null
         }
-    return when (uri.scheme?.lowercase()) {
-        "http", "https", "mailto" -> LinkTarget.WebPage(uri)
-        "file" -> LinkTarget.File(Path.of(URI("file", uri.authority, uri.path, null)).normalize())
-        null -> uri.path?.takeIf { it.isNotEmpty() }?.let { LinkTarget.File(folder.resolve(it).normalize()) }
-        else -> null
+    } catch (_: URISyntaxException) {
+        null
+    } catch (_: IllegalArgumentException) {
+        // Also InvalidPathException: e.g. `file://server/share` or a NUL character.
+        null
     }
 }

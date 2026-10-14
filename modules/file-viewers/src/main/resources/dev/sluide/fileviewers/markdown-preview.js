@@ -36,9 +36,13 @@
         var link = event.target.closest ? event.target.closest('a[href]') : null;
         if (!link) return;
         var href = link.getAttribute('href');
-        // Anchors on this page scroll as usual; every other link is opened by SluIde, never inside the preview.
-        if (href.charAt(0) === '#') return;
+        // No link navigates the preview: anchors scroll within the page, every other link is opened by SluIde.
         event.preventDefault();
-        if (window.sluideBridge) window.sluideBridge.open(href);
+        if (href.charAt(0) === '#') {
+            var target = document.getElementById(decodeURIComponent(href.substring(1)));
+            if (target) target.scrollIntoView();
+        } else if (window.sluideBridge) {
+            window.sluideBridge.open(href);
+        }
     });
 })();

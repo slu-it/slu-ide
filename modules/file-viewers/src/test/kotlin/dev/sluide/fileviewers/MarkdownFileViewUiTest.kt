@@ -195,7 +195,11 @@ class MarkdownFileViewUiTest {
 
     @Test
     fun `clicked links open through the host and never inside the preview`(robot: FxRobot) {
-        val (_, view) = show(robot, "[web](https://example.com/x) [doc](docs/other.md#part) [here](#title)\n")
+        val (_, view) =
+            show(
+                robot,
+                "# Title\n\n[web](https://example.com/x) [doc](docs/other.md#part) [here](#title)\n",
+            )
         val host = RecordingHost()
         view.host = host
         val page = view.script("location.href")
@@ -205,7 +209,62 @@ class MarkdownFileViewUiTest {
 
         assertEquals(listOf(URI("https://example.com/x")), host.pages)
         assertEquals(listOf(dir.resolve("docs/other.md")), host.files)
-        assertEquals(page, view.script("location.href.replace(/#.*$/, '')"))
+        assertEquals(page, view.script("location.href"))
+    }
+
+    @Test
+    fun `anchors scroll within the preview`(robot: FxRobot) {
+        val (_, view) =
+            show(
+                robot,
+                "[last](#paragraph-200)\n\n" + longDocument.replace("Paragraph 200", "## Paragraph 200"),
+            )
+        robot.interact { view.mode.set(MarkdownMode.PREVIEW) }
+
+        view.script("document.querySelector('a').click()")
+        // A navigation would take a moment to start; give it the chance.
+        WaitForAsyncUtils.sleep(500, TimeUnit.MILLISECONDS)
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals("", WaitForAsyncUtils.asyncFx<String?> { view.preview.engine.location }.get().orEmpty())
+        assertTrue((view.script("window.scrollY") as Number).toDouble() > 1000.0)
+        assertEquals("Paragraph 200", view.script("document.getElementById('paragraph-200').textContent"))
+    }
+
+    @Test
+    fun `a preview that navigated away shows the Markdown again`(robot: FxRobot) {
+        val (_, view) = show(robot, "# Mine\n")
+        val other = dir.resolve("other.html").apply { writeText("<h1>Other</h1>") }
+
+        val locations = mutableListOf<String?>()
+        robot.interact {
+            view.preview.engine
+                .locationProperty()
+                .addListener { _, _, location -> locations += location }
+            view.preview.engine.load(other.toUri().toString())
+        }
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
+            WaitForAsyncUtils
+                .asyncFx<Boolean> {
+                    view.preview.engine.location
+                        .isNullOrEmpty()
+                }.get() &&
+                view.script("document.querySelector('h1') && document.querySelector('h1').textContent") == "Mine"
+        }
+        assertTrue(locations.any { it.orEmpty().endsWith("other.html") }, "navigated away: $locations")
+        assertEquals("function", view.script("typeof sluideBridge.open"))
+    }
+
+    @Test
+    fun `the divider keeps its place when switching modes`(robot: FxRobot) {
+        val (_, view) = show(robot, "# Title\n")
+        val split = robot.lookup(".split-pane").queryAs(SplitPane::class.java)
+
+        robot.interact { split.setDividerPositions(0.3) }
+        robot.interact { view.mode.set(MarkdownMode.PREVIEW) }
+        robot.interact { view.mode.set(MarkdownMode.SPLIT) }
+
+        assertEquals(0.3, split.dividerPositions[0], 0.01)
     }
 
     @Test

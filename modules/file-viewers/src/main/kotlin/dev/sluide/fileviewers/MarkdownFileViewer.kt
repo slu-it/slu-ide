@@ -4,6 +4,7 @@ import javafx.application.ColorScheme
 import javafx.application.Platform
 import javafx.beans.property.ObjectProperty
 import javafx.beans.property.SimpleObjectProperty
+import javafx.collections.ListChangeListener
 import javafx.concurrent.Worker
 import javafx.geometry.Pos
 import javafx.scene.Node
@@ -52,7 +53,8 @@ internal enum class MarkdownMode(
  * goes back to where it was: to the source's line side by side, to its old scroll position when shown alone.
  *
  * Clicked links never navigate the preview: anchors scroll within it, every other link goes to [host]
- * ([resolveLink]): web pages to the browser, files to SluIde.
+ * ([resolveLink]): web pages to the browser, files to SluIde. Should the WebView still end up on another page (e.g.
+ * something dropped onto it), it renders the Markdown again; only its own page gets the link bridge.
  */
 internal class MarkdownFileView(
     private val file: Path,
@@ -82,6 +84,9 @@ internal class MarkdownFileView(
     /** Scroll position of the preview to restore after rendering, when the preview is shown alone. */
     private var previewScrollY = 0.0
 
+    /** Where the divider was when the view last showed both sides. */
+    private var dividerPosition = 0.5
+
     init {
         val buttons =
             MarkdownMode.entries.map { mode ->
@@ -105,7 +110,8 @@ internal class MarkdownFileView(
             show(mode)
             syncScroll()
         }
-        source.area.estimatedScrollYProperty().addListener { _, _, _ -> syncScroll() }
+        // The visible paragraphs change when the source scrolls, is resized or is shown again (e.g. its tab selected).
+        source.area.visibleParagraphs.addListener(ListChangeListener { syncScroll() })
         engine.loadWorker.stateProperty().subscribe { state -> if (state == Worker.State.SUCCEEDED) onLoaded() }
         pane
             .sceneProperty()
@@ -126,6 +132,7 @@ internal class MarkdownFileView(
     }
 
     private fun show(mode: MarkdownMode) {
+        if (split.items.size == 2) dividerPosition = split.dividerPositions[0]
         when (mode) {
             MarkdownMode.SOURCE -> {
                 split.items.setAll(source.node)
@@ -133,7 +140,7 @@ internal class MarkdownFileView(
 
             MarkdownMode.SPLIT -> {
                 split.items.setAll(source.node, preview)
-                split.setDividerPositions(0.5)
+                split.setDividerPositions(dividerPosition)
             }
 
             MarkdownMode.PREVIEW -> {
@@ -148,12 +155,22 @@ internal class MarkdownFileView(
         if (text == renderedText) return
         renderedText = text
         if (isLoaded) previewScrollY = (engine.executeScript("window.scrollY") as Number).toDouble()
-        engine.loadContent(MarkdownRenderer.render(text, file.toAbsolutePath().parent))
+        engine.loadContent(MarkdownRenderer.render(text, file.toAbsolutePath().parent, dark))
     }
 
-    private val isLoaded get() = engine.loadWorker.state == Worker.State.SUCCEEDED
+    /** Whether the preview shows our rendered page: loaded from a string, it has no location of its own. */
+    private val isLoaded
+        get() =
+            engine.loadWorker.state == Worker.State.SUCCEEDED &&
+                engine.location.let { it.isNullOrEmpty() || it == "about:blank" }
 
     private fun onLoaded() {
+        if (!isLoaded) {
+            // Navigated away from our page: show the Markdown again.
+            renderedText = null
+            render()
+            return
+        }
         (engine.executeScript("window") as JSObject).setMember("sluideBridge", bridge)
         applyTheme()
         if (mode.get() == MarkdownMode.PREVIEW) {
@@ -167,7 +184,7 @@ internal class MarkdownFileView(
         if (isLoaded) engine.executeScript("sluide.setDark($dark)")
     }
 
-    /** Side by side, scrolls the preview to the source's top line, at most once per pulse. */
+    /** Side by side, scrolls the preview to the source's top line; calls before it ran are merged into one. */
     private fun syncScroll() {
         if (syncPending) return
         syncPending = true

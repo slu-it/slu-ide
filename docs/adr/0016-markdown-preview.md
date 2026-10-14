@@ -19,9 +19,16 @@ Options considered:
 - `MarkdownRenderer` renders with commonmark-java (`org.commonmark`) and the GitHub extensions for tables,
   strikethrough, task lists, autolinks and heading anchors. Block elements carry `data-line` (their first source
   line) for scroll sync. Fenced code with a known language is highlighted by the code views' highlighters.
-- The HTML is sanitised with jsoup (`Safelist.relaxed()` plus details, task-list checkboxes and our attributes), so
-  scripts, `on*` handlers and `javascript:` links in a Markdown file never reach the WebView. The page then gets our
-  own stylesheet and script, and a `<base href>` of the file's folder for relative images and links.
+- The HTML is sanitised with jsoup: `Safelist.relaxed()` plus `del`, `s`, `hr`, `kbd`, `mark`, `details`/`summary`,
+  task-list checkboxes, `class`, `id`, `align` and `data-line` on all elements, and `file:` links. Scripts, `on*`
+  handlers, `style`, frames, forms, SVG and `javascript:`/`data:` links in a Markdown file never reach the WebView.
+  The page then gets our own stylesheet and script.
+- The page has no `<base>`: it is loaded from a string, so WebKit would not load `file:` images through it anyway, and
+  with a base an anchor (`#part`) would navigate away. Local images are embedded as `data:` URIs instead; remote
+  images load from the web. Links keep their `href` and are resolved in Kotlin when clicked.
+- No link navigates the WebView: the page's script handles anchors itself and hands every other link to the bridge.
+  Should the WebView still load another page, the view renders the Markdown again; the bridge is only set on its own
+  page.
 - `MarkdownFileView` shows a `CodeView` and a `WebView` in a `SplitPane`, with a toolbar for Source / Split /
   Preview. The preview follows the window's colour scheme by toggling a `dark` class on the page.
 - Kotlin calls the page through `window.sluide`; the page calls back through one bridge object for link clicks.

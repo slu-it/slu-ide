@@ -17,7 +17,13 @@ import org.commonmark.renderer.html.HtmlRenderer
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.safety.Safelist
+import java.io.IOException
 import java.nio.file.Path
+import java.util.Base64
+import kotlin.io.path.extension
+import kotlin.io.path.fileSize
+import kotlin.io.path.isRegularFile
+import kotlin.io.path.readBytes
 
 /**
  * Renders Markdown (CommonMark with GitHub's tables, strikethrough, task lists and autolinks) to the HTML page of the
@@ -25,7 +31,8 @@ import java.nio.file.Path
  * - every block element carries `data-line`, its first line in the source (0-based), for scroll sync;
  * - fenced code with a known language is highlighted like the code views (`<span class="keyword">`…);
  * - the HTML is sanitised: Markdown files may contain HTML, and scripts or event handlers must not run;
- * - relative links and images resolve against the Markdown file's folder (`<base href>`);
+ * - local images (relative or `file:`) are embedded as `data:` URIs, since a page loaded from a string may not read
+ *   files; links keep their `href` as written and are resolved by `MarkdownFileView` when clicked;
  * - the page brings its stylesheet and the script that `MarkdownFileView` calls.
  */
 internal object MarkdownRenderer {
@@ -61,7 +68,7 @@ internal object MarkdownRenderer {
             .addAttributes("input", "type", "checked", "disabled")
             .addAttributes("details", "open")
             .addProtocols("a", "href", "file")
-            .addProtocols("img", "src", "file", "data")
+            .addProtocols("img", "src", "file")
             .preserveRelativeLinks(true)
 
     private val outputSettings = Document.OutputSettings().prettyPrint(false)
@@ -73,17 +80,52 @@ internal object MarkdownRenderer {
     fun render(
         markdown: String,
         folder: Path,
+        dark: Boolean = false,
     ): String {
-        val base = folder.toUri().toString().let { if (it.endsWith("/")) it else "$it/" }
-        val body = Jsoup.clean(renderer.render(parser.parse(markdown)), base, safelist, outputSettings)
+        // The base URI only lets jsoup keep relative links; the page itself has no base, so `#part` stays on the page.
+        val base = folder.toUri().toString()
+        val clean = Jsoup.clean(renderer.render(parser.parse(markdown)), base, safelist, outputSettings)
+        val body = Jsoup.parseBodyFragment(clean).apply { outputSettings(outputSettings) }.body()
+        body.select("img[src]").forEach { image ->
+            embeddedImage(image.attr("src"), folder)?.let { image.attr("src", it) }
+        }
         return buildString {
             append("<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n")
-            append("<base href=\"").append(base.replace("\"", "%22")).append("\">\n")
-            append("<style>\n").append(stylesheet).append("</style>\n</head>\n<body>\n")
-            append(body)
+            append("<style>\n").append(stylesheet).append("</style>\n</head>\n")
+            append(if (dark) "<body class=\"dark\">\n" else "<body>\n")
+            append(body.html())
             append("\n<script>\n").append(script).append("</script>\n</body>\n</html>\n")
         }
     }
+
+    /** A local image at [src] (relative to [folder] or `file:`) as a `data:` URI, or `null` to keep [src]. */
+    private fun embeddedImage(
+        src: String,
+        folder: Path,
+    ): String? {
+        val file = (resolveLink(src, folder) as? LinkTarget.File)?.path ?: return null
+        val type = IMAGE_TYPES[file.extension.lowercase()] ?: return null
+        return try {
+            if (!file.isRegularFile() || file.fileSize() > MAX_IMAGE_BYTES) return null
+            "data:$type;base64," + Base64.getEncoder().encodeToString(file.readBytes())
+        } catch (_: IOException) {
+            null
+        }
+    }
+
+    private const val MAX_IMAGE_BYTES = 10L * 1024 * 1024
+
+    private val IMAGE_TYPES =
+        mapOf(
+            "png" to "image/png",
+            "jpg" to "image/jpeg",
+            "jpeg" to "image/jpeg",
+            "gif" to "image/gif",
+            "svg" to "image/svg+xml",
+            "webp" to "image/webp",
+            "bmp" to "image/bmp",
+            "ico" to "image/x-icon",
+        )
 
     private fun sourceLine(
         node: Node,

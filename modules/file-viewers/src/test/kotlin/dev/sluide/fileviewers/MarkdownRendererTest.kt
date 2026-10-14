@@ -3,6 +3,8 @@ package dev.sluide.fileviewers
 import org.jsoup.Jsoup
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import kotlin.io.path.createDirectories
+import kotlin.io.path.writeBytes
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -84,12 +86,50 @@ class MarkdownRendererTest {
     }
 
     @Test
-    fun `relative links and images resolve against the file's folder`() {
-        val page = render("![logo](img/logo.png)")
+    fun `local images are embedded, other images and links stay as written`() {
+        dir
+            .resolve("img")
+            .createDirectories()
+            .resolve("logo.png")
+            .writeBytes(byteArrayOf(1, 2, 3))
 
-        val base = page.selectFirst("base")?.attr("href").orEmpty()
-        assertEquals(dir.toUri().toString().removeSuffix("/") + "/", base)
-        assertEquals("img/logo.png", page.selectFirst("img")?.attr("src"))
+        val page = render("![a](img/logo.png) ![b](missing.png) ![c](https://example.com/c.png) [doc](docs/other.md)")
+
+        val sources = page.select("img").map { it.attr("src") }
+        assertEquals("data:image/png;base64,AQID", sources[0])
+        assertEquals(listOf("missing.png", "https://example.com/c.png"), sources.drop(1))
+        assertEquals("docs/other.md", page.selectFirst("a")?.attr("href"))
+        // No base: anchors (#part) must stay on the page.
+        assertNull(page.selectFirst("base"))
+    }
+
+    @Test
+    fun `the page is rendered in the requested colour scheme`() {
+        assertTrue(Jsoup.parse(MarkdownRenderer.render("x", dir, dark = true)).body().hasClass("dark"))
+        assertFalse(render("x").body().hasClass("dark"))
+    }
+
+    @Test
+    fun `active content of every kind is removed`() {
+        val page =
+            render(
+                """
+                |<iframe src="https://example.com"></iframe><object data="x.swf"></object><embed src="x.swf">
+                |<svg onload="alert(1)"><circle r="5"/></svg>
+                |<form action="https://example.com"><input name="q"></form>
+                |<meta http-equiv="refresh" content="0; url=https://example.com">
+                |<p style="position:fixed">styled</p>
+                |<a href="vbscript:msgbox(1)">vb</a> <a href="data:text/html,<script>alert(1)</script>">data</a>
+                |
+                """.trimMargin(),
+            )
+
+        val body = page.body()
+        for (tag in listOf("iframe", "object", "embed", "svg", "form", "meta")) {
+            assertTrue(body.select(tag).isEmpty(), tag)
+        }
+        assertFalse(body.selectFirst("p")!!.hasAttr("style"))
+        assertTrue(body.select("a").none { it.hasAttr("href") })
     }
 
     @Test
