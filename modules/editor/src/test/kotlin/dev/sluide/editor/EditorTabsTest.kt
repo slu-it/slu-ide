@@ -2,6 +2,7 @@ package dev.sluide.editor
 
 import dev.sluide.fileviewers.FileView
 import javafx.beans.property.SimpleStringProperty
+import javafx.collections.ListChangeListener
 import javafx.scene.Group
 import java.nio.file.Path
 import kotlin.test.Test
@@ -176,6 +177,50 @@ class EditorTabsTest {
         assertEquals(listOf("a.txt", "b.txt"), tabs.files.map { it.name })
         assertSame(b, tabs.selected.get())
         assertFailsWith<IllegalArgumentException> { tabs.open(terminal) }
+    }
+
+    @Test
+    fun `moving a tab reorders the tabs and keeps the selection`() {
+        val a = open("a.txt")
+        open("b.txt")
+        val c = open("c.txt")
+        tabs.select(a)
+
+        tabs.move(a, 2)
+        assertEquals(listOf("b.txt", "c.txt", "a.txt"), names())
+
+        tabs.move(c, 0)
+        assertEquals(listOf("c.txt", "b.txt", "a.txt"), names())
+        assertSame(a, tabs.selected.get())
+    }
+
+    @Test
+    fun `moving a tab is a permutation, nothing is closed or disposed`() {
+        val one = DisposableTab("one").also(tabs::open)
+        val two = DisposableTab("two").also(tabs::open)
+        val changes = mutableListOf<String>()
+        tabs.tabs.addListener(
+            ListChangeListener { change ->
+                while (change.next()) {
+                    changes += if (change.wasPermutated()) "permutation" else "removed ${change.removedSize}"
+                }
+            },
+        )
+
+        tabs.move(one, 1)
+        tabs.move(one, 1)
+
+        assertEquals(listOf("permutation"), changes, "moving to the current position changes nothing")
+        assertEquals(listOf(0, 0), listOf(one, two).map { it.disposed })
+    }
+
+    @Test
+    fun `moving rejects tabs that are not open and positions out of range`() {
+        val a = open("a.txt")
+
+        assertFailsWith<IllegalArgumentException> { tabs.move(DisposableTab("other"), 0) }
+        assertFailsWith<IllegalArgumentException> { tabs.move(a, 1) }
+        assertFailsWith<IllegalArgumentException> { tabs.move(a, -1) }
     }
 
     @Test

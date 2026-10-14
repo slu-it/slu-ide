@@ -93,6 +93,22 @@ internal class EditorTabs {
         _selected.set(tab)
     }
 
+    /**
+     * Moves [tab] to [toIndex], keeping the selection. The list reports a permutation, not a removal and an addition,
+     * so listeners do not take the tab for closed and reopened.
+     */
+    fun move(
+        tab: EditorTab,
+        toIndex: Int,
+    ) {
+        val from = indexOfOpen(tab)
+        require(toIndex in _tabs.indices) { "No tab position $toIndex" }
+        if (from == toIndex) return
+        val order = _tabs.toMutableList().apply { add(toIndex, removeAt(from)) }
+        val positions = order.withIndex().associate { (index, it) -> it to index }
+        _tabs.sortWith(compareBy { positions.getValue(it) })
+    }
+
     /** Removes [tab]. If it was selected, its right neighbour is selected, otherwise its left one, if any. */
     fun close(tab: EditorTab) {
         val index = _tabs.indexOf(tab)
