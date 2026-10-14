@@ -23,7 +23,8 @@ So only HTML needs confining, and an HTTP origin confines it to what a server ha
   (Javadoc, test and coverage reports). A file the project folder would not serve (outside it, with no project open,
   in a hidden folder, behind a symbolic link leading out) gets the folder it really is in.
 - **What is served:** regular files inside the root, read at the real path that was checked, without following links.
-  Refused:
+  A folder's URL ending in `/` serves its `index.html` (if served itself), and one without `/` is redirected there, so
+  that relative links on the index page resolve as on web servers; folders are never listed. Refused:
   - files outside the root, also through `..` or symbolic links (checked on the real path);
   - hidden files and everything in hidden folders (`.git`, `.env`, `.idea`), except the previewed page itself;
   - other methods than GET and HEAD;

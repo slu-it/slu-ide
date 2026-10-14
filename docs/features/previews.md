@@ -20,12 +20,17 @@ and never navigate the preview (`FileViewHost`, [file-viewers.md](file-viewers.m
 - **Scripts:** off by default. The **Scripts** toggle in the toolbar runs them for this tab (the page reloads), after
   a warning: its scripts can read those files and send them to the web. Every newly opened tab starts with scripts
   off again.
-- **Navigation:** a page other than the file itself never shows. Right after a click or key press in the preview
-  (a link, a submitted form), the target opens elsewhere — web pages in the system browser, files in a tab — and the
-  file is shown again; links to other files open them in a tab, also links climbing out of the served folder.
+- **Navigation:** a page other than the file itself never shows. Within 2 seconds after a mouse press, a key press
+  or a drop onto the preview (a link, a submitted form, a dropped file), the target opens elsewhere — web pages in the
+  system browser, files in a tab — and the file is shown again; links to other files open them in a tab, also links
+  climbing out of the served folder. The input counts once, for the first navigation after it, but any of it does:
+  a click only meant to focus the preview lets a page's own navigation in the next 2 seconds open its target.
   Without such input (a meta refresh, a script setting `location` or reloading the page, a client-side router
   changing the address) the preview stops with a notice and **Show the page again**; a change of the file on disk
   shows it again too. So a page can neither open things on its own nor reload in a loop. Anchors (`#part`) stay.
+- The server answers a folder's URL (`docs/`; `docs` is redirected there) with its `index.html`, as web servers do,
+  e.g. for frames and scripts; a folder without one is not found, and folders are never listed. A clicked link to a
+  folder opens nothing, since no tab shows a folder.
 - If the server cannot start, the preview says so instead of staying blank.
 - Even with scripts off, the page loads what it references, including remote images, styles and frames.
 - On a change on disk the page reloads at its scroll position. Changes to the files it uses (CSS, images) show on the
@@ -39,6 +44,8 @@ and never navigate the preview (`FileViewHost`, [file-viewers.md](file-viewers.m
 ## Images (png, jpg/jpeg, gif, webp, bmp, ico) — `ImageFileViewer`
 - Image files up to 50 MB open although they are binary: the image on the same checkered page as SVG (click for
   actual size), with its pixel size and file size below. No source side; a changed file is shown again.
+- The whole file is read and encoded into the page (base64, a third larger) on the JavaFX thread, when it opens and
+  on every change: a large image holds up the UI for a moment.
 - Modified images open normally, never as a diff.
 
 ## CSV and TSV (`.csv`, `.tsv`) — `CsvFileViewer`
