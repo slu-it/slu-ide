@@ -12,6 +12,7 @@ import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.ThemedWindows
 import dev.sluide.terminal.TerminalStartException
 import dev.sluide.terminal.Terminals
+import javafx.application.Platform
 import javafx.scene.Scene
 import javafx.scene.control.Alert
 import javafx.scene.control.Menu
@@ -152,7 +153,10 @@ class MainWindow(
         }
     }
 
-    /** The sandbox actions; each is enabled only where it may run, which is checked again when it is started. */
+    /**
+     * The sandbox actions; each is enabled only where it may run, which is checked again when it is started. The whole
+     * menu is disabled until the check for `sbx` has found it.
+     */
     private fun dockerSandboxMenu(stage: Stage): Menu {
         val items =
             SandboxAction.entries.associateWith { action ->
@@ -167,6 +171,13 @@ class MainWindow(
         return Menu("Docker Sandbox", null, *items.values.toTypedArray()).apply {
             // Also picks up an sbxenv.yaml created or deleted since the folder was opened.
             setOnShowing { updateItems() }
+            isDisable = true
+            dockerSandbox.sbxInstalled.thenAccept { installed ->
+                Platform.runLater {
+                    isDisable = !installed
+                    updateItems()
+                }
+            }
         }
     }
 

@@ -45,6 +45,7 @@ import org.testfx.util.WaitForAsyncUtils
 import java.net.URI
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
+import java.util.concurrent.CompletableFuture
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
 import kotlin.io.path.exists
@@ -105,6 +106,8 @@ class MainWindowUiTest {
 
     @AfterEach
     fun close() {
+        Platform.runLater { otherStages.forEach { it.hide() } }
+        WaitForAsyncUtils.waitForFxEvents()
         terminals.close()
         gitStatus.close()
         watcher.close()
@@ -117,22 +120,58 @@ class MainWindowUiTest {
             FontSettings(SettingsStore(settingsDir.resolve("settings.properties")), FontSettings.systemDefaults())
         terminals = Terminals(fontSettings, shellEnvironment)
         fileExplorer = FileExplorerView(watcher, fontSettings)
-        val fallback = DefaultTextFileViewer()
-        editorArea = EditorArea(FileViewers(listOf(fallback), fallback), watcher, fontSettings)
-        mainWindow =
-            MainWindow(
-                projectService,
-                fileExplorer,
-                editorArea,
-                terminals,
-                DockerSandbox(terminals, home, shellEnvironment),
-                gitStatus,
-                SettingsPages(listOf(FontsPage(fontSettings))),
-                ThemedWindows(ThemeSettings(SettingsStore(settingsDir.resolve("settings.properties")))),
-                projectWindows,
-                SystemBrowser(),
-            )
+        editorArea = editorArea()
+        mainWindow = mainWindow(projectService, fileExplorer, editorArea, CompletableFuture.completedFuture(true))
         mainWindow.show(stage)
+    }
+
+    private fun editorArea(): EditorArea {
+        val fallback = DefaultTextFileViewer()
+        return EditorArea(FileViewers(listOf(fallback), fallback), watcher, fontSettings)
+    }
+
+    /** A main window whose sandboxes count `sbx` as installed once [sbxInstalled] completes with `true`. */
+    private fun mainWindow(
+        projectService: ProjectService,
+        fileExplorer: FileExplorerView,
+        editorArea: EditorArea,
+        sbxInstalled: CompletableFuture<Boolean>,
+    ) = MainWindow(
+        projectService,
+        fileExplorer,
+        editorArea,
+        terminals,
+        DockerSandbox(terminals, home, shellEnvironment, sbxInstalled),
+        gitStatus,
+        SettingsPages(listOf(FontsPage(fontSettings))),
+        ThemedWindows(ThemeSettings(SettingsStore(settingsDir.resolve("settings.properties")))),
+        projectWindows,
+        SystemBrowser(),
+    )
+
+    /** Windows shown by a test besides the main one; closed after it. */
+    private val otherStages = mutableListOf<Stage>()
+
+    /** The Docker Sandbox menu of another window, with a folder below the home folder open, told by [sbxInstalled]. */
+    private fun otherWindowSandboxMenu(
+        robot: FxRobot,
+        sbxInstalled: CompletableFuture<Boolean>,
+    ): Menu {
+        lateinit var menu: Menu
+        robot.interact {
+            val stage = Stage().also { otherStages += it }
+            val projectService = ProjectService()
+            mainWindow(projectService, FileExplorerView(watcher, fontSettings), editorArea(), sbxInstalled).show(stage)
+            projectService.open(home.resolve("work/project").createDirectories())
+            menu =
+                robot
+                    .from(stage.scene.root)
+                    .lookup(".menu-bar")
+                    .queryAs(MenuBar::class.java)
+                    .menus
+                    .single { it.text == "Docker Sandbox" }
+        }
+        return menu
     }
 
     @Test
@@ -521,6 +560,30 @@ class MainWindowUiTest {
         WaitForAsyncUtils.waitForFxEvents()
         assertEquals(listOf("Terminal 1", "Claude Code 1"), tabTitles(robot).map { it.removeSuffix(" (exited)") })
         eventually(robot) { assertEquals(listOf("run claude ."), calls.takeIf { it.exists() }?.readLines()) }
+    }
+
+    @Test
+    fun `the Docker Sandbox menu is disabled without sbx`(robot: FxRobot) {
+        assertFalse(menu(robot, "Docker Sandbox").isDisable)
+
+        val menu = otherWindowSandboxMenu(robot, CompletableFuture.completedFuture(false))
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertTrue(menu.isDisable)
+    }
+
+    @Test
+    fun `the Docker Sandbox menu is disabled until sbx has been found`(robot: FxRobot) {
+        val sbxInstalled = CompletableFuture<Boolean>()
+        val menu = otherWindowSandboxMenu(robot, sbxInstalled)
+        WaitForAsyncUtils.waitForFxEvents()
+        assertTrue(menu.isDisable)
+
+        sbxInstalled.complete(true)
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertFalse(menu.isDisable)
+        assertEquals(listOf(false, true), menu.items.map { it.isDisable })
     }
 
     private fun sandboxItems(robot: FxRobot) = menu(robot, "Docker Sandbox").items.toList()
