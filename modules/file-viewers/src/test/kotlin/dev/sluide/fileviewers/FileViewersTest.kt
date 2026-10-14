@@ -7,8 +7,10 @@ import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class FileViewersTest {
     @TempDir
@@ -60,5 +62,21 @@ class FileViewersTest {
         val file = dir.resolve("a.txt").apply { writeText("a\n") }
 
         assertNull(FileViewers(listOf(ExtensionViewer("txt")), fallback).openDiff(file, TextDiff("", emptyList())))
+    }
+
+    @Test
+    fun `source viewers of other modules show diffs`() {
+        val source =
+            object : SourceFileViewer {
+                override val sourceHighlighter = Highlighters.forLanguage("json")
+
+                override fun canOpen(file: Path) = file.extension == "http"
+
+                override fun open(file: Path): FileView = error("not needed")
+            }
+        val viewers = FileViewers(listOf(source, ExtensionViewer("txt")), fallback)
+
+        assertTrue(viewers.showsDiffs(source))
+        assertFalse(viewers.showsDiffs(ExtensionViewer("txt")))
     }
 }

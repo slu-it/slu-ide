@@ -32,6 +32,7 @@ class FileViewers(
             when (viewer) {
                 is CodeFileViewer -> viewer.highlighter
                 is PreviewFileViewer -> viewer.highlighter
+                is SourceFileViewer -> viewer.sourceHighlighter
                 else -> null
             }
         return SideBySideDiffView(file, highlighter, diff)
@@ -39,5 +40,8 @@ class FileViewers(
 
     /** Whether files shown by [viewer] have diffs ([openDiff]) and change markers: those shown as text. */
     fun showsDiffs(viewer: FileViewer): Boolean =
-        viewer is CodeFileViewer || viewer is PreviewFileViewer || viewer is DefaultTextFileViewer
+        viewer is CodeFileViewer ||
+            viewer is PreviewFileViewer ||
+            viewer is DefaultTextFileViewer ||
+            viewer is SourceFileViewer
 }
