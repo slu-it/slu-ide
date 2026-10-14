@@ -15,6 +15,7 @@ internal object NotebookPreview : Preview {
         file: Path,
         text: String,
         dark: Boolean,
+        root: Path,
     ) = engine.loadContent(NotebookRenderer.render(text, file.parent, dark))
 
     override val defaultMode get() = PreviewMode.PREVIEW

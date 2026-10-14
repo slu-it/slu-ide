@@ -2,23 +2,31 @@
 
 **Module:** `file-viewers` — `PreviewFileViewer` / `PreviewFileView` (shared with the
 [Markdown preview](markdown-preview.md)) and one viewer per format; decisions in
-[ADR 0016](../adr/0016-markdown-preview.md) and [ADR 0017](../adr/0017-webview-previews.md)
+[ADR 0016](../adr/0016-markdown-preview.md), [ADR 0017](../adr/0017-webview-previews.md) and
+[ADR 0018](../adr/0018-html-preview-server.md)
 
 Every preview shows the highlighted source beside the rendered file in a `WebView`, with a toolbar for **Source**,
 **Split** and **Preview**. It updates when the file changes on disk; links open in the system browser or a SluIde tab
 and never navigate the preview (`FileViewHost`, [file-viewers.md](file-viewers.md)).
 
 ## HTML (`.html`, `.htm`, `.xhtml`) — `HtmlFileViewer`
-- The page is loaded from disk, so its relative styles, images and scripts work. It keeps the author's styles in
-  every theme. Source is highlighted as HTML.
+- The page is served by a local server (`PreviewServer`, on `127.0.0.1`) with the files of its project, so its
+  relative styles, images and scripts work, also those above its folder (`../css`, as on Javadoc pages). It keeps the
+  author's styles in every theme. Source is highlighted as HTML.
+- **What the page can reach:** the project folder's files, without hidden files and folders (`.git`, `.env`), and
+  nothing outside it, not even through symbolic links. A file the project folder does not serve (outside it, opened
+  without a project, in a hidden folder such as `.github`, or behind a symbolic link leading out) gets the folder it
+  really is in instead; for a file in the home folder that is the whole home folder, which the warning names.
 - **Scripts:** off by default. The **Scripts** toggle in the toolbar runs them for this tab (the page reloads), after
-  a warning: the page is loaded from disk, so its scripts can read other files on this computer and send them to the
-  web. Every newly opened tab starts with scripts off again.
+  a warning: its scripts can read those files and send them to the web. Every newly opened tab starts with scripts
+  off again.
 - **Navigation:** a page other than the file itself never shows. Right after a click or key press in the preview
   (a link, a submitted form), the target opens elsewhere — web pages in the system browser, files in a tab — and the
-  file is shown again. Without such input (a meta refresh, a script setting `location`, a client-side router changing
-  the address) the preview stops with a notice and **Show the page again**; a change of the file on disk shows it
-  again too. So a page can neither open things on its own nor reload in a loop. Anchors (`#part`) stay.
+  file is shown again; links to other files open them in a tab, also links climbing out of the served folder.
+  Without such input (a meta refresh, a script setting `location`, a client-side router
+  changing the address) the preview stops with a notice and **Show the page again**; a change of the file on disk
+  shows it again too. So a page can neither open things on its own nor reload in a loop. Anchors (`#part`) stay.
+- If the server cannot start, the preview says so instead of staying blank.
 - Even with scripts off, the page loads what it references, including remote images, styles and frames.
 - On a change on disk the page reloads at its scroll position. Changes to the files it uses (CSS, images) show on the
   next reload.

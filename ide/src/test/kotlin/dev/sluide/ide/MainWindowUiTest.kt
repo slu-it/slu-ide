@@ -51,6 +51,7 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -498,5 +499,14 @@ class MainWindowUiTest {
         editorArea.openWebPage(URI("https://example.com/docs"))
 
         assertEquals(listOf(URI("https://example.com/docs")), opened)
+    }
+
+    @Test
+    fun `file views get the window's project folder`(robot: FxRobot) {
+        assertNull(editorArea.projectFolder())
+
+        robot.interact { projectService.open(project) }
+
+        assertEquals(project, editorArea.projectFolder())
     }
 }

@@ -682,6 +682,7 @@ class EditorAreaUiTest {
         val area = EditorArea(FileViewers(listOf(fallback, viewer), fallback), watcher, fontSettings)
         val opened = mutableListOf<URI>()
         area.openWebPage = { opened += it }
+        area.projectFolder = { dir }
         robot.interact { stage.scene = Scene(area, 800.0, 400.0) }
         val other = textFile("other.txt")
 
@@ -692,5 +693,6 @@ class EditorAreaUiTest {
 
         assertEquals(other, area.selectedPath)
         assertEquals(listOf(URI("https://example.com")), opened)
+        assertEquals(dir, host.projectFolder)
     }
 }

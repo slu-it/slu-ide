@@ -24,7 +24,8 @@
   left/right keeps the selection unless the selected tab was closed, then the clicked tab is selected.
 - Every file view gets the editor area as its `FileViewHost`: `openFile` opens a file like the explorer does,
   `openWebPage` calls `EditorArea.openWebPage`, which the main window sets to the system browser
-  (`HostServices.showDocument`, held by `SystemBrowser`).
+  (`HostServices.showDocument`, held by `SystemBrowser`), and `projectFolder` is the window's project folder
+  (`EditorArea.projectFolder`, set by the main window), whose files HTML previews may use.
 - Open files are watched ([file-watching.md](file-watching.md)). When a file changes on disk, its tab reloads and
   keeps its scroll position and caret (`FileView.reload`). When the file is deleted, renamed away or can no longer
   be shown (e.g. it became binary), its tab closes.

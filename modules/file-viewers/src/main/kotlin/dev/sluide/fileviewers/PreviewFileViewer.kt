@@ -31,6 +31,7 @@ import javafx.scene.layout.VBox
 import javafx.scene.web.WebEngine
 import javafx.scene.web.WebView
 import netscape.javascript.JSObject
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.extension
@@ -52,12 +53,17 @@ abstract class PreviewFileViewer internal constructor(
 
 /** How a [PreviewFileView] renders a file. */
 internal interface Preview {
-    /** Shows [text], the content of [file], in [engine]; the page is to use dark colours if [dark]. */
+    /**
+     * Shows [text], the content of [file], in [engine]; the page is to use dark colours if [dark] and may use the files
+     * in [root] (see [root]).
+     */
+    @Throws(IOException::class)
     fun load(
         engine: WebEngine,
         file: Path,
         text: String,
         dark: Boolean,
+        root: Path,
     )
 
     /** Whether the page has `sluide.scrollToLine` and blocks with `data-line`, so it can scroll with the source. */
@@ -68,6 +74,15 @@ internal interface Preview {
      * link clicks to the view.
      */
     val hasOwnScript: Boolean get() = true
+
+    /** Whether [load] uses its `root`, so that the page has to be loaded again when the root changes. */
+    val usesRoot: Boolean get() = false
+
+    /** The folder whose files the page for [file] may use, given the [projectFolder] the view belongs to. */
+    fun root(
+        file: Path,
+        projectFolder: Path?,
+    ): Path = projectFolder?.takeIf { file.startsWith(it) } ?: file.parent
 
     /** Whether the page's own scripts may run when the user allows it (a toolbar toggle, off by default). */
     val offersScripts: Boolean get() = false
@@ -80,6 +95,12 @@ internal interface Preview {
         location: String?,
         file: Path,
     ): Boolean = location.isNullOrEmpty() || location == "about:blank"
+
+    /** Where [href], a link clicked or followed in the page for [file], leads. */
+    fun linkTarget(
+        href: String,
+        file: Path,
+    ): LinkTarget? = resolveLink(href, file.parent)
 
     /** What a newly opened view shows. */
     val defaultMode: PreviewMode get() = PreviewMode.SPLIT
@@ -109,10 +130,10 @@ internal enum class PreviewMode(
  * a navigation away from the [own page][Preview.isOwnPage] right after a click or key press in the preview is the
  * user's, so its target goes to [host] and the page is shown again. Any other navigation (a meta refresh, a script
  * setting `location`) stops the preview with a notice until the user shows the page again or the file changes, so a
- * page can neither open things on its own nor reload in a loop. Only the own page gets the link bridge.
+ * page can neither open things on its own nor reload in a loop. A page that cannot be loaded (e.g. no server) stops with a notice too. Only the own page gets the link bridge.
  *
  * Pages that [offer scripts][Preview.offersScripts] run them only while [scripts] is on, after [confirmScripts]: such
- * a page is loaded from disk and its scripts can read other local files.
+ * a page's scripts can read the files of its [root] and send them to the web.
  */
 internal class PreviewFileView(
     file: Path,
@@ -153,7 +174,18 @@ internal class PreviewFileView(
             stylesheets += checkNotNull(PreviewFileView::class.java.getResource("preview-view.css")).toExternalForm()
         }
     private val engine = webView.engine
+
+    /** Its [project folder][FileViewHost.projectFolder] gives the page its [root]. */
     override var host: FileViewHost? = null
+        set(value) {
+            val oldRoot = root
+            field = value
+            // A stopped preview renders with the new root when it resumes.
+            if (preview.usesRoot && renderedText != null && !stopped && root != oldRoot) rerender()
+        }
+
+    /** The folder whose files the page may use ([Preview.root]). */
+    private val root: Path get() = preview.root(file, host?.projectFolder?.toAbsolutePath()?.normalize())
 
     /** Receives the page's link clicks; held here because the WebView only keeps a weak reference. */
     private val bridge = LinkBridge()
@@ -188,7 +220,7 @@ internal class PreviewFileView(
                 listOf(
                     ToggleButton("Scripts").apply {
                         styleClass += "preview-scripts"
-                        tooltip = Tooltip("Run the page's scripts. They can read files on this computer.")
+                        tooltip = Tooltip("Run the page's scripts. They can read the files served with the page.")
                         selectedProperty().bindBidirectional(scripts)
                     },
                     Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
@@ -237,7 +269,9 @@ internal class PreviewFileView(
                 dark = scheme == ColorScheme.DARK
                 applyTheme()
             }
-        render()
+        // Whoever shows the view sets its host, and with it the root, right after creating it; loading the page
+        // before would serve it with the wrong files.
+        if (preview.usesRoot) Platform.runLater(::render) else render()
     }
 
     override val node: Node get() = pane
@@ -272,7 +306,11 @@ internal class PreviewFileView(
         renderedText = text
         // A page with scripts may redefine scrollY.
         if (isLoaded) previewScrollY = (engine.executeScript("window.scrollY") as? Number)?.toDouble() ?: 0.0
-        preview.load(engine, file, text, dark)
+        try {
+            preview.load(engine, file, text, dark, root)
+        } catch (e: IOException) {
+            stop("The preview could not be shown: ${e.message}")
+        }
     }
 
     /** Renders the preview again even though the text did not change. */
@@ -297,14 +335,14 @@ internal class PreviewFileView(
             openLink(location)
             Platform.runLater(::rerender)
         } else {
-            stop(location)
+            stop("The page tried to go to $location on its own. It is not shown, so that it cannot keep doing so.")
         }
     }
 
-    /** Shows a blank preview with a notice, until [resume]. */
-    private fun stop(location: String) {
+    /** Shows a blank preview with a notice saying [why], until [resume]. */
+    private fun stop(why: String) {
         stopped = true
-        notice.text = "The page tried to go to $location on its own. It is not shown, so that it cannot keep doing so."
+        notice.text = why
         noticePane.isVisible = true
         Platform.runLater { engine.loadContent("") }
     }
@@ -320,7 +358,7 @@ internal class PreviewFileView(
         val alert =
             Alert(
                 Alert.AlertType.WARNING,
-                "The page's scripts can read files on this computer and send them to the web. " +
+                "The page's scripts can read the files in $root (except hidden ones) and send them to the web. " +
                     "Run them only for pages you trust.",
                 run,
                 ButtonType.CANCEL,
@@ -354,7 +392,7 @@ internal class PreviewFileView(
 
     /** Opens what [href] leads to (see [resolveLink]) through the [host]. */
     private fun openLink(href: String) {
-        when (val target = resolveLink(href, file.parent)) {
+        when (val target = preview.linkTarget(href, file)) {
             is LinkTarget.WebPage -> {
                 host?.openWebPage(target.uri)
             }

@@ -16,6 +16,7 @@ internal object CsvPreview : Preview {
         file: Path,
         text: String,
         dark: Boolean,
+        root: Path,
     ) = engine.loadContent(CsvRenderer.render(text, CsvRenderer.delimiter(file.extension, text), dark))
 
     override val syncsScroll get() = true

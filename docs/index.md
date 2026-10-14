@@ -26,6 +26,7 @@ Keep it up to date: every new ADR or feature description must be added here with
 - [adr/0015-git-diff.md](adr/0015-git-diff.md) — Modified files open as a side-by-side diff against `HEAD` from `git diff -U0`/`git cat-file` (no diff library), synchronous per file, filler rows for aligned scrolling, view swapped in the tab when the status changes.
 - [adr/0016-markdown-preview.md](adr/0016-markdown-preview.md) — Markdown preview: commonmark-java renders sanitised HTML (jsoup) into a JavaFX WebView beside the source; native JavaFX nodes rejected; javafx.web grows the fat jar by ~48 MB.
 - [adr/0017-webview-previews.md](adr/0017-webview-previews.md) — One `PreviewFileView` (source beside a WebView) for all rendered formats; HTML loaded from disk with its scripts off by default and navigations turned back to the host.
+- [adr/0018-html-preview-server.md](adr/0018-html-preview-server.md) — HTML previews are served from a loopback HTTP server confined to the project folder (no hidden files, no symlinks out), since `file:` pages' scripts can read every local file.
 - [adr/template.md](adr/template.md) — Template for new ADRs.
 
 ## Features

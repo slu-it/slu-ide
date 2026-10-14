@@ -15,6 +15,7 @@ internal object SvgPreview : Preview {
         file: Path,
         text: String,
         dark: Boolean,
+        root: Path,
     ) = engine.loadContent(ImagePage.render(text.toByteArray(), "image/svg+xml", dark))
 
     override val defaultMode get() = PreviewMode.PREVIEW

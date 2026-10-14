@@ -13,11 +13,12 @@ they come with their own scripts and links and are shown as their author made th
 - One view for all of them: `PreviewFileView` shows a `CodeView` beside a `WebView`, with the Source / Split / Preview
   toolbar; a `Preview` strategy decides how a file is loaded, whether the page brings our script (theme, link bridge,
   scroll sync) and whether it offers to run the page's own scripts. Viewers extend `PreviewFileViewer`.
-- **HTML** is loaded from disk (`WebEngine.load`), not rendered by us, so relative resources work. Its scripts are off
-  by default (`WebEngine.isJavaScriptEnabled`); a toolbar toggle runs them for one tab after a warning. Because such a
-  page has no script of ours, links are caught as navigations: a location other than the file itself (with any anchor)
-  never shows. Right after the user's click or key press in the preview it is handed to the view's host and the file
-  is shown again; otherwise (meta refresh, scripts) the preview stops with a notice until the user or a change of the
+- **HTML** is loaded by URL (`WebEngine.load`), not rendered by us, so relative resources work: first as a `file:`
+  URL, since [ADR 0018](0018-html-preview-server.md) from a local server. Its scripts are off by default
+  (`WebEngine.isJavaScriptEnabled`); a toolbar toggle runs them for one tab after a warning. Because such a page has
+  no script of ours, links are caught as navigations: a location other than the file itself (with any anchor) never
+  shows. Right after the user's click or key press in the preview it is handed to the view's host and the file is
+  shown again; otherwise (meta refresh, scripts) the preview stops with a notice until the user or a change of the
   file shows it again, so a page can neither open things on its own nor loop.
 
 - **SVG and images** are shown as an `<img>` with a `data:` URI on a page of ours (`ImagePage`): no file access from the
@@ -43,8 +44,9 @@ they come with their own scripts and links and are shown as their author made th
   content with scripts look empty until then.
 - Opening an HTML file loads what it references, from disk and from the web (tracking images work), even with
   scripts off.
-- With scripts on, a page can read other local files (`file:` pages may, and JavaFX's `WebEngine` cannot forbid it)
-  and send them to the web; hence the warning. Serving the folder from a local HTTP server would confine it.
+- With scripts on, a `file:` page can read other local files (JavaFX's `WebEngine` cannot forbid it) and send them
+  to the web. [ADR 0018](0018-html-preview-server.md) serves pages from a local server instead, which confines them to
+  the project.
 - The fat jar grows from 78 MB to 82 MB (Mermaid 3.5 MB, KaTeX with fonts 0.6 MB, Jackson); a page with a diagram
   carries Mermaid's 3.5 MB inline, which is parsed again each time the file changes, a noticeable moment with an
   editor that saves often. Updating the libraries is manual (`vendor/README.md`).

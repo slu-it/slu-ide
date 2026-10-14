@@ -2,14 +2,14 @@ package dev.sluide.fileviewers
 
 import javafx.scene.web.WebEngine
 import org.springframework.stereotype.Component
-import java.net.URI
-import java.net.URISyntaxException
-import java.nio.file.FileSystemNotFoundException
+import java.io.IOException
+import java.nio.file.Files
 import java.nio.file.Path
 
 /**
- * Shows HTML files (`.html`, `.htm`, `.xhtml`) as highlighted source beside the page itself, loaded from disk so that
- * its relative styles, images and scripts work. Its scripts only run when allowed in the toolbar (ADR 0017).
+ * Shows HTML files (`.html`, `.htm`, `.xhtml`) as highlighted source beside the page itself, served with the files of
+ * its project ([PreviewServer]) so that its relative styles, images and scripts work. Its scripts only run when allowed
+ * in the toolbar, and then reach no files outside the project, nor hidden ones (ADRs 0017 and 0018).
  */
 @Component
 class HtmlFileViewer : PreviewFileViewer(setOf("html", "htm", "xhtml"), RSyntaxHighlighter.html, HtmlPreview)
@@ -21,25 +21,37 @@ internal object HtmlPreview : Preview {
         file: Path,
         text: String,
         dark: Boolean,
-    ) = engine.load(file.toUri().toString())
+        root: Path,
+    ) = engine.load(PreviewServer.url(root, file).toString())
+
+    override val usesRoot get() = true
+
+    override fun root(
+        file: Path,
+        projectFolder: Path?,
+    ) = PreviewServer.rootFor(projectFolder, file)
 
     override val hasOwnScript get() = false
 
     override val offersScripts get() = true
 
-    /** The file itself, at any anchor (`#part`). */
+    /** The file itself, at any anchor (`#part`), but without a query: a page reloading itself with one would loop. */
     override fun isOwnPage(
         location: String?,
         file: Path,
-    ): Boolean =
-        try {
-            location != null && Path.of(URI(location.substringBefore('#'))).normalize() == file
-        } catch (_: URISyntaxException) {
-            false
-        } catch (_: IllegalArgumentException) {
-            // Not a file URI: another scheme, or a file URI with authority or query.
-            false
-        } catch (_: FileSystemNotFoundException) {
+    ): Boolean {
+        if (location == null || location.substringBefore('#').contains('?')) return false
+        val served = PreviewServer.fileFor(location) ?: return false
+        return try {
+            Files.isSameFile(served, file)
+        } catch (_: IOException) {
             false
         }
+    }
+
+    /** Pages on the server stand for their files; other links lead where they would from the file on disk. */
+    override fun linkTarget(
+        href: String,
+        file: Path,
+    ): LinkTarget? = PreviewServer.fileFor(href)?.let(LinkTarget::File) ?: resolveLink(href, file.parent)
 }

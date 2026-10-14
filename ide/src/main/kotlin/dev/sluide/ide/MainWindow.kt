@@ -87,6 +87,8 @@ class MainWindow(
         editorArea.diffOf = gitStatus::textDiff
         // Links in file views (e.g. the Markdown preview) to web pages open in the system browser.
         editorArea.openWebPage = { openWebPage(it) }
+        // HTML previews are served with the project's files, and only those (ADR 0018).
+        editorArea.projectFolder = { folder }
         gitStatus.snapshot.subscribe { _ ->
             fileExplorer.refreshMarkers()
             editorArea.refreshDiffs()

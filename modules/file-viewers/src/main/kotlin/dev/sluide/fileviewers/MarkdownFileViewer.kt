@@ -18,6 +18,7 @@ internal object MarkdownPreview : Preview {
         file: Path,
         text: String,
         dark: Boolean,
+        root: Path,
     ) = engine.loadContent(MarkdownRenderer.render(text, file.parent, dark))
 
     override val syncsScroll get() = true

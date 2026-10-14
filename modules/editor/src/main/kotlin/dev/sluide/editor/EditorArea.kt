@@ -53,12 +53,17 @@ class EditorArea(
     /** Shows a web page outside the IDE when a file view asks for it, e.g. for a clicked link; set by the window. */
     var openWebPage: (URI) -> Unit = {}
 
+    /** The project folder of the window, whose files HTML previews may use; set by the window. */
+    var projectFolder: () -> Path? = { null }
+
     /** Lets the file views open files in this area and web pages through [openWebPage]. */
     private val viewHost =
         object : FileViewHost {
             override fun openFile(file: Path): Boolean = open(file)
 
             override fun openWebPage(uri: URI) = this@EditorArea.openWebPage(uri)
+
+            override val projectFolder get() = this@EditorArea.projectFolder()
         }
 
     /** The editor font as CSS; file views inherit it from their node. */

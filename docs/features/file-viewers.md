@@ -54,7 +54,7 @@
   stylesheet sets a monospace family on `.code-area`.
 - A `FileView` can open other files and web pages through its `host` (`FileViewHost`: `openFile`, `openWebPage`),
   which whoever shows the view sets; the editor area does ([editor-tabs.md](editor-tabs.md)). Views that open nothing
-  ignore it. The Markdown preview uses it for links.
+  ignore it. The previews use it for links; HTML previews also take the files they may use from its `projectFolder`.
 - To add a viewer, implement `FileViewer` as a `@Component` in any module below `dev.sluide`. For a language with an
   RSyntaxTextArea lexer, add its highlighter to `RSyntaxHighlighter`'s companion, extend `CodeFileViewer` like
   `PythonFileViewer` does, and add a row to `CodeFileViewersTest` and a `<Language>HighlightingTest`.

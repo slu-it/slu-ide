@@ -46,4 +46,7 @@ interface FileViewHost {
 
     /** Shows [uri] outside the IDE, e.g. a web page in the system browser. */
     fun openWebPage(uri: URI)
+
+    /** The folder of the project the view belongs to, if any; HTML previews may use its files (ADR 0018). */
+    val projectFolder: Path? get() = null
 }

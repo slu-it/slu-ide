@@ -7,6 +7,7 @@ import javafx.scene.Scene
 import javafx.scene.control.SplitPane
 import javafx.scene.control.ToggleButton
 import javafx.scene.layout.StackPane
+import javafx.scene.web.WebEngine
 import javafx.stage.Stage
 import org.fxmisc.richtext.CodeArea
 import org.junit.jupiter.api.Tag
@@ -16,6 +17,7 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.io.IOException
 import java.net.URI
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
@@ -334,6 +336,40 @@ class PreviewFileViewUiTest {
         assertTrue(!robot.lookup(".preview-notice").query<Node>().isVisible)
         assertEquals("Mine", view.script("document.querySelector('h1').textContent"))
         assertEquals("function", view.script("typeof sluideBridge.open"))
+    }
+
+    @Test
+    fun `a preview that cannot be loaded says so, and tries again when asked`(robot: FxRobot) {
+        var fail = true
+        val preview =
+            object : Preview {
+                override fun load(
+                    engine: WebEngine,
+                    file: Path,
+                    text: String,
+                    dark: Boolean,
+                    root: Path,
+                ) = if (fail) throw IOException("no server") else engine.loadContent("<h1>Loaded</h1>")
+
+                override val hasOwnScript get() = false
+            }
+        val file = dir.resolve("a.txt").apply { writeText("a") }
+        val view =
+            WaitForAsyncUtils
+                .asyncFx<PreviewFileView> {
+                    PreviewFileView(file, MarkdownFileViewer().highlighter, preview)
+                }.get()
+        robot.interact { container.children.setAll(view.node) }
+
+        assertTrue(robot.lookup(".preview-notice").query<Node>().isVisible)
+        assertEquals("The preview could not be shown: no server", view.notice.text)
+
+        fail = false
+        robot.interact { robot.lookup(".preview-notice .button").queryButton().fire() }
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
+            view.script("document.querySelector('h1') && document.querySelector('h1').textContent") == "Loaded"
+        }
+        assertTrue(!robot.lookup(".preview-notice").query<Node>().isVisible)
     }
 
     @Test
