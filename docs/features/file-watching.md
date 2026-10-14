@@ -23,5 +23,5 @@
   - the explorer watches every loaded folder ([file-explorer.md](file-explorer.md));
   - the editor watches the folder of every open file ([editor-tabs.md](editor-tabs.md));
   - git watches the `.git` folder of the followed repository, without subfolders ([git-status.md](git-status.md)).
-- Not yet implemented: native macOS events (the JDK may poll there, with a delay of seconds), following renamed
-  files.
+- Not yet implemented: native macOS events (JDK 25 polls there every 2 s, so changes show up to about 2 s late; not
+  measured), following renamed files.

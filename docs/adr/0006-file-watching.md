@@ -32,9 +32,9 @@ Rejected for now: `io.methvin:directory-watcher`, which uses native FSEvents on 
 can replace the implementation behind `FileWatcher` if the JDK's macOS behaviour turns out too slow.
 
 ## Consequences
-- On Linux (inotify) changes show up almost immediately. On macOS the JDK has long polled; changes may take a few
-  seconds there, and the manual refresh covers misses. This could not be verified in the Linux-only development
-  sandbox.
+- On Linux (inotify) changes show up almost immediately. On macOS the JDK still polls: JDK 25's macOS file system
+  returns a `PollingWatchService` that scans every 2 s (read in the jdk25u sources, not measured here), so changes
+  show up within about 2 s there; the manual refresh covers misses.
 - Renaming an open file closes its tab instead of following the new name.
 - `FileExplorerView`, `EditorArea` and `GitStatusService` depend on the `file-watcher` module (documented in
   `architecture.md`).
