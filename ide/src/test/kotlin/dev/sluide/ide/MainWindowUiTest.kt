@@ -294,7 +294,7 @@ class MainWindowUiTest {
         val readme = project.resolve("README.md").apply { writeText("# Hello") }
         robot.interact { projectService.open(project) }
 
-        robot.interact { fileExplorer.onOpenFile?.invoke(readme) }
+        robot.interact { fileExplorer.onOpenFile(readme) }
         WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf("README.md"), tabTitles(robot))
@@ -308,7 +308,7 @@ class MainWindowUiTest {
         val readme = project.resolve("README.md").apply { writeText("# Hello") }
         robot.interact {
             mainWindow.openFolder(project)
-            fileExplorer.onOpenFile?.invoke(readme)
+            fileExplorer.onOpenFile(readme)
         }
         assertEquals(project, mainWindow.folder)
         assertEquals(emptyList(), openedElsewhere)
@@ -341,7 +341,7 @@ class MainWindowUiTest {
         val readme = project.resolve("README.md").apply { writeText("# Hello") }
         robot.interact {
             projectService.open(project)
-            fileExplorer.onOpenFile?.invoke(readme)
+            fileExplorer.onOpenFile(readme)
         }
         val page = FontsPage(fontSettings)
         lateinit var dialog: SettingsDialog
