@@ -174,12 +174,13 @@ class MainWindow(
         stage: Stage,
         action: SandboxAction,
     ) {
+        fun cannotStart(e: RuntimeException) = showError(stage, "${action.title} cannot be started. ${e.message}")
         try {
             editorArea.open(dockerSandbox.open(action, projectService.projectFolder.get()))
         } catch (e: SandboxNotAllowedException) {
-            showError(stage, "${action.title} cannot be started. ${e.message}")
+            cannotStart(e)
         } catch (e: TerminalStartException) {
-            showError(stage, "${action.title} cannot be started. ${e.message}")
+            cannotStart(e)
         }
     }
 
