@@ -53,7 +53,8 @@ internal class FileMatch(
 /**
  * The interpreter a shebang [line] names, without its folder: `bash` for `#!/bin/bash` or `#! /bin/bash -e`, and
  * `python3` for `#!/usr/bin/env python3` or `#!/usr/bin/env -S python3 -u` (options of `env`, with the arguments of
- * `-u`, `-C` and `-P`, and `NAME=value` settings are skipped). `null` if the line is no shebang or names nothing.
+ * `-u`, `-C` and `-P`, and `NAME=value` settings are skipped). The launcher `uv run` (`#!/usr/bin/env -S uv run
+ * --script`, PEP 723 scripts) counts as `python`. `null` if the line is no shebang or names nothing.
  */
 internal fun shebangInterpreter(line: String): String? {
     if (!line.startsWith("#!")) return null
@@ -65,7 +66,9 @@ internal fun shebangInterpreter(line: String): String? {
             .filter { it.isNotEmpty() }
     val command = words.firstOrNull()?.substringAfterLast('/') ?: return null
     val program = if (command.equals("env", ignoreCase = true)) envProgram(words.drop(1)) else words
-    return program.firstOrNull()?.substringAfterLast('/')?.ifEmpty { null }
+    val interpreter = program.firstOrNull()?.substringAfterLast('/')?.ifEmpty { null } ?: return null
+    val isUvRun = interpreter == "uv" && program.drop(1).firstOrNull { !it.startsWith("-") } == "run"
+    return if (isUvRun) "python" else interpreter
 }
 
 /** The command line `env` runs, given its [arguments]: without its options and `NAME=value` settings. */

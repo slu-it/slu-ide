@@ -94,4 +94,13 @@ class FileMatchTest {
         assertEquals("bash", shebangInterpreter("#!/usr/bin/ENV bash"))
         assertNull(shebangInterpreter("#!/usr/bin/env -u PYTHONPATH"))
     }
+
+    @Test
+    fun `takes the uv run launcher for python`() {
+        assertEquals("python", shebangInterpreter("#!/usr/bin/env -S uv run --script"))
+        assertEquals("python", shebangInterpreter("#!/usr/bin/env -S uv --quiet run --with rich --script"))
+        assertEquals("python", shebangInterpreter("#!/home/me/.local/bin/uv run"))
+        assertEquals("uv", shebangInterpreter("#!/usr/bin/env -S uv tool run ruff"))
+        assertEquals("uv", shebangInterpreter("#!/usr/bin/env uv"))
+    }
 }
