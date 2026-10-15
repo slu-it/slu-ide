@@ -406,6 +406,7 @@ internal class RSyntaxHighlighter(
                 "ssh-config", "sshconfig", "ssh_config", "sshd_config" -> sshConfig
                 "caddyfile", "caddy" -> caddyfile
                 "mermaid", "mmd" -> mermaid
+                "bicep", "bicepparam" -> BicepHighlighter
                 "dotenv", "env" -> env
                 "toml" -> TomlHighlighter
                 else -> null

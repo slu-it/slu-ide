@@ -38,6 +38,7 @@ class ViewerCommentSyntaxTest {
                 SshConfigFileViewer() to CommentSyntax.HASH,
                 CaddyfileFileViewer() to CommentSyntax.HASH,
                 TomlFileViewer() to CommentSyntax.HASH,
+                BicepParamFileViewer() to CommentSyntax.SLASHES,
             )
         for ((viewer, comment) in expected) assertEquals(comment, viewer.comment, viewer::class.simpleName)
     }

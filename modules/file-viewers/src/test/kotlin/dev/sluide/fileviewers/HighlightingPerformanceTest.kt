@@ -136,6 +136,21 @@ class HighlightingPerformanceTest {
             }
 
     @Test
+    fun `Bicep tokenizer`() {
+        val bicep = BicepHighlighter
+        assertFast("Bicep lines", bicep, lines(MAIN_BICEP.lineSequence().joinToString("\n"), count = 500))
+        assertFast("Bicep objects", bicep, lines("  name: 'kv-\${prefix}' // c", count = 50_000))
+        assertFast("Bicep interpolations", bicep, "var a = '" + "\${'".repeat(50_000) + "\n" + "}'".repeat(50_000))
+        assertFast("Bicep braces", bicep, "var a = " + "{".repeat(100_000) + "}".repeat(100_000) + "\n")
+        assertFast("Bicep escapes", bicep, "var a = '" + "\\'".repeat(100_000) + "\n")
+        assertFast("Bicep block comments", bicep, "/* */".repeat(50_000) + "\n" + "/*".repeat(50_000))
+        assertFast("Bicep multi-line strings", bicep, "'''x'''".repeat(50_000) + "\n'''" + "'".repeat(100_000))
+        assertFast("Bicep decorators", bicep, "@a.b".repeat(50_000) + "\n" + "@".repeat(100_000) + "\n")
+        assertFast("Bicep keys", bicep, "{\n" + "a: b, ".repeat(50_000) + "\n" + "\n:".repeat(50_000))
+        assertFast("Bicep members", bicep, "x" + ".?a::b".repeat(50_000) + "\n")
+    }
+
+    @Test
     fun `long strings neither overflow the stack nor backtrack`() {
         val escapes = "\\x".repeat(100_000)
         assertFast("Caddy escapes", RSyntaxHighlighter.caddyfile, "  respond \"$escapes\" 200\n")

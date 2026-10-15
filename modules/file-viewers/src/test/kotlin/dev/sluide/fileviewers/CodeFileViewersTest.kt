@@ -60,10 +60,11 @@ class CodeFileViewersTest {
             CaddyfileFileViewer() to listOf("Caddyfile", "Caddyfile.dev", "site.caddyfile"),
             TomlFileViewer() to
                 listOf("pyproject.toml", "Cargo.toml", "uv.lock", "poetry.lock", "pdm.lock", "Cargo.lock", "Pipfile"),
+            BicepParamFileViewer() to listOf("main.bicepparam", "Prod.BICEPPARAM"),
         )
 
     private val others =
-        listOf("notes.txt", "README", "py", "README.md", "index.html", "icon.svg", "yarn.lock")
+        listOf("notes.txt", "README", "py", "README.md", "index.html", "icon.svg", "yarn.lock", "main.bicep")
 
     private fun file(name: String) = dir.resolve(name).apply { writeText("x = 1\n") }
 
