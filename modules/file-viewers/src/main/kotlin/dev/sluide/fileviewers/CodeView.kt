@@ -25,6 +25,8 @@ import javafx.scene.layout.VBox
 import org.fxmisc.flowless.VirtualizedScrollPane
 import org.fxmisc.richtext.CodeArea
 import org.fxmisc.richtext.model.PlainTextChange
+import org.fxmisc.richtext.model.StyleSpans
+import org.fxmisc.richtext.model.StyleSpansBuilder
 import org.fxmisc.richtext.model.TwoDimensional
 import org.fxmisc.richtext.util.UndoUtils
 import org.fxmisc.wellbehaved.event.Nodes
@@ -104,6 +106,12 @@ internal class CodeView(
 
     /** Moves the caret to a line the user enters. */
     val goToLine = GoToLine(area)
+
+    /**
+     * The ranges of a text that are styled `masked` over the token styles, below the find bar's matches, e.g. the
+     * values of `.env` files ([EnvFileView]); applied with every highlighting, and by [restyleMasks].
+     */
+    var maskedRanges: ((text: String) -> List<IntRange>)? = null
 
     private val savedTextWrapper = ReadOnlyStringWrapper()
 
@@ -405,7 +413,7 @@ internal class CodeView(
             dispatch(
                 Runnable {
                     if (disposed || revision != highlighted) return@Runnable
-                    val styles = findBar.overlay(spans)
+                    val styles = findBar.overlay(withMasks(text, spans))
                     val range = changedSpanRange(area.getStyleSpans(0, area.length), styles) ?: return@Runnable
                     area.setStyleSpans(range.first, styles.subView(range.first, range.last + 1))
                 },
@@ -420,8 +428,35 @@ internal class CodeView(
 
     private fun highlight(text: String) {
         if (text.isNotEmpty() && highlighter != null) {
-            area.setStyleSpans(0, findBar.overlay(codeStyleSpans(text, highlighter)))
+            area.setStyleSpans(0, findBar.overlay(withMasks(text, codeStyleSpans(text, highlighter))))
         }
+    }
+
+    /** Styles the [maskedRanges] of the text anew, e.g. when what they reveal changed; restyles only what differs. */
+    fun restyleMasks() {
+        if (area.length == 0) return
+        val styled = area.getStyleSpans(0, area.length)
+        val wanted = withMasks(area.text, styled.mapStyles { style -> if (MASKED in style) style - MASKED else style })
+        val range = changedSpanRange(styled, wanted) ?: return
+        area.setStyleSpans(range.first, wanted.subView(range.first, range.last + 1))
+    }
+
+    /** [spans], the styles of [text], with `masked` added on the [maskedRanges]. */
+    private fun withMasks(
+        text: String,
+        spans: StyleSpans<Collection<String>>,
+    ): StyleSpans<Collection<String>> {
+        val ranges = maskedRanges?.invoke(text).orEmpty()
+        if (ranges.isEmpty()) return spans
+        val builder = StyleSpansBuilder<Collection<String>>()
+        var position = 0
+        for (range in ranges) {
+            if (range.first > position) builder.add(emptyList(), range.first - position)
+            builder.add(listOf(MASKED), range.last + 1 - range.first)
+            position = range.last + 1
+        }
+        if (spans.length() > position) builder.add(emptyList(), spans.length() - position)
+        return spans.overlay(builder.create()) { token, mask -> if (mask.isEmpty()) token else token + mask }
     }
 }
 
@@ -430,6 +465,9 @@ private class FileContent(
     val raw: String,
     val valid: Boolean,
 )
+
+/** The style class of [CodeView.maskedRanges] (`syntax.css`). */
+private const val MASKED = "masked"
 
 /** Texts above this length (about 1 MiB) are highlighted after a longer pause in typing. */
 private const val LARGE_TEXT = 1 shl 20

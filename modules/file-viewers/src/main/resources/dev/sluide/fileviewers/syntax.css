@@ -113,6 +113,16 @@
 }
 
 /*
+ * Masked values of .env files (EnvFileView): invisible text on a solid bar. After the token rules, so it wins over
+ * them; with the find bar's match classes (code-view.css) too, so that a match does not show where in a value it is.
+ * RichTextFX has no radius for text backgrounds, so the bar is square.
+ */
+.masked, .masked.search-match, .masked.search-match-current {
+    -fx-fill: transparent;
+    -rtfx-background-color: #c9ced6;
+}
+
+/*
  * Dark theme: the colour scheme comes from the window, see ThemedWindows in the settings module. Single classes only
  * (see above); plain text comes first, so the token colours below win.
  */
@@ -199,5 +209,10 @@
 
     .operator {
         -fx-fill: #a9b7c6;
+    }
+
+    .masked, .masked.search-match, .masked.search-match-current {
+        -fx-fill: transparent;
+        -rtfx-background-color: #4e535a;
     }
 }

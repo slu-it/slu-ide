@@ -48,6 +48,17 @@ class HighlightingPerformanceTest {
             RSyntaxHighlighter.cookies,
             "# domain\tpath\tname\tvalue\tdate\n" + lines("example.com\t/\tid\t\"abc\"\t-1"),
         )
+        assertFast("env", RSyntaxHighlighter.env, lines("export URL=https://x.y/a#b # c\nKEY=\"a # b\" # c"))    }
+
+    @Test
+    fun `masking env values is linear too`() {
+        val text = lines("export URL=https://x.y/a#b # c\nKEY=\"a # b\" # c\nMULTI=\"x\ny\" # z\n# OLD=1")
+        val blanks = " ".repeat(80_000)
+        val long = "a${blanks}b\n$blanks=x${blanks}y$blanks#z\n#${blanks}KEY$blanks=\"" + "\\\"".repeat(40_000) + "\n"
+        for ((name, env) in listOf("env lines" to text, "env long lines" to long)) {
+            val took = measureTime { EnvValues.ranges(env) }
+            assertTrue(took < 3.seconds, "$name took $took")
+        }
     }
 
     @Test
@@ -67,6 +78,10 @@ class HighlightingPerformanceTest {
         assertFast("Mermaid dots", mermaid, "-." + ".".repeat(80_000) + "\n" + "-.-".repeat(30_000) + "\n")
         assertFast("Mermaid quotes and pipes", mermaid, "\"|".repeat(100_000) + "\n" + "|\"".repeat(100_000) + "x\n")
         assertFast("Mermaid first line", mermaid, "%% c\n".repeat(50_000) + "flowchart$blanks LR\n")
+        val env = RSyntaxHighlighter.env
+        assertFast("env blanks", env, "a${blanks}b\n$blanks=x${blanks}y$blanks#z\n#$blanks=\n")
+        assertFast("env hashes", env, "A=" + "x#".repeat(40_000) + "\nB=" + " #".repeat(40_000) + "\n")
+        assertFast("env quotes", env, "A=" + "\"'".repeat(40_000) + "\n")
     }
 
     @Test

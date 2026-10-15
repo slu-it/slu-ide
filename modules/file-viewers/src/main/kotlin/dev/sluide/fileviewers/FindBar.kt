@@ -8,6 +8,7 @@ import javafx.animation.PauseTransition
 import javafx.css.PseudoClass
 import javafx.geometry.Pos
 import javafx.scene.control.Button
+import javafx.scene.control.IndexRange
 import javafx.scene.control.Label
 import javafx.scene.control.TextField
 import javafx.scene.control.ToggleButton
@@ -341,10 +342,14 @@ internal class FindBar(
         index?.let(::restyleMatch)
     }
 
-    private fun currentIndex(): Int? {
-        val selection = area.selection
-        val index = matches.binarySearchBy(selection.start) { it.first }
-        return index.takeIf { it >= 0 && matches[it].last + 1 == selection.end }
+    private fun currentIndex(): Int? = indexOf(area.selection)
+
+    /** Whether [range] is one of the [matches]; while the bar is open, e.g. the selection after going to a match. */
+    fun isMatch(range: IndexRange): Boolean = isOpen && indexOf(range) != null
+
+    private fun indexOf(range: IndexRange): Int? {
+        val index = matches.binarySearchBy(range.start) { it.first }
+        return index.takeIf { it >= 0 && matches[it].last + 1 == range.end }
     }
 
     private fun showCounter() {
