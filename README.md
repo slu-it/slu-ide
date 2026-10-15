@@ -7,8 +7,10 @@ A lightweight IDE written in Kotlin, using Spring Boot and JavaFX.
 - **File explorer:** the whole folder including hidden files, with file icons, git status colours and live updates.
 - **Files** open in tabs to edit and save (File → Save, Ctrl/Cmd+S; Save All), keeping their line endings, with
   a prompt before unsaved changes are closed: syntax highlighting for common languages (Kotlin, Java, Python,
-  JavaScript, TypeScript, JSON, XML, YAML, CSS and more), rendered previews beside the source for Markdown, HTML, SVG,
-  CSV and Jupyter notebooks; images on their own page. Lines changed against `HEAD` in git are marked
+  JavaScript, TypeScript, JSON, XML, YAML, CSS, SQL, shell, PowerShell and more) and config files (Dockerfiles,
+  Makefiles, INI, ignore files, Caddyfiles, `.env` with masked values), also by file name or shebang; rendered
+  previews beside the source for Markdown, HTML, SVG, CSV, Jupyter notebooks, Mermaid diagrams, cookie jars and PEM
+  certificates; images on their own page. Lines changed against `HEAD` in git are marked
   beside the line numbers, and View → Show Changes (Ctrl/Cmd+Shift+D) shows the side-by-side diff.
 - **HTTP client:** `.http` files as in IntelliJ: run the request at the caret (Ctrl/Cmd+Enter or the run icon beside
   it) with environments from `http-client.env.json` and a private file for secrets, variables, OAuth2 tokens and
