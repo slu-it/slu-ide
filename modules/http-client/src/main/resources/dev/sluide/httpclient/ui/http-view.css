@@ -64,10 +64,13 @@
     -fx-alignment: top-left;
 }
 
+/* Problems of the environment files, in a row below the toolbar (HttpFileView.warning). */
 .http-warning {
     -fx-text-fill: #b26a00;
     -fx-font-size: 0.9em;
-    -fx-padding: 0 0 0 8;
+    -fx-padding: 3 8 3 8;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
 }
 
 .http-status-informational { -fx-text-fill: #555555; }

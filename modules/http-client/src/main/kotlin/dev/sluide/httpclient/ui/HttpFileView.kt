@@ -35,6 +35,8 @@ import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
+import javafx.scene.layout.Region
+import javafx.scene.layout.VBox
 import javafx.util.Duration
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignC
@@ -93,10 +95,13 @@ internal class HttpFileView(
             }
         }
 
-    /** Problems of the environment files, e.g. invalid JSON. */
+    /** Problems of the environment files, e.g. invalid JSON, or a private file that git could commit. */
     val warning =
         Label().apply {
             styleClass += "http-warning"
+            isWrapText = true
+            minWidth = 0.0
+            maxWidth = Double.MAX_VALUE
             isVisible = false
             isManaged = false
         }
@@ -130,9 +135,14 @@ internal class HttpFileView(
         }
 
     val toolbar =
-        HBox(runButton, cancelButton, environments, auth, clearCookies, warning, message).apply {
+        HBox(runButton, cancelButton, environments, auth, clearCookies, message).apply {
             styleClass += "http-toolbar"
             alignment = Pos.CENTER_LEFT
+            // The controls keep their size; the message after them is cut short when the view is narrow.
+            for (control in listOf(runButton, cancelButton, environments, auth, clearCookies)) {
+                control.minWidth = Region.USE_PREF_SIZE
+            }
+            message.minWidth = 0.0
         }
 
     /** The editor and, once a request ran, the response below it. */
@@ -141,7 +151,8 @@ internal class HttpFileView(
     private val root =
         BorderPane(split).apply {
             styleClass += "http-view"
-            top = toolbar
+            // Warnings get a row of their own below the toolbar, so they are never cut off.
+            top = VBox(toolbar, warning)
             stylesheets += checkNotNull(HttpFileView::class.java.getResource("http-view.css")).toExternalForm()
             addEventFilter(KeyEvent.KEY_PRESSED) { event ->
                 if (RUN_KEY.match(event) && inText(event.target)) {
@@ -396,7 +407,8 @@ internal class HttpFileView(
         text: String,
         error: Boolean = false,
     ) {
-        message.text = text
+        // Long texts (e.g. errors) are cut short, so the toolbar keeps its controls; the tooltip has all of it.
+        message.text = if (text.length > MESSAGE_LENGTH) text.take(MESSAGE_LENGTH - 1) + "…" else text
         message.styleClass.remove("http-message-error")
         if (error) message.styleClass += "http-message-error"
         message.tooltip = Tooltip(text)
@@ -404,6 +416,8 @@ internal class HttpFileView(
 
     private fun showResponsePane() {
         if (response.node in split.items) return
+        // Neither side may insist on its content's height, which would push the divider to the edge.
+        for (item in listOf(editor.node, response.node)) if (item is Region) item.minHeight = 0.0
         split.items += response.node
         split.setDividerPositions(0.5)
     }
@@ -440,6 +454,7 @@ internal class HttpFileView(
 
     private companion object {
         const val NO_ENVIRONMENT = "No environment"
+        const val MESSAGE_LENGTH = 80
         val TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault())
         val RUN_KEY = KeyCodeCombination(KeyCode.ENTER, KeyCombination.SHORTCUT_DOWN)
         val RUN_KEY_TEXT: String = RUN_KEY.displayText

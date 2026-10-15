@@ -216,7 +216,8 @@ class HttpFileViewUiTest {
 
     @Test
     fun `run icons beside the request lines run their request`(robot: FxRobot) {
-        val view = openHosted(twoRequests(), robot)
+        // Long enough that the editor would not shrink to half the view on its own.
+        val view = openHosted(twoRequests() + "\n".repeat(60), robot)
         WaitForAsyncUtils.waitForFxEvents()
 
         val icons = robot.lookup(".http-run-icon").queryAll<Node>().sortedBy { it.localToScene(0.0, 0.0).y }
@@ -230,6 +231,7 @@ class HttpFileViewUiTest {
             view.response.body.text,
         )
         assertEquals(0, robot.area().currentParagraph, "the caret stays")
+        assertEquals(0.5, view.split.dividerPositions.single(), 0.05, "the response takes half of the view")
     }
 
     @Test
@@ -425,6 +427,32 @@ class HttpFileViewUiTest {
         robot.interact { view.run(3) }
         awaitResult(view)
         assertFalse("cookie:" in view.response.body.text, view.response.body.text)
+    }
+
+    @Test
+    fun `a narrow view keeps its toolbar controls and shows warnings in a row of their own`(robot: FxRobot) {
+        dir.resolve("http-client.private.env.json").writeText("""{"dev": {}}""")
+        session.wouldCommit = { true }
+        val view = openHosted("GET ${server.base}/echo\n" + "\n".repeat(80), robot)
+        robot.interact {
+            container.setMaxSize(420.0, 400.0)
+            view.clearCookies.fire()
+        }
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { view.warning.isVisible }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        for (control in listOf(view.runButton, view.cancelButton, view.environments, view.auth, view.clearCookies)) {
+            assertEquals(control.prefWidth(-1.0), control.width, 1.0, control.styleClass.toString())
+        }
+        assertTrue(view.warning.isVisible)
+        assertFalse(view.warning in view.toolbar.children)
+        assertTrue(view.warning.height > 0)
+
+        robot.interact { view.run(0) }
+        awaitResult(view)
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(0.5, view.split.dividerPositions.single(), 0.05)
+        assertTrue(view.response.node.boundsInParent.height > 100, "the response gets its half of a long file's view")
     }
 
     /** Waits until the environment files were read (off the FX thread) and [names] are offered. */
