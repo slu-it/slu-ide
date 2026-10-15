@@ -252,15 +252,18 @@ class MainWindowUiTest {
         val start = fileExplorer.width
         assertEquals(shortNames, start, DIVIDER_SLACK)
 
+        // Shrinks the window before growing it back: it cannot grow past the screen, which on the macOS runners is
+        // barely wider than its 1000 px.
         val editorWidth = editorArea.width
+        robot.interact { stage.width -= 300 }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(start, fileExplorer.width, DIVIDER_SLACK)
+        assertEquals(editorWidth - 300, editorArea.width, DIVIDER_SLACK)
+
         robot.interact { stage.width += 300 }
         WaitForAsyncUtils.waitForFxEvents()
         assertEquals(start, fileExplorer.width, DIVIDER_SLACK)
-        assertEquals(editorWidth + 300, editorArea.width, DIVIDER_SLACK)
-
-        robot.interact { stage.width -= 500 }
-        WaitForAsyncUtils.waitForFxEvents()
-        assertEquals(start, fileExplorer.width, DIVIDER_SLACK)
+        assertEquals(editorWidth, editorArea.width, DIVIDER_SLACK)
     }
 
     @Test
