@@ -2,13 +2,31 @@
 
 **Module:** `file-viewers` — `PreviewFileViewer` / `PreviewFileView` (shared with the
 [Markdown preview](markdown-preview.md)) and one viewer per format; decisions in
-[ADR 0016](../adr/0016-markdown-preview.md), [ADR 0017](../adr/0017-webview-previews.md) and
-[ADR 0018](../adr/0018-html-preview-server.md)
+[ADR 0016](../adr/0016-markdown-preview.md), [ADR 0017](../adr/0017-webview-previews.md),
+[ADR 0018](../adr/0018-html-preview-server.md) and [ADR 0033](../adr/0033-zooming-images-and-diagrams.md)
 
 Every preview shows the highlighted source beside the rendered file in a `WebView`, with a toolbar for **Source**,
 **Split** and **Preview**. The source can be edited; the preview shows the saved text and updates when the file is
 saved or changes on disk; links open in the system browser or a Thoreau tab
 and never navigate the preview (`FileViewHost`, [file-viewers.md](file-viewers.md)).
+
+## Zooming images and diagrams (`ZoomControls`)
+Images, SVG files, Mermaid files and Bicep resource graphs zoom; Markdown and notebook previews do not.
+- **Toolbar** (on the left; in previews only while the preview shows, not in Source): zoom out, the scale in percent,
+  zoom in, **100%** and **Fit** (selected while fitted). Tooltips name the shortcuts.
+- **Keys** (while the preview or its zoom controls have the focus, never in the source beside it; the zoom buttons and
+  the Source / Split / Preview toggles never take the focus): Shortcut + `+` (also `=` and numpad `+`) zooms in,
+  Shortcut + `-` zooms out, Shortcut + `0` shows 100%, Shortcut + `9` fits.
+- Zoom in and out go to the next of 10, 25, 33, 50, 67, 75, 100, 125, 150, 200, 300, 400, 600, 800, 1200, 1600%,
+  keeping the middle of the view in place. **Shortcut+wheel** and **pinching** on a trackpad zoom smoothly around the
+  pointer. Zooming stays within 10%–1600%.
+- **Fit** shrinks the image or diagram until all of it shows, and never enlarges it: a small one shows at 100%, a huge
+  one below 10% (zooming out from there keeps that scale). While fitted it follows the size of the view. Every view
+  opens fitted.
+- A **click** (on an image's page anywhere, on a diagram's page on the diagram) goes from fitted to 100% (at the
+  pointer) and from any other scale back to fit; the pointer is a magnifier with + while fitted, with − otherwise.
+- The zoom (fitted or the scale) is kept when the file is saved, changes on disk or the theme changes.
+- A zoomed image or diagram scrolls to every edge.
 
 ## HTML (`.html`, `.htm`, `.xhtml`) — `HtmlFileViewer`
 - The page is served by a local server (`PreviewServer`, on `127.0.0.1`) with the files of its project, so its
@@ -39,12 +57,13 @@ and never navigate the preview (`FileViewHost`, [file-viewers.md](file-viewers.m
 
 ## SVG (`.svg`) — `SvgFileViewer`
 - Opens in **Preview**: the image on a checkered background (transparency shows; light or dark with the theme),
-  fitted to the view; a click switches to actual size and back. Source is highlighted as XML.
+  fitted to the view and zoomable (see above). Source is highlighted as XML.
 - The SVG is shown as an `<img>` (`data:` URI), so its scripts never run.
 
 ## Images (png, jpg/jpeg, gif, webp, bmp, ico) — `ImageFileViewer`
-- Image files up to 50 MB open although they are binary: the image on the same checkered page as SVG (click for
-  actual size), with its pixel size and file size below. No source side; a changed file is shown again.
+- Image files up to 50 MB open although they are binary: the image on the same checkered page as SVG, with the zoom
+  controls above (see above) and its pixel size and file size below. No source side; a changed file is shown again,
+  at the same zoom.
 - The whole file is read and encoded into the page (base64, a third larger) on the JavaFX thread, when it opens and
   on every change: a large image holds up the UI for a moment.
 - Modified images open normally, never as a diff.
@@ -78,8 +97,8 @@ and never navigate the preview (`FileViewHost`, [file-viewers.md](file-viewers.m
 - Opens in **Split**: the highlighted source beside the diagram, drawn by the bundled Mermaid like ` ```mermaid `
   fences in Markdown ([markdown-preview.md](markdown-preview.md)): `securityLevel: 'strict'`, the light or dark
   Mermaid theme, drawn again when the theme changes. No scroll sync.
-- The diagram is shown at its actual size if it fits, else scaled to the width of the preview; a click switches to
-  actual size (scrolling sideways) and back. A theme change keeps the choice, a reload fits it again.
+- The diagram is zoomable (see above): at first fitted, so at its actual size if it fits, else scaled down until it
+  fits below the note above it. A theme change and a reload keep the zoom; the page scrolls when it is larger.
 - A diagram that does not parse shows Mermaid's message under "Syntax error" (e.g. `Parse error on line …`, the line
   as Mermaid counts it, or an unknown diagram type) instead of the diagram. An empty file shows nothing.
 - The source goes into the page as text only, never as HTML.
@@ -94,8 +113,8 @@ and never navigate the preview (`FileViewHost`, [file-viewers.md](file-viewers.m
 
 ## Bicep resource graph (`.bicep`) — `BicepFileViewer`
 - Opens in **Source** (highlighted, [file-viewers.md](file-viewers.md)); **Preview** or **Split** draws the saved
-  file's resources and modules as a Mermaid `flowchart LR` (`BicepGraph`), shown like a Mermaid file: fitted, actual
-  size on a click, drawn again on a theme change, Mermaid's message if it fails. No scroll sync.
+  file's resources and modules as a Mermaid `flowchart LR` (`BicepGraph`), shown like a Mermaid file: zoomable and
+  fitted at first, drawn again on a theme change, Mermaid's message if it fails. No scroll sync.
 - Nodes: resources (symbol and the last segment of the type, without API version), modules (subroutine shape, symbol
   and path; a long path keeps its end), child resources nested in a body, `existing` ones dashed, loops marked
   "(loop)". Params, vars and outputs are not drawn.
