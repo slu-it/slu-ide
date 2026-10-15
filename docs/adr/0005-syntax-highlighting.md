@@ -23,7 +23,12 @@ dependency per language. JavaFX itself only has plain text controls.
   nesting and units better than the CSS lexer.
 - JSX (`.jsx`, `.tsx`) has no lexer; it is the JavaScript or TypeScript lexer plus line rules for tags and attributes.
   The rules only match whole tags, and line rules never restyle what the lexer found to be a comment or string
-  (except in YAML, whose quoted keys are strings to the lexer), so plain code and strings stay as the lexer saw them.
+  (except in YAML, whose quoted keys are strings to the lexer, and `.env` files, whose lexer starts a comment at
+  every `#`), so plain code and strings stay as the lexer saw them.
+- Small formats without a lexer (ignore files, `.git-blame-ignore-revs`, SSH config, Caddyfiles, Mermaid, cookie
+  jars, PEM) are line rules on the plain lexer (`SYNTAX_STYLE_NONE`), which is never run: it styles nothing and takes
+  quadratic time on long lines full of backslashes. Line rules and lexer spans are combined in near-linear time
+  ([ADR 0029](0029-file-name-and-shebang-matching.md)).
 
 Rejected:
 - **TextMate grammars via Eclipse tm4e:** the best language coverage, but only snapshot Maven builds exist.
