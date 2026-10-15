@@ -52,8 +52,8 @@ internal class FileMatch(
 
 /**
  * The interpreter a shebang [line] names, without its folder: `bash` for `#!/bin/bash` or `#! /bin/bash -e`, and
- * `python3` for `#!/usr/bin/env python3` or `#!/usr/bin/env -S python3 -u` (options and `NAME=value` settings of
- * `env` are skipped). `null` if the line is no shebang or names nothing.
+ * `python3` for `#!/usr/bin/env python3` or `#!/usr/bin/env -S python3 -u` (options of `env`, with the arguments of
+ * `-u`, `-C` and `-P`, and `NAME=value` settings are skipped). `null` if the line is no shebang or names nothing.
  */
 internal fun shebangInterpreter(line: String): String? {
     if (!line.startsWith("#!")) return null
@@ -64,12 +64,25 @@ internal fun shebangInterpreter(line: String): String? {
             .split(WHITESPACE)
             .filter { it.isNotEmpty() }
     val command = words.firstOrNull()?.substringAfterLast('/') ?: return null
-    if (command != "env") return command.ifEmpty { null }
-    return words
-        .drop(1)
-        .firstOrNull { !it.startsWith("-") && '=' !in it }
-        ?.substringAfterLast('/')
-        ?.ifEmpty { null }
+    val program = if (command.equals("env", ignoreCase = true)) envProgram(words.drop(1)) else words
+    return program.firstOrNull()?.substringAfterLast('/')?.ifEmpty { null }
+}
+
+/** The command line `env` runs, given its [arguments]: without its options and `NAME=value` settings. */
+private fun envProgram(arguments: List<String>): List<String> {
+    var index = 0
+    while (index < arguments.size) {
+        val word = arguments[index]
+        when {
+            word in ENV_OPTIONS_WITH_ARGUMENT -> index += 2
+            word.startsWith("-") || '=' in word -> index++
+            else -> return arguments.subList(index, arguments.size)
+        }
+    }
+    return emptyList()
 }
 
 private val WHITESPACE = Regex("""\s+""")
+
+/** `env` options whose argument is the next word: unset a variable, change the folder, search a path. */
+private val ENV_OPTIONS_WITH_ARGUMENT = setOf("-u", "--unset", "-C", "--chdir", "-P")

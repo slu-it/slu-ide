@@ -82,4 +82,16 @@ class FileMatchTest {
         assertNull(shebangInterpreter("# !/bin/bash"))
         assertNull(shebangInterpreter("print(1)"))
     }
+
+    @Test
+    fun `skips the arguments of env options that take one`() {
+        assertEquals("python3", shebangInterpreter("#!/usr/bin/env -u PYTHONPATH python3"))
+        assertEquals("python3", shebangInterpreter("#!/usr/bin/env --unset PYTHONPATH python3"))
+        assertEquals("node", shebangInterpreter("#!/usr/bin/env -C /srv/app node"))
+        assertEquals("node", shebangInterpreter("#!/usr/bin/env --chdir /srv/app node"))
+        assertEquals("bash", shebangInterpreter("#!/usr/bin/env -P /usr/local/bin:/bin bash"))
+        assertEquals("python3", shebangInterpreter("#!/usr/bin/env -i --unset=HOME -uLANG python3"))
+        assertEquals("bash", shebangInterpreter("#!/usr/bin/ENV bash"))
+        assertNull(shebangInterpreter("#!/usr/bin/env -u PYTHONPATH"))
+    }
 }
