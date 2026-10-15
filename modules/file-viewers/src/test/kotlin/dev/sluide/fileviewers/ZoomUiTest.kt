@@ -357,16 +357,22 @@ class ZoomUiTest {
         view.webView.script("window.scrollTo(300, 200)")
         // The events are at (100, 100) in the scene, which is below the toolbar in the web view.
         val pointer = fx { view.webView.sceneToLocal(100.0, 100.0) }
-        val pixel = view.pixelUnder(pointer)
-        assertTrue(pixel.x > 300 && pixel.y > 200, "scrolled: $pixel")
+        val start = view.pixelUnder(pointer)
+        assertTrue(start.x > 300 && start.y > 200, "scrolled: $start")
 
+        // Each zoom against the pixel under the pointer before it: the page scrolls by whole pixels, so the fractions it
+        // drops would add up over several zooms.
         for (event in listOf(scroll(40.0, shortcut = true), pinch(1.5), scroll(-80.0, shortcut = true), pinch(0.8))) {
             val scale = view.scale()
+            val pixel = view.pixelUnder(pointer)
             assertTrue(fire(view.webView, event))
             assertTrue(abs(view.scale() - scale) > 0.01, "zoomed from $scale")
             val now = view.pixelUnder(pointer)
-            assertEquals(pixel.x, now.x, 2.0, "x at ${view.scale()}")
-            assertEquals(pixel.y, now.y, 2.0, "y at ${view.scale()}")
+            val at =
+                "at ${view.scale()} from $scale, scrolled to ${view.webView.number("window.scrollX")}, " +
+                    "${view.webView.number("window.scrollY")}, pointer $pointer"
+            assertEquals(pixel.x, now.x, 2.0, "x $at")
+            assertEquals(pixel.y, now.y, 2.0, "y $at")
         }
     }
 
