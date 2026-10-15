@@ -61,6 +61,7 @@ class CodeFileViewersTest {
             TomlFileViewer() to
                 listOf("pyproject.toml", "Cargo.toml", "uv.lock", "poetry.lock", "pdm.lock", "Cargo.lock", "Pipfile"),
             BicepParamFileViewer() to listOf("main.bicepparam", "Prod.BICEPPARAM"),
+            KqlFileViewer() to listOf("failures.kql", "Commands.csl", "OLD.KQL"),
         )
 
     private val others =

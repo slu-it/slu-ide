@@ -39,6 +39,7 @@ class ViewerCommentSyntaxTest {
                 CaddyfileFileViewer() to CommentSyntax.HASH,
                 TomlFileViewer() to CommentSyntax.HASH,
                 BicepParamFileViewer() to CommentSyntax.SLASHES,
+                KqlFileViewer() to CommentSyntax.LINE_SLASHES,
             )
         for ((viewer, comment) in expected) assertEquals(comment, viewer.comment, viewer::class.simpleName)
     }
