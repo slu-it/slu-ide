@@ -10,6 +10,7 @@ import javafx.beans.binding.Bindings
 import javafx.beans.property.ReadOnlyStringProperty
 import javafx.beans.property.ReadOnlyStringWrapper
 import javafx.beans.property.SimpleBooleanProperty
+import javafx.beans.property.SimpleObjectProperty
 import javafx.beans.property.SimpleStringProperty
 import javafx.beans.value.ObservableBooleanValue
 import javafx.beans.value.ObservableValue
@@ -56,6 +57,10 @@ import java.util.concurrent.Executors
  * offering to reload the file or to keep its own text, which the next save then writes over the file's; until then the
  * view stays dirty, even when undone back to the text saved last. When the file is deleted, a banner says so; saving
  * creates it again.
+ *
+ * A file that a tool generates, like `uv.lock` ([GeneratedFiles]), gets a banner naming the file to change instead; it
+ * can be dismissed for the view, and is decided again when the file is [moved] to a name of another generated file or
+ * none. The file stays editable.
  *
  * Keys for editing ([editorKeys]) indent in the file's [indentStyle] (from `.editorconfig`, else detected, else
  * [defaultIndent]) and comment out lines with [comment].
@@ -143,6 +148,38 @@ internal class CodeView(
     /** Shown while the file is not valid UTF-8, and so read-only. */
     private val invalidBanner = banner(fileName.map { "$it is not valid UTF-8; it is shown read-only." })
 
+    /** The tool that writes the file, if it is a generated one like `uv.lock` ([GeneratedFiles]). */
+    private val generated = SimpleObjectProperty<GeneratedFile?>()
+
+    /** Shown while the file is a generated one, until dismissed; the file stays editable. */
+    private val generatedBanner =
+        banner(
+            Bindings.createStringBinding({ generated.get()?.message(fileName.get()).orEmpty() }, generated, fileName),
+            Button("Dismiss").apply {
+                setOnAction {
+                    dismissGenerated()
+                    area.requestFocus()
+                }
+            },
+        ).apply { styleClass += "generated-banner" }
+
+    /** Hides the [generatedBanner] for this view, until the file is [moved] to a name another tool generates. */
+    private fun dismissGenerated() {
+        banners.children -= generatedBanner
+    }
+
+    /**
+     * Shows the [generatedBanner] if the file is a generated one, below the find bar and above the other banners.
+     * Nothing changes while the file stays one of the same tool (a moved folder, another case), even if dismissed.
+     */
+    private fun showGenerated() {
+        val now = GeneratedFiles.of(file)
+        if (now == generated.get()) return
+        generated.set(now)
+        banners.children -= generatedBanner
+        if (now != null) banners.children.add(if (findBar.isOpen) 1 else 0, generatedBanner)
+    }
+
     /** Runs a banner's [action]; the focus goes back to the text, rather than wherever the vanished button sends it. */
     private fun answered(action: () -> Unit) {
         action()
@@ -175,6 +212,7 @@ internal class CodeView(
         savedText = LineEnding.normalize(content.raw)
         show(savedText)
         showReadOnly(!content.valid)
+        showGenerated()
         undoManager.forgetHistory()
         undoManager.mark()
         indentStyle = IndentStyle.forFile(file, savedText, defaultIndent)
@@ -210,6 +248,9 @@ internal class CodeView(
 
     /** Whether the file is not valid UTF-8 and therefore shown read-only. */
     val readOnly: Boolean get() = invalidBanner in banners.children
+
+    /** Whether the banner saying that the file is generated (e.g. `uv.lock`) is shown. */
+    val generatedShown: Boolean get() = generatedBanner in banners.children
 
     /** Writes the text to the file; does nothing while the view is [readOnly]. */
     override fun save() {
@@ -390,6 +431,7 @@ internal class CodeView(
         file = to
         fileName.set(to.fileName.toString())
         indentStyle = IndentStyle.forFile(to, savedText, defaultIndent)
+        showGenerated()
         return true
     }
 
