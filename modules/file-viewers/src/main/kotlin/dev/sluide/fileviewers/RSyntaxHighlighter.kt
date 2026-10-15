@@ -340,23 +340,44 @@ internal class RSyntaxHighlighter(
         fun forLanguage(language: String): SyntaxHighlighter? =
             when (language) {
                 "java" -> java
+
                 "kotlin", "kt", "kts" -> kotlin
+
                 "python", "py" -> python
+
                 "javascript", "js", "mjs", "cjs" -> javaScript
+
                 "jsx" -> javaScriptReact
+
                 "typescript", "ts" -> typeScript
+
                 "tsx" -> typeScriptReact
+
                 "json", "jsonc" -> json
+
                 "xml", "svg" -> xml
+
                 "html" -> html
+
                 "vue", "svelte" -> singleFileComponent
+
                 "yaml", "yml" -> yaml
+
                 "css" -> css
+
                 "scss" -> scss
+
                 "sass" -> sass
+
                 "less" -> less
+
                 "markdown", "md" -> markdown
+
                 "mdx" -> mdx
+
+                // Shell, SQL and configuration files.
+                "sql" -> sql
+
                 else -> null
             }
 
@@ -473,6 +494,51 @@ internal class RSyntaxHighlighter(
                 keywords = setOf("async", "await", "nonlocal"),
                 builtins = setOf("print", "exec"),
                 stringPrefixes = setOf("f", "r", "b", "u", "rb", "br", "fr", "rf"),
+            )
+
+        // Shell, SQL and configuration files.
+
+        /**
+         * The whitespace-separated [words] in upper and in lower case, for case-insensitive languages: the
+         * corrections only match words as written.
+         */
+        private fun upperAndLower(words: String): Set<String> =
+            words.trim().split(Regex("""\s+""")).flatMapTo(HashSet()) { listOf(it.uppercase(), it.lowercase()) }
+
+        /**
+         * The SQL lexer misses many keywords of current dialects (`LIMIT`, `RETURNING`, `TRUE`, window functions) and
+         * mixes data types between keywords and plain words, so all common ones are made types. Aggregates and other
+         * functions are builtins. It reads the `.` of `a.id` as a number, which a line rule makes an operator.
+         */
+        val sql =
+            RSyntaxHighlighter(
+                SyntaxConstants.SYNTAX_STYLE_SQL,
+                keywords =
+                    upperAndLower(
+                        """
+                        TRUE FALSE DEFAULT IF LIMIT OFFSET RETURNING BEGIN COMMIT ROLLBACK VIEW REPLACE CONFLICT DO
+                        NOTHING EXCEPT INTERSECT FULL CROSS NATURAL OVER PARTITION WINDOW ROWS UNBOUNDED PRECEDING
+                        FOLLOWING RECURSIVE TEMPORARY CASCADE RESTRICT CHECK SCHEMA TRIGGER FUNCTION PROCEDURE RETURNS
+                        LANGUAGE DECLARE EXECUTE GRANT REVOKE TRUNCATE ILIKE SIMILAR NULLS FETCH ONLY LATERAL CAST
+                        COLLATE TRANSACTION SAVEPOINT EXPLAIN ANALYZE SEQUENCE ENUM EXTENSION RENAME TO
+                        """,
+                    ),
+                types =
+                    upperAndLower(
+                        """
+                        INTEGER INT BIGINT SMALLINT TINYINT SERIAL BIGSERIAL VARCHAR CHAR CHARACTER VARYING TEXT BOOLEAN
+                        BOOL DATE TIME TIMESTAMP TIMESTAMPTZ INTERVAL NUMERIC DECIMAL REAL FLOAT DOUBLE PRECISION UUID
+                        JSON JSONB BLOB BYTEA CLOB MONEY NVARCHAR DATETIME
+                        """,
+                    ),
+                builtins =
+                    upperAndLower(
+                        """
+                        COUNT SUM MIN MAX COALESCE NULLIF GREATEST LEAST LENGTH CONCAT NOW ROUND ABS ROW_NUMBER RANK
+                        DENSE_RANK LAG LEAD STRING_AGG ARRAY_AGG JSON_AGG DATE_TRUNC TO_CHAR
+                        """,
+                    ),
+                lineRules = listOf(Regex("""(?<=[\w"\]])(?<operator>\.)(?=[A-Za-z_"*\[])""")),
             )
     }
 }

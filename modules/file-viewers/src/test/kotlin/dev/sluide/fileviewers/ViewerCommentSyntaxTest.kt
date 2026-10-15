@@ -26,6 +26,7 @@ class ViewerCommentSyntaxTest {
                 MdxFileViewer() to CommentSyntax.XML,
                 SingleFileComponentFileViewer() to CommentSyntax.XML,
                 JsonFileViewer() to CommentSyntax.NONE,
+                SqlFileViewer() to CommentSyntax.SQL,
             )
         for ((viewer, comment) in expected) assertEquals(comment, viewer.comment, viewer::class.simpleName)
     }
