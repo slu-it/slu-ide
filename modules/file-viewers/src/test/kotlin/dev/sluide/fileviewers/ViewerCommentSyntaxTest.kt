@@ -30,6 +30,7 @@ class ViewerCommentSyntaxTest {
                 ShellFileViewer() to CommentSyntax.HASH,
                 PowerShellFileViewer() to CommentSyntax.POWERSHELL,
                 DockerfileFileViewer() to CommentSyntax.HASH,
+                MakefileFileViewer() to CommentSyntax.HASH,
             )
         for ((viewer, comment) in expected) assertEquals(comment, viewer.comment, viewer::class.simpleName)
     }

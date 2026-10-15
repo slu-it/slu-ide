@@ -40,6 +40,7 @@ class CodeFileViewersTest {
             PowerShellFileViewer() to listOf("build.ps1", "Tools.psm1", "Tools.psd1"),
             DockerfileFileViewer() to
                 listOf("Dockerfile", "Containerfile", "Dockerfile.dev", "dockerfile.prod.local", "app.Dockerfile"),
+            MakefileFileViewer() to listOf("Makefile", "GNUmakefile", "rules.mk"),
         )
 
     private val others =

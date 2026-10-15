@@ -384,6 +384,8 @@ internal class RSyntaxHighlighter(
 
                 "dockerfile", "docker", "containerfile" -> dockerfile
 
+                "makefile", "make", "mk" -> makefile
+
                 else -> null
             }
 
@@ -590,6 +592,27 @@ internal class RSyntaxHighlighter(
                         Regex("""(?i)^\s*(?<keyword>HEALTHCHECK|SHELL)(?=\s|$)"""),
                         Regex("""(?i)^\s*FROM\s+(?:--\S+\s+)*\S+\s+(?<keyword>AS)(?=\s)"""),
                         Regex("""(?<annotation>\$(?:\{[^}]*}|\w+))"""),
+                    ),
+            )
+
+        /**
+         * Makefiles. The lexer reports targets (`all:`) as preprocessor, shown as types here, and misses directives
+         * such as `include`, `export` and `override`. Variable references (`$(CC)`, `${OBJ}`) are styled like shell
+         * variables, and so are automatic variables (`$@`, `$<`), which the lexer does not know. A line rule makes
+         * whole targets types, since the lexer splits pattern rules like `%.o:`.
+         */
+        val makefile =
+            RSyntaxHighlighter(
+                SyntaxConstants.SYNTAX_STYLE_MAKEFILE,
+                keywords =
+                    setOf("include", "-include", "sinclude", "export", "unexport", "override", "vpath", "undefine"),
+                tokenStyles =
+                    mapOf(TokenTypes.VARIABLE to TokenStyle.ANNOTATION, TokenTypes.PREPROCESSOR to TokenStyle.TYPE),
+                lineRules =
+                    listOf(
+                        // Up to the colon of a rule, which `:=` and `::=` assignments are not.
+                        Regex("""^(?<type>[^\s#=:][^#=:]*?::?)(?=\s|$)"""),
+                        Regex("""(?<annotation>\$[@^<?*%+|])"""),
                     ),
             )
     }
