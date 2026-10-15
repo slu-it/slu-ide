@@ -39,6 +39,7 @@ Keep it up to date: every new ADR or feature description must be added here with
 - [adr/0028-http-client-secrets.md](adr/0028-http-client-secrets.md) — Secrets only from the environment files (warning when git would commit the private one), OAuth2 grants and in-memory tokens per window (refresh, failures not cached), client certificates and passphrase prompts, trust-all per environment.
 - [adr/0029-file-name-and-shebang-matching.md](adr/0029-file-name-and-shebang-matching.md) — Viewers match by extension, exact name or name pattern (exact name > extension > pattern, Spring order only for ties), extensionless files by shebang after all names; small formats without a lexer get line rules on the plain lexer, which is skipped; TOML, Bicep, KQL postponed.
 - [adr/0030-masking-env-values.md](adr/0030-masking-env-values.md) — `.env` values are masked by a `masked` style overlay on the `CodeView` (text untouched, so copy/find/save/undo work), applied with every change; caret line and selected find match revealed, Show values toggle per tab; whole lines, hover reveal and masked diffs rejected.
+- [adr/0031-own-tokenizers.md](adr/0031-own-tokenizers.md) — Languages without an RSyntaxTextArea lexer that are too large for line rules (TOML, Bicep, KQL) get own `SyntaxHighlighter` objects: one linear pass, no errors flagged, recovery at line starts, perf-tested; Bicep's graph shares its tokens; tm4e, sora-editor and tree-sitter rechecked and rejected.
 - [adr/template.md](adr/template.md) — Template for new ADRs.
 
 ## Features
