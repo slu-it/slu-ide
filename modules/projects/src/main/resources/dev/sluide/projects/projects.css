@@ -1,0 +1,32 @@
+.project-picker .list-cell {
+    -fx-padding: 8px 12px;
+}
+
+/* The rows below the entries are plain list background, without Modena's alternating stripes. */
+.project-picker .list-cell:empty {
+    -fx-background: -fx-control-inner-background;
+}
+
+.project-picker .list-cell .project-name {
+    -fx-font-weight: bold;
+}
+
+.project-picker .list-cell .project-path {
+    -fx-opacity: 0.7;
+}
+
+.project-picker .list-cell:filled:selected .project-path {
+    -fx-opacity: 0.85;
+}
+
+.project-picker .list-cell.missing {
+    -fx-opacity: 0.5;
+}
+
+.project-picker .list-cell .project-remove {
+    -fx-background-color: transparent;
+}
+
+.project-picker .list-cell .project-remove:hover {
+    -fx-background-color: -fx-hover-base;
+}
