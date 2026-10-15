@@ -132,7 +132,7 @@ internal enum class PreviewMode(
  * to its old scroll position otherwise.
  *
  * Clicked links never navigate the preview: anchors scroll within it, every other link goes to [host]
- * ([resolveLink]): web pages to the browser, files to SluIde. Pages without our script (e.g. HTML files) do navigate:
+ * ([resolveLink]): web pages to the browser, files to Thoreau. Pages without our script (e.g. HTML files) do navigate:
  * a navigation away from the [own page][Preview.isOwnPage] within 2 seconds of a mouse press, key press or drop in
  * the preview is the user's, so its target goes to [host] and the page is shown again. Any other navigation (a meta
  * refresh, a script setting `location`), and the page loading itself again without such input, stops the preview

@@ -7,7 +7,7 @@
 
 Every preview shows the highlighted source beside the rendered file in a `WebView`, with a toolbar for **Source**,
 **Split** and **Preview**. The source can be edited; the preview shows the saved text and updates when the file is
-saved or changes on disk; links open in the system browser or a SluIde tab
+saved or changes on disk; links open in the system browser or a Thoreau tab
 and never navigate the preview (`FileViewHost`, [file-viewers.md](file-viewers.md)).
 
 ## HTML (`.html`, `.htm`, `.xhtml`) — `HtmlFileViewer`

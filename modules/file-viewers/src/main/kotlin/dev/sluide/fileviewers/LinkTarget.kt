@@ -11,7 +11,7 @@ internal sealed interface LinkTarget {
         val uri: URI,
     ) : LinkTarget
 
-    /** A file for SluIde to open. */
+    /** A file for Thoreau to open. */
     data class File(
         val path: Path,
     ) : LinkTarget

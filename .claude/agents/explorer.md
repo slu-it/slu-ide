@@ -1,6 +1,6 @@
 ---
 name: explorer
-description: Read-only research of the SluIde codebase and docs. Use to find where something lives or how it works without polluting the main context.
+description: Read-only research of the Thoreau codebase and docs. Use to find where something lives or how it works without polluting the main context.
 tools: Read, Glob, Grep, Bash
 model: haiku
 ---

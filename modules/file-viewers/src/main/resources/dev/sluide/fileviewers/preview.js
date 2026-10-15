@@ -115,7 +115,7 @@
             return;
         }
         var href = link.getAttribute('href');
-        // No link navigates the preview: anchors scroll within the page, every other link is opened by SluIde.
+        // No link navigates the preview: anchors scroll within the page, every other link is opened by Thoreau.
         event.preventDefault();
         if (href.charAt(0) === '#') {
             var target = document.getElementById(decodeURIComponent(href.substring(1)));

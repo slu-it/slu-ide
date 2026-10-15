@@ -4,7 +4,7 @@
 - Date: 2026-10-13
 
 ## Context
-Users want to configure SluIde, starting with fonts for the file explorer, the editor and the terminal. Settings are
+Users want to configure Thoreau, starting with fonts for the file explorer, the editor and the terminal. Settings are
 read by several feature modules, changed in one dialog, and must survive a restart. More settings pages will follow.
 
 ## Decision

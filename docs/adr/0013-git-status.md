@@ -18,7 +18,7 @@ Options considered:
 ## Decision
 - A new module `modules/git` (package `dev.sluide.git`) runs the `git` command line; no library.
 - `GitCli` checks once at startup (`git --version` when the bean is created, 3 s timeout) whether git is available.
-  Without it, SluIde shows no git information.
+  Without it, Thoreau shows no git information.
 - `GitStatusService.open(folder)` follows a repository only if git is available and the opened folder itself has
   `.git` (a folder, or a file as in worktrees and submodules). It runs
   `git --no-optional-locks status --porcelain=v2 -z --ignored` on a background thread (`sluide-git`, 10 s timeout):

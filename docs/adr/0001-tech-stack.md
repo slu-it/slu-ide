@@ -4,7 +4,7 @@
 - Date: 2026-10-12
 
 ## Context
-SluIde should be a lightweight IDE that can grow into a larger project. Established IDEs (IntelliJ, Eclipse) run
+Thoreau should be a lightweight IDE that can grow into a larger project. Established IDEs (IntelliJ, Eclipse) run
 on the JVM, and the maintainer knows Spring Boot well.
 
 ## Decision

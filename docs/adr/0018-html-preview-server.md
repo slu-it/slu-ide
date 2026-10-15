@@ -33,7 +33,7 @@ So only HTML needs confining, and an HTTP origin confines it to what a server ha
   local users and pages in a browser that find the port.
 - **Response headers:** `Cache-Control: no-store`, so a reload shows edited styles; `X-Content-Type-Options: nosniff`;
   `Referrer-Policy: no-referrer`, so remote requests do not carry the token. Text types say `charset=utf-8`, the
-  encoding SluIde reads files in, so a page without `<meta charset>` is not decoded with WebKit's default.
+  encoding Thoreau reads files in, so a page without `<meta charset>` is not decoded with WebKit's default.
 - **Links:** server URLs map back to their files (`PreviewServer.fileFor`), so a clicked link to another file opens it
   in a tab, as before, also outside the root.
 - **Own page:** a URL of the page with a query is not the page itself, and a load the view did not start (a meta

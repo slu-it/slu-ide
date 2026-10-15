@@ -1,6 +1,6 @@
 # Architecture
 
-SluIde is a lightweight desktop IDE written in Kotlin. It is one Spring Boot application with a JavaFX UI,
+Thoreau is a lightweight desktop IDE written in Kotlin. It is one Spring Boot application with a JavaFX UI,
 assembled from Gradle modules.
 
 ## Repository layout
@@ -66,8 +66,8 @@ assembled from Gradle modules.
 - **Release** (`.github/workflows/release.yml`): pushing a tag `vX.Y.Z` publishes `dev.sluide:ide-<os>-<arch>:X.Y.Z`
   (the fat jar) to https://maven.pkg.github.com/slu-it/slu-ide. The version comes from the tag via `-PreleaseVersion`.
   Platforms: linux-x64, linux-aarch64, mac-aarch64 ([ADR 0003](adr/0003-javafx-platform-jars.md)).
-  The macOS job also attaches `SluIde-X.Y.Z-mac-aarch64.dmg` to the GitHub release
+  The macOS job also attaches `Thoreau-X.Y.Z-mac-aarch64.dmg` to the GitHub release
   ([ADR 0011](adr/0011-native-app-packaging.md)).
-- **Native app**: `./gradlew :ide:jpackageImage` (SluIde.app on macOS) and `:ide:jpackageDmg` (macOS) bundle the
+- **Native app**: `./gradlew :ide:jpackageImage` (Thoreau.app on macOS) and `:ide:jpackageDmg` (macOS) bundle the
   fat jar with a jlink runtime ([ADR 0011](adr/0011-native-app-packaging.md)).
 - Local builds use version `0.1.0-SNAPSHOT`; the publish setup lives in `ide/build.gradle.kts`.

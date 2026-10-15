@@ -1,6 +1,6 @@
 ---
 name: reviewer
-description: Reviews SluIde changes for correctness, architecture fit, tests and docs. Read-only. Use proactively before committing or merging.
+description: Reviews Thoreau changes for correctness, architecture fit, tests and docs. Read-only. Use proactively before committing or merging.
 tools: Read, Glob, Grep, Bash
 ---
 

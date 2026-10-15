@@ -1,10 +1,10 @@
 ---
 name: implementer
-description: Implements features and fixes in SluIde modules. Use for writing or changing production Kotlin code and its Gradle setup.
+description: Implements features and fixes in Thoreau modules. Use for writing or changing production Kotlin code and its Gradle setup.
 tools: Read, Write, Edit, Glob, Grep, Bash
 ---
 
-You implement changes in SluIde.
+You implement changes in Thoreau.
 
 1. Read `docs/index.md`, then only the pages that touch your task.
 2. Put code in the module that owns the capability. A new capability gets a new `modules/<name>` module: register it in

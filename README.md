@@ -1,8 +1,13 @@
-# SluIde
+# Thoreau
 
 A lightweight IDE written in Kotlin, using Spring Boot and JavaFX.
 
-- **Projects:** File → Open Folder… (or `SluIde [folder…]` on the command line) opens a folder; one project per
+It is built for one person, to work ideally for them rather than for a wider market. Henry David Thoreau built his
+own small cabin at Walden Pond, sized for exactly one person and furnished only with what he needed; hence the name.
+The technical name is still `sluide` (repository, packages, artifacts, `~/.sluide`), see
+[ADR 0032](docs/adr/0032-product-name-thoreau.md).
+
+- **Projects:** File → Open Folder… (or `Thoreau [folder…]` on the command line) opens a folder; one project per
   window, several windows at once.
 - **File explorer:** the whole folder including hidden files, with file icons, git status colours and live updates.
 - **Files** open in tabs to edit and save (File → Save, Ctrl/Cmd+S; Save All), keeping their line endings, with
@@ -39,13 +44,13 @@ The fat jar contains JavaFX natives for the platform it was built on only (Linux
 
 ### macOS app
 ```bash
-./gradlew :ide:jpackageImage   # ide/build/jpackage/app-image/SluIde.app, includes its own Java runtime
+./gradlew :ide:jpackageImage   # ide/build/jpackage/app-image/Thoreau.app, includes its own Java runtime
 ./gradlew :ide:jpackageDmg     # disk image with the app
 ```
-Copy `SluIde.app` to `/Applications` and start it with a double-click. Releases attach
-`SluIde-<version>-mac-aarch64.dmg` to the GitHub release. The app is not notarized by Apple: when downloaded, open
+Copy `Thoreau.app` to `/Applications` and start it with a double-click. Releases attach
+`Thoreau-<version>-mac-aarch64.dmg` to the GitHub release. The app is not notarized by Apple: when downloaded, open
 it once, then allow it under System Settings → Privacy & Security → Open Anyway (or run
-`xattr -dr com.apple.quarantine /Applications/SluIde.app`). See
+`xattr -dr com.apple.quarantine /Applications/Thoreau.app`). See
 [ADR 0011](docs/adr/0011-native-app-packaging.md).
 
 ## Repository layout

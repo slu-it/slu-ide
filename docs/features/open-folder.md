@@ -14,16 +14,16 @@
 - A window's folder is held by its `ProjectService.projectFolder` (observable, read-only, set once via
   `ProjectService.open`, which rejects non-directories and a second, different folder). `MainWindow` passes it to the
   file explorer and the git status ([git-status.md](git-status.md)) and sets the window title to
-  `<folder name> – SluIde`.
+  `<folder name> – Thoreau`.
 - Every window has its own explorer, editor area, terminals, Docker sandboxes and git status (Spring scope `window`).
 - Closing a window with unsaved files first asks to save them: Save, Don't Save or Cancel
   ([text-editing.md](text-editing.md)); Cancel keeps the window.
 - Closing a window while its tabs still run something (terminal programs, Docker sandboxes and other commands) asks
   once, listing them: "Close this window anyway?". Cancel keeps the window; Close ends them. Without running tabs it
-  closes right away. Closing the last window quits SluIde. Tests replace the dialog via `MainWindow.confirmCloseWindow`.
-- Command line: `SluIde [folder…]` (or `java -jar ide-*.jar [folder…]`) opens the given folders at startup, the
+  closes right away. Closing the last window quits Thoreau. Tests replace the dialog via `MainWindow.confirmCloseWindow`.
+- Command line: `Thoreau [folder…]` (or `java -jar ide-*.jar [folder…]`) opens the given folders at startup, the
   first in the startup window and every other one in a new window, like Open Folder. Relative paths resolve against
-  the working directory. Arguments that are not folders are reported on stderr (`SluIde: not a folder, ignored: …`)
+  the working directory. Arguments that are not folders are reported on stderr (`Thoreau: not a folder, ignored: …`)
   and skipped (`startupFolders` in `SluIdeApplication.kt`). Arguments are only folders: none are passed to Spring,
   and arguments of the form `--name=value` (JavaFX "named parameters") are ignored without a warning.
 - Nothing is persisted yet: without arguments the IDE starts with one window without a project.

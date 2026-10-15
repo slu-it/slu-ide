@@ -25,7 +25,7 @@
   page, it stops with a notice and **Show the page again** ([previews.md](previews.md)), and only its own page can
   reach the link bridge.
 - Links never navigate the preview. Anchors (`#part`) scroll within it; `http`, `https`, `mailto` and scheme-relative
-  (`//host/…`, as `https`) links open in the system browser; relative and `file:` links open the file in a SluIde tab,
+  (`//host/…`, as `https`) links open in the system browser; relative and `file:` links open the file in a Thoreau tab,
   wherever it is (resolved against the Markdown file's folder, without fragment or query; nothing happens if
   no viewer can show it). The page's script calls one Kotlin bridge
   object (`sluideBridge`), which hands the target to the view's `FileViewHost` ([file-viewers.md](file-viewers.md)).

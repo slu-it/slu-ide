@@ -23,7 +23,7 @@ they come with their own scripts and links and are shown as their author made th
   page that loads itself again.
 
 - **SVG and images** are shown as an `<img>` with a `data:` URI on a page of ours (`ImagePage`): no file access from the
-  page, and an SVG's scripts never run. Images are the first binary files SluIde opens; `ImageFileViewer` accepts them
+  page, and an SVG's scripts never run. Images are the first binary files Thoreau opens; `ImageFileViewer` accepts them
   without the text check, up to 50 MB.
 
 - **JavaScript libraries** for the previews are bundled in `file-viewers` (`vendor/`, versions and checksums in its

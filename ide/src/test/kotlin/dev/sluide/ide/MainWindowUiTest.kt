@@ -111,7 +111,7 @@ class MainWindowUiTest {
         }
 
     // Without the user's global git configuration, which could ignore other files, and without inherited `GIT_*`
-    // variables (a build run by `git rebase -x` inherits `GIT_DIR`, which would point at the SluIde repository).
+    // variables (a build run by `git rebase -x` inherits `GIT_DIR`, which would point at the slu-ide repository).
     private val gitEnvironment =
         System.getenv().filterKeys { !it.startsWith("GIT_") } +
             mapOf("GIT_CONFIG_GLOBAL" to "/dev/null", "GIT_CONFIG_NOSYSTEM" to "1")

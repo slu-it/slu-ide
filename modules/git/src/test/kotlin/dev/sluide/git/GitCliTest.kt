@@ -84,7 +84,7 @@ private fun Path.readTextOrNull(): String? = if (exists()) readText() else null
 /**
  * The environment for git in tests: no global or system configuration, so the user's settings do not interfere, and
  * none of the inherited `GIT_*` variables. A build run from a git hook or `git rebase -x` inherits `GIT_DIR`, which
- * would point the tests' git commands at the SluIde repository itself.
+ * would point the tests' git commands at the slu-ide repository itself.
  */
 internal fun testGitEnvironment(): Map<String, String> =
     System.getenv().filterKeys { !it.startsWith("GIT_") } +

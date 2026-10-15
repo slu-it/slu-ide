@@ -10,7 +10,7 @@ import java.nio.file.Files
 import java.nio.file.InvalidPathException
 import java.nio.file.Path
 
-/** Spring configuration; component scanning covers all SluIde modules below `dev.sluide`. */
+/** Spring configuration; component scanning covers all Thoreau modules below `dev.sluide`. */
 @SpringBootApplication(scanBasePackages = ["dev.sluide"])
 class SluIdeConfiguration
 

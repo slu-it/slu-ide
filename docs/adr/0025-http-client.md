@@ -4,7 +4,7 @@
 - Date: 2026-10-15
 
 ## Context
-SluIde should run HTTP requests written in files, on the model of IntelliJ's HTTP client: `.http` files, environments
+Thoreau should run HTTP requests written in files, on the model of IntelliJ's HTTP client: `.http` files, environments
 from `http-client.env.json` with secrets in `http-client.private.env.json`, variables and auth. The format is large
 (WebSocket, GraphQL, gRPC, JavaScript handlers, imports, cURL, …), and IntelliJ's documentation was not reachable while
 this was built, so some details had to be decided without checking them against IntelliJ.

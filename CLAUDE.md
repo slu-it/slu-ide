@@ -1,6 +1,8 @@
-# SluIde
+# Thoreau
 
 Lightweight IDE in Kotlin (JDK 25) with Spring Boot and JavaFX, built with Gradle modules.
+Thoreau is the name users see; identifiers keep the technical name `sluide` (repository, packages, classes, `~/.sluide`),
+new ones too (ADR 0032).
 
 ## Orient yourself
 - Read `docs/index.md` first; open only the documents relevant to your task. Do not read all of `docs/`.

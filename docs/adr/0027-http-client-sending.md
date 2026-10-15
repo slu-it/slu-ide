@@ -20,7 +20,7 @@ add dependencies; the JDK's `java.net.http.HttpClient` covers most of it but has
   (`Content-Length`, `Connection`, `Expect`, `Upgrade`, `Transfer-Encoding`, `TE`, `Trailer`, `Keep-Alive`,
   `Proxy-Connection`), which are dropped with a note. `Host` is allowed: the launcher sets
   `jdk.httpclient.allowRestrictedHeaders=host` first thing, since the JDK reads it once when its HTTP classes load
-  (`HttpClients` sets it too, for tests). Defaults unless written: `User-Agent: SluIde`, `Accept: */*`,
+  (`HttpClients` sets it too, for tests). Defaults unless written: `User-Agent: Thoreau`, `Accept: */*`,
   `Accept-Encoding: gzip, deflate`.
 - **Bodies of responses** are decoded per `Content-Encoding` (`gzip`, `deflate`) and read up to 50 MB, then truncated
   with a note. The response pane decodes the charset, pretty-prints JSON and XML up to 1 MiB (`ResponseFormatter`;

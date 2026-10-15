@@ -10,7 +10,7 @@ us only the changed lines (`git diff -U0`). Within a modified block, the lines a
 the left need not be the counterpart of line i on the right when lines were added or removed in the block.
 
 ## Decision
-- SluIde finds the changed words itself (`wordChanges` in `file-viewers`), only within git's modified blocks, so the
+- Thoreau finds the changed words itself (`wordChanges` in `file-viewers`), only within git's modified blocks, so the
   changed lines are still exactly git's.
   - It does not use `git --word-diff=porcelain`: that would mean a second git process per refresh, a second parser,
     and a word model in `git` and `TextDiff`. Its default words are whitespace-separated, too, which is coarser than

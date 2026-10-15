@@ -6,7 +6,7 @@
 ## Context
 Requests need secrets: OAuth2 client secrets and passwords, the tokens obtained with them, client certificates with
 passphrases. IntelliJ keeps secrets in `http-client.private.env.json`, which must not be committed, and acquires tokens
-from `Security.Auth` configurations. SluIde has no secret store of its own and should not write secrets anywhere.
+from `Security.Auth` configurations. Thoreau has no secret store of its own and should not write secrets anywhere.
 
 ## Decision
 - **Where secrets come from:** only the environment files. Private values win over public ones key by key, so a

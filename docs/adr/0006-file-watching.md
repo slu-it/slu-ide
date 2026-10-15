@@ -4,7 +4,7 @@
 - Date: 2026-10-12
 
 ## Context
-Files change outside SluIde: other tools, `git checkout`, build output. The explorer and open tabs must follow
+Files change outside Thoreau: other tools, `git checkout`, build output. The explorer and open tabs must follow
 without the user reopening the project. Projects can be large, and we load folders lazily.
 
 ## Decision

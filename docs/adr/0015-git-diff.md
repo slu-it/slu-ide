@@ -42,6 +42,6 @@ Options considered for the diff:
 ## Consequences
 - The diff is exactly git's, including attributes and the configured diff algorithm.
 - Changes are whole lines, with no connecting shapes between the sides (filler rows instead). The changed words
-  within modified lines are found by SluIde itself ([ADR 0019](0019-word-diff.md)).
+  within modified lines are found by Thoreau itself ([ADR 0019](0019-word-diff.md)).
 - Switching between diff and normal view resets the scroll position.
 - The diff stays read-only like every other view; there is no reverting of changes from it.

@@ -13,7 +13,7 @@ private val log = System.getLogger(GitCli::class.java.name)
 
 /**
  * Runs the `git` command line tool (ADR 0013). Whether it is installed is checked once, when the bean is created at
- * startup; without it, [status] returns `null` and SluIde shows no git information.
+ * startup; without it, [status] returns `null` and Thoreau shows no git information.
  */
 @Component
 class GitCli(
