@@ -12,6 +12,8 @@ import dev.sluide.git.GitCli
 import dev.sluide.git.GitStatusService
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpFileViewer
+import dev.sluide.projects.ProjectPicker
+import dev.sluide.projects.RecentProjects
 import dev.sluide.settings.AppearancePage
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontsPage
@@ -62,6 +64,8 @@ class SpringWiringTest {
                         SystemBrowser::class.java,
                         HttpClientSession::class.java,
                         HttpFileViewer::class.java,
+                        RecentProjects::class.java,
+                        ProjectPicker::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")

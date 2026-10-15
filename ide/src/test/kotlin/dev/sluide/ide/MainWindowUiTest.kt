@@ -12,6 +12,8 @@ import dev.sluide.git.GitCli
 import dev.sluide.git.GitStatus
 import dev.sluide.git.GitStatusService
 import dev.sluide.httpclient.HttpClientSession
+import dev.sluide.projects.ProjectPicker
+import dev.sluide.projects.RecentProjects
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontSpec
@@ -103,12 +105,16 @@ class MainWindowUiTest {
 
     /** The folders the window asked to open in other windows. */
     private val openedElsewhere = mutableListOf<Path>()
-    private val projectWindows =
-        object : ProjectWindows(DefaultListableBeanFactory()) {
+
+    /** The remembered projects, kept in the test's settings folder, never in `~/.sluide`. */
+    private val recentProjects by lazy { RecentProjects(settingsDir.resolve("projects.properties")) }
+    private val projectWindows by lazy {
+        object : ProjectWindows(DefaultListableBeanFactory(), ProjectPicker(recentProjects)) {
             override fun open(folder: Path) {
                 openedElsewhere.add(folder)
             }
         }
+    }
 
     // Without the user's global git configuration, which could ignore other files, and without inherited `GIT_*`
     // variables (a build run by `git rebase -x` inherits `GIT_DIR`, which would point at the slu-ide repository).
@@ -165,6 +171,7 @@ class MainWindowUiTest {
         ThemedWindows(ThemeSettings(SettingsStore(settingsDir.resolve("settings.properties")))),
         projectWindows,
         HttpClientSession().also(httpSessions::add),
+        recentProjects,
         SystemBrowser(),
     )
 

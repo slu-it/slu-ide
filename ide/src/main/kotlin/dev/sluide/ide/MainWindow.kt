@@ -8,6 +8,7 @@ import dev.sluide.editor.askToClose
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.git.GitStatusService
 import dev.sluide.httpclient.HttpClientSession
+import dev.sluide.projects.RecentProjects
 import dev.sluide.settings.SettingsDialog
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.ThemedWindows
@@ -50,6 +51,7 @@ class MainWindow(
     private val themedWindows: ThemedWindows,
     private val projectWindows: ProjectWindows,
     private val httpSession: HttpClientSession,
+    private val recentProjects: RecentProjects,
     systemBrowser: SystemBrowser,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
@@ -123,6 +125,9 @@ class MainWindow(
             fitExplorer(split)
             gitStatus.open(folder)
             stage.title = folder?.let { "${it.fileName ?: it} – $APP_NAME" } ?: APP_NAME
+            // Every opened folder is remembered for the project picker: chosen there, with Open Folder… or given on
+            // the command line (ADR 0034).
+            folder?.let { recentProjects.opened(it) }
         }
 
         // Closing the window first asks to save its unsaved files, then, as it ends its terminals and commands, asks

@@ -9,6 +9,8 @@ import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitCli
 import dev.sluide.git.GitStatusService
 import dev.sluide.httpclient.HttpClientSession
+import dev.sluide.projects.ProjectPicker
+import dev.sluide.projects.RecentProjects
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontsPage
 import dev.sluide.settings.SettingsPages
@@ -17,7 +19,14 @@ import dev.sluide.settings.ThemeSettings
 import dev.sluide.settings.ThemedWindows
 import dev.sluide.terminal.Terminals
 import javafx.application.Platform
+import javafx.event.Event
+import javafx.scene.control.Label
+import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyEvent
+import javafx.scene.input.MouseButton
+import javafx.scene.input.MouseEvent
 import javafx.stage.Stage
+import javafx.stage.Window
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -27,12 +36,15 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.Callable
 import java.util.function.Supplier
 import kotlin.io.path.createDirectories
 import kotlin.io.path.name
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotSame
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -48,15 +60,26 @@ class ProjectWindowsUiTest {
     private lateinit var context: AnnotationConfigApplicationContext
     private lateinit var windows: ProjectWindows
     private lateinit var first: Stage
+    private lateinit var recentProjects: RecentProjects
+
+    /** How often the application was asked to end. */
+    private var exits = 0
+
+    /** The error messages shown. */
+    private val errors = mutableListOf<String>()
 
     @Start
     fun start(stage: Stage) {
         first = stage
         val store = SettingsStore(dir.resolve("settings/settings.properties"))
+        // Never the user's ~/.sluide.
+        recentProjects = RecentProjects(dir.resolve("settings/projects.properties"))
         context =
             AnnotationConfigApplicationContext().apply {
                 register(WindowScopeConfiguration::class.java, ProjectWindows::class.java, SystemBrowser::class.java)
                 registerBean(SettingsStore::class.java, Supplier { store })
+                registerBean(RecentProjects::class.java, Supplier { recentProjects })
+                registerBean(ProjectPicker::class.java, Supplier { ProjectPicker(recentProjects) })
                 registerBean(FontSettings::class.java, Supplier { FontSettings(store) })
                 registerBean(ThemedWindows::class.java, Supplier { ThemedWindows(ThemeSettings(store)) })
                 registerBean(
@@ -81,12 +104,87 @@ class ProjectWindowsUiTest {
                 refresh()
             }
         windows = context.getBean(ProjectWindows::class.java)
+        windows.exit = { exits++ }
+        windows.showError = { errors += it }
         windows.show(stage)
     }
 
     @AfterEach
     fun close() {
-        Platform.runLater { context.close() }
+        // Windows and pickers a test opened would stay on screen for the next ones; the first window is the primary
+        // stage, which the next test shows again. Hiding a picker calls the stubbed exit at most.
+        Platform.runLater {
+            windows.stages.filter { it !== first }.forEach(Stage::hide)
+            pickersOnFx().forEach(Stage::hide)
+            context.close()
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+    }
+
+    private fun pickersOnFx() =
+        Window
+            .getWindows()
+            .filterIsInstance<Stage>()
+            .filter {
+                it.isShowing && it.scene
+                    ?.root
+                    ?.styleClass
+                    ?.contains("project-picker") == true
+            }
+
+    /** The project pickers on screen. */
+    private fun pickers(): List<Stage> = WaitForAsyncUtils.asyncFx(Callable { pickersOnFx() }).get()
+
+    /** Clicks the picker's row of the project named [name]. */
+    private fun choose(
+        robot: FxRobot,
+        picker: Stage,
+        name: String,
+    ) {
+        robot.interact {
+            val row =
+                picker.scene.root
+                    .lookupAll(".project-name")
+                    .filterIsInstance<Label>()
+                    .single { it.text == name }
+            Event.fireEvent(
+                row,
+                MouseEvent(
+                    MouseEvent.MOUSE_CLICKED,
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0,
+                    MouseButton.PRIMARY,
+                    1,
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    false,
+                    false,
+                    true,
+                    false,
+                    false,
+                    null,
+                ),
+            )
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+    }
+
+    /** Presses Escape in [picker]. */
+    private fun escape(
+        robot: FxRobot,
+        picker: Stage,
+    ) {
+        robot.interact {
+            Event.fireEvent(
+                picker.scene.focusOwner ?: picker.scene.root,
+                KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.ESCAPE, false, false, false, false),
+            )
+        }
         WaitForAsyncUtils.waitForFxEvents()
     }
 
@@ -156,5 +254,224 @@ class ProjectWindowsUiTest {
         assertEquals(0, terminals.openCount)
         assertEquals(listOf(first), windows.stages)
         assertEquals(a, window(first).folder)
+    }
+
+    @Test
+    fun `closing the last window shows the project picker`(robot: FxRobot) {
+        robot.interact { first.hide() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val picker = pickers().single()
+        assertEquals("Thoreau", picker.title)
+        assertFalse(picker in windows.stages)
+        assertEquals(emptyList(), windows.stages)
+        assertEquals(0, exits)
+    }
+
+    @Test
+    fun `choosing a remembered project in the picker opens a window for it`(robot: FxRobot) {
+        val remembered = dir.resolve("remembered").createDirectories()
+        recentProjects.opened(remembered)
+        robot.interact { first.hide() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        choose(robot, pickers().single(), "remembered")
+
+        assertEquals(emptyList(), pickers())
+        val stage = windows.stages.single()
+        assertTrue(stage.isShowing)
+        assertEquals(remembered, window(stage).folder)
+        assertEquals(0, exits)
+        robot.interact { stage.hide() }
+    }
+
+    /** Shows the picker for the remembered folder [name] after closing the only window, and chooses it. */
+    private fun chooseAfterLastWindow(
+        robot: FxRobot,
+        name: String,
+    ) {
+        recentProjects.opened(dir.resolve(name).createDirectories())
+        robot.interact { first.hide() }
+        WaitForAsyncUtils.waitForFxEvents()
+        choose(robot, pickers().single(), name)
+    }
+
+    private fun showingStages(): List<Stage> =
+        WaitForAsyncUtils
+            .asyncFx(Callable { Window.getWindows().filterIsInstance<Stage>().filter { it.isShowing } })
+            .get()
+
+    @Test
+    fun `a chosen folder that vanished before its window opens shows an error and the picker again`(robot: FxRobot) {
+        windows.isFolder = { false }
+
+        chooseAfterLastWindow(robot, "vanished")
+
+        assertEquals(emptyList(), windows.stages)
+        val picker = pickers().single()
+        assertEquals(listOf(picker), showingStages(), "no window without a folder stays open")
+        assertTrue(errors.single().contains("vanished"), errors.single())
+        assertEquals(0, exits)
+    }
+
+    @Test
+    fun `a window that fails to open is closed again, with an error and the picker again`(robot: FxRobot) {
+        // The folder vanishes right after the check, so the window's project service refuses it.
+        windows.isFolder = { folder ->
+            Files.delete(folder)
+            true
+        }
+
+        chooseAfterLastWindow(robot, "failing")
+
+        assertEquals(emptyList(), windows.stages)
+        val picker = pickers().single()
+        assertEquals(listOf(picker), showingStages(), "the failed window is closed")
+        assertTrue(errors.single().contains("failing"), errors.single())
+        assertEquals(0, exits)
+    }
+
+    @Test
+    fun `a command-line folder that fails shows an error and the other folders still open`(robot: FxRobot) {
+        val missing = dir.resolve("missing")
+        val b = dir.resolve("b").createDirectories()
+        lateinit var stage: Stage
+        robot.interact {
+            stage = Stage()
+            windows.start(stage, listOf(missing, b))
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertTrue(errors.single().contains("missing"), errors.single())
+        assertFalse(stage.isShowing)
+        assertEquals(listOf(first.title, "b – Thoreau"), windows.stages.map { it.title })
+        assertEquals(emptyList(), pickers())
+    }
+
+    @Test
+    fun `when no command-line folder opens, the picker appears`(robot: FxRobot) {
+        // Without any window or picker, as at startup.
+        robot.interact { first.hide() }
+        robot.interact { pickersOnFx().forEach(Stage::hide) }
+        exits = 0
+        lateinit var stage: Stage
+
+        robot.interact {
+            stage = Stage()
+            windows.start(stage, listOf(dir.resolve("missing")))
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertTrue(errors.single().contains("missing"), errors.single())
+        assertEquals(emptyList(), windows.stages)
+        assertEquals(listOf(pickers().single()), showingStages())
+        assertEquals(0, exits)
+    }
+
+    @Test
+    fun `a window that fails while closing still leaves the picker`(robot: FxRobot) {
+        // Not the first window: a failing handler interrupts hiding, which would leave the primary stage unusable for
+        // the next tests.
+        robot.interact {
+            window(first).openFolder(dir.resolve("a").createDirectories())
+            window(first).openFolder(dir.resolve("b").createDirectories())
+        }
+        val last = windows.stages[1]
+        robot.interact { first.hide() }
+        val failure = IllegalStateException("dispose failed")
+        windows.disposeWindow = { throw failure }
+        var thrown: Throwable? = null
+
+        robot.interact { thrown = runCatching { last.hide() }.exceptionOrNull() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertSame(failure, thrown)
+        assertEquals(emptyList(), windows.stages)
+        assertEquals("Thoreau", pickers().single().title)
+        assertEquals(0, exits)
+    }
+
+    @Test
+    fun `cancelling the picker without an open window ends the application`(robot: FxRobot) {
+        robot.interact { first.hide() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        escape(robot, pickers().single())
+
+        assertEquals(emptyList(), pickers())
+        assertEquals(1, exits)
+    }
+
+    @Test
+    fun `cancelling the picker while a window is open keeps the application running`(robot: FxRobot) {
+        robot.interact { windows.showPicker() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        escape(robot, pickers().single())
+
+        assertEquals(emptyList(), pickers())
+        assertEquals(0, exits)
+        assertEquals(listOf(first), windows.stages)
+    }
+
+    @Test
+    fun `closing the context closes the windows without showing the picker`(robot: FxRobot) {
+        robot.interact { window(first).openFolder(dir.resolve("a").createDirectories()) }
+
+        robot.interact { context.close() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(emptyList(), windows.stages)
+        assertEquals(emptyList(), pickers())
+        assertEquals(0, exits)
+    }
+
+    @Test
+    fun `starting without folders shows the picker instead of a window`(robot: FxRobot) {
+        lateinit var stage: Stage
+        robot.interact {
+            stage = Stage()
+            windows.start(stage, emptyList())
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals("Thoreau", pickers().single().title)
+        assertFalse(stage.isShowing)
+        assertEquals(listOf(first), windows.stages)
+    }
+
+    @Test
+    fun `starting with folders opens them without the picker`(robot: FxRobot) {
+        val a = dir.resolve("a").createDirectories()
+        val b = dir.resolve("b").createDirectories()
+        lateinit var stage: Stage
+        robot.interact {
+            stage = Stage()
+            windows.start(stage, listOf(a, b))
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(emptyList(), pickers())
+        val started = windows.stages.drop(1)
+        assertEquals(2, started.size)
+        assertSame(stage, started[0])
+        assertEquals(listOf(a, b), started.map { window(it).folder })
+        assertTrue(started.all { it.isShowing })
+        robot.interact { started.forEach(Stage::hide) }
+    }
+
+    @Test
+    fun `opened folders are remembered`(robot: FxRobot) {
+        val a = dir.resolve("a").createDirectories()
+        val b = dir.resolve("b").createDirectories()
+
+        robot.interact {
+            window(first).openFolder(a)
+            window(first).openFolder(b)
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(setOf(a, b), recentProjects.list().map { it.folder }.toSet())
+        robot.interact { windows.stages[1].hide() }
     }
 }

@@ -1,6 +1,8 @@
 package dev.sluide.ide
 
+import dev.sluide.settings.ThemedWindows
 import javafx.application.Application
+import javafx.application.Platform
 import javafx.stage.Stage
 import org.springframework.boot.WebApplicationType
 import org.springframework.boot.autoconfigure.SpringBootApplication
@@ -17,6 +19,8 @@ class SluIdeConfiguration
 /**
  * JavaFX application that owns the lifecycle of the Spring context. Folders given on the command line
  * (`Thoreau [folder…]`) are opened at startup: the first in the startup window, every other one in a new window.
+ * Without folders the project picker is shown instead (ADR 0034). The application ends when the picker is cancelled
+ * while no window is open, not when the last window closes.
  */
 class SluIdeApplication : Application() {
     private lateinit var context: ConfigurableApplicationContext
@@ -33,9 +37,12 @@ class SluIdeApplication : Application() {
     override fun start(primaryStage: Stage) {
         context.getBean(SystemBrowser::class.java).hostServices = hostServices
         val folders = startupFolders(parameters.unnamed)
+        // The project picker replaces quitting when the last window is closed (ADR 0034).
+        Platform.setImplicitExit(false)
+        // The picker may be the first window, so the theme must apply before any main window installs it.
+        context.getBean(ThemedWindows::class.java).install()
         val windows = context.getBean(ProjectWindows::class.java)
-        windows.show(primaryStage, folders.firstOrNull())
-        folders.drop(1).forEach(windows::open)
+        windows.start(primaryStage, folders)
     }
 
     override fun stop() {
