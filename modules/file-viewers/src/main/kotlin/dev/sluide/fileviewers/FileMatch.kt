@@ -1,0 +1,75 @@
+package dev.sluide.fileviewers
+
+import java.nio.file.Files
+import java.nio.file.Path
+import kotlin.io.path.extension
+import kotlin.io.path.name
+
+/**
+ * Which text files a viewer opens, all case-insensitive: files with one of the [extensions], with one of the exact
+ * file [names] (`dockerfile`, `.bashrc`), or whose whole name matches one of the [namePatterns] (`dockerfile\..*`).
+ * Files without an extension also match if their first line is a shebang naming one of the [interpreters]
+ * (see [shebangInterpreter]); a file with an extension never matches by its shebang.
+ */
+internal class FileMatch(
+    extensions: Set<String>,
+    names: Set<String> = emptySet(),
+    namePatterns: List<Regex> = emptyList(),
+    interpreters: Set<String> = emptySet(),
+) {
+    private val extensions = extensions.mapTo(HashSet()) { it.lowercase() }
+    private val names = names.mapTo(HashSet()) { it.lowercase() }
+    private val namePatterns = namePatterns.map { Regex(it.pattern, it.options + RegexOption.IGNORE_CASE) }
+    private val interpreters = interpreters.mapTo(HashSet()) { it.lowercase() }
+
+    /** Whether [file] is a readable text file that matches by its name or, without an extension, by its shebang. */
+    fun matches(file: Path): Boolean {
+        if (matchesName(file)) return Files.isReadable(file) && isTextFile(file)
+        if (interpreters.isEmpty() || file.extension.isNotEmpty() || !Files.isReadable(file)) return false
+        return firstLine(file)?.let(::shebangInterpreter)?.let(::isInterpreter) ?: false
+    }
+
+    private fun matchesName(file: Path): Boolean {
+        val name = file.name
+        return file.extension.lowercase() in extensions ||
+            name.lowercase() in names ||
+            namePatterns.any { it.matches(name) }
+    }
+
+    /** `python3.12` is accepted as `python3.12`, `python3` and `python`. */
+    private fun isInterpreter(name: String): Boolean {
+        val raw = name.lowercase()
+        return raw in interpreters ||
+            raw.replace(MINOR_VERSIONS, "") in interpreters ||
+            raw.replace(VERSION, "") in interpreters
+    }
+
+    private companion object {
+        val MINOR_VERSIONS = Regex("""(\.\d+)+$""")
+        val VERSION = Regex("""\d+(\.\d+)*$""")
+    }
+}
+
+/**
+ * The interpreter a shebang [line] names, without its folder: `bash` for `#!/bin/bash` or `#! /bin/bash -e`, and
+ * `python3` for `#!/usr/bin/env python3` or `#!/usr/bin/env -S python3 -u` (options and `NAME=value` settings of
+ * `env` are skipped). `null` if the line is no shebang or names nothing.
+ */
+internal fun shebangInterpreter(line: String): String? {
+    if (!line.startsWith("#!")) return null
+    val words =
+        line
+            .substring(2)
+            .trim()
+            .split(WHITESPACE)
+            .filter { it.isNotEmpty() }
+    val command = words.firstOrNull()?.substringAfterLast('/') ?: return null
+    if (command != "env") return command.ifEmpty { null }
+    return words
+        .drop(1)
+        .firstOrNull { !it.startsWith("-") && '=' !in it }
+        ?.substringAfterLast('/')
+        ?.ifEmpty { null }
+}
+
+private val WHITESPACE = Regex("""\s+""")
