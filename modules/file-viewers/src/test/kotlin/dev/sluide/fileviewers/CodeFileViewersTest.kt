@@ -56,6 +56,7 @@ class CodeFileViewersTest {
                 ),
             GitBlameIgnoreRevsFileViewer() to listOf(".git-blame-ignore-revs"),
             SshConfigFileViewer() to listOf("sshd_config", "ssh_config"),
+            CaddyfileFileViewer() to listOf("Caddyfile", "Caddyfile.dev", "site.caddyfile"),
         )
 
     private val others = listOf("notes.txt", "README", "py", "README.md", "index.html", "icon.svg")

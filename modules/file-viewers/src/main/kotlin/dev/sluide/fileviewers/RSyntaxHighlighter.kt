@@ -392,6 +392,8 @@ internal class RSyntaxHighlighter(
 
                 "ssh-config", "sshconfig", "ssh_config", "sshd_config" -> sshConfig
 
+                "caddyfile", "caddy" -> caddyfile
+
                 else -> null
             }
 
@@ -680,6 +682,27 @@ internal class RSyntaxHighlighter(
                         Regex("""^\s*(?<comment>#.*)"""),
                         Regex("""(?i)^\s*(?:Host|Match)(?:\s*=\s*|\s+)(?<type>.*?)\s*$"""),
                         Regex("""^\s*(?<keyword>[A-Za-z][A-Za-z0-9]*)"""),
+                    ),
+            )
+
+        /**
+         * Caddyfiles: `#` comments (at the start of a line or after whitespace), site addresses and snippets (an
+         * unindented line opening a block) as types, quoted and backtick strings, directives (the first word of a
+         * line) as keywords, and named matchers (`@api`) and placeholders (`{path}`, `{$ENV}`) as annotations.
+         * Known gap: a site address without a block (a Caddyfile serving one site) shows as a directive.
+         */
+        val caddyfile =
+            RSyntaxHighlighter(
+                SyntaxConstants.SYNTAX_STYLE_NONE,
+                lineRules =
+                    listOf(
+                        Regex("""^\s*(?<comment>#.*)"""),
+                        Regex("""^(?<type>[^\s#{}@][^{]*?)\s*\{\s*$"""),
+                        Regex("""(?<string>"(?:[^"\\]|\\.)*"|`[^`]*`)"""),
+                        Regex("""(?<=\s)(?<comment>#.*)"""),
+                        Regex("""^\s*(?<keyword>[a-z_][\w-]*)(?=\s|$)"""),
+                        Regex("""(?<![^\s(])(?<annotation>@[\w-]+)"""),
+                        Regex("""(?<annotation>\{[^\s{}]+})"""),
                     ),
             )
     }
