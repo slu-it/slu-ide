@@ -5,6 +5,7 @@ import javafx.scene.Scene
 import javafx.scene.input.KeyCode
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.io.TempDir
@@ -207,7 +208,7 @@ class EditorKeysUiTest {
     }
 
     @Test
-    fun `shortcut+slash comments lines out and in, in the language of the viewer`(robot: FxRobot) {
+    fun `shortcut+shift+7 comments lines out and in, in the language of the viewer`(robot: FxRobot) {
         val python = dir.resolve("main.py").apply { writeText("x = 1\ny = 2\n") }
         val view = WaitForAsyncUtils.asyncFx<CodeView> { PythonFileViewer().open(python) as CodeView }.get()
         robot.interact { container.children.setAll(view.node) }
@@ -221,6 +222,18 @@ class EditorKeysUiTest {
         val kotlin = open("Main.kt", "    f()", robot)
         robot.pressToggleComment(kotlin)
         assertEquals("    // f()", kotlin.area.text)
+    }
+
+    @Test
+    fun `shortcut+slash comments lines out with the key that types a slash on this layout`(robot: FxRobot) {
+        val key = slashKey()
+        assumeTrue(key != null, "JavaFX cannot tell which key types / (macOS: not before a real key press)")
+        val (code, shift) = checkNotNull(key)
+        val view = open("Main.kt", "f()", robot)
+
+        robot.press(view.area, code, shortcut = true, shift = shift)
+
+        assertEquals("// f()", view.area.text)
     }
 
     @Test
@@ -244,17 +257,8 @@ class EditorKeysUiTest {
         assertEquals(text, view.area.text)
     }
 
-    /** Presses Shortcut+/ with the key that types `/` on this keyboard layout, Shift+7 on some. */
+    /** Presses Shortcut+Shift+7, which unlike Shortcut+/ is matched by the key on every platform. */
     private fun FxRobot.pressToggleComment(view: CodeView) {
-        val (code, shift) =
-            WaitForAsyncUtils
-                .asyncFx<Pair<KeyCode, Boolean>> {
-                    KeyCode.entries.firstNotNullOf { code ->
-                        listOf(false, true)
-                            .firstOrNull { shift -> TOGGLE_COMMENT.match(keyPress(code, shift)) }
-                            ?.let { code to it }
-                    }
-                }.get()
-        press(view.area, code, shortcut = true, shift = shift)
+        press(view.area, KeyCode.DIGIT7, shortcut = true, shift = true)
     }
 }

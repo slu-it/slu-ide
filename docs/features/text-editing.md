@@ -28,7 +28,7 @@ and saving), [ADR 0022](../adr/0022-editor-key-bindings.md) (keys) and
   | Shortcut+D | Duplicates the selection after it and selects the copy; without a selection, copies the line below and moves the caret along. |
   | Shortcut+Shift+K | Deletes the lines the selection or caret touches; the caret keeps its column on the line that takes their place. |
   | Alt+Shift+Up / Down | Moves those lines above the previous / below the next line, with the selection. |
-  | Shortcut+/ | Comments the touched non-blank lines out, or back in if all of them are commented (see below). Matched by the character, so it also works where `/` is Shift+7. |
+  | Shortcut+/, Shortcut+Shift+7 | Comments the touched non-blank lines out, or back in if all of them are commented (see below). Shortcut+/ is matched by the character, so it also works where `/` is Shift+7; Shortcut+Shift+7 works on every layout. |
   | Shortcut+F | Opens the find bar (below). |
   | Shortcut+R | Opens the find bar with the row for replacing. |
   | F3 / Shift+F3 | Selects the next / previous match; opens the find bar if needed, with the focus staying in the text. On macOS keyboards F3 needs Fn. |

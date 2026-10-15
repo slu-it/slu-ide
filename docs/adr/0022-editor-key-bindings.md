@@ -41,7 +41,7 @@ its own keys. JavaFX menu accelerators fire for whatever has the focus once a ke
   | Shortcut+D | duplicate the selection or line | IntelliJ (VS Code: Shift+Alt+Down) |
   | Shortcut+Shift+K | delete the lines | VS Code; IntelliJ's Ctrl+Y is redo elsewhere, Cmd+Backspace deletes words |
   | Alt+Shift+Up / Down | move the lines | IntelliJ (VS Code: Alt+Up/Down) |
-  | Shortcut+/ | comment lines out or back in | both |
+  | Shortcut+/, Shortcut+Shift+7 | comment lines out or back in | both (Shortcut+Shift+7: Shortcut+/ on German layouts) |
   | Shortcut+F / Shortcut+R | find / replace | both / IntelliJ (VS Code: Ctrl+H) |
   | F3 / Shift+F3, Enter / Shift+Enter in the query | next / previous match (F3 in the text opens the bar but keeps the focus there) | both |
   | Escape | close the find bar | both |
@@ -49,6 +49,9 @@ its own keys. JavaFX menu accelerators fire for whatever has the focus once a ke
   | Shortcut+Enter | in the HTTP view only, while the text has the focus: run the request at the caret ([ADR 0026](0026-http-client-window-session.md)) | IntelliJ's HTTP client |
 - **Shortcut+/ by character.** It is a `KeyCharacterCombination("/")` with Shift allowed: on many keyboard layouts
   (German, Swedish) `/` is Shift+7, so a `KeyCodeCombination(SLASH)` would never match there.
+- **Shortcut+Shift+7 by key, too.** On macOS JavaFX learns which key types a character only from real key presses,
+  so synthetic key events never match Shortcut+/ there. A `KeyCodeCombination(DIGIT7)` gives the same keys on German
+  layouts and lets UI tests toggle comments on every platform.
 - **Window commands stay menu accelerators** in `MainWindow` (File → Save, Save All); they act on the selected tab,
   not on the focused text.
 - **No command registry yet.** There is no Edit menu, no list of commands and no way to change keys. Commands are
@@ -73,5 +76,7 @@ Rejected:
 - Cmd+G is "find next" in most macOS applications, but goes to a line here, as Ctrl+G does on Linux and Windows: a
   deliberate choice for the same keys on all platforms, as IntelliJ has them on Linux and Windows.
 - Searching blocks the window for at most the time budget; a regex that needs longer finds nothing.
-- UI tests fire `KeyEvent`s at the area (`KeyPresses.kt`); the key for Shortcut+/ is looked up for the current layout.
+- UI tests fire `KeyEvent`s at the area (`KeyPresses.kt`). They toggle comments with Shortcut+Shift+7; the test of
+  Shortcut+/ looks up the key for the current layout and is skipped where it cannot (macOS).
+- Shortcut+Shift+7 also toggles comments on layouts where it types `&` (US) rather than `/`.
 - Add new editor keys to `EditorKeys.kt` (or the find bar) and to `docs/features/text-editing.md`.

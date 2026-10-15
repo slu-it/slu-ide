@@ -5,6 +5,7 @@ import javafx.scene.Node
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import org.testfx.api.FxRobot
+import org.testfx.util.WaitForAsyncUtils
 
 /** Whether Shortcut is Cmd (macOS) rather than Ctrl. */
 private val shortcutIsMeta = System.getProperty("os.name").startsWith("Mac")
@@ -31,3 +32,17 @@ internal fun keyPress(
     alt: Boolean = false,
 ): KeyEvent =
     KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, shift, shortcut && !shortcutIsMeta, alt, shortcut && shortcutIsMeta)
+
+/**
+ * The key that types `/` on this keyboard layout and whether it needs Shift (Shift+7 on some), as [TOGGLE_COMMENT]
+ * matches it; `null` where the platform cannot tell: macOS maps characters to keys only after real key presses.
+ */
+internal fun slashKey(): Pair<KeyCode, Boolean>? =
+    WaitForAsyncUtils
+        .asyncFx<Pair<KeyCode, Boolean>?> {
+            KeyCode.entries.firstNotNullOfOrNull { code ->
+                listOf(false, true)
+                    .firstOrNull { shift -> TOGGLE_COMMENT.match(keyPress(code, shift)) }
+                    ?.let { code to it }
+            }
+        }.get()

@@ -10,10 +10,12 @@ import dev.sluide.textediting.TextEdit
 import javafx.event.Event
 import javafx.scene.input.KeyCharacterCombination
 import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
 import javafx.scene.input.KeyEvent
 import org.fxmisc.richtext.CodeArea
 import org.fxmisc.wellbehaved.event.EventPattern
+import org.fxmisc.wellbehaved.event.EventPattern.anyOf
 import org.fxmisc.wellbehaved.event.EventPattern.keyPressed
 import org.fxmisc.wellbehaved.event.InputMap
 
@@ -21,8 +23,9 @@ import org.fxmisc.wellbehaved.event.InputMap
  * The editing keys of a code view's [area], taking precedence over RichTextFX's own (add them with
  * `Nodes.addInputMap`): Enter (also with Shift) keeps the indentation, Tab and Shift+Tab indent and outdent in
  * the current [style]; Shortcut+D duplicates the selection or line, Shortcut+Shift+K deletes lines, Alt+Shift+Up/Down move them;
- * Shortcut+/ ([TOGGLE_COMMENT]) comments lines out with [comment] or back in. They act only while the area is
- * editable; otherwise RichTextFX's bindings, which do nothing then either, get the keys.
+ * Shortcut+/ ([TOGGLE_COMMENT]) and Shortcut+Shift+7 ([TOGGLE_COMMENT_KEY]) comment lines out with [comment] or back
+ * in. They act only while the area is editable; otherwise RichTextFX's bindings, which do nothing then either, get
+ * the keys.
  */
 internal fun editorKeys(
     area: CodeArea,
@@ -52,7 +55,9 @@ internal fun editorKeys(
             keyPressed(KeyCode.DOWN, KeyCombination.ALT_DOWN, KeyCombination.SHIFT_DOWN),
             edit = LineOperations::moveDown,
         ),
-        area.editOn(keyPressed(TOGGLE_COMMENT)) { text, selection -> LineComments.toggle(text, selection, comment) },
+        area.editOn(anyOf(keyPressed(TOGGLE_COMMENT), keyPressed(TOGGLE_COMMENT_KEY))) { text, selection ->
+            LineComments.toggle(text, selection, comment)
+        },
     )
 
 /**
@@ -60,6 +65,14 @@ internal fun editorKeys(
  * Swedish) `/` is Shift+7.
  */
 internal val TOGGLE_COMMENT = KeyCharacterCombination("/", KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_ANY)
+
+/**
+ * Shortcut+Shift+7, matched by the key: where `/` is Shift+7 the same keys as [TOGGLE_COMMENT], but without asking the
+ * platform which key types `/`. On macOS JavaFX only knows that after the key has been pressed for real, so synthetic
+ * key events (UI tests) can never match [TOGGLE_COMMENT] there.
+ */
+internal val TOGGLE_COMMENT_KEY =
+    KeyCodeCombination(KeyCode.DIGIT7, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN)
 
 /**
  * Consumes key presses matching [pattern] while the area is editable, applying the edit that [edit] makes of the

@@ -11,9 +11,7 @@ import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.Menu
-import javafx.scene.input.KeyCharacterCombination
 import javafx.scene.input.KeyCode
-import javafx.scene.input.KeyCombination
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
@@ -489,16 +487,8 @@ class HttpFileViewUiTest {
     @Test
     fun `comments lines with #`(robot: FxRobot) {
         val view = open(dir.resolve("api.http").apply { writeText("GET http://x\n") }, robot)
-        val toggle = KeyCharacterCombination("/", KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_ANY)
-        val (code, shift) =
-            WaitForAsyncUtils
-                .asyncFx<Pair<KeyCode, Boolean>> {
-                    KeyCode.entries.firstNotNullOf { code ->
-                        listOf(false, true).firstOrNull { toggle.match(keyPress(code, it)) }?.let { code to it }
-                    }
-                }.get()
 
-        robot.press(robot.area(), code, shortcut = true, shift = shift)
+        robot.press(robot.area(), KeyCode.DIGIT7, shortcut = true, shift = true)
 
         assertEquals("# GET http://x\n", robot.area().text)
         assertTrue(view.dirty.get())

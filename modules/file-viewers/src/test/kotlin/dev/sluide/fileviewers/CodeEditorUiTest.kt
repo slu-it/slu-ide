@@ -74,17 +74,8 @@ class CodeEditorUiTest {
         val file = dir.resolve("a.req").apply { writeText("GET x\n") }
         val editor = WaitForAsyncUtils.asyncFx<CodeEditor> { CodeEditors.open(file, null, lineComment = "#") }.get()
         robot.interact { container.children.setAll(editor.node) }
-        val (code, shift) =
-            WaitForAsyncUtils
-                .asyncFx<Pair<KeyCode, Boolean>> {
-                    KeyCode.entries.firstNotNullOf { code ->
-                        listOf(false, true)
-                            .firstOrNull { shift -> TOGGLE_COMMENT.match(keyPress(code, shift)) }
-                            ?.let { code to it }
-                    }
-                }.get()
 
-        robot.press(robot.area(), code, shortcut = true, shift = shift)
+        robot.press(robot.area(), KeyCode.DIGIT7, shortcut = true, shift = true)
 
         assertEquals("# GET x\n", editor.text)
     }

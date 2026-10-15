@@ -41,7 +41,7 @@ Content-Type: image/png
   `# @connection-timeout 5 s` (`ms`, `s`, `m`; a plain number is seconds).
 - `Authorization: Basic user password` (or `user:password`) is encoded for you; `Authorization: Digest user password`
   answers the server's Digest challenge.
-- Shortcut+/ comments lines out with `#` (and back in).
+- Shortcut+/ (or Shortcut+Shift+7) comments lines out with `#` (and back in).
 - Highlighting: methods and versions as keywords, URLs as strings, header names as properties, `{{variables}}`, tags and
   `@variables` as annotations, bodies by their `Content-Type` (JSON, XML, HTML), scripts as JavaScript.
 
