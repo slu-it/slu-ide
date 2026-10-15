@@ -37,6 +37,7 @@ class ViewerCommentSyntaxTest {
                 GitBlameIgnoreRevsFileViewer() to CommentSyntax.HASH,
                 SshConfigFileViewer() to CommentSyntax.HASH,
                 CaddyfileFileViewer() to CommentSyntax.HASH,
+                TomlFileViewer() to CommentSyntax.HASH,
             )
         for ((viewer, comment) in expected) assertEquals(comment, viewer.comment, viewer::class.simpleName)
     }

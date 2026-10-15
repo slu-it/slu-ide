@@ -25,7 +25,7 @@ class CodeFileViewersTest {
             TypeScriptFileViewer() to listOf("app.ts", "types.d.ts", "module.mts", "config.cts"),
             JsxFileViewer() to listOf("Button.jsx"),
             TsxFileViewer() to listOf("App.tsx"),
-            JsonFileViewer() to listOf("package.json", "tsconfig.jsonc"),
+            JsonFileViewer() to listOf("package.json", "tsconfig.jsonc", "Pipfile.lock"),
             XmlFileViewer() to listOf("pom.xml", "schema.xsd", "style.xsl", "transform.xslt", "view.fxml", "app.iml"),
             SingleFileComponentFileViewer() to listOf("App.vue", "Page.svelte"),
             YamlFileViewer() to listOf("ci.yml", "config.yaml"),
@@ -58,9 +58,12 @@ class CodeFileViewersTest {
             GitBlameIgnoreRevsFileViewer() to listOf(".git-blame-ignore-revs"),
             SshConfigFileViewer() to listOf("sshd_config", "ssh_config"),
             CaddyfileFileViewer() to listOf("Caddyfile", "Caddyfile.dev", "site.caddyfile"),
+            TomlFileViewer() to
+                listOf("pyproject.toml", "Cargo.toml", "uv.lock", "poetry.lock", "pdm.lock", "Cargo.lock", "Pipfile"),
         )
 
-    private val others = listOf("notes.txt", "README", "py", "README.md", "index.html", "icon.svg")
+    private val others =
+        listOf("notes.txt", "README", "py", "README.md", "index.html", "icon.svg", "yarn.lock")
 
     private fun file(name: String) = dir.resolve(name).apply { writeText("x = 1\n") }
 
@@ -151,5 +154,19 @@ class CodeFileViewersTest {
             assertSame(viewer, viewers.viewerFor(file(own.first())))
         }
         assertSame(fallback, viewers.viewerFor(file("notes.txt")))
+    }
+
+    @Test
+    fun `lock files open in the viewer of their format`() {
+        val fallback = DefaultTextFileViewer()
+        val toml = samples.keys.single { it is TomlFileViewer }
+        val json = samples.keys.single { it is JsonFileViewer }
+        val viewers = FileViewers(listOf(fallback) + samples.keys, fallback)
+
+        assertSame(json, viewers.viewerFor(file("Pipfile.lock")), "Pipfile.lock is JSON")
+        for (name in listOf("Pipfile", "uv.lock", "poetry.lock", "pdm.lock", "Cargo.lock")) {
+            assertSame(toml, viewers.viewerFor(file(name)), name)
+        }
+        assertSame(fallback, viewers.viewerFor(file("yarn.lock")))
     }
 }

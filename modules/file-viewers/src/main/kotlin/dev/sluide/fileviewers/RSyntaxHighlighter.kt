@@ -407,6 +407,7 @@ internal class RSyntaxHighlighter(
                 "caddyfile", "caddy" -> caddyfile
                 "mermaid", "mmd" -> mermaid
                 "dotenv", "env" -> env
+                "toml" -> TomlHighlighter
                 else -> null
             }
 

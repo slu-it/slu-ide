@@ -90,6 +90,52 @@ class HighlightingPerformanceTest {
     }
 
     @Test
+    fun `TOML large files and long lines`() {
+        val toml = TomlHighlighter
+        assertFast("TOML", toml, lines("a.\"b\" = { c = [1, 2.5e3, 'x'], d = 1979-05-27 07:32:00Z } # e\n[t.u]"))
+        assertFast("TOML uv.lock", toml, uvLock(3_000))
+        assertFast("TOML unterminated multi-line string", toml, "a = \"\"\"\n" + uvLock(3_000))
+        assertFast("TOML unterminated array", toml, "a = [\n" + uvLock(3_000))
+        assertFast("TOML recovered headers", toml, lines("b = [ {\n  [x.\"y\"] # c"))
+        assertFast("TOML recovered keys", toml, lines("  b = { c = [1, { d = [2"))
+        assertFast("TOML mismatched closers", toml, "a = " + "[{".repeat(40_000) + "]}".repeat(40_000) + "\n")
+        assertFast("TOML long header in an array", toml, "a = [\n[" + "a.".repeat(40_000) + "a]\n")
+        assertFast("TOML long key in an array", toml, "a = [\n" + "\"x\" . ".repeat(40_000) + "\n")
+        val blanks = " ".repeat(80_000)
+        assertFast("TOML blanks", toml, "a$blanks.${blanks}b$blanks=${blanks}1$blanks#\n[$blanks\n")
+        assertFast("TOML brackets", toml, "a = " + "[".repeat(80_000) + "\n" + "{a=".repeat(40_000) + "\n")
+        assertFast("TOML dots", toml, "a" + ".a".repeat(80_000) + " = 1\n[" + ".\"".repeat(40_000) + "]\n")
+        assertFast("TOML escapes", toml, "a = \"" + "\\\"".repeat(80_000) + "\nb = \"\"\"" + "\\\"".repeat(80_000))
+        assertFast("TOML quotes", toml, "a = " + "\"\"".repeat(80_000) + "\nb = " + "''''".repeat(40_000) + "\n")
+    }
+
+    /** A uv lock file of [count] packages, about 17 lines each. */
+    private fun uvLock(count: Int) =
+        "version = 1\nrequires-python = \">=3.12\"\n\n" +
+            (1..count).joinToString("") { n ->
+                """
+                |[[package]]
+                |name = "package-$n"
+                |version = "1.$n.0"
+                |source = { registry = "https://pypi.org/simple" }
+                |dependencies = [
+                |    { name = "idna" },
+                |    { name = "sniffio", marker = "python_full_version < '3.13'" },
+                |]
+                |sdist = { url = "https://files.pythonhosted.org/packages/9f/09/package-$n.tar.gz", hash = "sha256:f9e57c", size = 173422, upload-time = 2024-10-14T14:31:44.000Z }
+                |wheels = [
+                |    { url = "https://files.pythonhosted.org/packages/e4/f5/package-$n-py3-none-any.whl", hash = "sha256:45ad0a", size = 89766 },
+                |]
+                |
+                |[package.optional-dependencies]
+                |trio = [
+                |    { name = "trio" },
+                |]
+                |
+                """.trimMargin()
+            }
+
+    @Test
     fun `long strings neither overflow the stack nor backtrack`() {
         val escapes = "\\x".repeat(100_000)
         assertFast("Caddy escapes", RSyntaxHighlighter.caddyfile, "  respond \"$escapes\" 200\n")
