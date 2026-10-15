@@ -92,6 +92,27 @@ and never navigate the preview (`FileViewHost`, [file-viewers.md](file-viewers.m
 - Known gaps: statement words used as node names without a link on their line, and arrows inside node text, are
   styled anyway.
 
+## Bicep resource graph (`.bicep`) — `BicepFileViewer`
+- Opens in **Source** (highlighted, [file-viewers.md](file-viewers.md)); **Preview** or **Split** draws the saved
+  file's resources and modules as a Mermaid `flowchart LR` (`BicepGraph`), shown like a Mermaid file: fitted, actual
+  size on a click, drawn again on a theme change, Mermaid's message if it fails. No scroll sync.
+- Nodes: resources (symbol and the last segment of the type, without API version), modules (subroutine shape, symbol
+  and path; a long path keeps its end), child resources nested in a body, `existing` ones dashed, loops marked
+  "(loop)". Params, vars and outputs are not drawn.
+- Edges go from a resource or module to each one its body uses (`dependsOn`, `storage.id`, `parent::child`, spreads
+  `...x`), also through `var`s and chains of them. Only the edge to a parent (by nesting or `parent: x`) is labelled
+  "parent". Comments and strings do not count, interpolations do.
+- A child's body starts at its `{` (or the `[` of a loop), so `= if (…) {` children keep theirs. A short name is first
+  a child of the enclosing resources (innermost first, up to 32 levels), then a top-level declaration; a child's
+  name used outside its parent gives no edge. A body ends at the next top-level declaration (`assert`, `extends`, …
+  too); a declaration keyword at column 0 also ends it and resets the bracket depth, so unbalanced brackets do not
+  swallow the rest (an unindented nested resource counts as top-level).
+- At most 200 nodes and 400 edges (Mermaid draws at most 500 edges and 50,000 characters), with a line above the
+  diagram saying what was left out. A file without resources or modules shows "No resources or modules in this file."
+- Labels keep only ASCII letters, digits, blanks and `_-./:@(),`; every other character becomes an entity code
+  (`#35;`), so a name can neither leave its label nor start a Mermaid statement; ids are `r_<n>`, and
+  `securityLevel: 'strict'` stays. Nodes are no links (no `click`).
+
 ## PEM certificates and keys (`.pem`, `.crt`, `.cer`, `.key`) — `PemFileViewer`
 - Opens only files with `-----BEGIN ` in their first 8 KiB: binary (DER) certificates are no text and are not
   opened, a `.key` without PEM text opens as plain text. BEGIN and END lines must be lines of their own.
