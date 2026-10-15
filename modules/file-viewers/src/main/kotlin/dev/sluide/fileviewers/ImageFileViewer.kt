@@ -1,6 +1,7 @@
 package dev.sluide.fileviewers
 
 import javafx.application.ColorScheme
+import javafx.application.Platform
 import javafx.concurrent.Worker
 import javafx.geometry.Pos
 import javafx.scene.Node
@@ -45,8 +46,9 @@ class ImageFileViewer : FileViewer {
  * image is shown again. Follows the window's colour scheme; read again when the file changes.
  */
 internal class ImageFileView(
-    private val file: Path,
+    file: Path,
 ) : FileView {
+    private var file = file
     val webView = WebView().apply { isContextMenuEnabled = false }
     val status = Label().apply { styleClass += "image-status" }
     private val engine = webView.engine
@@ -84,6 +86,10 @@ internal class ImageFileView(
                 dark = scheme == ColorScheme.DARK
                 if (isLoaded) engine.executeScript("sluide.setDark($dark)")
             }
+        // Like the terminal: whenever its tab is shown, the image takes the focus, so that the zoom keys work at once.
+        pane.sceneProperty().subscribe { scene ->
+            if (scene != null) Platform.runLater { if (!disposed && pane.scene != null) webView.requestFocus() }
+        }
         render()
     }
 
@@ -96,6 +102,20 @@ internal class ImageFileView(
         if (newBytes.contentEquals(bytes)) return
         bytes = newBytes
         render()
+    }
+
+    /**
+     * Follows the file to [to] without rendering again: the bytes are the same. Only to a name of the same image
+     * type; for any other the editor replaces the view.
+     */
+    override fun moved(to: Path): Boolean {
+        val extension = to.extension.lowercase()
+        // Another image type is another page (the type goes into it), so the editor replaces the view.
+        if (disposed || imageTypes[extension] != imageTypes[this.file.extension.lowercase()]) {
+            return false
+        }
+        file = to
+        return true
     }
 
     /** Focuses the image, so that the zoom keys work right away. */

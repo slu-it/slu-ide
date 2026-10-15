@@ -6,6 +6,7 @@ import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.FileViewers
+import dev.sluide.fileviewers.ImageFileViewer
 import dev.sluide.fileviewers.LineChange
 import dev.sluide.fileviewers.PythonFileViewer
 import dev.sluide.fileviewers.TextDiff
@@ -44,9 +45,11 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.awt.image.BufferedImage
 import java.io.IOException
 import java.net.URI
 import java.nio.file.Path
+import javax.imageio.ImageIO
 import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteExisting
 import kotlin.io.path.exists
@@ -1630,5 +1633,59 @@ class EditorAreaUiTest {
         assertSame(service, host.windowService(CharSequence::class.java))
         assertEquals(42, host.windowService(Number::class.java))
         assertNull(host.windowService(Thread::class.java))
+    }
+
+    @Test
+    fun `opening an image focuses its web view so that the zoom keys work`(robot: FxRobot) {
+        val fallback = DefaultTextFileViewer()
+        robot.interact {
+            editor = EditorArea(FileViewers(listOf(fallback, ImageFileViewer()), fallback), watcher, fontSettings)
+            stage.scene = Scene(editor, 800.0, 400.0)
+        }
+        val png = dir.resolve("image.png")
+        ImageIO.write(BufferedImage(40, 40, BufferedImage.TYPE_INT_ARGB), "png", png.toFile())
+
+        open(robot, png)
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertTrue(
+            WaitForAsyncUtils
+                .asyncFx<Boolean> {
+                    stage.scene.focusOwner
+                        ?.javaClass
+                        ?.simpleName == "WebView"
+                }.get(),
+        )
+    }
+
+    @Test
+    fun `renaming an image keeps its view and the focus where it is`(robot: FxRobot) {
+        val fallback = DefaultTextFileViewer()
+        val other = TextField()
+        robot.interact {
+            editor = EditorArea(FileViewers(listOf(fallback, ImageFileViewer()), fallback), watcher, fontSettings)
+            stage.scene = Scene(VBox(other, editor), 800.0, 400.0)
+        }
+        val png = dir.resolve("image.png")
+        ImageIO.write(BufferedImage(40, 40, BufferedImage.TYPE_INT_ARGB), "png", png.toFile())
+        open(robot, png)
+        val tab = checkNotNull(editor.editorTabs.find(png))
+        robot.interact { other.requestFocus() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertSame(other, WaitForAsyncUtils.asyncFx<Any?> { stage.scene.focusOwner }.get())
+
+        val renamed = dir.resolve("renamed.png")
+        move(robot, png, renamed)
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertSame(tab, editor.editorTabs.find(renamed), "the same tab and view")
+        assertSame(other, WaitForAsyncUtils.asyncFx<Any?> { stage.scene.focusOwner }.get())
+        assertEquals(
+            1,
+            robot
+                .lookup(".editor-content")
+                .queryAs(Pane::class.java)
+                .children.size,
+        )
     }
 }

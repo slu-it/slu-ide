@@ -18,6 +18,8 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotSame
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /** Bicep files with a real WebView and the bundled Mermaid. Needs a display, see the `uiTest` Gradle task. */
@@ -170,5 +172,25 @@ class BicepPreviewUiTest {
             "No resources or modules in this file.",
             view.script("document.querySelector('p.diagram-note').textContent"),
         )
+    }
+
+    @Test
+    fun `a Bicep file in Source does not take the focus`(robot: FxRobot) {
+        val view = show(robot, MAIN_BICEP)
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(PreviewMode.SOURCE, WaitForAsyncUtils.asyncFx<PreviewMode> { view.mode.get() }.get())
+        assertNotSame(view.webView, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get())
+    }
+
+    @Test
+    fun `switching a Bicep file from Source to Split leaves the focus in the source`(robot: FxRobot) {
+        val view = show(robot, MAIN_BICEP)
+        robot.interact { view.source.area.requestFocus() }
+
+        robot.interact { view.mode.set(PreviewMode.SPLIT) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertSame(view.source.area, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get())
     }
 }

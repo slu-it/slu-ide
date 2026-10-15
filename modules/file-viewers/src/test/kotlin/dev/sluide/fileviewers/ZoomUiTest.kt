@@ -7,6 +7,7 @@ import javafx.event.EventType
 import javafx.geometry.Point2D
 import javafx.scene.Node
 import javafx.scene.Scene
+import javafx.scene.control.TextField
 import javafx.scene.control.ToggleButton
 import javafx.scene.input.KeyCode
 import javafx.scene.input.MouseButton
@@ -35,6 +36,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -598,5 +600,44 @@ class ZoomUiTest {
 
         assertNull(view.zoom)
         assertTrue(fx { view.node.lookupAll(".zoom-button").isEmpty() })
+    }
+
+    @Test
+    fun `an image view put into a scene takes the focus, and the zoom keys work at once`(robot: FxRobot) {
+        val view = showImage(robot, 400, 200)
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertSame(view.webView, fx { container.scene.focusOwner })
+        assertEquals(1.0, view.scale())
+        robot.interact { Event.fireEvent(container.scene.focusOwner, keyPress(KeyCode.EQUALS)) }
+        assertEquals(1.25, view.scale())
+    }
+
+    @Test
+    fun `an image view takes the focus again when its tab is shown again`(robot: FxRobot) {
+        val view = showImage(robot, 400, 200)
+        val other = TextField()
+        robot.interact { container.children.setAll(other) }
+        robot.interact { other.requestFocus() }
+        assertSame(other, fx { container.scene.focusOwner })
+
+        robot.interact { container.children.setAll(view.node) }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertSame(view.webView, fx { container.scene.focusOwner })
+    }
+
+    @Test
+    fun `an image view that is disposed before it gets its scene does not take the focus`(robot: FxRobot) {
+        val file = png("late.png", 40, 40)
+        val view = fx { ImageFileViewer().open(file) as ImageFileView }
+        val other = TextField()
+        robot.interact { container.children.setAll(other) }
+        robot.interact { other.requestFocus() }
+        robot.interact {
+            container.children.add(view.node)
+            view.dispose()
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertSame(other, fx { container.scene.focusOwner })
     }
 }

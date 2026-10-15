@@ -18,6 +18,7 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /** Mermaid files with a real WebView and the bundled Mermaid. Needs a display, see the `uiTest` Gradle task. */
@@ -239,5 +240,29 @@ class MermaidPreviewUiTest {
         assertEquals(false, view.script("document.querySelector('pre.mermaid').classList.contains('error')"))
         assertEquals("", view.script("document.querySelector('pre.mermaid').textContent"))
         assertEquals(0.0, view.number(svgs))
+    }
+
+    @Test
+    fun `a Mermaid file in Split takes the focus for its diagram`(robot: FxRobot) {
+        val (_, view) = show(robot, "flowchart LR\n  A --> B\n")
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(PreviewMode.SPLIT, fx { view.mode.get() })
+        assertSame(view.webView, fx { container.scene.focusOwner })
+    }
+
+    @Test
+    fun `a Mermaid file left in Source and shown again does not take the focus when switched to Split`(robot: FxRobot) {
+        val (_, view) = show(robot, "flowchart LR\n  A --> B\n")
+        robot.interact { view.mode.set(PreviewMode.SOURCE) }
+        robot.interact { container.children.clear() }
+        robot.interact { container.children.setAll(view.node) }
+        WaitForAsyncUtils.waitForFxEvents()
+        robot.interact { view.source.area.requestFocus() }
+
+        robot.interact { view.mode.set(PreviewMode.SPLIT) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertSame(view.source.area, fx { container.scene.focusOwner })
     }
 }

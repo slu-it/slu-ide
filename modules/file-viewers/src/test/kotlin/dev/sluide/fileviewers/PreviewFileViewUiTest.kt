@@ -31,6 +31,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
 
 /** The preview view, with Markdown and a real WebView. Needs a display, see the `uiTest` Gradle task. */
@@ -551,5 +552,13 @@ class PreviewFileViewUiTest {
 
         val areas = robot.lookup(".code-area").queryAllAs(CodeArea::class.java)
         assertTrue(areas.all { "keyword" in it.getStyleOfChar(1) })
+    }
+
+    @Test
+    fun `a Markdown preview does not take the focus`(robot: FxRobot) {
+        val (_, view) = show(robot, "# Title\n")
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertNotSame(view.webView, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get())
     }
 }
