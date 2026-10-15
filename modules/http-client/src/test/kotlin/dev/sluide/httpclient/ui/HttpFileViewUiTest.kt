@@ -92,7 +92,8 @@ class HttpFileViewUiTest {
     private fun openHosted(
         text: String,
         robot: FxRobot,
-    ): HttpFileView = open(dir.resolve("api.http").apply { writeText(text) }, robot).also { it.host = host }
+    ): HttpFileView =
+        open(dir.resolve("api.http").apply { writeText(text) }, robot).also { robot.interact { it.host = host } }
 
     /** Waits until the response's status is not [running][ResponsePane.running] (and not empty) any more. */
     private fun awaitResult(view: HttpFileView): String {
@@ -270,6 +271,59 @@ class HttpFileViewUiTest {
         assertTrue(view.cancelButton.isDisable)
     }
 
+    @Test
+    fun `runs with the environment chosen for the file in the window`(robot: FxRobot) {
+        dir.resolve("http-client.env.json").writeText(
+            """{"dev": {"host": "${server.base}"}, "local": {"host": "http://127.0.0.1:1"}}""",
+        )
+        dir.resolve("http-client.private.env.json").writeText("""{"dev": {"token": "private-token"}}""")
+        val text = "GET {{host}}/echo\nX-Token: {{token}}\n"
+        val view = openHosted(text, robot)
+
+        awaitEnvironments(view, "No environment", "dev", "local")
+        assertEquals("No environment", view.environments.value)
+        robot.interact { view.environments.value = "dev" }
+        assertEquals("dev", session.environment(dir.resolve("api.http")))
+        robot.interact { view.runButton.fire() }
+
+        assertEquals("200 OK", awaitResult(view))
+        assertTrue("x-token: private-token" in view.response.body.text, view.response.body.text)
+        // Another view of the file in the same window starts with the same environment.
+        val other = openHosted(text, robot)
+        awaitEnvironments(other, "No environment", "dev", "local")
+        assertEquals("dev", other.environments.value)
+    }
+
+    @Test
+    fun `environment files are read again on each run and their problems shown`(robot: FxRobot) {
+        val envFile = dir.resolve("http-client.env.json").apply { writeText("""{"dev": {"host": "x"}}""") }
+        val view = openHosted("GET ${server.base}/echo\n", robot)
+        assertFalse(view.warning.isVisible)
+
+        envFile.writeText("""{"dev": {"host": "x"}, "staging": {"host": "y"}, "${'$'}shared": {}}""")
+        robot.interact { view.runButton.fire() }
+        awaitResult(view)
+
+        awaitEnvironments(view, "No environment", "dev", "staging")
+        assertTrue(view.warning.isVisible)
+        assertEquals("\"${'$'}shared\" is not supported and ignored", view.warning.text)
+
+        envFile.writeText("{ not json")
+        robot.interact { view.runButton.fire() }
+        awaitResult(view)
+        awaitEnvironments(view, "No environment")
+        assertTrue(view.warning.text.startsWith("http-client.env.json: "), view.warning.text)
+    }
+
+    /** Waits until the environment files were read (off the FX thread) and [names] are offered. */
+    private fun awaitEnvironments(
+        view: HttpFileView,
+        vararg names: String,
+    ) {
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { view.environments.items == names.toList() }
+        WaitForAsyncUtils.waitForFxEvents()
+    }
+
     private fun click(node: Node) =
         MouseEvent(
             MouseEvent.MOUSE_CLICKED,
@@ -312,7 +366,7 @@ class HttpFileViewUiTest {
 
     @Test
     fun `follows the file when it is moved, with its environment`(robot: FxRobot) {
-        val session = HttpClientSession(Runnable::run)
+        val session = HttpClientSession()
         val old = dir.resolve("api.http").apply { writeText("GET http://x\n") }
         val view = open(old, robot)
         robot.interact {

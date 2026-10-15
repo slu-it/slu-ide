@@ -18,6 +18,8 @@ import javafx.geometry.Pos
 import javafx.scene.Cursor
 import javafx.scene.Node
 import javafx.scene.control.Button
+import javafx.scene.control.ComboBox
+import javafx.scene.control.Label
 import javafx.scene.control.SplitPane
 import javafx.scene.control.TextInputControl
 import javafx.scene.control.Tooltip
@@ -68,8 +70,31 @@ internal class HttpFileView(
             setOnAction { running?.cancel() }
         }
 
+    /** Whether [refreshEnvironments] fills the combo box, which is no choice of the user's. */
+    private var refreshing = false
+
+    /** "No environment" and the environments of the environment files; the choice is the window's, per file. */
+    val environments =
+        ComboBox<String>().apply {
+            styleClass += "http-environment"
+            tooltip = Tooltip("The environment whose variables the requests use")
+            // Picks up environments added to the files since.
+            setOnShowing { refreshEnvironments() }
+            valueProperty().addListener { _, _, name ->
+                if (!refreshing) session?.chooseEnvironment(file, name.takeIf { it != NO_ENVIRONMENT })
+            }
+        }
+
+    /** Problems of the environment files, e.g. invalid JSON. */
+    val warning =
+        Label().apply {
+            styleClass += "http-warning"
+            isVisible = false
+            isManaged = false
+        }
+
     val toolbar =
-        HBox(runButton, cancelButton).apply {
+        HBox(runButton, cancelButton, environments, warning).apply {
             styleClass += "http-toolbar"
             alignment = Pos.CENTER_LEFT
         }
@@ -123,6 +148,7 @@ internal class HttpFileView(
         editor.addGutterColumn { paragraph -> if (paragraph in requestLines) runIcon(paragraph) else null }
         isRunning.addListener { _, _, running -> cancelButton.isDisable = !running }
         updateRunnable()
+        refreshEnvironments()
     }
 
     /** Gives the editor the host too, which asks it for diffs when a change marker is clicked. */
@@ -131,6 +157,7 @@ internal class HttpFileView(
         set(value) {
             editor.host = value
             updateRunnable()
+            refreshEnvironments()
         }
 
     /** The window's session, through the [host]; `null` without one (e.g. in tests). */
@@ -167,6 +194,8 @@ internal class HttpFileView(
             response.show(ResponseContent.of(failure))
             return
         }
+        // The list follows the files as they are now.
+        refreshEnvironments()
         response.running()
         isRunning.set(true)
         val environment = environmentOf(session)
@@ -197,6 +226,51 @@ internal class HttpFileView(
         return { Environments.load(EnvironmentFiles.find(file, folder))[name] }
     }
 
+    /** The environment files of the file as last read ([refreshEnvironments]). */
+    private var loaded = Environments(emptyList(), emptyList())
+
+    /** Counts the reads of the environment files, so that only the last one is shown. */
+    private var refreshes = 0
+
+    /**
+     * Reads the environment files that apply to the file again, off the FX thread; then offers their environments, with
+     * the one chosen for the file in the window selected, and shows their problems. Until then the previous list stays.
+     */
+    private fun refreshEnvironments() {
+        val session = session ?: return
+        val file = file
+        val folder = host?.projectFolder
+        val refresh = ++refreshes
+        session.inBackground({ Environments.load(EnvironmentFiles.find(file, folder)) }) { result ->
+            if (refresh == refreshes) result.onSuccess(::showEnvironments)
+        }
+    }
+
+    private fun showEnvironments(loaded: Environments) {
+        this.loaded = loaded
+        val chosen = session?.environment(file)
+        refreshing = true
+        try {
+            environments.items.setAll(listOf(NO_ENVIRONMENT) + loaded.names)
+            environments.value = chosen?.takeIf { it in loaded.names } ?: NO_ENVIRONMENT
+        } finally {
+            refreshing = false
+        }
+        showProblems(loaded.problems + loaded.environments.flatMap { env -> env.problems.map { "${env.name}: $it" } })
+    }
+
+    private fun showProblems(problems: List<String>) {
+        warning.text =
+            when (problems.size) {
+                0 -> ""
+                1 -> problems.single()
+                else -> "${problems.size} problems in the environment files"
+            }
+        warning.tooltip = if (problems.isEmpty()) null else Tooltip(problems.joinToString("\n"))
+        warning.isVisible = problems.isNotEmpty()
+        warning.isManaged = problems.isNotEmpty()
+    }
+
     private fun showResponsePane() {
         if (response.node in split.items) return
         split.items += response.node
@@ -206,6 +280,7 @@ internal class HttpFileView(
     private fun updateRunnable() {
         val runnable = session != null
         runButton.isDisable = !runnable
+        environments.isDisable = !runnable
         runButton.tooltip =
             Tooltip(if (runnable) "Run the request at the caret ($RUN_KEY_TEXT)" else "Requests run in an IDE window")
     }
@@ -230,6 +305,7 @@ internal class HttpFileView(
     }
 
     private companion object {
+        const val NO_ENVIRONMENT = "No environment"
         val RUN_KEY = KeyCodeCombination(KeyCode.ENTER, KeyCombination.SHORTCUT_DOWN)
         val RUN_KEY_TEXT: String = RUN_KEY.displayText
         val REPARSE_PAUSE: JavaDuration = JavaDuration.ofMillis(300)
