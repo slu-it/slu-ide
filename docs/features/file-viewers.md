@@ -42,11 +42,13 @@
   having one, so dotfiles go into `names`. `FileViewers` reads the file's 8 KiB text sample once for all viewers and
   takes the shebang from its first line. A code view renders a RichTextFX `CodeArea`, colours the tokens from a `SyntaxHighlighter`
   (`RSyntaxHighlighter` = RSyntaxTextArea lexers, [ADR 0005](../adr/0005-syntax-highlighting.md)) and is styled by
-  `syntax.css`; its banners (file changed or deleted on disk) and find bar by `code-view.css`. Small formats without
-  a lexer (ignore files, `.git-blame-ignore-revs`, SSH config, Caddyfiles, Mermaid, cookie jars, PEM) are line rules
-  on the plain lexer, which itself is never run (it styles nothing and takes quadratic time on long lines full of
-  backslashes). Line rules and lexer spans are combined in near-linear time, so large files and long lines stay fast
-  (`HighlightingPerformanceTest`). Edited text is highlighted again in
+  `syntax.css`; its banners (file changed or deleted on disk, generated file) and find bar by `code-view.css`. Small
+  formats without a lexer (ignore files, `.git-blame-ignore-revs`, SSH config, Caddyfiles, Mermaid, cookie jars, PEM)
+  are line rules on the plain lexer, which itself is never run (it styles nothing and takes quadratic time on long
+  lines full of backslashes). Larger languages without a lexer (TOML, Bicep, KQL) have their own tokenizers
+  (`TomlHighlighter`, `BicepHighlighter`, `KqlHighlighter`; [ADR 0031](../adr/0031-own-tokenizers.md)): one linear
+  pass over the whole text, never flagging errors. Line rules and lexer spans are combined in near-linear time, so
+  large files and long lines stay fast (`HighlightingPerformanceTest`). Edited text is highlighted again in
   the background once typing pauses ([ADR 0020](../adr/0020-editing-and-saving-files.md)). Token classes: `keyword`, `type`, `builtin`, `string`, `number`, `comment`, `annotation`, `property`, `tag`, `attribute`, `operator`.
   The viewer's `comment` parameter (a `CommentSyntax`) says how Shortcut+/ comments out lines; preview viewers take
   one for their source too ([text-editing.md](text-editing.md)).
@@ -61,7 +63,7 @@
   | `TypeScriptFileViewer` | `.ts`, `.mts`, `.cts` | keywords such as `type`, `readonly`, `as`, `keyof`, `satisfies`; types `unknown`, `never`, `object`, `symbol`, `bigint`; decorators |
   | `JsxFileViewer` | `.jsx` | as JavaScript; line rules add JSX tags (`tag`: `<Name` and its `>`/`/>` when the tag is complete on its line or its attributes continue on the next lines, `</Name>`, fragments, a `>`/`/>` alone on a line) and attributes with a value (`attribute`). Code like `a <b && c > d` or `b="x"` stays code, and strings are never restyled. Known gaps: text between tags is lexed as code (e.g. `for` shows as a keyword); boolean attributes are unstyled |
   | `TsxFileViewer` | `.tsx` | as TypeScript plus JSX like `JsxFileViewer`; generics (`useState<T>(`, `<T>(x: T) => T`, `<T,>`) are no tags. Known gap (also in `.ts`): after `= <` the lexer reads E4X markup to the end of the line, so the rest of a generic arrow function's line is unstyled |
-  | `JsonFileViewer` | `.json`, `.jsonc` | keys as `property`; `//` comments allowed (`/* */` are not recognised) |
+  | `JsonFileViewer` | `.json`, `.jsonc`; `Pipfile.lock` | keys as `property`; `//` comments allowed (`/* */` are not recognised) |
   | `XmlFileViewer` | `.xml`, `.xsd`, `.xsl`, `.xslt`, `.fxml`, `.iml` (IntelliJ modules) | none needed; DTDs/processing instructions styled as `annotation`, entities as `number`, CDATA as `string` |
   | `HtmlFileViewer` (source side of the preview, [previews.md](previews.md)) | `.html`, `.htm`, `.xhtml` | none needed; `<!DOCTYPE>` as `annotation`, entities as `number`, embedded `<script>` and `<style>` highlighted as JavaScript and CSS |
   | `SingleFileComponentFileViewer` | `.vue`, `.svelte` | as HTML; tag names the lexer does not know (`<template>`, components like `<MyCard>`) are made `tag` by the same whole-tag rules as JSX. Known gaps: `<script lang="ts">` is lexed as JavaScript; template expressions (`{{ … }}`, `{…}`, `{#if}`) are plain text |
@@ -82,6 +84,10 @@
   | `GitBlameIgnoreRevsFileViewer` | `.git-blame-ignore-revs` | no lexer; line rules: `#` comments, commit hashes (7 to 64 hex digits) as `number` |
   | `SshConfigFileViewer` | `sshd_config`, `ssh_config` | no lexer; line rules: `#` comment lines, the first word (the option) as `keyword`, what `Host`/`Match` apply to as `type` |
   | `CaddyfileFileViewer` | `Caddyfile`, `Caddyfile.*`, `.caddyfile` | no lexer; line rules: `#` comments, site addresses and snippets (unindented lines opening a block) as `type`, quoted and backtick strings, directives as `keyword`, `@matchers` and `{placeholders}` as `annotation`. Known gaps: a site address without a block shows as a directive; placeholders inside quotes stay string |
+  | `TomlFileViewer` | `.toml`; `Pipfile`, `uv.lock`, `poetry.lock`, `pdm.lock`, `Cargo.lock` | no lexer; own tokenizer `TomlHighlighter` (TOML 1.0): `#` comments; whole `[table]`/`[[array]]` headers as `type`; keys (bare, quoted, dotted as one span) as `property` at a line start or after `{`/`,` in inline tables; basic, literal and multi-line strings; integers (`_`, `0x`/`0o`/`0b`), floats, `inf`/`nan`, dates and times (also with a space) as `number`; `true`/`false` as `keyword`. Inline tables may span lines (TOML 1.1). Unclosed brackets do not restyle the rest: at a line start a key with `=` ends open arrays (in an inline table it is the next key), a line that is only a header whose path cannot be a value ends all brackets; a mismatched closer closes down to its opener or is skipped. Known gaps: a value-like header alone on a line in an unclosed array (`[5]`) stays in the array; odd words in values (`123abc`, `0xG1`) show as numbers; an unterminated `"""` makes the rest of the file a string |
+  | `BicepFileViewer` (preview, [previews.md](previews.md)) | `.bicep` | no lexer; own tokenizer `BicepHighlighter`: `//` and `/* */` comments; `'…'` strings with escapes and `${…}` interpolations (`${` and `}` as `operator`, the expression as code, also nested), `'''…'''` without; keywords (`param`, `var`, `resource`, `module`, `output`, `existing`, `if`, `for`, …); `string`, `int`, `bool`, `object`, `array` and the name after `type` as `type`; decorators (`@description`, `@sys.description`) as `annotation`; object keys (also quoted, also after a decorator) as `property`; calls as `builtin`; words after `.`, `?.`, `.?` and `::` are members, never keywords; numbers; the operators `?? ?. .? ! == != =~ !~ && \|\| ? : =>`. Known gaps: user-defined type names are `type` only where declared; escapes are not styled on their own |
+  | `BicepParamFileViewer` | `.bicepparam` | as Bicep, without preview |
+  | `KqlFileViewer` | `.kql`, `.csl` | no lexer; own tokenizer `KqlHighlighter`: `//` comments; strings `'…'`/`"…"` with escapes, verbatim `@'…'`, obfuscated `h'…'`/`h@"…"`, ```` ```…``` ```` over several lines; `\|`, `<\|` and comparisons (`== != <> < > <= >= =~ !~`) as `operator`; tabular operators after `\|` as `keyword`; where a statement begins (start of the text, `;`, `<\|`, `{`, `let x =`, a `(` that is no call, a blank line) only the operators a query begins with (`print`, `range`, `union`, `search`, `find`, `datatable`, `externaldata`, `evaluate`) and `set`, `declare`, `alias`, `pattern`, `restrict`, unless `(` follows directly (a call, except for `datatable`/`externaldata`) or one of `),;=<>!/%.]\|` (a column); hyphenated operators (`project-away`, `mv-expand`, `graph-to-table`) as one keyword anywhere, by their known names (other `a-b` stays plain); `let`, `by`, `and`, … and string operators, also `!has`, `in~`, `!in~`, `!between` and the `_cs` variants, each one keyword; `from`/`to`/`step`/`default` within `range` and `make-series`; types of literals and declarations (`datetime(`, `x: long`, `typeof(long)`) as `type` and the value of `datetime(…)`, `timespan(…)`, `guid(…)` as `number`; numbers, hex and timespans (`1d`, `2hrs`, `30min`, `1.5d`, any case) as `number`; calls as `builtin`; management commands (`.show`, `.create-or-alter`) as `annotation` where a statement begins or first on a line after a `}`. Known gaps: join kinds, render types, `hint.*`, `$left`/`$right` are plain; a command right under a query without a separator is not styled |
   | `EnvFileViewer` ([env-files.md](env-files.md)) | `.env`, `.env.*`, `*.env` | keys as `property`, values as `string` (the lexer's numbers and `true`/`false` stay `number` and `keyword`), `export` as `keyword`; a comment starts at a `#` after a blank only, so `a#b` is a value. Values are masked |
 
 - `ImageFileViewer` shows image files (png, jpg, gif, webp, bmp, ico up to 50 MB), although they are binary
@@ -89,8 +95,8 @@
 - Preview viewers (`PreviewFileViewer`) show highlighted, editable source beside a rendered `WebView`, with a Source /
   Split / Preview toolbar; the preview renders the saved text: Markdown ([markdown-preview.md](markdown-preview.md)) and
   HTML, SVG, CSV/TSV, cookie jars (`CookiesFileViewer`, `.cookies`), notebooks, Mermaid (`MermaidFileViewer`, `.mmd`,
-  `.mermaid`) and PEM certificates and keys (`PemFileViewer`, `.pem`, `.crt`, `.cer`, `.key`, only with PEM text) in
-  [previews.md](previews.md). Their diffs are highlighted like their source.
+  `.mermaid`), PEM certificates and keys (`PemFileViewer`, `.pem`, `.crt`, `.cer`, `.key`, only with PEM text) and
+  the resource graph of Bicep files (`BicepFileViewer`, `.bicep`) in [previews.md](previews.md). Their diffs are highlighted like their source.
 - `EnvFileViewer` is a `CodeFileViewer` whose `EnvFileView` wraps the `CodeView` with a **Show values** toolbar and
   masks the values: `CodeView.maskedRanges` adds the style class `masked` over the token styles, below the find bar's
   matches ([env-files.md](env-files.md), [ADR 0030](../adr/0030-masking-env-values.md)).
@@ -122,14 +128,15 @@
   ([http-client.md](http-client.md)).
 - To add a viewer, implement `FileViewer` as a `@Component` in any module below `dev.sluide`. For a language with an
   RSyntaxTextArea lexer, add its highlighter to `RSyntaxHighlighter`'s companion, extend `CodeFileViewer` like
-  `PythonFileViewer` does, and add a row to `CodeFileViewersTest` and a `<Language>HighlightingTest`. Add its names
+  `PythonFileViewer` does, and add a row to `CodeFileViewersTest` and a `<Language>HighlightingTest`. A larger
+  language without a lexer gets its own `SyntaxHighlighter` object instead ([ADR 0031](../adr/0031-own-tokenizers.md),
+  rules there), plus cases in `HighlightingPerformanceTest`. Add its names
   to `RSyntaxHighlighter.forLanguage` too: that list decides which fenced code (` ```py `) in Markdown and which
   notebook languages are highlighted. It knows `java`; `kotlin` `kt` `kts`; `python` `py`; `javascript` `js` `mjs`
   `cjs`; `jsx`; `typescript` `ts`; `tsx`; `json` `jsonc`; `xml` `svg`; `html`; `vue` `svelte`; `yaml` `yml`; `css`;
-  `scss`; `sass`; `less`; `markdown` `md`; `mdx`; `sql`; `bash` `sh` `shell` `zsh` `ksh`; `powershell` `ps1` `pwsh`;
+  `scss`; `sass`; `less`; `markdown` `md`; `mdx`; `sql`; `kql` `kusto` `csl`; `bash` `sh` `shell` `zsh` `ksh`; `powershell` `ps1` `pwsh`;
   `dockerfile` `docker` `containerfile`; `makefile` `make` `mk`; `ini` `cfg` `conf` `editorconfig` `gitconfig`;
   `gitignore`; `ssh-config` `sshconfig` `ssh_config` `sshd_config`; `caddyfile` `caddy`; `mermaid` `mmd`;
-  `dotenv` `env`.
+  `bicep` `bicepparam`; `dotenv` `env`; `toml`.
 - Not yet implemented: encodings other than UTF-8, and views of binary files other than images (`.xlsx`, `.pptx`,
-  SQLite). TOML (`uv.lock`), Bicep and KQL open as plain text: they have no RSyntaxTextArea lexer
-  ([ADR 0029](../adr/0029-file-name-and-shebang-matching.md)).
+  SQLite).
