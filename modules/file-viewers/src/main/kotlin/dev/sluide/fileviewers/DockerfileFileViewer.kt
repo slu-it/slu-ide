@@ -5,7 +5,8 @@ import org.springframework.stereotype.Component
 
 /**
  * Shows Dockerfiles (`Dockerfile`, `Containerfile`, `Dockerfile.dev`, `app.Dockerfile`) with syntax highlighting.
- * `Dockerfile.dockerignore`, the ignore file of a Dockerfile, is left to the ignore files' viewer.
+ * Ignore files of a Dockerfile (`Dockerfile.dockerignore`, `Dockerfile.dev.dockerignore`) are left to the ignore files'
+ * viewer, and names like `Dockerfile.md` to the viewer of their extension ([NameMatch]).
  */
 @Component
 class DockerfileFileViewer :
@@ -14,5 +15,5 @@ class DockerfileFileViewer :
         RSyntaxHighlighter.dockerfile,
         CommentSyntax.HASH,
         names = setOf("dockerfile", "containerfile"),
-        namePatterns = listOf(Regex("""dockerfile\.(?!dockerignore$).+""")),
+        namePatterns = listOf(Regex("""dockerfile\..+(?<!\.dockerignore)""")),
     )

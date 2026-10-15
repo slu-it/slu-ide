@@ -20,13 +20,18 @@ class FileViewers(
     val viewers: List<FileViewer> = specific + fallback
 
     /**
-     * The viewer to show [file] with, or `null` if none can, in which case the file is not opened: the first specific
-     * viewer that can open it; for a text file without an extension, else the first [ShebangViewer] that opens the
-     * interpreter its shebang names (the file is read once for this); else [DefaultTextFileViewer] if it can.
-     * A viewer that opens the file by its name thus always wins over one that would open it by its shebang.
+     * The viewer to show [file] with, or `null` if none can, in which case the file is not opened: of the specific
+     * viewers that can open it, the one its name matches best ([NameMatch]: exact name, then extension, then name
+     * pattern; viewers other than [CodeFileViewer]s count as matching the extension), the first of equals; for a text
+     * file without an extension, else the first [ShebangViewer] that opens the interpreter its shebang names (the file
+     * is read once for this); else [DefaultTextFileViewer] if it can. A viewer that opens the file by its name thus
+     * always wins over one that would open it by its shebang.
      */
     fun viewerFor(file: Path): FileViewer? {
-        specific.firstOrNull { it.canOpen(file) }?.let { return it }
+        specific
+            .filter { it.canOpen(file) }
+            .minByOrNull { (it as? CodeFileViewer)?.nameMatch(file) ?: NameMatch.EXTENSION }
+            ?.let { return it }
         if (file.extension.isNotEmpty() || shebangViewers.isEmpty()) return fallback.takeIf { it.canOpen(file) }
         // The fallback opens exactly the text files, which the sample already tells.
         val sample = readTextSample(file) ?: return null

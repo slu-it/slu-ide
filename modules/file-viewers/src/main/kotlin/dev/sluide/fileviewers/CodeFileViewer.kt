@@ -28,6 +28,9 @@ abstract class CodeFileViewer internal constructor(
 
     override fun canOpen(file: Path): Boolean = match.matchesName(file)
 
+    /** How the name of [file] matches this viewer, or `null`; [FileViewers] prefers the best match. */
+    internal fun nameMatch(file: Path): NameMatch? = match.nameMatch(file)
+
     override fun opensInterpreter(interpreter: String): Boolean = match.matchesInterpreter(interpreter)
 
     override fun open(file: Path): FileView = CodeView(file, highlighter, comment, defaultIndent)

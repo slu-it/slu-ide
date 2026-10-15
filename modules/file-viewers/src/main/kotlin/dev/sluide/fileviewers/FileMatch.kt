@@ -23,13 +23,17 @@ internal class FileMatch(
     private val interpreters = interpreters.mapTo(HashSet()) { it.lowercase() }
 
     /** Whether [file] is a readable text file whose extension or name matches; its content is not looked at. */
-    fun matchesName(file: Path): Boolean {
+    fun matchesName(file: Path): Boolean = nameMatch(file) != null && Files.isReadable(file) && isTextFile(file)
+
+    /** How the name of [file] matches, the strongest way first, or `null` if it does not; the file is not read. */
+    fun nameMatch(file: Path): NameMatch? {
         val name = file.name
-        val matches =
-            file.extension.lowercase() in extensions ||
-                name.lowercase() in names ||
-                namePatterns.any { it.matches(name) }
-        return matches && Files.isReadable(file) && isTextFile(file)
+        return when {
+            name.lowercase() in names -> NameMatch.NAME
+            file.extension.lowercase() in extensions -> NameMatch.EXTENSION
+            namePatterns.any { it.matches(name) } -> NameMatch.PATTERN
+            else -> null
+        }
     }
 
     /**
@@ -48,6 +52,13 @@ internal class FileMatch(
         val VERSION = Regex("""\d+(\.\d+)*$""")
     }
 }
+
+/**
+ * How a file's name matches a viewer, strongest first: [FileViewers] prefers a viewer naming the file exactly
+ * (`Dockerfile`) over one taking its extension (`.md`), and that over one matching a name pattern (`dockerfile\..+`),
+ * so that `Dockerfile.md` is Markdown whatever the order of the viewers.
+ */
+internal enum class NameMatch { NAME, EXTENSION, PATTERN }
 
 /**
  * The interpreter a shebang [line] names, without its folder: `bash` for `#!/bin/bash` or `#! /bin/bash -e`, and

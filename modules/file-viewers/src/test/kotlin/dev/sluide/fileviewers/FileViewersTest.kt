@@ -49,6 +49,57 @@ class FileViewersTest {
         assertSame(build, FileViewers(listOf(build, python), fallback).viewerFor(script))
     }
 
+    /** A code viewer opening files by the given [names], [extensions] and [patterns]. */
+    private class NamesViewer(
+        extensions: Set<String> = emptySet(),
+        names: Set<String> = emptySet(),
+        patterns: List<Regex> = emptyList(),
+    ) : CodeFileViewer(extensions, RSyntaxHighlighter.java, names = names, namePatterns = patterns)
+
+    @Test
+    fun `an exact name wins over an extension, an extension over a name pattern, in any order`() {
+        val name = NamesViewer(names = setOf("notes.txt"))
+        val extension = NamesViewer(extensions = setOf("txt"))
+        val pattern = NamesViewer(patterns = listOf(Regex("""notes\..*""")))
+        val notes = dir.resolve("notes.txt").apply { writeText("x") }
+        val orders = listOf(listOf(name, extension, pattern), listOf(pattern, extension, name))
+
+        for (order in orders) {
+            assertSame(name, FileViewers(order, fallback).viewerFor(notes))
+            assertSame(extension, FileViewers(order - name, fallback).viewerFor(notes))
+            assertSame(pattern, FileViewers(listOf(pattern), fallback).viewerFor(notes))
+        }
+    }
+
+    @Test
+    fun `names like Dockerfile dot something open by their extension if a viewer takes it`() {
+        val viewers =
+            listOf(
+                DockerfileFileViewer(),
+                CaddyfileFileViewer(),
+                IgnoreFileViewer(),
+                MarkdownFileViewer(),
+                JsonFileViewer(),
+            )
+        val expected =
+            mapOf(
+                "Dockerfile.md" to MarkdownFileViewer::class,
+                "Caddyfile.json" to JsonFileViewer::class,
+                "Dockerfile.dev" to DockerfileFileViewer::class,
+                "Dockerfile.prod" to DockerfileFileViewer::class,
+                "Caddyfile.dev" to CaddyfileFileViewer::class,
+                "Dockerfile.dockerignore" to IgnoreFileViewer::class,
+                "Dockerfile.dev.dockerignore" to IgnoreFileViewer::class,
+            )
+
+        for (order in listOf(viewers, viewers.reversed())) {
+            for ((name, viewer) in expected) {
+                val file = dir.resolve(name).apply { writeText("x\n") }
+                assertEquals(viewer, FileViewers(order, fallback).viewerFor(file)?.let { it::class }, name)
+            }
+        }
+    }
+
     @Test
     fun `the first viewer opening the interpreter of the shebang wins`() {
         val first = ScriptViewer("a", "node")

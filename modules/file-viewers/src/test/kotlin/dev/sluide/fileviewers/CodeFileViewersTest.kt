@@ -49,6 +49,7 @@ class CodeFileViewersTest {
                     "Python.gitignore",
                     ".dockerignore",
                     "Dockerfile.dockerignore",
+                    "Dockerfile.dev.dockerignore",
                     ".npmignore",
                     ".prettierignore",
                     ".eslintignore",
