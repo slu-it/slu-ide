@@ -97,7 +97,11 @@ internal enum class FileIcon(
     ),
     POWERSHELL(MaterialDesignP.POWERSHELL, "file-icon-powershell", setOf("ps1", "psm1", "psd1")),
     BATCH(MaterialDesignC.CONSOLE, "file-icon-console", setOf("bat", "cmd")),
-    SQL(MaterialDesignD.DATABASE, "file-icon-database", setOf("sql", "db", "sqlite", "sqlite3", "mdb", "accdb")),
+    SQL(
+        MaterialDesignD.DATABASE,
+        "file-icon-database",
+        setOf("sql", "kql", "csl", "db", "sqlite", "sqlite3", "mdb", "accdb"),
+    ),
     NOTEBOOK(MaterialDesignN.NOTEBOOK, "file-icon-notebook", setOf("ipynb")),
 
     /** Source code in a language without its own icon. */
