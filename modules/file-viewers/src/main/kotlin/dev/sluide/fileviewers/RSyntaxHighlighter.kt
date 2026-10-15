@@ -405,6 +405,7 @@ internal class RSyntaxHighlighter(
                 "gitignore" -> ignoreFile
                 "ssh-config", "sshconfig", "ssh_config", "sshd_config" -> sshConfig
                 "caddyfile", "caddy" -> caddyfile
+                "mermaid", "mmd" -> mermaid
                 else -> null
             }
 
@@ -725,6 +726,58 @@ internal class RSyntaxHighlighter(
                         Regex("""(?<![^\s(])(?<annotation>@[\w-]+)"""),
                         Regex("""(?<annotation>\{[^\s{}]+})"""),
                     ),
+            )
+
+        /** Statements of Mermaid's diagrams, the first word of a line. */
+        private const val MERMAID_STATEMENTS =
+            "classDef|class|style|linkStyle|subgraph|end|direction|click|participant|actor|loop|alt|else|opt|par|" +
+                "and|critical|option|break|rect|box|create|destroy|Note|note|activate|deactivate|autonumber|title|" +
+                "section|dateFormat|axisFormat|tickInterval|excludes|includes|todayMarker|weekday|state|namespace|" +
+                "commit|branch|checkout|switch|merge|cherry-pick|accTitle|accDescr|showData"
+
+        /** After a word: what makes it a node rather than a statement, a shape (`[`, `(`, …) or a link. */
+        private const val MERMAID_NODE = """[\w\[({>-]|\s*[<|}*o]{0,2}(?:--|==|-\.|\.\.|~~)"""
+
+        /**
+         * Mermaid diagrams (`.mmd`, ` ```mermaid `), which no lexer knows: line rules on plain text, earlier rules
+         * winning, and the diagram type by [MermaidHighlighter].
+         * - `%%` comments (only on lines of their own, as in Mermaid), `%%{init: …}%%` directives and the `---` lines
+         *   around front matter (annotations);
+         * - strings; statements (`subgraph`, `end`, `classDef`, `participant`, …) as keywords when they start a line
+         *   and are not followed by a shape or link (then they are node names), a `direction` and a note's side;
+         * - links of every diagram (`-->`, `-.->`, `==>`, `<|--`, `..|>`, `||--o{`, `-. text .->`, …) and the arrows of
+         *   sequence diagrams (`->>`, `-)`, `-x`, `--x`) as operators, then `|labels|` as strings. Single-dash arrows
+         *   need `>` or `)`, or for `-x` a following `name:`, so that hyphens in names stay plain; dots count only in
+         *   pairs, so an ellipsis is no link.
+         *
+         * Known gaps: statements used as node names without a link on their line, and links inside node text
+         * (`A[a -- b]`), are styled anyway.
+         */
+        val mermaid: SyntaxHighlighter =
+            MermaidHighlighter(
+                RSyntaxHighlighter(
+                    SyntaxConstants.SYNTAX_STYLE_NONE,
+                    lineRules =
+                        listOf(
+                            Regex("""^\s*(?<annotation>%%\{.*}%%)\s*$"""),
+                            Regex("""^\s*(?<comment>%%.*)"""),
+                            Regex("""^(?<annotation>---)\s*$"""),
+                            Regex("""(?<string>"[^"\n]*")"""),
+                            Regex("""^\s*direction\s+(?<keyword>TB|TD|BT|RL|LR)\b"""),
+                            Regex("""^\s*(?<keyword>$MERMAID_STATEMENTS)(?!$MERMAID_NODE)"""),
+                            Regex("""^\s*[Nn]ote\s+(?<keyword>right of|left of|over)\b"""),
+                            Regex("""(?<![-.=<])(?<operator>--?x)(?=\s*\w+\s*:)"""),
+                            Regex(
+                                """(?<operator>(?:<<|<\|?|[}|][|o]|(?<!\w)[ox*])?""" +
+                                    """(?:--+|==+|-\.+-|(?<!\.)\.\.(?!\.)|~~~+)""" +
+                                    """(?:>>|\|>|>|[|o][|{]|[ox](?!\w)|[)*])?)""",
+                            ),
+                            Regex("""(?<![-.])(?<operator>-\.)(?=\s)"""),
+                            Regex("""(?<=\s)(?<operator>\.-+>|\.-+(?=\s))"""),
+                            Regex("""(?<operator><<->>|-(?:>>?|\)))"""),
+                            Regex("""(?<string>\|[^|\n]+\|)"""),
+                        ),
+                ),
             )
     }
 }
