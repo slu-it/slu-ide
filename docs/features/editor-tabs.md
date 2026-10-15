@@ -54,6 +54,19 @@
   editor again; `canToggleDiff` tells whether the selected tab has a diff to show. The diff's Edit button and Escape
   go back (`DiffFileView.onBack`), and so does a diff whose file has none anymore. Clicking a change marker asks the
   area as `FileViewHost.showChanges(file, line)` to show the diff at that change.
+- Renames and deletes in the file explorer ([file-explorer.md](file-explorer.md), ADR 0024): `moved(from, to)` lets
+  the tabs of a renamed file or of the files in a renamed folder follow it. The tab keeps its place, selection and
+  view (text, caret, undo history, unsaved changes; `FileView.moved`), and its title, tooltip (`OpenFile.path` is
+  observable), watch and changes follow the new path; a shown diff gives way to the editor. If the view cannot follow
+  or another viewer shows the new name (e.g. `.txt` to `.py`), the file opens anew in a new view in the same place
+  (`EditorTabs.replace`), unless the tab has unsaved changes: then it keeps its view. `moved` must run right after
+  the rename, as the explorer does: a renamed file's watch would report its old path as deleted, and the watches of
+  files in a renamed folder follow the folder without reporting anything. A tab already open at the new path (edited,
+  its file deleted) reads the file now there at once. `dirtyUnder(path)` lists the files with unsaved changes at or
+  below a path for the delete confirmation, and `closeUnder(path, discarded)` closes the tabs there once deleted,
+  without asking to save, if they are clean or their changes were among those counted as lost; tabs edited since
+  stay with the "deleted" banner. A file renamed outside the IDE looks like a delete to its tab; tabs of files in a
+  folder renamed outside the IDE keep their old paths.
 - Every window has its own editor area ([open-folder.md](open-folder.md)).
 - When the tabs do not fit, ‹ and › buttons appear. They scroll the tab row one tab at a time without changing the
   selection. A ▾ dropdown lists every tab that is cut off or out of view, and choosing one selects it and scrolls it

@@ -12,6 +12,9 @@
   [git-diff.md](git-diff.md)). `focusText()` gives the focus to the content (a code view's text).
   `dispose()` is called once when the view is no longer shown (its tab closed, or a diff view shown over the editor
   was hidden again); previews and the image view stop their `WebView` page there, other views do nothing.
+  `moved(to)` lets a view follow its file to a new path (a rename in the explorer): code views and previews read and
+  save it there from now on, keeping text, unsaved changes, caret and undo history, take the indentation again for
+  the new path, and previews render it again from there; other views return `false` by default, and the editor opens the file anew.
 - `FileViewers` asks every `FileViewer` bean in turn and uses the first that agrees. `DefaultTextFileViewer` is always
   asked last ([ADR 0004](../adr/0004-file-viewer-selection.md)). Returns `null` if no viewer agrees.
 - `DefaultTextFileViewer` shows any text file as plain text in an editable `CodeView` without highlighting. A file is text if its

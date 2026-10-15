@@ -36,7 +36,8 @@ and saving), [ADR 0022](../adr/0022-editor-key-bindings.md) (keys) and
 
   A selection that ends at the start of a line does not touch that line.
 - Indentation: tabs or spaces and the size come from `.editorconfig` (`indent_style`, `indent_size`, `tab_width`),
-  each value not set there from the file's own indentation, else 4 spaces. They are read when the file is opened.
+  each value not set there from the file's own indentation, else 4 spaces. They are read when the file is opened,
+  and again when it is renamed in the explorer.
   Saving does not apply other `.editorconfig` properties (no trimmed whitespace, no added final newline).
 - Comments per language: `#` in Python and YAML; `//` in Kotlin, Java, JavaScript, TypeScript, JSX, TSX, SCSS, LESS and
   Sass; `/* */` in CSS; `<!-- -->` in XML, HTML, Markdown, MDX, Vue and Svelte files and SVG; none in JSON, CSV,

@@ -33,11 +33,33 @@ module, not the explorer.
   cannot be renamed or deleted again.
 - The explorer shows the result at once (re-reading the folder instead of waiting for its watch), selects the new or
   renamed entry and opens a new file through `onOpenFile`. The opened folder itself cannot be renamed or deleted.
-- **Open tabs** are none of the explorer's business: it reports `onMoved(from, to)` and `onDeleted(path)` and asks
-  `unsavedUnder(path)` for the confirmation. The window is to connect them to the editor area (not wired yet).
+- **Open tabs** are none of the explorer's business: it reports `onMoved(from, to)` and `onDeleted(path, unsaved)`
+  and asks `unsavedUnder(path)` for the confirmation. The window connects them to the editor area:
+  - `EditorArea.moved` runs right after the rename, on the JavaFX thread. The watch of a renamed file would report
+    its old path as deleted (closing a clean tab, marking an edited one deleted); the watches of the files in a
+    renamed folder follow the folder (inotify watches the folder itself) and report nothing for the old paths, so
+    without `moved` their tabs would stay at paths that no longer exist. Every tab at or below the old path takes
+    the new path: title, tooltip, watch and diff follow. Its view follows the file (`FileView.moved`: code views and
+    previews), so text, caret, undo history and unsaved changes stay; if the view cannot follow, or another viewer
+    shows the new name (`notes.txt` to `notes.md`), the file opens anew in the same tab position. A tab with unsaved
+    changes always keeps its view, so nothing typed is lost, also when the new name would get another viewer. If a
+    tab is open at the new path already (one with unsaved changes whose file was deleted), it reads the file now
+    there at once, so it shows the difference instead of a save overwriting it unseen.
+  - `unsavedUnder` is `EditorArea.dirtyUnder`, and `onDeleted` is `EditorArea.closeUnder`. The explorer passes the
+    files the confirmation counted as lost (`unsaved`); `closeUnder` closes the tabs at or below the deleted path
+    without asking again if they are clean or among those, and leaves tabs edited after the confirmation (while the
+    delete ran in the background) open with their changes and the "deleted" banner.
 
 ## Consequences
 - A deleted file is gone; the confirmation is the only safety net. A trash can be added later behind `delete`.
 - Renaming or deleting from the explorer and outside the IDE look the same to the rest of the IDE (watches, git
-  status); only the callbacks let tabs follow a rename instead of seeing the file vanish.
+  status); only the callbacks let tabs follow a rename instead of seeing the file vanish. A file renamed outside the
+  IDE still closes its clean tab and leaves an edited one with a "deleted" banner; the tabs of files in a folder
+  renamed outside the IDE notice nothing and keep the old paths, where saving fails because the folder is gone.
+- A tab with unsaved changes whose file is renamed to a name another viewer shows (which reopens a clean tab) keeps
+  the highlighting and comment syntax of its old name until it is closed and opened again. Its indentation is taken
+  again for the new path (`.editorconfig`, else the saved text; ADR 0023), like that of every code view that follows
+  its file.
+- Files edited after the delete confirmation keep their tabs; their changes are lost only if the user discards them
+  when closing.
 - Added to [../index.md](../index.md).

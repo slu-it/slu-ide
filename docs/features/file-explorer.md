@@ -54,6 +54,9 @@
     not in another case) and keeps OK disabled while it shows a problem. Errors on disk (e.g. permissions) are shown in an error dialog.
   - The result shows at once, without waiting for the folder's watch, and is selected. Rename and Delete are disabled
     for the opened folder itself.
-  - For open tabs, `onMoved(from, to)` reports renames, `onDeleted(path)` deletions, and `unsavedUnder(path)` is asked
-    for the files with unsaved changes. `MainWindow` does not connect them yet, so tabs of renamed or deleted files
-    behave as for changes outside the IDE ([editor-tabs.md](editor-tabs.md)).
+  - For open tabs, `onMoved(from, to)` reports renames, `onDeleted(path, unsaved)` deletions with the files the
+    confirmation counted as lost, and `unsavedUnder(path)` is asked for the files with unsaved changes. `MainWindow`
+    connects them to the editor area ([editor-tabs.md](editor-tabs.md)): tabs of a renamed file, or of the files in a
+    renamed folder, stay open at the new path with their unsaved changes; the confirmation of a delete counts the
+    unsaved files at or below the entry, and once it is deleted their tabs and those without unsaved changes close
+    without asking again. Files edited after the confirmation keep their tabs, showing the file deleted.
