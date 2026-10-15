@@ -170,6 +170,15 @@ body.dark pre.mermaid {
     background: transparent;
 }
 
+/* A Mermaid file's diagram (MermaidPreview): a click switches between fitting the page and its actual size. */
+body.mermaid-file pre.mermaid svg {
+    cursor: zoom-in;
+}
+
+body.mermaid-file.actual pre.mermaid svg {
+    cursor: zoom-out;
+}
+
 /* A Mermaid file that does not parse (MermaidPreview): Mermaid's message. */
 pre.mermaid.error {
     text-align: left;

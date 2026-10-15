@@ -8,6 +8,28 @@
         return element.getBoundingClientRect().top + window.scrollY;
     }
 
+    function isMermaidFile() {
+        return document.body.classList.contains('mermaid-file');
+    }
+
+    // A Mermaid file's diagram (MermaidPreview): at its actual size while the body has the class "actual", otherwise
+    // as Mermaid draws it, as wide as the page but never wider than its actual size (the max-width Mermaid sets).
+    function sizeDiagrams() {
+        if (!isMermaidFile()) return;
+        var actual = document.body.classList.contains('actual');
+        var drawings = document.querySelectorAll('pre.mermaid svg');
+        for (var i = 0; i < drawings.length; i++) {
+            var svg = drawings[i];
+            if (!svg.hasAttribute('data-width')) {
+                if (!svg.style.maxWidth || svg.style.maxWidth === 'none') continue;
+                svg.setAttribute('data-width', svg.style.maxWidth);
+            }
+            var width = svg.getAttribute('data-width');
+            svg.style.maxWidth = actual ? 'none' : width;
+            svg.style.width = actual ? width : '';
+        }
+    }
+
     window.sluide = {
         // Scrolls so that source line `line` (0-based) is at the top, interpolating between the blocks around it.
         scrollToLine: function (line) {
@@ -63,7 +85,7 @@
                 return Promise.all(checks).then(function (parsed) {
                     var nodes = diagrams.filter(function (diagram, i) { return parsed[i]; });
                     return nodes.length ? mermaid.run({ nodes: nodes, suppressErrors: true }) : undefined;
-                });
+                }).then(sizeDiagrams);
             });
             return diagramsDrawn;
         },
@@ -83,7 +105,15 @@
 
     document.addEventListener('click', function (event) {
         var link = event.target.closest ? event.target.closest('a[href]') : null;
-        if (!link) return;
+        if (!link) {
+            // A click on a Mermaid file's diagram switches between fitting the page and its actual size.
+            var diagram = event.target.closest ? event.target.closest('pre.mermaid') : null;
+            if (diagram && isMermaidFile() && diagram.querySelector('svg')) {
+                document.body.classList.toggle('actual');
+                sizeDiagrams();
+            }
+            return;
+        }
         var href = link.getAttribute('href');
         // No link navigates the preview: anchors scroll within the page, every other link is opened by SluIde.
         event.preventDefault();

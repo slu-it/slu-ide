@@ -13,7 +13,9 @@ class MermaidFileViewer :
 
 /**
  * The file as one diagram, drawn like ` ```mermaid ` fences in Markdown ([MarkdownRenderer.page], `preview.js`), but
- * with `data-errors`: a diagram that does not parse shows Mermaid's error message instead of nothing.
+ * with `data-errors`: a diagram that does not parse shows Mermaid's error message instead of nothing. On the body,
+ * `mermaid-file` makes the diagram fit the page (never larger than its actual size) and a click on it switch to its
+ * actual size and back.
  */
 internal object MermaidPreview : Preview {
     override fun load(
