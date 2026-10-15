@@ -19,7 +19,10 @@ Images, SVG files, Mermaid files and Bicep resource graphs zoom; Markdown and no
   Shortcut + `-` zooms out, Shortcut + `0` shows 100%, Shortcut + `9` fits.
 - **Focus:** like the terminal, an image or a diagram takes the focus whenever its tab is shown, so the keys work at
   once. A Mermaid file opens in Split and focuses the diagram, so typing needs a click in the source; a Bicep file opens
-  in Source and keeps the focus where it is.
+  in Source and keeps the focus where it is. Opening an image or a diagram from the file explorer (double-click or
+  Enter) therefore moves the focus out of the tree, unlike a text file. Renaming or moving an image to a name of the
+  same type keeps its view and the focus; to another type (e.g. png to jpg) the tab gets a new view, which takes the
+  focus. The zoom percentage has a fixed width (that of "1600%"), so the buttons beside it do not move.
 - Zoom in and out go to the next of 10, 25, 33, 50, 67, 75, 100, 125, 150, 200, 300, 400, 600, 800, 1200, 1600%,
   keeping the middle of the view in place. **Shortcut+wheel** and **pinching** on a trackpad zoom smoothly around the
   pointer. Zooming stays within 10%–1600%.

@@ -29,7 +29,7 @@ theme change.
   view, so they never reach the source editor beside it (Split), whose keys stay its own. The keys also work on the
   zoom controls; neither their buttons nor the mode toggles take the focus, so a click on them leaves it in the web
   view. Like the terminal, an image view and a showing zoomable preview request the focus whenever they get a scene
-  (their tab shown), so the keys work without a click first.
+  (their tab shown), so the keys work without a click first; the percentage label has the fixed width of its widest text.
 
 ## Consequences
 - Zooming works the same in the image view and in the SVG, Mermaid and Bicep previews; Markdown and notebook previews

@@ -4,6 +4,7 @@ import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Button
 import javafx.scene.control.Label
+import javafx.scene.control.OverrunStyle
 import javafx.scene.control.ToggleButton
 import javafx.scene.control.Tooltip
 import javafx.scene.input.KeyCode
@@ -13,11 +14,13 @@ import javafx.scene.input.KeyEvent
 import javafx.scene.input.ScrollEvent
 import javafx.scene.input.ZoomEvent
 import javafx.scene.layout.HBox
+import javafx.scene.text.Text
 import javafx.scene.web.WebEngine
 import javafx.scene.web.WebView
 import org.kordamp.ikonli.Ikon
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignM
+import kotlin.math.ceil
 import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToInt
@@ -74,7 +77,24 @@ internal class ZoomControls(
     var scale = 1.0
         private set
 
-    val level = Label(ZoomSteps.label(scale)).apply { styleClass += "zoom-level" }
+    val level =
+        Label(ZoomSteps.label(scale)).apply {
+            styleClass += "zoom-level"
+            alignment = Pos.CENTER
+            // Wheel and pinch values ("1250%") can be a pixel wider than the widest preset in proportional fonts.
+            textOverrun = OverrunStyle.CLIP
+
+            // One width for every text, so that the buttons beside it stay in place: that of the widest, in any font.
+            fun fixWidth() {
+                val widest = Text(ZoomSteps.label(ZoomSteps.MAX)).also { it.font = font }
+                val width = ceil(widest.layoutBounds.width + insets.left + insets.right)
+                minWidth = width
+                prefWidth = width
+                maxWidth = width
+            }
+            fontProperty().subscribe { _ -> fixWidth() }
+            insetsProperty().subscribe { _ -> fixWidth() }
+        }
     val zoomOutButton = button(MaterialDesignM.MAGNIFY_MINUS_OUTLINE, "Zoom out", ZOOM_OUT_KEY, ::zoomOut)
     val zoomInButton = button(MaterialDesignM.MAGNIFY_PLUS_OUTLINE, "Zoom in", ZOOM_IN_KEY, ::zoomIn)
     val actualSizeButton =

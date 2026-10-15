@@ -6,6 +6,7 @@ import javafx.event.EventHandler
 import javafx.event.EventType
 import javafx.geometry.Point2D
 import javafx.scene.Node
+import javafx.scene.Parent
 import javafx.scene.Scene
 import javafx.scene.control.TextField
 import javafx.scene.control.ToggleButton
@@ -15,6 +16,7 @@ import javafx.scene.input.MouseEvent
 import javafx.scene.input.ScrollEvent
 import javafx.scene.input.ZoomEvent
 import javafx.scene.layout.StackPane
+import javafx.scene.text.Text
 import javafx.scene.web.WebView
 import javafx.stage.Stage
 import org.junit.jupiter.api.AfterEach
@@ -639,5 +641,46 @@ class ZoomUiTest {
         }
         WaitForAsyncUtils.waitForFxEvents()
         assertSame(other, fx { container.scene.focusOwner })
+    }
+
+    @Test
+    fun `the zoom level keeps its width, and the buttons beside it their place, at every zoom`(robot: FxRobot) {
+        // Inherited like the editor font in the app: the width has to follow the label's font.
+        fx { container.style = "-fx-font-size: 24px" }
+        val view = showImage(robot, 400, 200)
+        val zoom = view.zoom
+        robot.interact { container.applyCss() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        fun measure() =
+            fx {
+                zoom.node.applyCss()
+                (zoom.node as Parent).layout()
+                zoom.level.width to zoom.zoomInButton.layoutX
+            }
+
+        val fit = measure()
+        assertTrue(fit.first > 0)
+        val states =
+            listOf<Pair<String, () -> Unit>>(
+                "100%" to zoom::actualSize,
+                "1600%" to { repeat(20) { zoom.zoomIn() } },
+                "10%" to { repeat(20) { zoom.zoomOut() } },
+                "100%" to zoom::actualSize,
+            )
+        for ((text, action) in states) {
+            robot.interact { action() }
+            assertEquals(text, fx { zoom.level.text })
+            assertEquals(fit, measure(), text)
+            // No ellipsis, and nothing clipped: the text shown is the whole text, and it fits inside the label.
+            val shown = fx { zoom.level.lookup(".text") as Text }
+            assertEquals(text, shown.text, text)
+            val room = fx { zoom.level.width - zoom.level.insets.left - zoom.level.insets.right }
+            assertTrue(
+                fx { shown.layoutBounds.width } <= room + 0.5,
+                "$text: ${fx { shown.layoutBounds.width }} > $room",
+            )
+        }
+        fx { container.style = "" }
     }
 }
