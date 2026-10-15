@@ -1,6 +1,6 @@
 # 0029. Matching files by name and shebang; languages without lexers
 
-- Status: accepted
+- Status: accepted; partly superseded by [0031](0031-own-tokenizers.md) (TOML, Bicep and KQL are no longer postponed: own tokenizers)
 - Date: 2026-10-15
 
 ## Context
@@ -33,8 +33,8 @@ arbitrary. Some of these formats have no RSyntaxTextArea lexer ([ADR 0005](0005-
 Rejected:
 - **First viewer that agrees:** `Dockerfile.md` would depend on bean order.
 - **Shebang before names:** overrides what the name states, and reads the first line of every file.
-- **Hand-written highlighters for large languages without a lexer:** TOML (`uv.lock`), Bicep and KQL stay plain text
-  for now, by the user's choice.
+- **Hand-written highlighters for large languages without a lexer:** TOML (`uv.lock`), Bicep and KQL stayed plain
+  text for now, by the user's choice; since [ADR 0031](0031-own-tokenizers.md) they have own tokenizers.
 
 ## Consequences
 - A new name-matched format is a `names` or `namePatterns` entry; conflicts resolve without ordering beans.
