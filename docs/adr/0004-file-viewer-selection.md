@@ -22,5 +22,8 @@ changes in the code that opens files.
 ## Consequences
 - A new view means adding one `FileViewer` bean; the explorer and the editor area stay unchanged.
 - Specific viewers must keep `canOpen` cheap, since it is called on every open.
+- Code viewers also open files without an extension by their shebang: only after no viewer took the file by name
+  (so names win), with the file read once for all of them, still before `DefaultTextFileViewer`
+  ([file-viewers.md](../features/file-viewers.md)).
 - Text files in other encodings (e.g. Latin-1) are not opened yet.
 - Views are created on the JavaFX thread; very slow file systems block the UI while a file is read.

@@ -16,18 +16,25 @@
   save it there from now on, keeping text, unsaved changes, caret and undo history, take the indentation again for
   the new path, and previews render it again from there; other views return `false` by default, and the editor opens the file anew.
 - `FileViewers` asks every `FileViewer` bean in turn and uses the first that agrees. `DefaultTextFileViewer` is always
-  asked last ([ADR 0004](../adr/0004-file-viewer-selection.md)). Returns `null` if no viewer agrees.
+  asked last ([ADR 0004](../adr/0004-file-viewer-selection.md)). Returns `null` if no viewer agrees. Before the
+  fallback, a text file without an extension that no viewer opens by name goes to the first viewer opening the
+  interpreter of its shebang (`ShebangViewer`, implemented by every `CodeFileViewer`), see below.
 - `DefaultTextFileViewer` shows any text file as plain text in an editable `CodeView` without highlighting. A file is text if its
   first 8 KiB contain no NUL byte and are valid UTF-8 (`isTextFile`); empty files are text, files over 10 MiB are not.
 - Code viewers extend `CodeFileViewer(extensions, highlighter, comment, names, namePatterns, interpreters)` and show
   text files with syntax highlighting and line numbers in an editable `CodeView`. Which files they open is decided by
   `FileMatch`, all case-insensitive: a file extension, an exact file name (`names`, e.g. `dockerfile`, `.bashrc`), or a
-  `Regex` matching the whole name (`namePatterns`, e.g. `dockerfile\..*`). A file without an extension also matches
-  if its first line is a shebang naming one of the `interpreters`: `#!/bin/bash`, `#! /bin/sh`, `#!/usr/bin/env node`,
-  `#!/usr/bin/env -S python3 -u` (options and `NAME=value` of `env` are skipped). The interpreter matches with and
-  without its version, so `python3.12` counts as `python3.12`, `python3` and `python`. A file with an extension is
-  never matched by its shebang. The first line comes from the same 8 KiB sample the text check reads, so the file is
-  read once per viewer. It renders a RichTextFX `CodeArea`, colours the tokens from a `SyntaxHighlighter`
+  `Regex` matching the whole name (`namePatterns`, e.g. `dockerfile\..*`); `canOpen` looks at nothing else. A file
+  without an extension that no viewer opens this way is also opened by the first viewer whose `interpreters` include
+  the one its shebang names: `#!/bin/bash`, `#! /bin/sh`, `#!/usr/bin/env node`, `#!/usr/bin/env -S python3 -u`
+  (options of `env`, including the argument of `-u`/`--unset`, `-C`/`--chdir` and `-P`, and `NAME=value` are skipped).
+  So a name always beats a shebang: a file listed in one viewer's `names` opens there even if its shebang names
+  another viewer's interpreter. The interpreter matches with and without its version, so `python3.12` counts as
+  `python3.12`, `python3` and `python`, and `python2` as `python`. The launcher `uv run`, with any options
+  (`#!/usr/bin/env -S uv run --script` for PEP 723 scripts), counts as `python`; no other launcher is recognised.
+  A file with an extension is never matched by its shebang, and a name with a leading dot like `.bashrc` counts as
+  having one, so dotfiles go into `names`. `FileViewers` reads the file's 8 KiB text sample once for all viewers and
+  takes the shebang from its first line. A code view renders a RichTextFX `CodeArea`, colours the tokens from a `SyntaxHighlighter`
   (`RSyntaxHighlighter` = RSyntaxTextArea lexers, [ADR 0005](../adr/0005-syntax-highlighting.md)) and is styled by
   `syntax.css`; its banners (file changed or deleted on disk) and find bar by `code-view.css`. Edited text is highlighted again in
   the background once typing pauses ([ADR 0020](../adr/0020-editing-and-saving-files.md)). Token classes: `keyword`, `type`, `builtin`, `string`, `number`, `comment`, `annotation`, `property`, `tag`, `attribute`, `operator`.
