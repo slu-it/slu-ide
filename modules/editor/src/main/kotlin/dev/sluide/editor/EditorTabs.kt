@@ -3,7 +3,9 @@ package dev.sluide.editor
 import dev.sluide.fileviewers.DiffFileView
 import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileView
+import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.TextDiff
+import javafx.beans.binding.Bindings
 import javafx.beans.property.ReadOnlyBooleanWrapper
 import javafx.beans.property.ReadOnlyObjectProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
@@ -41,14 +43,23 @@ interface EditorTab {
  * A file shown in a tab: its [editor], the view it was opened with, which stays until the tab closes, and, on demand,
  * a [diffView] over it. The editor keeps its text, caret and undo history while the diff is shown. A diff view is
  * disposed when it is hidden or replaced, all views when the tab closes. While the editor has unsaved changes
- * ([dirty]), the title starts with a dot.
+ * ([dirty]), the title starts with a dot. The [path] changes when the editor follows its file to a new one.
  */
 internal class OpenFile(
-    val path: Path,
+    path: Path,
     val editor: FileView,
     /** Whether the file is shown as text, which can have change markers and a diff. */
     val showsDiffs: Boolean = false,
+    /** The viewer that opened the [editor], if known. */
+    val viewer: FileViewer? = null,
 ) : EditorTab {
+    /** The file's path; title and tooltip follow it. */
+    val pathProperty = SimpleObjectProperty(path)
+
+    var path: Path
+        get() = pathProperty.get()
+        set(value) = pathProperty.set(value)
+
     val name: String get() = (path.fileName ?: path).toString()
 
     /** Whether the editor is an [EditableFileView] with unsaved changes, also while the diff is shown. */
@@ -57,7 +68,8 @@ internal class OpenFile(
     /** The current value of [dirty]. */
     val isDirty: Boolean get() = dirty.get()
 
-    override val title: ObservableValue<String> = dirty.map { if (it) "● $name" else name }
+    override val title: ObservableValue<String> =
+        Bindings.createStringBinding({ if (isDirty) "● $name" else name }, dirty, pathProperty)
 
     override val tooltip: String get() = path.toString()
 
@@ -114,14 +126,29 @@ internal class EditorTabs {
 
     fun find(path: Path): OpenFile? = files.firstOrNull { it.path == path }
 
-    /** Adds a tab for [path] showing [view] and selects it. */
+    /** Adds a tab for [path] showing [view], opened by [viewer], and selects it. */
     fun open(
         path: Path,
         view: FileView,
         showsDiffs: Boolean = false,
+        viewer: FileViewer? = null,
     ): OpenFile {
         require(find(path) == null) { "Already open: $path" }
-        return OpenFile(path, view, showsDiffs).also(::open)
+        return OpenFile(path, view, showsDiffs, viewer).also(::open)
+    }
+
+    /**
+     * Puts [replacement] in the place of [tab], selected if [tab] was, and disposes [tab]. The list reports [tab] as
+     * removed and [replacement] as added.
+     */
+    fun replace(
+        tab: EditorTab,
+        replacement: EditorTab,
+    ) {
+        require(replacement !in _tabs) { "Already open: ${replacement.title.value}" }
+        _tabs[indexOfOpen(tab)] = replacement
+        if (_selected.get() === tab) _selected.set(replacement)
+        tab.dispose()
     }
 
     /** Adds [tab] at the end and selects it. */

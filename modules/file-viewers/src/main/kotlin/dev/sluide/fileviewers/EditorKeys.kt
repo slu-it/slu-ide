@@ -20,24 +20,24 @@ import org.fxmisc.wellbehaved.event.InputMap
 /**
  * The editing keys of a code view's [area], taking precedence over RichTextFX's own (add them with
  * `Nodes.addInputMap`): Enter (also with Shift) keeps the indentation, Tab and Shift+Tab indent and outdent in
- * [style]; Shortcut+D duplicates the selection or line, Shortcut+Shift+K deletes lines, Alt+Shift+Up/Down move them;
+ * the current [style]; Shortcut+D duplicates the selection or line, Shortcut+Shift+K deletes lines, Alt+Shift+Up/Down move them;
  * Shortcut+/ ([TOGGLE_COMMENT]) comments lines out with [comment] or back in. They act only while the area is
  * editable; otherwise RichTextFX's bindings, which do nothing then either, get the keys.
  */
 internal fun editorKeys(
     area: CodeArea,
-    style: IndentStyle,
+    style: () -> IndentStyle,
     comment: CommentSyntax,
 ): InputMap<KeyEvent> =
     InputMap.sequence(
         area.editOn(keyPressed(KeyCode.ENTER, KeyCombination.SHIFT_ANY), typing = true) { text, selection ->
-            Indentation.newline(text, selection, style)
+            Indentation.newline(text, selection, style())
         },
         area.editOn(keyPressed(KeyCode.TAB), typing = true) { text, selection ->
-            Indentation.indent(text, selection, style)
+            Indentation.indent(text, selection, style())
         },
         area.editOn(keyPressed(KeyCode.TAB, KeyCombination.SHIFT_DOWN)) { text, selection ->
-            Indentation.outdent(text, selection, style)
+            Indentation.outdent(text, selection, style())
         },
         area.editOn(keyPressed(KeyCode.D, KeyCombination.SHORTCUT_DOWN), edit = LineOperations::duplicate),
         area.editOn(

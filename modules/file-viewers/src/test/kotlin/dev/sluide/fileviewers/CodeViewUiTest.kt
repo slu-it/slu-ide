@@ -17,6 +17,8 @@ import java.nio.file.Path
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.deleteExisting
+import kotlin.io.path.exists
+import kotlin.io.path.moveTo
 import kotlin.io.path.readBytes
 import kotlin.io.path.readText
 import kotlin.io.path.writeBytes
@@ -338,5 +340,29 @@ class CodeViewUiTest {
         robot.interact { view.save() }
         assertEquals("mine = 1\na = 1\n", file.readText())
         assertFalse(view.deletedShown)
+    }
+
+    @Test
+    fun `a moved file keeps its unsaved changes and undo, and is saved and named at its new path`(robot: FxRobot) {
+        val file = dir.resolve("main.py").apply { writeText("a = 1\n") }
+        val view = open(file, robot)
+        robot.interact { view.area.insertText(0, "mine = 1\n") }
+        val moved = dir.resolve("app.py")
+        file.moveTo(moved)
+
+        robot.interact { assertTrue(view.moved(moved)) }
+
+        assertEquals("mine = 1\na = 1\n", view.area.text)
+        assertTrue(view.dirty.get())
+        moved.writeText("theirs = 1\n")
+        robot.interact { view.reload() }
+        assertEquals("app.py changed on disk.", robot.lookup(".editor-banner .label").queryAs(Label::class.java).text)
+        robot.interact { bannerButton(robot, "Keep mine").fire() }
+
+        robot.interact { view.save() }
+        assertEquals("mine = 1\na = 1\n", moved.readText())
+        assertFalse(file.exists(), "nothing is written at the old path")
+        robot.interact { view.area.undo() }
+        assertEquals("a = 1\n", view.area.text)
     }
 }

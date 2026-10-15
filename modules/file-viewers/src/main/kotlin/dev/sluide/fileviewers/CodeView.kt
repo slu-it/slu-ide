@@ -10,7 +10,9 @@ import javafx.beans.binding.Bindings
 import javafx.beans.property.ReadOnlyStringProperty
 import javafx.beans.property.ReadOnlyStringWrapper
 import javafx.beans.property.SimpleBooleanProperty
+import javafx.beans.property.SimpleStringProperty
 import javafx.beans.value.ObservableBooleanValue
+import javafx.beans.value.ObservableValue
 import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Button
@@ -56,12 +58,18 @@ import java.util.concurrent.Executors
  * Keys for editing ([editorKeys]) indent in the file's [indentStyle] and comment out lines with [comment].
  */
 internal class CodeView(
-    private val file: Path,
+    initialFile: Path,
     private val highlighter: SyntaxHighlighter?,
     comment: CommentSyntax = CommentSyntax.NONE,
     private val dispatch: (Runnable) -> Unit = Platform::runLater,
 ) : EditableFileView,
     GutterColumns {
+    /** The file shown; it changes when the file is [moved]. */
+    private var file = initialFile
+
+    /** The name of [file], for the banners. */
+    private val fileName = SimpleStringProperty(file.fileName.toString())
+
     /** The RichTextFX area showing the text, for views that embed this one. */
     val area = CodeArea()
 
@@ -117,13 +125,13 @@ internal class CodeView(
     /** Shown while the file changed on disk and the view has unsaved changes. */
     private val conflictBanner =
         banner(
-            "${file.fileName} changed on disk.",
+            fileName.map { "$it changed on disk." },
             Button("Reload").apply { setOnAction { answered { conflict?.let(::load) } } },
             Button("Keep mine").apply { setOnAction { answered(::keepMine) } },
         )
 
     /** Shown while the file is not valid UTF-8, and so read-only. */
-    private val invalidBanner = banner("${file.fileName} is not valid UTF-8; it is shown read-only.")
+    private val invalidBanner = banner(fileName.map { "$it is not valid UTF-8; it is shown read-only." })
 
     /** Runs a banner's [action]; the focus goes back to the text, rather than wherever the vanished button sends it. */
     private fun answered(action: () -> Unit) {
@@ -145,10 +153,11 @@ internal class CodeView(
     private val changeMarkers: ChangeMarkers
 
     /** Shown while the file does not exist, e.g. after it was deleted while the view had unsaved changes. */
-    private val deletedBanner = banner("${file.fileName} was deleted on disk; saving recreates it.")
+    private val deletedBanner = banner(fileName.map { "$it was deleted on disk; saving recreates it." })
 
-    /** How the editing keys indent, from `.editorconfig` or the text as opened. */
-    val indentStyle: IndentStyle
+    /** How the editing keys indent, from `.editorconfig` or the text as opened; again when the file is [moved]. */
+    var indentStyle: IndentStyle
+        private set
 
     init {
         val content = read()
@@ -159,7 +168,7 @@ internal class CodeView(
         undoManager.forgetHistory()
         undoManager.mark()
         indentStyle = IndentStyle.forFile(file, savedText)
-        Nodes.addInputMap(area, editorKeys(area, indentStyle, comment))
+        Nodes.addInputMap(area, editorKeys(area, { indentStyle }, comment))
         Nodes.addInputMap(area, findBar.keys)
         Nodes.addInputMap(area, goToLine.keys)
         // Following the caret keeps the area at the top when it is first laid out; without it, the source side of the
@@ -363,6 +372,17 @@ internal class CodeView(
         if (raw.any { it == '\n' || it == '\r' }) lineEnding = LineEnding.of(raw)
     }
 
+    /**
+     * Reads and saves the file at [to] from now on; text, unsaved changes, caret and undo history stay. The indentation
+     * is taken again for the new path, whose `.editorconfig` sections may differ.
+     */
+    override fun moved(to: Path): Boolean {
+        file = to
+        fileName.set(to.fileName.toString())
+        indentStyle = IndentStyle.forFile(to, savedText)
+        return true
+    }
+
     override fun dispose() {
         disposed = true
         highlighting.unsubscribe()
@@ -418,10 +438,16 @@ private val highlightExecutor =
 
 /** A bar at the top of a view with [message] and [actions]. */
 private fun banner(
-    message: String,
+    message: ObservableValue<String>,
     vararg actions: Button,
 ): HBox =
-    HBox(Label(message), Region().apply { HBox.setHgrow(this, Priority.ALWAYS) }, *actions).apply {
+    HBox(
+        Label().apply {
+            textProperty().bind(message)
+        },
+        Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
+        *actions,
+    ).apply {
         styleClass += "editor-banner"
         alignment = Pos.CENTER_LEFT
     }

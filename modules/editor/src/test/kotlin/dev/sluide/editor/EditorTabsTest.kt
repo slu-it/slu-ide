@@ -81,6 +81,49 @@ class EditorTabsTest {
     }
 
     @Test
+    fun `a file tab's title and tooltip follow its path`() {
+        val view = EditedView()
+        val a = open("a.txt", view)
+
+        a.path = Path.of("/project", "b.txt")
+        assertEquals(listOf("b.txt"), names())
+        assertEquals("/project/b.txt", a.tooltip)
+
+        view.dirty.set(true)
+        a.path = Path.of("/project", "c.txt")
+        assertEquals(listOf("● c.txt"), names())
+        assertSame(a, tabs.find(Path.of("/project", "c.txt")))
+    }
+
+    @Test
+    fun `replacing a tab puts the new one in its place, selected if it was, and disposes the old one`() {
+        val view = CountingView()
+        val a = open("a.txt", view)
+        val b = open("b.txt")
+        tabs.select(a)
+        val changes = mutableListOf<String>()
+        tabs.tabs.addListener(
+            ListChangeListener { change ->
+                while (change.next()) {
+                    changes +=
+                        "-" + change.removed.map { it.title.value } + " +" + change.addedSubList.map { it.title.value }
+                }
+            },
+        )
+        val replacement = OpenFile(Path.of("/project", "a.py"), CountingView())
+
+        tabs.replace(a, replacement)
+
+        assertEquals(listOf<EditorTab>(replacement, b), tabs.tabs)
+        assertSame(replacement, tabs.selected.get())
+        assertEquals(1, view.disposed)
+        assertEquals(listOf("-[a.txt] +[a.py]"), changes)
+
+        tabs.replace(b, OpenFile(Path.of("/project", "b.py"), CountingView()))
+        assertSame(replacement, tabs.selected.get(), "the selection stays when another tab is replaced")
+    }
+
+    @Test
     fun `closing the selected tab selects its right neighbour`() {
         val a = open("a.txt")
         val b = open("b.txt")

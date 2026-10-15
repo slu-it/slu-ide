@@ -149,7 +149,8 @@ internal class PreviewFileView(
     private val preview: Preview,
     comment: CommentSyntax = CommentSyntax.NONE,
 ) : EditableFileView {
-    private val file = file.toAbsolutePath().normalize()
+    /** The file shown; it changes when the file is [moved]. */
+    private var file = file.toAbsolutePath().normalize()
 
     val source = CodeView(file, highlighter, comment)
     val webView = WebView().apply { isContextMenuEnabled = false }
@@ -313,6 +314,17 @@ internal class PreviewFileView(
         if (stopped && source.savedText != renderedText) resume() else render()
     }
 
+    /** Reads and saves the file at [to] from now on, keeping the source's text and unsaved changes, and renders it there. */
+    override fun moved(to: Path): Boolean {
+        // While the page is still the old file's own one; for HTML, it is not the new file's.
+        rememberScroll()
+        file = to.toAbsolutePath().normalize()
+        source.moved(file)
+        // The page depends on where the file is: relative links, and for HTML the address it is served at.
+        if (!disposed && !stopped) rerender()
+        return true
+    }
+
     /** Stops the page for good: a disposed view never renders again, not even on [reload] or [resume]. */
     override fun dispose() {
         disposed = true
@@ -344,14 +356,19 @@ internal class PreviewFileView(
         val text = source.savedText
         if (stopped || text == renderedText) return
         renderedText = text
-        // A page with scripts may redefine scrollY.
-        if (isLoaded) previewScrollY = (engine.executeScript("window.scrollY") as? Number)?.toDouble() ?: 0.0
+        rememberScroll()
         try {
             loading = true
             preview.load(engine, file, text, dark, root)
         } catch (e: IOException) {
             stop("The preview could not be shown: ${e.message}")
         }
+    }
+
+    /** Remembers where the page is scrolled to, if it is loaded, to scroll there again after rendering. */
+    private fun rememberScroll() {
+        // A page with scripts may redefine scrollY.
+        if (isLoaded) previewScrollY = (engine.executeScript("window.scrollY") as? Number)?.toDouble() ?: 0.0
     }
 
     /** Renders the preview again even though the text did not change. */

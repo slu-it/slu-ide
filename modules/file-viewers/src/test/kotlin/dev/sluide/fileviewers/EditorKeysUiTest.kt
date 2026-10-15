@@ -13,6 +13,8 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
+import kotlin.io.path.createDirectories
+import kotlin.io.path.moveTo
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
@@ -60,6 +62,24 @@ class EditorKeysUiTest {
 
         assertEquals("    val x = 1\n    ", view.area.text)
         assertEquals(18, view.area.caretPosition)
+    }
+
+    @Test
+    fun `a moved file indents in the style of the editorconfig for its new path`(robot: FxRobot) {
+        dir
+            .resolve(
+                ".editorconfig",
+            ).writeText("root = true\n\n[*.kt]\nindent_size = 2\n\n[sub/*.kt]\nindent_size = 3\n")
+        val view = open("Main.kt", "fun f() {}", robot)
+        val moved = dir.resolve("sub").createDirectories().resolve("Main.kt")
+        dir.resolve("Main.kt").moveTo(moved)
+
+        robot.interact { assertTrue(view.moved(moved)) }
+        view.select(9, robot = robot)
+        robot.press(view.area, KeyCode.ENTER)
+
+        assertEquals(IndentStyle(useTabs = false, size = 3), view.indentStyle)
+        assertEquals("fun f() {\n   \n}", view.area.text)
     }
 
     @Test

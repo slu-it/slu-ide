@@ -24,6 +24,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.createDirectories
+import kotlin.io.path.moveTo
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -458,6 +459,31 @@ class HtmlPreviewUiTest {
 
         WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) {
             fx { (view.webView.engine.executeScript("window.scrollY") as Number).toDouble() } == 700.0
+        }
+    }
+
+    @Test
+    fun `a moved page is shown from its new path and keeps the scroll position`(robot: FxRobot) {
+        val tall = "<div style=\"height: 5000px\"></div>"
+        val site = dir.resolve("site").createDirectories()
+        val file = site.resolve("index.html").apply { writeText("<h1>Hello</h1>$tall") }
+        val view = open(robot, file)
+        awaitPage(view, "Hello")
+        fx { view.webView.engine.executeScript("window.scrollTo(0, 700)") }
+        val moved = dir.resolve("web")
+        site.moveTo(moved)
+
+        robot.interact { view.moved(moved.resolve("index.html")) }
+
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
+            fx {
+                view.webView.engine.loadWorker.state == Worker.State.SUCCEEDED &&
+                    PreviewServer.fileFor(
+                        view.webView.engine.location
+                            .orEmpty(),
+                    ) == moved.resolve("index.html") &&
+                    (view.webView.engine.executeScript("window.scrollY") as Number).toDouble() == 700.0
+            }
         }
     }
 

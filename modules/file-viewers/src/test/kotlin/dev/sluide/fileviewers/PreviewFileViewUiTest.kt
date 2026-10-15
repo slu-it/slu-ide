@@ -22,6 +22,9 @@ import java.io.IOException
 import java.net.URI
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
+import kotlin.io.path.createDirectories
+import kotlin.io.path.exists
+import kotlin.io.path.moveTo
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.test.Test
@@ -353,6 +356,30 @@ class PreviewFileViewUiTest {
         assertEquals(listOf(URI("https://example.com/x")), host.pages)
         assertEquals(listOf(dir.resolve("docs/other.md")), host.files)
         assertEquals(page, view.script("location.href"))
+    }
+
+    @Test
+    fun `a moved file keeps its unsaved source, is saved at its new path and links from there`(robot: FxRobot) {
+        val (file, view) = show(robot, "# Before\n\n[other](other.md)\n")
+        val host = RecordingHost()
+        view.host = host
+        robot.interact { view.source.area.replaceText(2, 8, "After") }
+        val moved = dir.resolve("docs").createDirectories().resolve("guide.md")
+        file.moveTo(moved)
+
+        robot.interact { assertTrue(view.moved(moved)) }
+        awaitLoaded(view)
+
+        assertTrue(view.dirty.get())
+        assertEquals("Before", view.script("document.querySelector('h1').textContent"), "the saved text renders")
+        robot.interact { view.save() }
+        awaitLoaded(view)
+        assertEquals("# After\n\n[other](other.md)\n", moved.readText())
+        assertFalse(file.exists(), "nothing is written at the old path")
+        assertEquals("After", view.script("document.querySelector('h1').textContent"))
+        view.script("document.querySelector('a').click()")
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(listOf(dir.resolve("docs/other.md")), host.files)
     }
 
     @Test

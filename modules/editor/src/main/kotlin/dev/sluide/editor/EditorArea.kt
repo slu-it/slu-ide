@@ -138,10 +138,75 @@ class EditorArea(
             } catch (_: IOException) {
                 return false
             }
-        val openFile = editorTabs.open(path, view, fileViewers.showsDiffs(viewer))
+        val openFile = editorTabs.open(path, view, fileViewers.showsDiffs(viewer), viewer)
         showChanges(openFile)
         watch(openFile)
         return true
+    }
+
+    /**
+     * Lets the tabs of files at or below [from] follow them to [to], where they were moved, e.g. a renamed file or
+     * folder. Call it right after the move: the watch of a renamed file reports its old path as deleted, which would
+     * close a clean tab, and the watches of the files in a renamed folder follow the folder without reporting
+     * anything, which would leave their tabs at paths that no longer exist.
+     *
+     * A tab keeps its view if the view can follow its file ([FileView.moved]) and the same viewer shows the new path;
+     * otherwise it shows the file in a new view in its place. A tab with unsaved changes always keeps its view and
+     * changes, also if a new name would be shown by another viewer. If a tab is open at the new path already (one with
+     * unsaved changes whose file was deleted), it stays the file's tab and shows the file now there: the moved tab
+     * closes, or keeps its unsaved changes at the old path, where it shows its file deleted.
+     */
+    fun moved(
+        from: Path,
+        to: Path,
+    ) {
+        val source = from.toAbsolutePath().normalize()
+        val target = to.toAbsolutePath().normalize()
+        for (openFile in editorTabs.files.filter { it.path.startsWith(source) }) {
+            follow(openFile, target.resolve(source.relativize(openFile.path)))
+        }
+    }
+
+    private fun follow(
+        openFile: OpenFile,
+        path: Path,
+    ) {
+        editorTabs.find(path)?.let { existing ->
+            // Its file was deleted; now there is one again, maybe with other text than the tab kept.
+            onChangedOnDisk(existing)
+            if (openFile.isDirty) onChangedOnDisk(openFile) else editorTabs.close(openFile)
+            return
+        }
+        val viewer = fileViewers.viewerFor(path)
+        if ((viewer === openFile.viewer || openFile.isDirty) && openFile.editor.moved(path)) {
+            openFile.path = path
+            // The diff shown is of the old path.
+            hideDiff(openFile)
+            watch(openFile)
+            showChanges(openFile)
+            return
+        }
+        // Unsaved changes stay with the old path, where the file is gone: the view says so, saving recreates it.
+        if (openFile.isDirty) {
+            onChangedOnDisk(openFile)
+            return
+        }
+        val view =
+            viewer?.let {
+                try {
+                    hosted(it.open(path))
+                } catch (_: IOException) {
+                    null
+                }
+            }
+        if (viewer == null || view == null) {
+            editorTabs.close(openFile)
+            return
+        }
+        val replacement = OpenFile(path, view, fileViewers.showsDiffs(viewer), viewer)
+        editorTabs.replace(openFile, replacement)
+        showChanges(replacement)
+        watch(replacement)
     }
 
     /** Asks [diffOf] again for every open file and marks its changes. Call it when the answers may have changed. */

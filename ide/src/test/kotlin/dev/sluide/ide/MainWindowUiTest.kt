@@ -57,6 +57,7 @@ import java.util.concurrent.CompletableFuture
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
 import kotlin.io.path.exists
+import kotlin.io.path.moveTo
 import kotlin.io.path.name
 import kotlin.io.path.readLines
 import kotlin.io.path.readText
@@ -423,6 +424,23 @@ class MainWindowUiTest {
         val text = robot.lookup(".editor-content .code-area").queryAs(CodeArea::class.java)
         assertEquals("# Hello", text.text)
         assertEquals(true, text.isEditable)
+    }
+
+    @Test
+    fun `the tab of a file renamed in the explorer follows it`(robot: FxRobot) {
+        val notes = project.resolve("notes.txt").apply { writeText("notes") }
+        robot.interact { projectService.open(project) }
+        robot.interact { fileExplorer.onOpenFile(notes) }
+        val renamed = project.resolve("todo.txt")
+
+        robot.interact {
+            notes.moveTo(renamed)
+            fileExplorer.onMoved(notes, renamed)
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(listOf("todo.txt"), tabTitles(robot))
+        assertEquals(listOf(renamed), editorArea.openPaths)
     }
 
     private fun fileMenuItem(

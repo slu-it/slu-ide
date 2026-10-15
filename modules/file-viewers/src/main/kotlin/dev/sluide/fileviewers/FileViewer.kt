@@ -44,6 +44,13 @@ interface FileView {
     fun focusText() = node.requestFocus()
 
     /**
+     * Follows the file to [to], where it was moved (e.g. renamed): from now on the view reads and saves it there, and
+     * keeps everything else, including unsaved changes. Returns `false` if the view cannot follow it, as by default;
+     * whoever shows the view then opens the file anew.
+     */
+    fun moved(to: Path): Boolean = false
+
+    /**
      * Lets the view open other files and web pages, e.g. when a link in it is clicked. Set by whoever shows the view;
      * views that never open anything ignore it.
      */

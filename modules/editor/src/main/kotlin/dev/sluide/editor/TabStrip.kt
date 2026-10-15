@@ -268,6 +268,9 @@ internal class TabStrip(
     /** The context menu of the header of [tab]. */
     fun contextMenuOf(tab: EditorTab): ContextMenu = headers.single { it.tab === tab }.menu
 
+    /** The tooltip of the header of [tab]. */
+    fun tooltipOf(tab: EditorTab): Tooltip = headers.single { it.tab === tab }.tooltip
+
     /**
      * One tab: its title (with a tooltip) and a close button. Clicking it selects the tab, dragging it moves the tab,
      * right-clicking opens a menu with close actions.
@@ -276,6 +279,9 @@ internal class TabStrip(
         val tab: EditorTab,
     ) : HBox() {
         val menu: ContextMenu by lazy(::createMenu)
+
+        /** The tooltip of the header, showing [EditorTab.tooltip]. */
+        val tooltip: Tooltip
 
         /** Where the primary button was pressed, in scene and header x, while it may still start a drag. */
         private var press: Pair<Double, Double>? = null
@@ -294,7 +300,10 @@ internal class TabStrip(
             // Headers are unmanaged, so a longer or shorter title does not lay out the strip again by itself.
             title.textProperty().subscribe { _ -> this@TabStrip.requestLayout() }
             children.addAll(title, close)
-            Tooltip.install(this, Tooltip(tab.tooltip))
+            tooltip = Tooltip(tab.tooltip)
+            Tooltip.install(this, tooltip)
+            // A file tab follows its file when it is renamed.
+            if (tab is OpenFile) tab.pathProperty.subscribe { _ -> tooltip.text = tab.tooltip }
             // Pressing the close button must not select the tab first. Consuming the press on the button instead
             // would keep the button from arming, so it would never fire.
             setOnMousePressed { event ->

@@ -84,6 +84,8 @@ class MainWindow(
 
         fileExplorer.onOpenFile = { editorArea.open(it) }
         fileExplorer.canOpenFile = editorArea::canOpen
+        // Tabs follow files and folders renamed in the explorer instead of closing as if they were deleted.
+        fileExplorer.onMoved = editorArea::moved
         // Git status markers, if git is installed and the folder is a repository (ADR 0013).
         fileExplorer.markers = { path, directory -> gitStatus.snapshot.get().markers(path, directory) }
         fileExplorer.onFilesChanged = gitStatus::refresh
