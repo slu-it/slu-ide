@@ -40,7 +40,9 @@
 - Every file view gets the editor area as its `FileViewHost`: `openFile` opens a file like the explorer does,
   `openWebPage` calls `EditorArea.openWebPage`, which the main window sets to the system browser
   (`HostServices.showDocument`, through the `SystemBrowser` bean), and `projectFolder` is the window's project folder
-  (`EditorArea.projectFolder`, set by the main window), whose files HTML previews may use.
+  (`EditorArea.projectFolder`, set by the main window), whose files HTML previews may use. `windowService(type)`
+  answers from `EditorArea.windowServices`, which the main window sets to its `HttpClientSession`
+  ([ADR 0026](../adr/0026-http-client-window-session.md)).
 - Open files are watched ([file-watching.md](file-watching.md)). When a file changes on disk, its tab reloads and
   keeps its scroll position and caret (`FileView.reload`); unsaved changes are never thrown away, the view offers to
   reload or keep them instead ([text-editing.md](text-editing.md)). If reading it fails, the tab keeps showing the last

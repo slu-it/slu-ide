@@ -46,6 +46,7 @@ its own keys. JavaFX menu accelerators fire for whatever has the focus once a ke
   | F3 / Shift+F3, Enter / Shift+Enter in the query | next / previous match (F3 in the text opens the bar but keeps the focus there) | both |
   | Escape | close the find bar | both |
   | Shortcut+G | go to a line | VS Code and IntelliJ on Linux and Windows (IntelliJ on macOS: Cmd+L) |
+  | Shortcut+Enter | in the HTTP view only, while the text has the focus: run the request at the caret ([ADR 0026](0026-http-client-window-session.md)) | IntelliJ's HTTP client |
 - **Shortcut+/ by character.** It is a `KeyCharacterCombination("/")` with Shift allowed: on many keyboard layouts
   (German, Swedish) `/` is Shift+7, so a `KeyCodeCombination(SLASH)` would never match there.
 - **Window commands stay menu accelerators** in `MainWindow` (File → Save, Save All); they act on the selected tab,

@@ -70,6 +70,15 @@
 - A `FileView` can open other files and web pages through its `host` (`FileViewHost`: `openFile`, `openWebPage`),
   which whoever shows the view sets; the editor area does ([editor-tabs.md](editor-tabs.md)). Views that open nothing
   ignore it. The previews use it for links; HTML previews also take the files they may use from its `projectFolder`.
+  `windowService(type)` gives a service of the window, e.g. the HTTP client's session, or `null`
+  ([ADR 0026](../adr/0026-http-client-window-session.md)).
+- For viewers of other modules (`CodeEditors.kt`): `CodeEditors.open(file, highlighter, lineComment, blockComment)` creates the editable code view
+  as a `CodeEditor` (`EditableFileView` and `GutterColumns` with `text`, `textProperty`, `caretLine`, `moveCaretTo`),
+  `CodeEditors.display()` a read-only highlighted `CodeDisplay` (texts over 1 MiB stay plain). Viewers that show files
+  as text implement `SourceFileViewer` (`sourceHighlighter`) to get change markers and highlighted diffs. Highlighters
+  for embedded code: `Highlighters.forLanguage(name)`; `SyntaxHighlighter`, `HighlightSpan`, `TokenStyle` and
+  `isTextFile` are public. `HttpFileViewer` (`.http`, `.rest`, module `http-client`) uses them
+  ([http-client.md](http-client.md)).
 - To add a viewer, implement `FileViewer` as a `@Component` in any module below `dev.sluide`. For a language with an
   RSyntaxTextArea lexer, add its highlighter to `RSyntaxHighlighter`'s companion, extend `CodeFileViewer` like
   `PythonFileViewer` does, and add a row to `CodeFileViewersTest` and a `<Language>HighlightingTest`. Add its names

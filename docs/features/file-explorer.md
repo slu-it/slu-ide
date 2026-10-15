@@ -23,7 +23,8 @@
   file type icon of Material Design Icons: languages (the code viewer types plus C/C++/C#, Go, Rust, Ruby, PHP, Swift,
   CSS/Sass, shell, SQL, …, and a generic code icon for other languages), tools (Docker, Gradle, Node.js, Git,
   Terraform, Make, …), documents (PDF, Word, Excel, PowerPoint, CSV), media (images, video, audio, fonts, 3D/CAD),
-  archives, packages, installers (Android, Apple, Windows) and settings/keys/certificates/lock files. Each `FileIcon`
+  archives, packages, installers (Android, Apple, Windows), settings/keys/certificates/lock files, and an API icon
+  for HTTP client requests (`.http`, `.rest`; [http-client.md](http-client.md)). Each `FileIcon`
   lists its file names (e.g. `Dockerfile`, `package.json`, `LICENSE`), which win, and its extensions, all
   case-insensitive. Any other file gets a document icon if a viewer can open it (`canOpenFile`, set by `MainWindow` to
   `EditorArea.canOpen`) and a "?" file icon if not (binary); the answer is cached and asked again when the file

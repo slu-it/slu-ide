@@ -10,6 +10,9 @@ A lightweight IDE written in Kotlin, using Spring Boot and JavaFX.
   JavaScript, TypeScript, JSON, XML, YAML, CSS and more), rendered previews beside the source for Markdown, HTML, SVG,
   CSV and Jupyter notebooks; images on their own page. Lines changed against `HEAD` in git are marked
   beside the line numbers, and View → Show Changes (Ctrl/Cmd+Shift+D) shows the side-by-side diff.
+- **HTTP client:** `.http` files as in IntelliJ: run the request at the caret (Ctrl/Cmd+Enter or the run icon beside
+  it) with environments from `http-client.env.json` and a private file for secrets, variables, OAuth2 tokens and
+  client certificates; the response opens below the editor.
 - **Terminals** (Terminal → New Terminal, Ctrl+Shift+T) run your shell in the project folder as a tab; **Docker
   sandboxes** (Claude Code, Environment) run `sbx` there.
 - **Settings** (File → Settings…, Ctrl+,): Light, Dark or System theme and the fonts of explorer, editor and
@@ -46,7 +49,7 @@ it once, then allow it under System Settings → Privacy & Security → Open Any
 | Path | Content |
 |------|---------|
 | `ide/` | Application: launcher, window, fat jar |
-| `modules/` | Feature modules (`file-explorer`, `editor`, `file-viewers`, `file-watcher`, `terminal`, `settings`, `docker-sandbox`, `git`, `text-editing`) |
+| `modules/` | Feature modules (`file-explorer`, `editor`, `file-viewers`, `file-watcher`, `terminal`, `settings`, `docker-sandbox`, `git`, `text-editing`, `http-client`) |
 | `docs/` | Architecture, ADRs and feature descriptions, starting at [`docs/index.md`](docs/index.md) |
 | `.claude/` | Claude Code settings, agents, rules and scripts |
 | `.github/` | CI and release workflows |

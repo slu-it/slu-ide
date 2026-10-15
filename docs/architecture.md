@@ -7,7 +7,7 @@ assembled from Gradle modules.
 | Path | Purpose |
 |------|---------|
 | `ide/` | Application module: launcher, Spring Boot configuration, main window. Produces the fat jar (`./gradlew :ide:bootJar`). |
-| `modules/<name>/` | One Gradle module per IDE capability: `file-explorer`, `editor` (tabs), `file-viewers` (views of files, change markers and side-by-side diffs; the previews of Markdown, HTML, SVG, CSV and notebooks and the image view are `javafx.web` WebViews), `file-watcher` (changes on disk), `terminal` (shells in editor tabs), `settings` (settings state, storage and dialog), `docker-sandbox` (`sbx` in terminal tabs), `git` (git status of the open repository and diffs against `HEAD`), `text-editing` (logic of editing text without JavaFX: line endings, changes on disk, indentation incl. `.editorconfig` via ec4j-core, line operations, comments, find and replace, go to line). |
+| `modules/<name>/` | One Gradle module per IDE capability: `file-explorer`, `editor` (tabs), `file-viewers` (views of files, change markers and side-by-side diffs; the previews of Markdown, HTML, SVG, CSV and notebooks and the image view are `javafx.web` WebViews), `file-watcher` (changes on disk), `terminal` (shells in editor tabs), `settings` (settings state, storage and dialog), `docker-sandbox` (`sbx` in terminal tabs), `git` (git status of the open repository and diffs against `HEAD`), `text-editing` (logic of editing text without JavaFX: line endings, changes on disk, indentation incl. `.editorconfig` via ec4j-core, line operations, comments, find and replace, go to line), `http-client` (`.http` files: requests run from the editor with environments and auth). |
 | `gradle/libs.versions.toml` | Single place for dependency and plugin versions. |
 | `docs/` | This documentation. Start at [index.md](index.md). |
 | `.claude/` | Claude Code settings, agents, rules, scripts. |
@@ -29,8 +29,11 @@ assembled from Gradle modules.
     lines, find, replace and go to a line with its commands ([ADR 0022](adr/0022-editor-key-bindings.md)).
     `text-editing` itself depends at runtime only on ec4j-core (besides Kotlin), which reads `.editorconfig`
     ([ADR 0023](adr/0023-indentation-from-editorconfig.md)).
-  - `http-client` -> `file-viewers`: `.http` files are shown in code views, and request bodies and scripts are
-    highlighted with the code views' highlighters (`Highlighters.forLanguage`, [ADR 0005](adr/0005-syntax-highlighting.md)).
+  - `http-client` -> `file-viewers`: `.http` files are shown in the public code editor (`CodeEditors`), and request
+    bodies and scripts are highlighted with the code views' highlighters (`Highlighters.forLanguage`,
+    [ADR 0005](adr/0005-syntax-highlighting.md), [ADR 0026](adr/0026-http-client-window-session.md)). The window's
+    `HttpClientSession` reaches the views through `FileViewHost.windowService`, set up by `ide` (`MainWindow`), which
+    also tells the session whether git would commit a file.
   - `terminal` -> `editor`: terminals are shown as `EditorTab`s ([ADR 0007](adr/0007-terminal.md)).
   - `docker-sandbox` -> `terminal`: sandboxes run in terminal tabs and look `sbx` up in the same login shell
     (`loginShellRunning`) ([ADR 0010](adr/0010-docker-sandbox.md)).
@@ -48,7 +51,8 @@ assembled from Gradle modules.
 3. `SluIdeApplication.start()` asks `ProjectWindows` to show the first window in the primary stage, with the first
    folder from the command line; further folders open in new windows.
 4. Each window gets its own instances of the beans with `@Scope("window")` (`WindowScope`, [ADR 0014](adr/0014-project-windows.md)):
-   `MainWindow`, `ProjectService`, `FileExplorerView`, `EditorArea`, `Terminals`, `DockerSandbox`, `GitStatusService`.
+   `MainWindow`, `ProjectService`, `FileExplorerView`, `EditorArea`, `Terminals`, `DockerSandbox`, `GitStatusService`,
+   `HttpClientSession`.
    They are created when the window opens and destroyed (`close()`) when it closes. Singletons must not depend on
    them.
 5. When the last window is closed, `SluIdeApplication.stop()` closes the Spring context.
