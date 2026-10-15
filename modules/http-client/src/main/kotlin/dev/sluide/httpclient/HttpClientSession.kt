@@ -7,6 +7,7 @@ import dev.sluide.httpclient.send.HttpClients
 import dev.sluide.httpclient.send.RequestExecutor
 import dev.sluide.httpclient.send.RequestRunner
 import dev.sluide.httpclient.send.SslContexts
+import dev.sluide.httpclient.ui.PassphrasePrompt
 import javafx.application.Platform
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Scope
@@ -39,7 +40,7 @@ class HttpClientSession internal constructor(
      * Asks for the passphrase of a client certificate's key; `null` if the user cancelled. Called on a worker thread,
      * which waits for the answer.
      */
-    internal var passphrasePrompt: (SslConfig) -> CharArray? = { null }
+    internal var passphrasePrompt: (SslConfig) -> CharArray? = PassphrasePrompt()::ask
 
     internal val sslContexts = SslContexts(passphrase = { passphrasePrompt(it) }, discarded = clients::evict)
     internal val tokens = OAuth2TokenCache(OAuth2Client(clients), sslContexts)
