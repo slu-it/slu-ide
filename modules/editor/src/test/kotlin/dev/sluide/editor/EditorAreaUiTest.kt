@@ -1217,6 +1217,78 @@ class EditorAreaUiTest {
     }
 
     @Test
+    fun `files with unsaved changes are found at or below a path`(robot: FxRobot) {
+        val folder = dir.resolve("src").createDirectories()
+        val inner =
+            folder
+                .resolve("x")
+                .createDirectories()
+                .resolve("inner.txt")
+                .apply { writeText("inner") }
+        val top = folder.resolve("top.txt").apply { writeText("top") }
+        val clean = folder.resolve("clean.txt").apply { writeText("clean") }
+        val other =
+            dir
+                .resolve("src2")
+                .createDirectories()
+                .resolve("other.txt")
+                .apply { writeText("other") }
+        for (file in listOf(inner, top, other)) {
+            open(robot, file)
+            robot.interact { shownArea(robot).appendText("!") }
+        }
+        open(robot, clean)
+
+        assertEquals(listOf(inner, top), editor.dirtyUnder(folder))
+        assertEquals(listOf(top), editor.dirtyUnder(top))
+        assertEquals(emptyList(), editor.dirtyUnder(clean))
+        assertEquals(listOf(inner, top, other), editor.dirtyUnder(dir))
+    }
+
+    @Test
+    fun `closing the tabs below a deleted path does not ask, but keeps changes made since`(robot: FxRobot) {
+        val folder = dir.resolve("src").createDirectories()
+        val inner = folder.resolve("inner.txt").apply { writeText("inner") }
+        val clean = folder.resolve("clean.txt").apply { writeText("clean") }
+        val later = folder.resolve("later.txt").apply { writeText("later") }
+        val other =
+            dir
+                .resolve("src2")
+                .createDirectories()
+                .resolve("other.txt")
+                .apply { writeText("other") }
+        val terminal =
+            object : EditorTab {
+                override val title = SimpleStringProperty("Terminal")
+                override val tooltip = "a terminal"
+                override val content = Pane()
+                override val closeWarning = "Terminal is still running."
+            }
+        editor.confirmSave = { error("asked to save $it") }
+        editor.confirmClose = { error("asked to close $it") }
+        open(robot, inner)
+        robot.interact { shownArea(robot).appendText("!") }
+        open(robot, clean, other)
+        robot.interact { editor.open(terminal) }
+        val discarded = editor.dirtyUnder(folder)
+        // Edited after the delete was confirmed, while it ran.
+        open(robot, later)
+        robot.interact { shownArea(robot).appendText("!") }
+        folder.toFile().deleteRecursively()
+
+        robot.interact { editor.closeUnder(folder, discarded) }
+
+        assertEquals(listOf(inner), discarded)
+        assertEquals(listOf(other, later), editor.openPaths)
+        assertEquals(listOf("other.txt", "Terminal", "\u25cf later.txt"), tabTitles(robot))
+        assertEquals("later.txt was deleted on disk; saving recreates it.", bannerText(robot))
+        assertFalse(inner.exists(), "nothing saved")
+
+        robot.interact { editor.closeUnder(other, emptyList()) }
+        assertEquals(listOf("Terminal", "\u25cf later.txt"), tabTitles(robot))
+    }
+
+    @Test
     fun `other tabs show their content, follow title changes and are disposed on close`(robot: FxRobot) {
         val a = textFile("a.txt")
         open(robot, a)

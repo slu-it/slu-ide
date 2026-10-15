@@ -86,6 +86,10 @@ class MainWindow(
         fileExplorer.canOpenFile = editorArea::canOpen
         // Tabs follow files and folders renamed in the explorer instead of closing as if they were deleted.
         fileExplorer.onMoved = editorArea::moved
+        // Deleting warns about unsaved changes and, once done, closes the tabs without asking again: clean ones and
+        // those it warned about.
+        fileExplorer.unsavedUnder = editorArea::dirtyUnder
+        fileExplorer.onDeleted = editorArea::closeUnder
         // Git status markers, if git is installed and the folder is a repository (ADR 0013).
         fileExplorer.markers = { path, directory -> gitStatus.snapshot.get().markers(path, directory) }
         fileExplorer.onFilesChanged = gitStatus::refresh

@@ -78,10 +78,11 @@ class FileExplorerView(
     var unsavedUnder: (Path) -> List<Path> = { emptyList() }
 
     /**
-     * Called after a file or folder was deleted in the explorer, a folder with everything in it. Not called if deleting
-     * failed, even if it deleted a part of a folder.
+     * Called after a file or folder was deleted in the explorer, a folder with everything in it, with the files with
+     * unsaved changes the confirmation said would be lost ([unsavedUnder] when it asked). Not called if deleting failed,
+     * even if it deleted a part of a folder.
      */
-    var onDeleted: (Path) -> Unit = {}
+    var onDeleted: (path: Path, unsaved: List<Path>) -> Unit = { _, _ -> }
 
     /** Asks whether to delete an entry; shows a confirmation dialog, tests replace it, since it blocks. */
     internal var confirmDelete: (DeleteQuestion) -> Boolean = { askToDelete(scene?.window, it) }
@@ -308,7 +309,8 @@ class FileExplorerView(
         val parent = item.parent as? FileTreeItem ?: return
         val path = item.value
         val kind = entryKind(path) ?: return
-        if (!confirmDelete(deleteQuestion(path, kind, unsavedUnder(path).size))) return
+        val unsaved = unsavedUnder(path)
+        if (!confirmDelete(deleteQuestion(path, kind, unsaved.size))) return
         // The question was about this kind of entry, e.g. not about a folder with everything in it.
         if (entryKind(path) != kind) {
             showError("“${path.fileName}” changed while asking and was not deleted.")
@@ -346,7 +348,7 @@ class FileExplorerView(
                         selectRow(replacement)
                     }
                 }
-                if (failure == null) onDeleted(path)
+                if (failure == null) onDeleted(path, unsaved)
             }
         }
     }

@@ -443,6 +443,31 @@ class MainWindowUiTest {
         assertEquals(listOf(renamed), editorArea.openPaths)
     }
 
+    @Test
+    fun `deleting in the explorer counts the unsaved files and closes the tabs below`(robot: FxRobot) {
+        val docs = project.resolve("docs").createDirectories()
+        val notes = docs.resolve("notes.txt").apply { writeText("notes") }
+        val todo = docs.resolve("todo.txt").apply { writeText("todo") }
+        val readme = project.resolve("README.md").apply { writeText("# Hello") }
+        robot.interact { projectService.open(project) }
+        robot.interact { fileExplorer.onOpenFile(notes) }
+        WaitForAsyncUtils.waitForFxEvents()
+        robot.interact { shownArea(robot).appendText("!") }
+        robot.interact {
+            fileExplorer.onOpenFile(todo)
+            fileExplorer.onOpenFile(readme)
+        }
+
+        val unsaved = fileExplorer.unsavedUnder(docs)
+        assertEquals(listOf(notes), unsaved)
+
+        docs.toFile().deleteRecursively()
+        robot.interact { fileExplorer.onDeleted(docs, unsaved) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(listOf("README.md"), tabTitles(robot))
+    }
+
     private fun fileMenuItem(
         robot: FxRobot,
         text: String,

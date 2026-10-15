@@ -567,7 +567,11 @@ class FileExplorerViewUiTest {
             true
         }
         val deleted = mutableListOf<Path>()
-        view.onDeleted = { deleted.add(it) }
+        val lost = mutableListOf<Path>()
+        view.onDeleted = { path, unsaved ->
+            deleted.add(path)
+            lost.addAll(unsaved)
+        }
         robot.interact { view.open(project) }
         robot.interact {
             view.root.children
@@ -590,6 +594,7 @@ class FileExplorerViewUiTest {
         WaitForAsyncUtils.waitForFxEvents()
         assertEquals(listOf(sub), asked)
         assertEquals(listOf(deleteQuestion(sub, EntryKind.FOLDER, 2)), questions)
+        assertEquals(listOf(sub.resolve("deeper/inner.txt"), sub.resolve("x.txt")), lost, "the files counted as lost")
         assertFalse(sub.exists())
         robot.interact {
             assertEquals(project.resolve("after.txt"), view.selectionModel.selectedItem?.value)
@@ -609,7 +614,7 @@ class FileExplorerViewUiTest {
             true
         }
         val deleted = mutableListOf<Path>()
-        view.onDeleted = { deleted.add(it) }
+        view.onDeleted = { path, _ -> deleted.add(path) }
         robot.interact { view.open(project) }
         robot.interact {
             view.selectionModel.select(view.root.children.first())
@@ -641,7 +646,7 @@ class FileExplorerViewUiTest {
         val errors = mutableListOf<String>()
         view.showError = { errors += it }
         val deleted = mutableListOf<Path>()
-        view.onDeleted = { deleted.add(it) }
+        view.onDeleted = { path, _ -> deleted.add(path) }
         view.confirmDelete = { false }
         lateinit var item: FileTreeItem
         robot.interact {
@@ -671,7 +676,7 @@ class FileExplorerViewUiTest {
         val errors = mutableListOf<String>()
         view.showError = { errors += it }
         val deleted = mutableListOf<Path>()
-        view.onDeleted = { deleted.add(it) }
+        view.onDeleted = { path, _ -> deleted.add(path) }
         // The question was about a file; now it is a folder.
         view.confirmDelete = {
             entry.deleteExisting()

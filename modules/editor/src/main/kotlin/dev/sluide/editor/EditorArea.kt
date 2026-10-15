@@ -162,7 +162,7 @@ class EditorArea(
     ) {
         val source = from.toAbsolutePath().normalize()
         val target = to.toAbsolutePath().normalize()
-        for (openFile in editorTabs.files.filter { it.path.startsWith(source) }) {
+        for (openFile in filesUnder(source)) {
             follow(openFile, target.resolve(source.relativize(openFile.path)))
         }
     }
@@ -416,6 +416,34 @@ class EditorArea(
 
     /** Closes all tabs without asking, including the ones that do not show files. */
     fun closeAll() = editorTabs.closeAll()
+
+    /** The open files at or below [path] with unsaved changes, e.g. to warn before [path] is deleted. */
+    fun dirtyUnder(path: Path): List<Path> = filesUnder(path).filter { it.isDirty }.map { it.path }
+
+    /**
+     * Closes the tabs of the files at or below [path] without asking, after [path] was deleted: those without unsaved
+     * changes and those whose changes were [discarded] (e.g. counted as lost when the delete was confirmed). The other
+     * tabs, edited since, keep their changes and show their file deleted; saving recreates it.
+     */
+    fun closeUnder(
+        path: Path,
+        discarded: List<Path>,
+    ) {
+        for (openFile in filesUnder(path)) {
+            if (!openFile.isDirty ||
+                openFile.path in discarded
+            ) {
+                editorTabs.close(openFile)
+            } else {
+                onChangedOnDisk(openFile)
+            }
+        }
+    }
+
+    private fun filesUnder(path: Path): List<OpenFile> {
+        val folder = path.toAbsolutePath().normalize()
+        return editorTabs.files.filter { it.path.startsWith(folder) }
+    }
 
     /** The paths of all open files in tab order. */
     val openPaths: List<Path> get() = editorTabs.files.map { it.path }
