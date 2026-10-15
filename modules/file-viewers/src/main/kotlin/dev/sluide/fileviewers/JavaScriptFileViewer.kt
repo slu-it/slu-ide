@@ -3,7 +3,15 @@ package dev.sluide.fileviewers
 import dev.sluide.textediting.CommentSyntax
 import org.springframework.stereotype.Component
 
-/** Shows JavaScript sources (`.js`, `.mjs`, `.cjs`) read-only with syntax highlighting. */
+/**
+ * Shows JavaScript sources (`.js`, `.mjs`, `.cjs`, scripts with a `node`, `deno` or `bun` shebang) with syntax
+ * highlighting.
+ */
 @Component
 class JavaScriptFileViewer :
-    CodeFileViewer(setOf("js", "mjs", "cjs"), RSyntaxHighlighter.javaScript, CommentSyntax.SLASHES)
+    CodeFileViewer(
+        setOf("js", "mjs", "cjs"),
+        RSyntaxHighlighter.javaScript,
+        CommentSyntax.SLASHES,
+        interpreters = setOf("node", "deno", "bun"),
+    )
