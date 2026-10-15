@@ -51,6 +51,18 @@ class PowerShellHighlightingTest {
     }
 
     @Test
+    fun `constants in any case, indexes are no types`() {
+        val text = "if (${d}x -eq ${d}Null -or ${d}True) { ${d}arr[index] + ${d}h[0] + (Get-Item)[Name] }\n"
+        val other = Highlighted(text, RSyntaxHighlighter.powerShell)
+
+        assertEquals(setOf(TokenStyle.KEYWORD), other.stylesOf("${d}Null"))
+        assertEquals(setOf(TokenStyle.KEYWORD), other.stylesOf("${d}True"))
+        assertEquals(emptySet(), other.stylesOf("index"))
+        assertEquals(emptySet(), other.stylesOf("Name"))
+        assertEquals(setOf(TokenStyle.ANNOTATION), other.stylesOf("${d}arr"))
+    }
+
+    @Test
     fun `comments, strings and numbers`() {
         assertEquals(setOf(TokenStyle.COMMENT), powerShell.stylesOf("# greets"))
         assertEquals(setOf(TokenStyle.COMMENT), powerShell.stylesOf("two lines #>"))
