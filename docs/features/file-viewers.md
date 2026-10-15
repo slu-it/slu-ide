@@ -19,8 +19,15 @@
   asked last ([ADR 0004](../adr/0004-file-viewer-selection.md)). Returns `null` if no viewer agrees.
 - `DefaultTextFileViewer` shows any text file as plain text in an editable `CodeView` without highlighting. A file is text if its
   first 8 KiB contain no NUL byte and are valid UTF-8 (`isTextFile`); empty files are text, files over 10 MiB are not.
-- Code viewers extend `CodeFileViewer(extensions, highlighter, comment)` and show text files with syntax highlighting
-  and line numbers in an editable `CodeView`. It renders a RichTextFX `CodeArea`, colours the tokens from a `SyntaxHighlighter`
+- Code viewers extend `CodeFileViewer(extensions, highlighter, comment, names, namePatterns, interpreters)` and show
+  text files with syntax highlighting and line numbers in an editable `CodeView`. Which files they open is decided by
+  `FileMatch`, all case-insensitive: a file extension, an exact file name (`names`, e.g. `dockerfile`, `.bashrc`), or a
+  `Regex` matching the whole name (`namePatterns`, e.g. `dockerfile\..*`). A file without an extension also matches
+  if its first line is a shebang naming one of the `interpreters`: `#!/bin/bash`, `#! /bin/sh`, `#!/usr/bin/env node`,
+  `#!/usr/bin/env -S python3 -u` (options and `NAME=value` of `env` are skipped). The interpreter matches with and
+  without its version, so `python3.12` counts as `python3.12`, `python3` and `python`. A file with an extension is
+  never matched by its shebang. The first line comes from the same 8 KiB sample the text check reads, so the file is
+  read once per viewer. It renders a RichTextFX `CodeArea`, colours the tokens from a `SyntaxHighlighter`
   (`RSyntaxHighlighter` = RSyntaxTextArea lexers, [ADR 0005](../adr/0005-syntax-highlighting.md)) and is styled by
   `syntax.css`; its banners (file changed or deleted on disk) and find bar by `code-view.css`. Edited text is highlighted again in
   the background once typing pauses ([ADR 0020](../adr/0020-editing-and-saving-files.md)). Token classes: `keyword`, `type`, `builtin`, `string`, `number`, `comment`, `annotation`, `property`, `tag`, `attribute`, `operator`.
@@ -28,12 +35,12 @@
   one for their source too ([text-editing.md](text-editing.md)).
 - Highlighted languages, with the corrections for outdated lexers (configured in `RSyntaxHighlighter`'s companion):
 
-  | Viewer | Extensions | Corrections to the lexer |
+  | Viewer | Files | Corrections to the lexer |
   |--------|------------|--------------------------|
-  | `PythonFileViewer` | `.py`, `.pyw`, `.pyi` | `async`/`await`/`nonlocal` keywords, `print`/`exec` builtins, string prefixes like `f` belong to the string |
+  | `PythonFileViewer` | `.py`, `.pyw`, `.pyi`; shebang `python`, `python3` | `async`/`await`/`nonlocal` keywords, `print`/`exec` builtins, string prefixes like `f` belong to the string |
   | `KotlinFileViewer` | `.kt`, `.kts` | `package` keyword; multi-line raw strings (`"""…"""`). Known gap: ranges like `1..2` show as two numbers |
   | `JavaFileViewer` | `.java` | none needed (text blocks, records, sealed types work) |
-  | `JavaScriptFileViewer` | `.js`, `.mjs`, `.cjs` | `from`/`undefined` keywords; `${…}` in template literals stays unstyled code |
+  | `JavaScriptFileViewer` | `.js`, `.mjs`, `.cjs`; shebang `node`, `deno`, `bun` | `from`/`undefined` keywords; `${…}` in template literals stays unstyled code |
   | `TypeScriptFileViewer` | `.ts`, `.mts`, `.cts` | keywords such as `type`, `readonly`, `as`, `keyof`, `satisfies`; types `unknown`, `never`, `object`, `symbol`, `bigint`; decorators |
   | `JsxFileViewer` | `.jsx` | as JavaScript; line rules add JSX tags (`tag`: `<Name` and its `>`/`/>` when the tag is complete on its line or its attributes continue on the next lines, `</Name>`, fragments, a `>`/`/>` alone on a line) and attributes with a value (`attribute`). Code like `a <b && c > d` or `b="x"` stays code, and strings are never restyled. Known gaps: text between tags is lexed as code (e.g. `for` shows as a keyword); boolean attributes are unstyled |
   | `TsxFileViewer` | `.tsx` | as TypeScript plus JSX like `JsxFileViewer`; generics (`useState<T>(`, `<T>(x: T) => T`, `<T,>`) are no tags. Known gap (also in `.ts`): after `= <` the lexer reads E4X markup to the end of the line, so the rest of a generic arrow function's line is unstyled |
