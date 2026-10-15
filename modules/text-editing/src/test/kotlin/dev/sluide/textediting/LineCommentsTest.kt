@@ -68,6 +68,15 @@ class LineCommentsTest {
     }
 
     @Test
+    fun `comments lines in SQL, PowerShell, INI and Mermaid`() {
+        assertEquals("-- select 1|", toggle("select 1|", CommentSyntax.SQL))
+        assertEquals("# Get-Item|", toggle("Get-Item|", CommentSyntax.POWERSHELL))
+        assertEquals("; key = value|", toggle("key = value|", CommentSyntax.SEMICOLON))
+        assertEquals("%% A --> B|", toggle("A --> B|", CommentSyntax.MERMAID))
+        assertEquals("A --> B|", toggle("%% A --> B|", CommentSyntax.MERMAID))
+    }
+
+    @Test
     fun `does nothing for languages without comments`() {
         assertNull(toggle("a|", CommentSyntax.NONE))
     }

@@ -18,6 +18,18 @@ data class CommentSyntax(
         /** XML, HTML, Markdown. */
         val XML = CommentSyntax(null, "<!--" to "-->")
 
+        /** SQL. */
+        val SQL = CommentSyntax("--", "/*" to "*/")
+
+        /** PowerShell. */
+        val POWERSHELL = CommentSyntax("#", "<#" to "#>")
+
+        /** INI files, which have only line comments starting with `;`. */
+        val SEMICOLON = CommentSyntax(";", null)
+
+        /** Mermaid diagrams, which have only line comments starting with `%%`. */
+        val MERMAID = CommentSyntax("%%", null)
+
         /** Languages without comments, such as JSON and plain text. */
         val NONE = CommentSyntax(null, null)
     }
