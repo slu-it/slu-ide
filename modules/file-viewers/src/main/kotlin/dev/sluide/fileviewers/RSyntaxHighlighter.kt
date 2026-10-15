@@ -406,6 +406,7 @@ internal class RSyntaxHighlighter(
                 "ssh-config", "sshconfig", "ssh_config", "sshd_config" -> sshConfig
                 "caddyfile", "caddy" -> caddyfile
                 "mermaid", "mmd" -> mermaid
+                "dotenv", "env" -> env
                 else -> null
             }
 
@@ -786,5 +787,26 @@ internal class RSyntaxHighlighter(
          */
         val cookies =
             RSyntaxHighlighter(SyntaxConstants.SYNTAX_STYLE_NONE, lineRules = listOf(Regex("""^(?<comment>#.*)""")))
+
+        /**
+         * `.env` files: the lexer reports keys as variables and unquoted values as identifiers, shown as property and
+         * string. It starts a comment at every `#`, where dotenv does only after a space, so a `#` within an unquoted
+         * value (`a#b`) stays part of it, and comments after it are found again.
+         */
+        val env =
+            RSyntaxHighlighter(
+                SyntaxConstants.SYNTAX_STYLE_ENV,
+                tokenStyles =
+                    mapOf(
+                        TokenTypes.VARIABLE to TokenStyle.PROPERTY,
+                        TokenTypes.IDENTIFIER to TokenStyle.STRING,
+                    ),
+                keptStyles = setOf(TokenStyle.STRING),
+                lineRules =
+                    listOf(
+                        Regex("""^[^=#'"]*=[^\s#'"]*(?<string>#\S*)"""),
+                        Regex("""(?<=\s)(?<comment>#.*)"""),
+                    ),
+            )
     }
 }
