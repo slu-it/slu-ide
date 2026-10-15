@@ -4,6 +4,7 @@ import org.fife.ui.rsyntaxtextarea.SyntaxConstants
 import org.fife.ui.rsyntaxtextarea.Token
 import org.fife.ui.rsyntaxtextarea.TokenMakerFactory
 import org.fife.ui.rsyntaxtextarea.TokenTypes
+import java.util.TreeMap
 import javax.swing.text.Segment
 
 /**
@@ -42,14 +43,15 @@ internal class RSyntaxHighlighter(
     override fun highlight(text: String): List<HighlightSpan> {
         val lexed = lex(text)
         if (lineRules.isEmpty()) return lexed
-        val kept = lexed.filter { it.style in keptStyles }
-        val ruled =
-            applyLineRules(text).filter { rule -> kept.none { it.overlaps(rule) } }
-        return (lexed.filter { span -> ruled.none { it.overlaps(span) } } + ruled).sortedBy { it.start }
+        // All three lists are sorted and free of overlaps, so each step is one pass over them.
+        val ruled = applyLineRules(text).withoutOverlapsWith(lexed.filter { it.style in keptStyles })
+        return merge(lexed.withoutOverlapsWith(ruled), ruled)
     }
 
+    /** The spans of all line rules, sorted; an earlier rule's span wins over a later one's overlapping it. */
     private fun applyLineRules(text: String): List<HighlightSpan> {
-        val spans = mutableListOf<HighlightSpan>()
+        // By start; spans do not overlap, so their starts differ and the neighbours tell whether a new one overlaps.
+        val spans = TreeMap<Int, HighlightSpan>()
         var lineStart = 0
         for (line in text.split('\n')) {
             val content = line.removeSuffix("\r")
@@ -59,18 +61,55 @@ internal class RSyntaxHighlighter(
                         val range = match.groups[style.styleClass]?.range ?: continue
                         if (range.isEmpty()) continue
                         val span = HighlightSpan(lineStart + range.first, lineStart + range.last + 1, style)
-                        if (spans.none { it.overlaps(span) }) spans += span
+                        val before = spans.floorEntry(span.start)?.value
+                        val after = spans.ceilingEntry(span.start)?.value
+                        if ((before == null || before.end <= span.start) &&
+                            (after == null || after.start >= span.end)
+                        ) {
+                            spans[span.start] = span
+                        }
                     }
                 }
             }
             lineStart += line.length + 1
         }
-        return spans
+        return spans.values.toList()
     }
 
-    private fun HighlightSpan.overlaps(other: HighlightSpan) = start < other.end && other.start < end
+    /** These sorted, disjoint spans without those overlapping one of the sorted, disjoint [others]. */
+    private fun List<HighlightSpan>.withoutOverlapsWith(others: List<HighlightSpan>): List<HighlightSpan> {
+        var next = 0
+        return filter { span ->
+            // Spans of [others] ending before this one starts cannot overlap any later span either.
+            while (next < others.size && others[next].end <= span.start) next++
+            next == others.size || others[next].start >= span.end
+        }
+    }
+
+    /** The spans of two sorted lists that do not overlap each other, in one sorted list. */
+    private fun merge(
+        first: List<HighlightSpan>,
+        second: List<HighlightSpan>,
+    ): List<HighlightSpan> {
+        val merged = ArrayList<HighlightSpan>(first.size + second.size)
+        var i = 0
+        var j = 0
+        while (i < first.size || j < second.size) {
+            merged +=
+                if (j == second.size ||
+                    (i < first.size && first[i].start < second[j].start)
+                ) {
+                    first[i++]
+                } else {
+                    second[j++]
+                }
+        }
+        return merged
+    }
 
     private fun lex(text: String): List<HighlightSpan> {
+        // The plain lexer styles nothing, and takes quadratic time on long lines with many backslashes.
+        if (syntaxStyle == SyntaxConstants.SYNTAX_STYLE_NONE) return emptyList()
         // Lexers keep state in their token list, so every call gets its own instance.
         val lexer = TokenMakerFactory.getDefaultInstance().getTokenMaker(syntaxStyle)
         val chars = text.toCharArray()
@@ -574,9 +613,10 @@ internal class RSyntaxHighlighter(
                 SyntaxConstants.SYNTAX_STYLE_DOCKERFILE,
                 lineRules =
                     listOf(
-                        Regex("""(?i)^\s*(?<keyword>HEALTHCHECK|SHELL)(?=\s|$)"""),
-                        Regex("""(?i)^\s*FROM\s+(?:--\S+\s+)*\S+\s+(?<keyword>AS)(?=\s)"""),
-                        Regex("""(?<annotation>\$(?:\{[^}]*}|\w+))"""),
+                        Regex("""(?i)^\s*+(?<keyword>HEALTHCHECK|SHELL)(?=\s|$)"""),
+                        // `AS name` ends the line: found from the end, so options before the image cost nothing.
+                        Regex("""(?i)^\s*+FROM\s.*\s(?<keyword>AS)\s++\S++\s*+$"""),
+                        Regex("""(?<annotation>\$(?:\{[^{}]*+}|\w+))"""),
                     ),
             )
 
@@ -614,8 +654,9 @@ internal class RSyntaxHighlighter(
                 tokenStyles = mapOf(TokenTypes.PREPROCESSOR to TokenStyle.TYPE, TokenTypes.DATA_TYPE to null),
                 lineRules =
                     listOf(
-                        Regex("""^\s*(?<property>[^\s=;#\[][^=]*?)\s*(?<![<>!~=])=(?!=)"""),
-                        Regex("""^\s*(?<property>[^\s=:;#\[][^=:]*?)\s*:(?!.*=)"""),
+                        // Keys end with a non-blank, so that no lazy match runs over the blanks before the `=`.
+                        Regex("""^\s*+(?<property>[^\s=;#\[](?:[^=]*[^\s=])?)\s*+(?<![<>!~=])=(?!=)"""),
+                        Regex("""^\s*+(?<property>[^\s=:;#\[](?:[^=:]*[^\s=:])?)\s*+:(?!.*=)"""),
                     ),
             )
 
@@ -643,7 +684,7 @@ internal class RSyntaxHighlighter(
                 lineRules =
                     listOf(
                         Regex("""(?<comment>#.*)"""),
-                        Regex("""^\s*(?<number>[0-9a-fA-F]{7,64})(?=\s|#|$)"""),
+                        Regex("""^\s*+(?<number>[0-9a-fA-F]{7,64})(?=\s|#|$)"""),
                     ),
             )
 
@@ -656,9 +697,9 @@ internal class RSyntaxHighlighter(
                 SyntaxConstants.SYNTAX_STYLE_NONE,
                 lineRules =
                     listOf(
-                        Regex("""^\s*(?<comment>#.*)"""),
-                        Regex("""(?i)^\s*(?:Host|Match)(?:\s*=\s*|\s+)(?<type>.*?)\s*$"""),
-                        Regex("""^\s*(?<keyword>[A-Za-z][A-Za-z0-9]*)"""),
+                        Regex("""^\s*+(?<comment>#.*)"""),
+                        Regex("""(?i)^\s*+(?:Host|Match)(?:\s*+=\s*+|\s++)(?<type>(?:.*\S)?)"""),
+                        Regex("""^\s*+(?<keyword>[A-Za-z][A-Za-z0-9]*+)"""),
                     ),
             )
 
@@ -666,18 +707,21 @@ internal class RSyntaxHighlighter(
          * Caddyfiles: `#` comments (at the start of a line or after whitespace), site addresses and snippets (an
          * unindented line opening a block) as types, quoted and backtick strings, directives (the first word of a
          * line) as keywords, and named matchers (`@api`) and placeholders (`{path}`, `{$ENV}`) as annotations.
-         * Known gap: a site address without a block (a Caddyfile serving one site) shows as a directive.
+         * Known gaps: a site address without a block (a Caddyfile serving one site) shows as a directive, and
+         * placeholders inside quotes stay part of the string.
          */
         val caddyfile =
             RSyntaxHighlighter(
                 SyntaxConstants.SYNTAX_STYLE_NONE,
                 lineRules =
                     listOf(
-                        Regex("""^\s*(?<comment>#.*)"""),
-                        Regex("""^(?<type>[^\s#{}@][^{]*?)\s*\{\s*$"""),
-                        Regex("""(?<string>"(?:[^"\\]|\\.)*"|`[^`]*`)"""),
+                        Regex("""^\s*+(?<comment>#.*)"""),
+                        Regex("""^(?<type>[^\s#{}@](?:[^{]*[^\s{])?)\s*+\{\s*+$"""),
+                        // Up to a quote after an even number of backslashes. No loop over alternatives, which Java runs
+                        // in quadratic time or recursively, and no string starts at an escaped quote.
+                        Regex("""(?<!\\)(?<string>".*?(?<!\\)(?:\\\\)*+"|`[^`]*+`)"""),
                         Regex("""(?<=\s)(?<comment>#.*)"""),
-                        Regex("""^\s*(?<keyword>[a-z_][\w-]*)(?=\s|$)"""),
+                        Regex("""^\s*+(?<keyword>[a-z_][\w-]*+)(?=\s|$)"""),
                         Regex("""(?<![^\s(])(?<annotation>@[\w-]+)"""),
                         Regex("""(?<annotation>\{[^\s{}]+})"""),
                     ),

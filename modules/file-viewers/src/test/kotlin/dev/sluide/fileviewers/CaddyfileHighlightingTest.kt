@@ -65,6 +65,17 @@ class CaddyfileHighlightingTest {
     }
 
     @Test
+    fun `escaped quotes and backslashes in strings`() {
+        val text = "    respond \"say \\\"hi\\\"\" 200\n    header X \"a\\\\\" {path}\n"
+        val escaped = Highlighted(text, RSyntaxHighlighter.caddyfile)
+
+        assertEquals(setOf(TokenStyle.STRING), escaped.stylesOf("\"say \\\"hi\\\"\""))
+        assertEquals(emptySet(), escaped.stylesOf("200"))
+        assertEquals(setOf(TokenStyle.STRING), escaped.stylesOf("\"a\\\\\""))
+        assertEquals(setOf(TokenStyle.ANNOTATION), escaped.stylesOf("{path}"), "the string ended at the quote")
+    }
+
+    @Test
     fun `fenced Caddyfiles are highlighted`() =
         assertSame(RSyntaxHighlighter.caddyfile, RSyntaxHighlighter.forLanguage("caddyfile"))
 

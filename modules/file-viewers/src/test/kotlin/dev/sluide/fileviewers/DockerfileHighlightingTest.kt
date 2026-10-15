@@ -32,6 +32,8 @@ class DockerfileHighlightingTest {
         assertEquals(setOf(TokenStyle.KEYWORD), dockerfile.stylesOf("AS"))
         assertEquals(setOf(TokenStyle.KEYWORD), dockerfile.stylesOf("as final"))
         assertEquals(emptySet(), dockerfile.stylesOf("build"))
+        val stage = Highlighted("FROM --platform=linux/amd64 node:20 AS deps\n", RSyntaxHighlighter.dockerfile)
+        assertEquals(setOf(TokenStyle.KEYWORD), stage.stylesOf("AS"))
     }
 
     @Test
