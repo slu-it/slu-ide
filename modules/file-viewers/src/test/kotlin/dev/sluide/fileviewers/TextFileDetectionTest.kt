@@ -68,6 +68,27 @@ class TextFileDetectionTest {
     }
 
     @Test
+    fun `text sample is the start of a text file and null otherwise`() {
+        val long = dir.resolve("long.txt").apply { writeText("a".repeat(TEXT_SAMPLE_SIZE + 10)) }
+        assertEquals(TEXT_SAMPLE_SIZE, readTextSample(long)?.size)
+        val binary = dir.resolve("data.bin").apply { writeBytes(byteArrayOf(0x23, 0x21, 0x00)) }
+        assertNull(readTextSample(binary))
+        assertNull(readTextSample(dir.resolve("missing")))
+    }
+
+    @Test
+    fun `first line is read without its line break`() {
+        fun firstLineOf(text: String) = firstLine(dir.resolve("script").apply { writeText(text) })
+
+        assertEquals("#!/bin/sh", firstLineOf("#!/bin/sh\necho hi\n"))
+        assertEquals("#!/bin/sh", firstLineOf("#!/bin/sh\r\necho hi\r\n"))
+        assertEquals("only line", firstLineOf("only line"))
+        assertEquals("", firstLineOf(""))
+        assertEquals("a".repeat(TEXT_SAMPLE_SIZE), firstLineOf("a".repeat(TEXT_SAMPLE_SIZE + 10)))
+        assertNull(firstLine(dir.resolve("data.bin").apply { writeBytes(byteArrayOf(0x23, 0x21, 0x00)) }))
+    }
+
+    @Test
     fun `decodes valid UTF-8 strictly`() {
         assertEquals("ä€", decodeUtf8("ä€".toByteArray()))
         assertEquals("", decodeUtf8(ByteArray(0)))

@@ -20,16 +20,37 @@ internal const val MAX_TEXT_FILE_SIZE = 10L * 1024 * 1024
  * Its first [TEXT_SAMPLE_SIZE] bytes must not contain a NUL byte and must be valid UTF-8; a multi-byte
  * character cut off at the end of the sample is fine. Empty files are text. IO errors yield `false`.
  */
-fun isTextFile(file: Path): Boolean =
+fun isTextFile(file: Path): Boolean = readTextSample(file) != null
+
+/**
+ * The first [TEXT_SAMPLE_SIZE] bytes of [file] if it is a text file as [isTextFile] decides, else `null`, so callers
+ * that also look at the start of the file read it only once.
+ */
+internal fun readTextSample(file: Path): ByteArray? =
     try {
-        Files.isRegularFile(file) &&
-            Files.size(file) <= MAX_TEXT_FILE_SIZE &&
-            isTextSample(readSample(file))
+        if (Files.isRegularFile(file) && Files.size(file) <= MAX_TEXT_FILE_SIZE) {
+            readSample(file).takeIf(::isTextSample)
+        } else {
+            null
+        }
     } catch (_: IOException) {
-        false
+        null
     } catch (_: SecurityException) {
-        false
+        null
     }
+
+/**
+ * The first line of a text [sample] without its line break (`\n` or `\r\n`); cut off at the end of the sample if
+ * the line is longer.
+ */
+internal fun firstLine(sample: ByteArray): String {
+    // 0x0A never occurs inside a multi-byte UTF-8 character.
+    val end = sample.indexOf('\n'.code.toByte()).takeIf { it >= 0 } ?: sample.size
+    return String(sample, 0, end, Charsets.UTF_8).removeSuffix("\r")
+}
+
+/** The first line of [file] (see [firstLine]) if it is a text file, read from its first [TEXT_SAMPLE_SIZE] bytes. */
+internal fun firstLine(file: Path): String? = readTextSample(file)?.let(::firstLine)
 
 private fun readSample(file: Path): ByteArray =
     Files.newInputStream(file).use { input -> input.readNBytes(TEXT_SAMPLE_SIZE) }
