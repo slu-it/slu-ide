@@ -16,22 +16,21 @@ internal val imageTypes =
     )
 
 /**
- * A page showing one image on a checkered background, so that transparency shows: fitted to the view, or at its
- * actual size after a click. The image is an `<img>` with a `data:` URI, so an SVG cannot run scripts. The page brings
- * the previews' script (`sluide.setDark`).
+ * A page showing one image on a checkered background, so that transparency shows. The image is an `<img>` with a
+ * `data:` URI, so an SVG cannot run scripts. The page brings the previews' script: `sluide.setDark`, and as a
+ * `zoomable` page the zoom (`sluide.setZoom`, [ZoomControls]): fitted to the view or at a fixed scale, a click
+ * switching between fitted and 100%.
  */
 internal object ImagePage {
     private val stylesheet = HtmlPage.resource("image-page.css")
     private val script = HtmlPage.resource("preview.js")
-    private const val SWITCH_SIZE =
-        "document.body.addEventListener('click', function () { document.body.classList.toggle('actual'); });"
 
     fun render(
         bytes: ByteArray,
         type: String,
         dark: Boolean,
     ): String =
-        HtmlPage.render(dark, listOf(stylesheet), listOf(script, SWITCH_SIZE)) {
+        HtmlPage.render(dark, listOf(stylesheet), listOf(script), listOf("zoomable")) {
             append("<img alt=\"\" src=\"data:").append(type).append(";base64,")
             append(Base64.getEncoder().encodeToString(bytes)).append("\">")
         }

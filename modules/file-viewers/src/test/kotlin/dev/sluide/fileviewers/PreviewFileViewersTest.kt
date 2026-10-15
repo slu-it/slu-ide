@@ -102,7 +102,7 @@ class PreviewFileViewersTest {
         val dark = ImagePage.render(byteArrayOf(1, 2, 3), "image/png", dark = true)
 
         assert("src=\"data:image/png;base64,AQID\"" in light)
-        assert("<body>" in light && "<body class=\"dark\">" in dark)
+        assert("<body class=\"zoomable\">" in light && "<body class=\"dark zoomable\">" in dark)
     }
 
     @Test

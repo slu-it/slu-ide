@@ -170,13 +170,27 @@ body.dark pre.mermaid {
     background: transparent;
 }
 
-/* A Mermaid file's diagram (MermaidPreview): a click switches between fitting the page and its actual size. */
-body.mermaid-file pre.mermaid svg {
-    cursor: zoom-in;
+/*
+ * A Mermaid file's diagram (MermaidPreview), sized by preview.js (the zoom: fitted to the view or at a fixed scale).
+ * The page scrolls, not the diagram, centered with auto margins so that a large one scrolls to every edge.
+ */
+body.mermaid-file {
+    padding-bottom: 16px;
 }
 
-body.mermaid-file.actual pre.mermaid svg {
+body.mermaid-file pre.mermaid {
+    margin-bottom: 0;
+    overflow: visible;
+}
+
+body.zoomable pre.mermaid svg {
+    display: block;
+    margin: 0 auto;
     cursor: zoom-out;
+}
+
+body.zoomable.fitted pre.mermaid svg {
+    cursor: zoom-in;
 }
 
 /* A Mermaid file that does not parse (MermaidPreview): Mermaid's message. */

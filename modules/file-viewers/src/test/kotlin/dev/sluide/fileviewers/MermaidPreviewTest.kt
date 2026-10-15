@@ -21,7 +21,7 @@ class MermaidPreviewTest {
         assertEquals(source, diagram.attr("data-source"))
         assertEquals(source, diagram.wholeText())
         assertTrue(Vendor.mermaidJs in page && "sluide.renderDiagrams()" in page)
-        assertTrue(document.body().hasClass("mermaid-file"))
+        assertTrue(document.body().hasClass("mermaid-file") && document.body().hasClass("zoomable"))
         assertTrue(!document.body().hasClass("dark"))
         assertTrue(Jsoup.parse(MermaidPreview.render(source, dark = true)).body().hasClass("dark"))
     }

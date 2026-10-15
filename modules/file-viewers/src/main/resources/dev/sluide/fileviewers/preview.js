@@ -1,6 +1,6 @@
-// Behaviour of the preview pages (MarkdownRenderer, CsvRenderer, NotebookRenderer, ImagePage) in PreviewFileView.
-// Kotlin calls window.sluide; link clicks go to window.sluideBridge, which PreviewFileView sets once the page has
-// loaded.
+// Behaviour of the preview pages (MarkdownRenderer, CsvRenderer, NotebookRenderer, ImagePage) in PreviewFileView and
+// ImageFileView. Kotlin calls window.sluide; link clicks and zoom changes go to window.sluideBridge, which the view
+// sets once the page has loaded.
 (function () {
     var diagramsDrawn = Promise.resolve();
 
@@ -12,22 +12,110 @@
         return document.body.classList.contains('mermaid-file');
     }
 
-    // A Mermaid file's diagram (MermaidPreview): at its actual size while the body has the class "actual", otherwise
-    // as Mermaid draws it, as wide as the page but never wider than its actual size (the max-width Mermaid sets).
-    function sizeDiagrams() {
-        if (!isMermaidFile()) return;
-        var actual = document.body.classList.contains('actual');
-        var drawings = document.querySelectorAll('pre.mermaid svg');
-        for (var i = 0; i < drawings.length; i++) {
-            var svg = drawings[i];
-            if (!svg.hasAttribute('data-width')) {
-                if (!svg.style.maxWidth || svg.style.maxWidth === 'none') continue;
-                svg.setAttribute('data-width', svg.style.maxWidth);
+    // Zoom of a zoomable page (body class "zoomable": ImagePage, MermaidPreview). The image or diagram gets an explicit
+    // size in px: its natural size times the scale. zoom is null while it fits the view, else the fixed scale; scale is
+    // the one last applied. Every change is reported to sluideBridge.zoomed, so that the view's toolbar follows.
+    var MIN_SCALE = 0.1;
+    var MAX_SCALE = 16;
+    var MARGIN = 16;
+    var zoom = null;
+    var scale = 1;
+
+    function isZoomable() {
+        return document.body.classList.contains('zoomable');
+    }
+
+    // What the zoom sizes: a Mermaid file's drawing, else the image.
+    function zoomTarget() {
+        if (!isZoomable()) return null;
+        return document.querySelector(isMermaidFile() ? 'pre.mermaid svg' : 'img');
+    }
+
+    // The target's size at 100%, remembered in data-width and data-height before the zoom first sizes it.
+    function naturalSize(target) {
+        if (!target.hasAttribute('data-width')) {
+            var width;
+            var height;
+            if (target.tagName.toLowerCase() === 'img') {
+                width = target.naturalWidth;
+                height = target.naturalHeight;
+                if (!width || !height) {
+                    // An SVG without a size of its own: as large as it is laid out without ours.
+                    target.style.width = '';
+                    target.style.height = '';
+                    var laidOut = target.getBoundingClientRect();
+                    width = laidOut.width;
+                    height = laidOut.height;
+                }
+            } else {
+                // Mermaid's drawing is as wide as the max-width Mermaid sets; its height follows its view box.
+                var box = target.viewBox && target.viewBox.baseVal;
+                var drawn = target.getBoundingClientRect();
+                width = parseFloat(target.style.maxWidth) || (box && box.width) || drawn.width;
+                height = box && box.width ? width * box.height / box.width : drawn.height;
             }
-            var width = svg.getAttribute('data-width');
-            svg.style.maxWidth = actual ? 'none' : width;
-            svg.style.width = actual ? width : '';
+            if (!width || !height) return null;
+            target.setAttribute('data-width', width);
+            target.setAttribute('data-height', height);
         }
+        return {
+            width: parseFloat(target.getAttribute('data-width')),
+            height: parseFloat(target.getAttribute('data-height'))
+        };
+    }
+
+    // The scale at which the target is visible as a whole, never above 1; below MIN_SCALE for huge content.
+    function fitScale(target, size) {
+        var width;
+        var height;
+        if (isMermaidFile()) {
+            // Measured without the drawing: the room the page leaves it, below the note above it.
+            target.style.width = '0px';
+            target.style.height = '0px';
+            var pre = target.parentNode;
+            var style = getComputedStyle(pre);
+            width = pre.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight);
+            height = window.innerHeight - document.body.getBoundingClientRect().height;
+        } else {
+            width = window.innerWidth - 2 * MARGIN;
+            height = window.innerHeight - 2 * MARGIN;
+        }
+        // Whole pixels, so that no fraction overflows and shows a scrollbar; at least one (a tiny view).
+        width = Math.max(1, Math.floor(width));
+        height = Math.max(1, Math.floor(height));
+        return Math.min(1, width / size.width, height / size.height);
+    }
+
+    function applyZoom() {
+        // A view not laid out yet (e.g. a preview opened beside the source alone) has no room to fit into: the target
+        // stays as it is until the view gets a size (resize).
+        if (zoom === null && (window.innerWidth <= 0 || window.innerHeight <= 0)) return;
+        var target = zoomTarget();
+        var size = target && naturalSize(target);
+        if (!size) return;
+        scale = zoom === null ? fitScale(target, size) : zoom;
+        target.style.maxWidth = 'none';
+        target.style.width = size.width * scale + 'px';
+        target.style.height = size.height * scale + 'px';
+        document.body.classList.toggle('fitted', zoom === null);
+        if (window.sluideBridge && window.sluideBridge.zoomed) window.sluideBridge.zoomed(scale, zoom === null);
+    }
+
+    // Sets the zoom to value (null: fit), keeping the point at (x, y) in the viewport where it is, if given. A fixed
+    // value is trusted (the view clamps it, ZoomSteps.clamp), only kept from exceeding MAX_SCALE; one that is no size
+    // is ignored.
+    function setZoom(value, x, y) {
+        if (value !== null && value !== undefined && !(value > 0)) return;
+        var target = zoomTarget();
+        var anchored = target && typeof x === 'number' && typeof y === 'number';
+        var before = anchored ? target.getBoundingClientRect() : null;
+        zoom = value === null || value === undefined ? null : Math.min(MAX_SCALE, value);
+        applyZoom();
+        if (!before || !before.width || !before.height) return;
+        var after = target.getBoundingClientRect();
+        var newX = after.left + (x - before.left) * after.width / before.width;
+        var newY = after.top + (y - before.top) * after.height / before.height;
+        window.scrollBy(newX - x, newY - y);
     }
 
     window.sluide = {
@@ -85,9 +173,18 @@
                 return Promise.all(checks).then(function (parsed) {
                     var nodes = diagrams.filter(function (diagram, i) { return parsed[i]; });
                     return nodes.length ? mermaid.run({ nodes: nodes, suppressErrors: true }) : undefined;
-                }).then(sizeDiagrams);
+                }).then(applyZoom);
             });
             return diagramsDrawn;
+        },
+        // Zooms a zoomable page's image or diagram to scale (null: fit to the view); keeps the point at the viewport
+        // coordinates (x, y) in place, if given.
+        setZoom: setZoom,
+        // Multiplies the scale in effect by factor, keeping the point at the viewport coordinates (x, y) in place;
+        // within MIN_SCALE and MAX_SCALE, but a scale below MIN_SCALE (a fit of huge content) is never raised to it.
+        zoomBy: function (factor, x, y) {
+            var lowest = Math.min(MIN_SCALE, scale);
+            setZoom(Math.min(MAX_SCALE, Math.max(lowest, scale * factor)), x, y);
         },
         // Typesets the math (MarkdownMath) with KaTeX, which the page includes when it has math.
         renderMath: function () {
@@ -106,11 +203,10 @@
     document.addEventListener('click', function (event) {
         var link = event.target.closest ? event.target.closest('a[href]') : null;
         if (!link) {
-            // A click on a Mermaid file's diagram switches between fitting the page and its actual size.
-            var diagram = event.target.closest ? event.target.closest('pre.mermaid') : null;
-            if (diagram && isMermaidFile() && diagram.querySelector('svg')) {
-                document.body.classList.toggle('actual');
-                sizeDiagrams();
+            // A click on the image or a Mermaid file's diagram: from fitting the view to 100% at the pointer, and back.
+            var onTarget = !isMermaidFile() || (event.target.closest && event.target.closest('pre.mermaid'));
+            if (onTarget && zoomTarget()) {
+                if (zoom === null) setZoom(1, event.clientX, event.clientY); else setZoom(null);
             }
             return;
         }
@@ -124,4 +220,10 @@
             window.sluideBridge.open(href);
         }
     });
+
+    // A fitted image or diagram follows the size of the view; an image fits as soon as it is there.
+    window.addEventListener('resize', function () {
+        if (zoom === null) applyZoom();
+    });
+    window.addEventListener('load', applyZoom);
 })();

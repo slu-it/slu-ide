@@ -14,8 +14,9 @@ class MermaidFileViewer :
 /**
  * The file as one diagram, drawn like ` ```mermaid ` fences in Markdown ([MarkdownRenderer.page], `preview.js`), but
  * with `data-errors`: a diagram that does not parse shows Mermaid's error message instead of nothing. On the body,
- * `mermaid-file` makes the diagram fit the page (never larger than its actual size) and a click on it switch to its
- * actual size and back.
+ * `mermaid-file` and `zoomable` make the page scroll instead of the diagram and give the diagram the zoom
+ * (`sluide.setZoom`, [ZoomControls]): fitted to the view or at a fixed scale, a click switching between fitted and
+ * 100%.
  */
 internal object MermaidPreview : Preview {
     override fun load(
@@ -35,7 +36,7 @@ internal object MermaidPreview : Preview {
         dark: Boolean,
         note: String? = null,
     ): String {
-        val body = Element("body").addClass("mermaid-file")
+        val body = Element("body").addClass("mermaid-file").addClass("zoomable")
         if (note != null) body.appendElement("p").addClass("diagram-note").text(note)
         body
             .appendElement("pre")
