@@ -382,6 +382,8 @@ internal class RSyntaxHighlighter(
 
                 "powershell", "ps1", "pwsh" -> powerShell
 
+                "dockerfile", "docker", "containerfile" -> dockerfile
+
                 else -> null
             }
 
@@ -573,6 +575,21 @@ internal class RSyntaxHighlighter(
                         Regex("""(?<![\w$])(?<annotation>\$(?:\{[^}]*}|(?!(?:true|false|null)\b)[\w:]+))"""),
                         Regex("""(?<=\[)(?<type>[A-Za-z_][\w.]*)(?=(?:\[\])?\])"""),
                         Regex("""(?<=\[)(?<annotation>[A-Za-z_][\w.]*)(?=\()"""),
+                    ),
+            )
+
+        /**
+         * Dockerfiles. The lexer misses the instructions `HEALTHCHECK` and `SHELL` and the `AS` naming a build stage;
+         * variables (`$VAR`, `${VAR}`) outside strings become annotations, like shell variables.
+         */
+        val dockerfile =
+            RSyntaxHighlighter(
+                SyntaxConstants.SYNTAX_STYLE_DOCKERFILE,
+                lineRules =
+                    listOf(
+                        Regex("""(?i)^\s*(?<keyword>HEALTHCHECK|SHELL)(?=\s|$)"""),
+                        Regex("""(?i)^\s*FROM\s+(?:--\S+\s+)*\S+\s+(?<keyword>AS)(?=\s)"""),
+                        Regex("""(?<annotation>\$(?:\{[^}]*}|\w+))"""),
                     ),
             )
     }

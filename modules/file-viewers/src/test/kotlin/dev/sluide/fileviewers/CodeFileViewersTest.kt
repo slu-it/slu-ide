@@ -38,9 +38,12 @@ class CodeFileViewersTest {
             ShellFileViewer() to
                 listOf("build.sh", "run.bash", "env.zsh", "old.ksh", ".bashrc", ".bash_profile", ".zshrc", ".profile"),
             PowerShellFileViewer() to listOf("build.ps1", "Tools.psm1", "Tools.psd1"),
+            DockerfileFileViewer() to
+                listOf("Dockerfile", "Containerfile", "Dockerfile.dev", "dockerfile.prod.local", "app.Dockerfile"),
         )
 
-    private val others = listOf("notes.txt", "README", "py", "README.md", "index.html", "icon.svg")
+    private val others =
+        listOf("notes.txt", "README", "py", "README.md", "index.html", "icon.svg", "Dockerfile.dockerignore")
 
     private fun file(name: String) = dir.resolve(name).apply { writeText("x = 1\n") }
 
