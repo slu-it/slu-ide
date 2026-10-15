@@ -77,15 +77,15 @@ class TextFileDetectionTest {
     }
 
     @Test
-    fun `first line is read without its line break`() {
-        fun firstLineOf(text: String) = firstLine(dir.resolve("script").apply { writeText(text) })
+    fun `first line is read from the sample without its line break`() {
+        fun firstLineOf(text: String) =
+            readTextSample(dir.resolve("script").apply { writeText(text) })?.let(::firstLine)
 
         assertEquals("#!/bin/sh", firstLineOf("#!/bin/sh\necho hi\n"))
         assertEquals("#!/bin/sh", firstLineOf("#!/bin/sh\r\necho hi\r\n"))
         assertEquals("only line", firstLineOf("only line"))
         assertEquals("", firstLineOf(""))
         assertEquals("a".repeat(TEXT_SAMPLE_SIZE), firstLineOf("a".repeat(TEXT_SAMPLE_SIZE + 10)))
-        assertNull(firstLine(dir.resolve("data.bin").apply { writeBytes(byteArrayOf(0x23, 0x21, 0x00)) }))
     }
 
     @Test

@@ -3,6 +3,7 @@ package dev.sluide.fileviewers
 import org.springframework.stereotype.Component
 import java.io.IOException
 import java.nio.file.Path
+import kotlin.io.path.extension
 
 /**
  * All available [FileViewer]s in the order they are asked: every specific viewer first, [DefaultTextFileViewer] last,
@@ -11,12 +12,27 @@ import java.nio.file.Path
 @Component
 class FileViewers(
     viewers: List<FileViewer>,
-    fallback: DefaultTextFileViewer,
+    private val fallback: DefaultTextFileViewer,
 ) {
-    val viewers: List<FileViewer> = viewers.filterNot { it === fallback } + fallback
+    private val specific = viewers.filterNot { it === fallback }
+    private val shebangViewers = specific.filterIsInstance<ShebangViewer>()
 
-    /** The first viewer that can show [file], or `null` if none can, in which case the file is not opened. */
-    fun viewerFor(file: Path): FileViewer? = viewers.firstOrNull { it.canOpen(file) }
+    val viewers: List<FileViewer> = specific + fallback
+
+    /**
+     * The viewer to show [file] with, or `null` if none can, in which case the file is not opened: the first specific
+     * viewer that can open it; for a text file without an extension, else the first [ShebangViewer] that opens the
+     * interpreter its shebang names (the file is read once for this); else [DefaultTextFileViewer] if it can.
+     * A viewer that opens the file by its name thus always wins over one that would open it by its shebang.
+     */
+    fun viewerFor(file: Path): FileViewer? {
+        specific.firstOrNull { it.canOpen(file) }?.let { return it }
+        if (file.extension.isNotEmpty() || shebangViewers.isEmpty()) return fallback.takeIf { it.canOpen(file) }
+        // The fallback opens exactly the text files, which the sample already tells.
+        val sample = readTextSample(file) ?: return null
+        val interpreter = shebangInterpreter(firstLine(sample)) ?: return fallback
+        return shebangViewers.firstOrNull { it.opensInterpreter(interpreter) } ?: fallback
+    }
 
     /**
      * Shows [file] side by side with the original of [diff], highlighted like its code viewer would (ADR 0015).

@@ -7,9 +7,9 @@ import kotlin.io.path.name
 
 /**
  * Which text files a viewer opens, all case-insensitive: files with one of the [extensions], with one of the exact
- * file [names] (`dockerfile`, `.bashrc`), or whose whole name matches one of the [namePatterns] (`dockerfile\..*`).
- * Files without an extension also match if their first line is a shebang naming one of the [interpreters]
- * (see [shebangInterpreter]); a file with an extension never matches by its shebang.
+ * file [names] (`dockerfile`, `.bashrc`), or whose whole name matches one of the [namePatterns] (`dockerfile\..*`)
+ * ([matchesName]). Files without an extension that no viewer opens by name may also be opened by a shebang naming
+ * one of the [interpreters] ([matchesInterpreter]); [FileViewers] reads the shebang once for all viewers.
  */
 internal class FileMatch(
     extensions: Set<String>,
@@ -22,23 +22,22 @@ internal class FileMatch(
     private val namePatterns = namePatterns.map { Regex(it.pattern, it.options + RegexOption.IGNORE_CASE) }
     private val interpreters = interpreters.mapTo(HashSet()) { it.lowercase() }
 
-    /** Whether [file] is a readable text file that matches by its name or, without an extension, by its shebang. */
-    fun matches(file: Path): Boolean {
-        if (matchesName(file)) return Files.isReadable(file) && isTextFile(file)
-        if (interpreters.isEmpty() || file.extension.isNotEmpty() || !Files.isReadable(file)) return false
-        return firstLine(file)?.let(::shebangInterpreter)?.let(::isInterpreter) ?: false
-    }
-
-    private fun matchesName(file: Path): Boolean {
+    /** Whether [file] is a readable text file whose extension or name matches; its content is not looked at. */
+    fun matchesName(file: Path): Boolean {
         val name = file.name
-        return file.extension.lowercase() in extensions ||
-            name.lowercase() in names ||
-            namePatterns.any { it.matches(name) }
+        val matches =
+            file.extension.lowercase() in extensions ||
+                name.lowercase() in names ||
+                namePatterns.any { it.matches(name) }
+        return matches && Files.isReadable(file) && isTextFile(file)
     }
 
-    /** `python3.12` is accepted as `python3.12`, `python3` and `python`. */
-    private fun isInterpreter(name: String): Boolean {
-        val raw = name.lowercase()
+    /**
+     * Whether a shebang naming [interpreter] ([shebangInterpreter]) is one of the [interpreters], with or without its
+     * version: `python3.12` is accepted as `python3.12`, `python3` and `python`.
+     */
+    fun matchesInterpreter(interpreter: String): Boolean {
+        val raw = interpreter.lowercase()
         return raw in interpreters ||
             raw.replace(MINOR_VERSIONS, "") in interpreters ||
             raw.replace(VERSION, "") in interpreters

@@ -3,6 +3,7 @@ package dev.sluide.fileviewers
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.io.path.extension
+import kotlin.io.path.name
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
@@ -24,6 +25,50 @@ class FileViewersTest {
         override fun canOpen(file: Path) = file.extension == extension
 
         override fun open(file: Path): FileView = error("not needed")
+    }
+
+    /** Opens files named [name] and scripts whose shebang names [interpreter]. */
+    private class ScriptViewer(
+        private val name: String,
+        private val interpreter: String,
+    ) : ShebangViewer {
+        override fun canOpen(file: Path) = file.name == name
+
+        override fun opensInterpreter(interpreter: String) = interpreter == this.interpreter
+
+        override fun open(file: Path): FileView = error("not needed")
+    }
+
+    @Test
+    fun `a viewer opening a file by its name wins over one opening it by its shebang`() {
+        val python = PythonFileViewer()
+        val build = ScriptViewer("build", "make")
+        val script = dir.resolve("build").apply { writeText("#!/usr/bin/env python3\n") }
+
+        assertSame(build, FileViewers(listOf(python, build), fallback).viewerFor(script))
+        assertSame(build, FileViewers(listOf(build, python), fallback).viewerFor(script))
+    }
+
+    @Test
+    fun `the first viewer opening the interpreter of the shebang wins`() {
+        val first = ScriptViewer("a", "node")
+        val second = ScriptViewer("b", "node")
+        val script = dir.resolve("tool").apply { writeText("#!/usr/bin/env node\n") }
+
+        assertSame(first, FileViewers(listOf(first, second), fallback).viewerFor(script))
+        assertSame(second, FileViewers(listOf(second, first), fallback).viewerFor(script))
+    }
+
+    @Test
+    fun `files with an extension, dotfiles included, are not opened by their shebang`() {
+        val bash = ScriptViewer("none", "bash")
+        val viewers = FileViewers(listOf(bash), fallback)
+
+        assertSame(fallback, viewers.viewerFor(dir.resolve(".bashrc").apply { writeText("#!/bin/bash\n") }))
+        assertSame(fallback, viewers.viewerFor(dir.resolve("run.sh.bak").apply { writeText("#!/bin/bash\n") }))
+        assertSame(bash, viewers.viewerFor(dir.resolve("run").apply { writeText("#!/bin/bash\n") }))
+        assertNull(viewers.viewerFor(dir.resolve("blob").apply { writeBytes("#!/bin/bash\n".toByteArray() + 0x00) }))
+        assertNull(viewers.viewerFor(dir.resolve("missing")))
     }
 
     @Test

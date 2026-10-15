@@ -7,6 +7,7 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -50,30 +51,30 @@ class CodeFileViewersTest {
 
     @Test
     fun `code viewers open extensionless scripts by their shebang`() {
-        val scripts: Map<CodeFileViewer?, List<String>> =
+        val python = PythonFileViewer()
+        val javaScript = JavaScriptFileViewer()
+        val fallback = DefaultTextFileViewer()
+        val viewers = FileViewers(listOf(python, javaScript), fallback)
+        val scripts: Map<FileViewer, List<String>> =
             mapOf(
-                PythonFileViewer() to
+                python to
                     listOf(
                         "#!/usr/bin/env python3\n",
                         "#!/usr/bin/python\n",
                         "#!/usr/bin/env -S python3 -u\n",
                         "#! /usr/bin/python3.12\r\nprint(1)\r\n",
+                        "#!/usr/bin/env -S uv run --script\n",
                     ),
-                JavaScriptFileViewer() to
+                javaScript to
                     listOf("#!/usr/bin/env node\n", "#!/usr/bin/env -S deno run\n", "#!/usr/bin/env bun\n"),
-                null to listOf("#!/bin/bash\n", "#!/usr/bin/env ruby\n", "# python3\n"),
+                fallback to listOf("#!/bin/bash\n", "#!/usr/bin/env ruby\n", "# python3\n"),
             )
-        val viewers = listOf(PythonFileViewer(), JavaScriptFileViewer())
 
         for ((expected, shebangs) in scripts) {
             for ((index, shebang) in shebangs.withIndex()) {
-                val script =
-                    dir
-                        .resolve(
-                            "script-${expected?.javaClass?.simpleName}-$index",
-                        ).apply { writeText(shebang) }
-                val accepting = viewers.filter { it.canOpen(script) }.map { it::class }
-                assertEquals(listOfNotNull(expected?.let { it::class }), accepting, shebang)
+                val script = dir.resolve("script-${expected.javaClass.simpleName}-$index").apply { writeText(shebang) }
+                assertSame(expected, viewers.viewerFor(script), shebang)
+                assertFalse(python.canOpen(script) || javaScript.canOpen(script), "canOpen $shebang")
             }
         }
     }
@@ -82,13 +83,15 @@ class CodeFileViewersTest {
     fun `code viewers ignore the shebang of files with an extension or binary content`() {
         val python = PythonFileViewer()
         val javaScript = JavaScriptFileViewer()
+        val fallback = DefaultTextFileViewer()
+        val viewers = FileViewers(listOf(javaScript, python), fallback)
 
         val nodeInPy = dir.resolve("tool.py").apply { writeText("#!/usr/bin/env node\n") }
-        assertTrue(python.canOpen(nodeInPy))
-        assertFalse(javaScript.canOpen(nodeInPy))
-        assertFalse(python.canOpen(dir.resolve("notes.txt").apply { writeText("#!/usr/bin/env python3\n") }))
+        assertSame(python, viewers.viewerFor(nodeInPy))
+        val pythonInTxt = dir.resolve("notes.txt").apply { writeText("#!/usr/bin/env python3\n") }
+        assertSame(fallback, viewers.viewerFor(pythonInTxt))
         val binary = dir.resolve("blob").apply { writeBytes("#!/usr/bin/env python3\n".toByteArray() + 0x00) }
-        assertFalse(python.canOpen(binary))
+        assertNull(viewers.viewerFor(binary))
     }
 
     @Test

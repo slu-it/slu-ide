@@ -7,8 +7,9 @@ import java.nio.file.Path
 
 /**
  * Editable, syntax-highlighted view ([CodeView]) of source files with one of the given [extensions], one of the exact
- * file [names] or a whole name matching one of the [namePatterns], all case-insensitive; files without an extension
- * also match by a shebang naming one of the [interpreters] (`#!/usr/bin/env python3`; [FileMatch]).
+ * file [names] or a whole name matching one of the [namePatterns], all case-insensitive ([canOpen]); [FileViewers] also
+ * opens files without an extension with it if no viewer takes them by name and their shebang names one of the
+ * [interpreters] (`#!/usr/bin/env python3`; [FileMatch], [ShebangViewer]).
  * Subclasses pick the language via [highlighter] and how it comments out lines via [comment]; see `PythonFileViewer`.
  */
 abstract class CodeFileViewer internal constructor(
@@ -18,10 +19,12 @@ abstract class CodeFileViewer internal constructor(
     names: Set<String> = emptySet(),
     namePatterns: List<Regex> = emptyList(),
     interpreters: Set<String> = emptySet(),
-) : FileViewer {
+) : ShebangViewer {
     private val match = FileMatch(extensions, names, namePatterns, interpreters)
 
-    override fun canOpen(file: Path): Boolean = match.matches(file)
+    override fun canOpen(file: Path): Boolean = match.matchesName(file)
+
+    override fun opensInterpreter(interpreter: String): Boolean = match.matchesInterpreter(interpreter)
 
     override fun open(file: Path): FileView = CodeView(file, highlighter, comment)
 }

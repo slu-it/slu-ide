@@ -49,9 +49,6 @@ internal fun firstLine(sample: ByteArray): String {
     return String(sample, 0, end, Charsets.UTF_8).removeSuffix("\r")
 }
 
-/** The first line of [file] (see [firstLine]) if it is a text file, read from its first [TEXT_SAMPLE_SIZE] bytes. */
-internal fun firstLine(file: Path): String? = readTextSample(file)?.let(::firstLine)
-
 private fun readSample(file: Path): ByteArray =
     Files.newInputStream(file).use { input -> input.readNBytes(TEXT_SAMPLE_SIZE) }
 

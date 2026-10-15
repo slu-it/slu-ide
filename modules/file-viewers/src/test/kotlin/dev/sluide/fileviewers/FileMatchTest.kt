@@ -30,41 +30,35 @@ class FileMatchTest {
 
         val accepted = listOf("rules.MK", "makefile", ".bashrc", "Dockerfile.dev", ".env", ".env.local")
         val rejected = listOf("Makefile.bak", "my.bashrc", "Dockerfile", "app.dockerfile", "x.env", ".envrc")
-        for (name in accepted) assertTrue(match.matches(file(name)), name)
-        for (name in rejected) assertFalse(match.matches(file(name)), name)
+        for (name in accepted) assertTrue(match.matchesName(file(name)), name)
+        for (name in rejected) assertFalse(match.matchesName(file(name)), name)
     }
 
     @Test
     fun `names and patterns match only readable text files`() {
         val match = FileMatch(emptySet(), names = setOf("makefile"), namePatterns = listOf(Regex("dockerfile.*")))
-        assertFalse(match.matches(dir.resolve("Makefile").apply { writeBytes(byteArrayOf(0x61, 0x00)) }))
-        assertFalse(match.matches(dir.resolve("Dockerfile")))
+        assertFalse(match.matchesName(dir.resolve("Makefile").apply { writeBytes(byteArrayOf(0x61, 0x00)) }))
+        assertFalse(match.matchesName(dir.resolve("Dockerfile")))
     }
 
     @Test
-    fun `matches extensionless files by the interpreter of their shebang`() {
+    fun `matches interpreters with and without their version`() {
         val match = FileMatch(emptySet(), interpreters = setOf("python", "python3"))
 
-        assertTrue(match.matches(file("manage", "#!/usr/bin/python3\nprint(1)\n")))
-        assertTrue(match.matches(file("tool", "#!/usr/bin/env python\n")))
-        assertTrue(match.matches(file("unbuffered", "#!/usr/bin/env -S python3 -u\n")))
-        assertTrue(match.matches(file("spaced", "#! /usr/local/bin/python3\n")))
-        assertTrue(match.matches(file("windows", "#!/usr/bin/env python3\r\nprint(1)\r\n")))
-        assertTrue(match.matches(file("versioned", "#!/usr/bin/python3.12\n")))
-        assertFalse(match.matches(file("shell", "#!/bin/bash\n")))
-        assertFalse(match.matches(file("comment", "# python3\n")))
-        assertFalse(match.matches(file("later", "\n#!/usr/bin/env python3\n")))
+        for (interpreter in listOf("python", "python3", "Python3", "python3.12", "python2", "python2.7")) {
+            assertTrue(match.matchesInterpreter(interpreter), interpreter)
+        }
+        for (interpreter in listOf("bash", "pythonw", "ipython", "py")) {
+            assertFalse(match.matchesInterpreter(interpreter), interpreter)
+        }
     }
 
     @Test
-    fun `ignores the shebang of files with an extension and of binary files`() {
+    fun `name matches do not look at the shebang`() {
         val match = FileMatch(setOf("py"), interpreters = setOf("python3"))
 
-        assertFalse(match.matches(file("run.txt", "#!/usr/bin/env python3\n")))
-        assertTrue(match.matches(file("run.py", "#!/usr/bin/env node\n")))
-        val binary = dir.resolve("blob").apply { writeBytes("#!/usr/bin/env python3\n".toByteArray() + 0x00) }
-        assertFalse(match.matches(binary))
-        assertFalse(match.matches(dir.resolve("missing")))
+        assertFalse(match.matchesName(file("tool", "#!/usr/bin/env python3\n")))
+        assertTrue(match.matchesName(file("run.py", "#!/usr/bin/env node\n")))
     }
 
     @Test
