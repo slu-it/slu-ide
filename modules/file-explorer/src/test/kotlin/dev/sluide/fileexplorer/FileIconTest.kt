@@ -51,6 +51,8 @@ class FileIconTest {
                 "Cargo.lock" to FileIcon.LOCK,
                 "app.properties" to FileIcon.CONFIG,
                 "setup.exe" to FileIcon.WINDOWS,
+                "main.bicep" to FileIcon.AZURE,
+                "prod.bicepparam" to FileIcon.AZURE,
                 "notes.txt" to FileIcon.TEXT,
             )
         expected.forEach { (name, icon) -> assertEquals(icon, fileIcon(name), name) }

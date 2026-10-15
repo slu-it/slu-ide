@@ -48,6 +48,7 @@
 .file-icon-docker     { -fx-icon-color: #1d63ed; }
 .file-icon-kubernetes { -fx-icon-color: #326ce5; }
 .file-icon-terraform  { -fx-icon-color: #7b42bc; }
+.file-icon-azure      { -fx-icon-color: #0089d6; }
 .file-icon-ansible    { -fx-icon-color: #1a1918; }
 .file-icon-gradle     { -fx-icon-color: #02303a; }
 .file-icon-make       { -fx-icon-color: #6d4c41; }
@@ -125,6 +126,7 @@
     .file-icon-docker     { -fx-icon-color: #4b8bf5; }
     .file-icon-kubernetes { -fx-icon-color: #6a96ee; }
     .file-icon-terraform  { -fx-icon-color: #a77fe0; }
+    .file-icon-azure      { -fx-icon-color: #50b0f0; }
     .file-icon-ansible    { -fx-icon-color: #d0d0d0; }
     .file-icon-gradle     { -fx-icon-color: #7fc1c9; }
     .file-icon-make       { -fx-icon-color: #a1887f; }

@@ -179,6 +179,7 @@ internal enum class FileIcon(
         names = setOf("kustomization.yaml", "kustomization.yml"),
     ),
     TERRAFORM(MaterialDesignT.TERRAFORM, "file-icon-terraform", setOf("tf", "tfvars", "tfstate", "hcl")),
+    AZURE(MaterialDesignM.MICROSOFT_AZURE, "file-icon-azure", setOf("bicep", "bicepparam")),
     ANSIBLE(MaterialDesignA.ANSIBLE, "file-icon-ansible", names = setOf("ansible.cfg")),
 
     // Gradle's logo is an elephant.
