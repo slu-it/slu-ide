@@ -12,6 +12,9 @@ data class CommentSyntax(
         /** Kotlin, Java, JavaScript, TypeScript, SCSS, Sass, LESS. */
         val SLASHES = CommentSyntax("//", "/*" to "*/")
 
+        /** KQL, which has only line comments starting with `//`. */
+        val LINE_SLASHES = CommentSyntax("//", null)
+
         /** CSS, which has only block comments. */
         val CSS = CommentSyntax(null, "/*" to "*/")
 

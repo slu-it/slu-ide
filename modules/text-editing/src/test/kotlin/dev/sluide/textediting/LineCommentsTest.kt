@@ -77,6 +77,15 @@ class LineCommentsTest {
     }
 
     @Test
+    fun `comments lines in KQL`() {
+        assertEquals(
+            "^// print a = 1\n// print b = 2|",
+            toggle("^print a = 1\nprint b = 2|", CommentSyntax.LINE_SLASHES),
+        )
+        assertEquals("T|", toggle("// T|", CommentSyntax.LINE_SLASHES))
+    }
+
+    @Test
     fun `does nothing for languages without comments`() {
         assertNull(toggle("a|", CommentSyntax.NONE))
     }
