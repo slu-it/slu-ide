@@ -2,10 +2,13 @@ package dev.sluide.fileviewers
 
 import javafx.application.ColorScheme
 import javafx.concurrent.Worker
+import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Label
 import javafx.scene.layout.BorderPane
+import javafx.scene.layout.HBox
 import javafx.scene.web.WebView
+import netscape.javascript.JSObject
 import org.springframework.stereotype.Component
 import java.io.IOException
 import java.nio.file.Files
@@ -37,8 +40,9 @@ class ImageFileViewer : FileViewer {
 }
 
 /**
- * An image on a checkered background ([ImagePage]), fitted to the view or at its actual size (click to switch), with
- * its pixel size and file size below. Follows the window's colour scheme; read again when the file changes.
+ * An image on a checkered background ([ImagePage]) with the zoom controls ([zoom]) above and its pixel size and file
+ * size below. It opens fitted to the view; a click switches between fitted and 100%, and the zoom is kept when the
+ * image is shown again. Follows the window's colour scheme; read again when the file changes.
  */
 internal class ImageFileView(
     private val file: Path,
@@ -46,8 +50,19 @@ internal class ImageFileView(
     val webView = WebView().apply { isContextMenuEnabled = false }
     val status = Label().apply { styleClass += "image-status" }
     private val engine = webView.engine
+
+    /** The image's zoom, in the toolbar above it and on the keys, wheel and pinch in the web view. */
+    internal val zoom = ZoomControls(engine) { isLoaded }
+
+    /** Receives the page's zoom changes; held here because the WebView only keeps a weak reference. */
+    private val bridge = ZoomBridge()
     private val pane =
         BorderPane(webView).apply {
+            top =
+                HBox(zoom.node).apply {
+                    styleClass += "preview-toolbar"
+                    alignment = Pos.CENTER_LEFT
+                }
             bottom = status
             styleClass += "image-view"
             stylesheets += checkNotNull(ImageFileView::class.java.getResource("preview-view.css")).toExternalForm()
@@ -57,6 +72,7 @@ internal class ImageFileView(
     private var disposed = false
 
     init {
+        zoom.install(webView)
         engine.loadWorker.stateProperty().subscribe { state -> if (state == Worker.State.SUCCEEDED) onLoaded() }
         // Nothing on the page navigates; something dropped onto it would. Show the image again.
         engine.locationProperty().subscribe { location -> if (!disposed && !isPageFromString(location)) render() }
@@ -82,6 +98,9 @@ internal class ImageFileView(
         render()
     }
 
+    /** Focuses the image, so that the zoom keys work right away. */
+    override fun focusText() = webView.requestFocus()
+
     /** Stops showing the image for good: the blank page left is no page of ours, and nothing renders again. */
     override fun dispose() {
         disposed = true
@@ -103,6 +122,16 @@ internal class ImageFileView(
                 "var i = document.querySelector('img'); i.naturalWidth + ' × ' + i.naturalHeight",
             )
         status.text = "$size px · ${humanSize(bytes.size.toLong())}"
+        (engine.executeScript("window") as JSObject).setMember("sluideBridge", bridge)
+        zoom.applyTo()
+    }
+
+    /** Called by the page's script (`sluideBridge.zoomed`) when the zoom changed. */
+    inner class ZoomBridge {
+        fun zoomed(
+            scale: Double,
+            fitted: Boolean,
+        ) = zoom.zoomed(scale, fitted)
     }
 }
 
