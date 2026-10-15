@@ -1,6 +1,7 @@
 # 0004. File viewers are asked in turn, the default text viewer last
 
-- Status: accepted; partly superseded by [0020](0020-editing-and-saving-files.md) (views of text are editable)
+- Status: accepted; partly superseded by [0020](0020-editing-and-saving-files.md) (views of text are editable) and
+  [0029](0029-file-name-and-shebang-matching.md) (of the viewers that agree, the best name match wins; shebangs)
 - Date: 2026-10-12
 
 ## Context
@@ -24,6 +25,6 @@ changes in the code that opens files.
 - Specific viewers must keep `canOpen` cheap, since it is called on every open.
 - Code viewers also open files without an extension by their shebang: only after no viewer took the file by name
   (so names win), with the file read once for all of them, still before `DefaultTextFileViewer`
-  ([file-viewers.md](../features/file-viewers.md)).
+  ([ADR 0029](0029-file-name-and-shebang-matching.md), [file-viewers.md](../features/file-viewers.md)).
 - Text files in other encodings (e.g. Latin-1) are not opened yet.
 - Views are created on the JavaFX thread; very slow file systems block the UI while a file is read.
