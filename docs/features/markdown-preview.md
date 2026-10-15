@@ -13,7 +13,9 @@
   between `$$` lines as display math, and ` ```math ` fences. Like a code fence, a `$$` line without a closing one
   runs to the end of the file.
 - Diagrams: ` ```mermaid ` fences are drawn by Mermaid (bundled, works offline, `securityLevel: 'strict'`), in the
-  light or dark Mermaid theme; a theme change draws them again. Invalid diagrams show Mermaid's error instead.
+  light or dark Mermaid theme, without a code box behind them in either theme; a theme change draws them again.
+  Invalid diagrams show Mermaid's error instead. In the source, ` ```mermaid ` and ` ```mmd ` fences are highlighted
+  as Mermaid; Mermaid files of their own: [previews.md](previews.md).
 - Images: local ones (relative to the file's folder, or `file:`; png, jpg, gif, svg, webp, bmp, ico up to 10 MB) are
   embedded into the page, since a page loaded from a string may not read files. Larger ones stay as written and do
   not show. The 10 MB are per image: a file with many large images makes a large page, read and encoded on the JavaFX

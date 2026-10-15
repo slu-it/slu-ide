@@ -58,6 +58,12 @@ and never navigate the preview (`FileViewHost`, [file-viewers.md](file-viewers.m
   Scroll sync keeps working after sorting.
 - At most 10,000 rows are shown, with a note saying how many there are.
 
+## Cookie jars (`.cookies`) — `CookiesFileViewer`
+- IntelliJ's `http-client.cookies` (tab-separated) as a sortable table beside the text, like CSV: the first line
+  `# domain path name value date` is the header without its `# ` and shows as a comment in the source. The table
+  scrolls with the source.
+- Quotes are part of the values (`"dark"` stays quoted; `CsvRenderer` with `quotes = false`).
+
 ## Jupyter notebooks (`.ipynb`) — `NotebookFileViewer`
 - Opens in **Preview**: the notebook as Jupyter shows it, with its stored outputs; Source shows the JSON. Nothing is
   run. No scroll sync (JSON lines do not match cells).
@@ -67,3 +73,39 @@ and never navigate the preview (`FileViewHost`, [file-viewers.md](file-viewers.m
   plain text; streams (stderr tinted), and errors with their traceback (ANSI colours removed).
 - HTML outputs that sanitise to nothing (plotting libraries store mostly scripts) fall back to their plain text.
 - A file that is no valid JSON, or not shaped like a notebook, shows "Not a valid notebook: …".
+
+## Mermaid (`.mmd`, `.mermaid`) — `MermaidFileViewer`
+- Opens in **Split**: the highlighted source beside the diagram, drawn by the bundled Mermaid like ` ```mermaid `
+  fences in Markdown ([markdown-preview.md](markdown-preview.md)): `securityLevel: 'strict'`, the light or dark
+  Mermaid theme, drawn again when the theme changes. No scroll sync.
+- The diagram is shown at its actual size if it fits, else scaled to the width of the preview; a click switches to
+  actual size (scrolling sideways) and back. A theme change keeps the choice, a reload fits it again.
+- A diagram that does not parse shows Mermaid's message under "Syntax error" (e.g. `Parse error on line …`, the line
+  as Mermaid counts it, or an unknown diagram type) instead of the diagram. An empty file shows nothing.
+- The source goes into the page as text only, never as HTML.
+- Highlighting: the diagram type on its first line (after comments and front matter) and its direction (also
+  `flowchart-elk`); statements (`subgraph`, `end`, `classDef`, `participant`, …) at the start of a line unless a
+  shape or link follows; `%%` comments and `%%{init: …}%%` directives; the `---` lines around front matter as
+  annotations; strings; links and arrows (`-->`, `-.->`, `-. text .->`, `==>`, `->>`, `-x`, `<|--`, `||--o{`, …) as
+  operators; `|labels|` as strings. ` ```mermaid ` and ` ```mmd ` fences in Markdown sources are highlighted the same
+  way (only ` ```mermaid ` is drawn). Shortcut+/ comments out with `%%`.
+- Known gaps: statement words used as node names without a link on their line, and arrows inside node text, are
+  styled anyway.
+
+## PEM certificates and keys (`.pem`, `.crt`, `.cer`, `.key`) — `PemFileViewer`
+- Opens only files with `-----BEGIN ` in their first 8 KiB: binary (DER) certificates are no text and are not
+  opened, a `.key` without PEM text opens as plain text. BEGIN and END lines must be lines of their own.
+- Opens in **Preview**: one section per block, in file order (`PemRenderer`). No scroll sync. The source is
+  highlighted: BEGIN/END lines as keywords, headers such as `Proc-Type:` as properties.
+- Certificates (`CERTIFICATE`, `TRUSTED CERTIFICATE`, `X509 CERTIFICATE`): subject and issuer (RFC 2253, the issuer
+  marked self-signed when the certificate verifies with its own key), serial number, valid from and until (UTC),
+  public key algorithm and size, signature algorithm, alternative names (types with byte values "(not shown)"), key
+  usage, extended key usage, CA flag with path length, SHA-256 fingerprint. A badge: Valid, "Expires in N days"
+  (within 30 days), Expired or Not yet valid. In chains, each one as "Certificate 1 of 2: example.com" (its common name).
+- Keys show only their type and whether they are encrypted, never key material: PKCS #8 with algorithm and size,
+  encrypted PKCS #8 with its scheme, OpenSSL's `RSA`/`EC`/`DSA PRIVATE KEY` encrypted as `Proc-Type` says with the
+  cipher from `DEK-Info`, OpenSSH keys with key type and cipher, `PUBLIC KEY` with algorithm and size.
+- Certificate requests: subject and public key (a minimal DER reader plus the JDK, no library). Other labels are
+  "Not shown in detail"; a block that cannot be read shows its label and the error; a note counts BEGIN lines
+  without an END line.
+- All text is HTML-escaped. Styles in `pem.css`, after `preview.css`, with `body.dark` rules.
