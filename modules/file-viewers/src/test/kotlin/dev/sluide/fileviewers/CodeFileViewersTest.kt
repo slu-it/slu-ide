@@ -37,6 +37,7 @@ class CodeFileViewersTest {
             SqlFileViewer() to listOf("schema.sql"),
             ShellFileViewer() to
                 listOf("build.sh", "run.bash", "env.zsh", "old.ksh", ".bashrc", ".bash_profile", ".zshrc", ".profile"),
+            PowerShellFileViewer() to listOf("build.ps1", "Tools.psm1", "Tools.psd1"),
         )
 
     private val others = listOf("notes.txt", "README", "py", "README.md", "index.html", "icon.svg")
@@ -57,8 +58,9 @@ class CodeFileViewersTest {
         val python = PythonFileViewer()
         val javaScript = JavaScriptFileViewer()
         val shell = ShellFileViewer()
+        val powerShell = PowerShellFileViewer()
         val fallback = DefaultTextFileViewer()
-        val scriptViewers = listOf(python, javaScript, shell)
+        val scriptViewers = listOf(python, javaScript, shell, powerShell)
         val viewers = FileViewers(scriptViewers, fallback)
         val scripts: Map<FileViewer, List<String>> =
             mapOf(
@@ -74,6 +76,7 @@ class CodeFileViewersTest {
                     listOf("#!/usr/bin/env node\n", "#!/usr/bin/env -S deno run\n", "#!/usr/bin/env bun\n"),
                 shell to
                     listOf("#!/bin/bash\n", "#!/bin/sh -e\n", "#!/usr/bin/env zsh\n", "#!/bin/dash\n", "#!/bin/ksh\n"),
+                powerShell to listOf("#!/usr/bin/env pwsh\n"),
                 fallback to listOf("#!/usr/bin/env ruby\n", "# python3\n", "#!/usr/bin/env fish\n"),
             )
 

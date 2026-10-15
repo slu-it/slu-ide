@@ -380,6 +380,8 @@ internal class RSyntaxHighlighter(
 
                 "bash", "sh", "shell", "zsh", "ksh" -> shell
 
+                "powershell", "ps1", "pwsh" -> powerShell
+
                 else -> null
             }
 
@@ -555,6 +557,23 @@ internal class RSyntaxHighlighter(
                 builtins = setOf("local", "declare", "source", "shopt", "builtin", "mapfile"),
                 tokenStyles =
                     mapOf(TokenTypes.VARIABLE to TokenStyle.ANNOTATION, TokenTypes.PREPROCESSOR to TokenStyle.COMMENT),
+            )
+
+        /**
+         * PowerShell. The lexer splits a variable into an error `$` and a plain name, so a line rule makes variables
+         * (`$name`, `$env:PATH`, `${name}`) annotations, like shell variables; `$true`, `$false` and `$null` stay
+         * keywords. Type names in brackets (`[string]`, `[int[]]`) become types, attributes (`[CmdletBinding()]`)
+         * annotations. Known gap: the content of here-strings (`@"…"@`) is lexed as code.
+         */
+        val powerShell =
+            RSyntaxHighlighter(
+                SyntaxConstants.SYNTAX_STYLE_POWERSHELL,
+                lineRules =
+                    listOf(
+                        Regex("""(?<![\w$])(?<annotation>\$(?:\{[^}]*}|(?!(?:true|false|null)\b)[\w:]+))"""),
+                        Regex("""(?<=\[)(?<type>[A-Za-z_][\w.]*)(?=(?:\[\])?\])"""),
+                        Regex("""(?<=\[)(?<annotation>[A-Za-z_][\w.]*)(?=\()"""),
+                    ),
             )
     }
 }

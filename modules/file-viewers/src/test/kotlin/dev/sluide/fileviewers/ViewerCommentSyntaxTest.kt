@@ -28,6 +28,7 @@ class ViewerCommentSyntaxTest {
                 JsonFileViewer() to CommentSyntax.NONE,
                 SqlFileViewer() to CommentSyntax.SQL,
                 ShellFileViewer() to CommentSyntax.HASH,
+                PowerShellFileViewer() to CommentSyntax.POWERSHELL,
             )
         for ((viewer, comment) in expected) assertEquals(comment, viewer.comment, viewer::class.simpleName)
     }
