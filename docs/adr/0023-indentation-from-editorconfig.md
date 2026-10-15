@@ -19,12 +19,14 @@ section rules (`[*.{kt,kts}]`, `**`, precedence of nearer files, `root = true`) 
   width; the tab width defaults to the indent size). Unreadable or invalid `.editorconfig` files count as setting
   nothing.
 - **Fallbacks per value:** each value not set in `.editorconfig` is detected from the file's text
-  (`Indentation.detect`), else taken from the default of 4 spaces. Tabs or spaces is decided by the first character of
-  most indented lines (a tie decides nothing); the size of space indentation is the most common increase in
-  indentation between consecutive non-blank lines, from 2 to 8 (the smaller one on ties); lines indented by a single
-  space (e.g. ` *` in block comments) are not counted.
-- **Once per opened file:** `IndentStyle.forFile(file, text)` runs when a `CodeView` is created, since it reads files
-  from disk. The style stays for the life of the view.
+  (`Indentation.detect`), else taken from the language's default (`CodeFileViewer.defaultIndent`): tabs for
+  Makefiles, whose recipe lines must start with a tab, 4 spaces for everything else. Tabs or spaces is decided by
+  the first character of most indented lines (a tie decides nothing); the size of space indentation is the most
+  common increase in indentation between consecutive non-blank lines, from 2 to 8 (the smaller one on ties); lines
+  indented by a single space (e.g. ` *` in block comments) are not counted.
+- **Once per opened file:** `IndentStyle.forFile(file, text, default)` runs when a `CodeView` is created, since it
+  reads files from disk, and again when the view follows a rename (with the default it was created with). The style
+  stays for the life of the view.
 - **No rewrites on save:** `trim_trailing_whitespace`, `insert_final_newline`, `end_of_line` and `charset` are not
   applied. Saving writes the text as it is, keeping the file's line endings
   ([ADR 0020](0020-editing-and-saving-files.md)); a save must not change lines the user did not touch.
@@ -40,5 +42,7 @@ Rejected:
 
 ## Consequences
 - A changed `.editorconfig` affects views opened after the change; open ones keep their style until reopened.
-- A file whose indentation cannot be told and that no `.editorconfig` covers is indented with 4 spaces.
+- A file whose indentation cannot be told and that no `.editorconfig` covers is indented with its language's default:
+  tabs in Makefiles, else 4 spaces. A global `[*]` `indent_style = space` applies to Makefiles too, so their recipes
+  get spaces unless a `[Makefile]` section says otherwise.
 - `text-editing` has its first runtime dependency besides the Kotlin standard library.
