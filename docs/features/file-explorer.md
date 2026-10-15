@@ -21,8 +21,9 @@
   their files can be opened (icons) and renews their watches.
 - Icons ([ADR 0012](../adr/0012-file-icons.md), `FileIcon`/`fileIconFor`): open or closed folder; for files, every
   file type icon of Material Design Icons: languages (the code viewer types plus C/C++/C#, Go, Rust, Ruby, PHP, Swift,
-  CSS/Sass, shell, SQL, …, and a generic code icon for other languages), tools (Docker, Gradle, Node.js, Git,
-  Terraform, Make, …), documents (PDF, Word, Excel, PowerPoint, CSV), media (images, video, audio, fonts, 3D/CAD),
+  CSS/Sass, shell, SQL and KQL (`.kql`, `.csl`) with the database icon, …, and a generic code icon for other
+  languages), tools (Docker, Gradle, Node.js, Git, Terraform, Azure for Bicep (`.bicep`, `.bicepparam`), Make, …),
+  documents (PDF, Word, Excel, PowerPoint, CSV), media (images, video, audio, fonts, 3D/CAD),
   archives, packages, installers (Android, Apple, Windows), settings/keys/certificates/lock files, and an API icon
   for HTTP client requests (`.http`, `.rest`; [http-client.md](http-client.md)). Each `FileIcon`
   lists its file names (e.g. `Dockerfile`, `package.json`, `LICENSE`), which win, and its extensions, all
