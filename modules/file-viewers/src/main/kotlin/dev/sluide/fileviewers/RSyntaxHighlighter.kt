@@ -340,60 +340,32 @@ internal class RSyntaxHighlighter(
         fun forLanguage(language: String): SyntaxHighlighter? =
             when (language) {
                 "java" -> java
-
                 "kotlin", "kt", "kts" -> kotlin
-
                 "python", "py" -> python
-
                 "javascript", "js", "mjs", "cjs" -> javaScript
-
                 "jsx" -> javaScriptReact
-
                 "typescript", "ts" -> typeScript
-
                 "tsx" -> typeScriptReact
-
                 "json", "jsonc" -> json
-
                 "xml", "svg" -> xml
-
                 "html" -> html
-
                 "vue", "svelte" -> singleFileComponent
-
                 "yaml", "yml" -> yaml
-
                 "css" -> css
-
                 "scss" -> scss
-
                 "sass" -> sass
-
                 "less" -> less
-
                 "markdown", "md" -> markdown
-
                 "mdx" -> mdx
-
-                // Shell, SQL and configuration files.
                 "sql" -> sql
-
                 "bash", "sh", "shell", "zsh", "ksh" -> shell
-
                 "powershell", "ps1", "pwsh" -> powerShell
-
                 "dockerfile", "docker", "containerfile" -> dockerfile
-
                 "makefile", "make", "mk" -> makefile
-
                 "ini", "cfg", "conf", "editorconfig", "gitconfig" -> ini
-
                 "gitignore" -> ignoreFile
-
                 "ssh-config", "sshconfig", "ssh_config", "sshd_config" -> sshConfig
-
                 "caddyfile", "caddy" -> caddyfile
-
                 else -> null
             }
 
