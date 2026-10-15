@@ -388,6 +388,8 @@ internal class RSyntaxHighlighter(
 
                 "ini", "cfg", "conf", "editorconfig", "gitconfig" -> ini
 
+                "gitignore" -> ignoreFile
+
                 else -> null
             }
 
@@ -633,6 +635,23 @@ internal class RSyntaxHighlighter(
                     listOf(
                         Regex("""^\s*(?<property>[^\s=;#\[][^=]*?)\s*(?<![<>!~=])=(?!=)"""),
                         Regex("""^\s*(?<property>[^\s=:;#\[][^=:]*?)\s*:(?!.*=)"""),
+                    ),
+            )
+
+        // Small formats without a lexer: line rules on plain text, the comment rule first, since rules do not overlap.
+
+        /**
+         * Ignore files (`.gitignore`, `.dockerignore`, …): `#` comments at the start of a line, the `!` negating a
+         * pattern as keyword, and the wildcards `**`, `*` and `?` (not escaped with `\`) as operators.
+         */
+        val ignoreFile =
+            RSyntaxHighlighter(
+                SyntaxConstants.SYNTAX_STYLE_NONE,
+                lineRules =
+                    listOf(
+                        Regex("""^(?<comment>#.*)"""),
+                        Regex("""^(?<keyword>!)"""),
+                        Regex("""(?<!\\)(?<operator>\*\*|[*?])"""),
                     ),
             )
     }

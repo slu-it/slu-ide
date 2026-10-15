@@ -43,10 +43,20 @@ class CodeFileViewersTest {
             MakefileFileViewer() to listOf("Makefile", "GNUmakefile", "rules.mk"),
             IniFileViewer() to listOf("php.ini"),
             ConfigFileViewer() to listOf("setup.cfg", "nginx.conf", ".npmrc", ".editorconfig", ".gitconfig"),
+            IgnoreFileViewer() to
+                listOf(
+                    ".gitignore",
+                    "Python.gitignore",
+                    ".dockerignore",
+                    "Dockerfile.dockerignore",
+                    ".npmignore",
+                    ".prettierignore",
+                    ".eslintignore",
+                    ".helmignore",
+                ),
         )
 
-    private val others =
-        listOf("notes.txt", "README", "py", "README.md", "index.html", "icon.svg", "Dockerfile.dockerignore")
+    private val others = listOf("notes.txt", "README", "py", "README.md", "index.html", "icon.svg")
 
     private fun file(name: String) = dir.resolve(name).apply { writeText("x = 1\n") }
 
