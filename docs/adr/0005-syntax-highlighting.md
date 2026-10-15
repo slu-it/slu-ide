@@ -1,6 +1,6 @@
 # 0005. Syntax highlighting with RichTextFX and the RSyntaxTextArea lexers
 
-- Status: accepted; partly superseded by [0020](0020-editing-and-saving-files.md) (the code area is editable, edited code is highlighted in the background)
+- Status: accepted; partly superseded by [0020](0020-editing-and-saving-files.md) (the code area is editable, edited code is highlighted in the background) and by [0031](0031-own-tokenizers.md) (own tokenizers for larger languages without a lexer)
 - Date: 2026-10-12
 
 ## Context
@@ -34,12 +34,15 @@ Rejected:
 - **TextMate grammars via Eclipse tm4e:** the best language coverage, but only snapshot Maven builds exist.
 - **tree-sitter:** a native library per language and platform.
 - **The JavaFX incubator `CodeArea`:** incubating, and the OpenJFX Gradle plugin cannot add it.
-- **Hand-written regex highlighters:** one per language to write and maintain.
+- **Hand-written regex highlighters:** one per language to write and maintain. Since
+  [ADR 0031](0031-own-tokenizers.md), languages without a lexer that are too large for line rules (TOML, Bicep, KQL)
+  get hand-written tokenizers after all.
 
 ## Consequences
 - A new language is one `CodeFileViewer` subclass with a `SyntaxConstants.SYNTAX_STYLE_*` value, plus corrections
   where its lexer is outdated.
 - A Swing library is on the classpath (`java.desktop` is part of the JDK anyway). The fat jar grows by about 2.5 MB.
-- Highlighting quality is limited by the lexers. Switching to TextMate grammars later only means replacing
+- Highlighting quality is limited by the lexers; languages without one need line rules or their own tokenizer
+  ([ADR 0031](0031-own-tokenizers.md)). Switching to TextMate grammars later only means replacing
   `RSyntaxHighlighter`.
 - Highlighting runs on the JavaFX thread when a file is opened, which is fine for files up to the 10 MiB limit.
