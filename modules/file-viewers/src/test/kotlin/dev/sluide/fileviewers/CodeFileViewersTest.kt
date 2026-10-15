@@ -26,7 +26,7 @@ class CodeFileViewersTest {
             JsxFileViewer() to listOf("Button.jsx"),
             TsxFileViewer() to listOf("App.tsx"),
             JsonFileViewer() to listOf("package.json", "tsconfig.jsonc"),
-            XmlFileViewer() to listOf("pom.xml", "schema.xsd", "style.xsl", "transform.xslt", "view.fxml"),
+            XmlFileViewer() to listOf("pom.xml", "schema.xsd", "style.xsl", "transform.xslt", "view.fxml", "app.iml"),
             SingleFileComponentFileViewer() to listOf("App.vue", "Page.svelte"),
             YamlFileViewer() to listOf("ci.yml", "config.yaml"),
             MdxFileViewer() to listOf("docs.mdx"),
