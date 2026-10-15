@@ -54,6 +54,7 @@ class ViewerCommentSyntaxTest {
                 NotebookFileViewer() to CommentSyntax.NONE,
                 MermaidFileViewer() to CommentSyntax.MERMAID,
                 CookiesFileViewer() to CommentSyntax.NONE,
+                BicepFileViewer() to CommentSyntax.SLASHES,
             )
         for ((viewer, comment) in expected) assertEquals(comment, viewer.comment, viewer::class.simpleName)
     }

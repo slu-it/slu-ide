@@ -26,12 +26,17 @@ internal object MermaidPreview : Preview {
         root: Path,
     ) = engine.loadContent(render(text, dark))
 
-    /** The page of [source]; the source is only ever text and an attribute value, never HTML. */
+    /**
+     * The page of [source], with [note] (if any) as a line above the diagram; both are only ever text and the source
+     * an attribute value, never HTML.
+     */
     fun render(
         source: String,
         dark: Boolean,
+        note: String? = null,
     ): String {
         val body = Element("body").addClass("mermaid-file")
+        if (note != null) body.appendElement("p").addClass("diagram-note").text(note)
         body
             .appendElement("pre")
             .addClass("mermaid")

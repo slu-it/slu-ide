@@ -36,6 +36,15 @@ class PreviewFileViewersTest {
     }
 
     @Test
+    fun `Bicep files open with their resource graph, parameter files as code`() {
+        val names = listOf("main.bicep", "Infra.BICEP", "main.bicepparam", "main.bicep.json", "bicep")
+        assertEquals(listOf("main.bicep", "Infra.BICEP"), names.filter { BicepFileViewer().canOpen(text(it)) })
+        assertFalse(BicepFileViewer().canOpen(binary("broken.bicep")))
+        val viewers = FileViewers(listOf(BicepFileViewer(), BicepParamFileViewer()), DefaultTextFileViewer())
+        assertEquals(BicepParamFileViewer::class, viewers.viewerFor(text("main.bicepparam"))?.let { it::class })
+    }
+
+    @Test
     fun `cookie jars open as tables`() {
         val names = listOf("http-client.cookies", "saved.COOKIES", "cookies", "cookies.txt")
         assertEquals(names.take(2), names.filter { CookiesFileViewer().canOpen(text(it)) })

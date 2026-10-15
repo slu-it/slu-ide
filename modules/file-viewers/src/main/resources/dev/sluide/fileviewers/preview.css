@@ -201,6 +201,15 @@ body.dark pre.mermaid.error {
     border-left-color: #ff7b72;
 }
 
+/* A line about a drawn diagram (BicepPreview: no resources, or not all of them shown). */
+.diagram-note {
+    color: #59636e;
+}
+
+body.dark .diagram-note {
+    color: #9198a1;
+}
+
 /* CSV and TSV tables (CsvRenderer). */
 body.csv {
     padding: 0 0 24px 0;
