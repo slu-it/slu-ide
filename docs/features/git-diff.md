@@ -37,7 +37,8 @@
   from there. The toolbar counts the changes and tells which one the caret is in ("Change 2 of 5").
 - Markers and a shown diff update when the file changes on disk and when the git status changes (a commit, a
   checkout). A shown diff turns back into the editor when the file has no diff anymore.
-- Files with a text, code or preview viewer (Markdown, HTML, SVG, CSV, notebooks) get markers and a diff of their
+- Files with a text, code or preview viewer (Markdown, HTML, SVG, CSV, cookie jars, notebooks, Mermaid, PEM;
+  `.env` files with their values unmasked) get markers and a diff of their
   text, highlighted like their source; others (e.g. images) have neither, and git is not asked for them.
 - Structure: `LineMarkers`, `LineEdit` and `ChangeMarkers` (`LineMarkers.kt`, plain logic), `Gutter` (rows of the
   gutter; the column hook `GutterColumns` is implemented by code views), `EditableFileView.showChanges`,
