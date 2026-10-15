@@ -55,6 +55,7 @@ class CodeFileViewersTest {
                     ".helmignore",
                 ),
             GitBlameIgnoreRevsFileViewer() to listOf(".git-blame-ignore-revs"),
+            SshConfigFileViewer() to listOf("sshd_config", "ssh_config"),
         )
 
     private val others = listOf("notes.txt", "README", "py", "README.md", "index.html", "icon.svg")

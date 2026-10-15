@@ -390,6 +390,8 @@ internal class RSyntaxHighlighter(
 
                 "gitignore" -> ignoreFile
 
+                "ssh-config", "sshconfig", "ssh_config", "sshd_config" -> sshConfig
+
                 else -> null
             }
 
@@ -663,6 +665,21 @@ internal class RSyntaxHighlighter(
                     listOf(
                         Regex("""(?<comment>#.*)"""),
                         Regex("""^\s*(?<number>[0-9a-fA-F]{7,64})(?=\s|#|$)"""),
+                    ),
+            )
+
+        /**
+         * OpenSSH's `sshd_config` and `ssh_config`: `#` comment lines, the first word of a line (the option) as
+         * keyword, and what a `Host` or `Match` line applies to as type, since it starts a block.
+         */
+        val sshConfig =
+            RSyntaxHighlighter(
+                SyntaxConstants.SYNTAX_STYLE_NONE,
+                lineRules =
+                    listOf(
+                        Regex("""^\s*(?<comment>#.*)"""),
+                        Regex("""(?i)^\s*(?:Host|Match)(?:\s*=\s*|\s+)(?<type>.*?)\s*$"""),
+                        Regex("""^\s*(?<keyword>[A-Za-z][A-Za-z0-9]*)"""),
                     ),
             )
     }
