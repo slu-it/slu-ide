@@ -35,19 +35,35 @@
             document.body.classList.toggle('dark', dark);
             if (changed && window.mermaid) window.sluide.renderDiagrams();
         },
-        // Draws the diagrams (```mermaid fences) with Mermaid, which the page includes when it has diagrams, in the
-        // page's colour scheme; again after a change of scheme, from the source in data-source.
+        // Draws the diagrams (```mermaid fences, Mermaid files) with Mermaid, which the page includes when it has
+        // diagrams, in the page's colour scheme; again after a change of scheme, from the source in data-source.
+        // A diagram marked data-errors that does not parse shows Mermaid's message, as text, instead.
         renderDiagrams: function () {
             // One drawing at a time: a theme change while drawing waits for the drawing to end.
             diagramsDrawn = diagramsDrawn.then(function () {
                 var dark = document.body.classList.contains('dark');
                 mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme: dark ? 'dark' : 'default' });
-                var diagrams = document.querySelectorAll('pre.mermaid');
-                for (var i = 0; i < diagrams.length; i++) {
-                    diagrams[i].removeAttribute('data-processed');
-                    diagrams[i].textContent = diagrams[i].getAttribute('data-source');
-                }
-                return mermaid.run({ nodes: diagrams, suppressErrors: true });
+                var diagrams = Array.prototype.slice.call(document.querySelectorAll('pre.mermaid'));
+                var checks = diagrams.map(function (diagram) {
+                    var source = diagram.getAttribute('data-source');
+                    diagram.removeAttribute('data-processed');
+                    diagram.classList.remove('error');
+                    diagram.textContent = source;
+                    if (!diagram.hasAttribute('data-errors')) return Promise.resolve(true);
+                    // An empty file is no error yet.
+                    if (!source.trim()) return Promise.resolve(false);
+                    return mermaid.parse(source).then(function () {
+                        return true;
+                    }, function (error) {
+                        diagram.classList.add('error');
+                        diagram.textContent = String((error && error.message) || error);
+                        return false;
+                    });
+                });
+                return Promise.all(checks).then(function (parsed) {
+                    var nodes = diagrams.filter(function (diagram, i) { return parsed[i]; });
+                    return nodes.length ? mermaid.run({ nodes: nodes, suppressErrors: true }) : undefined;
+                });
             });
             return diagramsDrawn;
         },

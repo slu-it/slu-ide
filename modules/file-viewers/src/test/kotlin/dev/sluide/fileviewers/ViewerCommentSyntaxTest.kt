@@ -50,6 +50,7 @@ class ViewerCommentSyntaxTest {
                 SvgFileViewer() to CommentSyntax.XML,
                 CsvFileViewer() to CommentSyntax.NONE,
                 NotebookFileViewer() to CommentSyntax.NONE,
+                MermaidFileViewer() to CommentSyntax.MERMAID,
             )
         for ((viewer, comment) in expected) assertEquals(comment, viewer.comment, viewer::class.simpleName)
     }

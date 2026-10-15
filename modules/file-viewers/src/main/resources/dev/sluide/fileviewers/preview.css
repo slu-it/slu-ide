@@ -168,6 +168,28 @@ pre.mermaid {
     background: transparent;
 }
 
+/* A Mermaid file that does not parse (MermaidPreview): Mermaid's message. */
+pre.mermaid.error {
+    text-align: left;
+    white-space: pre-wrap;
+    color: #cf222e;
+    background: #ffebe9;
+    border-left: 4px solid #cf222e;
+}
+
+pre.mermaid.error::before {
+    content: "Syntax error";
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+}
+
+body.dark pre.mermaid.error {
+    color: #ff7b72;
+    background: #3d2426;
+    border-left-color: #ff7b72;
+}
+
 /* CSV and TSV tables (CsvRenderer). */
 body.csv {
     padding: 0 0 24px 0;

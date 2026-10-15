@@ -28,6 +28,13 @@ class PreviewFileViewersTest {
     }
 
     @Test
+    fun `Mermaid previews open their text files`() {
+        val names = listOf("flow.mmd", "Chart.MERMAID", "a.md", "flow.mmd.txt", "mermaid")
+        assertEquals(listOf("flow.mmd", "Chart.MERMAID"), names.filter { MermaidFileViewer().canOpen(text(it)) })
+        assertFalse(MermaidFileViewer().canOpen(binary("broken.mmd")))
+    }
+
+    @Test
     fun `images open although they are binary, SVG is left to its preview`() {
         val viewer = ImageFileViewer()
         val names = listOf("a.png", "b.JPG", "c.jpeg", "d.gif", "e.webp", "f.bmp", "g.ico", "h.svg", "i.tiff", "j.txt")
