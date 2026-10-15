@@ -18,11 +18,13 @@ internal object CsvRenderer {
 
     /**
      * The records of [text] as RFC 4180 reads them: fields separated by [delimiter], quoted fields may contain the
-     * delimiter, line breaks and `""` for a quote. Blank lines are skipped; `\r\n` line ends are fine.
+     * delimiter, line breaks and `""` for a quote. Blank lines are skipped; `\r\n` line ends are fine. Without
+     * [quotes], quotes are part of the fields (cookie values may be quoted).
      */
     fun parse(
         text: String,
         delimiter: Char,
+        quotes: Boolean = true,
     ): List<Row> {
         val rows = mutableListOf<Row>()
         // Excel's "CSV UTF-8" starts with a byte order mark.
@@ -60,7 +62,7 @@ internal object CsvRenderer {
                     cell.append(c)
                 }
 
-                c == '"' && fieldStart -> {
+                c == '"' && fieldStart && quotes -> {
                     quoted = true
                     fieldStart = false
                 }
@@ -104,12 +106,14 @@ internal object CsvRenderer {
     private val script = HtmlPage.resource("preview.js")
     private val tableScript = HtmlPage.resource("csv-table.js")
 
+    /** The table page of [text], parsed with [delimiter] and [quotes] as [parse] does. */
     fun render(
         text: String,
         delimiter: Char,
         dark: Boolean,
+        quotes: Boolean = true,
     ): String {
-        val rows = parse(text, delimiter)
+        val rows = parse(text, delimiter, quotes)
         val header = rows.firstOrNull()
         val body = rows.drop(1)
         val columns = rows.maxOfOrNull { it.cells.size } ?: 0

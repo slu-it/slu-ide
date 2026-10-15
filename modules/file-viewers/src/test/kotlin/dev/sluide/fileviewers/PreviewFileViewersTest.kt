@@ -35,6 +35,13 @@ class PreviewFileViewersTest {
     }
 
     @Test
+    fun `cookie jars open as tables`() {
+        val names = listOf("http-client.cookies", "saved.COOKIES", "cookies", "cookies.txt")
+        assertEquals(names.take(2), names.filter { CookiesFileViewer().canOpen(text(it)) })
+        assertFalse(CookiesFileViewer().canOpen(binary("broken.cookies")))
+    }
+
+    @Test
     fun `images open although they are binary, SVG is left to its preview`() {
         val viewer = ImageFileViewer()
         val names = listOf("a.png", "b.JPG", "c.jpeg", "d.gif", "e.webp", "f.bmp", "g.ico", "h.svg", "i.tiff", "j.txt")

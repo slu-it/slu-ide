@@ -34,6 +34,14 @@ class CsvRendererTest {
     }
 
     @Test
+    fun `without quotes, quotes are part of the fields`() {
+        assertEquals(
+            listOf(listOf("\"a\"", "\"b"), listOf("c", "d\"\"")),
+            CsvRenderer.parse("\"a\"\t\"b\nc\td\"\"\n", '\t', quotes = false).map { it.cells },
+        )
+    }
+
+    @Test
     fun `the delimiter comes from the extension or the first line`() {
         assertEquals('\t', CsvRenderer.delimiter("TSV", "a,b"))
         assertEquals(',', CsvRenderer.delimiter("csv", "a,b;c"))

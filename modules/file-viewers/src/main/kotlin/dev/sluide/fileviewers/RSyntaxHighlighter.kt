@@ -779,5 +779,12 @@ internal class RSyntaxHighlighter(
                         ),
                 ),
             )
+
+        /**
+         * IntelliJ's cookie jar (`http-client.cookies`): tab-separated, with a `# domain path name value date` header
+         * line, shown as a comment.
+         */
+        val cookies =
+            RSyntaxHighlighter(SyntaxConstants.SYNTAX_STYLE_NONE, lineRules = listOf(Regex("""^(?<comment>#.*)""")))
     }
 }

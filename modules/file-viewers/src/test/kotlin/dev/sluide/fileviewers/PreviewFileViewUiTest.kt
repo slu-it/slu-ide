@@ -258,6 +258,30 @@ class PreviewFileViewUiTest {
     }
 
     @Test
+    fun `cookie jars show as a table with their header`(robot: FxRobot) {
+        val jar = "# domain\tpath\tname\tvalue\tdate\nlocalhost\t/\tid\t\"x\"\t-1\n"
+        val file = dir.resolve("http-client.cookies").apply { writeText(jar) }
+        val view =
+            WaitForAsyncUtils
+                .asyncFx<PreviewFileView> {
+                    CookiesFileViewer().open(
+                        file,
+                    ) as PreviewFileView
+                }.get()
+        robot.interact { container.children.setAll(view.node) }
+        awaitLoaded(view)
+
+        assertEquals(PreviewMode.SPLIT, view.mode.get())
+        assertEquals(
+            "domain,path,name,value,date",
+            view.script(
+                "Array.prototype.map.call(document.querySelectorAll('th'), function (h) { return h.textContent; }).join()",
+            ),
+        )
+        assertEquals("\"x\"", view.script("document.querySelectorAll('tbody td')[3].textContent"))
+    }
+
+    @Test
     fun `side by side, a sorted CSV table still scrolls with the source`(robot: FxRobot) {
         // Row i is on source line i.
         val csv = "name,n\n" + (1..200).joinToString("") { "r$it,$it\n" }
