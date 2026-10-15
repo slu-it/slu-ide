@@ -378,6 +378,8 @@ internal class RSyntaxHighlighter(
                 // Shell, SQL and configuration files.
                 "sql" -> sql
 
+                "bash", "sh", "shell", "zsh", "ksh" -> shell
+
                 else -> null
             }
 
@@ -539,6 +541,20 @@ internal class RSyntaxHighlighter(
                         """,
                     ),
                 lineRules = listOf(Regex("""(?<=[\w"\]])(?<operator>\.)(?=[A-Za-z_"*\[])""")),
+            )
+
+        /**
+         * Shell scripts. The lexer reports variables (`$NAME`, `${1:-x}`, the `NAME` of `NAME=value`) as variables,
+         * styled like those of stylesheets, and the shebang as preprocessor, shown as a comment. It takes `function`
+         * for a command and misses the builtins `local`, `declare` and `source`.
+         */
+        val shell =
+            RSyntaxHighlighter(
+                SyntaxConstants.SYNTAX_STYLE_UNIX_SHELL,
+                keywords = setOf("function"),
+                builtins = setOf("local", "declare", "source", "shopt", "builtin", "mapfile"),
+                tokenStyles =
+                    mapOf(TokenTypes.VARIABLE to TokenStyle.ANNOTATION, TokenTypes.PREPROCESSOR to TokenStyle.COMMENT),
             )
     }
 }

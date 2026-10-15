@@ -35,6 +35,8 @@ class CodeFileViewersTest {
             LessFileViewer() to listOf("theme.less"),
             SassFileViewer() to listOf("old.sass"),
             SqlFileViewer() to listOf("schema.sql"),
+            ShellFileViewer() to
+                listOf("build.sh", "run.bash", "env.zsh", "old.ksh", ".bashrc", ".bash_profile", ".zshrc", ".profile"),
         )
 
     private val others = listOf("notes.txt", "README", "py", "README.md", "index.html", "icon.svg")
@@ -54,8 +56,10 @@ class CodeFileViewersTest {
     fun `code viewers open extensionless scripts by their shebang`() {
         val python = PythonFileViewer()
         val javaScript = JavaScriptFileViewer()
+        val shell = ShellFileViewer()
         val fallback = DefaultTextFileViewer()
-        val viewers = FileViewers(listOf(python, javaScript), fallback)
+        val scriptViewers = listOf(python, javaScript, shell)
+        val viewers = FileViewers(scriptViewers, fallback)
         val scripts: Map<FileViewer, List<String>> =
             mapOf(
                 python to
@@ -68,14 +72,16 @@ class CodeFileViewersTest {
                     ),
                 javaScript to
                     listOf("#!/usr/bin/env node\n", "#!/usr/bin/env -S deno run\n", "#!/usr/bin/env bun\n"),
-                fallback to listOf("#!/bin/bash\n", "#!/usr/bin/env ruby\n", "# python3\n"),
+                shell to
+                    listOf("#!/bin/bash\n", "#!/bin/sh -e\n", "#!/usr/bin/env zsh\n", "#!/bin/dash\n", "#!/bin/ksh\n"),
+                fallback to listOf("#!/usr/bin/env ruby\n", "# python3\n", "#!/usr/bin/env fish\n"),
             )
 
         for ((expected, shebangs) in scripts) {
             for ((index, shebang) in shebangs.withIndex()) {
                 val script = dir.resolve("script-${expected.javaClass.simpleName}-$index").apply { writeText(shebang) }
                 assertSame(expected, viewers.viewerFor(script), shebang)
-                assertFalse(python.canOpen(script) || javaScript.canOpen(script), "canOpen $shebang")
+                assertFalse(scriptViewers.any { it.canOpen(script) }, "canOpen $shebang")
             }
         }
     }
