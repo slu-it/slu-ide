@@ -386,6 +386,8 @@ internal class RSyntaxHighlighter(
 
                 "makefile", "make", "mk" -> makefile
 
+                "ini" -> ini
+
                 else -> null
             }
 
@@ -613,6 +615,24 @@ internal class RSyntaxHighlighter(
                         // Up to the colon of a rule, which `:=` and `::=` assignments are not.
                         Regex("""^(?<type>[^\s#=:][^#=:]*?::?)(?=\s|$)"""),
                         Regex("""(?<annotation>\$[@^<?*%+|])"""),
+                    ),
+            )
+
+        /**
+         * INI-style configuration (`.ini`, and `.cfg`, `.editorconfig`, `.gitconfig` and the like). The lexer knows
+         * `;` and `#` comments and reports sections as preprocessor, shown as types. It also reports every word
+         * before the `=`, and every word of lines without one (continued values), as a data type; that is dropped,
+         * and line rules make keys properties: what comes before the first `=` (not a `>=`, `<=`, `!=`, `~=` or
+         * `==`), or before a `:` on lines without `=`.
+         */
+        val ini =
+            RSyntaxHighlighter(
+                SyntaxConstants.SYNTAX_STYLE_INI,
+                tokenStyles = mapOf(TokenTypes.PREPROCESSOR to TokenStyle.TYPE, TokenTypes.DATA_TYPE to null),
+                lineRules =
+                    listOf(
+                        Regex("""^\s*(?<property>[^\s=;#\[][^=]*?)\s*(?<![<>!~=])=(?!=)"""),
+                        Regex("""^\s*(?<property>[^\s=:;#\[][^=:]*?)\s*:(?!.*=)"""),
                     ),
             )
     }
