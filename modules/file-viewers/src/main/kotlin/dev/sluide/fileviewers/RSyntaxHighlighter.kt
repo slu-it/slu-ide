@@ -808,5 +808,16 @@ internal class RSyntaxHighlighter(
                         Regex("""(?<=\s)(?<comment>#.*)"""),
                     ),
             )
+
+        /** PEM files (certificates, keys): no lexer; `-----BEGIN …-----` and `-----END …-----` lines and headers. */
+        val pem =
+            RSyntaxHighlighter(
+                SyntaxConstants.SYNTAX_STYLE_NONE,
+                lineRules =
+                    listOf(
+                        Regex("""^(?<keyword>-----(?:BEGIN|END) [^-]+-----)\s*$"""),
+                        Regex("""^(?<property>[A-Za-z][\w-]*:)"""),
+                    ),
+            )
     }
 }

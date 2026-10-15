@@ -1,0 +1,51 @@
+/*
+ * PEM details (PemRenderer), after preview.css: a section per block with its fields as a table, a badge for a
+ * certificate's validity. Dark colours apply when PreviewFileView sets the class "dark" on the body.
+ */
+
+.pem-block {
+    margin: 0 0 32px 0;
+}
+
+.pem-block h2 {
+    font-size: 1.25em;
+}
+
+table.pem-fields th {
+    text-align: left;
+    vertical-align: top;
+    white-space: nowrap;
+}
+
+table.pem-fields td {
+    word-break: break-word;
+}
+
+table.pem-fields td.mono {
+    font-family: "JetBrains Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    font-size: 13px;
+    word-break: break-all;
+}
+
+.pem-badge {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 1px 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    vertical-align: middle;
+}
+
+.pem-badge.valid { background: #dafbe1; color: #1a7f37; }
+.pem-badge.expiring { background: #fff8c5; color: #9a6700; }
+.pem-badge.expired { background: #ffebe9; color: #cf222e; }
+
+.pem-error { color: #cf222e; }
+.pem-note { color: #59636e; }
+
+body.dark .pem-badge.valid { background: #1f3a28; color: #56d364; }
+body.dark .pem-badge.expiring { background: #3d3214; color: #e3b341; }
+body.dark .pem-badge.expired { background: #4a2025; color: #ff7b72; }
+body.dark .pem-error { color: #ff7b72; }
+body.dark .pem-note { color: #9198a1; }

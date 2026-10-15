@@ -48,7 +48,9 @@ class HighlightingPerformanceTest {
             RSyntaxHighlighter.cookies,
             "# domain\tpath\tname\tvalue\tdate\n" + lines("example.com\t/\tid\t\"abc\"\t-1"),
         )
-        assertFast("env", RSyntaxHighlighter.env, lines("export URL=https://x.y/a#b # c\nKEY=\"a # b\" # c"))    }
+        assertFast("env", RSyntaxHighlighter.env, lines("export URL=https://x.y/a#b # c\nKEY=\"a # b\" # c"))
+        assertFast("PEM", RSyntaxHighlighter.pem, lines("-----BEGIN CERTIFICATE-----\nProc-Type: 4\nMIIBVQIBADAN"))
+    }
 
     @Test
     fun `masking env values is linear too`() {
@@ -82,6 +84,9 @@ class HighlightingPerformanceTest {
         assertFast("env blanks", env, "a${blanks}b\n$blanks=x${blanks}y$blanks#z\n#$blanks=\n")
         assertFast("env hashes", env, "A=" + "x#".repeat(40_000) + "\nB=" + " #".repeat(40_000) + "\n")
         assertFast("env quotes", env, "A=" + "\"'".repeat(40_000) + "\n")
+        val pem = RSyntaxHighlighter.pem
+        assertFast("PEM dashes", pem, "-----BEGIN " + "A".repeat(80_000) + "\n" + "-".repeat(80_000) + "\n")
+        assertFast("PEM header", pem, "A" + "-".repeat(80_000) + "\n")
     }
 
     @Test

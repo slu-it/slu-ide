@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.textediting.CommentSyntax
 import org.junit.jupiter.api.io.TempDir
 import java.io.RandomAccessFile
 import java.nio.file.Path
@@ -39,6 +40,20 @@ class PreviewFileViewersTest {
         val names = listOf("http-client.cookies", "saved.COOKIES", "cookies", "cookies.txt")
         assertEquals(names.take(2), names.filter { CookiesFileViewer().canOpen(text(it)) })
         assertFalse(CookiesFileViewer().canOpen(binary("broken.cookies")))
+    }
+
+    @Test
+    fun `PEM details open certificates and keys holding PEM text`() {
+        val viewer = PemFileViewer()
+        val pem = "Bag Attributes: x\n-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n"
+        val names = listOf("cert.pem", "site.CRT", "ca.cer", "tls.key", "cert.txt", "cert.der")
+        val opened = names.filter { viewer.canOpen(dir.resolve(it).apply { writeText(pem) }) }
+
+        assertEquals(listOf("cert.pem", "site.CRT", "ca.cer", "tls.key"), opened)
+        assertFalse(viewer.canOpen(dir.resolve("raw.key").apply { writeText("not a PEM key\n") }), "plain text")
+        assertFalse(viewer.canOpen(binary("binary.cer")), "DER")
+        assertEquals(PreviewMode.PREVIEW, PemPreview.defaultMode)
+        assertEquals(CommentSyntax.NONE, viewer.comment)
     }
 
     @Test

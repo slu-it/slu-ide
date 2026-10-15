@@ -120,10 +120,22 @@ class EnvMaskingTest {
         assertTrue(viewers.viewerFor(json) is JsonFileViewer, "an extension wins over a name pattern")
     }
 
-    /** Every viewer of the module, the env viewer first, so that its rank and not the order decides. */
+    @Test
+    fun `among all viewers, PEM files open as PEM details`() {
+        val viewers = FileViewers(allViewers(), DefaultTextFileViewer())
+        val pem = "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n"
+        for (name in listOf("cert.pem", "site.crt", "ca.cer", "tls.key")) {
+            assertTrue(viewers.viewerFor(dir.resolve(name).apply { writeText(pem) }) is PemFileViewer, name)
+        }
+        val raw = dir.resolve("raw.key").apply { writeText("not PEM\n") }
+        assertTrue(viewers.viewerFor(raw) is DefaultTextFileViewer, "a key without PEM text is plain text")
+    }
+
+    /** Every viewer of the module, the env and PEM viewers first, so that their rank and not the order decides. */
     private fun allViewers(): List<FileViewer> =
         listOf(
             EnvFileViewer(),
+            PemFileViewer(),
             CaddyfileFileViewer(),
             ConfigFileViewer(),
             CookiesFileViewer(),
