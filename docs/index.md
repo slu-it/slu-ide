@@ -37,6 +37,7 @@ Keep it up to date: every new ADR or feature description must be added here with
 - [adr/0026-http-client-window-session.md](adr/0026-http-client-window-session.md) — Per-window `HttpClientSession` (cookies, tokens, clients, chosen environments) found through `FileViewHost.windowService`; the public code editor API of `file-viewers` (`CodeEditors`, `CodeEditor`, `CodeDisplay`, `SourceFileViewer`).
 - [adr/0027-http-client-sending.md](adr/0027-http-client-sending.md) — Requests on the JDK `HttpClient` off the FX thread: restricted headers and `allowRestrictedHeaders=host`, defaults, decompression, 50 MB cap, redirects, timeouts, cookie jar, Basic and Digest, default proxy selector.
 - [adr/0028-http-client-secrets.md](adr/0028-http-client-secrets.md) — Secrets only from the environment files (warning when git would commit the private one), OAuth2 grants and in-memory tokens per window (refresh, failures not cached), client certificates and passphrase prompts, trust-all per environment.
+- [adr/0029-file-name-and-shebang-matching.md](adr/0029-file-name-and-shebang-matching.md) — Viewers match by extension, exact name or name pattern (exact name > extension > pattern, Spring order only for ties), extensionless files by shebang after all names; small formats without a lexer get line rules on the plain lexer, which is skipped; TOML, Bicep, KQL postponed.
 - [adr/template.md](adr/template.md) — Template for new ADRs.
 
 ## Features
