@@ -736,7 +736,7 @@ internal class RSyntaxHighlighter(
                 "commit|branch|checkout|switch|merge|cherry-pick|accTitle|accDescr|showData"
 
         /** After a word: what makes it a node rather than a statement, a shape (`[`, `(`, …) or a link. */
-        private const val MERMAID_NODE = """[\w\[({>-]|\s*[<|}*o]{0,2}(?:--|==|-\.|\.\.|~~)"""
+        private const val MERMAID_NODE = """[\w\[({>-]|\s*+[<|}*o]{0,2}(?:--|==|-\.|\.\.|~~)"""
 
         /**
          * Mermaid diagrams (`.mmd`, ` ```mermaid `), which no lexer knows: line rules on plain text, earlier rules
@@ -762,11 +762,11 @@ internal class RSyntaxHighlighter(
                             Regex("""^\s*(?<annotation>%%\{.*}%%)\s*$"""),
                             Regex("""^\s*(?<comment>%%.*)"""),
                             Regex("""^(?<annotation>---)\s*$"""),
-                            Regex("""(?<string>"[^"\n]*")"""),
+                            Regex("""(?<string>"[^"\n]*+")"""),
                             Regex("""^\s*direction\s+(?<keyword>TB|TD|BT|RL|LR)\b"""),
                             Regex("""^\s*(?<keyword>$MERMAID_STATEMENTS)(?!$MERMAID_NODE)"""),
                             Regex("""^\s*[Nn]ote\s+(?<keyword>right of|left of|over)\b"""),
-                            Regex("""(?<![-.=<])(?<operator>--?x)(?=\s*\w+\s*:)"""),
+                            Regex("""(?<![-.=<])(?<operator>--?x)(?=\s*+\w++\s*+:)"""),
                             Regex(
                                 """(?<operator>(?:<<|<\|?|[}|][|o]|(?<!\w)[ox*])?""" +
                                     """(?:--+|==+|-\.+-|(?<!\.)\.\.(?!\.)|~~~+)""" +
@@ -775,7 +775,7 @@ internal class RSyntaxHighlighter(
                             Regex("""(?<![-.])(?<operator>-\.)(?=\s)"""),
                             Regex("""(?<=\s)(?<operator>\.-+>|\.-+(?=\s))"""),
                             Regex("""(?<operator><<->>|-(?:>>?|\)))"""),
-                            Regex("""(?<string>\|[^|\n]+\|)"""),
+                            Regex("""(?<string>\|[^|\n]++\|)"""),
                         ),
                 ),
             )

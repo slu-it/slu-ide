@@ -36,6 +36,18 @@ class HighlightingPerformanceTest {
         assertFast("INI", RSyntaxHighlighter.ini, lines("key = value"))
         assertFast("ignore file", RSyntaxHighlighter.ignoreFile, lines("!**/build/*.lo?"))
         assertFast("Caddyfile", RSyntaxHighlighter.caddyfile, lines("    header X \"a {path}\" {host} # c"))
+        assertFast(
+            "Mermaid",
+            RSyntaxHighlighter.mermaid,
+            "flowchart LR\n" + lines("    A[\"Start\"] -->|go| B{x} -.-> C -. y .-> D ==> E <|-- F ||--o{ G"),
+        )
+        assertFast("Mermaid sequence", RSyntaxHighlighter.mermaid, lines("    Alice-xBob: hi ->> there -) x"))
+        assertFast("Mermaid statements", RSyntaxHighlighter.mermaid, lines("    subgraph one %% x"))
+        assertFast(
+            "cookies",
+            RSyntaxHighlighter.cookies,
+            "# domain\tpath\tname\tvalue\tdate\n" + lines("example.com\t/\tid\t\"abc\"\t-1"),
+        )
     }
 
     @Test
@@ -48,6 +60,13 @@ class HighlightingPerformanceTest {
         assertFast("Dockerfile options", RSyntaxHighlighter.dockerfile, "FROM " + "--a ".repeat(20_000) + "\n")
         assertFast("Dockerfile braces", RSyntaxHighlighter.dockerfile, "RUN " + "\${".repeat(20_000) + "\n")
         assertFast("Makefile words", RSyntaxHighlighter.makefile, "a" + " b".repeat(40_000) + "\n")
+        val mermaid = RSyntaxHighlighter.mermaid
+        assertFast("Mermaid statement blanks", mermaid, "graph TD\nend${blanks}x\nstate$blanks-\n")
+        assertFast("Mermaid dashes", mermaid, "a " + "-".repeat(80_000) + "\nb ." + "-".repeat(80_000) + "x\n")
+        assertFast("Mermaid crosses", mermaid, ("a-x" + "b".repeat(100) + " ").repeat(1_000) + "\n")
+        assertFast("Mermaid dots", mermaid, "-." + ".".repeat(80_000) + "\n" + "-.-".repeat(30_000) + "\n")
+        assertFast("Mermaid quotes and pipes", mermaid, "\"|".repeat(100_000) + "\n" + "|\"".repeat(100_000) + "x\n")
+        assertFast("Mermaid first line", mermaid, "%% c\n".repeat(50_000) + "flowchart$blanks LR\n")
     }
 
     @Test
