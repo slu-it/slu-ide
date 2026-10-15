@@ -51,7 +51,7 @@ val platform: String =
         "$osName-$archName"
     }
 
-// Native app with its own Java runtime (docs/adr/0011-native-app-packaging.md): `jpackageImage` builds SluIde.app on
+// Native app with its own Java runtime (docs/adr/0011-native-app-packaging.md): `jpackageImage` builds Thoreau.app on
 // macOS (a launcher folder on Linux), `jpackageDmg` a disk image with it (macOS only). jpackage cannot cross-build,
 // so like the fat jar it is made on each platform for that platform.
 val jdkHome =
@@ -111,7 +111,7 @@ fun registerJpackage(
     executable(jdkHome.get().file("bin/jpackage").asFile)
     argumentProviders.add {
         buildList {
-            addAll(listOf("--type", type, "--name", "SluIde", "--dest", destination.get().asFile.path))
+            addAll(listOf("--type", type, "--name", "Thoreau", "--dest", destination.get().asFile.path))
             addAll(listOf("--input", input.get().path, "--main-jar", mainJar.get()))
             // Added to what jdeps finds: modules only loaded at runtime (charsets, zip file systems).
             val extra = listOf("jdk.unsupported", "jdk.charsets", "jdk.zipfs")
@@ -126,17 +126,21 @@ fun registerJpackage(
             // jpackage's defaults plus compression: about 60 MB instead of 95 MB (linux-aarch64, JDK 25; ADR 0011).
             val jlinkOptions = "--strip-debug --no-man-pages --no-header-files --strip-native-commands --compress zip-6"
             addAll(listOf("--jlink-options", jlinkOptions))
-            addAll(listOf("--vendor", "SluIde", "--description", "A lightweight IDE"))
+            addAll(listOf("--vendor", "Thoreau", "--description", "A lightweight IDE"))
             version?.let { addAll(listOf("--app-version", it)) }
-            if (mac) addAll(listOf("--mac-package-identifier", "dev.sluide.ide", "--mac-package-name", "SluIde"))
+            if (mac) addAll(listOf("--mac-package-identifier", "dev.sluide.ide", "--mac-package-name", "Thoreau"))
         }
     }
     // jpackage refuses to overwrite an existing app or image.
     doFirst { destination.get().asFile.deleteRecursively() }
 }
 
-registerJpackage("jpackageImage", "app-image", "Builds the native app with its own Java runtime (SluIde.app on macOS).")
-registerJpackage("jpackageDmg", "dmg", "Builds a macOS disk image with SluIde.app.").configure {
+registerJpackage(
+    "jpackageImage",
+    "app-image",
+    "Builds the native app with its own Java runtime (Thoreau.app on macOS).",
+)
+registerJpackage("jpackageDmg", "dmg", "Builds a macOS disk image with Thoreau.app.").configure {
     val mac = isMac
     onlyIf("running on macOS") { mac }
 }
