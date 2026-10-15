@@ -397,6 +397,7 @@ internal class RSyntaxHighlighter(
                 "markdown", "md" -> markdown
                 "mdx" -> mdx
                 "sql" -> sql
+                "kql", "kusto", "csl" -> KqlHighlighter
                 "bash", "sh", "shell", "zsh", "ksh" -> shell
                 "powershell", "ps1", "pwsh" -> powerShell
                 "dockerfile", "docker", "containerfile" -> dockerfile

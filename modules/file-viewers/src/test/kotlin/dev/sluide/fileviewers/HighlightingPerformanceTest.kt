@@ -53,6 +53,31 @@ class HighlightingPerformanceTest {
     }
 
     @Test
+    fun `KQL`() {
+        val kql = KqlHighlighter
+        val query =
+            "| where TimeGenerated > ago(1d) and Name !has 'x' // c\n" +
+                "| summarize n = count() by bin(TimeGenerated, 5m), k = datetime(2024-01-01)\n" +
+                "| project-away a, b\n| extend p = @\"C:\\x\", q = h'y', r = a-b, t = 1.5e3"
+        assertFast("KQL", kql, "let x = 1;\nT\n" + lines(query, 15_000) + ".show tables\n")
+        assertFast("KQL multi-line strings", kql, lines("print ```a\nb``` // ```", 25_000))
+        val blanks = " ".repeat(80_000)
+        assertFast("KQL blanks", kql, "T$blanks|$blanks where$blanks x\n$blanks.show\n")
+        assertFast(
+            "KQL query starts",
+            kql,
+            "print$blanks\n" + "(range ".repeat(20_000) + "\n" + "(".repeat(50_000) + "\n",
+        )
+        assertFast("KQL pipes", kql, "|".repeat(100_000) + "\n" + "<|".repeat(50_000) + "\n")
+        assertFast("KQL literals", kql, "print " + "datetime(".repeat(20_000) + "\n" + "guid(x".repeat(20_000) + "\n")
+        assertFast("KQL hyphens", kql, "project-".repeat(20_000) + "\n" + "graph-to-".repeat(20_000) + "x\n")
+        assertFast("KQL negations", kql, "!".repeat(50_000) + "\n" + "!in~".repeat(20_000) + "\n")
+        assertFast("KQL escapes", kql, "print '" + "\\x".repeat(50_000) + "\n" + "@'".repeat(50_000) + "\n")
+        assertFast("KQL unclosed", kql, "print ```" + "x\n".repeat(50_000))
+        assertFast("KQL numbers", kql, "print " + "1.".repeat(40_000) + "\n" + "0x".repeat(40_000) + "\n")
+    }
+
+    @Test
     fun `masking env values is linear too`() {
         val text = lines("export URL=https://x.y/a#b # c\nKEY=\"a # b\" # c\nMULTI=\"x\ny\" # z\n# OLD=1")
         val blanks = " ".repeat(80_000)
