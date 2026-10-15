@@ -238,6 +238,7 @@ internal class RequestExecutor(
                 truncated = truncated,
                 elapsed = elapsed(),
                 notes = notes.toList(),
+                request = request,
             )
         }
 
@@ -284,7 +285,7 @@ internal class RequestExecutor(
         private fun failure(
             message: String,
             cancelled: Boolean = false,
-        ) = HttpFailure(message, cancelled, elapsed(), notes.toList())
+        ) = HttpFailure(message, cancelled, elapsed(), notes.toList(), if (::request.isInitialized) request else null)
 
         private fun elapsed() = Duration.ofNanos(System.nanoTime() - start)
     }

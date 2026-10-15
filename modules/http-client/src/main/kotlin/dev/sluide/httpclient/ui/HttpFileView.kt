@@ -4,17 +4,45 @@ import dev.sluide.fileviewers.CodeEditor
 import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.httpclient.HttpClientSession
+import dev.sluide.httpclient.env.Environment
+import dev.sluide.httpclient.env.EnvironmentFiles
+import dev.sluide.httpclient.env.Environments
+import dev.sluide.httpclient.parse.HttpFileParser
+import dev.sluide.httpclient.send.Cancellable
+import dev.sluide.httpclient.send.HttpFailure
+import javafx.animation.PauseTransition
+import javafx.beans.InvalidationListener
+import javafx.beans.property.SimpleBooleanProperty
 import javafx.geometry.Orientation
 import javafx.geometry.Pos
+import javafx.scene.Cursor
 import javafx.scene.Node
+import javafx.scene.control.Button
 import javafx.scene.control.SplitPane
+import javafx.scene.control.TextInputControl
+import javafx.scene.control.Tooltip
+import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyCodeCombination
+import javafx.scene.input.KeyCombination
+import javafx.scene.input.KeyEvent
+import javafx.scene.input.MouseButton
+import javafx.scene.input.MouseEvent
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
+import javafx.util.Duration
+import org.kordamp.ikonli.javafx.FontIcon
+import org.kordamp.ikonli.materialdesign2.MaterialDesignP
+import org.kordamp.ikonli.materialdesign2.MaterialDesignS
 import java.nio.file.Path
+import java.time.Duration as JavaDuration
 
 /**
- * The view of a `.http` file: a toolbar above the file's [editor] and, once a request ran, its response below it.
+ * The view of a `.http` file: a toolbar above the file's [editor] and, once a request ran, its [response] below it.
  * Editing, saving, change markers and changes on disk are the editor's.
+ *
+ * The request at the caret runs from the toolbar or with Shortcut+Enter, any request from the run icon beside its
+ * request line. Runs use the editor's current text, unsaved changes included, and the window's [session]; without one
+ * (e.g. in tests of other modules) nothing can run.
  */
 internal class HttpFileView(
     file: Path,
@@ -24,8 +52,24 @@ internal class HttpFileView(
     var file: Path = file.toAbsolutePath().normalize()
         private set
 
+    val response = ResponsePane()
+
+    val runButton =
+        Button("Run", FontIcon(MaterialDesignP.PLAY)).apply {
+            styleClass += "http-run"
+            setOnAction { run(editor.caretLine) }
+        }
+
+    val cancelButton =
+        Button("Cancel", FontIcon(MaterialDesignS.STOP)).apply {
+            styleClass += "http-cancel"
+            tooltip = Tooltip("Cancel the running request")
+            isDisable = true
+            setOnAction { running?.cancel() }
+        }
+
     val toolbar =
-        HBox().apply {
+        HBox(runButton, cancelButton).apply {
             styleClass += "http-toolbar"
             alignment = Pos.CENTER_LEFT
         }
@@ -38,15 +82,55 @@ internal class HttpFileView(
             styleClass += "http-view"
             top = toolbar
             stylesheets += checkNotNull(HttpFileView::class.java.getResource("http-view.css")).toExternalForm()
+            addEventFilter(KeyEvent.KEY_PRESSED) { event ->
+                if (RUN_KEY.match(event) && inText(event.target)) {
+                    event.consume()
+                    run(editor.caretLine)
+                }
+            }
         }
 
     override val node: Node get() = root
+
+    /** Whether [target] is the editor's text, not e.g. a field of its find bar. */
+    private fun inText(target: Any?): Boolean {
+        if (target !is Node || target is TextInputControl) return false
+        return generateSequence(target) { it.parent }.any { it === editor.node }
+    }
+
+    /** The running request, `null` when none runs. */
+    private var running: Cancellable? = null
+    private val isRunning = SimpleBooleanProperty(false)
+
+    /** The request lines of the text as last parsed, which get a run icon. */
+    private var requestLines: Set<Int> = requestLines(editor.text)
+
+    /** Parses the text again once typing pauses, to move the run icons. */
+    private val reparse =
+        PauseTransition(Duration.millis(REPARSE_PAUSE.toMillis().toDouble())).apply {
+            setOnFinished {
+                val lines = requestLines(editor.text)
+                if (lines != requestLines) {
+                    requestLines = lines
+                    editor.refreshGutter()
+                }
+            }
+        }
+
+    init {
+        // Invalidations only: the text is built once typing pauses, not on every key.
+        editor.textProperty.addListener(InvalidationListener { reparse.playFromStart() })
+        editor.addGutterColumn { paragraph -> if (paragraph in requestLines) runIcon(paragraph) else null }
+        isRunning.addListener { _, _, running -> cancelButton.isDisable = !running }
+        updateRunnable()
+    }
 
     /** Gives the editor the host too, which asks it for diffs when a change marker is clicked. */
     override var host: FileViewHost?
         get() = editor.host
         set(value) {
             editor.host = value
+            updateRunnable()
         }
 
     /** The window's session, through the [host]; `null` without one (e.g. in tests). */
@@ -62,5 +146,99 @@ internal class HttpFileView(
         file = to.toAbsolutePath().normalize()
         session?.moveEnvironment(from, file)
         return true
+    }
+
+    /**
+     * Runs the request whose part of the file holds [line] with the current text; a request still running is
+     * cancelled first.
+     */
+    fun run(line: Int) {
+        val session = session ?: return
+        val text = editor.text
+        showResponsePane()
+        // A new run replaces the one still running, also when there is nothing to run.
+        running?.cancel()
+        running = null
+        val run = ++runs
+        val request = HttpFileParser.parse(text).requestAt(line)
+        if (request == null) {
+            isRunning.set(false)
+            val failure = HttpFailure("There is no request at line ${line + 1}", false, JavaDuration.ZERO, emptyList())
+            response.show(ResponseContent.of(failure))
+            return
+        }
+        response.running()
+        isRunning.set(true)
+        val environment = environmentOf(session)
+        running =
+            session.runner.run(file, text, request, environment) { result ->
+                // The result of a run replaced by a newer one is not shown.
+                if (run != runs) return@run
+                running = null
+                isRunning.set(false)
+                // Decoding and formatting a body can take a while: off the FX thread.
+                session.inBackground({ ResponseContent.of(result) }) { content ->
+                    if (run == runs) content.onSuccess(response::show)
+                }
+            }
+    }
+
+    /** Counts the runs, so that only the result of the last one is shown. */
+    private var runs = 0
+
+    /**
+     * The environment chosen for this file in the window, to be read anew from the environment files on the worker
+     * that prepares the request.
+     */
+    private fun environmentOf(session: HttpClientSession): () -> Environment? {
+        val name = session.environment(file) ?: return { null }
+        val file = file
+        val folder = host?.projectFolder
+        return { Environments.load(EnvironmentFiles.find(file, folder))[name] }
+    }
+
+    private fun showResponsePane() {
+        if (response.node in split.items) return
+        split.items += response.node
+        split.setDividerPositions(0.5)
+    }
+
+    private fun updateRunnable() {
+        val runnable = session != null
+        runButton.isDisable = !runnable
+        runButton.tooltip =
+            Tooltip(if (runnable) "Run the request at the caret ($RUN_KEY_TEXT)" else "Requests run in an IDE window")
+    }
+
+    private fun runIcon(paragraph: Int): Node =
+        FontIcon(MaterialDesignP.PLAY).apply {
+            styleClass += "http-run-icon"
+            cursor = Cursor.HAND
+            Tooltip.install(this, Tooltip("Run this request"))
+            // Not pressed into the text: the caret stays where it is.
+            addEventHandler(MouseEvent.MOUSE_PRESSED) { it.consume() }
+            addEventHandler(MouseEvent.MOUSE_CLICKED) { event ->
+                if (event.button == MouseButton.PRIMARY) run(paragraph)
+                event.consume()
+            }
+        }
+
+    override fun dispose() {
+        running?.cancel()
+        reparse.stop()
+        editor.dispose()
+    }
+
+    private companion object {
+        val RUN_KEY = KeyCodeCombination(KeyCode.ENTER, KeyCombination.SHORTCUT_DOWN)
+        val RUN_KEY_TEXT: String = RUN_KEY.displayText
+        val REPARSE_PAUSE: JavaDuration = JavaDuration.ofMillis(300)
+
+        fun requestLines(text: String): Set<Int> =
+            HttpFileParser
+                .parse(text)
+                .requests
+                .map { it.requestLine }
+                .toSet()
     }
 }

@@ -18,4 +18,7 @@ internal class RequestTokens(
         id: String,
         idToken: Boolean,
     ): String = values.getOrPut(id to idToken) { cache.token(environment, id, idToken, note) }
+
+    /** The tokens taken so far. */
+    val taken: List<String> get() = values.values.toList()
 }

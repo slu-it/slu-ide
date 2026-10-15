@@ -2,6 +2,10 @@ package dev.sluide.fileviewers
 
 import dev.sluide.textediting.CommentSyntax
 import javafx.beans.value.ObservableValue
+import javafx.scene.Node
+import org.fxmisc.flowless.VirtualizedScrollPane
+import org.fxmisc.richtext.CodeArea
+import org.fxmisc.richtext.LineNumberFactory
 import java.nio.file.Path
 
 /**
@@ -25,8 +29,28 @@ interface CodeEditor :
     fun moveCaretTo(line: Int)
 }
 
-/** Creates [CodeEditor]s. */
+/** A read-only text with line numbers, highlighted like code views, e.g. the body of an HTTP response. */
+interface CodeDisplay {
+    val node: Node
+
+    /** The text shown. */
+    val text: String
+
+    /**
+     * Shows [text] from its start, highlighted by [highlighter] (plain without one). Texts longer than
+     * [CodeEditors.HIGHLIGHT_LIMIT] are not highlighted, which would hold up the FX thread.
+     */
+    fun show(
+        text: String,
+        highlighter: SyntaxHighlighter?,
+    )
+}
+
+/** Creates [CodeEditor]s and [CodeDisplay]s. */
 object CodeEditors {
+    /** Longer texts are shown plain by a [CodeDisplay]. */
+    const val HIGHLIGHT_LIMIT = 1 shl 20
+
     /**
      * An editor of [file] highlighted by [highlighter] (plain text without one), whose Shortcut+/ comments lines with
      * [lineComment] (e.g. `#`), or wraps them in [blockComment] (e.g. `/*` and `*/`) without one; with neither, lines
@@ -38,6 +62,37 @@ object CodeEditors {
         lineComment: String? = null,
         blockComment: Pair<String, String>? = null,
     ): CodeEditor = CodeViewEditor(CodeView(file, highlighter, CommentSyntax(lineComment, blockComment)))
+
+    /** An empty display. Call on the FX thread. */
+    fun display(): CodeDisplay = AreaDisplay()
+}
+
+private class AreaDisplay : CodeDisplay {
+    private val area =
+        CodeArea().apply {
+            isEditable = false
+            paragraphGraphicFactory = LineNumberFactory.get(this)
+        }
+
+    override val node: Node =
+        VirtualizedScrollPane(area).apply {
+            styleClass += "code-view"
+            stylesheets += checkNotNull(CodeView::class.java.getResource("syntax.css")).toExternalForm()
+        }
+
+    override val text: String get() = area.text
+
+    override fun show(
+        text: String,
+        highlighter: SyntaxHighlighter?,
+    ) {
+        area.replaceText(text)
+        if (highlighter != null && text.isNotEmpty() && text.length <= CodeEditors.HIGHLIGHT_LIMIT) {
+            area.setStyleSpans(0, codeStyleSpans(text, highlighter))
+        }
+        area.moveTo(0)
+        area.requestFollowCaret()
+    }
 }
 
 /**

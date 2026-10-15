@@ -26,7 +26,7 @@ import java.util.concurrent.ConcurrentHashMap
 // One instance per IDE window (the "window" scope of the ide module, ADR 0014).
 @Scope("window")
 class HttpClientSession internal constructor(
-    dispatch: (Runnable) -> Unit,
+    private val dispatch: (Runnable) -> Unit,
 ) : AutoCloseable {
     @Autowired
     constructor() : this(Platform::runLater)
@@ -66,6 +66,19 @@ class HttpClientSession internal constructor(
     }
 
     private fun key(file: Path) = file.toAbsolutePath().normalize()
+
+    /**
+     * Runs [task] on a virtual thread, e.g. formatting a response or a token request, and hands its outcome to [onDone]
+     * through [dispatch]; returns the thread, which an interrupt stops.
+     */
+    internal fun <T> inBackground(
+        task: () -> T,
+        onDone: (Result<T>) -> Unit,
+    ): Thread =
+        Thread.ofVirtual().name("sluide-http").start {
+            val result = runCatching(task)
+            dispatch { onDone(result) }
+        }
 
     /** Aborts running requests and forgets cookies, tokens and passphrases. */
     override fun close() {

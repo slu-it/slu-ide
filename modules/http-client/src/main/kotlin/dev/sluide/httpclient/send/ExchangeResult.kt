@@ -10,6 +10,9 @@ internal sealed interface ExchangeResult {
 
     /** What was changed, left out or done in addition (dropped headers, skipped scripts, truncation, …). */
     val notes: List<String>
+
+    /** The request as it was sent, `null` if it could not be built (e.g. because of an unresolved variable). */
+    val request: PreparedRequest?
 }
 
 /**
@@ -26,6 +29,7 @@ internal class HttpResult(
     val truncated: Boolean,
     override val elapsed: Duration,
     override val notes: List<String>,
+    override val request: PreparedRequest? = null,
 ) : ExchangeResult {
     fun header(name: String): String? = headers.firstOrNull { it.first.equals(name, ignoreCase = true) }?.second
 }
@@ -36,6 +40,7 @@ internal data class HttpFailure(
     val cancelled: Boolean,
     override val elapsed: Duration,
     override val notes: List<String>,
+    override val request: PreparedRequest? = null,
 ) : ExchangeResult
 
 /** Stops a running request. */

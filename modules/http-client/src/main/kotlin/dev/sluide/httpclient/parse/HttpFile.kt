@@ -11,7 +11,17 @@ internal data class HttpFile(
     val problems: List<ParseProblem>,
     /** What each line of the text is to the parser, by line number; highlighting follows it. */
     val lineKinds: List<LineKind>,
-)
+) {
+    /**
+     * The request of the part of the file that holds [line] (0-based): from a `###` (or the start of the file) up to
+     * the next one; `null` if that part has no request (e.g. only `@variables` or comments).
+     */
+    fun requestAt(line: Int): RequestBlock? {
+        if (lineKinds.isEmpty()) return null
+        val start = (line.coerceIn(0, lineKinds.lastIndex) downTo 0).firstOrNull { lineKinds[it] == LineKind.SEPARATOR }
+        return requests.firstOrNull { it.lines.first == (start ?: 0) }
+    }
+}
 
 /** What a line of a `.http` file is to the parser. */
 internal enum class LineKind {

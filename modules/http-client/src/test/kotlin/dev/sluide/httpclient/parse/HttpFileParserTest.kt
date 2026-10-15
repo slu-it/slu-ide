@@ -403,6 +403,23 @@ class HttpFileParserTest {
     }
 
     @Test
+    fun `finds the request of a line`() {
+        val file = parse("@host = x", "###", "GET http://a", "", "### b", "# c", "POST http://b", "", "body")
+
+        assertNull(file.requestAt(0))
+        assertEquals("http://a", file.requestAt(1)?.url)
+        assertEquals("http://a", file.requestAt(3)?.url)
+        assertEquals("http://b", file.requestAt(4)?.url)
+        assertEquals("http://b", file.requestAt(8)?.url)
+        assertEquals("http://b", file.requestAt(20)?.url)
+        assertEquals("http://x", parse("@v = 1", "GET http://x").requestAt(0)?.url)
+        val withoutRequest = parse("GET http://a", "", "###", "@v = 1", "# only a comment")
+        assertEquals("http://a", withoutRequest.requestAt(1)?.url)
+        assertNull(withoutRequest.requestAt(2))
+        assertNull(withoutRequest.requestAt(4))
+    }
+
+    @Test
     fun `knows what each line is`() {
         val file =
             parse(

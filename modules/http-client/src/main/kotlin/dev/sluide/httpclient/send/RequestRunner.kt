@@ -32,12 +32,22 @@ internal class RequestRunner(
         request: RequestBlock,
         environment: Environment?,
         onResult: (ExchangeResult) -> Unit,
+    ): Cancellable = run(httpFile, fileText, request, { environment }, onResult)
+
+    /** Like the other [run], with the [environment] read on the worker, e.g. from the environment files. */
+    fun run(
+        httpFile: Path,
+        fileText: String,
+        request: RequestBlock,
+        environment: () -> Environment?,
+        onResult: (ExchangeResult) -> Unit,
     ): Cancellable =
         executor.run(request.tags, onResult) { notes ->
+            val environment = environment()
             val variables = HttpFileParser.parse(fileText).variables
             val auth = RequestTokens(tokens, environment, notes::add)
             val resolver = VariableResolver(environment, variables, dynamic, auth::token)
             val ssl = environment?.ssl?.let(sslContexts::context)
-            RequestBuilder(httpFile, resolver).build(request).withSslContext(ssl)
+            RequestBuilder(httpFile, resolver).build(request).withSslContext(ssl).withSecrets(auth.taken)
         }
 }

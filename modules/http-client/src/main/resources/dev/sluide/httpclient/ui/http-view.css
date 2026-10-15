@@ -18,3 +18,73 @@
     -fx-padding: 0;
     -fx-background-insets: 0;
 }
+
+.http-toolbar .ikonli-font-icon, .http-body-toolbar .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
+/* Run icons in the editor's gutter, beside each request line. */
+.http-run-icon {
+    -fx-icon-color: #2e8b57;
+    -fx-icon-size: 12;
+}
+
+/* Response (ResponsePane): status line, notes, body toolbar, errors. */
+.http-status-line {
+    -fx-padding: 3 8 3 8;
+    -fx-spacing: 12;
+}
+
+.http-status {
+    -fx-font-weight: bold;
+}
+
+.http-details, .http-note {
+    -fx-font-size: 0.9em;
+    -fx-text-fill: derive(-fx-text-base-color, 30%);
+}
+
+.http-notes {
+    -fx-padding: 0 8 3 8;
+}
+
+.http-body-toolbar {
+    -fx-padding: 2 6 2 6;
+}
+
+.http-body-toolbar .toggle-button {
+    -fx-font-size: 0.9em;
+    -fx-padding: 1 8 1 8;
+}
+
+.http-error {
+    -fx-padding: 8;
+    -fx-text-fill: #c62828;
+    -fx-wrap-text: true;
+    -fx-alignment: top-left;
+}
+
+.http-warning {
+    -fx-text-fill: #b26a00;
+    -fx-font-size: 0.9em;
+    -fx-padding: 0 0 0 8;
+}
+
+.http-status-informational { -fx-text-fill: #555555; }
+.http-status-success       { -fx-text-fill: #2e7d32; }
+.http-status-redirect      { -fx-text-fill: #1565c0; }
+.http-status-client-error  { -fx-text-fill: #e65100; }
+.http-status-server-error  { -fx-text-fill: #c62828; }
+.http-status-failure       { -fx-text-fill: #c62828; }
+
+@media (prefers-color-scheme: dark) {
+    .http-run-icon             { -fx-icon-color: #5cc08a; }
+    .http-error                { -fx-text-fill: #ef6c6c; }
+    .http-warning              { -fx-text-fill: #e0a040; }
+    .http-status-informational { -fx-text-fill: #aaaaaa; }
+    .http-status-success       { -fx-text-fill: #6cc070; }
+    .http-status-redirect      { -fx-text-fill: #64a8f0; }
+    .http-status-client-error  { -fx-text-fill: #f0a050; }
+    .http-status-server-error  { -fx-text-fill: #ef6c6c; }
+    .http-status-failure       { -fx-text-fill: #ef6c6c; }
+}

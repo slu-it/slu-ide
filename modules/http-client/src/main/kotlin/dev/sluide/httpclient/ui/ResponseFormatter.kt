@@ -71,7 +71,7 @@ internal object ResponseFormatter {
             .withArrayIndenter(DefaultIndenter("  ", "\n"))
 
     /**
-     * Decodes [body] and pretty-prints JSON and XML.
+     * Decodes [body] and pretty-prints JSON and XML (unless not [pretty]).
      *
      * The charset is the one of a byte order mark (UTF-8, UTF-16LE/BE), else the one declared in [contentType], else
      * UTF-8. Text types (`text/…`, JSON, XML, HTML) without a declared charset that are not UTF-8 fall back to
@@ -80,6 +80,7 @@ internal object ResponseFormatter {
     fun format(
         body: ByteArray,
         contentType: String?,
+        pretty: Boolean = true,
     ): FormattedBody {
         val mediaType = MediaTypes.mediaType(contentType)
         val language = MediaTypes.language(contentType)
@@ -90,9 +91,8 @@ internal object ResponseFormatter {
         }
         val text = decoded.text
         val notes = listOfNotNull(decoded.note)
-        if ((language != "json" && language != "xml") || text.isBlank()) {
-            return FormattedBody(text, text, language, notes)
-        }
+        val formattable = language == "json" || language == "xml"
+        if (!pretty || !formattable || text.isBlank()) return FormattedBody(text, text, language, notes)
         if (body.size > PRETTY_PRINT_LIMIT) {
             val note = "Not pretty-printed: larger than ${size(PRETTY_PRINT_LIMIT.toLong())}"
             return FormattedBody(text, text, language, notes + note)

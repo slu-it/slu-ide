@@ -17,6 +17,9 @@ dependencies {
     api(project(":modules:file-viewers"))
     implementation(libs.spring.context)
     implementation(libs.jackson.databind)
+    // Toolbar and gutter icons: Material Design Icons, like the file explorer's (ADR 0012).
+    implementation(libs.ikonli.javafx)
+    implementation(libs.ikonli.materialdesign2)
 
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
