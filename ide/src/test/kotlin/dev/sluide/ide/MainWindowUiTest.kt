@@ -235,6 +235,64 @@ class MainWindowUiTest {
     }
 
     @Test
+    fun `the explorer starts as wide as its names need, and resizing the window resizes only the editor area`(
+        robot: FxRobot,
+    ) {
+        project.resolve("README.md").createFile()
+        robot.interact { projectService.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+        val fontSize = fontSettings.font(FontArea.EXPLORER).value.size
+        val shortNames = fileExplorer.startWidth()
+        assertTrue(shortNames < 24 * fontSize - DIVIDER_SLACK, "start width $shortNames for font size $fontSize")
+
+        // A longer name changes the start width, but not the width the explorer already has.
+        project.resolve("a-longer-file-name-${project.name}.txt").createFile()
+        robot.interact { fileExplorer.refreshAll() }
+        assertTrue(fileExplorer.startWidth() > shortNames, "a longer name needs more")
+        val start = fileExplorer.width
+        assertEquals(shortNames, start, DIVIDER_SLACK)
+
+        val editorWidth = editorArea.width
+        robot.interact { stage.width += 300 }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(start, fileExplorer.width, DIVIDER_SLACK)
+        assertEquals(editorWidth + 300, editorArea.width, DIVIDER_SLACK)
+
+        robot.interact { stage.width -= 500 }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(start, fileExplorer.width, DIVIDER_SLACK)
+    }
+
+    @Test
+    fun `the explorer starts at its smallest width without a folder and at its largest for very long names`(
+        robot: FxRobot,
+    ) {
+        val fontSize = fontSettings.font(FontArea.EXPLORER).value.size
+        assertEquals(12 * fontSize, fileExplorer.width, DIVIDER_SLACK)
+
+        project.resolve("x".repeat(200)).createFile()
+        robot.interact { projectService.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(24 * fontSize, fileExplorer.width, DIVIDER_SLACK)
+    }
+
+    @Test
+    fun `a window opened with its folder starts the explorer as wide as its names need`(robot: FxRobot) {
+        project.resolve("README.md").createFile()
+        val explorer = FileExplorerView(watcher, fontSettings)
+        robot.interact {
+            val stage = Stage().also { otherStages += it }
+            val projectService = ProjectService().apply { open(project) }
+            mainWindow(projectService, explorer, editorArea(), CompletableFuture.completedFuture(true)).show(stage)
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val fontSize = fontSettings.font(FontArea.EXPLORER).value.size
+        assertTrue(explorer.startWidth() > 12 * fontSize, "the folder's name needs more than the smallest width")
+        assertEquals(explorer.startWidth(), explorer.width, DIVIDER_SLACK)
+    }
+
+    @Test
     fun `a git repository shows its status as markers in the explorer and follows staging`(robot: FxRobot) {
         assumeTrue(git.available, "git is not installed")
         runGit("init", "-q")
@@ -893,3 +951,6 @@ class MainWindowUiTest {
         assertEquals(project, editorArea.projectFolder())
     }
 }
+
+// How far the explorer's width may be off its start width: the divider position is a fraction, rounded to pixels.
+private const val DIVIDER_SLACK = 2.0

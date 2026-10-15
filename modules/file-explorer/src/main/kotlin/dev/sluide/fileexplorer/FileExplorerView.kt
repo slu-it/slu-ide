@@ -26,6 +26,7 @@ import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.layout.HBox
 import javafx.scene.shape.Circle
+import javafx.scene.text.Text
 import org.kordamp.ikonli.javafx.FontIcon
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
@@ -120,14 +121,15 @@ class FileExplorerView(
 
     private val watches = mutableMapOf<Path, AutoCloseable>()
 
+    private val font = fontSettings.font(FontArea.EXPLORER)
+
     // Material Design icons leave a margin around the glyph, so they are a bit larger than the text.
-    private val fileIconSize: ObservableValue<Int> =
-        fontSettings.font(FontArea.EXPLORER).map { (it.size * ICON_SCALE).roundToInt() }
+    private val fileIconSize: ObservableValue<Int> = font.map { (it.size * ICON_SCALE).roundToInt() }
 
     init {
         setCellFactory { PathCell() }
         // The cells inherit the font.
-        styleProperty().bind(fontSettings.font(FontArea.EXPLORER).map(FontSpec::toCss))
+        styleProperty().bind(font.map(FontSpec::toCss))
         stylesheets += checkNotNull(FileExplorerView::class.java.getResource("file-explorer.css")).toExternalForm()
         addEventHandler(KeyEvent.KEY_PRESSED) { event ->
             val selected = selectionModel.selectedItem?.value
@@ -205,6 +207,36 @@ class FileExplorerView(
         closeWatchesOfVanishedFolders()
         onFilesChanged()
     }
+
+    /**
+     * The width the explorer would like to start with: enough for the names of the shown entries with their icons and
+     * indentation, in the explorer font, but at least [MIN_START_WIDTH] and at most [MAX_START_WIDTH] times its size,
+     * so that a few short names still leave room and a long one does not take the window.
+     */
+    fun startWidth(): Double {
+        val spec = font.value
+        val text = Text().apply { font = spec.toFont() }
+        val max = MAX_START_WIDTH * spec.size
+        var width = MIN_START_WIDTH * spec.size
+        // Stops once a name needs the largest width, so a folder with thousands of entries is not measured in full.
+        for ((item, level) in shownEntries(root, 0)) {
+            text.text = (item.value.fileName ?: item.value).toString()
+            width = maxOf(width, (level + ROW_EXTRA) * spec.size + text.layoutBounds.width)
+            if (width >= max) return max
+        }
+        return width
+    }
+
+    /** [item] at [level] and, if it is expanded, its entries below it, in the order shown. */
+    private fun shownEntries(
+        item: TreeItem<Path>?,
+        level: Int,
+    ): Sequence<Pair<TreeItem<Path>, Int>> =
+        sequence {
+            if (item == null) return@sequence
+            yield(item to level)
+            if (item.isExpanded) item.children.forEach { yieldAll(shownEntries(it, level + 1)) }
+        }
 
     /** Asks [markers] again for every shown entry. */
     fun refreshMarkers() {
@@ -513,6 +545,14 @@ class FileExplorerView(
 }
 
 private const val ICON_SCALE = 1.25
+
+// The start width in multiples of the font size: the bounds, and what a row needs besides its indentation (Modena's
+// 1 em per level) and name: the disclosure arrow, the icon, the gaps and padding, a marker bubble or two and the
+// vertical scroll bar.
+private const val MIN_START_WIDTH = 12.0
+private const val MAX_START_WIDTH = 24.0
+private const val ROW_EXTRA = 6.0
+
 private const val FILE_ICON_CLASS_PREFIX = "file-icon-"
 private const val FILE_MARKER_CLASS = "file-marker"
 private val nameStyleClasses = FileMarker.entries.map(FileMarker::nameStyleClass)

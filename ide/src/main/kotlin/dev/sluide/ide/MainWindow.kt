@@ -14,6 +14,8 @@ import dev.sluide.settings.ThemedWindows
 import dev.sluide.terminal.TerminalStartException
 import dev.sluide.terminal.Terminals
 import javafx.application.Platform
+import javafx.beans.InvalidationListener
+import javafx.beans.Observable
 import javafx.scene.Scene
 import javafx.scene.control.Alert
 import javafx.scene.control.Menu
@@ -78,10 +80,13 @@ class MainWindow(
 
     fun show(stage: Stage) {
         themedWindows.install()
+        // Resizing the window resizes the editor area; the explorer keeps its width until the user drags the divider
+        // (or the editor area is as narrow as it can be).
+        val split = SplitPane(fileExplorer, editorArea).apply { SplitPane.setResizableWithParent(fileExplorer, false) }
         val root =
             BorderPane().apply {
                 top = MenuBar(fileMenu(stage), viewMenu(), terminalMenu(stage), dockerSandboxMenu(stage))
-                center = SplitPane(fileExplorer, editorArea).apply { setDividerPositions(0.25) }
+                center = split
             }
 
         fileExplorer.onOpenFile = { editorArea.open(it) }
@@ -115,6 +120,7 @@ class MainWindow(
         // A window gets its folder once (ADR 0014); other folders open in new windows.
         projectService.projectFolder.subscribe { folder ->
             fileExplorer.open(folder)
+            fitExplorer(split)
             gitStatus.open(folder)
             stage.title = folder?.let { "${it.fileName ?: it} – $APP_NAME" } ?: APP_NAME
         }
@@ -132,6 +138,32 @@ class MainWindow(
 
         stage.scene = Scene(root, 1000.0, 700.0)
         stage.show()
+    }
+
+    /**
+     * Gives the explorer its start width ([FileExplorerView.startWidth]), but at most half of a narrow window, at once
+     * or, before the window is laid out, as soon as it is.
+     */
+    private fun fitExplorer(split: SplitPane) {
+        // The position is that of the divider's middle. Views in the editor area may have split panes of their own.
+        fun fit() {
+            val divider = split.lookupAll(".split-pane-divider").firstOrNull { it.parent === split }
+            val width = minOf(fileExplorer.startWidth(), split.width / 2)
+            split.setDividerPositions((width + (divider?.prefWidth(-1.0) ?: 0.0) / 2) / split.width)
+        }
+        if (split.width > 0) {
+            fit()
+            return
+        }
+        split.widthProperty().addListener(
+            object : InvalidationListener {
+                override fun invalidated(observable: Observable) {
+                    if (split.width <= 0) return
+                    split.widthProperty().removeListener(this)
+                    fit()
+                }
+            },
+        )
     }
 
     private fun fileMenu(stage: Stage): Menu {

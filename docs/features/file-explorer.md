@@ -5,6 +5,12 @@
 - `FileExplorerView` is a `TreeView<Path>` (Spring `@Component`). `open(root)` shows the folder with the root
   expanded; `open(null)` clears the view.
 - Uses the explorer font from the settings and follows its changes ([settings.md](settings.md)).
+- Width: the window starts the explorer as wide as the names of the shown entries need, with their icons and
+  indentation (`startWidth()`), but at least 12 and at most 24 times the explorer font size; without a folder it is
+  12 times, and in a narrow window at most half of it. It gets this width when the window opens and when a folder
+  opens in it. Resizing the window resizes the editor area; the explorer keeps its width until the divider is dragged,
+  unless the window gets so narrow that the editor area cannot shrink any further. Later changes (expanding folders,
+  another font) do not change it.
 - Shows everything: hidden files, dot-folders, nested folders. Only `.git` (folder, or file in worktrees and
   submodules) is left out.
 - Folders are listed before files; each group is sorted by name, case-insensitively (`listDirectory`).
