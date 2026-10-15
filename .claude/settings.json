@@ -9,11 +9,14 @@
     "allow": [
       "Bash(./gradlew build*)",
       "Bash(./gradlew test*)",
-      "Bash(./gradlew :ide:bootJar*)",
+      "Bash(./gradlew spotlessApply*)",
+      "Bash(./gradlew uiTest*)",
+      "Bash(./gradlew :*)",
       "Bash(git status*)",
       "Bash(git diff*)",
       "Bash(git log*)",
-      "Bash(.claude/scripts/check-docs-index.sh)"
+      "Bash(.claude/scripts/check-docs-index.sh)",
+      "Bash(.claude/scripts/setup-display.sh*)"
     ]
   },
   "hooks": {
