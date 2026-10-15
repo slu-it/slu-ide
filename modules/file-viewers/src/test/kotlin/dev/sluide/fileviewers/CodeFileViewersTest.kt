@@ -42,6 +42,7 @@ class CodeFileViewersTest {
                 listOf("Dockerfile", "Containerfile", "Dockerfile.dev", "dockerfile.prod.local", "app.Dockerfile"),
             MakefileFileViewer() to listOf("Makefile", "GNUmakefile", "rules.mk"),
             IniFileViewer() to listOf("php.ini"),
+            ConfigFileViewer() to listOf("setup.cfg", "nginx.conf", ".npmrc", ".editorconfig", ".gitconfig"),
         )
 
     private val others =

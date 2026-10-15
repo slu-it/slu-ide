@@ -52,7 +52,26 @@ class IniHighlightingTest {
     }
 
     @Test
-    fun `fenced ini is highlighted`() = assertSame(RSyntaxHighlighter.ini, RSyntaxHighlighter.forLanguage("ini"))
+    fun `config files with hash comments, glob sections and keys with colons`() {
+        val config =
+            Highlighted(
+                "# top\nroot = true\n[*.{kt,kts}]\nindent_size = 4\n//registry.npmjs.org/:_authToken=\${TOKEN}\n",
+                RSyntaxHighlighter.ini,
+            )
+
+        assertEquals(setOf(TokenStyle.COMMENT), config.stylesOf("# top"))
+        assertEquals(setOf(TokenStyle.TYPE), config.stylesOf("[*.{kt,kts}]"))
+        assertEquals(setOf(TokenStyle.PROPERTY), config.stylesOf("indent_size"))
+        assertEquals(setOf(TokenStyle.PROPERTY), config.stylesOf("//registry.npmjs.org/:_authToken"))
+        assertEquals(emptySet(), config.stylesOf("true"))
+    }
+
+    @Test
+    fun `fenced ini and config files are highlighted`() {
+        for (name in listOf("ini", "cfg", "conf", "editorconfig", "gitconfig")) {
+            assertSame(RSyntaxHighlighter.ini, RSyntaxHighlighter.forLanguage(name), name)
+        }
+    }
 
     @Test
     fun `spans are well-formed`() = ini.assertWellFormed()

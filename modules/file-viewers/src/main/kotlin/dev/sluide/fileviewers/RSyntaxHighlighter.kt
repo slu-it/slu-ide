@@ -386,7 +386,7 @@ internal class RSyntaxHighlighter(
 
                 "makefile", "make", "mk" -> makefile
 
-                "ini" -> ini
+                "ini", "cfg", "conf", "editorconfig", "gitconfig" -> ini
 
                 else -> null
             }
