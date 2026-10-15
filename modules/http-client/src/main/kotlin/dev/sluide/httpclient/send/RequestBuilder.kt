@@ -214,7 +214,7 @@ internal class RequestBuilder(
                 "proxy-connection",
             )
 
-        val DEFAULTS = listOf("User-Agent" to "SluIde", "Accept" to "*/*", "Accept-Encoding" to "gzip, deflate")
+        val DEFAULTS = listOf("User-Agent" to "Thoreau", "Accept" to "*/*", "Accept-Encoding" to "gzip, deflate")
 
         /** [bytes] as text if they are valid UTF-8 without NUL characters, else null. */
         fun utf8(bytes: ByteArray): String? =

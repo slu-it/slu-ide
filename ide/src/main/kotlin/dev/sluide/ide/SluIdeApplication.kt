@@ -16,7 +16,7 @@ class SluIdeConfiguration
 
 /**
  * JavaFX application that owns the lifecycle of the Spring context. Folders given on the command line
- * (`SluIde [folder…]`) are opened at startup: the first in the startup window, every other one in a new window.
+ * (`Thoreau [folder…]`) are opened at startup: the first in the startup window, every other one in a new window.
  */
 class SluIdeApplication : Application() {
     private lateinit var context: ConfigurableApplicationContext
@@ -61,7 +61,7 @@ internal fun startupFolders(
         if (path != null && Files.isDirectory(path)) {
             path.toAbsolutePath().normalize()
         } else {
-            warn("SluIde: not a folder, ignored: $arg")
+            warn("Thoreau: not a folder, ignored: $arg")
             null
         }
     }

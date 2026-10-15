@@ -70,7 +70,7 @@ internal class OAuth2Client(
                 .timeout(timeout)
                 .header("Content-Type", "application/x-www-form-urlencoded")
                 .header("Accept", "application/json")
-                .header("User-Agent", "SluIde")
+                .header("User-Agent", "Thoreau")
         when (config.clientCredentials) {
             ClientCredentials.BASIC -> {
                 // RFC 6749 2.3.1: id and secret are form-encoded before they are joined and Base64-encoded.

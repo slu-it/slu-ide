@@ -57,7 +57,7 @@ class RequestBuilderTest {
             listOf(
                 "Content-Type" to "application/json",
                 "X-Id" to "7",
-                "User-Agent" to "SluIde",
+                "User-Agent" to "Thoreau",
                 "Accept" to "*/*",
                 "Accept-Encoding" to "gzip, deflate",
             ),

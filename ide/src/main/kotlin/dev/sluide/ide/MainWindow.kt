@@ -32,7 +32,7 @@ import org.springframework.stereotype.Component
 import java.net.URI
 import java.nio.file.Path
 
-private const val APP_NAME = "SluIde"
+private const val APP_NAME = "Thoreau"
 
 /** The main IDE window: menu bar on top, file explorer on the left, open files and terminals in tabs on the right. */
 @Component

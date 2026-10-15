@@ -46,7 +46,7 @@ class SettingsStore(
             file.parent?.createDirectories()
             val temporary = Files.createTempFile(file.parent ?: Path.of("."), file.fileName.toString(), ".tmp")
             try {
-                temporary.outputStream().use { properties.store(it, "SluIde settings") }
+                temporary.outputStream().use { properties.store(it, "Thoreau settings") }
                 Files.move(temporary, file, StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE)
             } finally {
                 Files.deleteIfExists(temporary)

@@ -201,7 +201,7 @@ class FontsPage(
         TextArea(
             """
             fun main() {
-                val greeting = "Hello, SluIde!" // 0O 1lI
+                val greeting = "Hello, Thoreau!" // 0O 1lI
                 println(greeting)
             }
             """.trimIndent(),

@@ -38,7 +38,7 @@ class StartupFoldersTest {
 
         assertEquals(listOf(dir.toAbsolutePath().normalize()), folders)
         assertEquals(3, warnings.size)
-        assertEquals("SluIde: not a folder, ignored: $file", warnings.first())
+        assertEquals("Thoreau: not a folder, ignored: $file", warnings.first())
     }
 
     @Test

@@ -106,8 +106,8 @@ class ProjectWindowsUiTest {
         assertSame(first, windows.stages[0])
         assertEquals(a, window(first).folder)
         assertEquals(b, window(second).folder)
-        assertEquals("a – SluIde", first.title)
-        assertEquals("b – SluIde", second.title)
+        assertEquals("a – Thoreau", first.title)
+        assertEquals("b – Thoreau", second.title)
         assertTrue(second.isShowing)
         assertNotSame(first.scene.root, second.scene.root)
         // The explorers are different nodes, each in its own window.

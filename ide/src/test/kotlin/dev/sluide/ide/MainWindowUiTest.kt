@@ -195,7 +195,7 @@ class MainWindowUiTest {
 
     @Test
     fun `starts with an empty explorer and the plain title`(robot: FxRobot) {
-        assertEquals("SluIde", stage.title)
+        assertEquals("Thoreau", stage.title)
         assertEquals(0, robot.lookup(".tree-cell").queryAllAs(TreeCell::class.java).count { it.text != null })
     }
 
@@ -224,7 +224,7 @@ class MainWindowUiTest {
         robot.interact { projectService.open(project) }
         WaitForAsyncUtils.waitForFxEvents()
 
-        assertEquals("${project.name} – SluIde", stage.title)
+        assertEquals("${project.name} – Thoreau", stage.title)
         val names =
             robot
                 .lookup(".tree-cell")
@@ -581,7 +581,7 @@ class MainWindowUiTest {
 
         assertEquals(listOf(otherProject), openedElsewhere)
         assertEquals(project, mainWindow.folder)
-        assertEquals("${project.name} – SluIde", stage.title)
+        assertEquals("${project.name} – Thoreau", stage.title)
         assertEquals(listOf("README.md"), tabTitles(robot))
     }
 
