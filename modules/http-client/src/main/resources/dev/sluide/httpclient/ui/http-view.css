@@ -1,0 +1,20 @@
+/*
+ * View of .http files (HttpFileView): a toolbar like the one of the diff and preview views above the editor and the
+ * response. Single-class selectors in dark rules only (ADR 0009).
+ */
+
+.http-toolbar {
+    -fx-padding: 2 6 2 6;
+    -fx-spacing: 4;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
+}
+
+.http-toolbar .button, .http-toolbar .menu-button, .http-toolbar .combo-box {
+    -fx-font-size: 0.9em;
+}
+
+.http-view .split-pane {
+    -fx-padding: 0;
+    -fx-background-insets: 0;
+}

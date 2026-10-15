@@ -17,4 +17,9 @@ dependencies {
     api(project(":modules:file-viewers"))
     implementation(libs.spring.context)
     implementation(libs.jackson.databind)
+
+    testImplementation(libs.testfx.core)
+    testImplementation(libs.testfx.junit5)
+    // The editor is a RichTextFX code area; the tests read its text.
+    testImplementation(libs.richtextfx)
 }
