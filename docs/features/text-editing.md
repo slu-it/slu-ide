@@ -5,8 +5,8 @@
 and saving), [ADR 0022](../adr/0022-editor-key-bindings.md) (keys) and
 [ADR 0023](../adr/0023-indentation-from-editorconfig.md) (indentation)
 
-- Code, plain text and the sources of previews (Markdown, HTML, SVG, CSV, notebooks) are edited in their tab. Images
-  and diffs stay read-only.
+- Code, plain text and the sources of previews (Markdown, HTML, SVG, CSV, cookie jars, notebooks, Mermaid, PEM) are
+  edited in their tab. Images and diffs stay read-only.
 - A tab with unsaved changes shows a dot before its name (`● main.py`). Undoing back to the saved text removes it.
 - **File → Save** (Ctrl+S, Cmd+S on macOS) saves the selected file, **File → Save All** (Ctrl+Alt+S, Cmd+Option+S)
   every file with unsaved changes. In a terminal, Ctrl+S goes to the shell; Save All and Cmd+S work there too.
@@ -36,11 +36,16 @@ and saving), [ADR 0022](../adr/0022-editor-key-bindings.md) (keys) and
 
   A selection that ends at the start of a line does not touch that line.
 - Indentation: tabs or spaces and the size come from `.editorconfig` (`indent_style`, `indent_size`, `tab_width`),
-  each value not set there from the file's own indentation, else 4 spaces. They are read when the file is opened,
-  and again when it is renamed in the explorer.
+  each value not set there from the file's own indentation, else the language's default: tabs for Makefiles (recipe
+  lines must start with one), 4 spaces for everything else. They are read when the file is opened, and again when
+  it is renamed in the explorer (with the default of the viewer it opened in, until it is opened again). A global
+  `[*]` section with `indent_style = space` therefore makes Makefile recipes use spaces unless a `[Makefile]` section
+  says otherwise.
   Saving does not apply other `.editorconfig` properties (no trimmed whitespace, no added final newline).
-- Comments per language: `#` in Python and YAML; `//` in Kotlin, Java, JavaScript, TypeScript, JSX, TSX, SCSS, LESS and
-  Sass; `/* */` in CSS; `<!-- -->` in XML, HTML, Markdown, MDX, Vue and Svelte files and SVG; none in JSON, CSV,
+- Comments per language: `#` in Python, YAML, shell scripts, PowerShell, Dockerfiles, Makefiles, config files (`.cfg`,
+  `.conf`, …), ignore files, `.git-blame-ignore-revs`, SSH config, Caddyfiles and `.env` files; `;` in INI files; `--`
+  in SQL; `%%` in Mermaid; `//` in Kotlin, Java, JavaScript, TypeScript, JSX, TSX, SCSS, LESS and Sass; `/* */` in CSS;
+  `<!-- -->` in XML, HTML, Markdown, MDX, Vue and Svelte files and SVG; none in JSON, CSV, cookie jars, PEM files,
   notebooks and plain text. Line comments go after the indentation the lines share, followed by a space, and
   uncommenting removes that space too. Languages with only block comments wrap each line's content instead
   (`/* a: b; */`, `<!-- text -->`) after the line's own indentation; a line counts as commented if it is one block
