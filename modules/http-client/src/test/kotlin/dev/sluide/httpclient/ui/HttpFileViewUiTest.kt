@@ -5,10 +5,12 @@ import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpFileViewer
+import dev.sluide.httpclient.auth.TokenEndpoint
 import dev.sluide.httpclient.send.TestServer
 import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.Scene
+import javafx.scene.control.Menu
 import javafx.scene.input.KeyCharacterCombination
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCombination
@@ -337,6 +339,92 @@ class HttpFileViewUiTest {
         session.wouldCommit = { false }
         robot.interact { session.gitStatusChanged() }
         assertFalse(view.warning.isVisible)
+    }
+
+    @Test
+    fun `acquires and clears tokens of the chosen environment`(robot: FxRobot) {
+        TokenEndpoint().use { endpoint ->
+            dir.resolve("http-client.env.json").writeText(
+                """
+                {"dev": {"Security": {"Auth": {"api": {
+                  "Type": "OAuth2", "Grant Type": "Client Credentials", "Token URL": "${endpoint.url}",
+                  "Client ID": "c", "Client Secret": "s", "Acquire Automatically": false
+                }}}}}
+                """.trimIndent(),
+            )
+            val view =
+                openHosted("GET ${server.base}/echo\nAuthorization: Bearer {{${'$'}auth.token(\"api\")}}\n", robot)
+            awaitEnvironments(view, "No environment", "dev")
+
+            robot.interact { view.auth.show() }
+            assertEquals(
+                listOf("Choose an environment first", "", "Clear All Tokens"),
+                view.auth.items.map { it.text.orEmpty() },
+            )
+            robot.interact {
+                view.auth.hide()
+                view.environments.value = "dev"
+                view.auth.show()
+            }
+            val api = view.auth.items.first() as Menu
+            assertEquals("api", api.text)
+            robot.interact {
+                view.auth.hide()
+                api.items.first { it.text == "Acquire Token" }.fire()
+            }
+            WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { view.message.text.startsWith("Token 'api' acquired") }
+            assertEquals(1, endpoint.calls)
+
+            robot.interact { view.runButton.fire() }
+            assertEquals("200 OK", awaitResult(view))
+            assertTrue("authorization: Bearer t1" in view.response.body.text, view.response.body.text)
+
+            robot.interact { api.items.first { it.text == "Clear Token" }.fire() }
+            assertEquals("Token 'api' cleared", view.message.text)
+            robot.interact { view.runButton.fire() }
+            assertEquals("Failed", awaitResult(view))
+            assertTrue("Acquire the token for 'api' first" in view.response.error.text, view.response.error.text)
+        }
+    }
+
+    @Test
+    fun `failed token requests are shown`(robot: FxRobot) {
+        dir.resolve("http-client.env.json").writeText(
+            """{"dev": {"Security": {"Auth": {"api": {"Type": "OAuth2", "Grant Type": "Client Credentials",
+              "Token URL": "${server.base}/no-token", "Client ID": "c"}}}}}""",
+        )
+        val view = openHosted("GET ${server.base}/echo\n", robot)
+        awaitEnvironments(view, "No environment", "dev")
+        robot.interact {
+            view.environments.value = "dev"
+            view.auth.show()
+        }
+        val api = view.auth.items.first() as Menu
+        robot.interact {
+            view.auth.hide()
+            api.items.first { it.text == "Acquire Token" }.fire()
+        }
+
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { view.message.text.startsWith("Token 'api' not acquired: ") }
+        assertTrue("http-message-error" in view.message.styleClass)
+    }
+
+    @Test
+    fun `clears the cookies of the window`(robot: FxRobot) {
+        server.handle("/login") { server.respond(it, 200, "ok", "Set-Cookie" to "session=abc; Path=/") }
+        val view = openHosted("GET ${server.base}/login\n\n###\nGET ${server.base}/echo\n", robot)
+        robot.interact { view.runButton.fire() }
+        awaitResult(view)
+
+        robot.interact { view.run(3) }
+        awaitResult(view)
+        assertTrue("cookie: session=abc" in view.response.body.text, view.response.body.text)
+
+        robot.interact { view.clearCookies.fire() }
+        assertEquals("Cookies cleared", view.message.text)
+        robot.interact { view.run(3) }
+        awaitResult(view)
+        assertFalse("cookie:" in view.response.body.text, view.response.body.text)
     }
 
     /** Waits until the environment files were read (off the FX thread) and [names] are offered. */

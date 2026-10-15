@@ -20,6 +20,10 @@ import javafx.scene.Node
 import javafx.scene.control.Button
 import javafx.scene.control.ComboBox
 import javafx.scene.control.Label
+import javafx.scene.control.Menu
+import javafx.scene.control.MenuButton
+import javafx.scene.control.MenuItem
+import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.control.SplitPane
 import javafx.scene.control.TextInputControl
 import javafx.scene.control.Tooltip
@@ -33,9 +37,13 @@ import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
 import javafx.util.Duration
 import org.kordamp.ikonli.javafx.FontIcon
+import org.kordamp.ikonli.materialdesign2.MaterialDesignC
+import org.kordamp.ikonli.materialdesign2.MaterialDesignK
 import org.kordamp.ikonli.materialdesign2.MaterialDesignP
 import org.kordamp.ikonli.materialdesign2.MaterialDesignS
 import java.nio.file.Path
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import java.time.Duration as JavaDuration
 
 /**
@@ -93,8 +101,36 @@ internal class HttpFileView(
             isManaged = false
         }
 
+    /** Acquires or clears the OAuth2 tokens of the chosen environment's `Security.Auth` configurations. */
+    val auth =
+        MenuButton("Auth", FontIcon(MaterialDesignK.KEY_OUTLINE)).apply {
+            styleClass += "http-auth"
+            tooltip = Tooltip("OAuth2 tokens of the environment")
+            setOnShowing {
+                items.setAll(authItems())
+                refreshEnvironments()
+            }
+        }
+
+    val clearCookies =
+        Button("Clear Cookies", FontIcon(MaterialDesignC.COOKIE_REMOVE_OUTLINE)).apply {
+            styleClass += "http-clear-cookies"
+            tooltip = Tooltip("Forget the cookies the window's requests received")
+            setOnAction {
+                session?.clients?.clearCookies()
+                showMessage("Cookies cleared")
+            }
+        }
+
+    /** What the last action of the toolbar did, e.g. that a token was acquired. */
+    val message =
+        Label().apply {
+            styleClass += "http-message"
+            isWrapText = false
+        }
+
     val toolbar =
-        HBox(runButton, cancelButton, environments, warning).apply {
+        HBox(runButton, cancelButton, environments, auth, clearCookies, warning, message).apply {
             styleClass += "http-toolbar"
             alignment = Pos.CENTER_LEFT
         }
@@ -262,6 +298,7 @@ internal class HttpFileView(
     ) {
         this.files = files
         this.loaded = loaded
+        if (auth.isShowing) auth.items.setAll(authItems())
         val chosen = session?.environment(file)
         refreshing = true
         try {
@@ -298,6 +335,73 @@ internal class HttpFileView(
         warning.isManaged = problems.isNotEmpty()
     }
 
+    /**
+     * One submenu per auth configuration of the chosen environment, with Acquire and Clear; then Clear All. Built when
+     * the menu opens, from the environment files as last read, and again once they were read anew.
+     */
+    private fun authItems(): List<MenuItem> {
+        val session = session ?: return emptyList()
+        val environment = session.environment(file)?.let { loaded[it] }
+        val configs =
+            environment?.auth?.keys?.map { id ->
+                Menu(
+                    id,
+                    null,
+                    MenuItem("Acquire Token").apply { setOnAction { acquire(session, id) } },
+                    MenuItem("Clear Token").apply {
+                        setOnAction {
+                            session.tokens.clear(id)
+                            showMessage("Token '$id' cleared")
+                        }
+                    },
+                )
+            }
+        val noneText = environment?.let { "No Security.Auth in ${it.name}" } ?: "Choose an environment first"
+        val none = MenuItem(noneText).apply { isDisable = true }
+        val clearAll =
+            MenuItem("Clear All Tokens").apply {
+                setOnAction {
+                    session.tokens.clearAll()
+                    showMessage("All tokens cleared")
+                }
+            }
+        return (configs?.takeIf { it.isNotEmpty() } ?: listOf(none)) + SeparatorMenuItem() + clearAll
+    }
+
+    /**
+     * Requests a new token for auth [id] of the chosen environment in the background, with the environment files read
+     * anew there, and tells how that went.
+     */
+    private fun acquire(
+        session: HttpClientSession,
+        id: String,
+    ) {
+        showMessage("Acquiring token '$id'…")
+        val environment = environmentOf(session)
+        session.inBackground({ session.tokens.acquire(environment(), id) }) { result ->
+            result
+                .onSuccess { info ->
+                    val expiry = info.expiresAt?.let { " (expires ${TIME.format(it)})" }.orEmpty()
+                    showMessage("Token '$id' acquired$expiry")
+                }.onFailure {
+                    showMessage(
+                        "Token '$id' not acquired: ${it.message ?: it::class.simpleName}",
+                        error = true,
+                    )
+                }
+        }
+    }
+
+    private fun showMessage(
+        text: String,
+        error: Boolean = false,
+    ) {
+        message.text = text
+        message.styleClass.remove("http-message-error")
+        if (error) message.styleClass += "http-message-error"
+        message.tooltip = Tooltip(text)
+    }
+
     private fun showResponsePane() {
         if (response.node in split.items) return
         split.items += response.node
@@ -308,6 +412,8 @@ internal class HttpFileView(
         val runnable = session != null
         runButton.isDisable = !runnable
         environments.isDisable = !runnable
+        auth.isDisable = !runnable
+        clearCookies.isDisable = !runnable
         runButton.tooltip =
             Tooltip(if (runnable) "Run the request at the caret ($RUN_KEY_TEXT)" else "Requests run in an IDE window")
     }
@@ -334,6 +440,7 @@ internal class HttpFileView(
 
     private companion object {
         const val NO_ENVIRONMENT = "No environment"
+        val TIME: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm:ss").withZone(ZoneId.systemDefault())
         val RUN_KEY = KeyCodeCombination(KeyCode.ENTER, KeyCombination.SHORTCUT_DOWN)
         val RUN_KEY_TEXT: String = RUN_KEY.displayText
         val REPARSE_PAUSE: JavaDuration = JavaDuration.ofMillis(300)

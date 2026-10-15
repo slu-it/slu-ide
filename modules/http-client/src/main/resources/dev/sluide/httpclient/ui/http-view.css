@@ -88,3 +88,18 @@
     .http-status-server-error  { -fx-text-fill: #ef6c6c; }
     .http-status-failure       { -fx-text-fill: #ef6c6c; }
 }
+
+/* What the last toolbar action did (HttpFileView.message), e.g. a token acquired. */
+.http-message {
+    -fx-font-size: 0.9em;
+    -fx-padding: 0 0 0 8;
+    -fx-text-fill: derive(-fx-text-base-color, 30%);
+}
+
+.http-message-error {
+    -fx-text-fill: #c62828;
+}
+
+@media (prefers-color-scheme: dark) {
+    .http-message-error { -fx-text-fill: #ef6c6c; }
+}
