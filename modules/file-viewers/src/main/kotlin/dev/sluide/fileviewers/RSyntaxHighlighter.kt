@@ -654,5 +654,16 @@ internal class RSyntaxHighlighter(
                         Regex("""(?<!\\)(?<operator>\*\*|[*?])"""),
                     ),
             )
+
+        /** Git's `.git-blame-ignore-revs`: `#` comments, also after a commit, and commit hashes as numbers. */
+        val blameIgnoreRevs =
+            RSyntaxHighlighter(
+                SyntaxConstants.SYNTAX_STYLE_NONE,
+                lineRules =
+                    listOf(
+                        Regex("""(?<comment>#.*)"""),
+                        Regex("""^\s*(?<number>[0-9a-fA-F]{7,64})(?=\s|#|$)"""),
+                    ),
+            )
     }
 }

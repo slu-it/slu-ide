@@ -54,6 +54,7 @@ class CodeFileViewersTest {
                     ".eslintignore",
                     ".helmignore",
                 ),
+            GitBlameIgnoreRevsFileViewer() to listOf(".git-blame-ignore-revs"),
         )
 
     private val others = listOf("notes.txt", "README", "py", "README.md", "index.html", "icon.svg")
