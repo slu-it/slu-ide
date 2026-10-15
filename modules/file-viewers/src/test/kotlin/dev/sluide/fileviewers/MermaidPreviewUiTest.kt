@@ -17,6 +17,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /** Mermaid files with a real WebView and the bundled Mermaid. Needs a display, see the `uiTest` Gradle task. */
@@ -104,11 +105,16 @@ class MermaidPreviewUiTest {
         )
     }
 
+    private fun <T> fx(block: () -> T): T = WaitForAsyncUtils.asyncFx<T> { block() }.get()
+
     @Test
     fun `a diagram that fits shows at its actual size, a wider one fits the page until clicked`(robot: FxRobot) {
         val (file, view) = show(robot, "flowchart TD\n  A --> B\n")
         view.awaitDrawing()
         assertEquals(view.number(actualWidth), view.number(svgWidth), 1.0)
+        val zoom = checkNotNull(view.zoom)
+        assertTrue(fx { zoom.fit })
+        assertEquals("100%", fx { zoom.level.text })
 
         file.writeText("flowchart LR\n" + (1..12).joinToString("\n") { "  Step$it --> Step${it + 1}" } + "\n")
         robot.interact { view.reload() }
@@ -117,10 +123,20 @@ class MermaidPreviewUiTest {
         val pageWidth = view.number("document.body.clientWidth")
         assertTrue(view.number(actualWidth) > pageWidth, "the diagram is wider than the page")
         assertTrue(view.number(svgWidth) <= pageWidth)
+        assertEquals(ZoomSteps.label(view.number(svgWidth) / view.number(actualWidth)), fx { zoom.level.text })
+        assertTrue(view.number("document.documentElement.scrollWidth") <= view.number("window.innerWidth"))
+        assertTrue(
+            view.number("document.documentElement.scrollHeight") <= view.number("window.innerHeight"),
+            "no scrollbar",
+        )
 
         view.script(clickDiagram)
         assertEquals(view.number(actualWidth), view.number(svgWidth), 1.0)
-        assertTrue(view.number("document.querySelector('pre.mermaid').scrollWidth") > pageWidth, "it scrolls")
+        assertFalse(fx { zoom.fit })
+        assertEquals("100%", fx { zoom.level.text })
+        assertTrue(view.number("document.documentElement.scrollWidth") > pageWidth, "the page scrolls")
+        view.script("window.scrollTo(0, 0)")
+        assertTrue(view.number("document.querySelector('pre.mermaid svg').getBoundingClientRect().left") >= 0.0)
 
         // A theme change draws it again, still at its actual size.
         robot.interact { container.scene.preferences.colorScheme = ColorScheme.DARK }
@@ -128,8 +144,60 @@ class MermaidPreviewUiTest {
         view.awaitDrawing()
         assertEquals(view.number(actualWidth), view.number(svgWidth), 1.0)
 
+        // So does a reload.
+        file.writeText("flowchart LR\n" + (1..14).joinToString("\n") { "  Step$it --> Step${it + 1}" } + "\n")
+        robot.interact { view.reload() }
+        awaitLoaded(view)
+        view.awaitDrawing()
+        assertEquals(view.number(actualWidth), view.number(svgWidth), 1.0)
+        assertFalse(fx { zoom.fit })
+
         view.script(clickDiagram)
         assertTrue(view.number(svgWidth) <= pageWidth)
+        assertTrue(fx { zoom.fit && zoom.fitButton.isSelected })
+    }
+
+    @Test
+    fun `a huge diagram zoomed out below 10 percent keeps its scale when it is drawn again`(robot: FxRobot) {
+        fun chain(steps: Int) = "flowchart LR\n" + (1..steps).joinToString("\n") { "  S$it --> S${it + 1}" } + "\n"
+        val (file, view) = show(robot, chain(120))
+        view.awaitDrawing()
+        val zoom = checkNotNull(view.zoom)
+        val fitted = fx { zoom.scale }
+        assertTrue(fitted < 0.1 && fx { zoom.fit }, "fitted at $fitted")
+
+        robot.interact { zoom.zoomOutButton.fire() }
+        assertFalse(fx { zoom.fit })
+        assertEquals(fitted, fx { zoom.scale }, 1e-9)
+
+        // Drawn again, also when the new diagram on its own would fit at a larger scale.
+        file.writeText(chain(40))
+        robot.interact { view.reload() }
+        awaitLoaded(view)
+        view.awaitDrawing()
+        assertEquals(fitted, fx { zoom.scale }, 1e-9)
+        assertFalse(fx { zoom.fit })
+        assertEquals(fitted, view.number(svgWidth) / view.number(actualWidth), 1e-3)
+    }
+
+    @Test
+    fun `the zoom controls size the diagram`(robot: FxRobot) {
+        val (_, view) = show(robot, "flowchart TD\n  A --> B\n")
+        view.awaitDrawing()
+        val zoom = checkNotNull(view.zoom)
+        val actual = view.number(actualWidth)
+
+        robot.interact { zoom.zoomInButton.fire() }
+        assertEquals(actual * 1.25, view.number(svgWidth), 1.0)
+        assertEquals("125%", fx { zoom.level.text })
+        robot.interact { zoom.zoomOutButton.fire() }
+        robot.interact { zoom.zoomOutButton.fire() }
+        assertEquals(actual * 0.75, view.number(svgWidth), 1.0)
+        robot.interact { zoom.actualSizeButton.fire() }
+        assertEquals(actual, view.number(svgWidth), 1.0)
+        assertFalse(fx { zoom.fit })
+        robot.interact { zoom.fitButton.fire() }
+        assertTrue(fx { zoom.fit })
     }
 
     @Test

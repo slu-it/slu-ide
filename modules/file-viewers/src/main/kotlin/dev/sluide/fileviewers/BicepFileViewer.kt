@@ -14,8 +14,8 @@ import java.nio.file.Path
 class BicepFileViewer : PreviewFileViewer(setOf("bicep"), BicepHighlighter, BicepPreview, CommentSyntax.SLASHES)
 
 /**
- * The resource graph ([BicepGraph]) drawn by Mermaid like a Mermaid file ([MermaidPreview]): fitted, actual size on a
- * click, drawn again in the other colour scheme. A file without resources or modules shows a note instead.
+ * The resource graph ([BicepGraph]) drawn by Mermaid like a Mermaid file ([MermaidPreview]): zoomable, fitted at first,
+ * drawn again in the other colour scheme. A file without resources or modules shows a note instead.
  */
 internal object BicepPreview : Preview {
     override fun load(
@@ -50,4 +50,6 @@ internal object BicepPreview : Preview {
     }
 
     override val defaultMode get() = PreviewMode.SOURCE
+
+    override val zooms get() = true
 }

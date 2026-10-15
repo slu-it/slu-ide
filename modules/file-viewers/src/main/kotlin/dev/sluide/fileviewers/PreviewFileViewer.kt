@@ -107,6 +107,12 @@ internal interface Preview {
 
     /** What a newly opened view shows. */
     val defaultMode: PreviewMode get() = PreviewMode.SPLIT
+
+    /**
+     * Whether the page is a zoomable image or diagram (`sluide.setZoom`): the view then has zoom controls
+     * ([ZoomControls]) while it shows the preview.
+     */
+    val zooms: Boolean get() = false
 }
 
 /** Whether a `WebView` at [location] shows a page loaded from a string (`loadContent`), which has no location. */
@@ -137,11 +143,14 @@ internal enum class PreviewMode(
  * the preview is the user's, so its target goes to [host] and the page is shown again. Any other navigation (a meta
  * refresh, a script setting `location`), and the page loading itself again without such input, stops the preview
  * with a notice until the user shows the page again or the file changes, so a page can neither open things on its
- * own nor reload in a
- * loop. A page that cannot be loaded (e.g. no server) stops with a notice too. Only the own page gets the link bridge.
+ * own nor reload in a loop. A page that cannot be loaded (e.g. no server) stops with a notice too. Only the own page
+ * gets the bridge ([PageBridge]).
  *
  * Pages that [offer scripts][Preview.offersScripts] run them only while [scripts] is on, after [confirmScripts]: such
  * a page's scripts can read the files of its [root] and send them to the web.
+ *
+ * Images and diagrams that [zoom][Preview.zooms] have the [zoom] controls on the left of the toolbar while the preview
+ * shows; the page keeps the zoom when it is rendered again.
  */
 internal class PreviewFileView(
     file: Path,
@@ -149,6 +158,11 @@ internal class PreviewFileView(
     private val preview: Preview,
     comment: CommentSyntax = CommentSyntax.NONE,
 ) : EditableFileView {
+    init {
+        // Both would share the left of the toolbar, and pages that run their own scripts have no zoom of ours.
+        require(!(preview.offersScripts && preview.zooms)) { "A preview cannot both offer scripts and zoom" }
+    }
+
     /** The file shown; it changes when the file is [moved]. */
     private var file = file.toAbsolutePath().normalize()
 
@@ -185,6 +199,9 @@ internal class PreviewFileView(
         }
     private val engine = webView.engine
 
+    /** The zoom of an image or diagram, if the preview [zooms][Preview.zooms]. */
+    val zoom: ZoomControls? = if (preview.zooms) ZoomControls(engine) { isLoaded } else null
+
     /** Its [project folder][FileViewHost.projectFolder] gives the page its [root]. */
     override var host: FileViewHost? = null
         set(value) {
@@ -199,8 +216,8 @@ internal class PreviewFileView(
     /** The folder whose files the page may use ([Preview.root]). */
     private val root: Path get() = preview.root(file, host?.projectFolder?.toAbsolutePath()?.normalize())
 
-    /** Receives the page's link clicks; held here because the WebView only keeps a weak reference. */
-    private val bridge = LinkBridge()
+    /** Receives the page's link clicks and zoom changes; held here because the WebView only keeps a weak reference. */
+    private val bridge = PageBridge()
 
     private var renderedText: String? = null
     private var dark = false
@@ -231,6 +248,8 @@ internal class PreviewFileView(
                     toggleGroup = modes
                     userData = mode
                     styleClass += "preview-mode"
+                    // A click leaves the focus where it is, e.g. in the preview, whose zoom keys keep working.
+                    isFocusTraversable = false
                 }
             }
         val extras =
@@ -243,6 +262,11 @@ internal class PreviewFileView(
                     },
                     Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
                 )
+            } else if (zoom != null) {
+                zoom.node.visibleProperty().bind(mode.map { it != PreviewMode.SOURCE })
+                zoom.node.managedProperty().bind(zoom.node.visibleProperty())
+                zoom.install(webView)
+                listOf(zoom.node, Region().apply { HBox.setHgrow(this, Priority.ALWAYS) })
             } else {
                 emptyList()
             }
@@ -306,7 +330,8 @@ internal class PreviewFileView(
 
     override fun showChanges(diff: TextDiff?) = source.showChanges(diff)
 
-    override fun focusText() = source.focusText()
+    /** Focuses the source, or the preview while it is shown alone. */
+    override fun focusText() = if (mode.get() == PreviewMode.PREVIEW) webView.requestFocus() else source.focusText()
 
     override fun reload() {
         if (disposed) return
@@ -450,6 +475,7 @@ internal class PreviewFileView(
             return
         }
         if (preview.hasOwnScript) (engine.executeScript("window") as JSObject).setMember("sluideBridge", bridge)
+        zoom?.applyTo()
         applyTheme()
         if (!preview.syncsScroll || mode.get() == PreviewMode.PREVIEW) {
             engine.executeScript("window.scrollTo(0, $previewScrollY)")
@@ -492,9 +518,19 @@ internal class PreviewFileView(
         }
     }
 
-    /** Called by the page's script (`sluideBridge.open(href)`) when a link is clicked. */
-    inner class LinkBridge {
+    /**
+     * Called by the page's script: `sluideBridge.open(href)` when a link is clicked, `sluideBridge.zoomed` when the
+     * zoom changed.
+     */
+    inner class PageBridge {
         fun open(href: String) = openLink(href)
+
+        fun zoomed(
+            scale: Double,
+            fitted: Boolean,
+        ) {
+            zoom?.zoomed(scale, fitted)
+        }
     }
 }
 

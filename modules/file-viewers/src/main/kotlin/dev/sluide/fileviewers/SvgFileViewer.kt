@@ -20,4 +20,6 @@ internal object SvgPreview : Preview {
     ) = engine.loadContent(ImagePage.render(text.toByteArray(), "image/svg+xml", dark))
 
     override val defaultMode get() = PreviewMode.PREVIEW
+
+    override val zooms get() = true
 }

@@ -288,4 +288,25 @@ class ImagePreviewUiTest {
         assertEquals(120, (view.webView.script("document.querySelector('img').naturalWidth") as Number).toInt())
         assertEquals("", view.webView.script("document.title"))
     }
+
+    @Test
+    fun `an SVG zooms with the controls beside the preview, not beside the source alone`(robot: FxRobot) {
+        val svg = """<svg xmlns="http://www.w3.org/2000/svg" width="120" height="60"></svg>"""
+        val view = fx { SvgFileViewer().open(dir.resolve("logo.svg").apply { writeText(svg) }) as PreviewFileView }
+        robot.interact { container.children.setAll(view.node) }
+        awaitLoaded(view.webView)
+        val zoom = checkNotNull(view.zoom)
+        assertEquals(120.0, view.webView.imageWidth())
+
+        robot.interact { zoom.zoomInButton.fire() }
+        assertEquals(150.0, view.webView.imageWidth())
+        robot.press(view.webView, KeyCode.DIGIT0, shortcut = true)
+        assertEquals(120.0, view.webView.imageWidth())
+        assertEquals("100%", fx { zoom.level.text })
+
+        robot.interact { view.mode.set(PreviewMode.SOURCE) }
+        assertFalse(fx { zoom.node.isVisible || zoom.node.isManaged })
+        robot.interact { view.mode.set(PreviewMode.SPLIT) }
+        assertTrue(fx { zoom.node.isVisible && zoom.node.isManaged })
+    }
 }

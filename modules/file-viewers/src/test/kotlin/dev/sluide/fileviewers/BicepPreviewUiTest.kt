@@ -61,6 +61,8 @@ class BicepPreviewUiTest {
         awaitTrue("window.drawingDone === true")
     }
 
+    private fun PreviewFileView.number(code: String) = (script(code) as Number).toDouble()
+
     private fun PreviewFileView.count(selector: String) =
         (script("document.querySelectorAll('$selector').length") as Number).toInt()
 
@@ -76,9 +78,12 @@ class BicepPreviewUiTest {
     fun `a Bicep file opens as source, its preview draws the resource graph in both colour schemes`(robot: FxRobot) {
         val view = show(robot, MAIN_BICEP)
         assertEquals(PreviewMode.SOURCE, view.mode.get())
+        val zoom = checkNotNull(view.zoom).node
+        assertFalse(zoom.isVisible || zoom.isManaged, "no zoom controls beside the source alone")
 
         robot.interact { view.mode.set(PreviewMode.PREVIEW) }
         view.awaitDrawing()
+        assertTrue(zoom.isVisible && zoom.isManaged)
         assertEquals(0, view.count("pre.mermaid.error"))
         assertEquals(5, view.count("pre.mermaid svg g.node"))
         assertEquals(1, view.count("pre.mermaid svg g.node.existing"))
@@ -94,6 +99,51 @@ class BicepPreviewUiTest {
         view.awaitDrawing()
         assertEquals(5, view.count("pre.mermaid svg g.node"))
         assertEquals(0, view.count("pre.mermaid.error"))
+    }
+
+    @Test
+    fun `the zoom controls size the graph, 100% shows it at its actual size`(robot: FxRobot) {
+        val view = show(robot, MAIN_BICEP)
+        robot.interact { view.mode.set(PreviewMode.SPLIT) }
+        view.awaitDrawing()
+        val zoom = checkNotNull(view.zoom)
+        val width = "document.querySelector('pre.mermaid svg').getBoundingClientRect().width"
+        val actual = view.number("parseFloat(document.querySelector('pre.mermaid svg').getAttribute('data-width'))")
+        val room = view.number("document.querySelector('pre.mermaid').clientWidth - 32")
+        val fitted = view.number(width)
+        // Fitted: the actual size if it fits, else as wide as the preview leaves room for (or less, for the height).
+        assertTrue(fitted <= minOf(actual, room) + 0.5, "fitted $fitted, actual $actual, room $room")
+        assertEquals(ZoomSteps.label(fitted / actual), WaitForAsyncUtils.asyncFx<String> { zoom.level.text }.get())
+
+        robot.interact { zoom.zoomInButton.fire() }
+        assertEquals(ZoomSteps.zoomIn(fitted / actual) * actual, view.number(width), 1.0)
+        robot.interact { zoom.actualSizeButton.fire() }
+        assertEquals(actual, view.number(width), 1.0)
+        assertEquals("100%", WaitForAsyncUtils.asyncFx<String> { zoom.level.text }.get())
+    }
+
+    @Test
+    fun `a graph drawn beside the source alone is fitted once the preview shows`(robot: FxRobot) {
+        val view = show(robot, MAIN_BICEP)
+        // The page draws while the preview is not shown, and is not drawn again.
+        view.awaitTrue("document.querySelector('pre.mermaid svg') !== null")
+        val zoom = checkNotNull(view.zoom)
+        // Without room to fit into, the graph is left as Mermaid drew it, and nothing is reported.
+        assertEquals("", view.script("document.querySelector('pre.mermaid svg').style.width"))
+        assertEquals("100%", WaitForAsyncUtils.asyncFx<String> { zoom.level.text }.get())
+
+        robot.interact { view.mode.set(PreviewMode.PREVIEW) }
+        val width = "document.querySelector('pre.mermaid svg').getBoundingClientRect().width"
+        val actual = "parseFloat(document.querySelector('pre.mermaid svg').getAttribute('data-width'))"
+        val room = "document.querySelector('pre.mermaid').clientWidth - 32"
+        WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) {
+            view.number(width) > 0 && view.number(width) <= minOf(view.number(actual), view.number(room)) + 0.5
+        }
+        assertTrue(WaitForAsyncUtils.asyncFx<Boolean> { zoom.fit }.get())
+        assertEquals(
+            ZoomSteps.label(view.number(width) / view.number(actual)),
+            WaitForAsyncUtils.asyncFx<String> { zoom.level.text }.get(),
+        )
     }
 
     @Test

@@ -1,6 +1,7 @@
 package dev.sluide.fileviewers
 
 import dev.sluide.textediting.CommentSyntax
+import javafx.scene.web.WebEngine
 import org.junit.jupiter.api.io.TempDir
 import java.io.RandomAccessFile
 import java.nio.file.Path
@@ -8,6 +9,7 @@ import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 
 /** Which files the preview and image viewers accept. */
@@ -103,6 +105,24 @@ class PreviewFileViewersTest {
 
         assert("src=\"data:image/png;base64,AQID\"" in light)
         assert("<body class=\"zoomable\">" in light && "<body class=\"dark zoomable\">" in dark)
+    }
+
+    @Test
+    fun `a preview cannot both offer scripts and zoom`() {
+        val both =
+            object : Preview {
+                override fun load(
+                    engine: WebEngine,
+                    file: Path,
+                    text: String,
+                    dark: Boolean,
+                    root: Path,
+                ) = Unit
+
+                override val offersScripts get() = true
+                override val zooms get() = true
+            }
+        assertFailsWith<IllegalArgumentException> { PreviewFileView(text("page.html"), RSyntaxHighlighter.xml, both) }
     }
 
     @Test

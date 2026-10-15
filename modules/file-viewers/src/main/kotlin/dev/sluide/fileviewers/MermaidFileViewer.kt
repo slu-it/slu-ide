@@ -27,6 +27,8 @@ internal object MermaidPreview : Preview {
         root: Path,
     ) = engine.loadContent(render(text, dark))
 
+    override val zooms get() = true
+
     /**
      * The page of [source], with [note] (if any) as a line above the diagram; both are only ever text and the source
      * an attribute value, never HTML.
