@@ -84,6 +84,18 @@ class EditorKeysUiTest {
     }
 
     @Test
+    fun `tab indents a new Makefile with a tab`(robot: FxRobot) {
+        val file = dir.resolve("Makefile").apply { writeText("all:\n") }
+        val view = WaitForAsyncUtils.asyncFx<CodeView> { MakefileFileViewer().open(file) as CodeView }.get()
+        robot.interact { container.children.setAll(view.node) }
+        view.select(5, robot = robot)
+
+        robot.press(view.area, KeyCode.TAB)
+
+        assertEquals("all:\n\t", view.area.text)
+    }
+
+    @Test
     fun `enter between brackets indents in the style of the editorconfig`(robot: FxRobot) {
         dir.resolve(".editorconfig").writeText("root = true\n\n[*.kt]\nindent_size = 2\n")
         val view = open("Main.kt", "fun f() {}", robot)

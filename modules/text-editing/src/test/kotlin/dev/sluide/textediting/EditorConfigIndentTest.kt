@@ -102,4 +102,15 @@ class EditorConfigIndentTest {
         assertEquals(IndentStyle(true, 4), IndentStyle.forFile(folder.resolve("none/a.c"), tabbed))
         assertEquals(IndentStyle.DEFAULT, IndentStyle.forFile(folder.resolve("none/a.c"), "a\nb\n"))
     }
+
+    @Test
+    fun `a language's default comes last`() {
+        editorConfig("configured", "root = true\n[*]\nindent_style = space\nindent_size = 2\n")
+        editorConfig("none", "root = true\n")
+        val tabs = IndentStyle(useTabs = true, size = 4)
+
+        assertEquals(tabs, IndentStyle.forFile(folder.resolve("none/Makefile"), "all:\n", tabs))
+        assertEquals(IndentStyle(false, 2), IndentStyle.forFile(folder.resolve("none/Makefile"), "a\n  b\n", tabs))
+        assertEquals(IndentStyle(false, 2), IndentStyle.forFile(folder.resolve("configured/Makefile"), "all:\n", tabs))
+    }
 }

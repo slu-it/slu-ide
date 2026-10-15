@@ -109,6 +109,14 @@ class CodeFileViewersTest {
     }
 
     @Test
+    fun `only Makefiles are indented with tabs by default`() {
+        for (viewer in samples.keys) {
+            val tabs = viewer is MakefileFileViewer
+            assertEquals(tabs, viewer.defaultIndent.useTabs, viewer::class.simpleName)
+        }
+    }
+
+    @Test
     fun `code viewers do not open binary or missing files`() {
         for ((viewer, own) in samples) {
             val name = own.first()

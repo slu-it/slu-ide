@@ -1,6 +1,7 @@
 package dev.sluide.fileviewers
 
 import dev.sluide.textediting.CommentSyntax
+import dev.sluide.textediting.IndentStyle
 import org.fxmisc.richtext.model.StyleSpans
 import org.fxmisc.richtext.model.StyleSpansBuilder
 import java.nio.file.Path
@@ -22,11 +23,14 @@ abstract class CodeFileViewer internal constructor(
 ) : ShebangViewer {
     private val match = FileMatch(extensions, names, namePatterns, interpreters)
 
+    /** How files are indented that neither `.editorconfig` nor their text decide (ADR 0023). */
+    internal open val defaultIndent: IndentStyle get() = IndentStyle.DEFAULT
+
     override fun canOpen(file: Path): Boolean = match.matchesName(file)
 
     override fun opensInterpreter(interpreter: String): Boolean = match.matchesInterpreter(interpreter)
 
-    override fun open(file: Path): FileView = CodeView(file, highlighter, comment)
+    override fun open(file: Path): FileView = CodeView(file, highlighter, comment, defaultIndent)
 }
 
 /** The token style classes of [text] found by [highlighter], for a RichTextFX area. */

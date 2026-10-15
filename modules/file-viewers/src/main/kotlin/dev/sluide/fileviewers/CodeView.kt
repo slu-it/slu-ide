@@ -55,12 +55,14 @@ import java.util.concurrent.Executors
  * view stays dirty, even when undone back to the text saved last. When the file is deleted, a banner says so; saving
  * creates it again.
  *
- * Keys for editing ([editorKeys]) indent in the file's [indentStyle] and comment out lines with [comment].
+ * Keys for editing ([editorKeys]) indent in the file's [indentStyle] (from `.editorconfig`, else detected, else
+ * [defaultIndent]) and comment out lines with [comment].
  */
 internal class CodeView(
     initialFile: Path,
     private val highlighter: SyntaxHighlighter?,
     comment: CommentSyntax = CommentSyntax.NONE,
+    private val defaultIndent: IndentStyle = IndentStyle.DEFAULT,
     private val dispatch: (Runnable) -> Unit = Platform::runLater,
 ) : EditableFileView,
     GutterColumns {
@@ -167,7 +169,7 @@ internal class CodeView(
         showReadOnly(!content.valid)
         undoManager.forgetHistory()
         undoManager.mark()
-        indentStyle = IndentStyle.forFile(file, savedText)
+        indentStyle = IndentStyle.forFile(file, savedText, defaultIndent)
         Nodes.addInputMap(area, editorKeys(area, { indentStyle }, comment))
         Nodes.addInputMap(area, findBar.keys)
         Nodes.addInputMap(area, goToLine.keys)
@@ -379,7 +381,7 @@ internal class CodeView(
     override fun moved(to: Path): Boolean {
         file = to
         fileName.set(to.fileName.toString())
-        indentStyle = IndentStyle.forFile(to, savedText)
+        indentStyle = IndentStyle.forFile(to, savedText, defaultIndent)
         return true
     }
 

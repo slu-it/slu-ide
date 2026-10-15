@@ -24,18 +24,19 @@ data class IndentStyle(
 
         /**
          * The style of [file] with content [text]: each value from `.editorconfig` if set there, else as detected
-         * from [text], else from [DEFAULT]. Reads the `.editorconfig` files from disk, so call it when a file is
-         * opened, not on every edit.
+         * from [text], else from [default], which is [DEFAULT] unless the language prefers another (Makefiles need
+         * tabs). Reads the `.editorconfig` files from disk, so call it when a file is opened, not on every edit.
          */
         fun forFile(
             file: Path,
             text: String,
+            default: IndentStyle = DEFAULT,
         ): IndentStyle {
             val configured = EditorConfigIndent.of(file)
             val detected = Indentation.detect(text)
-            val size = configured.size ?: detected?.size ?: DEFAULT.size
+            val size = configured.size ?: detected?.size ?: default.size
             return IndentStyle(
-                useTabs = configured.useTabs ?: detected?.useTabs ?: DEFAULT.useTabs,
+                useTabs = configured.useTabs ?: detected?.useTabs ?: default.useTabs,
                 size = size,
                 tabWidth = configured.tabWidth ?: size,
             )
