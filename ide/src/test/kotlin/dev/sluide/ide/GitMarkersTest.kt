@@ -15,6 +15,8 @@ import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlin.test.fail
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -55,6 +57,18 @@ class GitMarkersTest {
     }
 
     private fun path(relative: String) = root.resolve(relative)
+
+    @Test
+    fun `git would commit files of the repository that it does not ignore`() {
+        val snapshot = snapshotOf("? api/new.json", "! api/http-client.private.env.json", "! secrets/")
+
+        assertTrue(snapshot.wouldCommit(path("api/new.json")))
+        assertTrue(snapshot.wouldCommit(path("api/clean.json")))
+        assertFalse(snapshot.wouldCommit(path("api/http-client.private.env.json")))
+        assertFalse(snapshot.wouldCommit(path("secrets/http-client.private.env.json")))
+        assertFalse(snapshot.wouldCommit(root.resolveSibling("elsewhere.json")))
+        assertFalse(GitStatusSnapshot.EMPTY.wouldCommit(path("api/new.json")))
+    }
 
     @Test
     fun `files get the colour of their status as name colour`() {

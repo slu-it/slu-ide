@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * What the HTTP client keeps per IDE window (ADR 0026): the HTTP clients with their cookie jar, the OAuth2 tokens,
@@ -43,6 +44,23 @@ class HttpClientSession internal constructor(
     internal val sslContexts = SslContexts(passphrase = { passphrasePrompt(it) }, discarded = clients::evict)
     internal val tokens = OAuth2TokenCache(OAuth2Client(clients), sslContexts)
     internal val runner = RequestRunner(executor, tokens, sslContexts)
+
+    /**
+     * Whether git could commit a file (it is in the repository and not ignored), e.g. a private environment file with
+     * secrets; set by the window. Asked on the FX thread.
+     */
+    var wouldCommit: (Path) -> Boolean = { false }
+
+    private val gitListeners = CopyOnWriteArrayList<() -> Unit>()
+
+    /** Tells the views that the window's git status changed, so they ask [wouldCommit] again. Call on the FX thread. */
+    fun gitStatusChanged() = gitListeners.forEach { it() }
+
+    /** Calls [listener] on each [gitStatusChanged] until the returned handle is closed. */
+    internal fun onGitStatusChanged(listener: () -> Unit): AutoCloseable {
+        gitListeners += listener
+        return AutoCloseable { gitListeners -= listener }
+    }
 
     private val environments = ConcurrentHashMap<Path, String>()
 

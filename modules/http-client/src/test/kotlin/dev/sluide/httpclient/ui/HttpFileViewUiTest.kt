@@ -315,6 +315,30 @@ class HttpFileViewUiTest {
         assertTrue(view.warning.text.startsWith("http-client.env.json: "), view.warning.text)
     }
 
+    @Test
+    fun `warns when git could commit the private environment file`(robot: FxRobot) {
+        val private = dir.resolve("http-client.private.env.json").apply { writeText("""{"dev": {"secret": "s"}}""") }
+        val asked = mutableListOf<Path>()
+        session.wouldCommit = { file ->
+            asked.add(file)
+            true
+        }
+
+        val view = openHosted("GET ${server.base}/echo\n", robot)
+
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { view.warning.isVisible }
+        assertEquals(
+            "http-client.private.env.json is not ignored by git: its secrets could be committed",
+            view.warning.text,
+        )
+        assertEquals(private, asked.last())
+
+        // A change of the git status is enough, e.g. after adding the file to .gitignore.
+        session.wouldCommit = { false }
+        robot.interact { session.gitStatusChanged() }
+        assertFalse(view.warning.isVisible)
+    }
+
     /** Waits until the environment files were read (off the FX thread) and [names] are offered. */
     private fun awaitEnvironments(
         view: HttpFileView,

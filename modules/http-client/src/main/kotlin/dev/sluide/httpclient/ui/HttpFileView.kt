@@ -157,8 +157,13 @@ internal class HttpFileView(
         set(value) {
             editor.host = value
             updateRunnable()
+            gitSubscription?.close()
+            gitSubscription = session?.onGitStatusChanged(::updateWarning)
             refreshEnvironments()
         }
+
+    /** Asks again whether git would commit the private environment file when the window's git status changes. */
+    private var gitSubscription: AutoCloseable? = null
 
     /** The window's session, through the [host]; `null` without one (e.g. in tests). */
     val session: HttpClientSession? get() = host?.windowService(HttpClientSession::class.java)
@@ -226,7 +231,8 @@ internal class HttpFileView(
         return { Environments.load(EnvironmentFiles.find(file, folder))[name] }
     }
 
-    /** The environment files of the file as last read ([refreshEnvironments]). */
+    /** The environment files of the file and their environments as last read ([refreshEnvironments]). */
+    private var files: EnvironmentFiles? = null
     private var loaded = Environments(emptyList(), emptyList())
 
     /** Counts the reads of the environment files, so that only the last one is shown. */
@@ -241,12 +247,20 @@ internal class HttpFileView(
         val file = file
         val folder = host?.projectFolder
         val refresh = ++refreshes
-        session.inBackground({ Environments.load(EnvironmentFiles.find(file, folder)) }) { result ->
-            if (refresh == refreshes) result.onSuccess(::showEnvironments)
+        val read = {
+            val files = EnvironmentFiles.find(file, folder)
+            files to Environments.load(files)
+        }
+        session.inBackground(read) { result ->
+            if (refresh == refreshes) result.onSuccess { (files, loaded) -> showEnvironments(files, loaded) }
         }
     }
 
-    private fun showEnvironments(loaded: Environments) {
+    private fun showEnvironments(
+        files: EnvironmentFiles,
+        loaded: Environments,
+    ) {
+        this.files = files
         this.loaded = loaded
         val chosen = session?.environment(file)
         refreshing = true
@@ -256,7 +270,20 @@ internal class HttpFileView(
         } finally {
             refreshing = false
         }
-        showProblems(loaded.problems + loaded.environments.flatMap { env -> env.problems.map { "${env.name}: $it" } })
+        updateWarning()
+    }
+
+    /**
+     * Shows the problems of the environment files as last read; first of all, a private file that git could commit,
+     * which is asked again whenever the window's git status changes.
+     */
+    private fun updateWarning() {
+        val committable = files?.private?.takeIf { session?.wouldCommit?.invoke(it) == true }
+        showProblems(
+            listOfNotNull(committable?.let { "${it.fileName} is not ignored by git: its secrets could be committed" }) +
+                loaded.problems +
+                loaded.environments.flatMap { env -> env.problems.map { "${env.name}: $it" } },
+        )
     }
 
     private fun showProblems(problems: List<String>) {
@@ -264,7 +291,7 @@ internal class HttpFileView(
             when (problems.size) {
                 0 -> ""
                 1 -> problems.single()
-                else -> "${problems.size} problems in the environment files"
+                else -> "${problems.first()} (and ${problems.size - 1} more)"
             }
         warning.tooltip = if (problems.isEmpty()) null else Tooltip(problems.joinToString("\n"))
         warning.isVisible = problems.isNotEmpty()
@@ -300,6 +327,7 @@ internal class HttpFileView(
 
     override fun dispose() {
         running?.cancel()
+        gitSubscription?.close()
         reparse.stop()
         editor.dispose()
     }

@@ -104,9 +104,12 @@ class MainWindow(
         editorArea.showError = { showError(stage, it) }
         // Views of .http files share the window's cookies, tokens and chosen environments (ADR 0026).
         editorArea.windowServices = listOf(httpSession)
+        // It warns about private environment files that git would commit.
+        httpSession.wouldCommit = { gitStatus.snapshot.get().wouldCommit(it) }
         gitStatus.snapshot.subscribe { _ ->
             fileExplorer.refreshMarkers()
             editorArea.refreshDiffs()
+            httpSession.gitStatusChanged()
         }
 
         // A window gets its folder once (ADR 0014); other folders open in new windows.
