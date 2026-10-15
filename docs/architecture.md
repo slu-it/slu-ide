@@ -7,7 +7,7 @@ assembled from Gradle modules.
 | Path | Purpose |
 |------|---------|
 | `ide/` | Application module: launcher, Spring Boot configuration, main window. Produces the fat jar (`./gradlew :ide:bootJar`). |
-| `modules/<name>/` | One Gradle module per IDE capability: `file-explorer`, `editor` (tabs), `file-viewers` (views of files, change markers and side-by-side diffs; the previews of Markdown, HTML, SVG, CSV, cookie jars, notebooks, Mermaid, PEM and Bicep files and the image view are `javafx.web` WebViews; own tokenizers for TOML, Bicep and KQL), `file-watcher` (changes on disk), `terminal` (shells in editor tabs), `settings` (settings state, storage and dialog), `docker-sandbox` (`sbx` in terminal tabs), `git` (git status of the open repository and diffs against `HEAD`), `text-editing` (logic of editing text without JavaFX: line endings, changes on disk, indentation incl. `.editorconfig` via ec4j-core, line operations, comments, find and replace, go to line), `http-client` (`.http` files: requests run from the editor with environments and auth). |
+| `modules/<name>/` | One Gradle module per IDE capability: `file-explorer`, `editor` (tabs), `file-viewers` (views of files, change markers and side-by-side diffs; the previews of Markdown, HTML, SVG, CSV, cookie jars, notebooks, Mermaid, PEM and Bicep files and the image view are `javafx.web` WebViews; own tokenizers for TOML, Bicep and KQL), `file-watcher` (changes on disk), `terminal` (shells in editor tabs), `settings` (settings state, storage and dialog), `docker-sandbox` (`sbx` in terminal tabs), `git` (git status of the open repository and diffs against `HEAD`), `text-editing` (logic of editing text without JavaFX: line endings, changes on disk, indentation incl. `.editorconfig` via ec4j-core, line operations, comments, find and replace, go to line), `http-client` (`.http` files: requests run from the editor with environments and auth), `projects` (remembered projects and the project picker). |
 | `gradle/libs.versions.toml` | Single place for dependency and plugin versions. |
 | `docs/` | This documentation. Start at [index.md](index.md). |
 | `.claude/` | Claude Code settings, agents, rules, scripts. |
@@ -48,14 +48,17 @@ assembled from Gradle modules.
 ## Runtime
 1. `SluIdeLauncher.main` calls `Application.launch(SluIdeApplication)`.
 2. `SluIdeApplication.init()` starts a non-web Spring context scanning `dev.sluide` ([ADR 0002](adr/0002-spring-inside-javafx.md)).
-3. `SluIdeApplication.start()` asks `ProjectWindows` to show the first window in the primary stage, with the first
-   folder from the command line; further folders open in new windows.
+3. `SluIdeApplication.start()` turns off JavaFX's implicit exit, themes all windows (`ThemedWindows.install()`) and
+   calls `ProjectWindows.start`: the first folder from the command line opens in the primary stage, further folders
+   in new windows; without folders the project picker is shown instead ([ADR 0034](adr/0034-project-picker.md)).
 4. Each window gets its own instances of the beans with `@Scope("window")` (`WindowScope`, [ADR 0014](adr/0014-project-windows.md)):
    `MainWindow`, `ProjectService`, `FileExplorerView`, `EditorArea`, `Terminals`, `DockerSandbox`, `GitStatusService`,
    `HttpClientSession`.
    They are created when the window opens and destroyed (`close()`) when it closes. Singletons must not depend on
    them.
-5. When the last window is closed, `SluIdeApplication.stop()` closes the Spring context.
+5. When the last window is closed, `ProjectWindows` shows the project picker. Cancelling the picker while no window
+   is open calls `Platform.exit()`, then `SluIdeApplication.stop()` closes the Spring context, which destroys
+   the beans of any remaining windows without showing the picker; their stages end with the JavaFX toolkit.
 
 ## Package convention
 `dev.sluide.<module>` per module, e.g. `dev.sluide.fileexplorer`, `dev.sluide.fileviewers`, `dev.sluide.ide`. All must live below

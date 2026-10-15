@@ -1,6 +1,7 @@
 # 0014. One project per window, with window-scoped Spring beans
 
-- Status: accepted
+- Status: accepted, partly superseded by [ADR 0034](0034-project-picker.md) (the last window closing shows the
+  project picker)
 - Date: 2026-10-13
 
 ## Context
@@ -21,7 +22,8 @@ scene only), the terminals, the sandbox numbering and the git status.
   Window-scoped: `MainWindow`, `ProjectService`, `FileExplorerView`, `EditorArea`, `Terminals`, `DockerSandbox`,
   `GitStatusService`. Shared: settings, `FileWatcher`, `FileViewers`, `GitCli`, `ThemedWindows`, `SystemBrowser`.
 - **Closing a window** collects the `closeWarning`s of all its tabs and, if there are any, asks once ("Close this
-  window anyway?", the same `askToClose` dialog as for tabs). The last window closing quits the app as before.
+  window anyway?", the same `askToClose` dialog as for tabs). The last window closing quits the app as before
+  (now it shows the project picker instead, see [ADR 0034](0034-project-picker.md)).
 
 Rejected:
 - **Prototype beans**: every injection point would get its own instance, so `MainWindow` and `DockerSandbox` would
