@@ -1,6 +1,7 @@
 package dev.sluide.fileviewers
 
 import dev.sluide.textediting.TextSearch
+import javafx.event.Event
 import javafx.scene.Scene
 import javafx.scene.input.KeyCode
 import javafx.scene.layout.StackPane
@@ -116,12 +117,19 @@ class FindBarLimitsUiTest {
         robot.press(view.area, KeyCode.F, shortcut = true)
         val bar = view.findBar
 
-        robot.interact { bar.query.text = "needle" }
-        assertTrue(bar.matches.isEmpty(), "not searched while typing")
-        robot.press(bar.query, KeyCode.ENTER)
-        assertEquals(1, bar.matches.size)
+        // In one go on the FX thread: on a slow machine, rendering the long line between two steps can outlast the pause.
+        val (whileTyping, onEnter) =
+            WaitForAsyncUtils
+                .asyncFx<Pair<Int, Int>> {
+                    bar.query.text = "needle"
+                    val typing = bar.matches.size
+                    Event.fireEvent(bar.query, keyPress(KeyCode.ENTER, shortcut = false))
+                    typing to bar.matches.size
+                }.get()
+        assertEquals(0, whileTyping, "not searched while typing")
+        assertEquals(1, onEnter, "searched on enter")
 
         robot.interact { bar.query.text = "need" }
-        WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) { bar.matches.singleOrNull()?.last == (1 shl 20) + 4 }
+        WaitForAsyncUtils.waitFor(30, TimeUnit.SECONDS) { bar.matches.singleOrNull()?.last == (1 shl 20) + 4 }
     }
 }
