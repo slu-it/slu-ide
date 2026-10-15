@@ -5,7 +5,8 @@ Thoreau is the name users see; identifiers keep the technical name `sluide` (rep
 new ones too (ADR 0032).
 
 ## Orient yourself
-- Read `docs/index.md` first; open only the documents relevant to your task. Do not read all of `docs/`.
+- Read `docs/index.md` first, unless your brief already names the docs to read; open only the documents relevant to
+  your task. Do not read all of `docs/`.
 - Layout: `ide/` (app, fat jar), `modules/<name>/` (one Gradle module per capability), `docs/`, `.claude/`, `.github/`.
   Module and package rules: `docs/architecture.md`.
 
@@ -28,4 +29,9 @@ new ones too (ADR 0032).
   in commits or PRs (also enforced in `.claude/settings.json`).
 - Git: commit finished steps without asking; never push. The user pushes.
 
-Role-specific guidance lives in `.claude/agents/`, topic rules in `.claude/rules/`.
+## Delegation
+- `explorer` (Haiku) searches, `implementer` and `tester` (Sonnet) work from detailed briefs, `reviewer` (Opus)
+  checks every change before it is merged or reported done. Subagents do not spawn further agents.
+- Load the `delegate` skill before handing work to subagents (brief template, escalation to Opus, worktrees).
+
+Role-specific guidance lives in `.claude/agents/`, topic rules in `.claude/rules/`, workflows in `.claude/skills/`.
