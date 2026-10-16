@@ -8,6 +8,8 @@ import dev.sluide.git.GitFileDiff
 import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitLogFilter
 import dev.sluide.git.GitLogPage
+import dev.sluide.git.GitOperation
+import dev.sluide.git.GitPendingOperation
 import dev.sluide.git.GitPendingPick
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitPickResult
@@ -996,6 +998,27 @@ class GitLogWritesUiTest {
         currentRefs = GitRefs(refs.refs.filter { it.kind != GitRefKind.HEAD }, "refs/heads/main")
         robot.interact { view.refresh() }
         eventually { assertTrue(view.resetItem.isDisable) }
+        assertFalse(view.cherryPickItem.isDisable)
+    }
+
+    @Test
+    fun `a merge, rebase or sequence in progress is left to the terminal`(robot: FxRobot) {
+        pendingPick = GitPendingOperation(GitOperation.CHERRY_PICK_SEQUENCE)
+        openAndExpand(robot)
+
+        eventually { assertTrue(view.pendingBar.isVisible) }
+        val text = view.pendingBar.lookup(".git-log-pending-text") as Label
+        assertEquals("A cherry-pick sequence is in progress; continue or abort it in the terminal.", text.text)
+        assertFalse(view.continueButton.isVisible)
+        assertFalse(view.abortButton.isVisible)
+        selectRows(robot, 1)
+        assertTrue(view.cherryPickItem.isDisable)
+        assertTrue(view.revertItem.isDisable)
+        assertFalse(view.resetItem.isDisable)
+
+        pendingPick = null
+        robot.interact { view.refresh() }
+        eventually { assertFalse(view.pendingBar.isVisible) }
         assertFalse(view.cherryPickItem.isDisable)
     }
 

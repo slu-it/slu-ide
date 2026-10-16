@@ -5,7 +5,9 @@ import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommits
 import dev.sluide.git.GitFileDiff
+import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitLog
+import dev.sluide.git.GitPendingOperation
 import dev.sluide.git.GitPendingPick
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitRef
@@ -299,11 +301,18 @@ class GitLogView internal constructor(
     /** The single cherry-pick or revert in progress the bar continues or aborts; `null` for none or anything else. */
     private var pending: GitPendingPick? = null
 
-    private val pendingLabel = Label().apply { styleClass += "git-log-pending-text" }
+    /** Shrinks with the log, as the buttons do not; its tooltip has the whole text. */
+    private val pendingLabel =
+        Label().apply {
+            styleClass += "git-log-pending-text"
+            minWidth = 0.0
+            tooltip = Tooltip()
+        }
 
     internal val continueButton =
         Button("Continue").apply {
             styleClass += "git-log-pending-continue"
+            minWidth = USE_PREF_SIZE
             setOnAction { pending?.let { start(ContinuePick(it.kind, it.commit)) } }
             disableProperty().bind(writer.running)
         }
@@ -311,6 +320,7 @@ class GitLogView internal constructor(
     internal val abortButton =
         Button("Abort").apply {
             styleClass += "git-log-pending-abort"
+            minWidth = USE_PREF_SIZE
             setOnAction { pending?.let { start(AbortPick(it.kind, it.commit)) } }
             disableProperty().bind(writer.running)
         }
@@ -403,7 +413,6 @@ class GitLogView internal constructor(
             when (state) {
                 GitLogState.IDLE -> {
                     showPending(null)
-                    busy.set(false)
                     hasHead.set(false)
                 }
 
@@ -413,8 +422,7 @@ class GitLogView internal constructor(
 
                 else -> {
                     branchesPane.show(pages.refs)
-                    showPending(pages.pending as? GitPendingPick)
-                    busy.set(pages.pending != null)
+                    showPending(pages.pending)
                     hasHead.set(
                         pages.refs
                             ?.refs
@@ -709,12 +717,26 @@ class GitLogView internal constructor(
         pages.refresh()
     }
 
-    /** Shows the bar of the cherry-pick or revert [pending] in progress, or hides it for `null`. */
-    private fun showPending(pending: GitPendingPick?) {
-        this.pending = pending
-        pendingLabel.text = pending?.let(::pendingText).orEmpty()
-        pendingBar.isVisible = pending != null
-        pendingBar.isManaged = pending != null
+    /**
+     * Shows the bar of what git is in the middle of ([inProgress]), with Continue and Abort for a single cherry-pick or
+     * revert only; hides it for `null`.
+     */
+    private fun showPending(inProgress: GitInProgress?) {
+        pending = inProgress as? GitPendingPick
+        busy.set(inProgress != null)
+        pendingLabel.text =
+            when (inProgress) {
+                is GitPendingPick -> pendingText(inProgress)
+                is GitPendingOperation -> operationText(inProgress.operation)
+                null -> ""
+            }
+        pendingLabel.tooltip.text = pendingLabel.text
+        pendingBar.isVisible = inProgress != null
+        pendingBar.isManaged = inProgress != null
+        listOf(continueButton, abortButton).forEach {
+            it.isVisible = pending != null
+            it.isManaged = pending != null
+        }
     }
 
     /**
