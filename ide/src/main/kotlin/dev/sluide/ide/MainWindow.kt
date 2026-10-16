@@ -6,6 +6,7 @@ import dev.sluide.dockersandbox.SandboxNotAllowedException
 import dev.sluide.editor.EditorArea
 import dev.sluide.editor.askToClose
 import dev.sluide.fileexplorer.FileExplorerView
+import dev.sluide.git.GitHead
 import dev.sluide.git.GitStatusService
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.projects.RecentProjects
@@ -36,6 +37,20 @@ import java.net.URI
 import java.nio.file.Path
 
 private const val APP_NAME = "Thoreau"
+
+/**
+ * The window title: the folder's name, the checked-out branch (or `detached at` and the short commit) in brackets if
+ * [head] is known, and the app name; just the app name without a [folder].
+ */
+internal fun windowTitle(
+    folder: Path?,
+    head: GitHead?,
+): String {
+    if (folder == null) return APP_NAME
+    val name = folder.fileName ?: folder
+    val ref = head?.branch?.let { " [$it]" } ?: head?.shortCommit?.let { " [detached at $it]" } ?: ""
+    return "$name$ref – $APP_NAME"
+}
 
 /** The main IDE window: menu bar on top, file explorer on the left, open files and terminals in tabs on the right. */
 @Component
@@ -113,7 +128,8 @@ class MainWindow(
         editorArea.windowServices = listOf(httpSession)
         // It warns about private environment files that git would commit.
         httpSession.wouldCommit = { gitStatus.snapshot.get().wouldCommit(it) }
-        gitStatus.snapshot.subscribe { _ ->
+        gitStatus.snapshot.subscribe { snapshot ->
+            stage.title = windowTitle(folder, snapshot.head)
             fileExplorer.refreshMarkers()
             editorArea.refreshDiffs()
             httpSession.gitStatusChanged()
@@ -124,7 +140,7 @@ class MainWindow(
             fileExplorer.open(folder)
             fitExplorer(split)
             gitStatus.open(folder)
-            stage.title = folder?.let { "${it.fileName ?: it} – $APP_NAME" } ?: APP_NAME
+            stage.title = windowTitle(folder, gitStatus.snapshot.get().head)
             // Every opened folder is remembered for the project picker: chosen there, with Open Folder… or given on
             // the command line (ADR 0034).
             folder?.let { recentProjects.opened(it) }
