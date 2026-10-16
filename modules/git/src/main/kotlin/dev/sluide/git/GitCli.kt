@@ -37,13 +37,13 @@ class GitCli(
         }
 
     /**
-     * The output of `git status --porcelain=v2 -z --ignored` for the working tree at [root] (see [GitStatusParser]),
-     * or `null` if git is not available, fails or takes longer than 10 s.
+     * The output of `git status --porcelain=v2 --branch -z --ignored` for the working tree at [root] (see
+     * [GitStatusParser]), or `null` if git is not available, fails or takes longer than 10 s.
      */
     internal fun status(root: Path): String? {
         if (!available) return null
         // Without optional locks git does not rewrite .git/index, which would trigger our own watch of .git.
-        val arguments = listOf("--no-optional-locks", "status", "--porcelain=v2", "-z", "--ignored")
+        val arguments = listOf("--no-optional-locks", "status", "--porcelain=v2", "--branch", "-z", "--ignored")
         return run(arguments, root, 10.seconds)
     }
 

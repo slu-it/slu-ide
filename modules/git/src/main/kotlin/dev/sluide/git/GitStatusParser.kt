@@ -1,11 +1,27 @@
 package dev.sluide.git
 
 /**
- * Reads the output of `git status --porcelain=v2 -z --ignored`: NUL-separated records with paths relative to the
- * repository root, `/`-separated. A path ending in `/` stands for a whole untracked or ignored folder, which git
+ * Reads the output of `git status --porcelain=v2 --branch -z --ignored`: NUL-separated records with paths relative
+ * to the repository root, `/`-separated. A path ending in `/` stands for a whole untracked or ignored folder, which git
  * reports without listing its content.
  */
 internal object GitStatusParser {
+    /**
+     * The checked-out ref from the `# branch.oid` and `# branch.head` headers of [output], or `null` if there is no
+     * `# branch.head` header. Other headers (upstream, ahead/behind) are ignored.
+     */
+    fun parseHead(output: String): GitHead? {
+        // Headers come first; stop at the first other record, e.g. a renamed file's original path.
+        val headers =
+            output
+                .splitToSequence('\u0000')
+                .takeWhile { it.startsWith("# ") }
+                .map { it.removePrefix("# ") }
+                .associate { it.substringBefore(' ') to it.substringAfter(' ') }
+        val head = headers["branch.head"] ?: return null
+        return GitHead(head.takeIf { it != "(detached)" }, headers["branch.oid"]?.takeIf { it != "(initial)" })
+    }
+
     fun parse(output: String): Map<String, GitStatus> {
         val statuses = LinkedHashMap<String, GitStatus>()
         val records = output.split('\u0000').iterator()
@@ -43,7 +59,7 @@ internal object GitStatusParser {
                     if (record.length > 2) statuses[record.substring(2)] = GitStatus.IGNORED
                 }
 
-                // Empty records (the output ends with NUL) and headers (#) carry no file status.
+                // Empty records (the output ends with NUL) and headers (#, see parseHead) carry no file status.
                 else -> {}
             }
         }

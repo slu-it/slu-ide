@@ -70,5 +70,10 @@ class GitStatusSnapshotTest {
         val entries = mapOf("a.kt" to GitStatus.ADDED)
         assertEquals(GitStatusSnapshot(root, entries), GitStatusSnapshot(root, entries.toMap()))
         assertNotEquals(GitStatusSnapshot(root, entries), GitStatusSnapshot(root, emptyMap()))
+        // A checkout that leaves the working tree unchanged must still count as a new snapshot.
+        val onMaster = GitStatusSnapshot(root, entries, GitHead("master", "abc"))
+        assertNotEquals(onMaster, GitStatusSnapshot(root, entries, GitHead("other", "abc")))
+        assertNotEquals(onMaster, GitStatusSnapshot(root, entries))
+        assertEquals(onMaster, GitStatusSnapshot(root, entries, GitHead("master", "abc")))
     }
 }

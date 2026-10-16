@@ -12,6 +12,8 @@ class GitStatusSnapshot internal constructor(
     val root: Path?,
     /** Statuses by path relative to [root], as [GitStatusParser] returns them. */
     private val entries: Map<String, GitStatus>,
+    /** The checked-out branch or commit, or `null` if unknown (no repository, or [EMPTY]). */
+    val head: GitHead? = null,
 ) {
     private val files = HashMap<Path, GitStatus>()
 
@@ -60,20 +62,21 @@ class GitStatusSnapshot internal constructor(
         return null
     }
 
-    override fun equals(other: Any?) = other is GitStatusSnapshot && root == other.root && entries == other.entries
+    override fun equals(other: Any?) =
+        other is GitStatusSnapshot && root == other.root && entries == other.entries && head == other.head
 
-    override fun hashCode() = 31 * root.hashCode() + entries.hashCode()
+    override fun hashCode() = (31 * root.hashCode() + entries.hashCode()) * 31 + head.hashCode()
 
-    override fun toString() = "GitStatusSnapshot($root, $entries)"
+    override fun toString() = "GitStatusSnapshot($root, $head, $entries)"
 
     companion object {
         /** No repository, or git is not available. */
         val EMPTY = GitStatusSnapshot(null, emptyMap())
 
-        /** Parses `git status --porcelain=v2 -z --ignored` [output] run in [root]. */
+        /** Parses `git status --porcelain=v2 --branch -z --ignored` [output] run in [root]. */
         internal fun parse(
             root: Path,
             output: String,
-        ) = GitStatusSnapshot(root, GitStatusParser.parse(output))
+        ) = GitStatusSnapshot(root, GitStatusParser.parse(output), GitStatusParser.parseHead(output))
     }
 }

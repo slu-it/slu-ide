@@ -48,7 +48,7 @@ class GitStatusServiceTest {
         watcher.close()
     }
 
-    private fun git(vararg arguments: String) {
+    private fun git(vararg arguments: String): String {
         val process =
             ProcessBuilder(listOf("git") + arguments)
                 .directory(repo.toFile())
@@ -59,6 +59,7 @@ class GitStatusServiceTest {
                 }.start()
         val output = process.inputStream.readAllBytes().decodeToString()
         assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
+        return output.trim()
     }
 
     /** Runs dispatched tasks until [condition] holds. */
@@ -109,6 +110,21 @@ class GitStatusServiceTest {
 
         git("commit", "-q", "-m", "Add new.kt")
         awaitSnapshot { it.fileStatus(repo.resolve("new.kt")) == null }
+    }
+
+    @Test
+    fun `switching branches and checking out commits updates the head by themselves`() {
+        git("branch", "-M", "main")
+        service.open(repo)
+        assertEquals("main", awaitSnapshot { it.head != null }.head?.branch)
+
+        git("checkout", "-q", "--detach")
+        val commit = git("rev-parse", "HEAD").lines().last()
+        val detached = awaitSnapshot { it.head?.branch == null && it.head?.commit != null }
+        assertEquals(GitHead(null, commit), detached.head)
+
+        git("switch", "-q", "-c", "other")
+        assertEquals(GitHead("other", commit), awaitSnapshot { it.head?.branch == "other" }.head)
     }
 
     @Test

@@ -2,9 +2,60 @@ package dev.sluide.git
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class GitStatusParserTest {
     private fun parse(vararg records: String) = GitStatusParser.parse(records.joinToString("") { "$it\u0000" })
+
+    private fun head(vararg records: String) = GitStatusParser.parseHead(records.joinToString("") { "$it\u0000" })
+
+    @Test
+    fun `the branch header gives the branch and commit, other headers are ignored`() {
+        val output =
+            arrayOf(
+                "# branch.oid 5f070b9aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "# branch.head master",
+                "# branch.upstream origin/master",
+                "# branch.ab +1 -0",
+                "1 .M N... 100644 100644 100644 e69de29 e69de29 changed.kt",
+            )
+        val head = head(*output)
+        assertEquals(GitHead("master", "5f070b9aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), head)
+        assertEquals("5f070b9", head?.shortCommit)
+        assertEquals(mapOf("changed.kt" to GitStatus.MODIFIED), parse(*output))
+    }
+
+    @Test
+    fun `a renamed file's original path cannot be taken for a header`() {
+        val output =
+            arrayOf(
+                "# branch.oid 5f070b9aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                "# branch.head master",
+                "2 R. N... 100644 100644 100644 e69de29 e69de29 R100 new.kt",
+                "# branch.head x",
+            )
+        assertEquals(GitHead("master", "5f070b9aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"), head(*output))
+    }
+
+    @Test
+    fun `a detached head has no branch`() {
+        assertEquals(
+            GitHead(null, "5f070b9aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+            head("# branch.oid 5f070b9aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "# branch.head (detached)"),
+        )
+    }
+
+    @Test
+    fun `a repository without commits has a branch but no commit`() {
+        val head = head("# branch.oid (initial)", "# branch.head main")
+        assertEquals(GitHead("main", null), head)
+        assertNull(head?.shortCommit)
+    }
+
+    @Test
+    fun `without a branch header there is no head`() {
+        assertNull(head("? new.kt"))
+    }
 
     @Test
     fun `ordinary changes are added or modified depending on the index`() {
