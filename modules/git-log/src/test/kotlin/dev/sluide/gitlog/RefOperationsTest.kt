@@ -294,7 +294,12 @@ class RefOperationsTest {
         val asked = overwrite.run(writes, root)
 
         assertEquals(
-            "'x' has commits that are not on h2 label; they will only be reachable through the reflog. Overwrite?",
+            RefConfirmation(
+                "Overwrite Branch",
+                "'x' has commits that are not on h2 label; they will only be reachable through the reflog. Overwrite?",
+                OVERWRITE_BUTTON,
+                overwrite.copy(confirmed = true),
+            ),
             asked.confirmation,
         )
         assertNull(asked.done)

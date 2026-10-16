@@ -3,6 +3,7 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitBranches
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
+import dev.sluide.git.GitCommits
 import dev.sluide.git.GitFileDiff
 import dev.sluide.git.GitLog
 import dev.sluide.git.GitRef
@@ -86,10 +87,10 @@ class GitLogView internal constructor(
 ) : BorderPane(),
     AutoCloseable {
     @Autowired
-    constructor(gitLog: GitLog, gitBranches: GitBranches) : this(
+    constructor(gitLog: GitLog, gitBranches: GitBranches, gitCommits: GitCommits) : this(
         GitLogCliSource(gitLog),
         Platform::runLater,
-        GitLogCliWrites(gitBranches),
+        GitLogCliWrites(gitBranches, gitCommits),
     )
 
     private val executor =
@@ -659,12 +660,12 @@ class GitLogView internal constructor(
         outcome: RefOutcome,
     ) {
         operationStatus.set(outcome.done.orEmpty())
-        outcome.confirmation?.let { question ->
+        outcome.confirmation?.let { confirmation ->
             // Nothing done yet; the unsaved editors were asked about already.
-            if (overwriteConfirmation(scene?.window, question).showAndWait().orElse(ButtonType.CANCEL) ==
-                OVERWRITE_BUTTON
+            if (refConfirmation(scene?.window, confirmation).showAndWait().orElse(ButtonType.CANCEL) ==
+                confirmation.button
             ) {
-                (operation as? CreateBranch)?.let { start(it.copy(confirmed = true), askFirst = false) }
+                start(confirmation.confirmed, askFirst = false)
             }
             return
         }

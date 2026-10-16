@@ -218,19 +218,44 @@ internal fun deleteRefsConfirmation(
     }
 
 /**
- * Asks [question] before overwriting a branch that has commits nowhere else (Overwrite or Cancel, the default). Not
- * shown yet.
+ * Asks the question of [confirmation] before its operation runs, e.g. overwriting a branch that has commits nowhere
+ * else: its button or Cancel, the default. Its details, if any, in an area that scrolls when they are many; without, no
+ * empty content area between the question and the buttons. Not shown yet.
  */
-internal fun overwriteConfirmation(
+internal fun refConfirmation(
     owner: Window?,
-    question: String,
+    confirmation: RefConfirmation,
 ): Alert =
-    cancelFirst(Alert(Alert.AlertType.CONFIRMATION, null, OVERWRITE_BUTTON, ButtonType.CANCEL), owner).apply {
-        title = "Overwrite Branch"
-        headerText = question
+    cancelFirst(Alert(Alert.AlertType.CONFIRMATION, null, confirmation.button, ButtonType.CANCEL), owner).apply {
+        title = confirmation.title
+        headerText = confirmation.question
+        val details = confirmation.details
+        dialogPane.content =
+            if (details == null) {
+                // The alert's own content label would leave an empty, padded band.
+                Region().apply {
+                    style = "-fx-padding: 0;"
+                    minHeight = 0.0
+                    prefHeight = 0.0
+                    maxHeight = 0.0
+                }
+            } else {
+                val lines = details.lines()
+                // In a pane of its own: the dialog pane pads its content, which would pad the text inside the area.
+                VBox(
+                    TextArea(details).apply {
+                        styleClass += "git-confirmation-details"
+                        isEditable = false
+                        prefColumnCount = lines.maxOf { it.length }.coerceIn(MESSAGE_COLUMNS_MIN, MESSAGE_COLUMNS_MAX)
+                        prefRowCount = lines.size.coerceIn(DELETE_ROWS_MIN, DELETE_ROWS_MAX)
+                    },
+                )
+            }
     }
 
 internal val OVERWRITE_BUTTON = ButtonType("Overwrite", ButtonBar.ButtonData.OK_DONE)
+internal val RESET_BUTTON = ButtonType("Reset", ButtonBar.ButtonData.OK_DONE)
+internal val COMMIT_AS_ON_DISK_BUTTON = ButtonType("Commit As on Disk", ButtonBar.ButtonData.OK_DONE)
 private const val DELETE_ROWS_MIN = 2
 private const val DELETE_ROWS_MAX = 10
 

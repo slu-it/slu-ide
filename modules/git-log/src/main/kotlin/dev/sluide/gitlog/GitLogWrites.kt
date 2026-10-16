@@ -3,12 +3,18 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitBranchDeletion
 import dev.sluide.git.GitBranchTip
 import dev.sluide.git.GitBranches
+import dev.sluide.git.GitCommits
+import dev.sluide.git.GitInProgress
+import dev.sluide.git.GitPick
+import dev.sluide.git.GitPickResult
+import dev.sluide.git.GitResetMode
 import dev.sluide.git.GitResult
+import dev.sluide.git.GitUncheckedConflict
 import java.nio.file.Path
 
 /**
- * How the git log changes a repository (ADR 0041); [GitBranches] in the application, a fake in tests. Called off the
- * FX thread, except [canPass].
+ * How the git log changes a repository (ADRs 0041, 0042); [GitBranches] and [GitCommits] in the application, a fake in
+ * tests. Called off the FX thread, except [canPass].
  */
 internal interface GitLogWrites {
     /** Whether [argument] can be passed to git unchanged in the JVM's locale. */
@@ -87,11 +93,58 @@ internal interface GitLogWrites {
         root: Path,
         names: List<String>,
     ): GitResult
+
+    /** The commit `HEAD` points at; `null` if there is none or it cannot be read. */
+    fun headCommit(root: Path): String?
+
+    /** Cherry-picks or reverts ([kind]) [commit], a merge commit relative to its first parent if [firstParent]. */
+    fun pick(
+        root: Path,
+        kind: GitPick,
+        commit: String,
+        firstParent: Boolean,
+    ): GitPickResult
+
+    /** What git is in the middle of; `null` if nothing or it cannot be read. */
+    fun inProgress(root: Path): GitInProgress?
+
+    /**
+     * Stages the resolved files and continues the cherry-pick or revert ([kind]) in progress; conflicted files that
+     * cannot be checked for markers only if all are among the [confirmed] ones.
+     */
+    fun continuePick(
+        root: Path,
+        kind: GitPick,
+        confirmed: Set<GitUncheckedConflict>,
+    ): GitPickResult
+
+    /** Aborts the cherry-pick or revert ([kind]) in progress. */
+    fun abortPick(
+        root: Path,
+        kind: GitPick,
+    ): GitResult
+
+    /** How many commits a reset to [target] would leave on no branch or tag; `null` if that cannot be read. */
+    fun unreachableCount(
+        root: Path,
+        target: String,
+    ): Int?
+
+    /** How many tracked files have local changes; `null` if that cannot be read. */
+    fun localChangeCount(root: Path): Int?
+
+    /** Resets the current branch (or a detached `HEAD`) to [target] in [mode]. */
+    fun reset(
+        root: Path,
+        target: String,
+        mode: GitResetMode,
+    ): GitResult
 }
 
 /** Changes the repository with the git command line. */
 internal class GitLogCliWrites(
     private val branches: GitBranches,
+    private val commits: GitCommits,
 ) : GitLogWrites {
     override fun canPass(argument: String) = branches.canPass(argument)
 
@@ -157,4 +210,39 @@ internal class GitLogCliWrites(
         root: Path,
         names: List<String>,
     ) = branches.deleteTags(root, names)
+
+    override fun headCommit(root: Path) = commits.headCommit(root)
+
+    override fun pick(
+        root: Path,
+        kind: GitPick,
+        commit: String,
+        firstParent: Boolean,
+    ) = commits.pick(root, kind, commit, firstParent)
+
+    override fun inProgress(root: Path) = commits.inProgress(root)
+
+    override fun continuePick(
+        root: Path,
+        kind: GitPick,
+        confirmed: Set<GitUncheckedConflict>,
+    ) = commits.continuePick(root, kind, confirmed)
+
+    override fun abortPick(
+        root: Path,
+        kind: GitPick,
+    ) = commits.abortPick(root, kind)
+
+    override fun unreachableCount(
+        root: Path,
+        target: String,
+    ) = commits.unreachableCount(root, target)
+
+    override fun localChangeCount(root: Path) = commits.localChangeCount(root)
+
+    override fun reset(
+        root: Path,
+        target: String,
+        mode: GitResetMode,
+    ) = commits.reset(root, target, mode)
 }

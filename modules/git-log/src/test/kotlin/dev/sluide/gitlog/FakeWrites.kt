@@ -2,7 +2,12 @@ package dev.sluide.gitlog
 
 import dev.sluide.git.GitBranchDeletion
 import dev.sluide.git.GitBranchTip
+import dev.sluide.git.GitInProgress
+import dev.sluide.git.GitPick
+import dev.sluide.git.GitPickResult
+import dev.sluide.git.GitResetMode
 import dev.sluide.git.GitResult
+import dev.sluide.git.GitUncheckedConflict
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
@@ -135,4 +140,82 @@ internal class FakeWrites : GitLogWrites {
         root: Path,
         names: List<String>,
     ) = call("tag -d ${names.joinToString(" ")}")
+
+    /** What a cherry-pick, revert or continue answers, by its line. */
+    @Volatile
+    var pickResult: (String) -> GitPickResult = { GitPickResult.Done(NEW_HEAD) }
+
+    /** Where `HEAD` points. */
+    @Volatile
+    var head: String? = "h1"
+
+    @Volatile
+    var unreachable: Int? = 0
+
+    @Volatile
+    var localChanges: Int? = 0
+
+    /** The reads of [unreachableCount] and [localChangeCount], as lines. */
+    val reads = CopyOnWriteArrayList<String>()
+
+    private fun pickCall(line: String): GitPickResult {
+        call(line)
+        return pickResult(line)
+    }
+
+    override fun headCommit(root: Path) = head
+
+    override fun pick(
+        root: Path,
+        kind: GitPick,
+        commit: String,
+        firstParent: Boolean,
+    ) = pickCall("${kind.command} ${if (firstParent) "-m 1 " else ""}$commit")
+
+    /** What git is in the middle of. */
+    @Volatile
+    var inProgress: GitInProgress? = null
+
+    override fun inProgress(root: Path) = inProgress
+
+    override fun continuePick(
+        root: Path,
+        kind: GitPick,
+        confirmed: Set<GitUncheckedConflict>,
+    ): GitPickResult {
+        confirmedSets += confirmed
+        return pickCall("${kind.command} --continue${if (confirmed.isEmpty()) "" else " as on disk"}")
+    }
+
+    /** The conflicted files confirmed to be committed as on disk, for every continue. */
+    val confirmedSets = CopyOnWriteArrayList<Set<GitUncheckedConflict>>()
+
+    override fun abortPick(
+        root: Path,
+        kind: GitPick,
+    ) = call("${kind.command} --abort")
+
+    override fun unreachableCount(
+        root: Path,
+        target: String,
+    ): Int? {
+        reads += "unreachable $target"
+        return unreachable
+    }
+
+    override fun localChangeCount(root: Path): Int? {
+        reads += "local changes"
+        return localChanges
+    }
+
+    override fun reset(
+        root: Path,
+        target: String,
+        mode: GitResetMode,
+    ) = call("reset ${mode.option} $target")
+
+    companion object {
+        /** The commit a cherry-pick or revert makes by default. */
+        const val NEW_HEAD = "5e6f7a8b9c0d"
+    }
 }

@@ -7,21 +7,36 @@ import dev.sluide.git.GitRefNames
 import dev.sluide.git.GitResult
 import javafx.beans.property.ReadOnlyBooleanProperty
 import javafx.beans.property.ReadOnlyBooleanWrapper
+import javafx.scene.control.ButtonType
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicLong
 
 /**
  * What an operation that changes the repository gave (ADR 0041): git's [result] (a failure is shown in an error
  * dialog), what the header says afterwards ([done], `null` if nothing was done), the branches git refused to delete
- * without force ([refused], with git's message [refusedMessage]), and a question to ask before the operation may run
- * after all ([confirmation]; nothing was done then).
+ * without force ([refused], with git's message [refusedMessage]), a question to ask before the operation may run
+ * after all ([confirmation]; nothing was done then), and a cherry-pick or revert git stopped and left for the user
+ * ([stopped], ADR 0042).
  */
 internal data class RefOutcome(
     val result: GitResult,
     val done: String?,
     val refused: List<String> = emptyList(),
     val refusedMessage: String = "",
-    val confirmation: String? = null,
+    val confirmation: RefConfirmation? = null,
+    val stopped: PickStop? = null,
+)
+
+/**
+ * A question before an operation may run (ADRs 0041, 0042): a dialog titled [title] asks [question], with [details]
+ * below it if any, the [button] that runs the [confirmed] operation (which does not ask again) and Cancel, the default.
+ */
+internal data class RefConfirmation(
+    val title: String,
+    val question: String,
+    val button: ButtonType,
+    val confirmed: RefOperation,
+    val details: String? = null,
 )
 
 /** An operation of the git log that changes the repository (ADR 0041), run by a [RefWriter]. */
@@ -141,7 +156,9 @@ internal data class CreateBranch(
                         val question =
                             "'$name' has commits that are not on $startLabel; they will only be reachable through " +
                                 "the reflog. Overwrite?"
-                        return RefOutcome(GitResult(true, ""), null, confirmation = question)
+                        val confirmation =
+                            RefConfirmation("Overwrite Branch", question, OVERWRITE_BUTTON, copy(confirmed = true))
+                        return RefOutcome(GitResult(true, ""), null, confirmation = confirmation)
                     }
                 }
             }

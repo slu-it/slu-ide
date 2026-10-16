@@ -10,6 +10,7 @@ import dev.sluide.fileviewers.FileViewers
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCli
+import dev.sluide.git.GitCommits
 import dev.sluide.git.GitLog
 import dev.sluide.git.GitStatus
 import dev.sluide.git.GitStatusService
@@ -182,7 +183,7 @@ class MainWindowUiTest {
         terminals,
         DockerSandbox(terminals, home, shellEnvironment, sbxInstalled),
         gitStatus,
-        GitLogView(GitLog(git), GitBranches(git)).also(gitLogViews::add),
+        GitLogView(GitLog(git), GitBranches(git), GitCommits(git)).also(gitLogViews::add),
         fileViewers,
         SettingsPages(listOf(FontsPage(fontSettings))),
         ThemedWindows(ThemeSettings(SettingsStore(settingsDir.resolve("settings.properties")))),
