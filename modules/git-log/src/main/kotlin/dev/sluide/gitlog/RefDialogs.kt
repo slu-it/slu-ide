@@ -10,7 +10,10 @@ import javafx.scene.control.Dialog
 import javafx.scene.control.Label
 import javafx.scene.control.TextArea
 import javafx.scene.control.TextField
+import javafx.scene.layout.Region
+import javafx.scene.layout.StackPane
 import javafx.scene.layout.VBox
+import javafx.scene.text.Font
 import javafx.stage.Window
 
 /** What the New Branch dialog asks for. */
@@ -151,15 +154,32 @@ internal class RenameBranchDialog(
     override fun result(): String = field.text
 }
 
-/** Git's own [message] in a selectable, read-only area of monospace text, as git aligns it with tabs and spaces. */
+/**
+ * Git's own [message] in a selectable, read-only area of monospace text, as git aligns it with tabs and spaces: as wide
+ * as its longest line and as high as its lines, within limits, longer lines wrapped, more lines scrolled; not squeezed
+ * by the dialog.
+ */
 internal fun gitMessage(message: String): TextArea =
     TextArea(message).apply {
         styleClass += "git-message"
+        font = Font.font(MONOSPACED, Font.getDefault().size)
         isEditable = false
-        isWrapText = false
-        prefRowCount = message.lines().size.coerceIn(MESSAGE_ROWS_MIN, MESSAGE_ROWS_MAX)
-        prefColumnCount = MESSAGE_COLUMNS
+        isWrapText = true
+        val widths = message.lines().map { line -> line.sumOf { if (it == '\t') TAB_COLUMNS else 1 } }
+        val columns = (widths.maxOrNull() ?: 0).coerceIn(MESSAGE_COLUMNS_MIN, MESSAGE_COLUMNS_MAX)
+        prefColumnCount = columns
+        // Wrapped at words, a long line may take a row more than its characters fill.
+        val rows = widths.sumOf { maxOf(1, (it + columns - 1) / columns) } + if (widths.any { it > columns }) 1 else 0
+        prefRowCount = rows.coerceIn(MESSAGE_ROWS_MIN, MESSAGE_ROWS_MAX)
+        minWidth = Region.USE_PREF_SIZE
+        minHeight = Region.USE_PREF_SIZE
     }
+
+/**
+ * [gitMessage] in a pane of its own: the dialog pane pads its content (style class `content`), which would pad the
+ * text inside the area instead and leave less room for it.
+ */
+private fun messagePane(message: String) = StackPane(gitMessage(message))
 
 /** An error dialog titled [title] that says [header] above git's [message]; not shown yet. */
 internal fun gitErrorDialog(
@@ -172,8 +192,7 @@ internal fun gitErrorDialog(
         owner?.let(::initOwner)
         this.title = title
         headerText = header
-        dialogPane.content = gitMessage(message)
-        dialogPane.stylesheets += GIT_LOG_CSS
+        dialogPane.content = messagePane(message)
     }
 
 /**
@@ -226,8 +245,7 @@ internal fun forceDeleteConfirmation(
 ): Alert =
     cancelFirst(Alert(Alert.AlertType.CONFIRMATION, null, FORCE_DELETE_BUTTON, ButtonType.CANCEL), owner).apply {
         headerText = question
-        dialogPane.content = gitMessage(message)
-        dialogPane.stylesheets += GIT_LOG_CSS
+        dialogPane.content = messagePane(message)
     }
 
 /** [alert], titled Delete, with Cancel as the default button, focused once shown. */
@@ -252,4 +270,7 @@ private const val SPACING = 6.0
 private const val MESSAGE_ROWS = 5
 private const val MESSAGE_ROWS_MIN = 2
 private const val MESSAGE_ROWS_MAX = 12
-private const val MESSAGE_COLUMNS = 72
+private const val MESSAGE_COLUMNS_MIN = 40
+private const val MESSAGE_COLUMNS_MAX = 100
+private const val TAB_COLUMNS = 8
+private const val MONOSPACED = "Monospaced"

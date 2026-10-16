@@ -499,8 +499,3 @@
         -git-graph-7: #c8b450;
     }
 }
-
-/* Git's own message in the error and force delete dialogs (ADR 0041): aligned with tabs and spaces. */
-.git-message {
-    -fx-font-family: monospace;
-}

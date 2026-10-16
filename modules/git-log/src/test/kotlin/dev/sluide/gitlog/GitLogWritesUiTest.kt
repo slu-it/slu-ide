@@ -276,9 +276,16 @@ class GitLogWritesUiTest {
                 ).joinToString(" ") { (item, letter) -> if (item.isDisable) "-" else letter }
             }.get()
 
-    private fun pressInTree(code: KeyCode) {
+    /** Presses [code] in the focused tree, as typed: to the focus owner, with the tree's own key handling. */
+    private fun pressInTree(
+        code: KeyCode,
+        shortcut: Boolean = false,
+    ) {
         Platform.runLater {
-            Event.fireEvent(branches.tree, KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, false, false, false))
+            branches.tree.requestFocus()
+            val target = branches.tree.scene.focusOwner
+            // Control and Meta: the shortcut on any platform.
+            Event.fireEvent(target, KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, shortcut, false, shortcut))
         }
         WaitForAsyncUtils.waitForFxEvents()
     }
@@ -331,6 +338,7 @@ class GitLogWritesUiTest {
         // Keys do nothing either.
         pressInTree(KeyCode.F2)
         pressInTree(KeyCode.DELETE)
+        pressInTree(KeyCode.BACK_SPACE, shortcut = true)
         assertNoDialog()
 
         writes.gate?.countDown()
@@ -616,6 +624,12 @@ class GitLogWritesUiTest {
         assertTrue((pane.lookupButton(ButtonType.CANCEL) as Button).isDefaultButton)
         press(robot, pane, ButtonType.CANCEL)
         assertEquals(emptyList(), writes.calls)
+        // Shortcut+Backspace too, as in the file explorer (Mac keyboards often have no Delete key).
+        pressInTree(KeyCode.BACK_SPACE, shortcut = true)
+        press(robot, awaitDialog(robot), ButtonType.CANCEL)
+        pressInTree(KeyCode.BACK_SPACE)
+        assertNoDialog()
+        assertEquals(emptyList(), writes.calls)
 
         fireLater(branches.deleteItem)
         pane = awaitDialog(robot)
@@ -644,7 +658,7 @@ class GitLogWritesUiTest {
 
         val pane = awaitDialog(robot)
         assertEquals("Force delete branch 'feature/a'?", pane.headerText)
-        val message = pane.content as TextArea
+        val message = pane.lookup(".git-message") as TextArea
         assertEquals(refusal, message.text)
         assertTrue((pane.lookupButton(ButtonType.CANCEL) as Button).isDefaultButton)
         assertEquals("Deleted branch feature/b.", status(robot))
@@ -670,9 +684,12 @@ class GitLogWritesUiTest {
         val pane = awaitDialog(robot)
         assertEquals("Checkout Failed", (pane.scene.window as Stage).title)
         assertEquals("feature/a could not be checked out.", pane.headerText)
-        val area = pane.content as TextArea
+        val area = pane.lookup(".git-message") as TextArea
         assertEquals(message, area.text)
         assertFalse(area.isEditable)
+        assertTrue(area.isWrapText)
+        assertEquals(82, area.prefColumnCount, "as wide as the longest line")
+        assertEquals(4, area.prefRowCount, "as high as its lines")
         assertTrue("git-message" in area.styleClass)
         assertTrue((pane.scene.window as Stage).owner === view.scene.window)
         assertTrue("error" in pane.styleClass, "an error alert")
@@ -680,6 +697,17 @@ class GitLogWritesUiTest {
         assertEquals("", status(robot))
         press(robot, pane, ButtonType.OK)
         assertNoDialog()
+    }
+
+    @Test
+    fun `git's message wraps long lines and scrolls beyond a dozen rows`() {
+        val long = "x".repeat(150)
+        val wrapped = WaitForAsyncUtils.asyncFx<TextArea> { gitMessage("$long\nshort") }.get()
+        assertEquals(100, wrapped.prefColumnCount)
+        assertEquals(4, wrapped.prefRowCount, "two rows for the long line, one for the short, one to spare")
+        val many = WaitForAsyncUtils.asyncFx<TextArea> { gitMessage((1..30).joinToString("\n") { "line $it" }) }.get()
+        assertEquals(12, many.prefRowCount)
+        assertEquals(40, many.prefColumnCount)
     }
 
     @Test

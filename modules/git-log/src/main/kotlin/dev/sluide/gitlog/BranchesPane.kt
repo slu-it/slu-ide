@@ -138,13 +138,22 @@ internal class BranchesPane : BorderPane() {
             addEventFilter(KeyEvent.KEY_PRESSED) { event ->
                 if (event.code == KeyCode.ENTER && !event.isShortcutDown && enter()) event.consume()
             }
+            // As in the file explorer.
             addEventHandler(KeyEvent.KEY_PRESSED) { event ->
                 val handled =
                     when {
-                        event.isShortcutDown || event.isAltDown || event.isShiftDown -> false
-                        event.code == KeyCode.F2 -> renameSelected()
-                        event.code == KeyCode.DELETE -> deleteSelected()
-                        else -> false
+                        event.code == KeyCode.F2 -> {
+                            renameSelected()
+                        }
+
+                        // On macOS, Cmd+Backspace, as in the Finder: Mac keyboards often have no Delete key.
+                        event.code == KeyCode.DELETE || (event.code == KeyCode.BACK_SPACE && event.isShortcutDown) -> {
+                            deleteSelected()
+                        }
+
+                        else -> {
+                            false
+                        }
                     }
                 if (handled) event.consume()
             }
