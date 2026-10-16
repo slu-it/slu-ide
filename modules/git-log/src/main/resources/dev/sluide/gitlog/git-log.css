@@ -1,0 +1,40 @@
+/* A compact tool-window header; colours from Modena's looked-up colours, so light and dark themes both apply. */
+.git-log-header {
+    -fx-spacing: 6;
+    -fx-padding: 2 4 2 6;
+    -fx-background-color: -fx-outer-border, -fx-body-color;
+    -fx-background-insets: 0, 1 0 0 0;
+    -fx-cursor: hand;
+}
+
+.git-log-header .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.git-log-title {
+    -fx-font-weight: bold;
+}
+
+.git-log-status {
+    -fx-opacity: 0.7;
+}
+
+.git-log-refresh {
+    -fx-background-color: transparent;
+    -fx-padding: 2 4 2 4;
+    -fx-cursor: default;
+}
+
+.git-log-refresh:hover {
+    -fx-background-color: -fx-hover-base;
+}
+
+.git-log-body {
+    -fx-padding: 0;
+    -fx-background-insets: 0;
+}
+
+.git-log-table {
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
