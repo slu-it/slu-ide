@@ -24,6 +24,9 @@
   resets it to the empty snapshot; after that it is replaced only when something changed. If `git status` fails or
   takes longer than 10 s, the previous snapshot stays (e.g. markers remain after `rm -rf .git` until the folder is
   opened again).
+- `GitStatusService.gitFolderChanged` counts the changes noticed directly in `.git` (on the JavaFX thread), and
+  `GitStatusService.root` is the followed repository root; the git log uses both ([git-log.md](git-log.md)). Changes
+  only below `.git/refs/` (e.g. `git branch x`) are not counted.
 - Modified files open as a diff against `HEAD` ([git-diff.md](git-diff.md)); `GitStatusService.diff(file)` reads it.
 - The window title shows the checked-out ref: `slu-ide [master] – Thoreau` on a branch,
   `slu-ide [detached at 5f070b9] – Thoreau` on a detached `HEAD` (7-character hash), and the branch name of a
