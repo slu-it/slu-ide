@@ -2,9 +2,11 @@
 
 **Module:** `modules/git-log` (package `dev.sluide.gitlog`) — `GitLogView` (the area), `GitLogPages` (paging and
 reloads, without controls), `GraphLayout` (the commit graph's lanes), `GraphCell` (drawing it, with the ref labels of
-`RefLabels` and `refGroups`), `CommitDetails` (which details to load, without controls) and `CommitDetailsPane`; the
-commits, refs and details come from `GitLog` in `modules/git`. Decisions in [ADR 0035](../adr/0035-git-log-area.md),
-[ADR 0036](../adr/0036-commit-graph-layout.md) and [ADR 0037](../adr/0037-ref-labels-and-commit-details.md)
+`RefLabels` and `refGroups`), `CommitDetails` (which details and changed files to load, without controls),
+`CommitDetailsPane`, `changeTree` and `FileDiffs` (`ChangedFiles.kt`, without controls) and `ChangedFilesPane`; the
+commits, refs, details, changed files and diffs come from `GitLog` in `modules/git`. Decisions in
+[ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-commit-graph-layout.md),
+[ADR 0037](../adr/0037-ref-labels-and-commit-details.md) and [ADR 0038](../adr/0038-changed-files-and-commit-diffs.md)
 
 - **Where and when:** for a folder whose git status is followed ([git-status.md](git-status.md): git is available and
   the folder has `.git`), the window shows a Git Log area under the editor area. Other folders, and a window without a
@@ -39,13 +41,34 @@ commits, refs and details come from `GitLog` in `modules/git`. Decisions in [ADR
   every ref with its icon.
   Symbolic refs such as `origin/HEAD` are left out, annotated tags label the commit they tag.
 - **Details:** right of the table, at first 30 % of the log's width (the divider can be dragged; resizing the window
-  keeps both shares while it is open), the details of the selected commit as in IntelliJ: the full message with the
-  subject in bold, the short hash and the author, the author's email, `on <date> at <time>`, a line
-  `committed on <date> at <time> by <committer>` if someone else committed it or in another minute, and its branches
-  and tags with their icons. The texts can be selected with the mouse and copied (Shortcut+C after clicking into them);
-  long messages wrap and the pane scrolls. With no or several commits selected it says "No commit selected" or
-  "N commits selected"; if git fails, "The commit details could not be read." Moving through the rows keeps the
+  keeps both shares while it is open), below the changed files, the details of the selected commit as in IntelliJ: the
+  full message with the subject in bold, the short hash and the author, the author's email, `on <date> at <time>`, a
+  line `committed on <date> at <time> by <committer>` if someone else committed it or in another minute, and its
+  branches and tags with their icons. The texts can be selected with the mouse and copied (Shortcut+C after clicking
+  into them); long messages wrap and the pane scrolls. With no or several commits selected it says "No commit selected"
+  or "N commits selected"; if git fails, "The commit details could not be read." Moving through the rows keeps the
   previous details until the next ones are read ("Loading…" after 300 ms); the table keeps the keyboard focus.
+- **Changed files:** right of the table, above the details (half and half at first; the divider can be dragged and
+  keeps its share while the window is open), the files the selected commit changed, as in IntelliJ: "N files" and a
+  tree by path, folders first, then files, by name, everything expanded; folders that hold only one folder are one
+  node (`src/main/kotlin`). A merge is compared with its first parent ("N files (compared with the first parent
+  …)"), a root commit with nothing (every file added). File names are coloured by their change: green added, blue
+  modified (also renamed, copied, type changed), grey deleted; lighter in the dark theme, the selection text colour
+  when selected. A renamed file shows ` ← old/path` and a tooltip; renames are found as git's `-M` finds them.
+  Placeholders: "No commit selected", "N commits selected", "Loading…" (after 300 ms, as for the details), "No
+  changed files", "The changed files could not be read.". They are read right after the details (which do not wait
+  for them) and again on a refresh, which keeps the selected file and the collapsed folders.
+- **Show Diff / Open Local File:** on a file of the tree (not a folder), Show Diff (double-click, Enter, Shortcut+D or
+  the context menu) opens what the commit changed in it in an editor tab, "<name> (<short hash>)": the file at the first
+  parent (titled with its short hash and, for a renamed file, the old path; "(none)" for an added file) left, at the
+  commit right, side by side and read-only, as in [git-diff.md](git-diff.md). Short hashes have 8 characters, as in the
+  details. The same file of the same commit again selects its tab. Binary files, files above 5 MB, submodules, files
+  whose content did not change (a pure rename, a changed mode) and text that no text viewer shows (images) are not
+  compared; the header says so ("README.png is a binary file.", "… is too large to compare.", "lib is a submodule:
+  1a2b3c4d → 5e6f7a8b.", "run.sh has no content changes.", "… cannot be shown as text."), until the next selection; if
+  the selection changed while the diff was read, nothing is said. Open Local File (F4 or the context menu) opens the
+  file as it is now in the editor; it is disabled for files not in the working tree (e.g. deleted). Copy Path copies the
+  path relative to the repository. Enter on a folder opens or closes it.
 - **Loading:** nothing is read before the area is first expanded. Then 500 commits load in the background; scrolling
   to within 50 rows of the last one loads the next 500, until there are no more. In very large repositories without
   a commit-graph file (`git gc` writes one), git sorts the whole history for every page, so the first page can hit the
@@ -60,6 +83,8 @@ commits, refs and details come from `GitLog` in `modules/git`. Decisions in [ADR
 - **Copy Revision Number:** in the context menu of the table, and with Shortcut+C while the table has the focus; it
   copies the full hash of the selected commit, or of all selected commits one per line in table order (Shift/Ctrl
   select several).
-- Not yet implemented (next packages): "In N branches" and clickable hashes in the details, the changed files of the
-  selected commit, text/branch/user/path filters, the branches pane, remembering the area's height and state, and any
-  action that changes the repository.
+- Not yet implemented (next packages): "In N branches" and clickable hashes in the details, a flat list of the
+  changed files, their combined changes for several commits, comparing with the local version, the changes against
+  each parent of a merge, a diff preview in the log, file history, file-type icons in the tree, text/branch/user/path
+  filters, the branches pane, remembering the area's height and state, and any action that changes the
+  repository.

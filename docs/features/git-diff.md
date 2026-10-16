@@ -40,8 +40,12 @@
 - Files with a text, code or preview viewer (Markdown, HTML, SVG, CSV, cookie jars, notebooks, Mermaid, PEM;
   `.env` files with their values unmasked) get markers and a diff of their
   text, highlighted like their source; others (e.g. images) have neither, and git is not asked for them.
+- The same side-by-side view shows what a commit changed in a file, opened from the git log's changed files
+  ([git-log.md](git-log.md)): read-only in a tab of its own, without the Edit button, its right side the file as the
+  commit left it (`FileViewers.openDiff(name, current, diff)`, highlighted by the file's name).
 - Structure: `LineMarkers`, `LineEdit` and `ChangeMarkers` (`LineMarkers.kt`, plain logic), `Gutter` (rows of the
   gutter; the column hook `GutterColumns` is implemented by code views), `EditableFileView.showChanges`,
   `FileView.focusText`, `DiffFileView` (`onBack`, `jumpToChangeAt`), `FileViewHost.showChanges(file, line)`,
   `FileViewers.showsDiffs`, `EditorArea.toggleDiff()` and `canToggleDiff`, `OpenFile.diffView`.
-- Not yet implemented: diffs against the index or other commits, diffs of the unsaved text, reverting changes.
+- Not yet implemented: diffs of the working tree against the index or other commits (a commit's own changes are
+  shown from the git log), diffs of the unsaved text, reverting changes.
