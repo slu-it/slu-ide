@@ -8,7 +8,10 @@ import java.nio.charset.Charset
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.toJavaDuration
 
 private val log = System.getLogger(GitCli::class.java.name)
 
@@ -230,13 +233,54 @@ class GitCli(
     }
 
     /**
+     * The full refnames of the local branches of the repository at [root], one per line (`refs/heads/main`); `null`
+     * if git is not available, fails or takes longer than 3 s.
+     */
+    internal fun localBranches(root: Path): String? {
+        if (!available) return null
+        return run(listOf("--no-optional-locks", "for-each-ref", "--format=%(refname)", "refs/heads"), root, 3.seconds)
+    }
+
+    /**
+     * The commit the local branch [name] (short name) points at, [GitBranchTip.Missing] if there is no such branch, or
+     * [GitBranchTip.Unknown] if git is not available, fails or takes longer than 3 s: `git for-each-ref`, which succeeds
+     * without output for a missing branch.
+     */
+    internal fun branchTip(
+        root: Path,
+        name: String,
+    ): GitBranchTip {
+        if (!available) return GitBranchTip.Unknown
+        val ref = "refs/heads/$name"
+        // The pattern also matches the branches in a folder of that name (refs/heads/<name>/…): only the exact one counts.
+        val arguments = listOf("--no-optional-locks", "for-each-ref", "--format=%(refname)%1f%(objectname)", ref)
+        val output = run(arguments, root, 3.seconds) ?: return GitBranchTip.Unknown
+        val commit =
+            output
+                .lineSequence()
+                .map { it.split('\u001f') }
+                .firstOrNull { it.size == 2 && it[0] == ref }
+                ?.get(1)
+        return if (commit == null) GitBranchTip.Missing else GitBranchTip.At(commit)
+    }
+
+    /**
      * The full object name of the commit `HEAD` points at in the repository at [root]; `null` if there is none yet
      * (an unborn branch), or if git is not available, fails or takes longer than 3 s.
      */
-    internal fun headCommit(root: Path): String? {
-        if (!available) return null
-        // -q: an unborn HEAD fails quietly instead of with an error message.
-        val arguments = listOf("--no-optional-locks", "rev-parse", "--verify", "-q", "HEAD^{commit}")
+    internal fun headCommit(root: Path): String? = commitOfRevision(root, "HEAD")
+
+    /**
+     * The full object name of the commit [revision] (`HEAD`, a hash or a full refname, also of an annotated tag) names
+     * in the repository at [root]; `null` if it names none, or if git is not available, fails or takes longer than 3 s.
+     */
+    internal fun commitOfRevision(
+        root: Path,
+        revision: String,
+    ): String? {
+        if (!available || revision.startsWith('-')) return null
+        // -q: an unborn HEAD or a missing revision fails quietly instead of with an error message.
+        val arguments = listOf("--no-optional-locks", "rev-parse", "--verify", "-q", "$revision^{commit}")
         return run(arguments, root, 3.seconds)?.trim()?.ifEmpty { null }
     }
 
@@ -439,9 +483,8 @@ class GitCli(
     ): String? = runBytes(arguments, directory, timeout)?.toString(Charsets.UTF_8)
 
     /**
-     * Runs git with [arguments] in [directory], [input] on its standard input; its output if it succeeds in time. The
-     * input is written before the timeout starts and the write waits while git does not read, so it must be small: a
-     * few lines, well below the pipe's buffer.
+     * Runs git with [arguments] in [directory], [input] on its standard input; its output if it succeeds in time.
+     * Reads take no optional locks and drop what git says on its standard error.
      */
     private fun runBytes(
         arguments: List<String>,
@@ -449,17 +492,90 @@ class GitCli(
         timeout: Duration,
         input: ByteArray? = null,
     ): ByteArray? {
+        val execution = execute(arguments, directory, timeout, input, write = false) ?: return null
+        // An output that may have been cut off is no answer.
+        return if (execution.exitValue == 0 && execution.complete) execution.output else null
+    }
+
+    /**
+     * Runs git with [arguments] in the repository at [root] to change it (ADR 0041), [input] on its standard input:
+     * with optional locks, unlike the reads, as git itself would run; within [timeout], as hooks may run; never with an
+     * editor (`GIT_EDITOR=false`: git fails at once where it would open one). The result has git's own message: its
+     * standard error, or its standard output if that is empty, trimmed and without git's `hint:` lines, which point at
+     * command lines (unless there is nothing else).
+     */
+    internal fun write(
+        root: Path,
+        arguments: List<String>,
+        input: ByteArray? = null,
+        timeout: Duration = WRITE_TIMEOUT,
+    ): GitResult {
+        if (!available) return GitResult(false, "git is not available.")
+        val execution =
+            execute(arguments, root, timeout, input, write = true)
+                ?: return GitResult(false, "git could not be run.")
+        val exitValue = execution.exitValue ?: return GitResult(false, "git did not finish within ${shown(timeout)}.")
+        val message =
+            withoutHints(
+                execution.errors
+                    .toString(Charsets.UTF_8)
+                    .trim()
+                    .ifEmpty { execution.output.toString(Charsets.UTF_8).trim() },
+            )
+        return when {
+            exitValue == 0 -> GitResult(true, message)
+            message.isEmpty() -> GitResult(false, "git failed with exit code $exitValue.")
+            else -> GitResult(false, message)
+        }
+    }
+
+    /**
+     * Whether the commit [ancestor] is an ancestor of (or the same as) [descendant] in the repository at [root] (full
+     * hashes or refnames): `git merge-base --is-ancestor`; `null` if git is not available, fails or takes longer than
+     * 10 s.
+     */
+    internal fun isAncestor(
+        root: Path,
+        ancestor: String,
+        descendant: String,
+    ): Boolean? {
+        if (!available) return null
+        val arguments =
+            listOf("--no-optional-locks", "merge-base", "--is-ancestor", "--end-of-options", ancestor, descendant)
+        return when (execute(arguments, root, 10.seconds, null, write = false)?.exitValue) {
+            0 -> true
+            1 -> false
+            else -> null
+        }
+    }
+
+    /**
+     * Runs git with [arguments] in [directory], [input] on its standard input, and waits up to [timeout] for it; `null`
+     * if it cannot be started or the calling thread is interrupted (git is stopped then, and the interrupt kept). A
+     * [write] keeps git's standard error and may take optional locks; a read drops the one and takes none of the other.
+     * The input is written before the timeout starts and the write waits while git does not read, so it must be small:
+     * a few lines, well below the pipe's buffer, or read by git at once (a tag message).
+     */
+    private fun execute(
+        arguments: List<String>,
+        directory: Path?,
+        timeout: Duration,
+        input: ByteArray?,
+        write: Boolean,
+    ): Execution? {
         val process =
             try {
                 ProcessBuilder(listOf(executable) + arguments)
                     .directory(directory?.toFile())
-                    .redirectError(ProcessBuilder.Redirect.DISCARD)
                     .apply {
+                        if (!write) redirectError(ProcessBuilder.Redirect.DISCARD)
                         environment().clear()
                         environment().putAll(this@GitCli.environment)
-                        environment()["GIT_OPTIONAL_LOCKS"] = "0"
+                        // Reads only: git status would otherwise rewrite .git/index, which our .git watch reports.
+                        if (!write) environment()["GIT_OPTIONAL_LOCKS"] = "0"
                         // Never wait for credentials or an editor.
                         environment()["GIT_TERMINAL_PROMPT"] = "0"
+                        if (write) environment()["GIT_EDITOR"] = "false"
                     }.start()
             } catch (e: IOException) {
                 log.log(System.Logger.Level.DEBUG, "Cannot run $executable", e)
@@ -467,7 +583,12 @@ class GitCli(
             }
         // Read while git runs, so a large output cannot fill the pipe and block it.
         val output = ByteArrayOutputStream()
-        val reader = Thread.ofVirtual().start { process.inputStream.use { it.transferTo(output) } }
+        val errors = ByteArrayOutputStream()
+        val readers =
+            listOfNotNull(
+                Thread.ofVirtual().start { process.inputStream.use { it.transferTo(output) } },
+                if (write) Thread.ofVirtual().start { process.errorStream.use { it.transferTo(errors) } } else null,
+            )
         try {
             process.outputStream.use { stdin -> input?.let(stdin::write) }
         } catch (e: IOException) {
@@ -476,38 +597,86 @@ class GitCli(
         }
         try {
             if (!process.waitFor(timeout.inWholeMilliseconds, TimeUnit.MILLISECONDS)) {
-                stop(process)
+                stop(process, write)
                 log.log(
                     System.Logger.Level.WARNING,
                     "$executable ${arguments.joinToString(" ")} took longer than $timeout",
                 )
-                return null
+                return Execution(null, ByteArray(0), ByteArray(0), complete = false)
             }
-            reader.join()
+            // Git has ended, but its output may not be read to its end yet; a process it left behind (e.g. started by a
+            // hook) may even hold the pipes open, so that the readers never end. They get a little time, whatever the
+            // timeout: a read whose output is not read to its end by then fails, a write keeps what was read.
+            val readDeadline = System.nanoTime() + PIPE_GRACE.inWholeNanoseconds
+            readers.forEach { reader ->
+                reader.join(
+                    (readDeadline - System.nanoTime()).nanoseconds.coerceAtLeast(Duration.ZERO).toJavaDuration(),
+                )
+            }
         } catch (_: InterruptedException) {
             // E.g. the window was closed during a run: stop git too, and keep the interrupt for the caller.
-            stop(process)
+            stop(process, write)
             Thread.currentThread().interrupt()
             return null
         }
-        return if (process.exitValue() == 0) output.toByteArray() else null
+        // Copies, synchronized with readers that may still be writing.
+        return Execution(process.exitValue(), output.toByteArray(), errors.toByteArray(), readers.none(Thread::isAlive))
     }
 
-    /** Kills git and whatever it started (hooks, helpers); the descendants first, as they are lost with git. */
-    private fun stop(process: Process) {
+    /**
+     * Kills git and whatever it started (hooks, helpers); the descendants first, as they are lost with git. A [write]
+     * is asked to end first (SIGTERM, on which git removes its lock files) and killed only if it has not after a
+     * moment.
+     */
+    private fun stop(
+        process: Process,
+        write: Boolean,
+    ) {
+        if (write) {
+            val interrupted = Thread.interrupted()
+            try {
+                process.descendants().forEach { it.destroy() }
+                process.destroy()
+                process.waitFor(STOP_GRACE.inWholeMilliseconds, TimeUnit.MILLISECONDS)
+            } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+            } finally {
+                if (interrupted) Thread.currentThread().interrupt()
+            }
+        }
         process.descendants().forEach { it.destroyForcibly() }
         process.destroyForcibly()
     }
 
-    private companion object {
-        val HASH_PREFIX = Regex("[0-9a-fA-F]{4,64}")
+    /**
+     * A run of git that ended: its [exitValue] (`null` if it took too long and was stopped) and what it wrote, read to
+     * its end if [complete].
+     */
+    private class Execution(
+        val exitValue: Int?,
+        val output: ByteArray,
+        val errors: ByteArray,
+        val complete: Boolean,
+    )
+
+    internal companion object {
+        private val HASH_PREFIX = Regex("[0-9a-fA-F]{4,64}")
+
+        /** How long a git command that changes the repository may take (ADR 0041); hooks may run. */
+        val WRITE_TIMEOUT = 60.seconds
+
+        /** How long a stopped write may take to end by itself before it is killed. */
+        private val STOP_GRACE = 2.seconds
+
+        /** How long the output of a git that has ended may take to be read to its end, whatever the timeout. */
+        private val PIPE_GRACE = 2.seconds
 
         /**
          * The most bytes written to git's standard input. They are written while git runs (its output is read in
-         * parallel), but the write blocks while git does not read and is not covered by the timeout ([runBytes]); below
+         * parallel), but the write blocks while git does not read and is not covered by the timeout ([execute]); below
          * the smallest default pipe buffer (16 KiB on macOS) it never blocks.
          */
-        const val MAX_INPUT = 15 * 1024
+        private const val MAX_INPUT = 15 * 1024
     }
 }
 
@@ -548,7 +717,7 @@ internal fun authorPatterns(value: String): List<String> {
 }
 
 /** The charset the JVM turns process arguments into bytes with. */
-private val argumentCharset: Charset =
+internal val argumentCharset: Charset =
     System.getProperty("sun.jnu.encoding")?.let { runCatching { Charset.forName(it) }.getOrNull() }
         ?: Charset.defaultCharset()
 
@@ -578,3 +747,29 @@ internal fun encodableArgument(
         }
     }
 }
+
+/**
+ * Whether [argument] reaches git unchanged as a process argument: [charset], the one the JVM encodes arguments with,
+ * can encode it. In a plain ASCII (POSIX) locale the JVM would turn other characters into `?` (ADR 0038).
+ */
+internal fun canPassArgument(
+    argument: String,
+    charset: Charset = argumentCharset,
+): Boolean = charset.newEncoder().canEncode(argument)
+
+/** [message] without git's `hint:` lines; [message] itself if it has nothing else. */
+internal fun withoutHints(message: String): String =
+    message
+        .lines()
+        .filterNot { it.startsWith("hint:") }
+        .joinToString("\n")
+        .trim()
+        .ifEmpty { message }
+
+/** [duration] as a message says it: "60 s", "90 s", "10 min". */
+internal fun shown(duration: Duration): String =
+    if (duration > 1.minutes && duration.inWholeSeconds % 60 == 0L) {
+        "${duration.inWholeMinutes} min"
+    } else {
+        "${duration.inWholeSeconds} s"
+    }
