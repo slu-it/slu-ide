@@ -1436,6 +1436,44 @@ class EditorAreaUiTest {
     }
 
     @Test
+    fun `saveBeforeCheckout asks about the edited files in the folder only, Check Out Anyway keeps their changes`(
+        robot: FxRobot,
+    ) {
+        val repo = dir.resolve("repo").createDirectories()
+        val a = repo.resolve("a.txt").apply { writeText("a") }
+        val b = repo.resolve("b.txt").apply { writeText("b") }
+        val outside = textFile("outside.txt", "outside")
+        open(robot, repo.resolve("clean.txt").apply { writeText("clean") })
+        openEdited(robot, a, b, outside) { error("not asked when closing") }
+        val asked = mutableListOf<List<String>>()
+        var answer = SaveChoice.CANCEL
+        editor.confirmSaveBeforeCheckout = { files ->
+            asked += files
+            answer
+        }
+
+        robot.interact { assertFalse(editor.saveBeforeCheckout(repo)) }
+        answer = SaveChoice.DISCARD
+        robot.interact { assertTrue(editor.saveBeforeCheckout(repo)) }
+
+        assertEquals(List(2) { listOf("repo/a.txt", "repo/b.txt") }, asked)
+        assertEquals(listOf("clean.txt", "\u25cf a.txt", "\u25cf b.txt", "\u25cf outside.txt"), tabTitles(robot))
+        assertEquals(listOf("a", "b"), listOf(a.readText(), b.readText()))
+        // The checkout changes a file: its tab keeps the changes and offers the file's new text.
+        robot.interact { editor.editorTabs.select(checkNotNull(editor.editorTabs.find(b))) }
+        b.writeText("checked out")
+        eventually(robot) { assertTrue(bannerText(robot).orEmpty().contains("changed on disk"), bannerText(robot)) }
+        assertEquals("edited b", shownText(robot))
+
+        answer = SaveChoice.SAVE
+        robot.interact { assertTrue(editor.saveBeforeCheckout(repo)) }
+        assertEquals("edited a", a.readText())
+        assertEquals("outside", outside.readText(), "not in the folder")
+        robot.interact { assertTrue(editor.saveBeforeCheckout(dir.resolve("other"))) }
+        assertEquals(3, asked.size, "nothing edited there")
+    }
+
+    @Test
     fun `a tab whose file cannot be saved stays open`(robot: FxRobot) {
         val fallback = DefaultTextFileViewer()
         val area = EditorArea(FileViewers(listOf(fallback, UnsavableViewer()), fallback), watcher, fontSettings)

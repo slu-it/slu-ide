@@ -57,6 +57,14 @@ class EditorArea(
      */
     var confirmSave: (files: List<String>) -> SaveChoice = { files -> askToSave(scene?.window, files) }
 
+    /**
+     * Asked before a checkout changes files with unsaved changes on disk ([saveBeforeCheckout]), with their paths as
+     * for [confirmSave]: whether to save them first, check out anyway ([SaveChoice.DISCARD], which keeps the changes in
+     * their tabs) or not check out. Shows a dialog ([askToSaveBeforeCheckout]); tests replace it.
+     */
+    var confirmSaveBeforeCheckout: (files: List<String>) -> SaveChoice =
+        { files -> askToSaveBeforeCheckout(scene?.window, files) }
+
     /** Shows an error message, e.g. that a file could not be saved, and waits until it is closed; tests replace it. */
     var showError: (message: String) -> Unit = ::showErrorDialog
     private val watches = mutableMapOf<EditorTab, AutoCloseable>()
@@ -357,6 +365,22 @@ class EditorArea(
      * before [closeAll]. Returns whether to go on closing: `false` if the user cancelled or saving failed.
      */
     fun confirmCloseAll(): Boolean = saveBeforeClosing(editorTabs.tabs)
+
+    /**
+     * Asks to save the files at or below [folder] (a repository) with unsaved changes before a checkout changes files
+     * there ([confirmSaveBeforeCheckout]): Save saves them, Check Out Anyway keeps the changes in their tabs, which then
+     * offer to reload the checked-out file or keep them, Cancel does nothing. Returns whether to check out: `false` if
+     * the user cancelled or saving failed.
+     */
+    fun saveBeforeCheckout(folder: Path): Boolean {
+        val dirty = filesUnder(folder).filter { it.isDirty }
+        if (dirty.isEmpty()) return true
+        return when (confirmSaveBeforeCheckout(dirty.map(::shownPath))) {
+            SaveChoice.SAVE -> dirty.map(::save).all { it }
+            SaveChoice.DISCARD -> true
+            SaveChoice.CANCEL -> false
+        }
+    }
 
     /** Saves or discards the unsaved changes of the files among [tabs] as [confirmSave] says; `false` to close none. */
     private fun saveBeforeClosing(tabs: List<EditorTab>): Boolean {

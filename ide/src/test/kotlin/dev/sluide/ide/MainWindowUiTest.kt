@@ -985,6 +985,32 @@ class MainWindowUiTest {
     }
 
     @Test
+    fun `a checkout from the git log first asks to save the edited files of the repository`(robot: FxRobot) {
+        assumeTrue(git.available, "git is not installed")
+        runGit("init", "-q")
+        val a = project.resolve("a.txt").apply { writeText("a") }
+        robot.interact {
+            projectService.open(project)
+            editorArea.open(a)
+            shownArea(robot).appendText("1")
+        }
+        val asked = mutableListOf<List<String>>()
+        var answer = SaveChoice.CANCEL
+        editorArea.confirmSaveBeforeCheckout = { files ->
+            asked += files
+            answer
+        }
+
+        robot.interact { assertFalse(gitLogView.beforeCheckout()) }
+        answer = SaveChoice.DISCARD
+        robot.interact { assertTrue(gitLogView.beforeCheckout()) }
+
+        assertEquals(listOf(listOf("a.txt"), listOf("a.txt")), asked)
+        assertEquals("a1", shownArea(robot).text, "kept")
+        assertEquals("a", a.readText())
+    }
+
+    @Test
     fun `closing the window with Don't Save leaves the files as they are`(robot: FxRobot) {
         val a = project.resolve("a.txt").apply { writeText("a") }
         robot.interact {

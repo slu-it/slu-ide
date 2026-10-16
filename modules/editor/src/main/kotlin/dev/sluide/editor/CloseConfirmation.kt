@@ -39,7 +39,7 @@ enum class SaveChoice {
     /** Save them, then close. */
     SAVE,
 
-    /** Close without saving them. */
+    /** Close without saving them; before a checkout: check out anyway, keeping them. */
     DISCARD,
 
     /** Close nothing. */
@@ -80,4 +80,44 @@ internal fun saveConfirmation(
         owner?.let(::initOwner)
         title = "Unsaved Changes"
         headerText = if (files.size == 1) "Save the changes to this file?" else "Save the changes to these files?"
+    }
+
+/** The button of [checkoutSaveConfirmation] that checks out without saving, keeping the unsaved changes. */
+internal val CHECK_OUT_ANYWAY_BUTTON = ButtonType("Check Out Anyway", ButtonBar.ButtonData.NO)
+
+/**
+ * Asks whether to save the unsaved changes of the [files] (their paths, one per line) before a checkout changes files
+ * on disk: Save ([SaveChoice.SAVE]), Check Out Anyway ([SaveChoice.DISCARD], keeping the changes) or Cancel, also when
+ * the dialog is dismissed. Blocks until the dialog is closed; call it on the FX thread.
+ */
+internal fun askToSaveBeforeCheckout(
+    owner: Window?,
+    files: List<String>,
+): SaveChoice =
+    when (checkoutSaveConfirmation(owner, files).showAndWait().orElse(ButtonType.CANCEL)) {
+        SAVE_BUTTON -> SaveChoice.SAVE
+        CHECK_OUT_ANYWAY_BUTTON -> SaveChoice.DISCARD
+        else -> SaveChoice.CANCEL
+    }
+
+/** The dialog of [askToSaveBeforeCheckout], not shown yet. */
+internal fun checkoutSaveConfirmation(
+    owner: Window?,
+    files: List<String>,
+): Alert =
+    Alert(
+        Alert.AlertType.CONFIRMATION,
+        files.joinToString("\n"),
+        SAVE_BUTTON,
+        CHECK_OUT_ANYWAY_BUTTON,
+        ButtonType.CANCEL,
+    ).apply {
+        owner?.let(::initOwner)
+        title = "Unsaved Changes"
+        headerText =
+            if (files.size == 1) {
+                "This file has unsaved changes. Save it before checking out?"
+            } else {
+                "These files have unsaved changes. Save them before checking out?"
+            }
     }
