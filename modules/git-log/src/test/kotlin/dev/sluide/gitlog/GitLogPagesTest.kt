@@ -3,6 +3,8 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitLogFilter
 import dev.sluide.git.GitLogPage
+import dev.sluide.git.GitPendingPick
+import dev.sluide.git.GitPick
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
@@ -38,6 +40,12 @@ class GitLogPagesTest {
     /** The refs of each repository; missing means reading them fails. */
     private val refs = mutableMapOf<Path, GitRefs>()
 
+    /** The cherry-pick or revert in progress in each repository. */
+    private val pendingPicks = mutableMapOf<Path, GitPendingPick>()
+
+    /** The root of every read of the cherry-pick or revert in progress. */
+    private val pendingLoads = mutableListOf<Path>()
+
     /** The root of every load of the refs. */
     private val refLoads = mutableListOf<Path>()
     private val background = ArrayDeque<Runnable>()
@@ -67,6 +75,10 @@ class GitLogPagesTest {
             pageSize = 10,
             prefetch = 3,
             seekLimit = 20,
+            loadPending = { root ->
+                pendingLoads.add(root)
+                pendingPicks[root]
+            },
         )
 
     /** A first-parent line of [count] commits; every fourth also merges the commit two below it. */
@@ -145,6 +157,42 @@ class GitLogPagesTest {
         settle()
         assertEquals(3, loads.size, "no more pages after a complete one")
         assertEquals((1..25).map { "r$it" }, hashes())
+    }
+
+    @Test
+    fun `reads the cherry-pick or revert in progress with every first page`() {
+        val pick = GitPendingPick(GitPick.CHERRY_PICK, "r3", listOf("a.txt"))
+        pendingPicks[repo] = pick
+        pages.open(repo)
+        pages.visible = true
+        settle()
+        assertEquals(pick, pages.pending)
+
+        pages.shown(9)
+        settle()
+        assertEquals(listOf(repo), pendingLoads, "not with further pages")
+
+        pendingPicks.remove(repo)
+        pages.refresh()
+        settle()
+        assertNull(pages.pending)
+        assertEquals(listOf(repo, repo), pendingLoads)
+
+        pendingPicks[repo] = pick
+        pages.refresh()
+        settle()
+        assertEquals(pick, pages.pending)
+        val commits = history.remove(repo)
+        pages.refresh()
+        settle()
+        assertEquals(GitLogState.FAILED, pages.state.get())
+        assertNull(pages.pending, "forgotten with a failed first page")
+        history[repo] = checkNotNull(commits)
+
+        pages.refresh()
+        settle()
+        pages.open(other)
+        assertNull(pages.pending, "not for another repository")
     }
 
     @Test

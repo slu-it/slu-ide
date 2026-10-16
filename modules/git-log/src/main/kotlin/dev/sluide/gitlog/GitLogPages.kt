@@ -1,6 +1,7 @@
 package dev.sluide.gitlog
 
 import dev.sluide.git.GitCommit
+import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitLogFilter
 import dev.sluide.git.GitLogPage
 import dev.sluide.git.GitRef
@@ -62,7 +63,8 @@ internal data class GitLogRow(
  * [prefetch] rows of the last loaded one is [shown], until a page says it is complete. Each row carries its part of
  * the commit graph; a further page continues the graph of the rows before it, a reload starts it again. The refs are
  * read with [loadRefs] right after every first page and given to the rows of all pages until the next reload; if they
- * cannot be read, the rows have none.
+ * cannot be read, the rows have none. With the refs, [loadPending] reads what git is in the middle of ([pending],
+ * ADR 0042); a failed first page forgets it.
  *
  * Only the commits that pass the [filter] are loaded (ADR 0039). If its text could be a hash, [loadHashMatch] is asked
  * right after the refs for the commit it names, which then is the first row, and not repeated in any page. Under a
@@ -84,6 +86,7 @@ internal class GitLogPages(
     private val pageSize: Int = PAGE_SIZE,
     private val prefetch: Int = PREFETCH,
     private val seekLimit: Int = SEEK_LIMIT,
+    private val loadPending: (Path) -> GitInProgress? = { null },
 ) {
     /** The loaded commits with their graph, newest first. */
     val rows: ObservableList<GitLogRow> = FXCollections.observableArrayList()
@@ -104,6 +107,13 @@ internal class GitLogPages(
 
     /** The refs read with the last first page; `null` before, or if they could not be read. */
     var refs: GitRefs? = null
+        private set
+
+    /**
+     * What git is in the middle of (a cherry-pick or revert, a merge…), read with the last first page; `null` if
+     * nothing, before, or after a first page failed.
+     */
+    var pending: GitInProgress? = null
         private set
 
     /** The commits read from git for the rows, which may have one more: the commit the text names as a hash. */
@@ -162,6 +172,7 @@ internal class GitLogPages(
         rows.clear()
         layout = GraphLayout()
         refs = null
+        pending = null
         loaded = 0
         hashRow = null
         complete = false
@@ -219,7 +230,7 @@ internal class GitLogPages(
         val root = root ?: return
         loadingMore = true
         // Counted in git's commits: the rows may have the hash row on top.
-        start(root, loaded) { page, _, _ ->
+        start(root, loaded) { page, _, _, _ ->
             loadingMore = false
             if (page == null) {
                 _state.set(GitLogState.FAILED)
@@ -263,9 +274,10 @@ internal class GitLogPages(
         loadingMore = false
         _state.set(GitLogState.LOADING)
         run.incrementAndGet()
-        start(root, 0) { page, refs, match ->
+        start(root, 0) { page, refs, match, pending ->
             if (page == null) {
-                // Keeps the rows there are; no more pages until the next reload.
+                // Keeps the rows there are; no more pages until the next reload. What was in progress may be over.
+                this.pending = null
                 _state.set(GitLogState.FAILED)
                 seek = null
                 return@start
@@ -273,6 +285,7 @@ internal class GitLogPages(
             val keep = selectedHashes().toSet()
             layout = GraphLayout()
             this.refs = refs
+            this.pending = pending
             hashRow = match?.hash
             rows.setAll(layOut(listOfNotNull(match) + page.commits.filter { it.hash != match?.hash }))
             loaded = page.commits.size
@@ -309,13 +322,14 @@ internal class GitLogPages(
         }
 
     /**
-     * Loads the page after [skip] commits read from git with the current [filter]; for the first page then the refs
-     * and, if the filter's text could be a hash, the commit it names; and hands them to [handle].
+     * Loads the page after [skip] commits read from git with the current [filter]; for the first page then the refs,
+     * the cherry-pick or revert in progress and, if the filter's text could be a hash, the commit it names; and hands
+     * them to [handle].
      */
     private fun start(
         root: Path,
         skip: Int,
-        handle: (GitLogPage?, GitRefs?, GitCommit?) -> Unit,
+        handle: (GitLogPage?, GitRefs?, GitCommit?, GitInProgress?) -> Unit,
     ) {
         val current = run.get()
         val filter = filter
@@ -324,13 +338,14 @@ internal class GitLogPages(
             val page = load(root, filter, skip, pageSize)
             val first = skip == 0 && page != null
             val refs = if (first && run.get() == current) loadRefs(root) else null
+            val pending = if (first && run.get() == current) loadPending(root) else null
             val match =
                 if (first && run.get() == current && HASH_PREFIX.matches(filter.text.trim())) {
                     loadHashMatch(root, filter)
                 } else {
                     null
                 }
-            dispatch { if (run.get() == current) handle(page, refs, match) }
+            dispatch { if (run.get() == current) handle(page, refs, match, pending) }
         }
     }
 

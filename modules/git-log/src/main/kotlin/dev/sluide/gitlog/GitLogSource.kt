@@ -4,6 +4,7 @@ import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitCommitDetails
 import dev.sluide.git.GitFileDiff
+import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitLog
 import dev.sluide.git.GitLogFilter
 import dev.sluide.git.GitLogPage
@@ -37,6 +38,9 @@ internal interface GitLogSource {
 
     /** The refs of the repository; `null` on failure. */
     fun refs(root: Path): GitRefs?
+
+    /** What git is in the middle of (a cherry-pick or revert, a merge…); `null` if nothing or on failure. */
+    fun pending(root: Path): GitInProgress? = null
 
     /** The details of the commit [hash]; `null` on failure. */
     fun details(
@@ -81,6 +85,8 @@ internal class GitLogCliSource(
     override fun paths(root: Path) = gitLog.paths(root)
 
     override fun refs(root: Path) = gitLog.refs(root)
+
+    override fun pending(root: Path) = gitLog.inProgress(root)
 
     override fun details(
         root: Path,

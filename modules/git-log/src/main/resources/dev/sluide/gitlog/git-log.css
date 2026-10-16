@@ -479,6 +479,43 @@
     -fx-font-weight: bold;
 }
 
+/*
+ * The bar of a cherry-pick or revert in progress (ADR 0042), below the filter bar: like it, but on a pale warning
+ * colour, redefined for the dark theme below.
+ */
+.git-log {
+    -git-pending: #fdf1d0;
+}
+
+.git-log-pending {
+    -fx-spacing: 6;
+    -fx-padding: 2 4 2 6;
+    -fx-background-color: -fx-box-border, -git-pending;
+    -fx-background-insets: 0, 0 0 1 0;
+}
+
+.git-log-pending-text {
+    -fx-text-fill: -fx-text-background-color;
+}
+
+/*
+ * The reset dialog (ADR 0042): a window of its own, with this stylesheet added; what a hard reset loses in a warning
+ * colour, redefined for the dark theme below.
+ */
+.git-reset {
+    -git-warning: #b26a00;
+}
+
+.git-reset-explanation {
+    -fx-padding: 0 0 4 22;
+    -fx-opacity: 0.8;
+}
+
+.git-reset-warning {
+    -fx-text-fill: -git-warning;
+    -fx-opacity: 1;
+}
+
 /* Single-class selector only: JavaFX applies descendant selectors in @media blocks whatever the scheme (ADR 0009). */
 @media (prefers-color-scheme: dark) {
     .git-log {
@@ -497,5 +534,10 @@
         -git-graph-5: #4cc4c8;
         -git-graph-6: #e07fbe;
         -git-graph-7: #c8b450;
+        -git-pending: #4a3f1f;
+    }
+
+    .git-reset {
+        -git-warning: #e8a040;
     }
 }

@@ -6,6 +6,8 @@ import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommits
 import dev.sluide.git.GitFileDiff
 import dev.sluide.git.GitLog
+import dev.sluide.git.GitPendingPick
+import dev.sluide.git.GitPick
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitTreePath
@@ -47,6 +49,7 @@ import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
+import javafx.scene.layout.VBox
 import javafx.util.Callback
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignC
@@ -71,7 +74,9 @@ import java.util.concurrent.Executors
  * 0038). The diff of a changed file goes to [onShowDiff], a file to open to [onOpenFile]. Above the table, the
  * filters of the commits (ADR 0039), per window and reset by [open]. Left of them, the branches pane (ADR 0040).
  * The context menus of the table and the branches pane check out, create, rename and delete branches and tags
- * (ADR 0041); operations that change files ask [beforeFileChange] first.
+ * (ADR 0041); the table's also cherry-picks and reverts commits and resets the current branch, and a bar above the
+ * table continues or aborts a cherry-pick or revert in progress (ADR 0042). Operations that change files ask
+ * [beforeFileChange] first.
  *
  * [source] reads the commits, refs, details, changed files and diffs on the thread `sluide-git-log`; [writes] changes
  * the repository on the thread `sluide-git-write`, one operation at a time. Their results are handled through
@@ -96,7 +101,15 @@ class GitLogView internal constructor(
     private val executor =
         Executors.newSingleThreadExecutor { Thread(it, "sluide-git-log").apply { isDaemon = true } }
 
-    private val pages = GitLogPages(source::page, source::refs, source::hashMatch, executor::execute, dispatch)
+    private val pages =
+        GitLogPages(
+            source::page,
+            source::refs,
+            source::hashMatch,
+            executor::execute,
+            dispatch,
+            loadPending = source::pending,
+        )
 
     private val details =
         CommitDetails(
@@ -210,6 +223,16 @@ class GitLogView internal constructor(
             setOnAction { singleCommit()?.let { newBranch(it.hash, it.hash.take(ChangedFilesPane.SHORT_HASH)) } }
         }
     internal val newTagItem = MenuItem("New Tag…").apply { setOnAction { singleCommit()?.let { newTag(it.hash) } } }
+    internal val cherryPickItem =
+        MenuItem(pickTitle(GitPick.CHERRY_PICK)).apply { setOnAction { pick(GitPick.CHERRY_PICK) } }
+    internal val revertItem = MenuItem(pickTitle(GitPick.REVERT)).apply { setOnAction { pick(GitPick.REVERT) } }
+    internal val resetItem = MenuItem("Reset Current Branch to Here…").apply { setOnAction { resetToCommit() } }
+
+    /** Whether the refs read last have a `HEAD` commit, which a reset needs. */
+    private val hasHead = SimpleBooleanProperty(false)
+
+    /** Whether git is in the middle of something, as read last (the bar shows it). */
+    private val busy = SimpleBooleanProperty(false)
 
     /** The commits with their graph, newest first; several can be selected. */
     internal val table: TableView<GitLogRow> =
@@ -226,11 +249,24 @@ class GitLogView internal constructor(
             columnResizePolicy = SubjectTakesTheRest
             placeholder = Label().apply { textProperty().bind(pages.state.map { it.message }) }
             contextMenu =
-                ContextMenu(copyRevisionNumber, SeparatorMenuItem(), checkoutRevisionItem, newBranchItem, newTagItem)
+                ContextMenu(
+                    copyRevisionNumber,
+                    SeparatorMenuItem(),
+                    checkoutRevisionItem,
+                    newBranchItem,
+                    newTagItem,
+                    SeparatorMenuItem(),
+                    cherryPickItem,
+                    revertItem,
+                    resetItem,
+                )
             copyRevisionNumber.disableProperty().bind(Bindings.isEmpty(selectionModel.selectedItems))
             // One commit, and no operation running.
             val notOne = Bindings.size(selectionModel.selectedItems).isNotEqualTo(1).or(writer.running)
             listOf(checkoutRevisionItem, newBranchItem, newTagItem).forEach { it.disableProperty().bind(notOne) }
+            // Not while git is in the middle of something: the bar says what.
+            listOf(cherryPickItem, revertItem).forEach { it.disableProperty().bind(notOne.or(busy)) }
+            resetItem.disableProperty().bind(notOne.or(hasHead.not()))
             addEventHandler(KeyEvent.KEY_PRESSED) { event ->
                 if (COPY.match(event)) {
                     copyRevisionNumbers()
@@ -260,11 +296,42 @@ class GitLogView internal constructor(
             onDown = { table.requestFocus() }
         }
 
-    /** The filter bar above the table. */
+    /** The single cherry-pick or revert in progress the bar continues or aborts; `null` for none or anything else. */
+    private var pending: GitPendingPick? = null
+
+    private val pendingLabel = Label().apply { styleClass += "git-log-pending-text" }
+
+    internal val continueButton =
+        Button("Continue").apply {
+            styleClass += "git-log-pending-continue"
+            setOnAction { pending?.let { start(ContinuePick(it.kind, it.commit)) } }
+            disableProperty().bind(writer.running)
+        }
+
+    internal val abortButton =
+        Button("Abort").apply {
+            styleClass += "git-log-pending-abort"
+            setOnAction { pending?.let { start(AbortPick(it.kind, it.commit)) } }
+            disableProperty().bind(writer.running)
+        }
+
+    /**
+     * The bar of what git is in the middle of (ADR 0042), below the filter bar: a cherry-pick or revert to continue or
+     * abort, or a merge, rebase or sequence left to the terminal; hidden while there is nothing.
+     */
+    internal val pendingBar =
+        HBox(pendingLabel, Region().apply { HBox.setHgrow(this, Priority.ALWAYS) }, continueButton, abortButton).apply {
+            styleClass += "git-log-pending"
+            alignment = Pos.CENTER_LEFT
+            isVisible = false
+            isManaged = false
+        }
+
+    /** The filter bar and the bar of a cherry-pick or revert in progress above the table. */
     internal val commitsPane =
         BorderPane(table).apply {
             styleClass += "git-log-commits"
-            top = filterBar
+            top = VBox(filterBar, pendingBar)
         }
 
     /** The details of the selected commit. */
@@ -334,7 +401,11 @@ class GitLogView internal constructor(
         // The refs are read with every first page, before its state is set.
         pages.state.subscribe { state ->
             when (state) {
-                GitLogState.IDLE -> {}
+                GitLogState.IDLE -> {
+                    showPending(null)
+                    busy.set(false)
+                    hasHead.set(false)
+                }
 
                 GitLogState.LOADING -> {
                     branchesPane.loading()
@@ -342,6 +413,14 @@ class GitLogView internal constructor(
 
                 else -> {
                     branchesPane.show(pages.refs)
+                    showPending(pages.pending as? GitPendingPick)
+                    busy.set(pages.pending != null)
+                    hasHead.set(
+                        pages.refs
+                            ?.refs
+                            .orEmpty()
+                            .any { it.kind == GitRefKind.HEAD },
+                    )
                 }
             }
         }
@@ -630,6 +709,48 @@ class GitLogView internal constructor(
         pages.refresh()
     }
 
+    /** Shows the bar of the cherry-pick or revert [pending] in progress, or hides it for `null`. */
+    private fun showPending(pending: GitPendingPick?) {
+        this.pending = pending
+        pendingLabel.text = pending?.let(::pendingText).orEmpty()
+        pendingBar.isVisible = pending != null
+        pendingBar.isManaged = pending != null
+    }
+
+    /**
+     * Cherry-picks or reverts ([kind]) the selected commit; a merge commit relative to its first parent, once
+     * confirmed.
+     */
+    private fun pick(kind: GitPick) {
+        val commit = singleCommit() ?: return
+        if (writer.running.get()) return
+        if (commit.parents.size <= 1) return start(PickCommit(kind, commit.hash))
+        val confirmation =
+            RefConfirmation(
+                pickTitle(kind),
+                mergeQuestion(kind, commit.hash),
+                pickButton(kind),
+                PickCommit(kind, commit.hash, firstParent = true),
+            )
+        if (refConfirmation(scene?.window, confirmation).showAndWait().orElse(ButtonType.CANCEL) ==
+            confirmation.button
+        ) {
+            start(confirmation.confirmed)
+        }
+    }
+
+    /** Asks how to reset the current branch (or a detached `HEAD`) to the selected commit, then resets it. */
+    private fun resetToCommit() {
+        val commit = singleCommit() ?: return
+        if (writer.running.get()) return
+        val refs = pages.refs ?: return
+        val head = refs.refs.firstOrNull { it.kind == GitRefKind.HEAD }?.commit ?: return
+        val branch = refs.currentBranch?.removePrefix("refs/heads/")
+        val dialog = ResetDialog(scene?.window, resetTitle(branch), resetDescription(branch, head, commit.hash))
+        val mode = dialog.showAndWait().orElse(null) ?: return
+        start(ResetBranch(commit.hash, mode, branch))
+    }
+
     /** The commit of the one selected row; `null` for none or several. */
     private fun singleCommit() =
         table.selectionModel.selectedItems
@@ -676,6 +797,12 @@ class GitLogView internal constructor(
             // Done all the same (a failing post-checkout hook): the header says what was done.
             val header = outcome.done?.takeIf { outcome.result.changed } ?: operation.failure
             gitErrorDialog(scene?.window, operation.errorTitle, header, outcome.result.message).showAndWait()
+        }
+        outcome.stopped?.let { stop ->
+            // Resolve (or closing the dialog) leaves it for the user, with the bar above the table.
+            if (pickStoppedDialog(scene?.window, stop).showAndWait().orElse(null) == abortButton(stop.kind)) {
+                start(AbortPick(stop.kind, stop.commit))
+            }
         }
         if (outcome.refused.isNotEmpty()) {
             val confirmation =

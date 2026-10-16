@@ -3,14 +3,20 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitCommitDetails
+import dev.sluide.git.GitConflictReason
 import dev.sluide.git.GitFileDiff
+import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitLogFilter
 import dev.sluide.git.GitLogPage
+import dev.sluide.git.GitPendingPick
+import dev.sluide.git.GitPick
+import dev.sluide.git.GitPickResult
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitResult
 import dev.sluide.git.GitTreePath
+import dev.sluide.git.GitUncheckedConflict
 import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.Scene
@@ -20,11 +26,13 @@ import javafx.scene.control.CheckBox
 import javafx.scene.control.DialogPane
 import javafx.scene.control.Label
 import javafx.scene.control.MenuItem
+import javafx.scene.control.RadioButton
 import javafx.scene.control.TextArea
 import javafx.scene.control.TextField
 import javafx.scene.control.TreeItem
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
+import javafx.scene.layout.Region
 import javafx.stage.Stage
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
@@ -51,9 +59,11 @@ import kotlin.test.assertTrue
 class GitLogWritesUiTest {
     private val repo = Path.of("/repo")
 
+    /** A line of ten commits; h6 also merges h9. */
     private val commits =
         (1..10).map {
-            GitCommit("h$it", if (it < 10) listOf("h${it + 1}") else emptyList(), "A", "a@x", Instant.EPOCH, "S $it")
+            val parents = listOf(it + 1, if (it == 6) 9 else 0).filter { parent -> parent in 2..10 }
+            GitCommit("h$it", parents.map { parent -> "h$parent" }, "A", "a@x", Instant.EPOCH, "S $it")
         }
 
     /** HEAD and main on h1, two local branches in a folder, two remote branches and two tags. */
@@ -71,6 +81,14 @@ class GitLogWritesUiTest {
             ),
             "refs/heads/main",
         )
+
+    /** The refs the source reads. */
+    @Volatile
+    private var currentRefs = refs
+
+    /** The cherry-pick or revert in progress the source reads. */
+    @Volatile
+    private var pendingPick: GitInProgress? = null
 
     /** The skip of every page load. */
     private val loads = CopyOnWriteArrayList<Int>()
@@ -109,7 +127,9 @@ class GitLogWritesUiTest {
 
                 override fun paths(root: Path): List<GitTreePath> = emptyList()
 
-                override fun refs(root: Path) = refs
+                override fun refs(root: Path) = currentRefs
+
+                override fun pending(root: Path) = pendingPick
 
                 override fun details(
                     root: Path,
@@ -298,9 +318,27 @@ class GitLogWritesUiTest {
         robot: FxRobot,
     ) {
         openAndExpand(robot)
-        val items = listOf(view.checkoutRevisionItem, view.newBranchItem, view.newTagItem)
+        val items =
+            listOf(
+                view.checkoutRevisionItem,
+                view.newBranchItem,
+                view.newTagItem,
+                view.cherryPickItem,
+                view.revertItem,
+                view.resetItem,
+            )
         assertEquals(
-            listOf("Copy Revision Number", null, "Checkout Revision", "New Branch\u2026", "New Tag\u2026"),
+            listOf(
+                "Copy Revision Number",
+                null,
+                "Checkout Revision",
+                "New Branch\u2026",
+                "New Tag\u2026",
+                null,
+                "Cherry-Pick",
+                "Revert Commit",
+                "Reset Current Branch to Here\u2026",
+            ),
             view.table.contextMenu.items
                 .map { it.text },
         )
@@ -335,6 +373,9 @@ class GitLogWritesUiTest {
         assertTrue(view.checkoutRevisionItem.isDisable)
         assertTrue(view.newBranchItem.isDisable)
         assertTrue(view.newTagItem.isDisable)
+        assertTrue(view.cherryPickItem.isDisable)
+        assertTrue(view.revertItem.isDisable)
+        assertTrue(view.resetItem.isDisable)
         selectBranches(robot, "Local/feature/a")
         assertEquals("- - - -", paneActions())
         assertTrue(branches.copyNameItem.isDisable.not(), "reading actions stay")
@@ -531,6 +572,7 @@ class GitLogWritesUiTest {
                 "Overwrite?",
             question.headerText,
         )
+        assertEquals(0.0, (question.content as Region).height, "no empty band below the question")
         assertTrue((question.lookupButton(ButtonType.CANCEL) as Button).isDefaultButton)
         assertEquals(2, writes.calls.size, "not moved before it is confirmed")
         press(robot, question, OVERWRITE_BUTTON)
@@ -729,5 +771,276 @@ class GitLogWritesUiTest {
 
         assertEquals(0, writes.interruptions, "git is not stopped halfway")
         assertNoDialog()
+    }
+
+    @Test
+    fun `cherry-picks and reverts the selected commit after asking about unsaved editors`(robot: FxRobot) {
+        openAndExpand(robot)
+        selectRows(robot, 1)
+        val loadsBefore = loads.size
+
+        fireLater(view.cherryPickItem)
+        eventually { assertEquals("Cherry-picked h2 as 5e6f7a8b.", status(robot)) }
+        eventually { assertTrue(loads.size > loadsBefore, "refreshed") }
+
+        fireLater(view.revertItem)
+        eventually { assertEquals("Reverted h2 in 5e6f7a8b.", status(robot)) }
+
+        assertEquals(listOf("cherry-pick h2", "revert h2"), writes.calls)
+        assertEquals(listOf("sluide-git-write", "sluide-git-write"), writes.threads)
+        assertEquals(listOf("Cherry-Pick", "Revert"), fileChanges)
+        assertNoDialog()
+
+        // Cancelled, nothing runs.
+        beforeFileChange += false
+        fireLater(view.cherryPickItem)
+        assertEquals(2, writes.calls.size)
+        assertEquals("Reverted h2 in 5e6f7a8b.", status(robot))
+
+        // Nothing to commit is told in the header, not in a dialog.
+        writes.pickResult = { GitPickResult.Empty("main") }
+        fireLater(view.cherryPickItem)
+        eventually {
+            assertEquals("Nothing to cherry-pick: the changes of h2 are already on main.", status(robot))
+        }
+        assertNoDialog()
+    }
+
+    @Test
+    fun `a merge commit is cherry-picked relative to its first parent once confirmed`(robot: FxRobot) {
+        openAndExpand(robot)
+        selectRows(robot, 5)
+
+        fireLater(view.cherryPickItem)
+        var pane = awaitDialog(robot)
+        assertEquals("Cherry-Pick", (pane.scene.window as Stage).title)
+        assertEquals(
+            "h6 is a merge commit. Cherry-pick the changes it brought in relative to its first parent?",
+            pane.headerText,
+        )
+        assertTrue((pane.lookupButton(ButtonType.CANCEL) as Button).isDefaultButton)
+        assertEquals(0.0, (pane.content as Region).height, "no empty band below the question")
+        press(robot, pane, ButtonType.CANCEL)
+        assertEquals(emptyList(), writes.calls)
+        assertEquals(emptyList(), fileChanges, "not asked before the merge is confirmed")
+
+        fireLater(view.revertItem)
+        pane = awaitDialog(robot)
+        assertEquals("Revert Commit", (pane.scene.window as Stage).title)
+        press(robot, pane, REVERT_BUTTON)
+        eventually { assertEquals(listOf("revert -m 1 h6"), writes.calls) }
+        assertEquals(listOf("Revert"), fileChanges)
+    }
+
+    @Test
+    fun `a stop with conflicts offers Resolve and Abort`(robot: FxRobot) {
+        openAndExpand(robot)
+        selectRows(robot, 2)
+        writes.pickResult = { line ->
+            if (line == "cherry-pick h3") {
+                GitPickResult.Stopped(listOf("a.txt", "b/c.txt"), "error: could not apply h3")
+            } else {
+                GitPickResult.Done(FakeWrites.NEW_HEAD)
+            }
+        }
+
+        fireLater(view.cherryPickItem)
+        var pane = awaitDialog(robot)
+        assertEquals("Cherry-Pick Stopped", (pane.scene.window as Stage).title)
+        assertEquals("Cherry-pick of h3 stopped with conflicts in:", pane.headerText)
+        assertEquals("a.txt\nb/c.txt", (pane.lookup(".git-conflict-paths") as TextArea).text)
+        assertEquals("error: could not apply h3", (pane.expandableContent.lookup(".git-message") as TextArea).text)
+        assertTrue((pane.lookupButton(RESOLVE_BUTTON) as Button).isDefaultButton)
+        assertEquals("Abort Cherry-Pick", (pane.lookupButton(ABORT_CHERRY_PICK_BUTTON) as Button).text)
+        assertEquals("Cherry-pick of h3 stopped with conflicts.", status(robot))
+        press(robot, pane, RESOLVE_BUTTON)
+        assertNoDialog()
+        assertEquals(listOf("cherry-pick h3"), writes.calls)
+
+        fireLater(view.cherryPickItem)
+        pane = awaitDialog(robot)
+        press(robot, pane, ABORT_CHERRY_PICK_BUTTON)
+        eventually { assertEquals("Aborted the cherry-pick of h3.", status(robot)) }
+        assertEquals(listOf("cherry-pick h3", "cherry-pick h3", "cherry-pick --abort"), writes.calls)
+        assertEquals(listOf("Cherry-Pick", "Cherry-Pick", "Abort"), fileChanges)
+    }
+
+    @Test
+    fun `a bar shows a cherry-pick in progress and continues or aborts it`(robot: FxRobot) {
+        pendingPick = GitPendingPick(GitPick.CHERRY_PICK, "h4", listOf("a.txt", "b.txt"))
+        openAndExpand(robot)
+
+        eventually { assertTrue(view.pendingBar.isVisible) }
+        val text = view.pendingBar.lookup(".git-log-pending-text") as Label
+        assertEquals("Cherry-pick of h4 is in progress: 2 files have conflicts.", text.text)
+        assertTrue(view.pendingBar.isManaged)
+        selectRows(robot, 2)
+        assertTrue(view.cherryPickItem.isDisable, "not while one is in progress")
+        assertTrue(view.revertItem.isDisable)
+        assertFalse(view.resetItem.isDisable, "the way out")
+
+        writes.gate = CountDownLatch(1)
+        robot.interact { view.continueButton.fire() }
+        eventually { assertEquals("Continuing the cherry-pick of h4…", status(robot)) }
+        assertTrue(view.continueButton.isDisable, "while it runs")
+        assertTrue(view.abortButton.isDisable)
+        pendingPick = null
+        writes.gate?.countDown()
+        eventually { assertEquals("Cherry-picked h4 as 5e6f7a8b.", status(robot)) }
+        eventually { assertFalse(view.pendingBar.isVisible, "gone after the refresh") }
+        assertFalse(view.pendingBar.isManaged)
+        assertEquals(listOf("cherry-pick --continue"), writes.calls)
+        assertEquals(listOf("Continue"), fileChanges)
+
+        // A revert left from the terminal, its conflicts resolved.
+        pendingPick = GitPendingPick(GitPick.REVERT, "h5", emptyList())
+        robot.interact { view.refresh() }
+        eventually { assertEquals("Revert of h5 is in progress: conflicts resolved.", text.text) }
+        robot.interact { view.abortButton.fire() }
+        eventually { assertEquals("Aborted the revert of h5.", status(robot)) }
+        assertEquals(listOf("cherry-pick --continue", "revert --abort"), writes.calls)
+        assertEquals(listOf("Continue", "Abort"), fileChanges)
+    }
+
+    @Test
+    fun `continuing with conflict markers left shows an error`(robot: FxRobot) {
+        pendingPick = GitPendingPick(GitPick.CHERRY_PICK, "h4", listOf("a.txt", "b/c.txt"))
+        writes.pickResult = { GitPickResult.MarkersLeft(listOf("a.txt", "b/c.txt")) }
+        openAndExpand(robot)
+        eventually { assertTrue(view.pendingBar.isVisible) }
+
+        robot.interact { Platform.runLater { view.continueButton.fire() } }
+        val pane = awaitDialog(robot)
+        assertEquals("Continue Failed", (pane.scene.window as Stage).title)
+        assertEquals("The cherry-pick of h4 could not be continued.", pane.headerText)
+        assertEquals("Conflict markers are left in: a.txt, b/c.txt", (pane.lookup(".git-message") as TextArea).text)
+        press(robot, pane, ButtonType.OK)
+        assertTrue(view.pendingBar.isVisible)
+    }
+
+    @Test
+    fun `resets the current branch in the chosen mode, asking first when commits or local changes are lost`(
+        robot: FxRobot,
+    ) {
+        openAndExpand(robot)
+        selectRows(robot, 2)
+
+        fireLater(view.resetItem)
+        var pane = awaitDialog(robot)
+        assertEquals("Reset Current Branch", (pane.scene.window as Stage).title)
+        assertEquals("Reset branch 'main' (at h1) to h3", (pane.lookup(".git-reset-description") as Label).text)
+        val mixed = pane.lookup(".git-reset-mixed") as RadioButton
+        assertTrue(mixed.isSelected)
+        assertFalse((pane.lookup(".git-reset-soft") as RadioButton).isSelected)
+        val warning = pane.lookup(".git-reset-warning") as Label
+        assertTrue(warning.text.contains("Local changes to tracked files will be lost."))
+        press(robot, pane, RESET_BUTTON)
+        eventually { assertEquals("Reset main to h3 (mixed); it was at h1.", status(robot)) }
+        assertEquals(listOf("reset --mixed h3"), writes.calls)
+        assertEquals(emptyList(), fileChanges, "files stay")
+
+        writes.unreachable = 2
+        writes.localChanges = 3
+        fireLater(view.resetItem)
+        pane = awaitDialog(robot)
+        robot.interact { (pane.lookup(".git-reset-hard") as RadioButton).isSelected = true }
+        press(robot, pane, RESET_BUTTON)
+        val question = awaitDialog(robot)
+        assertEquals("Reset Current Branch", (question.scene.window as Stage).title)
+        assertEquals(
+            "2 commits will no longer be on any branch or tag; they stay reachable through the reflog for a while." +
+                "\nLocal changes in 3 files will be lost.",
+            question.headerText,
+        )
+        assertEquals(0.0, (question.content as Region).height, "no empty band below the question")
+        assertTrue((question.lookupButton(ButtonType.CANCEL) as Button).isDefaultButton)
+        assertEquals(listOf("Reset"), fileChanges)
+        press(robot, question, ButtonType.CANCEL)
+        assertEquals(1, writes.calls.size, "nothing reset")
+
+        fireLater(view.resetItem)
+        pane = awaitDialog(robot)
+        robot.interact { (pane.lookup(".git-reset-hard") as RadioButton).isSelected = true }
+        press(robot, pane, RESET_BUTTON)
+        press(robot, awaitDialog(robot), RESET_BUTTON)
+        eventually { assertEquals("Reset main to h3 (hard); it was at h1.", status(robot)) }
+        assertEquals("reset --hard h3", writes.calls.last())
+        assertEquals(listOf("Reset", "Reset"), fileChanges, "asked once per reset, not again when confirmed")
+
+        // Soft asks nothing about editors; Cancel resets nothing.
+        writes.unreachable = 0
+        fireLater(view.resetItem)
+        pane = awaitDialog(robot)
+        robot.interact { (pane.lookup(".git-reset-soft") as RadioButton).isSelected = true }
+        press(robot, pane, RESET_BUTTON)
+        eventually { assertEquals("reset --soft h3", writes.calls.last()) }
+        fireLater(view.resetItem)
+        press(robot, awaitDialog(robot), ButtonType.CANCEL)
+        assertEquals(3, writes.calls.size)
+        assertEquals(listOf("Reset", "Reset"), fileChanges)
+    }
+
+    @Test
+    fun `a detached HEAD is reset as HEAD, and without a HEAD commit there is no reset`(robot: FxRobot) {
+        currentRefs = GitRefs(refs.refs, currentBranch = null)
+        openAndExpand(robot)
+        selectRows(robot, 3)
+
+        fireLater(view.resetItem)
+        val pane = awaitDialog(robot)
+        assertEquals("Reset HEAD", (pane.scene.window as Stage).title)
+        assertEquals("Reset detached HEAD (at h1) to h4", (pane.lookup(".git-reset-description") as Label).text)
+        press(robot, pane, RESET_BUTTON)
+        eventually { assertEquals("Reset HEAD to h4 (mixed); it was at h1.", status(robot)) }
+
+        currentRefs = GitRefs(refs.refs.filter { it.kind != GitRefKind.HEAD }, "refs/heads/main")
+        robot.interact { view.refresh() }
+        eventually { assertTrue(view.resetItem.isDisable) }
+        assertFalse(view.cherryPickItem.isDisable)
+    }
+
+    @Test
+    fun `continuing with conflicts that cannot be checked asks first`(robot: FxRobot) {
+        pendingPick = GitPendingPick(GitPick.CHERRY_PICK, "h4", listOf("bin.dat", "m.txt"))
+        writes.pickResult = { line ->
+            if (line.endsWith("as on disk")) {
+                GitPickResult.Done(FakeWrites.NEW_HEAD)
+            } else {
+                GitPickResult.Unchecked(
+                    listOf(
+                        GitUncheckedConflict("bin.dat", GitConflictReason.BINARY),
+                        GitUncheckedConflict("m.txt", GitConflictReason.DELETED_ON_ONE_SIDE),
+                    ),
+                )
+            }
+        }
+        openAndExpand(robot)
+        eventually { assertTrue(view.pendingBar.isVisible) }
+
+        robot.interact { Platform.runLater { view.continueButton.fire() } }
+        var pane = awaitDialog(robot)
+        assertEquals("Continue Cherry-Pick", (pane.scene.window as Stage).title)
+        assertEquals(
+            "These conflicted files cannot be checked for conflict markers. Commit them as they are on disk?",
+            pane.headerText,
+        )
+        assertEquals(
+            "bin.dat \u2014 binary, the version on disk will be committed\n" +
+                "m.txt \u2014 deleted on one side, the file on disk will be committed",
+            (pane.lookup(".git-confirmation-details") as TextArea).text,
+        )
+        assertTrue((pane.lookupButton(ButtonType.CANCEL) as Button).isDefaultButton)
+        press(robot, pane, ButtonType.CANCEL)
+        assertEquals(listOf("cherry-pick --continue"), writes.calls)
+
+        robot.interact { Platform.runLater { view.continueButton.fire() } }
+        pane = awaitDialog(robot)
+        press(robot, pane, COMMIT_AS_ON_DISK_BUTTON)
+        eventually { assertEquals("Cherry-picked h4 as 5e6f7a8b.", status(robot)) }
+        assertEquals(
+            listOf("cherry-pick --continue", "cherry-pick --continue", "cherry-pick --continue as on disk"),
+            writes.calls,
+        )
+        assertEquals(listOf("Continue", "Continue"), fileChanges, "not asked again once confirmed")
     }
 }
