@@ -9,7 +9,6 @@ import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitCli
-import dev.sluide.git.GitCommit
 import dev.sluide.git.GitLog
 import dev.sluide.git.GitStatus
 import dev.sluide.git.GitStatusService
@@ -38,6 +37,7 @@ import javafx.scene.control.Menu
 import javafx.scene.control.MenuBar
 import javafx.scene.control.MenuItem
 import javafx.scene.control.SplitPane
+import javafx.scene.control.TableCell
 import javafx.scene.control.TableView
 import javafx.scene.control.TreeCell
 import javafx.scene.input.KeyCode
@@ -395,7 +395,7 @@ class MainWindowUiTest {
         assertEquals(0.3 * logSplit.height, gitLogView.height, DIVIDER_SLACK + 4, "the lower 30 %")
         val table = robot.lookup(".git-log-table").queryAs(TableView::class.java)
         assertSame<Node?>(table, stage.scene.focusOwner)
-        eventually(robot) { assertEquals(listOf("Initial commit"), table.items.map { (it as GitCommit).subject }) }
+        eventually(robot) { assertEquals(listOf("Initial commit"), shownSubjects(robot)) }
 
         // A commit changes the .git folder, which reloads the expanded log.
         runGit(
@@ -410,7 +410,7 @@ class MainWindowUiTest {
             "Second",
         )
         eventually(robot) {
-            assertEquals(listOf("Second", "Initial commit"), table.items.map { (it as GitCommit).subject })
+            assertEquals(listOf("Second", "Initial commit"), shownSubjects(robot))
         }
 
         // The window's height goes to the editor area.
@@ -598,6 +598,15 @@ class MainWindowUiTest {
                 .map { node -> node.styleClass.single { it != "file-marker" } }
         return nameColour + bubbles
     }
+
+    /** The subjects in the git log's Subject cells that show a commit, top to bottom. */
+    private fun shownSubjects(robot: FxRobot): List<String> =
+        robot
+            .lookup(".git-graph-cell")
+            .queryAllAs(TableCell::class.java)
+            .filter { !it.isEmpty && it.tableRow?.isVisible == true }
+            .sortedBy { it.index }
+            .map { it.text }
 
     /** Repeats [assertion] on the FX thread until it passes or 20 s are over. */
     private fun eventually(

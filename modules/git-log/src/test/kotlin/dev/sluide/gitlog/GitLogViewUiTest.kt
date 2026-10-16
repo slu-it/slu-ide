@@ -2,6 +2,7 @@ package dev.sluide.gitlog
 
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitLogPage
+import javafx.application.ColorScheme
 import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.Node
@@ -14,6 +15,11 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
+import javafx.scene.paint.Paint
+import javafx.scene.shape.Circle
+import javafx.scene.shape.LineTo
+import javafx.scene.shape.MoveTo
+import javafx.scene.text.Text
 import javafx.stage.Stage
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
@@ -30,9 +36,11 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import javafx.scene.shape.Path as ShapePath
 
 /** Shows the real git log view with a fake loader. Needs a display, see the `uiTest` Gradle task. */
 @Tag("ui")
@@ -81,13 +89,14 @@ class GitLogViewUiTest {
         view.close()
     }
 
+    /** A linear history of [count] commits, newest first. */
     private fun commits(
         count: Int,
         prefix: String = "h",
     ) = (1..count).map {
         GitCommit(
             "$prefix$it",
-            emptyList(),
+            if (it < count) listOf("$prefix${it + 1}") else emptyList(),
             "Author $it",
             "a$it@example.com",
             Instant.ofEpochSecond(it * 60L),
@@ -155,7 +164,7 @@ class GitLogViewUiTest {
             .queryAllAs(TableRow::class.java)
             .filter { !it.isEmpty && it.item != null }
             .sortedBy { it.index }
-            .map { (it.item as GitCommit).subject }
+            .map { (it.item as GitLogRow).commit.subject }
 
     private fun placeholder(robot: FxRobot) =
         robot.lookup(".git-log-table .placeholder .label").queryAs(Label::class.java).text
@@ -296,7 +305,7 @@ class GitLogViewUiTest {
             "Subject 1200",
             view.table.items
                 .last()
-                .subject,
+                .commit.subject,
         )
     }
 
@@ -313,10 +322,10 @@ class GitLogViewUiTest {
                 "new1",
                 view.table.items
                     .first()
-                    .hash,
+                    .commit.hash,
             )
         }
-        assertEquals("h3", view.table.selectionModel.selectedItem.hash)
+        assertEquals("h3", view.table.selectionModel.selectedItem.commit.hash)
         assertEquals(
             listOf(3),
             view.table.selectionModel.selectedIndices
@@ -397,9 +406,247 @@ class GitLogViewUiTest {
         gate?.countDown()
         gate = null
 
-        eventually { assertEquals(listOf("o1", "o2", "o3"), view.table.items.map { it.hash }) }
+        eventually { assertEquals(listOf("o1", "o2", "o3"), view.table.items.map { it.commit.hash }) }
         Thread.sleep(100)
         WaitForAsyncUtils.waitForFxEvents()
-        assertEquals(listOf("o1", "o2", "o3"), view.table.items.map { it.hash })
+        assertEquals(listOf("o1", "o2", "o3"), view.table.items.map { it.commit.hash })
+    }
+
+    @Test
+    fun `draws the commit graph left of the subject, in the colours of the theme`(robot: FxRobot) {
+        fun commit(
+            hash: String,
+            vararg parents: String,
+        ) = GitCommit(hash, parents.toList(), "A", "a@example.com", Instant.EPOCH, "Subject $hash")
+        history = listOf(commit("m", "b", "f"), commit("f", "a"), commit("b", "a"), commit("a"))
+        openAndExpand(robot)
+
+        val cells = robot.lookup(".git-graph-cell").queryAllAs(GraphCell::class.java).filter { it.item != null }
+        val merge = cells.single { it.item.commit.hash == "m" }
+        assertEquals(2, merge.item.graph.width)
+        assertEquals(2 * LANE_WIDTH, merge.graph.width)
+        assertEquals(merge.height, merge.graph.height, "the graph spans the row")
+        val text = merge.lookup(".text") as Text
+        assertEquals("Subject m", text.text)
+        assertTrue(text.boundsInParent.minX >= merge.graph.boundsInParent.maxX, "the text starts after the graph")
+        // The lane continues down, the merged one opens to the right; nothing above the first commit.
+        val edges = merge.graph.childrenUnmodifiable.filterIsInstance<ShapePath>()
+        assertEquals(2, edges.single { "git-graph-edge-0" in it.styleClass }.elements.size)
+        assertEquals(2, edges.single { "git-graph-edge-1" in it.styleClass }.elements.size)
+
+        // The fork row is only one lane wide below, but two above.
+        val fork = cells.single { it.item.commit.hash == "a" }
+        assertEquals(2 * LANE_WIDTH, fork.graph.width)
+
+        fun laneColour(scheme: ColorScheme): Paint {
+            robot.interact { view.scene.preferences.colorScheme = scheme }
+            WaitForAsyncUtils.waitForFxEvents()
+            return edges.single { "git-graph-edge-0" in it.styleClass }.stroke
+        }
+        val light = laneColour(ColorScheme.LIGHT)
+        val dark = laneColour(ColorScheme.DARK)
+        assertNotEquals(light, dark)
+        assertEquals(light, laneColour(ColorScheme.LIGHT))
+    }
+
+    private fun commit(
+        hash: String,
+        vararg parents: String,
+    ) = GitCommit(hash, parents.toList(), "A", "a@example.com", Instant.EPOCH, "Subject $hash")
+
+    /** A line of the graph: from (x, y) to (x, y) in a colour index. */
+    private data class Segment(
+        val fromX: Double,
+        val fromY: Double,
+        val toX: Double,
+        val toY: Double,
+        val colour: Int,
+    )
+
+    /** The coloured lines [pane] draws (not its halo). */
+    private fun drawn(pane: GraphPane): Set<Segment> =
+        pane.childrenUnmodifiable
+            .filterIsInstance<ShapePath>()
+            .filter { "git-graph-edge" in it.styleClass }
+            .flatMap { path ->
+                val colour =
+                    path.styleClass
+                        .single { it.matches(Regex("git-graph-edge-\\d")) }
+                        .last()
+                        .digitToInt()
+                path.elements.chunked(2).map { (move, line) ->
+                    move as MoveTo
+                    line as LineTo
+                    Segment(move.x, move.y, line.x, line.y, colour)
+                }
+            }.toSet()
+
+    /** The lines [row] should be drawn with at [height]: all but those with both ends beyond the lane cap. */
+    private fun expected(
+        row: GraphRow,
+        height: Double,
+    ): Set<Segment> {
+        fun x(position: Int) = (position + 0.5) * LANE_WIDTH
+        val upper = (0 until row.upperEdges).map { Triple(row.upperFrom(it), row.upperTo(it), row.upperColour(it)) }
+        val lower = (0 until row.lowerEdges).map { Triple(row.lowerFrom(it), row.lowerTo(it), row.lowerColour(it)) }
+        return (
+            upper.map { (from, to, colour) -> Segment(x(from), 0.0, x(to), height / 2, colour) to (from to to) } +
+                lower.map { (from, to, colour) -> Segment(x(from), height / 2, x(to), height, colour) to (from to to) }
+        ).filter { (_, ends) -> ends.first < MAX_LANES || ends.second < MAX_LANES }
+            .map { it.first }
+            .toSet()
+    }
+
+    /** Asserts that [cell] shows exactly the graph of its row, or none when it is empty. */
+    private fun assertDrawn(cell: GraphCell) {
+        val item = cell.item
+        if (item == null) {
+            assertNull(cell.graphic, "empty cell ${cell.index}")
+            assertNull(cell.graph.parent, "empty cell ${cell.index}")
+            return
+        }
+        val graph = item.graph
+        assertSame<Node?>(cell.graph, cell.graphic)
+        assertEquals(minOf(graph.width, MAX_LANES) * LANE_WIDTH, cell.graph.width, "row ${cell.index}")
+        assertEquals(expected(graph, cell.height), drawn(cell.graph), "row ${cell.index}")
+        val dot =
+            cell.graph.childrenUnmodifiable
+                .filterIsInstance<Circle>()
+                .single { "git-graph-dot" in it.styleClass }
+        assertEquals((graph.dot + 0.5) * LANE_WIDTH, dot.centerX, "row ${cell.index}")
+        assertEquals(cell.height / 2, dot.centerY, "row ${cell.index}")
+        assertTrue("git-graph-dot-${graph.colour}" in dot.styleClass, "row ${cell.index}: ${dot.styleClass}")
+        assertEquals(
+            1,
+            dot.styleClass.count { it.startsWith("git-graph-dot-") },
+            "row ${cell.index}: ${dot.styleClass}",
+        )
+    }
+
+    private fun graphCells(robot: FxRobot) =
+        robot
+            .lookup(".git-graph-cell")
+            .queryAllAs(GraphCell::class.java)
+            .filter { it.tableRow?.isVisible == true && it.index >= 0 }
+
+    @Test
+    fun `selected rows draw a halo in the table's background colour under the graph`(robot: FxRobot) {
+        history = listOf(commit("m", "b", "f"), commit("f", "a"), commit("b", "a"), commit("a"))
+        openAndExpand(robot)
+        robot.interact { view.table.selectionModel.select(1) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val cells = graphCells(robot).filter { it.item != null }.associateBy { it.index }
+        val selected = cells.getValue(1)
+        val halo = selected.graph.halo
+        assertTrue(halo.isVisible)
+        // Modena: -fx-box-border, -fx-control-inner-background
+        assertEquals(
+            view.table.background.fills
+                .last()
+                .fill,
+            halo.stroke,
+            "the table's background",
+        )
+        assertEquals(drawn(selected.graph).size * 2, halo.elements.size, "under every line")
+        val haloDot = selected.graph.childrenUnmodifiable.single { "git-graph-halo-dot" in it.styleClass }
+        assertTrue(haloDot.isVisible)
+        for (index in listOf(0, 2, 3)) {
+            assertFalse(
+                cells
+                    .getValue(index)
+                    .graph.halo.isVisible,
+                "row $index",
+            )
+            assertFalse(
+                cells
+                    .getValue(index)
+                    .graph.childrenUnmodifiable
+                    .single { "git-graph-halo-dot" in it.styleClass }
+                    .isVisible,
+                "row $index",
+            )
+        }
+    }
+
+    @Test
+    fun `lines with one end beyond 30 lanes are drawn up to the edge, those with both ends are left out`(
+        robot: FxRobot,
+    ) {
+        val layout = GraphLayout()
+        repeat(36) { layout.next("t$it", listOf("p$it")) }
+        val merge = layout.next("p3", listOf("q", "p35"))
+        val root = layout.next("p0", emptyList())
+
+        fun x(position: Int) = (position + 0.5) * LANE_WIDTH
+
+        robot.interact {
+            for (row in listOf(merge, root)) {
+                val pane = GraphPane()
+                pane.row = row
+                pane.resize(pane.prefWidth(-1.0), 24.0)
+                pane.draw()
+                assertEquals(MAX_LANES * LANE_WIDTH, pane.width)
+                assertEquals(expected(row, 24.0), drawn(pane))
+                assertTrue(drawn(pane).none { it.fromX > x(MAX_LANES - 1) && it.toX > x(MAX_LANES - 1) })
+            }
+        }
+        assertTrue(Segment(x(3), 12.0, x(35), 24.0, 35 % GRAPH_COLOURS) in expected(merge, 24.0), "the merge line")
+        assertTrue(Segment(x(30), 12.0, x(29), 24.0, 30 % GRAPH_COLOURS) in expected(root, 24.0), "the shifting lane")
+    }
+
+    @Test
+    fun `recycled cells draw the graph of their new row`(robot: FxRobot) {
+        // Branches merged now and then, so that the rows' graphs differ.
+        history =
+            (1..1200).map { i ->
+                val parents =
+                    listOfNotNull(
+                        if (i <
+                            1200
+                        ) {
+                            "h${i + 1}"
+                        } else {
+                            null
+                        },
+                        if (i % 5 == 0 && i < 1190) "h${i + 3 + i % 4}" else null,
+                    )
+                commit("h$i", *parents.toTypedArray())
+            }
+        openAndExpand(robot)
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val before = graphCells(robot).associateWith { it.item?.commit?.hash }
+        robot.interact { for (cell in graphCells(robot)) assertDrawn(cell) }
+        for (target in listOf(203, 37, 451)) {
+            robot.interact { view.table.scrollTo(target) }
+            WaitForAsyncUtils.waitForFxEvents()
+            robot.interact { for (cell in graphCells(robot)) assertDrawn(cell) }
+        }
+        assertTrue(
+            before.any { (cell, hash) ->
+                cell.item != null && cell.item.commit.hash != hash
+            },
+            "cells were reused",
+        )
+    }
+
+    @Test
+    fun `cells emptied by a reload with fewer rows show no graph`(robot: FxRobot) {
+        history = listOf(commit("m", "b", "f"), commit("f", "a"), commit("b", "a"), commit("a"))
+        openAndExpand(robot)
+        robot.interact { assertEquals(4, graphCells(robot).count { it.item != null }) }
+
+        history = listOf(commit("x", "y"), commit("y"))
+        robot.interact { view.refresh() }
+        eventually { assertEquals(listOf("x", "y"), view.table.items.map { it.commit.hash }) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        robot.interact {
+            val cells = graphCells(robot)
+            assertEquals(2, cells.count { it.item != null })
+            assertTrue(cells.any { it.index in 2..3 && it.item == null })
+            for (cell in cells) assertDrawn(cell)
+        }
     }
 }

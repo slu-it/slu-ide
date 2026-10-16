@@ -21,10 +21,17 @@ internal enum class GitLogState(
     FAILED("The git log could not be read."),
 }
 
+/** A row of the git log: a commit and its part of the commit graph (ADR 0036). */
+internal data class GitLogRow(
+    val commit: GitCommit,
+    val graph: GraphRow,
+)
+
 /**
  * Which commits the git log shows and when they are loaded (ADR 0035), without JavaFX controls: nothing is loaded
  * until the log is [visible]; then a first page of [pageSize] commits, and the next page whenever a row within
- * [prefetch] rows of the last loaded one is [shown], until a page says it is complete.
+ * [prefetch] rows of the last loaded one is [shown], until a page says it is complete. Each row carries its part of
+ * the commit graph; a further page continues the graph of the rows before it, a reload starts it again.
  *
  * [load] runs on [background], its results are handled through [dispatch]. Every [open] and reload starts a new run;
  * results of older runs are dropped. Used on the JavaFX thread (or whatever [dispatch] stands for in tests).
@@ -36,8 +43,8 @@ internal class GitLogPages(
     private val pageSize: Int = PAGE_SIZE,
     private val prefetch: Int = PREFETCH,
 ) {
-    /** The loaded commits, newest first. */
-    val rows: ObservableList<GitCommit> = FXCollections.observableArrayList()
+    /** The loaded commits with their graph, newest first. */
+    val rows: ObservableList<GitLogRow> = FXCollections.observableArrayList()
 
     private val _state = ReadOnlyObjectWrapper(GitLogState.IDLE)
     val state: ReadOnlyObjectProperty<GitLogState> = _state.readOnlyProperty
@@ -49,6 +56,7 @@ internal class GitLogPages(
     var select: (List<Int>) -> Unit = {}
 
     private var root: Path? = null
+    private var layout = GraphLayout()
 
     /** The current run; read on the background thread to skip runs that are no longer wanted. */
     private val run = AtomicLong()
@@ -68,6 +76,7 @@ internal class GitLogPages(
         this.root = root
         run.incrementAndGet()
         rows.clear()
+        layout = GraphLayout()
         complete = false
         loadingMore = false
         _state.set(GitLogState.IDLE)
@@ -92,7 +101,7 @@ internal class GitLogPages(
             if (page == null) {
                 _state.set(GitLogState.FAILED)
             } else {
-                rows.addAll(page.commits)
+                rows.addAll(layOut(page.commits))
                 complete = page.complete
             }
         }
@@ -117,12 +126,15 @@ internal class GitLogPages(
                 return@start
             }
             val keep = selectedHashes().toSet()
-            rows.setAll(page.commits)
+            layout = GraphLayout()
+            rows.setAll(layOut(page.commits))
             complete = page.complete
             _state.set(if (rows.isEmpty()) GitLogState.EMPTY else GitLogState.LOADED)
-            if (keep.isNotEmpty()) select(rows.indices.filter { rows[it].hash in keep })
+            if (keep.isNotEmpty()) select(rows.indices.filter { rows[it].commit.hash in keep })
         }
     }
+
+    private fun layOut(commits: List<GitCommit>) = commits.map { GitLogRow(it, layout.next(it.hash, it.parents)) }
 
     private fun start(
         root: Path,

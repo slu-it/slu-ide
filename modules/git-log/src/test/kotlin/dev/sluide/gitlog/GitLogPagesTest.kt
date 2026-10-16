@@ -35,10 +35,29 @@ class GitLogPagesTest {
             prefetch = 3,
         )
 
+    /** A first-parent line of [count] commits; every fourth also merges the commit two below it. */
     private fun commits(
         prefix: String,
         count: Int,
-    ) = (1..count).map { GitCommit("$prefix$it", emptyList(), "A", "a@example.com", Instant.EPOCH, "Commit $it") }
+    ) = (1..count).map {
+        val parents = listOf(it + 1, if (it % 4 == 0) it + 2 else 0).filter { parent -> parent in 1..count }
+        GitCommit(
+            "$prefix$it",
+            parents.map { parent ->
+                "$prefix$parent"
+            },
+            "A",
+            "a@example.com",
+            Instant.EPOCH,
+            "Commit $it",
+        )
+    }
+
+    /** The graph rows of [commits] laid out at once. */
+    private fun graph(commits: List<GitCommit>): List<GraphRow> {
+        val layout = GraphLayout()
+        return commits.map { layout.next(it.hash, it.parents) }
+    }
 
     /** Runs the background work, then what it dispatched, as the executor and the JavaFX thread would. */
     private fun settle() {
@@ -48,7 +67,7 @@ class GitLogPagesTest {
         }
     }
 
-    private fun hashes() = pages.rows.map { it.hash }
+    private fun hashes() = pages.rows.map { it.commit.hash }
 
     @Test
     fun `loads nothing until visible, then the first page once`() {
@@ -184,5 +203,29 @@ class GitLogPagesTest {
         settle()
 
         assertEquals((1..10).map { "r$it" }, hashes())
+    }
+
+    @Test
+    fun `rows carry the commit graph, continued by further pages and restarted by a reload`() {
+        pages.open(repo)
+        pages.visible = true
+        settle()
+        assertEquals(graph(commits("r", 25).take(10)), pages.rows.map { it.graph })
+
+        pages.shown(9)
+        settle()
+        pages.shown(19)
+        settle()
+        assertEquals(graph(commits("r", 25)), pages.rows.map { it.graph }, "as if laid out at once")
+        assertTrue(pages.rows.any { it.graph.width > 1 }, "the merges open lanes across the page boundaries")
+
+        history[repo] = commits("new", 1) + commits("r", 25)
+        pages.refresh()
+        settle()
+        assertEquals(graph(history.getValue(repo).take(10)), pages.rows.map { it.graph })
+
+        pages.open(other)
+        settle()
+        assertEquals(graph(commits("o", 3)), pages.rows.map { it.graph })
     }
 }

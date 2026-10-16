@@ -1,11 +1,11 @@
 package dev.sluide.gitlog
 
-import dev.sluide.git.GitCommit
 import dev.sluide.git.GitLog
 import dev.sluide.git.GitLogPage
 import javafx.application.Platform
 import javafx.beans.binding.Bindings
 import javafx.beans.property.BooleanProperty
+import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.beans.property.ReadOnlyStringWrapper
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.event.EventTarget
@@ -125,17 +125,17 @@ class GitLogView(
 
     private val copyRevisionNumber = MenuItem("Copy Revision Number").apply { setOnAction { copyRevisionNumbers() } }
 
-    /** The commits, newest first; several can be selected. */
-    internal val table: TableView<GitCommit> =
-        object : TableView<GitCommit>(pages.rows) {
+    /** The commits with their graph, newest first; several can be selected. */
+    internal val table: TableView<GitLogRow> =
+        object : TableView<GitLogRow>(pages.rows) {
             override fun createDefaultSkin() = PagingSkin(this, pages::shown)
         }.apply {
             styleClass += "git-log-table"
             selectionModel.selectionMode = SelectionMode.MULTIPLE
             columns.addAll(
-                column("Subject", 600.0) { it.subject }.apply { minWidth = 80.0 },
-                column("Author", 160.0) { it.author }.apply { minWidth = 50.0 },
-                column("Date", 140.0) { dateFormat.format(it.authorTime) }.apply { minWidth = 50.0 },
+                subjectColumn(),
+                column("Author", 160.0) { it.commit.author }.apply { minWidth = 50.0 },
+                column("Date", 140.0) { dateFormat.format(it.commit.authorTime) }.apply { minWidth = 50.0 },
             )
             columnResizePolicy = SubjectTakesTheRest
             placeholder = Label().apply { textProperty().bind(pages.state.map { it.message }) }
@@ -156,7 +156,7 @@ class GitLogView(
         styleClass += "git-log"
         stylesheets += checkNotNull(GitLogView::class.java.getResource("git-log.css")).toExternalForm()
         top = header
-        pages.selectedHashes = { table.selectionModel.selectedItems.map { it.hash } }
+        pages.selectedHashes = { table.selectionModel.selectedItems.map { it.commit.hash } }
         pages.select = { indices ->
             table.selectionModel.clearSelection()
             indices.forEach(table.selectionModel::select)
@@ -187,7 +187,7 @@ class GitLogView(
         val hashes =
             table.selectionModel.selectedIndices
                 .sorted()
-                .map { pages.rows[it].hash }
+                .map { pages.rows[it].commit.hash }
         if (hashes.isEmpty()) return
         Clipboard.getSystemClipboard().setContent(ClipboardContent().apply { putString(hashes.joinToString("\n")) })
     }
@@ -200,13 +200,23 @@ class GitLogView(
     private fun column(
         title: String,
         width: Double,
-        value: (GitCommit) -> String,
-    ) = TableColumn<GitCommit, String>(title).apply {
+        value: (GitLogRow) -> String,
+    ) = TableColumn<GitLogRow, String>(title).apply {
         prefWidth = width
         // Sorting would mix the order the pages are loaded in.
         isSortable = false
         setCellValueFactory { ReadOnlyStringWrapper(value(it.value)).readOnlyProperty }
     }
+
+    /** The subject with the commit graph left of it (ADR 0036). */
+    private fun subjectColumn() =
+        TableColumn<GitLogRow, GitLogRow>("Subject").apply {
+            prefWidth = 600.0
+            minWidth = 80.0
+            isSortable = false
+            setCellValueFactory { ReadOnlyObjectWrapper(it.value).readOnlyProperty }
+            setCellFactory { GraphCell() }
+        }
 
     private fun Node.contains(target: EventTarget?): Boolean {
         var node = target as? Node
@@ -220,12 +230,12 @@ class GitLogView(
 
 /** Reports the last visible row after every layout and scroll, so the next page is loaded in time. */
 private class PagingSkin(
-    table: TableView<GitCommit>,
+    table: TableView<GitLogRow>,
     private val shown: (Int) -> Unit,
-) : TableViewSkin<GitCommit>(table) {
+) : TableViewSkin<GitLogRow>(table) {
     // Called by the super constructor: uses `shown` only later, in layouts and scrolls.
-    override fun createVirtualFlow(): VirtualFlow<TableRow<GitCommit>> =
-        object : VirtualFlow<TableRow<GitCommit>>() {
+    override fun createVirtualFlow(): VirtualFlow<TableRow<GitLogRow>> =
+        object : VirtualFlow<TableRow<GitLogRow>>() {
             override fun layoutChildren() {
                 super.layoutChildren()
                 report()
@@ -250,7 +260,7 @@ private object SubjectTakesTheRest :
     Callback<TableView.ResizeFeatures<*>, Boolean> {
     override fun call(features: TableView.ResizeFeatures<*>): Boolean {
         @Suppress("UNCHECKED_CAST")
-        val resize = features as TableView.ResizeFeatures<GitCommit>
+        val resize = features as TableView.ResizeFeatures<GitLogRow>
         val columns = resize.table.visibleLeafColumns
         if (columns.isEmpty()) return false
         if (resize.column != null) {

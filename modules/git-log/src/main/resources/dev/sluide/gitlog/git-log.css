@@ -39,3 +39,81 @@
     -fx-background-insets: 0;
     -fx-padding: 0;
 }
+
+/* The commit graph (ADR 0036): lane colours as looked-up colours, redefined for the dark theme below. */
+.git-log {
+    -git-graph-0: #2f6fd0;
+    -git-graph-1: #d1891e;
+    -git-graph-2: #3a9a47;
+    -git-graph-3: #c0392b;
+    -git-graph-4: #8e5bd0;
+    -git-graph-5: #1a9aa0;
+    -git-graph-6: #c2549c;
+    -git-graph-7: #8a7a1c;
+}
+
+.git-graph-edge {
+    -fx-stroke-width: 2;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+}
+
+.git-graph-dot {
+    -fx-stroke: null;
+}
+
+/*
+ * A halo under the lines and the dot (2.5 px wider, GraphCell.kt) in the table's own background colour, shown only in
+ * selected rows, so that lanes close to the selection bar's colour stay visible. Not tied to the table's focus, which
+ * follows the window's focus; the unfocused bar is pale, where the halo hardly shows.
+ */
+.git-graph-halo {
+    visibility: hidden;
+    -fx-stroke: -fx-control-inner-background;
+    -fx-stroke-width: 4.5;
+    -fx-stroke-line-cap: round;
+    -fx-stroke-line-join: round;
+}
+
+.git-graph-halo-dot {
+    visibility: hidden;
+    -fx-fill: -fx-control-inner-background;
+    -fx-stroke: null;
+}
+
+.table-row-cell:filled:selected .git-graph-halo,
+.table-row-cell:filled:selected .git-graph-halo-dot {
+    visibility: visible;
+}
+
+.git-graph-edge-0 { -fx-stroke: -git-graph-0; }
+.git-graph-edge-1 { -fx-stroke: -git-graph-1; }
+.git-graph-edge-2 { -fx-stroke: -git-graph-2; }
+.git-graph-edge-3 { -fx-stroke: -git-graph-3; }
+.git-graph-edge-4 { -fx-stroke: -git-graph-4; }
+.git-graph-edge-5 { -fx-stroke: -git-graph-5; }
+.git-graph-edge-6 { -fx-stroke: -git-graph-6; }
+.git-graph-edge-7 { -fx-stroke: -git-graph-7; }
+
+.git-graph-dot-0 { -fx-fill: -git-graph-0; }
+.git-graph-dot-1 { -fx-fill: -git-graph-1; }
+.git-graph-dot-2 { -fx-fill: -git-graph-2; }
+.git-graph-dot-3 { -fx-fill: -git-graph-3; }
+.git-graph-dot-4 { -fx-fill: -git-graph-4; }
+.git-graph-dot-5 { -fx-fill: -git-graph-5; }
+.git-graph-dot-6 { -fx-fill: -git-graph-6; }
+.git-graph-dot-7 { -fx-fill: -git-graph-7; }
+
+/* Single-class selector only: JavaFX applies descendant selectors in @media blocks whatever the scheme (ADR 0009). */
+@media (prefers-color-scheme: dark) {
+    .git-log {
+        -git-graph-0: #6ea0f0;
+        -git-graph-1: #f0a848;
+        -git-graph-2: #6cc070;
+        -git-graph-3: #e8705f;
+        -git-graph-4: #b38cf0;
+        -git-graph-5: #4cc4c8;
+        -git-graph-6: #e07fbe;
+        -git-graph-7: #c8b450;
+    }
+}
