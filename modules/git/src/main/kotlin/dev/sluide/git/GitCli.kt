@@ -5,6 +5,8 @@ import org.springframework.stereotype.Component
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.nio.charset.Charset
+import java.nio.file.Files
+import java.nio.file.InvalidPathException
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
@@ -509,12 +511,24 @@ class GitCli(
         arguments: List<String>,
         input: ByteArray? = null,
         timeout: Duration = WRITE_TIMEOUT,
-    ): GitResult {
-        if (!available) return GitResult(false, "git is not available.")
+    ): GitResult = writeWithExit(root, arguments, input, timeout).first
+
+    /**
+     * [write], with git's exit value; `null` if git could not be run or did not finish in time. Some failures are
+     * told apart only by it, e.g. a revert with nothing to commit (1) from one git refused to start (128).
+     */
+    internal fun writeWithExit(
+        root: Path,
+        arguments: List<String>,
+        input: ByteArray? = null,
+        timeout: Duration = WRITE_TIMEOUT,
+    ): Pair<GitResult, Int?> {
+        if (!available) return GitResult(false, "git is not available.") to null
         val execution =
             execute(arguments, root, timeout, input, write = true)
-                ?: return GitResult(false, "git could not be run.")
-        val exitValue = execution.exitValue ?: return GitResult(false, "git did not finish within ${shown(timeout)}.")
+                ?: return GitResult(false, "git could not be run.") to null
+        val exitValue =
+            execution.exitValue ?: return GitResult(false, "git did not finish within ${shown(timeout)}.") to null
         val message =
             withoutHints(
                 execution.errors
@@ -522,11 +536,245 @@ class GitCli(
                     .trim()
                     .ifEmpty { execution.output.toString(Charsets.UTF_8).trim() },
             )
-        return when {
-            exitValue == 0 -> GitResult(true, message)
-            message.isEmpty() -> GitResult(false, "git failed with exit code $exitValue.")
-            else -> GitResult(false, message)
+        val result =
+            when {
+                exitValue == 0 -> GitResult(true, message)
+                message.isEmpty() -> GitResult(false, "git failed with exit code $exitValue.")
+                else -> GitResult(false, message)
+            }
+        return result to exitValue
+    }
+
+    /**
+     * What git is in the middle of in the repository at [root] (ADR 0042): a rebase (`rebase-merge`, `rebase-apply`),
+     * `git am` (`rebase-apply/applying`), a merge (`MERGE_HEAD`) or a cherry-pick or revert sequence (`sequencer`),
+     * found at their `git rev-parse --git-path` (per worktree), else a single cherry-pick or revert (`CHERRY_PICK_HEAD`,
+     * `REVERT_HEAD`) with the paths still unmerged; `null` for nothing. A failure if git is not available or fails.
+     */
+    internal fun inProgress(root: Path): Result<GitInProgress?> {
+        val unreadable = Result.failure<GitInProgress?>(IllegalStateException("git could not be read"))
+        if (!available) return unreadable
+        val (rebaseMerge, rebaseApply, sequencer) =
+            gitPaths(root, listOf("rebase-merge", "rebase-apply", "sequencer")) ?: return unreadable
+        val operation =
+            when {
+                Files.isDirectory(rebaseMerge) -> GitOperation.REBASE
+                Files.exists(rebaseApply.resolve("applying")) -> GitOperation.AM
+                Files.isDirectory(rebaseApply) -> GitOperation.REBASE
+                commitOfRevision(root, "MERGE_HEAD") != null -> GitOperation.MERGE
+                Files.isDirectory(sequencer) -> sequenceOperation(sequencer.resolve("todo"))
+                else -> null
+            }
+        if (operation != null) return Result.success(GitPendingOperation(operation))
+        val (kind, commit) =
+            commitOfRevision(root, "CHERRY_PICK_HEAD")?.let { GitPick.CHERRY_PICK to it }
+                ?: commitOfRevision(root, "REVERT_HEAD")?.let { GitPick.REVERT to it }
+                ?: return Result.success(null)
+        val conflicts = unmergedPaths(root) ?: return unreadable
+        return Result.success(GitPendingPick(kind, commit, conflicts))
+    }
+
+    /** A cherry-pick or a revert sequence, as the first instruction of its [todo] file says. */
+    private fun sequenceOperation(todo: Path): GitOperation {
+        val first =
+            try {
+                Files
+                    .readAllLines(todo)
+                    .map(String::trim)
+                    .firstOrNull { it.isNotEmpty() && !it.startsWith('#') }
+            } catch (_: IOException) {
+                null
+            }
+        return when (first?.substringBefore(' ')) {
+            "pick", "p" -> GitOperation.CHERRY_PICK_SEQUENCE
+            "revert" -> GitOperation.REVERT_SEQUENCE
+            else -> GitOperation.SEQUENCE
         }
+    }
+
+    /**
+     * Where the files [names] of the repository at [root] are: `git rev-parse --git-path`, which knows linked
+     * worktrees; `null` if git is not available or fails, or if a path cannot be a path in the JVM's locale.
+     */
+    internal fun gitPaths(
+        root: Path,
+        names: List<String>,
+    ): List<Path>? {
+        if (!available) return null
+        val arguments = listOf("--no-optional-locks", "rev-parse") + names.flatMap { listOf("--git-path", it) }
+        val lines = run(arguments, root, 3.seconds)?.lines()?.filter(String::isNotEmpty) ?: return null
+        if (lines.size != names.size) return null
+        return try {
+            lines.map { root.resolve(it) }
+        } catch (_: InvalidPathException) {
+            null
+        }
+    }
+
+    /**
+     * The unmerged entries in the index of the repository at [root] (conflicts), one per stage, in the index's order:
+     * `git ls-files -u -z`; `null` if git is not available, fails or takes longer than 10 s.
+     */
+    internal fun unmergedEntries(root: Path): List<UnmergedEntry>? {
+        if (!available) return null
+        val output = run(listOf("--no-optional-locks", "ls-files", "--unmerged", "-z"), root, 10.seconds) ?: return null
+        // <mode> <object> <stage>\t<path>
+        return output.split('\u0000').filter { '\t' in it }.map { record ->
+            val info = record.substringBefore('\t').split(' ')
+            if (info.size != 3) return null
+            UnmergedEntry(record.substringAfter('\t'), info[2].toIntOrNull() ?: return null, info[0], info[1])
+        }
+    }
+
+    /** The paths of the [unmergedEntries], relative to [root], each once; `null` on failure. */
+    internal fun unmergedPaths(root: Path): List<String>? = unmergedEntries(root)?.map { it.path }?.distinct()
+
+    /**
+     * The tracked paths of the repository at [root] whose file is missing from the working tree (deleted), also those
+     * with unmerged entries: `git ls-files -d -z`; `null` if git is not available, fails or takes longer than 10 s.
+     */
+    internal fun missingFiles(root: Path): Set<String>? {
+        if (!available) return null
+        return run(listOf("--no-optional-locks", "ls-files", "--deleted", "-z"), root, 10.seconds)
+            ?.split('\u0000')
+            ?.filter(String::isNotEmpty)
+            ?.toSet()
+    }
+
+    /**
+     * The values of the git attributes [names] of the [paths] in the repository at [root] ("unspecified", "set",
+     * "unset" or a value), by path and name: `git check-attr --stdin -z`, the paths on its standard input; `null` if git
+     * is not available, fails or takes longer than 10 s.
+     */
+    internal fun attributes(
+        root: Path,
+        paths: List<String>,
+        names: List<String>,
+    ): Map<String, Map<String, String>>? {
+        if (!available) return null
+        if (paths.isEmpty()) return emptyMap()
+        val input = paths.joinToString("") { "$it\u0000" }.toByteArray(Charsets.UTF_8)
+        val arguments = listOf("--no-optional-locks", "check-attr", "--stdin", "-z") + names
+        val output = runBytes(arguments, root, 10.seconds, input)?.toString(Charsets.UTF_8) ?: return null
+        // <path> NUL <attribute> NUL <value> NUL
+        val fields = output.split('\u0000')
+        return (0 until fields.size / 3)
+            .map { Triple(fields[it * 3], fields[it * 3 + 1], fields[it * 3 + 2]) }
+            .groupBy({ it.first }, { it.second to it.third })
+            .mapValues { (_, values) -> values.toMap() }
+    }
+
+    /**
+     * Stores the files [paths] of the working tree at [root] as they are, without filters, and gives their object
+     * names in order: `git hash-object -w --no-filters --stdin-paths`, the paths on its standard input, so that their
+     * bytes can be read with [blob] whatever the JVM's locale. `null` if git is not available, fails (also for a
+     * missing file) or takes longer than 10 minutes (the files may be large), or for a path with a line break.
+     */
+    internal fun storeFiles(
+        root: Path,
+        paths: List<String>,
+    ): List<String>? {
+        if (!available || paths.any { '\n' in it }) return null
+        if (paths.isEmpty()) return emptyList()
+        val input = paths.joinToString("") { "$it\n" }.toByteArray(Charsets.UTF_8)
+        val arguments = listOf("hash-object", "-w", "--no-filters", "--stdin-paths")
+        val names =
+            runBytes(
+                arguments,
+                root,
+                CHECKOUT_TIMEOUT,
+                input,
+            )?.toString(Charsets.UTF_8)?.lines()?.filter(String::isNotEmpty)
+        return names?.takeIf { it.size == paths.size }
+    }
+
+    /** The size in bytes of the object [name] (a full object name); `null` if git is not available or fails. */
+    internal fun objectSize(
+        root: Path,
+        name: String,
+    ): Long? =
+        objectInfo(root, listOf(name))
+            ?.lineSequence()
+            ?.firstOrNull()
+            ?.split(' ')
+            ?.getOrNull(2)
+            ?.toLongOrNull()
+
+    /**
+     * Whether the index of the repository at [root] has the tree of `HEAD`: `git diff-index --cached --quiet HEAD`;
+     * `null` if git is not available, fails (also without a `HEAD` commit) or takes longer than 10 s.
+     */
+    internal fun indexMatchesHead(root: Path): Boolean? {
+        if (!available) return null
+        val arguments = listOf("--no-optional-locks", "diff-index", "--cached", "--quiet", "HEAD", "--")
+        return when (execute(arguments, root, 10.seconds, null, write = false)?.exitValue) {
+            0 -> true
+            1 -> false
+            else -> null
+        }
+    }
+
+    /**
+     * The full refname of the branch `HEAD` is on in the repository at [root], an empty string when it is detached;
+     * `null` if git is not available, fails or takes longer than 3 s (unlike [currentBranch], which gives `null` for
+     * both).
+     */
+    internal fun headBranch(root: Path): String? {
+        if (!available) return null
+        val execution =
+            execute(listOf("--no-optional-locks", "symbolic-ref", "-q", "HEAD"), root, 3.seconds, null, write = false)
+                ?: return null
+        if (!execution.complete) return null
+        return when (execution.exitValue) {
+            0 -> {
+                execution.output
+                    .toString(Charsets.UTF_8)
+                    .trim()
+                    .ifEmpty { null }
+            }
+
+            1 -> {
+                ""
+            }
+
+            else -> {
+                null
+            }
+        }
+    }
+
+    /**
+     * How many commits reachable from `HEAD` in the repository at [root] are not reachable from [target] (a full
+     * hash) nor from any local branch other than [branch] (the short name of the current one, `null` when `HEAD` is
+     * detached), remote branch or tag: `git rev-list --count`. `null` if git is not available, fails or takes longer
+     * than 10 s.
+     */
+    internal fun unreachableCount(
+        root: Path,
+        target: String,
+        branch: String?,
+    ): Int? {
+        if (!available || target.startsWith('-')) return null
+        val arguments =
+            buildList {
+                addAll(listOf("--no-optional-locks", "rev-list", "--count", "HEAD", "--not", target))
+                // A pattern for the next --branches, without refs/heads/ (with it, nothing would be excluded).
+                if (branch != null) add("--exclude=$branch")
+                addAll(listOf("--branches", "--tags", "--remotes", "--"))
+            }
+        return run(arguments, root, 10.seconds)?.trim()?.toIntOrNull()
+    }
+
+    /**
+     * How many tracked files of the working tree at [root] have changes, staged or not, against `HEAD`: the records of
+     * `git status --porcelain -z --untracked-files=no --no-renames`. `null` if git is not available, fails or takes
+     * longer than 10 s.
+     */
+    internal fun trackedChangeCount(root: Path): Int? {
+        if (!available) return null
+        val arguments =
+            listOf("--no-optional-locks", "status", "--porcelain", "-z", "--untracked-files=no", "--no-renames")
+        return run(arguments, root, 10.seconds)?.split('\u0000')?.count(String::isNotEmpty)
     }
 
     /**
@@ -665,6 +913,12 @@ class GitCli(
         /** How long a git command that changes the repository may take (ADR 0041); hooks may run. */
         val WRITE_TIMEOUT = 60.seconds
 
+        /**
+         * How long a git command that changes files or the index may take, a checkout, cherry-pick or reset (ADRs 0041,
+         * 0042): filters such as LFS may download files.
+         */
+        val CHECKOUT_TIMEOUT = 10.minutes
+
         /** How long a stopped write may take to end by itself before it is killed. */
         private val STOP_GRACE = 2.seconds
 
@@ -679,6 +933,14 @@ class GitCli(
         private const val MAX_INPUT = 15 * 1024
     }
 }
+
+/** An unmerged index entry (a conflict): the [path]'s version of [stage] 1 (base), 2 (ours) or 3 (theirs). */
+internal data class UnmergedEntry(
+    val path: String,
+    val stage: Int,
+    val mode: String,
+    val objectName: String,
+)
 
 /** The characters with a meaning in a POSIX extended regular expression. */
 private const val REGEX_SPECIAL = ".[]()*+?{}|^$\\"

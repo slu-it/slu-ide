@@ -92,6 +92,13 @@ class GitLog(
     }
 
     /**
+     * What git is in the middle of in the repository at [root] (ADR 0042): a single cherry-pick or revert with the
+     * paths still unmerged, or a merge, rebase or sequence; `null` if nothing, or if git is not available or fails. Runs
+     * git on the calling thread.
+     */
+    fun inProgress(root: Path): GitInProgress? = git.inProgress(root).getOrNull()
+
+    /**
      * The details of the commit [hash] (its full object name: 40 or 64 hexadecimal characters) in the repository at
      * [root]; `null` if git is not available, fails, takes longer than 3 s or there is no such commit. Runs git on the
      * calling thread.

@@ -4,7 +4,6 @@ import org.springframework.stereotype.Component
 import java.nio.charset.Charset
 import java.nio.file.Path
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.minutes
 
 /**
  * What a git command that changes the repository gave: whether it [succeeded][success], and git's own [message].
@@ -297,7 +296,7 @@ class GitBranches(
         root: Path,
         names: List<String>,
         arguments: List<String>,
-    ): GitResult = run(root, names, arguments, null, CHECKOUT_TIMEOUT)
+    ): GitResult = run(root, names, arguments, null, GitCli.CHECKOUT_TIMEOUT)
 
     private fun run(
         root: Path,
@@ -311,9 +310,6 @@ class GitBranches(
     }
 
     private companion object {
-        /** How long a checkout may take: it changes files, and filters such as LFS may download them. */
-        val CHECKOUT_TIMEOUT = 10.minutes
-
         /** The length of hashes in messages, as in the git log. */
         const val SHORT_HASH = 8
     }
