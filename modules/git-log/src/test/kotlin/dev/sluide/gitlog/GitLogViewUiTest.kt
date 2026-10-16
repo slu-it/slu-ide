@@ -31,6 +31,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /** Shows the real git log view with a fake loader. Needs a display, see the `uiTest` Gradle task. */
@@ -184,18 +185,28 @@ class GitLogViewUiTest {
         assertTrue(view.expanded.get())
         eventually { assertEquals((1..5).map { "Subject $it" }, shownSubjects(robot).take(5)) }
         assertEquals(listOf(0 to 500), loads)
-        assertTrue(view.table.isFocused)
+        assertSame<Node?>(view.table, view.scene.focusOwner)
         assertEquals(500, view.table.items.size)
 
+        var focusReturned = 0
+        view.returnFocus = { focusReturned++ }
         click(robot, view.header)
         assertFalse(view.expanded.get())
         assertNull(view.center)
+        assertEquals(1, focusReturned, "the table had the focus")
 
         // Refresh in the header neither expands nor loads while collapsed.
         click(robot, robot.lookup(".git-log-refresh").query())
         assertFalse(view.expanded.get())
         robot.interact { view.expanded.set(true) }
         eventually { assertEquals(listOf(0 to 500, 0 to 500), loads.toList()) }
+
+        // Collapsing without the focus in the log leaves the focus alone.
+        robot.interact {
+            view.header.requestFocus()
+            view.expanded.set(false)
+        }
+        assertEquals(1, focusReturned)
     }
 
     @Test

@@ -74,6 +74,12 @@ class GitLogView(
     /** Whether the commits are shown below the header; collapsed (`false`) at first. */
     val expanded: BooleanProperty = SimpleBooleanProperty(false)
 
+    /**
+     * Called when the log collapses while the focus is in it, to give the focus to what should have it instead (the
+     * window's editor); by default nothing is focused on purpose.
+     */
+    var returnFocus: () -> Unit = {}
+
     private val chevron = FontIcon(MaterialDesignC.CHEVRON_RIGHT)
 
     private val refreshButton =
@@ -156,10 +162,17 @@ class GitLogView(
             indices.forEach(table.selectionModel::select)
         }
         expanded.subscribe { isExpanded ->
+            val focusInBody = body.contains(scene?.focusOwner)
             center = if (isExpanded) body else null
             chevron.iconCode = if (isExpanded) MaterialDesignC.CHEVRON_DOWN else MaterialDesignC.CHEVRON_RIGHT
             pages.visible = isExpanded
-            if (isExpanded) table.requestFocus()
+            if (isExpanded) {
+                // The split pane adds the table to the scene with its skin, which CSS creates.
+                body.applyCss()
+                table.requestFocus()
+            } else if (focusInBody) {
+                returnFocus()
+            }
         }
     }
 
