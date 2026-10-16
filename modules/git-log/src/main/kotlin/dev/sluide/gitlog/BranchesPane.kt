@@ -5,6 +5,8 @@ import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import javafx.animation.Animation
 import javafx.animation.PauseTransition
+import javafx.beans.property.BooleanProperty
+import javafx.beans.property.SimpleBooleanProperty
 import javafx.collections.ListChangeListener
 import javafx.geometry.Pos
 import javafx.scene.control.ContextMenu
@@ -39,7 +41,8 @@ import org.kordamp.ikonli.materialdesign2.MaterialDesignT
  * remotes with their branches and the tags ([branchNodes]) of the refs the log read last. Selecting exactly one branch
  * hands it to [navigate] (`null` for any other selection); a double-click, Enter or Filter Log by Branch hands the
  * full refnames of the selected branches to [filter]. Collapsed nodes (Tags at first) and the selection stay when the
- * refs are [shown][show] again.
+ * refs are [shown][show] again. Its context menu also checks out, creates, renames and deletes branches and tags
+ * through [checkout], [newBranchFrom], [rename] and [delete] ([branchActions], ADR 0041), not while [writing].
  */
 internal class BranchesPane : BorderPane() {
     /** Shows the commit of the one selected branch; `null` when not exactly one branch is selected. */
@@ -50,6 +53,21 @@ internal class BranchesPane : BorderPane() {
 
     /** Filters the log by the given full refnames (or `HEAD`). */
     var filter: (List<String>) -> Unit = {}
+
+    /** Checks out the selected branch or tag. */
+    var checkout: (RefOperation) -> Unit = {}
+
+    /** Asks for a new branch starting at the given ref. */
+    var newBranchFrom: (GitRef) -> Unit = {}
+
+    /** Asks for a new name of the given local branch (F2). */
+    var rename: (GitRef) -> Unit = {}
+
+    /** Asks whether to delete the given local branches and tags (Delete). */
+    var delete: (List<GitRef>) -> Unit = {}
+
+    /** Whether an operation that changes the repository runs, during which no other can start. */
+    val writing: BooleanProperty = SimpleBooleanProperty(false)
 
     internal val search =
         TextField().apply {
@@ -94,6 +112,11 @@ internal class BranchesPane : BorderPane() {
 
     internal val filterItem = MenuItem(FILTER_ONE).apply { setOnAction { filterSelected() } }
     internal val copyNameItem = MenuItem("Copy Name").apply { setOnAction { copyNames() } }
+    internal val checkoutItem = MenuItem("Checkout").apply { setOnAction { actions().checkout?.let(checkout) } }
+    internal val newBranchItem =
+        MenuItem(NEW_BRANCH).apply { setOnAction { actions().newBranchFrom?.let(newBranchFrom) } }
+    internal val renameItem = MenuItem("Rename…").apply { setOnAction { renameSelected() } }
+    internal val deleteItem = MenuItem("Delete").apply { setOnAction { deleteSelected() } }
 
     internal val tree: TreeView<BranchNode> =
         TreeView<BranchNode>(TreeItem()).apply {
@@ -101,9 +124,29 @@ internal class BranchesPane : BorderPane() {
             isShowRoot = false
             selectionModel.selectionMode = SelectionMode.MULTIPLE
             setCellFactory { BranchCell() }
-            contextMenu = ContextMenu(filterItem, SeparatorMenuItem(), copyNameItem)
+            contextMenu =
+                ContextMenu(
+                    filterItem,
+                    SeparatorMenuItem(),
+                    copyNameItem,
+                    SeparatorMenuItem(),
+                    checkoutItem,
+                    newBranchItem,
+                    renameItem,
+                    deleteItem,
+                )
             addEventFilter(KeyEvent.KEY_PRESSED) { event ->
                 if (event.code == KeyCode.ENTER && !event.isShortcutDown && enter()) event.consume()
+            }
+            addEventHandler(KeyEvent.KEY_PRESSED) { event ->
+                val handled =
+                    when {
+                        event.isShortcutDown || event.isAltDown || event.isShiftDown -> false
+                        event.code == KeyCode.F2 -> renameSelected()
+                        event.code == KeyCode.DELETE -> deleteSelected()
+                        else -> false
+                    }
+                if (handled) event.consume()
             }
         }
 
@@ -147,6 +190,7 @@ internal class BranchesPane : BorderPane() {
                 if (!rebuilding) navigate(selectedRef)
             },
         )
+        writing.subscribe { _ -> updateActions() }
         updateActions()
         updatePlaceholder(emptyList())
     }
@@ -318,11 +362,43 @@ internal class BranchesPane : BorderPane() {
         Clipboard.getSystemClipboard().setContent(ClipboardContent().apply { putString(names.joinToString("\n")) })
     }
 
+    /** What can be done with the selection: nothing while [writing]. */
+    private fun actions(): BranchActions =
+        if (writing.get()) {
+            BranchActions(null, null, null, emptyList())
+        } else {
+            branchActions(tree.selectionModel.selectedItems.mapNotNull { it?.value }, refs?.currentBranch)
+        }
+
+    private fun renameSelected(): Boolean {
+        val ref = actions().rename ?: return false
+        rename(ref)
+        return true
+    }
+
+    private fun deleteSelected(): Boolean {
+        val refs = actions().delete.ifEmpty { return false }
+        delete(refs)
+        return true
+    }
+
     private fun updateActions() {
         val count = selectedBranches.size
         filterItem.text = if (count > 1) "Filter Log by $count Branches" else FILTER_ONE
         filterItem.isDisable = count == 0
         copyNameItem.isDisable = count == 0
+        val actions = actions()
+        // The name of the ref it starts from even while writing.
+        val from =
+            branchActions(
+                tree.selectionModel.selectedItems.mapNotNull { it?.value },
+                refs?.currentBranch,
+            ).newBranchFrom
+        newBranchItem.text = from?.let { "New Branch from '${it.shortName}'…" } ?: NEW_BRANCH
+        checkoutItem.isDisable = actions.checkout == null
+        newBranchItem.isDisable = actions.newBranchFrom == null
+        renameItem.isDisable = actions.rename == null
+        deleteItem.isDisable = actions.delete.isEmpty()
     }
 
     /** A group (its name), a remote or folder (a folder icon) or a branch (its ref icon, the current one in bold). */
@@ -390,6 +466,7 @@ internal class BranchesPane : BorderPane() {
 
     private companion object {
         const val FILTER_ONE = "Filter Log by Branch"
+        const val NEW_BRANCH = "New Branch…"
         const val LOADING = "Loading…"
         val SEARCH_DELAY: Duration = Duration.millis(200.0)
     }

@@ -1,5 +1,6 @@
 package dev.sluide.gitlog
 
+import dev.sluide.git.GitBranches
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitFileDiff
@@ -20,11 +21,13 @@ import javafx.geometry.Orientation
 import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Button
+import javafx.scene.control.ButtonType
 import javafx.scene.control.ConstrainedColumnResizeBase
 import javafx.scene.control.ContextMenu
 import javafx.scene.control.Label
 import javafx.scene.control.MenuItem
 import javafx.scene.control.SelectionMode
+import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.control.SplitPane
 import javafx.scene.control.TableColumn
 import javafx.scene.control.TableRow
@@ -66,9 +69,12 @@ import java.util.concurrent.Executors
  * the refs pointing at them, and to the right the files the selected commit changed above its details (ADRs 0037,
  * 0038). The diff of a changed file goes to [onShowDiff], a file to open to [onOpenFile]. Above the table, the
  * filters of the commits (ADR 0039), per window and reset by [open]. Left of them, the branches pane (ADR 0040).
+ * The context menus of the table and the branches pane check out, create, rename and delete branches and tags
+ * (ADR 0041); checkouts ask [beforeCheckout] first.
  *
- * [source] reads the commits, refs, details, changed files and diffs on the thread `sluide-git-log`; its results are
- * handled through [dispatch], the JavaFX thread in the application.
+ * [source] reads the commits, refs, details, changed files and diffs on the thread `sluide-git-log`; [writes] changes
+ * the repository on the thread `sluide-git-write`, one operation at a time. Their results are handled through
+ * [dispatch], the JavaFX thread in the application.
  */
 @Component
 // One instance per IDE window (the "window" scope of the ide module, ADR 0014).
@@ -76,10 +82,15 @@ import java.util.concurrent.Executors
 class GitLogView internal constructor(
     private val source: GitLogSource,
     private val dispatch: (Runnable) -> Unit,
+    private val writes: GitLogWrites,
 ) : BorderPane(),
     AutoCloseable {
     @Autowired
-    constructor(gitLog: GitLog) : this(GitLogCliSource(gitLog), Platform::runLater)
+    constructor(gitLog: GitLog, gitBranches: GitBranches) : this(
+        GitLogCliSource(gitLog),
+        Platform::runLater,
+        GitLogCliWrites(gitBranches),
+    )
 
     private val executor =
         Executors.newSingleThreadExecutor { Thread(it, "sluide-git-log").apply { isDaemon = true } }
@@ -95,6 +106,18 @@ class GitLogView internal constructor(
         )
 
     private val fileDiffs = FileDiffs(source::fileDiff, executor::execute, dispatch)
+
+    private val writeExecutor =
+        Executors.newSingleThreadExecutor { Thread(it, "sluide-git-write").apply { isDaemon = true } }
+
+    /** Runs the operations that change the repository, one at a time (ADR 0041). */
+    private val writer = RefWriter(writes, writeExecutor::execute, dispatch)
+
+    /**
+     * Asked before a checkout, which changes files on disk, e.g. to save or discard unsaved editors; `false` cancels
+     * the checkout. Set by the window.
+     */
+    var beforeCheckout: () -> Boolean = { true }
 
     /** Whether the commits are shown below the header; collapsed (`false`) at first. */
     val expanded: BooleanProperty = SimpleBooleanProperty(false)
@@ -114,6 +137,12 @@ class GitLogView internal constructor(
     /** A message in the header, e.g. that a diff cannot be shown, until the next selection or load. */
     private val status = SimpleStringProperty("")
 
+    /**
+     * What the operation that changes the repository is doing ("Checking out main…") or did ("Checked out main."),
+     * shown while there is no other [status]; until the next operation or [open].
+     */
+    private val operationStatus = SimpleStringProperty("")
+
     /** Counts the changes of the selected commits and files, so that a message about an earlier one is not shown. */
     private var selections = 0L
 
@@ -132,18 +161,24 @@ class GitLogView internal constructor(
         HBox(
             chevron,
             Label("Git Log").apply { styleClass += "git-log-title" },
-            // A failure while rows are shown (with no rows the table's placeholder says it), else the status.
+            // A failure while rows are shown (with no rows the table's placeholder says it), else the status, else what
+            // an operation does or did.
             Label().apply {
                 styleClass += "git-log-status"
                 textProperty().bind(
                     Bindings.createStringBinding(
                         {
                             val state = pages.state.get()
-                            if (state == GitLogState.FAILED && pages.rows.isNotEmpty()) state.message else status.get()
+                            when {
+                                state == GitLogState.FAILED && pages.rows.isNotEmpty() -> state.message
+                                status.get().isNotEmpty() -> status.get()
+                                else -> operationStatus.get()
+                            }
                         },
                         pages.state,
                         pages.rows,
                         status,
+                        operationStatus,
                     ),
                 )
             },
@@ -163,6 +198,18 @@ class GitLogView internal constructor(
 
     private val copyRevisionNumber = MenuItem("Copy Revision Number").apply { setOnAction { copyRevisionNumbers() } }
 
+    internal val checkoutRevisionItem =
+        MenuItem("Checkout Revision").apply {
+            setOnAction {
+                singleCommit()?.let { start(CheckoutRevision(it.hash, it.hash.take(ChangedFilesPane.SHORT_HASH))) }
+            }
+        }
+    internal val newBranchItem =
+        MenuItem("New Branch…").apply {
+            setOnAction { singleCommit()?.let { newBranch(it.hash, it.hash.take(ChangedFilesPane.SHORT_HASH)) } }
+        }
+    internal val newTagItem = MenuItem("New Tag…").apply { setOnAction { singleCommit()?.let { newTag(it.hash) } } }
+
     /** The commits with their graph, newest first; several can be selected. */
     internal val table: TableView<GitLogRow> =
         object : TableView<GitLogRow>(pages.rows) {
@@ -177,8 +224,12 @@ class GitLogView internal constructor(
             )
             columnResizePolicy = SubjectTakesTheRest
             placeholder = Label().apply { textProperty().bind(pages.state.map { it.message }) }
-            contextMenu = ContextMenu(copyRevisionNumber)
+            contextMenu =
+                ContextMenu(copyRevisionNumber, SeparatorMenuItem(), checkoutRevisionItem, newBranchItem, newTagItem)
             copyRevisionNumber.disableProperty().bind(Bindings.isEmpty(selectionModel.selectedItems))
+            // One commit, and no operation running.
+            val notOne = Bindings.size(selectionModel.selectedItems).isNotEqualTo(1).or(writer.running)
+            listOf(checkoutRevisionItem, newBranchItem, newTagItem).forEach { it.disableProperty().bind(notOne) }
             addEventHandler(KeyEvent.KEY_PRESSED) { event ->
                 if (COPY.match(event)) {
                     copyRevisionNumbers()
@@ -231,6 +282,11 @@ class GitLogView internal constructor(
             navigate = ::navigateTo
             moved = ::branchMoved
             filter = filterBar::setBranches
+            checkout = ::start
+            newBranchFrom = { ref -> newBranch(ref.name, ref.shortName) }
+            rename = ::renameBranch
+            delete = ::deleteRefs
+            writing.bind(writer.running)
         }
 
     /** The filters and the table and, at first in the right 30 %, the changed files and details ([SharedSplit]). */
@@ -322,6 +378,9 @@ class GitLogView internal constructor(
     /** Shows the log of the repository at [root]; `null` shows nothing. Loads once (or as soon as) [expanded]. */
     fun open(root: Path?) {
         fileDiffs.close()
+        // An operation going on in the previous repository ends unnoticed.
+        writer.forget()
+        operationStatus.set("")
         // Before the pages, which may start loading and have the pane say so.
         branchesPane.reset()
         // Resets the filter too, before the bar, which then tells no change.
@@ -570,6 +629,128 @@ class GitLogView internal constructor(
         pages.refresh()
     }
 
+    /** The commit of the one selected row; `null` for none or several. */
+    private fun singleCommit() =
+        table.selectionModel.selectedItems
+            .singleOrNull()
+            ?.commit
+
+    /**
+     * Runs [operation] (ADR 0041) unless one runs already; a checkout asks [beforeCheckout] first. The header says what
+     * it does, then what it did, and the log is refreshed; a failure is shown in an error dialog with git's message.
+     */
+    private fun start(
+        operation: RefOperation,
+        askBeforeCheckout: Boolean = true,
+    ) {
+        val root = pages.root ?: return
+        if (writer.running.get()) return
+        if (askBeforeCheckout && operation.checksOut && !beforeCheckout()) return
+        status.set("")
+        if (writer.run(root, operation) { outcome -> finished(operation, outcome) }) {
+            operationStatus.set(operation.progress)
+        }
+    }
+
+    private fun finished(
+        operation: RefOperation,
+        outcome: RefOutcome,
+    ) {
+        operationStatus.set(outcome.done.orEmpty())
+        outcome.confirmation?.let { question ->
+            // Nothing done yet; the unsaved editors were asked about already.
+            if (overwriteConfirmation(scene?.window, question).showAndWait().orElse(ButtonType.CANCEL) ==
+                OVERWRITE_BUTTON
+            ) {
+                (operation as? CreateBranch)?.let { start(it.copy(confirmed = true), askBeforeCheckout = false) }
+            }
+            return
+        }
+        // Also after a failure, which may have done a part. New and renamed branches alone are not noticed by the
+        // watch of .git (ADR 0035).
+        refresh()
+        if (!outcome.result.success) {
+            // Done all the same (a failing post-checkout hook): the header says what was done.
+            val header = outcome.done?.takeIf { outcome.result.changed } ?: operation.failure
+            gitErrorDialog(scene?.window, operation.errorTitle, header, outcome.result.message).showAndWait()
+        }
+        if (outcome.refused.isNotEmpty()) {
+            val confirmation =
+                forceDeleteConfirmation(scene?.window, forceDeleteQuestion(outcome.refused), outcome.refusedMessage)
+            if (confirmation.showAndWait().orElse(ButtonType.CANCEL) == FORCE_DELETE_BUTTON) {
+                start(DeleteRefs(outcome.refused, emptyList(), force = true))
+            }
+        }
+    }
+
+    /** The short names of the refs of [kind] the log read last. */
+    private fun refNames(kind: GitRefKind): Set<String> =
+        pages.refs
+            ?.refs
+            .orEmpty()
+            .filter { it.kind == kind }
+            .mapTo(HashSet()) { it.shortName }
+
+    /**
+     * Asks for a new branch at [startPoint] (a hash or full refname, shown as [startLabel]) and creates it; the current
+     * branch is never overwritten, another one only once confirmed if it has commits that are not on the start point.
+     */
+    private fun newBranch(
+        startPoint: String,
+        startLabel: String,
+    ) {
+        val existing = refNames(GitRefKind.LOCAL_BRANCH)
+        val current = pages.refs?.currentBranch?.removePrefix("refs/heads/")
+        val tips =
+            pages.refs
+                ?.refs
+                .orEmpty()
+                .filter { it.kind == GitRefKind.LOCAL_BRANCH }
+                .associate { it.shortName to it.commit }
+        val dialog =
+            NewBranchDialog(
+                scene?.window,
+                { name, overwrite ->
+                    nameProblem(name, RefNameKind.BRANCH, existing, writes::canPass, overwrite, current = current)
+                },
+                { name, overwrite -> overwriteNote(name, overwrite, tips) },
+            )
+        val branch = dialog.showAndWait().orElse(null) ?: return
+        start(CreateBranch(branch.name, startPoint, branch.checkout, branch.overwrite, startLabel))
+    }
+
+    /** Asks for a new tag at [commit] and creates it. */
+    private fun newTag(commit: String) {
+        val existing = refNames(GitRefKind.TAG)
+        val dialog =
+            NewTagDialog(scene?.window) { name -> nameProblem(name, RefNameKind.TAG, existing, writes::canPass) }
+        val tag = dialog.showAndWait().orElse(null) ?: return
+        start(CreateTag(tag.name, commit, tag.message))
+    }
+
+    /** Asks for a new name of the local branch [ref] and renames it. */
+    private fun renameBranch(ref: GitRef) {
+        val old = ref.shortName
+        val existing = refNames(GitRefKind.LOCAL_BRANCH)
+        val dialog =
+            RenameBranchDialog(scene?.window, old) { name ->
+                nameProblem(name, RefNameKind.BRANCH, existing, writes::canPass, unchanged = old)
+            }
+        val new = dialog.showAndWait().orElse(null) ?: return
+        start(RenameBranch(old, new))
+    }
+
+    /** Asks whether to delete the local branches and tags [refs] and deletes them. */
+    private fun deleteRefs(refs: List<GitRef>) {
+        if (writer.running.get()) return
+        val branches = refs.filter { it.kind == GitRefKind.LOCAL_BRANCH }.map { it.shortName }
+        val tags = refs.filter { it.kind == GitRefKind.TAG }.map { it.shortName }
+        val names = branches.map { "branch $it" } + tags.map { "tag $it" }
+        val confirmation = deleteRefsConfirmation(scene?.window, deleteQuestion(branches, tags), names)
+        if (confirmation.showAndWait().orElse(ButtonType.CANCEL) != DELETE_BUTTON) return
+        start(DeleteRefs(branches, tags))
+    }
+
     /** Copies the full hashes of the selected commits, one per line in table order. */
     private fun copyRevisionNumbers() {
         val hashes =
@@ -581,6 +762,10 @@ class GitLogView internal constructor(
     }
 
     override fun close() {
+        writer.forget()
+        // A running write is not interrupted: stopped halfway, a checkout would leave a half-switched working tree
+        // (ADR 0041). Git finishes on its own; its outcome is dropped.
+        writeExecutor.shutdown()
         pages.close()
         details.close()
         fileDiffs.close()

@@ -150,6 +150,8 @@ class GitLogViewUiTest {
 
     private lateinit var view: GitLogView
 
+    private val writes = FakeWrites()
+
     @Start
     fun start(stage: Stage) {
         val source =
@@ -219,7 +221,7 @@ class GitLogViewUiTest {
                     return diffOf(file)
                 }
             }
-        view = GitLogView(source, Platform::runLater)
+        view = GitLogView(source, Platform::runLater, writes)
         stage.scene = Scene(view, 800.0, 400.0)
         stage.show()
     }
@@ -533,7 +535,7 @@ class GitLogViewUiTest {
         openAndExpand(robot)
         val copy =
             view.table.contextMenu.items
-                .single()
+                .first()
         assertEquals("Copy Revision Number", copy.text)
         assertTrue(copy.isDisable, "nothing selected")
 
@@ -2958,6 +2960,7 @@ class GitLogViewUiTest {
         assertEquals(
             listOf("Filter Log by Branch", null, "Copy Name"),
             branches.tree.contextMenu.items
+                .take(3)
                 .map { it.text },
         )
 

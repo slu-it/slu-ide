@@ -6,6 +6,7 @@ import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCli
 import dev.sluide.git.GitLog
 import dev.sluide.git.GitStatusService
@@ -91,6 +92,7 @@ class ProjectWindowsUiTest {
                 registerBean(FileWatcher::class.java, Supplier { FileWatcher(Platform::runLater, 50.milliseconds) })
                 registerBean(GitCli::class.java, Supplier { GitCli(dir.resolve("no-git").toString(), System.getenv()) })
                 register(GitLog::class.java)
+                register(GitBranches::class.java)
                 val fallback = DefaultTextFileViewer()
                 registerBean(FileViewers::class.java, Supplier { FileViewers(listOf(fallback), fallback) })
                 // The window-scoped beans, as in the application.

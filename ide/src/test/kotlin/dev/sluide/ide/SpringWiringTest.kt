@@ -8,6 +8,7 @@ import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.PythonFileViewer
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCli
 import dev.sluide.git.GitLog
 import dev.sluide.git.GitStatusService
@@ -63,6 +64,7 @@ class SpringWiringTest {
                         GitCli::class.java,
                         GitStatusService::class.java,
                         GitLog::class.java,
+                        GitBranches::class.java,
                         GitLogView::class.java,
                         ProjectWindows::class.java,
                         SystemBrowser::class.java,
