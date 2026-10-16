@@ -3,12 +3,13 @@
 **Module:** `modules/git-log` (package `dev.sluide.gitlog`) — `GitLogView` (the area), `GitLogPages` (paging and
 reloads, without controls), `GraphLayout` (the commit graph's lanes), `GraphCell` (drawing it, with the ref labels of
 `RefLabels` and `refGroups`), `CommitDetails` (which details and changed files to load, without controls),
-`CommitDetailsPane`, `changeTree` and `FileDiffs` (`ChangedFiles.kt`, without controls), `ChangedFilesPane` and
-`FilterBar` with `FilterPopup` (`FilterBar.kt`); the commits (filtered by a `GitLogFilter`), refs, details, changed
-files, diffs, user name and tree paths come from `GitLog` in `modules/git`. Decisions in
-[ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-commit-graph-layout.md),
-[ADR 0037](../adr/0037-ref-labels-and-commit-details.md), [ADR 0038](../adr/0038-changed-files-and-commit-diffs.md)
-and [ADR 0039](../adr/0039-git-log-filters.md)
+`CommitDetailsPane`, `changeTree` and `FileDiffs` (`ChangedFiles.kt`, without controls), `ChangedFilesPane`,
+`FilterBar` with `FilterPopup` (`FilterBar.kt`), `branchNodes` (`BranchTree.kt`, without controls) and
+`BranchesPane`; the commits (filtered by a `GitLogFilter`), refs, details, changed files, diffs, user name and tree
+paths come from `GitLog` in `modules/git`. Decisions in [ADR 0035](../adr/0035-git-log-area.md),
+[ADR 0036](../adr/0036-commit-graph-layout.md), [ADR 0037](../adr/0037-ref-labels-and-commit-details.md),
+[ADR 0038](../adr/0038-changed-files-and-commit-diffs.md), [ADR 0039](../adr/0039-git-log-filters.md) and
+[ADR 0040](../adr/0040-git-log-branches-pane.md)
 
 - **Where and when:** for a folder whose git status is followed ([git-status.md](git-status.md): git is available and
   the folder has `.git`), the window shows a Git Log area under the editor area. Other folders, and a window without a
@@ -42,14 +43,15 @@ and [ADR 0039](../adr/0039-git-log-filters.md)
   is room. In selected rows the icons have a thin outline in the table's background colour. Hovering the labels lists
   every ref with its icon.
   Symbolic refs such as `origin/HEAD` are left out, annotated tags label the commit they tag.
-- **Details:** right of the table, at first 30 % of the log's width (the divider can be dragged; resizing the window
-  keeps both shares while it is open), below the changed files, the details of the selected commit as in IntelliJ: the
-  full message with the subject in bold, the short hash and the author, the author's email, `on <date> at <time>`, a
-  line `committed on <date> at <time> by <committer>` if someone else committed it or in another minute, and its
-  branches and tags with their icons. The texts can be selected with the mouse and copied (Shortcut+C after clicking
-  into them); long messages wrap and the pane scrolls. With no or several commits selected it says "No commit selected"
-  or "N commits selected"; if git fails, "The commit details could not be read." Moving through the rows keeps the
-  previous details until the next ones are read ("Loading…" after 300 ms); the table keeps the keyboard focus.
+- **Details:** right of the table, at first 30 % of the width right of the branches pane (of the log's whole width while
+  the pane is hidden; the divider can be dragged; resizing the window keeps both shares while it is open), below the
+  changed files, the details of the selected commit as in IntelliJ: the full message with the subject in bold, the short
+  hash and the author, the author's email, `on <date> at <time>`, a line `committed on <date> at <time> by <committer>`
+  if someone else committed it or in another minute, and its branches and tags with their icons. The texts can be
+  selected with the mouse and copied (Shortcut+C after clicking into them); long messages wrap and the pane scrolls.
+  With no or several commits selected it says "No commit selected" or "N commits selected"; if git fails, "The commit
+  details could not be read." Moving through the rows keeps the previous details until the next ones are read
+  ("Loading…" after 300 ms); the table keeps the keyboard focus.
 - **Changed files:** right of the table, above the details (half and half at first; the divider can be dragged and
   keeps its share while the window is open), the files the selected commit changed, as in IntelliJ: "N files" and a
   tree by path, folders first, then files, by name, everything expanded; folders that hold only one folder are one
@@ -85,7 +87,9 @@ and [ADR 0039](../adr/0039-git-log-filters.md)
   tag alone (`git branch x`, `git tag x`) is not noticed; use Refresh.
 - **Filters** ([ADR 0039](../adr/0039-git-log-filters.md)): a bar above the commit table (not above the changed files
   and details), as in IntelliJ. Git itself filters, so a filtered log still loads in pages. Changing a filter reloads
-  the first page (the rows stay until the new ones are there; selected commits stay selected if still shown).
+  the first page (the rows stay until the new ones are there; selected commits stay selected if still shown). In a
+  narrow log the text field shrinks (down to 100 px) before the buttons, whose values are cut off with "…" beyond
+  160 px; what still does not fit is cut off at the right.
   - **Text or hash:** matches the whole commit message, any line; applied 300 ms after the last keystroke, at once on
     Enter; Escape in the field clears it. Trimmed. `.*` (Regex) makes it a POSIX extended regular expression, else it
     is a literal; `Cc` (Match Case) matches case, else case is ignored; toggling either with a text reloads at once.
@@ -121,11 +125,46 @@ and [ADR 0039](../adr/0039-git-log-filters.md)
   - Filters belong to the window and are not stored; Refresh and changes in `.git` keep them, opening another folder
     resets them. Non-ASCII characters in the text or a user work where the JVM's locale cannot pass them as arguments,
     matching slightly more (not inside `[…]` of a regex).
+- **Branches pane** ([ADR 0040](../adr/0040-git-log-branches-pane.md)): left of the commits and their filter bar, as in
+  IntelliJ.
+  - **Where:** shown at first in the left 20 % of the log's width (commits and changed files/details keep their 70/30
+    split of the rest); its divider can be dragged and keeps its share when the window is resized. The toggle at the
+    left end of the filter bar (a tree icon, "Branches", in the accent colour while the pane is shown) hides and shows
+    it; hiding it while it has the focus moves the focus to the table. Per window and not stored; opening another
+    folder keeps it shown or hidden but clears its search and selection.
+  - **Tree:** `HEAD (Current Branch)` (`HEAD (detached at <short hash>)` when detached), then Local, Remote (one node
+    per remote, then its branches) and Tags, as read with the log's last first page; groups without refs are left
+    out. Branches carry the ref labels' icons (`HEAD` yellow, local green, remote purple, tags grey); the current
+    branch is bold with the `HEAD` icon. Names with `/` are grouped into folders, a folder holding only one folder is
+    one node (`team/fix`); folders first, then branches, by name (ignoring case first). Tags are collapsed at first,
+    the rest expanded. A remote is the first segment after `refs/remotes/`, so a remote name with a `/` is split
+    wrongly. Hovering a branch shows its full refname. "Loading…" before the first page, "No branches yet." without
+    refs, "The branches could not be read." if git fails. A refresh rebuilds the tree, keeping the selected branches,
+    collapsed nodes and the scroll position.
+  - **Search:** the field above the tree ("Search branches", as high as the filter bar) shows the branches whose short
+    name (`feature/a`, `origin/main`, `v1.0`) has the text, ignoring case, with their folders, everything expanded;
+    clearing it brings the collapsed nodes back. Applied 200 ms after the last keystroke (Down, Enter and clearing at
+    once). "No matching branches" if none. Escape clears it; Down or Enter moves to the tree and selects the first
+    branch. Shortcut+F in the pane (tree or field) focuses the field and selects its text (elsewhere in the log the
+    text filter).
+  - **Navigate:** selecting exactly one branch (mouse or arrow keys) selects its commit in the table and scrolls it to
+    the middle unless it is in view, the focus staying in the tree; the changed files and details follow. Commits not
+    loaded yet are loaded page by page, up to 10,000 commits; a newer selection, a filter change or opening a folder
+    stops that, while Refresh (or a change in `.git`) lets it go on in the reloaded log. A refresh that moves the
+    selected branch selects its new commit if the table still has exactly its old commit selected (or that is still
+    being looked for) and the pane is shown; otherwise, and for an unchanged branch, the table's selection stays. If the
+    commit is not there, the header says "<name> is hidden by the filters." (with filters set), "<name> is not in the
+    log." or "<name> is more than 10,000 commits down.", until the next selection. A tag of a tree or blob (not a
+    commit) is never in the log, so it gets one of the last two. Groups, folders and several branches do not navigate.
+  - **Filter:** a double-click on a branch, Enter, or "Filter Log by Branch" ("Filter Log by N Branches") in the
+    context menu sets the Branch filter to exactly the selected branches (Shift/Ctrl select several), as if checked in
+    its popup. Enter on a folder opens or closes it. "Copy Name" copies the short names, one per line; both are
+    disabled without a branch selected.
 - **Copy Revision Number:** in the context menu of the table, and with Shortcut+C while the table has the focus; it
   copies the full hash of the selected commit, or of all selected commits one per line in table order (Shift/Ctrl
   select several).
 - Not yet implemented (next packages): "In N branches" and clickable hashes in the details, a flat list of the
   changed files, their combined changes for several commits, comparing with the local version, the changes against
   each parent of a merge, a diff preview in the log, file history, file-type icons in the tree, a date filter, dotted
-  edges through commits hidden by filters, the branches pane, remembering the area's height and state, and any action
-  that changes the repository.
+  edges through commits hidden by filters, tracking information and actions in the branches pane, remembering the
+  area's height and state, and any action that changes the repository.
