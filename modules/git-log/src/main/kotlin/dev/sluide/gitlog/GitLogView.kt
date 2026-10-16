@@ -7,6 +7,7 @@ import javafx.beans.property.BooleanProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.beans.property.ReadOnlyStringWrapper
 import javafx.beans.property.SimpleBooleanProperty
+import javafx.collections.ListChangeListener
 import javafx.event.EventTarget
 import javafx.geometry.Pos
 import javafx.scene.Node
@@ -50,10 +51,10 @@ import java.util.concurrent.Executors
 /**
  * The git log area of a window (ADR 0035): a header bar ("Git Log", a chevron, Refresh) and, while [expanded], the
  * commits of the repository given to [open] in a table, loaded in pages in the background as the user scrolls, with
- * the refs pointing at them (ADR 0037).
+ * the refs pointing at them, and the details of the selected commit to the right (ADR 0037).
  *
- * [source] reads the commits and refs on the thread `sluide-git-log`; its results are handled through [dispatch], the
- * JavaFX thread in the application.
+ * [source] reads the commits, refs and details on the thread `sluide-git-log`; its results are handled through
+ * [dispatch], the JavaFX thread in the application.
  */
 @Component
 // One instance per IDE window (the "window" scope of the ide module, ADR 0014).
@@ -70,6 +71,8 @@ class GitLogView internal constructor(
         Executors.newSingleThreadExecutor { Thread(it, "sluide-git-log").apply { isDaemon = true } }
 
     private val pages = GitLogPages(source::page, source::refs, executor::execute, dispatch)
+
+    private val details = CommitDetails(source::details, executor::execute, dispatch)
 
     /** Whether the commits are shown below the header; collapsed (`false`) at first. */
     val expanded: BooleanProperty = SimpleBooleanProperty(false)
@@ -149,8 +152,11 @@ class GitLogView internal constructor(
             }
         }
 
-    /** The table; a later version puts the details of the selected commit to its right. */
-    private val body = SplitPane(table).apply { styleClass += "git-log-body" }
+    /** The details of the selected commit. */
+    internal val detailsPane = CommitDetailsPane(details.state)
+
+    /** The table and, at first in the right 30 %, the details ([SharedSplit]). */
+    internal val body = SharedSplit(table, detailsPane, 0.7).apply { styleClass += "git-log-body" }
 
     init {
         styleClass += "git-log"
@@ -161,6 +167,9 @@ class GitLogView internal constructor(
             table.selectionModel.clearSelection()
             indices.forEach(table.selectionModel::select)
         }
+        details.selection = { table.selectionModel.selectedItems.filterNotNull() }
+        details.root = { pages.root }
+        table.selectionModel.selectedItems.addListener(ListChangeListener { details.selectionChanged() })
         expanded.subscribe { isExpanded ->
             val focusInBody = body.contains(scene?.focusOwner)
             center = if (isExpanded) body else null
@@ -194,6 +203,8 @@ class GitLogView internal constructor(
 
     override fun close() {
         pages.close()
+        details.close()
+        detailsPane.close()
         executor.shutdownNow()
     }
 
@@ -225,6 +236,45 @@ class GitLogView internal constructor(
             node = node.parent
         }
         return false
+    }
+}
+
+/**
+ * Two panes side by side that keep their shares of the width when it changes: [share] for the first at first, then
+ * wherever the divider is dragged to (while the window is open). A plain split pane would keep the pixel width of a
+ * pane that does not resize with it, or split the change equally between panes that do.
+ */
+internal class SharedSplit(
+    first: Node,
+    second: Node,
+    share: Double,
+) : SplitPane(first, second) {
+    /** The first pane's share of the width; follows the divider when it is dragged. */
+    var share = share
+        private set
+
+    private var laidOutWidth = -1.0
+    private var layingOut = false
+
+    init {
+        // The skin would spread a change of the width equally over the panes that resize with it; with none it keeps
+        // the divider position set before each layout at a new width.
+        SplitPane.setResizableWithParent(first, false)
+        SplitPane.setResizableWithParent(second, false)
+        setDividerPositions(share)
+        // Moved outside a layout: dragged (or set). Within one the skin only fits it to the panes' minimum widths.
+        dividers.single().positionProperty().subscribe { position -> if (!layingOut) this.share = position.toDouble() }
+    }
+
+    override fun layoutChildren() {
+        layingOut = true
+        try {
+            if (width != laidOutWidth) setDividerPositions(share)
+            super.layoutChildren()
+        } finally {
+            layingOut = false
+        }
+        laidOutWidth = width
     }
 }
 

@@ -35,6 +35,7 @@ import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
 import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -68,6 +69,16 @@ class GitLogViewUiTest {
     /** The (skip, limit) of every load. */
     private val loads = CopyOnWriteArrayList<Pair<Int, Int>>()
 
+    /** The details of each commit; `null` makes reading them fail. */
+    @Volatile
+    private var detailsOf: (String) -> GitCommitDetails? = ::defaultDetails
+
+    /** Reading the details of a commit waits for its gate, if it has one. */
+    private val detailGates = ConcurrentHashMap<String, CountDownLatch>()
+
+    /** The hash of every read of details, once its gate is open. */
+    private val detailLoads = CopyOnWriteArrayList<String>()
+
     /** The refs of the repository; `null` makes reading them fail. */
     @Volatile
     private var refs: GitRefs? = null
@@ -96,7 +107,11 @@ class GitLogViewUiTest {
                 override fun details(
                     root: Path,
                     hash: String,
-                ): GitCommitDetails? = null
+                ): GitCommitDetails? {
+                    detailGates[hash]?.await(10, TimeUnit.SECONDS)
+                    detailLoads += hash
+                    return detailsOf(hash)
+                }
             }
         view = GitLogView(source, Platform::runLater)
         stage.scene = Scene(view, 800.0, 400.0)
@@ -106,6 +121,7 @@ class GitLogViewUiTest {
     @AfterEach
     fun close() {
         gate?.countDown()
+        detailGates.values.forEach(CountDownLatch::countDown)
         view.close()
     }
 
@@ -130,6 +146,12 @@ class GitLogViewUiTest {
             view.expanded.set(true)
         }
         eventually { assertTrue(view.table.items.isNotEmpty()) }
+    }
+
+    /** Drags the details pane out of view, so that the table takes the whole width. */
+    private fun hideDetails(robot: FxRobot) {
+        robot.interact { view.body.setDividerPositions(1.0) }
+        WaitForAsyncUtils.waitForFxEvents()
     }
 
     /** Waits until [assertion] holds on the JavaFX thread. */
@@ -241,6 +263,7 @@ class GitLogViewUiTest {
     @Test
     fun `shows Subject, Author and the short localized author date, the subject taking the most room`(robot: FxRobot) {
         openAndExpand(robot)
+        hideDetails(robot)
 
         val columns = view.table.columns
         assertEquals(listOf("Subject", "Author", "Date"), columns.map { it.text })
@@ -712,6 +735,7 @@ class GitLogViewUiTest {
     fun `shows ref labels at the right end of the subject, none on rows without refs`(robot: FxRobot) {
         refs = someRefs
         openAndExpand(robot)
+        hideDetails(robot)
         WaitForAsyncUtils.waitForFxEvents()
 
         robot.interact {
@@ -852,5 +876,294 @@ class GitLogViewUiTest {
             assertTrue(cells.isNotEmpty())
             assertTrue(cells.none { it.labels.isVisible })
         }
+    }
+
+    /** The details of a commit of [commits]: committed by its author when it was written, with a long body. */
+    private fun defaultDetails(hash: String): GitCommitDetails? {
+        val commit = history?.firstOrNull { it.hash == hash } ?: return null
+        val body = (1..40).joinToString(" ") { "Body of ${hash.removePrefix("h")}." }
+        val message = "${commit.subject}\n\n$body\n"
+        return GitCommitDetails(commit, commit.author, commit.authorEmail, commit.authorTime, message)
+    }
+
+    private fun at(time: Instant): String {
+        val zone = java.time.ZoneId.systemDefault()
+        val date =
+            java.time.format.DateTimeFormatter
+                .ofLocalizedDate(java.time.format.FormatStyle.SHORT)
+        val clock =
+            java.time.format.DateTimeFormatter
+                .ofLocalizedTime(java.time.format.FormatStyle.SHORT)
+        return "${date.withZone(zone).format(time)} at ${clock.withZone(zone).format(time)}"
+    }
+
+    private fun select(
+        robot: FxRobot,
+        vararg indices: Int,
+    ) {
+        robot.interact {
+            view.table.selectionModel.clearSelection()
+            indices.forEach(view.table.selectionModel::select)
+        }
+    }
+
+    private val details get() = view.detailsPane
+
+    private fun showsDetailsOf(subject: String) =
+        details.scroll.isVisible && !details.placeholder.isVisible && details.subject.text == subject
+
+    private fun placeholderShown() =
+        if (details.placeholder.isVisible &&
+            !details.scroll.isVisible
+        ) {
+            details.placeholder.text
+        } else {
+            null
+        }
+
+    @Test
+    fun `shows the details of the selected commit right of the table, the committer only if it differs`(
+        robot: FxRobot,
+    ) {
+        refs = someRefs
+        detailsOf = { hash ->
+            val details = checkNotNull(defaultDetails(hash))
+            when (hash) {
+                "h2" -> {
+                    details.copy(
+                        committer = "Other",
+                        committerEmail = "other@example.com",
+                        committerTime = Instant.ofEpochSecond(9000),
+                    )
+                }
+
+                "h3" -> {
+                    details.copy(committerTime = Instant.ofEpochSecond(9000))
+                }
+
+                // Amended within the same minute.
+                "h4" -> {
+                    details.copy(committerTime = details.commit.authorTime.plusSeconds(30))
+                }
+
+                "h5" -> {
+                    details.copy(message = "")
+                }
+
+                else -> {
+                    details
+                }
+            }
+        }
+        openAndExpand(robot)
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(view.body.width * 0.3, details.width, 10.0, "the right 30 %")
+        assertEquals("No commit selected", placeholderShown())
+
+        select(robot, 0)
+        eventually { assertTrue(showsDetailsOf("Subject 1")) }
+        robot.interact {
+            assertTrue(details.body.isVisible)
+            assertTrue(details.body.text.startsWith("Body of 1. Body of 1."), details.body.text)
+            assertEquals("h1 Author 1\na1@example.com\non ${at(Instant.ofEpochSecond(60))}", details.author.text)
+            assertFalse(details.committed.isVisible)
+            assertEquals(
+                listOf("HEAD", "main", "origin/main", "v1.0"),
+                details.refs.children.map { (it as Label).text },
+            )
+            assertTrue(
+                "bold" in
+                    details.subject.font.style
+                        .lowercase(),
+                details.subject.font.style,
+            )
+            // Wrapped and as high as its text: the body takes several lines, without a scroll bar of its own.
+            assertEquals(emptyList(), details.body.lookupAll(".scroll-bar").filter { it.isVisible })
+            val text =
+                details.body
+                    .lookupAll(".text")
+                    .filterIsInstance<Text>()
+                    .single()
+            assertEquals(details.body.width, text.wrappingWidth, 1.0, "wrapped at the full width")
+            assertTrue(
+                text.layoutBounds.height <= details.body.height,
+                "${text.layoutBounds} in ${details.body.height}",
+            )
+            assertTrue(details.body.height > details.subject.height * 3, "${details.body.height}")
+        }
+
+        select(robot, 1)
+        eventually { assertTrue(showsDetailsOf("Subject 2")) }
+        robot.interact {
+            assertTrue(details.committed.isVisible)
+            assertEquals("committed on ${at(Instant.ofEpochSecond(9000))} by Other", details.committed.text)
+            assertFalse(details.refs.isVisible, "no refs")
+        }
+
+        select(robot, 2)
+        eventually { assertTrue(showsDetailsOf("Subject 3")) }
+        robot.interact {
+            assertEquals("committed on ${at(Instant.ofEpochSecond(9000))}", details.committed.text)
+            assertEquals(listOf("v0.9"), details.refs.children.map { (it as Label).text })
+        }
+
+        select(robot, 3)
+        eventually { assertTrue(showsDetailsOf("Subject 4")) }
+        robot.interact { assertFalse(details.committed.isVisible, "the same minute") }
+
+        select(robot, 4)
+        eventually { assertTrue(details.author.text.startsWith("h5 Author 5")) }
+        robot.interact {
+            assertFalse(details.subject.isVisible, "no empty bold line")
+            assertFalse(details.subject.isManaged)
+            assertFalse(details.body.isVisible)
+            assertTrue(details.scroll.isVisible)
+        }
+    }
+
+    @Test
+    fun `keeps the details shown while the next ones load, then says Loading…`(robot: FxRobot) {
+        openAndExpand(robot)
+        select(robot, 0)
+        eventually { assertTrue(showsDetailsOf("Subject 1")) }
+
+        detailGates["h2"] = CountDownLatch(1)
+        select(robot, 1)
+        robot.interact { assertTrue(showsDetailsOf("Subject 1"), "kept while the next ones load") }
+        eventually { assertEquals("Loading…", placeholderShown()) }
+
+        detailGates.getValue("h2").countDown()
+        eventually { assertTrue(showsDetailsOf("Subject 2")) }
+        robot.interact {
+            assertEquals(
+                javafx.animation.Animation.Status.STOPPED,
+                details.loading.status,
+                "Loading… does not come back",
+            )
+        }
+    }
+
+    @Test
+    fun `the details pane keeps its share of the width when the log is resized`(robot: FxRobot) {
+        refs = someRefs
+        openAndExpand(robot)
+        select(robot, 0)
+        eventually { assertTrue(showsDetailsOf("Subject 1")) }
+
+        fun share() = details.width / view.body.width
+
+        fun resize(width: Double) {
+            robot.interact { view.scene.window.width = width }
+            WaitForAsyncUtils.waitForFxEvents()
+        }
+        try {
+            assertEquals(0.3, share(), 0.02)
+            resize(500.0)
+            assertEquals(0.3, share(), 0.02, "${details.width} of ${view.body.width}")
+            resize(800.0)
+            assertEquals(0.3, share(), 0.02, "${details.width} of ${view.body.width}")
+
+            // Dragged by the user: that share is kept.
+            robot.interact { view.body.setDividerPositions(0.5) }
+            WaitForAsyncUtils.waitForFxEvents()
+            resize(560.0)
+            assertEquals(0.5, share(), 0.02, "${details.width} of ${view.body.width}")
+            resize(800.0)
+            assertEquals(0.5, share(), 0.02, "${details.width} of ${view.body.width}")
+        } finally {
+            // The stage is shared by the tests.
+            resize(800.0)
+        }
+    }
+
+    @Test
+    fun `says how many commits are selected, and when none is`(robot: FxRobot) {
+        openAndExpand(robot)
+        select(robot, 0, 3, 5)
+        eventually { assertEquals("3 commits selected", placeholderShown()) }
+        select(robot)
+        eventually { assertEquals("No commit selected", placeholderShown()) }
+        assertEquals(emptyList(), detailLoads)
+    }
+
+    @Test
+    fun `drops the details of a commit that is no longer selected`(robot: FxRobot) {
+        detailGates["h1"] = CountDownLatch(1)
+        detailGates["h2"] = CountDownLatch(1)
+        openAndExpand(robot)
+        select(robot, 0)
+        eventually { assertEquals("Loading…", placeholderShown()) }
+        select(robot, 1)
+        WaitForAsyncUtils.waitForFxEvents()
+
+        detailGates.getValue("h1").countDown()
+        eventually { assertEquals(listOf("h1"), detailLoads.toList()) }
+        Thread.sleep(100)
+        WaitForAsyncUtils.waitForFxEvents()
+        robot.interact { assertEquals("Loading…", placeholderShown(), "h1's details are not shown") }
+
+        detailGates.getValue("h2").countDown()
+        eventually { assertTrue(showsDetailsOf("Subject 2")) }
+    }
+
+    @Test
+    fun `says when the details cannot be read`(robot: FxRobot) {
+        detailsOf = { null }
+        openAndExpand(robot)
+        select(robot, 4)
+        eventually { assertEquals("The commit details could not be read.", placeholderShown()) }
+    }
+
+    @Test
+    fun `a refresh that keeps the commit selected reads its details and refs again`(robot: FxRobot) {
+        openAndExpand(robot)
+        select(robot, 2)
+        eventually { assertTrue(showsDetailsOf("Subject 3")) }
+        refs = GitRefs(listOf(ref("refs/tags/new", GitRefKind.TAG, "h3")), null)
+
+        robot.interact { view.refresh() }
+        eventually {
+            assertEquals(listOf("h3", "h3"), detailLoads.toList())
+            assertEquals(listOf("new"), details.refs.children.map { (it as Label).text })
+            assertTrue(showsDetailsOf("Subject 3"))
+        }
+    }
+
+    @Test
+    fun `the table keeps the focus while the selection changes`(robot: FxRobot) {
+        openAndExpand(robot)
+        assertSame<Node?>(view.table, view.scene.focusOwner)
+        for (index in listOf(0, 1, 2, 7)) {
+            select(robot, index)
+            eventually { assertTrue(showsDetailsOf("Subject ${index + 1}")) }
+            assertSame<Node?>(view.table, view.scene.focusOwner, "after selecting row $index")
+        }
+        select(robot, 1, 2)
+        eventually { assertEquals("2 commits selected", placeholderShown()) }
+        assertSame<Node?>(view.table, view.scene.focusOwner)
+    }
+
+    @Test
+    fun `the message can be selected and copied`(robot: FxRobot) {
+        openAndExpand(robot)
+        select(robot, 0)
+        eventually { assertTrue(showsDetailsOf("Subject 1")) }
+        val subject = details.subject
+        assertFalse(subject.isEditable)
+        assertFalse(subject.isFocusTraversable, "not reached with Tab")
+
+        // A click gives it the focus, so that Shortcut+C copies from it instead of the table.
+        click(robot, subject)
+        assertSame<Node?>(subject, view.scene.focusOwner)
+        robot.interact {
+            Clipboard.getSystemClipboard().clear()
+            subject.selectRange(0, 7)
+        }
+        val mac = System.getProperty("os.name").startsWith("Mac")
+        robot.interact {
+            Event.fireEvent(subject, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.C, false, !mac, false, mac))
+        }
+        assertEquals("Subject", clipboard())
+        assertEquals("Subject 1", subject.text, "read-only")
     }
 }

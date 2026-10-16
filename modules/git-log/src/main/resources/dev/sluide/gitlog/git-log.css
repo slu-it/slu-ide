@@ -173,6 +173,57 @@
     -fx-text-fill: -fx-text-background-color;
 }
 
+/* The details pane (ADR 0037): on the table's background, its texts flat read-only text areas that can be selected. */
+.git-details {
+    -fx-background-color: -fx-control-inner-background;
+}
+
+.git-details-scroll,
+.git-details-scroll > .viewport {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.git-details-content {
+    -fx-padding: 8 10 8 10;
+}
+
+.git-details-placeholder {
+    -fx-text-fill: -fx-text-inner-color;
+    -fx-opacity: 0.7;
+    -fx-wrap-text: true;
+    -fx-padding: 8;
+}
+
+.git-details-text,
+.git-details-text:focused {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.git-details-text > .scroll-pane,
+.git-details-text > .scroll-pane > .viewport {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+.git-details-text .content,
+.git-details-text:focused .content {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+.git-details-subject {
+    -fx-font-weight: bold;
+}
+
+/* Muted like IntelliJ's. */
+.git-details-committed {
+    -fx-opacity: 0.7;
+}
+
 /* Single-class selector only: JavaFX applies descendant selectors in @media blocks whatever the scheme (ADR 0009). */
 @media (prefers-color-scheme: dark) {
     .git-log {
