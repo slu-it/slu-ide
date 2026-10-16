@@ -9,7 +9,9 @@ import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.PythonFileViewer
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitCli
+import dev.sluide.git.GitLog
 import dev.sluide.git.GitStatusService
+import dev.sluide.gitlog.GitLogView
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpFileViewer
 import dev.sluide.projects.ProjectPicker
@@ -60,6 +62,8 @@ class SpringWiringTest {
                         AppearancePage::class.java,
                         GitCli::class.java,
                         GitStatusService::class.java,
+                        GitLog::class.java,
+                        GitLogView::class.java,
                         ProjectWindows::class.java,
                         SystemBrowser::class.java,
                         HttpClientSession::class.java,
@@ -80,6 +84,7 @@ class SpringWiringTest {
                         Terminals::class.java,
                         DockerSandbox::class.java,
                         GitStatusService::class.java,
+                        GitLogView::class.java,
                         HttpClientSession::class.java,
                     )
                 val scoped =

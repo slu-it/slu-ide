@@ -25,6 +25,7 @@ dependencies {
     implementation(project(":modules:settings"))
     implementation(project(":modules:docker-sandbox"))
     implementation(project(":modules:git"))
+    implementation(project(":modules:git-log"))
     implementation(project(":modules:http-client"))
     implementation(project(":modules:projects"))
 

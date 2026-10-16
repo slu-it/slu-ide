@@ -8,6 +8,7 @@ import dev.sluide.editor.askToClose
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.git.GitHead
 import dev.sluide.git.GitStatusService
+import dev.sluide.gitlog.GitLogView
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.projects.RecentProjects
 import dev.sluide.settings.SettingsDialog
@@ -18,6 +19,8 @@ import dev.sluide.terminal.Terminals
 import javafx.application.Platform
 import javafx.beans.InvalidationListener
 import javafx.beans.Observable
+import javafx.beans.property.SimpleBooleanProperty
+import javafx.geometry.Orientation
 import javafx.scene.Scene
 import javafx.scene.control.Alert
 import javafx.scene.control.Menu
@@ -29,6 +32,7 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
 import javafx.scene.layout.BorderPane
+import javafx.scene.layout.Region
 import javafx.stage.DirectoryChooser
 import javafx.stage.Stage
 import org.springframework.context.annotation.Scope
@@ -37,6 +41,12 @@ import java.net.URI
 import java.nio.file.Path
 
 private const val APP_NAME = "Thoreau"
+
+/** Alt+digit types characters on macOS, so window shortcuts with digits use Cmd there. */
+private val isMac = System.getProperty("os.name").lowercase().contains("mac")
+
+/** Where the divider above the git log starts when it is expanded: the log takes the lower 30 % (ADR 0035). */
+private const val GIT_LOG_DIVIDER = 0.7
 
 /**
  * The window title: the folder's name, the checked-out branch (or `detached at` and the short commit) in brackets if
@@ -52,7 +62,10 @@ internal fun windowTitle(
     return "$name$ref – $APP_NAME"
 }
 
-/** The main IDE window: menu bar on top, file explorer on the left, open files and terminals in tabs on the right. */
+/**
+ * The main IDE window: menu bar on top, file explorer on the left, open files and terminals in tabs on the right, and
+ * for git repositories the git log below them.
+ */
 @Component
 @Scope(WINDOW_SCOPE)
 class MainWindow(
@@ -62,6 +75,7 @@ class MainWindow(
     internal val terminals: Terminals,
     private val dockerSandbox: DockerSandbox,
     private val gitStatus: GitStatusService,
+    private val gitLogView: GitLogView,
     private val settingsPages: SettingsPages,
     private val themedWindows: ThemedWindows,
     private val projectWindows: ProjectWindows,
@@ -94,6 +108,20 @@ class MainWindow(
 
     /** The project folder of this window; `null` until a folder is opened in it. */
     val folder: Path? get() = projectService.projectFolder.get()
+
+    /** Whether the git log is shown below the editor area: only for folders whose git status is followed. */
+    private val gitLogPresent = SimpleBooleanProperty(false)
+
+    /** The editor area above the git log, while it is present (ADR 0035). */
+    private val gitLogSplit =
+        SplitPane().apply {
+            orientation = Orientation.VERTICAL
+            // Resizing the window resizes the editor area; the log keeps its height.
+            SplitPane.setResizableWithParent(gitLogView, false)
+        }
+
+    /** The height of the expanded git log in pixels, kept while it is collapsed; 0 until it was expanded. */
+    private var gitLogHeight = 0.0
 
     fun show(stage: Stage) {
         themedWindows.install()
@@ -135,11 +163,25 @@ class MainWindow(
             httpSession.gitStatusChanged()
         }
 
+        // The git log follows the repository's .git folder (commits, checkouts, fetches); collapsed, it only notes that
+        // it is outdated (ADR 0035).
+        gitStatus.gitFolderChanged.addListener { _, _, _ -> gitLogView.refresh() }
+        gitLogView.expanded.addListener { _, _, expanded ->
+            // Only a height it was laid out with while expanded (its content is already gone, so its minimum height is
+            // the header's).
+            if (!expanded && gitLogView.height > gitLogView.minHeight(-1.0) + 1) gitLogHeight = gitLogView.height
+            fitGitLog(expanded)
+        }
+        // Collapsing the log with the focus in it gives the focus to the editor.
+        gitLogView.returnFocus = { (editorArea.selectedTab?.content ?: editorArea).requestFocus() }
+
         // A window gets its folder once (ADR 0014); other folders open in new windows.
         projectService.projectFolder.subscribe { folder ->
             fileExplorer.open(folder)
-            fitExplorer(split)
             gitStatus.open(folder)
+            showGitLog(split, gitStatus.active)
+            gitLogView.open(gitStatus.root)
+            fitExplorer(split)
             stage.title = windowTitle(folder, gitStatus.snapshot.get().head)
             // Every opened folder is remembered for the project picker: chosen there, with Open Folder… or given on
             // the command line (ADR 0034).
@@ -159,6 +201,56 @@ class MainWindow(
 
         stage.scene = Scene(root, 1000.0, 700.0)
         stage.show()
+    }
+
+    /**
+     * Shows the git log below the editor area if [present], else only the editor area, on the right of the explorer
+     * [split]. Without the log there is neither its header nor a divider.
+     */
+    private fun showGitLog(
+        split: SplitPane,
+        present: Boolean,
+    ) {
+        gitLogPresent.set(present)
+        val right = if (present) gitLogSplit else editorArea
+        if (split.items.getOrNull(1) === right) return
+        // Going from present to absent is defensive: a window gets its folder once today (ADR 0014).
+        // The editor area moves between the two split panes; it can be in only one of them.
+        if (split.items.size > 1) split.items.removeAt(1)
+        if (present) gitLogSplit.items.setAll(editorArea, gitLogView) else gitLogSplit.items.clear()
+        split.items.add(right)
+        // The skin makes the new divider only in its next layout; fitExplorer measures it right after this.
+        split.applyCss()
+        split.layout()
+        fitGitLog(gitLogView.expanded.get())
+    }
+
+    /**
+     * Collapsed, the git log is pinned to the height of its header, so its divider cannot be dragged; expanded, it gets
+     * its last height in pixels back, even if the window was resized meanwhile (at first the lower 30 %).
+     */
+    private fun fitGitLog(expanded: Boolean) {
+        if (expanded) {
+            gitLogView.maxHeight = Region.USE_COMPUTED_SIZE
+            gitLogSplit.setDividerPositions(gitLogDividerPosition())
+        } else {
+            gitLogView.maxHeight = Region.USE_PREF_SIZE
+            gitLogSplit.setDividerPositions(1.0)
+        }
+    }
+
+    /**
+     * The divider position that gives the git log its remembered height in the split's current height; the default
+     * position while the height is unknown or the split is not laid out yet.
+     */
+    private fun gitLogDividerPosition(): Double {
+        val total = gitLogSplit.height
+        if (gitLogHeight <= 0 || total <= 0) return GIT_LOG_DIVIDER
+        // The position is that of the divider's middle; a vertical split's divider has no preferred height, but the
+        // split is laid out.
+        val divider = gitLogSplit.lookupAll(".split-pane-divider").firstOrNull { it.parent === gitLogSplit }
+        val half = (divider?.layoutBounds?.height ?: 0.0) / 2
+        return (1 - (gitLogHeight + half) / total).coerceIn(0.0, 1.0)
     }
 
     /**
@@ -221,7 +313,15 @@ class MainWindow(
                 disableProperty().bind(editorArea.canToggleDiff.map { !it })
                 setOnAction { editorArea.toggleDiff() }
             }
-        return Menu("View", null, showChanges)
+        // IntelliJ's shortcut for its Git tool window.
+        val gitLog =
+            MenuItem("Git Log").apply {
+                val modifier = if (isMac) KeyCombination.SHORTCUT_DOWN else KeyCombination.ALT_DOWN
+                accelerator = KeyCodeCombination(KeyCode.DIGIT9, modifier)
+                disableProperty().bind(gitLogPresent.not())
+                setOnAction { gitLogView.expanded.set(!gitLogView.expanded.get()) }
+            }
+        return Menu("View", null, showChanges, gitLog)
     }
 
     private fun terminalMenu(stage: Stage): Menu {
@@ -312,5 +412,6 @@ class MainWindow(
         editorArea.closeAll()
         fileExplorer.open(null)
         gitStatus.open(null)
+        gitLogView.open(null)
     }
 }

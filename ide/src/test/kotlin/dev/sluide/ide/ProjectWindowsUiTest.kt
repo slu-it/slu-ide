@@ -7,7 +7,9 @@ import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitCli
+import dev.sluide.git.GitLog
 import dev.sluide.git.GitStatusService
+import dev.sluide.gitlog.GitLogView
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.projects.ProjectPicker
 import dev.sluide.projects.RecentProjects
@@ -88,6 +90,7 @@ class ProjectWindowsUiTest {
                 )
                 registerBean(FileWatcher::class.java, Supplier { FileWatcher(Platform::runLater, 50.milliseconds) })
                 registerBean(GitCli::class.java, Supplier { GitCli(dir.resolve("no-git").toString(), System.getenv()) })
+                register(GitLog::class.java)
                 val fallback = DefaultTextFileViewer()
                 registerBean(FileViewers::class.java, Supplier { FileViewers(listOf(fallback), fallback) })
                 // The window-scoped beans, as in the application.
@@ -99,6 +102,7 @@ class ProjectWindowsUiTest {
                     Terminals::class.java,
                     DockerSandbox::class.java,
                     GitStatusService::class.java,
+                    GitLogView::class.java,
                     HttpClientSession::class.java,
                 )
                 refresh()

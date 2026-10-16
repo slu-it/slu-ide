@@ -9,8 +9,11 @@ import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitCli
+import dev.sluide.git.GitCommit
+import dev.sluide.git.GitLog
 import dev.sluide.git.GitStatus
 import dev.sluide.git.GitStatusService
+import dev.sluide.gitlog.GitLogView
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.projects.ProjectPicker
 import dev.sluide.projects.RecentProjects
@@ -28,17 +31,21 @@ import javafx.application.Platform
 import javafx.beans.property.SimpleStringProperty
 import javafx.event.ActionEvent
 import javafx.event.Event
+import javafx.geometry.Orientation
 import javafx.scene.Node
 import javafx.scene.control.Label
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuBar
 import javafx.scene.control.MenuItem
+import javafx.scene.control.SplitPane
+import javafx.scene.control.TableView
 import javafx.scene.control.TreeCell
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
 import javafx.scene.input.KeyEvent
 import javafx.scene.layout.HBox
+import javafx.scene.layout.Region
 import javafx.scene.text.Text
 import javafx.stage.Stage
 import javafx.stage.WindowEvent
@@ -71,6 +78,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -130,9 +138,14 @@ class MainWindowUiTest {
         WaitForAsyncUtils.waitForFxEvents()
         terminals.close()
         gitStatus.close()
+        gitLogViews.forEach(GitLogView::close)
         watcher.close()
         httpSessions.forEach(HttpClientSession::close)
     }
+
+    /** The git log views of the windows a test created, the main window's first; closed after it. */
+    private val gitLogViews = mutableListOf<GitLogView>()
+    private val gitLogView get() = gitLogViews.first()
 
     /** The HTTP client sessions of the windows a test created; closed after it. */
     private val httpSessions = mutableListOf<HttpClientSession>()
@@ -167,6 +180,7 @@ class MainWindowUiTest {
         terminals,
         DockerSandbox(terminals, home, shellEnvironment, sbxInstalled),
         gitStatus,
+        GitLogView(GitLog(git)).also(gitLogViews::add),
         SettingsPages(listOf(FontsPage(fontSettings))),
         ThemedWindows(ThemeSettings(SettingsStore(settingsDir.resolve("settings.properties")))),
         projectWindows,
@@ -337,6 +351,115 @@ class MainWindowUiTest {
         robot.interact { mainWindow.dispose() }
         assertFalse(gitStatus.active)
     }
+
+    @Test
+    fun `a git repository has the git log under the editor area, collapsed to its header until View - Git Log`(
+        robot: FxRobot,
+    ) {
+        assumeTrue(git.available, "git is not installed")
+        runGit("init", "-q")
+        project.resolve("tracked.md").writeText("one")
+        runGit("add", ".")
+        runGit("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "-m", "Initial commit")
+        val gitLogItem = menu(robot, "View").items.single { it.text == "Git Log" }
+        assertTrue(gitLogItem.isDisable, "no folder, no git log")
+
+        robot.interact {
+            projectService.open(project)
+            editorArea.open(project.resolve("tracked.md"))
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        // The explorer split stays the outer one and still gets its start width.
+        assertEquals(fileExplorer.startWidth(), fileExplorer.width, DIVIDER_SLACK)
+
+        val accelerator = gitLogItem.accelerator as KeyCodeCombination
+        assertEquals(KeyCode.DIGIT9, accelerator.code)
+        val mac = System.getProperty("os.name").startsWith("Mac")
+        assertEquals(
+            if (mac) KeyCombination.ModifierValue.DOWN else KeyCombination.ModifierValue.UP,
+            accelerator.shortcut,
+        )
+        assertEquals(if (mac) KeyCombination.ModifierValue.UP else KeyCombination.ModifierValue.DOWN, accelerator.alt)
+        assertFalse(gitLogItem.isDisable)
+        val logSplit = splitPaneOf(gitLogView)
+        assertEquals(Orientation.VERTICAL, logSplit.orientation)
+        assertEquals(listOf<Node>(editorArea, gitLogView), logSplit.items)
+        assertEquals(listOf<Node>(fileExplorer, logSplit), splitPaneOf(fileExplorer).items)
+        val header = robot.lookup(".git-log-header").queryAs(Region::class.java)
+        assertTrue(header.height > 0)
+        assertEquals(header.height, gitLogView.height, 1.0, "collapsed to its header")
+        assertTrue(robot.lookup(".git-log-table").tryQuery<Node>().isEmpty)
+
+        robot.interact { gitLogItem.fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(0.3 * logSplit.height, gitLogView.height, DIVIDER_SLACK + 4, "the lower 30 %")
+        val table = robot.lookup(".git-log-table").queryAs(TableView::class.java)
+        assertSame<Node?>(table, stage.scene.focusOwner)
+        eventually(robot) { assertEquals(listOf("Initial commit"), table.items.map { (it as GitCommit).subject }) }
+
+        // A commit changes the .git folder, which reloads the expanded log.
+        runGit(
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.com",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "Second",
+        )
+        eventually(robot) {
+            assertEquals(listOf("Second", "Initial commit"), table.items.map { (it as GitCommit).subject })
+        }
+
+        // The window's height goes to the editor area.
+        val expandedHeight = gitLogView.height
+        robot.interact { stage.height -= 100 }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(expandedHeight, gitLogView.height, DIVIDER_SLACK)
+
+        // Collapsing gives the focus back to the editor and pins the log to its header.
+        robot.interact { logSplit.setDividerPositions(0.5) }
+        WaitForAsyncUtils.waitForFxEvents()
+        val dragged = gitLogView.height
+        assertTrue(dragged > expandedHeight + 50, "dragged from $expandedHeight to $dragged")
+        robot.interact { gitLogItem.fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(header.height, gitLogView.height, 1.0, "collapsed again")
+        val editorContent = editorArea.selectedTab?.content
+        val focused = stage.scene.focusOwner
+        assertTrue(
+            editorContent != null && generateSequence(focused) { it.parent }.any { it === editorContent },
+            "focus on $focused",
+        )
+        robot.interact { logSplit.setDividerPositions(0.5) }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(header.height, gitLogView.height, 1.0, "the divider of the collapsed log does not move")
+
+        // Expanding again restores the dragged height, also after the window was resized meanwhile.
+        robot.interact { stage.height -= 100 }
+        WaitForAsyncUtils.waitForFxEvents()
+        robot.interact { gitLogItem.fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(dragged, gitLogView.height, DIVIDER_SLACK)
+    }
+
+    @Test
+    fun `folders that are no git repository have no git log`(robot: FxRobot) {
+        assertTrue(robot.lookup(".git-log").tryQuery<Node>().isEmpty, "no folder")
+        project.resolve("README.md").createFile()
+
+        robot.interact { projectService.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertTrue(robot.lookup(".git-log").tryQuery<Node>().isEmpty)
+        assertEquals(listOf<Node>(fileExplorer, editorArea), splitPaneOf(editorArea).items)
+        assertTrue(menu(robot, "View").items.single { it.text == "Git Log" }.isDisable)
+    }
+
+    private fun splitPaneOf(node: Node): SplitPane =
+        generateSequence(node.parent) { it.parent }.filterIsInstance<SplitPane>().first()
 
     @Test
     fun `modified files open in the editor with their changes against HEAD marked`(robot: FxRobot) {
