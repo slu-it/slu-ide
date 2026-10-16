@@ -9,6 +9,7 @@
 
 .git-log-header .ikonli-font-icon {
     -fx-icon-color: -fx-text-base-color;
+    -fx-icon-size: 16;
 }
 
 .git-log-title {
