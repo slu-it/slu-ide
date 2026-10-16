@@ -52,7 +52,7 @@ internal class GitLogCliSource(
         root: Path,
         skip: Int,
         limit: Int,
-    ) = gitLog.commits(root, skip, limit)
+    ) = gitLog.commits(root, skip = skip, limit = limit)
 
     override fun refs(root: Path) = gitLog.refs(root)
 

@@ -4,6 +4,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.nio.charset.Charset
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration
@@ -88,38 +89,121 @@ class GitCli(
     }
 
     /**
-     * The output of `git log` for the repository at [root] (see [GitLogParser]): the commits of all branches, remote
-     * branches, tags and `HEAD` in date order, after the first [skip], at most [limit]; or `null` if git is not
-     * available, fails or takes longer than 10 s. Empty for a repository without commits.
+     * The output of `git log` for the repository at [root] (see [GitLogParser]) with the [filter] (ADR 0039): by
+     * default the commits of all branches, remote branches, tags and `HEAD` in date order; after the first [skip], at
+     * most [limit]. `null` if git is not available, fails or takes longer than 10 s, or if a revision or path of the
+     * filter has a line break or they are too many for git's standard input. Empty for a repository without commits.
      */
     internal fun log(
         root: Path,
+        filter: GitLogFilter,
         skip: Int,
         limit: Int,
+    ): String? {
+        if (!available) return null
+        // Revisions and paths go to git's standard input, so they reach it as UTF-8 whatever the JVM's locale.
+        val input = logInput(filter.revisions, filter.paths) ?: return null
+        val arguments =
+            buildList {
+                addAll(globalLogOptions(filter))
+                add("log")
+                if (filter.revisions.isEmpty()) {
+                    // Not --all, which would add stash and notes commits.
+                    addAll(listOf("--branches", "--remotes", "--tags"))
+                    // An unborn HEAD (no commits yet) would otherwise make git fail.
+                    addAll(listOf("--ignore-missing", "HEAD"))
+                } else {
+                    // A selected branch that was deleted meanwhile is skipped, also on the standard input.
+                    add("--ignore-missing")
+                }
+                add(if (filter.order == GitLogOrder.TOPOLOGICAL) "--topo-order" else "--date-order")
+                if (filter.firstParent) add("--first-parent")
+                if (filter.noMerges) add("--no-merges")
+                // %P then gives the parents as rewritten for the paths: the nearest commits shown.
+                if (filter.paths.isNotEmpty()) add("--parents")
+                addAll(patterns(filter.text.trim(), filter.regex, filter.matchCase, filter.users))
+                if (input.isNotEmpty()) add("--stdin")
+                addAll(logOutputOptions())
+                add("--skip=$skip")
+                add("--max-count=$limit")
+                // HEAD is a revision, even if a file of that name exists.
+                add("--")
+            }
+        return runBytes(arguments, root, 10.seconds, input.takeIf { it.isNotEmpty() })?.toString(Charsets.UTF_8)
+    }
+
+    /**
+     * The output of `git log --no-walk` for the commit [hash] alone (see [GitLogParser]) if it passes the users,
+     * paths and no merges of [filter] (not its text and revisions); empty if it does not. `null` if git is not
+     * available, fails or takes longer than 10 s, or for paths as [log] refuses them.
+     */
+    internal fun logCommit(
+        root: Path,
+        hash: String,
+        filter: GitLogFilter,
+    ): String? {
+        if (!available) return null
+        val input = logInput(emptyList(), filter.paths) ?: return null
+        val arguments =
+            buildList {
+                addAll(globalLogOptions(filter))
+                addAll(listOf("log", "--no-walk"))
+                if (filter.noMerges) add("--no-merges")
+                addAll(patterns("", regex = false, matchCase = false, users = filter.users))
+                if (input.isNotEmpty()) add("--stdin")
+                addAll(logOutputOptions())
+                add(hash)
+                add("--")
+            }
+        return runBytes(arguments, root, 10.seconds, input.takeIf { it.isNotEmpty() })?.toString(Charsets.UTF_8)
+    }
+
+    /**
+     * The full object name of the one commit [prefix] (4 to 64 hexadecimal characters) names in the repository at
+     * [root]; `null` if it names none or several (ambiguous), or if git is not available, fails or takes longer than
+     * 3 s.
+     */
+    internal fun commitOf(
+        root: Path,
+        prefix: String,
+    ): String? {
+        if (!available || !HASH_PREFIX.matches(prefix)) return null
+        // -q: an unknown or ambiguous prefix fails quietly.
+        val arguments = listOf("--no-optional-locks", "rev-parse", "--verify", "-q", "$prefix^{commit}")
+        return run(arguments, root, 3.seconds)?.trim()?.ifEmpty { null }
+    }
+
+    /**
+     * The `user.name` git uses in the repository at [root], trimmed; `null` if it is not set, or if git is not
+     * available, fails or takes longer than 3 s.
+     */
+    internal fun userName(root: Path): String? {
+        if (!available) return null
+        return run(listOf("--no-optional-locks", "config", "--get", "user.name"), root, 3.seconds)
+            ?.trim()
+            ?.ifEmpty { null }
+    }
+
+    /**
+     * The output of `git ls-tree -r -t -z` for the tree of [commit] (a full object name) in the repository at
+     * [root], each record `<mode> <type> <object>\t<path>` ended by NUL, the path unquoted; `null` if git is not
+     * available, fails or takes longer than 10 s.
+     */
+    internal fun treePaths(
+        root: Path,
+        commit: String,
     ): String? {
         if (!available) return null
         val arguments =
             listOf(
                 "--no-optional-locks",
-                "log",
-                // Not --all, which would add stash and notes commits.
-                "--branches",
-                "--remotes",
-                "--tags",
-                // An unborn HEAD (no commits yet) would otherwise make git fail.
-                "--ignore-missing",
-                "HEAD",
-                "--date-order",
+                "ls-tree",
+                "-r",
+                // Folders too, before what they hold.
+                "-t",
+                // Unquoted paths; a --format would quote them even with -z.
                 "-z",
-                "--no-color",
-                "--no-show-signature",
-                // The output is read as UTF-8, whatever i18n.logOutputEncoding says.
-                "--encoding=UTF-8",
-                "--skip=$skip",
-                "--max-count=$limit",
-                // %aN and %aE: name and email as mapped by .mailmap.
-                "--format=%H%x1f%P%x1f%aN%x1f%aE%x1f%at%x1f%s",
-                // HEAD is a revision, even if a file of that name exists.
+                commit,
                 "--",
             )
         return run(arguments, root, 10.seconds)
@@ -275,6 +359,67 @@ class GitCli(
     }
 
     /**
+     * Options of git itself for a log with [filter]: paths are literal paths, not patterns; `log.follow` of the
+     * user's configuration would make a single path follow renames, with parents that are not rewritten.
+     */
+    private fun globalLogOptions(filter: GitLogFilter): List<String> =
+        listOf("--no-optional-locks", "-c", "log.follow=false") +
+            if (filter.paths.isEmpty()) emptyList() else listOf("--literal-pathspecs")
+
+    /** The format of the commits [GitLogParser] reads. */
+    private fun logOutputOptions() =
+        listOf(
+            // Authors as mapped by .mailmap, for --author too, whatever log.mailmap says.
+            "--use-mailmap",
+            "-z",
+            "--no-color",
+            "--no-show-signature",
+            // The output is read as UTF-8, whatever i18n.logOutputEncoding says.
+            "--encoding=UTF-8",
+            // %aN and %aE: name and email as mapped by .mailmap.
+            "--format=%H%x1f%P%x1f%aN%x1f%aE%x1f%at%x1f%s",
+        )
+
+    /**
+     * The standard input of a log for [revisions] and [paths]: one revision per line, then `--` and one path per
+     * line; empty without either. `null` if one has a line break (git would read two) or a revision starts with `-`
+     * (git would read an option), or if it is larger than [MAX_INPUT] (see there).
+     */
+    private fun logInput(
+        revisions: List<String>,
+        paths: List<String>,
+    ): ByteArray? {
+        if ((revisions + paths).any { '\n' in it } || revisions.any { it.startsWith('-') }) return null
+        if (revisions.isEmpty() && paths.isEmpty()) return ByteArray(0)
+        val lines = revisions + if (paths.isEmpty()) emptyList() else listOf("--") + paths
+        val input = lines.joinToString("") { "$it\n" }.toByteArray(Charsets.UTF_8)
+        return input.takeIf { it.size <= MAX_INPUT }
+    }
+
+    /**
+     * The pattern options of a log (ADR 0039): always extended regular expressions; [text] (if not empty) matching
+     * the message, escaped unless [regex], ignoring case unless [matchCase]; for every one of the [users] its name or
+     * email, exactly but ignoring case whatever [matchCase] says. Characters the JVM cannot pass as arguments are
+     * replaced ([encodableArgument]).
+     */
+    private fun patterns(
+        text: String,
+        regex: Boolean,
+        matchCase: Boolean,
+        users: List<String>,
+    ): List<String> {
+        val authors = users.map(String::trim).filter(String::isNotEmpty).flatMap(::authorPatterns)
+        if (text.isEmpty() && authors.isEmpty()) return emptyList()
+        return buildList {
+            add("--extended-regexp")
+            if (text.isNotEmpty() && !matchCase) add("--regexp-ignore-case")
+            if (text.isNotEmpty()) add("--grep=" + encodableArgument(if (regex) text else escapeRegex(text)))
+            // Git matches them against "Name <email> timestamp zone" and ORs them, but ANDs them with --grep.
+            authors.forEach { add("--author=" + encodableArgument(it)) }
+        }
+    }
+
+    /**
      * [file] relative to [root], `/`-separated as git wants it; `null` if it is not inside [root]. Relative paths are
      * taken from the working directory.
      */
@@ -352,5 +497,84 @@ class GitCli(
     private fun stop(process: Process) {
         process.descendants().forEach { it.destroyForcibly() }
         process.destroyForcibly()
+    }
+
+    private companion object {
+        val HASH_PREFIX = Regex("[0-9a-fA-F]{4,64}")
+
+        /**
+         * The most bytes written to git's standard input. They are written while git runs (its output is read in
+         * parallel), but the write blocks while git does not read and is not covered by the timeout ([runBytes]); below
+         * the smallest default pipe buffer (16 KiB on macOS) it never blocks.
+         */
+        const val MAX_INPUT = 15 * 1024
+    }
+}
+
+/** The characters with a meaning in a POSIX extended regular expression. */
+private const val REGEX_SPECIAL = ".[]()*+?{}|^$\\"
+
+/** [text] as a POSIX extended regular expression that matches it literally. */
+internal fun escapeRegex(text: String): String =
+    buildString { for (char in text) append(if (char in REGEX_SPECIAL) "\\$char" else char) }
+
+/**
+ * The patterns that match an author whose name or email is [value], ignoring case by turning ASCII letters into
+ * bracket expressions (`[Aa]`) and escaping the rest: the name from the start of git's `Name <email> …` up to ` <`,
+ * the email between `<` and `>`.
+ */
+internal fun authorPatterns(value: String): List<String> {
+    val pattern =
+        buildString {
+            for (char in value) {
+                when {
+                    char in 'a'..'z' || char in 'A'..'Z' -> {
+                        append(
+                            '[',
+                        ).append(char.uppercaseChar()).append(char.lowercaseChar()).append(']')
+                    }
+
+                    char in REGEX_SPECIAL -> {
+                        append('\\').append(char)
+                    }
+
+                    else -> {
+                        append(char)
+                    }
+                }
+            }
+        }
+    return listOf("^$pattern <", "<$pattern>")
+}
+
+/** The charset the JVM turns process arguments into bytes with. */
+private val argumentCharset: Charset =
+    System.getProperty("sun.jnu.encoding")?.let { runCatching { Charset.forName(it) }.getOrNull() }
+        ?: Charset.defaultCharset()
+
+/**
+ * [pattern] as a process argument for a regular expression of git (ADR 0039): every character [charset] cannot
+ * encode, which the JVM would turn into `?`, becomes `.` once per byte of its UTF-8 encoding. In such a locale git
+ * matches byte by byte, so it still matches the character (and a little more). Inside a bracket expression it does
+ * not work.
+ */
+internal fun encodableArgument(
+    pattern: String,
+    charset: Charset = argumentCharset,
+): String {
+    val encoder = charset.newEncoder()
+    if (encoder.canEncode(pattern)) return pattern
+    return buildString {
+        var index = 0
+        while (index < pattern.length) {
+            val end = pattern.offsetByCodePoints(index, 1)
+            val character = pattern.substring(index, end)
+            if (encoder.canEncode(character)) {
+                append(character)
+            } else {
+                repeat(character.toByteArray(Charsets.UTF_8).size) { append('.') }
+            }
+            index = end
+        }
     }
 }

@@ -14,27 +14,71 @@ data class GitLogPage(
 
 /**
  * The commits of a repository (ADR 0035): those of all local branches, remote-tracking branches, tags and `HEAD`, in
- * date order. Stash and notes commits are left out. Also the refs pointing at them and the details of a commit
- * (ADR 0037), and the files a commit changed with their diffs (ADR 0038).
+ * date order, or those a [GitLogFilter] selects (ADR 0039). Stash and notes commits are left out. Also the refs
+ * pointing at them and the details of a commit (ADR 0037), and the files a commit changed with their diffs (ADR 0038).
  */
 @Component
 class GitLog(
     private val git: GitCli,
 ) {
     /**
-     * The commits after the first [skip] ones, at most [limit] of them, in the repository at [root]; `null` if git is
-     * not available, fails or takes longer than 10 s. Runs git on the calling thread.
+     * The commits that pass [filter] (ADR 0039), after the first [skip] ones, at most [limit] of them, in the
+     * repository at [root]; `null` if git is not available, fails (also for an invalid regular expression) or takes
+     * longer than 10 s, or if a revision or path of the filter has a line break or they are too many (above 15 KB).
+     * Runs git on the calling thread.
      */
     fun commits(
         root: Path,
+        filter: GitLogFilter = GitLogFilter(),
         skip: Int,
         limit: Int,
     ): GitLogPage? {
         require(skip >= 0) { "skip must not be negative: $skip" }
         require(limit > 0) { "limit must be positive: $limit" }
-        val output = git.log(root, skip, limit) ?: return null
+        val output = git.log(root, filter, skip, limit) ?: return null
         val commits = GitLogParser.parse(output)
         return GitLogPage(commits, complete = commits.size < limit)
+    }
+
+    /**
+     * The commit the text of [filter] names, if it is 4 to 64 hexadecimal characters (trimmed) and names exactly one
+     * commit in the repository at [root], and if that commit passes the users, paths and no merges of [filter]; its
+     * revisions are not applied (ADR 0039). `null` otherwise, and if git is not available, fails or takes too long.
+     * Its parents are all its parents. Runs git on the calling thread.
+     */
+    fun hashMatch(
+        root: Path,
+        filter: GitLogFilter,
+    ): GitCommit? {
+        val prefix = filter.text.trim()
+        if (!HASH_PREFIX.matches(prefix)) return null
+        val hash = git.commitOf(root, prefix) ?: return null
+        // A branch or tag of that name would be resolved first: only a hash counts.
+        if (!HASH.matches(hash) || !hash.startsWith(prefix.lowercase())) return null
+        val output = git.logCommit(root, hash, filter) ?: return null
+        return GitLogParser.parse(output).singleOrNull { it.hash == hash }
+    }
+
+    /**
+     * The `user.name` git uses in the repository at [root] (ADR 0039), trimmed; `null` if it is not set, or if git is
+     * not available, fails or takes longer than 3 s. Runs git on the calling thread.
+     */
+    fun userName(root: Path): String? = git.userName(root)
+
+    /**
+     * The folders and files of `HEAD`'s tree in the repository at [root] (ADR 0039), each folder before what it
+     * holds; empty while `HEAD` has no commit yet; `null` if git is not available, fails or takes longer than 10 s.
+     * Submodules are files. Runs git on the calling thread.
+     */
+    fun paths(root: Path): List<GitTreePath>? {
+        val head = git.headCommit(root) ?: return if (git.currentBranch(root) != null) emptyList() else null
+        val output = git.treePaths(root, head) ?: return null
+        return output.split('\u0000').mapNotNull { record ->
+            // <mode> <type> <object>\t<path>
+            val info = record.substringBefore('\t', "").split(' ')
+            if (info.size != 3) return@mapNotNull null
+            GitTreePath(record.substringAfter('\t'), folder = info[1] == "tree")
+        }
     }
 
     /**
@@ -177,6 +221,8 @@ class GitLog(
 
     private companion object {
         val HASH = Regex("[0-9a-fA-F]{40}|[0-9a-fA-F]{64}")
+
+        val HASH_PREFIX = Regex("[0-9a-fA-F]{4,64}")
 
         const val MAX_BLOB_SIZE = 5L * 1024 * 1024
 
