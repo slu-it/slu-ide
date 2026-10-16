@@ -146,7 +146,8 @@
  * In selected rows a thin outline in the table's background colour, like the graph's halo, so that every icon colour
  * stands out against the selection bar. Not tied to the table's focus, which follows the window's focus.
  */
-.table-row-cell:filled:selected .git-ref-icon {
+.table-row-cell:filled:selected .git-ref-icon,
+.list-cell:filled:selected .git-ref-icon {
     -fx-effect: dropshadow(one-pass-box, -fx-control-inner-background, 2, 1, 0, 0);
 }
 
@@ -278,6 +279,148 @@
 /* Selected rows: the selection text colour, like the rest of the row. */
 .tree-cell:filled:selected .git-change-name {
     -fx-text-fill: -fx-text-background-color;
+}
+
+/*
+ * The filter bar above the commit table (ADR 0039): compact, on the table's background, with a line below; flat
+ * buttons like Refresh, the text field and its toggles drawn as one field.
+ */
+.git-log-filters {
+    -fx-spacing: 4;
+    -fx-padding: 2 4 2 4;
+    -fx-background-color: -fx-box-border, -fx-control-inner-background;
+    -fx-background-insets: 0, 0 0 1 0;
+}
+
+.git-log-filters .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+    -fx-icon-size: 14;
+}
+
+.git-filter-search {
+    -fx-spacing: 2;
+    -fx-padding: 0 2 0 5;
+    -fx-background-color: -fx-text-box-border, -fx-control-inner-background;
+    -fx-background-insets: 0, 1;
+    -fx-background-radius: 3, 2;
+    -fx-pref-width: 260;
+}
+
+.git-filter-search:focus-within {
+    -fx-background-color: -fx-focus-color, -fx-control-inner-background;
+}
+
+.git-filter-text,
+.git-filter-text:focused {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 2 2 2 2;
+}
+
+.git-filter-toggle,
+.git-filter-button,
+.git-filter-clear,
+.git-filter-options {
+    -fx-background-color: transparent;
+    -fx-background-radius: 3;
+    -fx-padding: 1 4 1 4;
+}
+
+.git-filter-toggle {
+    -fx-font-family: monospace;
+    -fx-padding: 0 3 0 3;
+}
+
+.git-filter-toggle:hover,
+.git-filter-button:hover,
+.git-filter-clear:hover,
+.git-filter-options:hover,
+.git-filter-options:showing {
+    -fx-background-color: -fx-hover-base;
+}
+
+/* Focused by the keyboard (Tab): a ring in the focus colour; not after a mouse click. */
+.git-filter-toggle:focus-visible,
+.git-filter-button:focus-visible,
+.git-filter-clear:focus-visible,
+.git-filter-options:focus-visible {
+    -fx-background-color: -fx-focus-color, -fx-control-inner-background;
+    -fx-background-insets: 0, 1;
+    -fx-background-radius: 3, 2;
+}
+
+/*
+ * A selected toggle, and the options button while an option differs from the default (:on), stand out in both
+ * themes: the accent colour with the selection's text colour.
+ */
+.git-filter-toggle:selected,
+.git-filter-toggle:selected:hover,
+.git-filter-options:on,
+.git-filter-options:on:hover {
+    -fx-background-color: -fx-accent;
+    -fx-text-fill: -fx-selection-bar-text;
+}
+
+.git-filter-toggle:selected:focus-visible,
+.git-filter-options:on:focus-visible {
+    -fx-background-color: -fx-focus-color, -fx-accent;
+    -fx-background-insets: 0, 1;
+    -fx-background-radius: 3, 2;
+}
+
+.git-filter-options:on .ikonli-font-icon {
+    -fx-icon-color: -fx-selection-bar-text;
+}
+
+.git-filter {
+    -fx-spacing: 0;
+}
+
+.git-filter-label {
+    -fx-spacing: 3;
+    -fx-alignment: center-left;
+}
+
+.git-filter-clear .ikonli-font-icon {
+    -fx-icon-size: 12;
+}
+
+/* The cog only, without the menu button's arrow. */
+.git-filter-options > .arrow-button {
+    -fx-padding: 0;
+}
+
+.git-filter-options > .arrow-button > .arrow {
+    -fx-shape: null;
+    -fx-padding: 0;
+}
+
+/* The popup of a filter: a window of its own, themed by ThemedWindows (ADR 0009), with this stylesheet added. */
+.git-filter-popup {
+    -fx-spacing: 4;
+    -fx-padding: 4;
+    -fx-background-color: -fx-box-border, -fx-control-inner-background;
+    -fx-background-insets: 0, 1;
+}
+
+.git-filter-list {
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.git-filter-item {
+    -fx-spacing: 2;
+    -fx-alignment: center-left;
+}
+
+.git-filter-item-text {
+    -fx-graphic-text-gap: 4;
+    -fx-text-fill: -fx-text-background-color;
+}
+
+.git-filter-icon {
+    -fx-icon-color: -fx-text-background-color;
+    -fx-icon-size: 14;
 }
 
 /* Single-class selector only: JavaFX applies descendant selectors in @media blocks whatever the scheme (ADR 0009). */

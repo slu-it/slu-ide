@@ -7,17 +7,20 @@ import dev.sluide.git.GitCommitDetails
 import dev.sluide.git.GitFileDiff
 import dev.sluide.git.GitHunk
 import dev.sluide.git.GitLogFilter
+import dev.sluide.git.GitLogOrder
 import dev.sluide.git.GitLogPage
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitTreePath
+import javafx.animation.Animation
 import javafx.application.ColorScheme
 import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.Label
+import javafx.scene.control.ListCell
 import javafx.scene.control.TableRow
 import javafx.scene.control.TreeCell
 import javafx.scene.control.TreeItem
@@ -25,6 +28,8 @@ import javafx.scene.control.skin.VirtualFlow
 import javafx.scene.effect.DropShadow
 import javafx.scene.input.Clipboard
 import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyCodeCombination
+import javafx.scene.input.KeyCombination
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
@@ -98,7 +103,11 @@ class GitLogViewUiTest {
     @Volatile
     private var treePaths: List<GitTreePath>? = emptyList()
 
-    /** The root of every read of the user name and of the tree's paths. */
+    /** Reading the user name or the tree's paths of a root waits for its gate, if it has one. */
+    private val userNameGates = ConcurrentHashMap<Path, CountDownLatch>()
+    private val pathGates = ConcurrentHashMap<Path, CountDownLatch>()
+
+    /** The root of every read of the user name and of the tree's paths, once its gate is open. */
     private val userNameLoads = CopyOnWriteArrayList<Path>()
     private val pathLoads = CopyOnWriteArrayList<Path>()
 
@@ -167,13 +176,15 @@ class GitLogViewUiTest {
                 ) = hashMatchOf(filter)
 
                 override fun userName(root: Path): String? {
+                    userNameGates[root]?.await(10, TimeUnit.SECONDS)
                     userNameLoads.add(root)
-                    return userName
+                    return if (root == repo) userName else null
                 }
 
                 override fun paths(root: Path): List<GitTreePath>? {
+                    pathGates[root]?.await(10, TimeUnit.SECONDS)
                     pathLoads.add(root)
-                    return treePaths
+                    return if (root == repo) treePaths else emptyList()
                 }
 
                 override fun refs(root: Path) = if (root == repo) refs else null
@@ -219,6 +230,8 @@ class GitLogViewUiTest {
         detailGates.values.forEach(CountDownLatch::countDown)
         fileGates.values.forEach(CountDownLatch::countDown)
         diffGate?.countDown()
+        userNameGates.values.forEach(CountDownLatch::countDown)
+        pathGates.values.forEach(CountDownLatch::countDown)
         view.close()
     }
 
@@ -1761,5 +1774,559 @@ class GitLogViewUiTest {
         // Another commit: everything expanded.
         select(robot, 1)
         eventually { assertEquals(6, shownTree().size) }
+    }
+
+    private val bar get() = view.filterBar
+
+    /** Fires a key press at [node], with the shortcut key (Ctrl, Cmd on macOS) if [shortcut]. */
+    private fun press(
+        robot: FxRobot,
+        node: Node,
+        code: KeyCode,
+        shortcut: Boolean = false,
+    ) {
+        val mac = System.getProperty("os.name").startsWith("Mac")
+        robot.interact {
+            Event.fireEvent(
+                node,
+                KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, shortcut && !mac, false, shortcut && mac),
+            )
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+    }
+
+    /** The texts of the items a filter popup lists, in order. */
+    private fun items(popup: FilterPopup) = popup.list.items.map { it.text }
+
+    /** Clicks the list cell of [popup] showing [text]. */
+    private fun clickItem(
+        robot: FxRobot,
+        popup: FilterPopup,
+        text: String,
+        clickCount: Int = 1,
+    ) {
+        WaitForAsyncUtils.waitForFxEvents()
+        val cell =
+            popup.list
+                .lookupAll(".list-cell")
+                .filterIsInstance<ListCell<*>>()
+                .single { (it.item as? FilterItem)?.text == text }
+        // A double click: a first click, then one with a click count of 2.
+        for (count in 1..clickCount) click(robot, cell, count)
+    }
+
+    @Test
+    fun `typing filters the commits after a pause, Enter at once, Escape clears, Refresh keeps it`(robot: FxRobot) {
+        openAndExpand(robot)
+        val prompt = bar.text.promptText
+
+        val (status, loadsThen) =
+            WaitForAsyncUtils
+                .asyncFx<Pair<Animation.Status, Int>> {
+                    bar.text.text = "Subject 12"
+                    bar.debounce.status to filters.size
+                }.get()
+        assertEquals(Animation.Status.RUNNING, status, "waiting for the pause")
+        assertEquals(1, loadsThen, "no reload yet")
+        eventually { assertEquals(Animation.Status.STOPPED, bar.debounce.status) }
+        eventually { assertEquals(GitLogFilter(text = "Subject 12"), filters.last()) }
+        eventually { assertEquals(listOf("Subject 12", "Subject 120", "Subject 121"), shownSubjects(robot).take(3)) }
+        assertEquals("Text or hash", prompt)
+
+        robot.interact { bar.text.text = "  Subject 7 " }
+        press(robot, bar.text, KeyCode.ENTER)
+        eventually { assertEquals(GitLogFilter(text = "Subject 7"), filters.last()) }
+        Thread.sleep(500)
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(1, filters.count { it.text == "Subject 7" }, "Enter applied it, the pause adds nothing")
+
+        robot.interact { view.refresh() }
+        eventually { assertEquals(2, filters.count { it.text == "Subject 7" }) }
+
+        var escapes = 0
+        robot.interact { view.addEventHandler(KeyEvent.KEY_PRESSED) { if (it.code == KeyCode.ESCAPE) escapes++ } }
+        press(robot, bar.text, KeyCode.ESCAPE)
+        assertEquals("", bar.text.text)
+        eventually { assertEquals(GitLogFilter(), filters.last()) }
+        assertEquals(0, escapes, "consumed while there is a text")
+        press(robot, bar.text, KeyCode.ESCAPE)
+        assertEquals(1, escapes, "an empty field lets it through")
+        eventually { assertEquals(500, view.table.items.size) }
+    }
+
+    @Test
+    fun `Regex and Match Case reload at once with a text, and an empty result says no commits match`(robot: FxRobot) {
+        openAndExpand(robot)
+        assertEquals("Regex", bar.regex.tooltip.text)
+        assertEquals("Match Case", bar.matchCase.tooltip.text)
+
+        robot.interact { bar.regex.isSelected = true }
+        Thread.sleep(400)
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(1, filters.size, "nothing to match without a text")
+
+        robot.interact { bar.text.text = "subject 5" }
+        press(robot, bar.text, KeyCode.ENTER)
+        eventually { assertEquals(GitLogFilter(text = "subject 5", regex = true), filters.last()) }
+        eventually { assertEquals("Subject 5", shownSubjects(robot).first()) }
+
+        robot.interact { bar.matchCase.isSelected = true }
+        eventually { assertEquals(GitLogFilter(text = "subject 5", regex = true, matchCase = true), filters.last()) }
+        eventually { assertEquals("No commits match the filters.", placeholder(robot)) }
+    }
+
+    @Test
+    fun `rows have no graph under a text filter, but keep their ref labels`(robot: FxRobot) {
+        history = listOf(commit("m", "b", "f"), commit("f", "a"), commit("b", "a"), commit("a"))
+        refs = GitRefs(listOf(ref("refs/heads/main", GitRefKind.LOCAL_BRANCH, "m")), null)
+        openAndExpand(robot)
+        eventually { assertTrue(graphCells(robot).any { it.item?.graph?.width == 2 }) }
+
+        robot.interact { bar.text.text = "Subject" }
+        press(robot, bar.text, KeyCode.ENTER)
+
+        eventually {
+            val cells = graphCells(robot).filter { it.item != null }
+            assertEquals(4, cells.size)
+            assertTrue(cells.all { it.item.graph == GraphRow.NONE })
+            assertTrue(cells.all { it.graph.width == 0.0 && drawn(it.graph).isEmpty() })
+            val merge = cells.single { it.item.commit.hash == "m" }
+            assertTrue(merge.labels.isVisible)
+            assertTrue(merge.subject.boundsInParent.minX < LANE_WIDTH, "the subject starts at the left")
+        }
+        val dots =
+            graphCells(robot).filter { it.item != null }.flatMap { cell ->
+                cell.graph.childrenUnmodifiable
+                    .filterIsInstance<Circle>()
+                    .filter { "git-graph-dot" in it.styleClass }
+            }
+        assertTrue(dots.none { it.isVisible })
+    }
+
+    @Test
+    fun `the branch popup lists the refs, checking one filters the log, the button tells and clears`(robot: FxRobot) {
+        refs =
+            GitRefs(
+                someRefs.refs + ref("refs/heads/feature", GitRefKind.LOCAL_BRANCH, "h5"),
+                "refs/heads/main",
+            )
+        reachable = mapOf("refs/heads/feature" to setOf("h5", "h6", "h7"), "HEAD" to setOf("h1", "h2"))
+        openAndExpand(robot)
+        val branch = bar.branch
+        assertEquals("Branch", branch.label.text)
+        assertFalse(branch.clear.isVisible || branch.clear.isManaged)
+
+        robot.interact { branch.button.fire() }
+        val popup = branch.popup
+        assertTrue(popup.popup.isShowing)
+        assertSame<Node?>(popup.search, popup.popup.scene.focusOwner)
+        assertEquals(
+            listOf("HEAD", "feature", "main", "origin/main", "origin/old", "v0.9", "v1.0"),
+            items(popup),
+        )
+        assertTrue(GIT_LOG_CSS in popup.content.stylesheets)
+
+        clickItem(robot, popup, "feature")
+        eventually { assertEquals(listOf("refs/heads/feature"), filters.last().revisions) }
+        eventually { assertEquals(listOf("h5", "h6", "h7"), view.table.items.map { it.commit.hash }) }
+        assertEquals("Branch: feature", branch.label.text)
+        assertTrue(branch.clear.isVisible && branch.clear.isManaged)
+        assertTrue(popup.popup.isShowing, "stays open")
+
+        robot.interact { popup.list.selectionModel.select(0) }
+        press(robot, popup.list, KeyCode.SPACE)
+        eventually { assertEquals(listOf("HEAD", "refs/heads/feature"), filters.last().revisions) }
+        assertEquals("Branch: HEAD +1", branch.label.text)
+
+        // Typing narrows the list; Enter toggles the one item shown.
+        robot.interact { popup.search.text = "FEAT" }
+        assertEquals(listOf("feature"), items(popup))
+        press(robot, popup.search, KeyCode.ENTER)
+        eventually { assertEquals(listOf("HEAD"), filters.last().revisions) }
+        assertEquals("Branch: HEAD", branch.label.text)
+
+        // Several shown, one named exactly: Enter toggles it, both ways.
+        robot.interact { popup.search.text = "main" }
+        assertEquals(listOf("main", "origin/main"), items(popup))
+        press(robot, popup.search, KeyCode.ENTER)
+        eventually { assertEquals(listOf("HEAD", "refs/heads/main"), filters.last().revisions) }
+        press(robot, popup.search, KeyCode.ENTER)
+        eventually { assertEquals(listOf("HEAD"), filters.last().revisions) }
+
+        // A double click toggles once.
+        robot.interact { popup.search.text = "" }
+        clickItem(robot, popup, "v0.9", clickCount = 2)
+        eventually { assertEquals(listOf("HEAD", "refs/tags/v0.9"), filters.last().revisions) }
+        clickItem(robot, popup, "v0.9")
+        eventually { assertEquals(listOf("HEAD"), filters.last().revisions) }
+
+        press(robot, popup.search, KeyCode.ESCAPE)
+        assertFalse(popup.popup.isShowing)
+        robot.interact { branch.button.fire() }
+        assertEquals("HEAD", items(popup).first(), "checked first")
+        assertEquals("", popup.search.text)
+        robot.interact { popup.hide() }
+
+        click(robot, branch.clear)
+        eventually { assertEquals(GitLogFilter(), filters.last()) }
+        assertEquals("Branch", branch.label.text)
+        assertFalse(branch.clear.isVisible || branch.clear.isManaged)
+    }
+
+    @Test
+    fun `Down in a popup's search field moves into its list`(robot: FxRobot) {
+        refs = someRefs
+        openAndExpand(robot)
+        robot.interact { bar.branch.button.fire() }
+        val popup = bar.branch.popup
+
+        press(robot, popup.search, KeyCode.DOWN)
+
+        assertSame<Node?>(popup.list, popup.popup.scene.focusOwner)
+        assertEquals(0, popup.list.selectionModel.selectedIndex)
+        robot.interact { popup.hide() }
+    }
+
+    @Test
+    fun `the user popup lists me and the loaded authors, and takes a typed name with Enter`(robot: FxRobot) {
+        userName = "Me Myself"
+        history = commits(3) + commits(1, "x").map { it.copy(author = "alice") }
+        openAndExpand(robot)
+        val user = bar.user
+
+        robot.interact { user.button.fire() }
+        val popup = user.popup
+        eventually { assertEquals(listOf("me (Me Myself)", "alice", "Author 1", "Author 2", "Author 3"), items(popup)) }
+        assertEquals(listOf(repo), userNameLoads)
+
+        clickItem(robot, popup, "me (Me Myself)")
+        eventually { assertEquals(listOf("Me Myself"), filters.last().users) }
+        assertEquals("User: me", user.label.text)
+        eventually { assertEquals("No commits match the filters.", placeholder(robot)) }
+
+        robot.interact { popup.search.text = "Author 2" }
+        press(robot, popup.search, KeyCode.ENTER)
+        eventually { assertEquals(listOf("Me Myself", "Author 2"), filters.last().users) }
+
+        robot.interact { popup.search.text = " Somebody Else " }
+        assertEquals(emptyList(), items(popup))
+        press(robot, popup.search, KeyCode.ENTER)
+        eventually { assertEquals(listOf("Me Myself", "Author 2", "Somebody Else"), filters.last().users) }
+        assertEquals("User: me +2", user.label.text)
+        assertEquals("", popup.search.text)
+        assertEquals("Somebody Else", items(popup)[2], "checked first")
+        eventually { assertEquals(listOf("Subject 2"), shownSubjects(robot)) }
+
+        robot.interact { popup.hide() }
+        robot.interact { user.button.fire() }
+        assertTrue("alice" in items(popup), "the user filter hides authors, the list keeps them")
+        assertEquals(1, userNameLoads.size, "read once per folder")
+        robot.interact { popup.hide() }
+    }
+
+    @Test
+    fun `the path popup lists HEAD's tree and takes a typed path`(robot: FxRobot) {
+        treePaths = listOf(GitTreePath("src", folder = true), GitTreePath("src/a.txt", folder = false))
+        openAndExpand(robot)
+        val path = bar.path
+
+        robot.interact { path.button.fire() }
+        val popup = path.popup
+        eventually { assertEquals(listOf("src", "src/a.txt"), items(popup)) }
+        assertEquals(listOf(repo), pathLoads)
+        assertTrue(popup.list.items.all { it.icon != null })
+
+        robot.interact { popup.search.text = "./docs/" }
+        press(robot, popup.search, KeyCode.ENTER)
+        eventually { assertEquals(listOf("docs"), filters.last().paths) }
+        assertEquals("Path: docs", path.label.text)
+
+        robot.interact { popup.search.text = "src" }
+        assertEquals(listOf("src", "src/a.txt"), items(popup))
+        press(robot, popup.search, KeyCode.ENTER)
+        eventually { assertEquals(listOf("src", "docs"), filters.last().paths) }
+        assertEquals("Path: src +1", path.label.text)
+
+        robot.interact { popup.hide() }
+        robot.interact { path.button.fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(1, pathLoads.size, "not read again for a filter change")
+        robot.interact { popup.hide() }
+    }
+
+    @Test
+    fun `the graph options set the order, first parent only and no merges`(robot: FxRobot) {
+        openAndExpand(robot)
+        assertEquals("Graph Options", bar.options.tooltip.text)
+        assertEquals(
+            listOf("Sort by Date", "Sort Topologically", null, "First Parent Only", "No Merges"),
+            bar.options.items.map { it.text },
+        )
+        assertTrue(bar.dateOrder.isSelected)
+
+        // As the menu does when an item is clicked.
+        robot.interact { bar.topoOrder.isSelected = true }
+        eventually { assertEquals(GitLogFilter(order = GitLogOrder.TOPOLOGICAL), filters.last()) }
+        assertFalse(bar.dateOrder.isSelected)
+
+        robot.interact { bar.firstParent.isSelected = true }
+        eventually { assertTrue(filters.last().firstParent) }
+        robot.interact { bar.noMerges.isSelected = true }
+        eventually { assertTrue(filters.last().noMerges && filters.last().firstParent) }
+        eventually { assertTrue(view.table.items.all { it.graph == GraphRow.NONE }) }
+
+        assertTrue(bar.options.pseudoClassStates.any { it.pseudoClassName == "on" })
+        assertEquals("Graph Options: Sort Topologically, First Parent Only, No Merges", bar.options.tooltip.text)
+        // The :on style applies with the next pulse.
+        WaitForAsyncUtils.waitForFxEvents()
+        val marked = (
+            bar.options.background.fills
+                .last()
+                .fill
+        )
+
+        robot.interact {
+            bar.dateOrder.isSelected = true
+            bar.firstParent.isSelected = false
+        }
+        eventually { assertEquals(GitLogOrder.DATE, filters.last().order) }
+        assertEquals("Graph Options: No Merges", bar.options.tooltip.text)
+        robot.interact { bar.noMerges.isSelected = false }
+        eventually { assertEquals(GitLogFilter(), filters.last()) }
+        assertFalse(bar.options.pseudoClassStates.any { it.pseudoClassName == "on" })
+        assertEquals("Graph Options", bar.options.tooltip.text)
+        WaitForAsyncUtils.waitForFxEvents()
+        assertNotEquals(
+            marked,
+            bar.options.background
+                ?.fills
+                ?.lastOrNull()
+                ?.fill,
+            "the marker shows",
+        )
+    }
+
+    @Test
+    fun `Shortcut+F in the log body focuses the text field, Down there goes to the table`(robot: FxRobot) {
+        openAndExpand(robot)
+        var accelerated = 0
+        // Key presses that reach the scene; consumed ones do not.
+        val reached = mutableListOf<KeyCode>()
+        robot.interact {
+            view.scene.addEventHandler(KeyEvent.KEY_PRESSED) { reached += it.code }
+            view.scene.accelerators[KeyCodeCombination(KeyCode.F, KeyCombination.SHORTCUT_DOWN)] =
+                Runnable { accelerated++ }
+            bar.text.text = "Subject 9"
+        }
+
+        for (node in listOf(view.table, changes.tree, details)) {
+            robot.interact { node.requestFocus() }
+            press(robot, node, KeyCode.F, shortcut = true)
+            assertSame<Node?>(bar.text, view.scene.focusOwner)
+            assertEquals("Subject 9", bar.text.selectedText)
+
+            press(robot, bar.text, KeyCode.DOWN)
+            assertSame<Node?>(view.table, view.scene.focusOwner)
+        }
+        assertEquals(emptyList(), reached, "both consumed")
+        assertEquals(0, accelerated, "no accelerator of the window gets it")
+    }
+
+    @Test
+    fun `opening another folder resets the filters`(robot: FxRobot) {
+        refs = someRefs
+        treePaths = listOf(GitTreePath("src", folder = true))
+        openAndExpand(robot)
+        robot.interact {
+            bar.text.text = "Subject 1"
+            bar.regex.isSelected = true
+            bar.matchCase.isSelected = true
+            bar.topoOrder.isSelected = true
+            bar.firstParent.isSelected = true
+            bar.noMerges.isSelected = true
+            bar.branch.button.fire()
+        }
+        clickItem(robot, bar.branch.popup, "main")
+        robot.interact { bar.path.button.fire() }
+        eventually { assertEquals(listOf("src"), items(bar.path.popup)) }
+        clickItem(robot, bar.path.popup, "src")
+        eventually { assertEquals(listOf("src"), filters.last().paths) }
+        assertTrue(bar.path.popup.popup.isShowing)
+
+        otherHistory = commits(3, "o")
+        robot.interact { view.open(Path.of("/other")) }
+
+        assertFalse(bar.path.popup.popup.isShowing)
+        assertEquals(GitLogFilter(), bar.filter)
+        assertEquals("", bar.text.text)
+        assertFalse(bar.regex.isSelected || bar.matchCase.isSelected)
+        assertTrue(bar.dateOrder.isSelected)
+        assertFalse(bar.firstParent.isSelected || bar.noMerges.isSelected)
+        assertEquals(listOf("Branch", "User", "Path"), listOf(bar.branch, bar.user, bar.path).map { it.label.text })
+        eventually { assertEquals(listOf("o1", "o2", "o3"), view.table.items.map { it.commit.hash }) }
+        assertEquals(GitLogFilter(), filters.last())
+        Thread.sleep(400)
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(GitLogFilter(), filters.last(), "no late text from before")
+    }
+
+    @Test
+    fun `the filter controls are reached with Tab and open their popup or menu with the keyboard`(robot: FxRobot) {
+        refs = someRefs
+        openAndExpand(robot)
+        robot.interact { bar.focusText() }
+
+        fun tab() = press(robot, checkNotNull(view.scene.focusOwner), KeyCode.TAB)
+
+        val order = mutableListOf<Node?>(view.scene.focusOwner)
+        repeat(6) {
+            tab()
+            order += view.scene.focusOwner
+        }
+        val expected =
+            listOf<Node>(bar.text, bar.regex, bar.matchCase, bar.branch.button, bar.user.button, bar.path.button)
+        assertEquals<List<Node?>>(expected + bar.options, order)
+
+        // Space on Branch opens its popup; checking a branch shows its clear button, which comes next.
+        robot.interact { bar.branch.button.requestFocus() }
+        press(robot, bar.branch.button, KeyCode.SPACE)
+        robot.interact {
+            val release = KeyEvent(KeyEvent.KEY_RELEASED, "", "", KeyCode.SPACE, false, false, false, false)
+            Event.fireEvent(bar.branch.button, release)
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        val popup = bar.branch.popup
+        assertTrue(popup.popup.isShowing)
+        robot.interact { popup.search.text = "HEAD" }
+        press(robot, popup.search, KeyCode.ENTER)
+        press(robot, popup.search, KeyCode.ESCAPE)
+        assertFalse(popup.popup.isShowing)
+        robot.interact { bar.branch.button.requestFocus() }
+        tab()
+        assertSame<Node?>(bar.branch.clear, view.scene.focusOwner)
+        tab()
+        assertSame<Node?>(bar.user.button, view.scene.focusOwner)
+
+        robot.interact { bar.options.requestFocus() }
+        press(robot, bar.options, KeyCode.DOWN)
+        assertTrue(bar.options.isShowing, "the menu opens with the keyboard")
+        robot.interact { bar.options.hide() }
+    }
+
+    @Test
+    fun `a user name or tree read for a folder opened before is dropped`(robot: FxRobot) {
+        userName = "Me Myself"
+        treePaths = listOf(GitTreePath("src", folder = true))
+        val other = Path.of("/other")
+        otherHistory = commits(3, "o")
+        userNameGates[repo] = CountDownLatch(1)
+        pathGates[repo] = CountDownLatch(1)
+        userNameGates[other] = CountDownLatch(1)
+        pathGates[other] = CountDownLatch(1)
+        openAndExpand(robot)
+        robot.interact { bar.user.button.fire() }
+        robot.interact { bar.path.button.fire() }
+
+        robot.interact { view.open(other) }
+        userNameGates.getValue(repo).countDown()
+        pathGates.getValue(repo).countDown()
+        eventually { assertEquals(listOf(repo), userNameLoads.toList()) }
+        eventually { assertEquals(listOf(repo), pathLoads.toList()) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        // The reads for the other folder are still waiting: the popups show nothing of the first one.
+        robot.interact { bar.user.button.fire() }
+        assertFalse(items(bar.user.popup).any { it.startsWith("me") }, "${items(bar.user.popup)}")
+        robot.interact {
+            bar.user.popup.hide()
+            bar.path.button.fire()
+        }
+        assertEquals(emptyList(), items(bar.path.popup))
+        robot.interact { bar.path.popup.hide() }
+    }
+
+    @Test
+    fun `the tree is read again after a refresh, not after a filter change`(robot: FxRobot) {
+        treePaths = listOf(GitTreePath("src", folder = true))
+        openAndExpand(robot)
+        robot.interact { bar.path.button.fire() }
+        eventually { assertEquals(listOf("src"), items(bar.path.popup)) }
+        clickItem(robot, bar.path.popup, "src")
+        eventually { assertEquals(listOf("src"), filters.last().paths) }
+        robot.interact { bar.path.popup.hide() }
+
+        robot.interact { bar.path.button.fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(1, pathLoads.size, "a filter change keeps the tree")
+        robot.interact { bar.path.popup.hide() }
+
+        robot.interact { view.refresh() }
+        robot.interact { bar.path.button.fire() }
+        eventually { assertEquals(2, pathLoads.size) }
+        robot.interact { bar.path.popup.hide() }
+    }
+
+    @Test
+    fun `a click on a button of the bar leaves the focus where it was`(robot: FxRobot) {
+        refs = someRefs
+        openAndExpand(robot)
+        robot.interact {
+            bar.text.requestFocus()
+            bar.text.text = "fix"
+            bar.text.positionCaret(2)
+        }
+
+        click(robot, bar.regex)
+
+        assertTrue(bar.regex.isSelected)
+        assertSame<Node?>(bar.text, view.scene.focusOwner)
+        assertEquals(2, bar.text.caretPosition)
+        assertEquals("", bar.text.selectedText, "typing goes on where it was")
+
+        robot.interact { view.table.requestFocus() }
+        click(robot, bar.branch.button)
+        assertTrue(bar.branch.popup.popup.isShowing)
+        press(robot, bar.branch.popup.search, KeyCode.ESCAPE)
+        assertFalse(bar.branch.popup.popup.isShowing)
+        assertSame<Node?>(view.table, view.scene.focusOwner)
+
+        // Only the press: a real mouse's release goes to the menu it opened, a fired one would close it again. Checked
+        // and closed at once: the menu closes by itself when other test JVMs on the display take the window's focus.
+        var opened = false
+        robot.interact {
+            Event.fireEvent(
+                bar.options,
+                MouseEvent(
+                    MouseEvent.MOUSE_PRESSED,
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0,
+                    MouseButton.PRIMARY,
+                    1,
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    false,
+                    false,
+                    true,
+                    false,
+                    false,
+                    null,
+                ),
+            )
+            opened = bar.options.isShowing
+            bar.options.hide()
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertTrue(opened)
+        assertSame<Node?>(view.table, view.scene.focusOwner)
+
+        // Focused with Tab, a button keeps the focus.
+        robot.interact { bar.matchCase.requestFocus() }
+        click(robot, bar.matchCase)
+        assertSame<Node?>(bar.matchCase, view.scene.focusOwner)
     }
 }
