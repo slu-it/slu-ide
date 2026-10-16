@@ -97,10 +97,11 @@ POSIX locale cannot pass non-ASCII arguments ([ADR 0038](0038-changed-files-and-
   confirmation with git's message and "Force Delete" (`-D` for those only). Which branches are left is read from the
   refs afterwards, not from git's message, which may be translated.
 - **Unsaved editors before a checkout** (also a new branch that is checked out): the log asks its `beforeCheckout`,
-  which `MainWindow` sets to `EditorArea.saveBeforeCheckout(root)`. Only files in the repository count. "These files
-  have unsaved changes. Save them before checking out?" with Save, Check Out Anyway and Cancel. Check Out Anyway keeps
-  the changes: an editor whose file the checkout changes keeps them and offers Reload or Keep mine
-  ([ADR 0020](0020-editing-and-saving-files.md)), so nothing is thrown away without the user choosing it.
+  which `MainWindow` sets to `EditorArea.saveBeforeCheckout(root)` (generalized for every operation that changes files
+  in [ADR 0042](0042-git-log-commit-operations.md): `beforeFileChange(action)`, `saveBeforeGitChange`). Only files in
+  the repository count. "These files have unsaved changes. Save them before checking out?" with Save, Check Out Anyway
+  and Cancel. Check Out Anyway keeps the changes: an editor whose file the checkout changes keeps them and offers Reload
+  or Keep mine ([ADR 0020](0020-editing-and-saving-files.md)), so nothing is thrown away without the user choosing it.
 - **Checkout of a remote branch** is disabled when its local branch of the same name is the current one: it would
   only check out the current branch.
 - **Overwriting:** "Overwrite existing branch" passes `-f`. The checked-out branch is never overwritten: the dialog

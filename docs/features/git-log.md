@@ -6,12 +6,14 @@ reloads, without controls), `GraphLayout` (the commit graph's lanes), `GraphCell
 `CommitDetailsPane`, `changeTree` and `FileDiffs` (`ChangedFiles.kt`, without controls), `ChangedFilesPane`,
 `FilterBar` with `FilterPopup` (`FilterBar.kt`), `branchNodes` (`BranchTree.kt`, without controls) and
 `BranchesPane`, the operations that change the repository with `branchActions`, `nameProblem` and their `RefWriter`
-(`RefOperations.kt`, without controls) and their dialogs (`RefDialogs.kt`); the commits (filtered by a `GitLogFilter`),
-refs, details, changed files, diffs, user name and tree paths come from `GitLog` in `modules/git`, the changes are made
-by `GitBranches` there, names are checked with `GitRefNames`. Decisions in [ADR 0035](../adr/0035-git-log-area.md),
-[ADR 0036](../adr/0036-commit-graph-layout.md), [ADR 0037](../adr/0037-ref-labels-and-commit-details.md),
-[ADR 0038](../adr/0038-changed-files-and-commit-diffs.md), [ADR 0039](../adr/0039-git-log-filters.md),
-[ADR 0040](../adr/0040-git-log-branches-pane.md) and [ADR 0041](../adr/0041-git-write-operations.md)
+(`RefOperations.kt`, without controls), the cherry-pick, revert and reset operations (`CommitOperations.kt`, without
+controls) and their dialogs (`RefDialogs.kt`, `CommitDialogs.kt`); the commits (filtered by a `GitLogFilter`), refs,
+details, changed files, diffs, user name, tree paths and the cherry-pick or revert in progress come from `GitLog` in
+`modules/git`, the changes are made by `GitBranches` and `GitCommits` there, names are checked with `GitRefNames`.
+Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-commit-graph-layout.md),
+[ADR 0037](../adr/0037-ref-labels-and-commit-details.md), [ADR 0038](../adr/0038-changed-files-and-commit-diffs.md),
+[ADR 0039](../adr/0039-git-log-filters.md), [ADR 0040](../adr/0040-git-log-branches-pane.md),
+[ADR 0041](../adr/0041-git-write-operations.md) and [ADR 0042](../adr/0042-git-log-commit-operations.md)
 
 - **Where and when:** for a folder whose git status is followed ([git-status.md](git-status.md): git is available and
   the folder has `.git`), the window shows a Git Log area under the editor area. Other folders, and a window without a
@@ -168,7 +170,9 @@ by `GitBranches` there, names are checked with `GitRefNames`. Decisions in [ADR 
 - **Changing the repository** ([ADR 0041](../adr/0041-git-write-operations.md)), with the git command line, so hooks
   and the user's configuration apply:
   - **Commit table:** its context menu has, after Copy Revision Number and a separator, Checkout Revision (`HEAD`
-    detached at the commit), New Branch… and New Tag… (at the commit); enabled with exactly one commit selected.
+    detached at the commit), New Branch… and New Tag… (at the commit), and after another separator Cherry-Pick, Revert
+    Commit and Reset Current Branch to Here… ([ADR 0042](../adr/0042-git-log-commit-operations.md), below); enabled
+    with exactly one commit selected, Reset only while the refs read show a `HEAD` commit.
   - **Branches pane:** its context menu has, after Copy Name and a separator, Checkout, "New Branch from '<name>'…"
     (from any one branch, tag or `HEAD`), Rename… (local branches, also the current one; also F2) and Delete (local
     branches and tags, several at once; also Delete, or Shortcut+Backspace as in the explorer). Checkout is disabled
@@ -205,15 +209,54 @@ by `GitBranches` there, names are checked with `GitRefNames`. Decisions in [ADR 
     by themselves. Closing the window lets a running operation finish.
   - **Failures** show an error dialog titled after the operation ("Checkout Failed", …) with git's own message,
     without its `hint:` lines, in a selectable monospace area that wraps long lines, e.g. that local changes would be
-    overwritten by the checkout; nothing is stashed. A checkout may take 10 minutes, anything else 60 s ("git did not
-    finish within 60 s.", git is stopped). Git never waits for an editor: where it would open one (e.g. a lightweight
-    tag with `tag.gpgSign`), it fails with its message.
-  - **Unsaved editors:** before a checkout (also of a new branch), files of the repository with unsaved changes are
-    asked about: "These files have unsaved changes. Save them before checking out?" with Save, Check Out Anyway (the
-    changes stay; an editor whose file the checkout changed offers Reload or Keep mine) and Cancel (no checkout).
+    overwritten by the checkout; nothing is stashed. A checkout, cherry-pick, revert, reset, abort or continue may
+    take 10 minutes, anything else 60 s ("git did not finish within 60 s.", git is stopped). Git never waits for an
+    editor: where it would open one (e.g. a lightweight tag with `tag.gpgSign`), it fails with its message.
+  - **Cherry-Pick and Revert Commit** apply or undo the selected commit's changes on the current branch (`git
+    cherry-pick`, `git revert --no-edit`): "Cherry-picked 1a2b3c4d as 5e6f7a8b.", "Reverted 1a2b3c4d in 5e6f7a8b.". A
+    merge commit asks first ("1a2b3c4d is a merge commit. Cherry-pick the changes it brought in relative to its first
+    parent?", Cancel the default) and then uses its first parent (`-m 1`). If there is nothing to commit (the changes
+    are already there, or already undone), git's leftover state is cleared and the header says so ("Nothing to
+    cherry-pick: the changes of 1a2b3c4d are already on main.", "Nothing to revert: the changes of 1a2b3c4d are
+    already undone."); local changes and untracked files stay. Both are disabled while the bar below shows something,
+    and refused without running git while anything is in progress ("A merge is in progress; finish or abort it
+    first.").
+  - **Conflicts:** a dialog "Cherry-Pick Stopped" ("Revert Stopped") lists the conflicted paths ("Cherry-pick of
+    1a2b3c4d stopped with conflicts in:"), git's message under Show Details, with Resolve (the default; the files keep
+    their conflict markers for the editor) and Abort Cherry-Pick (Abort Revert). The header says "Cherry-pick of
+    1a2b3c4d stopped with conflicts."
+  - **In progress:** while a cherry-pick or revert is in progress, also one started in a terminal, a bar below the
+    filter bar says "Cherry-pick of 1a2b3c4d is in progress: 2 files have conflicts." ("…: conflicts resolved." once
+    none is unmerged in the index) with Continue and Abort; read with every refresh, it disappears after one without
+    it (and after a refresh that fails). A merge, rebase, `git am` or a cherry-pick or revert of several commits shows
+    there too, without buttons ("A cherry-pick sequence is in progress; continue or abort it in the terminal.").
+    **Abort** goes back to before it ("Aborted the cherry-pick of 1a2b3c4d."). **Continue** refuses while a text
+    conflict still has a line starting with a conflict marker (`<<<<<<< ` or `>>>>>>> `, as long as the file's
+    `conflict-marker-size` attribute says; an error "Conflict markers are left in: a.txt, b/c.txt"). Conflicted files
+    it cannot check (binary, deleted on one side or on disk, submodules, symbolic links, above 5 MB) are listed in a
+    confirmation first ("bin.dat — binary, the version on disk will be committed", Cancel the default, "Commit As on
+    Disk"), and again if they changed meanwhile; a submodule that is not checked out is refused ("Submodule sub is not
+    checked out: … Resolve it in the terminal."). Then it stages exactly the conflicted files as they are on disk (a
+    deleted one as deleted; other local changes are not committed) and commits with git's message ("Cherry-picked
+    1a2b3c4d as 5e6f7a8b.").
+  - **Reset Current Branch to Here…:** a dialog "Reset Current Branch" ("Reset HEAD" when detached) says "Reset branch
+    'main' (at 5e6f7a8b) to 1a2b3c4d" and offers Soft ("Files won't change; the differences will be staged for
+    commit."), Mixed (preselected; "…won't be staged.") and Hard ("Files will be changed to the commit's state. Local
+    changes to tracked files will be lost.", in a warning colour), then Reset or Cancel. If commits would no longer be
+    on any branch, remote branch or tag, or (Hard) tracked files have local changes, or that cannot be read, a
+    confirmation says so first ("2 commits will no longer be on any branch or tag; they stay reachable through the
+    reflog for a while.", "Local changes in 3 files will be lost.", Cancel the default). Done: "Reset main to 1a2b3c4d
+    (hard); it was at 5e6f7a8b."
+  - **Unsaved editors:** before an operation that changes files, files of the repository with unsaved changes are
+    asked about, naming it: "These files have unsaved changes. Save them before you check out?" with Save, Check Out
+    Anyway (the changes stay; an editor whose file the operation changed offers Reload or Keep mine) and Cancel (the
+    operation does not run). Asked for checkouts (also of a new branch), Cherry-Pick, Revert, a hard reset, Abort and
+    Continue (which stages the files from disk), with "Cherry-Pick Anyway", "Revert Anyway", "Reset Anyway", "Abort
+    Anyway" and "Continue Anyway"; not for soft and mixed resets or branch and tag operations.
 - Not yet implemented (next packages): "In N branches" and clickable hashes in the details, a flat list of the
   changed files, their combined changes for several commits, comparing with the local version, the changes against
   each parent of a merge, a diff preview in the log, file history, file-type icons in the tree, a date filter, dotted
   edges through commits hidden by filters, tracking information in the branches pane, remembering the area's height
-  and state, and more operations: cherry-pick, revert, reset, fetch, pull, push, merge, rebase, deleting remote
-  branches, pushing tags.
+  and state, and more operations: fetch, pull, push, merge, rebase, deleting remote branches, pushing tags; for
+  cherry-pick and revert several commits at once, a merge tool or three-way view, `-x` and edited messages; `reset
+  --keep`; continuing or aborting merges, rebases and sequences from the bar.

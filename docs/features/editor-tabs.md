@@ -18,11 +18,11 @@
 - Closing file tabs with unsaved changes from the UI (×, middle click, any context menu entry) first asks once, listing
   them: Save, Don't Save or Cancel (`askToSave`, replaced in tests via `EditorArea.confirmSave`). Save saves them and
   closes nothing if one cannot be saved; Cancel closes nothing. The window asks the same for all its files
-  (`confirmCloseAll()`) before it closes. `saveBeforeCheckout(folder)` asks about the files at or below a repository
-  before a checkout from the git log changes them ([git-log.md](git-log.md)): "These files have unsaved changes. Save
-  them before checking out?" with Save, Check Out Anyway (the changes stay; a tab whose file changes on disk keeps them
-  and offers Reload or Keep mine, below) and Cancel (`false`); tests replace it via
-  `EditorArea.confirmSaveBeforeCheckout`.
+  (`confirmCloseAll()`) before it closes. `saveBeforeGitChange(folder, action)` asks about the files at or below a
+  repository before an operation of the git log changes them ([git-log.md](git-log.md)), named by its action ("Check
+  Out", "Cherry-Pick", "Reset"…): "These files have unsaved changes. Save them before you check out?" with Save,
+  "<action> Anyway" (the changes stay; a tab whose file changes on disk keeps them and offers Reload or Keep mine,
+  below) and Cancel (`false`); tests replace it via `EditorArea.confirmSaveBeforeGitChange`.
 - A tab can have a `closeWarning` (e.g. a terminal with a running program). Closing such tabs from the UI (×, middle
   click, any context menu entry) then shows one confirmation dialog listing the warnings; Cancel closes nothing.
   `closeAll()` (used when the window is closed, after the window's own confirmations) does not ask. Tests replace the dialog via
