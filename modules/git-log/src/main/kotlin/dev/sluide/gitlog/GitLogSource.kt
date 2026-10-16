@@ -1,6 +1,8 @@
 package dev.sluide.gitlog
 
+import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommitDetails
+import dev.sluide.git.GitFileDiff
 import dev.sluide.git.GitLog
 import dev.sluide.git.GitLogPage
 import dev.sluide.git.GitRefs
@@ -25,6 +27,21 @@ internal interface GitLogSource {
         root: Path,
         hash: String,
     ): GitCommitDetails?
+
+    /** The files [commit] changed against [firstParent] (against nothing if `null`); `null` on failure. */
+    fun changedFiles(
+        root: Path,
+        commit: String,
+        firstParent: String?,
+    ): List<GitChangedFile>?
+
+    /** What [commit] changed in [file] against [firstParent]; `null` on failure. */
+    fun fileDiff(
+        root: Path,
+        commit: String,
+        firstParent: String?,
+        file: GitChangedFile,
+    ): GitFileDiff?
 }
 
 /** Reads with the git command line. */
@@ -43,4 +60,17 @@ internal class GitLogCliSource(
         root: Path,
         hash: String,
     ) = gitLog.details(root, hash)
+
+    override fun changedFiles(
+        root: Path,
+        commit: String,
+        firstParent: String?,
+    ) = gitLog.changedFiles(root, commit, firstParent)
+
+    override fun fileDiff(
+        root: Path,
+        commit: String,
+        firstParent: String?,
+        file: GitChangedFile,
+    ) = gitLog.fileDiff(root, commit, firstParent, file)
 }

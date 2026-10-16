@@ -1,5 +1,7 @@
 package dev.sluide.gitlog
 
+import dev.sluide.git.GitChange
+import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitCommitDetails
 import java.nio.file.Path
@@ -19,6 +21,20 @@ class CommitDetailsTest {
     /** Hashes whose details cannot be read. */
     private val failing = mutableSetOf<String>()
 
+    /** The (commit, first parent) of every load of changed files. */
+    private val fileLoads = mutableListOf<Pair<String, String?>>()
+
+    /** Hashes whose changed files cannot be read. */
+    private val failingFiles = mutableSetOf<String>()
+
+    /** Runs while details are read, e.g. to select another commit meanwhile. */
+    private var whileLoading: () -> Unit = {}
+
+    /** How many results were waiting for dispatch when each load of changed files started. */
+    private val dispatchedBeforeFiles = mutableListOf<Int>()
+
+    private fun files(hash: String) = listOf(GitChangedFile(GitChange.MODIFIED, "$hash.txt"))
+
     private var selected = emptyList<GitLogRow>()
 
     private val details =
@@ -26,7 +42,14 @@ class CommitDetailsTest {
             load = { root, hash ->
                 assertEquals(repo, root)
                 loads += hash
+                whileLoading()
                 if (hash in failing) null else details(hash)
+            },
+            loadFiles = { root, commit ->
+                assertEquals(repo, root)
+                dispatchedBeforeFiles += dispatched.size
+                fileLoads += commit.hash to commit.parents.firstOrNull()
+                if (commit.hash in failingFiles) null else files(commit.hash)
             },
             background = background::addLast,
             dispatch = dispatched::addLast,
@@ -148,5 +171,83 @@ class CommitDetailsTest {
         select(a)
         settle()
         assertEquals(listOf("a"), loads)
+    }
+
+    @Test
+    fun `loads the changed files of a single selected commit with its details, against its first parent`() {
+        assertEquals(ChangedFilesState.NoneSelected, details.files.get())
+        val merge =
+            GitLogRow(commit("m").copy(parents = listOf("p1", "p2")), GraphLayout().next("m", listOf("p1", "p2")))
+        select(merge)
+        runDispatched()
+        assertEquals(ChangedFilesState.Loading(merge), details.files.get())
+        settle()
+        assertEquals(ChangedFilesState.Loaded(merge, files("m")), details.files.get())
+        assertEquals(listOf<Pair<String, String?>>("m" to "p1"), fileLoads)
+
+        select(merge, row("b"))
+        settle()
+        assertEquals(ChangedFilesState.SeveralSelected(2), details.files.get())
+        select()
+        settle()
+        assertEquals(ChangedFilesState.NoneSelected, details.files.get())
+
+        val root = row("r")
+        select(root)
+        settle()
+        assertEquals(listOf("m" to "p1", "r" to null), fileLoads)
+    }
+
+    @Test
+    fun `changed files fail on their own, and a superseded load of them is dropped`() {
+        failingFiles += "a"
+        val a = row("a")
+        select(a)
+        settle()
+        assertEquals(ChangedFilesState.Failed(a), details.files.get())
+        assertEquals(CommitDetailsState.Loaded(a, details("a")), details.state.get())
+
+        val b = row("b")
+        select(b)
+        runDispatched()
+        background.removeFirst().run()
+        select(row("c"))
+        runDispatched()
+        assertEquals(ChangedFilesState.Loading(row("c")), details.files.get())
+        settle()
+        assertEquals(ChangedFilesState.Loaded(row("c"), files("c")), details.files.get())
+    }
+
+    @Test
+    fun `the details are handed on before the changed files are read`() {
+        val a = row("a")
+        select(a)
+        runDispatched()
+        background.removeFirst().run()
+
+        assertEquals(listOf(1), dispatchedBeforeFiles, "the details were dispatched first")
+        dispatched.removeFirst().run()
+        assertEquals(CommitDetailsState.Loaded(a, details("a")), details.state.get())
+        assertEquals(ChangedFilesState.Loading(a), details.files.get())
+        runDispatched()
+        assertEquals(ChangedFilesState.Loaded(a, files("a")), details.files.get())
+    }
+
+    @Test
+    fun `the changed files are not read once another commit is selected after the details`() {
+        val a = row("a")
+        select(a)
+        runDispatched()
+        whileLoading = {
+            whileLoading = {}
+            select(row("b"))
+            runDispatched()
+        }
+        background.removeFirst().run()
+
+        assertEquals(emptyList(), fileLoads, "a's files are no longer wanted")
+        settle()
+        assertEquals(listOf<Pair<String, String?>>("b" to null), fileLoads)
+        assertEquals(ChangedFilesState.Loaded(row("b"), files("b")), details.files.get())
     }
 }

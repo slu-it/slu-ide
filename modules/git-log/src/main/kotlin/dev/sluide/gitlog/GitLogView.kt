@@ -1,5 +1,8 @@
 package dev.sluide.gitlog
 
+import dev.sluide.git.GitChange
+import dev.sluide.git.GitChangedFile
+import dev.sluide.git.GitFileDiff
 import dev.sluide.git.GitLog
 import javafx.application.Platform
 import javafx.beans.binding.Bindings
@@ -7,8 +10,10 @@ import javafx.beans.property.BooleanProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.beans.property.ReadOnlyStringWrapper
 import javafx.beans.property.SimpleBooleanProperty
+import javafx.beans.property.SimpleStringProperty
 import javafx.collections.ListChangeListener
 import javafx.event.EventTarget
+import javafx.geometry.Orientation
 import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Button
@@ -42,6 +47,7 @@ import org.kordamp.ikonli.materialdesign2.MaterialDesignR
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
+import java.nio.file.Files
 import java.nio.file.Path
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -51,10 +57,11 @@ import java.util.concurrent.Executors
 /**
  * The git log area of a window (ADR 0035): a header bar ("Git Log", a chevron, Refresh) and, while [expanded], the
  * commits of the repository given to [open] in a table, loaded in pages in the background as the user scrolls, with
- * the refs pointing at them, and the details of the selected commit to the right (ADR 0037).
+ * the refs pointing at them, and to the right the files the selected commit changed above its details (ADRs 0037,
+ * 0038). The diff of a changed file goes to [onShowDiff], a file to open to [onOpenFile].
  *
- * [source] reads the commits, refs and details on the thread `sluide-git-log`; its results are handled through
- * [dispatch], the JavaFX thread in the application.
+ * [source] reads the commits, refs, details, changed files and diffs on the thread `sluide-git-log`; its results are
+ * handled through [dispatch], the JavaFX thread in the application.
  */
 @Component
 // One instance per IDE window (the "window" scope of the ide module, ADR 0014).
@@ -72,7 +79,15 @@ class GitLogView internal constructor(
 
     private val pages = GitLogPages(source::page, source::refs, executor::execute, dispatch)
 
-    private val details = CommitDetails(source::details, executor::execute, dispatch)
+    private val details =
+        CommitDetails(
+            source::details,
+            { root, commit -> source.changedFiles(root, commit.hash, commit.parents.firstOrNull()) },
+            executor::execute,
+            dispatch,
+        )
+
+    private val fileDiffs = FileDiffs(source::fileDiff, executor::execute, dispatch)
 
     /** Whether the commits are shown below the header; collapsed (`false`) at first. */
     val expanded: BooleanProperty = SimpleBooleanProperty(false)
@@ -82,6 +97,18 @@ class GitLogView internal constructor(
      * window's editor); by default nothing is focused on purpose.
      */
     var returnFocus: () -> Unit = {}
+
+    /** Shows what a commit changed in a file, e.g. side by side in an editor tab; set by the window (ADR 0038). */
+    var onShowDiff: (CommitFileDiff) -> Unit = {}
+
+    /** Opens a file of the working tree, e.g. in the editor; set by the window (ADR 0038). */
+    var onOpenFile: (Path) -> Unit = {}
+
+    /** A message in the header, e.g. that a diff cannot be shown, until the next selection or load. */
+    private val status = SimpleStringProperty("")
+
+    /** Counts the changes of the selected commits and files, so that a message about an earlier one is not shown. */
+    private var selections = 0L
 
     private val chevron = FontIcon(MaterialDesignC.CHEVRON_RIGHT)
 
@@ -98,17 +125,18 @@ class GitLogView internal constructor(
         HBox(
             chevron,
             Label("Git Log").apply { styleClass += "git-log-title" },
-            // A failure while rows are shown; with no rows the table's placeholder says it.
+            // A failure while rows are shown (with no rows the table's placeholder says it), else the status.
             Label().apply {
                 styleClass += "git-log-status"
                 textProperty().bind(
                     Bindings.createStringBinding(
                         {
                             val state = pages.state.get()
-                            if (state == GitLogState.FAILED && pages.rows.isNotEmpty()) state.message else ""
+                            if (state == GitLogState.FAILED && pages.rows.isNotEmpty()) state.message else status.get()
                         },
                         pages.state,
                         pages.rows,
+                        status,
                     ),
                 )
             },
@@ -155,8 +183,15 @@ class GitLogView internal constructor(
     /** The details of the selected commit. */
     internal val detailsPane = CommitDetailsPane(details.state)
 
-    /** The table and, at first in the right 30 %, the details ([SharedSplit]). */
-    internal val body = SharedSplit(table, detailsPane, 0.7).apply { styleClass += "git-log-body" }
+    /** The files the selected commit changed. */
+    internal val changesPane = ChangedFilesPane(details.files)
+
+    /** The changed files above the details, half and half at first. */
+    internal val side =
+        SharedSplit(changesPane, detailsPane, 0.5, Orientation.VERTICAL).apply { styleClass += "git-log-side" }
+
+    /** The table and, at first in the right 30 %, the changed files and details ([SharedSplit]). */
+    internal val body = SharedSplit(table, side, 0.7).apply { styleClass += "git-log-body" }
 
     init {
         styleClass += "git-log"
@@ -169,7 +204,23 @@ class GitLogView internal constructor(
         }
         details.selection = { table.selectionModel.selectedItems.filterNotNull() }
         details.root = { pages.root }
-        table.selectionModel.selectedItems.addListener(ListChangeListener { details.selectionChanged() })
+        table.selectionModel.selectedItems.addListener(
+            ListChangeListener {
+                selections++
+                status.set("")
+                details.selectionChanged()
+            },
+        )
+        changesPane.tree.selectionModel
+            .selectedItemProperty()
+            .subscribe { _ ->
+                selections++
+                status.set("")
+            }
+        pages.state.subscribe { state -> if (state == GitLogState.LOADING) status.set("") }
+        changesPane.showDiff = ::showDiff
+        changesPane.openFile = { file -> pages.root?.let { onOpenFile(it.resolve(file.path)) } }
+        changesPane.exists = { file -> pages.root?.let { Files.exists(it.resolve(file.path)) } == true }
         expanded.subscribe { isExpanded ->
             val focusInBody = body.contains(scene?.focusOwner)
             center = if (isExpanded) body else null
@@ -186,7 +237,86 @@ class GitLogView internal constructor(
     }
 
     /** Shows the log of the repository at [root]; `null` shows nothing. Loads once (or as soon as) [expanded]. */
-    fun open(root: Path?) = pages.open(root)
+    fun open(root: Path?) {
+        fileDiffs.close()
+        pages.open(root)
+    }
+
+    /** Shows [text] in the header, e.g. why a diff cannot be shown, until the next selection or load. */
+    fun showStatus(text: String) = status.set(text)
+
+    /**
+     * Reads what the commit of [row] changed in [file] and hands it to [onShowDiff]; a binary, too large or unchanged
+     * file, a submodule or a failure is told in the header instead, unless the selection changed meanwhile.
+     */
+    private fun showDiff(
+        row: GitLogRow,
+        file: GitChangedFile,
+    ) {
+        val root = pages.root ?: return
+        val commit = row.commit
+        val requestedAt = selections
+        fileDiffs.request(root, commit, file) { diff ->
+            val name = file.path.substringAfterLast('/')
+            val message =
+                when {
+                    diff == null -> {
+                        "The diff could not be read."
+                    }
+
+                    diff == GitFileDiff.Binary -> {
+                        "$name is a binary file."
+                    }
+
+                    diff == GitFileDiff.TooLarge -> {
+                        "$name is too large to compare."
+                    }
+
+                    diff is GitFileDiff.Submodule -> {
+                        submoduleMessage(name, diff)
+                    }
+
+                    // A pure rename or a change of the mode only: no empty diff.
+                    diff is GitFileDiff.Text && diff.original == diff.current && file.change.changesContent -> {
+                        "$name has no content changes."
+                    }
+
+                    else -> {
+                        null
+                    }
+                }
+            if (message != null) {
+                if (selections == requestedAt) showStatus(message)
+            } else if (diff is GitFileDiff.Text) {
+                onShowDiff(
+                    CommitFileDiff(
+                        root,
+                        file.path,
+                        file.oldPath,
+                        file.change,
+                        commit.hash,
+                        commit.parents.firstOrNull(),
+                        diff.original,
+                        diff.current,
+                        diff.hunks,
+                    ),
+                )
+            }
+        }
+    }
+
+    private fun submoduleMessage(
+        name: String,
+        diff: GitFileDiff.Submodule,
+    ): String {
+        val old = diff.old?.take(ChangedFilesPane.SHORT_HASH)
+        val new = diff.new?.take(ChangedFilesPane.SHORT_HASH)
+        return when {
+            old != null && new != null -> "$name is a submodule: $old → $new."
+            new != null -> "$name is a submodule, added at $new."
+            else -> "$name is a submodule, removed."
+        }
+    }
 
     /** Loads the first page again now if [expanded], else the next time it is expanded; keeps the selection by hash. */
     fun refresh() = pages.refresh()
@@ -204,7 +334,9 @@ class GitLogView internal constructor(
     override fun close() {
         pages.close()
         details.close()
+        fileDiffs.close()
         detailsPane.close()
+        changesPane.close()
         executor.shutdownNow()
     }
 
@@ -240,23 +372,28 @@ class GitLogView internal constructor(
 }
 
 /**
- * Two panes side by side that keep their shares of the width when it changes: [share] for the first at first, then
- * wherever the divider is dragged to (while the window is open). A plain split pane would keep the pixel width of a
- * pane that does not resize with it, or split the change equally between panes that do.
+ * Two panes side by side (or one above the other, [orientation]) that keep their shares of the width (height) when it
+ * changes: [share] for the first at first, then wherever the divider is dragged to (while the window is open). A plain
+ * split pane would keep the pixel size of a pane that does not resize with it, or split the change equally between
+ * panes that do.
  */
 internal class SharedSplit(
     first: Node,
     second: Node,
     share: Double,
+    orientation: Orientation = Orientation.HORIZONTAL,
 ) : SplitPane(first, second) {
-    /** The first pane's share of the width; follows the divider when it is dragged. */
+    /** The first pane's share of the width (height); follows the divider when it is dragged. */
     var share = share
         private set
 
-    private var laidOutWidth = -1.0
+    private var laidOutSize = -1.0
     private var layingOut = false
 
+    private val size get() = if (orientation == Orientation.VERTICAL) height else width
+
     init {
+        this.orientation = orientation
         // The skin would spread a change of the width equally over the panes that resize with it; with none it keeps
         // the divider position set before each layout at a new width.
         SplitPane.setResizableWithParent(first, false)
@@ -269,12 +406,12 @@ internal class SharedSplit(
     override fun layoutChildren() {
         layingOut = true
         try {
-            if (width != laidOutWidth) setDividerPositions(share)
+            if (size != laidOutSize) setDividerPositions(share)
             super.layoutChildren()
         } finally {
             layingOut = false
         }
-        laidOutWidth = width
+        laidOutSize = size
     }
 }
 
@@ -355,3 +492,6 @@ internal fun fitColumnWidths(
 }
 
 private val COPY = KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN)
+
+/** Whether a file with this change had content on both sides, which may not have changed. */
+private val GitChange.changesContent get() = this != GitChange.ADDED && this != GitChange.DELETED

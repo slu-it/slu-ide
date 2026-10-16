@@ -30,7 +30,8 @@
     -fx-background-color: -fx-hover-base;
 }
 
-.git-log-body {
+.git-log-body,
+.git-log-side {
     -fx-padding: 0;
     -fx-background-insets: 0;
 }
@@ -224,9 +225,67 @@
     -fx-opacity: 0.7;
 }
 
+/*
+ * The changed files (ADR 0038), above the details on the same background: a count, then a tree whose file names are
+ * coloured by their change, in looked-up colours redefined for the dark theme below: added and modified as the
+ * explorer's markers, deleted a grey of its own.
+ */
+.git-log {
+    -git-change-added: #2e7d32;
+    -git-change-modified: #1e63c8;
+    -git-change-deleted: #8a8a8a;
+}
+
+.git-changes {
+    -fx-background-color: -fx-control-inner-background;
+}
+
+.git-changes-header {
+    -fx-text-fill: -fx-text-inner-color;
+    -fx-opacity: 0.7;
+    -fx-padding: 4 8 2 8;
+}
+
+.git-changes-tree {
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.git-change-icon {
+    -fx-icon-color: -fx-text-background-color;
+    -fx-icon-size: 14;
+}
+
+.git-change-name,
+.git-change-folder {
+    -fx-padding: 0 0 0 4;
+}
+
+.git-change-folder {
+    -fx-text-fill: -fx-text-background-color;
+}
+
+.git-change-added { -fx-text-fill: -git-change-added; }
+.git-change-modified { -fx-text-fill: -git-change-modified; }
+.git-change-deleted { -fx-text-fill: -git-change-deleted; }
+
+/* Muted after the name: where a renamed or copied file came from. */
+.git-change-old {
+    -fx-text-fill: -fx-text-background-color;
+    -fx-opacity: 0.6;
+}
+
+/* Selected rows: the selection text colour, like the rest of the row. */
+.tree-cell:filled:selected .git-change-name {
+    -fx-text-fill: -fx-text-background-color;
+}
+
 /* Single-class selector only: JavaFX applies descendant selectors in @media blocks whatever the scheme (ADR 0009). */
 @media (prefers-color-scheme: dark) {
     .git-log {
+        -git-change-added: #5cbf62;
+        -git-change-modified: #5a9ae6;
+        -git-change-deleted: #9a9a9a;
         -git-ref-head: #e8c04a;
         -git-ref-local: #6cc070;
         -git-ref-remote: #b38cf0;

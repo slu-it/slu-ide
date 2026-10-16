@@ -1,5 +1,7 @@
 package dev.sluide.gitlog
 
+import dev.sluide.git.GitChangedFile
+import dev.sluide.git.GitCommit
 import dev.sluide.git.GitCommitDetails
 import javafx.beans.property.ReadOnlyObjectProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
@@ -31,18 +33,26 @@ internal sealed interface CommitDetailsState {
 
 /**
  * Which commit details the git log shows (ADR 0037), without JavaFX controls: once the [selection] settles on exactly
- * one row, its details are read with [load] in the repository at [root], on [background]; the result is handled
- * through [dispatch], and dropped if the selection has changed meanwhile (latest wins). The same row selected again
- * loads nothing; a reload of the log brings new rows, so the details of a commit that stays selected are read again.
- * Used on the JavaFX thread (or whatever [dispatch] stands for in tests).
+ * one row, its details are read with [load] and then the files it changed against its first parent with [loadFiles]
+ * (ADR 0038) in the repository at [root], in one task on [background]; each result is handled through [dispatch] as
+ * soon as it is read, and dropped if
+ * the selection has changed meanwhile (latest wins). The same row selected again loads nothing; a reload of the log
+ * brings new rows, so the details and files of a commit that stays selected are read again. Used on the JavaFX thread
+ * (or whatever [dispatch] stands for in tests).
  */
 internal class CommitDetails(
     private val load: (Path, String) -> GitCommitDetails?,
+    private val loadFiles: (Path, GitCommit) -> List<GitChangedFile>?,
     private val background: (Runnable) -> Unit,
     private val dispatch: (Runnable) -> Unit,
 ) {
     private val _state = ReadOnlyObjectWrapper<CommitDetailsState>(CommitDetailsState.NoneSelected)
     val state: ReadOnlyObjectProperty<CommitDetailsState> = _state.readOnlyProperty
+
+    private val _files = ReadOnlyObjectWrapper<ChangedFilesState>(ChangedFilesState.NoneSelected)
+
+    /** The files the selected commit changed. */
+    val files: ReadOnlyObjectProperty<ChangedFilesState> = _files.readOnlyProperty
 
     /** The selected rows. */
     var selection: () -> List<GitLogRow> = { emptyList() }
@@ -77,17 +87,18 @@ internal class CommitDetails(
     private fun settle() {
         val rows = selection()
         when (rows.size) {
-            0 -> show(CommitDetailsState.NoneSelected)
+            0 -> show(CommitDetailsState.NoneSelected, ChangedFilesState.NoneSelected)
             1 -> request(rows.single())
-            else -> show(CommitDetailsState.SeveralSelected(rows.size))
+            else -> show(CommitDetailsState.SeveralSelected(rows.size), ChangedFilesState.SeveralSelected(rows.size))
         }
     }
 
     private fun request(row: GitLogRow) {
         if (rowOf(_state.get()) === row) return
-        val root = root() ?: return show(CommitDetailsState.NoneSelected)
+        val root = root() ?: return show(CommitDetailsState.NoneSelected, ChangedFilesState.NoneSelected)
         val current = generation.incrementAndGet()
         _state.set(CommitDetailsState.Loading(row))
+        _files.set(ChangedFilesState.Loading(row))
         background {
             if (generation.get() != current) return@background
             val details = load(root, row.commit.hash)
@@ -95,12 +106,23 @@ internal class CommitDetails(
                 if (generation.get() != current) return@dispatch
                 _state.set(details?.let { CommitDetailsState.Loaded(row, it) } ?: CommitDetailsState.Failed(row))
             }
+            // The details show without waiting for the files, which can take longer.
+            if (generation.get() != current) return@background
+            val files = loadFiles(root, row.commit)
+            dispatch {
+                if (generation.get() != current) return@dispatch
+                _files.set(files?.let { ChangedFilesState.Loaded(row, it) } ?: ChangedFilesState.Failed(row))
+            }
         }
     }
 
-    private fun show(state: CommitDetailsState) {
+    private fun show(
+        state: CommitDetailsState,
+        files: ChangedFilesState,
+    ) {
         generation.incrementAndGet()
         _state.set(state)
+        _files.set(files)
     }
 
     private fun rowOf(state: CommitDetailsState) =
