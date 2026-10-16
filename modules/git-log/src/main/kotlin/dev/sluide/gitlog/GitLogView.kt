@@ -4,6 +4,7 @@ import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitFileDiff
 import dev.sluide.git.GitLog
+import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitTreePath
 import javafx.application.Platform
@@ -56,6 +57,7 @@ import java.nio.file.Path
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
+import java.util.Locale
 import java.util.concurrent.Executors
 
 /**
@@ -63,7 +65,7 @@ import java.util.concurrent.Executors
  * commits of the repository given to [open] in a table, loaded in pages in the background as the user scrolls, with
  * the refs pointing at them, and to the right the files the selected commit changed above its details (ADRs 0037,
  * 0038). The diff of a changed file goes to [onShowDiff], a file to open to [onOpenFile]. Above the table, the
- * filters of the commits (ADR 0039), per window and reset by [open].
+ * filters of the commits (ADR 0039), per window and reset by [open]. Left of them, the branches pane (ADR 0040).
  *
  * [source] reads the commits, refs, details, changed files and diffs on the thread `sluide-git-log`; its results are
  * handled through [dispatch], the JavaFX thread in the application.
@@ -223,14 +225,25 @@ class GitLogView internal constructor(
     internal val side =
         SharedSplit(changesPane, detailsPane, 0.5, Orientation.VERTICAL).apply { styleClass += "git-log-side" }
 
+    /** The branches, left of the commits (ADR 0040). */
+    internal val branchesPane =
+        BranchesPane().apply {
+            navigate = ::navigateTo
+            moved = ::branchMoved
+            filter = filterBar::setBranches
+        }
+
     /** The filters and the table and, at first in the right 30 %, the changed files and details ([SharedSplit]). */
+    internal val inner = SharedSplit(commitsPane, side, 0.7).apply { styleClass += "git-log-inner" }
+
+    /** The branches pane, while shown at first in the left 20 %, and the rest ([SharedSplit]). */
     internal val body =
-        SharedSplit(commitsPane, side, 0.7).apply {
+        SharedSplit(branchesPane, inner, 0.2).apply {
             styleClass += "git-log-body"
             // A filter, so that no control in the body handles it first.
             addEventFilter(KeyEvent.KEY_PRESSED) { event ->
                 if (FIND.match(event)) {
-                    filterBar.focusText()
+                    if (branchesPane.contains(event.target)) branchesPane.focusSearch() else filterBar.focusText()
                     event.consume()
                 }
             }
@@ -261,6 +274,26 @@ class GitLogView internal constructor(
                 status.set("")
             }
         pages.state.subscribe { state -> if (state == GitLogState.LOADING) status.set("") }
+        // The refs are read with every first page, before its state is set.
+        pages.state.subscribe { state ->
+            when (state) {
+                GitLogState.IDLE -> {}
+
+                GitLogState.LOADING -> {
+                    branchesPane.loading()
+                }
+
+                else -> {
+                    branchesPane.show(pages.refs)
+                }
+            }
+        }
+        branchesPane.bar.minHeightProperty().bind(filterBar.heightProperty())
+        filterBar.branchesToggle.selectedProperty().subscribe { _, shown ->
+            val focusInPane = branchesPane.contains(scene?.focusOwner)
+            body.firstShown = shown
+            if (!shown && focusInPane) table.requestFocus()
+        }
         pages.rows.addListener(
             ListChangeListener { change ->
                 while (change.next()) {
@@ -289,6 +322,8 @@ class GitLogView internal constructor(
     /** Shows the log of the repository at [root]; `null` shows nothing. Loads once (or as soon as) [expanded]. */
     fun open(root: Path?) {
         fileDiffs.close()
+        // Before the pages, which may start loading and have the pane say so.
+        branchesPane.reset()
         // Resets the filter too, before the bar, which then tells no change.
         pages.open(root)
         filterBar.reset()
@@ -310,6 +345,73 @@ class GitLogView internal constructor(
                     .sortedBy { it.shortName }
                     .map { ref -> FilterItem(ref.name, ref.shortName) { refIcon(kind) } }
             }
+    }
+
+    /**
+     * Selects the row of [ref]'s commit and scrolls to it, loading pages until it is there; if it is not, the header
+     * tells why. Only while the branches pane still has [ref] selected; `null` stops looking.
+     */
+    private fun navigateTo(ref: GitRef?) {
+        if (ref == null) {
+            pages.stopLoadingUntil()
+            return
+        }
+        status.set("")
+        pages.loadUntil(
+            ref.commit,
+            { index -> if (branchesPane.selectedRef == ref) showRow(index) },
+            { missing ->
+                if (branchesPane.selectedRef == ref) {
+                    val name = ref.shortName
+                    status.set(
+                        when {
+                            missing == CommitMissing.BEYOND_LIMIT -> {
+                                "$name is more than ${"%,d".format(
+                                    Locale.ENGLISH,
+                                    GitLogPages.SEEK_LIMIT,
+                                )} commits down."
+                            }
+
+                            pages.filter.isDefault -> {
+                                "$name is not in the log."
+                            }
+
+                            else -> {
+                                "$name is hidden by the filters."
+                            }
+                        },
+                    )
+                }
+            },
+        )
+    }
+
+    /**
+     * Follows a selected branch that a refresh moved from [before] to [after], but only while the user is still on it:
+     * the pane is shown and the table still has exactly its old commit selected, or its commit is still looked for.
+     */
+    private fun branchMoved(
+        before: GitRef,
+        after: GitRef,
+    ) {
+        val looking = pages.loadingUntil == before.commit
+        val onIt = table.selectionModel.selectedItems.map { it.commit.hash } == listOf(before.commit)
+        if (body.firstShown && (looking || onIt)) {
+            navigateTo(after)
+        } else if (looking) {
+            pages.stopLoadingUntil()
+        }
+    }
+
+    /** Selects only the row at [index] and scrolls it into the middle of the table, unless it is in view already. */
+    private fun showRow(index: Int) {
+        table.selectionModel.clearAndSelect(index)
+        val flow = table.lookup(".virtual-flow") as? VirtualFlow<*>
+        val first = flow?.firstVisibleCell?.index ?: -1
+        val last = flow?.lastVisibleCell?.index ?: -1
+        // The first and last rows may be cut off.
+        if (index in first + 1..<last) return
+        table.scrollTo(maxOf(0, index - maxOf(0, last - first) / 2))
     }
 
     /** "me" if the repository has a user name, then the authors of the loaded rows by name. */
@@ -525,7 +627,7 @@ class GitLogView internal constructor(
  * panes that do.
  */
 internal class SharedSplit(
-    first: Node,
+    private val first: Node,
     second: Node,
     share: Double,
     orientation: Orientation = Orientation.HORIZONTAL,
@@ -539,12 +641,31 @@ internal class SharedSplit(
 
     private val size get() = if (orientation == Orientation.VERTICAL) height else width
 
+    /** Whether the first pane is shown; hidden, the second takes the whole size, shown again it gets its share back. */
+    var firstShown = true
+        set(value) {
+            if (field == value) return
+            field = value
+            if (value) {
+                items.add(0, first)
+                followDivider()
+            } else {
+                items.remove(first)
+            }
+            laidOutSize = -1.0
+        }
+
     init {
         this.orientation = orientation
         // The skin would spread a change of the width equally over the panes that resize with it; with none it keeps
         // the divider position set before each layout at a new width.
         SplitPane.setResizableWithParent(first, false)
         SplitPane.setResizableWithParent(second, false)
+        followDivider()
+    }
+
+    /** Puts the divider at the [share] and follows it from now on; there is a new one whenever the first pane is. */
+    private fun followDivider() {
         setDividerPositions(share)
         // Moved outside a layout: dragged (or set). Within one the skin only fits it to the panes' minimum widths.
         dividers.single().positionProperty().subscribe { position -> if (!layingOut) this.share = position.toDouble() }

@@ -40,7 +40,8 @@ import org.kordamp.ikonli.materialdesign2.MaterialDesignM
 import org.kordamp.ikonli.materialdesign2.MaterialDesignS
 
 /**
- * The filters above the commit table (ADR 0039), as in IntelliJ: a text or hash with Regex and Match Case toggles,
+ * The filters above the commit table (ADR 0039), as in IntelliJ: after the [branchesToggle] of the branches pane
+ * (ADR 0040), a text or hash with Regex and Match Case toggles,
  * the [branch], [user] and [path] buttons with their popups and clear buttons, and the graph options. Every change
  * goes to [onChange] as the whole [filter]: a typed text 300 ms after the last keystroke or on Enter, anything else
  * right away. [reset] goes back to the defaults without telling.
@@ -95,6 +96,14 @@ internal class FilterBar(
             }
         }
 
+    /** Shows or hides the branches pane left of the bar (ADR 0040); shown at first. */
+    internal val branchesToggle =
+        ToggleButton(null, FontIcon(MaterialDesignF.FILE_TREE_OUTLINE)).apply {
+            styleClass += "git-filter-branches"
+            tooltip = Tooltip("Branches")
+            isSelected = true
+        }
+
     internal val regex = toggle(".*", "Regex")
     internal val matchCase = toggle("Cc", "Match Case")
 
@@ -130,7 +139,20 @@ internal class FilterBar(
         // Does not keep the split pane from narrowing the table; what does not fit is cut off at the right.
         minWidth = 0.0
         dateOrder.isSelected = true
-        children.addAll(search, branch, user, path, Region().apply { HBox.setHgrow(this, Priority.ALWAYS) }, options)
+        // A narrow bar shrinks the text field (to a minimum), not the buttons, whose texts stay readable.
+        search.minWidth = SEARCH_MIN_WIDTH
+        for (control in listOf(branchesToggle, regex, matchCase, branch, user, path, options)) {
+            control.minWidth = USE_PREF_SIZE
+        }
+        children.addAll(
+            branchesToggle,
+            search,
+            branch,
+            user,
+            path,
+            Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
+            options,
+        )
         for (item in listOf(regex, matchCase)) item.selectedProperty().subscribe { _, _ -> apply() }
         order.selectedToggleProperty().subscribe { _, toggle ->
             if (toggle != null) {
@@ -161,7 +183,18 @@ internal class FilterBar(
 
     /** The buttons and toggles of the bar; a click on them leaves the focus where it was. */
     private val clickable get() =
-        listOf(regex, matchCase, branch.button, branch.clear, user.button, user.clear, path.button, path.clear, options)
+        listOf(
+            branchesToggle,
+            regex,
+            matchCase,
+            branch.button,
+            branch.clear,
+            user.button,
+            user.clear,
+            path.button,
+            path.clear,
+            options,
+        )
 
     /** The button or toggle [event] is aimed at, if any. */
     private fun clicked(event: MouseEvent): Node? {
@@ -232,7 +265,10 @@ internal class FilterBar(
         text.selectAll()
     }
 
-    /** Back to the defaults, without telling [onChange]; popups close. */
+    /** Filters by exactly the branches [values] (full refnames or `HEAD`), as if checked in the Branch popup. */
+    fun setBranches(values: List<String>) = branch.select(values)
+
+    /** Back to the defaults, without telling [onChange]; popups close. Keeps the branches pane shown or hidden. */
     fun reset() {
         resetting = true
         try {
@@ -258,6 +294,7 @@ internal class FilterBar(
 
     private companion object {
         const val OPTIONS = "Graph Options"
+        const val SEARCH_MIN_WIDTH = 100.0
 
         /** An option differs from the default. */
         val ON: PseudoClass = PseudoClass.getPseudoClass("on")
@@ -297,7 +334,8 @@ internal class FilterButton(
     showing: () -> Unit,
     private val changed: () -> Unit,
 ) : HBox() {
-    internal val label = Label(title)
+    /** Long values ("Branch: feature/…") are ellipsized, so that the button does not take the whole bar. */
+    internal val label = Label(title).apply { maxWidth = LABEL_MAX_WIDTH }
 
     internal val popup = FilterPopup(items, freeItem) { selectionChanged() }
 
@@ -328,6 +366,7 @@ internal class FilterButton(
 
     private companion object {
         const val LABEL = "git-filter-label"
+        const val LABEL_MAX_WIDTH = 160.0
     }
 
     init {
@@ -335,6 +374,12 @@ internal class FilterButton(
         alignment = Pos.CENTER_LEFT
         children.addAll(button, clear)
         update()
+    }
+
+    /** Selects exactly [values] and tells. */
+    fun select(values: List<String>) {
+        popup.choose(values)
+        selectionChanged()
     }
 
     /** Selects nothing, without telling. */
@@ -465,6 +510,14 @@ internal class FilterPopup(
     /** Selects nothing, without telling. */
     fun clear() {
         chosen.clear()
+        rebuild()
+    }
+
+    /** Checks exactly the items of [values] (with their known items, read again), without telling. */
+    fun choose(values: List<String>) {
+        known = items()
+        chosen.clear()
+        for (value in values) chosen[value] = knownIndex[value]?.let(known::get) ?: FilterItem(value, value)
         rebuild()
     }
 

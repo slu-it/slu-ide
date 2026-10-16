@@ -31,6 +31,7 @@
 }
 
 .git-log-body,
+.git-log-inner,
 .git-log-side {
     -fx-padding: 0;
     -fx-background-insets: 0;
@@ -147,7 +148,8 @@
  * stands out against the selection bar. Not tied to the table's focus, which follows the window's focus.
  */
 .table-row-cell:filled:selected .git-ref-icon,
-.list-cell:filled:selected .git-ref-icon {
+.list-cell:filled:selected .git-ref-icon,
+.tree-cell:filled:selected .git-ref-icon {
     -fx-effect: dropshadow(one-pass-box, -fx-control-inner-background, 2, 1, 0, 0);
 }
 
@@ -285,7 +287,8 @@
  * The filter bar above the commit table (ADR 0039): compact, on the table's background, with a line below; flat
  * buttons like Refresh, the text field and its toggles drawn as one field.
  */
-.git-log-filters {
+.git-log-filters,
+.git-branches-bar {
     -fx-spacing: 4;
     -fx-padding: 2 4 2 4;
     -fx-background-color: -fx-box-border, -fx-control-inner-background;
@@ -297,26 +300,34 @@
     -fx-icon-size: 14;
 }
 
-.git-filter-search {
+.git-filter-search,
+.git-branches-search {
     -fx-spacing: 2;
     -fx-padding: 0 2 0 5;
     -fx-background-color: -fx-text-box-border, -fx-control-inner-background;
     -fx-background-insets: 0, 1;
     -fx-background-radius: 3, 2;
+}
+
+.git-filter-search {
     -fx-pref-width: 260;
 }
 
-.git-filter-search:focus-within {
+.git-filter-search:focus-within,
+.git-branches-search:focus-within {
     -fx-background-color: -fx-focus-color, -fx-control-inner-background;
 }
 
 .git-filter-text,
-.git-filter-text:focused {
+.git-filter-text:focused,
+.git-branches-search-text,
+.git-branches-search-text:focused {
     -fx-background-color: transparent;
     -fx-background-insets: 0;
     -fx-padding: 2 2 2 2;
 }
 
+.git-filter-branches,
 .git-filter-toggle,
 .git-filter-button,
 .git-filter-clear,
@@ -331,6 +342,7 @@
     -fx-padding: 0 3 0 3;
 }
 
+.git-filter-branches:hover,
 .git-filter-toggle:hover,
 .git-filter-button:hover,
 .git-filter-clear:hover,
@@ -340,6 +352,7 @@
 }
 
 /* Focused by the keyboard (Tab): a ring in the focus colour; not after a mouse click. */
+.git-filter-branches:focus-visible,
 .git-filter-toggle:focus-visible,
 .git-filter-button:focus-visible,
 .git-filter-clear:focus-visible,
@@ -353,6 +366,8 @@
  * A selected toggle, and the options button while an option differs from the default (:on), stand out in both
  * themes: the accent colour with the selection's text colour.
  */
+.git-filter-branches:selected,
+.git-filter-branches:selected:hover,
 .git-filter-toggle:selected,
 .git-filter-toggle:selected:hover,
 .git-filter-options:on,
@@ -361,6 +376,7 @@
     -fx-text-fill: -fx-selection-bar-text;
 }
 
+.git-filter-branches:selected:focus-visible,
 .git-filter-toggle:selected:focus-visible,
 .git-filter-options:on:focus-visible {
     -fx-background-color: -fx-focus-color, -fx-accent;
@@ -368,6 +384,7 @@
     -fx-background-radius: 3, 2;
 }
 
+.git-filter-branches:selected .ikonli-font-icon,
 .git-filter-options:on .ikonli-font-icon {
     -fx-icon-color: -fx-selection-bar-text;
 }
@@ -421,6 +438,45 @@
 .git-filter-icon {
     -fx-icon-color: -fx-text-background-color;
     -fx-icon-size: 14;
+}
+
+/*
+ * The branches pane (ADR 0040), left of the commits on the table's background: a search field in a bar as high as the
+ * filter bar, then a tree like the changed files, branches with the ref labels' tag icons, the current one in bold.
+ */
+.git-branches {
+    -fx-background-color: -fx-control-inner-background;
+}
+
+.git-branches-bar .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+    -fx-icon-size: 14;
+}
+
+.git-branches-tree {
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.git-branches-placeholder {
+    -fx-text-fill: -fx-text-inner-color;
+    -fx-opacity: 0.7;
+    -fx-wrap-text: true;
+    -fx-padding: 8;
+}
+
+.git-branch-folder-icon {
+    -fx-icon-color: -fx-text-background-color;
+    -fx-icon-size: 14;
+}
+
+.git-branch-name {
+    -fx-text-fill: -fx-text-background-color;
+    -fx-padding: 0 0 0 4;
+}
+
+.git-branch-current {
+    -fx-font-weight: bold;
 }
 
 /* Single-class selector only: JavaFX applies descendant selectors in @media blocks whatever the scheme (ADR 0009). */
