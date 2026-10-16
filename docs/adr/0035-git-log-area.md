@@ -57,7 +57,8 @@ the command line (status, diff to `HEAD`, the ref in the title, [ADR 0013](0013-
 - **JGit considered again and rejected:** its `revplot` would give a ready-made graph lane layout, but the log would
   then read the repository with a second git implementation next to the CLI used for status and diff, which can
   disagree (`.mailmap`, replace refs and grafts, partial clones, newer repository formats); write operations need the
-  CLI anyway (hooks, credential helpers, signing). The graph will be our own layout, decided in its own ADR.
+  CLI anyway (hooks, credential helpers, signing). The graph is our own layout, decided in
+  [ADR 0036](0036-commit-graph-layout.md).
 
 ## Consequences
 - Only 500 commits are parsed and shown per step, but git's work is not limited to them. With a commit-graph

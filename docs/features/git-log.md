@@ -1,8 +1,9 @@
 # Git Log
 
 **Module:** `modules/git-log` (package `dev.sluide.gitlog`) — `GitLogView` (the area), `GitLogPages` (paging and
-reloads, without controls); the commits come from `GitLog` in `modules/git`. Decision in
-[ADR 0035](../adr/0035-git-log-area.md)
+reloads, without controls), `GraphLayout` (the commit graph's lanes) and `GraphCell` (drawing it); the commits come
+from `GitLog` in `modules/git`. Decisions in [ADR 0035](../adr/0035-git-log-area.md) and
+[ADR 0036](../adr/0036-commit-graph-layout.md)
 
 - **Where and when:** for a folder whose git status is followed ([git-status.md](git-status.md): git is available and
   the folder has `.git`), the window shows a Git Log area under the editor area. Other folders, and a window without a
@@ -20,6 +21,13 @@ reloads, without controls); the commits come from `GitLog` in `modules/git`. Dec
   tags and `HEAD` (also when detached), newest first in git's date order; stashes are left out. Author names and
   emails follow `.mailmap`; subjects and names are read as UTF-8 whatever `i18n.logOutputEncoding` says. Columns
   are not sortable.
+- **Graph:** left of every subject, the commit graph as in IntelliJ: a coloured dot for the commit on its branch's
+  lane, lines down to its parents, a new lane opening to the right at a merge and lanes converging where branches
+  forked off; a branch tip starts a lane of its own at the right. Every row's subject starts right after that row's
+  graph. The 8 lane colours repeat and have lighter variants in the dark theme; selected rows keep them, with a halo in
+  the table's background colour around lines and dots. At most 30 lanes are drawn; lines into lanes further right are
+  cut off at the graph's edge. Colours are given from the top, so they can change after a refresh brings a new branch
+  tip; long lines are not shortened into arrows ([ADR 0036](../adr/0036-commit-graph-layout.md)).
 - **Loading:** nothing is read before the area is first expanded. Then 500 commits load in the background; scrolling
   to within 50 rows of the last one loads the next 500, until there are no more. In very large repositories without
   a commit-graph file (`git gc` writes one), git sorts the whole history for every page, so the first page can hit the
@@ -34,6 +42,6 @@ reloads, without controls); the commits come from `GitLog` in `modules/git`. Dec
 - **Copy Revision Number:** in the context menu of the table, and with Shortcut+C while the table has the focus; it
   copies the full hash of the selected commit, or of all selected commits one per line in table order (Shift/Ctrl
   select several).
-- Not yet implemented (next packages): the commit graph, ref labels (branches, tags) on the rows, the details of the
+- Not yet implemented (next packages): ref labels (branches, tags) on the rows, the details of the
   selected commit, its changed files, text/branch/user/path filters, the branches pane, remembering the area's height
   and state, and any action that changes the repository.
