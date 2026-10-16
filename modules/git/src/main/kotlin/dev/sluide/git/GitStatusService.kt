@@ -2,6 +2,8 @@ package dev.sluide.git
 
 import dev.sluide.filewatcher.FileWatcher
 import javafx.application.Platform
+import javafx.beans.property.ReadOnlyLongProperty
+import javafx.beans.property.ReadOnlyLongWrapper
 import javafx.beans.property.ReadOnlyObjectProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
 import org.springframework.beans.factory.annotation.Autowired
@@ -50,6 +52,23 @@ class GitStatusService(
 
     /** Whether the open folder is a git repository that is followed. */
     val active: Boolean get() = target != null
+
+    /** The root of the repository that is followed (the opened folder, absolute and normalized); `null` if none. */
+    val root: Path? get() = target?.root
+
+    private val _gitFolderChanged = ReadOnlyLongWrapper()
+
+    /**
+     * Counts the changes noticed in the `.git` folder of the followed repository, for listeners that want to know when
+     * git's state may have changed (e.g. the git log, ADR 0035). Changes on the JavaFX thread, through the file
+     * watcher's dispatcher.
+     *
+     * Noticed are changes of entries directly in `.git`: `HEAD`, `index`, `packed-refs`, `FETCH_HEAD`, `ORIG_HEAD`, …,
+     * so commits, checkouts, staging, fetches, merges and rebases. Not noticed are changes only in its subfolders, e.g.
+     * a new branch or tag from `git branch x` or `git tag x` (`.git/refs/`), nor anything in a repository with a `.git`
+     * file (worktrees, submodules), which is not watched.
+     */
+    val gitFolderChanged: ReadOnlyLongProperty = _gitFolderChanged.readOnlyProperty
 
     /** Follows the repository at [folder], if git is available and it has `.git`; `null` follows nothing. */
     fun open(folder: Path?) {
@@ -102,6 +121,7 @@ class GitStatusService(
                     gitWatch?.close()
                     watchGitFolder(root)
                 }
+                _gitFolderChanged.set(_gitFolderChanged.get() + 1)
                 refresh()
             }
     }

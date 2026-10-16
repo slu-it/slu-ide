@@ -88,6 +88,44 @@ class GitCli(
     }
 
     /**
+     * The output of `git log` for the repository at [root] (see [GitLogParser]): the commits of all branches, remote
+     * branches, tags and `HEAD` in date order, after the first [skip], at most [limit]; or `null` if git is not
+     * available, fails or takes longer than 10 s. Empty for a repository without commits.
+     */
+    internal fun log(
+        root: Path,
+        skip: Int,
+        limit: Int,
+    ): String? {
+        if (!available) return null
+        val arguments =
+            listOf(
+                "--no-optional-locks",
+                "log",
+                // Not --all, which would add stash and notes commits.
+                "--branches",
+                "--remotes",
+                "--tags",
+                // An unborn HEAD (no commits yet) would otherwise make git fail.
+                "--ignore-missing",
+                "HEAD",
+                "--date-order",
+                "-z",
+                "--no-color",
+                "--no-show-signature",
+                // The output is read as UTF-8, whatever i18n.logOutputEncoding says.
+                "--encoding=UTF-8",
+                "--skip=$skip",
+                "--max-count=$limit",
+                // %aN and %aE: name and email as mapped by .mailmap.
+                "--format=%H%x1f%P%x1f%aN%x1f%aE%x1f%at%x1f%s",
+                // HEAD is a revision, even if a file of that name exists.
+                "--",
+            )
+        return run(arguments, root, 10.seconds)
+    }
+
+    /**
      * [file] relative to [root], `/`-separated as git wants it; `null` if it is not inside [root]. Relative paths are
      * taken from the working directory.
      */
