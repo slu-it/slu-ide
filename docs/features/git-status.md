@@ -25,5 +25,12 @@
   takes longer than 10 s, the previous snapshot stays (e.g. markers remain after `rm -rf .git` until the folder is
   opened again).
 - Modified files open as a diff against `HEAD` ([git-diff.md](git-diff.md)); `GitStatusService.diff(file)` reads it.
-- Not yet implemented: branch name, blame, git commands from the IDE, repositories in subfolders or above the
+- The window title shows the checked-out ref: `slu-ide [master] – Thoreau` on a branch,
+  `slu-ide [detached at 5f070b9] – Thoreau` on a detached `HEAD` (7-character hash), and the branch name of a
+  repository without commits (`[main]`). Without a repository, git or a first status it stays `slu-ide – Thoreau`.
+  The ref comes from the `# branch.head` and `# branch.oid` headers of `git status --branch` and is part of the
+  status snapshot, so a checkout in Thoreau's terminal or any other tool updates it through the watch of `.git`
+  (`HEAD` changes), which does not happen for a `.git` file (worktrees, submodules). Like the markers, the title keeps
+  the last ref if `git status` fails.
+- Not yet implemented: blame, git commands from the IDE, repositories in subfolders or above the
   opened folder.

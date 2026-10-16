@@ -16,7 +16,7 @@
 - A window's folder is held by its `ProjectService.projectFolder` (observable, read-only, set once via
   `ProjectService.open`, which rejects non-directories and a second, different folder). `MainWindow` passes it to the
   file explorer and the git status ([git-status.md](git-status.md)) and sets the window title to
-  `<folder name> – Thoreau`.
+  `<folder name> – Thoreau`, with the checked-out git ref in brackets after the name.
 - Every window has its own explorer, editor area, terminals, Docker sandboxes and git status (Spring scope `window`).
 - Closing a window with unsaved files first asks to save them: Save, Don't Save or Cancel
   ([text-editing.md](text-editing.md)); Cancel keeps the window.

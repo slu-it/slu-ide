@@ -52,3 +52,8 @@ Options considered:
   with the Xcode Command Line Tools installed (otherwise macOS may offer to install them). Not verified on macOS.
 - Each refresh starts a process; for very large repositories `git status` may take noticeable time, which happens
   in the background and keeps the last markers meanwhile.
+
+Note 2026-10-16: `--branch` was added to the status command
+(`git --no-optional-locks status --porcelain=v2 --branch -z --ignored`) so that the window title can show the
+checked-out branch or commit; the snapshot carries it, and a checkout without file changes still publishes a new
+snapshot.
