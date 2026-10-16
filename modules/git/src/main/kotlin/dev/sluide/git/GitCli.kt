@@ -197,6 +197,84 @@ class GitCli(
     }
 
     /**
+     * The output of `git diff-tree -r -z --name-status -M` for the files [commit] changed against [parent], or for a
+     * root commit (`null` [parent]) against nothing (see [GitNameStatusParser]); `null` if git is not available, fails
+     * or takes longer than 10 s. Both are full object names.
+     */
+    internal fun changedFiles(
+        root: Path,
+        commit: String,
+        parent: String?,
+    ): String? {
+        if (!available) return null
+        val revisions = if (parent == null) listOf("--root", commit) else listOf(parent, commit)
+        val arguments =
+            listOf(
+                "--no-optional-locks",
+                "diff-tree",
+                "-r",
+                "-z",
+                "--no-commit-id",
+                "--name-status",
+                "-M",
+                "--no-ext-diff",
+            ) + revisions + "--"
+        return run(arguments, root, 10.seconds)
+    }
+
+    /**
+     * The output of `git cat-file --batch-check` for the [objects] (such as `<commit>:<path>`), one line each:
+     * `<name> <type> <size>`, or `<object> missing`; `null` if git is not available, fails or takes longer than 10 s.
+     * The names are given on the standard input, so paths reach git as UTF-8 whatever the JVM's locale; `null` for
+     * a name with a line break, which git would read as two.
+     */
+    internal fun objectInfo(
+        root: Path,
+        objects: List<String>,
+    ): String? {
+        if (!available || objects.any { '\n' in it }) return null
+        val input = objects.joinToString("") { "$it\n" }.toByteArray(Charsets.UTF_8)
+        return runBytes(listOf("--no-optional-locks", "cat-file", "--batch-check"), root, 10.seconds, input)
+            ?.toString(Charsets.UTF_8)
+    }
+
+    /**
+     * The raw content of the blob [name] (a full object name), without filters; `null` if git is not available, fails
+     * or takes longer than 10 s.
+     */
+    internal fun blob(
+        root: Path,
+        name: String,
+    ): ByteArray? {
+        if (!available) return null
+        return runBytes(listOf("--no-optional-locks", "cat-file", "blob", name), root, 10.seconds)
+    }
+
+    /**
+     * The output of `git diff -U0` from the blob [original] to the blob [current] (full object names, see
+     * [GitDiffParser]), or `null` if git is not available, fails or takes longer than 10 s.
+     */
+    internal fun diffBlobs(
+        root: Path,
+        original: String,
+        current: String,
+    ): String? {
+        if (!available) return null
+        val arguments =
+            listOf(
+                "--no-optional-locks",
+                "diff",
+                "--no-color",
+                "--no-ext-diff",
+                "--no-textconv",
+                "-U0",
+                original,
+                current,
+            )
+        return run(arguments, root, 10.seconds)
+    }
+
+    /**
      * [file] relative to [root], `/`-separated as git wants it; `null` if it is not inside [root]. Relative paths are
      * taken from the working directory.
      */
@@ -213,7 +291,19 @@ class GitCli(
         arguments: List<String>,
         directory: Path?,
         timeout: Duration,
-    ): String? {
+    ): String? = runBytes(arguments, directory, timeout)?.toString(Charsets.UTF_8)
+
+    /**
+     * Runs git with [arguments] in [directory], [input] on its standard input; its output if it succeeds in time. The
+     * input is written before the timeout starts and the write waits while git does not read, so it must be small: a
+     * few lines, well below the pipe's buffer.
+     */
+    private fun runBytes(
+        arguments: List<String>,
+        directory: Path?,
+        timeout: Duration,
+        input: ByteArray? = null,
+    ): ByteArray? {
         val process =
             try {
                 ProcessBuilder(listOf(executable) + arguments)
@@ -230,10 +320,15 @@ class GitCli(
                 log.log(System.Logger.Level.DEBUG, "Cannot run $executable", e)
                 return null
             }
-        process.outputStream.close()
         // Read while git runs, so a large output cannot fill the pipe and block it.
         val output = ByteArrayOutputStream()
         val reader = Thread.ofVirtual().start { process.inputStream.use { it.transferTo(output) } }
+        try {
+            process.outputStream.use { stdin -> input?.let(stdin::write) }
+        } catch (e: IOException) {
+            // Git ended without reading all its input; its exit value tells.
+            log.log(System.Logger.Level.DEBUG, "Cannot write to $executable", e)
+        }
         try {
             if (!process.waitFor(timeout.inWholeMilliseconds, TimeUnit.MILLISECONDS)) {
                 stop(process)
@@ -250,7 +345,7 @@ class GitCli(
             Thread.currentThread().interrupt()
             return null
         }
-        return if (process.exitValue() == 0) output.toString(Charsets.UTF_8) else null
+        return if (process.exitValue() == 0) output.toByteArray() else null
     }
 
     /** Kills git and whatever it started (hooks, helpers); the descendants first, as they are lost with git. */
