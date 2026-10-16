@@ -303,6 +303,9 @@ class EditorArea(
     /** Adds [tab] after the open tabs and selects it. Its [EditorTab.dispose] is called when it is closed. */
     fun open(tab: EditorTab) = editorTabs.open(tab)
 
+    /** Selects [tab], one of the open [tabs]. */
+    fun select(tab: EditorTab) = editorTabs.select(tab)
+
     private fun watch(openFile: OpenFile) {
         val path = openFile.path
         watches.remove(openFile)?.close()

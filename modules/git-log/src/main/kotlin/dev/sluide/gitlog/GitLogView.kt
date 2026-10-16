@@ -48,6 +48,7 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.nio.file.Files
+import java.nio.file.InvalidPathException
 import java.nio.file.Path
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -219,8 +220,8 @@ class GitLogView internal constructor(
             }
         pages.state.subscribe { state -> if (state == GitLogState.LOADING) status.set("") }
         changesPane.showDiff = ::showDiff
-        changesPane.openFile = { file -> pages.root?.let { onOpenFile(it.resolve(file.path)) } }
-        changesPane.exists = { file -> pages.root?.let { Files.exists(it.resolve(file.path)) } == true }
+        changesPane.openFile = { file -> localFile(file)?.let(onOpenFile) }
+        changesPane.exists = { file -> localFile(file)?.let(Files::exists) == true }
         expanded.subscribe { isExpanded ->
             val focusInBody = body.contains(scene?.focusOwner)
             center = if (isExpanded) body else null
@@ -241,6 +242,17 @@ class GitLogView internal constructor(
         fileDiffs.close()
         pages.open(root)
     }
+
+    /**
+     * [file] in the working tree; `null` without a repository or if its name cannot be a path in the JVM's locale
+     * (non-ASCII characters in a plain ASCII one).
+     */
+    private fun localFile(file: GitChangedFile): Path? =
+        try {
+            pages.root?.resolve(file.path)
+        } catch (_: InvalidPathException) {
+            null
+        }
 
     /** Shows [text] in the header, e.g. why a diff cannot be shown, until the next selection or load. */
     fun showStatus(text: String) = status.set(text)

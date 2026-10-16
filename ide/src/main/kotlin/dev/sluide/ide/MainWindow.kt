@@ -6,8 +6,10 @@ import dev.sluide.dockersandbox.SandboxNotAllowedException
 import dev.sluide.editor.EditorArea
 import dev.sluide.editor.askToClose
 import dev.sluide.fileexplorer.FileExplorerView
+import dev.sluide.fileviewers.FileViewers
 import dev.sluide.git.GitHead
 import dev.sluide.git.GitStatusService
+import dev.sluide.gitlog.CommitFileDiff
 import dev.sluide.gitlog.GitLogView
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.projects.RecentProjects
@@ -38,6 +40,7 @@ import javafx.stage.Stage
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.net.URI
+import java.nio.file.InvalidPathException
 import java.nio.file.Path
 
 private const val APP_NAME = "Thoreau"
@@ -76,6 +79,7 @@ class MainWindow(
     private val dockerSandbox: DockerSandbox,
     private val gitStatus: GitStatusService,
     private val gitLogView: GitLogView,
+    private val fileViewers: FileViewers,
     private val settingsPages: SettingsPages,
     private val themedWindows: ThemedWindows,
     private val projectWindows: ProjectWindows,
@@ -174,6 +178,9 @@ class MainWindow(
         }
         // Collapsing the log with the focus in it gives the focus to the editor.
         gitLogView.returnFocus = { (editorArea.selectedTab?.content ?: editorArea).requestFocus() }
+        // Files and what commits changed in them open in the editor area (ADR 0038).
+        gitLogView.onOpenFile = { editorArea.open(it) }
+        gitLogView.onShowDiff = ::showCommitDiff
 
         // A window gets its folder once (ADR 0014); other folders open in new windows.
         projectService.projectFolder.subscribe { folder ->
@@ -202,6 +209,34 @@ class MainWindow(
         stage.scene = Scene(root, 1000.0, 700.0)
         stage.show()
     }
+
+    /**
+     * Shows what a commit changed in a file side by side in a tab of its own, or selects the tab that already shows it
+     * (ADR 0038); says so in the git log if the file is not shown as text.
+     */
+    private fun showCommitDiff(diff: CommitFileDiff) {
+        editorArea.tabs
+            .filterIsInstance<CommitDiffTab>()
+            .firstOrNull { it.shows(diff) }
+            ?.let { return editorArea.select(it) }
+        val view = fileViewers.openDiff(nameOf(diff.path), diff.current, diff.toTextDiff())
+        if (view == null) {
+            gitLogView.showStatus("${diff.path.substringAfterLast('/')} cannot be shown as text.")
+            return
+        }
+        editorArea.open(CommitDiffTab(diff, view))
+    }
+
+    /**
+     * The repository path [path] as a [Path] that picks the file's viewer by its name; characters that file names
+     * cannot have in the JVM's locale (non-ASCII ones in a plain ASCII locale) are replaced, keeping the extension.
+     */
+    private fun nameOf(path: String): Path =
+        try {
+            Path.of(path)
+        } catch (_: InvalidPathException) {
+            Path.of(path.substringAfterLast('/').map { if (it.code < 128) it else '_' }.joinToString(""))
+        }
 
     /**
      * Shows the git log below the editor area if [present], else only the editor area, on the right of the explorer

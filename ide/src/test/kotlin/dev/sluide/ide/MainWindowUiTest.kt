@@ -32,6 +32,7 @@ import javafx.event.ActionEvent
 import javafx.event.Event
 import javafx.geometry.Orientation
 import javafx.scene.Node
+import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuBar
@@ -40,6 +41,7 @@ import javafx.scene.control.SplitPane
 import javafx.scene.control.TableCell
 import javafx.scene.control.TableView
 import javafx.scene.control.TreeCell
+import javafx.scene.control.TreeView
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
@@ -162,10 +164,9 @@ class MainWindowUiTest {
         mainWindow.show(stage)
     }
 
-    private fun editorArea(): EditorArea {
-        val fallback = DefaultTextFileViewer()
-        return EditorArea(FileViewers(listOf(fallback), fallback), watcher, fontSettings)
-    }
+    private val fileViewers = DefaultTextFileViewer().let { FileViewers(listOf(it), it) }
+
+    private fun editorArea(): EditorArea = EditorArea(fileViewers, watcher, fontSettings)
 
     /** A main window whose sandboxes count `sbx` as installed once [sbxInstalled] completes with `true`. */
     private fun mainWindow(
@@ -181,6 +182,7 @@ class MainWindowUiTest {
         DockerSandbox(terminals, home, shellEnvironment, sbxInstalled),
         gitStatus,
         GitLogView(GitLog(git)).also(gitLogViews::add),
+        fileViewers,
         SettingsPages(listOf(FontsPage(fontSettings))),
         ThemedWindows(ThemeSettings(SettingsStore(settingsDir.resolve("settings.properties")))),
         projectWindows,
@@ -446,6 +448,73 @@ class MainWindowUiTest {
     }
 
     @Test
+    fun `Show Diff in the git log opens what a commit changed in a tab once, Open Local File opens the file`(
+        robot: FxRobot,
+    ) {
+        assumeTrue(git.available, "git is not installed")
+        val commit = arrayOf("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q")
+        runGit("init", "-q")
+        project.resolve("tracked.md").writeText("one\ntwo\n")
+        runGit("add", ".")
+        runGit(*commit, "-m", "Initial commit")
+        val parent = runGit("rev-parse", "HEAD")
+        project.resolve("tracked.md").writeText("one\nTWO\n")
+        runGit(*commit, "-am", "Change")
+        val changed = runGit("rev-parse", "HEAD")
+
+        robot.interact {
+            projectService.open(project)
+            gitLogView.expanded.set(true)
+        }
+        eventually(robot) { assertEquals(listOf("Change", "Initial commit"), shownSubjects(robot)) }
+        val table = robot.lookup(".git-log-table").queryAs(TableView::class.java)
+        robot.interact { table.selectionModel.clearAndSelect(0) }
+        val tree = robot.lookup(".git-changes-tree").queryAs(TreeView::class.java)
+        eventually(robot) { assertEquals(1, tree.expandedItemCount) }
+        robot.interact { tree.selectionModel.clearAndSelect(0) }
+
+        fun press(code: KeyCode) {
+            robot.interact {
+                Event.fireEvent(
+                    tree,
+                    KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, false, false, false),
+                )
+            }
+            WaitForAsyncUtils.waitForFxEvents()
+        }
+        press(KeyCode.ENTER)
+        eventually(robot) { assertTrue(editorArea.selectedTab is CommitDiffTab) }
+        val tab = editorArea.selectedTab as CommitDiffTab
+        assertEquals("tracked.md (${changed.take(8)})", tab.title.value)
+        assertEquals("tracked.md at ${changed.take(8)}", tab.tooltip)
+        val areas =
+            robot
+                .lookup(".editor-content .code-area")
+                .queryAllAs(CodeArea::class.java)
+                .sortedBy { it.localToScene(0.0, 0.0).x }
+        assertEquals(listOf("one\ntwo", "one\nTWO"), areas.map { it.text })
+        assertEquals(
+            listOf(parent.take(8), changed.take(8)),
+            robot
+                .lookup(".editor-content .diff-title")
+                .queryAllAs(Label::class.java)
+                .sortedBy { it.localToScene(0.0, 0.0).x }
+                .map { it.text },
+        )
+        assertTrue(robot.lookup(".editor-content .diff-back").queryAs(Button::class.java).let { !it.isVisible })
+
+        // F4: the file as it is now, in its own tab.
+        press(KeyCode.F4)
+        assertEquals(project.resolve("tracked.md"), editorArea.selectedPath)
+
+        // Shown again: the same tab.
+        press(KeyCode.ENTER)
+        eventually(robot) { assertSame(tab, editorArea.selectedTab) }
+        assertEquals(1, editorArea.tabs.count { it is CommitDiffTab })
+        assertEquals(2, editorArea.tabs.size)
+    }
+
+    @Test
     fun `folders that are no git repository have no git log`(robot: FxRobot) {
         assertTrue(robot.lookup(".git-log").tryQuery<Node>().isEmpty, "no folder")
         project.resolve("README.md").createFile()
@@ -565,7 +634,7 @@ class MainWindowUiTest {
             }.toMap()
     }
 
-    private fun runGit(vararg arguments: String) {
+    private fun runGit(vararg arguments: String): String {
         val process =
             ProcessBuilder(listOf("git") + arguments)
                 .directory(project.toFile())
@@ -576,6 +645,7 @@ class MainWindowUiTest {
                 }.start()
         val output = process.inputStream.readAllBytes().decodeToString()
         assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
+        return output.trim()
     }
 
     /** The style class colouring [name] in the explorer, if any, then those of the bubbles after it, in order. */
