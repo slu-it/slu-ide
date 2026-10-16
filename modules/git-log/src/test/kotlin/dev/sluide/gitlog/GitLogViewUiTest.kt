@@ -160,7 +160,7 @@ class GitLogViewUiTest {
                     skip: Int,
                     limit: Int,
                 ): GitLogPage? {
-                    gate?.await(10, TimeUnit.SECONDS)
+                    if (!gate.passed()) return null
                     loads += skip to limit
                     filters += filter
                     return (if (root == repo) history else otherHistory)?.let { history ->
@@ -176,13 +176,13 @@ class GitLogViewUiTest {
                 ) = hashMatchOf(filter)
 
                 override fun userName(root: Path): String? {
-                    userNameGates[root]?.await(10, TimeUnit.SECONDS)
+                    if (!userNameGates[root].passed()) return null
                     userNameLoads.add(root)
                     return if (root == repo) userName else null
                 }
 
                 override fun paths(root: Path): List<GitTreePath>? {
-                    pathGates[root]?.await(10, TimeUnit.SECONDS)
+                    if (!pathGates[root].passed()) return null
                     pathLoads.add(root)
                     return if (root == repo) treePaths else emptyList()
                 }
@@ -193,7 +193,7 @@ class GitLogViewUiTest {
                     root: Path,
                     hash: String,
                 ): GitCommitDetails? {
-                    detailGates[hash]?.await(10, TimeUnit.SECONDS)
+                    if (!detailGates[hash].passed()) return null
                     detailLoads += hash
                     return detailsOf(hash)
                 }
@@ -203,7 +203,7 @@ class GitLogViewUiTest {
                     commit: String,
                     firstParent: String?,
                 ): List<GitChangedFile>? {
-                    fileGates[commit]?.await(10, TimeUnit.SECONDS)
+                    if (!fileGates[commit].passed()) return null
                     fileLoads += commit to firstParent
                     return filesOf(commit)
                 }
@@ -214,7 +214,7 @@ class GitLogViewUiTest {
                     firstParent: String?,
                     file: GitChangedFile,
                 ): GitFileDiff? {
-                    diffGate?.await(10, TimeUnit.SECONDS)
+                    if (!diffGate.passed()) return null
                     diffLoads += Triple(commit, firstParent, file.path)
                     return diffOf(file)
                 }
@@ -223,6 +223,18 @@ class GitLogViewUiTest {
         stage.scene = Scene(view, 800.0, 400.0)
         stage.show()
     }
+
+    /**
+     * Waits until this gate (if any) is open; `false` if the wait is interrupted: the view's executor is shut down at
+     * the end of a test, possibly before a read it released has woken up.
+     */
+    private fun CountDownLatch?.passed(): Boolean =
+        try {
+            this?.await(10, TimeUnit.SECONDS)
+            true
+        } catch (_: InterruptedException) {
+            false
+        }
 
     @AfterEach
     fun close() {
