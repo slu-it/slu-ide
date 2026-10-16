@@ -7,7 +7,7 @@ assembled from Gradle modules.
 | Path | Purpose |
 |------|---------|
 | `ide/` | Application module: launcher, Spring Boot configuration, main window. Produces the fat jar (`./gradlew :ide:bootJar`). |
-| `modules/<name>/` | One Gradle module per IDE capability: `file-explorer`, `editor` (tabs), `file-viewers` (views of files, change markers and side-by-side diffs; the previews of Markdown, HTML, SVG, CSV, cookie jars, notebooks, Mermaid, PEM and Bicep files and the image view are `javafx.web` WebViews; own tokenizers for TOML, Bicep and KQL), `file-watcher` (changes on disk), `terminal` (shells in editor tabs), `settings` (settings state, storage and dialog), `docker-sandbox` (`sbx` in terminal tabs), `git` (git status of the open repository, diffs against `HEAD` and pages of the git log), `git-log` (the git log area under the editor), `text-editing` (logic of editing text without JavaFX: line endings, changes on disk, indentation incl. `.editorconfig` via ec4j-core, line operations, comments, find and replace, go to line), `http-client` (`.http` files: requests run from the editor with environments and auth), `projects` (remembered projects and the project picker). |
+| `modules/<name>/` | One Gradle module per IDE capability: `file-explorer`, `editor` (tabs), `file-viewers` (views of files, change markers and side-by-side diffs; the previews of Markdown, HTML, SVG, CSV, cookie jars, notebooks, Mermaid, PEM and Bicep files and the image view are `javafx.web` WebViews; own tokenizers for TOML, Bicep and KQL), `file-watcher` (changes on disk), `terminal` (shells in editor tabs), `settings` (settings state, storage and dialog), `docker-sandbox` (`sbx` in terminal tabs), `git` (git status of the open repository, diffs against `HEAD`, pages of the git log, refs and commit details), `git-log` (the git log area under the editor), `text-editing` (logic of editing text without JavaFX: line endings, changes on disk, indentation incl. `.editorconfig` via ec4j-core, line operations, comments, find and replace, go to line), `http-client` (`.http` files: requests run from the editor with environments and auth), `projects` (remembered projects and the project picker). |
 | `gradle/libs.versions.toml` | Single place for dependency and plugin versions. |
 | `docs/` | This documentation. Start at [index.md](index.md). |
 | `.claude/` | Claude Code settings, agents, rules, scripts. |
@@ -41,9 +41,10 @@ assembled from Gradle modules.
     ([ADR 0013](adr/0013-git-status.md)). Markers and diffs reach the explorer and the editor through `ide`
     (`MainWindow`), not through module dependencies ([ADR 0015](adr/0015-git-diff.md),
     [ADR 0021](adr/0021-change-markers-and-diffs-on-demand.md)).
-  - `git-log` -> `git`: the git log area reads its commits with `GitLog` and shows `GitCommit`s
-    ([ADR 0035](adr/0035-git-log-area.md)); `MainWindow` tells it the followed repository and refreshes it on
-    `GitStatusService.gitFolderChanged`.
+  - `git-log` -> `git`: the git log area reads its commits, refs and commit details with `GitLog` and shows
+    `GitCommit`s, `GitRef`s and `GitCommitDetails` ([ADR 0035](adr/0035-git-log-area.md),
+    [ADR 0037](adr/0037-ref-labels-and-commit-details.md)); `MainWindow` tells it the followed repository and refreshes
+    it on `GitStatusService.gitFolderChanged`.
   - `file-explorer`, `editor`, `terminal` -> `settings`: they use the configured fonts
     ([ADR 0008](adr/0008-settings.md)).
 - Shared build configuration (JDK toolchain, test setup, Spring BOM) is in the root `build.gradle.kts`.
