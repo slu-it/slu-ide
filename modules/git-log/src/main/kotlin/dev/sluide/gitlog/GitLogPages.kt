@@ -28,6 +28,22 @@ internal enum class GitLogState(
     FAILED("The git log could not be read."),
 }
 
+/** Why [GitLogPages.loadUntil] did not find a commit. */
+internal enum class CommitMissing {
+    /** The log is complete without it, e.g. as the filters hide it. */
+    NOT_IN_LOG,
+
+    /** It is not among the first [GitLogPages.SEEK_LIMIT] rows. */
+    BEYOND_LIMIT,
+}
+
+/** What [GitLogPages.loadUntil] waits for. */
+private class Seek(
+    val hash: String,
+    val found: (Int) -> Unit,
+    val missing: (CommitMissing) -> Unit,
+)
+
 /**
  * A row of the git log: a commit, its part of the commit graph (ADR 0036) and the [refs] pointing at it, ordered as
  * [GitRefs.at] orders them (ADR 0037). [currentBranch] is the full refname of the checked-out branch if `HEAD` is
@@ -53,6 +69,8 @@ internal data class GitLogRow(
  * filter that hides commits the rows have no graph ([GraphRow.NONE]); with first parents only, a row's graph follows
  * only its first parent.
  *
+ * [loadUntil] loads pages until a commit is there (ADR 0040), for the branches pane.
+ *
  * [load] and [loadRefs] run on [background], their results are handled through [dispatch]. Every [open] and reload
  * starts a new run; results of older runs are dropped. Used on the JavaFX thread (or whatever [dispatch] stands for
  * in tests).
@@ -65,6 +83,7 @@ internal class GitLogPages(
     private val dispatch: (Runnable) -> Unit,
     private val pageSize: Int = PAGE_SIZE,
     private val prefetch: Int = PREFETCH,
+    private val seekLimit: Int = SEEK_LIMIT,
 ) {
     /** The loaded commits with their graph, newest first. */
     val rows: ObservableList<GitLogRow> = FXCollections.observableArrayList()
@@ -101,6 +120,9 @@ internal class GitLogPages(
     private var complete = false
     private var loadingMore = false
 
+    /** The commit [loadUntil] loads pages for, if any. */
+    private var seek: Seek? = null
+
     /** Whether the log is shown; showing it loads the first page if nothing (or something outdated) is loaded. */
     var visible = false
         set(value) {
@@ -117,6 +139,7 @@ internal class GitLogPages(
         set(value) {
             if (currentFilter == value) return
             currentFilter = value
+            seek = null
             if (root == null) return
             if (visible) {
                 reload()
@@ -143,6 +166,7 @@ internal class GitLogPages(
         hashRow = null
         complete = false
         loadingMore = false
+        seek = null
         _state.set(GitLogState.IDLE)
         stale = root != null
         if (visible && stale) reload()
@@ -156,9 +180,42 @@ internal class GitLogPages(
 
     /** Loads the next page if the row at [index] is near the last loaded one and there may be more. */
     fun shown(index: Int) {
-        if (_state.get() != GitLogState.LOADED || stale || complete || loadingMore || index < rows.size - prefetch) {
-            return
-        }
+        if (index >= rows.size - prefetch) loadMore()
+    }
+
+    /**
+     * Hands the index of the row of the commit [hash] to [found], loading further pages until it is there; if the log
+     * is complete without it, or [seekLimit] rows are loaded, tells [missing] why instead. While the first page is
+     * still loading, and after a [refresh], waits for the first page. A newer call replaces this one, and
+     * [stopLoadingUntil], [open], a change of the [filter] or a failure end it without telling either.
+     */
+    fun loadUntil(
+        hash: String,
+        found: (Int) -> Unit,
+        missing: (CommitMissing) -> Unit,
+    ) {
+        seek = Seek(hash, found, missing)
+        continueSeek()
+    }
+
+    /** The commit [loadUntil] is still loading pages for, if any. */
+    val loadingUntil: String? get() = seek?.hash
+
+    /** Stops what [loadUntil] asked for. */
+    fun stopLoadingUntil() {
+        seek = null
+    }
+
+    /** Drops the results of runs still going. */
+    fun close() {
+        root = null
+        seek = null
+        run.incrementAndGet()
+    }
+
+    /** Loads the next page, unless one is loading, there are no more or the rows are outdated. */
+    private fun loadMore() {
+        if (_state.get() != GitLogState.LOADED || stale || complete || loadingMore) return
         val root = root ?: return
         loadingMore = true
         // Counted in git's commits: the rows may have the hash row on top.
@@ -171,13 +228,33 @@ internal class GitLogPages(
                 loaded += page.commits.size
                 complete = page.complete
             }
+            continueSeek()
         }
     }
 
-    /** Drops the results of runs still going. */
-    fun close() {
-        root = null
-        run.incrementAndGet()
+    /** Takes the [seek] a step further: done if its commit is loaded or cannot be, else the next page. */
+    private fun continueSeek() {
+        val seek = seek ?: return
+        val state = _state.get()
+        if (state == GitLogState.LOADING) return
+        if (stale || state == GitLogState.IDLE || state == GitLogState.FAILED) {
+            this.seek = null
+            return
+        }
+        val index = rows.indexOfFirst { it.commit.hash == seek.hash }
+        val missing =
+            when {
+                index >= 0 -> null
+
+                complete -> CommitMissing.NOT_IN_LOG
+
+                rows.size >= seekLimit -> CommitMissing.BEYOND_LIMIT
+
+                // The next page, or the one loading, continues.
+                else -> return loadMore()
+            }
+        this.seek = null
+        if (missing == null) seek.found(index) else seek.missing(missing)
     }
 
     private fun reload() {
@@ -190,6 +267,7 @@ internal class GitLogPages(
             if (page == null) {
                 // Keeps the rows there are; no more pages until the next reload.
                 _state.set(GitLogState.FAILED)
+                seek = null
                 return@start
             }
             val keep = selectedHashes().toSet()
@@ -199,6 +277,8 @@ internal class GitLogPages(
             rows.setAll(layOut(listOfNotNull(match) + page.commits.filter { it.hash != match?.hash }))
             loaded = page.commits.size
             complete = page.complete
+            // Before the state, whose listeners may select a row of their own (the branches pane).
+            if (keep.isNotEmpty()) select(rows.indices.filter { rows[it].commit.hash in keep })
             _state.set(
                 when {
                     rows.isNotEmpty() -> GitLogState.LOADED
@@ -206,7 +286,8 @@ internal class GitLogPages(
                     else -> GitLogState.NO_MATCH
                 },
             )
-            if (keep.isNotEmpty()) select(rows.indices.filter { rows[it].commit.hash in keep })
+            // A seek from before the reload goes on in the new rows.
+            continueSeek()
         }
     }
 
@@ -256,6 +337,9 @@ internal class GitLogPages(
     companion object {
         const val PAGE_SIZE = 500
         const val PREFETCH = 50
+
+        /** How many rows [loadUntil] loads at most. */
+        const val SEEK_LIMIT = 10_000
 
         /** A text that may name a commit by its hash. */
         private val HASH_PREFIX = Regex("[0-9a-fA-F]{4,64}")
