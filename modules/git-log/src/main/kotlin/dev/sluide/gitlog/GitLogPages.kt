@@ -2,6 +2,9 @@ package dev.sluide.gitlog
 
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitLogPage
+import dev.sluide.git.GitRef
+import dev.sluide.git.GitRefKind
+import dev.sluide.git.GitRefs
 import javafx.beans.property.ReadOnlyObjectProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.collections.FXCollections
@@ -21,23 +24,33 @@ internal enum class GitLogState(
     FAILED("The git log could not be read."),
 }
 
-/** A row of the git log: a commit and its part of the commit graph (ADR 0036). */
+/**
+ * A row of the git log: a commit, its part of the commit graph (ADR 0036) and the [refs] pointing at it, ordered as
+ * [GitRefs.at] orders them (ADR 0037). [currentBranch] is the full refname of the checked-out branch if `HEAD` is
+ * among the refs and attached to it, else `null`.
+ */
 internal data class GitLogRow(
     val commit: GitCommit,
     val graph: GraphRow,
+    val refs: List<GitRef> = emptyList(),
+    val currentBranch: String? = null,
 )
 
 /**
  * Which commits the git log shows and when they are loaded (ADR 0035), without JavaFX controls: nothing is loaded
  * until the log is [visible]; then a first page of [pageSize] commits, and the next page whenever a row within
  * [prefetch] rows of the last loaded one is [shown], until a page says it is complete. Each row carries its part of
- * the commit graph; a further page continues the graph of the rows before it, a reload starts it again.
+ * the commit graph; a further page continues the graph of the rows before it, a reload starts it again. The refs are
+ * read with [loadRefs] right after every first page and given to the rows of all pages until the next reload; if they
+ * cannot be read, the rows have none.
  *
- * [load] runs on [background], its results are handled through [dispatch]. Every [open] and reload starts a new run;
- * results of older runs are dropped. Used on the JavaFX thread (or whatever [dispatch] stands for in tests).
+ * [load] and [loadRefs] run on [background], their results are handled through [dispatch]. Every [open] and reload
+ * starts a new run; results of older runs are dropped. Used on the JavaFX thread (or whatever [dispatch] stands for
+ * in tests).
  */
 internal class GitLogPages(
     private val load: (Path, Int, Int) -> GitLogPage?,
+    private val loadRefs: (Path) -> GitRefs?,
     private val background: (Runnable) -> Unit,
     private val dispatch: (Runnable) -> Unit,
     private val pageSize: Int = PAGE_SIZE,
@@ -55,8 +68,11 @@ internal class GitLogPages(
     /** Selects the rows at the given indices, called after a reload replaced the rows. */
     var select: (List<Int>) -> Unit = {}
 
-    private var root: Path? = null
+    /** The repository shown, `null` for none. */
+    var root: Path? = null
+        private set
     private var layout = GraphLayout()
+    private var refs: GitRefs? = null
 
     /** The current run; read on the background thread to skip runs that are no longer wanted. */
     private val run = AtomicLong()
@@ -77,6 +93,7 @@ internal class GitLogPages(
         run.incrementAndGet()
         rows.clear()
         layout = GraphLayout()
+        refs = null
         complete = false
         loadingMore = false
         _state.set(GitLogState.IDLE)
@@ -96,7 +113,7 @@ internal class GitLogPages(
         val root = root ?: return
         loadingMore = true
         val skip = rows.size
-        start(root, skip) { page ->
+        start(root, skip) { page, _ ->
             loadingMore = false
             if (page == null) {
                 _state.set(GitLogState.FAILED)
@@ -119,7 +136,7 @@ internal class GitLogPages(
         loadingMore = false
         _state.set(GitLogState.LOADING)
         run.incrementAndGet()
-        start(root, 0) { page ->
+        start(root, 0) { page, refs ->
             if (page == null) {
                 // Keeps the rows there are; no more pages until the next reload.
                 _state.set(GitLogState.FAILED)
@@ -127,6 +144,7 @@ internal class GitLogPages(
             }
             val keep = selectedHashes().toSet()
             layout = GraphLayout()
+            this.refs = refs
             rows.setAll(layOut(page.commits))
             complete = page.complete
             _state.set(if (rows.isEmpty()) GitLogState.EMPTY else GitLogState.LOADED)
@@ -134,18 +152,25 @@ internal class GitLogPages(
         }
     }
 
-    private fun layOut(commits: List<GitCommit>) = commits.map { GitLogRow(it, layout.next(it.hash, it.parents)) }
+    private fun layOut(commits: List<GitCommit>) =
+        commits.map { commit ->
+            val at = refs?.at(commit.hash).orEmpty()
+            val head = at.firstOrNull()?.kind == GitRefKind.HEAD
+            GitLogRow(commit, layout.next(commit.hash, commit.parents), at, refs?.currentBranch?.takeIf { head })
+        }
 
+    /** Loads the page after [skip] commits, for the first page then the refs, and hands both to [handle]. */
     private fun start(
         root: Path,
         skip: Int,
-        handle: (GitLogPage?) -> Unit,
+        handle: (GitLogPage?, GitRefs?) -> Unit,
     ) {
         val current = run.get()
         background {
             if (run.get() != current) return@background
             val page = load(root, skip, pageSize)
-            dispatch { if (run.get() == current) handle(page) }
+            val refs = if (skip == 0 && page != null && run.get() == current) loadRefs(root) else null
+            dispatch { if (run.get() == current) handle(page, refs) }
         }
     }
 

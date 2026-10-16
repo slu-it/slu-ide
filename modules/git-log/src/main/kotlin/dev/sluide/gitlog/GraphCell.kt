@@ -1,5 +1,9 @@
 package dev.sluide.gitlog
 
+import javafx.geometry.HPos
+import javafx.geometry.VPos
+import javafx.scene.control.ContentDisplay
+import javafx.scene.control.Label
 import javafx.scene.control.TableCell
 import javafx.scene.layout.Region
 import javafx.scene.shape.Circle
@@ -17,15 +21,29 @@ private const val DOT_RADIUS = 4.0
 /** How much wider than a line its halo in selected rows is (`git-log.css`), in pixels. */
 private const val HALO_WIDTH = 2.5
 
+/** The gap between the graph and the subject, in pixels. */
+private const val GRAPH_GAP = 4.0
+
+/** The gap between the subject and the ref labels, in pixels. */
+internal const val LABELS_GAP = 8.0
+
+/** How narrow the subject gets before the ref labels shrink, in pixels. */
+internal const val SUBJECT_MIN_WIDTH = 60.0
+
 /**
- * The subject of a commit with its part of the commit graph left of it (ADR 0036); the text starts right after the
- * row's own graph. The graph spans the cell's full height, so the lines of neighbouring rows meet.
+ * The subject of a commit with its part of the commit graph left of it (ADR 0036) and its ref labels at the right end
+ * (ADR 0037); the text starts right after the row's own graph. The graph spans the cell's full height, so the lines of
+ * neighbouring rows meet. The cell's [text] stays the subject, though only its graphic is shown.
  */
 internal class GraphCell : TableCell<GitLogRow, GitLogRow>() {
     internal val graph = GraphPane()
+    internal val subject = Label().apply { styleClass += "git-log-subject" }
+    internal val labels = RefLabels()
+    internal val content = SubjectPane(graph, subject, labels)
 
     init {
         styleClass += "git-graph-cell"
+        contentDisplay = ContentDisplay.GRAPHIC_ONLY
     }
 
     override fun updateItem(
@@ -36,24 +54,78 @@ internal class GraphCell : TableCell<GitLogRow, GitLogRow>() {
         if (empty || item == null) {
             text = null
             graphic = null
+            subject.text = null
             graph.row = null
+            labels.show(emptyList(), null)
         } else {
             text = item.commit.subject
+            subject.text = item.commit.subject
             graph.row = item.graph
-            graphic = graph
+            labels.show(item.refs, item.currentBranch)
+            graphic = content
         }
     }
 
     override fun layoutChildren() {
         super.layoutChildren()
-        if (graphic === graph) {
-            // The skin centres the graphic at its preferred height; the graph takes the whole height instead.
-            graph.layoutY = 0.0
-            graph.resize(graph.prefWidth(-1.0), height)
-            graph.draw()
+        if (graphic === content) {
+            // The skin centres the graphic at its preferred size; it takes the cell's whole height and width instead.
+            val left = snappedLeftInset()
+            content.resizeRelocate(left, 0.0, maxOf(0.0, width - left - snappedRightInset()), height)
         }
     }
 }
+
+/**
+ * Lays out a Subject cell: the [graph] at the left over the full height, then the [subject], then the [labels] at the
+ * right end ([labelsWidth]); the subject takes the rest and is ellipsized.
+ */
+internal class SubjectPane(
+    private val graph: GraphPane,
+    private val subject: Label,
+    private val labels: RefLabels,
+) : Region() {
+    init {
+        styleClass += "git-log-subject-pane"
+        subject.minWidth = 0.0
+        children.addAll(graph, subject, labels)
+    }
+
+    override fun computeMinWidth(height: Double) = 0.0
+
+    override fun computePrefWidth(height: Double): Double {
+        val labelsWidth = if (labels.isVisible) LABELS_GAP + labels.prefWidth(-1.0) else 0.0
+        return graph.prefWidth(-1.0) + GRAPH_GAP + subject.prefWidth(-1.0) + labelsWidth
+    }
+
+    override fun computePrefHeight(width: Double) =
+        maxOf(subject.prefHeight(-1.0), if (labels.isVisible) labels.prefHeight(-1.0) else 0.0)
+
+    override fun layoutChildren() {
+        val graphWidth = graph.prefWidth(-1.0)
+        graph.resizeRelocate(0.0, 0.0, graphWidth, height)
+        graph.draw()
+        val x = graphWidth + GRAPH_GAP
+        val available = maxOf(0.0, width - x)
+        val labelsWidth = if (labels.isVisible) labelsWidth(width, available, labels.prefWidth(-1.0)) else 0.0
+        val subjectWidth = if (labelsWidth > 0) maxOf(0.0, available - labelsWidth - LABELS_GAP) else available
+        layoutInArea(subject, x, 0.0, subjectWidth, height, 0.0, HPos.LEFT, VPos.CENTER)
+        if (labels.isVisible) {
+            layoutInArea(labels, width - labelsWidth, 0.0, labelsWidth, height, 0.0, HPos.LEFT, VPos.CENTER)
+        }
+    }
+}
+
+/**
+ * The width of a row's ref labels in a Subject cell [width] wide, of which [available] are right of the graph, when
+ * they would like to be [wanted] wide: at most a third of the cell at any width, so in a narrower column they shrink
+ * together with the subject; and only as much as leaves the subject at least [SUBJECT_MIN_WIDTH].
+ */
+internal fun labelsWidth(
+    width: Double,
+    available: Double,
+    wanted: Double,
+): Double = maxOf(0.0, minOf(wanted, width / 3, available - LABELS_GAP - SUBJECT_MIN_WIDTH))
 
 /**
  * Draws a [GraphRow] as one path per colour and a dot; colours come from the style classes (`git-log.css`). At most

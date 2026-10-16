@@ -2,10 +2,14 @@ package dev.sluide.gitlog
 
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitLogPage
+import dev.sluide.git.GitRef
+import dev.sluide.git.GitRefKind
+import dev.sluide.git.GitRefs
 import java.nio.file.Path
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class GitLogPagesTest {
@@ -17,6 +21,12 @@ class GitLogPagesTest {
 
     /** The (root, skip, limit) of every load. */
     private val loads = mutableListOf<Triple<Path, Int, Int>>()
+
+    /** The refs of each repository; missing means reading them fails. */
+    private val refs = mutableMapOf<Path, GitRefs>()
+
+    /** The root of every load of the refs. */
+    private val refLoads = mutableListOf<Path>()
     private val background = ArrayDeque<Runnable>()
     private val dispatched = ArrayDeque<Runnable>()
 
@@ -28,6 +38,10 @@ class GitLogPagesTest {
                     val page = all.drop(skip).take(limit)
                     GitLogPage(page, complete = skip + page.size >= all.size)
                 }
+            },
+            loadRefs = { root ->
+                refLoads.add(root)
+                refs[root]
             },
             background = background::addLast,
             dispatch = dispatched::addLast,
@@ -227,5 +241,66 @@ class GitLogPagesTest {
         pages.open(other)
         settle()
         assertEquals(graph(commits("o", 3)), pages.rows.map { it.graph })
+    }
+
+    private fun ref(
+        name: String,
+        kind: GitRefKind,
+        commit: String,
+    ) = GitRef(name, kind, commit)
+
+    @Test
+    fun `reads the refs with every first page and gives them to the rows of all pages`() {
+        val head = ref("HEAD", GitRefKind.HEAD, "r1")
+        val main = ref("refs/heads/main", GitRefKind.LOCAL_BRANCH, "r1")
+        val old = ref("refs/tags/old", GitRefKind.TAG, "r15")
+        refs[repo] = GitRefs(listOf(head, main, old), "refs/heads/main")
+        pages.open(repo)
+        pages.visible = true
+        settle()
+
+        assertEquals(listOf(repo), refLoads)
+        assertEquals(listOf(head, main), pages.rows[0].refs)
+        assertEquals("refs/heads/main", pages.rows[0].currentBranch)
+        assertTrue(pages.rows.drop(1).all { it.refs.isEmpty() && it.currentBranch == null })
+
+        pages.shown(9)
+        settle()
+        assertEquals(listOf(repo), refLoads, "a further page reuses the refs")
+        assertEquals(listOf(old), pages.rows[14].refs)
+        assertNull(pages.rows[14].currentBranch, "HEAD is not on this row")
+
+        val moved = ref("refs/heads/main", GitRefKind.LOCAL_BRANCH, "r2")
+        refs[repo] = GitRefs(listOf(ref("HEAD", GitRefKind.HEAD, "r2"), moved), "refs/heads/main")
+        pages.refresh()
+        settle()
+        assertEquals(listOf(repo, repo), refLoads, "a reload reads them again")
+        assertEquals(emptyList(), pages.rows[0].refs)
+        assertEquals(listOf("HEAD", "refs/heads/main"), pages.rows[1].refs.map { it.name })
+    }
+
+    @Test
+    fun `rows have no refs if they cannot be read, and refs are not read after a failed page`() {
+        pages.open(repo)
+        pages.visible = true
+        settle()
+        assertEquals(10, pages.rows.size)
+        assertTrue(pages.rows.all { it.refs.isEmpty() })
+
+        history.remove(repo)
+        pages.refresh()
+        settle()
+        assertEquals(listOf(repo), refLoads, "the page failed first")
+    }
+
+    @Test
+    fun `a detached HEAD gives no current branch`() {
+        refs[repo] = GitRefs(listOf(ref("HEAD", GitRefKind.HEAD, "r3")), null)
+        pages.open(repo)
+        pages.visible = true
+        settle()
+
+        assertEquals(listOf("HEAD"), pages.rows[2].refs.map { it.name })
+        assertNull(pages.rows[2].currentBranch)
     }
 }

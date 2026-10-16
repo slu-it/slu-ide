@@ -1,7 +1,11 @@
 package dev.sluide.gitlog
 
 import dev.sluide.git.GitCommit
+import dev.sluide.git.GitCommitDetails
 import dev.sluide.git.GitLogPage
+import dev.sluide.git.GitRef
+import dev.sluide.git.GitRefKind
+import dev.sluide.git.GitRefs
 import javafx.application.ColorScheme
 import javafx.application.Platform
 import javafx.event.Event
@@ -10,6 +14,7 @@ import javafx.scene.Scene
 import javafx.scene.control.Label
 import javafx.scene.control.TableRow
 import javafx.scene.control.skin.VirtualFlow
+import javafx.scene.effect.DropShadow
 import javafx.scene.input.Clipboard
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
@@ -63,22 +68,37 @@ class GitLogViewUiTest {
     /** The (skip, limit) of every load. */
     private val loads = CopyOnWriteArrayList<Pair<Int, Int>>()
 
+    /** The refs of the repository; `null` makes reading them fail. */
+    @Volatile
+    private var refs: GitRefs? = null
+
     private lateinit var view: GitLogView
 
     @Start
     fun start(stage: Stage) {
-        view =
-            GitLogView(
-                { root, skip, limit ->
+        val source =
+            object : GitLogSource {
+                override fun page(
+                    root: Path,
+                    skip: Int,
+                    limit: Int,
+                ): GitLogPage? {
                     gate?.await(10, TimeUnit.SECONDS)
                     loads += skip to limit
-                    (if (root == repo) history else otherHistory)?.let { all ->
+                    return (if (root == repo) history else otherHistory)?.let { all ->
                         val page = all.drop(skip).take(limit)
                         GitLogPage(page, complete = skip + page.size >= all.size)
                     }
-                },
-                Platform::runLater,
-            )
+                }
+
+                override fun refs(root: Path) = if (root == repo) refs else null
+
+                override fun details(
+                    root: Path,
+                    hash: String,
+                ): GitCommitDetails? = null
+            }
+        view = GitLogView(source, Platform::runLater)
         stage.scene = Scene(view, 800.0, 400.0)
         stage.show()
     }
@@ -426,9 +446,21 @@ class GitLogViewUiTest {
         assertEquals(2, merge.item.graph.width)
         assertEquals(2 * LANE_WIDTH, merge.graph.width)
         assertEquals(merge.height, merge.graph.height, "the graph spans the row")
-        val text = merge.lookup(".text") as Text
-        assertEquals("Subject m", text.text)
-        assertTrue(text.boundsInParent.minX >= merge.graph.boundsInParent.maxX, "the text starts after the graph")
+        assertEquals("Subject m", merge.text)
+        assertEquals("Subject m", merge.subject.text)
+        assertTrue(
+            merge.subject.boundsInParent.minX >= merge.graph.boundsInParent.maxX,
+            "the text starts after the graph",
+        )
+        assertTrue(
+            merge
+                .lookupAll(".text")
+                .filterIsInstance<Text>()
+                .filter { it.isVisible && it.text == "Subject m" }
+                .size ==
+                1,
+            "the subject is shown once",
+        )
         // The lane continues down, the merged one opens to the right; nothing above the first commit.
         val edges = merge.graph.childrenUnmodifiable.filterIsInstance<ShapePath>()
         assertEquals(2, edges.single { "git-graph-edge-0" in it.styleClass }.elements.size)
@@ -502,11 +534,11 @@ class GitLogViewUiTest {
         val item = cell.item
         if (item == null) {
             assertNull(cell.graphic, "empty cell ${cell.index}")
-            assertNull(cell.graph.parent, "empty cell ${cell.index}")
+            assertNull(cell.content.parent, "empty cell ${cell.index}")
             return
         }
         val graph = item.graph
-        assertSame<Node?>(cell.graph, cell.graphic)
+        assertSame<Node?>(cell.content, cell.graphic)
         assertEquals(minOf(graph.width, MAX_LANES) * LANE_WIDTH, cell.graph.width, "row ${cell.index}")
         assertEquals(expected(graph, cell.height), drawn(cell.graph), "row ${cell.index}")
         val dot =
@@ -647,6 +679,178 @@ class GitLogViewUiTest {
             assertEquals(2, cells.count { it.item != null })
             assertTrue(cells.any { it.index in 2..3 && it.item == null })
             for (cell in cells) assertDrawn(cell)
+        }
+    }
+
+    private fun ref(
+        name: String,
+        kind: GitRefKind,
+        commit: String,
+    ) = GitRef(name, kind, commit)
+
+    /** HEAD and main (with origin/main) on h1, a tag on h3, a remote-only branch on h40. */
+    private val someRefs =
+        GitRefs(
+            listOf(
+                ref("HEAD", GitRefKind.HEAD, "h1"),
+                ref("refs/heads/main", GitRefKind.LOCAL_BRANCH, "h1"),
+                ref("refs/remotes/origin/main", GitRefKind.REMOTE_BRANCH, "h1"),
+                ref("refs/tags/v1.0", GitRefKind.TAG, "h1"),
+                ref("refs/tags/v0.9", GitRefKind.TAG, "h3"),
+                ref("refs/remotes/origin/old", GitRefKind.REMOTE_BRANCH, "h40"),
+            ),
+            "refs/heads/main",
+        )
+
+    private fun visibleIcons(cell: GraphCell) =
+        cell.labels
+            .lookupAll(".git-ref-icon")
+            .filter { it.isVisible && it.isManaged }
+            .map { icon -> icon.styleClass.single { it.startsWith("git-ref-") && it != "git-ref-icon" } }
+
+    @Test
+    fun `shows ref labels at the right end of the subject, none on rows without refs`(robot: FxRobot) {
+        refs = someRefs
+        openAndExpand(robot)
+        WaitForAsyncUtils.waitForFxEvents()
+
+        robot.interact {
+            val cells = graphCells(robot).filter { it.item != null }.associateBy { it.item.commit.hash }
+            val first = cells.getValue("h1")
+            assertTrue(first.labels.isVisible)
+            assertEquals("origin & main +1", first.labels.text.text)
+            assertEquals(listOf("git-ref-head", "git-ref-local", "git-ref-remote", "git-ref-tag"), visibleIcons(first))
+            val labels = first.labels.boundsInParent
+            assertTrue(labels.minX >= first.subject.boundsInParent.maxX, "right of the subject")
+            assertEquals(first.content.width, labels.maxX, 1.0, "at the right end")
+            assertTrue(labels.width <= first.content.width / 3 + 0.5, "at most a third")
+
+            val tagged = cells.getValue("h3")
+            assertEquals("v0.9", tagged.labels.text.text)
+            assertEquals(listOf("git-ref-tag"), visibleIcons(tagged))
+
+            val plain = cells.getValue("h2")
+            assertFalse(plain.labels.isVisible)
+            assertEquals("Subject 2", (plain.subject.lookup(".text") as Text).text, "not cut off")
+            assertEquals("Subject 1", (first.subject.lookup(".text") as Text).text, "not cut off")
+        }
+
+        // A narrower column: the labels take a third of it, their text is ellipsized.
+        robot.interact { view.scene.window.width = 560.0 }
+        WaitForAsyncUtils.waitForFxEvents()
+        try {
+            robot.interact {
+                val first = graphCells(robot).single { it.item?.commit?.hash == "h1" }
+                assertTrue(first.subject.width >= SUBJECT_MIN_WIDTH - 0.5, "${first.subject.width}")
+                assertEquals(first.content.width / 3, first.labels.boundsInParent.width, 1.0)
+                val shown = (first.labels.text.lookup(".text") as Text).text
+                assertTrue(shown.endsWith("...") && shown.length > 3 && shown != first.labels.text.text, shown)
+            }
+        } finally {
+            // The stage is shared by the tests.
+            robot.interact { view.scene.window.width = 800.0 }
+        }
+    }
+
+    @Test
+    fun `recycled cells replace their labels`(robot: FxRobot) {
+        refs = someRefs
+        openAndExpand(robot)
+        WaitForAsyncUtils.waitForFxEvents()
+        val before = graphCells(robot).associateWith { it.item?.commit?.hash }
+
+        for (target in listOf(30, 0, 39)) {
+            robot.interact { view.table.scrollTo(target) }
+            WaitForAsyncUtils.waitForFxEvents()
+            robot.interact {
+                for (cell in graphCells(robot).filter { it.item != null }) {
+                    val expected = someRefs.at(cell.item.commit.hash)
+                    assertEquals(expected.isNotEmpty(), cell.labels.isVisible, "row ${cell.index}")
+                    assertEquals(expected, cell.labels.refs, "row ${cell.index}")
+                    val text = refLabelText(refGroups(expected, someRefs.currentBranch))
+                    assertEquals(text, cell.labels.text.text, "row ${cell.index}")
+                    assertEquals(expected.map { refStyleClass(it.kind) }.distinct(), visibleIcons(cell))
+                }
+            }
+        }
+        assertTrue(
+            before.any { (cell, hash) ->
+                cell.item != null && cell.item.commit.hash != hash
+            },
+            "cells were reused",
+        )
+    }
+
+    @Test
+    fun `selected rows outline the ref icons in the table's background colour`(robot: FxRobot) {
+        refs = someRefs
+        openAndExpand(robot)
+        robot.interact { view.table.selectionModel.select(0) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        robot.interact {
+            val cells = graphCells(robot).filter { it.item != null }.associateBy { it.item.commit.hash }
+            // Modena: -fx-box-border, -fx-control-inner-background
+            val background =
+                view.table.background.fills
+                    .last()
+                    .fill
+            val selected = cells.getValue("h1").labels.lookupAll(".git-ref-icon")
+            assertEquals(4, selected.size)
+            for (icon in selected) assertEquals(background, (icon.effect as DropShadow).color, "$icon")
+            for (icon in cells.getValue("h3").labels.lookupAll(".git-ref-icon")) assertNull(icon.effect, "unselected")
+        }
+    }
+
+    @Test
+    fun `the tooltip of the labels lists every ref, and the colours follow the theme`(robot: FxRobot) {
+        refs = someRefs
+        openAndExpand(robot)
+        WaitForAsyncUtils.waitForFxEvents()
+        val first = graphCells(robot).single { it.item?.commit?.hash == "h1" }
+
+        robot.interact {
+            first.labels.tooltip.show(view.scene.window)
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        robot.interact {
+            val lines = (first.labels.tooltip.graphic as javafx.scene.Parent).childrenUnmodifiable.map { it as Label }
+            assertEquals(listOf("HEAD", "main", "origin/main", "v1.0"), lines.map { it.text })
+            assertEquals(
+                listOf("git-ref-head", "git-ref-local", "git-ref-remote", "git-ref-tag"),
+                lines.map { line ->
+                    line.graphic.styleClass.single { it.startsWith("git-ref-") && it != "git-ref-icon" }
+                },
+            )
+            first.labels.tooltip.hide()
+        }
+
+        fun headColour(scheme: ColorScheme): Paint {
+            robot.interact { view.scene.preferences.colorScheme = scheme }
+            WaitForAsyncUtils.waitForFxEvents()
+            return (first.labels.lookup(".git-ref-head") as org.kordamp.ikonli.javafx.FontIcon).iconColor
+        }
+        val light = headColour(ColorScheme.LIGHT)
+        val dark = headColour(ColorScheme.DARK)
+        assertNotEquals(light, dark)
+        assertEquals(
+            javafx.scene.paint.Color
+                .web("#d9a000"),
+            light,
+        )
+        assertEquals(light, headColour(ColorScheme.LIGHT))
+    }
+
+    @Test
+    fun `rows still show without labels when the refs cannot be read`(robot: FxRobot) {
+        refs = null
+        openAndExpand(robot)
+        WaitForAsyncUtils.waitForFxEvents()
+
+        robot.interact {
+            val cells = graphCells(robot).filter { it.item != null }
+            assertTrue(cells.isNotEmpty())
+            assertTrue(cells.none { it.labels.isVisible })
         }
     }
 }

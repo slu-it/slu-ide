@@ -1,7 +1,6 @@
 package dev.sluide.gitlog
 
 import dev.sluide.git.GitLog
-import dev.sluide.git.GitLogPage
 import javafx.application.Platform
 import javafx.beans.binding.Bindings
 import javafx.beans.property.BooleanProperty
@@ -50,26 +49,27 @@ import java.util.concurrent.Executors
 
 /**
  * The git log area of a window (ADR 0035): a header bar ("Git Log", a chevron, Refresh) and, while [expanded], the
- * commits of the repository given to [open] in a table, loaded in pages in the background as the user scrolls.
+ * commits of the repository given to [open] in a table, loaded in pages in the background as the user scrolls, with
+ * the refs pointing at them (ADR 0037).
  *
- * [load] reads a page of commits (root, skip, limit) and runs on the thread `sluide-git-log`; its results are handled
- * through [dispatch], the JavaFX thread in the application.
+ * [source] reads the commits and refs on the thread `sluide-git-log`; its results are handled through [dispatch], the
+ * JavaFX thread in the application.
  */
 @Component
 // One instance per IDE window (the "window" scope of the ide module, ADR 0014).
 @Scope("window")
-class GitLogView(
-    load: (Path, Int, Int) -> GitLogPage?,
+class GitLogView internal constructor(
+    source: GitLogSource,
     dispatch: (Runnable) -> Unit,
 ) : BorderPane(),
     AutoCloseable {
     @Autowired
-    constructor(gitLog: GitLog) : this(gitLog::commits, Platform::runLater)
+    constructor(gitLog: GitLog) : this(GitLogCliSource(gitLog), Platform::runLater)
 
     private val executor =
         Executors.newSingleThreadExecutor { Thread(it, "sluide-git-log").apply { isDaemon = true } }
 
-    private val pages = GitLogPages(load, executor::execute, dispatch)
+    private val pages = GitLogPages(source::page, source::refs, executor::execute, dispatch)
 
     /** Whether the commits are shown below the header; collapsed (`false`) at first. */
     val expanded: BooleanProperty = SimpleBooleanProperty(false)
@@ -154,7 +154,7 @@ class GitLogView(
 
     init {
         styleClass += "git-log"
-        stylesheets += checkNotNull(GitLogView::class.java.getResource("git-log.css")).toExternalForm()
+        stylesheets += GIT_LOG_CSS
         top = header
         pages.selectedHashes = { table.selectionModel.selectedItems.map { it.commit.hash } }
         pages.select = { indices ->
@@ -208,7 +208,7 @@ class GitLogView(
         setCellValueFactory { ReadOnlyStringWrapper(value(it.value)).readOnlyProperty }
     }
 
-    /** The subject with the commit graph left of it (ADR 0036). */
+    /** The subject with the commit graph left of it (ADR 0036) and the ref labels at its right end (ADR 0037). */
     private fun subjectColumn() =
         TableColumn<GitLogRow, GitLogRow>("Subject").apply {
             prefWidth = 600.0

@@ -104,9 +104,82 @@
 .git-graph-dot-6 { -fx-fill: -git-graph-6; }
 .git-graph-dot-7 { -fx-fill: -git-graph-7; }
 
+/* The subject in the Subject cell, coloured like the cell's own text, also in selected rows. */
+.git-log-subject {
+    -fx-text-fill: -fx-text-background-color;
+}
+
+/*
+ * Ref labels (ADR 0037): a tag icon per kind of ref, in looked-up colours redefined for the dark theme below. The
+ * tooltip is a window of its own, outside .git-log, so it defines them too: the lighter ones, as Modena's tooltips are
+ * dark in both themes.
+ */
+.git-log {
+    -git-ref-head: #d9a000;
+    -git-ref-local: #3f9a4a;
+    -git-ref-remote: #8d5bd0;
+    -git-ref-tag: #8a8a8a;
+}
+
+.git-ref-tooltip {
+    -git-ref-head: #e8c04a;
+    -git-ref-local: #6cc070;
+    -git-ref-remote: #b38cf0;
+    -git-ref-tag: #a8a8a8;
+}
+
+.git-ref-icons {
+    /* Slightly overlapping, like IntelliJ's stacked label icons. */
+    -fx-spacing: -7;
+}
+
+.git-ref-labels {
+    -fx-spacing: 2;
+}
+
+.git-ref-icon {
+    -fx-icon-size: 14;
+}
+
+/*
+ * In selected rows a thin outline in the table's background colour, like the graph's halo, so that every icon colour
+ * stands out against the selection bar. Not tied to the table's focus, which follows the window's focus.
+ */
+.table-row-cell:filled:selected .git-ref-icon {
+    -fx-effect: dropshadow(one-pass-box, -fx-control-inner-background, 2, 1, 0, 0);
+}
+
+.git-ref-head { -fx-icon-color: -git-ref-head; }
+.git-ref-local { -fx-icon-color: -git-ref-local; }
+.git-ref-remote { -fx-icon-color: -git-ref-remote; }
+.git-ref-tag { -fx-icon-color: -git-ref-tag; }
+
+/* Muted next to the subject; in the selection text colour on selected rows. */
+.git-ref-text {
+    -fx-text-fill: -fx-text-background-color;
+    -fx-opacity: 0.65;
+}
+
+.table-row-cell:filled:selected .git-ref-text {
+    -fx-opacity: 1;
+}
+
+.git-ref-lines {
+    -fx-spacing: 2;
+}
+
+.git-ref-line {
+    -fx-graphic-text-gap: 4;
+    -fx-text-fill: -fx-text-background-color;
+}
+
 /* Single-class selector only: JavaFX applies descendant selectors in @media blocks whatever the scheme (ADR 0009). */
 @media (prefers-color-scheme: dark) {
     .git-log {
+        -git-ref-head: #e8c04a;
+        -git-ref-local: #6cc070;
+        -git-ref-remote: #b38cf0;
+        -git-ref-tag: #a8a8a8;
         -git-graph-0: #6ea0f0;
         -git-graph-1: #f0a848;
         -git-graph-2: #6cc070;
