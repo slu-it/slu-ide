@@ -312,35 +312,43 @@ class GitLogViewUiTest {
         sceneX: Double = 1.0,
         sceneY: Double = 1.0,
     ) {
-        robot.interact {
-            for (type in listOf(MouseEvent.MOUSE_PRESSED, MouseEvent.MOUSE_RELEASED, MouseEvent.MOUSE_CLICKED)) {
-                Event.fireEvent(
-                    node,
-                    // Its x and y are the scene's, made local to each node the event reaches.
-                    MouseEvent(
-                        type,
-                        sceneX,
-                        sceneY,
-                        sceneX,
-                        sceneY,
-                        MouseButton.PRIMARY,
-                        clickCount,
-                        false,
-                        false,
-                        false,
-                        false,
-                        true,
-                        false,
-                        false,
-                        true,
-                        false,
-                        false,
-                        null,
-                    ),
-                )
-            }
-        }
+        robot.interact { fireClick(node, clickCount, sceneX, sceneY) }
         WaitForAsyncUtils.waitForFxEvents()
+    }
+
+    /** Fires a click at [node] on the JavaFX thread, without waiting: for steps that must not be interrupted. */
+    private fun fireClick(
+        node: Node,
+        clickCount: Int = 1,
+        sceneX: Double = 1.0,
+        sceneY: Double = 1.0,
+    ) {
+        for (type in listOf(MouseEvent.MOUSE_PRESSED, MouseEvent.MOUSE_RELEASED, MouseEvent.MOUSE_CLICKED)) {
+            Event.fireEvent(
+                node,
+                // Its x and y are the scene's, made local to each node the event reaches.
+                MouseEvent(
+                    type,
+                    sceneX,
+                    sceneY,
+                    sceneX,
+                    sceneY,
+                    MouseButton.PRIMARY,
+                    clickCount,
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    false,
+                    false,
+                    true,
+                    false,
+                    false,
+                    null,
+                ),
+            )
+        }
     }
 
     private fun shownSubjects(robot: FxRobot): List<String> =
@@ -1816,6 +1824,16 @@ class GitLogViewUiTest {
     /** The texts of the items a filter popup lists, in order. */
     private fun items(popup: FilterPopup) = popup.list.items.map { it.text }
 
+    /** The list cell of [popup] showing [text]. */
+    private fun listCell(
+        popup: FilterPopup,
+        text: String,
+    ): ListCell<*> =
+        popup.list
+            .lookupAll(".list-cell")
+            .filterIsInstance<ListCell<*>>()
+            .single { (it.item as? FilterItem)?.text == text }
+
     /** Clicks the list cell of [popup] showing [text]. */
     private fun clickItem(
         robot: FxRobot,
@@ -1824,13 +1842,31 @@ class GitLogViewUiTest {
         clickCount: Int = 1,
     ) {
         WaitForAsyncUtils.waitForFxEvents()
-        val cell =
-            popup.list
-                .lookupAll(".list-cell")
-                .filterIsInstance<ListCell<*>>()
-                .single { (it.item as? FilterItem)?.text == text }
+        val cell = listCell(popup, text)
         // A double click: a first click, then one with a click count of 2.
         for (count in 1..clickCount) click(robot, cell, count)
+    }
+
+    /**
+     * Waits until the popup of [filter] lists [expected], showing it again if it was closed meanwhile: popups close
+     * when another test JVM on the display takes the window's focus, and only a showing popup takes items read later.
+     * If it stayed open, the items reached it while it was showing (`FilterPopup.refresh`).
+     */
+    private fun eventuallyLists(
+        filter: FilterButton,
+        expected: List<String>,
+    ) {
+        var shownAgain = false
+        var showingWhenListed = false
+        eventually {
+            if (!filter.popup.popup.isShowing) {
+                filter.button.fire()
+                shownAgain = true
+            }
+            assertEquals(expected, items(filter.popup))
+            showingWhenListed = filter.popup.popup.isShowing
+        }
+        if (!shownAgain) assertTrue(showingWhenListed, "the items reached the open popup")
     }
 
     @Test
@@ -1944,12 +1980,18 @@ class GitLogViewUiTest {
         )
         assertTrue(GIT_LOG_CSS in popup.content.stylesheets)
 
-        clickItem(robot, popup, "feature")
+        // Clicked and checked in one step, as popups close when another test JVM takes the window's focus.
+        var staysOpen = false
+        robot.interact {
+            if (!popup.popup.isShowing) branch.button.fire()
+            fireClick(listCell(popup, "feature"))
+            staysOpen = popup.popup.isShowing
+        }
         eventually { assertEquals(listOf("refs/heads/feature"), filters.last().revisions) }
         eventually { assertEquals(listOf("h5", "h6", "h7"), view.table.items.map { it.commit.hash }) }
         assertEquals("Branch: feature", branch.label.text)
         assertTrue(branch.clear.isVisible && branch.clear.isManaged)
-        assertTrue(popup.popup.isShowing, "stays open")
+        assertTrue(staysOpen, "stays open")
 
         robot.interact { popup.list.selectionModel.select(0) }
         press(robot, popup.list, KeyCode.SPACE)
@@ -2014,7 +2056,7 @@ class GitLogViewUiTest {
 
         robot.interact { user.button.fire() }
         val popup = user.popup
-        eventually { assertEquals(listOf("me (Me Myself)", "alice", "Author 1", "Author 2", "Author 3"), items(popup)) }
+        eventuallyLists(user, listOf("me (Me Myself)", "alice", "Author 1", "Author 2", "Author 3"))
         assertEquals(listOf(repo), userNameLoads)
 
         clickItem(robot, popup, "me (Me Myself)")
@@ -2050,7 +2092,7 @@ class GitLogViewUiTest {
 
         robot.interact { path.button.fire() }
         val popup = path.popup
-        eventually { assertEquals(listOf("src", "src/a.txt"), items(popup)) }
+        eventuallyLists(path, listOf("src", "src/a.txt"))
         assertEquals(listOf(repo), pathLoads)
         assertTrue(popup.list.items.all { it.icon != null })
 
@@ -2162,18 +2204,33 @@ class GitLogViewUiTest {
             bar.topoOrder.isSelected = true
             bar.firstParent.isSelected = true
             bar.noMerges.isSelected = true
+            // Within one step: popups close when another test JVM on the display takes the window's focus.
             bar.branch.button.fire()
+            bar.branch.popup.toggle(
+                bar.branch.popup.list.items
+                    .single { it.text == "main" },
+            )
         }
-        clickItem(robot, bar.branch.popup, "main")
         robot.interact { bar.path.button.fire() }
-        eventually { assertEquals(listOf("src"), items(bar.path.popup)) }
-        clickItem(robot, bar.path.popup, "src")
+        eventuallyLists(bar.path, listOf("src"))
+        robot.interact {
+            if (!bar.path.popup.popup.isShowing) bar.path.button.fire()
+            bar.path.popup.toggle(
+                bar.path.popup.list.items
+                    .single { it.text == "src" },
+            )
+        }
         eventually { assertEquals(listOf("src"), filters.last().paths) }
-        assertTrue(bar.path.popup.popup.isShowing)
 
         otherHistory = commits(3, "o")
-        robot.interact { view.open(Path.of("/other")) }
+        var showing = false
+        robot.interact {
+            if (!bar.path.popup.popup.isShowing) bar.path.button.fire()
+            showing = bar.path.popup.popup.isShowing
+            view.open(Path.of("/other"))
+        }
 
+        assertTrue(showing, "open while the folder is opened")
         assertFalse(bar.path.popup.popup.isShowing)
         assertEquals(GitLogFilter(), bar.filter)
         assertEquals("", bar.text.text)
@@ -2268,7 +2325,7 @@ class GitLogViewUiTest {
         treePaths = listOf(GitTreePath("src", folder = true))
         openAndExpand(robot)
         robot.interact { bar.path.button.fire() }
-        eventually { assertEquals(listOf("src"), items(bar.path.popup)) }
+        eventuallyLists(bar.path, listOf("src"))
         clickItem(robot, bar.path.popup, "src")
         eventually { assertEquals(listOf("src"), filters.last().paths) }
         robot.interact { bar.path.popup.hide() }
@@ -2301,11 +2358,23 @@ class GitLogViewUiTest {
         assertEquals(2, bar.text.caretPosition)
         assertEquals("", bar.text.selectedText, "typing goes on where it was")
 
+        // Opened, checked and closed in one step: the popup closes by itself when other test JVMs on the display take
+        // the window's focus.
         robot.interact { view.table.requestFocus() }
-        click(robot, bar.branch.button)
-        assertTrue(bar.branch.popup.popup.isShowing)
-        press(robot, bar.branch.popup.search, KeyCode.ESCAPE)
-        assertFalse(bar.branch.popup.popup.isShowing)
+        var popupOpened = false
+        var popupClosed = false
+        robot.interact {
+            fireClick(bar.branch.button)
+            popupOpened = bar.branch.popup.popup.isShowing
+            Event.fireEvent(
+                bar.branch.popup.search,
+                KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.ESCAPE, false, false, false, false),
+            )
+            popupClosed = !bar.branch.popup.popup.isShowing
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertTrue(popupOpened)
+        assertTrue(popupClosed, "Escape closes it")
         assertSame<Node?>(view.table, view.scene.focusOwner)
 
         // Only the press: a real mouse's release goes to the menu it opened, a fired one would close it again. Checked
