@@ -186,10 +186,10 @@ class RefOperationsTest {
         writes.result = { GitResult(false, "error: nope") }
         val failed = CheckoutRevision("h1", "h1").run(writes, root)
         assertEquals(RefOutcome(GitResult(false, "error: nope"), null), failed)
-        assertTrue(CheckoutBranch("main").checksOut)
-        assertTrue(CreateBranch("x", "h1", checkout = true, overwrite = false).checksOut)
-        assertFalse(CreateBranch("x", "h1", checkout = false, overwrite = false).checksOut)
-        assertFalse(DeleteRefs(listOf("x"), emptyList()).checksOut)
+        assertEquals("Check Out", CheckoutBranch("main").fileChange)
+        assertEquals("Check Out", CreateBranch("x", "h1", checkout = true, overwrite = false).fileChange)
+        assertNull(CreateBranch("x", "h1", checkout = false, overwrite = false).fileChange)
+        assertNull(DeleteRefs(listOf("x"), emptyList()).fileChange)
     }
 
     @Test

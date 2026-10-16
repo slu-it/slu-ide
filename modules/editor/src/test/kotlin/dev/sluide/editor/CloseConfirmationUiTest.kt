@@ -84,18 +84,19 @@ class CloseConfirmationUiTest {
     }
 
     @Test
-    fun `asks to save before a checkout with Save, Check Out Anyway and Cancel`(robot: FxRobot) {
+    fun `asks to save before a git operation with Save, the operation Anyway and Cancel`(robot: FxRobot) {
         lateinit var alert: Alert
-        robot.interact { alert = checkoutSaveConfirmation(stage, listOf("a.txt", "b.kt")) }
+        robot.interact { alert = gitChangeSaveConfirmation(stage, listOf("a.txt", "b.kt"), "Check Out") }
 
         assertEquals(stage, alert.owner)
         assertEquals("Unsaved Changes", alert.title)
-        assertEquals("These files have unsaved changes. Save them before checking out?", alert.headerText)
+        assertEquals("These files have unsaved changes. Save them before you check out?", alert.headerText)
         assertEquals("a.txt\nb.kt", alert.contentText)
         assertEquals(listOf("Save", "Check Out Anyway", "Cancel"), alert.buttonTypes.map { it.text })
 
-        robot.interact { alert = checkoutSaveConfirmation(null, listOf("a.txt")) }
-        assertEquals("This file has unsaved changes. Save it before checking out?", alert.headerText)
+        robot.interact { alert = gitChangeSaveConfirmation(null, listOf("a.txt"), "Cherry-Pick") }
+        assertEquals("This file has unsaved changes. Save it before you cherry-pick?", alert.headerText)
+        assertEquals(listOf("Save", "Cherry-Pick Anyway", "Cancel"), alert.buttonTypes.map { it.text })
     }
 
     @Test

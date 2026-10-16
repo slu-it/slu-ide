@@ -996,16 +996,19 @@ class MainWindowUiTest {
         }
         val asked = mutableListOf<List<String>>()
         var answer = SaveChoice.CANCEL
-        editorArea.confirmSaveBeforeCheckout = { files ->
+        val actions = mutableListOf<String>()
+        editorArea.confirmSaveBeforeGitChange = { files, action ->
             asked += files
+            actions += action
             answer
         }
 
-        robot.interact { assertFalse(gitLogView.beforeCheckout()) }
+        robot.interact { assertFalse(gitLogView.beforeFileChange("Check Out")) }
         answer = SaveChoice.DISCARD
-        robot.interact { assertTrue(gitLogView.beforeCheckout()) }
+        robot.interact { assertTrue(gitLogView.beforeFileChange("Cherry-Pick")) }
 
         assertEquals(listOf(listOf("a.txt"), listOf("a.txt")), asked)
+        assertEquals(listOf("Check Out", "Cherry-Pick"), actions)
         assertEquals("a1", shownArea(robot).text, "kept")
         assertEquals("a", a.readText())
     }

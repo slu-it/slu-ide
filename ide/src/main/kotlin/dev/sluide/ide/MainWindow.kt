@@ -181,8 +181,10 @@ class MainWindow(
         // Files and what commits changed in them open in the editor area (ADR 0038).
         gitLogView.onOpenFile = { editorArea.open(it) }
         gitLogView.onShowDiff = ::showCommitDiff
-        // A checkout changes files on disk: edited files in the repository may be saved first (ADR 0041).
-        gitLogView.beforeCheckout = { gitStatus.root?.let(editorArea::saveBeforeCheckout) ?: true }
+        // A checkout, cherry-pick or hard reset changes files on disk: edited files in the repository may be saved first
+        // (ADRs 0041, 0042).
+        gitLogView.beforeFileChange =
+            { action -> gitStatus.root?.let { editorArea.saveBeforeGitChange(it, action) } ?: true }
 
         // A window gets its folder once (ADR 0014); other folders open in new windows.
         projectService.projectFolder.subscribe { folder ->

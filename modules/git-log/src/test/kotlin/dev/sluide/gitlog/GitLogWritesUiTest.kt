@@ -77,9 +77,12 @@ class GitLogWritesUiTest {
 
     private val writes = FakeWrites()
 
-    /** The answers of [GitLogView.beforeCheckout], one per call; `true` once they are used up. */
-    private val beforeCheckout = ArrayDeque<Boolean>()
-    private var beforeCheckoutCalls = 0
+    /** The answers of [GitLogView.beforeFileChange], one per call; `true` once they are used up. */
+    private val beforeFileChange = ArrayDeque<Boolean>()
+
+    /** The actions [GitLogView.beforeFileChange] was asked about. */
+    private val fileChanges = mutableListOf<String>()
+    private val beforeCheckoutCalls get() = fileChanges.count { it == "Check Out" }
 
     private lateinit var view: GitLogView
 
@@ -127,9 +130,9 @@ class GitLogWritesUiTest {
                 ): GitFileDiff? = null
             }
         view = GitLogView(source, Platform::runLater, writes)
-        view.beforeCheckout = {
-            beforeCheckoutCalls++
-            beforeCheckout.removeFirstOrNull() ?: true
+        view.beforeFileChange = { action ->
+            fileChanges += action
+            beforeFileChange.removeFirstOrNull() ?: true
         }
         stage.scene = Scene(view, 900.0, 500.0)
         stage.show()
@@ -353,7 +356,7 @@ class GitLogWritesUiTest {
     fun `a cancelled unsaved-editor question aborts a checkout`(robot: FxRobot) {
         openAndExpand(robot)
         selectBranches(robot, "Local/feature/a")
-        beforeCheckout += false
+        beforeFileChange += false
 
         fireLater(branches.checkoutItem)
 

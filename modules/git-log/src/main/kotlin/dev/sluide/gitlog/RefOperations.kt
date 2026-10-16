@@ -35,8 +35,11 @@ internal sealed interface RefOperation {
     /** The question above git's message in the error dialog. */
     val failure: String
 
-    /** Whether it checks out, which changes files on disk: unsaved editors are asked about first. */
-    val checksOut: Boolean
+    /**
+     * What it does to files on disk, as the question about unsaved editors names it before it runs ("Check Out",
+     * "Cherry-Pick"); `null` if it changes no files (or only the index).
+     */
+    val fileChange: String?
 
     /** Runs it with [writes] in the repository at [root], on the calling thread. */
     fun run(
@@ -52,7 +55,7 @@ internal data class CheckoutBranch(
     override val progress get() = "Checking out $name…"
     override val errorTitle get() = CHECKOUT_FAILED
     override val failure get() = "$name could not be checked out."
-    override val checksOut get() = true
+    override val fileChange get() = CHECK_OUT
 
     override fun run(
         writes: GitLogWrites,
@@ -68,7 +71,7 @@ internal data class CheckoutRevision(
     override val progress get() = "Checking out $label…"
     override val errorTitle get() = CHECKOUT_FAILED
     override val failure get() = "$label could not be checked out."
-    override val checksOut get() = true
+    override val fileChange get() = CHECK_OUT
 
     override fun run(
         writes: GitLogWrites,
@@ -89,7 +92,7 @@ internal data class CheckoutRemote(
     override val progress get() = "Checking out ${ref.shortName}…"
     override val errorTitle get() = CHECKOUT_FAILED
     override val failure get() = "${ref.shortName} could not be checked out."
-    override val checksOut get() = true
+    override val fileChange get() = CHECK_OUT
 
     override fun run(
         writes: GitLogWrites,
@@ -115,7 +118,7 @@ internal data class CreateBranch(
     override val progress get() = "Creating branch $name…"
     override val errorTitle get() = "New Branch Failed"
     override val failure get() = "Branch $name could not be created."
-    override val checksOut get() = checkout
+    override val fileChange get() = CHECK_OUT.takeIf { checkout }
 
     /**
      * Unless [confirmed], an existing branch that [overwrite] would move away from commits not on [startPoint] (they
@@ -157,7 +160,7 @@ internal data class CreateTag(
     override val progress get() = "Creating tag $name…"
     override val errorTitle get() = "New Tag Failed"
     override val failure get() = "Tag $name could not be created."
-    override val checksOut get() = false
+    override val fileChange get() = null
 
     override fun run(
         writes: GitLogWrites,
@@ -173,7 +176,7 @@ internal data class RenameBranch(
     override val progress get() = "Renaming branch $old…"
     override val errorTitle get() = "Rename Failed"
     override val failure get() = "Branch $old could not be renamed."
-    override val checksOut get() = false
+    override val fileChange get() = null
 
     override fun run(
         writes: GitLogWrites,
@@ -199,7 +202,7 @@ internal data class DeleteRefs(
             }
     override val errorTitle get() = "Delete Failed"
     override val failure get() = "Not everything could be deleted."
-    override val checksOut get() = false
+    override val fileChange get() = null
 
     override fun run(
         writes: GitLogWrites,
@@ -237,6 +240,9 @@ internal data class DeleteRefs(
 }
 
 private const val CHECKOUT_FAILED = "Checkout Failed"
+
+/** The action of a checkout, in the question about unsaved editors. */
+private const val CHECK_OUT = "Check Out"
 
 /**
  * The outcome of an operation that did [done] if git succeeded; if git failed but the change was made all the same (a

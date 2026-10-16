@@ -1436,7 +1436,7 @@ class EditorAreaUiTest {
     }
 
     @Test
-    fun `saveBeforeCheckout asks about the edited files in the folder only, Check Out Anyway keeps their changes`(
+    fun `saveBeforeGitChange asks about the edited files in the folder only, Anyway keeps their changes`(
         robot: FxRobot,
     ) {
         val repo = dir.resolve("repo").createDirectories()
@@ -1446,15 +1446,17 @@ class EditorAreaUiTest {
         open(robot, repo.resolve("clean.txt").apply { writeText("clean") })
         openEdited(robot, a, b, outside) { error("not asked when closing") }
         val asked = mutableListOf<List<String>>()
+        val actions = mutableListOf<String>()
         var answer = SaveChoice.CANCEL
-        editor.confirmSaveBeforeCheckout = { files ->
+        editor.confirmSaveBeforeGitChange = { files, action ->
             asked += files
+            actions += action
             answer
         }
 
-        robot.interact { assertFalse(editor.saveBeforeCheckout(repo)) }
+        robot.interact { assertFalse(editor.saveBeforeGitChange(repo, "Check Out")) }
         answer = SaveChoice.DISCARD
-        robot.interact { assertTrue(editor.saveBeforeCheckout(repo)) }
+        robot.interact { assertTrue(editor.saveBeforeGitChange(repo, "Cherry-Pick")) }
 
         assertEquals(List(2) { listOf("repo/a.txt", "repo/b.txt") }, asked)
         assertEquals(listOf("clean.txt", "\u25cf a.txt", "\u25cf b.txt", "\u25cf outside.txt"), tabTitles(robot))
@@ -1466,11 +1468,12 @@ class EditorAreaUiTest {
         assertEquals("edited b", shownText(robot))
 
         answer = SaveChoice.SAVE
-        robot.interact { assertTrue(editor.saveBeforeCheckout(repo)) }
+        robot.interact { assertTrue(editor.saveBeforeGitChange(repo, "Reset")) }
         assertEquals("edited a", a.readText())
         assertEquals("outside", outside.readText(), "not in the folder")
-        robot.interact { assertTrue(editor.saveBeforeCheckout(dir.resolve("other"))) }
+        robot.interact { assertTrue(editor.saveBeforeGitChange(dir.resolve("other"), "Revert")) }
         assertEquals(3, asked.size, "nothing edited there")
+        assertEquals(listOf("Check Out", "Cherry-Pick", "Reset"), actions, "the action named in the question")
     }
 
     @Test

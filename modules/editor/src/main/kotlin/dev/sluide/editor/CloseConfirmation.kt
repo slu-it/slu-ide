@@ -39,7 +39,7 @@ enum class SaveChoice {
     /** Save them, then close. */
     SAVE,
 
-    /** Close without saving them; before a checkout: check out anyway, keeping them. */
+    /** Close without saving them; before a git operation such as a checkout: go on anyway, keeping them. */
     DISCARD,
 
     /** Close nothing. */
@@ -82,42 +82,49 @@ internal fun saveConfirmation(
         headerText = if (files.size == 1) "Save the changes to this file?" else "Save the changes to these files?"
     }
 
-/** The button of [checkoutSaveConfirmation] that checks out without saving, keeping the unsaved changes. */
-internal val CHECK_OUT_ANYWAY_BUTTON = ButtonType("Check Out Anyway", ButtonBar.ButtonData.NO)
+/** The button of [gitChangeSaveConfirmation] that goes on without saving, keeping the unsaved changes. */
+internal fun anywayButton(action: String) = ButtonType("$action Anyway", ButtonBar.ButtonData.NO)
 
 /**
- * Asks whether to save the unsaved changes of the [files] (their paths, one per line) before a checkout changes files
- * on disk: Save ([SaveChoice.SAVE]), Check Out Anyway ([SaveChoice.DISCARD], keeping the changes) or Cancel, also when
- * the dialog is dismissed. Blocks until the dialog is closed; call it on the FX thread.
+ * Asks whether to save the unsaved changes of the [files] (their paths, one per line) before a git operation changes
+ * files on disk, named by its [action] ("Check Out", "Cherry-Pick"): Save ([SaveChoice.SAVE]), "<action> Anyway"
+ * ([SaveChoice.DISCARD], keeping the changes) or Cancel, also when the dialog is dismissed. Blocks until the dialog is
+ * closed; call it on the FX thread.
  */
-internal fun askToSaveBeforeCheckout(
+internal fun askToSaveBeforeGitChange(
     owner: Window?,
     files: List<String>,
-): SaveChoice =
-    when (checkoutSaveConfirmation(owner, files).showAndWait().orElse(ButtonType.CANCEL)) {
-        SAVE_BUTTON -> SaveChoice.SAVE
-        CHECK_OUT_ANYWAY_BUTTON -> SaveChoice.DISCARD
+    action: String,
+): SaveChoice {
+    val alert = gitChangeSaveConfirmation(owner, files, action)
+    val answer = alert.showAndWait().orElse(ButtonType.CANCEL)
+    return when {
+        answer == SAVE_BUTTON -> SaveChoice.SAVE
+        answer.buttonData == ButtonBar.ButtonData.NO -> SaveChoice.DISCARD
         else -> SaveChoice.CANCEL
     }
+}
 
-/** The dialog of [askToSaveBeforeCheckout], not shown yet. */
-internal fun checkoutSaveConfirmation(
+/** The dialog of [askToSaveBeforeGitChange], not shown yet. */
+internal fun gitChangeSaveConfirmation(
     owner: Window?,
     files: List<String>,
+    action: String,
 ): Alert =
     Alert(
         Alert.AlertType.CONFIRMATION,
         files.joinToString("\n"),
         SAVE_BUTTON,
-        CHECK_OUT_ANYWAY_BUTTON,
+        anywayButton(action),
         ButtonType.CANCEL,
     ).apply {
         owner?.let(::initOwner)
         title = "Unsaved Changes"
+        val verb = action.lowercase()
         headerText =
             if (files.size == 1) {
-                "This file has unsaved changes. Save it before checking out?"
+                "This file has unsaved changes. Save it before you $verb?"
             } else {
-                "These files have unsaved changes. Save them before checking out?"
+                "These files have unsaved changes. Save them before you $verb?"
             }
     }

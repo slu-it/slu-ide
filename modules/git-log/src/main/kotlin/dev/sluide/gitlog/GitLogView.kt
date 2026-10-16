@@ -70,7 +70,7 @@ import java.util.concurrent.Executors
  * 0038). The diff of a changed file goes to [onShowDiff], a file to open to [onOpenFile]. Above the table, the
  * filters of the commits (ADR 0039), per window and reset by [open]. Left of them, the branches pane (ADR 0040).
  * The context menus of the table and the branches pane check out, create, rename and delete branches and tags
- * (ADR 0041); checkouts ask [beforeCheckout] first.
+ * (ADR 0041); operations that change files ask [beforeFileChange] first.
  *
  * [source] reads the commits, refs, details, changed files and diffs on the thread `sluide-git-log`; [writes] changes
  * the repository on the thread `sluide-git-write`, one operation at a time. Their results are handled through
@@ -114,10 +114,10 @@ class GitLogView internal constructor(
     private val writer = RefWriter(writes, writeExecutor::execute, dispatch)
 
     /**
-     * Asked before a checkout, which changes files on disk, e.g. to save or discard unsaved editors; `false` cancels
-     * the checkout. Set by the window.
+     * Asked before an operation changes files on disk, with its action ("Check Out", "Cherry-Pick"), e.g. to save or
+     * keep unsaved editors; `false` cancels the operation. Set by the window.
      */
-    var beforeCheckout: () -> Boolean = { true }
+    var beforeFileChange: (action: String) -> Boolean = { true }
 
     /** Whether the commits are shown below the header; collapsed (`false`) at first. */
     val expanded: BooleanProperty = SimpleBooleanProperty(false)
@@ -636,16 +636,18 @@ class GitLogView internal constructor(
             ?.commit
 
     /**
-     * Runs [operation] (ADR 0041) unless one runs already; a checkout asks [beforeCheckout] first. The header says what
+     * Runs [operation] (ADR 0041) unless one runs already; one that changes files asks [beforeFileChange] first, unless
+     * [askFirst] is `false` (it was asked already). The header says what
      * it does, then what it did, and the log is refreshed; a failure is shown in an error dialog with git's message.
      */
     private fun start(
         operation: RefOperation,
-        askBeforeCheckout: Boolean = true,
+        askFirst: Boolean = true,
     ) {
         val root = pages.root ?: return
         if (writer.running.get()) return
-        if (askBeforeCheckout && operation.checksOut && !beforeCheckout()) return
+        val action = operation.fileChange
+        if (askFirst && action != null && !beforeFileChange(action)) return
         status.set("")
         if (writer.run(root, operation) { outcome -> finished(operation, outcome) }) {
             operationStatus.set(operation.progress)
@@ -662,7 +664,7 @@ class GitLogView internal constructor(
             if (overwriteConfirmation(scene?.window, question).showAndWait().orElse(ButtonType.CANCEL) ==
                 OVERWRITE_BUTTON
             ) {
-                (operation as? CreateBranch)?.let { start(it.copy(confirmed = true), askBeforeCheckout = false) }
+                (operation as? CreateBranch)?.let { start(it.copy(confirmed = true), askFirst = false) }
             }
             return
         }
