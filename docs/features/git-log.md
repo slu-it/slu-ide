@@ -5,11 +5,13 @@ reloads, without controls), `GraphLayout` (the commit graph's lanes), `GraphCell
 `RefLabels` and `refGroups`), `CommitDetails` (which details and changed files to load, without controls),
 `CommitDetailsPane`, `changeTree` and `FileDiffs` (`ChangedFiles.kt`, without controls), `ChangedFilesPane`,
 `FilterBar` with `FilterPopup` (`FilterBar.kt`), `branchNodes` (`BranchTree.kt`, without controls) and
-`BranchesPane`; the commits (filtered by a `GitLogFilter`), refs, details, changed files, diffs, user name and tree
-paths come from `GitLog` in `modules/git`. Decisions in [ADR 0035](../adr/0035-git-log-area.md),
+`BranchesPane`, the operations that change the repository with `branchActions`, `nameProblem` and their `RefWriter`
+(`RefOperations.kt`, without controls) and their dialogs (`RefDialogs.kt`); the commits (filtered by a `GitLogFilter`),
+refs, details, changed files, diffs, user name and tree paths come from `GitLog` in `modules/git`, the changes are made
+by `GitBranches` there, names are checked with `GitRefNames`. Decisions in [ADR 0035](../adr/0035-git-log-area.md),
 [ADR 0036](../adr/0036-commit-graph-layout.md), [ADR 0037](../adr/0037-ref-labels-and-commit-details.md),
-[ADR 0038](../adr/0038-changed-files-and-commit-diffs.md), [ADR 0039](../adr/0039-git-log-filters.md) and
-[ADR 0040](../adr/0040-git-log-branches-pane.md)
+[ADR 0038](../adr/0038-changed-files-and-commit-diffs.md), [ADR 0039](../adr/0039-git-log-filters.md),
+[ADR 0040](../adr/0040-git-log-branches-pane.md) and [ADR 0041](../adr/0041-git-write-operations.md)
 
 - **Where and when:** for a folder whose git status is followed ([git-status.md](git-status.md): git is available and
   the folder has `.git`), the window shows a Git Log area under the editor area. Other folders, and a window without a
@@ -163,8 +165,55 @@ paths come from `GitLog` in `modules/git`. Decisions in [ADR 0035](../adr/0035-g
 - **Copy Revision Number:** in the context menu of the table, and with Shortcut+C while the table has the focus; it
   copies the full hash of the selected commit, or of all selected commits one per line in table order (Shift/Ctrl
   select several).
+- **Changing the repository** ([ADR 0041](../adr/0041-git-write-operations.md)), with the git command line, so hooks
+  and the user's configuration apply:
+  - **Commit table:** its context menu has, after Copy Revision Number and a separator, Checkout Revision (`HEAD`
+    detached at the commit), New Branch… and New Tag… (at the commit); enabled with exactly one commit selected.
+  - **Branches pane:** its context menu has, after Copy Name and a separator, Checkout, "New Branch from '<name>'…"
+    (from any one branch, tag or `HEAD`), Rename… (local branches, also the current one; also F2) and Delete (local
+    branches and tags, several at once; also Delete, or Shortcut+Backspace as in the explorer). Checkout is disabled
+    for `HEAD`, the current branch, a remote branch whose local branch of the same name is the current one, folders,
+    groups and several; Delete as soon as the selection holds the current branch, a remote branch, `HEAD`, a folder or
+    a group. A local branch is checked out, a tag detached; a remote branch `origin/fix` checks out the local branch
+    `fix` if there is one ("Checked out local branch fix."), else creates `fix` tracking it and checks it out
+    ("Checked out new branch fix tracking origin/fix."). There are no further keys.
+  - **New Branch** (name, "Checkout branch" checked, "Overwrite existing branch" unchecked), **New Tag** (name, an
+    optional message: with one the tag is annotated; the message is kept as typed, also non-ASCII and lines starting
+    with `#`, apart from leading and trailing blank lines and trailing spaces, and consecutive blank lines become one)
+    and **Rename Branch** (the old name selected): Create or Rename stays disabled, with the reason below the name, for
+    an empty name, one git does not take as a branch or tag name (`git check-ref-format`: no spaces, `~ ^ : ? * [ \`,
+    `..`, `@{`, a component starting with `.` or ending in `.lock`, …), one starting with `-`, an existing one
+    ("Branch 'x' already exists", unless overwriting; "Tag 'x' already exists"; for Rename the old name itself without
+    a reason), the checked-out branch when overwriting ("Branch 'main' is checked out.", also without Checkout), and
+    one the JVM cannot pass to git in its locale ("This name cannot be passed to git in this locale.", e.g. non-ASCII
+    in a POSIX locale). Overwriting another branch says below the name what it does ("Moves 'x' from 1a2b3c4d."); if
+    that branch has commits that are not on the start point, a confirmation asks first ("'x' has commits that are not
+    on origin/main; they will only be reachable through the reflog. Overwrite?", Cancel the default).
+  - **New branches** are created first and then checked out, so a failure never leaves the other commit's files
+    staged on the old branch; if git fails, the new branch is deleted again (an overwritten one moved back to its
+    commit; an existing branch is never deleted), and if that fails too, the error says so. If where the branch points
+    cannot be read, nothing is done ("The commit of branch 'x' could not be read."). A checkout that happened although
+    git reported an error (a failing post-checkout hook) is not undone: "Checked out x, but git reported an error."
+  - **Delete** always asks first ("Delete branch 'x'?", "Delete 2 branches and 1 tag?", listing "branch x" and "tag
+    v1" in an area that scrolls; Cancel is the default). Branches git does not delete with `-d` (not fully merged)
+    are offered again with git's message and "Force Delete".
+  - **Running:** one operation at a time, in the background; meanwhile all these actions are disabled and the header
+    says "Checking out main…", "Creating branch x…" and so on, then "Checked out main.", "Created branch x.", "Created
+    and checked out branch x.", "Created tag v1.", "Renamed branch a to b.", "Deleted branch x." or "Deleted 3 refs."
+    until the next operation (another message of the log shows instead while there is one). Afterwards, also after a
+    failure, the log is refreshed; after a checkout the window title, the explorer's markers and the open files follow
+    by themselves. Closing the window lets a running operation finish.
+  - **Failures** show an error dialog titled after the operation ("Checkout Failed", …) with git's own message,
+    without its `hint:` lines, in a selectable monospace area that wraps long lines, e.g. that local changes would be
+    overwritten by the checkout; nothing is stashed. A checkout may take 10 minutes, anything else 60 s ("git did not
+    finish within 60 s.", git is stopped). Git never waits for an editor: where it would open one (e.g. a lightweight
+    tag with `tag.gpgSign`), it fails with its message.
+  - **Unsaved editors:** before a checkout (also of a new branch), files of the repository with unsaved changes are
+    asked about: "These files have unsaved changes. Save them before checking out?" with Save, Check Out Anyway (the
+    changes stay; an editor whose file the checkout changed offers Reload or Keep mine) and Cancel (no checkout).
 - Not yet implemented (next packages): "In N branches" and clickable hashes in the details, a flat list of the
   changed files, their combined changes for several commits, comparing with the local version, the changes against
   each parent of a merge, a diff preview in the log, file history, file-type icons in the tree, a date filter, dotted
-  edges through commits hidden by filters, tracking information and actions in the branches pane, remembering the
-  area's height and state, and any action that changes the repository.
+  edges through commits hidden by filters, tracking information in the branches pane, remembering the area's height
+  and state, and more operations: cherry-pick, revert, reset, fetch, pull, push, merge, rebase, deleting remote
+  branches, pushing tags.
