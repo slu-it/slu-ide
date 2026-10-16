@@ -126,6 +126,77 @@ class GitCli(
     }
 
     /**
+     * The output of `git for-each-ref` for the branches, remote branches and tags of the repository at [root] (see
+     * [GitRefsParser]), or `null` if git is not available, fails or takes longer than 10 s.
+     */
+    internal fun refs(root: Path): String? {
+        if (!available) return null
+        val arguments =
+            listOf(
+                "--no-optional-locks",
+                "for-each-ref",
+                // %(*objectname): the commit an annotated tag points at, empty for other refs; %(symref): the target
+                // of a symbolic ref such as refs/remotes/origin/HEAD, which is skipped. Records end with a newline.
+                "--format=%(objectname)%1f%(*objectname)%1f%(refname)%1f%(symref)",
+                "refs/heads",
+                "refs/remotes",
+                "refs/tags",
+            )
+        return run(arguments, root, 10.seconds)
+    }
+
+    /**
+     * The full object name of the commit `HEAD` points at in the repository at [root]; `null` if there is none yet
+     * (an unborn branch), or if git is not available, fails or takes longer than 3 s.
+     */
+    internal fun headCommit(root: Path): String? {
+        if (!available) return null
+        // -q: an unborn HEAD fails quietly instead of with an error message.
+        val arguments = listOf("--no-optional-locks", "rev-parse", "--verify", "-q", "HEAD^{commit}")
+        return run(arguments, root, 3.seconds)?.trim()?.ifEmpty { null }
+    }
+
+    /**
+     * The full refname of the branch `HEAD` is attached to (`refs/heads/main`, also if it has no commits yet); `null`
+     * when `HEAD` is detached, or if git is not available, fails or takes longer than 3 s.
+     */
+    internal fun currentBranch(root: Path): String? {
+        if (!available) return null
+        // -q: a detached HEAD fails quietly instead of with an error message.
+        return run(listOf("--no-optional-locks", "symbolic-ref", "-q", "HEAD"), root, 3.seconds)?.trim()?.ifEmpty {
+            null
+        }
+    }
+
+    /**
+     * The output of `git show -s` for the commit [hash] in the repository at [root] (see [GitCommitDetailsParser]),
+     * or `null` if git is not available, fails (e.g. there is no such commit) or takes longer than 3 s.
+     */
+    internal fun show(
+        root: Path,
+        hash: String,
+    ): String? {
+        if (!available) return null
+        val arguments =
+            listOf(
+                "--no-optional-locks",
+                "show",
+                // Only the commit, not its diff.
+                "-s",
+                "--no-color",
+                "--no-show-signature",
+                // The output is read as UTF-8, whatever i18n.logOutputEncoding says.
+                "--encoding=UTF-8",
+                // %aN, %aE, %cN and %cE as mapped by .mailmap; %B, the raw message, last.
+                "--format=%H%x1f%P%x1f%aN%x1f%aE%x1f%at%x1f%cN%x1f%cE%x1f%ct%x1f%B",
+                hash,
+                // The hash is a revision, even if a file of that name exists.
+                "--",
+            )
+        return run(arguments, root, 3.seconds)
+    }
+
+    /**
      * [file] relative to [root], `/`-separated as git wants it; `null` if it is not inside [root]. Relative paths are
      * taken from the working directory.
      */
