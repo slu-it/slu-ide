@@ -24,8 +24,7 @@ import kotlin.io.path.readBytes
 @Component
 class ImageFileViewer : FileViewer {
     override fun canOpen(file: Path): Boolean {
-        val extension = file.extension.lowercase()
-        if (extension == "svg" || extension !in imageTypes) return false
+        if (!isImageName(file)) return false
         return try {
             file.isRegularFile() && Files.isReadable(file) && file.fileSize() <= MAX_IMAGE_BYTES
         } catch (_: IOException) {
@@ -37,6 +36,9 @@ class ImageFileViewer : FileViewer {
 
     internal companion object {
         const val MAX_IMAGE_BYTES = 50L * 1024 * 1024
+
+        /** Whether the name of [file] is one of an image this viewer shows (SVG is shown as text); not read. */
+        fun isImageName(file: Path): Boolean = file.extension.lowercase().let { it != "svg" && it in imageTypes }
     }
 }
 

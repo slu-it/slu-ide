@@ -175,4 +175,36 @@ class FileViewersTest {
         assertTrue(viewers.showsDiffs(source))
         assertFalse(viewers.showsDiffs(ExtensionViewer("txt")))
     }
+
+    @Test
+    fun `the viewer for a diff of given texts is picked by the name alone, without the file`() {
+        val kotlin = KotlinFileViewer()
+        val markdown = MarkdownFileViewer()
+        val image = ImageFileViewer()
+        val python = PythonFileViewer()
+        val viewers = FileViewers(listOf(image, markdown, kotlin, python), fallback)
+
+        // None of these files exists.
+        fun viewer(
+            name: String,
+            text: String = "",
+        ) = viewers.viewerByName(dir.resolve(name), text)
+
+        assertSame(kotlin, viewer("src/Main.kt"))
+        assertSame(markdown, viewer("README.MD"))
+        assertSame(image, viewer("logo.png"))
+        assertSame(fallback, viewer("notes.txt"))
+        assertSame(fallback, viewer("Makefile.unknown"))
+        assertSame(python, viewer("run", "#!/usr/bin/env python3\nprint()\n"))
+        assertSame(fallback, viewer("run", "echo\n"))
+        assertSame(fallback, viewer("run.sh", "#!/usr/bin/env python3\n"), "only names without an extension")
+        assertSame(fallback, viewer("empty"))
+    }
+
+    @Test
+    fun `a diff of given texts is not shown for images`() {
+        val viewers = FileViewers(listOf(ImageFileViewer()), fallback)
+
+        assertNull(viewers.openDiff(dir.resolve("logo.png"), "", TextDiff("", emptyList())))
+    }
 }

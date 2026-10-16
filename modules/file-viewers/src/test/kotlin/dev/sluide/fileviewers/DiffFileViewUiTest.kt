@@ -297,4 +297,32 @@ class DiffFileViewUiTest {
         assertEquals("a", right.text)
         assertEquals(listOf(emptyList<String>()), right.paragraphClasses())
     }
+
+    @Test
+    fun `a diff of given texts shows both sides, highlighted by the name, without reading the file`(robot: FxRobot) {
+        // No such file: the name only picks the highlighter.
+        val name = dir.resolve("gone/Main.kt")
+        val current = "val one = 1\nval TWO = 2\nval three = 3\nval five = 5\nsix()\nseven()\n"
+        val view =
+            assertNotNull(WaitForAsyncUtils.asyncFx<DiffFileView?> { viewers.openDiff(name, current, diff) }.get())
+        robot.interact { container.children.setAll(view.node) }
+        WaitForAsyncUtils.waitForFxEvents()
+        val (left, right) =
+            robot.lookup(".code-area").queryAllAs(CodeArea::class.java).sortedBy { it.localToScene(0.0, 0.0).x }
+
+        assertEquals("val one = 1\nval two = 2\nval three = 3\nval four = 4\nval five = 5\n\n", left.text)
+        assertEquals("val one = 1\nval TWO = 2\nval three = 3\n\nval five = 5\nsix()\nseven()", right.text)
+        assertEquals(listOf("diff-added"), right.paragraphClasses()[5])
+        assertFalse(left.isEditable || right.isEditable)
+        assertTrue("keyword" in right.getStyleOfChar(right.text.indexOf("val") + 1))
+
+        // Shown again (e.g. reloaded), it keeps the given text.
+        robot.interact {
+            view.reload()
+            view.show(diff.copy(changes = emptyList()))
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(current.removeSuffix("\n"), right.text.trimEnd('\n'))
+        assertTrue(right.paragraphClasses().all { it.isEmpty() })
+    }
 }

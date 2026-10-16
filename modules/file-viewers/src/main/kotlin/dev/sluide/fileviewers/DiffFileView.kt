@@ -29,9 +29,12 @@ import java.util.function.IntFunction
 import kotlin.io.path.readText
 import kotlin.math.abs
 
-/** A file shown side by side with an original version of it, the differences coloured (ADR 0015). */
+/**
+ * A file shown side by side with an original version of it, the differences coloured (ADR 0015); or a given text of a
+ * file, e.g. as a commit left it (ADR 0038).
+ */
 interface DiffFileView : FileView {
-    /** Reads the file again and shows it against [diff], keeping the scroll position. */
+    /** Reads the file again (a given text stays as it is) and shows it against [diff], keeping the scroll position. */
     @Throws(IOException::class)
     fun show(diff: TextDiff)
 
@@ -51,17 +54,31 @@ interface DiffFileView : FileView {
 }
 
 /**
- * Read-only side-by-side view: the original on the left, the file on the right, with filler rows so that both sides
- * have the same rows and scroll together. Removed, modified and added lines get the [DiffKind] style classes on their
- * paragraph and line number, and the changed words within modified lines [CHANGED_WORDS_STYLE] (ADR 0019). Text is
- * highlighted with [highlighter] if there is one.
+ * Where the current side of a [SideBySideDiffView] comes from: a [File] read whenever the diff is shown, or a [Fixed]
+ * text such as a file as a commit left it (ADR 0038).
+ */
+internal sealed interface CurrentText {
+    data class File(
+        val file: Path,
+    ) : CurrentText
+
+    data class Fixed(
+        val text: String,
+    ) : CurrentText
+}
+
+/**
+ * Read-only side-by-side view: the original on the left, the [current] text on the right (the file, or a text given),
+ * with filler rows so that both sides have the same rows and scroll together. Removed, modified and added lines get
+ * the [DiffKind] style classes on their paragraph and line number, and the changed words within modified lines
+ * [CHANGED_WORDS_STYLE] (ADR 0019). Text is highlighted with [highlighter] if there is one.
  *
  * A toolbar above both sides jumps to the first, previous, next and last change, seen from the caret (F7 and
  * Shift+F7 for next and previous), and tells which change the caret is in. While [onBack] is set, an Edit button on
  * it and Escape go back.
  */
 internal class SideBySideDiffView(
-    private val file: Path,
+    private val current: CurrentText,
     private val highlighter: SyntaxHighlighter?,
     private var diff: TextDiff,
 ) : DiffFileView {
@@ -148,7 +165,7 @@ internal class SideBySideDiffView(
                 }
             }
         }
-        render(file.readText())
+        render(currentText())
         moveCarets(0)
     }
 
@@ -157,7 +174,7 @@ internal class SideBySideDiffView(
     override fun reload() = show(diff)
 
     override fun show(diff: TextDiff) {
-        val text = file.readText()
+        val text = currentText()
         val scrollX = right.pane.estimatedScrollX
         val scrollY = right.pane.estimatedScrollY
         this.diff = diff
@@ -168,6 +185,13 @@ internal class SideBySideDiffView(
         right.pane.scrollXToPixel(scrollX)
         right.pane.scrollYToPixel(scrollY)
     }
+
+    /** The text of the right side: the file as it is now, or the text given. */
+    private fun currentText() =
+        when (current) {
+            is CurrentText.File -> current.file.readText()
+            is CurrentText.Fixed -> current.text
+        }
 
     private fun render(text: String) {
         val originalLines = textLines(diff.original)

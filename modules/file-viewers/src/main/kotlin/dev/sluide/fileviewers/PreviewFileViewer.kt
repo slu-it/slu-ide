@@ -48,8 +48,10 @@ abstract class PreviewFileViewer internal constructor(
     private val preview: Preview,
     internal val comment: CommentSyntax = CommentSyntax.NONE,
 ) : FileViewer {
-    override fun canOpen(file: Path): Boolean =
-        file.extension.lowercase() in extensions && Files.isReadable(file) && isTextFile(file)
+    override fun canOpen(file: Path): Boolean = matchesExtension(file) && Files.isReadable(file) && isTextFile(file)
+
+    /** Whether the extension of [file] is one of this viewer's; the file is not looked at. */
+    internal fun matchesExtension(file: Path): Boolean = file.extension.lowercase() in extensions
 
     override fun open(file: Path): FileView = PreviewFileView(file, highlighter, preview, comment)
 }

@@ -49,15 +49,62 @@ class FileViewers(
         diff: TextDiff,
     ): DiffFileView? {
         val viewer = viewerFor(file)?.takeIf(::showsDiffs) ?: return null
-        val highlighter =
-            when (viewer) {
-                is CodeFileViewer -> viewer.highlighter
-                is PreviewFileViewer -> viewer.highlighter
-                is SourceFileViewer -> viewer.sourceHighlighter
-                else -> null
-            }
-        return SideBySideDiffView(file, highlighter, diff)
+        return SideBySideDiffView(CurrentText.File(file), highlighterOf(viewer), diff)
     }
+
+    /**
+     * Shows [current], the text of a file named [name], side by side with the original of [diff], e.g. a file as a
+     * commit left it (ADR 0038). Read-only; the right side is [current], not the file. The highlighter is picked by the
+     * name alone, as [viewerFor] would pick the viewer by name, without touching the disk: a name without an extension
+     * that no viewer takes is looked at for a shebang in [current]. `null` if the viewer for the name does not show
+     * text, e.g. for images.
+     */
+    fun openDiff(
+        name: Path,
+        current: String,
+        diff: TextDiff,
+    ): DiffFileView? {
+        val viewer = viewerByName(name, current).takeIf(::showsDiffs) ?: return null
+        return SideBySideDiffView(CurrentText.Fixed(current), highlighterOf(viewer), diff)
+    }
+
+    private fun highlighterOf(viewer: FileViewer): SyntaxHighlighter? =
+        when (viewer) {
+            is CodeFileViewer -> viewer.highlighter
+            is PreviewFileViewer -> viewer.highlighter
+            is SourceFileViewer -> viewer.sourceHighlighter
+            else -> null
+        }
+
+    /**
+     * The viewer [viewerFor] would pick for a file named [name] with the content [text], told without the file: by
+     * the name as far as viewers tell it without reading the file (code, preview and image viewers), then by a
+     * shebang in [text] for names without an extension, else [DefaultTextFileViewer].
+     */
+    internal fun viewerByName(
+        name: Path,
+        text: String,
+    ): FileViewer {
+        specific
+            .mapNotNull { viewer -> nameMatch(viewer, name)?.let { viewer to it } }
+            .minByOrNull { it.second }
+            ?.let { return it.first }
+        if (name.extension.isNotEmpty()) return fallback
+        val interpreter = shebangInterpreter(text.lineSequence().first()) ?: return fallback
+        return shebangViewers.firstOrNull { it.opensInterpreter(interpreter) } ?: fallback
+    }
+
+    /** How [name] matches [viewer] without reading the file; `null` if it does not, or the viewer cannot tell. */
+    private fun nameMatch(
+        viewer: FileViewer,
+        name: Path,
+    ): NameMatch? =
+        when (viewer) {
+            is CodeFileViewer -> viewer.nameMatch(name)
+            is PreviewFileViewer -> NameMatch.EXTENSION.takeIf { viewer.matchesExtension(name) }
+            is ImageFileViewer -> NameMatch.EXTENSION.takeIf { ImageFileViewer.isImageName(name) }
+            else -> null
+        }
 
     /** Whether files shown by [viewer] have diffs ([openDiff]) and change markers: those shown as text. */
     fun showsDiffs(viewer: FileViewer): Boolean =
