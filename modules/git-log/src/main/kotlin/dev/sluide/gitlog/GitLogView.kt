@@ -78,7 +78,7 @@ class GitLogView internal constructor(
     private val executor =
         Executors.newSingleThreadExecutor { Thread(it, "sluide-git-log").apply { isDaemon = true } }
 
-    private val pages = GitLogPages(source::page, source::refs, executor::execute, dispatch)
+    private val pages = GitLogPages(source::page, source::refs, source::hashMatch, executor::execute, dispatch)
 
     private val details =
         CommitDetails(

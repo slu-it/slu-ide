@@ -52,9 +52,21 @@ internal class GraphRow(
     override fun hashCode() = ((dot * 31 + colour) * 31 + width) * 31 + edges.contentHashCode()
 
     override fun toString() =
-        "GraphRow(dot=$dot, colour=$colour, width=$width, " +
-            "upper=${(0 until upperEdges).map { "${upperFrom(it)}>${upperTo(it)}:${upperColour(it)}" }}, " +
-            "lower=${(0 until lowerEdges).map { "${lowerFrom(it)}>${lowerTo(it)}:${lowerColour(it)}" }})"
+        if (this === NONE) {
+            "GraphRow.NONE"
+        } else {
+            "GraphRow(dot=$dot, colour=$colour, width=$width, " +
+                "upper=${(0 until upperEdges).map { "${upperFrom(it)}>${upperTo(it)}:${upperColour(it)}" }}, " +
+                "lower=${(0 until lowerEdges).map { "${lowerFrom(it)}>${lowerTo(it)}:${lowerColour(it)}" }})"
+        }
+
+    companion object {
+        /**
+         * No graph at all: no dot, no edges, no positions; for rows whose parents may not be shown, under a filter
+         * that hides commits (ADR 0039).
+         */
+        val NONE = GraphRow(-1, 0, 0, 0, IntArray(0))
+    }
 }
 
 /**

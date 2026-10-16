@@ -6,10 +6,12 @@ import dev.sluide.git.GitCommit
 import dev.sluide.git.GitCommitDetails
 import dev.sluide.git.GitFileDiff
 import dev.sluide.git.GitHunk
+import dev.sluide.git.GitLogFilter
 import dev.sluide.git.GitLogPage
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
+import dev.sluide.git.GitTreePath
 import javafx.application.ColorScheme
 import javafx.application.Platform
 import javafx.event.Event
@@ -77,6 +79,29 @@ class GitLogViewUiTest {
     /** The (skip, limit) of every load. */
     private val loads = CopyOnWriteArrayList<Pair<Int, Int>>()
 
+    /** The filter of every load. */
+    private val filters = CopyOnWriteArrayList<GitLogFilter>()
+
+    /** The commits each revision reaches, for the revisions of a filter. */
+    @Volatile
+    private var reachable: Map<String, Set<String>> = emptyMap()
+
+    /** The commit a filter's text names as a hash. */
+    @Volatile
+    private var hashMatchOf: (GitLogFilter) -> GitCommit? = { null }
+
+    /** The user name of the repository. */
+    @Volatile
+    private var userName: String? = null
+
+    /** The paths of `HEAD`'s tree. */
+    @Volatile
+    private var treePaths: List<GitTreePath>? = emptyList()
+
+    /** The root of every read of the user name and of the tree's paths. */
+    private val userNameLoads = CopyOnWriteArrayList<Path>()
+    private val pathLoads = CopyOnWriteArrayList<Path>()
+
     /** The details of each commit; `null` makes reading them fail. */
     @Volatile
     private var detailsOf: (String) -> GitCommitDetails? = ::defaultDetails
@@ -122,15 +147,33 @@ class GitLogViewUiTest {
             object : GitLogSource {
                 override fun page(
                     root: Path,
+                    filter: GitLogFilter,
                     skip: Int,
                     limit: Int,
                 ): GitLogPage? {
                     gate?.await(10, TimeUnit.SECONDS)
                     loads += skip to limit
-                    return (if (root == repo) history else otherHistory)?.let { all ->
+                    filters += filter
+                    return (if (root == repo) history else otherHistory)?.let { history ->
+                        val all = history.filter { passes(filter, it) }
                         val page = all.drop(skip).take(limit)
                         GitLogPage(page, complete = skip + page.size >= all.size)
                     }
+                }
+
+                override fun hashMatch(
+                    root: Path,
+                    filter: GitLogFilter,
+                ) = hashMatchOf(filter)
+
+                override fun userName(root: Path): String? {
+                    userNameLoads.add(root)
+                    return userName
+                }
+
+                override fun paths(root: Path): List<GitTreePath>? {
+                    pathLoads.add(root)
+                    return treePaths
                 }
 
                 override fun refs(root: Path) = if (root == repo) refs else null
@@ -177,6 +220,20 @@ class GitLogViewUiTest {
         fileGates.values.forEach(CountDownLatch::countDown)
         diffGate?.countDown()
         view.close()
+    }
+
+    /**
+     * Whether [commit] passes [filter], as far as the fake understands it: the text as a substring of the subject
+     * (ignoring case unless asked), the revisions by [reachable], the users by the author's name.
+     */
+    private fun passes(
+        filter: GitLogFilter,
+        commit: GitCommit,
+    ): Boolean {
+        val text = filter.text.trim()
+        return commit.subject.contains(text, ignoreCase = !filter.matchCase) &&
+            (filter.revisions.isEmpty() || filter.revisions.any { commit.hash in reachable[it].orEmpty() }) &&
+            (filter.users.isEmpty() || filter.users.any { it.equals(commit.author, ignoreCase = true) })
     }
 
     /** A linear history of [count] commits, newest first. */

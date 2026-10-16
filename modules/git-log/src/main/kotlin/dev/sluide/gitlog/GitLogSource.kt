@@ -1,23 +1,39 @@
 package dev.sluide.gitlog
 
 import dev.sluide.git.GitChangedFile
+import dev.sluide.git.GitCommit
 import dev.sluide.git.GitCommitDetails
 import dev.sluide.git.GitFileDiff
 import dev.sluide.git.GitLog
+import dev.sluide.git.GitLogFilter
 import dev.sluide.git.GitLogPage
 import dev.sluide.git.GitRefs
+import dev.sluide.git.GitTreePath
 import java.nio.file.Path
 
 /**
  * Where the git log reads a repository from; [GitLog] in the application, a fake in tests. Called off the FX thread.
  */
 internal interface GitLogSource {
-    /** The commits after the first [skip], at most [limit]; `null` on failure. */
+    /** The commits that pass [filter] after the first [skip], at most [limit]; `null` on failure. */
     fun page(
         root: Path,
+        filter: GitLogFilter,
         skip: Int,
         limit: Int,
     ): GitLogPage?
+
+    /** The commit the text of [filter] names as a hash, if it passes the filter's users, paths and no merges. */
+    fun hashMatch(
+        root: Path,
+        filter: GitLogFilter,
+    ): GitCommit?
+
+    /** The `user.name` of the repository; `null` if it is not set or on failure. */
+    fun userName(root: Path): String?
+
+    /** The folders and files of `HEAD`'s tree, empty without commits; `null` on failure. */
+    fun paths(root: Path): List<GitTreePath>?
 
     /** The refs of the repository; `null` on failure. */
     fun refs(root: Path): GitRefs?
@@ -50,9 +66,19 @@ internal class GitLogCliSource(
 ) : GitLogSource {
     override fun page(
         root: Path,
+        filter: GitLogFilter,
         skip: Int,
         limit: Int,
-    ) = gitLog.commits(root, skip = skip, limit = limit)
+    ) = gitLog.commits(root, filter, skip, limit)
+
+    override fun hashMatch(
+        root: Path,
+        filter: GitLogFilter,
+    ) = gitLog.hashMatch(root, filter)
+
+    override fun userName(root: Path) = gitLog.userName(root)
+
+    override fun paths(root: Path) = gitLog.paths(root)
 
     override fun refs(root: Path) = gitLog.refs(root)
 

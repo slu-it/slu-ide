@@ -130,6 +130,7 @@ internal fun labelsWidth(
 /**
  * Draws a [GraphRow] as one path per colour and a dot; colours come from the style classes (`git-log.css`). At most
  * [MAX_LANES] positions are drawn: lines with one end beyond them are cut off at the right edge, dots there left out.
+ * [GraphRow.NONE] draws nothing and takes no width.
  *
  * Underneath, the same lines and dot again as a wider halo, which `git-log.css` shows only in selected rows, so that
  * every lane colour stands out against the selection bar.
@@ -216,9 +217,10 @@ internal class GraphPane : Region() {
             if (elements[colour].isNotEmpty() || path.isNotEmpty()) path.setAll(elements[colour])
         }
         halo.elements.setAll(haloElements)
-        // The halo dot's visibility comes from CSS; beyond the drawn positions the clip hides it.
-        dot.isVisible = row != null && row.dot < MAX_LANES
-        if (row != null) {
+        // The halo dot's visibility comes from CSS; beyond the drawn positions the clip hides it, as it does for
+        // a row without a graph (GraphRow.NONE), whose width is 0.
+        dot.isVisible = row != null && row.dot in 0 until MAX_LANES
+        if (row != null && row.dot >= 0) {
             dot.centerX = x(row.dot)
             dot.centerY = middle
             haloDot.centerX = dot.centerX
