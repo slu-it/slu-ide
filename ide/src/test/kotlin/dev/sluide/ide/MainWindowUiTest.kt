@@ -9,13 +9,16 @@ import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitBranches
+import dev.sluide.git.GitChange
 import dev.sluide.git.GitCli
 import dev.sluide.git.GitCommits
+import dev.sluide.git.GitHunk
 import dev.sluide.git.GitLog
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitStatus
 import dev.sluide.git.GitStatusService
 import dev.sluide.gitlog.GitLogView
+import dev.sluide.gitlog.WorkingTreeFileDiff
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.projects.ProjectPicker
 import dev.sluide.projects.RecentProjects
@@ -515,6 +518,99 @@ class MainWindowUiTest {
         eventually(robot) { assertSame(tab, editorArea.selectedTab) }
         assertEquals(1, editorArea.tabs.count { it is CommitDiffTab })
         assertEquals(2, editorArea.tabs.size)
+    }
+
+    @Test
+    fun `a diff with the working tree opens in a tab once, with the file on disk on the right`(robot: FxRobot) {
+        val file = project.resolve("tracked.md").apply { writeText("one\nTWO\n") }
+        val commit = "1a2b3c4d".repeat(5)
+        val diff =
+            WorkingTreeFileDiff(
+                project,
+                "tracked.md",
+                null,
+                GitChange.MODIFIED,
+                commit,
+                "feature",
+                "one\ntwo\n",
+                // Read with the diff; the tab shows the file as it is on disk.
+                "one\nstale\n",
+                listOf(GitHunk(1 until 2, 1 until 2)),
+            )
+
+        fun areas() =
+            robot
+                .lookup(".editor-content .code-area")
+                .queryAllAs(CodeArea::class.java)
+                .sortedBy { it.localToScene(0.0, 0.0).x }
+                .map { it.text }
+
+        fun titles() =
+            robot
+                .lookup(".editor-content .diff-title")
+                .queryAllAs(Label::class.java)
+                .sortedBy { it.localToScene(0.0, 0.0).x }
+                .map { it.text }
+
+        robot.interact { assertTrue(gitLogView.onShowWorkingTreeDiff(diff)) }
+        val tab = editorArea.selectedTab as WorkingTreeDiffTab
+        assertEquals("tracked.md (feature ↔ Working Tree)", tab.title.value)
+        assertEquals("tracked.md: feature (1a2b3c4d) ↔ Working Tree", tab.tooltip)
+        assertEquals(listOf("one\ntwo", "one\nTWO"), areas())
+        assertEquals(listOf("feature (1a2b3c4d)", "Working Tree"), titles())
+
+        // Again: the same tab, which reads the file again.
+        file.writeText("one\nTwo\n")
+        robot.interact { assertTrue(gitLogView.onShowWorkingTreeDiff(diff)) }
+        assertSame(tab, editorArea.selectedTab)
+        assertEquals(1, editorArea.tabs.size)
+        assertEquals(listOf("one\ntwo", "one\nTwo"), areas())
+
+        // A deleted file: nothing on the right.
+        val deleted =
+            diff.copy(
+                path = "gone.md",
+                change = GitChange.DELETED,
+                current = "",
+                hunks =
+                    listOf(
+                        GitHunk(0 until 2, 0 until 0),
+                    ),
+            )
+        robot.interact { assertTrue(gitLogView.onShowWorkingTreeDiff(deleted)) }
+        assertEquals(2, editorArea.tabs.size)
+        assertEquals(listOf("one\ntwo", "\n"), areas(), "filler rows on the right")
+        assertEquals(listOf("feature (1a2b3c4d)", "Working Tree (deleted)"), titles())
+        val deletedTab = editorArea.selectedTab
+
+        // Back in the working tree: the same tab shows it read again, now with the file on disk.
+        project.resolve("gone.md").writeText("one\nthree\n")
+        val restored =
+            deleted.copy(
+                change = GitChange.MODIFIED,
+                current = "",
+                hunks =
+                    listOf(
+                        GitHunk(
+                            1 until 2,
+                            1 until 2,
+                        ),
+                    ),
+            )
+        robot.interact { assertTrue(gitLogView.onShowWorkingTreeDiff(restored)) }
+        assertSame(deletedTab, editorArea.selectedTab)
+        assertEquals(2, editorArea.tabs.size)
+        assertEquals(listOf("one\ntwo", "one\nthree"), areas())
+        assertEquals(listOf("feature (1a2b3c4d)", "Working Tree"), titles())
+
+        // Unsaved changes in an editor: the right side is the file as saved.
+        robot.interact {
+            editorArea.open(file)
+            shownArea(robot).appendText("unsaved")
+        }
+        robot.interact { assertTrue(gitLogView.onShowWorkingTreeDiff(diff)) }
+        assertSame(tab, editorArea.selectedTab)
+        assertEquals(listOf("feature (1a2b3c4d)", "Working Tree (saved)"), titles())
     }
 
     @Test

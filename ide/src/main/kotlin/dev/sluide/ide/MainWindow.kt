@@ -7,10 +7,12 @@ import dev.sluide.editor.EditorArea
 import dev.sluide.editor.askToClose
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.FileViewers
+import dev.sluide.git.GitChange
 import dev.sluide.git.GitHead
 import dev.sluide.git.GitStatusService
 import dev.sluide.gitlog.CommitFileDiff
 import dev.sluide.gitlog.GitLogView
+import dev.sluide.gitlog.WorkingTreeFileDiff
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.projects.RecentProjects
 import dev.sluide.settings.SettingsDialog
@@ -39,8 +41,11 @@ import javafx.stage.DirectoryChooser
 import javafx.stage.Stage
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
+import java.io.IOException
 import java.net.URI
+import java.nio.file.Files
 import java.nio.file.InvalidPathException
+import java.nio.file.LinkOption
 import java.nio.file.Path
 
 private const val APP_NAME = "Thoreau"
@@ -181,6 +186,8 @@ class MainWindow(
         // Files and what commits changed in them open in the editor area (ADR 0038).
         gitLogView.onOpenFile = { editorArea.open(it) }
         gitLogView.onShowDiff = ::showCommitDiff
+        // How files differ from the working tree opens there too, with the file on disk on the right (ADR 0044).
+        gitLogView.onShowWorkingTreeDiff = ::showWorkingTreeDiff
         // A checkout, cherry-pick or hard reset changes files on disk: edited files in the repository may be saved first
         // (ADRs 0041, 0042).
         gitLogView.beforeFileChange =
@@ -229,6 +236,48 @@ class MainWindow(
             return
         }
         editorArea.open(CommitDiffTab(diff, view))
+    }
+
+    /**
+     * Shows how a file differs between a commit and the working tree side by side in a tab of its own, the file on disk
+     * on the right where the JVM can read it (else the text read with the diff, also empty for a deleted file), and
+     * focuses it; a tab that shows the same comparison already shows it read again instead (ADR 0044). `false` if the
+     * file is not shown as text.
+     */
+    private fun showWorkingTreeDiff(diff: WorkingTreeFileDiff): Boolean {
+        val file = liveFile(diff)
+        val textDiff = diff.toTextDiff(unsaved = file != null && editorArea.dirtyUnder(file).isNotEmpty())
+        val view =
+            try {
+                if (file != null) {
+                    fileViewers.openDiff(file, textDiff)
+                } else {
+                    fileViewers.openDiff(nameOf(diff.path), diff.current, textDiff)
+                }
+            } catch (_: IOException) {
+                null
+            } ?: return false
+        val tab = editorArea.tabs.filterIsInstance<WorkingTreeDiffTab>().firstOrNull { it.shows(diff) }
+        if (tab != null) {
+            tab.replace(diff, view)
+            editorArea.select(tab)
+        } else {
+            editorArea.open(WorkingTreeDiffTab(diff, view))
+        }
+        view.node.requestFocus()
+        return true
+    }
+
+    /** The file of [diff] on disk, if it is a regular file there that the JVM can name; not for a deleted one. */
+    private fun liveFile(diff: WorkingTreeFileDiff): Path? {
+        if (diff.change == GitChange.DELETED) return null
+        val file =
+            try {
+                diff.root.resolve(diff.path)
+            } catch (_: InvalidPathException) {
+                return null
+            }
+        return file.takeIf { Files.isRegularFile(it, LinkOption.NOFOLLOW_LINKS) }
     }
 
     /**
