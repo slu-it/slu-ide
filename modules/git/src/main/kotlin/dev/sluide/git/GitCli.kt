@@ -104,12 +104,15 @@ class GitCli(
      * default the commits of all branches, remote branches, tags and `HEAD` in date order; after the first [skip], at
      * most [limit]. `null` if git is not available, fails or takes longer than 10 s, or if a revision or path of the
      * filter has a line break or they are too many for git's standard input. Empty for a repository without commits.
+     * The commits of the refs matching [excludedGlobs] (`--not --glob=<pattern>`, a pattern with `*`) are left out, as
+     * those of the filter's excluded revisions, but without their number being limited by the standard input.
      */
     internal fun log(
         root: Path,
         filter: GitLogFilter,
         skip: Int,
         limit: Int,
+        excludedGlobs: List<String> = emptyList(),
     ): String? {
         if (!available) return null
         // Revisions and paths go to git's standard input, so they reach it as UTF-8 whatever the JVM's locale.
@@ -131,6 +134,8 @@ class GitCli(
                 addAll(limitingOptions(filter))
                 // %P then gives the parents as rewritten for the paths: the nearest commits shown.
                 if (filter.paths.isNotEmpty()) add("--parents")
+                // The revisions on the standard input keep their own flags: --not does not reach them.
+                if (excludedGlobs.isNotEmpty()) addAll(listOf("--not") + excludedGlobs.map { "--glob=$it" })
                 if (input.isNotEmpty()) add("--stdin")
                 addAll(logOutputOptions())
                 add("--skip=$skip")
@@ -900,20 +905,33 @@ class GitCli(
         timeout: Duration = WRITE_TIMEOUT,
         environment: Map<String, String> = emptyMap(),
         cancellation: GitCancellation? = null,
-    ): Pair<GitResult, Int?> {
-        if (!available) return GitResult(false, "git is not available.") to null
+    ): Pair<GitResult, Int?> =
+        writeWithOutput(root, arguments, input, timeout, environment, cancellation).let { it.result to it.exitValue }
+
+    /** [writeWithExit] with git's standard output as well, for commands that report on it (`push --porcelain`). */
+    internal fun writeWithOutput(
+        root: Path,
+        arguments: List<String>,
+        input: ByteArray? = null,
+        timeout: Duration = WRITE_TIMEOUT,
+        environment: Map<String, String> = emptyMap(),
+        cancellation: GitCancellation? = null,
+    ): GitWriteOutput {
+        if (!available) return GitWriteOutput(GitResult(false, "git is not available."), null)
         val execution =
             execute(arguments, root, timeout, input, write = true, environment, cancellation)
-                ?: return GitResult(false, "git could not be run.") to null
-        if (execution.cancelled) return GitResult(false, CANCELLED) to null
+                ?: return GitWriteOutput(GitResult(false, "git could not be run."), null)
+        if (execution.cancelled) return GitWriteOutput(GitResult(false, CANCELLED), null)
         val exitValue =
-            execution.exitValue ?: return GitResult(false, "git did not finish within ${shown(timeout)}.") to null
+            execution.exitValue
+                ?: return GitWriteOutput(GitResult(false, "git did not finish within ${shown(timeout)}."), null)
+        val output = execution.output.toString(Charsets.UTF_8)
         val message =
             withoutHints(
                 execution.errors
                     .toString(Charsets.UTF_8)
                     .trim()
-                    .ifEmpty { execution.output.toString(Charsets.UTF_8).trim() },
+                    .ifEmpty { output.trim() },
             )
         val result =
             when {
@@ -921,7 +939,14 @@ class GitCli(
                 message.isEmpty() -> GitResult(false, "git failed with exit code $exitValue.")
                 else -> GitResult(false, message)
             }
-        return result to exitValue
+        val errors =
+            execution.errors
+                .toString(Charsets.UTF_8)
+                .lines()
+                .filterNot { it.startsWith("hint:") }
+                .joinToString("\n")
+                .trim()
+        return GitWriteOutput(result, exitValue, output, errors)
     }
 
     /**
@@ -1154,6 +1179,38 @@ class GitCli(
         val arguments =
             listOf("--no-optional-locks", "status", "--porcelain", "-z", "--untracked-files=no", "--no-renames")
         return run(arguments, root, 10.seconds)?.split('\u0000')?.count(String::isNotEmpty)
+    }
+
+    /**
+     * The last commit, in topological order, that `HEAD` has and no ref matching [excludedGlobs] (`--glob`) has, as its
+     * hash followed by its parents; empty if there is none. `null` if git is not available, fails or takes longer than
+     * 10 s. Only the last line of git's output is read as a commit.
+     */
+    internal fun lastOutgoing(
+        root: Path,
+        excludedGlobs: List<String>,
+    ): List<String>? {
+        if (!available) return null
+        val arguments =
+            listOf("--no-optional-locks", "rev-list", "--topo-order", "--parents", "HEAD", "--not") +
+                excludedGlobs.map { "--glob=$it" } + "--"
+        val output = run(arguments, root, 10.seconds) ?: return null
+        val last = output.trimEnd().substringAfterLast('\n')
+        return last.split(' ').filter(String::isNotEmpty)
+    }
+
+    /**
+     * The best common ancestor of the commits [first] and [second] (full hashes or refnames) in the repository at
+     * [root]: `git merge-base`; `null` if they have none, or if git is not available, fails or takes longer than 10 s.
+     */
+    internal fun mergeBase(
+        root: Path,
+        first: String,
+        second: String,
+    ): String? {
+        if (!available) return null
+        val arguments = listOf("--no-optional-locks", "merge-base", "--end-of-options", first, second)
+        return run(arguments, root, 10.seconds)?.trim()?.ifEmpty { null }
     }
 
     /**
@@ -1523,3 +1580,14 @@ internal fun shown(duration: Duration): String =
     } else {
         "${duration.inWholeSeconds} s"
     }
+
+/**
+ * What a write of git gave: its [result], its [exitValue] (`null` if it did not end by itself), its standard [output]
+ * and its standard [errors] (without hints).
+ */
+internal data class GitWriteOutput(
+    val result: GitResult,
+    val exitValue: Int?,
+    val output: String = "",
+    val errors: String = "",
+)
