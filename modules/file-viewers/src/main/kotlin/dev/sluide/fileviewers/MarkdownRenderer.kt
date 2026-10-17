@@ -89,11 +89,14 @@ internal object MarkdownRenderer {
         dark: Boolean = false,
     ): String = page(body(markdown, folder), dark)
 
+    /** The syntax tree of [markdown], with source spans on its blocks; see [MarkdownOutline]. */
+    internal fun parse(markdown: String): Node = parser.parse(markdown)
+
     /** The rendered, sanitised content of [markdown], a file in [folder], with local images embedded. */
     fun body(
         markdown: String,
         folder: Path,
-    ): Element = sanitized(renderer.render(parser.parse(markdown)), folder)
+    ): Element = sanitized(renderer.render(parse(markdown)), folder)
 
     /** [html] from a file in [folder], sanitised like rendered Markdown, with local images embedded. */
     fun sanitized(
