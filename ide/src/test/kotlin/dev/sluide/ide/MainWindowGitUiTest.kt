@@ -371,6 +371,7 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         assertEquals(listOf<Node>(fileExplorer, editorArea), splitPaneOf(editorArea).items)
         assertTrue(menu(robot, "View").items.single { it.text == "Git Log" }.isDisable)
         assertTrue(menu(robot, "Git").items.single { it.text == "Commit…" }.isDisable)
+        assertTrue(menu(robot, "Git").items.single { it.text == "Push…" }.isDisable)
     }
 
     @Test
@@ -389,12 +390,20 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         assertEquals(KeyCombination.ModifierValue.DOWN, accelerator.shortcut)
         assertEquals(KeyCombination.ModifierValue.UP, accelerator.shift)
         assertTrue(commitItem.isDisable, "no folder, no git log")
+        val pushItem = menu(robot, "Git").items.single { it.text == "Push…" }
+        assertEquals(listOf("Commit…", "Push…"), menu(robot, "Git").items.map { it.text })
+        val pushAccelerator = pushItem.accelerator as KeyCodeCombination
+        assertEquals(KeyCode.K, pushAccelerator.code)
+        assertEquals(KeyCombination.ModifierValue.DOWN, pushAccelerator.shortcut)
+        assertEquals(KeyCombination.ModifierValue.DOWN, pushAccelerator.shift)
+        assertTrue(pushItem.isDisable, "no folder, no git log")
 
         project.resolve("tracked.md").writeText("two")
         project.resolve("new.md").writeText("new")
         robot.interact { projectService.open(project) }
         WaitForAsyncUtils.waitForFxEvents()
         assertFalse(commitItem.isDisable)
+        assertFalse(pushItem.isDisable)
         robot.interact { commitItem.fire() }
 
         eventually(robot) {

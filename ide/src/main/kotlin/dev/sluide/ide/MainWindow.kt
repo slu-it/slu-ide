@@ -435,7 +435,14 @@ class MainWindow(
                 disableProperty().bind(gitLogPresent.not())
                 setOnAction { gitLogView.showCommit() }
             }
-        return Menu("Git", null, commit)
+        // The Push dialog (ADR 0049), on IntelliJ's shortcut; delete lines moved to Shortcut+Y for it.
+        val push =
+            MenuItem("Push…").apply {
+                accelerator = KeyCodeCombination(KeyCode.K, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN)
+                disableProperty().bind(gitLogPresent.not())
+                setOnAction { gitLogView.showPush() }
+            }
+        return Menu("Git", null, commit, push)
     }
 
     private fun terminalMenu(stage: Stage): Menu {
