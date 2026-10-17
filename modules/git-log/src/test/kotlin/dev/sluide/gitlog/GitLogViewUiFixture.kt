@@ -11,6 +11,7 @@ import dev.sluide.git.GitLogPage
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
+import dev.sluide.git.GitRevisionResolution
 import dev.sluide.git.GitTreePath
 import javafx.application.Platform
 import javafx.event.Event
@@ -133,6 +134,31 @@ abstract class GitLogViewUiFixture {
     @Volatile
     internal var diffGate: CountDownLatch? = null
 
+    /** The full refnames of the branches containing each commit; `null` makes reading them fail. */
+    @Volatile
+    internal var branchesOf: (String) -> List<String>? = { emptyList() }
+
+    /** Reading the branches containing a commit waits for its gate, if it has one. */
+    internal val branchGates = ConcurrentHashMap<String, CountDownLatch>()
+
+    /** The hash of every read of the branches containing a commit, once its gate is open. */
+    internal val branchLoads = CopyOnWriteArrayList<String>()
+
+    /** What each revision names; by default a hash of [history] names its commit, a unique prefix too. */
+    @Volatile
+    internal var resolutionOf: (String) -> GitRevisionResolution = ::defaultResolution
+
+    /** Resolving revisions fails while this is set. */
+    @Volatile
+    internal var resolveFails = false
+
+    /** Resolving revisions waits for this while it is not `null`. */
+    @Volatile
+    internal var resolveGate: CountDownLatch? = null
+
+    /** The revisions of every resolution, once its gate is open. */
+    internal val resolveLoads = CopyOnWriteArrayList<List<String>>()
+
     internal lateinit var view: GitLogView
 
     internal val writes = FakeWrites()
@@ -184,6 +210,24 @@ abstract class GitLogViewUiFixture {
                     return detailsOf(hash)
                 }
 
+                override fun branchesContaining(
+                    root: Path,
+                    hash: String,
+                ): List<String>? {
+                    if (!branchGates[hash].passed()) return null
+                    branchLoads += hash
+                    return branchesOf(hash)
+                }
+
+                override fun resolveCommits(
+                    root: Path,
+                    revisions: List<String>,
+                ): List<GitRevisionResolution>? {
+                    if (!resolveGate.passed()) return null
+                    resolveLoads += revisions
+                    return if (resolveFails) null else revisions.map(resolutionOf)
+                }
+
                 override fun changedFiles(
                     root: Path,
                     commit: String,
@@ -228,6 +272,8 @@ abstract class GitLogViewUiFixture {
         detailGates.values.forEach(CountDownLatch::countDown)
         fileGates.values.forEach(CountDownLatch::countDown)
         diffGate?.countDown()
+        branchGates.values.forEach(CountDownLatch::countDown)
+        resolveGate?.countDown()
         userNameGates.values.forEach(CountDownLatch::countDown)
         pathGates.values.forEach(CountDownLatch::countDown)
         view.close()
@@ -245,6 +291,17 @@ abstract class GitLogViewUiFixture {
         return commit.subject.contains(text, ignoreCase = !filter.matchCase) &&
             (filter.revisions.isEmpty() || filter.revisions.any { commit.hash in reachable[it].orEmpty() }) &&
             (filter.users.isEmpty() || filter.users.any { it.equals(commit.author, ignoreCase = true) })
+    }
+
+    /** A commit of [history] whose hash is or starts with [revision]; ambiguous if several do. */
+    internal fun defaultResolution(revision: String): GitRevisionResolution {
+        val matching = history.orEmpty().filter { it.hash.startsWith(revision) }
+        return when {
+            matching.any { it.hash == revision } -> GitRevisionResolution.Commit(revision)
+            matching.size == 1 -> GitRevisionResolution.Commit(matching.single().hash)
+            matching.size > 1 -> GitRevisionResolution.Ambiguous
+            else -> GitRevisionResolution.Missing
+        }
     }
 
     /** A linear history of [count] commits, newest first. */

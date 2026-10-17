@@ -12,6 +12,7 @@ import dev.sluide.git.GitPendingPick
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
+import dev.sluide.git.GitRefs
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitTreePath
 import javafx.application.Platform
@@ -134,6 +135,19 @@ class GitLogView internal constructor(
         )
 
     private val fileDiffs = FileDiffs(source::fileDiff, executor::execute, dispatch)
+
+    /** Reads the branches containing the shown commit (ADR 0045), not behind the pages of the log nor delaying them. */
+    private val branchesExecutor =
+        Executors.newSingleThreadExecutor { Thread(it, "sluide-git-branches").apply { isDaemon = true } }
+
+    /** The branches containing the commit whose details are shown (ADR 0045). */
+    private val commitBranches =
+        CommitBranches(source::branchesContaining, branchesExecutor::execute, dispatch).apply {
+            currentBranch = { pages.refs?.currentBranch }
+        }
+
+    /** The refs the branches containing a commit were read with; new ones read them again. */
+    private var branchesRefs: GitRefs? = null
 
     /** Reads for the working-tree windows (ADR 0044), not behind the pages of the log. */
     private val compareExecutor =
@@ -485,7 +499,7 @@ class GitLogView internal constructor(
         }
 
     /** The details of the selected commit. */
-    internal val detailsPane = CommitDetailsPane(details.state)
+    internal val detailsPane = CommitDetailsPane(details.state, commitBranches.state)
 
     /** The files the selected commit changed. */
     internal val changesPane = ChangedFilesPane(details.files)
@@ -541,6 +555,20 @@ class GitLogView internal constructor(
         }
         details.selection = { table.selectionModel.selectedItems.filterNotNull() }
         details.root = { pages.root }
+        // Read once the details are shown, so that they never wait for them; kept while the next commit's load.
+        details.state.subscribe { state ->
+            when (state) {
+                is CommitDetailsState.Loaded -> {
+                    commitBranches.show(pages.root, state.row.commit.hash)
+                }
+
+                is CommitDetailsState.Loading -> {}
+
+                else -> {
+                    commitBranches.show(null, null)
+                }
+            }
+        }
         table.selectionModel.selectedItems.addListener(
             ListChangeListener {
                 selections++
@@ -573,6 +601,10 @@ class GitLogView internal constructor(
                 else -> {
                     statusAfterLoad?.let(status::set)
                     statusAfterLoad = null
+                    if (pages.refs != branchesRefs) {
+                        branchesRefs = pages.refs
+                        commitBranches.refsChanged()
+                    }
                     branchesPane.show(pages.refs)
                     updateCompareBar()
                     showPending(pages.pending)
@@ -652,6 +684,8 @@ class GitLogView internal constructor(
         operationStatus.set("")
         // Before the pages, which may start loading and have the pane say so.
         branchesPane.reset()
+        commitBranches.clear()
+        branchesRefs = null
         // Resets the filter and ends a comparison too, before the bar, which then tells no change.
         pages.open(root)
         filterBar.reset()
@@ -1236,6 +1270,8 @@ class GitLogView internal constructor(
         pages.close()
         details.close()
         fileDiffs.close()
+        commitBranches.close()
+        branchesExecutor.shutdownNow()
         detailsPane.close()
         changesPane.close()
         executor.shutdownNow()

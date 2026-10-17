@@ -16,6 +16,8 @@ dependencies {
     implementation(libs.spring.context)
     implementation(libs.ikonli.javafx)
     implementation(libs.ikonli.materialdesign2)
+    // The details' texts with links (hashes in messages, Show all): RichTextFX styles spans and hit-tests (ADR 0045).
+    implementation(libs.richtextfx)
 
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)

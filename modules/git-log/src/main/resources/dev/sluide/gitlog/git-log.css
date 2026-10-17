@@ -231,6 +231,46 @@
     -fx-font-weight: bold;
 }
 
+/*
+ * The texts with links (ADR 0045), RichTextFX areas: the text colour of a text area, no line spacing of their own;
+ * links underlined, with a hand cursor, in a link colour (the accent, lighter in the dark theme below). The selection
+ * is a pale colour of its own (darker in the dark theme), not the accent, so that a selected link stays readable;
+ * RichTextFX keeps the text colours in a selection.
+ */
+.git-log {
+    -git-link: -fx-accent;
+    -git-text-selection: #cfe3f9;
+}
+
+.git-details-rich .text {
+    -fx-fill: -fx-text-inner-color;
+}
+
+.git-details-subject .text {
+    -fx-font-weight: bold;
+}
+
+.git-details-rich .paragraph-box {
+    -fx-padding: 0;
+}
+
+.git-details-rich .paragraph-text {
+    -fx-line-spacing: 0;
+}
+
+.git-details-rich .main-selection {
+    -fx-highlight-fill: -git-text-selection;
+}
+
+.git-details-rich .git-details-link {
+    -fx-fill: -git-link;
+    -fx-underline: true;
+}
+
+.git-details-rich:over-link {
+    -fx-cursor: hand;
+}
+
 /* Muted like IntelliJ's. */
 .git-details-committed {
     -fx-opacity: 0.7;
@@ -647,6 +687,8 @@
         -git-graph-7: #c8b450;
         -git-pending: #4a3f1f;
         -git-compare: #1f3350;
+        -git-link: #589df6;
+        -git-text-selection: #214283;
     }
 
     .git-reset {

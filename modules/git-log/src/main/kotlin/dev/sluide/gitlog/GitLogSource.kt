@@ -11,6 +11,7 @@ import dev.sluide.git.GitLogFilter
 import dev.sluide.git.GitLogPage
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitRemotes
+import dev.sluide.git.GitRevisionResolution
 import dev.sluide.git.GitTreePath
 import dev.sluide.git.GitWorkingTreeChanges
 import java.nio.file.Path
@@ -53,6 +54,21 @@ internal interface GitLogSource {
         root: Path,
         hash: String,
     ): GitCommitDetails?
+
+    /**
+     * The full refnames of the local and remote branches that contain the commit [hash] (ADR 0045); `null` on failure
+     * (or if not known).
+     */
+    fun branchesContaining(
+        root: Path,
+        hash: String,
+    ): List<String>? = null
+
+    /** What each of [revisions] names, a commit or not (ADR 0045); `null` on failure (or if not known). */
+    fun resolveCommits(
+        root: Path,
+        revisions: List<String>,
+    ): List<GitRevisionResolution>? = null
 
     /** The files [commit] changed against [firstParent] (against nothing if `null`); `null` on failure. */
     fun changedFiles(
@@ -124,6 +140,16 @@ internal class GitLogCliSource(
         root: Path,
         hash: String,
     ) = gitLog.details(root, hash)
+
+    override fun branchesContaining(
+        root: Path,
+        hash: String,
+    ) = gitLog.branchesContaining(root, hash)
+
+    override fun resolveCommits(
+        root: Path,
+        revisions: List<String>,
+    ) = gitLog.resolveCommits(root, revisions)
 
     override fun changedFiles(
         root: Path,
