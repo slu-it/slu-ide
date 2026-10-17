@@ -1,6 +1,7 @@
 # Markdown preview
 
-**Module:** `file-viewers` — `MarkdownFileViewer` (a `PreviewFileViewer`), `PreviewFileView`, `MarkdownRenderer`; decision in
+**Module:** `file-viewers` — `MarkdownFileViewer` (a `PreviewFileViewer`), `PreviewFileView`, `MarkdownRenderer`, `TableOfContents`,
+`MarkdownOutline`; decision in
 [ADR 0016](../adr/0016-markdown-preview.md)
 
 - Markdown files (`.md`, `.markdown`) open as highlighted source (left, like every code view) beside a rendered
@@ -36,5 +37,16 @@
 - When the file changes on disk, source and preview update (`FileView.reload`); the preview renders only when the text
   changed, then returns to the source's line (side by side) or to its own scroll position (preview alone).
 - The divider keeps its place when switching modes.
+- Table of contents: a toggle at the left of the toolbar (Markdown only) opens an overlay that floats over the top left
+  of the source/preview split, in all three modes; it is hidden by default. It lists every heading (also in lists and
+  quotes; `#` lines in fenced code or math are none), indented by the rank of its level among the levels the document
+  uses (only `##` and `####`: two depths). On opening, the entry of the section with the caret (in Preview mode, with the
+  line at the top of the preview) is selected and scrolled into view, and the list has the focus. The entries are always
+  current when it opens; while it is open, changes that do not come from the user's own input (e.g. a reload from disk)
+  update the entries and the selection (not in Preview mode). Choosing an entry (click, or Enter) puts the
+  caret on the heading and brings it to the top of the source; side by side the preview follows by the scroll sync,
+  in Preview mode it scrolls to the heading. The overlay closes on choosing, Escape, the toggle and a click elsewhere
+  in the view; Escape and the toggle give the focus back to the source (the preview in Preview mode). The preview shows
+  the saved text, so with unsaved edits above a heading it may land a little off, as the scroll sync does.
 - Known gaps: the diff of a modified file ([git-diff.md](git-diff.md)) has no preview, it is highlighted as Markdown.
   Scroll sync goes from source to preview only.

@@ -99,6 +99,7 @@
   HTML, SVG, CSV/TSV, cookie jars (`CookiesFileViewer`, `.cookies`), notebooks, Mermaid (`MermaidFileViewer`, `.mmd`,
   `.mermaid`), PEM certificates and keys (`PemFileViewer`, `.pem`, `.crt`, `.cer`, `.key`, only with PEM text) and
   the resource graph of Bicep files (`BicepFileViewer`, `.bicep`) in [previews.md](previews.md). Their diffs are highlighted like their source.
+  A preview that answers `Preview.outline` with headings (Markdown) gets a table-of-contents button in the toolbar.
 - `EnvFileViewer` is a `CodeFileViewer` whose `EnvFileView` wraps the `CodeView` with a **Show values** toolbar and
   masks the values: `CodeView.maskedRanges` adds the style class `masked` over the token styles, below the find bar's
   matches ([env-files.md](env-files.md), [ADR 0030](../adr/0030-masking-env-values.md)).
