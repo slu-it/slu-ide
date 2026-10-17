@@ -75,4 +75,5 @@ email, dates and the refs of the selected commit.
 - Remote names that contain `/` are ambiguous: a remote branch is split at its first `/` when grouping, so the
   branches of such a remote may not join the local branch of the same name.
 - The details of a commit are read again whenever it is selected again; there is no cache.
-- No "In N branches" line yet (D2), and hashes in the details are not links (D3).
+- No "In N branches" line yet (D2), and hashes in the details are not links (D3); both came with
+  [ADR 0045](0045-git-log-navigation.md), which also made the subject and body RichTextFX areas.

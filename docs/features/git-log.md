@@ -56,10 +56,26 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
   changed files, the details of the selected commit as in IntelliJ: the full message with the subject in bold, the short
   hash and the author, the author's email, `on <date> at <time>`, a line `committed on <date> at <time> by <committer>`
   if someone else committed it or in another minute, and its branches and tags with their icons. The texts can be
-  selected with the mouse and copied (Shortcut+C after clicking into them); long messages wrap and the pane scrolls.
+  selected with the mouse and copied (Shortcut+C after clicking into them, or the message's context menu); long
+  messages wrap and the pane scrolls.
   With no or several commits selected it says "No commit selected" or "N commits selected"; if git fails, "The commit
   details could not be read." Moving through the rows keeps the previous details until the next ones are read
-  ("Loading…" after 300 ms); the table keeps the keyboard focus.
+  ("Loading…" after 300 ms); the table keeps the keyboard focus
+  ([ADR 0045](../adr/0045-git-log-navigation.md) for the next two).
+  - **In N branches:** below the refs, the local and remote branches that contain the commit, as in IntelliJ: `In 3
+    branches: main, origin/main, feature/x`, `In 1 branch: main` or `In no branch`; the current branch first, then
+    local, then remote branches, each by name (ignoring case first); tags and `origin/HEAD` are left out. Beyond 6
+    names it says `, …` and a link `Show all (N)` lists them all, until another commit is shown. They are read in the
+    background once the details are shown (which never wait for them), up to 10 s; "Looking for branches…" if that
+    takes longer than 300 ms, "Branches could not be read." if git fails. Kept per commit until the refs change (a
+    refresh that brings other refs reads the shown commit's again) or another folder opens.
+  - **Hash links:** words of 7–40 hexadecimal characters in the subject and body (not part of a longer word, any case)
+    that name exactly one commit by its hash are links: in the accent colour (lighter in the dark theme), underlined,
+    with a hand cursor and a tooltip "Go to <short hash>"; a selection in these texts is pale blue (dark blue in the
+    dark theme), so that selected links stay readable. Ambiguous and unknown ones, and branches or tags named like a
+    hash, stay text. They are looked up with the details, all of a message with one git call (at most 100). A click
+    (not a drag that selects text) selects the commit's row as the branches pane does (pages loaded up to 10,000
+    commits, the same messages in the header, the short hash as the name) and gives the table the focus.
 - **Changed files:** right of the table, above the details (half and half at first; the divider can be dragged and
   keeps its share while the window is open), the files the selected commit changed, as in IntelliJ: "N files" and a
   tree by path, folders first, then files, by name, everything expanded; folders that hold only one folder are one
@@ -169,6 +185,23 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
     context menu sets the Branch filter to exactly the selected branches (Shift/Ctrl select several), as if checked in
     its popup. Enter on a folder opens or closes it. "Copy Name" copies the short names, one per line; both are
     disabled without a branch selected.
+- **Go to Hash/Branch/Tag** ([ADR 0045](../adr/0045-git-log-navigation.md)): Shortcut+G in the log body (table,
+  changed files, details, filter bar, branches pane) or "Go to Hash/Branch/Tag…" at the end of the table's context menu
+  opens a popup at the top of the commit table, as in IntelliJ: a field ("Hash, branch or tag"), focused, and below it
+  the branches and tags read with the last first page (local, remote, tags, with the ref labels' icons) whose short
+  name has the typed text (ignoring case), at most 10 rows in view; none while the field is empty or nothing matches.
+  Down moves into the list, Up from its first item back to the field; Enter or a click on an item goes to it; Enter in
+  the field goes to the typed text, or to the one item named exactly. Anything git understands can be typed: a full or
+  short hash (at least 4 characters), a branch or tag (short or full refname), `HEAD~3`, `main^2`, `v1.0^{}`,
+  `@{upstream}`; annotated tags lead to the commit they tag. On success the popup closes, the commit's row is selected
+  and scrolled into view, and the table has the focus. Otherwise the popup stays open, the text selected, and says
+  "Unknown revision 'xyz'." (also when git cannot look it up, e.g. `@{upstream}` without one), "'abc1' is
+  ambiguous.", or as the branches pane would: "… is not in this comparison.", "… is hidden by the filters." (then with
+  a Clear Filters button that clears the text, branches, users, paths and graph options, Regex and Match Case staying
+  as they are, and goes on to the commit), "… is not in the log." or "… is more than 10,000 commits down."; "The
+  git log could not be read." if a page fails meanwhile (the header says so too, also after a hash link or a branch).
+  Escape (or a click elsewhere) closes it without moving. A newer Go to, hash link or branch selection replaces a
+  search still loading pages.
 - **Copy Revision Number:** in the context menu of the table, and with Shortcut+C while the table has the focus; it
   copies the full hash of the selected commit, or of all selected commits one per line in table order (Shift/Ctrl
   select several).
@@ -178,7 +211,8 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
     Checkout Revision (`HEAD`
     detached at the commit), New Branch… and New Tag… (at the commit), and after another separator Cherry-Pick, Revert
     Commit and Reset Current Branch to Here… ([ADR 0042](../adr/0042-git-log-commit-operations.md), below); enabled
-    with exactly one commit selected, Reset only while the refs read show a `HEAD` commit.
+    with exactly one commit selected, Reset only while the refs read show a `HEAD` commit. Go to Hash/Branch/Tag…
+    (above) follows after a last separator.
   - **Branches pane:** its context menu has, after Copy Name and a separator, Compare with Current and Show Diff with
     Working Tree (below), and after another separator Checkout, "New Branch from '<name>'…"
     (from any one branch, tag or `HEAD`), Rename… (local branches, also the current one; also F2) and Delete (local
