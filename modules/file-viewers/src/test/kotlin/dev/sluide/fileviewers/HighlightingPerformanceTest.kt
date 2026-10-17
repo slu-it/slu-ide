@@ -10,7 +10,9 @@ import kotlin.time.measureTime
  * Large files and long lines highlight in time linear in their size: no comparison of every span with every other
  * one, no regex that backtracks over a long line or recurses per character. The bounds are generous, so that a slow
  * machine does not fail them; the quadratic versions took from 5 to over 30 seconds. A busy CI runner still took
- * 3.1 s once for a linear highlighter that takes 0.6 s alone: the fastest of up to three runs counts.
+ * 3.1 s once for a linear highlighter that takes 0.6 s alone: the fastest of up to three runs counts. Lines with
+ * many spans (Mermaid links) come in fewer copies, since a GitHub ubuntu runner took over 3 s in all three runs for
+ * 450,000 spans that take 0.5 s locally; nearly 100,000 spans still make a quadratic version fail.
  */
 class HighlightingPerformanceTest {
     private fun assertFast(
@@ -41,9 +43,9 @@ class HighlightingPerformanceTest {
         assertFast(
             "Mermaid",
             RSyntaxHighlighter.mermaid,
-            "flowchart LR\n" + lines("    A[\"Start\"] -->|go| B{x} -.-> C -. y .-> D ==> E <|-- F ||--o{ G"),
+            "flowchart LR\n" + lines("    A[\"Start\"] -->|go| B{x} -.-> C -. y .-> D ==> E <|-- F ||--o{ G", 10_000),
         )
-        assertFast("Mermaid sequence", RSyntaxHighlighter.mermaid, lines("    Alice-xBob: hi ->> there -) x"))
+        assertFast("Mermaid sequence", RSyntaxHighlighter.mermaid, lines("    Alice-xBob: hi ->> there -) x", 25_000))
         assertFast("Mermaid statements", RSyntaxHighlighter.mermaid, lines("    subgraph one %% x"))
         assertFast(
             "cookies",
