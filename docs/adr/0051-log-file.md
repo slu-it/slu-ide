@@ -22,6 +22,14 @@ was lost exactly when a user would need it.
   `FixedWindowRollingPolicy` with a `SizeBasedTriggeringPolicy`. Rejected: Spring Boot's `logging.file.*` and
   `logging.logback.rollingpolicy.*` properties: their policy rolls by date and size into dated, compressed files,
   `max-history` counts days, and `total-size-cap` bounds the size but not the number of files.
+- Once the Spring context has started (`SluIdeApplication.init`), a default uncaught exception handler logs the
+  exception with its thread (`logUncaught`). It also gets exceptions of JavaFX event handlers, which the toolkit hands
+  to the thread's handler, and those of shutdown hooks. Before Spring has configured logging the JVM's own print to
+  stderr stays: Logback would suppress the lines or print them in its default format to stdout.
+- It logs through SLF4J, not `System.Logger` like the rest of the code: Spring Boot removes its bridge from
+  `java.util.logging` when the context closes, before the beans are destroyed, after which `System.Logger` lines are
+  dropped (checked: the shutdown hook's exceptions vanished entirely). As the last step of shutting down Spring Boot
+  stops Logback (`logging.register-shutdown-hook`); from then on the handler prints to stderr as the JVM would.
 - The system property `sluide.log.dir` replaces the folder. The build passes it to every test task (an argument
   provider, so the absolute path stays out of the cache key) as the module's `build/test-logs`, because tests that
   start Spring (`SpringWiringTest`, `LogFileTest`) would otherwise write to the real home.
@@ -32,6 +40,7 @@ was lost exactly when a user would need it.
 - Two IDE processes at once (nothing prevents that) write to the same files, and their renames when rolling race.
   Accepted: rare, and at worst lines end up in an unexpected file.
 - Spring Boot's `logging.threshold.file` has no effect: the file appender is our own and has no threshold filter.
-- Only what goes through the logger reaches the file: uncaught exceptions on the JavaFX thread and the command-line
-  warnings of `startupFolders` still go to stderr only. JUL lines from before the Spring context starts (none today)
-  would too.
+- Only what goes through the logger reaches the file: the command-line warnings of `startupFolders` and uncaught
+  exceptions before the Spring context has started still go to stderr only. `System.Logger` lines from before logging
+  is configured or while the beans are destroyed at shutdown (e.g. `ProjectWindows.destroy`, the file watcher's
+  warnings racing its close) are dropped.
