@@ -380,6 +380,72 @@
 }
 
 /*
+ * The Commit tab (ADR 0048): the tree of changes on the table's background like the changed files, untracked files in
+ * the explorer's red of unversioned files (redefined for the dark theme below); right of it the message and its
+ * controls on the area's background.
+ */
+.git-log {
+    -git-change-unversioned: #d32f2f;
+}
+
+.git-change-unversioned { -fx-text-fill: -git-change-unversioned; }
+
+.git-commit-body {
+    -fx-padding: 0;
+    -fx-background-insets: 0;
+}
+
+.git-commit-changes {
+    -fx-background-color: -fx-control-inner-background;
+}
+
+.git-commit-tree {
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.git-commit-check {
+    -fx-padding: 0 2 0 0;
+}
+
+.git-commit-group {
+    -fx-text-fill: -fx-text-background-color;
+    -fx-font-weight: bold;
+    -fx-padding: 0 0 0 2;
+}
+
+.git-commit-count {
+    -fx-text-fill: -fx-text-background-color;
+    -fx-opacity: 0.6;
+    -fx-padding: 0 0 0 6;
+}
+
+.git-commit-placeholder {
+    -fx-text-fill: -fx-text-inner-color;
+    -fx-opacity: 0.7;
+    -fx-wrap-text: true;
+    -fx-padding: 8;
+}
+
+.git-commit-side {
+    -fx-spacing: 6;
+    -fx-padding: 6 8 6 8;
+}
+
+.git-commit-note {
+    -fx-opacity: 0.8;
+}
+
+.git-commit-buttons {
+    -fx-spacing: 6;
+    -fx-alignment: center-left;
+}
+
+.git-commit-summary {
+    -fx-opacity: 0.7;
+}
+
+/*
  * The filter bar above the commit table (ADR 0039): compact, on the table's background, with a line below; flat
  * buttons like Refresh, the text field and its toggles drawn as one field.
  */
@@ -748,6 +814,7 @@
         -git-change-added: #5cbf62;
         -git-change-modified: #5a9ae6;
         -git-change-deleted: #9a9a9a;
+        -git-change-unversioned: #ef6461;
         -git-ref-head: #e8c04a;
         -git-ref-local: #6cc070;
         -git-ref-remote: #b38cf0;

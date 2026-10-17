@@ -30,6 +30,7 @@ import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
 import java.time.Instant
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -93,6 +94,10 @@ abstract class GitLogWritesUiFixture {
 
     /** The threads the message of `HEAD` was read on, one per read. */
     internal val headMessageReads = CopyOnWriteArrayList<String>()
+
+    /** Holds every read of the message of `HEAD` until it is counted down; `null` lets them through. */
+    @Volatile
+    internal var headMessageGate: CountDownLatch? = null
 
     /** The working-tree diff the source reads, and every read as `<commit> <change> <path>`. */
     @Volatile
@@ -177,6 +182,7 @@ abstract class GitLogWritesUiFixture {
 
                 override fun headMessage(root: Path): String? {
                     headMessageReads += Thread.currentThread().name
+                    headMessageGate?.await(10, TimeUnit.SECONDS)
                     return headMessage
                 }
             }
@@ -192,6 +198,7 @@ abstract class GitLogWritesUiFixture {
     @AfterEach
     fun close() {
         writes.gate?.countDown()
+        headMessageGate?.countDown()
         // A dialog left open by a failed test would block the next one.
         repeat(3) {
             val pane = shownDialog() ?: return@repeat
