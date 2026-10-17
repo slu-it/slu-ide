@@ -18,14 +18,18 @@ service): tests of parallel modules on one display took each other's window focu
 
 ## Writing UI tests
 - Use `@ExtendWith(ApplicationExtension::class)`, build the real component in a `@Start` method, and inspect it
-  through the scene graph (`robot.lookup(".tree-cell")`). Examples: `FileExplorerViewUiTest`, `MainWindowUiTest`.
+  through the scene graph (`robot.lookup(".tree-cell")`). Examples: `FileExplorerViewUiTest`, `MainWindowProjectUiTest`.
 - Change state via `robot.interact { ... }` followed by `WaitForAsyncUtils.waitForFxEvents()`, not via synthetic
   mouse/keyboard input. Synthetic input needs OS permissions on macOS and is flaky on virtual displays.
 - To test real mouse handling (e.g. a press that must not reach a parent), fire `MouseEvent`s at the node with
-  `Event.fireEvent` instead of calling `Button.fire()`, which skips the mouse handlers. Example: `EditorAreaUiTest`.
+  `Event.fireEvent` instead of calling `Button.fire()`, which skips the mouse handlers. Example: `fireMouse` in `EditorAreaUiFixture`.
 - `lookup(...).queryAllAs(...)` returns nodes in no particular order; sort (e.g. by `TreeCell.index`) before asserting.
 - Native dialogs (`DirectoryChooser`) cannot be driven by TestFX; test the logic behind them (`ProjectService`).
 - Keep logic out of controls so most behavior stays in fast unit tests.
+- Large UI test subjects are split by topic: an abstract `<Subject>UiFixture` (fake sources, `@AfterEach`, helpers) and one
+  `<Subject><Topic>UiTest` per topic (`GitLogView*`, `GitLogWrites*`, `EditorArea*`, `MainWindow*`). ApplicationExtension
+  only finds `@Start` on the test class itself, so each topic class declares `@Start` and calls the fixture's `startView`.
+  Read the fixture and the one topic class you work on.
 
 ## Running and screenshotting the real app (headless Linux sandbox)
 ```bash
