@@ -12,6 +12,7 @@ import dev.sluide.git.GitLog
 import dev.sluide.git.GitPendingOperation
 import dev.sluide.git.GitPendingPick
 import dev.sluide.git.GitPick
+import dev.sluide.git.GitPush
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
@@ -114,10 +115,16 @@ class GitLogView internal constructor(
 ) : BorderPane(),
     AutoCloseable {
     @Autowired
-    constructor(gitLog: GitLog, gitBranches: GitBranches, gitCommits: GitCommits, gitRemotes: GitRemotes) : this(
-        GitLogCliSource(gitLog, gitRemotes, gitCommits),
+    constructor(
+        gitLog: GitLog,
+        gitBranches: GitBranches,
+        gitCommits: GitCommits,
+        gitRemotes: GitRemotes,
+        gitPush: GitPush,
+    ) : this(
+        GitLogCliSource(gitLog, gitRemotes, gitCommits, gitPush),
         Platform::runLater,
-        GitLogCliWrites(gitBranches, gitCommits, gitRemotes),
+        GitLogCliWrites(gitBranches, gitCommits, gitRemotes, gitPush),
     )
 
     private val executor =

@@ -10,6 +10,7 @@ import dev.sluide.git.GitFetchResult
 import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitPickResult
+import dev.sluide.git.GitPushResult
 import dev.sluide.git.GitResetMode
 import dev.sluide.git.GitResult
 import dev.sluide.git.GitUncheckedConflict
@@ -265,6 +266,37 @@ internal class FakeWrites : GitLogWrites {
         val paths = files.joinToString(",") { it.path }
         val result = call("commit$option $paths|${untracked.joinToString(",")}: ${message.replace("\n", "\\n")}")
         return GitCommitResult(result, if (result.success) committed else null)
+    }
+
+    /** What a push gives, by its line, unless it was cancelled. */
+    @Volatile
+    var pushResult: (String) -> GitPushResult = { GitPushResult(GitResult(true, "")) }
+
+    /**
+     * Records `push [-u] [--force-with-lease=<target>:<expected>] <remote> <branch>:<target>` and answers with
+     * [pushResult]; waits for the [gate] like a fetch, ending as soon as it is cancelled.
+     */
+    override fun push(
+        root: Path,
+        remote: String,
+        branch: String,
+        target: String,
+        force: Boolean,
+        expected: String?,
+        setUpstream: Boolean,
+        cancellation: GitCancellation,
+    ): GitPushResult {
+        threads += Thread.currentThread().name
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
+        while (gate?.await(10, TimeUnit.MILLISECONDS) == false && !cancellation.cancelled) {
+            if (System.nanoTime() > deadline) break
+        }
+        val upstream = if (setUpstream) "-u " else ""
+        val lease = if (force) "--force-with-lease=$target:${expected.orEmpty()} " else ""
+        val line = "push $upstream$lease$remote $branch:$target"
+        calls += line
+        if (cancellation.cancelled) return GitPushResult(GitResult(false, "Cancelled."), cancelled = true)
+        return pushResult(line)
     }
 
     companion object {

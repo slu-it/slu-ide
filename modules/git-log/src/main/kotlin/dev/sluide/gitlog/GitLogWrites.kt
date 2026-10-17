@@ -11,6 +11,8 @@ import dev.sluide.git.GitFetchResult
 import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitPickResult
+import dev.sluide.git.GitPush
+import dev.sluide.git.GitPushResult
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitResetMode
 import dev.sluide.git.GitResult
@@ -18,8 +20,8 @@ import dev.sluide.git.GitUncheckedConflict
 import java.nio.file.Path
 
 /**
- * How the git log changes a repository (ADRs 0041, 0042, 0043); [GitBranches], [GitCommits] and [GitRemotes] in the
- * application, a fake in tests. Called off the FX thread, except [canPass].
+ * How the git log changes a repository (ADRs 0041, 0042, 0043, 0049); [GitBranches], [GitCommits], [GitRemotes] and
+ * [GitPush] in the application, a fake in tests. Called off the FX thread, except [canPass].
  */
 internal interface GitLogWrites {
     /** Whether [argument] can be passed to git unchanged in the JVM's locale. */
@@ -167,6 +169,22 @@ internal interface GitLogWrites {
         amend: Boolean,
         cancellation: GitCancellation,
     ): GitCommitResult
+
+    /**
+     * Pushes the local [branch] to the [target] branch of [remote] (ADR 0049); with [force] only if the remote branch
+     * is at [expected] (a full hash, `null`: it must not exist); [setUpstream] makes the target the branch's upstream;
+     * [cancellation] stops git.
+     */
+    fun push(
+        root: Path,
+        remote: String,
+        branch: String,
+        target: String,
+        force: Boolean,
+        expected: String?,
+        setUpstream: Boolean,
+        cancellation: GitCancellation,
+    ): GitPushResult
 }
 
 /** Changes the repository with the git command line. */
@@ -174,6 +192,7 @@ internal class GitLogCliWrites(
     private val branches: GitBranches,
     private val commits: GitCommits,
     private val gitRemotes: GitRemotes,
+    private val gitPush: GitPush,
 ) : GitLogWrites {
     override fun canPass(argument: String) = branches.canPass(argument)
 
@@ -291,4 +310,15 @@ internal class GitLogCliWrites(
         amend: Boolean,
         cancellation: GitCancellation,
     ) = commits.commit(root, message, files, untracked, amend, cancellation)
+
+    override fun push(
+        root: Path,
+        remote: String,
+        branch: String,
+        target: String,
+        force: Boolean,
+        expected: String?,
+        setUpstream: Boolean,
+        cancellation: GitCancellation,
+    ) = gitPush.push(root, remote, branch, target, force, expected, setUpstream, cancellation)
 }

@@ -13,6 +13,9 @@ import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitLog
 import dev.sluide.git.GitLogFilter
 import dev.sluide.git.GitLogPage
+import dev.sluide.git.GitOutgoing
+import dev.sluide.git.GitPush
+import dev.sluide.git.GitPushTarget
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitRevisionResolution
@@ -137,6 +140,33 @@ internal interface GitLogSource {
 
     /** The full message of `HEAD`, for Amend (ADR 0048); `null` if there is no commit or on failure. */
     fun headMessage(root: Path): String?
+
+    /**
+     * Where the local [branch] (short name) is pushed by default (ADR 0049); `null` without a remote or on failure (or
+     * if not known).
+     */
+    fun pushTarget(
+        root: Path,
+        branch: String,
+    ): GitPushTarget? = null
+
+    /** The full refname of the remote-tracking ref of the [branch] of [remote] (ADR 0049), whether it exists or not. */
+    fun trackingRef(
+        root: Path,
+        remote: String,
+        branch: String,
+    ): String = "refs/remotes/$remote/$branch"
+
+    /**
+     * What pushing `HEAD` to the [branch] of [remote] would send, at most [limit] commits (ADR 0049); `null` without a
+     * commit, for a name git cannot be given, on failure (or if not known).
+     */
+    fun outgoing(
+        root: Path,
+        remote: String,
+        branch: String,
+        limit: Int,
+    ): GitOutgoing? = null
 }
 
 /** Reads with the git command line. */
@@ -144,6 +174,7 @@ internal class GitLogCliSource(
     private val gitLog: GitLog,
     private val gitRemotes: GitRemotes,
     private val gitCommits: GitCommits,
+    private val gitPush: GitPush,
 ) : GitLogSource {
     override fun page(
         root: Path,
@@ -226,4 +257,22 @@ internal class GitLogCliSource(
     override fun headCommit(root: Path) = gitCommits.headCommit(root)
 
     override fun headMessage(root: Path) = gitCommits.headMessage(root)
+
+    override fun pushTarget(
+        root: Path,
+        branch: String,
+    ) = gitPush.pushTarget(root, branch)
+
+    override fun trackingRef(
+        root: Path,
+        remote: String,
+        branch: String,
+    ) = gitPush.trackingRef(root, remote, branch)
+
+    override fun outgoing(
+        root: Path,
+        remote: String,
+        branch: String,
+        limit: Int,
+    ) = gitPush.outgoing(root, remote, branch, limit)
 }
