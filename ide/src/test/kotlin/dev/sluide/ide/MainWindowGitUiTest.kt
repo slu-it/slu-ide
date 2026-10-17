@@ -1,0 +1,400 @@
+package dev.sluide.ide
+
+import dev.sluide.editor.EditorTab
+import dev.sluide.git.GitChange
+import dev.sluide.git.GitHunk
+import dev.sluide.git.GitStatus
+import dev.sluide.gitlog.WorkingTreeFileDiff
+import javafx.beans.property.SimpleStringProperty
+import javafx.event.Event
+import javafx.geometry.Orientation
+import javafx.scene.Node
+import javafx.scene.control.Button
+import javafx.scene.control.Label
+import javafx.scene.control.TableView
+import javafx.scene.control.TreeView
+import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyCodeCombination
+import javafx.scene.input.KeyCombination
+import javafx.scene.input.KeyEvent
+import javafx.scene.layout.Region
+import javafx.stage.Stage
+import org.fxmisc.richtext.CodeArea
+import org.junit.jupiter.api.Assumptions.assumeTrue
+import org.junit.jupiter.api.Tag
+import org.junit.jupiter.api.extension.ExtendWith
+import org.testfx.api.FxRobot
+import org.testfx.framework.junit5.ApplicationExtension
+import org.testfx.framework.junit5.Start
+import org.testfx.util.WaitForAsyncUtils
+import kotlin.io.path.createFile
+import kotlin.io.path.name
+import kotlin.io.path.writeText
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertSame
+import kotlin.test.assertTrue
+
+/** UI tests of the main window: the git log and the diffs of changed files. Needs a display, see the `uiTest` Gradle task. */
+@Tag("ui")
+@ExtendWith(ApplicationExtension::class)
+class MainWindowGitUiTest : MainWindowUiFixture() {
+    @Start
+    fun start(stage: Stage) = startView(stage)
+
+    @Test
+    fun `a git repository has the git log under the editor area, collapsed to its header until View - Git Log`(
+        robot: FxRobot,
+    ) {
+        assumeTrue(git.available, "git is not installed")
+        runGit("init", "-q")
+        project.resolve("tracked.md").writeText("one")
+        runGit("add", ".")
+        runGit("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "-m", "Initial commit")
+        val gitLogItem = menu(robot, "View").items.single { it.text == "Git Log" }
+        assertTrue(gitLogItem.isDisable, "no folder, no git log")
+
+        robot.interact {
+            projectService.open(project)
+            editorArea.open(project.resolve("tracked.md"))
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        // The explorer split stays the outer one and still gets its start width.
+        assertEquals(fileExplorer.startWidth(), fileExplorer.width, DIVIDER_SLACK)
+
+        val accelerator = gitLogItem.accelerator as KeyCodeCombination
+        assertEquals(KeyCode.DIGIT9, accelerator.code)
+        val mac = System.getProperty("os.name").startsWith("Mac")
+        assertEquals(
+            if (mac) KeyCombination.ModifierValue.DOWN else KeyCombination.ModifierValue.UP,
+            accelerator.shortcut,
+        )
+        assertEquals(if (mac) KeyCombination.ModifierValue.UP else KeyCombination.ModifierValue.DOWN, accelerator.alt)
+        assertFalse(gitLogItem.isDisable)
+        val logSplit = splitPaneOf(gitLogView)
+        assertEquals(Orientation.VERTICAL, logSplit.orientation)
+        assertEquals(listOf<Node>(editorArea, gitLogView), logSplit.items)
+        assertEquals(listOf<Node>(fileExplorer, logSplit), splitPaneOf(fileExplorer).items)
+        val header = robot.lookup(".git-log-header").queryAs(Region::class.java)
+        assertTrue(header.height > 0)
+        assertEquals(header.height, gitLogView.height, 1.0, "collapsed to its header")
+        assertTrue(robot.lookup(".git-log-table").tryQuery<Node>().isEmpty)
+
+        robot.interact { gitLogItem.fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(0.3 * logSplit.height, gitLogView.height, DIVIDER_SLACK + 4, "the lower 30 %")
+        val table = robot.lookup(".git-log-table").queryAs(TableView::class.java)
+        assertSame<Node?>(table, stage.scene.focusOwner)
+        eventually(robot) { assertEquals(listOf("Initial commit"), shownSubjects(robot)) }
+
+        // A commit changes the .git folder, which reloads the expanded log.
+        runGit(
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.com",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "Second",
+        )
+        eventually(robot) {
+            assertEquals(listOf("Second", "Initial commit"), shownSubjects(robot))
+        }
+
+        // The window's height goes to the editor area.
+        val expandedHeight = gitLogView.height
+        robot.interact { stage.height -= 100 }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(expandedHeight, gitLogView.height, DIVIDER_SLACK)
+
+        // Collapsing gives the focus back to the editor and pins the log to its header.
+        robot.interact { logSplit.setDividerPositions(0.5) }
+        WaitForAsyncUtils.waitForFxEvents()
+        val dragged = gitLogView.height
+        assertTrue(dragged > expandedHeight + 50, "dragged from $expandedHeight to $dragged")
+        robot.interact { gitLogItem.fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(header.height, gitLogView.height, 1.0, "collapsed again")
+        val editorContent = editorArea.selectedTab?.content
+        val focused = stage.scene.focusOwner
+        assertTrue(
+            editorContent != null && generateSequence(focused) { it.parent }.any { it === editorContent },
+            "focus on $focused",
+        )
+        robot.interact { logSplit.setDividerPositions(0.5) }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(header.height, gitLogView.height, 1.0, "the divider of the collapsed log does not move")
+
+        // Expanding again restores the dragged height, also after the window was resized meanwhile.
+        robot.interact { stage.height -= 100 }
+        WaitForAsyncUtils.waitForFxEvents()
+        robot.interact { gitLogItem.fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(dragged, gitLogView.height, DIVIDER_SLACK)
+    }
+
+    @Test
+    fun `Show Diff in the git log opens what a commit changed in a tab once, Open Local File opens the file`(
+        robot: FxRobot,
+    ) {
+        assumeTrue(git.available, "git is not installed")
+        val commit = arrayOf("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q")
+        runGit("init", "-q")
+        project.resolve("tracked.md").writeText("one\ntwo\n")
+        runGit("add", ".")
+        runGit(*commit, "-m", "Initial commit")
+        val parent = runGit("rev-parse", "HEAD")
+        project.resolve("tracked.md").writeText("one\nTWO\n")
+        runGit(*commit, "-am", "Change")
+        val changed = runGit("rev-parse", "HEAD")
+
+        robot.interact {
+            projectService.open(project)
+            gitLogView.expanded.set(true)
+        }
+        eventually(robot) { assertEquals(listOf("Change", "Initial commit"), shownSubjects(robot)) }
+        val table = robot.lookup(".git-log-table").queryAs(TableView::class.java)
+        robot.interact { table.selectionModel.clearAndSelect(0) }
+        val tree = robot.lookup(".git-changes-tree").queryAs(TreeView::class.java)
+        eventually(robot) { assertEquals(1, tree.expandedItemCount) }
+        robot.interact { tree.selectionModel.clearAndSelect(0) }
+
+        fun press(code: KeyCode) {
+            robot.interact {
+                Event.fireEvent(
+                    tree,
+                    KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, false, false, false),
+                )
+            }
+            WaitForAsyncUtils.waitForFxEvents()
+        }
+        press(KeyCode.ENTER)
+        eventually(robot) { assertTrue(editorArea.selectedTab is CommitDiffTab) }
+        val tab = editorArea.selectedTab as CommitDiffTab
+        assertEquals("tracked.md (${changed.take(8)})", tab.title.value)
+        assertEquals("tracked.md at ${changed.take(8)}", tab.tooltip)
+        val areas =
+            robot
+                .lookup(".editor-content .code-area")
+                .queryAllAs(CodeArea::class.java)
+                .sortedBy { it.localToScene(0.0, 0.0).x }
+        assertEquals(listOf("one\ntwo", "one\nTWO"), areas.map { it.text })
+        assertEquals(
+            listOf(parent.take(8), changed.take(8)),
+            robot
+                .lookup(".editor-content .diff-title")
+                .queryAllAs(Label::class.java)
+                .sortedBy { it.localToScene(0.0, 0.0).x }
+                .map { it.text },
+        )
+        assertTrue(robot.lookup(".editor-content .diff-back").queryAs(Button::class.java).let { !it.isVisible })
+
+        // F4: the file as it is now, in its own tab.
+        press(KeyCode.F4)
+        assertEquals(project.resolve("tracked.md"), editorArea.selectedPath)
+
+        // Shown again: the same tab.
+        press(KeyCode.ENTER)
+        eventually(robot) { assertSame(tab, editorArea.selectedTab) }
+        assertEquals(1, editorArea.tabs.count { it is CommitDiffTab })
+        assertEquals(2, editorArea.tabs.size)
+    }
+
+    @Test
+    fun `a diff with the working tree opens in a tab once, with the file on disk on the right`(robot: FxRobot) {
+        val file = project.resolve("tracked.md").apply { writeText("one\nTWO\n") }
+        val commit = "1a2b3c4d".repeat(5)
+        val diff =
+            WorkingTreeFileDiff(
+                project,
+                "tracked.md",
+                null,
+                GitChange.MODIFIED,
+                commit,
+                "feature",
+                "one\ntwo\n",
+                // Read with the diff; the tab shows the file as it is on disk.
+                "one\nstale\n",
+                listOf(GitHunk(1 until 2, 1 until 2)),
+            )
+
+        fun areas() =
+            robot
+                .lookup(".editor-content .code-area")
+                .queryAllAs(CodeArea::class.java)
+                .sortedBy { it.localToScene(0.0, 0.0).x }
+                .map { it.text }
+
+        fun titles() =
+            robot
+                .lookup(".editor-content .diff-title")
+                .queryAllAs(Label::class.java)
+                .sortedBy { it.localToScene(0.0, 0.0).x }
+                .map { it.text }
+
+        robot.interact { assertTrue(gitLogView.onShowWorkingTreeDiff(diff)) }
+        val tab = editorArea.selectedTab as WorkingTreeDiffTab
+        assertEquals("tracked.md (feature ↔ Working Tree)", tab.title.value)
+        assertEquals("tracked.md: feature (1a2b3c4d) ↔ Working Tree", tab.tooltip)
+        assertEquals(listOf("one\ntwo", "one\nTWO"), areas())
+        assertEquals(listOf("feature (1a2b3c4d)", "Working Tree"), titles())
+
+        // Again: the same tab, which reads the file again.
+        file.writeText("one\nTwo\n")
+        robot.interact { assertTrue(gitLogView.onShowWorkingTreeDiff(diff)) }
+        assertSame(tab, editorArea.selectedTab)
+        assertEquals(1, editorArea.tabs.size)
+        assertEquals(listOf("one\ntwo", "one\nTwo"), areas())
+
+        // A deleted file: nothing on the right.
+        val deleted =
+            diff.copy(
+                path = "gone.md",
+                change = GitChange.DELETED,
+                current = "",
+                hunks =
+                    listOf(
+                        GitHunk(0 until 2, 0 until 0),
+                    ),
+            )
+        robot.interact { assertTrue(gitLogView.onShowWorkingTreeDiff(deleted)) }
+        assertEquals(2, editorArea.tabs.size)
+        assertEquals(listOf("one\ntwo", "\n"), areas(), "filler rows on the right")
+        assertEquals(listOf("feature (1a2b3c4d)", "Working Tree (deleted)"), titles())
+        val deletedTab = editorArea.selectedTab
+
+        // Back in the working tree: the same tab shows it read again, now with the file on disk.
+        project.resolve("gone.md").writeText("one\nthree\n")
+        val restored =
+            deleted.copy(
+                change = GitChange.MODIFIED,
+                current = "",
+                hunks =
+                    listOf(
+                        GitHunk(
+                            1 until 2,
+                            1 until 2,
+                        ),
+                    ),
+            )
+        robot.interact { assertTrue(gitLogView.onShowWorkingTreeDiff(restored)) }
+        assertSame(deletedTab, editorArea.selectedTab)
+        assertEquals(2, editorArea.tabs.size)
+        assertEquals(listOf("one\ntwo", "one\nthree"), areas())
+        assertEquals(listOf("feature (1a2b3c4d)", "Working Tree"), titles())
+
+        // Unsaved changes in an editor: the right side is the file as saved.
+        robot.interact {
+            editorArea.open(file)
+            shownArea(robot).appendText("unsaved")
+        }
+        robot.interact { assertTrue(gitLogView.onShowWorkingTreeDiff(diff)) }
+        assertSame(tab, editorArea.selectedTab)
+        assertEquals(listOf("feature (1a2b3c4d)", "Working Tree (saved)"), titles())
+    }
+
+    @Test
+    fun `folders that are no git repository have no git log`(robot: FxRobot) {
+        assertTrue(robot.lookup(".git-log").tryQuery<Node>().isEmpty, "no folder")
+        project.resolve("README.md").createFile()
+
+        robot.interact { projectService.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertTrue(robot.lookup(".git-log").tryQuery<Node>().isEmpty)
+        assertEquals(listOf<Node>(fileExplorer, editorArea), splitPaneOf(editorArea).items)
+        assertTrue(menu(robot, "View").items.single { it.text == "Git Log" }.isDisable)
+    }
+
+    @Test
+    fun `modified files open in the editor with their changes against HEAD marked`(robot: FxRobot) {
+        assumeTrue(git.available, "git is not installed")
+        runGit("init", "-q")
+        project.resolve("tracked.md").writeText("one\ntwo\n")
+        runGit("add", ".")
+        runGit("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "-m", "Initial commit")
+        project.resolve("tracked.md").writeText("one\nTWO\nthree\n")
+        project.resolve("new.md").writeText("new\n")
+
+        robot.interact { projectService.open(project) }
+        eventually(robot) {
+            assertEquals(GitStatus.MODIFIED, gitStatus.snapshot.get().fileStatus(project.resolve("tracked.md")))
+        }
+
+        fun showsDiff() = robot.lookup(".editor-content .diff-view").tryQuery<Node>().isPresent
+        robot.interact { editorArea.open(project.resolve("new.md")) }
+        assertEquals(emptyMap(), shownMarkers(robot), "untracked files are new as a whole")
+        robot.interact { editorArea.open(project.resolve("tracked.md")) }
+        assertFalse(showsDiff())
+        assertEquals(mapOf(2 to "diff-modified", 3 to "diff-modified"), shownMarkers(robot))
+
+        runGit("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "-am", "Change")
+        eventually(robot) { assertEquals(emptyMap(), shownMarkers(robot), "clean files have no markers") }
+        assertEquals(project.resolve("tracked.md"), editorArea.selectedPath)
+
+        // Changed again on disk: the editor asks for the diff as soon as the status changes.
+        project.resolve("tracked.md").writeText("one\nTWO\nfour\n")
+        eventually(robot) { assertEquals(mapOf(3 to "diff-modified"), shownMarkers(robot)) }
+        assertFalse(showsDiff())
+    }
+
+    @Test
+    fun `View - Show Changes with Shortcut+Shift+D switches between the editor and the diff against HEAD`(
+        robot: FxRobot,
+    ) {
+        assumeTrue(git.available, "git is not installed")
+        runGit("init", "-q")
+        project.resolve("tracked.md").writeText("one\ntwo\n")
+        runGit("add", ".")
+        runGit("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "-m", "Initial commit")
+        project.resolve("tracked.md").writeText("one\nTWO\n")
+        project.resolve("new.md").writeText("new\n")
+        robot.interact { projectService.open(project) }
+        eventually(robot) {
+            assertEquals(GitStatus.MODIFIED, gitStatus.snapshot.get().fileStatus(project.resolve("tracked.md")))
+        }
+        val showChanges = menu(robot, "View").items.single { it.text == "Show Changes" }
+        val accelerator = showChanges.accelerator as KeyCodeCombination
+        assertEquals(KeyCode.D, accelerator.code)
+        assertEquals(KeyCombination.ModifierValue.DOWN, accelerator.shortcut)
+        assertEquals(KeyCombination.ModifierValue.DOWN, accelerator.shift)
+
+        fun diffTitles() = robot.lookup(".editor-content .diff-title").queryAllAs(Label::class.java).map { it.text }
+        robot.interact { editorArea.open(project.resolve("new.md")) }
+        assertTrue(showChanges.isDisable, "untracked files have no diff")
+        robot.interact { editorArea.open(project.resolve("tracked.md")) }
+        assertFalse(showChanges.isDisable)
+
+        val mac = System.getProperty("os.name").startsWith("Mac")
+        robot.interact {
+            Event.fireEvent(
+                shownArea(robot),
+                KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.D, true, !mac, false, mac),
+            )
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(setOf("HEAD", "Working Tree"), diffTitles().toSet())
+
+        robot.interact { showChanges.fire() }
+        assertEquals(emptyList(), diffTitles())
+
+        // Other tabs, e.g. terminals, have no changes to show; switching back enables it again.
+        robot.interact {
+            editorArea.open(
+                object : EditorTab {
+                    override val title = SimpleStringProperty("Terminal 1")
+                    override val tooltip = "Terminal 1"
+                    override val content = Label()
+                },
+            )
+        }
+        assertTrue(showChanges.isDisable)
+        robot.interact { editorArea.open(project.resolve("new.md")) }
+        assertTrue(showChanges.isDisable)
+        robot.interact { editorArea.open(project.resolve("tracked.md")) }
+        assertFalse(showChanges.isDisable)
+    }
+}
