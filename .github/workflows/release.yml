@@ -33,8 +33,9 @@ jobs:
       - name: Install virtual display
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y xvfb
+      # UI tests run on Linux only, as in CI: on macOS they take about 30 minutes (macos-ui-tests.yml runs them).
       - name: Publish ide fat jar
-        run: ${{ runner.os == 'Linux' && 'xvfb-run -a ' || '' }}./gradlew build :ide:publishFatJarPublicationToGitHubPackagesRepository -PreleaseVersion="${GITHUB_REF_NAME#v}"
+        run: ${{ runner.os == 'Linux' && 'xvfb-run -a ' || '' }}./gradlew build ${{ runner.os == 'macOS' && '-x uiTest ' || '' }}:ide:publishFatJarPublicationToGitHubPackagesRepository -PreleaseVersion="${GITHUB_REF_NAME#v}"
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

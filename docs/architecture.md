@@ -98,7 +98,8 @@ assembled from Gradle modules.
 ## Build and release
 - **CI** (`.github/workflows/ci.yml`): `./gradlew build --continue` on Linux, without `uiTest` on macOS, for every push to `main`/`master` and every PR.
 - **Release** (`.github/workflows/release.yml`): pushing a tag `vX.Y.Z` publishes `dev.sluide:ide-<os>-<arch>:X.Y.Z`
-  (the fat jar) to https://maven.pkg.github.com/slu-it/slu-ide. The version comes from the tag via `-PreleaseVersion`.
+  (the fat jar) to https://maven.pkg.github.com/slu-it/slu-ide after `./gradlew build` (without `uiTest` on macOS).
+  The version comes from the tag via `-PreleaseVersion`.
   Platforms: linux-x64, linux-aarch64, mac-aarch64 ([ADR 0003](adr/0003-javafx-platform-jars.md)).
   The macOS job also attaches `Thoreau-X.Y.Z-mac-aarch64.dmg` to the GitHub release
   ([ADR 0011](adr/0011-native-app-packaging.md)).
