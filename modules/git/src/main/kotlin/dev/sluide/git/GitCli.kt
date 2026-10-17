@@ -4,6 +4,8 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
 import java.nio.charset.Charset
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
@@ -12,6 +14,7 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.nanoseconds
@@ -110,7 +113,7 @@ class GitCli(
     ): String? {
         if (!available) return null
         // Revisions and paths go to git's standard input, so they reach it as UTF-8 whatever the JVM's locale.
-        val input = logInput(filter.revisions, filter.paths) ?: return null
+        val input = logInput(filter.revisions, filter.paths, filter.excluded) ?: return null
         val arguments =
             buildList {
                 addAll(globalLogOptions(filter))
@@ -125,11 +128,9 @@ class GitCli(
                     add("--ignore-missing")
                 }
                 add(if (filter.order == GitLogOrder.TOPOLOGICAL) "--topo-order" else "--date-order")
-                if (filter.firstParent) add("--first-parent")
-                if (filter.noMerges) add("--no-merges")
+                addAll(limitingOptions(filter))
                 // %P then gives the parents as rewritten for the paths: the nearest commits shown.
                 if (filter.paths.isNotEmpty()) add("--parents")
-                addAll(patterns(filter.text.trim(), filter.regex, filter.matchCase, filter.users))
                 if (input.isNotEmpty()) add("--stdin")
                 addAll(logOutputOptions())
                 add("--skip=$skip")
@@ -496,12 +497,156 @@ class GitCli(
     }
 
     /**
+     * How many commits that pass [filter] (its text, users, paths, first parents only and no merges; not its revisions)
+     * are reachable from [left] but not from [right], and the other way round (ADR 0044): `git log --left-right
+     * --format=%m` with the limiting options of [log] (`rev-list --count` does not take `--use-mailmap`), the symmetric
+     * range `<left>...<right>` and the paths on the standard input, so that they reach git as UTF-8 whatever the JVM's
+     * locale. `null` if git is not available, fails (also for a revision that names no commit) or takes longer than
+     * 10 s, or for revisions and paths as [log] refuses them.
+     */
+    internal fun comparisonCounts(
+        root: Path,
+        left: String,
+        right: String,
+        filter: GitLogFilter = GitLogFilter(),
+    ): Pair<Int, Int>? {
+        if (!available) return null
+        val input = logInput(listOf("$left...$right"), filter.paths) ?: return null
+        val arguments =
+            globalLogOptions(filter) +
+                listOf("log", "--left-right") +
+                limitingOptions(filter) +
+                listOf("--use-mailmap", "--no-color", "--format=%m", "--stdin", "--")
+        val marks = runBytes(arguments, root, 10.seconds, input)?.toString(Charsets.UTF_8) ?: return null
+        return marks.count { it == '<' } to marks.count { it == '>' }
+    }
+
+    /**
+     * The content of the blob [name] (a full object name) with the filters (line endings, smudge) a checkout of it at
+     * [path] would apply (ADR 0044): `git cat-file --batch --filters`, the name and path on the standard input, so the
+     * path reaches git as UTF-8 whatever the JVM's locale. A smudge filter (e.g. git-lfs) may make it much larger than
+     * the stored blob: above [maxSize] bytes the reading stops, git and the filter are killed, and the result is
+     * [FilteredBlob.TooLarge]. Git holds a filter's whole output before it writes any of it, so a filter that does not
+     * end (or fetches over the network) is only stopped by the timeout. `null` if git is not available, fails or takes
+     * longer than 10 s, or for a path with a line break.
+     */
+    internal fun filteredBlob(
+        root: Path,
+        name: String,
+        path: String,
+        maxSize: Long,
+    ): FilteredBlob? {
+        if (!available || '\n' in path) return null
+        // The path is what follows the object name; the size git prints is the one before the filters.
+        val input = "$name $path\n".toByteArray(Charsets.UTF_8)
+        val arguments = listOf("--no-optional-locks", "cat-file", "--batch", "--filters")
+        // The header line, the content and a line break.
+        val limit = maxSize + name.length + BLOB_HEADER_SLACK
+        val execution =
+            execute(arguments, root, 10.seconds, input, write = false, maxOutput = limit) ?: return null
+        if (execution.overflowed) return FilteredBlob.TooLarge
+        if (execution.exitValue != 0 || !execution.complete) return null
+        val output = execution.output
+        val header = output.indexOf('\n'.code.toByte())
+        if (header < 0 || output.size < header + 2 || output.last() != '\n'.code.toByte()) return null
+        val line = output.copyOfRange(0, header).toString(Charsets.UTF_8)
+        if (!line.startsWith("$name blob ")) return null
+        val content = output.copyOfRange(header + 1, output.size - 1)
+        return if (content.size > maxSize) FilteredBlob.TooLarge else FilteredBlob.Content(content)
+    }
+
+    /**
+     * The output of `git diff -z --name-status -M` between [commit] (a full object name) and the working tree at [root]
+     * (ADR 0044), for the tracked files (see [GitNameStatusParser]); `null` if git is not available, fails or takes
+     * longer than 10 s.
+     */
+    internal fun workingTreeChanges(
+        root: Path,
+        commit: String,
+    ): String? {
+        if (!available) return null
+        val arguments =
+            listOf(
+                "--no-optional-locks",
+                "diff",
+                "-z",
+                "--name-status",
+                "-M",
+                "--no-color",
+                "--no-ext-diff",
+                commit,
+                "--",
+            )
+        return run(arguments, root, 10.seconds)
+    }
+
+    /**
+     * The output of `git diff --no-index --text -U0` from the file [original] to the file [current] in [folder] (plain
+     * names relative to it; see [GitDiffParser]), the texts compared as they are (ADR 0044): run in [folder], with the
+     * parent folders not searched for a repository, no attributes (an empty `core.attributesFile`, no system ones) and
+     * no line-ending conversion, as the texts are both in their checkout form already. [algorithm] is the
+     * `diff.algorithm` to use, e.g. the repository's. `null` if git is not available, fails (also exit value 1 without a
+     * hunk, which is how it fails to read a file) or takes longer than 10 s.
+     */
+    internal fun diffFiles(
+        folder: Path,
+        original: String,
+        current: String,
+        algorithm: String?,
+    ): String? {
+        if (!available) return null
+        val noAttributes = folder.resolve("attributes")
+        try {
+            Files.write(noAttributes, ByteArray(0))
+        } catch (_: IOException) {
+            return null
+        }
+        val arguments =
+            buildList {
+                addAll(listOf("--no-optional-locks", "-c", "core.autocrlf=false", "-c", "core.eol=lf"))
+                addAll(listOf("-c", "core.attributesFile=attributes"))
+                if (algorithm != null) addAll(listOf("-c", "diff.algorithm=$algorithm"))
+                addAll(listOf("diff", "--no-index", "--text", "--no-color", "--no-ext-diff", "--no-textconv", "-U0"))
+                addAll(listOf("--", original, current))
+            }
+        val outside =
+            listOfNotNull(
+                folder
+                    .toAbsolutePath()
+                    .parent
+                    ?.toString()
+                    ?.let { "GIT_CEILING_DIRECTORIES" to it },
+                "GIT_ATTR_NOSYSTEM" to "1",
+            ).toMap()
+        val execution = execute(arguments, folder, 10.seconds, null, write = false, outside) ?: return null
+        if (!execution.complete) return null
+        val output = execution.output.toString(Charsets.UTF_8)
+        // Without an index, git exits with 1 when the files differ, but also when it cannot read one.
+        return when (execution.exitValue) {
+            0 -> output
+            1 -> output.takeIf { it.contains("\n@@ ") }
+            else -> null
+        }
+    }
+
+    /**
      * Options of git itself for a log with [filter]: paths are literal paths, not patterns; `log.follow` of the
      * user's configuration would make a single path follow renames, with parents that are not rewritten.
      */
     private fun globalLogOptions(filter: GitLogFilter): List<String> =
         listOf("--no-optional-locks", "-c", "log.follow=false") +
             if (filter.paths.isEmpty()) emptyList() else listOf("--literal-pathspecs")
+
+    /**
+     * The options of a log that limit its commits beyond its revisions (ADR 0039): first parents only, no merges, the
+     * text and the users; shared by [log] and [comparisonCounts], so that the counts match the list.
+     */
+    private fun limitingOptions(filter: GitLogFilter): List<String> =
+        buildList {
+            if (filter.firstParent) add("--first-parent")
+            if (filter.noMerges) add("--no-merges")
+            addAll(patterns(filter.text.trim(), filter.regex, filter.matchCase, filter.users))
+        }
 
     /** The format of the commits [GitLogParser] reads. */
     private fun logOutputOptions() =
@@ -518,17 +663,21 @@ class GitCli(
         )
 
     /**
-     * The standard input of a log for [revisions] and [paths]: one revision per line, then `--` and one path per
-     * line; empty without either. `null` if one has a line break (git would read two) or a revision starts with `-`
-     * (git would read an option), or if it is larger than [MAX_INPUT] (see there).
+     * The standard input of a log for [revisions], [excluded] revisions and [paths]: one revision per line, the
+     * excluded ones as `^<rev>` (ADR 0044), then `--` and one path per line; empty without any. `null` if one has a line
+     * break (git would read two) or a revision starts with `-` (git would read an option), or if it is larger than
+     * [MAX_INPUT] (see there).
      */
     private fun logInput(
         revisions: List<String>,
         paths: List<String>,
+        excluded: List<String> = emptyList(),
     ): ByteArray? {
-        if ((revisions + paths).any { '\n' in it } || revisions.any { it.startsWith('-') }) return null
-        if (revisions.isEmpty() && paths.isEmpty()) return ByteArray(0)
-        val lines = revisions + if (paths.isEmpty()) emptyList() else listOf("--") + paths
+        val allRevisions = revisions + excluded
+        if ((allRevisions + paths).any { '\n' in it } || allRevisions.any { it.startsWith('-') }) return null
+        if (allRevisions.isEmpty() && paths.isEmpty()) return ByteArray(0)
+        val lines =
+            revisions + excluded.map { "^$it" } + if (paths.isEmpty()) emptyList() else listOf("--") + paths
         val input = lines.joinToString("") { "$it\n" }.toByteArray(Charsets.UTF_8)
         return input.takeIf { it.size <= MAX_INPUT }
     }
@@ -900,7 +1049,8 @@ class GitCli(
      * The input is written before the timeout starts and the write waits while git does not read, so it must be small:
      * a few lines, well below the pipe's buffer, or read by git at once (a tag message). [environment] is added to the
      * one of the processes. A [cancellation] stops git as the timeout does, unless git has ended by then; one before git
-     * starts keeps it from starting.
+     * starts keeps it from starting. With [maxOutput], git and what it started are killed as soon as it writes more
+     * than that many bytes, and the result says it [overflowed][Execution.overflowed].
      */
     private fun execute(
         arguments: List<String>,
@@ -910,6 +1060,7 @@ class GitCli(
         write: Boolean,
         environment: Map<String, String> = emptyMap(),
         cancellation: GitCancellation? = null,
+        maxOutput: Long? = null,
     ): Execution? {
         if (cancellation?.cancelled == true) return Execution(null, ByteArray(0), ByteArray(0), false, cancelled = true)
         val process =
@@ -934,9 +1085,20 @@ class GitCli(
         // Read while git runs, so a large output cannot fill the pipe and block it.
         val output = ByteArrayOutputStream()
         val errors = ByteArrayOutputStream()
+        val overflowed = AtomicBoolean()
         val readers =
             listOfNotNull(
-                Thread.ofVirtual().start { process.inputStream.use { it.transferTo(output) } },
+                Thread.ofVirtual().start {
+                    process.inputStream.use { stream ->
+                        if (maxOutput == null) {
+                            stream.transferTo(output)
+                        } else if (!copyAtMost(stream, output, maxOutput)) {
+                            // More than wanted: no need to wait for the rest, nor for what git started (a filter).
+                            overflowed.set(true)
+                            stop(process, write = false)
+                        }
+                    }
+                },
                 if (write) Thread.ofVirtual().start { process.errorStream.use { it.transferTo(errors) } } else null,
             )
         try {
@@ -974,7 +1136,13 @@ class GitCli(
             return null
         }
         // Copies, synchronized with readers that may still be writing.
-        return Execution(process.exitValue(), output.toByteArray(), errors.toByteArray(), readers.none(Thread::isAlive))
+        return Execution(
+            process.exitValue(),
+            output.toByteArray(),
+            errors.toByteArray(),
+            readers.none(Thread::isAlive),
+            overflowed = overflowed.get(),
+        )
     }
 
     /**
@@ -1025,6 +1193,8 @@ class GitCli(
         val errors: ByteArray,
         val complete: Boolean,
         val cancelled: Boolean = false,
+        /** Git wrote more than the most output asked for, and was killed. */
+        val overflowed: Boolean = false,
     )
 
     internal companion object {
@@ -1057,6 +1227,9 @@ class GitCli(
          * the smallest default pipe buffer (16 KiB on macOS) it never blocks.
          */
         private const val MAX_INPUT = 15 * 1024
+
+        /** Room for the header line of `cat-file --batch` besides the object name, and the line break at the end. */
+        private const val BLOB_HEADER_SLACK = 64L
     }
 }
 
@@ -1078,6 +1251,38 @@ internal fun awaitEnd(
         // Still running, unless it ended just now: told below.
     }
     return !process.isAlive
+}
+
+/**
+ * Copies [input] to [output] up to [limit] bytes; `false` (with [limit] bytes copied) if [input] has more, which are
+ * not read.
+ */
+internal fun copyAtMost(
+    input: InputStream,
+    output: OutputStream,
+    limit: Long,
+): Boolean {
+    val buffer = ByteArray(8192)
+    var copied = 0L
+    while (true) {
+        val read = input.read(buffer)
+        if (read < 0) return true
+        if (copied + read > limit) {
+            output.write(buffer, 0, (limit - copied).toInt())
+            return false
+        }
+        output.write(buffer, 0, read)
+        copied += read
+    }
+}
+
+/** The content of a blob with the filters of a checkout ([GitCli.filteredBlob]), or that it is too large. */
+internal sealed interface FilteredBlob {
+    class Content(
+        val bytes: ByteArray,
+    ) : FilteredBlob
+
+    data object TooLarge : FilteredBlob
 }
 
 /** An unmerged index entry (a conflict): the [path]'s version of [stage] 1 (base), 2 (ours) or 3 (theirs). */

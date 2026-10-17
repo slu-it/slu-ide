@@ -11,15 +11,17 @@ enum class GitLogOrder {
  *
  * [text] matches the whole message (any line), a literal unless [regex] (then a POSIX extended regular expression),
  * ignoring case unless [matchCase]; it is trimmed, empty matches everything. [revisions] are full refnames or `HEAD`,
- * none meaning all branches, remote branches, tags and `HEAD`. [users] are author names or emails, each matching
- * either exactly but ignoring case, after `.mailmap`. [paths] are relative to the root, `/`-separated; a folder
- * includes everything below it.
+ * none meaning all branches, remote branches, tags and `HEAD`. [excluded] are full refnames or `HEAD` whose commits
+ * are left out (`^<rev>`), e.g. to list a range such as the commits of a branch that are not in `HEAD` (ADR 0044).
+ * [users] are author names or emails, each matching either exactly but ignoring case, after `.mailmap`. [paths] are
+ * relative to the root, `/`-separated; a folder includes everything below it.
  */
 data class GitLogFilter(
     val text: String = "",
     val regex: Boolean = false,
     val matchCase: Boolean = false,
     val revisions: List<String> = emptyList(),
+    val excluded: List<String> = emptyList(),
     val users: List<String> = emptyList(),
     val paths: List<String> = emptyList(),
     val order: GitLogOrder = GitLogOrder.DATE,
@@ -27,12 +29,18 @@ data class GitLogFilter(
     val noMerges: Boolean = false,
 ) {
     /**
-     * Whether nothing is filtered: no text, revisions, users or paths, neither first parents only nor no merges. The
-     * order does not count, nor do [regex] and [matchCase] without a text.
+     * Whether nothing is filtered: no text, revisions, excluded revisions, users or paths, neither first parents only
+     * nor no merges. The order does not count, nor do [regex] and [matchCase] without a text.
      */
     val isDefault: Boolean
         get() =
-            text.isBlank() && revisions.isEmpty() && users.isEmpty() && paths.isEmpty() && !firstParent && !noMerges
+            text.isBlank() &&
+                revisions.isEmpty() &&
+                excluded.isEmpty() &&
+                users.isEmpty() &&
+                paths.isEmpty() &&
+                !firstParent &&
+                !noMerges
 
     /**
      * Whether the commits shown may have parents that are not shown and that git does not rewrite (a text, users or

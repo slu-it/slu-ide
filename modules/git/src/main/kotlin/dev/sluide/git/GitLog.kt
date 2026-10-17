@@ -1,7 +1,13 @@
 package dev.sluide.git
 
 import org.springframework.stereotype.Component
+import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.InvalidPathException
+import java.nio.file.LinkOption
 import java.nio.file.Path
+import kotlin.io.path.deleteIfExists
+import kotlin.io.path.writeBytes
 
 /**
  * One page of the git log: up to the asked number of [commits], newest first. [complete] means there are no more
@@ -16,11 +22,18 @@ data class GitLogPage(
  * The commits of a repository (ADR 0035): those of all local branches, remote-tracking branches, tags and `HEAD`, in
  * date order, or those a [GitLogFilter] selects (ADR 0039). Stash and notes commits are left out. Also the refs
  * pointing at them and the details of a commit (ADR 0037), and the files a commit changed with their diffs (ADR 0038).
+ * Also what a comparison of a ref with `HEAD` counts, and how the working tree differs from a commit (ADR 0044).
  */
 @Component
 class GitLog(
     private val git: GitCli,
 ) {
+    /** Whether the JVM can name the working-tree file at a path (ADR 0044); tests take the fallback through git. */
+    internal var canNameFile: (String) -> Boolean = { canPassArgument(it) }
+
+    /** Where the temporary files of a working-tree diff go; `null` for the JVM's temporary folder. */
+    internal var temporaryFolder: Path? = null
+
     /**
      * The commits that pass [filter] (ADR 0039), after the first [skip] ones, at most [limit] of them, in the
      * repository at [root]; `null` if git is not available, fails (also for an invalid regular expression) or takes
@@ -203,6 +216,197 @@ class GitLog(
         return GitFileDiff.Text(originalText, currentText, hunks)
     }
 
+    /**
+     * How many commits that pass [filter] [revision] (a full refname) has that `HEAD` has not, and the other way round,
+     * in the repository at [root] (ADR 0044): the filter's text, users, paths, first parents only and no merges apply as
+     * in [commits], its revisions not. The revision and paths go to git's standard input. `null` if git is not
+     * available, fails (also if the revision names no commit, or `HEAD` has none) or takes longer than 10 s, or for
+     * revisions and paths as [commits] refuses them. Runs git on the calling thread.
+     */
+    fun comparisonCounts(
+        root: Path,
+        revision: String,
+        filter: GitLogFilter = GitLogFilter(),
+    ): GitComparisonCounts? =
+        git.comparisonCounts(root, revision, "HEAD", filter)?.let { (refOnly, headOnly) ->
+            GitComparisonCounts(refOnly, headOnly)
+        }
+
+    /**
+     * The tracked files that differ between the commit [revision] names (a full refname, `HEAD` or a full hash) and the
+     * working tree at [root] (ADR 0044), renames detected as git's `-M` does; untracked files are not among them.
+     * [GitWorkingTreeChanges.Missing] if the revision names no commit. The revision is resolved on git's standard
+     * input, so refnames with any characters work. `null` if git is not available, fails or takes longer than 10 s, or
+     * for a revision with a line break. Runs git on the calling thread.
+     */
+    fun workingTreeChanges(
+        root: Path,
+        revision: String,
+    ): GitWorkingTreeChanges? {
+        if ('\n' in revision) return null
+        val line = git.objectInfo(root, listOf("$revision^{commit}"))?.lineSequence()?.firstOrNull() ?: return null
+        val commit =
+            COMMIT_OBJECT.matchEntire(line)?.groupValues?.get(1)
+                ?: return if (line.endsWith(" missing")) GitWorkingTreeChanges.Missing else null
+        val files = git.workingTreeChanges(root, commit)?.let(GitNameStatusParser::parse) ?: return null
+        return GitWorkingTreeChanges.Files(commit, files)
+    }
+
+    /**
+     * How [file], one of the [workingTreeChanges] against [commit] (a full object name), differs between the commit and
+     * the working tree at [root] (ADR 0044): the content in the commit as a checkout would write it (with the filters of
+     * its path, such as line endings; at its old path if renamed; empty if added) and the file's bytes on disk (empty if
+     * deleted), with git's hunks between them, compared as they are; [GitFileDiff.Submodule] (with the
+     * commit's side only) for a submodule, [GitFileDiff.Binary] or [GitFileDiff.TooLarge] as for [fileDiff]. `null` if
+     * git is not available, fails or takes longer than 10 s per call, if the file cannot be read, or if a path has a
+     * line break. Runs git on the calling thread.
+     */
+    fun workingTreeFileDiff(
+        root: Path,
+        commit: String,
+        file: GitChangedFile,
+    ): GitFileDiff? = workingTreeFileDiff(root, commit, file, MAX_BLOB_SIZE)
+
+    /** [workingTreeFileDiff] with files above [maxSize] bytes too large. */
+    internal fun workingTreeFileDiff(
+        root: Path,
+        commit: String,
+        file: GitChangedFile,
+        maxSize: Long,
+    ): GitFileDiff? {
+        requireHash(commit)
+        val added = file.change == GitChange.ADDED
+        val deleted = file.change == GitChange.DELETED
+        val original = if (added) null else "$commit:${file.oldPath ?: file.path}"
+        // The index tells whether the working tree's side is a submodule, whose folder has no content to compare.
+        val index = if (deleted) null else ":${file.path}"
+        val names = listOfNotNull(original, index)
+        if (names.any { '\n' in it }) return null
+        val lines = git.objectInfo(root, names)?.lines()?.take(names.size) ?: return null
+        if (lines.size != names.size) return null
+        val originalObject = if (original != null) GitObject.of(lines.first()) ?: return null else null
+        // Not in the index (e.g. unmerged): no submodule there.
+        val indexObject = if (index != null) GitObject.of(lines.last()) else null
+        if (originalObject?.submodule == true || indexObject?.submodule == true) {
+            return GitFileDiff.Submodule(originalObject?.takeIf { it.submodule }?.name, null)
+        }
+        if (originalObject != null && originalObject.size > maxSize) return GitFileDiff.TooLarge
+        val current =
+            if (deleted) ByteArray(0) else workingTreeBytes(root, file.path, maxSize, indexObject) ?: return null
+        if (current === TOO_LARGE) return GitFileDiff.TooLarge
+        val originalBytes =
+            when (
+                val blob =
+                    originalObject?.let {
+                        git.filteredBlob(
+                            root,
+                            it.name,
+                            file.oldPath ?: file.path,
+                            maxSize,
+                        )
+                    }
+            ) {
+                null -> if (originalObject == null) ByteArray(0) else return null
+                FilteredBlob.TooLarge -> return GitFileDiff.TooLarge
+                is FilteredBlob.Content -> blob.bytes
+            }
+        if (isBinary(originalBytes) || isBinary(current)) return GitFileDiff.Binary
+        val originalText = originalBytes.toString(Charsets.UTF_8)
+        val currentText = current.toString(Charsets.UTF_8)
+        val hunks =
+            when {
+                originalObject == null -> wholeFile(lineCount(currentText), added = true)
+                deleted -> wholeFile(lineCount(originalText), added = false)
+                originalBytes.contentEquals(current) -> emptyList()
+                else -> diffTexts(root, originalBytes, current) ?: return null
+            }
+        return GitFileDiff.Text(originalText, currentText, hunks)
+    }
+
+    /**
+     * The bytes of the file [path] in the working tree at [root], as they are on disk; for a symbolic link the path it
+     * points to, as git stores a link. Read by the JVM where it can name the file; else (non-ASCII characters in a plain
+     * ASCII locale) stored by git from a path on its standard input and read back as a blob (ADR 0044), which follows a
+     * symbolic link to the file it points to. [TOO_LARGE] above [maxSize]; `null` if it cannot be read. Before storing a
+     * file, the size of its [indexEntry] is taken as a hint: above [maxSize] it is not stored at all.
+     */
+    private fun workingTreeBytes(
+        root: Path,
+        path: String,
+        maxSize: Long,
+        indexEntry: GitObject?,
+    ): ByteArray? {
+        val local =
+            try {
+                if (canNameFile(path)) root.resolve(path) else null
+            } catch (_: InvalidPathException) {
+                null
+            }
+        if (local == null) {
+            // Stored whole by git; a file staged that large is not.
+            if (indexEntry != null && indexEntry.size > maxSize) return TOO_LARGE
+            val name = git.storeFiles(root, listOf(path))?.singleOrNull() ?: return null
+            val size = git.objectSize(root, name) ?: return null
+            return if (size > maxSize) TOO_LARGE else git.blob(root, name)
+        }
+        return try {
+            when {
+                Files.isSymbolicLink(local) -> {
+                    Files.readSymbolicLink(local).toString().toByteArray(Charsets.UTF_8)
+                }
+
+                !Files.isRegularFile(local, LinkOption.NOFOLLOW_LINKS) -> {
+                    null
+                }
+
+                Files.size(local) > maxSize -> {
+                    TOO_LARGE
+                }
+
+                else -> {
+                    Files.readAllBytes(local)
+                }
+            }
+        } catch (_: IOException) {
+            null
+        }
+    }
+
+    /**
+     * Git's hunks from [original] to [current]: both written to temporary files with plain names and compared as they
+     * are with `git diff --no-index` (ADR 0044), so no repository path goes on the command line, with the repository's
+     * `diff.algorithm`; `null` on failure. The temporary folder is deleted afterwards.
+     */
+    private fun diffTexts(
+        root: Path,
+        original: ByteArray,
+        current: ByteArray,
+    ): List<GitHunk>? {
+        val algorithm = git.configValues(root, "diff.algorithm")?.lastOrNull()
+        val folder =
+            try {
+                temporaryFolder?.let { Files.createTempDirectory(it, "sluide-diff") }
+                    ?: Files.createTempDirectory("sluide-diff")
+            } catch (_: IOException) {
+                return null
+            }
+        val files = listOf("original", "current", "attributes").map(folder::resolve)
+        return try {
+            files[0].writeBytes(original)
+            files[1].writeBytes(current)
+            git.diffFiles(folder, "original", "current", algorithm)?.let(GitDiffParser::parse)
+        } catch (_: IOException) {
+            null
+        } finally {
+            try {
+                files.forEach { it.deleteIfExists() }
+                folder.deleteIfExists()
+            } catch (_: IOException) {
+                // Left in the temporary folder.
+            }
+        }
+    }
+
     private fun requireHash(hash: String) = require(HASH.matches(hash)) { "not a commit hash: $hash" }
 
     /** One hunk of all [lines] of a file added or deleted as a whole; none for an empty file. */
@@ -230,6 +434,12 @@ class GitLog(
         val HASH = Regex("[0-9a-fA-F]{40}|[0-9a-fA-F]{64}")
 
         val HASH_PREFIX = Regex("[0-9a-fA-F]{4,64}")
+
+        /** A line of `git cat-file --batch-check` for a commit. */
+        val COMMIT_OBJECT = Regex("([0-9a-f]{40}|[0-9a-f]{64}) commit \\d+")
+
+        /** Stands for a working-tree file above the size limit; compared by identity. */
+        val TOO_LARGE = ByteArray(0)
 
         const val MAX_BLOB_SIZE = 5L * 1024 * 1024
 
