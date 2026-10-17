@@ -13,8 +13,8 @@
   Split (Mermaid, Bicep); the diff instead while one is shown. A file tab selected in place of another (the selected
   one closed or replaced) is focused only if the area had the focus, so deleting the selected file in the tree leaves
   the focus there. A new tab starts at the top, one shown again keeps caret and scroll. Other tabs (terminals, commit
-  diffs) are not focused by the area. `focusSelected()` gives the focus back to the
-  selected tab (its content for other tabs, the area itself without tabs), e.g. when the git log is collapsed.
+  diffs) are not focused by the area. `focusSelected()` gives the focus back to the selected tab (its content for
+  other tabs, the area itself without tabs), e.g. when the git log is collapsed.
 - Files are shown in the editor font from the settings ([settings.md](settings.md)); open views follow font changes.
   Code, plain text and the sources of previews can be edited and saved ([text-editing.md](text-editing.md)).
 - A file tab whose editor has unsaved changes (`EditableFileView.dirty`) shows a dot before its name (`● a.txt`),
