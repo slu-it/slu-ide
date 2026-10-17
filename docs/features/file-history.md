@@ -22,8 +22,9 @@ and the editor's tabs are hooks of `FileExplorerView` and `EditorArea`, set by `
   in the accent colour, like the log's selected toggles. Clicking a tab selects it and expands a collapsed area;
   clicking elsewhere on the header still expands or collapses it. Opening a history expands the area and selects its
   tab, whose table gets the focus; the same file from the same start again selects its tab. Closing the selected tab
-  selects the one left of it; closing the last history goes back to the plain "Git Log" header with the log. Opening
-  another folder closes all histories. A tab's title is at most 180 px wide, shortened with "…"; when the tabs do not
+  selects the one left of it; closing the last history goes back to the plain "Git Log" header with the log, unless
+  the Commit tab ([commit-and-push.md](commit-and-push.md)) is open, which sits between `Log` and the histories.
+  Opening another folder closes all histories. A tab's title is at most 180 px wide, shortened with "…"; when the tabs do not
   fit, they shorten further and the row is cut off at the right, so that Cancel, Fetch and Refresh always stay whole.
 - **What the area shows** follows the selected tab: the log as before, or the history. The header's messages, Fetch,
   Cancel and Refresh stay; Refresh, and changes in `.git`, read the log and every open history again (a collapsed area,

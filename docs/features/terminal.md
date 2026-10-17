@@ -35,8 +35,8 @@
   macOS, where Option types characters. Ctrl+Shift+letter and Cmd shortcuts are not sent to the shell, so menu
   shortcuts with them keep working (New Terminal, and on macOS all menu shortcuts), and so does Ctrl+, (Settings).
   Menu shortcuts that the terminal sends to the shell do not reach the menu: on Linux, Ctrl+O sends ^O to the shell
-  instead of opening File → Open Folder while a terminal has the focus; use the menu or click outside the terminal
-  first.
+  instead of opening File → Open Folder, and Ctrl+K sends ^K instead of opening Git → Commit…, while a terminal has
+  the focus; use the menu or click outside the terminal first.
 - Scrollback: the mouse wheel scrolls through the history (the last 5000 lines, JediTerm's default; older lines are
   dropped). Typing or pasting scrolls back down. Full-screen programs scroll themselves: the wheel is reported to them
   if they asked for mouse reports (e.g. Claude Code's fullscreen TUI, `vim` with `mouse=a`), otherwise sent as Up/Down
