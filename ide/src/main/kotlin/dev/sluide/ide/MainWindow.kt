@@ -139,7 +139,7 @@ class MainWindow(
         val split = SplitPane(fileExplorer, editorArea).apply { SplitPane.setResizableWithParent(fileExplorer, false) }
         val root =
             BorderPane().apply {
-                top = MenuBar(fileMenu(stage), viewMenu(), terminalMenu(stage), dockerSandboxMenu(stage))
+                top = MenuBar(fileMenu(stage), viewMenu(), gitMenu(), terminalMenu(stage), dockerSandboxMenu(stage))
                 center = split
             }
 
@@ -170,6 +170,8 @@ class MainWindow(
             fileExplorer.refreshMarkers()
             editorArea.refreshDiffs()
             httpSession.gitStatusChanged()
+            // The Commit tab lists what can be committed (ADR 0048).
+            gitLogView.workingTreeChanged()
         }
 
         // The git log follows the repository's .git folder (commits, checkouts, fetches); collapsed, it only notes that
@@ -423,6 +425,17 @@ class MainWindow(
                 setOnAction { gitLogView.expanded.set(!gitLogView.expanded.get()) }
             }
         return Menu("View", null, showChanges, gitLog)
+    }
+
+    private fun gitMenu(): Menu {
+        // The Commit tab of the git log area, on IntelliJ's shortcut (ADR 0048).
+        val commit =
+            MenuItem("Commit…").apply {
+                accelerator = KeyCodeCombination(KeyCode.K, KeyCombination.SHORTCUT_DOWN)
+                disableProperty().bind(gitLogPresent.not())
+                setOnAction { gitLogView.showCommit() }
+            }
+        return Menu("Git", null, commit)
     }
 
     private fun terminalMenu(stage: Stage): Menu {

@@ -11,6 +11,7 @@ import javafx.geometry.Orientation
 import javafx.scene.Node
 import javafx.scene.control.Button
 import javafx.scene.control.Label
+import javafx.scene.control.MenuBar
 import javafx.scene.control.MenuItem
 import javafx.scene.control.TableView
 import javafx.scene.control.TreeCell
@@ -369,6 +370,44 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         assertTrue(robot.lookup(".git-log").tryQuery<Node>().isEmpty)
         assertEquals(listOf<Node>(fileExplorer, editorArea), splitPaneOf(editorArea).items)
         assertTrue(menu(robot, "View").items.single { it.text == "Git Log" }.isDisable)
+        assertTrue(menu(robot, "Git").items.single { it.text == "Commit…" }.isDisable)
+    }
+
+    @Test
+    fun `Git - Commit opens the Commit tab of the git log with the changes and the message focused`(robot: FxRobot) {
+        assumeTrue(git.available, "git is not installed")
+        runGit("init", "-q")
+        project.resolve("tracked.md").writeText("one")
+        runGit("add", ".")
+        runGit("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "-m", "Initial commit")
+        val menus = robot.lookup(".menu-bar").queryAs(MenuBar::class.java).menus
+        val git = menus.indexOfFirst { it.text == "Git" }
+        assertEquals(listOf("View", "Git", "Terminal"), menus.subList(git - 1, git + 2).map { it.text })
+        val commitItem = menu(robot, "Git").items.single { it.text == "Commit…" }
+        val accelerator = commitItem.accelerator as KeyCodeCombination
+        assertEquals(KeyCode.K, accelerator.code)
+        assertEquals(KeyCombination.ModifierValue.DOWN, accelerator.shortcut)
+        assertEquals(KeyCombination.ModifierValue.UP, accelerator.shift)
+        assertTrue(commitItem.isDisable, "no folder, no git log")
+
+        project.resolve("tracked.md").writeText("two")
+        project.resolve("new.md").writeText("new")
+        robot.interact { projectService.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertFalse(commitItem.isDisable)
+        robot.interact { commitItem.fire() }
+
+        eventually(robot) {
+            val groups =
+                robot
+                    .lookup(".git-commit-group")
+                    .queryAllAs(Label::class.java)
+                    .map { it.text }
+                    .sorted()
+            assertEquals(listOf("Changes", "Unversioned Files"), groups)
+        }
+        val message = robot.lookup(".git-commit-message").queryAs(Node::class.java)
+        assertSame<Node?>(message, stage.scene.focusOwner)
     }
 
     @Test
