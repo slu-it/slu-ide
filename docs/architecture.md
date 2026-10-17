@@ -72,8 +72,8 @@ assembled from Gradle modules.
     file-type icons of `FileIcon`/`fileIconFor`, `FontIcon.show` and `FILE_ICONS_CSS`; `file-icons` is a plain library
     without Spring beans ([ADR 0012](adr/0012-file-icons.md),
     [ADR 0047](adr/0047-module-dependencies-and-shared-modules.md)).
-  - `file-explorer`, `editor`, `terminal` -> `settings`: they use the configured fonts
-    ([ADR 0008](adr/0008-settings.md)).
+  - `file-explorer`, `editor`, `terminal` -> `settings`: they use the configured fonts, the terminal also the
+    configured scroll speeds ([ADR 0008](adr/0008-settings.md)).
 - Shared build configuration (JDK toolchain, test setup, Spring BOM) is in the root `build.gradle.kts`.
 
 ## Runtime

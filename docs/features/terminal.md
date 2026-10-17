@@ -41,6 +41,17 @@
   dropped). Typing or pasting scrolls back down. Full-screen programs scroll themselves: the wheel is reported to them
   if they asked for mouse reports (e.g. Claude Code's fullscreen TUI, `vim` with `mouse=a`), otherwise sent as Up/Down
   arrow keys (e.g. `less`, `man`).
+- Scroll speed: every scroll event is worth 3 lines at 100 %, scaled by the trackpad or mouse wheel speed of
+  Terminal → Scrolling ([settings.md](settings.md), 10–200 %); fractions of lines add up over the next events in the
+  same direction (at 50 % two events scroll 3 lines) and are dropped when the direction turns or the view jumps back
+  to the bottom. An event counts as a trackpad's if it arrives between JavaFX's `SCROLL_STARTED` and
+  `SCROLL_FINISHED` (a gesture with fingers on the pad), has touch points, or is an inertia event (sent after the
+  fingers lift); everything else is a wheel. This relies on the events macOS sends: there a Magic Mouse counts as a
+  trackpad too, while on Linux and Windows touchpads send plain wheel events and use the Mouse wheel speed. A
+  trackpad swipe sends dozens of small events, so it scrolled far too fast at 3 lines each. The speeds apply to the scrollback and to arrow keys sent to full-screen programs (one per
+  line); programs that asked for mouse reports get one report per 3 lines (at 100 % one per event, at 50 % one every
+  second event, at 200 % two). Shift+wheel is never reported: it scrolls the scrollback (normal screen) or does
+  nothing (full screen), as before. Open terminals follow speed changes right away.
 - Mouse: programs that ask for mouse reports (normal, button-motion and any-motion tracking; xterm, UTF-8, SGR and urxvt
   formats, encoded by JediTerm) get left and middle clicks, drags, moves and the wheel, with Ctrl/Alt. Shift+drag
   still selects text; the right button always opens the context menu.
@@ -53,6 +64,6 @@
 - Structure: `Terminals` (window-scoped Spring bean: opens terminals, ends them when its window closes),
   `TerminalTab` (`EditorTab`), `TerminalView` (canvas, input, selection; JediTerm `TerminalDisplay`),
   `TerminalSession` (pty4j process and JediTerm emulator), `TerminalKeys` (key translation), `TerminalMouse` (mouse
-  translation), `TerminalColors` (palette).
+  translation), `ScrollAccumulator` (scroll speeds, fractions of lines), `TerminalColors` (palette).
 - Not yet implemented: window titles set by programs, clickable links, search, colour settings (including a light
   palette), split terminals, Windows shells.
