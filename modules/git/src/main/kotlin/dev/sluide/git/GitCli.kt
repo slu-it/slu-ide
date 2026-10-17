@@ -8,7 +8,10 @@ import java.nio.charset.Charset
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.nanoseconds
@@ -26,7 +29,7 @@ class GitCli(
     /** The git executable, looked up on the `PATH` unless it is a path. */
     private val executable: String,
     /** The environment of the started processes. */
-    private val environment: Map<String, String>,
+    internal val environment: Map<String, String>,
 ) {
     @Autowired
     constructor() : this("git", System.getenv())
@@ -241,6 +244,94 @@ class GitCli(
     internal fun localBranches(root: Path): String? {
         if (!available) return null
         return run(listOf("--no-optional-locks", "for-each-ref", "--format=%(refname)", "refs/heads"), root, 3.seconds)
+    }
+
+    /**
+     * The names of the remotes of the repository at [root] (`git remote`), in git's order; `null` if git is not
+     * available, fails or takes longer than 3 s. Git refuses line breaks in remote names, so one per line is safe.
+     */
+    internal fun remoteNames(root: Path): List<String>? {
+        if (!available) return null
+        return run(listOf("--no-optional-locks", "remote"), root, 3.seconds)?.lines()?.filter(String::isNotEmpty)
+    }
+
+    /**
+     * The remotes of the repository at [root] that `git fetch --all` leaves out: `remote.<name>.skipFetchAll` true, its
+     * last value counting as for git (a repository's `false` after a global `true`); `null` if git is not available,
+     * fails (also for a value that is not a boolean) or takes longer than 3 s.
+     */
+    internal fun remotesSkippedByFetchAll(root: Path): Set<String>? {
+        if (!available) return null
+        val arguments =
+            listOf("--no-optional-locks", "config", "-z", "--type=bool", "--get-regexp", "^remote\\..*\\.skipfetchall$")
+        val execution = execute(arguments, root, 3.seconds, null, write = false) ?: return null
+        if (execution.exitValue == 1) return emptySet()
+        if (execution.exitValue != 0 || !execution.complete) return null
+        // <key>\n<value> NUL in the order git reads them, the last one counting; the variable's name in lower case, the
+        // remote's as written.
+        return execution.output
+            .toString(Charsets.UTF_8)
+            .split('\u0000')
+            .filter { '\n' in it }
+            .associate { it.substringBefore('\n') to it.substringAfter('\n') }
+            .filterValues { it == "true" }
+            .keys
+            .map { it.removePrefix("remote.").removeSuffix(".skipfetchall") }
+            .toSet()
+    }
+
+    /**
+     * All values of the configuration variable [key] in the repository at [root], in the order git reads them (`git
+     * config --get-all`); empty if it is not set, `null` if git is not available, fails or takes longer than 3 s.
+     */
+    internal fun configValues(
+        root: Path,
+        key: String,
+    ): List<String>? {
+        if (!available) return null
+        val arguments = listOf("--no-optional-locks", "config", "-z", "--get-all", "--end-of-options", key)
+        val execution = execute(arguments, root, 3.seconds, null, write = false) ?: return null
+        if (execution.exitValue == 1) return emptyList()
+        if (execution.exitValue != 0 || !execution.complete) return null
+        return execution.output
+            .toString(Charsets.UTF_8)
+            .split('\u0000')
+            .dropLast(1)
+    }
+
+    /**
+     * Whether the user configured how git runs ssh in the repository at [root]: `core.sshCommand` or `ssh.variant`
+     * (also given in the environment, `GIT_CONFIG_PARAMETERS`); `null` if git is not available, fails or takes longer
+     * than 3 s.
+     */
+    internal fun sshConfigured(root: Path): Boolean? {
+        if (!available) return null
+        val arguments = listOf("--no-optional-locks", "config", "--get-regexp", "^(core\\.sshcommand|ssh\\.variant)$")
+        return when (execute(arguments, root, 3.seconds, null, write = false)?.exitValue) {
+            0 -> true
+            1 -> false
+            else -> null
+        }
+    }
+
+    /**
+     * The objects the refs starting with [prefixes] (such as `refs/tags/`) of the repository at [root] point at, by
+     * full refname, without symbolic refs (`refs/remotes/origin/HEAD`); `null` if git is not available, fails or takes
+     * longer than 10 s.
+     */
+    internal fun refTips(
+        root: Path,
+        prefixes: List<String>,
+    ): Map<String, String>? {
+        if (!available) return null
+        val arguments =
+            listOf("--no-optional-locks", "for-each-ref", "--format=%(refname)%1f%(objectname)%1f%(symref)") + prefixes
+        val output = run(arguments, root, 10.seconds) ?: return null
+        return output
+            .lineSequence()
+            .map { it.split('\u001f') }
+            .filter { it.size == 3 && it[2].isEmpty() }
+            .associate { it[0] to it[1] }
     }
 
     /**
@@ -514,19 +605,24 @@ class GitCli(
     ): GitResult = writeWithExit(root, arguments, input, timeout).first
 
     /**
-     * [write], with git's exit value; `null` if git could not be run or did not finish in time. Some failures are
-     * told apart only by it, e.g. a revert with nothing to commit (1) from one git refused to start (128).
+     * [write], with git's exit value; `null` if git could not be run, did not finish in time or was cancelled. Some
+     * failures are told apart only by it, e.g. a revert with nothing to commit (1) from one git refused to start (128).
+     * [environment] is added to git's. A [cancellation] stops git as the timeout does (ADR 0043), only for commands
+     * that may be stopped halfway (a fetch); cancelled before git started, git is not run.
      */
     internal fun writeWithExit(
         root: Path,
         arguments: List<String>,
         input: ByteArray? = null,
         timeout: Duration = WRITE_TIMEOUT,
+        environment: Map<String, String> = emptyMap(),
+        cancellation: GitCancellation? = null,
     ): Pair<GitResult, Int?> {
         if (!available) return GitResult(false, "git is not available.") to null
         val execution =
-            execute(arguments, root, timeout, input, write = true)
+            execute(arguments, root, timeout, input, write = true, environment, cancellation)
                 ?: return GitResult(false, "git could not be run.") to null
+        if (execution.cancelled) return GitResult(false, CANCELLED) to null
         val exitValue =
             execution.exitValue ?: return GitResult(false, "git did not finish within ${shown(timeout)}.") to null
         val message =
@@ -802,7 +898,9 @@ class GitCli(
      * if it cannot be started or the calling thread is interrupted (git is stopped then, and the interrupt kept). A
      * [write] keeps git's standard error and may take optional locks; a read drops the one and takes none of the other.
      * The input is written before the timeout starts and the write waits while git does not read, so it must be small:
-     * a few lines, well below the pipe's buffer, or read by git at once (a tag message).
+     * a few lines, well below the pipe's buffer, or read by git at once (a tag message). [environment] is added to the
+     * one of the processes. A [cancellation] stops git as the timeout does, unless git has ended by then; one before git
+     * starts keeps it from starting.
      */
     private fun execute(
         arguments: List<String>,
@@ -810,7 +908,10 @@ class GitCli(
         timeout: Duration,
         input: ByteArray?,
         write: Boolean,
+        environment: Map<String, String> = emptyMap(),
+        cancellation: GitCancellation? = null,
     ): Execution? {
+        if (cancellation?.cancelled == true) return Execution(null, ByteArray(0), ByteArray(0), false, cancelled = true)
         val process =
             try {
                 ProcessBuilder(listOf(executable) + arguments)
@@ -819,6 +920,7 @@ class GitCli(
                         if (!write) redirectError(ProcessBuilder.Redirect.DISCARD)
                         environment().clear()
                         environment().putAll(this@GitCli.environment)
+                        environment().putAll(environment)
                         // Reads only: git status would otherwise rewrite .git/index, which our .git watch reports.
                         if (!write) environment()["GIT_OPTIONAL_LOCKS"] = "0"
                         // Never wait for credentials or an editor.
@@ -844,8 +946,12 @@ class GitCli(
             log.log(System.Logger.Level.DEBUG, "Cannot write to $executable", e)
         }
         try {
-            if (!process.waitFor(timeout.inWholeMilliseconds, TimeUnit.MILLISECONDS)) {
+            if (!awaitEnd(process, timeout, cancellation)) {
                 stop(process, write)
+                // Git did not end, it was cancelled and has been stopped: what it updated by then stays.
+                if (cancellation?.cancelled == true) {
+                    return Execution(null, ByteArray(0), ByteArray(0), complete = false, cancelled = true)
+                }
                 log.log(
                     System.Logger.Level.WARNING,
                     "$executable ${arguments.joinToString(" ")} took longer than $timeout",
@@ -872,39 +978,53 @@ class GitCli(
     }
 
     /**
-     * Kills git and whatever it started (hooks, helpers); the descendants first, as they are lost with git. A [write]
-     * is asked to end first (SIGTERM, on which git removes its lock files) and killed only if it has not after a
-     * moment.
+     * Kills git and whatever it started (hooks, helpers, ssh); the descendants first, as they are lost with git: those
+     * found before are killed too if they outlive it. A [write] and its descendants are asked to end first (SIGTERM, on
+     * which git, also a git a hook started, removes its lock files) and killed only if they have not after a moment,
+     * one shared [STOP_GRACE] for all of them.
      */
     private fun stop(
         process: Process,
         write: Boolean,
     ) {
+        val descendants = process.descendants().toList()
         if (write) {
             val interrupted = Thread.interrupted()
             try {
-                process.descendants().forEach { it.destroy() }
+                val deadline = System.nanoTime() + STOP_GRACE.inWholeNanoseconds
+                descendants.forEach { it.destroy() }
                 process.destroy()
-                process.waitFor(STOP_GRACE.inWholeMilliseconds, TimeUnit.MILLISECONDS)
+                process.waitFor(deadline - System.nanoTime(), TimeUnit.NANOSECONDS)
+                // Git ends on SIGTERM at once; what it started may take a little longer to clean up.
+                descendants.forEach { descendant ->
+                    try {
+                        descendant.onExit().get(maxOf(0L, deadline - System.nanoTime()), TimeUnit.NANOSECONDS)
+                    } catch (_: TimeoutException) {
+                        // Killed below.
+                    } catch (_: ExecutionException) {
+                        // Whether it ended is told by destroyForcibly below.
+                    }
+                }
             } catch (_: InterruptedException) {
                 Thread.currentThread().interrupt()
             } finally {
                 if (interrupted) Thread.currentThread().interrupt()
             }
         }
-        process.descendants().forEach { it.destroyForcibly() }
+        (descendants + process.descendants().toList()).forEach { it.destroyForcibly() }
         process.destroyForcibly()
     }
 
     /**
-     * A run of git that ended: its [exitValue] (`null` if it took too long and was stopped) and what it wrote, read to
-     * its end if [complete].
+     * A run of git that ended: its [exitValue] (`null` if it took too long or was [cancelled] and was stopped) and what
+     * it wrote, read to its end if [complete].
      */
     private class Execution(
         val exitValue: Int?,
         val output: ByteArray,
         val errors: ByteArray,
         val complete: Boolean,
+        val cancelled: Boolean = false,
     )
 
     internal companion object {
@@ -919,6 +1039,12 @@ class GitCli(
          */
         val CHECKOUT_TIMEOUT = 10.minutes
 
+        /** How long fetching one remote may take (ADR 0043): a large repository over a slow network. */
+        val FETCH_TIMEOUT = 10.minutes
+
+        /** The message of a write that was cancelled (ADR 0043). */
+        const val CANCELLED = "Cancelled."
+
         /** How long a stopped write may take to end by itself before it is killed. */
         private val STOP_GRACE = 2.seconds
 
@@ -932,6 +1058,26 @@ class GitCli(
          */
         private const val MAX_INPUT = 15 * 1024
     }
+}
+
+/**
+ * Waits up to [timeout] for [process] to end, or until [cancellation] (if any) is cancelled; whether it ended. A
+ * process that ended by the time it was cancelled counts as ended, so its result stands.
+ */
+internal fun awaitEnd(
+    process: Process,
+    timeout: Duration,
+    cancellation: GitCancellation?,
+): Boolean {
+    if (cancellation == null) return process.waitFor(timeout.inWholeMilliseconds, TimeUnit.MILLISECONDS)
+    try {
+        CompletableFuture
+            .anyOf(process.onExit(), cancellation.signal)
+            .get(timeout.inWholeMilliseconds, TimeUnit.MILLISECONDS)
+    } catch (_: TimeoutException) {
+        // Still running, unless it ended just now: told below.
+    }
+    return !process.isAlive
 }
 
 /** An unmerged index entry (a conflict): the [path]'s version of [stage] 1 (base), 2 (ours) or 3 (theirs). */
