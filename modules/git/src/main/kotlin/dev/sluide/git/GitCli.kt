@@ -656,6 +656,62 @@ class GitCli(
     }
 
     /**
+     * The paths git lists with `git ls-files -z` and [option] in the repository at [root], relative to it, `/`-separated
+     * and not quoted; `null` if git is not available, fails or takes longer than 10 s.
+     */
+    private fun listFiles(
+        root: Path,
+        vararg option: String,
+    ): List<String>? {
+        if (!available) return null
+        val arguments = listOf("--no-optional-locks", "ls-files", "-z") + option
+        return run(arguments, root, 10.seconds)?.split('\u0000')?.filter(String::isNotEmpty)
+    }
+
+    /** The paths in the index of the repository at [root] (ADR 0048); `null` on failure. */
+    internal fun indexedPaths(root: Path): List<String>? = listFiles(root)
+
+    /** The untracked files, not ignored, one by one also inside untracked folders (ADR 0048); `null` on failure. */
+    internal fun untrackedPaths(root: Path): List<String>? = listFiles(root, "--others", "--exclude-standard")
+
+    /**
+     * The full message of the commit `HEAD` (`git show -s --format=%B`, as stored, with the newline git adds); `null` if
+     * there is no commit, or if git is not available, fails or takes longer than 3 s.
+     */
+    internal fun headMessage(root: Path): String? {
+        if (!available) return null
+        val arguments =
+            listOf(
+                "--no-optional-locks",
+                "show",
+                "-s",
+                "--no-color",
+                // No gpg lines (log.showSignature), and UTF-8 whatever i18n.logOutputEncoding says.
+                "--no-show-signature",
+                "--encoding=UTF-8",
+                "--format=%B",
+                "HEAD",
+                "--",
+            )
+        return run(arguments, root, 3.seconds)
+    }
+
+    /**
+     * Whether `HEAD` of the repository at [root] is unborn: a symbolic ref to a branch without commits (`git rev-parse
+     * -q --verify` exits with 1). `false` if there is a commit; `null` if git is not available or fails in any other
+     * way, or `HEAD` is detached without a commit.
+     */
+    internal fun isHeadUnborn(root: Path): Boolean? {
+        if (!available) return null
+        val arguments = listOf("--no-optional-locks", "rev-parse", "-q", "--verify", "HEAD^{commit}")
+        return when (execute(arguments, root, 3.seconds, null, write = false)?.exitValue) {
+            0 -> false
+            1 -> if (currentBranch(root) != null) true else null
+            else -> null
+        }
+    }
+
+    /**
      * The output of `git diff --no-index --text -U0` from the file [original] to the file [current] in [folder] (plain
      * names relative to it; see [GitDiffParser]), the texts compared as they are (ADR 0044): run in [folder], with the
      * parent folders not searched for a repository, no attributes (an empty `core.attributesFile`, no system ones) and
@@ -833,8 +889,9 @@ class GitCli(
     /**
      * [write], with git's exit value; `null` if git could not be run, did not finish in time or was cancelled. Some
      * failures are told apart only by it, e.g. a revert with nothing to commit (1) from one git refused to start (128).
-     * [environment] is added to git's. A [cancellation] stops git as the timeout does (ADR 0043), only for commands
-     * that may be stopped halfway (a fetch); cancelled before git started, git is not run.
+     * [environment] is added to git's. A [cancellation] stops git as the timeout does (ADR 0043), for commands that
+     * may be stopped halfway: a fetch, a commit (SIGTERM removes git's lock files, and the ref is updated last);
+     * cancelled before git started, git is not run.
      */
     internal fun writeWithExit(
         root: Path,
@@ -1285,6 +1342,9 @@ class GitCli(
          * 0042): filters such as LFS may download files.
          */
         val CHECKOUT_TIMEOUT = 10.minutes
+
+        /** How long a commit may take (ADR 0048): hooks, a GPG pinentry. */
+        val COMMIT_TIMEOUT = 10.minutes
 
         /** How long fetching one remote may take (ADR 0043): a large repository over a slow network. */
         val FETCH_TIMEOUT = 10.minutes

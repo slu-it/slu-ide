@@ -123,6 +123,12 @@ sealed interface GitPickResult {
     ) : GitPickResult
 }
 
+/** What [GitCommits.commit] gave: git's [result], and on success the new `HEAD` (a full hash) as [commit]. */
+data class GitCommitResult(
+    val result: GitResult,
+    val commit: String?,
+)
+
 /** How `git reset` moves the current branch (or a detached `HEAD`). */
 enum class GitResetMode(
     /** The option: `--soft`. */
@@ -156,6 +162,128 @@ class GitCommits(
 
     /** The commit `HEAD` points at (a full hash); `null` if there is none or it cannot be read. */
     fun headCommit(root: Path): String? = git.headCommit(root)
+
+    /**
+     * What can be committed in the repository at [root] (ADR 0048): the tracked changes against `HEAD` (renames
+     * included; with no commit yet, every file in the index as added), the untracked files that are not ignored (each
+     * one, also inside untracked folders; a nested repository is listed as its folder with a trailing `/`, and committing
+     * it records a submodule entry without a `.gitmodules`), what git is in the middle of with the unmerged paths, and whether `HEAD` is
+     * already on the current branch's upstream. `null` if git fails.
+     */
+    fun commitChanges(root: Path): GitCommitChanges? {
+        val unborn = git.isHeadUnborn(root) ?: return null
+        val head = if (unborn) null else git.headCommit(root) ?: return null
+        val files =
+            if (head == null) {
+                git.indexedPaths(root)?.map { GitChangedFile(GitChange.ADDED, it) }
+            } else {
+                git.workingTreeChanges(root, head)?.let(GitNameStatusParser::parse)
+            } ?: return null
+        val untracked = git.untrackedPaths(root) ?: return null
+        val busy = git.inProgress(root).getOrElse { return null }
+        val conflicts = git.unmergedPaths(root) ?: return null
+        return GitCommitChanges(files, untracked, busy, conflicts, head != null && isPushed(root, head))
+    }
+
+    /** Whether [head] is `@{upstream}` of the current branch or an ancestor of it; false without a branch or upstream. */
+    private fun isPushed(
+        root: Path,
+        head: String,
+    ): Boolean {
+        if (git.currentBranch(root) == null) return false
+        val upstream = git.commitOfRevision(root, "@{upstream}") ?: return false
+        return git.isAncestor(root, head, upstream) == true
+    }
+
+    /** The full message of `HEAD` without its trailing newline; `null` if there is no commit or git fails. */
+    fun headMessage(root: Path): String? = git.headMessage(root)?.trimEnd('\n')
+
+    /**
+     * Commits the checked tracked changes [files] and [untracked] files with [message], or with [amend] amends `HEAD`
+     * (ADR 0048). Refused without running git when the message is blank, nothing is checked and it is no amend, an
+     * amend has no commit to amend, git is in the middle of anything ([inProgress], or that cannot be read) or paths
+     * are unmerged. Checked untracked files are staged first (`git --literal-pathspecs add`), then
+     * `git --literal-pathspecs commit --only [--amend] --cleanup=whitespace -F -` commits exactly the checked paths
+     * from the working tree (a renamed file with both of its paths, so the deletion goes along) and leaves everything
+     * else staged or modified as it was; without paths an amend only changes the message and keeps the tree. The
+     * message goes to git's standard input as UTF-8 and is cleaned up as `--cleanup=whitespace` does, lines starting
+     * with `#` are kept. The paths go in a temporary file of NUL-terminated UTF-8 names (`--pathspec-from-file`),
+     * never as arguments (ADR 0038), so only the file's own name must be one git can be given; it is deleted at the
+     * end. If staging succeeded and the commit failed (a hook rejected it), the staged files stay staged: nothing is
+     * rolled back. A commit may take 10 minutes (hooks, a GPG pinentry); [cancellation] stops it. The result has git's
+     * message, a hook's output included.
+     */
+    fun commit(
+        root: Path,
+        message: String,
+        files: List<GitChangedFile>,
+        untracked: List<String>,
+        amend: Boolean,
+        cancellation: GitCancellation? = null,
+    ): GitCommitResult {
+        // Only a rename's old path goes along (the deletion); the source of a copy is unchanged and stays alone.
+        val paths =
+            files
+                .flatMap { file ->
+                    listOfNotNull(file.path, file.oldPath.takeIf { file.change == GitChange.RENAMED })
+                }.plus(untracked)
+                .distinct()
+        val reason =
+            when {
+                message.isBlank() -> "The commit message is empty."
+                paths.isEmpty() && !amend -> "Nothing is selected to commit."
+                else -> null
+            }
+        if (reason != null) return refused(reason)
+        val unborn = git.isHeadUnborn(root) ?: return refused("HEAD could not be read.")
+        if (amend && unborn) return refused("There is no commit to amend.")
+        val busy = git.inProgress(root).getOrElse { return refused(UNREADABLE) }
+        if (busy != null) return refused(busyMessage(busy))
+        val unmerged = git.unmergedPaths(root) ?: return refused(CONFLICTS_UNREADABLE)
+        if (unmerged.isNotEmpty()) return refused("Resolve the conflicts first.")
+        val list =
+            try {
+                Files.createTempFile("sluide-commit-", ".paths")
+            } catch (e: IOException) {
+                return refused("The list of files could not be written: ${e.message}")
+            }
+        try {
+            if (!canPassArgument(list.toString())) return refused("'$list' cannot be passed to git in this locale.")
+            val pathspec = listOf("--pathspec-from-file=$list", "--pathspec-file-nul")
+            if (untracked.isNotEmpty()) {
+                Files.write(list, nulSeparated(untracked))
+                val staged = git.write(root, listOf(LITERAL, "add") + pathspec, timeout = GitCli.WRITE_TIMEOUT)
+                if (!staged.success) return GitCommitResult(staged, null)
+            }
+            Files.write(list, nulSeparated(paths))
+            val arguments =
+                buildList {
+                    // The message is UTF-8, whatever i18n.commitEncoding says.
+                    addAll(listOf(LITERAL, "-c", "i18n.commitEncoding=UTF-8", "commit", "--only"))
+                    if (amend) add("--amend")
+                    addAll(listOf("--cleanup=whitespace", "-F", "-"))
+                    if (paths.isNotEmpty()) addAll(pathspec)
+                }
+            val (result, _) =
+                git.writeWithExit(
+                    root,
+                    arguments,
+                    message.toByteArray(Charsets.UTF_8),
+                    GitCli.COMMIT_TIMEOUT,
+                    cancellation = cancellation,
+                )
+            return GitCommitResult(result, if (result.success) git.headCommit(root) else null)
+        } catch (e: IOException) {
+            return refused("The list of files could not be written: ${e.message}")
+        } finally {
+            runCatching { Files.deleteIfExists(list) }
+        }
+    }
+
+    private fun refused(message: String) = GitCommitResult(GitResult(false, message), null)
+
+    private fun nulSeparated(paths: List<String>): ByteArray =
+        paths.joinToString("") { it + "\u0000" }.toByteArray(Charsets.UTF_8)
 
     /**
      * Cherry-picks or reverts ([kind]) [commit] (a full hash): `git cherry-pick` or `git revert --no-edit`, for a
@@ -533,6 +661,7 @@ class GitCommits(
 
         const val SEQUENCE_MESSAGE = "A %s sequence is in progress; continue or abort it in the terminal."
         const val UNREADABLE = "Whether a merge, rebase, cherry-pick or revert is in progress could not be read."
+        const val LITERAL = "--literal-pathspecs"
         const val CONFLICTS_UNREADABLE = "The conflicted files could not be read."
         const val MARKER_SIZE = "conflict-marker-size"
         const val GITLINK = "160000"
