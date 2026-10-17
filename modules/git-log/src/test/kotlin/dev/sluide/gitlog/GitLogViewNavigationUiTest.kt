@@ -207,6 +207,7 @@ class GitLogViewNavigationUiTest : GitLogViewUiFixture() {
                     .toList(),
             )
         }
+        assertSame<Node?>(view.table, view.scene.focusOwner, "from the clicked text")
         eventually { assertTrue(showsDetailsOf("Subject 5")) }
         assertEquals("", status(robot))
     }

@@ -756,14 +756,22 @@ class GitLogView internal constructor(
 
     /**
      * Selects the row of the commit [hash] and scrolls to it, loading pages until it is there; if it is not, the header
-     * tells why, calling it [name] (ADR 0045). Replaces a search for another commit, e.g. of a branch.
+     * tells why, calling it [name] (ADR 0045). Replaces a search for another commit, e.g. of a branch. The table takes
+     * the focus from the details (a clicked link), whose texts the next commit may not have.
      */
     private fun goToCommit(
         hash: String,
         name: String,
     ) {
         status.set("")
-        pages.loadUntil(hash, ::showRow) { missing -> status.set(missingMessage(name, missing)) }
+        pages.loadUntil(
+            hash,
+            { index ->
+                showRow(index)
+                if (detailsPane.contains(scene?.focusOwner)) table.requestFocus()
+            },
+            { missing -> status.set(missingMessage(name, missing)) },
+        )
     }
 
     /** Opens Go to Hash/Branch/Tag at the top of the table (ADR 0045); not without a repository. */
