@@ -340,6 +340,7 @@ class GitLogWritesUiTest {
         assertEquals(
             listOf(
                 "Copy Revision Number",
+                "Compare with Local",
                 null,
                 "Checkout Revision",
                 "New Branch\u2026",
@@ -444,6 +445,9 @@ class GitLogWritesUiTest {
                 "Filter Log by Branch",
                 null,
                 "Copy Name",
+                null,
+                "Compare with Current",
+                "Show Diff with Working Tree",
                 null,
                 "Checkout",
                 "New Branch\u2026",
