@@ -461,6 +461,48 @@ class GitCli(
     }
 
     /**
+     * The output of `git cat-file --batch-check` for two lines per revision of [revisions] (ADR 0045): the commit it
+     * names (`<revision>^{commit}`), then the revision itself, which tells an ambiguous short hash from an unknown one
+     * (see [GitRevisionParser]). The revisions are given on the standard input, so any characters reach git as UTF-8;
+     * `null` for a revision with a line break, for more input than git is safely given (about 15 KB), or if git is not
+     * available, fails (e.g. `@{upstream}` without one) or takes longer than 10 s.
+     */
+    internal fun resolveRevisions(
+        root: Path,
+        revisions: List<String>,
+    ): String? {
+        if (!available || revisions.any { '\n' in it }) return null
+        val input = revisions.joinToString("") { "$it^{commit}\n$it\n" }.toByteArray(Charsets.UTF_8)
+        if (input.size > MAX_INPUT) return null
+        return runBytes(listOf("--no-optional-locks", "cat-file", "--batch-check"), root, 10.seconds, input)
+            ?.toString(Charsets.UTF_8)
+    }
+
+    /**
+     * The output of `git for-each-ref --contains` for the local and remote branches that contain the commit [hash] (a
+     * full object name) in the repository at [root], one `<refname>\u001f<symref>` per line (ADR 0045); `null` if git
+     * is not available, fails or takes longer than 10 s.
+     */
+    internal fun branchesContaining(
+        root: Path,
+        hash: String,
+    ): String? {
+        if (!available) return null
+        val arguments =
+            listOf(
+                "--no-optional-locks",
+                "for-each-ref",
+                // Attached, so the hash can never be read as an option or a pattern.
+                "--contains=$hash",
+                // %(symref): the target of a symbolic ref such as refs/remotes/origin/HEAD, which is skipped.
+                "--format=%(refname)%1f%(symref)",
+                "refs/heads",
+                "refs/remotes",
+            )
+        return run(arguments, root, 10.seconds)
+    }
+
+    /**
      * The raw content of the blob [name] (a full object name), without filters; `null` if git is not available, fails
      * or takes longer than 10 s.
      */

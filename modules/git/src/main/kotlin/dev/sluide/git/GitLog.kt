@@ -125,6 +125,43 @@ class GitLog(
     }
 
     /**
+     * The full refnames of the local and remote branches that contain the commit [hash] (its full object name) in the
+     * repository at [root] (ADR 0045), in git's order, without symbolic refs such as `refs/remotes/origin/HEAD`; `null`
+     * if git is not available, fails or takes longer than 10 s. Runs git on the calling thread.
+     */
+    fun branchesContaining(
+        root: Path,
+        hash: String,
+    ): List<String>? {
+        requireHash(hash)
+        val output = git.branchesContaining(root, hash) ?: return null
+        return output
+            .lineSequence()
+            .map { it.split('\u001f') }
+            .filter { it.size == 2 && it[0].isNotEmpty() && it[1].isEmpty() }
+            .map { it[0] }
+            .toList()
+    }
+
+    /**
+     * What each of [revisions] names in the repository at [root] (ADR 0045): a commit (annotated tags peeled), nothing,
+     * or several objects (an ambiguous short hash), with one `git cat-file` for all of them; a revision is anything git
+     * understands (a full or short hash, a short or full refname, `HEAD~3`, `v1.0^{}`). The revisions go to git's
+     * standard input, so non-ASCII names work in any locale. `null` if a revision is blank or has a line break, if they
+     * are too many (above about 15 KB), or if git is not available, fails (also for a revision git cannot even look up,
+     * such as `@{upstream}` without one) or takes longer than 10 s. Runs git on the calling thread.
+     */
+    fun resolveCommits(
+        root: Path,
+        revisions: List<String>,
+    ): List<GitRevisionResolution>? {
+        if (revisions.isEmpty()) return emptyList()
+        if (revisions.any { it.isBlank() }) return null
+        val output = git.resolveRevisions(root, revisions) ?: return null
+        return GitRevisionParser.parse(output, revisions.size)
+    }
+
+    /**
      * The files [commit] changed in the repository at [root] (ADR 0038): against its [firstParent], so a merge is
      * compared with its first parent only, or for a root commit (`null`) against nothing, every file added. Renames
      * are detected as git's `-M` does. Both are full object names (40 or 64 hexadecimal characters). `null` if git
