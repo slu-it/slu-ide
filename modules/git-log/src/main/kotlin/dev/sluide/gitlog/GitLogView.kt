@@ -55,6 +55,8 @@ import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
+import javafx.stage.Stage
+import javafx.stage.WindowEvent
 import javafx.util.Callback
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignA
@@ -84,7 +86,9 @@ import java.util.concurrent.Executors
  * table continues or aborts a cherry-pick or revert in progress (ADR 0042). Fetch in the header (all remotes) and in the
  * branches pane (one remote) fetches, cancellable while it runs (ADR 0043). Operations that change files ask
  * [beforeFileChange] first. Compare with Current in the branches pane lists one side of the comparison of a ref with
- * `HEAD`, with a bar above the table (ADR 0044).
+ * `HEAD`, with a bar above the table; Show Diff with Working Tree (branches pane) and Compare with Local (table) open a
+ * [WorkingTreeWindow] with the files that differ from the working tree, whose diffs go to [onShowWorkingTreeDiff]
+ * (ADR 0044).
  *
  * [source] reads the commits, refs, details, changed files and diffs on the thread `sluide-git-log`; [writes] changes
  * the repository on the thread `sluide-git-write`, one operation at a time. Their results are handled through
@@ -131,6 +135,13 @@ class GitLogView internal constructor(
 
     private val fileDiffs = FileDiffs(source::fileDiff, executor::execute, dispatch)
 
+    /** Reads for the working-tree windows (ADR 0044), not behind the pages of the log. */
+    private val compareExecutor =
+        Executors.newSingleThreadExecutor { Thread(it, "sluide-git-compare").apply { isDaemon = true } }
+
+    /** The open working-tree windows by the revision they compare (ADR 0044). */
+    internal val workingTreeWindows = LinkedHashMap<String, WorkingTreeWindow>()
+
     private val writeExecutor =
         Executors.newSingleThreadExecutor { Thread(it, "sluide-git-write").apply { isDaemon = true } }
 
@@ -157,6 +168,12 @@ class GitLogView internal constructor(
 
     /** Opens a file of the working tree, e.g. in the editor; set by the window (ADR 0038). */
     var onOpenFile: (Path) -> Unit = {}
+
+    /**
+     * Shows how a file differs between a commit and the working tree, e.g. side by side in an editor tab with the live
+     * file on the right; `false` if it cannot be shown as text. Set by the window (ADR 0044).
+     */
+    var onShowWorkingTreeDiff: (WorkingTreeFileDiff) -> Boolean = { true }
 
     /** A message in the header, e.g. that a diff cannot be shown, until the next selection or load. */
     private val status = SimpleStringProperty("")
@@ -262,6 +279,13 @@ class GitLogView internal constructor(
 
     private val copyRevisionNumber = MenuItem("Copy Revision Number").apply { setOnAction { copyRevisionNumbers() } }
 
+    internal val compareWithLocalItem =
+        MenuItem("Compare with Local").apply {
+            setOnAction {
+                singleCommit()?.let { showWorkingTreeDiff(it.hash, it.hash.take(ChangedFilesPane.SHORT_HASH)) }
+            }
+        }
+
     internal val checkoutRevisionItem =
         MenuItem("Checkout Revision").apply {
             setOnAction {
@@ -317,6 +341,7 @@ class GitLogView internal constructor(
             contextMenu =
                 ContextMenu(
                     copyRevisionNumber,
+                    compareWithLocalItem,
                     SeparatorMenuItem(),
                     checkoutRevisionItem,
                     newBranchItem,
@@ -330,6 +355,8 @@ class GitLogView internal constructor(
             // One commit, and no operation running.
             val notOne = Bindings.size(selectionModel.selectedItems).isNotEqualTo(1).or(writer.running)
             listOf(checkoutRevisionItem, newBranchItem, newTagItem).forEach { it.disableProperty().bind(notOne) }
+            // Only reads: also while an operation runs.
+            compareWithLocalItem.disableProperty().bind(Bindings.size(selectionModel.selectedItems).isNotEqualTo(1))
             // Not while git is in the middle of something: the bar says what.
             listOf(cherryPickItem, revertItem).forEach { it.disableProperty().bind(notOne.or(busy)) }
             resetItem.disableProperty().bind(notOne.or(hasHead.not()))
@@ -479,6 +506,7 @@ class GitLogView internal constructor(
             checkout = ::start
             newBranchFrom = { ref -> newBranch(ref.name, ref.shortName) }
             compare = ::compareWith
+            showWorkingTreeDiff = { ref -> showWorkingTreeDiff(ref.name, ref.shortName) }
             rename = ::renameBranch
             delete = ::deleteRefs
             fetch = { remote -> start(Fetch(remote)) }
@@ -616,6 +644,7 @@ class GitLogView internal constructor(
     /** Shows the log of the repository at [root]; `null` shows nothing. Loads once (or as soon as) [expanded]. */
     fun open(root: Path?) {
         fileDiffs.close()
+        closeWorkingTreeWindows()
         // An operation going on in the previous repository ends unnoticed; a fetch is stopped (ADR 0043).
         writer.cancel()
         writer.forget()
@@ -793,6 +822,53 @@ class GitLogView internal constructor(
             userData = side
             minWidth = USE_PREF_SIZE
         }
+
+    /**
+     * Opens a window with the files that differ between the commit [revision] names (a full refname, `HEAD` or a full
+     * hash) and the working tree, titled with [label] (ADR 0044); one that is open for it already comes to the front. The
+     * window is not owned by the IDE window, which comes to the front when a diff opens from it.
+     */
+    private fun showWorkingTreeDiff(
+        revision: String,
+        label: String,
+    ) {
+        val root = pages.root ?: return
+        workingTreeWindows[revision]?.let { return it.show() }
+        val comparison =
+            WorkingTreeComparison(
+                WorkingTreeTarget(root, revision, label),
+                source::workingTreeChanges,
+                source::workingTreeFileDiff,
+                compareExecutor::execute,
+                dispatch,
+            )
+        val window =
+            WorkingTreeWindow(
+                scene?.window,
+                comparison,
+                { diff -> onShowWorkingTreeDiff(diff).also { shown -> if (shown) bringToFront() } },
+                { file -> onOpenFile(file) },
+                ::localFile,
+            )
+        workingTreeWindows[revision] = window
+        window.stage.addEventHandler(WindowEvent.WINDOW_HIDDEN) {
+            if (workingTreeWindows[revision] === window) workingTreeWindows.remove(revision)
+        }
+        window.show()
+    }
+
+    /** Brings the IDE window in front of the working-tree windows, e.g. for a diff tab opened from one. */
+    private fun bringToFront() {
+        val window = scene?.window ?: return
+        (window as? Stage)?.toFront()
+        window.requestFocus()
+    }
+
+    /** Closes the working-tree windows, e.g. for another folder or when the IDE window closes. */
+    private fun closeWorkingTreeWindows() {
+        workingTreeWindows.values.toList().forEach(WorkingTreeWindow::close)
+        workingTreeWindows.clear()
+    }
 
     /** "me" if the repository has a user name, then the authors of the loaded rows by name. */
     private fun userItems(): List<FilterItem> {
@@ -1147,6 +1223,8 @@ class GitLogView internal constructor(
     }
 
     override fun close() {
+        closeWorkingTreeWindows()
+        compareExecutor.shutdownNow()
         // A fetch is stopped: harmless, it updates refs one by one and no files (ADR 0043).
         writer.cancel()
         writer.forget()
@@ -1334,6 +1412,3 @@ internal fun fitColumnWidths(
 private val COPY = KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN)
 
 private val FIND = KeyCodeCombination(KeyCode.F, KeyCombination.SHORTCUT_DOWN)
-
-/** Whether a file with this change had content on both sides, which may not have changed. */
-private val GitChange.changesContent get() = this != GitChange.ADDED && this != GitChange.DELETED

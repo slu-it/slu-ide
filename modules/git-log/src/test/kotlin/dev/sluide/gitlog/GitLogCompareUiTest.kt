@@ -1,16 +1,19 @@
 package dev.sluide.gitlog
 
+import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitCommitDetails
 import dev.sluide.git.GitComparisonCounts
 import dev.sluide.git.GitFileDiff
+import dev.sluide.git.GitHunk
 import dev.sluide.git.GitLogFilter
 import dev.sluide.git.GitLogPage
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitTreePath
+import dev.sluide.git.GitWorkingTreeChanges
 import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.Scene
@@ -19,6 +22,7 @@ import javafx.scene.control.TableRow
 import javafx.scene.control.TreeItem
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
+import javafx.stage.Screen
 import javafx.stage.Stage
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
@@ -60,6 +64,32 @@ class GitLogCompareUiTest {
 
     /** The filter of every load. */
     private val filters = CopyOnWriteArrayList<GitLogFilter>()
+
+    private val someFiles =
+        listOf(
+            GitChangedFile(GitChange.MODIFIED, "src/One.kt"),
+            GitChangedFile(GitChange.ADDED, "src/Two.kt"),
+            GitChangedFile(GitChange.DELETED, "README.md"),
+            GitChangedFile(GitChange.RENAMED, "docs/new.md", "docs/old.md"),
+        )
+
+    /** What the files that differ from the working tree are, by revision. */
+    @Volatile
+    private var workingTree: (String) -> GitWorkingTreeChanges? = { revision ->
+        GitWorkingTreeChanges.Files("commit-of-$revision", someFiles)
+    }
+
+    /** The revision of every read of the files that differ from the working tree. */
+    private val workingTreeLoads = CopyOnWriteArrayList<String>()
+
+    /** How a file differs from the working tree. */
+    @Volatile
+    private var workingTreeDiff: (GitChangedFile) -> GitFileDiff? = { file ->
+        GitFileDiff.Text("old ${file.path}\n", "new ${file.path}\n", listOf(GitHunk(0..0, 0..0)))
+    }
+
+    /** The (commit, path) of every read of a diff with the working tree. */
+    private val workingTreeDiffLoads = CopyOnWriteArrayList<Pair<String, String>>()
 
     private lateinit var view: GitLogView
 
@@ -129,6 +159,23 @@ class GitLogCompareUiTest {
             revision: String,
             filter: GitLogFilter,
         ) = counts[revision]
+
+        override fun workingTreeChanges(
+            root: Path,
+            revision: String,
+        ): GitWorkingTreeChanges? {
+            workingTreeLoads += revision
+            return workingTree(revision)
+        }
+
+        override fun workingTreeFileDiff(
+            root: Path,
+            commit: String,
+            file: GitChangedFile,
+        ): GitFileDiff? {
+            workingTreeDiffLoads += commit to file.path
+            return workingTreeDiff(file)
+        }
     }
 
     private fun commit(
@@ -369,5 +416,175 @@ class GitLogCompareUiTest {
         counts = emptyMap()
         robot.interact { view.headOnlyToggle.fire() }
         eventually { assertEquals("In main, not in feature", view.headOnlyToggle.text, "no counts") }
+    }
+
+    /** The working-tree window open for [revision], once it is there. */
+    private fun windowOf(revision: String): WorkingTreeWindow {
+        var window: WorkingTreeWindow? = null
+        eventually { window = checkNotNull(view.workingTreeWindows[revision]) }
+        return checkNotNull(window)
+    }
+
+    /** The expanded tree of [window] as names, folders ending with `/`. */
+    private fun treeOf(window: WorkingTreeWindow): List<String> {
+        fun lines(item: TreeItem<ChangeNode>): List<String> =
+            item.children.flatMap { child ->
+                when (val node = child.value) {
+                    is ChangeFolder -> listOf("${node.name}/") + if (child.isExpanded) lines(child) else emptyList()
+                    is ChangeFile -> listOf(node.name)
+                }
+            }
+        return if (window.tree.isVisible) lines(window.tree.root) else emptyList()
+    }
+
+    private fun selectFile(
+        window: WorkingTreeWindow,
+        name: String,
+    ) {
+        val tree = window.tree
+        val index = (0 until tree.expandedItemCount).single { tree.getTreeItem(it).value.name == name }
+        tree.selectionModel.clearAndSelect(index)
+    }
+
+    private fun press(
+        window: WorkingTreeWindow,
+        code: KeyCode,
+    ) {
+        Event.fireEvent(window.tree, KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, false, false, false))
+    }
+
+    @Test
+    fun `Show Diff with Working Tree opens a window with the files that differ, once per ref`(robot: FxRobot) {
+        openAndExpand(robot)
+        selectBranches(robot, "$LOCAL/feature")
+        robot.interact { pane.workingTreeItem.fire() }
+
+        val window = windowOf(feature.name)
+        eventually { assertEquals(listOf("docs/", "new.md", "src/", "One.kt", "Two.kt", "README.md"), treeOf(window)) }
+        robot.interact {
+            assertTrue(window.stage.isShowing)
+            assertEquals("feature ↔ Working Tree", window.stage.title)
+            // Not owned, so that the IDE window can come in front of it; at the IDE window's right edge.
+            assertEquals(null, window.stage.owner)
+            val ide = view.scene.window
+            val area = Screen.getScreensForRectangle(ide.x, ide.y, ide.width, ide.height).first().visualBounds
+            val right = minOf(ide.x + ide.width, area.maxX)
+            assertEquals(right, window.stage.x + window.stage.width, 1.0)
+            assertTrue(window.stage.y >= area.minY && window.stage.y + window.stage.height <= area.maxY + 1)
+            assertEquals("4 files differ", window.header.text)
+            assertEquals("Untracked files are not included.", window.note.text)
+            assertTrue(
+                window.stage.scene.root.styleClass
+                    .contains("git-log"),
+                "the colours of the changes",
+            )
+        }
+        assertEquals(feature.name, workingTreeLoads.first())
+
+        // Again: the same window.
+        robot.interact { pane.workingTreeItem.fire() }
+        robot.interact {
+            assertEquals(1, view.workingTreeWindows.size)
+            assertTrue(window.stage.isShowing)
+        }
+
+        workingTree = { GitWorkingTreeChanges.Files("c2", someFiles.take(1)) }
+        robot.interact { window.refreshButton.fire() }
+        eventually {
+            assertEquals("1 file differs", window.header.text)
+            assertEquals(listOf("src/", "One.kt"), treeOf(window))
+        }
+        workingTree = { GitWorkingTreeChanges.Files("c2", emptyList()) }
+        robot.interact { window.refreshButton.fire() }
+        eventually { assertEquals("No differences.", window.placeholder.text) }
+        workingTree = { GitWorkingTreeChanges.Missing }
+        robot.interact { window.refresh() }
+        eventually { assertEquals("feature no longer exists.", window.placeholder.text) }
+        workingTree = { null }
+        robot.interact { window.refresh() }
+        eventually { assertEquals("The differences could not be read.", window.placeholder.text) }
+
+        // HEAD has a window of its own; another folder closes them all.
+        selectBranches(robot, "HEAD")
+        robot.interact { pane.workingTreeItem.fire() }
+        val head = windowOf("HEAD")
+        robot.interact { assertEquals("HEAD ↔ Working Tree", head.stage.title) }
+        robot.interact { view.open(null) }
+        robot.interact {
+            assertFalse(window.stage.isShowing)
+            assertFalse(head.stage.isShowing)
+            assertTrue(view.workingTreeWindows.isEmpty())
+        }
+    }
+
+    @Test
+    fun `Compare with Local on one commit, its diffs go to the window's callback`(robot: FxRobot) {
+        val shown = CopyOnWriteArrayList<WorkingTreeFileDiff>()
+        var showable = true
+        robot.interact { view.onShowWorkingTreeDiff = { diff -> shown.add(diff).let { showable } } }
+        openAndExpand(robot)
+        robot.interact {
+            view.table.selectionModel.selectIndices(0, 1)
+            assertTrue(view.compareWithLocalItem.isDisable, "two commits")
+            view.table.selectionModel.clearAndSelect(0)
+            assertFalse(view.compareWithLocalItem.isDisable)
+        }
+        val commit =
+            view.table.items[0]
+                .commit.hash
+        robot.interact { view.compareWithLocalItem.fire() }
+        val window = windowOf(commit)
+        eventually { assertEquals("4 files differ", window.header.text) }
+        robot.interact { assertEquals("$commit ↔ Working Tree", window.stage.title) }
+
+        robot.interact {
+            selectFile(window, "new.md")
+            press(window, KeyCode.ENTER)
+        }
+        eventually { assertEquals(1, shown.size) }
+        assertEquals(
+            WorkingTreeFileDiff(
+                repo,
+                "docs/new.md",
+                "docs/old.md",
+                GitChange.RENAMED,
+                "commit-of-$commit",
+                commit,
+                "old docs/new.md\n",
+                "new docs/new.md\n",
+                listOf(GitHunk(0..0, 0..0)),
+            ),
+            shown.single(),
+        )
+        assertEquals(listOf("commit-of-$commit" to "docs/new.md"), workingTreeDiffLoads)
+
+        workingTreeDiff = { GitFileDiff.Binary }
+        robot.interact {
+            selectFile(window, "One.kt")
+            press(window, KeyCode.ENTER)
+        }
+        eventually { assertEquals("One.kt is a binary file.", window.status.text) }
+        robot.interact { selectFile(window, "Two.kt") }
+        robot.interact { assertEquals("", window.status.text, "cleared by the next selection") }
+
+        workingTreeDiff = { file -> GitFileDiff.Text("same\n", "same\n", emptyList()) }
+        robot.interact { press(window, KeyCode.ENTER) }
+        eventually { assertEquals(2, shown.size) }
+        robot.interact {
+            selectFile(window, "new.md")
+            press(window, KeyCode.ENTER)
+        }
+        eventually { assertEquals("new.md has no content changes.", window.status.text) }
+
+        showable = false
+        workingTreeDiff = { GitFileDiff.Text("a\n", "b\n", listOf(GitHunk(0..0, 0..0))) }
+        robot.interact {
+            selectFile(window, "One.kt")
+            press(window, KeyCode.ENTER)
+        }
+        eventually { assertEquals("One.kt cannot be shown as text.", window.status.text) }
+
+        robot.interact { view.close() }
+        robot.interact { assertFalse(window.stage.isShowing) }
     }
 }

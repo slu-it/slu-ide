@@ -565,6 +565,51 @@
 }
 
 /*
+ * The window of the files that differ from the working tree (ADR 0044): a window of its own, themed by ThemedWindows,
+ * with this stylesheet added; on the table's background like the changed files, a bar with the count and Refresh, a
+ * muted note below.
+ */
+.git-working-tree {
+    -fx-background-color: -fx-control-inner-background;
+}
+
+.git-working-tree-bar {
+    -fx-spacing: 8;
+    -fx-padding: 2 4 2 8;
+    -fx-background-color: -fx-box-border, -fx-control-inner-background;
+    -fx-background-insets: 0, 0 0 1 0;
+}
+
+.git-working-tree-header {
+    -fx-text-fill: -fx-text-inner-color;
+    -fx-opacity: 0.7;
+}
+
+.git-working-tree-status {
+    -fx-text-fill: -fx-text-inner-color;
+}
+
+.git-working-tree-refresh {
+    -fx-background-color: transparent;
+    -fx-padding: 2 4 2 4;
+}
+
+.git-working-tree-refresh:hover {
+    -fx-background-color: -fx-hover-base;
+}
+
+.git-working-tree-refresh .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+    -fx-icon-size: 16;
+}
+
+.git-working-tree-note {
+    -fx-text-fill: -fx-text-inner-color;
+    -fx-opacity: 0.6;
+    -fx-padding: 3 8 3 8;
+}
+
+/*
  * The reset dialog (ADR 0042): a window of its own, with this stylesheet added; what a hard reset loses in a warning
  * colour, redefined for the dark theme below.
  */
