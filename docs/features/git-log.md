@@ -7,19 +7,21 @@ reloads, without controls), `GraphLayout` (the commit graph's lanes), `GraphCell
 `FilterBar` with `FilterPopup` (`FilterBar.kt`), `branchNodes` (`BranchTree.kt`, without controls) and
 `BranchesPane`, the operations that change the repository with `branchActions`, `nameProblem` and their `RefWriter`
 (`RefOperations.kt`, without controls), the cherry-pick, revert and reset operations (`CommitOperations.kt`, without
-controls) and their dialogs (`RefDialogs.kt`, `CommitDialogs.kt`); the commits (filtered by a `GitLogFilter`), refs,
+controls), Fetch and its summary (`FetchOperations.kt`, without controls) and their dialogs (`RefDialogs.kt`, `CommitDialogs.kt`); the commits (filtered by a `GitLogFilter`), refs,
 details, changed files, diffs, user name, tree paths and the cherry-pick or revert in progress come from `GitLog` in
-`modules/git`, the changes are made by `GitBranches` and `GitCommits` there, names are checked with `GitRefNames`.
+`modules/git`, the changes are made by `GitBranches`, `GitCommits` and `GitRemotes` (fetch) there, names are checked
+with `GitRefNames`.
 Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-commit-graph-layout.md),
 [ADR 0037](../adr/0037-ref-labels-and-commit-details.md), [ADR 0038](../adr/0038-changed-files-and-commit-diffs.md),
 [ADR 0039](../adr/0039-git-log-filters.md), [ADR 0040](../adr/0040-git-log-branches-pane.md),
-[ADR 0041](../adr/0041-git-write-operations.md) and [ADR 0042](../adr/0042-git-log-commit-operations.md)
+[ADR 0041](../adr/0041-git-write-operations.md), [ADR 0042](../adr/0042-git-log-commit-operations.md) and
+[ADR 0043](../adr/0043-git-log-fetch.md)
 
 - **Where and when:** for a folder whose git status is followed ([git-status.md](git-status.md): git is available and
   the folder has `.git`), the window shows a Git Log area under the editor area. Other folders, and a window without a
   folder, have no such area: no header, no divider.
-- **Collapsed by default:** only its header bar shows: a chevron, "Git Log" and a Refresh button on the right.
-  Clicking the header (not Refresh) expands or collapses it, and so does **View → Git Log** (Alt+9, Cmd+9 on macOS),
+- **Collapsed by default:** only its header bar shows: a chevron, "Git Log" and Fetch (a down arrow) and Refresh
+  buttons on the right. Clicking the header (not its buttons) expands or collapses it, and so does **View → Git Log** (Alt+9, Cmd+9 on macOS),
   which is disabled when there is no area. Expanding moves the focus to the commit table; collapsing while the table
   has the focus gives it back to the editor (the selected tab, or the editor area without tabs).
 - **Height:** expanded, the area takes the lower 30 % of the editor column at first; its divider can be dragged.
@@ -253,10 +255,37 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
     operation does not run). Asked for checkouts (also of a new branch), Cherry-Pick, Revert, a hard reset, Abort and
     Continue (which stages the files from disk), with "Cherry-Pick Anyway", "Revert Anyway", "Reset Anyway", "Abort
     Anyway" and "Continue Anyway"; not for soft and mixed resets or branch and tag operations.
+- **Fetch** ([ADR 0043](../adr/0043-git-log-fetch.md)): the down arrow in the header ("Fetch All Remotes", also while
+  the log is collapsed) fetches every remote but those with `remote.<name>.skipFetchAll`, one after the other; Fetch in
+  the branches pane's context menu (after Delete and a separator) on a remote, a folder of a remote or a remote branch
+  fetches only that remote, also one with `skipFetchAll`; it is disabled where no remote of the repository matches
+  (remote branches of a removed remote). `git fetch --prune --recurse-submodules=no`: remote branches deleted on the
+  server disappear, tags arrive as git follows them by default (those of the fetched commits); local tags are never
+  deleted and tags moved on the server are not moved locally. No file changes, so no question about unsaved editors.
+  - **Running:** like the other operations, one at a time and with all of them disabled meanwhile (the Fetch button
+    too); the header says "Fetching origin…" with a **Cancel** button next to it, which stops git (and ssh or whatever
+    it started) and skips the remaining remotes: "Fetch cancelled." and, if anything changed before, "Fetched so far:
+    1 new branch." Opening another folder or closing the window cancels a running fetch too; refs git updated by then
+    stay updated. A remote may take 10 minutes ("git did not finish within 10 min.").
+  - **Done:** the header says what changed, read from the refs before and after (where the remote's refspecs write,
+    and the tags): "Fetched origin: 1 new branch, 2
+    branches updated, 1 branch pruned, 3 new tags.", "Fetched 2 remotes: nothing new.", "No remotes to fetch.". A
+    remote that fails does not stop the others: an error dialog "Fetch Failed" says "gone could not be fetched." (or
+    "2 remotes could not be fetched: a, b.") with git's message (each under its remote's name), and the header tells
+    what the others fetched ("Fetched 1 of 2 remotes: …"; "Fetched origin with errors: 1 branch updated." when git
+    refused a tag but moved branches). Remotes that failed before a cancel get the dialog too. The log is refreshed
+    afterwards.
+  - **Never asks:** git gets no terminal prompt; credential helpers work. Ssh runs in batch mode (unless
+    `GIT_SSH_COMMAND`, `GIT_SSH`, `GIT_SSH_VARIANT`, `core.sshCommand` or `ssh.variant` is set): a key with a
+    passphrase needs an ssh agent, an unknown host a first connection from a terminal; otherwise the fetch fails with
+    ssh's message.
+  - **Disabled** while another operation runs, and once the log found no remotes (they are read with every refresh
+    of the expanded log); before the log was first expanded it is enabled and says "No remotes to fetch." if there
+    are none.
 - Not yet implemented (next packages): "In N branches" and clickable hashes in the details, a flat list of the
   changed files, their combined changes for several commits, comparing with the local version, the changes against
   each parent of a merge, a diff preview in the log, file history, file-type icons in the tree, a date filter, dotted
   edges through commits hidden by filters, tracking information in the branches pane, remembering the area's height
-  and state, and more operations: fetch, pull, push, merge, rebase, deleting remote branches, pushing tags; for
+  and state, and more operations: updating local branches after a fetch, pull, push, merge, rebase, deleting remote branches, pushing tags; for
   cherry-pick and revert several commits at once, a merge tool or three-way view, `-x` and edited messages; `reset
   --keep`; continuing or aborting merges, rebases and sequences from the bar.
