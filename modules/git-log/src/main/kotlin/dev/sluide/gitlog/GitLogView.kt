@@ -102,7 +102,7 @@ import java.util.concurrent.TimeUnit
  * one is open, the header's title becomes a row of tabs, the Log first, and the selected tab decides what the area shows
  * (ADR 0046). [showCommit] opens the Commit tab, right of the Log, to commit chosen files; its draft stays while it is
  * closed, until another folder (ADR 0048); [workingTreeChanged] has it read the changes again. [showPush] (and Push in
- * the header) opens the Push dialog, which pushes the current branch (ADR 0049).
+ * the header, Commit and Push in the Commit tab) opens the Push dialog, which pushes the current branch (ADR 0049).
  *
  * [source] reads the commits, refs, details, changed files and diffs on the thread `sluide-git-log` (a history, the
  * Commit tab and the Push dialog on threads of their own); [writes] changes the repository on the thread
@@ -1910,8 +1910,10 @@ class GitLogView internal constructor(
             return
         }
         // A commit that was made (not one cancelled) ends the draft (ADR 0048); a failed one keeps it.
+        // Commit and Push opens the Push dialog after a commit that was made (ADR 0049).
         if (operation is CommitChanges && outcome.result.success && outcome.result.changed) {
             commitTab?.view?.committed(operation)
+            if (operation.push) showPush()
         }
         // Also after a failure, which may have done a part. New and renamed branches alone are not noticed by the
         // watch of .git (ADR 0035).

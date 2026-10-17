@@ -8,13 +8,15 @@ import java.nio.file.Path
  * Commits the checked tracked changes [files] and [untracked] files with [message], or amends `HEAD` with them if
  * [amend] (ADR 0048). The files are taken as they are on disk, so unsaved editors are asked about first; cancellable,
  * for slow hooks or a GPG pinentry. Cancelled, the header says so and no dialog is shown; nothing was committed then
- * ([GitResult.changed] is `false`).
+ * ([GitResult.changed] is `false`). With [push] (Commit and Push), the Push dialog opens once the commit is made
+ * (ADR 0049).
  */
 internal data class CommitChanges(
     val message: String,
     val files: List<GitChangedFile>,
     val untracked: List<String>,
     val amend: Boolean,
+    val push: Boolean = false,
 ) : RefOperation {
     override val progress get() = if (amend) "Amending…" else "Committing…"
     override val errorTitle get() = "Commit Failed"

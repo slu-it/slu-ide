@@ -71,9 +71,10 @@ internal data class CommitEntryNode(
  * (with `HEAD`'s commit, `null` without one), [openFile] (only if it [exists]) and the clipboard. Right, the message,
  * Amend (ticked with an empty message it fills `HEAD`'s message, unticked it takes it out again if unchanged; a note
  * if `HEAD` is pushed already), what keeps git from committing (a merge in progress, conflicts), Commit (also
- * Shortcut+Enter), which hands a [CommitChanges] to [commit] and is enabled only as [canCommit] says (not while an
- * operation is [running]), and how many files are checked. A failed read keeps the tree and tells [failedWithChanges];
- * without a tree the placeholder says it. `git-log.css` styles it within `.git-log`.
+ * Shortcut+Enter) and Commit and Push (Shortcut+Alt+K, ADR 0049), which hand a [CommitChanges] to [commit] and are
+ * enabled only as [canCommit] says (not while an operation is [running]), and how many files are checked. A failed
+ * read keeps the tree and tells [failedWithChanges]; without a tree the placeholder says it. `git-log.css` styles it
+ * within `.git-log`.
  */
 internal class CommitView(
     val reader: CommitReader,
@@ -174,33 +175,44 @@ internal class CommitView(
             managedProperty().bind(visibleProperty())
         }
 
+    /** Whether Commit (and Commit and Push) cannot commit now. */
+    private val commitDisabled =
+        Bindings.createBooleanBinding(
+            {
+                !canCommit(
+                    messageArea.text.orEmpty(),
+                    checkedCount.get(),
+                    amendBox.isSelected,
+                    blocked.get(),
+                    running.get(),
+                )
+            },
+            messageArea.textProperty(),
+            checkedCount,
+            amendBox.selectedProperty(),
+            blocked,
+            running,
+        )
+
     internal val commitButton =
         Button("Commit").apply {
             styleClass += "git-commit-button"
             tooltip = Tooltip("Commit (${COMMIT.displayText})")
             setOnAction { commitNow() }
-            disableProperty().bind(
-                Bindings.createBooleanBinding(
-                    {
-                        !canCommit(
-                            messageArea.text.orEmpty(),
-                            checkedCount.get(),
-                            amendBox.isSelected,
-                            blocked.get(),
-                            running.get(),
-                        )
-                    },
-                    messageArea.textProperty(),
-                    checkedCount,
-                    amendBox.selectedProperty(),
-                    blocked,
-                    running,
-                ),
-            )
+            disableProperty().bind(commitDisabled)
         }
 
-    /** The buttons below the message; room for Commit and Push later. */
-    internal val buttons = HBox(commitButton).apply { styleClass += "git-commit-buttons" }
+    /** Commits, then opens the Push dialog once the commit is made (ADR 0049). */
+    internal val commitAndPushButton =
+        Button("Commit and Push…").apply {
+            styleClass += "git-commit-push-button"
+            tooltip = Tooltip("Commit and Push… (${COMMIT_AND_PUSH.displayText})")
+            setOnAction { commitNow(push = true) }
+            disableProperty().bind(commitDisabled)
+        }
+
+    /** The buttons below the message. */
+    internal val buttons = HBox(commitButton, commitAndPushButton).apply { styleClass += "git-commit-buttons" }
 
     /** "2 of 5 files selected", or "Nothing to commit." */
     internal val summary = Label().apply { styleClass += "git-commit-summary" }
@@ -236,6 +248,9 @@ internal class CommitView(
         addEventFilter(KeyEvent.KEY_PRESSED) { event ->
             if (COMMIT.match(event)) {
                 commitNow()
+                event.consume()
+            } else if (COMMIT_AND_PUSH.match(event)) {
+                commitNow(push = true)
                 event.consume()
             }
         }
@@ -412,13 +427,13 @@ internal class CommitView(
         }
     }
 
-    /** Commits the checked files with the message, if Commit is enabled. */
-    private fun commitNow() {
+    /** Commits the checked files with the message, if Commit is enabled; then pushes if [push]. */
+    private fun commitNow(push: Boolean = false) {
         if (commitButton.isDisabled) return
         val changes = reader.snapshot?.changes ?: return
         val files = changes.files.filter { checks.isChecked(it.path) }
         val untracked = changes.untracked.filter(checks::isChecked)
-        commit(CommitChanges(messageArea.text, files, untracked, amendBox.isSelected))
+        commit(CommitChanges(messageArea.text, files, untracked, amendBox.isSelected, push))
     }
 
     /** The selected file, as git names it (an untracked one as added); `null` for none, a folder or a group. */
@@ -562,5 +577,8 @@ internal class CommitView(
 
         /** Commits from anywhere in the tab, as IntelliJ does; Enter alone is a new line in the message. */
         val COMMIT = KeyCodeCombination(KeyCode.ENTER, KeyCombination.SHORTCUT_DOWN)
+
+        /** Commit and Push from anywhere in the tab: IntelliJ's shortcut (ADR 0049). */
+        val COMMIT_AND_PUSH = KeyCodeCombination(KeyCode.K, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN)
     }
 }

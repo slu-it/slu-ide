@@ -3,6 +3,7 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
+import dev.sluide.git.GitCommitChanges
 import dev.sluide.git.GitOutgoing
 import dev.sluide.git.GitPushRejection
 import dev.sluide.git.GitPushResult
@@ -37,8 +38,8 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
- * UI tests of the Push dialog of the git log (ADR 0049): what it reads and shows, pushing and force pushing, and the
- * header. Needs a display, see the `uiTest` Gradle task.
+ * UI tests of the Push dialog of the git log (ADR 0049): what it reads and shows, pushing and force pushing, the header
+ * and Commit and Push. Needs a display, see the `uiTest` Gradle task.
  */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
@@ -597,5 +598,70 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
         currentRemotes = emptyList()
         openAndExpand(robot)
         eventually { assertTrue(view.pushButton.isDisable) }
+    }
+
+    private fun startCommit(robot: FxRobot) {
+        outgoing = { _, _ -> twoCommits }
+        commitChanges = GitCommitChanges(listOf(readme), emptyList(), null, emptyList(), false)
+        robot.interact {
+            view.open(repo)
+            view.showCommit()
+        }
+        eventually {
+            assertTrue(
+                checkNotNull(view.commitView)
+                    .tree.root.children
+                    .isNotEmpty(),
+            )
+        }
+        robot.interact { checkNotNull(view.commitView).messageArea.text = "Fix" }
+    }
+
+    @Test
+    fun `Commit and Push commits, then opens the Push dialog, a failed commit does not`(robot: FxRobot) {
+        startCommit(robot)
+        val commitView = checkNotNull(view.commitView)
+        assertFalse(commitView.commitAndPushButton.isDisabled)
+
+        writes.result = { GitResult(false, "pre-commit: tests fail") }
+        Platform.runLater { commitView.commitAndPushButton.fire() }
+        val pane = awaitDialog(robot)
+        assertEquals("Commit Failed", (pane.scene.window as Stage).title)
+        press(robot, pane, ButtonType.OK)
+        assertNull(view.pushDialog)
+
+        writes.result = { GitResult(true, "") }
+        robot.interact { commitView.commitAndPushButton.fire() }
+        eventually { assertTrue(view.pushDialog != null) }
+        assertEquals(listOf("commit README.md|: Fix", "commit README.md|: Fix"), writes.calls)
+        assertEquals("Committed 5e6f7a8b: Fix.", status(robot))
+        awaitRead()
+    }
+
+    @Test
+    fun `a cancelled Commit and Push does not open the Push dialog`(robot: FxRobot) {
+        startCommit(robot)
+        writes.gate = CountDownLatch(1)
+        robot.interact { checkNotNull(view.commitView).commitAndPushButton.fire() }
+        eventually { assertTrue(cancelShown()) }
+        writes.result = { GitResult(false, "Cancelled.") }
+
+        robot.interact { view.cancelButton.fire() }
+        writes.gate?.countDown()
+
+        eventually { assertEquals("Commit cancelled.", status(robot)) }
+        assertNull(view.pushDialog)
+        assertNoDialog()
+    }
+
+    @Test
+    fun `Shortcut+Alt+K commits and pushes from the Commit tab`(robot: FxRobot) {
+        startCommit(robot)
+        val area = checkNotNull(view.commitView).messageArea
+        press(area, KeyCode.K, shortcut = true, alt = true)
+
+        eventually { assertTrue(view.pushDialog != null) }
+        assertEquals(listOf("commit README.md|: Fix"), writes.calls)
+        assertEquals("", read { area.text }, "the draft is done")
     }
 }
