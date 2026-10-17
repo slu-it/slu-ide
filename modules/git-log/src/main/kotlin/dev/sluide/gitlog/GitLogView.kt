@@ -14,6 +14,7 @@ import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitRemotes
+import dev.sluide.git.GitRevisionResolution
 import dev.sluide.git.GitTreePath
 import javafx.application.Platform
 import javafx.beans.binding.Bindings
@@ -294,6 +295,22 @@ class GitLogView internal constructor(
 
     private val copyRevisionNumber = MenuItem("Copy Revision Number").apply { setOnAction { copyRevisionNumbers() } }
 
+    internal val goToItem = MenuItem("Go to Hash/Branch/Tag\u2026").apply { setOnAction { openGoTo() } }
+
+    /** Go to Hash/Branch/Tag (ADR 0045), with the branches and tags read last. */
+    internal val goToPopup =
+        GoToPopup { branchItems().drop(1) }.apply {
+            go = ::goTo
+            clearFilters = ::clearFiltersAndGo
+            closed = ::goToClosed
+        }
+
+    /** Counts the requests of Go to, so that the result of an earlier one, or one after the popup closed, is dropped. */
+    private var goToRequests = 0L
+
+    /** The commit Go to looks for in the log and what it is called, while it does. */
+    private var goToTarget: Pair<String, String>? = null
+
     internal val compareWithLocalItem =
         MenuItem("Compare with Local").apply {
             setOnAction {
@@ -365,6 +382,8 @@ class GitLogView internal constructor(
                     cherryPickItem,
                     revertItem,
                     resetItem,
+                    SeparatorMenuItem(),
+                    goToItem,
                 )
             copyRevisionNumber.disableProperty().bind(Bindings.isEmpty(selectionModel.selectedItems))
             // One commit, and no operation running.
@@ -544,6 +563,9 @@ class GitLogView internal constructor(
                 if (FIND.match(event)) {
                     if (branchesPane.contains(event.target)) branchesPane.focusSearch() else filterBar.focusText()
                     event.consume()
+                } else if (GO_TO.match(event)) {
+                    openGoTo()
+                    event.consume()
                 }
             }
         }
@@ -682,6 +704,7 @@ class GitLogView internal constructor(
     fun open(root: Path?) {
         fileDiffs.close()
         closeWorkingTreeWindows()
+        goToPopup.hide()
         // An operation going on in the previous repository ends unnoticed; a fetch is stopped (ADR 0043).
         writer.cancel()
         writer.forget()
@@ -741,6 +764,84 @@ class GitLogView internal constructor(
     ) {
         status.set("")
         pages.loadUntil(hash, ::showRow) { missing -> status.set(missingMessage(name, missing)) }
+    }
+
+    /** Opens Go to Hash/Branch/Tag at the top of the table (ADR 0045); not without a repository. */
+    private fun openGoTo() {
+        if (pages.root == null) return
+        goToPopup.show(table)
+    }
+
+    /**
+     * Resolves [revision] (a full refname, or what was typed) in the background and goes to its commit (ADR 0045); the
+     * popup says why not, calling it [name].
+     */
+    private fun goTo(
+        revision: String,
+        name: String,
+    ) {
+        val root = pages.root ?: return
+        val request = ++goToRequests
+        goToTarget = null
+        executor.execute {
+            val resolution = source.resolveCommits(root, listOf(revision))?.singleOrNull()
+            dispatch {
+                if (request != goToRequests || pages.root != root || !goToPopup.isShowing) return@dispatch
+                when (resolution) {
+                    is GitRevisionResolution.Commit -> seekGoTo(request, resolution.hash, name)
+                    GitRevisionResolution.Ambiguous -> goToPopup.say("'$name' is ambiguous.")
+                    GitRevisionResolution.Missing, null -> goToPopup.say("Unknown revision '$name'.")
+                }
+            }
+        }
+    }
+
+    /**
+     * Selects the row of the commit [hash] Go to resolved, loading pages until it is there: the popup closes and the
+     * table takes the focus; if it is not there, the popup says why, offering to clear the filters that hide it.
+     */
+    private fun seekGoTo(
+        request: Long,
+        hash: String,
+        name: String,
+    ) {
+        goToTarget = hash to name
+        pages.loadUntil(
+            hash,
+            { index ->
+                if (request == goToRequests) {
+                    goToTarget = null
+                    goToPopup.hide()
+                    showRow(index)
+                    table.requestFocus()
+                }
+            },
+            { missing ->
+                if (request == goToRequests) {
+                    val hidden =
+                        missing == CommitMissing.NOT_IN_LOG &&
+                            pages.comparison == null &&
+                            !pages.effectiveFilter.isDefault
+                    goToPopup.say(missingMessage(name, missing), offerClearFilters = hidden)
+                }
+            },
+        )
+    }
+
+    /** Clears the filters that hide the commit Go to looked for, and goes on to it. */
+    private fun clearFiltersAndGo() {
+        val (hash, name) = goToTarget ?: return
+        filterBar.clearFilters()
+        goToPopup.say(null)
+        seekGoTo(goToRequests, hash, name)
+    }
+
+    /** Go to closed: what it still waits for is dropped, the log stops loading pages for it. */
+    private fun goToClosed() {
+        goToRequests++
+        val target = goToTarget ?: return
+        goToTarget = null
+        if (pages.loadingUntil == target.first) pages.stopLoadingUntil()
     }
 
     /** Why the commit called [name] is not in the table, as [GitLogPages.loadUntil] found it [missing]. */
@@ -1467,3 +1568,5 @@ internal fun fitColumnWidths(
 private val COPY = KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN)
 
 private val FIND = KeyCodeCombination(KeyCode.F, KeyCombination.SHORTCUT_DOWN)
+
+private val GO_TO = KeyCodeCombination(KeyCode.G, KeyCombination.SHORTCUT_DOWN)

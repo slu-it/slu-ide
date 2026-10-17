@@ -286,6 +286,24 @@ internal class FilterBar(
         }
     }
 
+    /**
+     * Clears every filter (ADR 0045) and tells [onChange] once: the text (Regex and Match Case stay as they are), the
+     * branches, users and paths, and the graph options; popups close.
+     */
+    fun clearFilters() {
+        val regexOn = regex.isSelected
+        val matchCaseOn = matchCase.isSelected
+        reset()
+        resetting = true
+        try {
+            regex.isSelected = regexOn
+            matchCase.isSelected = matchCaseOn
+        } finally {
+            resetting = false
+        }
+        apply()
+    }
+
     /** Hands the filter to [onChange] now, also a typed text still waiting for its delay. */
     private fun apply() {
         debounce.stop()

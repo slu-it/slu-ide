@@ -3,12 +3,15 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitCommitDetails
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
+import dev.sluide.git.GitRevisionResolution
 import javafx.animation.Animation
 import javafx.event.Event
 import javafx.event.EventType
 import javafx.geometry.Point2D
 import javafx.scene.Cursor
 import javafx.scene.Node
+import javafx.scene.control.ListCell
+import javafx.scene.input.KeyCode
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.stage.Stage
@@ -22,6 +25,8 @@ import java.util.concurrent.CountDownLatch
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -268,6 +273,246 @@ class GitLogViewNavigationUiTest : GitLogViewUiFixture() {
                 .toList(),
             "followed once",
         )
+    }
+
+    private val goTo get() = view.goToPopup
+
+    /** Opens Go to with Shortcut+G in the table and types [text]. */
+    private fun openGoTo(
+        robot: FxRobot,
+        text: String = "",
+    ) {
+        press(robot, view.table, KeyCode.G, shortcut = true)
+        eventually { assertTrue(goTo.isShowing) }
+        robot.interact { goTo.field.text = text }
+    }
+
+    /** The completions shown, `null` while the list is hidden. */
+    private fun completions(): List<String>? =
+        WaitForAsyncUtils
+            .asyncFx<List<String>?> {
+                goTo.list
+                    .takeIf { it.isVisible }
+                    ?.items
+                    ?.map { it.text }
+            }.get()
+
+    /** What the popup says, `null` while it says nothing. */
+    private fun goToMessage(): String? =
+        WaitForAsyncUtils.asyncFx<String?> { goTo.message.takeIf { it.parent.isVisible }?.text }.get()
+
+    @Test
+    fun `Shortcut+G opens Go to at the top of the table, completing branches and tags as typed`(robot: FxRobot) {
+        refs = branchRefs
+        openAndExpand(robot)
+        press(robot, view.table, KeyCode.G, shortcut = true)
+        eventually { assertTrue(goTo.isShowing) }
+        robot.interact {
+            assertSame<Node?>(goTo.field, goTo.field.scene.focusOwner)
+            assertEquals("Hash, branch or tag", goTo.field.promptText)
+            val table = view.table.localToScreen(view.table.boundsInLocal)
+            assertEquals(table.minY, goTo.popup.y, 5.0, "at the top of the table")
+        }
+        assertNull(completions(), "nothing typed")
+
+        robot.interact { goTo.field.text = "MAIN" }
+        assertEquals(listOf("main", "origin/main"), completions())
+        robot.interact { goTo.field.text = "v" }
+        assertEquals(listOf("v0.9", "v1.0"), completions())
+        robot.interact {
+            assertEquals(
+                listOf("git-ref-tag"),
+                goTo.list
+                    .lookupAll(".git-ref-icon")
+                    .filter { it.isVisible }
+                    .map { icon -> icon.styleClass.single { it.startsWith("git-ref-") && it != "git-ref-icon" } }
+                    .distinct(),
+            )
+        }
+        robot.interact { goTo.field.text = "nothing" }
+        assertNull(completions())
+
+        // Escape closes without moving.
+        press(robot, goTo.field, KeyCode.ESCAPE)
+        assertFalse(goTo.isShowing)
+        assertEquals(
+            emptyList(),
+            view.table.selectionModel.selectedIndices
+                .toList(),
+        )
+
+        // Also from the details, and the table's context menu.
+        select(robot, 0)
+        eventually { assertTrue(showsDetailsOf("Subject 1")) }
+        press(robot, details.body, KeyCode.G, shortcut = true)
+        eventually { assertTrue(goTo.isShowing) }
+        robot.interact { goTo.hide() }
+        assertEquals("Go to Hash/Branch/Tag\u2026", view.goToItem.text)
+        robot.interact { view.goToItem.fire() }
+        eventually { assertTrue(goTo.isShowing) }
+    }
+
+    @Test
+    fun `Enter or a click in the list goes to the branch, Up goes back to the field`(robot: FxRobot) {
+        refs = branchRefs
+        resolutionOf = { revision ->
+            when (revision) {
+                "refs/heads/feature/a" -> GitRevisionResolution.Commit("h5")
+                "refs/heads/feature/b" -> GitRevisionResolution.Commit("h7")
+                "refs/remotes/upstream/far" -> GitRevisionResolution.Commit("h800")
+                else -> defaultResolution(revision)
+            }
+        }
+        openAndExpand(robot)
+        openGoTo(robot, "feat")
+        assertEquals(listOf("feature/a", "feature/b"), completions())
+        press(robot, goTo.field, KeyCode.DOWN)
+        robot.interact {
+            assertSame<Node?>(goTo.list, goTo.list.scene.focusOwner)
+            assertEquals(0, goTo.list.selectionModel.selectedIndex)
+        }
+        press(robot, goTo.list, KeyCode.UP)
+        robot.interact { assertSame<Node?>(goTo.field, goTo.field.scene.focusOwner) }
+        press(robot, goTo.field, KeyCode.DOWN)
+        press(robot, goTo.list, KeyCode.ENTER)
+        eventually {
+            assertEquals(
+                listOf(4),
+                view.table.selectionModel.selectedIndices
+                    .toList(),
+            )
+        }
+        assertFalse(goTo.isShowing)
+        assertSame<Node?>(view.table, view.scene.focusOwner)
+        assertEquals(listOf("refs/heads/feature/a"), resolveLoads.last())
+
+        // Typed exactly: the item. Clicked: the item, loading pages until it is there.
+        openGoTo(robot, "feature/b")
+        press(robot, goTo.field, KeyCode.ENTER)
+        eventually {
+            assertEquals(
+                listOf(6),
+                view.table.selectionModel.selectedIndices
+                    .toList(),
+            )
+        }
+        assertEquals(listOf("refs/heads/feature/b"), resolveLoads.last())
+        openGoTo(robot, "far")
+        WaitForAsyncUtils.waitForFxEvents()
+        val cell =
+            goTo.list
+                .lookupAll(".list-cell")
+                .filterIsInstance<ListCell<*>>()
+                .single { (it.item as? FilterItem)?.text == "upstream/far" }
+        click(robot, cell)
+        eventually {
+            assertEquals(
+                listOf(799),
+                view.table.selectionModel.selectedIndices
+                    .toList(),
+            )
+        }
+        assertFalse(goTo.isShowing)
+    }
+
+    @Test
+    fun `a typed hash or revision is resolved, unknown and ambiguous ones are told in the popup`(robot: FxRobot) {
+        refs = branchRefs
+        openAndExpand(robot)
+        openGoTo(robot, " h7 ")
+        press(robot, goTo.field, KeyCode.ENTER)
+        eventually {
+            assertEquals(
+                listOf(6),
+                view.table.selectionModel.selectedIndices
+                    .toList(),
+            )
+        }
+        assertEquals(listOf("h7"), resolveLoads.last(), "trimmed")
+
+        openGoTo(robot, "nope")
+        press(robot, goTo.field, KeyCode.ENTER)
+        eventually { assertEquals("Unknown revision 'nope'.", goToMessage()) }
+        robot.interact {
+            assertTrue(goTo.isShowing, "stays open")
+            assertEquals("nope", goTo.field.selectedText)
+            assertFalse(goTo.clearFiltersButton.isVisible)
+        }
+
+        robot.interact { goTo.field.text = "h" }
+        assertNull(goToMessage(), "typing clears it")
+        press(robot, goTo.field, KeyCode.ENTER)
+        eventually { assertEquals("'h' is ambiguous.", goToMessage()) }
+
+        resolveFails = true
+        robot.interact { goTo.field.text = "@{upstream}" }
+        press(robot, goTo.field, KeyCode.ENTER)
+        eventually { assertEquals("Unknown revision '@{upstream}'.", goToMessage()) }
+        assertEquals(
+            listOf(6),
+            view.table.selectionModel.selectedIndices
+                .toList(),
+            "not moved",
+        )
+
+        // Nothing typed: nothing asked.
+        val asked = resolveLoads.size
+        robot.interact { goTo.field.text = "  " }
+        press(robot, goTo.field, KeyCode.ENTER)
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(asked, resolveLoads.size)
+    }
+
+    @Test
+    fun `Go to says when the log cannot be read`(robot: FxRobot) {
+        refs = branchRefs
+        openAndExpand(robot)
+        history = null
+        robot.interact { view.refresh() }
+        eventually { assertEquals("The git log could not be read.", status(robot), "the rows kept") }
+        resolutionOf = { GitRevisionResolution.Commit("h900") }
+
+        openGoTo(robot, "h900")
+        press(robot, goTo.field, KeyCode.ENTER)
+        eventually { assertEquals("The git log could not be read.", goToMessage()) }
+        robot.interact {
+            assertTrue(goTo.isShowing)
+            assertFalse(goTo.clearFiltersButton.isVisible)
+        }
+    }
+
+    @Test
+    fun `a commit hidden by the filters can be gone to after Clear Filters`(robot: FxRobot) {
+        refs = branchRefs
+        openAndExpand(robot)
+        robot.interact {
+            bar.matchCase.isSelected = true
+            bar.text.text = "Subject 1"
+            bar.text.fireEvent(javafx.event.ActionEvent())
+            bar.firstParent.isSelected = true
+        }
+        eventually { assertTrue(view.table.items.all { "Subject 1" in it.commit.subject }) }
+
+        openGoTo(robot, "h7")
+        press(robot, goTo.field, KeyCode.ENTER)
+        eventually { assertEquals("h7 is hidden by the filters.", goToMessage()) }
+        robot.interact { assertTrue(goTo.clearFiltersButton.isVisible) }
+
+        robot.interact { goTo.clearFiltersButton.fire() }
+        eventually {
+            assertEquals(
+                listOf(6),
+                view.table.selectionModel.selectedIndices
+                    .toList(),
+            )
+        }
+        robot.interact {
+            assertFalse(goTo.isShowing)
+            assertEquals("", bar.text.text)
+            assertTrue(bar.matchCase.isSelected, "Match Case stays as it was")
+            assertFalse(bar.firstParent.isSelected)
+            assertTrue(bar.filter.isDefault)
+        }
     }
 
     /** The scene coordinates of the second character of [text] in [area]. */

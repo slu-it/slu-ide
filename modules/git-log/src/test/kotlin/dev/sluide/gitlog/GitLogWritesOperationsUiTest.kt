@@ -56,6 +56,8 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
                 "Cherry-Pick",
                 "Revert Commit",
                 "Reset Current Branch to Here\u2026",
+                null,
+                "Go to Hash/Branch/Tag\u2026",
             ),
             view.table.contextMenu.items
                 .map { it.text },

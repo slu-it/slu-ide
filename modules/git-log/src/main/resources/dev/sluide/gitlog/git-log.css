@@ -488,6 +488,33 @@
     -fx-icon-size: 14;
 }
 
+/* Go to Hash/Branch/Tag (ADR 0045): a popup like the filters', a message and Clear Filters below the field. */
+.git-goto {
+    -fx-spacing: 4;
+    -fx-padding: 4;
+    -fx-background-color: -fx-box-border, -fx-control-inner-background;
+    -fx-background-insets: 0, 1;
+}
+
+.git-goto-message-bar {
+    -fx-spacing: 6;
+    -fx-alignment: center-left;
+    -fx-padding: 0 2 0 2;
+}
+
+.git-goto-message {
+    -fx-text-fill: -fx-text-inner-color;
+}
+
+.git-goto-list {
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.git-goto-item {
+    -fx-graphic-text-gap: 4;
+}
+
 /*
  * The branches pane (ADR 0040), left of the commits on the table's background: a search field in a bar as high as the
  * filter bar, then a tree like the changed files, branches with the ref labels' tag icons, the current one in bold.
