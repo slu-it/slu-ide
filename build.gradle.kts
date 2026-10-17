@@ -27,6 +27,14 @@ allprojects {
     version = providers.gradleProperty("releaseVersion").getOrElse("0.1.0-SNAPSHOT")
 }
 
+/**
+ * Lets one `uiTest` task at a time use the display: TestFX tests of parallel modules on one display took each other's
+ * window focus, which closed their popups (auto-hide follows the owner window's focus) and failed tests at random.
+ */
+abstract class DisplayService : BuildService<BuildServiceParameters.None>
+
+val display = gradle.sharedServices.registerIfAbsent("display", DisplayService::class) { maxParallelUsages.set(1) }
+
 // Shared configuration for every Kotlin module (modules/* and ide).
 subprojects {
     pluginManager.withPlugin("org.jetbrains.kotlin.jvm") {
@@ -69,6 +77,7 @@ subprojects {
                 // Software rendering is the most reliable pipeline on virtual displays.
                 systemProperty("prism.order", "sw")
                 onlyIf("a display is available") { displayAvailable }
+                usesService(display)
                 shouldRunAfter(tasks.named("test"))
             }
         tasks.named("check") { dependsOn(uiTest) }

@@ -7,7 +7,8 @@
 | UI tests | Same source set, class annotated `@Tag("ui")`, run by Gradle task `uiTest` (TestFX) | yes |
 
 `./gradlew build` runs both (`check` depends on `uiTest`). The `uiTest` task is defined once in the root `build.gradle.kts`
-and uses software rendering (`-Dprism.order=sw`).
+and uses software rendering (`-Dprism.order=sw`). The modules' `uiTest` tasks run one at a time (a shared build
+service): tests of parallel modules on one display took each other's window focus and closed each other's popups.
 
 ## Display handling
 - **Linux without `DISPLAY` and without `CI`:** `uiTest` is *skipped* (not failed), so a headless sandbox stays usable.
