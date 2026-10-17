@@ -25,6 +25,8 @@ import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontsPage
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.SettingsStore
+import dev.sluide.settings.TerminalScrollPage
+import dev.sluide.settings.TerminalScrollSettings
 import dev.sluide.settings.ThemeSettings
 import dev.sluide.settings.ThemedWindows
 import dev.sluide.terminal.Terminals
@@ -64,6 +66,8 @@ class SpringWiringTest {
                         ThemeSettings::class.java,
                         ThemedWindows::class.java,
                         AppearancePage::class.java,
+                        TerminalScrollSettings::class.java,
+                        TerminalScrollPage::class.java,
                         GitCli::class.java,
                         GitStatusService::class.java,
                         GitLog::class.java,

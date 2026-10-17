@@ -43,6 +43,8 @@ class SettingsUiTest {
         ThemeSettings(SettingsStore(dir.resolve("settings.properties")), { SimpleObjectProperty(ColorScheme.LIGHT) })
     }
     private val appearancePage by lazy { AppearancePage(themeSettings) }
+    private val scrollSettings by lazy { TerminalScrollSettings(SettingsStore(dir.resolve("settings.properties"))) }
+    private val scrollPage by lazy { TerminalScrollPage(scrollSettings) }
 
     /** A second page in another group, to check the tree. */
     private class OtherPage : SettingsPage {
@@ -288,6 +290,34 @@ class SettingsUiTest {
         } finally {
             robot.interact { themed.uninstall() }
         }
+    }
+
+    @Test
+    fun `the terminal scroll speeds change on OK, in steps of 5 percent`(robot: FxRobot) {
+        val dialog = open(robot, fontsPage, scrollPage)
+        assertEquals(
+            listOf("Display", "Terminal"),
+            dialog.tree.root.children
+                .map { it.value.name },
+        )
+        robot.interact { dialog.select(listOf("Terminal", "Scrolling")) }
+        assertSame(scrollPage, dialog.shownPage)
+        assertEquals(100.0, scrollPage.trackpad.value)
+        assertEquals("100 %", scrollPage.wheelValue.text)
+
+        robot.interact {
+            scrollPage.trackpad.value = 36.0
+            scrollPage.wheel.decrement()
+        }
+        assertEquals(35.0, scrollPage.trackpad.value, "whole multiples of 5")
+        assertEquals("35 %", scrollPage.trackpadValue.text)
+        assertEquals("95 %", scrollPage.wheelValue.text)
+        assertEquals(100, scrollSettings.trackpad.get(), "not applied yet")
+
+        close(robot, dialog, ButtonType.OK)
+        assertFalse(dialog.isShowing)
+        assertEquals(35, scrollSettings.trackpad.get())
+        assertEquals(95, scrollSettings.wheel.get())
     }
 
     private fun enter(node: Node) =
