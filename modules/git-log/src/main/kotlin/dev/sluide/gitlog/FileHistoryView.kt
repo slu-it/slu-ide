@@ -77,7 +77,7 @@ internal class FileHistoryView(
 
     /** The file's path at each commit; shown only while there is more than one. */
     internal val pathColumn =
-        column("Path", 220.0) { history.fileOf(it)?.path.orEmpty() }.apply {
+        column("Path", 160.0) { history.fileOf(it)?.path.orEmpty() }.apply {
             minWidth = 50.0
             visibleProperty().bind(history.multiplePaths)
         }
