@@ -24,4 +24,8 @@ internal object MarkdownPreview : Preview {
     ) = engine.loadContent(MarkdownRenderer.render(text, file.parent, dark))
 
     override val syncsScroll get() = true
+
+    override val hasOutline get() = true
+
+    override fun outline(text: String) = MarkdownOutline.headings(text)
 }

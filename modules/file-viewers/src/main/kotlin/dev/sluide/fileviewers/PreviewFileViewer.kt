@@ -115,6 +115,14 @@ internal interface Preview {
      * ([ZoomControls]) while it shows the preview.
      */
     val zooms: Boolean get() = false
+
+    /** Whether the preview has headings ([outline]), so that the view has a table of contents ([TableOfContents]). */
+    val hasOutline: Boolean get() = false
+
+    /**
+     * The headings of [text] for the table of contents, or `null` if the preview has none ([hasOutline]).
+     */
+    fun outline(text: String): List<Heading>? = null
 }
 
 /** Whether a `WebView` at [location] shows a page loaded from a string (`loadContent`), which has no location. */
@@ -151,6 +159,10 @@ internal enum class PreviewMode(
  * Pages that [offer scripts][Preview.offersScripts] run them only while [scripts] is on, after [confirmScripts]: such
  * a page's scripts can read the files of its [root] and send them to the web.
  *
+ * Previews with [headings][Preview.outline] (Markdown) have a table of contents ([toc]): a toggle on the left of the
+ * toolbar opens an overlay over the top left of the view that lists the headings, selects the section of the caret (of
+ * the preview's top line while only the preview shows) and jumps to the chosen heading in the source and the preview.
+ *
  * Images and diagrams that [zoom][Preview.zooms] have the [zoom] controls on the left of the toolbar while the preview
  * shows; the page keeps the zoom when it is rendered again.
  */
@@ -161,8 +173,11 @@ internal class PreviewFileView(
     comment: CommentSyntax = CommentSyntax.NONE,
 ) : EditableFileView {
     init {
-        // Both would share the left of the toolbar, and pages that run their own scripts have no zoom of ours.
+        // They would share the left of the toolbar, and pages that run their own scripts have no zoom of ours.
         require(!(preview.offersScripts && preview.zooms)) { "A preview cannot both offer scripts and zoom" }
+        require(!(preview.hasOutline && (preview.offersScripts || preview.zooms))) {
+            "A preview with an outline cannot offer scripts or zoom"
+        }
     }
 
     /** The file shown; it changes when the file is [moved]. */
@@ -194,8 +209,21 @@ internal class PreviewFileView(
 
     private val split = SplitPane()
     private val modes = ToggleGroup()
+
+    /** The table of contents, if the preview has [headings][Preview.outline]. */
+    val toc: TableOfContents? =
+        if (preview.hasOutline) {
+            TableOfContents(
+                headings = { preview.outline(source.area.text).orEmpty() },
+                currentLine = ::currentLine,
+                navigate = ::navigateTo,
+                restoreFocus = ::focusText,
+            )
+        } else {
+            null
+        }
     private val pane =
-        BorderPane(split).apply {
+        BorderPane(if (toc != null) StackPane(split, toc.overlay) else split).apply {
             styleClass += "preview-view"
             stylesheets += checkNotNull(PreviewFileView::class.java.getResource("preview-view.css")).toExternalForm()
         }
@@ -224,6 +252,16 @@ internal class PreviewFileView(
     private var renderedText: String? = null
     private var dark = false
     private var syncPending = false
+    private var tocPending = false
+
+    /** The last jump of the table of contents in the preview; forgotten when the page is rendered again. */
+    private var tocJump: TocJump? = null
+
+    /** The [line] a jump went to, and the [page] right after it: the line holds only while the page looks the same. */
+    private class TocJump(
+        val line: Int,
+        val page: String,
+    )
 
     /** Scroll position of the preview to restore after rendering, when the preview is shown alone. */
     private var previewScrollY = 0.0
@@ -267,6 +305,8 @@ internal class PreviewFileView(
                     },
                     Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
                 )
+            } else if (toc != null) {
+                listOf(toc.button, Region().apply { HBox.setHgrow(this, Priority.ALWAYS) })
             } else if (zoom != null) {
                 zoom.node.visibleProperty().bind(mode.map { it != PreviewMode.SOURCE })
                 zoom.node.managedProperty().bind(zoom.node.visibleProperty())
@@ -293,6 +333,12 @@ internal class PreviewFileView(
         }
         for (type in listOf(MouseEvent.MOUSE_PRESSED, KeyEvent.KEY_PRESSED, DragEvent.DRAG_DROPPED)) {
             webView.addEventFilter(type) { lastInput = System.nanoTime() }
+        }
+        if (toc != null) {
+            // A press anywhere in the view, also in the web view, outside the table closes it.
+            pane.addEventFilter(MouseEvent.MOUSE_PRESSED, ::closeTocOnPress)
+            source.area.currentParagraphProperty().subscribe { _ -> refreshToc() }
+            source.area.plainTextChanges().subscribe { refreshToc() }
         }
         modes.selectedToggleProperty().subscribe { old, new ->
             // A mode is always selected: clicking the selected button keeps it.
@@ -371,6 +417,7 @@ internal class PreviewFileView(
     override fun dispose() {
         disposed = true
         stopped = true
+        toc?.close()
         engine.load("")
         source.dispose()
     }
@@ -411,6 +458,7 @@ internal class PreviewFileView(
         val text = source.savedText
         if (stopped || text == renderedText) return
         renderedText = text
+        tocJump = null
         rememberScroll()
         try {
             loading = true
@@ -531,6 +579,62 @@ internal class PreviewFileView(
 
             null -> {}
         }
+    }
+
+    /** The source line the table of contents starts from: the caret's, or the preview's top line if the source is hidden. */
+    private fun currentLine(): Int {
+        if (mode.get() == PreviewMode.PREVIEW && isLoaded) {
+            // The page cannot always scroll a heading near its end to the top: where we put it is still its line.
+            tocJump?.let { if (pageState() == it.page) return it.line }
+            (engine.executeScript("sluide.topLine()") as? Number)?.let { return it.toInt() }
+        }
+        return source.area.currentParagraph
+    }
+
+    /** Updates the open table of contents to the caret and text; calls before it ran are merged into one. */
+    private fun refreshToc() {
+        if (tocPending || toc?.isOpen != true || mode.get() == PreviewMode.PREVIEW) return
+        tocPending = true
+        Platform.runLater {
+            tocPending = false
+            if (!disposed && mode.get() != PreviewMode.PREVIEW) toc?.refresh()
+        }
+    }
+
+    /** Scroll position, height and width of the page; the same values mean the same layout. */
+    private fun pageState(): String? =
+        engine
+            .executeScript("[window.scrollY, document.documentElement.scrollHeight, window.innerWidth].join(',')")
+            as? String
+
+    /**
+     * A press in the view closes the table of contents unless it is in the table or its button. Afterwards, if the
+     * focus is nowhere or in the closed table or in a view that is gone (a toolbar button or a scroll bar was pressed,
+     * and neither takes focus), it goes back to the source or the preview.
+     */
+    private fun closeTocOnPress(event: MouseEvent) {
+        val toc = toc ?: return
+        if (!toc.isOpen || toc.contains(event.target)) return
+        toc.close()
+        Platform.runLater {
+            val owner = pane.scene?.focusOwner
+            if (!disposed && (owner == null || owner === toc.list || owner.scene == null || !owner.isVisible)) {
+                focusText()
+            }
+        }
+    }
+
+    /** Brings [heading] to the top of the source, and of the preview if it is shown alone (else the scroll sync does). */
+    private fun navigateTo(heading: Heading) {
+        val area = source.area
+        val line = heading.line.coerceIn(0, area.paragraphs.size - 1)
+        area.moveTo(line, 0)
+        area.showParagraphAtTop(line)
+        if (mode.get() == PreviewMode.PREVIEW && isLoaded) {
+            engine.executeScript("sluide.scrollToLine($line)")
+            tocJump = pageState()?.let { TocJump(line, it) }
+        }
+        focusText()
     }
 
     /** Side by side, scrolls the preview to the source's top line; calls before it ran are merged into one. */
