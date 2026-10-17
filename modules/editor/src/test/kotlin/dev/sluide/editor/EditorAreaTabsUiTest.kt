@@ -18,6 +18,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -52,6 +53,98 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
 
         assertEquals(listOf("a.txt", "b.txt"), tabTitles(robot))
         assertEquals("content of a.txt", shownText(robot))
+    }
+
+    @Test
+    fun `opening a text file focuses its text at the start`(robot: FxRobot) {
+        val field = fieldAbove(robot)
+        robot.interact { field.requestFocus() }
+
+        open(robot, textFile("a.txt", (1..200).joinToString("\n", postfix = "\n") { "line $it" }))
+
+        eventually(robot) { assertSame(shownArea(robot), stage.scene.focusOwner) }
+        robot.interact {
+            assertEquals(0, shownArea(robot).caretPosition)
+            assertEquals(0, shownArea(robot).firstVisibleParToAllParIndex())
+        }
+    }
+
+    @Test
+    fun `opening an open file again focuses it, keeping its caret, whether its tab was selected or not`(
+        robot: FxRobot,
+    ) {
+        val field = fieldAbove(robot)
+        val a = textFile("a.txt", (1..200).joinToString("\n", postfix = "\n") { "line $it" })
+        val b = textFile("b.txt")
+        open(robot, a)
+        robot.interact {
+            shownArea(robot).moveTo(150, 0)
+            shownArea(robot).requestFollowCaret()
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        val caret = WaitForAsyncUtils.asyncFx<Int> { shownArea(robot).caretPosition }.get()
+        val top = WaitForAsyncUtils.asyncFx<Int> { shownArea(robot).firstVisibleParToAllParIndex() }.get()
+        assertTrue(top > 0, "scrolled down")
+
+        robot.interact { field.requestFocus() }
+        open(robot, a)
+        eventually(robot) { assertSame(shownArea(robot), stage.scene.focusOwner, "selected") }
+        robot.interact {
+            assertEquals(caret, shownArea(robot).caretPosition)
+            assertEquals(top, shownArea(robot).firstVisibleParToAllParIndex())
+        }
+
+        open(robot, b)
+        robot.interact { field.requestFocus() }
+        open(robot, a)
+        eventually(robot) { assertSame(shownArea(robot), stage.scene.focusOwner, "not selected") }
+        robot.interact { assertEquals(caret, shownArea(robot).caretPosition) }
+    }
+
+    @Test
+    fun `clicking a text tab focuses its text, also the selected one`(robot: FxRobot) {
+        val field = fieldAbove(robot)
+        open(robot, textFile("a.txt", "first\nsecond\n"), textFile("b.txt"))
+        robot.interact { field.requestFocus() }
+
+        robot.interact { click(tabLabel(robot, "a.txt")) }
+
+        eventually(robot) { assertSame(shownArea(robot), stage.scene.focusOwner) }
+        assertEquals("first\nsecond\n", shownText(robot))
+
+        robot.interact { field.requestFocus() }
+        robot.interact { click(tabLabel(robot, "a.txt")) }
+        eventually(robot) { assertSame(shownArea(robot), stage.scene.focusOwner, "the selected tab") }
+    }
+
+    @Test
+    fun `closing the selected tab with the focus in it focuses the tab selected next`(robot: FxRobot) {
+        fieldAbove(robot)
+        val a = textFile("a.txt", "first\n")
+        val b = textFile("b.txt")
+        open(robot, a, b)
+        eventually(robot) { assertSame(shownArea(robot), stage.scene.focusOwner) }
+
+        robot.interact { editor.closeUnder(b, emptyList()) }
+
+        eventually(robot) { assertSame(shownArea(robot), stage.scene.focusOwner) }
+        assertEquals("first\n", shownText(robot))
+    }
+
+    @Test
+    fun `a tab closed with the focus outside the area leaves it there, as when its file is deleted in the tree`(
+        robot: FxRobot,
+    ) {
+        val field = fieldAbove(robot)
+        val b = textFile("b.txt")
+        open(robot, textFile("a.txt"), b)
+        robot.interact { field.requestFocus() }
+
+        robot.interact { editor.closeUnder(b, emptyList()) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals("content of a.txt", shownText(robot))
+        assertSame(field, focusOwner())
     }
 
     @Test

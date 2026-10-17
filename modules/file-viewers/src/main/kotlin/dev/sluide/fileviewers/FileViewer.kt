@@ -40,8 +40,21 @@ interface FileView {
      */
     fun dispose() {}
 
-    /** Gives the focus to the content, e.g. the text of a code view; by default to the [node]. */
+    /**
+     * Gives the focus to the content at once, e.g. the text of a code view, or the source of a preview unless the
+     * preview is shown alone; by default to the [node]. Used to give the focus back to the view, e.g. when a diff
+     * shown over it is hidden; [focus] is what a view gets when its tab is shown.
+     */
     fun focusText() = node.requestFocus()
+
+    /**
+     * Gives the focus to the view's main content, at once or as soon as that node is in a scene. Called whenever the
+     * view's tab is shown (ADR 0050): the text of a code view, the source of a preview while it shows, the preview
+     * while it is shown alone or zooms. Keeps caret and scroll position. By default [focusText], once the [node] is in
+     * a scene; the default cannot drop a pending request on [dispose], so views with state that must not take the
+     * focus afterwards (code views, previews, images) override it.
+     */
+    fun focus() = FocusWhenShown.of(node).request(node, ::focusText)
 
     /**
      * Follows the file to [to], where it was moved (e.g. renamed): from now on the view reads and saves it there, and

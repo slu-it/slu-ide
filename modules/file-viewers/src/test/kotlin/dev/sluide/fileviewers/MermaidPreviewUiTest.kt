@@ -243,8 +243,15 @@ class MermaidPreviewUiTest {
     }
 
     @Test
-    fun `a Mermaid file in Split takes the focus for its diagram`(robot: FxRobot) {
-        val (_, view) = show(robot, "flowchart LR\n  A --> B\n")
+    fun `a Mermaid file in Split gives the focus to its diagram`(robot: FxRobot) {
+        val file = dir.resolve("flow.mmd").apply { writeText("flowchart LR\n  A --> B\n") }
+        val view = fx { MermaidFileViewer().open(file) as PreviewFileView }
+        // Asked before it is shown: the split pane adds the web view to the scene only when it is skinned.
+        robot.interact {
+            view.focus()
+            container.children.setAll(view.node)
+        }
+        awaitLoaded(view)
         WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(PreviewMode.SPLIT, fx { view.mode.get() })
@@ -256,9 +263,12 @@ class MermaidPreviewUiTest {
         val (_, view) = show(robot, "flowchart LR\n  A --> B\n")
         robot.interact { view.mode.set(PreviewMode.SOURCE) }
         robot.interact { container.children.clear() }
-        robot.interact { container.children.setAll(view.node) }
+        robot.interact {
+            container.children.setAll(view.node)
+            view.focus()
+        }
         WaitForAsyncUtils.waitForFxEvents()
-        robot.interact { view.source.area.requestFocus() }
+        assertSame(view.source.area, fx { container.scene.focusOwner }, "Source: the source")
 
         robot.interact { view.mode.set(PreviewMode.SPLIT) }
         WaitForAsyncUtils.waitForFxEvents()

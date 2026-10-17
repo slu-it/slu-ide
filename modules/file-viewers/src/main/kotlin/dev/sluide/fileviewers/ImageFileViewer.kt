@@ -1,7 +1,6 @@
 package dev.sluide.fileviewers
 
 import javafx.application.ColorScheme
-import javafx.application.Platform
 import javafx.concurrent.Worker
 import javafx.geometry.Pos
 import javafx.scene.Node
@@ -74,6 +73,7 @@ internal class ImageFileView(
     private var bytes = file.readBytes()
     private var dark = false
     private var disposed = false
+    private val pendingFocus = FocusWhenShown()
 
     init {
         zoom.install(webView)
@@ -88,10 +88,6 @@ internal class ImageFileView(
                 dark = scheme == ColorScheme.DARK
                 if (isLoaded) engine.executeScript("sluide.setDark($dark)")
             }
-        // Like the terminal: whenever its tab is shown, the image takes the focus, so that the zoom keys work at once.
-        pane.sceneProperty().subscribe { scene ->
-            if (scene != null) Platform.runLater { if (!disposed && pane.scene != null) webView.requestFocus() }
-        }
         render()
     }
 
@@ -123,9 +119,13 @@ internal class ImageFileView(
     /** Focuses the image, so that the zoom keys work right away. */
     override fun focusText() = webView.requestFocus()
 
+    /** Focuses the image once it is shown, so that the zoom keys work right away. */
+    override fun focus() = pendingFocus.request(webView) { if (!disposed) webView.requestFocus() }
+
     /** Stops showing the image for good: the blank page left is no page of ours, and nothing renders again. */
     override fun dispose() {
         disposed = true
+        pendingFocus.cancel()
         engine.load("")
     }
 

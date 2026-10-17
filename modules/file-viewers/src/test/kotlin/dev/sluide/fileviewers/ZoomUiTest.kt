@@ -611,8 +611,15 @@ class ZoomUiTest {
     }
 
     @Test
-    fun `an image view put into a scene takes the focus, and the zoom keys work at once`(robot: FxRobot) {
-        val view = showImage(robot, 400, 200)
+    fun `an image view asked for the focus before it is shown takes it once it is, and the zoom keys work at once`(
+        robot: FxRobot,
+    ) {
+        val view = fx { ImageFileViewer().open(png("image.png", 400, 200)) as ImageFileView }
+        robot.interact {
+            view.focus()
+            container.children.setAll(view.node)
+        }
+        awaitLoaded(view.webView)
         WaitForAsyncUtils.waitForFxEvents()
 
         assertSame(view.webView, fx { container.scene.focusOwner })
@@ -622,14 +629,18 @@ class ZoomUiTest {
     }
 
     @Test
-    fun `an image view takes the focus again when its tab is shown again`(robot: FxRobot) {
+    fun `an image view shown again takes the focus only when asked for it`(robot: FxRobot) {
         val view = showImage(robot, 400, 200)
         val other = TextField()
         robot.interact { container.children.setAll(other) }
         robot.interact { other.requestFocus() }
         assertSame(other, fx { container.scene.focusOwner })
 
-        robot.interact { container.children.setAll(view.node) }
+        robot.interact { container.children.setAll(other, view.node) }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertSame(other, fx { container.scene.focusOwner }, "not on its own")
+
+        robot.interact { view.focus() }
         WaitForAsyncUtils.waitForFxEvents()
         assertSame(view.webView, fx { container.scene.focusOwner })
     }
@@ -642,6 +653,7 @@ class ZoomUiTest {
         robot.interact { container.children.setAll(other) }
         robot.interact { other.requestFocus() }
         robot.interact {
+            view.focus()
             container.children.add(view.node)
             view.dispose()
         }

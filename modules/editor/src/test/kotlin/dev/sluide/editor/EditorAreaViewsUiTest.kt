@@ -1,11 +1,17 @@
 package dev.sluide.editor
 
+import dev.sluide.fileviewers.BicepFileViewer
 import dev.sluide.fileviewers.DefaultTextFileViewer
+import dev.sluide.fileviewers.EnvFileViewer
 import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.ImageFileViewer
+import dev.sluide.fileviewers.MarkdownFileViewer
+import dev.sluide.fileviewers.MermaidFileViewer
+import dev.sluide.fileviewers.NotebookFileViewer
+import dev.sluide.fileviewers.SvgFileViewer
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSpec
 import dev.sluide.settings.FontStyle
@@ -14,9 +20,11 @@ import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.Label
 import javafx.scene.control.TextField
+import javafx.scene.control.ToggleButton
 import javafx.scene.layout.Pane
 import javafx.scene.layout.VBox
 import javafx.stage.Stage
+import org.fxmisc.richtext.CodeArea
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.api.FxRobot
@@ -27,10 +35,12 @@ import java.awt.image.BufferedImage
 import java.net.URI
 import java.nio.file.Path
 import javax.imageio.ImageIO
+import kotlin.io.path.name
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -167,26 +177,112 @@ class EditorAreaViewsUiTest : EditorAreaUiFixture() {
 
     @Test
     fun `opening an image focuses its web view so that the zoom keys work`(robot: FxRobot) {
-        val fallback = DefaultTextFileViewer()
-        robot.interact {
-            editor = EditorArea(FileViewers(listOf(fallback, ImageFileViewer()), fallback), watcher, fontSettings)
-            stage.scene = Scene(editor, 800.0, 400.0)
-        }
-        val png = dir.resolve("image.png")
-        ImageIO.write(BufferedImage(40, 40, BufferedImage.TYPE_INT_ARGB), "png", png.toFile())
+        val field = fieldAbove(robot, listOf(ImageFileViewer()))
+        robot.interact { field.requestFocus() }
 
+        open(robot, png("image.png"))
+
+        eventually(robot) { assertEquals(WEB_VIEW, stage.scene.focusOwner.javaClass.simpleName) }
+    }
+
+    @Test
+    fun `an opened file focuses its source, or its preview if that shows alone or zooms`(robot: FxRobot) {
+        val field =
+            fieldAbove(
+                robot,
+                listOf(
+                    MarkdownFileViewer(),
+                    SvgFileViewer(),
+                    NotebookFileViewer(),
+                    MermaidFileViewer(),
+                    BicepFileViewer(),
+                    EnvFileViewer(),
+                ),
+            )
+        val files =
+            mapOf(
+                textFile("notes.txt") to "CodeArea",
+                textFile(".env", "KEY=value\n") to "CodeArea",
+                textFile("README.md", "# Title\n") to "CodeArea",
+                textFile("main.bicep", "param name string\n") to "CodeArea",
+                textFile("flow.mmd", "flowchart LR\n  A --> B\n") to WEB_VIEW,
+                textFile("icon.svg", """<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"/>""") to
+                    WEB_VIEW,
+                textFile("book.ipynb", """{"cells": [], "metadata": {}, "nbformat": 4, "nbformat_minor": 5}""") to
+                    WEB_VIEW,
+            )
+        for ((file, focused) in files) {
+            robot.interact { field.requestFocus() }
+
+            open(robot, file)
+
+            eventually(robot) {
+                val owner = stage.scene.focusOwner
+                assertEquals(focused, owner.javaClass.simpleName, file.name)
+                assertTrue(owner.isInside(editor.selectedTab!!.content), "${file.name}: in its own tab")
+            }
+        }
+        // Shown again, each takes the focus the same way.
+        for ((file, focused) in files) {
+            robot.interact { field.requestFocus() }
+
+            robot.interact { click(tabLabel(robot, file.name)) }
+
+            eventually(robot) {
+                assertEquals(focused, stage.scene.focusOwner.javaClass.simpleName, "${file.name} again")
+            }
+        }
+    }
+
+    @Test
+    fun `renaming an image to another type gives its tab a new view, which takes the focus if the old one had it`(
+        robot: FxRobot,
+    ) {
+        val field = fieldAbove(robot, listOf(ImageFileViewer()))
+        val png = png("image.png")
         open(robot, png)
+        eventually(robot) { assertEquals(WEB_VIEW, stage.scene.focusOwner.javaClass.simpleName) }
+        val tab = checkNotNull(editor.editorTabs.find(png))
+
+        val gif = dir.resolve("image.gif")
+        move(robot, png, gif)
+
+        val replacement = checkNotNull(editor.editorTabs.find(gif))
+        assertNotSame(tab, replacement)
+        eventually(robot) { assertTrue(stage.scene.focusOwner.isInside(replacement.content)) }
+
+        // Renamed in the file tree, which has the focus: it stays there.
+        robot.interact { field.requestFocus() }
+        val jpg = dir.resolve("image.jpg")
+        move(robot, gif, jpg)
         WaitForAsyncUtils.waitForFxEvents()
 
-        assertTrue(
-            WaitForAsyncUtils
-                .asyncFx<Boolean> {
-                    stage.scene.focusOwner
-                        ?.javaClass
-                        ?.simpleName == "WebView"
-                }.get(),
-        )
+        assertNotSame(replacement, editor.editorTabs.find(jpg))
+        assertSame(field, focusOwner())
     }
+
+    @Test
+    fun `a Bicep file in Split focuses its diagram, as it zooms`(robot: FxRobot) {
+        val field = fieldAbove(robot, listOf(BicepFileViewer()))
+        val bicep = textFile("main.bicep", "param name string\n")
+        open(robot, bicep)
+        val split =
+            robot
+                .lookup(".editor-content .preview-mode")
+                .queryAllAs(ToggleButton::class.java)
+                .single { it.text == "Split" }
+        robot.interact { split.fire() }
+        robot.interact { field.requestFocus() }
+
+        open(robot, bicep)
+
+        eventually(robot) { assertEquals(WEB_VIEW, stage.scene.focusOwner.javaClass.simpleName) }
+    }
+
+    private fun png(name: String): Path =
+        dir.resolve(name).also {
+            ImageIO.write(BufferedImage(40, 40, BufferedImage.TYPE_INT_ARGB), "png", it.toFile())
+        }
 
     @Test
     fun `renaming an image keeps its view and the focus where it is`(robot: FxRobot) {
@@ -219,3 +315,6 @@ class EditorAreaViewsUiTest : EditorAreaUiFixture() {
         )
     }
 }
+
+/** The class of a web view, which the editor module does not see. */
+private const val WEB_VIEW = "WebView"

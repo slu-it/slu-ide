@@ -175,12 +175,13 @@ class BicepPreviewUiTest {
     }
 
     @Test
-    fun `a Bicep file in Source does not take the focus`(robot: FxRobot) {
+    fun `a Bicep file in Source gives the focus to its source`(robot: FxRobot) {
         val view = show(robot, MAIN_BICEP)
+        robot.interact { view.focus() }
         WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(PreviewMode.SOURCE, WaitForAsyncUtils.asyncFx<PreviewMode> { view.mode.get() }.get())
-        assertNotSame(view.webView, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get())
+        assertSame(view.source.area, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get())
     }
 
     @Test

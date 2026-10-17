@@ -278,8 +278,8 @@ internal class PreviewFileView(
     /** Whether the view was [disposed][dispose]: it stays stopped for good. */
     private var disposed = false
 
-    /** Whether the view got its scene and still has to focus the preview ([focusPreview]). */
-    private var focusPending = false
+    /** Focuses the source or the preview once it is shown ([focus]). */
+    private val pendingFocus = FocusWhenShown()
 
     /** Whether the view started a load that has not finished yet; a load it did not start is the page's own doing. */
     private var loading = false
@@ -365,18 +365,6 @@ internal class PreviewFileView(
                 dark = scheme == ColorScheme.DARK
                 applyTheme()
             }
-        // Like the terminal: a zooming preview that shows takes the focus whenever its tab is shown, so that the zoom
-        // keys work at once. Source mode and the other previews keep the focus where it is.
-        if (preview.zooms) {
-            pane.sceneProperty().subscribe { scene ->
-                focusPending = scene != null
-                if (scene != null) Platform.runLater(::focusPreview)
-            }
-            // The split pane adds the web view to the scene only when it is skinned, which can be after the above.
-            webView.sceneProperty().subscribe { scene ->
-                if (scene != null && focusPending) Platform.runLater(::focusPreview)
-            }
-        }
         // Whoever shows the view sets its host, and with it the root, right after creating it; loading the page
         // before would serve it with the wrong files.
         if (preview.usesRoot) Platform.runLater(::render) else render()
@@ -395,6 +383,22 @@ internal class PreviewFileView(
 
     /** Focuses the source, or the preview while it is shown alone. */
     override fun focusText() = if (mode.get() == PreviewMode.PREVIEW) webView.requestFocus() else source.focusText()
+
+    /**
+     * Focuses the preview while it is shown alone, and a zooming one (a diagram) while it shows, so that the zoom keys
+     * work at once; otherwise the source, also of a stopped zooming preview in Split. A stopped preview shown alone
+     * does not take the focus.
+     */
+    override fun focus() {
+        val mode = mode.get()
+        if (mode == PreviewMode.PREVIEW || (mode == PreviewMode.SPLIT && preview.zooms && !stopped)) {
+            pendingFocus.request(webView) {
+                if (!disposed && !stopped && this.mode.get() != PreviewMode.SOURCE) webView.requestFocus()
+            }
+        } else {
+            pendingFocus.request(source.area) { if (!disposed) source.focusText() }
+        }
+    }
 
     override fun reload() {
         if (disposed) return
@@ -417,22 +421,10 @@ internal class PreviewFileView(
     override fun dispose() {
         disposed = true
         stopped = true
+        pendingFocus.cancel()
         toc?.close()
         engine.load("")
         source.dispose()
-    }
-
-    /** Focuses the web view once the view is in a scene and the preview shows; only the first time per scene. */
-    private fun focusPreview() {
-        if (!focusPending) return
-        // Nothing to focus: forget it, or the web view would take the focus when it is shown later.
-        if (disposed || stopped || mode.get() == PreviewMode.SOURCE) {
-            focusPending = false
-            return
-        }
-        if (pane.scene == null || webView.scene == null) return
-        focusPending = false
-        webView.requestFocus()
     }
 
     private fun show(mode: PreviewMode) {

@@ -11,6 +11,7 @@ import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.Menu
+import javafx.scene.control.TextField
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
@@ -125,6 +126,28 @@ class HttpFileViewUiTest {
         assertFalse(viewer.canOpen(dir.resolve("bin.http").apply { writeBytes(byteArrayOf(0, 1, 2)) }))
         assertFalse(viewer.canOpen(dir.resolve("api.txt").apply { writeText("GET http://x\n") }))
         assertTrue(FileViewers(listOf(viewer), DefaultTextFileViewer()).showsDiffs(viewer))
+    }
+
+    @Test
+    fun `a view asked for the focus before it is shown focuses its text once it is`(robot: FxRobot) {
+        val other = TextField()
+        robot.interact {
+            container.children.setAll(other)
+            other.requestFocus()
+        }
+        val file = dir.resolve("api.http").apply { writeText("GET http://x\n") }
+        val view = WaitForAsyncUtils.asyncFx<HttpFileView> { viewer.open(file) as HttpFileView }.get()
+
+        // The text is in a split pane, which adds it to the scene only when it is skinned.
+        robot.interact {
+            view.focus()
+            container.children.setAll(view.node)
+        }
+
+        WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) {
+            WaitForAsyncUtils.asyncFx<Boolean> { container.scene.focusOwner === robot.area() }.get()
+        }
+        assertEquals(0, WaitForAsyncUtils.asyncFx<Int> { robot.area().caretPosition }.get())
     }
 
     @Test

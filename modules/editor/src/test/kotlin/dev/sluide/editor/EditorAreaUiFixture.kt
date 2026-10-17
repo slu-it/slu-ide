@@ -17,9 +17,12 @@ import javafx.event.EventType
 import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.Label
+import javafx.scene.control.TextField
 import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
+import javafx.scene.layout.Pane
+import javafx.scene.layout.VBox
 import javafx.stage.Stage
 import org.fxmisc.richtext.CodeArea
 import org.junit.jupiter.api.AfterEach
@@ -192,6 +195,29 @@ abstract class EditorAreaUiFixture {
             ),
         )
     }
+
+    /**
+     * Puts a text field above the editor area, standing in for the file tree, to have the focus outside of it. With
+     * [viewers], the area is a new one that shows files with them, before the default text viewer.
+     */
+    internal fun fieldAbove(
+        robot: FxRobot,
+        viewers: List<FileViewer>? = null,
+    ): TextField {
+        val field = TextField()
+        robot.interact {
+            stage.scene.root = Pane()
+            if (viewers != null) {
+                val fallback = DefaultTextFileViewer()
+                editor = EditorArea(FileViewers(listOf(fallback) + viewers, fallback), watcher, fontSettings)
+            }
+            stage.scene = Scene(VBox(field, editor), 800.0, 400.0)
+        }
+        return field
+    }
+
+    /** The node with the focus in the stage. */
+    internal fun focusOwner(): Node? = WaitForAsyncUtils.asyncFx<Node?> { stage.scene.focusOwner }.get()
 
     /** The text area of the shown file view, unless it is a diff. */
     internal fun shownArea(robot: FxRobot): CodeArea =

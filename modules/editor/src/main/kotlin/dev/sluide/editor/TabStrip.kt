@@ -39,6 +39,8 @@ internal class TabStrip(
     private val editorTabs: EditorTabs,
     /** Asked before tabs are closed, e.g. about unsaved changes or running programs; `true` closes them. */
     private val confirmClose: (tabs: List<EditorTab>) -> Boolean = { true },
+    /** Selects a tab the user chose, by a click on its header or in the overflow menu; the editor area focuses it. */
+    private val choose: (EditorTab) -> Unit = editorTabs::select,
 ) : Region() {
     private val viewport = Pane().apply { styleClass += "tab-viewport" }
     private val viewportClip = Rectangle()
@@ -103,7 +105,7 @@ internal class TabStrip(
 
     private fun menuItem(tab: EditorTab) =
         MenuItem(tab.title.value).apply {
-            setOnAction { editorTabs.select(tab) }
+            setOnAction { choose(tab) }
         }
 
     override fun computePrefHeight(width: Double): Double {
@@ -318,7 +320,7 @@ internal class TabStrip(
             // would keep the button from arming, so it would never fire.
             setOnMousePressed { event ->
                 if (event.button == MouseButton.PRIMARY && !close.contains(event.target)) {
-                    editorTabs.select(tab)
+                    choose(tab)
                     press = event.sceneX to event.x
                 }
             }

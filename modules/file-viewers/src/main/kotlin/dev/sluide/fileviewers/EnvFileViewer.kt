@@ -126,6 +126,8 @@ internal class EnvFileView(
 
     override fun focusText() = source.focusText()
 
+    override fun focus() = source.focus()
+
     override fun dispose() {
         changes.unsubscribe()
         source.dispose()

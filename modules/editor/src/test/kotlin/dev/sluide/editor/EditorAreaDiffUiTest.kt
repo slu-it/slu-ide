@@ -3,6 +3,7 @@ package dev.sluide.editor
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.LineChange
+import dev.sluide.fileviewers.MarkdownFileViewer
 import dev.sluide.fileviewers.TextDiff
 import javafx.event.Event
 import javafx.scene.Node
@@ -29,6 +30,7 @@ import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -162,6 +164,36 @@ class EditorAreaDiffUiTest : EditorAreaUiFixture() {
                 .maxBy { it.localToScene(0.0, 0.0).x }
         assertEquals(59, right.currentParagraph)
         assertTrue(right.firstVisibleParToAllParIndex() in 50..59, "shown near the top")
+        val diff = robot.lookup(".editor-content .diff-view").query<Node>()
+        assertTrue(checkNotNull(focusOwner()).isInside(diff), "the diff has the focus")
+    }
+
+    @Test
+    fun `changes shown right after a preview file opened keep the focus in the diff`(robot: FxRobot) {
+        val field = fieldAbove(robot, listOf(MarkdownFileViewer()))
+        val plain = textFile("README.md", "# New\n")
+        val changed = textFile("CHANGES.md", "# New\n")
+        editor.diffOf = { if (it == changed) TextDiff("# Old\n", listOf(LineChange(0..0, 0..0))) else null }
+        // The source is in a split pane, which adds it to the scene only once skinned: it is focused later.
+        robot.interact { field.requestFocus() }
+        open(robot, plain)
+        eventually(robot) {
+            val owner = stage.scene.focusOwner
+            assertTrue(owner is CodeArea && owner.isInside(editor.selectedTab!!.content), "the source, not $owner")
+        }
+
+        robot.interact { field.requestFocus() }
+        robot.interact {
+            editor.open(changed)
+            checkNotNull(checkNotNull(editor.editorTabs.find(changed)).editor.host).showChanges(changed, 0)
+        }
+        // Until the source is in the scene, below the diff, and the focus it was to get is due.
+        val source = checkNotNull(editor.editorTabs.find(changed)).editor.node
+        eventually(robot) { assertNotNull(source.lookup(".code-area")?.scene) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val diff = robot.lookup(".editor-content .diff-view").query<Node>()
+        assertTrue(checkNotNull(focusOwner()).isInside(diff), "the diff has the focus, not ${focusOwner()}")
     }
 
     @Test
@@ -180,16 +212,6 @@ class EditorAreaDiffUiTest : EditorAreaUiFixture() {
 
         assertEquals(emptyList(), shownDiff(robot))
         assertEquals("new\n", shownText(robot))
-    }
-
-    /** Puts a text field above the editor area, to have the focus outside of it. */
-    private fun fieldAbove(robot: FxRobot): TextField {
-        val field = TextField()
-        robot.interact {
-            stage.scene.root = Pane()
-            stage.scene = Scene(VBox(field, editor), 800.0, 400.0)
-        }
-        return field
     }
 
     @Test
@@ -224,8 +246,6 @@ class EditorAreaDiffUiTest : EditorAreaUiFixture() {
         assertEquals(emptyList(), shownDiff(robot))
         assertSame(field, stage.scene.focusOwner)
     }
-
-    private fun Node.isInside(ancestor: Node) = generateSequence(this) { it.parent }.any { it === ancestor }
 
     @Test
     fun `closing a tab with unsaved changes while its diff is shown asks to save`(robot: FxRobot) {

@@ -194,6 +194,7 @@ internal class CodeView(
     /** The revision highlighting was asked for last; the worker skips older requests still waiting for it. */
     @Volatile private var requested = 0L
     private var disposed = false
+    private val pendingFocus = FocusWhenShown()
     private val highlighting: Subscription
 
     /** The change markers shown in the [gutter], following unsaved edits. */
@@ -437,11 +438,15 @@ internal class CodeView(
 
     override fun dispose() {
         disposed = true
+        pendingFocus.cancel()
         highlighting.unsubscribe()
         findBar.dispose()
     }
 
     override fun focusText() = area.requestFocus()
+
+    /** Focuses the text, keeping caret and scroll position; the text of a view in a split pane once it is shown. */
+    override fun focus() = pendingFocus.request(area) { if (!disposed) area.requestFocus() }
 
     private fun highlightInBackground() {
         val highlighter = highlighter ?: return

@@ -184,7 +184,7 @@ class MainWindow(
             fitGitLog(expanded)
         }
         // Collapsing the log with the focus in it gives the focus to the editor.
-        gitLogView.returnFocus = { (editorArea.selectedTab?.content ?: editorArea).requestFocus() }
+        gitLogView.returnFocus = editorArea::focusSelected
         // Files and what commits changed in them open in the editor area (ADR 0038).
         gitLogView.onOpenFile = { editorArea.open(it) }
         gitLogView.onShowDiff = ::showCommitDiff

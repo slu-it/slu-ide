@@ -42,7 +42,7 @@ class EditorArea(
     fontSettings: FontSettings,
 ) : BorderPane() {
     internal val editorTabs = EditorTabs()
-    internal val tabStrip = TabStrip(editorTabs, ::confirmClosing)
+    internal val tabStrip = TabStrip(editorTabs, ::confirmClosing, ::selectChosen)
 
     /**
      * Asked before tabs are closed from the UI if some of them have a [EditorTab.closeWarning]; returns whether to
@@ -147,7 +147,15 @@ class EditorArea(
         val content = StackPane().apply { styleClass += "editor-content" }
         top = tabStrip
         center = content
-        editorTabs.selected.subscribe { selected -> content.children.setAll(listOfNotNull(selected?.content)) }
+        editorTabs.selected.subscribe { selected ->
+            // Asked before the content changes: until then, a focus owner in the old content is still in the scene.
+            val owner = scene?.focusOwner
+            val focusHere = owner == null || owner.scene == null || owner.isInside(this@EditorArea)
+            content.children.setAll(listOfNotNull(selected?.content))
+            // A file tab shown in place of another (closed, replaced) takes the focus only if the area had it, e.g. not
+            // after its file was deleted from the file tree (ADR 0050). Opening and choosing a tab always focus it.
+            if (selected is OpenFile && focusHere) focus(selected)
+        }
     }
 
     /** Whether a [dev.sluide.fileviewers.FileViewer] can show [file], i.e. whether [open] would open it. */
@@ -155,12 +163,14 @@ class EditorArea(
 
     /**
      * Shows [file] in a tab: selects its tab if it is already open, otherwise opens a new one with the first
-     * [dev.sluide.fileviewers.FileViewer] that can show it. Returns `false` if no viewer can show or read it.
+     * [dev.sluide.fileviewers.FileViewer] that can show it. Either way the file's view takes the focus
+     * ([FileView.focus]). Returns `false` if no viewer can show or read it.
      */
     fun open(file: Path): Boolean {
         val path = file.toAbsolutePath().normalize()
         editorTabs.find(path)?.let {
             editorTabs.select(it)
+            focus(it)
             return true
         }
         val viewer = fileViewers.viewerFor(path) ?: return false
@@ -173,6 +183,7 @@ class EditorArea(
         val openFile = editorTabs.open(path, view, fileViewers.showsDiffs(viewer), viewer)
         showChanges(openFile)
         watch(openFile)
+        focus(openFile)
         return true
     }
 
@@ -325,6 +336,29 @@ class EditorArea(
         openFile: OpenFile,
         diff: TextDiff,
     ) = if (openFile.isDirty) diff.copy(currentTitle = "${diff.currentTitle} (saved)") else diff
+
+    /**
+     * Gives the focus to the selected tab: a file's view as when its tab is shown ([FileView.focus]), or its diff while
+     * that is shown; the content of any other tab; the area itself without tabs.
+     */
+    fun focusSelected() {
+        when (val tab = editorTabs.selected.get()) {
+            null -> requestFocus()
+            is OpenFile -> focus(tab)
+            else -> tab.content.requestFocus()
+        }
+    }
+
+    /** Selects [tab], which the user chose (e.g. clicked its header), and focuses it if it shows a file. */
+    private fun selectChosen(tab: EditorTab) {
+        editorTabs.select(tab)
+        if (tab is OpenFile) focus(tab)
+    }
+
+    private fun focus(openFile: OpenFile) {
+        val diffView = openFile.diffView
+        if (diffView != null) diffView.node.requestFocus() else openFile.editor.focus()
+    }
 
     /** Adds [tab] after the open tabs and selects it. Its [EditorTab.dispose] is called when it is closed. */
     fun open(tab: EditorTab) = editorTabs.open(tab)
@@ -519,4 +553,4 @@ class EditorArea(
 private val NO_DIFF: ObservableBooleanValue = ReadOnlyBooleanWrapper(false).readOnlyProperty
 
 /** Whether this node is [ancestor] or within it. */
-private fun Node.isInside(ancestor: Node): Boolean = generateSequence(this) { it.parent }.any { it === ancestor }
+internal fun Node.isInside(ancestor: Node): Boolean = generateSequence(this) { it.parent }.any { it === ancestor }
