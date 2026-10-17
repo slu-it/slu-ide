@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import java.util.concurrent.TimeUnit
 import kotlin.io.path.createDirectories
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
@@ -679,6 +680,8 @@ class GitCliWriteTest {
         assertEquals(GitResult(false, "git did not finish within 1 s."), result)
         assertTrue(System.nanoTime() - started < 8_000_000_000, "killed after the grace period")
         val process = ProcessHandle.of(pid.readText().trim().toLong())
+        // SIGKILL is sent before the write returns, but the process may take a moment to go.
+        process.ifPresent { it.onExit().get(5, TimeUnit.SECONDS) }
         assertFalse(process.isPresent && process.get().isAlive, "killed")
     }
 
