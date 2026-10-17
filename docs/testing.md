@@ -11,9 +11,19 @@ with its exception and stack trace up to the test (`testLogging` in the root bui
 and uses software rendering (`-Dprism.order=sw`). The modules' `uiTest` tasks run one at a time (a shared build
 service): tests of parallel modules on one display took each other's window focus and closed each other's popups.
 
+## Running a subset
+Subagents verify with subsets; the full `./gradlew build` is the main session's final gate (delegate skill).
+```bash
+./gradlew testClasses -q                                              # compile all main and test code
+./gradlew :modules:git-log:test -q                                    # unit tests of one module
+./gradlew :modules:git-log:uiTest --tests 'GitLogWritesRefsUiTest' -q # one UI test class (needs DISPLAY)
+./gradlew :ide:uiTest --tests 'MainWindow*' -q                        # UI test classes by pattern
+```
+
 ## Display handling
 - **Linux without `DISPLAY` and without `CI`:** `uiTest` is *skipped* (not failed), so a headless sandbox stays usable.
-  Skipped is not verified: run `.claude/scripts/setup-display.sh`, `export DISPLAY=:99`, then `./gradlew uiTest`.
+  Skipped is not verified: run `.claude/scripts/setup-display.sh`, `export DISPLAY=:99`, then the `uiTest` classes
+  you need ("Running a subset"); only the main session's final gate runs all of them.
 - **CI:** `CI` is always set, so a missing display fails loudly. The Linux job runs Gradle under `xvfb-run -a`;
   the macOS jobs of CI and release skip `uiTest` (about 30 minutes there). The *macOS UI tests* workflow
   (`.github/workflows/macos-ui-tests.yml`, started by hand) runs them on the native macOS display.
