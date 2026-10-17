@@ -431,11 +431,12 @@ class GitLogView internal constructor(
             isManaged = false
         }
 
-    /** Says what is compared with what (ADR 0044). */
+    /** Says what is compared with what (ADR 0044); shrinks first in a narrow log, its tooltip has the whole text. */
     internal val compareLabel =
         Label().apply {
             styleClass += "git-log-compare-text"
             minWidth = 0.0
+            tooltip = Tooltip()
         }
 
     private val compareSides = ToggleGroup()
@@ -802,6 +803,7 @@ class GitLogView internal constructor(
         val current = pages.refs?.currentBranch?.removePrefix("refs/heads/") ?: "HEAD"
         val counts = pages.counts
         compareLabel.text = "Comparing $name with $current"
+        compareLabel.tooltip.text = compareLabel.text
         refOnlyToggle.text = "In $name, not in $current" + counts?.let { " (${it.refOnly})" }.orEmpty()
         headOnlyToggle.text = "In $current, not in $name" + counts?.let { " (${it.headOnly})" }.orEmpty()
         // Other filters may be why nothing is listed.
