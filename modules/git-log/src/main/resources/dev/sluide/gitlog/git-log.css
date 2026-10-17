@@ -351,7 +351,7 @@
 }
 
 .git-change-icon {
-    -fx-icon-color: -fx-text-background-color;
+    /* The colour comes from the file type (file-icons.css). */
     -fx-icon-size: 14;
 }
 

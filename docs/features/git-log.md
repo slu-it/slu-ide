@@ -84,8 +84,8 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
   tree by path, folders first, then files, by name, everything expanded; folders that hold only one folder are one
   node (`src/main/kotlin`). Folders and files have the explorer's file-type icons (`file-icons` module; folders open or
   closed with the node, files by name and extension, a file of unknown type gets the document icon, nothing is read
-  from disk). A merge is compared with its first parent ("N files (compared with the first parent
-  …)"), a root commit with nothing (every file added). File names (not the icons) are coloured by their change: green added, blue
+  from disk). A merge is compared with its first parent ("N files (compared with the first parent …)"), a root
+  commit with nothing (every file added). File names (not the icons) are coloured by their change: green added, blue
   modified (also renamed, copied, type changed), grey deleted; lighter in the dark theme, the selection text colour
   when selected. A renamed file shows ` ← old/path` and a tooltip; renames are found as git's `-M` finds them.
   Placeholders: "No commit selected", "N commits selected", "Loading…" (after 300 ms, as for the details), "No

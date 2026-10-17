@@ -1,5 +1,6 @@
 package dev.sluide.gitlog
 
+import dev.sluide.fileicons.FILE_ICONS_CSS
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitFileDiff
@@ -78,6 +79,7 @@ internal class WorkingTreeWindow(
                         // .git-log gives the looked-up colours of the changes: the window is one of its own.
                         styleClass.addAll("git-log", "git-working-tree")
                         stylesheets += GIT_LOG_CSS
+                        stylesheets += FILE_ICONS_CSS
                         top =
                             HBox(
                                 header,

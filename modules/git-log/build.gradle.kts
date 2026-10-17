@@ -13,6 +13,8 @@ javafx {
 dependencies {
     // Deliberate module API dependency: the commits come from the git command line of the git module (ADR 0035).
     api(project(":modules:git"))
+    // Deliberate module dependency: the changed files show the explorer's file-type icons (ADR 0047).
+    implementation(project(":modules:file-icons"))
     implementation(libs.spring.context)
     implementation(libs.ikonli.javafx)
     implementation(libs.ikonli.materialdesign2)

@@ -1,5 +1,6 @@
 package dev.sluide.gitlog
 
+import dev.sluide.fileicons.FileIcon
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitFileDiff
@@ -15,6 +16,7 @@ import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.io.TempDir
+import org.kordamp.ikonli.javafx.FontIcon
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
@@ -101,6 +103,38 @@ class GitLogViewChangedFilesUiTest : GitLogViewUiFixture() {
                     .web("#2e7d32"),
                 nameOf(treeCell(robot, "Two.kt")).textFill,
             )
+        }
+    }
+
+    @Test
+    fun `shows file type icons, a folder's open when expanded`(robot: FxRobot) {
+        showFilesOfFirstCommit(robot)
+
+        fun iconOf(name: String) =
+            ((treeCell(robot, name).graphic as javafx.scene.Parent).childrenUnmodifiable[0] as FontIcon)
+
+        robot.interact {
+            assertEquals(FileIcon.KOTLIN.ikon, iconOf("One.kt").iconCode)
+            assertTrue(FileIcon.KOTLIN.styleClass in iconOf("One.kt").styleClass)
+            assertEquals(FileIcon.MARKDOWN.ikon, iconOf("README.md").iconCode)
+            assertEquals(FileIcon.FOLDER_OPEN.ikon, iconOf("docs").iconCode)
+            treeCell(robot, "docs").treeItem.isExpanded = false
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        robot.interact {
+            assertEquals(FileIcon.FOLDER.ikon, iconOf("docs").iconCode)
+            assertEquals(1, iconOf("docs").styleClass.count { it.startsWith("file-icon-") })
+        }
+    }
+
+    @Test
+    fun `shows the icon of a file with a non-ASCII name`(robot: FxRobot) {
+        filesOf = { listOf(GitChangedFile(GitChange.ADDED, "größe/日本語.kt")) }
+        showFilesOfFirstCommit(robot)
+
+        robot.interact {
+            val icon = (treeCell(robot, "日本語.kt").graphic as javafx.scene.Parent).childrenUnmodifiable[0] as FontIcon
+            assertEquals(FileIcon.KOTLIN.ikon, icon.iconCode)
         }
     }
 

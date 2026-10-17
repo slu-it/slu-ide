@@ -1,7 +1,11 @@
 package dev.sluide.gitlog
 
+import dev.sluide.fileicons.fileIconFor
+import dev.sluide.fileicons.show
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
+import javafx.beans.InvalidationListener
+import javafx.beans.WeakInvalidationListener
 import javafx.geometry.Pos
 import javafx.scene.control.ContextMenu
 import javafx.scene.control.Label
@@ -20,7 +24,6 @@ import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.layout.HBox
 import org.kordamp.ikonli.javafx.FontIcon
-import org.kordamp.ikonli.materialdesign2.MaterialDesignF
 
 /**
  * Changed files as a tree by their paths ([changeTree], ADR 0038), everything expanded, the names coloured by their
@@ -190,7 +193,15 @@ internal class ChangeTreeView : TreeView<ChangeNode>(TreeItem()) {
         private val oldPath = Label().apply { styleClass += "git-change-old" }
         private val box = HBox(icon, name, oldPath).apply { alignment = Pos.CENTER_LEFT }
 
+        private val iconUpdater = InvalidationListener { updateIcon() }
+        private val weakIconUpdater = WeakInvalidationListener(iconUpdater)
+
         init {
+            // A folder opens and closes without a call to updateItem.
+            treeItemProperty().addListener { _, old, new ->
+                old?.expandedProperty()?.removeListener(weakIconUpdater)
+                new?.expandedProperty()?.addListener(weakIconUpdater)
+            }
             setOnMouseClicked { event ->
                 if (event.button == MouseButton.PRIMARY && event.clickCount == 2 && item is ChangeFile) {
                     showSelectedDiff()
@@ -213,18 +224,35 @@ internal class ChangeTreeView : TreeView<ChangeNode>(TreeItem()) {
             name.text = item.name
             when (item) {
                 is ChangeFolder -> {
-                    icon.iconCode = MaterialDesignF.FOLDER_OUTLINE
                     name.styleClass.setAll("label", "git-change-folder")
                     showOldPath(null)
                 }
 
                 is ChangeFile -> {
-                    icon.iconCode = MaterialDesignF.FILE_OUTLINE
                     name.styleClass.setAll("label", "git-change-name", styleClassOf(item.file.change))
                     showOldPath(item.file)
                 }
             }
+            updateIcon()
             graphic = box
+        }
+
+        // The file may not exist on disk (deleted, or in a past commit), so a file of unknown type is never read.
+        private fun updateIcon() {
+            val item = item
+            val treeItem = treeItem
+            if (isEmpty || item == null || treeItem == null) return
+            icon.show(
+                when (item) {
+                    is ChangeFolder -> {
+                        fileIconFor(item.name, directory = true, expanded = treeItem.isExpanded, readable = { true })
+                    }
+
+                    is ChangeFile -> {
+                        fileIconFor(item.name, directory = false, expanded = false, readable = { true })
+                    }
+                },
+            )
         }
 
         private fun showOldPath(file: GitChangedFile?) {

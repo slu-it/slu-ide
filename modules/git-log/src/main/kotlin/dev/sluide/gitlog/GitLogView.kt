@@ -1,5 +1,6 @@
 package dev.sluide.gitlog
 
+import dev.sluide.fileicons.FILE_ICONS_CSS
 import dev.sluide.git.GitBranches
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
@@ -641,6 +642,7 @@ class GitLogView internal constructor(
     init {
         styleClass += "git-log"
         stylesheets += GIT_LOG_CSS
+        stylesheets += FILE_ICONS_CSS
         top = header
         pages.selectedHashes = { table.selectionModel.selectedItems.map { it.commit.hash } }
         pages.select = { indices ->
