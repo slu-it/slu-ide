@@ -186,12 +186,9 @@ internal class ChangeTreeView : TreeView<ChangeNode>(TreeItem()) {
         showHistoryItem.isDisable = file == null
     }
 
-    /** A folder or a file: an icon and the name, a file's coloured by its change, a renamed one with its old path. */
+    /** A folder or a file, as [ChangeGraphic] shows it. */
     private inner class ChangeCell : TreeCell<ChangeNode>() {
-        private val icon = FontIcon().apply { styleClass += "git-change-icon" }
-        private val name = Label()
-        private val oldPath = Label().apply { styleClass += "git-change-old" }
-        private val box = HBox(icon, name, oldPath).apply { alignment = Pos.CENTER_LEFT }
+        private val look = ChangeGraphic()
 
         private val iconUpdater = InvalidationListener { updateIcon() }
         private val weakIconUpdater = WeakInvalidationListener(iconUpdater)
@@ -221,49 +218,15 @@ internal class ChangeTreeView : TreeView<ChangeNode>(TreeItem()) {
                 tooltip = null
                 return
             }
-            name.text = item.name
-            when (item) {
-                is ChangeFolder -> {
-                    name.styleClass.setAll("label", "git-change-folder")
-                    showOldPath(null)
-                }
-
-                is ChangeFile -> {
-                    name.styleClass.setAll("label", "git-change-name", styleClassOf(item.file.change))
-                    showOldPath(item.file)
-                }
-            }
-            updateIcon()
-            graphic = box
+            tooltip = look.show(item, treeItem?.isExpanded == true)?.let(::Tooltip)
+            graphic = look.box
         }
 
-        // The file may not exist on disk (deleted, or in a past commit), so a file of unknown type is never read.
         private fun updateIcon() {
             val item = item
             val treeItem = treeItem
             if (isEmpty || item == null || treeItem == null) return
-            icon.show(
-                when (item) {
-                    is ChangeFolder -> {
-                        fileIconFor(item.name, directory = true, expanded = treeItem.isExpanded, readable = { true })
-                    }
-
-                    is ChangeFile -> {
-                        fileIconFor(item.name, directory = false, expanded = false, readable = { true })
-                    }
-                },
-            )
-        }
-
-        private fun showOldPath(file: GitChangedFile?) {
-            val old = file?.oldPath
-            oldPath.text = old?.let { " ← $it" }.orEmpty()
-            oldPath.isVisible = old != null
-            oldPath.isManaged = old != null
-            tooltip =
-                old?.let {
-                    Tooltip(if (file.change == GitChange.COPIED) "Copied from $it" else "Renamed from $it")
-                }
+            look.showIcon(item, treeItem.isExpanded)
         }
     }
 
@@ -275,6 +238,65 @@ internal class ChangeTreeView : TreeView<ChangeNode>(TreeItem()) {
                 GitChange.DELETED -> "git-change-deleted"
                 else -> "git-change-modified"
             }
+    }
+}
+
+/**
+ * How a node of a tree of changes looks ([ChangeTreeView], the Commit tab's tree, ADR 0048): the file type's icon (a
+ * folder's open or closed), the name, a file's coloured by its change, a renamed or copied one followed by " ← old
+ * path". [box] is the graphic to put into a cell.
+ */
+internal class ChangeGraphic {
+    private val icon = FontIcon().apply { styleClass += "git-change-icon" }
+    private val name = Label()
+    private val oldPath = Label().apply { styleClass += "git-change-old" }
+    val box = HBox(icon, name, oldPath).apply { alignment = Pos.CENTER_LEFT }
+
+    /**
+     * Shows [node], a folder [expanded] or not; a file's name in the style class [nameClass], by default that of its
+     * change ([ChangeTreeView.styleClassOf]). The tooltip's text for a renamed or copied file, else `null`.
+     */
+    fun show(
+        node: ChangeNode,
+        expanded: Boolean,
+        nameClass: String? = null,
+    ): String? {
+        name.text = node.name
+        val file =
+            when (node) {
+                is ChangeFolder -> {
+                    name.styleClass.setAll("label", "git-change-folder")
+                    null
+                }
+
+                is ChangeFile -> {
+                    val change = nameClass ?: ChangeTreeView.styleClassOf(node.file.change)
+                    name.styleClass.setAll("label", "git-change-name", change)
+                    node.file
+                }
+            }
+        showIcon(node, expanded)
+        val old = file?.oldPath
+        oldPath.text = old?.let { " ← $it" }.orEmpty()
+        oldPath.isVisible = old != null
+        oldPath.isManaged = old != null
+        return old?.let { if (file.change == GitChange.COPIED) "Copied from $it" else "Renamed from $it" }
+    }
+
+    /**
+     * Shows the icon of [node], a folder's [expanded] or not. The file may not exist on disk (deleted, or in a past
+     * commit), so a file of unknown type is never read.
+     */
+    fun showIcon(
+        node: ChangeNode,
+        expanded: Boolean,
+    ) {
+        icon.show(
+            when (node) {
+                is ChangeFolder -> fileIconFor(node.name, directory = true, expanded = expanded, readable = { true })
+                is ChangeFile -> fileIconFor(node.name, directory = false, expanded = false, readable = { true })
+            },
+        )
     }
 }
 
