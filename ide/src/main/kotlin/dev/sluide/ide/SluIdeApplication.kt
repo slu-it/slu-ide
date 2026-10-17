@@ -32,6 +32,9 @@ class SluIdeApplication : Application() {
                 .headless(false)
                 // The command-line arguments are folders (startupFolders), not Spring properties.
                 .run()
+        // Only now: until Spring has configured logging, the JVM's own print to stderr is the better place. Also gets
+        // the exceptions of JavaFX event handlers, which the toolkit hands to the thread's handler (ADR 0051).
+        Thread.setDefaultUncaughtExceptionHandler { thread, error -> logUncaught(thread, error) }
     }
 
     override fun start(primaryStage: Stage) {
