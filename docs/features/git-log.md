@@ -3,7 +3,9 @@
 **Module:** `modules/git-log` (package `dev.sluide.gitlog`) — `GitLogView` (the area), `GitLogPages` (paging and
 reloads, without controls), `GraphLayout` (the commit graph's lanes), `GraphCell` (drawing it, with the ref labels of
 `RefLabels` and `refGroups`), `CommitDetails` (which details and changed files to load, without controls),
-`CommitDetailsPane`, `changeTree` and `FileDiffs` (`ChangedFiles.kt`, without controls), `ChangedFilesPane`,
+`CommitDetailsPane`, `changeTree` and `FileDiffs` (`ChangedFiles.kt`, without controls), `ChangedFilesPane` with the
+tree `ChangeTreeView` (shared with the working-tree window), `LogComparison` (in `GitLogPages.kt`, without controls),
+`WorkingTreeComparison` (without controls) and `WorkingTreeWindow`,
 `FilterBar` with `FilterPopup` (`FilterBar.kt`), `branchNodes` (`BranchTree.kt`, without controls) and
 `BranchesPane`, the operations that change the repository with `branchActions`, `nameProblem` and their `RefWriter`
 (`RefOperations.kt`, without controls), the cherry-pick, revert and reset operations (`CommitOperations.kt`, without
@@ -14,8 +16,8 @@ with `GitRefNames`.
 Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-commit-graph-layout.md),
 [ADR 0037](../adr/0037-ref-labels-and-commit-details.md), [ADR 0038](../adr/0038-changed-files-and-commit-diffs.md),
 [ADR 0039](../adr/0039-git-log-filters.md), [ADR 0040](../adr/0040-git-log-branches-pane.md),
-[ADR 0041](../adr/0041-git-write-operations.md), [ADR 0042](../adr/0042-git-log-commit-operations.md) and
-[ADR 0043](../adr/0043-git-log-fetch.md)
+[ADR 0041](../adr/0041-git-write-operations.md), [ADR 0042](../adr/0042-git-log-commit-operations.md),
+[ADR 0043](../adr/0043-git-log-fetch.md) and [ADR 0044](../adr/0044-git-log-compare.md)
 
 - **Where and when:** for a folder whose git status is followed ([git-status.md](git-status.md): git is available and
   the folder has `.git`), the window shows a Git Log area under the editor area. Other folders, and a window without a
@@ -159,7 +161,8 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
     stops that, while Refresh (or a change in `.git`) lets it go on in the reloaded log. A refresh that moves the
     selected branch selects its new commit if the table still has exactly its old commit selected (or that is still
     being looked for) and the pane is shown; otherwise, and for an unchanged branch, the table's selection stays. If the
-    commit is not there, the header says "<name> is hidden by the filters." (with filters set), "<name> is not in the
+    commit is not there, the header says "<name> is not in this comparison." (while comparing), "<name> is hidden by the
+    filters." (with filters set), "<name> is not in the
     log." or "<name> is more than 10,000 commits down.", until the next selection. A tag of a tree or blob (not a
     commit) is never in the log, so it gets one of the last two. Groups, folders and several branches do not navigate.
   - **Filter:** a double-click on a branch, Enter, or "Filter Log by Branch" ("Filter Log by N Branches") in the
@@ -171,11 +174,13 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
   select several).
 - **Changing the repository** ([ADR 0041](../adr/0041-git-write-operations.md)), with the git command line, so hooks
   and the user's configuration apply:
-  - **Commit table:** its context menu has, after Copy Revision Number and a separator, Checkout Revision (`HEAD`
+  - **Commit table:** its context menu has, after Copy Revision Number, Compare with Local (below) and a separator,
+    Checkout Revision (`HEAD`
     detached at the commit), New Branch… and New Tag… (at the commit), and after another separator Cherry-Pick, Revert
     Commit and Reset Current Branch to Here… ([ADR 0042](../adr/0042-git-log-commit-operations.md), below); enabled
     with exactly one commit selected, Reset only while the refs read show a `HEAD` commit.
-  - **Branches pane:** its context menu has, after Copy Name and a separator, Checkout, "New Branch from '<name>'…"
+  - **Branches pane:** its context menu has, after Copy Name and a separator, Compare with Current and Show Diff with
+    Working Tree (below), and after another separator Checkout, "New Branch from '<name>'…"
     (from any one branch, tag or `HEAD`), Rename… (local branches, also the current one; also F2) and Delete (local
     branches and tags, several at once; also Delete, or Shortcut+Backspace as in the explorer). Checkout is disabled
     for `HEAD`, the current branch, a remote branch whose local branch of the same name is the current one, folders,
@@ -282,9 +287,51 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
   - **Disabled** while another operation runs, and once the log found no remotes (they are read with every refresh
     of the expanded log); before the log was first expanded it is enabled and says "No remotes to fetch." if there
     are none.
+- **Compare** ([ADR 0044](../adr/0044-git-log-compare.md)), only reading:
+  - **Compare with Current** in the branches pane's context menu, on one local branch, remote branch (also the current
+    branch's upstream) or tag that is not `HEAD` or the current branch (disabled for those, folders, groups, several and
+    while `HEAD` has no commit): the log lists the commits of the ref that are not in `HEAD`, with a bar below the
+    filter bar (pale blue): "Comparing feature with main" ("with HEAD" when detached; the whole text in a tooltip when
+    the bar is narrow), the toggles "In feature, not in main (3)" and "In main, not in feature (5)" (counting the
+    commits that pass the other filters too, as listed; exactly one selected, the first at first; a click on the
+    selected one keeps it) and × ("Stop Comparing"; Escape in the table too). The text, user and path filters and the
+    graph options still apply; the Branch button is disabled meanwhile and its selection comes back when comparing
+    stops, as do all filters. "Filter Log by Branch" in the pane stops comparing first. An empty side says "No commits
+    in feature that are not in main." (without other filters set, else "No commits match the filters."). The graph is
+    drawn as for a branch filter; lanes to parents outside the range run to the end of the list. No hash match while
+    comparing. The counts are read with every first page, so a refresh (Refresh, a commit, checkout or fetch) counts
+    again against what `HEAD` is then. A refresh without the compared ref stops comparing ("feature no longer exists."
+    in the header, also with a commit selected), so does one where it is checked out ("feature is the current branch
+    now."). Opening another folder stops it too.
+  - **Show Diff with Working Tree** (branches pane, any one branch, remote branch, tag, also `HEAD` and the current
+    branch) and **Compare with Local** (commit table, one commit) open a window of their own, titled "feature ↔ Working
+    Tree" ("1a2b3c4d ↔ Working Tree"): not modal and not owned by the IDE window, which can come in front of it; with
+    the IDE window's icons and theme (also dark), first placed at the IDE window's right edge. The same ref or commit
+    again brings its window to the front; another folder and closing the IDE window close them all. It shows "4 files
+    differ" ("1 file differs") with a Refresh button, the files that differ between that commit and the working tree as
+    the changed files' tree (added in the working tree green, modified and renamed blue with ` ← old`, deleted grey) and
+    "Untracked files are not included." below; only tracked files are compared (`git diff --name-status -M <commit>`),
+    so new files count once they are added to the index. "Loading…", "No differences.", "feature no longer exists." (a
+    window of a branch follows the branch: it is resolved again with every refresh) and "The differences could not be
+    read." stand in for the tree. It reads the files again with Refresh and whenever it gains the focus (edits of the
+    working tree are not watched), keeping the selected file and collapsed folders.
+  - **Diffs:** Show Diff (double-click, Enter, Shortcut+D or the context menu) on a file of the window opens an editor
+    tab "App.kt (feature ↔ Working Tree)": left the file at the commit ("feature (1a2b3c4d)", with ", old.txt" for a
+    renamed file, "(none)" for an added one), right "Working Tree", the file as it is on disk (empty for a deleted file,
+    titled "Working Tree (deleted)"; "Working Tree (saved)" while an editor has unsaved changes of it), side by side and
+    read-only; the IDE window comes to the front with the tab focused. The same file of the same commit again shows it
+    read again in its tab, also a deleted file that is back; the tab does not follow later edits by itself, and a save
+    between reading the hunks and the file misaligns the colouring until Show Diff again. Binary files, files above 5
+    MB, submodules, files whose content did not change and files no text viewer shows are not compared; the window's bar
+    says so ("data.bin is a binary file.", "… is too large to compare.", "lib is a submodule.", "… has no content
+    changes.", "… cannot be shown as text."), until the next selection. Open Local File (F4) and Copy Path work as in
+    the changed files. The commit's side is shown as a checkout would write it, with the line endings and filters of the
+    file's attributes, the working tree's as on disk; the two are compared as they are, whatever the attributes say
+    about diffing. A smudge filter (git-lfs) that makes the file larger than 5 MB gives "… is too large to compare.";
+    one that fetches over the network may make Show Diff wait up to 10 s before "The diff could not be read."
 - Not yet implemented (next packages): "In N branches" and clickable hashes in the details, a flat list of the
-  changed files, their combined changes for several commits, comparing with the local version, the changes against
-  each parent of a merge, a diff preview in the log, file history, file-type icons in the tree, a date filter, dotted
+  changed files, their combined changes for several commits, comparing two branches or commits with each other (and the
+  files since their merge base), the changes against each parent of a merge, a diff preview in the log, file history, file-type icons in the tree, a date filter, dotted
   edges through commits hidden by filters, tracking information in the branches pane, remembering the area's height
   and state, and more operations: updating local branches after a fetch, pull, push, merge, rebase, deleting remote branches, pushing tags; for
   cherry-pick and revert several commits at once, a merge tool or three-way view, `-x` and edited messages; `reset
