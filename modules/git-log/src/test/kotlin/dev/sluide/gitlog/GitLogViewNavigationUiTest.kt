@@ -14,6 +14,8 @@ import javafx.scene.control.ListCell
 import javafx.scene.input.KeyCode
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
+import javafx.scene.text.Text
+import javafx.scene.text.TextFlow
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -87,12 +89,22 @@ class GitLogViewNavigationUiTest : GitLogViewUiFixture() {
         openAndExpand(robot)
         select(robot, 0)
         eventually { assertEquals("In 9 branches: b1, b2, b3, b4, b5, b6, … Show all (9)", branchesLine()) }
+        eventually { assertWrappedAndWhole(details.branchesLine) }
 
         clickText(robot, details.branchesLine, "Show all (9)")
         eventually { assertEquals("In 9 branches: ${(1..9).joinToString(", ") { "b$it" }}", branchesLine()) }
+        eventually { assertWrappedAndWhole(details.branchesLine) }
 
         select(robot, 1)
         eventually { assertEquals("In 9 branches: b1, b2, b3, b4, b5, b6, … Show all (9)", branchesLine()) }
+    }
+
+    /** Asserts that [area] is wrapped in the narrow pane, and as high as all its lines. */
+    private fun assertWrappedAndWhole(area: LinkText) {
+        val text = area.lookupAll(".paragraph-text").filterIsInstance<TextFlow>().single()
+        val oneLine = Text("X").apply { font = (area.lookup(".text") as Text).font }.layoutBounds.height
+        assertTrue(text.height > oneLine * 1.5, "wrapped: ${text.height}, a line $oneLine")
+        assertTrue(text.height <= area.height, "${text.height} in ${area.height}")
     }
 
     @Test

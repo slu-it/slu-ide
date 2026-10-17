@@ -51,6 +51,8 @@ internal class LinkText(
         isFocusTraversable = false
         isAutoHeight = true
         minWidth = 0.0
+        // The auto height is measured at the current width: a new one (the first, once shown) needs another layout.
+        widthProperty().subscribe { _, _ -> requestLayout() }
         contextMenu =
             ContextMenu(
                 MenuItem("Copy").apply { setOnAction { copy() } },
