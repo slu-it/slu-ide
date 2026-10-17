@@ -350,6 +350,10 @@ internal data class BranchActions(
     val delete: List<GitRef>,
     /** The remote of the one selected remote, folder of a remote or remote branch, to fetch (ADR 0043). */
     val fetch: String? = null,
+    /** The one selected branch, remote branch or tag to compare with `HEAD`; not `HEAD` or the current branch (ADR 0044). */
+    val compare: GitRef? = null,
+    /** The one selected ref, also `HEAD` or the current branch, to compare with the working tree (ADR 0044). */
+    val workingTreeDiff: GitRef? = null,
 )
 
 /**
@@ -403,6 +407,8 @@ internal fun branchActions(
         ref?.takeIf { it.kind == GitRefKind.LOCAL_BRANCH },
         if (deletable) selected.map { (it as BranchLeaf).ref } else emptyList(),
         fetch,
+        compare = ref?.takeIf { single?.current == false && it.kind != GitRefKind.HEAD },
+        workingTreeDiff = ref,
     )
 }
 

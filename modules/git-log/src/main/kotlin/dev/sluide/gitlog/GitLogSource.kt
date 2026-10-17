@@ -3,6 +3,7 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitCommitDetails
+import dev.sluide.git.GitComparisonCounts
 import dev.sluide.git.GitFileDiff
 import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitLog
@@ -11,6 +12,7 @@ import dev.sluide.git.GitLogPage
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitTreePath
+import dev.sluide.git.GitWorkingTreeChanges
 import java.nio.file.Path
 
 /**
@@ -66,6 +68,29 @@ internal interface GitLogSource {
         firstParent: String?,
         file: GitChangedFile,
     ): GitFileDiff?
+
+    /**
+     * How many commits that pass [filter] (not its revisions) [revision] has that `HEAD` has not, and the other way
+     * round (ADR 0044); `null` on failure.
+     */
+    fun comparisonCounts(
+        root: Path,
+        revision: String,
+        filter: GitLogFilter,
+    ): GitComparisonCounts? = null
+
+    /** The tracked files that differ between the commit [revision] names and the working tree; `null` on failure. */
+    fun workingTreeChanges(
+        root: Path,
+        revision: String,
+    ): GitWorkingTreeChanges? = null
+
+    /** How [file] differs between [commit] and the working tree (ADR 0044); `null` on failure. */
+    fun workingTreeFileDiff(
+        root: Path,
+        commit: String,
+        file: GitChangedFile,
+    ): GitFileDiff? = null
 }
 
 /** Reads with the git command line. */
@@ -112,4 +137,21 @@ internal class GitLogCliSource(
         firstParent: String?,
         file: GitChangedFile,
     ) = gitLog.fileDiff(root, commit, firstParent, file)
+
+    override fun comparisonCounts(
+        root: Path,
+        revision: String,
+        filter: GitLogFilter,
+    ) = gitLog.comparisonCounts(root, revision, filter)
+
+    override fun workingTreeChanges(
+        root: Path,
+        revision: String,
+    ) = gitLog.workingTreeChanges(root, revision)
+
+    override fun workingTreeFileDiff(
+        root: Path,
+        commit: String,
+        file: GitChangedFile,
+    ) = gitLog.workingTreeFileDiff(root, commit, file)
 }

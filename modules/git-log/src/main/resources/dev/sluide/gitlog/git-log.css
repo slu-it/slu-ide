@@ -507,6 +507,64 @@
 }
 
 /*
+ * The bar of a comparison with HEAD (ADR 0044), below the filter bar: like the bar of a cherry-pick in progress, on a
+ * pale blue redefined for the dark theme below; the two sides as flat toggles, the listed one in the accent colour.
+ */
+.git-log {
+    -git-compare: #e3edfb;
+}
+
+.git-log-compare {
+    -fx-spacing: 6;
+    -fx-padding: 2 4 2 6;
+    -fx-background-color: -fx-box-border, -git-compare;
+    -fx-background-insets: 0, 0 0 1 0;
+}
+
+.git-log-compare-text {
+    -fx-text-fill: -fx-text-background-color;
+}
+
+.git-log-compare-side,
+.git-log-compare-close {
+    -fx-background-color: transparent;
+    -fx-background-radius: 3;
+    -fx-padding: 1 6 1 6;
+    -fx-text-fill: -fx-text-background-color;
+}
+
+.git-log-compare-close {
+    -fx-padding: 1 4 1 4;
+}
+
+.git-log-compare-close .ikonli-font-icon {
+    -fx-icon-color: -fx-text-background-color;
+    -fx-icon-size: 12;
+}
+
+.git-log-compare-side:hover,
+.git-log-compare-close:hover {
+    -fx-background-color: -fx-hover-base;
+}
+
+.git-log-compare-side:selected,
+.git-log-compare-side:selected:hover {
+    -fx-background-color: -fx-accent;
+    -fx-text-fill: -fx-selection-bar-text;
+}
+
+.git-log-compare-side:focus-visible,
+.git-log-compare-close:focus-visible {
+    -fx-background-color: -fx-focus-color, -git-compare;
+    -fx-background-insets: 0, 1;
+    -fx-background-radius: 3, 2;
+}
+
+.git-log-compare-side:selected:focus-visible {
+    -fx-background-color: -fx-focus-color, -fx-accent;
+}
+
+/*
  * The reset dialog (ADR 0042): a window of its own, with this stylesheet added; what a hard reset loses in a warning
  * colour, redefined for the dark theme below.
  */
@@ -543,6 +601,7 @@
         -git-graph-6: #e07fbe;
         -git-graph-7: #c8b450;
         -git-pending: #4a3f1f;
+        -git-compare: #1f3350;
     }
 
     .git-reset {

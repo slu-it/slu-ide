@@ -1,6 +1,7 @@
 package dev.sluide.gitlog
 
 import dev.sluide.git.GitCommit
+import dev.sluide.git.GitComparisonCounts
 import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitLogFilter
 import dev.sluide.git.GitLogPage
@@ -38,6 +39,49 @@ internal enum class CommitMissing {
     BEYOND_LIMIT,
 }
 
+/** Which commits a comparison of a ref with `HEAD` lists (ADR 0044). */
+internal enum class ComparisonSide {
+    /** Those of the ref that are not in `HEAD`. */
+    REF_ONLY,
+
+    /** Those of `HEAD` that are not in the ref. */
+    HEAD_ONLY,
+}
+
+/** The git log compares [ref] (a branch, remote branch or tag) with `HEAD`, listing the commits of [side] (ADR 0044). */
+internal data class LogComparison(
+    val ref: GitRef,
+    val side: ComparisonSide = ComparisonSide.REF_ONLY,
+) {
+    /** [filter] limited to the commits of [side]: the range `<ref> ^HEAD` or `HEAD ^<ref>`, instead of its revisions. */
+    fun limit(filter: GitLogFilter): GitLogFilter =
+        when (side) {
+            ComparisonSide.REF_ONLY -> filter.copy(revisions = listOf(ref.name), excluded = listOf(HEAD))
+            ComparisonSide.HEAD_ONLY -> filter.copy(revisions = listOf(HEAD), excluded = listOf(ref.name))
+        }
+
+    /** Why the refs [refs] end this comparison: its ref is gone or checked out; `null` if they do not. */
+    fun endedBy(refs: GitRefs): ComparisonEnd? =
+        when {
+            refs.refs.none { it.name == ref.name } -> ComparisonEnd.GONE
+            refs.currentBranch == ref.name -> ComparisonEnd.CURRENT
+            else -> null
+        }
+
+    private companion object {
+        const val HEAD = "HEAD"
+    }
+}
+
+/** Why a comparison ended by itself, after a refresh (ADR 0044). */
+internal enum class ComparisonEnd {
+    /** The compared ref no longer exists. */
+    GONE,
+
+    /** The compared ref is the checked-out branch now. */
+    CURRENT,
+}
+
 /** What [GitLogPages.loadUntil] waits for. */
 private class Seek(
     val hash: String,
@@ -73,6 +117,12 @@ internal data class GitLogRow(
  *
  * [loadUntil] loads pages until a commit is there (ADR 0040), for the branches pane.
  *
+ * While a [comparison] is set (ADR 0044), the rows are the commits of one side of it that pass the filter without its
+ * revisions, and [loadCounts] reads how many commits of each side pass the filter with every first page ([counts]),
+ * so that they match the list; no hash match is
+ * looked for. A refresh whose refs no longer have the compared ref, or have it checked out, ends the comparison: the
+ * log is loaded again without it and [comparisonEnded] is told.
+ *
  * [load] and [loadRefs] run on [background], their results are handled through [dispatch]. Every [open] and reload
  * starts a new run; results of older runs are dropped. Used on the JavaFX thread (or whatever [dispatch] stands for
  * in tests).
@@ -88,6 +138,7 @@ internal class GitLogPages(
     private val seekLimit: Int = SEEK_LIMIT,
     private val loadPending: (Path) -> GitInProgress? = { null },
     private val loadRemotes: (Path) -> List<String>? = { null },
+    private val loadCounts: (Path, String, GitLogFilter) -> GitComparisonCounts? = { _, _, _ -> null },
 ) {
     /** The loaded commits with their graph, newest first. */
     val rows: ObservableList<GitLogRow> = FXCollections.observableArrayList()
@@ -132,6 +183,34 @@ internal class GitLogPages(
 
     private var currentFilter = GitLogFilter()
 
+    /**
+     * The comparison of a ref with `HEAD` the rows show (ADR 0044), `null` for none; a change reloads the first page as
+     * a change of the [filter] does. [open] ends it.
+     */
+    var comparison: LogComparison?
+        get() = currentComparison
+        set(value) {
+            if (currentComparison == value) return
+            if (currentComparison?.ref?.name != value?.ref?.name) counts = null
+            currentComparison = value
+            filterChanged()
+        }
+
+    private var currentComparison: LogComparison? = null
+
+    /**
+     * How many commits each side of the [comparison] has, read with the last first page; `null` while not comparing,
+     * before they are read, or if they could not be read.
+     */
+    var counts: GitComparisonCounts? = null
+        private set
+
+    /** Told when a refresh ended the [comparison] by itself, after the log is loaded again without it. */
+    var comparisonEnded: (LogComparison, ComparisonEnd) -> Unit = { _, _ -> }
+
+    /** The filter git loads the rows with: the [filter], limited to one side of the [comparison] if there is one. */
+    val effectiveFilter: GitLogFilter get() = comparison?.limit(currentFilter) ?: currentFilter
+
     /** The current run; read on the background thread to skip runs that are no longer wanted. */
     private val run = AtomicLong()
     private var stale = false
@@ -157,17 +236,22 @@ internal class GitLogPages(
         set(value) {
             if (currentFilter == value) return
             currentFilter = value
-            seek = null
-            if (root == null) return
-            if (visible) {
-                reload()
-            } else {
-                // Drops loads for the earlier filter; the next showing reloads.
-                run.incrementAndGet()
-                loadingMore = false
-                stale = true
-            }
+            filterChanged()
         }
+
+    /** Reloads the first page for a changed [filter] or [comparison], now or when shown next. */
+    private fun filterChanged() {
+        seek = null
+        if (root == null) return
+        if (visible) {
+            reload()
+        } else {
+            // Drops loads for the earlier filter; the next showing reloads.
+            run.incrementAndGet()
+            loadingMore = false
+            stale = true
+        }
+    }
 
     /**
      * Shows the log of the repository at [root] with the default filter; `null` shows nothing. Loads only once
@@ -176,6 +260,8 @@ internal class GitLogPages(
     fun open(root: Path?) {
         this.root = root
         currentFilter = GitLogFilter()
+        currentComparison = null
+        counts = null
         run.incrementAndGet()
         rows.clear()
         layout = GraphLayout()
@@ -239,7 +325,8 @@ internal class GitLogPages(
         val root = root ?: return
         loadingMore = true
         // Counted in git's commits: the rows may have the hash row on top.
-        start(root, loaded) { page, _, _, _, _ ->
+        start(root, loaded) { first ->
+            val page = first.page
             loadingMore = false
             if (page == null) {
                 _state.set(GitLogState.FAILED)
@@ -283,7 +370,9 @@ internal class GitLogPages(
         loadingMore = false
         _state.set(GitLogState.LOADING)
         run.incrementAndGet()
-        start(root, 0) { page, refs, match, pending, remotes ->
+        start(root, 0) { first ->
+            val page = first.page
+            val refs = first.refs
             if (page == null) {
                 // Keeps the rows there are; no more pages until the next reload. What was in progress may be over.
                 this.pending = null
@@ -292,11 +381,23 @@ internal class GitLogPages(
                 seek = null
                 return@start
             }
+            val compared = comparison
+            val end = compared?.let { refs?.let(it::endedBy) }
+            if (compared != null && end != null) {
+                // Loaded again without it; the rows of the range it no longer has are not shown.
+                currentComparison = null
+                counts = null
+                reload()
+                comparisonEnded(compared, end)
+                return@start
+            }
+            val match = first.match
             val keep = selectedHashes().toSet()
             layout = GraphLayout()
             this.refs = refs
-            this.pending = pending
-            this.remotes = remotes
+            this.pending = first.pending
+            this.remotes = first.remotes
+            this.counts = first.counts
             hashRow = match?.hash
             rows.setAll(layOut(listOfNotNull(match) + page.commits.filter { it.hash != match?.hash }))
             loaded = page.commits.size
@@ -306,7 +407,7 @@ internal class GitLogPages(
             _state.set(
                 when {
                     rows.isNotEmpty() -> GitLogState.LOADED
-                    filter.isDefault -> GitLogState.EMPTY
+                    effectiveFilter.isDefault -> GitLogState.EMPTY
                     else -> GitLogState.NO_MATCH
                 },
             )
@@ -322,42 +423,61 @@ internal class GitLogPages(
             val graph =
                 when {
                     // Its parents may be hidden, and git does not rewrite them: no graph rather than a wrong one.
-                    filter.hidesCommits -> GraphRow.NONE
+                    currentFilter.hidesCommits -> GraphRow.NONE
 
                     // Git's %P still lists all parents.
-                    filter.firstParent -> layout.next(commit.hash, commit.parents.take(1))
+                    currentFilter.firstParent -> layout.next(commit.hash, commit.parents.take(1))
 
                     else -> layout.next(commit.hash, commit.parents)
                 }
             GitLogRow(commit, graph, at, refs?.currentBranch?.takeIf { head })
         }
 
+    /** A page read from git, and for a first page what is read with it (`null` for further pages). */
+    private class FirstPage(
+        val page: GitLogPage?,
+        val refs: GitRefs? = null,
+        val match: GitCommit? = null,
+        val pending: GitInProgress? = null,
+        val remotes: List<String>? = null,
+        val counts: GitComparisonCounts? = null,
+    )
+
     /**
-     * Loads the page after [skip] commits read from git with the current [filter]; for the first page then the refs,
-     * the cherry-pick or revert in progress, the remotes and, if the filter's text could be a hash, the commit it names;
-     * and hands them to [handle].
+     * Loads the page after [skip] commits read from git with the [effectiveFilter]; for the first page then the refs,
+     * the cherry-pick or revert in progress, the remotes, the counts of the comparison if there is one, and, if the
+     * filter's text could be a hash (not while comparing), the commit it names; and hands them to [handle].
      */
     private fun start(
         root: Path,
         skip: Int,
-        handle: (GitLogPage?, GitRefs?, GitCommit?, GitInProgress?, List<String>?) -> Unit,
+        handle: (FirstPage) -> Unit,
     ) {
         val current = run.get()
-        val filter = filter
+        val filter = effectiveFilter
+        val barFilter = currentFilter
+        val compared = comparison
         background {
             if (run.get() != current) return@background
             val page = load(root, filter, skip, pageSize)
             val first = skip == 0 && page != null
-            val refs = if (first && run.get() == current) loadRefs(root) else null
-            val pending = if (first && run.get() == current) loadPending(root) else null
-            val remotes = if (first && run.get() == current) loadRemotes(root) else null
+
+            fun <T> read(value: () -> T?): T? = if (first && run.get() == current) value() else null
+            val refs = read { loadRefs(root) }
+            val pending = read { loadPending(root) }
+            val remotes = read { loadRemotes(root) }
+            val counts = compared?.let { read { loadCounts(root, it.ref.name, barFilter) } }
             val match =
-                if (first && run.get() == current && HASH_PREFIX.matches(filter.text.trim())) {
-                    loadHashMatch(root, filter)
+                if (compared == null &&
+                    HASH_PREFIX.matches(filter.text.trim())
+                ) {
+                    read { loadHashMatch(root, filter) }
                 } else {
                     null
                 }
-            dispatch { if (run.get() == current) handle(page, refs, match, pending, remotes) }
+            dispatch {
+                if (run.get() == current) handle(FirstPage(page, refs, match, pending, remotes, counts))
+            }
         }
     }
 

@@ -73,6 +73,24 @@ class RefOperationsTest {
     }
 
     @Test
+    fun `compares other single refs with HEAD, and any single ref with the working tree`() {
+        assertEquals(ref("refs/heads/feature/a"), actions("Local/feature/a").compare)
+        assertEquals(ref("refs/remotes/origin/fix"), actions("Remote/origin/fix").compare)
+        assertEquals(ref("refs/tags/v1"), actions("Tags/v1").compare)
+        assertNull(actions("Local/main").compare, "the current branch")
+        assertNull(actions("HEAD").compare)
+        assertNull(branchActions(listOf(branchNodes(GitRefs(refs.refs, null)).first())).compare, "a detached HEAD")
+        assertNull(actions("Local/feature").compare)
+        assertNull(actions("Local/feature/a", "Tags/v1").compare)
+
+        assertEquals(ref("HEAD"), actions("HEAD").workingTreeDiff)
+        assertEquals(ref("refs/heads/main"), actions("Local/main").workingTreeDiff)
+        assertEquals(ref("refs/tags/v1"), actions("Tags/v1").workingTreeDiff)
+        assertNull(actions("Local").workingTreeDiff)
+        assertNull(actions("Local/feature/a", "Tags/v1").workingTreeDiff)
+    }
+
+    @Test
     fun `deletes local branches and tags, not the current branch, remote branches, HEAD or folders`() {
         assertEquals(
             listOf(ref("refs/heads/feature/a"), ref("refs/heads/feature/b"), ref("refs/tags/v1")),

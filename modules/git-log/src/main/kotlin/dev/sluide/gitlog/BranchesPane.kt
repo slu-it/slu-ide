@@ -43,7 +43,8 @@ import org.kordamp.ikonli.materialdesign2.MaterialDesignT
  * full refnames of the selected branches to [filter]. Collapsed nodes (Tags at first) and the selection stay when the
  * refs are [shown][show] again. Its context menu also checks out, creates, renames and deletes branches and tags
  * through [checkout], [newBranchFrom], [rename] and [delete] ([branchActions], ADR 0041) and fetches a remote through
- * [fetch] (ADR 0043), not while [writing].
+ * [fetch] (ADR 0043), not while [writing]; it compares a ref with `HEAD` through [compare] and with the working tree
+ * through [showWorkingTreeDiff] (ADR 0044), also while [writing].
  */
 internal class BranchesPane : BorderPane() {
     /** Shows the commit of the one selected branch; `null` when not exactly one branch is selected. */
@@ -69,6 +70,12 @@ internal class BranchesPane : BorderPane() {
 
     /** Fetches the given remote. */
     var fetch: (String) -> Unit = {}
+
+    /** Compares the given branch, remote branch or tag with `HEAD` in the log. */
+    var compare: (GitRef) -> Unit = {}
+
+    /** Shows how the working tree differs from the commit of the given ref. */
+    var showWorkingTreeDiff: (GitRef) -> Unit = {}
 
     /** The names of all remotes, to tell which one a node belongs to for Fetch; empty while not known. */
     var remotes: List<String> = emptyList()
@@ -129,6 +136,11 @@ internal class BranchesPane : BorderPane() {
     internal val renameItem = MenuItem("Rename…").apply { setOnAction { renameSelected() } }
     internal val deleteItem = MenuItem("Delete").apply { setOnAction { deleteSelected() } }
     internal val fetchItem = MenuItem("Fetch").apply { setOnAction { actions().fetch?.let(fetch) } }
+    internal val compareItem = MenuItem("Compare with Current").apply { setOnAction { reads().compare?.let(compare) } }
+    internal val workingTreeItem =
+        MenuItem("Show Diff with Working Tree").apply {
+            setOnAction { reads().workingTreeDiff?.let(showWorkingTreeDiff) }
+        }
 
     internal val tree: TreeView<BranchNode> =
         TreeView<BranchNode>(TreeItem()).apply {
@@ -141,6 +153,9 @@ internal class BranchesPane : BorderPane() {
                     filterItem,
                     SeparatorMenuItem(),
                     copyNameItem,
+                    SeparatorMenuItem(),
+                    compareItem,
+                    workingTreeItem,
                     SeparatorMenuItem(),
                     checkoutItem,
                     newBranchItem,
@@ -393,6 +408,16 @@ internal class BranchesPane : BorderPane() {
             branchActions(tree.selectionModel.selectedItems.mapNotNull { it?.value }, refs?.currentBranch, remotes)
         }
 
+    /**
+     * What only reads can be done with the selection, also while [writing]; no comparison with `HEAD` while it has no
+     * commit.
+     */
+    private fun reads(): BranchActions {
+        val actions = branchActions(tree.selectionModel.selectedItems.mapNotNull { it?.value }, refs?.currentBranch)
+        val hasHead = refs?.refs.orEmpty().any { it.kind == GitRefKind.HEAD }
+        return if (hasHead) actions else actions.copy(compare = null)
+    }
+
     private fun renameSelected(): Boolean {
         val ref = actions().rename ?: return false
         rename(ref)
@@ -423,6 +448,9 @@ internal class BranchesPane : BorderPane() {
         renameItem.isDisable = actions.rename == null
         deleteItem.isDisable = actions.delete.isEmpty()
         fetchItem.isDisable = actions.fetch == null
+        val reads = reads()
+        compareItem.isDisable = reads.compare == null
+        workingTreeItem.isDisable = reads.workingTreeDiff == null
     }
 
     /** A group (its name), a remote or folder (a folder icon) or a branch (its ref icon, the current one in bold). */

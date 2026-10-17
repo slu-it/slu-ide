@@ -38,6 +38,8 @@ import javafx.scene.control.SplitPane
 import javafx.scene.control.TableColumn
 import javafx.scene.control.TableRow
 import javafx.scene.control.TableView
+import javafx.scene.control.ToggleButton
+import javafx.scene.control.ToggleGroup
 import javafx.scene.control.Tooltip
 import javafx.scene.control.skin.TableViewSkin
 import javafx.scene.control.skin.VirtualFlow
@@ -81,7 +83,8 @@ import java.util.concurrent.Executors
  * (ADR 0041); the table's also cherry-picks and reverts commits and resets the current branch, and a bar above the
  * table continues or aborts a cherry-pick or revert in progress (ADR 0042). Fetch in the header (all remotes) and in the
  * branches pane (one remote) fetches, cancellable while it runs (ADR 0043). Operations that change files ask
- * [beforeFileChange] first.
+ * [beforeFileChange] first. Compare with Current in the branches pane lists one side of the comparison of a ref with
+ * `HEAD`, with a bar above the table (ADR 0044).
  *
  * [source] reads the commits, refs, details, changed files and diffs on the thread `sluide-git-log`; [writes] changes
  * the repository on the thread `sluide-git-write`, one operation at a time. Their results are handled through
@@ -115,6 +118,7 @@ class GitLogView internal constructor(
             dispatch,
             loadPending = source::pending,
             loadRemotes = source::remotes,
+            loadCounts = source::comparisonCounts,
         )
 
     private val details =
@@ -162,6 +166,18 @@ class GitLogView internal constructor(
      * shown while there is no other [status]; until the next operation or [open].
      */
     private val operationStatus = SimpleStringProperty("")
+
+    /**
+     * What the table says while comparing (ADR 0044) and its side has no commits, without other filters set; empty
+     * otherwise.
+     */
+    private val emptySide = SimpleStringProperty("")
+
+    /**
+     * What the header says once the log loaded again, e.g. why a comparison ended: replacing the rows changes the
+     * selection, which clears the header.
+     */
+    private var statusAfterLoad: String? = null
 
     /** Counts the changes of the selected commits and files, so that a message about an earlier one is not shown. */
     private var selections = 0L
@@ -281,7 +297,23 @@ class GitLogView internal constructor(
                 column("Date", 140.0) { dateFormat.format(it.commit.authorTime) }.apply { minWidth = 50.0 },
             )
             columnResizePolicy = SubjectTakesTheRest
-            placeholder = Label().apply { textProperty().bind(pages.state.map { it.message }) }
+            placeholder =
+                Label().apply {
+                    textProperty().bind(
+                        Bindings.createStringBinding(
+                            {
+                                val state = pages.state.get()
+                                if (state == GitLogState.NO_MATCH && emptySide.get().isNotEmpty()) {
+                                    emptySide.get()
+                                } else {
+                                    state.message
+                                }
+                            },
+                            pages.state,
+                            emptySide,
+                        ),
+                    )
+                }
             contextMenu =
                 ContextMenu(
                     copyRevisionNumber,
@@ -304,6 +336,9 @@ class GitLogView internal constructor(
             addEventHandler(KeyEvent.KEY_PRESSED) { event ->
                 if (COPY.match(event)) {
                     copyRevisionNumbers()
+                    event.consume()
+                } else if (event.code == KeyCode.ESCAPE && pages.comparison != null) {
+                    stopComparing()
                     event.consume()
                 }
             }
@@ -369,11 +404,56 @@ class GitLogView internal constructor(
             isManaged = false
         }
 
-    /** The filter bar and the bar of a cherry-pick or revert in progress above the table. */
+    /** Says what is compared with what (ADR 0044). */
+    internal val compareLabel =
+        Label().apply {
+            styleClass += "git-log-compare-text"
+            minWidth = 0.0
+        }
+
+    private val compareSides = ToggleGroup()
+
+    /** Lists the commits of the compared ref that are not in `HEAD`. */
+    internal val refOnlyToggle = compareSide(ComparisonSide.REF_ONLY)
+
+    /** Lists the commits of `HEAD` that are not in the compared ref. */
+    internal val headOnlyToggle = compareSide(ComparisonSide.HEAD_ONLY)
+
+    internal val stopCompareButton =
+        Button(null, FontIcon(MaterialDesignC.CLOSE)).apply {
+            styleClass += "git-log-compare-close"
+            tooltip = Tooltip("Stop Comparing")
+            minWidth = USE_PREF_SIZE
+            setOnAction { stopComparing() }
+        }
+
+    /**
+     * The bar of a comparison of a ref with `HEAD` (ADR 0044), below the filter bar: what is compared, the two sides to
+     * list with their counts, and a button that stops comparing; hidden while not comparing.
+     */
+    internal val compareBar =
+        HBox(
+            compareLabel,
+            refOnlyToggle,
+            headOnlyToggle,
+            Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
+            stopCompareButton,
+        ).apply {
+            styleClass += "git-log-compare"
+            alignment = Pos.CENTER_LEFT
+            minWidth = 0.0
+            isVisible = false
+            isManaged = false
+        }
+
+    /** Set while the side toggles are set to the comparison's side, which is no choice of the user. */
+    private var showingSide = false
+
+    /** The filter bar, the bar of a comparison and the bar of a cherry-pick or revert in progress above the table. */
     internal val commitsPane =
         BorderPane(table).apply {
             styleClass += "git-log-commits"
-            top = VBox(filterBar, pendingBar)
+            top = VBox(filterBar, compareBar, pendingBar)
         }
 
     /** The details of the selected commit. */
@@ -391,9 +471,14 @@ class GitLogView internal constructor(
         BranchesPane().apply {
             navigate = ::navigateTo
             moved = ::branchMoved
-            filter = filterBar::setBranches
+            filter = { names ->
+                // Filtering by branches ends a comparison, which would hide them.
+                stopComparing()
+                filterBar.setBranches(names)
+            }
             checkout = ::start
             newBranchFrom = { ref -> newBranch(ref.name, ref.shortName) }
+            compare = ::compareWith
             rename = ::renameBranch
             delete = ::deleteRefs
             fetch = { remote -> start(Fetch(remote)) }
@@ -438,13 +523,14 @@ class GitLogView internal constructor(
             .selectedItemProperty()
             .subscribe { _ ->
                 selections++
-                status.set("")
+                if (!changesPane.tree.rebuilding) status.set("")
             }
         pages.state.subscribe { state -> if (state == GitLogState.LOADING) status.set("") }
         // The refs are read with every first page, before its state is set.
         pages.state.subscribe { state ->
             when (state) {
                 GitLogState.IDLE -> {
+                    statusAfterLoad = null
                     showPending(null)
                     hasHead.set(false)
                     noRemotes.set(false)
@@ -456,7 +542,10 @@ class GitLogView internal constructor(
                 }
 
                 else -> {
+                    statusAfterLoad?.let(status::set)
+                    statusAfterLoad = null
                     branchesPane.show(pages.refs)
+                    updateCompareBar()
                     showPending(pages.pending)
                     noRemotes.set(pages.remotes?.isEmpty() == true)
                     branchesPane.remotes = pages.remotes.orEmpty()
@@ -482,6 +571,30 @@ class GitLogView internal constructor(
                 }
             },
         )
+        pages.comparisonEnded = { comparison, end ->
+            comparisonChanged()
+            val name = comparison.ref.shortName
+            statusAfterLoad =
+                when (end) {
+                    ComparisonEnd.GONE -> "$name no longer exists."
+                    ComparisonEnd.CURRENT -> "$name is the current branch now."
+                }
+        }
+        compareSides.selectedToggleProperty().subscribe { old, new ->
+            when {
+                showingSide -> {}
+
+                // Exactly one side is listed: a click on the selected one keeps it.
+                new == null -> {
+                    old?.isSelected = true
+                }
+
+                else -> {
+                    pages.comparison = pages.comparison?.copy(side = new.userData as ComparisonSide)
+                    updateCompareBar()
+                }
+            }
+        }
         changesPane.showDiff = ::showDiff
         changesPane.openFile = { file -> localFile(file)?.let(onOpenFile) }
         changesPane.exists = { file -> localFile(file)?.let(Files::exists) == true }
@@ -509,9 +622,10 @@ class GitLogView internal constructor(
         operationStatus.set("")
         // Before the pages, which may start loading and have the pane say so.
         branchesPane.reset()
-        // Resets the filter too, before the bar, which then tells no change.
+        // Resets the filter and ends a comparison too, before the bar, which then tells no change.
         pages.open(root)
         filterBar.reset()
+        comparisonChanged()
         knownAuthors.clear()
         userNameRoot = null
         userName = null
@@ -557,7 +671,11 @@ class GitLogView internal constructor(
                                 )} commits down."
                             }
 
-                            pages.filter.isDefault -> {
+                            pages.comparison != null -> {
+                                "$name is not in this comparison."
+                            }
+
+                            pages.effectiveFilter.isDefault -> {
                                 "$name is not in the log."
                             }
 
@@ -598,6 +716,83 @@ class GitLogView internal constructor(
         if (index in first + 1..<last) return
         table.scrollTo(maxOf(0, index - maxOf(0, last - first) / 2))
     }
+
+    /**
+     * Lists the commits of [ref] that are not in `HEAD` (ADR 0044), with the bar above the table; the filters stay, the
+     * branch filter set aside until the comparison ends. Not without a `HEAD` commit.
+     */
+    private fun compareWith(ref: GitRef) {
+        if (pages.refs
+                ?.refs
+                .orEmpty()
+                .none { it.kind == GitRefKind.HEAD }
+        ) {
+            return
+        }
+        status.set("")
+        pages.comparison = LogComparison(ref)
+        comparisonChanged()
+    }
+
+    /** Ends the comparison: the log shows what the filters say again. */
+    private fun stopComparing() {
+        if (pages.comparison == null) return
+        pages.comparison = null
+        comparisonChanged()
+    }
+
+    /** Shows the bar of the comparison, or hides it; the branch filter is disabled while comparing. */
+    private fun comparisonChanged() {
+        val comparison = pages.comparison
+        compareBar.isVisible = comparison != null
+        compareBar.isManaged = comparison != null
+        filterBar.branch.isDisable = comparison != null
+        showingSide = true
+        try {
+            compareSides.selectToggle(
+                when (comparison?.side) {
+                    ComparisonSide.REF_ONLY -> refOnlyToggle
+                    ComparisonSide.HEAD_ONLY -> headOnlyToggle
+                    null -> null
+                },
+            )
+        } finally {
+            showingSide = false
+        }
+        updateCompareBar()
+    }
+
+    /** The texts of the comparison's bar and empty table, with `HEAD`'s branch and the counts read last. */
+    private fun updateCompareBar() {
+        val comparison = pages.comparison
+        if (comparison == null) {
+            emptySide.set("")
+            return
+        }
+        val name = comparison.ref.shortName
+        val current = pages.refs?.currentBranch?.removePrefix("refs/heads/") ?: "HEAD"
+        val counts = pages.counts
+        compareLabel.text = "Comparing $name with $current"
+        refOnlyToggle.text = "In $name, not in $current" + counts?.let { " (${it.refOnly})" }.orEmpty()
+        headOnlyToggle.text = "In $current, not in $name" + counts?.let { " (${it.headOnly})" }.orEmpty()
+        // Other filters may be why nothing is listed.
+        val unfiltered = pages.filter.copy(revisions = emptyList()).isDefault
+        emptySide.set(
+            when {
+                !unfiltered -> ""
+                comparison.side == ComparisonSide.REF_ONLY -> "No commits in $name that are not in $current."
+                else -> "No commits in $current that are not in $name."
+            },
+        )
+    }
+
+    private fun compareSide(side: ComparisonSide) =
+        ToggleButton().apply {
+            styleClass += "git-log-compare-side"
+            toggleGroup = compareSides
+            userData = side
+            minWidth = USE_PREF_SIZE
+        }
 
     /** "me" if the repository has a user name, then the authors of the loaded rows by name. */
     private fun userItems(): List<FilterItem> {
