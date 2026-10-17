@@ -229,9 +229,9 @@ class GitLogViewGraphUiTest : GitLogViewUiFixture() {
 
         // A narrower column: the labels take a third of it, their text is ellipsized.
         robot.interact { view.scene.window.width = 560.0 }
-        WaitForAsyncUtils.waitForFxEvents()
         try {
-            robot.interact {
+            // macOS resizes the window, and lays out the cells, some time later.
+            eventually {
                 val first = graphCells(robot).single { it.item?.commit?.hash == "h1" }
                 assertTrue(first.subject.width >= SUBJECT_MIN_WIDTH - 0.5, "${first.subject.width}")
                 assertEquals(first.content.width / 3, first.labels.boundsInParent.width, 1.0)

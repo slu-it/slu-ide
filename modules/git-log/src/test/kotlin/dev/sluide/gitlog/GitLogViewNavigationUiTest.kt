@@ -17,6 +17,7 @@ import javafx.scene.input.MouseEvent
 import javafx.scene.text.Text
 import javafx.scene.text.TextFlow
 import javafx.stage.Stage
+import javafx.util.Duration
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.api.FxRobot
@@ -115,11 +116,14 @@ class GitLogViewNavigationUiTest : GitLogViewUiFixture() {
         eventually { assertEquals("Branches could not be read.", branchesLine()) }
 
         branchGates["h2"] = CountDownLatch(1)
+        // Longer than the 300 ms, which a slow CI runner spent before the first look; then jumped to its end.
+        robot.interact { details.lookingForBranches.duration = Duration.minutes(1.0) }
         select(robot, 1)
         eventually { assertTrue(showsDetailsOf("Subject 2")) }
         robot.interact {
             assertFalse(details.branchesLine.isVisible, "nothing at first")
             assertEquals(Animation.Status.RUNNING, details.lookingForBranches.status)
+            details.lookingForBranches.jumpTo(details.lookingForBranches.duration)
         }
         eventually { assertEquals("Looking for branches…", branchesLine()) }
         branchGates.getValue("h2").countDown()
