@@ -17,7 +17,8 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
 [ADR 0037](../adr/0037-ref-labels-and-commit-details.md), [ADR 0038](../adr/0038-changed-files-and-commit-diffs.md),
 [ADR 0039](../adr/0039-git-log-filters.md), [ADR 0040](../adr/0040-git-log-branches-pane.md),
 [ADR 0041](../adr/0041-git-write-operations.md), [ADR 0042](../adr/0042-git-log-commit-operations.md),
-[ADR 0043](../adr/0043-git-log-fetch.md) and [ADR 0044](../adr/0044-git-log-compare.md)
+[ADR 0043](../adr/0043-git-log-fetch.md), [ADR 0044](../adr/0044-git-log-compare.md) and
+[ADR 0046](../adr/0046-git-log-file-history.md)
 
 - **Where and when:** for a folder whose git status is followed ([git-status.md](git-status.md): git is available and
   the folder has `.git`), the window shows a Git Log area under the editor area. Other folders, and a window without a
@@ -25,7 +26,9 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
 - **Collapsed by default:** only its header bar shows: a chevron, "Git Log" and Fetch (a down arrow) and Refresh
   buttons on the right. Clicking the header (not its buttons) expands or collapses it, and so does **View → Git Log** (Alt+9, Cmd+9 on macOS),
   which is disabled when there is no area. Expanding moves the focus to the commit table; collapsing while the table
-  has the focus gives it back to the editor (the selected tab, or the editor area without tabs).
+  has the focus gives it back to the editor (the selected tab, or the editor area without tabs). While file histories
+  are open, "Git Log" becomes a row of tabs, the Log first, and the selected tab decides what the area shows
+  ([file-history.md](file-history.md)).
 - **Height:** expanded, the area takes the lower 30 % of the editor column at first; its divider can be dragged.
   Collapsing and expanding again restores the last height in pixels while the window is open, also if the window
   was resized meanwhile. Collapsed, the divider cannot be dragged. Resizing the window resizes the editor area, not the log.
@@ -365,7 +368,7 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
     one that fetches over the network may make Show Diff wait up to 10 s before "The diff could not be read."
 - Not yet implemented (next packages): "In N branches" and clickable hashes in the details, a flat list of the
   changed files, their combined changes for several commits, comparing two branches or commits with each other (and the
-  files since their merge base), the changes against each parent of a merge, a diff preview in the log, file history, file-type icons in the tree, a date filter, dotted
+  files since their merge base), the changes against each parent of a merge, a diff preview in the log, file-type icons in the tree, a date filter, dotted
   edges through commits hidden by filters, tracking information in the branches pane, remembering the area's height
   and state, and more operations: updating local branches after a fetch, pull, push, merge, rebase, deleting remote branches, pushing tags; for
   cherry-pick and revert several commits at once, a merge tool or three-way view, `-x` and edited messages; `reset

@@ -25,6 +25,8 @@
   no parent in the tree that would notice) until "Refresh"/F5 or reopening it.
 - Manual refresh: "Refresh" in the tree's context menu, or F5, re-reads all loaded folders, checks again which of
   their files can be opened (icons) and renews their watches.
+- Show History in the context menu, while the window offers it (`showHistory`; enabled by `canShowHistory`, never for
+  folders or the empty area), opens the file's history in the git log area ([file-history.md](file-history.md)).
 - Icons ([ADR 0012](../adr/0012-file-icons.md), `FileIcon`/`fileIconFor`): open or closed folder; for files, every
   file type icon of Material Design Icons: languages (the code viewer types plus C/C++/C#, Go, Rust, Ruby, PHP, Swift,
   CSS/Sass, shell, SQL and KQL (`.kql`, `.csl`) with the database icon, …, and a generic code icon for other
