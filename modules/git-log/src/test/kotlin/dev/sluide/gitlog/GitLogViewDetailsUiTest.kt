@@ -10,6 +10,7 @@ import javafx.scene.input.Clipboard
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.text.Text
+import javafx.scene.text.TextFlow
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -82,22 +83,22 @@ class GitLogViewDetailsUiTest : GitLogViewUiFixture() {
                 listOf("HEAD", "main", "origin/main", "v1.0"),
                 details.refs.children.map { (it as Label).text },
             )
-            assertTrue(
-                "bold" in
-                    details.subject.font.style
-                        .lowercase(),
-                details.subject.font.style,
-            )
+            val subjectFonts =
+                details.subject
+                    .lookupAll(".text")
+                    .filterIsInstance<Text>()
+                    .map { it.font.style }
+            assertTrue(subjectFonts.isNotEmpty() && subjectFonts.all { "bold" in it.lowercase() }, "$subjectFonts")
             // Wrapped and as high as its text: the body takes several lines, without a scroll bar of its own.
             assertEquals(emptyList(), details.body.lookupAll(".scroll-bar").filter { it.isVisible })
             val text =
                 details.body
-                    .lookupAll(".text")
-                    .filterIsInstance<Text>()
+                    .lookupAll(".paragraph-text")
+                    .filterIsInstance<TextFlow>()
                     .single()
-            assertEquals(details.body.width, text.wrappingWidth, 1.0, "wrapped at the full width")
+            assertEquals(details.body.width, text.width, 1.0, "wrapped at the full width")
             assertTrue(
-                text.layoutBounds.height <= details.body.height,
+                text.height <= details.body.height,
                 "${text.layoutBounds} in ${details.body.height}",
             )
             assertTrue(details.body.height > details.subject.height * 3, "${details.body.height}")
@@ -276,5 +277,12 @@ class GitLogViewDetailsUiTest : GitLogViewUiFixture() {
         }
         assertEquals("Subject", clipboard())
         assertEquals("Subject 1", subject.text, "read-only")
+
+        // Shown again (a refresh), the same text is no longer selected.
+        robot.interact { view.refresh() }
+        eventually {
+            assertEquals(2, detailLoads.count { it == "h1" })
+            assertEquals("", subject.selectedText)
+        }
     }
 }

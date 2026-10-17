@@ -132,6 +132,7 @@ class GitLogView internal constructor(
             { root, commit -> source.changedFiles(root, commit.hash, commit.parents.firstOrNull()) },
             executor::execute,
             dispatch,
+            source::resolveCommits,
         )
 
     private val fileDiffs = FileDiffs(source::fileDiff, executor::execute, dispatch)
@@ -499,7 +500,10 @@ class GitLogView internal constructor(
         }
 
     /** The details of the selected commit. */
-    internal val detailsPane = CommitDetailsPane(details.state, commitBranches.state)
+    internal val detailsPane =
+        CommitDetailsPane(details.state, commitBranches.state).apply {
+            openCommit = { hash -> goToCommit(hash, hash.take(ChangedFilesPane.SHORT_HASH)) }
+        }
 
     /** The files the selected commit changed. */
     internal val changesPane = ChangedFilesPane(details.files)
@@ -723,35 +727,48 @@ class GitLogView internal constructor(
         pages.loadUntil(
             ref.commit,
             { index -> if (branchesPane.selectedRef == ref) showRow(index) },
-            { missing ->
-                if (branchesPane.selectedRef == ref) {
-                    val name = ref.shortName
-                    status.set(
-                        when {
-                            missing == CommitMissing.BEYOND_LIMIT -> {
-                                "$name is more than ${"%,d".format(
-                                    Locale.ENGLISH,
-                                    GitLogPages.SEEK_LIMIT,
-                                )} commits down."
-                            }
-
-                            pages.comparison != null -> {
-                                "$name is not in this comparison."
-                            }
-
-                            pages.effectiveFilter.isDefault -> {
-                                "$name is not in the log."
-                            }
-
-                            else -> {
-                                "$name is hidden by the filters."
-                            }
-                        },
-                    )
-                }
-            },
+            { missing -> if (branchesPane.selectedRef == ref) status.set(missingMessage(ref.shortName, missing)) },
         )
     }
+
+    /**
+     * Selects the row of the commit [hash] and scrolls to it, loading pages until it is there; if it is not, the header
+     * tells why, calling it [name] (ADR 0045). Replaces a search for another commit, e.g. of a branch.
+     */
+    private fun goToCommit(
+        hash: String,
+        name: String,
+    ) {
+        status.set("")
+        pages.loadUntil(hash, ::showRow) { missing -> status.set(missingMessage(name, missing)) }
+    }
+
+    /** Why the commit called [name] is not in the table, as [GitLogPages.loadUntil] found it [missing]. */
+    private fun missingMessage(
+        name: String,
+        missing: CommitMissing,
+    ): String =
+        when {
+            missing == CommitMissing.UNREADABLE -> {
+                GitLogState.FAILED.message
+            }
+
+            missing == CommitMissing.BEYOND_LIMIT -> {
+                "$name is more than ${"%,d".format(Locale.ENGLISH, GitLogPages.SEEK_LIMIT)} commits down."
+            }
+
+            pages.comparison != null -> {
+                "$name is not in this comparison."
+            }
+
+            pages.effectiveFilter.isDefault -> {
+                "$name is not in the log."
+            }
+
+            else -> {
+                "$name is hidden by the filters."
+            }
+        }
 
     /**
      * Follows a selected branch that a refresh moved from [before] to [after], but only while the user is still on it:

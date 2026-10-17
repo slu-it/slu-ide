@@ -9,6 +9,8 @@ import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.input.ScrollEvent
 import org.fxmisc.richtext.StyleClassedTextArea
+import org.fxmisc.richtext.util.UndoUtils
+import kotlin.math.ceil
 
 /** A link in a [LinkText]: the characters from [start] to [end] (exclusive), with a [tooltip]; [open] follows it. */
 internal class TextLink(
@@ -42,6 +44,8 @@ internal class LinkText(
         this.styleClass += "git-details-text"
         this.styleClass += "git-details-rich"
         this.styleClass += styleClass
+        // Read-only: no history of the texts shown.
+        undoManager = UndoUtils.noOpUndoManager()
         isEditable = false
         isWrapText = true
         isFocusTraversable = false
@@ -90,6 +94,13 @@ internal class LinkText(
         hover(null)
         pressed = null
     }
+
+    // As high as its paragraphs (auto height), rounded up and with a pixel to spare, so that no line is cut off.
+    override fun computePrefHeight(width: Double) = ceil(super.computePrefHeight(width)) + 1
+
+    override fun computeMinHeight(width: Double) = computePrefHeight(width)
+
+    override fun computeMaxHeight(width: Double) = computePrefHeight(width)
 
     /** The link at the character under the mouse of [event], if any. */
     private fun linkAt(event: MouseEvent): TextLink? {

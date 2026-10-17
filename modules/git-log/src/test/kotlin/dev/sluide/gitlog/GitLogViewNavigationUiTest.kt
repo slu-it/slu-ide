@@ -1,8 +1,16 @@
 package dev.sluide.gitlog
 
+import dev.sluide.git.GitCommitDetails
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import javafx.animation.Animation
+import javafx.event.Event
+import javafx.event.EventType
+import javafx.geometry.Point2D
+import javafx.scene.Cursor
+import javafx.scene.Node
+import javafx.scene.input.MouseButton
+import javafx.scene.input.MouseEvent
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -134,21 +142,186 @@ class GitLogViewNavigationUiTest : GitLogViewUiFixture() {
         assertEquals(listOf("h1", "h1", "h2", "h3"), branchLoads)
     }
 
+    /** A history whose hashes are hexadecimal, as words of messages must be to be links: `abcdef01`, `abcdef02`… */
+    private fun hexHistory() = commits(1200, "abcdef0")
+
+    /** The details of [history]'s commits, with [body] as the body of [hash]'s message. */
+    private fun withBody(
+        hash: String,
+        body: String,
+    ): (String) -> GitCommitDetails? =
+        { candidate ->
+            val details = defaultDetails(candidate)
+            if (candidate == hash) details?.copy(message = "${details.commit.subject}\n\n$body\n") else details
+        }
+
+    /** The texts of [area] styled as links. */
+    private fun links(area: LinkText): List<String> =
+        WaitForAsyncUtils
+            .asyncFx<List<String>> {
+                val text = area.text
+                hashCandidates(text)
+                    .filter { range -> "git-details-link" in area.getStyleOfChar(range.first + 1) }
+                    .map { text.substring(it) }
+            }.get()
+
+    @Test
+    fun `hashes of commits in the message are links that select their commit`(robot: FxRobot) {
+        history = hexHistory()
+        detailsOf = withBody("abcdef01", "Reverts abcdef05, not ABCDEF9999 nor abcdef0 (ambiguous) nor xabcdef05.")
+        openAndExpand(robot)
+        select(robot, 0)
+        eventually { assertEquals(listOf("abcdef05"), links(details.body)) }
+        assertEquals(listOf(listOf("abcdef05", "abcdef9999", "abcdef0")), resolveLoads, "one call for all")
+
+        // Hovering shows the hand.
+        val point = textPoint(details.body, "abcdef05")
+        robot.interact {
+            fireMouse(details.body, MouseEvent.MOUSE_MOVED, point)
+            details.body.applyCss()
+            assertEquals(Cursor.HAND, details.body.cursor)
+        }
+
+        clickText(robot, details.body, "abcdef05")
+        eventually {
+            assertEquals(
+                listOf(4),
+                view.table.selectionModel.selectedIndices
+                    .toList(),
+            )
+        }
+        eventually { assertTrue(showsDetailsOf("Subject 5")) }
+        assertEquals("", status(robot))
+    }
+
+    @Test
+    fun `a hash link loads pages until its commit is there, or tells why it is not`(robot: FxRobot) {
+        history = hexHistory()
+        detailsOf = withBody("abcdef01", "See abcdef0900 and abcdef01100.")
+        openAndExpand(robot)
+        select(robot, 0)
+        eventually { assertEquals(listOf("abcdef0900", "abcdef01100"), links(details.body)) }
+
+        clickText(robot, details.body, "abcdef0900")
+        eventually {
+            assertEquals(
+                listOf(899),
+                view.table.selectionModel.selectedIndices
+                    .toList(),
+            )
+        }
+        assertTrue(899 in visibleRows(), "scrolled to it")
+
+        // Hidden by a filter.
+        robot.interact { bar.text.text = "Subject 1" }
+        robot.interact { bar.text.fireEvent(javafx.event.ActionEvent()) }
+        eventually { assertTrue(view.table.items.all { "Subject 1" in it.commit.subject }) }
+        select(robot, 0)
+        eventually { assertEquals(listOf("abcdef0900", "abcdef01100"), links(details.body)) }
+        clickText(robot, details.body, "abcdef0900")
+        eventually { assertEquals("abcdef09 is hidden by the filters.", status(robot)) }
+    }
+
+    @Test
+    fun `a click that selects text does not follow a link, a double click follows it once`(robot: FxRobot) {
+        history = hexHistory()
+        detailsOf = withBody("abcdef01", "Reverts abcdef05.")
+        openAndExpand(robot)
+        select(robot, 0)
+        eventually { assertEquals(listOf("abcdef05"), links(details.body)) }
+
+        val point = textPoint(details.body, "abcdef05")
+        robot.interact {
+            fireMouse(details.body, MouseEvent.MOUSE_PRESSED, point)
+            details.body.selectRange(0, 7)
+            fireMouse(details.body, MouseEvent.MOUSE_RELEASED, point)
+            fireMouse(details.body, MouseEvent.MOUSE_CLICKED, point)
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(
+            listOf(0),
+            view.table.selectionModel.selectedIndices
+                .toList(),
+            "text selected: not followed",
+        )
+        assertEquals(1, resolveLoads.size)
+
+        // A real double click: a first click (followed, as in IntelliJ), then one with a click count of 2 (ignored).
+        robot.interact {
+            for (count in 1..2) {
+                for (type in listOf(MouseEvent.MOUSE_PRESSED, MouseEvent.MOUSE_RELEASED, MouseEvent.MOUSE_CLICKED)) {
+                    fireMouse(details.body, type, point, count)
+                }
+            }
+        }
+        eventually {
+            assertEquals(
+                listOf(4),
+                view.table.selectionModel.selectedIndices
+                    .toList(),
+            )
+        }
+        eventually { assertTrue(showsDetailsOf("Subject 5")) }
+        assertEquals(
+            listOf(4),
+            view.table.selectionModel.selectedIndices
+                .toList(),
+            "followed once",
+        )
+    }
+
+    /** The scene coordinates of the second character of [text] in [area]. */
+    private fun textPoint(
+        area: LinkText,
+        text: String,
+    ): Point2D =
+        WaitForAsyncUtils
+            .asyncFx<Point2D> {
+                val start = area.text.indexOf(text)
+                check(start >= 0) { "'$text' not in '${area.text}'" }
+                val bounds = checkNotNull(area.getCharacterBoundsOnScreen(start + 1, start + 2).orElse(null))
+                area.localToScene(area.screenToLocal(Point2D(bounds.centerX, bounds.centerY)))
+            }.get()
+
     /** Clicks [text] in [area] with the primary button. */
     private fun clickText(
         robot: FxRobot,
         area: LinkText,
         text: String,
     ) {
-        val point =
-            WaitForAsyncUtils
-                .asyncFx<javafx.geometry.Point2D> {
-                    val start = area.text.indexOf(text)
-                    check(start >= 0) { "'$text' not in '${area.text}'" }
-                    val bounds = checkNotNull(area.getCharacterBoundsOnScreen(start + 1, start + 2).orElse(null))
-                    val screen = javafx.geometry.Point2D(bounds.centerX, bounds.centerY)
-                    area.localToScene(area.screenToLocal(screen))
-                }.get()
+        val point = textPoint(area, text)
         click(robot, area, 1, point.x, point.y)
+    }
+
+    /** Fires a mouse event of [type] with the primary button at [point] (scene coordinates) of [node]. */
+    private fun fireMouse(
+        node: Node,
+        type: EventType<MouseEvent>,
+        point: Point2D,
+        clickCount: Int = 1,
+    ) {
+        Event.fireEvent(
+            node,
+            MouseEvent(
+                type,
+                point.x,
+                point.y,
+                point.x,
+                point.y,
+                MouseButton.PRIMARY,
+                clickCount,
+                false,
+                false,
+                false,
+                false,
+                type == MouseEvent.MOUSE_PRESSED,
+                false,
+                false,
+                true,
+                false,
+                false,
+                null,
+            ),
+        )
     }
 }

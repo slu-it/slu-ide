@@ -670,7 +670,7 @@ class GitLogPagesTest {
     }
 
     @Test
-    fun `loadUntil ends without telling on open, a filter change, a failure or a newer call`() {
+    fun `loadUntil ends without telling on open, a filter change or a newer call, and tells a failure`() {
         pages.open(repo)
         pages.visible = true
         settle()
@@ -705,7 +705,20 @@ class GitLogPagesTest {
         loadUntil("r15")
         settle()
         assertEquals(GitLogState.FAILED, pages.state.get())
-        assertEquals(emptyList(), seeks, "a failure")
+        assertEquals(listOf<Any>(CommitMissing.UNREADABLE), seeks, "a failure of the next page")
+
+        // The rows kept after a failure are still found; anything else cannot be looked for.
+        seeks.clear()
+        loadUntil("r3")
+        loadUntil("r15")
+        assertEquals(listOf<Any>(2, CommitMissing.UNREADABLE), seeks)
+
+        // A failed first page.
+        seeks.clear()
+        pages.open(repo)
+        loadUntil("r3")
+        settle()
+        assertEquals(listOf<Any>(CommitMissing.UNREADABLE), seeks, "a failure of the first page")
     }
 
     @Test

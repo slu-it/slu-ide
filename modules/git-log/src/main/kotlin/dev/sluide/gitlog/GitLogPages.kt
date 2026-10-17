@@ -37,6 +37,9 @@ internal enum class CommitMissing {
 
     /** It is not among the first [GitLogPages.SEEK_LIMIT] rows. */
     BEYOND_LIMIT,
+
+    /** The log could not be read (a page failed, or nothing is loaded), so it cannot be looked for (ADR 0045). */
+    UNREADABLE,
 }
 
 /** Which commits a comparison of a ref with `HEAD` lists (ADR 0044). */
@@ -291,9 +294,10 @@ internal class GitLogPages(
 
     /**
      * Hands the index of the row of the commit [hash] to [found], loading further pages until it is there; if the log
-     * is complete without it, or [seekLimit] rows are loaded, tells [missing] why instead. While the first page is
-     * still loading, and after a [refresh], waits for the first page. A newer call replaces this one, and
-     * [stopLoadingUntil], [open], a change of the [filter] or a failure end it without telling either.
+     * is complete without it, or [seekLimit] rows are loaded, tells [missing] why instead, also if the log cannot be read
+     * (a page fails, [CommitMissing.UNREADABLE]). While the first page is still loading, and after a [refresh], waits for
+     * the first page. A newer call replaces this one, and [stopLoadingUntil], [open] or a change of the [filter] end it
+     * without telling either.
      */
     fun loadUntil(
         hash: String,
@@ -344,7 +348,7 @@ internal class GitLogPages(
         val seek = seek ?: return
         val state = _state.get()
         if (state == GitLogState.LOADING) return
-        if (stale || state == GitLogState.IDLE || state == GitLogState.FAILED) {
+        if (stale) {
             this.seek = null
             return
         }
@@ -352,6 +356,9 @@ internal class GitLogPages(
         val missing =
             when {
                 index >= 0 -> null
+
+                // The rows shown (if any) are all there is until a reload.
+                state == GitLogState.IDLE || state == GitLogState.FAILED -> CommitMissing.UNREADABLE
 
                 complete -> CommitMissing.NOT_IN_LOG
 
@@ -378,7 +385,7 @@ internal class GitLogPages(
                 this.pending = null
                 this.remotes = null
                 _state.set(GitLogState.FAILED)
-                seek = null
+                continueSeek()
                 return@start
             }
             val compared = comparison

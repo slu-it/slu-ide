@@ -37,8 +37,10 @@ internal class CommitDetailsPane(
     private val branches: ObservableValue<BranchesState> = SimpleObjectProperty(BranchesState.None),
 ) : StackPane() {
     internal val placeholder = Label().apply { styleClass += "git-details-placeholder" }
-    internal val subject = SelectableText("git-details-subject")
-    internal val body = SelectableText("git-details-body")
+
+    /** The subject and body, with links on the hashes of commits (ADR 0045). */
+    internal val subject = LinkText("git-details-subject")
+    internal val body = LinkText("git-details-body")
     internal val author = SelectableText("git-details-author")
     internal val committed = SelectableText("git-details-committed")
     internal val refs = VBox().apply { styleClass += "git-ref-lines" }
@@ -63,6 +65,9 @@ internal class CommitDetailsPane(
             hbarPolicy = ScrollPane.ScrollBarPolicy.NEVER
             isFocusTraversable = false
         }
+
+    /** Goes to the commit of a full hash, e.g. one clicked in the message (ADR 0045); set by the log. */
+    var openCommit: (String) -> Unit = {}
 
     /** The row whose details are shown, `null` while the placeholder is. */
     private var shown: GitLogRow? = null
@@ -115,7 +120,7 @@ internal class CommitDetailsPane(
             }
 
             is CommitDetailsState.Loaded -> {
-                showDetails(state.row, state.details)
+                showDetails(state.row, state.details, state.links)
             }
 
             is CommitDetailsState.Failed -> {
@@ -134,6 +139,7 @@ internal class CommitDetailsPane(
     private fun showDetails(
         row: GitLogRow,
         details: GitCommitDetails,
+        links: Map<String, String>,
     ) {
         val sameCommit = shown?.commit?.hash == row.commit.hash
         shown = row
@@ -147,11 +153,12 @@ internal class CommitDetailsPane(
                 .dropWhile(String::isBlank)
                 .dropLastWhile(String::isBlank)
                 .joinToString("\n")
-        subject.text = subjectLines.joinToString("\n")
+        val subjectText = subjectLines.joinToString("\n")
+        subject.show(subjectText, textLinks(subjectText, links))
         // An empty message (--allow-empty-message) shows no empty bold line.
-        subject.isVisible = subject.text.isNotEmpty()
+        subject.isVisible = subjectText.isNotEmpty()
         subject.isManaged = subject.isVisible
-        body.text = bodyText
+        body.show(bodyText, textLinks(bodyText, links))
         body.isVisible = bodyText.isNotEmpty()
         body.isManaged = body.isVisible
         author.text =
@@ -171,6 +178,18 @@ internal class CommitDetailsPane(
         }
         showBranches()
         content.requestLayout()
+    }
+
+    /** The words of [text] that [links] names a commit for, each a link to it. */
+    private fun textLinks(
+        text: String,
+        links: Map<String, String>,
+    ): List<TextLink> {
+        if (links.isEmpty()) return emptyList()
+        return hashCandidates(text).mapNotNull { range ->
+            val hash = links[text.substring(range).lowercase()] ?: return@mapNotNull null
+            TextLink(range.first, range.last + 1, "Go to ${hash.take(SHORT_HASH)}") { openCommit(hash) }
+        }
     }
 
     private fun showRefs(row: GitLogRow) {
