@@ -3,6 +3,7 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitBranches
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
+import dev.sluide.git.GitCommit
 import dev.sluide.git.GitCommits
 import dev.sluide.git.GitFileDiff
 import dev.sluide.git.GitInProgress
@@ -57,6 +58,7 @@ import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
+import javafx.scene.shape.Rectangle
 import javafx.stage.Stage
 import javafx.stage.WindowEvent
 import javafx.util.Callback
@@ -70,11 +72,13 @@ import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
+import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /**
@@ -90,7 +94,9 @@ import java.util.concurrent.Executors
  * [beforeFileChange] first. Compare with Current in the branches pane lists one side of the comparison of a ref with
  * `HEAD`, with a bar above the table; Show Diff with Working Tree (branches pane) and Compare with Local (table) open a
  * [WorkingTreeWindow] with the files that differ from the working tree, whose diffs go to [onShowWorkingTreeDiff]
- * (ADR 0044).
+ * (ADR 0044). [showHistory] (and Show History in the changed files) opens a file's history in a tab of the area; while
+ * one is open, the header's title becomes a row of tabs, the Log first, and the selected tab decides what the area shows
+ * (ADR 0046).
  *
  * [source] reads the commits, refs, details, changed files and diffs on the thread `sluide-git-log`; [writes] changes
  * the repository on the thread `sluide-git-write`, one operation at a time. Their results are handled through
@@ -191,6 +197,10 @@ class GitLogView internal constructor(
      */
     var onShowWorkingTreeDiff: (WorkingTreeFileDiff) -> Boolean = { true }
 
+    /** Whether there is a file at a path (not following a link); tests replace it, their repository is not on disk. */
+    @Volatile
+    internal var fileExists: (Path) -> Boolean = { Files.exists(it, LinkOption.NOFOLLOW_LINKS) }
+
     /** A message in the header, e.g. that a diff cannot be shown, until the next selection or load. */
     private val status = SimpleStringProperty("")
 
@@ -217,11 +227,13 @@ class GitLogView internal constructor(
 
     private val chevron = FontIcon(MaterialDesignC.CHEVRON_RIGHT)
 
-    private val refreshButton =
+    internal val refreshButton =
         Button(null, FontIcon(MaterialDesignR.REFRESH)).apply {
             styleClass += "git-log-refresh"
             tooltip = Tooltip("Refresh")
             isFocusTraversable = false
+            // Always whole: the tabs left of it give way first.
+            minWidth = USE_PREF_SIZE
             setOnAction { refresh() }
         }
 
@@ -234,6 +246,7 @@ class GitLogView internal constructor(
             styleClass += "git-log-fetch"
             tooltip = Tooltip("Fetch All Remotes")
             isFocusTraversable = false
+            minWidth = USE_PREF_SIZE
             setOnAction { start(Fetch()) }
             disableProperty().bind(writer.running.or(noRemotes))
         }
@@ -249,11 +262,36 @@ class GitLogView internal constructor(
             setOnAction { writer.cancel() }
         }
 
-    /** The header bar; clicking it (but not its buttons) expands or collapses the log. */
+    /** The header's title while no file history is open (ADR 0046). */
+    internal val title = Label("Git Log").apply { styleClass += "git-log-title" }
+
+    /** The tab of the log, first of the header's tabs while file histories are open (ADR 0046). */
+    internal val logTab = AreaTab("Log", null, closable = false).apply { onSelect = { selectTab(null) } }
+
+    /**
+     * The title, or the tabs of the log and the open file histories; narrower than they want, the tabs shorten their
+     * titles, then the row is cut off at the right, so that the header's buttons stay whole.
+     */
+    internal val titles =
+        HBox(title).apply {
+            styleClass += "git-log-tabs"
+            alignment = Pos.CENTER_LEFT
+            minWidth = 0.0
+            clip =
+                Rectangle().also { clip ->
+                    clip.widthProperty().bind(widthProperty())
+                    clip.heightProperty().bind(heightProperty())
+                }
+        }
+
+    /** Whether the Log tab is selected (or there are no tabs), so that the header tells the log's failures. */
+    private val logShown = SimpleBooleanProperty(true)
+
+    /** The header bar; clicking it (but not its buttons or tabs) expands or collapses the log. */
     internal val header: HBox =
         HBox(
             chevron,
-            Label("Git Log").apply { styleClass += "git-log-title" },
+            titles,
             // A failure while rows are shown (with no rows the table's placeholder says it), else the status, else what
             // an operation does or did.
             Label().apply {
@@ -262,8 +300,9 @@ class GitLogView internal constructor(
                     Bindings.createStringBinding(
                         {
                             val state = pages.state.get()
+                            val logFailed = state == GitLogState.FAILED && pages.rows.isNotEmpty()
                             when {
-                                state == GitLogState.FAILED && pages.rows.isNotEmpty() -> state.message
+                                logShown.get() && logFailed -> state.message
                                 status.get().isNotEmpty() -> status.get()
                                 else -> operationStatus.get()
                             }
@@ -272,6 +311,7 @@ class GitLogView internal constructor(
                         pages.rows,
                         status,
                         operationStatus,
+                        logShown,
                     ),
                 )
                 minWidth = 0.0
@@ -292,6 +332,34 @@ class GitLogView internal constructor(
         }
 
     private val dateFormat = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).withZone(ZoneId.systemDefault())
+
+    /** An open file history: its view and its tab in the header (ADR 0046). */
+    private class HistoryTab(
+        val view: FileHistoryView,
+        val tab: AreaTab,
+        /** The history's own thread for its pages (ADR 0046), not the log's. */
+        val executor: ExecutorService,
+    ) {
+        fun close() {
+            view.close()
+            executor.shutdownNow()
+        }
+    }
+
+    /** The open file histories, in the order of their tabs (ADR 0046). */
+    private val histories = LinkedHashMap<FileHistoryKey, HistoryTab>()
+
+    /** The file history whose tab is selected; `null` for the Log. */
+    private var selectedHistory: FileHistoryKey? = null
+
+    /** The views of the open file histories, in the order of their tabs. */
+    internal val historyViews: List<FileHistoryView> get() = histories.values.map { it.view }
+
+    /** The tabs of the open file histories, in their order. */
+    internal val historyTabs: List<AreaTab> get() = histories.values.map { it.tab }
+
+    /** The view of the selected file history; `null` while the Log is selected. */
+    internal val selectedHistoryView: FileHistoryView? get() = selectedHistory?.let(histories::get)?.view
 
     private val copyRevisionNumber = MenuItem("Copy Revision Number").apply { setOnAction { copyRevisionNumbers() } }
 
@@ -685,20 +753,293 @@ class GitLogView internal constructor(
         changesPane.showDiff = ::showDiff
         changesPane.openFile = { file -> localFile(file)?.let(onOpenFile) }
         changesPane.exists = { file -> localFile(file)?.let(Files::exists) == true }
+        changesPane.showHistory = { row, file -> showHistoryUpTo(row.commit, file) }
         expanded.subscribe { isExpanded ->
-            val focusInBody = body.contains(scene?.focusOwner)
-            center = if (isExpanded) body else null
+            val focusInBody = center?.contains(scene?.focusOwner) == true
             chevron.iconCode = if (isExpanded) MaterialDesignC.CHEVRON_DOWN else MaterialDesignC.CHEVRON_RIGHT
-            pages.visible = isExpanded
+            showContent()
             if (isExpanded) {
-                // The split pane adds the table to the scene with its skin, which CSS creates.
-                body.applyCss()
-                table.requestFocus()
+                focusContent()
             } else if (focusInBody) {
                 returnFocus()
             }
         }
     }
+
+    /**
+     * Shows what the selected tab has below the header while [expanded]: the log or a file history (ADR 0046); only
+     * that one loads.
+     */
+    private fun showContent() {
+        val isExpanded = expanded.get()
+        val history = selectedHistoryView
+        center = if (isExpanded) history ?: body else null
+        pages.visible = isExpanded && history == null
+        histories.values.forEach { it.view.history.visible = isExpanded && it.view === history }
+    }
+
+    /** Gives the focus to the table of what is shown, the log's or a file history's. */
+    private fun focusContent() {
+        val content = center ?: return
+        // The split pane adds the table to the scene with its skin, which CSS creates.
+        content.applyCss()
+        (selectedHistoryView?.table ?: table).requestFocus()
+    }
+
+    /**
+     * Shows the history of [file] (ADR 0046), a file below the opened repository, from `HEAD` on, in a tab of the area:
+     * the one that shows it already, or a new one; selects it and expands the area. Ignored for files outside the
+     * repository, for folders and without a repository.
+     */
+    fun showHistory(file: Path) {
+        val root = pages.root ?: return
+        val relative =
+            try {
+                root.toAbsolutePath().normalize().relativize(file.toAbsolutePath().normalize())
+            } catch (_: IllegalArgumentException) {
+                return
+            }
+        if (relative.toString().isEmpty() || relative.startsWith("..") || Files.isDirectory(file)) return
+        openHistory(FileHistoryKey(relative.joinToString("/")))
+    }
+
+    /**
+     * Shows the history of [file], one of the files [commit] changed, up to that commit (ADR 0046): of its path there
+     * from the commit on; for a deleted file of its old path from the commit's first parent on.
+     */
+    internal fun showHistoryUpTo(
+        commit: GitCommit,
+        file: GitChangedFile,
+    ) {
+        val key =
+            if (file.change == GitChange.DELETED) {
+                FileHistoryKey(file.path, commit.parents.firstOrNull() ?: return)
+            } else {
+                FileHistoryKey(file.path, commit.hash)
+            }
+        openHistory(key)
+    }
+
+    /** Selects the tab of the history [key], opening one if there is none, and expands the area. */
+    private fun openHistory(key: FileHistoryKey) {
+        val root = pages.root ?: return
+        if (key !in histories) histories[key] = historyTab(root, key)
+        selectTab(key)
+    }
+
+    /** A new tab for the history [key] of the repository at [root], not loaded before it is shown. */
+    private fun historyTab(
+        root: Path,
+        key: FileHistoryKey,
+    ): HistoryTab {
+        val pagesExecutor =
+            Executors.newSingleThreadExecutor { Thread(it, "sluide-git-history").apply { isDaemon = true } }
+        val history = FileHistory(root, key, source::fileHistory, source::refs, pagesExecutor::execute, dispatch)
+        val details =
+            CommitDetails(source::details, { _, _ -> emptyList() }, executor::execute, dispatch, source::resolveCommits)
+        val branches =
+            CommitBranches(source::branchesContaining, branchesExecutor::execute, dispatch).apply {
+                currentBranch = { history.refs?.currentBranch }
+            }
+        val view =
+            FileHistoryView(history, details, branches).apply {
+                showDiff = ::showDiff
+                compareWithLocal = { row, file -> compareWithLocal(key, row, file) }
+                showInLog = ::showInLog
+                detailsPane.openCommit = ::showInLog
+                selectionChanged = {
+                    selections++
+                    status.set("")
+                }
+                // Go to is the log's: it goes there (ADR 0046). Find has nothing to filter in a history.
+                addEventFilter(KeyEvent.KEY_PRESSED) { event ->
+                    if (GO_TO.match(event)) {
+                        selectTab(null)
+                        // Laid out now: the popup is placed by the table's bounds, which it may never have had yet.
+                        this@GitLogView.applyCss()
+                        this@GitLogView.layout()
+                        openGoTo()
+                        event.consume()
+                    }
+                }
+            }
+        history.failedWithRows = { if (selectedHistory == key) status.set(FileHistoryState.FAILED.message(key.name)) }
+        val tip = key.path + key.start?.let { " up to ${it.take(ChangedFilesPane.SHORT_HASH)}" }.orEmpty()
+        val tab =
+            AreaTab("History: ${key.name}", tip, closable = true).apply {
+                onSelect = { selectTab(key) }
+                onClose = { closeHistory(key) }
+            }
+        return HistoryTab(view, tab, pagesExecutor)
+    }
+
+    /**
+     * Selects the tab of the history [key], or of the Log for `null`: shows what it has, expanding the area if collapsed,
+     * and gives its table the focus.
+     */
+    private fun selectTab(key: FileHistoryKey?) {
+        if (key != null && key !in histories) return
+        val changed = key != selectedHistory
+        selectedHistory = key
+        updateTabs()
+        if (changed) tabChanged()
+        if (!expanded.get()) {
+            // Shows and focuses it.
+            expanded.set(true)
+            return
+        }
+        showContent()
+        focusContent()
+    }
+
+    /** Closes the tab of the history [key]; if it was selected, the tab left of it is. */
+    private fun closeHistory(key: FileHistoryKey) {
+        val keys = histories.keys.toList()
+        val closed = histories.remove(key) ?: return
+        val focusInClosed = closed.view.contains(scene?.focusOwner)
+        closed.close()
+        if (selectedHistory == key) {
+            selectedHistory = keys.getOrNull(keys.indexOf(key) - 1)
+            showContent()
+            if (expanded.get() && focusInClosed) focusContent()
+            tabChanged()
+        }
+        updateTabs()
+    }
+
+    /**
+     * Another tab is selected: the header's message of the one before goes, the log's failure shows only with the Log,
+     * and a history whose last read failed while it was not shown (with rows kept) says so again.
+     */
+    private fun tabChanged() {
+        status.set("")
+        logShown.set(selectedHistory == null)
+        val history = selectedHistoryView?.history ?: return
+        if (history.state.get() == FileHistoryState.FAILED && history.rows.isNotEmpty()) {
+            status.set(FileHistoryState.FAILED.message(history.key.name))
+        }
+    }
+
+    /** Closes all file histories, e.g. for another folder; the Log is shown. */
+    private fun closeHistories() {
+        histories.values.forEach { it.close() }
+        histories.clear()
+        selectedHistory = null
+        logShown.set(true)
+        updateTabs()
+        showContent()
+    }
+
+    /** The header's title without file histories, else the tabs, the selected one marked. */
+    private fun updateTabs() {
+        titles.children.setAll(if (histories.isEmpty()) listOf(title) else listOf(logTab) + historyTabs)
+        logTab.selected = selectedHistory == null
+        histories.forEach { (key, open) -> open.tab.selected = key == selectedHistory }
+    }
+
+    /** Selects the Log and goes to the commit [hash] there, the header telling why not (ADR 0046). */
+    private fun showInLog(hash: String) {
+        selectTab(null)
+        goToCommit(hash, hash.take(ChangedFilesPane.SHORT_HASH))
+    }
+
+    /**
+     * Reads how the file of the history [key] at the commit of [row] ([file]: its change there) differs from the file
+     * in the working tree (at the history's path) in the background, and hands it to [onShowWorkingTreeDiff]; a binary,
+     * too large or unchanged file, a submodule or a failure is told in the header instead, unless the selection changed
+     * meanwhile (ADR 0046).
+     */
+    private fun compareWithLocal(
+        key: FileHistoryKey,
+        row: GitLogRow,
+        file: GitChangedFile,
+    ) {
+        val root = pages.root ?: return
+        val commit = row.commit.hash
+        val requestedAt = selections
+        status.set("")
+        compareExecutor.execute {
+            val compared =
+                when {
+                    // Not at the commit: all of the working-tree file is new.
+                    file.change == GitChange.DELETED -> GitChangedFile(GitChange.ADDED, key.path)
+
+                    !inWorkingTree(root, key.path) -> GitChangedFile(GitChange.DELETED, file.path)
+
+                    file.path != key.path -> GitChangedFile(GitChange.RENAMED, key.path, file.path)
+
+                    else -> GitChangedFile(GitChange.MODIFIED, key.path)
+                }
+            val diff = source.workingTreeFileDiff(root, commit, compared)
+            dispatch {
+                if (pages.root != root) return@dispatch
+                val message =
+                    workingTreeMessage(key.name, compared, diff) { text ->
+                        onShowWorkingTreeDiff(
+                            WorkingTreeFileDiff(
+                                root,
+                                compared.path,
+                                compared.oldPath,
+                                compared.change,
+                                commit,
+                                commit.take(ChangedFilesPane.SHORT_HASH),
+                                text.original,
+                                text.current,
+                                text.hunks,
+                            ),
+                        )
+                    }
+                if (message != null && selections == requestedAt) status.set(message)
+            }
+        }
+    }
+
+    /**
+     * What keeps the working-tree [diff] of the file [name] ([compared]) from being shown; `null` once [show] showed it.
+     */
+    private fun workingTreeMessage(
+        name: String,
+        compared: GitChangedFile,
+        diff: GitFileDiff?,
+        show: (GitFileDiff.Text) -> Boolean,
+    ): String? =
+        when (diff) {
+            null -> {
+                "The diff could not be read."
+            }
+
+            GitFileDiff.Binary -> {
+                "$name is a binary file."
+            }
+
+            GitFileDiff.TooLarge -> {
+                "$name is too large to compare."
+            }
+
+            is GitFileDiff.Submodule -> {
+                "$name is a submodule."
+            }
+
+            is GitFileDiff.Text -> {
+                val same = diff.original == diff.current && compared.change.changesContent
+                when {
+                    same -> "$name is the same in the working tree."
+                    show(diff) -> null
+                    else -> "$name cannot be shown as text."
+                }
+            }
+        }
+
+    /** Whether the working tree has a file at [path]; `true` if the JVM cannot name it (git reads it then). */
+    private fun inWorkingTree(
+        root: Path,
+        path: String,
+    ): Boolean =
+        try {
+            fileExists(root.resolve(path))
+        } catch (_: InvalidPathException) {
+            true
+        }
 
     /** Shows the log of the repository at [root]; `null` shows nothing. Loads once (or as soon as) [expanded]. */
     fun open(root: Path?) {
@@ -715,6 +1056,7 @@ class GitLogView internal constructor(
         branchesRefs = null
         // Resets the filter and ends a comparison too, before the bar, which then tells no change.
         pages.open(root)
+        closeHistories()
         filterBar.reset()
         comparisonChanged()
         knownAuthors.clear()
@@ -1186,6 +1528,7 @@ class GitLogView internal constructor(
         // The tree may have changed: read again when the path popup is shown next.
         pathsStale = true
         pages.refresh()
+        histories.values.forEach { it.view.history.refresh() }
     }
 
     /**
@@ -1385,6 +1728,7 @@ class GitLogView internal constructor(
     }
 
     override fun close() {
+        histories.values.forEach { it.close() }
         closeWorkingTreeWindows()
         compareExecutor.shutdownNow()
         // A fetch is stopped: harmless, it updates refs one by one and no files (ADR 0043).
@@ -1402,27 +1746,6 @@ class GitLogView internal constructor(
         changesPane.close()
         executor.shutdownNow()
     }
-
-    private fun column(
-        title: String,
-        width: Double,
-        value: (GitLogRow) -> String,
-    ) = TableColumn<GitLogRow, String>(title).apply {
-        prefWidth = width
-        // Sorting would mix the order the pages are loaded in.
-        isSortable = false
-        setCellValueFactory { ReadOnlyStringWrapper(value(it.value)).readOnlyProperty }
-    }
-
-    /** The subject with the commit graph left of it (ADR 0036) and the ref labels at its right end (ADR 0037). */
-    private fun subjectColumn() =
-        TableColumn<GitLogRow, GitLogRow>("Subject").apply {
-            prefWidth = 600.0
-            minWidth = 80.0
-            isSortable = false
-            setCellValueFactory { ReadOnlyObjectWrapper(it.value).readOnlyProperty }
-            setCellFactory { GraphCell() }
-        }
 
     private fun Node.contains(target: EventTarget?): Boolean {
         var node = target as? Node
@@ -1497,8 +1820,33 @@ internal class SharedSplit(
     }
 }
 
+/** A column of the commits with the texts [value] gives, not sortable; also of a file's history (ADR 0046). */
+internal fun column(
+    title: String,
+    width: Double,
+    value: (GitLogRow) -> String,
+) = TableColumn<GitLogRow, String>(title).apply {
+    prefWidth = width
+    // Sorting would mix the order the pages are loaded in.
+    isSortable = false
+    setCellValueFactory { ReadOnlyStringWrapper(value(it.value)).readOnlyProperty }
+}
+
+/**
+ * The subject with the commit graph left of it (ADR 0036) and the ref labels at its right end (ADR 0037); rows without
+ * a graph ([GraphRow.NONE], e.g. of a file's history) have the subject at the left.
+ */
+internal fun subjectColumn() =
+    TableColumn<GitLogRow, GitLogRow>("Subject").apply {
+        prefWidth = 600.0
+        minWidth = 80.0
+        isSortable = false
+        setCellValueFactory { ReadOnlyObjectWrapper(it.value).readOnlyProperty }
+        setCellFactory { GraphCell() }
+    }
+
 /** Reports the last visible row after every layout and scroll, so the next page is loaded in time. */
-private class PagingSkin(
+internal class PagingSkin(
     table: TableView<GitLogRow>,
     private val shown: (Int) -> Unit,
 ) : TableViewSkin<GitLogRow>(table) {
@@ -1524,7 +1872,7 @@ private class PagingSkin(
  * the others keep their widths ([fitColumnWidths]); dragging a column's edge resizes the next column as well, and the
  * new widths of the others become the widths they return to.
  */
-private object SubjectTakesTheRest :
+internal object SubjectTakesTheRest :
     ConstrainedColumnResizeBase(),
     Callback<TableView.ResizeFeatures<*>, Boolean> {
     override fun call(features: TableView.ResizeFeatures<*>): Boolean {
@@ -1573,7 +1921,7 @@ internal fun fitColumnWidths(
     return listOf(maxOf(firstMinWidth, contentWidth - shrunk.sum())) + shrunk
 }
 
-private val COPY = KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN)
+internal val COPY = KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN)
 
 private val FIND = KeyCodeCombination(KeyCode.F, KeyCombination.SHORTCUT_DOWN)
 

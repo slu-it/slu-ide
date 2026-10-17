@@ -16,7 +16,7 @@ private val LOADING_DELAY = Duration.millis(300.0)
  * The files the selected commit changed, above its details (ADR 0038): a line with their number, then a tree by their
  * paths ([ChangeTreeView]), everything expanded, the names coloured by their change. Show Diff (double-click, Enter,
  * Shortcut+D), Open Local File (F4) and Copy Path act on the selected file through [showDiff], [openFile] and the
- * clipboard; Open Local File only if the file [exists] in the working tree. Without exactly one selected commit, or
+ * clipboard; Open Local File only if the file [exists] in the working tree. Show History goes to [showHistory]. Without exactly one selected commit, or
  * while one loads for the first time, a placeholder says so.
  */
 internal class ChangedFilesPane(
@@ -31,6 +31,9 @@ internal class ChangedFilesPane(
     /** Whether the file is in the working tree now. */
     var exists: (GitChangedFile) -> Boolean = { false }
 
+    /** Shows the history of a file up to the commit of a row (ADR 0046). */
+    var showHistory: (GitLogRow, GitChangedFile) -> Unit = { _, _ -> }
+
     internal val header = Label().apply { styleClass += "git-changes-header" }
     internal val placeholder = Label().apply { styleClass += "git-details-placeholder" }
 
@@ -39,10 +42,12 @@ internal class ChangedFilesPane(
             showDiff = { file -> shown?.let { row -> this@ChangedFilesPane.showDiff(row, file) } }
             openFile = { file -> this@ChangedFilesPane.openFile(file) }
             exists = { file -> this@ChangedFilesPane.exists(file) }
+            showHistory = { file -> shown?.let { row -> this@ChangedFilesPane.showHistory(row, file) } }
         }
 
     internal val showDiffItem get() = tree.showDiffItem
     internal val openFileItem get() = tree.openFileItem
+    internal val showHistoryItem get() = tree.showHistoryItem
     internal val copyPathItem get() = tree.copyPathItem
 
     /** The row whose files are shown (also when there are none), `null` while a placeholder is. */

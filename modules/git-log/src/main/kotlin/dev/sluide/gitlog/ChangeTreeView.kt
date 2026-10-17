@@ -27,7 +27,8 @@ import org.kordamp.ikonli.materialdesign2.MaterialDesignF
  * change, a renamed one with its old path; for the commit's changed files and for the files that differ from the working
  * tree (ADR 0044). Show Diff (double-click, Enter, Shortcut+D), Open Local File (F4) and Copy Path act on the selected
  * file through [showDiff], [openFile] and the clipboard; Open Local File only if the file [exists] in the working tree.
- * Enter on a folder opens or closes it. `git-log.css` styles it within `.git-log`.
+ * Enter on a folder opens or closes it. Show History (only while [showHistory] is set) shows the file's history up to
+ * the commit (ADR 0046). `git-log.css` styles it within `.git-log`.
  */
 internal class ChangeTreeView : TreeView<ChangeNode>(TreeItem()) {
     /** Shows the diff of a file. */
@@ -39,8 +40,13 @@ internal class ChangeTreeView : TreeView<ChangeNode>(TreeItem()) {
     /** Whether the file is in the working tree now. */
     var exists: (GitChangedFile) -> Boolean = { false }
 
+    /** Shows the history of a file (ADR 0046); `null` (the working-tree window) leaves Show History out of the menu. */
+    var showHistory: ((GitChangedFile) -> Unit)? = null
+
     internal val showDiffItem = MenuItem("Show Diff").apply { setOnAction { showSelectedDiff() } }
     internal val openFileItem = MenuItem("Open Local File").apply { setOnAction { openSelectedFile() } }
+    internal val showHistoryItem =
+        MenuItem("Show History").apply { setOnAction { selectedFile?.let { showHistory?.invoke(it) } } }
     internal val copyPathItem = MenuItem("Copy Path").apply { setOnAction { copySelectedPath() } }
 
     init {
@@ -48,7 +54,7 @@ internal class ChangeTreeView : TreeView<ChangeNode>(TreeItem()) {
         isShowRoot = false
         setCellFactory { ChangeCell() }
         contextMenu =
-            ContextMenu(showDiffItem, openFileItem, SeparatorMenuItem(), copyPathItem).apply {
+            ContextMenu(showDiffItem, openFileItem, showHistoryItem, SeparatorMenuItem(), copyPathItem).apply {
                 // The file may have appeared or gone in the working tree since it was selected.
                 setOnShowing { updateActions() }
             }
@@ -173,6 +179,8 @@ internal class ChangeTreeView : TreeView<ChangeNode>(TreeItem()) {
         showDiffItem.isDisable = file == null
         copyPathItem.isDisable = file == null
         openFileItem.isDisable = file == null || !exists(file)
+        showHistoryItem.isVisible = showHistory != null
+        showHistoryItem.isDisable = file == null
     }
 
     /** A folder or a file: an icon and the name, a file's coloured by its change, a renamed one with its old path. */
@@ -242,4 +250,4 @@ internal class ChangeTreeView : TreeView<ChangeNode>(TreeItem()) {
     }
 }
 
-private val SHOW_DIFF = KeyCodeCombination(KeyCode.D, KeyCombination.SHORTCUT_DOWN)
+internal val SHOW_DIFF = KeyCodeCombination(KeyCode.D, KeyCombination.SHORTCUT_DOWN)

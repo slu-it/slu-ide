@@ -16,6 +16,52 @@
     -fx-font-weight: bold;
 }
 
+/*
+ * The tabs in the header while file histories are open (ADR 0046): flat, the selected one in the accent colour with the
+ * selection's text colour, like the selected toggles of the log.
+ */
+.git-log-tabs {
+    -fx-spacing: 2;
+}
+
+.git-log-tab {
+    -fx-spacing: 2;
+    -fx-padding: 0 4 0 6;
+    -fx-background-radius: 3;
+    -fx-cursor: default;
+}
+
+.git-log-tab:hover {
+    -fx-background-color: -fx-hover-base;
+}
+
+.git-log-tab:selected,
+.git-log-tab:selected:hover {
+    -fx-background-color: -fx-accent;
+}
+
+.git-log-tab:selected .git-log-tab-title {
+    -fx-text-fill: -fx-selection-bar-text;
+}
+
+.git-log-tab-close {
+    -fx-background-color: transparent;
+    -fx-background-radius: 3;
+    -fx-padding: 1 2 1 2;
+}
+
+.git-log-tab-close:hover {
+    -fx-background-color: -fx-hover-base;
+}
+
+.git-log-header .git-log-tab-close .ikonli-font-icon {
+    -fx-icon-size: 12;
+}
+
+.git-log-header .git-log-tab:selected .ikonli-font-icon {
+    -fx-icon-color: -fx-selection-bar-text;
+}
+
 .git-log-status {
     -fx-opacity: 0.7;
 }
@@ -40,12 +86,14 @@
 
 .git-log-body,
 .git-log-inner,
-.git-log-side {
+.git-log-side,
+.git-history-body {
     -fx-padding: 0;
     -fx-background-insets: 0;
 }
 
-.git-log-table {
+.git-log-table,
+.git-history-table {
     -fx-background-insets: 0;
     -fx-padding: 0;
 }

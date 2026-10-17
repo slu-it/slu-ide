@@ -536,6 +536,13 @@ class GitLogCompareUiTest {
         val window = windowOf(commit)
         eventually { assertEquals("4 files differ", window.header.text) }
         robot.interact { assertEquals("$commit ↔ Working Tree", window.stage.title) }
+        // Show History is the log's (ADR 0046): not in the window's menu.
+        robot.interact {
+            selectFile(window, "new.md")
+            window.tree.contextMenu.onShowing
+                .handle(null)
+            assertFalse(window.tree.showHistoryItem.isVisible)
+        }
 
         robot.interact {
             selectFile(window, "new.md")

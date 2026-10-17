@@ -1,10 +1,13 @@
 package dev.sluide.gitlog
 
+import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitCommitDetails
 import dev.sluide.git.GitFileDiff
+import dev.sluide.git.GitFileHistoryEntry
+import dev.sluide.git.GitFileHistoryPage
 import dev.sluide.git.GitHunk
 import dev.sluide.git.GitLogFilter
 import dev.sluide.git.GitLogPage
@@ -159,6 +162,29 @@ abstract class GitLogViewUiFixture {
     /** The revisions of every resolution, once its gate is open. */
     internal val resolveLoads = CopyOnWriteArrayList<List<String>>()
 
+    /** The history of each (path, start) (ADR 0046); `null` makes reading it fail. */
+    @Volatile
+    internal var fileHistoryOf: (String, String?) -> List<GitFileHistoryEntry>? = { _, _ -> emptyList() }
+
+    /** Reading a file's history waits for this while it is not `null`. */
+    @Volatile
+    internal var historyGate: CountDownLatch? = null
+
+    /** The cancellation of every read of a file's history. */
+    internal val historyCancellations = CopyOnWriteArrayList<GitCancellation>()
+
+    /** The (path, start, skip, limit) of every read of a file's history. */
+    internal val historyLoads = CopyOnWriteArrayList<List<Any?>>()
+
+    /** The (commit, file) of every read of a working-tree diff. */
+    internal val workingTreeDiffLoads = CopyOnWriteArrayList<Pair<String, GitChangedFile>>()
+
+    /** The working-tree diff of each file; `null` makes reading it fail. */
+    @Volatile
+    internal var workingTreeDiffOf: (GitChangedFile) -> GitFileDiff? = { file ->
+        GitFileDiff.Text("old ${file.path}\n", "new ${file.path}\n", listOf(GitHunk(0..0, 0..0)))
+    }
+
     internal lateinit var view: GitLogView
 
     internal val writes = FakeWrites()
@@ -248,6 +274,31 @@ abstract class GitLogViewUiFixture {
                     diffLoads += Triple(commit, firstParent, file.path)
                     return diffOf(file)
                 }
+
+                override fun fileHistory(
+                    root: Path,
+                    path: String,
+                    start: String?,
+                    skip: Int,
+                    limit: Int,
+                    cancellation: GitCancellation,
+                ): GitFileHistoryPage? {
+                    historyCancellations += cancellation
+                    if (!historyGate.passed()) return null
+                    historyLoads += listOf(path, start, skip, limit)
+                    val all = (if (root == repo) fileHistoryOf(path, start) else emptyList()) ?: return null
+                    val page = all.drop(skip).take(limit)
+                    return GitFileHistoryPage(page, complete = skip + page.size >= all.size)
+                }
+
+                override fun workingTreeFileDiff(
+                    root: Path,
+                    commit: String,
+                    file: GitChangedFile,
+                ): GitFileDiff? {
+                    workingTreeDiffLoads += commit to file
+                    return workingTreeDiffOf(file)
+                }
             }
         view = GitLogView(source, Platform::runLater, writes)
         stage.scene = Scene(view, 800.0, 400.0)
@@ -272,6 +323,7 @@ abstract class GitLogViewUiFixture {
         detailGates.values.forEach(CountDownLatch::countDown)
         fileGates.values.forEach(CountDownLatch::countDown)
         diffGate?.countDown()
+        historyGate?.countDown()
         branchGates.values.forEach(CountDownLatch::countDown)
         resolveGate?.countDown()
         userNameGates.values.forEach(CountDownLatch::countDown)

@@ -1,10 +1,12 @@
 package dev.sluide.gitlog
 
+import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitCommitDetails
 import dev.sluide.git.GitComparisonCounts
 import dev.sluide.git.GitFileDiff
+import dev.sluide.git.GitFileHistoryPage
 import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitLog
 import dev.sluide.git.GitLogFilter
@@ -107,6 +109,20 @@ internal interface GitLogSource {
         commit: String,
         file: GitChangedFile,
     ): GitFileDiff? = null
+
+    /**
+     * The commits that changed the file [path] from [start] on (`null` for `HEAD`), following renames, after the first
+     * [skip], at most [limit] (ADR 0046), stopped by [cancellation]; `null` on failure or when cancelled (or if not
+     * known).
+     */
+    fun fileHistory(
+        root: Path,
+        path: String,
+        start: String?,
+        skip: Int,
+        limit: Int,
+        cancellation: GitCancellation,
+    ): GitFileHistoryPage? = null
 }
 
 /** Reads with the git command line. */
@@ -180,4 +196,13 @@ internal class GitLogCliSource(
         commit: String,
         file: GitChangedFile,
     ) = gitLog.workingTreeFileDiff(root, commit, file)
+
+    override fun fileHistory(
+        root: Path,
+        path: String,
+        start: String?,
+        skip: Int,
+        limit: Int,
+        cancellation: GitCancellation,
+    ) = gitLog.fileHistory(root, path, start, skip, limit, cancellation)
 }
