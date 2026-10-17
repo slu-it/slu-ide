@@ -3,6 +3,7 @@ package dev.sluide.dockersandbox
 import dev.sluide.editor.EditorTab
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.SettingsStore
+import dev.sluide.settings.TerminalScrollSettings
 import dev.sluide.terminal.TerminalStartException
 import dev.sluide.terminal.Terminals
 import javafx.scene.Scene
@@ -43,7 +44,8 @@ class DockerSandboxUiTest {
     private val home by lazy { root.resolve("home").createDirectories() }
     private val project by lazy { home.resolve("project").createDirectories() }
     private val terminals by lazy {
-        Terminals(FontSettings(SettingsStore(root.resolve("settings.properties")), FontSettings.systemDefaults()))
+        val store = SettingsStore(root.resolve("settings.properties"))
+        Terminals(FontSettings(store, FontSettings.systemDefaults()), TerminalScrollSettings(store))
     }
     private lateinit var pane: StackPane
 

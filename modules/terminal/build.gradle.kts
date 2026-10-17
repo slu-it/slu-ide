@@ -13,7 +13,7 @@ javafx {
 dependencies {
     // Deliberate module API dependency: terminals are shown as editor tabs (EditorTab).
     api(project(":modules:editor"))
-    // Deliberate module API dependency: terminals use the terminal font from the settings (ADR 0008).
+    // Deliberate module API dependency: terminals use the terminal font and scroll speeds from the settings (ADR 0008).
     api(project(":modules:settings"))
     implementation(libs.spring.context)
     implementation(libs.pty4j)

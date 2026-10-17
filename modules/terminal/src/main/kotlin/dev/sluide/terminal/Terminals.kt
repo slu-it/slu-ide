@@ -3,6 +3,7 @@ package dev.sluide.terminal
 import dev.sluide.editor.EditorTab
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
+import dev.sluide.settings.TerminalScrollSettings
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
@@ -26,18 +27,23 @@ fun loginShellRunning(
 
 /**
  * Starts terminals as editor tabs and ends their shells when it is closed, together with its window. Terminals use
- * the terminal font of the [fontSettings] and follow its changes.
+ * the terminal font of the [fontSettings] and the speeds of the [scrollSettings], and follow their changes.
  */
 @Component
 // One instance per IDE window (the "window" scope of the ide module, ADR 0014).
 @Scope("window")
 class Terminals(
     private val fontSettings: FontSettings,
+    private val scrollSettings: TerminalScrollSettings,
     /** The environment of the started shells; its `SHELL` is the user's shell. */
     private val environment: Map<String, String>,
 ) : AutoCloseable {
     @Autowired
-    constructor(fontSettings: FontSettings) : this(fontSettings, System.getenv())
+    constructor(fontSettings: FontSettings, scrollSettings: TerminalScrollSettings) : this(
+        fontSettings,
+        scrollSettings,
+        System.getenv(),
+    )
 
     private val open = mutableListOf<TerminalTab>()
     private var started = 0
@@ -79,17 +85,25 @@ class Terminals(
                 TerminalView(
                     { display, size -> TerminalSession(folder, display, size, command, environment) },
                     font = terminalFont.get(),
+                    scrollSpeeds = scrollSpeeds(),
                 )
             } catch (e: IOException) {
                 // pty4j's messages alone are cryptic ("Exec_tty error:Unknown reason"), so name shell and folder.
                 throw TerminalStartException("${command.first()} could not be started in $folder (${e.message}).", e)
             }
         val fontSubscription = terminalFont.subscribe { spec -> view.font = spec }
+        val scrollSubscription =
+            scrollSettings.trackpad
+                .subscribe { _ -> view.scrollSpeeds = scrollSpeeds() }
+                .and(scrollSettings.wheel.subscribe { _ -> view.scrollSpeeds = scrollSpeeds() })
         return TerminalTab(name, folder, view, shownCommand) { tab ->
             fontSubscription.unsubscribe()
+            scrollSubscription.unsubscribe()
             open.remove(tab)
         }.also(open::add)
     }
+
+    private fun scrollSpeeds() = ScrollSpeeds(scrollSettings.trackpad.get(), scrollSettings.wheel.get())
 
     /** The number of terminals whose tab is not closed yet. */
     val openCount: Int get() = open.size

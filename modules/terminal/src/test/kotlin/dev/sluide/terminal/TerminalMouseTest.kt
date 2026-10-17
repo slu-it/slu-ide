@@ -1,6 +1,7 @@
 package dev.sluide.terminal
 
 import com.jediterm.terminal.emulator.mouse.MouseButtonCodes
+import com.jediterm.terminal.emulator.mouse.MouseMode
 import javafx.scene.input.MouseButton
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -36,5 +37,16 @@ class TerminalMouseTest {
         assertEquals(3, TerminalMouse.wheel(up = true, Modifiers(), 3).unitsToScroll)
         assertTrue(TerminalMouse.wheel(up = true, Modifiers(shift = true), 3).isShiftDown())
         assertFalse(TerminalMouse.wheel(up = true, Modifiers(), 3).isShiftDown())
+    }
+
+    @Test
+    fun `the wheel is reported in the modes that report button presses, unless Shift is held`() {
+        assertTrue(TerminalMouse.reportsWheel(MouseMode.MOUSE_REPORTING_NORMAL, shift = false))
+        assertTrue(TerminalMouse.reportsWheel(MouseMode.MOUSE_REPORTING_BUTTON_MOTION, shift = false))
+        assertTrue(TerminalMouse.reportsWheel(MouseMode.MOUSE_REPORTING_ALL_MOTION, shift = false))
+        assertFalse(TerminalMouse.reportsWheel(MouseMode.MOUSE_REPORTING_NORMAL, shift = true))
+        assertFalse(TerminalMouse.reportsWheel(MouseMode.MOUSE_REPORTING_NONE, shift = false))
+        assertFalse(TerminalMouse.reportsWheel(MouseMode.MOUSE_REPORTING_FOCUS, shift = false), "focus reports only")
+        assertFalse(TerminalMouse.reportsWheel(MouseMode.MOUSE_REPORTING_HILITE, shift = false))
     }
 }

@@ -5,6 +5,7 @@ import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontSpec
 import dev.sluide.settings.SettingsStore
+import dev.sluide.settings.TerminalScrollSettings
 import javafx.event.Event
 import javafx.scene.Scene
 import javafx.scene.control.Button
@@ -49,7 +50,12 @@ class TerminalUiTest {
     private val fontSettings by lazy {
         FontSettings(SettingsStore(settingsDir.resolve("settings.properties")), FontSettings.systemDefaults())
     }
-    private val terminals by lazy { Terminals(fontSettings) }
+    private val scrollSettings by lazy {
+        TerminalScrollSettings(
+            SettingsStore(settingsDir.resolve("settings.properties")),
+        )
+    }
+    private val terminals by lazy { Terminals(fontSettings, scrollSettings) }
     private lateinit var stage: Stage
     private lateinit var root: StackPane
 
@@ -267,6 +273,47 @@ class TerminalUiTest {
         assertEquals(0, view.scrollOrigin, "not below the screen")
     }
 
+    /** A terminal showing `seq 1 200`, so there is history to scroll through, and a point on it. */
+    private fun scrollableTerminal(robot: FxRobot): Triple<TerminalView, Double, Double> {
+        val view = open(robot).view
+        type(robot, view, "seq 1 200")
+        eventually { assertTrue("200" in view.screenText().lines(), view.screenText()) }
+        return Triple(view, 2.5 * view.cell.width, 1.5 * view.cell.height)
+    }
+
+    @Test
+    fun `an open terminal follows the wheel speed, at 50 percent two wheel steps scroll three lines`(robot: FxRobot) {
+        val (view, x, y) = scrollableTerminal(robot)
+
+        robot.interact { scrollSettings.apply(trackpad = 100, wheel = 50) }
+        robot.interact { scroll(view, x, y, deltaY = 40.0) }
+        assertEquals(-1, view.scrollOrigin)
+        robot.interact { scroll(view, x, y, deltaY = 40.0) }
+        assertEquals(-3, view.scrollOrigin)
+    }
+
+    @Test
+    fun `trackpad gestures and their inertia scroll at the trackpad speed`(robot: FxRobot) {
+        val (view, x, y) = scrollableTerminal(robot)
+        robot.interact { scrollSettings.apply(trackpad = 200, wheel = 50) }
+
+        robot.interact { scroll(view, x, y, deltaY = 2.0, touchCount = 2) }
+        assertEquals(-6, view.scrollOrigin, "touch points")
+        robot.interact { scroll(view, x, y, deltaY = 2.0, inertia = true) }
+        assertEquals(-12, view.scrollOrigin, "inertia after the fingers lifted")
+
+        robot.interact {
+            scroll(view, x, y, deltaY = 0.0, type = ScrollEvent.SCROLL_STARTED)
+            scroll(view, x, y, deltaY = 2.0)
+        }
+        assertEquals(-18, view.scrollOrigin, "between the start and end of a gesture")
+        robot.interact {
+            scroll(view, x, y, deltaY = 0.0, type = ScrollEvent.SCROLL_FINISHED)
+            scroll(view, x, y, deltaY = 2.0)
+        }
+        assertEquals(-19, view.scrollOrigin, "a wheel step again after the gesture")
+    }
+
     private fun mouse(
         view: TerminalView,
         type: javafx.event.EventType<MouseEvent>,
@@ -318,27 +365,81 @@ class TerminalUiTest {
         assertEquals(0, view.scrollOrigin)
     }
 
+    @Test
+    fun `full-screen programs get one mouse report per wheel notch, at 50 percent one every second step`(
+        robot: FxRobot,
+    ) {
+        val view = open(robot).view
+        robot.interact { scrollSettings.apply(trackpad = 100, wheel = 50) }
+        type(robot, view, "printf '\\033[?1049h\\033[?1000h\\033[?1006h'; echo ready; cat -v")
+        eventually { assertTrue("ready" in view.screenText().lines(), view.screenText()) }
+
+        robot.interact {
+            repeat(2) { scroll(view, 2.5 * view.cell.width, 1.5 * view.cell.height, deltaY = 40.0) }
+            Event.fireEvent(view, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.ENTER, false, false, false, false))
+        }
+
+        // cat -v prints each report as ^[[<64;3;2M; two reports would share the line.
+        eventually { assertTrue("^[[<64;3;2M" in view.screenText().lines(), view.screenText()) }
+        assertFalse("M^[[<64" in view.screenText(), view.screenText())
+        assertEquals(0, view.scrollOrigin)
+    }
+
+    @Test
+    fun `full-screen programs without mouse reports get an arrow key per line, at 50 percent 1, 2, 1, 2`(
+        robot: FxRobot,
+    ) {
+        val view = open(robot).view
+        robot.interact { scrollSettings.apply(trackpad = 100, wheel = 50) }
+        // Like less: alternate screen, no mouse reports. cat's tty echoes each Down key as ^[[B.
+        type(robot, view, "printf '\\033[?1049h'; echo ready; cat -v")
+        eventually { assertTrue("ready" in view.screenText().lines(), view.screenText()) }
+
+        for (keys in listOf(1, 3, 4, 6)) {
+            robot.interact { scroll(view, 2.5 * view.cell.width, 1.5 * view.cell.height, deltaY = -40.0) }
+            eventually { assertEquals(keys, view.screenText().split("^[").size - 1, view.screenText()) }
+        }
+        assertEquals(0, view.scrollOrigin)
+    }
+
+    @Test
+    fun `Shift and the wheel scroll the history even when the program asks for mouse reports`(robot: FxRobot) {
+        val (view, x, y) = scrollableTerminal(robot)
+        type(robot, view, "printf '\\033[?1000h'; echo ready")
+        eventually { assertTrue("ready" in view.screenText().lines(), view.screenText()) }
+
+        robot.interact { scroll(view, x, y, deltaY = 40.0) }
+        assertEquals(0, view.scrollOrigin, "reported to the program")
+        robot.interact { scroll(view, x, y, deltaY = 40.0, shift = true) }
+        assertEquals(-3, view.scrollOrigin)
+    }
+
+    /** Fires a scroll event at the view: a wheel notch by default, a trackpad's with [inertia] or [touchCount]. */
     private fun scroll(
         view: TerminalView,
         x: Double,
         y: Double,
         deltaY: Double,
+        shift: Boolean = false,
+        inertia: Boolean = false,
+        touchCount: Int = 0,
+        type: javafx.event.EventType<ScrollEvent> = ScrollEvent.SCROLL,
     ) {
         val scene = view.localToScene(x, y)
         Event.fireEvent(
             view,
             ScrollEvent(
-                ScrollEvent.SCROLL,
+                type,
                 scene.x,
                 scene.y,
                 scene.x,
                 scene.y,
+                shift,
                 false,
                 false,
                 false,
                 false,
-                false,
-                false,
+                inertia,
                 0.0,
                 deltaY,
                 0.0,
@@ -347,7 +448,7 @@ class TerminalUiTest {
                 0.0,
                 ScrollEvent.VerticalTextScrollUnits.NONE,
                 0.0,
-                0,
+                touchCount,
                 null,
             ),
         )
@@ -435,7 +536,7 @@ class TerminalUiTest {
     @Test
     fun `a shell that cannot be started opens no tab and uses up no number`(robot: FxRobot) {
         val environment = System.getenv().toMutableMap()
-        val terminals = Terminals(fontSettings, environment)
+        val terminals = Terminals(fontSettings, scrollSettings, environment)
         val shell = dir.resolve("no-shell")
         environment["SHELL"] = shell.toString()
 

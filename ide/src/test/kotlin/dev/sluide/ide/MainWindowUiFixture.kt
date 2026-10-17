@@ -21,6 +21,7 @@ import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontsPage
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.SettingsStore
+import dev.sluide.settings.TerminalScrollSettings
 import dev.sluide.settings.ThemeSettings
 import dev.sluide.settings.ThemedWindows
 import dev.sluide.terminal.Terminals
@@ -122,7 +123,12 @@ abstract class MainWindowUiFixture {
         this.stage = stage
         fontSettings =
             FontSettings(SettingsStore(settingsDir.resolve("settings.properties")), FontSettings.systemDefaults())
-        terminals = Terminals(fontSettings, shellEnvironment)
+        terminals =
+            Terminals(
+                fontSettings,
+                TerminalScrollSettings(SettingsStore(settingsDir.resolve("settings.properties"))),
+                shellEnvironment,
+            )
         fileExplorer = FileExplorerView(watcher, fontSettings)
         editorArea = editorArea()
         mainWindow = mainWindow(projectService, fileExplorer, editorArea, CompletableFuture.completedFuture(true))

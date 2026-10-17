@@ -35,6 +35,7 @@ import javafx.scene.layout.Region
 import javafx.scene.text.Font
 import javafx.scene.text.Text
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.abs
 import kotlin.math.floor
 import kotlin.math.round
 import com.jediterm.core.Color as TermColor
@@ -42,7 +43,6 @@ import com.jediterm.core.input.MouseEvent as TermMouseEvent
 
 private val COPY = KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN)
 private val PASTE = KeyCodeCombination(KeyCode.V, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN)
-private const val SCROLL_LINES = 3
 
 /**
  * Draws a terminal's screen and scrollback on a canvas and sends keyboard input and pastes to its shell. The session
@@ -53,6 +53,8 @@ internal class TerminalView(
     startSession: (TerminalDisplay, TermSize) -> TerminalSession,
     private val colors: TerminalColors = TerminalColors(),
     font: FontSpec = FontSpec("Monospaced", 13.0),
+    /** How fast trackpads and mouse wheels scroll; set on the FX thread. */
+    var scrollSpeeds: ScrollSpeeds = ScrollSpeeds(),
 ) : Region(),
     TerminalDisplay {
     private val canvas = Canvas()
@@ -100,6 +102,15 @@ internal class TerminalView(
     internal var scrollOrigin = 0
         private set
 
+    /** Fractions of lines scrolled at speeds other than 100 %, for the scrollback and for arrow keys. */
+    private val scrollLines = ScrollAccumulator()
+
+    /** Fractions of wheel notches, for programs that get one mouse report per notch. */
+    private val scrollNotches = ScrollAccumulator(perEvent = 1)
+
+    /** Whether a scroll gesture (fingers on a trackpad) is going on. */
+    private var gesture = false
+
     val session: TerminalSession = startSession(this, size)
 
     /** Becomes `true` when the shell has ended. */
@@ -126,6 +137,8 @@ internal class TerminalView(
         addEventHandler(KeyEvent.KEY_PRESSED, ::onKeyPressed)
         addEventHandler(KeyEvent.KEY_TYPED, ::onKeyTyped)
         addEventHandler(ScrollEvent.SCROLL, ::onScroll)
+        addEventHandler(ScrollEvent.SCROLL_STARTED) { gesture = true }
+        addEventHandler(ScrollEvent.SCROLL_FINISHED) { gesture = false }
         addEventHandler(MouseEvent.MOUSE_PRESSED, ::onMousePressed)
         addEventHandler(MouseEvent.MOUSE_DRAGGED, ::onMouseDragged)
         addEventHandler(MouseEvent.MOUSE_RELEASED, ::onMouseReleased)
@@ -221,20 +234,35 @@ internal class TerminalView(
 
     private fun onScroll(event: ScrollEvent) {
         if (event.deltaY == 0.0) return
+        val up = event.deltaY > 0
+        val percent = if (isTrackpad(event)) scrollSpeeds.trackpad else scrollSpeeds.wheel
         val fullScreen = session.buffer.isUsingAlternateBuffer
-        if (fullScreen || mouseMode != MouseMode.MOUSE_REPORTING_NONE) {
-            // Full-screen programs scroll themselves: the wheel is reported to them, or sent as arrow keys.
-            val wheel = TerminalMouse.wheel(up = event.deltaY > 0, event.modifiers(), SCROLL_LINES)
-            if (sendMouse(event.x, event.y, wheel) || fullScreen) {
-                event.consume()
-                return
-            }
+        if (TerminalMouse.reportsWheel(mouseMode, event.isShiftDown)) {
+            // The program asked for mouse reports: one per notch, each meaning SCROLL_LINES lines.
+            val notches = abs(scrollNotches.add(up, percent))
+            val wheel = TerminalMouse.wheel(up, event.modifiers(), SCROLL_LINES)
+            repeat(notches) { sendMouse(event.x, event.y, wheel) }
+            event.consume()
+            return
         }
-        val lines = if (event.deltaY > 0) -SCROLL_LINES else SCROLL_LINES
-        scrollOrigin = (scrollOrigin + lines).coerceIn(-session.buffer.historyLinesCount, 0)
-        paint()
+        val lines = scrollLines.add(up, percent)
+        if (fullScreen) {
+            // Full-screen programs scroll themselves: without mouse reports, JediTerm sends an arrow key per line.
+            if (lines != 0) sendMouse(event.x, event.y, TerminalMouse.wheel(up, event.modifiers(), abs(lines)))
+        } else if (lines != 0) {
+            scrollOrigin = (scrollOrigin + lines).coerceIn(-session.buffer.historyLinesCount, 0)
+            paint()
+        }
         event.consume()
     }
+
+    /**
+     * Whether [event] comes from a trackpad rather than a mouse wheel. Relies on what macOS sends: trackpad scroll
+     * events between SCROLL_STARTED and SCROLL_FINISHED or with touch points, and after the fingers lift, inertia
+     * events; a Magic Mouse sends them too, so it counts as a trackpad. On Linux and Windows touchpads send plain
+     * wheel events and count as wheels.
+     */
+    private fun isTrackpad(event: ScrollEvent) = gesture || event.isInertia || event.touchCount > 0
 
     private fun onMousePressed(event: MouseEvent) {
         requestFocus()
@@ -342,10 +370,16 @@ internal class TerminalView(
     }
 
     private fun scrollToBottom() {
+        resetScrollFractions()
         if (scrollOrigin != 0) {
             scrollOrigin = 0
             paint()
         }
+    }
+
+    private fun resetScrollFractions() {
+        scrollLines.reset()
+        scrollNotches.reset()
     }
 
     private fun requestRepaint() {
@@ -490,7 +524,10 @@ internal class TerminalView(
     }
 
     override fun useAlternateScreenBuffer(useAlternateScreenBuffer: Boolean) {
-        Platform.runLater { scrollOrigin = 0 }
+        Platform.runLater {
+            scrollOrigin = 0
+            resetScrollFractions()
+        }
         requestRepaint()
     }
 

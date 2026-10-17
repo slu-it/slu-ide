@@ -21,6 +21,7 @@ import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontsPage
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.SettingsStore
+import dev.sluide.settings.TerminalScrollSettings
 import dev.sluide.settings.ThemeSettings
 import dev.sluide.settings.ThemedWindows
 import dev.sluide.terminal.Terminals
@@ -87,6 +88,7 @@ class ProjectWindowsUiTest {
                 registerBean(RecentProjects::class.java, Supplier { recentProjects })
                 registerBean(ProjectPicker::class.java, Supplier { ProjectPicker(recentProjects) })
                 registerBean(FontSettings::class.java, Supplier { FontSettings(store) })
+                registerBean(TerminalScrollSettings::class.java, Supplier { TerminalScrollSettings(store) })
                 registerBean(ThemedWindows::class.java, Supplier { ThemedWindows(ThemeSettings(store)) })
                 registerBean(
                     SettingsPages::class.java,

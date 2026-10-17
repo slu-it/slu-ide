@@ -3,6 +3,7 @@ package dev.sluide.terminal
 import com.jediterm.core.input.MouseWheelEvent
 import com.jediterm.terminal.emulator.mouse.MouseButtonCodes
 import com.jediterm.terminal.emulator.mouse.MouseButtonModifierFlags
+import com.jediterm.terminal.emulator.mouse.MouseMode
 import javafx.scene.input.MouseButton
 import com.jediterm.core.input.MouseEvent as TermMouseEvent
 
@@ -55,4 +56,20 @@ internal object TerminalMouse {
         modifiers: Modifiers,
         lines: Int,
     ) = MouseWheelEvent(if (up) WHEEL_UP else WHEEL_DOWN, flags(modifiers), lines)
+
+    /**
+     * Whether JediTerm reports a wheel turn to the program in [mode] (as a button press), rather than sending arrow
+     * keys or nothing. Holding Shift keeps the wheel for the IDE.
+     */
+    fun reportsWheel(
+        mode: MouseMode,
+        shift: Boolean,
+    ): Boolean = !shift && mode in WHEEL_REPORTING_MODES
+
+    private val WHEEL_REPORTING_MODES =
+        setOf(
+            MouseMode.MOUSE_REPORTING_NORMAL,
+            MouseMode.MOUSE_REPORTING_BUTTON_MOTION,
+            MouseMode.MOUSE_REPORTING_ALL_MOTION,
+        )
 }

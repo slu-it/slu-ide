@@ -2,6 +2,7 @@ package dev.sluide.dockersandbox
 
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.SettingsStore
+import dev.sluide.settings.TerminalScrollSettings
 import dev.sluide.terminal.Terminals
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.io.TempDir
@@ -23,7 +24,8 @@ class DockerSandboxTest {
     private val home by lazy { root.resolve("home").createDirectories() }
     private val project by lazy { home.resolve("project").createDirectories() }
     private val terminals by lazy {
-        Terminals(FontSettings(SettingsStore(root.resolve("settings.properties")), FontSettings.systemDefaults()))
+        val store = SettingsStore(root.resolve("settings.properties"))
+        Terminals(FontSettings(store, FontSettings.systemDefaults()), TerminalScrollSettings(store))
     }
     private val sandbox by lazy { sandbox(CompletableFuture.completedFuture(true)) }
 
