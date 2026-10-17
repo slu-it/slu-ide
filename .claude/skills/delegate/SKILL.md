@@ -17,7 +17,9 @@ Sonnet does well with a precise brief and guesses without one. Every implementer
 1. Goal and acceptance criteria (observable behavior).
 2. Files and classes to touch; anything outside them needs a stop-and-report.
 3. Signatures and behavior of new or changed API, including threading (FX thread or not).
-4. Tests to add or change, unit or `@Tag("ui")`.
+4. Tests to add or change, unit or `@Tag("ui")`, and the existing test classes to run, by class name: the related
+   UI test classes and, when an API changes, unit tests of dependent modules (e.g. `:ide`'s `SpringWiringTest`).
+   The implementer runs only those, its own and the touched modules' unit tests.
 5. Docs to update: feature page, ADR, `docs/index.md`.
 6. Docs to read (so the agent skips the 17 KB index), with sections where useful.
 7. Base: master, or the worktree and the commit to rebase onto.
@@ -35,6 +37,16 @@ Prefer fixing the brief over escalating: a stop-and-report usually means the pla
 ## Review loop
 Send reviewer findings back to the same implementer with SendMessage (it keeps its context), then review again.
 Squash review fixes non-interactively: `GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash <base>`.
+Subagents run only targeted tests; the full build is the final gate.
+
+## Final gate
+Once the reviewer reports no issues, the main session starts the display (`.claude/scripts/setup-display.sh`), runs
+`DISPLAY=:99 ./gradlew build -q` and `.claude/scripts/check-docs-index.sh` (in the background). It fixes failures
+itself instead of starting another implementer round: rerun the failing class with `--tests`, fix the cause (never by weakening the test), fold the fix
+into the matching commit (`fixup!` + autosquash). A fix that touches production code gets a short reviewer pass on
+that diff; then run the gate again. Hand back to the implementer only when the failure turns out to be a design
+problem, not a local fix. Known flake: about one full `uiTest` run in ten fails one module with "Unable to open
+DISPLAY"; rerun once.
 
 ## Parallel packages
 - At most three worktree agents at a time (12 cores, about 6 GB free).
@@ -48,6 +60,5 @@ Squash review fixes non-interactively: `GIT_SEQUENCE_EDITOR=: git rebase -i --au
 
 ## Merge gate (per package, on master)
 1. In the worktree: `git rebase master`; on master: `git merge --ff-only <branch>`.
-2. `./gradlew build -q`, `DISPLAY=:99 ./gradlew uiTest -q --rerun`, `.claude/scripts/check-docs-index.sh`.
-   Known flake: about one full `uiTest` run in ten fails one module with "Unable to open DISPLAY"; rerun once.
+2. The final gate on master (above). With `DISPLAY` set, `build` already includes `uiTest`.
 3. `git worktree remove --force <path>` and delete the branch; merged worktrees are not removed automatically.
