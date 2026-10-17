@@ -66,6 +66,9 @@ subprojects {
         tasks.withType<Test>().configureEach {
             // JavaFX and JNA load native libraries from the class path; without this, every test JVM warns about it.
             jvmArgs("--enable-native-access=ALL-UNNAMED")
+            // Tests that start Spring write their log file here, not into ~/.sluide/logs (ADR 0051).
+            // An argument provider, not systemProperty: the absolute path would be part of every test's cache key.
+            jvmArgumentProviders.add(LogFolderArgument(layout.buildDirectory.dir("test-logs")))
             testLogging {
                 quiet {
                     events(org.gradle.api.tasks.testing.logging.TestLogEvent.FAILED)
@@ -95,4 +98,11 @@ subprojects {
             }
         tasks.named("check") { dependsOn(uiTest) }
     }
+}
+
+/** `-Dsluide.log.dir` for test JVMs, internal so that checkouts in other folders share cached test results. */
+class LogFolderArgument(
+    @get:Internal val folder: Provider<Directory>,
+) : CommandLineArgumentProvider {
+    override fun asArguments() = listOf("-Dsluide.log.dir=${folder.get().asFile.path}")
 }
