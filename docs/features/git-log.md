@@ -11,21 +11,21 @@ tree `ChangeTreeView` (shared with the working-tree window), `LogComparison` (in
 (`RefOperations.kt`, without controls), the cherry-pick, revert and reset operations (`CommitOperations.kt`, without
 controls), Fetch and its summary (`FetchOperations.kt`, without controls) and their dialogs (`RefDialogs.kt`, `CommitDialogs.kt`); the commits (filtered by a `GitLogFilter`), refs,
 details, changed files, diffs, user name, tree paths and the cherry-pick or revert in progress come from `GitLog` in
-`modules/git`, the changes are made by `GitBranches`, `GitCommits` and `GitRemotes` (fetch) there, names are checked
+`modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRemotes` (fetch) and `GitPush` there, names are checked
 with `GitRefNames`.
 Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-commit-graph-layout.md),
 [ADR 0037](../adr/0037-ref-labels-and-commit-details.md), [ADR 0038](../adr/0038-changed-files-and-commit-diffs.md),
 [ADR 0039](../adr/0039-git-log-filters.md), [ADR 0040](../adr/0040-git-log-branches-pane.md),
 [ADR 0041](../adr/0041-git-write-operations.md), [ADR 0042](../adr/0042-git-log-commit-operations.md),
 [ADR 0043](../adr/0043-git-log-fetch.md), [ADR 0044](../adr/0044-git-log-compare.md),
-[ADR 0046](../adr/0046-git-log-file-history.md) and [ADR 0048](../adr/0048-commit-tab.md) (the Commit tab,
-`CommitView`)
+[ADR 0046](../adr/0046-git-log-file-history.md), [ADR 0048](../adr/0048-commit-tab.md) (the Commit tab,
+`CommitView`) and [ADR 0049](../adr/0049-push.md) (the Push dialog, `PushDialog`)
 
 - **Where and when:** for a folder whose git status is followed ([git-status.md](git-status.md): git is available and
   the folder has `.git`), the window shows a Git Log area under the editor area. Other folders, and a window without a
   folder, have no such area: no header, no divider.
-- **Collapsed by default:** only its header bar shows: a chevron, "Git Log" and Fetch (a down arrow) and Refresh
-  buttons on the right. Clicking the header (not its buttons) expands or collapses it, and so does **View → Git Log** (Alt+9, Cmd+9 on macOS),
+- **Collapsed by default:** only its header bar shows: a chevron, "Git Log" and Push (an up arrow), Fetch (a down
+  arrow) and Refresh buttons on the right. Clicking the header (not its buttons) expands or collapses it, and so does **View → Git Log** (Alt+9, Cmd+9 on macOS),
   which is disabled when there is no area. Expanding moves the focus to the commit table; collapsing while the table
   has the focus gives it back to the editor (the selected tab, or the editor area without tabs). While the Commit tab
   ([commit-and-push.md](commit-and-push.md)) or file histories ([file-history.md](file-history.md)) are open, "Git Log"
@@ -328,6 +328,11 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
   - **Disabled** while another operation runs, and once the log found no remotes (they are read with every refresh
     of the expanded log); before the log was first expanded it is enabled and says "No remotes to fetch." if there
     are none.
+- **Push** ([ADR 0049](../adr/0049-push.md)): the up arrow in the header ("Push… (Ctrl+Shift+K)", also while the log
+  is collapsed, left of Fetch) opens the Push dialog, as Git → Push… does ([commit-and-push.md](commit-and-push.md));
+  disabled once the log found no remotes, but not while an operation runs (the dialog's Push waits for it). The push
+  runs like a fetch: "Pushing main to origin/main…" with Cancel, then what was pushed, "Push Failed" with git's
+  message for a rejection.
 - **Compare** ([ADR 0044](../adr/0044-git-log-compare.md)), only reading:
   - **Compare with Current** in the branches pane's context menu, on one local branch, remote branch (also the current
     branch's upstream) or tag that is not `HEAD` or the current branch (disabled for those, folders, groups, several and
@@ -373,6 +378,6 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
 - Not yet implemented (next packages): a flat list of the changed files, their combined changes for several commits, comparing two branches or commits with each other (and the
   files since their merge base), the changes against each parent of a merge, a diff preview in the log, a date filter, dotted
   edges through commits hidden by filters, tracking information in the branches pane, remembering the area's height
-  and state, and more operations: updating local branches after a fetch, pull, push, merge, rebase, deleting remote branches, pushing tags; for
+  and state, and more operations: updating local branches after a fetch, pull, merge, rebase, deleting remote branches, pushing tags; for
   cherry-pick and revert several commits at once, a merge tool or three-way view, `-x` and edited messages; `reset
   --keep`; continuing or aborting merges, rebases and sequences from the bar.

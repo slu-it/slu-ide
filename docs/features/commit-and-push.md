@@ -50,6 +50,55 @@ changes are read and committed by `GitCommits.commitChanges` and `commit` in `mo
   read when it is shown again. It reads again when the window's git status changes (files saved or changed on disk),
   on Refresh and when `.git` changes. While reading, the tree stays. "Loading…", "No changes." and "The changes could
   not be read." show in the tree; a read that fails with a tree shown says so in the header.
-- Push: coming next (P14), with a Commit and Push button.
+- **Commit and Push…** (right of Commit, Shortcut+Alt+K in the tab, enabled like Commit) commits, and once the commit
+  is made opens the Push dialog; a failed or cancelled commit does not.
+
+## Push
+`PushDialog` (the window), `PushReader` (what it reads and shows, without controls) and the `PushOperation`
+(`PushOperations.kt`, without controls), opened by `GitLogView.showPush`; the target, what is outgoing and the push
+itself come from `GitPush` in `modules/git`. Decisions in [ADR 0049](../adr/0049-push.md).
+
+- **Opening it:** **Git → Push…** (Shortcut+Shift+K), disabled while the window has no git log area; the up arrow in
+  the log's header ("Push… (Ctrl+Shift+K)", also while collapsed, disabled once the log found no remote); Commit and
+  Push. A window of its own titled "Push Commits to origin", owned by the IDE window (so it stays above it) but not
+  modal: diffs opened from it can be looked at in the editor. About 900×560, resizable. One per window: opening it
+  again brings it to the front; another folder or closing the window closes it. Escape or Cancel closes it.
+- **Top row:** `main → origin : main  New`: the checked-out branch; the remote (a choice with several remotes, else
+  its name); the target branch, prefilled from git's configuration (the push remote, `remote.pushDefault` or the
+  upstream's remote; the upstream's branch on that remote, else the same name) and editable; "New" when the remote
+  does not have that branch as of the last fetch (the tooltip names the missing remote-tracking ref). A name git does
+  not take ("'a..b' is not a valid branch name.") shows below the row and disables Push. Edits are read after a pause
+  of 300 ms; Enter in the field does not push.
+- **Left, the outgoing commits:** "All 3 commits" first (selected), then each commit with its subject, author and date,
+  newest first; more than 1000 show as "All 1000+ commits" and a last row "and more…". "Loading…", "Nothing to push."
+  or "The commits could not be read." instead.
+- **Right, the files** of the selected row as in the log's changed files: for All those of `HEAD` against the merge
+  base with the remote branch (for a new branch, against the parent of the oldest outgoing commit), for a commit its
+  own against its first parent. Show Diff (double-click, Enter, Shortcut+D) opens the diff in an editor tab; what keeps
+  one from being shown ("README.md is a binary file.") is said in the dialog. Open Local File (F4) and Copy Path as in
+  the log.
+- **Notes above the buttons:** "origin/main has 2 commits that your branch does not have; a normal push will be
+  rejected. Fetch, then merge or rebase, or force push." when the remote is ahead and there are commits to send (Push
+  stays enabled, git answers); "Everything is up to date." when the remote branch is at `HEAD` (Push and Force Push
+  disabled); "Your branch is behind origin/main; nothing to push." when `HEAD` is behind it (only Force Push, in
+  Push's menu, unless the branch is protected); "As of the last fetch of origin." always: nothing is fetched first. A
+  new branch without new commits says "No new commits: pushing creates origin/feature at 1a2b3c4d." in place of the
+  commits, and can be pushed. A detached `HEAD` ("HEAD is detached: check out a branch to push it."), no commit
+  ("There is no commit to push.") or no remote ("The repository has no remote. Add one in a terminal: git remote add
+  <name> <url>.") is said in place of the commits.
+- **Push** pushes `HEAD`'s branch to the target and closes the dialog; the first push of a branch without an upstream
+  sets it. Disabled for the reasons above, while reading and while another operation runs (the dialog opens all the
+  same). The header says "Pushing main to origin/main…" with Cancel, then "Pushed 3 commits to origin/main.", "Pushed
+  main to origin/feature (new branch)." or "Everything up to date."; "Push cancelled." without a dialog. A rejection
+  shows "Push Failed" with "main could not be pushed to origin/main." and what to do above git's message. The log reads
+  again afterwards. No unsaved editors are asked about: a push changes no files.
+- **Force Push** (Push's menu) asks first: "Force push feature to origin/feature?" with "2 commits on origin/feature
+  that are not in your branch will be lost." (or "origin/feature will be set to 1a2b3c4d."), Cancel the default. It
+  replaces the remote branch only if it is still at the commit the dialog showed (missing, for a new branch): "Force
+  pushed main to origin/feature.", else rejected as changed since the last fetch. Disabled for `main` and `master` (in
+  any case, `Main` too); opening the menu there says "Force push to main is not allowed (protected branch)."
+- **Reading:** on the dialog's own thread, newest read wins, again whenever the dialog gains the focus, is opened again
+  or an operation (a fetch, a commit) ends; another checked-out branch takes its defaults again.
 - Not yet implemented: committing parts of a file (chunks or lines), changelists, commit checks, author and sign-off,
-  a history of earlier messages.
+  a history of earlier messages; pushing tags, skipping hooks, several branches at once, Push All up to Here, defining
+  remotes, pull, merge or rebase after a rejection.

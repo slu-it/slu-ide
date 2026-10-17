@@ -101,5 +101,6 @@ Git 2.53 behaves as follows (checked in tests):
   configuration says so).
 - The JVM may end without stopping a fetch when the application quits while one runs: the cancel is acted upon on the
   write thread, a daemon thread.
-- Limits: no "Update" of local branches (fast-forward of tracking branches), no pull or push, no fetch of submodules,
+- Limits: no "Update" of local branches (fast-forward of tracking branches), no pull or push (push:
+  [ADR 0049](0049-push.md)), no fetch of submodules,
   no progress percentage (git writes none without a terminal; the header names the remote being fetched).

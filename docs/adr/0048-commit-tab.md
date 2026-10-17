@@ -96,6 +96,6 @@ right ([ADR 0044](0044-git-log-compare.md)).
 - Whole files only: no partial commits of chunks or lines (a future item); no changelists; no commit checks
   (inspections, tests before committing), author, sign-off or skipping hooks; no history of earlier messages.
 - Whatever else is staged stays staged and goes into the next commit made in a terminal, as with IntelliJ.
-- Push comes in the next package (P14): the Push dialog, force push and a Commit and Push button, for which the row of
-  buttons keeps room.
+- Commit and Push… next to Commit (Shortcut+Alt+K) commits and then opens the Push dialog
+  ([ADR 0049](0049-push.md)).
 - One more thread per window while the tab exists.
