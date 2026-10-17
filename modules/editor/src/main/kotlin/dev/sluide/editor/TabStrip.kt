@@ -19,6 +19,7 @@ import javafx.scene.layout.Pane
 import javafx.scene.layout.Region
 import javafx.scene.shape.Rectangle
 import javafx.util.Duration
+import java.nio.file.Path
 import kotlin.math.abs
 
 private val SELECTED: PseudoClass = PseudoClass.getPseudoClass("selected")
@@ -265,6 +266,15 @@ internal class TabStrip(
     private fun Node.contains(target: EventTarget): Boolean =
         generateSequence(target as? Node) { it.parent }.any { it === this }
 
+    /**
+     * Shows the history of a tab's file, e.g. in the git log area (ADR 0046); `null` leaves Show History out of the
+     * tabs' context menus, which have it only for tabs showing a file on disk.
+     */
+    var showHistory: ((Path) -> Unit)? = null
+
+    /** Whether Show History is enabled for a tab's file; asked when its context menu opens. */
+    var canShowHistory: (Path) -> Boolean = { false }
+
     /** The context menu of the header of [tab]. */
     fun contextMenuOf(tab: EditorTab): ContextMenu = headers.single { it.tab === tab }.menu
 
@@ -339,6 +349,9 @@ internal class TabStrip(
                 item("Close Tabs to the Left") { close(editorTabs.leftOf(tab)) { editorTabs.closeLeftOf(tab) } }
             val closeRight =
                 item("Close Tabs to the Right") { close(editorTabs.rightOf(tab)) { editorTabs.closeRightOf(tab) } }
+            val file = tab as? OpenFile
+            val history = item("Show History") { file?.let { showHistory?.invoke(it.path) } }
+            val historyItems = listOf(SeparatorMenuItem(), history)
             return ContextMenu(
                 item("Close") { close(listOf(tab)) { editorTabs.close(tab) } },
                 SeparatorMenuItem(),
@@ -354,6 +367,12 @@ internal class TabStrip(
                     closeOthers.isDisable = editorTabs.tabs.size <= 1
                     closeLeft.isDisable = index <= 0
                     closeRight.isDisable = index >= editorTabs.tabs.lastIndex
+                    // Only for files, and only while the window offers it.
+                    items.removeAll(historyItems)
+                    if (file != null && showHistory != null) {
+                        items.addAll(historyItems)
+                        history.isDisable = !canShowHistory(file.path)
+                    }
                 }
             }
         }

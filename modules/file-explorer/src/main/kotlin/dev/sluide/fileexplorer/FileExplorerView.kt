@@ -85,6 +85,15 @@ class FileExplorerView(
      */
     var onDeleted: (path: Path, unsaved: List<Path>) -> Unit = { _, _ -> }
 
+    /**
+     * Shows the history of a file, e.g. in the git log area (ADR 0046); `null` leaves Show History out of the context
+     * menu. Set by the window.
+     */
+    var showHistory: ((Path) -> Unit)? = null
+
+    /** Whether Show History is enabled for a file (never for folders); asked when the context menu opens. */
+    var canShowHistory: (Path) -> Boolean = { false }
+
     /** Asks whether to delete an entry; shows a confirmation dialog, tests replace it, since it blocks. */
     internal var confirmDelete: (DeleteQuestion) -> Boolean = { askToDelete(scene?.window, it) }
 
@@ -169,12 +178,19 @@ class FileExplorerView(
         val newFolder = MenuItem("New Folder…").apply { setOnAction { create(menuTarget, folder = true) } }
         val rename = MenuItem("Rename…").apply { setOnAction { menuTarget?.let(::rename) } }
         val delete = MenuItem("Delete…").apply { setOnAction { menuTarget?.let(::delete) } }
+        val history =
+            MenuItem(
+                "Show History",
+            ).apply { setOnAction { historyTarget()?.let { showHistory?.invoke(it) } } }
+        val historySeparator = SeparatorMenuItem()
         return ContextMenu(
             newFile,
             newFolder,
             SeparatorMenuItem(),
             rename,
             delete,
+            historySeparator,
+            history,
             SeparatorMenuItem(),
             MenuItem("Refresh").apply { setOnAction { refreshAll() } },
         ).apply {
@@ -183,9 +199,15 @@ class FileExplorerView(
                 newFolder.isDisable = root == null
                 rename.isDisable = !canChange(menuTarget)
                 delete.isDisable = !canChange(menuTarget)
+                history.isVisible = showHistory != null
+                historySeparator.isVisible = showHistory != null
+                history.isDisable = historyTarget()?.let(canShowHistory) != true
             }
         }
     }
+
+    /** The file the context menu was opened for, for Show History; `null` for a folder or the empty area. */
+    private fun historyTarget(): Path? = menuTarget?.takeIf { !it.isDirectory }?.value
 
     /** Shows [root] and its content; `null` clears the view. */
     fun open(root: Path?) {

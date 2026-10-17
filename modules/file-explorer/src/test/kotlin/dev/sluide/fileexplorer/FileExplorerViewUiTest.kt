@@ -521,6 +521,35 @@ class FileExplorerViewUiTest {
     }
 
     @Test
+    fun `Show History is in the menu only with its hook, enabled for files it can show`(robot: FxRobot) {
+        val file = project.resolve("a.txt").createFile()
+        val other = project.resolve("b.txt").createFile()
+        project.resolve("sub").createDirectories()
+        robot.interact { view.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertFalse(menuItemFor(robot, cellNamed(robot, "a.txt"), "Show History").isVisible)
+
+        val shown = mutableListOf<Path>()
+        val asked = mutableListOf<Path>()
+        view.showHistory = { shown.add(it) }
+        view.canShowHistory = { path ->
+            asked.add(path)
+            path == file
+        }
+
+        val history = menuItemFor(robot, cellNamed(robot, "a.txt"), "Show History")
+        assertTrue(history.isVisible)
+        assertFalse(history.isDisable)
+        robot.interact { history.fire() }
+        assertEquals(listOf(file), shown)
+        assertTrue(menuItemFor(robot, cellNamed(robot, "b.txt"), "Show History").isDisable)
+        // Folders and the empty area have none, without asking.
+        assertTrue(menuItemFor(robot, cellNamed(robot, "sub"), "Show History").isDisable)
+        assertTrue(menuItemFor(robot, view, "Show History").isDisable)
+        assertEquals(listOf(file, other), asked)
+    }
+
+    @Test
     fun `renaming to the same name changes nothing, a failed rename shows the error`(robot: FxRobot) {
         val file = project.resolve("a.txt").createFile()
         val moves = mutableListOf<Pair<Path, Path>>()

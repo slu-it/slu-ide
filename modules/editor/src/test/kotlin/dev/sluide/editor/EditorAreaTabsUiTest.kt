@@ -2,6 +2,7 @@ package dev.sluide.editor
 
 import javafx.scene.Node
 import javafx.scene.control.Button
+import javafx.scene.control.MenuItem
 import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.input.MouseButton
 import javafx.stage.Stage
@@ -321,5 +322,38 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         robot.interact { menu.items.single { it.text == "Close All" }.fire() }
         WaitForAsyncUtils.waitForFxEvents()
         assertEquals(emptyList(), tabTitles(robot))
+    }
+
+    @Test
+    fun `Show History is in the menu of file tabs while it is offered, enabled for files it can show`(robot: FxRobot) {
+        val a = textFile("a.txt")
+        val b = textFile("b.txt")
+        open(robot, a, b)
+        val other = WarningTab("Terminal 1", null)
+        robot.interact { editor.open(other) }
+        WaitForAsyncUtils.waitForFxEvents()
+        val shown = mutableListOf<java.nio.file.Path>()
+        editor.showHistory = { shown.add(it) }
+        editor.canShowHistory = { it == a }
+
+        fun items(title: String): List<MenuItem> {
+            robot.interact { requestContextMenu(tabLabel(robot, title)) }
+            WaitForAsyncUtils.waitForFxEvents()
+            val tab = editor.tabs.single { it.title.value == title }
+            val menu = editor.tabStrip.contextMenuOf(tab)
+            robot.interact { menu.hide() }
+            return menu.items.toList()
+        }
+
+        val history = items("a.txt").single { it.text == "Show History" }
+        assertFalse(history.isDisable)
+        robot.interact { history.fire() }
+        assertEquals(listOf(a), shown)
+        assertTrue(items("b.txt").single { it.text == "Show History" }.isDisable)
+        assertTrue(items("Terminal 1").none { it.text == "Show History" }, "not for tabs without a file")
+
+        editor.showHistory = null
+        // Without it, the menu is as before, also its separators.
+        assertEquals(7, items("a.txt").size)
     }
 }
