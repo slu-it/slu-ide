@@ -25,6 +25,7 @@ import javafx.scene.control.MenuItem
 import javafx.scene.control.TreeItem
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
+import javafx.scene.layout.Region
 import javafx.stage.Stage
 import org.junit.jupiter.api.AfterEach
 import org.testfx.api.FxRobot
@@ -34,6 +35,7 @@ import java.time.Instant
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -297,6 +299,15 @@ abstract class GitLogWritesUiFixture {
                     .filter { it.isShowing }
                     .firstNotNullOfOrNull { it.scene?.root as? DialogPane }
             }.get()
+
+    /**
+     * Asserts that the content of the question [pane] asks for no height, so there is no empty band between the
+     * question and the buttons. Its preferred height, not its actual one: on Xvfb without a window manager the window
+     * can come out a few pixels taller, and the dialog pane gives that spare height to its content.
+     */
+    internal fun assertNoBandBelowQuestion(pane: DialogPane) {
+        assertEquals(0.0, (pane.content as Region).prefHeight(-1.0), "no empty band below the question")
+    }
 
     /** Waits for a dialog (a window of its own, found with [FxRobot.listWindows]) and returns its pane. */
     internal fun awaitDialog(robot: FxRobot): DialogPane {

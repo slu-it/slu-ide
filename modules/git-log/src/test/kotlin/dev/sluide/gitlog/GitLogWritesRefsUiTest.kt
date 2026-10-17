@@ -9,7 +9,6 @@ import javafx.scene.control.Label
 import javafx.scene.control.TextArea
 import javafx.scene.control.TextField
 import javafx.scene.input.KeyCode
-import javafx.scene.layout.Region
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -182,7 +181,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
                 "Overwrite?",
             question.headerText,
         )
-        assertEquals(0.0, (question.content as Region).height, "no empty band below the question")
+        assertNoBandBelowQuestion(question)
         assertTrue((question.lookupButton(ButtonType.CANCEL) as Button).isDefaultButton)
         assertEquals(2, writes.calls.size, "not moved before it is confirmed")
         press(robot, question, OVERWRITE_BUTTON)

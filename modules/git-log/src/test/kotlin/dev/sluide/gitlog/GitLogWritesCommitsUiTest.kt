@@ -15,7 +15,6 @@ import javafx.scene.control.ButtonType
 import javafx.scene.control.Label
 import javafx.scene.control.RadioButton
 import javafx.scene.control.TextArea
-import javafx.scene.layout.Region
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -84,7 +83,7 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
             pane.headerText,
         )
         assertTrue((pane.lookupButton(ButtonType.CANCEL) as Button).isDefaultButton)
-        assertEquals(0.0, (pane.content as Region).height, "no empty band below the question")
+        assertNoBandBelowQuestion(pane)
         press(robot, pane, ButtonType.CANCEL)
         assertEquals(emptyList(), writes.calls)
         assertEquals(emptyList(), fileChanges, "not asked before the merge is confirmed")
@@ -217,7 +216,7 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
                 "\nLocal changes in 3 files will be lost.",
             question.headerText,
         )
-        assertEquals(0.0, (question.content as Region).height, "no empty band below the question")
+        assertNoBandBelowQuestion(question)
         assertTrue((question.lookupButton(ButtonType.CANCEL) as Button).isDefaultButton)
         assertEquals(listOf("Reset"), fileChanges)
         press(robot, question, ButtonType.CANCEL)
