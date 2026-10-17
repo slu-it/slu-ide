@@ -11,8 +11,11 @@ import javafx.geometry.Orientation
 import javafx.scene.Node
 import javafx.scene.control.Button
 import javafx.scene.control.Label
+import javafx.scene.control.MenuItem
 import javafx.scene.control.TableView
+import javafx.scene.control.TreeCell
 import javafx.scene.control.TreeView
+import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
@@ -27,6 +30,8 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.nio.file.Path
+import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
 import kotlin.io.path.name
 import kotlin.io.path.writeText
@@ -297,6 +302,60 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         robot.interact { assertTrue(gitLogView.onShowWorkingTreeDiff(diff)) }
         assertSame(tab, editorArea.selectedTab)
         assertEquals(listOf("feature (1a2b3c4d)", "Working Tree (saved)"), titles())
+    }
+
+    @Test
+    fun `Show History in the explorer opens the file's history in a tab of the git log`(robot: FxRobot) {
+        assumeTrue(git.available, "git is not installed")
+        val commit = arrayOf("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q")
+        runGit("init", "-q")
+        project.resolve("old.md").writeText((1..20).joinToString("") { "line $it\n" })
+        runGit("add", ".")
+        runGit(*commit, "-m", "Initial commit")
+        runGit("mv", "old.md", "tracked.md")
+        runGit(*commit, "-m", "Rename")
+        project.resolve("other.md").writeText("other\n")
+        runGit("add", ".")
+        runGit(*commit, "-m", "Other file")
+        project.resolve("folder").createDirectories()
+
+        robot.interact { projectService.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        fun showHistoryItem(name: String): MenuItem {
+            val cell =
+                robot
+                    .lookup(".tree-cell")
+                    .queryAllAs(TreeCell::class.java)
+                    .single { (it.item as? Path)?.name == name }
+            robot.interact {
+                Event.fireEvent(
+                    cell,
+                    ContextMenuEvent(ContextMenuEvent.CONTEXT_MENU_REQUESTED, 1.0, 1.0, 1.0, 1.0, false, null),
+                )
+            }
+            WaitForAsyncUtils.waitForFxEvents()
+            val item = fileExplorer.contextMenu.items.single { it.text == "Show History" }
+            robot.interact { fileExplorer.contextMenu.hide() }
+            return item
+        }
+        assertTrue(showHistoryItem("folder").isDisable)
+        val item = showHistoryItem("tracked.md")
+        assertFalse(item.isDisable)
+
+        robot.interact { item.fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertTrue(gitLogView.expanded.get())
+        assertEquals(
+            listOf("History: tracked.md", "Log"),
+            robot
+                .lookup(".git-log-tab-title")
+                .queryAllAs(Label::class.java)
+                .map { it.text }
+                .sorted(),
+        )
+        eventually(robot) { assertEquals(listOf("Rename", "Initial commit"), shownSubjects(robot)) }
     }
 
     @Test

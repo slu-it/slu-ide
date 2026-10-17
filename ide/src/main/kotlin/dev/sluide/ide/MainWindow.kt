@@ -192,6 +192,11 @@ class MainWindow(
         // (ADRs 0041, 0042).
         gitLogView.beforeFileChange =
             { action -> gitStatus.root?.let { editorArea.saveBeforeGitChange(it, action) } ?: true }
+        // Show History in the explorer and the editor's tabs opens a file's history in the git log area (ADR 0046).
+        fileExplorer.showHistory = gitLogView::showHistory
+        fileExplorer.canShowHistory = ::canShowHistory
+        editorArea.showHistory = gitLogView::showHistory
+        editorArea.canShowHistory = ::canShowHistory
 
         // A window gets its folder once (ADR 0014); other folders open in new windows.
         projectService.projectFolder.subscribe { folder ->
@@ -219,6 +224,14 @@ class MainWindow(
 
         stage.scene = Scene(root, 1000.0, 700.0)
         stage.show()
+    }
+
+    /** Whether the git log area can show the history of [file]: while it is present, for a file below its repository. */
+    private fun canShowHistory(file: Path): Boolean {
+        val root = gitStatus.root ?: return false
+        val normalized = file.toAbsolutePath().normalize()
+        return gitLogPresent.get() && normalized != root && normalized.startsWith(root) &&
+            !Files.isDirectory(normalized)
     }
 
     /**
