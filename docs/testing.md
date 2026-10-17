@@ -14,7 +14,9 @@ service): tests of parallel modules on one display took each other's window focu
 ## Display handling
 - **Linux without `DISPLAY` and without `CI`:** `uiTest` is *skipped* (not failed), so a headless sandbox stays usable.
   Skipped is not verified: run `.claude/scripts/setup-display.sh`, `export DISPLAY=:99`, then `./gradlew uiTest`.
-- **CI:** `CI` is always set, so a missing display fails loudly. Linux jobs run Gradle under `xvfb-run -a`; macOS uses its native display.
+- **CI:** `CI` is always set, so a missing display fails loudly. The Linux job runs Gradle under `xvfb-run -a`;
+  the macOS job skips `uiTest` (about 30 minutes there). The *macOS UI tests* workflow
+  (`.github/workflows/macos-ui-tests.yml`, started by hand) runs them on the native macOS display.
 
 ## Writing UI tests
 - Use `@ExtendWith(ApplicationExtension::class)`, build the real component in a `@Start` method, and inspect it

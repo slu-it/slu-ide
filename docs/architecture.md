@@ -96,7 +96,7 @@ assembled from Gradle modules.
 `dev.sluide` to be found by component scanning.
 
 ## Build and release
-- **CI** (`.github/workflows/ci.yml`): `./gradlew build` on Linux and macOS for every push to `main`/`master` and every PR.
+- **CI** (`.github/workflows/ci.yml`): `./gradlew build --continue` on Linux, without `uiTest` on macOS, for every push to `main`/`master` and every PR.
 - **Release** (`.github/workflows/release.yml`): pushing a tag `vX.Y.Z` publishes `dev.sluide:ide-<os>-<arch>:X.Y.Z`
   (the fat jar) to https://maven.pkg.github.com/slu-it/slu-ide. The version comes from the tag via `-PreleaseVersion`.
   Platforms: linux-x64, linux-aarch64, mac-aarch64 ([ADR 0003](adr/0003-javafx-platform-jars.md)).

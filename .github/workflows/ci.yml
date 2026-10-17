@@ -33,8 +33,15 @@ jobs:
       - name: Install virtual display
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y xvfb
-      # UI tests (TestFX) need a display: Xvfb on Linux, the native one on macOS.
-      - run: ${{ runner.os == 'Linux' && 'xvfb-run -a ' || '' }}./gradlew build
+      # --continue: a failing module does not keep the others' tests from running and reporting.
+      # UI tests (TestFX) run on Linux only, under Xvfb: on macOS they took 30 minutes and only ever failed for
+      # reasons of their own. The macOS UI tests workflow runs them there on demand.
+      - name: Build
+        if: runner.os == 'Linux'
+        run: xvfb-run -a ./gradlew build --continue
+      - name: Build without UI tests
+        if: runner.os == 'macOS'
+        run: ./gradlew build -x uiTest --continue
       - name: Upload test reports
         if: failure()
         uses: actions/upload-artifact@v7
