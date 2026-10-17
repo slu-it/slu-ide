@@ -81,8 +81,8 @@ reads its right side from the file on disk, and the git log module depends on ne
 
 ## Consequences
 - Merges are compared with their first parent only; their changes against other parents are not shown.
-- The file icons are generic: the explorer's file-type icons are `internal` to `file-explorer`, which `git-log` does
-  not depend on. Sharing them (e.g. through a small icon module) is a possible later step.
+- The file icons were generic at first; they are replaced by the explorer's file-type icons, shared through the
+  `file-icons` module ([ADR 0047](0047-module-dependencies-and-shared-modules.md)).
 - Renames show only as far as git's `-M` detects them (50 % similarity by default); copies show as added files.
 - The texts are the blobs as stored, without filters: a repository that stores CRLF shows the lines as they are,
   without a conversion to the working tree's line endings; `.gitattributes` diff drivers are not applied.

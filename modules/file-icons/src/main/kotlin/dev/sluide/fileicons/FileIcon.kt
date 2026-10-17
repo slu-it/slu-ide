@@ -1,4 +1,4 @@
-package dev.sluide.fileexplorer
+package dev.sluide.fileicons
 
 import org.kordamp.ikonli.Ikon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignA
@@ -22,17 +22,16 @@ import org.kordamp.ikonli.materialdesign2.MaterialDesignV
 import org.kordamp.ikonli.materialdesign2.MaterialDesignW
 import org.kordamp.ikonli.materialdesign2.MaterialDesignZ
 import java.nio.file.Path
-import kotlin.io.path.extension
 import kotlin.io.path.name
 
 /**
- * The icons of the file explorer, from Material Design Icons (ADR 0012): every icon of the pack that stands for a
- * file type. A file gets the icon whose [names] contain its name, else the one whose [extensions] contain its
- * extension (both lower case); see [fileIconFor]. Each icon has a style class that colours it in `file-explorer.css`;
+ * The file icons of the explorer and the git log, from Material Design Icons (ADR 0012): every icon of the pack that
+ * stands for a file type. A file gets the icon whose [names] contain its name, else the one whose [extensions] contain
+ * its extension (both lower case); see [fileIconFor]. Each icon has a style class that colours it in `file-icons.css`;
  * related types (all images, all archives, …) share one. A new file type is an entry here and, if it needs a new
  * colour, a rule in the CSS.
  */
-internal enum class FileIcon(
+enum class FileIcon(
     val ikon: Ikon,
     val styleClass: String,
     val extensions: Set<String> = emptySet(),
@@ -393,13 +392,22 @@ private val iconsByName: Map<String, FileIcon> =
 private val iconsByExtension: Map<String, FileIcon> =
     FileIcon.entries.flatMap { icon -> icon.extensions.map { it to icon } }.toMap()
 
-/**
- * The icon for [path]: an open or closed folder, the icon of a known file name or else extension (case-insensitive),
- * or else [FileIcon.TEXT] or [FileIcon.BINARY] depending on [readable]. [readable] may read the file, so it is only
- * called for files of no known type.
- */
-internal fun fileIconFor(
+/** The icon for [path]; see the overload for a name. */
+fun fileIconFor(
     path: Path,
+    directory: Boolean,
+    expanded: Boolean,
+    readable: () -> Boolean,
+): FileIcon = fileIconFor(path.name, directory, expanded, readable)
+
+/**
+ * The icon for a file or folder called [name] (no path is built, so any text works): an open or closed folder, the
+ * icon of a known file name or else extension (the text after the last dot; case-insensitive), or else
+ * [FileIcon.TEXT] or [FileIcon.BINARY] depending on [readable]. [readable] may read the file, so it is only called
+ * for files of no known type.
+ */
+fun fileIconFor(
+    name: String,
     directory: Boolean,
     expanded: Boolean,
     readable: () -> Boolean,
@@ -410,8 +418,8 @@ internal fun fileIconFor(
         }
 
         else -> {
-            iconsByName[path.name.lowercase()]
-                ?: iconsByExtension[path.extension.lowercase()]
+            iconsByName[name.lowercase()]
+                ?: iconsByExtension[name.substringAfterLast('.', "").lowercase()]
                 ?: if (readable()) FileIcon.TEXT else FileIcon.BINARY
         }
     }

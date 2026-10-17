@@ -1,4 +1,4 @@
-package dev.sluide.fileexplorer
+package dev.sluide.fileicons
 
 import java.nio.file.Path
 import kotlin.test.Test
@@ -99,6 +99,20 @@ class FileIconTest {
     }
 
     @Test
+    fun `a name picks the same icon as the path with that name`() {
+        assertEquals(FileIcon.KOTLIN, fileIconFor("Main.kt", directory = false, expanded = false, readable = notCalled))
+        assertEquals(
+            FileIcon.KOTLIN,
+            fileIconFor("Größe.KT", directory = false, expanded = false, readable = notCalled),
+        )
+        assertEquals(FileIcon.CONFIG, fileIconFor(".env", directory = false, expanded = false, readable = notCalled))
+        assertEquals(FileIcon.GIT, fileIconFor(".gitignore", directory = false, expanded = false, readable = notCalled))
+        assertEquals(FileIcon.FOLDER_OPEN, fileIconFor("src/main/kotlin", directory = true, expanded = true, notCalled))
+        assertEquals(FileIcon.TEXT, fileIconFor("日本語", directory = false, expanded = false) { true })
+        assertEquals(FileIcon.BINARY, fileIconFor("données.zzz", directory = false, expanded = false) { false })
+    }
+
+    @Test
     fun `every name and extension belongs to one icon and is lower case`() {
         for (key in listOf(FileIcon::names, FileIcon::extensions)) {
             val owners =
@@ -114,7 +128,7 @@ class FileIconTest {
 
     @Test
     fun `every style class has a colour in the stylesheet`() {
-        val css = checkNotNull(FileExplorerView::class.java.getResource("file-explorer.css")).readText()
+        val css = checkNotNull(FileIcon::class.java.getResource("file-icons.css")).readText()
         val missing =
             FileIcon.entries
                 .map { it.styleClass }

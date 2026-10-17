@@ -1,5 +1,8 @@
 package dev.sluide.fileexplorer
 
+import dev.sluide.fileicons.FILE_ICONS_CSS
+import dev.sluide.fileicons.fileIconFor
+import dev.sluide.fileicons.show
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
@@ -38,7 +41,7 @@ import kotlin.math.roundToInt
 /**
  * Tree view showing the complete content of a folder, including hidden files. Every folder whose content has been
  * loaded is watched, so changes on disk show up by themselves; "Refresh" (context menu, F5) re-reads all of them.
- * Every entry has a [FileIcon], coloured by type in `file-explorer.css` and sized to the explorer font, and is marked
+ * Every entry has a [FileIcon], coloured by type in `file-icons.css` and sized to the explorer font, and is marked
  * as given by [markers]: a coloured name and bubbles after it.
  */
 @Component
@@ -140,6 +143,7 @@ class FileExplorerView(
         // The cells inherit the font.
         styleProperty().bind(font.map(FontSpec::toCss))
         stylesheets += checkNotNull(FileExplorerView::class.java.getResource("file-explorer.css")).toExternalForm()
+        stylesheets += FILE_ICONS_CSS
         addEventHandler(KeyEvent.KEY_PRESSED) { event ->
             val selected = selectionModel.selectedItem?.value
             val changeable = (selectionModel.selectedItem as? FileTreeItem)?.takeIf(::canChange)
@@ -532,9 +536,7 @@ class FileExplorerView(
                 fileIconFor(treeItem.value, treeItem.isDirectory, treeItem.isExpanded) {
                     treeItem.readable.value ?: canOpenFile(treeItem.value).also { treeItem.readable.value = it }
                 }
-            icon.iconCode = fileIcon.ikon
-            icon.styleClass.removeIf { it.startsWith(FILE_ICON_CLASS_PREFIX) }
-            icon.styleClass += fileIcon.styleClass
+            icon.show(fileIcon)
             graphic = content
         }
 
@@ -575,7 +577,6 @@ private const val MIN_START_WIDTH = 12.0
 private const val MAX_START_WIDTH = 24.0
 private const val ROW_EXTRA = 6.0
 
-private const val FILE_ICON_CLASS_PREFIX = "file-icon-"
 private const val FILE_MARKER_CLASS = "file-marker"
 private val nameStyleClasses = FileMarker.entries.map(FileMarker::nameStyleClass)
 

@@ -7,7 +7,7 @@ assembled from Gradle modules.
 | Path | Purpose |
 |------|---------|
 | `ide/` | Application module: launcher, Spring Boot configuration, main window. Produces the fat jar (`./gradlew :ide:bootJar`). |
-| `modules/<name>/` | One Gradle module per IDE capability: `file-explorer`, `editor` (tabs), `file-viewers` (views of files, change markers and side-by-side diffs; the previews of Markdown, HTML, SVG, CSV, cookie jars, notebooks, Mermaid, PEM and Bicep files and the image view are `javafx.web` WebViews; own tokenizers for TOML, Bicep and KQL), `file-watcher` (changes on disk), `terminal` (shells in editor tabs), `settings` (settings state, storage and dialog), `docker-sandbox` (`sbx` in terminal tabs), `git` (git status of the open repository, diffs against `HEAD`, pages of the git log, refs, commit details, changed files and their diffs, comparison counts and differences from the working tree, revisions resolved to commits and the branches containing a commit, the history of a file; checkouts and changes of branches and tags, cherry-pick, revert and reset; fetch), `git-log` (the git log area under the editor), `text-editing` (logic of editing text without JavaFX: line endings, changes on disk, indentation incl. `.editorconfig` via ec4j-core, line operations, comments, find and replace, go to line), `http-client` (`.http` files: requests run from the editor with environments and auth), `projects` (remembered projects and the project picker). |
+| `modules/<name>/` | One Gradle module per IDE capability: `file-explorer`, `editor` (tabs), `file-viewers` (views of files, change markers and side-by-side diffs; the previews of Markdown, HTML, SVG, CSV, cookie jars, notebooks, Mermaid, PEM and Bicep files and the image view are `javafx.web` WebViews; own tokenizers for TOML, Bicep and KQL), `file-watcher` (changes on disk), `terminal` (shells in editor tabs), `settings` (settings state, storage and dialog), `docker-sandbox` (`sbx` in terminal tabs), `git` (git status of the open repository, diffs against `HEAD`, pages of the git log, refs, commit details, changed files and their diffs, comparison counts and differences from the working tree, revisions resolved to commits and the branches containing a commit, the history of a file; checkouts and changes of branches and tags, cherry-pick, revert and reset; fetch), `git-log` (the git log area under the editor), `file-icons` (library: file-type icons and their colours, shared by the explorer and the git log), `text-editing` (logic of editing text without JavaFX: line endings, changes on disk, indentation incl. `.editorconfig` via ec4j-core, line operations, comments, find and replace, go to line), `http-client` (`.http` files: requests run from the editor with environments and auth), `projects` (remembered projects and the project picker). |
 | `gradle/libs.versions.toml` | Single place for dependency and plugin versions. |
 | `docs/` | This documentation. Start at [index.md](index.md). |
 | `.claude/` | Claude Code settings, agents, rules, scripts. |
@@ -68,6 +68,10 @@ assembled from Gradle modules.
     the diff of given texts for deleted files, in a `WorkingTreeDiffTab`; `false` when not shown as text), and tells it
     with `showStatus` when a file cannot be shown as text; its `beforeFileChange(action)` asks
     `EditorArea.saveBeforeGitChange`.
+  - `file-explorer` -> `file-icons` and `git-log` -> `file-icons` (`implementation`): both show files with the
+    file-type icons of `FileIcon`/`fileIconFor`, `FontIcon.show` and `FILE_ICONS_CSS`; `file-icons` is a plain library
+    without Spring beans ([ADR 0012](adr/0012-file-icons.md),
+    [ADR 0047](adr/0047-module-dependencies-and-shared-modules.md)).
   - `file-explorer`, `editor`, `terminal` -> `settings`: they use the configured fonts
     ([ADR 0008](adr/0008-settings.md)).
 - Shared build configuration (JDK toolchain, test setup, Spring BOM) is in the root `build.gradle.kts`.

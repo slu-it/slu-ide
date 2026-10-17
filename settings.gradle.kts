@@ -22,6 +22,7 @@ dependencyResolutionManagement {
 }
 
 include("modules:file-explorer")
+include("modules:file-icons")
 include("modules:file-viewers")
 include("modules:editor")
 include("modules:file-watcher")

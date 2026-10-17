@@ -1,5 +1,6 @@
 package dev.sluide.fileexplorer
 
+import dev.sluide.fileicons.FileIcon
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings

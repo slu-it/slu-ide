@@ -3,6 +3,10 @@
 - Status: accepted
 - Date: 2026-10-13
 
+Note (2026-10-17): the decision now lives in `modules/file-icons` (`FileIcon`, `fileIconFor`, `file-icons.css`), shared
+by `file-explorer` and `git-log`; see [ADR 0047](0047-module-dependencies-and-shared-modules.md). Mentions of
+`file-explorer` and `file-explorer.css` below describe the original place.
+
 ## Context
 The file explorer showed plain names. Users want icons for folders, readable files, binary files the IDE cannot
 show yet and the languages that have a code viewer, and more file types will follow. JavaFX ships no file icons,

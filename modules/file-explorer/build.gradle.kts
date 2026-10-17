@@ -16,9 +16,8 @@ dependencies {
     // Deliberate module API dependency: the tree uses the explorer font from the settings (ADR 0008).
     api(project(":modules:settings"))
     implementation(libs.spring.context)
-    // File icons: Material Design Icons as an icon font (ADR 0012).
-    implementation(libs.ikonli.javafx)
-    implementation(libs.ikonli.materialdesign2)
+    // Deliberate module dependency: the file-type icons and their colours are shared with the git log (ADR 0012, 0047).
+    implementation(project(":modules:file-icons"))
 
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
