@@ -14,7 +14,17 @@ assembled from Gradle modules.
 | `.github/` | CI/CD workflows. |
 
 ## Module rules
-- Feature modules (`modules/*`) never depend on `ide`. `ide` depends on all feature modules and wires them together.
+- Modules (`modules/*`) never depend on `ide`. `ide` depends on all feature modules and wires them together.
+- Modules may depend on other modules ([ADR 0047](adr/0047-module-dependencies-and-shared-modules.md)), without cycles
+  (Gradle refuses cycles anyway), but only on a module of the same capability family (`git-log` -> `git`) or on a small
+  foundation module meant for sharing (`settings`, `file-watcher`, `text-editing`, `file-icons`). Unrelated feature
+  modules do not depend on each other: `ide` wires them through callbacks (`git-log` with `editor` and `file-viewers`,
+  `git` with the explorer's markers). When two modules need the same piece of a third, it is extracted into a small
+  module rather than depending on the whole feature module. A foundation module may be a plain library without Spring
+  beans. The editor family (`editor`, `file-viewers`, `terminal`, `docker-sandbox`, `http-client`: what is shown as
+  editor tabs or file views) is one capability family, so `editor` -> `file-viewers`, `terminal` -> `editor`,
+  `docker-sandbox` -> `terminal` and `http-client` -> `file-viewers` follow the rule.
+- Every module dependency is listed below with its reason and commented in the module's `build.gradle.kts`.
 - Feature modules expose UI as JavaFX nodes/controls registered as Spring beans (`@Component`), so `ide` can inject them.
   Beans that hold the state of one window (a project) are `@Scope("window")`.
 - Cross-module state (e.g. the current project folder) lives in `ide` or a shared module, and modules receive it
