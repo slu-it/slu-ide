@@ -4,6 +4,8 @@ import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitCommitDetails
 import dev.sluide.git.GitConflictReason
+import dev.sluide.git.GitFetchChanges
+import dev.sluide.git.GitFetchResult
 import dev.sluide.git.GitFileDiff
 import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitLogFilter
@@ -88,6 +90,10 @@ class GitLogWritesUiTest {
     @Volatile
     private var currentRefs = refs
 
+    /** The remotes the source reads; `null` when they cannot be read. */
+    @Volatile
+    private var currentRemotes: List<String>? = listOf("origin")
+
     /** The cherry-pick or revert in progress the source reads. */
     @Volatile
     private var pendingPick: GitInProgress? = null
@@ -132,6 +138,8 @@ class GitLogWritesUiTest {
                 override fun refs(root: Path) = currentRefs
 
                 override fun pending(root: Path) = pendingPick
+
+                override fun remotes(root: Path) = currentRemotes
 
                 override fun details(
                     root: Path,
@@ -441,6 +449,8 @@ class GitLogWritesUiTest {
                 "New Branch\u2026",
                 "Rename\u2026",
                 "Delete",
+                null,
+                "Fetch",
             ),
             branches.tree.contextMenu.items
                 .map { it.text },
@@ -471,6 +481,153 @@ class GitLogWritesUiTest {
         assertEquals("- - - -", paneActions())
         selectBranches(robot, "Local/feature/a", "Remote/origin/old")
         assertEquals("- - - -", paneActions())
+    }
+
+    /** Whether the header's Cancel button shows. */
+    private fun cancelShown() = WaitForAsyncUtils.asyncFx<Boolean> { view.cancelButton.isVisible }.get()
+
+    @Test
+    fun `Fetch in the header fetches all remotes with Cancel shown meanwhile, then says what changed`(robot: FxRobot) {
+        currentRemotes = listOf("origin", "fork")
+        writes.remotes = listOf("origin", "fork")
+        openAndExpand(robot)
+        assertEquals("Fetch All Remotes", view.fetchButton.tooltip.text)
+        assertFalse(view.fetchButton.isDisable)
+        assertFalse(cancelShown())
+        writes.gate = CountDownLatch(1)
+        writes.fetchResult = { remote ->
+            GitFetchResult(
+                GitResult(true, ""),
+                changes =
+                    GitFetchChanges(
+                        newBranches =
+                            if (remote ==
+                                "origin"
+                            ) {
+                                1
+                            } else {
+                                0
+                            },
+                    ),
+            )
+        }
+        val loadsBefore = loads.size
+
+        robot.interact { view.fetchButton.fire() }
+
+        eventually { assertEquals("Fetching origin\u2026", status(robot)) }
+        assertTrue(cancelShown())
+        assertTrue(view.fetchButton.isDisable)
+        selectBranches(robot, "Remote/origin")
+        assertTrue(branches.fetchItem.isDisable, "no other operation meanwhile")
+        selectRows(robot, 1)
+        assertTrue(view.checkoutRevisionItem.isDisable)
+
+        writes.gate?.countDown()
+
+        eventually { assertEquals("Fetched 2 remotes: 1 new branch.", status(robot)) }
+        assertEquals(listOf("fetch origin", "fetch fork"), writes.calls)
+        assertEquals(listOf("sluide-git-write", "sluide-git-write"), writes.threads)
+        assertFalse(cancelShown())
+        assertFalse(view.fetchButton.isDisable)
+        assertEquals(emptyList(), fileChanges, "no unsaved-editor question")
+        eventually { assertTrue(loads.size > loadsBefore, "refreshed") }
+        assertNoDialog()
+    }
+
+    @Test
+    fun `Cancel stops the fetch and skips the other remotes without an error`(robot: FxRobot) {
+        currentRemotes = listOf("origin", "fork")
+        writes.remotes = listOf("origin", "fork")
+        openAndExpand(robot)
+        writes.gate = CountDownLatch(1)
+        val loadsBefore = loads.size
+
+        robot.interact { view.fetchButton.fire() }
+        eventually { assertTrue(cancelShown()) }
+        robot.interact { view.cancelButton.fire() }
+
+        eventually { assertEquals("Fetch cancelled.", status(robot)) }
+        assertEquals(listOf("fetch origin"), writes.calls)
+        assertFalse(cancelShown())
+        assertFalse(view.fetchButton.isDisable)
+        eventually { assertTrue(loads.size > loadsBefore, "refreshed") }
+        assertNoDialog()
+    }
+
+    @Test
+    fun `Fetch shows in the collapsed header and is disabled once the log found no remotes`(robot: FxRobot) {
+        currentRemotes = emptyList()
+        robot.interact { view.open(repo) }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertTrue(view.fetchButton.isVisible)
+        assertFalse(view.fetchButton.isDisable, "not known before the log is read")
+
+        openAndExpand(robot)
+        eventually { assertTrue(view.fetchButton.isDisable) }
+
+        currentRemotes = listOf("origin")
+        robot.interact { view.refresh() }
+        eventually { assertFalse(view.fetchButton.isDisable) }
+        robot.interact { view.expanded.set(false) }
+        robot.interact { view.fetchButton.fire() }
+        eventually { assertEquals("Fetched origin: nothing new.", status(robot)) }
+        assertEquals(listOf("fetch origin"), writes.calls)
+        assertFalse(view.expanded.get(), "the button does not expand the log")
+    }
+
+    @Test
+    fun `a remote that fails is shown in an error dialog while the header tells what was fetched`(robot: FxRobot) {
+        writes.remotes = listOf("origin", "gone")
+        openAndExpand(robot)
+        writes.fetchResult = { remote ->
+            if (remote == "gone") {
+                GitFetchResult(GitResult(false, "fatal: 'gone' does not appear to be a git repository"))
+            } else {
+                GitFetchResult(GitResult(true, ""), changes = GitFetchChanges(updatedBranches = 2))
+            }
+        }
+
+        robot.interact { view.fetchButton.fire() }
+
+        val pane = awaitDialog(robot)
+        assertEquals("Fetch Failed", (pane.scene.window as Stage).title)
+        assertEquals("gone could not be fetched.", pane.headerText)
+        assertEquals(
+            "fatal: 'gone' does not appear to be a git repository",
+            (pane.lookup(".git-message") as TextArea).text,
+        )
+        assertEquals("Fetched origin: 2 branches updated.", status(robot))
+        press(robot, pane, ButtonType.OK)
+    }
+
+    @Test
+    fun `Fetch in the branches pane fetches only the selected remote, if git has it`(robot: FxRobot) {
+        // origin is left out of fetching all remotes, but fetched when asked for, as by git fetch origin.
+        writes.remotes = listOf("fork")
+        currentRemotes = listOf("origin", "fork")
+        openAndExpand(robot)
+
+        selectBranches(robot, "Local/main")
+        assertTrue(branches.fetchItem.isDisable)
+        selectBranches(robot, "Remote/origin")
+        assertFalse(branches.fetchItem.isDisable)
+
+        fireLater(branches.fetchItem)
+
+        eventually { assertEquals("Fetched origin: nothing new.", status(robot)) }
+        assertEquals(listOf("fetch origin"), writes.calls)
+
+        selectBranches(robot, "Remote/origin/old")
+        fireLater(branches.fetchItem)
+        eventually { assertEquals(listOf("fetch origin", "fetch origin"), writes.calls) }
+
+        // The remote was removed; its remote branches are still there.
+        currentRemotes = listOf("fork")
+        robot.interact { view.refresh() }
+        eventually { assertTrue(branches.fetchItem.isDisable) }
+        selectBranches(robot, "Remote/origin")
+        assertTrue(branches.fetchItem.isDisable)
     }
 
     @Test

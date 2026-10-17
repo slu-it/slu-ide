@@ -2,6 +2,9 @@ package dev.sluide.gitlog
 
 import dev.sluide.git.GitBranchDeletion
 import dev.sluide.git.GitBranchTip
+import dev.sluide.git.GitCancellation
+import dev.sluide.git.GitFetchChanges
+import dev.sluide.git.GitFetchResult
 import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitPickResult
@@ -213,6 +216,32 @@ internal class FakeWrites : GitLogWrites {
         target: String,
         mode: GitResetMode,
     ) = call("reset ${mode.option} $target")
+
+    /** The remotes to fetch; `null` if they cannot be read. */
+    @Volatile
+    var remotes: List<String>? = listOf("origin")
+
+    /** What fetching a remote gives, by its name, unless the fetch was cancelled. */
+    @Volatile
+    var fetchResult: (String) -> GitFetchResult = { GitFetchResult(GitResult(true, ""), changes = GitFetchChanges()) }
+
+    override fun remotes(root: Path) = remotes
+
+    /** Waits for the [gate] like the others, but ends as soon as it is cancelled, as git would be stopped. */
+    override fun fetch(
+        root: Path,
+        remote: String,
+        cancellation: GitCancellation,
+    ): GitFetchResult {
+        threads += Thread.currentThread().name
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
+        while (gate?.await(10, TimeUnit.MILLISECONDS) == false && !cancellation.cancelled) {
+            if (System.nanoTime() > deadline) break
+        }
+        calls += "fetch $remote"
+        if (cancellation.cancelled) return GitFetchResult(GitResult(false, "Cancelled."), cancelled = true)
+        return fetchResult(remote)
+    }
 
     companion object {
         /** The commit a cherry-pick or revert makes by default. */

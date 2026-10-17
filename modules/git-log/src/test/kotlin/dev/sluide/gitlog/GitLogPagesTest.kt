@@ -46,6 +46,12 @@ class GitLogPagesTest {
     /** The root of every read of the cherry-pick or revert in progress. */
     private val pendingLoads = mutableListOf<Path>()
 
+    /** The remotes of each repository; missing means reading them fails. */
+    private val remoteLists = mutableMapOf<Path, List<String>>()
+
+    /** The root of every read of the remotes. */
+    private val remoteLoads = mutableListOf<Path>()
+
     /** The root of every load of the refs. */
     private val refLoads = mutableListOf<Path>()
     private val background = ArrayDeque<Runnable>()
@@ -78,6 +84,10 @@ class GitLogPagesTest {
             loadPending = { root ->
                 pendingLoads.add(root)
                 pendingPicks[root]
+            },
+            loadRemotes = { root ->
+                remoteLoads.add(root)
+                remoteLists[root]
             },
         )
 
@@ -193,6 +203,44 @@ class GitLogPagesTest {
         settle()
         pages.open(other)
         assertNull(pages.pending, "not for another repository")
+    }
+
+    @Test
+    fun `reads the remotes with every first page`() {
+        remoteLists[repo] = listOf("origin", "fork")
+        pages.open(repo)
+        pages.visible = true
+        settle()
+        assertEquals(listOf("origin", "fork"), pages.remotes)
+
+        pages.shown(9)
+        settle()
+        assertEquals(listOf(repo), remoteLoads, "not with further pages")
+
+        remoteLists[repo] = emptyList()
+        pages.refresh()
+        settle()
+        assertEquals(emptyList(), pages.remotes)
+
+        remoteLists.remove(repo)
+        pages.refresh()
+        settle()
+        assertNull(pages.remotes, "could not be read")
+
+        remoteLists[repo] = listOf("origin")
+        pages.refresh()
+        settle()
+        val commits = history.remove(repo)
+        pages.refresh()
+        settle()
+        assertNull(pages.remotes, "forgotten with a failed first page")
+        history[repo] = checkNotNull(commits)
+
+        pages.refresh()
+        settle()
+        assertEquals(listOf("origin"), pages.remotes)
+        pages.open(other)
+        assertNull(pages.remotes, "not for another repository")
     }
 
     @Test

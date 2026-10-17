@@ -10,6 +10,7 @@ import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCli
 import dev.sluide.git.GitCommits
 import dev.sluide.git.GitLog
+import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitStatusService
 import dev.sluide.gitlog.GitLogView
 import dev.sluide.httpclient.HttpClientSession
@@ -95,6 +96,7 @@ class ProjectWindowsUiTest {
                 register(GitLog::class.java)
                 register(GitBranches::class.java)
                 register(GitCommits::class.java)
+                register(GitRemotes::class.java)
                 val fallback = DefaultTextFileViewer()
                 registerBean(FileViewers::class.java, Supplier { FileViewers(listOf(fallback), fallback) })
                 // The window-scoped beans, as in the application.

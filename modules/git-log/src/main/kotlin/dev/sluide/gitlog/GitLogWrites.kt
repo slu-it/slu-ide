@@ -3,18 +3,21 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitBranchDeletion
 import dev.sluide.git.GitBranchTip
 import dev.sluide.git.GitBranches
+import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitCommits
+import dev.sluide.git.GitFetchResult
 import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitPickResult
+import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitResetMode
 import dev.sluide.git.GitResult
 import dev.sluide.git.GitUncheckedConflict
 import java.nio.file.Path
 
 /**
- * How the git log changes a repository (ADRs 0041, 0042); [GitBranches] and [GitCommits] in the application, a fake in
- * tests. Called off the FX thread, except [canPass].
+ * How the git log changes a repository (ADRs 0041, 0042, 0043); [GitBranches], [GitCommits] and [GitRemotes] in the
+ * application, a fake in tests. Called off the FX thread, except [canPass].
  */
 internal interface GitLogWrites {
     /** Whether [argument] can be passed to git unchanged in the JVM's locale. */
@@ -139,12 +142,23 @@ internal interface GitLogWrites {
         target: String,
         mode: GitResetMode,
     ): GitResult
+
+    /** The remotes fetching all fetches (not those with `skipFetchAll`); `null` if they cannot be read. */
+    fun remotes(root: Path): List<String>?
+
+    /** Fetches [remote], pruning its deleted branches; [cancellation] stops git. */
+    fun fetch(
+        root: Path,
+        remote: String,
+        cancellation: GitCancellation,
+    ): GitFetchResult
 }
 
 /** Changes the repository with the git command line. */
 internal class GitLogCliWrites(
     private val branches: GitBranches,
     private val commits: GitCommits,
+    private val gitRemotes: GitRemotes,
 ) : GitLogWrites {
     override fun canPass(argument: String) = branches.canPass(argument)
 
@@ -245,4 +259,12 @@ internal class GitLogCliWrites(
         target: String,
         mode: GitResetMode,
     ) = commits.reset(root, target, mode)
+
+    override fun remotes(root: Path) = gitRemotes.remotes(root)
+
+    override fun fetch(
+        root: Path,
+        remote: String,
+        cancellation: GitCancellation,
+    ) = gitRemotes.fetch(root, remote, cancellation)
 }

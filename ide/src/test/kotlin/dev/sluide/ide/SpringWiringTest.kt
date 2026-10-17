@@ -12,6 +12,7 @@ import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCli
 import dev.sluide.git.GitCommits
 import dev.sluide.git.GitLog
+import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitStatusService
 import dev.sluide.gitlog.GitLogView
 import dev.sluide.httpclient.HttpClientSession
@@ -67,6 +68,7 @@ class SpringWiringTest {
                         GitLog::class.java,
                         GitBranches::class.java,
                         GitCommits::class.java,
+                        GitRemotes::class.java,
                         GitLogView::class.java,
                         ProjectWindows::class.java,
                         SystemBrowser::class.java,

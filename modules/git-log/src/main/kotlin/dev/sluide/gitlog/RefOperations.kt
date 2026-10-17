@@ -1,6 +1,7 @@
 package dev.sluide.gitlog
 
 import dev.sluide.git.GitBranchTip
+import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefNames
@@ -15,8 +16,9 @@ import java.util.concurrent.atomic.AtomicLong
  * What an operation that changes the repository gave (ADR 0041): git's [result] (a failure is shown in an error
  * dialog), what the header says afterwards ([done], `null` if nothing was done), the branches git refused to delete
  * without force ([refused], with git's message [refusedMessage]), a question to ask before the operation may run
- * after all ([confirmation]; nothing was done then), and a cherry-pick or revert git stopped and left for the user
- * ([stopped], ADR 0042).
+ * after all ([confirmation]; nothing was done then), a cherry-pick or revert git stopped and left for the user
+ * ([stopped], ADR 0042), and the question above git's message in the error dialog if it is not the operation's
+ * ([failure], e.g. naming the remotes that could not be fetched, ADR 0043).
  */
 internal data class RefOutcome(
     val result: GitResult,
@@ -25,6 +27,16 @@ internal data class RefOutcome(
     val refusedMessage: String = "",
     val confirmation: RefConfirmation? = null,
     val stopped: PickStop? = null,
+    val failure: String? = null,
+)
+
+/**
+ * What an operation gets while it runs besides git: the [cancellation] of a [RefOperation.cancellable] one, and where
+ * to tell what it does now ([progress], e.g. which remote it fetches; from the thread it runs on).
+ */
+internal class RunContext(
+    val cancellation: GitCancellation = GitCancellation(),
+    val progress: (String) -> Unit = {},
 )
 
 /**
@@ -56,11 +68,24 @@ internal sealed interface RefOperation {
      */
     val fileChange: String?
 
+    /**
+     * Whether it may be stopped halfway (ADR 0043): only a fetch, which updates refs one by one and no files. A checkout
+     * stopped halfway would leave a half-switched working tree (ADR 0041).
+     */
+    val cancellable: Boolean get() = false
+
     /** Runs it with [writes] in the repository at [root], on the calling thread. */
     fun run(
         writes: GitLogWrites,
         root: Path,
     ): RefOutcome
+
+    /** [run], with the [context] of the run: a cancellation and where to tell its progress, if it uses them. */
+    fun run(
+        writes: GitLogWrites,
+        root: Path,
+        context: RunContext,
+    ): RefOutcome = run(writes, root)
 }
 
 /** Checks out the local branch [name]. */
@@ -323,15 +348,19 @@ internal data class BranchActions(
     val rename: GitRef?,
     /** The selected local branches and tags, if that is all the selection holds and none is current. */
     val delete: List<GitRef>,
+    /** The remote of the one selected remote, folder of a remote or remote branch, to fetch (ADR 0043). */
+    val fetch: String? = null,
 )
 
 /**
  * The [BranchActions] for the [selected] nodes of the branches pane; [currentBranch] is the checked-out branch's full
  * refname, whose remote branch of the same name is not checked out either (it would check out the current branch).
+ * What is fetched is the one of the [remotes] (all names, `git remote`) that the selected node is in or is.
  */
 internal fun branchActions(
     selected: List<BranchNode>,
     currentBranch: String? = null,
+    remotes: List<String> = emptyList(),
 ): BranchActions {
     val single = selected.singleOrNull() as? BranchLeaf
     val ref = single?.ref
@@ -367,12 +396,41 @@ internal fun branchActions(
                     !node.current &&
                     (node.ref.kind == GitRefKind.LOCAL_BRANCH || node.ref.kind == GitRefKind.TAG)
             }
+    val fetch = selected.singleOrNull()?.let { remoteOf(it, remotes) }
     return BranchActions(
         checkout,
         ref,
         ref?.takeIf { it.kind == GitRefKind.LOCAL_BRANCH },
         if (deletable) selected.map { (it as BranchLeaf).ref } else emptyList(),
+        fetch,
     )
+}
+
+/**
+ * The remote of [node] among the [remotes], the longest that matches: a remote or folder node below Remote is that
+ * remote or in it if its name (`team/a` for `Remote/team/a`) equals the remote's or starts with it and `/`; a remote
+ * branch is in it if its short name starts with the remote's and `/`. `null` for none: a remote that was removed, or
+ * a first segment that is no remote (`team` with only the remote `team/a`).
+ */
+private fun remoteOf(
+    node: BranchNode,
+    remotes: List<String>,
+): String? {
+    val (name, parent) =
+        when (node) {
+            is BranchRemote, is BranchFolder -> {
+                (node.path.takeIf { it.startsWith("$REMOTE/") }?.removePrefix("$REMOTE/") ?: return null) to true
+            }
+
+            is BranchLeaf -> {
+                (node.ref.shortName.takeIf { node.ref.kind == GitRefKind.REMOTE_BRANCH } ?: return null) to false
+            }
+
+            is BranchGroup -> {
+                return null
+            }
+        }
+    return remotes.filter { (parent && name == it) || name.startsWith("$it/") }.maxByOrNull { it.length }
 }
 
 /** What a name in a dialog names: a branch or a tag. */
@@ -418,8 +476,9 @@ internal fun nameProblem(
 
 /**
  * Runs the [RefOperation]s of a git log one at a time (ADR 0041): on [background] (the thread `sluide-git-write`),
- * the outcome handled through [dispatch]. While one runs, [running] is `true` and no other starts. The outcome of a
- * run started before the last [forget] is dropped.
+ * the outcome handled through [dispatch]. While one runs, [running] is `true` and no other starts; while it is one
+ * that can be [cancelled][cancel] (a fetch, ADR 0043) and is not yet, [cancellable] is `true`. The outcome of a run
+ * started before the last [forget] is dropped. Used on the JavaFX thread (or whatever [dispatch] stands for in tests).
  */
 internal class RefWriter(
     private val writes: GitLogWrites,
@@ -429,7 +488,13 @@ internal class RefWriter(
     private val _running = ReadOnlyBooleanWrapper(false)
     val running: ReadOnlyBooleanProperty = _running.readOnlyProperty
 
+    private val _cancellable = ReadOnlyBooleanWrapper(false)
+    val cancellable: ReadOnlyBooleanProperty = _cancellable.readOnlyProperty
+
     private val generation = AtomicLong()
+
+    /** The cancellation of the cancellable run going on; `null` without one. */
+    private var cancellation: GitCancellation? = null
 
     /**
      * Runs [operation] in the repository at [root] and hands its outcome to [done], unless one runs already: then
@@ -439,28 +504,59 @@ internal class RefWriter(
         root: Path,
         operation: RefOperation,
         done: (RefOutcome) -> Unit,
+    ): Boolean = run(root, operation, {}, done)
+
+    /** [run], and what the operation says it does meanwhile goes to [progress], unless its outcome is dropped. */
+    fun run(
+        root: Path,
+        operation: RefOperation,
+        progress: (String) -> Unit,
+        done: (RefOutcome) -> Unit,
     ): Boolean {
         if (_running.get()) return false
         _running.set(true)
         val current = generation.get()
+        val token = GitCancellation()
+        if (operation.cancellable) {
+            cancellation = token
+            _cancellable.set(true)
+        }
+        val context = RunContext(token) { text -> dispatch { if (generation.get() == current) progress(text) } }
         try {
             background {
                 val outcome =
                     try {
-                        operation.run(writes, root)
+                        operation.run(writes, root, context)
                     } catch (e: RuntimeException) {
                         RefOutcome(GitResult(false, e.message ?: e.toString()), null)
                     }
                 dispatch {
                     _running.set(false)
+                    if (cancellation === token) {
+                        cancellation = null
+                        _cancellable.set(false)
+                    }
                     if (generation.get() == current) done(outcome)
                 }
             }
         } catch (e: RuntimeException) {
             // E.g. the thread was shut down with the window.
             _running.set(false)
+            cancellation = null
+            _cancellable.set(false)
             throw e
         }
+        return true
+    }
+
+    /**
+     * Cancels the run going on if it is [cancellable] (git is stopped, the operation ends with what it did by then);
+     * whether there was one. Never blocks: git is stopped on the thread it runs on.
+     */
+    fun cancel(): Boolean {
+        val running = cancellation ?: return false
+        running.cancel()
+        _cancellable.set(false)
         return true
     }
 

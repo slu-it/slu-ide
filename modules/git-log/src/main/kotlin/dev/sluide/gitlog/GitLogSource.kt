@@ -9,6 +9,7 @@ import dev.sluide.git.GitLog
 import dev.sluide.git.GitLogFilter
 import dev.sluide.git.GitLogPage
 import dev.sluide.git.GitRefs
+import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitTreePath
 import java.nio.file.Path
 
@@ -42,6 +43,9 @@ internal interface GitLogSource {
     /** What git is in the middle of (a cherry-pick or revert, a merge…); `null` if nothing or on failure. */
     fun pending(root: Path): GitInProgress? = null
 
+    /** The names of all remotes (`git remote`, ADR 0043); `null` on failure (or if not known). */
+    fun remotes(root: Path): List<String>? = null
+
     /** The details of the commit [hash]; `null` on failure. */
     fun details(
         root: Path,
@@ -67,6 +71,7 @@ internal interface GitLogSource {
 /** Reads with the git command line. */
 internal class GitLogCliSource(
     private val gitLog: GitLog,
+    private val gitRemotes: GitRemotes,
 ) : GitLogSource {
     override fun page(
         root: Path,
@@ -87,6 +92,8 @@ internal class GitLogCliSource(
     override fun refs(root: Path) = gitLog.refs(root)
 
     override fun pending(root: Path) = gitLog.inProgress(root)
+
+    override fun remotes(root: Path) = gitRemotes.names(root)
 
     override fun details(
         root: Path,

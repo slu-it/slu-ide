@@ -12,6 +12,7 @@ import dev.sluide.git.GitPendingPick
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
+import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitTreePath
 import javafx.application.Platform
 import javafx.beans.binding.Bindings
@@ -54,6 +55,7 @@ import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
 import javafx.util.Callback
 import org.kordamp.ikonli.javafx.FontIcon
+import org.kordamp.ikonli.materialdesign2.MaterialDesignA
 import org.kordamp.ikonli.materialdesign2.MaterialDesignC
 import org.kordamp.ikonli.materialdesign2.MaterialDesignF
 import org.kordamp.ikonli.materialdesign2.MaterialDesignR
@@ -77,7 +79,8 @@ import java.util.concurrent.Executors
  * filters of the commits (ADR 0039), per window and reset by [open]. Left of them, the branches pane (ADR 0040).
  * The context menus of the table and the branches pane check out, create, rename and delete branches and tags
  * (ADR 0041); the table's also cherry-picks and reverts commits and resets the current branch, and a bar above the
- * table continues or aborts a cherry-pick or revert in progress (ADR 0042). Operations that change files ask
+ * table continues or aborts a cherry-pick or revert in progress (ADR 0042). Fetch in the header (all remotes) and in the
+ * branches pane (one remote) fetches, cancellable while it runs (ADR 0043). Operations that change files ask
  * [beforeFileChange] first.
  *
  * [source] reads the commits, refs, details, changed files and diffs on the thread `sluide-git-log`; [writes] changes
@@ -94,10 +97,10 @@ class GitLogView internal constructor(
 ) : BorderPane(),
     AutoCloseable {
     @Autowired
-    constructor(gitLog: GitLog, gitBranches: GitBranches, gitCommits: GitCommits) : this(
-        GitLogCliSource(gitLog),
+    constructor(gitLog: GitLog, gitBranches: GitBranches, gitCommits: GitCommits, gitRemotes: GitRemotes) : this(
+        GitLogCliSource(gitLog, gitRemotes),
         Platform::runLater,
-        GitLogCliWrites(gitBranches, gitCommits),
+        GitLogCliWrites(gitBranches, gitCommits, gitRemotes),
     )
 
     private val executor =
@@ -111,6 +114,7 @@ class GitLogView internal constructor(
             executor::execute,
             dispatch,
             loadPending = source::pending,
+            loadRemotes = source::remotes,
         )
 
     private val details =
@@ -172,7 +176,31 @@ class GitLogView internal constructor(
             setOnAction { refresh() }
         }
 
-    /** The header bar; clicking it (but not Refresh) expands or collapses the log. */
+    /** Whether the last read found no remote to fetch; `false` while that is not known (ADR 0043). */
+    private val noRemotes = SimpleBooleanProperty(false)
+
+    /** Fetches all remotes (ADR 0043); not while an operation runs or there is no remote. */
+    internal val fetchButton =
+        Button(null, FontIcon(MaterialDesignA.ARROW_DOWN)).apply {
+            styleClass += "git-log-fetch"
+            tooltip = Tooltip("Fetch All Remotes")
+            isFocusTraversable = false
+            setOnAction { start(Fetch()) }
+            disableProperty().bind(writer.running.or(noRemotes))
+        }
+
+    /** Cancels the fetch going on; shown only while there is one. */
+    internal val cancelButton =
+        Button("Cancel").apply {
+            styleClass += "git-log-cancel"
+            isFocusTraversable = false
+            minWidth = USE_PREF_SIZE
+            visibleProperty().bind(writer.cancellable)
+            managedProperty().bind(writer.cancellable)
+            setOnAction { writer.cancel() }
+        }
+
+    /** The header bar; clicking it (but not its buttons) expands or collapses the log. */
     internal val header: HBox =
         HBox(
             chevron,
@@ -197,14 +225,18 @@ class GitLogView internal constructor(
                         operationStatus,
                     ),
                 )
+                minWidth = 0.0
             },
+            cancelButton,
             Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
+            fetchButton,
             refreshButton,
         ).apply {
             styleClass += "git-log-header"
             alignment = Pos.CENTER_LEFT
             setOnMouseClicked { event ->
-                if (event.button == MouseButton.PRIMARY && !refreshButton.contains(event.target)) {
+                val onButton = listOf(refreshButton, fetchButton, cancelButton).any { it.contains(event.target) }
+                if (event.button == MouseButton.PRIMARY && !onButton) {
                     expanded.set(!expanded.get())
                 }
             }
@@ -364,6 +396,7 @@ class GitLogView internal constructor(
             newBranchFrom = { ref -> newBranch(ref.name, ref.shortName) }
             rename = ::renameBranch
             delete = ::deleteRefs
+            fetch = { remote -> start(Fetch(remote)) }
             writing.bind(writer.running)
         }
 
@@ -414,6 +447,8 @@ class GitLogView internal constructor(
                 GitLogState.IDLE -> {
                     showPending(null)
                     hasHead.set(false)
+                    noRemotes.set(false)
+                    branchesPane.remotes = emptyList()
                 }
 
                 GitLogState.LOADING -> {
@@ -423,6 +458,8 @@ class GitLogView internal constructor(
                 else -> {
                     branchesPane.show(pages.refs)
                     showPending(pages.pending)
+                    noRemotes.set(pages.remotes?.isEmpty() == true)
+                    branchesPane.remotes = pages.remotes.orEmpty()
                     hasHead.set(
                         pages.refs
                             ?.refs
@@ -466,7 +503,8 @@ class GitLogView internal constructor(
     /** Shows the log of the repository at [root]; `null` shows nothing. Loads once (or as soon as) [expanded]. */
     fun open(root: Path?) {
         fileDiffs.close()
-        // An operation going on in the previous repository ends unnoticed.
+        // An operation going on in the previous repository ends unnoticed; a fetch is stopped (ADR 0043).
+        writer.cancel()
         writer.forget()
         operationStatus.set("")
         // Before the pages, which may start loading and have the pane say so.
@@ -793,7 +831,7 @@ class GitLogView internal constructor(
         val action = operation.fileChange
         if (askFirst && action != null && !beforeFileChange(action)) return
         status.set("")
-        if (writer.run(root, operation) { outcome -> finished(operation, outcome) }) {
+        if (writer.run(root, operation, operationStatus::set) { outcome -> finished(operation, outcome) }) {
             operationStatus.set(operation.progress)
         }
     }
@@ -817,7 +855,7 @@ class GitLogView internal constructor(
         refresh()
         if (!outcome.result.success) {
             // Done all the same (a failing post-checkout hook): the header says what was done.
-            val header = outcome.done?.takeIf { outcome.result.changed } ?: operation.failure
+            val header = outcome.done?.takeIf { outcome.result.changed } ?: outcome.failure ?: operation.failure
             gitErrorDialog(scene?.window, operation.errorTitle, header, outcome.result.message).showAndWait()
         }
         outcome.stopped?.let { stop ->
@@ -914,9 +952,11 @@ class GitLogView internal constructor(
     }
 
     override fun close() {
+        // A fetch is stopped: harmless, it updates refs one by one and no files (ADR 0043).
+        writer.cancel()
         writer.forget()
-        // A running write is not interrupted: stopped halfway, a checkout would leave a half-switched working tree
-        // (ADR 0041). Git finishes on its own; its outcome is dropped.
+        // Any other running write is not interrupted: stopped halfway, a checkout would leave a half-switched working
+        // tree (ADR 0041). Git finishes on its own; its outcome is dropped.
         writeExecutor.shutdown()
         pages.close()
         details.close()

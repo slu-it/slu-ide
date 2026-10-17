@@ -42,7 +42,8 @@ import org.kordamp.ikonli.materialdesign2.MaterialDesignT
  * hands it to [navigate] (`null` for any other selection); a double-click, Enter or Filter Log by Branch hands the
  * full refnames of the selected branches to [filter]. Collapsed nodes (Tags at first) and the selection stay when the
  * refs are [shown][show] again. Its context menu also checks out, creates, renames and deletes branches and tags
- * through [checkout], [newBranchFrom], [rename] and [delete] ([branchActions], ADR 0041), not while [writing].
+ * through [checkout], [newBranchFrom], [rename] and [delete] ([branchActions], ADR 0041) and fetches a remote through
+ * [fetch] (ADR 0043), not while [writing].
  */
 internal class BranchesPane : BorderPane() {
     /** Shows the commit of the one selected branch; `null` when not exactly one branch is selected. */
@@ -65,6 +66,16 @@ internal class BranchesPane : BorderPane() {
 
     /** Asks whether to delete the given local branches and tags (Delete). */
     var delete: (List<GitRef>) -> Unit = {}
+
+    /** Fetches the given remote. */
+    var fetch: (String) -> Unit = {}
+
+    /** The names of all remotes, to tell which one a node belongs to for Fetch; empty while not known. */
+    var remotes: List<String> = emptyList()
+        set(value) {
+            field = value
+            updateActions()
+        }
 
     /** Whether an operation that changes the repository runs, during which no other can start. */
     val writing: BooleanProperty = SimpleBooleanProperty(false)
@@ -117,6 +128,7 @@ internal class BranchesPane : BorderPane() {
         MenuItem(NEW_BRANCH).apply { setOnAction { actions().newBranchFrom?.let(newBranchFrom) } }
     internal val renameItem = MenuItem("Rename…").apply { setOnAction { renameSelected() } }
     internal val deleteItem = MenuItem("Delete").apply { setOnAction { deleteSelected() } }
+    internal val fetchItem = MenuItem("Fetch").apply { setOnAction { actions().fetch?.let(fetch) } }
 
     internal val tree: TreeView<BranchNode> =
         TreeView<BranchNode>(TreeItem()).apply {
@@ -134,6 +146,8 @@ internal class BranchesPane : BorderPane() {
                     newBranchItem,
                     renameItem,
                     deleteItem,
+                    SeparatorMenuItem(),
+                    fetchItem,
                 )
             addEventFilter(KeyEvent.KEY_PRESSED) { event ->
                 if (event.code == KeyCode.ENTER && !event.isShortcutDown && enter()) event.consume()
@@ -376,7 +390,7 @@ internal class BranchesPane : BorderPane() {
         if (writing.get()) {
             BranchActions(null, null, null, emptyList())
         } else {
-            branchActions(tree.selectionModel.selectedItems.mapNotNull { it?.value }, refs?.currentBranch)
+            branchActions(tree.selectionModel.selectedItems.mapNotNull { it?.value }, refs?.currentBranch, remotes)
         }
 
     private fun renameSelected(): Boolean {
@@ -408,6 +422,7 @@ internal class BranchesPane : BorderPane() {
         newBranchItem.isDisable = actions.newBranchFrom == null
         renameItem.isDisable = actions.rename == null
         deleteItem.isDisable = actions.delete.isEmpty()
+        fetchItem.isDisable = actions.fetch == null
     }
 
     /** A group (its name), a remote or folder (a folder icon) or a branch (its ref icon, the current one in bold). */
