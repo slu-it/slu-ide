@@ -732,6 +732,9 @@ class GitLogTest {
             log.hashMatch(repo, GitLogFilter(text = other.take(10), revisions = listOf("refs/heads/main")))?.hash,
         )
         assertNull(log.hashMatch(repo, GitLogFilter(text = first.take(4), paths = listOf("b.txt"))))
+        // Compared with its parent, not the empty tree.
+        assertEquals(second, log.hashMatch(repo, GitLogFilter(text = second.take(8), paths = listOf("b.txt")))?.hash)
+        assertNull(log.hashMatch(repo, GitLogFilter(text = second.take(8), paths = listOf("a.txt"))))
         assertNull(log.hashMatch(repo, GitLogFilter(text = first.take(8), users = listOf("someone else"))))
         assertEquals(first, log.hashMatch(repo, GitLogFilter(text = first.take(8), users = listOf("TEST")))?.hash)
         assertNull(log.hashMatch(repo, GitLogFilter(text = first.take(3))), "too short")

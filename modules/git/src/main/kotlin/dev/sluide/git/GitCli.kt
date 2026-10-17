@@ -147,9 +147,9 @@ class GitCli(
     }
 
     /**
-     * The output of `git log --no-walk` for the commit [hash] alone (see [GitLogParser]) if it passes the users,
-     * paths and no merges of [filter] (not its text and revisions); empty if it does not. `null` if git is not
-     * available, fails or takes longer than 10 s, or for paths as [log] refuses them.
+     * The output of `git log` for the commit [hash] alone (see [GitLogParser]) if it passes the users, paths and no
+     * merges of [filter] (not its text and revisions); empty if it does not. `null` if git is not available, fails or
+     * takes longer than 10 s, or for paths as [log] refuses them.
      */
     internal fun logCommit(
         root: Path,
@@ -161,12 +161,13 @@ class GitCli(
         val arguments =
             buildList {
                 addAll(globalLogOptions(filter))
-                addAll(listOf("log", "--no-walk"))
+                add("log")
                 if (filter.noMerges) add("--no-merges")
                 addAll(patterns("", regex = false, matchCase = false, users = filter.users))
                 if (input.isNotEmpty()) add("--stdin")
                 addAll(logOutputOptions())
-                add(hash)
+                // The commit without its parents, not --no-walk: git 2.55 ignores the paths with --no-walk.
+                addAll(listOf(hash, "^$hash^@"))
                 add("--")
             }
         return runBytes(arguments, root, 10.seconds, input.takeIf { it.isNotEmpty() })?.toString(Charsets.UTF_8)

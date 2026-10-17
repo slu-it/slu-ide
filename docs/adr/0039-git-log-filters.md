@@ -45,8 +45,9 @@ paths may have characters that the JVM cannot pass to a process in a POSIX local
 - **Hash:** a text of 4–64 hexadecimal characters that names exactly one commit (`git rev-parse --verify -q
   <text>^{commit}`, whose result must start with the text, so a branch named like a hash does not count; ambiguous and
   unknown prefixes give none) is shown as the first row, ahead of the message matches, if it passes the users, paths
-  and no merges (`git log --no-walk <hash>` with those options); the branch filter is not applied to it. It is not
-  repeated when it also matches by message. Paging counts the commits git returned, not the rows.
+  and no merges (`git log <hash> ^<hash>^@` with those options; not `--no-walk`, with which git 2.55 ignores the
+  paths); the branch filter is not applied to it. It is not repeated when it also matches by message. Paging counts
+  the commits git returned, not the rows.
 - **Graph only where git rewrites the parents:** with either a path filter (`--parents`) or a branch filter, in either
   order, the parents are shown commits, so the graph works; with First Parent Only each row is laid out with its first
   parent only (`%P` still lists all, the changed files still compare with the first parent). Under a text or user
