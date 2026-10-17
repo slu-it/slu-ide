@@ -35,7 +35,10 @@ import kotlin.math.abs
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
-/** The real editor area in a stage, shared by the `EditorArea*UiTest` classes. Needs a display, see the `uiTest` Gradle task. */
+/**
+ * The real editor area in a stage, shared by the `EditorArea*UiTest` classes. Needs a display, see the `uiTest` Gradle
+ * task.
+ */
 abstract class EditorAreaUiFixture {
     @TempDir
     lateinit var dir: Path

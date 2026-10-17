@@ -19,7 +19,10 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** UI tests of the editor area: opening, closing, scrolling, dragging and the context menu of tabs. Needs a display, see the `uiTest` Gradle task. */
+/**
+ * UI tests of the editor area: opening, closing, scrolling, dragging and the context menu of tabs. Needs a display, see
+ * the `uiTest` Gradle task.
+ */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
 class EditorAreaTabsUiTest : EditorAreaUiFixture() {

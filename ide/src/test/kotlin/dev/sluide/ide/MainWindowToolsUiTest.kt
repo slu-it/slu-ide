@@ -29,7 +29,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** UI tests of the main window: settings, terminals and the Docker sandbox menu. Needs a display, see the `uiTest` Gradle task. */
+/**
+ * UI tests of the main window: settings, terminals and the Docker sandbox menu. Needs a display, see the `uiTest`
+ * Gradle task.
+ */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
 class MainWindowToolsUiTest : MainWindowUiFixture() {

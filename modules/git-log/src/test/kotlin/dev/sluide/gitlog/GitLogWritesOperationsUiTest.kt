@@ -20,7 +20,10 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-/** UI tests of the git log's writes: checkout, fetch and how failures and cancelling show. Needs a display, see the `uiTest` Gradle task. */
+/**
+ * UI tests of the git log's writes: checkout, fetch and how failures and cancelling show. Needs a display, see the
+ * `uiTest` Gradle task.
+ */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
 class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {

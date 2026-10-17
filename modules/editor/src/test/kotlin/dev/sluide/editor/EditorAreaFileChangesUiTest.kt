@@ -27,7 +27,10 @@ import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
-/** UI tests of the editor area: files changed, deleted or renamed on disk. Needs a display, see the `uiTest` Gradle task. */
+/**
+ * UI tests of the editor area: files changed, deleted or renamed on disk. Needs a display, see the `uiTest` Gradle
+ * task.
+ */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
 class EditorAreaFileChangesUiTest : EditorAreaUiFixture() {

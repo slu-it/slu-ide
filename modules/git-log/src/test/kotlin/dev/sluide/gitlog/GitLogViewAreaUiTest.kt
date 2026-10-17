@@ -25,7 +25,10 @@ import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
-/** UI tests of the git log view: collapsing, columns, paging, refresh, copying and states. Needs a display, see the `uiTest` Gradle task. */
+/**
+ * UI tests of the git log view: collapsing, columns, paging, refresh, copying and states. Needs a display, see the
+ * `uiTest` Gradle task.
+ */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
 class GitLogViewAreaUiTest : GitLogViewUiFixture() {

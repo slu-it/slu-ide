@@ -36,7 +36,10 @@ import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
-/** UI tests of the main window: the git log and the diffs of changed files. Needs a display, see the `uiTest` Gradle task. */
+/**
+ * UI tests of the main window: the git log and the diffs of changed files. Needs a display, see the `uiTest` Gradle
+ * task.
+ */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
 class MainWindowGitUiTest : MainWindowUiFixture() {

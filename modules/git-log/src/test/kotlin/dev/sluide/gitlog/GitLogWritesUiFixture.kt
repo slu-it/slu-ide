@@ -33,7 +33,10 @@ import java.util.concurrent.TimeUnit
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** The git log's operations that change the repository (ADR 0041), with fake reads and writes, shared by the `GitLogWrites*UiTest` classes. Needs a display. */
+/**
+ * The git log's operations that change the repository (ADR 0041), with fake reads and writes, shared by the
+ * `GitLogWrites*UiTest` classes. Needs a display.
+ */
 abstract class GitLogWritesUiFixture {
     internal val repo = Path.of("/repo")
 

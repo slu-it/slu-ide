@@ -31,7 +31,10 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
-/** UI tests of the git log view: the filter bar: text, options, reset and keyboard. Needs a display, see the `uiTest` Gradle task. */
+/**
+ * UI tests of the git log view: the filter bar: text, options, reset and keyboard. Needs a display, see the `uiTest`
+ * Gradle task.
+ */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
 class GitLogViewFilterBarUiTest : GitLogViewUiFixture() {

@@ -30,7 +30,10 @@ import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** UI tests of the main window: opening a project, the explorer and the tabs it opens. Needs a display, see the `uiTest` Gradle task. */
+/**
+ * UI tests of the main window: opening a project, the explorer and the tabs it opens. Needs a display, see the `uiTest`
+ * Gradle task.
+ */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
 class MainWindowProjectUiTest : MainWindowUiFixture() {

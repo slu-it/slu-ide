@@ -35,7 +35,10 @@ import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
-/** UI tests of the editor area: other file views: tabs, fonts, host and images. Needs a display, see the `uiTest` Gradle task. */
+/**
+ * UI tests of the editor area: other file views: tabs, fonts, host and images. Needs a display, see the `uiTest` Gradle
+ * task.
+ */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
 class EditorAreaViewsUiTest : EditorAreaUiFixture() {

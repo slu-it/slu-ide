@@ -33,7 +33,9 @@ import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
-/** UI tests of the editor area: the diff shown in and over the editor. Needs a display, see the `uiTest` Gradle task. */
+/**
+ * UI tests of the editor area: the diff shown in and over the editor. Needs a display, see the `uiTest` Gradle task.
+ */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
 class EditorAreaDiffUiTest : EditorAreaUiFixture() {

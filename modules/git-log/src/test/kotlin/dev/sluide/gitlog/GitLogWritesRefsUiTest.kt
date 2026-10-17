@@ -21,7 +21,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** UI tests of the git log's writes: branches and tags: pane actions, new, rename and delete. Needs a display, see the `uiTest` Gradle task. */
+/**
+ * UI tests of the git log's writes: branches and tags: pane actions, new, rename and delete. Needs a display, see the
+ * `uiTest` Gradle task.
+ */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
 class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {

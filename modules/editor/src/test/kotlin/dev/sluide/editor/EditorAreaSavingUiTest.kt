@@ -21,7 +21,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** UI tests of the editor area: unsaved changes, saving and asking to save before closing. Needs a display, see the `uiTest` Gradle task. */
+/**
+ * UI tests of the editor area: unsaved changes, saving and asking to save before closing. Needs a display, see the
+ * `uiTest` Gradle task.
+ */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
 class EditorAreaSavingUiTest : EditorAreaUiFixture() {

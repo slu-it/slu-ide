@@ -47,7 +47,10 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import javafx.scene.shape.Path as ShapePath
 
-/** The real git log view with a fake loader, shared by the `GitLogView*UiTest` classes. Needs a display, see the `uiTest` Gradle task. */
+/**
+ * The real git log view with a fake loader, shared by the `GitLogView*UiTest` classes. Needs a display, see the
+ * `uiTest` Gradle task.
+ */
 abstract class GitLogViewUiFixture {
     internal val repo = Path.of("/repo")
 
