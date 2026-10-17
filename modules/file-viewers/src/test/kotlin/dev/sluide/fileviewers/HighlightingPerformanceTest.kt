@@ -9,7 +9,8 @@ import kotlin.time.measureTime
 /**
  * Large files and long lines highlight in time linear in their size: no comparison of every span with every other
  * one, no regex that backtracks over a long line or recurses per character. The bounds are generous, so that a slow
- * machine does not fail them; the quadratic versions took from 5 to over 30 seconds.
+ * machine does not fail them; the quadratic versions took from 5 to over 30 seconds. A busy CI runner still took
+ * 3.1 s once for a linear highlighter that takes 0.6 s alone: the fastest of up to three runs counts.
  */
 class HighlightingPerformanceTest {
     private fun assertFast(
@@ -19,8 +20,9 @@ class HighlightingPerformanceTest {
         limit: Duration = 3.seconds,
     ) {
         highlighter.highlight("warm up\n")
-        val took = measureTime { highlighter.highlight(text) }
-        assertTrue(took < limit, "$name took $took")
+        val runs = mutableListOf<Duration>()
+        while (runs.size < 3 && runs.none { it < limit }) runs += measureTime { highlighter.highlight(text) }
+        assertTrue(runs.any { it < limit }, "$name took $runs")
     }
 
     private fun lines(
