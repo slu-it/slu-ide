@@ -67,6 +67,7 @@
 }
 
 .git-log-refresh,
+.git-log-push,
 .git-log-fetch {
     -fx-background-color: transparent;
     -fx-padding: 2 4 2 4;
@@ -74,6 +75,7 @@
 }
 
 .git-log-refresh:hover,
+.git-log-push:hover,
 .git-log-fetch:hover {
     -fx-background-color: -fx-hover-base;
 }
@@ -794,7 +796,8 @@
  * The reset dialog (ADR 0042): a window of its own, with this stylesheet added; what a hard reset loses in a warning
  * colour, redefined for the dark theme below.
  */
-.git-reset {
+.git-reset,
+.git-push {
     -git-warning: #b26a00;
 }
 
@@ -806,6 +809,109 @@
 .git-reset-warning {
     -fx-text-fill: -git-warning;
     -fx-opacity: 1;
+}
+
+/*
+ * The Push dialog (ADR 0049): a window of its own, with this stylesheet added; the row of where it pushes and the notes
+ * on the area's background, the commits and their files on the table's, the badge of a new branch in the colour of
+ * added files, notes muted.
+ */
+.git-push-top {
+    -fx-spacing: 2;
+    -fx-padding: 8 10 6 10;
+}
+
+.git-push-row {
+    -fx-spacing: 6;
+}
+
+.git-push-branch,
+.git-push-remote-name {
+    -fx-font-weight: bold;
+}
+
+.git-push-arrow {
+    -fx-opacity: 0.7;
+}
+
+.git-push-new {
+    -fx-text-fill: -git-change-added;
+    -fx-border-color: -git-change-added;
+    -fx-border-radius: 3;
+    -fx-padding: 0 4 0 4;
+    -fx-font-size: 0.9em;
+}
+
+.git-push-problem {
+    -fx-text-fill: -git-warning;
+}
+
+.git-push-body {
+    -fx-padding: 0;
+    -fx-background-insets: 0;
+}
+
+.git-push-commits,
+.git-push-files {
+    -fx-background-color: -fx-control-inner-background;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.git-push-cell {
+    -fx-spacing: 10;
+}
+
+.git-push-subject {
+    -fx-text-fill: -fx-text-background-color;
+}
+
+.git-push-all {
+    -fx-font-weight: bold;
+}
+
+.git-push-more,
+.git-push-author,
+.git-push-date {
+    -fx-text-fill: -fx-text-background-color;
+    -fx-opacity: 0.65;
+}
+
+.list-cell:filled:selected .git-push-author,
+.list-cell:filled:selected .git-push-date {
+    -fx-opacity: 0.9;
+}
+
+.git-push-placeholder {
+    -fx-text-fill: -fx-text-inner-color;
+    -fx-opacity: 0.7;
+    -fx-wrap-text: true;
+    -fx-padding: 8;
+}
+
+.git-push-bottom {
+    -fx-spacing: 4;
+    -fx-padding: 6 10 8 10;
+}
+
+.git-push-behind,
+.git-push-protected {
+    -fx-text-fill: -git-warning;
+}
+
+.git-push-fetch-note {
+    -fx-opacity: 0.6;
+    -fx-font-size: 0.9em;
+}
+
+/* Only Force Push, in Push's menu, can push: Push's own label looks disabled. */
+.git-push-force-only > .label {
+    -fx-opacity: 0.4;
+}
+
+.git-push-buttons {
+    -fx-spacing: 6;
+    -fx-padding: 4 0 0 0;
 }
 
 /* Single-class selector only: JavaFX applies descendant selectors in @media blocks whatever the scheme (ADR 0009). */
@@ -834,6 +940,10 @@
     }
 
     .git-reset {
+        -git-warning: #e8a040;
+    }
+
+    .git-push {
         -git-warning: #e8a040;
     }
 }

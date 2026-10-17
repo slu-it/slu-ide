@@ -135,11 +135,20 @@ internal class FileDiffs(
         commit: GitCommit,
         file: GitChangedFile,
         handle: (GitFileDiff?) -> Unit,
+    ) = request(root, commit.hash, commit.parents.firstOrNull(), file, handle)
+
+    /** Reads what [commit] changed in [file] against [parent] (against nothing if `null`), e.g. a push's base. */
+    fun request(
+        root: Path,
+        commit: String,
+        parent: String?,
+        file: GitChangedFile,
+        handle: (GitFileDiff?) -> Unit,
     ) {
         val current = generation.incrementAndGet()
         background {
             if (generation.get() != current) return@background
-            val diff = load(root, commit.hash, commit.parents.firstOrNull(), file)
+            val diff = load(root, commit, parent, file)
             dispatch { if (generation.get() == current) handle(diff) }
         }
     }

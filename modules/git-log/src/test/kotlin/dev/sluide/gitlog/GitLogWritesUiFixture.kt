@@ -8,6 +8,8 @@ import dev.sluide.git.GitFileDiff
 import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitLogFilter
 import dev.sluide.git.GitLogPage
+import dev.sluide.git.GitOutgoing
+import dev.sluide.git.GitPushTarget
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
@@ -104,6 +106,30 @@ abstract class GitLogWritesUiFixture {
     internal var workingTreeDiff: GitFileDiff? = GitFileDiff.Text("old\n", "new\n", emptyList())
     internal val workingTreeDiffLoads = CopyOnWriteArrayList<String>()
 
+    /** Where the source says the current branch is pushed by default (ADR 0049). */
+    @Volatile
+    internal var pushTarget: GitPushTarget? = GitPushTarget("origin", "main", hasUpstream = true)
+
+    /** What the source says a push to a remote's branch would send. */
+    @Volatile
+    internal var outgoing: (remote: String, branch: String) -> GitOutgoing? = { _, _ -> null }
+
+    /** Every read of what a push would send, as `<remote> <branch>`, with the thread it ran on. */
+    internal val outgoingReads = CopyOnWriteArrayList<String>()
+    internal val outgoingThreads = CopyOnWriteArrayList<String>()
+
+    /** The files a commit changed against a parent, as the source reads them. */
+    @Volatile
+    internal var changedFilesOf: (commit: String, parent: String?) -> List<GitChangedFile>? = { _, _ -> emptyList() }
+
+    /** Every read of the changed files, as `<commit> <parent or ->`. */
+    internal val changedFilesReads = CopyOnWriteArrayList<String>()
+
+    /** The diff of a commit's file the source reads, and every read as `<commit> <parent or -> <path>`. */
+    @Volatile
+    internal var commitFileDiff: GitFileDiff? = GitFileDiff.Text("old\n", "new\n", emptyList())
+    internal val fileDiffLoads = CopyOnWriteArrayList<String>()
+
     /** The skip of every page load. */
     internal val loads = CopyOnWriteArrayList<Int>()
 
@@ -155,14 +181,36 @@ abstract class GitLogWritesUiFixture {
                     root: Path,
                     commit: String,
                     firstParent: String?,
-                ): List<GitChangedFile> = emptyList()
+                ): List<GitChangedFile>? {
+                    changedFilesReads += "$commit ${firstParent ?: "-"}"
+                    return changedFilesOf(commit, firstParent)
+                }
 
                 override fun fileDiff(
                     root: Path,
                     commit: String,
                     firstParent: String?,
                     file: GitChangedFile,
-                ): GitFileDiff? = null
+                ): GitFileDiff? {
+                    fileDiffLoads += "$commit ${firstParent ?: "-"} ${file.path}"
+                    return commitFileDiff
+                }
+
+                override fun pushTarget(
+                    root: Path,
+                    branch: String,
+                ) = pushTarget
+
+                override fun outgoing(
+                    root: Path,
+                    remote: String,
+                    branch: String,
+                    limit: Int,
+                ): GitOutgoing? {
+                    outgoingReads += "$remote $branch"
+                    outgoingThreads += Thread.currentThread().name
+                    return outgoing(remote, branch)
+                }
 
                 override fun workingTreeFileDiff(
                     root: Path,

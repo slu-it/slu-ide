@@ -82,6 +82,8 @@ import java.time.format.FormatStyle
 import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
+import java.util.concurrent.ScheduledExecutorService
+import java.util.concurrent.TimeUnit
 
 /**
  * The git log area of a window (ADR 0035): a header bar ("Git Log", a chevron, Refresh) and, while [expanded], the
@@ -99,11 +101,13 @@ import java.util.concurrent.Executors
  * (ADR 0044). [showHistory] (and Show History in the changed files) opens a file's history in a tab of the area; while
  * one is open, the header's title becomes a row of tabs, the Log first, and the selected tab decides what the area shows
  * (ADR 0046). [showCommit] opens the Commit tab, right of the Log, to commit chosen files; its draft stays while it is
- * closed, until another folder (ADR 0048); [workingTreeChanged] has it read the changes again.
+ * closed, until another folder (ADR 0048); [workingTreeChanged] has it read the changes again. [showPush] (and Push in
+ * the header) opens the Push dialog, which pushes the current branch (ADR 0049).
  *
- * [source] reads the commits, refs, details, changed files and diffs on the thread `sluide-git-log` (a history and the
- * Commit tab on threads of their own); [writes] changes the repository on the thread `sluide-git-write`, one operation
- * at a time. Their results are handled through [dispatch], the JavaFX thread in the application.
+ * [source] reads the commits, refs, details, changed files and diffs on the thread `sluide-git-log` (a history, the
+ * Commit tab and the Push dialog on threads of their own); [writes] changes the repository on the thread
+ * `sluide-git-write`, one operation at a time. Their results are handled through [dispatch], the JavaFX thread in the
+ * application.
  */
 @Component
 // One instance per IDE window (the "window" scope of the ide module, ADR 0014).
@@ -260,7 +264,18 @@ class GitLogView internal constructor(
             disableProperty().bind(writer.running.or(noRemotes))
         }
 
-    /** Cancels the fetch going on; shown only while there is one. */
+    /** Opens the Push dialog (ADR 0049); not without a remote, but while an operation runs. */
+    internal val pushButton =
+        Button(null, FontIcon(MaterialDesignA.ARROW_UP)).apply {
+            styleClass += "git-log-push"
+            tooltip = Tooltip("Push… (${PUSH_KEYS.displayText})")
+            isFocusTraversable = false
+            minWidth = USE_PREF_SIZE
+            setOnAction { showPush() }
+            disableProperty().bind(noRemotes)
+        }
+
+    /** Cancels the fetch, commit or push going on; shown only while there is one. */
     internal val cancelButton =
         Button("Cancel").apply {
             styleClass += "git-log-cancel"
@@ -334,13 +349,15 @@ class GitLogView internal constructor(
             },
             cancelButton,
             Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
+            pushButton,
             fetchButton,
             refreshButton,
         ).apply {
             styleClass += "git-log-header"
             alignment = Pos.CENTER_LEFT
             setOnMouseClicked { event ->
-                val onButton = listOf(refreshButton, fetchButton, cancelButton).any { it.contains(event.target) }
+                val onButton =
+                    listOf(refreshButton, pushButton, fetchButton, cancelButton).any { it.contains(event.target) }
                 if (event.button == MouseButton.PRIMARY && !onButton) {
                     expanded.set(!expanded.get())
                 }
@@ -857,6 +874,51 @@ class GitLogView internal constructor(
     }
 
     /**
+     * Runs a read of the Push dialog on its thread after a delay in milliseconds (ADR 0049); tests drive the delay
+     * themselves.
+     */
+    internal var schedulePush: (ScheduledExecutorService, Long, Runnable) -> Unit =
+        { executor, delay, task -> executor.schedule(task, delay, TimeUnit.MILLISECONDS) }
+
+    /** The open Push dialog (ADR 0049); `null` while there is none. */
+    internal var pushDialog: PushDialog? = null
+        private set
+
+    /**
+     * Opens the Push dialog of the repository (ADR 0049), or brings the open one to the front; also while an operation
+     * runs, with Push disabled until it ends. Nothing without a repository.
+     */
+    fun showPush() {
+        val root = pages.root ?: return
+        pushDialog?.let { return it.show() }
+        val pushExecutor =
+            Executors.newSingleThreadScheduledExecutor { Thread(it, "sluide-git-push").apply { isDaemon = true } }
+        val reader =
+            PushReader(
+                root,
+                source,
+                { delay, task -> schedulePush(pushExecutor, delay, task) },
+                dispatch,
+            ) { name -> pushNameProblem(name) == null }
+        val dialog =
+            PushDialog(scene?.window, reader, writer.running, ::pushNameProblem).apply {
+                push = { operation -> start(operation) }
+                showDiff = ::showCommitDiff
+                openFile = { file -> localFile(file)?.let(onOpenFile) }
+                exists = { file -> localFile(file)?.let(fileExists) == true }
+            }
+        pushDialog = dialog
+        dialog.stage.addEventHandler(WindowEvent.WINDOW_HIDDEN) {
+            if (pushDialog === dialog) pushDialog = null
+            pushExecutor.shutdownNow()
+        }
+        dialog.show()
+    }
+
+    /** What is wrong with [name] as the branch to push to; `null` if nothing. */
+    private fun pushNameProblem(name: String) = nameProblem(name, RefNameKind.BRANCH, emptySet(), writes::canPass)
+
+    /**
      * The working tree changed (the window's git status, ADR 0013): the Commit tab reads its changes again, at once if
      * shown, else when it is shown next; nothing without one.
      */
@@ -1248,6 +1310,7 @@ class GitLogView internal constructor(
     fun open(root: Path?) {
         fileDiffs.close()
         closeWorkingTreeWindows()
+        pushDialog?.close()
         goToPopup.hide()
         // An operation going on in the previous repository ends unnoticed; a fetch is stopped (ADR 0043).
         writer.cancel()
@@ -1658,10 +1721,25 @@ class GitLogView internal constructor(
         row: GitLogRow,
         file: GitChangedFile,
     ) {
-        val root = pages.root ?: return
         val commit = row.commit
         val requestedAt = selections
-        fileDiffs.request(root, commit, file) { diff ->
+        showCommitDiff(commit.hash, commit.parents.firstOrNull(), file) { message ->
+            if (selections == requestedAt) showStatus(message)
+        }
+    }
+
+    /**
+     * Reads what [commit] changed in [file] against [parent] (the first parent, or a push's base, ADR 0049) and hands it
+     * to [onShowDiff]; a binary, too large or unchanged file, a submodule or a failure goes to [tell] instead.
+     */
+    private fun showCommitDiff(
+        commit: String,
+        parent: String?,
+        file: GitChangedFile,
+        tell: (String) -> Unit,
+    ) {
+        val root = pages.root ?: return
+        fileDiffs.request(root, commit, parent, file) { diff ->
             val name = file.path.substringAfterLast('/')
             val message =
                 when {
@@ -1691,7 +1769,7 @@ class GitLogView internal constructor(
                     }
                 }
             if (message != null) {
-                if (selections == requestedAt) showStatus(message)
+                tell(message)
             } else if (diff is GitFileDiff.Text) {
                 onShowDiff(
                     CommitFileDiff(
@@ -1699,8 +1777,8 @@ class GitLogView internal constructor(
                         file.path,
                         file.oldPath,
                         file.change,
-                        commit.hash,
-                        commit.parents.firstOrNull(),
+                        commit,
+                        parent,
                         diff.original,
                         diff.current,
                         diff.hunks,
@@ -1940,6 +2018,7 @@ class GitLogView internal constructor(
         histories.values.forEach { it.close() }
         commitTab?.close()
         closeWorkingTreeWindows()
+        pushDialog?.close()
         compareExecutor.shutdownNow()
         // A fetch is stopped: harmless, it updates refs one by one and no files (ADR 0043).
         writer.cancel()
