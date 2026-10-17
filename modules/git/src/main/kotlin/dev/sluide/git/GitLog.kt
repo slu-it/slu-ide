@@ -22,7 +22,8 @@ data class GitLogPage(
  * The commits of a repository (ADR 0035): those of all local branches, remote-tracking branches, tags and `HEAD`, in
  * date order, or those a [GitLogFilter] selects (ADR 0039). Stash and notes commits are left out. Also the refs
  * pointing at them and the details of a commit (ADR 0037), and the files a commit changed with their diffs (ADR 0038).
- * Also what a comparison of a ref with `HEAD` counts, and how the working tree differs from a commit (ADR 0044).
+ * Also what a comparison of a ref with `HEAD` counts, and how the working tree differs from a commit (ADR 0044), and
+ * the history of a file (ADR 0046).
  */
 @Component
 class GitLog(
@@ -51,6 +52,33 @@ class GitLog(
         val output = git.log(root, filter, skip, limit) ?: return null
         val commits = GitLogParser.parse(output)
         return GitLogPage(commits, complete = commits.size < limit)
+    }
+
+    /**
+     * The history of the file [path] (relative to [root], `/`-separated) from [start] on (a full hash; `null` for
+     * `HEAD`), following renames (ADR 0046): the commits that changed it, newest first, each with the file's path and
+     * status there; after the first [skip], at most [limit]. Empty for a file without commits (untracked) and while
+     * `HEAD` has no commit. `git log --skip` would not follow renames in the commits it skips, so every page reads the
+     * history from its start up to its end and drops the first [skip]. A [cancellation] stops git. `null` if git is not
+     * available, fails, takes longer than 60 s or is cancelled, or for a path with a line break. Runs git on the calling
+     * thread.
+     */
+    fun fileHistory(
+        root: Path,
+        path: String,
+        start: String? = null,
+        skip: Int,
+        limit: Int,
+        cancellation: GitCancellation? = null,
+    ): GitFileHistoryPage? {
+        require(skip >= 0) { "skip must not be negative: $skip" }
+        require(limit > 0) { "limit must be positive: $limit" }
+        start?.let(::requireHash)
+        if (path.isEmpty()) return null
+        val wanted = skip + limit
+        val output = git.fileHistory(root, path, start ?: "HEAD", wanted, cancellation) ?: return null
+        val entries = GitFileHistoryParser.parse(output, path)
+        return GitFileHistoryPage(entries.drop(skip), complete = entries.size < wanted)
     }
 
     /**

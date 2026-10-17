@@ -168,6 +168,39 @@ class GitCli(
     }
 
     /**
+     * The output of `git log --follow --name-status` for the file [path] from the revision [start] on, at most [limit]
+     * commits (see [GitFileHistoryParser], ADR 0046): every record starts with U+001E, then the commit as [log] gives
+     * it and, after a line break, the file's status and paths at that commit. The revision and the path go to git's
+     * standard input, so they reach it as UTF-8 whatever the JVM's locale; git takes the single pathspec `--follow`
+     * needs from there. An unborn `HEAD` gives an empty output (`--ignore-missing`). `--follow` turns off git's pruning
+     * by paths (and its changed-path Bloom filters), so it walks every commit: 60 s at most. A [cancellation] stops git.
+     * `null` if git is not available, fails, takes longer or is cancelled, or for a revision or path [logInput] refuses.
+     */
+    internal fun fileHistory(
+        root: Path,
+        path: String,
+        start: String,
+        limit: Int,
+        cancellation: GitCancellation? = null,
+    ): String? {
+        if (!available) return null
+        val input = logInput(listOf(start), listOf(path)) ?: return null
+        val arguments =
+            buildList {
+                // The path is a file's name, not a pattern.
+                addAll(listOf("--no-optional-locks", "--literal-pathspecs", "log", "--follow"))
+                // Renames detected whatever diff.renames says.
+                addAll(listOf("-M", "--name-status", "--ignore-missing", "--stdin"))
+                // The root commit adds the file, whatever log.showRoot says.
+                add("--root")
+                addAll(logOutputOptions(prefix = "%x1e"))
+                add("--max-count=$limit")
+                add("--")
+            }
+        return runBytes(arguments, root, 60.seconds, input, cancellation)?.toString(Charsets.UTF_8)
+    }
+
+    /**
      * The full object name of the one commit [prefix] (4 to 64 hexadecimal characters) names in the repository at
      * [root]; `null` if it names none or several (ambiguous), or if git is not available, fails or takes longer than
      * 3 s.
@@ -690,8 +723,8 @@ class GitCli(
             addAll(patterns(filter.text.trim(), filter.regex, filter.matchCase, filter.users))
         }
 
-    /** The format of the commits [GitLogParser] reads. */
-    private fun logOutputOptions() =
+    /** The format of the commits [GitLogParser] reads, each record started by [prefix] (ADR 0046). */
+    private fun logOutputOptions(prefix: String = "") =
         listOf(
             // Authors as mapped by .mailmap, for --author too, whatever log.mailmap says.
             "--use-mailmap",
@@ -701,7 +734,7 @@ class GitCli(
             // The output is read as UTF-8, whatever i18n.logOutputEncoding says.
             "--encoding=UTF-8",
             // %aN and %aE: name and email as mapped by .mailmap.
-            "--format=%H%x1f%P%x1f%aN%x1f%aE%x1f%at%x1f%s",
+            "--format=$prefix%H%x1f%P%x1f%aN%x1f%aE%x1f%at%x1f%s",
         )
 
     /**
@@ -767,18 +800,20 @@ class GitCli(
     ): String? = runBytes(arguments, directory, timeout)?.toString(Charsets.UTF_8)
 
     /**
-     * Runs git with [arguments] in [directory], [input] on its standard input; its output if it succeeds in time.
-     * Reads take no optional locks and drop what git says on its standard error.
+     * Runs git with [arguments] in [directory], [input] on its standard input; its output if it succeeds in time and is
+     * not stopped by [cancellation]. Reads take no optional locks and drop what git says on its standard error.
      */
     private fun runBytes(
         arguments: List<String>,
         directory: Path?,
         timeout: Duration,
         input: ByteArray? = null,
+        cancellation: GitCancellation? = null,
     ): ByteArray? {
-        val execution = execute(arguments, directory, timeout, input, write = false) ?: return null
-        // An output that may have been cut off is no answer.
-        return if (execution.exitValue == 0 && execution.complete) execution.output else null
+        val execution =
+            execute(arguments, directory, timeout, input, write = false, cancellation = cancellation) ?: return null
+        // An output that may have been cut off, or of a cancelled git, is no answer.
+        return if (execution.exitValue == 0 && execution.complete && !execution.cancelled) execution.output else null
     }
 
     /**
