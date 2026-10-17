@@ -376,12 +376,15 @@ class GitCliCancelTest {
         for (cancel in listOf(true, false)) {
             val pid = folder.resolve("pid-$cancel")
             val marker = folder.resolve("cleaned-$cancel")
+            val ready = folder.resolve("ready-$cancel")
             // Git (this script) ends on SIGTERM at once; its child takes a moment to clean up, as a git a hook started
-            // removes its lock files.
+            // removes its lock files. Git tells it started only once the child set its trap, so that a SIGTERM cannot
+            // reach the child first.
             val git =
                 fakeGit(
-                    "(trap 'sleep 0.3; echo done > \"$marker\"; exit 0' TERM; while true; do sleep 0.1; done) & " +
-                        "echo $$ > '$pid'; while true; do sleep 0.1; done",
+                    "(trap 'sleep 0.3; echo done > \"$marker\"; exit 0' TERM; : > '$ready'; " +
+                        "while true; do sleep 0.1; done) & " +
+                        "until [ -e '$ready' ]; do sleep 0.01; done; echo $$ > '$pid'; while true; do sleep 0.1; done",
                 )
             val cancellation = GitCancellation()
             val writing = startWriting(git, cancellation.takeIf { cancel }, pid, if (cancel) 60.seconds else 1.seconds)
@@ -399,10 +402,12 @@ class GitCliCancelTest {
     fun `a child that ignores SIGTERM and outlives git is killed once the grace period is over`() {
         val pid = folder.resolve("pid")
         val childPid = folder.resolve("child")
+        val ready = folder.resolve("ready")
+        // Git tells it started only once the child set its trap, so that a SIGTERM cannot reach the child first.
         val git =
             fakeGit(
-                "(trap '' TERM; while true; do sleep 0.1; done) & echo $! > '$childPid'; echo $$ > '$pid'; " +
-                    "while true; do sleep 0.1; done",
+                "(trap '' TERM; : > '$ready'; while true; do sleep 0.1; done) & echo $! > '$childPid'; " +
+                    "until [ -e '$ready' ]; do sleep 0.01; done; echo $$ > '$pid'; while true; do sleep 0.1; done",
             )
         val cancellation = GitCancellation()
         val writing = startWriting(git, cancellation, pid)
