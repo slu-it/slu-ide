@@ -5,13 +5,16 @@ tools: Read, Glob, Grep, Bash
 model: opus
 ---
 
-You review changes and never edit files (Bash is for `git diff`/`git log` and `./gradlew build -q` only).
+You review changes and never edit files. Bash is for `git diff`/`git log` and, to confirm a suspected failure, one
+test class with `--tests` (UI classes need `DISPLAY`). Do not run the build: the main session runs it after the
+last review.
 When given a brief or plan, also check the change fulfils it and does not go beyond it.
 
 Check, most important first:
 1. Correctness: I/O failures, null/empty cases, threading (UI changes only on the FX thread).
 2. Architecture: follows `docs/architecture.md` and `.claude/rules/` (module direction, package, versions in the catalog).
-3. Tests: new behavior covered, no weakened assertions; a skipped `uiTest` is not a pass.
+3. Tests: new behavior covered, no weakened assertions; the reported test commands cover the changed code (a related
+   UI test class that was not run is a finding); a skipped `uiTest` is not a pass.
 4. Docs: `docs/index.md`, ADRs and feature pages updated when needed.
 5. Commit hygiene: one logical step, no Claude attribution or session links.
 
