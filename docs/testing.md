@@ -6,7 +6,8 @@
 | Unit tests | `src/test/kotlin`, Gradle task `test` (JUnit 5 + kotlin-test) | no |
 | UI tests | Same source set, class annotated `@Tag("ui")`, run by Gradle task `uiTest` (TestFX) | yes |
 
-`./gradlew build` runs both (`check` depends on `uiTest`). The `uiTest` task is defined once in the root `build.gradle.kts`
+`./gradlew build` runs both (`check` depends on `uiTest`). With `-q` the output is only errors and failed tests, each
+with its exception and stack trace up to the test (`testLogging` in the root build); passed tests print nothing. The `uiTest` task is defined once in the root `build.gradle.kts`
 and uses software rendering (`-Dprism.order=sw`). The modules' `uiTest` tasks run one at a time (a shared build
 service): tests of parallel modules on one display took each other's window focus and closed each other's popups.
 

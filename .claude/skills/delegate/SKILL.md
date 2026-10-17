@@ -21,6 +21,7 @@ Sonnet does well with a precise brief and guesses without one. Every implementer
 5. Docs to update: feature page, ADR, `docs/index.md`.
 6. Docs to read (so the agent skips the 17 KB index), with sections where useful.
 7. Base: master, or the worktree and the commit to rebase onto.
+8. For large files, the classes or line ranges that matter, so the agent reads ranges instead of whole files.
 
 ## Escalate to Opus
 Pass `model: "opus"` to the `implementer` call when the task is:
@@ -47,6 +48,6 @@ Squash review fixes non-interactively: `GIT_SEQUENCE_EDITOR=: git rebase -i --au
 
 ## Merge gate (per package, on master)
 1. In the worktree: `git rebase master`; on master: `git merge --ff-only <branch>`.
-2. `./gradlew build`, `DISPLAY=:99 ./gradlew uiTest --rerun`, `.claude/scripts/check-docs-index.sh`.
+2. `./gradlew build -q`, `DISPLAY=:99 ./gradlew uiTest -q --rerun`, `.claude/scripts/check-docs-index.sh`.
    Known flake: about one full `uiTest` run in ten fails one module with "Unable to open DISPLAY"; rerun once.
 3. `git worktree remove --force <path>` and delete the branch; merged worktrees are not removed automatically.

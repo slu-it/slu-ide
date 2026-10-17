@@ -61,6 +61,17 @@ subprojects {
             useJUnitPlatform { excludeTags("ui") }
         }
 
+        // With `-q` Gradle would only say that tests failed; this names them with their exception, passed ones stay
+        // silent.
+        tasks.withType<Test>().configureEach {
+            testLogging {
+                quiet {
+                    events(org.gradle.api.tasks.testing.logging.TestLogEvent.FAILED)
+                    exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+                }
+            }
+        }
+
         val testSourceSet = extensions.getByType<SourceSetContainer>().named("test")
         val displayAvailable =
             providers.environmentVariable("DISPLAY").isPresent ||
@@ -76,6 +87,8 @@ subprojects {
                 useJUnitPlatform { includeTags("ui") }
                 // Software rendering is the most reliable pipeline on virtual displays.
                 systemProperty("prism.order", "sw")
+                // JavaFX loads its native libraries from the class path; without this, every test JVM warns about it.
+                jvmArgs("--enable-native-access=ALL-UNNAMED")
                 onlyIf("a display is available") { displayAvailable }
                 usesService(display)
                 shouldRunAfter(tasks.named("test"))

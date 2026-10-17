@@ -13,7 +13,7 @@ update and docs to read.
    `settings.gradle.kts`, apply `kotlin-jvm` (plus `javafx` if it uses JavaFX).
 3. Smallest change that fulfils the task, matching the surrounding code.
 4. Keep logic in plain Kotlin classes, outside JavaFX controls, so it is unit-testable without a toolkit.
-5. Add or adjust tests with the change, run `./gradlew build` (after `spotlessApply`) and report the real result.
+5. Add or adjust tests with the change, run `./gradlew build -q` (after `spotlessApply`) and report the real result.
 6. Update `docs/` and `docs/index.md` when behavior, structure or decisions change.
 
 Stop and report instead of guessing when the brief leaves a design decision open or the code contradicts it
