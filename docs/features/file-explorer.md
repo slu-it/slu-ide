@@ -17,7 +17,8 @@
 - Children are loaded lazily when a folder is first expanded (`FileTreeItem`), so large trees and symlink cycles
   are not traversed eagerly. Unreadable folders appear empty.
 - Double-click or Enter on a file calls `onOpenFile` (folders keep their expand behavior). `MainWindow` passes the
-  file to the editor area, which opens it only if a file viewer accepts it ([editor-tabs.md](editor-tabs.md)).
+  file to the editor area, which opens it only if a file viewer accepts it ([editor-tabs.md](editor-tabs.md)) and moves
+  the focus into it ([ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md)).
 - Changes on disk show up by themselves. Every loaded folder is watched ([file-watching.md](file-watching.md)), and
   on a change `FileTreeItem.refresh()` re-reads it. Unchanged items are kept, so expanded folders stay expanded
   and the selection stays. A loaded subfolder that is deleted and recreated (e.g. `build/`) is watched again.

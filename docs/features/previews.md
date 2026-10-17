@@ -17,12 +17,13 @@ Images, SVG files, Mermaid files and Bicep resource graphs zoom; Markdown and no
 - **Keys** (while the preview or its zoom controls have the focus, never in the source beside it; the zoom buttons and
   the Source / Split / Preview toggles never take the focus): Shortcut + `+` (also `=` and numpad `+`) zooms in,
   Shortcut + `-` zooms out, Shortcut + `0` shows 100%, Shortcut + `9` fits.
-- **Focus:** like the terminal, an image or a diagram takes the focus whenever its tab is shown, so the keys work at
-  once. A Mermaid file opens in Split and focuses the diagram, so typing needs a click in the source; a Bicep file opens
-  in Source and keeps the focus where it is. Opening an image or a diagram from the file explorer (double-click or
-  Enter) therefore moves the focus out of the tree, unlike a text file. Renaming or moving an image to a name of the
-  same type keeps its view and the focus; to another type (e.g. png to jpg) the tab gets a new view, which takes the
-  focus. The zoom percentage has a fixed width (that of "1600%"), so the buttons beside it do not move.
+- **Focus** ([ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md)): when its tab is opened or chosen, an
+  image, a preview shown alone (SVG, notebook, PEM) or a zooming preview in Split (Mermaid, Bicep) focuses its web
+  view, so the keys work at once; typing in the source beside a diagram needs a click there. Other previews in Split
+  (Markdown, HTML, CSV) and previews in Source (Bicep by default) focus their source. Renaming or moving an image to a
+  name of the same type keeps its view and the focus; to another type (e.g. png to jpg) the tab gets a new view, which
+  takes the focus if the old view had it (a rename in the file tree leaves it there). The zoom percentage has a fixed
+  width (that of "1600%"), so the buttons beside it do not move.
 - Zoom in and out go to the next of 10, 25, 33, 50, 67, 75, 100, 125, 150, 200, 300, 400, 600, 800, 1200, 1600%,
   keeping the middle of the view in place. **Shortcut+wheel** and **pinching** on a trackpad zoom smoothly around the
   pointer. Zooming stays within 10%–1600%.

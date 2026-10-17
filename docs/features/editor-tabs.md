@@ -7,6 +7,14 @@
   new tab, using the view from `FileViewers`, and selects it. A file that is already open just gets its tab selected.
   If no viewer can open the file, or reading it fails, nothing happens and `open` returns `false`; `canOpen(path)`
   asks the first part beforehand (the file explorer uses it to pick text or binary icons).
+- Focus ([ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md)): opening a file (also one already open) and
+  choosing a tab (click on its header, overflow menu) call its view's `FileView.focus()`: the text of code views, the
+  source of previews in Source or Split, the web view of images, of previews shown alone and of zooming previews in
+  Split (Mermaid, Bicep); the diff instead while one is shown. A file tab selected in place of another (the selected
+  one closed or replaced) is focused only if the area had the focus, so deleting the selected file in the tree leaves
+  the focus there. A new tab starts at the top, one shown again keeps caret and scroll. Other tabs (terminals, commit
+  diffs) are not focused by the area. `focusSelected()` gives the focus back to the
+  selected tab (its content for other tabs, the area itself without tabs), e.g. when the git log is collapsed.
 - Files are shown in the editor font from the settings ([settings.md](settings.md)); open views follow font changes.
   Code, plain text and the sources of previews can be edited and saved ([text-editing.md](text-editing.md)).
 - A file tab whose editor has unsaved changes (`EditableFileView.dirty`) shows a dot before its name (`● a.txt`),

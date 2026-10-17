@@ -9,7 +9,11 @@
   ([text-editing.md](text-editing.md)): code views, plain text and the previews' source. Images and diffs are read-only.
   `EditableFileView.showChanges(diff)` marks the lines changed against an original in the gutter of the code view
   (`Gutter`; code views implement the public column hook `GutterColumns`, e.g. for run icons;
-  [git-diff.md](git-diff.md)). `focusText()` gives the focus to the content (a code view's text).
+  [git-diff.md](git-diff.md)). `focusText()` gives the focus to the content at once (a code view's text, a
+  preview's source unless the preview shows alone), e.g. back from a diff; `focus()` is what the editor calls when the
+  view's tab is shown: the main content by [ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md) (the preview
+  while it shows alone or a diagram zooms in Split), at once or as soon as it is in a scene (`FocusWhenShown`). Code
+  views, previews and images never take it after `dispose()`; the default `focus()` cannot drop a pending request.
   `dispose()` is called once when the view is no longer shown (its tab closed, or a diff view shown over the editor
   was hidden again); previews and the image view stop their `WebView` page there, other views do nothing.
   `moved(to)` lets a view follow its file to a new path (a rename in the explorer): code views and previews read and
