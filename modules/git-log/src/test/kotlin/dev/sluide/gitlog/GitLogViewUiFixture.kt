@@ -4,6 +4,7 @@ import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
+import dev.sluide.git.GitCommitChanges
 import dev.sluide.git.GitCommitDetails
 import dev.sluide.git.GitFileDiff
 import dev.sluide.git.GitFileHistoryEntry
@@ -299,6 +300,12 @@ abstract class GitLogViewUiFixture {
                     workingTreeDiffLoads += commit to file
                     return workingTreeDiffOf(file)
                 }
+
+                override fun commitChanges(root: Path): GitCommitChanges? = null
+
+                override fun headCommit(root: Path): String? = null
+
+                override fun headMessage(root: Path): String? = null
             }
         view = GitLogView(source, Platform::runLater, writes)
         stage.scene = Scene(view, 800.0, 400.0)

@@ -63,14 +63,16 @@ internal sealed interface RefOperation {
     val failure: String
 
     /**
-     * What it does to files on disk, as the question about unsaved editors names it before it runs ("Check Out",
-     * "Cherry-Pick"); `null` if it changes no files (or only the index).
+     * What it does with files on disk, as the question about unsaved editors names it before it runs ("Check Out",
+     * "Cherry-Pick", "Commit"): it changes them, or takes them as they are on disk (a commit, ADR 0048); `null` if it
+     * neither changes nor reads files (or only the index).
      */
     val fileChange: String?
 
     /**
-     * Whether it may be stopped halfway (ADR 0043): only a fetch, which updates refs one by one and no files. A checkout
-     * stopped halfway would leave a half-switched working tree (ADR 0041).
+     * Whether it may be stopped halfway: a fetch, which updates refs one by one and no files (ADR 0043), and a commit,
+     * which may wait for slow hooks or a GPG pinentry and is safe to stop, as git removes its lock files on SIGTERM and
+     * moves the branch last (ADR 0048). A checkout stopped halfway would leave a half-switched working tree (ADR 0041).
      */
     val cancellable: Boolean get() = false
 

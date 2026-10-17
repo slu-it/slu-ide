@@ -3,6 +3,7 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
+import dev.sluide.git.GitCommitChanges
 import dev.sluide.git.GitCommitDetails
 import dev.sluide.git.GitComparisonCounts
 import dev.sluide.git.GitFileDiff
@@ -176,6 +177,12 @@ class GitLogCompareUiTest {
             workingTreeDiffLoads += commit to file.path
             return workingTreeDiff(file)
         }
+
+        override fun commitChanges(root: Path): GitCommitChanges? = null
+
+        override fun headCommit(root: Path): String? = null
+
+        override fun headMessage(root: Path): String? = null
     }
 
     private fun commit(

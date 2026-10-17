@@ -114,7 +114,7 @@ class GitLogView internal constructor(
     AutoCloseable {
     @Autowired
     constructor(gitLog: GitLog, gitBranches: GitBranches, gitCommits: GitCommits, gitRemotes: GitRemotes) : this(
-        GitLogCliSource(gitLog, gitRemotes),
+        GitLogCliSource(gitLog, gitRemotes, gitCommits),
         Platform::runLater,
         GitLogCliWrites(gitBranches, gitCommits, gitRemotes),
     )

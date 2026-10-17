@@ -2,6 +2,7 @@ package dev.sluide.gitlog
 
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
+import dev.sluide.git.GitCommitChanges
 import dev.sluide.git.GitCommitDetails
 import dev.sluide.git.GitFileDiff
 import dev.sluide.git.GitInProgress
@@ -75,6 +76,29 @@ abstract class GitLogWritesUiFixture {
     @Volatile
     internal var pendingPick: GitInProgress? = null
 
+    /** What can be committed, as the source reads it (ADR 0048); `null` when it cannot be read. */
+    @Volatile
+    internal var commitChanges: GitCommitChanges? = GitCommitChanges(emptyList(), emptyList(), null, emptyList(), false)
+
+    /** The commit `HEAD` points at, as the source reads it. */
+    @Volatile
+    internal var headCommit: String? = "h1"
+
+    /** The message of `HEAD`, as the source reads it. */
+    @Volatile
+    internal var headMessage: String? = "S 1"
+
+    /** The threads the commit tab's changes were read on, one per read. */
+    internal val commitReads = CopyOnWriteArrayList<String>()
+
+    /** The threads the message of `HEAD` was read on, one per read. */
+    internal val headMessageReads = CopyOnWriteArrayList<String>()
+
+    /** The working-tree diff the source reads, and every read as `<commit> <change> <path>`. */
+    @Volatile
+    internal var workingTreeDiff: GitFileDiff? = GitFileDiff.Text("old\n", "new\n", emptyList())
+    internal val workingTreeDiffLoads = CopyOnWriteArrayList<String>()
+
     /** The skip of every page load. */
     internal val loads = CopyOnWriteArrayList<Int>()
 
@@ -134,6 +158,27 @@ abstract class GitLogWritesUiFixture {
                     firstParent: String?,
                     file: GitChangedFile,
                 ): GitFileDiff? = null
+
+                override fun workingTreeFileDiff(
+                    root: Path,
+                    commit: String,
+                    file: GitChangedFile,
+                ): GitFileDiff? {
+                    workingTreeDiffLoads += "$commit ${file.change} ${file.path}"
+                    return workingTreeDiff
+                }
+
+                override fun commitChanges(root: Path): GitCommitChanges? {
+                    commitReads += Thread.currentThread().name
+                    return commitChanges
+                }
+
+                override fun headCommit(root: Path) = headCommit
+
+                override fun headMessage(root: Path): String? {
+                    headMessageReads += Thread.currentThread().name
+                    return headMessage
+                }
             }
         view = GitLogView(source, Platform::runLater, writes)
         view.beforeFileChange = { action ->

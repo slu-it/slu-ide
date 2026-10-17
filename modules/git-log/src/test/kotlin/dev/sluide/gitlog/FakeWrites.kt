@@ -3,6 +3,8 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitBranchDeletion
 import dev.sluide.git.GitBranchTip
 import dev.sluide.git.GitCancellation
+import dev.sluide.git.GitChangedFile
+import dev.sluide.git.GitCommitResult
 import dev.sluide.git.GitFetchChanges
 import dev.sluide.git.GitFetchResult
 import dev.sluide.git.GitInProgress
@@ -241,6 +243,28 @@ internal class FakeWrites : GitLogWrites {
         calls += "fetch $remote"
         if (cancellation.cancelled) return GitFetchResult(GitResult(false, "Cancelled."), cancelled = true)
         return fetchResult(remote)
+    }
+
+    /** The commit a commit makes; `null` as if it could not be read afterwards. */
+    @Volatile
+    var committed: String? = NEW_HEAD
+
+    /**
+     * Records `commit [--amend] <paths>|<untracked>: <message>` (paths comma-separated, the message's line breaks as
+     * `\n`) and answers with [result] for it; a success with [committed].
+     */
+    override fun commit(
+        root: Path,
+        message: String,
+        files: List<GitChangedFile>,
+        untracked: List<String>,
+        amend: Boolean,
+        cancellation: GitCancellation,
+    ): GitCommitResult {
+        val option = if (amend) " --amend" else ""
+        val paths = files.joinToString(",") { it.path }
+        val result = call("commit$option $paths|${untracked.joinToString(",")}: ${message.replace("\n", "\\n")}")
+        return GitCommitResult(result, if (result.success) committed else null)
     }
 
     companion object {

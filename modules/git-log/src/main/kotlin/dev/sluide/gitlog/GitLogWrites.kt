@@ -4,6 +4,8 @@ import dev.sluide.git.GitBranchDeletion
 import dev.sluide.git.GitBranchTip
 import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCancellation
+import dev.sluide.git.GitChangedFile
+import dev.sluide.git.GitCommitResult
 import dev.sluide.git.GitCommits
 import dev.sluide.git.GitFetchResult
 import dev.sluide.git.GitInProgress
@@ -152,6 +154,19 @@ internal interface GitLogWrites {
         remote: String,
         cancellation: GitCancellation,
     ): GitFetchResult
+
+    /**
+     * Commits the tracked changes [files] and the [untracked] files with [message], or amends `HEAD` with them if
+     * [amend] (ADR 0048); [cancellation] stops git.
+     */
+    fun commit(
+        root: Path,
+        message: String,
+        files: List<GitChangedFile>,
+        untracked: List<String>,
+        amend: Boolean,
+        cancellation: GitCancellation,
+    ): GitCommitResult
 }
 
 /** Changes the repository with the git command line. */
@@ -267,4 +282,13 @@ internal class GitLogCliWrites(
         remote: String,
         cancellation: GitCancellation,
     ) = gitRemotes.fetch(root, remote, cancellation)
+
+    override fun commit(
+        root: Path,
+        message: String,
+        files: List<GitChangedFile>,
+        untracked: List<String>,
+        amend: Boolean,
+        cancellation: GitCancellation,
+    ) = commits.commit(root, message, files, untracked, amend, cancellation)
 }

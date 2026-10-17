@@ -3,7 +3,9 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
+import dev.sluide.git.GitCommitChanges
 import dev.sluide.git.GitCommitDetails
+import dev.sluide.git.GitCommits
 import dev.sluide.git.GitComparisonCounts
 import dev.sluide.git.GitFileDiff
 import dev.sluide.git.GitFileHistoryPage
@@ -123,12 +125,25 @@ internal interface GitLogSource {
         limit: Int,
         cancellation: GitCancellation,
     ): GitFileHistoryPage? = null
+
+    /**
+     * What can be committed (ADR 0048): the tracked changes against `HEAD`, the untracked files, what git is in the
+     * middle of and whether `HEAD` is pushed; `null` on failure.
+     */
+    fun commitChanges(root: Path): GitCommitChanges?
+
+    /** The commit `HEAD` points at (a full hash); `null` if there is none or on failure. */
+    fun headCommit(root: Path): String?
+
+    /** The full message of `HEAD`, for Amend (ADR 0048); `null` if there is no commit or on failure. */
+    fun headMessage(root: Path): String?
 }
 
 /** Reads with the git command line. */
 internal class GitLogCliSource(
     private val gitLog: GitLog,
     private val gitRemotes: GitRemotes,
+    private val gitCommits: GitCommits,
 ) : GitLogSource {
     override fun page(
         root: Path,
@@ -205,4 +220,10 @@ internal class GitLogCliSource(
         limit: Int,
         cancellation: GitCancellation,
     ) = gitLog.fileHistory(root, path, start, skip, limit, cancellation)
+
+    override fun commitChanges(root: Path) = gitCommits.commitChanges(root)
+
+    override fun headCommit(root: Path) = gitCommits.headCommit(root)
+
+    override fun headMessage(root: Path) = gitCommits.headMessage(root)
 }
