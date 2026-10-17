@@ -176,9 +176,9 @@ class EnvFileViewUiTest {
 
         robot.interact { area.moveTo(0, 2) }
         assertTrue(view.isShown("one"))
-        // Shortcut+Shift+K: the caret stays on line 0, which now holds the comment, then the password.
-        robot.press(area, KeyCode.K, shortcut = true, shift = true)
-        robot.press(area, KeyCode.K, shortcut = true, shift = true)
+        // Shortcut+Y: the caret stays on line 0, which now holds the comment, then the password.
+        robot.press(area, KeyCode.Y, shortcut = true)
+        robot.press(area, KeyCode.Y, shortcut = true)
         assertEquals(0, area.currentParagraph)
         assertTrue(view.isShown("\"s3cret\""))
         assertTrue(view.isMasked("abc"))

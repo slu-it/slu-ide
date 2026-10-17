@@ -3,6 +3,7 @@ package dev.sluide.fileviewers
 import dev.sluide.textediting.IndentStyle
 import javafx.scene.Scene
 import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyEvent
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
 import org.junit.jupiter.api.Assumptions.assumeTrue
@@ -190,15 +191,34 @@ class EditorKeysUiTest {
     }
 
     @Test
-    fun `shortcut+shift+k deletes the touched lines`(robot: FxRobot) {
+    fun `shortcut+y deletes the touched lines`(robot: FxRobot) {
         val view = open("Main.kt", "a\nb\nc\nd", robot)
         view.select(2, 5, robot)
 
-        robot.press(view.area, KeyCode.K, shortcut = true, shift = true)
+        robot.press(view.area, KeyCode.Y, shortcut = true)
 
         assertEquals("a\nd", view.area.text)
         robot.interact { view.area.undo() }
         assertEquals("a\nb\nc\nd", view.area.text)
+    }
+
+    @Test
+    fun `shortcut+shift+z redoes and shortcut+shift+k leaves the text and the key event alone`(robot: FxRobot) {
+        val view = open("Main.kt", "a\nb\nc", robot)
+        view.select(0, robot = robot)
+        robot.press(view.area, KeyCode.Y, shortcut = true)
+        assertEquals("b\nc", view.area.text)
+        robot.interact { view.area.undo() }
+        assertEquals("a\nb\nc", view.area.text)
+
+        robot.press(view.area, KeyCode.Z, shortcut = true, shift = true)
+        assertEquals("b\nc", view.area.text)
+
+        val reached = mutableListOf<KeyCode>()
+        robot.interact { container.addEventHandler(KeyEvent.KEY_PRESSED) { reached += it.code } }
+        robot.press(view.area, KeyCode.K, shortcut = true, shift = true)
+        assertEquals("b\nc", view.area.text)
+        assertEquals(listOf(KeyCode.K), reached)
     }
 
     @Test
@@ -262,7 +282,7 @@ class EditorKeysUiTest {
         robot.press(view.area, KeyCode.TAB)
         robot.press(view.area, KeyCode.TAB, shift = true)
         robot.press(view.area, KeyCode.D, shortcut = true)
-        robot.press(view.area, KeyCode.K, shortcut = true, shift = true)
+        robot.press(view.area, KeyCode.Y, shortcut = true)
         robot.press(view.area, KeyCode.DOWN, alt = true, shift = true)
         robot.pressToggleComment(view)
 

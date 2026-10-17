@@ -39,7 +39,7 @@ its own keys. JavaFX menu accelerators fire for whatever has the focus once a ke
   | Enter (also with Shift) | new line with the indentation of the current one, one more level after `{`, `[`, `(` | both |
   | Tab / Shift+Tab | indent / outdent the selected lines (Tab without a multi-line selection: spaces to the next stop or a tab) | both |
   | Shortcut+D | duplicate the selection or line | IntelliJ (VS Code: Shift+Alt+Down) |
-  | Shortcut+Shift+K | delete the lines | VS Code; IntelliJ's Ctrl+Y is redo elsewhere, Cmd+Backspace deletes words |
+  | Shortcut+Y | delete the lines | IntelliJ on Windows and Linux (moved from Shortcut+Shift+K, see the note below the table) |
   | Alt+Shift+Up / Down | move the lines | IntelliJ (VS Code: Alt+Up/Down) |
   | Shortcut+/, Shortcut+Shift+7 | comment lines out or back in | both (Shortcut+Shift+7: Shortcut+/ on German layouts) |
   | Shortcut+F / Shortcut+R | find / replace | both / IntelliJ (VS Code: Ctrl+H) |
@@ -47,6 +47,10 @@ its own keys. JavaFX menu accelerators fire for whatever has the focus once a ke
   | Escape | close the find bar | both |
   | Shortcut+G | go to a line | VS Code and IntelliJ on Linux and Windows (IntelliJ on macOS: Cmd+L) |
   | Shortcut+Enter | in the HTTP view only, while the text has the focus: run the request at the caret ([ADR 0026](0026-http-client-window-session.md)) | IntelliJ's HTTP client |
+- **2026-10-17: delete lines moved to Shortcut+Y.** It was Shortcut+Shift+K (VS Code); Shortcut+Shift+K became
+  Git → Push, IntelliJ's push key (ADR 0049), a menu accelerator the code view's `InputMap` would have swallowed.
+  Shortcut+Y is IntelliJ's delete line on Windows and Linux. Redo keeps Shortcut+Shift+Z; RichTextFX also binds redo
+  to Shortcut+Y, but our map takes precedence, so Shortcut+Y is no longer redo in editable views.
 - **Shortcut+/ by character.** It is a `KeyCharacterCombination("/")` with Shift allowed: on many keyboard layouts
   (German, Swedish) `/` is Shift+7, so a `KeyCodeCombination(SLASH)` would never match there.
 - **Shortcut+Shift+7 by key, too.** On macOS JavaFX learns which key types a character only from real key presses,

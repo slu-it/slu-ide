@@ -22,7 +22,7 @@ import org.fxmisc.wellbehaved.event.InputMap
 /**
  * The editing keys of a code view's [area], taking precedence over RichTextFX's own (add them with
  * `Nodes.addInputMap`): Enter (also with Shift) keeps the indentation, Tab and Shift+Tab indent and outdent in
- * the current [style]; Shortcut+D duplicates the selection or line, Shortcut+Shift+K deletes lines, Alt+Shift+Up/Down move them;
+ * the current [style]; Shortcut+D duplicates the selection or line, Shortcut+Y deletes lines, Alt+Shift+Up/Down move them;
  * Shortcut+/ ([TOGGLE_COMMENT]) and Shortcut+Shift+7 ([TOGGLE_COMMENT_KEY]) comment lines out with [comment] or back
  * in. They act only while the area is editable; otherwise RichTextFX's bindings, which do nothing then either, get
  * the keys.
@@ -44,7 +44,7 @@ internal fun editorKeys(
         },
         area.editOn(keyPressed(KeyCode.D, KeyCombination.SHORTCUT_DOWN), edit = LineOperations::duplicate),
         area.editOn(
-            keyPressed(KeyCode.K, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
+            keyPressed(KeyCode.Y, KeyCombination.SHORTCUT_DOWN),
             edit = LineOperations::deleteLines,
         ),
         area.editOn(

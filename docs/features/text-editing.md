@@ -14,7 +14,7 @@ and saving), [ADR 0022](../adr/0022-editor-key-bindings.md) (keys) and
   file's line endings are kept (LF, CRLF or CR; a file with mixed endings is written with the ending of most of its
   lines). Nothing else is changed (no trimmed whitespace, no added final newline). If saving fails, an error says why
   and the tab keeps its unsaved changes.
-- Undo (Ctrl+Z) and redo cover the text only; typing without a pause of half a second is one step.
+- Undo (Ctrl+Z) and redo (Ctrl+Shift+Z) cover the text only; typing without a pause of half a second is one step.
 - Highlighting follows typing once it pauses (150 ms, 600 ms for very large files), computed in the background.
 - Editing keys act while the text has the focus; Shortcut is Ctrl, Cmd on macOS. Each command is one undo step (Enter
   and a Tab within a line merge with the typing around them, like typed characters). Keys that change the text do nothing in a
@@ -26,7 +26,7 @@ and saving), [ADR 0022](../adr/0022-editor-key-bindings.md) (keys) and
   | Tab | Within one line: replaces the selection by a tab or by spaces up to the next indentation stop. Over several lines: indents every non-empty line it touches by one level and keeps them selected. |
   | Shift+Tab | Removes one level (a tab, or up to one level of spaces) from every line the selection or caret touches. |
   | Shortcut+D | Duplicates the selection after it and selects the copy; without a selection, copies the line below and moves the caret along. |
-  | Shortcut+Shift+K | Deletes the lines the selection or caret touches; the caret keeps its column on the line that takes their place. |
+  | Shortcut+Y | Deletes the lines the selection or caret touches; the caret keeps its column on the line that takes their place. |
   | Alt+Shift+Up / Down | Moves those lines above the previous / below the next line, with the selection. |
   | Shortcut+/, Shortcut+Shift+7 | Comments the touched non-blank lines out, or back in if all of them are commented (see below). Shortcut+/ is matched by the character, so it also works where `/` is Shift+7; Shortcut+Shift+7 works on every layout. |
   | Shortcut+F | Opens the find bar (below). |
