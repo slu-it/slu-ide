@@ -126,6 +126,8 @@
             var before = null;
             var after = null;
             for (var i = 0; i < blocks.length; i++) {
+                // Not rendered (e.g. in a closed <details>): its position is meaningless.
+                if (blocks[i].getClientRects().length === 0) continue;
                 var blockLine = Number(blocks[i].getAttribute('data-line'));
                 if (blockLine <= line) {
                     if (!before || blockLine > before.line) before = { element: blocks[i], line: blockLine };
@@ -139,6 +141,21 @@
                 if (after) y += (top(after.element) - y) * (line - before.line) / (after.line - before.line);
             }
             window.scrollTo(0, line === 0 ? 0 : y);
+        },
+        // The source line (0-based) at the top of the viewport, the inverse of scrollToLine: that of the last block
+        // that starts at or above it, or 0 above the first.
+        topLine: function () {
+            var blocks = document.querySelectorAll('[data-line]');
+            var best = null;
+            var limit = window.scrollY + 1;
+            for (var i = 0; i < blocks.length; i++) {
+                if (blocks[i].getClientRects().length === 0) continue;
+                var blockLine = Number(blocks[i].getAttribute('data-line'));
+                var y = top(blocks[i]);
+                if (y > limit) continue;
+                if (!best || y > best.y || (y === best.y && blockLine > best.line)) best = { y: y, line: blockLine };
+            }
+            return best ? best.line : 0;
         },
         setDark: function (dark) {
             var changed = document.body.classList.contains('dark') !== dark;
