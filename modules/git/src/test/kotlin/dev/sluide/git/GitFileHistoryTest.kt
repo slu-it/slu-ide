@@ -301,7 +301,7 @@ class GitFileHistoryTest {
         // Answers --version; for anything else it writes its process id and sleeps, standing in for a slow git log.
         val executable =
             repo.resolve("slow-git").apply {
-                writeText("#!/bin/sh\n[ \"$1\" = --version ] && exit 0\necho $$ > '$pidFile'\nexec sleep 30\n")
+                writeText(FAKE_GIT_START + "echo $$ > '$pidFile'\nexec sleep 30\n")
                 toFile().setExecutable(true)
             }
         val slow = GitLog(GitCli(executable.toString(), System.getenv()))

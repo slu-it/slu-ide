@@ -3,8 +3,11 @@ package dev.sluide.git
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
 import java.nio.charset.Charset
+import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
+import kotlin.io.path.createDirectories
+import kotlin.io.path.deleteExisting
 import kotlin.io.path.exists
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
@@ -42,7 +45,7 @@ class GitCliTest {
         val executable =
             folder.resolve("slow-git").apply {
                 writeText(
-                    "#!/bin/sh\n[ \"$1\" = --version ] && exit 0\n" +
+                    FAKE_GIT_START +
                         "sleep 10 &\necho $! > '$childFile'\necho $$ > '$pidFile'\nwait\n",
                 )
                 toFile().setExecutable(true)
@@ -79,9 +82,91 @@ class GitCliTest {
         child.get().onExit().get(5, TimeUnit.SECONDS)
         assertFalse(child.get().isAlive, "the child of git was stopped")
     }
+
+    /** Runs the real git with [arguments] in [directory], without the user's configuration. */
+    private fun git(
+        directory: Path,
+        vararg arguments: String,
+    ) {
+        val process =
+            ProcessBuilder(listOf("git") + arguments)
+                .directory(directory.toFile())
+                .redirectErrorStream(true)
+                .apply {
+                    environment().clear()
+                    environment().putAll(testGitEnvironment())
+                }.start()
+        process.outputStream.close()
+        val output = process.inputStream.readAllBytes().decodeToString()
+        assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
+    }
+
+    /** A new repository in [name] below the temporary folder. */
+    private fun repository(name: String): Path {
+        val repo = folder.resolve(name).createDirectories()
+        git(repo, "init", "-q")
+        return repo
+    }
+
+    @Test
+    fun `git runs without the variables that would point it at another repository`() {
+        val repo = repository("repo")
+        val elsewhere = repository("elsewhere")
+        repo.resolve("mine.txt").writeText("mine\n")
+        val pointing =
+            mapOf(
+                "GIT_DIR" to elsewhere.resolve(".git").toString(),
+                "GIT_WORK_TREE" to elsewhere.toString(),
+                "GIT_INDEX_FILE" to elsewhere.resolve(".git/other-index").toString(),
+            )
+        // The user's configuration given in the environment stays, as git keeps it for submodules.
+        val configuration = mapOf("GIT_CONFIG_COUNT" to "1", "GIT_CONFIG_KEY_0" to "a.b", "GIT_CONFIG_VALUE_0" to "c")
+        val git = GitCli("git", testGitEnvironment() + pointing + configuration)
+        assumeTrue(git.available, "git is not installed")
+
+        assertTrue(pointing.keys.none { it in git.environment })
+        assertEquals("/dev/null", git.environment["GIT_CONFIG_GLOBAL"], "other variables stay")
+        assertEquals(configuration, git.environment.filterKeys { it in configuration })
+        assertTrue(git.status(repo).orEmpty().contains("? mine.txt"), "the status of the opened repository")
+    }
+
+    @Test
+    fun `which variables point git at a repository is asked of git only when one is set`() {
+        val calls = folder.resolve("calls")
+        // Lists a variable git 2.53 does not know, as a newer git might.
+        val newer =
+            folder.resolve("newer-git").apply {
+                writeText(
+                    "#!/bin/sh\necho \"$*\" >> '$calls'\nprintf 'GIT_DIR\\nGIT_NEWER_THING\\nGIT_CONFIG_COUNT\\n'\n",
+                )
+                toFile().setExecutable(true)
+            }
+        val plain = mapOf("PATH" to "/usr/bin", "GIT_TERMINAL_PROMPT" to "0")
+        assertEquals(emptySet(), repositoryVariables(newer.toString(), plain))
+        assertFalse(calls.exists(), "git is not asked")
+
+        val set =
+            plain +
+                mapOf("GIT_DIR" to "/x", "GIT_NEWER_THING" to "1", "GIT_INDEX_FILE" to "/i", "GIT_CONFIG_COUNT" to "0")
+        assertEquals(setOf("GIT_DIR", "GIT_NEWER_THING", "GIT_INDEX_FILE"), repositoryVariables(newer.toString(), set))
+        assertEquals("rev-parse --local-env-vars", calls.readText().trim())
+        assertEquals(
+            setOf("GIT_DIR", "GIT_INDEX_FILE"),
+            repositoryVariables(folder.resolve("no-such-git").toString(), set),
+            "the known ones if git cannot be asked",
+        )
+    }
 }
 
 private fun Path.readTextOrNull(): String? = if (exists()) readText() else null
+
+/**
+ * The start of a script that stands in for git: it answers `--version`, and fails what `GitCli` asks on its own (the
+ * variables of `git rev-parse --local-env-vars`, ADR 0052) as a git without them would, so that what follows sees only
+ * the commands under test.
+ */
+internal const val FAKE_GIT_START =
+    "#!/bin/sh\n[ \"\$1\" = --version ] && exit 0\ncase \" \$* \" in *' --local-env-vars '*) exit 1;; esac\n"
 
 /**
  * The environment for git in tests: no global or system configuration, so the user's settings do not interfere, and

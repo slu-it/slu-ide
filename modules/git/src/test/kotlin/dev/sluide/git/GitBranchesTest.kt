@@ -671,7 +671,7 @@ class GitCliWriteTest {
     private fun fakeGit(script: String): GitCli {
         val executable =
             folder.resolve("fake-git-${++fakes}").apply {
-                writeText("#!/bin/sh\n[ \"$1\" = --version ] && exit 0\n$script\n")
+                writeText(FAKE_GIT_START + "$script\n")
                 toFile().setExecutable(true)
             }
         return GitCli(executable.toString(), System.getenv()).also {

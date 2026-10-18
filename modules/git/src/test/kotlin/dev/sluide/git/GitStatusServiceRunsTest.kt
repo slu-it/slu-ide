@@ -48,13 +48,12 @@ class GitStatusServiceRunsTest {
         val executable =
             scripts.resolve("git").apply {
                 writeText(
-                    """
-                    #!/bin/sh
-                    [ "${'$'}1" = --version ] && exit 0
-                    echo run >> '$runLog'
-                    while [ -e '$hold' ]; do sleep 0.01; done
-                    cat '$status' 2>/dev/null || { echo failed >> '$runLog'; exit 1; }
-                    """.trimIndent() + "\n",
+                    FAKE_GIT_START +
+                        """
+                        echo run >> '$runLog'
+                        while [ -e '$hold' ]; do sleep 0.01; done
+                        cat '$status' 2>/dev/null || { echo failed >> '$runLog'; exit 1; }
+                        """.trimIndent() + "\n",
                 )
                 toFile().setExecutable(true)
             }
