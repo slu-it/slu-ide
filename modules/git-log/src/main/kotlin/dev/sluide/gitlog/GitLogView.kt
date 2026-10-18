@@ -7,10 +7,7 @@ import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitCommits
 import dev.sluide.git.GitFileDiff
-import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitLog
-import dev.sluide.git.GitPendingOperation
-import dev.sluide.git.GitPendingPick
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitPush
 import dev.sluide.git.GitRef
@@ -470,8 +467,9 @@ class GitLogView internal constructor(
     /** Whether the refs read last have a `HEAD` commit, which a reset needs. */
     private val hasHead = SimpleBooleanProperty(false)
 
-    /** Whether git is in the middle of something, as read last (the bar shows it). */
-    private val busy = SimpleBooleanProperty(false)
+    /** The bar of what git is in the middle of, below the filter bar (ADR 0042); the table's menu reads its `busy`. */
+    internal val pendingBar =
+        PendingBar(writer.running) { scene?.window }.apply { start = { operation -> this@GitLogView.start(operation) } }
 
     /** The commits with their graph, newest first; several can be selected. */
     internal val table: TableView<GitLogRow> =
@@ -525,7 +523,7 @@ class GitLogView internal constructor(
             // Only reads: also while an operation runs.
             compareWithLocalItem.disableProperty().bind(Bindings.size(selectionModel.selectedItems).isNotEqualTo(1))
             // Not while git is in the middle of something: the bar says what.
-            listOf(cherryPickItem, revertItem).forEach { it.disableProperty().bind(notOne.or(busy)) }
+            listOf(cherryPickItem, revertItem).forEach { it.disableProperty().bind(notOne.or(pendingBar.busy)) }
             resetItem.disableProperty().bind(notOne.or(hasHead.not()))
             addEventHandler(KeyEvent.KEY_PRESSED) { event ->
                 if (COPY.match(event)) {
@@ -557,45 +555,6 @@ class GitLogView internal constructor(
         ).apply {
             onChange = { filter -> pages.filter = filter }
             onDown = { table.requestFocus() }
-        }
-
-    /** The single cherry-pick or revert in progress the bar continues or aborts; `null` for none or anything else. */
-    private var pending: GitPendingPick? = null
-
-    /** Shrinks with the log, as the buttons do not; its tooltip has the whole text. */
-    private val pendingLabel =
-        Label().apply {
-            styleClass += "git-log-pending-text"
-            minWidth = 0.0
-            tooltip = Tooltip()
-        }
-
-    internal val continueButton =
-        Button("Continue").apply {
-            styleClass += "git-log-pending-continue"
-            minWidth = USE_PREF_SIZE
-            setOnAction { pending?.let { start(ContinuePick(it.kind, it.commit)) } }
-            disableProperty().bind(writer.running)
-        }
-
-    internal val abortButton =
-        Button("Abort").apply {
-            styleClass += "git-log-pending-abort"
-            minWidth = USE_PREF_SIZE
-            setOnAction { pending?.let(::abortPending) }
-            disableProperty().bind(writer.running)
-        }
-
-    /**
-     * The bar of what git is in the middle of (ADR 0042), below the filter bar: a cherry-pick or revert to continue or
-     * abort, or a merge, rebase or sequence left to the terminal; hidden while there is nothing.
-     */
-    internal val pendingBar =
-        HBox(pendingLabel, Region().apply { HBox.setHgrow(this, Priority.ALWAYS) }, continueButton, abortButton).apply {
-            styleClass += "git-log-pending"
-            alignment = Pos.CENTER_LEFT
-            isVisible = false
-            isManaged = false
         }
 
     /** Says what is compared with what (ADR 0044); shrinks first in a narrow log, its tooltip has the whole text. */
@@ -748,7 +707,7 @@ class GitLogView internal constructor(
             when (state) {
                 GitLogState.IDLE -> {
                     statusAfterLoad = null
-                    showPending(null)
+                    pendingBar.show(null)
                     hasHead.set(false)
                     noRemotes.set(false)
                     branchesPane.remotes = emptyList()
@@ -767,7 +726,7 @@ class GitLogView internal constructor(
                     }
                     branchesPane.show(pages.refs)
                     updateCompareBar()
-                    showPending(pages.pending)
+                    pendingBar.show(pages.pending)
                     noRemotes.set(pages.remotes?.isEmpty() == true)
                     branchesPane.remotes = pages.remotes.orEmpty()
                     hasHead.set(
@@ -1728,28 +1687,6 @@ class GitLogView internal constructor(
     }
 
     /**
-     * Shows the bar of what git is in the middle of ([inProgress]), with Continue and Abort for a single cherry-pick or
-     * revert only; hides it for `null`.
-     */
-    private fun showPending(inProgress: GitInProgress?) {
-        pending = inProgress as? GitPendingPick
-        busy.set(inProgress != null)
-        pendingLabel.text =
-            when (inProgress) {
-                is GitPendingPick -> pendingText(inProgress)
-                is GitPendingOperation -> operationText(inProgress.operation)
-                null -> ""
-            }
-        pendingLabel.tooltip.text = pendingLabel.text
-        pendingBar.isVisible = inProgress != null
-        pendingBar.isManaged = inProgress != null
-        listOf(continueButton, abortButton).forEach {
-            it.isVisible = pending != null
-            it.isManaged = pending != null
-        }
-    }
-
-    /**
      * Cherry-picks or reverts ([kind]) the selected commit; a merge commit relative to its first parent, once
      * confirmed.
      */
@@ -1763,26 +1700,6 @@ class GitLogView internal constructor(
                 mergeQuestion(kind, commit.hash),
                 pickButton(kind),
                 PickCommit(kind, commit.hash, firstParent = true),
-            )
-        if (refConfirmation(scene?.window, confirmation).showAndWait().orElse(ButtonType.CANCEL) ==
-            confirmation.button
-        ) {
-            start(confirmation.confirmed)
-        }
-    }
-
-    /**
-     * Aborts the cherry-pick or revert in progress ([pending]) once confirmed, as it undoes what was done to resolve its
-     * conflicts; Cancel is the default. The dialog right after it stopped aborts without asking: nothing is resolved yet.
-     */
-    private fun abortPending(pending: GitPendingPick) {
-        if (writer.running.get()) return
-        val confirmation =
-            RefConfirmation(
-                "Abort ${pending.kind.title}",
-                abortQuestion(pending.kind, pending.commit),
-                abortButton(pending.kind),
-                AbortPick(pending.kind, pending.commit),
             )
         if (refConfirmation(scene?.window, confirmation).showAndWait().orElse(ButtonType.CANCEL) ==
             confirmation.button

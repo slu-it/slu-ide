@@ -169,10 +169,10 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         assertFalse(view.resetItem.isDisable, "the way out")
 
         writes.gate = CountDownLatch(1)
-        robot.interact { view.continueButton.fire() }
+        robot.interact { view.pendingBar.continueButton.fire() }
         eventually { assertEquals("Continuing the cherry-pick of h4…", status(robot)) }
-        assertTrue(view.continueButton.isDisable, "while it runs")
-        assertTrue(view.abortButton.isDisable)
+        assertTrue(view.pendingBar.continueButton.isDisable, "while it runs")
+        assertTrue(view.pendingBar.abortButton.isDisable)
         pendingPick = null
         writes.gate?.countDown()
         eventually { assertEquals("Cherry-picked h4 as 5e6f7a8b.", status(robot)) }
@@ -186,7 +186,7 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         robot.interact { view.refresh() }
         eventually { assertEquals("Revert of h5 is in progress: conflicts resolved.", text.text) }
         // Abort asks first, as it undoes the resolutions; Cancel, the default, aborts nothing.
-        robot.interact { Platform.runLater { view.abortButton.fire() } }
+        robot.interact { Platform.runLater { view.pendingBar.abortButton.fire() } }
         var question = awaitDialog(robot)
         assertEquals("Abort Revert", (question.scene.window as Stage).title)
         assertEquals(
@@ -199,7 +199,7 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         assertEquals(listOf("cherry-pick --continue"), writes.calls)
         assertEquals(listOf("Continue"), fileChanges, "not asked about editors before confirming")
 
-        robot.interact { Platform.runLater { view.abortButton.fire() } }
+        robot.interact { Platform.runLater { view.pendingBar.abortButton.fire() } }
         question = awaitDialog(robot)
         press(robot, question, ABORT_REVERT_BUTTON)
         eventually { assertEquals("Aborted the revert of h5.", status(robot)) }
@@ -214,7 +214,7 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         openAndExpand(robot)
         eventually { assertTrue(view.pendingBar.isVisible) }
 
-        robot.interact { Platform.runLater { view.continueButton.fire() } }
+        robot.interact { Platform.runLater { view.pendingBar.continueButton.fire() } }
         val pane = awaitDialog(robot)
         assertEquals("Continue Failed", (pane.scene.window as Stage).title)
         assertEquals("The cherry-pick of h4 could not be continued.", pane.headerText)
@@ -330,8 +330,8 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         eventually { assertTrue(view.pendingBar.isVisible) }
         val text = view.pendingBar.lookup(".git-log-pending-text") as Label
         assertEquals("A cherry-pick sequence is in progress; continue or abort it in the terminal.", text.text)
-        assertFalse(view.continueButton.isVisible)
-        assertFalse(view.abortButton.isVisible)
+        assertFalse(view.pendingBar.continueButton.isVisible)
+        assertFalse(view.pendingBar.abortButton.isVisible)
         selectRows(robot, 1)
         assertTrue(view.cherryPickItem.isDisable)
         assertTrue(view.revertItem.isDisable)
@@ -361,7 +361,7 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         openAndExpand(robot)
         eventually { assertTrue(view.pendingBar.isVisible) }
 
-        robot.interact { Platform.runLater { view.continueButton.fire() } }
+        robot.interact { Platform.runLater { view.pendingBar.continueButton.fire() } }
         var pane = awaitDialog(robot)
         assertEquals("Continue Cherry-Pick", (pane.scene.window as Stage).title)
         assertEquals(
@@ -377,7 +377,7 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         press(robot, pane, ButtonType.CANCEL)
         assertEquals(listOf("cherry-pick --continue"), writes.calls)
 
-        robot.interact { Platform.runLater { view.continueButton.fire() } }
+        robot.interact { Platform.runLater { view.pendingBar.continueButton.fire() } }
         pane = awaitDialog(robot)
         press(robot, pane, COMMIT_AS_ON_DISK_BUTTON)
         eventually { assertEquals("Cherry-picked h4 as 5e6f7a8b.", status(robot)) }
