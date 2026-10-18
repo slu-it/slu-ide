@@ -338,7 +338,9 @@ class GitCli(
             try {
                 val deadline = System.nanoTime() + STOP_GRACE.inWholeNanoseconds
                 descendants.forEach { it.destroy() }
-                process.destroy()
+                // Not process.destroy(): it also closes git's pipes, and what git started would die of SIGPIPE on its
+                // next word to them (a shell reporting its killed child) instead of cleaning up.
+                process.toHandle().destroy()
                 process.waitFor(deadline - System.nanoTime(), TimeUnit.NANOSECONDS)
                 // Git ends on SIGTERM at once; what it started may take a little longer to clean up.
                 descendants.forEach { descendant ->

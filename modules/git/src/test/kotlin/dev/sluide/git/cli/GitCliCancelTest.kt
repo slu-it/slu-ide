@@ -63,11 +63,11 @@ class GitCliCancelTest {
             val marker = folder.resolve("cleaned-$cancel")
             val ready = folder.resolve("ready-$cancel")
             // Git (this script) ends on SIGTERM at once; its child takes a moment to clean up, as a git a hook started
-            // removes its lock files. Git tells it started only once the child set its trap, so that a SIGTERM cannot
-            // reach the child first.
+            // removes its lock files, and says so on git's standard error. Git tells it started only once the child set
+            // its trap, so that a SIGTERM cannot reach the child first.
             val git =
                 fakeGit(
-                    "(trap 'sleep 0.3; echo done > \"$marker\"; exit 0' TERM; : > '$ready'; " +
+                    "(trap 'sleep 0.3; echo cleaning up >&2; echo done > \"$marker\"; exit 0' TERM; : > '$ready'; " +
                         "while true; do sleep 0.1; done) & " +
                         "until [ -e '$ready' ]; do sleep 0.01; done; echo $$ > '$pid'; while true; do sleep 0.1; done",
                 )
