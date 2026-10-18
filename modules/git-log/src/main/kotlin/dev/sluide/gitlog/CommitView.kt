@@ -2,6 +2,9 @@ package dev.sluide.gitlog
 
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
+import dev.sluide.gitlog.ui.ChangeGraphic
+import dev.sluide.gitlog.ui.SHOW_DIFF
+import dev.sluide.gitlog.ui.SharedSplit
 import javafx.beans.InvalidationListener
 import javafx.beans.WeakInvalidationListener
 import javafx.beans.binding.Bindings

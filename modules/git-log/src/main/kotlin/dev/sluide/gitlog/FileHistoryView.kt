@@ -2,6 +2,10 @@ package dev.sluide.gitlog
 
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitRefs
+import dev.sluide.gitlog.ui.COPY
+import dev.sluide.gitlog.ui.SHOW_DIFF
+import dev.sluide.gitlog.ui.SharedSplit
+import dev.sluide.gitlog.ui.contains
 import javafx.beans.binding.Bindings
 import javafx.collections.ListChangeListener
 import javafx.css.PseudoClass

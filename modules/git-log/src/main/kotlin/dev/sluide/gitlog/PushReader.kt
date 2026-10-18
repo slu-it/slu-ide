@@ -3,6 +3,7 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitOutgoing
+import dev.sluide.gitlog.ui.SHORT_HASH
 import javafx.beans.property.ReadOnlyBooleanProperty
 import javafx.beans.property.ReadOnlyBooleanWrapper
 import javafx.beans.property.ReadOnlyObjectProperty
@@ -151,7 +152,7 @@ internal fun pushPlaceholder(state: PushState?): String =
         }
 
         state.isNew && state.head != null -> {
-            val head = state.head.take(ChangedFilesPane.SHORT_HASH)
+            val head = state.head.take(SHORT_HASH)
             "No new commits: pushing creates ${state.remote}/${state.target} at $head."
         }
 
@@ -192,7 +193,7 @@ internal fun forcePushQuestion(
             val commits = if (behind == 1) "1 commit on $where that is" else "$behind commits on $where that are"
             "$commits not in your branch will be lost."
         } else {
-            "$where will be set to ${head.take(ChangedFilesPane.SHORT_HASH)}."
+            "$where will be set to ${head.take(SHORT_HASH)}."
         }
     return "Force push $branch to $where?" to details
 }

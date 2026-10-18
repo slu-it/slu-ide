@@ -2,6 +2,9 @@ package dev.sluide.gitlog
 
 import dev.sluide.fileicons.FILE_ICONS_CSS
 import dev.sluide.git.GitChangedFile
+import dev.sluide.gitlog.ui.ChangeTreeView
+import dev.sluide.gitlog.ui.GIT_LOG_CSS
+import dev.sluide.gitlog.ui.SharedSplit
 import javafx.beans.binding.Bindings
 import javafx.beans.property.SimpleStringProperty
 import javafx.beans.value.ObservableBooleanValue

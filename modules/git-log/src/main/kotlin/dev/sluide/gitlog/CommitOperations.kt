@@ -10,6 +10,7 @@ import dev.sluide.git.GitPickResult
 import dev.sluide.git.GitResetMode
 import dev.sluide.git.GitResult
 import dev.sluide.git.GitUncheckedConflict
+import dev.sluide.gitlog.ui.SHORT_HASH
 import java.nio.file.Path
 
 /**
@@ -471,4 +472,4 @@ private fun pickOutcome(
 }
 
 /** [hash] shortened as the log shows hashes. */
-private fun short(hash: String) = hash.take(ChangedFilesPane.SHORT_HASH)
+private fun short(hash: String) = hash.take(SHORT_HASH)

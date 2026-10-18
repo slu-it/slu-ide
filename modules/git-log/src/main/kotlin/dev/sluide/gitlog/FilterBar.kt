@@ -2,6 +2,7 @@ package dev.sluide.gitlog
 
 import dev.sluide.git.GitLogFilter
 import dev.sluide.git.GitLogOrder
+import dev.sluide.gitlog.ui.GIT_LOG_CSS
 import javafx.animation.PauseTransition
 import javafx.application.Platform
 import javafx.css.PseudoClass

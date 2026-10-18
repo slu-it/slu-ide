@@ -7,6 +7,11 @@ import dev.sluide.git.GitLog
 import dev.sluide.git.GitPush
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitRemotes
+import dev.sluide.gitlog.ui.GIT_LOG_CSS
+import dev.sluide.gitlog.ui.GO_TO
+import dev.sluide.gitlog.ui.SHORT_HASH
+import dev.sluide.gitlog.ui.SharedSplit
+import dev.sluide.gitlog.ui.contains
 import javafx.application.Platform
 import javafx.beans.property.BooleanProperty
 import javafx.beans.property.SimpleBooleanProperty
@@ -264,7 +269,7 @@ class GitLogView internal constructor(
     internal val table =
         CommitTable(pages, compareBar.emptySide, pendingBar.busy, actions).apply {
             compareWithLocal = { commit ->
-                diffs.showWorkingTreeDiff(commit.hash, commit.hash.take(ChangedFilesPane.SHORT_HASH))
+                diffs.showWorkingTreeDiff(commit.hash, commit.hash.take(SHORT_HASH))
             }
             openGoTo = { navigation.openGoTo() }
             stopComparing = compareBar::stopComparing
@@ -316,7 +321,7 @@ class GitLogView internal constructor(
     /** The details of the selected commit. */
     internal val detailsPane =
         CommitDetailsPane(details.state, commitBranches.state).apply {
-            openCommit = { hash -> navigation.goToCommit(hash, hash.take(ChangedFilesPane.SHORT_HASH)) }
+            openCommit = { hash -> navigation.goToCommit(hash, hash.take(SHORT_HASH)) }
         }
 
     /** The files the selected commit changed. */
@@ -389,7 +394,7 @@ class GitLogView internal constructor(
                 this@GitLogView.layout()
                 navigation.openGoTo()
             }
-            goToCommit = { hash -> navigation.goToCommit(hash, hash.take(ChangedFilesPane.SHORT_HASH)) }
+            goToCommit = { hash -> navigation.goToCommit(hash, hash.take(SHORT_HASH)) }
             commit = { operation -> actions.start(operation) }
             openFile = { file -> onOpenFile(file) }
         }
@@ -584,8 +589,4 @@ class GitLogView internal constructor(
     }
 }
 
-internal val COPY = KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN)
-
 private val FIND = KeyCodeCombination(KeyCode.F, KeyCombination.SHORTCUT_DOWN)
-
-internal val GO_TO = KeyCodeCombination(KeyCode.G, KeyCombination.SHORTCUT_DOWN)

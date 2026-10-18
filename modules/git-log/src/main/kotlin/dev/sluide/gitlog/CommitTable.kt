@@ -3,6 +3,8 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitRefKind
+import dev.sluide.gitlog.ui.COPY
+import dev.sluide.gitlog.ui.SHORT_HASH
 import javafx.beans.binding.Bindings
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.value.ObservableBooleanValue
@@ -61,7 +63,7 @@ internal class CommitTable(
             setOnAction {
                 singleCommit()?.let {
                     actions.start(
-                        CheckoutRevision(it.hash, it.hash.take(ChangedFilesPane.SHORT_HASH)),
+                        CheckoutRevision(it.hash, it.hash.take(SHORT_HASH)),
                     )
                 }
             }
@@ -72,7 +74,7 @@ internal class CommitTable(
                 singleCommit()?.let {
                     actions.newBranch(
                         it.hash,
-                        it.hash.take(ChangedFilesPane.SHORT_HASH),
+                        it.hash.take(SHORT_HASH),
                     )
                 }
             }

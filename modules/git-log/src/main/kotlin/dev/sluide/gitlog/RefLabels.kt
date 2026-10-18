@@ -2,6 +2,7 @@ package dev.sluide.gitlog
 
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
+import dev.sluide.gitlog.ui.GIT_LOG_CSS
 import javafx.geometry.Pos
 import javafx.scene.control.Label
 import javafx.scene.control.Tooltip
@@ -89,6 +90,3 @@ internal fun refStyleClass(kind: GitRefKind) =
 /** One line per ref with its icon and short name, as in the tooltip and the details. */
 internal fun refLines(refs: List<GitRef>): List<Label> =
     refs.map { ref -> Label(ref.shortName, refIcon(ref.kind)).apply { styleClass += "git-ref-line" } }
-
-internal val GIT_LOG_CSS: String =
-    checkNotNull(RefLabels::class.java.getResource("git-log.css")).toExternalForm()

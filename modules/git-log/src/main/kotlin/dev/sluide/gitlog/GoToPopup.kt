@@ -1,5 +1,6 @@
 package dev.sluide.gitlog
 
+import dev.sluide.gitlog.ui.GIT_LOG_CSS
 import javafx.scene.Node
 import javafx.scene.control.Button
 import javafx.scene.control.Label

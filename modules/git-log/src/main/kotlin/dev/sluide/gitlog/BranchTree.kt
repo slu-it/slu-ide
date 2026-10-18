@@ -3,6 +3,7 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
+import dev.sluide.gitlog.ui.SHORT_HASH
 
 /**
  * A node of the branches pane's tree (ADR 0040). [path] identifies it across rebuilds, e.g. to keep it collapsed:
@@ -71,7 +72,7 @@ internal fun branchNodes(refs: GitRefs): List<BranchNode> {
                 if (refs.currentBranch != null) {
                     "HEAD (Current Branch)"
                 } else {
-                    "HEAD (detached at ${ref.commit.take(ChangedFilesPane.SHORT_HASH)})"
+                    "HEAD (detached at ${ref.commit.take(SHORT_HASH)})"
                 }
             BranchLeaf(name, "HEAD", ref, current = refs.currentBranch != null)
         }

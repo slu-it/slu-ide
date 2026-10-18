@@ -3,6 +3,7 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitFileDiff
+import dev.sluide.gitlog.ui.SHORT_HASH
 import javafx.stage.Stage
 import javafx.stage.Window
 import javafx.stage.WindowEvent
@@ -123,7 +124,7 @@ internal class CommitDiffs(
                                 compared.oldPath,
                                 compared.change,
                                 commit,
-                                commit.take(ChangedFilesPane.SHORT_HASH),
+                                commit.take(SHORT_HASH),
                                 text.original,
                                 text.current,
                                 text.hunks,
@@ -319,8 +320,8 @@ internal class CommitDiffs(
         name: String,
         diff: GitFileDiff.Submodule,
     ): String {
-        val old = diff.old?.take(ChangedFilesPane.SHORT_HASH)
-        val new = diff.new?.take(ChangedFilesPane.SHORT_HASH)
+        val old = diff.old?.take(SHORT_HASH)
+        val new = diff.new?.take(SHORT_HASH)
         return when {
             old != null && new != null -> "$name is a submodule: $old → $new."
             new != null -> "$name is a submodule, added at $new."

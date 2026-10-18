@@ -1,4 +1,4 @@
-package dev.sluide.gitlog
+package dev.sluide.gitlog.ui
 
 import javafx.geometry.Orientation
 import javafx.scene.Node

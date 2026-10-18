@@ -2,6 +2,8 @@ package dev.sluide.gitlog
 
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitResetMode
+import dev.sluide.gitlog.ui.GIT_LOG_CSS
+import dev.sluide.gitlog.ui.SHORT_HASH
 import javafx.application.Platform
 import javafx.scene.control.Alert
 import javafx.scene.control.Button
@@ -57,7 +59,7 @@ internal fun pickStoppedDialog(
     Alert(Alert.AlertType.WARNING, null, RESOLVE_BUTTON, abortButton(stop.kind)).apply {
         owner?.let(::initOwner)
         title = "${stop.kind.title} Stopped"
-        val label = stop.commit.take(ChangedFilesPane.SHORT_HASH)
+        val label = stop.commit.take(SHORT_HASH)
         if (stop.conflicts.isEmpty()) {
             headerText = "${stop.kind.sentence} of $label stopped."
             dialogPane.content = StackPane(gitMessage(stop.message))

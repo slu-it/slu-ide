@@ -1,6 +1,8 @@
 package dev.sluide.gitlog
 
 import dev.sluide.git.GitChangedFile
+import dev.sluide.gitlog.ui.ChangeTreeView
+import dev.sluide.gitlog.ui.SHORT_HASH
 import javafx.animation.PauseTransition
 import javafx.application.Platform
 import javafx.beans.value.ObservableValue
@@ -139,10 +141,5 @@ internal class ChangedFilesPane(
     /** Stops showing "Loading…" later; the window closes. */
     fun close() {
         if (Platform.isFxApplicationThread()) loading.stop() else Platform.runLater(loading::stop)
-    }
-
-    internal companion object {
-        /** As many characters of the hash as the details show. */
-        const val SHORT_HASH = 8
     }
 }

@@ -3,6 +3,9 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
+import dev.sluide.gitlog.ui.GO_TO
+import dev.sluide.gitlog.ui.SHORT_HASH
+import dev.sluide.gitlog.ui.contains
 import javafx.beans.property.BooleanProperty
 import javafx.beans.value.ObservableBooleanValue
 import javafx.geometry.Pos
@@ -303,7 +306,7 @@ internal class AreaTabs(
             }
         history.failedWithRows =
             { if (selected == AreaSelection.History(key)) status.tell(FileHistoryState.FAILED.message(key.name)) }
-        val tip = key.path + key.start?.let { " up to ${it.take(ChangedFilesPane.SHORT_HASH)}" }.orEmpty()
+        val tip = key.path + key.start?.let { " up to ${it.take(SHORT_HASH)}" }.orEmpty()
         val tab =
             AreaTab("History: ${key.name}", tip, closable = true).apply {
                 onSelect = { selectTab(AreaSelection.History(key)) }

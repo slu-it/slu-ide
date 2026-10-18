@@ -1,4 +1,4 @@
-package dev.sluide.gitlog
+package dev.sluide.gitlog.ui
 
 import javafx.event.EventTarget
 import javafx.scene.Node

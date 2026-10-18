@@ -4,6 +4,7 @@ import dev.sluide.git.GitLogFilter
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitTreePath
+import dev.sluide.gitlog.ui.GIT_LOG_CSS
 import javafx.scene.Node
 import javafx.scene.input.KeyCode
 import javafx.stage.Stage

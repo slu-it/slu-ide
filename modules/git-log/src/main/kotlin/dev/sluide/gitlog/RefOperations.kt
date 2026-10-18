@@ -6,6 +6,7 @@ import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefNames
 import dev.sluide.git.GitResult
+import dev.sluide.gitlog.ui.SHORT_HASH
 import javafx.beans.property.ReadOnlyBooleanProperty
 import javafx.beans.property.ReadOnlyBooleanWrapper
 import javafx.scene.control.ButtonType
@@ -640,4 +641,4 @@ internal fun overwriteNote(
     name: String,
     overwrite: Boolean,
     tips: Map<String, String>,
-): String? = tips[name]?.takeIf { overwrite }?.let { "Moves '$name' from ${it.take(ChangedFilesPane.SHORT_HASH)}." }
+): String? = tips[name]?.takeIf { overwrite }?.let { "Moves '$name' from ${it.take(SHORT_HASH)}." }

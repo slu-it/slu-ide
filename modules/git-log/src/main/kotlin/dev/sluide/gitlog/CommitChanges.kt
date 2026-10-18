@@ -2,6 +2,7 @@ package dev.sluide.gitlog
 
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitResult
+import dev.sluide.gitlog.ui.SHORT_HASH
 import java.nio.file.Path
 
 /**
@@ -43,7 +44,7 @@ internal data class CommitChanges(
             return RefOutcome(GitResult(true, "", changed = false), CANCELLED)
         }
         if (!result.success) return RefOutcome(result, null)
-        val made = committed.commit?.let { " ${it.take(ChangedFilesPane.SHORT_HASH)}" }.orEmpty()
+        val made = committed.commit?.let { " ${it.take(SHORT_HASH)}" }.orEmpty()
         val verb = if (amend) "Amended" else "Committed"
         val subject = commitSubject(message)
         // No second full stop after a subject that ends with one (or is cut off).

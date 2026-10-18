@@ -4,6 +4,7 @@ import dev.sluide.git.GitCommitChanges
 import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitPendingOperation
 import dev.sluide.git.GitPendingPick
+import dev.sluide.gitlog.ui.SHORT_HASH
 import javafx.beans.property.ReadOnlyObjectProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
 import java.nio.file.Path
@@ -176,7 +177,7 @@ internal fun commitBlocked(
 ): String? =
     when (inProgress) {
         is GitPendingPick -> {
-            val commit = inProgress.commit.take(ChangedFilesPane.SHORT_HASH)
+            val commit = inProgress.commit.take(SHORT_HASH)
             "${inProgress.kind.sentence} of $commit is in progress; continue or abort it in the log first."
         }
 
