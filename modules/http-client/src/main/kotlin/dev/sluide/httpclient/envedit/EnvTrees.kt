@@ -173,23 +173,13 @@ internal class EnvTrees(
         path: ValuePath,
     ): Boolean {
         if (path.isRoot) return file(side).remove(env) != null
+        val parent = nodeAt(side, env, path.parent)
+        val last = path.last
         val removed =
-            when (val parent = nodeAt(side, env, path.parent)) {
-                is ObjectNode -> {
-                    (path.last as? Segment.Key)?.let { parent.remove(it.name) }
-                }
-
-                is ArrayNode -> {
-                    (path.last as? Segment.Index)?.takeIf { it.index < parent.size() }?.let {
-                        parent.remove(
-                            it.index,
-                        )
-                    }
-                }
-
-                else -> {
-                    null
-                }
+            when {
+                parent is ObjectNode && last is Segment.Key -> parent.remove(last.name)
+                parent is ArrayNode && last is Segment.Index && last.index < parent.size() -> parent.remove(last.index)
+                else -> null
             }
         if (removed == null) return false
         prune(side, env, path.parent)
@@ -197,9 +187,22 @@ internal class EnvTrees(
     }
 
     /**
+     * [delete] from the private file, then from the public one: objects that became empty in both stay in the public
+     * file, where they were defined first.
+     */
+    fun deleteFromBoth(
+        env: String,
+        path: ValuePath,
+    ) {
+        delete(FileSide.PRIVATE, env, path)
+        delete(FileSide.PUBLIC, env, path)
+    }
+
+    /**
      * Removes the empty object at [path] from one file, and so on upwards, while the other file has an object at the
-     * same place, so that nothing disappears from the merged view. Environments are pruned from the private file only;
-     * nothing inside lists is pruned.
+     * same place, so that nothing disappears from the merged view, or while it is `Security`, `Security.Auth` or
+     * `SSLConfiguration`, which mean nothing empty. Environments are pruned from the private file only (and only by the
+     * first rule); nothing inside lists is pruned.
      */
     private fun prune(
         side: FileSide,
@@ -210,7 +213,8 @@ internal class EnvTrees(
         var current = path
         while (true) {
             val node = nodeAt(side, env, current)
-            if (node !is ObjectNode || !node.isEmpty || nodeAt(side.other, env, current) !is ObjectNode) return
+            if (node !is ObjectNode || !node.isEmpty) return
+            if (current !in EnvSchema.STRUCTURE && nodeAt(side.other, env, current) !is ObjectNode) return
             if (current.isRoot) {
                 if (side == FileSide.PRIVATE) file(side).remove(env)
                 return

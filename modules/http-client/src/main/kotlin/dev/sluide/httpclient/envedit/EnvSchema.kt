@@ -17,6 +17,9 @@ internal object EnvSchema {
     val SECURITY_AUTH = ValuePath.of(EnvKeys.SECURITY, EnvKeys.AUTH)
     val SSL = ValuePath.of(EnvKeys.SSL_CONFIGURATION)
 
+    /** Objects that only group others and are removed from a file when they become empty there. */
+    val STRUCTURE = setOf(ValuePath.of(EnvKeys.SECURITY), SECURITY_AUTH, SSL)
+
     /** Top-level keys of an environment that are not variables. */
     val RESERVED = setOf(EnvKeys.SECURITY, EnvKeys.SSL_CONFIGURATION)
 
@@ -73,13 +76,20 @@ internal object EnvSchema {
 
     fun isCertificate(path: ValuePath) = path.segments.firstOrNull() == SSL.segments.first()
 
-    /** The file a new value at [path] goes to: Client Secret, Password and certificate settings are private. */
-    fun defaultSide(path: ValuePath): FileSide {
+    /** Whether [path] is the object of an auth configuration, `Security.Auth.<id>`. */
+    fun isAuthConfig(path: ValuePath) = path.size == 3 && path.take(2) == SECURITY_AUTH
+
+    /**
+     * The file the schema puts a new value at [path] in: certificate settings and Client Secret and Password private,
+     * the other auth fields public; null for anything else.
+     */
+    fun schemaSide(path: ValuePath): FileSide? {
         if (isCertificate(path)) return FileSide.PRIVATE
-        if (path.size == 4 && path.take(2) == SECURITY_AUTH) {
-            val key = (path.last as? Segment.Key)?.name
-            return AUTH_FIELDS.firstOrNull { it.key == key }?.defaultSide ?: FileSide.PUBLIC
-        }
-        return FileSide.PUBLIC
+        if (!isAuthConfig(path.parent)) return null
+        val key = (path.last as? Segment.Key)?.name
+        return AUTH_FIELDS.firstOrNull { it.key == key }?.defaultSide
     }
+
+    /** The file a new value at [path] goes to by default: [schemaSide], else public. */
+    fun defaultSide(path: ValuePath): FileSide = schemaSide(path) ?: FileSide.PUBLIC
 }

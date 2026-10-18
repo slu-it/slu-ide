@@ -30,7 +30,8 @@ internal class EnvJsonException(
 
 /**
  * Reads and writes environment files: key order kept, numbers with their spelling (floats as [BigDecimal], with
- * [SpelledDecimalNode] where `BigDecimal.toString` would spell them differently), duplicate keys refused.
+ * [SpelledDecimalNode] where `BigDecimal.toString` would spell them differently; integers as their value, so only `-0`
+ * becomes `0`), duplicate keys refused.
  * Written with 2-space indentation, like the response view's pretty-printer, and a trailing newline.
  */
 internal object EnvJson {
