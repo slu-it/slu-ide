@@ -428,7 +428,7 @@ class GitLogCompareUiTest {
     /** The working-tree window open for [revision], once it is there. */
     private fun windowOf(revision: String): WorkingTreeWindow {
         var window: WorkingTreeWindow? = null
-        eventually { window = checkNotNull(view.workingTreeWindows[revision]) }
+        eventually { window = checkNotNull(view.diffs.workingTreeWindows[revision]) }
         return checkNotNull(window)
     }
 
@@ -491,7 +491,7 @@ class GitLogCompareUiTest {
         // Again: the same window.
         robot.interact { pane.workingTreeItem.fire() }
         robot.interact {
-            assertEquals(1, view.workingTreeWindows.size)
+            assertEquals(1, view.diffs.workingTreeWindows.size)
             assertTrue(window.stage.isShowing)
         }
 
@@ -520,7 +520,7 @@ class GitLogCompareUiTest {
         robot.interact {
             assertFalse(window.stage.isShowing)
             assertFalse(head.stage.isShowing)
-            assertTrue(view.workingTreeWindows.isEmpty())
+            assertTrue(view.diffs.workingTreeWindows.isEmpty())
         }
     }
 

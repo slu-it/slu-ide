@@ -6,7 +6,6 @@ import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitCommits
-import dev.sluide.git.GitFileDiff
 import dev.sluide.git.GitLog
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitPush
@@ -48,7 +47,6 @@ import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
 import javafx.scene.shape.Rectangle
-import javafx.stage.Stage
 import javafx.stage.WindowEvent
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignA
@@ -58,7 +56,6 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.nio.file.Files
-import java.nio.file.InvalidPathException
 import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.time.ZoneId
@@ -159,9 +156,6 @@ class GitLogView internal constructor(
     private val compareExecutor =
         Executors.newSingleThreadExecutor { Thread(it, "sluide-git-compare").apply { isDaemon = true } }
 
-    /** The open working-tree windows by the revision they compare (ADR 0044). */
-    internal val workingTreeWindows = LinkedHashMap<String, WorkingTreeWindow>()
-
     private val writeExecutor =
         Executors.newSingleThreadExecutor { Thread(it, "sluide-git-write").apply { isDaemon = true } }
 
@@ -229,6 +223,24 @@ class GitLogView internal constructor(
 
     /** Counts the changes of the selected commits and files, so that a message about an earlier one is not shown. */
     private var selections = 0L
+
+    /** Shows the diffs of commits and with the working tree (ADR 0038, 0044); the callbacks are the window's. */
+    internal val diffs =
+        CommitDiffs(
+            pages,
+            source,
+            fileDiffs,
+            compareExecutor::execute,
+            dispatch,
+            { scene?.window },
+            { selections },
+            { path -> fileExists(path) },
+        ).apply {
+            tell = { message -> status.set(message) }
+            showFileDiff = { diff -> onShowDiff(diff) }
+            openFile = { file -> onOpenFile(file) }
+            showWorkingTreeFileDiff = { diff -> onShowWorkingTreeDiff(diff) }
+        }
 
     private val chevron = FontIcon(MaterialDesignC.CHEVRON_RIGHT)
 
@@ -443,7 +455,7 @@ class GitLogView internal constructor(
     internal val compareWithLocalItem =
         MenuItem("Compare with Local").apply {
             setOnAction {
-                singleCommit()?.let { showWorkingTreeDiff(it.hash, it.hash.take(ChangedFilesPane.SHORT_HASH)) }
+                singleCommit()?.let { diffs.showWorkingTreeDiff(it.hash, it.hash.take(ChangedFilesPane.SHORT_HASH)) }
             }
         }
 
@@ -589,7 +601,7 @@ class GitLogView internal constructor(
             checkout = ::start
             newBranchFrom = { ref -> newBranch(ref.name, ref.shortName) }
             compare = compareBar::compareWith
-            showWorkingTreeDiff = { ref -> showWorkingTreeDiff(ref.name, ref.shortName) }
+            showWorkingTreeDiff = { ref -> diffs.showWorkingTreeDiff(ref.name, ref.shortName) }
             rename = ::renameBranch
             delete = ::deleteRefs
             fetch = { remote -> start(Fetch(remote)) }
@@ -701,9 +713,9 @@ class GitLogView internal constructor(
             compareBar.comparisonChanged()
             statusAfterLoad = compareBar.endMessage(comparison, end)
         }
-        changesPane.showDiff = ::showDiff
-        changesPane.openFile = { file -> localFile(file)?.let(onOpenFile) }
-        changesPane.exists = { file -> localFile(file)?.let(Files::exists) == true }
+        changesPane.showDiff = diffs::showDiff
+        changesPane.openFile = { file -> diffs.localFile(file)?.let(onOpenFile) }
+        changesPane.exists = { file -> diffs.localFile(file)?.let(Files::exists) == true }
         changesPane.showHistory = { row, file -> showHistoryUpTo(row.commit, file) }
         expanded.subscribe { isExpanded ->
             val focusInBody = center?.contains(scene?.focusOwner) == true
@@ -784,9 +796,9 @@ class GitLogView internal constructor(
         val dialog =
             PushDialog(scene?.window, reader, writer.running, ::pushNameProblem).apply {
                 push = { operation -> start(operation) }
-                showDiff = ::showCommitDiff
-                openFile = { file -> localFile(file)?.let(onOpenFile) }
-                exists = { file -> localFile(file)?.let(fileExists) == true }
+                showDiff = diffs::showCommitDiff
+                openFile = { file -> diffs.localFile(file)?.let(onOpenFile) }
+                exists = { file -> diffs.localFile(file)?.let(fileExists) == true }
             }
         pushDialog = dialog
         dialog.stage.addEventHandler(WindowEvent.WINDOW_HIDDEN) {
@@ -825,9 +837,9 @@ class GitLogView internal constructor(
         val view =
             CommitView(reader, writer.running).apply {
                 commit = { operation -> start(operation) }
-                showDiff = { file, head -> showHeadDiff(root, commitExecutor, file, head) }
-                openFile = { file -> localFile(file)?.let(onOpenFile) }
-                exists = { file -> localFile(file)?.let(fileExists) == true }
+                showDiff = { file, head -> diffs.showHeadDiff(root, commitExecutor, file, head) }
+                openFile = { file -> diffs.localFile(file)?.let(onOpenFile) }
+                exists = { file -> diffs.localFile(file)?.let(fileExists) == true }
                 failedWithChanges = { if (selected == AreaSelection.Commit) status.set(COMMIT_READ_FAILED) }
                 tell = status::set
                 tree.selectionModel.selectedItemProperty().subscribe { _ ->
@@ -846,50 +858,6 @@ class GitLogView internal constructor(
                 }
             }
         return CommitTab(view, commitExecutor)
-    }
-
-    /**
-     * Reads how [file] differs between `HEAD` ([head]) and the working tree on the Commit tab's thread ([background])
-     * and hands it to [onShowWorkingTreeDiff], labelled "HEAD" (ADR 0048); an added or untracked file is all new. A
-     * binary, too large or unchanged file, a submodule or a failure is told in the header instead, unless the selection
-     * changed meanwhile. Without a `HEAD` commit (no commit yet) there is nothing to compare with: the file itself is
-     * opened with [onOpenFile], if it is in the working tree.
-     */
-    private fun showHeadDiff(
-        root: Path,
-        background: ExecutorService,
-        file: GitChangedFile,
-        head: String?,
-    ) {
-        if (head == null) {
-            if (inWorkingTree(root, file.path)) localFile(file)?.let(onOpenFile)
-            return
-        }
-        val requestedAt = selections
-        status.set("")
-        background.execute {
-            val diff = source.workingTreeFileDiff(root, head, file)
-            dispatch {
-                if (pages.root != root) return@dispatch
-                val message =
-                    workingTreeMessage(file.path.substringAfterLast('/'), file, diff) { text ->
-                        onShowWorkingTreeDiff(
-                            WorkingTreeFileDiff(
-                                root,
-                                file.path,
-                                file.oldPath,
-                                file.change,
-                                head,
-                                "HEAD",
-                                text.original,
-                                text.current,
-                                text.hunks,
-                            ),
-                        )
-                    }
-                if (message != null && selections == requestedAt) status.set(message)
-            }
-        }
     }
 
     /** Closes the Commit tab, keeping its draft; if it was selected, the Log is. */
@@ -963,8 +931,8 @@ class GitLogView internal constructor(
             }
         val view =
             FileHistoryView(history, details, branches).apply {
-                showDiff = ::showDiff
-                compareWithLocal = { row, file -> compareWithLocal(key, row, file) }
+                showDiff = diffs::showDiff
+                compareWithLocal = { row, file -> diffs.compareWithLocal(key, row, file) }
                 showInLog = ::showInLog
                 detailsPane.openCommit = ::showInLog
                 selectionChanged = {
@@ -1089,108 +1057,10 @@ class GitLogView internal constructor(
         goToCommit(hash, hash.take(ChangedFilesPane.SHORT_HASH))
     }
 
-    /**
-     * Reads how the file of the history [key] at the commit of [row] ([file]: its change there) differs from the file
-     * in the working tree (at the history's path) in the background, and hands it to [onShowWorkingTreeDiff]; a binary,
-     * too large or unchanged file, a submodule or a failure is told in the header instead, unless the selection changed
-     * meanwhile (ADR 0046).
-     */
-    private fun compareWithLocal(
-        key: FileHistoryKey,
-        row: GitLogRow,
-        file: GitChangedFile,
-    ) {
-        val root = pages.root ?: return
-        val commit = row.commit.hash
-        val requestedAt = selections
-        status.set("")
-        compareExecutor.execute {
-            val compared =
-                when {
-                    // Not at the commit: all of the working-tree file is new.
-                    file.change == GitChange.DELETED -> GitChangedFile(GitChange.ADDED, key.path)
-
-                    !inWorkingTree(root, key.path) -> GitChangedFile(GitChange.DELETED, file.path)
-
-                    file.path != key.path -> GitChangedFile(GitChange.RENAMED, key.path, file.path)
-
-                    else -> GitChangedFile(GitChange.MODIFIED, key.path)
-                }
-            val diff = source.workingTreeFileDiff(root, commit, compared)
-            dispatch {
-                if (pages.root != root) return@dispatch
-                val message =
-                    workingTreeMessage(key.name, compared, diff) { text ->
-                        onShowWorkingTreeDiff(
-                            WorkingTreeFileDiff(
-                                root,
-                                compared.path,
-                                compared.oldPath,
-                                compared.change,
-                                commit,
-                                commit.take(ChangedFilesPane.SHORT_HASH),
-                                text.original,
-                                text.current,
-                                text.hunks,
-                            ),
-                        )
-                    }
-                if (message != null && selections == requestedAt) status.set(message)
-            }
-        }
-    }
-
-    /**
-     * What keeps the working-tree [diff] of the file [name] ([compared]) from being shown; `null` once [show] showed it.
-     */
-    private fun workingTreeMessage(
-        name: String,
-        compared: GitChangedFile,
-        diff: GitFileDiff?,
-        show: (GitFileDiff.Text) -> Boolean,
-    ): String? =
-        when (diff) {
-            null -> {
-                "The diff could not be read."
-            }
-
-            GitFileDiff.Binary -> {
-                "$name is a binary file."
-            }
-
-            GitFileDiff.TooLarge -> {
-                "$name is too large to compare."
-            }
-
-            is GitFileDiff.Submodule -> {
-                "$name is a submodule."
-            }
-
-            is GitFileDiff.Text -> {
-                val same = diff.original == diff.current && compared.change.changesContent
-                when {
-                    same -> "$name is the same in the working tree."
-                    show(diff) -> null
-                    else -> "$name cannot be shown as text."
-                }
-            }
-        }
-
-    /** Whether the working tree has a file at [path]; `true` if the JVM cannot name it (git reads it then). */
-    private fun inWorkingTree(
-        root: Path,
-        path: String,
-    ): Boolean =
-        try {
-            fileExists(root.resolve(path))
-        } catch (_: InvalidPathException) {
-            true
-        }
-
     /** Shows the log of the repository at [root]; `null` shows nothing. Loads once (or as soon as) [expanded]. */
     fun open(root: Path?) {
         fileDiffs.close()
-        closeWorkingTreeWindows()
+        diffs.closeWorkingTreeWindows()
         pushDialog?.close()
         goToPopup.hide()
         // An operation going on in the previous repository ends unnoticed; a fetch is stopped (ADR 0043).
@@ -1379,154 +1249,8 @@ class GitLogView internal constructor(
         table.scrollTo(maxOf(0, index - maxOf(0, last - first) / 2))
     }
 
-    /**
-     * Opens a window with the files that differ between the commit [revision] names (a full refname, `HEAD` or a full
-     * hash) and the working tree, titled with [label] (ADR 0044); one that is open for it already comes to the front. The
-     * window is not owned by the IDE window, which comes to the front when a diff opens from it.
-     */
-    private fun showWorkingTreeDiff(
-        revision: String,
-        label: String,
-    ) {
-        val root = pages.root ?: return
-        workingTreeWindows[revision]?.let { return it.show() }
-        val comparison =
-            WorkingTreeComparison(
-                WorkingTreeTarget(root, revision, label),
-                source::workingTreeChanges,
-                source::workingTreeFileDiff,
-                compareExecutor::execute,
-                dispatch,
-            )
-        val window =
-            WorkingTreeWindow(
-                scene?.window,
-                comparison,
-                { diff -> onShowWorkingTreeDiff(diff).also { shown -> if (shown) bringToFront() } },
-                { file -> onOpenFile(file) },
-                ::localFile,
-            )
-        workingTreeWindows[revision] = window
-        window.stage.addEventHandler(WindowEvent.WINDOW_HIDDEN) {
-            if (workingTreeWindows[revision] === window) workingTreeWindows.remove(revision)
-        }
-        window.show()
-    }
-
-    /** Brings the IDE window in front of the working-tree windows, e.g. for a diff tab opened from one. */
-    private fun bringToFront() {
-        val window = scene?.window ?: return
-        (window as? Stage)?.toFront()
-        window.requestFocus()
-    }
-
-    /** Closes the working-tree windows, e.g. for another folder or when the IDE window closes. */
-    private fun closeWorkingTreeWindows() {
-        workingTreeWindows.values.toList().forEach(WorkingTreeWindow::close)
-        workingTreeWindows.clear()
-    }
-
-    /**
-     * [file] in the working tree; `null` without a repository or if its name cannot be a path in the JVM's locale
-     * (non-ASCII characters in a plain ASCII one).
-     */
-    private fun localFile(file: GitChangedFile): Path? =
-        try {
-            pages.root?.resolve(file.path)
-        } catch (_: InvalidPathException) {
-            null
-        }
-
     /** Shows [text] in the header, e.g. why a diff cannot be shown, until the next selection or load. */
     fun showStatus(text: String) = status.set(text)
-
-    /**
-     * Reads what the commit of [row] changed in [file] and hands it to [onShowDiff]; a binary, too large or unchanged
-     * file, a submodule or a failure is told in the header instead, unless the selection changed meanwhile.
-     */
-    private fun showDiff(
-        row: GitLogRow,
-        file: GitChangedFile,
-    ) {
-        val commit = row.commit
-        val requestedAt = selections
-        showCommitDiff(commit.hash, commit.parents.firstOrNull(), file) { message ->
-            if (selections == requestedAt) showStatus(message)
-        }
-    }
-
-    /**
-     * Reads what [commit] changed in [file] against [parent] (the first parent, or a push's base, ADR 0049) and hands it
-     * to [onShowDiff]; a binary, too large or unchanged file, a submodule or a failure goes to [tell] instead.
-     */
-    private fun showCommitDiff(
-        commit: String,
-        parent: String?,
-        file: GitChangedFile,
-        tell: (String) -> Unit,
-    ) {
-        val root = pages.root ?: return
-        fileDiffs.request(root, commit, parent, file) { diff ->
-            val name = file.path.substringAfterLast('/')
-            val message =
-                when {
-                    diff == null -> {
-                        "The diff could not be read."
-                    }
-
-                    diff == GitFileDiff.Binary -> {
-                        "$name is a binary file."
-                    }
-
-                    diff == GitFileDiff.TooLarge -> {
-                        "$name is too large to compare."
-                    }
-
-                    diff is GitFileDiff.Submodule -> {
-                        submoduleMessage(name, diff)
-                    }
-
-                    // A pure rename or a change of the mode only: no empty diff.
-                    diff is GitFileDiff.Text && diff.original == diff.current && file.change.changesContent -> {
-                        "$name has no content changes."
-                    }
-
-                    else -> {
-                        null
-                    }
-                }
-            if (message != null) {
-                tell(message)
-            } else if (diff is GitFileDiff.Text) {
-                onShowDiff(
-                    CommitFileDiff(
-                        root,
-                        file.path,
-                        file.oldPath,
-                        file.change,
-                        commit,
-                        parent,
-                        diff.original,
-                        diff.current,
-                        diff.hunks,
-                    ),
-                )
-            }
-        }
-    }
-
-    private fun submoduleMessage(
-        name: String,
-        diff: GitFileDiff.Submodule,
-    ): String {
-        val old = diff.old?.take(ChangedFilesPane.SHORT_HASH)
-        val new = diff.new?.take(ChangedFilesPane.SHORT_HASH)
-        return when {
-            old != null && new != null -> "$name is a submodule: $old → $new."
-            new != null -> "$name is a submodule, added at $new."
-            else -> "$name is a submodule, removed."
-        }
-    }
 
     /**
      * Loads the first page again now if [expanded], else the next time it is expanded; keeps the selection by hash.
@@ -1724,7 +1448,7 @@ class GitLogView internal constructor(
     override fun close() {
         histories.values.forEach { it.close() }
         commitTab?.close()
-        closeWorkingTreeWindows()
+        diffs.closeWorkingTreeWindows()
         pushDialog?.close()
         compareExecutor.shutdownNow()
         // A fetch is stopped: harmless, it updates refs one by one and no files (ADR 0043).
