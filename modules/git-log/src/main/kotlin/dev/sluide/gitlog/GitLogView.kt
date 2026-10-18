@@ -7,6 +7,11 @@ import dev.sluide.git.GitLog
 import dev.sluide.git.GitPush
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitRemotes
+import dev.sluide.gitlog.area.AreaTabs
+import dev.sluide.gitlog.area.CommitDiffs
+import dev.sluide.gitlog.area.CommitNavigation
+import dev.sluide.gitlog.area.CompareBar
+import dev.sluide.gitlog.area.HeaderStatus
 import dev.sluide.gitlog.branches.BranchesPane
 import dev.sluide.gitlog.data.CommitBranches
 import dev.sluide.gitlog.data.CommitDetails

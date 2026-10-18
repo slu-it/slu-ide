@@ -1,8 +1,10 @@
-package dev.sluide.gitlog
+package dev.sluide.gitlog.area
 
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitFileDiff
+import dev.sluide.gitlog.CommitFileDiff
+import dev.sluide.gitlog.WorkingTreeFileDiff
 import dev.sluide.gitlog.data.FileDiffs
 import dev.sluide.gitlog.data.GitLogPages
 import dev.sluide.gitlog.data.GitLogRow

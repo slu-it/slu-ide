@@ -1,4 +1,4 @@
-package dev.sluide.gitlog
+package dev.sluide.gitlog.area
 
 import dev.sluide.gitlog.filter.FilterItem
 import kotlin.test.Test
