@@ -1,6 +1,5 @@
 package dev.sluide.fileviewers.preview
 
-import dev.sluide.fileviewers.markdown.MarkdownOutline
 import javafx.beans.binding.Bindings
 import javafx.beans.property.SimpleDoubleProperty
 import javafx.geometry.Insets
@@ -32,7 +31,7 @@ import kotlin.math.min
 /**
  * The table of contents of a Markdown view: a toolbar toggle [button] and an [overlay] that floats over the top left of
  * the view (it belongs in a `StackPane`) while it is open. It lists the [headings] of the document, indented by their
- * rank among the levels in use ([MarkdownOutline.depths]), and selects the one whose section contains
+ * rank among the levels in use ([HeadingOutline.depths]), and selects the one whose section contains
  * [currentLine]. Choosing an entry (click, or Enter) closes the overlay and [navigate]s to it; Escape and the button
  * close it and [restoreFocus]. The view closes it on a click outside ([contains]). Everything runs on the FX thread.
  */
@@ -134,12 +133,12 @@ internal class TableOfContents(
         val all = headings()
         val previous = list.items.toList()
         if (all != previous) {
-            depths = MarkdownOutline.depths(all)
+            depths = HeadingOutline.depths(all)
             list.items.setAll(all)
         }
         // Also when nothing changed: the font may have, and the view's size.
         if (scroll || all != previous) size(all)
-        val section = MarkdownOutline.sectionAt(all, currentLine())
+        val section = HeadingOutline.sectionAt(all, currentLine())
         val changed = list.selectionModel.selectedIndex != (section ?: -1)
         if (section == null) list.selectionModel.clearSelection() else list.selectionModel.select(section)
         if (section != null && (scroll || changed)) {

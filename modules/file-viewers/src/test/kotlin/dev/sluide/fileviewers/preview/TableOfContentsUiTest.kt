@@ -2,7 +2,6 @@ package dev.sluide.fileviewers.preview
 
 import dev.sluide.fileviewers.code.press
 import dev.sluide.fileviewers.markdown.MarkdownFileViewer
-import dev.sluide.fileviewers.markdown.MarkdownOutline
 import dev.sluide.fileviewers.table.CsvFileViewer
 import javafx.concurrent.Worker
 import javafx.geometry.Orientation
@@ -196,7 +195,7 @@ class TableOfContentsUiTest {
         assertEquals(titles.map { it.first }, toc.list.items.map { it.text })
         assertEquals(titles.map { it.second }, toc.list.items.map { it.level })
         assertEquals(lines, toc.list.items.map { it.line })
-        val depths = MarkdownOutline.depths(toc.list.items)
+        val depths = HeadingOutline.depths(toc.list.items)
         assertEquals(listOf(0, 1, 2, 0, 1, 2), depths)
         // The cells are indented by their depth.
         titles.forEachIndexed { i, (title, _) ->
@@ -416,7 +415,7 @@ class TableOfContentsUiTest {
         val headings = toc.list.items
         val top = (view.script("sluide.topLine()") as Number).toInt()
         assertEquals(7, headings.size)
-        assertEquals(MarkdownOutline.sectionAt(headings, top), toc.list.selectionModel.selectedIndex)
+        assertEquals(HeadingOutline.sectionAt(headings, top), toc.list.selectionModel.selectedIndex)
     }
 
     @Test

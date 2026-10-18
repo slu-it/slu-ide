@@ -1,6 +1,7 @@
 package dev.sluide.fileviewers.markdown
 
 import dev.sluide.fileviewers.preview.Heading
+import dev.sluide.fileviewers.preview.HeadingOutline
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -36,25 +37,25 @@ class MarkdownOutlineTest {
 
     @Test
     fun `depth is the rank among the levels in use`() {
-        assertEquals(listOf(0, 1, 0), MarkdownOutline.depths(headings("## a", "#### b", "## c")))
-        assertEquals(listOf(0, 1, 2), MarkdownOutline.depths(headings("# a", "## b", "### c")))
+        assertEquals(listOf(0, 1, 0), HeadingOutline.depths(headings("## a", "#### b", "## c")))
+        assertEquals(listOf(0, 1, 2), HeadingOutline.depths(headings("# a", "## b", "### c")))
     }
 
     @Test
     fun `section at a line`() {
         val result = headings("text", "# a", "x", "## b", "y")
-        assertNull(MarkdownOutline.sectionAt(result, 0))
-        assertEquals(0, MarkdownOutline.sectionAt(result, 1))
-        assertEquals(0, MarkdownOutline.sectionAt(result, 2))
-        assertEquals(1, MarkdownOutline.sectionAt(result, 3))
-        assertEquals(1, MarkdownOutline.sectionAt(result, 99))
+        assertNull(HeadingOutline.sectionAt(result, 0))
+        assertEquals(0, HeadingOutline.sectionAt(result, 1))
+        assertEquals(0, HeadingOutline.sectionAt(result, 2))
+        assertEquals(1, HeadingOutline.sectionAt(result, 3))
+        assertEquals(1, HeadingOutline.sectionAt(result, 99))
     }
 
     @Test
     fun `an empty document has no headings and no section`() {
         assertEquals(emptyList(), MarkdownOutline.headings(""))
-        assertNull(MarkdownOutline.sectionAt(emptyList(), 0))
-        assertEquals(emptyList(), MarkdownOutline.depths(emptyList()))
+        assertNull(HeadingOutline.sectionAt(emptyList(), 0))
+        assertEquals(emptyList(), HeadingOutline.depths(emptyList()))
     }
 
     @Test
