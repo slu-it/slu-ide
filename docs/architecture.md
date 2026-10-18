@@ -98,6 +98,11 @@ assembled from Gradle modules.
 `dev.sluide.<module>` per module, e.g. `dev.sluide.fileexplorer`, `dev.sluide.fileviewers`, `dev.sluide.ide`. All must live below
 `dev.sluide` to be found by component scanning.
 
+Within a package, one file holds one responsibility; production files stay under about 500 lines
+([ADR 0054](adr/0054-keep-source-files-small.md)). A large class is split without changing its callers, for example `GitCli`
+into its process core plus `internal` extension read files by area (`GitCliLog.kt`, `GitCliRefs.kt`, …), and
+`GitLogView` into a coordinator plus `internal` components (`CompareBar`, `CommitDiffs`, …).
+
 ## Build and release
 - **CI** (`.github/workflows/ci.yml`): `./gradlew build --continue` on Linux, without `uiTest` on macOS, for every push to `main`/`master` and every PR.
 - **Release** (`.github/workflows/release.yml`): pushing a tag `vX.Y.Z` publishes `dev.sluide:ide-<os>-<arch>:X.Y.Z`

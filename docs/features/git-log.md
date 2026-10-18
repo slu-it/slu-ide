@@ -1,6 +1,9 @@
 # Git Log
 
-**Module:** `modules/git-log` (package `dev.sluide.gitlog`) — `GitLogView` (the area), `GitLogPages` (paging and
+**Module:** `modules/git-log` (package `dev.sluide.gitlog`) — `GitLogView` (the area: construction, layout and wiring of `HeaderStatus` (the header's message),
+`AreaTabs` (the Log, Commit and History tabs), `CommitTable` (the commits and their menu), `CommitNavigation` (Go to),
+`RefActions` (the writes and the Push dialog's launcher), `CompareBar`, `PendingBar`, `CommitDiffs` and
+`FilterSources`; [ADR 0054](../adr/0054-keep-source-files-small.md)), `GitLogPages` (paging and
 reloads, without controls), `GraphLayout` (the commit graph's lanes), `GraphCell` (drawing it, with the ref labels of
 `RefLabels` and `refGroups`), `CommitDetails` (which details and changed files to load, without controls),
 `CommitDetailsPane`, `changeTree` and `FileDiffs` (`ChangedFiles.kt`, without controls), `ChangedFilesPane` with the

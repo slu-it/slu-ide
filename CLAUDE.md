@@ -27,8 +27,10 @@ new ones too (ADR 0032).
   headless sandbox: `docs/testing.md`. Never claim UI was verified without actually running it.
 - Significant decisions get an ADR (`docs/adr/template.md`), new features a page in `docs/features/`;
   add every new doc to `docs/index.md` with a one-line summary.
-- Files over ~400 lines (big UI test classes, `GitLogView.kt`, `GitCli.kt`): find the place with Grep, then Read only
-  that range (`offset`/`limit`). Don't read whole test classes to add one test; read a neighbouring test as a pattern.
+- Files over ~400 lines (big UI test classes; `.claude/scripts/check-file-sizes.sh` lists production files over 600):
+  find the place with Grep, then Read only that range (`offset`/`limit`). Don't read whole test classes to add one
+  test; read a neighbouring test as a pattern. Don't grow a production file past 600 lines; split it by
+  responsibility (ADR 0054).
 - `curl` downloads need `-L` (redirects) and checksum verification; a 169-byte "zip" is a redirect page.
 - Commits: small, one logical step each, imperative subject line. No Claude attribution lines or session links
   in commits or PRs (also enforced in `.claude/settings.json`).
