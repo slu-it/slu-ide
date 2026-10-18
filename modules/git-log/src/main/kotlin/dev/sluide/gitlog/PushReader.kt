@@ -3,6 +3,7 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitOutgoing
+import dev.sluide.gitlog.data.GitLogSource
 import dev.sluide.gitlog.ui.SHORT_HASH
 import javafx.beans.property.ReadOnlyBooleanProperty
 import javafx.beans.property.ReadOnlyBooleanWrapper

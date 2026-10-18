@@ -1,4 +1,4 @@
-package dev.sluide.gitlog
+package dev.sluide.gitlog.data
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

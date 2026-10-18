@@ -10,6 +10,8 @@ import dev.sluide.git.GitPushResult
 import dev.sluide.git.GitPushTarget
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitResult
+import dev.sluide.gitlog.data.ChangeFile
+import dev.sluide.gitlog.data.ChangeNode
 import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.Node

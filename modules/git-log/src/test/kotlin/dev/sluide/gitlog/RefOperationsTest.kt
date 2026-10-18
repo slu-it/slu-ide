@@ -4,6 +4,8 @@ import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitResult
+import dev.sluide.gitlog.data.FakeWrites
+import dev.sluide.gitlog.data.GitLogWrites
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals

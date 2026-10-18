@@ -4,6 +4,8 @@ import dev.sluide.git.GitCommitDetails
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitRevisionResolution
+import dev.sluide.gitlog.data.branchesLine
+import dev.sluide.gitlog.data.hashCandidates
 import javafx.animation.Animation
 import javafx.event.Event
 import javafx.event.EventType

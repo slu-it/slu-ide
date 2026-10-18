@@ -7,6 +7,16 @@ import dev.sluide.git.GitLog
 import dev.sluide.git.GitPush
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitRemotes
+import dev.sluide.gitlog.data.CommitBranches
+import dev.sluide.gitlog.data.CommitDetails
+import dev.sluide.gitlog.data.CommitDetailsState
+import dev.sluide.gitlog.data.FileDiffs
+import dev.sluide.gitlog.data.GitLogCliSource
+import dev.sluide.gitlog.data.GitLogCliWrites
+import dev.sluide.gitlog.data.GitLogPages
+import dev.sluide.gitlog.data.GitLogSource
+import dev.sluide.gitlog.data.GitLogState
+import dev.sluide.gitlog.data.GitLogWrites
 import dev.sluide.gitlog.ui.GIT_LOG_CSS
 import dev.sluide.gitlog.ui.GO_TO
 import dev.sluide.gitlog.ui.SHORT_HASH

@@ -3,6 +3,10 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitFileDiff
+import dev.sluide.gitlog.data.FileDiffs
+import dev.sluide.gitlog.data.GitLogPages
+import dev.sluide.gitlog.data.GitLogRow
+import dev.sluide.gitlog.data.GitLogSource
 import dev.sluide.gitlog.ui.SHORT_HASH
 import javafx.stage.Stage
 import javafx.stage.Window

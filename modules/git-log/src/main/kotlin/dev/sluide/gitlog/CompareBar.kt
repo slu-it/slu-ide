@@ -2,6 +2,10 @@ package dev.sluide.gitlog
 
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
+import dev.sluide.gitlog.data.ComparisonEnd
+import dev.sluide.gitlog.data.ComparisonSide
+import dev.sluide.gitlog.data.GitLogPages
+import dev.sluide.gitlog.data.LogComparison
 import javafx.beans.property.SimpleStringProperty
 import javafx.beans.value.ObservableStringValue
 import javafx.geometry.Pos

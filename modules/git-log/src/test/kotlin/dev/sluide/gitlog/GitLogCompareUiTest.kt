@@ -15,6 +15,12 @@ import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitTreePath
 import dev.sluide.git.GitWorkingTreeChanges
+import dev.sluide.gitlog.data.ChangeFile
+import dev.sluide.gitlog.data.ChangeFolder
+import dev.sluide.gitlog.data.ChangeNode
+import dev.sluide.gitlog.data.FakeWrites
+import dev.sluide.gitlog.data.GitLogRow
+import dev.sluide.gitlog.data.GitLogSource
 import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.Scene

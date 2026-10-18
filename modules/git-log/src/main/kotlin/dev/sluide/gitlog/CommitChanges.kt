@@ -2,6 +2,7 @@ package dev.sluide.gitlog
 
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitResult
+import dev.sluide.gitlog.data.GitLogWrites
 import dev.sluide.gitlog.ui.SHORT_HASH
 import java.nio.file.Path
 

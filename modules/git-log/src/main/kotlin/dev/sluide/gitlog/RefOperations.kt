@@ -6,6 +6,7 @@ import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefNames
 import dev.sluide.git.GitResult
+import dev.sluide.gitlog.data.GitLogWrites
 import dev.sluide.gitlog.ui.SHORT_HASH
 import javafx.beans.property.ReadOnlyBooleanProperty
 import javafx.beans.property.ReadOnlyBooleanWrapper

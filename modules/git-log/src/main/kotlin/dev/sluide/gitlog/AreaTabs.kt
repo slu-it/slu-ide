@@ -3,6 +3,10 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
+import dev.sluide.gitlog.data.CommitBranches
+import dev.sluide.gitlog.data.CommitDetails
+import dev.sluide.gitlog.data.GitLogPages
+import dev.sluide.gitlog.data.GitLogSource
 import dev.sluide.gitlog.ui.GO_TO
 import dev.sluide.gitlog.ui.SHORT_HASH
 import dev.sluide.gitlog.ui.contains

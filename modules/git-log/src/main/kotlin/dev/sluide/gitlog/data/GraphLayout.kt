@@ -1,4 +1,4 @@
-package dev.sluide.gitlog
+package dev.sluide.gitlog.data
 
 /** The number of lane colours; the colour indices of a [GraphRow] are below it. */
 internal const val GRAPH_COLOURS = 8

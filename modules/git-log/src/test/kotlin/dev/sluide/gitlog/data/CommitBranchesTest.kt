@@ -1,4 +1,4 @@
-package dev.sluide.gitlog
+package dev.sluide.gitlog.data
 
 import java.nio.file.Path
 import kotlin.test.Test

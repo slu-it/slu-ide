@@ -9,6 +9,7 @@ import dev.sluide.git.GitPickResult
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitUncheckedConflict
+import dev.sluide.gitlog.data.FakeWrites
 import javafx.application.Platform
 import javafx.scene.control.Button
 import javafx.scene.control.ButtonType

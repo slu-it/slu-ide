@@ -17,6 +17,14 @@ import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitRevisionResolution
 import dev.sluide.git.GitTreePath
+import dev.sluide.gitlog.data.ChangeFile
+import dev.sluide.gitlog.data.ChangeFolder
+import dev.sluide.gitlog.data.ChangeNode
+import dev.sluide.gitlog.data.FakeWrites
+import dev.sluide.gitlog.data.GitLogRow
+import dev.sluide.gitlog.data.GitLogSource
+import dev.sluide.gitlog.data.GraphRow
+import dev.sluide.gitlog.data.MAX_LANES
 import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.Node

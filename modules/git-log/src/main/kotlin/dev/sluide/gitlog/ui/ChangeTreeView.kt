@@ -4,10 +4,10 @@ import dev.sluide.fileicons.fileIconFor
 import dev.sluide.fileicons.show
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
-import dev.sluide.gitlog.ChangeFile
-import dev.sluide.gitlog.ChangeFolder
-import dev.sluide.gitlog.ChangeNode
-import dev.sluide.gitlog.changeTree
+import dev.sluide.gitlog.data.ChangeFile
+import dev.sluide.gitlog.data.ChangeFolder
+import dev.sluide.gitlog.data.ChangeNode
+import dev.sluide.gitlog.data.changeTree
 import javafx.beans.InvalidationListener
 import javafx.beans.WeakInvalidationListener
 import javafx.geometry.Pos

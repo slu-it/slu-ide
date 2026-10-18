@@ -9,6 +9,7 @@ import dev.sluide.git.GitPickResult
 import dev.sluide.git.GitResetMode
 import dev.sluide.git.GitResult
 import dev.sluide.git.GitUncheckedConflict
+import dev.sluide.gitlog.data.FakeWrites
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals

@@ -10,6 +10,7 @@ import dev.sluide.git.GitPickResult
 import dev.sluide.git.GitResetMode
 import dev.sluide.git.GitResult
 import dev.sluide.git.GitUncheckedConflict
+import dev.sluide.gitlog.data.GitLogWrites
 import dev.sluide.gitlog.ui.SHORT_HASH
 import java.nio.file.Path
 

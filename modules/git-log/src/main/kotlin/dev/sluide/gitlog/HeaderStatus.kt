@@ -1,5 +1,7 @@
 package dev.sluide.gitlog
 
+import dev.sluide.gitlog.data.GitLogPages
+import dev.sluide.gitlog.data.GitLogState
 import javafx.beans.binding.Bindings
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleStringProperty

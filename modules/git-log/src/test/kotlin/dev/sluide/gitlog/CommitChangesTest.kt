@@ -3,6 +3,7 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitResult
+import dev.sluide.gitlog.data.FakeWrites
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals

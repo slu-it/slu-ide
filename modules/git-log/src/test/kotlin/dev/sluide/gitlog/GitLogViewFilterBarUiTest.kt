@@ -5,6 +5,7 @@ import dev.sluide.git.GitLogOrder
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitTreePath
+import dev.sluide.gitlog.data.GraphRow
 import javafx.animation.Animation
 import javafx.event.Event
 import javafx.scene.Node

@@ -12,6 +12,7 @@ import dev.sluide.git.GitOutgoing
 import dev.sluide.git.GitPushTarget
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitTreePath
+import dev.sluide.gitlog.data.GitLogSource
 import java.nio.file.Path
 import java.time.Instant
 import kotlin.test.Test

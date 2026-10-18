@@ -9,6 +9,7 @@ import dev.sluide.git.GitFileHistoryPage
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
+import dev.sluide.gitlog.data.GraphRow
 import java.nio.file.Path
 import java.time.Instant
 import kotlin.test.Test

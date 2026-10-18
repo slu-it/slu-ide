@@ -2,6 +2,10 @@ package dev.sluide.gitlog
 
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitRefs
+import dev.sluide.gitlog.data.CommitBranches
+import dev.sluide.gitlog.data.CommitDetails
+import dev.sluide.gitlog.data.CommitDetailsState
+import dev.sluide.gitlog.data.GitLogRow
 import dev.sluide.gitlog.ui.COPY
 import dev.sluide.gitlog.ui.SHOW_DIFF
 import dev.sluide.gitlog.ui.SharedSplit

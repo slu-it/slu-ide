@@ -5,6 +5,9 @@ import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitFileHistoryPage
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
+import dev.sluide.gitlog.data.GitLogPages
+import dev.sluide.gitlog.data.GitLogRow
+import dev.sluide.gitlog.data.GraphRow
 import javafx.beans.property.ReadOnlyBooleanProperty
 import javafx.beans.property.ReadOnlyBooleanWrapper
 import javafx.beans.property.ReadOnlyObjectProperty

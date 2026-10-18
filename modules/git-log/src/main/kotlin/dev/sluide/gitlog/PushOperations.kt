@@ -2,6 +2,7 @@ package dev.sluide.gitlog
 
 import dev.sluide.git.GitPushResult
 import dev.sluide.git.GitResult
+import dev.sluide.gitlog.data.GitLogWrites
 import java.nio.file.Path
 
 /**

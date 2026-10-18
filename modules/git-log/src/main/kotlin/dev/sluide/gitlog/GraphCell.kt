@@ -1,5 +1,9 @@
 package dev.sluide.gitlog
 
+import dev.sluide.gitlog.data.GRAPH_COLOURS
+import dev.sluide.gitlog.data.GitLogRow
+import dev.sluide.gitlog.data.GraphRow
+import dev.sluide.gitlog.data.MAX_LANES
 import javafx.geometry.HPos
 import javafx.geometry.VPos
 import javafx.scene.control.ContentDisplay

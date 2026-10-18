@@ -1,5 +1,7 @@
 package dev.sluide.gitlog
 
+import dev.sluide.gitlog.data.GitLogRow
+import dev.sluide.gitlog.data.GraphRow
 import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.beans.property.ReadOnlyStringWrapper
 import javafx.scene.control.ConstrainedColumnResizeBase

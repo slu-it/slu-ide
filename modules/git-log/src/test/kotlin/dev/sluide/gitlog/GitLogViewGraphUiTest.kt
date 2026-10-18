@@ -1,6 +1,9 @@
 package dev.sluide.gitlog
 
 import dev.sluide.git.GitCommit
+import dev.sluide.gitlog.data.GRAPH_COLOURS
+import dev.sluide.gitlog.data.GraphLayout
+import dev.sluide.gitlog.data.MAX_LANES
 import javafx.application.ColorScheme
 import javafx.scene.control.Label
 import javafx.scene.effect.DropShadow

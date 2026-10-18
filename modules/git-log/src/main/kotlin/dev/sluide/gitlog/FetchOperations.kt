@@ -3,6 +3,7 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitFetchChanges
 import dev.sluide.git.GitFetchResult
 import dev.sluide.git.GitResult
+import dev.sluide.gitlog.data.GitLogWrites
 import java.nio.file.Path
 
 /**

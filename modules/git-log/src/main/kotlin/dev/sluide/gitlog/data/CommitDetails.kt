@@ -1,4 +1,4 @@
-package dev.sluide.gitlog
+package dev.sluide.gitlog.data
 
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
