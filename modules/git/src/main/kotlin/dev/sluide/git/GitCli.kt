@@ -1054,7 +1054,7 @@ class GitCli(
         return relative.joinToString("/")
     }
 
-    private fun run(
+    internal fun run(
         arguments: List<String>,
         directory: Path?,
         timeout: Duration,
@@ -1064,7 +1064,7 @@ class GitCli(
      * Runs git with [arguments] in [directory], [input] on its standard input; its output if it succeeds in time and is
      * not stopped by [cancellation]. Reads take no optional locks and drop what git says on its standard error.
      */
-    private fun runBytes(
+    internal fun runBytes(
         arguments: List<String>,
         directory: Path?,
         timeout: Duration,
@@ -1467,7 +1467,7 @@ class GitCli(
      * than that many bytes, and the result says it [overflowed][Execution.overflowed]. A read in a [directory] runs no
      * `core.fsmonitor` hook ([fsmonitorGuard]) unless [guardFsmonitor] is `false`.
      */
-    private fun execute(
+    internal fun execute(
         arguments: List<String>,
         directory: Path?,
         timeout: Duration,
@@ -1658,7 +1658,7 @@ class GitCli(
      * A run of git that ended: its [exitValue] (`null` if it took too long or was [cancelled] and was stopped) and what
      * it wrote, read to its end if [complete].
      */
-    private class Execution(
+    internal class Execution(
         val exitValue: Int?,
         val output: ByteArray,
         val errors: ByteArray,
@@ -1669,7 +1669,7 @@ class GitCli(
     )
 
     internal companion object {
-        private val HASH_PREFIX = Regex("[0-9a-fA-F]{4,64}")
+        val HASH_PREFIX = Regex("[0-9a-fA-F]{4,64}")
 
         /** How long a git command that changes the repository may take (ADR 0041); hooks may run. */
         val WRITE_TIMEOUT = 60.seconds
@@ -1700,13 +1700,13 @@ class GitCli(
          * parallel), but the write blocks while git does not read and is not covered by the timeout ([execute]); below
          * the smallest default pipe buffer (16 KiB on macOS) it never blocks.
          */
-        private const val MAX_INPUT = 15 * 1024
+        const val MAX_INPUT = 15 * 1024
 
         /** The options that turn a `core.fsmonitor` hook off for a read. */
         private val GUARDED = listOf("-c", "core.fsmonitor=false")
 
         /** Room for the header line of `cat-file --batch` besides the object name, and the line break at the end. */
-        private const val BLOB_HEADER_SLACK = 64L
+        const val BLOB_HEADER_SLACK = 64L
     }
 }
 
