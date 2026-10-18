@@ -36,8 +36,9 @@ code viewers could match names), or to reach another file's editor.
   other file's text is read from its tab (with unsaved changes) or from disk, again whenever the view is shown. A
   missing private file is created as `{}` when the first private value is written.
 - **File viewer API extended:** `TextEditableView` (`text`, `replaceText`, a minimal replacement that is one undo
-  step), implemented by `CodeEditor`; `NamedFileViewer` (exact file names, matched like a code viewer's names, so
-  it wins over `JsonFileViewer`); `FileViewHost.currentText` and `FileViewHost.editText` for another file's tab.
+  step), implemented by `CodeEditor` and plain code views; `NamedFileViewer` (exact file names, matched like a code
+  viewer's names, so it wins over `JsonFileViewer`); `FileViewHost.currentText` and `FileViewHost.editText` for
+  another file's tab.
 
 ## Consequences
 - Secrets end up in the private file without the user knowing the format; the view warns, as `.http` files do, when

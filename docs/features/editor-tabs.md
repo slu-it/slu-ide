@@ -56,7 +56,11 @@
   (`HostServices.showDocument`, through the `SystemBrowser` bean), and `projectFolder` is the window's project folder
   (`EditorArea.projectFolder`, set by the main window), whose files HTML previews may use. `windowService(type)`
   answers from `EditorArea.windowServices`, which the main window sets to its `HttpClientSession`
-  ([ADR 0026](../adr/0026-http-client-window-session.md)).
+  ([ADR 0026](../adr/0026-http-client-window-session.md)). `currentText(file)` gives the text of a file's tab with
+  unsaved changes (`null` if it is not open in a `TextEditableView` or that view is read-only); `editText(file, edit)`
+  changes it there as one undo step, unsaved, opening the file in a tab that is not selected (nor focused) if it is
+  not open, for views that edit another file ([ADR 0057](../adr/0057-visual-environment-editor.md)); `false` if the
+  file cannot be shown in a `TextEditableView` or is read-only, then no tab opens.
 - Open files are watched ([file-watching.md](file-watching.md)). When a file changes on disk, its tab reloads and
   keeps its scroll position and caret (`FileView.reload`); unsaved changes are never thrown away, the view offers to
   reload or keep them instead ([text-editing.md](text-editing.md)). If reading it fails, the tab keeps showing the last

@@ -16,9 +16,10 @@ arbitrary. Some of these formats have no RSyntaxTextArea lexer ([ADR 0005](0005-
   extension, so dotfiles are listed in `names`.
 - **Precedence** (`NameMatch`, in `FileViewers`): of the viewers that can open a file, an exact name beats an
   extension, an extension beats a name pattern. Viewers other than `CodeFileViewer`s (previews, images, `.http`)
-  count as extension matches. Spring's order only breaks ties. So `Dockerfile.md` is Markdown, `Caddyfile.json` and
-  `.env.json` JSON, while `Dockerfile.dev` (no viewer takes `.dev`) is a Dockerfile. Patterns may exclude names
-  another viewer takes by extension anyway (`Dockerfile.dockerignore` is an ignore file).
+  count as extension matches, except `NamedFileViewer`s, whose `fileNames` match exact names like a code viewer's
+  `names` ([ADR 0057](0057-visual-environment-editor.md)). Spring's order only breaks ties. So `Dockerfile.md` is
+  Markdown, `Caddyfile.json` and `.env.json` JSON, while `Dockerfile.dev` (no viewer takes `.dev`) is a Dockerfile.
+  Patterns may exclude names another viewer takes by extension anyway (`Dockerfile.dockerignore` is an ignore file).
 - **Shebangs** only for text files without an extension that no viewer opens by name, after all name matches and
   before `DefaultTextFileViewer`. The first line comes from the 8 KiB sample read once for all viewers. `env`
   options with their arguments and `NAME=value` are skipped; versions are stripped (`python3.12` counts as `python3`

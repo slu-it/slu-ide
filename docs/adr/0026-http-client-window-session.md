@@ -37,6 +37,9 @@ icons in the gutter), whose implementation is internal to that module.
   `file-viewers` and its `CommentSyntax` does not become part of the API. Viewers of other modules
   that show files as text implement `SourceFileViewer` (`sourceHighlighter`), so `FileViewers.showsDiffs` and
   `openDiff` treat them like code viewers: change markers and highlighted diffs work for `.http` files.
+  `CodeEditor` and plain code views are `TextEditableView`s (`text`, `replaceText` as one undo step); viewers for exact
+  file names implement `NamedFileViewer` (`fileNames`); `FileViewHost.currentText` and `FileViewHost.editText` read
+  and edit another file's tab ([ADR 0057](0057-visual-environment-editor.md)).
 - Also public for other modules: `SyntaxHighlighter`, `HighlightSpan`, `TokenStyle`, `Highlighters.forLanguage` and
   `isTextFile` ([ADR 0005](0005-syntax-highlighting.md) still holds: `org.fife` stays internal).
 
