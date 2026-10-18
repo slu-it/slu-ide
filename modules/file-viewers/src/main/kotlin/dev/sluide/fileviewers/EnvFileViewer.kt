@@ -1,5 +1,7 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.code.CodeFileViewer
+import dev.sluide.fileviewers.code.CodeView
 import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import dev.sluide.textediting.CommentSyntax
 import dev.sluide.textediting.IndentStyle

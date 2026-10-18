@@ -1,5 +1,7 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.code.keyPress
+import dev.sluide.fileviewers.code.press
 import javafx.concurrent.Worker
 import javafx.event.Event
 import javafx.event.EventHandler

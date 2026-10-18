@@ -1,6 +1,11 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.code
 
+import dev.sluide.fileviewers.DefaultTextFileViewer
+import dev.sluide.fileviewers.FileView
+import dev.sluide.fileviewers.JsonFileViewer
+import dev.sluide.fileviewers.PythonFileViewer
 import dev.sluide.fileviewers.highlight.TomlHighlighter
+import dev.sluide.fileviewers.isTextFile
 import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.Label

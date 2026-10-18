@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.code
 
 import javafx.event.Event
 import javafx.scene.Node

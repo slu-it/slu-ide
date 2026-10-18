@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.code.CodeView
 import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path

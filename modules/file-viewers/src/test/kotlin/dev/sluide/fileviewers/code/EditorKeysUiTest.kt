@@ -1,5 +1,8 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.code
 
+import dev.sluide.fileviewers.KotlinFileViewer
+import dev.sluide.fileviewers.MakefileFileViewer
+import dev.sluide.fileviewers.PythonFileViewer
 import dev.sluide.textediting.IndentStyle
 import javafx.scene.Scene
 import javafx.scene.input.KeyCode

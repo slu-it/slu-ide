@@ -1,8 +1,10 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.code
 
-import dev.sluide.fileviewers.LineMarker.ADDED
-import dev.sluide.fileviewers.LineMarker.MODIFIED
-import dev.sluide.fileviewers.LineMarker.REMOVED_ABOVE
+import dev.sluide.fileviewers.LineChange
+import dev.sluide.fileviewers.TextDiff
+import dev.sluide.fileviewers.code.LineMarker.ADDED
+import dev.sluide.fileviewers.code.LineMarker.MODIFIED
+import dev.sluide.fileviewers.code.LineMarker.REMOVED_ABOVE
 import kotlin.test.Test
 import kotlin.test.assertEquals
 

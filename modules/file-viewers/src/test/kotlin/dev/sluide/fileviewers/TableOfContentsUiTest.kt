@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.code.press
 import javafx.concurrent.Worker
 import javafx.geometry.Orientation
 import javafx.geometry.Point2D

@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.code
 
 import dev.sluide.textediting.CommentSyntax
 import dev.sluide.textediting.IndentStyle

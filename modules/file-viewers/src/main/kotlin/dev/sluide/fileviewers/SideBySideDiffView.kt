@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.code.codeStyleSpans
 import javafx.application.Platform
 import javafx.beans.value.ChangeListener
 import javafx.geometry.Pos

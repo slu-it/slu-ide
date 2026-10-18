@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.code.CodeView
 import dev.sluide.textediting.CommentSyntax
 import javafx.application.ColorScheme
 import javafx.application.Platform

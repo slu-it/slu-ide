@@ -1,5 +1,10 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.code
 
+import dev.sluide.fileviewers.FileMatch
+import dev.sluide.fileviewers.FileView
+import dev.sluide.fileviewers.NameMatch
+import dev.sluide.fileviewers.ShebangViewer
+import dev.sluide.fileviewers.SyntaxHighlighter
 import dev.sluide.textediting.CommentSyntax
 import dev.sluide.textediting.IndentStyle
 import org.fxmisc.richtext.model.StyleSpans
@@ -8,9 +13,9 @@ import java.nio.file.Path
 
 /**
  * Editable, syntax-highlighted view ([CodeView]) of source files with one of the given [extensions], one of the exact
- * file [names] or a whole name matching one of the [namePatterns], all case-insensitive ([canOpen]); [FileViewers] also
- * opens files without an extension with it if no viewer takes them by name and their shebang names one of the
- * [interpreters] (`#!/usr/bin/env python3`; [FileMatch], [ShebangViewer]).
+ * file [names] or a whole name matching one of the [namePatterns], all case-insensitive ([canOpen]);
+ * [dev.sluide.fileviewers.FileViewers] also opens files without an extension with it if no viewer takes them by name
+ * and their shebang names one of the [interpreters] (`#!/usr/bin/env python3`; [FileMatch], [ShebangViewer]).
  * Subclasses pick the language via [highlighter] and how it comments out lines via [comment]; see `PythonFileViewer`.
  */
 abstract class CodeFileViewer internal constructor(
@@ -28,7 +33,10 @@ abstract class CodeFileViewer internal constructor(
 
     override fun canOpen(file: Path): Boolean = match.matchesName(file)
 
-    /** How the name of [file] matches this viewer, or `null`; [FileViewers] prefers the best match. */
+    /**
+     * How the name of [file] matches this viewer, or `null`; [dev.sluide.fileviewers.FileViewers] prefers the best
+     * match.
+     */
     internal fun nameMatch(file: Path): NameMatch? = match.nameMatch(file)
 
     override fun opensInterpreter(interpreter: String): Boolean = match.matchesInterpreter(interpreter)

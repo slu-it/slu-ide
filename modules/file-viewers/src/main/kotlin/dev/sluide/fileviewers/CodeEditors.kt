@@ -1,5 +1,7 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.code.CodeView
+import dev.sluide.fileviewers.code.codeStyleSpans
 import dev.sluide.textediting.CommentSyntax
 import javafx.beans.value.ObservableValue
 import javafx.scene.Node

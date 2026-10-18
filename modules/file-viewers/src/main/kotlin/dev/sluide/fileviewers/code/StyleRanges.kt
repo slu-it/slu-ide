@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.code
 
 import org.fxmisc.richtext.model.StyleSpan
 import org.fxmisc.richtext.model.StyleSpans

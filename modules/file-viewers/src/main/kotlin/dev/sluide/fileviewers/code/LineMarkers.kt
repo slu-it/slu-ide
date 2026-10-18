@@ -1,5 +1,9 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.code
 
+import dev.sluide.fileviewers.DiffKind
+import dev.sluide.fileviewers.LineChange
+import dev.sluide.fileviewers.TextDiff
+import dev.sluide.fileviewers.clampTo
 import dev.sluide.textediting.TextReplacement
 
 /** How a line of a file differs from the original, shown beside its line number; [styleClass] colours it. */

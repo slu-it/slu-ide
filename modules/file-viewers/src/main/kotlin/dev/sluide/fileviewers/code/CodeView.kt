@@ -1,5 +1,12 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.code
 
+import dev.sluide.fileviewers.EditableFileView
+import dev.sluide.fileviewers.FileViewHost
+import dev.sluide.fileviewers.FocusWhenShown
+import dev.sluide.fileviewers.GutterColumns
+import dev.sluide.fileviewers.SyntaxHighlighter
+import dev.sluide.fileviewers.TextDiff
+import dev.sluide.fileviewers.decodeUtf8
 import dev.sluide.textediting.CommentSyntax
 import dev.sluide.textediting.DiskChange
 import dev.sluide.textediting.IndentStyle
@@ -116,7 +123,8 @@ internal class CodeView(
 
     /**
      * The ranges of a text that are styled `masked` over the token styles, below the find bar's matches, e.g. the
-     * values of `.env` files ([EnvFileView]); applied with every highlighting, and by [restyleMasks].
+     * values of `.env` files ([dev.sluide.fileviewers.env.EnvFileView]); applied with every highlighting, and by
+     * [restyleMasks].
      */
     var maskedRanges: ((text: String) -> List<IntRange>)? = null
 
