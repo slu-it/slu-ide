@@ -1,6 +1,7 @@
 package dev.sluide.fileviewers.preview
 
 import dev.sluide.fileviewers.SyntaxHighlighter
+import org.jsoup.nodes.Entities
 
 /**
  * The frame of the pages that previews load from a string (Markdown, notebooks, CSV, images): UTF-8, stylesheets
@@ -14,17 +15,19 @@ internal object HtmlPage {
 
     /**
      * A page with [styles] in its head, `dark` (if [dark]) and [classes] on its body, the [content] and then each of
-     * [scripts] in a script element of its own.
+     * [scripts] in a script element of its own. A [title] becomes the page's `<title>`.
      */
     fun render(
         dark: Boolean,
         styles: List<String>,
         scripts: List<String>,
         classes: Collection<String> = emptyList(),
+        title: String? = null,
         content: StringBuilder.() -> Unit,
     ): String =
         buildString {
             append("<!DOCTYPE html>\n<html>\n<head>\n<meta charset=\"utf-8\">\n")
+            if (title != null) append("<title>").append(Entities.escape(title)).append("</title>\n")
             for (style in styles) append("<style>\n").append(style).append("\n</style>\n")
             append("</head>\n")
             val bodyClasses = (if (dark) listOf("dark") else emptyList()) + classes

@@ -124,21 +124,27 @@ internal object MarkdownRenderer {
 
     /**
      * The preview page around [body] (sanitised content): our stylesheet and script, and KaTeX or Mermaid if it has
-     * math or diagrams.
+     * math or diagrams. A [standalone] page is for a browser: it follows the reader's colour scheme ([dark] is
+     * ignored) and lets links navigate. It has a [title] and [extraStyles] after all other styles.
      */
     fun page(
         body: Element,
         dark: Boolean,
+        standalone: Boolean = false,
+        title: String? = null,
+        extraStyles: List<String> = emptyList(),
     ): String {
         val math = body.selectFirst(".math") != null
         val diagrams = body.selectFirst("pre.mermaid") != null
         // Each library in a script of its own, then the call that starts it.
         val scripts =
             listOf(script) +
+                (if (standalone) listOf(THEME_SCRIPT) else emptyList()) +
                 (if (math) listOf(Vendor.katexJs, "sluide.renderMath();") else emptyList()) +
                 (if (diagrams) listOf(Vendor.mermaidJs, "sluide.renderDiagrams();") else emptyList())
-        val styles = if (math) listOf(stylesheet, Vendor.katexCss) else listOf(stylesheet)
-        return HtmlPage.render(dark, styles, scripts, body.classNames()) { append(body.html()) }
+        val styles = (if (math) listOf(stylesheet, Vendor.katexCss) else listOf(stylesheet)) + extraStyles
+        val classes = (if (standalone) listOf("standalone") else emptyList()) + body.classNames()
+        return HtmlPage.render(dark && !standalone, styles, scripts, classes, title) { append(body.html()) }
     }
 
     /** A local image at [src] (relative to [folder] or `file:`) as a `data:` URI, or `null` to keep [src]. */
@@ -156,7 +162,21 @@ internal object MarkdownRenderer {
         }
     }
 
-    private const val MAX_IMAGE_BYTES = 10L * 1024 * 1024
+    /** The largest image that is embedded in a page. */
+    internal const val MAX_IMAGE_BYTES = 10L * 1024 * 1024
+
+    // Sets the reader's colour scheme before the diagrams are drawn, and follows its changes.
+    private const val THEME_SCRIPT =
+        """
+(function () {
+    var query = window.matchMedia && matchMedia('(prefers-color-scheme: dark)');
+    if (!query) return;
+    document.body.classList.toggle('dark', query.matches);
+    var follow = function (event) { sluide.setDark(event.matches); };
+    if (query.addEventListener) query.addEventListener('change', follow);
+    else if (query.addListener) query.addListener(follow);
+})();
+"""
 
     private fun sourceLine(
         node: Node,
