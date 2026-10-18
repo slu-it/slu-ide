@@ -1,5 +1,6 @@
 package dev.sluide.git
 
+import dev.sluide.git.parse.GitStatusParser
 import java.nio.file.Path
 import java.util.EnumSet
 

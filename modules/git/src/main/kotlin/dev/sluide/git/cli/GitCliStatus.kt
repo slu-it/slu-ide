@@ -1,7 +1,7 @@
 package dev.sluide.git.cli
 
-import dev.sluide.git.GitDiffParser
-import dev.sluide.git.GitStatusParser
+import dev.sluide.git.parse.GitDiffParser
+import dev.sluide.git.parse.GitStatusParser
 import java.nio.file.Path
 import kotlin.time.Duration.Companion.seconds
 

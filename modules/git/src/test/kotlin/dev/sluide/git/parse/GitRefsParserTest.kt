@@ -1,5 +1,8 @@
-package dev.sluide.git
+package dev.sluide.git.parse
 
+import dev.sluide.git.GitRef
+import dev.sluide.git.GitRefKind
+import dev.sluide.git.GitRefs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull

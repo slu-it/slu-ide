@@ -1,4 +1,7 @@
-package dev.sluide.git
+package dev.sluide.git.parse
+
+import dev.sluide.git.GitHead
+import dev.sluide.git.GitStatus
 
 /**
  * Reads the output of `git status --porcelain=v2 --branch -z --ignored`: NUL-separated records with paths relative

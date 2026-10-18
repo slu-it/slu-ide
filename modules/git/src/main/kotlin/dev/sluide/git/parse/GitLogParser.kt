@@ -1,5 +1,6 @@
-package dev.sluide.git
+package dev.sluide.git.parse
 
+import dev.sluide.git.GitCommit
 import java.time.Instant
 
 /**

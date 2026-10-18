@@ -1,10 +1,10 @@
 package dev.sluide.git.cli
 
 import dev.sluide.git.GitCancellation
-import dev.sluide.git.GitFileHistoryParser
 import dev.sluide.git.GitLogFilter
 import dev.sluide.git.GitLogOrder
-import dev.sluide.git.GitLogParser
+import dev.sluide.git.parse.GitFileHistoryParser
+import dev.sluide.git.parse.GitLogParser
 import java.nio.file.Path
 import kotlin.time.Duration.Companion.seconds
 

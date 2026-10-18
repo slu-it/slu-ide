@@ -1,5 +1,7 @@
-package dev.sluide.git
+package dev.sluide.git.parse
 
+import dev.sluide.git.GitCommit
+import dev.sluide.git.GitCommitDetails
 import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals

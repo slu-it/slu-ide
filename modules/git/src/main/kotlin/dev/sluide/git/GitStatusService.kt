@@ -5,6 +5,7 @@ import dev.sluide.git.cli.GitCli
 import dev.sluide.git.cli.diffToHead
 import dev.sluide.git.cli.headContent
 import dev.sluide.git.cli.status
+import dev.sluide.git.parse.GitDiffParser
 import dev.sluide.projecttrust.ProjectTrust
 import javafx.application.Platform
 import javafx.beans.property.ReadOnlyLongProperty

@@ -1,5 +1,7 @@
-package dev.sluide.git
+package dev.sluide.git.parse
 
+import dev.sluide.git.GitChange
+import dev.sluide.git.GitChangedFile
 import kotlin.test.Test
 import kotlin.test.assertEquals
 

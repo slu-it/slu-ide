@@ -14,6 +14,7 @@ import dev.sluide.git.cli.refusal
 import dev.sluide.git.cli.remoteNames
 import dev.sluide.git.cli.sshConfigured
 import dev.sluide.git.cli.status
+import dev.sluide.git.parse.GitLogParser
 import org.springframework.stereotype.Component
 import java.nio.file.Path
 import kotlin.time.Duration

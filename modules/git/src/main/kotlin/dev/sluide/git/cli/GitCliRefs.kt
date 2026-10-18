@@ -1,7 +1,7 @@
 package dev.sluide.git.cli
 
 import dev.sluide.git.GitBranchTip
-import dev.sluide.git.GitRefsParser
+import dev.sluide.git.parse.GitRefsParser
 import java.nio.file.Path
 import kotlin.time.Duration.Companion.seconds
 

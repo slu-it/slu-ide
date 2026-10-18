@@ -1,5 +1,6 @@
-package dev.sluide.git
+package dev.sluide.git.parse
 
+import dev.sluide.git.GitHunk
 import kotlin.test.Test
 import kotlin.test.assertEquals
 

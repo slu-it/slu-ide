@@ -1,4 +1,8 @@
-package dev.sluide.git
+package dev.sluide.git.parse
+
+import dev.sluide.git.GitRef
+import dev.sluide.git.GitRefKind
+import dev.sluide.git.GitRefs
 
 /**
  * Reads the output of `git for-each-ref --format=%(objectname)%1f%(*objectname)%1f%(refname)%1f%(symref)`: one record

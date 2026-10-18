@@ -1,9 +1,9 @@
 package dev.sluide.git.cli
 
-import dev.sluide.git.GitCommitDetailsParser
-import dev.sluide.git.GitDiffParser
-import dev.sluide.git.GitNameStatusParser
-import dev.sluide.git.GitRevisionParser
+import dev.sluide.git.parse.GitCommitDetailsParser
+import dev.sluide.git.parse.GitDiffParser
+import dev.sluide.git.parse.GitNameStatusParser
+import dev.sluide.git.parse.GitRevisionParser
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path

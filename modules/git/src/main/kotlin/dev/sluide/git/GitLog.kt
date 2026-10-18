@@ -27,6 +27,13 @@ import dev.sluide.git.cli.storeFiles
 import dev.sluide.git.cli.treePaths
 import dev.sluide.git.cli.userName
 import dev.sluide.git.cli.workingTreeChanges
+import dev.sluide.git.parse.GitCommitDetailsParser
+import dev.sluide.git.parse.GitDiffParser
+import dev.sluide.git.parse.GitFileHistoryParser
+import dev.sluide.git.parse.GitLogParser
+import dev.sluide.git.parse.GitNameStatusParser
+import dev.sluide.git.parse.GitRefsParser
+import dev.sluide.git.parse.GitRevisionParser
 import org.springframework.stereotype.Component
 import java.io.IOException
 import java.nio.file.Files

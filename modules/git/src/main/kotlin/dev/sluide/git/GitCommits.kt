@@ -33,6 +33,7 @@ import dev.sluide.git.cli.unmergedPaths
 import dev.sluide.git.cli.unreachableCount
 import dev.sluide.git.cli.untrackedPaths
 import dev.sluide.git.cli.workingTreeChanges
+import dev.sluide.git.parse.GitNameStatusParser
 import org.springframework.stereotype.Component
 import java.io.IOException
 import java.nio.file.FileVisitResult
