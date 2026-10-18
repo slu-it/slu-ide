@@ -6,6 +6,7 @@ import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.FileViewers
+import dev.sluide.fileviewers.languages.JsonFileViewer
 import dev.sluide.fileviewers.languages.PythonFileViewer
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitBranches
@@ -18,6 +19,7 @@ import dev.sluide.git.GitTrustCheck
 import dev.sluide.git.cli.GitCli
 import dev.sluide.gitlog.GitLogView
 import dev.sluide.httpclient.HttpClientSession
+import dev.sluide.httpclient.HttpEnvironmentFileViewer
 import dev.sluide.httpclient.HttpFileViewer
 import dev.sluide.projects.ProjectPicker
 import dev.sluide.projects.RecentProjects
@@ -33,8 +35,11 @@ import dev.sluide.settings.pages.AppearancePage
 import dev.sluide.settings.pages.FontsPage
 import dev.sluide.settings.pages.TerminalScrollPage
 import dev.sluide.terminal.Terminals
+import org.junit.jupiter.api.io.TempDir
 import org.springframework.boot.WebApplicationType
 import org.springframework.boot.builder.SpringApplicationBuilder
+import java.nio.file.Path
+import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -44,6 +49,9 @@ import kotlin.test.assertIs
  * instantiated without a running toolkit (and thus a display).
  */
 class SpringWiringTest {
+    @TempDir
+    lateinit var dir: Path
+
     @Test
     fun `context registers the main window and beans from all modules`() {
         SpringApplicationBuilder(SluIdeConfiguration::class.java)
@@ -83,6 +91,7 @@ class SpringWiringTest {
                         SystemBrowser::class.java,
                         HttpClientSession::class.java,
                         HttpFileViewer::class.java,
+                        HttpEnvironmentFileViewer::class.java,
                         RecentProjects::class.java,
                         ProjectPicker::class.java,
                         GitTrustCheck::class.java,
@@ -117,6 +126,14 @@ class SpringWiringTest {
                 val viewers = context.getBean(FileViewers::class.java).viewers
                 assertEquals(context.getBeansOfType(FileViewer::class.java).size, viewers.size, "all viewers are asked")
                 assertIs<DefaultTextFileViewer>(viewers.last())
+                // The HTTP client's environment files get its editor, other JSON files the JSON viewer (ADR 0057).
+                val fileViewers = context.getBean(FileViewers::class.java)
+                for (name in listOf("http-client.env.json", "http-client.private.env.json", "other.json")) {
+                    dir.resolve(name).writeText("{}")
+                }
+                assertIs<HttpEnvironmentFileViewer>(fileViewers.viewerFor(dir.resolve("http-client.env.json")))
+                assertIs<HttpEnvironmentFileViewer>(fileViewers.viewerFor(dir.resolve("http-client.private.env.json")))
+                assertIs<JsonFileViewer>(fileViewers.viewerFor(dir.resolve("other.json")))
             }
     }
 }
