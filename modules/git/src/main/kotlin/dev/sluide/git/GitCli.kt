@@ -9,8 +9,12 @@ import java.io.OutputStream
 import java.nio.charset.Charset
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
+import java.nio.file.LinkOption
 import java.nio.file.Path
+import java.security.MessageDigest
+import java.util.HexFormat
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
@@ -45,6 +49,9 @@ class GitCli(
      * ([CONFIGURATION_VARIABLES]).
      */
     internal val environment: Map<String, String> = environment - repositoryVariables(executable, environment)
+
+    /** By folder, the options that keep reads there from running a `core.fsmonitor` hook ([fsmonitorGuard]). */
+    private val fsmonitorGuards = ConcurrentHashMap<Path, FsmonitorGuard>()
 
     /** Whether `git --version` ran successfully at startup. */
     val available: Boolean =
@@ -825,7 +832,9 @@ class GitCli(
                     ?.let { "GIT_CEILING_DIRECTORIES" to it },
                 "GIT_ATTR_NOSYSTEM" to "1",
             ).toMap()
-        val execution = execute(arguments, folder, 10.seconds, null, write = false, outside) ?: return null
+        // Without an index there is no fsmonitor to guard against, and the folder is a new one every time.
+        val execution =
+            execute(arguments, folder, 10.seconds, null, write = false, outside, guardFsmonitor = false) ?: return null
         if (!execution.complete) return null
         val output = execution.output.toString(Charsets.UTF_8)
         // Without an index, git exits with 1 when the files differ, but also when it cannot read one.
@@ -1329,7 +1338,8 @@ class GitCli(
      * a few lines, well below the pipe's buffer, or read by git at once (a tag message). [environment] is added to the
      * one of the processes. A [cancellation] stops git as the timeout does, unless git has ended by then; one before git
      * starts keeps it from starting. With [maxOutput], git and what it started are killed as soon as it writes more
-     * than that many bytes, and the result says it [overflowed][Execution.overflowed].
+     * than that many bytes, and the result says it [overflowed][Execution.overflowed]. A read in a [directory] runs no
+     * `core.fsmonitor` hook ([fsmonitorGuard]) unless [guardFsmonitor] is `false`.
      */
     private fun execute(
         arguments: List<String>,
@@ -1340,11 +1350,13 @@ class GitCli(
         environment: Map<String, String> = emptyMap(),
         cancellation: GitCancellation? = null,
         maxOutput: Long? = null,
+        guardFsmonitor: Boolean = true,
     ): Execution? {
         if (cancellation?.cancelled == true) return Execution(null, ByteArray(0), ByteArray(0), false, cancelled = true)
+        val guard = if (!write && guardFsmonitor && directory != null) fsmonitorGuard(directory) else emptyList()
         val process =
             try {
-                ProcessBuilder(listOf(executable) + arguments)
+                ProcessBuilder(listOf(executable) + guard + arguments)
                     .directory(directory?.toFile())
                     .apply {
                         if (!write) redirectError(ProcessBuilder.Redirect.DISCARD)
@@ -1423,6 +1435,60 @@ class GitCli(
             overflowed = overflowed.get(),
         )
     }
+
+    /**
+     * The options that keep a read in the repository at [directory] from running a `core.fsmonitor` hook (ADR 0052):
+     * `-c core.fsmonitor=false` if the setting is no boolean but a command, which git runs whenever it refreshes the
+     * index, so that opening a downloaded repository would run whatever its own `.git/config` says; none if it is
+     * unset or a boolean (`true`: git's own daemon, which runs nothing of the repository's and stays fast). Read with
+     * `git config --type=bool --get` (exit 128 for a value that is no boolean), which runs nothing, and kept for the
+     * folder while its configuration has the same content ([gitStamp]: also a repository extracted there anew is read
+     * again); not kept without `.git`, nor when the read failed otherwise (e.g. took too long), for which the hook is
+     * turned off this once. Writes, which the user starts, run hooks anyway.
+     */
+    private fun fsmonitorGuard(directory: Path): List<String> {
+        val folder = directory.toAbsolutePath().normalize()
+        val stamp = gitStamp(folder)
+        fsmonitorGuards[folder]?.takeIf { stamp != null && it.stamp == stamp }?.let { return it.options }
+        val arguments = listOf("--no-optional-locks", "config", "--type=bool", "--get", "core.fsmonitor")
+        val read = execute(arguments, folder, 3.seconds, null, write = false, guardFsmonitor = false)
+        val exit = read?.exitValue?.takeIf { read.complete }
+        val options = if (exit == 0 || exit == 1) emptyList() else GUARDED
+        val definite = exit == 0 || exit == 1 || exit == 128
+        if (stamp != null && definite) fsmonitorGuards[folder] = FsmonitorGuard(stamp, options)
+        if (exit == 128) log.log(System.Logger.Level.INFO, "Reads in $folder run without its core.fsmonitor hook")
+        return options
+    }
+
+    /**
+     * What the setting of the repository in [folder] is read from: the content of `.git/config`, or of a `.git` file (a
+     * linked worktree, whose configuration is the main repository's), as its SHA-256 (empty without `.git/config`).
+     * Content, not times or inodes: an archive extracted anew restores its files' times, and a file system reuses
+     * inodes. `null` without `.git`, or if it cannot be read.
+     */
+    private fun gitStamp(folder: Path): String? =
+        try {
+            val git = folder.resolve(".git")
+            val file =
+                when {
+                    Files.isDirectory(git, LinkOption.NOFOLLOW_LINKS) -> git.resolve("config")
+                    Files.exists(git, LinkOption.NOFOLLOW_LINKS) -> git
+                    else -> null
+                }
+            when {
+                file == null -> null
+                !Files.exists(file) -> ""
+                else -> HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(file)))
+            }
+        } catch (_: IOException) {
+            null
+        }
+
+    /** The [options] of [fsmonitorGuard] for a folder, read when its configuration had the [stamp] of [gitStamp]. */
+    private class FsmonitorGuard(
+        val stamp: String,
+        val options: List<String>,
+    )
 
     /**
      * Kills git and whatever it started (hooks, helpers, ssh); the descendants first, as they are lost with git: those
@@ -1509,6 +1575,9 @@ class GitCli(
          * the smallest default pipe buffer (16 KiB on macOS) it never blocks.
          */
         private const val MAX_INPUT = 15 * 1024
+
+        /** The options that turn a `core.fsmonitor` hook off for a read. */
+        private val GUARDED = listOf("-c", "core.fsmonitor=false")
 
         /** Room for the header line of `cat-file --batch` besides the object name, and the line break at the end. */
         private const val BLOB_HEADER_SLACK = 64L

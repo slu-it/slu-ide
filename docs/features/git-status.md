@@ -35,7 +35,10 @@
   status snapshot, so a checkout in Thoreau's terminal or any other tool updates it through the watch of `.git`
   (`HEAD` changes), which does not happen for a `.git` file (worktrees, submodules). Like the markers, the title keeps
   the last ref if `git status` fails.
-- Git always works on the opened folder: variables such as `GIT_DIR` or `GIT_INDEX_FILE` that Thoreau may have been
-  started with are not passed on ([ADR 0052](../adr/0052-hardening-how-git-is-started.md)).
+- A downloaded repository cannot run code through a `core.fsmonitor` hook in its configuration (a command instead of
+  `true` or `false`) by being opened: it is turned off for every read (`-c core.fsmonitor=false`; git's own daemon
+  stays). Its filters still run (`git status` runs a clean filter for files whose index entry does not match them).
+  And git always works on the opened folder: variables such as `GIT_DIR` or `GIT_INDEX_FILE` that Thoreau may have
+  been started with are not passed on ([ADR 0052](../adr/0052-hardening-how-git-is-started.md)).
 - Not yet implemented: blame, git commands from the IDE, repositories in subfolders or above the
   opened folder.
