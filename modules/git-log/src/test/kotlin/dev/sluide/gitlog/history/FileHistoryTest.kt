@@ -1,4 +1,4 @@
-package dev.sluide.gitlog
+package dev.sluide.gitlog.history
 
 import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitChange

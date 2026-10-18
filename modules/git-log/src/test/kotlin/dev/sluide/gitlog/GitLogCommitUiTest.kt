@@ -11,6 +11,7 @@ import dev.sluide.gitlog.commit.CheckState
 import dev.sluide.gitlog.commit.CommitEntryNode
 import dev.sluide.gitlog.commit.CommitGroupNode
 import dev.sluide.gitlog.commit.CommitNode
+import dev.sluide.gitlog.history.AreaTab
 import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.Node

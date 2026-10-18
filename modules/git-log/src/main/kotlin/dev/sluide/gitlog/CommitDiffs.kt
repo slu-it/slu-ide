@@ -7,6 +7,7 @@ import dev.sluide.gitlog.data.FileDiffs
 import dev.sluide.gitlog.data.GitLogPages
 import dev.sluide.gitlog.data.GitLogRow
 import dev.sluide.gitlog.data.GitLogSource
+import dev.sluide.gitlog.history.FileHistoryKey
 import dev.sluide.gitlog.ui.SHORT_HASH
 import javafx.stage.Stage
 import javafx.stage.Window
