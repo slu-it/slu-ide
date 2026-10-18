@@ -1,0 +1,103 @@
+/*
+ * View of the HTTP client's environment files (EnvironmentFileView): a toolbar like the one of the .http view above
+ * the JSON source and the form (EnvironmentTable). Single-class selectors in dark rules only (ADR 0009).
+ */
+
+.env-toolbar {
+    -fx-padding: 2 6 2 6;
+    -fx-spacing: 4;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
+}
+
+.env-toolbar .button, .env-toolbar .toggle-button {
+    -fx-font-size: 0.9em;
+}
+
+.env-toolbar .env-mode {
+    -fx-padding: 1 8 1 8;
+}
+
+.env-view .split-pane {
+    -fx-padding: 0;
+    -fx-background-insets: 0;
+}
+
+/* Problems of the files and what the form could not do, in a row below the toolbar. */
+.env-warning {
+    -fx-text-fill: #b26a00;
+    -fx-font-size: 0.9em;
+    -fx-padding: 3 8 3 8;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
+}
+
+.env-buttons {
+    -fx-padding: 4 6 4 6;
+    -fx-spacing: 4;
+}
+
+.env-buttons .button {
+    -fx-font-size: 0.9em;
+}
+
+/* Section headers: Variables, Auth · <id>, Client certificate. */
+.env-section {
+    -fx-font-weight: bold;
+}
+
+.env-value-box {
+    -fx-spacing: 4;
+}
+
+.env-undefined, .env-summary, .env-not-applicable .env-value {
+    -fx-text-fill: derive(-fx-text-base-color, 45%);
+}
+
+.env-null {
+    -fx-font-style: italic;
+}
+
+.env-masked {
+    -fx-text-fill: derive(-fx-text-base-color, 25%);
+}
+
+/* Values the form does not edit: of environments that are no objects, of mixed rows, not applicable ones. */
+.env-readonly-value .env-value, .env-not-applicable, .env-readonly .env-value {
+    -fx-opacity: 0.6;
+}
+
+.env-readonly .column-header .label {
+    -fx-text-fill: derive(-fx-text-base-color, 45%);
+}
+
+/* The lock of a value's file: open for the public file, closed for the private one. */
+.env-lock {
+    -fx-background-color: transparent;
+    -fx-padding: 0 2 0 2;
+    -fx-cursor: hand;
+}
+
+.env-lock-icon {
+    -fx-icon-size: 13;
+    -fx-icon-color: derive(-fx-text-base-color, 45%);
+}
+
+.env-lock-icon-private {
+    -fx-icon-color: #b26a00;
+}
+
+.env-lock:disabled {
+    -fx-opacity: 0.5;
+}
+
+.env-invalid {
+    -fx-text-fill: #c62828;
+    -fx-border-color: #c62828;
+}
+
+@media (prefers-color-scheme: dark) {
+    .env-warning           { -fx-text-fill: #e0a040; }
+    .env-lock-icon-private { -fx-icon-color: #e0a040; }
+    .env-invalid           { -fx-text-fill: #ef6c6c; -fx-border-color: #ef6c6c; }
+}
