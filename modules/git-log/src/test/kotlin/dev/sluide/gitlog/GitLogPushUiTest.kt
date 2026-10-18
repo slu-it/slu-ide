@@ -480,7 +480,7 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
         robot.interact { dialog().pushButton.fire() }
         eventually { assertTrue(cancelShown()) }
         robot.interact { view.cancelButton.fire() }
-        eventually { assertEquals("Push cancelled.", status(robot)) }
+        eventually { assertEquals("Push cancelled; it may have reached origin. Fetch to check.", status(robot)) }
         assertNoDialog()
     }
 

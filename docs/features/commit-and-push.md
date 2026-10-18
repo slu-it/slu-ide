@@ -91,8 +91,10 @@ itself come from `GitPush` in `modules/git`. Decisions in [ADR 0049](../adr/0049
 - **Push** pushes `HEAD`'s branch to the target and closes the dialog; the first push of a branch without an upstream
   sets it. Disabled for the reasons above, while reading and while another operation runs (the dialog opens all the
   same). The header says "Pushing main to origin/main…" with Cancel, then "Pushed 3 commits to origin/main.", "Pushed
-  main to origin/feature (new branch)." or "Everything up to date."; "Push cancelled." without a dialog. A rejection
-  shows "Push Failed" with "main could not be pushed to origin/main." and what to do above git's message. The log reads
+  main to origin/feature (new branch)." or "Everything up to date."; "Push cancelled; it may have reached origin. Fetch
+  to check." without a dialog (git is stopped, but the remote may have taken the push already; one stopped after 10
+  minutes says the same in its error). A rejection shows
+  "Push Failed" with "main could not be pushed to origin/main." and what to do above git's message. The log reads
   again afterwards. No unsaved editors are asked about: a push changes no files.
 - **Force Push** (Push's menu) asks first: "Force push feature to origin/feature?" with "2 commits on origin/feature
   that are not in your branch will be lost." (or "origin/feature will be set to 1a2b3c4d."), Cancel the default. It

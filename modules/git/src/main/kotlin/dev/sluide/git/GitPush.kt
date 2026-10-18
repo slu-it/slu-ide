@@ -2,6 +2,7 @@ package dev.sluide.git
 
 import org.springframework.stereotype.Component
 import java.nio.file.Path
+import kotlin.time.Duration
 
 /**
  * Where a push of a branch goes by default (ADR 0049): a [remote] and a [branch] on it, both short names, and whether
@@ -222,7 +223,8 @@ class GitPush(
      * weakening the lease. With [setUpstream] git makes the target the branch's upstream. The report of git
      * (`--porcelain`) tells for the pushed ref whether the remote rejected it ([GitPushResult.rejection], told in a line
      * in front of git's message), had it already or got it new. Names that cannot be passed to git ([refusal]) and an
-     * [expected] that is no full hash fail without running git.
+     * [expected] that is no full hash fail without running git. One stopped after the [timeout] (10 minutes; shorter in
+     * tests) may have reached the remote all the same, as a cancelled one may: its message says so.
      */
     fun push(
         root: Path,
@@ -233,6 +235,7 @@ class GitPush(
         expected: String?,
         setUpstream: Boolean,
         cancellation: GitCancellation,
+        timeout: Duration = GitCli.FETCH_TIMEOUT,
     ): GitPushResult {
         val checked = listOfNotNull(remote, branch, target, expected.takeIf { force })
         checked.firstNotNullOfOrNull { refusal(it) }?.let { return GitPushResult(GitResult(false, it)) }
@@ -252,7 +255,7 @@ class GitPush(
             git.writeWithOutput(
                 root,
                 arguments,
-                timeout = GitCli.FETCH_TIMEOUT,
+                timeout = timeout,
                 environment = environment,
                 cancellation = cancellation,
             )
@@ -280,7 +283,9 @@ class GitPush(
                     ""
                 }
             }
-        val result = written.result.copy(message = explanation + written.result.message)
+        // Stopped while it waited for the server's answer, it may have pushed all the same, as a cancel may.
+        val unknown = if (written.timedOut) "\nIt may have reached $remote. Fetch to check." else ""
+        val result = written.result.copy(message = explanation + written.result.message + unknown)
         return GitPushResult(result, rejection = rejection)
     }
 

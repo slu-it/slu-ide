@@ -75,7 +75,7 @@ class PushOperationsTest {
 
         val outcome = push().run(writes, repo, RunContext(cancellation))
 
-        assertEquals(PUSH_CANCELLED, outcome.done)
+        assertEquals("Push cancelled; it may have reached origin. Fetch to check.", outcome.done)
         assertTrue(outcome.result.success, "no dialog")
         assertFalse(outcome.result.changed)
     }

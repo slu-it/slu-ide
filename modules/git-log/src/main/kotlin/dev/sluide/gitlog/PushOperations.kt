@@ -9,7 +9,7 @@ import java.nio.file.Path
  * at [expected] (the commit the Push dialog showed, `null` for a branch the remote does not have), making the target
  * the branch's upstream if [setUpstream]. [count] is the number of commits the dialog showed, [more] that there were
  * more. It changes no files, so no unsaved editors are asked about; cancellable, as a fetch (ADR 0043). Cancelled, the
- * header says so and no dialog is shown.
+ * header says so, and that the push may have reached the remote all the same; no dialog is shown.
  */
 internal data class PushOperation(
     val remote: String,
@@ -40,15 +40,18 @@ internal data class PushOperation(
         val pushed =
             writes.push(root, remote, branch, target, force, expected, setUpstream, context.cancellation)
         if (pushed.cancelled || (!pushed.result.success && context.cancellation.cancelled)) {
-            return RefOutcome(GitResult(true, "", changed = false), PUSH_CANCELLED)
+            return RefOutcome(GitResult(true, "", changed = false), pushCancelled(remote))
         }
         if (!pushed.result.success) return RefOutcome(pushed.result, null)
         return RefOutcome(pushed.result, pushSummary(this, pushed))
     }
 }
 
-/** What the header says when a push was cancelled. */
-internal const val PUSH_CANCELLED = "Push cancelled."
+/**
+ * What the header says when a push to [remote] was cancelled: git is stopped, but the remote may have taken the push
+ * already (it updates the branch before git hears of it), so the remote-tracking ref may be behind until a fetch.
+ */
+internal fun pushCancelled(remote: String) = "Push cancelled; it may have reached $remote. Fetch to check."
 
 /**
  * What the header says after the successful push [operation] gave [pushed]: "Everything up to date." if the remote had

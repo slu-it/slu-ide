@@ -18,6 +18,7 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.test.fail
+import kotlin.time.Duration.Companion.seconds
 
 /** Pushes with the real git to bare "remotes" in temporary folders; skipped if git is not installed. */
 class GitPushTest {
@@ -627,6 +628,27 @@ class GitPushTest {
                     "refs/heads/topic:refs/heads/main",
             ),
             log.toFile().readLines(),
+        )
+    }
+
+    @Test
+    fun `a push stopped by its timeout may have reached the remote and says so`() {
+        val script = folder.resolve("slow-git")
+        script.writeText(FAKE_GIT_START + "echo 'Writing objects: 100%' >&2\nexec sleep 30\n")
+        script.toFile().setExecutable(true)
+        val fake = GitCli(script.toString(), testGitEnvironment())
+        assumeTrue(fake.available, "no /bin/sh to stand in for git")
+
+        val pushed =
+            GitPush(
+                fake,
+            ).push(repo, "origin", "main", "main", false, null, false, GitCancellation(), timeout = 1.seconds)
+
+        assertFalse(pushed.result.success)
+        assertFalse(pushed.cancelled)
+        assertEquals(
+            "git did not finish within 1 s.\nIt may have reached origin. Fetch to check.",
+            pushed.result.message,
         )
     }
 }
