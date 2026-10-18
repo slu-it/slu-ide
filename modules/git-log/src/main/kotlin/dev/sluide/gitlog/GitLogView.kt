@@ -7,6 +7,7 @@ import dev.sluide.git.GitLog
 import dev.sluide.git.GitPush
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitRemotes
+import dev.sluide.gitlog.actions.RefActions
 import dev.sluide.gitlog.area.AreaTabs
 import dev.sluide.gitlog.area.CommitDiffs
 import dev.sluide.gitlog.area.CommitNavigation
@@ -29,7 +30,6 @@ import dev.sluide.gitlog.filter.FilterBar
 import dev.sluide.gitlog.filter.FilterSources
 import dev.sluide.gitlog.operations.Fetch
 import dev.sluide.gitlog.operations.PendingBar
-import dev.sluide.gitlog.operations.RefActions
 import dev.sluide.gitlog.push.PUSH_KEYS
 import dev.sluide.gitlog.table.CommitTable
 import dev.sluide.gitlog.ui.GIT_LOG_CSS
