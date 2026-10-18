@@ -126,15 +126,19 @@ internal class EditorTabs {
 
     fun find(path: Path): OpenFile? = files.firstOrNull { it.path == path }
 
-    /** Adds a tab for [path] showing [view], opened by [viewer], and selects it. */
+    /**
+     * Adds a tab for [path] showing [view], opened by [viewer], and selects it; with [select] `false` only if no tab
+     * is selected (none is open), e.g. for a file another file's view edits (ADR 0057).
+     */
     fun open(
         path: Path,
         view: FileView,
         showsDiffs: Boolean = false,
         viewer: FileViewer? = null,
+        select: Boolean = true,
     ): OpenFile {
         require(find(path) == null) { "Already open: $path" }
-        return OpenFile(path, view, showsDiffs, viewer).also(::open)
+        return OpenFile(path, view, showsDiffs, viewer).also { open(it, select) }
     }
 
     /**
@@ -151,11 +155,14 @@ internal class EditorTabs {
         tab.dispose()
     }
 
-    /** Adds [tab] at the end and selects it. */
-    fun open(tab: EditorTab) {
+    /** Adds [tab] at the end and selects it; with [select] `false` only if no tab is selected. */
+    fun open(
+        tab: EditorTab,
+        select: Boolean = true,
+    ) {
         require(tab !in _tabs) { "Already open: ${tab.title.value}" }
         _tabs += tab
-        _selected.set(tab)
+        if (select || _selected.get() == null) _selected.set(tab)
     }
 
     fun select(tab: EditorTab) {

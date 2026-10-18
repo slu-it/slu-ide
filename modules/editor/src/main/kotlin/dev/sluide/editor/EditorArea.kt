@@ -118,7 +118,18 @@ class EditorArea(
 
             override fun <T : Any> windowService(type: Class<T>): T? =
                 windowServices.firstOrNull(type::isInstance)?.let(type::cast)
+
+            override fun currentText(file: Path): String? = tabTexts.currentText(file)
+
+            override fun editText(
+                file: Path,
+                edit: (String) -> String,
+            ): Boolean = tabTexts.editText(file, edit)
         }
+
+    /** Another file's tab for views that edit it; opened without being selected or focused (ADR 0057). */
+    private val tabTexts =
+        TabTexts(editorTabs) { path -> openTab(path, select = false) { view -> TabTexts.editable(view) != null } }
 
     /** The editor font as CSS; file views inherit it from their node. */
     private val editorCss = fontSettings.font(FontArea.EDITOR).map(FontSpec::toCss)
@@ -173,18 +184,32 @@ class EditorArea(
             focus(it)
             return true
         }
-        val viewer = fileViewers.viewerFor(path) ?: return false
-        val view =
-            try {
-                hosted(viewer.open(path))
-            } catch (_: IOException) {
-                return false
-            }
-        val openFile = editorTabs.open(path, view, fileViewers.showsDiffs(viewer), viewer)
-        showChanges(openFile)
-        watch(openFile)
+        val openFile = openTab(path, select = true) ?: return false
         focus(openFile)
         return true
+    }
+
+    /**
+     * Opens a new tab for [path], which is not open, with the first viewer that can show it, selected if [select];
+     * `null` if no viewer can show or read it, or [accept] rejects its view, which is then disposed.
+     */
+    private fun openTab(
+        path: Path,
+        select: Boolean,
+        accept: (FileView) -> Boolean = { true },
+    ): OpenFile? {
+        val viewer = fileViewers.viewerFor(path) ?: return null
+        val view =
+            try {
+                viewer.open(path)
+            } catch (_: IOException) {
+                return null
+            }
+        if (!accept(view)) return null.also { view.dispose() }
+        val openFile = editorTabs.open(path, hosted(view), fileViewers.showsDiffs(viewer), viewer, select)
+        showChanges(openFile)
+        watch(openFile)
+        return openFile
     }
 
     /**

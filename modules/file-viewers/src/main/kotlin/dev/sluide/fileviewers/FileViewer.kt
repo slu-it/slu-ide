@@ -138,4 +138,22 @@ interface FileViewHost {
      * state reaches their views this way (ADR 0026).
      */
     fun <T : Any> windowService(type: Class<T>): T? = null
+
+    /**
+     * The text of [file] as its open tab shows it, unsaved changes included; `null` if it is not open in a
+     * [TextEditableView] that [can replace its text][TextEditableView.canReplaceText] (read it from disk then).
+     * FX thread.
+     */
+    fun currentText(file: Path): String? = null
+
+    /**
+     * Changes the text of [file] in its tab to `edit(text)` (`\n` line breaks), opening the file in a tab that is not
+     * selected if it is not open; the change stays unsaved. `false` if the file cannot be shown in a
+     * [TextEditableView] or its view cannot replace its text, e.g. it does not exist or is read-only; [edit] is not
+     * called then. FX thread.
+     */
+    fun editText(
+        file: Path,
+        edit: (String) -> String,
+    ): Boolean = false
 }

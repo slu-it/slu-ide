@@ -72,6 +72,17 @@ class EditorTabsTest {
     }
 
     @Test
+    fun `opening without selecting keeps the selection, unless nothing is selected`() {
+        val a = tabs.open(Path.of("/project", "a.txt"), CountingView(), select = false)
+        assertSame(a, tabs.selected.get())
+
+        tabs.open(Path.of("/project", "b.txt"), CountingView(), select = false)
+
+        assertEquals(listOf("a.txt", "b.txt"), names())
+        assertSame(a, tabs.selected.get())
+    }
+
+    @Test
     fun `finds open files by path and refuses to open them twice`() {
         val a = open("a.txt")
 
