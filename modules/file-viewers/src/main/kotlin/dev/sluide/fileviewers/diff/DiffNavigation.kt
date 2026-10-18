@@ -1,4 +1,6 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.diff
+
+import dev.sluide.fileviewers.DiffRow
 
 /** The row ranges of the changes in [rows]: each run of consecutive changed rows is one change. */
 internal fun changeBlocks(rows: List<DiffRow>): List<IntRange> {

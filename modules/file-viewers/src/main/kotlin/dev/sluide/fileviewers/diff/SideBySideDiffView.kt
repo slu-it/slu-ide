@@ -1,6 +1,13 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.diff
 
+import dev.sluide.fileviewers.DiffFileView
+import dev.sluide.fileviewers.DiffKind
+import dev.sluide.fileviewers.DiffRow
+import dev.sluide.fileviewers.SyntaxHighlighter
+import dev.sluide.fileviewers.TextDiff
+import dev.sluide.fileviewers.alignDiff
 import dev.sluide.fileviewers.code.codeStyleSpans
+import dev.sluide.fileviewers.textLines
 import javafx.application.Platform
 import javafx.beans.value.ChangeListener
 import javafx.geometry.Pos

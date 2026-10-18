@@ -1,4 +1,8 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.diff
+
+import dev.sluide.fileviewers.DiffKind
+import dev.sluide.fileviewers.LineChange
+import dev.sluide.fileviewers.clampTo
 
 /** Style class of the changed words within modified lines, coloured in `syntax.css`. */
 internal const val CHANGED_WORDS_STYLE = "diff-changed-words"
@@ -18,7 +22,8 @@ private val token = Regex("""[\p{L}\p{N}_]+|[^\S\n]+|\n|.""")
 /**
  * Finds the changed words of each modified block of [changes]: the block's lines on both sides are compared word by
  * word as a whole, so that a line inserted into the block does not shift the comparison of the lines after it. Ranges
- * are cut off like in [alignDiff]. A block whose comparison would take more than [maxCells] steps is left out.
+ * are cut off like in [dev.sluide.fileviewers.alignDiff]. A block whose comparison would take more than [maxCells]
+ * steps is left out.
  */
 internal fun wordChanges(
     originalLines: List<String>,

@@ -1,6 +1,8 @@
 package dev.sluide.fileviewers
 
 import dev.sluide.fileviewers.code.CodeFileViewer
+import dev.sluide.fileviewers.diff.CurrentText
+import dev.sluide.fileviewers.diff.SideBySideDiffView
 import org.springframework.stereotype.Component
 import java.io.IOException
 import java.nio.file.Path

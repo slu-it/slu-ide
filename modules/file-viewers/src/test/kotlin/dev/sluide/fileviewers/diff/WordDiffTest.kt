@@ -1,5 +1,6 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.diff
 
+import dev.sluide.fileviewers.LineChange
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
