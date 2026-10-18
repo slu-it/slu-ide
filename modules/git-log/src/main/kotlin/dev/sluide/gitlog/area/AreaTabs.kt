@@ -11,7 +11,6 @@ import dev.sluide.gitlog.data.CommitBranches
 import dev.sluide.gitlog.data.CommitDetails
 import dev.sluide.gitlog.data.GitLogPages
 import dev.sluide.gitlog.data.GitLogSource
-import dev.sluide.gitlog.history.AreaTab
 import dev.sluide.gitlog.history.FileHistory
 import dev.sluide.gitlog.history.FileHistoryKey
 import dev.sluide.gitlog.history.FileHistoryState

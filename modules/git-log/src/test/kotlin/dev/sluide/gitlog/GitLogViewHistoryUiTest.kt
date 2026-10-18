@@ -5,7 +5,7 @@ import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitFileDiff
 import dev.sluide.git.GitFileHistoryEntry
-import dev.sluide.gitlog.history.AreaTab
+import dev.sluide.gitlog.area.AreaTab
 import dev.sluide.gitlog.table.column
 import javafx.event.Event
 import javafx.scene.control.Label
