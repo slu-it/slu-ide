@@ -2,6 +2,11 @@ package dev.sluide.fileviewers
 
 import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import dev.sluide.fileviewers.highlight.fenceLanguage
+import dev.sluide.fileviewers.preview.HtmlPage
+import dev.sluide.fileviewers.preview.LinkTarget
+import dev.sluide.fileviewers.preview.Vendor
+import dev.sluide.fileviewers.preview.resolveLink
+import dev.sluide.fileviewers.preview.writeHighlighted
 import org.commonmark.ext.autolink.AutolinkExtension
 import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension
 import org.commonmark.ext.gfm.tables.TablesExtension

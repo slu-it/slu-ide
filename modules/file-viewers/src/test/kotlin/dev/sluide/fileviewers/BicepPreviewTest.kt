@@ -1,5 +1,7 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.preview.PreviewMode
+import dev.sluide.fileviewers.preview.Vendor
 import org.jsoup.Jsoup
 import kotlin.test.Test
 import kotlin.test.assertEquals

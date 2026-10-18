@@ -1,4 +1,6 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.preview
+
+import dev.sluide.fileviewers.SyntaxHighlighter
 
 /**
  * The frame of the pages that previews load from a string (Markdown, notebooks, CSV, images): UTF-8, stylesheets

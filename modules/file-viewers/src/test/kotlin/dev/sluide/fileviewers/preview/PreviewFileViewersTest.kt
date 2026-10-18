@@ -1,6 +1,19 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.preview
 
+import dev.sluide.fileviewers.BicepFileViewer
+import dev.sluide.fileviewers.BicepParamFileViewer
+import dev.sluide.fileviewers.CookiesFileViewer
+import dev.sluide.fileviewers.DefaultTextFileViewer
+import dev.sluide.fileviewers.FileViewers
+import dev.sluide.fileviewers.HtmlFileViewer
+import dev.sluide.fileviewers.ImageFileViewer
+import dev.sluide.fileviewers.ImagePage
+import dev.sluide.fileviewers.MermaidFileViewer
+import dev.sluide.fileviewers.PemFileViewer
+import dev.sluide.fileviewers.PemPreview
+import dev.sluide.fileviewers.SvgFileViewer
 import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
+import dev.sluide.fileviewers.humanSize
 import dev.sluide.textediting.CommentSyntax
 import javafx.scene.web.WebEngine
 import org.junit.jupiter.api.io.TempDir

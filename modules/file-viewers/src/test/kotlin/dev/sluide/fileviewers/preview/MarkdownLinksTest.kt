@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.preview
 
 import java.net.URI
 import java.nio.file.Path

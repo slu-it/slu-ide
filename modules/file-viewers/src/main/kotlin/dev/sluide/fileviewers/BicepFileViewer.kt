@@ -1,5 +1,8 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.preview.Preview
+import dev.sluide.fileviewers.preview.PreviewFileViewer
+import dev.sluide.fileviewers.preview.PreviewMode
 import dev.sluide.textediting.CommentSyntax
 import javafx.scene.web.WebEngine
 import org.jsoup.nodes.Element

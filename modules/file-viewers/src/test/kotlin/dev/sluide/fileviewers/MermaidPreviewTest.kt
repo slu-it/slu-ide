@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.preview.Vendor
 import org.jsoup.Jsoup
 import kotlin.io.path.Path
 import kotlin.test.Test

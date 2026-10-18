@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.preview.Heading
 import org.commonmark.node.AbstractVisitor
 import org.commonmark.node.Code
 import org.commonmark.node.CustomNode

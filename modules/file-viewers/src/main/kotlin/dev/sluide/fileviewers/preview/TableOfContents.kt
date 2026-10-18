@@ -1,5 +1,6 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.preview
 
+import dev.sluide.fileviewers.MarkdownOutline
 import javafx.beans.binding.Bindings
 import javafx.beans.property.SimpleDoubleProperty
 import javafx.geometry.Insets

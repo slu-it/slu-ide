@@ -1,5 +1,7 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.preview.PreviewFileView
+import dev.sluide.fileviewers.preview.PreviewMode
 import javafx.concurrent.Worker
 import javafx.scene.Node
 import javafx.scene.Scene

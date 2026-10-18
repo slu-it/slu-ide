@@ -1,5 +1,8 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.preview.PreviewFileView
+import dev.sluide.fileviewers.preview.PreviewMode
+import dev.sluide.fileviewers.preview.ZoomSteps
 import javafx.application.ColorScheme
 import javafx.concurrent.Worker
 import javafx.scene.Scene

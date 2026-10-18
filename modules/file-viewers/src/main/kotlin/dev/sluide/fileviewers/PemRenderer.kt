@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.preview.HtmlPage
 import org.jsoup.nodes.Entities
 import java.io.ByteArrayInputStream
 import java.security.Key

@@ -1,5 +1,8 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.preview
 
+import dev.sluide.fileviewers.HighlightSpan
+import dev.sluide.fileviewers.SyntaxHighlighter
+import dev.sluide.fileviewers.TokenStyle
 import org.jsoup.Jsoup
 import kotlin.test.Test
 import kotlin.test.assertEquals

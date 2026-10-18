@@ -1,6 +1,10 @@
 package dev.sluide.fileviewers
 
 import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
+import dev.sluide.fileviewers.preview.LinkTarget
+import dev.sluide.fileviewers.preview.Preview
+import dev.sluide.fileviewers.preview.PreviewFileViewer
+import dev.sluide.fileviewers.preview.resolveLink
 import dev.sluide.textediting.CommentSyntax
 import javafx.scene.web.WebEngine
 import org.springframework.stereotype.Component

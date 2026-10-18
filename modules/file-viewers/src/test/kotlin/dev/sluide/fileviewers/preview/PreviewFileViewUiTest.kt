@@ -1,5 +1,16 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.preview
 
+import dev.sluide.fileviewers.CookiesFileViewer
+import dev.sluide.fileviewers.CsvFileViewer
+import dev.sluide.fileviewers.DefaultTextFileViewer
+import dev.sluide.fileviewers.DiffFileView
+import dev.sluide.fileviewers.FileViewHost
+import dev.sluide.fileviewers.FileViewers
+import dev.sluide.fileviewers.HtmlFileViewer
+import dev.sluide.fileviewers.LineChange
+import dev.sluide.fileviewers.MarkdownFileViewer
+import dev.sluide.fileviewers.NotebookFileViewer
+import dev.sluide.fileviewers.TextDiff
 import javafx.application.ColorScheme
 import javafx.concurrent.Worker
 import javafx.scene.Node

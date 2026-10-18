@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.preview
 
 /** A heading of a Markdown document: its [level] (1 to 6), plain [text] and 0-based source [line]. */
 internal data class Heading(

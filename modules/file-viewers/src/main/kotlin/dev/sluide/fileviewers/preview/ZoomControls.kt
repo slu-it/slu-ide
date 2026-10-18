@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.preview
 
 import javafx.geometry.Pos
 import javafx.scene.Node

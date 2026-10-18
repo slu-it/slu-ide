@@ -1,5 +1,7 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.preview.ZoomControls
+import dev.sluide.fileviewers.preview.isPageFromString
 import javafx.application.ColorScheme
 import javafx.concurrent.Worker
 import javafx.geometry.Pos

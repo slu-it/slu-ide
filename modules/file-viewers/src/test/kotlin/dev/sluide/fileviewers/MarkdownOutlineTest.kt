@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.preview.Heading
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull

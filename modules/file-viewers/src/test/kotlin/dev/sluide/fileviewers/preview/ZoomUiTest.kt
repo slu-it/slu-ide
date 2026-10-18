@@ -1,5 +1,11 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.preview
 
+import dev.sluide.fileviewers.ImageFileView
+import dev.sluide.fileviewers.ImageFileViewer
+import dev.sluide.fileviewers.MarkdownFileViewer
+import dev.sluide.fileviewers.MermaidFileViewer
+import dev.sluide.fileviewers.NotebookFileViewer
+import dev.sluide.fileviewers.SvgFileViewer
 import dev.sluide.fileviewers.code.keyPress
 import dev.sluide.fileviewers.code.press
 import javafx.concurrent.Worker

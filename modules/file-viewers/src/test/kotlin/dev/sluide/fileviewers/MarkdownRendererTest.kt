@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.preview.Vendor
 import org.jsoup.Jsoup
 import org.junit.jupiter.api.io.TempDir
 import java.io.RandomAccessFile

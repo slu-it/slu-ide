@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.preview.HtmlPage
 import java.util.Base64
 
 /** Media types of the image files the previews show, by lower-case extension. */

@@ -1,6 +1,14 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.preview
 
+import dev.sluide.fileviewers.EditableFileView
+import dev.sluide.fileviewers.FileView
+import dev.sluide.fileviewers.FileViewHost
+import dev.sluide.fileviewers.FileViewer
+import dev.sluide.fileviewers.FocusWhenShown
+import dev.sluide.fileviewers.SyntaxHighlighter
+import dev.sluide.fileviewers.TextDiff
 import dev.sluide.fileviewers.code.CodeView
+import dev.sluide.fileviewers.isTextFile
 import dev.sluide.textediting.CommentSyntax
 import javafx.application.ColorScheme
 import javafx.application.Platform
