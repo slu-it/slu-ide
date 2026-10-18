@@ -27,7 +27,10 @@ POSIX locale cannot pass non-ASCII arguments ([ADR 0038](0038-changed-files-and-
   - may take 10 minutes for a checkout (it changes files; filters such as LFS may download them), 60 s for anything
     else, which only changes refs (hooks may run); "git did not finish within 10 min." / "… 60 s." otherwise, and git
     and what it started get SIGTERM, on which git removes its lock files, and are killed after 2 s if still running.
-    Reads are killed at once (they hold no locks);
+    A command that changes files (a checkout, cherry-pick, revert, their continue, abort and skip, a hard reset:
+    `writesFiles`) may have changed some and not others by then, as git writes them one by one: its message
+    adds "Files and the index may be partly changed; check git status in a terminal.". Reads are killed at once (they
+    hold no locks);
   - once git has ended, reads its output for 2 s more, whatever is left of the timeout: a process a hook left behind
     may keep the pipes open. A write keeps what was read by then; a read (of any git command) whose output is not read
     to its end by then fails rather than give a part.

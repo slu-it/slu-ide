@@ -773,5 +773,16 @@ class GitCliWriteTest {
         val result = git.write(folder, listOf("x"), timeout = 1.seconds)
 
         assertEquals(GitResult(false, "git did not finish within 1 s."), result)
+        // One that changes files may have changed some of them.
+        assertEquals(
+            GitResult(
+                false,
+                "git did not finish within 1 s. Files and the index may be partly changed; check git status in a terminal.",
+            ),
+            git.write(folder, listOf("x"), timeout = 1.seconds, writesFiles = true),
+        )
+        assertEquals("git did not finish within 10 min.", timedOut(GitCli.CHECKOUT_TIMEOUT, writesFiles = false))
+        assertTrue(git.writeWithOutput(folder, listOf("x"), timeout = 1.seconds).timedOut)
+        assertFalse(fakeGit("exit 3").writeWithOutput(folder, listOf("x")).timedOut, "a failure is no timeout")
     }
 }

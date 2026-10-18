@@ -265,7 +265,8 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
   - **Failures** show an error dialog titled after the operation ("Checkout Failed", …) with git's own message,
     without its `hint:` lines, in a selectable monospace area that wraps long lines, e.g. that local changes would be
     overwritten by the checkout; nothing is stashed. A checkout, cherry-pick, revert, reset, abort or continue may
-    take 10 minutes, anything else 60 s ("git did not finish within 60 s.", git is stopped). Git never waits for an
+    take 10 minutes, anything else 60 s ("git did not finish within 60 s.", git is stopped; for one that changes files
+    also "Files and the index may be partly changed; check git status in a terminal."). Git never waits for an
     editor: where it would open one (e.g. a lightweight tag with `tag.gpgSign`), it fails with its message.
   - **Cherry-Pick and Revert Commit** apply or undo the selected commit's changes on the current branch (`git
     cherry-pick`, `git revert --no-edit`): "Cherry-picked 1a2b3c4d as 5e6f7a8b.", "Reverted 1a2b3c4d in 5e6f7a8b.". A

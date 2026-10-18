@@ -315,7 +315,7 @@ class GitCommits(
                 if (firstParent) addAll(listOf("-m", "1"))
                 addAll(listOf("--end-of-options", commit))
             }
-        val (result, exit) = git.writeWithExit(root, arguments, timeout = GitCli.CHECKOUT_TIMEOUT)
+        val (result, exit) = git.writeWithExit(root, arguments, timeout = GitCli.CHECKOUT_TIMEOUT, writesFiles = true)
         return outcome(root, kind, commit, head, result, exit)
     }
 
@@ -368,7 +368,12 @@ class GitCommits(
         }
         val head = git.headCommit(root)
         val (result, exit) =
-            git.writeWithExit(root, listOf(kind.command, "--continue", "--no-edit"), timeout = GitCli.CHECKOUT_TIMEOUT)
+            git.writeWithExit(
+                root,
+                listOf(kind.command, "--continue", "--no-edit"),
+                timeout = GitCli.CHECKOUT_TIMEOUT,
+                writesFiles = true,
+            )
         return outcome(root, kind, pending.commit, head, result, exit)
     }
 
@@ -546,7 +551,7 @@ class GitCommits(
         if (pending !is GitPendingPick || pending.kind != kind) {
             return GitResult(false, "No ${kind.command} is in progress.")
         }
-        return git.write(root, listOf(kind.command, "--abort"), timeout = GitCli.CHECKOUT_TIMEOUT)
+        return git.write(root, listOf(kind.command, "--abort"), timeout = GitCli.CHECKOUT_TIMEOUT, writesFiles = true)
     }
 
     /**
@@ -582,7 +587,13 @@ class GitCommits(
         root: Path,
         kind: GitPick,
     ): GitPickResult {
-        val cleared = git.write(root, listOf(kind.command, "--skip"), timeout = GitCli.CHECKOUT_TIMEOUT)
+        val cleared =
+            git.write(
+                root,
+                listOf(kind.command, "--skip"),
+                timeout = GitCli.CHECKOUT_TIMEOUT,
+                writesFiles = true,
+            )
         if (!cleared.success) return GitPickResult.Failed(cleared.message)
         return empty(root)
     }
@@ -804,6 +815,8 @@ class GitCommits(
             root,
             listOf("reset", mode.option, "--end-of-options", target),
             timeout = GitCli.CHECKOUT_TIMEOUT,
+            // A soft reset moves only the branch, a mixed one writes the index at once, as git always does.
+            writesFiles = mode == GitResetMode.HARD,
         )
     }
 

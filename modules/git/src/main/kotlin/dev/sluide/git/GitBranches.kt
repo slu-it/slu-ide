@@ -312,12 +312,12 @@ class GitBranches(
         input: ByteArray? = null,
     ): GitResult = run(root, names, arguments, input, GitCli.WRITE_TIMEOUT)
 
-    /** [write] for a checkout, which may take longer. */
+    /** [write] for a checkout, which may take longer and changes files. */
     private fun checkout(
         root: Path,
         names: List<String>,
         arguments: List<String>,
-    ): GitResult = run(root, names, arguments, null, GitCli.CHECKOUT_TIMEOUT)
+    ): GitResult = run(root, names, arguments, null, GitCli.CHECKOUT_TIMEOUT, writesFiles = true)
 
     private fun run(
         root: Path,
@@ -325,9 +325,10 @@ class GitBranches(
         arguments: List<String>,
         input: ByteArray?,
         timeout: Duration,
+        writesFiles: Boolean = false,
     ): GitResult {
         names.firstNotNullOfOrNull(::refusal)?.let { return GitResult(false, it) }
-        return git.write(root, arguments, input, timeout)
+        return git.write(root, arguments, input, timeout, writesFiles)
     }
 
     private companion object {

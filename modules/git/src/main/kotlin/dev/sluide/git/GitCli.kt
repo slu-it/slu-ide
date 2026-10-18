@@ -962,14 +962,16 @@ class GitCli(
      * with optional locks, unlike the reads, as git itself would run; within [timeout], as hooks may run; never with an
      * editor (`GIT_EDITOR=false`: git fails at once where it would open one). The result has git's own message: its
      * standard error, or its standard output if that is empty, trimmed and without git's `hint:` lines, which point at
-     * command lines (unless there is nothing else).
+     * command lines (unless there is nothing else). A command that [writesFiles] (a checkout, a cherry-pick, a hard
+     * reset) and is stopped after the timeout may have changed some of them: its message says so ([timedOut]).
      */
     internal fun write(
         root: Path,
         arguments: List<String>,
         input: ByteArray? = null,
         timeout: Duration = WRITE_TIMEOUT,
-    ): GitResult = writeWithExit(root, arguments, input, timeout).first
+        writesFiles: Boolean = false,
+    ): GitResult = writeWithExit(root, arguments, input, timeout, writesFiles = writesFiles).first
 
     /**
      * [write], with git's exit value; `null` if git could not be run, did not finish in time or was cancelled. Some
@@ -985,8 +987,11 @@ class GitCli(
         timeout: Duration = WRITE_TIMEOUT,
         environment: Map<String, String> = emptyMap(),
         cancellation: GitCancellation? = null,
+        writesFiles: Boolean = false,
     ): Pair<GitResult, Int?> =
-        writeWithOutput(root, arguments, input, timeout, environment, cancellation).let { it.result to it.exitValue }
+        writeWithOutput(root, arguments, input, timeout, environment, cancellation, writesFiles).let {
+            it.result to it.exitValue
+        }
 
     /** [writeWithExit] with git's standard output as well, for commands that report on it (`push --porcelain`). */
     internal fun writeWithOutput(
@@ -996,6 +1001,7 @@ class GitCli(
         timeout: Duration = WRITE_TIMEOUT,
         environment: Map<String, String> = emptyMap(),
         cancellation: GitCancellation? = null,
+        writesFiles: Boolean = false,
     ): GitWriteOutput {
         if (!available) return GitWriteOutput(GitResult(false, "git is not available."), null)
         val execution =
@@ -1004,7 +1010,7 @@ class GitCli(
         if (execution.cancelled) return GitWriteOutput(GitResult(false, CANCELLED), null)
         val exitValue =
             execution.exitValue
-                ?: return GitWriteOutput(GitResult(false, "git did not finish within ${shown(timeout)}."), null)
+                ?: return GitWriteOutput(GitResult(false, timedOut(timeout, writesFiles)), null, timedOut = true)
         val output = execution.output.toString(Charsets.UTF_8)
         val message =
             withoutHints(
@@ -1804,6 +1810,19 @@ internal fun withoutHints(message: String): String =
         .trim()
         .ifEmpty { message }
 
+/**
+ * The message of a write that git did not finish within [timeout] and was stopped: for one that [writesFiles], also that
+ * some of them may be changed and others not (git changes files one by one), and how to see which.
+ */
+internal fun timedOut(
+    timeout: Duration,
+    writesFiles: Boolean,
+): String {
+    val stopped = "git did not finish within ${shown(timeout)}."
+    if (!writesFiles) return stopped
+    return "$stopped Files and the index may be partly changed; check git status in a terminal."
+}
+
 /** [duration] as a message says it: "60 s", "90 s", "10 min". */
 internal fun shown(duration: Duration): String =
     if (duration > 1.minutes && duration.inWholeSeconds % 60 == 0L) {
@@ -1814,11 +1833,12 @@ internal fun shown(duration: Duration): String =
 
 /**
  * What a write of git gave: its [result], its [exitValue] (`null` if it did not end by itself), its standard [output]
- * and its standard [errors] (without hints).
+ * and its standard [errors] (without hints), and whether it was stopped as it [timedOut].
  */
 internal data class GitWriteOutput(
     val result: GitResult,
     val exitValue: Int?,
     val output: String = "",
     val errors: String = "",
+    val timedOut: Boolean = false,
 )
