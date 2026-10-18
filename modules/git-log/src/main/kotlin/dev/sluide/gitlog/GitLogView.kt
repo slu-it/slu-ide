@@ -17,6 +17,8 @@ import dev.sluide.gitlog.data.GitLogPages
 import dev.sluide.gitlog.data.GitLogSource
 import dev.sluide.gitlog.data.GitLogState
 import dev.sluide.gitlog.data.GitLogWrites
+import dev.sluide.gitlog.details.ChangedFilesPane
+import dev.sluide.gitlog.details.CommitDetailsPane
 import dev.sluide.gitlog.table.CommitTable
 import dev.sluide.gitlog.ui.GIT_LOG_CSS
 import dev.sluide.gitlog.ui.GO_TO

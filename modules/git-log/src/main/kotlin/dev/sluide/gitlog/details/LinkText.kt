@@ -1,4 +1,4 @@
-package dev.sluide.gitlog
+package dev.sluide.gitlog.details
 
 import javafx.css.PseudoClass
 import javafx.event.Event

@@ -1,4 +1,4 @@
-package dev.sluide.gitlog
+package dev.sluide.gitlog.details
 
 import dev.sluide.git.GitCommitDetails
 import dev.sluide.gitlog.data.BranchesState

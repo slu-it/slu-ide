@@ -6,6 +6,7 @@ import dev.sluide.gitlog.data.CommitBranches
 import dev.sluide.gitlog.data.CommitDetails
 import dev.sluide.gitlog.data.CommitDetailsState
 import dev.sluide.gitlog.data.GitLogRow
+import dev.sluide.gitlog.details.CommitDetailsPane
 import dev.sluide.gitlog.table.PagingSkin
 import dev.sluide.gitlog.table.SubjectTakesTheRest
 import dev.sluide.gitlog.table.column
