@@ -22,6 +22,7 @@ import dev.sluide.gitlog.details.ChangedFilesPane
 import dev.sluide.gitlog.details.CommitDetailsPane
 import dev.sluide.gitlog.filter.FilterBar
 import dev.sluide.gitlog.filter.FilterSources
+import dev.sluide.gitlog.push.PUSH_KEYS
 import dev.sluide.gitlog.table.CommitTable
 import dev.sluide.gitlog.ui.GIT_LOG_CSS
 import dev.sluide.gitlog.ui.GO_TO

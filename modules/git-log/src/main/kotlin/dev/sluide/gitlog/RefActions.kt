@@ -7,6 +7,8 @@ import dev.sluide.git.GitRefKind
 import dev.sluide.gitlog.data.GitLogPages
 import dev.sluide.gitlog.data.GitLogSource
 import dev.sluide.gitlog.data.GitLogWrites
+import dev.sluide.gitlog.push.PushDialog
+import dev.sluide.gitlog.push.PushReader
 import javafx.beans.property.ReadOnlyBooleanProperty
 import javafx.scene.control.ButtonType
 import javafx.stage.Window
