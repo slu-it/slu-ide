@@ -68,9 +68,11 @@ class GitPush(
     /**
      * Where the local [branch] (short name) of the repository at [root] is pushed by default, as git decides it: the
      * remote of the first that is set of `branch.<b>.pushRemote`, `remote.pushDefault`, `branch.<b>.remote` (unless it
-     * is `.`, a local upstream), the only remote, `origin`, the first remote. The branch is the upstream's
-     * (`branch.<b>.merge`) if the remote is the upstream's, else [branch] itself. `null` if there is no remote, or if
-     * git fails.
+     * is `.`, a local upstream), the only remote, `origin`, the first remote. The branch is [branch] itself, as with
+     * git's default `push.default=simple`, which refuses to push to an upstream of another name (a branch created from
+     * `origin/main` tracks it, and must not end up in `main`); only with `push.default=upstream` (or `tracking`) it is
+     * the upstream's (`branch.<b>.merge`) if the remote is the upstream's. `null` if there is no remote, or if git
+     * fails.
      */
     fun pushTarget(
         root: Path,
@@ -81,7 +83,10 @@ class GitPush(
         val pushDefault = lastSetting(root, "remote.pushDefault")
         val configuredRemote = lastSetting(root, "branch.$branch.remote")
         val merge = lastSetting(root, "branch.$branch.merge")
-        if (pushRemote == null || pushDefault == null || configuredRemote == null || merge == null) return null
+        val mode = lastSetting(root, "push.default")
+        if (pushRemote == null || pushDefault == null || configuredRemote == null || merge == null || mode == null) {
+            return null
+        }
         val upstreamRemote = configuredRemote.value?.takeIf { it != "." }
         val remote =
             pushRemote.value
@@ -95,7 +100,8 @@ class GitPush(
                 ?.takeIf { it.startsWith(HEADS) }
                 ?.removePrefix(HEADS)
                 ?.ifEmpty { null }
-        val target = if (remote == upstreamRemote && upstreamBranch != null) upstreamBranch else branch
+        val toUpstream = mode.value in UPSTREAM_MODES && remote == upstreamRemote
+        val target = if (toUpstream && upstreamBranch != null) upstreamBranch else branch
         return GitPushTarget(remote, target, hasUpstream = merge.value != null)
     }
 
@@ -288,6 +294,9 @@ class GitPush(
         const val HEADS = "refs/heads/"
 
         val FULL_HASH = Regex("[0-9a-f]{40}|[0-9a-f]{64}")
+
+        /** The values of `push.default` that push to the upstream branch; `tracking` is its old name. */
+        val UPSTREAM_MODES = setOf("upstream", "tracking")
 
         /** The `--glob` pattern matching what a fetch refspec writes: below a glob's prefix, or the exact ref. */
         fun glob(destination: RefspecDestination): String {

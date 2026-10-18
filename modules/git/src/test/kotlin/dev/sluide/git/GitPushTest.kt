@@ -109,10 +109,33 @@ class GitPushTest {
     // pushTarget
 
     @Test
-    fun `the target is the upstream when the branch has one`() {
+    fun `the target keeps the branch's name when its upstream has another, as push_default simple does`() {
         git("config", "branch.main.remote", "origin")
         git("config", "branch.main.merge", "refs/heads/trunk")
+        assertEquals(GitPushTarget("origin", "main", hasUpstream = true), pushes.pushTarget(repo, "main"))
 
+        for (mode in listOf("simple", "current", "matching", "nothing")) {
+            git("config", "push.default", mode)
+            assertEquals(GitPushTarget("origin", "main", hasUpstream = true), pushes.pushTarget(repo, "main"), mode)
+        }
+    }
+
+    @Test
+    fun `a branch created from a remote branch is not pushed into it`() {
+        // Git's default branch.autoSetupMerge makes origin/main the upstream of the new branch.
+        git("branch", "feature", "refs/remotes/origin/main")
+
+        assertEquals(GitPushTarget("origin", "feature", hasUpstream = true), pushes.pushTarget(repo, "feature"))
+    }
+
+    @Test
+    fun `the target is the upstream with push_default upstream or tracking`() {
+        git("config", "branch.main.remote", "origin")
+        git("config", "branch.main.merge", "refs/heads/trunk")
+        git("config", "push.default", "upstream")
+        assertEquals(GitPushTarget("origin", "trunk", hasUpstream = true), pushes.pushTarget(repo, "main"))
+
+        git("config", "push.default", "tracking")
         assertEquals(GitPushTarget("origin", "trunk", hasUpstream = true), pushes.pushTarget(repo, "main"))
     }
 
@@ -121,6 +144,8 @@ class GitPushTest {
         git("remote", "add", "fork", folder.resolve("fork").toString())
         git("remote", "add", "extra", folder.resolve("extra").toString())
         git("config", "branch.main.merge", "refs/heads/trunk")
+        // Even where git would push to the upstream: these remotes are not the upstream's.
+        git("config", "push.default", "upstream")
         git("config", "remote.pushDefault", "extra")
         assertEquals(GitPushTarget("extra", "main", hasUpstream = true), pushes.pushTarget(repo, "main"))
 
@@ -129,10 +154,11 @@ class GitPushTest {
     }
 
     @Test
-    fun `a push remote that is the upstream's remote takes the upstream's branch`() {
+    fun `a push remote that is the upstream's remote takes the upstream's branch with push_default upstream`() {
         git("config", "branch.main.remote", "origin")
         git("config", "branch.main.merge", "refs/heads/trunk")
         git("config", "branch.main.pushRemote", "origin")
+        git("config", "push.default", "upstream")
 
         assertEquals(GitPushTarget("origin", "trunk", hasUpstream = true), pushes.pushTarget(repo, "main"))
     }

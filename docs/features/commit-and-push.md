@@ -65,7 +65,9 @@ itself come from `GitPush` in `modules/git`. Decisions in [ADR 0049](../adr/0049
   again brings it to the front; another folder or closing the window closes it. Escape or Cancel closes it.
 - **Top row:** `main → origin : main  New`: the checked-out branch; the remote (a choice with several remotes, else
   its name); the target branch, prefilled from git's configuration (the push remote, `remote.pushDefault` or the
-  upstream's remote; the upstream's branch on that remote, else the same name) and editable; "New" when the remote
+  upstream's remote; the branch's own name, as git's default `push.default=simple` pushes it, never an upstream of
+  another name such as `main` for a branch created from `origin/main`; the upstream's branch only with
+  `push.default=upstream` and when pushing to the upstream's remote) and editable; "New" when the remote
   does not have that branch as of the last fetch (the tooltip names the missing remote-tracking ref). A name git does
   not take ("'a..b' is not a valid branch name.") shows below the row and disables Push. Edits are read after a pause
   of 300 ms; Enter in the field does not push.
