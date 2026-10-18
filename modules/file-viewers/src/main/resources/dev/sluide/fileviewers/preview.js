@@ -228,8 +228,6 @@
             return;
         }
         var href = link.getAttribute('href');
-        // An exported page is read in a browser, which follows its links itself.
-        if (href.charAt(0) !== '#' && document.body.classList.contains('standalone')) return;
         // No link navigates the preview: anchors scroll within the page, every other link is opened by Thoreau.
         event.preventDefault();
         if (href.charAt(0) === '#') {

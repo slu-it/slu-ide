@@ -18,7 +18,8 @@ import kotlin.io.path.exists
 /**
  * The Export menu of a preview's toolbar: "HTML" writes [export]'s page of the saved text beside the file. An existing
  * target is only replaced after asking. The page is made off the FX thread (it may download images); the button is
- * disabled meanwhile. Problems and images that could not be embedded are reported in a dialog; a clean export is not.
+ * disabled meanwhile. Problems (an error, images not embedded, diagrams not drawn) are reported in a dialog; a clean
+ * export is not.
  * Everything but the rendering and writing runs on the FX thread.
  */
 internal class ExportControls(
@@ -56,11 +57,10 @@ internal class ExportControls(
                     try {
                         val page = export.render(source, text)
                         Files.writeString(target, page.html)
-                        if (page.notEmbedded.isEmpty()) {
+                        if (page.problems.isEmpty()) {
                             null
                         } else {
-                            "Exported ${target.fileName}, but these images could not be embedded:\n" +
-                                page.notEmbedded.joinToString("\n")
+                            "Exported ${target.fileName}, with problems:\n" + page.problems.joinToString("\n")
                         }
                     } catch (e: Exception) {
                         "Could not export ${source.fileName}: ${e.message ?: e.javaClass.simpleName}"

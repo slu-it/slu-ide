@@ -16,8 +16,11 @@ internal interface HtmlExport {
     ): ExportedPage
 }
 
-/** An exported [html] page; [notEmbedded] lists the image sources that stay references (could not be embedded). */
+/**
+ * An exported [html] page; [problems] are lines for the user about what it lacks (an image that could not be embedded,
+ * a diagram that could not be drawn).
+ */
 internal class ExportedPage(
     val html: String,
-    val notEmbedded: List<String>,
+    val problems: List<String>,
 )

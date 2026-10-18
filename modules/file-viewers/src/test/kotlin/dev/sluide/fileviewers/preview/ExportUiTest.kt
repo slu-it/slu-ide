@@ -1,15 +1,12 @@
 package dev.sluide.fileviewers.preview
 
 import dev.sluide.fileviewers.markdown.MarkdownFileViewer
-import dev.sluide.fileviewers.markdown.MarkdownHtmlExport
-import dev.sluide.fileviewers.markdown.MarkdownRenderer
 import dev.sluide.fileviewers.table.CsvFileViewer
-import javafx.concurrent.Worker
 import javafx.scene.Scene
 import javafx.scene.control.MenuButton
 import javafx.scene.layout.StackPane
-import javafx.scene.web.WebView
 import javafx.stage.Stage
+import org.jsoup.Jsoup
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.io.TempDir
@@ -24,7 +21,6 @@ import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -61,7 +57,7 @@ class ExportUiTest {
         val export = checkNotNull(view.export)
         export.report = { reports += it }
         WaitForAsyncUtils.asyncFx<Unit> { export.exportHtml() }.get()
-        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
+        WaitForAsyncUtils.waitFor(30, TimeUnit.SECONDS) {
             WaitForAsyncUtils.asyncFx<Boolean> { !export.button.isDisable }.get()
         }
         WaitForAsyncUtils.waitForFxEvents()
@@ -119,38 +115,34 @@ class ExportUiTest {
     fun `images that cannot be embedded are reported`(robot: FxRobot) {
         val view = open(robot, "notes.md", "![x](missing.png)\n")
         val reports = exported(view)
-        assertEquals(1, reports.size)
-        assertTrue(reports.single().contains("missing.png"))
+        assertEquals(listOf("Exported notes.html, with problems:\nImage not embedded: missing.png"), reports)
         assertTrue(dir.resolve("notes.html").exists())
     }
 
-    private fun clickResult(html: String): Any? {
-        val view =
-            WaitForAsyncUtils
-                .asyncFx<WebView> {
-                    WebView().apply {
-                        container.children.setAll(this)
-                        engine.loadContent(html)
-                    }
-                }.get()
-        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
-            WaitForAsyncUtils.asyncFx<Boolean> { view.engine.loadWorker.state == Worker.State.SUCCEEDED }.get()
-        }
-        return WaitForAsyncUtils
-            .asyncFx<Any?> {
-                view.engine.executeScript(
-                    "var a=document.querySelector('a');var e=new MouseEvent('click',{bubbles:true,cancelable:true});" +
-                        "a.dispatchEvent(e);e.defaultPrevented",
-                )
-            }.get()
+    @Test
+    fun `a diagram is drawn into the page in both variants, without libraries`(robot: FxRobot) {
+        val view = open(robot, "notes.md", "# Flow\n\n```mermaid\nflowchart LR\n  A --> B\n```\n")
+        assertTrue(exported(view).isEmpty())
+        val html = dir.resolve("notes.html").readText()
+        assertTrue(html.length < 200_000, "${html.length}")
+        val doc = Jsoup.parse(html)
+        assertTrue(
+            doc
+                .select("script")
+                .single()
+                .data()
+                .contains("matchMedia("),
+        )
+        val diagram = doc.select("div.diagram").single()
+        assertNotNull(diagram.selectFirst("> div.diagram-light > svg"))
+        assertNotNull(diagram.selectFirst("> div.diagram-dark > svg"))
     }
 
     @Test
-    fun `links of an exported page navigate, those of the preview do not`() {
-        val text = "[x](https://example.invalid/)\n"
-        val file = dir.resolve("notes.md")
-        val exported = MarkdownHtmlExport().render(file, text).html
-        assertEquals(false, clickResult(exported))
-        assertEquals(true, clickResult(MarkdownRenderer.render(text, dir)))
+    fun `a diagram that cannot be drawn is reported`(robot: FxRobot) {
+        val view = open(robot, "notes.md", "```mermaid\nflowchart LR\n  A -->\n```\n")
+        val report = exported(view).single()
+        assertTrue(report.startsWith("Exported notes.html, with problems:\nDiagram 1 could not be drawn: "), report)
+        assertNotNull(Jsoup.parse(dir.resolve("notes.html").readText()).selectFirst("pre.mermaid.error"))
     }
 }

@@ -27,12 +27,24 @@ class StandalonePageTest {
     }
 
     @Test
-    fun `a standalone page follows the reader's colour scheme before diagrams are drawn`() {
-        val html = page("```mermaid\ngraph TD; A-->B\n```\n", standalone = true)
-        assertTrue(Jsoup.parse(html).body().hasClass("standalone"))
-        val theme = html.indexOf("matchMedia(")
-        assertTrue(theme > 0)
-        assertTrue(theme < html.lastIndexOf("sluide.renderDiagrams();"))
+    fun `the only script of a standalone page follows the reader's colour scheme`() {
+        val html = page("\$x\$\n\n```mermaid\ngraph TD; A-->B\n```\n", standalone = true)
+        val doc = Jsoup.parse(html)
+        assertTrue(doc.body().hasClass("standalone"))
+        val script = doc.select("script").single().data()
+        assertTrue(script.contains("matchMedia("))
+        assertFalse(script.contains("sluide"))
+        // Neither the preview's script nor the libraries.
+        assertFalse(html.contains("scrollToLine"))
+        assertFalse(html.contains("renderDiagrams"))
+        assertFalse(html.contains("renderMath"))
+    }
+
+    @Test
+    fun `a standalone page has KaTeX's stylesheet only with typeset math`() {
+        val katex = "KaTeX_Main"
+        assertFalse(page("\$x\$", standalone = true).contains(katex))
+        assertTrue(page("<span class=\"math-rendered\">x</span>", standalone = true).contains(katex))
     }
 
     @Test

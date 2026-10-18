@@ -124,8 +124,10 @@ internal object MarkdownRenderer {
 
     /**
      * The preview page around [body] (sanitised content): our stylesheet and script, and KaTeX or Mermaid if it has
-     * math or diagrams. A [standalone] page is for a browser: it follows the reader's colour scheme ([dark] is
-     * ignored) and lets links navigate. It has a [title] and [extraStyles] after all other styles.
+     * math or diagrams. A [standalone] page is for a browser, with its math typeset and its diagrams drawn already
+     * ([MarkdownHtmlExport]): its only script follows the reader's colour scheme ([dark] is ignored), and it has KaTeX's
+     * stylesheet only if it has typeset math (`.math-rendered`). It has a [title] and [extraStyles] after all other
+     * styles.
      */
     fun page(
         body: Element,
@@ -134,17 +136,21 @@ internal object MarkdownRenderer {
         title: String? = null,
         extraStyles: List<String> = emptyList(),
     ): String {
+        val classes = (if (standalone) listOf("standalone") else emptyList()) + body.classNames()
+        if (standalone) {
+            val katex = if (body.selectFirst(".math-rendered") != null) listOf(Vendor.katexCss) else emptyList()
+            val styles = listOf(stylesheet) + katex + EXPORT_STYLESHEET + extraStyles
+            return HtmlPage.render(false, styles, listOf(THEME_SCRIPT), classes, title) { append(body.html()) }
+        }
         val math = body.selectFirst(".math") != null
         val diagrams = body.selectFirst("pre.mermaid") != null
         // Each library in a script of its own, then the call that starts it.
         val scripts =
             listOf(script) +
-                (if (standalone) listOf(THEME_SCRIPT) else emptyList()) +
                 (if (math) listOf(Vendor.katexJs, "sluide.renderMath();") else emptyList()) +
                 (if (diagrams) listOf(Vendor.mermaidJs, "sluide.renderDiagrams();") else emptyList())
         val styles = (if (math) listOf(stylesheet, Vendor.katexCss) else listOf(stylesheet)) + extraStyles
-        val classes = (if (standalone) listOf("standalone") else emptyList()) + body.classNames()
-        return HtmlPage.render(dark && !standalone, styles, scripts, classes, title) { append(body.html()) }
+        return HtmlPage.render(dark, styles, scripts, classes, title) { append(body.html()) }
     }
 
     /** A local image at [src] (relative to [folder] or `file:`) as a `data:` URI, or `null` to keep [src]. */
@@ -165,17 +171,50 @@ internal object MarkdownRenderer {
     /** The largest image that is embedded in a page. */
     internal const val MAX_IMAGE_BYTES = 10L * 1024 * 1024
 
-    // Sets the reader's colour scheme before the diagrams are drawn, and follows its changes.
+    // Follows the reader's colour scheme.
     private const val THEME_SCRIPT =
         """
 (function () {
     var query = window.matchMedia && matchMedia('(prefers-color-scheme: dark)');
     if (!query) return;
-    document.body.classList.toggle('dark', query.matches);
-    var follow = function (event) { sluide.setDark(event.matches); };
+    var follow = function () { document.body.classList.toggle('dark', query.matches); };
+    follow();
     if (query.addEventListener) query.addEventListener('change', follow);
     else if (query.addListener) query.addListener(follow);
 })();
+"""
+
+    // A drawn diagram in the variant of the colour scheme, laid out like pre.mermaid in preview.css; display math like
+    // .math.display; a diagram that failed for another reason than its syntax without the label "Syntax error".
+    private const val EXPORT_STYLESHEET =
+        """
+.math-rendered.display {
+    display: block;
+    margin: 0 0 16px 0;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+pre.mermaid.error.failed::before {
+    display: none;
+}
+
+body.dark .diagram-light,
+body:not(.dark) .diagram-dark {
+    display: none;
+}
+
+.diagram {
+    margin: 0 0 16px 0;
+    padding: 16px;
+    overflow: auto;
+    text-align: center;
+}
+
+.diagram svg {
+    max-width: 100%;
+    height: auto;
+}
 """
 
     private fun sourceLine(

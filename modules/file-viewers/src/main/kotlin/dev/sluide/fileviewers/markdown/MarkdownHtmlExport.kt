@@ -2,6 +2,8 @@ package dev.sluide.fileviewers.markdown
 
 import dev.sluide.fileviewers.preview.ExportedPage
 import dev.sluide.fileviewers.preview.HtmlExport
+import org.jsoup.nodes.DataNode
+import org.jsoup.nodes.Element
 import java.net.URI
 import java.net.URISyntaxException
 import java.nio.file.Path
@@ -12,11 +14,13 @@ import kotlin.io.path.readText
 
 /**
  * Markdown as a self-contained HTML page `name.html` beside `name.md`: images (local and, via [images], remote) are
- * embedded, KaTeX and Mermaid are inlined, and a `name.css` beside the file is inlined after the built-in styles. The
- * page follows the reader's colour scheme.
+ * embedded, math is typeset and diagrams are drawn by [renderer] (each in a light and a dark variant), and a
+ * `name.css` beside the file is inlined after the built-in styles. The page follows the reader's colour scheme and
+ * has no script but the one that does so.
  */
 internal class MarkdownHtmlExport(
     private val images: ImageFetcher = HttpImageFetcher(),
+    private val renderer: ExportRenderer = WebViewExportRenderer(),
 ) : HtmlExport {
     override fun target(file: Path): Path = file.resolveSibling(file.nameWithoutExtension + ".html")
 
@@ -44,6 +48,7 @@ internal class MarkdownHtmlExport(
                 .map { it.attr("src") }
                 .filterNot { it.startsWith("data:") }
                 .distinct()
+        val failed = rendered(body)
         val css = stylesheet(file).takeIf { it.isRegularFile() }?.readText()?.replace(STYLE_END, "<\\\\/$1")
         val html =
             MarkdownRenderer.page(
@@ -53,7 +58,52 @@ internal class MarkdownHtmlExport(
                 title = file.fileName.toString(),
                 extraStyles = listOfNotNull(css),
             )
-        return ExportedPage(html, notEmbedded)
+        return ExportedPage(html, notEmbedded.map { "Image not embedded: $it" } + failed)
+    }
+
+    /**
+     * Replaces the math in [body] by its typeset HTML and the diagrams by their drawings, both as the renderer gave
+     * them (KaTeX's output and Mermaid's sanitised SVG, as the preview inserts them). A formula that was not typeset
+     * keeps its source, a diagram that could not be drawn shows its error. Returns the problems for the user.
+     */
+    private fun rendered(body: Element): List<String> {
+        val formulas = body.select(".math")
+        val diagrams = body.select("pre.mermaid")
+        val rendering =
+            renderer.render(
+                formulas.map { MathSource(it.wholeText(), it.hasClass("display")) },
+                diagrams.map { it.attr("data-source") },
+            )
+        var untypeset = false
+        formulas.zip(rendering.math).forEach { (formula, html) ->
+            if (html == null) {
+                untypeset = true
+                return@forEach
+            }
+            // The same tag: inline display math is a span, so that it stays in its paragraph.
+            val typeset = Element(formula.tagName()).addClass("math-rendered").appendChild(DataNode(html))
+            if (formula.hasClass("display")) typeset.addClass("display")
+            formula.replaceWith(typeset)
+        }
+        val failed =
+            diagrams.zip(rendering.diagrams).mapIndexedNotNull { i, (diagram, drawn) ->
+                val (light, dark) = drawn.light to drawn.dark
+                if (drawn.error == null && light != null && dark != null) {
+                    val replacement = Element("div").addClass("diagram")
+                    replacement.appendElement("div").addClass("diagram-light").appendChild(DataNode(light))
+                    replacement.appendElement("div").addClass("diagram-dark").appendChild(DataNode(dark))
+                    diagram.replaceWith(replacement)
+                    null
+                } else {
+                    val error = drawn.error ?: "Not drawn"
+                    val shown = Element("pre").addClass("mermaid").addClass("error").text(error)
+                    // Not Mermaid's error, so no syntax error.
+                    if (drawn.failed) shown.addClass("failed")
+                    diagram.replaceWith(shown)
+                    "Diagram ${i + 1} could not be drawn: $error"
+                }
+            }
+        return (if (untypeset) listOf("Math could not be typeset") else emptyList()) + failed
     }
 
     private companion object {
