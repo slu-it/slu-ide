@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.io.path.extension

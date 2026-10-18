@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.highlight.TomlHighlighter
 import dev.sluide.textediting.CommentSyntax
 import org.springframework.stereotype.Component
 

@@ -1,6 +1,8 @@
 package dev.sluide.fileviewers
 
 import dev.sluide.fileviewers.PemRenderer.Badge
+import dev.sluide.fileviewers.highlight.Highlighted
+import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import java.security.AlgorithmParameters
 import java.security.KeyPairGenerator
 import java.security.SecureRandom

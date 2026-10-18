@@ -1,5 +1,7 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
+import dev.sluide.fileviewers.highlight.fenceLanguage
 import org.commonmark.ext.autolink.AutolinkExtension
 import org.commonmark.ext.gfm.strikethrough.StrikethroughExtension
 import org.commonmark.ext.gfm.tables.TablesExtension

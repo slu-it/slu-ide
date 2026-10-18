@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import dev.sluide.textediting.CommentSyntax
 import javafx.scene.web.WebEngine
 import org.junit.jupiter.api.io.TempDir

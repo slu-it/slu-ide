@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import org.jsoup.nodes.Element
 import tools.jackson.core.JacksonException
 import tools.jackson.databind.JsonNode

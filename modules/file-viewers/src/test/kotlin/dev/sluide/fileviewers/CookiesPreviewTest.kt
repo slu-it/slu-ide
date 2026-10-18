@@ -1,5 +1,7 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.highlight.Highlighted
+import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import org.jsoup.Jsoup
 import kotlin.test.Test
 import kotlin.test.assertEquals

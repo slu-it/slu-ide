@@ -1,5 +1,7 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
+
 /** The syntax highlighters of the code views, for other modules that highlight embedded code (e.g. request bodies). */
 object Highlighters {
     /**

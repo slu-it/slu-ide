@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import dev.sluide.textediting.CommentSyntax
 import dev.sluide.textediting.IndentStyle
 import org.springframework.stereotype.Component
