@@ -9,6 +9,10 @@ import dev.sluide.gitlog.data.GitLogRow
 import dev.sluide.gitlog.data.GitLogSource
 import dev.sluide.gitlog.history.FileHistoryKey
 import dev.sluide.gitlog.ui.SHORT_HASH
+import dev.sluide.gitlog.workingtree.WorkingTreeComparison
+import dev.sluide.gitlog.workingtree.WorkingTreeTarget
+import dev.sluide.gitlog.workingtree.WorkingTreeWindow
+import dev.sluide.gitlog.workingtree.changesContent
 import javafx.stage.Stage
 import javafx.stage.Window
 import javafx.stage.WindowEvent

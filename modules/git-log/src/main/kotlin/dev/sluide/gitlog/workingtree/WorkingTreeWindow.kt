@@ -1,9 +1,10 @@
-package dev.sluide.gitlog
+package dev.sluide.gitlog.workingtree
 
 import dev.sluide.fileicons.FILE_ICONS_CSS
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitFileDiff
+import dev.sluide.gitlog.WorkingTreeFileDiff
 import dev.sluide.gitlog.ui.ChangeTreeView
 import dev.sluide.gitlog.ui.GIT_LOG_CSS
 import javafx.geometry.Pos

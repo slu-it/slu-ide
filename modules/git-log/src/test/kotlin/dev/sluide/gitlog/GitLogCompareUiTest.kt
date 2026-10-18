@@ -24,6 +24,7 @@ import dev.sluide.gitlog.data.ChangeNode
 import dev.sluide.gitlog.data.FakeWrites
 import dev.sluide.gitlog.data.GitLogRow
 import dev.sluide.gitlog.data.GitLogSource
+import dev.sluide.gitlog.workingtree.WorkingTreeWindow
 import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.Scene

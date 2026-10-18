@@ -32,6 +32,7 @@ import dev.sluide.gitlog.ui.GO_TO
 import dev.sluide.gitlog.ui.SHORT_HASH
 import dev.sluide.gitlog.ui.SharedSplit
 import dev.sluide.gitlog.ui.contains
+import dev.sluide.gitlog.workingtree.WorkingTreeWindow
 import javafx.application.Platform
 import javafx.beans.property.BooleanProperty
 import javafx.beans.property.SimpleBooleanProperty
