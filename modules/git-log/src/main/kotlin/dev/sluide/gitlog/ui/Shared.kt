@@ -9,8 +9,6 @@ internal const val SHORT_HASH = 8
 
 internal val COPY = KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN)
 
-internal val GO_TO = KeyCodeCombination(KeyCode.G, KeyCombination.SHORTCUT_DOWN)
-
 private object Resources
 
 internal val GIT_LOG_CSS: String =

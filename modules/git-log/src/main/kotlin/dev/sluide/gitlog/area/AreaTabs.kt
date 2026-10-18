@@ -16,7 +16,6 @@ import dev.sluide.gitlog.history.FileHistoryKey
 import dev.sluide.gitlog.history.FileHistoryState
 import dev.sluide.gitlog.history.FileHistoryView
 import dev.sluide.gitlog.operations.CommitChanges
-import dev.sluide.gitlog.ui.GO_TO
 import dev.sluide.gitlog.ui.SHORT_HASH
 import dev.sluide.gitlog.ui.contains
 import javafx.beans.property.BooleanProperty

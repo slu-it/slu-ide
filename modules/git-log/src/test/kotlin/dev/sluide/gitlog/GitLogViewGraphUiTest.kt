@@ -11,7 +11,7 @@ import dev.sluide.gitlog.table.SUBJECT_MIN_WIDTH
 import dev.sluide.gitlog.table.column
 import dev.sluide.gitlog.table.refGroups
 import dev.sluide.gitlog.table.refLabelText
-import dev.sluide.gitlog.table.refStyleClass
+import dev.sluide.gitlog.ui.refStyleClass
 import javafx.application.ColorScheme
 import javafx.scene.control.Label
 import javafx.scene.effect.DropShadow

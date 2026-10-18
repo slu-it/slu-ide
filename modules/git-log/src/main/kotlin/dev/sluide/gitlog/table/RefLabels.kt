@@ -3,14 +3,14 @@ package dev.sluide.gitlog.table
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.gitlog.ui.GIT_LOG_CSS
+import dev.sluide.gitlog.ui.refIcon
+import dev.sluide.gitlog.ui.refLines
 import javafx.geometry.Pos
 import javafx.scene.control.Label
 import javafx.scene.control.Tooltip
 import javafx.scene.layout.HBox
 import javafx.scene.layout.VBox
 import javafx.scene.shape.Rectangle
-import org.kordamp.ikonli.javafx.FontIcon
-import org.kordamp.ikonli.materialdesign2.MaterialDesignT
 
 /**
  * The ref labels of a git log row (ADR 0037): one coloured tag icon per kind of ref the row has, slightly overlapping,
@@ -71,22 +71,3 @@ internal class RefLabels : HBox() {
         text.text = refLabelText(refGroups(refs, currentBranch))
     }
 }
-
-/** The coloured tag icon of a [kind] of ref; the colours are looked-up colours of `git-log.css`. */
-internal fun refIcon(kind: GitRefKind) =
-    FontIcon(MaterialDesignT.TAG_OUTLINE).apply {
-        styleClass += "git-ref-icon"
-        styleClass += refStyleClass(kind)
-    }
-
-internal fun refStyleClass(kind: GitRefKind) =
-    when (kind) {
-        GitRefKind.HEAD -> "git-ref-head"
-        GitRefKind.LOCAL_BRANCH -> "git-ref-local"
-        GitRefKind.REMOTE_BRANCH -> "git-ref-remote"
-        GitRefKind.TAG -> "git-ref-tag"
-    }
-
-/** One line per ref with its icon and short name, as in the tooltip and the details. */
-internal fun refLines(refs: List<GitRef>): List<Label> =
-    refs.map { ref -> Label(ref.shortName, refIcon(ref.kind)).apply { styleClass += "git-ref-line" } }

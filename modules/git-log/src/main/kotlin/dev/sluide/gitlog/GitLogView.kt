@@ -12,6 +12,7 @@ import dev.sluide.gitlog.area.AreaTabs
 import dev.sluide.gitlog.area.CommitDiffs
 import dev.sluide.gitlog.area.CommitNavigation
 import dev.sluide.gitlog.area.CompareBar
+import dev.sluide.gitlog.area.GO_TO
 import dev.sluide.gitlog.area.HeaderStatus
 import dev.sluide.gitlog.branches.BranchesPane
 import dev.sluide.gitlog.data.CommitBranches
@@ -33,7 +34,6 @@ import dev.sluide.gitlog.operations.PendingBar
 import dev.sluide.gitlog.push.PUSH_KEYS
 import dev.sluide.gitlog.table.CommitTable
 import dev.sluide.gitlog.ui.GIT_LOG_CSS
-import dev.sluide.gitlog.ui.GO_TO
 import dev.sluide.gitlog.ui.SHORT_HASH
 import dev.sluide.gitlog.ui.SharedSplit
 import dev.sluide.gitlog.ui.contains

@@ -7,7 +7,7 @@ import dev.sluide.gitlog.operations.BranchActions
 import dev.sluide.gitlog.operations.Fetch
 import dev.sluide.gitlog.operations.RefOperation
 import dev.sluide.gitlog.operations.branchActions
-import dev.sluide.gitlog.table.refStyleClass
+import dev.sluide.gitlog.ui.refStyleClass
 import javafx.animation.Animation
 import javafx.animation.PauseTransition
 import javafx.beans.property.BooleanProperty

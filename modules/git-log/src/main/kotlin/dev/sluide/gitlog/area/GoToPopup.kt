@@ -9,6 +9,8 @@ import javafx.scene.control.ListCell
 import javafx.scene.control.ListView
 import javafx.scene.control.TextField
 import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyCodeCombination
+import javafx.scene.input.KeyCombination
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.layout.HBox
@@ -217,3 +219,5 @@ internal fun exactCompletion(
     items: List<FilterItem>,
     text: String,
 ): FilterItem? = items.filter { it.text == text }.singleOrNull()
+
+internal val GO_TO = KeyCodeCombination(KeyCode.G, KeyCombination.SHORTCUT_DOWN)
