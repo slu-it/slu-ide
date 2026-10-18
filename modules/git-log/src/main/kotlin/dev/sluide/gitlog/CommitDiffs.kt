@@ -26,10 +26,8 @@ internal class CommitDiffs(
     private val window: () -> Window?,
     private val selections: () -> Long,
     private val fileExists: (Path) -> Boolean,
+    private val tell: (String) -> Unit,
 ) {
-    /** Shows a message in the header, e.g. why a diff cannot be shown; set by the view. */
-    var tell: (String) -> Unit = {}
-
     /** Shows what a commit changed in a file; set by the view (ADR 0038). */
     var showFileDiff: (CommitFileDiff) -> Unit = {}
 

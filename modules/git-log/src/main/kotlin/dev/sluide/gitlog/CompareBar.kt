@@ -24,10 +24,8 @@ import org.kordamp.ikonli.materialdesign2.MaterialDesignC
  */
 internal class CompareBar(
     private val pages: GitLogPages,
+    private val clearStatus: () -> Unit,
 ) : HBox() {
-    /** Called when a comparison starts, to clear the header; set by the view. */
-    var clearStatus: () -> Unit = {}
-
     /** Called with whether a comparison is shown now, as the branch filter is disabled while comparing. */
     var comparingShown: (Boolean) -> Unit = {}
 

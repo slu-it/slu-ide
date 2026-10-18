@@ -18,7 +18,6 @@ import javafx.application.Platform
 import javafx.beans.binding.Bindings
 import javafx.beans.property.BooleanProperty
 import javafx.beans.property.SimpleBooleanProperty
-import javafx.beans.property.SimpleStringProperty
 import javafx.collections.ListChangeListener
 import javafx.event.EventTarget
 import javafx.geometry.Orientation
@@ -199,30 +198,14 @@ class GitLogView internal constructor(
     @Volatile
     internal var fileExists: (Path) -> Boolean = { Files.exists(it, LinkOption.NOFOLLOW_LINKS) }
 
-    /** A message in the header, e.g. that a diff cannot be shown, until the next selection or load. */
-    private val status = SimpleStringProperty("")
-
-    /**
-     * What the operation that changes the repository is doing ("Checking out main…") or did ("Checked out main."),
-     * shown while there is no other [status]; until the next operation or [open].
-     */
-    private val operationStatus = SimpleStringProperty("")
+    /** The header's message (ADR 0046), with what the operation going on does and the log's failure. */
+    private val status = HeaderStatus(pages)
 
     /** The bar of a comparison of a ref with `HEAD` (ADR 0044) below the filter bar; its `emptySide` is for the table. */
     internal val compareBar: CompareBar =
-        CompareBar(pages).apply {
-            clearStatus = { status.set("") }
+        CompareBar(pages, status::clear).apply {
             comparingShown = { comparing -> filterBar.branch.isDisable = comparing }
         }
-
-    /**
-     * What the header says once the log loaded again, e.g. why a comparison ended: replacing the rows changes the
-     * selection, which clears the header.
-     */
-    private var statusAfterLoad: String? = null
-
-    /** Counts the changes of the selected commits and files, so that a message about an earlier one is not shown. */
-    private var selections = 0L
 
     /** Shows the diffs of commits and with the working tree (ADR 0038, 0044); the callbacks are the window's. */
     internal val diffs =
@@ -233,10 +216,10 @@ class GitLogView internal constructor(
             compareExecutor::execute,
             dispatch,
             { scene?.window },
-            { selections },
+            status::selection,
             { path -> fileExists(path) },
+            status::tell,
         ).apply {
-            tell = { message -> status.set(message) }
             showFileDiff = { diff -> onShowDiff(diff) }
             openFile = { file -> onOpenFile(file) }
             showWorkingTreeFileDiff = { diff -> onShowWorkingTreeDiff(diff) }
@@ -319,38 +302,12 @@ class GitLogView internal constructor(
                 }
         }
 
-    /** Whether the Log tab is selected (or there are no tabs), so that the header tells the log's failures. */
-    private val logShown = SimpleBooleanProperty(true)
-
     /** The header bar; clicking it (but not its buttons or tabs) expands or collapses the log. */
     internal val header: HBox =
         HBox(
             chevron,
             titles,
-            // A failure while rows are shown (with no rows the table's placeholder says it), else the status, else what
-            // an operation does or did.
-            Label().apply {
-                styleClass += "git-log-status"
-                textProperty().bind(
-                    Bindings.createStringBinding(
-                        {
-                            val state = pages.state.get()
-                            val logFailed = state == GitLogState.FAILED && pages.rows.isNotEmpty()
-                            when {
-                                logShown.get() && logFailed -> state.message
-                                status.get().isNotEmpty() -> status.get()
-                                else -> operationStatus.get()
-                            }
-                        },
-                        pages.state,
-                        pages.rows,
-                        status,
-                        operationStatus,
-                        logShown,
-                    ),
-                )
-                minWidth = 0.0
-            },
+            status.label,
             cancelButton,
             Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
             pushButton,
@@ -655,23 +612,17 @@ class GitLogView internal constructor(
         }
         table.selectionModel.selectedItems.addListener(
             ListChangeListener {
-                selections++
-                status.set("")
+                status.selectionChanged()
                 details.selectionChanged()
             },
         )
         changesPane.tree.selectionModel
             .selectedItemProperty()
-            .subscribe { _ ->
-                selections++
-                if (!changesPane.tree.rebuilding) status.set("")
-            }
-        pages.state.subscribe { state -> if (state == GitLogState.LOADING) status.set("") }
+            .subscribe { _ -> status.selectionChanged(keepMessage = changesPane.tree.rebuilding) }
         // The refs are read with every first page, before its state is set.
         pages.state.subscribe { state ->
             when (state) {
                 GitLogState.IDLE -> {
-                    statusAfterLoad = null
                     pendingBar.show(null)
                     hasHead.set(false)
                     noRemotes.set(false)
@@ -683,8 +634,6 @@ class GitLogView internal constructor(
                 }
 
                 else -> {
-                    statusAfterLoad?.let(status::set)
-                    statusAfterLoad = null
                     if (pages.refs != branchesRefs) {
                         branchesRefs = pages.refs
                         commitBranches.refsChanged()
@@ -711,7 +660,7 @@ class GitLogView internal constructor(
         }
         pages.comparisonEnded = { comparison, end ->
             compareBar.comparisonChanged()
-            statusAfterLoad = compareBar.endMessage(comparison, end)
+            status.tellAfterLoad(compareBar.endMessage(comparison, end))
         }
         changesPane.showDiff = diffs::showDiff
         changesPane.openFile = { file -> diffs.localFile(file)?.let(onOpenFile) }
@@ -840,12 +789,9 @@ class GitLogView internal constructor(
                 showDiff = { file, head -> diffs.showHeadDiff(root, commitExecutor, file, head) }
                 openFile = { file -> diffs.localFile(file)?.let(onOpenFile) }
                 exists = { file -> diffs.localFile(file)?.let(fileExists) == true }
-                failedWithChanges = { if (selected == AreaSelection.Commit) status.set(COMMIT_READ_FAILED) }
-                tell = status::set
-                tree.selectionModel.selectedItemProperty().subscribe { _ ->
-                    selections++
-                    status.set("")
-                }
+                failedWithChanges = { if (selected == AreaSelection.Commit) status.tell(COMMIT_READ_FAILED) }
+                tell = status::tell
+                tree.selectionModel.selectedItemProperty().subscribe { _ -> status.selectionChanged() }
                 // Go to is the log's: it goes there, as from a history (ADR 0046).
                 addEventFilter(KeyEvent.KEY_PRESSED) { event ->
                     if (GO_TO.match(event)) {
@@ -935,10 +881,7 @@ class GitLogView internal constructor(
                 compareWithLocal = { row, file -> diffs.compareWithLocal(key, row, file) }
                 showInLog = ::showInLog
                 detailsPane.openCommit = ::showInLog
-                selectionChanged = {
-                    selections++
-                    status.set("")
-                }
+                selectionChanged = { status.selectionChanged() }
                 // Go to is the log's: it goes there (ADR 0046). Find has nothing to filter in a history.
                 addEventFilter(KeyEvent.KEY_PRESSED) { event ->
                     if (GO_TO.match(event)) {
@@ -952,7 +895,7 @@ class GitLogView internal constructor(
                 }
             }
         history.failedWithRows =
-            { if (selected == AreaSelection.History(key)) status.set(FileHistoryState.FAILED.message(key.name)) }
+            { if (selected == AreaSelection.History(key)) status.tell(FileHistoryState.FAILED.message(key.name)) }
         val tip = key.path + key.start?.let { " up to ${it.take(ChangedFilesPane.SHORT_HASH)}" }.orEmpty()
         val tab =
             AreaTab("History: ${key.name}", tip, closable = true).apply {
@@ -1014,16 +957,16 @@ class GitLogView internal constructor(
      * again.
      */
     private fun tabChanged() {
-        status.set("")
-        logShown.set(selected == AreaSelection.Log)
+        status.clear()
+        status.logShown(selected == AreaSelection.Log)
         if (selected == AreaSelection.Commit) {
             val reader = commitTab?.view?.reader ?: return
-            if (reader.state.get() == CommitLoadState.FAILED && reader.snapshot != null) status.set(COMMIT_READ_FAILED)
+            if (reader.state.get() == CommitLoadState.FAILED && reader.snapshot != null) status.tell(COMMIT_READ_FAILED)
             return
         }
         val history = selectedHistoryView?.history ?: return
         if (history.state.get() == FileHistoryState.FAILED && history.rows.isNotEmpty()) {
-            status.set(FileHistoryState.FAILED.message(history.key.name))
+            status.tell(FileHistoryState.FAILED.message(history.key.name))
         }
     }
 
@@ -1037,7 +980,7 @@ class GitLogView internal constructor(
         commitTab = null
         commitOpen = false
         selected = AreaSelection.Log
-        logShown.set(true)
+        status.logShown(true)
         updateTabs()
         showContent()
     }
@@ -1066,7 +1009,7 @@ class GitLogView internal constructor(
         // An operation going on in the previous repository ends unnoticed; a fetch is stopped (ADR 0043).
         writer.cancel()
         writer.forget()
-        operationStatus.set("")
+        status.operation("")
         // Before the pages, which may start loading and have the pane say so.
         branchesPane.reset()
         commitBranches.clear()
@@ -1088,11 +1031,11 @@ class GitLogView internal constructor(
             pages.stopLoadingUntil()
             return
         }
-        status.set("")
+        status.clear()
         pages.loadUntil(
             ref.commit,
             { index -> if (branchesPane.selectedRef == ref) showRow(index) },
-            { missing -> if (branchesPane.selectedRef == ref) status.set(missingMessage(ref.shortName, missing)) },
+            { missing -> if (branchesPane.selectedRef == ref) status.tell(missingMessage(ref.shortName, missing)) },
         )
     }
 
@@ -1105,14 +1048,14 @@ class GitLogView internal constructor(
         hash: String,
         name: String,
     ) {
-        status.set("")
+        status.clear()
         pages.loadUntil(
             hash,
             { index ->
                 showRow(index)
                 if (detailsPane.contains(scene?.focusOwner)) table.requestFocus()
             },
-            { missing -> status.set(missingMessage(name, missing)) },
+            { missing -> status.tell(missingMessage(name, missing)) },
         )
     }
 
@@ -1250,7 +1193,7 @@ class GitLogView internal constructor(
     }
 
     /** Shows [text] in the header, e.g. why a diff cannot be shown, until the next selection or load. */
-    fun showStatus(text: String) = status.set(text)
+    fun showStatus(text: String) = status.tell(text)
 
     /**
      * Loads the first page again now if [expanded], else the next time it is expanded; keeps the selection by hash.
@@ -1318,9 +1261,9 @@ class GitLogView internal constructor(
         if (writer.running.get()) return
         val action = operation.fileChange
         if (askFirst && action != null && !beforeFileChange(action)) return
-        status.set("")
-        if (writer.run(root, operation, operationStatus::set) { outcome -> finished(operation, outcome) }) {
-            operationStatus.set(operation.progress)
+        status.clear()
+        if (writer.run(root, operation, status::operation) { outcome -> finished(operation, outcome) }) {
+            status.operation(operation.progress)
         }
     }
 
@@ -1328,7 +1271,7 @@ class GitLogView internal constructor(
         operation: RefOperation,
         outcome: RefOutcome,
     ) {
-        operationStatus.set(outcome.done.orEmpty())
+        status.operation(outcome.done.orEmpty())
         outcome.confirmation?.let { confirmation ->
             // Nothing done yet; the unsaved editors were asked about already.
             if (refConfirmation(scene?.window, confirmation).showAndWait().orElse(ButtonType.CANCEL) ==
