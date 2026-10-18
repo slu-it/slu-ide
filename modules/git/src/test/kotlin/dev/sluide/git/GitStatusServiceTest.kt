@@ -1,6 +1,8 @@
 package dev.sluide.git
 
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.headContent
 import dev.sluide.projecttrust.ProjectTrustState
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assumptions.assumeTrue

@@ -1,5 +1,10 @@
 package dev.sluide.git
 
+import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.headCommit
+import dev.sluide.git.cli.inProgress
+import dev.sluide.git.cli.status
+import dev.sluide.git.cli.unreachableCount
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir

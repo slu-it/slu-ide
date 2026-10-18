@@ -1,5 +1,7 @@
 package dev.sluide.git
 
+import dev.sluide.git.cli.GitCli
+
 /** What a revision (a hash, branch, tag or anything git understands, such as `HEAD~3`) names (ADR 0045). */
 sealed interface GitRevisionResolution {
     /** A commit, by its full object name; annotated tags are peeled to the commit they tag. */

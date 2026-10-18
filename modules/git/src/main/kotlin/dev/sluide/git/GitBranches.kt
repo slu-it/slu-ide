@@ -1,7 +1,17 @@
 package dev.sluide.git
 
+import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.branchTip
+import dev.sluide.git.cli.canPassArgument
+import dev.sluide.git.cli.commitOfRevision
+import dev.sluide.git.cli.currentBranch
+import dev.sluide.git.cli.headBranch
+import dev.sluide.git.cli.headCommit
+import dev.sluide.git.cli.isAncestor
+import dev.sluide.git.cli.leftBehindCount
+import dev.sluide.git.cli.localBranches
+import dev.sluide.git.cli.refusal
 import org.springframework.stereotype.Component
-import java.nio.charset.Charset
 import java.nio.file.Path
 import kotlin.time.Duration
 
@@ -308,18 +318,3 @@ class GitBranches(
         const val NO_OVERWRITE_IGNORE = "--no-overwrite-ignore"
     }
 }
-
-/**
- * Why [name] cannot be given to git as an argument, or `null` if it can: empty, starting with `-` (an option to git)
- * or with characters [charset], the JVM's for arguments, cannot encode.
- */
-internal fun refusal(
-    name: String,
-    charset: Charset = argumentCharset,
-): String? =
-    when {
-        name.isEmpty() -> "An empty name cannot be passed to git."
-        name.startsWith('-') -> "'$name' cannot be passed to git: it starts with '-'."
-        !canPassArgument(name, charset) -> "'$name' cannot be passed to git in this locale."
-        else -> null
-    }

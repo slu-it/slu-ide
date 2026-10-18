@@ -1,5 +1,7 @@
-package dev.sluide.git
+package dev.sluide.git.cli
 
+import dev.sluide.git.GitCancellation
+import dev.sluide.git.GitResult
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import java.io.ByteArrayOutputStream

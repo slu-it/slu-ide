@@ -1,5 +1,9 @@
 package dev.sluide.git
 
+import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.comparisonCounts
+import dev.sluide.git.cli.diffFiles
+import dev.sluide.git.cli.workingTreeChanges
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir

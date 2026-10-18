@@ -1,6 +1,7 @@
 package dev.sluide.git
 
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.git.cli.GitCli
 import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.projecttrust.ProjectTrustCheck
 import dev.sluide.projecttrust.ProjectTrustState

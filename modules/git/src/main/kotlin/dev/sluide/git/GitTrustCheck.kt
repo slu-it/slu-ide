@@ -1,5 +1,12 @@
 package dev.sluide.git
 
+import dev.sluide.git.cli.ConfigEntry
+import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.configEntries
+import dev.sluide.git.cli.gitPaths
+import dev.sluide.git.cli.gitlinks
+import dev.sluide.git.cli.shown
+import dev.sluide.git.cli.topLevel
 import dev.sluide.projecttrust.ProjectTrustCheck
 import dev.sluide.projecttrust.TrustFinding
 import org.springframework.stereotype.Component

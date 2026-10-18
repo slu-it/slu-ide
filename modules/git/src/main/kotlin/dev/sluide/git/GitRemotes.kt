@@ -1,5 +1,14 @@
 package dev.sluide.git
 
+import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.RefspecDestination
+import dev.sluide.git.cli.configValues
+import dev.sluide.git.cli.refTips
+import dev.sluide.git.cli.refspecDestinations
+import dev.sluide.git.cli.refusal
+import dev.sluide.git.cli.remoteNames
+import dev.sluide.git.cli.remotesSkippedByFetchAll
+import dev.sluide.git.cli.sshConfigured
 import org.springframework.stereotype.Component
 import java.nio.file.Path
 
@@ -85,35 +94,6 @@ class GitRemotes(
         }
     }
 }
-
-/**
- * Where a fetch refspec writes: below [prefix] for a [glob] (the part before its `*`, e.g. `refs/remotes/origin/`;
- * the `*` matches any rest, also with slashes), else the ref [prefix] itself.
- */
-internal data class RefspecDestination(
-    val prefix: String,
-    val glob: Boolean,
-) {
-    fun matches(name: String) = if (glob) name.startsWith(prefix) else name == prefix
-}
-
-/**
- * Where the fetch [refspecs] (`remote.<name>.fetch`) write: their right-hand sides, without the `+`; negative refspecs
- * (`^…`) and those without a destination (only `FETCH_HEAD`) write nothing.
- */
-internal fun refspecDestinations(refspecs: List<String>): List<RefspecDestination> =
-    refspecs
-        .map { it.trim().removePrefix("+") }
-        .filter { !it.startsWith('^') && ':' in it }
-        .map { it.substringAfter(':') }
-        .filter { it.startsWith("refs/") }
-        .map { destination ->
-            if ('*' in destination) {
-                RefspecDestination(destination.substringBefore('*'), glob = true)
-            } else {
-                RefspecDestination(destination, glob = false)
-            }
-        }
 
 /**
  * How the refs went from [before] to [after] (full refnames to objects): tags, and all others (remote branches, or

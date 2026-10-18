@@ -1,5 +1,10 @@
-package dev.sluide.git
+package dev.sluide.git.cli
 
+import dev.sluide.git.GitInProgress
+import dev.sluide.git.GitOperation
+import dev.sluide.git.GitPendingOperation
+import dev.sluide.git.GitPendingPick
+import dev.sluide.git.GitPick
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.InvalidPathException

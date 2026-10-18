@@ -1,5 +1,6 @@
-package dev.sluide.git
+package dev.sluide.git.cli
 
+import dev.sluide.git.GitCancellation
 import java.io.InputStream
 import java.io.OutputStream
 import java.util.concurrent.CompletableFuture

@@ -9,13 +9,13 @@ import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.PythonFileViewer
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitBranches
-import dev.sluide.git.GitCli
 import dev.sluide.git.GitCommits
 import dev.sluide.git.GitLog
 import dev.sluide.git.GitPush
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitStatusService
 import dev.sluide.git.GitTrustCheck
+import dev.sluide.git.cli.GitCli
 import dev.sluide.gitlog.GitLogView
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpFileViewer

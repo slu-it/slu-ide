@@ -1,4 +1,4 @@
-package dev.sluide.git
+package dev.sluide.git.cli
 
 import java.io.IOException
 import java.nio.file.InvalidPathException

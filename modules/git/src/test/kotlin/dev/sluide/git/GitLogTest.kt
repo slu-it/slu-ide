@@ -1,5 +1,9 @@
 package dev.sluide.git
 
+import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.changedFiles
+import dev.sluide.git.cli.refs
+import dev.sluide.git.cli.userName
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir

@@ -3,8 +3,8 @@ package dev.sluide.ide
 import dev.sluide.fileviewers.LineChange
 import dev.sluide.fileviewers.TextDiff
 import dev.sluide.filewatcher.FileWatcher
-import dev.sluide.git.GitCli
 import dev.sluide.git.GitStatusService
+import dev.sluide.git.cli.GitCli
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
