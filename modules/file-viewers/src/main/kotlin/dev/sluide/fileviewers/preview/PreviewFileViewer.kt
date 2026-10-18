@@ -129,6 +129,12 @@ internal interface Preview {
     val hasOutline: Boolean get() = false
 
     /**
+     * How the preview is exported as HTML, or `null` if it is not; the Export button sits beside the table of contents'
+     * button, so only previews with an [outline][hasOutline] show it.
+     */
+    val htmlExport: HtmlExport? get() = null
+
+    /**
      * The headings of [text] for the table of contents, or `null` if the preview has none ([hasOutline]).
      */
     fun outline(text: String): List<Heading>? = null
@@ -231,6 +237,11 @@ internal class PreviewFileView(
         } else {
             null
         }
+
+    /** The Export button, if the preview [can be exported][Preview.htmlExport]. */
+    val export: ExportControls? =
+        preview.htmlExport?.let { ExportControls(it, { file }, { source.savedText }, { pane.scene?.window }) }
+
     private val pane =
         BorderPane(if (toc != null) StackPane(split, toc.overlay) else split).apply {
             styleClass += "preview-view"
@@ -318,7 +329,7 @@ internal class PreviewFileView(
                     Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
                 )
             } else if (toc != null) {
-                listOf(toc.button, Region().apply { HBox.setHgrow(this, Priority.ALWAYS) })
+                listOfNotNull(toc.button, export?.button, Region().apply { HBox.setHgrow(this, Priority.ALWAYS) })
             } else if (zoom != null) {
                 zoom.node.visibleProperty().bind(mode.map { it != PreviewMode.SOURCE })
                 zoom.node.managedProperty().bind(zoom.node.visibleProperty())

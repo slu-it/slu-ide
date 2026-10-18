@@ -31,4 +31,6 @@ internal object MarkdownPreview : Preview {
     override val hasOutline get() = true
 
     override fun outline(text: String) = MarkdownOutline.headings(text)
+
+    override val htmlExport = MarkdownHtmlExport()
 }
