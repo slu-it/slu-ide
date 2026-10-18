@@ -1,5 +1,6 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.table
 
+import dev.sluide.fileviewers.SyntaxHighlighter
 import dev.sluide.fileviewers.preview.Preview
 import dev.sluide.fileviewers.preview.PreviewFileViewer
 import dev.sluide.textediting.CommentSyntax

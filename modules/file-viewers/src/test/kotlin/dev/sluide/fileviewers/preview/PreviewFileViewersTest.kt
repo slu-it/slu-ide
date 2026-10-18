@@ -2,7 +2,6 @@ package dev.sluide.fileviewers.preview
 
 import dev.sluide.fileviewers.BicepFileViewer
 import dev.sluide.fileviewers.BicepParamFileViewer
-import dev.sluide.fileviewers.CookiesFileViewer
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.PemFileViewer
@@ -14,6 +13,7 @@ import dev.sluide.fileviewers.image.ImagePage
 import dev.sluide.fileviewers.image.SvgFileViewer
 import dev.sluide.fileviewers.image.humanSize
 import dev.sluide.fileviewers.markdown.MermaidFileViewer
+import dev.sluide.fileviewers.table.CookiesFileViewer
 import dev.sluide.textediting.CommentSyntax
 import javafx.scene.web.WebEngine
 import org.junit.jupiter.api.io.TempDir

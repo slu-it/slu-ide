@@ -1,9 +1,9 @@
 package dev.sluide.fileviewers.preview
 
-import dev.sluide.fileviewers.CsvFileViewer
 import dev.sluide.fileviewers.code.press
 import dev.sluide.fileviewers.markdown.MarkdownFileViewer
 import dev.sluide.fileviewers.markdown.MarkdownOutline
+import dev.sluide.fileviewers.table.CsvFileViewer
 import javafx.concurrent.Worker
 import javafx.geometry.Orientation
 import javafx.geometry.Point2D

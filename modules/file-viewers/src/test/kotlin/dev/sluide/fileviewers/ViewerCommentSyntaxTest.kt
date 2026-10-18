@@ -5,6 +5,8 @@ import dev.sluide.fileviewers.image.SvgFileViewer
 import dev.sluide.fileviewers.markdown.MarkdownFileViewer
 import dev.sluide.fileviewers.markdown.MdxFileViewer
 import dev.sluide.fileviewers.markdown.MermaidFileViewer
+import dev.sluide.fileviewers.table.CookiesFileViewer
+import dev.sluide.fileviewers.table.CsvFileViewer
 import dev.sluide.textediting.CommentSyntax
 import kotlin.test.Test
 import kotlin.test.assertEquals

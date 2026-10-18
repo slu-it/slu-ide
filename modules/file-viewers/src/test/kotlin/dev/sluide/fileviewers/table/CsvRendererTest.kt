@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.table
 
 import org.jsoup.Jsoup
 import kotlin.test.Test

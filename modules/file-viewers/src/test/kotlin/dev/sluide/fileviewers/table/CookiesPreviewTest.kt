@@ -1,5 +1,6 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.table
 
+import dev.sluide.fileviewers.TokenStyle
 import dev.sluide.fileviewers.highlight.Highlighted
 import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import org.jsoup.Jsoup
