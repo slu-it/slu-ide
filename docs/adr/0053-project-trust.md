@@ -53,9 +53,56 @@ without reading.
   - Other findings than those decided about ask again.
   - A decision not to remember (the dialog closed with Esc) lasts while the folder is open, and so does one about a
     check that could not check, which is never stored.
+- **Git's check** (`GitTrustCheck`, id `git`, in `modules/git`) reads what the repository's own configuration says.
+  - **No repository:** a folder without `.git`, or no git installed, finds nothing. A repository git refuses (owned
+    by another user, `safe.directory`; a `.git` file pointing nowhere) could not be checked: `git rev-parse
+    --git-path hooks` fails for it, while `git config --list` would list only the user's configuration.
+  - **How it reads:** `git config --list --includes --show-scope --show-origin -z` (`GitCli.configEntries`), which runs
+    nothing (checked with git 2.53, with a `core.fsmonitor` command that `git status` runs). `--includes` follows
+    `include` and `includeIf` files, which `--local` alone would not; their entries keep the scope of the file that
+    includes them.
+  - **Which entries count:** only the `local` and `worktree` scopes. `system`, `global` and `command` (the
+    environment) are the user's own. `--show-scope` needs git 2.26 or later; with an older git every repository could
+    not be checked and asks each time it is opened.
+  - **Allow-list, not deny-list:** every entry is reported, with where it is, unless it is known to be harmless.
+    - Harmless keys are what `clone`, `init`, `git lfs install`, `git sparse-checkout` and everyday commands write
+      (`core.filemode`, `remote.*.url`/`fetch`, `branch.*.merge`, `user.*`, `pull.rebase`, …).
+    - So are keys whose command Thoreau's git never runs: aliases, pagers (its output goes to a pipe) and
+      `core.editor` (it sets `GIT_EDITOR`).
+    - `core.fsmonitor` is harmless as a boolean (git's own daemon; compared as git compares booleans, ignoring case,
+      not spaces), and `filter.lfs.*` with exactly the values `git lfs install` writes.
+    - `core.worktree` is harmless only where git's work tree is the checked folder itself (`git rev-parse
+      --show-toplevel`; submodules have one pointing at their folder). Elsewhere it is reported: git would read and
+      write the files there, so a folder with `core.worktree = ../..` would have a hard reset or checkout overwrite
+      the user's `~/.bashrc` (checked with git 2.53).
+    - Not harmless though written by git: the keys of a partial clone (`remote.*.promisor`,
+      `extensions.partialclone`). With them, reads fetch missing objects from the remote's URL by themselves (checked
+      with git 2.53: `cat-file` started ssh to the URL), so a crafted repository could make Thoreau connect wherever
+      it wants with the user's keys. A partial clone asks once.
+    - Git keeps adding keys that run commands (`core.fsmonitor` became one in 2017), so a list of known dangerous keys
+      would miss the next one. Known ones get a note on when they run: fsmonitor, hooks path, ssh command, proxy,
+      askpass, credential helpers, filters, textconv and diff commands, merge drivers, gpg programs, upload/receive
+      pack, remote helpers, protocol permissions, includes.
+    - Keys are compared with their subsection as a wildcard (`remote.*.url`); the subsection's case is kept by git.
+  - **Hooks:** files in the hooks folder (`git rev-parse --git-path hooks`, which follows `core.hooksPath`) that git
+    could run: executable, not `.sample`, not hidden. Each is fingerprinted by its content, so a changed hook asks
+    again. A `core.hooksPath` from the user's own configuration is the user's, and its hooks are not reported, unless
+    it resolves inside the repository (a relative path), whose own files they are.
+  - **Submodules:** `git status` looks into every submodule with a work tree (a gitlink in the index whose folder has
+    `.git`, also without `.gitmodules`) and runs it with the submodule's own configuration, its filters and
+    `core.fsmonitor` too (checked with git 2.53; ADR 0052's guard covers only the opened repository). Their
+    configuration and hooks are checked the same way (`git ls-files --stage -z`, mode 160000), shown as
+    `submodule lib: …`, down to 5 levels and 50 repositories in all; with more, the folder could not be checked.
+    Paths of the index outside the repository are skipped.
+  - **Fingerprint of a setting:** origin, key and value (an entry without `=` differs from one with any value). Not the
+    content of a script a setting names (`filter.x.clean = ./clean.sh`): changing it does not ask again. An
+    `includeIf` file that does not apply now (another branch, `onbranch:`) is not listed until it does; then the
+    check run again on the change in `.git` finds it.
 
 ## Consequences
 - Opening a normal clone asks nothing. A folder whose contents would make a tool run commands is asked about once, with
   what was found, and asked about again when that changes.
 - A tool that will run commands the folder defines adds a `ProjectTrustCheck`. Its findings join the same question and
   the same stored decision.
+- A repository with settings not on the allow-list asks once, also when they are harmless; the allow-list grows with
+  what proves common.

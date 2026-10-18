@@ -51,6 +51,9 @@ assembled from Gradle modules.
     ([ADR 0013](adr/0013-git-status.md)). Markers and diffs reach the explorer and the editor through `ide`
     (`MainWindow`), not through module dependencies ([ADR 0015](adr/0015-git-diff.md),
     [ADR 0021](adr/0021-change-markers-and-diffs-on-demand.md)).
+  - `git` -> `project-trust`: git's tools run only in folders the user trusts; `GitTrustCheck` is the
+    `ProjectTrustCheck` that says what a repository's own configuration and hooks would make git run
+    ([ADR 0053](adr/0053-project-trust.md)).
   - `git-log` -> `git`: the git log area reads its commits, refs, commit details, changed files and file diffs with
     `GitLog` and shows `GitCommit`s, `GitRef`s, `GitCommitDetails` and `GitChangedFile`s
     ([ADR 0035](adr/0035-git-log-area.md), [ADR 0037](adr/0037-ref-labels-and-commit-details.md),

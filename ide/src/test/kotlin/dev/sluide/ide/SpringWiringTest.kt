@@ -15,11 +15,14 @@ import dev.sluide.git.GitLog
 import dev.sluide.git.GitPush
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitStatusService
+import dev.sluide.git.GitTrustCheck
 import dev.sluide.gitlog.GitLogView
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpFileViewer
 import dev.sluide.projects.ProjectPicker
 import dev.sluide.projects.RecentProjects
+import dev.sluide.projecttrust.ProjectTrust
+import dev.sluide.projecttrust.TrustedProjects
 import dev.sluide.settings.AppearancePage
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontsPage
@@ -82,6 +85,8 @@ class SpringWiringTest {
                         HttpFileViewer::class.java,
                         RecentProjects::class.java,
                         ProjectPicker::class.java,
+                        GitTrustCheck::class.java,
+                        TrustedProjects::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")
@@ -98,6 +103,7 @@ class SpringWiringTest {
                         GitStatusService::class.java,
                         GitLogView::class.java,
                         HttpClientSession::class.java,
+                        ProjectTrust::class.java,
                     )
                 val scoped =
                     context.beanFactory.beanDefinitionNames.filter {

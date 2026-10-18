@@ -373,6 +373,70 @@ class GitCli(
     }
 
     /**
+     * The configuration git sees in the repository at [root], in the order it reads it, with `include` and `includeIf`
+     * files followed and where each entry comes from: `git config --list --includes --show-scope --show-origin -z`,
+     * which runs nothing of the repository's (ADR 0053); `null` if git is not available, fails or takes longer than
+     * 3 s.
+     */
+    internal fun configEntries(root: Path): List<ConfigEntry>? {
+        if (!available) return null
+        val arguments =
+            listOf("--no-optional-locks", "config", "--list", "--includes", "--show-scope", "--show-origin", "-z")
+        val execution = execute(arguments, root, 3.seconds, null, write = false, guardFsmonitor = false) ?: return null
+        if (execution.exitValue != 0 || !execution.complete) return null
+        // Per entry: scope, origin, then key and value separated by a newline (just the key for one without "=").
+        val fields =
+            execution.output
+                .toString(Charsets.UTF_8)
+                .split('\u0000')
+                .dropLast(1)
+        if (fields.size % 3 != 0) return null
+        return fields.chunked(3).map { (scope, origin, entry) ->
+            ConfigEntry(
+                scope,
+                origin,
+                entry.substringBefore('\n'),
+                entry.substringAfter('\n', "").takeIf {
+                    '\n' in
+                        entry
+                },
+            )
+        }
+    }
+
+    /**
+     * The top level of the work tree git sees for [root] (`git rev-parse --show-toplevel`, which follows `core.worktree`),
+     * with links resolved; `null` if git is not available, fails, has no work tree there, or the path cannot be read.
+     */
+    internal fun topLevel(root: Path): Path? {
+        if (!available) return null
+        val line = run(listOf("--no-optional-locks", "rev-parse", "--show-toplevel"), root, 3.seconds)?.trimEnd('\n')
+        if (line.isNullOrEmpty()) return null
+        return try {
+            root.resolve(line).toRealPath()
+        } catch (_: InvalidPathException) {
+            null
+        } catch (_: IOException) {
+            null
+        }
+    }
+
+    /**
+     * The paths of the submodules in the index of the repository at [root] (gitlinks, mode 160000), relative to it:
+     * `git ls-files --stage -z`; `null` if git is not available, fails or takes longer than 10 s.
+     */
+    internal fun gitlinks(root: Path): List<String>? {
+        if (!available) return null
+        val output = run(listOf("--no-optional-locks", "ls-files", "--stage", "-z"), root, 10.seconds) ?: return null
+        // Per entry: mode, object, stage, a tab, the path.
+        return output
+            .split('\u0000')
+            .filter { it.startsWith("160000 ") && '\t' in it }
+            .map { it.substringAfter('\t') }
+            .distinct()
+    }
+
+    /**
      * Whether the user configured how git runs ssh in the repository at [root]: `core.sshCommand` or `ssh.variant`
      * (also given in the environment, `GIT_CONFIG_PARAMETERS`); `null` if git is not available, fails or takes longer
      * than 3 s.
@@ -1715,6 +1779,18 @@ internal sealed interface FilteredBlob {
 
     data object TooLarge : FilteredBlob
 }
+
+/**
+ * One entry of git's configuration ([GitCli.configEntries]): its [scope] (`system`, `global`, `local`, `worktree`,
+ * `command`), its [origin] as git names it (`file:.git/config`), its [key] (section and variable lower case) and its
+ * [value], `null` for an entry without `=`.
+ */
+internal data class ConfigEntry(
+    val scope: String,
+    val origin: String,
+    val key: String,
+    val value: String?,
+)
 
 /** An unmerged index entry (a conflict): the [path]'s version of [stage] 1 (base), 2 (ours) or 3 (theirs). */
 internal data class UnmergedEntry(

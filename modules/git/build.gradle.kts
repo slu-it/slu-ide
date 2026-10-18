@@ -13,5 +13,8 @@ javafx {
 dependencies {
     // Deliberate module API dependency: the .git folder is watched to refresh the status (ADR 0013).
     api(project(":modules:file-watcher"))
+    // Deliberate module API dependency: git's tools run only in folders the user trusts (ADR 0053); GitTrustCheck is a
+    // ProjectTrustCheck.
+    api(project(":modules:project-trust"))
     implementation(libs.spring.context)
 }
