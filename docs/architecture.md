@@ -93,6 +93,10 @@ assembled from Gradle modules.
 5. When the last window is closed, `ProjectWindows` shows the project picker. Cancelling the picker while no window
    is open calls `Platform.exit()`, then `SluIdeApplication.stop()` closes the Spring context, which destroys
    the beans of any remaining windows without showing the picker; their stages end with the JavaFX toolkit.
+   On SIGTERM or Ctrl+C, Spring's shutdown hook closes the context instead, while JavaFX ends its toolkit in a hook of
+   its own; `ProjectWindows` then leaves the windows alone, since no thread may touch them, and what they hold ends
+   with the process (a terminal's shell gets a hangup when its pty closes); a git process still running finishes on
+   its own instead of being stopped.
 
 ## Package convention
 `dev.sluide.<module>` per module, e.g. `dev.sluide.fileexplorer`, `dev.sluide.fileviewers`, `dev.sluide.ide`. All must live below

@@ -186,9 +186,16 @@ class ProjectWindows(
         }
     }
 
-    /** Destroys the beans of windows that are still open when the application ends. */
+    /**
+     * Destroys the beans of windows that are still open when the application ends. Not when the JVM's shutdown hook
+     * closes the context (SIGTERM, Ctrl+C): JavaFX ends its toolkit in a hook of its own at the same time, so the
+     * windows can neither be closed on that thread nor handed to the JavaFX thread. What they hold ends with the
+     * process: a terminal's shell gets a hangup when its pty closes. Only a git process still running (a push, a
+     * commit) is not stopped and finishes on its own, which a write is better off doing than being killed halfway.
+     */
     override fun destroy() {
         stopping = true
+        if (!Platform.isFxApplicationThread()) return
         open.toList().forEach(::close)
     }
 }

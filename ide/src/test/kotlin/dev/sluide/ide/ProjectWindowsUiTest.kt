@@ -56,6 +56,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotSame
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
@@ -447,6 +448,36 @@ class ProjectWindowsUiTest {
         assertEquals(emptyList(), windows.stages)
         assertEquals(emptyList(), pickers())
         assertEquals(0, exits)
+    }
+
+    @Test
+    fun `closing the context on another thread leaves the windows alone`(robot: FxRobot) {
+        robot.interact { window(first).openFolder(dir.resolve("a").createDirectories()) }
+        val dispose = windows.disposeWindow
+        var disposed = 0
+        windows.disposeWindow = {
+            disposed++
+            dispose(it)
+        }
+        var thrown: Throwable? = null
+
+        // On a thread of its own, as Spring's shutdown hook does on SIGTERM.
+        val closer =
+            Thread { thrown = runCatching { context.close() }.exceptionOrNull() }.apply {
+                start()
+                join(10_000)
+            }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertFalse(closer.isAlive)
+        assertNull(thrown)
+        assertEquals(0, disposed)
+        assertEquals(listOf(first), windows.stages)
+        assertEquals(emptyList(), pickers())
+        assertEquals(0, exits)
+        // The toolkit goes on here, so release the window as a normal end would.
+        robot.interact { windows.destroy() }
+        assertEquals(1, disposed)
     }
 
     @Test
