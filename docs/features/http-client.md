@@ -10,10 +10,10 @@ Requests are written in `.http` (or `.rest`) files, in the format of IntelliJ's 
 ## Setting up a folder
 
 **New HTTP Client Setup** in the file explorer's context menu (on a folder, on the empty area for the opened folder, or
-on a file for its folder) creates `http-client.env.json` with an environment `local` with `host` = `https://example.com`, an empty `local` in
-`http-client.private.env.json`, a `.gitignore` line for the private file and `example.http` with `GET {{host}}`, and
-opens `example.http`. Files that exist are left as they are and a note names them; an existing `.gitignore` gets the
-line unless it lists the private file already.
+on a file for its folder) creates `http-client.env.json` with an environment `local` with `host` =
+`https://example.com`, an empty `local` in `http-client.private.env.json`, a `.gitignore` line for the private file and
+`example.http` with `GET {{host}}`, and opens `example.http`. Files that exist are left as they are and a note names
+them; an existing `.gitignore` gets the line unless it lists the private file already.
 
 ## Writing requests
 ```http
