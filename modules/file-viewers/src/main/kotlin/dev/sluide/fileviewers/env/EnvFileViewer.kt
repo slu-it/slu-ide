@@ -1,5 +1,11 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.env
 
+import dev.sluide.fileviewers.EditableFileView
+import dev.sluide.fileviewers.FileView
+import dev.sluide.fileviewers.FileViewHost
+import dev.sluide.fileviewers.GutterColumns
+import dev.sluide.fileviewers.SyntaxHighlighter
+import dev.sluide.fileviewers.TextDiff
 import dev.sluide.fileviewers.code.CodeFileViewer
 import dev.sluide.fileviewers.code.CodeView
 import dev.sluide.fileviewers.highlight.RSyntaxHighlighter

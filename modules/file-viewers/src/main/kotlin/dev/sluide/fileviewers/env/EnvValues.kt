@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.env
 
 /**
  * Where the values of a `.env` file are, which [EnvFileView] masks. The value of an assignment (`KEY=value`,

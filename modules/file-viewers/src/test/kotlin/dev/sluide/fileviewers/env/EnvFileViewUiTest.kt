@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.env
 
 import dev.sluide.fileviewers.code.press
 import javafx.scene.Scene
