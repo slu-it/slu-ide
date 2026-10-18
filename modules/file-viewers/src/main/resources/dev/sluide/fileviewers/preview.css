@@ -209,7 +209,9 @@ pre.mermaid.error::before {
     font-weight: 600;
 }
 
+/* Left-aligned as in the light theme, against the centring of body.dark pre.mermaid. */
 body.dark pre.mermaid.error {
+    text-align: left;
     color: #ff7b72;
     background: #3d2426;
     border-left-color: #ff7b72;
