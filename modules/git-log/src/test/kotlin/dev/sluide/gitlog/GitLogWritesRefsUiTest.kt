@@ -138,7 +138,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         selectRows(robot, 1)
         writes.unpassable = setOf("Gr\u00fc\u00dfe")
 
-        fireLater(view.newBranchItem)
+        fireLater(view.table.newBranchItem)
         var pane = awaitDialog(robot)
         val dialog = NameControls(pane)
         assertEquals("New Branch", (pane.scene.window as Stage).title)
@@ -173,7 +173,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         assertEquals(listOf("branch x h2"), writes.calls)
         assertEquals(0, beforeCheckoutCalls, "no checkout")
 
-        fireLater(view.newBranchItem)
+        fireLater(view.table.newBranchItem)
         pane = awaitDialog(robot)
         robot.interact { NameControls(pane).field.text = "y" }
         press(robot, pane, CREATE_BUTTON)
@@ -215,7 +215,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         eventually { assertEquals("branch -f feature/a refs/remotes/origin/old", writes.calls.last()) }
 
         // Cancel creates nothing.
-        fireLater(view.newBranchItem)
+        fireLater(view.table.newBranchItem)
         pane = awaitDialog(robot)
         robot.interact { NameControls(pane).field.text = "z" }
         press(robot, pane, ButtonType.CANCEL)
@@ -238,7 +238,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         openAndExpand(robot)
         selectRows(robot, 0)
 
-        fireLater(view.newTagItem)
+        fireLater(view.table.newTagItem)
         var pane = awaitDialog(robot)
         val dialog = NameControls(pane)
         assertEquals("New Tag", (pane.scene.window as Stage).title)
@@ -249,7 +249,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         press(robot, pane, CREATE_BUTTON)
         eventually { assertEquals("Created tag v2.", status(robot)) }
 
-        fireLater(view.newTagItem)
+        fireLater(view.table.newTagItem)
         pane = awaitDialog(robot)
         robot.interact {
             NameControls(pane).field.text = "v3"

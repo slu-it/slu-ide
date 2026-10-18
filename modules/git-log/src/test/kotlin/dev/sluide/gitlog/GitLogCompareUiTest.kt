@@ -532,14 +532,14 @@ class GitLogCompareUiTest {
         openAndExpand(robot)
         robot.interact {
             view.table.selectionModel.selectIndices(0, 1)
-            assertTrue(view.compareWithLocalItem.isDisable, "two commits")
+            assertTrue(view.table.compareWithLocalItem.isDisable, "two commits")
             view.table.selectionModel.clearAndSelect(0)
-            assertFalse(view.compareWithLocalItem.isDisable)
+            assertFalse(view.table.compareWithLocalItem.isDisable)
         }
         val commit =
             view.table.items[0]
                 .commit.hash
-        robot.interact { view.compareWithLocalItem.fire() }
+        robot.interact { view.table.compareWithLocalItem.fire() }
         val window = windowOf(commit)
         eventually { assertEquals("4 files differ", window.header.text) }
         robot.interact { assertEquals("$commit ↔ Working Tree", window.stage.title) }

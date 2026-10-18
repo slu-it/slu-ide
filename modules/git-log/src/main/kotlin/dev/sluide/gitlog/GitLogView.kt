@@ -4,28 +4,17 @@ import dev.sluide.fileicons.FILE_ICONS_CSS
 import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCommits
 import dev.sluide.git.GitLog
-import dev.sluide.git.GitPick
 import dev.sluide.git.GitPush
-import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitRemotes
 import javafx.application.Platform
-import javafx.beans.binding.Bindings
 import javafx.beans.property.BooleanProperty
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.collections.ListChangeListener
 import javafx.geometry.Orientation
 import javafx.geometry.Pos
 import javafx.scene.control.Button
-import javafx.scene.control.ContextMenu
-import javafx.scene.control.Label
-import javafx.scene.control.MenuItem
-import javafx.scene.control.SelectionMode
-import javafx.scene.control.SeparatorMenuItem
-import javafx.scene.control.TableView
 import javafx.scene.control.Tooltip
-import javafx.scene.input.Clipboard
-import javafx.scene.input.ClipboardContent
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
@@ -46,9 +35,6 @@ import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 import java.util.concurrent.Executors
 
 /**
@@ -270,126 +256,18 @@ class GitLogView internal constructor(
             setOnAction { actions.cancel() }
         }
 
-    private val dateFormat = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).withZone(ZoneId.systemDefault())
-
-    private val copyRevisionNumber = MenuItem("Copy Revision Number").apply { setOnAction { copyRevisionNumbers() } }
-
-    internal val goToItem =
-        MenuItem("Go to Hash/Branch/Tag\u2026").apply { setOnAction { navigation.openGoTo() } }
-
-    internal val compareWithLocalItem =
-        MenuItem("Compare with Local").apply {
-            setOnAction {
-                singleCommit()?.let { diffs.showWorkingTreeDiff(it.hash, it.hash.take(ChangedFilesPane.SHORT_HASH)) }
-            }
-        }
-
-    internal val checkoutRevisionItem =
-        MenuItem("Checkout Revision").apply {
-            setOnAction {
-                singleCommit()?.let {
-                    actions.start(
-                        CheckoutRevision(it.hash, it.hash.take(ChangedFilesPane.SHORT_HASH)),
-                    )
-                }
-            }
-        }
-    internal val newBranchItem =
-        MenuItem("New Branch…").apply {
-            setOnAction {
-                singleCommit()?.let {
-                    actions.newBranch(
-                        it.hash,
-                        it.hash.take(ChangedFilesPane.SHORT_HASH),
-                    )
-                }
-            }
-        }
-    internal val newTagItem =
-        MenuItem(
-            "New Tag…",
-        ).apply { setOnAction { singleCommit()?.let { actions.newTag(it.hash) } } }
-    internal val cherryPickItem =
-        MenuItem(pickTitle(GitPick.CHERRY_PICK)).apply {
-            setOnAction { singleCommit()?.let { actions.pick(it, GitPick.CHERRY_PICK) } }
-        }
-    internal val revertItem =
-        MenuItem(pickTitle(GitPick.REVERT)).apply {
-            setOnAction { singleCommit()?.let { actions.pick(it, GitPick.REVERT) } }
-        }
-    internal val resetItem =
-        MenuItem("Reset Current Branch to Here…").apply { setOnAction { singleCommit()?.let(actions::resetTo) } }
-
-    /** Whether the refs read last have a `HEAD` commit, which a reset needs. */
-    private val hasHead = SimpleBooleanProperty(false)
-
     /** The bar of what git is in the middle of, below the filter bar (ADR 0042); the table's menu reads its `busy`. */
     internal val pendingBar =
         PendingBar(actions.running) { scene?.window }.apply { start = { operation -> actions.start(operation) } }
 
-    /** The commits with their graph, newest first; several can be selected. */
-    internal val table: TableView<GitLogRow> =
-        object : TableView<GitLogRow>(pages.rows) {
-            override fun createDefaultSkin() = PagingSkin(this, pages::shown)
-        }.apply {
-            styleClass += "git-log-table"
-            selectionModel.selectionMode = SelectionMode.MULTIPLE
-            columns.addAll(
-                subjectColumn(),
-                column("Author", 160.0) { it.commit.author }.apply { minWidth = 50.0 },
-                column("Date", 140.0) { dateFormat.format(it.commit.authorTime) }.apply { minWidth = 50.0 },
-            )
-            columnResizePolicy = SubjectTakesTheRest
-            placeholder =
-                Label().apply {
-                    textProperty().bind(
-                        Bindings.createStringBinding(
-                            {
-                                val state = pages.state.get()
-                                if (state == GitLogState.NO_MATCH && compareBar.emptySide.get().isNotEmpty()) {
-                                    compareBar.emptySide.get()
-                                } else {
-                                    state.message
-                                }
-                            },
-                            pages.state,
-                            compareBar.emptySide,
-                        ),
-                    )
-                }
-            contextMenu =
-                ContextMenu(
-                    copyRevisionNumber,
-                    compareWithLocalItem,
-                    SeparatorMenuItem(),
-                    checkoutRevisionItem,
-                    newBranchItem,
-                    newTagItem,
-                    SeparatorMenuItem(),
-                    cherryPickItem,
-                    revertItem,
-                    resetItem,
-                    SeparatorMenuItem(),
-                    goToItem,
-                )
-            copyRevisionNumber.disableProperty().bind(Bindings.isEmpty(selectionModel.selectedItems))
-            // One commit, and no operation running.
-            val notOne = Bindings.size(selectionModel.selectedItems).isNotEqualTo(1).or(actions.running)
-            listOf(checkoutRevisionItem, newBranchItem, newTagItem).forEach { it.disableProperty().bind(notOne) }
-            // Only reads: also while an operation runs.
-            compareWithLocalItem.disableProperty().bind(Bindings.size(selectionModel.selectedItems).isNotEqualTo(1))
-            // Not while git is in the middle of something: the bar says what.
-            listOf(cherryPickItem, revertItem).forEach { it.disableProperty().bind(notOne.or(pendingBar.busy)) }
-            resetItem.disableProperty().bind(notOne.or(hasHead.not()))
-            addEventHandler(KeyEvent.KEY_PRESSED) { event ->
-                if (COPY.match(event)) {
-                    copyRevisionNumbers()
-                    event.consume()
-                } else if (event.code == KeyCode.ESCAPE && pages.comparison != null) {
-                    compareBar.stopComparing()
-                    event.consume()
-                }
+    /** The commits with their graph, newest first, and their context menu. */
+    internal val table =
+        CommitTable(pages, compareBar.emptySide, pendingBar.busy, actions).apply {
+            compareWithLocal = { commit ->
+                diffs.showWorkingTreeDiff(commit.hash, commit.hash.take(ChangedFilesPane.SHORT_HASH))
             }
+            openGoTo = { navigation.openGoTo() }
+            stopComparing = compareBar::stopComparing
         }
 
     /** Goes to commits in the table: of branches, linked ones and with Go to (ADRs 0040, 0045). */
@@ -581,7 +459,7 @@ class GitLogView internal constructor(
             when (state) {
                 GitLogState.IDLE -> {
                     pendingBar.show(null)
-                    hasHead.set(false)
+                    table.refsChanged()
                     noRemotes.set(false)
                     branchesPane.remotes = emptyList()
                 }
@@ -600,12 +478,7 @@ class GitLogView internal constructor(
                     pendingBar.show(pages.pending)
                     noRemotes.set(pages.remotes?.isEmpty() == true)
                     branchesPane.remotes = pages.remotes.orEmpty()
-                    hasHead.set(
-                        pages.refs
-                            ?.refs
-                            .orEmpty()
-                            .any { it.kind == GitRefKind.HEAD },
-                    )
+                    table.refsChanged()
                 }
             }
         }
@@ -693,22 +566,6 @@ class GitLogView internal constructor(
         filterSources.markPathsStale()
         pages.refresh()
         tabs.refresh()
-    }
-
-    /** The commit of the one selected row; `null` for none or several. */
-    private fun singleCommit() =
-        table.selectionModel.selectedItems
-            .singleOrNull()
-            ?.commit
-
-    /** Copies the full hashes of the selected commits, one per line in table order. */
-    private fun copyRevisionNumbers() {
-        val hashes =
-            table.selectionModel.selectedIndices
-                .sorted()
-                .map { pages.rows[it].commit.hash }
-        if (hashes.isEmpty()) return
-        Clipboard.getSystemClipboard().setContent(ClipboardContent().apply { putString(hashes.joinToString("\n")) })
     }
 
     override fun close() {

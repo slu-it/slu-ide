@@ -37,12 +37,12 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         openAndExpand(robot)
         val items =
             listOf(
-                view.checkoutRevisionItem,
-                view.newBranchItem,
-                view.newTagItem,
-                view.cherryPickItem,
-                view.revertItem,
-                view.resetItem,
+                view.table.checkoutRevisionItem,
+                view.table.newBranchItem,
+                view.table.newTagItem,
+                view.table.cherryPickItem,
+                view.table.revertItem,
+                view.table.resetItem,
             )
         assertEquals(
             listOf(
@@ -71,7 +71,7 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         assertTrue(items.none { it.isDisable })
 
         val loadsBefore = loads.size
-        fireLater(view.checkoutRevisionItem)
+        fireLater(view.table.checkoutRevisionItem)
 
         eventually { assertEquals("Checked out h2.", status(robot)) }
         assertEquals(listOf("switch --detach h2"), writes.calls)
@@ -87,15 +87,15 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         selectRows(robot, 2)
         writes.gate = CountDownLatch(1)
 
-        fireLater(view.checkoutRevisionItem)
+        fireLater(view.table.checkoutRevisionItem)
 
         eventually { assertEquals("Checking out h3\u2026", status(robot)) }
-        assertTrue(view.checkoutRevisionItem.isDisable)
-        assertTrue(view.newBranchItem.isDisable)
-        assertTrue(view.newTagItem.isDisable)
-        assertTrue(view.cherryPickItem.isDisable)
-        assertTrue(view.revertItem.isDisable)
-        assertTrue(view.resetItem.isDisable)
+        assertTrue(view.table.checkoutRevisionItem.isDisable)
+        assertTrue(view.table.newBranchItem.isDisable)
+        assertTrue(view.table.newTagItem.isDisable)
+        assertTrue(view.table.cherryPickItem.isDisable)
+        assertTrue(view.table.revertItem.isDisable)
+        assertTrue(view.table.resetItem.isDisable)
         selectBranches(robot, "Local/feature/a")
         assertEquals("- - - -", paneActions())
         assertTrue(branches.copyNameItem.isDisable.not(), "reading actions stay")
@@ -110,7 +110,7 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         eventually { assertEquals("Checked out h3.", status(robot)) }
         assertEquals("C N R D", paneActions())
         selectRows(robot, 2)
-        assertFalse(view.checkoutRevisionItem.isDisable)
+        assertFalse(view.table.checkoutRevisionItem.isDisable)
     }
 
     @Test
@@ -181,7 +181,7 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         selectBranches(robot, "Remote/origin")
         assertTrue(branches.fetchItem.isDisable, "no other operation meanwhile")
         selectRows(robot, 1)
-        assertTrue(view.checkoutRevisionItem.isDisable)
+        assertTrue(view.table.checkoutRevisionItem.isDisable)
 
         writes.gate?.countDown()
 

@@ -364,8 +364,8 @@ class GitLogViewNavigationUiTest : GitLogViewUiFixture() {
         press(robot, details.body, KeyCode.G, shortcut = true)
         eventually { assertTrue(goTo.isShowing) }
         robot.interact { goTo.hide() }
-        assertEquals("Go to Hash/Branch/Tag\u2026", view.goToItem.text)
-        robot.interact { view.goToItem.fire() }
+        assertEquals("Go to Hash/Branch/Tag\u2026", view.table.goToItem.text)
+        robot.interact { view.table.goToItem.fire() }
         eventually { assertTrue(goTo.isShowing) }
     }
 
