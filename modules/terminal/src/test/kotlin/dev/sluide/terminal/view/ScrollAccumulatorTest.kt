@@ -1,4 +1,4 @@
-package dev.sluide.terminal
+package dev.sluide.terminal.view
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

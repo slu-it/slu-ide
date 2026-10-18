@@ -1,4 +1,4 @@
-package dev.sluide.terminal
+package dev.sluide.terminal.view
 
 import dev.sluide.editor.EditorTab
 import dev.sluide.settings.FontArea
@@ -6,6 +6,8 @@ import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontSpec
 import dev.sluide.settings.SettingsStore
 import dev.sluide.settings.TerminalScrollSettings
+import dev.sluide.terminal.TerminalStartException
+import dev.sluide.terminal.Terminals
 import javafx.event.Event
 import javafx.scene.Scene
 import javafx.scene.control.Button

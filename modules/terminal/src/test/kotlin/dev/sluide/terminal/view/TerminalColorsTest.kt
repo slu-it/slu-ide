@@ -1,4 +1,4 @@
-package dev.sluide.terminal
+package dev.sluide.terminal.view
 
 import com.jediterm.core.util.TermSize
 import com.jediterm.terminal.TerminalColor

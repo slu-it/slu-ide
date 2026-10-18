@@ -1,4 +1,4 @@
-package dev.sluide.terminal
+package dev.sluide.terminal.view
 
 import dev.sluide.editor.EditorTab
 import javafx.beans.binding.Bindings

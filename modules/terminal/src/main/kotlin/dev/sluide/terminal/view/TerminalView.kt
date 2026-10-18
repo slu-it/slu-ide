@@ -1,9 +1,8 @@
-package dev.sluide.terminal
+package dev.sluide.terminal.view
 
 import com.jediterm.core.compatibility.Point
 import com.jediterm.core.util.TermSize
 import com.jediterm.terminal.CursorShape
-import com.jediterm.terminal.RequestOrigin
 import com.jediterm.terminal.StyledTextConsumer
 import com.jediterm.terminal.TerminalDisplay
 import com.jediterm.terminal.TextStyle
@@ -16,6 +15,7 @@ import com.jediterm.terminal.model.TerminalSelection
 import com.jediterm.terminal.util.CharUtils
 import dev.sluide.settings.FontSpec
 import dev.sluide.settings.FontStyle
+import dev.sluide.terminal.TerminalSession
 import javafx.application.Platform
 import javafx.beans.property.ReadOnlyBooleanProperty
 import javafx.beans.property.ReadOnlyBooleanWrapper

@@ -1,4 +1,4 @@
-package dev.sluide.terminal
+package dev.sluide.terminal.view
 
 import com.jediterm.terminal.emulator.mouse.MouseButtonCodes
 import com.jediterm.terminal.emulator.mouse.MouseMode

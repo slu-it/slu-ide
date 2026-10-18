@@ -1,4 +1,4 @@
-package dev.sluide.terminal
+package dev.sluide.terminal.view
 
 import com.jediterm.core.input.InputEvent
 import javafx.scene.input.KeyCode

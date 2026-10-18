@@ -4,6 +4,9 @@ import dev.sluide.editor.EditorTab
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.TerminalScrollSettings
+import dev.sluide.terminal.view.ScrollSpeeds
+import dev.sluide.terminal.view.TerminalTab
+import dev.sluide.terminal.view.TerminalView
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component

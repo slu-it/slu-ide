@@ -1,4 +1,4 @@
-package dev.sluide.terminal
+package dev.sluide.terminal.view
 
 /** Lines a wheel notch scrolls at 100 %, as in most terminals. */
 internal const val SCROLL_LINES = 3

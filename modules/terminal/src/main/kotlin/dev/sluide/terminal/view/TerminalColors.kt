@@ -1,4 +1,4 @@
-package dev.sluide.terminal
+package dev.sluide.terminal.view
 
 import com.jediterm.terminal.TerminalColor
 import com.jediterm.terminal.TextStyle
