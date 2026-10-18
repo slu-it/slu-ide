@@ -19,6 +19,14 @@ interface FileViewer {
     fun open(file: Path): FileView
 }
 
+/**
+ * A viewer for exact file names (case-insensitive), preferred like a code viewer's name match over viewers for the
+ * extension (ADR 0029, ADR 0057). [fileNames] only ranks the viewer; [canOpen] must still accept those files.
+ */
+interface NamedFileViewer : FileViewer {
+    val fileNames: Set<String>
+}
+
 /** A file shown by a [FileViewer]. */
 interface FileView {
     /** The JavaFX node displaying the file. */

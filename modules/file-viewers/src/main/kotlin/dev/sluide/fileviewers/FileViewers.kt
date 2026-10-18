@@ -27,16 +27,22 @@ class FileViewers(
     /**
      * The viewer to show [file] with, or `null` if none can, in which case the file is not opened: of the specific
      * viewers that can open it, the one its name matches best ([NameMatch]: exact name, then extension, then name
-     * pattern; viewers other than [CodeFileViewer]s count as matching the extension), the first of equals; for a text
-     * file without an extension, else the first [ShebangViewer] that opens the interpreter its shebang names (the file
-     * is read once for this); else [DefaultTextFileViewer] if it can. A viewer that opens the file by its name thus
-     * always wins over one that would open it by its shebang.
+     * pattern; a [NamedFileViewer] listing the file's name counts as an exact name, other viewers than
+     * [CodeFileViewer]s as matching the extension), the first of equals; for a text file without an extension, else
+     * the first [ShebangViewer] that opens the interpreter its shebang names (the file is read once for this); else
+     * [DefaultTextFileViewer] if it can. A viewer that opens the file by its name thus always wins over one that would
+     * open it by its shebang.
      */
     fun viewerFor(file: Path): FileViewer? {
         specific
             .filter { it.canOpen(file) }
-            .minByOrNull { (it as? CodeFileViewer)?.nameMatch(file) ?: NameMatch.EXTENSION }
-            ?.let { return it }
+            .minByOrNull { viewer ->
+                when {
+                    viewer is NamedFileViewer && viewer.names(file) -> NameMatch.NAME
+                    viewer is CodeFileViewer -> viewer.nameMatch(file) ?: NameMatch.EXTENSION
+                    else -> NameMatch.EXTENSION
+                }
+            }?.let { return it }
         if (file.extension.isNotEmpty() || shebangViewers.isEmpty()) return fallback.takeIf { it.canOpen(file) }
         // The fallback opens exactly the text files, which the sample already tells.
         val sample = readTextSample(file) ?: return null
@@ -83,7 +89,7 @@ class FileViewers(
 
     /**
      * The viewer [viewerFor] would pick for a file named [name] with the content [text], told without the file: by
-     * the name as far as viewers tell it without reading the file (code, preview and image viewers), then by a
+     * the name as far as viewers tell it without reading the file (named, code, preview and image viewers), then by a
      * shebang in [text] for names without an extension, else [DefaultTextFileViewer].
      */
     internal fun viewerByName(
@@ -104,12 +110,19 @@ class FileViewers(
         viewer: FileViewer,
         name: Path,
     ): NameMatch? =
-        when (viewer) {
-            is CodeFileViewer -> viewer.nameMatch(name)
-            is PreviewFileViewer -> NameMatch.EXTENSION.takeIf { viewer.matchesExtension(name) }
-            is ImageFileViewer -> NameMatch.EXTENSION.takeIf { ImageFileViewer.isImageName(name) }
+        when {
+            viewer is NamedFileViewer && viewer.names(name) -> NameMatch.NAME
+            viewer is CodeFileViewer -> viewer.nameMatch(name)
+            viewer is PreviewFileViewer -> NameMatch.EXTENSION.takeIf { viewer.matchesExtension(name) }
+            viewer is ImageFileViewer -> NameMatch.EXTENSION.takeIf { ImageFileViewer.isImageName(name) }
             else -> null
         }
+
+    /** Whether the name of [file] is one of the [NamedFileViewer.fileNames], ignoring case. */
+    private fun NamedFileViewer.names(file: Path): Boolean {
+        val name = file.fileName?.toString() ?: return false
+        return fileNames.any { it.equals(name, ignoreCase = true) }
+    }
 
     /** Whether files shown by [viewer] have diffs ([openDiff]) and change markers: those shown as text. */
     fun showsDiffs(viewer: FileViewer): Boolean =

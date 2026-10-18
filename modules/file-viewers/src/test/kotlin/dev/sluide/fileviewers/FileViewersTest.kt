@@ -12,6 +12,7 @@ import dev.sluide.fileviewers.languages.PythonFileViewer
 import dev.sluide.fileviewers.markdown.MarkdownFileViewer
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import kotlin.io.path.createDirectories
 import kotlin.io.path.extension
 import kotlin.io.path.name
 import kotlin.io.path.writeBytes
@@ -209,6 +210,43 @@ class FileViewersTest {
         assertSame(fallback, viewer("run", "echo\n"))
         assertSame(fallback, viewer("run.sh", "#!/usr/bin/env python3\n"), "only names without an extension")
         assertSame(fallback, viewer("empty"))
+    }
+
+    /** A source viewer of another module for the HTTP client's environment files, which are JSON. */
+    private class EnvironmentViewer :
+        NamedFileViewer,
+        SourceFileViewer {
+        override val fileNames = setOf("http-client.env.json")
+        override val sourceHighlighter = Highlighters.forLanguage("json")
+
+        override fun canOpen(file: Path) = file.name.equals("http-client.env.json", ignoreCase = true)
+
+        override fun open(file: Path): FileView = error("not needed")
+    }
+
+    @Test
+    fun `a named viewer wins over a viewer for the extension for its file names, in any order, ignoring case`() {
+        val named = EnvironmentViewer()
+        val json = JsonFileViewer()
+        val env = dir.resolve("http-client.env.json").apply { writeText("{}") }
+        // In a folder of its own, for case-insensitive file systems.
+        val upper =
+            dir
+                .resolve("sub")
+                .createDirectories()
+                .resolve("HTTP-Client.Env.json")
+                .apply { writeText("{}") }
+        val other = dir.resolve("other.json").apply { writeText("{}") }
+
+        for (order in listOf(listOf(named, json), listOf(json, named))) {
+            val viewers = FileViewers(order, fallback)
+            assertSame(named, viewers.viewerFor(env))
+            assertSame(named, viewers.viewerFor(upper))
+            assertSame(json, viewers.viewerFor(other))
+            assertSame(named, viewers.viewerByName(dir.resolve("http-client.env.json"), ""))
+            assertSame(json, viewers.viewerByName(dir.resolve("other.json"), ""))
+            assertTrue(viewers.showsDiffs(named))
+        }
     }
 
     @Test
