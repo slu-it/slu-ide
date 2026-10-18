@@ -120,6 +120,16 @@ without reading.
     for another folder (`GitLogView.open(null)`): the Commit tab with its draft and the file histories are closed, a
     running fetch is stopped, any other operation finishes and its outcome is dropped
     ([ADR 0041](0041-git-write-operations.md)).
+- **The question** (`ProjectTrustDialog.kt`, `MainWindow.confirmTrust`): the first `Ask` after opening the folder shows
+  a warning dialog "Trust Folder?", "evil defines commands that Git would run.", with the findings per tool in a
+  read-only monospace area, those known to run first with when they run, then the others ("not known to Thoreau"),
+  and "Trust the folder only if you set it up yourself or know where it comes from. Until then, Git stays off for it."
+  Keep Off is the default button; Esc and closing the dialog keep the tools off as well, and that answer is stored too.
+- **The bar** under the menu bar, while tools are off (`Ask` or `Untrusted`): "Git is off: this folder defines commands
+  it would run." or, for an `Ask` after a change, "Git is off: what this folder makes it run changed." ("this folder
+  could not be checked." if no check could), with Review…, which shows the question again for the current findings.
+  An answer about findings that changed while the dialog was open is not taken; the new ones are asked about. A
+  change found while working never opens a dialog by itself.
 
 ## Consequences
 - Opening a normal clone asks nothing. A folder whose contents would make a tool run commands is asked about once, with

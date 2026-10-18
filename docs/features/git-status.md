@@ -6,6 +6,8 @@
   that git information is not shown.
 - Opening a folder (`MainWindow` → `GitStatusService.open`) follows its git status if git is available and the folder
   has `.git`. Other folders, and no folder, show nothing.
+- Git runs only once the folder's trust allows it ([project-trust.md](project-trust.md)): a repository whose own
+  configuration or hooks would make git run commands shows nothing until the user trusts it.
 - The file explorer shows the status in colour ([file-explorer.md](file-explorer.md)):
   - red: unversioned (untracked, not ignored);
   - green: added (new in the index, the new path of a rename or copy, or intent to add with `git add -N`);

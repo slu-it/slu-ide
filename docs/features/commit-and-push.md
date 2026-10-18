@@ -11,7 +11,8 @@ changes are read and committed by `GitCommits.commitChanges` and `commit` in `mo
   ([file-history.md](file-history.md)), selects it, expands the area and puts the focus in the message. Again, it
   selects the tab. The tab closes with its × (or a middle click); the Log is shown then.
 - **The draft stays:** the message, Amend and which files are checked are kept while the tab is closed; Git → Commit…
-  shows them again. Opening another folder closes the tab and discards the draft.
+  shows them again. Opening another folder closes the tab and discards the draft, and so does a change that turns git
+  off until the folder is trusted ([project-trust.md](project-trust.md)).
 - **Left, the changes** as a tree with a checkbox on every node, in two groups with their counts:
   - **Changes 4:** the tracked files that differ from `HEAD` (in the index or the working tree), in folders as in the
     log's changed files (compacted, `src/main/kotlin`), with file-type icons and coloured by their change: added green,

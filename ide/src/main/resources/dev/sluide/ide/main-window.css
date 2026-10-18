@@ -1,0 +1,19 @@
+/*
+ * The main window (MainWindow): the bar under the menu bar that says which tools of the folder are off until it is
+ * trusted (ADR 0053), a warning like the editor's banners.
+ */
+
+.trust-bar {
+    -fx-spacing: 8;
+    -fx-padding: 4 8 4 8;
+    -fx-alignment: center-left;
+    -fx-background-color: #fff4ce;
+    -fx-border-color: transparent transparent #e5d08f transparent;
+}
+
+@media (prefers-color-scheme: dark) {
+    .trust-bar {
+        -fx-background-color: #4a4128;
+        -fx-border-color: transparent transparent #6b5d33 transparent;
+    }
+}
