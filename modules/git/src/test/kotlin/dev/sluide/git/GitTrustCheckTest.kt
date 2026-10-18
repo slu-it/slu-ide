@@ -6,6 +6,7 @@ import dev.sluide.git.cli.configEntries
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.appendText
 import kotlin.io.path.createDirectories
@@ -267,6 +268,15 @@ class GitTrustCheckTest {
 
         assertEquals(listOf("core.worktree = ../.. (.git/config)"), findings.map { it.text })
         assertEquals("git reads and writes the files there, also on checkout and reset", findings.single().note)
+    }
+
+    @Test
+    fun `a folder opened through a symbolic link shows the files git names by their real path relative to it`() {
+        // As on macOS, where the temporary folder /var/… is /private/var/….
+        val link = Files.createSymbolicLink(folder.resolve("link"), repo)
+        git("config", "core.worktree", "../..")
+
+        assertEquals(listOf("core.worktree = ../.. (.git/config)"), check.check(link)!!.map { it.text })
     }
 
     @Test

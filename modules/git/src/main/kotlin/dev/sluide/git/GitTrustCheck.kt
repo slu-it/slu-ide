@@ -313,15 +313,17 @@ private fun TrustFinding.inSubmodule(prefix: String) =
         )
     }
 
-/** A file git names absolutely (as in submodules) shown relative to the opened folder [top] if it is below it. */
+/**
+ * A file git names absolutely (as in submodules) shown relative to the opened folder [top] if it is below it; git names
+ * it by its real path (on macOS `/private/var/…` for `/var/…`), so below [top]'s real path counts too.
+ */
 private fun shown(
     file: String,
     top: Path?,
 ): String {
-    val path = runCatching { Path.of(file) }.getOrNull()
-    return if (top != null && path != null && path.isAbsolute && path.normalize().startsWith(top)) {
-        top.relativize(path.normalize()).toString()
-    } else {
-        file
-    }
+    val path = runCatching { Path.of(file) }.getOrNull()?.takeIf { it.isAbsolute }?.normalize() ?: return file
+    val base =
+        top?.takeIf { path.startsWith(it) }
+            ?: top?.let { runCatching { it.toRealPath() }.getOrNull() }?.takeIf { path.startsWith(it) }
+    return base?.relativize(path)?.toString() ?: file
 }
