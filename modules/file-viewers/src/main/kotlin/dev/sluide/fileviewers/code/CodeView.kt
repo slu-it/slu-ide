@@ -387,25 +387,49 @@ internal class CodeView(
         hideConflict()
         adoptLineEnding(content.raw)
         showReadOnly(!content.valid)
-        val replacement = TextReplacement.between(area.text, text)
-        if (!replacement.isEmpty) {
-            val caret = replacement.map(area.caretPosition)
-            val scrollX = pane.estimatedScrollX
-            val scrollY = pane.estimatedScrollY
-            // The reload is an undo step of its own.
-            undoManager.preventMerge()
-            area.replaceText(replacement.start, replacement.end, replacement.replacement)
-            highlight(text)
-            area.moveTo(caret)
-            // Moving the caret makes the area follow it during the next layout; lay out now, then scroll back.
-            pane.layout()
-            pane.scrollXToPixel(scrollX)
-            pane.scrollYToPixel(scrollY)
-        }
+        // The reload is an undo step of its own.
+        replaceMinimally(text)
         savedText = text
         keptMine.set(false)
         undoManager.mark()
         undoManager.preventMerge()
+    }
+
+    /**
+     * Replaces the text with [text] (`\n` line breaks; others are turned into them) as one undoable change, e.g. from
+     * a form beside the editor (ADR 0057), keeping caret and scroll position where possible. Unlike a reload, the
+     * saved text stays, so the view becomes [dirty] (or clean, if [text] is the saved one). Does nothing if [text]
+     * equals the current text. Returns `false` and changes nothing while the view is [readOnly], whose text cannot be
+     * saved.
+     */
+    fun replaceText(text: String): Boolean {
+        if (readOnly) return false
+        if (replaceMinimally(LineEnding.normalize(text))) {
+            // Typing on would otherwise extend this change.
+            undoManager.preventMerge()
+        }
+        return true
+    }
+
+    /**
+     * Turns the area's text into [text] by replacing only what differs, as an undo step of its own; caret and scroll
+     * position stay where possible. Returns whether the text changed.
+     */
+    private fun replaceMinimally(text: String): Boolean {
+        val replacement = TextReplacement.between(area.text, text)
+        if (replacement.isEmpty) return false
+        val caret = replacement.map(area.caretPosition)
+        val scrollX = pane.estimatedScrollX
+        val scrollY = pane.estimatedScrollY
+        undoManager.preventMerge()
+        area.replaceText(replacement.start, replacement.end, replacement.replacement)
+        highlight(text)
+        area.moveTo(caret)
+        // Moving the caret makes the area follow it during the next layout; lay out now, then scroll back.
+        pane.layout()
+        pane.scrollXToPixel(scrollX)
+        pane.scrollYToPixel(scrollY)
+        return true
     }
 
     /** Keeps the unsaved text over the file's new one, which only counts as saved, so the next save overwrites it. */

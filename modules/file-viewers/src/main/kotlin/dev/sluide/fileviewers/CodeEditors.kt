@@ -17,9 +17,10 @@ import java.nio.file.Path
  */
 interface CodeEditor :
     EditableFileView,
+    TextEditableView,
     GutterColumns {
     /** The current text with `\n` line breaks, unsaved changes included. */
-    val text: String
+    override val text: String
 
     /** The text as it changes, with each edit; listeners run on the FX thread. */
     val textProperty: ObservableValue<String>
@@ -116,6 +117,10 @@ private class CodeViewEditor(
     override val textProperty: ObservableValue<String> get() = view.area.textProperty()
 
     override val caretLine: Int get() = view.area.currentParagraph
+
+    override val canReplaceText: Boolean get() = !view.readOnly
+
+    override fun replaceText(text: String): Boolean = view.replaceText(text)
 
     override fun moveCaretTo(line: Int) {
         view.area.moveTo(line.coerceIn(0, view.area.paragraphs.size - 1), 0)

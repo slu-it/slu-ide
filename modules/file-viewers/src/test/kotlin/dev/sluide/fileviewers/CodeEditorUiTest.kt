@@ -16,9 +16,11 @@ import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
 import kotlin.io.path.extension
 import kotlin.io.path.readText
+import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -112,5 +114,78 @@ class CodeEditorUiTest {
         val areas = robot.lookup(".code-area").queryAllAs(CodeArea::class.java)
         assertEquals(2, areas.size)
         assertTrue(areas.all { area -> "property" in area.getStyleOfChar(1) })
+    }
+
+    @Test
+    fun `replaces its text as one undo step that marks it dirty`(robot: FxRobot) {
+        val file = dir.resolve("a.json").apply { writeText("{\n  \"a\": 1,\n  \"b\": 2\n}\n") }
+        val editor = open(file, robot)
+        robot.interact { editor.moveCaretTo(2) }
+
+        robot.interact { editor.replaceText("{\n  \"a\": 10,\n  \"b\": 2\n}\n") }
+
+        assertEquals("{\n  \"a\": 10,\n  \"b\": 2\n}\n", editor.text)
+        assertTrue(editor.dirty.get())
+        assertEquals(2, editor.caretLine)
+        robot.interact { robot.area().undo() }
+        assertEquals("{\n  \"a\": 1,\n  \"b\": 2\n}\n", editor.text)
+        assertFalse(editor.dirty.get())
+        assertFalse(robot.area().isUndoAvailable)
+    }
+
+    @Test
+    fun `typing after a replaced text is an undo step of its own`(robot: FxRobot) {
+        val editor = open(dir.resolve("a.json").apply { writeText("{\"a\": 1}\n") }, robot)
+
+        robot.interact {
+            robot.area().insertText(1, " ")
+            editor.replaceText("{ \"a\": 12}\n")
+            robot.area().insertText(9, "3")
+        }
+
+        assertEquals("{ \"a\": 123}\n", editor.text)
+        robot.interact { robot.area().undo() }
+        assertEquals("{ \"a\": 12}\n", editor.text)
+        robot.interact { robot.area().undo() }
+        assertEquals("{ \"a\": 1}\n", editor.text)
+        robot.interact { robot.area().undo() }
+        assertEquals("{\"a\": 1}\n", editor.text)
+    }
+
+    @Test
+    fun `replacing its text by an equal one changes nothing`(robot: FxRobot) {
+        val editor = open(dir.resolve("a.json").apply { writeText("{}\n") }, robot)
+
+        var replaced = false
+        robot.interact { replaced = editor.replaceText("{}\r\n") }
+
+        assertTrue(replaced)
+        assertFalse(editor.dirty.get())
+        assertFalse(robot.area().isUndoAvailable)
+    }
+
+    @Test
+    fun `replaced text gets line feeds for its line breaks`(robot: FxRobot) {
+        val editor = open(dir.resolve("a.json").apply { writeText("{}\n") }, robot)
+
+        robot.interact { editor.replaceText("{\r\n  \"a\": 1\r}\r\n") }
+
+        assertEquals("{\n  \"a\": 1\n}\n", editor.text)
+    }
+
+    @Test
+    fun `a read-only editor does not replace its text`(robot: FxRobot) {
+        // Valid in the sample that decides whether a file is text, invalid after it: shown read-only.
+        val file = dir.resolve("latin1.txt").apply { writeBytes("a".repeat(9000).toByteArray() + 0xE9.toByte()) }
+        val editor = open(file, robot)
+        val before = editor.text
+
+        var replaced = true
+        robot.interact { replaced = editor.replaceText("b") }
+
+        assertFalse(replaced)
+        assertFalse(editor.canReplaceText)
+        assertEquals(before, editor.text)
+        assertFalse(editor.dirty.get())
     }
 }

@@ -88,6 +88,22 @@ interface EditableFileView : FileView {
     fun showChanges(diff: TextDiff?) {}
 }
 
+/** A view whose text can be read and replaced, e.g. by a form beside it or another file's view (ADR 0057). */
+interface TextEditableView : FileView {
+    /** The text with unsaved changes, `\n` line breaks. */
+    val text: String
+
+    /** Whether [replaceText] can change the text; `false` e.g. while the view is read-only. */
+    val canReplaceText: Boolean get() = true
+
+    /**
+     * Replaces the text with [text] (`\n` line breaks) as one undoable change, keeping the caret and scroll position
+     * where possible; marks the view dirty if it differs from the saved text. Does nothing if equal. Returns whether
+     * the text could be replaced: `true` also if it was equal, `false` if not [canReplaceText]. FX thread.
+     */
+    fun replaceText(text: String): Boolean
+}
+
 /** What a [FileView] can ask of the IDE showing it. */
 interface FileViewHost {
     /** Shows [file] in the IDE, e.g. in a tab; `false` if it cannot be shown. */
