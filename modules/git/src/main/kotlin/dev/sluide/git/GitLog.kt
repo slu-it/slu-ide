@@ -10,15 +10,6 @@ import kotlin.io.path.deleteIfExists
 import kotlin.io.path.writeBytes
 
 /**
- * One page of the git log: up to the asked number of [commits], newest first. [complete] means there are no more
- * after them; a first page that is empty and complete is a repository without commits yet.
- */
-data class GitLogPage(
-    val commits: List<GitCommit>,
-    val complete: Boolean,
-)
-
-/**
  * The commits of a repository (ADR 0035): those of all local branches, remote-tracking branches, tags and `HEAD`, in
  * date order, or those a [GitLogFilter] selects (ADR 0039). Stash and notes commits are left out. Also the refs
  * pointing at them and the details of a commit (ADR 0037), and the files a commit changed with their diffs (ADR 0038).

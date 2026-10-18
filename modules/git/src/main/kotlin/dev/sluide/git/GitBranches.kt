@@ -6,40 +6,6 @@ import java.nio.file.Path
 import kotlin.time.Duration
 
 /**
- * What a git command that changes the repository gave: whether it [succeeded][success], and git's own [message].
- * [changed] tells that the change was made although git failed afterwards, e.g. a branch was checked out but a
- * post-checkout hook failed.
- */
-data class GitResult(
-    val success: Boolean,
-    val message: String,
-    val changed: Boolean = success,
-)
-
-/** The commit a local branch points at, as far as it could be read. */
-sealed interface GitBranchTip {
-    /** There is no such branch. */
-    data object Missing : GitBranchTip
-
-    /** The branch points at [commit] (a full hash). */
-    data class At(
-        val commit: String,
-    ) : GitBranchTip
-
-    /** Whether the branch exists and where it points could not be read (git failed). */
-    data object Unknown : GitBranchTip
-}
-
-/**
- * What deleting branches gave: the [result] of `git branch -d` (or `-D`), and those of the branches asked for that are
- * still there afterwards, e.g. as git refuses to delete a branch that is not fully merged with `-d`.
- */
-data class GitBranchDeletion(
-    val result: GitResult,
-    val notDeleted: List<String>,
-)
-
-/**
  * Changes the branches and tags of a repository and checks out (ADR 0041), with the git command line: hooks and the
  * user's configuration apply as for git itself. Every method runs git on the calling thread and gives git's own
  * message; a checkout may take 10 minutes (it changes files, filters such as LFS may be slow), anything else 60 s.
