@@ -1,7 +1,8 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.html
 
 import com.sun.net.httpserver.HttpExchange
 import com.sun.net.httpserver.HttpServer
+import dev.sluide.fileviewers.imageTypes
 import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress

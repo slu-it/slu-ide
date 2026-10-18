@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.html
 
 import org.junit.jupiter.api.io.TempDir
 import java.net.Socket

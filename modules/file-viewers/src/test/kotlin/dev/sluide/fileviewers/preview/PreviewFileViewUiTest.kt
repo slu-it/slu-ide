@@ -6,10 +6,10 @@ import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.DiffFileView
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.FileViewers
-import dev.sluide.fileviewers.HtmlFileViewer
 import dev.sluide.fileviewers.LineChange
 import dev.sluide.fileviewers.NotebookFileViewer
 import dev.sluide.fileviewers.TextDiff
+import dev.sluide.fileviewers.html.HtmlFileViewer
 import dev.sluide.fileviewers.markdown.MarkdownFileViewer
 import javafx.application.ColorScheme
 import javafx.concurrent.Worker

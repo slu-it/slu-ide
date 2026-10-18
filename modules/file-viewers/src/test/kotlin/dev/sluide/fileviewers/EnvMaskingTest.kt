@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.html.HtmlFileViewer
 import dev.sluide.fileviewers.markdown.MarkdownFileViewer
 import dev.sluide.fileviewers.markdown.MdxFileViewer
 import dev.sluide.fileviewers.markdown.MermaidFileViewer

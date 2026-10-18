@@ -1,6 +1,7 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.html
 
 import com.sun.net.httpserver.HttpServer
+import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.preview.PreviewFileView
 import javafx.concurrent.Worker
 import javafx.event.Event
