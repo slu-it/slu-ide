@@ -8,9 +8,9 @@ import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.HtmlFileViewer
 import dev.sluide.fileviewers.LineChange
-import dev.sluide.fileviewers.MarkdownFileViewer
 import dev.sluide.fileviewers.NotebookFileViewer
 import dev.sluide.fileviewers.TextDiff
+import dev.sluide.fileviewers.markdown.MarkdownFileViewer
 import javafx.application.ColorScheme
 import javafx.concurrent.Worker
 import javafx.scene.Node

@@ -1,5 +1,8 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.markdown.MarkdownFileViewer
+import dev.sluide.fileviewers.markdown.MdxFileViewer
+import dev.sluide.fileviewers.markdown.MermaidFileViewer
 import dev.sluide.textediting.CommentSyntax
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path

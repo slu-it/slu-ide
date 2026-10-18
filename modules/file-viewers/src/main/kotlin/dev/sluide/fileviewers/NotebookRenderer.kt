@@ -1,6 +1,7 @@
 package dev.sluide.fileviewers
 
 import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
+import dev.sluide.fileviewers.markdown.MarkdownRenderer
 import dev.sluide.fileviewers.preview.writeHighlighted
 import org.jsoup.nodes.Element
 import tools.jackson.core.JacksonException

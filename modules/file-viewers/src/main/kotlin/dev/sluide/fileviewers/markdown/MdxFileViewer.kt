@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.markdown
 
 import dev.sluide.fileviewers.code.CodeFileViewer
 import dev.sluide.fileviewers.highlight.RSyntaxHighlighter

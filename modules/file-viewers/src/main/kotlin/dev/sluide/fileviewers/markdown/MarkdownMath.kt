@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.markdown
 
 import org.commonmark.node.CustomBlock
 import org.commonmark.node.CustomNode

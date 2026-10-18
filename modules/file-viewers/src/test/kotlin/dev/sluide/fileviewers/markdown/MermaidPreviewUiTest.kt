@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.markdown
 
 import dev.sluide.fileviewers.preview.PreviewFileView
 import dev.sluide.fileviewers.preview.PreviewMode

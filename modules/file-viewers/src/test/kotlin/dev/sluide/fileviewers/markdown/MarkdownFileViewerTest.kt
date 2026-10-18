@@ -1,5 +1,7 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.markdown
 
+import dev.sluide.fileviewers.DefaultTextFileViewer
+import dev.sluide.fileviewers.FileViewers
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.io.path.writeBytes

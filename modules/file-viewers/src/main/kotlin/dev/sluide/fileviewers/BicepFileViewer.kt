@@ -1,5 +1,7 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.markdown.MarkdownRenderer
+import dev.sluide.fileviewers.markdown.MermaidPreview
 import dev.sluide.fileviewers.preview.Preview
 import dev.sluide.fileviewers.preview.PreviewFileViewer
 import dev.sluide.fileviewers.preview.PreviewMode

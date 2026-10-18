@@ -1,7 +1,8 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.markdown
 
 import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import dev.sluide.fileviewers.highlight.fenceLanguage
+import dev.sluide.fileviewers.imageTypes
 import dev.sluide.fileviewers.preview.HtmlPage
 import dev.sluide.fileviewers.preview.LinkTarget
 import dev.sluide.fileviewers.preview.Vendor

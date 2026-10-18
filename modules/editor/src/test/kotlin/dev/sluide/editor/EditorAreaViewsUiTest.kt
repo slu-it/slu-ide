@@ -8,10 +8,10 @@ import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.ImageFileViewer
-import dev.sluide.fileviewers.MarkdownFileViewer
-import dev.sluide.fileviewers.MermaidFileViewer
 import dev.sluide.fileviewers.NotebookFileViewer
 import dev.sluide.fileviewers.SvgFileViewer
+import dev.sluide.fileviewers.markdown.MarkdownFileViewer
+import dev.sluide.fileviewers.markdown.MermaidFileViewer
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSpec
 import dev.sluide.settings.FontStyle

@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.markdown
 
 import dev.sluide.fileviewers.preview.Heading
 import org.commonmark.node.AbstractVisitor
@@ -9,8 +9,9 @@ import org.commonmark.node.SoftLineBreak
 import org.commonmark.node.Text
 
 /**
- * The headings of Markdown text for the table of contents ([TableOfContents]). They come from the same parser as the
- * preview ([MarkdownRenderer.parse]), so a `#` line in fenced code or in a math block is not a heading.
+ * The headings of Markdown text for the table of contents ([dev.sluide.fileviewers.preview.TableOfContents]). They come
+ * from the same parser as the preview ([MarkdownRenderer.parse]), so a `#` line in fenced code or in a math block is
+ * not a heading.
  */
 internal object MarkdownOutline {
     /** Every heading of [markdown] in document order, also those inside lists and quotes. */
