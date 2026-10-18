@@ -121,7 +121,7 @@ internal data class Environments(
         }
 
         /** Copies [source] into [target]; objects are merged key by key, everything else replaces. */
-        private fun merge(
+        internal fun merge(
             target: ObjectNode,
             source: ObjectNode,
         ) {
