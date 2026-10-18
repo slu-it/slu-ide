@@ -1,5 +1,8 @@
-package dev.sluide.settings
+package dev.sluide.settings.pages
 
+import dev.sluide.settings.FontArea
+import dev.sluide.settings.FontSettings
+import dev.sluide.settings.FontSpec
 import javafx.beans.property.ObjectProperty
 import javafx.beans.property.SimpleObjectProperty
 

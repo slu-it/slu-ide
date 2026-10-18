@@ -1,5 +1,8 @@
-package dev.sluide.settings
+package dev.sluide.settings.pages
 
+import dev.sluide.settings.SettingsStore
+import dev.sluide.settings.Theme
+import dev.sluide.settings.ThemeSettings
 import javafx.application.ColorScheme
 import javafx.beans.property.SimpleObjectProperty
 import org.junit.jupiter.api.io.TempDir

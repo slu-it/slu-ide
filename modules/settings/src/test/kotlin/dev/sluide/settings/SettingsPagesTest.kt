@@ -1,5 +1,7 @@
 package dev.sluide.settings
 
+import dev.sluide.settings.pages.AppearancePage
+import dev.sluide.settings.pages.FontsPage
 import javafx.application.ColorScheme
 import javafx.beans.property.SimpleObjectProperty
 import javafx.scene.control.Label

@@ -1,5 +1,6 @@
-package dev.sluide.settings
+package dev.sluide.settings.pages
 
+import dev.sluide.settings.TerminalScrollSettings
 import javafx.beans.property.IntegerProperty
 import javafx.beans.property.SimpleIntegerProperty
 import kotlin.math.roundToInt

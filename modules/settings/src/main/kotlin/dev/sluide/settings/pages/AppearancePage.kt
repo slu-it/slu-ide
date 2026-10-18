@@ -1,5 +1,8 @@
-package dev.sluide.settings
+package dev.sluide.settings.pages
 
+import dev.sluide.settings.SettingsPage
+import dev.sluide.settings.Theme
+import dev.sluide.settings.ThemeSettings
 import javafx.scene.Node
 import javafx.scene.control.ComboBox
 import javafx.scene.control.Label

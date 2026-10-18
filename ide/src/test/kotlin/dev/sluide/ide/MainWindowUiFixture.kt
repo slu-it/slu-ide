@@ -21,12 +21,12 @@ import dev.sluide.projects.RecentProjects
 import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.projecttrust.TrustedProjects
 import dev.sluide.settings.FontSettings
-import dev.sluide.settings.FontsPage
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.SettingsStore
 import dev.sluide.settings.TerminalScrollSettings
 import dev.sluide.settings.ThemeSettings
 import dev.sluide.settings.ThemedWindows
+import dev.sluide.settings.pages.FontsPage
 import dev.sluide.terminal.Terminals
 import javafx.application.Platform
 import javafx.event.Event

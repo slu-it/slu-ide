@@ -1,5 +1,7 @@
-package dev.sluide.settings
+package dev.sluide.settings.pages
 
+import dev.sluide.settings.SettingsPage
+import dev.sluide.settings.TerminalScrollSettings
 import javafx.beans.property.IntegerProperty
 import javafx.scene.Node
 import javafx.scene.control.Label

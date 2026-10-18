@@ -1,5 +1,10 @@
-package dev.sluide.settings
+package dev.sluide.settings.pages
 
+import dev.sluide.settings.FontArea
+import dev.sluide.settings.FontSettings
+import dev.sluide.settings.FontSpec
+import dev.sluide.settings.FontStyle
+import dev.sluide.settings.SettingsPage
 import javafx.beans.binding.Bindings
 import javafx.scene.Node
 import javafx.scene.control.Button

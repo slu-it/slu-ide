@@ -1,5 +1,9 @@
-package dev.sluide.settings
+package dev.sluide.settings.pages
 
+import dev.sluide.settings.FontArea
+import dev.sluide.settings.FontSpec
+import dev.sluide.settings.FontStyle
+import dev.sluide.settings.TestFonts
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.test.Test

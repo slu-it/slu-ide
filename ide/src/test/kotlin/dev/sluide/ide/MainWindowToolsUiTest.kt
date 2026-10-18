@@ -2,9 +2,9 @@ package dev.sluide.ide
 
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSpec
-import dev.sluide.settings.FontsPage
 import dev.sluide.settings.SettingsDialog
 import dev.sluide.settings.SettingsPages
+import dev.sluide.settings.pages.FontsPage
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
