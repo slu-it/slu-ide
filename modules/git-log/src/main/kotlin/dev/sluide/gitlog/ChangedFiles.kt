@@ -1,10 +1,8 @@
 package dev.sluide.gitlog
 
-import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitFileDiff
-import dev.sluide.git.GitHunk
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicLong
 
@@ -99,24 +97,6 @@ private class MutableFolder {
 }
 
 private val BY_NAME = compareBy<ChangeNode, String>(String.CASE_INSENSITIVE_ORDER) { it.name }.thenBy { it.name }
-
-/**
- * A file as a commit changed it, for the IDE to show side by side (ADR 0038): [original] is the file at the
- * commit's first [parent] (at [oldPath] if it was renamed or copied; empty if it was added), [current] at the
- * [commit] (empty if it was deleted), [hunks] the changed lines. [path] is relative to the repository at [root],
- * `/`-separated.
- */
-data class CommitFileDiff(
-    val root: Path,
-    val path: String,
-    val oldPath: String?,
-    val change: GitChange,
-    val commit: String,
-    val parent: String?,
-    val original: String,
-    val current: String,
-    val hunks: List<GitHunk>,
-)
 
 /**
  * Reads the diff of a changed file with [load] on [background] (ADR 0038) and hands it to the given handler through
