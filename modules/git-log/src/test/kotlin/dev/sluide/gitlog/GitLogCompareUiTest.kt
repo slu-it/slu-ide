@@ -306,32 +306,32 @@ class GitLogCompareUiTest {
                 filters.last(),
             )
             assertEquals(listOf("Feature 1"), shownSubjects(robot))
-            assertEquals("In feature, not in main (2)", view.refOnlyToggle.text)
+            assertEquals("In feature, not in main (2)", view.compareBar.refOnlyToggle.text)
         }
         robot.interact {
             assertTrue(view.compareBar.isVisible)
-            assertEquals("Comparing feature with main", view.compareLabel.text)
-            assertEquals("In main, not in feature (2)", view.headOnlyToggle.text)
-            assertTrue(view.refOnlyToggle.isSelected)
-            assertFalse(view.headOnlyToggle.isSelected)
+            assertEquals("Comparing feature with main", view.compareBar.compareLabel.text)
+            assertEquals("In main, not in feature (2)", view.compareBar.headOnlyToggle.text)
+            assertTrue(view.compareBar.refOnlyToggle.isSelected)
+            assertFalse(view.compareBar.headOnlyToggle.isSelected)
             assertTrue(bar.branch.isDisabled, "the branch filter is set aside")
-            assertEquals("Stop Comparing", view.stopCompareButton.tooltip.text)
+            assertEquals("Stop Comparing", view.compareBar.stopCompareButton.tooltip.text)
         }
 
-        robot.interact { view.headOnlyToggle.fire() }
+        robot.interact { view.compareBar.headOnlyToggle.fire() }
         eventually { assertEquals(listOf("Main 1"), shownSubjects(robot)) }
         // A click on the listed side keeps it listed.
-        robot.interact { view.headOnlyToggle.fire() }
+        robot.interact { view.compareBar.headOnlyToggle.fire() }
         robot.interact {
-            assertTrue(view.headOnlyToggle.isSelected)
-            assertFalse(view.refOnlyToggle.isSelected)
+            assertTrue(view.compareBar.headOnlyToggle.isSelected)
+            assertFalse(view.compareBar.refOnlyToggle.isSelected)
         }
 
         robot.interact { bar.text.text = "" }
         robot.interact { bar.debounce.jumpTo(bar.debounce.totalDuration) }
         eventually { assertEquals(listOf("Main 2", "Main 1"), subjects()) }
 
-        robot.interact { view.stopCompareButton.fire() }
+        robot.interact { view.compareBar.stopCompareButton.fire() }
         eventually { assertEquals(GitLogFilter(revisions = listOf(main.name)), filters.last()) }
         robot.interact {
             assertFalse(view.compareBar.isVisible)
@@ -371,10 +371,10 @@ class GitLogCompareUiTest {
         robot.interact { pane.compareItem.fire() }
         eventually {
             assertEquals(emptyList(), subjects())
-            assertEquals("In v1, not in main (0)", view.refOnlyToggle.text)
+            assertEquals("In v1, not in main (0)", view.compareBar.refOnlyToggle.text)
             assertEquals("No commits in v1 that are not in main.", placeholder(robot))
         }
-        robot.interact { view.headOnlyToggle.fire() }
+        robot.interact { view.compareBar.headOnlyToggle.fire() }
         eventually { assertEquals(listOf("Main 2", "Main 1"), subjects()) }
         // A selected commit is selected again by the reload, which must not take the message away.
         robot.interact { view.table.selectionModel.clearAndSelect(1) }
@@ -421,8 +421,8 @@ class GitLogCompareUiTest {
         robot.interact { view.filterBar.debounce.jumpTo(view.filterBar.debounce.totalDuration) }
         eventually { assertEquals(listOf("Feature 2", "Feature 1"), subjects()) }
         counts = emptyMap()
-        robot.interact { view.headOnlyToggle.fire() }
-        eventually { assertEquals("In main, not in feature", view.headOnlyToggle.text, "no counts") }
+        robot.interact { view.compareBar.headOnlyToggle.fire() }
+        eventually { assertEquals("In main, not in feature", view.compareBar.headOnlyToggle.text, "no counts") }
     }
 
     /** The working-tree window open for [revision], once it is there. */
