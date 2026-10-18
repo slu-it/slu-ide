@@ -271,12 +271,16 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
   - **Cherry-Pick and Revert Commit** apply or undo the selected commit's changes on the current branch (`git
     cherry-pick`, `git revert --no-edit`): "Cherry-picked 1a2b3c4d as 5e6f7a8b.", "Reverted 1a2b3c4d in 5e6f7a8b.". A
     merge commit asks first ("1a2b3c4d is a merge commit. Cherry-pick the changes it brought in relative to its first
-    parent?", Cancel the default) and then uses its first parent (`-m 1`). If there is nothing to commit (the changes
-    are already there, or already undone), git's leftover state is cleared and the header says so ("Nothing to
-    cherry-pick: the changes of 1a2b3c4d are already on main.", "Nothing to revert: the changes of 1a2b3c4d are
-    already undone."); local changes and untracked files stay. Both are disabled while the bar below shows something,
-    and refused without running git while anything is in progress ("A merge is in progress; finish or abort it
-    first.").
+    parent?", Cancel the default) and then uses its first parent (`-m 1`). Ignored files in the way (a local `.env`
+    the commit adds, an ignored `build/` folder where it adds a file), which git would overwrite or delete without a
+    word, are asked about first, listed ("2 ignored files will be overwritten or deleted by the cherry-pick of
+    1a2b3c4d; git keeps no copy of them:", Cherry-Pick or Cancel, the default), and asked about again if others are
+    in the way by the time it runs; so is a pick for which that cannot be read (git older than 2.40). Untracked files
+    that are not ignored git refuses itself. If there is nothing to commit (the changes are already there, or already
+    undone), git's leftover state is cleared and the header says so ("Nothing to cherry-pick: the changes of 1a2b3c4d
+    are already on main.", "Nothing to revert: the changes of 1a2b3c4d are already undone."); local changes and
+    untracked files stay. Both are disabled while the bar below shows something, and refused without running git while
+    anything is in progress ("A merge is in progress; finish or abort it first.").
   - **Conflicts:** a dialog "Cherry-Pick Stopped" ("Revert Stopped") lists the conflicted paths ("Cherry-pick of
     1a2b3c4d stopped with conflicts in:"), git's message under Show Details, with Resolve (the default; the files keep
     their conflict markers for the editor) and Abort Cherry-Pick (Abort Revert). The header says "Cherry-pick of

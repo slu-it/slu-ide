@@ -12,7 +12,9 @@ import dev.sluide.git.GitUncheckedConflict
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class CommitOperationsTest {
     private val root = Path.of("/repo")
@@ -40,6 +42,90 @@ class CommitOperationsTest {
         writes.pickResult = { GitPickResult.Done(null) }
         assertEquals("Cherry-picked 1a2b3c4d.", pick.run(writes, root).done)
         assertEquals(listOf("cherry-pick $hash", "revert -m 1 $hash", "cherry-pick $hash"), writes.calls)
+    }
+
+    @Test
+    fun `a cherry-pick or revert that would overwrite ignored files asks first, listing them`() {
+        writes.pickOverwritten = listOf(".env", "build/cache/data")
+        val pick = PickCommit(GitPick.CHERRY_PICK, hash)
+
+        val asked = pick.run(writes, root)
+
+        assertEquals(
+            RefConfirmation(
+                "Cherry-Pick",
+                "2 ignored files will be overwritten or deleted by the cherry-pick of 1a2b3c4d; git keeps no copy of them:",
+                CHERRY_PICK_BUTTON,
+                pick.copy(confirmed = true, shown = listOf(".env", "build/cache/data")),
+                ".env\nbuild/cache/data",
+            ),
+            asked.confirmation,
+        )
+        assertEquals(emptyList(), writes.calls, "nothing done before the answer")
+
+        // Read again once confirmed: fewer than shown is fine.
+        writes.pickOverwritten = listOf(".env")
+        val confirmed = assertNotNull(asked.confirmation).confirmed
+        assertEquals("Cherry-picked 1a2b3c4d as 5e6f7a8b.", confirmed.run(writes, root).done)
+        assertEquals(listOf("cherry-pick $hash"), writes.calls)
+        assertEquals(2, writes.reads.count { it == "pick overwrites $hash" })
+
+        writes.pickOverwritten = listOf(".env")
+        assertEquals(
+            "1 ignored file will be overwritten or deleted by the revert of 1a2b3c4d; git keeps no copy of it:",
+            PickCommit(GitPick.REVERT, hash).run(writes, root).confirmation?.question,
+        )
+    }
+
+    @Test
+    fun `a cherry-pick whose overwritten files cannot be read asks first too`() {
+        writes.pickOverwritten = null
+
+        val confirmation = PickCommit(GitPick.CHERRY_PICK, hash).run(writes, root).confirmation
+
+        assertEquals(
+            "Whether the cherry-pick of 1a2b3c4d overwrites or deletes ignored files could not be read.\n" +
+                "Cherry-pick 1a2b3c4d anyway?",
+            confirmation?.question,
+        )
+        assertNull(confirmation?.details)
+        assertEquals(emptyList(), writes.calls)
+    }
+
+    @Test
+    fun `files in the way that were not shown when it was confirmed are asked about again`() {
+        writes.pickOverwritten = listOf(".env")
+        val asked = assertNotNull(PickCommit(GitPick.CHERRY_PICK, hash).run(writes, root).confirmation)
+
+        // A build recreated its folder while the dialog was open.
+        writes.pickOverwritten = listOf(".env", "build/cache/data")
+        val again = assertNotNull(asked.confirmed.run(writes, root).confirmation)
+
+        assertEquals(".env\nbuild/cache/data", again.details)
+        assertEquals(emptyList(), writes.calls)
+
+        // One that could not be read is asked about again once it can, with what was found.
+        writes.pickOverwritten = null
+        val unread = assertNotNull(PickCommit(GitPick.REVERT, hash).run(writes, root).confirmation)
+        writes.pickOverwritten = listOf(".env")
+        assertEquals(
+            ".env",
+            unread.confirmed
+                .run(writes, root)
+                .confirmation
+                ?.details,
+        )
+        writes.pickOverwritten = null
+        assertNull(unread.confirmed.run(writes, root).confirmation, "still unreadable, as confirmed")
+    }
+
+    @Test
+    fun `while git is in the middle of something nothing is read first, the pick refuses`() {
+        writes.inProgress = GitPendingOperation(GitOperation.MERGE)
+        writes.pickOverwritten = listOf(".env")
+
+        assertNull(PickCommit(GitPick.CHERRY_PICK, hash).run(writes, root).confirmation)
+        assertTrue(writes.reads.none { it.startsWith("pick overwrites") })
     }
 
     @Test

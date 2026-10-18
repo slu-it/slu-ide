@@ -155,6 +155,17 @@ internal interface GitLogWrites {
     /** Whether git refuses a soft reset (a merge, unmerged paths); `null` if that cannot be read. */
     fun softResetRefused(root: Path): Boolean?
 
+    /**
+     * The ignored files a cherry-pick or revert ([kind]) of [commit] would overwrite or delete; `null` if that cannot be
+     * read.
+     */
+    fun pickOverwrites(
+        root: Path,
+        kind: GitPick,
+        commit: String,
+        firstParent: Boolean,
+    ): List<String>?
+
     /** The untracked or ignored files a hard reset to [target] would overwrite; `null` if that cannot be read. */
     fun overwrittenFiles(
         root: Path,
@@ -317,6 +328,13 @@ internal class GitLogCliWrites(
     override fun stagedOnlyCount(root: Path) = commits.stagedOnlyCount(root)
 
     override fun softResetRefused(root: Path) = commits.softResetRefused(root)
+
+    override fun pickOverwrites(
+        root: Path,
+        kind: GitPick,
+        commit: String,
+        firstParent: Boolean,
+    ) = commits.pickOverwrites(root, kind, commit, firstParent)
 
     override fun overwrittenFiles(
         root: Path,

@@ -37,11 +37,19 @@ internal val GitPick.noun: String get() = command
 /** "Cherry-pick", "Revert": at the start of a sentence. */
 internal val GitPick.sentence: String get() = noun.replaceFirstChar(Char::uppercaseChar)
 
-/** Cherry-picks or reverts ([kind]) [commit] (a full hash), a merge commit relative to its first parent if [firstParent]. */
+/**
+ * Cherry-picks or reverts ([kind]) [commit] (a full hash), a merge commit relative to its first parent if [firstParent].
+ * It first reads which ignored files git would overwrite or delete without a word (a local `.env`, an ignored `build/`
+ * folder in the way of a file); if there are any, or that cannot be read, the outcome asks first, the files listed in
+ * its details. Once [confirmed], it runs if they are among those [shown] (or still cannot be read, as shown); others by
+ * then are asked about again. Not while git is in the middle of something, which [GitLogWrites.pick] refuses anyway.
+ */
 internal data class PickCommit(
     val kind: GitPick,
     val commit: String,
     val firstParent: Boolean = false,
+    val confirmed: Boolean = false,
+    val shown: List<String>? = null,
 ) : RefOperation {
     private val label get() = short(commit)
 
@@ -63,7 +71,51 @@ internal data class PickCommit(
     override fun run(
         writes: GitLogWrites,
         root: Path,
-    ) = pickOutcome(kind, commit, writes.pick(root, kind, commit, firstParent))
+    ): RefOutcome {
+        if (writes.inProgress(root) == null) {
+            val ignored = writes.pickOverwrites(root, kind, commit, firstParent)
+            val answered =
+                confirmed && if (ignored == null) shown == null else shown != null && shown.containsAll(ignored)
+            if (!answered && (ignored == null || ignored.isNotEmpty())) {
+                val confirmation =
+                    RefConfirmation(
+                        pickTitle(kind),
+                        pickOverwriteQuestion(kind, commit, ignored),
+                        pickButton(kind),
+                        copy(confirmed = true, shown = ignored),
+                        ignored?.joinToString("\n"),
+                    )
+                return RefOutcome(GitResult(true, ""), null, confirmation = confirmation)
+            }
+        }
+        return pickOutcome(kind, commit, writes.pick(root, kind, commit, firstParent))
+    }
+}
+
+/**
+ * The question before a cherry-pick or revert ([kind]) of [commit] that would overwrite or delete the [ignored] files
+ * (listed after the colon), or of which that could not be read (`null`).
+ */
+internal fun pickOverwriteQuestion(
+    kind: GitPick,
+    commit: String,
+    ignored: List<String>?,
+): String {
+    val label = short(commit)
+    val what = "the ${kind.noun} of $label"
+    return when {
+        ignored == null -> {
+            "Whether $what overwrites or deletes ignored files could not be read.\n${kind.sentence} $label anyway?"
+        }
+
+        ignored.size == 1 -> {
+            "1 ignored file will be overwritten or deleted by $what; git keeps no copy of it:"
+        }
+
+        else -> {
+            "${ignored.size} ignored files will be overwritten or deleted by $what; git keeps no copy of them:"
+        }
+    }
 }
 
 /**

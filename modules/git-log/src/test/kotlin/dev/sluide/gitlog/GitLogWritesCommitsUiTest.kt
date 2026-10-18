@@ -97,6 +97,31 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
     }
 
     @Test
+    fun `a cherry-pick that would overwrite ignored files asks first, Cancel the default`(robot: FxRobot) {
+        openAndExpand(robot)
+        selectRows(robot, 1)
+        writes.pickOverwritten = listOf(".env", "build/cache/data")
+
+        fireLater(view.cherryPickItem)
+        var pane = awaitDialog(robot)
+        assertEquals("Cherry-Pick", (pane.scene.window as Stage).title)
+        assertEquals(
+            "2 ignored files will be overwritten or deleted by the cherry-pick of h2; git keeps no copy of them:",
+            pane.headerText,
+        )
+        assertEquals(".env\nbuild/cache/data", pane.lookup(".git-confirmation-details").let { it as TextArea }.text)
+        assertTrue((pane.lookupButton(ButtonType.CANCEL) as Button).isDefaultButton)
+        press(robot, pane, ButtonType.CANCEL)
+        assertEquals(emptyList(), writes.calls)
+
+        fireLater(view.cherryPickItem)
+        pane = awaitDialog(robot)
+        press(robot, pane, CHERRY_PICK_BUTTON)
+        eventually { assertEquals(listOf("cherry-pick h2"), writes.calls) }
+        eventually { assertEquals("Cherry-picked h2 as 5e6f7a8b.", status(robot)) }
+    }
+
+    @Test
     fun `a stop with conflicts offers Resolve and Abort`(robot: FxRobot) {
         openAndExpand(robot)
         selectRows(robot, 2)

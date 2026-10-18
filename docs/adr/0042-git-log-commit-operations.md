@@ -28,10 +28,39 @@ commits from every branch and, hard, local changes. Git 2.53 behaves as follows 
   10 minutes each, as they change files or the index, like a checkout):
   - cherry-pick `git cherry-pick --end-of-options <hash>`, revert `git revert --no-edit --end-of-options <hash>`;
     a merge commit only after a confirmation (Cancel the default) and then relative to its first parent (`-m 1`);
+    ignored files in the way only after a confirmation (below);
   - abort `git cherry-pick --abort` / `git revert --abort`;
   - continue: stage the files that are still unmerged, then `git cherry-pick --continue --no-edit` /
     `git revert --continue --no-edit`;
   - reset `git reset --soft|--mixed|--hard --end-of-options <hash>`.
+- **Ignored files in the way of a cherry-pick or revert** are asked about first. Git overwrites them without a word:
+  an ignored local `.env` the commit adds, an ignored `build/` folder (with what is in it) where the commit adds a file
+  `build`, an ignored file `out` where it adds `out/x.txt` (checked with git 2.53; `git cherry-pick` has no
+  `--no-overwrite-ignore` as `git switch` has, ADR 0041). For untracked files that are not ignored it refuses ("The
+  following untracked working tree files would be overwritten by merge"), changing nothing.
+  - Found before git runs (`GitCommits.pickOverwrites`): `git merge-tree --write-tree --merge-base=<base> <ours>
+    <theirs>` gives the tree git's merge would write, with the same merge configuration (renames, directory renames,
+    conflicts with their markers; checked with git 2.53 against `git cherry-pick` and `git revert`): a cherry-pick with
+    the commit's parent as base (the empty tree, `git hash-object -t tree --stdin`, for a root commit), a revert with
+    the commit as base and its parent as the other side, `-m 1` the first parent; `HEAD` as ours, the empty tree on a
+    branch without commits. It stores the merged objects, unreferenced, and touches neither index nor files, but merge
+    drivers of the configuration run and a partial clone may fetch missing objects, as for the pick itself (both only
+    in a trusted folder, [ADR 0053](0053-project-trust.md)). The hard reset's check (`overwrittenFiles`, Reset below)
+    then finds what a checkout of that tree would overwrite or delete; the untracked files that are not ignored
+    (`git ls-files --others --exclude-standard`) are left out, as git refuses for them. Not checked, as git refuses
+    them: a merge commit without its first parent, staged changes (`git diff-index --cached --quiet HEAD`), and
+    anything while git is in the middle of something (the pick is refused at once, above).
+  - With any, the outcome asks first ("2 ignored files will be overwritten or deleted by the cherry-pick of 1a2b3c4d;
+    git keeps no copy of them:", the files in the details area, Cherry-Pick or Revert, Cancel the default). The
+    confirmed pick reads them again and runs only if they are among those shown; others by then (a build recreated a
+    folder while the dialog was open) are asked about again.
+  - If that cannot be read, the question says so ("Whether the cherry-pick of 1a2b3c4d overwrites or deletes ignored
+    files could not be read. Cherry-pick 1a2b3c4d anyway?"): with git older than 2.40 (no `--merge-base`) for every
+    pick, although writes need only git 2.24 (ADR 0041), and before git 2.44 (merge-tree takes trees) for a root
+    commit or a branch without commits.
+  - A file in the way of a folder in a conflict is renamed by git (`d~1a2b3c4 (subject)`); `merge-tree` names it
+    differently (`d~<full hash>`), so an ignored file at git's name would not be found, which takes an ignored file
+    with exactly that name.
 - **What git is in the middle of** is read, not parsed from its (translated) messages: a rebase (`rebase-merge`,
   `rebase-apply`), `git am` (`rebase-apply/applying`), a sequence (`sequencer`, its kind from the first line of its
   `todo`), at their `git rev-parse --git-path` (per worktree), a merge (`MERGE_HEAD`), else a single cherry-pick or

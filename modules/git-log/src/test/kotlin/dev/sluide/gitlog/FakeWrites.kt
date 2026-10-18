@@ -243,6 +243,19 @@ internal class FakeWrites : GitLogWrites {
     }
 
     @Volatile
+    var pickOverwritten: List<String>? = emptyList()
+
+    override fun pickOverwrites(
+        root: Path,
+        kind: GitPick,
+        commit: String,
+        firstParent: Boolean,
+    ): List<String>? {
+        reads += "pick overwrites $commit"
+        return pickOverwritten
+    }
+
+    @Volatile
     var overwritten: List<String>? = emptyList()
 
     override fun overwrittenFiles(
