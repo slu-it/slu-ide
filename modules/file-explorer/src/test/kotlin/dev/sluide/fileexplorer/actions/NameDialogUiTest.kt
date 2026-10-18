@@ -1,4 +1,4 @@
-package dev.sluide.fileexplorer
+package dev.sluide.fileexplorer.actions
 
 import javafx.scene.Scene
 import javafx.scene.control.ButtonType

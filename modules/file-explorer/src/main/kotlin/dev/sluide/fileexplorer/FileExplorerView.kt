@@ -1,5 +1,12 @@
 package dev.sluide.fileexplorer
 
+import dev.sluide.fileexplorer.actions.DeleteQuestion
+import dev.sluide.fileexplorer.actions.EntryKind
+import dev.sluide.fileexplorer.actions.FileOperationException
+import dev.sluide.fileexplorer.actions.FileOperations
+import dev.sluide.fileexplorer.actions.askForName
+import dev.sluide.fileexplorer.actions.askToDelete
+import dev.sluide.fileexplorer.actions.deleteQuestion
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileicons.FILE_ICONS_CSS
 import dev.sluide.fileicons.fileIconFor

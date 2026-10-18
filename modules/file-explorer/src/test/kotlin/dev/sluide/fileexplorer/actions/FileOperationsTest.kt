@@ -1,4 +1,4 @@
-package dev.sluide.fileexplorer
+package dev.sluide.fileexplorer.actions
 
 import org.junit.jupiter.api.Assumptions.assumeFalse
 import org.junit.jupiter.api.io.TempDir

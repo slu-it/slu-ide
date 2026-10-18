@@ -1,4 +1,4 @@
-package dev.sluide.fileexplorer
+package dev.sluide.fileexplorer.actions
 
 import java.nio.file.Path
 import kotlin.test.Test

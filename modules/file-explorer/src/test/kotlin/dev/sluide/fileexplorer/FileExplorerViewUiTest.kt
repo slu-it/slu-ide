@@ -1,5 +1,8 @@
 package dev.sluide.fileexplorer
 
+import dev.sluide.fileexplorer.actions.DeleteQuestion
+import dev.sluide.fileexplorer.actions.EntryKind
+import dev.sluide.fileexplorer.actions.deleteQuestion
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileicons.FileIcon
 import dev.sluide.filewatcher.FileWatcher

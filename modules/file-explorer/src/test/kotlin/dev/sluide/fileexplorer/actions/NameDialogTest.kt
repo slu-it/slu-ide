@@ -1,4 +1,4 @@
-package dev.sluide.fileexplorer
+package dev.sluide.fileexplorer.actions
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
