@@ -30,6 +30,8 @@ import javafx.scene.input.KeyEvent
 import javafx.scene.text.Text
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
+import java.io.IOException
+import java.io.UncheckedIOException
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
@@ -91,6 +93,9 @@ class FileExplorerView(
      */
     var showHistory: ((Path) -> Unit)? = null
 
+    /** Actions on a folder, listed in the context menu after New Folder…. Set by the window. */
+    var folderActions: List<FolderAction> = emptyList()
+
     /** Whether Show History is enabled for a file (never for folders); asked when the context menu opens. */
     var canShowHistory: (Path) -> Boolean = { false }
 
@@ -116,6 +121,15 @@ class FileExplorerView(
     /** Shows an error message and waits until it is closed; tests replace it, since it blocks. */
     internal var showError: (String) -> Unit = { message ->
         Alert(Alert.AlertType.ERROR, message)
+            .apply {
+                scene?.window?.let(::initOwner)
+                headerText = null
+            }.showAndWait()
+    }
+
+    /** Shows a note and waits until it is closed; tests replace it, since it blocks. */
+    internal var showInfo: (String) -> Unit = { message ->
+        Alert(Alert.AlertType.INFORMATION, message)
             .apply {
                 scene?.window?.let(::initOwner)
                 headerText = null
@@ -193,6 +207,7 @@ class FileExplorerView(
                 "Show History",
             ).apply { setOnAction { historyTarget()?.let { showHistory?.invoke(it) } } }
         val historySeparator = SeparatorMenuItem()
+        val actionItems = mutableListOf<MenuItem>()
         return ContextMenu(
             newFile,
             newFolder,
@@ -205,6 +220,15 @@ class FileExplorerView(
             MenuItem("Refresh").apply { setOnAction { refreshAll() } },
         ).apply {
             setOnShowing {
+                items.removeAll(actionItems)
+                actionItems.clear()
+                folderActions.mapTo(actionItems) { action ->
+                    MenuItem(action.label).apply {
+                        isDisable = root == null
+                        setOnAction { runFolderAction(action, menuTarget) }
+                    }
+                }
+                items.addAll(items.indexOf(newFolder) + 1, actionItems)
                 newFile.isDisable = root == null
                 newFolder.isDisable = root == null
                 rename.isDisable = !canChange(menuTarget)
@@ -314,8 +338,7 @@ class FileExplorerView(
         target: FileTreeItem?,
         folder: Boolean,
     ) {
-        val item = target ?: root as? FileTreeItem ?: return
-        val parent = if (item.isDirectory) item else item.parent as? FileTreeItem ?: return
+        val parent = targetFolder(target) ?: return
         val name =
             askName(if (folder) "New Folder" else "New File", "") { FileOperations.nameProblem(it, parent.value) }
                 ?: return
@@ -329,6 +352,42 @@ class FileExplorerView(
             }
         select(parent, created)
         if (!folder) requestOpen(created)
+    }
+
+    /** The folder an action on [target] works in: [target] if a folder, else its folder; the opened folder for `null`. */
+    private fun targetFolder(target: FileTreeItem?): FileTreeItem? {
+        val item = target ?: root as? FileTreeItem ?: return null
+        return if (item.isDirectory) item else item.parent as? FileTreeItem
+    }
+
+    /**
+     * Runs [action] on the folder for [target] (as for [create]). A returned file is selected, if it is in that folder,
+     * and opened; the folder is expanded and read again so that new entries show at once. A note is shown after it.
+     */
+    internal fun runFolderAction(
+        action: FolderAction,
+        target: FileTreeItem?,
+    ) {
+        val folder = targetFolder(target) ?: return
+        val result =
+            try {
+                action.perform(folder.value)
+            } catch (e: IOException) {
+                showError(e.message.orEmpty())
+                return
+            } catch (e: UncheckedIOException) {
+                showError((e.cause?.message ?: e.message).orEmpty())
+                return
+            }
+        val open = result.open
+        if (open != null && open.parent == folder.value) {
+            select(folder, open)
+        } else {
+            folder.isExpanded = true
+            folder.refresh()
+        }
+        if (open != null) requestOpen(open)
+        result.note?.let(showInfo)
     }
 
     /**

@@ -52,6 +52,10 @@
   which stands for the opened folder:
   - New File… / New Folder… create an empty entry in the clicked folder, or beside the clicked file. A new file is
     opened. Single names only (no `a/b`).
+  - Folder actions (`FolderAction`, set by the window as `folderActions`) follow New Folder…, e.g. "New HTTP Client
+    Setup" ([http-client.md](http-client.md)). They run on the same folder as New File…; the file an action returns
+    is selected (if it is in that folder) and opened, the folder is expanded and read again, a note it returns is
+    shown, and an IOException is shown as an error. Disabled without an opened folder.
   - Rename… (F2 on the selected entry) renames within the same folder; the dialog starts with the name, its base name
     (before the last dot, not a leading one) selected. A folder keeps its content and stays expanded. Changing only
     the case of a name works on case-insensitive file systems.
