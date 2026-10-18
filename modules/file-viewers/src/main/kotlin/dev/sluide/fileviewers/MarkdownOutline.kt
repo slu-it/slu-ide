@@ -7,13 +7,6 @@ import org.commonmark.node.HardLineBreak
 import org.commonmark.node.SoftLineBreak
 import org.commonmark.node.Text
 
-/** A heading of a Markdown document: its [level] (1 to 6), plain [text] and 0-based source [line]. */
-internal data class Heading(
-    val level: Int,
-    val text: String,
-    val line: Int,
-)
-
 /**
  * The headings of Markdown text for the table of contents ([TableOfContents]). They come from the same parser as the
  * preview ([MarkdownRenderer.parse]), so a `#` line in fenced code or in a math block is not a heading.
