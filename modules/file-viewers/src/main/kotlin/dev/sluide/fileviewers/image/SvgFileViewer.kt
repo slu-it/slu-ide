@@ -13,7 +13,7 @@ import java.nio.file.Path
 @Component
 class SvgFileViewer : PreviewFileViewer(setOf("svg"), RSyntaxHighlighter.xml, SvgPreview, CommentSyntax.XML)
 
-/** The SVG as an image, so that its scripts never run. */
+/** The SVG as an image, so that its scripts never run; exported as PNG at 100, 200 and 300% ([SvgPngExport]). */
 internal object SvgPreview : Preview {
     override fun load(
         engine: WebEngine,
@@ -26,4 +26,6 @@ internal object SvgPreview : Preview {
     override val defaultMode get() = PreviewMode.PREVIEW
 
     override val zooms get() = true
+
+    override val exports by lazy { listOf(1, 2, 3).map { SvgPngExport(it) } }
 }

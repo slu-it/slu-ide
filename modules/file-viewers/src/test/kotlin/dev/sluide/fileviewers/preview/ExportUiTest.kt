@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers.preview
 
+import dev.sluide.fileviewers.image.SvgFileViewer
 import dev.sluide.fileviewers.markdown.MarkdownFileViewer
 import dev.sluide.fileviewers.table.CsvFileViewer
 import javafx.scene.Scene
@@ -16,16 +17,18 @@ import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
+import javax.imageio.ImageIO
 import kotlin.io.path.exists
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** The Export menu of the Markdown preview. Needs a display, see the `uiTest` Gradle task. */
+/** The Export menus of the Markdown and SVG previews. Needs a display, see the `uiTest` Gradle task. */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
 class ExportUiTest {
@@ -46,7 +49,12 @@ class ExportUiTest {
         text: String,
     ): PreviewFileView {
         val file = dir.resolve(name).apply { writeText(text) }
-        val viewer = if (name.endsWith(".md")) MarkdownFileViewer() else CsvFileViewer()
+        val viewer =
+            when (name.substringAfterLast('.')) {
+                "md" -> MarkdownFileViewer()
+                "svg" -> SvgFileViewer()
+                else -> CsvFileViewer()
+            }
         val view = WaitForAsyncUtils.asyncFx<PreviewFileView> { viewer.open(file) as PreviewFileView }.get()
         robot.interact { container.children.setAll(view.node) }
         return view
@@ -69,12 +77,21 @@ class ExportUiTest {
     }
 
     @Test
-    fun `only the Markdown preview has the Export button`(robot: FxRobot) {
+    fun `only the Markdown and SVG previews have the Export button`(robot: FxRobot) {
         val markdown = open(robot, "notes.md", "# Hi")
         assertNotNull(robot.lookup(".preview-export").queryAs(MenuButton::class.java))
         assertEquals(
             listOf("HTML"),
             markdown.export
+                ?.button
+                ?.items
+                ?.map { it.text },
+        )
+        val svg = open(robot, "logo.svg", LOGO)
+        assertNotNull(robot.lookup(".preview-export").queryAs(MenuButton::class.java))
+        assertEquals(
+            listOf("PNG 100%", "PNG 200%", "PNG 300%"),
+            svg.export
                 ?.button
                 ?.items
                 ?.map { it.text },
@@ -148,5 +165,43 @@ class ExportUiTest {
         val report = exported(view).single()
         assertTrue(report.startsWith("Exported notes.html, with problems:\nDiagram 1 could not be drawn: "), report)
         assertNotNull(Jsoup.parse(dir.resolve("notes.html").readText()).selectFirst("pre.mermaid.error"))
+    }
+
+    @Test
+    fun `exporting an SVG as PNG writes it beside the file at the chosen size`(robot: FxRobot) {
+        val view = open(robot, "logo.svg", LOGO)
+        assertTrue(exported(view, "PNG 200%").isEmpty())
+        val image = assertNotNull(ImageIO.read(dir.resolve("logo@2x.png").toFile()))
+        assertEquals(80 to 40, image.width to image.height)
+        assertEquals(0xffff0000.toInt(), image.getRGB(10, 10))
+        assertEquals(0, image.getRGB(70, 10) ushr 24)
+    }
+
+    @Test
+    fun `an existing PNG is only replaced if the user agrees`(robot: FxRobot) {
+        val view = open(robot, "logo.svg", LOGO)
+        val target = dir.resolve("logo.png").apply { writeText("old") }
+        val export = checkNotNull(view.export)
+        export.confirmOverwrite = { false }
+        exported(view, "PNG 100%")
+        assertEquals("old", target.readText())
+
+        export.confirmOverwrite = { true }
+        assertTrue(exported(view, "PNG 100%").isEmpty())
+        val image = assertNotNull(ImageIO.read(target.toFile()))
+        assertEquals(40 to 20, image.width to image.height)
+    }
+
+    @Test
+    fun `an SVG that cannot be drawn is reported`(robot: FxRobot) {
+        val view = open(robot, "broken.svg", "not an image")
+        assertEquals(listOf("Could not export broken.svg: Not an SVG image"), exported(view, "PNG 300%"))
+        assertFalse(dir.resolve("broken@3x.png").exists())
+    }
+
+    private companion object {
+        /** 40 × 20, the left half red, the right half transparent. */
+        const val LOGO =
+            "<svg xmlns='http://www.w3.org/2000/svg' width='40' height='20'><rect width='20' height='20' fill='red'/></svg>"
     }
 }
