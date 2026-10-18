@@ -1,9 +1,9 @@
 package dev.sluide.fileviewers.highlight
 
-import dev.sluide.fileviewers.BicepHighlighter
 import dev.sluide.fileviewers.EnvValues
-import dev.sluide.fileviewers.MAIN_BICEP
 import dev.sluide.fileviewers.SyntaxHighlighter
+import dev.sluide.fileviewers.bicep.BicepHighlighter
+import dev.sluide.fileviewers.bicep.MAIN_BICEP
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlin.time.Duration

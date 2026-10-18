@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.bicep
 
 import dev.sluide.fileviewers.preview.PreviewFileView
 import dev.sluide.fileviewers.preview.PreviewMode
@@ -21,7 +21,6 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotSame
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 

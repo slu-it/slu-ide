@@ -1,6 +1,5 @@
 package dev.sluide.editor
 
-import dev.sluide.fileviewers.BicepFileViewer
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.EnvFileViewer
 import dev.sluide.fileviewers.FileView
@@ -8,6 +7,7 @@ import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.NotebookFileViewer
+import dev.sluide.fileviewers.bicep.BicepFileViewer
 import dev.sluide.fileviewers.image.ImageFileViewer
 import dev.sluide.fileviewers.image.SvgFileViewer
 import dev.sluide.fileviewers.markdown.MarkdownFileViewer

@@ -1,11 +1,11 @@
 package dev.sluide.fileviewers.preview
 
-import dev.sluide.fileviewers.BicepFileViewer
-import dev.sluide.fileviewers.BicepParamFileViewer
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.PemFileViewer
 import dev.sluide.fileviewers.PemPreview
+import dev.sluide.fileviewers.bicep.BicepFileViewer
+import dev.sluide.fileviewers.bicep.BicepParamFileViewer
 import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import dev.sluide.fileviewers.html.HtmlFileViewer
 import dev.sluide.fileviewers.image.ImageFileViewer

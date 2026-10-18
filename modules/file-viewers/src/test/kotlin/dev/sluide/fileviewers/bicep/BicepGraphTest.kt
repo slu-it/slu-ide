@@ -1,7 +1,7 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.bicep
 
-import dev.sluide.fileviewers.BicepGraph.Edge
-import dev.sluide.fileviewers.BicepGraph.Kind
+import dev.sluide.fileviewers.bicep.BicepGraph.Edge
+import dev.sluide.fileviewers.bicep.BicepGraph.Kind
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull

@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.bicep
 
 /**
  * A realistic Bicep file: decorators, user-defined types, a function, interpolated and multi-line strings, a storage

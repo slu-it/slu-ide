@@ -1,4 +1,8 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.bicep
+
+import dev.sluide.fileviewers.HighlightSpan
+import dev.sluide.fileviewers.SyntaxHighlighter
+import dev.sluide.fileviewers.TokenStyle
 
 /**
  * Highlights Bicep (`.bicep`, `.bicepparam`), which has no RSyntaxTextArea lexer: our own tokenizer ([BicepTokens])

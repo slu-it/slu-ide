@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.bicep
 
 import dev.sluide.fileviewers.code.CodeFileViewer
 import dev.sluide.textediting.CommentSyntax

@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.bicep
 
 import dev.sluide.fileviewers.markdown.MarkdownRenderer
 import dev.sluide.fileviewers.markdown.MermaidPreview

@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.bicep
 
 /**
  * The resources and modules of a Bicep file and how they depend on each other, read from [BicepTokens] (so nothing in

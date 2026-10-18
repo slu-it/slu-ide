@@ -1,5 +1,7 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.bicep.BicepFileViewer
+import dev.sluide.fileviewers.bicep.BicepParamFileViewer
 import dev.sluide.fileviewers.html.HtmlFileViewer
 import dev.sluide.fileviewers.image.SvgFileViewer
 import dev.sluide.fileviewers.markdown.MarkdownFileViewer
