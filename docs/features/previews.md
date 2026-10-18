@@ -66,6 +66,8 @@ Images, SVG files, Mermaid files and Bicep resource graphs zoom; Markdown and no
 - Opens in **Preview**: the image on a checkered background (transparency shows; light or dark with the theme),
   fitted to the view and zoomable (see above). Source is highlighted as XML.
 - The SVG is shown as an `<img>` (`data:` URI), so its scripts never run.
+- **Export** beside the zoom controls writes the SVG as a PNG at 100 %, 200 % or 300 % beside it:
+  [svg-png-export.md](svg-png-export.md).
 
 ## Images (png, jpg/jpeg, gif, webp, bmp, ico) — `ImageFileViewer`
 - Image files up to 50 MB open although they are binary: the image on the same checkered page as SVG, with the zoom
