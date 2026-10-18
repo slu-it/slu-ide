@@ -96,6 +96,27 @@ class GitBranchesTest {
     }
 
     @Test
+    fun `a checkout refuses to overwrite an ignored file the other commit tracks`() {
+        commit("First")
+        git("switch", "-q", "-c", "old")
+        val old = commit("Tracked env", ".env", "tracked secret")
+        git("switch", "-q", "main")
+        commit("Ignore env", ".gitignore", ".env")
+        repo.resolve(".env").writeText("LOCAL SECRET\n")
+
+        val branch = branches.switchBranch(repo, "old")
+        val detached = branches.switchDetached(repo, old)
+
+        for (refused in listOf(branch, detached)) {
+            assertFalse(refused.success)
+            assertContains(refused.message, "would be overwritten by checkout")
+            assertContains(refused.message, ".env")
+        }
+        assertEquals("main", currentBranch())
+        assertEquals("LOCAL SECRET\n", repo.resolve(".env").readText())
+    }
+
+    @Test
     fun `checks out a commit or tag detached`() {
         val first = commit("First")
         git("tag", "v1", first)

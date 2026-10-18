@@ -228,7 +228,9 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
     groups and several; Delete as soon as the selection holds the current branch, a remote branch, `HEAD`, a folder or
     a group. A local branch is checked out, a tag detached; a remote branch `origin/fix` checks out the local branch
     `fix` if there is one ("Checked out local branch fix."), else creates `fix` tracking it and checks it out
-    ("Checked out new branch fix tracking origin/fix."). There are no further keys.
+    ("Checked out new branch fix tracking origin/fix."). There are no further keys. A checkout never overwrites an
+    ignored file the other commit tracks (a local `.env`): git refuses as for untracked files ("The following untracked
+    working tree files would be overwritten by checkout: .env"), shown in the error dialog.
   - **Leaving a detached HEAD:** a checkout (also of a revision from the log, or a new branch with Checkout) that would
     leave commits of a detached `HEAD` on no branch, remote branch or tag asks first: "2 commits of the detached HEAD
     will no longer be on any branch or tag; they stay reachable through the reflog for a while." and below it "To

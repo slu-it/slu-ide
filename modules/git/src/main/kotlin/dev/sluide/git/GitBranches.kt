@@ -74,7 +74,12 @@ class GitBranches(
         root: Path,
         revision: String,
     ): GitResult {
-        val switched = checkout(root, listOf(revision), listOf("switch", "--detach", "--end-of-options", revision))
+        val switched =
+            checkout(
+                root,
+                listOf(revision),
+                listOf("switch", "--detach", NO_OVERWRITE_IGNORE, "--end-of-options", revision),
+            )
         if (switched.success) return switched
         val target = git.commitOfRevision(root, revision) ?: return switched
         val detachedThere = git.currentBranch(root) == null && git.headCommit(root) == target
@@ -234,7 +239,7 @@ class GitBranches(
         root: Path,
         name: String,
     ): GitResult {
-        val switched = checkout(root, listOf(name), listOf("switch", "--end-of-options", name))
+        val switched = checkout(root, listOf(name), listOf("switch", NO_OVERWRITE_IGNORE, "--end-of-options", name))
         if (switched.success) return switched
         return if (git.currentBranch(root) == "refs/heads/$name") switched.copy(changed = true) else switched
     }
@@ -328,6 +333,12 @@ class GitBranches(
     private companion object {
         /** The length of hashes in messages, as in the git log. */
         const val SHORT_HASH = 8
+
+        /**
+         * Lets a checkout refuse, as it does for untracked files, to overwrite ignored files (a local `.env`) at paths
+         * the other commit tracks; by default git overwrites them without a word.
+         */
+        const val NO_OVERWRITE_IGNORE = "--no-overwrite-ignore"
     }
 }
 

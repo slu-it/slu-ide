@@ -32,18 +32,23 @@ POSIX locale cannot pass non-ASCII arguments ([ADR 0038](0038-changed-files-and-
     may keep the pipes open. A write keeps what was read by then; a read (of any git command) whose output is not read
     to its end by then fails rather than give a part.
 - **Commands** (names are short names, starts and revisions full hashes or refnames):
-  - checkout of a local branch: `git switch --end-of-options <name>`;
-  - checkout of a commit or tag: `git switch --detach --end-of-options <hash or refs/tags/x>`;
-  - checkout of a remote branch: its local branch if there is one (`git switch <b>`), else
-    `git branch --track --end-of-options <b> refs/remotes/<r>/<b>`, then `git switch --end-of-options <b>`;
+  - checkout of a local branch: `git switch --no-overwrite-ignore --end-of-options <name>`;
+  - checkout of a commit or tag: `git switch --detach --no-overwrite-ignore --end-of-options <hash or refs/tags/x>`;
+  - checkout of a remote branch: its local branch if there is one (as above), else
+    `git branch --track --end-of-options <b> refs/remotes/<r>/<b>`, then
+    `git switch --no-overwrite-ignore --end-of-options <b>`;
   - new branch: `git branch [-f] --end-of-options <name> <start>`, with checkout then
-    `git switch --end-of-options <name>`;
+    `git switch --no-overwrite-ignore --end-of-options <name>`;
   - new tag: `git tag --end-of-options <name> <commit>`; with a message
     `git tag -a --cleanup=whitespace -F - --end-of-options <name> <commit>`;
   - rename: `git branch -m --end-of-options <old> <new>`;
   - delete: `git branch -d --end-of-options <names…>` (`-D` once confirmed), `git tag -d --end-of-options <names…>`.
   - `--end-of-options` (git 2.24 or later; checked with git 2.53) keeps a name from being read as an option. Older git
     fails with its own message.
+  - `--no-overwrite-ignore`: by default a checkout overwrites ignored files (a local `.env`) at paths the other commit
+    tracks without a word, while it refuses for untracked ones. With it, git refuses for both ("The following untracked
+    working tree files would be overwritten by checkout: .env … Aborting", checked with git 2.53), shown in the error
+    dialog; nothing changed then.
   - **A new branch is created first and checked out second,** never with `git switch -c`/`-C` or `--track`: these
     change the working tree and index before they create the branch, and when creating it fails they leave the other
     commit's files staged on the old branch, where the next commit would take them (git 2.53: `--track` from a
