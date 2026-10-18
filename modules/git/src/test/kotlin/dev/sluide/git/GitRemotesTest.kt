@@ -112,9 +112,33 @@ class GitRemotesTest {
         assertEquals(listOf("mine", "v2"), tags(), "the local tag stays, the loose one is not fetched")
         assertContains(fetched.result.message, "[new branch]")
 
+        assertTrue(fetched.pruned)
         val again = remotes.fetch(repo, "origin", GitCancellation())
         assertTrue(again.result.success, again.result.message)
         assertEquals(GitFetchChanges(), again.changes)
+    }
+
+    @Test
+    fun `a remote whose refspecs write outside refs_remotes is not pruned, as that would delete local refs`() {
+        // A mirror: pruning would delete every local branch and tag the server does not have (git 2.53).
+        git("config", "--replace-all", "remote.origin.fetch", "+refs/*:refs/*")
+        git("config", "fetch.prune", "true")
+        git("switch", "-q", "--detach")
+        git("branch", "local-only")
+        git("tag", "mine")
+        commit("Second")
+
+        val fetched = remotes.fetch(repo, "origin", GitCancellation())
+
+        assertTrue(fetched.result.success, fetched.result.message)
+        assertFalse(fetched.pruned)
+        assertTrue(refs("refs/heads/").any { it.startsWith("local-only ") }, "the local branch stays")
+        assertEquals(listOf("mine"), tags())
+        assertEquals(tip("refs/heads/main"), git("rev-parse", "HEAD", directory = upstream), "fetched all the same")
+
+        git("config", "--replace-all", "remote.origin.fetch", "+refs/tags/*:refs/tags/*")
+        assertFalse(remotes.fetch(repo, "origin", GitCancellation()).pruned)
+        assertEquals(listOf("mine"), tags())
     }
 
     @Test

@@ -77,7 +77,8 @@ private fun fetching(remote: String) = "Fetching $remote…"
  * "Fetched 2 remotes: nothing new.", "Fetched 1 of 2 remotes: …" when others failed, "Fetched origin with errors: …"
  * when all failed but changed refs all the same (git refused a tag but moved the branches), or "Fetch cancelled." with
  * what changed before; `null` when nothing was fetched and nothing changed. The changes of all remotes count, also of
- * those that failed or were cancelled; a remote whose changes could not be read adds none.
+ * those that failed or were cancelled; a remote whose changes could not be read adds none. The remotes that were not
+ * pruned, as their fetch refspecs write outside `refs/remotes/`, are named after it ([notPrunedNote]).
  */
 internal fun fetchSummary(
     results: Map<String, GitFetchResult>,
@@ -86,17 +87,42 @@ internal fun fetchSummary(
     val known = results.values.mapNotNull { it.changes }
     val changes = known.fold(GitFetchChanges(), GitFetchChanges::plus)
     val words = changeWords(changes)
-    if (cancelled) return if (changes.none) "Fetch cancelled." else "Fetch cancelled. Fetched so far: $words."
+    val note = notPrunedNote(results.filterValues { !it.pruned }.keys)
+    if (cancelled) return (if (changes.none) "Fetch cancelled." else "Fetch cancelled. Fetched so far: $words.") + note
     val fetched = results.filterValues { it.result.success }.keys
     val attempted = results.size
     val details = if (known.isEmpty()) "" else ": ${if (changes.none) "nothing new" else words}"
-    return when {
-        fetched.size == attempted -> "Fetched ${remotesLabel(results.keys)}$details."
-        fetched.isNotEmpty() -> "Fetched ${fetched.singleOrNull() ?: "${fetched.size} of $attempted remotes"}$details."
-        changes.none -> null
-        else -> "Fetched ${remotesLabel(results.keys)} with errors: $words."
-    }
+    val summary =
+        when {
+            fetched.size == attempted -> {
+                "Fetched ${remotesLabel(results.keys)}$details."
+            }
+
+            fetched.isNotEmpty() -> {
+                "Fetched ${fetched.singleOrNull() ?: "${fetched.size} of $attempted remotes"}$details."
+            }
+
+            changes.none -> {
+                null
+            }
+
+            else -> {
+                "Fetched ${remotesLabel(results.keys)} with errors: $words."
+            }
+        }
+    return summary?.plus(note)
 }
+
+/**
+ * What the header adds for the [remotes] that were not pruned (ADR 0043), e.g. a mirror, where pruning would delete
+ * local branches and tags: " Not pruned: backup, as its fetch refspecs write outside refs/remotes/."; empty for none.
+ */
+internal fun notPrunedNote(remotes: Collection<String>): String =
+    when (remotes.size) {
+        0 -> ""
+        1 -> " Not pruned: ${remotes.single()}, as its fetch refspecs write outside refs/remotes/."
+        else -> " Not pruned: ${remotes.joinToString(", ")}, as their fetch refspecs write outside refs/remotes/."
+    }
 
 /** The one remote's name, else "2 remotes". */
 private fun remotesLabel(remotes: Collection<String>) = remotes.singleOrNull() ?: "${remotes.size} remotes"

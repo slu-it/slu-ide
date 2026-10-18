@@ -47,20 +47,23 @@ data class GitFetchChanges(
 
 /**
  * What fetching a remote gave: git's [result] (a failure may have updated some refs all the same, e.g. when git refuses
- * to move an existing tag), whether it was [cancelled], and how the refs [changed][changes] (`null` if that could not be
- * read).
+ * to move an existing tag), whether it was [cancelled], how the refs [changed][changes] (`null` if that could not be
+ * read), and whether it was [pruned] (not if its fetch refspecs write outside `refs/remotes/`, see [GitRemotes.fetch]).
  */
 data class GitFetchResult(
     val result: GitResult,
     val cancelled: Boolean = false,
     val changes: GitFetchChanges? = null,
+    val pruned: Boolean = true,
 )
 
 /**
  * Fetches the remotes of a repository (ADR 0043) with the git command line, one remote at a time:
- * `git fetch --prune --recurse-submodules=no --end-of-options <remote>`. Tags are fetched as git does by default
- * (those pointing into the fetched history); local tags are never pruned by Thoreau. Git never asks for anything:
- * `GIT_TERMINAL_PROMPT=0`, and ssh runs in batch mode unless the user chose how git runs ssh ([fetchEnvironment]).
+ * `git fetch --prune --recurse-submodules=no --end-of-options <remote>`, or `--no-prune` for a remote whose fetch
+ * refspecs write outside `refs/remotes/`. Tags are fetched as git does by default (those pointing into the fetched
+ * history); local tags are pruned only with the user's `fetch.pruneTags` or `remote.<name>.pruneTags`. Git never asks
+ * for anything: `GIT_TERMINAL_PROMPT=0`, and ssh runs in batch mode unless the user chose how git runs ssh
+ * ([fetchEnvironment]).
  * Runs git on the calling thread.
  */
 @Component
@@ -85,6 +88,11 @@ class GitRemotes(
      * Fetches [remote], pruning its remote branches deleted on the server, within 10 minutes; [cancellation] stops git
      * (what it updated by then stays). A name that cannot be passed to git ([refusal]) fails without running git. The
      * [GitFetchResult.changes] compare the refs before and after, also after a failure or cancel.
+     *
+     * Pruning deletes every ref where a fetch refspec writes that the server does not have: for a mirror (every ref
+     * fetched to itself) or any refspec into `refs/heads/` or `refs/tags/`, the local branches and tags the remote does
+     * not have (checked with git 2.53). Such a remote, or one whose refspecs cannot be read, is fetched with
+     * `--no-prune`, also against the user's `fetch.prune`; the result says it was not [pruned][GitFetchResult.pruned].
      */
     fun fetch(
         root: Path,
@@ -96,7 +104,9 @@ class GitRemotes(
         val destinations = git.configValues(root, "remote.$remote.fetch")?.let(::refspecDestinations)
         val before = destinations?.let { snapshot(root, remote, it) }
         val environment = fetchEnvironment(git.environment, git.sshConfigured(root) == true)
-        val arguments = listOf("fetch", "--prune", "--recurse-submodules=no", "--end-of-options", remote)
+        val pruned = destinations != null && destinations.all { it.prefix.startsWith("refs/remotes/") }
+        val prune = if (pruned) "--prune" else "--no-prune"
+        val arguments = listOf("fetch", prune, "--recurse-submodules=no", "--end-of-options", remote)
         val (result, exitValue) =
             git.writeWithExit(
                 root,
@@ -108,7 +118,8 @@ class GitRemotes(
         val cancelled = exitValue == null && cancellation.cancelled
         val after = if (before == null || destinations == null) null else snapshot(root, remote, destinations)
         val changes = if (before != null && after != null) fetchChanges(before, after) else null
-        return GitFetchResult(if (cancelled) GitResult(false, GitCli.CANCELLED) else result, cancelled, changes)
+        val outcome = if (cancelled) GitResult(false, GitCli.CANCELLED) else result
+        return GitFetchResult(outcome, cancelled, changes, pruned)
     }
 
     /**

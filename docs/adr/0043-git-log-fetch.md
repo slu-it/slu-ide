@@ -18,11 +18,17 @@ Git 2.53 behaves as follows (checked in tests):
   other refs are updated.
 - `--prune` deletes the remote-tracking refs of branches deleted on the server, under the remote's refspec
   (`refs/remotes/<remote>/`), not tags (unless the user configured `fetch.pruneTags`/`remote.<name>.pruneTags`).
+  Where a refspec writes elsewhere, it deletes there: with a mirror (`remote.<name>.mirror`, every ref fetched to
+  itself) or a refspec into `refs/heads/` or `refs/tags/`, the local branches and tags the server does not have
+  (checked with git 2.53, `HEAD` detached; with a branch checked out a mirror's fetch fails as a whole).
 - `git fetch` keeps `refs/remotes/<remote>/HEAD` (a symbolic ref) up to date.
 
 ## Decision
 - **One remote at a time:** `GitRemotes` (`modules/git`, a singleton bean) runs
   `git fetch --prune --recurse-submodules=no --end-of-options <remote>` for each remote in git's order (`git remote`;
+  `--no-prune` instead, also against the user's `fetch.prune`, for a remote whose fetch refspecs write anywhere but
+  below `refs/remotes/`, or cannot be read: the header then adds "Not pruned: backup, as its fetch refspecs write
+  outside refs/remotes/.";
   git refuses line breaks in remote names), leaving out those with `remote.<name>.skipFetchAll` true as
   `git fetch --all` does (read with `git config -z --type=bool --get-regexp`; the last value counts, as for git, so a
   repository's `false` overrides a global `true`). Not `git fetch --all`: it goes on after

@@ -324,8 +324,11 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
   the branches pane's context menu (after Delete and a separator) on a remote, a folder of a remote or a remote branch
   fetches only that remote, also one with `skipFetchAll`; it is disabled where no remote of the repository matches
   (remote branches of a removed remote). `git fetch --prune --recurse-submodules=no`: remote branches deleted on the
-  server disappear, tags arrive as git follows them by default (those of the fetched commits); local tags are never
-  deleted and tags moved on the server are not moved locally. No file changes, so no question about unsaved editors.
+  server disappear (not for a remote whose fetch refspecs write outside `refs/remotes/`, e.g. a mirror, where pruning
+  would delete local branches and tags: "Not pruned: backup, as its fetch refspecs write outside refs/remotes/."), tags
+  arrive as git follows them by default (those of the fetched commits); local tags are not deleted (unless the user
+  configured `fetch.pruneTags`) and tags moved on the server are not moved locally. No file changes, so no question
+  about unsaved editors.
   - **Running:** like the other operations, one at a time and with all of them disabled meanwhile (the Fetch button
     too); the header says "Fetching origin…" with a **Cancel** button next to it, which stops git (and ssh or whatever
     it started) and skips the remaining remotes: "Fetch cancelled." and, if anything changed before, "Fetched so far:

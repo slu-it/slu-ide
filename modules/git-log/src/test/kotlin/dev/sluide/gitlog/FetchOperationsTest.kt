@@ -193,6 +193,20 @@ class FetchOperationsTest {
     }
 
     @Test
+    fun `the summary names the remotes that were not pruned`() {
+        val mirror = ok().copy(pruned = false)
+        assertEquals(
+            "Fetched 2 remotes: nothing new. Not pruned: backup, as its fetch refspecs write outside refs/remotes/.",
+            fetchSummary(mapOf("origin" to ok(), "backup" to mirror), cancelled = false),
+        )
+        assertEquals(
+            "Fetch cancelled. Not pruned: a, b, as their fetch refspecs write outside refs/remotes/.",
+            fetchSummary(mapOf("a" to mirror, "b" to mirror.copy(cancelled = true)), cancelled = true),
+        )
+        assertNull(fetchSummary(mapOf("a" to mirror.copy(result = GitResult(false, "no"))), cancelled = false))
+    }
+
+    @Test
     fun `the branches pane fetches the remote a selected node is or is in, among the remotes git has`() {
         val refs =
             GitRefs(
