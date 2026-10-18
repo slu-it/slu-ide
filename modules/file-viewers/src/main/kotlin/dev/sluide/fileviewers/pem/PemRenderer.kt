@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.pem
 
 import dev.sluide.fileviewers.preview.HtmlPage
 import org.jsoup.nodes.Entities

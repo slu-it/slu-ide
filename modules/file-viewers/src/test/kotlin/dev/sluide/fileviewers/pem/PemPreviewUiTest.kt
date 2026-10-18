@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.pem
 
 import dev.sluide.fileviewers.preview.PreviewFileView
 import dev.sluide.fileviewers.preview.PreviewMode
@@ -39,7 +39,7 @@ class PemPreviewUiTest {
 
     @Test
     fun `a PEM file opens on the details of its certificates`(robot: FxRobot) {
-        val chain = checkNotNull(PemPreviewUiTest::class.java.getResource("pem/test-only-chain.pem")).readText()
+        val chain = checkNotNull(PemPreviewUiTest::class.java.getResource("test-only-chain.pem")).readText()
         val file = dir.resolve("chain.crt").apply { writeText(chain) }
         val view = WaitForAsyncUtils.asyncFx<PreviewFileView> { PemFileViewer().open(file) as PreviewFileView }.get()
         robot.interact { container.children.setAll(view.node) }

@@ -1,8 +1,9 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.pem
 
-import dev.sluide.fileviewers.PemRenderer.Badge
+import dev.sluide.fileviewers.TokenStyle
 import dev.sluide.fileviewers.highlight.Highlighted
 import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
+import dev.sluide.fileviewers.pem.PemRenderer.Badge
 import java.security.AlgorithmParameters
 import java.security.KeyPairGenerator
 import java.security.SecureRandom
@@ -24,7 +25,7 @@ import kotlin.test.assertTrue
 /** The details of PEM files, from the test-only fixtures in `src/test/resources/…/pem` (see its README). */
 class PemRendererTest {
     private fun fixture(name: String): String =
-        checkNotNull(PemRendererTest::class.java.getResource("pem/$name")) { "missing $name" }.readText()
+        checkNotNull(PemRendererTest::class.java.getResource(name)) { "missing $name" }.readText()
 
     private val now = Instant.parse("2026-10-15T12:00:00Z")
 
