@@ -102,10 +102,16 @@ assembled from Gradle modules.
 `dev.sluide.<module>` per module, e.g. `dev.sluide.fileexplorer`, `dev.sluide.fileviewers`, `dev.sluide.ide`. All must live below
 `dev.sluide` to be found by component scanning.
 
+The root package of a module holds its API: what other modules' main code imports, plus launch points. Everything
+else lives in sub-packages of files that belong together, by feature or by layer, e.g. `dev.sluide.fileviewers.markdown`,
+`dev.sluide.git.cli`, `dev.sluide.gitlog.push`; beans that only scanning finds included. Small modules stay flat
+([ADR 0055](adr/0055-sub-packages-within-modules.md)).
+
 Within a package, one file holds one responsibility; production files stay under about 500 lines
 ([ADR 0054](adr/0054-keep-source-files-small.md)). A large class is split without changing its callers, for example `GitCli`
-into its process core plus `internal` extension read files by area (`GitCliLog.kt`, `GitCliRefs.kt`, …), and
-`GitLogView` into a coordinator plus `internal` components (`CompareBar`, `CommitDiffs`, …).
+into its process core plus `internal` extension read files by area (`git.cli`: `GitCliLog.kt`, `GitCliRefs.kt`, …),
+and `GitLogView` into a coordinator plus `internal` components in the sub-packages of `dev.sluide.gitlog`
+(`area.CompareBar`, `area.CommitDiffs`, …).
 
 ## Build and release
 - **CI** (`.github/workflows/ci.yml`): `./gradlew build --continue` on Linux, without `uiTest` on macOS, for every push to `main`/`master` and every PR.

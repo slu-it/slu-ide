@@ -1,6 +1,6 @@
 # File Explorer
 
-**Module:** `modules/file-explorer` (package `dev.sluide.fileexplorer`)
+**Module:** `modules/file-explorer` (package `dev.sluide.fileexplorer` and its sub-packages, [ADR 0055](../adr/0055-sub-packages-within-modules.md))
 
 - `FileExplorerView` is a `TreeView<Path>` (Spring `@Component`). `open(root)` shows the folder with the root
   expanded; `open(null)` clears the view.

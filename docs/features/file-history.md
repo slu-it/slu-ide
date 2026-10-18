@@ -1,6 +1,6 @@
 # File History
 
-**Module:** `modules/git-log` (package `dev.sluide.gitlog`) — `FileHistory` (what a history loads and selects, without
+**Module:** `modules/git-log` (package `dev.sluide.gitlog` and its sub-packages, [ADR 0055](../adr/0055-sub-packages-within-modules.md)) — `FileHistory` (what a history loads and selects, without
 controls), `FileHistoryView` (its table and details) and `AreaTab` (a tab in the header, `FileHistoryView.kt`), opened
 by `GitLogView.showHistory`; the commits come from `GitLog.fileHistory` in `modules/git`. Show History in the explorer
 and the editor's tabs are hooks of `FileExplorerView` and `EditorArea`, set by `MainWindow`. Decisions in

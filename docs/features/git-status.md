@@ -1,6 +1,6 @@
 # Git Status
 
-**Module:** `modules/git` (package `dev.sluide.git`), decision in [ADR 0013](../adr/0013-git-status.md)
+**Module:** `modules/git` (package `dev.sluide.git` and its sub-packages, [ADR 0055](../adr/0055-sub-packages-within-modules.md)), decision in [ADR 0013](../adr/0013-git-status.md)
 
 - At startup `GitCli` checks whether `git` is on the `PATH` (`git --version`); the log says which version is used or
   that git information is not shown.

@@ -1,6 +1,6 @@
 # Terminal
 
-**Module:** `modules/terminal` (package `dev.sluide.terminal`), depends on `modules/editor` (terminals are
+**Module:** `modules/terminal` (package `dev.sluide.terminal` and its sub-packages, [ADR 0055](../adr/0055-sub-packages-within-modules.md)), depends on `modules/editor` (terminals are
 `EditorTab`s); decision in [ADR 0007](../adr/0007-terminal.md)
 
 - Terminal → New Terminal (Ctrl+Shift+T, Cmd+Shift+T on macOS) opens a terminal tab in the editor area

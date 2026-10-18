@@ -21,5 +21,7 @@ paths:
   `build.gradle.kts`.
 - Feature modules expose UI as a Spring `@Component` in package `dev.sluide.<module>`; keep implementation details
   `internal`/private. Foundation modules may be plain libraries without Spring beans.
+- The root package holds the module's API (what other modules' main code imports); everything else goes into the
+  sub-package of what it belongs to, by feature or layer. Small modules stay flat (ADR 0055).
 - Pass state in through the module's public API instead of letting modules reach into each other.
 - Shared build logic belongs in the root `build.gradle.kts`, not copied between modules.

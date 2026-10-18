@@ -1,6 +1,6 @@
 # Settings
 
-**Module:** `modules/settings` (package `dev.sluide.settings`), decision in [ADR 0008](../adr/0008-settings.md)
+**Module:** `modules/settings` (package `dev.sluide.settings` and its sub-packages, [ADR 0055](../adr/0055-sub-packages-within-modules.md)), decision in [ADR 0008](../adr/0008-settings.md)
 
 - File → Settings… (Ctrl+, / Cmd+,) opens the settings dialog: a tree of pages on the left, the selected page on the
   right. Selecting a group (e.g. Display) shows its first page.

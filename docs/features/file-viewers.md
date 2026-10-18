@@ -1,6 +1,6 @@
 # File Viewers
 
-**Module:** `modules/file-viewers` (package `dev.sluide.fileviewers`)
+**Module:** `modules/file-viewers` (package `dev.sluide.fileviewers` and its sub-packages, [ADR 0055](../adr/0055-sub-packages-within-modules.md))
 
 - `FileViewer` is the extension point: `canOpen(file)` decides cheaply whether the viewer can show a file, and
   `open(file)` creates a `FileView` for it. A `FileView` has the JavaFX `node` and `reload()`, which re-reads the file

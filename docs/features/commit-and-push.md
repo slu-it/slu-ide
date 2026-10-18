@@ -1,6 +1,6 @@
 # Commit and Push
 
-**Module:** `modules/git-log` (package `dev.sluide.gitlog`) — `CommitView` (the tab's tree, message and buttons),
+**Module:** `modules/git-log` (package `dev.sluide.gitlog` and its sub-packages, [ADR 0055](../adr/0055-sub-packages-within-modules.md)) — `CommitView` (the tab's tree, message and buttons),
 `CommitReader` and `CommitChecks` (what the tab reads and which files are checked, `CommitDraft.kt`, without controls)
 and the `CommitChanges` operation (`CommitChanges.kt`, without controls), opened by `GitLogView.showCommit`; the
 changes are read and committed by `GitCommits.commitChanges` and `commit` in `modules/git`. The Git menu is in
