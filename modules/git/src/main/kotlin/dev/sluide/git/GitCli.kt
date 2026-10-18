@@ -1171,6 +1171,23 @@ class GitCli(
     }
 
     /**
+     * How many commits reachable from `HEAD` in the repository at [root] are reachable neither from [target] (a hash or
+     * full refname) nor from any ref below `refs/` (branches, tags, remote branches, the stash, notes): the commits a
+     * switch from a detached `HEAD` to [target] leaves behind, as git counts them for its warning; `git rev-list --count`.
+     * `null` if git is not available, fails or takes longer than 10 s.
+     */
+    internal fun leftBehindCount(
+        root: Path,
+        target: String,
+    ): Int? {
+        if (!available || target.startsWith('-')) return null
+        // A glob with *, so git appends no /*; it matches across slashes, as git's warning excludes every ref.
+        val arguments =
+            listOf("--no-optional-locks", "rev-list", "--count", "HEAD", "--not", target, "--glob=refs/*", "--")
+        return run(arguments, root, 10.seconds)?.trim()?.toIntOrNull()
+    }
+
+    /**
      * How many tracked files of the working tree at [root] have changes, staged or not, against `HEAD`: the records of
      * `git status --porcelain -z --untracked-files=no --no-renames`. `null` if git is not available, fails or takes
      * longer than 10 s.

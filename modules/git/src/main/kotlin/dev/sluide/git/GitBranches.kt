@@ -120,6 +120,22 @@ class GitBranches(
             null
         }
 
+    /**
+     * How many commits a checkout of [target] (`HEAD`, a hash or full refname) would leave on no branch, remote branch or
+     * tag: none while `HEAD` is on a branch, which keeps them; for a detached `HEAD`, those reachable from it but not
+     * from [target] nor from any ref below `refs/` (the stash too), the commits git warns it is "leaving behind". `null`
+     * if git fails (or [target] cannot be passed to it).
+     */
+    fun leftBehind(
+        root: Path,
+        target: String,
+    ): Int? {
+        if (refusal(target) != null) return null
+        val branch = git.headBranch(root) ?: return null
+        if (branch.isNotEmpty()) return 0
+        return git.leftBehindCount(root, target)
+    }
+
     /** Whether the local branch [name] (its short name) exists; `false` if git fails. */
     fun branchExists(
         root: Path,

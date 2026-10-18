@@ -104,6 +104,33 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
     }
 
     @Test
+    fun `a checkout that leaves commits of a detached HEAD behind asks first, Cancel the default`(robot: FxRobot) {
+        openAndExpand(robot)
+        writes.leftBehind = 2
+
+        selectBranches(robot, "Tags/v0.9")
+        fireLater(branches.checkoutItem)
+        var question = awaitDialog(robot)
+        assertEquals("Check Out", (question.scene.window as Stage).title)
+        assertEquals(
+            "2 commits of the detached HEAD will no longer be on any branch or tag; they stay reachable through the " +
+                "reflog for a while.\nTo keep them, cancel and create a branch at HEAD first. Check out v0.9 anyway?",
+            question.headerText,
+        )
+        assertNoBandBelowQuestion(question)
+        assertTrue((question.lookupButton(ButtonType.CANCEL) as Button).isDefaultButton)
+        press(robot, question, ButtonType.CANCEL)
+        assertEquals(emptyList(), writes.calls, "Cancel checks out nothing")
+
+        fireLater(branches.checkoutItem)
+        question = awaitDialog(robot)
+        press(robot, question, CHECKOUT_BUTTON)
+        eventually { assertEquals(listOf("switch --detach refs/tags/v0.9"), writes.calls) }
+        eventually { assertEquals("Checked out v0.9.", status(robot)) }
+        assertEquals(2, beforeCheckoutCalls, "unsaved editors asked once per checkout, not again on confirming")
+    }
+
+    @Test
     fun `the new branch dialog checks the name and creates the branch at the commit, checked out or not`(
         robot: FxRobot,
     ) {

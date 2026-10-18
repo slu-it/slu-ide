@@ -14,6 +14,8 @@ import kotlin.test.assertTrue
 class RefOperationsTest {
     private val root = Path.of("/repo")
 
+    private val keep = "To keep them, cancel and create a branch at HEAD first."
+
     private val refs =
         GitRefs(
             listOf(
@@ -343,6 +345,108 @@ class RefOperationsTest {
         val outcome = CreateBranch("x", "h1", checkout = true, overwrite = true).run(writes, root)
 
         assertEquals(RefOutcome(GitResult(false, "The commit of branch 'x' could not be read."), null), outcome)
+        assertEquals(emptyList(), writes.calls)
+    }
+
+    @Test
+    fun `a checkout that would leave commits of a detached HEAD on no branch or tag asks first`() {
+        val writes = FakeWrites()
+        writes.leftBehind = 2
+        val checkout = CheckoutBranch("main")
+
+        val asked = checkout.run(writes, root)
+
+        assertEquals(
+            RefConfirmation(
+                "Check Out",
+                "2 commits of the detached HEAD will no longer be on any branch or tag; they stay reachable through " +
+                    "the reflog for a while.\n$keep Check out main anyway?",
+                CHECKOUT_BUTTON,
+                checkout.copy(confirmed = true),
+            ),
+            asked.confirmation,
+        )
+        assertNull(asked.done)
+        assertEquals(emptyList(), writes.calls, "nothing done")
+        assertEquals(listOf("left behind refs/heads/main"), writes.reads)
+        assertEquals("Checked out main.", checkout.copy(confirmed = true).run(writes, root).done)
+        assertEquals(listOf("switch main"), writes.calls)
+    }
+
+    @Test
+    fun `every checkout asks with what it checks out, also when that cannot be read`() {
+        val writes = FakeWrites()
+        writes.leftBehind = 1
+        val remote = GitRef("refs/remotes/origin/fix", GitRefKind.REMOTE_BRANCH, "h4")
+
+        val question = CheckoutRevision("h2", "h2 label").run(writes, root).confirmation
+        assertEquals(
+            "1 commit of the detached HEAD will no longer be on any branch or tag; it stays reachable through the " +
+                "reflog for a while.\n$keep Check out h2 label anyway?",
+            question?.question,
+        )
+        assertEquals(CheckoutRevision("h2", "h2 label", confirmed = true), question?.confirmed)
+        val newTracking = CheckoutRemote(remote).run(writes, root).confirmation
+        assertEquals(CheckoutRemote(remote, confirmed = true), newTracking?.confirmed)
+        assertTrue(newTracking?.question.orEmpty().endsWith("Check out origin/fix anyway?"))
+        writes.localBranches = setOf("fix")
+        val local = CheckoutRemote(remote).run(writes, root).confirmation
+        assertTrue(local?.question.orEmpty().endsWith("Check out fix anyway?"), "the local branch it checks out")
+        val create = CreateBranch("x", "h2", checkout = true, overwrite = false)
+        assertEquals(create.copy(leavingConfirmed = true), create.run(writes, root).confirmation?.confirmed)
+        assertNull(CreateBranch("y", "h2", checkout = false, overwrite = false).run(writes, root).confirmation)
+        assertEquals(
+            listOf(
+                "left behind h2",
+                "left behind refs/remotes/origin/fix",
+                "left behind refs/heads/fix",
+                "left behind h2",
+            ),
+            writes.reads,
+            "no question for a branch that is not checked out",
+        )
+        assertEquals(listOf("branch y h2"), writes.calls)
+
+        writes.leftBehind = null
+        assertEquals(
+            "Whether commits of the detached HEAD will no longer be on any branch or tag could not be read.\n" +
+                "$keep Check out main anyway?",
+            CheckoutBranch("main").run(writes, root).confirmation?.question,
+        )
+    }
+
+    @Test
+    fun `a new branch that overwrites and leaves a detached HEAD asks both, the overwrite first`() {
+        val writes = FakeWrites()
+        writes.leftBehind = 1
+        writes.tips = mapOf("x" to "old")
+        writes.ancestry = { _, _ -> false }
+        val create = CreateBranch("x", "h2", checkout = true, overwrite = true)
+
+        val overwrite = create.run(writes, root).confirmation
+        assertEquals(OVERWRITE_BUTTON, overwrite?.button)
+        val leaving = checkNotNull(overwrite).confirmed.run(writes, root).confirmation
+        assertEquals(CHECKOUT_BUTTON, leaving?.button)
+        assertEquals(create.copy(confirmed = true, leavingConfirmed = true), leaving?.confirmed)
+        assertEquals(emptyList(), writes.calls, "nothing done before both are answered")
+
+        assertEquals("Created and checked out branch x.", checkNotNull(leaving).confirmed.run(writes, root).done)
+        assertEquals(listOf("switch -C x h2"), writes.calls)
+    }
+
+    @Test
+    fun `a checkout confirmed only for leaving a detached HEAD still checks the branch it overwrites`() {
+        val writes = FakeWrites()
+        writes.leftBehind = 1
+        val create = CreateBranch("x", "h2", checkout = true, overwrite = true)
+        // The branch did not exist when asked, and appears with other commits before the answer.
+        val leaving = checkNotNull(create.run(writes, root).confirmation).confirmed
+        writes.tips = mapOf("x" to "old")
+        writes.ancestry = { _, _ -> false }
+
+        val outcome = leaving.run(writes, root)
+
+        assertEquals(OVERWRITE_BUTTON, outcome.confirmation?.button)
         assertEquals(emptyList(), writes.calls)
     }
 

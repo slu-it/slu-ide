@@ -116,6 +116,33 @@ class GitBranchesTest {
     }
 
     @Test
+    fun `counts the commits of a detached HEAD a checkout would leave on no branch or tag`() {
+        val first = commit("First")
+        git("branch", "other")
+        val second = commit("Second")
+        assertEquals(0, branches.leftBehind(repo, "refs/heads/other"), "a branch keeps its commits")
+
+        git("switch", "-q", "--detach", first)
+        assertEquals(0, branches.leftBehind(repo, "refs/heads/main"), "a detached HEAD on a branch's commit")
+
+        commit("Detached one")
+        val detached = commit("Detached two")
+        assertEquals(2, branches.leftBehind(repo, "refs/heads/other"))
+        assertEquals(2, branches.leftBehind(repo, second))
+        assertEquals(0, branches.leftBehind(repo, detached), "the target keeps them")
+        assertEquals(0, branches.leftBehind(repo, "HEAD"))
+
+        git("tag", "keep", "HEAD~1")
+        assertEquals(1, branches.leftBehind(repo, "refs/heads/main"), "a tag keeps the commits below it")
+        assertNull(branches.leftBehind(repo, "-x"))
+
+        // As for git's warning, any ref keeps them, the stash too, whose commit has HEAD as parent.
+        repo.resolve("file.txt").writeText("stashed\n")
+        git("stash", "-q")
+        assertEquals(0, branches.leftBehind(repo, "refs/heads/main"))
+    }
+
+    @Test
     fun `checks out a remote branch as a new local branch tracking it`() {
         commit("First")
         val remote = folder.resolve("remote.git")

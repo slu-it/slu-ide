@@ -81,6 +81,18 @@ internal class FakeWrites : GitLogWrites {
         name: String,
     ) = name in localBranches
 
+    /** How many commits of a detached `HEAD` a checkout leaves on no ref. */
+    @Volatile
+    var leftBehind: Int? = 0
+
+    override fun leftBehind(
+        root: Path,
+        target: String,
+    ): Int? {
+        reads += "left behind $target"
+        return leftBehind
+    }
+
     /** The commits of the local branches, by name. */
     @Volatile
     var tips: Map<String, String> = emptyMap()
@@ -161,7 +173,7 @@ internal class FakeWrites : GitLogWrites {
     @Volatile
     var localChanges: Int? = 0
 
-    /** The reads of [unreachableCount] and [localChangeCount], as lines. */
+    /** The reads of [leftBehind], [unreachableCount] and [localChangeCount], as lines. */
     val reads = CopyOnWriteArrayList<String>()
 
     private fun pickCall(line: String): GitPickResult {

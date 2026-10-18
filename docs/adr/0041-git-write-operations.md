@@ -104,6 +104,14 @@ POSIX locale cannot pass non-ASCII arguments ([ADR 0038](0038-changed-files-and-
   or Keep mine ([ADR 0020](0020-editing-and-saving-files.md)), so nothing is thrown away without the user choosing it.
 - **Checkout of a remote branch** is disabled when its local branch of the same name is the current one: it would
   only check out the current branch.
+- **Leaving a detached `HEAD`:** every checkout (a branch, a remote branch, a revision or tag, a new branch with
+  Checkout) first counts the commits it would leave on no branch, remote branch or tag (`GitBranches.leftBehind`: 0
+  while `HEAD` is on a branch; for a detached `HEAD`, `git rev-list --count HEAD --not <target> --glob=refs/*`, every
+  ref excluded as for git's own count, the stash too). Git only warns about them on its standard error after a
+  successful switch ("you are leaving 2 commits behind"), which Thoreau would not show. With any, or if that cannot be
+  read, a confirmation asks first ("2 commits of the detached HEAD will no longer be on any branch or tag; they stay
+  reachable through the reflog for a while." and "To keep them, cancel and create a branch at HEAD first. Check out
+  main anyway?", Check Out or Cancel, the default). A new branch that also overwrites one asks about that first.
 - **Overwriting:** "Overwrite existing branch" passes `-f`. The checked-out branch is never overwritten: the dialog
   says "Branch 'main' is checked out." whatever Checkout says (git would refuse `branch -f` for it, while `switch -C`
   would reset it). For another existing branch the dialog notes "Moves 'x' from 1a2b3c4d."; if its commit is not an

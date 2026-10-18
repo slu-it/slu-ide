@@ -90,9 +90,13 @@ internal sealed interface RefOperation {
     ): RefOutcome = run(writes, root)
 }
 
-/** Checks out the local branch [name]. */
+/**
+ * Checks out the local branch [name]. Unless [confirmed], a detached `HEAD` whose commits it would leave on no branch
+ * or tag is not left: the outcome asks first ([leavingQuestion]).
+ */
 internal data class CheckoutBranch(
     val name: String,
+    val confirmed: Boolean = false,
 ) : RefOperation {
     override val progress get() = "Checking out $name…"
     override val errorTitle get() = CHECKOUT_FAILED
@@ -102,13 +106,20 @@ internal data class CheckoutBranch(
     override fun run(
         writes: GitLogWrites,
         root: Path,
-    ) = writes.switchBranch(root, name).outcome("Checked out $name.")
+    ): RefOutcome {
+        if (!confirmed) leavingQuestion(writes, root, "$HEADS$name", name, copy(confirmed = true))?.let { return it }
+        return writes.switchBranch(root, name).outcome("Checked out $name.")
+    }
 }
 
-/** Checks out [revision] (a hash or a tag's full refname) detached; [label] names it (short hash, tag name). */
+/**
+ * Checks out [revision] (a hash or a tag's full refname) detached; [label] names it (short hash, tag name). Unless
+ * [confirmed], asks first as [CheckoutBranch] does.
+ */
 internal data class CheckoutRevision(
     val revision: String,
     val label: String,
+    val confirmed: Boolean = false,
 ) : RefOperation {
     override val progress get() = "Checking out $label…"
     override val errorTitle get() = CHECKOUT_FAILED
@@ -118,15 +129,19 @@ internal data class CheckoutRevision(
     override fun run(
         writes: GitLogWrites,
         root: Path,
-    ) = writes.switchDetached(root, revision).outcome("Checked out $label.")
+    ): RefOutcome {
+        if (!confirmed) leavingQuestion(writes, root, revision, label, copy(confirmed = true))?.let { return it }
+        return writes.switchDetached(root, revision).outcome("Checked out $label.")
+    }
 }
 
 /**
  * Checks out the remote branch [ref] (`refs/remotes/origin/fix`): the local branch of the same name (`fix`) if there
- * is one, else a new local branch tracking it.
+ * is one, else a new local branch tracking it. Unless [confirmed], asks first as [CheckoutBranch] does.
  */
 internal data class CheckoutRemote(
     val ref: GitRef,
+    val confirmed: Boolean = false,
 ) : RefOperation {
     /** The local branch's name: the remote branch's without the remote, as git names it. */
     val local: String get() = ref.shortName.substringAfter('/')
@@ -139,10 +154,17 @@ internal data class CheckoutRemote(
     override fun run(
         writes: GitLogWrites,
         root: Path,
-    ) = if (writes.branchExists(root, local)) {
-        writes.switchBranch(root, local).outcome("Checked out local branch $local.")
-    } else {
-        writes.switchTracking(root, ref.name).outcome("Checked out new branch $local tracking ${ref.shortName}.")
+    ): RefOutcome {
+        val exists = writes.branchExists(root, local)
+        if (!confirmed) {
+            val (target, label) = if (exists) "$HEADS$local" to local else ref.name to ref.shortName
+            leavingQuestion(writes, root, target, label, copy(confirmed = true))?.let { return it }
+        }
+        return if (exists) {
+            writes.switchBranch(root, local).outcome("Checked out local branch $local.")
+        } else {
+            writes.switchTracking(root, ref.name).outcome("Checked out new branch $local tracking ${ref.shortName}.")
+        }
     }
 }
 
@@ -156,6 +178,8 @@ internal data class CreateBranch(
     val startLabel: String = startPoint,
     /** Whether moving an existing branch away from commits that are not on [startPoint] was confirmed. */
     val confirmed: Boolean = false,
+    /** Whether leaving the commits of a detached `HEAD` on no branch or tag was confirmed ([leavingQuestion]). */
+    val leavingConfirmed: Boolean = false,
 ) : RefOperation {
     override val progress get() = "Creating branch $name…"
     override val errorTitle get() = "New Branch Failed"
@@ -164,7 +188,8 @@ internal data class CreateBranch(
 
     /**
      * Unless [confirmed], an existing branch that [overwrite] would move away from commits not on [startPoint] (they
-     * would only be reachable through the reflog) is not moved: the outcome asks first.
+     * would only be reachable through the reflog) is not moved: the outcome asks first. Then, with [checkout] and unless
+     * [leavingConfirmed], a detached `HEAD` whose commits the checkout would leave on no branch or tag is not left.
      */
     override fun run(
         writes: GitLogWrites,
@@ -189,6 +214,10 @@ internal data class CreateBranch(
                     }
                 }
             }
+        }
+        if (checkout && !leavingConfirmed) {
+            // An overwrite asked about keeps its answer; one that was not is checked again when it runs.
+            leavingQuestion(writes, root, startPoint, name, copy(leavingConfirmed = true))?.let { return it }
         }
         val done = if (checkout) "Created and checked out branch $name." else "Created branch $name."
         return writes.createBranch(root, name, startPoint, checkout, overwrite).outcome(done)
@@ -287,6 +316,38 @@ private const val CHECKOUT_FAILED = "Checkout Failed"
 
 /** The action of a checkout, in the question about unsaved editors. */
 private const val CHECK_OUT = "Check Out"
+
+private const val HEADS = "refs/heads/"
+
+/**
+ * The outcome that asks before a checkout of [target] (a hash or full refname, shown as [label]) leaves commits of a
+ * detached `HEAD` on no branch, remote branch or tag, as git would only warn afterwards that it left them behind;
+ * [confirmed] runs the checkout without asking again. Asked too if that cannot be read; `null` if none are left.
+ */
+private fun leavingQuestion(
+    writes: GitLogWrites,
+    root: Path,
+    target: String,
+    label: String,
+    confirmed: RefOperation,
+): RefOutcome? {
+    val gone = "will no longer be on any branch or tag"
+    val question =
+        when (val left = writes.leftBehind(root, target)) {
+            0 -> return null
+            null -> "Whether commits of the detached HEAD $gone could not be read."
+            1 -> "1 commit of the detached HEAD $gone; it stays reachable through the reflog for a while."
+            else -> "$left commits of the detached HEAD $gone; they stay reachable through the reflog for a while."
+        }
+    val confirmation =
+        RefConfirmation(
+            "Check Out",
+            "$question\nTo keep them, cancel and create a branch at HEAD first. Check out $label anyway?",
+            CHECKOUT_BUTTON,
+            confirmed,
+        )
+    return RefOutcome(GitResult(true, ""), null, confirmation = confirmation)
+}
 
 /**
  * The outcome of an operation that did [done] if git succeeded; if git failed but the change was made all the same (a

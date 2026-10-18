@@ -51,6 +51,15 @@ internal interface GitLogWrites {
         name: String,
     ): Boolean
 
+    /**
+     * How many commits of a detached `HEAD` a checkout of [target] (a hash or full refname) would leave on no branch,
+     * remote branch or tag; 0 while `HEAD` is on a branch, `null` if that cannot be read.
+     */
+    fun leftBehind(
+        root: Path,
+        target: String,
+    ): Int?
+
     /** The commit the local branch [name] points at, or that there is none, or that it could not be read. */
     fun branchTip(
         root: Path,
@@ -215,6 +224,11 @@ internal class GitLogCliWrites(
         root: Path,
         name: String,
     ) = branches.branchExists(root, name)
+
+    override fun leftBehind(
+        root: Path,
+        target: String,
+    ) = branches.leftBehind(root, target)
 
     override fun branchTip(
         root: Path,

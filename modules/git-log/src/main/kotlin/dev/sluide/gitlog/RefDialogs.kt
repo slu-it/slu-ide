@@ -254,6 +254,7 @@ internal fun refConfirmation(
     }
 
 internal val OVERWRITE_BUTTON = ButtonType("Overwrite", ButtonBar.ButtonData.OK_DONE)
+internal val CHECKOUT_BUTTON = ButtonType("Check Out", ButtonBar.ButtonData.OK_DONE)
 internal val RESET_BUTTON = ButtonType("Reset", ButtonBar.ButtonData.OK_DONE)
 internal val COMMIT_AS_ON_DISK_BUTTON = ButtonType("Commit As on Disk", ButtonBar.ButtonData.OK_DONE)
 private const val DELETE_ROWS_MIN = 2
