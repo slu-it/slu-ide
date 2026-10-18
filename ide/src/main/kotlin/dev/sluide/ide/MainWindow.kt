@@ -6,6 +6,8 @@ import dev.sluide.dockersandbox.SandboxNotAllowedException
 import dev.sluide.editor.EditorArea
 import dev.sluide.editor.askToClose
 import dev.sluide.fileexplorer.FileExplorerView
+import dev.sluide.fileexplorer.FolderAction
+import dev.sluide.fileexplorer.FolderActionResult
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitHead
@@ -15,6 +17,7 @@ import dev.sluide.gitlog.CommitFileDiff
 import dev.sluide.gitlog.GitLogView
 import dev.sluide.gitlog.WorkingTreeFileDiff
 import dev.sluide.httpclient.HttpClientSession
+import dev.sluide.httpclient.HttpClientSetup
 import dev.sluide.ide.git.CommitDiffTab
 import dev.sluide.ide.git.WorkingTreeDiffTab
 import dev.sluide.ide.git.markers
@@ -201,6 +204,13 @@ class MainWindow(
         // those it warned about.
         fileExplorer.unsavedUnder = editorArea::dirtyUnder
         fileExplorer.onDeleted = editorArea::closeUnder
+        // A folder's context menu creates the files to start with the HTTP client there (ADR 0056).
+        fileExplorer.folderActions =
+            listOf(
+                FolderAction("New HTTP Client Setup") { folder ->
+                    HttpClientSetup.create(folder).let { FolderActionResult(it.example, it.note) }
+                },
+            )
         // Git status markers, if git is installed and the folder is a repository (ADR 0013).
         fileExplorer.markers = { path, directory -> gitStatus.snapshot.get().markers(path, directory) }
         fileExplorer.onFilesChanged = gitStatus::refresh
