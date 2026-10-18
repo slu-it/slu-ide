@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.image
 
 import dev.sluide.fileviewers.code.press
 import dev.sluide.fileviewers.preview.PreviewFileView

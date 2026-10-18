@@ -1,5 +1,8 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.image
 
+import dev.sluide.fileviewers.FileView
+import dev.sluide.fileviewers.FileViewer
+import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.fileviewers.preview.ZoomControls
 import dev.sluide.fileviewers.preview.isPageFromString
 import javafx.application.ColorScheme

@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.image
 
 import dev.sluide.fileviewers.preview.HtmlPage
 import java.util.Base64
@@ -19,8 +19,8 @@ internal val imageTypes =
 /**
  * A page showing one image on a checkered background, so that transparency shows. The image is an `<img>` with a
  * `data:` URI, so an SVG cannot run scripts. The page brings the previews' script: `sluide.setDark`, and as a
- * `zoomable` page the zoom (`sluide.setZoom`, [ZoomControls]): fitted to the view or at a fixed scale, a click
- * switching between fitted and 100%.
+ * `zoomable` page the zoom (`sluide.setZoom`, [dev.sluide.fileviewers.preview.ZoomControls]): fitted to the view or
+ * at a fixed scale, a click switching between fitted and 100%.
  */
 internal object ImagePage {
     private val stylesheet = HtmlPage.resource("image-page.css")
