@@ -1,11 +1,13 @@
-package dev.sluide.gitlog
+package dev.sluide.gitlog.commit
 
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
+import dev.sluide.gitlog.CommitChanges
 import dev.sluide.gitlog.data.ChangeFile
 import dev.sluide.gitlog.data.ChangeFolder
 import dev.sluide.gitlog.data.ChangeNode
 import dev.sluide.gitlog.data.changeTree
+import dev.sluide.gitlog.title
 import dev.sluide.gitlog.ui.ChangeGraphic
 import dev.sluide.gitlog.ui.SHOW_DIFF
 import dev.sluide.gitlog.ui.SharedSplit

@@ -7,6 +7,10 @@ import dev.sluide.git.GitFileDiff
 import dev.sluide.git.GitOperation
 import dev.sluide.git.GitPendingOperation
 import dev.sluide.git.GitResult
+import dev.sluide.gitlog.commit.CheckState
+import dev.sluide.gitlog.commit.CommitEntryNode
+import dev.sluide.gitlog.commit.CommitGroupNode
+import dev.sluide.gitlog.commit.CommitNode
 import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.Node
