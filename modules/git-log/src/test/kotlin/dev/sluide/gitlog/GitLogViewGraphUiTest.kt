@@ -4,6 +4,14 @@ import dev.sluide.git.GitCommit
 import dev.sluide.gitlog.data.GRAPH_COLOURS
 import dev.sluide.gitlog.data.GraphLayout
 import dev.sluide.gitlog.data.MAX_LANES
+import dev.sluide.gitlog.table.GraphCell
+import dev.sluide.gitlog.table.GraphPane
+import dev.sluide.gitlog.table.LANE_WIDTH
+import dev.sluide.gitlog.table.SUBJECT_MIN_WIDTH
+import dev.sluide.gitlog.table.column
+import dev.sluide.gitlog.table.refGroups
+import dev.sluide.gitlog.table.refLabelText
+import dev.sluide.gitlog.table.refStyleClass
 import javafx.application.ColorScheme
 import javafx.scene.control.Label
 import javafx.scene.effect.DropShadow

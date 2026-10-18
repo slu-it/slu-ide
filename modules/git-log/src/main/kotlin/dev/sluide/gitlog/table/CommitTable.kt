@@ -1,11 +1,14 @@
-package dev.sluide.gitlog
+package dev.sluide.gitlog.table
 
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitRefKind
+import dev.sluide.gitlog.CheckoutRevision
+import dev.sluide.gitlog.RefActions
 import dev.sluide.gitlog.data.GitLogPages
 import dev.sluide.gitlog.data.GitLogRow
 import dev.sluide.gitlog.data.GitLogState
+import dev.sluide.gitlog.pickTitle
 import dev.sluide.gitlog.ui.COPY
 import dev.sluide.gitlog.ui.SHORT_HASH
 import javafx.beans.binding.Bindings

@@ -3,6 +3,7 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitTreePath
 import dev.sluide.gitlog.data.GitLogPages
+import dev.sluide.gitlog.table.refIcon
 import javafx.collections.ListChangeListener
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignF

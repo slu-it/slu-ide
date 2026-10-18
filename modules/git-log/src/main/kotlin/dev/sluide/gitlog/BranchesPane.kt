@@ -3,6 +3,7 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
+import dev.sluide.gitlog.table.refStyleClass
 import javafx.animation.Animation
 import javafx.animation.PauseTransition
 import javafx.beans.property.BooleanProperty

@@ -6,6 +6,7 @@ import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitTreePath
 import dev.sluide.gitlog.data.GraphRow
+import dev.sluide.gitlog.table.LANE_WIDTH
 import javafx.animation.Animation
 import javafx.event.Event
 import javafx.scene.Node

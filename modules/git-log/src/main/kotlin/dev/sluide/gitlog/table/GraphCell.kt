@@ -1,4 +1,4 @@
-package dev.sluide.gitlog
+package dev.sluide.gitlog.table
 
 import dev.sluide.gitlog.data.GRAPH_COLOURS
 import dev.sluide.gitlog.data.GitLogRow

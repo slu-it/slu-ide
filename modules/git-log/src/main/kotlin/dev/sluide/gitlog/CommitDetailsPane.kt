@@ -7,6 +7,7 @@ import dev.sluide.gitlog.data.GitLogRow
 import dev.sluide.gitlog.data.SHOWN_BRANCHES
 import dev.sluide.gitlog.data.branchesLine
 import dev.sluide.gitlog.data.hashCandidates
+import dev.sluide.gitlog.table.refLines
 import dev.sluide.gitlog.ui.SHORT_HASH
 import javafx.animation.Animation
 import javafx.animation.PauseTransition
