@@ -18,7 +18,6 @@ import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitRevisionResolution
-import dev.sluide.git.GitTreePath
 import javafx.application.Platform
 import javafx.beans.binding.Bindings
 import javafx.beans.property.BooleanProperty
@@ -59,7 +58,6 @@ import javafx.stage.WindowEvent
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignA
 import org.kordamp.ikonli.materialdesign2.MaterialDesignC
-import org.kordamp.ikonli.materialdesign2.MaterialDesignF
 import org.kordamp.ikonli.materialdesign2.MaterialDesignR
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Scope
@@ -434,7 +432,7 @@ class GitLogView internal constructor(
 
     /** Go to Hash/Branch/Tag (ADR 0045), with the branches and tags read last. */
     internal val goToPopup =
-        GoToPopup { branchItems().drop(1) }.apply {
+        GoToPopup { filterSources.branchItems().drop(1) }.apply {
             go = ::goTo
             clearFilters = ::clearFiltersAndGo
             closed = ::goToClosed
@@ -540,23 +538,23 @@ class GitLogView internal constructor(
             }
         }
 
-    /** The author names of all rows loaded since the root was opened, for the user filter. */
-    private val knownAuthors = HashSet<String>()
-
-    /** The root whose user name is read (or being read); `null` if it is not asked for yet. */
-    private var userNameRoot: Path? = null
-    private var userName: String? = null
-
-    /** The root whose tree paths are read (or being read); `null` if they are not asked for yet. */
-    private var pathsRoot: Path? = null
-    private var paths: List<GitTreePath> = emptyList()
-
-    /** Whether the log was refreshed since the paths were read, so that they are read again. */
-    private var pathsStale = false
+    /** What the filters above the table offer to pick. */
+    private val filterSources: FilterSources =
+        FilterSources(pages, source::userName, source::paths, executor::execute, dispatch).apply {
+            userNameRead = { filterBar.user.popup.refresh() }
+            pathsRead = { filterBar.path.popup.refresh() }
+        }
 
     /** The filters above the table (ADR 0039). */
     internal val filterBar =
-        FilterBar(::branchItems, ::userItems, ::pathItems, ::readUserName, ::readPaths, ::freePath).apply {
+        FilterBar(
+            filterSources::branchItems,
+            filterSources::userItems,
+            filterSources::pathItems,
+            filterSources::readUserName,
+            filterSources::readPaths,
+            filterSources::freePath,
+        ).apply {
             onChange = { filter -> pages.filter = filter }
             onDown = { table.requestFocus() }
         }
@@ -787,13 +785,6 @@ class GitLogView internal constructor(
             body.firstShown = shown
             if (!shown && focusInPane) table.requestFocus()
         }
-        pages.rows.addListener(
-            ListChangeListener { change ->
-                while (change.next()) {
-                    if (change.wasAdded()) change.addedSubList.mapTo(knownAuthors) { it.commit.author }
-                }
-            },
-        )
         pages.comparisonEnded = { comparison, end ->
             comparisonChanged()
             val name = comparison.ref.shortName
@@ -1323,24 +1314,7 @@ class GitLogView internal constructor(
         closeTabs()
         filterBar.reset()
         comparisonChanged()
-        knownAuthors.clear()
-        userNameRoot = null
-        userName = null
-        pathsRoot = null
-        paths = emptyList()
-    }
-
-    /** `HEAD`, the local branches, remote branches and tags of the refs read last, each kind by name. */
-    private fun branchItems(): List<FilterItem> {
-        val refs = pages.refs?.refs.orEmpty()
-        val head = FilterItem("HEAD", "HEAD") { refIcon(GitRefKind.HEAD) }
-        return listOf(head) +
-            listOf(GitRefKind.LOCAL_BRANCH, GitRefKind.REMOTE_BRANCH, GitRefKind.TAG).flatMap { kind ->
-                refs
-                    .filter { it.kind == kind }
-                    .sortedBy { it.shortName }
-                    .map { ref -> FilterItem(ref.name, ref.shortName) { refIcon(kind) } }
-            }
+        filterSources.reset()
     }
 
     /**
@@ -1638,65 +1612,6 @@ class GitLogView internal constructor(
         workingTreeWindows.clear()
     }
 
-    /** "me" if the repository has a user name, then the authors of the loaded rows by name. */
-    private fun userItems(): List<FilterItem> {
-        val me = userName?.let { FilterItem(it, "me ($it)", "me") }
-        val authors =
-            knownAuthors
-                .filter { it != userName }
-                .sortedWith(String.CASE_INSENSITIVE_ORDER)
-                .map { FilterItem(it, it) }
-        return listOfNotNull(me) + authors
-    }
-
-    /** The folders and files of `HEAD`'s tree, once read. */
-    private fun pathItems(): List<FilterItem> = paths.map { pathItem(it.path, it.folder) }
-
-    private fun freePath(text: String): FilterItem? =
-        normalizeFilterPath(text)?.let { path -> pathItem(path, paths.any { it.folder && it.path == path }) }
-
-    private fun pathItem(
-        path: String,
-        folder: Boolean,
-    ) = FilterItem(path, path) {
-        FontIcon(if (folder) MaterialDesignF.FOLDER_OUTLINE else MaterialDesignF.FILE_OUTLINE).apply {
-            styleClass += "git-filter-icon"
-        }
-    }
-
-    /** Reads the user name in the background, once per opened root; the user popup shows it when it is there. */
-    private fun readUserName() {
-        val root = pages.root ?: return
-        if (userNameRoot == root) return
-        userNameRoot = root
-        executor.execute {
-            val name = source.userName(root)
-            dispatch {
-                if (pages.root == root && userNameRoot == root) {
-                    userName = name
-                    filterBar.user.popup.refresh()
-                }
-            }
-        }
-    }
-
-    /** Reads the tree paths in the background, once per opened root and refresh; the path popup shows them then. */
-    private fun readPaths() {
-        val root = pages.root ?: return
-        if (pathsRoot == root && !pathsStale) return
-        pathsRoot = root
-        pathsStale = false
-        executor.execute {
-            val read = source.paths(root)
-            dispatch {
-                if (pages.root == root && pathsRoot == root) {
-                    paths = read.orEmpty()
-                    filterBar.path.popup.refresh()
-                }
-            }
-        }
-    }
-
     /**
      * [file] in the working tree; `null` without a repository or if its name cannot be a path in the JVM's locale
      * (non-ASCII characters in a plain ASCII one).
@@ -1806,7 +1721,7 @@ class GitLogView internal constructor(
      */
     fun refresh() {
         // The tree may have changed: read again when the path popup is shown next.
-        pathsStale = true
+        filterSources.markPathsStale()
         pages.refresh()
         histories.values.forEach { it.view.history.refresh() }
         commitTab?.view?.reader?.reload()
