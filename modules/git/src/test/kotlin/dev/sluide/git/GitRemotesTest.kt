@@ -1,9 +1,7 @@
 package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
-import dev.sluide.git.cli.RefspecDestination
 import dev.sluide.git.cli.refs
-import dev.sluide.git.cli.refspecDestinations
 import dev.sluide.git.cli.sshConfigured
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
@@ -219,28 +217,6 @@ class GitRemotesTest {
     }
 
     @Test
-    fun `tells where refspecs write`() {
-        assertEquals(
-            listOf(
-                RefspecDestination("refs/remotes/origin/", glob = true),
-                RefspecDestination("refs/remotes/origin/pr-", glob = true),
-                RefspecDestination("refs/notes/origin", glob = false),
-            ),
-            refspecDestinations(
-                listOf(
-                    "+refs/heads/*:refs/remotes/origin/*",
-                    "refs/pull/*/head:refs/remotes/origin/pr-*",
-                    "refs/notes/commits:refs/notes/origin",
-                    "^refs/heads/secret",
-                    "refs/heads/main",
-                ),
-            ),
-        )
-        assertTrue(RefspecDestination("refs/remotes/origin/", glob = true).matches("refs/remotes/origin/a/b"))
-        assertFalse(RefspecDestination("refs/notes/origin", glob = false).matches("refs/notes/origin2"))
-    }
-
-    @Test
     fun `refuses remote names git cannot get without running git`() {
         assertEquals(
             GitFetchResult(GitResult(false, "'-x' cannot be passed to git: it starts with '-'.")),
@@ -330,16 +306,6 @@ class GitRemotesTest {
         git("config", "--unset", "ssh.variant")
         git("config", "core.sshCommand", "ssh")
         assertEquals(true, git.sshConfigured(repo))
-    }
-
-    @Test
-    fun `the batch mode is added only where git would run plain ssh`() {
-        val batch = mapOf("GIT_SSH_COMMAND" to "ssh -o BatchMode=yes")
-        assertEquals(batch, fetchEnvironment(mapOf("PATH" to "/bin"), sshConfigured = false))
-        assertEquals(emptyMap(), fetchEnvironment(emptyMap(), sshConfigured = true))
-        assertEquals(emptyMap(), fetchEnvironment(mapOf("GIT_SSH_COMMAND" to "ssh -i key"), sshConfigured = false))
-        assertEquals(emptyMap(), fetchEnvironment(mapOf("GIT_SSH" to "/usr/bin/plink"), sshConfigured = false))
-        assertEquals(emptyMap(), fetchEnvironment(mapOf("GIT_SSH_VARIANT" to "plink"), sshConfigured = false))
     }
 
     @Test

@@ -1,4 +1,4 @@
-package dev.sluide.git.cli
+package dev.sluide.git.parse
 
 /**
  * Where a fetch refspec writes: below [prefix] for a [glob] (the part before its `*`, e.g. `refs/remotes/origin/`;
