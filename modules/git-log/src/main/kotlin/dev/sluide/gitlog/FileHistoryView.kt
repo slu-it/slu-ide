@@ -5,9 +5,7 @@ import dev.sluide.git.GitRefs
 import javafx.beans.binding.Bindings
 import javafx.collections.ListChangeListener
 import javafx.css.PseudoClass
-import javafx.event.EventTarget
 import javafx.geometry.Pos
-import javafx.scene.Node
 import javafx.scene.control.Button
 import javafx.scene.control.ContextMenu
 import javafx.scene.control.Label
@@ -284,9 +282,6 @@ internal class AreaTab(
             event.consume()
         }
     }
-
-    private fun Node.contains(target: EventTarget?): Boolean =
-        generateSequence(target as? Node) { it.parent }.any { it === this }
 
     private companion object {
         const val MAX_TITLE_WIDTH = 180.0

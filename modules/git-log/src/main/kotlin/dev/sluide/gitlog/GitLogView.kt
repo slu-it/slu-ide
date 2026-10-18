@@ -2,9 +2,6 @@ package dev.sluide.gitlog
 
 import dev.sluide.fileicons.FILE_ICONS_CSS
 import dev.sluide.git.GitBranches
-import dev.sluide.git.GitChange
-import dev.sluide.git.GitChangedFile
-import dev.sluide.git.GitCommit
 import dev.sluide.git.GitCommits
 import dev.sluide.git.GitLog
 import dev.sluide.git.GitPick
@@ -19,10 +16,8 @@ import javafx.beans.binding.Bindings
 import javafx.beans.property.BooleanProperty
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.collections.ListChangeListener
-import javafx.event.EventTarget
 import javafx.geometry.Orientation
 import javafx.geometry.Pos
-import javafx.scene.Node
 import javafx.scene.control.Button
 import javafx.scene.control.ContextMenu
 import javafx.scene.control.Label
@@ -44,7 +39,6 @@ import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
-import javafx.scene.shape.Rectangle
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignA
 import org.kordamp.ikonli.materialdesign2.MaterialDesignC
@@ -59,7 +53,6 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
-import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /**
@@ -230,7 +223,6 @@ class GitLogView internal constructor(
         ).apply {
             beforeFileChange = { action -> this@GitLogView.beforeFileChange(action) }
             afterWrite = { this@GitLogView.afterWrite() }
-            committed = { operation -> commitTab?.view?.committed(operation) }
             openFile = { file -> onOpenFile(file) }
         }
 
@@ -282,123 +274,7 @@ class GitLogView internal constructor(
             setOnAction { actions.cancel() }
         }
 
-    /** The header's title while no file history is open (ADR 0046). */
-    internal val title = Label("Git Log").apply { styleClass += "git-log-title" }
-
-    /** The tab of the log, first of the header's tabs while the Commit tab or file histories are open (ADR 0046). */
-    internal val logTab = AreaTab("Log", null, closable = false).apply { onSelect = { selectTab(AreaSelection.Log) } }
-
-    /** The Commit tab (ADR 0048), right of the Log while open. */
-    internal val commitAreaTab =
-        AreaTab("Commit", null, closable = true).apply {
-            onSelect = { selectTab(AreaSelection.Commit) }
-            onClose = ::closeCommit
-        }
-
-    /**
-     * The title, or the tabs of the log and the open file histories; narrower than they want, the tabs shorten their
-     * titles, then the row is cut off at the right, so that the header's buttons stay whole.
-     */
-    internal val titles =
-        HBox(title).apply {
-            styleClass += "git-log-tabs"
-            alignment = Pos.CENTER_LEFT
-            minWidth = 0.0
-            clip =
-                Rectangle().also { clip ->
-                    clip.widthProperty().bind(widthProperty())
-                    clip.heightProperty().bind(heightProperty())
-                }
-        }
-
-    /** The header bar; clicking it (but not its buttons or tabs) expands or collapses the log. */
-    internal val header: HBox =
-        HBox(
-            chevron,
-            titles,
-            status.label,
-            cancelButton,
-            Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
-            pushButton,
-            fetchButton,
-            refreshButton,
-        ).apply {
-            styleClass += "git-log-header"
-            alignment = Pos.CENTER_LEFT
-            setOnMouseClicked { event ->
-                val onButton =
-                    listOf(refreshButton, pushButton, fetchButton, cancelButton).any { it.contains(event.target) }
-                if (event.button == MouseButton.PRIMARY && !onButton) {
-                    expanded.set(!expanded.get())
-                }
-            }
-        }
-
     private val dateFormat = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).withZone(ZoneId.systemDefault())
-
-    /** An open file history: its view and its tab in the header (ADR 0046). */
-    private class HistoryTab(
-        val view: FileHistoryView,
-        val tab: AreaTab,
-        /** The history's own thread for its pages (ADR 0046), not the log's. */
-        val executor: ExecutorService,
-    ) {
-        fun close() {
-            view.close()
-            executor.shutdownNow()
-        }
-    }
-
-    /** The open file histories, in the order of their tabs (ADR 0046). */
-    private val histories = LinkedHashMap<FileHistoryKey, HistoryTab>()
-
-    /** What a tab of the header shows: the Log, the Commit tab (ADR 0048) or a file history (ADR 0046). */
-    private sealed interface AreaSelection {
-        data object Log : AreaSelection
-
-        data object Commit : AreaSelection
-
-        data class History(
-            val key: FileHistoryKey,
-        ) : AreaSelection
-    }
-
-    /** The selected tab. */
-    private var selected: AreaSelection = AreaSelection.Log
-
-    /** The views of the open file histories, in the order of their tabs. */
-    internal val historyViews: List<FileHistoryView> get() = histories.values.map { it.view }
-
-    /** The tabs of the open file histories, in their order. */
-    internal val historyTabs: List<AreaTab> get() = histories.values.map { it.tab }
-
-    /** The view of the selected file history; `null` while the Log or the Commit tab is selected. */
-    internal val selectedHistoryView: FileHistoryView?
-        get() = (selected as? AreaSelection.History)?.key?.let(histories::get)?.view
-
-    /** The Commit tab's view and its own thread (ADR 0048), kept with its draft while the tab is closed. */
-    private class CommitTab(
-        val view: CommitView,
-        /** Reads the tab's changes, `HEAD`'s message and diffs: `sluide-git-commit`. */
-        val executor: ExecutorService,
-    ) {
-        fun close() {
-            view.close()
-            executor.shutdownNow()
-        }
-    }
-
-    /** The Commit tab's view with its draft, from [showCommit] until another folder; also while the tab is closed. */
-    private var commitTab: CommitTab? = null
-
-    /** Whether the Commit tab is open in the header. */
-    private var commitOpen = false
-
-    /** The Commit tab's view, with its draft; `null` before [showCommit] and after another folder. */
-    internal val commitView: CommitView? get() = commitTab?.view
-
-    /** Whether the Commit tab is open in the header. */
-    internal val commitShown: Boolean get() = commitOpen
 
     private val copyRevisionNumber = MenuItem("Copy Revision Number").apply { setOnAction { copyRevisionNumbers() } }
 
@@ -613,11 +489,65 @@ class GitLogView internal constructor(
             }
         }
 
+    /** The tabs of the area (ADRs 0046, 0048): the Log, the Commit tab and the file histories. */
+    internal val tabs =
+        AreaTabs(
+            pages,
+            source,
+            diffs,
+            status,
+            expanded,
+            actions.running,
+            body,
+            table,
+            executor::execute,
+            branchesExecutor::execute,
+            dispatch,
+            { scene?.focusOwner },
+            { path -> fileExists(path) },
+        ).apply {
+            show = { content -> center = content }
+            openGoTo = {
+                // Laid out now: the popup is placed by the table's bounds, which it may never have had yet.
+                this@GitLogView.applyCss()
+                this@GitLogView.layout()
+                this@GitLogView.openGoTo()
+            }
+            goToCommit = { hash -> this@GitLogView.goToCommit(hash, hash.take(ChangedFilesPane.SHORT_HASH)) }
+            commit = { operation -> actions.start(operation) }
+            openFile = { file -> onOpenFile(file) }
+        }
+
+    /** The header bar; clicking it (but not its buttons or tabs) expands or collapses the log. */
+    internal val header: HBox =
+        HBox(
+            chevron,
+            tabs.titles,
+            status.label,
+            cancelButton,
+            Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
+            pushButton,
+            fetchButton,
+            refreshButton,
+        ).apply {
+            styleClass += "git-log-header"
+            alignment = Pos.CENTER_LEFT
+            setOnMouseClicked { event ->
+                val onButton =
+                    listOf(refreshButton, pushButton, fetchButton, cancelButton).any { it.contains(event.target) }
+                if (event.button == MouseButton.PRIMARY && !onButton) {
+                    expanded.set(!expanded.get())
+                }
+            }
+        }
+
     init {
         styleClass += "git-log"
         stylesheets += GIT_LOG_CSS
         stylesheets += FILE_ICONS_CSS
         top = header
+        // Here, as the tabs need the actions first.
+        actions.committed = { operation -> tabs.commitView?.committed(operation) }
         pages.selectedHashes = { table.selectionModel.selectedItems.map { it.commit.hash } }
         pages.select = { indices ->
             table.selectionModel.clearSelection()
@@ -694,13 +624,13 @@ class GitLogView internal constructor(
         changesPane.showDiff = diffs::showDiff
         changesPane.openFile = { file -> diffs.localFile(file)?.let(onOpenFile) }
         changesPane.exists = { file -> diffs.localFile(file)?.let(Files::exists) == true }
-        changesPane.showHistory = { row, file -> showHistoryUpTo(row.commit, file) }
+        changesPane.showHistory = { row, file -> tabs.showHistoryUpTo(row.commit, file) }
         expanded.subscribe { isExpanded ->
             val focusInBody = center?.contains(scene?.focusOwner) == true
             chevron.iconCode = if (isExpanded) MaterialDesignC.CHEVRON_DOWN else MaterialDesignC.CHEVRON_RIGHT
-            showContent()
+            tabs.showContent()
             if (isExpanded) {
-                focusContent()
+                tabs.focusContent()
             } else if (focusInBody) {
                 returnFocus()
             }
@@ -708,41 +638,10 @@ class GitLogView internal constructor(
     }
 
     /**
-     * Shows what the selected tab has below the header while [expanded]: the log, the Commit tab (ADR 0048) or a file
-     * history (ADR 0046); only that one loads.
-     */
-    private fun showContent() {
-        val isExpanded = expanded.get()
-        val history = selectedHistoryView
-        val commit = commitTab?.view?.takeIf { selected == AreaSelection.Commit }
-        center = if (isExpanded) history ?: commit ?: body else null
-        pages.visible = isExpanded && history == null && commit == null
-        histories.values.forEach { it.view.history.visible = isExpanded && it.view === history }
-        commitTab?.view?.reader?.visible = isExpanded && commit != null
-    }
-
-    /** Gives the focus to what is shown: the table of the log or a file history, the Commit tab's message. */
-    private fun focusContent() {
-        val content = center ?: return
-        // The split pane adds the table to the scene with its skin, which CSS creates.
-        content.applyCss()
-        val commit = commitTab?.view?.takeIf { selected == AreaSelection.Commit }
-        if (commit != null) commit.focusMessage() else (selectedHistoryView?.table ?: table).requestFocus()
-    }
-
-    /**
      * Opens the Commit tab (ADR 0048), or selects it if it is open, expands the area and gives the message the focus;
      * the draft of the tab closed before is kept. Nothing without a repository.
      */
-    fun showCommit() {
-        val root = pages.root ?: return
-        if (commitTab == null) commitTab = commitTab(root)
-        if (!commitOpen) {
-            commitOpen = true
-            updateTabs()
-        }
-        selectTab(AreaSelection.Commit)
-    }
+    fun showCommit() = tabs.showCommit()
 
     /**
      * Opens the Push dialog of the repository (ADR 0049), or brings the open one to the front; also while an operation
@@ -754,241 +653,14 @@ class GitLogView internal constructor(
      * The working tree changed (the window's git status, ADR 0013): the Commit tab reads its changes again, at once if
      * shown, else when it is shown next; nothing without one.
      */
-    fun workingTreeChanged() {
-        commitTab?.view?.reader?.reload()
-    }
-
-    /** A new Commit tab for the repository at [root], with a thread of its own, not read before it is shown. */
-    private fun commitTab(root: Path): CommitTab {
-        val commitExecutor =
-            Executors.newSingleThreadExecutor { Thread(it, "sluide-git-commit").apply { isDaemon = true } }
-        val reader =
-            CommitReader(
-                root,
-                { repository ->
-                    val head = source.headCommit(repository)
-                    source.commitChanges(repository)?.let { CommitSnapshot(it, head) }
-                },
-                source::headMessage,
-                commitExecutor::execute,
-                dispatch,
-            )
-        val view =
-            CommitView(reader, actions.running).apply {
-                commit = { operation -> actions.start(operation) }
-                showDiff = { file, head -> diffs.showHeadDiff(root, commitExecutor, file, head) }
-                openFile = { file -> diffs.localFile(file)?.let(onOpenFile) }
-                exists = { file -> diffs.localFile(file)?.let(fileExists) == true }
-                failedWithChanges = { if (selected == AreaSelection.Commit) status.tell(COMMIT_READ_FAILED) }
-                tell = status::tell
-                tree.selectionModel.selectedItemProperty().subscribe { _ -> status.selectionChanged() }
-                // Go to is the log's: it goes there, as from a history (ADR 0046).
-                addEventFilter(KeyEvent.KEY_PRESSED) { event ->
-                    if (GO_TO.match(event)) {
-                        selectTab(AreaSelection.Log)
-                        this@GitLogView.applyCss()
-                        this@GitLogView.layout()
-                        openGoTo()
-                        event.consume()
-                    }
-                }
-            }
-        return CommitTab(view, commitExecutor)
-    }
-
-    /** Closes the Commit tab, keeping its draft; if it was selected, the Log is. */
-    private fun closeCommit() {
-        if (!commitOpen) return
-        val focusInClosed = commitTab?.view?.contains(scene?.focusOwner) == true
-        commitOpen = false
-        if (selected == AreaSelection.Commit) {
-            selected = AreaSelection.Log
-            showContent()
-            if (expanded.get() && focusInClosed) focusContent()
-            tabChanged()
-        }
-        updateTabs()
-    }
+    fun workingTreeChanged() = tabs.workingTreeChanged()
 
     /**
      * Shows the history of [file] (ADR 0046), a file below the opened repository, from `HEAD` on, in a tab of the area:
      * the one that shows it already, or a new one; selects it and expands the area. Ignored for files outside the
      * repository, for folders and without a repository.
      */
-    fun showHistory(file: Path) {
-        val root = pages.root ?: return
-        val relative =
-            try {
-                root.toAbsolutePath().normalize().relativize(file.toAbsolutePath().normalize())
-            } catch (_: IllegalArgumentException) {
-                return
-            }
-        if (relative.toString().isEmpty() || relative.startsWith("..") || Files.isDirectory(file)) return
-        openHistory(FileHistoryKey(relative.joinToString("/")))
-    }
-
-    /**
-     * Shows the history of [file], one of the files [commit] changed, up to that commit (ADR 0046): of its path there
-     * from the commit on; for a deleted file of its old path from the commit's first parent on.
-     */
-    internal fun showHistoryUpTo(
-        commit: GitCommit,
-        file: GitChangedFile,
-    ) {
-        val key =
-            if (file.change == GitChange.DELETED) {
-                FileHistoryKey(file.path, commit.parents.firstOrNull() ?: return)
-            } else {
-                FileHistoryKey(file.path, commit.hash)
-            }
-        openHistory(key)
-    }
-
-    /** Selects the tab of the history [key], opening one if there is none, and expands the area. */
-    private fun openHistory(key: FileHistoryKey) {
-        val root = pages.root ?: return
-        if (key !in histories) histories[key] = historyTab(root, key)
-        selectTab(AreaSelection.History(key))
-    }
-
-    /** A new tab for the history [key] of the repository at [root], not loaded before it is shown. */
-    private fun historyTab(
-        root: Path,
-        key: FileHistoryKey,
-    ): HistoryTab {
-        val pagesExecutor =
-            Executors.newSingleThreadExecutor { Thread(it, "sluide-git-history").apply { isDaemon = true } }
-        val history = FileHistory(root, key, source::fileHistory, source::refs, pagesExecutor::execute, dispatch)
-        val details =
-            CommitDetails(source::details, { _, _ -> emptyList() }, executor::execute, dispatch, source::resolveCommits)
-        val branches =
-            CommitBranches(source::branchesContaining, branchesExecutor::execute, dispatch).apply {
-                currentBranch = { history.refs?.currentBranch }
-            }
-        val view =
-            FileHistoryView(history, details, branches).apply {
-                showDiff = diffs::showDiff
-                compareWithLocal = { row, file -> diffs.compareWithLocal(key, row, file) }
-                showInLog = ::showInLog
-                detailsPane.openCommit = ::showInLog
-                selectionChanged = { status.selectionChanged() }
-                // Go to is the log's: it goes there (ADR 0046). Find has nothing to filter in a history.
-                addEventFilter(KeyEvent.KEY_PRESSED) { event ->
-                    if (GO_TO.match(event)) {
-                        selectTab(AreaSelection.Log)
-                        // Laid out now: the popup is placed by the table's bounds, which it may never have had yet.
-                        this@GitLogView.applyCss()
-                        this@GitLogView.layout()
-                        openGoTo()
-                        event.consume()
-                    }
-                }
-            }
-        history.failedWithRows =
-            { if (selected == AreaSelection.History(key)) status.tell(FileHistoryState.FAILED.message(key.name)) }
-        val tip = key.path + key.start?.let { " up to ${it.take(ChangedFilesPane.SHORT_HASH)}" }.orEmpty()
-        val tab =
-            AreaTab("History: ${key.name}", tip, closable = true).apply {
-                onSelect = { selectTab(AreaSelection.History(key)) }
-                onClose = { closeHistory(key) }
-            }
-        return HistoryTab(view, tab, pagesExecutor)
-    }
-
-    /**
-     * Selects the tab [selection] if it is open: shows what it has, expanding the area if collapsed, and gives it the
-     * focus.
-     */
-    private fun selectTab(selection: AreaSelection) {
-        val open =
-            when (selection) {
-                AreaSelection.Log -> true
-                AreaSelection.Commit -> commitOpen
-                is AreaSelection.History -> selection.key in histories
-            }
-        if (!open) return
-        val changed = selection != selected
-        selected = selection
-        updateTabs()
-        if (changed) tabChanged()
-        if (!expanded.get()) {
-            // Shows and focuses it.
-            expanded.set(true)
-            return
-        }
-        showContent()
-        focusContent()
-    }
-
-    /** Closes the tab of the history [key]; if it was selected, the tab left of it is. */
-    private fun closeHistory(key: FileHistoryKey) {
-        val order = tabOrder()
-        val closed = histories.remove(key) ?: return
-        val focusInClosed = closed.view.contains(scene?.focusOwner)
-        closed.close()
-        val selection = AreaSelection.History(key)
-        if (selected == selection) {
-            selected = order.getOrElse(order.indexOf(selection) - 1) { AreaSelection.Log }
-            showContent()
-            if (expanded.get() && focusInClosed) focusContent()
-            tabChanged()
-        }
-        updateTabs()
-    }
-
-    /** The open tabs in their order: the Log, the Commit tab if open, the file histories. */
-    private fun tabOrder(): List<AreaSelection> =
-        listOf(AreaSelection.Log) + listOfNotNull(AreaSelection.Commit.takeIf { commitOpen }) +
-            histories.keys.map(AreaSelection::History)
-
-    /**
-     * Another tab is selected: the header's message of the one before goes, the log's failure shows only with the Log,
-     * and a history or the Commit tab whose last read failed while it was not shown (with rows or changes kept) says so
-     * again.
-     */
-    private fun tabChanged() {
-        status.clear()
-        status.logShown(selected == AreaSelection.Log)
-        if (selected == AreaSelection.Commit) {
-            val reader = commitTab?.view?.reader ?: return
-            if (reader.state.get() == CommitLoadState.FAILED && reader.snapshot != null) status.tell(COMMIT_READ_FAILED)
-            return
-        }
-        val history = selectedHistoryView?.history ?: return
-        if (history.state.get() == FileHistoryState.FAILED && history.rows.isNotEmpty()) {
-            status.tell(FileHistoryState.FAILED.message(history.key.name))
-        }
-    }
-
-    /**
-     * Closes all file histories and the Commit tab, discarding its draft, e.g. for another folder; the Log is shown.
-     */
-    private fun closeTabs() {
-        histories.values.forEach { it.close() }
-        histories.clear()
-        commitTab?.close()
-        commitTab = null
-        commitOpen = false
-        selected = AreaSelection.Log
-        status.logShown(true)
-        updateTabs()
-        showContent()
-    }
-
-    /** The header's title while only the Log is open, else the tabs, the selected one marked. */
-    private fun updateTabs() {
-        val tabs = listOf(logTab) + listOfNotNull(commitAreaTab.takeIf { commitOpen }) + historyTabs
-        titles.children.setAll(if (tabs.size == 1) listOf(title) else tabs)
-        logTab.selected = selected == AreaSelection.Log
-        commitAreaTab.selected = selected == AreaSelection.Commit
-        histories.forEach { (key, open) -> open.tab.selected = selected == AreaSelection.History(key) }
-    }
-
-    /** Selects the Log and goes to the commit [hash] there, the header telling why not (ADR 0046). */
-    private fun showInLog(hash: String) {
-        selectTab(AreaSelection.Log)
-        goToCommit(hash, hash.take(ChangedFilesPane.SHORT_HASH))
-    }
+    fun showHistory(file: Path) = tabs.showHistory(file)
 
     /** Shows the log of the repository at [root]; `null` shows nothing. Loads once (or as soon as) [expanded]. */
     fun open(root: Path?) {
@@ -1004,7 +676,7 @@ class GitLogView internal constructor(
         branchesRefs = null
         // Resets the filter and ends a comparison too, before the bar, which then tells no change.
         pages.open(root)
-        closeTabs()
+        tabs.closeAll()
         filterBar.reset()
         compareBar.comparisonChanged()
         filterSources.reset()
@@ -1192,8 +864,7 @@ class GitLogView internal constructor(
         // The tree may have changed: read again when the path popup is shown next.
         filterSources.markPathsStale()
         pages.refresh()
-        histories.values.forEach { it.view.history.refresh() }
-        commitTab?.view?.reader?.reload()
+        tabs.refresh()
     }
 
     /** The commit of the one selected row; `null` for none or several. */
@@ -1213,8 +884,7 @@ class GitLogView internal constructor(
     }
 
     override fun close() {
-        histories.values.forEach { it.close() }
-        commitTab?.close()
+        tabs.close()
         diffs.closeWorkingTreeWindows()
         actions.close()
         compareExecutor.shutdownNow()
@@ -1227,22 +897,10 @@ class GitLogView internal constructor(
         changesPane.close()
         executor.shutdownNow()
     }
-
-    private fun Node.contains(target: EventTarget?): Boolean {
-        var node = target as? Node
-        while (node != null) {
-            if (node === this) return true
-            node = node.parent
-        }
-        return false
-    }
 }
 
 internal val COPY = KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN)
 
 private val FIND = KeyCodeCombination(KeyCode.F, KeyCombination.SHORTCUT_DOWN)
 
-private val GO_TO = KeyCodeCombination(KeyCode.G, KeyCombination.SHORTCUT_DOWN)
-
-/** What the header says when the Commit tab's changes could not be read again while it shows those read before. */
-private const val COMMIT_READ_FAILED = "The changes could not be read."
+internal val GO_TO = KeyCodeCombination(KeyCode.G, KeyCombination.SHORTCUT_DOWN)

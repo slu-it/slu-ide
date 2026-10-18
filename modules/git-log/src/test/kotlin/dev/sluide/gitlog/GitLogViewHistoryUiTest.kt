@@ -64,7 +64,7 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
     private fun headerTabs(): List<String> =
         WaitForAsyncUtils
             .asyncFx<List<String>> {
-                view.titles.children.map { node ->
+                view.tabs.titles.children.map { node ->
                     when (node) {
                         is AreaTab -> if (node.selected) "[${node.label.text}]" else node.label.text
                         is Label -> node.text
@@ -73,7 +73,7 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
                 }
             }.get()
 
-    private val historyView get() = checkNotNull(view.selectedHistoryView)
+    private val historyView get() = checkNotNull(view.tabs.selectedHistoryView)
 
     /** The subjects of the history's rows. */
     private fun historySubjects(): List<String> =
@@ -157,14 +157,14 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
         assertSame(historyView.table, view.scene.focusOwner)
         assertEquals(
             "src/App.kt",
-            view.historyTabs
+            view.tabs.historyTabs
                 .single()
                 .tooltip
                 ?.text,
         )
 
         // A click on the Log tab selects it, without collapsing the area.
-        click(robot, view.logTab.label)
+        click(robot, view.tabs.logTab.label)
         assertEquals(listOf("[Log]", "History: App.kt"), headerTabs())
         assertSame(view.body, view.center)
         assertTrue(view.expanded.get())
@@ -173,11 +173,22 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
         // Elsewhere on the header still collapses; a tab expands again.
         click(robot, view.header)
         assertFalse(view.expanded.get())
-        click(robot, view.historyTabs.single().label)
+        click(
+            robot,
+            view.tabs.historyTabs
+                .single()
+                .label,
+        )
         assertTrue(view.expanded.get())
         assertEquals(listOf("Log", "[History: App.kt]"), headerTabs())
 
-        robot.interact { checkNotNull(view.historyTabs.single().closeButton).fire() }
+        robot.interact {
+            checkNotNull(
+                view.tabs.historyTabs
+                    .single()
+                    .closeButton,
+            ).fire()
+        }
         WaitForAsyncUtils.waitForFxEvents()
         assertEquals(listOf("Git Log"), headerTabs())
         assertSame(view.body, view.center)
@@ -189,32 +200,32 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
         fileHistoryOf = { _, _ -> renamed }
         robot.interact { view.open(repo) }
         openHistory(robot)
-        click(robot, view.logTab.label)
+        click(robot, view.tabs.logTab.label)
 
         openHistory(robot)
         assertEquals(listOf("Log", "[History: App.kt]"), headerTabs())
 
         // Up to here: the commit's path, from the commit on; a deleted file's from its first parent.
-        robot.interact { view.showHistoryUpTo(commitOf(4), GitChangedFile(GitChange.MODIFIED, "src/App.kt")) }
-        robot.interact { view.showHistoryUpTo(commitOf(7), GitChangedFile(GitChange.DELETED, "gone.txt")) }
+        robot.interact { view.tabs.showHistoryUpTo(commitOf(4), GitChangedFile(GitChange.MODIFIED, "src/App.kt")) }
+        robot.interact { view.tabs.showHistoryUpTo(commitOf(7), GitChangedFile(GitChange.DELETED, "gone.txt")) }
         WaitForAsyncUtils.waitForFxEvents()
         assertEquals(listOf("Log", "History: App.kt", "History: App.kt", "[History: gone.txt]"), headerTabs())
         eventually {
             assertTrue(listOf("src/App.kt", "h4", 0, 500) in historyLoads)
             assertTrue(listOf("gone.txt", "h8", 0, 500) in historyLoads)
         }
-        val tips = view.historyTabs.map { it.tooltip?.text }
+        val tips = view.tabs.historyTabs.map { it.tooltip?.text }
         assertEquals(listOf("src/App.kt", "src/App.kt up to h4", "gone.txt up to h8"), tips)
 
         // Closing the selected tab selects the one left of it.
-        middleClick(robot, view.historyTabs.last())
+        middleClick(robot, view.tabs.historyTabs.last())
         assertEquals(listOf("Log", "History: App.kt", "[History: App.kt]"), headerTabs())
-        middleClick(robot, view.historyTabs.first())
+        middleClick(robot, view.tabs.historyTabs.first())
         assertEquals(listOf("Log", "[History: App.kt]"), headerTabs())
 
         // Files outside the repository have none.
         openHistory(robot, Path.of("/elsewhere/App.kt"))
-        assertEquals(1, view.historyTabs.size)
+        assertEquals(1, view.tabs.historyTabs.size)
     }
 
     @Test
@@ -237,7 +248,7 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
 
         // Up to here: the start commit's row is selected at first. Git lists it first; the fake lists newer ones too, to
         // show that the row is found by its hash.
-        robot.interact { view.showHistoryUpTo(commitOf(6), GitChangedFile(GitChange.MODIFIED, "src/Old.kt")) }
+        robot.interact { view.tabs.showHistoryUpTo(commitOf(6), GitChangedFile(GitChange.MODIFIED, "src/Old.kt")) }
         eventually { assertEquals(listOf("Subject 2", "Subject 4", "Subject 6", "Subject 9"), historySubjects()) }
         assertEquals("Subject 6", selectedSubject())
 
@@ -395,7 +406,7 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
         selectHistoryRow(robot, 2)
         robot.interact { historyView.showInLogItem.fire() }
         WaitForAsyncUtils.waitForFxEvents()
-        assertNull(view.selectedHistoryView)
+        assertNull(view.tabs.selectedHistoryView)
         assertEquals(listOf("[Log]", "History: App.kt"), headerTabs())
         eventually {
             assertEquals(
@@ -407,7 +418,12 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
         assertSame(view.table, view.scene.focusOwner)
 
         // A hash link from the history's details.
-        click(robot, view.historyTabs.single().label)
+        click(
+            robot,
+            view.tabs.historyTabs
+                .single()
+                .label,
+        )
         robot.interact { historyView.detailsPane.openCommit("h700") }
         eventually {
             assertEquals(
@@ -416,10 +432,15 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
                     .map { it.commit.subject },
             )
         }
-        assertNull(view.selectedHistoryView)
+        assertNull(view.tabs.selectedHistoryView)
 
         // A commit that is not in the log: the header says so.
-        click(robot, view.historyTabs.single().label)
+        click(
+            robot,
+            view.tabs.historyTabs
+                .single()
+                .label,
+        )
         selectHistoryRow(robot, 4)
         robot.interact { historyView.showInLogItem.fire() }
         eventually { assertEquals("x1 is not in the log.", status(robot)) }
@@ -466,7 +487,7 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
 
         robot.interact { view.open(Path.of("/other")) }
         assertEquals(listOf("Git Log"), headerTabs())
-        assertTrue(view.historyTabs.isEmpty())
+        assertTrue(view.tabs.historyTabs.isEmpty())
         assertSame(view.body, view.center)
     }
 
@@ -489,7 +510,7 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
         eventually { assertTrue(listOf("docs/new.md", "h1", 0, 500) in historyLoads) }
 
         // On a folder it does nothing.
-        click(robot, view.logTab.label)
+        click(robot, view.tabs.logTab.label)
         selectFile(robot, "docs")
         robot.interact {
             changes.tree.contextMenu.onShowing
@@ -516,13 +537,18 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
             assertTrue(refresh.maxX <= header.maxX + 0.5 && refresh.minX >= header.minX, "$refresh in $header")
             assertTrue(fetch.maxX <= refresh.minX + 0.5, "$fetch left of $refresh")
             assertEquals(view.refreshButton.prefWidth(-1.0), view.refreshButton.width, 0.5)
-            assertTrue(view.historyTabs.all { it.label.width <= 180.0 })
-            assertTrue(view.titles.width < view.titles.prefWidth(-1.0), "the tabs are cut off")
+            assertTrue(view.tabs.historyTabs.all { it.label.width <= 180.0 })
+            assertTrue(view.tabs.titles.width < view.tabs.titles.prefWidth(-1.0), "the tabs are cut off")
         }
         // The header still collapses the area, the tabs still select.
         click(robot, view.header)
         assertFalse(view.expanded.get())
-        click(robot, view.historyTabs.first().label)
+        click(
+            robot,
+            view.tabs.historyTabs
+                .first()
+                .label,
+        )
         assertTrue(view.expanded.get())
         assertEquals("History: 1-$long", headerTabs()[1].removeSurrounding("[", "]"))
     }
@@ -536,7 +562,7 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
 
         press(robot, historyView.table, KeyCode.G, shortcut = true)
 
-        assertNull(view.selectedHistoryView)
+        assertNull(view.tabs.selectedHistoryView)
         assertTrue(WaitForAsyncUtils.asyncFx<Boolean> { view.goToPopup.isShowing }.get())
         // The log's table was never laid out before (the area opened straight into the history): the popup is placed
         // at its top all the same, not over the header.
@@ -566,14 +592,19 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
         diffOf = { GitFileDiff.Binary }
         press(robot, historyView.table, KeyCode.ENTER)
         eventually { assertEquals("App.kt is a binary file.", status(robot)) }
-        click(robot, view.logTab.label)
+        click(robot, view.tabs.logTab.label)
         assertEquals("The git log could not be read.", status(robot))
 
         // A history that failed while not shown says so when it is again.
         fileHistoryOf = { _, _ -> null }
         robot.interact { view.refresh() }
         WaitForAsyncUtils.waitForFxEvents()
-        click(robot, view.historyTabs.single().label)
+        click(
+            robot,
+            view.tabs.historyTabs
+                .single()
+                .label,
+        )
         eventually { assertEquals("The history could not be read.", status(robot)) }
         assertEquals(4, historySubjects().size)
     }
@@ -587,7 +618,13 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
         eventually { assertEquals(1, historyCancellations.size) }
         robot.interact { view.refresh() }
         eventually { assertTrue(historyCancellations.first().cancelled) }
-        robot.interact { checkNotNull(view.historyTabs.single().closeButton).fire() }
+        robot.interact {
+            checkNotNull(
+                view.tabs.historyTabs
+                    .single()
+                    .closeButton,
+            ).fire()
+        }
         historyGate?.countDown()
         eventually { assertTrue(historyCancellations.all { it.cancelled }) }
 

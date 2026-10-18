@@ -609,18 +609,18 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
         }
         eventually {
             assertTrue(
-                checkNotNull(view.commitView)
+                checkNotNull(view.tabs.commitView)
                     .tree.root.children
                     .isNotEmpty(),
             )
         }
-        robot.interact { checkNotNull(view.commitView).messageArea.text = "Fix" }
+        robot.interact { checkNotNull(view.tabs.commitView).messageArea.text = "Fix" }
     }
 
     @Test
     fun `Commit and Push commits, then opens the Push dialog, a failed commit does not`(robot: FxRobot) {
         startCommit(robot)
-        val commitView = checkNotNull(view.commitView)
+        val commitView = checkNotNull(view.tabs.commitView)
         assertFalse(commitView.commitAndPushButton.isDisabled)
 
         writes.result = { GitResult(false, "pre-commit: tests fail") }
@@ -642,7 +642,7 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
     fun `a cancelled Commit and Push does not open the Push dialog`(robot: FxRobot) {
         startCommit(robot)
         writes.gate = CountDownLatch(1)
-        robot.interact { checkNotNull(view.commitView).commitAndPushButton.fire() }
+        robot.interact { checkNotNull(view.tabs.commitView).commitAndPushButton.fire() }
         eventually { assertTrue(cancelShown()) }
         writes.result = { GitResult(false, "Cancelled.") }
 
@@ -657,7 +657,7 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
     @Test
     fun `Shortcut+Alt+K commits and pushes from the Commit tab`(robot: FxRobot) {
         startCommit(robot)
-        val area = checkNotNull(view.commitView).messageArea
+        val area = checkNotNull(view.tabs.commitView).messageArea
         press(area, KeyCode.K, shortcut = true, alt = true)
 
         eventually { assertTrue(view.actions.pushDialog != null) }

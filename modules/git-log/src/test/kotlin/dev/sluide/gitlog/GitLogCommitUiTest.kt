@@ -75,7 +75,7 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
             "  [ ] notes.txt",
         )
 
-    private fun commitView() = checkNotNull(view.commitView)
+    private fun commitView() = checkNotNull(view.tabs.commitView)
 
     /** Opens the repository and the Commit tab, and waits for its tree. */
     private fun showCommit(robot: FxRobot) {
@@ -169,7 +169,7 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
     private fun headerTabs(): List<String> =
         WaitForAsyncUtils
             .asyncFx<List<String>> {
-                view.titles.children.map { node ->
+                view.tabs.titles.children.map { node ->
                     when (node) {
                         is AreaTab -> if (node.selected) "[${node.label.text}]" else node.label.text
                         else -> (node as Label).text
@@ -192,7 +192,7 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
         robot: FxRobot,
     ) {
         robot.interact { view.showCommit() }
-        assertNull(view.commitView, "no repository")
+        assertNull(view.tabs.commitView, "no repository")
 
         robot.interact {
             view.open(repo)
@@ -213,15 +213,25 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
         assertEquals("4 of 6 files selected", commitView().summary.text)
 
         // The Log and back: the same tab, the message focused again.
-        robot.interact { view.logTab.onSelect() }
+        robot.interact { view.tabs.logTab.onSelect() }
         assertEquals(listOf("[Log]", "Commit", "History: App.kt"), headerTabs())
         robot.interact { view.showCommit() }
         assertEquals(listOf("Log", "[Commit]", "History: App.kt"), headerTabs())
         assertSame<Node?>(commitView().messageArea, view.scene.focusOwner)
 
         // Closing a history right of it selects the Commit tab.
-        robot.interact { view.historyTabs.single().onSelect() }
-        robot.interact { checkNotNull(view.historyTabs.single().closeButton).fire() }
+        robot.interact {
+            view.tabs.historyTabs
+                .single()
+                .onSelect()
+        }
+        robot.interact {
+            checkNotNull(
+                view.tabs.historyTabs
+                    .single()
+                    .closeButton,
+            ).fire()
+        }
         assertEquals(listOf("Log", "[Commit]"), headerTabs())
     }
 
@@ -232,18 +242,18 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
         clickCheck(robot, "README.md")
         val draft = commitView()
 
-        robot.interact { checkNotNull(view.commitAreaTab.closeButton).fire() }
+        robot.interact { checkNotNull(view.tabs.commitAreaTab.closeButton).fire() }
         assertEquals(listOf("Git Log"), headerTabs())
-        assertFalse(view.commitShown)
+        assertFalse(view.tabs.commitShown)
         assertSame<Node?>(view.body, view.center, "the log is shown")
 
         robot.interact { view.showCommit() }
-        assertSame(draft, view.commitView)
+        assertSame(draft, view.tabs.commitView)
         assertEquals("Draft", draft.messageArea.text)
         assertEquals("  [ ] README.md", treeLines()[6])
 
         robot.interact { view.open(Path.of("/other")) }
-        assertNull(view.commitView)
+        assertNull(view.tabs.commitView)
         assertEquals(listOf("Git Log"), headerTabs())
         robot.interact { view.showCommit() }
         eventually { assertEquals(initialTree, treeLines()) }
@@ -647,11 +657,11 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
         robot.interact { view.expanded.set(true) }
         eventually { assertEquals(reads + 1, commitReads.size) }
 
-        robot.interact { view.logTab.onSelect() }
+        robot.interact { view.tabs.logTab.onSelect() }
         robot.interact { view.workingTreeChanged() }
         Thread.sleep(100)
         assertEquals(reads + 1, commitReads.size, "the Log is shown")
-        robot.interact { view.commitAreaTab.onSelect() }
+        robot.interact { view.tabs.commitAreaTab.onSelect() }
         eventually { assertEquals(reads + 2, commitReads.size) }
 
         // A failed read with the tree kept says so in the header, also when the tab is selected again.
@@ -659,9 +669,9 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
         robot.interact { view.workingTreeChanged() }
         eventually { assertEquals("The changes could not be read.", status(robot)) }
         assertEquals(initialTree, treeLines())
-        robot.interact { view.logTab.onSelect() }
+        robot.interact { view.tabs.logTab.onSelect() }
         assertEquals("", status(robot))
-        robot.interact { view.commitAreaTab.onSelect() }
+        robot.interact { view.tabs.commitAreaTab.onSelect() }
         eventually { assertEquals("The changes could not be read.", status(robot)) }
     }
 }
