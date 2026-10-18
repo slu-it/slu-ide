@@ -11,19 +11,18 @@ import javafx.scene.control.Tooltip
 import javafx.stage.Window
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignE
-import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.exists
 
 /**
- * The Export menu of a preview's toolbar: "HTML" writes [export]'s page of the saved text beside the file. An existing
- * target is only replaced after asking. The page is made off the FX thread (it may download images); the button is
- * disabled meanwhile. Problems (an error, images not embedded, diagrams not drawn) are reported in a dialog; a clean
- * export is not.
- * Everything but the rendering and writing runs on the FX thread.
+ * The Export menu of a preview's toolbar: each of [exports] is an item that writes its export of the saved text beside
+ * the file. An existing target is only replaced after asking. The export is written off the FX thread (it may download
+ * images or render offscreen); the button is disabled meanwhile. Problems (an error, or what the export lacks, such as
+ * images not embedded) are reported in a dialog; a clean export is not.
+ * Everything but the writing runs on the FX thread.
  */
 internal class ExportControls(
-    private val export: HtmlExport,
+    private val exports: List<FileExport>,
     private val file: () -> Path,
     private val savedText: () -> String,
     private val owner: () -> Window?,
@@ -34,7 +33,7 @@ internal class ExportControls(
             tooltip = Tooltip("Export")
             // A click leaves the focus where it is.
             isFocusTraversable = false
-            items += MenuItem("HTML").apply { setOnAction { exportHtml() } }
+            items += exports.map { item -> MenuItem(item.label).apply { setOnAction { export(item) } } }
         }
 
     /** Asks whether to replace the existing [target]; tests replace it, since it blocks. */
@@ -43,10 +42,10 @@ internal class ExportControls(
     /** Tells the user [message]; tests replace it, since it blocks. */
     var report: (String) -> Unit = ::showReport
 
-    /** Writes the HTML export of the saved text, after asking if the target exists. */
-    fun exportHtml() {
+    /** Writes [fileExport]'s export of the saved text, after asking if the target exists. */
+    fun export(fileExport: FileExport) {
         val source = file()
-        val target = export.target(source)
+        val target = fileExport.target(source)
         if (target.exists() && !confirmOverwrite(target)) return
         val text = savedText()
         button.isDisable = true
@@ -55,12 +54,11 @@ internal class ExportControls(
             try {
                 message =
                     try {
-                        val page = export.render(source, text)
-                        Files.writeString(target, page.html)
-                        if (page.problems.isEmpty()) {
+                        val problems = fileExport.write(source, text, target)
+                        if (problems.isEmpty()) {
                             null
                         } else {
-                            "Exported ${target.fileName}, with problems:\n" + page.problems.joinToString("\n")
+                            "Exported ${target.fileName}, with problems:\n" + problems.joinToString("\n")
                         }
                     } catch (e: Exception) {
                         "Could not export ${source.fileName}: ${e.message ?: e.javaClass.simpleName}"

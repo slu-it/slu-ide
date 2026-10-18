@@ -32,5 +32,5 @@ internal object MarkdownPreview : Preview {
 
     override fun outline(text: String) = MarkdownOutline.headings(text)
 
-    override val htmlExport = MarkdownHtmlExport()
+    override val exports by lazy { listOf(MarkdownHtmlExport()) }
 }

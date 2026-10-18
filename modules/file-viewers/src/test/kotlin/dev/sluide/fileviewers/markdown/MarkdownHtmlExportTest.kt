@@ -6,6 +6,7 @@ import org.junit.jupiter.api.io.TempDir
 import java.net.URI
 import java.nio.file.Path
 import kotlin.io.path.Path
+import kotlin.io.path.readText
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
@@ -71,6 +72,16 @@ class MarkdownHtmlExportTest {
         assertEquals(Path("/a/README.html"), export.target(Path("/a/README.markdown")))
         assertEquals(Path("/a/notes.css"), export.stylesheet(Path("/a/notes.md")))
         assertEquals(Path("/a/README.css"), export.stylesheet(Path("/a/README.markdown")))
+    }
+
+    @Test
+    fun `writing puts the page into the target and returns the problems`() {
+        val export = export()
+        assertEquals("HTML", export.label)
+        val target = dir.resolve("out.html")
+        val problems = export.write(dir.resolve("notes.md"), "# Written\n\n![b](missing.png)\n", target)
+        assertEquals(listOf("Image not embedded: missing.png"), problems)
+        assertTrue(target.readText().contains("Written"))
     }
 
     @Test

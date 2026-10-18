@@ -129,10 +129,10 @@ internal interface Preview {
     val hasOutline: Boolean get() = false
 
     /**
-     * How the preview is exported as HTML, or `null` if it is not; the Export button sits beside the table of contents'
-     * button, so only previews with an [outline][hasOutline] show it.
+     * The items of the preview's Export menu (empty: no menu); the Export button sits beside the table of contents'
+     * button or the zoom controls, so only previews with an [outline][hasOutline] or that [zoom][zooms] show it.
      */
-    val htmlExport: HtmlExport? get() = null
+    val exports: List<FileExport> get() = emptyList()
 
     /**
      * The headings of [text] for the table of contents, or `null` if the preview has none ([hasOutline]).
@@ -238,9 +238,11 @@ internal class PreviewFileView(
             null
         }
 
-    /** The Export button, if the preview [can be exported][Preview.htmlExport]. */
+    /** The Export button, if the preview [can be exported][Preview.exports]. */
     val export: ExportControls? =
-        preview.htmlExport?.let { ExportControls(it, { file }, { source.savedText }, { pane.scene?.window }) }
+        preview.exports.takeIf { it.isNotEmpty() }?.let {
+            ExportControls(it, { file }, { source.savedText }, { pane.scene?.window })
+        }
 
     private val pane =
         BorderPane(if (toc != null) StackPane(split, toc.overlay) else split).apply {
@@ -334,7 +336,7 @@ internal class PreviewFileView(
                 zoom.node.visibleProperty().bind(mode.map { it != PreviewMode.SOURCE })
                 zoom.node.managedProperty().bind(zoom.node.visibleProperty())
                 zoom.install(webView)
-                listOf(zoom.node, Region().apply { HBox.setHgrow(this, Priority.ALWAYS) })
+                listOfNotNull(zoom.node, export?.button, Region().apply { HBox.setHgrow(this, Priority.ALWAYS) })
             } else {
                 emptyList()
             }

@@ -1,16 +1,26 @@
 package dev.sluide.fileviewers.markdown
 
-import dev.sluide.fileviewers.preview.ExportedPage
-import dev.sluide.fileviewers.preview.HtmlExport
+import dev.sluide.fileviewers.preview.FileExport
+import dev.sluide.fileviewers.preview.writeReplacing
 import org.jsoup.nodes.DataNode
 import org.jsoup.nodes.Element
 import java.net.URI
 import java.net.URISyntaxException
+import java.nio.file.Files
 import java.nio.file.Path
 import java.util.Base64
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.nameWithoutExtension
 import kotlin.io.path.readText
+
+/**
+ * An exported [html] page; [problems] are lines for the user about what it lacks (an image that could not be embedded,
+ * a diagram that could not be drawn).
+ */
+internal class ExportedPage(
+    val html: String,
+    val problems: List<String>,
+)
 
 /**
  * Markdown as a self-contained HTML page `name.html` beside `name.md`: images (local and, via [images], remote) are
@@ -21,13 +31,26 @@ import kotlin.io.path.readText
 internal class MarkdownHtmlExport(
     private val images: ImageFetcher = HttpImageFetcher(),
     private val renderer: ExportRenderer = WebViewExportRenderer(),
-) : HtmlExport {
+) : FileExport {
+    override val label get() = "HTML"
+
     override fun target(file: Path): Path = file.resolveSibling(file.nameWithoutExtension + ".html")
 
     /** The stylesheet that [file]'s export includes if it exists. */
     fun stylesheet(file: Path): Path = file.resolveSibling(file.nameWithoutExtension + ".css")
 
-    override fun render(
+    override fun write(
+        file: Path,
+        text: String,
+        target: Path,
+    ): List<String> {
+        val page = render(file, text)
+        writeReplacing(target) { Files.writeString(it, page.html) }
+        return page.problems
+    }
+
+    /** The page for [text], the saved content of [file]; blocking (may download images), never on the FX thread. */
+    fun render(
         file: Path,
         text: String,
     ): ExportedPage {

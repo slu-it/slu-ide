@@ -52,11 +52,15 @@ class ExportUiTest {
         return view
     }
 
-    private fun exported(view: PreviewFileView): List<String> {
+    private fun exported(
+        view: PreviewFileView,
+        label: String = "HTML",
+    ): List<String> {
         val reports = mutableListOf<String>()
         val export = checkNotNull(view.export)
         export.report = { reports += it }
-        WaitForAsyncUtils.asyncFx<Unit> { export.exportHtml() }.get()
+        val item = export.button.items.single { it.text == label }
+        WaitForAsyncUtils.asyncFx<Unit> { item.fire() }.get()
         WaitForAsyncUtils.waitFor(30, TimeUnit.SECONDS) {
             WaitForAsyncUtils.asyncFx<Boolean> { !export.button.isDisable }.get()
         }
