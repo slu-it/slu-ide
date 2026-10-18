@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.languages
 
 import dev.sluide.fileviewers.code.CodeFileViewer
 import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
@@ -8,7 +8,8 @@ import org.springframework.stereotype.Component
 /**
  * Shows Dockerfiles (`Dockerfile`, `Containerfile`, `Dockerfile.dev`, `app.Dockerfile`) with syntax highlighting.
  * Ignore files of a Dockerfile (`Dockerfile.dockerignore`, `Dockerfile.dev.dockerignore`) are left to the ignore files'
- * viewer, and names like `Dockerfile.md` to the viewer of their extension ([NameMatch]).
+ * viewer, and names like `Dockerfile.md` to the viewer of their extension
+ * ([dev.sluide.fileviewers.NameMatch]).
  */
 @Component
 class DockerfileFileViewer :

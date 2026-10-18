@@ -5,7 +5,7 @@ import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.FileViewers
-import dev.sluide.fileviewers.PythonFileViewer
+import dev.sluide.fileviewers.languages.PythonFileViewer
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.SettingsStore

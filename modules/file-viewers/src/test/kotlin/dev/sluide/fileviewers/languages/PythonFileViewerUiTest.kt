@@ -1,5 +1,6 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.languages
 
+import dev.sluide.fileviewers.FileView
 import javafx.application.ColorScheme
 import javafx.scene.Scene
 import javafx.scene.layout.StackPane

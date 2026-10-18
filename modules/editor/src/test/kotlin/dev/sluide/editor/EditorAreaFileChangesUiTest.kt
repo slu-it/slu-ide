@@ -2,8 +2,8 @@ package dev.sluide.editor
 
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.LineChange
-import dev.sluide.fileviewers.PythonFileViewer
 import dev.sluide.fileviewers.TextDiff
+import dev.sluide.fileviewers.languages.PythonFileViewer
 import javafx.beans.property.SimpleStringProperty
 import javafx.scene.layout.Pane
 import javafx.stage.Stage

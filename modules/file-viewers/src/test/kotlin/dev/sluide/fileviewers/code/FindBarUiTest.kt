@@ -1,6 +1,6 @@
 package dev.sluide.fileviewers.code
 
-import dev.sluide.fileviewers.PythonFileViewer
+import dev.sluide.fileviewers.languages.PythonFileViewer
 import javafx.scene.Scene
 import javafx.scene.input.KeyCode
 import javafx.scene.layout.StackPane

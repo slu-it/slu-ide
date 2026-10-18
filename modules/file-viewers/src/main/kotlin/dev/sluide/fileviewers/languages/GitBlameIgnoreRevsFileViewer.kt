@@ -1,16 +1,16 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.languages
 
 import dev.sluide.fileviewers.code.CodeFileViewer
 import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import dev.sluide.textediting.CommentSyntax
 import org.springframework.stereotype.Component
 
-/** Shows OpenSSH configuration (`sshd_config`, `ssh_config`) with options and `Host`/`Match` blocks highlighted. */
+/** Shows `.git-blame-ignore-revs`, the commits `git blame` skips, with comments and commit hashes highlighted. */
 @Component
-class SshConfigFileViewer :
+class GitBlameIgnoreRevsFileViewer :
     CodeFileViewer(
         emptySet(),
-        RSyntaxHighlighter.sshConfig,
+        RSyntaxHighlighter.blameIgnoreRevs,
         CommentSyntax.HASH,
-        names = setOf("sshd_config", "ssh_config"),
+        names = setOf(".git-blame-ignore-revs"),
     )

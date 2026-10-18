@@ -6,7 +6,7 @@ import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.FileViewers
-import dev.sluide.fileviewers.PythonFileViewer
+import dev.sluide.fileviewers.languages.PythonFileViewer
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCommits

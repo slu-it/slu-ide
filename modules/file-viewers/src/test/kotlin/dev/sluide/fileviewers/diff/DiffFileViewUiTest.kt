@@ -3,10 +3,10 @@ package dev.sluide.fileviewers.diff
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.DiffFileView
 import dev.sluide.fileviewers.FileViewers
-import dev.sluide.fileviewers.KotlinFileViewer
 import dev.sluide.fileviewers.LineChange
 import dev.sluide.fileviewers.TextDiff
 import dev.sluide.fileviewers.code.press
+import dev.sluide.fileviewers.languages.KotlinFileViewer
 import javafx.event.Event
 import javafx.scene.Scene
 import javafx.scene.control.Button

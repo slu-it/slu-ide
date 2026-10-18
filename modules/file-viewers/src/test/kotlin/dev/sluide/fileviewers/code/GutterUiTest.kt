@@ -2,8 +2,8 @@ package dev.sluide.fileviewers.code
 
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.LineChange
-import dev.sluide.fileviewers.PythonFileViewer
 import dev.sluide.fileviewers.TextDiff
+import dev.sluide.fileviewers.languages.PythonFileViewer
 import javafx.event.Event
 import javafx.event.EventType
 import javafx.scene.Cursor
