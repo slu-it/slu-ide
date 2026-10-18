@@ -5,10 +5,10 @@ import dev.sluide.fileviewers.DiffFileView
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.LineChange
-import dev.sluide.fileviewers.NotebookFileViewer
 import dev.sluide.fileviewers.TextDiff
 import dev.sluide.fileviewers.html.HtmlFileViewer
 import dev.sluide.fileviewers.markdown.MarkdownFileViewer
+import dev.sluide.fileviewers.notebook.NotebookFileViewer
 import dev.sluide.fileviewers.table.CookiesFileViewer
 import dev.sluide.fileviewers.table.CsvFileViewer
 import javafx.application.ColorScheme

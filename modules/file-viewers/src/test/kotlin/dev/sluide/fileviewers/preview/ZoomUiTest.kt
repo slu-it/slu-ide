@@ -1,6 +1,5 @@
 package dev.sluide.fileviewers.preview
 
-import dev.sluide.fileviewers.NotebookFileViewer
 import dev.sluide.fileviewers.code.keyPress
 import dev.sluide.fileviewers.code.press
 import dev.sluide.fileviewers.image.ImageFileView
@@ -8,6 +7,7 @@ import dev.sluide.fileviewers.image.ImageFileViewer
 import dev.sluide.fileviewers.image.SvgFileViewer
 import dev.sluide.fileviewers.markdown.MarkdownFileViewer
 import dev.sluide.fileviewers.markdown.MermaidFileViewer
+import dev.sluide.fileviewers.notebook.NotebookFileViewer
 import javafx.concurrent.Worker
 import javafx.event.Event
 import javafx.event.EventHandler

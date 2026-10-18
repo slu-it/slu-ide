@@ -1,5 +1,6 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.notebook
 
+import dev.sluide.fileviewers.SyntaxHighlighter
 import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import dev.sluide.fileviewers.markdown.MarkdownRenderer
 import dev.sluide.fileviewers.preview.writeHighlighted

@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers
+package dev.sluide.fileviewers.notebook
 
 import org.jsoup.Jsoup
 import org.junit.jupiter.api.io.TempDir
