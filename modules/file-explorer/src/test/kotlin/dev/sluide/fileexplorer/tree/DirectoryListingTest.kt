@@ -1,4 +1,4 @@
-package dev.sluide.fileexplorer
+package dev.sluide.fileexplorer.tree
 
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files

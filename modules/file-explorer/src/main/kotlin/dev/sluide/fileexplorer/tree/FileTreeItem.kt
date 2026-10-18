@@ -1,4 +1,4 @@
-package dev.sluide.fileexplorer
+package dev.sluide.fileexplorer.tree
 
 import javafx.beans.property.SimpleObjectProperty
 import javafx.collections.ObservableList

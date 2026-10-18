@@ -1,4 +1,4 @@
-package dev.sluide.fileexplorer
+package dev.sluide.fileexplorer.tree
 
 import java.io.IOException
 import java.nio.file.Files

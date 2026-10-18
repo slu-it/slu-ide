@@ -1,5 +1,6 @@
 package dev.sluide.fileexplorer
 
+import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileicons.FILE_ICONS_CSS
 import dev.sluide.fileicons.fileIconFor
 import dev.sluide.fileicons.show
