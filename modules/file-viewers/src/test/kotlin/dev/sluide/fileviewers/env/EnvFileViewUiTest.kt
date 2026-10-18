@@ -1,6 +1,6 @@
 package dev.sluide.fileviewers.env
 
-import dev.sluide.fileviewers.code.press
+import dev.sluide.fileviewers.press
 import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.ToggleButton

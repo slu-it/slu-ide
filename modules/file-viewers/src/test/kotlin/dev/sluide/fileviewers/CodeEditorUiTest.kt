@@ -1,6 +1,5 @@
 package dev.sluide.fileviewers
 
-import dev.sluide.fileviewers.code.press
 import javafx.scene.Scene
 import javafx.scene.control.Label
 import javafx.scene.input.KeyCode

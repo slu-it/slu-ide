@@ -1,5 +1,6 @@
-package dev.sluide.fileviewers.code
+package dev.sluide.fileviewers
 
+import dev.sluide.fileviewers.code.TOGGLE_COMMENT
 import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.input.KeyCode

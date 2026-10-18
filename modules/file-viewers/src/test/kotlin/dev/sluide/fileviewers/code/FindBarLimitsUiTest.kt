@@ -1,5 +1,7 @@
 package dev.sluide.fileviewers.code
 
+import dev.sluide.fileviewers.keyPress
+import dev.sluide.fileviewers.press
 import dev.sluide.textediting.TextSearch
 import javafx.event.Event
 import javafx.scene.Scene
