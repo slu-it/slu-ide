@@ -1,8 +1,7 @@
-package dev.sluide.ide
+package dev.sluide.ide.logging
 
 import ch.qos.logback.core.PropertyDefinerBase
 import java.io.IOException
-import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.isRegularFile

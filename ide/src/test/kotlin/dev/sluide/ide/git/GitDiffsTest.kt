@@ -1,10 +1,11 @@
-package dev.sluide.ide
+package dev.sluide.ide.git
 
 import dev.sluide.fileviewers.LineChange
 import dev.sluide.fileviewers.TextDiff
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitStatusService
 import dev.sluide.git.cli.GitCli
+import dev.sluide.ide.trustingTrust
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir

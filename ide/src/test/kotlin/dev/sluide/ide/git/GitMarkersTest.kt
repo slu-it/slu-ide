@@ -1,4 +1,4 @@
-package dev.sluide.ide
+package dev.sluide.ide.git
 
 import dev.sluide.fileexplorer.FileMarker
 import dev.sluide.fileexplorer.FileMarkers
@@ -6,6 +6,7 @@ import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitStatusService
 import dev.sluide.git.GitStatusSnapshot
 import dev.sluide.git.cli.GitCli
+import dev.sluide.ide.trustingTrust
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path

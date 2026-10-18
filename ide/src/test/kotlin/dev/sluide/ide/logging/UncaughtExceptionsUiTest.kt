@@ -1,5 +1,6 @@
-package dev.sluide.ide
+package dev.sluide.ide.logging
 
+import dev.sluide.ide.SluIdeApplication
 import javafx.application.Platform
 import javafx.scene.control.Button
 import javafx.stage.Stage

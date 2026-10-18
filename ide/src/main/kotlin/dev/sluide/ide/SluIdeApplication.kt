@@ -1,5 +1,6 @@
 package dev.sluide.ide
 
+import dev.sluide.ide.logging.logUncaught
 import dev.sluide.settings.ThemedWindows
 import javafx.application.Application
 import javafx.application.Platform

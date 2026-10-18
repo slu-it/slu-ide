@@ -1,4 +1,4 @@
-package dev.sluide.ide
+package dev.sluide.ide.git
 
 import dev.sluide.fileviewers.LineChange
 import dev.sluide.fileviewers.TextDiff

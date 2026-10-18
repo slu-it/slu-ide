@@ -1,4 +1,4 @@
-package dev.sluide.ide
+package dev.sluide.ide.logging
 
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path

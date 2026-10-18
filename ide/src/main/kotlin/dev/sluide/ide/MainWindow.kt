@@ -15,6 +15,12 @@ import dev.sluide.gitlog.CommitFileDiff
 import dev.sluide.gitlog.GitLogView
 import dev.sluide.gitlog.WorkingTreeFileDiff
 import dev.sluide.httpclient.HttpClientSession
+import dev.sluide.ide.git.CommitDiffTab
+import dev.sluide.ide.git.WorkingTreeDiffTab
+import dev.sluide.ide.git.markers
+import dev.sluide.ide.git.textDiff
+import dev.sluide.ide.git.toTextDiff
+import dev.sluide.ide.git.wouldCommit
 import dev.sluide.projects.RecentProjects
 import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.projecttrust.ProjectTrustState

@@ -1,11 +1,11 @@
-package dev.sluide.ide
+package dev.sluide.ide.logging
 
 import ch.qos.logback.classic.LoggerContext
 import org.slf4j.LoggerFactory
 
 // SLF4J, not System.Logger like elsewhere: Spring Boot removes the bridge from java.util.logging when the context
 // closes, so System.Logger would drop the exceptions of shutdown hooks (ADR 0051).
-private val log = LoggerFactory.getLogger("dev.sluide.ide.UncaughtExceptions")
+private val log = LoggerFactory.getLogger("dev.sluide.ide.logging.UncaughtExceptions")
 
 /**
  * Logs an [error] no code caught on [thread], so that it reaches the log file; installed as the default handler once

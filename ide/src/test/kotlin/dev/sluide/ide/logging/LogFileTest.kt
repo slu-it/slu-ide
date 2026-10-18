@@ -1,5 +1,6 @@
-package dev.sluide.ide
+package dev.sluide.ide.logging
 
+import dev.sluide.ide.SluIdeConfiguration
 import org.springframework.boot.WebApplicationType
 import org.springframework.boot.builder.SpringApplicationBuilder
 import java.io.ByteArrayOutputStream
@@ -36,7 +37,7 @@ class LogFileTest {
             val text = logFile.readText()
             assertContains(text, "Uncaught exception in thread \"worker of $marker\"")
             assertContains(text, "java.lang.IllegalStateException: failure of $marker")
-            assertContains(text, "at dev.sluide.ide.LogFileTest")
+            assertContains(text, "at dev.sluide.ide.logging.LogFileTest")
         }
     }
 

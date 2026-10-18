@@ -5,6 +5,8 @@ import dev.sluide.git.GitChange
 import dev.sluide.git.GitHunk
 import dev.sluide.git.GitStatus
 import dev.sluide.gitlog.WorkingTreeFileDiff
+import dev.sluide.ide.git.CommitDiffTab
+import dev.sluide.ide.git.WorkingTreeDiffTab
 import javafx.beans.property.SimpleStringProperty
 import javafx.event.Event
 import javafx.geometry.Orientation
