@@ -72,7 +72,10 @@ internal class EnvFileView(
 
     private val pane =
         BorderPane(source.node).apply {
-            stylesheets += checkNotNull(EnvFileView::class.java.getResource("preview-view.css")).toExternalForm()
+            stylesheets +=
+                checkNotNull(
+                    EnvFileView::class.java.getResource("/dev/sluide/fileviewers/preview-view.css"),
+                ).toExternalForm()
         }
 
     /** The lines (0-based) whose values are shown although masked. */

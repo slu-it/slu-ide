@@ -225,7 +225,10 @@ internal class PreviewFileView(
     private val pane =
         BorderPane(if (toc != null) StackPane(split, toc.overlay) else split).apply {
             styleClass += "preview-view"
-            stylesheets += checkNotNull(PreviewFileView::class.java.getResource("preview-view.css")).toExternalForm()
+            stylesheets +=
+                checkNotNull(
+                    PreviewFileView::class.java.getResource("/dev/sluide/fileviewers/preview-view.css"),
+                ).toExternalForm()
         }
     private val engine = webView.engine
 

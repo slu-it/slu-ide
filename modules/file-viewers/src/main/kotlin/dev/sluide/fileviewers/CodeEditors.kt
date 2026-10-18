@@ -77,7 +77,8 @@ private class AreaDisplay : CodeDisplay {
     override val node: Node =
         VirtualizedScrollPane(area).apply {
             styleClass += "code-view"
-            stylesheets += checkNotNull(CodeView::class.java.getResource("syntax.css")).toExternalForm()
+            stylesheets +=
+                checkNotNull(CodeView::class.java.getResource("/dev/sluide/fileviewers/syntax.css")).toExternalForm()
         }
 
     override val text: String get() = area.text

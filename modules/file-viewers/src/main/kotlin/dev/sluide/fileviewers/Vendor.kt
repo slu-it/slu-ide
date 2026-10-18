@@ -28,7 +28,7 @@ internal object Vendor {
 
     private fun bytes(path: String) =
         checkNotNull(
-            Vendor::class.java.getResourceAsStream("vendor/$path"),
+            Vendor::class.java.getResourceAsStream("/dev/sluide/fileviewers/vendor/$path"),
         ) { "missing vendor/$path" }.use { it.readBytes() }
 
     private fun text(path: String) = bytes(path).toString(Charsets.UTF_8)

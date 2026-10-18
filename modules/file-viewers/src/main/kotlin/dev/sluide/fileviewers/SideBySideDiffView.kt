@@ -94,7 +94,10 @@ internal class SideBySideDiffView(
         BorderPane(SplitPane(left.box, right.box)).apply {
             styleClass += "diff-view"
             for (sheet in listOf("syntax.css", "preview-view.css")) {
-                stylesheets += checkNotNull(SideBySideDiffView::class.java.getResource(sheet)).toExternalForm()
+                stylesheets +=
+                    checkNotNull(
+                        SideBySideDiffView::class.java.getResource("/dev/sluide/fileviewers/$sheet"),
+                    ).toExternalForm()
             }
             top =
                 HBox(

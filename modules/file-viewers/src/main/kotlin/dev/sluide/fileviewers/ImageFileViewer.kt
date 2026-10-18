@@ -68,7 +68,10 @@ internal class ImageFileView(
                 }
             bottom = status
             styleClass += "image-view"
-            stylesheets += checkNotNull(ImageFileView::class.java.getResource("preview-view.css")).toExternalForm()
+            stylesheets +=
+                checkNotNull(
+                    ImageFileView::class.java.getResource("/dev/sluide/fileviewers/preview-view.css"),
+                ).toExternalForm()
         }
     private var bytes = file.readBytes()
     private var dark = false

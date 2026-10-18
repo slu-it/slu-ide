@@ -93,7 +93,8 @@ internal class CodeView(
     private val pane =
         VirtualizedScrollPane(area).apply {
             styleClass += "code-view"
-            stylesheets += checkNotNull(CodeView::class.java.getResource("syntax.css")).toExternalForm()
+            stylesheets +=
+                checkNotNull(CodeView::class.java.getResource("/dev/sluide/fileviewers/syntax.css")).toExternalForm()
         }
 
     /** Banners above the text, e.g. [conflictBanner]. */
@@ -103,7 +104,8 @@ internal class CodeView(
             // Unlike `code-view`, which the scroll panes of diff views have too.
             styleClass += "code-editor"
             top = banners
-            stylesheets += checkNotNull(CodeView::class.java.getResource("code-view.css")).toExternalForm()
+            stylesheets +=
+                checkNotNull(CodeView::class.java.getResource("/dev/sluide/fileviewers/code-view.css")).toExternalForm()
         }
 
     /** Finds in the text; shown above the banners. */

@@ -6,9 +6,9 @@ package dev.sluide.fileviewers
  * carries what it uses.
  */
 internal object HtmlPage {
-    /** The text of [name], a resource next to this class: the pages' stylesheets and scripts. */
+    /** The text of [name], a resource of the module (`dev/sluide/fileviewers`): the pages' stylesheets and scripts. */
     fun resource(name: String): String =
-        checkNotNull(HtmlPage::class.java.getResource(name)) { "missing $name" }.readText()
+        checkNotNull(HtmlPage::class.java.getResource("/dev/sluide/fileviewers/$name")) { "missing $name" }.readText()
 
     /**
      * A page with [styles] in its head, `dark` (if [dark]) and [classes] on its body, the [content] and then each of
