@@ -6,11 +6,9 @@ import dev.sluide.git.GitCommits
 import dev.sluide.git.GitLog
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitPush
-import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitRemotes
-import dev.sluide.git.GitRevisionResolution
 import javafx.application.Platform
 import javafx.beans.binding.Bindings
 import javafx.beans.property.BooleanProperty
@@ -26,7 +24,6 @@ import javafx.scene.control.SelectionMode
 import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.control.TableView
 import javafx.scene.control.Tooltip
-import javafx.scene.control.skin.VirtualFlow
 import javafx.scene.input.Clipboard
 import javafx.scene.input.ClipboardContent
 import javafx.scene.input.KeyCode
@@ -52,7 +49,6 @@ import java.nio.file.Path
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
-import java.util.Locale
 import java.util.concurrent.Executors
 
 /**
@@ -278,21 +274,8 @@ class GitLogView internal constructor(
 
     private val copyRevisionNumber = MenuItem("Copy Revision Number").apply { setOnAction { copyRevisionNumbers() } }
 
-    internal val goToItem = MenuItem("Go to Hash/Branch/Tag\u2026").apply { setOnAction { openGoTo() } }
-
-    /** Go to Hash/Branch/Tag (ADR 0045), with the branches and tags read last. */
-    internal val goToPopup =
-        GoToPopup { filterSources.branchItems().drop(1) }.apply {
-            go = ::goTo
-            clearFilters = ::clearFiltersAndGo
-            closed = ::goToClosed
-        }
-
-    /** Counts the requests of Go to, so that the result of an earlier one, or one after the popup closed, is dropped. */
-    private var goToRequests = 0L
-
-    /** The commit Go to looks for in the log and what it is called, while it does. */
-    private var goToTarget: Pair<String, String>? = null
+    internal val goToItem =
+        MenuItem("Go to Hash/Branch/Tag\u2026").apply { setOnAction { navigation.openGoTo() } }
 
     internal val compareWithLocalItem =
         MenuItem("Compare with Local").apply {
@@ -409,6 +392,21 @@ class GitLogView internal constructor(
             }
         }
 
+    /** Goes to commits in the table: of branches, linked ones and with Go to (ADRs 0040, 0045). */
+    internal val navigation: CommitNavigation =
+        CommitNavigation(
+            pages,
+            table,
+            source::resolveCommits,
+            executor::execute,
+            dispatch,
+            { filterSources.branchItems().drop(1) },
+            { branchesPane.selectedRef },
+            { body.firstShown },
+            { detailsPane.contains(scene?.focusOwner) },
+            status::tell,
+        ).apply { clearFilters = { filterBar.clearFilters() } }
+
     /** What the filters above the table offer to pick. */
     private val filterSources: FilterSources =
         FilterSources(pages, source::userName, source::paths, executor::execute, dispatch).apply {
@@ -440,7 +438,7 @@ class GitLogView internal constructor(
     /** The details of the selected commit. */
     internal val detailsPane =
         CommitDetailsPane(details.state, commitBranches.state).apply {
-            openCommit = { hash -> goToCommit(hash, hash.take(ChangedFilesPane.SHORT_HASH)) }
+            openCommit = { hash -> navigation.goToCommit(hash, hash.take(ChangedFilesPane.SHORT_HASH)) }
         }
 
     /** The files the selected commit changed. */
@@ -453,8 +451,8 @@ class GitLogView internal constructor(
     /** The branches, left of the commits (ADR 0040). */
     internal val branchesPane =
         BranchesPane().apply {
-            navigate = ::navigateTo
-            moved = ::branchMoved
+            navigate = navigation::navigateTo
+            moved = navigation::branchMoved
             filter = { names ->
                 // Filtering by branches ends a comparison, which would hide them.
                 compareBar.stopComparing()
@@ -483,7 +481,7 @@ class GitLogView internal constructor(
                     if (branchesPane.contains(event.target)) branchesPane.focusSearch() else filterBar.focusText()
                     event.consume()
                 } else if (GO_TO.match(event)) {
-                    openGoTo()
+                    navigation.openGoTo()
                     event.consume()
                 }
             }
@@ -511,9 +509,9 @@ class GitLogView internal constructor(
                 // Laid out now: the popup is placed by the table's bounds, which it may never have had yet.
                 this@GitLogView.applyCss()
                 this@GitLogView.layout()
-                this@GitLogView.openGoTo()
+                navigation.openGoTo()
             }
-            goToCommit = { hash -> this@GitLogView.goToCommit(hash, hash.take(ChangedFilesPane.SHORT_HASH)) }
+            goToCommit = { hash -> navigation.goToCommit(hash, hash.take(ChangedFilesPane.SHORT_HASH)) }
             commit = { operation -> actions.start(operation) }
             openFile = { file -> onOpenFile(file) }
         }
@@ -669,7 +667,7 @@ class GitLogView internal constructor(
         // The Push dialog closes; an operation going on in the previous repository ends unnoticed; a fetch is stopped
         // (ADR 0043).
         actions.reset()
-        goToPopup.hide()
+        navigation.goToPopup.hide()
         // Before the pages, which may start loading and have the pane say so.
         branchesPane.reset()
         commitBranches.clear()
@@ -680,176 +678,6 @@ class GitLogView internal constructor(
         filterBar.reset()
         compareBar.comparisonChanged()
         filterSources.reset()
-    }
-
-    /**
-     * Selects the row of [ref]'s commit and scrolls to it, loading pages until it is there; if it is not, the header
-     * tells why. Only while the branches pane still has [ref] selected; `null` stops looking.
-     */
-    private fun navigateTo(ref: GitRef?) {
-        if (ref == null) {
-            pages.stopLoadingUntil()
-            return
-        }
-        status.clear()
-        pages.loadUntil(
-            ref.commit,
-            { index -> if (branchesPane.selectedRef == ref) showRow(index) },
-            { missing -> if (branchesPane.selectedRef == ref) status.tell(missingMessage(ref.shortName, missing)) },
-        )
-    }
-
-    /**
-     * Selects the row of the commit [hash] and scrolls to it, loading pages until it is there; if it is not, the header
-     * tells why, calling it [name] (ADR 0045). Replaces a search for another commit, e.g. of a branch. The table takes
-     * the focus from the details (a clicked link), whose texts the next commit may not have.
-     */
-    private fun goToCommit(
-        hash: String,
-        name: String,
-    ) {
-        status.clear()
-        pages.loadUntil(
-            hash,
-            { index ->
-                showRow(index)
-                if (detailsPane.contains(scene?.focusOwner)) table.requestFocus()
-            },
-            { missing -> status.tell(missingMessage(name, missing)) },
-        )
-    }
-
-    /** Opens Go to Hash/Branch/Tag at the top of the table (ADR 0045); not without a repository. */
-    private fun openGoTo() {
-        if (pages.root == null) return
-        goToPopup.show(table)
-    }
-
-    /**
-     * Resolves [revision] (a full refname, or what was typed) in the background and goes to its commit (ADR 0045); the
-     * popup says why not, calling it [name].
-     */
-    private fun goTo(
-        revision: String,
-        name: String,
-    ) {
-        val root = pages.root ?: return
-        val request = ++goToRequests
-        goToTarget = null
-        executor.execute {
-            val resolution = source.resolveCommits(root, listOf(revision))?.singleOrNull()
-            dispatch {
-                if (request != goToRequests || pages.root != root || !goToPopup.isShowing) return@dispatch
-                when (resolution) {
-                    is GitRevisionResolution.Commit -> seekGoTo(request, resolution.hash, name)
-                    GitRevisionResolution.Ambiguous -> goToPopup.say("'$name' is ambiguous.")
-                    GitRevisionResolution.Missing, null -> goToPopup.say("Unknown revision '$name'.")
-                }
-            }
-        }
-    }
-
-    /**
-     * Selects the row of the commit [hash] Go to resolved, loading pages until it is there: the popup closes and the
-     * table takes the focus; if it is not there, the popup says why, offering to clear the filters that hide it.
-     */
-    private fun seekGoTo(
-        request: Long,
-        hash: String,
-        name: String,
-    ) {
-        goToTarget = hash to name
-        pages.loadUntil(
-            hash,
-            { index ->
-                if (request == goToRequests) {
-                    goToTarget = null
-                    goToPopup.hide()
-                    showRow(index)
-                    table.requestFocus()
-                }
-            },
-            { missing ->
-                if (request == goToRequests) {
-                    val hidden =
-                        missing == CommitMissing.NOT_IN_LOG &&
-                            pages.comparison == null &&
-                            !pages.effectiveFilter.isDefault
-                    goToPopup.say(missingMessage(name, missing), offerClearFilters = hidden)
-                }
-            },
-        )
-    }
-
-    /** Clears the filters that hide the commit Go to looked for, and goes on to it. */
-    private fun clearFiltersAndGo() {
-        val (hash, name) = goToTarget ?: return
-        filterBar.clearFilters()
-        goToPopup.say(null)
-        seekGoTo(goToRequests, hash, name)
-    }
-
-    /** Go to closed: what it still waits for is dropped, the log stops loading pages for it. */
-    private fun goToClosed() {
-        goToRequests++
-        val target = goToTarget ?: return
-        goToTarget = null
-        if (pages.loadingUntil == target.first) pages.stopLoadingUntil()
-    }
-
-    /** Why the commit called [name] is not in the table, as [GitLogPages.loadUntil] found it [missing]. */
-    private fun missingMessage(
-        name: String,
-        missing: CommitMissing,
-    ): String =
-        when {
-            missing == CommitMissing.UNREADABLE -> {
-                GitLogState.FAILED.message
-            }
-
-            missing == CommitMissing.BEYOND_LIMIT -> {
-                "$name is more than ${"%,d".format(Locale.ENGLISH, GitLogPages.SEEK_LIMIT)} commits down."
-            }
-
-            pages.comparison != null -> {
-                "$name is not in this comparison."
-            }
-
-            pages.effectiveFilter.isDefault -> {
-                "$name is not in the log."
-            }
-
-            else -> {
-                "$name is hidden by the filters."
-            }
-        }
-
-    /**
-     * Follows a selected branch that a refresh moved from [before] to [after], but only while the user is still on it:
-     * the pane is shown and the table still has exactly its old commit selected, or its commit is still looked for.
-     */
-    private fun branchMoved(
-        before: GitRef,
-        after: GitRef,
-    ) {
-        val looking = pages.loadingUntil == before.commit
-        val onIt = table.selectionModel.selectedItems.map { it.commit.hash } == listOf(before.commit)
-        if (body.firstShown && (looking || onIt)) {
-            navigateTo(after)
-        } else if (looking) {
-            pages.stopLoadingUntil()
-        }
-    }
-
-    /** Selects only the row at [index] and scrolls it into the middle of the table, unless it is in view already. */
-    private fun showRow(index: Int) {
-        table.selectionModel.clearAndSelect(index)
-        val flow = table.lookup(".virtual-flow") as? VirtualFlow<*>
-        val first = flow?.firstVisibleCell?.index ?: -1
-        val last = flow?.lastVisibleCell?.index ?: -1
-        // The first and last rows may be cut off.
-        if (index in first + 1..<last) return
-        table.scrollTo(maxOf(0, index - maxOf(0, last - first) / 2))
     }
 
     /** Shows [text] in the header, e.g. why a diff cannot be shown, until the next selection or load. */

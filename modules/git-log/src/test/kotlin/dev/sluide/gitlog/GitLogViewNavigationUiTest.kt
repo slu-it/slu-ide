@@ -292,7 +292,7 @@ class GitLogViewNavigationUiTest : GitLogViewUiFixture() {
         )
     }
 
-    private val goTo get() = view.goToPopup
+    private val goTo get() = view.navigation.goToPopup
 
     /** Opens Go to with Shortcut+G in the table and types [text]. */
     private fun openGoTo(

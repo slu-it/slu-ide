@@ -563,15 +563,15 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
         press(robot, historyView.table, KeyCode.G, shortcut = true)
 
         assertNull(view.tabs.selectedHistoryView)
-        assertTrue(WaitForAsyncUtils.asyncFx<Boolean> { view.goToPopup.isShowing }.get())
+        assertTrue(WaitForAsyncUtils.asyncFx<Boolean> { view.navigation.goToPopup.isShowing }.get())
         // The log's table was never laid out before (the area opened straight into the history): the popup is placed
         // at its top all the same, not over the header.
         robot.interact {
             val table = view.table.localToScreen(view.table.boundsInLocal)
             val header = view.header.localToScreen(view.header.boundsInLocal)
-            assertEquals(table.minY, view.goToPopup.popup.y, 5.0, "at the top of the table")
-            assertTrue(view.goToPopup.popup.y >= header.maxY, "below the header")
-            view.goToPopup.hide()
+            assertEquals(table.minY, view.navigation.goToPopup.popup.y, 5.0, "at the top of the table")
+            assertTrue(view.navigation.goToPopup.popup.y >= header.maxY, "below the header")
+            view.navigation.goToPopup.hide()
         }
     }
 
