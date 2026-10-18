@@ -1,6 +1,10 @@
 package dev.sluide.git
 
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.projecttrust.ProjectTrust
+import dev.sluide.projecttrust.ProjectTrustCheck
+import dev.sluide.projecttrust.ProjectTrustState
+import dev.sluide.projecttrust.TrustFinding
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
@@ -16,6 +20,8 @@ import kotlin.io.path.readLines
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.test.fail
@@ -58,7 +64,7 @@ class GitStatusServiceRunsTest {
                 toFile().setExecutable(true)
             }
         val git = GitCli(executable.toString(), System.getenv())
-        service = GitStatusService(git, watcher) { dispatched += it }
+        service = GitStatusService(git, watcher, testTrust()) { dispatched += it }
         assumeTrue(git.available, "no /bin/sh to stand in for git")
     }
 
@@ -160,5 +166,66 @@ class GitStatusServiceRunsTest {
         service.refresh()
         runDispatched()
         assertSame(first, service.snapshot.get())
+    }
+
+    /** A check standing in for git's: it finds [findings], which the test may change. */
+    private class FakeGitCheck(
+        @Volatile var findings: List<TrustFinding> = emptyList(),
+    ) : ProjectTrustCheck {
+        override val id = GitTrustCheck.ID
+        override val name = "Git"
+
+        override fun check(folder: Path) = findings
+    }
+
+    /** A service whose folder's trust has [check]; closed after the test. */
+    private fun gated(check: ProjectTrustCheck): Pair<GitStatusService, ProjectTrust> {
+        val trust = testTrust(repo, listOf(check), scripts.resolve("trust.properties"))
+        val gated =
+            GitStatusService(GitCli(scripts.resolve("git").toString(), System.getenv()), watcher, trust) {
+                dispatched += it
+            }
+        closing += gated
+        closing += trust
+        return gated to trust
+    }
+
+    private val closing = mutableListOf<AutoCloseable>()
+
+    @AfterEach
+    fun closeGated() = closing.forEach(AutoCloseable::close)
+
+    @Test
+    fun `git status never runs while the folder's trust keeps git off`() {
+        report("? a.txt")
+        val (gated, _) = gated(FakeGitCheck(listOf(TrustFinding("core.fsmonitor = ./watch.sh"))))
+
+        // Each run says so with an empty snapshot.
+        gated.open(repo)
+        runDispatched()
+        gated.refresh()
+        runDispatched()
+
+        assertEquals(0, runs())
+        assertSame(GitStatusSnapshot.EMPTY, gated.snapshot.get())
+    }
+
+    @Test
+    fun `a change the window tells is checked before git runs again and before listeners hear of it`() {
+        report("? a.txt")
+        val check = FakeGitCheck()
+        val (gated, trust) = gated(check)
+        gated.open(repo)
+        while (gated.snapshot.get().root == null) runDispatched()
+        val before = runs()
+
+        check.findings = listOf(TrustFinding("filter.crypt.clean = ./clean.sh"))
+        gated.gitChanged()
+        while (gated.snapshot.get() != GitStatusSnapshot.EMPTY) runDispatched()
+
+        assertEquals(before, runs())
+        assertEquals(0L, gated.gitFolderChanged.get())
+        assertTrue(assertIs<ProjectTrustState.Ask>(trust.state.get()).changed)
+        assertNull(gated.diff(repo.resolve("a.txt")))
     }
 }

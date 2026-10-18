@@ -205,6 +205,12 @@ class GitLogView internal constructor(
     var onOpenFile: (Path) -> Unit = {}
 
     /**
+     * Called after every operation, also a failed one, to read the log again; the window first lets the folder's trust
+     * check what the operation may have made git run (ADR 0053), and refreshes the log after that.
+     */
+    var afterWrite: () -> Unit = { refresh() }
+
+    /**
      * Shows how a file differs between a commit and the working tree, e.g. side by side in an editor tab with the live
      * file on the right; `false` if it cannot be shown as text. Set by the window (ADR 0044).
      */
@@ -1937,7 +1943,7 @@ class GitLogView internal constructor(
         }
         // Also after a failure, which may have done a part. New and renamed branches alone are not noticed by the
         // watch of .git (ADR 0035).
-        refresh()
+        afterWrite()
         if (!outcome.result.success) {
             // Done all the same (a failing post-checkout hook): the header says what was done.
             val header = outcome.done?.takeIf { outcome.result.changed } ?: outcome.failure ?: operation.failure

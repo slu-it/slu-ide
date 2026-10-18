@@ -87,7 +87,7 @@ assembled from Gradle modules.
    in new windows; without folders the project picker is shown instead ([ADR 0034](adr/0034-project-picker.md)).
 4. Each window gets its own instances of the beans with `@Scope("window")` (`WindowScope`, [ADR 0014](adr/0014-project-windows.md)):
    `MainWindow`, `ProjectService`, `FileExplorerView`, `EditorArea`, `Terminals`, `DockerSandbox`, `GitStatusService`,
-   `GitLogView`, `HttpClientSession`.
+   `GitLogView`, `HttpClientSession`, `ProjectTrust`.
    They are created when the window opens and destroyed (`close()`) when it closes. Singletons must not depend on
    them.
 5. When the last window is closed, `ProjectWindows` shows the project picker. Cancelling the picker while no window

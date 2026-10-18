@@ -51,8 +51,8 @@ without reading.
   in the same pattern as `RecentProjects`, [ADR 0034](0034-project-picker.md)): `trusted:<fingerprint>` or
   `untrusted:<fingerprint>`.
   - Other findings than those decided about ask again.
-  - A decision not to remember (the dialog closed with Esc) lasts while the folder is open, and so does one about a
-    check that could not check, which is never stored.
+  - A decision about a check that could not check is never stored; it lasts while the folder is open.
+    (`decide(…, remember = false)` keeps any decision only that long.)
 - **Git's check** (`GitTrustCheck`, id `git`, in `modules/git`) reads what the repository's own configuration says.
   - **No repository:** a folder without `.git`, or no git installed, finds nothing. A repository git refuses (owned
     by another user, `safe.directory`; a `.git` file pointing nowhere) could not be checked: `git rev-parse
@@ -98,6 +98,28 @@ without reading.
     content of a script a setting names (`filter.x.clean = ./clean.sh`): changing it does not ask again. An
     `includeIf` file that does not apply now (another branch, `onbranch:`) is not listed until it does; then the
     check run again on the change in `.git` finds it.
+- **Git's tools run only while `allows("git")`** (`GitStatusService`):
+  - `git status` waits for the checks (`awaitAllows`) and does not run without; the snapshot stays empty, so the
+    explorer shows no markers, editors no changes, and the http client no warning that git would commit a private
+    environment file. The editor's diff (`diff`) asks `allows`.
+  - On every change noticed directly in `.git` (a config written, a checkout, a commit, `FETCH_HEAD`), and after every
+    operation of the git log (`GitLogView.afterWrite`, which `MainWindow` sets to `GitStatusService.gitChanged`), git's
+    check runs again (`recheck`) before the next status. Only if it still allows git does `gitFolderChanged` count the
+    change; the git log refreshes on that, also after its own operations, so it does not read with what a change made
+    git run. Until the check ran again, `diff` runs no git either. A checkout that makes an `includeIf onbranch:` file
+    apply, or changes a hooks folder in the work tree (`.husky`), is found this way.
+  - Not covered: what runs git between a change in `.git` and the end of its check, the watch's delay and the check
+    itself (usually well under a second): a click in the git log right after a checkout in a terminal, or an editor
+    reloading a changed file, and with it its diff, before the watch has noticed the change. A changed file in `.git/hooks` alone is not
+    noticed (only entries directly in `.git` are watched) until the next change of `.git`; a repository with a `.git`
+    file (worktrees, submodules) is not watched, so it is checked only when opened.
+  - `MainWindow` opens the repository in the git log only while git is allowed, and reads the status again when git
+    becomes allowed. The log area itself stays below the editor for a repository, so that the layout does not change
+    when the checks end; while git is off its header says "Git is off until the folder is trusted.", and Git → Commit…
+    and Push… are disabled. When a change turns git off while the log has the repository open, the log closes it as
+    for another folder (`GitLogView.open(null)`): the Commit tab with its draft and the file histories are closed, a
+    running fetch is stopped, any other operation finishes and its outcome is dropped
+    ([ADR 0041](0041-git-write-operations.md)).
 
 ## Consequences
 - Opening a normal clone asks nothing. A folder whose contents would make a tool run commands is asked about once, with

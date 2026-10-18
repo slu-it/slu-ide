@@ -13,10 +13,13 @@ import dev.sluide.git.GitLog
 import dev.sluide.git.GitPush
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitStatusService
+import dev.sluide.git.GitTrustCheck
 import dev.sluide.gitlog.GitLogView
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.projects.ProjectPicker
 import dev.sluide.projects.RecentProjects
+import dev.sluide.projecttrust.ProjectTrust
+import dev.sluide.projecttrust.TrustedProjects
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontsPage
 import dev.sluide.settings.SettingsPages
@@ -96,6 +99,11 @@ class ProjectWindowsUiTest {
                 )
                 registerBean(FileWatcher::class.java, Supplier { FileWatcher(Platform::runLater, 50.milliseconds) })
                 registerBean(GitCli::class.java, Supplier { GitCli(dir.resolve("no-git").toString(), System.getenv()) })
+                registerBean(
+                    TrustedProjects::class.java,
+                    Supplier { TrustedProjects(dir.resolve("settings/trust.properties")) },
+                )
+                register(GitTrustCheck::class.java)
                 register(GitLog::class.java)
                 register(GitBranches::class.java)
                 register(GitCommits::class.java)
@@ -114,6 +122,7 @@ class ProjectWindowsUiTest {
                     GitStatusService::class.java,
                     GitLogView::class.java,
                     HttpClientSession::class.java,
+                    ProjectTrust::class.java,
                 )
                 refresh()
             }

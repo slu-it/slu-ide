@@ -13,10 +13,13 @@ import dev.sluide.git.GitLog
 import dev.sluide.git.GitPush
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitStatusService
+import dev.sluide.git.GitTrustCheck
 import dev.sluide.gitlog.GitLogView
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.projects.ProjectPicker
 import dev.sluide.projects.RecentProjects
+import dev.sluide.projecttrust.ProjectTrust
+import dev.sluide.projecttrust.TrustedProjects
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontsPage
 import dev.sluide.settings.SettingsPages
@@ -99,7 +102,12 @@ abstract class MainWindowUiFixture {
         System.getenv().filterKeys { !it.startsWith("GIT_") } +
             mapOf("GIT_CONFIG_GLOBAL" to "/dev/null", "GIT_CONFIG_NOSYSTEM" to "1")
     internal val git = GitCli("git", gitEnvironment)
-    internal val gitStatus = GitStatusService(git, watcher)
+
+    /** The folder's trust, running git's check; decisions are kept in the test's settings folder. */
+    internal val projectTrust by lazy {
+        ProjectTrust(listOf(GitTrustCheck(git)), TrustedProjects(settingsDir.resolve("project-trust.properties")))
+    }
+    internal val gitStatus by lazy { GitStatusService(git, watcher, projectTrust) }
 
     @AfterEach
     fun close() {
@@ -107,6 +115,7 @@ abstract class MainWindowUiFixture {
         WaitForAsyncUtils.waitForFxEvents()
         terminals.close()
         gitStatus.close()
+        projectTrust.close()
         gitLogViews.forEach(GitLogView::close)
         watcher.close()
         httpSessions.forEach(HttpClientSession::close)
@@ -165,6 +174,7 @@ abstract class MainWindowUiFixture {
         projectWindows,
         HttpClientSession().also(httpSessions::add),
         recentProjects,
+        projectTrust,
         SystemBrowser(),
     )
 

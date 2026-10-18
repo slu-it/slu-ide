@@ -28,6 +28,7 @@ dependencies {
     implementation(project(":modules:git-log"))
     implementation(project(":modules:http-client"))
     implementation(project(":modules:projects"))
+    implementation(project(":modules:project-trust"))
 
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)

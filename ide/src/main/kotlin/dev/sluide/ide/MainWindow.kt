@@ -10,11 +10,14 @@ import dev.sluide.fileviewers.FileViewers
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitHead
 import dev.sluide.git.GitStatusService
+import dev.sluide.git.GitTrustCheck
 import dev.sluide.gitlog.CommitFileDiff
 import dev.sluide.gitlog.GitLogView
 import dev.sluide.gitlog.WorkingTreeFileDiff
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.projects.RecentProjects
+import dev.sluide.projecttrust.ProjectTrust
+import dev.sluide.projecttrust.ProjectTrustState
 import dev.sluide.settings.SettingsDialog
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.ThemedWindows
@@ -56,6 +59,9 @@ private val isMac = System.getProperty("os.name").lowercase().contains("mac")
 /** Where the divider above the git log starts when it is expanded: the log takes the lower 30 % (ADR 0035). */
 private const val GIT_LOG_DIVIDER = 0.7
 
+/** What the git log area says while the folder's trust keeps git off (ADR 0053). */
+internal const val GIT_OFF = "Git is off until the folder is trusted."
+
 /**
  * The window title: the folder's name, the checked-out branch (or `detached at` and the short commit) in brackets if
  * [head] is known, and the app name; just the app name without a [folder].
@@ -90,6 +96,7 @@ class MainWindow(
     private val projectWindows: ProjectWindows,
     private val httpSession: HttpClientSession,
     private val recentProjects: RecentProjects,
+    private val projectTrust: ProjectTrust,
     systemBrowser: SystemBrowser,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
@@ -128,6 +135,12 @@ class MainWindow(
             // Resizing the window resizes the editor area; the log keeps its height.
             SplitPane.setResizableWithParent(gitLogView, false)
         }
+
+    /** The repository open in the git log: the followed one while the folder's trust allows git, else `null`. */
+    private var gitLogRoot: Path? = null
+
+    /** Whether the git log has the repository open; Commit… and Push… need it. */
+    private val gitLogOpen = SimpleBooleanProperty(false)
 
     /** The height of the expanded git log in pixels, kept while it is collapsed; 0 until it was expanded. */
     private var gitLogHeight = 0.0
@@ -174,9 +187,14 @@ class MainWindow(
             gitLogView.workingTreeChanged()
         }
 
+        // Git runs only while the folder's trust allows it (ADR 0053), after its checks or the user's decision.
+        projectTrust.state.subscribe { _ -> followGitTrust() }
+
         // The git log follows the repository's .git folder (commits, checkouts, fetches); collapsed, it only notes that
         // it is outdated (ADR 0035).
         gitStatus.gitFolderChanged.addListener { _, _, _ -> gitLogView.refresh() }
+        // After its own operations too, once git's trust check ran again on what they may have changed (ADR 0053).
+        gitLogView.afterWrite = gitStatus::gitChanged
         gitLogView.expanded.addListener { _, _, expanded ->
             // Only a height it was laid out with while expanded (its content is already gone, so its minimum height is
             // the header's).
@@ -203,9 +221,11 @@ class MainWindow(
         // A window gets its folder once (ADR 0014); other folders open in new windows.
         projectService.projectFolder.subscribe { folder ->
             fileExplorer.open(folder)
+            // Tools run only what a trusted folder defines; git's status waits for the checks (ADR 0053).
+            projectTrust.open(folder)
             gitStatus.open(folder)
             showGitLog(split, gitStatus.active)
-            gitLogView.open(gitStatus.root)
+            followGitTrust()
             fitExplorer(split)
             stage.title = windowTitle(folder, gitStatus.snapshot.get().head)
             // Every opened folder is remembered for the project picker: chosen there, with Open Folder… or given on
@@ -228,9 +248,12 @@ class MainWindow(
         stage.show()
     }
 
-    /** Whether the git log area can show the history of [file]: while it is present, for a file below its repository. */
+    /**
+     * Whether the git log area can show the history of [file]: while it is present and has the repository open (the
+     * folder's trust allows git), for a file below it.
+     */
     private fun canShowHistory(file: Path): Boolean {
-        val root = gitStatus.root ?: return false
+        val root = gitLogRoot ?: return false
         val normalized = file.toAbsolutePath().normalize()
         return gitLogPresent.get() && normalized != root && normalized.startsWith(root) &&
             !Files.isDirectory(normalized)
@@ -305,6 +328,27 @@ class MainWindow(
         } catch (_: InvalidPathException) {
             Path.of(path.substringAfterLast('/').map { if (it.code < 128) it else '_' }.joinToString(""))
         }
+
+    /**
+     * Opens the repository in the git log while the folder's trust allows git, and reads its status again when it
+     * starts to; closes it in the log otherwise (ADR 0053). The status follows the trust by itself.
+     */
+    private fun followGitTrust() {
+        val root = gitStatus.root?.takeIf { projectTrust.allows(GitTrustCheck.ID) }
+        if (root != gitLogRoot) {
+            gitLogRoot = root
+            gitLogOpen.set(root != null)
+            // Like another folder: the Commit tab's draft and the file histories are closed, a fetch is stopped.
+            gitLogView.open(root)
+            if (root != null) {
+                gitLogView.showStatus("")
+                gitStatus.refresh()
+            }
+        }
+        // Not while the checks run: they take a moment.
+        val off = projectTrust.state.get().let { it is ProjectTrustState.Ask || it is ProjectTrustState.Untrusted }
+        if (root == null && gitStatus.active && off) gitLogView.showStatus(GIT_OFF)
+    }
 
     /**
      * Shows the git log below the editor area if [present], else only the editor area, on the right of the explorer
@@ -432,14 +476,14 @@ class MainWindow(
         val commit =
             MenuItem("Commit…").apply {
                 accelerator = KeyCodeCombination(KeyCode.K, KeyCombination.SHORTCUT_DOWN)
-                disableProperty().bind(gitLogPresent.not())
+                disableProperty().bind(gitLogOpen.not())
                 setOnAction { gitLogView.showCommit() }
             }
         // The Push dialog (ADR 0049), on IntelliJ's shortcut; delete lines moved to Shortcut+Y for it.
         val push =
             MenuItem("Push…").apply {
                 accelerator = KeyCodeCombination(KeyCode.K, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN)
-                disableProperty().bind(gitLogPresent.not())
+                disableProperty().bind(gitLogOpen.not())
                 setOnAction { gitLogView.showPush() }
             }
         return Menu("Git", null, commit, push)
@@ -533,6 +577,9 @@ class MainWindow(
         editorArea.closeAll()
         fileExplorer.open(null)
         gitStatus.open(null)
+        gitLogRoot = null
+        gitLogOpen.set(false)
         gitLogView.open(null)
+        projectTrust.open(null)
     }
 }

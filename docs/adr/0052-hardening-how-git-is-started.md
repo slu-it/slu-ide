@@ -54,6 +54,8 @@ of the git modules found two ways in which that runs git differently from what t
   configuration, for the paths `.gitattributes` gives it) for files whose index entry does not match them, which is
   every file of a repository copied to a new place (checked with git 2.53); the editor's diff runs the smudge filter
   (`cat-file --filters`). Also open, on what the user starts: hooks and `core.sshCommand` of an untrusted repository
-  when committing, checking out or fetching. A folder trust prompt would be the next step for both.
+  when committing, checking out or fetching. A folder trust prompt would be the next step for both: since
+  [ADR 0053](0053-project-trust.md), git runs only in folders whose configuration and hooks run nothing of their own
+  or that the user trusts.
 - Tests: scripts that stand in for git start with `FAKE_GIT_START`, which fails the two questions `GitCli` asks on its
   own, so that the scripts see only the commands under test.

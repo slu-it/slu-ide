@@ -1,6 +1,7 @@
 package dev.sluide.git
 
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.projecttrust.ProjectTrustState
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
@@ -13,6 +14,7 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.test.fail
@@ -28,7 +30,7 @@ class GitStatusServiceTest {
     // Everything dispatched runs on this test's thread, in run(), like on the JavaFX thread.
     private val dispatched = LinkedBlockingQueue<Runnable>()
     private val watcher = FileWatcher({ dispatched += it }, 50.milliseconds)
-    private val service = GitStatusService(git, watcher) { dispatched += it }
+    private val service = GitStatusService(git, watcher, testTrust()) { dispatched += it }
 
     @BeforeEach
     fun createRepository() {
@@ -63,7 +65,10 @@ class GitStatusServiceTest {
     }
 
     /** Runs dispatched tasks until [condition] holds. */
-    private fun awaitSnapshot(condition: (GitStatusSnapshot) -> Boolean): GitStatusSnapshot {
+    private fun awaitSnapshot(
+        service: GitStatusService = this.service,
+        condition: (GitStatusSnapshot) -> Boolean,
+    ): GitStatusSnapshot {
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
         while (!condition(service.snapshot.get())) {
             val remaining = deadline - System.nanoTime()
@@ -71,6 +76,19 @@ class GitStatusServiceTest {
             dispatched.poll(remaining, TimeUnit.NANOSECONDS)?.run()
         }
         return service.snapshot.get()
+    }
+
+    /** Runs dispatched tasks until [condition] holds. */
+    private fun await(
+        message: String,
+        condition: () -> Boolean,
+    ) {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
+        while (!condition()) {
+            val remaining = deadline - System.nanoTime()
+            if (remaining <= 0) fail(message)
+            dispatched.poll(remaining, TimeUnit.NANOSECONDS)?.run()
+        }
     }
 
     @Test
@@ -199,9 +217,53 @@ class GitStatusServiceTest {
 
     @Test
     fun `without git nothing is followed`() {
-        val noGit = GitStatusService(GitCli(repo.resolve("no-such-git").toString(), System.getenv()), watcher) {}
+        val noGit =
+            GitStatusService(GitCli(repo.resolve("no-such-git").toString(), System.getenv()), watcher, testTrust()) {}
         noGit.open(repo)
         assertFalse(noGit.active)
         noGit.close()
+    }
+
+    @Test
+    fun `git stays off while the repository's configuration is not trusted`() {
+        git("config", "core.fsmonitor", "./watch.sh")
+        val trust = testTrust(repo, listOf(GitTrustCheck(git)))
+        assertIs<ProjectTrustState.Ask>(trust.state.get())
+        val gated = GitStatusService(git, watcher, trust) { dispatched += it }
+        repo.resolve("new.kt").writeText("val b = 2\n")
+
+        gated.open(repo)
+        // Whether git status ran at all: GitStatusServiceRunsTest, with a git that counts its runs.
+        assertEquals(GitStatusSnapshot.EMPTY, gated.snapshot.get())
+        assertNull(gated.diff(repo.resolve("tracked.kt")))
+
+        assertTrue(trust.decide(trust.state.get(), trusted = true, remember = false))
+        gated.refresh()
+        awaitSnapshot(gated) { it.fileStatus(repo.resolve("new.kt")) == GitStatus.UNVERSIONED }
+        gated.close()
+        trust.close()
+    }
+
+    @Test
+    fun `a change in the git folder that makes git run commands turns git off before anything runs`() {
+        val trust = testTrust(repo, listOf(GitTrustCheck(git)))
+        val gated = GitStatusService(git, watcher, trust) { dispatched += it }
+        gated.open(repo)
+        awaitSnapshot(gated) { it.root != null }
+        val before = gated.gitFolderChanged.get()
+
+        git("config", "filter.crypt.clean", "./clean.sh")
+
+        awaitSnapshot(gated) { it == GitStatusSnapshot.EMPTY }
+        assertTrue(assertIs<ProjectTrustState.Ask>(trust.state.get()).changed)
+        assertEquals(before, gated.gitFolderChanged.get(), "listeners would run git with the new configuration")
+
+        assertTrue(trust.decide(trust.state.get(), trusted = true, remember = false))
+        gated.refresh()
+        awaitSnapshot(gated) { it.root != null }
+        git("commit", "-q", "--allow-empty", "-m", "Empty")
+        await("A change of the trusted git folder is counted") { gated.gitFolderChanged.get() != before }
+        gated.close()
+        trust.close()
     }
 }

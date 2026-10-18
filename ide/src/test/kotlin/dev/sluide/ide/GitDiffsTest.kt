@@ -37,7 +37,10 @@ class GitDiffsTest {
         watcher.close()
     }
 
-    private fun service(git: GitCli) = GitStatusService(git, watcher) { dispatched += it }.also(services::add)
+    private fun service(git: GitCli) =
+        GitStatusService(git, watcher, trustingTrust()) {
+            dispatched += it
+        }.also(services::add)
 
     private fun git(vararg arguments: String) {
         val process =
