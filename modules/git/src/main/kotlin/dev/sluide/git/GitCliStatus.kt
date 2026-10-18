@@ -66,3 +66,15 @@ private fun GitCli.relativePath(
     if (relative.toString().isEmpty() || relative.startsWith("..")) return null
     return relative.joinToString("/")
 }
+
+/**
+ * How many tracked files of the working tree at [root] have changes, staged or not, against `HEAD`: the records of
+ * `git status --porcelain -z --untracked-files=no --no-renames`. `null` if git is not available, fails or takes
+ * longer than 10 s.
+ */
+internal fun GitCli.trackedChangeCount(root: Path): Int? {
+    if (!available) return null
+    val arguments =
+        listOf("--no-optional-locks", "status", "--porcelain", "-z", "--untracked-files=no", "--no-renames")
+    return run(arguments, root, 10.seconds)?.split('\u0000')?.count(String::isNotEmpty)
+}
