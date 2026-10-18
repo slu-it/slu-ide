@@ -24,7 +24,6 @@ import javafx.geometry.Orientation
 import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Button
-import javafx.scene.control.ButtonType
 import javafx.scene.control.ContextMenu
 import javafx.scene.control.Label
 import javafx.scene.control.MenuItem
@@ -46,7 +45,6 @@ import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
 import javafx.scene.shape.Rectangle
-import javafx.stage.WindowEvent
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignA
 import org.kordamp.ikonli.materialdesign2.MaterialDesignC
@@ -63,8 +61,6 @@ import java.time.format.FormatStyle
 import java.util.Locale
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import java.util.concurrent.ScheduledExecutorService
-import java.util.concurrent.TimeUnit
 
 /**
  * The git log area of a window (ADR 0035): a header bar ("Git Log", a chevron, Refresh) and, while [expanded], the
@@ -155,12 +151,6 @@ class GitLogView internal constructor(
     private val compareExecutor =
         Executors.newSingleThreadExecutor { Thread(it, "sluide-git-compare").apply { isDaemon = true } }
 
-    private val writeExecutor =
-        Executors.newSingleThreadExecutor { Thread(it, "sluide-git-write").apply { isDaemon = true } }
-
-    /** Runs the operations that change the repository, one at a time (ADR 0041). */
-    private val writer = RefWriter(writes, writeExecutor::execute, dispatch)
-
     /**
      * Asked before an operation changes files on disk, with its action ("Check Out", "Cherry-Pick"), e.g. to save or
      * keep unsaved editors; `false` cancels the operation. Set by the window.
@@ -225,6 +215,25 @@ class GitLogView internal constructor(
             showWorkingTreeFileDiff = { diff -> onShowWorkingTreeDiff(diff) }
         }
 
+    /** Starts the operations that change the repository (ADR 0041) and opens the Push dialog (ADR 0049). */
+    internal val actions =
+        RefActions(
+            pages,
+            source,
+            writes,
+            dispatch,
+            diffs,
+            { scene?.window },
+            { path -> fileExists(path) },
+            status::clear,
+            status::operation,
+        ).apply {
+            beforeFileChange = { action -> this@GitLogView.beforeFileChange(action) }
+            afterWrite = { this@GitLogView.afterWrite() }
+            committed = { operation -> commitTab?.view?.committed(operation) }
+            openFile = { file -> onOpenFile(file) }
+        }
+
     private val chevron = FontIcon(MaterialDesignC.CHEVRON_RIGHT)
 
     internal val refreshButton =
@@ -247,8 +256,8 @@ class GitLogView internal constructor(
             tooltip = Tooltip("Fetch All Remotes")
             isFocusTraversable = false
             minWidth = USE_PREF_SIZE
-            setOnAction { start(Fetch()) }
-            disableProperty().bind(writer.running.or(noRemotes))
+            setOnAction { actions.start(Fetch()) }
+            disableProperty().bind(actions.running.or(noRemotes))
         }
 
     /** Opens the Push dialog (ADR 0049); not without a remote, but while an operation runs. */
@@ -268,9 +277,9 @@ class GitLogView internal constructor(
             styleClass += "git-log-cancel"
             isFocusTraversable = false
             minWidth = USE_PREF_SIZE
-            visibleProperty().bind(writer.cancellable)
-            managedProperty().bind(writer.cancellable)
-            setOnAction { writer.cancel() }
+            visibleProperty().bind(actions.cancellable)
+            managedProperty().bind(actions.cancellable)
+            setOnAction { actions.cancel() }
         }
 
     /** The header's title while no file history is open (ADR 0046). */
@@ -419,25 +428,45 @@ class GitLogView internal constructor(
     internal val checkoutRevisionItem =
         MenuItem("Checkout Revision").apply {
             setOnAction {
-                singleCommit()?.let { start(CheckoutRevision(it.hash, it.hash.take(ChangedFilesPane.SHORT_HASH))) }
+                singleCommit()?.let {
+                    actions.start(
+                        CheckoutRevision(it.hash, it.hash.take(ChangedFilesPane.SHORT_HASH)),
+                    )
+                }
             }
         }
     internal val newBranchItem =
         MenuItem("New Branch…").apply {
-            setOnAction { singleCommit()?.let { newBranch(it.hash, it.hash.take(ChangedFilesPane.SHORT_HASH)) } }
+            setOnAction {
+                singleCommit()?.let {
+                    actions.newBranch(
+                        it.hash,
+                        it.hash.take(ChangedFilesPane.SHORT_HASH),
+                    )
+                }
+            }
         }
-    internal val newTagItem = MenuItem("New Tag…").apply { setOnAction { singleCommit()?.let { newTag(it.hash) } } }
+    internal val newTagItem =
+        MenuItem(
+            "New Tag…",
+        ).apply { setOnAction { singleCommit()?.let { actions.newTag(it.hash) } } }
     internal val cherryPickItem =
-        MenuItem(pickTitle(GitPick.CHERRY_PICK)).apply { setOnAction { pick(GitPick.CHERRY_PICK) } }
-    internal val revertItem = MenuItem(pickTitle(GitPick.REVERT)).apply { setOnAction { pick(GitPick.REVERT) } }
-    internal val resetItem = MenuItem("Reset Current Branch to Here…").apply { setOnAction { resetToCommit() } }
+        MenuItem(pickTitle(GitPick.CHERRY_PICK)).apply {
+            setOnAction { singleCommit()?.let { actions.pick(it, GitPick.CHERRY_PICK) } }
+        }
+    internal val revertItem =
+        MenuItem(pickTitle(GitPick.REVERT)).apply {
+            setOnAction { singleCommit()?.let { actions.pick(it, GitPick.REVERT) } }
+        }
+    internal val resetItem =
+        MenuItem("Reset Current Branch to Here…").apply { setOnAction { singleCommit()?.let(actions::resetTo) } }
 
     /** Whether the refs read last have a `HEAD` commit, which a reset needs. */
     private val hasHead = SimpleBooleanProperty(false)
 
     /** The bar of what git is in the middle of, below the filter bar (ADR 0042); the table's menu reads its `busy`. */
     internal val pendingBar =
-        PendingBar(writer.running) { scene?.window }.apply { start = { operation -> this@GitLogView.start(operation) } }
+        PendingBar(actions.running) { scene?.window }.apply { start = { operation -> actions.start(operation) } }
 
     /** The commits with their graph, newest first; several can be selected. */
     internal val table: TableView<GitLogRow> =
@@ -486,7 +515,7 @@ class GitLogView internal constructor(
                 )
             copyRevisionNumber.disableProperty().bind(Bindings.isEmpty(selectionModel.selectedItems))
             // One commit, and no operation running.
-            val notOne = Bindings.size(selectionModel.selectedItems).isNotEqualTo(1).or(writer.running)
+            val notOne = Bindings.size(selectionModel.selectedItems).isNotEqualTo(1).or(actions.running)
             listOf(checkoutRevisionItem, newBranchItem, newTagItem).forEach { it.disableProperty().bind(notOne) }
             // Only reads: also while an operation runs.
             compareWithLocalItem.disableProperty().bind(Bindings.size(selectionModel.selectedItems).isNotEqualTo(1))
@@ -555,14 +584,14 @@ class GitLogView internal constructor(
                 compareBar.stopComparing()
                 filterBar.setBranches(names)
             }
-            checkout = ::start
-            newBranchFrom = { ref -> newBranch(ref.name, ref.shortName) }
+            checkout = { operation -> actions.start(operation) }
+            newBranchFrom = { ref -> actions.newBranch(ref.name, ref.shortName) }
             compare = compareBar::compareWith
             showWorkingTreeDiff = { ref -> diffs.showWorkingTreeDiff(ref.name, ref.shortName) }
-            rename = ::renameBranch
-            delete = ::deleteRefs
-            fetch = { remote -> start(Fetch(remote)) }
-            writing.bind(writer.running)
+            rename = actions::renameBranch
+            delete = actions::deleteRefs
+            fetch = { remote -> actions.start(Fetch(remote)) }
+            writing.bind(actions.running)
         }
 
     /** The filters and the table and, at first in the right 30 %, the changed files and details ([SharedSplit]). */
@@ -716,49 +745,10 @@ class GitLogView internal constructor(
     }
 
     /**
-     * Runs a read of the Push dialog on its thread after a delay in milliseconds (ADR 0049); tests drive the delay
-     * themselves.
-     */
-    internal var schedulePush: (ScheduledExecutorService, Long, Runnable) -> Unit =
-        { executor, delay, task -> executor.schedule(task, delay, TimeUnit.MILLISECONDS) }
-
-    /** The open Push dialog (ADR 0049); `null` while there is none. */
-    internal var pushDialog: PushDialog? = null
-        private set
-
-    /**
      * Opens the Push dialog of the repository (ADR 0049), or brings the open one to the front; also while an operation
      * runs, with Push disabled until it ends. Nothing without a repository.
      */
-    fun showPush() {
-        val root = pages.root ?: return
-        pushDialog?.let { return it.show() }
-        val pushExecutor =
-            Executors.newSingleThreadScheduledExecutor { Thread(it, "sluide-git-push").apply { isDaemon = true } }
-        val reader =
-            PushReader(
-                root,
-                source,
-                { delay, task -> schedulePush(pushExecutor, delay, task) },
-                dispatch,
-            ) { name -> pushNameProblem(name) == null }
-        val dialog =
-            PushDialog(scene?.window, reader, writer.running, ::pushNameProblem).apply {
-                push = { operation -> start(operation) }
-                showDiff = diffs::showCommitDiff
-                openFile = { file -> diffs.localFile(file)?.let(onOpenFile) }
-                exists = { file -> diffs.localFile(file)?.let(fileExists) == true }
-            }
-        pushDialog = dialog
-        dialog.stage.addEventHandler(WindowEvent.WINDOW_HIDDEN) {
-            if (pushDialog === dialog) pushDialog = null
-            pushExecutor.shutdownNow()
-        }
-        dialog.show()
-    }
-
-    /** What is wrong with [name] as the branch to push to; `null` if nothing. */
-    private fun pushNameProblem(name: String) = nameProblem(name, RefNameKind.BRANCH, emptySet(), writes::canPass)
+    fun showPush() = actions.showPush()
 
     /**
      * The working tree changed (the window's git status, ADR 0013): the Commit tab reads its changes again, at once if
@@ -784,8 +774,8 @@ class GitLogView internal constructor(
                 dispatch,
             )
         val view =
-            CommitView(reader, writer.running).apply {
-                commit = { operation -> start(operation) }
+            CommitView(reader, actions.running).apply {
+                commit = { operation -> actions.start(operation) }
                 showDiff = { file, head -> diffs.showHeadDiff(root, commitExecutor, file, head) }
                 openFile = { file -> diffs.localFile(file)?.let(onOpenFile) }
                 exists = { file -> diffs.localFile(file)?.let(fileExists) == true }
@@ -1004,12 +994,10 @@ class GitLogView internal constructor(
     fun open(root: Path?) {
         fileDiffs.close()
         diffs.closeWorkingTreeWindows()
-        pushDialog?.close()
+        // The Push dialog closes; an operation going on in the previous repository ends unnoticed; a fetch is stopped
+        // (ADR 0043).
+        actions.reset()
         goToPopup.hide()
-        // An operation going on in the previous repository ends unnoticed; a fetch is stopped (ADR 0043).
-        writer.cancel()
-        writer.forget()
-        status.operation("")
         // Before the pages, which may start loading and have the pane say so.
         branchesPane.reset()
         commitBranches.clear()
@@ -1208,175 +1196,11 @@ class GitLogView internal constructor(
         commitTab?.view?.reader?.reload()
     }
 
-    /**
-     * Cherry-picks or reverts ([kind]) the selected commit; a merge commit relative to its first parent, once
-     * confirmed.
-     */
-    private fun pick(kind: GitPick) {
-        val commit = singleCommit() ?: return
-        if (writer.running.get()) return
-        if (commit.parents.size <= 1) return start(PickCommit(kind, commit.hash))
-        val confirmation =
-            RefConfirmation(
-                pickTitle(kind),
-                mergeQuestion(kind, commit.hash),
-                pickButton(kind),
-                PickCommit(kind, commit.hash, firstParent = true),
-            )
-        if (refConfirmation(scene?.window, confirmation).showAndWait().orElse(ButtonType.CANCEL) ==
-            confirmation.button
-        ) {
-            start(confirmation.confirmed)
-        }
-    }
-
-    /** Asks how to reset the current branch (or a detached `HEAD`) to the selected commit, then resets it. */
-    private fun resetToCommit() {
-        val commit = singleCommit() ?: return
-        if (writer.running.get()) return
-        val refs = pages.refs ?: return
-        val head = refs.refs.firstOrNull { it.kind == GitRefKind.HEAD }?.commit ?: return
-        val branch = refs.currentBranch?.removePrefix("refs/heads/")
-        val dialog = ResetDialog(scene?.window, resetTitle(branch), resetDescription(branch, head, commit.hash))
-        val mode = dialog.showAndWait().orElse(null) ?: return
-        start(ResetBranch(commit.hash, mode, branch))
-    }
-
     /** The commit of the one selected row; `null` for none or several. */
     private fun singleCommit() =
         table.selectionModel.selectedItems
             .singleOrNull()
             ?.commit
-
-    /**
-     * Runs [operation] (ADR 0041) unless one runs already; one that changes files asks [beforeFileChange] first, unless
-     * [askFirst] is `false` (it was asked already). The header says what
-     * it does, then what it did, and the log is refreshed; a failure is shown in an error dialog with git's message.
-     */
-    private fun start(
-        operation: RefOperation,
-        askFirst: Boolean = true,
-    ) {
-        val root = pages.root ?: return
-        if (writer.running.get()) return
-        val action = operation.fileChange
-        if (askFirst && action != null && !beforeFileChange(action)) return
-        status.clear()
-        if (writer.run(root, operation, status::operation) { outcome -> finished(operation, outcome) }) {
-            status.operation(operation.progress)
-        }
-    }
-
-    private fun finished(
-        operation: RefOperation,
-        outcome: RefOutcome,
-    ) {
-        status.operation(outcome.done.orEmpty())
-        outcome.confirmation?.let { confirmation ->
-            // Nothing done yet; the unsaved editors were asked about already.
-            if (refConfirmation(scene?.window, confirmation).showAndWait().orElse(ButtonType.CANCEL) ==
-                confirmation.button
-            ) {
-                start(confirmation.confirmed, askFirst = false)
-            }
-            return
-        }
-        // A commit that was made (not one cancelled) ends the draft (ADR 0048); a failed one keeps it.
-        // Commit and Push opens the Push dialog after a commit that was made (ADR 0049).
-        if (operation is CommitChanges && outcome.result.success && outcome.result.changed) {
-            commitTab?.view?.committed(operation)
-            if (operation.push) showPush()
-        }
-        // Also after a failure, which may have done a part. New and renamed branches alone are not noticed by the
-        // watch of .git (ADR 0035).
-        afterWrite()
-        if (!outcome.result.success) {
-            // Done all the same (a failing post-checkout hook): the header says what was done.
-            val header = outcome.done?.takeIf { outcome.result.changed } ?: outcome.failure ?: operation.failure
-            gitErrorDialog(scene?.window, operation.errorTitle, header, outcome.result.message).showAndWait()
-        }
-        outcome.stopped?.let { stop ->
-            // Resolve (or closing the dialog) leaves it for the user, with the bar above the table.
-            if (pickStoppedDialog(scene?.window, stop).showAndWait().orElse(null) == abortButton(stop.kind)) {
-                start(AbortPick(stop.kind, stop.commit))
-            }
-        }
-        if (outcome.refused.isNotEmpty()) {
-            val confirmation =
-                forceDeleteConfirmation(scene?.window, forceDeleteQuestion(outcome.refused), outcome.refusedMessage)
-            if (confirmation.showAndWait().orElse(ButtonType.CANCEL) == FORCE_DELETE_BUTTON) {
-                start(DeleteRefs(outcome.refused, emptyList(), force = true))
-            }
-        }
-    }
-
-    /** The short names of the refs of [kind] the log read last. */
-    private fun refNames(kind: GitRefKind): Set<String> =
-        pages.refs
-            ?.refs
-            .orEmpty()
-            .filter { it.kind == kind }
-            .mapTo(HashSet()) { it.shortName }
-
-    /**
-     * Asks for a new branch at [startPoint] (a hash or full refname, shown as [startLabel]) and creates it; the current
-     * branch is never overwritten, another one only once confirmed if it has commits that are not on the start point.
-     */
-    private fun newBranch(
-        startPoint: String,
-        startLabel: String,
-    ) {
-        val existing = refNames(GitRefKind.LOCAL_BRANCH)
-        val current = pages.refs?.currentBranch?.removePrefix("refs/heads/")
-        val tips =
-            pages.refs
-                ?.refs
-                .orEmpty()
-                .filter { it.kind == GitRefKind.LOCAL_BRANCH }
-                .associate { it.shortName to it.commit }
-        val dialog =
-            NewBranchDialog(
-                scene?.window,
-                { name, overwrite ->
-                    nameProblem(name, RefNameKind.BRANCH, existing, writes::canPass, overwrite, current = current)
-                },
-                { name, overwrite -> overwriteNote(name, overwrite, tips) },
-            )
-        val branch = dialog.showAndWait().orElse(null) ?: return
-        start(CreateBranch(branch.name, startPoint, branch.checkout, branch.overwrite, startLabel))
-    }
-
-    /** Asks for a new tag at [commit] and creates it. */
-    private fun newTag(commit: String) {
-        val existing = refNames(GitRefKind.TAG)
-        val dialog =
-            NewTagDialog(scene?.window) { name -> nameProblem(name, RefNameKind.TAG, existing, writes::canPass) }
-        val tag = dialog.showAndWait().orElse(null) ?: return
-        start(CreateTag(tag.name, commit, tag.message))
-    }
-
-    /** Asks for a new name of the local branch [ref] and renames it. */
-    private fun renameBranch(ref: GitRef) {
-        val old = ref.shortName
-        val existing = refNames(GitRefKind.LOCAL_BRANCH)
-        val dialog =
-            RenameBranchDialog(scene?.window, old) { name ->
-                nameProblem(name, RefNameKind.BRANCH, existing, writes::canPass, unchanged = old)
-            }
-        val new = dialog.showAndWait().orElse(null) ?: return
-        start(RenameBranch(old, new))
-    }
-
-    /** Asks whether to delete the local branches and tags [refs] and deletes them. */
-    private fun deleteRefs(refs: List<GitRef>) {
-        if (writer.running.get()) return
-        val branches = refs.filter { it.kind == GitRefKind.LOCAL_BRANCH }.map { it.shortName }
-        val tags = refs.filter { it.kind == GitRefKind.TAG }.map { it.shortName }
-        val names = branches.map { "branch $it" } + tags.map { "tag $it" }
-        val confirmation = deleteRefsConfirmation(scene?.window, deleteQuestion(branches, tags), names)
-        if (confirmation.showAndWait().orElse(ButtonType.CANCEL) != DELETE_BUTTON) return
-        start(DeleteRefs(branches, tags))
-    }
 
     /** Copies the full hashes of the selected commits, one per line in table order. */
     private fun copyRevisionNumbers() {
@@ -1392,14 +1216,8 @@ class GitLogView internal constructor(
         histories.values.forEach { it.close() }
         commitTab?.close()
         diffs.closeWorkingTreeWindows()
-        pushDialog?.close()
+        actions.close()
         compareExecutor.shutdownNow()
-        // A fetch is stopped: harmless, it updates refs one by one and no files (ADR 0043).
-        writer.cancel()
-        writer.forget()
-        // Any other running write is not interrupted: stopped halfway, a checkout would leave a half-switched working
-        // tree (ADR 0041). Git finishes on its own; its outcome is dropped.
-        writeExecutor.shutdown()
         pages.close()
         details.close()
         fileDiffs.close()

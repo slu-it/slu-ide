@@ -56,12 +56,12 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
     private val readme = GitChangedFile(GitChange.MODIFIED, "README.md")
     private val app = GitChangedFile(GitChange.ADDED, "src/App.kt")
 
-    private fun dialog() = checkNotNull(view.pushDialog)
+    private fun dialog() = checkNotNull(view.actions.pushDialog)
 
     /** Closes the dialog on the JavaFX thread, before the fixture closes the view. */
     @AfterEach
     fun closePush() {
-        WaitForAsyncUtils.asyncFx { view.pushDialog?.close() }.get()
+        WaitForAsyncUtils.asyncFx { view.actions.pushDialog?.close() }.get()
     }
 
     /** Opens the repository and the Push dialog with [what] to push, and waits until it is read. */
@@ -234,7 +234,7 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
     fun `editing the target reads again after a pause, and only the latest name`(robot: FxRobot) {
         // The test lets the pause pass: reads asked for with a delay wait here until then.
         val waiting = CopyOnWriteArrayList<Pair<Long, () -> Unit>>()
-        view.schedulePush = { executor, delay, task ->
+        view.actions.schedulePush = { executor, delay, task ->
             if (delay == 0L) executor.execute(task) else waiting += delay to { executor.execute(task) }
         }
         openPush(robot)
@@ -406,7 +406,7 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
 
         robot.interact { dialog().pushButton.fire() }
 
-        assertNull(view.pushDialog)
+        assertNull(view.actions.pushDialog)
         eventually { assertEquals("Pushing main to origin/main…", status(robot)) }
         assertTrue(cancelShown())
         writes.gate?.countDown()
@@ -448,7 +448,7 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
 
         eventually { assertEquals("Force pushed main to origin/feature.", status(robot)) }
         assertEquals(listOf("push --force-with-lease=feature:$remote origin main:feature"), writes.calls)
-        assertNull(view.pushDialog)
+        assertNull(view.actions.pushDialog)
     }
 
     @Test
@@ -489,7 +489,7 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
         openPush(robot)
         val shown = dialog()
         robot.interact { view.showPush() }
-        assertSame(shown, view.pushDialog)
+        assertSame(shown, view.actions.pushDialog)
         assertEquals(
             1,
             robot.listWindows().count {
@@ -501,7 +501,7 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
 
         robot.interact { view.open(repo) }
         assertFalse(shown.stage.isShowing)
-        assertNull(view.pushDialog)
+        assertNull(view.actions.pushDialog)
 
         // A fetch runs: the dialog opens, Push waits for the fetch, and reads again once it ended.
         writes.gate = CountDownLatch(1)
@@ -565,7 +565,7 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
         robot.interact { view.close() }
 
         assertFalse(stage.isShowing)
-        assertNull(view.pushDialog)
+        assertNull(view.actions.pushDialog)
     }
 
     @Test
@@ -578,7 +578,7 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
         val stage = dialog().stage
         press(dialog().targetField, KeyCode.ESCAPE)
         assertFalse(stage.isShowing)
-        assertNull(view.pushDialog)
+        assertNull(view.actions.pushDialog)
     }
 
     @Test
@@ -628,11 +628,11 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
         val pane = awaitDialog(robot)
         assertEquals("Commit Failed", (pane.scene.window as Stage).title)
         press(robot, pane, ButtonType.OK)
-        assertNull(view.pushDialog)
+        assertNull(view.actions.pushDialog)
 
         writes.result = { GitResult(true, "") }
         robot.interact { commitView.commitAndPushButton.fire() }
-        eventually { assertTrue(view.pushDialog != null) }
+        eventually { assertTrue(view.actions.pushDialog != null) }
         assertEquals(listOf("commit README.md|: Fix", "commit README.md|: Fix"), writes.calls)
         assertEquals("Committed 5e6f7a8b: Fix.", status(robot))
         awaitRead()
@@ -650,7 +650,7 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
         writes.gate?.countDown()
 
         eventually { assertEquals("Commit cancelled.", status(robot)) }
-        assertNull(view.pushDialog)
+        assertNull(view.actions.pushDialog)
         assertNoDialog()
     }
 
@@ -660,7 +660,7 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
         val area = checkNotNull(view.commitView).messageArea
         press(area, KeyCode.K, shortcut = true, alt = true)
 
-        eventually { assertTrue(view.pushDialog != null) }
+        eventually { assertTrue(view.actions.pushDialog != null) }
         assertEquals(listOf("commit README.md|: Fix"), writes.calls)
         assertEquals("", read { area.text }, "the draft is done")
     }
