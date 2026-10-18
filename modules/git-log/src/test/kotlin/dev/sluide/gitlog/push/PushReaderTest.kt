@@ -12,9 +12,9 @@ import dev.sluide.git.GitOutgoing
 import dev.sluide.git.GitPushTarget
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitTreePath
-import dev.sluide.gitlog.Fetch
-import dev.sluide.gitlog.commitCount
 import dev.sluide.gitlog.data.GitLogSource
+import dev.sluide.gitlog.operations.Fetch
+import dev.sluide.gitlog.operations.commitCount
 import java.nio.file.Path
 import java.time.Instant
 import kotlin.test.Test

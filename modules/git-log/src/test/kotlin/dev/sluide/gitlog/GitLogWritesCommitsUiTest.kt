@@ -10,6 +10,13 @@ import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitUncheckedConflict
 import dev.sluide.gitlog.data.FakeWrites
+import dev.sluide.gitlog.operations.ABORT_CHERRY_PICK_BUTTON
+import dev.sluide.gitlog.operations.ABORT_REVERT_BUTTON
+import dev.sluide.gitlog.operations.CHERRY_PICK_BUTTON
+import dev.sluide.gitlog.operations.COMMIT_AS_ON_DISK_BUTTON
+import dev.sluide.gitlog.operations.RESET_BUTTON
+import dev.sluide.gitlog.operations.RESOLVE_BUTTON
+import dev.sluide.gitlog.operations.REVERT_BUTTON
 import javafx.application.Platform
 import javafx.scene.control.Button
 import javafx.scene.control.ButtonType

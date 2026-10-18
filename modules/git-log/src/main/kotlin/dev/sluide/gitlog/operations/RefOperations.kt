@@ -1,4 +1,4 @@
-package dev.sluide.gitlog
+package dev.sluide.gitlog.operations
 
 import dev.sluide.git.GitBranchTip
 import dev.sluide.git.GitCancellation

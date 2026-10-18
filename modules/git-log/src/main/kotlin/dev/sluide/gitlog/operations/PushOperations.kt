@@ -1,4 +1,4 @@
-package dev.sluide.gitlog
+package dev.sluide.gitlog.operations
 
 import dev.sluide.git.GitPushResult
 import dev.sluide.git.GitResult

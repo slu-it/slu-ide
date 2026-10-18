@@ -1,4 +1,4 @@
-package dev.sluide.gitlog
+package dev.sluide.gitlog.operations
 
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind

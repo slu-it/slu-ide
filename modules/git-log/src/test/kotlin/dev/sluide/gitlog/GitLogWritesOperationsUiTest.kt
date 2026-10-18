@@ -3,6 +3,8 @@ package dev.sluide.gitlog
 import dev.sluide.git.GitFetchChanges
 import dev.sluide.git.GitFetchResult
 import dev.sluide.git.GitResult
+import dev.sluide.gitlog.operations.Fetch
+import dev.sluide.gitlog.operations.gitMessage
 import javafx.scene.control.ButtonType
 import javafx.scene.control.TextArea
 import javafx.scene.input.KeyCode

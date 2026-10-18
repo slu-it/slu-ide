@@ -1,9 +1,10 @@
-package dev.sluide.gitlog
+package dev.sluide.gitlog.operations
 
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
+import dev.sluide.gitlog.CommitDiffs
 import dev.sluide.gitlog.data.GitLogPages
 import dev.sluide.gitlog.data.GitLogSource
 import dev.sluide.gitlog.data.GitLogWrites

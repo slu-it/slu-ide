@@ -1,4 +1,4 @@
-package dev.sluide.gitlog
+package dev.sluide.gitlog.operations
 
 import javafx.application.Platform
 import javafx.scene.control.Alert

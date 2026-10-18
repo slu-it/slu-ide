@@ -12,6 +12,8 @@ import dev.sluide.git.GitRefs
 import dev.sluide.git.GitResult
 import dev.sluide.gitlog.data.ChangeFile
 import dev.sluide.gitlog.data.ChangeNode
+import dev.sluide.gitlog.operations.Fetch
+import dev.sluide.gitlog.operations.commitCount
 import dev.sluide.gitlog.push.FORCE_PUSH_BUTTON
 import dev.sluide.gitlog.push.PUSH_KEYS
 import dev.sluide.gitlog.push.PushFiles

@@ -2,13 +2,12 @@ package dev.sluide.gitlog.push
 
 import dev.sluide.fileicons.FILE_ICONS_CSS
 import dev.sluide.git.GitChangedFile
-import dev.sluide.gitlog.PushOperation
-import dev.sluide.gitlog.RefConfirmation
-import dev.sluide.gitlog.commitCount
-import dev.sluide.gitlog.isProtectedBranch
-import dev.sluide.gitlog.nameProblem
-import dev.sluide.gitlog.refConfirmation
-import dev.sluide.gitlog.title
+import dev.sluide.gitlog.operations.PushOperation
+import dev.sluide.gitlog.operations.RefConfirmation
+import dev.sluide.gitlog.operations.commitCount
+import dev.sluide.gitlog.operations.isProtectedBranch
+import dev.sluide.gitlog.operations.nameProblem
+import dev.sluide.gitlog.operations.refConfirmation
 import dev.sluide.gitlog.ui.ChangeTreeView
 import dev.sluide.gitlog.ui.GIT_LOG_CSS
 import dev.sluide.gitlog.ui.SharedSplit
