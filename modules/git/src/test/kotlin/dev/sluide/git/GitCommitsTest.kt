@@ -849,4 +849,149 @@ class GitCommitsTest {
         assumeTrue(fifo.getOrNull() == 0, "mkfifo is not available")
         assertEquals(GitPickResult.Failed(refusal), commits.continuePick(repo, GitPick.CHERRY_PICK))
     }
+
+    /** On a branch `other`: a commit adding `.env`, `build` and `out/x.txt`, all ignored on main, and `notes.txt`. */
+    private fun addingIgnoredPaths(): String {
+        repo.resolve(".gitignore").writeText(".env\nbuild/\nout\n")
+        git("add", ".gitignore")
+        git("commit", "-q", "-m", "Ignore")
+        git("switch", "-q", "-c", "other")
+        repo.resolve(".env").writeText("FROM_COMMIT=1\n")
+        repo.resolve("build").writeText("a file\n")
+        repo
+            .resolve("out")
+            .createDirectories()
+            .resolve("x.txt")
+            .writeText("x\n")
+        repo.resolve("notes.txt").writeText("notes\n")
+        git("add", "-f", ".env", "build", "out/x.txt", "notes.txt")
+        git("commit", "-q", "-m", "Add")
+        val added = head()
+        git("switch", "-q", "main")
+        return added
+    }
+
+    @Test
+    fun `a cherry-pick would overwrite and delete ignored files without a word, as found before`() {
+        val added = addingIgnoredPaths()
+        repo.resolve(".env").writeText("MY_SECRET=1\n")
+        repo
+            .resolve("build/cache")
+            .createDirectories()
+            .resolve("data")
+            .writeText("cache\n")
+        repo.resolve("out").writeText("mine\n")
+
+        val overwritten = commits.pickOverwrites(repo, GitPick.CHERRY_PICK, added, firstParent = false)
+
+        assertEquals(listOf(".env", "build/cache/data", "out"), overwritten)
+        // As git does it.
+        val result = commits.pick(repo, GitPick.CHERRY_PICK, added, firstParent = false)
+        assertEquals(GitPickResult.Done(head()), result)
+        assertEquals("FROM_COMMIT=1\n", repo.resolve(".env").readText())
+        assertTrue(repo.resolve("out/x.txt").exists(), "the ignored file out is a folder now")
+        assertFalse(repo.resolve("build/cache").exists())
+    }
+
+    @Test
+    fun `untracked files that are not ignored are left to git, which refuses for them`() {
+        val added = addingIgnoredPaths()
+        repo.resolve("notes.txt").writeText("my notes\n")
+
+        assertEquals(emptyList(), commits.pickOverwrites(repo, GitPick.CHERRY_PICK, added, firstParent = false))
+        assertIs<GitPickResult.Failed>(commits.pick(repo, GitPick.CHERRY_PICK, added, firstParent = false))
+        assertEquals("my notes\n", repo.resolve("notes.txt").readText())
+    }
+
+    @Test
+    fun `with staged changes git refuses, so nothing is found`() {
+        val added = addingIgnoredPaths()
+        repo.resolve(".env").writeText("MY_SECRET=1\n")
+        repo.resolve("staged.txt").writeText("staged\n")
+        git("add", "staged.txt")
+
+        assertEquals(emptyList(), commits.pickOverwrites(repo, GitPick.CHERRY_PICK, added, firstParent = false))
+    }
+
+    @Test
+    fun `a conflict writes the file too, a change to a file deleted here`() {
+        commit("Base", "cfg.local", "shared")
+        git("switch", "-q", "-c", "other")
+        val changed = commit("Change", "cfg.local", "theirs")
+        git("switch", "-q", "main")
+        git("rm", "-q", "cfg.local")
+        repo.resolve(".gitignore").writeText("cfg.local\n")
+        git("add", ".gitignore")
+        git("commit", "-q", "-m", "Keep it local")
+        repo.resolve("cfg.local").writeText("mine\n")
+
+        assertEquals(
+            listOf("cfg.local"),
+            commits.pickOverwrites(repo, GitPick.CHERRY_PICK, changed, firstParent = false),
+        )
+        assertIs<GitPickResult.Stopped>(commits.pick(repo, GitPick.CHERRY_PICK, changed, firstParent = false))
+        assertEquals("theirs\n", repo.resolve("cfg.local").readText(), "as git does it")
+    }
+
+    @Test
+    fun `a merge commit relative to its first parent, cherry-picked brings its branch, reverted takes it back`() {
+        commit("Base", "kept.txt")
+        git("switch", "-q", "-c", "other")
+        repo.resolve(".env").writeText("FROM_MERGE=1\n")
+        git("add", "-f", ".env")
+        git("commit", "-q", "-m", "Add .env")
+        git("switch", "-q", "-c", "feature", "main")
+        commit("Feature", "feature.txt")
+        git("merge", "-q", "--no-ff", "--no-edit", "other")
+        val merge = head()
+        git("switch", "-q", "main")
+        repo.resolve(".gitignore").writeText(".env\n")
+        git("add", ".gitignore")
+        git("commit", "-q", "-m", "Ignore .env")
+        repo.resolve(".env").writeText("MY_SECRET=1\n")
+
+        assertEquals(listOf(".env"), commits.pickOverwrites(repo, GitPick.CHERRY_PICK, merge, firstParent = true))
+        // Reverting it here takes away what main never had: nothing is written.
+        assertEquals(emptyList(), commits.pickOverwrites(repo, GitPick.REVERT, merge, firstParent = true))
+    }
+
+    @Test
+    fun `a revert that brings a file back would overwrite an ignored one`() {
+        val added = addingIgnoredPaths()
+        git("merge", "-q", "--ff-only", "other")
+        git("rm", "-q", ".env")
+        git("commit", "-q", "-m", "Remove .env")
+        val removed = head()
+        repo.resolve(".env").writeText("MY_SECRET=1\n")
+
+        assertEquals(listOf(".env"), commits.pickOverwrites(repo, GitPick.REVERT, removed, firstParent = false))
+    }
+
+    @Test
+    fun `a root commit is picked onto the empty tree, a merge commit without its first parent is refused by git`() {
+        val root = commit("Root", ".env", "FROM_ROOT=1")
+        // Without the files of main.
+        git("switch", "-q", "--orphan", "fresh")
+        repo.resolve(".env").writeText("MY_SECRET=1\n")
+        repo.resolve(".gitignore").writeText(".env\n")
+        git("add", ".gitignore")
+        git("commit", "-q", "-m", "Fresh")
+
+        assertEquals(listOf(".env"), commits.pickOverwrites(repo, GitPick.CHERRY_PICK, root, firstParent = false))
+
+        git("merge", "-q", "--allow-unrelated-histories", "--no-edit", "main")
+        assertEquals(emptyList(), commits.pickOverwrites(repo, GitPick.CHERRY_PICK, head(), firstParent = false))
+        // Reverting a root commit merges with the empty tree as the other side: it only takes files away.
+        assertEquals(emptyList(), commits.pickOverwrites(repo, GitPick.REVERT, root, firstParent = false))
+    }
+
+    @Test
+    fun `onto a branch without commits the commit is picked onto nothing`() {
+        val root = commit("Root", ".env", "FROM_ROOT=1")
+        git("switch", "-q", "--orphan", "fresh")
+        repo.resolve(".gitignore").writeText(".env\n")
+        repo.resolve(".env").writeText("MY_SECRET=1\n")
+
+        assertEquals(listOf(".env"), commits.pickOverwrites(repo, GitPick.CHERRY_PICK, root, firstParent = false))
+    }
 }

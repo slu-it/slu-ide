@@ -693,6 +693,43 @@ class GitCommits(
         return found.toList()
     }
 
+    /**
+     * What a cherry-pick or revert ([kind]) of [commit] (a full hash; a merge commit relative to its first parent if
+     * [firstParent]) would overwrite or delete although git ignores it, as git does it without a word (for untracked
+     * files that are not ignored it refuses), by path relative to [root]: what [overwrittenFiles] finds for the tree
+     * git's merge would give (`git merge-tree`, with the commit's parent, or the empty tree for a root commit, as the
+     * merge base for a cherry-pick, as the other side for a revert), without the untracked files that are not ignored.
+     * Onto a branch without commits (not a `HEAD` that cannot be read) it merges onto the empty tree. Empty for a merge
+     * commit without [firstParent] or with staged changes, which git refuses; `null` if that cannot be read (also with
+     * git older than 2.40, or before 2.44 for a root commit or a branch without commits, which take a tree to merge).
+     */
+    fun pickOverwrites(
+        root: Path,
+        kind: GitPick,
+        commit: String,
+        firstParent: Boolean,
+    ): List<String>? {
+        if (refusal(commit) != null) return null
+        val parents = git.parents(root, commit) ?: return null
+        if (parents.size > 1 && !firstParent) return emptyList()
+        // Staged changes: git refuses ("your local changes would be overwritten"). Without a HEAD commit there is none.
+        if (git.indexMatchesHead(root) == false) return emptyList()
+        val emptyTree by lazy { git.emptyTree(root) }
+        val parent = parents.firstOrNull() ?: emptyTree ?: return null
+        // Onto a branch without commits git picks onto nothing; a HEAD that cannot be read is no answer.
+        val unborn = git.isHeadUnborn(root) ?: return null
+        val ours = if (unborn) emptyTree ?: return null else "HEAD"
+        val tree =
+            when (kind) {
+                GitPick.CHERRY_PICK -> git.mergeTree(root, base = parent, ours = ours, theirs = commit)
+                GitPick.REVERT -> git.mergeTree(root, base = commit, ours = ours, theirs = parent)
+            } ?: return null
+        val overwritten = overwrittenFiles(root, tree) ?: return null
+        if (overwritten.isEmpty()) return overwritten
+        val untracked = git.untrackedPaths(root)?.toSet() ?: return null
+        return overwritten.filterNot { it in untracked }
+    }
+
     /** What is on disk at a path, as a reset to a commit sees it. */
     private enum class Entry { MISSING, FOLDER, FILE }
 

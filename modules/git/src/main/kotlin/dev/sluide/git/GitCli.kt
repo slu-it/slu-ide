@@ -822,6 +822,66 @@ class GitCli(
     }
 
     /**
+     * The parents of [commit] (a full hash) in the repository at [root], full hashes in git's order: `git rev-list
+     * --parents -n 1`; empty for a root commit, `null` if git is not available, fails or takes longer than 3 s.
+     */
+    internal fun parents(
+        root: Path,
+        commit: String,
+    ): List<String>? {
+        if (!available || commit.startsWith('-')) return null
+        val arguments = listOf("--no-optional-locks", "rev-list", "--parents", "-n", "1", commit, "--")
+        val fields = run(arguments, root, 3.seconds)?.trim()?.split(' ') ?: return null
+        return if (fields.firstOrNull() == commit) fields.drop(1) else null
+    }
+
+    /**
+     * The empty tree of the repository at [root] (`git hash-object -t tree --stdin` with nothing on standard input, so
+     * also for SHA-256 repositories), which git knows without storing it; `null` if git is not available or fails.
+     */
+    internal fun emptyTree(root: Path): String? {
+        if (!available) return null
+        val arguments = listOf("--no-optional-locks", "hash-object", "-t", "tree", "--stdin")
+        return runBytes(arguments, root, 3.seconds, input = ByteArray(0))?.toString(Charsets.UTF_8)?.trim()
+    }
+
+    /**
+     * The tree that merging [theirs] into [ours] (commits, or trees with git 2.44 or later) with [base] as their merge
+     * base gives in the repository at [root], as `git cherry-pick` and `git revert` merge: `git merge-tree
+     * --write-tree --merge-base=<base>` (git 2.40 or later), also with conflicts (their files with conflict markers).
+     * It stores the merged files' objects, unreferenced, and changes neither the index nor files; merge drivers of the
+     * configuration run, and a partial clone may fetch missing objects. `null` if git is not available, fails or takes
+     * longer than 60 s.
+     */
+    internal fun mergeTree(
+        root: Path,
+        base: String,
+        ours: String,
+        theirs: String,
+    ): String? {
+        if (!available || listOf(base, ours, theirs).any { it.startsWith('-') }) return null
+        val arguments =
+            listOf(
+                "--no-optional-locks",
+                "merge-tree",
+                "--write-tree",
+                "--no-messages",
+                "--merge-base=$base",
+                ours,
+                theirs,
+            )
+        val execution = execute(arguments, root, 60.seconds, null, write = false) ?: return null
+        // 1: conflicts, with the tree all the same.
+        if (execution.exitValue !in 0..1 || !execution.complete) return null
+        return execution.output
+            .toString(Charsets.UTF_8)
+            .lineSequence()
+            .first()
+            .trim()
+            .takeIf { it.isNotEmpty() && it.all { char -> char in '0'..'9' || char in 'a'..'f' } }
+    }
+
+    /**
      * The full message of the commit `HEAD` (`git show -s --format=%B`, as stored, with the newline git adds); `null` if
      * there is no commit, or if git is not available, fails or takes longer than 3 s.
      */
