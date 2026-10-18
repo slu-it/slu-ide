@@ -34,7 +34,7 @@ code viewers could match names), or to reach another file's editor.
 - **Nothing is written behind the user's back.** The opened file changes through its code editor (one undo step,
   dirty marker). Changes of the other file go into that file's tab, opened unselected if needed, and stay unsaved. The
   other file's text is read from its tab (with unsaved changes) or from disk, again whenever the view is shown. A
-  missing private file is created as `{}` when the first private value is written.
+  missing other file is created as `{}` when the first value for it is written.
 - **File viewer API extended:** `TextEditableView` (`text`, `replaceText`, a minimal replacement that is one undo
   step), implemented by `CodeEditor` and plain code views; `NamedFileViewer` (exact file names, matched like a code
   viewer's names, so it wins over `JsonFileViewer`); `FileViewHost.currentText` and `FileViewHost.editText` for

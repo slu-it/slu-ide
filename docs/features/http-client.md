@@ -88,6 +88,8 @@ Content-Type: image/png
   the list opens. Problems in them, and a private file that git would commit (not ignored), are shown in a warning row
   above the editor; the git check needs the window's folder to be the repository root and is repeated whenever the
   git status changes.
+- The environment files open beside a form of both files merged, one column per environment, with a lock per value
+  for the file it goes in: [http-client-env-editor.md](http-client-env-editor.md).
 - An unresolved variable stops the run before anything is sent, naming all missing variables. In body files, missing
   variables are sent as written, with a note.
 
