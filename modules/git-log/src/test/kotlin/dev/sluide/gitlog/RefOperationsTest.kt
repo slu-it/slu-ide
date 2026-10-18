@@ -4,6 +4,10 @@ import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitResult
+import dev.sluide.gitlog.branches.BranchGroup
+import dev.sluide.gitlog.branches.BranchNode
+import dev.sluide.gitlog.branches.BranchParent
+import dev.sluide.gitlog.branches.branchNodes
 import dev.sluide.gitlog.data.FakeWrites
 import dev.sluide.gitlog.data.GitLogWrites
 import java.nio.file.Path

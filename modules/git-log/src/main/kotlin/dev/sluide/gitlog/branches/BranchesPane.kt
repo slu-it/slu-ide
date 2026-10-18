@@ -1,8 +1,12 @@
-package dev.sluide.gitlog
+package dev.sluide.gitlog.branches
 
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
+import dev.sluide.gitlog.BranchActions
+import dev.sluide.gitlog.Fetch
+import dev.sluide.gitlog.RefOperation
+import dev.sluide.gitlog.branchActions
 import dev.sluide.gitlog.table.refStyleClass
 import javafx.animation.Animation
 import javafx.animation.PauseTransition

@@ -15,6 +15,9 @@ import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitTreePath
 import dev.sluide.git.GitWorkingTreeChanges
+import dev.sluide.gitlog.branches.BranchNode
+import dev.sluide.gitlog.branches.LOCAL
+import dev.sluide.gitlog.branches.TAGS
 import dev.sluide.gitlog.data.ChangeFile
 import dev.sluide.gitlog.data.ChangeFolder
 import dev.sluide.gitlog.data.ChangeNode

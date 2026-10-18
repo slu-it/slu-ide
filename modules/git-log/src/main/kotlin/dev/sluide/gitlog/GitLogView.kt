@@ -7,6 +7,7 @@ import dev.sluide.git.GitLog
 import dev.sluide.git.GitPush
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitRemotes
+import dev.sluide.gitlog.branches.BranchesPane
 import dev.sluide.gitlog.data.CommitBranches
 import dev.sluide.gitlog.data.CommitDetails
 import dev.sluide.gitlog.data.CommitDetailsState
