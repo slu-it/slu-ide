@@ -6,6 +6,7 @@ import dev.sluide.gitlog.data.CommitMissing
 import dev.sluide.gitlog.data.GitLogPages
 import dev.sluide.gitlog.data.GitLogRow
 import dev.sluide.gitlog.data.GitLogState
+import dev.sluide.gitlog.filter.FilterItem
 import javafx.scene.control.TableView
 import javafx.scene.control.skin.VirtualFlow
 import java.nio.file.Path

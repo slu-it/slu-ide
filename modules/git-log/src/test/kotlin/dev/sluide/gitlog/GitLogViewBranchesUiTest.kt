@@ -2,6 +2,7 @@ package dev.sluide.gitlog
 
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
+import dev.sluide.gitlog.filter.FilterItem
 import dev.sluide.gitlog.ui.GIT_LOG_CSS
 import javafx.animation.Animation
 import javafx.scene.Node

@@ -7,6 +7,7 @@ import dev.sluide.git.GitRevisionResolution
 import dev.sluide.gitlog.data.branchesLine
 import dev.sluide.gitlog.data.hashCandidates
 import dev.sluide.gitlog.details.LinkText
+import dev.sluide.gitlog.filter.FilterItem
 import javafx.animation.Animation
 import javafx.event.Event
 import javafx.event.EventType

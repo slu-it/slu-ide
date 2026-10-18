@@ -1,4 +1,4 @@
-package dev.sluide.gitlog
+package dev.sluide.gitlog.filter
 
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitTreePath

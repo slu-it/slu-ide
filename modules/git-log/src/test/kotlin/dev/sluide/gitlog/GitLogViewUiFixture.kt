@@ -25,6 +25,9 @@ import dev.sluide.gitlog.data.GitLogRow
 import dev.sluide.gitlog.data.GitLogSource
 import dev.sluide.gitlog.data.GraphRow
 import dev.sluide.gitlog.data.MAX_LANES
+import dev.sluide.gitlog.filter.FilterButton
+import dev.sluide.gitlog.filter.FilterItem
+import dev.sluide.gitlog.filter.FilterPopup
 import dev.sluide.gitlog.table.GraphCell
 import dev.sluide.gitlog.table.GraphPane
 import dev.sluide.gitlog.table.LANE_WIDTH

@@ -1,5 +1,6 @@
 package dev.sluide.gitlog
 
+import dev.sluide.gitlog.filter.FilterItem
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull

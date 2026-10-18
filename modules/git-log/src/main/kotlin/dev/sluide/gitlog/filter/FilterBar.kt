@@ -1,4 +1,4 @@
-package dev.sluide.gitlog
+package dev.sluide.gitlog.filter
 
 import dev.sluide.git.GitLogFilter
 import dev.sluide.git.GitLogOrder
