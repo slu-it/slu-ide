@@ -126,7 +126,11 @@ class CommitOperationsTest {
             ResetBranch(hash, GitResetMode.SOFT, null).run(writes, root).done,
         )
         assertEquals(listOf("reset --hard $hash", "reset --soft $hash"), writes.calls)
-        assertEquals(listOf("unreachable $hash", "local changes", "unreachable $hash"), writes.reads, "no files read")
+        assertEquals(
+            listOf("unreachable $hash", "local changes", "overwritten $hash", "soft refused", "unreachable $hash"),
+            writes.reads,
+            "only a hard reset reads local changes and overwritten files",
+        )
     }
 
     @Test
@@ -174,6 +178,127 @@ class CommitOperationsTest {
             ),
             resetWarnings(null, null),
         )
+        assertEquals(
+            listOf(
+                "Staged changes in 1 file that differ from the file on disk will be lost.",
+                "1 untracked or ignored file will be overwritten by the commit's version:",
+            ),
+            resetWarnings(0, 0, 1, listOf(".env")),
+        )
+        assertEquals(
+            listOf(
+                "Whether staged changes will be lost could not be read.",
+                "Whether untracked or ignored files will be overwritten could not be read.",
+            ),
+            resetWarnings(0, 0, null, null),
+        )
+    }
+
+    @Test
+    fun `a hard reset that overwrites untracked or ignored files asks first and lists them`() {
+        writes.overwritten = listOf(".env", "build/out.txt")
+        val hard = ResetBranch(hash, GitResetMode.HARD, "main")
+
+        val asked = hard.run(writes, root).confirmation
+
+        assertEquals(
+            RefConfirmation(
+                "Reset Current Branch",
+                "2 untracked or ignored files will be overwritten by the commit's version:",
+                RESET_BUTTON,
+                hard.copy(confirmed = true),
+                ".env\nbuild/out.txt",
+            ),
+            asked,
+        )
+        assertEquals(emptyList(), writes.calls, "nothing reset before it is confirmed")
+        assertNull(ResetBranch(hash, GitResetMode.MIXED, "main").run(writes, root).confirmation, "files stay")
+        assertEquals(listOf("reset --mixed $hash"), writes.calls)
+    }
+
+    @Test
+    fun `a mixed reset that loses staged changes asks first`() {
+        writes.stagedOnly = 2
+
+        assertEquals(
+            "Staged changes in 2 files that differ from the files on disk will be lost.",
+            ResetBranch(hash, GitResetMode.MIXED, "main").run(writes, root).confirmation?.question,
+        )
+        assertNull(ResetBranch(hash, GitResetMode.SOFT, "main").run(writes, root).confirmation, "the index stays")
+        assertEquals(listOf("unreachable $hash", "staged only", "soft refused", "unreachable $hash"), writes.reads)
+    }
+
+    @Test
+    fun `a reset while git is in the middle of something says what it does to it`() {
+        writes.inProgress = GitPendingPick(GitPick.CHERRY_PICK, hash, listOf("a.txt"))
+        writes.unreachable = 1
+
+        assertEquals(
+            "A cherry-pick of 1a2b3c4d is in progress; resetting abandons it.\n1 commit will no longer be on any " +
+                "branch or tag; it stays reachable through the reflog for a while.",
+            ResetBranch(hash, GitResetMode.SOFT, "main").run(writes, root).confirmation?.question,
+        )
+        writes.unreachable = 0
+        writes.inProgress = GitPendingOperation(GitOperation.REBASE)
+        assertEquals(
+            "A rebase is in progress; resetting drops the changes of the commit it stopped at, the rest stays to be " +
+                "continued from the commit HEAD is reset to.",
+            ResetBranch(hash, GitResetMode.MIXED, "main").run(writes, root).confirmation?.question,
+        )
+        assertEquals(
+            "A rebase is in progress; the changes of the commit it stopped at stay staged, the rest stays to be " +
+                "continued from the commit HEAD is reset to.",
+            ResetBranch(hash, GitResetMode.SOFT, "main").run(writes, root).confirmation?.question,
+        )
+        assertEquals(
+            listOf(
+                "A revert of 1a2b3c4d is in progress; resetting abandons it.",
+                "A merge is in progress; resetting abandons it.",
+                "A git am session is in progress; resetting drops the changes of the patch it stopped at, the rest " +
+                    "stays to be continued from the commit HEAD is reset to.",
+                "A cherry-pick sequence is in progress; resetting drops the changes of the commit it stopped at, the " +
+                    "rest stays to be continued from the commit HEAD is reset to.",
+                "A revert sequence is in progress; resetting drops the changes of the commit it stopped at, the rest " +
+                    "stays to be continued from the commit HEAD is reset to.",
+                "A cherry-pick or revert sequence is in progress; resetting drops the changes of the commit it " +
+                    "stopped at, the rest stays to be continued from the commit HEAD is reset to.",
+            ),
+            listOf(
+                GitPendingPick(GitPick.REVERT, hash, emptyList()),
+                GitPendingOperation(GitOperation.MERGE),
+                GitPendingOperation(GitOperation.AM),
+                GitPendingOperation(GitOperation.CHERRY_PICK_SEQUENCE),
+                GitPendingOperation(GitOperation.REVERT_SEQUENCE),
+                GitPendingOperation(GitOperation.SEQUENCE),
+            ).map { busyResetWarning(it, GitResetMode.HARD) },
+        )
+        assertEquals(emptyList(), writes.calls)
+    }
+
+    @Test
+    fun `a soft reset git would refuse fails at once, without asking`() {
+        writes.softRefused = true
+        writes.unreachable = 2
+
+        assertEquals(
+            RefOutcome(GitResult(false, SOFT_REFUSED), null),
+            ResetBranch(hash, GitResetMode.SOFT, "main").run(writes, root),
+        )
+        assertEquals(listOf("soft refused"), writes.reads)
+        assertEquals(emptyList(), writes.calls)
+        assertEquals(
+            "A soft reset is not possible during a merge or while files have conflicts; choose Mixed or Hard.",
+            SOFT_REFUSED,
+        )
+
+        writes.softRefused = null
+        assertEquals(
+            RESET_BUTTON,
+            ResetBranch(hash, GitResetMode.SOFT, "main").run(writes, root).confirmation?.button,
+            "git tells",
+        )
+        writes.softRefused = true
+        assertEquals(RESET_BUTTON, ResetBranch(hash, GitResetMode.MIXED, "main").run(writes, root).confirmation?.button)
     }
 
     @Test

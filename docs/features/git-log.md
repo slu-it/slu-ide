@@ -299,11 +299,19 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
   - **Reset Current Branch to Here…:** a dialog "Reset Current Branch" ("Reset HEAD" when detached) says "Reset branch
     'main' (at 5e6f7a8b) to 1a2b3c4d" and offers Soft ("Files won't change; the differences will be staged for
     commit."), Mixed (preselected; "…won't be staged.") and Hard ("Files will be changed to the commit's state. Local
-    changes to tracked files will be lost.", in a warning colour), then Reset or Cancel. If commits would no longer be
-    on any branch, remote branch or tag, or (Hard) tracked files have local changes, or that cannot be read, a
-    confirmation says so first ("2 commits will no longer be on any branch or tag; they stay reachable through the
-    reflog for a while.", "Local changes in 3 files will be lost.", Cancel the default). Done: "Reset main to 1a2b3c4d
-    (hard); it was at 5e6f7a8b."
+    changes to tracked files will be lost.", in a warning colour), then Reset or Cancel. A soft reset git would refuse
+    fails at once ("A soft reset is not possible during a merge or while files have conflicts; choose Mixed or Hard.").
+    Otherwise a confirmation says first, a sentence each, what would be lost or cannot be read (Cancel the default):
+    what git is in the middle of ("A cherry-pick of 1a2b3c4d is in progress; resetting abandons it.", "A rebase is in
+    progress; resetting drops the changes of the commit it stopped at, the rest stays to be continued from the commit
+    HEAD is reset to.", for Soft "the changes of the commit it stopped at stay staged"; Reset stays enabled then, as the
+    way out), commits that would no longer be on any branch, remote branch or tag ("2 commits will no longer be on any
+    branch or tag; they stay reachable through the reflog for a while."), for Hard tracked files with local changes
+    ("Local changes in 3 files will be lost.") and untracked or ignored files the commit would overwrite or delete ("2
+    untracked or ignored files will be overwritten by the commit's version:", listed below: a local `.env` the commit
+    tracks, or the files in a folder where the commit has a file, a nested repository there as one entry `sub/`), for
+    Mixed files whose staged changes differ from the file on disk ("Staged changes in 1 file that differ from the file
+    on disk will be lost.", e.g. after `git add -p`). Done: "Reset main to 1a2b3c4d (hard); it was at 5e6f7a8b."
   - **Unsaved editors:** before an operation that changes files, files of the repository with unsaved changes are
     asked about, naming it: "These files have unsaved changes. Save them before you check out?" with Save, Check Out
     Anyway (the changes stay; an editor whose file the operation changed offers Reload or Keep mine) and Cancel (the

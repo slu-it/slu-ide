@@ -411,6 +411,127 @@ class GitCommitsTest {
     }
 
     @Test
+    fun `counts the files whose staged changes differ from the file on disk`() {
+        commit("First")
+        commit("Other", "other.txt")
+        assertEquals(0, commits.stagedOnlyCount(repo))
+
+        repo.resolve("file.txt").writeText("staged\n")
+        git("add", "file.txt")
+        repo.resolve("file.txt").writeText("staged, then changed again\n")
+        repo.resolve("other.txt").writeText("staged as it is\n")
+        git("add", "other.txt")
+        repo.resolve("new.txt").writeText("intent to add only\n")
+        git("add", "-N", "new.txt")
+
+        assertEquals(1, commits.stagedOnlyCount(repo), "only file.txt's staged version is nowhere else")
+    }
+
+    @Test
+    fun `a file renamed only in case is tracked where core_ignorecase is set`() {
+        commit("First", "Readme.md")
+        val target = head()
+        git("mv", "Readme.md", "README.md")
+        git("commit", "-q", "-m", "Rename")
+        // On a case-insensitive file system both names are the tracked file; here a second file stands in for it.
+        repo.resolve("Readme.md").writeText("the tracked file under the other case\n")
+
+        assertEquals(listOf("Readme.md"), commits.overwrittenFiles(repo, target), "a different file on this system")
+        git("config", "core.ignorecase", "true")
+        assertEquals(emptyList(), commits.overwrittenFiles(repo, target))
+    }
+
+    @Test
+    fun `conflicted files are no staged changes, and a soft reset is refused with them`() {
+        val theirs = conflicting()
+        assertEquals(false, commits.softResetRefused(repo))
+        assertIs<GitPickResult.Stopped>(commits.pick(repo, GitPick.CHERRY_PICK, theirs, firstParent = false))
+
+        assertEquals(0, commits.stagedOnlyCount(repo))
+        assertEquals(true, commits.softResetRefused(repo))
+    }
+
+    /**
+     * A target commit with the files `.env`, `build/out.txt`, `kept.txt`, `data/a.txt`, `foo`, `bar`, `empty`, `d/f.txt`
+     * and the submodules `sub` and `lib/sub2`; then `HEAD` without them (`.env` and `build/` ignored) and with the
+     * tracked `foo/tracked.txt` and `bar/tracked.txt`. Returns the target.
+     */
+    private fun untrackedSinceTarget(): String {
+        val first = commit("First")
+        for (file in listOf(".env", "build/out.txt", "kept.txt", "data/a.txt", "foo", "bar", "empty", "d/f.txt")) {
+            repo.resolve(file).parent.createDirectories()
+            repo.resolve(file).writeText("tracked $file\n")
+        }
+        git("add", ".")
+        for (submodule in listOf(
+            "sub",
+            "lib/sub2",
+        )) {
+            git("update-index", "--add", "--cacheinfo", "160000,$first,$submodule")
+        }
+        git("commit", "-q", "-m", "Target")
+        val target = head()
+        git("rm", "-q", "-r", "--cached", ".env", "build", "kept.txt", "data", "foo", "bar", "empty", "d", "sub", "lib")
+        for (file in listOf(".env", "build", "kept.txt", "data", "foo", "bar", "empty", "d")) {
+            repo.resolve(file).toFile().deleteRecursively()
+        }
+        repo.resolve(".gitignore").writeText(".env\nbuild/\n*.log\n")
+        for (file in listOf("foo/tracked.txt", "bar/tracked.txt")) {
+            repo.resolve(file).parent.createDirectories()
+            repo.resolve(file).writeText("tracked now\n")
+        }
+        git("add", ".gitignore", "foo", "bar")
+        git("commit", "-q", "-m", "Untrack")
+        return target
+    }
+
+    @Test
+    fun `lists the untracked and ignored files a hard reset would overwrite or delete, as the reset does`() {
+        val target = untrackedSinceTarget()
+        repo.resolve(".env").writeText("LOCAL SECRET\n")
+        repo.resolve("build").createDirectories()
+        repo.resolve("build/out.txt").writeText("local output\n")
+        // A file where the target has a folder.
+        repo.resolve("data").writeText("a file in place of the folder\n")
+        // Folders where the target has a file: with untracked and ignored files, with tracked ones only, empty.
+        repo.resolve("foo/untracked.txt").writeText("untracked\n")
+        repo.resolve("foo/debug.log").writeText("ignored\n")
+        // A repository of its own in it, lost with its history: one entry.
+        val nested = repo.resolve("foo/nested")
+        nested.createDirectories()
+        git("init", "-q", directory = nested)
+        nested.resolve("n.txt").writeText("nested\n")
+        git("add", "n.txt", directory = nested)
+        git("-c", "user.name=T", "-c", "user.email=t@example.com", "commit", "-q", "-m", "Nested", directory = nested)
+        repo.resolve("empty").createDirectories()
+        // A link in place of a folder: git replaces the link, not what is in the folder it points to.
+        folder.resolve("outside").createDirectories()
+        folder.resolve("outside/f.txt").writeText("outside\n")
+        Files.createSymbolicLink(repo.resolve("d"), folder.resolve("outside"))
+        // A file at a submodule's path, a folder at another's.
+        repo.resolve("sub").writeText("a file where the submodule goes\n")
+        repo.resolve("lib/sub2").createDirectories()
+
+        val overwritten = commits.overwrittenFiles(repo, target)
+
+        val expected =
+            listOf(".env", "build/out.txt", "d", "data", "foo/debug.log", "foo/nested/", "foo/untracked.txt", "sub")
+        assertEquals(expected, overwritten?.sorted())
+        commits.canNameFile = { false }
+        assertEquals(expected, commits.overwrittenFiles(repo, target)?.sorted(), "listed by git, the link not followed")
+        commits.canNameFile = { true }
+        assertEquals(emptyList(), commits.overwrittenFiles(repo, head()), "HEAD's own files are tracked")
+        assertNull(commits.overwrittenFiles(repo, "-x"))
+
+        assertTrue(commits.reset(repo, target, GitResetMode.HARD).success)
+        assertEquals("tracked .env\n", repo.resolve(".env").readText(), "git overwrote it as told")
+        assertEquals("tracked data/a.txt\n", repo.resolve("data/a.txt").readText())
+        assertEquals("tracked foo\n", repo.resolve("foo").readText(), "the folder and its files are gone")
+        assertEquals("outside\n", folder.resolve("outside/f.txt").readText(), "only the link was replaced")
+        assertTrue(Files.isDirectory(repo.resolve("sub")))
+    }
+
+    @Test
     fun `nothing is in progress in a fresh repository`() {
         commit("First")
         assertNull(commits.inProgress(repo))

@@ -149,6 +149,18 @@ internal interface GitLogWrites {
     /** How many tracked files have local changes; `null` if that cannot be read. */
     fun localChangeCount(root: Path): Int?
 
+    /** How many files have staged changes that differ from the file on disk; `null` if that cannot be read. */
+    fun stagedOnlyCount(root: Path): Int?
+
+    /** Whether git refuses a soft reset (a merge, unmerged paths); `null` if that cannot be read. */
+    fun softResetRefused(root: Path): Boolean?
+
+    /** The untracked or ignored files a hard reset to [target] would overwrite; `null` if that cannot be read. */
+    fun overwrittenFiles(
+        root: Path,
+        target: String,
+    ): List<String>?
+
     /** Resets the current branch (or a detached `HEAD`) to [target] in [mode]. */
     fun reset(
         root: Path,
@@ -301,6 +313,15 @@ internal class GitLogCliWrites(
     ) = commits.unreachableCount(root, target)
 
     override fun localChangeCount(root: Path) = commits.localChangeCount(root)
+
+    override fun stagedOnlyCount(root: Path) = commits.stagedOnlyCount(root)
+
+    override fun softResetRefused(root: Path) = commits.softResetRefused(root)
+
+    override fun overwrittenFiles(
+        root: Path,
+        target: String,
+    ) = commits.overwrittenFiles(root, target)
 
     override fun reset(
         root: Path,

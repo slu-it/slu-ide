@@ -247,6 +247,24 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         assertEquals("reset --hard h3", writes.calls.last())
         assertEquals(listOf("Reset", "Reset"), fileChanges, "asked once per reset, not again when confirmed")
 
+        // Untracked or ignored files a hard reset overwrites are listed below the question.
+        writes.unreachable = 0
+        writes.localChanges = 0
+        writes.overwritten = listOf(".env", "build/out.txt")
+        fireLater(view.resetItem)
+        pane = awaitDialog(robot)
+        robot.interact { (pane.lookup(".git-reset-hard") as RadioButton).isSelected = true }
+        press(robot, pane, RESET_BUTTON)
+        val overwriting = awaitDialog(robot)
+        assertEquals(
+            "2 untracked or ignored files will be overwritten by the commit's version:",
+            overwriting.headerText,
+        )
+        assertEquals(".env\nbuild/out.txt", (overwriting.lookup(".git-confirmation-details") as TextArea).text)
+        press(robot, overwriting, ButtonType.CANCEL)
+        assertEquals(2, writes.calls.size, "nothing reset")
+        writes.overwritten = emptyList()
+
         // Soft asks nothing about editors; Cancel resets nothing.
         writes.unreachable = 0
         fireLater(view.resetItem)
@@ -257,7 +275,7 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         fireLater(view.resetItem)
         press(robot, awaitDialog(robot), ButtonType.CANCEL)
         assertEquals(3, writes.calls.size)
-        assertEquals(listOf("Reset", "Reset"), fileChanges)
+        assertEquals(listOf("Reset", "Reset", "Reset"), fileChanges, "the cancelled overwrite asked too")
     }
 
     @Test

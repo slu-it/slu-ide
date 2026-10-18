@@ -2,10 +2,14 @@ package dev.sluide.git
 
 import org.springframework.stereotype.Component
 import java.io.IOException
+import java.nio.file.FileVisitResult
 import java.nio.file.Files
 import java.nio.file.InvalidPathException
 import java.nio.file.LinkOption
 import java.nio.file.Path
+import java.nio.file.SimpleFileVisitor
+import java.nio.file.attribute.BasicFileAttributes
+import java.util.Locale
 
 /** Git's commands that apply a commit's changes: cherry-pick, or revert to undo them. */
 enum class GitPick(
@@ -157,6 +161,9 @@ enum class GitResetMode(
 class GitCommits(
     private val git: GitCli,
 ) {
+    /** Whether the JVM can name the working-tree file at a path (ADR 0038); tests take the fallback through git. */
+    internal var canNameFile: (String) -> Boolean = { canPassArgument(it) }
+
     /** What git is in the middle of, `null` if nothing or it cannot be read. */
     fun inProgress(root: Path): GitInProgress? = git.inProgress(root).getOrNull()
 
@@ -468,7 +475,7 @@ class GitCommits(
         path: String,
     ): Path? =
         try {
-            if (canPassArgument(path)) root.resolve(path) else null
+            if (canNameFile(path)) root.resolve(path) else null
         } catch (_: InvalidPathException) {
             null
         }
@@ -619,6 +626,170 @@ class GitCommits(
      * `null` if that cannot be read.
      */
     fun localChangeCount(root: Path): Int? = git.trackedChangeCount(root)
+
+    /**
+     * How many files have staged changes that differ from the file on disk, e.g. staged in part with `git add -p`: their
+     * staged version is neither in `HEAD` nor on disk, so a mixed reset, which replaces the index, loses it. Those whose
+     * index differs both from `HEAD` and from the working tree; not unmerged ones (their stages come from commits) nor
+     * submodules whose checkout only has changes inside. `null` if that cannot be read.
+     */
+    fun stagedOnlyCount(root: Path): Int? {
+        val staged = git.changedPaths(root, staged = true) ?: return null
+        val unstaged = git.changedPaths(root, staged = false) ?: return null
+        return staged.count { it in unstaged }
+    }
+
+    /**
+     * Whether git refuses a soft reset: during a merge (`MERGE_HEAD`) or while paths are unmerged ("Cannot do a soft
+     * reset in the middle of a merge."); `null` if that cannot be read.
+     */
+    fun softResetRefused(root: Path): Boolean? {
+        val unmerged = git.unmergedPaths(root) ?: return null
+        return unmerged.isNotEmpty() || git.commitOfRevision(root, "MERGE_HEAD") != null
+    }
+
+    /**
+     * What on disk a hard reset to [target] (a full hash) would overwrite or delete although it is not tracked, as git
+     * does it without a word, by path relative to [root]: for the files and submodules of [target] that are not in the
+     * index (`git diff-index --cached`, status `D`), an untracked or ignored file or link at that path, at a folder of
+     * it (then nothing below it is checked: git replaces the file or link alone), or, for a file, the untracked and
+     * ignored files in a folder at that path, which git deletes with it (a submodule's folder is kept). Tracked files
+     * are left out, also under another case where `core.ignorecase` is set (a rename `README.md` to `Readme.md`).
+     * Checked by the JVM where it can name the path; else (non-ASCII characters in a plain ASCII locale) by git's list
+     * of every file not in the index. `null` if that cannot be read.
+     */
+    fun overwrittenFiles(
+        root: Path,
+        target: String,
+    ): List<String>? {
+        if (refusal(target) != null) return null
+        val output = git.indexChanges(root, target) ?: return null
+        val ignoreCase = git.configFlag(root, "core.ignorecase") ?: return null
+        // :<target's mode> <index's mode> <object> <object> <status> NUL <path> NUL
+        val records =
+            output.split('\u0000').chunked(2).filter { it.size == 2 && it[0].startsWith(':') }.map { (info, path) ->
+                val fields = info.removePrefix(":").split(' ')
+                Triple(fields.first(), fields.last().firstOrNull(), path)
+            }
+        val key: (String) -> String = { if (ignoreCase) it.lowercase(Locale.ROOT) else it }
+        // Paths only the index has (A), and unmerged ones: tracked, whatever the target says.
+        val indexed = records.filter { it.second == 'A' || it.second == 'U' }.mapTo(HashSet()) { key(it.third) }
+        val disk = Disk(root) { key(it) in indexed }
+        val found = LinkedHashSet<String>()
+        for ((mode, status, path) in records) {
+            if (status == 'D') found += disk.overwritten(path, submodule = mode == GITLINK) ?: return null
+        }
+        return found.toList()
+    }
+
+    /** What is on disk at a path, as a reset to a commit sees it. */
+    private enum class Entry { MISSING, FOLDER, FILE }
+
+    /**
+     * The working tree at [root] as the JVM sees it, or git for the paths the JVM cannot name; [tracked] tells the
+     * paths in the index.
+     */
+    private inner class Disk(
+        private val root: Path,
+        private val tracked: (String) -> Boolean,
+    ) {
+        /** Every file not in the index, read once if needed; `null` if git failed. */
+        private val others by lazy { git.otherPaths(root)?.toSet() }
+
+        /**
+         * What a checkout of the file or [submodule] at [path] overwrites or deletes that is not tracked; `null` if that
+         * cannot be read.
+         */
+        fun overwritten(
+            path: String,
+            submodule: Boolean,
+        ): List<String>? {
+            val folders = path.split('/').dropLast(1).runningReduce { folder, name -> "$folder/$name" }
+            for (folder in folders) {
+                // A tracked file in place of the folder: a local change at most, and nothing can be below it.
+                if (tracked(folder)) return emptyList()
+                when (entry(folder) ?: return null) {
+                    Entry.MISSING -> {
+                        return emptyList()
+                    }
+
+                    Entry.FILE -> {
+                        return listOf(folder)
+                    }
+
+                    Entry.FOLDER -> {}
+                }
+            }
+            if (tracked(path)) return emptyList()
+            return when (entry(path) ?: return null) {
+                Entry.MISSING -> emptyList()
+                Entry.FILE -> listOf(path)
+                Entry.FOLDER -> if (submodule) emptyList() else untrackedBelow(path)
+            }
+        }
+
+        /** What is at [path], not following a link (a link is a file); `null` if that cannot be read. */
+        private fun entry(path: String): Entry? {
+            val file = localFile(root, path)
+            if (file == null) {
+                val listed = others ?: return null
+                return when {
+                    path in listed -> Entry.FILE
+                    listed.any { it.startsWith("$path/") } -> Entry.FOLDER
+                    else -> Entry.MISSING
+                }
+            }
+            return when {
+                Files.isDirectory(file, LinkOption.NOFOLLOW_LINKS) -> Entry.FOLDER
+                Files.exists(file, LinkOption.NOFOLLOW_LINKS) -> Entry.FILE
+                else -> Entry.MISSING
+            }
+        }
+
+        /**
+         * The files and links below the folder [path] that are not tracked, a nested repository (a folder with `.git`)
+         * once as its folder with a trailing `/`, as git lists it; `null` if that cannot be read.
+         */
+        private fun untrackedBelow(path: String): List<String>? {
+            val folder = localFile(root, path) ?: return others?.filter { it.startsWith("$path/") && !tracked(it) }
+            val found = mutableListOf<String>()
+
+            fun relative(file: Path) =
+                (
+                    listOf(
+                        path,
+                    ) + folder.relativize(file).map(Path::toString)
+                ).filter(String::isNotEmpty).joinToString("/")
+            return try {
+                Files.walkFileTree(
+                    folder,
+                    object : SimpleFileVisitor<Path>() {
+                        override fun preVisitDirectory(
+                            dir: Path,
+                            attributes: BasicFileAttributes,
+                        ): FileVisitResult {
+                            val repository = Files.exists(dir.resolve(".git"), LinkOption.NOFOLLOW_LINKS)
+                            if (!repository) return FileVisitResult.CONTINUE
+                            // Its history goes with it: one entry, not its objects.
+                            found += relative(dir) + "/"
+                            return FileVisitResult.SKIP_SUBTREE
+                        }
+
+                        override fun visitFile(
+                            file: Path,
+                            attributes: BasicFileAttributes,
+                        ): FileVisitResult {
+                            relative(file).takeIf { !tracked(it) }?.let(found::add)
+                            return FileVisitResult.CONTINUE
+                        }
+                    },
+                )
+                found.sorted()
+            } catch (_: IOException) {
+                null
+            }
+        }
+    }
 
     /**
      * Resets the current branch (or the detached `HEAD`) to [target] (a full hash): `git reset --soft|--mixed|--hard`.

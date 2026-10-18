@@ -42,7 +42,8 @@ commits from every branch and, hard, local changes. Git 2.53 behaves as follows 
   and git is not run ("A merge is in progress; finish or abort it first.", "A cherry-pick sequence is in progress;
   continue or abort it in the terminal.", "A cherry-pick of 1a2b3c4d is in progress; continue or abort it first."), so
   a merge is never concluded by a cherry-pick and a sequence's state is never cleared. The menu items are disabled
-  while the bar (below) shows something; Reset stays enabled, the documented way out of a stuck state.
+  while the bar (below) shows something; Reset stays enabled, the documented way out of a stuck state, but its
+  confirmation always says what it does to what is in progress (see Reset below).
 - **What a stop is** is read after git failed: whether the pending head is there for the commit, the unmerged paths,
   whether `HEAD` moved and whether the index equals `HEAD` (`git diff-index --cached --quiet`).
   - **Nothing to commit** (`HEAD` where it was, no unmerged paths, index as `HEAD`): cleared at once, with
@@ -108,10 +109,33 @@ commits from every branch and, hard, local changes. Git 2.53 behaves as follows 
     ref left out); the current branch is read with `git symbolic-ref -q HEAD`, which tells detached (exit 1) from a
     failure;
   - for Hard only, the tracked files with local changes, staged or not (`git status --porcelain -z
-    --untracked-files=no --no-renames`; untracked files survive a hard reset).
-  If either is above 0 or cannot be read, a confirmation (Cancel the default, "Reset") says so ("2 commits will no
-  longer be on any branch or tag; they stay reachable through the reflog for a while.", "Local changes in 3 files will
-  be lost.", "Whether … could not be read."), then the reset runs confirmed. The header says "Reset main to 1a2b3c4d
+    --untracked-files=no --no-renames`);
+  - for Hard only, the untracked and ignored files it would overwrite or delete: git does so without a word (checked
+    with git 2.53). Read from `git diff-index --cached --raw -z --no-renames <target>`, in proportion to the
+    difference: for every file or submodule only the target has (status `D`; `A` and unmerged `U` paths are tracked),
+    an untracked or ignored file or link at its path (a local `.env` the target tracks), at a folder of it (git replaces
+    that file or link alone, so nothing below it counts, not what a link points to), or for a file the untracked and
+    ignored files in a folder at its path, which git deletes with the folder (a folder of tracked files only, or an
+    empty one, loses nothing; a nested repository in it, history and all, is one entry `sub/`, as git lists it; a
+    submodule's folder is kept). With `core.ignorecase` (`git config --type=bool`) a path is tracked under any case (a
+    rename `README.md` to `Readme.md`). Checked by the JVM, not following links, or for paths it cannot name by `git
+    ls-files -z --others` (every file not in the index, the ignored ones too);
+  - for Mixed only, the files whose staged changes differ from the file on disk (`git diff --cached HEAD` and `git
+    diff`, `--name-only -z --no-renames --diff-filter=u --ignore-submodules=dirty`, both listing it, e.g. after `git
+    add -p`): their staged version is neither in `HEAD` nor on disk, and the mixed reset replaces the index. Unmerged
+    paths are left out (their stages come from commits), and so are submodules with changes inside their checkout only;
+  - what git is in the middle of (as far as that can be read): the reset is the way out, but git 2.53 abandons a merge
+    or a single cherry-pick or revert with it, and leaves a sequence, rebase or `git am` in progress, which continues
+    from where `HEAD` was reset to; a mixed or hard reset drops the changes of the commit (patch) it stopped at, a soft
+    one keeps them staged.
+  A soft reset git would refuse (during a merge, or with unmerged paths: "Cannot do a soft reset in the middle of a
+  merge.") fails at once, without a question: "A soft reset is not possible during a merge or while files have
+  conflicts; choose Mixed or Hard." Otherwise, if anything is above 0, in progress or cannot be read, a confirmation
+  (Cancel the default, "Reset") says so, a sentence each ("A cherry-pick of 1a2b3c4d is in progress; resetting
+  abandons it.", "2 commits will no longer be on any branch or tag; they stay reachable through the reflog for a
+  while.", "Local changes in 3 files will be lost.", "Staged changes in 1 file that differ from the file on disk will
+  be lost.", "2 untracked or ignored files will be overwritten by the commit's version:" with the files listed in its
+  details, "Whether … could not be read."), then the reset runs confirmed. The header says "Reset main to 1a2b3c4d
   (hard); it was at 5e6f7a8b.", which gives the way back.
 - **Confirmations are the operation's own:** an outcome may carry a `RefConfirmation` (title, question, optional
   details, button, the operation to run once confirmed, which does not ask about unsaved editors again); the overwrite

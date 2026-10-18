@@ -1,7 +1,9 @@
 package dev.sluide.gitlog
 
 import dev.sluide.git.GitConflictReason
+import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitOperation
+import dev.sluide.git.GitPendingOperation
 import dev.sluide.git.GitPendingPick
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitPickResult
@@ -144,9 +146,12 @@ internal data class AbortPick(
 
 /**
  * Resets the current [branch] (its short name; `null` for a detached `HEAD`) to [target] (a full hash) in [mode].
- * Unless [confirmed], it first reads how many commits would no longer be on any branch, remote branch or tag and, for
- * a hard reset, how many tracked files have local changes; if any would be lost, or that cannot be read, the outcome
- * asks first.
+ * Unless [confirmed], it first reads what git is in the middle of (a reset is the way out of it, ADR 0042, but abandons
+ * or changes it), how many commits would no longer be on any branch, remote branch or tag, for a hard reset how many
+ * tracked files have local changes and which untracked or ignored files it would overwrite, and for a mixed reset how
+ * many files have staged changes that differ from the file on disk; if anything would be lost, or that cannot be read,
+ * the outcome asks first, the overwritten files listed in its details. A soft reset git would refuse (a merge, unmerged
+ * paths) fails at once, without asking.
  */
 internal data class ResetBranch(
     val target: String,
@@ -168,9 +173,17 @@ internal data class ResetBranch(
         root: Path,
     ): RefOutcome {
         if (!confirmed) {
+            // Refused by git anyway: not asked about first.
+            if (mode == GitResetMode.SOFT && writes.softResetRefused(root) == true) {
+                return RefOutcome(GitResult(false, SOFT_REFUSED), null)
+            }
+            val busy = writes.inProgress(root)?.let { busyResetWarning(it, mode) }
             val unreachable = writes.unreachableCount(root, target)
-            val changes = if (mode == GitResetMode.HARD) writes.localChangeCount(root) else 0
-            val warnings = resetWarnings(unreachable, changes)
+            val hard = mode == GitResetMode.HARD
+            val changes = if (hard) writes.localChangeCount(root) else 0
+            val overwritten = if (hard) writes.overwrittenFiles(root, target) else emptyList()
+            val staged = if (mode == GitResetMode.MIXED) writes.stagedOnlyCount(root) else 0
+            val warnings = listOfNotNull(busy) + resetWarnings(unreachable, changes, staged, overwritten)
             if (warnings.isNotEmpty()) {
                 val confirmation =
                     RefConfirmation(
@@ -178,6 +191,7 @@ internal data class ResetBranch(
                         warnings.joinToString("\n"),
                         RESET_BUTTON,
                         copy(confirmed = true),
+                        overwritten?.takeIf { it.isNotEmpty() }?.joinToString("\n"),
                     )
                 return RefOutcome(GitResult(true, ""), null, confirmation = confirmation)
             }
@@ -194,11 +208,14 @@ internal data class ResetBranch(
 
 /**
  * What a reset would lose, one sentence each: [unreachable] commits that would no longer be on any branch or tag,
- * local changes in [changes] files; `null` for what could not be read.
+ * local changes in [changes] files, staged changes that differ from the files on disk in [staged] files, the
+ * [overwritten] untracked or ignored files (listed after the sentence's colon); `null` for what could not be read.
  */
 internal fun resetWarnings(
     unreachable: Int?,
     changes: Int?,
+    staged: Int? = 0,
+    overwritten: List<String>? = emptyList(),
 ): List<String> =
     listOfNotNull(
         when {
@@ -225,7 +242,69 @@ internal fun resetWarnings(
             changes > 1 -> "Local changes in $changes files will be lost."
             else -> null
         },
+        when {
+            staged == null -> "Whether staged changes will be lost could not be read."
+            staged == 1 -> "Staged changes in 1 file that differ from the file on disk will be lost."
+            staged > 1 -> "Staged changes in $staged files that differ from the files on disk will be lost."
+            else -> null
+        },
+        when {
+            overwritten == null -> "Whether untracked or ignored files will be overwritten could not be read."
+            overwritten.size == 1 -> "1 untracked or ignored file will be overwritten by $VERSION:"
+            overwritten.size > 1 -> "${overwritten.size} untracked or ignored files will be overwritten by $VERSION:"
+            else -> null
+        },
     )
+
+/** What a hard reset writes over untracked and ignored files with. */
+private const val VERSION = "the commit's version"
+
+/** Why a soft reset is not even tried, as git says it. */
+internal const val SOFT_REFUSED =
+    "A soft reset is not possible during a merge or while files have conflicts; choose Mixed or Hard."
+
+/**
+ * What a reset in [mode] does to what git is in the middle of ([busy]), as git 2.53 does it: it abandons a merge or a
+ * single cherry-pick or revert; a sequence, rebase or `git am` stays in progress and continues from where `HEAD` is
+ * reset to, the changes of the commit (patch) it stopped at dropped by a mixed or hard reset, kept staged by a soft one.
+ */
+internal fun busyResetWarning(
+    busy: GitInProgress,
+    mode: GitResetMode,
+): String =
+    when (busy) {
+        is GitPendingPick -> {
+            "A ${busy.kind.noun} of ${short(busy.commit)} is in progress; resetting abandons it."
+        }
+
+        is GitPendingOperation -> {
+            val changes =
+                if (mode == GitResetMode.SOFT) {
+                    "the changes of the %s it stopped at stay staged"
+                } else {
+                    "resetting drops the changes of the %s it stopped at"
+                }
+            val stays = "is in progress; $changes, the rest stays to be continued from the commit HEAD is reset to."
+            when (busy.operation) {
+                GitOperation.MERGE -> "A merge is in progress; resetting abandons it."
+                GitOperation.REBASE -> "A rebase ${stays.format("commit")}"
+                GitOperation.AM -> "A git am session ${stays.format("patch")}"
+                GitOperation.CHERRY_PICK_SEQUENCE -> "A cherry-pick sequence ${stays.format("commit")}"
+                GitOperation.REVERT_SEQUENCE -> "A revert sequence ${stays.format("commit")}"
+                GitOperation.SEQUENCE -> "A cherry-pick or revert sequence ${stays.format("commit")}"
+            }
+        }
+    }
+
+/**
+ * The question before aborting the cherry-pick or revert ([kind]) of [commit] in progress from the bar: git takes the
+ * files and the index back to before it, so what was done to resolve its conflicts is lost.
+ */
+internal fun abortQuestion(
+    kind: GitPick,
+    commit: String,
+): String =
+    "Abort the ${kind.noun} of ${short(commit)}? Its changes are undone, also what was done to resolve its conflicts."
 
 /** The title of the reset dialog and its confirmation: "Reset Current Branch", or "Reset HEAD" when detached. */
 internal fun resetTitle(branch: String?) = if (branch != null) "Reset Current Branch" else "Reset HEAD"
@@ -272,16 +351,6 @@ internal fun operationText(operation: GitOperation): String {
     val verb = if (operation == GitOperation.MERGE) "finish" else "continue"
     return "$what is in progress; $verb or abort it in the terminal."
 }
-
-/**
- * The question before aborting the cherry-pick or revert ([kind]) of [commit] in progress from the bar: git takes the
- * files and the index back to before it, so what was done to resolve its conflicts is lost.
- */
-internal fun abortQuestion(
-    kind: GitPick,
-    commit: String,
-): String =
-    "Abort the ${kind.noun} of ${short(commit)}? Its changes are undone, also what was done to resolve its conflicts."
 
 /** The outcome of a cherry-pick or revert ([kind]) of [commit], or of continuing one, that gave [result]. */
 private fun pickOutcome(

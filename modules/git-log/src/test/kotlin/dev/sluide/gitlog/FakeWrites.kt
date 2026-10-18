@@ -173,7 +173,7 @@ internal class FakeWrites : GitLogWrites {
     @Volatile
     var localChanges: Int? = 0
 
-    /** The reads of [leftBehind], [unreachableCount] and [localChangeCount], as lines. */
+    /** The reads of [leftBehind] and of what a reset would lose, as lines. */
     val reads = CopyOnWriteArrayList<String>()
 
     private fun pickCall(line: String): GitPickResult {
@@ -224,6 +224,33 @@ internal class FakeWrites : GitLogWrites {
     override fun localChangeCount(root: Path): Int? {
         reads += "local changes"
         return localChanges
+    }
+
+    @Volatile
+    var stagedOnly: Int? = 0
+
+    override fun stagedOnlyCount(root: Path): Int? {
+        reads += "staged only"
+        return stagedOnly
+    }
+
+    @Volatile
+    var softRefused: Boolean? = false
+
+    override fun softResetRefused(root: Path): Boolean? {
+        reads += "soft refused"
+        return softRefused
+    }
+
+    @Volatile
+    var overwritten: List<String>? = emptyList()
+
+    override fun overwrittenFiles(
+        root: Path,
+        target: String,
+    ): List<String>? {
+        reads += "overwritten $target"
+        return overwritten
     }
 
     override fun reset(

@@ -340,6 +340,23 @@ class GitCli(
     }
 
     /**
+     * The boolean configuration variable [key] in the repository at [root] as git reads it (`git config --type=bool
+     * --get`: also a value-less entry or any number); `false` if it is not set, `null` if git is not available, fails
+     * (also for a value that is not a boolean) or takes longer than 3 s.
+     */
+    internal fun configFlag(
+        root: Path,
+        key: String,
+    ): Boolean? {
+        if (!available) return null
+        val arguments = listOf("--no-optional-locks", "config", "--type=bool", "--get", "--end-of-options", key)
+        val execution = execute(arguments, root, 3.seconds, null, write = false) ?: return null
+        if (execution.exitValue == 1) return false
+        if (execution.exitValue != 0 || !execution.complete) return null
+        return execution.output.toString(Charsets.UTF_8).trim() == "true"
+    }
+
+    /**
      * Whether the user configured how git runs ssh in the repository at [root]: `core.sshCommand` or `ssh.variant`
      * (also given in the environment, `GIT_CONFIG_PARAMETERS`); `null` if git is not available, fails or takes longer
      * than 3 s.
@@ -679,6 +696,50 @@ class GitCli(
 
     /** The untracked files, not ignored, one by one also inside untracked folders (ADR 0048); `null` on failure. */
     internal fun untrackedPaths(root: Path): List<String>? = listFiles(root, "--others", "--exclude-standard")
+
+    /**
+     * Every file on disk that is not in the index, the ignored ones too, one by one also inside untracked and ignored
+     * folders (which may be many: only for the few paths the JVM cannot name); `null` on failure.
+     */
+    internal fun otherPaths(root: Path): List<String>? = listFiles(root, "--others")
+
+    /**
+     * The paths of the repository at [root] whose index differs from `HEAD` ([staged]) or whose working-tree file
+     * differs from the index (not [staged]): `git diff [--cached HEAD] --name-only -z --no-renames`, each path of a
+     * rename on its own, without unmerged paths (`--diff-filter=u`, their stages come from commits) and without
+     * submodules that differ only by changes inside their checkout (`--ignore-submodules=dirty`); `null` if git is not
+     * available, fails (also without a `HEAD` commit for [staged]) or takes longer than 10 s.
+     */
+    internal fun changedPaths(
+        root: Path,
+        staged: Boolean,
+    ): Set<String>? {
+        if (!available) return null
+        val arguments =
+            buildList {
+                addAll(listOf("--no-optional-locks", "diff", "--name-only", "-z", "--no-renames", "--no-ext-diff"))
+                addAll(listOf("--diff-filter=u", "--ignore-submodules=dirty"))
+                if (staged) addAll(listOf("--cached", "HEAD"))
+                add("--")
+            }
+        return run(arguments, root, 10.seconds)?.split('\u0000')?.filter(String::isNotEmpty)?.toSet()
+    }
+
+    /**
+     * How the index of the repository at [root] differs from [commit] (a full hash): `git diff-index --cached --raw -z
+     * --no-renames`, records `:<commit's mode> <index's mode> <object> <object> <status>` NUL `<path>` NUL, the status
+     * `D` for a path only [commit] has, `A` for one only the index has, `U` for an unmerged one; `null` if git is not
+     * available, fails or takes longer than 10 s.
+     */
+    internal fun indexChanges(
+        root: Path,
+        commit: String,
+    ): String? {
+        if (!available || commit.startsWith('-')) return null
+        val arguments =
+            listOf("--no-optional-locks", "diff-index", "--cached", "--raw", "-z", "--no-renames", commit, "--")
+        return run(arguments, root, 10.seconds)
+    }
 
     /**
      * The full message of the commit `HEAD` (`git show -s --format=%B`, as stored, with the newline git adds); `null` if
