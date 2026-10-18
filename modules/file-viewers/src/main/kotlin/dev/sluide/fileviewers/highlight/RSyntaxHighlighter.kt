@@ -3,7 +3,6 @@ package dev.sluide.fileviewers.highlight
 import dev.sluide.fileviewers.HighlightSpan
 import dev.sluide.fileviewers.SyntaxHighlighter
 import dev.sluide.fileviewers.TokenStyle
-import dev.sluide.fileviewers.bicep.BicepHighlighter
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants
 import org.fife.ui.rsyntaxtextarea.Token
 import org.fife.ui.rsyntaxtextarea.TokenMakerFactory

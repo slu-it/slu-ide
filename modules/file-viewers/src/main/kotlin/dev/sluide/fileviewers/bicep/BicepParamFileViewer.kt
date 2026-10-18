@@ -1,6 +1,7 @@
 package dev.sluide.fileviewers.bicep
 
 import dev.sluide.fileviewers.code.CodeFileViewer
+import dev.sluide.fileviewers.highlight.BicepHighlighter
 import dev.sluide.textediting.CommentSyntax
 import org.springframework.stereotype.Component
 

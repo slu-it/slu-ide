@@ -1,5 +1,7 @@
 package dev.sluide.fileviewers.bicep
 
+import dev.sluide.fileviewers.highlight.BicepTokens
+
 /**
  * The resources and modules of a Bicep file and how they depend on each other, read from [BicepTokens] (so nothing in
  * comments or strings counts, but interpolations do). Best effort: it never throws and stays linear in the text, also

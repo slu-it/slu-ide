@@ -1,8 +1,10 @@
-package dev.sluide.fileviewers.bicep
+package dev.sluide.fileviewers.highlight
 
 import dev.sluide.fileviewers.HighlightSpan
 import dev.sluide.fileviewers.Highlighters
 import dev.sluide.fileviewers.TokenStyle
+import dev.sluide.fileviewers.bicep.MAIN_BICEP
+import dev.sluide.fileviewers.bicep.PARAMS_BICEP
 import dev.sluide.fileviewers.highlight.Highlighted
 import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import kotlin.test.Test

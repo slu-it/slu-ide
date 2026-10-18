@@ -1,4 +1,4 @@
-package dev.sluide.fileviewers.bicep
+package dev.sluide.fileviewers.highlight
 
 import dev.sluide.fileviewers.HighlightSpan
 import dev.sluide.fileviewers.SyntaxHighlighter
@@ -7,7 +7,7 @@ import dev.sluide.fileviewers.TokenStyle
 /**
  * Highlights Bicep (`.bicep`, `.bicepparam`), which has no RSyntaxTextArea lexer: our own tokenizer ([BicepTokens])
  * in one linear pass, then the roles of words from their neighbours ([BicepTokens.roles]). The resource graph
- * ([BicepGraph]) reads the same tokens.
+ * ([dev.sluide.fileviewers.bicep.BicepGraph]) reads the same tokens.
  *
  * Styles: line and block comments; strings (`'…'` with `\` escapes, `'''…'''` without), whose `${…}` interpolations
  * are code between `${` and `}` operators; keywords; the types `string int bool object array` and the name declared

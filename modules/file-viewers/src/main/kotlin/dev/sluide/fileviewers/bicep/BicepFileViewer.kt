@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers.bicep
 
+import dev.sluide.fileviewers.highlight.BicepHighlighter
 import dev.sluide.fileviewers.markdown.MarkdownRenderer
 import dev.sluide.fileviewers.markdown.MermaidPreview
 import dev.sluide.fileviewers.preview.Preview
