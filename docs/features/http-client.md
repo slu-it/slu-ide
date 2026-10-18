@@ -2,9 +2,18 @@
 
 **Module:** `modules/http-client` (package `dev.sluide.httpclient`). Decisions: [ADR 0025](../adr/0025-http-client.md)
 (format, variables), [ADR 0026](../adr/0026-http-client-window-session.md) (window session, view),
-[ADR 0027](../adr/0027-http-client-sending.md) (sending), [ADR 0028](../adr/0028-http-client-secrets.md) (secrets).
+[ADR 0027](../adr/0027-http-client-sending.md) (sending), [ADR 0028](../adr/0028-http-client-secrets.md) (secrets),
+[ADR 0056](../adr/0056-http-client-setup-from-the-explorer.md) (setup).
 
 Requests are written in `.http` (or `.rest`) files, in the format of IntelliJ's HTTP client, and run from the editor.
+
+## Setting up a folder
+
+**New HTTP Client Setup** in the file explorer's context menu (on a folder, on the empty area for the opened folder, or
+on a file for its folder) creates `http-client.env.json` with an environment `local` with `host` = `https://example.com`, an empty `local` in
+`http-client.private.env.json`, a `.gitignore` line for the private file and `example.http` with `GET {{host}}`, and
+opens `example.http`. Files that exist are left as they are and a note names them; an existing `.gitignore` gets the
+line unless it lists the private file already.
 
 ## Writing requests
 ```http
