@@ -1,10 +1,10 @@
 package dev.sluide.gitlog.actions
 
+import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
-import dev.sluide.gitlog.area.CommitDiffs
 import dev.sluide.gitlog.data.GitLogPages
 import dev.sluide.gitlog.data.GitLogSource
 import dev.sluide.gitlog.data.GitLogWrites
@@ -64,7 +64,8 @@ internal class RefActions(
     private val source: GitLogSource,
     private val writes: GitLogWrites,
     private val dispatch: (Runnable) -> Unit,
-    private val diffs: CommitDiffs,
+    private val showCommitDiff: (commit: String, parent: String?, file: GitChangedFile, tell: (String) -> Unit) -> Unit,
+    private val localFile: (GitChangedFile) -> Path?,
     private val window: () -> Window?,
     private val fileExists: (Path) -> Boolean,
     private val clearStatus: () -> Unit,
@@ -124,9 +125,9 @@ internal class RefActions(
         val dialog =
             PushDialog(window(), reader, writer.running, ::pushNameProblem).apply {
                 push = { operation -> start(operation) }
-                showDiff = diffs::showCommitDiff
-                openFile = { file -> diffs.localFile(file)?.let(this@RefActions.openFile) }
-                exists = { file -> diffs.localFile(file)?.let(fileExists) == true }
+                showDiff = showCommitDiff
+                openFile = { file -> localFile(file)?.let(this@RefActions.openFile) }
+                exists = { file -> localFile(file)?.let(fileExists) == true }
             }
         pushDialog = dialog
         dialog.stage.addEventHandler(WindowEvent.WINDOW_HIDDEN) {
