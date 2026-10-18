@@ -177,6 +177,18 @@ class CommitOperationsTest {
     }
 
     @Test
+    fun `aborting from the bar asks what is lost`() {
+        assertEquals(
+            "Abort the cherry-pick of 1a2b3c4d? Its changes are undone, also what was done to resolve its conflicts.",
+            abortQuestion(GitPick.CHERRY_PICK, hash),
+        )
+        assertEquals(
+            "Abort the revert of 1a2b3c4d? Its changes are undone, also what was done to resolve its conflicts.",
+            abortQuestion(GitPick.REVERT, hash),
+        )
+    }
+
+    @Test
     fun `texts of the dialogs and the bar`() {
         assertEquals("Reset branch 'main' (at 9f8e7d6c) to 1a2b3c4d", resetDescription("main", "9f8e7d6c5b4a", hash))
         assertEquals("Reset detached HEAD (at 9f8e7d6c) to 1a2b3c4d", resetDescription(null, "9f8e7d6c5b4a", hash))

@@ -586,7 +586,7 @@ class GitLogView internal constructor(
         Button("Abort").apply {
             styleClass += "git-log-pending-abort"
             minWidth = USE_PREF_SIZE
-            setOnAction { pending?.let { start(AbortPick(it.kind, it.commit)) } }
+            setOnAction { pending?.let(::abortPending) }
             disableProperty().bind(writer.running)
         }
 
@@ -1850,6 +1850,26 @@ class GitLogView internal constructor(
                 mergeQuestion(kind, commit.hash),
                 pickButton(kind),
                 PickCommit(kind, commit.hash, firstParent = true),
+            )
+        if (refConfirmation(scene?.window, confirmation).showAndWait().orElse(ButtonType.CANCEL) ==
+            confirmation.button
+        ) {
+            start(confirmation.confirmed)
+        }
+    }
+
+    /**
+     * Aborts the cherry-pick or revert in progress ([pending]) once confirmed, as it undoes what was done to resolve its
+     * conflicts; Cancel is the default. The dialog right after it stopped aborts without asking: nothing is resolved yet.
+     */
+    private fun abortPending(pending: GitPendingPick) {
+        if (writer.running.get()) return
+        val confirmation =
+            RefConfirmation(
+                "Abort ${pending.kind.title}",
+                abortQuestion(pending.kind, pending.commit),
+                abortButton(pending.kind),
+                AbortPick(pending.kind, pending.commit),
             )
         if (refConfirmation(scene?.window, confirmation).showAndWait().orElse(ButtonType.CANCEL) ==
             confirmation.button

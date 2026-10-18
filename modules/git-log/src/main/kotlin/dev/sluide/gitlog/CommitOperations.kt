@@ -273,6 +273,16 @@ internal fun operationText(operation: GitOperation): String {
     return "$what is in progress; $verb or abort it in the terminal."
 }
 
+/**
+ * The question before aborting the cherry-pick or revert ([kind]) of [commit] in progress from the bar: git takes the
+ * files and the index back to before it, so what was done to resolve its conflicts is lost.
+ */
+internal fun abortQuestion(
+    kind: GitPick,
+    commit: String,
+): String =
+    "Abort the ${kind.noun} of ${short(commit)}? Its changes are undone, also what was done to resolve its conflicts."
+
 /** The outcome of a cherry-pick or revert ([kind]) of [commit], or of continuing one, that gave [result]. */
 private fun pickOutcome(
     kind: GitPick,

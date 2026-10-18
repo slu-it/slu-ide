@@ -285,15 +285,17 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
     none is unmerged in the index) with Continue and Abort; read with every refresh, it disappears after one without
     it (and after a refresh that fails). A merge, rebase, `git am` or a cherry-pick or revert of several commits shows
     there too, without buttons ("A cherry-pick sequence is in progress; continue or abort it in the terminal.").
-    **Abort** goes back to before it ("Aborted the cherry-pick of 1a2b3c4d."). **Continue** refuses while a text
-    conflict still has a line starting with a conflict marker (`<<<<<<< ` or `>>>>>>> `, as long as the file's
-    `conflict-marker-size` attribute says; an error "Conflict markers are left in: a.txt, b/c.txt"). Conflicted files
-    it cannot check (binary, deleted on one side or on disk, submodules, symbolic links, above 5 MB) are listed in a
-    confirmation first ("bin.dat — binary, the version on disk will be committed", Cancel the default, "Commit As on
-    Disk"), and again if they changed meanwhile; a submodule that is not checked out is refused ("Submodule sub is not
-    checked out: … Resolve it in the terminal."). Then it stages exactly the conflicted files as they are on disk (a
-    deleted one as deleted; other local changes are not committed) and commits with git's message ("Cherry-picked
-    1a2b3c4d as 5e6f7a8b.").
+    **Abort** asks first ("Abort the cherry-pick of 1a2b3c4d? Its changes are undone, also what was done to resolve its
+    conflicts.", Abort Cherry-Pick or Cancel, the default), then goes back to before it ("Aborted the cherry-pick of
+    1a2b3c4d."); Abort Cherry-Pick in the dialog right after the stop does not ask, as nothing is resolved yet.
+    **Continue** refuses while a text conflict still has a line starting with a conflict marker (`<<<<<<< ` or
+    `>>>>>>> `, as long as the file's `conflict-marker-size` attribute says; an error "Conflict markers are left in:
+    a.txt, b/c.txt"). Conflicted files it cannot check (binary, deleted on one side or on disk, submodules,
+    symbolic links, above 5 MB) are listed in a confirmation first ("bin.dat — binary, the version on disk will be
+    committed", Cancel the default, "Commit As on Disk"), and again if they changed meanwhile; a submodule that is not
+    checked out is refused ("Submodule sub is not checked out: … Resolve it in the terminal."). Then it stages exactly
+    the conflicted files as they are on disk (a deleted one as deleted; other local changes are not committed) and
+    commits with git's message ("Cherry-picked 1a2b3c4d as 5e6f7a8b.").
   - **Reset Current Branch to Here…:** a dialog "Reset Current Branch" ("Reset HEAD" when detached) says "Reset branch
     'main' (at 5e6f7a8b) to 1a2b3c4d" and offers Soft ("Files won't change; the differences will be staged for
     commit."), Mixed (preselected; "…won't be staged.") and Hard ("Files will be changed to the commit's state. Local

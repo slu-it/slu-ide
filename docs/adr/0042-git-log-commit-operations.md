@@ -60,8 +60,11 @@ commits from every branch and, hard, local changes. Git 2.53 behaves as follows 
   read with every refresh after the refs on `sluide-git-log` (`GitLog.inProgress`); a refresh whose first page fails
   hides it. A single cherry-pick or revert: "Cherry-pick of 1a2b3c4d is in progress: 2 files have conflicts." (or
   "conflicts resolved." once none is unmerged) with Continue and Abort, which read the state again when they run and
-  refuse anything else. A merge, rebase, `git am` or sequence: "A cherry-pick sequence is in progress; continue or
-  abort it in the terminal." without buttons: Continue and Abort would act on all of it.
+  refuse anything else. Abort asks first ("Abort the cherry-pick of 1a2b3c4d? Its changes are undone, also what was
+  done to resolve its conflicts.", Abort Cherry-Pick or Cancel, the default): by then resolutions may have been made.
+  Abort Cherry-Pick in the dialog right after the stop does not ask, as nothing is resolved yet. A merge, rebase,
+  `git am` or sequence: "A cherry-pick sequence is in progress; continue or abort it in the terminal." without
+  buttons: Continue and Abort would act on all of it.
 - **Continue checks what it can and stages only the conflicted files.** The unmerged paths are sorted by their index
   stages:
   - **text conflicts** (ours and theirs present, regular files, not binary by git's test, a NUL byte in the first

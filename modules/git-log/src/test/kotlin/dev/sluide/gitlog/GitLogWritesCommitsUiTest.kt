@@ -160,7 +160,23 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         pendingPick = GitPendingPick(GitPick.REVERT, "h5", emptyList())
         robot.interact { view.refresh() }
         eventually { assertEquals("Revert of h5 is in progress: conflicts resolved.", text.text) }
-        robot.interact { view.abortButton.fire() }
+        // Abort asks first, as it undoes the resolutions; Cancel, the default, aborts nothing.
+        robot.interact { Platform.runLater { view.abortButton.fire() } }
+        var question = awaitDialog(robot)
+        assertEquals("Abort Revert", (question.scene.window as Stage).title)
+        assertEquals(
+            "Abort the revert of h5? Its changes are undone, also what was done to resolve its conflicts.",
+            question.headerText,
+        )
+        assertNoBandBelowQuestion(question)
+        assertTrue((question.lookupButton(ButtonType.CANCEL) as Button).isDefaultButton)
+        press(robot, question, ButtonType.CANCEL)
+        assertEquals(listOf("cherry-pick --continue"), writes.calls)
+        assertEquals(listOf("Continue"), fileChanges, "not asked about editors before confirming")
+
+        robot.interact { Platform.runLater { view.abortButton.fire() } }
+        question = awaitDialog(robot)
+        press(robot, question, ABORT_REVERT_BUTTON)
         eventually { assertEquals("Aborted the revert of h5.", status(robot)) }
         assertEquals(listOf("cherry-pick --continue", "revert --abort"), writes.calls)
         assertEquals(listOf("Continue", "Abort"), fileChanges)
