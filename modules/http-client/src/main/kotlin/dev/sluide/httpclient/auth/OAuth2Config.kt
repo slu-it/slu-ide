@@ -3,6 +3,7 @@ package dev.sluide.httpclient.auth
 import dev.sluide.httpclient.env.AuthConfig
 import dev.sluide.httpclient.env.AuthConfig.ClientCredentials
 import dev.sluide.httpclient.env.AuthConfig.ParameterUse
+import dev.sluide.httpclient.env.EnvKeys
 import dev.sluide.httpclient.env.Environment
 import dev.sluide.httpclient.vars.DynamicVariables
 import dev.sluide.httpclient.vars.UnresolvedVariablesException
@@ -39,8 +40,8 @@ internal data class OAuth2Config(
         val label: String,
         val value: String,
     ) {
-        CLIENT_CREDENTIALS("Client Credentials", "client_credentials"),
-        PASSWORD("Password", "password"),
+        CLIENT_CREDENTIALS(EnvKeys.Auth.GRANT_CLIENT_CREDENTIALS, "client_credentials"),
+        PASSWORD(EnvKeys.Auth.GRANT_PASSWORD, "password"),
     }
 
     /** Without the secrets, so that the configuration can show up in logs and messages. */
@@ -77,7 +78,7 @@ internal data class OAuth2Config(
             val id = config.id
             val type = config.type?.trim()
             if (type == null) throw OAuth2Exception("Auth '$id' has no Type; only OAuth2 is supported")
-            if (!type.equals("OAuth2", ignoreCase = true)) {
+            if (!type.equals(EnvKeys.Auth.TYPE_OAUTH2, ignoreCase = true)) {
                 throw OAuth2Exception("Auth '$id' is of Type '$type'; only OAuth2 is supported")
             }
             val grant = grant(id, config.grantType)

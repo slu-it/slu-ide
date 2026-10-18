@@ -40,10 +40,22 @@ internal data class SslConfig(
                 return default
             }
             return SslConfig(
-                clientCertificate = file(node.get("clientCertificate"), "clientCertificate", folder, problems),
-                clientCertificateKey = file(node.get("clientCertificateKey"), "clientCertificateKey", folder, problems),
-                hasCertificatePassphrase = flag("hasCertificatePassphrase", false),
-                verifyHostCertificate = flag("verifyHostCertificate", true),
+                clientCertificate =
+                    file(
+                        node.get(EnvKeys.Ssl.CLIENT_CERTIFICATE),
+                        EnvKeys.Ssl.CLIENT_CERTIFICATE,
+                        folder,
+                        problems,
+                    ),
+                clientCertificateKey =
+                    file(
+                        node.get(EnvKeys.Ssl.CLIENT_CERTIFICATE_KEY),
+                        EnvKeys.Ssl.CLIENT_CERTIFICATE_KEY,
+                        folder,
+                        problems,
+                    ),
+                hasCertificatePassphrase = flag(EnvKeys.Ssl.HAS_CERTIFICATE_PASSPHRASE, false),
+                verifyHostCertificate = flag(EnvKeys.Ssl.VERIFY_HOST_CERTIFICATE, true),
             )
         }
 
@@ -54,12 +66,12 @@ internal data class SslConfig(
             problems: MutableList<String>,
         ): CertificateFile? {
             if (node == null || node.isNull) return null
-            val path = if (node.isObject) node.get("path") else node
+            val path = if (node.isObject) node.get(EnvKeys.Ssl.PATH) else node
             if (path == null || !path.isString || path.stringValue().isBlank()) {
                 problems += "SSLConfiguration: \"$key\" needs a path"
                 return null
             }
-            val formatName = node.get("format")?.let(::textOf)
+            val formatName = node.get(EnvKeys.Ssl.FORMAT)?.let(::textOf)
             val format =
                 formatName?.let { name ->
                     CertificateFormat.entries.firstOrNull { it.name.equals(name, true) }

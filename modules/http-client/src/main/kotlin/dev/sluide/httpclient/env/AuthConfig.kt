@@ -62,18 +62,23 @@ internal data class AuthConfig(
             }
             return AuthConfig(
                 id = id,
-                type = text("Type"),
-                grantType = text("Grant Type"),
-                tokenUrl = text("Token URL"),
-                clientId = text("Client ID"),
-                clientSecret = text("Client Secret"),
-                clientCredentials = clientCredentials(id, text("Client Credentials"), problems),
-                username = text("Username"),
-                password = text("Password"),
-                scope = text("Scope"),
-                customRequestParameters = customParameters(id, node.get("Custom Request Parameters"), problems),
-                useIdToken = flag("Use ID Token", false),
-                acquireAutomatically = flag("Acquire Automatically", true),
+                type = text(EnvKeys.Auth.TYPE),
+                grantType = text(EnvKeys.Auth.GRANT_TYPE),
+                tokenUrl = text(EnvKeys.Auth.TOKEN_URL),
+                clientId = text(EnvKeys.Auth.CLIENT_ID),
+                clientSecret = text(EnvKeys.Auth.CLIENT_SECRET),
+                clientCredentials = clientCredentials(id, text(EnvKeys.Auth.CLIENT_CREDENTIALS), problems),
+                username = text(EnvKeys.Auth.USERNAME),
+                password = text(EnvKeys.Auth.PASSWORD),
+                scope = text(EnvKeys.Auth.SCOPE),
+                customRequestParameters =
+                    customParameters(
+                        id,
+                        node.get(EnvKeys.Auth.CUSTOM_REQUEST_PARAMETERS),
+                        problems,
+                    ),
+                useIdToken = flag(EnvKeys.Auth.USE_ID_TOKEN, false),
+                acquireAutomatically = flag(EnvKeys.Auth.ACQUIRE_AUTOMATICALLY, true),
             )
         }
 
@@ -83,15 +88,15 @@ internal data class AuthConfig(
             problems: MutableList<String>,
         ): ClientCredentials =
             when (value?.trim()?.lowercase()) {
-                null, "basic" -> {
+                null, EnvKeys.Auth.CREDENTIALS_BASIC -> {
                     ClientCredentials.BASIC
                 }
 
-                "in body" -> {
+                EnvKeys.Auth.CREDENTIALS_IN_BODY -> {
                     ClientCredentials.IN_BODY
                 }
 
-                "none" -> {
+                EnvKeys.Auth.CREDENTIALS_NONE -> {
                     ClientCredentials.NONE
                 }
 
@@ -125,7 +130,7 @@ internal data class AuthConfig(
             problems: MutableList<String>,
         ): CustomParameter? {
             if (!node.isObject) return CustomParameter(name, textOf(node), ParameterUse.EVERYWHERE)
-            val value = node.get("Value")
+            val value = node.get(EnvKeys.Auth.PARAMETER_VALUE)
             if (value == null) {
                 problems += "Auth \"$id\": custom parameter \"$name\" has no Value"
                 return null
@@ -133,20 +138,20 @@ internal data class AuthConfig(
             val use =
                 when (
                     node
-                        .get("Use")
+                        .get(EnvKeys.Auth.PARAMETER_USE)
                         ?.let(::textOf)
                         ?.trim()
                         ?.lowercase()
                 ) {
-                    null, "everywhere" -> {
+                    null, EnvKeys.Auth.USE_EVERYWHERE -> {
                         ParameterUse.EVERYWHERE
                     }
 
-                    "in auth request" -> {
+                    EnvKeys.Auth.USE_IN_AUTH_REQUEST -> {
                         ParameterUse.IN_AUTH_REQUEST
                     }
 
-                    "in token request" -> {
+                    EnvKeys.Auth.USE_IN_TOKEN_REQUEST -> {
                         ParameterUse.IN_TOKEN_REQUEST
                     }
 

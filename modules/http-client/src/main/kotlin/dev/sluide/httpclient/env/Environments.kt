@@ -31,8 +31,8 @@ internal data class Environments(
 
     companion object {
         private val mapper = JsonMapper.builder().build()
-        private const val SECURITY = "Security"
-        private const val SSL = "SSLConfiguration"
+        private const val SECURITY = EnvKeys.SECURITY
+        private const val SSL = EnvKeys.SSL_CONFIGURATION
 
         /**
          * Reads both files. The environments are the top-level keys of either file; each is the public one deep-merged
@@ -108,9 +108,9 @@ internal data class Environments(
             security: JsonNode?,
             problems: MutableList<String>,
         ): Map<String, AuthConfig> {
-            val auth = security?.get("Auth") ?: return emptyMap()
+            val auth = security?.get(EnvKeys.AUTH) ?: return emptyMap()
             if (!auth.isObject) {
-                problems += "$SECURITY.Auth must be an object"
+                problems += "$SECURITY.${EnvKeys.AUTH} must be an object"
                 return emptyMap()
             }
             return auth
