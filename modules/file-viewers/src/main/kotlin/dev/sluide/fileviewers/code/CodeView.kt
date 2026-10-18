@@ -6,6 +6,7 @@ import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.fileviewers.GutterColumns
 import dev.sluide.fileviewers.SyntaxHighlighter
 import dev.sluide.fileviewers.TextDiff
+import dev.sluide.fileviewers.TextEditableView
 import dev.sluide.fileviewers.decodeUtf8
 import dev.sluide.textediting.CommentSyntax
 import dev.sluide.textediting.DiskChange
@@ -79,6 +80,7 @@ internal class CodeView(
     private val defaultIndent: IndentStyle = IndentStyle.DEFAULT,
     private val dispatch: (Runnable) -> Unit = Platform::runLater,
 ) : EditableFileView,
+    TextEditableView,
     GutterColumns {
     /** The file shown; it changes when the file is [moved]. */
     private var file = initialFile
@@ -249,6 +251,10 @@ internal class CodeView(
 
     override val node: Node get() = root
 
+    override val text: String get() = area.text
+
+    override val canReplaceText: Boolean get() = !readOnly
+
     override val dirty: ObservableBooleanValue = Bindings.not(undoManager.atMarkedPositionProperty()).or(keptMine)
 
     /** Whether the banner about a change on disk that meets unsaved changes is shown. */
@@ -402,7 +408,7 @@ internal class CodeView(
      * equals the current text. Returns `false` and changes nothing while the view is [readOnly], whose text cannot be
      * saved.
      */
-    fun replaceText(text: String): Boolean {
+    override fun replaceText(text: String): Boolean {
         if (readOnly) return false
         if (replaceMinimally(LineEnding.normalize(text))) {
             // Typing on would otherwise extend this change.
