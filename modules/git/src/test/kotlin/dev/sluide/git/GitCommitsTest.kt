@@ -438,10 +438,13 @@ class GitCommitsTest {
         val target = head()
         git("mv", "Readme.md", "README.md")
         git("commit", "-q", "-m", "Rename")
-        // On a case-insensitive file system both names are the tracked file; here a second file stands in for it.
+        // On a case-insensitive file system (macOS, Windows) both names are the tracked file, and git init set
+        // core.ignorecase; on a case-sensitive one a second file stands in for it.
         repo.resolve("Readme.md").writeText("the tracked file under the other case\n")
 
-        assertEquals(listOf("Readme.md"), commits.overwrittenFiles(repo, target), "a different file on this system")
+        if (!Files.isSameFile(repo.resolve("Readme.md"), repo.resolve("README.md"))) {
+            assertEquals(listOf("Readme.md"), commits.overwrittenFiles(repo, target), "a different file on this system")
+        }
         git("config", "core.ignorecase", "true")
         assertEquals(emptyList(), commits.overwrittenFiles(repo, target))
     }
