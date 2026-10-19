@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Thoreau's cabin at Walden Pond. Source of the app and window icons: regenerate them with render-icon.sh. -->
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1F4045"/>
+      <stop offset="0.5" stop-color="#4E7470"/>
+      <stop offset="0.7" stop-color="#E9B884"/>
+    </linearGradient>
+    <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2F6168"/>
+      <stop offset="1" stop-color="#173238"/>
+    </linearGradient>
+    <clipPath id="tile">
+      <rect x="100" y="100" width="824" height="824" rx="185"/>
+    </clipPath>
+    <clipPath id="pond">
+      <rect x="100" y="672" width="824" height="252"/>
+    </clipPath>
+    <!-- Everything above the waterline (y = 672), drawn once more mirrored as its reflection -->
+    <g id="shore">
+      <path fill="#1C3A35" d="M100 672 V600 L140 530 L180 600 L210 550 L250 610 L270 590 L310 640 H714 L760 580
+        L790 615 L830 520 L870 590 L900 545 L924 580 V672 Z"/>
+      <g transform="translate(512 652) scale(0.84) translate(-512 -660)">
+        <!-- Chimney, behind the roof -->
+        <rect x="600" y="330" width="52" height="130" fill="#8C5A43"/>
+        <rect x="592" y="318" width="68" height="22" fill="#6B3E2C"/>
+        <!-- Walls with log lines, gable and roof -->
+        <rect x="342" y="470" width="340" height="190" fill="#EAD9BA"/>
+        <path fill="#EAD9BA" d="M512 334 L668 470 H356 Z"/>
+        <path stroke="#CBB089" stroke-width="8" d="M342 520 H682 M342 570 H682 M342 620 H682 M424 420 H600"/>
+        <path fill="#6E3B26" d="M512 290 L732 494 L696 494 L512 334 L328 494 L292 494 Z"/>
+        <!-- Door and the lit window -->
+        <rect x="392" y="540" width="70" height="120" rx="6" fill="#4A2B1D"/>
+        <rect x="548" y="530" width="88" height="70" rx="6" fill="#FFCF6E"/>
+        <path stroke="#4A2B1D" stroke-width="8" d="M592 530 V600"/>
+      </g>
+    </g>
+  </defs>
+  <g clip-path="url(#tile)">
+    <rect x="100" y="100" width="824" height="824" fill="url(#sky)"/>
+    <circle cx="300" cy="290" r="44" fill="#F4E6C8"/>
+    <use href="#shore"/>
+    <rect x="100" y="672" width="824" height="252" fill="url(#water)"/>
+    <g clip-path="url(#pond)" opacity="0.25">
+      <use href="#shore" transform="translate(0 1344) scale(1 -1)"/>
+    </g>
+    <path stroke="#9CC3C0" stroke-width="8" stroke-linecap="round" opacity="0.6"
+      d="M230 740 H360 M640 760 H800 M420 830 H600"/>
+  </g>
+</svg>
