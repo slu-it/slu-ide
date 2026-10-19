@@ -58,6 +58,7 @@ import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 
 /**
  * The git log area of a window (ADR 0035): a header bar ("Git Log", a chevron, Refresh) and, while [expanded], the
@@ -557,6 +558,18 @@ class GitLogView internal constructor(
         filterSources.markPathsStale()
         pages.refresh()
         tabs.refresh()
+    }
+
+    /**
+     * Completes once everything the threads reading the log, the details and the branches were given so far has run;
+     * for tests that assert that something was not read.
+     */
+    internal fun readersIdle(): CompletableFuture<Void> {
+        val log = CompletableFuture<Unit>()
+        executor.execute { log.complete(Unit) }
+        val branches = CompletableFuture<Unit>()
+        branchesExecutor.execute { branches.complete(Unit) }
+        return CompletableFuture.allOf(log, branches)
     }
 
     override fun close() {

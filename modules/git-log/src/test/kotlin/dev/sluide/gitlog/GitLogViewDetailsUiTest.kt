@@ -227,18 +227,20 @@ class GitLogViewDetailsUiTest : GitLogViewUiFixture() {
     }
 
     @Test
-    fun `a refresh that keeps the commit selected reads its details and refs again`(robot: FxRobot) {
+    fun `a refresh that keeps the commit selected shows its new refs without reading its details again`(
+        robot: FxRobot,
+    ) {
         openAndExpand(robot)
         select(robot, 2)
         eventually { assertTrue(showsDetailsOf("Subject 3")) }
         refs = GitRefs(listOf(ref("refs/tags/new", GitRefKind.TAG, "h3")), null)
 
-        robot.interact { view.refresh() }
+        refreshAndAwaitReload(robot)
         eventually {
-            assertEquals(listOf("h3", "h3"), detailLoads.toList())
             assertEquals(listOf("new"), details.refs.children.map { (it as Label).text })
             assertTrue(showsDetailsOf("Subject 3"))
         }
+        assertEquals(listOf("h3"), detailLoads.toList(), "a commit's details do not change (ADR 0062)")
     }
 
     @Test
@@ -278,11 +280,16 @@ class GitLogViewDetailsUiTest : GitLogViewUiFixture() {
         assertEquals("Subject", clipboard())
         assertEquals("Subject 1", subject.text, "read-only")
 
-        // Shown again (a refresh), the same text is no longer selected.
-        robot.interact { view.refresh() }
-        eventually {
-            assertEquals(2, detailLoads.count { it == "h1" })
-            assertEquals("", subject.selectedText)
-        }
+        // A refresh keeps the commit as it is shown, not read again (ADR 0062), and so the selected text.
+        refreshAndAwaitReload(robot)
+        robot.interact { assertEquals("Subject", subject.selectedText) }
+        assertEquals(1, detailLoads.count { it == "h1" })
+
+        // Another commit and back: shown anew, nothing selected.
+        select(robot, 1)
+        eventually { assertTrue(showsDetailsOf("Subject 2")) }
+        select(robot, 0)
+        eventually { assertTrue(showsDetailsOf("Subject 1")) }
+        robot.interact { assertEquals("", subject.selectedText) }
     }
 }

@@ -65,6 +65,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.test.assertEquals
+import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -423,6 +424,19 @@ abstract class GitLogViewUiFixture {
             bar.branchesToggle.isSelected = false
             view.inner.setDividerPositions(1.0)
         }
+        WaitForAsyncUtils.waitForFxEvents()
+    }
+
+    /**
+     * Refreshes the log and waits until the reload replaced the rows, what follows on the JavaFX thread ran, and the
+     * readers' threads have run what that gave them, so that a read that did not happen by then does not happen.
+     */
+    internal fun refreshAndAwaitReload(robot: FxRobot) {
+        val before = WaitForAsyncUtils.asyncFx<Any?> { view.table.items.firstOrNull() }.get()
+        robot.interact { view.refresh() }
+        eventually { assertNotSame(before, view.table.items.firstOrNull(), "the rows of the reload") }
+        WaitForAsyncUtils.waitForFxEvents()
+        view.readersIdle().get(10, TimeUnit.SECONDS)
         WaitForAsyncUtils.waitForFxEvents()
     }
 

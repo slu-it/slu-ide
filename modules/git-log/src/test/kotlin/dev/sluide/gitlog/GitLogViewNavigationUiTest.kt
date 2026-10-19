@@ -145,9 +145,8 @@ class GitLogViewNavigationUiTest : GitLogViewUiFixture() {
         eventually { assertEquals("In 1 branch: main", branchesLine()) }
 
         // The same refs: nothing read again.
-        robot.interact { view.refresh() }
-        eventually { assertEquals(listOf("h1", "h1"), detailLoads) }
-        WaitForAsyncUtils.waitForFxEvents()
+        refreshAndAwaitReload(robot)
+        assertEquals(listOf("h1"), detailLoads)
         assertEquals(listOf("h1"), branchLoads)
 
         branchesOf = { listOf("refs/heads/main", "refs/heads/new") }

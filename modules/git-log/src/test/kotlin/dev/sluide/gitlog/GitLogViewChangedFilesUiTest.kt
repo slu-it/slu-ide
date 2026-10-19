@@ -190,18 +190,22 @@ class GitLogViewChangedFilesUiTest : GitLogViewUiFixture() {
     }
 
     @Test
-    fun `a refresh that keeps the commit selected reads its files again and keeps the selected file`(robot: FxRobot) {
+    fun `a refresh that keeps the commit selected does not read its files again and keeps the selected file`(
+        robot: FxRobot,
+    ) {
         showFilesOfFirstCommit(robot)
         selectFile(robot, "Two.kt")
+        val header = changes.header.text
+        // What a commit changed cannot change; a fake that would answer otherwise is not asked (ADR 0062).
         filesOf = { someFiles + GitChangedFile(GitChange.ADDED, "added.txt") }
 
-        robot.interact { view.refresh() }
+        refreshAndAwaitReload(robot)
 
-        eventually {
-            assertEquals(2, fileLoads.size)
-            assertEquals("5 files", changes.header.text)
+        assertEquals(1, fileLoads.size)
+        robot.interact {
+            assertEquals(header, changes.header.text)
+            assertEquals("src/main/kotlin/dev/Two.kt", changes.selectedFile?.path)
         }
-        robot.interact { assertEquals("src/main/kotlin/dev/Two.kt", changes.selectedFile?.path) }
     }
 
     @Test
@@ -457,9 +461,8 @@ class GitLogViewChangedFilesUiTest : GitLogViewUiFixture() {
             assertEquals(listOf("docs/", "src/main/kotlin/dev/", "  One.kt", "  Two.kt", "README.md"), shownTree())
         }
 
-        robot.interact { view.refresh() }
-        eventually { assertEquals(2, fileLoads.size) }
-        WaitForAsyncUtils.waitForFxEvents()
+        refreshAndAwaitReload(robot)
+        assertEquals(1, fileLoads.size, "not read again (ADR 0062)")
         robot.interact {
             assertEquals(listOf("docs/", "src/main/kotlin/dev/", "  One.kt", "  Two.kt", "README.md"), shownTree())
         }

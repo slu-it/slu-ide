@@ -5,6 +5,8 @@ import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitCommitDetails
+import dev.sluide.git.GitRef
+import dev.sluide.git.GitRefKind
 import java.nio.file.Path
 import java.time.Instant
 import kotlin.test.Test
@@ -168,7 +170,7 @@ class CommitDetailsTest {
     }
 
     @Test
-    fun `the same row selected again loads nothing, a new row of the same commit (a reload) loads again`() {
+    fun `the same commit selected again loads nothing, also as a new row after a reload, which is shown instead`() {
         val a = row("a")
         select(a)
         settle()
@@ -176,11 +178,56 @@ class CommitDetailsTest {
         settle()
         assertEquals(listOf("a"), loads)
 
-        val reloaded = row("a")
+        val reloaded = row("a").copy(refs = listOf(GitRef("refs/heads/new", GitRefKind.LOCAL_BRANCH, "a")))
         select(reloaded)
         settle()
-        assertEquals(listOf("a", "a"), loads)
+        assertEquals(listOf("a"), loads, "a commit's details do not change")
+        assertEquals(listOf<Pair<String, String?>>("a" to null), fileLoads)
+        assertSame(reloaded, (details.state.get() as CommitDetailsState.Loaded).row, "with its new refs")
+    }
+
+    @Test
+    fun `a new row of the commit being read takes its result`() {
+        val a = row("a")
+        select(a)
+        runDispatched()
+        val reloaded = row("a")
+        select(reloaded)
+        runDispatched()
+        assertEquals(CommitDetailsState.Loading(reloaded), details.state.get())
+        settle()
+
+        assertEquals(listOf("a"), loads)
         assertSame(reloaded, (details.state.get() as CommitDetailsState.Loaded).row)
+    }
+
+    @Test
+    fun `a commit whose changed files could not be read is read again when selected again`() {
+        failingFiles += "a"
+        select(row("a"))
+        settle()
+        assertEquals(ChangedFilesState.Failed(row("a")), details.files.get())
+        failingFiles.clear()
+
+        select(row("a"))
+        settle()
+
+        assertEquals(listOf("a", "a"), loads)
+        assertEquals(ChangedFilesState.Loaded(row("a"), files("a")), details.files.get())
+    }
+
+    @Test
+    fun `a commit whose details could not be read is read again when selected again`() {
+        failing += "a"
+        select(row("a"))
+        settle()
+        failing.clear()
+
+        select(row("a"))
+        settle()
+
+        assertEquals(listOf("a", "a"), loads)
+        assertEquals(CommitDetailsState.Loaded(row("a"), details("a")), details.state.get())
     }
 
     @Test

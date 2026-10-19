@@ -42,9 +42,12 @@ internal sealed interface CommitDetailsState {
  * resolved with [resolve] right after the details, before they are shown (ADR 0045). Each result is handled through
  * [dispatch] as soon as it is read, and dropped if
  * the selection has changed meanwhile (latest wins): a newer request (or [close]) stops the git of the older one, which
- * does not start if it is still queued (ADR 0062). The same row selected again loads nothing; a reload of the log
- * brings new rows, so the details and files of a commit that stays selected are read again. Used on the JavaFX thread
- * (or whatever [dispatch] stands for in tests).
+ * does not start if it is still queued (ADR 0062). The same commit selected again loads nothing, compared by its hash:
+ * a reload of the log brings new rows, of which the one of a commit that stays selected only replaces the row in the
+ * [state] (its refs may have changed), while its details and changed files, which a commit cannot change, are not read
+ * again (ADR 0062); after a failure of either, both are. The links of its message are kept as read: a commit a word
+ * names that was fetched since is linked once the commit is selected anew. Used on the JavaFX thread (or whatever
+ * [dispatch] stands for in tests).
  */
 internal class CommitDetails(
     private val load: (Path, String, GitCancellation) -> GitCommitDetails?,
@@ -72,6 +75,9 @@ internal class CommitDetails(
 
     /** Stops the git of the current request. */
     private var cancellation: GitCancellation? = null
+
+    /** The row of the current request, or the newer row of the same commit that replaced it. */
+    private var requested: GitLogRow? = null
     private var settling = false
     private var closed = false
 
@@ -111,10 +117,16 @@ internal class CommitDetails(
     }
 
     private fun request(row: GitLogRow) {
-        if (rowOf(_state.get()) === row) return
+        val state = _state.get()
+        val failed = state is CommitDetailsState.Failed || _files.get() is ChangedFilesState.Failed
+        if (!failed && rowOf(state)?.commit?.hash == row.commit.hash) {
+            if (rowOf(state) !== row) replaceRow(state, row)
+            return
+        }
         val root = root() ?: return show(CommitDetailsState.NoneSelected, ChangedFilesState.NoneSelected)
         val current = supersede()
         val token = GitCancellation().also { cancellation = it }
+        requested = row
         _state.set(CommitDetailsState.Loading(row))
         _files.set(ChangedFilesState.Loading(row))
         background {
@@ -124,7 +136,10 @@ internal class CommitDetails(
                 details?.takeIf { generation.get() == current }?.let { links(root, it.message, token) }.orEmpty()
             dispatch {
                 if (generation.get() != current) return@dispatch
-                _state.set(details?.let { CommitDetailsState.Loaded(row, it, links) } ?: CommitDetailsState.Failed(row))
+                val shown = requested ?: row
+                _state.set(
+                    details?.let { CommitDetailsState.Loaded(shown, it, links) } ?: CommitDetailsState.Failed(shown),
+                )
             }
             // The details show without waiting for the files, which can take longer.
             if (generation.get() != current) return@background
@@ -169,6 +184,25 @@ internal class CommitDetails(
         supersede()
         _state.set(state)
         _files.set(files)
+    }
+
+    /** Shows [row] instead of the row of the same commit in [state], which is loading or loaded; nothing is read. */
+    private fun replaceRow(
+        state: CommitDetailsState,
+        row: GitLogRow,
+    ) {
+        requested = row
+        when (state) {
+            is CommitDetailsState.Loading -> {
+                _state.set(CommitDetailsState.Loading(row))
+            }
+
+            is CommitDetailsState.Loaded -> {
+                _state.set(state.copy(row = row))
+            }
+
+            else -> {}
+        }
     }
 
     private fun rowOf(state: CommitDetailsState) =
