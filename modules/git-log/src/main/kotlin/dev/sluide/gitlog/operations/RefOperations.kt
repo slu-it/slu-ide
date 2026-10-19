@@ -432,7 +432,15 @@ internal data class BranchActions(
     val compare: GitRef? = null,
     /** The one selected ref, also `HEAD` or the current branch, to compare with the working tree (ADR 0044). */
     val workingTreeDiff: GitRef? = null,
+    /** Rebases the current branch onto the one selected branch or remote branch (ADR 0063); not onto `HEAD`'s commit. */
+    val rebase: RebaseBranch? = null,
 )
+
+/** The text of the rebase item: for [current] onto [target] (short names), or generic if either is not known. */
+internal fun rebaseText(
+    current: String?,
+    target: String?,
+): String = if (current == null || target == null) "Rebase Current Branch onto…" else "Rebase '$current' onto '$target'"
 
 /**
  * The [BranchActions] for the [selected] nodes of the branches pane; [currentBranch] is the checked-out branch's full
@@ -443,6 +451,7 @@ internal fun branchActions(
     selected: List<BranchNode>,
     currentBranch: String? = null,
     remotes: List<String> = emptyList(),
+    headCommit: String? = null,
 ): BranchActions {
     val single = selected.singleOrNull() as? BranchLeaf
     val ref = single?.ref
@@ -479,6 +488,16 @@ internal fun branchActions(
                     (node.ref.kind == GitRefKind.LOCAL_BRANCH || node.ref.kind == GitRefKind.TAG)
             }
     val fetch = selected.singleOrNull()?.let { remoteOf(it, remotes) }
+    val current = currentBranch?.removePrefix("refs/heads/")
+    val rebase =
+        if (current != null && headCommit != null && single?.current == false &&
+            (ref?.kind == GitRefKind.LOCAL_BRANCH || ref?.kind == GitRefKind.REMOTE_BRANCH) &&
+            ref.commit != headCommit
+        ) {
+            RebaseBranch(current, ref.name, ref.shortName)
+        } else {
+            null
+        }
     return BranchActions(
         checkout,
         ref,
@@ -487,6 +506,7 @@ internal fun branchActions(
         fetch,
         compare = ref?.takeIf { single?.current == false && it.kind != GitRefKind.HEAD },
         workingTreeDiff = ref,
+        rebase = rebase,
     )
 }
 

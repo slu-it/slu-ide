@@ -48,6 +48,35 @@ class RefOperationsTest {
 
     private fun actions(vararg paths: String) = branchActions(paths.map(::node))
 
+    private fun rebase(
+        vararg paths: String,
+        current: String? = "refs/heads/main",
+        head: String? = "h1",
+    ) = branchActions(paths.map(::node), current, headCommit = head).rebase
+
+    @Test
+    fun `rebases the current branch onto one other branch or remote branch at another commit`() {
+        assertEquals(RebaseBranch("main", "refs/heads/feature/a", "feature/a"), rebase("Local/feature/a"))
+        assertEquals(RebaseBranch("main", "refs/remotes/origin/fix", "origin/fix"), rebase("Remote/origin/fix"))
+        assertNull(rebase("Local/feature/a", current = null), "a detached HEAD")
+        assertNull(rebase("Local/feature/a", head = null), "no commit yet")
+        assertNull(rebase("Local/main"), "the current branch")
+        assertNull(rebase("HEAD"))
+        assertNull(rebase("Tags/v1"))
+        assertNull(rebase("Local/feature"), "a folder")
+        assertNull(rebase("Local/feature/a", head = "h2"), "already at HEAD's commit")
+        assertNull(rebase("Local/feature/a", "Local/feature/b"), "several")
+        assertNull(branchActions(listOf(node("Local/feature/a"))).rebase, "no HEAD commit given")
+    }
+
+    @Test
+    fun `says what is rebased onto what, or rebase current branch if that is not known`() {
+        assertEquals("Rebase 'feature' onto 'origin/main'", rebaseText("feature", "origin/main"))
+        assertEquals("Rebase Current Branch onto\u2026", rebaseText(null, "main"))
+        assertEquals("Rebase Current Branch onto\u2026", rebaseText("feature", null))
+        assertEquals("Rebase Current Branch onto\u2026", rebaseText(null, null))
+    }
+
     private fun ref(name: String) = refs.refs.single { it.name == name }
 
     @Test
