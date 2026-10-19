@@ -72,6 +72,17 @@ class GitCliWriteTest {
     }
 
     @Test
+    fun `a write takes the caller's editor over the default one`() {
+        val git = fakeGit("echo \"error: \$GIT_EDITOR\" >&2; exit 1")
+
+        val (result, exit) = git.writeWithExit(folder, listOf("x"), environment = mapOf("GIT_EDITOR" to ":"))
+
+        assertEquals(GitResult(false, "error: :"), result)
+        assertEquals(1, exit)
+        assertEquals(GitResult(false, "error: false"), git.write(folder, listOf("x")))
+    }
+
+    @Test
     fun `a write that ignores SIGTERM is killed after a grace period`() {
         val pid = folder.resolve("pid")
         val git = fakeGit("echo $$ > '$pid'; trap '' TERM; while true; do sleep 0.1; done")

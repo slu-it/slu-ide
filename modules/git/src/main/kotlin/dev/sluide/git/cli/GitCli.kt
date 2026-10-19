@@ -90,9 +90,10 @@ class GitCli(
     /**
      * Runs git with [arguments] in the repository at [root] to change it (ADR 0041), [input] on its standard input:
      * with optional locks, unlike the reads, as git itself would run; within [timeout], as hooks may run; never with an
-     * editor (`GIT_EDITOR=false`: git fails at once where it would open one). The result has git's own message: its
-     * standard error, or its standard output if that is empty, trimmed and without git's `hint:` lines, which point at
-     * command lines (unless there is nothing else). A command that [writesFiles] (a checkout, a cherry-pick, a hard
+     * editor (`GIT_EDITOR=false`: git fails at once where it would open one; [writeWithExit] may give another that
+     * ends at once, such as `:`, which keeps the message git prepared). The result has git's own message: its standard
+     * error, or its standard output if that is empty, trimmed and without git's `hint:` lines, which point at command
+     * lines (unless there is nothing else). A command that [writesFiles] (a checkout, a cherry-pick, a hard
      * reset) and is stopped after the timeout may have changed some of them: its message says so ([timedOut]).
      */
     internal fun write(
@@ -106,9 +107,9 @@ class GitCli(
     /**
      * [write], with git's exit value; `null` if git could not be run, did not finish in time or was cancelled. Some
      * failures are told apart only by it, e.g. a revert with nothing to commit (1) from one git refused to start (128).
-     * [environment] is added to git's. A [cancellation] stops git as the timeout does (ADR 0043), for commands that
-     * may be stopped halfway: a fetch, a commit (SIGTERM removes git's lock files, and the ref is updated last);
-     * cancelled before git started, git is not run.
+     * [environment] is added to git's; its `GIT_EDITOR` replaces `false`. A [cancellation] stops git as the timeout
+     * does (ADR 0043), for commands that may be stopped halfway: a fetch, a commit (SIGTERM removes git's lock files,
+     * and the ref is updated last); cancelled before git started, git is not run.
      */
     internal fun writeWithExit(
         root: Path,
@@ -203,7 +204,8 @@ class GitCli(
                         if (!write) environment()["GIT_OPTIONAL_LOCKS"] = "0"
                         // Never wait for credentials or an editor.
                         environment()["GIT_TERMINAL_PROMPT"] = "0"
-                        if (write) environment()["GIT_EDITOR"] = "false"
+                        // A caller may give one that ends at once (`:`, which keeps the prepared message).
+                        if (write) environment()["GIT_EDITOR"] = environment["GIT_EDITOR"] ?: "false"
                     }.start()
             } catch (e: IOException) {
                 entry.startFailed(e)
