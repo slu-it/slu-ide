@@ -40,7 +40,10 @@ its script, KaTeX (with its fonts as `data:` URIs) and Mermaid, and embeds local
   - kroki.io or mermaid.ink: the document's diagrams would leave the machine, and the export would need the network;
   - one variant in Mermaid's `neutral` theme: half the size, but light diagrams on a dark page.
 - **The colour scheme follows the reader:** the page's only script sets `body.dark` from `prefers-color-scheme` and
-  follows its changes; the stylesheet shows the diagram variant of the scheme. Without JavaScript the page is light.
+  follows its changes; the stylesheet shows the diagram variant of the scheme. The script adds a button that
+  toggles the scheme; the choice is not remembered, so the page stores nothing in the reader's browser (storage for
+  `file:` pages differs between browsers), and a change of the system setting applies again. Without JavaScript the
+  page is light and has no button.
 - **Links work in a browser:** the page has no script of the preview, so links and anchors behave as on any page.
   Links to other `.md` files stay as written.
 - **Custom stylesheet:** `<name>.css` next to the file is inlined after the built-in styles, so it overrides only what

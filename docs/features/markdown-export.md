@@ -26,7 +26,9 @@ Decision in [ADR 0058](../adr/0058-markdown-html-export.md).
 - **Custom styles:** `<name>.css` next to the Markdown file is inlined after the built-in styles, so it overrides only
   what it sets. In the reader's dark scheme the body has the class `dark`, so dark rules use `body.dark …`.
 - **Colour scheme:** the page follows the reader's light or dark setting (`prefers-color-scheme`), also when it changes,
-  not the IDE's theme. That is the page's only script; without JavaScript it is light.
+  not the IDE's theme. A button at the top right switches between light and dark for as long as the page is open;
+  a change of the system setting takes over again. The button is not printed. That script is the page's only one;
+  without JavaScript the page is light and has no button.
 - **Links** work as in any page in a browser. Anchors scroll within the page. Links to other Markdown files stay as
   written: they lead to the `.md` file, not to its export.
 - Rendering, downloading and writing run in the background, and the button is disabled meanwhile. A successful export
