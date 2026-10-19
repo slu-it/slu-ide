@@ -66,7 +66,8 @@ class GitCli(
         arguments: List<String>,
         directory: Path?,
         timeout: Duration,
-    ): String? = runBytes(arguments, directory, timeout)?.toString(Charsets.UTF_8)
+        cancellation: GitCancellation? = null,
+    ): String? = runBytes(arguments, directory, timeout, cancellation = cancellation)?.toString(Charsets.UTF_8)
 
     /**
      * Runs git with [arguments] in [directory], [input] on its standard input; its output if it succeeds in time and is

@@ -63,7 +63,7 @@ class EditorAreaDiffUiTest : EditorAreaUiFixture() {
     fun `files with a diff open in the editor with their changes marked, following the diff`(robot: FxRobot) {
         val a = textFile("a.txt", "new\nsame\n")
         var diff: TextDiff? = TextDiff("old\nsame\n", listOf(LineChange(0..0, 0..0)))
-        editor.diffOf = { diff }
+        editor.diffOf = immediately { diff }
         open(robot, a)
         val tab = editor.selectedTab
 
@@ -93,7 +93,7 @@ class EditorAreaDiffUiTest : EditorAreaUiFixture() {
     @Test
     fun `the diff shows on demand over the editor, which keeps its unsaved changes, caret and undo`(robot: FxRobot) {
         val a = textFile("a.txt", "new\n")
-        editor.diffOf = { TextDiff("old\n", listOf(LineChange(0..0, 0..0)), "HEAD", "Working Tree") }
+        editor.diffOf = immediately { TextDiff("old\n", listOf(LineChange(0..0, 0..0)), "HEAD", "Working Tree") }
         open(robot, a)
         val area = shownArea(robot)
         robot.interact {
@@ -141,7 +141,7 @@ class EditorAreaDiffUiTest : EditorAreaUiFixture() {
         val lines = (1..80).map { "line $it" }
         val a = textFile("a.txt", lines.joinToString("\n", postfix = "\n"))
         val original = lines.toMutableList().apply { set(59, "old line 60") }.joinToString("\n", postfix = "\n")
-        editor.diffOf = { TextDiff(original, listOf(LineChange(59..59, 59..59))) }
+        editor.diffOf = immediately { TextDiff(original, listOf(LineChange(59..59, 59..59))) }
         open(robot, a)
         robot.interact { shownArea(robot).showParagraphAtTop(50) }
         WaitForAsyncUtils.waitForFxEvents()
@@ -173,7 +173,7 @@ class EditorAreaDiffUiTest : EditorAreaUiFixture() {
         val field = fieldAbove(robot, listOf(MarkdownFileViewer()))
         val plain = textFile("README.md", "# New\n")
         val changed = textFile("CHANGES.md", "# New\n")
-        editor.diffOf = { if (it == changed) TextDiff("# Old\n", listOf(LineChange(0..0, 0..0))) else null }
+        editor.diffOf = immediately { if (it == changed) TextDiff("# Old\n", listOf(LineChange(0..0, 0..0))) else null }
         // The source is in a split pane, which adds it to the scene only once skinned: it is focused later.
         robot.interact { field.requestFocus() }
         open(robot, plain)
@@ -198,7 +198,7 @@ class EditorAreaDiffUiTest : EditorAreaUiFixture() {
 
     @Test
     fun `the Edit button of the diff goes back to the editor`(robot: FxRobot) {
-        editor.diffOf = { TextDiff("old\n", listOf(LineChange(0..0, 0..0))) }
+        editor.diffOf = immediately { TextDiff("old\n", listOf(LineChange(0..0, 0..0))) }
         open(robot, textFile("a.txt", "new\n"))
         robot.interact { editor.toggleDiff() }
 
@@ -217,7 +217,7 @@ class EditorAreaDiffUiTest : EditorAreaUiFixture() {
     @Test
     fun `closing the diff gives its focus to the text, also when the editor had none`(robot: FxRobot) {
         val field = fieldAbove(robot)
-        editor.diffOf = { TextDiff("old\n", listOf(LineChange(0..0, 0..0))) }
+        editor.diffOf = immediately { TextDiff("old\n", listOf(LineChange(0..0, 0..0))) }
         open(robot, textFile("a.txt", "new\n"))
         robot.interact {
             field.requestFocus()
@@ -235,7 +235,7 @@ class EditorAreaDiffUiTest : EditorAreaUiFixture() {
     fun `a diff going away leaves the focus elsewhere alone`(robot: FxRobot) {
         val field = fieldAbove(robot)
         var diff: TextDiff? = TextDiff("old\n", listOf(LineChange(0..0, 0..0)))
-        editor.diffOf = { diff }
+        editor.diffOf = immediately { diff }
         open(robot, textFile("a.txt", "new\n"))
         robot.interact { editor.toggleDiff() }
         robot.interact { field.requestFocus() }
@@ -250,7 +250,7 @@ class EditorAreaDiffUiTest : EditorAreaUiFixture() {
     @Test
     fun `closing a tab with unsaved changes while its diff is shown asks to save`(robot: FxRobot) {
         val a = textFile("a.txt", "a\n")
-        editor.diffOf = { TextDiff("old\n", listOf(LineChange(0..0, 0..0))) }
+        editor.diffOf = immediately { TextDiff("old\n", listOf(LineChange(0..0, 0..0))) }
         val asked = openEdited(robot, a) { SaveChoice.SAVE }
         robot.interact { editor.toggleDiff() }
         val close = tabLabel(robot, "● a.txt").parent.lookup(".close-button") as Button
@@ -265,7 +265,7 @@ class EditorAreaDiffUiTest : EditorAreaUiFixture() {
     @Test
     fun `Save while the diff is shown saves the editor's text`(robot: FxRobot) {
         val a = textFile("a.txt", "a\n")
-        editor.diffOf = { TextDiff("old\n", listOf(LineChange(0..0, 0..0))) }
+        editor.diffOf = immediately { TextDiff("old\n", listOf(LineChange(0..0, 0..0))) }
         openEdited(robot, a) { SaveChoice.CANCEL }
         robot.interact { editor.toggleDiff() }
 
@@ -290,7 +290,7 @@ class EditorAreaDiffUiTest : EditorAreaUiFixture() {
     fun `a shown diff follows the file and gives way to the editor when it goes`(robot: FxRobot) {
         val a = textFile("a.txt", "one\n")
         var diff: TextDiff? = TextDiff("zero\n", listOf(LineChange(0..0, 0..0)))
-        editor.diffOf = { diff }
+        editor.diffOf = immediately { diff }
         open(robot, a)
         robot.interact { editor.toggleDiff() }
 
@@ -309,7 +309,7 @@ class EditorAreaDiffUiTest : EditorAreaUiFixture() {
         val lines = (1..300).map { "line $it" }
         val a = textFile("a.txt", lines.joinToString("\n", postfix = "\n"))
         val diff = TextDiff(lines.joinToString("\n", prefix = "old\n", postfix = "\n"), listOf(LineChange(0..0, 0..0)))
-        editor.diffOf = { diff }
+        editor.diffOf = immediately { diff }
         open(robot, a)
         val area = shownArea(robot)
         robot.interact {
@@ -328,10 +328,11 @@ class EditorAreaDiffUiTest : EditorAreaUiFixture() {
         val fallback = DefaultTextFileViewer()
         val area = EditorArea(FileViewers(listOf(fallback, UnsavableViewer()), fallback), watcher, fontSettings)
         val asked = mutableListOf<String>()
-        area.diffOf = { path ->
-            asked += path.name
-            null
-        }
+        area.diffOf =
+            immediately { path ->
+                asked += path.name
+                null
+            }
         val notes = textFile("notes.unsavable")
         val a = textFile("a.txt")
         robot.interact {
@@ -346,9 +347,10 @@ class EditorAreaDiffUiTest : EditorAreaUiFixture() {
     @Test
     fun `saving keeps the editor and its changes come from the diff again`(robot: FxRobot) {
         val a = textFile("a.txt", "new\n")
-        editor.diffOf = { path ->
-            if (path.readText() == "new\n") null else TextDiff("new\n", listOf(LineChange(0..0, 0..0)))
-        }
+        editor.diffOf =
+            immediately { path ->
+                if (path.readText() == "new\n") null else TextDiff("new\n", listOf(LineChange(0..0, 0..0)))
+            }
         open(robot, a)
         robot.interact { shownArea(robot).insertText(0, "newer ") }
         assertEquals(mapOf(1 to "diff-modified"), shownMarkers(robot))
@@ -365,10 +367,11 @@ class EditorAreaDiffUiTest : EditorAreaUiFixture() {
     @Test
     fun `an edit on disk asks for the diff again`(robot: FxRobot) {
         val a = textFile("a.txt", "one\n")
-        editor.diffOf = { path ->
-            // A line removed before the new text, unlike the edit from one to two.
-            if (path.readText() == "one\n") null else TextDiff("zero\ntwo\n", listOf(LineChange(0..0, 0 until 0)))
-        }
+        editor.diffOf =
+            immediately { path ->
+                // A line removed before the new text, unlike the edit from one to two.
+                if (path.readText() == "one\n") null else TextDiff("zero\ntwo\n", listOf(LineChange(0..0, 0 until 0)))
+            }
         open(robot, a)
         assertEquals(emptyMap(), shownMarkers(robot))
 
@@ -378,5 +381,69 @@ class EditorAreaDiffUiTest : EditorAreaUiFixture() {
             assertEquals("two\n", shownText(robot))
             assertEquals(mapOf(1 to "diff-removed-above"), shownMarkers(robot))
         }
+    }
+
+    @Test
+    fun `markers keep the old answer until the newest arrives, and a stale answer is dropped`(robot: FxRobot) {
+        val a = textFile("a.txt", "new\nsame\n")
+        val answers = mutableListOf<(TextDiff?) -> Unit>()
+        editor.diffOf = { _, done -> answers += done }
+        open(robot, a)
+        assertEquals(emptyMap(), shownMarkers(robot), "no answer yet")
+        robot.interact { answers[0](TextDiff("old\nsame\n", listOf(LineChange(0..0, 0..0)))) }
+        assertEquals(mapOf(1 to "diff-modified"), shownMarkers(robot))
+
+        robot.interact {
+            editor.refreshDiffs()
+            editor.refreshDiffs()
+        }
+        assertEquals(mapOf(1 to "diff-modified"), shownMarkers(robot), "the old markers until the answer")
+        robot.interact { answers[2](TextDiff("new\n", listOf(LineChange(1 until 1, 1..1)))) }
+        assertEquals(mapOf(2 to "diff-added"), shownMarkers(robot))
+        robot.interact { answers[1](null) }
+        assertEquals(mapOf(2 to "diff-added"), shownMarkers(robot), "an answer to an older request")
+        assertEquals(true, editor.canToggleDiff.value)
+    }
+
+    @Test
+    fun `a stale answer while the diff is shown leaves it as the newest answer made it`(robot: FxRobot) {
+        val a = textFile("a.txt", "new\n")
+        val answers = mutableListOf<(TextDiff?) -> Unit>()
+        editor.diffOf = { _, done -> answers += done }
+        open(robot, a)
+        robot.interact {
+            answers[0](TextDiff("old\n", listOf(LineChange(0..0, 0..0))))
+            editor.toggleDiff()
+        }
+        assertEquals(listOf("old", "new"), shownDiff(robot))
+
+        robot.interact {
+            editor.refreshDiffs()
+            editor.refreshDiffs()
+        }
+        assertEquals(listOf("old", "new"), shownDiff(robot), "the shown diff until the answer")
+        robot.interact { answers[2](TextDiff("older\n", listOf(LineChange(0..0, 0..0)))) }
+        assertEquals(listOf("older", "new"), shownDiff(robot))
+        robot.interact { answers[1](null) }
+
+        assertEquals(listOf("older", "new"), shownDiff(robot), "an answer to an older request")
+        assertNull(shownText(robot), "the editor stays hidden")
+    }
+
+    @Test
+    fun `an answer for a tab that was closed is dropped`(robot: FxRobot) {
+        val a = textFile("a.txt", "new\n")
+        val answers = mutableListOf<(TextDiff?) -> Unit>()
+        editor.diffOf = { _, done -> answers += done }
+        open(robot, a)
+        robot.interact { editor.editorTabs.close(checkNotNull(editor.editorTabs.find(a))) }
+        open(robot, a)
+
+        robot.interact { answers[0](TextDiff("old\n", listOf(LineChange(0..0, 0..0)))) }
+
+        assertEquals(emptyMap(), shownMarkers(robot), "the answer for the closed tab")
+        assertEquals(false, editor.canToggleDiff.value)
+        robot.interact { answers[1](TextDiff("old\n", listOf(LineChange(0..0, 0..0)))) }
+        assertEquals(mapOf(1 to "diff-modified"), shownMarkers(robot))
     }
 }

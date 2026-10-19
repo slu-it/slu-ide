@@ -73,10 +73,11 @@ class EditorArea(
     private val watches = mutableMapOf<EditorTab, AutoCloseable>()
 
     /**
-     * The diff of a file against its original (e.g. the last commit), `null` if it has none (ADR 0021). Its changes
-     * are marked in the file's editor. Asked when a file is opened, when it changes on disk and on [refreshDiffs].
+     * Gives the callback the diff of a file against its original (e.g. the last commit), `null` if it has none (ADR
+     * 0021), on the JavaFX thread, maybe later (ADR 0062). Its changes are marked in the file's editor. Asked when a
+     * file is opened, when it changes on disk and on [refreshDiffs]; only the answer to the newest request counts.
      */
-    var diffOf: (Path) -> TextDiff? = { null }
+    var diffOf: (Path, (TextDiff?) -> Unit) -> Unit = { _, done -> done(null) }
 
     /** Shows a web page outside the IDE when a file view asks for it, e.g. for a clicked link; set by the window. */
     var openWebPage: (URI) -> Unit = {}
@@ -251,8 +252,9 @@ class EditorArea(
         val viewer = fileViewers.viewerFor(path)
         if ((viewer === openFile.viewer || openFile.isDirty) && openFile.editor.moved(path)) {
             openFile.path = path
-            // The diff shown is of the old path.
+            // The diff shown, and the one to show until the new path's arrives, is of the old path.
             hideDiff(openFile)
+            openFile.diff.set(null)
             watch(openFile)
             showChanges(openFile)
             return
@@ -285,26 +287,26 @@ class EditorArea(
     fun refreshDiffs() = editorTabs.files.forEach(::showChanges)
 
     /**
-     * Asks [diffOf] for the diff of [openFile] and marks its changes in the editor; a diff shown follows it, or gives
-     * way to the editor once there is no diff anymore. [diffOf] (git on the FX thread) is only asked for files shown
-     * as text.
+     * Asks [diffOf] for the diff of [openFile] and, once it answers, marks its changes in the editor; a diff shown
+     * follows it, or gives way to the editor once there is no diff anymore. Until then the old markers stay. An answer
+     * is dropped if the tab was closed or asked again meanwhile. [diffOf] (git) is only asked for files shown as text.
      */
     private fun showChanges(openFile: OpenFile) {
         val editor = openFile.editor as? EditableFileView ?: return
         if (!openFile.showsDiffs) return
-        val diff = diffOf(openFile.path)
-        openFile.diff.set(diff)
-        editor.showChanges(diff)
-        val diffView = openFile.diffView ?: return
-        if (diff == null) {
-            hideDiff(openFile)
-            return
-        }
-        try {
-            diffView.show(titled(openFile, diff))
-        } catch (e: IOException) {
-            // Keep showing the last diff; the next change will try again.
-            warn("Cannot update the diff of", openFile.path, e)
+        val request = ++openFile.diffRequests
+        diffOf(openFile.path) answer@{ diff ->
+            if (request != openFile.diffRequests || openFile !in editorTabs.tabs) return@answer
+            openFile.diff.set(diff)
+            editor.showChanges(diff)
+            val diffView = openFile.diffView ?: return@answer
+            if (diff == null) return@answer hideDiff(openFile)
+            try {
+                diffView.show(titled(openFile, diff))
+            } catch (e: IOException) {
+                // Keep showing the last diff; the next change will try again.
+                warn("Cannot update the diff of", openFile.path, e)
+            }
         }
     }
 

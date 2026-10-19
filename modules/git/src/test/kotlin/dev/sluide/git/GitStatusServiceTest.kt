@@ -32,7 +32,14 @@ class GitStatusServiceTest {
     // Everything dispatched runs on this test's thread, in run(), like on the JavaFX thread.
     private val dispatched = LinkedBlockingQueue<Runnable>()
     private val watcher = FileWatcher({ dispatched += it }, 50.milliseconds)
-    private val service = GitStatusService(git, watcher, testTrust()) { dispatched += it }
+
+    // The threads tasks are dispatched from.
+    private val dispatchers = mutableListOf<String>()
+    private val service =
+        GitStatusService(git, watcher, testTrust()) {
+            synchronized(dispatchers) { dispatchers += Thread.currentThread().name }
+            dispatched += it
+        }
 
     @BeforeEach
     fun createRepository() {
@@ -91,6 +98,18 @@ class GitStatusServiceTest {
             if (remaining <= 0) fail(message)
             dispatched.poll(remaining, TimeUnit.NANOSECONDS)?.run()
         }
+    }
+
+    /** The answer of [GitStatusService.diffAsync] for [file], which arrives through dispatch, not at once. */
+    private fun diffOf(
+        file: Path,
+        service: GitStatusService = this.service,
+    ): GitDiff? {
+        val answers = mutableListOf<GitDiff?>()
+        service.diffAsync(file) { answers += it }
+        assertEquals(emptyList(), answers, "not answered at once")
+        await("No diff of $file") { answers.isNotEmpty() }
+        return answers.single()
     }
 
     @Test
@@ -186,21 +205,73 @@ class GitStatusServiceTest {
         repo.resolve("lines.txt").writeText("a\nB\nc\nd\ne\n")
         repo.resolve("star*.txt").writeText("two\n")
         repo.resolve("starX.txt").writeText("zero\none\n")
-        assertNull(service.diff(repo.resolve("lines.txt")), "no repository followed yet")
+        assertNull(diffOf(repo.resolve("lines.txt")), "no repository followed yet")
         service.open(repo)
 
         assertEquals(
             GitDiff("a\nb\nc\nd\n", listOf(GitHunk(1..1, 1..1), GitHunk(4 until 4, 4..4))),
-            service.diff(repo.resolve("lines.txt")),
+            diffOf(repo.resolve("lines.txt")),
         )
+        synchronized(dispatchers) { assertTrue("sluide-git-diff" in dispatchers, "dispatched by $dispatchers") }
         // The name is not a pattern: starX.txt is not part of this diff.
-        assertEquals(GitDiff("one\n", listOf(GitHunk(0..0, 0..0))), service.diff(repo.resolve("star*.txt")))
-        assertEquals(GitDiff("val a = 1\n", emptyList()), service.diff(repo.resolve("tracked.kt")))
-        assertNull(service.diff(repo.resolve("untracked.txt").apply { writeText("") }))
-        assertNull(service.diff(repo.parent.resolve("outside.txt")))
+        assertEquals(GitDiff("one\n", listOf(GitHunk(0..0, 0..0))), diffOf(repo.resolve("star*.txt")))
+        assertEquals(GitDiff("val a = 1\n", emptyList()), diffOf(repo.resolve("tracked.kt")))
+        assertNull(diffOf(repo.resolve("untracked.txt").apply { writeText("") }))
+        assertNull(diffOf(repo.parent.resolve("outside.txt")))
         // GitCli takes relative paths from the working directory.
         val relative = Path.of("").toAbsolutePath().relativize(repo.resolve("lines.txt"))
         assertEquals("a\nb\nc\nd\n", git.headContent(repo, relative))
+    }
+
+    @Test
+    fun `only the newest request for the diff of a file is answered`() {
+        repo.resolve("tracked.kt").writeText("val a = 2\n")
+        service.open(repo)
+        val answers = mutableListOf<Pair<String, GitDiff?>>()
+
+        service.diffAsync(repo.resolve("tracked.kt")) { answers += "older" to it }
+        service.diffAsync(repo.resolve("other.kt")) { answers += "other" to it }
+        service.diffAsync(repo.resolve("tracked.kt")) { answers += "newest" to it }
+        // Answers are dispatched in order: one for the older request would come before the newest.
+        await("No answers") { answers.size >= 2 }
+
+        assertEquals(
+            listOf("other" to null, "newest" to GitDiff("val a = 1\n", listOf(GitHunk(0..0, 0..0)))),
+            answers,
+        )
+    }
+
+    @Test
+    fun `a result that arrives after a newer request is dropped`() {
+        // Nothing followed, so only diffs are dispatched, and the test decides when they arrive.
+        val answersDispatched = LinkedBlockingQueue<Runnable>()
+        val unopened = GitStatusService(git, watcher, testTrust()) { answersDispatched += it }
+        val file = repo.resolve("tracked.kt")
+        val answers = mutableListOf<String>()
+        unopened.diffAsync(file) { answers += "older" }
+        val older = answersDispatched.poll(10, TimeUnit.SECONDS) ?: fail("No result")
+
+        unopened.diffAsync(file) { answers += "newest" }
+        older.run()
+        (answersDispatched.poll(10, TimeUnit.SECONDS) ?: fail("No result")).run()
+
+        assertEquals(listOf("newest"), answers)
+        unopened.close()
+    }
+
+    @Test
+    fun `a diff of a repository no longer followed is dropped`() {
+        repo.resolve("tracked.kt").writeText("val a = 2\n")
+        service.open(repo)
+        val answers = mutableListOf<String>()
+        service.diffAsync(repo.resolve("tracked.kt")) { answers += "of the repository" }
+
+        service.open(null)
+        // Diffs are answered in order: the older one would come before this one.
+        service.diffAsync(repo.resolve("other.kt")) { answers += "after" }
+        await("No answer") { answers.isNotEmpty() }
+
+        assertEquals(listOf("after"), answers)
     }
 
     @Test
@@ -237,7 +308,7 @@ class GitStatusServiceTest {
         gated.open(repo)
         // Whether git status ran at all: GitStatusServiceRunsTest, with a git that counts its runs.
         assertEquals(GitStatusSnapshot.EMPTY, gated.snapshot.get())
-        assertNull(gated.diff(repo.resolve("tracked.kt")))
+        assertNull(diffOf(repo.resolve("tracked.kt"), gated))
 
         assertTrue(trust.decide(trust.state.get(), trusted = true, remember = false))
         gated.refresh()

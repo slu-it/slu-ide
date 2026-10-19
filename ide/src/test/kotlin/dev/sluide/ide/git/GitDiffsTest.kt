@@ -3,7 +3,9 @@ package dev.sluide.ide.git
 import dev.sluide.fileviewers.LineChange
 import dev.sluide.fileviewers.TextDiff
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.git.GitStatus
 import dev.sluide.git.GitStatusService
+import dev.sluide.git.GitStatusSnapshot
 import dev.sluide.git.cli.GitCli
 import dev.sluide.ide.trustingTrust
 import org.junit.jupiter.api.AfterEach
@@ -12,6 +14,9 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
+import kotlin.io.path.createDirectories
+import kotlin.io.path.createFile
+import kotlin.io.path.deleteExisting
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -56,13 +61,21 @@ class GitDiffsTest {
         assertEquals(0, process.waitFor(), "git ${arguments.joinToString(" ")}: $output")
     }
 
+    /** The answer of [textDiff] for [file], which may arrive through dispatch. */
+    private fun GitStatusService.textDiffOf(file: Path): TextDiff? {
+        val answers = mutableListOf<TextDiff?>()
+        textDiff(file) { answers += it }
+        while (answers.isEmpty()) (dispatched.poll(10, TimeUnit.SECONDS) ?: fail("No diff of $file")).run()
+        return answers.single()
+    }
+
     @Test
     fun `without git there is no diff`() {
         val file = repo.resolve("a.txt").apply { writeText("a\n") }
         val service = service(GitCli(repo.resolve("no-such-git").toString(), System.getenv()))
         service.open(repo)
 
-        assertNull(service.textDiff(file))
+        assertNull(service.textDiffOf(file))
     }
 
     @Test
@@ -94,10 +107,65 @@ class GitDiffsTest {
                 originalTitle = "HEAD",
                 currentTitle = "Working Tree",
             ),
-            service.textDiff(changed),
+            service.textDiffOf(changed),
         )
-        assertNull(service.textDiff(added))
-        assertNull(service.textDiff(untracked))
-        assertNull(service.textDiff(clean))
+        val answers = mutableListOf<TextDiff?>()
+        listOf(added, untracked, clean).forEach { file -> service.textDiff(file) { answers += it } }
+        assertEquals(listOf<TextDiff?>(null, null, null), answers, "answered at once, without git")
+    }
+
+    @Test
+    fun `a file no longer modified drops the diff still asked for it`(
+        @TempDir scripts: Path,
+    ) {
+        // Stands in for git: status prints the status file, every other command waits while the hold file exists.
+        val status = scripts.resolve("status")
+        val hold = scripts.resolve("hold")
+        val executable =
+            scripts.resolve("git").apply {
+                writeText(
+                    """
+                    #!/bin/sh
+                    [ "${'$'}1" = --version ] && exit 0
+                    case " ${'$'}* " in *' --local-env-vars '*|*' core.fsmonitor '*) exit 1;; esac
+                    case " ${'$'}* " in *' status '*) cat '$status'; exit 0;; esac
+                    while [ -e '$hold' ]; do sleep 0.01; done
+                    echo old
+                    """.trimIndent() + "\n",
+                )
+                toFile().setExecutable(true)
+            }
+        val git = GitCli(executable.toString(), System.getenv())
+        assumeTrue(git.available, "no /bin/sh to stand in for git")
+        repo.resolve(".git").createDirectories()
+        val changed = repo.resolve("changed.txt").apply { writeText("new\n") }
+        status.writeText("1 .M N... 100644 100644 100644 e69de29 e69de29 changed.txt\u0000")
+        val service = service(git)
+        service.open(repo)
+        awaitSnapshot(service) { it.fileStatus(changed) == GitStatus.MODIFIED }
+        val answers = mutableListOf<String>()
+        hold.createFile()
+        service.textDiff(changed) { answers += "while modified" }
+
+        status.writeText("")
+        service.refresh()
+        awaitSnapshot(service) { it.fileStatus(changed) == null }
+        service.textDiff(changed) { answers += "clean: $it" }
+        hold.deleteExisting()
+        // Diffs are answered in order: one for the request while modified would come before this one.
+        var marker = false
+        service.diffAsync(repo.resolve("other.txt")) { marker = true }
+        while (!marker) (dispatched.poll(10, TimeUnit.SECONDS) ?: fail("No answer")).run()
+
+        assertEquals(listOf("clean: null"), answers)
+    }
+
+    private fun awaitSnapshot(
+        service: GitStatusService,
+        condition: (GitStatusSnapshot) -> Boolean,
+    ) {
+        while (!condition(service.snapshot.get())) {
+            (dispatched.poll(10, TimeUnit.SECONDS) ?: fail("No git status")).run()
+        }
     }
 }

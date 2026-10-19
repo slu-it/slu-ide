@@ -77,8 +77,11 @@ internal class OpenFile(
 
     override val content = StackPane(editorLayer)
 
-    /** The diff of the file against its original as last asked for, `null` if it has none. */
+    /** The diff of the file against its original as last answered, `null` if it has none. */
     val diff = SimpleObjectProperty<TextDiff?>()
+
+    /** Counts the requests for [diff]; only the answer to the newest is taken (ADR 0062). */
+    var diffRequests = 0L
 
     private val diffViewProperty = SimpleObjectProperty<DiffFileView?>()
 

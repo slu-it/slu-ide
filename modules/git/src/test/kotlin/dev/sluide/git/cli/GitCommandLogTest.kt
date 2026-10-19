@@ -188,28 +188,43 @@ class GitCommandLogTest {
     }
 
     @Test
-    fun `a cancelled command is a warning`() {
+    fun `a cancelled write is a warning, a cancelled read is routine`() {
         val git = fakeGit("sleep 10")
-        val cancellation = GitCancellation()
-        Thread.ofPlatform().start {
-            Thread.sleep(500)
-            cancellation.cancel()
+        for ((marker, write) in listOf("marker-cancel-read" to false, "marker-cancel-write" to true)) {
+            val cancellation = GitCancellation()
+            Thread.ofPlatform().start {
+                Thread.sleep(500)
+                cancellation.cancel()
+            }
+            git.execute(listOf(marker), folder, 20.seconds, null, write = write, cancellation = cancellation)
         }
-        git.execute(listOf("marker-cancel"), folder, 20.seconds, null, write = false, cancellation = cancellation)
 
-        assertTrue(warnings("marker-cancel").single().contains(" cancelled: "))
+        assertEquals(System.Logger.Level.INFO, levelOf("marker-cancel-read", "cancelled"))
+        assertEquals(System.Logger.Level.WARNING, levelOf("marker-cancel-write", "cancelled"))
     }
 
     @Test
-    fun `an interrupted command is a warning`() {
+    fun `an interrupted write is a warning, an interrupted read is routine`() {
         val git = fakeGit("sleep 10")
-        val caller = Thread.ofPlatform().start { git.run(listOf("marker-interrupt"), folder, 20.seconds) }
-        while (lines("marker-interrupt").isEmpty()) Thread.sleep(20)
-        caller.interrupt()
-        caller.join(10_000)
+        for ((marker, write) in listOf("marker-interrupt-read" to false, "marker-interrupt-write" to true)) {
+            val caller =
+                Thread.ofPlatform().start {
+                    git.execute(listOf(marker), folder, 20.seconds, null, write = write)
+                }
+            while (lines(marker).isEmpty()) Thread.sleep(20)
+            caller.interrupt()
+            caller.join(10_000)
+        }
 
-        assertTrue(warnings("marker-interrupt").single().contains(" interrupted: "))
+        assertEquals(System.Logger.Level.INFO, levelOf("marker-interrupt-read", "interrupted"))
+        assertEquals(System.Logger.Level.WARNING, levelOf("marker-interrupt-write", "interrupted"))
     }
+
+    /** The level of the single line saying [what] of the command whose start line has [marker]. */
+    private fun levelOf(
+        marker: String,
+        what: String,
+    ) = commandLines(marker).single { " $what: " in it.second }.first
 
     @Test
     fun `output that is not read to the end is a warning`() {

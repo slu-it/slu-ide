@@ -5,6 +5,7 @@ import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.FileViewers
+import dev.sluide.fileviewers.TextDiff
 import dev.sluide.fileviewers.languages.PythonFileViewer
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.settings.FontSettings
@@ -293,6 +294,10 @@ abstract class EditorAreaUiFixture {
         }
         return asked
     }
+
+    /** An [EditorArea.diffOf] that answers each request at once with [diff] of the file. */
+    internal fun immediately(diff: (Path) -> TextDiff?): (Path, (TextDiff?) -> Unit) -> Unit =
+        { path, done -> done(diff(path)) }
 
     /** Repeats [assertion] on the FX thread until it passes; the JDK may poll for file changes on macOS. */
     internal fun eventually(

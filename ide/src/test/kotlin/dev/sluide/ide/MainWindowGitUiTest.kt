@@ -441,7 +441,8 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         assertEquals(emptyMap(), shownMarkers(robot), "untracked files are new as a whole")
         robot.interact { editorArea.open(project.resolve("tracked.md")) }
         assertFalse(showsDiff())
-        assertEquals(mapOf(2 to "diff-modified", 3 to "diff-modified"), shownMarkers(robot))
+        // Git answers in the background (ADR 0062).
+        eventually(robot) { assertEquals(mapOf(2 to "diff-modified", 3 to "diff-modified"), shownMarkers(robot)) }
 
         runGit("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "-am", "Change")
         eventually(robot) { assertEquals(emptyMap(), shownMarkers(robot), "clean files have no markers") }
@@ -478,7 +479,8 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         robot.interact { editorArea.open(project.resolve("new.md")) }
         assertTrue(showChanges.isDisable, "untracked files have no diff")
         robot.interact { editorArea.open(project.resolve("tracked.md")) }
-        assertFalse(showChanges.isDisable)
+        // Enabled once git has answered (ADR 0062).
+        eventually(robot) { assertFalse(showChanges.isDisable) }
 
         val mac = System.getProperty("os.name").startsWith("Mac")
         robot.interact {

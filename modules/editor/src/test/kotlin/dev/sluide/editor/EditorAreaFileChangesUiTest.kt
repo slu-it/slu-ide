@@ -141,7 +141,7 @@ class EditorAreaFileChangesUiTest : EditorAreaUiFixture() {
     fun `a renamed file keeps its tab, which follows it to the new path`(robot: FxRobot) {
         val a = textFile("a.txt", "new\n")
         val b = textFile("b.txt")
-        editor.diffOf = { if (it == a) TextDiff("old\n", listOf(LineChange(0..0, 0..0))) else null }
+        editor.diffOf = immediately { if (it == a) TextDiff("old\n", listOf(LineChange(0..0, 0..0))) else null }
         open(robot, a, b)
         val tab = checkNotNull(editor.editorTabs.find(a))
         robot.interact {

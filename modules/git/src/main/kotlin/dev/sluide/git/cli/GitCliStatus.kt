@@ -1,5 +1,6 @@
 package dev.sluide.git.cli
 
+import dev.sluide.git.GitCancellation
 import dev.sluide.git.parse.GitDiffParser
 import dev.sluide.git.parse.GitStatusParser
 import java.nio.file.Path
@@ -18,24 +19,27 @@ internal fun GitCli.status(root: Path): String? {
 
 /**
  * The content of [file] at `HEAD` in the repository at [root], with the filters (line endings, smudge) a checkout
- * would apply, or `null` if git is not available, fails (e.g. the file is not in `HEAD`) or takes longer than 3 s.
+ * would apply, or `null` if git is not available, fails (e.g. the file is not in `HEAD`), takes longer than 3 s or is
+ * stopped by [cancellation].
  */
 internal fun GitCli.headContent(
     root: Path,
     file: Path,
+    cancellation: GitCancellation? = null,
 ): String? {
     if (!available) return null
     val path = relativePath(root, file) ?: return null
-    return run(listOf("cat-file", "--filters", "HEAD:$path"), root, 3.seconds)
+    return run(listOf("cat-file", "--filters", "HEAD:$path"), root, 3.seconds, cancellation)
 }
 
 /**
  * The output of `git diff -U0` between `HEAD` and the working tree for [file] in the repository at [root] (see
- * [GitDiffParser]), or `null` if git is not available, fails or takes longer than 3 s.
+ * [GitDiffParser]), or `null` if git is not available, fails, takes longer than 3 s or is stopped by [cancellation].
  */
 internal fun GitCli.diffToHead(
     root: Path,
     file: Path,
+    cancellation: GitCancellation? = null,
 ): String? {
     if (!available) return null
     val path = relativePath(root, file) ?: return null
@@ -53,7 +57,7 @@ internal fun GitCli.diffToHead(
             "--",
             path,
         )
-    return run(arguments, root, 3.seconds)
+    return run(arguments, root, 3.seconds, cancellation)
 }
 
 /**

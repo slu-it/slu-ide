@@ -22,11 +22,12 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
-import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.test.fail
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.nanoseconds
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * How [GitStatusService] schedules `git status` and handles its results. A script stands in for git, so the test
@@ -255,10 +256,36 @@ class GitStatusServiceRunsTest {
         check.findings = listOf(TrustFinding("filter.crypt.clean = ./clean.sh"))
         gated.gitChanged()
         while (gated.snapshot.get() != GitStatusSnapshot.EMPTY) runDispatched()
+        val diffs = mutableListOf<GitDiff?>()
+        gated.diffAsync(repo.resolve("a.txt")) { diffs += it }
+        while (diffs.isEmpty()) runDispatched()
 
         assertEquals(before, runs())
         assertEquals(0L, gated.gitFolderChanged.get())
         assertTrue(assertIs<ProjectTrustState.Ask>(trust.state.get()).changed)
-        assertNull(gated.diff(repo.resolve("a.txt")))
+        assertEquals(listOf<GitDiff?>(null), diffs)
+    }
+
+    @Test
+    fun `a newer request for the diff of a file stops the git of the older one`() {
+        report("? a.txt")
+        service.open(repo)
+        awaitSnapshot { it.root != null }
+        val a = repo.resolve("a.txt")
+        val answers = mutableListOf<String>()
+        hold.createFile()
+        service.diffAsync(a) { answers += "older" }
+        await("git started for the older request") { runs() == 2 }
+
+        val superseded = System.nanoTime()
+        service.diffAsync(a) { answers += "newest" }
+
+        // Unless it is stopped, the older git keeps the thread until its timeout, 3 s.
+        await("git started for the newest request") { runs() == 3 }
+        val waited = (System.nanoTime() - superseded).nanoseconds
+        assertTrue(waited < 2.seconds, "the newest request waited $waited")
+        hold.deleteExisting()
+        while (answers.isEmpty()) runDispatched()
+        assertEquals(listOf("newest"), answers)
     }
 }

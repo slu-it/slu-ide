@@ -116,17 +116,28 @@ internal object GitCommandLog {
         private fun warn(
             what: String,
             error: Throwable? = null,
+        ) = log(System.Logger.Level.WARNING, what, error)
+
+        private fun log(
+            level: System.Logger.Level,
+            what: String,
+            error: Throwable? = null,
         ) = GitCommandLogSink.safely {
-            GitCommandLogSink.sink(System.Logger.Level.WARNING, "$name $what: $arguments (after $millis ms)", error)
+            GitCommandLogSink.sink(level, "$name $what: $arguments (after $millis ms)", error)
         }
 
         fun startFailed(error: Throwable) = warn("could not be started", error)
 
         fun timedOut(timeout: kotlin.time.Duration) = warn("took longer than $timeout")
 
-        fun cancelled() = warn("cancelled")
+        /**
+         * A write the user stopped is a warning; a read stopped is routine, e.g. a diff overtaken by a newer request
+         * (ADR 0062).
+         */
+        fun cancelled() = if (write) warn("cancelled") else log(System.Logger.Level.INFO, "cancelled")
 
-        fun interrupted() = warn("interrupted")
+        /** A write is a warning; a read is routine, e.g. stopped as its window closes. */
+        fun interrupted() = if (write) warn("interrupted") else log(System.Logger.Level.INFO, "interrupted")
 
         /** Logs the end of a command that ran to its exit; [errors] are the standard error and [output] the output. */
         fun exited(

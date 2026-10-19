@@ -76,6 +76,12 @@ class GitStatusService(
     private val executor =
         NamedThreads.single("sluide-git")
 
+    /** Runs the diffs of [diffAsync], so that they never wait behind a slow status run or trust check (ADR 0062). */
+    private val diffExecutor = NamedThreads.single("sluide-git-diff")
+
+    /** The newest request of [diffAsync] by file, which alone is answered; used on the thread [dispatch] runs on. */
+    private val diffRequests = HashMap<Path, GitCancellation>()
+
     /** The repository being followed; a new object for every [open], so results for an older one are dropped. */
     @Volatile private var target: Target? = null
     private val scheduled = AtomicBoolean()
@@ -85,7 +91,7 @@ class GitStatusService(
 
     /**
      * The count of [gitChanges] that git's trust check ran again for and allowed git after; while it is behind, git's
-     * configuration may have changed, so [diff] runs no git and the next run checks first (ADR 0053).
+     * configuration may have changed, so [diffAsync] runs no git and the next run checks first (ADR 0053).
      */
     @Volatile private var confirmedChanges = 0L
 
@@ -188,16 +194,55 @@ class GitStatusService(
     }
 
     /**
-     * How [file] differs from its version at `HEAD` (ADR 0015), or `null` if no repository is followed, the folder's
-     * trust keeps git off (also while it is checked again after a change of `.git`), the file is not in `HEAD`, or git
-     * fails. Runs git on the calling thread (two quick calls for one file).
+     * Finds how [file] differs from its version at `HEAD` (ADR 0015) on a thread of its own, which does not wait for
+     * status runs (ADR 0062), and gives it to [done] through [dispatch]: `null` if no repository is followed, the
+     * folder's trust keeps git off (also while it is checked again after a change of `.git`), the file is not in
+     * `HEAD`, or git fails. Only the newest request for a file is answered: an older one does not start, its running
+     * git is stopped and its result dropped ([cancelDiff] too). A result for a repository no longer followed (after
+     * another [open]) is dropped as well. Call it on the thread [dispatch] runs on.
      */
-    fun diff(file: Path): GitDiff? {
-        val root = target?.root ?: return null
-        if (gitChanges.get() != confirmedChanges || !trust.allows(GitTrustCheck.ID)) return null
+    fun diffAsync(
+        file: Path,
+        done: (GitDiff?) -> Unit,
+    ) {
         val path = file.toAbsolutePath().normalize()
-        val original = git.headContent(root, path) ?: return null
-        val output = git.diffToHead(root, path) ?: return null
+        val request = GitCancellation()
+        diffRequests.put(path, request)?.cancel()
+        val current = target
+        try {
+            diffExecutor.execute {
+                if (request.cancelled) return@execute
+                val diff = diff(current, path, request)
+                dispatch(
+                    Runnable {
+                        if (diffRequests[path] !== request) return@Runnable
+                        diffRequests.remove(path)
+                        // Not for a repository no longer followed: [open] emptied the snapshot, which asks anew.
+                        if (target === current) done(diff)
+                    },
+                )
+            }
+        } catch (_: RejectedExecutionException) {
+            // Closed.
+            diffRequests.remove(path, request)
+        }
+    }
+
+    /** Drops the request for the diff of [file], if any, e.g. once it has no diff anyway; its git is stopped. */
+    fun cancelDiff(file: Path) {
+        diffRequests.remove(file.toAbsolutePath().normalize())?.cancel()
+    }
+
+    /** The diff of [diffAsync], on its thread: git runs only while [current] is followed and allowed to run. */
+    private fun diff(
+        current: Target?,
+        path: Path,
+        cancellation: GitCancellation,
+    ): GitDiff? {
+        if (current == null || target !== current) return null
+        if (gitChanges.get() != confirmedChanges || !trust.allows(GitTrustCheck.ID)) return null
+        val original = git.headContent(current.root, path, cancellation) ?: return null
+        val output = git.diffToHead(current.root, path, cancellation) ?: return null
         return GitDiff(original, GitDiffParser.parse(output))
     }
 
@@ -252,6 +297,7 @@ class GitStatusService(
         gitWatch?.close()
         target = null
         executor.shutdownNow()
+        diffExecutor.shutdownNow()
     }
 
     private companion object {
