@@ -139,6 +139,32 @@ class BackgroundTasks internal constructor(
     }
 
     internal fun onFxThread(action: () -> Unit) = dispatch(Runnable(action))
+
+    companion object {
+        /**
+         * A registry for the tests of other modules, without the JavaFX toolkit: its tasks are logged as usual and
+         * [shown] at once, until they end, so that a test sees what runs and can cancel it ([BackgroundTask.cancel]).
+         * What would run on the JavaFX thread runs on the calling thread, one at a time. [record] also receives every
+         * log line of its tasks (`task#7 started: Fetching origin…`, `task#7 failed after 0.001 s: …`), so that tests
+         * can assert what was registered, renamed and how it ended.
+         */
+        fun forTests(record: (String) -> Unit = {}): BackgroundTasks {
+            val lock = Any()
+            return BackgroundTasks(
+                { action -> synchronized(lock) { action.run() } },
+                System::nanoTime,
+                // Never asked: without a delay, a task is shown when it starts.
+                { _, _ -> Pending {} },
+                Duration.ZERO,
+            ).apply {
+                val logged = report
+                report = { level, message, error ->
+                    logged(level, message, error)
+                    record(message)
+                }
+            }
+        }
+    }
 }
 
 /** Runs [action] on the JavaFX thread after [delay]; must be called on it. */

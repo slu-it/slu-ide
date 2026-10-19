@@ -364,4 +364,38 @@ class BackgroundTasksTest {
             messages(),
         )
     }
+
+    @Test
+    fun `a registry for tests shows its tasks at once and records their lines`() {
+        val recorded = CopyOnWriteArrayList<String>()
+        val forTests = BackgroundTasks.forTests(recorded::add)
+        var cancelled = false
+
+        val task = forTests.start("Fetching origin…") { cancelled = true }
+        assertEquals(listOf(task), forTests.shown)
+        task.rename("Fetching upstream…")
+        assertEquals(
+            "Fetching upstream…",
+            forTests.shown
+                .single()
+                .name
+                .get(),
+        )
+        forTests.shown.single().cancel()
+        task.failed("rejected")
+
+        assertTrue(cancelled)
+        assertTrue(forTests.shown.isEmpty())
+        val number = task.number
+        assertEquals(
+            listOf(
+                "task#$number started: Fetching origin…",
+                "task#$number: Fetching origin… → Fetching upstream…",
+                "task#$number cancelled",
+            ),
+            recorded.take(3),
+        )
+        assertTrue(recorded[3].startsWith("task#$number cancelled after "), recorded[3])
+        assertTrue(recorded[3].endsWith(": Fetching upstream…"), recorded[3])
+    }
 }
