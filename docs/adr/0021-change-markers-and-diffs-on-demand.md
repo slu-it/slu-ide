@@ -1,6 +1,6 @@
 # 0021. Change markers in the gutter and diffs on demand
 
-- Status: accepted
+- Status: accepted; partly superseded by [0062](0062-git-concurrency.md) (`diffOf` answers asynchronously, git off the JavaFX thread, the newest answer per file counts)
 - Date: 2026-10-14
 
 ## Context

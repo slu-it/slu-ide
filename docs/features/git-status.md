@@ -29,7 +29,8 @@
 - `GitStatusService.gitFolderChanged` counts the changes noticed directly in `.git` (on the JavaFX thread), and
   `GitStatusService.root` is the followed repository root; the git log uses both ([git-log.md](git-log.md)). Changes
   only below `.git/refs/` (e.g. `git branch x`) are not counted.
-- Modified files open as a diff against `HEAD` ([git-diff.md](git-diff.md)); `GitStatusService.diff(file)` reads it.
+- Modified files get change markers and a diff against `HEAD` ([git-diff.md](git-diff.md));
+  `GitStatusService.diffAsync(file, done)` reads it on a thread of its own (ADR 0062).
 - The window title shows the checked-out ref: `slu-ide [master] – Thoreau` on a branch,
   `slu-ide [detached at 5f070b9] – Thoreau` on a detached `HEAD` (7-character hash), and the branch name of a
   repository without commits (`[main]`). Without a repository, git or a first status it stays `slu-ide – Thoreau`.

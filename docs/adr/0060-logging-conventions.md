@@ -23,8 +23,10 @@ Git commands (`GitCommandLog`, `dev.sluide.git.cli`): every command gets a proce
   (` stderr: …`, at most 500 characters, newlines as ` | `); a non-zero exit of a read stays INFO because probes
   (`rev-parse --verify MERGE_HEAD`) are expected to fail.
 - WARNING naming `git#n`, the arguments and the duration: timeout, more output than allowed, output not read to the
-  end, git could not be started (with the exception), cancelled, interrupted, a write that exited non-zero (with git's
-  message). A command run on the JavaFX thread logs its start line as WARNING with ` on the JavaFX thread`.
+  end, git could not be started (with the exception), a write that was cancelled or interrupted, a write that exited
+  non-zero (with git's message). A read that was cancelled or interrupted logs that at INFO: since
+  [ADR 0062](0062-git-concurrency.md) that is routine (a diff overtaken by a newer request, a window closing). A
+  command run on the JavaFX thread logs its start line as WARNING with ` on the JavaFX thread`.
 
 Standard error of reads: it used to be dropped (ADR 0013). Now the first 4 KB are kept, for the log only; the rest is
 discarded as it is read so the pipe never blocks. Its reader does not count towards the completeness of the output.
@@ -84,9 +86,9 @@ Places are named by class and function.
   of the folder when the folder itself is reported (events lost), so such a folder re-reads its files on the next
   rendering. `FileExplorerView.closeWatchesOfVanishedFolders` runs `Files.isDirectory` over every watch key after each change. Fix: list and
   classify on a background thread, and check the watch keys off the thread.
-- Watcher callbacks that reload and diff synchronously: `EditorArea` (`onChangedOnDisk`, `updateView`,
-  `showChanges` with `diffOf`, which runs git on the FX thread). To be fixed in Phase 4, where the editor's change
-  markers move off the FX thread.
+- Watcher callbacks that reload synchronously: `EditorArea` (`onChangedOnDisk`, `updateView`; the reload reads the
+  file as in the first item). Their git diff (`showChanges` with `diffOf`) no longer runs on the FX thread: fixed by
+  [ADR 0062](0062-git-concurrency.md), which moved the editor's change markers to a thread of their own.
 - Process and server start: the pty process of a terminal (`TerminalSession`, `PtyProcessBuilder.start`) and
   the join on the preview server's start thread (`PreviewServer.Site`). Fix: start terminals on a thread and
   show the tab at once; start the server lazily off the thread.

@@ -66,10 +66,12 @@
   reload or keep them instead ([text-editing.md](text-editing.md)). If reading it fails, the tab keeps showing the last
   content and the next change tries again. When the file is deleted, renamed away or can no longer be shown (e.g. it
   became binary), its tab closes, unless it has unsaved changes: then it stays and saving recreates the file.
-- Diffs ([git-diff.md](git-diff.md)): `diffOf(path)` returns the `TextDiff` of a file against its original, `null`
-  if it has none. It is asked when a file is opened, when it changes on disk and on `refreshDiffs()`, and its changes
-  are marked in the editor (`EditableFileView.showChanges`). A file tab keeps the view it was opened with, its editor
-  (`OpenFile.editor`), until it closes. `toggleDiff()` (View → Show Changes) shows the diff side by side over it
+- Diffs ([git-diff.md](git-diff.md)): `diffOf(path, done)` gives `done` the `TextDiff` of a file against its original,
+  `null` if it has none, on the JavaFX thread and maybe later; only the answer to a tab's newest request counts, and
+  the old markers stay until it arrives ([ADR 0062](../adr/0062-git-concurrency.md)). It is asked when a file is
+  opened, when it changes on disk and on `refreshDiffs()`, and its changes are marked in the editor
+  (`EditableFileView.showChanges`). A file tab keeps the view it was opened with, its editor (`OpenFile.editor`), until
+  it closes. `toggleDiff()` (View → Show Changes) shows the diff side by side over it
   (`FileViewers.openDiff`, `OpenFile.diffView`; the editor is hidden meanwhile and keeps text, caret and undo), or the
   editor again; `canToggleDiff` tells whether the selected tab has a diff to show. The diff's Edit button and Escape
   go back (`DiffFileView.onBack`), and so does a diff whose file has none anymore. Clicking a change marker asks the

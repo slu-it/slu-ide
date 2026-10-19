@@ -8,7 +8,9 @@
   [git-status.md](git-status.md)), the lines changed against the last commit (`HEAD`) are marked in the gutter, between
   the line numbers and the text: green for added lines, blue for modified ones, a grey tick at the top of a line where
   lines were removed above it (on the last line for lines removed at the end). Staged and unstaged changes both count.
-  Added and unversioned files are new as a whole and have no markers, clean files neither.
+  Added and unversioned files are new as a whole and have no markers, clean files neither. Git runs in the
+  background: the markers appear, or change, once git has answered, and until then the old ones stay
+  ([ADR 0062](../adr/0062-git-concurrency.md)).
 - The markers move along with unsaved edits: an edited line is marked modified, a new line added, lines below move
   with them. Undoing all edits gives git's markers back. After a save, the markers stay as they were until git's diff
   of the saved file arrives; when the git status changes while the file is edited, git's new markers get the unsaved

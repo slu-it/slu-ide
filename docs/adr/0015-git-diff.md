@@ -1,6 +1,6 @@
 # 0015. Side-by-side diff of modified files from the git command line
 
-- Status: accepted; partly superseded by [0021](0021-change-markers-and-diffs-on-demand.md) (modified files open in the editor with change markers, the diff on demand)
+- Status: accepted; partly superseded by [0021](0021-change-markers-and-diffs-on-demand.md) (modified files open in the editor with change markers, the diff on demand) and [0062](0062-git-concurrency.md) (diffs run on a thread of their own, not on the JavaFX thread)
 - Date: 2026-10-13
 
 ## Context
