@@ -1,9 +1,7 @@
 package dev.sluide.git
 
+import dev.sluide.git.GitConflictCheck.Companion.GITLINK
 import dev.sluide.git.cli.GitCli
-import dev.sluide.git.cli.UnmergedEntry
-import dev.sluide.git.cli.attributes
-import dev.sluide.git.cli.blob
 import dev.sluide.git.cli.canPassArgument
 import dev.sluide.git.cli.changedPaths
 import dev.sluide.git.cli.commitOfRevision
@@ -21,12 +19,9 @@ import dev.sluide.git.cli.indexedPaths
 import dev.sluide.git.cli.isAncestor
 import dev.sluide.git.cli.isHeadUnborn
 import dev.sluide.git.cli.mergeTree
-import dev.sluide.git.cli.missingFiles
-import dev.sluide.git.cli.objectSize
 import dev.sluide.git.cli.otherPaths
 import dev.sluide.git.cli.parents
 import dev.sluide.git.cli.refusal
-import dev.sluide.git.cli.storeFiles
 import dev.sluide.git.cli.trackedChangeCount
 import dev.sluide.git.cli.unmergedEntries
 import dev.sluide.git.cli.unmergedPaths
@@ -38,7 +33,6 @@ import org.springframework.stereotype.Component
 import java.io.IOException
 import java.nio.file.FileVisitResult
 import java.nio.file.Files
-import java.nio.file.InvalidPathException
 import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.nio.file.SimpleFileVisitor
@@ -60,6 +54,8 @@ class GitCommits(
 ) {
     /** Whether the JVM can name the working-tree file at a path (ADR 0038); tests take the fallback through git. */
     internal var canNameFile: (String) -> Boolean = { canPassArgument(it) }
+
+    private val conflicts = GitConflictCheck(git) { canNameFile(it) }
 
     /** What git is in the middle of, `null` if nothing or it cannot be read. */
     fun inProgress(root: Path): GitInProgress? = git.inProgress(root).getOrNull()
@@ -144,7 +140,7 @@ class GitCommits(
         if (reason != null) return refused(reason)
         val unborn = git.isHeadUnborn(root) ?: return refused("HEAD could not be read.")
         if (amend && unborn) return refused("There is no commit to amend.")
-        val busy = git.inProgress(root).getOrElse { return refused(UNREADABLE) }
+        val busy = git.inProgress(root).getOrElse { return refused(IN_PROGRESS_UNREADABLE) }
         if (busy != null) return refused(busyMessage(busy))
         val unmerged = git.unmergedPaths(root) ?: return refused(CONFLICTS_UNREADABLE)
         if (unmerged.isNotEmpty()) return refused("Resolve the conflicts first.")
@@ -205,7 +201,7 @@ class GitCommits(
         firstParent: Boolean,
     ): GitPickResult {
         refusal(commit)?.let { return GitPickResult.Failed(it) }
-        val busy = git.inProgress(root).getOrElse { return GitPickResult.Failed(UNREADABLE) }
+        val busy = git.inProgress(root).getOrElse { return GitPickResult.Failed(IN_PROGRESS_UNREADABLE) }
         if (busy != null) return GitPickResult.Failed(busyMessage(busy))
         val head = git.headCommit(root)
         val arguments =
@@ -235,35 +231,18 @@ class GitCommits(
         kind: GitPick,
         confirmed: Set<GitUncheckedConflict> = emptySet(),
     ): GitPickResult {
-        val pending = git.inProgress(root).getOrElse { return GitPickResult.Failed(UNREADABLE) }
+        val pending = git.inProgress(root).getOrElse { return GitPickResult.Failed(IN_PROGRESS_UNREADABLE) }
         if (pending is GitPendingOperation) return GitPickResult.Failed(busyMessage(pending))
         if (pending !is GitPendingPick || pending.kind != kind) {
             return GitPickResult.Failed("No ${kind.command} is in progress.")
         }
         val entries = git.unmergedEntries(root) ?: return GitPickResult.Failed(CONFLICTS_UNREADABLE)
         if (entries.isNotEmpty()) {
-            val check = checkConflicts(root, entries) ?: return GitPickResult.Failed(CONFLICTS_UNREADABLE)
+            val check = conflicts.check(root, entries) ?: return GitPickResult.Failed(CONFLICTS_UNREADABLE)
             if (check.markers.isNotEmpty()) return GitPickResult.MarkersLeft(check.markers)
-            val refusals =
-                listOfNotNull(
-                    check.notCheckedOut.takeIf { it.isNotEmpty() }?.let(::notCheckedOut),
-                    check.notFiles.takeIf { it.isNotEmpty() }?.let(::notFiles),
-                )
-            if (refusals.isNotEmpty()) return GitPickResult.Failed(refusals.joinToString("\n"))
+            check.refusal?.let { return GitPickResult.Failed(it) }
             if (!confirmed.containsAll(check.unchecked)) return GitPickResult.Unchecked(check.unchecked)
-            val input =
-                entries
-                    .map { it.path }
-                    .distinct()
-                    .joinToString("") { "$it\u0000" }
-                    .toByteArray(Charsets.UTF_8)
-            val staged =
-                git.write(
-                    root,
-                    listOf("update-index", "-z", "--add", "--remove", "--stdin"),
-                    input,
-                    GitCli.CHECKOUT_TIMEOUT,
-                )
+            val staged = conflicts.stage(root, entries)
             if (!staged.success) return GitPickResult.Failed(staged.message)
         }
         val head = git.headCommit(root)
@@ -277,167 +256,6 @@ class GitCommits(
         return outcome(root, kind, pending.commit, head, result, exit)
     }
 
-    /** Git failed while a conflict was sorted. */
-    private class ReadFailed : RuntimeException()
-
-    /**
-     * The conflicted files with markers left, those that cannot be checked, and what `git update-index` cannot stage:
-     * the submodules that are not checked out (an empty folder), and folders or special files (a FIFO) in place of a
-     * text conflict.
-     */
-    private class ConflictCheck(
-        val markers: List<String>,
-        val unchecked: List<GitUncheckedConflict>,
-        val notCheckedOut: List<String>,
-        val notFiles: List<String>,
-    )
-
-    private fun notFiles(paths: List<String>): String {
-        val names = paths.joinToString(", ")
-        val which = if (paths.size == 1) "$names is not a regular file" else "$names are not regular files"
-        return "$which (a folder or a special file), which git cannot stage. Resolve it in the terminal."
-    }
-
-    private fun notCheckedOut(paths: List<String>): String {
-        val names = paths.joinToString(", ")
-        val which = if (paths.size == 1) "Submodule $names is" else "Submodules $names are"
-        return "$which not checked out: the commit to keep cannot be taken from disk. Resolve it in the terminal."
-    }
-
-    /**
-     * Sorts the conflicted files of the unmerged [entries] (ADR 0042): the text conflicts present on disk are checked
-     * for lines starting with a conflict marker as long as their `conflict-marker-size` (7 by default); the others are
-     * unchecked, with the reason. A file is read directly if the JVM can name it and it is a regular file (a symbolic
-     * link in its place is unchecked, a folder or special file refused, neither is followed or read), a larger one than
-     * [MAX_CHECKED_SIZE] is not read but unchecked; one it cannot name (non-ASCII in a POSIX locale) is stored with
-     * `git hash-object` first, its path on git's standard input, and read from there. `null` if git or reading fails.
-     */
-    private fun checkConflicts(
-        root: Path,
-        entries: List<UnmergedEntry>,
-    ): ConflictCheck? {
-        val byPath = entries.groupBy { it.path }
-        val missing = git.missingFiles(root) ?: return null
-        val attributes = git.attributes(root, byPath.keys.toList(), listOf("merge", MARKER_SIZE)) ?: return null
-        val unchecked = mutableListOf<GitUncheckedConflict>()
-        val notCheckedOut = mutableListOf<String>()
-        val notFiles = mutableListOf<String>()
-        val text = mutableListOf<String>()
-        for ((path, stages) in byPath) {
-            val reason =
-                try {
-                    reason(root, stages, path in missing, attributes[path].orEmpty()["merge"])
-                } catch (_: ReadFailed) {
-                    return null
-                }
-            when {
-                reason == null -> text += path
-                reason == GitConflictReason.SUBMODULE && !checkedOut(root, path) -> notCheckedOut += path
-                else -> unchecked += GitUncheckedConflict(path, reason)
-            }
-        }
-
-        fun markerSize(path: String) = attributes[path].orEmpty()[MARKER_SIZE]?.toIntOrNull()?.takeIf { it > 0 } ?: 7
-        val marked = mutableSetOf<String>()
-        val unnamed = mutableListOf<String>()
-        for (path in text) {
-            val file = localFile(root, path)
-            if (file == null) {
-                unnamed += path
-                continue
-            }
-            try {
-                if (Files.isSymbolicLink(file)) {
-                    unchecked += GitUncheckedConflict(path, GitConflictReason.SYMLINK)
-                } else if (!Files.isRegularFile(file, LinkOption.NOFOLLOW_LINKS)) {
-                    // Reading a FIFO would block for good.
-                    notFiles += path
-                } else if (Files.size(file) > MAX_CHECKED_SIZE) {
-                    unchecked += GitUncheckedConflict(path, GitConflictReason.TOO_LARGE)
-                } else if (hasConflictMarker(Files.readAllBytes(file), markerSize(path))) {
-                    marked += path
-                }
-            } catch (_: IOException) {
-                return null
-            }
-        }
-        // Their size cannot be read before they are stored.
-        val stored = git.storeFiles(root, unnamed) ?: return null
-        for ((path, name) in unnamed.zip(stored)) {
-            val size = git.objectSize(root, name) ?: return null
-            if (size > MAX_CHECKED_SIZE) {
-                unchecked += GitUncheckedConflict(path, GitConflictReason.TOO_LARGE)
-            } else if (hasConflictMarker(git.blob(root, name) ?: return null, markerSize(path))) {
-                marked += path
-            }
-        }
-        return ConflictCheck(text.filter { it in marked }, unchecked, notCheckedOut, notFiles)
-    }
-
-    /** The file [path] (relative to [root]) as the JVM can name it; `null` if it cannot in its locale. */
-    private fun localFile(
-        root: Path,
-        path: String,
-    ): Path? =
-        try {
-            if (canNameFile(path)) root.resolve(path) else null
-        } catch (_: InvalidPathException) {
-            null
-        }
-
-    /**
-     * Whether the submodule at [path] is checked out (it has a `.git`), so that `git update-index` can stage its
-     * commit; also `true` if the JVM cannot name it (git then tells).
-     */
-    private fun checkedOut(
-        root: Path,
-        path: String,
-    ): Boolean = localFile(root, path)?.let { Files.exists(it.resolve(".git"), LinkOption.NOFOLLOW_LINKS) } ?: true
-
-    /**
-     * Why the conflicted file of these unmerged [stages] cannot be checked for conflict markers; `null` for a text
-     * conflict on disk ([missing] tells it is not, also for a submodule's folder). [merge] is its `merge` attribute.
-     * Throws [ReadFailed] if git fails.
-     */
-    private fun reason(
-        root: Path,
-        stages: List<UnmergedEntry>,
-        missing: Boolean,
-        merge: String?,
-    ): GitConflictReason? {
-        val ours = stages.firstOrNull { it.stage == 2 }
-        val theirs = stages.firstOrNull { it.stage == 3 }
-        return when {
-            // Before anything else: whatever it was, its deletion is committed.
-            missing -> {
-                GitConflictReason.DELETED_ON_DISK
-            }
-
-            stages.any { it.mode == GITLINK } -> {
-                GitConflictReason.SUBMODULE
-            }
-
-            stages.any { it.mode == SYMLINK } -> {
-                GitConflictReason.SYMLINK
-            }
-
-            ours == null || theirs == null -> {
-                GitConflictReason.DELETED_ON_ONE_SIDE
-            }
-
-            merge == "unset" || merge == "binary" -> {
-                GitConflictReason.BINARY
-            }
-
-            else -> {
-                val sizes = listOf(ours, theirs).map { git.objectSize(root, it.objectName) ?: throw ReadFailed() }
-                if (sizes.any { it > MAX_CHECKED_SIZE }) return GitConflictReason.TOO_LARGE
-                val binary = listOf(ours, theirs).any { isBinary(git.blob(root, it.objectName) ?: throw ReadFailed()) }
-                if (binary) GitConflictReason.BINARY else null
-            }
-        }
-    }
-
     /**
      * Aborts the cherry-pick or revert ([kind]) in progress: `git cherry-pick --abort`, `git revert --abort`. Refused
      * without running git if there is none of that kind, or a sequence or another operation is in progress.
@@ -446,7 +264,7 @@ class GitCommits(
         root: Path,
         kind: GitPick,
     ): GitResult {
-        val pending = git.inProgress(root).getOrElse { return GitResult(false, UNREADABLE) }
+        val pending = git.inProgress(root).getOrElse { return GitResult(false, IN_PROGRESS_UNREADABLE) }
         if (pending is GitPendingOperation) return GitResult(false, busyMessage(pending))
         if (pending !is GitPendingPick || pending.kind != kind) {
             return GitResult(false, "No ${kind.command} is in progress.")
@@ -505,7 +323,8 @@ class GitCommits(
     private fun clearRevertMessage(root: Path): GitPickResult {
         val removed = git.write(root, listOf("update-ref", "-d", "AUTO_MERGE"))
         if (!removed.success) return GitPickResult.Failed(removed.message)
-        val message = git.gitPaths(root, listOf("MERGE_MSG"))?.single() ?: return GitPickResult.Failed(UNREADABLE)
+        val message =
+            git.gitPaths(root, listOf("MERGE_MSG"))?.single() ?: return GitPickResult.Failed(IN_PROGRESS_UNREADABLE)
         try {
             Files.deleteIfExists(message)
         } catch (e: IOException) {
@@ -678,7 +497,7 @@ class GitCommits(
 
         /** What is at [path], not following a link (a link is a file); `null` if that cannot be read. */
         private fun entry(path: String): Entry? {
-            val file = localFile(root, path)
+            val file = localFile(root, path, canNameFile)
             if (file == null) {
                 val listed = others ?: return null
                 return when {
@@ -699,7 +518,8 @@ class GitCommits(
          * once as its folder with a trailing `/`, as git lists it; `null` if that cannot be read.
          */
         private fun untrackedBelow(path: String): List<String>? {
-            val folder = localFile(root, path) ?: return others?.filter { it.startsWith("$path/") && !tracked(it) }
+            val folder =
+                localFile(root, path, canNameFile) ?: return others?.filter { it.startsWith("$path/") && !tracked(it) }
             val found = mutableListOf<String>()
 
             fun relative(file: Path) =
@@ -757,67 +577,7 @@ class GitCommits(
         )
     }
 
-    /** Why nothing is started while git is in the middle of [busy]. */
-    private fun busyMessage(busy: GitInProgress): String =
-        when (busy) {
-            is GitPendingPick -> {
-                "A ${busy.kind.command} of ${busy.commit.take(SHORT_HASH)} is in progress; continue or abort it first."
-            }
-
-            is GitPendingOperation -> {
-                when (busy.operation) {
-                    GitOperation.MERGE -> "A merge is in progress; finish or abort it first."
-                    GitOperation.REBASE -> "A rebase is in progress; finish or abort it first."
-                    GitOperation.AM -> "A git am session is in progress; finish or abort it first."
-                    GitOperation.CHERRY_PICK_SEQUENCE -> SEQUENCE_MESSAGE.format("cherry-pick")
-                    GitOperation.REVERT_SEQUENCE -> SEQUENCE_MESSAGE.format("revert")
-                    GitOperation.SEQUENCE -> SEQUENCE_MESSAGE.format("cherry-pick or revert")
-                }
-            }
-        }
-
     private companion object {
-        /** The length of hashes in messages, as in the git log. */
-        const val SHORT_HASH = 8
-
-        const val SEQUENCE_MESSAGE = "A %s sequence is in progress; continue or abort it in the terminal."
-        const val UNREADABLE = "Whether a merge, rebase, cherry-pick or revert is in progress could not be read."
         const val LITERAL = "--literal-pathspecs"
-        const val CONFLICTS_UNREADABLE = "The conflicted files could not be read."
-        const val MARKER_SIZE = "conflict-marker-size"
-        const val GITLINK = "160000"
-        const val SYMLINK = "120000"
-
-        /** The largest file read to check it, as the git log reads files for diffs. */
-        const val MAX_CHECKED_SIZE = 5L * 1024 * 1024
-
-        /** Git's test for binary content: a NUL byte among the first 8000 bytes. */
-        const val BINARY_SAMPLE = 8000
-
-        fun isBinary(bytes: ByteArray): Boolean = bytes.take(BINARY_SAMPLE).contains(0)
     }
-}
-
-/**
- * Whether [content] has a line starting with a conflict marker of [size] characters, `<` or `>` (not `=`, too common
- * alone), followed by a space or the line's end: the lines git writes around a conflict. Read as bytes, not decoded.
- */
-internal fun hasConflictMarker(
-    content: ByteArray,
-    size: Int,
-): Boolean {
-    var start = 0
-    while (start < content.size) {
-        val end = (start until content.size).firstOrNull { content[it] == '\n'.code.toByte() } ?: content.size
-        val first = content[start]
-        if ((first == '<'.code.toByte() || first == '>'.code.toByte()) && end - start >= size) {
-            val run = (start until start + size).all { content[it] == first }
-            val after = if (start + size < end) content[start + size] else '\n'.code.toByte()
-            if (run && (after == ' '.code.toByte() || after == '\r'.code.toByte() || after == '\n'.code.toByte())) {
-                return true
-            }
-        }
-        start = end + 1
-    }
-    return false
 }
