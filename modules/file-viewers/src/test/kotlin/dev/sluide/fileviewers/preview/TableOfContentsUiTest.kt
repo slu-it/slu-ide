@@ -6,6 +6,7 @@ import dev.sluide.fileviewers.table.CsvFileViewer
 import javafx.concurrent.Worker
 import javafx.geometry.Orientation
 import javafx.geometry.Point2D
+import javafx.geometry.VerticalDirection
 import javafx.scene.Scene
 import javafx.scene.control.Label
 import javafx.scene.control.ListCell
@@ -507,5 +508,29 @@ class TableOfContentsUiTest {
         assertEquals(5, toc.list.items.size)
         assertTrue(visibleScrollBars(toc, Orientation.VERTICAL).isEmpty(), "vertical scroll bar is shown")
         assertTrue(visibleScrollBars(toc, Orientation.HORIZONTAL).isEmpty(), "horizontal scroll bar is shown")
+    }
+
+    @Test
+    fun `more headings than fit scroll inside the overlay, down to the last`(robot: FxRobot) {
+        val view = show(robot, (1..80).joinToString("\n\n") { "## Part $it\n\nText." } + "\n")
+        val toc = view.toc!!
+
+        robot.interact { toc.open() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val overlay = toc.overlay.localToScene(toc.overlay.layoutBounds)
+        val list = toc.list.localToScene(toc.list.layoutBounds)
+        assertTrue(overlay.maxY <= container.height, "overlay ends below the view: ${overlay.maxY}")
+        assertTrue(list.maxY <= overlay.maxY + 0.5, "list ${list.maxY} ends below its overlay ${overlay.maxY}")
+        assertFalse(visibleScrollBars(toc, Orientation.VERTICAL).isEmpty(), "no vertical scroll bar")
+
+        robot.moveTo(toc.list).scroll(40, VerticalDirection.DOWN)
+        WaitForAsyncUtils.waitForFxEvents()
+        val last =
+            robot
+                .lookup(".toc-overlay .list-cell")
+                .queryAllAs(ListCell::class.java)
+                .single { it.isVisible && it.item == toc.list.items.last() }
+        assertTrue(last.localToScene(last.layoutBounds).maxY <= list.maxY + 0.5, "the last heading is cut off")
     }
 }
