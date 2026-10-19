@@ -1,6 +1,7 @@
 package dev.sluide.gitlog.data
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitComparisonCounts
 import dev.sluide.git.GitLogFilter
@@ -30,6 +31,12 @@ class GitLogPagesTest {
 
     /** The filter of every load. */
     private val filters = mutableListOf<GitLogFilter>()
+
+    /** The cancellation of every load, which stops its git. */
+    private val loadCancellations = mutableListOf<GitCancellation>()
+
+    /** Runs while a page loads, e.g. what happens meanwhile on the JavaFX thread. */
+    private var whileLoading: () -> Unit = {}
 
     /** Which commits pass a filter: by default those whose subject has its text. */
     private var passes: (GitLogFilter, GitCommit) -> Boolean = { filter, commit -> filter.text in commit.subject }
@@ -78,20 +85,24 @@ class GitLogPagesTest {
 
     private val pages =
         GitLogPages(
-            load = { root, filter, skip, limit ->
+            load = { root, filter, skip, limit, cancellation ->
                 loads += Triple(root, skip, limit)
+                loadCancellations += cancellation
+                whileLoading()
                 filters += filter
+                // As git would answer once stopped.
+                if (cancellation.cancelled) return@GitLogPages null
                 history[root]?.let { history ->
                     val all = history.filter { passes(filter, it) }
                     val page = all.drop(skip).take(limit)
                     GitLogPage(page, complete = skip + page.size >= all.size)
                 }
             },
-            loadRefs = { root ->
+            loadRefs = { root, _ ->
                 refLoads.add(root)
                 refs[root]
             },
-            loadHashMatch = { _, filter ->
+            loadHashMatch = { _, filter, _ ->
                 hashLoads += filter
                 hashMatch(filter)
             },
@@ -101,15 +112,15 @@ class GitLogPagesTest {
             pageSize = 10,
             prefetch = 3,
             seekLimit = 20,
-            loadPending = { root ->
+            loadPending = { root, _ ->
                 pendingLoads.add(root)
                 pendingPicks[root]
             },
-            loadRemotes = { root ->
+            loadRemotes = { root, _ ->
                 remoteLoads.add(root)
                 remoteLists[root]
             },
-            loadCounts = { _, ref, filter ->
+            loadCounts = { _, ref, filter, _ ->
                 countLoads += ref
                 countFilters += filter
                 comparisonCounts[ref]
@@ -656,6 +667,76 @@ class GitLogPagesTest {
             taskLines,
         )
         assertEquals(listOf<Any>(14), seeks)
+    }
+
+    @Test
+    fun `a reload stops the git of the load still running, which ends its task as cancelled`() {
+        pages.open(repo)
+        pages.visible = true
+        var reloads = 1
+        whileLoading = { if (reloads-- > 0) pages.refresh() }
+        settle()
+
+        assertEquals(listOf(true, false), loadCancellations.map { it.cancelled })
+        assertEquals((1..10).map { "r$it" }, hashes())
+        assertEquals(GitLogState.LOADED, pages.state.get())
+        assertEquals(listOf(repo), refLoads, "nothing more read for the stopped load")
+        assertEquals(
+            listOf(
+                "task started: Loading Git log",
+                "task cancelled after: Loading Git log",
+                "task started: Loading Git log",
+                "task finished in: Loading Git log",
+            ),
+            taskLines,
+        )
+    }
+
+    @Test
+    fun `a reload stops the git of a page loading for loadUntil, and the seek goes on in the new rows`() {
+        pages.open(repo)
+        pages.visible = true
+        settle()
+        var reloads = 1
+        whileLoading = { if (reloads-- > 0) pages.refresh() }
+
+        loadUntil("r15")
+        settle()
+
+        assertEquals(listOf(false, true, false, false), loadCancellations.map { it.cancelled })
+        assertEquals(listOf<Any>(14), seeks)
+    }
+
+    @Test
+    fun `opening another repository, another filter and closing stop the git of the load going on`() {
+        /** Does [action] while the next load runs, once. */
+        fun duringNextLoad(action: () -> Unit) {
+            var once = true
+            whileLoading = {
+                if (once) {
+                    once = false
+                    action()
+                }
+            }
+        }
+        pages.open(repo)
+        pages.visible = true
+        duringNextLoad { pages.open(other) }
+        settle()
+        assertTrue(loadCancellations.first().cancelled)
+
+        loadCancellations.clear()
+        duringNextLoad { pages.filter = GitLogFilter(text = "Commit 2") }
+        pages.refresh()
+        settle()
+        assertTrue(loadCancellations.first().cancelled)
+
+        loadCancellations.clear()
+        duringNextLoad { pages.close() }
+        pages.open(repo)
+        settle()
+        assertEquals(listOf(true), loadCancellations.map { it.cancelled })
+        assertTrue(taskLines.none { "failed" in it }, "$taskLines")
     }
 
     @Test

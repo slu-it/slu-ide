@@ -72,6 +72,19 @@ class GitLogTest {
     private fun subjects(page: GitLogPage?) = page?.commits?.map { it.subject }
 
     @Test
+    fun `a cancelled read runs no git and answers nothing`() {
+        val hash = commit("First", 1000)
+        val cancelled = GitCancellation().apply { cancel() }
+
+        assertEquals(listOf("First"), subjects(log.commits(repo, skip = 0, limit = 10)))
+        assertNull(log.commits(repo, skip = 0, limit = 10, cancellation = cancelled))
+        assertNull(log.refs(repo, cancelled))
+        assertNull(log.details(repo, hash, cancelled))
+        assertNull(log.changedFiles(repo, hash, null, cancelled))
+        assertNull(log.branchesContaining(repo, hash, cancelled))
+    }
+
+    @Test
     fun `reads the commits of all branches and tags newest first, with parents and author`() {
         val first = commit("First", 1000)
         git("switch", "-q", "-c", "feature")

@@ -303,7 +303,7 @@ internal class AreaTabs(
             NamedThreads.single("sluide-git-history")
         val history = FileHistory(root, key, source::fileHistory, source::refs, pagesExecutor::execute, dispatch, tasks)
         val details =
-            CommitDetails(source::details, { _, _ -> emptyList() }, readDetails, dispatch, source::resolveCommits)
+            CommitDetails(source::details, { _, _, _ -> emptyList() }, readDetails, dispatch, source::resolveCommits)
         val branches =
             CommitBranches(source::branchesContaining, readBranches, dispatch).apply {
                 currentBranch = { history.refs?.currentBranch }

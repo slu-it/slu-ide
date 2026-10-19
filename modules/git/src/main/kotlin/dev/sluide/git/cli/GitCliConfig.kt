@@ -1,5 +1,6 @@
 package dev.sluide.git.cli
 
+import dev.sluide.git.GitCancellation
 import java.io.IOException
 import java.nio.file.InvalidPathException
 import java.nio.file.Path
@@ -20,9 +21,17 @@ internal fun GitCli.userName(root: Path): String? {
  * The names of the remotes of the repository at [root] (`git remote`), in git's order; `null` if git is not
  * available, fails or takes longer than 3 s. Git refuses line breaks in remote names, so one per line is safe.
  */
-internal fun GitCli.remoteNames(root: Path): List<String>? {
+internal fun GitCli.remoteNames(
+    root: Path,
+    cancellation: GitCancellation? = null,
+): List<String>? {
     if (!available) return null
-    return run(listOf("--no-optional-locks", "remote"), root, 3.seconds)?.lines()?.filter(String::isNotEmpty)
+    return run(
+        listOf("--no-optional-locks", "remote"),
+        root,
+        3.seconds,
+        cancellation = cancellation,
+    )?.lines()?.filter(String::isNotEmpty)
 }
 
 /**
@@ -57,10 +66,11 @@ internal fun GitCli.remotesSkippedByFetchAll(root: Path): Set<String>? {
 internal fun GitCli.configValues(
     root: Path,
     key: String,
+    cancellation: GitCancellation? = null,
 ): List<String>? {
     if (!available) return null
     val arguments = listOf("--no-optional-locks", "config", "-z", "--get-all", "--end-of-options", key)
-    val execution = execute(arguments, root, 3.seconds, null, write = false) ?: return null
+    val execution = execute(arguments, root, 3.seconds, null, write = false, cancellation = cancellation) ?: return null
     if (execution.exitValue == 1) return emptyList()
     if (execution.exitValue != 0 || !execution.complete) return null
     return execution.output

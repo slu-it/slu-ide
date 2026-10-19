@@ -1,6 +1,7 @@
 package dev.sluide.git.cli
 
 import dev.sluide.git.GitBranchTip
+import dev.sluide.git.GitCancellation
 import dev.sluide.git.parse.GitRefsParser
 import java.nio.file.Path
 import kotlin.time.Duration.Companion.seconds
@@ -9,7 +10,10 @@ import kotlin.time.Duration.Companion.seconds
  * The output of `git for-each-ref` for the branches, remote branches and tags of the repository at [root] (see
  * [GitRefsParser]), or `null` if git is not available, fails or takes longer than 10 s.
  */
-internal fun GitCli.refs(root: Path): String? {
+internal fun GitCli.refs(
+    root: Path,
+    cancellation: GitCancellation? = null,
+): String? {
     if (!available) return null
     val arguments =
         listOf(
@@ -22,7 +26,7 @@ internal fun GitCli.refs(root: Path): String? {
             "refs/remotes",
             "refs/tags",
         )
-    return run(arguments, root, 10.seconds)
+    return run(arguments, root, 10.seconds, cancellation = cancellation)
 }
 
 /**
@@ -42,11 +46,12 @@ internal fun GitCli.localBranches(root: Path): String? {
 internal fun GitCli.refTips(
     root: Path,
     prefixes: List<String>,
+    cancellation: GitCancellation? = null,
 ): Map<String, String>? {
     if (!available) return null
     val arguments =
         listOf("--no-optional-locks", "for-each-ref", "--format=%(refname)%1f%(objectname)%1f%(symref)") + prefixes
-    val output = run(arguments, root, 10.seconds) ?: return null
+    val output = run(arguments, root, 10.seconds, cancellation = cancellation) ?: return null
     return output
         .lineSequence()
         .map { it.split('\u001f') }
@@ -81,7 +86,10 @@ internal fun GitCli.branchTip(
  * The full object name of the commit `HEAD` points at in the repository at [root]; `null` if there is none yet
  * (an unborn branch), or if git is not available, fails or takes longer than 3 s.
  */
-internal fun GitCli.headCommit(root: Path): String? = commitOfRevision(root, "HEAD")
+internal fun GitCli.headCommit(
+    root: Path,
+    cancellation: GitCancellation? = null,
+): String? = commitOfRevision(root, "HEAD", cancellation = cancellation)
 
 /**
  * The full object name of the commit [revision] (`HEAD`, a hash or a full refname, also of an annotated tag) names
@@ -90,21 +98,30 @@ internal fun GitCli.headCommit(root: Path): String? = commitOfRevision(root, "HE
 internal fun GitCli.commitOfRevision(
     root: Path,
     revision: String,
+    cancellation: GitCancellation? = null,
 ): String? {
     if (!available || revision.startsWith('-')) return null
     // -q: an unborn HEAD or a missing revision fails quietly instead of with an error message.
     val arguments = listOf("--no-optional-locks", "rev-parse", "--verify", "-q", "$revision^{commit}")
-    return run(arguments, root, 3.seconds)?.trim()?.ifEmpty { null }
+    return run(arguments, root, 3.seconds, cancellation = cancellation)?.trim()?.ifEmpty { null }
 }
 
 /**
  * The full refname of the branch `HEAD` is attached to (`refs/heads/main`, also if it has no commits yet); `null`
  * when `HEAD` is detached, or if git is not available, fails or takes longer than 3 s.
  */
-internal fun GitCli.currentBranch(root: Path): String? {
+internal fun GitCli.currentBranch(
+    root: Path,
+    cancellation: GitCancellation? = null,
+): String? {
     if (!available) return null
     // -q: a detached HEAD fails quietly instead of with an error message.
-    return run(listOf("--no-optional-locks", "symbolic-ref", "-q", "HEAD"), root, 3.seconds)?.trim()?.ifEmpty {
+    return run(
+        listOf("--no-optional-locks", "symbolic-ref", "-q", "HEAD"),
+        root,
+        3.seconds,
+        cancellation = cancellation,
+    )?.trim()?.ifEmpty {
         null
     }
 }
@@ -236,12 +253,13 @@ internal fun GitCli.leftBehindCount(
 internal fun GitCli.lastOutgoing(
     root: Path,
     excludedGlobs: List<String>,
+    cancellation: GitCancellation? = null,
 ): List<String>? {
     if (!available) return null
     val arguments =
         listOf("--no-optional-locks", "rev-list", "--topo-order", "--parents", "HEAD", "--not") +
             excludedGlobs.map { "--glob=$it" } + "--"
-    val output = run(arguments, root, 10.seconds) ?: return null
+    val output = run(arguments, root, 10.seconds, cancellation = cancellation) ?: return null
     val last = output.trimEnd().substringAfterLast('\n')
     return last.split(' ').filter(String::isNotEmpty)
 }
@@ -254,10 +272,11 @@ internal fun GitCli.mergeBase(
     root: Path,
     first: String,
     second: String,
+    cancellation: GitCancellation? = null,
 ): String? {
     if (!available) return null
     val arguments = listOf("--no-optional-locks", "merge-base", "--end-of-options", first, second)
-    return run(arguments, root, 10.seconds)?.trim()?.ifEmpty { null }
+    return run(arguments, root, 10.seconds, cancellation = cancellation)?.trim()?.ifEmpty { null }
 }
 
 /**

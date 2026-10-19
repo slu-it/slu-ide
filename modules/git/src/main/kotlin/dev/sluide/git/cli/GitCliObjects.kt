@@ -1,5 +1,6 @@
 package dev.sluide.git.cli
 
+import dev.sluide.git.GitCancellation
 import dev.sluide.git.parse.GitCommitDetailsParser
 import dev.sluide.git.parse.GitDiffParser
 import dev.sluide.git.parse.GitNameStatusParser
@@ -23,11 +24,12 @@ private const val BLOB_HEADER_SLACK = 64L
 internal fun GitCli.commitOf(
     root: Path,
     prefix: String,
+    cancellation: GitCancellation? = null,
 ): String? {
     if (!available || !HASH_PREFIX.matches(prefix)) return null
     // -q: an unknown or ambiguous prefix fails quietly.
     val arguments = listOf("--no-optional-locks", "rev-parse", "--verify", "-q", "$prefix^{commit}")
-    return run(arguments, root, 3.seconds)?.trim()?.ifEmpty { null }
+    return run(arguments, root, 3.seconds, cancellation = cancellation)?.trim()?.ifEmpty { null }
 }
 
 /**
@@ -62,6 +64,7 @@ internal fun GitCli.treePaths(
 internal fun GitCli.show(
     root: Path,
     hash: String,
+    cancellation: GitCancellation? = null,
 ): String? {
     if (!available) return null
     val arguments =
@@ -80,7 +83,7 @@ internal fun GitCli.show(
             // The hash is a revision, even if a file of that name exists.
             "--",
         )
-    return run(arguments, root, 3.seconds)
+    return run(arguments, root, 3.seconds, cancellation = cancellation)
 }
 
 /**
@@ -92,6 +95,7 @@ internal fun GitCli.changedFiles(
     root: Path,
     commit: String,
     parent: String?,
+    cancellation: GitCancellation? = null,
 ): String? {
     if (!available) return null
     val revisions = if (parent == null) listOf("--root", commit) else listOf(parent, commit)
@@ -106,7 +110,7 @@ internal fun GitCli.changedFiles(
             "-M",
             "--no-ext-diff",
         ) + revisions + "--"
-    return run(arguments, root, 10.seconds)
+    return run(arguments, root, 10.seconds, cancellation = cancellation)
 }
 
 /**
@@ -118,11 +122,17 @@ internal fun GitCli.changedFiles(
 internal fun GitCli.objectInfo(
     root: Path,
     objects: List<String>,
+    cancellation: GitCancellation? = null,
 ): String? {
     if (!available || objects.any { '\n' in it }) return null
     val input = objects.joinToString("") { "$it\n" }.toByteArray(Charsets.UTF_8)
-    return runBytes(listOf("--no-optional-locks", "cat-file", "--batch-check"), root, 10.seconds, input)
-        ?.toString(Charsets.UTF_8)
+    return runBytes(
+        listOf("--no-optional-locks", "cat-file", "--batch-check"),
+        root,
+        10.seconds,
+        input,
+        cancellation = cancellation,
+    )?.toString(Charsets.UTF_8)
 }
 
 /**
@@ -135,12 +145,18 @@ internal fun GitCli.objectInfo(
 internal fun GitCli.resolveRevisions(
     root: Path,
     revisions: List<String>,
+    cancellation: GitCancellation? = null,
 ): String? {
     if (!available || revisions.any { '\n' in it }) return null
     val input = revisions.joinToString("") { "$it^{commit}\n$it\n" }.toByteArray(Charsets.UTF_8)
     if (input.size > GitCli.MAX_INPUT) return null
-    return runBytes(listOf("--no-optional-locks", "cat-file", "--batch-check"), root, 10.seconds, input)
-        ?.toString(Charsets.UTF_8)
+    return runBytes(
+        listOf("--no-optional-locks", "cat-file", "--batch-check"),
+        root,
+        10.seconds,
+        input,
+        cancellation = cancellation,
+    )?.toString(Charsets.UTF_8)
 }
 
 /**
@@ -151,6 +167,7 @@ internal fun GitCli.resolveRevisions(
 internal fun GitCli.branchesContaining(
     root: Path,
     hash: String,
+    cancellation: GitCancellation? = null,
 ): String? {
     if (!available) return null
     val arguments =
@@ -164,7 +181,7 @@ internal fun GitCli.branchesContaining(
             "refs/heads",
             "refs/remotes",
         )
-    return run(arguments, root, 10.seconds)
+    return run(arguments, root, 10.seconds, cancellation = cancellation)
 }
 
 /**
@@ -174,9 +191,15 @@ internal fun GitCli.branchesContaining(
 internal fun GitCli.blob(
     root: Path,
     name: String,
+    cancellation: GitCancellation? = null,
 ): ByteArray? {
     if (!available) return null
-    return runBytes(listOf("--no-optional-locks", "cat-file", "blob", name), root, 10.seconds)
+    return runBytes(
+        listOf("--no-optional-locks", "cat-file", "blob", name),
+        root,
+        10.seconds,
+        cancellation = cancellation,
+    )
 }
 
 /**
@@ -187,6 +210,7 @@ internal fun GitCli.diffBlobs(
     root: Path,
     original: String,
     current: String,
+    cancellation: GitCancellation? = null,
 ): String? {
     if (!available) return null
     val arguments =
@@ -200,7 +224,7 @@ internal fun GitCli.diffBlobs(
             original,
             current,
         )
-    return run(arguments, root, 10.seconds)
+    return run(arguments, root, 10.seconds, cancellation = cancellation)
 }
 
 /**

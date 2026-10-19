@@ -1,5 +1,6 @@
 package dev.sluide.gitlog.push
 
+import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitOutgoing
@@ -239,8 +240,9 @@ private fun pushable(
 /**
  * Reads what the Push dialog of the repository at [root] shows (ADR 0049) with [source], without JavaFX controls: the
  * branch, remotes and what a push sends ([load], into [state]) and the files of a row ([files], into [files]), each on
- * [background] after the given delay in milliseconds, the results through [dispatch]; latest wins for each. A target
- * name that is not [valid] is not read. [close] drops everything still going.
+ * [background] after the given delay in milliseconds, the results through [dispatch]; latest wins for each: a newer
+ * request stops the git of the older one, which does not start if it still waits (ADR 0062). A target name that is not
+ * [valid] is not read. [close] drops everything still going and stops its git.
  */
 internal class PushReader(
     private val root: Path,
@@ -266,6 +268,10 @@ internal class PushReader(
 
     private val loads = AtomicLong()
     private val fileReads = AtomicLong()
+
+    /** Stop the git of the current [load] and [files]. */
+    private var loadCancellation: GitCancellation? = null
+    private var filesCancellation: GitCancellation? = null
     private var closed = false
 
     /**
@@ -279,12 +285,14 @@ internal class PushReader(
     ) {
         if (closed) return
         val current = loads.incrementAndGet()
+        loadCancellation?.cancel()
+        val token = GitCancellation().also { loadCancellation = it }
         _loading.set(true)
         val before = _state.get()
         val keep = if (before != null && !before.failed && remote != null && target != null) before.branch else null
         background(delay) {
             if (loads.get() != current) return@background
-            val state = read(remote, target, keep)
+            val state = read(remote, target, keep, token)
             dispatch {
                 if (loads.get() != current || closed) return@dispatch
                 _loading.set(false)
@@ -300,10 +308,12 @@ internal class PushReader(
     ) {
         if (closed) return
         val current = fileReads.incrementAndGet()
+        filesCancellation?.cancel()
+        val token = GitCancellation().also { filesCancellation = it }
         _files.set(PushFiles.Loading(commit, parent))
         background(0) {
             if (fileReads.get() != current) return@background
-            val files = source.changedFiles(root, commit, parent)
+            val files = source.changedFiles(root, commit, parent, token)
             dispatch {
                 if (fileReads.get() != current || closed) return@dispatch
                 _files.set(if (files == null) PushFiles.Failed else PushFiles.Loaded(commit, parent, files))
@@ -314,14 +324,17 @@ internal class PushReader(
     /** Shows no files. */
     fun noFiles() {
         fileReads.incrementAndGet()
+        filesCancellation?.cancel()
         _files.set(PushFiles.None)
     }
 
-    /** Drops the reads still going. */
+    /** Drops the reads still going and stops their git. */
     fun close() {
         closed = true
         loads.incrementAndGet()
         fileReads.incrementAndGet()
+        loadCancellation?.cancel()
+        filesCancellation?.cancel()
     }
 
     /** The asked [remote] and [target] count only for the branch [keep] they were chosen for. */
@@ -329,22 +342,23 @@ internal class PushReader(
         remote: String?,
         target: String?,
         keep: String?,
+        token: GitCancellation,
     ): PushState {
-        val refs = source.refs(root) ?: return PushState.FAILED
+        val refs = source.refs(root, token) ?: return PushState.FAILED
         val branch = refs.currentBranch?.removePrefix(HEADS)
-        val head = source.headCommit(root)
-        val remotes = source.remotes(root) ?: return PushState.FAILED
+        val head = source.headCommit(root, token)
+        val remotes = source.remotes(root, token) ?: return PushState.FAILED
         if (branch == null || head == null || remotes.isEmpty()) {
             return PushState(branch, head, remotes, false, remotes.firstOrNull(), branch.orEmpty(), null, null)
         }
-        val default = source.pushTarget(root, branch) ?: return PushState.FAILED
+        val default = source.pushTarget(root, branch, token) ?: return PushState.FAILED
         val chosen =
             if (keep == branch && remote != null && target != null && remote in remotes) remote to target else null
         val (toRemote, toBranch) = chosen ?: (default.remote to default.branch)
         val state = PushState(branch, head, remotes, default.hasUpstream, toRemote, toBranch, null, null)
         if (!valid(toBranch)) return state
-        val outgoing = source.outgoing(root, toRemote, toBranch, PushState.LIMIT) ?: return PushState.FAILED
-        return state.copy(outgoing = outgoing, trackingRef = source.trackingRef(root, toRemote, toBranch))
+        val outgoing = source.outgoing(root, toRemote, toBranch, PushState.LIMIT, token) ?: return PushState.FAILED
+        return state.copy(outgoing = outgoing, trackingRef = source.trackingRef(root, toRemote, toBranch, token))
     }
 
     private companion object {

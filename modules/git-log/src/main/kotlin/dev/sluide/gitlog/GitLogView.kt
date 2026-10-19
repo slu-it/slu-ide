@@ -127,7 +127,9 @@ class GitLogView internal constructor(
     private val details =
         CommitDetails(
             source::details,
-            { root, commit -> source.changedFiles(root, commit.hash, commit.parents.firstOrNull()) },
+            { root, commit, cancellation ->
+                source.changedFiles(root, commit.hash, commit.parents.firstOrNull(), cancellation)
+            },
             executor::execute,
             dispatch,
             source::resolveCommits,

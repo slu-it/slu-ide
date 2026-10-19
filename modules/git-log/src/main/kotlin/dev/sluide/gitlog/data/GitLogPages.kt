@@ -1,6 +1,7 @@
 package dev.sluide.gitlog.data
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitComparisonCounts
 import dev.sluide.git.GitInProgress
@@ -14,6 +15,7 @@ import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.collections.FXCollections
 import javafx.collections.ObservableList
 import java.nio.file.Path
+import java.util.concurrent.CancellationException
 import java.util.concurrent.atomic.AtomicLong
 
 /** What the commit list shows when it has no rows, or a failure above kept rows. */
@@ -129,23 +131,27 @@ internal data class GitLogRow(
  * log is loaded again without it and [comparisonEnded] is told.
  *
  * [load] and [loadRefs] run on [background], their results are handled through [dispatch]. Every [open] and reload
- * starts a new run; results of older runs are dropped. Used on the JavaFX thread (or whatever [dispatch] stands for
- * in tests). Each page is a task of [tasks] (ADR 0061), started on [background] unless its run is dropped by then:
- * "Loading Git log" (a first page), "Loading more commits", or "Searching Git log for <name>" for [loadUntil].
+ * starts a new run; results of older runs are dropped, and their git is stopped through the [GitCancellation] every
+ * load gets (ADR 0062): a reload, another filter, [open] and [close] stop a page or reload still running, also one
+ * that [loadUntil] asked for. Used on the JavaFX thread (or whatever [dispatch] stands for in tests). Each page is a
+ * task of [tasks] (ADR 0061), started on [background] unless its run is dropped by then: "Loading Git log" (a first
+ * page), "Loading more commits", or "Searching Git log for <name>" for [loadUntil]; a page whose git was stopped ends
+ * it as cancelled.
  */
 internal class GitLogPages(
-    private val load: (Path, GitLogFilter, Int, Int) -> GitLogPage?,
-    private val loadRefs: (Path) -> GitRefs?,
-    private val loadHashMatch: (Path, GitLogFilter) -> GitCommit?,
+    private val load: (Path, GitLogFilter, Int, Int, GitCancellation) -> GitLogPage?,
+    private val loadRefs: (Path, GitCancellation) -> GitRefs?,
+    private val loadHashMatch: (Path, GitLogFilter, GitCancellation) -> GitCommit?,
     private val background: (Runnable) -> Unit,
     private val dispatch: (Runnable) -> Unit,
     private val tasks: BackgroundTasks,
     private val pageSize: Int = PAGE_SIZE,
     private val prefetch: Int = PREFETCH,
     private val seekLimit: Int = SEEK_LIMIT,
-    private val loadPending: (Path) -> GitInProgress? = { null },
-    private val loadRemotes: (Path) -> List<String>? = { null },
-    private val loadCounts: (Path, String, GitLogFilter) -> GitComparisonCounts? = { _, _, _ -> null },
+    private val loadPending: (Path, GitCancellation) -> GitInProgress? = { _, _ -> null },
+    private val loadRemotes: (Path, GitCancellation) -> List<String>? = { _, _ -> null },
+    private val loadCounts: (Path, String, GitLogFilter, GitCancellation) -> GitComparisonCounts? =
+        { _, _, _, _ -> null },
 ) {
     /** The loaded commits with their graph, newest first. */
     val rows: ObservableList<GitLogRow> = FXCollections.observableArrayList()
@@ -220,6 +226,9 @@ internal class GitLogPages(
 
     /** The current run; read on the background thread to skip runs that are no longer wanted. */
     private val run = AtomicLong()
+
+    /** Stops the git of the load going on, if any: the run's own. */
+    private var cancellation: GitCancellation? = null
     private var stale = false
     private var complete = false
     private var loadingMore = false
@@ -254,7 +263,7 @@ internal class GitLogPages(
             reload()
         } else {
             // Drops loads for the earlier filter; the next showing reloads.
-            run.incrementAndGet()
+            newRun()
             loadingMore = false
             stale = true
         }
@@ -269,7 +278,7 @@ internal class GitLogPages(
         currentFilter = GitLogFilter()
         currentComparison = null
         counts = null
-        run.incrementAndGet()
+        newRun()
         rows.clear()
         layout = GraphLayout()
         refs = null
@@ -316,16 +325,23 @@ internal class GitLogPages(
     /** The commit [loadUntil] is still loading pages for, if any. */
     val loadingUntil: String? get() = seek?.hash
 
-    /** Stops what [loadUntil] asked for. */
+    /** Stops what [loadUntil] asked for; a page loading for it still comes. */
     fun stopLoadingUntil() {
         seek = null
     }
 
-    /** Drops the results of runs still going. */
+    /** Drops the results of runs still going and stops their git. */
     fun close() {
         root = null
         seek = null
+        newRun()
+    }
+
+    /** Starts a new run: the results of older ones are dropped, their git stopped. */
+    private fun newRun() {
         run.incrementAndGet()
+        cancellation?.cancel()
+        cancellation = null
     }
 
     /** Loads the next page, unless one is loading, there are no more or the rows are outdated. */
@@ -382,7 +398,7 @@ internal class GitLogPages(
         stale = false
         loadingMore = false
         _state.set(GitLogState.LOADING)
-        run.incrementAndGet()
+        newRun()
         start(root, 0, "Loading Git log") { first ->
             val page = first.page
             val refs = first.refs
@@ -469,20 +485,28 @@ internal class GitLogPages(
         handle: (FirstPage) -> Unit,
     ) {
         val current = run.get()
+        val token = GitCancellation().also { cancellation = it }
         val filter = effectiveFilter
         val barFilter = currentFilter
         val compared = comparison
         background {
-            if (run.get() != current) return@background
+            if (run.get() != current || token.cancelled) return@background
             val task = tasks.start(name)
             val loaded =
                 try {
-                    loadPage(root, filter, barFilter, compared, skip, current)
+                    loadPage(root, filter, barFilter, compared, skip, current, token)
                 } catch (t: Throwable) {
                     task.failed(t)
                     throw t
                 }
-            if (loaded.page == null) task.failed(GitLogState.FAILED.message) else task.close()
+            when {
+                // Its git was stopped, or what it read is dropped anyway: no failure.
+                token.cancelled -> task.failed(CancellationException("Superseded"))
+
+                loaded.page == null -> task.failed(GitLogState.FAILED.message)
+
+                else -> task.close()
+            }
             dispatch {
                 if (run.get() == current) handle(loaded)
             }
@@ -497,20 +521,21 @@ internal class GitLogPages(
         compared: LogComparison?,
         skip: Int,
         current: Long,
+        token: GitCancellation,
     ): FirstPage {
-        val page = load(root, filter, skip, pageSize)
+        val page = load(root, filter, skip, pageSize, token)
         val first = skip == 0 && page != null
 
-        fun <T> read(value: () -> T?): T? = if (first && run.get() == current) value() else null
-        val refs = read { loadRefs(root) }
-        val pending = read { loadPending(root) }
-        val remotes = read { loadRemotes(root) }
-        val counts = compared?.let { read { loadCounts(root, it.ref.name, barFilter) } }
+        fun <T> read(value: () -> T?): T? = if (first && run.get() == current && !token.cancelled) value() else null
+        val refs = read { loadRefs(root, token) }
+        val pending = read { loadPending(root, token) }
+        val remotes = read { loadRemotes(root, token) }
+        val counts = compared?.let { read { loadCounts(root, it.ref.name, barFilter, token) } }
         val match =
             if (compared == null &&
                 HASH_PREFIX.matches(filter.text.trim())
             ) {
-                read { loadHashMatch(root, filter) }
+                read { loadHashMatch(root, filter, token) }
             } else {
                 null
             }

@@ -1,5 +1,6 @@
 package dev.sluide.gitlog.data
 
+import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitCommitDetails
@@ -40,16 +41,17 @@ internal sealed interface CommitDetailsState {
  * (ADR 0038) in the repository at [root], in one task on [background]; the words of the message that may be hashes are
  * resolved with [resolve] right after the details, before they are shown (ADR 0045). Each result is handled through
  * [dispatch] as soon as it is read, and dropped if
- * the selection has changed meanwhile (latest wins). The same row selected again loads nothing; a reload of the log
+ * the selection has changed meanwhile (latest wins): a newer request (or [close]) stops the git of the older one, which
+ * does not start if it is still queued (ADR 0062). The same row selected again loads nothing; a reload of the log
  * brings new rows, so the details and files of a commit that stays selected are read again. Used on the JavaFX thread
  * (or whatever [dispatch] stands for in tests).
  */
 internal class CommitDetails(
-    private val load: (Path, String) -> GitCommitDetails?,
-    private val loadFiles: (Path, GitCommit) -> List<GitChangedFile>?,
+    private val load: (Path, String, GitCancellation) -> GitCommitDetails?,
+    private val loadFiles: (Path, GitCommit, GitCancellation) -> List<GitChangedFile>?,
     private val background: (Runnable) -> Unit,
     private val dispatch: (Runnable) -> Unit,
-    private val resolve: (Path, List<String>) -> List<GitRevisionResolution>? = { _, _ -> null },
+    private val resolve: (Path, List<String>, GitCancellation) -> List<GitRevisionResolution>? = { _, _, _ -> null },
 ) {
     private val _state = ReadOnlyObjectWrapper<CommitDetailsState>(CommitDetailsState.NoneSelected)
     val state: ReadOnlyObjectProperty<CommitDetailsState> = _state.readOnlyProperty
@@ -67,6 +69,9 @@ internal class CommitDetails(
 
     /** The current request; read on the background thread to skip requests that are no longer wanted. */
     private val generation = AtomicLong()
+
+    /** Stops the git of the current request. */
+    private var cancellation: GitCancellation? = null
     private var settling = false
     private var closed = false
 
@@ -86,7 +91,14 @@ internal class CommitDetails(
     /** Drops the results of requests still going. */
     fun close() {
         closed = true
-        generation.incrementAndGet()
+        supersede()
+    }
+
+    /** A new request: the results of older ones are dropped, their git is stopped. */
+    private fun supersede(): Long {
+        cancellation?.cancel()
+        cancellation = null
+        return generation.incrementAndGet()
     }
 
     private fun settle() {
@@ -101,20 +113,22 @@ internal class CommitDetails(
     private fun request(row: GitLogRow) {
         if (rowOf(_state.get()) === row) return
         val root = root() ?: return show(CommitDetailsState.NoneSelected, ChangedFilesState.NoneSelected)
-        val current = generation.incrementAndGet()
+        val current = supersede()
+        val token = GitCancellation().also { cancellation = it }
         _state.set(CommitDetailsState.Loading(row))
         _files.set(ChangedFilesState.Loading(row))
         background {
             if (generation.get() != current) return@background
-            val details = load(root, row.commit.hash)
-            val links = details?.takeIf { generation.get() == current }?.let { links(root, it.message) }.orEmpty()
+            val details = load(root, row.commit.hash, token)
+            val links =
+                details?.takeIf { generation.get() == current }?.let { links(root, it.message, token) }.orEmpty()
             dispatch {
                 if (generation.get() != current) return@dispatch
                 _state.set(details?.let { CommitDetailsState.Loaded(row, it, links) } ?: CommitDetailsState.Failed(row))
             }
             // The details show without waiting for the files, which can take longer.
             if (generation.get() != current) return@background
-            val files = loadFiles(root, row.commit)
+            val files = loadFiles(root, row.commit, token)
             dispatch {
                 if (generation.get() != current) return@dispatch
                 _files.set(files?.let { ChangedFilesState.Loaded(row, it) } ?: ChangedFilesState.Failed(row))
@@ -129,6 +143,7 @@ internal class CommitDetails(
     private fun links(
         root: Path,
         message: String,
+        token: GitCancellation,
     ): Map<String, String> {
         val candidates =
             hashCandidates(message)
@@ -136,7 +151,7 @@ internal class CommitDetails(
                 .distinct()
                 .take(MAX_CANDIDATES)
         if (candidates.isEmpty()) return emptyMap()
-        val resolutions = resolve(root, candidates) ?: return emptyMap()
+        val resolutions = resolve(root, candidates, token) ?: return emptyMap()
         return candidates
             .zip(resolutions)
             .mapNotNull { (candidate, resolution) ->
@@ -151,7 +166,7 @@ internal class CommitDetails(
         state: CommitDetailsState,
         files: ChangedFilesState,
     ) {
-        generation.incrementAndGet()
+        supersede()
         _state.set(state)
         _files.set(files)
     }

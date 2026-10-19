@@ -1,5 +1,6 @@
 package dev.sluide.gitlog.push
 
+import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
@@ -36,6 +37,10 @@ class PushReaderTest {
     private var target: GitPushTarget? = GitPushTarget("origin", "main", hasUpstream = true)
     private val outgoingReads = mutableListOf<String>()
 
+    /** The cancellation of every read of what a push sends, and what happens meanwhile. */
+    private val outgoingCancellations = mutableListOf<GitCancellation?>()
+    private var whileReadingOutgoing: () -> Unit = {}
+
     private val source =
         object : GitLogSource {
             override fun page(
@@ -43,30 +48,40 @@ class PushReaderTest {
                 filter: GitLogFilter,
                 skip: Int,
                 limit: Int,
+                cancellation: GitCancellation?,
             ): GitLogPage? = null
 
             override fun hashMatch(
                 root: Path,
                 filter: GitLogFilter,
+                cancellation: GitCancellation?,
             ): GitCommit? = null
 
             override fun userName(root: Path): String? = null
 
             override fun paths(root: Path): List<GitTreePath>? = null
 
-            override fun refs(root: Path) = GitRefs(emptyList(), currentBranch)
+            override fun refs(
+                root: Path,
+                cancellation: GitCancellation?,
+            ) = GitRefs(emptyList(), currentBranch)
 
-            override fun remotes(root: Path) = remotes
+            override fun remotes(
+                root: Path,
+                cancellation: GitCancellation?,
+            ) = remotes
 
             override fun details(
                 root: Path,
                 hash: String,
+                cancellation: GitCancellation?,
             ): GitCommitDetails? = null
 
             override fun changedFiles(
                 root: Path,
                 commit: String,
                 firstParent: String?,
+                cancellation: GitCancellation?,
             ) = listOf(GitChangedFile(GitChange.MODIFIED, "$commit-$firstParent"))
 
             override fun fileDiff(
@@ -74,17 +89,22 @@ class PushReaderTest {
                 commit: String,
                 firstParent: String?,
                 file: GitChangedFile,
+                cancellation: GitCancellation?,
             ): GitFileDiff? = null
 
             override fun commitChanges(root: Path): GitCommitChanges? = null
 
-            override fun headCommit(root: Path) = head
+            override fun headCommit(
+                root: Path,
+                cancellation: GitCancellation?,
+            ) = head
 
             override fun headMessage(root: Path): String? = null
 
             override fun pushTarget(
                 root: Path,
                 branch: String,
+                cancellation: GitCancellation?,
             ) = target
 
             override fun outgoing(
@@ -92,8 +112,11 @@ class PushReaderTest {
                 remote: String,
                 branch: String,
                 limit: Int,
+                cancellation: GitCancellation?,
             ): GitOutgoing {
                 outgoingReads += "$remote $branch"
+                outgoingCancellations += cancellation
+                whileReadingOutgoing()
                 return GitOutgoing(emptyList(), false, null, 0, null)
             }
         }
@@ -106,6 +129,21 @@ class PushReaderTest {
 
     private fun runAll() {
         while (tasks.isNotEmpty()) tasks.removeFirst().second.run()
+    }
+
+    @Test
+    fun `a newer read or closing stops the git of the read going on`() {
+        whileReadingOutgoing = { if (outgoingReads.size == 1) reader.load("fork", "main") }
+        reader.load(null, null)
+        runAll()
+
+        assertEquals(listOf(true, false), outgoingCancellations.map { it?.cancelled })
+        assertFalse(reader.loading.get(), "the newer read was taken")
+
+        whileReadingOutgoing = { reader.close() }
+        reader.load("origin", "main")
+        runAll()
+        assertTrue(outgoingCancellations.last()?.cancelled == true, "closed while it read")
     }
 
     @Test

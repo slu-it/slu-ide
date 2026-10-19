@@ -1,5 +1,6 @@
 package dev.sluide.gitlog.data
 
+import dev.sluide.git.GitCancellation
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -12,15 +13,24 @@ class CommitBranchesTest {
     /** The hash of every load. */
     private val loads = mutableListOf<String>()
 
+    /** The cancellation of every load, which stops its git. */
+    private val cancellations = mutableListOf<GitCancellation>()
+
+    /** Runs while branches are read, e.g. to show another commit meanwhile. */
+    private var whileLoading: () -> Unit = {}
+
     /** The refnames each commit is in; a missing commit fails. */
     private var refnames = mapOf("a" to listOf("refs/heads/main"), "b" to listOf("refs/heads/b", "refs/heads/main"))
 
     private val branches =
         CommitBranches(
-            { root, hash ->
+            { root, hash, cancellation ->
                 assertEquals(repo, root)
                 loads += hash
-                refnames[hash]
+                cancellations += cancellation
+                whileLoading()
+                // As git would answer once stopped.
+                if (cancellation.cancelled) null else refnames[hash]
             },
             background::addLast,
             dispatched::addLast,
@@ -75,6 +85,20 @@ class CommitBranchesTest {
         branches.show(repo, "a")
         assertEquals(BranchesState.Read("a", listOf("main")), branches.state.get())
         assertEquals(listOf("a", "b"), loads)
+    }
+
+    @Test
+    fun `a newer request stops the git of the one being read, which is neither shown nor kept`() {
+        whileLoading = { if (loads.size == 1) branches.show(repo, "b") }
+        branches.show(repo, "a")
+        runAll()
+
+        assertEquals(listOf(true, false), cancellations.map { it.cancelled })
+        assertEquals(BranchesState.Read("b", listOf("main", "b")), branches.state.get())
+        whileLoading = {}
+        branches.show(repo, "a")
+        runAll()
+        assertEquals(listOf("a", "b", "a"), loads, "what a stopped git left was not kept")
     }
 
     @Test

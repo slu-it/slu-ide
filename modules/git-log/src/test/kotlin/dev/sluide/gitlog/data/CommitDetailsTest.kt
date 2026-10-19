@@ -1,5 +1,6 @@
 package dev.sluide.gitlog.data
 
+import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
@@ -9,6 +10,7 @@ import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 class CommitDetailsTest {
     private val repo = Path.of("/repo")
@@ -17,6 +19,9 @@ class CommitDetailsTest {
 
     /** The hash of every load. */
     private val loads = mutableListOf<String>()
+
+    /** The cancellation of every load, which stops its git. */
+    private val cancellations = mutableListOf<GitCancellation>()
 
     /** Hashes whose details cannot be read. */
     private val failing = mutableSetOf<String>()
@@ -39,13 +44,14 @@ class CommitDetailsTest {
 
     private val details =
         CommitDetails(
-            load = { root, hash ->
+            load = { root, hash, cancellation ->
                 assertEquals(repo, root)
                 loads += hash
+                cancellations += cancellation
                 whileLoading()
                 if (hash in failing) null else details(hash)
             },
-            loadFiles = { root, commit ->
+            loadFiles = { root, commit, _ ->
                 assertEquals(repo, root)
                 dispatchedBeforeFiles += dispatched.size
                 fileLoads += commit.hash to commit.parents.firstOrNull()
@@ -136,6 +142,29 @@ class CommitDetailsTest {
         settle()
         assertEquals(listOf("a", "b"), loads)
         assertEquals(CommitDetailsState.NoneSelected, details.state.get())
+    }
+
+    @Test
+    fun `a newer selection or closing stops the git of the details being read`() {
+        val a = row("a")
+        val b = row("b")
+        whileLoading = {
+            if (loads.size == 1) {
+                select(b)
+                runDispatched()
+            }
+        }
+        select(a)
+        settle()
+
+        assertEquals(listOf(true, false), cancellations.map { it.cancelled })
+        assertEquals(CommitDetailsState.Loaded(b, details("b")), details.state.get())
+
+        whileLoading = { details.close() }
+        select(a)
+        settle()
+        assertEquals(3, cancellations.size)
+        assertTrue(cancellations.last().cancelled, "closed while it read")
     }
 
     @Test

@@ -71,10 +71,11 @@ class GitLog(
         filter: GitLogFilter = GitLogFilter(),
         skip: Int,
         limit: Int,
+        cancellation: GitCancellation? = null,
     ): GitLogPage? {
         require(skip >= 0) { "skip must not be negative: $skip" }
         require(limit > 0) { "limit must be positive: $limit" }
-        val output = git.log(root, filter, skip, limit) ?: return null
+        val output = git.log(root, filter, skip, limit, cancellation = cancellation) ?: return null
         val commits = GitLogParser.parse(output)
         return GitLogPage(commits, complete = commits.size < limit)
     }
@@ -115,13 +116,14 @@ class GitLog(
     fun hashMatch(
         root: Path,
         filter: GitLogFilter,
+        cancellation: GitCancellation? = null,
     ): GitCommit? {
         val prefix = filter.text.trim()
         if (!HASH_PREFIX.matches(prefix)) return null
-        val hash = git.commitOf(root, prefix) ?: return null
+        val hash = git.commitOf(root, prefix, cancellation = cancellation) ?: return null
         // A branch or tag of that name would be resolved first: only a hash counts.
         if (!HASH.matches(hash) || !hash.startsWith(prefix.lowercase())) return null
-        val output = git.logCommit(root, hash, filter) ?: return null
+        val output = git.logCommit(root, hash, filter, cancellation = cancellation) ?: return null
         return GitLogParser.parse(output).singleOrNull { it.hash == hash }
     }
 
@@ -151,10 +153,17 @@ class GitLog(
      * The branches, remote branches, tags and `HEAD` of the repository at [root] (ADR 0037); `null` if git is not
      * available, fails or takes too long. Runs git on the calling thread.
      */
-    fun refs(root: Path): GitRefs? {
-        val output = git.refs(root) ?: return null
+    fun refs(
+        root: Path,
+        cancellation: GitCancellation? = null,
+    ): GitRefs? {
+        val output = git.refs(root, cancellation = cancellation) ?: return null
         // Read right after the refs; either fails for an unborn HEAD (no commit) or a detached one (no branch).
-        return GitRefsParser.parse(output, git.headCommit(root), git.currentBranch(root))
+        return GitRefsParser.parse(
+            output,
+            git.headCommit(root, cancellation = cancellation),
+            git.currentBranch(root, cancellation = cancellation),
+        )
     }
 
     /**
@@ -162,7 +171,10 @@ class GitLog(
      * paths still unmerged, or a merge, rebase or sequence; `null` if nothing, or if git is not available or fails. Runs
      * git on the calling thread.
      */
-    fun inProgress(root: Path): GitInProgress? = git.inProgress(root).getOrNull()
+    fun inProgress(
+        root: Path,
+        cancellation: GitCancellation? = null,
+    ): GitInProgress? = git.inProgress(root, cancellation = cancellation).getOrNull()
 
     /**
      * The details of the commit [hash] (its full object name: 40 or 64 hexadecimal characters) in the repository at
@@ -172,9 +184,10 @@ class GitLog(
     fun details(
         root: Path,
         hash: String,
+        cancellation: GitCancellation? = null,
     ): GitCommitDetails? {
         requireHash(hash)
-        return git.show(root, hash)?.let(GitCommitDetailsParser::parse)
+        return git.show(root, hash, cancellation = cancellation)?.let(GitCommitDetailsParser::parse)
     }
 
     /**
@@ -185,9 +198,10 @@ class GitLog(
     fun branchesContaining(
         root: Path,
         hash: String,
+        cancellation: GitCancellation? = null,
     ): List<String>? {
         requireHash(hash)
-        val output = git.branchesContaining(root, hash) ?: return null
+        val output = git.branchesContaining(root, hash, cancellation = cancellation) ?: return null
         return output
             .lineSequence()
             .map { it.split('\u001f') }
@@ -207,10 +221,11 @@ class GitLog(
     fun resolveCommits(
         root: Path,
         revisions: List<String>,
+        cancellation: GitCancellation? = null,
     ): List<GitRevisionResolution>? {
         if (revisions.isEmpty()) return emptyList()
         if (revisions.any { it.isBlank() }) return null
-        val output = git.resolveRevisions(root, revisions) ?: return null
+        val output = git.resolveRevisions(root, revisions, cancellation = cancellation) ?: return null
         return GitRevisionParser.parse(output, revisions.size)
     }
 
@@ -224,10 +239,11 @@ class GitLog(
         root: Path,
         commit: String,
         firstParent: String?,
+        cancellation: GitCancellation? = null,
     ): List<GitChangedFile>? {
         requireHash(commit)
         firstParent?.let(::requireHash)
-        return git.changedFiles(root, commit, firstParent)?.let(GitNameStatusParser::parse)
+        return git.changedFiles(root, commit, firstParent, cancellation = cancellation)?.let(GitNameStatusParser::parse)
     }
 
     /**
@@ -242,7 +258,8 @@ class GitLog(
         commit: String,
         firstParent: String?,
         file: GitChangedFile,
-    ): GitFileDiff? = fileDiff(root, commit, firstParent, file, MAX_BLOB_SIZE)
+        cancellation: GitCancellation? = null,
+    ): GitFileDiff? = fileDiff(root, commit, firstParent, file, MAX_BLOB_SIZE, cancellation = cancellation)
 
     /** [fileDiff] with files above [maxSize] bytes too large. */
     internal fun fileDiff(
@@ -251,6 +268,7 @@ class GitLog(
         firstParent: String?,
         file: GitChangedFile,
         maxSize: Long,
+        cancellation: GitCancellation? = null,
     ): GitFileDiff? {
         requireHash(commit)
         firstParent?.let(::requireHash)
@@ -263,7 +281,7 @@ class GitLog(
         // Object name, type and size of each side, the paths given on git's standard input.
         val objects =
             git
-                .objectInfo(root, names)
+                .objectInfo(root, names, cancellation)
                 ?.lines()
                 ?.take(names.size)
                 ?.map { line -> GitObject.of(line) ?: return null }
@@ -278,8 +296,10 @@ class GitLog(
             )
         }
         if (objects.any { it.size > maxSize }) return GitFileDiff.TooLarge
-        val originalBytes = originalObject?.let { git.blob(root, it.name) ?: return null } ?: ByteArray(0)
-        val currentBytes = currentObject?.let { git.blob(root, it.name) ?: return null } ?: ByteArray(0)
+        val originalBytes =
+            originalObject?.let { git.blob(root, it.name, cancellation = cancellation) ?: return null } ?: ByteArray(0)
+        val currentBytes =
+            currentObject?.let { git.blob(root, it.name, cancellation = cancellation) ?: return null } ?: ByteArray(0)
         if (isBinary(originalBytes) || isBinary(currentBytes)) return GitFileDiff.Binary
         val originalText = originalBytes.toString(Charsets.UTF_8)
         val currentText = currentBytes.toString(Charsets.UTF_8)
@@ -299,7 +319,13 @@ class GitLog(
                 }
 
                 else -> {
-                    git.diffBlobs(root, originalObject.name, currentObject.name)?.let(GitDiffParser::parse)
+                    git
+                        .diffBlobs(
+                            root,
+                            originalObject.name,
+                            currentObject.name,
+                            cancellation = cancellation,
+                        )?.let(GitDiffParser::parse)
                         ?: return null
                 }
             }
@@ -317,8 +343,9 @@ class GitLog(
         root: Path,
         revision: String,
         filter: GitLogFilter = GitLogFilter(),
+        cancellation: GitCancellation? = null,
     ): GitComparisonCounts? =
-        git.comparisonCounts(root, revision, "HEAD", filter)?.let { (refOnly, headOnly) ->
+        git.comparisonCounts(root, revision, "HEAD", filter, cancellation = cancellation)?.let { (refOnly, headOnly) ->
             GitComparisonCounts(refOnly, headOnly)
         }
 

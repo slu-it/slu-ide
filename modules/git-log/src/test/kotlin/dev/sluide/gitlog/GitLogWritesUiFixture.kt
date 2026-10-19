@@ -1,6 +1,7 @@
 package dev.sluide.gitlog
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitCommitChanges
@@ -159,6 +160,7 @@ abstract class GitLogWritesUiFixture {
                     filter: GitLogFilter,
                     skip: Int,
                     limit: Int,
+                    cancellation: GitCancellation?,
                 ): GitLogPage {
                     loads += skip
                     return GitLogPage(commits.drop(skip).take(limit), complete = true)
@@ -167,27 +169,39 @@ abstract class GitLogWritesUiFixture {
                 override fun hashMatch(
                     root: Path,
                     filter: GitLogFilter,
+                    cancellation: GitCancellation?,
                 ): GitCommit? = null
 
                 override fun userName(root: Path): String? = null
 
                 override fun paths(root: Path): List<GitTreePath> = emptyList()
 
-                override fun refs(root: Path) = currentRefs
+                override fun refs(
+                    root: Path,
+                    cancellation: GitCancellation?,
+                ) = currentRefs
 
-                override fun pending(root: Path) = pendingPick
+                override fun pending(
+                    root: Path,
+                    cancellation: GitCancellation?,
+                ) = pendingPick
 
-                override fun remotes(root: Path) = currentRemotes
+                override fun remotes(
+                    root: Path,
+                    cancellation: GitCancellation?,
+                ) = currentRemotes
 
                 override fun details(
                     root: Path,
                     hash: String,
+                    cancellation: GitCancellation?,
                 ): GitCommitDetails? = null
 
                 override fun changedFiles(
                     root: Path,
                     commit: String,
                     firstParent: String?,
+                    cancellation: GitCancellation?,
                 ): List<GitChangedFile>? {
                     changedFilesReads += "$commit ${firstParent ?: "-"}"
                     return changedFilesOf(commit, firstParent)
@@ -198,6 +212,7 @@ abstract class GitLogWritesUiFixture {
                     commit: String,
                     firstParent: String?,
                     file: GitChangedFile,
+                    cancellation: GitCancellation?,
                 ): GitFileDiff? {
                     fileDiffLoads += "$commit ${firstParent ?: "-"} ${file.path}"
                     return commitFileDiff
@@ -206,6 +221,7 @@ abstract class GitLogWritesUiFixture {
                 override fun pushTarget(
                     root: Path,
                     branch: String,
+                    cancellation: GitCancellation?,
                 ) = pushTarget
 
                 override fun outgoing(
@@ -213,6 +229,7 @@ abstract class GitLogWritesUiFixture {
                     remote: String,
                     branch: String,
                     limit: Int,
+                    cancellation: GitCancellation?,
                 ): GitOutgoing? {
                     outgoingReads += "$remote $branch"
                     outgoingThreads += Thread.currentThread().name
@@ -233,7 +250,10 @@ abstract class GitLogWritesUiFixture {
                     return commitChanges
                 }
 
-                override fun headCommit(root: Path) = headCommit
+                override fun headCommit(
+                    root: Path,
+                    cancellation: GitCancellation?,
+                ) = headCommit
 
                 override fun headMessage(root: Path): String? {
                     headMessageReads += Thread.currentThread().name

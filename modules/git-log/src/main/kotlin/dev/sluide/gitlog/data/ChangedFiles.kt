@@ -1,5 +1,6 @@
 package dev.sluide.gitlog.data
 
+import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitFileDiff
@@ -100,14 +101,18 @@ private val BY_NAME = compareBy<ChangeNode, String>(String.CASE_INSENSITIVE_ORDE
 
 /**
  * Reads the diff of a changed file with [load] on [background] (ADR 0038) and hands it to the given handler through
- * [dispatch]; latest wins: the result of a request that a newer one (or [close]) superseded is dropped.
+ * [dispatch]; latest wins: the result of a request that a newer one (or [close]) superseded is dropped, and its git is
+ * stopped, or not started if it is still queued (ADR 0062).
  */
 internal class FileDiffs(
-    private val load: (Path, String, String?, GitChangedFile) -> GitFileDiff?,
+    private val load: (Path, String, String?, GitChangedFile, GitCancellation) -> GitFileDiff?,
     private val background: (Runnable) -> Unit,
     private val dispatch: (Runnable) -> Unit,
 ) {
     private val generation = AtomicLong()
+
+    /** Stops the git of the current request. */
+    private var cancellation: GitCancellation? = null
 
     /** Reads what [commit] changed in [file] against its first parent in the repository at [root]. */
     fun request(
@@ -125,16 +130,23 @@ internal class FileDiffs(
         file: GitChangedFile,
         handle: (GitFileDiff?) -> Unit,
     ) {
-        val current = generation.incrementAndGet()
+        val current = supersede()
+        val token = GitCancellation().also { cancellation = it }
         background {
             if (generation.get() != current) return@background
-            val diff = load(root, commit, parent, file)
+            val diff = load(root, commit, parent, file, token)
             dispatch { if (generation.get() == current) handle(diff) }
         }
     }
 
-    /** Drops the results of requests still going. */
+    /** Drops the results of requests still going and stops their git. */
     fun close() {
-        generation.incrementAndGet()
+        supersede()
+    }
+
+    private fun supersede(): Long {
+        cancellation?.cancel()
+        cancellation = null
+        return generation.incrementAndGet()
     }
 }

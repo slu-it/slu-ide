@@ -1,5 +1,6 @@
 package dev.sluide.git.cli
 
+import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitOperation
 import dev.sluide.git.GitPendingOperation
@@ -116,26 +117,30 @@ internal fun GitCli.mergeTree(
  * found at their `git rev-parse --git-path` (per worktree), else a single cherry-pick or revert (`CHERRY_PICK_HEAD`,
  * `REVERT_HEAD`) with the paths still unmerged; `null` for nothing. A failure if git is not available or fails.
  */
-internal fun GitCli.inProgress(root: Path): Result<GitInProgress?> {
+internal fun GitCli.inProgress(
+    root: Path,
+    cancellation: GitCancellation? = null,
+): Result<GitInProgress?> {
     val unreadable = Result.failure<GitInProgress?>(IllegalStateException("git could not be read"))
     if (!available) return unreadable
     val (rebaseMerge, rebaseApply, sequencer) =
-        gitPaths(root, listOf("rebase-merge", "rebase-apply", "sequencer")) ?: return unreadable
+        gitPaths(root, listOf("rebase-merge", "rebase-apply", "sequencer"), cancellation = cancellation)
+            ?: return unreadable
     val operation =
         when {
             Files.isDirectory(rebaseMerge) -> GitOperation.REBASE
             Files.exists(rebaseApply.resolve("applying")) -> GitOperation.AM
             Files.isDirectory(rebaseApply) -> GitOperation.REBASE
-            commitOfRevision(root, "MERGE_HEAD") != null -> GitOperation.MERGE
+            commitOfRevision(root, "MERGE_HEAD", cancellation = cancellation) != null -> GitOperation.MERGE
             Files.isDirectory(sequencer) -> sequenceOperation(sequencer.resolve("todo"))
             else -> null
         }
     if (operation != null) return Result.success(GitPendingOperation(operation))
     val (kind, commit) =
-        commitOfRevision(root, "CHERRY_PICK_HEAD")?.let { GitPick.CHERRY_PICK to it }
-            ?: commitOfRevision(root, "REVERT_HEAD")?.let { GitPick.REVERT to it }
+        commitOfRevision(root, "CHERRY_PICK_HEAD", cancellation = cancellation)?.let { GitPick.CHERRY_PICK to it }
+            ?: commitOfRevision(root, "REVERT_HEAD", cancellation = cancellation)?.let { GitPick.REVERT to it }
             ?: return Result.success(null)
-    val conflicts = unmergedPaths(root) ?: return unreadable
+    val conflicts = unmergedPaths(root, cancellation = cancellation) ?: return unreadable
     return Result.success(GitPendingPick(kind, commit, conflicts))
 }
 
@@ -164,10 +169,12 @@ private fun GitCli.sequenceOperation(todo: Path): GitOperation {
 internal fun GitCli.gitPaths(
     root: Path,
     names: List<String>,
+    cancellation: GitCancellation? = null,
 ): List<Path>? {
     if (!available) return null
     val arguments = listOf("--no-optional-locks", "rev-parse") + names.flatMap { listOf("--git-path", it) }
-    val lines = run(arguments, root, 3.seconds)?.lines()?.filter(String::isNotEmpty) ?: return null
+    val lines =
+        run(arguments, root, 3.seconds, cancellation = cancellation)?.lines()?.filter(String::isNotEmpty) ?: return null
     if (lines.size != names.size) return null
     return try {
         lines.map { root.resolve(it) }
@@ -180,9 +187,19 @@ internal fun GitCli.gitPaths(
  * The unmerged entries in the index of the repository at [root] (conflicts), one per stage, in the index's order:
  * `git ls-files -u -z`; `null` if git is not available, fails or takes longer than 10 s.
  */
-internal fun GitCli.unmergedEntries(root: Path): List<UnmergedEntry>? {
+internal fun GitCli.unmergedEntries(
+    root: Path,
+    cancellation: GitCancellation? = null,
+): List<UnmergedEntry>? {
     if (!available) return null
-    val output = run(listOf("--no-optional-locks", "ls-files", "--unmerged", "-z"), root, 10.seconds) ?: return null
+    val output =
+        run(
+            listOf("--no-optional-locks", "ls-files", "--unmerged", "-z"),
+            root,
+            10.seconds,
+            cancellation = cancellation,
+        )
+            ?: return null
     // <mode> <object> <stage>\t<path>
     return output.split('\u0000').filter { '\t' in it }.map { record ->
         val info = record.substringBefore('\t').split(' ')
@@ -192,7 +209,10 @@ internal fun GitCli.unmergedEntries(root: Path): List<UnmergedEntry>? {
 }
 
 /** The paths of the [unmergedEntries], relative to [root], each once; `null` on failure. */
-internal fun GitCli.unmergedPaths(root: Path): List<String>? = unmergedEntries(root)?.map { it.path }?.distinct()
+internal fun GitCli.unmergedPaths(
+    root: Path,
+    cancellation: GitCancellation? = null,
+): List<String>? = unmergedEntries(root, cancellation = cancellation)?.map { it.path }?.distinct()
 
 /**
  * The tracked paths of the repository at [root] whose file is missing from the working tree (deleted), also those

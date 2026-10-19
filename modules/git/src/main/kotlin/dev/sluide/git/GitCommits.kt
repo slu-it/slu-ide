@@ -65,7 +65,10 @@ class GitCommits(
     fun inProgress(root: Path): GitInProgress? = git.inProgress(root).getOrNull()
 
     /** The commit `HEAD` points at (a full hash); `null` if there is none or it cannot be read. */
-    fun headCommit(root: Path): String? = git.headCommit(root)
+    fun headCommit(
+        root: Path,
+        cancellation: GitCancellation? = null,
+    ): String? = git.headCommit(root, cancellation = cancellation)
 
     /**
      * What can be committed in the repository at [root] (ADR 0048): the tracked changes against `HEAD` (renames

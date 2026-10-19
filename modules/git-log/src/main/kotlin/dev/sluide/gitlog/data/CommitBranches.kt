@@ -1,5 +1,6 @@
 package dev.sluide.gitlog.data
 
+import dev.sluide.git.GitCancellation
 import javafx.beans.property.ReadOnlyObjectProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
 import java.nio.file.Path
@@ -29,14 +30,14 @@ internal sealed interface BranchesState {
 /**
  * The branches containing the commit whose details are shown (ADR 0045), without JavaFX controls: [show] reads them
  * with [load] on [background], separately from the details, and hands the result to [state] through [dispatch]; a
- * request superseded before it starts reads nothing, a result for a commit that is no longer shown is dropped (but kept
- * for later). Results are kept per commit until the
+ * request superseded before it starts reads nothing, a running one has its git stopped (ADR 0062), and a result for a
+ * commit that is no longer shown is dropped (but kept for later). Results are kept per commit until the
  * refs change ([refsChanged], which reads the shown commit's again) or another folder opens ([clear]). The names are
  * ordered with the current branch from [currentBranch]. Used on the JavaFX thread (or whatever [dispatch] stands for in
  * tests).
  */
 internal class CommitBranches(
-    private val load: (Path, String) -> List<String>?,
+    private val load: (Path, String, GitCancellation) -> List<String>?,
     private val background: (Runnable) -> Unit,
     private val dispatch: (Runnable) -> Unit,
 ) {
@@ -55,6 +56,9 @@ internal class CommitBranches(
     /** The current request; a result of an earlier one is not shown. */
     private val generation = AtomicLong()
 
+    /** Stops the git of the current request. */
+    private var cancellation: GitCancellation? = null
+
     /** Counts the clearings of the cache; a result read before one is not kept. */
     private var epoch = 0L
 
@@ -65,7 +69,7 @@ internal class CommitBranches(
     ) {
         if (root == null || hash == null) {
             shown = null
-            generation.incrementAndGet()
+            supersede()
             _state.set(BranchesState.None)
             return
         }
@@ -75,7 +79,7 @@ internal class CommitBranches(
         shown = root to hash
         val cached = cache[hash]
         if (cached != null) {
-            generation.incrementAndGet()
+            supersede()
             _state.set(read(hash, cached))
             return
         }
@@ -101,21 +105,31 @@ internal class CommitBranches(
     /** Drops the results of requests still going. */
     fun close() {
         shown = null
-        generation.incrementAndGet()
+        supersede()
+    }
+
+    /** A new request, or none: the results of older ones are not shown, their git is stopped. */
+    private fun supersede(): Long {
+        cancellation?.cancel()
+        cancellation = null
+        return generation.incrementAndGet()
     }
 
     private fun request(
         root: Path,
         hash: String,
     ) {
-        val current = generation.incrementAndGet()
+        val current = supersede()
+        val token = GitCancellation().also { cancellation = it }
         val readIn = epoch
         background {
             // Superseded before it started (e.g. stepping through the rows): nothing to read.
             if (generation.get() != current) return@background
-            val names = load(root, hash)
+            val names = load(root, hash, token)
             dispatch {
+                // Not what a stopped git left: an answer of null.
                 if (names != null && epoch == readIn) cache[hash] = names
+                if (token.cancelled) return@dispatch
                 if (generation.get() != current) return@dispatch
                 _state.set(names?.let { read(hash, it) } ?: BranchesState.Failed(hash))
             }

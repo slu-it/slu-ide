@@ -1,6 +1,7 @@
 package dev.sluide.gitlog
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
@@ -112,6 +113,7 @@ class GitLogCompareUiTest {
             filter: GitLogFilter,
             skip: Int,
             limit: Int,
+            cancellation: GitCancellation?,
         ): GitLogPage {
             filters += filter
             val listed =
@@ -140,23 +142,29 @@ class GitLogCompareUiTest {
         override fun hashMatch(
             root: Path,
             filter: GitLogFilter,
+            cancellation: GitCancellation?,
         ): GitCommit? = null
 
         override fun userName(root: Path): String? = null
 
         override fun paths(root: Path): List<GitTreePath> = emptyList()
 
-        override fun refs(root: Path) = refs
+        override fun refs(
+            root: Path,
+            cancellation: GitCancellation?,
+        ) = refs
 
         override fun details(
             root: Path,
             hash: String,
+            cancellation: GitCancellation?,
         ): GitCommitDetails? = null
 
         override fun changedFiles(
             root: Path,
             commit: String,
             firstParent: String?,
+            cancellation: GitCancellation?,
         ): List<GitChangedFile> = emptyList()
 
         override fun fileDiff(
@@ -164,12 +172,14 @@ class GitLogCompareUiTest {
             commit: String,
             firstParent: String?,
             file: GitChangedFile,
+            cancellation: GitCancellation?,
         ): GitFileDiff? = null
 
         override fun comparisonCounts(
             root: Path,
             revision: String,
             filter: GitLogFilter,
+            cancellation: GitCancellation?,
         ) = counts[revision]
 
         override fun workingTreeChanges(
@@ -191,7 +201,10 @@ class GitLogCompareUiTest {
 
         override fun commitChanges(root: Path): GitCommitChanges? = null
 
-        override fun headCommit(root: Path): String? = null
+        override fun headCommit(
+            root: Path,
+            cancellation: GitCancellation?,
+        ): String? = null
 
         override fun headMessage(root: Path): String? = null
     }

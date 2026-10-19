@@ -24,7 +24,8 @@ import dev.sluide.git.GitWorkingTreeChanges
 import java.nio.file.Path
 
 /**
- * Where the git log reads a repository from; [GitLog] in the application, a fake in tests. Called off the FX thread.
+ * Where the git log reads a repository from; [GitLog] in the application, a fake in tests. Called off the FX thread. A
+ * read given a [GitCancellation] stops its git when it is cancelled and answers `null` (ADR 0062).
  */
 internal interface GitLogSource {
     /** The commits that pass [filter] after the first [skip], at most [limit]; `null` on failure. */
@@ -33,12 +34,14 @@ internal interface GitLogSource {
         filter: GitLogFilter,
         skip: Int,
         limit: Int,
+        cancellation: GitCancellation? = null,
     ): GitLogPage?
 
     /** The commit the text of [filter] names as a hash, if it passes the filter's users, paths and no merges. */
     fun hashMatch(
         root: Path,
         filter: GitLogFilter,
+        cancellation: GitCancellation? = null,
     ): GitCommit?
 
     /** The `user.name` of the repository; `null` if it is not set or on failure. */
@@ -48,18 +51,28 @@ internal interface GitLogSource {
     fun paths(root: Path): List<GitTreePath>?
 
     /** The refs of the repository; `null` on failure. */
-    fun refs(root: Path): GitRefs?
+    fun refs(
+        root: Path,
+        cancellation: GitCancellation? = null,
+    ): GitRefs?
 
     /** What git is in the middle of (a cherry-pick or revert, a merge…); `null` if nothing or on failure. */
-    fun pending(root: Path): GitInProgress? = null
+    fun pending(
+        root: Path,
+        cancellation: GitCancellation? = null,
+    ): GitInProgress? = null
 
     /** The names of all remotes (`git remote`, ADR 0043); `null` on failure (or if not known). */
-    fun remotes(root: Path): List<String>? = null
+    fun remotes(
+        root: Path,
+        cancellation: GitCancellation? = null,
+    ): List<String>? = null
 
     /** The details of the commit [hash]; `null` on failure. */
     fun details(
         root: Path,
         hash: String,
+        cancellation: GitCancellation? = null,
     ): GitCommitDetails?
 
     /**
@@ -69,12 +82,14 @@ internal interface GitLogSource {
     fun branchesContaining(
         root: Path,
         hash: String,
+        cancellation: GitCancellation? = null,
     ): List<String>? = null
 
     /** What each of [revisions] names, a commit or not (ADR 0045); `null` on failure (or if not known). */
     fun resolveCommits(
         root: Path,
         revisions: List<String>,
+        cancellation: GitCancellation? = null,
     ): List<GitRevisionResolution>? = null
 
     /** The files [commit] changed against [firstParent] (against nothing if `null`); `null` on failure. */
@@ -82,6 +97,7 @@ internal interface GitLogSource {
         root: Path,
         commit: String,
         firstParent: String?,
+        cancellation: GitCancellation? = null,
     ): List<GitChangedFile>?
 
     /** What [commit] changed in [file] against [firstParent]; `null` on failure. */
@@ -90,6 +106,7 @@ internal interface GitLogSource {
         commit: String,
         firstParent: String?,
         file: GitChangedFile,
+        cancellation: GitCancellation? = null,
     ): GitFileDiff?
 
     /**
@@ -100,6 +117,7 @@ internal interface GitLogSource {
         root: Path,
         revision: String,
         filter: GitLogFilter,
+        cancellation: GitCancellation? = null,
     ): GitComparisonCounts? = null
 
     /** The tracked files that differ between the commit [revision] names and the working tree; `null` on failure. */
@@ -136,7 +154,10 @@ internal interface GitLogSource {
     fun commitChanges(root: Path): GitCommitChanges?
 
     /** The commit `HEAD` points at (a full hash); `null` if there is none or on failure. */
-    fun headCommit(root: Path): String?
+    fun headCommit(
+        root: Path,
+        cancellation: GitCancellation? = null,
+    ): String?
 
     /** The full message of `HEAD`, for Amend (ADR 0048); `null` if there is no commit or on failure. */
     fun headMessage(root: Path): String?
@@ -148,6 +169,7 @@ internal interface GitLogSource {
     fun pushTarget(
         root: Path,
         branch: String,
+        cancellation: GitCancellation? = null,
     ): GitPushTarget? = null
 
     /** The full refname of the remote-tracking ref of the [branch] of [remote] (ADR 0049), whether it exists or not. */
@@ -155,6 +177,7 @@ internal interface GitLogSource {
         root: Path,
         remote: String,
         branch: String,
+        cancellation: GitCancellation? = null,
     ): String = "refs/remotes/$remote/$branch"
 
     /**
@@ -166,6 +189,7 @@ internal interface GitLogSource {
         remote: String,
         branch: String,
         limit: Int,
+        cancellation: GitCancellation? = null,
     ): GitOutgoing? = null
 }
 
@@ -181,56 +205,73 @@ internal class GitLogCliSource(
         filter: GitLogFilter,
         skip: Int,
         limit: Int,
-    ) = gitLog.commits(root, filter, skip, limit)
+        cancellation: GitCancellation?,
+    ) = gitLog.commits(root, filter, skip, limit, cancellation = cancellation)
 
     override fun hashMatch(
         root: Path,
         filter: GitLogFilter,
-    ) = gitLog.hashMatch(root, filter)
+        cancellation: GitCancellation?,
+    ) = gitLog.hashMatch(root, filter, cancellation = cancellation)
 
     override fun userName(root: Path) = gitLog.userName(root)
 
     override fun paths(root: Path) = gitLog.paths(root)
 
-    override fun refs(root: Path) = gitLog.refs(root)
+    override fun refs(
+        root: Path,
+        cancellation: GitCancellation?,
+    ) = gitLog.refs(root, cancellation = cancellation)
 
-    override fun pending(root: Path) = gitLog.inProgress(root)
+    override fun pending(
+        root: Path,
+        cancellation: GitCancellation?,
+    ) = gitLog.inProgress(root, cancellation = cancellation)
 
-    override fun remotes(root: Path) = gitRemotes.names(root)
+    override fun remotes(
+        root: Path,
+        cancellation: GitCancellation?,
+    ) = gitRemotes.names(root, cancellation = cancellation)
 
     override fun details(
         root: Path,
         hash: String,
-    ) = gitLog.details(root, hash)
+        cancellation: GitCancellation?,
+    ) = gitLog.details(root, hash, cancellation = cancellation)
 
     override fun branchesContaining(
         root: Path,
         hash: String,
-    ) = gitLog.branchesContaining(root, hash)
+        cancellation: GitCancellation?,
+    ) = gitLog.branchesContaining(root, hash, cancellation = cancellation)
 
     override fun resolveCommits(
         root: Path,
         revisions: List<String>,
-    ) = gitLog.resolveCommits(root, revisions)
+        cancellation: GitCancellation?,
+    ) = gitLog.resolveCommits(root, revisions, cancellation = cancellation)
 
     override fun changedFiles(
         root: Path,
         commit: String,
         firstParent: String?,
-    ) = gitLog.changedFiles(root, commit, firstParent)
+        cancellation: GitCancellation?,
+    ) = gitLog.changedFiles(root, commit, firstParent, cancellation = cancellation)
 
     override fun fileDiff(
         root: Path,
         commit: String,
         firstParent: String?,
         file: GitChangedFile,
-    ) = gitLog.fileDiff(root, commit, firstParent, file)
+        cancellation: GitCancellation?,
+    ) = gitLog.fileDiff(root, commit, firstParent, file, cancellation = cancellation)
 
     override fun comparisonCounts(
         root: Path,
         revision: String,
         filter: GitLogFilter,
-    ) = gitLog.comparisonCounts(root, revision, filter)
+        cancellation: GitCancellation?,
+    ) = gitLog.comparisonCounts(root, revision, filter, cancellation = cancellation)
 
     override fun workingTreeChanges(
         root: Path,
@@ -254,25 +295,31 @@ internal class GitLogCliSource(
 
     override fun commitChanges(root: Path) = gitCommits.commitChanges(root)
 
-    override fun headCommit(root: Path) = gitCommits.headCommit(root)
+    override fun headCommit(
+        root: Path,
+        cancellation: GitCancellation?,
+    ) = gitCommits.headCommit(root, cancellation = cancellation)
 
     override fun headMessage(root: Path) = gitCommits.headMessage(root)
 
     override fun pushTarget(
         root: Path,
         branch: String,
-    ) = gitPush.pushTarget(root, branch)
+        cancellation: GitCancellation?,
+    ) = gitPush.pushTarget(root, branch, cancellation = cancellation)
 
     override fun trackingRef(
         root: Path,
         remote: String,
         branch: String,
-    ) = gitPush.trackingRef(root, remote, branch)
+        cancellation: GitCancellation?,
+    ) = gitPush.trackingRef(root, remote, branch, cancellation = cancellation)
 
     override fun outgoing(
         root: Path,
         remote: String,
         branch: String,
         limit: Int,
-    ) = gitPush.outgoing(root, remote, branch, limit)
+        cancellation: GitCancellation?,
+    ) = gitPush.outgoing(root, remote, branch, limit, cancellation = cancellation)
 }

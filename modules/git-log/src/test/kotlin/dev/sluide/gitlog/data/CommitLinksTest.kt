@@ -37,11 +37,11 @@ class CommitLinksTest {
         val row = GitLogRow(commit, GraphLayout().next("h", emptyList()))
         val details =
             CommitDetails(
-                { _, _ -> GitCommitDetails(commit, "A", "a@example.com", Instant.EPOCH, message) },
-                { _, _ -> emptyList() },
+                { _, _, _ -> GitCommitDetails(commit, "A", "a@example.com", Instant.EPOCH, message) },
+                { _, _, _ -> emptyList() },
                 background::addLast,
                 dispatched::addLast,
-                { root, revisions ->
+                { root, revisions, _ ->
                     assertEquals(repo, root)
                     asked += revisions
                     revisions.map { revision ->

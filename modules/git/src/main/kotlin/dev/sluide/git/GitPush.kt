@@ -41,13 +41,14 @@ class GitPush(
     fun pushTarget(
         root: Path,
         branch: String,
+        cancellation: GitCancellation? = null,
     ): GitPushTarget? {
-        val names = git.remoteNames(root)?.takeIf { it.isNotEmpty() } ?: return null
-        val pushRemote = lastSetting(root, "branch.$branch.pushRemote")
-        val pushDefault = lastSetting(root, "remote.pushDefault")
-        val configuredRemote = lastSetting(root, "branch.$branch.remote")
-        val merge = lastSetting(root, "branch.$branch.merge")
-        val mode = lastSetting(root, "push.default")
+        val names = git.remoteNames(root, cancellation = cancellation)?.takeIf { it.isNotEmpty() } ?: return null
+        val pushRemote = lastSetting(root, "branch.$branch.pushRemote", cancellation = cancellation)
+        val pushDefault = lastSetting(root, "remote.pushDefault", cancellation = cancellation)
+        val configuredRemote = lastSetting(root, "branch.$branch.remote", cancellation = cancellation)
+        val merge = lastSetting(root, "branch.$branch.merge", cancellation = cancellation)
+        val mode = lastSetting(root, "push.default", cancellation = cancellation)
         if (pushRemote == null || pushDefault == null || configuredRemote == null || merge == null || mode == null) {
             return null
         }
@@ -73,7 +74,11 @@ class GitPush(
     private fun lastSetting(
         root: Path,
         key: String,
-    ): Setting? = git.configValues(root, key)?.let { Setting(it.lastOrNull(String::isNotEmpty)) }
+        cancellation: GitCancellation? = null,
+    ): Setting? =
+        git.configValues(root, key, cancellation = cancellation)?.let {
+            Setting(it.lastOrNull(String::isNotEmpty))
+        }
 
     private data class Setting(
         val value: String?,
@@ -88,9 +93,10 @@ class GitPush(
         root: Path,
         remote: String,
         branch: String,
+        cancellation: GitCancellation? = null,
     ): String {
         val source = HEADS + branch
-        val refspecs = git.configValues(root, "remote.$remote.fetch").orEmpty()
+        val refspecs = git.configValues(root, "remote.$remote.fetch", cancellation = cancellation).orEmpty()
         return refspecs.firstNotNullOfOrNull { mapped(it, source) } ?: "refs/remotes/$remote/$branch"
     }
 
@@ -105,14 +111,21 @@ class GitPush(
         remote: String,
         branch: String,
         limit: Int = 1000,
+        cancellation: GitCancellation? = null,
     ): GitOutgoing? {
         require(limit > 0) { "limit must be positive: $limit" }
         if (refusal(remote) != null || refusal(branch) != null) return null
-        if (git.headCommit(root) == null) return null
-        val ref = trackingRef(root, remote, branch)
-        val remoteCommit = git.refTips(root, listOf(ref.substringBeforeLast('/') + "/"))?.get(ref)
+        if (git.headCommit(root, cancellation = cancellation) == null) return null
+        val ref = trackingRef(root, remote, branch, cancellation = cancellation)
+        val remoteCommit =
+            git
+                .refTips(
+                    root,
+                    listOf(ref.substringBeforeLast('/') + "/"),
+                    cancellation = cancellation,
+                )?.get(ref)
         val tracked = remoteCommit != null
-        val destinations = destinations(root, remote)
+        val destinations = destinations(root, remote, cancellation = cancellation)
         val globs = if (tracked) emptyList() else destinations.map(::glob)
         val filter =
             GitLogFilter(
@@ -120,10 +133,18 @@ class GitPush(
                 excluded = if (tracked) listOf(ref) else emptyList(),
                 order = GitLogOrder.TOPOLOGICAL,
             )
-        val listed = git.log(root, filter, 0, limit + 1, globs)?.let(GitLogParser::parse) ?: return null
+        val listed =
+            git.log(root, filter, 0, limit + 1, globs, cancellation = cancellation)?.let(GitLogParser::parse)
+                ?: return null
         val commits = listed.take(limit)
         val more = listed.size > limit
-        val behind = if (tracked) git.comparisonCounts(root, "HEAD", ref)?.second ?: return null else 0
+        val behind =
+            if (tracked) {
+                git.comparisonCounts(root, "HEAD", ref, cancellation = cancellation)?.second
+                    ?: return null
+            } else {
+                0
+            }
         val base =
             when {
                 commits.isEmpty() -> {
@@ -131,7 +152,7 @@ class GitPush(
                 }
 
                 tracked -> {
-                    git.mergeBase(root, "HEAD", ref)
+                    git.mergeBase(root, "HEAD", ref, cancellation = cancellation)
                 }
 
                 else -> {
@@ -140,6 +161,7 @@ class GitPush(
                         destinations,
                         globs,
                         if (more) null else commits.last(),
+                        cancellation = cancellation,
                     ).getOrElse { return null }
                 }
             }
@@ -156,13 +178,14 @@ class GitPush(
         destinations: List<RefspecDestination>,
         globs: List<String>,
         last: GitCommit?,
+        cancellation: GitCancellation? = null,
     ): Result<String?> {
         val unreadable = Result.failure<String?>(IllegalStateException("git could not be read"))
         val folders = destinations.map { it.prefix.substringBeforeLast('/') + "/" }.distinct()
-        val tips = git.refTips(root, folders) ?: return unreadable
+        val tips = git.refTips(root, folders, cancellation = cancellation) ?: return unreadable
         if (tips.keys.none { name -> destinations.any { it.matches(name) } }) return Result.success(null)
         if (last != null) return Result.success(last.parents.firstOrNull())
-        val oldest = git.lastOutgoing(root, globs) ?: return unreadable
+        val oldest = git.lastOutgoing(root, globs, cancellation = cancellation) ?: return unreadable
         return Result.success(oldest.getOrNull(1))
     }
 
@@ -170,9 +193,10 @@ class GitPush(
     private fun destinations(
         root: Path,
         remote: String,
+        cancellation: GitCancellation? = null,
     ): List<RefspecDestination> =
         git
-            .configValues(root, "remote.$remote.fetch")
+            .configValues(root, "remote.$remote.fetch", cancellation)
             .orEmpty()
             .let(::refspecDestinations)
             .ifEmpty { listOf(RefspecDestination("refs/remotes/$remote/", glob = true)) }

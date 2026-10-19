@@ -22,6 +22,7 @@ internal fun GitCli.log(
     skip: Int,
     limit: Int,
     excludedGlobs: List<String> = emptyList(),
+    cancellation: GitCancellation? = null,
 ): String? {
     if (!available) return null
     // Revisions and paths go to git's standard input, so they reach it as UTF-8 whatever the JVM's locale.
@@ -52,7 +53,15 @@ internal fun GitCli.log(
             // HEAD is a revision, even if a file of that name exists.
             add("--")
         }
-    return runBytes(arguments, root, 10.seconds, input.takeIf { it.isNotEmpty() })?.toString(Charsets.UTF_8)
+    return runBytes(
+        arguments,
+        root,
+        10.seconds,
+        input.takeIf {
+            it.isNotEmpty()
+        },
+        cancellation = cancellation,
+    )?.toString(Charsets.UTF_8)
 }
 
 /**
@@ -64,6 +73,7 @@ internal fun GitCli.logCommit(
     root: Path,
     hash: String,
     filter: GitLogFilter,
+    cancellation: GitCancellation? = null,
 ): String? {
     if (!available) return null
     val input = logInput(emptyList(), filter.paths) ?: return null
@@ -79,7 +89,15 @@ internal fun GitCli.logCommit(
             addAll(listOf(hash, "^$hash^@"))
             add("--")
         }
-    return runBytes(arguments, root, 10.seconds, input.takeIf { it.isNotEmpty() })?.toString(Charsets.UTF_8)
+    return runBytes(
+        arguments,
+        root,
+        10.seconds,
+        input.takeIf {
+            it.isNotEmpty()
+        },
+        cancellation = cancellation,
+    )?.toString(Charsets.UTF_8)
 }
 
 /**
@@ -128,6 +146,7 @@ internal fun GitCli.comparisonCounts(
     left: String,
     right: String,
     filter: GitLogFilter = GitLogFilter(),
+    cancellation: GitCancellation? = null,
 ): Pair<Int, Int>? {
     if (!available) return null
     val input = logInput(listOf("$left...$right"), filter.paths) ?: return null
@@ -136,7 +155,9 @@ internal fun GitCli.comparisonCounts(
             listOf("log", "--left-right") +
             limitingOptions(filter) +
             listOf("--use-mailmap", "--no-color", "--format=%m", "--stdin", "--")
-    val marks = runBytes(arguments, root, 10.seconds, input)?.toString(Charsets.UTF_8) ?: return null
+    val marks =
+        runBytes(arguments, root, 10.seconds, input, cancellation = cancellation)?.toString(Charsets.UTF_8)
+            ?: return null
     return marks.count { it == '<' } to marks.count { it == '>' }
 }
 

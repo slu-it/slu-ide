@@ -216,6 +216,7 @@ abstract class GitLogViewUiFixture {
                     filter: GitLogFilter,
                     skip: Int,
                     limit: Int,
+                    cancellation: GitCancellation?,
                 ): GitLogPage? {
                     if (!gate.passed()) return null
                     loads += skip to limit
@@ -230,6 +231,7 @@ abstract class GitLogViewUiFixture {
                 override fun hashMatch(
                     root: Path,
                     filter: GitLogFilter,
+                    cancellation: GitCancellation?,
                 ) = hashMatchOf(filter)
 
                 override fun userName(root: Path): String? {
@@ -244,11 +246,15 @@ abstract class GitLogViewUiFixture {
                     return if (root == repo) treePaths else emptyList()
                 }
 
-                override fun refs(root: Path) = if (root == repo) refs else null
+                override fun refs(
+                    root: Path,
+                    cancellation: GitCancellation?,
+                ) = if (root == repo) refs else null
 
                 override fun details(
                     root: Path,
                     hash: String,
+                    cancellation: GitCancellation?,
                 ): GitCommitDetails? {
                     if (!detailGates[hash].passed()) return null
                     detailLoads += hash
@@ -258,6 +264,7 @@ abstract class GitLogViewUiFixture {
                 override fun branchesContaining(
                     root: Path,
                     hash: String,
+                    cancellation: GitCancellation?,
                 ): List<String>? {
                     if (!branchGates[hash].passed()) return null
                     branchLoads += hash
@@ -267,6 +274,7 @@ abstract class GitLogViewUiFixture {
                 override fun resolveCommits(
                     root: Path,
                     revisions: List<String>,
+                    cancellation: GitCancellation?,
                 ): List<GitRevisionResolution>? {
                     if (!resolveGate.passed()) return null
                     resolveLoads += revisions
@@ -277,6 +285,7 @@ abstract class GitLogViewUiFixture {
                     root: Path,
                     commit: String,
                     firstParent: String?,
+                    cancellation: GitCancellation?,
                 ): List<GitChangedFile>? {
                     if (!fileGates[commit].passed()) return null
                     fileLoads += commit to firstParent
@@ -288,6 +297,7 @@ abstract class GitLogViewUiFixture {
                     commit: String,
                     firstParent: String?,
                     file: GitChangedFile,
+                    cancellation: GitCancellation?,
                 ): GitFileDiff? {
                     if (!diffGate.passed()) return null
                     diffLoads += Triple(commit, firstParent, file.path)
@@ -321,7 +331,10 @@ abstract class GitLogViewUiFixture {
 
                 override fun commitChanges(root: Path): GitCommitChanges? = null
 
-                override fun headCommit(root: Path): String? = null
+                override fun headCommit(
+                    root: Path,
+                    cancellation: GitCancellation?,
+                ): String? = null
 
                 override fun headMessage(root: Path): String? = null
             }

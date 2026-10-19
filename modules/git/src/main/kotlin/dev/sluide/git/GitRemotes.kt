@@ -27,7 +27,10 @@ class GitRemotes(
     private val git: GitCli,
 ) {
     /** The names of all remotes of the repository at [root] (`git remote`), in git's order; `null` if git fails. */
-    fun names(root: Path): List<String>? = git.remoteNames(root)
+    fun names(
+        root: Path,
+        cancellation: GitCancellation? = null,
+    ): List<String>? = git.remoteNames(root, cancellation = cancellation)
 
     /**
      * The remotes of the repository at [root] that fetching all of them fetches, in git's order: all but those with
