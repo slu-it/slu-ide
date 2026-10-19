@@ -174,10 +174,18 @@ class GitLogView internal constructor(
     var onOpenFile: (Path) -> Unit = {}
 
     /**
-     * Called after every operation, also a failed one, to read the log again; the window first lets the folder's trust
-     * check what the operation may have made git run (ADR 0053), and refreshes the log after that.
+     * Told before an operation runs git, with whether it holds the git status (it changes or commits files); the window
+     * lets its status wait for the operation's end (ADR 0062).
      */
-    var afterWrite: () -> Unit = { refresh() }
+    var onWriteStarted: (holdsStatus: Boolean) -> Unit = {}
+
+    /**
+     * Told after every operation, also a failed one (which may have done a part), to read the log again: new and
+     * renamed branches alone are not noticed by the watch of `.git` (ADR 0041). The window lets the folder's trust check
+     * what the operation may have made git run (ADR 0053) and its status count the change, on which it refreshes the
+     * log once (ADR 0062); by default the log refreshes itself.
+     */
+    var onWriteFinished: () -> Unit = { refresh() }
 
     /**
      * Shows how a file differs between a commit and the working tree, e.g. side by side in an editor tab with the live
@@ -232,7 +240,8 @@ class GitLogView internal constructor(
             tasks,
         ).apply {
             beforeFileChange = { action -> this@GitLogView.beforeFileChange(action) }
-            afterWrite = { this@GitLogView.afterWrite() }
+            onWriteStarted = { holdsStatus -> this@GitLogView.onWriteStarted(holdsStatus) }
+            onWriteFinished = { this@GitLogView.onWriteFinished() }
             openFile = { file -> onOpenFile(file) }
         }
 

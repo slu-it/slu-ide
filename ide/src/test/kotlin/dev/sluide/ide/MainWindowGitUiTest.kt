@@ -34,6 +34,10 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.logging.Handler
+import java.util.logging.LogRecord
+import java.util.logging.Logger
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
 import kotlin.io.path.name
@@ -359,6 +363,72 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
                 .sorted(),
         )
         eventually(robot) { assertEquals(listOf("Rename", "Initial commit"), shownSubjects(robot)) }
+    }
+
+    @Test
+    fun `a write of the git log reloads it once, also with the watch's batch of the write`(robot: FxRobot) {
+        assumeTrue(git.available, "git is not installed")
+        runGit("init", "-q")
+        runGit(
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.com",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "One",
+        )
+        // Every first page of the log, as git's own log line says (ADR 0060); a JUL logger is held weakly.
+        val gitLogger = Logger.getLogger("dev.sluide.git.cli.GitCli")
+        val pages = AtomicInteger()
+        val counting =
+            object : Handler() {
+                override fun publish(record: LogRecord) {
+                    if (" log --branches --remotes --tags " in record.message.orEmpty()) pages.incrementAndGet()
+                }
+
+                override fun flush() {}
+
+                override fun close() {}
+            }
+        gitLogger.addHandler(counting)
+        try {
+            robot.interact {
+                projectService.open(project)
+                gitLogView.expanded.set(true)
+            }
+            eventually(robot) { assertEquals(listOf("One"), shownSubjects(robot)) }
+            // The first change after opening checks the trust again; then the window is settled.
+            Thread.sleep(500)
+            WaitForAsyncUtils.waitForFxEvents()
+            val before = pages.get()
+
+            // As the log's operations do: start, git writes (also directly in .git, which the watch sees), end.
+            robot.interact { gitLogView.onWriteStarted(true) }
+            runGit(
+                "-c",
+                "user.name=Test",
+                "-c",
+                "user.email=test@example.com",
+                "commit",
+                "-q",
+                "--allow-empty",
+                "-m",
+                "Two",
+            )
+            Thread.sleep(300)
+            robot.interact { gitLogView.onWriteFinished() }
+
+            eventually(robot) { assertEquals(listOf("Two", "One"), shownSubjects(robot)) }
+            // Long enough for a late batch of the watch (50 ms quiet period) and the cycle it would run.
+            Thread.sleep(1500)
+            WaitForAsyncUtils.waitForFxEvents()
+            assertEquals(before + 1, pages.get(), "one reload for the write")
+        } finally {
+            gitLogger.removeHandler(counting)
+        }
     }
 
     @Test

@@ -3,23 +3,31 @@ package dev.sluide.gitlog.operations
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.git.GitFetchChanges
 import dev.sluide.git.GitFetchResult
+import dev.sluide.git.GitResetMode
 import dev.sluide.git.GitResult
 import dev.sluide.gitlog.data.FakeWrites
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** The background tasks of a [RefWriter] (ADR 0061). */
+/** The background tasks of a [RefWriter] (ADR 0061) and what it tells about its writes (ADR 0062). */
 class RefWriterTest {
     private val root = Path.of("/repo")
     private val lines = CopyOnWriteArrayList<String>()
     private val tasks = BackgroundTasks.forTests(lines::add)
     private val background = mutableListOf<Runnable>()
     private val writes = FakeWrites()
-    private val writer = RefWriter(writes, background::add, Runnable::run, tasks)
+
+    /** What the writer told about its writes' start and end, with what it handled, in order. */
+    private val signals = mutableListOf<String>()
+    private val writer =
+        RefWriter(writes, background::add, Runnable::run, tasks, { signals += "started holding $it" }) {
+            signals += "finished"
+        }
     private val outcomes = mutableListOf<RefOutcome>()
 
     /** The lines without the task numbers and durations. */
@@ -132,5 +140,66 @@ class RefWriterTest {
             listOf("task started: Fetching origin…", "task cancelled", "task finished in: Fetching origin…"),
             lines(),
         )
+    }
+
+    @Test
+    fun `a write's start is told before git runs and its end before its outcome`() {
+        writer.run(root, CheckoutBranch("main")) { signals += "outcome" }
+        assertEquals(listOf("started holding true"), signals, "before its thread runs")
+        background.single().run()
+
+        assertEquals(listOf("started holding true", "finished", "outcome"), signals)
+    }
+
+    @Test
+    fun `a fetch, a push and a change of refs only do not hold the status, a commit does`() {
+        writer.run(root, Fetch("origin"), {}, outcomes::add)
+        background.removeFirst().run()
+        writer.run(root, CreateTag("v1", "abc", ""), outcomes::add)
+        background.removeFirst().run()
+
+        assertEquals(listOf("started holding false", "finished", "started holding false", "finished"), signals)
+        assertTrue(CommitChanges("Message", emptyList(), emptyList(), amend = false).holdsStatus)
+        assertTrue(ResetBranch("abc", GitResetMode.HARD, "main").holdsStatus)
+        assertFalse(ResetBranch("abc", GitResetMode.SOFT, "main").holdsStatus)
+    }
+
+    @Test
+    fun `a write that throws still tells its end`() {
+        writes.result = { throw IllegalStateException("broken") }
+        writer.run(root, CheckoutBranch("main"), outcomes::add)
+        background.removeFirst().run()
+
+        writes.result = { throw OutOfMemoryError("gone") }
+        writer.run(root, CheckoutBranch("main"), outcomes::add)
+        assertFailsWith<OutOfMemoryError> { background.removeFirst().run() }
+
+        assertEquals(listOf("started holding true", "finished", "started holding true", "finished"), signals)
+        assertFalse(writer.running.get(), "a later write may run")
+        assertEquals(1, outcomes.size, "no outcome of the write that threw")
+    }
+
+    @Test
+    fun `a write whose outcome is dropped still tells its end`() {
+        writer.run(root, CheckoutBranch("main"), outcomes::add)
+        writer.forget()
+        background.single().run()
+
+        assertEquals(listOf("started holding true", "finished"), signals)
+        assertTrue(outcomes.isEmpty())
+    }
+
+    @Test
+    fun `a write that cannot start tells its end at once`() {
+        val closed =
+            RefWriter(writes, { throw java.util.concurrent.RejectedExecutionException() }, Runnable::run, tasks, {
+                signals += "started holding $it"
+            }) { signals += "finished" }
+
+        assertFailsWith<java.util.concurrent.RejectedExecutionException> {
+            closed.run(root, CheckoutBranch("main"), outcomes::add)
+        }
+
+        assertEquals(listOf("started holding true", "finished"), signals)
     }
 }

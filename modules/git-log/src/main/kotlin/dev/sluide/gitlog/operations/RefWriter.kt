@@ -19,12 +19,18 @@ import java.util.concurrent.atomic.AtomicLong
  *
  * Each run is a task of [tasks] (ADR 0061), started on [background], named by what the header says it does and renamed
  * with its progress, with ✕ if it can be cancelled. It ends as finished, failed (git's message) or cancelled.
+ *
+ * Each run tells [writeStarted] before git runs, with whether it [holds the status][RefOperation.holdsStatus], and
+ * [writeFinished] through [dispatch] once it ended, whatever happened (also when its outcome is dropped or it threw),
+ * before its outcome is handled (ADR 0062).
  */
 internal class RefWriter(
     private val writes: GitLogWrites,
     private val background: (Runnable) -> Unit,
     private val dispatch: (Runnable) -> Unit,
     private val tasks: BackgroundTasks,
+    private val writeStarted: (holdsStatus: Boolean) -> Unit = {},
+    private val writeFinished: () -> Unit = {},
 ) {
     private val _running = ReadOnlyBooleanWrapper(false)
     val running: ReadOnlyBooleanProperty = _running.readOnlyProperty
@@ -65,41 +71,24 @@ internal class RefWriter(
             cancellation = token
             _cancellable.set(true)
         }
+        writeStarted(operation.holdsStatus)
         try {
             background {
-                // Its ✕ cancels this run only; on the FX thread, as cancel().
-                val cancel = if (operation.cancellable) ({ if (cancellation === token) cancel() }) else null
-                val task = tasks.start(operation.progress, cancel).also { this@RefWriter.task = it }
-                val context =
-                    RunContext(token) { text ->
-                        task.rename(text)
-                        dispatch { if (generation.get() == current) progress(text) }
+                var outcome: RefOutcome? = null
+                try {
+                    outcome = write(root, operation, current, token, progress)
+                } finally {
+                    // Also after a throw: the status must not wait for this write forever.
+                    val ended = outcome
+                    dispatch {
+                        _running.set(false)
+                        if (cancellation === token) {
+                            cancellation = null
+                            _cancellable.set(false)
+                        }
+                        writeFinished()
+                        if (ended != null && generation.get() == current) done(ended)
                     }
-                val outcome =
-                    try {
-                        operation.run(writes, root, context)
-                    } catch (e: RuntimeException) {
-                        task.failed(e)
-                        RefOutcome(GitResult(false, e.message ?: e.toString()), null)
-                    } catch (t: Throwable) {
-                        task.failed(t)
-                        throw t
-                    } finally {
-                        this@RefWriter.task = null
-                    }
-                // By what the operation says: a Cancel after it was done does not make it cancelled.
-                when {
-                    outcome.cancelled -> task.failed(CancellationException("Cancelled"))
-                    !outcome.result.success -> task.failed(outcome.result.message.ifBlank { operation.failure })
-                    else -> task.close()
-                }
-                dispatch {
-                    _running.set(false)
-                    if (cancellation === token) {
-                        cancellation = null
-                        _cancellable.set(false)
-                    }
-                    if (generation.get() == current) done(outcome)
                 }
             }
         } catch (e: RuntimeException) {
@@ -107,9 +96,47 @@ internal class RefWriter(
             _running.set(false)
             cancellation = null
             _cancellable.set(false)
+            writeFinished()
             throw e
         }
         return true
+    }
+
+    /** Runs [operation] as a task on the calling thread (`background`); a failure of its own is an outcome. */
+    private fun write(
+        root: Path,
+        operation: RefOperation,
+        current: Long,
+        token: GitCancellation,
+        progress: (String) -> Unit,
+    ): RefOutcome {
+        // Its ✕ cancels this run only; on the FX thread, as cancel().
+        val cancel = if (operation.cancellable) ({ if (cancellation === token) cancel() }) else null
+        val task = tasks.start(operation.progress, cancel).also { this@RefWriter.task = it }
+        val context =
+            RunContext(token) { text ->
+                task.rename(text)
+                dispatch { if (generation.get() == current) progress(text) }
+            }
+        val outcome =
+            try {
+                operation.run(writes, root, context)
+            } catch (e: RuntimeException) {
+                task.failed(e)
+                RefOutcome(GitResult(false, e.message ?: e.toString()), null)
+            } catch (t: Throwable) {
+                task.failed(t)
+                throw t
+            } finally {
+                this@RefWriter.task = null
+            }
+        // By what the operation says: a Cancel after it was done does not make it cancelled.
+        when {
+            outcome.cancelled -> task.failed(CancellationException("Cancelled"))
+            !outcome.result.success -> task.failed(outcome.result.message.ifBlank { operation.failure })
+            else -> task.close()
+        }
+        return outcome
     }
 
     /**

@@ -250,8 +250,10 @@ class MainWindow(
         // The git log follows the repository's .git folder (commits, checkouts, fetches); collapsed, it only notes that
         // it is outdated (ADR 0035).
         gitStatus.gitFolderChanged.addListener { _, _, _ -> gitLogView.refresh() }
-        // After its own operations too, once git's trust check ran again on what they may have changed (ADR 0053).
-        gitLogView.afterWrite = gitStatus::gitChanged
+        // Its own operations hold the status while they run and count as one change at their end, once git's trust
+        // check ran again on what they may have changed (ADRs 0053, 0062): the log reloads once per operation.
+        gitLogView.onWriteStarted = gitStatus::writeStarted
+        gitLogView.onWriteFinished = gitStatus::writeFinished
         gitLogView.expanded.addListener { _, _, expanded ->
             // Only a height it was laid out with while expanded (its content is already gone, so its minimum height is
             // the header's).

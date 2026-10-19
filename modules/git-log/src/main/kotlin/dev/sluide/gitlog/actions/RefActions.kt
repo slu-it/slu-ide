@@ -76,8 +76,11 @@ internal class RefActions(
     /** Asked before an operation changes files on disk, with its action; `false` cancels it. Set by the view. */
     var beforeFileChange: (action: String) -> Boolean = { true }
 
-    /** Called after every operation, also a failed one, to read the log again; set by the view. */
-    var afterWrite: () -> Unit = {}
+    /** Told before an operation runs git, with whether it holds the git status (ADR 0062); set by the view. */
+    var onWriteStarted: (holdsStatus: Boolean) -> Unit = {}
+
+    /** Told after every operation, also a failed one, to read the log again (ADR 0041, 0062); set by the view. */
+    var onWriteFinished: () -> Unit = {}
 
     /** Called with a commit that was made (ADR 0048), which ends the Commit tab's draft; set by the view. */
     var committed: (CommitChanges) -> Unit = {}
@@ -89,7 +92,8 @@ internal class RefActions(
         NamedThreads.single("sluide-git-write")
 
     /** Runs the operations that change the repository, one at a time (ADR 0041), each as a task of [tasks]. */
-    private val writer = RefWriter(writes, writeExecutor::execute, dispatch, tasks)
+    private val writer =
+        RefWriter(writes, writeExecutor::execute, dispatch, tasks, { onWriteStarted(it) }, { onWriteFinished() })
 
     /** Whether an operation runs, so that no other is offered. */
     val running: ReadOnlyBooleanProperty = writer.running
@@ -213,9 +217,6 @@ internal class RefActions(
             committed(operation)
             if (operation.push) showPush()
         }
-        // Also after a failure, which may have done a part. New and renamed branches alone are not noticed by the
-        // watch of .git (ADR 0035).
-        afterWrite()
         if (!outcome.result.success) {
             // Done all the same (a failing post-checkout hook): the header says what was done.
             val header = outcome.done?.takeIf { outcome.result.changed } ?: outcome.failure ?: operation.failure

@@ -19,9 +19,13 @@ import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.RejectedExecutionException
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
 
 private val log = System.getLogger(GitStatusService::class.java.name)
 
@@ -33,10 +37,18 @@ internal object GitStatusLog {
     @Volatile
     var sink: (String) -> Unit = { log.log(System.Logger.Level.INFO, it) }
 
+    /** Where the warnings go; replaced in tests. */
+    @Volatile
+    var warningSink: (String) -> Unit = { log.log(System.Logger.Level.WARNING, it) }
+
     /** Logging must never break the status: whatever the sink throws is dropped. */
-    fun info(message: String) {
+    fun info(message: String) = safely { sink(message) }
+
+    fun warning(message: String) = safely { warningSink(message) }
+
+    private fun safely(logging: () -> Unit) {
         try {
-            sink(message)
+            logging()
         } catch (_: RuntimeException) {
             // Nothing sensible left to do for a failing log.
         }
@@ -60,6 +72,9 @@ internal object GitStatusLog {
  * the trust check runs again only if the stamp of its inputs changed, [gitFolderChanged] counts only a change of the
  * stamp of what the status, the log and the refs read, and a batch that changed neither runs nothing at all (changes of
  * objects, reflogs, lock files). [gitChanged] counts as a change of both.
+ *
+ * While a git write of the window runs ([writeStarted] to [writeFinished]), cycles for changes of `.git` wait, and so
+ * does [gitFolderChanged]; with a write that changes or commits files, also [refresh]. Its end runs one cycle for all.
  *
  * Each `git status` is a task of [tasks], "Refreshing Git status" (ADR 0061); the trust checks are tasks of their own.
  * A failed one finishes it with "git status failed" at INFO, which ends its cycle in the log.
@@ -95,7 +110,10 @@ class GitStatusService(
         /** Whether a cycle ran for it; the first takes the stamp of the state without counting a change. */
         var cycled = false
 
-        /** The stamp of the trust check's inputs taken before it last ran again; `null`: run it on the next change. */
+        /**
+         * The stamp of the trust check's inputs taken before it last ran again and allowed git; `null`: run it on the
+         * next change.
+         */
         var trustStamp: String? = null
 
         /** The stamp of the state taken before [gitFolderChanged] last counted (or the first cycle); `null`: changed. */
@@ -128,6 +146,23 @@ class GitStatusService(
 
     /** Counts the changes told by [gitChanged], which count whatever the stamps say. */
     private val forcedChanges = AtomicLong()
+
+    /** A git write going on (ADR 0062): what waits for its end; [status] if [refresh] waits too. */
+    private class Hold(
+        val status: Boolean,
+    ) {
+        /** Whether a cycle waited for it (logged once). */
+        @Volatile var deferred = false
+
+        /** Whether the editor's diffs wait for its end, as what the trust check reads changed (logged once). */
+        @Volatile var diffsWait = false
+    }
+
+    /** The write going on, if any; set and cleared on the JavaFX thread, read by the cycles. */
+    @Volatile private var hold: Hold? = null
+
+    /** How long a write holds the cycles at most: longer than git's longest write timeout (ADR 0041). */
+    internal var holdLimit: Duration = 11.minutes
 
     /**
      * The count of [gitChanges] that a cycle has taken while git was allowed: git's trust check ran again for them, or
@@ -164,6 +199,7 @@ class GitStatusService(
         gitWatch = null
         val root = folder?.toAbsolutePath()?.normalize()?.takeIf { git.available && Files.exists(it.resolve(".git")) }
         target = root?.let { Target(it, gitChanges.get(), forcedChanges.get()) }
+        hold = null
         confirmedChanges = gitChanges.get()
         _snapshot.set(GitStatusSnapshot.EMPTY)
         if (root == null) return
@@ -189,6 +225,30 @@ class GitStatusService(
         schedule()
     }
 
+    /**
+     * Tells that a git write of the window starts (ADR 0062): until [writeFinished], changes of `.git` wait, and
+     * [gitFolderChanged] does not count; with [holdStatus] (a write that changes or commits files: checkout, cherry-pick,
+     * revert, a hard reset, a commit), [refresh] waits too. A write whose end is never told is let go after [holdLimit]
+     * with a warning.
+     */
+    fun writeStarted(holdStatus: Boolean) {
+        val started = Hold(holdStatus)
+        hold = started
+        val limit = holdLimit
+        CompletableFuture.delayedExecutor(limit.inWholeMilliseconds, TimeUnit.MILLISECONDS).execute {
+            if (hold !== started) return@execute
+            hold = null
+            GitStatusLog.warning("A git write held the status of ${target?.root} for more than $limit; let go")
+            gitChanged()
+        }
+    }
+
+    /** Tells that the write of [writeStarted] ended, also a failed one: one cycle as for [gitChanged] runs for all. */
+    fun writeFinished() {
+        hold = null
+        gitChanged()
+    }
+
     /** Runs a cycle soon; requests while one is waiting are combined into it. */
     private fun schedule() {
         if (target == null || !scheduled.compareAndSet(false, true)) return
@@ -206,15 +266,26 @@ class GitStatusService(
         val trustChanged: Boolean,
         val stateChanged: Boolean,
         val stateStamp: String?,
+        val trustStamp: String? = null,
     )
 
-    /** One cycle, on `sluide-git`: the stamps, then git's trust check or waiting for it, then `git status`. */
+    /**
+     * One cycle, on `sluide-git`: the stamps, then git's trust check or waiting for it, then `git status`. While a write
+     * holds them, it waits for [writeFinished], unless only a status was asked for and the write does not hold that.
+     */
     private fun cycle() {
         scheduled.set(false)
         val current = target ?: return
+        val held = hold
+        if (held != null && (held.status || !statusWanted.get())) {
+            confirmIfTrustUnchanged(current, held)
+            if (!held.deferred) GitStatusLog.info("Git status cycle for ${current.root} waits for a git write")
+            held.deferred = true
+            return
+        }
         val wanted = statusWanted.getAndSet(false)
         val cycleStart = System.nanoTime()
-        val found = changes(current)
+        val found = changes(current, counting = held == null)
         if (!wanted && !found.trustChanged && !found.stateChanged) {
             // Only objects, reflogs, lock files…: what anything reads is as it was.
             confirmedChanges = found.changes
@@ -223,7 +294,12 @@ class GitStatusService(
         }
         GitStatusLog.info("Git status cycle for ${current.root} started")
         val allowed =
-            if (found.trustChanged) trust.recheck(GitTrustCheck.ID) else trust.awaitAllows(GitTrustCheck.ID)
+            if (found.trustChanged) {
+                // Kept only once the check ran and allowed git: else the next change checks again.
+                trust.recheck(GitTrustCheck.ID).also { current.trustStamp = if (it) found.trustStamp else null }
+            } else {
+                trust.awaitAllows(GitTrustCheck.ID)
+            }
         val trustMillis = millisSince(cycleStart)
         val trustText = if (found.trustChanged) "trust recheck $trustMillis ms" else "trust awaited $trustMillis ms"
         if (!allowed) {
@@ -234,7 +310,11 @@ class GitStatusService(
         confirmedChanges = found.changes
         if (found.stateChanged) {
             current.stateStamp = found.stateStamp
-            val counted = Runnable { if (target === current) _gitFolderChanged.set(_gitFolderChanged.get() + 1) }
+            // Not while a write runs: its end counts.
+            val counted =
+                Runnable {
+                    if (target === current && hold == null) _gitFolderChanged.set(_gitFolderChanged.get() + 1)
+                }
             dispatch(counted)
         }
         status(current, trustText)
@@ -242,9 +322,13 @@ class GitStatusService(
 
     /**
      * Takes the changes of `.git` since the last cycle of [current] and, if there are any, the stamps of the git folder,
-     * before anything runs: a change while the cycle runs then differs from them next time.
+     * before anything runs: a change while the cycle runs then differs from them next time. Not [counting] (while a
+     * write runs), a change of the state is left for the cycle at the write's end.
      */
-    private fun changes(current: Target): Changes {
+    private fun changes(
+        current: Target,
+        counting: Boolean,
+    ): Changes {
         // In this order: gitChanged() counts its forced change first, so a forced change is never missed.
         val changes = gitChanges.get()
         val forcedCount = forcedChanges.get()
@@ -259,9 +343,30 @@ class GitStatusService(
         if (!batch && !forced) return Changes(changes, trustChanged = false, stateChanged = false, stateStamp)
         val trustStamp = GitFolderStamps.trust(trustInputs(current.root))
         val trustChanged = forced || trustStamp == null || trustStamp != current.trustStamp
-        if (trustChanged) current.trustStamp = trustStamp
-        val stateChanged = forced || stateStamp == null || stateStamp != current.stateStamp
-        return Changes(changes, trustChanged, stateChanged, stateStamp)
+        val stateChanged = counting && (forced || stateStamp == null || stateStamp != current.stateStamp)
+        return Changes(changes, trustChanged, stateChanged, stateStamp, trustStamp)
+    }
+
+    /**
+     * While a write holds the cycles: the changes of `.git` so far no longer hide the editor's diffs ([diffAsync]) if the
+     * stamp of the trust check's inputs is the one it last allowed git with, so that diffs keep working during a fetch or
+     * push; otherwise they wait for the cycle at the write's end, which checks again.
+     */
+    private fun confirmIfTrustUnchanged(
+        current: Target,
+        held: Hold,
+    ) {
+        val changes = gitChanges.get()
+        if (changes == confirmedChanges) return
+        val allowedWith = current.trustStamp
+        if (allowedWith != null && GitFolderStamps.trust(trustInputs(current.root)) == allowedWith) {
+            confirmedChanges = changes
+        } else if (!held.diffsWait) {
+            held.diffsWait = true
+            GitStatusLog.info(
+                "Git status cycle for ${current.root}: trust inputs changed, diffs wait for the git write",
+            )
+        }
     }
 
     /** Runs `git status` for [current] and publishes its snapshot if it changed. */
@@ -405,6 +510,7 @@ class GitStatusService(
     override fun close() {
         gitWatch?.close()
         target = null
+        hold = null
         executor.shutdownNow()
         diffExecutor.shutdownNow()
     }

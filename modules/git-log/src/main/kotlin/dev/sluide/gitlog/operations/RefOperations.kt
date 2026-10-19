@@ -83,6 +83,13 @@ internal sealed interface RefOperation {
      */
     val cancellable: Boolean get() = false
 
+    /**
+     * Whether the window's git status waits for its end (ADR 0062): it changes files or takes them as they are
+     * ([fileChange]: a checkout, cherry-pick, revert, their continue, abort and skip, a hard reset, a commit), so that a
+     * status read meanwhile would show a state halfway. A fetch, push or a change of refs only does not hold it.
+     */
+    val holdsStatus: Boolean get() = fileChange != null
+
     /** Runs it with [writes] in the repository at [root], on the calling thread. */
     fun run(
         writes: GitLogWrites,
