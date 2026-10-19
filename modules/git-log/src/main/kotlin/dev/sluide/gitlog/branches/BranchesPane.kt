@@ -5,8 +5,8 @@ import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.gitlog.operations.BranchActions
 import dev.sluide.gitlog.operations.Fetch
-import dev.sluide.gitlog.operations.RefOperation
 import dev.sluide.gitlog.operations.branchActions
+import dev.sluide.gitlog.operations.rebaseText
 import dev.sluide.gitlog.ui.refStyleClass
 import javafx.animation.Animation
 import javafx.animation.PauseTransition
@@ -47,9 +47,9 @@ import org.kordamp.ikonli.materialdesign2.MaterialDesignT
  * hands it to [navigate] (`null` for any other selection); a double-click, Enter or Filter Log by Branch hands the
  * full refnames of the selected branches to [filter]. Collapsed nodes (Tags at first) and the selection stay when the
  * refs are [shown][show] again. Its context menu also checks out, creates, renames and deletes branches and tags
- * through [checkout], [newBranchFrom], [rename] and [delete] ([branchActions], ADR 0041) and fetches a remote through
- * [fetch] (ADR 0043), not while [writing]; it compares a ref with `HEAD` through [compare] and with the working tree
- * through [showWorkingTreeDiff] (ADR 0044), also while [writing].
+ * through its [commands] ([menuActions], ADR 0041), fetches a remote (ADR 0043) and rebases the current branch onto
+ * another (ADR 0063; not while [writing] or [busy]); it compares a ref with `HEAD` and with the working tree
+ * (ADR 0044), also while [writing].
  */
 internal class BranchesPane : BorderPane() {
     /** Shows the commit of the one selected branch; `null` when not exactly one branch is selected. */
@@ -58,29 +58,8 @@ internal class BranchesPane : BorderPane() {
     /** Told when new refs moved the one selected branch: its ref before and after; the receiver decides what follows. */
     var moved: (GitRef, GitRef) -> Unit = { _, _ -> }
 
-    /** Filters the log by the given full refnames (or `HEAD`). */
-    var filter: (List<String>) -> Unit = {}
-
-    /** Checks out the selected branch or tag. */
-    var checkout: (RefOperation) -> Unit = {}
-
-    /** Asks for a new branch starting at the given ref. */
-    var newBranchFrom: (GitRef) -> Unit = {}
-
-    /** Asks for a new name of the given local branch (F2). */
-    var rename: (GitRef) -> Unit = {}
-
-    /** Asks whether to delete the given local branches and tags (Delete). */
-    var delete: (List<GitRef>) -> Unit = {}
-
-    /** Fetches the given remote. */
-    var fetch: (String) -> Unit = {}
-
-    /** Compares the given branch, remote branch or tag with `HEAD` in the log. */
-    var compare: (GitRef) -> Unit = {}
-
-    /** Shows how the working tree differs from the commit of the given ref. */
-    var showWorkingTreeDiff: (GitRef) -> Unit = {}
+    /** What the context menu does; set once by the owner. */
+    var commands = BranchCommands()
 
     /** The names of all remotes, to tell which one a node belongs to for Fetch; empty while not known. */
     var remotes: List<String> = emptyList()
@@ -91,6 +70,9 @@ internal class BranchesPane : BorderPane() {
 
     /** Whether an operation that changes the repository runs, during which no other can start. */
     val writing: BooleanProperty = SimpleBooleanProperty(false)
+
+    /** Whether a rebase, cherry-pick or revert waits for its next step, during which no rebase can start. */
+    val busy: BooleanProperty = SimpleBooleanProperty(false)
 
     internal val search =
         TextField().apply {
@@ -135,16 +117,22 @@ internal class BranchesPane : BorderPane() {
 
     internal val filterItem = MenuItem(FILTER_ONE).apply { setOnAction { filterSelected() } }
     internal val copyNameItem = MenuItem("Copy Name").apply { setOnAction { copyNames() } }
-    internal val checkoutItem = MenuItem("Checkout").apply { setOnAction { actions().checkout?.let(checkout) } }
+    internal val checkoutItem =
+        MenuItem("Checkout").apply { setOnAction { actions().checkout?.let(commands.checkout) } }
+    internal val rebaseItem =
+        MenuItem(rebaseText(null, null)).apply { setOnAction { actions().rebase?.let(commands.rebase) } }
     internal val newBranchItem =
-        MenuItem(NEW_BRANCH).apply { setOnAction { actions().newBranchFrom?.let(newBranchFrom) } }
+        MenuItem(NEW_BRANCH).apply { setOnAction { actions().newBranchFrom?.let(commands.newBranchFrom) } }
     internal val renameItem = MenuItem("Rename…").apply { setOnAction { renameSelected() } }
     internal val deleteItem = MenuItem("Delete").apply { setOnAction { deleteSelected() } }
-    internal val fetchItem = MenuItem("Fetch").apply { setOnAction { actions().fetch?.let(fetch) } }
-    internal val compareItem = MenuItem("Compare with Current").apply { setOnAction { reads().compare?.let(compare) } }
+    internal val fetchItem = MenuItem("Fetch").apply { setOnAction { actions().fetch?.let(commands.fetch) } }
+    internal val compareItem =
+        MenuItem("Compare with Current").apply {
+            setOnAction { actions().compare?.let(commands.compare) }
+        }
     internal val workingTreeItem =
         MenuItem("Show Diff with Working Tree").apply {
-            setOnAction { reads().workingTreeDiff?.let(showWorkingTreeDiff) }
+            setOnAction { actions().workingTreeDiff?.let(commands.showWorkingTreeDiff) }
         }
 
     internal val tree: TreeView<BranchNode> =
@@ -163,6 +151,7 @@ internal class BranchesPane : BorderPane() {
                     workingTreeItem,
                     SeparatorMenuItem(),
                     checkoutItem,
+                    rebaseItem,
                     newBranchItem,
                     renameItem,
                     deleteItem,
@@ -234,6 +223,7 @@ internal class BranchesPane : BorderPane() {
             },
         )
         writing.subscribe { _ -> updateActions() }
+        busy.subscribe { _ -> updateActions() }
         updateActions()
         updatePlaceholder(emptyList())
     }
@@ -395,7 +385,7 @@ internal class BranchesPane : BorderPane() {
     private fun filterSelected(): Boolean {
         val names = selectedBranches.map { it.ref.name }
         if (names.isEmpty()) return false
-        filter(names)
+        commands.filter(names)
         return true
     }
 
@@ -405,33 +395,20 @@ internal class BranchesPane : BorderPane() {
         Clipboard.getSystemClipboard().setContent(ClipboardContent().apply { putString(names.joinToString("\n")) })
     }
 
-    /** What can be done with the selection: nothing while [writing]. */
-    private fun actions(): BranchActions =
-        if (writing.get()) {
-            BranchActions(null, null, null, emptyList())
-        } else {
-            branchActions(tree.selectionModel.selectedItems.mapNotNull { it?.value }, refs?.currentBranch, remotes)
-        }
+    private fun selectedNodes() = tree.selectionModel.selectedItems.mapNotNull { it?.value }
 
-    /**
-     * What only reads can be done with the selection, also while [writing]; no comparison with `HEAD` while it has no
-     * commit.
-     */
-    private fun reads(): BranchActions {
-        val actions = branchActions(tree.selectionModel.selectedItems.mapNotNull { it?.value }, refs?.currentBranch)
-        val hasHead = refs?.refs.orEmpty().any { it.kind == GitRefKind.HEAD }
-        return if (hasHead) actions else actions.copy(compare = null)
-    }
+    /** What can be done with the selection ([menuActions]). */
+    private fun actions(): BranchActions = menuActions(selectedNodes(), refs, remotes, writing.get(), busy.get())
 
     private fun renameSelected(): Boolean {
         val ref = actions().rename ?: return false
-        rename(ref)
+        commands.rename(ref)
         return true
     }
 
     private fun deleteSelected(): Boolean {
         val refs = actions().delete.ifEmpty { return false }
-        delete(refs)
+        commands.delete(refs)
         return true
     }
 
@@ -441,22 +418,26 @@ internal class BranchesPane : BorderPane() {
         filterItem.isDisable = count == 0
         copyNameItem.isDisable = count == 0
         val actions = actions()
-        // The name of the ref it starts from even while writing.
-        val from =
-            branchActions(
-                tree.selectionModel.selectedItems.mapNotNull { it?.value },
-                refs?.currentBranch,
-            ).newBranchFrom
-        newBranchItem.text = from?.let { "New Branch from '${it.shortName}'…" } ?: NEW_BRANCH
+        // The names of the refs it starts from and rebases onto even while writing or busy.
+        val unrestricted = branchActions(selectedNodes(), refs?.currentBranch)
+        newBranchItem.text = unrestricted.newBranchFrom?.let { "New Branch from '${it.shortName}'…" } ?: NEW_BRANCH
+        rebaseItem.text = rebaseMenuText(selectedNodes(), refs)
         checkoutItem.isDisable = actions.checkout == null
+        rebaseItem.isDisable = actions.rebase == null
         newBranchItem.isDisable = actions.newBranchFrom == null
         renameItem.isDisable = actions.rename == null
         deleteItem.isDisable = actions.delete.isEmpty()
         fetchItem.isDisable = actions.fetch == null
-        val reads = reads()
-        compareItem.isDisable = reads.compare == null
-        workingTreeItem.isDisable = reads.workingTreeDiff == null
+        compareItem.isDisable = actions.compare == null
+        workingTreeItem.isDisable = actions.workingTreeDiff == null
     }
+
+    private fun headCommit() =
+        refs
+            ?.refs
+            .orEmpty()
+            .firstOrNull { it.kind == GitRefKind.HEAD }
+            ?.commit
 
     /** A group (its name), a remote or folder (a folder icon) or a branch (its ref icon, the current one in bold). */
     private inner class BranchCell : TreeCell<BranchNode>() {

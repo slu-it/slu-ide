@@ -99,7 +99,7 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         assertTrue(view.table.revertItem.isDisable)
         assertTrue(view.table.resetItem.isDisable)
         selectBranches(robot, "Local/feature/a")
-        assertEquals("- - - -", paneActions())
+        assertEquals("- - - - -", paneActions())
         assertTrue(branches.copyNameItem.isDisable.not(), "reading actions stay")
         // Keys do nothing either.
         pressInTree(KeyCode.F2)
@@ -110,7 +110,7 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         writes.gate?.countDown()
 
         eventually { assertEquals("Checked out h3.", status(robot)) }
-        assertEquals("C N R D", paneActions())
+        assertEquals("C B N R D", paneActions())
         selectRows(robot, 2)
         assertFalse(view.table.checkoutRevisionItem.isDisable)
     }

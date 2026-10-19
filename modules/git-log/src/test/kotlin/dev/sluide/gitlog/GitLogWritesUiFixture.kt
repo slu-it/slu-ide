@@ -409,12 +409,13 @@ abstract class GitLogWritesUiFixture {
         WaitForAsyncUtils.waitForFxEvents()
     }
 
-    /** Which of Checkout, New Branch, Rename and Delete of the branches pane are enabled, as `C N R D` or `-`. */
+    /** Which of Checkout, Rebase, New Branch, Rename and Delete of the branches pane are enabled, as `C B N R D` or `-`. */
     internal fun paneActions(): String =
         WaitForAsyncUtils
             .asyncFx<String> {
                 listOf(
                     branches.checkoutItem to "C",
+                    branches.rebaseItem to "B",
                     branches.newBranchItem to "N",
                     branches.renameItem to "R",
                     branches.deleteItem to "D",

@@ -1,5 +1,6 @@
 package dev.sluide.gitlog
 
+import dev.sluide.git.GitPendingRebase
 import dev.sluide.git.GitResult
 import dev.sluide.gitlog.operations.CHECKOUT_BUTTON
 import dev.sluide.gitlog.operations.CREATE_BUTTON
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
+import java.util.concurrent.CountDownLatch
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -50,6 +52,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
                 "Show Diff with Working Tree",
                 null,
                 "Checkout",
+                "Rebase Current Branch onto\u2026",
                 "New Branch\u2026",
                 "Rename\u2026",
                 "Delete",
@@ -61,30 +64,70 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         )
 
         selectBranches(robot, "Local/feature/a")
-        assertEquals("C N R D", paneActions())
+        assertEquals("C B N R D", paneActions())
         assertEquals("New Branch from 'feature/a'\u2026", branches.newBranchItem.text)
+        assertEquals("Rebase 'main' onto 'feature/a'", branches.rebaseItem.text)
         selectBranches(robot, "Local/main")
-        assertEquals("- N R -", paneActions(), "the current branch")
+        assertEquals("- - N R -", paneActions(), "the current branch")
+        assertEquals("Rebase Current Branch onto\u2026", branches.rebaseItem.text)
         selectBranches(robot, "HEAD")
-        assertEquals("- N - -", paneActions())
+        assertEquals("- - N - -", paneActions())
         assertEquals("New Branch from 'HEAD'\u2026", branches.newBranchItem.text)
         selectBranches(robot, "Remote/origin/old")
-        assertEquals("C N - -", paneActions())
+        assertEquals("C B N - -", paneActions())
+        assertEquals("Rebase 'main' onto 'origin/old'", branches.rebaseItem.text)
         selectBranches(robot, "Remote/origin/main")
-        assertEquals("- N - -", paneActions(), "its local branch is the current one")
+        assertEquals("- - N - -", paneActions(), "its local branch is the current one, and it is at HEAD")
+        assertEquals("Rebase 'main' onto 'origin/main'", branches.rebaseItem.text)
         selectBranches(robot, "Tags/v0.9")
-        assertEquals("C N - D", paneActions())
+        assertEquals("C - N - D", paneActions())
         selectBranches(robot, "Local/feature")
-        assertEquals("- - - -", paneActions(), "a folder")
+        assertEquals("- - - - -", paneActions(), "a folder")
         assertEquals("New Branch\u2026", branches.newBranchItem.text)
         selectBranches(robot, "Local")
-        assertEquals("- - - -", paneActions(), "a group")
+        assertEquals("- - - - -", paneActions(), "a group")
         selectBranches(robot, "Local/feature/a", "Tags/v0.9")
-        assertEquals("- - - D", paneActions())
+        assertEquals("- - - - D", paneActions())
         selectBranches(robot, "Local/feature/a", "Local/main")
-        assertEquals("- - - -", paneActions())
+        assertEquals("- - - - -", paneActions())
         selectBranches(robot, "Local/feature/a", "Remote/origin/old")
-        assertEquals("- - - -", paneActions())
+        assertEquals("- - - - -", paneActions())
+    }
+
+    @Test
+    fun `rebases the current branch onto the selected one, not while a rebase is pending or a write runs`(
+        robot: FxRobot,
+    ) {
+        writes.ancestry = { _, _ -> false }
+        openAndExpand(robot)
+        selectBranches(robot, "Local/feature/a")
+
+        fireLater(branches.rebaseItem)
+
+        eventually {
+            assertEquals(listOf("rebase merges refs/heads/feature/a", "rebase main refs/heads/feature/a"), writes.calls)
+        }
+        eventually { assertEquals("B", paneActions().split(" ")[1]) }
+
+        // Not while a rebase waits for its next step.
+        pending = GitPendingRebase("main", "h3", "h9", 1, 2, listOf("a.txt"))
+        writes.inProgress = pending
+        robot.interact { view.refresh() }
+        eventually { assertTrue(view.pendingBar.isVisible) }
+        eventually { assertEquals("C - N R D", paneActions()) }
+        assertEquals("Rebase 'main' onto 'feature/a'", branches.rebaseItem.text, "the target stays named")
+
+        pending = null
+        writes.inProgress = null
+        robot.interact { view.refresh() }
+        eventually { assertEquals("C B N R D", paneActions()) }
+
+        // Not while a write runs.
+        writes.gate = CountDownLatch(1)
+        fireLater(branches.checkoutItem)
+        eventually { assertEquals("- - - - -", paneActions()) }
+        writes.gate?.countDown()
+        eventually { assertEquals("C B N R D", paneActions()) }
     }
 
     @Test

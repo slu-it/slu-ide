@@ -19,6 +19,7 @@ import dev.sluide.gitlog.area.GO_TO
 import dev.sluide.gitlog.area.HeaderBar
 import dev.sluide.gitlog.area.HeaderStatus
 import dev.sluide.gitlog.branches.BranchesPane
+import dev.sluide.gitlog.branches.branchCommands
 import dev.sluide.gitlog.data.CommitBranches
 import dev.sluide.gitlog.data.CommitDetails
 import dev.sluide.gitlog.data.CommitDetailsState
@@ -323,24 +324,17 @@ class GitLogView internal constructor(
     internal val side =
         SharedSplit(changesPane, detailsPane, 0.5, Orientation.VERTICAL).apply { styleClass += "git-log-side" }
 
+    /** What the branch menus do (ADR 0041, 0043, 0044, 0063). */
+    internal val branchCommands = branchCommands(actions, compareBar, diffs, filterBar)
+
     /** The branches, left of the commits (ADR 0040). */
     internal val branchesPane =
         BranchesPane().apply {
             navigate = navigation::navigateTo
             moved = navigation::branchMoved
-            filter = { names ->
-                // Filtering by branches ends a comparison, which would hide them.
-                compareBar.stopComparing()
-                filterBar.setBranches(names)
-            }
-            checkout = { operation -> actions.start(operation) }
-            newBranchFrom = { ref -> actions.newBranch(ref.name, ref.shortName) }
-            compare = compareBar::compareWith
-            showWorkingTreeDiff = { ref -> diffs.showWorkingTreeDiff(ref.name, ref.shortName) }
-            rename = actions::renameBranch
-            delete = actions::deleteRefs
-            fetch = { remote -> actions.start(Fetch(remote)) }
+            commands = branchCommands
             writing.bind(actions.running)
+            busy.bind(pendingBar.busy)
         }
 
     /** The filters and the table and, at first in the right 30 %, the changed files and details ([SharedSplit]). */
