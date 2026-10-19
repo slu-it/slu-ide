@@ -5,6 +5,7 @@ import dev.sluide.git.GitPendingRebase
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * The rebase in progress in the repository at [root] (ADR 0063), read from its state [directory]: `rebase-merge` for
@@ -33,3 +34,18 @@ internal fun GitCli.pendingRebase(
 }
 
 private const val BRANCH_PREFIX = "refs/heads/"
+
+/**
+ * How many merge commits `HEAD` of the repository at [root] has that [onto] (a full refname or hash) does not:
+ * `git rev-list --count --min-parents=2 <onto>..HEAD`, the merges a rebase onto it drops; `null` if git is not
+ * available, fails or takes longer than 10 s.
+ */
+internal fun GitCli.mergeCount(
+    root: Path,
+    onto: String,
+): Int? {
+    if (!available) return null
+    val arguments =
+        listOf("--no-optional-locks", "rev-list", "--count", "--min-parents=2", "--end-of-options", "$onto..HEAD")
+    return run(arguments, root, 10.seconds)?.trim()?.toIntOrNull()
+}
