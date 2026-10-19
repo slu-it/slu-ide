@@ -111,7 +111,9 @@ fun registerJpackage(
     val input = jpackageInput.map { it.destinationDir }
     val version = appVersion
     val mac = isMac
-    inputs.files(jpackageInput, appModules)
+    // The logo, rendered from packaging/thoreau.svg by packaging/render-icon.sh: .icns on macOS, PNG on Linux.
+    val icon = layout.projectDirectory.file(if (mac) "packaging/Thoreau.icns" else "packaging/thoreau-512.png")
+    inputs.files(jpackageInput, appModules, icon)
     outputs.dir(destination)
     executable(jdkHome.get().file("bin/jpackage").asFile)
     argumentProviders.add {
@@ -132,6 +134,7 @@ fun registerJpackage(
             val jlinkOptions = "--strip-debug --no-man-pages --no-header-files --strip-native-commands --compress zip-6"
             addAll(listOf("--jlink-options", jlinkOptions))
             addAll(listOf("--vendor", "Thoreau", "--description", "A lightweight IDE"))
+            addAll(listOf("--icon", icon.asFile.path))
             version?.let { addAll(listOf("--app-version", it)) }
             if (mac) addAll(listOf("--mac-package-identifier", "dev.sluide.ide", "--mac-package-name", "Thoreau"))
         }
