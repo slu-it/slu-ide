@@ -28,6 +28,15 @@ private val log = System.getLogger(GitStatusService::class.java.name)
 internal object GitStatusLog {
     @Volatile
     var sink: (String) -> Unit = { log.log(System.Logger.Level.INFO, it) }
+
+    /** Logging must never break the status: whatever the sink throws is dropped. */
+    fun info(message: String) {
+        try {
+            sink(message)
+        } catch (_: RuntimeException) {
+            // Nothing sensible left to do for a failing log.
+        }
+    }
 }
 
 /**
@@ -125,7 +134,7 @@ class GitStatusService(
             scheduled.set(false)
             val current = target ?: return@execute
             val cycleStart = System.nanoTime()
-            GitStatusLog.sink("Git status cycle for ${current.root} started")
+            GitStatusLog.info("Git status cycle for ${current.root} started")
             val changes = gitChanges.get()
             val changed = changes != checkedChanges
             val allowed = if (changed) trust.recheck(GitTrustCheck.ID) else trust.awaitAllows(GitTrustCheck.ID)
@@ -133,7 +142,7 @@ class GitStatusService(
             val trustText = if (changed) "trust recheck $trustMillis ms" else "trust awaited $trustMillis ms"
             if (changed) checkedChanges = changes
             if (!allowed) {
-                GitStatusLog.sink("Git status cycle for ${current.root}: $trustText, git not allowed")
+                GitStatusLog.info("Git status cycle for ${current.root}: $trustText, git not allowed")
                 dispatch(Runnable { if (target === current) _snapshot.set(GitStatusSnapshot.EMPTY) })
                 return@execute
             }
@@ -146,7 +155,7 @@ class GitStatusService(
             val output = git.status(current.root)
             val statusMillis = millisSince(statusStart)
             if (output == null) {
-                GitStatusLog.sink(
+                GitStatusLog.info(
                     "Git status cycle for ${current.root}: $trustText, status failed after $statusMillis ms",
                 )
                 return@execute
@@ -157,11 +166,11 @@ class GitStatusService(
                 Runnable {
                     // The snapshot property is read on the JavaFX thread only.
                     if (target !== current) {
-                        GitStatusLog.sink(cycle + "dropped, another folder is followed")
+                        GitStatusLog.info(cycle + "dropped, another folder is followed")
                         return@Runnable
                     }
                     val different = snapshot != _snapshot.get()
-                    GitStatusLog.sink(cycle + if (different) "changed" else "unchanged")
+                    GitStatusLog.info(cycle + if (different) "changed" else "unchanged")
                     if (different) _snapshot.set(snapshot)
                 },
             )
@@ -221,7 +230,7 @@ class GitStatusService(
                     val shown = changed.take(MAX_LOGGED_PATHS).joinToString(", ") { relativeToGit(gitFolder, it) }
                     val more =
                         if (changed.size > MAX_LOGGED_PATHS) ", … (+${changed.size - MAX_LOGGED_PATHS} more)" else ""
-                    GitStatusLog.sink("Changes in .git of $root: $shown$more")
+                    GitStatusLog.info("Changes in .git of $root: $shown$more")
                 } catch (_: RuntimeException) {
                     // Logging must not break the status.
                 }

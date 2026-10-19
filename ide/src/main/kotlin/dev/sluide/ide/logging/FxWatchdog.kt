@@ -82,7 +82,13 @@ internal class FxWatchdog(
                 }
             }
         if (sent == null) {
-            dispatch(Runnable { answered(sentAt = now) })
+            try {
+                dispatch(Runnable { answered(sentAt = now) })
+            } catch (e: RuntimeException) {
+                // No ping went out, so none is outstanding: it must not be reported as a stall.
+                synchronized(lock) { if (pingSentAt == now) pingSentAt = null }
+                throw e
+            }
             return
         }
         val trace = stack()?.takeIf { it.isNotEmpty() } ?: return

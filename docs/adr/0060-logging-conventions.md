@@ -28,6 +28,8 @@ Git commands (`GitCommandLog`, `dev.sluide.git.cli`): every command gets a proce
 
 Standard error of reads: it used to be dropped (ADR 0013). Now the first 4 KB are kept, for the log only; the rest is
 discarded as it is read so the pipe never blocks. Its reader does not count towards the completeness of the output.
+A read waits at most 100 ms for its standard error after git ends, so that of a slow child may be missing from the log;
+a child that keeps standard error open keeps that reader thread until it exits.
 This partly supersedes the dropping of ADR 0013; writes were not affected.
 
 `.git` and status: every batch of changes in `.git` is logged (`Changes in .git of <root>: <up to 5 paths>[, … (+N

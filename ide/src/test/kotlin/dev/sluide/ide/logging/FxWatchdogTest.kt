@@ -72,4 +72,22 @@ class FxWatchdogTest {
         handleQueued()
         assertTrue(lines.isEmpty())
     }
+
+    @Test
+    fun `a dispatch that throws gives one error and no false stall`() {
+        val logged = java.util.concurrent.CopyOnWriteArrayList<Pair<System.Logger.Level, String>>()
+        val failing =
+            FxWatchdog(
+                dispatch = { throw IllegalStateException("toolkit down") },
+                interval = 10,
+                threshold = 100,
+                sink = { level, message, _ -> logged += level to message },
+            )
+        failing.start()
+        Thread.sleep(500)
+        failing.stop()
+
+        assertEquals(1, logged.count { it.first == System.Logger.Level.ERROR })
+        assertTrue(logged.none { it.first == System.Logger.Level.WARNING })
+    }
 }
