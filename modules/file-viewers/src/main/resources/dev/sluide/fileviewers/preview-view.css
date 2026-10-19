@@ -35,8 +35,12 @@
     -fx-background-insets: 0;
 }
 
-/* The Export menu's arrow takes little room next to its icon. */
-.preview-export .arrow-button {
+/* The Export menu is as high as the other buttons: its icon and arrow have no padding of their own. */
+.preview-export > .label {
+    -fx-padding: 0;
+}
+
+.preview-export > .arrow-button {
     -fx-padding: 0 0 0 4;
 }
 

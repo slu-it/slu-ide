@@ -5,6 +5,7 @@ import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.image.SvgFileViewer
 import dev.sluide.fileviewers.markdown.MarkdownFileViewer
 import dev.sluide.fileviewers.table.CsvFileViewer
+import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.MenuButton
 import javafx.scene.layout.StackPane
@@ -103,6 +104,28 @@ class ExportUiTest {
         val csv = open(robot, "data.csv", "a,b\n1,2\n")
         assertNull(csv.export)
         assertTrue(robot.lookup(".preview-export").queryAll<MenuButton>().isEmpty())
+    }
+
+    @Test
+    fun `the Export button is as high as the buttons before it, with a gap to them`(robot: FxRobot) {
+        open(robot, "notes.md", "# Hi")
+        val toc = robot.lookup(".toc-button").query<Node>()
+        assertFitsAfter(robot, toc, toc)
+        open(robot, "logo.svg", LOGO)
+        val zoomOut = robot.lookup(".zoom-button").query<Node>()
+        assertFitsAfter(robot, robot.lookup(".zoom-controls").query(), zoomOut)
+    }
+
+    /** Asserts that the Export button follows [before] with a gap and is as high as [sameHeight]. */
+    private fun assertFitsAfter(
+        robot: FxRobot,
+        before: Node,
+        sameHeight: Node,
+    ) {
+        WaitForAsyncUtils.waitForFxEvents()
+        val export = robot.lookup(".preview-export").query<MenuButton>()
+        assertEquals(sameHeight.boundsInParent.height, export.boundsInParent.height, 0.5)
+        assertTrue(export.boundsInParent.minX - before.boundsInParent.maxX >= 6.0, "a gap before Export")
     }
 
     @Test

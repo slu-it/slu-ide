@@ -3,6 +3,7 @@ package dev.sluide.fileviewers.preview
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.backgroundtasks.NamedThreads
 import javafx.application.Platform
+import javafx.geometry.Insets
 import javafx.scene.control.Alert
 import javafx.scene.control.Button
 import javafx.scene.control.ButtonBar
@@ -10,6 +11,7 @@ import javafx.scene.control.ButtonType
 import javafx.scene.control.MenuButton
 import javafx.scene.control.MenuItem
 import javafx.scene.control.Tooltip
+import javafx.scene.layout.HBox
 import javafx.stage.Window
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignE
@@ -43,6 +45,8 @@ internal class ExportControls(
             tooltip = Tooltip("Export")
             // A click leaves the focus where it is.
             isFocusTraversable = false
+            // Apart from the zoom controls or the table of contents button before it in the toolbar.
+            HBox.setMargin(this, Insets(0.0, 0.0, 0.0, GAP))
             items += exports.map { item -> MenuItem(item.label).apply { setOnAction { export(item) } } }
         }
 
@@ -132,5 +136,6 @@ internal class ExportControls(
 
     private companion object {
         const val ICON_SIZE = 14
+        const val GAP = 8.0
     }
 }
