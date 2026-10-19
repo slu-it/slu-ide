@@ -1,5 +1,6 @@
 package dev.sluide.ide
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editor.EditorArea
 import dev.sluide.fileexplorer.FileExplorerView
@@ -119,6 +120,7 @@ abstract class MainWindowUiFixture {
         gitLogViews.forEach(GitLogView::close)
         watcher.close()
         httpSessions.forEach(HttpClientSession::close)
+        backgroundTasks.forEach(BackgroundTasks::close)
     }
 
     /** The git log views of the windows a test created, the main window's first; closed after it. */
@@ -127,6 +129,9 @@ abstract class MainWindowUiFixture {
 
     /** The HTTP client sessions of the windows a test created; closed after it. */
     internal val httpSessions = mutableListOf<HttpClientSession>()
+
+    /** The background tasks of the windows a test created, the main window's first; closed after it. */
+    internal val backgroundTasks = mutableListOf<BackgroundTasks>()
 
     internal fun startView(stage: Stage) {
         this.stage = stage
@@ -175,6 +180,7 @@ abstract class MainWindowUiFixture {
         HttpClientSession().also(httpSessions::add),
         recentProjects,
         projectTrust,
+        BackgroundTasks().also(backgroundTasks::add),
         SystemBrowser(),
     )
 

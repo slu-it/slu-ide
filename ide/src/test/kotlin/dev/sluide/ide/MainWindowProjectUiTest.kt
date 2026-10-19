@@ -1,12 +1,15 @@
 package dev.sluide.ide
 
+import dev.sluide.backgroundtasks.BackgroundTasksView
 import dev.sluide.fileexplorer.FileExplorerView
-import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.settings.FontArea
+import javafx.scene.Node
+import javafx.scene.control.Label
 import javafx.scene.control.TreeCell
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
+import javafx.scene.layout.VBox
 import javafx.stage.Stage
 import org.fxmisc.richtext.CodeArea
 import org.junit.jupiter.api.Assumptions.assumeTrue
@@ -18,6 +21,7 @@ import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.net.URI
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
 import kotlin.io.path.moveTo
@@ -26,7 +30,6 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -47,8 +50,38 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `file views find the window's HTTP client session`() {
-        assertIs<HttpClientSession>(editorArea.windowServices.single())
+    fun `file views find the window's HTTP client session and background tasks`() {
+        assertEquals(listOf<Any>(httpSessions.single(), backgroundTasks.single()), editorArea.windowServices)
+    }
+
+    @Test
+    fun `background tasks are listed below the explorer once they ran past the delay`(robot: FxRobot) {
+        val left = fileExplorer.parent as VBox
+        assertEquals<Node>(left, splitPaneOf(editorArea).items.first())
+        val view = left.children.filterIsInstance<BackgroundTasksView>().single()
+        assertEquals(listOf<Node>(fileExplorer, view), left.children)
+        assertFalse(view.isVisible, "idle")
+        assertFalse(view.isManaged)
+        val minWidth = left.minWidth(-1.0)
+
+        val task = backgroundTasks.single().start("Fetching origin…")
+        WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) { view.isVisible }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(
+            "Fetching origin…",
+            robot
+                .from(view)
+                .lookup(".background-task-name")
+                .queryAs(Label::class.java)
+                .text,
+        )
+        assertTrue(view.height > 0)
+        assertEquals(fileExplorer.layoutY + fileExplorer.height, view.layoutY, 1.0, "below the explorer")
+        assertEquals(left.height, fileExplorer.height + view.height, 1.0)
+        assertEquals(minWidth, left.minWidth(-1.0), "a narrow explorer stays narrow")
+
+        task.close()
+        WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) { !view.isVisible }
     }
 
     @Test

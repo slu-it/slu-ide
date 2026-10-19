@@ -12,4 +12,10 @@ javafx {
 
 dependencies {
     implementation(libs.spring.context)
+    // The indicator's cancel buttons show Material Design icons, like the git log's header.
+    implementation(libs.ikonli.javafx)
+    implementation(libs.ikonli.materialdesign2)
+
+    testImplementation(libs.testfx.core)
+    testImplementation(libs.testfx.junit5)
 }

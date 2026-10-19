@@ -1,5 +1,6 @@
 package dev.sluide.ide
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editor.EditorArea
 import dev.sluide.fileexplorer.FileExplorerView
@@ -113,6 +114,7 @@ class SpringWiringTest {
                         GitLogView::class.java,
                         HttpClientSession::class.java,
                         ProjectTrust::class.java,
+                        BackgroundTasks::class.java,
                     )
                 val scoped =
                     context.beanFactory.beanDefinitionNames.filter {

@@ -1,5 +1,6 @@
 package dev.sluide.ide
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.dockersandbox.SandboxAction
 import dev.sluide.dockersandbox.SandboxNotAllowedException
@@ -34,8 +35,6 @@ import dev.sluide.settings.ThemedWindows
 import dev.sluide.terminal.TerminalStartException
 import dev.sluide.terminal.Terminals
 import javafx.application.Platform
-import javafx.beans.InvalidationListener
-import javafx.beans.Observable
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.geometry.Orientation
 import javafx.scene.Scene
@@ -114,6 +113,7 @@ class MainWindow(
     private val httpSession: HttpClientSession,
     private val recentProjects: RecentProjects,
     private val projectTrust: ProjectTrust,
+    private val backgroundTasks: BackgroundTasks,
     systemBrowser: SystemBrowser,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
@@ -185,9 +185,10 @@ class MainWindow(
 
     fun show(stage: Stage) {
         themedWindows.install()
+        val left = leftPane(fileExplorer, backgroundTasks)
         // Resizing the window resizes the editor area; the explorer keeps its width until the user drags the divider
         // (or the editor area is as narrow as it can be).
-        val split = SplitPane(fileExplorer, editorArea).apply { SplitPane.setResizableWithParent(fileExplorer, false) }
+        val split = SplitPane(left, editorArea).apply { SplitPane.setResizableWithParent(left, false) }
         val root =
             BorderPane().apply {
                 top =
@@ -225,8 +226,9 @@ class MainWindow(
         // HTML previews are served with the project's files, and only those (ADR 0018).
         editorArea.projectFolder = { folder }
         editorArea.showError = { showError(stage, it) }
-        // Views of .http files share the window's cookies, tokens and chosen environments (ADR 0026).
-        editorArea.windowServices = listOf(httpSession)
+        // Views of .http files share the window's cookies, tokens and chosen environments (ADR 0026); file views may
+        // register their work as background tasks (ADR 0061).
+        editorArea.windowServices = listOf(httpSession, backgroundTasks)
         // It warns about private environment files that git would commit.
         httpSession.wouldCommit = { gitStatus.snapshot.get().wouldCommit(it) }
         gitStatus.snapshot.subscribe { snapshot ->
@@ -281,7 +283,7 @@ class MainWindow(
             gitStatus.open(folder)
             showGitLog(split, gitStatus.active)
             followGitTrust()
-            fitExplorer(split)
+            fitExplorer(split, fileExplorer)
             stage.title = windowTitle(folder, gitStatus.snapshot.get().head)
             // Every opened folder is remembered for the project picker: chosen there, with Open Folder… or given on
             // the command line (ADR 0034).
@@ -509,32 +511,6 @@ class MainWindow(
         val divider = gitLogSplit.lookupAll(".split-pane-divider").firstOrNull { it.parent === gitLogSplit }
         val half = (divider?.layoutBounds?.height ?: 0.0) / 2
         return (1 - (gitLogHeight + half) / total).coerceIn(0.0, 1.0)
-    }
-
-    /**
-     * Gives the explorer its start width ([FileExplorerView.startWidth]), but at most half of a narrow window, at once
-     * or, before the window is laid out, as soon as it is.
-     */
-    private fun fitExplorer(split: SplitPane) {
-        // The position is that of the divider's middle. Views in the editor area may have split panes of their own.
-        fun fit() {
-            val divider = split.lookupAll(".split-pane-divider").firstOrNull { it.parent === split }
-            val width = minOf(fileExplorer.startWidth(), split.width / 2)
-            split.setDividerPositions((width + (divider?.prefWidth(-1.0) ?: 0.0) / 2) / split.width)
-        }
-        if (split.width > 0) {
-            fit()
-            return
-        }
-        split.widthProperty().addListener(
-            object : InvalidationListener {
-                override fun invalidated(observable: Observable) {
-                    if (split.width <= 0) return
-                    split.widthProperty().removeListener(this)
-                    fit()
-                }
-            },
-        )
     }
 
     private fun fileMenu(stage: Stage): Menu {

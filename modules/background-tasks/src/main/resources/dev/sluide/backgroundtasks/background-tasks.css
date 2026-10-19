@@ -1,0 +1,40 @@
+/*
+ * The background tasks under the file explorer (ADR 0061), styled like the git log's header: a top border and Modena's
+ * looked-up colours, so light and dark themes both apply.
+ */
+.background-tasks {
+    -fx-padding: 3 4 3 6;
+    -fx-spacing: 2;
+    -fx-background-color: -fx-outer-border, -fx-body-color;
+    -fx-background-insets: 0, 1 0 0 0;
+}
+
+.background-task {
+    -fx-spacing: 6;
+    -fx-min-height: 20;
+}
+
+/* A thin bar; Modena's insets shrink with its padding, or the bar would have no height left. */
+.background-task .progress-bar > .bar {
+    -fx-padding: 0.25em;
+    -fx-background-insets: 1 1 2 1;
+}
+
+.background-task-cancel {
+    -fx-background-color: transparent;
+    -fx-background-radius: 3;
+    -fx-padding: 1 2 1 2;
+}
+
+.background-task-cancel:hover {
+    -fx-background-color: -fx-hover-base;
+}
+
+.background-task-cancel .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+    -fx-icon-size: 12;
+}
+
+.background-tasks-more {
+    -fx-opacity: 0.7;
+}

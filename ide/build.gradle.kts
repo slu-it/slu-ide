@@ -29,6 +29,8 @@ dependencies {
     implementation(project(":modules:http-client"))
     implementation(project(":modules:projects"))
     implementation(project(":modules:project-trust"))
+    // The window's background tasks, shown under the file explorer (ADR 0061).
+    implementation(project(":modules:background-tasks"))
 
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)

@@ -1,5 +1,6 @@
 package dev.sluide.ide
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editor.EditorArea
 import dev.sluide.fileexplorer.FileExplorerView
@@ -124,6 +125,7 @@ class ProjectWindowsUiTest {
                     GitLogView::class.java,
                     HttpClientSession::class.java,
                     ProjectTrust::class.java,
+                    BackgroundTasks::class.java,
                 )
                 refresh()
             }
