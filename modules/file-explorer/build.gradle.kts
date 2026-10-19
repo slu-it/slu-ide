@@ -11,6 +11,8 @@ javafx {
 }
 
 dependencies {
+    // Deliberate module dependency: deletes run on a logged thread, ADR 0060.
+    implementation(project(":modules:background-tasks"))
     // Deliberate module API dependency: loaded folders are watched for changes (ADR 0006).
     api(project(":modules:file-watcher"))
     // Deliberate module API dependency: the tree uses the explorer font from the settings (ADR 0008).

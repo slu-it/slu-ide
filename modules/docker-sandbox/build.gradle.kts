@@ -11,6 +11,8 @@ javafx {
 }
 
 dependencies {
+    // Deliberate module dependency: the sbx check runs on a logged thread, ADR 0060.
+    implementation(project(":modules:background-tasks"))
     // Deliberate module API dependency: sandboxes run in terminal tabs (ADR 0010).
     api(project(":modules:terminal"))
     implementation(libs.spring.context)

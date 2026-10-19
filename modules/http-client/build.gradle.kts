@@ -12,6 +12,8 @@ javafx {
 }
 
 dependencies {
+    // Deliberate module dependency: formatting responses and token requests run on a logged thread, ADR 0060.
+    implementation(project(":modules:background-tasks"))
     // Deliberate module API dependency: .http files are shown in the file viewers' code views, with their syntax
     // highlighters for request bodies and scripts.
     api(project(":modules:file-viewers"))

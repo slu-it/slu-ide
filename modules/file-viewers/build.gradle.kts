@@ -12,6 +12,8 @@ javafx {
 }
 
 dependencies {
+    // Deliberate module dependency: highlighting, exports and image downloads run on logged threads, ADR 0060.
+    implementation(project(":modules:background-tasks"))
     implementation(libs.spring.context)
     // Deliberate module dependency: code views edit text with its line endings and changes on disk (text-editing).
     implementation(project(":modules:text-editing"))

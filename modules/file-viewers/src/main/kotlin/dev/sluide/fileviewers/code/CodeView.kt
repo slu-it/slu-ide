@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers.code
 
+import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.FocusWhenShown
@@ -44,7 +45,6 @@ import java.nio.file.Files
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 import java.time.Duration
-import java.util.concurrent.Executors
 
 /**
  * Editable view of [file] as code highlighted by [highlighter] (plain text without one), with line numbers and
@@ -561,7 +561,7 @@ private const val LARGE_TEXT = 1 shl 20
 
 /** Highlights edited code of all views, one text at a time. */
 private val highlightExecutor =
-    Executors.newSingleThreadExecutor { Thread(it, "sluide-highlight").apply { isDaemon = true } }
+    NamedThreads.single("sluide-highlight")
 
 /** A bar at the top of a view with [message] and [actions]. */
 private fun banner(

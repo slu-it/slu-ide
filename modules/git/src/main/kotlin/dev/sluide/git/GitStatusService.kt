@@ -1,5 +1,6 @@
 package dev.sluide.git
 
+import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.cli.GitCli
 import dev.sluide.git.cli.diffToHead
@@ -17,7 +18,6 @@ import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.concurrent.Executors
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
@@ -74,7 +74,7 @@ class GitStatusService(
     val snapshot: ReadOnlyObjectProperty<GitStatusSnapshot> = _snapshot.readOnlyProperty
 
     private val executor =
-        Executors.newSingleThreadExecutor { Thread(it, "sluide-git").apply { isDaemon = true } }
+        NamedThreads.single("sluide-git")
 
     /** The repository being followed; a new object for every [open], so results for an older one are dropped. */
     @Volatile private var target: Target? = null

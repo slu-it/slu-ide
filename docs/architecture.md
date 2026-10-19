@@ -55,6 +55,11 @@ assembled from Gradle modules.
   - `git` -> `project-trust`: git's tools run only in folders the user trusts; `GitTrustCheck` is the
     `ProjectTrustCheck` that says what a repository's own configuration and hooks would make git run
     ([ADR 0053](adr/0053-project-trust.md)).
+  - `git`, `git-log`, `project-trust`, `file-viewers`, `http-client`, `file-explorer` and `docker-sandbox` ->
+    `background-tasks` (`implementation`): their background work runs on `NamedThreads`, which logs what a task throws
+    ([ADR 0060](adr/0060-logging-conventions.md)): the status thread of `git`; the read and write threads of `git-log`;
+    the trust checks of `project-trust`; highlighting, exports and image downloads of `file-viewers`; response
+    formatting and token requests of `http-client`; deletes of `file-explorer`; the `sbx` check of `docker-sandbox`.
   - `git-log` -> `git`: the git log area reads its commits, refs, commit details, changed files and file diffs with
     `GitLog` and shows `GitCommit`s, `GitRef`s, `GitCommitDetails` and `GitChangedFile`s
     ([ADR 0035](adr/0035-git-log-area.md), [ADR 0037](adr/0037-ref-labels-and-commit-details.md),

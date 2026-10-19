@@ -1,5 +1,6 @@
 package dev.sluide.gitlog
 
+import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.fileicons.FILE_ICONS_CSS
 import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCommits
@@ -66,7 +67,6 @@ import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
-import java.util.concurrent.Executors
 
 /**
  * The git log area of a window (ADR 0035): a header bar ("Git Log", a chevron, Refresh) and, while [expanded], the
@@ -115,7 +115,7 @@ class GitLogView internal constructor(
     )
 
     private val executor =
-        Executors.newSingleThreadExecutor { Thread(it, "sluide-git-log").apply { isDaemon = true } }
+        NamedThreads.single("sluide-git-log")
 
     private val pages =
         GitLogPages(
@@ -142,7 +142,7 @@ class GitLogView internal constructor(
 
     /** Reads the branches containing the shown commit (ADR 0045), not behind the pages of the log nor delaying them. */
     private val branchesExecutor =
-        Executors.newSingleThreadExecutor { Thread(it, "sluide-git-branches").apply { isDaemon = true } }
+        NamedThreads.single("sluide-git-branches")
 
     /** The branches containing the commit whose details are shown (ADR 0045). */
     private val commitBranches =
@@ -155,7 +155,7 @@ class GitLogView internal constructor(
 
     /** Reads for the working-tree windows (ADR 0044), not behind the pages of the log. */
     private val compareExecutor =
-        Executors.newSingleThreadExecutor { Thread(it, "sluide-git-compare").apply { isDaemon = true } }
+        NamedThreads.single("sluide-git-compare")
 
     /**
      * Asked before an operation changes files on disk, with its action ("Check Out", "Cherry-Pick"), e.g. to save or

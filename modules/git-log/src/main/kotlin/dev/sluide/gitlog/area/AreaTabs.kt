@@ -1,5 +1,6 @@
 package dev.sluide.gitlog.area
 
+import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
@@ -29,7 +30,6 @@ import javafx.scene.shape.Rectangle
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
 
 /**
  * The tabs of the git log area (ADR 0046): the Log ([log], focused through [logTable]), the Commit tab (ADR 0048) and
@@ -211,7 +211,7 @@ internal class AreaTabs(
     /** A new Commit tab for the repository at [root], with a thread of its own, not read before it is shown. */
     private fun commitTab(root: Path): CommitTab {
         val commitExecutor =
-            Executors.newSingleThreadExecutor { Thread(it, "sluide-git-commit").apply { isDaemon = true } }
+            NamedThreads.single("sluide-git-commit")
         val reader =
             CommitReader(
                 root,
@@ -298,7 +298,7 @@ internal class AreaTabs(
         key: FileHistoryKey,
     ): HistoryTab {
         val pagesExecutor =
-            Executors.newSingleThreadExecutor { Thread(it, "sluide-git-history").apply { isDaemon = true } }
+            NamedThreads.single("sluide-git-history")
         val history = FileHistory(root, key, source::fileHistory, source::refs, pagesExecutor::execute, dispatch)
         val details =
             CommitDetails(source::details, { _, _ -> emptyList() }, readDetails, dispatch, source::resolveCommits)

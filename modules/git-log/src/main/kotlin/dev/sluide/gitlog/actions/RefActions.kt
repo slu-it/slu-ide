@@ -1,5 +1,6 @@
 package dev.sluide.gitlog.actions
 
+import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitPick
@@ -49,7 +50,6 @@ import javafx.scene.control.ButtonType
 import javafx.stage.Window
 import javafx.stage.WindowEvent
 import java.nio.file.Path
-import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.TimeUnit
 
@@ -84,7 +84,7 @@ internal class RefActions(
     var openFile: (Path) -> Unit = {}
 
     private val writeExecutor =
-        Executors.newSingleThreadExecutor { Thread(it, "sluide-git-write").apply { isDaemon = true } }
+        NamedThreads.single("sluide-git-write")
 
     /** Runs the operations that change the repository, one at a time (ADR 0041). */
     private val writer = RefWriter(writes, writeExecutor::execute, dispatch)
@@ -114,7 +114,7 @@ internal class RefActions(
         val root = pages.root ?: return
         pushDialog?.let { return it.show() }
         val pushExecutor =
-            Executors.newSingleThreadScheduledExecutor { Thread(it, "sluide-git-push").apply { isDaemon = true } }
+            NamedThreads.scheduled("sluide-git-push")
         val reader =
             PushReader(
                 root,
