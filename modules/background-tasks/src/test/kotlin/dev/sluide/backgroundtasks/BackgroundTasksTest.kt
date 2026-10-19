@@ -84,6 +84,27 @@ class BackgroundTasksTest {
     }
 
     @Test
+    fun `a finish with a detail is its one end line`() {
+        val task = tasks.start("GET example.com")
+        advance(1230)
+        task.close("200, 12 bytes")
+        task.close("again")
+        task.close()
+        task.failed("late")
+        runFx()
+
+        assertEquals(
+            listOf(
+                "task#${task.number} started: GET example.com",
+                "task#${task.number} finished in 1.23 s: GET example.com (200, 12 bytes)",
+            ),
+            messages(),
+        )
+        assertTrue(lines.all { it.level == Level.INFO })
+        assertTrue(tasks.shown.isEmpty())
+    }
+
+    @Test
     fun `formats durations with three significant digits`() {
         assertEquals("0.123 s", seconds(Duration.ofMillis(123)))
         assertEquals("1.23 s", seconds(Duration.ofMillis(1234)))

@@ -95,6 +95,12 @@ class BackgroundTask internal constructor(
     /** Ends the task; any thread, idempotent. Logged at INFO. */
     override fun close() = end { EndLine(System.Logger.Level.INFO, "finished in $it: $currentName") }
 
+    /**
+     * Ends the task like [close], with [detail] about the outcome in its end line, e.g. a response's status:
+     * `task#7 finished in 1.23 s: GET example.com (200, 12 bytes)`. Any thread; nothing once the task has ended.
+     */
+    fun close(detail: String) = end { EndLine(System.Logger.Level.INFO, "finished in $it: $currentName ($detail)") }
+
     /** The window closed while it was running. */
     internal fun abandon() = end { EndLine(System.Logger.Level.INFO, "abandoned after $it: $currentName") }
 
