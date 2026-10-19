@@ -35,6 +35,8 @@ class WindowIconsUiTest {
     fun cleanUp(robot: FxRobot) {
         robot.interact {
             windowIcons.uninstall()
+            // The primary stage is shared by all UI test classes.
+            stage.icons.clear()
             opened.forEach(Stage::hide)
         }
     }
@@ -60,7 +62,7 @@ class WindowIconsUiTest {
         assertEquals(listOf(16.0, 32.0, 64.0, 128.0, 256.0), stage.icons.map { it.width })
         assertTrue(stage.icons.none { it.isError }, "all images load")
 
-        assertEquals(5, open(robot).icons.size)
+        assertEquals(stage.icons.toList(), open(robot).icons.toList())
     }
 
     @Test

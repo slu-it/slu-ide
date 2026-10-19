@@ -96,9 +96,10 @@ assembled from Gradle modules.
 ## Runtime
 1. `SluIdeLauncher.main` calls `Application.launch(SluIdeApplication)`.
 2. `SluIdeApplication.init()` starts a non-web Spring context scanning `dev.sluide` ([ADR 0002](adr/0002-spring-inside-javafx.md)).
-3. `SluIdeApplication.start()` turns off JavaFX's implicit exit, themes all windows (`ThemedWindows.install()`) and
-   calls `ProjectWindows.start`: the first folder from the command line opens in the primary stage, further folders
-   in new windows; without folders the project picker is shown instead ([ADR 0034](adr/0034-project-picker.md)).
+3. `SluIdeApplication.start()` turns off JavaFX's implicit exit, themes all windows (`ThemedWindows.install()`), gives
+   every stage the logo (`WindowIcons.install()`) and calls `ProjectWindows.start`: the first folder from the command
+   line opens in the primary stage, further folders in new windows; without folders the project picker is shown
+   instead ([ADR 0034](adr/0034-project-picker.md)).
 4. Each window gets its own instances of the beans with `@Scope("window")` (`WindowScope`, [ADR 0014](adr/0014-project-windows.md)):
    `MainWindow`, `ProjectService`, `FileExplorerView`, `EditorArea`, `Terminals`, `DockerSandbox`, `GitStatusService`,
    `GitLogView`, `HttpClientSession`, `ProjectTrust`, `BackgroundTasks`.

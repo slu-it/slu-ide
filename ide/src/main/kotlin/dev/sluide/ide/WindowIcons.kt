@@ -11,7 +11,8 @@ import javafx.util.Subscription
  * the Dock shows the app's `.icns` instead; these matter on Linux and for `java -jar`.
  */
 internal class WindowIcons {
-    private val images =
+    // Loaded on first use: images need the started JavaFX toolkit.
+    private val images by lazy {
         listOf(16, 32, 64, 128, 256).map { size ->
             Image(
                 checkNotNull(
@@ -19,6 +20,7 @@ internal class WindowIcons {
                 ).toExternalForm(),
             )
         }
+    }
     private var subscription: Subscription? = null
 
     /** Sets the icons of all open stages and of every stage opened later. Must be called on the FX thread. */
