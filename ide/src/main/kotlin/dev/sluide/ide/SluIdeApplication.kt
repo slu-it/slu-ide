@@ -1,5 +1,6 @@
 package dev.sluide.ide
 
+import dev.sluide.ide.logging.FxWatchdog
 import dev.sluide.ide.logging.logUncaught
 import dev.sluide.settings.ThemedWindows
 import javafx.application.Application
@@ -25,6 +26,7 @@ class SluIdeConfiguration
  */
 class SluIdeApplication : Application() {
     private lateinit var context: ConfigurableApplicationContext
+    private val watchdog = FxWatchdog()
 
     override fun init() {
         context =
@@ -47,9 +49,11 @@ class SluIdeApplication : Application() {
         context.getBean(ThemedWindows::class.java).install()
         val windows = context.getBean(ProjectWindows::class.java)
         windows.start(primaryStage, folders)
+        watchdog.start()
     }
 
     override fun stop() {
+        watchdog.stop()
         context.close()
     }
 }
