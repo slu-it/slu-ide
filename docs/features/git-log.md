@@ -239,6 +239,26 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
     ("Checked out new branch fix tracking origin/fix."). There are no further keys. A checkout never overwrites an
     ignored file the other commit tracks (a local `.env`): git refuses as for untracked files ("The following untracked
     working tree files would be overwritten by checkout: .env"), shown in the error dialog.
+  - **Rebase** ([ADR 0063](../adr/0063-git-log-rebase.md)): the branches pane's context menu has, after Checkout,
+    "Rebase 'feature' onto 'main'" (the current branch onto the one selected local or remote branch, e.g.
+    'origin/main'; "Rebase Current Branch onto…" without a current branch or a single such branch). It is enabled for
+    exactly one local or remote branch that is not the current one, with a current branch (not detached) and a `HEAD`
+    commit, whose commit is not `HEAD`'s, while no operation runs and nothing is in progress. The branch is rebased
+    with `git rebase --merge` (no autostash, no fork point, `rebase.updateRefs` and `rebase.rebaseMerges` off), so a
+    rebase onto a branch `HEAD` is behind just fast-forwards. If the other branch is already contained in the current
+    one nothing runs ("'main' is already contained in 'feature'; nothing to rebase."). If the current branch has merge
+    commits the other branch lacks (or that cannot be read), a confirmation first says "feature has 2 merge commits
+    since main; the rebase drops them and replays their changes as plain commits." (Cancel the default). Git
+    refuses the rebase with any local change in tracked files, staged or not (ADR 0063); its message is shown in the
+    error dialog. Unsaved editors are asked about first, as for a checkout. Every stop (a conflict, an edit, a hook,
+    untracked files in the way), also after Continue or Skip, opens "Rebase Stopped" with Resolve and Abort Rebase and
+    leaves a bar (below) to continue, skip or abort.
+  - **Branch submenus in the log:** the table's context menu starts, with exactly one commit selected, with one
+    submenu per local or remote branch at that commit (named "feature", "origin/main"; not `HEAD` or tags), then a
+    separator. A submenu has the items of the branches pane for that branch, with the same texts and enabling:
+    Filter Log by Branch, Copy Name, Compare with Current, Show Diff with Working Tree, Checkout, Rebase …, New Branch
+    from '…'…, Rename…, Delete (and Fetch for a remote branch). It is built when the menu opens, so it follows the
+    state at that moment (nothing that writes while an operation runs, no rebase while one is in progress).
   - **Leaving a detached HEAD:** a checkout (also of a revision from the log, or a new branch with Checkout) that would
     leave commits of a detached `HEAD` on no branch, remote branch or tag asks first: "2 commits of the detached HEAD
     will no longer be on any branch or tag; they stay reachable through the reflog for a while." and below it "To
@@ -298,8 +318,12 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
   - **In progress:** while a cherry-pick or revert is in progress, also one started in a terminal, a bar below the
     filter bar says "Cherry-pick of 1a2b3c4d is in progress: 2 files have conflicts." ("…: conflicts resolved." once
     none is unmerged in the index) with Continue and Abort; read with every refresh, it disappears after one without
-    it (and after a refresh that fails). A merge, rebase, `git am` or a cherry-pick or revert of several commits shows
-    there too, without buttons ("A cherry-pick sequence is in progress; continue or abort it in the terminal.").
+    it (and after a refresh that fails). A merge, `git am` or a cherry-pick or revert of several commits shows
+    there too, without buttons ("A cherry-pick sequence is in progress; continue or abort it in the terminal."). A
+    rebase, also one started in a terminal, shows "Rebasing feature onto 1a2b3c4d: stopped at 5e6f7a8b (3 of 7); 2
+    files have conflicts." with Continue, Skip and Abort. Continue works as for a cherry-pick (marker check, only
+    unmerged paths staged) and keeps the prepared message; if nothing is left to commit it skips the commit. Skip and
+    Abort ask first (Skip drops the commit's changes; Abort puts the branch back to where it was).
     **Abort** asks first ("Abort the cherry-pick of 1a2b3c4d? Its changes are undone, also what was done to resolve its
     conflicts.", Abort Cherry-Pick or Cancel, the default), then goes back to before it ("Aborted the cherry-pick of
     1a2b3c4d."); Abort Cherry-Pick in the dialog right after the stop does not ask, as nothing is resolved yet.
@@ -413,6 +437,7 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
 - Not yet implemented (next packages): a flat list of the changed files, their combined changes for several commits, comparing two branches or commits with each other (and the
   files since their merge base), the changes against each parent of a merge, a diff preview in the log, a date filter, dotted
   edges through commits hidden by filters, tracking information in the branches pane, remembering the area's height
-  and state, and more operations: updating local branches after a fetch, pull, merge, rebase, deleting remote branches, pushing tags; for
+  and state, and more operations: updating local branches after a fetch, pull, merge, deleting remote branches, pushing tags; for
   cherry-pick and revert several commits at once, a merge tool or three-way view, `-x` and edited messages; `reset
-  --keep`; continuing or aborting merges, rebases and sequences from the bar.
+  --keep`; rebasing with `--onto`, interactively, a branch other than the current one, or onto a tag or commit;
+  continuing or aborting merges and sequences from the bar.
