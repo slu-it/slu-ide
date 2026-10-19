@@ -441,6 +441,61 @@ class ProjectWindowsUiTest {
     }
 
     @Test
+    fun `picking a project from a window shows one picker, and the chosen project opens in another window`(
+        robot: FxRobot,
+    ) {
+        val current = dir.resolve("current").createDirectories()
+        val remembered = dir.resolve("remembered").createDirectories()
+        recentProjects.opened(remembered)
+        robot.interact { window(first).openFolder(current) }
+
+        robot.interact { windows.pickProject() }
+        robot.interact { windows.pickProject() }
+        WaitForAsyncUtils.waitForFxEvents()
+        choose(robot, pickers().single(), "remembered")
+
+        assertEquals(emptyList(), pickers())
+        val (kept, opened) = windows.stages
+        assertSame(first, kept)
+        assertEquals(current, window(first).folder)
+        assertEquals(remembered, window(opened).folder)
+        assertEquals(0, exits)
+        robot.interact { opened.hide() }
+    }
+
+    @Test
+    fun `a project picked from a window that does not open shows an error and the picker again`(robot: FxRobot) {
+        recentProjects.opened(dir.resolve("vanished").createDirectories())
+        robot.interact { window(first).openFolder(dir.resolve("current").createDirectories()) }
+        windows.isFolder = { false }
+
+        robot.interact { windows.pickProject() }
+        WaitForAsyncUtils.waitForFxEvents()
+        choose(robot, pickers().single(), "vanished")
+
+        assertTrue(errors.single().contains("vanished"), errors.single())
+        assertEquals(1, pickers().size)
+        assertEquals(listOf(first), windows.stages)
+    }
+
+    @Test
+    fun `a picker picked from the last window stays the only one when it closes, and cancelling it then ends`(
+        robot: FxRobot,
+    ) {
+        robot.interact { window(first).openFolder(dir.resolve("current").createDirectories()) }
+        robot.interact { windows.pickProject() }
+        val picker = pickers().single()
+
+        robot.interact { first.hide() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(listOf(picker), pickers())
+        assertEquals(0, exits)
+        escape(robot, picker)
+        assertEquals(1, exits)
+    }
+
+    @Test
     fun `closing the context closes the windows without showing the picker`(robot: FxRobot) {
         robot.interact { window(first).openFolder(dir.resolve("a").createDirectories()) }
 

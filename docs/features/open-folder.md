@@ -7,6 +7,8 @@
 - Menu **File → Open Folder…** (Ctrl/Cmd+O) shows a `DirectoryChooser`, starting in the window's project folder.
   On Linux, Ctrl+O does not open the dialog while a terminal has the focus: the terminal sends it to the shell as ^O
   ([terminal.md](terminal.md)); the menu still works.
+- Menu **File → Open Project…**, right below, shows the project picker with the remembered projects
+  ([project-picker.md](project-picker.md)); the chosen one opens in a new window, or its window comes to the front.
 - One project folder per window:
   - in a window without a folder, the chosen folder opens in that window (windows Thoreau opens itself always have
     one: it starts with the project picker instead of an empty window);

@@ -11,6 +11,7 @@ import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
 import javafx.scene.layout.VBox
 import javafx.stage.Stage
+import javafx.stage.Window
 import org.fxmisc.richtext.CodeArea
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Tag
@@ -20,6 +21,7 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.net.URI
+import java.util.concurrent.Callable
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.createDirectories
@@ -93,6 +95,30 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         val accelerator = openFolder.accelerator as KeyCodeCombination
         assertEquals(KeyCode.O, accelerator.code)
         assertEquals(KeyCombination.ModifierValue.DOWN, accelerator.shortcut)
+    }
+
+    @Test
+    fun `offers File - Open Project after Open Folder, which shows the project picker`(robot: FxRobot) {
+        val openProject = menu(robot, "File").items[1]
+        assertEquals("Open Project…", openProject.text)
+        // The fixture's windows know no window: closing the picker would end the application.
+        projectWindows.exit = {}
+
+        robot.interact { openProject.fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val pickers =
+            WaitForAsyncUtils
+                .asyncFx(
+                    Callable {
+                        Window.getWindows().filterIsInstance<Stage>().filter {
+                            it.isShowing && "project-picker" in it.scene.root.styleClass
+                        }
+                    },
+                ).get()
+        // Hidden before asserting, so that no picker stays on screen for the next tests.
+        robot.interact { pickers.forEach(Stage::hide) }
+        assertEquals(1, pickers.size)
     }
 
     @Test

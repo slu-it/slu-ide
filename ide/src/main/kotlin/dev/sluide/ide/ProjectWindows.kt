@@ -82,20 +82,28 @@ class ProjectWindows(
 
     /**
      * Shows the project picker: the chosen folder opens like [open]; cancelling it while no window is open ends the
-     * application. If the chosen folder does not open, the picker is shown again.
+     * application. If the chosen folder does not open, the picker is shown again, also while windows are open.
      */
     fun showPicker() {
         pickerStage =
             picker.show(
                 onOpen = { folder ->
+                    val path = folder.toAbsolutePath().normalize()
                     try {
                         tryOpening(folder, ::open)
                     } finally {
-                        showPickerWithoutWindow()
+                        if (!stopping && open.none { it.window.folder == path }) pickProject()
                     }
                 },
                 onCancel = { if (open.isEmpty()) exit() },
             )
+    }
+
+    /** Shows the project picker (File → Open Project…), or brings the one showing to the front instead of a second. */
+    fun pickProject() {
+        val showing = pickerStage?.takeIf { it.isShowing } ?: return showPicker()
+        showing.toFront()
+        showing.requestFocus()
     }
 
     /**
@@ -114,10 +122,13 @@ class ProjectWindows(
         }
     }
 
-    /** Shows the picker unless a window or a picker is showing or the application ends, so it never runs without. */
+    /**
+     * Shows the picker unless a window is showing or the application ends, so it never runs without; a picker already
+     * showing (opened from a window meanwhile closed) comes to the front.
+     */
     private fun showPickerWithoutWindow() {
-        if (stopping || open.any { it.stage.isShowing } || pickerStage?.isShowing == true) return
-        showPicker()
+        if (stopping || open.any { it.stage.isShowing }) return
+        pickProject()
     }
 
     /** Shows a new window in [stage], with [folder] opened if it is not `null`. */

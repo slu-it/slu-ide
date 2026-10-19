@@ -521,6 +521,8 @@ class MainWindow(
                 accelerator = KeyCodeCombination(KeyCode.O, KeyCombination.SHORTCUT_DOWN)
                 setOnAction { chooseFolder(stage) }
             }
+        // The project picker, to open a remembered project in another window (ADR 0034).
+        val openProject = MenuItem("Open Project…").apply { setOnAction { projectWindows.pickProject() } }
         // Ctrl+S in a terminal goes to the shell, which consumes the key before the accelerator sees it; Cmd+S on
         // macOS and Ctrl+Alt+S send nothing to the shell, so they save from a terminal too.
         val save =
@@ -538,7 +540,8 @@ class MainWindow(
                 accelerator = KeyCodeCombination(KeyCode.COMMA, KeyCombination.SHORTCUT_DOWN)
                 setOnAction { showSettings(stage) }
             }
-        return Menu("File", null, openFolder, SeparatorMenuItem(), save, saveAll, SeparatorMenuItem(), settings)
+        val items = arrayOf(openFolder, openProject, SeparatorMenuItem(), save, saveAll, SeparatorMenuItem(), settings)
+        return Menu("File", null, *items)
     }
 
     private fun viewMenu(): Menu {
