@@ -120,9 +120,16 @@ internal class BranchesPane : BorderPane() {
     internal val checkoutItem =
         MenuItem("Checkout").apply { setOnAction { actions().checkout?.let(commands.checkout) } }
     internal val rebaseItem =
-        MenuItem(rebaseText(null, null)).apply { setOnAction { actions().rebase?.let(commands.rebase) } }
+        MenuItem(rebaseText(null, null)).apply {
+            // A name with `_` would lose it as a mnemonic.
+            isMnemonicParsing = false
+            setOnAction { actions().rebase?.let(commands.rebase) }
+        }
     internal val newBranchItem =
-        MenuItem(NEW_BRANCH).apply { setOnAction { actions().newBranchFrom?.let(commands.newBranchFrom) } }
+        MenuItem(NEW_BRANCH).apply {
+            isMnemonicParsing = false
+            setOnAction { actions().newBranchFrom?.let(commands.newBranchFrom) }
+        }
     internal val renameItem = MenuItem("Rename…").apply { setOnAction { renameSelected() } }
     internal val deleteItem = MenuItem("Delete").apply { setOnAction { deleteSelected() } }
     internal val fetchItem = MenuItem("Fetch").apply { setOnAction { actions().fetch?.let(commands.fetch) } }
@@ -431,13 +438,6 @@ internal class BranchesPane : BorderPane() {
         compareItem.isDisable = actions.compare == null
         workingTreeItem.isDisable = actions.workingTreeDiff == null
     }
-
-    private fun headCommit() =
-        refs
-            ?.refs
-            .orEmpty()
-            .firstOrNull { it.kind == GitRefKind.HEAD }
-            ?.commit
 
     /** A group (its name), a remote or folder (a folder icon) or a branch (its ref icon, the current one in bold). */
     private inner class BranchCell : TreeCell<BranchNode>() {

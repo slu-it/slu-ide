@@ -2,6 +2,7 @@ package dev.sluide.gitlog.table
 
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitPick
+import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.gitlog.actions.RefActions
 import dev.sluide.gitlog.data.GitLogPages
@@ -17,6 +18,7 @@ import javafx.beans.value.ObservableBooleanValue
 import javafx.beans.value.ObservableStringValue
 import javafx.scene.control.ContextMenu
 import javafx.scene.control.Label
+import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
 import javafx.scene.control.SelectionMode
 import javafx.scene.control.SeparatorMenuItem
@@ -51,6 +53,12 @@ internal class CommitTable(
 
     /** Ends the comparison shown (ADR 0044); set by the view. */
     var stopComparing: () -> Unit = {}
+
+    /** The submenus for the branches at a commit (ADR 0063); set by the view, called when the menu opens. */
+    var branchMenus: (List<GitRef>) -> List<Menu> = { emptyList() }
+
+    /** The submenus and separator put in front of the fixed items the last time the menu opened. */
+    private val branchItems = mutableListOf<MenuItem>()
 
     private val dateFormat = DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).withZone(ZoneId.systemDefault())
 
@@ -143,6 +151,22 @@ internal class CommitTable(
                 SeparatorMenuItem(),
                 goToItem,
             )
+        contextMenu.setOnShowing {
+            contextMenu.items.removeAll(branchItems)
+            branchItems.clear()
+            val refs =
+                selectionModel.selectedItems
+                    .singleOrNull()
+                    ?.refs
+                    .orEmpty()
+                    .filter { it.kind == GitRefKind.LOCAL_BRANCH || it.kind == GitRefKind.REMOTE_BRANCH }
+            val menus = branchMenus(refs)
+            if (menus.isNotEmpty()) {
+                branchItems += menus
+                branchItems += SeparatorMenuItem()
+                contextMenu.items.addAll(0, branchItems)
+            }
+        }
         copyRevisionNumber.disableProperty().bind(Bindings.isEmpty(selectionModel.selectedItems))
         // One commit, and no operation running.
         val notOne = Bindings.size(selectionModel.selectedItems).isNotEqualTo(1).or(actions.running)

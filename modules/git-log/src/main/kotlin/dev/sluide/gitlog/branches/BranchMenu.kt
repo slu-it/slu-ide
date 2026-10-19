@@ -6,12 +6,18 @@ import dev.sluide.git.GitRefs
 import dev.sluide.gitlog.actions.RefActions
 import dev.sluide.gitlog.area.CommitDiffs
 import dev.sluide.gitlog.area.CompareBar
+import dev.sluide.gitlog.data.GitLogPages
 import dev.sluide.gitlog.filter.FilterBar
 import dev.sluide.gitlog.operations.BranchActions
 import dev.sluide.gitlog.operations.Fetch
 import dev.sluide.gitlog.operations.RefOperation
 import dev.sluide.gitlog.operations.branchActions
 import dev.sluide.gitlog.operations.rebaseText
+import javafx.scene.control.Menu
+import javafx.scene.control.MenuItem
+import javafx.scene.control.SeparatorMenuItem
+import javafx.scene.input.Clipboard
+import javafx.scene.input.ClipboardContent
 
 /** What the branch menus (of the branches pane, and of the commit table) do; shared so that both do the same. */
 internal class BranchCommands {
@@ -135,3 +141,81 @@ internal fun rebaseMenuText(
         }
     return rebaseText(refs?.currentBranch?.removePrefix("refs/heads/"), target?.shortName)
 }
+
+/**
+ * The submenu of the log's context menu for the branch or remote branch [ref]: the items of the branches pane for
+ * that one branch, as the state of [refs], [remotes], [writing] and [busy] allows now; build it when the menu opens.
+ */
+internal fun branchMenu(
+    ref: GitRef,
+    refs: GitRefs?,
+    remotes: List<String>,
+    writing: Boolean,
+    busy: Boolean,
+    commands: BranchCommands,
+): Menu {
+    val leaf = branchLeaf(ref, refs)
+    val selected = listOf(leaf)
+    val actions = menuActions(selected, refs, remotes, writing, busy)
+
+    fun item(
+        id: String,
+        text: String,
+        enabled: Boolean,
+        action: () -> Unit,
+    ) = MenuItem(text).apply {
+        this.id = id
+        // A ref name with `_` would lose it as a mnemonic.
+        isMnemonicParsing = false
+        isDisable = !enabled
+        setOnAction { action() }
+    }
+
+    val items =
+        mutableListOf<MenuItem>(
+            item("branch-filter", "Filter Log by Branch", true) { commands.filter(listOf(ref.name)) },
+            SeparatorMenuItem(),
+            item("branch-copy-name", "Copy Name", true) {
+                Clipboard.getSystemClipboard().setContent(ClipboardContent().apply { putString(ref.shortName) })
+            },
+            SeparatorMenuItem(),
+            item("branch-compare", "Compare with Current", actions.compare != null) {
+                actions.compare?.let(commands.compare)
+            },
+            item("branch-working-tree-diff", "Show Diff with Working Tree", actions.workingTreeDiff != null) {
+                actions.workingTreeDiff?.let(commands.showWorkingTreeDiff)
+            },
+            SeparatorMenuItem(),
+            item("branch-checkout", "Checkout", actions.checkout != null) { actions.checkout?.let(commands.checkout) },
+            item("branch-rebase", rebaseMenuText(selected, refs), actions.rebase != null) {
+                actions.rebase?.let(commands.rebase)
+            },
+            item("branch-new-branch", "New Branch from '${ref.shortName}'…", actions.newBranchFrom != null) {
+                actions.newBranchFrom?.let(commands.newBranchFrom)
+            },
+            item("branch-rename", "Rename…", actions.rename != null) { actions.rename?.let(commands.rename) },
+            item("branch-delete", "Delete", actions.delete.isNotEmpty()) {
+                actions.delete.ifEmpty { null }?.let(commands.delete)
+            },
+        )
+    if (ref.kind == GitRefKind.REMOTE_BRANCH) {
+        items += SeparatorMenuItem()
+        items += item("branch-fetch", "Fetch", actions.fetch != null) { actions.fetch?.let(commands.fetch) }
+    }
+    return Menu(ref.shortName).apply {
+        styleClass += "git-branch-menu"
+        isMnemonicParsing = false
+        this.items.setAll(items)
+    }
+}
+
+/** What the table asks for the branches at a commit ([CommitTable.branchMenus][dev.sluide.gitlog.table.CommitTable]). */
+internal fun branchMenus(
+    pages: GitLogPages,
+    writing: () -> Boolean,
+    busy: () -> Boolean,
+    commands: BranchCommands,
+): (List<GitRef>) -> List<Menu> =
+    { refs ->
+        refs.map { branchMenu(it, pages.refs, pages.remotes.orEmpty(), writing(), busy(), commands) }
+    }

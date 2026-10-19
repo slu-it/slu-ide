@@ -20,6 +20,7 @@ import dev.sluide.gitlog.area.HeaderBar
 import dev.sluide.gitlog.area.HeaderStatus
 import dev.sluide.gitlog.branches.BranchesPane
 import dev.sluide.gitlog.branches.branchCommands
+import dev.sluide.gitlog.branches.branchMenus
 import dev.sluide.gitlog.data.CommitBranches
 import dev.sluide.gitlog.data.CommitDetails
 import dev.sluide.gitlog.data.CommitDetailsState
@@ -336,6 +337,11 @@ class GitLogView internal constructor(
             writing.bind(actions.running)
             busy.bind(pendingBar.busy)
         }
+
+    init {
+        // The table was built before the commands; its menu asks when it opens.
+        table.branchMenus = branchMenus(pages, actions.running::get, pendingBar.busy::get, branchCommands)
+    }
 
     /** The filters and the table and, at first in the right 30 %, the changed files and details ([SharedSplit]). */
     internal val inner = SharedSplit(commitsPane, side, 0.7).apply { styleClass += "git-log-inner" }
