@@ -15,5 +15,14 @@ explorer). Decision in [ADR 0061](../adr/0061-background-tasks.md).
   (`task#7 started: …`, `task#7 finished in 1.23 s: …`, `failed after …` or `cancelled after …`); also the tasks that
   are never shown.
 - **Closing the window** while tasks run logs them as abandoned.
-- **What appears here:** git writes, loading and searching the git log, the git status and trust checks, exports and
-  HTTP requests, once they are registered (see the table in [ADR 0061](../adr/0061-background-tasks.md)).
+- **What appears here** (names and cancelling: the table in [ADR 0061](../adr/0061-background-tasks.md)):
+  - git writes of the git log, the Commit tab and the Push dialog, named as the git log header says what they do
+    ("Fetching origin…", "Committing…", "Pushing main to origin/main…"); fetch, commit and push have ✕;
+  - loading the git log ("Loading Git log", "Loading more commits", "Searching Git log for main") and a file's
+    history ("Loading history of App.kt", with ✕: the rows loaded stay; a cancelled further page loads again when you
+    scroll, a cancelled first load or refresh says "Loading cancelled. Refresh to load." until Refresh);
+  - "Refreshing Git status" and "Checking project trust";
+  - exports ("Exporting notes.md as HTML", "Exporting logo.svg as PNG 200%");
+  - HTTP requests, by their name in the `.http` file ("GET Get users") or else their host ("GET example.com"), never
+    the path or query, with ✕; and OAuth token requests ("Acquiring token 'api'", "Refreshing token 'api'"), also
+    while they wait for a certificate's passphrase.

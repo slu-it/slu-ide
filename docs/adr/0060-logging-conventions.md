@@ -36,7 +36,8 @@ This partly supersedes the dropping of ADR 0013; writes were not affected.
 
 `.git` and status: every batch of changes in `.git` is logged (`Changes in .git of <root>: <up to 5 paths>[, … (+N
 more)]`), and every status refresh logs one start and one end line (`Git status cycle for <root>: trust recheck|awaited
-<ms> ms, status <ms> ms, changed|unchanged`, or why it ended early). A refresh loop shows as a repeating pair.
+<ms> ms, status <ms> ms, changed|unchanged`, or why it ended early; a failed `git status` ends it with the task line
+`… finished in …: Refreshing Git status (git status failed)`, ADR 0061). A refresh loop shows as a repeating pair.
 
 FX watchdog (`FxWatchdog`, ide): a daemon thread `sluide-fx-watchdog` posts a ping to the JavaFX thread every 250 ms.
 A ping not handled within 1 s gives one WARNING `JavaFX thread blocked for <ms> ms` with the stack trace of the JavaFX
@@ -48,8 +49,10 @@ every throwable of a task at ERROR with the thread's name. Errors that used to b
 `runCatching`) are logged: WARNING for expected failures that still hurt (naming the file, or method and host of a
 request, never a query, header or body), ERROR with the stack trace for unexpected ones. Work that is not git logs INFO
 start and end with the duration: image downloads (host and path), explorer deletes, terminal processes (program, pid,
-exit code), the `sbx` check and the start of the HTML preview server. Exports, HTTP requests and trust checks will
-log their start and end as background tasks (ADR 0061).
+exit code), the `sbx` check and the start of the HTML preview server. Exports, HTTP requests, token requests and trust
+checks log their start and end as background tasks (ADR 0061), like git writes, git log pages and git status. An HTTP
+request's task is named by its method and its name in the `.http` file, else its host, never its path (which may hold
+secrets), and finishes with the status and size.
 
 Raw executors and threads that stay on purpose: the request executor of the HTTP client (`RequestExecutor`, it logs its
 failures itself and turns every throwable into a result), the virtual-thread executor of the preview server

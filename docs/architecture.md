@@ -56,10 +56,15 @@ assembled from Gradle modules.
     `ProjectTrustCheck` that says what a repository's own configuration and hooks would make git run
     ([ADR 0053](adr/0053-project-trust.md)).
   - `git`, `git-log`, `project-trust`, `file-viewers`, `http-client`, `file-explorer` and `docker-sandbox` ->
-    `background-tasks` (`implementation`): their background work runs on `NamedThreads`, which logs what a task throws
+    `background-tasks` (`api` for `git`, `git-log`, `project-trust` and `http-client`, `implementation` for the
+    others): their background work runs on `NamedThreads`, which logs what a task throws
     ([ADR 0060](adr/0060-logging-conventions.md)): the status thread of `git`; the read and write threads of `git-log`;
     the trust checks of `project-trust`; highlighting, exports and image downloads of `file-viewers`; response
     formatting and token requests of `http-client`; deletes of `file-explorer`; the `sbx` check of `docker-sandbox`.
+    `git`, `git-log`, `project-trust`, `file-viewers` and `http-client` also register their long-running work as tasks
+    of the window's `BackgroundTasks` ([ADR 0061](adr/0061-background-tasks.md)), given to `GitStatusService`,
+    `GitLogView`, `ProjectTrust` and `HttpClientSession` by their public constructors (hence `api`) and to exports
+    through `FileViewHost.windowService` (`file-viewers` keeps it internal).
   - `ide` -> `background-tasks` (`implementation`): `MainWindow` shows the window's `BackgroundTasks` as a
     `BackgroundTasksView` under the file explorer (`leftPane`) and hands the registry to file views through
     `FileViewHost.windowService` ([ADR 0061](adr/0061-background-tasks.md)).
