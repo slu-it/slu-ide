@@ -391,7 +391,7 @@ internal fun hooks(
                 .toList()
                 .map { hook ->
                     val shown = if (hook.startsWith(root)) root.relativize(hook) else hook
-                    val digest = MessageDigest.getInstance("SHA-256").digest(Files.readAllBytes(hook))
+                    val digest = sha256(hook)
                     TrustFinding(
                         "hook ${hook.name} ($shown)",
                         HOOK_NOTES[hook.name] ?: "runs when git starts it",
@@ -402,6 +402,20 @@ internal fun hooks(
     } catch (_: IOException) {
         null
     }
+}
+
+/** The SHA-256 of the file at [path], read in chunks: a hook may be a link to a file of any size. */
+private fun sha256(path: Path): ByteArray {
+    val digest = MessageDigest.getInstance("SHA-256")
+    Files.newInputStream(path).use { stream ->
+        val buffer = ByteArray(64 * 1024)
+        while (true) {
+            val count = stream.read(buffer)
+            if (count < 0) break
+            digest.update(buffer, 0, count)
+        }
+    }
+    return digest.digest()
 }
 
 /** [path] resolved against [base], absolute and normalized; `null` if it cannot be a path. */
