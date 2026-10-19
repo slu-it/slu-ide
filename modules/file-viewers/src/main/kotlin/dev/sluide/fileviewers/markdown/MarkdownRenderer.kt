@@ -125,9 +125,9 @@ internal object MarkdownRenderer {
     /**
      * The preview page around [body] (sanitised content): our stylesheet and script, and KaTeX or Mermaid if it has
      * math or diagrams. A [standalone] page is for a browser, with its math typeset and its diagrams drawn already
-     * ([MarkdownHtmlExport]): its only script follows the reader's colour scheme ([dark] is ignored), and it has KaTeX's
-     * stylesheet only if it has typeset math (`.math-rendered`). It has a [title] and [extraStyles] after all other
-     * styles.
+     * ([MarkdownHtmlExport]): its only script follows the reader's colour scheme and adds a button to switch it
+     * ([dark] is ignored), and it has KaTeX's stylesheet only if it has typeset math (`.math-rendered`). It has a
+     * [title] and [extraStyles] after all other styles.
      */
     fun page(
         body: Element,
@@ -171,21 +171,49 @@ internal object MarkdownRenderer {
     /** The largest image that is embedded in a page. */
     internal const val MAX_IMAGE_BYTES = 10L * 1024 * 1024
 
-    // Follows the reader's colour scheme.
+    // Follows the reader's colour scheme and adds a button to switch it for as long as the page is open (nothing is
+    // stored); a later change of the system scheme applies again. Created here so that a page without JavaScript has
+    // no dead control.
     private const val THEME_SCRIPT =
         """
 (function () {
+    var dark = function () { return document.body.classList.contains('dark'); };
+    // A copy of the page saved by a browser already has the button.
+    var button = document.querySelector('.theme-toggle');
+    var existing = !!button;
+    if (!existing) {
+        button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'theme-toggle';
+    }
+    var sync = function () {
+        var label = dark() ? 'Switch to light theme' : 'Switch to dark theme';
+        button.setAttribute('aria-label', label);
+        button.title = label;
+        button.textContent = dark() ? '\u2600' : '\u263E';
+    };
+    button.addEventListener('click', function () {
+        document.body.classList.toggle('dark');
+        sync();
+    });
+    if (!existing) document.body.appendChild(button);
+    sync();
     var query = window.matchMedia && matchMedia('(prefers-color-scheme: dark)');
-    if (!query) return;
-    var follow = function () { document.body.classList.toggle('dark', query.matches); };
-    follow();
-    if (query.addEventListener) query.addEventListener('change', follow);
-    else if (query.addListener) query.addListener(follow);
+    if (query) {
+        var follow = function () {
+            document.body.classList.toggle('dark', query.matches);
+            sync();
+        };
+        follow();
+        if (query.addEventListener) query.addEventListener('change', follow);
+        else if (query.addListener) query.addListener(follow);
+    }
 })();
 """
 
     // A drawn diagram in the variant of the colour scheme, laid out like pre.mermaid in preview.css; display math like
-    // .math.display; a diagram that failed for another reason than its syntax without the label "Syntax error".
+    // .math.display; a diagram that failed for another reason than its syntax without the label "Syntax error"; the
+    // colour scheme button in the palette of preview.css (the reader's own stylesheet can restyle or hide it).
     private const val EXPORT_STYLESHEET =
         """
 .math-rendered.display {
@@ -214,6 +242,43 @@ body:not(.dark) .diagram-dark {
 .diagram svg {
     max-width: 100%;
     height: auto;
+}
+
+body.standalone {
+    padding-right: 56px;
+}
+
+.theme-toggle {
+    position: fixed;
+    top: 12px;
+    right: 12px;
+    width: 32px;
+    height: 32px;
+    padding: 0;
+    border: 1px solid #d1d9e0;
+    border-radius: 50%;
+    background: #ffffff;
+    color: #1f2328;
+    font-size: 16px;
+    line-height: 30px;
+    cursor: pointer;
+}
+
+body.dark .theme-toggle {
+    background: #2b2b2b;
+    border-color: #3d444d;
+    color: #d1d7e0;
+}
+
+.theme-toggle:focus-visible {
+    outline: 2px solid #4493f8;
+    outline-offset: 2px;
+}
+
+@media print {
+    .theme-toggle {
+        display: none;
+    }
 }
 """
 

@@ -27,13 +27,17 @@ class StandalonePageTest {
     }
 
     @Test
-    fun `the only script of a standalone page follows the reader's colour scheme`() {
+    fun `the only script of a standalone page follows the reader's colour scheme and adds the toggle button`() {
         val html = page("\$x\$\n\n```mermaid\ngraph TD; A-->B\n```\n", standalone = true)
         val doc = Jsoup.parse(html)
         assertTrue(doc.body().hasClass("standalone"))
         val script = doc.select("script").single().data()
         assertTrue(script.contains("matchMedia("))
+        assertTrue(script.contains("theme-toggle"))
         assertFalse(script.contains("sluide"))
+        val styles = doc.select("style").joinToString("\n") { it.data() }
+        assertTrue(styles.contains(".theme-toggle"))
+        assertTrue(Regex("""@media print\s*\{[^@]*\.theme-toggle[^}]*display:\s*none""").containsMatchIn(styles))
         // Neither the preview's script nor the libraries.
         assertFalse(html.contains("scrollToLine"))
         assertFalse(html.contains("renderDiagrams"))
@@ -60,5 +64,6 @@ class StandalonePageTest {
         val html = page("# Hi", standalone = false)
         assertFalse(Jsoup.parse(html).body().hasClass("standalone"))
         assertFalse(html.contains("matchMedia("))
+        assertFalse(html.contains("theme-toggle"))
     }
 }
