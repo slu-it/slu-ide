@@ -14,6 +14,8 @@ import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.MessageDigest
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.io.path.isDirectory
 import kotlin.io.path.name
 
@@ -22,6 +24,9 @@ import kotlin.io.path.name
  * `include` and `includeIf` files) that are not known to be harmless, and its hooks; the same for its submodules, whose
  * configuration `git status` uses when it looks into them. Git's own configuration of the user (global, system, the
  * environment) is the user's and not reported.
+ *
+ * Each check records what it read in the repositories' git folders and in included files, its [inputs], so that the
+ * window's status can tell from their stamp whether a change of `.git` may change what the check finds (ADR 0062).
  */
 @Component
 class GitTrustCheck(
@@ -31,16 +36,76 @@ class GitTrustCheck(
 
     override val name = "Git"
 
+    /**
+     * What the check that started last read, per folder; shared by the windows (a singleton bean), whose checks may
+     * run at once, so a slower check that started earlier does not replace what a later one read.
+     */
+    private val inputsByFolder = ConcurrentHashMap<Path, Recorded>()
+
+    /** Numbers the checks in the order they start. */
+    private val checks = AtomicLong()
+
     override fun check(folder: Path): List<TrustFinding>? {
-        if (!git.available || !Files.exists(folder.resolve(".git"))) return emptyList()
         val top = folder.toAbsolutePath().normalize()
-        return repositoryFindings(top, top, "", 0, Budget())
+        val sequence = checks.incrementAndGet()
+        if (!git.available || !Files.exists(folder.resolve(".git"))) {
+            record(top, Recorded(sequence, null))
+            return emptyList()
+        }
+        val budget = Budget()
+        val findings = repositoryFindings(top, top, "", 0, budget)
+        val inputs =
+            budget.inputs.takeIf { findings != null && it.complete }?.let {
+                GitTrustInputs(
+                    files = it.files.toSet(),
+                    folders = it.folders.toSet(),
+                    redirects = it.redirects.toSet(),
+                    large = it.large.toSet(),
+                )
+            }
+        record(top, Recorded(sequence, inputs))
+        return findings
     }
 
-    /** How many more repositories (the opened one and submodules) a check may look at. */
+    /** What a check that started as the [sequence]th read; `null` inputs if it could not name them. */
+    private class Recorded(
+        val sequence: Long,
+        val inputs: GitTrustInputs?,
+    )
+
+    /** Keeps [recorded] for [top] unless a check that started later has recorded already (windows check in parallel). */
+    private fun record(
+        top: Path,
+        recorded: Recorded,
+    ) {
+        inputsByFolder.merge(top, recorded) { old, new -> if (old.sequence > new.sequence) old else new }
+    }
+
+    /**
+     * What the last check of [folder] read that can change what it finds (ADR 0062): per repository (the opened one and
+     * its submodules) its configuration files (`config`, `config.worktree`, every file an entry of the repository's
+     * scopes comes from, and every file an `include.path` or `includeIf.*.path` names, also one that does not exist or
+     * apply yet), `HEAD` (`includeIf "onbranch:"`), `commondir` and `gitdir` (where a linked worktree's git folder
+     * leads), the index (the submodules are read from it), the hooks folder, and the `.git` of the repository and of
+     * each submodule's folder (a folder, a `gitdir:` file or a link). `null` before a check, or if the last one could
+     * not check or could not name a file (an include path of another user's home).
+     */
+    fun inputs(folder: Path): GitTrustInputs? = inputsByFolder[folder.toAbsolutePath().normalize()]?.inputs
+
+    /** How many more repositories (the opened one and submodules) a check may look at, and what the check read. */
     private class Budget(
         var repositories: Int = MAX_REPOSITORIES,
+        val inputs: Inputs = Inputs(),
     )
+
+    /** What a check read, collected while it runs; not [complete] if a file it depends on could not be named. */
+    private class Inputs {
+        val files = mutableSetOf<Path>()
+        val large = mutableSetOf<Path>()
+        val folders = mutableSetOf<Path>()
+        val redirects = mutableSetOf<Path>()
+        var complete = true
+    }
 
     /**
      * The findings of the repository at [root] and its submodules, shown with [prefix] (the path of a submodule) and
@@ -58,12 +123,15 @@ class GitTrustCheck(
         if (--budget.repositories < 0) return null
         val entries = git.configEntries(root) ?: return null
         // Also a check that git sees the repository: the configuration alone it lists for any folder.
-        val hooksFolder =
-            git
-                .gitPaths(root, listOf("hooks"))
-                ?.single()
-                ?.toAbsolutePath()
-                ?.normalize() ?: return null
+        val gitPaths = git.gitPaths(root, GIT_PATHS)?.map { it.toAbsolutePath().normalize() } ?: return null
+        val hooksFolder = gitPaths.first()
+        // The index by its attributes: it is large, and its gitlinks are read anew by every check.
+        val index = gitPaths[GIT_PATHS.indexOf("index")]
+        budget.inputs.large.add(index)
+        budget.inputs.files.addAll(gitPaths.drop(1).filter { it != index })
+        budget.inputs.folders.add(hooksFolder)
+        budget.inputs.redirects.add(root.resolve(".git"))
+        recordConfigFiles(root, entries, budget.inputs)
         // Hooks of a hooks folder the user set up for all repositories are the user's, unless it is the repository's
         // own (a relative hooks path).
         val hooksPathScope = entries.lastOrNull { it.key.equals("core.hookspath", ignoreCase = true) }?.scope
@@ -82,7 +150,9 @@ class GitTrustCheck(
         val submodules =
             git.gitlinks(root)?.filter { path ->
                 val folder = root.resolve(path).normalize()
-                folder.startsWith(root) && folder != root && Files.exists(folder.resolve(".git"))
+                val inside = folder.startsWith(root) && folder != root
+                if (inside) budget.inputs.redirects.add(folder.resolve(".git"))
+                inside && Files.exists(folder.resolve(".git"))
             } ?: return null
         if (submodules.isNotEmpty() && depth >= MAX_SUBMODULE_DEPTH) return null
         return own +
@@ -92,9 +162,42 @@ class GitTrustCheck(
             }
     }
 
+    /**
+     * Records the files the configuration [entries] of the repository at [root] come from, and those its includes name
+     * (relative to the file that includes them, `~/` in the user's home), whether they exist and apply or not.
+     */
+    private fun recordConfigFiles(
+        root: Path,
+        entries: List<ConfigEntry>,
+        inputs: Inputs,
+    ) {
+        for (entry in entries.filter { it.scope in REPOSITORY_SCOPES }) {
+            val origin = entry.origin.takeIf { it.startsWith("file:") }?.removePrefix("file:")
+            val originFile = origin?.let { resolvedPath(root, it) }
+            if (origin != null && originFile == null) inputs.complete = false
+            originFile?.let { inputs.files.add(it) }
+            if (!INCLUDE_PATH.matches(entry.key)) continue
+            val value = entry.value
+            val included =
+                when {
+                    value == null || originFile == null -> null
+                    value.startsWith("~/") -> resolvedPath(Path.of(System.getProperty("user.home")), value.drop(2))
+                    value.startsWith("~") -> null
+                    else -> resolvedPath(originFile.parent ?: root, value)
+                }
+            if (included == null) inputs.complete = false else inputs.files.add(included)
+        }
+    }
+
     companion object {
         /** The id git's tools ask [dev.sluide.projecttrust.ProjectTrust.allows] with. */
         const val ID = "git"
+
+        /** What `git rev-parse --git-path` is asked for: the hooks folder first, then files the check depends on. */
+        private val GIT_PATHS = listOf("hooks", "config", "config.worktree", "index", "HEAD", "commondir", "gitdir")
+
+        /** The keys of includes: `include.path`, `includeif.<condition>.path` (sections lower case, as git lists them). */
+        private val INCLUDE_PATH = Regex("include\\.path|includeif\\..*\\.path")
 
         /** How deep submodules of submodules are checked; deeper ones cannot be. */
         private const val MAX_SUBMODULE_DEPTH = 5
@@ -300,6 +403,12 @@ internal fun hooks(
         null
     }
 }
+
+/** [path] resolved against [base], absolute and normalized; `null` if it cannot be a path. */
+private fun resolvedPath(
+    base: Path,
+    path: String,
+): Path? = runCatching { base.resolve(path).toAbsolutePath().normalize() }.getOrNull()
 
 /** The finding as one of the submodule [prefix] (its path and `/`), if any. */
 private fun TrustFinding.inSubmodule(prefix: String) =

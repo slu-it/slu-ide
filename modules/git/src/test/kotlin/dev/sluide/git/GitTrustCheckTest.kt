@@ -123,6 +123,39 @@ class GitTrustCheckTest {
     }
 
     @Test
+    fun `what the check read is recorded as its inputs, also included files that do not exist yet`() {
+        folder.resolve("shared.cfg").writeText("[user]\n\tname = Test\n")
+        git("config", "include.path", "../../shared.cfg")
+        git("config", "includeIf.onbranch:other.path", "other.cfg")
+        addSubmodule()
+
+        assertTrue(check.check(repo)!!.isNotEmpty())
+        val inputs = check.inputs(repo)!!
+
+        val git = repo.resolve(".git")
+        val files = listOf("config", "HEAD", "commondir", "gitdir", "other.cfg").map(git::resolve)
+        for (file in files + listOf(folder.resolve("shared.cfg"))) {
+            assertTrue(file in inputs.files, "$file in ${inputs.files}")
+        }
+        assertTrue(inputs.files.any { it.endsWith(".git/modules/lib/config") }, "${inputs.files}")
+        assertTrue(git.resolve("hooks") in inputs.folders, "${inputs.folders}")
+        assertTrue(inputs.folders.any { it.endsWith(".git/modules/lib/hooks") }, "${inputs.folders}")
+        assertTrue(git.resolve("index") in inputs.large && git.resolve("index") !in inputs.files, "index by attributes")
+        assertTrue(repo.resolve(".git") in inputs.redirects && repo.resolve("lib/.git") in inputs.redirects)
+    }
+
+    @Test
+    fun `a check that cannot name what it read records no inputs`() {
+        check.check(repo)
+        assertTrue(check.inputs(repo) != null)
+
+        git("config", "include.path", "~someone-else/shared.cfg")
+        check.check(repo)
+
+        assertNull(check.inputs(repo))
+    }
+
+    @Test
     fun `a value-less fsmonitor is git's daemon`() {
         repo.resolve(".git/config").appendText("[core]\n\tfsmonitor\n")
 
@@ -185,6 +218,20 @@ class GitTrustCheckTest {
 
     @Test
     fun `submodules are checked too, since git status looks into them`() {
+        addSubmodule()
+        git("config", "filter.crypt.clean", "./clean.sh", directory = repo.resolve("lib"))
+
+        val findings = check.check(repo)!!
+
+        assertEquals(
+            listOf("submodule lib: filter.crypt.clean = ./clean.sh (.git/modules/lib/config)"),
+            findings.map { it.text },
+        )
+        assertEquals("runs on every git status, for the files .gitattributes names", findings.single().note)
+    }
+
+    /** Adds a repository of its own as the submodule `lib`. */
+    private fun addSubmodule() {
         val library = folder.resolve("library").createDirectories()
         git("init", "-q", "-b", "main", directory = library)
         git(
@@ -200,15 +247,6 @@ class GitTrustCheckTest {
             directory = library,
         )
         git("-c", "protocol.file.allow=always", "submodule", "add", "-q", library.toString(), "lib")
-        git("config", "filter.crypt.clean", "./clean.sh", directory = repo.resolve("lib"))
-
-        val findings = check.check(repo)!!
-
-        assertEquals(
-            listOf("submodule lib: filter.crypt.clean = ./clean.sh (.git/modules/lib/config)"),
-            findings.map { it.text },
-        )
-        assertEquals("runs on every git status, for the files .gitattributes names", findings.single().note)
     }
 
     @Test

@@ -104,15 +104,20 @@ abstract class MainWindowUiFixture {
             mapOf("GIT_CONFIG_GLOBAL" to "/dev/null", "GIT_CONFIG_NOSYSTEM" to "1")
     internal val git = GitCli("git", gitEnvironment)
 
+    /** Git's trust check, a singleton bean in the application: the trust runs it, the status reads its inputs. */
+    private val gitTrustCheck by lazy { GitTrustCheck(git) }
+
     /** The folder's trust, running git's check; decisions are kept in the test's settings folder. */
     internal val projectTrust by lazy {
         ProjectTrust(
-            listOf(GitTrustCheck(git)),
+            listOf(gitTrustCheck),
             TrustedProjects(settingsDir.resolve("project-trust.properties")),
             BackgroundTasks.forTests(),
         )
     }
-    internal val gitStatus by lazy { GitStatusService(git, watcher, projectTrust, BackgroundTasks.forTests()) }
+    internal val gitStatus by lazy {
+        GitStatusService(git, watcher, projectTrust, BackgroundTasks.forTests(), gitTrustCheck)
+    }
 
     @AfterEach
     fun close() {

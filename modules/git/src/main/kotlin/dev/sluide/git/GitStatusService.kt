@@ -48,12 +48,18 @@ internal object GitStatusLog {
  * repository root (has `.git`); otherwise [snapshot] stays [GitStatusSnapshot.EMPTY].
  *
  * `git status` runs on a background thread after [open], after every [refresh] and whenever the `.git` folder changes
- * (commits, staging, checkouts). [open], [refresh] and listeners of [snapshot] use the JavaFX thread, or whatever
- * [dispatch] stands for in tests.
+ * in what the status, the log or the refs read (commits, staging, checkouts). [open], [refresh] and listeners of
+ * [snapshot] use the JavaFX thread, or whatever [dispatch] stands for in tests.
  *
- * Git runs only while [trust] allows it (ADR 0053): first after the folder's checks, and on every change in `.git`
- * after git's check ran again, since a checkout or a command in a terminal may have changed what git would run.
- * Otherwise the snapshot is [GitStatusSnapshot.EMPTY]; once the folder is trusted, the window calls [refresh].
+ * Git runs only while [trust] allows it (ADR 0053): first after the folder's checks, and after a change in `.git` of
+ * what git's trust check reads (its [trustInputs]) once the check ran again, since a checkout or a command in a
+ * terminal may have changed what git would run. Otherwise the snapshot is [GitStatusSnapshot.EMPTY]; once the folder is
+ * trusted, the window calls [refresh].
+ *
+ * A batch of changes in `.git` first compares two stamps of the git folder with those of the last cycle (ADR 0062):
+ * the trust check runs again only if the stamp of its inputs changed, [gitFolderChanged] counts only a change of the
+ * stamp of what the status, the log and the refs read, and a batch that changed neither runs nothing at all (changes of
+ * objects, reflogs, lock files). [gitChanged] counts as a change of both.
  *
  * Each `git status` is a task of [tasks], "Refreshing Git status" (ADR 0061); the trust checks are tasks of their own.
  * A failed one finishes it with "git status failed" at INFO, which ends its cycle in the log.
@@ -66,15 +72,35 @@ class GitStatusService(
     private val fileWatcher: FileWatcher,
     private val trust: ProjectTrust,
     private val tasks: BackgroundTasks,
+    /** What git's trust check read for a folder ([GitTrustCheck.inputs]); without them, every change rechecks. */
+    private val trustInputs: (Path) -> GitTrustInputs? = { null },
     private val dispatch: (Runnable) -> Unit,
 ) : AutoCloseable {
     @Autowired
-    constructor(git: GitCli, fileWatcher: FileWatcher, trust: ProjectTrust, tasks: BackgroundTasks) :
-        this(git, fileWatcher, trust, tasks, Platform::runLater)
+    constructor(
+        git: GitCli,
+        fileWatcher: FileWatcher,
+        trust: ProjectTrust,
+        tasks: BackgroundTasks,
+        trustCheck: GitTrustCheck,
+    ) : this(git, fileWatcher, trust, tasks, trustCheck::inputs, Platform::runLater)
 
+    /** The repository followed; what its cycles found last is kept here and used on the thread `sluide-git` only. */
     private class Target(
         val root: Path,
-    )
+        /** The counts of [gitChanges] and [forcedChanges] the last cycle took. */
+        var handledChanges: Long,
+        var handledForced: Long,
+    ) {
+        /** Whether a cycle ran for it; the first takes the stamp of the state without counting a change. */
+        var cycled = false
+
+        /** The stamp of the trust check's inputs taken before it last ran again; `null`: run it on the next change. */
+        var trustStamp: String? = null
+
+        /** The stamp of the state taken before [gitFolderChanged] last counted (or the first cycle); `null`: changed. */
+        var stateStamp: String? = null
+    }
 
     private val _snapshot = ReadOnlyObjectWrapper(GitStatusSnapshot.EMPTY)
 
@@ -94,17 +120,21 @@ class GitStatusService(
     @Volatile private var target: Target? = null
     private val scheduled = AtomicBoolean()
 
+    /** Whether a `git status` was asked for ([refresh]) since the last cycle took it. */
+    private val statusWanted = AtomicBoolean()
+
     /** Counts the changes of `.git` noticed by the watch or told by [gitChanged]. */
     private val gitChanges = AtomicLong()
 
+    /** Counts the changes told by [gitChanged], which count whatever the stamps say. */
+    private val forcedChanges = AtomicLong()
+
     /**
-     * The count of [gitChanges] that git's trust check ran again for and allowed git after; while it is behind, git's
-     * configuration may have changed, so [diffAsync] runs no git and the next run checks first (ADR 0053).
+     * The count of [gitChanges] that a cycle has taken while git was allowed: git's trust check ran again for them, or
+     * the stamp of its inputs said it need not. While it is behind, git's configuration may have changed, so
+     * [diffAsync] runs no git (ADR 0053).
      */
     @Volatile private var confirmedChanges = 0L
-
-    /** The count of [gitChanges] git's trust check last ran again for, allowing git or not: not again until more. */
-    @Volatile private var checkedChanges = 0L
     private var gitWatch: AutoCloseable? = null
 
     /** Whether the open folder is a git repository that is followed. */
@@ -116,14 +146,15 @@ class GitStatusService(
     private val _gitFolderChanged = ReadOnlyLongWrapper()
 
     /**
-     * Counts the changes noticed in the `.git` folder of the followed repository, for listeners that want to know when
-     * git's state may have changed (e.g. the git log, ADR 0035). Changes on the JavaFX thread, once git's trust check
-     * has run again and allows git (ADR 0053), so that listeners never run git with what a change made it run.
+     * Counts the changes of git's state in the followed repository, for listeners that want to know when it may have
+     * changed (e.g. the git log, ADR 0035). Changes on the JavaFX thread, once git's trust check has run again and
+     * allows git (ADR 0053), so that listeners never run git with what a change made it run.
      *
-     * Noticed are changes of entries directly in `.git`: `HEAD`, `index`, `packed-refs`, `FETCH_HEAD`, `ORIG_HEAD`, …,
-     * so commits, checkouts, staging, fetches, merges and rebases. Not noticed are changes only in its subfolders, e.g.
-     * a new branch or tag from `git branch x` or `git tag x` (`.git/refs/`), nor anything in a repository with a `.git`
-     * file (worktrees, submodules), which is not watched.
+     * Counted are batches of changes in `.git` that changed its stamp of the state (ADR 0062): `HEAD`, the index, the
+     * refs (loose and packed), `FETCH_HEAD`, `ORIG_HEAD`, a merge, cherry-pick, revert or rebase, the configuration, so
+     * commits, checkouts, staging, fetches, new branches and tags; and every [gitChanged]. The watch only sees entries
+     * directly in `.git`, so a change only below it (e.g. `git branch x`) counts with the next batch. Nothing is
+     * noticed in a repository with a `.git` file (worktrees, submodules), which is not watched.
      */
     val gitFolderChanged: ReadOnlyLongProperty = _gitFolderChanged.readOnlyProperty
 
@@ -132,9 +163,8 @@ class GitStatusService(
         gitWatch?.close()
         gitWatch = null
         val root = folder?.toAbsolutePath()?.normalize()?.takeIf { git.available && Files.exists(it.resolve(".git")) }
-        target = root?.let(::Target)
+        target = root?.let { Target(it, gitChanges.get(), forcedChanges.get()) }
         confirmedChanges = gitChanges.get()
-        checkedChanges = confirmedChanges
         _snapshot.set(GitStatusSnapshot.EMPTY)
         if (root == null) return
         watchGitFolder(root)
@@ -143,70 +173,133 @@ class GitStatusService(
 
     /** Runs `git status` again soon; calls during a run are combined into one more run. */
     fun refresh() {
-        if (target == null || !scheduled.compareAndSet(false, true)) return
-        executor.execute {
-            scheduled.set(false)
-            val current = target ?: return@execute
-            val cycleStart = System.nanoTime()
-            GitStatusLog.info("Git status cycle for ${current.root} started")
-            val changes = gitChanges.get()
-            val changed = changes != checkedChanges
-            val allowed = if (changed) trust.recheck(GitTrustCheck.ID) else trust.awaitAllows(GitTrustCheck.ID)
-            val trustMillis = millisSince(cycleStart)
-            val trustText = if (changed) "trust recheck $trustMillis ms" else "trust awaited $trustMillis ms"
-            if (changed) checkedChanges = changes
-            if (!allowed) {
-                GitStatusLog.info("Git status cycle for ${current.root}: $trustText, git not allowed")
-                dispatch(Runnable { if (target === current) _snapshot.set(GitStatusSnapshot.EMPTY) })
-                return@execute
-            }
-            if (changes != confirmedChanges) {
-                confirmedChanges = changes
-                val counted = Runnable { if (target === current) _gitFolderChanged.set(_gitFolderChanged.get() + 1) }
-                dispatch(counted)
-            }
-            val statusStart = System.nanoTime()
-            val task = tasks.start(REFRESHING)
-            val (snapshot, statusMillis) =
-                try {
-                    val output = git.status(current.root)
-                    val statusMillis = millisSince(statusStart)
-                    if (output == null) {
-                        // At INFO, the cycle's end: the git#n line has the details, and a broken repository fails on
-                        // every refresh.
-                        task.close("git status failed")
-                        return@execute
-                    }
-                    GitStatusSnapshot.parse(current.root, output) to statusMillis
-                } catch (t: Throwable) {
-                    task.failed(t)
-                    throw t
-                }
-            task.close()
-            val cycle = "Git status cycle for ${current.root}: $trustText, status $statusMillis ms, "
-            dispatch(
-                Runnable {
-                    // The snapshot property is read on the JavaFX thread only.
-                    if (target !== current) {
-                        GitStatusLog.info(cycle + "dropped, another folder is followed")
-                        return@Runnable
-                    }
-                    val different = snapshot != _snapshot.get()
-                    GitStatusLog.info(cycle + if (different) "changed" else "unchanged")
-                    if (different) _snapshot.set(snapshot)
-                },
-            )
-        }
+        statusWanted.set(true)
+        schedule()
     }
 
     /**
      * Tells that git's state changed through the window itself, e.g. a write of the git log, of which the watch of
-     * `.git` may miss a part (new branches): like a change noticed in `.git`, git's trust check runs again, then
-     * [gitFolderChanged] counts it if git is still allowed.
+     * `.git` may miss a part (new branches): whatever the stamps say, git's trust check runs again, then
+     * [gitFolderChanged] counts it if git is still allowed. The stamps taken then make the batch of the watch for the
+     * same change run nothing (ADR 0062).
      */
     fun gitChanged() {
+        forcedChanges.incrementAndGet()
         gitChanges.incrementAndGet()
-        refresh()
+        schedule()
+    }
+
+    /** Runs a cycle soon; requests while one is waiting are combined into it. */
+    private fun schedule() {
+        if (target == null || !scheduled.compareAndSet(false, true)) return
+        try {
+            executor.execute(::cycle)
+        } catch (_: RejectedExecutionException) {
+            // Closed.
+            scheduled.set(false)
+        }
+    }
+
+    /** What a cycle found out about `.git` before it runs anything: what changed since the last one. */
+    private class Changes(
+        val changes: Long,
+        val trustChanged: Boolean,
+        val stateChanged: Boolean,
+        val stateStamp: String?,
+    )
+
+    /** One cycle, on `sluide-git`: the stamps, then git's trust check or waiting for it, then `git status`. */
+    private fun cycle() {
+        scheduled.set(false)
+        val current = target ?: return
+        val wanted = statusWanted.getAndSet(false)
+        val cycleStart = System.nanoTime()
+        val found = changes(current)
+        if (!wanted && !found.trustChanged && !found.stateChanged) {
+            // Only objects, reflogs, lock files…: what anything reads is as it was.
+            confirmedChanges = found.changes
+            GitStatusLog.info("Git status cycle for ${current.root}: .git unchanged, nothing runs")
+            return
+        }
+        GitStatusLog.info("Git status cycle for ${current.root} started")
+        val allowed =
+            if (found.trustChanged) trust.recheck(GitTrustCheck.ID) else trust.awaitAllows(GitTrustCheck.ID)
+        val trustMillis = millisSince(cycleStart)
+        val trustText = if (found.trustChanged) "trust recheck $trustMillis ms" else "trust awaited $trustMillis ms"
+        if (!allowed) {
+            GitStatusLog.info("Git status cycle for ${current.root}: $trustText, git not allowed")
+            dispatch(Runnable { if (target === current) _snapshot.set(GitStatusSnapshot.EMPTY) })
+            return
+        }
+        confirmedChanges = found.changes
+        if (found.stateChanged) {
+            current.stateStamp = found.stateStamp
+            val counted = Runnable { if (target === current) _gitFolderChanged.set(_gitFolderChanged.get() + 1) }
+            dispatch(counted)
+        }
+        status(current, trustText)
+    }
+
+    /**
+     * Takes the changes of `.git` since the last cycle of [current] and, if there are any, the stamps of the git folder,
+     * before anything runs: a change while the cycle runs then differs from them next time.
+     */
+    private fun changes(current: Target): Changes {
+        // In this order: gitChanged() counts its forced change first, so a forced change is never missed.
+        val changes = gitChanges.get()
+        val forcedCount = forcedChanges.get()
+        val forced = forcedCount != current.handledForced
+        val batch = changes != current.handledChanges
+        current.handledChanges = changes
+        current.handledForced = forcedCount
+        val first = !current.cycled
+        current.cycled = true
+        val stateStamp = if (batch || forced || first) GitFolderStamps.state(current.root) else null
+        if (first && !batch) current.stateStamp = stateStamp
+        if (!batch && !forced) return Changes(changes, trustChanged = false, stateChanged = false, stateStamp)
+        val trustStamp = GitFolderStamps.trust(trustInputs(current.root))
+        val trustChanged = forced || trustStamp == null || trustStamp != current.trustStamp
+        if (trustChanged) current.trustStamp = trustStamp
+        val stateChanged = forced || stateStamp == null || stateStamp != current.stateStamp
+        return Changes(changes, trustChanged, stateChanged, stateStamp)
+    }
+
+    /** Runs `git status` for [current] and publishes its snapshot if it changed. */
+    private fun status(
+        current: Target,
+        trustText: String,
+    ) {
+        val statusStart = System.nanoTime()
+        val task = tasks.start(REFRESHING)
+        val (snapshot, statusMillis) =
+            try {
+                val output = git.status(current.root)
+                val statusMillis = millisSince(statusStart)
+                if (output == null) {
+                    // At INFO, the cycle's end: the git#n line has the details, and a broken repository fails on every
+                    // refresh.
+                    task.close("git status failed")
+                    return
+                }
+                GitStatusSnapshot.parse(current.root, output) to statusMillis
+            } catch (t: Throwable) {
+                task.failed(t)
+                throw t
+            }
+        task.close()
+        val cycle = "Git status cycle for ${current.root}: $trustText, status $statusMillis ms, "
+        dispatch(
+            Runnable {
+                // The snapshot property is read on the JavaFX thread only.
+                if (target !== current) {
+                    GitStatusLog.info(cycle + "dropped, another folder is followed")
+                    return@Runnable
+                }
+                val different = snapshot != _snapshot.get()
+                GitStatusLog.info(cycle + if (different) "changed" else "unchanged")
+                if (different) _snapshot.set(snapshot)
+            },
+        )
     }
 
     /**
@@ -275,7 +368,7 @@ class GitStatusService(
                     watchGitFolder(root)
                 }
                 gitChanges.incrementAndGet()
-                refresh()
+                schedule()
             }
     }
 

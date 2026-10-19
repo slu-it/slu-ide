@@ -350,6 +350,30 @@ class GitStatusServiceTest {
     }
 
     @Test
+    fun `a hook made executable turns git off with the next change of git's folder`() {
+        val realCheck = GitTrustCheck(git)
+        val trust = testTrust(repo, listOf(realCheck))
+        val gated =
+            GitStatusService(git, watcher, trust, BackgroundTasks.forTests(), realCheck::inputs) { dispatched += it }
+        val hook = repo.resolve(".git/hooks/post-commit").apply { writeText("#!/bin/sh\nexit 0\n") }
+        hook.toFile().setExecutable(false)
+        gated.open(repo)
+        awaitSnapshot(gated) { it.root != null }
+        // The first change after opening checks again whatever changed; from then on the stamps tell.
+        gated.gitChanged()
+        await("the told change") { gated.gitFolderChanged.get() == 1L }
+
+        hook.toFile().setExecutable(true)
+        // Hooks are below .git, which the watch does not follow; a lock file of git's directly in it is seen.
+        repo.resolve(".git/index.lock").writeText("")
+
+        awaitSnapshot(gated) { it == GitStatusSnapshot.EMPTY }
+        assertTrue(assertIs<ProjectTrustState.Ask>(trust.state.get()).changed)
+        gated.close()
+        trust.close()
+    }
+
+    @Test
     fun `every git status is a background task`() {
         val lines = CopyOnWriteArrayList<String>()
         val recorded =
