@@ -1,5 +1,6 @@
 package dev.sluide.gitlog.history
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitFileHistoryPage
@@ -15,6 +16,8 @@ import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.collections.FXCollections
 import javafx.collections.ObservableList
 import java.nio.file.Path
+import java.util.concurrent.CancellationException
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
 /**
@@ -39,6 +42,9 @@ internal enum class FileHistoryState {
     /** The file has no commits: untracked, never committed, or `HEAD` has none. */
     EMPTY,
     FAILED,
+
+    /** A load was cancelled (ADR 0061); the rows there are stay until a refresh. */
+    CANCELLED,
     ;
 
     /** What the table says in this state for the file [name]. */
@@ -47,8 +53,12 @@ internal enum class FileHistoryState {
             LOADING -> "Loading…"
             EMPTY -> "No history: $name has no commits."
             FAILED -> "The history could not be read."
+            CANCELLED -> "Loading cancelled. Refresh to load."
             IDLE, LOADED -> ""
         }
+
+    /** Whether rows shown in this state are left from before, so the header says why ([message]). */
+    val keepsRows: Boolean get() = this == FAILED || this == CANCELLED
 }
 
 /**
@@ -63,6 +73,11 @@ internal enum class FileHistoryState {
  * long), their results are handled through [dispatch]; results of older runs, and after [close], are dropped, and the
  * git of a load that a newer one replaces, or that is still running at [close], is cancelled. A refresh after a failed
  * page reads only the rows loaded before it. Used on the JavaFX thread (or whatever [dispatch] stands for in tests).
+ *
+ * Each load is a task of [tasks] (ADR 0061), "Loading history of <name>", started on [background] unless its run is
+ * dropped by then. Its ✕ stops the load's git: the rows loaded before stay. A cancelled further page loads again with
+ * the next scroll; a cancelled first load or refresh is [FileHistoryState.CANCELLED] ("Loading cancelled. Refresh to
+ * load.", in the header while rows are shown) until a refresh, or until the history is shown again.
  */
 internal class FileHistory(
     val root: Path,
@@ -71,6 +86,7 @@ internal class FileHistory(
     private val loadRefs: (Path) -> GitRefs?,
     private val background: (Runnable) -> Unit,
     private val dispatch: (Runnable) -> Unit,
+    private val tasks: BackgroundTasks,
     private val pageSize: Int = GitLogPages.PAGE_SIZE,
     private val prefetch: Int = GitLogPages.PREFETCH,
 ) {
@@ -91,7 +107,10 @@ internal class FileHistory(
     /** Selects the row at the given index, or none for -1; called after the rows were replaced. */
     var select: (Int) -> Unit = {}
 
-    /** Told when a load fails while rows are shown, which then stay (the table's placeholder cannot say it). */
+    /**
+     * Told when a load fails or a first load or refresh is cancelled while rows are shown, which then stay (the table's
+     * placeholder cannot say it; [state]'s message does).
+     */
     var failedWithRows: () -> Unit = {}
 
     /** The refs read with the last first page; `null` before, or if they could not be read. */
@@ -154,13 +173,22 @@ internal class FileHistory(
         val cancellation = nextCancellation()
         // As many as were loaded (not a page that failed), so that a selected row further down stays.
         val limit = maxOf(pageSize, rows.size)
-        background {
-            if (run.get() != current) return@background
-            val page = load(root, key.path, key.start, 0, limit, cancellation)
-            val refs = if (page != null && run.get() == current) loadRefs(root) else null
-            dispatch {
-                if (run.get() != current) return@dispatch
-                if (page == null) return@dispatch failed()
+        loadInBackground(
+            current,
+            cancellation,
+            {
+                val page = load(root, key.path, key.start, 0, limit, cancellation)
+                page to if (page != null && run.get() == current) loadRefs(root) else null
+            },
+        ) { page, refs, stopped ->
+            if (page == null && stopped) {
+                // The rows shown stay, outdated, and no further page loads: a refresh loads them again.
+                stale = true
+                _state.set(FileHistoryState.CANCELLED)
+                if (rows.isNotEmpty()) failedWithRows()
+            } else if (page == null) {
+                failed()
+            } else {
                 val keep = selectedHash()
                 this.refs = refs
                 files.clear()
@@ -186,15 +214,62 @@ internal class FileHistory(
         val current = run.get()
         val cancellation = nextCancellation()
         val skip = rows.size
+        loadInBackground(
+            current,
+            cancellation,
+            { load(root, key.path, key.start, skip, pageSize, cancellation) to null },
+        ) { page, _, stopped ->
+            loadingMore = false
+            when {
+                // Still loaded: the next scroll loads the page again.
+                page == null && stopped -> {}
+
+                page == null -> {
+                    failed()
+                }
+
+                else -> {
+                    rows.addAll(rowsOf(page))
+                    complete = page.complete
+                }
+            }
+        }
+    }
+
+    /**
+     * Runs [read] on [background] as the task of a load, unless the run [current] is dropped by then, and hands its page
+     * and refs to [handle] through [dispatch] while [current] is the run, with whether the task's ✕ [stopped][handle]
+     * it. The ✕ stops the load's git through [cancellation]. The task ends finished with a page, cancelled without one
+     * if its git was stopped (by ✕ or a newer load), else failed.
+     */
+    private fun loadInBackground(
+        current: Long,
+        cancellation: GitCancellation,
+        read: () -> Pair<GitFileHistoryPage?, GitRefs?>,
+        handle: (page: GitFileHistoryPage?, refs: GitRefs?, stopped: Boolean) -> Unit,
+    ) {
+        val stopped = AtomicBoolean()
         background {
             if (run.get() != current) return@background
-            val page = load(root, key.path, key.start, skip, pageSize, cancellation)
+            val task =
+                tasks.start("Loading history of ${key.name}") {
+                    stopped.set(true)
+                    cancellation.cancel()
+                }
+            val (page, refs) =
+                try {
+                    read()
+                } catch (t: Throwable) {
+                    task.failed(t)
+                    throw t
+                }
+            when {
+                page != null -> task.close()
+                cancellation.cancelled -> task.failed(CancellationException("Cancelled"))
+                else -> task.failed(FileHistoryState.FAILED.message(key.name))
+            }
             dispatch {
-                if (run.get() != current) return@dispatch
-                loadingMore = false
-                if (page == null) return@dispatch failed()
-                rows.addAll(rowsOf(page))
-                complete = page.complete
+                if (run.get() == current) handle(page, refs, stopped.get())
             }
         }
     }

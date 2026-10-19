@@ -1,5 +1,6 @@
 package dev.sluide.gitlog.data
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitComparisonCounts
 import dev.sluide.git.GitInProgress
@@ -85,9 +86,10 @@ internal enum class ComparisonEnd {
     CURRENT,
 }
 
-/** What [GitLogPages.loadUntil] waits for. */
+/** What [GitLogPages.loadUntil] waits for; [target] names the commit, e.g. a branch. */
 private class Seek(
     val hash: String,
+    val target: String,
     val found: (Int) -> Unit,
     val missing: (CommitMissing) -> Unit,
 )
@@ -128,7 +130,8 @@ internal data class GitLogRow(
  *
  * [load] and [loadRefs] run on [background], their results are handled through [dispatch]. Every [open] and reload
  * starts a new run; results of older runs are dropped. Used on the JavaFX thread (or whatever [dispatch] stands for
- * in tests).
+ * in tests). Each page is a task of [tasks] (ADR 0061), started on [background] unless its run is dropped by then:
+ * "Loading Git log" (a first page), "Loading more commits", or "Searching Git log for <name>" for [loadUntil].
  */
 internal class GitLogPages(
     private val load: (Path, GitLogFilter, Int, Int) -> GitLogPage?,
@@ -136,6 +139,7 @@ internal class GitLogPages(
     private val loadHashMatch: (Path, GitLogFilter) -> GitCommit?,
     private val background: (Runnable) -> Unit,
     private val dispatch: (Runnable) -> Unit,
+    private val tasks: BackgroundTasks,
     private val pageSize: Int = PAGE_SIZE,
     private val prefetch: Int = PREFETCH,
     private val seekLimit: Int = SEEK_LIMIT,
@@ -297,14 +301,15 @@ internal class GitLogPages(
      * is complete without it, or [seekLimit] rows are loaded, tells [missing] why instead, also if the log cannot be read
      * (a page fails, [CommitMissing.UNREADABLE]). While the first page is still loading, and after a [refresh], waits for
      * the first page. A newer call replaces this one, and [stopLoadingUntil], [open] or a change of the [filter] end it
-     * without telling either.
+     * without telling either. The pages it loads are tasks named after [target] (a branch, or the hash as shown).
      */
     fun loadUntil(
         hash: String,
         found: (Int) -> Unit,
         missing: (CommitMissing) -> Unit,
+        target: String = hash,
     ) {
-        seek = Seek(hash, found, missing)
+        seek = Seek(hash, target, found, missing)
         continueSeek()
     }
 
@@ -328,8 +333,9 @@ internal class GitLogPages(
         if (_state.get() != GitLogState.LOADED || stale || complete || loadingMore) return
         val root = root ?: return
         loadingMore = true
+        val name = seek?.let { "Searching Git log for ${it.target}" } ?: "Loading more commits"
         // Counted in git's commits: the rows may have the hash row on top.
-        start(root, loaded) { first ->
+        start(root, loaded, name) { first ->
             val page = first.page
             loadingMore = false
             if (page == null) {
@@ -377,7 +383,7 @@ internal class GitLogPages(
         loadingMore = false
         _state.set(GitLogState.LOADING)
         run.incrementAndGet()
-        start(root, 0) { first ->
+        start(root, 0, "Loading Git log") { first ->
             val page = first.page
             val refs = first.refs
             if (page == null) {
@@ -453,11 +459,13 @@ internal class GitLogPages(
     /**
      * Loads the page after [skip] commits read from git with the [effectiveFilter]; for the first page then the refs,
      * the cherry-pick or revert in progress, the remotes, the counts of the comparison if there is one, and, if the
-     * filter's text could be a hash (not while comparing), the commit it names; and hands them to [handle].
+     * filter's text could be a hash (not while comparing), the commit it names; and hands them to [handle]. All that
+     * is the task [name].
      */
     private fun start(
         root: Path,
         skip: Int,
+        name: String,
         handle: (FirstPage) -> Unit,
     ) {
         val current = run.get()
@@ -466,26 +474,47 @@ internal class GitLogPages(
         val compared = comparison
         background {
             if (run.get() != current) return@background
-            val page = load(root, filter, skip, pageSize)
-            val first = skip == 0 && page != null
-
-            fun <T> read(value: () -> T?): T? = if (first && run.get() == current) value() else null
-            val refs = read { loadRefs(root) }
-            val pending = read { loadPending(root) }
-            val remotes = read { loadRemotes(root) }
-            val counts = compared?.let { read { loadCounts(root, it.ref.name, barFilter) } }
-            val match =
-                if (compared == null &&
-                    HASH_PREFIX.matches(filter.text.trim())
-                ) {
-                    read { loadHashMatch(root, filter) }
-                } else {
-                    null
+            val task = tasks.start(name)
+            val loaded =
+                try {
+                    loadPage(root, filter, barFilter, compared, skip, current)
+                } catch (t: Throwable) {
+                    task.failed(t)
+                    throw t
                 }
+            if (loaded.page == null) task.failed(GitLogState.FAILED.message) else task.close()
             dispatch {
-                if (run.get() == current) handle(FirstPage(page, refs, match, pending, remotes, counts))
+                if (run.get() == current) handle(loaded)
             }
         }
+    }
+
+    /** What [start] reads on the background thread; what goes with a first page only while [current] is the run. */
+    private fun loadPage(
+        root: Path,
+        filter: GitLogFilter,
+        barFilter: GitLogFilter,
+        compared: LogComparison?,
+        skip: Int,
+        current: Long,
+    ): FirstPage {
+        val page = load(root, filter, skip, pageSize)
+        val first = skip == 0 && page != null
+
+        fun <T> read(value: () -> T?): T? = if (first && run.get() == current) value() else null
+        val refs = read { loadRefs(root) }
+        val pending = read { loadPending(root) }
+        val remotes = read { loadRemotes(root) }
+        val counts = compared?.let { read { loadCounts(root, it.ref.name, barFilter) } }
+        val match =
+            if (compared == null &&
+                HASH_PREFIX.matches(filter.text.trim())
+            ) {
+                read { loadHashMatch(root, filter) }
+            } else {
+                null
+            }
+        return FirstPage(page, refs, match, pending, remotes, counts)
     }
 
     companion object {

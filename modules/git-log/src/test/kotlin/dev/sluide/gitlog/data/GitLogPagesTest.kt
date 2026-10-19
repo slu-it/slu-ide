@@ -1,5 +1,6 @@
 package dev.sluide.gitlog.data
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitComparisonCounts
 import dev.sluide.git.GitLogFilter
@@ -11,6 +12,7 @@ import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import java.nio.file.Path
 import java.time.Instant
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -67,6 +69,13 @@ class GitLogPagesTest {
     private val background = ArrayDeque<Runnable>()
     private val dispatched = ArrayDeque<Runnable>()
 
+    /** The log lines of the background tasks of the pages, without their numbers and durations. */
+    private val taskLines = CopyOnWriteArrayList<String>()
+    private val tasks =
+        BackgroundTasks.forTests { line ->
+            taskLines += line.replace(Regex("task#\\d+"), "task").replace(Regex(" (after|in) \\d+(\\.\\d+)? s"), " $1")
+        }
+
     private val pages =
         GitLogPages(
             load = { root, filter, skip, limit ->
@@ -88,6 +97,7 @@ class GitLogPagesTest {
             },
             background = background::addLast,
             dispatch = dispatched::addLast,
+            tasks = tasks,
             pageSize = 10,
             prefetch = 3,
             seekLimit = 20,
@@ -615,6 +625,37 @@ class GitLogPagesTest {
         assertEquals(listOf<Any>(3, 14), seeks)
         assertEquals(listOf(Triple(repo, 0, 10), Triple(repo, 10, 10)), loads)
         assertEquals(20, pages.rows.size)
+    }
+
+    @Test
+    fun `every page is a task named by what it loads, but not one dropped before it runs`() {
+        pages.open(repo)
+        pages.visible = true
+        pages.refresh()
+        settle()
+        pages.loadUntil("r15", { seeks += it }, { seeks += it }, "main")
+        settle()
+        pages.shown(18)
+        settle()
+        history.remove(repo)
+        pages.refresh()
+        settle()
+
+        assertEquals(4, loads.size, "the first load was replaced before it ran")
+        assertEquals(
+            listOf(
+                "task started: Loading Git log",
+                "task finished in: Loading Git log",
+                "task started: Searching Git log for main",
+                "task finished in: Searching Git log for main",
+                "task started: Loading more commits",
+                "task finished in: Loading more commits",
+                "task started: Loading Git log",
+                "task failed after: Loading Git log: The git log could not be read.",
+            ),
+            taskLines,
+        )
+        assertEquals(listOf<Any>(14), seeks)
     }
 
     @Test

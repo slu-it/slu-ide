@@ -1,5 +1,6 @@
 package dev.sluide.gitlog.history
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
@@ -12,6 +13,7 @@ import dev.sluide.git.GitRefs
 import dev.sluide.gitlog.data.GraphRow
 import java.nio.file.Path
 import java.time.Instant
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -35,6 +37,13 @@ class FileHistoryTest {
     private val background = ArrayDeque<Runnable>()
     private val dispatched = ArrayDeque<Runnable>()
 
+    /** The log lines of the background tasks of the loads, without their numbers and durations. */
+    private val taskLines = CopyOnWriteArrayList<String>()
+    private val tasks =
+        BackgroundTasks.forTests { line ->
+            taskLines += line.replace(Regex("task#\\d+"), "task").replace(Regex(" (after|in) \\d+(\\.\\d+)? s"), " $1")
+        }
+
     /** The index of the selected row, as the table would have it. */
     private var selected = -1
     private var failures = 0
@@ -57,7 +66,8 @@ class FileHistoryTest {
                 loads += Triple(start, skip, limit)
                 cancellations += cancellation
                 loading()
-                entries?.let { all ->
+                // Git stopped gives nothing, as a failure.
+                entries?.takeIf { !cancellation.cancelled }?.let { all ->
                     val page = all.drop(skip).take(limit)
                     GitFileHistoryPage(page, complete = skip + page.size >= all.size)
                 }
@@ -65,6 +75,7 @@ class FileHistoryTest {
             { refs },
             background::addLast,
             dispatched::addLast,
+            tasks,
             pageSize = 5,
             prefetch = 2,
         ).apply {
@@ -273,5 +284,100 @@ class FileHistoryTest {
         history.refresh()
         settle()
         assertTrue(cancellations.last().cancelled, "closed while git ran")
+    }
+
+    @Test
+    fun `every load is a task, but not one dropped before it runs`() {
+        val history = history()
+        history.visible = true
+        history.refresh()
+        settle()
+        history.shown(4)
+        settle()
+        entries = null
+        history.refresh()
+        settle()
+
+        assertEquals(
+            listOf(
+                "task started: Loading history of a.txt",
+                "task finished in: Loading history of a.txt",
+                "task started: Loading history of a.txt",
+                "task finished in: Loading history of a.txt",
+                "task started: Loading history of a.txt",
+                "task failed after: Loading history of a.txt: The history could not be read.",
+            ),
+            taskLines,
+        )
+        assertEquals(3, loads.size, "the first load was replaced before it ran")
+    }
+
+    @Test
+    fun `cancelling a page keeps the rows and the next scroll loads it, a cancelled refresh says to refresh`() {
+        val history = history()
+        history.visible = true
+        settle()
+        loading = { tasks.shown.single().cancel() }
+        history.shown(4)
+        settle()
+
+        assertEquals(FileHistoryState.LOADED, history.state.get())
+        assertEquals((1..5).map { "Subject $it" }, subjects(history))
+        assertEquals(0, failures)
+        assertEquals(
+            listOf("task cancelled", "task cancelled after: Loading history of a.txt"),
+            taskLines.takeLast(2),
+        )
+
+        loading = {}
+        history.shown(4)
+        settle()
+        assertEquals(10, history.rows.size, "the next scroll loads the page")
+
+        loading = { tasks.shown.single().cancel() }
+        history.refresh()
+        settle()
+        assertEquals(FileHistoryState.CANCELLED, history.state.get())
+        assertEquals("Loading cancelled. Refresh to load.", history.state.get().message("a.txt"))
+        assertEquals(10, history.rows.size)
+        assertEquals(1, failures, "the header says it, as the rows stay")
+        history.shown(9)
+        settle()
+        assertEquals(4, loads.size, "outdated rows load no further page")
+
+        loading = {}
+        history.refresh()
+        settle()
+        assertEquals(Triple<String?, Int, Int>(null, 0, 10), loads.last())
+        assertEquals(FileHistoryState.LOADED, history.state.get())
+    }
+
+    @Test
+    fun `a cancelled first load says to refresh, and a refresh or showing it again loads`() {
+        val history = history()
+        loading = { tasks.shown.single().cancel() }
+        history.visible = true
+        settle()
+
+        assertEquals(FileHistoryState.CANCELLED, history.state.get())
+        assertEquals("Loading cancelled. Refresh to load.", history.state.get().message("a.txt"))
+        assertTrue(history.rows.isEmpty())
+        assertEquals(0, failures, "the table's placeholder says it")
+        assertEquals("task cancelled after: Loading history of a.txt", taskLines.last())
+
+        loading = {}
+        history.refresh()
+        settle()
+        assertEquals(FileHistoryState.LOADED, history.state.get())
+        assertEquals(0, selected, "the first load's selection")
+
+        loading = { tasks.shown.single().cancel() }
+        history.refresh()
+        settle()
+        loading = {}
+        history.visible = false
+        history.visible = true
+        settle()
+        assertEquals(FileHistoryState.LOADED, history.state.get())
     }
 }

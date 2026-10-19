@@ -63,6 +63,7 @@ internal class CommitNavigation(
             ref.commit,
             { index -> if (selectedRef() == ref) showRow(index) },
             { missing -> if (selectedRef() == ref) tell(missingMessage(ref.shortName, missing)) },
+            ref.shortName,
         )
     }
 
@@ -83,6 +84,7 @@ internal class CommitNavigation(
                 if (detailsFocused()) table.requestFocus()
             },
             { missing -> tell(missingMessage(name, missing)) },
+            name,
         )
     }
 
@@ -145,6 +147,7 @@ internal class CommitNavigation(
                     goToPopup.say(missingMessage(name, missing), offerClearFilters = hidden)
                 }
             },
+            name,
         )
     }
 

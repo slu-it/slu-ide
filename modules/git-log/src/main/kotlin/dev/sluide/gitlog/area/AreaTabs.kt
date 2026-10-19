@@ -1,5 +1,6 @@
 package dev.sluide.gitlog.area
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
@@ -37,7 +38,7 @@ import java.util.concurrent.ExecutorService
  * handed to [show] while [expanded]; only that one loads. Header messages belong to a tab: switching clears the
  * [status]. The views read from [source] on threads of their own, a history's details and branches on [readDetails] and
  * [readBranches]; results are handled through [dispatch]. Go to (Shortcut+G) and the commits a history links to are the
- * log's: they select the Log and go on through [openGoTo] and [goToCommit].
+ * log's: they select the Log and go on through [openGoTo] and [goToCommit]. A history's loads are tasks of [tasks].
  */
 internal class AreaTabs(
     private val pages: GitLogPages,
@@ -53,6 +54,7 @@ internal class AreaTabs(
     private val dispatch: (Runnable) -> Unit,
     private val focusOwner: () -> Node?,
     private val fileExists: (Path) -> Boolean,
+    private val tasks: BackgroundTasks,
 ) {
     /** Shows what the selected tab has below the header, `null` nothing (collapsed); set by the view. */
     var show: (Node?) -> Unit = {}
@@ -299,7 +301,7 @@ internal class AreaTabs(
     ): HistoryTab {
         val pagesExecutor =
             NamedThreads.single("sluide-git-history")
-        val history = FileHistory(root, key, source::fileHistory, source::refs, pagesExecutor::execute, dispatch)
+        val history = FileHistory(root, key, source::fileHistory, source::refs, pagesExecutor::execute, dispatch, tasks)
         val details =
             CommitDetails(source::details, { _, _ -> emptyList() }, readDetails, dispatch, source::resolveCommits)
         val branches =
@@ -317,7 +319,7 @@ internal class AreaTabs(
                 goesToLog()
             }
         history.failedWithRows =
-            { if (selected == AreaSelection.History(key)) status.tell(FileHistoryState.FAILED.message(key.name)) }
+            { if (selected == AreaSelection.History(key)) status.tell(history.state.get().message(key.name)) }
         val tip = key.path + key.start?.let { " up to ${it.take(SHORT_HASH)}" }.orEmpty()
         val tab =
             AreaTab("History: ${key.name}", tip, closable = true).apply {
@@ -398,8 +400,8 @@ internal class AreaTabs(
             return
         }
         val history = selectedHistoryView?.history ?: return
-        if (history.state.get() == FileHistoryState.FAILED && history.rows.isNotEmpty()) {
-            status.tell(FileHistoryState.FAILED.message(history.key.name))
+        if (history.state.get().keepsRows && history.rows.isNotEmpty()) {
+            status.tell(history.state.get().message(history.key.name))
         }
     }
 

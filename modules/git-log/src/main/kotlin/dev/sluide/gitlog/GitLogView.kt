@@ -128,6 +128,7 @@ class GitLogView internal constructor(
             source::hashMatch,
             executor::execute,
             dispatch,
+            tasks,
             loadPending = source::pending,
             loadRemotes = source::remotes,
             loadCounts = source::comparisonCounts,
@@ -418,6 +419,7 @@ class GitLogView internal constructor(
             dispatch,
             { scene?.focusOwner },
             { path -> fileExists(path) },
+            tasks,
         ).apply {
             show = { content -> center = content }
             openGoTo = {
