@@ -18,8 +18,17 @@ import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
+
+private val log = System.getLogger(GitStatusService::class.java.name)
+
+/** Where the lines of [GitStatusService] go; replaced in tests. */
+internal object GitStatusLog {
+    @Volatile
+    var sink: (String) -> Unit = { log.log(System.Logger.Level.INFO, it) }
+}
 
 /**
  * The git status of the open folder (ADR 0013). It is only followed if git is available and the folder itself is a
@@ -115,11 +124,16 @@ class GitStatusService(
         executor.execute {
             scheduled.set(false)
             val current = target ?: return@execute
+            val cycleStart = System.nanoTime()
+            GitStatusLog.sink("Git status cycle for ${current.root} started")
             val changes = gitChanges.get()
             val changed = changes != checkedChanges
             val allowed = if (changed) trust.recheck(GitTrustCheck.ID) else trust.awaitAllows(GitTrustCheck.ID)
+            val trustMillis = millisSince(cycleStart)
+            val trustText = if (changed) "trust recheck $trustMillis ms" else "trust awaited $trustMillis ms"
             if (changed) checkedChanges = changes
             if (!allowed) {
+                GitStatusLog.sink("Git status cycle for ${current.root}: $trustText, git not allowed")
                 dispatch(Runnable { if (target === current) _snapshot.set(GitStatusSnapshot.EMPTY) })
                 return@execute
             }
@@ -128,11 +142,27 @@ class GitStatusService(
                 val counted = Runnable { if (target === current) _gitFolderChanged.set(_gitFolderChanged.get() + 1) }
                 dispatch(counted)
             }
-            val output = git.status(current.root) ?: return@execute
+            val statusStart = System.nanoTime()
+            val output = git.status(current.root)
+            val statusMillis = millisSince(statusStart)
+            if (output == null) {
+                GitStatusLog.sink(
+                    "Git status cycle for ${current.root}: $trustText, status failed after $statusMillis ms",
+                )
+                return@execute
+            }
             val snapshot = GitStatusSnapshot.parse(current.root, output)
+            val cycle = "Git status cycle for ${current.root}: $trustText, status $statusMillis ms, "
             dispatch(
                 Runnable {
-                    if (target === current && snapshot != _snapshot.get()) _snapshot.set(snapshot)
+                    // The snapshot property is read on the JavaFX thread only.
+                    if (target !== current) {
+                        GitStatusLog.sink(cycle + "dropped, another folder is followed")
+                        return@Runnable
+                    }
+                    val different = snapshot != _snapshot.get()
+                    GitStatusLog.sink(cycle + if (different) "changed" else "unchanged")
+                    if (different) _snapshot.set(snapshot)
                 },
             )
         }
@@ -168,6 +198,7 @@ class GitStatusService(
         gitWatch =
             fileWatcher.watch(gitFolder) { changed ->
                 if (target?.root != root) return@watch
+                logChanges(root, gitFolder, changed)
                 // Reported itself when events were lost or it was deleted: watch it anew if it is there.
                 if (gitFolder in changed && Files.isDirectory(gitFolder)) {
                     gitWatch?.close()
@@ -178,9 +209,43 @@ class GitStatusService(
             }
     }
 
+    /** Logs a batch of changes in `.git` on the executor: the listener runs on the JavaFX thread. */
+    private fun logChanges(
+        root: Path,
+        gitFolder: Path,
+        changed: List<Path>,
+    ) {
+        try {
+            executor.execute {
+                try {
+                    val shown = changed.take(MAX_LOGGED_PATHS).joinToString(", ") { relativeToGit(gitFolder, it) }
+                    val more =
+                        if (changed.size > MAX_LOGGED_PATHS) ", … (+${changed.size - MAX_LOGGED_PATHS} more)" else ""
+                    GitStatusLog.sink("Changes in .git of $root: $shown$more")
+                } catch (_: RuntimeException) {
+                    // Logging must not break the status.
+                }
+            }
+        } catch (_: RejectedExecutionException) {
+            // Closed.
+        }
+    }
+
+    private fun relativeToGit(
+        gitFolder: Path,
+        path: Path,
+    ): String =
+        if (path.startsWith(gitFolder)) gitFolder.relativize(path).toString().ifEmpty { "." } else path.toString()
+
+    private fun millisSince(start: Long) = (System.nanoTime() - start) / 1_000_000
+
     override fun close() {
         gitWatch?.close()
         target = null
         executor.shutdownNow()
+    }
+
+    private companion object {
+        const val MAX_LOGGED_PATHS = 5
     }
 }

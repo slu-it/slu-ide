@@ -169,6 +169,38 @@ class GitStatusServiceRunsTest {
         assertSame(first, service.snapshot.get())
     }
 
+    @Test
+    fun `status cycles and batches of changes in git are logged`() {
+        val lines = java.util.concurrent.CopyOnWriteArrayList<Pair<String, String>>()
+        val previous = GitStatusLog.sink
+        GitStatusLog.sink = { lines += Thread.currentThread().name to it }
+        try {
+            report("? a.txt")
+            service.open(repo)
+            awaitSnapshot { it.root != null }
+            service.refresh()
+            runDispatched()
+            repo.resolve(".git/HEAD").writeText("ref: refs/heads/x\n")
+            await("the batch was logged") {
+                if (dispatched.isNotEmpty()) runDispatched()
+                lines.any { "Changes in .git" in it.second }
+            }
+        } finally {
+            GitStatusLog.sink = previous
+        }
+
+        val cycles = lines.map { it.second }.filter { it.startsWith("Git status cycle for $repo") }
+        assertTrue(cycles.any { it.endsWith("started") })
+        assertTrue(
+            cycles.any { Regex(": trust awaited \\d+ ms, status \\d+ ms, changed").containsMatchIn(it) },
+            "$cycles",
+        )
+        assertTrue(cycles.any { it.endsWith(", unchanged") }, "$cycles")
+        val batch = lines.first { "Changes in .git" in it.second }
+        assertTrue("Changes in .git of $repo: " in batch.second && "HEAD" in batch.second, batch.second)
+        assertEquals("sluide-git", batch.first, "the batch is logged off the JavaFX thread")
+    }
+
     /** A check standing in for git's: it finds [findings], which the test may change. */
     private class FakeGitCheck(
         @Volatile var findings: List<TrustFinding> = emptyList(),
