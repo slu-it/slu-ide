@@ -47,6 +47,7 @@ class SluIdeApplication : Application() {
         Platform.setImplicitExit(false)
         // The picker may be the first window, so the theme must apply before any main window installs it.
         context.getBean(ThemedWindows::class.java).install()
+        WindowIcons().install()
         val windows = context.getBean(ProjectWindows::class.java)
         windows.start(primaryStage, folders)
         watchdog.start()
