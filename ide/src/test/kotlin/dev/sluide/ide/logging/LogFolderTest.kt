@@ -71,7 +71,8 @@ class LogFolderTest {
 
     @Test
     fun `files are matched by the real path of a linked log folder`() {
-        val real = dir.resolve("real").createDirectories()
+        // Real path of the target: on macOS the temp folder itself is linked (/var -> /private/var).
+        val real = dir.resolve("real").createDirectories().toRealPath()
         val link = Files.createSymbolicLink(dir.resolve("link"), real)
 
         val folder = LogFolderPaths(link)
