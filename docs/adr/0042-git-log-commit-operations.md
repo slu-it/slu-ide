@@ -1,6 +1,7 @@
 # 0042. Git log cherry-picks, reverts and resets through the git CLI, conflicts left for the user
 
-- Status: accepted
+- Status: accepted; partly superseded by [0063](0063-git-log-rebase.md) (rebases are continued, skipped and aborted
+  from the bar)
 - Date: 2026-10-16
 
 ## Context
@@ -94,7 +95,8 @@ commits from every branch and, hard, local changes. Git 2.53 behaves as follows 
   done to resolve its conflicts.", Abort Cherry-Pick or Cancel, the default): by then resolutions may have been made.
   Abort Cherry-Pick in the dialog right after the stop does not ask, as nothing is resolved yet. A merge, rebase,
   `git am` or sequence: "A cherry-pick sequence is in progress; continue or abort it in the terminal." without
-  buttons: Continue and Abort would act on all of it.
+  buttons: Continue and Abort would act on all of it. Since [ADR 0063](0063-git-log-rebase.md) a rebase has its own
+  Continue, Skip and Abort.
 - **Continue checks what it can and stages only the conflicted files.** The unmerged paths are sorted by their index
   stages:
   - **text conflicts** (ours and theirs present, regular files, not binary by git's test, a NUL byte in the first
@@ -184,6 +186,6 @@ commits from every branch and, hard, local changes. Git 2.53 behaves as follows 
   fail leaves the state with the bar, as git does.
 - A text file the user resolved by keeping a line that starts with a full-length conflict marker cannot be continued
   from Thoreau; a binary or deleted file is committed as it is on disk once confirmed, whatever it holds.
-- Merges, rebases and sequences are shown, but continued or aborted in the terminal.
+- Merges and sequences are shown, but continued or aborted in the terminal; rebases since ADR 0063 from the bar.
 - Limits: no merge tool or three-way view, no `reset --keep`/`--merge`, no several commits at once, no `-x` or edited
   messages. Git 2.24 or later is needed (`--skip` 2.23, `--end-of-options` 2.24).
