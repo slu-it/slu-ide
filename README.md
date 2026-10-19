@@ -52,6 +52,8 @@ Copy `Thoreau.app` to `/Applications` and start it with a double-click. Releases
 it once, then allow it under System Settings → Privacy & Security → Open Anyway (or run
 `xattr -dr com.apple.quarantine /Applications/Thoreau.app`). See
 [ADR 0011](docs/adr/0011-native-app-packaging.md).
+The logo, Thoreau's cabin at the pond, is `ide/packaging/thoreau.svg`; `ide/packaging/render-icon.sh` renders the
+app and window icons from it.
 
 ## Repository layout
 | Path | Content |

@@ -26,6 +26,9 @@ Alternatives considered:
   with JDK 25).
 - The release workflow attaches `Thoreau-<version>-mac-aarch64.dmg` to the GitHub release of the tag.
 - The app is only ad-hoc signed (as jpackage does by default), not notarized.
+- The app icon is the Thoreau logo, a cabin at the pond: `ide/packaging/thoreau.svg` is its source;
+  `ide/packaging/render-icon.sh` renders it to the committed `Thoreau.icns` (macOS), `thoreau-512.png` (Linux) and
+  the window icons in the `ide` resources (set on every stage by `WindowIcons`). Run it after changing the SVG.
 
 ## Consequences
 - No JDK is needed to run the app; the fat jars are still published for `java -jar`.
