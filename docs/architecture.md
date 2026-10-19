@@ -60,6 +60,9 @@ assembled from Gradle modules.
     ([ADR 0060](adr/0060-logging-conventions.md)): the status thread of `git`; the read and write threads of `git-log`;
     the trust checks of `project-trust`; highlighting, exports and image downloads of `file-viewers`; response
     formatting and token requests of `http-client`; deletes of `file-explorer`; the `sbx` check of `docker-sandbox`.
+  - `ide` -> `background-tasks` (`implementation`): `MainWindow` shows the window's `BackgroundTasks` as a
+    `BackgroundTasksView` under the file explorer (`leftPane`) and hands the registry to file views through
+    `FileViewHost.windowService` ([ADR 0061](adr/0061-background-tasks.md)).
   - `git-log` -> `git`: the git log area reads its commits, refs, commit details, changed files and file diffs with
     `GitLog` and shows `GitCommit`s, `GitRef`s, `GitCommitDetails` and `GitChangedFile`s
     ([ADR 0035](adr/0035-git-log-area.md), [ADR 0037](adr/0037-ref-labels-and-commit-details.md),
@@ -93,7 +96,7 @@ assembled from Gradle modules.
    in new windows; without folders the project picker is shown instead ([ADR 0034](adr/0034-project-picker.md)).
 4. Each window gets its own instances of the beans with `@Scope("window")` (`WindowScope`, [ADR 0014](adr/0014-project-windows.md)):
    `MainWindow`, `ProjectService`, `FileExplorerView`, `EditorArea`, `Terminals`, `DockerSandbox`, `GitStatusService`,
-   `GitLogView`, `HttpClientSession`, `ProjectTrust`.
+   `GitLogView`, `HttpClientSession`, `ProjectTrust`, `BackgroundTasks`.
    They are created when the window opens and destroyed (`close()`) when it closes. Singletons must not depend on
    them.
 5. When the last window is closed, `ProjectWindows` shows the project picker. Cancelling the picker while no window
