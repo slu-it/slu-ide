@@ -1,5 +1,6 @@
 package dev.sluide.httpclient.ui
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.FileViewers
@@ -53,7 +54,7 @@ class HttpFileViewUiTest {
     private val container = StackPane()
     private val viewer = HttpFileViewer()
     private val server = TestServer()
-    private val session = HttpClientSession()
+    private val session = HttpClientSession(BackgroundTasks.forTests())
 
     @AfterEach
     fun stop() {
@@ -519,7 +520,7 @@ class HttpFileViewUiTest {
 
     @Test
     fun `follows the file when it is moved, with its environment`(robot: FxRobot) {
-        val session = HttpClientSession()
+        val session = HttpClientSession(BackgroundTasks.forTests())
         val old = dir.resolve("api.http").apply { writeText("GET http://x\n") }
         val view = open(old, robot)
         robot.interact {

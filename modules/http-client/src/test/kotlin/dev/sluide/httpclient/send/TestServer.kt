@@ -74,12 +74,13 @@ internal class TestServer : AutoCloseable {
     }
 }
 
-/** Runs [request] and waits for its result. */
+/** Runs [request], named [name] as in a `.http` file, and waits for its result. */
 internal fun RequestExecutor.await(
     request: PreparedRequest,
     tags: RequestTags = RequestTags(),
+    name: String? = null,
 ): ExchangeResult {
     val result = CompletableFuture<ExchangeResult>()
-    run(request, tags, result::complete)
+    run(request, tags, result::complete, name)
     return result.get(30, TimeUnit.SECONDS)
 }

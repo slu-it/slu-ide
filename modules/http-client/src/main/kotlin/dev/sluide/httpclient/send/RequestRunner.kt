@@ -42,7 +42,7 @@ internal class RequestRunner(
         environment: () -> Environment?,
         onResult: (ExchangeResult) -> Unit,
     ): Cancellable =
-        executor.run(request.tags, onResult) { notes ->
+        executor.run(request.tags, onResult, request.name) { notes ->
             val environment = environment()
             val variables = HttpFileParser.parse(fileText).variables
             val auth = RequestTokens(tokens, environment, notes::add)

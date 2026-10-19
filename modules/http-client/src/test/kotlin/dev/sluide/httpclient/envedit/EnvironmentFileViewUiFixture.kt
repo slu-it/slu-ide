@@ -1,5 +1,6 @@
 package dev.sluide.httpclient.envedit
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpEnvironmentFileViewer
@@ -38,7 +39,7 @@ internal abstract class EnvironmentFileViewUiFixture {
 
     private val container = StackPane()
     protected val viewer = HttpEnvironmentFileViewer()
-    protected val session = HttpClientSession()
+    protected val session = HttpClientSession(BackgroundTasks.forTests())
     protected val host = FakeHost()
 
     @AfterEach

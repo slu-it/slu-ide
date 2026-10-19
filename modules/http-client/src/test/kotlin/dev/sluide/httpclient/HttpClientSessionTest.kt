@@ -1,5 +1,6 @@
 package dev.sluide.httpclient
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.httpclient.send.HttpClients
 import java.nio.file.Path
 import java.time.Duration
@@ -9,7 +10,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
 
 class HttpClientSessionTest {
-    private val session = HttpClientSession(Runnable::run)
+    private val session = HttpClientSession(BackgroundTasks.forTests(), Runnable::run)
 
     @Test
     fun `remembers the environment per file`() {

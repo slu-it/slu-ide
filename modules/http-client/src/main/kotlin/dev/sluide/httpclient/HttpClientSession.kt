@@ -1,5 +1,6 @@
 package dev.sluide.httpclient
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.httpclient.auth.OAuth2Client
 import dev.sluide.httpclient.auth.OAuth2TokenCache
@@ -31,13 +32,15 @@ private val log = System.getLogger(HttpClientSession::class.java.name)
 // One instance per IDE window (the "window" scope of the ide module, ADR 0014).
 @Scope("window")
 class HttpClientSession internal constructor(
+    tasks: BackgroundTasks,
     private val dispatch: (Runnable) -> Unit,
 ) : AutoCloseable {
+    /** Requests and token requests are tasks of the window's [tasks] (ADR 0061). */
     @Autowired
-    constructor() : this(Platform::runLater)
+    constructor(tasks: BackgroundTasks) : this(tasks, Platform::runLater)
 
     internal val clients = HttpClients()
-    internal val executor = RequestExecutor(clients, dispatch = dispatch)
+    internal val executor = RequestExecutor(clients, tasks, dispatch = dispatch)
 
     /**
      * Asks for the passphrase of a client certificate's key; `null` if the user cancelled. Called on a worker thread,
@@ -46,7 +49,7 @@ class HttpClientSession internal constructor(
     internal var passphrasePrompt: (SslConfig) -> CharArray? = PassphrasePrompt()::ask
 
     internal val sslContexts = SslContexts(passphrase = { passphrasePrompt(it) }, discarded = clients::evict)
-    internal val tokens = OAuth2TokenCache(OAuth2Client(clients), sslContexts)
+    internal val tokens = OAuth2TokenCache(OAuth2Client(clients), sslContexts, tasks)
     internal val runner = RequestRunner(executor, tokens, sslContexts)
 
     /**

@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers.preview
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.backgroundtasks.NamedThreads
 import javafx.application.Platform
 import javafx.scene.control.Alert
@@ -24,12 +25,17 @@ private val log = System.getLogger(ExportControls::class.java.name)
  * images or render offscreen); the button is disabled meanwhile. Problems (an error, or what the export lacks, such as
  * images not embedded) are reported in a dialog; a clean export is not.
  * Everything but the writing runs on the FX thread.
+ *
+ * The writing is a task of the window's [tasks] (ADR 0061), "Exporting <file> as <item>", started on its thread; it
+ * fails with the reason of a file or network problem, or the exception of anything else. Without a window's tasks
+ * (tests), a failure is logged on its own.
  */
 internal class ExportControls(
     private val exports: List<FileExport>,
     private val file: () -> Path,
     private val savedText: () -> String,
     private val owner: () -> Window?,
+    private val tasks: () -> BackgroundTasks?,
 ) {
     val button =
         MenuButton(null, FontIcon(MaterialDesignE.EXPORT_VARIANT).apply { iconSize = ICON_SIZE }).apply {
@@ -52,24 +58,34 @@ internal class ExportControls(
         val target = fileExport.target(source)
         if (target.exists() && !confirmOverwrite(target)) return
         val text = savedText()
+        val tasks = tasks()
         button.isDisable = true
         NamedThreads.virtual("sluide-export") {
+            val task = tasks?.start("Exporting ${source.fileName} as ${fileExport.label}")
             var message: String? = null
             try {
                 message =
                     try {
                         val problems = fileExport.write(source, text, target)
+                        task?.close()
                         if (problems.isEmpty()) {
                             null
                         } else {
                             "Exported ${target.fileName}, with problems:\n" + problems.joinToString("\n")
                         }
                     } catch (e: Exception) {
+                        val reason = e.message ?: e.javaClass.simpleName
                         // A file or network problem is expected; anything else is a bug.
-                        val level = if (e is IOException) System.Logger.Level.WARNING else System.Logger.Level.ERROR
-                        log.log(level, "Export of $source to $target failed", e)
-                        "Could not export ${source.fileName}: ${e.message ?: e.javaClass.simpleName}"
+                        when {
+                            task == null -> log.log(level(e), "Export of $source to $target failed", e)
+                            e is IOException -> task.failed(reason)
+                            else -> task.failed(e)
+                        }
+                        "Could not export ${source.fileName}: $reason"
                     }
+            } catch (t: Throwable) {
+                task?.failed(t)
+                throw t
             } finally {
                 // Also after an error, so that the button never stays disabled.
                 Platform.runLater {
@@ -79,6 +95,9 @@ internal class ExportControls(
             }
         }
     }
+
+    private fun level(error: Exception) =
+        if (error is IOException) System.Logger.Level.WARNING else System.Logger.Level.ERROR
 
     private fun askToOverwrite(target: Path): Boolean {
         val name = target.fileName

@@ -1,5 +1,6 @@
 package dev.sluide.httpclient.auth
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.httpclient.env.Environment
 import dev.sluide.httpclient.send.SslContexts
 import dev.sluide.httpclient.vars.DynamicVariables
@@ -10,6 +11,8 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
 import javax.net.ssl.SSLContext
 
+private val log = System.getLogger(OAuth2TokenCache::class.java.name)
+
 /**
  * The OAuth2 tokens of one window, in memory only. A token belongs to an environment name and auth id, and is only
  * used while the resolved [OAuth2Config] stays the same. A token counts as valid until [EARLY_EXPIRY] before it
@@ -19,10 +22,14 @@ import javax.net.ssl.SSLContext
  * [token] and [acquire] block during token requests; call them off the FX thread. Concurrent calls for the same
  * environment and id wait for one shared token request. [clear], [clearAll] and [tokens] never block. Token requests
  * use the environment's `SSLConfiguration` through [sslContexts].
+ *
+ * Every token request is a task of [tasks] (ADR 0061): "Acquiring token '<id>'" (for [acquire] with reading the auth
+ * configuration) or "Refreshing token '<id>'". It fails with the [OAuth2Exception]'s message, which names no secret.
  */
 internal class OAuth2TokenCache(
     private val client: OAuth2Client,
     private val sslContexts: SslContexts,
+    private val tasks: BackgroundTasks,
     private val clock: Clock = Clock.systemUTC(),
     private val dynamic: DynamicVariables = DynamicVariables(),
 ) {
@@ -65,7 +72,12 @@ internal class OAuth2TokenCache(
         idToken: Boolean = false,
         note: (String) -> Unit = {},
     ): String {
-        val config = OAuth2Config.of(environment, id, dynamic)
+        val config =
+            try {
+                OAuth2Config.of(environment, id, dynamic)
+            } catch (e: OAuth2Exception) {
+                throw logged(e)
+            }
         val key = Key(checkNotNull(environment).name, id)
         val slot = slots.computeIfAbsent(key) { Slot() }
         val ssl = { environment.ssl?.let(sslContexts::context) }
@@ -76,11 +88,24 @@ internal class OAuth2TokenCache(
                     cached != null && valid(cached) -> cached
                     cached?.response?.refreshToken != null -> refresh(slot, cached, ssl, note)
                     config.acquireAutomatically -> obtain(slot, config, ssl, note)
-                    cached != null -> throw OAuth2Exception("The token for '$id' has expired; acquire it again")
-                    else -> throw OAuth2Exception("Acquire the token for '$id' first (Acquire Automatically is off)")
+                    cached != null -> throw logged(OAuth2Exception("The token for '$id' has expired; acquire it again"))
+                    else -> throw logged(OAuth2Exception(ACQUIRE_FIRST.format(id)))
                 }
             }
-        return pick(token, idToken)
+        return try {
+            pick(token, idToken)
+        } catch (e: OAuth2Exception) {
+            throw logged(e)
+        }
+    }
+
+    /**
+     * Logs [error], a failure of [token] without a token request, at WARNING (ADR 0060); the failures of token requests
+     * are logged by their tasks. So every [OAuth2Exception] that leaves this cache is logged once.
+     */
+    private fun logged(error: OAuth2Exception): OAuth2Exception {
+        log.log(System.Logger.Level.WARNING, "No token: ${error.message}")
+        return error
     }
 
     /** Acquires a new token for auth [id] in [environment], replacing a cached one; blocks like [token]. */
@@ -88,14 +113,16 @@ internal class OAuth2TokenCache(
         environment: Environment?,
         id: String,
         note: (String) -> Unit = {},
-    ): TokenInfo {
-        val config = OAuth2Config.of(environment, id, dynamic)
-        val key = Key(checkNotNull(environment).name, id)
-        val slot = slots.computeIfAbsent(key) { Slot() }
-        val ssl = { environment.ssl?.let(sslContexts::context) }
-        val token = slot.lock.withLockInterruptibly { obtain(slot, config, ssl, note) }
-        return info(key, token)
-    }
+    ): TokenInfo =
+        // One task with what goes wrong before the request, e.g. an auth configuration without a Token URL.
+        tokenRequest(acquiring(id)) {
+            val config = OAuth2Config.of(environment, id, dynamic)
+            val key = Key(checkNotNull(environment).name, id)
+            val slot = slots.computeIfAbsent(key) { Slot() }
+            val ssl = { environment.ssl?.let(sslContexts::context) }
+            val token = slot.lock.withLockInterruptibly { obtain(slot, config, ssl, note, task = false) }
+            info(key, token)
+        }
 
     /** Forgets the tokens of auth [id] in all environments. */
     fun clear(id: String) {
@@ -128,7 +155,7 @@ internal class OAuth2TokenCache(
         val started = System.nanoTime()
         val response =
             try {
-                client.refresh(config, refreshToken, ssl())
+                tokenRequest("Refreshing token '${config.id}'") { client.refresh(config, refreshToken, ssl()) }
             } catch (e: OAuth2Exception) {
                 slot.token = null
                 if (!config.acquireAutomatically) throw e
@@ -149,18 +176,45 @@ internal class OAuth2TokenCache(
         return store(slot, config, merged, start)
     }
 
+    /** Requests a new token, as a task of its own unless [task] is `false` (the caller's is one). */
     private fun obtain(
         slot: Slot,
         config: OAuth2Config,
         ssl: () -> SSLContext?,
         note: (String) -> Unit,
+        task: Boolean = true,
     ): Token {
         val start = clock.instant()
         val started = System.nanoTime()
-        val response = client.grant(config, ssl())
+        val grant = { client.grant(config, ssl()) }
+        val response = if (task) tokenRequest(acquiring(config.id), grant) else grant()
         note("Acquired the token for '${config.id}' (${config.grant.label}) in ${millis(started)} ms")
         response.notes.forEach(note)
         return store(slot, config, response, start)
+    }
+
+    /**
+     * Runs the token request [request] as the task [name]: failed with the message of an [OAuth2Exception], cancelled
+     * if interrupted (the request was cancelled), else failed with what it threw.
+     */
+    private fun <T> tokenRequest(
+        name: String,
+        request: () -> T,
+    ): T {
+        val task = tasks.start(name)
+        val response =
+            try {
+                request()
+            } catch (e: OAuth2Exception) {
+                val message = e.message ?: "The token request failed"
+                if (Thread.currentThread().isInterrupted) task.failed(InterruptedException()) else task.failed(message)
+                throw e
+            } catch (t: Throwable) {
+                task.failed(t)
+                throw t
+            }
+        task.close()
+        return response
     }
 
     /** Expiry counts from [start], before the request was sent, to be on the safe side; it ends at [Instant.MAX]. */
@@ -191,6 +245,8 @@ internal class OAuth2TokenCache(
         token: Token,
     ) = TokenInfo(key.id, key.environment, token.expiresAt, token.response.refreshToken != null)
 
+    private fun acquiring(id: String) = "Acquiring token '$id'"
+
     private fun millis(started: Long) = Duration.ofNanos(System.nanoTime() - started).toMillis()
 
     private inline fun <T> ReentrantLock.withLockInterruptibly(action: () -> T): T {
@@ -203,6 +259,8 @@ internal class OAuth2TokenCache(
     }
 
     companion object {
+        private const val ACQUIRE_FIRST = "Acquire the token for '%s' first (Acquire Automatically is off)"
+
         /** Tokens are renewed this long before they expire, so that they do not expire on the way. */
         val EARLY_EXPIRY: Duration = Duration.ofSeconds(10)
     }

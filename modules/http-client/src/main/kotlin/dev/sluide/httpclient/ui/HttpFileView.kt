@@ -415,7 +415,7 @@ internal class HttpFileView(
                     val expiry = info.expiresAt?.let { " (expires ${TIME.format(it)})" }.orEmpty()
                     showMessage("Token '$id' acquired$expiry")
                 }.onFailure {
-                    log.log(System.Logger.Level.WARNING, "Token '$id' not acquired for $file", it)
+                    // Logged by the token request's background task (ADR 0061).
                     showMessage(
                         "Token '$id' not acquired: ${it.message ?: it::class.simpleName}",
                         error = true,

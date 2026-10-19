@@ -1,5 +1,6 @@
 package dev.sluide.httpclient.send
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.httpclient.auth.DigestAuth
 import dev.sluide.httpclient.parse.HttpFileParser
 import dev.sluide.httpclient.parse.HttpVersion
@@ -33,7 +34,14 @@ import kotlin.test.assertTrue
 class RequestExecutorTest {
     private val server = TestServer()
     private val clients = HttpClients()
-    private val executor = RequestExecutor(clients)
+
+    /** The log lines of the background tasks of the requests, without their numbers and durations. */
+    private val taskLines = CopyOnWriteArrayList<String>()
+    private val tasks =
+        BackgroundTasks.forTests { line ->
+            taskLines += line.replace(Regex("task#\\d+"), "task").replace(Regex(" (after|in) \\d+(\\.\\d+)? s"), " $1")
+        }
+    private val executor = RequestExecutor(clients, tasks)
 
     @AfterTest
     fun stop() {
@@ -143,7 +151,11 @@ class RequestExecutorTest {
         server.handle("/long") { server.respond(it, 200, "x".repeat(100_000)) }
 
         val result =
-            RequestExecutor(clients, bodyLimit = 10).use { assertIs<HttpResult>(it.await(server.request("/long"))) }
+            RequestExecutor(
+                clients,
+                tasks,
+                bodyLimit = 10,
+            ).use { assertIs<HttpResult>(it.await(server.request("/long"))) }
 
         assertTrue(result.truncated)
         assertEquals("x".repeat(10), result.text())
@@ -204,6 +216,63 @@ class RequestExecutorTest {
         assertEquals("Connection refused: 127.0.0.1:$port", failure.message)
         assertFalse(failure.cancelled)
         assertEquals(listOf("n"), failure.notes)
+        assertEquals(
+            listOf("task started: GET 127.0.0.1", "task failed after: GET 127.0.0.1: ConnectException"),
+            taskLines,
+        )
+    }
+
+    @Test
+    fun `a request is a background task named by its name or host that finishes also with an error status`() {
+        server.handle("/missing") { server.respond(it, 404, "gone") }
+
+        val named = server.request("/echo/hooks/T0K3N;jsessionid=ABC?token=secret&a=1", "POST", body = "body")
+        assertEquals(200, assertIs<HttpResult>(executor.await(named, RequestTags(), "Post hook")).status)
+        assertEquals(404, response(server.request("/missing;jsessionid=ABC?q=x")).status)
+
+        assertEquals(
+            listOf(
+                "task started: POST Post hook",
+                "task finished in: POST Post hook (200, N bytes)",
+                "task started: GET 127.0.0.1",
+                "task finished in: GET 127.0.0.1 (404, 4 bytes)",
+            ),
+            // The echo's size depends on the client's headers.
+            taskLines.map { it.replace(Regex("200, \\d+ bytes"), "200, N bytes") },
+        )
+        assertTrue(
+            taskLines.none { listOf("T0K3N", "jsessionid", "secret", "q=x", "missing").any(it::contains) },
+            taskLines.toString(),
+        )
+    }
+
+    @Test
+    fun `the task name has no path, query or user info`() {
+        val uri = URI("https://user:pass@api.example.com:8443/bot123:ABC/send;jsessionid=XYZ?key=secret#frag")
+
+        assertEquals("GET api.example.com", RequestExecutor.taskName("GET", null, uri))
+        assertEquals("GET api.example.com", RequestExecutor.taskName("GET", "  ", uri))
+        assertEquals("DELETE Get rid of it", RequestExecutor.taskName("DELETE", " Get rid of it ", uri))
+    }
+
+    @Test
+    fun `the task of a request cancels it and ends as cancelled`() {
+        val reached = CountDownLatch(1)
+        server.handle("/wait") {
+            reached.countDown()
+            server.released.await()
+        }
+        val result = CompletableFuture<ExchangeResult>()
+
+        executor.run(server.request("/wait"), RequestTags(), result::complete)
+        assertTrue(reached.await(10, TimeUnit.SECONDS))
+        tasks.shown.single().cancel()
+
+        assertTrue(assertIs<HttpFailure>(result.get(10, TimeUnit.SECONDS)).cancelled)
+        assertEquals(
+            listOf("task started: GET 127.0.0.1", "task cancelled", "task cancelled after: GET 127.0.0.1"),
+            taskLines,
+        )
     }
 
     @Test
@@ -220,7 +289,7 @@ class RequestExecutorTest {
 
         val failure =
             HttpClients(proxy = HttpClient.Builder.NO_PROXY).use { direct ->
-                RequestExecutor(direct).use {
+                RequestExecutor(direct, tasks).use {
                     it.await(request)
                 }
             }
@@ -244,7 +313,7 @@ class RequestExecutorTest {
         val dispatched = CompletableFuture<Thread>()
         val result = CompletableFuture<ExchangeResult>()
         val dispatching =
-            RequestExecutor(clients, dispatch = { runnable ->
+            RequestExecutor(clients, tasks, dispatch = { runnable ->
                 dispatched.complete(Thread.currentThread())
                 runnable.run()
             })
@@ -393,7 +462,7 @@ class RequestExecutorTest {
         val pool =
             java.util.concurrent.Executors
                 .newSingleThreadExecutor()
-        RequestExecutor(clients, pool).use { pooled ->
+        RequestExecutor(clients, tasks, pool).use { pooled ->
             val preparing = CountDownLatch(1)
             val first = CompletableFuture<ExchangeResult>()
             val running =

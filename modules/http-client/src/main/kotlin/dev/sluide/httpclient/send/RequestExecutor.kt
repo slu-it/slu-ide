@@ -1,6 +1,9 @@
 package dev.sluide.httpclient.send
 
+import dev.sluide.backgroundtasks.BackgroundTask
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.httpclient.auth.DigestAuth
+import dev.sluide.httpclient.auth.OAuth2Exception
 import dev.sluide.httpclient.parse.HttpVersion
 import dev.sluide.httpclient.parse.RequestTags
 import dev.sluide.httpclient.vars.UnresolvedVariablesException
@@ -32,9 +35,15 @@ private val log = System.getLogger(RequestExecutor::class.java.name)
  * `@timeout` is a deadline for the whole exchange, body included; `@connection-timeout` limits connecting. Both
  * default to [DEFAULT_TIMEOUT]. Bodies are read up to [bodyLimit] bytes, then truncated. A `401` with a Digest
  * challenge to a request with [PreparedRequest.digest] credentials is answered once, with the same body.
+ *
+ * Once prepared, a request is a task of [tasks] (ADR 0061) until its result, named by its method and its name in the
+ * `.http` file, else its host ([taskName]): never a path, query, header or body, which may hold secrets. Its ✕ cancels
+ * it. A response finishes it with its status and size, also an error status; a cancelled request ends it as cancelled,
+ * a failure as failed.
  */
 internal class RequestExecutor(
     private val clients: HttpClients,
+    private val tasks: BackgroundTasks,
     executor: Executor? = null,
     private val dispatch: (Runnable) -> Unit = Runnable::run,
     private val bodyLimit: Int = DEFAULT_BODY_LIMIT,
@@ -47,19 +56,21 @@ internal class RequestExecutor(
         request: PreparedRequest,
         tags: RequestTags,
         onResult: (ExchangeResult) -> Unit,
-    ): Cancellable = run(tags, onResult) { request }
+        name: String? = null,
+    ): Cancellable = run(tags, onResult, name) { request }
 
     /**
      * Runs [prepare] on the executor, then sends the request it returns. [prepare] may block (e.g. for token requests)
      * and add notes; cancelling interrupts it. What it throws becomes the [HttpFailure], with the message as it is.
-     * `@timeout` does not cover the preparation.
+     * `@timeout` does not cover the preparation. [name] is the request's name in its `.http` file, if it has one.
      */
     fun run(
         tags: RequestTags,
         onResult: (ExchangeResult) -> Unit,
+        name: String? = null,
         prepare: (notes: MutableList<String>) -> PreparedRequest,
     ): Cancellable {
-        val exchange = Exchange(tags, prepare)
+        val exchange = Exchange(tags, name, prepare)
         executor.execute {
             val result =
                 try {
@@ -67,6 +78,7 @@ internal class RequestExecutor(
                 } catch (e: Throwable) {
                     exchange.unexpected(e)
                 }
+            exchange.end(result)
             // A late cancel must not leave its interrupt to the next task of a pooled thread.
             Thread.interrupted()
             dispatch { onResult(result) }
@@ -81,6 +93,7 @@ internal class RequestExecutor(
 
     private inner class Exchange(
         private val tags: RequestTags,
+        private val name: String?,
         private val prepare: (MutableList<String>) -> PreparedRequest,
     ) {
         private val timeout = tags.timeout ?: DEFAULT_TIMEOUT
@@ -101,6 +114,9 @@ internal class RequestExecutor(
 
         @Volatile
         private var current: CompletableFuture<*>? = null
+
+        /** The task of the request, once it is prepared; ended on the thread that runs the exchange. */
+        private var task: BackgroundTask? = null
 
         fun cancel() {
             cancelled = true
@@ -129,8 +145,33 @@ internal class RequestExecutor(
             Thread.interrupted()
             if (cancelled) return failure("Cancelled", cancelled = true)
             notes += request.notes + prepareNotes
+            task = tasks.start(taskName(request.method, name, request.uri)) { cancel() }
             start = System.nanoTime()
             return send()
+        }
+
+        /**
+         * Ends the task with [result], if the request was prepared: finished with the status and size of a response, as
+         * cancelled if it was cancelled; a failure has ended it already ([logFailure]).
+         */
+        fun end(result: ExchangeResult) {
+            val task = task ?: return
+            when (result) {
+                is HttpResult -> {
+                    task.close("${result.status}, ${result.body.size} bytes")
+                }
+
+                is HttpFailure -> {
+                    // A failure has ended it already; not its message, which may quote the request.
+                    if (result.cancelled) {
+                        task.failed(
+                            CancellationException(result.message),
+                        )
+                    } else {
+                        task.failed("No response")
+                    }
+                }
+            }
         }
 
         /** A failure for an error no step expected (e.g. an [Error]), so that there is a result all the same. */
@@ -143,12 +184,15 @@ internal class RequestExecutor(
         /**
          * Logs why the exchange failed (ADR 0060): the expected ones (the network, the configuration, the request
          * itself) as a WARNING naming only the method and host, anything else as an ERROR with its stack trace. Never
-         * the query, headers or body.
+         * the query, headers or body. Once prepared, the request's task ends that way instead (ADR 0061), with the
+         * exception's class as the message. A token failure while preparing ([OAuth2Exception]) is not logged again.
          */
         private fun logFailure(error: Throwable) {
             val target =
                 if (::request.isInitialized) "${request.method} ${request.uri.host}" else "A request not yet prepared"
             val chain = generateSequence(error) { it.cause }.toList()
+            // Logged once where it was thrown: by the token request's task or the token cache.
+            if (task == null && chain.any { it is OAuth2Exception }) return
             val expected =
                 chain.any {
                     it is IOException ||
@@ -158,10 +202,12 @@ internal class RequestExecutor(
                         it is SslConfigException ||
                         it is UnresolvedVariablesException
                 }
-            if (expected) {
-                log.log(System.Logger.Level.WARNING, "$target failed: ${error::class.simpleName}")
-            } else {
-                log.log(System.Logger.Level.ERROR, "$target failed unexpectedly", error)
+            val task = task
+            when {
+                task != null && expected -> task.failed(error::class.simpleName.orEmpty())
+                task != null -> task.failed(error)
+                expected -> log.log(System.Logger.Level.WARNING, "$target failed: ${error::class.simpleName}")
+                else -> log.log(System.Logger.Level.ERROR, "$target failed unexpectedly", error)
             }
         }
 
@@ -337,6 +383,17 @@ internal class RequestExecutor(
     companion object {
         val DEFAULT_TIMEOUT: Duration = Duration.ofSeconds(60)
         const val DEFAULT_BODY_LIMIT = 50 * 1024 * 1024
+
+        /**
+         * The task's name of a [method] request named [name] in its `.http` file to [uri] (ADR 0061): "GET Get users", or
+         * without a name "GET example.com". Never the path, the query or user info, which may hold secrets (webhook
+         * tokens, `;jsessionid=`, `/bot<token>/`); the name goes to the log at INFO with every request.
+         */
+        internal fun taskName(
+            method: String,
+            name: String?,
+            uri: URI,
+        ) = "$method ${name?.trim()?.takeIf { it.isNotEmpty() } ?: uri.host.orEmpty()}".trim()
 
         private fun describe(duration: Duration) =
             if (duration.toMillis() % 1000 == 0L) "${duration.toSeconds()} s" else "${duration.toMillis()} ms"

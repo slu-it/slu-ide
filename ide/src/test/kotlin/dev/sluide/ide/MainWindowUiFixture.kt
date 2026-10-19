@@ -184,7 +184,7 @@ abstract class MainWindowUiFixture {
             SettingsPages(listOf(FontsPage(fontSettings))),
             ThemedWindows(ThemeSettings(SettingsStore(settingsDir.resolve("settings.properties")))),
             projectWindows,
-            HttpClientSession().also(httpSessions::add),
+            HttpClientSession(tasks).also(httpSessions::add),
             recentProjects,
             projectTrust,
             tasks,

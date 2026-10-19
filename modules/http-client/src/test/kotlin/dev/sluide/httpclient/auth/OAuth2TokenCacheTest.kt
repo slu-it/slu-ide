@@ -1,11 +1,13 @@
 package dev.sluide.httpclient.auth
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.httpclient.send.HttpClients
 import dev.sluide.httpclient.send.SslContexts
 import java.net.http.HttpClient
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.Callable
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -19,7 +21,11 @@ class OAuth2TokenCacheTest {
     private val endpoint = TokenEndpoint()
     private val clients = HttpClients(proxy = HttpClient.Builder.NO_PROXY)
     private val clock = MutableClock()
-    private val cache = OAuth2TokenCache(OAuth2Client(clients, Duration.ofSeconds(5)), SslContexts(), clock)
+
+    /** The log lines of the background tasks of the token requests, without their numbers. */
+    private val taskLines = CopyOnWriteArrayList<String>()
+    private val tasks = BackgroundTasks.forTests { taskLines += it.replace(Regex("task#\\d+"), "task") }
+    private val cache = OAuth2TokenCache(OAuth2Client(clients, Duration.ofSeconds(5)), SslContexts(), tasks, clock)
     private val notes = mutableListOf<String>()
 
     @AfterTest
@@ -88,6 +94,35 @@ class OAuth2TokenCacheTest {
                 it.startsWith("Refreshing the token for 'a' failed (Token request for 'a' failed: 400 invalid_grant)")
             },
             notes.toString(),
+        )
+    }
+
+    @Test
+    fun `every token request is a background task that fails with the readable message`() {
+        respondWithRefreshTokens()
+        token()
+        clock.now = clock.now.plusSeconds(60)
+        token()
+        endpoint.respond = { 400 to """{"error": "invalid_client"}""" }
+        assertFailsWith<OAuth2Exception> { cache.acquire(dev, "a") }
+        assertFailsWith<OAuth2Exception> { cache.acquire(dev, "missing") }
+
+        val lines = taskLines.map { it.replace(Regex(" (after|in) \\d+(\\.\\d+)? s"), " $1") }
+        assertEquals(
+            listOf(
+                "task started: Acquiring token 'a'",
+                "task finished in: Acquiring token 'a'",
+                "task started: Refreshing token 'a'",
+                "task finished in: Refreshing token 'a'",
+                "task started: Acquiring token 'a'",
+                "task failed after: Acquiring token 'a': Token request for 'a' failed: 400 invalid_client",
+                "task started: Acquiring token 'missing'",
+            ),
+            lines.dropLast(1),
+        )
+        assertTrue(
+            lines.last().startsWith("task failed after: Acquiring token 'missing': There is no auth"),
+            lines.last(),
         )
     }
 

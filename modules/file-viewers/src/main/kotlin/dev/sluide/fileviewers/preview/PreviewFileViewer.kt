@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers.preview
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewHost
@@ -241,7 +242,9 @@ internal class PreviewFileView(
     /** The Export button, if the preview [can be exported][Preview.exports]. */
     val export: ExportControls? =
         preview.exports.takeIf { it.isNotEmpty() }?.let {
-            ExportControls(it, { file }, { source.savedText }, { pane.scene?.window })
+            ExportControls(it, { file }, { source.savedText }, { pane.scene?.window }) {
+                host?.windowService(BackgroundTasks::class.java)
+            }
         }
 
     private val pane =

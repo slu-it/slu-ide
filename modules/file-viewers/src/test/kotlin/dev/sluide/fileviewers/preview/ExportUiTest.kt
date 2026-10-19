@@ -1,5 +1,7 @@
 package dev.sluide.fileviewers.preview
 
+import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.image.SvgFileViewer
 import dev.sluide.fileviewers.markdown.MarkdownFileViewer
 import dev.sluide.fileviewers.table.CsvFileViewer
@@ -15,7 +17,9 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.net.URI
 import java.nio.file.Path
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import javax.imageio.ImageIO
 import kotlin.io.path.exists
@@ -157,6 +161,29 @@ class ExportUiTest {
         val diagram = doc.select("div.diagram").single()
         assertNotNull(diagram.selectFirst("> div.diagram-light > svg"))
         assertNotNull(diagram.selectFirst("> div.diagram-dark > svg"))
+    }
+
+    @Test
+    fun `an export is a background task of the window`(robot: FxRobot) {
+        val lines = CopyOnWriteArrayList<String>()
+        val tasks = BackgroundTasks.forTests { lines += it.replace(Regex("task#\\d+"), "task") }
+        val view = open(robot, "logo.svg", """<svg xmlns="http://www.w3.org/2000/svg" width="4" height="4"/>""")
+        val host =
+            object : FileViewHost {
+                override fun openFile(file: Path) = false
+
+                override fun openWebPage(uri: URI) {}
+
+                override fun <T : Any> windowService(type: Class<T>): T? =
+                    tasks.takeIf(type::isInstance)?.let(type::cast)
+            }
+        robot.interact { view.host = host }
+
+        assertTrue(exported(view, "PNG 200%").isEmpty())
+
+        assertEquals("task started: Exporting logo.svg as PNG 200%", lines.first())
+        assertTrue(lines[1].startsWith("task finished in "), lines[1])
+        assertEquals(2, lines.size, lines.toString())
     }
 
     @Test
