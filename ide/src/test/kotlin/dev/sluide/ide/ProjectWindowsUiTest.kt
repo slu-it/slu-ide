@@ -11,6 +11,7 @@ import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCommits
 import dev.sluide.git.GitLog
 import dev.sluide.git.GitPush
+import dev.sluide.git.GitRebases
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitStatusService
 import dev.sluide.git.GitTrustCheck
@@ -109,6 +110,7 @@ class ProjectWindowsUiTest {
                 register(GitLog::class.java)
                 register(GitBranches::class.java)
                 register(GitCommits::class.java)
+                register(GitRebases::class.java)
                 register(GitRemotes::class.java)
                 register(GitPush::class.java)
                 val fallback = DefaultTextFileViewer()

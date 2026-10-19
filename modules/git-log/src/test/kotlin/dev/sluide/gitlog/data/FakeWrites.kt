@@ -11,6 +11,7 @@ import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitPickResult
 import dev.sluide.git.GitPushResult
+import dev.sluide.git.GitRebaseResult
 import dev.sluide.git.GitResetMode
 import dev.sluide.git.GitResult
 import dev.sluide.git.GitUncheckedConflict
@@ -212,6 +213,45 @@ internal class FakeWrites : GitLogWrites {
         root: Path,
         kind: GitPick,
     ) = call("${kind.command} --abort")
+
+    /** What a rebase, continue, skip or abort answers, by its line. */
+    @Volatile
+    var rebaseResult: (String) -> GitRebaseResult = { GitRebaseResult.Done(NEW_HEAD) }
+
+    /** How many merge commits a rebase would drop; `null`: cannot be read. */
+    @Volatile
+    var rebaseMerges: Int? = 0
+
+    private fun rebaseCall(line: String): GitRebaseResult {
+        call(line)
+        return rebaseResult(line)
+    }
+
+    override fun rebase(
+        root: Path,
+        branch: String,
+        onto: String,
+    ) = rebaseCall("rebase $branch $onto")
+
+    override fun rebaseMergeCount(
+        root: Path,
+        onto: String,
+    ): Int? {
+        calls += "rebase merges $onto"
+        return rebaseMerges
+    }
+
+    override fun continueRebase(
+        root: Path,
+        confirmed: Set<GitUncheckedConflict>,
+    ): GitRebaseResult {
+        confirmedSets += confirmed
+        return rebaseCall("rebase --continue${if (confirmed.isEmpty()) "" else " as on disk"}")
+    }
+
+    override fun skipRebase(root: Path) = rebaseCall("rebase --skip")
+
+    override fun abortRebase(root: Path) = rebaseCall("rebase --abort")
 
     override fun unreachableCount(
         root: Path,

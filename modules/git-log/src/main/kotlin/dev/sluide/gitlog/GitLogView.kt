@@ -7,6 +7,7 @@ import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCommits
 import dev.sluide.git.GitLog
 import dev.sluide.git.GitPush
+import dev.sluide.git.GitRebases
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitRemotes
 import dev.sluide.gitlog.actions.RefActions
@@ -99,13 +100,14 @@ class GitLogView internal constructor(
         gitLog: GitLog,
         gitBranches: GitBranches,
         gitCommits: GitCommits,
+        gitRebases: GitRebases,
         gitRemotes: GitRemotes,
         gitPush: GitPush,
         tasks: BackgroundTasks,
     ) : this(
         GitLogCliSource(gitLog, gitRemotes, gitCommits, gitPush),
         Platform::runLater,
-        GitLogCliWrites(gitBranches, gitCommits, gitRemotes, gitPush),
+        GitLogCliWrites(gitBranches, gitCommits, gitRebases, gitRemotes, gitPush),
         tasks,
     )
 

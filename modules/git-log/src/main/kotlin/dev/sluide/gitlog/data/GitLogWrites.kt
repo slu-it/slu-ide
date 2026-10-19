@@ -13,6 +13,8 @@ import dev.sluide.git.GitPick
 import dev.sluide.git.GitPickResult
 import dev.sluide.git.GitPush
 import dev.sluide.git.GitPushResult
+import dev.sluide.git.GitRebaseResult
+import dev.sluide.git.GitRebases
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitResetMode
 import dev.sluide.git.GitResult
@@ -20,8 +22,8 @@ import dev.sluide.git.GitUncheckedConflict
 import java.nio.file.Path
 
 /**
- * How the git log changes a repository (ADRs 0041, 0042, 0043, 0049); [GitBranches], [GitCommits], [GitRemotes] and
- * [GitPush] in the application, a fake in tests. Called off the FX thread, except [canPass].
+ * How the git log changes a repository (ADRs 0041, 0042, 0043, 0049, 0063); [GitBranches], [GitCommits], [GitRebases],
+ * [GitRemotes] and [GitPush] in the application, a fake in tests. Called off the FX thread, except [canPass].
  */
 internal interface GitLogWrites {
     /** Whether [argument] can be passed to git unchanged in the JVM's locale. */
@@ -140,6 +142,31 @@ internal interface GitLogWrites {
         kind: GitPick,
     ): GitResult
 
+    /** Rebases the current [branch] (short name) onto [onto] (a full refname); ADR 0063. */
+    fun rebase(
+        root: Path,
+        branch: String,
+        onto: String,
+    ): GitRebaseResult
+
+    /** How many merge commits `HEAD` has that [onto] (a full refname) does not; `null` if that cannot be read. */
+    fun rebaseMergeCount(
+        root: Path,
+        onto: String,
+    ): Int?
+
+    /** Stages the resolved files and continues the rebase in progress; unchecked ones only if all are [confirmed]. */
+    fun continueRebase(
+        root: Path,
+        confirmed: Set<GitUncheckedConflict>,
+    ): GitRebaseResult
+
+    /** Skips the commit the rebase in progress stopped at. */
+    fun skipRebase(root: Path): GitRebaseResult
+
+    /** Aborts the rebase in progress. */
+    fun abortRebase(root: Path): GitRebaseResult
+
     /** How many commits a reset to [target] would leave on no branch or tag; `null` if that cannot be read. */
     fun unreachableCount(
         root: Path,
@@ -223,6 +250,7 @@ internal interface GitLogWrites {
 internal class GitLogCliWrites(
     private val branches: GitBranches,
     private val commits: GitCommits,
+    private val rebases: GitRebases,
     private val gitRemotes: GitRemotes,
     private val gitPush: GitPush,
 ) : GitLogWrites {
@@ -317,6 +345,26 @@ internal class GitLogCliWrites(
         root: Path,
         kind: GitPick,
     ) = commits.abortPick(root, kind)
+
+    override fun rebase(
+        root: Path,
+        branch: String,
+        onto: String,
+    ) = rebases.rebase(root, branch, onto)
+
+    override fun rebaseMergeCount(
+        root: Path,
+        onto: String,
+    ) = rebases.mergeCount(root, onto)
+
+    override fun continueRebase(
+        root: Path,
+        confirmed: Set<GitUncheckedConflict>,
+    ) = rebases.continueRebase(root, confirmed)
+
+    override fun skipRebase(root: Path) = rebases.skipRebase(root)
+
+    override fun abortRebase(root: Path) = rebases.abortRebase(root)
 
     override fun unreachableCount(
         root: Path,
