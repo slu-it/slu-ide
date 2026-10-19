@@ -4,6 +4,8 @@ import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 
+private val log = System.getLogger("dev.sluide.fileexplorer.tree.DirectoryListing")
+
 private const val GIT_ENTRY = ".git"
 
 private class Entry(
@@ -36,6 +38,7 @@ internal fun listDirectory(directory: Path): List<Path> =
                 .map { it.path }
                 .toList()
         }
-    } catch (_: IOException) {
+    } catch (e: IOException) {
+        log.log(System.Logger.Level.WARNING, "Cannot list $directory, showing it as empty", e)
         emptyList()
     }

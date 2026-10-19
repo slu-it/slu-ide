@@ -24,6 +24,7 @@ import dev.sluide.ide.git.markers
 import dev.sluide.ide.git.textDiff
 import dev.sluide.ide.git.toTextDiff
 import dev.sluide.ide.git.wouldCommit
+import dev.sluide.ide.logging.currentLogFolder
 import dev.sluide.projects.RecentProjects
 import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.projecttrust.ProjectTrustState
@@ -66,6 +67,8 @@ import java.nio.file.LinkOption
 import java.nio.file.Path
 
 private const val APP_NAME = "Thoreau"
+
+private val log = System.getLogger("dev.sluide.ide.MainWindow")
 
 /** Alt+digit types characters on macOS, so window shortcuts with digits use Cmd there. */
 private val isMac = System.getProperty("os.name").lowercase().contains("mac")
@@ -213,7 +216,8 @@ class MainWindow(
             )
         // Git status markers, if git is installed and the folder is a repository (ADR 0013).
         fileExplorer.markers = { path, directory -> gitStatus.snapshot.get().markers(path, directory) }
-        fileExplorer.onFilesChanged = gitStatus::refresh
+        // Not for the log file growing inside the folder: the status's own log lines would trigger the next refresh.
+        fileExplorer.onFilesChanged = { changed -> if (!currentLogFolder.onlyLogFiles(changed)) gitStatus.refresh() }
         // The changes of modified files against HEAD are marked in their editors, updated with the status (ADR 0021).
         editorArea.diffOf = gitStatus::textDiff
         // Links in file views (e.g. the Markdown preview) to web pages open in the system browser.
@@ -343,7 +347,8 @@ class MainWindow(
                 } else {
                     fileViewers.openDiff(nameOf(diff.path), diff.current, textDiff)
                 }
-            } catch (_: IOException) {
+            } catch (e: IOException) {
+                log.log(System.Logger.Level.WARNING, "Cannot open the diff of ${diff.path}", e)
                 null
             } ?: return false
         val tab = editorArea.tabs.filterIsInstance<WorkingTreeDiffTab>().firstOrNull { it.shows(diff) }

@@ -1,6 +1,7 @@
 package dev.sluide.ide.logging
 
 import org.junit.jupiter.api.io.TempDir
+import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
 import kotlin.io.path.createDirectories
@@ -9,6 +10,7 @@ import kotlin.io.path.isDirectory
 import kotlin.io.path.setPosixFilePermissions
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 class LogFolderTest {
@@ -53,5 +55,28 @@ class LogFolderTest {
         val logs = dir.resolve("logs").createDirectories()
         logs.resolve("sluide.log").createDirectories()
         assertEquals(fallback, logFolder(logs, fallback))
+    }
+
+    @Test
+    fun `only changes inside the log folder are log files`() {
+        val logs = dir.resolve("logs").createDirectories()
+        val folder = LogFolderPaths(logs)
+
+        assertTrue(folder.onlyLogFiles(setOf(logs.resolve("sluide.log"), logs.resolve("sluide.1.log"))))
+        assertFalse(folder.onlyLogFiles(setOf(logs.resolve("sluide.log"), dir.resolve("src/a.kt"))))
+        assertFalse(folder.onlyLogFiles(setOf(dir.resolve("logs-other/a.log"))))
+        // Unknown (F5): refresh anyway.
+        assertFalse(folder.onlyLogFiles(emptySet()))
+    }
+
+    @Test
+    fun `files are matched by the real path of a linked log folder`() {
+        val real = dir.resolve("real").createDirectories()
+        val link = Files.createSymbolicLink(dir.resolve("link"), real)
+
+        val folder = LogFolderPaths(link)
+
+        assertTrue(folder.onlyLogFiles(setOf(real.resolve("sluide.log"))))
+        assertTrue(folder.onlyLogFiles(setOf(link.resolve("sluide.log"))))
     }
 }

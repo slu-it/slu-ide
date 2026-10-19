@@ -1,5 +1,6 @@
 package dev.sluide.fileexplorer
 
+import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.fileexplorer.actions.DeleteQuestion
 import dev.sluide.fileexplorer.actions.EntryKind
 import dev.sluide.fileexplorer.actions.FileOperationException
@@ -37,6 +38,8 @@ import java.nio.file.LinkOption
 import java.nio.file.Path
 import kotlin.math.roundToInt
 
+private val log = System.getLogger(FileExplorerView::class.java.name)
+
 /**
  * Tree view showing the complete content of a folder, including hidden files. Every folder whose content has been
  * loaded is watched, so changes on disk show up by themselves; "Refresh" (context menu, F5) re-reads all of them.
@@ -66,7 +69,7 @@ class FileExplorerView(
     var markers: (path: Path, directory: Boolean) -> FileMarkers = { _, _ -> FileMarkers.NONE }
 
     /** Called after files changed on disk in a loaded folder, and after a manual refresh. */
-    var onFilesChanged: () -> Unit = {}
+    var onFilesChanged: (Set<Path>) -> Unit = {}
 
     /**
      * Called after a file or folder was renamed in the explorer, with its old and new path. A folder's content moved
@@ -103,7 +106,7 @@ class FileExplorerView(
     internal var confirmDelete: (DeleteQuestion) -> Boolean = { askToDelete(scene?.window, it) }
 
     /** Runs a delete, which may take long (e.g. `node_modules`), away from the JavaFX thread; tests replace it. */
-    internal var runInBackground: (Runnable) -> Unit = { Thread.ofVirtual().name("sluide-delete").start(it) }
+    internal var runInBackground: (Runnable) -> Unit = { NamedThreads.virtual("sluide-delete", it) }
 
     /** Runs the end of a delete on the JavaFX thread; tests replace it. */
     internal var dispatch: (Runnable) -> Unit = Platform::runLater
@@ -261,7 +264,7 @@ class FileExplorerView(
             watch(folder)
         }
         closeWatchesOfVanishedFolders()
-        onFilesChanged()
+        onFilesChanged(emptySet())
     }
 
     /**
@@ -322,7 +325,7 @@ class FileExplorerView(
                 watch(subfolder)
             }
         closeWatchesOfVanishedFolders()
-        onFilesChanged()
+        onFilesChanged(changed.toSet())
     }
 
     /** Deleted folders are removed from the tree by their parent's refresh; their watches end here. */
@@ -373,9 +376,11 @@ class FileExplorerView(
             try {
                 action.perform(folder.value)
             } catch (e: IOException) {
+                log.log(System.Logger.Level.WARNING, "A folder action failed in ${folder.value}", e)
                 showError(e.message.orEmpty())
                 return
             } catch (e: UncheckedIOException) {
+                log.log(System.Logger.Level.WARNING, "A folder action failed in ${folder.value}", e)
                 showError((e.cause?.message ?: e.message).orEmpty())
                 return
             }
@@ -451,13 +456,25 @@ class FileExplorerView(
             }
         deleting.add(path)
         runInBackground {
+            log.log(System.Logger.Level.INFO, "Deleting $path")
+            val started = System.nanoTime()
             val failure =
                 try {
                     FileOperations.delete(path)
                     null
                 } catch (e: FileOperationException) {
+                    log.log(System.Logger.Level.WARNING, "Cannot delete $path", e)
                     e
+                } catch (e: Exception) {
+                    // Unexpected: the end of the delete must still run, or the entry stays locked.
+                    log.log(System.Logger.Level.ERROR, "Deleting $path failed unexpectedly", e)
+                    FileOperationException("Cannot delete “${path.fileName}”: ${e.message ?: e::class.simpleName}", e)
                 }
+            val millis = (System.nanoTime() - started) / 1_000_000
+            log.log(
+                System.Logger.Level.INFO,
+                "Deleted $path in $millis ms: ${if (failure == null) "done" else "failed"}",
+            )
             dispatch {
                 deleting.remove(path)
                 failure?.let { showError(it.message.orEmpty()) }

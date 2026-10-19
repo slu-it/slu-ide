@@ -947,16 +947,19 @@ class FileExplorerViewUiTest {
 
     @Test
     fun `reports changed files and refreshes`(robot: FxRobot) {
-        var reports = 0
-        view.onFilesChanged = { reports++ }
+        val reports = mutableListOf<Set<Path>>()
+        view.onFilesChanged = { reports += it }
         robot.interact { view.open(project) }
         WaitForAsyncUtils.waitForFxEvents()
 
-        project.resolve("new.txt").createFile()
-        eventually(robot) { assertEquals(1, reports) }
+        val created = project.resolve("new.txt").createFile()
+        eventually(robot) { assertEquals(1, reports.size) }
+        assertTrue(created in reports[0])
 
         robot.interact { view.refreshAll() }
-        assertEquals(2, reports)
+        assertEquals(2, reports.size)
+        // Unknown which files changed: refresh anyway.
+        assertEquals(emptySet(), reports[1])
     }
 
     @Test
