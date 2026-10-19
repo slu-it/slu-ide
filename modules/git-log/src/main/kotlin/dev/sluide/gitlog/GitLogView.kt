@@ -15,6 +15,7 @@ import dev.sluide.gitlog.area.CommitDiffs
 import dev.sluide.gitlog.area.CommitNavigation
 import dev.sluide.gitlog.area.CompareBar
 import dev.sluide.gitlog.area.GO_TO
+import dev.sluide.gitlog.area.HeaderBar
 import dev.sluide.gitlog.area.HeaderStatus
 import dev.sluide.gitlog.branches.BranchesPane
 import dev.sluide.gitlog.data.CommitBranches
@@ -33,7 +34,6 @@ import dev.sluide.gitlog.filter.FilterBar
 import dev.sluide.gitlog.filter.FilterSources
 import dev.sluide.gitlog.operations.Fetch
 import dev.sluide.gitlog.operations.PendingBar
-import dev.sluide.gitlog.push.PUSH_KEYS
 import dev.sluide.gitlog.table.CommitTable
 import dev.sluide.gitlog.ui.GIT_LOG_CSS
 import dev.sluide.gitlog.ui.SHORT_HASH
@@ -45,23 +45,13 @@ import javafx.beans.property.BooleanProperty
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.collections.ListChangeListener
 import javafx.geometry.Orientation
-import javafx.geometry.Pos
-import javafx.scene.control.Button
-import javafx.scene.control.Tooltip
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
 import javafx.scene.input.KeyEvent
-import javafx.scene.input.MouseButton
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
-import javafx.scene.layout.Priority
-import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
-import org.kordamp.ikonli.javafx.FontIcon
-import org.kordamp.ikonli.materialdesign2.MaterialDesignA
-import org.kordamp.ikonli.materialdesign2.MaterialDesignC
-import org.kordamp.ikonli.materialdesign2.MaterialDesignR
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
@@ -246,53 +236,8 @@ class GitLogView internal constructor(
             openFile = { file -> onOpenFile(file) }
         }
 
-    private val chevron = FontIcon(MaterialDesignC.CHEVRON_RIGHT)
-
-    internal val refreshButton =
-        Button(null, FontIcon(MaterialDesignR.REFRESH)).apply {
-            styleClass += "git-log-refresh"
-            tooltip = Tooltip("Refresh")
-            isFocusTraversable = false
-            // Always whole: the tabs left of it give way first.
-            minWidth = USE_PREF_SIZE
-            setOnAction { refresh() }
-        }
-
     /** Whether the last read found no remote to fetch; `false` while that is not known (ADR 0043). */
     private val noRemotes = SimpleBooleanProperty(false)
-
-    /** Fetches all remotes (ADR 0043); not while an operation runs or there is no remote. */
-    internal val fetchButton =
-        Button(null, FontIcon(MaterialDesignA.ARROW_DOWN)).apply {
-            styleClass += "git-log-fetch"
-            tooltip = Tooltip("Fetch All Remotes")
-            isFocusTraversable = false
-            minWidth = USE_PREF_SIZE
-            setOnAction { actions.start(Fetch()) }
-            disableProperty().bind(actions.running.or(noRemotes))
-        }
-
-    /** Opens the Push dialog (ADR 0049); not without a remote, but while an operation runs. */
-    internal val pushButton =
-        Button(null, FontIcon(MaterialDesignA.ARROW_UP)).apply {
-            styleClass += "git-log-push"
-            tooltip = Tooltip("Push… (${PUSH_KEYS.displayText})")
-            isFocusTraversable = false
-            minWidth = USE_PREF_SIZE
-            setOnAction { showPush() }
-            disableProperty().bind(noRemotes)
-        }
-
-    /** Cancels the fetch, commit or push going on; shown only while there is one. */
-    internal val cancelButton =
-        Button("Cancel").apply {
-            styleClass += "git-log-cancel"
-            isFocusTraversable = false
-            minWidth = USE_PREF_SIZE
-            visibleProperty().bind(actions.cancellable)
-            managedProperty().bind(actions.cancellable)
-            setOnAction { actions.cancel() }
-        }
 
     /** The bar of what git is in the middle of, below the filter bar (ADR 0042); the table's menu reads its `busy`. */
     internal val pendingBar =
@@ -434,27 +379,24 @@ class GitLogView internal constructor(
         }
 
     /** The header bar; clicking it (but not its buttons or tabs) expands or collapses the log. */
-    internal val header: HBox =
-        HBox(
-            chevron,
+    private val headerBar =
+        HeaderBar(
             tabs.titles,
             status.label,
-            cancelButton,
-            Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
-            pushButton,
-            fetchButton,
-            refreshButton,
-        ).apply {
-            styleClass += "git-log-header"
-            alignment = Pos.CENTER_LEFT
-            setOnMouseClicked { event ->
-                val onButton =
-                    listOf(refreshButton, pushButton, fetchButton, cancelButton).any { it.contains(event.target) }
-                if (event.button == MouseButton.PRIMARY && !onButton) {
-                    expanded.set(!expanded.get())
-                }
-            }
-        }
+            expanded,
+            actions.running,
+            actions.cancellable,
+            noRemotes,
+            ::refresh,
+            { actions.start(Fetch()) },
+            ::showPush,
+            actions::cancel,
+        )
+    internal val header: HBox get() = headerBar.node
+    internal val refreshButton get() = headerBar.refreshButton
+    internal val fetchButton get() = headerBar.fetchButton
+    internal val pushButton get() = headerBar.pushButton
+    internal val cancelButton get() = headerBar.cancelButton
 
     init {
         styleClass += "git-log"
@@ -537,7 +479,6 @@ class GitLogView internal constructor(
         changesPane.showHistory = { row, file -> tabs.showHistoryUpTo(row.commit, file) }
         expanded.subscribe { isExpanded ->
             val focusInBody = center?.contains(scene?.focusOwner) == true
-            chevron.iconCode = if (isExpanded) MaterialDesignC.CHEVRON_DOWN else MaterialDesignC.CHEVRON_RIGHT
             tabs.showContent()
             if (isExpanded) {
                 tabs.focusContent()
