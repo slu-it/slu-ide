@@ -38,6 +38,10 @@ This partly supersedes the dropping of ADR 0013; writes were not affected.
 more)]`), and every status refresh logs one start and one end line (`Git status cycle for <root>: trust recheck|awaited
 <ms> ms, status <ms> ms, changed|unchanged`, or why it ended early; a failed `git status` ends it with the task line
 `… finished in …: Refreshing Git status (git status failed)`, ADR 0061). A refresh loop shows as a repeating pair.
+Since [ADR 0062](0062-git-concurrency.md) a batch that changed nothing the status, the log or the trust check reads logs
+one line instead (`Git status cycle for <root>: .git unchanged, nothing runs`), and the first cycle that waits for a
+git write of the window logs `Git status cycle for <root> waits for a git write`; a write held longer than 11 minutes is
+let go with a WARNING.
 
 FX watchdog (`FxWatchdog`, ide): a daemon thread `sluide-fx-watchdog` posts a ping to the JavaFX thread every 250 ms.
 A ping not handled within 1 s gives one WARNING `JavaFX thread blocked for <ms> ms` with the stack trace of the JavaFX

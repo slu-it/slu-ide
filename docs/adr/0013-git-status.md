@@ -1,6 +1,8 @@
 # 0013. Git status from the git command line, shown as markers in the file explorer
 
-- Status: accepted; partly superseded by [0060](0060-logging-conventions.md) (stderr of reads kept for the log)
+- Status: accepted; partly superseded by [0060](0060-logging-conventions.md) (stderr of reads kept for the log) and
+  [0062](0062-git-concurrency.md) (a change of `.git` refreshes only if it changed what the status reads; git writes of
+  the window hold refreshes)
 - Date: 2026-10-13
 
 ## Context
@@ -60,3 +62,8 @@ snapshot.
 
 Note 2026-10-19: the standard error of reads is no longer dropped: the first 4 KB are kept for the log only
 (ADR [0060](0060-logging-conventions.md), partly superseding this).
+
+Note 2026-10-19: a change noticed directly in `.git` runs `git status` only if a stamp of what the status, the log and
+the refs read (`HEAD`, index, refs, configuration, …; not objects or reflogs) changed, and a git write of the window
+holds refreshes until its end, then runs one ([ADR 0062](0062-git-concurrency.md), partly superseding this). Changes
+only below `.git/refs/` are counted with the next batch of `.git`.

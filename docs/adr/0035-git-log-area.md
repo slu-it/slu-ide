@@ -1,6 +1,7 @@
 # 0035. Git log area under the editor, read from the git command line in pages
 
-- Status: accepted
+- Status: accepted; partly superseded by [0062](0062-git-concurrency.md) (`gitFolderChanged` counts only changes of
+  what the log reads; one reload per write)
 - Date: 2026-10-16
 
 ## Context
@@ -76,3 +77,9 @@ the command line (status, diff to `HEAD`, the ref in the title, [ADR 0013](0013-
   reload.
 - The area's height and expanded state are forgotten when the window closes; remembering them is a later package.
 - Alt+9 typed in a terminal goes to the shell, like other Alt keys there.
+
+Note 2026-10-19: `gitFolderChanged` now counts a batch of `.git` only if it changed a stamp of what the status, the log
+and the refs read (`HEAD`, index, loose, packed and reftable refs, `FETCH_HEAD`, …; not objects or reflogs), so such a batch also
+counts a new branch below `.git/refs/` that the watch itself does not see; a git write of the window counts once, at
+its end, so the log reloads once per write. A reload stops the git of a page still loading ([ADR
+0062](0062-git-concurrency.md), partly superseding this).

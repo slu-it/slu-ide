@@ -1,6 +1,7 @@
 # 0053. Project trust: tools check what a folder would make them run, the user decides once
 
-- Status: accepted
+- Status: accepted; partly superseded by [0062](0062-git-concurrency.md) (git's check runs again only when a stamp of
+  its inputs changed)
 - Date: 2026-10-18
 
 ## Context
@@ -138,3 +139,20 @@ without reading.
   the same stored decision.
 - A repository with settings not on the allow-list asks once, also when they are harmless; the allow-list grows with
   what proves common.
+
+Note 2026-10-19: git's check no longer runs again on every change noticed in `.git`, only when a stamp of its inputs
+changed since the last recheck that allowed git, or after an operation of the git log ([ADR
+0062](0062-git-concurrency.md), partly superseding the rule above). `GitTrustCheck` records the inputs with every check
+that could check, for the opened repository and each submodule it looked at:
+- by content (SHA-256, files up to 1 MB) and permissions, links followed: `config`, `config.worktree`, `HEAD`
+  (`includeIf "onbranch:"`), `commondir` and `gitdir` where `git rev-parse --git-path` puts them; every file an entry of
+  the repository's scopes comes from; every file an `include.path` or `includeIf.*.path` names, also one that does not
+  exist or apply yet; every entry of the hooks folder (also a `core.hooksPath` in the work tree), so a `chmod +x` counts;
+- by size, time and inode: the index (the submodules are read from it);
+- by where it leads: the `.git` of the repository and of each submodule's folder (a folder, a link's target, a
+  `gitdir:` file's content).
+
+Only regular files are read (at most 1 MB + 1 byte each); FIFOs and devices count by their type and attributes, unopened.
+Security rule: whatever the check may depend on is an input; without a stamp (no check yet, a check that could not
+check or kept git off, an include path that cannot be resolved such as `~user/`, more than 256 hook entries or 16 MB to
+read), every change of `.git` runs the check again, as before. The first change after opening the folder always does.

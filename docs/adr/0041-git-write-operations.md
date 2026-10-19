@@ -1,6 +1,6 @@
 # 0041. Git log changes the repository: checkout, new branch, new tag, rename, delete through the git CLI
 
-- Status: accepted
+- Status: accepted; partly superseded by [0062](0062-git-concurrency.md) (how the log is refreshed after an operation)
 - Date: 2026-10-16
 
 ## Context
@@ -139,3 +139,8 @@ POSIX locale cannot pass non-ASCII arguments ([ADR 0038](0038-changed-files-and-
 - A checkout may keep the header saying "Checking out…" for up to 10 minutes, and no other operation starts meanwhile.
 - Deferred: deleting remote branches and anything else that needs the network (fetch, pull, push), cherry-pick,
   revert, reset, merge, rebase, stashes, and pushing tags.
+
+Note 2026-10-19: every operation tells its start and its end (also a failed or thrown one) to the window's git status,
+which holds its refreshes meanwhile (also of the explorer's markers for an operation that changes or commits files) and
+runs one cycle at the end; the log refreshes on that cycle's count, so once per operation, after the trust check ran
+again ([ADR 0062](0062-git-concurrency.md), partly superseding the refresh rule above).

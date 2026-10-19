@@ -117,8 +117,13 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
   header).
 - **Refresh:** the Refresh button, and changes directly in `.git` (commits, checkouts, staging, fetches, merges,
   rebases) reload the first page and the refs; while collapsed the log only notes it and reloads on the next expand.
-  Selected commits stay selected if they are still in the first page, and the details are read again. A new branch or
-  tag alone (`git branch x`, `git tag x`) is not noticed; use Refresh.
+  Changes of `.git` that change nothing the log reads (new objects, reflogs) do not reload it
+  ([ADR 0062](../adr/0062-git-concurrency.md)). Selected commits stay selected if they are still in the first page; the
+  details and changed files of a commit that stays selected are not read again (a commit cannot change them; after a
+  failure they are), only its refs are shown anew; links to commits its message names stay as read. A new
+  branch or tag alone (`git branch x`, `git tag x` in a terminal) is noticed with the next change directly in `.git`
+  (Refresh shows it at once). A reload stops the git of a page still loading, and selecting another commit stops the reads of the one
+  before.
 - **Filters** ([ADR 0039](../adr/0039-git-log-filters.md)): a bar above the commit table (not above the changed files
   and details), as in IntelliJ. Git itself filters, so a filtered log still loads in pages. Changing a filter reloads
   the first page (the rows stay until the new ones are there; selected commits stay selected if still shown). In a
@@ -263,8 +268,10 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
     says "Checking out main…", "Creating branch x…" and so on, then "Checked out main.", "Created branch x.", "Created
     and checked out branch x.", "Created tag v1.", "Renamed branch a to b.", "Deleted branch x." or "Deleted 3 refs."
     until the next operation (another message of the log shows instead while there is one). Afterwards, also after a
-    failure, the log is refreshed; after a checkout the window title, the explorer's markers and the open files follow
-    by themselves. Closing the window lets a running operation finish.
+    failure, the log reloads once, after the folder's trust check ran again; while the operation runs, refreshes for
+    changes of `.git` wait (for a checkout, cherry-pick, revert, hard reset or commit also the explorer's markers), and
+    one refresh at its end covers them ([ADR 0062](../adr/0062-git-concurrency.md)). After a checkout the window title,
+    the explorer's markers and the open files follow by themselves. Closing the window lets a running operation finish.
   - **Failures** show an error dialog titled after the operation ("Checkout Failed", …) with git's own message,
     without its `hint:` lines, in a selectable monospace area that wraps long lines, e.g. that local changes would be
     overwritten by the checkout; nothing is stashed. A checkout, cherry-pick, revert, reset, abort or continue may

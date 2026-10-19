@@ -24,9 +24,11 @@
     changes in editors, an empty git log. A bar under the menu bar says so, with Review… to decide again.
 - **Remembered** per folder (`~/.sluide/project-trust.properties`) for exactly what was shown: opened again with the
   same findings, nothing is asked. Other findings ask again.
-- **While working:** whenever `.git` changes (a commit, a checkout, a setting written by a tool or in a terminal), git's
-  check runs again before git. If it finds something new, git goes off and the bar says "Git is off: what this folder
-  makes it run changed." without a dialog; Review… asks.
+- **While working:** whenever `.git` changes in what git's check reads (its configuration and included files, hooks,
+  the index, `HEAD`, a submodule's `.git`: a commit, a checkout, a setting written by a tool or in a terminal) and after
+  every operation of the git log, git's check runs again before git; other changes of `.git` (new objects, reflogs)
+  do not run it ([ADR 0062](../adr/0062-git-concurrency.md)). If it finds something new, git goes off and the bar says
+  "Git is off: what this folder makes it run changed." without a dialog; Review… asks.
 - **What git's check finds:** every setting of the repository's own configuration that is not known to be harmless
   (what `git clone`, `git init`, `git lfs install` and everyday commands write is). Settings known to run commands
   (filters, fsmonitor, hooks path, ssh command, credential helpers, …) say when. Settings of the user's own

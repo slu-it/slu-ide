@@ -22,13 +22,19 @@
   subfolders like `.git/refs/` are not watched). A `.git` file (worktrees, submodules) is not watched, so such
   repositories update only on explorer changes and F5. `git status` runs in the background; the markers change when
   it is done.
+- A change in `.git` runs anything only if it changed what the status, the log and the refs read (`HEAD`, the index,
+  refs, the configuration, …): new objects, reflogs and lock files alone run nothing, and git's trust check runs again
+  only if what it reads changed ([ADR 0062](../adr/0062-git-concurrency.md)). While an operation of the git log runs,
+  refreshes for changes of `.git` wait, and for a checkout, cherry-pick, revert, hard reset or commit also those of the
+  explorer; at its end one refresh runs for all of them.
 - `GitStatusService.snapshot` holds the latest `GitStatusSnapshot` (`fileStatus`, `folderStatuses`). Every `open`
   resets it to the empty snapshot; after that it is replaced only when something changed. If `git status` fails or
   takes longer than 10 s, the previous snapshot stays (e.g. markers remain after `rm -rf .git` until the folder is
   opened again).
-- `GitStatusService.gitFolderChanged` counts the changes noticed directly in `.git` (on the JavaFX thread), and
+- `GitStatusService.gitFolderChanged` counts the changes noticed directly in `.git` that changed what the status, the
+  log and the refs read, and each operation of the git log once at its end (on the JavaFX thread), and
   `GitStatusService.root` is the followed repository root; the git log uses both ([git-log.md](git-log.md)). Changes
-  only below `.git/refs/` (e.g. `git branch x`) are not counted.
+  only below `.git/refs/` (e.g. `git branch x`) are counted with the next change noticed directly in `.git`.
 - Modified files get change markers and a diff against `HEAD` ([git-diff.md](git-diff.md));
   `GitStatusService.diffAsync(file, done)` reads it on a thread of its own (ADR 0062).
 - The window title shows the checked-out ref: `slu-ide [master] – Thoreau` on a branch,
