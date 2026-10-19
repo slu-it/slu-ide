@@ -1,5 +1,6 @@
 package dev.sluide.gitlog.actions
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
@@ -70,6 +71,7 @@ internal class RefActions(
     private val fileExists: (Path) -> Boolean,
     private val clearStatus: () -> Unit,
     private val tellOperation: (String) -> Unit,
+    tasks: BackgroundTasks,
 ) {
     /** Asked before an operation changes files on disk, with its action; `false` cancels it. Set by the view. */
     var beforeFileChange: (action: String) -> Boolean = { true }
@@ -86,8 +88,8 @@ internal class RefActions(
     private val writeExecutor =
         NamedThreads.single("sluide-git-write")
 
-    /** Runs the operations that change the repository, one at a time (ADR 0041). */
-    private val writer = RefWriter(writes, writeExecutor::execute, dispatch)
+    /** Runs the operations that change the repository, one at a time (ADR 0041), each as a task of [tasks]. */
+    private val writer = RefWriter(writes, writeExecutor::execute, dispatch, tasks)
 
     /** Whether an operation runs, so that no other is offered. */
     val running: ReadOnlyBooleanProperty = writer.running

@@ -11,8 +11,9 @@ javafx {
 }
 
 dependencies {
-    // Deliberate module dependency: the log, branch, compare, write, push, commit and history reads run on logged threads, ADR 0060.
-    implementation(project(":modules:background-tasks"))
+    // Deliberate module API dependency: the log, branch, compare, write, push, commit and history reads run on logged
+    // threads (ADR 0060), and GitLogView's public constructor takes the window's BackgroundTasks (ADR 0061).
+    api(project(":modules:background-tasks"))
     // Deliberate module API dependency: the commits come from the git command line of the git module (ADR 0035).
     api(project(":modules:git"))
     // Deliberate module dependency: the changed files show the explorer's file-type icons (ADR 0047).

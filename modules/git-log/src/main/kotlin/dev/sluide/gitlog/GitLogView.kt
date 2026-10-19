@@ -1,5 +1,6 @@
 package dev.sluide.gitlog
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.fileicons.FILE_ICONS_CSS
 import dev.sluide.git.GitBranches
@@ -99,6 +100,7 @@ class GitLogView internal constructor(
     private val source: GitLogSource,
     private val dispatch: (Runnable) -> Unit,
     private val writes: GitLogWrites,
+    private val tasks: BackgroundTasks,
 ) : BorderPane(),
     AutoCloseable {
     @Autowired
@@ -108,10 +110,12 @@ class GitLogView internal constructor(
         gitCommits: GitCommits,
         gitRemotes: GitRemotes,
         gitPush: GitPush,
+        tasks: BackgroundTasks,
     ) : this(
         GitLogCliSource(gitLog, gitRemotes, gitCommits, gitPush),
         Platform::runLater,
         GitLogCliWrites(gitBranches, gitCommits, gitRemotes, gitPush),
+        tasks,
     )
 
     private val executor =
@@ -234,6 +238,7 @@ class GitLogView internal constructor(
             { path -> fileExists(path) },
             status::clear,
             status::operation,
+            tasks,
         ).apply {
             beforeFileChange = { action -> this@GitLogView.beforeFileChange(action) }
             afterWrite = { this@GitLogView.afterWrite() }

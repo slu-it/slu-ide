@@ -1,5 +1,6 @@
 package dev.sluide.gitlog.operations
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
@@ -269,7 +270,7 @@ class RefOperationsTest {
     fun `runs one operation at a time on the background and drops outcomes after forget`() {
         val background = mutableListOf<Runnable>()
         val dispatched = mutableListOf<Runnable>()
-        val writer = RefWriter(FakeWrites(), background::add, dispatched::add)
+        val writer = RefWriter(FakeWrites(), background::add, dispatched::add, BackgroundTasks.forTests())
         val outcomes = mutableListOf<RefOutcome>()
 
         assertTrue(writer.run(root, CheckoutBranch("main"), outcomes::add))
@@ -302,7 +303,7 @@ class RefOperationsTest {
                 ): GitResult = throw IllegalStateException("broken")
             }
         val outcomes = mutableListOf<RefOutcome>()
-        val writer = RefWriter(writes, background::add) { it.run() }
+        val writer = RefWriter(writes, background::add, Runnable::run, BackgroundTasks.forTests())
 
         writer.run(root, CheckoutBranch("main"), outcomes::add)
         background.single().run()

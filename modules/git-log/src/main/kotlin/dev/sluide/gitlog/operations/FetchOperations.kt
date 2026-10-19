@@ -52,7 +52,7 @@ internal data class Fetch(
             context.cancellation.cancelled && (results.size < remotes.size || results.values.any { it.cancelled })
         val failed = results.filterValues { !it.result.success && !it.cancelled }
         val done = fetchSummary(results, cancelled)
-        if (failed.isEmpty()) return RefOutcome(GitResult(true, ""), done)
+        if (failed.isEmpty()) return RefOutcome(GitResult(true, ""), done, cancelled = cancelled)
         val message =
             failed.entries
                 .singleOrNull()
@@ -63,7 +63,7 @@ internal data class Fetch(
         val failure =
             failed.keys.singleOrNull()?.let { "$it could not be fetched." }
                 ?: "${failed.size} remotes could not be fetched: ${failed.keys.joinToString(", ")}."
-        return RefOutcome(GitResult(false, message), done, failure = failure)
+        return RefOutcome(GitResult(false, message), done, failure = failure, cancelled = cancelled)
     }
 }
 

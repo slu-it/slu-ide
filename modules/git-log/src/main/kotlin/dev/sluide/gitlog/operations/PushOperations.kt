@@ -41,7 +41,7 @@ internal data class PushOperation(
         val pushed =
             writes.push(root, remote, branch, target, force, expected, setUpstream, context.cancellation)
         if (pushed.cancelled || (!pushed.result.success && context.cancellation.cancelled)) {
-            return RefOutcome(GitResult(true, "", changed = false), pushCancelled(remote))
+            return RefOutcome(GitResult(true, "", changed = false), pushCancelled(remote), cancelled = true)
         }
         if (!pushed.result.success) return RefOutcome(pushed.result, null)
         return RefOutcome(pushed.result, pushSummary(this, pushed))

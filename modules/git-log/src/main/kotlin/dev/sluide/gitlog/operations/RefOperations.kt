@@ -14,13 +14,8 @@ import dev.sluide.gitlog.branches.BranchRemote
 import dev.sluide.gitlog.branches.REMOTE
 import dev.sluide.gitlog.data.GitLogWrites
 import dev.sluide.gitlog.ui.SHORT_HASH
-import javafx.beans.property.ReadOnlyBooleanProperty
-import javafx.beans.property.ReadOnlyBooleanWrapper
 import javafx.scene.control.ButtonType
 import java.nio.file.Path
-import java.util.concurrent.atomic.AtomicLong
-
-private val log = System.getLogger(RefWriter::class.java.name)
 
 /**
  * What an operation that changes the repository gave (ADR 0041): git's [result] (a failure is shown in an error
@@ -28,7 +23,8 @@ private val log = System.getLogger(RefWriter::class.java.name)
  * without force ([refused], with git's message [refusedMessage]), a question to ask before the operation may run
  * after all ([confirmation]; nothing was done then), a cherry-pick or revert git stopped and left for the user
  * ([stopped], ADR 0042), and the question above git's message in the error dialog if it is not the operation's
- * ([failure], e.g. naming the remotes that could not be fetched, ADR 0043).
+ * ([failure], e.g. naming the remotes that could not be fetched, ADR 0043), and whether it was [cancelled] before it
+ * was done (a fetch, commit or push).
  */
 internal data class RefOutcome(
     val result: GitResult,
@@ -38,6 +34,7 @@ internal data class RefOutcome(
     val confirmation: RefConfirmation? = null,
     val stopped: PickStop? = null,
     val failure: String? = null,
+    val cancelled: Boolean = false,
 )
 
 /**
@@ -550,99 +547,6 @@ internal fun nameProblem(
         overwrite && name == current -> "Branch '$name' is checked out."
         name in existing && !overwrite -> "${kind.noun.replaceFirstChar(Char::uppercase)} '$name' already exists"
         else -> null
-    }
-}
-
-/**
- * Runs the [RefOperation]s of a git log one at a time (ADR 0041): on [background] (the thread `sluide-git-write`),
- * the outcome handled through [dispatch]. While one runs, [running] is `true` and no other starts; while it is one
- * that can be [cancelled][cancel] (a fetch, ADR 0043) and is not yet, [cancellable] is `true`. The outcome of a run
- * started before the last [forget] is dropped. Used on the JavaFX thread (or whatever [dispatch] stands for in tests).
- */
-internal class RefWriter(
-    private val writes: GitLogWrites,
-    private val background: (Runnable) -> Unit,
-    private val dispatch: (Runnable) -> Unit,
-) {
-    private val _running = ReadOnlyBooleanWrapper(false)
-    val running: ReadOnlyBooleanProperty = _running.readOnlyProperty
-
-    private val _cancellable = ReadOnlyBooleanWrapper(false)
-    val cancellable: ReadOnlyBooleanProperty = _cancellable.readOnlyProperty
-
-    private val generation = AtomicLong()
-
-    /** The cancellation of the cancellable run going on; `null` without one. */
-    private var cancellation: GitCancellation? = null
-
-    /**
-     * Runs [operation] in the repository at [root] and hands its outcome to [done], unless one runs already: then
-     * returns `false`. A failure of the operation itself (not git's) is an outcome with its message.
-     */
-    fun run(
-        root: Path,
-        operation: RefOperation,
-        done: (RefOutcome) -> Unit,
-    ): Boolean = run(root, operation, {}, done)
-
-    /** [run], and what the operation says it does meanwhile goes to [progress], unless its outcome is dropped. */
-    fun run(
-        root: Path,
-        operation: RefOperation,
-        progress: (String) -> Unit,
-        done: (RefOutcome) -> Unit,
-    ): Boolean {
-        if (_running.get()) return false
-        _running.set(true)
-        val current = generation.get()
-        val token = GitCancellation()
-        if (operation.cancellable) {
-            cancellation = token
-            _cancellable.set(true)
-        }
-        val context = RunContext(token) { text -> dispatch { if (generation.get() == current) progress(text) } }
-        try {
-            background {
-                val outcome =
-                    try {
-                        operation.run(writes, root, context)
-                    } catch (e: RuntimeException) {
-                        log.log(System.Logger.Level.ERROR, "Operation ${operation::class.simpleName} failed", e)
-                        RefOutcome(GitResult(false, e.message ?: e.toString()), null)
-                    }
-                dispatch {
-                    _running.set(false)
-                    if (cancellation === token) {
-                        cancellation = null
-                        _cancellable.set(false)
-                    }
-                    if (generation.get() == current) done(outcome)
-                }
-            }
-        } catch (e: RuntimeException) {
-            // E.g. the thread was shut down with the window.
-            _running.set(false)
-            cancellation = null
-            _cancellable.set(false)
-            throw e
-        }
-        return true
-    }
-
-    /**
-     * Cancels the run going on if it is [cancellable] (git is stopped, the operation ends with what it did by then);
-     * whether there was one. Never blocks: git is stopped on the thread it runs on.
-     */
-    fun cancel(): Boolean {
-        val running = cancellation ?: return false
-        running.cancel()
-        _cancellable.set(false)
-        return true
-    }
-
-    /** Drops the outcome of the run going on, e.g. for another repository. */
-    fun forget() {
-        generation.incrementAndGet()
     }
 }
 

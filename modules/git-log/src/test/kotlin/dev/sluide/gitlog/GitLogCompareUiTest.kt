@@ -1,5 +1,6 @@
 package dev.sluide.gitlog
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
@@ -203,7 +204,7 @@ class GitLogCompareUiTest {
 
     @Start
     fun start(stage: Stage) {
-        view = GitLogView(FakeSource(), Platform::runLater, FakeWrites())
+        view = GitLogView(FakeSource(), Platform::runLater, FakeWrites(), BackgroundTasks.forTests())
         stage.scene = Scene(view, 1000.0, 400.0)
         stage.show()
     }

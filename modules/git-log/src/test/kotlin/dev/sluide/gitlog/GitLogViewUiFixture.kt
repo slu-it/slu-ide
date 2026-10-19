@@ -1,5 +1,6 @@
 package dev.sluide.gitlog
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
@@ -324,7 +325,7 @@ abstract class GitLogViewUiFixture {
 
                 override fun headMessage(root: Path): String? = null
             }
-        view = GitLogView(source, Platform::runLater, writes)
+        view = GitLogView(source, Platform::runLater, writes, BackgroundTasks.forTests())
         stage.scene = Scene(view, 800.0, 400.0)
         stage.show()
     }

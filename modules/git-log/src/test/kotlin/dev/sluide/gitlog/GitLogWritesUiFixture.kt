@@ -1,5 +1,6 @@
 package dev.sluide.gitlog
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitCommitChanges
@@ -240,7 +241,7 @@ abstract class GitLogWritesUiFixture {
                     return headMessage
                 }
             }
-        view = GitLogView(source, Platform::runLater, writes)
+        view = GitLogView(source, Platform::runLater, writes, BackgroundTasks.forTests())
         view.beforeFileChange = { action ->
             fileChanges += action
             beforeFileChange.removeFirstOrNull() ?: true

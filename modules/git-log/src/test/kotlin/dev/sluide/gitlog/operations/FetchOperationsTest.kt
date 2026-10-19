@@ -1,5 +1,6 @@
 package dev.sluide.gitlog.operations
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitFetchChanges
 import dev.sluide.git.GitFetchResult
@@ -265,7 +266,7 @@ class FetchOperationsTest {
         val background = mutableListOf<Runnable>()
         val writes = FakeWrites()
         writes.remotes = listOf("origin", "fork")
-        val writer = RefWriter(writes, background::add) { it.run() }
+        val writer = RefWriter(writes, background::add, Runnable::run, BackgroundTasks.forTests())
         val outcomes = mutableListOf<RefOutcome>()
         val progress = mutableListOf<String>()
 

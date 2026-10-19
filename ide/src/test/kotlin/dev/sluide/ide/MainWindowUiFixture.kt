@@ -159,30 +159,34 @@ abstract class MainWindowUiFixture {
         fileExplorer: FileExplorerView,
         editorArea: EditorArea,
         sbxInstalled: CompletableFuture<Boolean>,
-    ) = MainWindow(
-        projectService,
-        fileExplorer,
-        editorArea,
-        terminals,
-        DockerSandbox(terminals, home, shellEnvironment, sbxInstalled),
-        gitStatus,
-        GitLogView(
-            GitLog(git),
-            GitBranches(git),
-            GitCommits(git),
-            GitRemotes(git),
-            GitPush(git),
-        ).also(gitLogViews::add),
-        fileViewers,
-        SettingsPages(listOf(FontsPage(fontSettings))),
-        ThemedWindows(ThemeSettings(SettingsStore(settingsDir.resolve("settings.properties")))),
-        projectWindows,
-        HttpClientSession().also(httpSessions::add),
-        recentProjects,
-        projectTrust,
-        BackgroundTasks().also(backgroundTasks::add),
-        SystemBrowser(),
-    )
+    ): MainWindow {
+        val tasks = BackgroundTasks().also(backgroundTasks::add)
+        return MainWindow(
+            projectService,
+            fileExplorer,
+            editorArea,
+            terminals,
+            DockerSandbox(terminals, home, shellEnvironment, sbxInstalled),
+            gitStatus,
+            GitLogView(
+                GitLog(git),
+                GitBranches(git),
+                GitCommits(git),
+                GitRemotes(git),
+                GitPush(git),
+                tasks,
+            ).also(gitLogViews::add),
+            fileViewers,
+            SettingsPages(listOf(FontsPage(fontSettings))),
+            ThemedWindows(ThemeSettings(SettingsStore(settingsDir.resolve("settings.properties")))),
+            projectWindows,
+            HttpClientSession().also(httpSessions::add),
+            recentProjects,
+            projectTrust,
+            tasks,
+            SystemBrowser(),
+        )
+    }
 
     /** Windows shown by a test besides the main one; closed after it. */
     internal val otherStages = mutableListOf<Stage>()

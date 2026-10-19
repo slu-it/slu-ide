@@ -42,7 +42,7 @@ internal data class CommitChanges(
         val committed = writes.commit(root, message, files, untracked, amend, context.cancellation)
         val result = committed.result
         if (!result.success && context.cancellation.cancelled) {
-            return RefOutcome(GitResult(true, "", changed = false), CANCELLED)
+            return RefOutcome(GitResult(true, "", changed = false), CANCELLED, cancelled = true)
         }
         if (!result.success) return RefOutcome(result, null)
         val made = committed.commit?.let { " ${it.take(SHORT_HASH)}" }.orEmpty()
