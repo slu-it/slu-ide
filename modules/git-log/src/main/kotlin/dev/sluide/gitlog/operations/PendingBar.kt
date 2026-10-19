@@ -3,6 +3,7 @@ package dev.sluide.gitlog.operations
 import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitPendingOperation
 import dev.sluide.git.GitPendingPick
+import dev.sluide.git.GitPendingRebase
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.value.ObservableBooleanValue
 import javafx.geometry.Pos
@@ -79,6 +80,7 @@ internal class PendingBar(
             when (inProgress) {
                 is GitPendingPick -> pendingText(inProgress)
                 is GitPendingOperation -> operationText(inProgress.operation)
+                is GitPendingRebase -> REBASE_TEXT
                 null -> ""
             }
         label.tooltip.text = label.text

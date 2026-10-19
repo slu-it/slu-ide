@@ -799,11 +799,11 @@ class GitCommitsTest {
         git("switch", "-q", "-c", "rebased", "other~1")
         val rebase = runCatching { git("rebase", "-q", "main") }
         assertTrue(rebase.isFailure)
-        assertEquals(GitPendingOperation(GitOperation.REBASE), commits.inProgress(repo))
-        assertEquals(
-            GitPickResult.Failed("A rebase is in progress; finish or abort it first."),
-            commits.pick(repo, GitPick.CHERRY_PICK, ours, firstParent = false),
-        )
+        assertIs<GitPendingRebase>(commits.inProgress(repo))
+        val rebasing = "A rebase is in progress; finish or abort it first."
+        assertEquals(GitPickResult.Failed(rebasing), commits.pick(repo, GitPick.CHERRY_PICK, ours, firstParent = false))
+        assertEquals(GitPickResult.Failed(rebasing), commits.continuePick(repo, GitPick.CHERRY_PICK))
+        assertEquals(GitResult(false, rebasing), commits.abortPick(repo, GitPick.CHERRY_PICK))
     }
 
     @Test

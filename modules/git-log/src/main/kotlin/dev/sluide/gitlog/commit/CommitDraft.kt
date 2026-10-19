@@ -4,6 +4,8 @@ import dev.sluide.git.GitCommitChanges
 import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitPendingOperation
 import dev.sluide.git.GitPendingPick
+import dev.sluide.git.GitPendingRebase
+import dev.sluide.gitlog.operations.REBASE_TEXT
 import dev.sluide.gitlog.operations.operationText
 import dev.sluide.gitlog.operations.sentence
 import dev.sluide.gitlog.ui.SHORT_HASH
@@ -185,6 +187,10 @@ internal fun commitBlocked(
 
         is GitPendingOperation -> {
             operationText(inProgress.operation)
+        }
+
+        is GitPendingRebase -> {
+            REBASE_TEXT
         }
 
         null -> {

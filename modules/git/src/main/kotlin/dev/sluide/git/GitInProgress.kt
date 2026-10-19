@@ -13,15 +13,33 @@ data class GitPendingPick(
     val conflicts: List<String>,
 ) : GitInProgress
 
+/**
+ * A rebase in progress (ADR 0063), also one started in a terminal (`git rebase`, `git rebase -i`, `--apply`), as far as
+ * its state files tell; a field that cannot be read is `null`.
+ *
+ * [branch] is the short name of the branch being rebased (`head-name`), `null` when the rebase started on a detached
+ * `HEAD`; [onto] the full hash it is rebased onto (`onto`); [stopped] the commit git stopped at (`REBASE_HEAD`, also
+ * written at an `edit` instruction), `null` where there is none (a stop at a `break` or a failed `exec` instruction);
+ * [step] of [total] the position of that commit (`msgnum` of `end` for the merge backend, `next` of `last` for
+ * `--apply`); [conflicts] the paths still unmerged, empty once all are staged.
+ */
+data class GitPendingRebase(
+    val branch: String?,
+    val onto: String?,
+    val stopped: String?,
+    val step: Int?,
+    val total: Int?,
+    val conflicts: List<String>,
+) : GitInProgress
+
 /** Another [operation] in progress, which Thoreau leaves to the terminal. */
 data class GitPendingOperation(
     val operation: GitOperation,
 ) : GitInProgress
 
-/** What git can be in the middle of besides a single cherry-pick or revert. */
+/** What git can be in the middle of besides a single cherry-pick, revert or a rebase. */
 enum class GitOperation {
     MERGE,
-    REBASE,
 
     /** `git am`, applying patches from mails. */
     AM,

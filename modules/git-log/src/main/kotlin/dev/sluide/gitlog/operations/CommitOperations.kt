@@ -5,6 +5,7 @@ import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitOperation
 import dev.sluide.git.GitPendingOperation
 import dev.sluide.git.GitPendingPick
+import dev.sluide.git.GitPendingRebase
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitPickResult
 import dev.sluide.git.GitResetMode
@@ -331,24 +332,34 @@ internal fun busyResetWarning(
             "A ${busy.kind.noun} of ${short(busy.commit)} is in progress; resetting abandons it."
         }
 
+        is GitPendingRebase -> {
+            "A rebase ${stays(mode, "commit")}"
+        }
+
         is GitPendingOperation -> {
-            val changes =
-                if (mode == GitResetMode.SOFT) {
-                    "the changes of the %s it stopped at stay staged"
-                } else {
-                    "resetting drops the changes of the %s it stopped at"
-                }
-            val stays = "is in progress; $changes, the rest stays to be continued from the commit HEAD is reset to."
             when (busy.operation) {
                 GitOperation.MERGE -> "A merge is in progress; resetting abandons it."
-                GitOperation.REBASE -> "A rebase ${stays.format("commit")}"
-                GitOperation.AM -> "A git am session ${stays.format("patch")}"
-                GitOperation.CHERRY_PICK_SEQUENCE -> "A cherry-pick sequence ${stays.format("commit")}"
-                GitOperation.REVERT_SEQUENCE -> "A revert sequence ${stays.format("commit")}"
-                GitOperation.SEQUENCE -> "A cherry-pick or revert sequence ${stays.format("commit")}"
+                GitOperation.AM -> "A git am session ${stays(mode, "patch")}"
+                GitOperation.CHERRY_PICK_SEQUENCE -> "A cherry-pick sequence ${stays(mode, "commit")}"
+                GitOperation.REVERT_SEQUENCE -> "A revert sequence ${stays(mode, "commit")}"
+                GitOperation.SEQUENCE -> "A cherry-pick or revert sequence ${stays(mode, "commit")}"
             }
         }
     }
+
+/** How a reset in [mode] leaves a sequence, rebase or `git am` that stopped at a [step] (commit or patch). */
+private fun stays(
+    mode: GitResetMode,
+    step: String,
+): String {
+    val changes =
+        if (mode == GitResetMode.SOFT) {
+            "the changes of the $step it stopped at stay staged"
+        } else {
+            "resetting drops the changes of the $step it stopped at"
+        }
+    return "is in progress; $changes, the rest stays to be continued from the commit HEAD is reset to."
+}
 
 /**
  * The question before aborting the cherry-pick or revert ([kind]) of [commit] in progress from the bar: git takes the
@@ -396,7 +407,6 @@ internal fun operationText(operation: GitOperation): String {
     val what =
         when (operation) {
             GitOperation.MERGE -> "A merge"
-            GitOperation.REBASE -> "A rebase"
             GitOperation.AM -> "A git am session"
             GitOperation.CHERRY_PICK_SEQUENCE -> "A cherry-pick sequence"
             GitOperation.REVERT_SEQUENCE -> "A revert sequence"
@@ -405,6 +415,9 @@ internal fun operationText(operation: GitOperation): String {
     val verb = if (operation == GitOperation.MERGE) "finish" else "continue"
     return "$what is in progress; $verb or abort it in the terminal."
 }
+
+/** What the bar above the table says about a rebase in progress, which is left to the terminal. */
+internal const val REBASE_TEXT = "A rebase is in progress; continue or abort it in the terminal."
 
 /** The outcome of a cherry-pick or revert ([kind]) of [commit], or of continuing one, that gave [result]. */
 private fun pickOutcome(

@@ -4,6 +4,7 @@ import dev.sluide.git.GitCommitChanges
 import dev.sluide.git.GitOperation
 import dev.sluide.git.GitPendingOperation
 import dev.sluide.git.GitPendingPick
+import dev.sluide.git.GitPendingRebase
 import dev.sluide.git.GitPick
 import java.nio.file.Path
 import kotlin.test.Test
@@ -72,6 +73,10 @@ class CommitDraftTest {
         assertEquals(
             "A merge is in progress; finish or abort it in the terminal.",
             commitBlocked(GitPendingOperation(GitOperation.MERGE), listOf("a")),
+        )
+        assertEquals(
+            "A rebase is in progress; continue or abort it in the terminal.",
+            commitBlocked(GitPendingRebase("main", null, null, null, null, emptyList()), emptyList()),
         )
         assertEquals(
             "Cherry-pick of 1a2b3c4d is in progress; continue or abort it in the log first.",

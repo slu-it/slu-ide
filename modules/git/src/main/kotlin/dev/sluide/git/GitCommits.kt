@@ -232,7 +232,11 @@ class GitCommits(
         confirmed: Set<GitUncheckedConflict> = emptySet(),
     ): GitPickResult {
         val pending = git.inProgress(root).getOrElse { return GitPickResult.Failed(IN_PROGRESS_UNREADABLE) }
-        if (pending is GitPendingOperation) return GitPickResult.Failed(busyMessage(pending))
+        if (pending is GitPendingOperation ||
+            pending is GitPendingRebase
+        ) {
+            return GitPickResult.Failed(busyMessage(pending))
+        }
         if (pending !is GitPendingPick || pending.kind != kind) {
             return GitPickResult.Failed("No ${kind.command} is in progress.")
         }
@@ -265,7 +269,7 @@ class GitCommits(
         kind: GitPick,
     ): GitResult {
         val pending = git.inProgress(root).getOrElse { return GitResult(false, IN_PROGRESS_UNREADABLE) }
-        if (pending is GitPendingOperation) return GitResult(false, busyMessage(pending))
+        if (pending is GitPendingOperation || pending is GitPendingRebase) return GitResult(false, busyMessage(pending))
         if (pending !is GitPendingPick || pending.kind != kind) {
             return GitResult(false, "No ${kind.command} is in progress.")
         }

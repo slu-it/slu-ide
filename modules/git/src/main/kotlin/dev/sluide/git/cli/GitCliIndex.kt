@@ -112,10 +112,11 @@ internal fun GitCli.mergeTree(
 }
 
 /**
- * What git is in the middle of in the repository at [root] (ADR 0042): a rebase (`rebase-merge`, `rebase-apply`),
- * `git am` (`rebase-apply/applying`), a merge (`MERGE_HEAD`) or a cherry-pick or revert sequence (`sequencer`),
- * found at their `git rev-parse --git-path` (per worktree), else a single cherry-pick or revert (`CHERRY_PICK_HEAD`,
- * `REVERT_HEAD`) with the paths still unmerged; `null` for nothing. A failure if git is not available or fails.
+ * What git is in the middle of in the repository at [root] (ADR 0042): a rebase (`rebase-merge`, `rebase-apply`;
+ * [pendingRebase], ADR 0063), `git am` (`rebase-apply/applying`), a merge (`MERGE_HEAD`) or a cherry-pick or revert
+ * sequence (`sequencer`), found at their `git rev-parse --git-path` (per worktree), else a single cherry-pick or revert
+ * (`CHERRY_PICK_HEAD`, `REVERT_HEAD`) with the paths still unmerged; `null` for nothing. A failure if git is not
+ * available or fails.
  */
 internal fun GitCli.inProgress(
     root: Path,
@@ -126,11 +127,20 @@ internal fun GitCli.inProgress(
     val (rebaseMerge, rebaseApply, sequencer) =
         gitPaths(root, listOf("rebase-merge", "rebase-apply", "sequencer"), cancellation = cancellation)
             ?: return unreadable
+    val applying = Files.exists(rebaseApply.resolve("applying"))
+    val rebaseState =
+        when {
+            Files.isDirectory(rebaseMerge) -> rebaseMerge
+            !applying && Files.isDirectory(rebaseApply) -> rebaseApply
+            else -> null
+        }
+    if (rebaseState != null) {
+        val rebase = pendingRebase(root, rebaseState, apply = rebaseState == rebaseApply, cancellation)
+        return rebase?.let { Result.success(it) } ?: unreadable
+    }
     val operation =
         when {
-            Files.isDirectory(rebaseMerge) -> GitOperation.REBASE
-            Files.exists(rebaseApply.resolve("applying")) -> GitOperation.AM
-            Files.isDirectory(rebaseApply) -> GitOperation.REBASE
+            applying -> GitOperation.AM
             commitOfRevision(root, "MERGE_HEAD", cancellation = cancellation) != null -> GitOperation.MERGE
             Files.isDirectory(sequencer) -> sequenceOperation(sequencer.resolve("todo"))
             else -> null

@@ -4,6 +4,7 @@ import dev.sluide.git.GitConflictReason
 import dev.sluide.git.GitOperation
 import dev.sluide.git.GitPendingOperation
 import dev.sluide.git.GitPendingPick
+import dev.sluide.git.GitPendingRebase
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitPickResult
 import dev.sluide.git.GitResetMode
@@ -326,7 +327,7 @@ class CommitOperationsTest {
             ResetBranch(hash, GitResetMode.SOFT, "main").run(writes, root).confirmation?.question,
         )
         writes.unreachable = 0
-        writes.inProgress = GitPendingOperation(GitOperation.REBASE)
+        writes.inProgress = GitPendingRebase("main", hash, hash, 1, 2, listOf("a.txt"))
         assertEquals(
             "A rebase is in progress; resetting drops the changes of the commit it stopped at, the rest stays to be " +
                 "continued from the commit HEAD is reset to.",
@@ -499,7 +500,7 @@ class CommitOperationsTest {
         )
         assertEquals(
             "A rebase is in progress; continue or abort it in the terminal.",
-            operationText(GitOperation.REBASE),
+            REBASE_TEXT,
         )
         assertEquals(
             "A revert sequence is in progress; continue or abort it in the terminal.",
