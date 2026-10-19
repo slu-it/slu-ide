@@ -164,7 +164,7 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
 
     @Test
     fun `a bar shows a cherry-pick in progress and continues or aborts it`(robot: FxRobot) {
-        pendingPick = GitPendingPick(GitPick.CHERRY_PICK, "h4", listOf("a.txt", "b.txt"))
+        pending = GitPendingPick(GitPick.CHERRY_PICK, "h4", listOf("a.txt", "b.txt"))
         openAndExpand(robot)
 
         eventually { assertTrue(view.pendingBar.isVisible) }
@@ -181,7 +181,9 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         eventually { assertEquals("Continuing the cherry-pick of h4…", status(robot)) }
         assertTrue(view.pendingBar.continueButton.isDisable, "while it runs")
         assertTrue(view.pendingBar.abortButton.isDisable)
-        pendingPick = null
+        assertTrue(view.pendingBar.skipButton.isDisable)
+        assertFalse(view.pendingBar.skipButton.isVisible, "a pick has nothing to skip")
+        pending = null
         writes.gate?.countDown()
         eventually { assertEquals("Cherry-picked h4 as 5e6f7a8b.", status(robot)) }
         eventually { assertFalse(view.pendingBar.isVisible, "gone after the refresh") }
@@ -190,7 +192,7 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         assertEquals(listOf("Continue"), fileChanges)
 
         // A revert left from the terminal, its conflicts resolved.
-        pendingPick = GitPendingPick(GitPick.REVERT, "h5", emptyList())
+        pending = GitPendingPick(GitPick.REVERT, "h5", emptyList())
         robot.interact { view.refresh() }
         eventually { assertEquals("Revert of h5 is in progress: conflicts resolved.", text.text) }
         // Abort asks first, as it undoes the resolutions; Cancel, the default, aborts nothing.
@@ -217,7 +219,7 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
 
     @Test
     fun `continuing with conflict markers left shows an error`(robot: FxRobot) {
-        pendingPick = GitPendingPick(GitPick.CHERRY_PICK, "h4", listOf("a.txt", "b/c.txt"))
+        pending = GitPendingPick(GitPick.CHERRY_PICK, "h4", listOf("a.txt", "b/c.txt"))
         writes.pickResult = { GitPickResult.MarkersLeft(listOf("a.txt", "b/c.txt")) }
         openAndExpand(robot)
         eventually { assertTrue(view.pendingBar.isVisible) }
@@ -331,8 +333,8 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
     }
 
     @Test
-    fun `a merge, rebase or sequence in progress is left to the terminal`(robot: FxRobot) {
-        pendingPick = GitPendingOperation(GitOperation.CHERRY_PICK_SEQUENCE)
+    fun `a merge or sequence in progress is left to the terminal`(robot: FxRobot) {
+        pending = GitPendingOperation(GitOperation.CHERRY_PICK_SEQUENCE)
         openAndExpand(robot)
 
         eventually { assertTrue(view.pendingBar.isVisible) }
@@ -340,12 +342,14 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         assertEquals("A cherry-pick sequence is in progress; continue or abort it in the terminal.", text.text)
         assertFalse(view.pendingBar.continueButton.isVisible)
         assertFalse(view.pendingBar.abortButton.isVisible)
+        assertFalse(view.pendingBar.skipButton.isVisible)
+        assertFalse(view.pendingBar.skipButton.isManaged)
         selectRows(robot, 1)
         assertTrue(view.table.cherryPickItem.isDisable)
         assertTrue(view.table.revertItem.isDisable)
         assertFalse(view.table.resetItem.isDisable)
 
-        pendingPick = null
+        pending = null
         robot.interact { view.refresh() }
         eventually { assertFalse(view.pendingBar.isVisible) }
         assertFalse(view.table.cherryPickItem.isDisable)
@@ -353,7 +357,7 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
 
     @Test
     fun `continuing with conflicts that cannot be checked asks first`(robot: FxRobot) {
-        pendingPick = GitPendingPick(GitPick.CHERRY_PICK, "h4", listOf("bin.dat", "m.txt"))
+        pending = GitPendingPick(GitPick.CHERRY_PICK, "h4", listOf("bin.dat", "m.txt"))
         writes.pickResult = { line ->
             if (line.endsWith("as on disk")) {
                 GitPickResult.Done(FakeWrites.NEW_HEAD)

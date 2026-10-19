@@ -83,9 +83,9 @@ abstract class GitLogWritesUiFixture {
     @Volatile
     internal var currentRemotes: List<String>? = listOf("origin")
 
-    /** The cherry-pick or revert in progress the source reads. */
+    /** What git is in the middle of, as the source reads it (a cherry-pick, revert, rebase, ...). */
     @Volatile
-    internal var pendingPick: GitInProgress? = null
+    internal var pending: GitInProgress? = null
 
     /** What can be committed, as the source reads it (ADR 0048); `null` when it cannot be read. */
     @Volatile
@@ -184,7 +184,7 @@ abstract class GitLogWritesUiFixture {
                 override fun pending(
                     root: Path,
                     cancellation: GitCancellation?,
-                ) = pendingPick
+                ) = pending
 
                 override fun remotes(
                     root: Path,
