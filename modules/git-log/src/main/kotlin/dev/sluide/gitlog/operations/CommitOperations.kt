@@ -147,16 +147,34 @@ internal data class ContinuePick(
         val result = writes.continuePick(root, kind, confirmed)
         if (result !is GitPickResult.Unchecked) return pickOutcome(kind, current, result)
         val confirmation =
-            RefConfirmation(
+            uncheckedConfirmation(
                 "Continue ${kind.title}",
-                "These conflicted files cannot be checked for conflict markers. Commit them as they are on disk?",
-                COMMIT_AS_ON_DISK_BUTTON,
+                result.files,
                 copy(commit = current, confirmed = result.files.toSet()),
-                result.files.joinToString("\n") { "${it.path} \u2014 ${reasonText(it.reason)}" },
             )
         return RefOutcome(GitResult(true, ""), null, confirmation = confirmation)
     }
 }
+
+/**
+ * The question before committing the conflicted [files] that cannot be checked as they are on disk; [next] runs once
+ * confirmed.
+ */
+internal fun uncheckedConfirmation(
+    title: String,
+    files: List<GitUncheckedConflict>,
+    next: RefOperation,
+) = RefConfirmation(
+    title,
+    "These conflicted files cannot be checked for conflict markers. Commit them as they are on disk?",
+    COMMIT_AS_ON_DISK_BUTTON,
+    next,
+    files.joinToString("\n") { "${it.path} \u2014 ${reasonText(it.reason)}" },
+)
+
+/** What continuing gave when conflict markers are left in [paths]: a failure, nothing done. */
+internal fun markersLeftOutcome(paths: List<String>) =
+    RefOutcome(GitResult(false, "Conflict markers are left in: ${paths.joinToString(", ")}"), null)
 
 /** Why a conflicted file is committed as it is on disk, after its path in the confirmation. */
 internal fun reasonText(reason: GitConflictReason): String =
@@ -416,9 +434,6 @@ internal fun operationText(operation: GitOperation): String {
     return "$what is in progress; $verb or abort it in the terminal."
 }
 
-/** What the bar above the table says about a rebase in progress, which is left to the terminal. */
-internal const val REBASE_TEXT = "A rebase is in progress; continue or abort it in the terminal."
-
 /** The outcome of a cherry-pick or revert ([kind]) of [commit], or of continuing one, that gave [result]. */
 private fun pickOutcome(
     kind: GitPick,
@@ -471,7 +486,7 @@ private fun pickOutcome(
         }
 
         is GitPickResult.MarkersLeft -> {
-            RefOutcome(GitResult(false, "Conflict markers are left in: ${result.paths.joinToString(", ")}"), null)
+            markersLeftOutcome(result.paths)
         }
 
         // Asked about by ContinuePick before this.

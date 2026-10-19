@@ -5,7 +5,6 @@ import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitPendingOperation
 import dev.sluide.git.GitPendingPick
 import dev.sluide.git.GitPendingRebase
-import dev.sluide.gitlog.operations.REBASE_TEXT
 import dev.sluide.gitlog.operations.operationText
 import dev.sluide.gitlog.operations.sentence
 import dev.sluide.gitlog.ui.SHORT_HASH
@@ -190,7 +189,7 @@ internal fun commitBlocked(
         }
 
         is GitPendingRebase -> {
-            REBASE_TEXT
+            "A rebase is in progress; continue or abort it in the log first."
         }
 
         null -> {

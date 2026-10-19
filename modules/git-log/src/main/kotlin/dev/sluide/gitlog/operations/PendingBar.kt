@@ -26,7 +26,7 @@ internal class PendingBar(
     private val running: ObservableBooleanValue,
     private val window: () -> Window?,
 ) : HBox() {
-    /** Starts the operation (Continue, or Abort once confirmed); set by the view. */
+    /** Starts the operation (Continue, or Skip or Abort once confirmed); set by the view. */
     var start: (RefOperation) -> Unit = {}
 
     private val busyState = SimpleBooleanProperty(false)
@@ -34,8 +34,8 @@ internal class PendingBar(
     /** Whether git is in the middle of something, so that cherry-pick and revert are not offered. */
     val busy: ObservableBooleanValue = busyState
 
-    /** The single cherry-pick or revert in progress the bar continues or aborts; `null` for none or anything else. */
-    private var pending: GitPendingPick? = null
+    /** The single cherry-pick or revert, or the rebase, in progress the bar continues or aborts; `null` for others. */
+    private var pending: GitInProgress? = null
 
     /** Shrinks with the log, as the buttons do not; its tooltip has the whole text. */
     internal val label =
@@ -49,7 +49,28 @@ internal class PendingBar(
         Button("Continue").apply {
             styleClass += "git-log-pending-continue"
             minWidth = USE_PREF_SIZE
-            setOnAction { pending?.let { start(ContinuePick(it.kind, it.commit)) } }
+            setOnAction {
+                when (val p = pending) {
+                    is GitPendingPick -> {
+                        start(ContinuePick(p.kind, p.commit))
+                    }
+
+                    is GitPendingRebase -> {
+                        start(ContinueRebase())
+                    }
+
+                    else -> {}
+                }
+            }
+            disableProperty().bind(running)
+        }
+
+    /** Skips the commit a rebase stopped at; for a rebase only. */
+    internal val skipButton =
+        Button("Skip").apply {
+            styleClass += "git-log-pending-skip"
+            minWidth = USE_PREF_SIZE
+            setOnAction { (pending as? GitPendingRebase)?.let(::skipPending) }
             disableProperty().bind(running)
         }
 
@@ -62,7 +83,13 @@ internal class PendingBar(
         }
 
     init {
-        children.addAll(label, Region().apply { setHgrow(this, Priority.ALWAYS) }, continueButton, abortButton)
+        children.addAll(
+            label,
+            Region().apply { setHgrow(this, Priority.ALWAYS) },
+            continueButton,
+            skipButton,
+            abortButton,
+        )
         styleClass += "git-log-pending"
         alignment = Pos.CENTER_LEFT
         isVisible = false
@@ -70,17 +97,17 @@ internal class PendingBar(
     }
 
     /**
-     * Shows what git is in the middle of ([inProgress]), with Continue and Abort for a single cherry-pick or revert
-     * only; hides the bar for `null`.
+     * Shows what git is in the middle of ([inProgress]), with Continue and Abort for a single cherry-pick or revert or
+     * a rebase (which also has Skip) only; hides the bar for `null`.
      */
     fun show(inProgress: GitInProgress?) {
-        pending = inProgress as? GitPendingPick
+        pending = inProgress.takeIf { it is GitPendingPick || it is GitPendingRebase }
         busyState.set(inProgress != null)
         label.text =
             when (inProgress) {
                 is GitPendingPick -> pendingText(inProgress)
                 is GitPendingOperation -> operationText(inProgress.operation)
-                is GitPendingRebase -> REBASE_TEXT
+                is GitPendingRebase -> pendingRebaseText(inProgress)
                 null -> ""
             }
         label.tooltip.text = label.text
@@ -90,21 +117,49 @@ internal class PendingBar(
             it.isVisible = pending != null
             it.isManaged = pending != null
         }
+        skipButton.isVisible = pending is GitPendingRebase
+        skipButton.isManaged = pending is GitPendingRebase
+    }
+
+    /** Skips the commit the [pending] rebase stopped at once confirmed; Cancel is the default. */
+    private fun skipPending(pending: GitPendingRebase) {
+        if (running.value) return
+        val confirmation = RefConfirmation("Skip Commit", skipRebaseQuestion(pending), SKIP_REBASE_BUTTON, SkipRebase)
+        if (refConfirmation(window(), confirmation).showAndWait().orElse(ButtonType.CANCEL) == confirmation.button) {
+            start(confirmation.confirmed)
+        }
     }
 
     /**
-     * Aborts the cherry-pick or revert in progress ([pending]) once confirmed, as it undoes what was done to resolve its
-     * conflicts; Cancel is the default.
+     * Aborts the cherry-pick, revert or rebase in progress ([pending]) once confirmed, as it undoes what was done to
+     * resolve its conflicts; Cancel is the default.
      */
-    private fun abortPending(pending: GitPendingPick) {
+    private fun abortPending(pending: GitInProgress) {
         if (running.value) return
         val confirmation =
-            RefConfirmation(
-                "Abort ${pending.kind.title}",
-                abortQuestion(pending.kind, pending.commit),
-                abortButton(pending.kind),
-                AbortPick(pending.kind, pending.commit),
-            )
+            when (pending) {
+                is GitPendingPick -> {
+                    RefConfirmation(
+                        "Abort ${pending.kind.title}",
+                        abortQuestion(pending.kind, pending.commit),
+                        abortButton(pending.kind),
+                        AbortPick(pending.kind, pending.commit),
+                    )
+                }
+
+                is GitPendingRebase -> {
+                    RefConfirmation(
+                        "Abort Rebase",
+                        abortRebaseQuestion(pending.branch),
+                        ABORT_REBASE_BUTTON,
+                        AbortRebase,
+                    )
+                }
+
+                else -> {
+                    return
+                }
+            }
         if (refConfirmation(window(), confirmation).showAndWait().orElse(ButtonType.CANCEL) == confirmation.button) {
             start(confirmation.confirmed)
         }

@@ -74,6 +74,14 @@ Git 2.53 behaves as follows (checked in tests, `GitRebasesTest`):
 - **Skip** `git rebase --skip` and **Abort** `git rebase --abort`, each refused without running git unless a rebase is
   in progress; the outcome is read as above. All four operations ask about unsaved editors first (as in ADR 0042,
   "Rebase", "Continue", "Skip", "Abort").
+- **The log's UI** (ADR 0042's bar and dialogs): every stop, also after Continue or Skip, shows the "Rebase Stopped"
+  dialog (branch, the commit it stopped at, the conflicted files, git's message in the details; Resolve the default,
+  which leaves it to the bar, or Abort Rebase, which aborts without asking again). The pending bar reads "Rebasing
+  feature onto 1a2b3c4d: stopped at 5e6f7a8b (3 of 7); 2 files have conflicts." (fields git did not give are left out)
+  and has Continue, Skip and Abort, the busy state keeping cherry-pick and revert disabled. Skip and Abort from the bar
+  ask first (Cancel the default), as both throw away what was done to resolve conflicts; Continue does not. The
+  merges question is the confirmation above ("Rebase", Cancel default). Committing in the log is blocked with "A rebase
+  is in progress; continue or abort it in the log first.".
 - **Ignored files are not checked** before a rebase, unlike a cherry-pick (ADR 0042): every replayed commit could
   overwrite one, and `git merge-tree` for each of them would cost more than the rebase. Accepted gap: an ignored file a
   rebased commit adds is overwritten without a question, as git does in a terminal.

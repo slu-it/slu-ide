@@ -10,7 +10,9 @@ import dev.sluide.git.GitRefKind
 import dev.sluide.gitlog.data.GitLogPages
 import dev.sluide.gitlog.data.GitLogSource
 import dev.sluide.gitlog.data.GitLogWrites
+import dev.sluide.gitlog.operations.ABORT_REBASE_BUTTON
 import dev.sluide.gitlog.operations.AbortPick
+import dev.sluide.gitlog.operations.AbortRebase
 import dev.sluide.gitlog.operations.CommitChanges
 import dev.sluide.gitlog.operations.CreateBranch
 import dev.sluide.gitlog.operations.CreateTag
@@ -41,6 +43,7 @@ import dev.sluide.gitlog.operations.overwriteNote
 import dev.sluide.gitlog.operations.pickButton
 import dev.sluide.gitlog.operations.pickStoppedDialog
 import dev.sluide.gitlog.operations.pickTitle
+import dev.sluide.gitlog.operations.rebaseStoppedDialog
 import dev.sluide.gitlog.operations.refConfirmation
 import dev.sluide.gitlog.operations.resetDescription
 import dev.sluide.gitlog.operations.resetTitle
@@ -226,6 +229,11 @@ internal class RefActions(
             // Resolve (or closing the dialog) leaves it for the user, with the bar above the table.
             if (pickStoppedDialog(window(), stop).showAndWait().orElse(null) == abortButton(stop.kind)) {
                 start(AbortPick(stop.kind, stop.commit))
+            }
+        }
+        outcome.rebaseStopped?.let { stop ->
+            if (rebaseStoppedDialog(window(), stop).showAndWait().orElse(null) == ABORT_REBASE_BUTTON) {
+                start(AbortRebase)
             }
         }
         if (outcome.refused.isNotEmpty()) {

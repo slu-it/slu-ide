@@ -25,6 +25,9 @@ internal val REVERT_BUTTON = ButtonType("Revert", ButtonBar.ButtonData.OK_DONE)
 internal val RESOLVE_BUTTON = ButtonType("Resolve", ButtonBar.ButtonData.OK_DONE)
 internal val ABORT_CHERRY_PICK_BUTTON = ButtonType("Abort Cherry-Pick", ButtonBar.ButtonData.OTHER)
 internal val ABORT_REVERT_BUTTON = ButtonType("Abort Revert", ButtonBar.ButtonData.OTHER)
+internal val REBASE_BUTTON = ButtonType("Rebase", ButtonBar.ButtonData.OK_DONE)
+internal val SKIP_REBASE_BUTTON = ButtonType("Skip", ButtonBar.ButtonData.OK_DONE)
+internal val ABORT_REBASE_BUTTON = ButtonType("Abort Rebase", ButtonBar.ButtonData.OTHER)
 
 /** The button that confirms a cherry-pick or revert ([kind]) of a merge commit. */
 internal fun pickButton(kind: GitPick) =
@@ -78,6 +81,40 @@ internal fun pickStoppedDialog(
         }
         val resolve = dialogPane.lookupButton(RESOLVE_BUTTON) as Button
         (dialogPane.lookupButton(abortButton(stop.kind)) as Button).isDefaultButton = false
+        resolve.isDefaultButton = true
+        setOnShown { Platform.runLater(resolve::requestFocus) }
+    }
+
+/**
+ * Tells that a rebase stopped ([stop], ADR 0063), like [pickStoppedDialog]: the branch, the commit it stopped at and
+ * the conflicted paths; Resolve, the default, leaves it for the user, [ABORT_REBASE_BUTTON] aborts it.
+ */
+internal fun rebaseStoppedDialog(
+    owner: Window?,
+    stop: RebaseStop,
+): Alert =
+    Alert(Alert.AlertType.WARNING, null, RESOLVE_BUTTON, ABORT_REBASE_BUTTON).apply {
+        owner?.let(::initOwner)
+        title = "Rebase Stopped"
+        val of = stop.branch?.let { "Rebase of $it" } ?: "Rebase"
+        val at = stop.stopped?.let { " at ${it.take(SHORT_HASH)}" }.orEmpty()
+        if (stop.conflicts.isEmpty()) {
+            headerText = "$of stopped$at."
+            dialogPane.content = StackPane(gitMessage(stop.message))
+        } else {
+            headerText = "$of stopped$at with conflicts in:"
+            val paths =
+                TextArea(stop.conflicts.joinToString("\n")).apply {
+                    styleClass += "git-conflict-paths"
+                    isEditable = false
+                    prefColumnCount = PATH_COLUMNS
+                    prefRowCount = stop.conflicts.size.coerceIn(PATH_ROWS_MIN, PATH_ROWS_MAX)
+                }
+            dialogPane.content = VBox(paths)
+            if (stop.message.isNotBlank()) dialogPane.expandableContent = StackPane(gitMessage(stop.message))
+        }
+        val resolve = dialogPane.lookupButton(RESOLVE_BUTTON) as Button
+        (dialogPane.lookupButton(ABORT_REBASE_BUTTON) as Button).isDefaultButton = false
         resolve.isDefaultButton = true
         setOnShown { Platform.runLater(resolve::requestFocus) }
     }

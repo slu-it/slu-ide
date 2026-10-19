@@ -499,10 +499,6 @@ class CommitOperationsTest {
             operationText(GitOperation.CHERRY_PICK_SEQUENCE),
         )
         assertEquals(
-            "A rebase is in progress; continue or abort it in the terminal.",
-            REBASE_TEXT,
-        )
-        assertEquals(
             "A revert sequence is in progress; continue or abort it in the terminal.",
             operationText(GitOperation.REVERT_SEQUENCE),
         )

@@ -75,7 +75,7 @@ class CommitDraftTest {
             commitBlocked(GitPendingOperation(GitOperation.MERGE), listOf("a")),
         )
         assertEquals(
-            "A rebase is in progress; continue or abort it in the terminal.",
+            "A rebase is in progress; continue or abort it in the log first.",
             commitBlocked(GitPendingRebase("main", null, null, null, null, emptyList()), emptyList()),
         )
         assertEquals(
