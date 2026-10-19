@@ -1,5 +1,6 @@
 package dev.sluide.projecttrust
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.backgroundtasks.NamedThreads
 import javafx.application.Platform
 import javafx.beans.property.ReadOnlyObjectProperty
@@ -19,6 +20,9 @@ private val log = System.getLogger(ProjectTrust::class.java.name)
 /** How long a tool waits for the checks of an opened folder before it stays off. */
 private const val CHECKS_TIMEOUT_SECONDS = 30L
 
+/** The name of the task of the checks (ADR 0061). */
+private const val CHECKING = "Checking project trust"
+
 /**
  * Whether the tools of the window's folder may run what the folder defines (ADR 0053). [open] runs every
  * [ProjectTrustCheck] (all beans of that interface) and combines what they found into one [state] and one fingerprint:
@@ -28,6 +32,8 @@ private const val CHECKS_TIMEOUT_SECONDS = 30L
  *
  * A tool asks [allows] (or [awaitAllows] from its own thread) before it runs anything: it may once the checks have run
  * and the folder is trusted or its own check found nothing.
+ *
+ * The checks of [open] and every [recheck] are a task of [tasks], "Checking project trust" (ADR 0061).
  */
 @Component
 // One instance per IDE window (the "window" scope of the ide module, ADR 0014).
@@ -35,10 +41,12 @@ private const val CHECKS_TIMEOUT_SECONDS = 30L
 class ProjectTrust(
     private val checks: List<ProjectTrustCheck>,
     private val store: TrustedProjects,
+    private val tasks: BackgroundTasks,
     private val dispatch: (Runnable) -> Unit,
 ) : AutoCloseable {
     @Autowired
-    constructor(checks: List<ProjectTrustCheck>, store: TrustedProjects) : this(checks, store, Platform::runLater)
+    constructor(checks: List<ProjectTrustCheck>, store: TrustedProjects, tasks: BackgroundTasks) :
+        this(checks, store, tasks, Platform::runLater)
 
     init {
         require(checks.map { it.id }.toSet().size == checks.size) { "Trust checks need distinct ids" }
@@ -91,11 +99,12 @@ class ProjectTrust(
                 executor.submit(
                     Runnable {
                         try {
-                            val results = checks.associate { it.id to run(it, target.folder) }
+                            val results = checking { checks.associate { it.id to run(it, target.folder) } }
                             synchronized(lock) {
-                                if (opened !== target) return@Runnable
-                                target.results = results
-                                settle(target, rechecked = false)
+                                if (opened === target) {
+                                    target.results = results
+                                    settle(target, rechecked = false)
+                                }
                             }
                         } finally {
                             target.checked.countDown()
@@ -139,7 +148,7 @@ class ProjectTrust(
         val target = opened ?: return false
         if (!awaitChecked(target)) return false
         val check = checks.firstOrNull { it.id == checkId } ?: return allows(checkId)
-        val result = run(check, target.folder)
+        val result = checking { run(check, target.folder) }
         synchronized(lock) {
             if (opened !== target) return false
             target.results += checkId to result
@@ -205,13 +214,32 @@ class ProjectTrust(
             try {
                 check.check(folder)
             } catch (e: Exception) {
+                // Kept, so that the task of the checks ends as cancelled.
+                if (e is InterruptedException) Thread.currentThread().interrupt()
                 // Interrupted: another folder was opened, which drops the result anyway.
-                if (!Thread.currentThread().isInterrupted && e !is InterruptedException) {
+                if (!Thread.currentThread().isInterrupted) {
                     log.log(System.Logger.Level.WARNING, "The trust check ${check.id} failed for $folder", e)
                 }
                 null
             }
         return TrustCheckResult(check.id, check.name, findings)
+    }
+
+    /**
+     * Runs [checks] on the calling thread as the task "Checking project trust" (ADR 0061): finished, or cancelled if
+     * the thread was interrupted meanwhile (another folder was opened, the window closed), as [run] keeps the interrupt.
+     */
+    private fun <T> checking(checks: () -> T): T {
+        val task = tasks.start(CHECKING)
+        val result =
+            try {
+                checks()
+            } catch (t: Throwable) {
+                task.failed(t)
+                throw t
+            }
+        if (Thread.currentThread().isInterrupted) task.failed(InterruptedException()) else task.close()
+        return result
     }
 
     private fun ordered(target: Opened) = checks.mapNotNull { target.results[it.id] }

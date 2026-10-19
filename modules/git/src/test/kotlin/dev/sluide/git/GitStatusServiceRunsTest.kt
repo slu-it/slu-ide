@@ -1,5 +1,6 @@
 package dev.sluide.git
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.cli.GitCli
 import dev.sluide.projecttrust.ProjectTrust
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.createDirectories
@@ -47,6 +49,9 @@ class GitStatusServiceRunsTest {
 
     // Everything dispatched runs on this test's thread, like on the JavaFX thread.
     private val dispatched = LinkedBlockingQueue<Runnable>()
+
+    /** The log lines of the service's background tasks. */
+    private val taskLines = CopyOnWriteArrayList<String>()
     private val watcher = FileWatcher({ dispatched += it }, 50.milliseconds)
     private lateinit var service: GitStatusService
 
@@ -66,7 +71,8 @@ class GitStatusServiceRunsTest {
                 toFile().setExecutable(true)
             }
         val git = GitCli(executable.toString(), System.getenv())
-        service = GitStatusService(git, watcher, testTrust()) { dispatched += it }
+        service =
+            GitStatusService(git, watcher, testTrust(), BackgroundTasks.forTests(taskLines::add)) { dispatched += it }
         assumeTrue(git.available, "no /bin/sh to stand in for git")
     }
 
@@ -157,6 +163,12 @@ class GitStatusServiceRunsTest {
             assertSame(first, service.snapshot.get())
             runDispatched()
         }
+        // Its task finishes at INFO with what happened; git's own line has the details.
+        val failed = taskLines.single { "(git status failed)" in it }
+        assertTrue(
+            Regex("task#\\d+ finished in .*: Refreshing Git status \\(git status failed\\)").matches(failed),
+            failed,
+        )
     }
 
     @Test
@@ -216,7 +228,12 @@ class GitStatusServiceRunsTest {
     private fun gated(check: ProjectTrustCheck): Pair<GitStatusService, ProjectTrust> {
         val trust = testTrust(repo, listOf(check), scripts.resolve("trust.properties"))
         val gated =
-            GitStatusService(GitCli(scripts.resolve("git").toString(), System.getenv()), watcher, trust) {
+            GitStatusService(
+                GitCli(scripts.resolve("git").toString(), System.getenv()),
+                watcher,
+                trust,
+                BackgroundTasks.forTests(),
+            ) {
                 dispatched += it
             }
         closing += gated

@@ -1,5 +1,6 @@
 package dev.sluide.ide.git
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.fileexplorer.FileMarker
 import dev.sluide.fileexplorer.FileMarkers
 import dev.sluide.filewatcher.FileWatcher
@@ -44,7 +45,7 @@ class GitMarkersTest {
         assumeTrue(git.available, "no /bin/sh to stand in for git")
         val dispatched = LinkedBlockingQueue<Runnable>()
         val watcher = FileWatcher({ dispatched += it }, 50.milliseconds)
-        val service = GitStatusService(git, watcher, trustingTrust()) { dispatched += it }
+        val service = GitStatusService(git, watcher, trustingTrust(), BackgroundTasks.forTests()) { dispatched += it }
         try {
             service.open(root)
             while (service.snapshot.get().root == null) {

@@ -106,9 +106,13 @@ abstract class MainWindowUiFixture {
 
     /** The folder's trust, running git's check; decisions are kept in the test's settings folder. */
     internal val projectTrust by lazy {
-        ProjectTrust(listOf(GitTrustCheck(git)), TrustedProjects(settingsDir.resolve("project-trust.properties")))
+        ProjectTrust(
+            listOf(GitTrustCheck(git)),
+            TrustedProjects(settingsDir.resolve("project-trust.properties")),
+            BackgroundTasks.forTests(),
+        )
     }
-    internal val gitStatus by lazy { GitStatusService(git, watcher, projectTrust) }
+    internal val gitStatus by lazy { GitStatusService(git, watcher, projectTrust, BackgroundTasks.forTests()) }
 
     @AfterEach
     fun close() {

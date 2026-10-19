@@ -11,7 +11,8 @@ javafx {
 }
 
 dependencies {
-    // Deliberate module dependency: the trust checks run on a logged thread, ADR 0060.
-    implementation(project(":modules:background-tasks"))
+    // Deliberate module API dependency: the trust checks run on a logged thread (ADR 0060), and ProjectTrust's public
+    // constructor takes the window's BackgroundTasks (ADR 0061).
+    api(project(":modules:background-tasks"))
     implementation(libs.spring.context)
 }

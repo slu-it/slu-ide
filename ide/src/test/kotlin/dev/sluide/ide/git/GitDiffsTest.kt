@@ -1,5 +1,6 @@
 package dev.sluide.ide.git
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.fileviewers.LineChange
 import dev.sluide.fileviewers.TextDiff
 import dev.sluide.filewatcher.FileWatcher
@@ -44,7 +45,7 @@ class GitDiffsTest {
     }
 
     private fun service(git: GitCli) =
-        GitStatusService(git, watcher, trustingTrust()) {
+        GitStatusService(git, watcher, trustingTrust(), BackgroundTasks.forTests()) {
             dispatched += it
         }.also(services::add)
 

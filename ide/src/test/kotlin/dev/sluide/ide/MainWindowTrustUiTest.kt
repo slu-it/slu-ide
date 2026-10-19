@@ -1,5 +1,6 @@
 package dev.sluide.ide
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.git.GitTrustCheck
 import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.projecttrust.ProjectTrustState
@@ -109,7 +110,11 @@ class MainWindowTrustUiTest : MainWindowUiFixture() {
         assertIs<ProjectTrustState.Untrusted>(asked[1])
         // Remembered for this folder: opened again, it is trusted without asking.
         val again =
-            ProjectTrust(listOf(GitTrustCheck(git)), TrustedProjects(settingsDir.resolve("project-trust.properties"))) {
+            ProjectTrust(
+                listOf(GitTrustCheck(git)),
+                TrustedProjects(settingsDir.resolve("project-trust.properties")),
+                BackgroundTasks.forTests(),
+            ) {
                 it.run()
             }
         again.open(project)

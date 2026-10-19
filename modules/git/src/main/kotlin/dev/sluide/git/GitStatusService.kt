@@ -1,5 +1,6 @@
 package dev.sluide.git
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.cli.GitCli
@@ -23,6 +24,9 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 
 private val log = System.getLogger(GitStatusService::class.java.name)
+
+/** The name of the task of a `git status` (ADR 0061). */
+private const val REFRESHING = "Refreshing Git status"
 
 /** Where the lines of [GitStatusService] go; replaced in tests. */
 internal object GitStatusLog {
@@ -50,6 +54,9 @@ internal object GitStatusLog {
  * Git runs only while [trust] allows it (ADR 0053): first after the folder's checks, and on every change in `.git`
  * after git's check ran again, since a checkout or a command in a terminal may have changed what git would run.
  * Otherwise the snapshot is [GitStatusSnapshot.EMPTY]; once the folder is trusted, the window calls [refresh].
+ *
+ * Each `git status` is a task of [tasks], "Refreshing Git status" (ADR 0061); the trust checks are tasks of their own.
+ * A failed one finishes it with "git status failed" at INFO, which ends its cycle in the log.
  */
 @Component
 // One instance per IDE window (the "window" scope of the ide module, ADR 0014).
@@ -58,11 +65,12 @@ class GitStatusService(
     private val git: GitCli,
     private val fileWatcher: FileWatcher,
     private val trust: ProjectTrust,
+    private val tasks: BackgroundTasks,
     private val dispatch: (Runnable) -> Unit,
 ) : AutoCloseable {
     @Autowired
-    constructor(git: GitCli, fileWatcher: FileWatcher, trust: ProjectTrust) :
-        this(git, fileWatcher, trust, Platform::runLater)
+    constructor(git: GitCli, fileWatcher: FileWatcher, trust: ProjectTrust, tasks: BackgroundTasks) :
+        this(git, fileWatcher, trust, tasks, Platform::runLater)
 
     private class Target(
         val root: Path,
@@ -158,15 +166,23 @@ class GitStatusService(
                 dispatch(counted)
             }
             val statusStart = System.nanoTime()
-            val output = git.status(current.root)
-            val statusMillis = millisSince(statusStart)
-            if (output == null) {
-                GitStatusLog.info(
-                    "Git status cycle for ${current.root}: $trustText, status failed after $statusMillis ms",
-                )
-                return@execute
-            }
-            val snapshot = GitStatusSnapshot.parse(current.root, output)
+            val task = tasks.start(REFRESHING)
+            val (snapshot, statusMillis) =
+                try {
+                    val output = git.status(current.root)
+                    val statusMillis = millisSince(statusStart)
+                    if (output == null) {
+                        // At INFO, the cycle's end: the git#n line has the details, and a broken repository fails on
+                        // every refresh.
+                        task.close("git status failed")
+                        return@execute
+                    }
+                    GitStatusSnapshot.parse(current.root, output) to statusMillis
+                } catch (t: Throwable) {
+                    task.failed(t)
+                    throw t
+                }
+            task.close()
             val cycle = "Git status cycle for ${current.root}: $trustText, status $statusMillis ms, "
             dispatch(
                 Runnable {

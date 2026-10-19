@@ -1,5 +1,6 @@
 package dev.sluide.git
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.projecttrust.ProjectTrustCheck
 import dev.sluide.projecttrust.TrustedProjects
@@ -14,7 +15,7 @@ internal fun testTrust(
     checks: List<ProjectTrustCheck> = emptyList(),
     store: Path = Path.of(System.getProperty("java.io.tmpdir"), "sluide-test-trust-never-written.properties"),
 ): ProjectTrust =
-    ProjectTrust(checks, TrustedProjects(store), Runnable::run).apply {
+    ProjectTrust(checks, TrustedProjects(store), BackgroundTasks.forTests(), Runnable::run).apply {
         open(folder)
         awaitAllows(GitTrustCheck.ID)
     }

@@ -1,5 +1,6 @@
 package dev.sluide.git
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.cli.GitCli
 import dev.sluide.git.cli.headContent
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.createDirectories
@@ -36,7 +38,7 @@ class GitStatusServiceTest {
     // The threads tasks are dispatched from.
     private val dispatchers = mutableListOf<String>()
     private val service =
-        GitStatusService(git, watcher, testTrust()) {
+        GitStatusService(git, watcher, testTrust(), BackgroundTasks.forTests()) {
             synchronized(dispatchers) { dispatchers += Thread.currentThread().name }
             dispatched += it
         }
@@ -245,7 +247,8 @@ class GitStatusServiceTest {
     fun `a result that arrives after a newer request is dropped`() {
         // Nothing followed, so only diffs are dispatched, and the test decides when they arrive.
         val answersDispatched = LinkedBlockingQueue<Runnable>()
-        val unopened = GitStatusService(git, watcher, testTrust()) { answersDispatched += it }
+        val unopened =
+            GitStatusService(git, watcher, testTrust(), BackgroundTasks.forTests()) { answersDispatched += it }
         val file = repo.resolve("tracked.kt")
         val answers = mutableListOf<String>()
         unopened.diffAsync(file) { answers += "older" }
@@ -291,7 +294,13 @@ class GitStatusServiceTest {
     @Test
     fun `without git nothing is followed`() {
         val noGit =
-            GitStatusService(GitCli(repo.resolve("no-such-git").toString(), System.getenv()), watcher, testTrust()) {}
+            GitStatusService(
+                GitCli(repo.resolve("no-such-git").toString(), System.getenv()),
+                watcher,
+                testTrust(),
+                BackgroundTasks.forTests(),
+            ) {
+            }
         noGit.open(repo)
         assertFalse(noGit.active)
         noGit.close()
@@ -302,7 +311,7 @@ class GitStatusServiceTest {
         git("config", "core.fsmonitor", "./watch.sh")
         val trust = testTrust(repo, listOf(GitTrustCheck(git)))
         assertIs<ProjectTrustState.Ask>(trust.state.get())
-        val gated = GitStatusService(git, watcher, trust) { dispatched += it }
+        val gated = GitStatusService(git, watcher, trust, BackgroundTasks.forTests()) { dispatched += it }
         repo.resolve("new.kt").writeText("val b = 2\n")
 
         gated.open(repo)
@@ -320,7 +329,7 @@ class GitStatusServiceTest {
     @Test
     fun `a change in the git folder that makes git run commands turns git off before anything runs`() {
         val trust = testTrust(repo, listOf(GitTrustCheck(git)))
-        val gated = GitStatusService(git, watcher, trust) { dispatched += it }
+        val gated = GitStatusService(git, watcher, trust, BackgroundTasks.forTests()) { dispatched += it }
         gated.open(repo)
         awaitSnapshot(gated) { it.root != null }
         val before = gated.gitFolderChanged.get()
@@ -338,5 +347,21 @@ class GitStatusServiceTest {
         await("A change of the trusted git folder is counted") { gated.gitFolderChanged.get() != before }
         gated.close()
         trust.close()
+    }
+
+    @Test
+    fun `every git status is a background task`() {
+        val lines = CopyOnWriteArrayList<String>()
+        val recorded =
+            GitStatusService(git, watcher, testTrust(), BackgroundTasks.forTests(lines::add)) { dispatched += it }
+
+        recorded.open(repo)
+        awaitSnapshot(recorded) { it.root != null }
+        recorded.close()
+
+        val numbered = lines.map { it.replace(Regex("task#\\d+"), "task") }
+        assertEquals("task started: Refreshing Git status", numbered.first())
+        assertTrue(numbered[1].startsWith("task finished in "), numbered[1])
+        assertTrue(numbered[1].endsWith(": Refreshing Git status"), numbered[1])
     }
 }

@@ -1,5 +1,6 @@
 package dev.sluide.projecttrust
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
@@ -46,7 +47,7 @@ class ProjectTrustTest {
 
     /** A trust of [folder] with [checks] whose first checks have run. */
     private fun opened(vararg checks: ProjectTrustCheck): ProjectTrust {
-        val trust = ProjectTrust(checks.toList(), store(), Runnable::run)
+        val trust = ProjectTrust(checks.toList(), store(), BackgroundTasks.forTests(), Runnable::run)
         opened += trust
         trust.open(folder)
         trust.awaitAllows(checks.first().id)
@@ -248,7 +249,7 @@ class ProjectTrustTest {
                     return listOf(hook)
                 }
             }
-        val trust = ProjectTrust(listOf(blocking), store(), Runnable::run).also(opened::add)
+        val trust = ProjectTrust(listOf(blocking), store(), BackgroundTasks.forTests(), Runnable::run).also(opened::add)
         val first = dir.resolve("first").createDirectories()
         trust.open(first)
         started.await()
@@ -280,7 +281,7 @@ class ProjectTrustTest {
                     return emptyList()
                 }
             }
-        val trust = ProjectTrust(listOf(blocking), store(), Runnable::run).also(opened::add)
+        val trust = ProjectTrust(listOf(blocking), store(), BackgroundTasks.forTests(), Runnable::run).also(opened::add)
         trust.open(folder)
         started.await()
         val waiting = Executors.newSingleThreadExecutor().submit(Callable { trust.awaitAllows("git") })
@@ -303,11 +304,60 @@ class ProjectTrustTest {
     }
 
     @Test
+    fun `the first checks and every recheck are a background task`() {
+        val lines = mutableListOf<String>()
+        val tasks = BackgroundTasks.forTests { synchronized(lines) { lines += it.replace(Regex("task#\\d+"), "task") } }
+        val trust = ProjectTrust(listOf(FakeCheck("git")), store(), tasks, Runnable::run).also(opened::add)
+        trust.open(folder)
+        assertTrue(trust.awaitAllows("git"))
+        assertTrue(trust.recheck("git"))
+
+        val recorded = synchronized(lines) { lines.toList() }
+        assertEquals(4, recorded.size, recorded.toString())
+        assertEquals("task started: Checking project trust", recorded[0])
+        assertTrue(recorded[1].startsWith("task finished in "), recorded[1])
+        assertEquals("task started: Checking project trust", recorded[2])
+        assertTrue(recorded[3].endsWith(": Checking project trust"), recorded[3])
+    }
+
+    @Test
+    fun `an interrupted check ends its task as cancelled and keeps the interrupt`() {
+        val lines = mutableListOf<String>()
+        val tasks = BackgroundTasks.forTests { synchronized(lines) { lines += it.replace(Regex("task#\\d+"), "task") } }
+        val interrupted =
+            object : ProjectTrustCheck {
+                override val id = "git"
+                override val name = "Git"
+                var runs = 0
+
+                override fun check(folder: Path): List<TrustFinding> {
+                    if (++runs > 1) throw InterruptedException("stopped")
+                    return emptyList()
+                }
+            }
+        val trust = ProjectTrust(listOf(interrupted), store(), tasks, Runnable::run).also(opened::add)
+        trust.open(folder)
+        assertTrue(trust.awaitAllows("git"))
+
+        try {
+            trust.recheck("git")
+            assertTrue(Thread.currentThread().isInterrupted, "kept for the caller")
+        } finally {
+            Thread.interrupted()
+        }
+
+        val last = synchronized(lines) { lines.last() }
+        assertTrue(last.startsWith("task cancelled after "), last)
+        assertTrue(last.endsWith(": Checking project trust"), last)
+    }
+
+    @Test
     fun `checks need distinct ids`() {
         assertFailsWith<IllegalArgumentException> {
             ProjectTrust(
                 listOf(FakeCheck("git"), FakeCheck("git")),
                 store(),
+                BackgroundTasks.forTests(),
             ) {}
         }
     }
