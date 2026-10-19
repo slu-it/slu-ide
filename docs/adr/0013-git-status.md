@@ -1,6 +1,6 @@
 # 0013. Git status from the git command line, shown as markers in the file explorer
 
-- Status: accepted
+- Status: accepted; partly superseded by [0060](0060-logging-conventions.md) (stderr of reads kept for the log)
 - Date: 2026-10-13
 
 ## Context
@@ -57,3 +57,6 @@ Note 2026-10-16: `--branch` was added to the status command
 (`git --no-optional-locks status --porcelain=v2 --branch -z --ignored`) so that the window title can show the
 checked-out branch or commit; the snapshot carries it, and a checkout without file changes still publishes a new
 snapshot.
+
+Note 2026-10-19: the standard error of reads is no longer dropped: the first 4 KB are kept for the log only
+(ADR [0060](0060-logging-conventions.md), partly superseding this).
