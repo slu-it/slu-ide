@@ -20,6 +20,8 @@ import javafx.scene.control.ButtonType
 import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicLong
 
+private val log = System.getLogger(RefWriter::class.java.name)
+
 /**
  * What an operation that changes the repository gave (ADR 0041): git's [result] (a failure is shown in an error
  * dialog), what the header says afterwards ([done], `null` if nothing was done), the branches git refused to delete
@@ -605,6 +607,7 @@ internal class RefWriter(
                     try {
                         operation.run(writes, root, context)
                     } catch (e: RuntimeException) {
+                        log.log(System.Logger.Level.ERROR, "Operation ${operation::class.simpleName} failed", e)
                         RefOutcome(GitResult(false, e.message ?: e.toString()), null)
                     }
                 dispatch {

@@ -334,4 +334,22 @@ class ProjectTrustTest {
             "one finding cannot pass for two",
         )
     }
+
+    @Test
+    fun `waiting for the checks is refused on the JavaFX thread`() {
+        val trust = opened(FakeCheck("tool"))
+        val failures = mutableListOf<Throwable>()
+        val thread =
+            Thread {
+                for (call in listOf({ trust.awaitAllows("tool") }, { trust.recheck("tool") })) {
+                    runCatching { call() }.onFailure(failures::add)
+                }
+            }
+        thread.name = "JavaFX Application Thread"
+        thread.start()
+        thread.join(5_000)
+
+        assertEquals(2, failures.size)
+        assertTrue(failures.all { it is IllegalStateException })
+    }
 }

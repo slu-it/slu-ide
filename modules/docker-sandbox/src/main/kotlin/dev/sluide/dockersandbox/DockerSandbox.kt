@@ -1,14 +1,19 @@
 package dev.sluide.dockersandbox
 
+import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.editor.EditorTab
 import dev.sluide.terminal.Terminals
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.nio.file.Path
+import java.util.concurrent.CancellationException
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CompletionException
 import java.util.concurrent.CompletionStage
 import kotlin.io.path.isRegularFile
+
+private val log = System.getLogger(DockerSandbox::class.java.name)
 
 /** Thrown when a sandbox may not be started in a folder; the message says why. */
 class SandboxNotAllowedException(
@@ -40,11 +45,20 @@ class DockerSandbox(
         home,
         environment,
         // Checked once per window, in the background, as the login shell may take a while.
-        CompletableFuture.supplyAsync({ SbxCheck.installed(environment) }, { Thread.ofVirtual().start(it) }),
+        CompletableFuture.supplyAsync(
+            { SbxCheck.installed(environment) },
+            { NamedThreads.virtual("sluide-sbx-check", it) },
+        ),
     )
 
     /** Completes with whether `sbx` is installed, i.e. found by the login shell the sandboxes run in. */
-    val sbxInstalled: CompletionStage<Boolean> = sbxCheck.minimalCompletionStage()
+    val sbxInstalled: CompletionStage<Boolean> =
+        sbxCheck
+            .handle { installed, failure ->
+                // A failed check is logged once and counts as not installed; this stage never fails.
+                if (failure != null) log.log(System.Logger.Level.ERROR, "The check for sbx failed", failure)
+                failure == null && installed == true
+            }.minimalCompletionStage()
 
     private val started = mutableMapOf<SandboxAction, Int>()
 
@@ -53,12 +67,22 @@ class DockerSandbox(
         action: SandboxAction,
         folder: Path?,
     ): String? {
-        if (sbxCheck.getNow(false) != true) return SBX_MISSING
+        if (!installed()) return SBX_MISSING
         if (folder == null) return NO_FOLDER
         SandboxFolder.check(folder, home)?.let { return it }
         val required = action.requiredFile ?: return null
         return if (folder.resolve(required).isRegularFile()) null else "There is no $required in $folder."
     }
+
+    /** Whether the check found `sbx`; `false` while it runs or if it failed (logged by [sbxInstalled]). */
+    private fun installed(): Boolean =
+        try {
+            sbxCheck.getNow(false) == true
+        } catch (_: CompletionException) {
+            false
+        } catch (_: CancellationException) {
+            false
+        }
 
     /**
      * Runs [action] in a terminal tab in [folder], named e.g. "Claude Code 1", and returns the tab. Must be called on

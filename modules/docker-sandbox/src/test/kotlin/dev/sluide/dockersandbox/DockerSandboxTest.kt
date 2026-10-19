@@ -98,6 +98,15 @@ class DockerSandboxTest {
 
         assertNull(sandbox(check).problem(SandboxAction.ENVIRONMENT, project))
     }
+
+    @Test
+    fun `a failed check counts as not installed and throws nothing`() {
+        val failed = CompletableFuture<Boolean>().apply { completeExceptionally(IllegalStateException("boom")) }
+        val sandbox = sandbox(failed)
+
+        assertEquals(SBX_MISSING, sandbox.problem(SandboxAction.CLAUDE_CODE, project))
+        assertEquals(false, sandbox.sbxInstalled.toCompletableFuture().get())
+    }
 }
 
 private const val SBX_MISSING = "sbx is not installed (not found on the PATH of your login shell)."

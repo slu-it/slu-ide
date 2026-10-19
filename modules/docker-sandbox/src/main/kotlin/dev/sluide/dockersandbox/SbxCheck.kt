@@ -16,6 +16,18 @@ internal object SbxCheck {
 
     /** Whether `command -v sbx` succeeds in the login shell started with [environment]. */
     fun installed(environment: Map<String, String>): Boolean {
+        val started = System.nanoTime()
+        log.log(System.Logger.Level.INFO, "Checking whether sbx is installed")
+        val installed = check(environment)
+        val millis = (System.nanoTime() - started) / 1_000_000
+        log.log(
+            System.Logger.Level.INFO,
+            "sbx check finished in $millis ms: ${if (installed) "installed" else "not installed"}",
+        )
+        return installed
+    }
+
+    private fun check(environment: Map<String, String>): Boolean {
         val command = loginShellRunning("command -v sbx", environment)
         val process =
             try {

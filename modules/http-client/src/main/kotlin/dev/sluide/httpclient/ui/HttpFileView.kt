@@ -48,6 +48,8 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.Duration as JavaDuration
 
+private val log = System.getLogger(HttpFileView::class.java.name)
+
 /**
  * The view of a `.http` file: a toolbar above the file's [editor] and, once a request ran, its [response] below it.
  * Editing, saving, change markers and changes on disk are the editor's.
@@ -259,7 +261,15 @@ internal class HttpFileView(
                 isRunning.set(false)
                 // Decoding and formatting a body can take a while: off the FX thread.
                 session.inBackground({ ResponseContent.of(result) }) { content ->
-                    if (run == runs) content.onSuccess(response::show)
+                    if (run == runs) {
+                        content.fold(response::show) { failure ->
+                            log.log(System.Logger.Level.ERROR, "Could not format the response of $file", failure)
+                            // Shown like a failed request, so that the pane does not stay on "Running…".
+                            val reason = failure.message ?: failure::class.simpleName
+                            val message = "Could not display the response: $reason"
+                            response.show(ResponseContent.of(HttpFailure(message, false, result.elapsed, emptyList())))
+                        }
+                    }
                 }
             }
     }
@@ -299,7 +309,17 @@ internal class HttpFileView(
             files to Environments.load(files)
         }
         session.inBackground(read) { result ->
-            if (refresh == refreshes) result.onSuccess { (files, loaded) -> showEnvironments(files, loaded) }
+            if (refresh == refreshes) {
+                result
+                    .onSuccess { (files, loaded) -> showEnvironments(files, loaded) }
+                    .onFailure {
+                        log.log(
+                            System.Logger.Level.WARNING,
+                            "Could not read the environment files of $file",
+                            it,
+                        )
+                    }
+            }
         }
     }
 
@@ -395,6 +415,7 @@ internal class HttpFileView(
                     val expiry = info.expiresAt?.let { " (expires ${TIME.format(it)})" }.orEmpty()
                     showMessage("Token '$id' acquired$expiry")
                 }.onFailure {
+                    log.log(System.Logger.Level.WARNING, "Token '$id' not acquired for $file", it)
                     showMessage(
                         "Token '$id' not acquired: ${it.message ?: it::class.simpleName}",
                         error = true,

@@ -1,5 +1,6 @@
 package dev.sluide.projecttrust
 
+import dev.sluide.backgroundtasks.NamedThreads
 import javafx.application.Platform
 import javafx.beans.property.ReadOnlyObjectProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
@@ -9,7 +10,6 @@ import org.springframework.stereotype.Component
 import java.nio.file.Path
 import java.security.MessageDigest
 import java.util.concurrent.CountDownLatch
-import java.util.concurrent.Executors
 import java.util.concurrent.Future
 import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.TimeUnit
@@ -72,7 +72,7 @@ class ProjectTrust(
     val state: ReadOnlyObjectProperty<ProjectTrustState> = _state.readOnlyProperty
 
     private val executor =
-        Executors.newSingleThreadExecutor { Thread(it, "sluide-trust").apply { isDaemon = true } }
+        NamedThreads.single("sluide-trust")
 
     /** Checks [folder] on a thread of its own; `null` closes the folder. For the JavaFX thread, as [close]. */
     fun open(folder: Path?) {
@@ -123,6 +123,7 @@ class ProjectTrust(
      * the JavaFX thread.
      */
     fun awaitAllows(checkId: String): Boolean {
+        checkNotFxThread("awaitAllows")
         val target = opened ?: return false
         if (!awaitChecked(target)) return false
         return synchronized(lock) { opened === target && allowed(target, checkId) }
@@ -134,6 +135,7 @@ class ProjectTrust(
      * Waits for the first checks like [awaitAllows]; never call it on the JavaFX thread.
      */
     fun recheck(checkId: String): Boolean {
+        checkNotFxThread("recheck")
         val target = opened ?: return false
         if (!awaitChecked(target)) return false
         val check = checks.firstOrNull { it.id == checkId } ?: return allows(checkId)
@@ -174,6 +176,10 @@ class ProjectTrust(
         open(null)
         executor.shutdownNow()
     }
+
+    /** By name rather than `Platform`, which would start the toolkit in unit tests (ADR 0060). */
+    private fun checkNotFxThread(what: String) =
+        check(Thread.currentThread().name != "JavaFX Application Thread") { "$what blocks; not on the FX thread" }
 
     /** Waits for the checks of [target]; `false` if interrupted or they take longer than the timeout. */
     private fun awaitChecked(target: Opened): Boolean =

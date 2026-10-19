@@ -1,5 +1,6 @@
 package dev.sluide.httpclient
 
+import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.httpclient.auth.OAuth2Client
 import dev.sluide.httpclient.auth.OAuth2TokenCache
 import dev.sluide.httpclient.env.SslConfig
@@ -15,6 +16,8 @@ import org.springframework.stereotype.Component
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
+
+private val log = System.getLogger(HttpClientSession::class.java.name)
 
 /**
  * What the HTTP client keeps per IDE window (ADR 0026): the HTTP clients with their cookie jar, the OAuth2 tokens,
@@ -88,14 +91,21 @@ class HttpClientSession internal constructor(
 
     /**
      * Runs [task] on a virtual thread, e.g. formatting a response or a token request, and hands its outcome to [onDone]
-     * through [dispatch]; returns the thread, which an interrupt stops.
+     * through [dispatch]; returns the thread, which an interrupt stops. Whatever [task] throws is part of the outcome
+     * and left to [onDone] to log, so that [onDone] is always called; an `Error` is also logged here (ADR 0060).
      */
     internal fun <T> inBackground(
         task: () -> T,
         onDone: (Result<T>) -> Unit,
     ): Thread =
-        Thread.ofVirtual().name("sluide-http").start {
-            val result = runCatching(task)
+        NamedThreads.virtual("sluide-http") {
+            val result =
+                try {
+                    Result.success(task())
+                } catch (e: Throwable) {
+                    if (e !is Exception) log.log(System.Logger.Level.ERROR, "A background task failed with an error", e)
+                    Result.failure(e)
+                }
             dispatch { onDone(result) }
         }
 

@@ -18,6 +18,8 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import kotlin.io.path.extension
 
+private val log = System.getLogger(PreviewServer::class.java.name)
+
 /**
  * Serves the files of a folder over HTTP on the loopback interface, for HTML previews (ADR 0018): a page loaded from
  * here can only reach what the server hands out, while a `file:` page's scripts can read every local file.
@@ -107,6 +109,9 @@ internal object PreviewServer {
                         handle(exchange)
                     } catch (_: IOException) {
                         // The client went away, or the file did.
+                    } catch (e: RuntimeException) {
+                        log.log(System.Logger.Level.ERROR, "The preview server for $root failed to answer a request", e)
+                        throw e
                     } finally {
                         exchange.close()
                     }
@@ -122,6 +127,8 @@ internal object PreviewServer {
                 .daemon()
                 .start { server.start() }
                 .join()
+            // Servers are never stopped before the application exits, so there is no stop to log.
+            log.log(System.Logger.Level.INFO, "Preview server for $root started on $authority")
         }
 
         fun url(file: Path): URI {

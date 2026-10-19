@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers.preview
 
+import dev.sluide.backgroundtasks.NamedThreads
 import javafx.application.Platform
 import javafx.scene.control.Alert
 import javafx.scene.control.Button
@@ -11,8 +12,11 @@ import javafx.scene.control.Tooltip
 import javafx.stage.Window
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignE
+import java.io.IOException
 import java.nio.file.Path
 import kotlin.io.path.exists
+
+private val log = System.getLogger(ExportControls::class.java.name)
 
 /**
  * The Export menu of a preview's toolbar: each of [exports] is an item that writes its export of the saved text beside
@@ -49,7 +53,7 @@ internal class ExportControls(
         if (target.exists() && !confirmOverwrite(target)) return
         val text = savedText()
         button.isDisable = true
-        Thread.ofVirtual().name("sluide-export").start {
+        NamedThreads.virtual("sluide-export") {
             var message: String? = null
             try {
                 message =
@@ -61,6 +65,9 @@ internal class ExportControls(
                             "Exported ${target.fileName}, with problems:\n" + problems.joinToString("\n")
                         }
                     } catch (e: Exception) {
+                        // A file or network problem is expected; anything else is a bug.
+                        val level = if (e is IOException) System.Logger.Level.WARNING else System.Logger.Level.ERROR
+                        log.log(level, "Export of $source to $target failed", e)
                         "Could not export ${source.fileName}: ${e.message ?: e.javaClass.simpleName}"
                     }
             } finally {

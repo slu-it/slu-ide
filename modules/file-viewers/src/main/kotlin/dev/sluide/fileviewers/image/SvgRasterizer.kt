@@ -26,6 +26,8 @@ import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 
+private val log = System.getLogger(WebViewSvgRasterizer::class.java.name)
+
 /** Draws an SVG as pixels at [scale] times its own size; blocking, never on the FX thread. */
 internal fun interface SvgRasterizer {
     @Throws(IOException::class)
@@ -196,6 +198,7 @@ internal class WebViewSvgRasterizer(
             try {
                 step()
             } catch (e: Throwable) {
+                log.log(System.Logger.Level.ERROR, "Rasterising the SVG failed", e)
                 timer?.stop()
                 fail(e.message ?: e.javaClass.simpleName)
             }

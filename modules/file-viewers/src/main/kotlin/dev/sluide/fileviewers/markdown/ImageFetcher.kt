@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers.markdown
 
+import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.fileviewers.image.imageTypes
 import java.io.IOException
 import java.io.InputStream
@@ -12,6 +13,8 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+
+private val log = System.getLogger(HttpImageFetcher::class.java.name)
 
 /** An image downloaded for an export: its media type and bytes. */
 internal class FetchedImage(
@@ -40,8 +43,36 @@ internal class HttpImageFetcher(
             .build()
     }
 
+    /** What a download found out, for the log. */
+    private class Outcome {
+        var status: Int? = null
+        var reason: String? = null
+    }
+
     override fun fetch(uri: URI): FetchedImage? {
         if (uri.scheme?.lowercase() !in setOf("http", "https")) return null
+        // Host and path only: the query may hold tokens (ADR 0060).
+        val where = "${uri.host}${uri.rawPath.orEmpty()}"
+        log.log(System.Logger.Level.INFO, "Downloading image $where")
+        val started = System.nanoTime()
+        val outcome = Outcome()
+        val image = download(uri, outcome)
+        val millis = (System.nanoTime() - started) / 1_000_000
+        if (image != null) {
+            log.log(
+                System.Logger.Level.INFO,
+                "Downloaded image $where: status ${outcome.status}, ${image.bytes.size} bytes in $millis ms",
+            )
+        } else {
+            log.log(System.Logger.Level.WARNING, "Image $where not downloaded after $millis ms: ${outcome.reason}")
+        }
+        return image
+    }
+
+    private fun download(
+        uri: URI,
+        outcome: Outcome,
+    ): FetchedImage? {
         val deadline = System.nanoTime() + timeout.toNanos()
         val remaining = { Duration.ofNanos(maxOf(0L, deadline - System.nanoTime())) }
         return try {
@@ -61,17 +92,22 @@ internal class HttpImageFetcher(
                     future.thenAccept { it.body().close() }
                     throw e
                 }
-            response.body().use { stream -> read(response, uri, stream, remaining) }
-        } catch (_: IOException) {
+            response.body().use { stream -> read(response, uri, stream, remaining, outcome) }
+        } catch (e: IOException) {
+            outcome.reason = e::class.simpleName
             null
         } catch (_: TimeoutException) {
+            outcome.reason = "timed out"
             null
-        } catch (_: ExecutionException) {
+        } catch (e: ExecutionException) {
+            outcome.reason = (e.cause ?: e)::class.simpleName
             null
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
+            outcome.reason = "interrupted"
             null
-        } catch (_: IllegalArgumentException) {
+        } catch (e: IllegalArgumentException) {
+            outcome.reason = e::class.simpleName
             null
         }
     }
@@ -81,14 +117,26 @@ internal class HttpImageFetcher(
         uri: URI,
         stream: InputStream,
         remaining: () -> Duration,
+        outcome: Outcome,
     ): FetchedImage? {
-        if (response.statusCode() != 200) return null
+        outcome.status = response.statusCode()
+        if (response.statusCode() != 200) {
+            outcome.reason = "status ${response.statusCode()}"
+            return null
+        }
         val length = response.headers().firstValueAsLong("Content-Length")
-        if (length.isPresent && length.asLong > maxBytes) return null
-        val type = mediaType(response.headers().firstValue("Content-Type").orElse(null), uri) ?: return null
+        if (length.isPresent && length.asLong > maxBytes) {
+            outcome.reason = "larger than $maxBytes bytes"
+            return null
+        }
+        val type = mediaType(response.headers().firstValue("Content-Type").orElse(null), uri)
+        if (type == null) {
+            outcome.reason = "not an image type"
+            return null
+        }
         // Closing the stream when the read does not finish in time ends the read.
         val read = CompletableFuture<ByteArray>()
-        Thread.ofVirtual().name("sluide-image-download").start {
+        NamedThreads.virtual("sluide-image-download") {
             try {
                 read.complete(stream.readNBytes(maxBytes.toInt() + 1))
             } catch (e: Throwable) {
@@ -100,9 +148,14 @@ internal class HttpImageFetcher(
                 read.get(remaining().toMillis(), TimeUnit.MILLISECONDS)
             } catch (e: TimeoutException) {
                 stream.close()
+                outcome.reason = "reading timed out"
                 return null
             }
-        return if (bytes.size > maxBytes) null else FetchedImage(type, bytes)
+        if (bytes.size > maxBytes) {
+            outcome.reason = "larger than $maxBytes bytes"
+            return null
+        }
+        return FetchedImage(type, bytes)
     }
 
     /** The image type the server declares; the file name's only if it declares none (or only bytes). */

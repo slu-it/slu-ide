@@ -22,6 +22,11 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.ThreadFactory
+import java.util.concurrent.TimeUnit
+
+private val log = System.getLogger(TerminalSession::class.java.name)
+
+private const val EXIT_GRACE_SECONDS = 2L
 
 /**
  * A shell running in a pseudo terminal, started in [folder], whose output is interpreted by the JediTerm emulator into
@@ -63,7 +68,39 @@ internal class TerminalSession(
         )
 
     init {
-        executors.unboundedExecutorService.execute(starter::start)
+        // The program's name and pid only: never its arguments or environment (ADR 0060).
+        val program = command.firstOrNull()?.let { Path.of(it).fileName?.toString() ?: it }.orEmpty()
+        val started = System.nanoTime()
+        log.log(System.Logger.Level.INFO, "Terminal process $program started (pid ${process.pid()}) in $folder")
+        executors.unboundedExecutorService.execute {
+            try {
+                starter.start()
+            } finally {
+                // The emulator's read ended: the shell exited, or the session was closed.
+                logExit(program, started)
+            }
+        }
+    }
+
+    private fun logExit(
+        program: String,
+        started: Long,
+    ) {
+        val seconds = (System.nanoTime() - started) / 1_000_000_000
+        val exited =
+            try {
+                process.waitFor(EXIT_GRACE_SECONDS, TimeUnit.SECONDS)
+            } catch (_: InterruptedException) {
+                // The session was closed (the pool is shut down), which ends the shell.
+                Thread.currentThread().interrupt()
+                log.log(
+                    System.Logger.Level.INFO,
+                    "Terminal process $program (pid ${process.pid()}) closed after $seconds s",
+                )
+                return
+            }
+        val outcome = if (exited) "exited with code ${process.exitValue()}" else "ended its output but still runs"
+        log.log(System.Logger.Level.INFO, "Terminal process $program (pid ${process.pid()}) $outcome after $seconds s")
     }
 
     val isAlive: Boolean get() = process.isAlive

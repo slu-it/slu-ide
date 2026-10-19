@@ -3,6 +3,8 @@ package dev.sluide.httpclient.send
 import dev.sluide.httpclient.auth.DigestAuth
 import dev.sluide.httpclient.parse.HttpVersion
 import dev.sluide.httpclient.parse.RequestTags
+import dev.sluide.httpclient.vars.UnresolvedVariablesException
+import java.io.IOException
 import java.net.ConnectException
 import java.net.URI
 import java.net.UnknownHostException
@@ -20,6 +22,8 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import javax.net.ssl.SSLException
+
+private val log = System.getLogger(RequestExecutor::class.java.name)
 
 /**
  * Sends [PreparedRequest]s on [executor] (by default an own executor with virtual threads, stopped by [close]) and
@@ -117,6 +121,7 @@ internal class RequestExecutor(
                 notes += prepareNotes
                 // A cancel may surface as another error, e.g. ClosedByInterruptException while reading a file.
                 if (cancelled) return failure("Cancelled", cancelled = true)
+                logFailure(e)
                 return failure(e.message ?: e::class.simpleName.orEmpty())
             } finally {
                 synchronized(preparingLock) { preparing = null }
@@ -129,8 +134,36 @@ internal class RequestExecutor(
         }
 
         /** A failure for an error no step expected (e.g. an [Error]), so that there is a result all the same. */
-        fun unexpected(error: Throwable): HttpFailure =
-            if (cancelled) failure("Cancelled", cancelled = true) else failure("Unexpected error: $error")
+        fun unexpected(error: Throwable): HttpFailure {
+            if (cancelled) return failure("Cancelled", cancelled = true)
+            logFailure(error)
+            return failure("Unexpected error: $error")
+        }
+
+        /**
+         * Logs why the exchange failed (ADR 0060): the expected ones (the network, the configuration, the request
+         * itself) as a WARNING naming only the method and host, anything else as an ERROR with its stack trace. Never
+         * the query, headers or body.
+         */
+        private fun logFailure(error: Throwable) {
+            val target =
+                if (::request.isInitialized) "${request.method} ${request.uri.host}" else "A request not yet prepared"
+            val chain = generateSequence(error) { it.cause }.toList()
+            val expected =
+                chain.any {
+                    it is IOException ||
+                        it is UnresolvedAddressException ||
+                        it is TimeoutException ||
+                        it is RequestBuildException ||
+                        it is SslConfigException ||
+                        it is UnresolvedVariablesException
+                }
+            if (expected) {
+                log.log(System.Logger.Level.WARNING, "$target failed: ${error::class.simpleName}")
+            } else {
+                log.log(System.Logger.Level.ERROR, "$target failed unexpectedly", error)
+            }
+        }
 
         private fun send(): ExchangeResult =
             try {
@@ -145,15 +178,26 @@ internal class RequestExecutor(
                 result(answerDigest(client, send(client, httpRequest())))
             } catch (_: CancellationException) {
                 failure("Cancelled", cancelled = true)
-            } catch (_: TimeoutException) {
+            } catch (e: TimeoutException) {
+                logFailure(e)
                 failure("No complete response within ${describe(timeout)} (@timeout)")
             } catch (_: InterruptedException) {
                 interrupted()
             } catch (e: ExecutionException) {
                 // The JDK aborts a cancelled exchange with an error of its own.
-                if (cancelled) failure("Cancelled", cancelled = true) else failure(message(e.cause ?: e))
+                if (cancelled) {
+                    failure("Cancelled", cancelled = true)
+                } else {
+                    logFailure(e.cause ?: e)
+                    failure(message(e.cause ?: e))
+                }
             } catch (e: Exception) {
-                if (cancelled) failure("Cancelled", cancelled = true) else failure(message(e))
+                if (cancelled) {
+                    failure("Cancelled", cancelled = true)
+                } else {
+                    logFailure(e)
+                    failure(message(e))
+                }
             }
 
         /** The request to [uri], with [authorization] added if given. */

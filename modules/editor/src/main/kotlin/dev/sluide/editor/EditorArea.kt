@@ -26,6 +26,8 @@ import java.nio.file.FileSystemException
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 
+private val log = System.getLogger(EditorArea::class.java.name)
+
 /**
  * Central area showing open files, one tab per file, and other [EditorTab]s such as terminals. Open files are
  * watched: a tab reloads when its file changes on disk and closes when the file is deleted or can no longer be shown
@@ -202,7 +204,8 @@ class EditorArea(
         val view =
             try {
                 viewer.open(path)
-            } catch (_: IOException) {
+            } catch (e: IOException) {
+                warn("Cannot open", path, e)
                 return null
             }
         if (!accept(view)) return null.also { view.dispose() }
@@ -263,7 +266,8 @@ class EditorArea(
             viewer?.let {
                 try {
                     hosted(it.open(path))
-                } catch (_: IOException) {
+                } catch (e: IOException) {
+                    warn("Cannot reopen", path, e)
                     null
                 }
             }
@@ -298,8 +302,9 @@ class EditorArea(
         }
         try {
             diffView.show(titled(openFile, diff))
-        } catch (_: IOException) {
+        } catch (e: IOException) {
             // Keep showing the last diff; the next change will try again.
+            warn("Cannot update the diff of", openFile.path, e)
         }
     }
 
@@ -322,7 +327,8 @@ class EditorArea(
         val diffView =
             try {
                 fileViewers.openDiff(openFile.path, titled(openFile, diff))
-            } catch (_: IOException) {
+            } catch (e: IOException) {
+                warn("Cannot show the diff of", openFile.path, e)
                 null
             } ?: return
         diffView.onBack = { hideDiff(openFile) }
@@ -417,12 +423,19 @@ class EditorArea(
     private fun updateView(openFile: OpenFile) {
         try {
             openFile.editor.reload()
-        } catch (_: IOException) {
+        } catch (e: IOException) {
             // Keep showing the last content; the next change will try again.
+            warn("Cannot reload", openFile.path, e)
             return
         }
         showChanges(openFile)
     }
+
+    private fun warn(
+        what: String,
+        path: Path,
+        e: IOException,
+    ) = log.log(System.Logger.Level.WARNING, "$what $path", e)
 
     private fun hosted(view: FileView): FileView = view.apply { host = viewHost }
 

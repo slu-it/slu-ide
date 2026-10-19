@@ -11,12 +11,15 @@ import netscape.javascript.JSObject
 import tools.jackson.core.JacksonException
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
+import java.io.IOException
 import java.time.Duration
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
+
+private val log = System.getLogger(WebViewExportRenderer::class.java.name)
 
 /** A formula to typeset for an export: its TeX source, in display mode or inline. */
 internal class MathSource(
@@ -82,7 +85,11 @@ internal class WebViewExportRenderer(
             } catch (_: TimeoutException) {
                 "Timed out"
             } catch (e: ExecutionException) {
-                e.cause?.message ?: "Failed"
+                val cause = e.cause
+                if (cause != null && cause !is IOException) {
+                    log.log(System.Logger.Level.ERROR, "Rendering for an export failed unexpectedly", cause)
+                }
+                cause?.message ?: "Failed"
             } catch (_: InterruptedException) {
                 Thread.currentThread().interrupt()
                 "Interrupted"
@@ -91,6 +98,12 @@ internal class WebViewExportRenderer(
                 session.result.completeExceptionally(IllegalStateException("Ended"))
                 Platform.runLater(session::close)
             }
+        if (failure != null) {
+            log.log(
+                System.Logger.Level.WARNING,
+                "Rendering ${math.size} formulas and ${diagrams.size} diagrams for an export ended early: $failure",
+            )
+        }
         return exportRendering(math.size, diagrams.size, session.bridge.typeset, session.bridge.drawn, failure)
     }
 

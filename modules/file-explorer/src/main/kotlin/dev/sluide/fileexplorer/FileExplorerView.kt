@@ -458,37 +458,50 @@ class FileExplorerView(
         runInBackground {
             log.log(System.Logger.Level.INFO, "Deleting $path")
             val started = System.nanoTime()
-            val failure =
-                try {
-                    FileOperations.delete(path)
-                    null
-                } catch (e: FileOperationException) {
-                    log.log(System.Logger.Level.WARNING, "Cannot delete $path", e)
-                    e
-                } catch (e: Exception) {
-                    // Unexpected: the end of the delete must still run, or the entry stays locked.
-                    log.log(System.Logger.Level.ERROR, "Deleting $path failed unexpectedly", e)
+            var failure: FileOperationException? = null
+            // Only set once the delete returned: an Error leaves neither a failure nor a success.
+            var completed = false
+            try {
+                FileOperations.delete(path)
+                completed = true
+            } catch (e: FileOperationException) {
+                log.log(System.Logger.Level.WARNING, "Cannot delete $path", e)
+                failure = e
+            } catch (e: Exception) {
+                // Unexpected: the end of the delete must still run, or the entry stays locked.
+                log.log(System.Logger.Level.ERROR, "Deleting $path failed unexpectedly", e)
+                failure =
                     FileOperationException("Cannot delete “${path.fileName}”: ${e.message ?: e::class.simpleName}", e)
+            } finally {
+                // Also after an Error, which the thread logs: the entry must not stay locked.
+                val millis = (System.nanoTime() - started) / 1_000_000
+                if (completed) {
+                    log.log(System.Logger.Level.INFO, "Deleted $path in $millis ms")
+                } else {
+                    log.log(System.Logger.Level.WARNING, "Delete of $path failed after $millis ms")
                 }
-            val millis = (System.nanoTime() - started) / 1_000_000
-            log.log(
-                System.Logger.Level.INFO,
-                "Deleted $path in $millis ms: ${if (failure == null) "done" else "failed"}",
-            )
-            dispatch {
-                deleting.remove(path)
-                failure?.let { showError(it.message.orEmpty()) }
-                // Also after a failure, which may have deleted a part.
-                if (isShown(parent)) {
-                    parent.refresh()
-                    closeWatchesOfVanishedFolders()
-                    // Removing an expanded folder above it can lose the selection.
-                    val selected = selectionModel.selectedItem
-                    if (replacement != null && isShown(replacement) && (selected == null || !isShown(selected))) {
-                        selectRow(replacement)
+                val outcome = failure
+                val succeeded = completed
+                dispatch {
+                    try {
+                        outcome?.let { showError(it.message.orEmpty()) }
+                        // Also after a failure, which may have deleted a part.
+                        if (isShown(parent)) {
+                            parent.refresh()
+                            closeWatchesOfVanishedFolders()
+                            // Removing an expanded folder above it can lose the selection.
+                            val selected = selectionModel.selectedItem
+                            if (replacement != null && isShown(replacement) &&
+                                (selected == null || !isShown(selected))
+                            ) {
+                                selectRow(replacement)
+                            }
+                        }
+                        if (succeeded) onDeleted(path, unsaved)
+                    } finally {
+                        deleting.remove(path)
                     }
                 }
-                if (failure == null) onDeleted(path, unsaved)
             }
         }
     }
