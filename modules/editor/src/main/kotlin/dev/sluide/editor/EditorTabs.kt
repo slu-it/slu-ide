@@ -35,6 +35,12 @@ interface EditorTab {
      */
     val closeWarning: String? get() = null
 
+    /**
+     * Whether [content] shows file text in the editor font; the editor area then binds its style to the font setting
+     * while the tab is open. Such a tab keeps the same [content] node and does not set its style itself.
+     */
+    val usesEditorFont: Boolean get() = false
+
     /** Releases the tab's resources. Called once, when the tab is closed. */
     fun dispose() {}
 }
@@ -72,6 +78,8 @@ internal class OpenFile(
         Bindings.createStringBinding({ if (isDirty) "● $name" else name }, dirty, pathProperty)
 
     override val tooltip: String get() = path.toString()
+
+    override val usesEditorFont = true
 
     private val editorLayer = StackPane(editor.node)
 

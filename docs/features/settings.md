@@ -19,8 +19,8 @@
   dark. See [ADR 0009](../adr/0009-themes.md).
 - Display → Fonts: font, size (6–72) and style (Regular, Bold, Italic, Bold Italic) separately for
   - File Explorer (default: the system UI font),
-  - Editor, i.e. all open file views (default: Monospaced at the system font size); syntax highlighting keeps its
-    own bold/italic tokens,
+  - Editor, i.e. all open file views and the diffs opened from the git log (default: Monospaced at the system font
+    size); syntax highlighting keeps its own bold/italic tokens,
   - Terminal (default: Monospaced 13). Only monospaced fonts are offered, so columns line up; bold and italic text
     use the bolder or italic variant of the chosen font. The shell is told the new grid size.
   - Font names can be typed; Enter takes a name only if it is in the list. "Restore Defaults" resets one area.
@@ -35,7 +35,8 @@
   `FontsPageModel` (drafts), `Theme`, `ThemeSettings` (Spring bean, theme and colour scheme), `ThemedWindows` (applies
   the colour scheme and `theme.css` to every window), `AppearancePage` with `AppearancePageModel`,
   `TerminalScrollSettings` (Spring bean, trackpad and wheel speed), `TerminalScrollPage` with
-  `TerminalScrollPageModel`. Users: `FileExplorerView`, `EditorArea` (binds every open file view), `Terminals` (each
-  `TerminalView` follows the terminal font and scroll speeds), `MainWindow` (installs `ThemedWindows`).
+  `TerminalScrollPageModel`. Users: `FileExplorerView`, `EditorArea` (binds every open file view and diff tab),
+  `Terminals` (each `TerminalView` follows the terminal font and scroll speeds), `MainWindow` (installs
+  `ThemedWindows`).
 - Not yet implemented: font settings for menus and dialogs, line spacing, per-project settings, a light terminal,
   custom colours.

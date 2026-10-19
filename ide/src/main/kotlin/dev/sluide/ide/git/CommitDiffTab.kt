@@ -28,6 +28,8 @@ internal class CommitDiffTab(
 
     override val tooltip = "${diff.path} at $short"
 
+    override val usesEditorFont = true
+
     override val content: Node get() = view.node
 
     /** Whether this tab shows the same file of the same commit as [other]. */

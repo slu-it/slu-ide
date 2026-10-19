@@ -121,6 +121,32 @@ class EditorAreaViewsUiTest : EditorAreaUiFixture() {
         assertFalse(closed.content.styleProperty().isBound, "closed views are unbound")
     }
 
+    @Test
+    fun `other tabs use the editor font only if they ask for it`(robot: FxRobot) {
+        fun tab(
+            name: String,
+            editorFont: Boolean,
+        ) = object : EditorTab {
+            override val title = SimpleStringProperty(name)
+            override val tooltip = name
+            override val content = Pane()
+            override val usesEditorFont = editorFont
+        }
+        val diff = tab("a diff", editorFont = true)
+        val terminal = tab("a terminal", editorFont = false)
+        robot.interact {
+            editor.open(diff)
+            editor.open(terminal)
+            fontSettings.apply(mapOf(FontArea.EDITOR to FontSpec("Serif", 21.0)))
+        }
+
+        assertEquals(FontSpec("Serif", 21.0).toCss(), diff.content.style)
+        assertEquals("", terminal.content.style)
+
+        robot.interact { editor.editorTabs.close(diff) }
+        assertFalse(diff.content.styleProperty().isBound, "closed tabs are unbound")
+    }
+
     /** Opens `.link` files with a view that remembers the host the editor area gives it. */
     private class HostRecordingViewer : FileViewer {
         val views = mutableListOf<FileView>()

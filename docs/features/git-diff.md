@@ -48,6 +48,7 @@
 - Structure: `LineMarkers`, `LineEdit` and `ChangeMarkers` (`LineMarkers.kt`, plain logic), `Gutter` (rows of the
   gutter; the column hook `GutterColumns` is implemented by code views), `EditableFileView.showChanges`,
   `FileView.focusText`, `DiffFileView` (`onBack`, `jumpToChangeAt`), `FileViewHost.showChanges(file, line)`,
-  `FileViewers.showsDiffs`, `EditorArea.toggleDiff()` and `canToggleDiff`, `OpenFile.diffView`.
+  `FileViewers.showsDiffs`, `EditorArea.toggleDiff()` and `canToggleDiff`, `OpenFile.diffView`; diff tabs of their
+  own get the editor font through `EditorTab.usesEditorFont`.
 - Not yet implemented: diffs of the working tree against the index or other commits (a commit's own changes are
   shown from the git log), diffs of the unsaved text, reverting changes.

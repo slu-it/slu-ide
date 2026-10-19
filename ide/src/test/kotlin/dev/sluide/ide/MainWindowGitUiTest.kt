@@ -7,6 +7,8 @@ import dev.sluide.git.GitStatus
 import dev.sluide.gitlog.WorkingTreeFileDiff
 import dev.sluide.ide.git.CommitDiffTab
 import dev.sluide.ide.git.WorkingTreeDiffTab
+import dev.sluide.settings.FontArea
+import dev.sluide.settings.FontSpec
 import javafx.beans.property.SimpleStringProperty
 import javafx.event.Event
 import javafx.geometry.Orientation
@@ -24,6 +26,7 @@ import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
 import javafx.scene.input.KeyEvent
 import javafx.scene.layout.Region
+import javafx.scene.text.Text
 import javafx.stage.Stage
 import org.fxmisc.richtext.CodeArea
 import org.junit.jupiter.api.Assumptions.assumeTrue
@@ -197,6 +200,8 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
                 .queryAllAs(CodeArea::class.java)
                 .sortedBy { it.localToScene(0.0, 0.0).x }
         assertEquals(listOf("one\ntwo", "one\nTWO"), areas.map { it.text })
+        robot.interact { fontSettings.apply(mapOf(FontArea.EDITOR to FontSpec("Serif", 22.0))) }
+        assertEquals(22.0, codeText(robot, "TWO").font.size, "the diff follows the editor font")
         assertEquals(
             listOf(parent.take(8), changed.take(8)),
             robot
@@ -256,6 +261,8 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         assertEquals("tracked.md: feature (1a2b3c4d) ↔ Working Tree", tab.tooltip)
         assertEquals(listOf("one\ntwo", "one\nTWO"), areas())
         assertEquals(listOf("feature (1a2b3c4d)", "Working Tree"), titles())
+        robot.interact { fontSettings.apply(mapOf(FontArea.EDITOR to FontSpec("Serif", 22.0))) }
+        assertEquals(22.0, codeText(robot, "TWO").font.size, "the diff follows the editor font")
 
         // Again: the same tab, which reads the file again.
         file.writeText("one\nTwo\n")
@@ -263,6 +270,7 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         assertSame(tab, editorArea.selectedTab)
         assertEquals(1, editorArea.tabs.size)
         assertEquals(listOf("one\ntwo", "one\nTwo"), areas())
+        assertEquals(22.0, codeText(robot, "Two").font.size, "the diff read again keeps the editor font")
 
         // A deleted file: nothing on the right.
         val deleted =
@@ -580,5 +588,17 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         assertTrue(showChanges.isDisable)
         robot.interact { editorArea.open(project.resolve("tracked.md")) }
         assertFalse(showChanges.isDisable)
+    }
+
+    /** The text of the shown tab's code areas that contains [part]. */
+    private fun codeText(
+        robot: FxRobot,
+        part: String,
+    ): Text {
+        WaitForAsyncUtils.waitForFxEvents()
+        return robot
+            .lookup(".editor-content .code-area .text")
+            .queryAllAs(Text::class.java)
+            .first { part in it.text }
     }
 }

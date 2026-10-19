@@ -134,21 +134,21 @@ class EditorArea(
     private val tabTexts =
         TabTexts(editorTabs) { path -> openTab(path, select = false) { view -> TabTexts.editable(view) != null } }
 
-    /** The editor font as CSS; file views inherit it from their node. */
+    /** The editor font as CSS; file views and diffs inherit it from their tab's node. */
     private val editorCss = fontSettings.font(FontArea.EDITOR).map(FontSpec::toCss)
 
     init {
-        // Every way of opening or closing a tab changes the list: file views get the editor font, closed ones lose
-        // their watch and font binding.
+        // Every way of opening or closing a tab changes the list: file views and diffs get the editor font, closed
+        // tabs lose their watch and font binding.
         editorTabs.tabs.addListener(
             ListChangeListener { change ->
                 while (change.next()) {
                     change.removed.forEach { tab ->
                         watches.remove(tab)?.close()
                         // Unbinding also lets the shared font binding forget the closed view.
-                        if (tab is OpenFile) tab.content.styleProperty().unbind()
+                        if (tab.usesEditorFont) tab.content.styleProperty().unbind()
                     }
-                    change.addedSubList.filterIsInstance<OpenFile>().forEach {
+                    change.addedSubList.filter { it.usesEditorFont }.forEach {
                         it.content.styleProperty().bind(
                             editorCss,
                         )
