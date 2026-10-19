@@ -17,6 +17,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.Duration.Companion.seconds
@@ -69,7 +70,8 @@ class GitCli(
 
     /**
      * Runs git with [arguments] in [directory], [input] on its standard input; its output if it succeeds in time and is
-     * not stopped by [cancellation]. Reads take no optional locks and drop what git says on its standard error.
+     * not stopped by [cancellation]. Reads take no optional locks and keep only the start of what git says on its
+     * standard error, for the log.
      */
     internal fun runBytes(
         arguments: List<String>,
@@ -165,7 +167,8 @@ class GitCli(
     /**
      * Runs git with [arguments] in [directory], [input] on its standard input, and waits up to [timeout] for it; `null`
      * if it cannot be started or the calling thread is interrupted (git is stopped then, and the interrupt kept). A
-     * [write] keeps git's standard error and may take optional locks; a read drops the one and takes none of the other.
+     * [write] keeps git's standard error and may take optional locks; a read keeps only the first bytes of it, for the
+     * log, and takes no optional locks.
      * The input is written before the timeout starts and the write waits while git does not read, so it must be small:
      * a few lines, well below the pipe's buffer, or read by git at once (a tag message). [environment] is added to the
      * one of the processes. A [cancellation] stops git as the timeout does, unless git has ended by then; one before git
@@ -186,12 +189,12 @@ class GitCli(
     ): Execution? {
         if (cancellation?.cancelled == true) return Execution(null, ByteArray(0), ByteArray(0), false, cancelled = true)
         val guard = if (!write && guardFsmonitor && directory != null) fsmonitorGuard(directory) else emptyList()
+        val entry = GitCommandLog.start(arguments, directory, input?.size, write)
         val process =
             try {
                 ProcessBuilder(listOf(executable) + guard + arguments)
                     .directory(directory?.toFile())
                     .apply {
-                        if (!write) redirectError(ProcessBuilder.Redirect.DISCARD)
                         environment().clear()
                         environment().putAll(this@GitCli.environment)
                         environment().putAll(environment)
@@ -202,7 +205,7 @@ class GitCli(
                         if (write) environment()["GIT_EDITOR"] = "false"
                     }.start()
             } catch (e: IOException) {
-                log.log(System.Logger.Level.DEBUG, "Cannot run $executable", e)
+                entry.startFailed(e)
                 return null
             }
         // Read while git runs, so a large output cannot fill the pipe and block it.
@@ -224,6 +227,20 @@ class GitCli(
                 },
                 if (write) Thread.ofVirtual().start { process.errorStream.use { it.transferTo(errors) } } else null,
             )
+        // Only for the log (ADR 0060): the first bytes of what a read says on standard error. Not part of `complete`.
+        val errorReader =
+            if (write) {
+                null
+            } else {
+                Thread.ofVirtual().start {
+                    process.errorStream.use {
+                        GitCommandLog.keepStart(
+                            it,
+                            errors,
+                        )
+                    }
+                }
+            }
         try {
             process.outputStream.use { stdin -> input?.let(stdin::write) }
         } catch (e: IOException) {
@@ -235,12 +252,10 @@ class GitCli(
                 stop(process, write)
                 // Git did not end, it was cancelled and has been stopped: what it updated by then stays.
                 if (cancellation?.cancelled == true) {
+                    entry.cancelled()
                     return Execution(null, ByteArray(0), ByteArray(0), complete = false, cancelled = true)
                 }
-                log.log(
-                    System.Logger.Level.WARNING,
-                    "$executable ${arguments.joinToString(" ")} took longer than $timeout",
-                )
+                entry.timedOut(timeout)
                 return Execution(null, ByteArray(0), ByteArray(0), complete = false)
             }
             // Git has ended, but its output may not be read to its end yet; a process it left behind (e.g. started by a
@@ -252,20 +267,21 @@ class GitCli(
                     (readDeadline - System.nanoTime()).nanoseconds.coerceAtLeast(Duration.ZERO).toJavaDuration(),
                 )
             }
+            // Only for the log: a child that holds just standard error open must not delay the read.
+            errorReader?.join(ERROR_GRACE.toJavaDuration())
         } catch (_: InterruptedException) {
             // E.g. the window was closed during a run: stop git too, and keep the interrupt for the caller.
             stop(process, write)
             Thread.currentThread().interrupt()
+            entry.interrupted()
             return null
         }
         // Copies, synchronized with readers that may still be writing.
-        return Execution(
-            process.exitValue(),
-            output.toByteArray(),
-            errors.toByteArray(),
-            readers.none(Thread::isAlive),
-            overflowed = overflowed.get(),
-        )
+        val outputBytes = output.toByteArray()
+        val errorBytes = synchronized(errors) { errors.toByteArray() }
+        val complete = readers.none(Thread::isAlive)
+        entry.exited(process.exitValue(), outputBytes, errorBytes, complete, overflowed.get())
+        return Execution(process.exitValue(), outputBytes, errorBytes, complete, overflowed = overflowed.get())
     }
 
     /**
@@ -400,6 +416,9 @@ class GitCli(
 
         /** How long the output of a git that has ended may take to be read to its end, whatever the timeout. */
         private val PIPE_GRACE = 2.seconds
+
+        /** How long the standard error of a read that has ended may take to be read, for the log only. */
+        private val ERROR_GRACE = 100.milliseconds
 
         /**
          * The most bytes written to git's standard input. They are written while git runs (its output is read in
