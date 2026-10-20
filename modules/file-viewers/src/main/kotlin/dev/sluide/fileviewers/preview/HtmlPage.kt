@@ -13,6 +13,22 @@ internal object HtmlPage {
     fun resource(name: String): String =
         checkNotNull(HtmlPage::class.java.getResource("/dev/sluide/fileviewers/$name")) { "missing $name" }.readText()
 
+    /** [text] escaped for HTML text and double-quoted attribute values. */
+    fun escape(text: String): String {
+        if (text.none { it == '&' || it == '<' || it == '>' || it == '"' }) return text
+        return buildString(text.length + 16) {
+            for (c in text) {
+                when (c) {
+                    '&' -> append("&amp;")
+                    '<' -> append("&lt;")
+                    '>' -> append("&gt;")
+                    '"' -> append("&quot;")
+                    else -> append(c)
+                }
+            }
+        }
+    }
+
     /**
      * A page with [styles] in its head, `dark` (if [dark]) and [classes] on its body, the [content] and then each of
      * [scripts] in a script element of its own. A [title] becomes the page's `<title>`.

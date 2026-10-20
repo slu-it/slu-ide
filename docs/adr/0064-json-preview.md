@@ -20,7 +20,7 @@ survey.
 - **Opens in Split, the source focused:** the formatted view is at hand while the file stays editable at once (the
   default `PreviewMode.SPLIT`; a non-zooming preview in Split focuses its source, ADR 0050).
 - **Folds survive re-renders:** before the page is replaced, the closed containers are read from it
-  (`sluide.json.collapsed()`) as JSON Pointers and passed to the next render, so saving and reloading from disk keep
+  (`sluide.folds.collapsed()`) as JSON Pointers and passed to the next render, so saving and reloading from disk keep
   them (the page keeps the pointers it could not find a container for, so an invalid or empty save in between loses
   none). Duplicate keys share a pointer and fold together.
 - **`Preview.folds`:** previews with foldable sections get Collapse All and Expand All (`FoldControls`) on the toolbar

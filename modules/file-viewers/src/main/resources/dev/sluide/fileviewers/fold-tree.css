@@ -1,0 +1,40 @@
+/* The foldable formatted pages (JSON, XML): one line per node, containers fold with <details>. */
+body.fold-page { padding-left: 28px; }
+.fold-tree {
+    font-family: "JetBrains Mono", Menlo, Consolas, monospace;
+    font-size: 13px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+.fold-tree details { margin: 0; }
+.fold-tree .children { padding-left: 2ch; }
+/* A wrapped line continues 4ch in from where it starts (long start tags, text). */
+.fold-tree summary,
+.fold-tree div:not(.children) { padding-left: 4ch; text-indent: -4ch; }
+.fold-tree details > summary {
+    display: block;
+    position: relative;
+    cursor: pointer;
+    list-style: none;
+}
+.fold-tree details > summary::-webkit-details-marker { display: none; }
+.fold-tree details > summary::before {
+    content: "\25BE";
+    position: absolute;
+    left: -1.4em;
+    width: 1.2em;
+    text-align: center;
+    text-indent: 0;
+    color: #8c8c8c;
+}
+.fold-tree details:not([open]) > summary::before { content: "\25B8"; }
+.fold-tree .tail { display: none; color: #8c8c8c; }
+.fold-tree details:not([open]) > summary .tail { display: inline; }
+.fold-note, .fold-error { margin: 0 0 10px 0; padding: 6px 10px; }
+.fold-note { color: #59636e; }
+.fold-error { background: #ffebe9; color: #cf222e; border-left: 3px solid #cf222e; }
+body.dark .fold-tree details > summary::before { color: #808080; }
+body.dark .fold-tree .tail { color: #808080; }
+body.dark .fold-note { color: #9198a1; }
+body.dark .fold-error { background: #3d2426; color: #ff7b72; border-left-color: #ff7b72; }

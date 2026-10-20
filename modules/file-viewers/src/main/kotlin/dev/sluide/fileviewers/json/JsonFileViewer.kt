@@ -3,14 +3,12 @@ package dev.sluide.fileviewers.json
 import dev.sluide.fileviewers.NamedFileViewer
 import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import dev.sluide.fileviewers.isTextFile
+import dev.sluide.fileviewers.preview.FoldState
 import dev.sluide.fileviewers.preview.Preview
 import dev.sluide.fileviewers.preview.PreviewFileViewer
 import dev.sluide.textediting.CommentSyntax
 import javafx.scene.web.WebEngine
-import netscape.javascript.JSException
 import org.springframework.stereotype.Component
-import tools.jackson.core.JacksonException
-import tools.jackson.databind.json.JsonMapper
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -38,33 +36,15 @@ class JsonFileViewer :
  * replaced and passed on, so they survive saving and reloading from disk (a theme change only recolours the page).
  */
 internal object JsonPreview : Preview {
-    private val mapper = JsonMapper()
-
     override fun load(
         engine: WebEngine,
         file: Path,
         text: String,
         dark: Boolean,
         root: Path,
-    ) = engine.loadContent(JsonRenderer.render(text, dark, collapsedPaths(engine)))
+    ) = engine.loadContent(JsonRenderer.render(text, dark, FoldState.read(engine)))
 
     override val syncsScroll get() = true
 
     override val folds get() = true
-
-    /** The JSON Pointers of the containers the current page has closed; none if there is no such page. */
-    private fun collapsedPaths(engine: WebEngine): Set<String> =
-        try {
-            val script = "window.sluide && sluide.json ? sluide.json.collapsed() : null"
-            (engine.executeScript(script) as? String)
-                ?.let(mapper::readTree)
-                ?.takeIf { it.isArray }
-                ?.mapNotNull { it.asString(null) }
-                ?.toSet()
-                .orEmpty()
-        } catch (_: JSException) {
-            emptySet()
-        } catch (_: JacksonException) {
-            emptySet()
-        }
 }

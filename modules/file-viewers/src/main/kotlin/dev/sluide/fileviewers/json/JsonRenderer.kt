@@ -1,6 +1,7 @@
 package dev.sluide.fileviewers.json
 
 import dev.sluide.fileviewers.preview.HtmlPage
+import dev.sluide.fileviewers.preview.appendFoldState
 import tools.jackson.core.JacksonException
 import tools.jackson.core.JsonToken
 import tools.jackson.core.io.JsonStringEncoder
@@ -11,9 +12,9 @@ import java.util.Locale
 /**
  * Renders JSON as a formatted page for the preview (ADR 0017): one line per member or element, every non-empty object
  * and array a `<details>` that can be folded, with its JSON Pointer (`data-path`, for `collapsed` and the page's
- * `sluide.json.collapsed()`) and the source line it starts on (`data-line`, 0-based like the other previews, for scroll
+ * `sluide.folds.collapsed()`) and the source line it starts on (`data-line`, 0-based like the other previews, for scroll
  * sync). A page that is not complete (empty, with an error, or cut off at [MAX_VALUES]) also keeps the `collapsed` it
- * was given in a hidden `data-collapsed` element, which `collapsed()` reports for containers the page lacks, so folds
+ * was given in a hidden `#fold-state` element, which `collapsed()` reports for containers the page lacks, so folds
  * survive an invalid save in between; a complete page reports only what it shows closed. At most [MAX_VALUES] values
  * are shown. Comments and trailing commas are accepted and dropped; key order, duplicate keys and the spelling of
  * numbers are kept (duplicate keys share a JSON Pointer, so they fold together).
@@ -32,9 +33,9 @@ internal object JsonRenderer {
     private val sourceExcerpt = Regex("""\s*\([^()]*\[Source:.*$""", RegexOption.DOT_MATCHES_ALL)
 
     private val stylesheet = HtmlPage.resource("preview.css")
-    private val treeStylesheet = HtmlPage.resource("json-preview.css")
+    private val treeStylesheet = HtmlPage.resource("fold-tree.css")
     private val script = HtmlPage.resource("preview.js")
-    private val treeScript = HtmlPage.resource("json-tree.js")
+    private val treeScript = HtmlPage.resource("fold-tree.js")
 
     private enum class Kind(
         val container: Boolean = false,
@@ -81,27 +82,25 @@ internal object JsonRenderer {
             dark,
             listOf(stylesheet, treeStylesheet),
             listOf(script, treeScript),
-            listOf("json"),
+            listOf("fold-page"),
         ) {
             // The folds of the page before, also those of containers this text lacks, while it is incomplete.
             val complete = parsed?.root != null && parsed.error == null && !parsed.truncated
             if (collapsed.isNotEmpty() && !complete) {
-                append("<div id=\"json-state\" hidden data-collapsed=\"")
-                    .append(escape(mapper.writeValueAsString(collapsed.sorted())))
-                    .append("\"></div>")
+                appendFoldState(collapsed)
             }
             if (parsed == null || (parsed.root == null && parsed.error == null)) {
-                append("<p class=\"json-note\">Empty file</p>")
+                append("<p class=\"fold-note\">Empty file</p>")
             } else {
                 if (parsed.error != null) {
-                    append("<p class=\"json-error\">").append(escape(parsed.error)).append("</p>")
+                    append("<p class=\"fold-error\">").append(HtmlPage.escape(parsed.error)).append("</p>")
                 }
                 // No line breaks between the blocks: they would show as blank lines.
-                append("<div class=\"json-tree\">")
+                append("<div class=\"fold-tree\">")
                 parsed.root?.let { write(it, "", collapsed, false) }
                 append("</div>")
                 if (parsed.truncated) {
-                    append("<p class=\"json-note\">Showing the first ")
+                    append("<p class=\"fold-note\">Showing the first ")
                         .append("%,d".format(Locale.ROOT, maxValues))
                         .append(" values.</p>")
                 }
@@ -203,9 +202,9 @@ internal object JsonRenderer {
         when (node.kind) {
             Kind.OBJECT -> append("{}")
             Kind.ARRAY -> append("[]")
-            Kind.STRING -> append("<span class=\"string\">").append(escape(quote(node.text))).append("</span>")
-            Kind.NUMBER -> append("<span class=\"number\">").append(escape(node.text)).append("</span>")
-            Kind.KEYWORD -> append("<span class=\"keyword\">").append(escape(node.text)).append("</span>")
+            Kind.STRING -> append("<span class=\"string\">").append(HtmlPage.escape(quote(node.text))).append("</span>")
+            Kind.NUMBER -> append("<span class=\"number\">").append(HtmlPage.escape(node.text)).append("</span>")
+            Kind.KEYWORD -> append("<span class=\"keyword\">").append(HtmlPage.escape(node.text)).append("</span>")
         }
         append(separator).append("</div>")
     }
@@ -224,7 +223,7 @@ internal object JsonRenderer {
         append("<details")
         if (path !in collapsed) append(" open")
         append(" data-path=\"")
-            .append(escape(path))
+            .append(HtmlPage.escape(path))
             .append("\" data-line=\"")
             .append(node.line)
             .append("\">")
@@ -247,7 +246,7 @@ internal object JsonRenderer {
 
     private fun StringBuilder.writeKey(node: Node) {
         if (node.key != null) {
-            append("<span class=\"property\">").append(escape(quote(node.key))).append("</span>: ")
+            append("<span class=\"property\">").append(HtmlPage.escape(quote(node.key))).append("</span>: ")
         }
     }
 
@@ -260,19 +259,4 @@ internal object JsonRenderer {
             .toString()
 
     private fun pointer(key: String) = key.replace("~", "~0").replace("/", "~1")
-
-    private fun escape(text: String): String {
-        if (text.none { it == '&' || it == '<' || it == '>' || it == '"' }) return text
-        return buildString(text.length + 16) {
-            for (c in text) {
-                when (c) {
-                    '&' -> append("&amp;")
-                    '<' -> append("&lt;")
-                    '>' -> append("&gt;")
-                    '"' -> append("&quot;")
-                    else -> append(c)
-                }
-            }
-        }
-    }
 }

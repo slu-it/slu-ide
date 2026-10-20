@@ -64,7 +64,7 @@ class JsonRendererTest {
     fun `comments and trailing commas are accepted`() {
         val doc = page("// head\n{\n  /* c */ \"a\": [1, 2,], // x\n  \"b\": 3,\n}")
 
-        assertNull(doc.selectFirst(".json-error"))
+        assertNull(doc.selectFirst(".fold-error"))
         assertEquals(listOf("", "/a"), doc.select("details").map { it.attr("data-path") })
         assertFalse(doc.body().text().contains("head"))
         assertFalse(doc.body().text().contains("c */"))
@@ -105,7 +105,7 @@ class JsonRendererTest {
 
         assertEquals(
             listOf("{", "\"a\": [", "1,", "2", "],", "\"b\": {", "\"c\": 3", "}", "}"),
-            doc.select(".json-tree summary, .json-tree div[data-line], .json-tree .close").map { lineText(it) },
+            doc.select(".fold-tree summary, .fold-tree div[data-line], .fold-tree .close").map { lineText(it) },
         )
     }
 
@@ -123,7 +123,7 @@ class JsonRendererTest {
     fun `byte order mark is ignored`() {
         val doc = page("\uFEFF{\"a\": 1}")
 
-        assertNull(doc.selectFirst(".json-error"))
+        assertNull(doc.selectFirst(".fold-error"))
         assertEquals(listOf("\"a\": 1"), doc.select("div[data-line]").map { it.text() })
     }
 
@@ -134,7 +134,7 @@ class JsonRendererTest {
         assertEquals(
             "",
             doc
-                .select(".json-tree details, .json-tree .children")
+                .select(".fold-tree details, .fold-tree .children")
                 .map { it.ownText() }
                 .joinToString("")
                 .trim(),
@@ -161,7 +161,7 @@ class JsonRendererTest {
         val doc = page("{\"a\": <script>}")
         val plain = Jsoup.parse(JsonRenderer.render("[]", false)).select("script").size
 
-        assertNotNull(doc.selectFirst("p.json-error"))
+        assertNotNull(doc.selectFirst("p.fold-error"))
         assertEquals(plain, doc.select("script").size)
     }
 
@@ -177,7 +177,7 @@ class JsonRendererTest {
     fun `unclosed container names where it was opened`() {
         val doc = page("{\n  \"a\": [1,\n  2")
 
-        val error = assertNotNull(doc.selectFirst("p.json-error")).text()
+        val error = assertNotNull(doc.selectFirst("p.fold-error")).text()
         assertTrue(error.contains("the array opened on line 2 is not closed"), error)
         assertFalse(error.contains("Source") || error.contains("REDACTED"), error)
         assertEquals(listOf("", "/a"), doc.select("details").map { it.attr("data-path") })
@@ -185,7 +185,7 @@ class JsonRendererTest {
 
     @Test
     fun `mismatched close marker does not leak the source excerpt`() {
-        val error = assertNotNull(page("{\"a\": 1]").selectFirst("p.json-error")).text()
+        val error = assertNotNull(page("{\"a\": 1]").selectFirst("p.fold-error")).text()
 
         assertTrue(error.startsWith("Line 1, column "), error)
         assertFalse(error.contains("Source") || error.contains("REDACTED"), error)
@@ -193,7 +193,7 @@ class JsonRendererTest {
 
     @Test
     fun `an array cut off after a comma is an unclosed array`() {
-        val error = assertNotNull(page("{\n  \"a\": [1, 2,\n").selectFirst("p.json-error")).text()
+        val error = assertNotNull(page("{\n  \"a\": [1, 2,\n").selectFirst("p.fold-error")).text()
 
         assertTrue(error.contains("the array opened on line 2 is not closed"), error)
         assertFalse(error.contains("within/between"), error)
@@ -201,7 +201,7 @@ class JsonRendererTest {
 
     @Test
     fun `an object cut off after a comma is an unclosed object`() {
-        val error = assertNotNull(page("{\n  \"a\": 1,\n").selectFirst("p.json-error")).text()
+        val error = assertNotNull(page("{\n  \"a\": 1,\n").selectFirst("p.fold-error")).text()
 
         assertTrue(error.contains("the object opened on line 1 is not closed"), error)
         assertFalse(error.contains("within/between"), error)
@@ -217,7 +217,7 @@ class JsonRendererTest {
                 "truncated" to JsonRenderer.render("{\"a\": {\"b\": 1}}", false, folds, 2),
             )
         for ((name, html) in cases) {
-            val state = assertNotNull(Jsoup.parse(html).selectFirst("#json-state"), name)
+            val state = assertNotNull(Jsoup.parse(html).selectFirst("#fold-state"), name)
             assertEquals("[\"/\\\"gone\\\"\",\"/a\"]", state.attr("data-collapsed"), name)
         }
     }
@@ -226,13 +226,13 @@ class JsonRendererTest {
     fun `a complete page keeps no folds besides its closed containers`() {
         val doc = Jsoup.parse(JsonRenderer.render("{\"a\": {\"b\": 1}}", false, setOf("/a", "/gone")))
 
-        assertNull(doc.selectFirst("#json-state"))
+        assertNull(doc.selectFirst("#fold-state"))
         assertNull(doc.selectFirst("details[data-path=\"/a\"][open]"))
     }
 
     @Test
     fun `other end of input errors keep the parser message`() {
-        val error = assertNotNull(page("{\"a\": [\"abc").selectFirst("p.json-error")).text()
+        val error = assertNotNull(page("{\"a\": [\"abc").selectFirst("p.fold-error")).text()
 
         assertFalse(error.contains("is not closed"), error)
         assertFalse(error.contains("Source") || error.contains("REDACTED"), error)
@@ -243,15 +243,15 @@ class JsonRendererTest {
     fun `only comments is an empty file`() {
         val doc = page("// nothing\n/* here */")
 
-        assertEquals("Empty file", doc.selectFirst("p.json-note")?.text())
-        assertNull(doc.selectFirst(".json-error"))
+        assertEquals("Empty file", doc.selectFirst("p.fold-note")?.text())
+        assertNull(doc.selectFirst(".fold-error"))
     }
 
     @Test
     fun `error notice with the tree that parsed before it`() {
         val doc = page("{\n  \"a\": [1, 2,\n  \"b\": }")
 
-        val error = assertNotNull(doc.selectFirst("p.json-error")).text()
+        val error = assertNotNull(doc.selectFirst("p.fold-error")).text()
         assertTrue(error.startsWith("Line 3, column "), error)
         assertFalse(error.contains("Source"), error)
         assertEquals(listOf("", "/a"), doc.select("details").map { it.attr("data-path") })
@@ -262,15 +262,15 @@ class JsonRendererTest {
     fun `content after the value is an error`() {
         val doc = page("{} 1")
 
-        assertTrue(assertNotNull(doc.selectFirst("p.json-error")).text().contains("after the end"))
+        assertTrue(assertNotNull(doc.selectFirst("p.fold-error")).text().contains("after the end"))
     }
 
     @Test
     fun `empty text`() {
         val doc = page("  \n")
 
-        assertEquals("Empty file", doc.selectFirst("p.json-note")?.text())
-        assertNull(doc.selectFirst(".json-tree"))
+        assertEquals("Empty file", doc.selectFirst("p.fold-note")?.text())
+        assertNull(doc.selectFirst(".fold-tree"))
     }
 
     @Test
@@ -280,8 +280,8 @@ class JsonRendererTest {
 
         assertEquals(listOf("1,", "2,", "3,", "4"), doc.select("div[data-line]").map { it.text() })
         assertEquals(2, doc.select("details").size)
-        assertEquals("Showing the first 6 values.", doc.selectFirst("p.json-note")?.text())
-        assertNull(doc.selectFirst(".json-error"))
+        assertEquals("Showing the first 6 values.", doc.selectFirst("p.fold-note")?.text())
+        assertNull(doc.selectFirst(".fold-error"))
     }
 
     @Test
