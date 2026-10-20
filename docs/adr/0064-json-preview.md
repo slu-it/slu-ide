@@ -17,7 +17,8 @@ survey.
   error shows a notice and the tree up to it. At most `MAX_VALUES` values are rendered (the rest is left out with a
   note), so huge files do not freeze the preview.
 - **Rendered on save** like every preview ([ADR 0020](0020-editing-and-saving-files.md)), not while typing.
-- **Opens in Source:** most JSON files are edited rather than read.
+- **Opens in Split, the source focused:** the formatted view is at hand while the file stays editable at once (the
+  default `PreviewMode.SPLIT`; a non-zooming preview in Split focuses its source, ADR 0050).
 - **Folds survive re-renders:** before the page is replaced, the closed containers are read from it
   (`sluide.json.collapsed()`) as JSON Pointers and passed to the next render, so saving and reloading from disk keep
   them (the page keeps the pointers it could not find a container for, so an invalid or empty save in between loses

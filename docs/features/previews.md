@@ -28,8 +28,9 @@ Images, SVG files, Mermaid files and Bicep resource graphs zoom; Markdown and no
 - **Focus** ([ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md)): when its tab is opened or chosen, an
   image, a preview shown alone (SVG, notebook, PEM) or a zooming preview in Split (Mermaid, Bicep) focuses its web
   view, so the keys work at once; typing in the source beside a diagram needs a click there. Other previews in Split
-  (Markdown, HTML, CSV) and previews in Source (Bicep and JSON by default) focus their source. Renaming or moving an image to a
-  name of the same type keeps its view and the focus; to another type (e.g. png to jpg) the tab gets a new view, which
+  (Markdown, HTML, CSV, JSON) and previews in Source (Bicep by default) focus their source. Renaming or moving an
+  image to a name of the same type keeps its view and the focus; to another type (e.g. png to jpg) the tab gets a new
+  view, which
   takes the focus if the old view had it (a rename in the file tree leaves it there). The zoom percentage has a fixed
   width (that of "1600%"), so the buttons beside it do not move.
 - Zoom in and out go to the next of 10, 25, 33, 50, 67, 75, 100, 125, 150, 200, 300, 400, 600, 800, 1200, 1600%,

@@ -8,8 +8,9 @@ JSON files show their highlighted source with a formatted, foldable view beside 
 - **Files:** `.json`, `.jsonc` and Pipenv's `Pipfile.lock`. The HTTP client's environment files
   (`http-client.env.json`, `http-client.private.env.json`) keep their [visual editor](http-client-env-editor.md),
   notebooks (`.ipynb`) their [rendered view](previews.md).
-- **Modes:** the toolbar's **Source**, **Split** and **Preview**. A file opens in **Source**, since most JSON files are
-  edited rather than read; choose Split or Preview for the formatted view.
+- **Modes:** the toolbar's **Source**, **Split** and **Preview**. A file opens in **Split**, with the focus in the source
+  so it can be edited at once ([ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md)); Source hides the formatted
+  view, Preview shows it alone.
 - **What it shows:** the JSON indented, one member or element per line, keys, strings, numbers and `true`/`false`/
   `null` in the colours of the source's highlighting, numbers as written in the file. Empty objects and arrays are
   plain `{}` and `[]`; every other object and array is a node with a triangle. Closed, a node shows

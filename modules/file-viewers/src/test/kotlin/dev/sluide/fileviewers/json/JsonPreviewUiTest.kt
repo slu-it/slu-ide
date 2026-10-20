@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.io.path.writeText
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /** The JSON preview in a [PreviewFileView]: the modes, the fold buttons and the folds kept. Needs a display, see `uiTest`. */
@@ -71,16 +72,26 @@ class JsonPreviewUiTest {
     private fun FxRobot.fire(styleClass: String) = interact { lookup(styleClass).queryAs(Button::class.java).fire() }
 
     @Test
-    fun `opens on the source without fold buttons, split shows the page and the buttons`(robot: FxRobot) {
+    fun `opens in split with the page and the fold buttons, the source focused`(robot: FxRobot) {
         val (_, view) = show(robot)
         val folds = checkNotNull(view.folds)
 
-        assertEquals(PreviewMode.SOURCE, view.mode.get())
-        assertFalse(WaitForAsyncUtils.asyncFx<Boolean> { folds.node.isVisible }.get())
-        robot.interact { view.mode.set(PreviewMode.SPLIT) }
-        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(PreviewMode.SPLIT, view.mode.get())
         assertTrue(WaitForAsyncUtils.asyncFx<Boolean> { folds.node.isVisible }.get())
         assertEquals(4, view.open(), "root, deps, b and other are containers")
+        robot.interact { view.focus() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertSame(view.source.area, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get())
+    }
+
+    @Test
+    fun `Source hides the fold buttons`(robot: FxRobot) {
+        val (_, view) = show(robot)
+        val folds = checkNotNull(view.folds)
+
+        robot.interact { view.mode.set(PreviewMode.SOURCE) }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertFalse(WaitForAsyncUtils.asyncFx<Boolean> { folds.node.isVisible }.get())
     }
 
     @Test

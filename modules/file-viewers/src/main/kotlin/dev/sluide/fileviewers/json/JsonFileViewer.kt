@@ -5,7 +5,6 @@ import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import dev.sluide.fileviewers.isTextFile
 import dev.sluide.fileviewers.preview.Preview
 import dev.sluide.fileviewers.preview.PreviewFileViewer
-import dev.sluide.fileviewers.preview.PreviewMode
 import dev.sluide.textediting.CommentSyntax
 import javafx.scene.web.WebEngine
 import netscape.javascript.JSException
@@ -34,9 +33,9 @@ class JsonFileViewer :
 }
 
 /**
- * The JSON as nested, foldable blocks ([JsonRenderer]), scrolling with the source. Opens on the source, since most
- * JSON files are edited rather than read. The page's folds are read before it is replaced and passed on, so they
- * survive saving and reloading from disk (a theme change only recolours the page).
+ * The JSON as nested, foldable blocks ([JsonRenderer]), scrolling with the source. Opens side by side with the
+ * source, which takes the focus (ADR 0050), so the file can be edited at once. The page's folds are read before it is
+ * replaced and passed on, so they survive saving and reloading from disk (a theme change only recolours the page).
  */
 internal object JsonPreview : Preview {
     private val mapper = JsonMapper()
@@ -50,8 +49,6 @@ internal object JsonPreview : Preview {
     ) = engine.loadContent(JsonRenderer.render(text, dark, collapsedPaths(engine)))
 
     override val syncsScroll get() = true
-
-    override val defaultMode get() = PreviewMode.SOURCE
 
     override val folds get() = true
 
