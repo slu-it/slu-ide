@@ -4,6 +4,7 @@ import dev.sluide.fileviewers.bicep.BicepFileViewer
 import dev.sluide.fileviewers.bicep.BicepParamFileViewer
 import dev.sluide.fileviewers.html.HtmlFileViewer
 import dev.sluide.fileviewers.image.SvgFileViewer
+import dev.sluide.fileviewers.json.JsonFileViewer
 import dev.sluide.fileviewers.languages.CaddyfileFileViewer
 import dev.sluide.fileviewers.languages.ConfigFileViewer
 import dev.sluide.fileviewers.languages.CssFileViewer
@@ -13,7 +14,6 @@ import dev.sluide.fileviewers.languages.IgnoreFileViewer
 import dev.sluide.fileviewers.languages.IniFileViewer
 import dev.sluide.fileviewers.languages.JavaFileViewer
 import dev.sluide.fileviewers.languages.JavaScriptFileViewer
-import dev.sluide.fileviewers.languages.JsonFileViewer
 import dev.sluide.fileviewers.languages.JsxFileViewer
 import dev.sluide.fileviewers.languages.KotlinFileViewer
 import dev.sluide.fileviewers.languages.KqlFileViewer
@@ -63,7 +63,6 @@ class ViewerCommentSyntaxTest {
                 XmlFileViewer() to CommentSyntax.XML,
                 MdxFileViewer() to CommentSyntax.XML,
                 SingleFileComponentFileViewer() to CommentSyntax.XML,
-                JsonFileViewer() to CommentSyntax.NONE,
                 SqlFileViewer() to CommentSyntax.SQL,
                 ShellFileViewer() to CommentSyntax.HASH,
                 PowerShellFileViewer() to CommentSyntax.POWERSHELL,
@@ -90,6 +89,7 @@ class ViewerCommentSyntaxTest {
                 MarkdownFileViewer() to CommentSyntax.XML,
                 SvgFileViewer() to CommentSyntax.XML,
                 CsvFileViewer() to CommentSyntax.NONE,
+                JsonFileViewer() to CommentSyntax.NONE,
                 NotebookFileViewer() to CommentSyntax.NONE,
                 MermaidFileViewer() to CommentSyntax.MERMAID,
                 CookiesFileViewer() to CommentSyntax.NONE,

@@ -6,6 +6,7 @@ import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.html.HtmlFileViewer
 import dev.sluide.fileviewers.image.ImageFileViewer
 import dev.sluide.fileviewers.image.SvgFileViewer
+import dev.sluide.fileviewers.json.JsonFileViewer
 import dev.sluide.fileviewers.languages.CaddyfileFileViewer
 import dev.sluide.fileviewers.languages.ConfigFileViewer
 import dev.sluide.fileviewers.languages.CssFileViewer
@@ -15,7 +16,6 @@ import dev.sluide.fileviewers.languages.IgnoreFileViewer
 import dev.sluide.fileviewers.languages.IniFileViewer
 import dev.sluide.fileviewers.languages.JavaFileViewer
 import dev.sluide.fileviewers.languages.JavaScriptFileViewer
-import dev.sluide.fileviewers.languages.JsonFileViewer
 import dev.sluide.fileviewers.languages.JsxFileViewer
 import dev.sluide.fileviewers.languages.KotlinFileViewer
 import dev.sluide.fileviewers.languages.LessFileViewer

@@ -2,6 +2,7 @@ package dev.sluide.fileviewers
 
 import dev.sluide.fileviewers.bicep.BicepParamFileViewer
 import dev.sluide.fileviewers.code.CodeFileViewer
+import dev.sluide.fileviewers.json.JsonFileViewer
 import dev.sluide.fileviewers.languages.CaddyfileFileViewer
 import dev.sluide.fileviewers.languages.ConfigFileViewer
 import dev.sluide.fileviewers.languages.CssFileViewer
@@ -11,7 +12,6 @@ import dev.sluide.fileviewers.languages.IgnoreFileViewer
 import dev.sluide.fileviewers.languages.IniFileViewer
 import dev.sluide.fileviewers.languages.JavaFileViewer
 import dev.sluide.fileviewers.languages.JavaScriptFileViewer
-import dev.sluide.fileviewers.languages.JsonFileViewer
 import dev.sluide.fileviewers.languages.JsxFileViewer
 import dev.sluide.fileviewers.languages.KotlinFileViewer
 import dev.sluide.fileviewers.languages.KqlFileViewer
@@ -56,7 +56,6 @@ class CodeFileViewersTest {
             TypeScriptFileViewer() to listOf("app.ts", "types.d.ts", "module.mts", "config.cts"),
             JsxFileViewer() to listOf("Button.jsx"),
             TsxFileViewer() to listOf("App.tsx"),
-            JsonFileViewer() to listOf("package.json", "tsconfig.jsonc", "Pipfile.lock"),
             XmlFileViewer() to listOf("pom.xml", "schema.xsd", "style.xsl", "transform.xslt", "view.fxml", "app.iml"),
             SingleFileComponentFileViewer() to listOf("App.vue", "Page.svelte"),
             YamlFileViewer() to listOf("ci.yml", "config.yaml"),
@@ -107,6 +106,20 @@ class CodeFileViewersTest {
             val accepted = all.filter { viewer.canOpen(file(it)) }
             assertEquals(own, accepted, viewer::class.simpleName)
         }
+    }
+
+    @Test
+    fun `the JSON viewer opens its text files by extension and Pipfile lock by name`() {
+        val json = JsonFileViewer()
+        val all = listOf("package.json", "tsconfig.jsonc", "Pipfile.lock", "pipfile.LOCK") + others
+
+        assertEquals(
+            listOf("package.json", "tsconfig.jsonc", "Pipfile.lock", "pipfile.LOCK"),
+            all.filter { json.canOpen(file(it)) },
+        )
+        assertFalse(json.canOpen(dir.resolve("missing.json")))
+        assertFalse(json.canOpen(dir.resolve("binary.json").apply { writeBytes(byteArrayOf(0x61, 0x00, 0x62)) }))
+        assertFalse(json.canOpen(dir.resolve("Pipfile.lock-binary").apply { writeBytes(byteArrayOf(0x61, 0)) }))
     }
 
     @Test
@@ -193,8 +206,8 @@ class CodeFileViewersTest {
     fun `lock files open in the viewer of their format`() {
         val fallback = DefaultTextFileViewer()
         val toml = samples.keys.single { it is TomlFileViewer }
-        val json = samples.keys.single { it is JsonFileViewer }
-        val viewers = FileViewers(listOf(fallback) + samples.keys, fallback)
+        val json = JsonFileViewer()
+        val viewers = FileViewers(listOf(fallback, json) + samples.keys, fallback)
 
         assertSame(json, viewers.viewerFor(file("Pipfile.lock")), "Pipfile.lock is JSON")
         for (name in listOf("Pipfile", "uv.lock", "poetry.lock", "pdm.lock", "Cargo.lock")) {

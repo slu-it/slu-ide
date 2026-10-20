@@ -4,8 +4,9 @@ import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.highlight.TomlHighlighter
 import dev.sluide.fileviewers.isTextFile
-import dev.sluide.fileviewers.languages.JsonFileViewer
+import dev.sluide.fileviewers.json.JsonFileViewer
 import dev.sluide.fileviewers.languages.PythonFileViewer
+import dev.sluide.fileviewers.preview.PreviewFileView
 import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.Label
@@ -431,7 +432,7 @@ class CodeViewUiTest {
     }
 
     @Test
-    fun `Pipfile lock opens as JSON with the banner`(robot: FxRobot) {
+    fun `Pipfile lock opens as a JSON preview whose source has the banner`(robot: FxRobot) {
         val pipfileLock = dir.resolve("Pipfile.lock").apply { writeText("{\"_meta\": {}}\n") }
         val view = WaitForAsyncUtils.asyncFx<FileView> { JsonFileViewer().open(pipfileLock) }.get()
         robot.interact { container.children.setAll(view.node) }
@@ -441,7 +442,7 @@ class CodeViewUiTest {
                 "editing this one.",
             generatedMessage(robot),
         )
-        assertTrue("property" in (view as CodeView).area.getStyleOfChar(2))
+        assertTrue("property" in (view as PreviewFileView).source.area.getStyleOfChar(2))
     }
 
     @Test

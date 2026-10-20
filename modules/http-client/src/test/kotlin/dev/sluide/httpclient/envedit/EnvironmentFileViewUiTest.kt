@@ -2,7 +2,7 @@ package dev.sluide.httpclient.envedit
 
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
-import dev.sluide.fileviewers.languages.JsonFileViewer
+import dev.sluide.fileviewers.json.JsonFileViewer
 import javafx.event.ActionEvent
 import javafx.scene.control.Button
 import javafx.scene.control.CheckBox

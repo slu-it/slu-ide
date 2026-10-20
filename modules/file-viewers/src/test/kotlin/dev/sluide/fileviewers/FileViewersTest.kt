@@ -3,10 +3,10 @@ package dev.sluide.fileviewers
 import dev.sluide.fileviewers.code.CodeFileViewer
 import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import dev.sluide.fileviewers.image.ImageFileViewer
+import dev.sluide.fileviewers.json.JsonFileViewer
 import dev.sluide.fileviewers.languages.CaddyfileFileViewer
 import dev.sluide.fileviewers.languages.DockerfileFileViewer
 import dev.sluide.fileviewers.languages.IgnoreFileViewer
-import dev.sluide.fileviewers.languages.JsonFileViewer
 import dev.sluide.fileviewers.languages.KotlinFileViewer
 import dev.sluide.fileviewers.languages.PythonFileViewer
 import dev.sluide.fileviewers.markdown.MarkdownFileViewer
@@ -247,6 +247,18 @@ class FileViewersTest {
             assertSame(json, viewers.viewerByName(dir.resolve("other.json"), ""))
             assertTrue(viewers.showsDiffs(named))
         }
+    }
+
+    @Test
+    fun `Pipfile lock goes to the JSON viewer, which shows diffs, by file and by name`() {
+        val json = JsonFileViewer()
+        val pipfileLock = dir.resolve("Pipfile.lock").apply { writeText("{}") }
+        val viewers = FileViewers(listOf(json), fallback)
+
+        assertSame(json, viewers.viewerFor(pipfileLock))
+        assertSame(json, viewers.viewerByName(dir.resolve("pipfile.lock"), ""))
+        assertSame(json, viewers.viewerByName(dir.resolve("a.json"), ""))
+        assertTrue(viewers.showsDiffs(json))
     }
 
     @Test
