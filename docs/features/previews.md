@@ -4,19 +4,20 @@
 [Markdown preview](markdown-preview.md)) and one viewer per format; decisions in
 [ADR 0016](../adr/0016-markdown-preview.md), [ADR 0017](../adr/0017-webview-previews.md),
 [ADR 0018](../adr/0018-html-preview-server.md), [ADR 0033](../adr/0033-zooming-images-and-diagrams.md) and
-[ADR 0064](../adr/0064-json-preview.md)
+[ADR 0064](../adr/0064-json-preview.md) and [ADR 0065](../adr/0065-xml-preview.md)
 
 Every preview shows the highlighted source beside the rendered file in a `WebView`, with a toolbar for **Source**,
 **Split** and **Preview**. The source can be edited; the preview shows the saved text and updates when the file is
 saved or changes on disk; links open in the system browser or a Thoreau tab
 and never navigate the preview (`FileViewHost`, [file-viewers.md](file-viewers.md)).
 
-JSON files have a [formatted, foldable preview](json-preview.md).
+JSON and XML files have a formatted, foldable preview ([JSON](json-preview.md), [XML](xml-preview.md)).
 
 ## Folding (`FoldControls`)
-Previews with foldable sections (JSON, [json-preview.md](json-preview.md)) have **Collapse All** and **Expand All**
-buttons on the left of the toolbar, only while the preview shows, not in Source. They close or open every section of
-the page; the page's folds are kept when the file is saved or changes on disk.
+Previews with foldable sections (JSON, XML: [json-preview.md](json-preview.md), [xml-preview.md](xml-preview.md))
+have **Collapse All** and **Expand All** buttons on the left of the toolbar, only while the preview shows, not in
+Source. They close or open every section of the page; the page's folds are kept when the file is saved or changes
+on disk.
 
 ## Zooming images and diagrams (`ZoomControls`)
 Images, SVG files, Mermaid files and Bicep resource graphs zoom; Markdown and notebook previews do not.
@@ -28,7 +29,7 @@ Images, SVG files, Mermaid files and Bicep resource graphs zoom; Markdown and no
 - **Focus** ([ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md)): when its tab is opened or chosen, an
   image, a preview shown alone (SVG, notebook, PEM) or a zooming preview in Split (Mermaid, Bicep) focuses its web
   view, so the keys work at once; typing in the source beside a diagram needs a click there. Other previews in Split
-  (Markdown, HTML, CSV, JSON) and previews in Source (Bicep by default) focus their source. Renaming or moving an
+  (Markdown, HTML, CSV, JSON, XML) and previews in Source (Bicep by default) focus their source. Renaming or moving an
   image to a name of the same type keeps its view and the focus; to another type (e.g. png to jpg) the tab gets a new
   view, which
   takes the focus if the old view had it (a rename in the file tree leaves it there). The zoom percentage has a fixed
