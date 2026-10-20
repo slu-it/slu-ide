@@ -9,10 +9,10 @@ import javafx.scene.Group
 import javafx.scene.SnapshotParameters
 import javafx.scene.image.PixelFormat
 import javafx.scene.image.WritableImage
+import javafx.scene.layout.Pane
 import javafx.scene.paint.Color
 import javafx.scene.text.FontSmoothingType
 import javafx.scene.web.WebView
-import javafx.stage.Popup
 import javafx.stage.PopupWindow
 import javafx.stage.Window
 import java.awt.image.BufferedImage
@@ -40,12 +40,15 @@ internal fun interface SvgRasterizer {
 /**
  * Draws with the preview's WebKit: the SVG is an `<img>` (so its scripts never run) in an offscreen [WebView], laid out
  * at [scale] times its own size (`naturalWidth` × `naturalHeight`, the preview's 100%), so that the vector stays sharp,
- * and snapshotted on a transparent background. A WebView only paints while its window shows, so it sits in a popup of
- * the app's window, far off screen and shown during the call only; a popup takes no focus and has no taskbar entry.
- * The view, its popup and the snapshot are at most [tile] × [tile] pixels: the image is shifted under the view and
- * drawn piece by piece, since JavaFX's Metal pipeline on macOS crashed natively creating very large render textures.
- * Fails if no window shows, if the text is not an SVG image, if a side would exceed [MAX_SIDE] pixels or the image
- * [MAX_PIXELS] pixels, or if the drawing is not done within [timeout].
+ * and snapshotted on a transparent background. A WebView only paints while its window shows, so during the call it sits
+ * in the root of the app's window, unseen: in a group that is not laid out, fully transparent, ignores the mouse and is
+ * far outside the window. A snapshot draws the view without its parents, so the group's opacity does not show in it.
+ * It is not a window of its own: on macOS with two displays of different scales, JavaFX's Metal pipeline crashed
+ * natively creating the back buffer of a popup far off screen (ADR 0059).
+ * The view and the snapshot are at most [tile] × [tile] pixels: the image is shifted under the view and drawn piece
+ * by piece, so that large images need no large render textures.
+ * Fails if no window shows whose root is a [Pane], if the text is not an SVG image, if a side would exceed [MAX_SIDE]
+ * pixels or the image [MAX_PIXELS] pixels, or if the drawing is not done within [timeout].
  */
 internal class WebViewSvgRasterizer(
     private val timeout: Duration = Duration.ofSeconds(30),
@@ -74,7 +77,7 @@ internal class WebViewSvgRasterizer(
             Thread.currentThread().interrupt()
             throw InterruptedIOException("Interrupted")
         } finally {
-            // Here, so that a start that is still to come shows nothing, and a late snapshot is not taken.
+            // Here, so that a start that is still to come adds nothing, and a late snapshot is not taken.
             session.result.completeExceptionally(IllegalStateException("Ended"))
             Platform.runLater(session::close)
         }
@@ -95,7 +98,7 @@ internal class WebViewSvgRasterizer(
     ) {
         val result = CompletableFuture<BufferedImage>()
         private var webView: WebView? = null
-        private var popup: Popup? = null
+        private var host: Group? = null
         private var timer: AnimationTimer? = null
         private val loaded =
             ChangeListener<Worker.State> { _, _, state ->
@@ -108,24 +111,25 @@ internal class WebViewSvgRasterizer(
 
         fun start() {
             if (result.isDone) return
-            val windows = Window.getWindows()
+            val windows = Window.getWindows().filter { it.isShowing && it !is PopupWindow && it.scene?.root is Pane }
             val owner =
-                windows.firstOrNull { it.isFocused && it !is PopupWindow }
-                    ?: windows.firstOrNull { it.isShowing && it !is PopupWindow }
-                    ?: return fail("No window to draw in")
+                windows.firstOrNull { it.isFocused } ?: windows.firstOrNull() ?: return fail("No window to draw in")
             val webView =
                 WebView().apply {
                     pageFill = Color.TRANSPARENT
                     // Subpixel smoothing would fringe text with colour on a transparent background.
                     fontSmoothingType = FontSmoothingType.GRAY
+                    isFocusTraversable = false
                 }
             this.webView = webView
-            popup =
-                Popup().apply {
-                    isAutoFix = false
-                    isAutoHide = false
-                    content += Group(webView)
-                    show(owner, OFF_SCREEN, OFF_SCREEN)
+            // Not invisible: a WebView whose tree is invisible does not paint.
+            host =
+                Group(webView).apply {
+                    isManaged = false
+                    opacity = 0.0
+                    isMouseTransparent = true
+                    relocate(OFF_SCREEN, OFF_SCREEN)
+                    (owner.scene.root as Pane).children += this
                 }
             webView.engine.loadWorker
                 .stateProperty()
@@ -198,8 +202,8 @@ internal class WebViewSvgRasterizer(
             }
 
             private fun snap() {
-                // A popup hides with its owner window, and then nothing is painted any more.
-                if (popup?.isShowing != true) {
+                // Once the window hides, nothing is painted any more.
+                if (host?.scene?.window?.isShowing != true) {
                     stop()
                     return fail("The window closed")
                 }
@@ -251,7 +255,7 @@ internal class WebViewSvgRasterizer(
             result.completeExceptionally(IOException(message))
         }
 
-        /** Hides the popup and frees the page's memory. */
+        /** Takes the view out of the window and frees the page's memory. */
         fun close() {
             timer?.stop()
             timer = null
@@ -261,8 +265,8 @@ internal class WebViewSvgRasterizer(
                 .stateProperty()
                 .removeListener(loaded)
             webView.engine.load("about:blank")
-            popup?.hide()
-            popup = null
+            host?.let { (it.parent as? Pane)?.children?.remove(it) }
+            host = null
         }
     }
 
@@ -273,13 +277,13 @@ internal class WebViewSvgRasterizer(
         /** The most pixels of a drawing: 32 Mi, 128 MiB as the image. */
         const val MAX_PIXELS = 1L shl 25
 
-        /** Where the popup is shown: far off any screen. */
+        /** Where the view is laid out in the window: far outside it, so that it is not drawn there even if shown. */
         private const val OFF_SCREEN = -20000.0
 
         /** The pulse of the first snapshot of a tile: the view shows the image's new size or position from the third. */
         private const val MIN_PULSES = 3
 
-        /** The largest side of the view, of its popup and of a snapshot, in pixels. */
+        /** The largest side of the view and of a snapshot, in pixels. */
         private const val TILE = 1024
 
         /** The pulse of the last snapshot. */

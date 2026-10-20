@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers.image
 
+import javafx.collections.ListChangeListener
 import javafx.scene.Scene
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
@@ -13,7 +14,9 @@ import org.testfx.util.WaitForAsyncUtils
 import java.awt.image.BufferedImage
 import java.io.IOException
 import java.time.Duration
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutionException
+import java.util.concurrent.TimeUnit
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -29,7 +32,7 @@ class SvgRasterizerUiTest {
 
     @Start
     fun start(stage: Stage) {
-        // The rasteriser draws in a popup of a window that shows.
+        // The rasteriser draws in the root of a window that shows.
         this.stage = stage
         stage.scene = Scene(StackPane(), 200.0, 100.0)
         stage.show()
@@ -104,6 +107,22 @@ class SvgRasterizerUiTest {
     }
 
     @Test
+    fun `the image is drawn in the window, which is left as it was`() {
+        val windows = mutableListOf<Window>()
+        val listener = ListChangeListener<Window> { change -> while (change.next()) windows += change.addedSubList }
+        WaitForAsyncUtils.asyncFx { Window.getWindows().addListener(listener) }.get()
+        try {
+            rasterize(HALF_RED, 1)
+            WaitForAsyncUtils.waitForFxEvents()
+        } finally {
+            WaitForAsyncUtils.asyncFx { Window.getWindows().removeListener(listener) }.get()
+        }
+        // A window of its own (a popup off screen) crashed JavaFX's Metal pipeline with displays of different scales.
+        assertEquals(emptyList(), windows, "a window was opened")
+        assertEquals(emptyList(), (stage.scene.root as StackPane).childrenUnmodifiable, "the view stayed in the root")
+    }
+
+    @Test
     fun `text that is not an SVG fails`() {
         val failure = assertFailsWith<IOException> { rasterize("not an image", 1) }
         assertEquals("Not an SVG image", failure.message)
@@ -131,6 +150,27 @@ class SvgRasterizerUiTest {
             assertTrue(Window.getWindows().none { it.isShowing }, "a window still shows")
             val failure = assertFailsWith<IOException> { rasterize(HALF_RED, 1) }
             assertEquals("No window to draw in", failure.message)
+        } finally {
+            robot.interact { stage.show() }
+        }
+    }
+
+    @Test
+    fun `a window that closes during the drawing fails it`(robot: FxRobot) {
+        val root = stage.scene.root as StackPane
+        // Large enough to take more than one pulse, transparent so that each tile takes all of them.
+        val large = "<svg xmlns='http://www.w3.org/2000/svg' width='300' height='300'/>"
+        val drawing =
+            CompletableFuture.supplyAsync {
+                WebViewSvgRasterizer(
+                    tile = 64,
+                ).rasterize(large.toByteArray(), 1)
+            }
+        try {
+            WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { root.childrenUnmodifiable.isNotEmpty() }
+            robot.interact { stage.hide() }
+            val failure = assertFailsWith<ExecutionException> { drawing.get(10, TimeUnit.SECONDS) }
+            assertEquals("The window closed", failure.cause?.message)
         } finally {
             robot.interact { stage.show() }
         }
