@@ -23,7 +23,7 @@ internal class XmlElement(
 }
 
 /** Trimmed text, entity references already decoded. */
-internal class XmlText(
+internal class XmlTextNode(
     val text: String,
 ) : XmlNode
 
@@ -150,7 +150,7 @@ internal object XmlParser {
         fun flush(): Boolean {
             val trimmed = pending.toString().trim()
             pending.setLength(0)
-            return trimmed.isEmpty() || add(XmlText(trimmed))
+            return trimmed.isEmpty() || add(XmlTextNode(trimmed))
         }
 
         try {
@@ -255,3 +255,19 @@ internal object XmlParser {
         return where + message
     }
 }
+
+/** [text] with `&` and `<` escaped, and `"` too if [quotes] (for an attribute value). */
+internal fun xmlEscape(
+    text: String,
+    quotes: Boolean,
+): String =
+    buildString(text.length + 8) {
+        for (c in text) {
+            when {
+                c == '&' -> append("&amp;")
+                c == '<' -> append("&lt;")
+                c == '"' && quotes -> append("&quot;")
+                else -> append(c)
+            }
+        }
+    }

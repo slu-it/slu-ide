@@ -2,11 +2,6 @@ package dev.sluide.fileviewers.json
 
 import dev.sluide.fileviewers.preview.HtmlPage
 import dev.sluide.fileviewers.preview.appendFoldState
-import tools.jackson.core.JacksonException
-import tools.jackson.core.JsonToken
-import tools.jackson.core.io.JsonStringEncoder
-import tools.jackson.core.json.JsonReadFeature
-import tools.jackson.databind.json.JsonMapper
 import java.util.Locale
 
 /**
@@ -23,44 +18,10 @@ internal object JsonRenderer {
     /** The most values (scalars and containers) a page shows; the rest of a larger file is left out with a note. */
     const val MAX_VALUES = 100_000
 
-    private val mapper =
-        JsonMapper
-            .builder()
-            .enable(JsonReadFeature.ALLOW_JAVA_COMMENTS, JsonReadFeature.ALLOW_TRAILING_COMMA)
-            .build()
-
-    /** The parenthetical with the `[Source: …]` excerpt that Jackson appends to some messages. */
-    private val sourceExcerpt = Regex("""\s*\([^()]*\[Source:.*$""", RegexOption.DOT_MATCHES_ALL)
-
     private val stylesheet = HtmlPage.resource("preview.css")
     private val treeStylesheet = HtmlPage.resource("fold-tree.css")
     private val script = HtmlPage.resource("preview.js")
     private val treeScript = HtmlPage.resource("fold-tree.js")
-
-    private enum class Kind(
-        val container: Boolean = false,
-    ) {
-        OBJECT(true),
-        ARRAY(true),
-        STRING,
-        NUMBER,
-        KEYWORD,
-    }
-
-    private class Node(
-        val kind: Kind,
-        val key: String?,
-        val text: String,
-        val line: Int,
-    ) {
-        val children = ArrayList<Node>()
-    }
-
-    private class Parsed(
-        val root: Node?,
-        val error: String?,
-        val truncated: Boolean,
-    )
 
     /** The formatted page of [text]; containers whose JSON Pointer is in [collapsed] start closed. */
     fun render(
@@ -77,7 +38,7 @@ internal object JsonRenderer {
     ): String {
         // Editors may save a byte order mark.
         val source = text.removePrefix("\uFEFF")
-        val parsed = if (source.isBlank()) null else parse(source, maxValues)
+        val parsed = if (source.isBlank()) null else JsonTree.parse(source, maxValues)
         return HtmlPage.render(
             dark,
             listOf(stylesheet, treeStylesheet),
@@ -108,86 +69,8 @@ internal object JsonRenderer {
         }
     }
 
-    /**
-     * The values of [text] as a tree: all that precedes the first error (reported as such), or the first [maxValues].
-     */
-    private fun parse(
-        text: String,
-        maxValues: Int,
-    ): Parsed {
-        var root: Node? = null
-        var error: String? = null
-        var truncated = false
-        val stack = ArrayList<Node>()
-        try {
-            mapper.createParser(text).use { parser ->
-                var key: String? = null
-                var keyLine = 0
-                var count = 0
-                while (true) {
-                    val token = parser.nextToken() ?: break
-                    if (token == JsonToken.PROPERTY_NAME) {
-                        key = parser.currentName()
-                        keyLine = parser.currentTokenLocation().lineNr - 1
-                        continue
-                    }
-                    if (token == JsonToken.END_OBJECT || token == JsonToken.END_ARRAY) {
-                        stack.removeLast()
-                        continue
-                    }
-                    if (stack.isEmpty() && root != null) {
-                        error = "Unexpected content after the end of the value"
-                        break
-                    }
-                    if (count >= maxValues) {
-                        truncated = true
-                        break
-                    }
-                    count++
-                    val kind =
-                        when (token) {
-                            JsonToken.START_OBJECT -> Kind.OBJECT
-                            JsonToken.START_ARRAY -> Kind.ARRAY
-                            JsonToken.VALUE_STRING -> Kind.STRING
-                            JsonToken.VALUE_NUMBER_INT, JsonToken.VALUE_NUMBER_FLOAT -> Kind.NUMBER
-                            else -> Kind.KEYWORD
-                        }
-                    // A member starts at its key, an element or the root at its value.
-                    val line = if (key != null) keyLine else parser.currentTokenLocation().lineNr - 1
-                    val node = Node(kind, key, if (kind.container) "" else parser.text, line)
-                    key = null
-                    if (stack.isEmpty()) root = node else stack.last().children += node
-                    if (kind.container) stack += node
-                }
-            }
-        } catch (e: JacksonException) {
-            error = describe(e, stack.lastOrNull())
-        }
-        return Parsed(root, error, truncated)
-    }
-
-    /**
-     * "Line 3, column 7: message" for [e], without Jackson's source excerpt; [open] is the innermost unclosed
-     * container.
-     */
-    private fun describe(
-        e: JacksonException,
-        open: Node?,
-    ): String {
-        val line = e.location?.lineNr ?: 0
-        val where = if (line > 0) "Line $line, column ${e.location?.columnNr}: " else ""
-        val message = e.originalMessage.orEmpty()
-        if (open != null && message.startsWith("Unexpected end-of-input") &&
-            ("expected close marker" in message || "within/between" in message)
-        ) {
-            val what = if (open.kind == Kind.OBJECT) "object" else "array"
-            return where + "the $what opened on line ${open.line + 1} is not closed"
-        }
-        return where + message.replace(sourceExcerpt, "").substringBefore(" (start marker at").trim()
-    }
-
     private fun StringBuilder.write(
-        node: Node,
+        node: JsonValue,
         path: String,
         collapsed: Set<String>,
         comma: Boolean,
@@ -200,22 +83,37 @@ internal object JsonRenderer {
         append("<div data-line=\"").append(node.line).append("\">")
         writeKey(node)
         when (node.kind) {
-            Kind.OBJECT -> append("{}")
-            Kind.ARRAY -> append("[]")
-            Kind.STRING -> append("<span class=\"string\">").append(HtmlPage.escape(quote(node.text))).append("</span>")
-            Kind.NUMBER -> append("<span class=\"number\">").append(HtmlPage.escape(node.text)).append("</span>")
-            Kind.KEYWORD -> append("<span class=\"keyword\">").append(HtmlPage.escape(node.text)).append("</span>")
+            JsonKind.OBJECT -> {
+                append("{}")
+            }
+
+            JsonKind.ARRAY -> {
+                append("[]")
+            }
+
+            JsonKind.STRING -> {
+                val quoted = HtmlPage.escape(JsonTree.quote(node.text))
+                append("<span class=\"string\">").append(quoted).append("</span>")
+            }
+
+            JsonKind.NUMBER -> {
+                append("<span class=\"number\">").append(HtmlPage.escape(node.text)).append("</span>")
+            }
+
+            JsonKind.KEYWORD -> {
+                append("<span class=\"keyword\">").append(HtmlPage.escape(node.text)).append("</span>")
+            }
         }
         append(separator).append("</div>")
     }
 
     private fun StringBuilder.writeContainer(
-        node: Node,
+        node: JsonValue,
         path: String,
         collapsed: Set<String>,
         separator: String,
     ) {
-        val isObject = node.kind == Kind.OBJECT
+        val isObject = node.kind == JsonKind.OBJECT
         val open = if (isObject) "{" else "["
         val close = if (isObject) "}" else "]"
         val size = node.children.size
@@ -244,19 +142,11 @@ internal object JsonRenderer {
         append("</div><div class=\"close\">").append(close).append(separator).append("</div></details>")
     }
 
-    private fun StringBuilder.writeKey(node: Node) {
+    private fun StringBuilder.writeKey(node: JsonValue) {
         if (node.key != null) {
-            append("<span class=\"property\">").append(HtmlPage.escape(quote(node.key))).append("</span>: ")
+            append("<span class=\"property\">").append(HtmlPage.escape(JsonTree.quote(node.key))).append("</span>: ")
         }
     }
-
-    /** [text] as a JSON string literal. */
-    private fun quote(text: String): String =
-        StringBuilder(text.length + 2)
-            .append('"')
-            .also { JsonStringEncoder.getInstance().quoteAsString(text, it) }
-            .append('"')
-            .toString()
 
     private fun pointer(key: String) = key.replace("~", "~0").replace("/", "~1")
 }

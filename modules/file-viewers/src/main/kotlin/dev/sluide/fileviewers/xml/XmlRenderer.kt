@@ -90,7 +90,7 @@ internal object XmlRenderer {
 
     /** Text and CDATA alone in an element stay on its line; everything else gives the element a fold. */
     private fun XmlElement.isLeaf() =
-        children.isEmpty() || (children.size == 1 && children[0].let { it is XmlText || it is XmlCdata })
+        children.isEmpty() || (children.size == 1 && children[0].let { it is XmlTextNode || it is XmlCdata })
 
     private fun StringBuilder.writeElement(
         element: XmlElement,
@@ -159,7 +159,7 @@ internal object XmlRenderer {
     /** A node that is not an element, on the line of its parent or alone. */
     private fun StringBuilder.writeInline(node: XmlNode) {
         when (node) {
-            is XmlText -> {
+            is XmlTextNode -> {
                 append(escape(xmlEscape(node.text, quotes = false)))
             }
 
@@ -188,21 +188,6 @@ internal object XmlRenderer {
             }
         }
     }
-
-    private fun xmlEscape(
-        text: String,
-        quotes: Boolean,
-    ): String =
-        buildString(text.length + 8) {
-            for (c in text) {
-                when {
-                    c == '&' -> append("&amp;")
-                    c == '<' -> append("&lt;")
-                    c == '"' && quotes -> append("&quot;")
-                    else -> append(c)
-                }
-            }
-        }
 
     private fun escape(text: String) = HtmlPage.escape(text)
 }
