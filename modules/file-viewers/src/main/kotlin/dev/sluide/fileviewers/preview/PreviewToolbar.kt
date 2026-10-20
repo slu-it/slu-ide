@@ -15,7 +15,7 @@ import javafx.scene.web.WebView
 /**
  * The toolbar of a [PreviewFileView]: the mode buttons ([buttons], one per [PreviewMode], in [modes]) on the right and
  * on the left what the [preview] has: the scripts toggle, the table of contents' button, the zoom controls, the fold
- * controls, and the Export button. Everything runs on the FX thread.
+ * controls, the Copy Formatted button, and the Export button. Everything runs on the FX thread.
  */
 internal class PreviewToolbar(
     preview: Preview,
@@ -26,6 +26,7 @@ internal class PreviewToolbar(
     export: ExportControls?,
     zoom: ZoomControls?,
     folds: FoldControls?,
+    copy: CopyFormattedControls?,
     webView: WebView,
 ) {
     val buttons =
@@ -62,7 +63,16 @@ internal class PreviewToolbar(
             } else if (folds != null) {
                 folds.node.visibleProperty().bind(mode.map { it != PreviewMode.SOURCE })
                 folds.node.managedProperty().bind(folds.node.visibleProperty())
-                listOfNotNull(folds.node, export?.button, Region().apply { HBox.setHgrow(this, Priority.ALWAYS) })
+                copy?.node?.let { copyNode ->
+                    copyNode.visibleProperty().bind(mode.map { it != PreviewMode.SOURCE })
+                    copyNode.managedProperty().bind(copyNode.visibleProperty())
+                }
+                listOfNotNull(
+                    folds.node,
+                    copy?.node,
+                    export?.button,
+                    Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
+                )
             } else {
                 emptyList()
             }

@@ -70,6 +70,15 @@ internal interface Preview {
      */
     val folds: Boolean get() = false
 
+    /**
+     * Whether the preview can put its text formatted on the clipboard ([formatted]): the view then has a Copy Formatted
+     * button ([CopyFormattedControls]) after the fold buttons while it shows the preview.
+     */
+    val copiesFormatted: Boolean get() = false
+
+    /** The formatted plain text of [text] to copy, or why there is none; only called if [copiesFormatted]. */
+    fun formatted(text: String): Formatted = error("This preview does not copy its text formatted")
+
     /** Whether the preview has headings ([outline]), so that the view has a table of contents ([TableOfContents]). */
     val hasOutline: Boolean get() = false
 

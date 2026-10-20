@@ -167,6 +167,29 @@ class PreviewFileViewersTest {
     }
 
     @Test
+    fun `a preview that copies its text formatted must fold`() {
+        val copying =
+            object : Preview {
+                override fun load(
+                    engine: WebEngine,
+                    file: Path,
+                    text: String,
+                    dark: Boolean,
+                    root: Path,
+                ) = Unit
+
+                override val copiesFormatted get() = true
+            }
+        assertFailsWith<IllegalArgumentException> {
+            PreviewFileView(
+                text("page.html"),
+                RSyntaxHighlighter.xml,
+                copying,
+            )
+        }
+    }
+
+    @Test
     fun `pages loaded from a string have no location of their own`() {
         assertEquals(
             listOf(true, true, true, false, false),

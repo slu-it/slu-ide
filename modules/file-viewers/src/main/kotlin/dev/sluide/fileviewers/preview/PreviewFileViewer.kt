@@ -89,7 +89,8 @@ abstract class PreviewFileViewer internal constructor(
  * shows; the page keeps the zoom when it is rendered again.
  *
  * Previews that [fold][Preview.folds] have the [folds] buttons (Collapse All, Expand All) on the left of the toolbar
- * while the preview shows.
+ * while the preview shows. If they also [copy their text formatted][Preview.copiesFormatted], the Copy Formatted button
+ * follows them.
  */
 internal class PreviewFileView(
     file: Path,
@@ -106,6 +107,8 @@ internal class PreviewFileView(
         require(!(preview.folds && (preview.offersScripts || preview.zooms || preview.hasOutline))) {
             "A preview that folds cannot offer scripts, zoom or have an outline"
         }
+        // The Copy Formatted button sits beside the fold buttons.
+        require(!preview.copiesFormatted || preview.folds) { "A preview that copies its text formatted must fold" }
     }
 
     /** The file shown; it changes when the file is [moved]. */
@@ -175,6 +178,10 @@ internal class PreviewFileView(
     /** The Collapse All and Expand All buttons, if the preview [folds][Preview.folds]. */
     val folds: FoldControls? = if (preview.folds) FoldControls(engine) { isLoaded } else null
 
+    /** The Copy Formatted button, if the preview [copies its text formatted][Preview.copiesFormatted]. */
+    val copyFormatted =
+        if (preview.copiesFormatted) CopyFormattedControls({ preview.formatted(source.savedText) }) else null
+
     /** Its [project folder][FileViewHost.projectFolder] gives the page its [root]. */
     override var host: FileViewHost? = null
         set(value) {
@@ -227,7 +234,8 @@ internal class PreviewFileView(
     /** Whether the view started a load that has not finished yet; a load it did not start is the page's own doing. */
     private var loading = false
 
-    private val toolbar = PreviewToolbar(preview, modes, mode, scripts, toc, export, zoom, folds, webView)
+    private val toolbar =
+        PreviewToolbar(preview, modes, mode, scripts, toc, export, zoom, folds, copyFormatted, webView)
     private val buttons = toolbar.buttons
 
     init {
@@ -334,6 +342,7 @@ internal class PreviewFileView(
         disposed = true
         stopped = true
         pendingFocus.cancel()
+        copyFormatted?.clear()
         toc?.close()
         engine.load("")
         source.dispose()
@@ -363,6 +372,7 @@ internal class PreviewFileView(
         if (stopped || text == renderedText) return
         renderedText = text
         tocJump = null
+        copyFormatted?.clear()
         rememberScroll()
         try {
             loading = true

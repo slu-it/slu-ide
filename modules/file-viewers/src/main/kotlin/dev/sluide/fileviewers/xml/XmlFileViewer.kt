@@ -39,4 +39,8 @@ internal object XmlPreview : Preview {
     override val syncsScroll get() = true
 
     override val folds get() = true
+
+    override val copiesFormatted get() = true
+
+    override fun formatted(text: String) = XmlText.format(text)
 }

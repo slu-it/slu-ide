@@ -5,8 +5,11 @@ import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.preview.PreviewFileView
 import dev.sluide.fileviewers.preview.PreviewMode
 import javafx.concurrent.Worker
+import javafx.event.ActionEvent
 import javafx.scene.Scene
 import javafx.scene.control.Button
+import javafx.scene.input.Clipboard
+import javafx.scene.input.ClipboardContent
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
@@ -180,5 +183,94 @@ class JsonPreviewUiTest {
 
         assertTrue(FileViewers(listOf(JsonFileViewer()), DefaultTextFileViewer()).viewerFor(file) is JsonFileViewer)
         assertEquals(4, view.open())
+    }
+
+    private fun clipboardText(): String? =
+        WaitForAsyncUtils
+            .asyncFx<String?> {
+                Clipboard.getSystemClipboard().string
+            }.get()
+
+    private fun setClipboard(text: String) =
+        WaitForAsyncUtils
+            .asyncFx {
+                Clipboard.getSystemClipboard().setContent(ClipboardContent().apply { putString(text) })
+            }.get()
+
+    private fun PreviewFileView.message() = WaitForAsyncUtils.asyncFx<String> { copyFormatted!!.message.text }.get()
+
+    @Test
+    fun `Copy Formatted shows in Split and Preview but not in Source`(robot: FxRobot) {
+        val (_, view) = show(robot)
+        val copy = checkNotNull(view.copyFormatted)
+
+        for ((mode, visible) in listOf(
+            PreviewMode.SOURCE to false,
+            PreviewMode.SPLIT to true,
+            PreviewMode.PREVIEW to true,
+        )) {
+            robot.interact { view.mode.set(mode) }
+            WaitForAsyncUtils.waitForFxEvents()
+            assertEquals(visible, WaitForAsyncUtils.asyncFx<Boolean> { copy.node.isVisible }.get(), mode.name)
+            assertEquals(visible, WaitForAsyncUtils.asyncFx<Boolean> { copy.node.isManaged }.get(), mode.name)
+        }
+    }
+
+    @Test
+    fun `Copy Formatted puts the saved text formatted on the clipboard, without unsaved edits`(robot: FxRobot) {
+        val (_, view) = show(robot)
+        robot.interact { view.mode.set(PreviewMode.SPLIT) }
+        robot.interact { view.source.area.replaceText(1, 1, "\"unsaved\": 1, ") }
+        assertTrue(view.dirty.get())
+
+        setClipboard("MARKER")
+        robot.fire(".preview-copy-formatted")
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(
+            "{\n  \"deps\": {\n    \"a\": 1,\n    \"b\": [\n      1,\n      2\n    ]\n  },\n" +
+                "  \"other\": {\n    \"c\": true\n  }\n}\n",
+            clipboardText(),
+        )
+        assertEquals("Copied", view.message())
+    }
+
+    @Test
+    fun `Copy Formatted leaves the clipboard alone when the saved text is invalid`(robot: FxRobot) {
+        val (_, view) = show(robot)
+        robot.interact { view.mode.set(PreviewMode.SPLIT) }
+        robot.interact { view.source.area.replaceText(0, view.source.area.length, "{\"a\" 1}") }
+        robot.interact { view.save() }
+        awaitLoaded(view)
+        setClipboard("MARKER")
+
+        robot.fire(".preview-copy-formatted")
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals("MARKER", clipboardText())
+        assertTrue(view.message().startsWith("Not copied: Line "), view.message())
+    }
+
+    @Test
+    fun `the Copy Formatted message goes away when its pause ends and when the file is rendered again`(robot: FxRobot) {
+        val (_, view) = show(robot)
+        robot.interact { view.mode.set(PreviewMode.SPLIT) }
+        val copy = checkNotNull(view.copyFormatted)
+
+        robot.fire(".preview-copy-formatted")
+        assertEquals("Copied", view.message())
+        robot.interact {
+            // Ends the pause at once, as its end would.
+            copy.pause.stop()
+            copy.pause.onFinished.handle(ActionEvent())
+        }
+        assertEquals("", view.message())
+
+        robot.fire(".preview-copy-formatted")
+        assertEquals("Copied", view.message())
+        robot.interact { view.source.area.replaceText(0, 0, " ") }
+        robot.interact { view.save() }
+        awaitLoaded(view)
+        assertEquals("", view.message())
     }
 }

@@ -2,7 +2,8 @@
  * Preview view (PreviewFileView): the toolbar with the Source / Split / Preview toggles above source and preview,
  * for images and diagrams with the zoom controls (ZoomControls) on its left, for Markdown with the button of the table
  * of contents (TableOfContents) and the Export menu (ExportControls) there, for pages with foldable sections the
- * Collapse All and Expand All buttons (FoldControls); the overlay of the table of contents floats over the top left of
+ * Collapse All and Expand All buttons (FoldControls) and, after them, Copy Formatted with its message
+ * (CopyFormattedControls); the overlay of the table of contents floats over the top left of
  * the view. The image view (ImageFileView) has a toolbar with only the zoom controls. The diff view
  * (SideBySideDiffView) has the same toolbar, with buttons that jump between changes and one back to the editor.
  */
@@ -24,6 +25,17 @@
 .diff-nav .ikonli-font-icon, .diff-back .ikonli-font-icon, .zoom-button .ikonli-font-icon,
 .fold-button .ikonli-font-icon, .toc-button .ikonli-font-icon, .preview-export .ikonli-font-icon {
     -fx-icon-color: -fx-text-base-color;
+}
+
+/* Copy Formatted (CopyFormattedControls): the message beside the button, muted, red when nothing was copied. */
+.preview-copy-message {
+    -fx-padding: 0 8 0 4;
+    -fx-font-size: 0.9em;
+    -fx-text-fill: derive(-fx-text-base-color, 30%);
+}
+
+.preview-copy-message:error {
+    -fx-text-fill: #c62828;
 }
 
 .diff-counter, .zoom-level {
@@ -76,4 +88,11 @@
     -fx-spacing: 12;
     -fx-padding: 24;
     -fx-background-color: -fx-background;
+}
+
+/* Same construction as code-view.css: the dark colour of the failure message. */
+@media (prefers-color-scheme: dark) {
+    .preview-copy-message:error {
+        -fx-text-fill: #ef8a80;
+    }
 }
