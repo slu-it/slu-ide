@@ -42,19 +42,26 @@ internal fun interface SvgRasterizer {
  * at [scale] times its own size (`naturalWidth` × `naturalHeight`, the preview's 100%), so that the vector stays sharp,
  * and snapshotted on a transparent background. A WebView only paints while its window shows, so it sits in a popup of
  * the app's window, far off screen and shown during the call only; a popup takes no focus and has no taskbar entry.
+ * The view, its popup and the snapshot are at most [tile] × [tile] pixels: the image is shifted under the view and
+ * drawn piece by piece, since JavaFX's Metal pipeline on macOS crashed natively creating very large render textures.
  * Fails if no window shows, if the text is not an SVG image, if a side would exceed [MAX_SIDE] pixels or the image
  * [MAX_PIXELS] pixels, or if the drawing is not done within [timeout].
  */
 internal class WebViewSvgRasterizer(
     private val timeout: Duration = Duration.ofSeconds(30),
+    private val tile: Int = TILE,
 ) : SvgRasterizer {
+    init {
+        require(tile >= 1) { "Tile $tile" }
+    }
+
     override fun rasterize(
         svg: ByteArray,
         scale: Int,
     ): BufferedImage {
         check(!Platform.isFxApplicationThread()) { "Rasterising blocks; not on the FX thread" }
         require(scale >= 1) { "Scale $scale" }
-        val session = Session(page(svg), scale)
+        val session = Session(page(svg), scale, tile)
         Platform.runLater { session.failOnError(session::start) }
         try {
             return session.result.get(timeout.toMillis(), TimeUnit.MILLISECONDS)
@@ -74,15 +81,17 @@ internal class WebViewSvgRasterizer(
     }
 
     /**
-     * One call's view, on the FX thread: loads the [page], sizes the image and the view at [scale] once it is loaded,
-     * and snapshots it from the [MIN_PULSES]th pulse on until two snapshots agree (a paint can take more than one
-     * pulse), at the [MAX_PULSES]th at the latest (an animated SVG never settles). A blank snapshot is not taken as
-     * settled, since the view is blank until its first paint: a blank SVG takes [MAX_PULSES] pulses. The [result] is
-     * the last snapshot.
+     * One call's view, on the FX thread: loads the [page], sizes the image at [scale] and the view at a [tile] of it
+     * once it is loaded, and draws the image tile by tile, row by row: it shifts the image so that the tile is at the
+     * view's top left and snapshots the view from the [MIN_PULSES]th pulse after the shift on until two snapshots of
+     * the tile agree (a paint can take more than one pulse), at the [MAX_PULSES]th at the latest (an animated SVG
+     * never settles). A blank snapshot is not taken as settled, since the view is blank until its first paint: a
+     * fully transparent tile takes [MAX_PULSES] pulses. The [result] is the image of the tiles' last snapshots.
      */
     private class Session(
         private val page: String,
         private val scale: Int,
+        private val tile: Int,
     ) {
         val result = CompletableFuture<BufferedImage>()
         private var webView: WebView? = null
@@ -141,32 +150,51 @@ internal class WebViewSvgRasterizer(
             if (width > MAX_SIDE || height > MAX_SIDE || width * height > MAX_PIXELS) {
                 return fail("Too large at ${scale * 100}%: $width × $height px")
             }
-            engine.executeScript(
-                "document.getElementById('svg').style.cssText = 'width: ${width}px; height: ${height}px'",
-            )
-            webView.setMinSize(width.toDouble(), height.toDouble())
-            webView.setPrefSize(width.toDouble(), height.toDouble())
-            webView.setMaxSize(width.toDouble(), height.toDouble())
-            webView.resize(width.toDouble(), height.toDouble())
             val image = BufferedImage(width.toInt(), height.toInt(), BufferedImage.TYPE_INT_ARGB)
+            val (viewWidth, viewHeight) = minOf(tile, image.width).toDouble() to minOf(tile, image.height).toDouble()
+            webView.setMinSize(viewWidth, viewHeight)
+            webView.setPrefSize(viewWidth, viewHeight)
+            webView.setMaxSize(viewWidth, viewHeight)
+            webView.resize(viewWidth, viewHeight)
             timer = Snapshots(webView, image).also { it.start() }
         }
 
-        /** Snapshots the [webView] into the [image]'s pixels on each pulse, as described at [Session]. */
+        /** Snapshots the [webView] tile by tile into the [image]'s pixels on each pulse, as described at [Session]. */
         private inner class Snapshots(
             private val webView: WebView,
             private val image: BufferedImage,
         ) : AnimationTimer() {
             private val pixels = (image.raster.dataBuffer as DataBufferInt).data
             private val parameters = SnapshotParameters().apply { fill = Color.TRANSPARENT }
+            private val viewWidth = minOf(tile, image.width)
+            private val viewHeight = minOf(tile, image.height)
+            private val tilePixels = IntArray(viewWidth * viewHeight)
+            private val columns = (image.width + tile - 1) / tile
+            private val tiles = columns * ((image.height + tile - 1) / tile)
             private var snapshot: WritableImage? = null
+            private var index = 0
             private var pulses = 0
             private var previous: Int? = null
+
+            init {
+                shift()
+            }
 
             override fun handle(now: Long) {
                 if (result.isDone) return stop()
                 if (++pulses < MIN_PULSES) return
                 failOnError(::snap)
+            }
+
+            /** Lays the image out so that the tile at [index] is at the view's top left. */
+            private fun shift() {
+                val (x, y) = index % columns * tile to index / columns * tile
+                webView.engine.executeScript(
+                    "document.getElementById('svg').style.cssText = " +
+                        "'width: ${image.width}px; height: ${image.height}px; left: -${x}px; top: -${y}px'",
+                )
+                pulses = 0
+                previous = null
             }
 
             private fun snap() {
@@ -176,19 +204,34 @@ internal class WebViewSvgRasterizer(
                     return fail("The window closed")
                 }
                 val snapshot = webView.snapshot(parameters, snapshot).also { snapshot = it }
-                val (width, height) = image.width to image.height
-                if (snapshot.width.toInt() != width || snapshot.height.toInt() != height) {
+                if (snapshot.width.toInt() != viewWidth || snapshot.height.toInt() != viewHeight) {
                     stop()
-                    return fail("Drawn at ${snapshot.width} × ${snapshot.height} px instead of $width × $height px")
+                    return fail(
+                        "Drawn at ${snapshot.width} × ${snapshot.height} px instead of $viewWidth × $viewHeight px",
+                    )
                 }
-                snapshot.pixelReader.getPixels(0, 0, width, height, PixelFormat.getIntArgbInstance(), pixels, 0, width)
-                val hash = pixels.contentHashCode()
-                val blank = pixels.all { it ushr 24 == 0 }
-                if ((hash == previous && !blank) || pulses >= MAX_PULSES) {
+                val (x, y) = index % columns * tile to index / columns * tile
+                val (width, height) = minOf(tile, image.width - x) to minOf(tile, image.height - y)
+                val format = PixelFormat.getIntArgbInstance()
+                snapshot.pixelReader.getPixels(0, 0, width, height, format, tilePixels, 0, width)
+                var hash = 1
+                var blank = true
+                for (i in 0 until width * height) {
+                    hash = 31 * hash + tilePixels[i]
+                    blank = blank && tilePixels[i] ushr 24 == 0
+                }
+                if ((hash != previous || blank) && pulses < MAX_PULSES) {
+                    previous = hash
+                    return
+                }
+                for (row in 0 until height) {
+                    System.arraycopy(tilePixels, row * width, pixels, (y + row) * image.width + x, width)
+                }
+                if (++index < tiles) {
+                    shift()
+                } else {
                     stop()
                     result.complete(image)
-                } else {
-                    previous = hash
                 }
             }
         }
@@ -227,20 +270,24 @@ internal class WebViewSvgRasterizer(
         /** The largest side of a drawing, in pixels. */
         const val MAX_SIDE = 8192
 
-        /** The most pixels of a drawing: 32 Mi, 128 MiB as the image and as many as the snapshot. */
+        /** The most pixels of a drawing: 32 Mi, 128 MiB as the image. */
         const val MAX_PIXELS = 1L shl 25
 
         /** Where the popup is shown: far off any screen. */
         private const val OFF_SCREEN = -20000.0
 
-        /** The pulse of the first snapshot: the view shows the resized image from the third pulse on. */
+        /** The pulse of the first snapshot of a tile: the view shows the image's new size or position from the third. */
         private const val MIN_PULSES = 3
+
+        /** The largest side of the view, of its popup and of a snapshot, in pixels. */
+        private const val TILE = 1024
 
         /** The pulse of the last snapshot. */
         private const val MAX_PULSES = 20
 
         private const val STYLE =
-            "html, body { margin: 0; overflow: hidden; background: transparent; } img { display: block; }"
+            "html, body { margin: 0; overflow: hidden; background: transparent; } " +
+                "img { display: block; position: absolute; left: 0; top: 0; }"
 
         /** The page with the SVG as a `data:` image. */
         private fun page(svg: ByteArray) =

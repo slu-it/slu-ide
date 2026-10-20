@@ -14,6 +14,7 @@ import java.awt.image.BufferedImage
 import java.io.IOException
 import java.time.Duration
 import java.util.concurrent.ExecutionException
+import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -155,9 +156,67 @@ class SvgRasterizerUiTest {
         assertIs<IllegalStateException>(failure.cause)
     }
 
+    @Test
+    fun `an image drawn in tiles equals the image drawn in one`() {
+        for (scale in listOf(1, 3)) {
+            val whole = rasterize(SHAPES, scale)
+            val tiled = WebViewSvgRasterizer(tile = 64).rasterize(SHAPES.toByteArray(), scale)
+            assertEquals(whole.width to whole.height, tiled.width to tiled.height)
+            // Prism's rasteriser clips a path to the tile before flattening its curves, so that the antialiased edge
+            // of a curve differs a little (up to 21 of 255 here; equal with -Dprism.marlin.clip=false). Compared
+            // premultiplied: the colour of an almost transparent pixel says nothing.
+            val difference = whole.premultiplied().zip(tiled.premultiplied()).maxOf { (a, b) -> abs(a - b) }
+            assertTrue(difference <= 32, "the tiles differ by $difference at ${scale * 100}%")
+        }
+    }
+
+    @Test
+    fun `the tiles at the right and bottom edges are drawn in full`() {
+        // 150 × 100 in tiles of 64: three columns (64, 64, 22) and two rows (64, 36), each tile in its own colour.
+        val colors = listOf(0xff0000, 0x00ff00, 0x0000ff, 0xffff00, 0x00ffff, 0xff00ff)
+        val tiles =
+            colors.withIndex().joinToString("") { (i, color) ->
+                "<rect x='${i % 3 * 64}' y='${i / 3 * 64}' width='64' height='64' fill='#%06x'/>".format(color)
+            }
+        val svg = "<svg xmlns='http://www.w3.org/2000/svg' width='150' height='100'>$tiles</svg>"
+        val image = WebViewSvgRasterizer(tile = 64).rasterize(svg.toByteArray(), 1)
+        assertEquals(150 to 100, image.width to image.height)
+        val points = listOf(10 to 10, 100 to 10, 140 to 10, 10 to 90, 100 to 90, 149 to 99)
+        assertEquals(colors, points.map { (x, y) -> image.rgb(x, y) })
+        assertTrue(points.all { (x, y) -> image.alpha(x, y) == 0xff })
+    }
+
+    @Test
+    fun `a transparent tile next to drawn ones stays transparent`() {
+        val right =
+            "<svg xmlns='http://www.w3.org/2000/svg' width='150' height='100'>" +
+                "<rect x='75' width='75' height='100' fill='red'/></svg>"
+        val image = WebViewSvgRasterizer(tile = 64).rasterize(right.toByteArray(), 1)
+        assertTrue((0 until 75).all { x -> (0 until 100).all { y -> image.alpha(x, y) == 0 } }, "drawn on the left")
+        assertTrue(
+            (75 until 150).all { x -> (0 until 100).all { y -> image.getRGB(x, y) == 0xffff0000.toInt() } },
+            "not drawn on the right",
+        )
+    }
+
+    /** The image's channels, premultiplied with its alpha. */
+    private fun BufferedImage.premultiplied() =
+        getRGB(0, 0, width, height, null, 0, width).flatMap { argb ->
+            val alpha = argb ushr 24
+            listOf(alpha) + listOf(16, 8, 0).map { (argb shr it and 0xff) * alpha / 0xff }
+        }
+
     private companion object {
         /** 40 × 20, the left half red, the right half transparent. */
         const val HALF_RED =
             "<svg xmlns='http://www.w3.org/2000/svg' width='40' height='20'><rect width='20' height='20' fill='red'/></svg>"
+
+        /** 150 × 100: shapes, text-free, and a stroked diagonal crossing the borders of tiles of 64. */
+        const val SHAPES =
+            "<svg xmlns='http://www.w3.org/2000/svg' width='150' height='100'>" +
+                "<rect x='5' y='5' width='80' height='40' fill='#3366cc'/>" +
+                "<circle cx='100' cy='60' r='35' fill='#cc3333' fill-opacity='0.7'/>" +
+                "<ellipse cx='40' cy='80' rx='30' ry='15' fill='#33aa55'/>" +
+                "<line x1='0' y1='0' x2='150' y2='100' stroke='black' stroke-width='3'/></svg>"
     }
 }
