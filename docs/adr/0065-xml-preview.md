@@ -38,6 +38,13 @@ layouts nest deeply; the formatted, foldable view that JSON got ([ADR 0064](0064
 - **Scroll sync:** an element's `data-line` is the line its start tag starts on
   (StAX reports where it ends; the start is found from the source).
 
+## Copy Formatted
+A toolbar button (`Preview.copiesFormatted`, `CopyFormattedControls`) puts the formatted text on the clipboard. It
+reuses the XML parse of the view (no second parser) through `XmlText`, which writes the tree as plain text without the
+page's cap. It copies the saved text, which is what the view shows; unsaved edits are not included. On a parse error or
+an empty file nothing is copied: the clipboard stays untouched and a message beside the button says "Not copied:
+<reason>", with the error notice's text or "The file is empty".
+
 ## Consequences
 - XML opens in Split with the source focused, like JSON; `.svg`, `.html` and notebooks keep their own viewers.
 - JSON and XML share one fold script, stylesheet and state; a further foldable preview needs only a renderer.

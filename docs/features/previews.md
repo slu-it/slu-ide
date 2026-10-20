@@ -19,6 +19,12 @@ have **Collapse All** and **Expand All** buttons on the left of the toolbar, onl
 Source. They close or open every section of the page; the page's folds are kept when the file is saved or changes
 on disk.
 
+## Copy Formatted (`CopyFormattedControls`)
+Previews that `copiesFormatted` (JSON, XML) have a **Copy Formatted** button right after the fold buttons, only while
+the preview shows. It puts the formatted plain text of the saved file on the clipboard (`Preview.formatted`) and shows
+"Copied" beside the button for 3 seconds; on a parse error or an empty file nothing is copied and "Not copied: <reason>"
+shows instead. What the text contains: [json-preview.md](json-preview.md), [xml-preview.md](xml-preview.md).
+
 ## Zooming images and diagrams (`ZoomControls`)
 Images, SVG files, Mermaid files and Bicep resource graphs zoom; Markdown and notebook previews do not.
 - **Toolbar** (on the left; in previews only while the preview shows, not in Source): zoom out, the scale in percent,

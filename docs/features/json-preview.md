@@ -21,6 +21,11 @@ JSON files show their highlighted source with a formatted, foldable view beside 
   every node that was closed stays closed (nodes are identified by their JSON Pointer, so duplicate keys fold
   together; a node that is new or moved opens). An invalid, empty or cut-off save in between does not lose the folds
   either; they come back when the text is valid again, but a node missing from a valid save is forgotten.
+- **Copy Formatted:** the button after the fold buttons (while the preview shows) puts the formatted text, as the view
+  shows it, on the clipboard: indented with 2 spaces, comments dropped, numbers as written, a trailing newline. It is
+  the saved text, so unsaved edits are not included, and there is no value limit. If the saved file is invalid or
+  empty nothing is copied and "Not copied: <reason>" (the error notice's text, or "The file is empty") shows beside
+  the button; "Copied" and the message go away after 3 seconds, on the next click and when the file is rendered again.
 - **Scroll sync:** in Split the preview scrolls with the source like the other previews.
 - **Updates on save**, not while typing; the preview shows the saved text.
 - **JSONC:** `//` and `/* */` comments and trailing commas are accepted and left out of the formatted view (the source

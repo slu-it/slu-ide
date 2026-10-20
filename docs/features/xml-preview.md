@@ -21,6 +21,15 @@ XML files show their highlighted source with a formatted, foldable view beside i
   (`/project[1]/dependencies[1]/dependency[2]`: the index counts earlier siblings of the same name); a new or moved
   element opens. An invalid, empty or cut-off save in between does not lose the folds; an element missing from a valid
   save is forgotten.
+- **Copy Formatted:** the button after the fold buttons (while the preview shows) puts the formatted text, as the view
+  shows it, on the clipboard: indented with 2 spaces, comments, processing instructions, CDATA and the DOCTYPE kept,
+  the `<?xml?>` declaration dropped, a trailing newline. Every text segment is trimmed and put on its own lines, so
+  whitespace-sensitive content (mixed content, `xml:space="preserve"`) changes. Character and entity references are
+  written decoded, except what the formatter must escape (`&`, `<`, `]]>`, and in attribute values `"`, tab and line
+  breaks, which would read back as spaces). It is the saved text, so unsaved edits are not included, and there is no
+  node limit. If the saved file is invalid or empty nothing is copied and "Not copied: <reason>" (the error notice's
+  text, or "The file is empty") shows beside the button; "Copied" and the message go away after 3 seconds, on the next
+  click and when the file is rendered again.
 - **Scroll sync:** in Split the preview scrolls with the source like the other previews (an element is placed at the
   line its start tag starts on).
 - **Updates on save**, not while typing. A byte order mark is ignored.

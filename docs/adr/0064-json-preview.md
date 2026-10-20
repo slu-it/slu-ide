@@ -31,6 +31,13 @@ Rejected: a native `TreeView` like the environment-file editor ([ADR 0057](0057-
 which has no scroll sync, needs a third copy of the mode toolbar and shows a tree instead of the JSON text; rendering
 while typing (against ADR 0020); a read-only formatted code view with code folding (the code view has no folding).
 
+## Copy Formatted
+A toolbar button (`Preview.copiesFormatted`, `CopyFormattedControls`) puts the formatted text on the clipboard. It
+reuses the JSON parse of the view (no second parser) through `JsonText`, which writes the tree as plain text without the
+page's cap. It copies the saved text, which is what the view shows; unsaved edits are not included. On a parse error or
+an empty file nothing is copied: the clipboard stays untouched and a message beside the button says "Not copied:
+<reason>", with the error notice's text or "The file is empty".
+
 ## Consequences
 - JSON gets the same toolbar, scroll sync and save behaviour as the other previews, and the fold buttons are available
   to future previews.
