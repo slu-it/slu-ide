@@ -194,6 +194,11 @@
             });
             return diagramsDrawn;
         },
+        // Opens (true) or closes (false) every <details> of the page.
+        setAllOpen: function (open) {
+            var all = document.querySelectorAll('details');
+            for (var i = 0; i < all.length; i++) all[i].open = !!open;
+        },
         // Zooms a zoomable page's image or diagram to scale (null: fit to the view); keeps the point at the viewport
         // coordinates (x, y) in place, if given.
         setZoom: setZoom,

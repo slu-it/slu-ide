@@ -64,12 +64,19 @@ internal interface Preview {
      */
     val zooms: Boolean get() = false
 
+    /**
+     * Whether the page has foldable `<details>` elements and `sluide.setAllOpen`: the view then has Collapse All and
+     * Expand All buttons ([FoldControls]) while it shows the preview.
+     */
+    val folds: Boolean get() = false
+
     /** Whether the preview has headings ([outline]), so that the view has a table of contents ([TableOfContents]). */
     val hasOutline: Boolean get() = false
 
     /**
      * The items of the preview's Export menu (empty: no menu); the Export button sits beside the table of contents'
-     * button or the zoom controls, so only previews with an [outline][hasOutline] or that [zoom][zooms] show it.
+     * button, the zoom controls or the fold controls, so only previews with an [outline][hasOutline] or that
+     * [zoom][zooms] or [fold][folds] show it.
      */
     val exports: List<FileExport> get() = emptyList()
 

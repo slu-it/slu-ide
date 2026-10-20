@@ -122,6 +122,33 @@ class PreviewFileViewersTest {
     }
 
     @Test
+    fun `a preview that folds cannot offer scripts, zoom or have an outline`() {
+        fun folding(
+            scripts: Boolean = false,
+            zoom: Boolean = false,
+            outline: Boolean = false,
+        ) = object : Preview {
+            override fun load(
+                engine: WebEngine,
+                file: Path,
+                text: String,
+                dark: Boolean,
+                root: Path,
+            ) = Unit
+
+            override val folds get() = true
+            override val offersScripts get() = scripts
+            override val zooms get() = zoom
+            override val hasOutline get() = outline
+        }
+        for (preview in listOf(folding(scripts = true), folding(zoom = true), folding(outline = true))) {
+            assertFailsWith<IllegalArgumentException> {
+                PreviewFileView(text("page.html"), RSyntaxHighlighter.xml, preview)
+            }
+        }
+    }
+
+    @Test
     fun `a preview cannot both offer scripts and zoom`() {
         val both =
             object : Preview {

@@ -87,6 +87,9 @@ abstract class PreviewFileViewer internal constructor(
  *
  * Images and diagrams that [zoom][Preview.zooms] have the [zoom] controls on the left of the toolbar while the preview
  * shows; the page keeps the zoom when it is rendered again.
+ *
+ * Previews that [fold][Preview.folds] have the [folds] buttons (Collapse All, Expand All) on the left of the toolbar
+ * while the preview shows.
  */
 internal class PreviewFileView(
     file: Path,
@@ -99,6 +102,9 @@ internal class PreviewFileView(
         require(!(preview.offersScripts && preview.zooms)) { "A preview cannot both offer scripts and zoom" }
         require(!(preview.hasOutline && (preview.offersScripts || preview.zooms))) {
             "A preview with an outline cannot offer scripts or zoom"
+        }
+        require(!(preview.folds && (preview.offersScripts || preview.zooms || preview.hasOutline))) {
+            "A preview that folds cannot offer scripts, zoom or have an outline"
         }
     }
 
@@ -166,6 +172,9 @@ internal class PreviewFileView(
     /** The zoom of an image or diagram, if the preview [zooms][Preview.zooms]. */
     val zoom: ZoomControls? = if (preview.zooms) ZoomControls(engine) { isLoaded } else null
 
+    /** The Collapse All and Expand All buttons, if the preview [folds][Preview.folds]. */
+    val folds: FoldControls? = if (preview.folds) FoldControls(engine) { isLoaded } else null
+
     /** Its [project folder][FileViewHost.projectFolder] gives the page its [root]. */
     override var host: FileViewHost? = null
         set(value) {
@@ -218,7 +227,7 @@ internal class PreviewFileView(
     /** Whether the view started a load that has not finished yet; a load it did not start is the page's own doing. */
     private var loading = false
 
-    private val toolbar = PreviewToolbar(preview, modes, mode, scripts, toc, export, zoom, webView)
+    private val toolbar = PreviewToolbar(preview, modes, mode, scripts, toc, export, zoom, folds, webView)
     private val buttons = toolbar.buttons
 
     init {
