@@ -30,7 +30,6 @@ import dev.sluide.fileviewers.languages.SshConfigFileViewer
 import dev.sluide.fileviewers.languages.TomlFileViewer
 import dev.sluide.fileviewers.languages.TsxFileViewer
 import dev.sluide.fileviewers.languages.TypeScriptFileViewer
-import dev.sluide.fileviewers.languages.XmlFileViewer
 import dev.sluide.fileviewers.languages.YamlFileViewer
 import dev.sluide.fileviewers.markdown.MarkdownFileViewer
 import dev.sluide.fileviewers.markdown.MdxFileViewer
@@ -38,6 +37,7 @@ import dev.sluide.fileviewers.markdown.MermaidFileViewer
 import dev.sluide.fileviewers.notebook.NotebookFileViewer
 import dev.sluide.fileviewers.table.CookiesFileViewer
 import dev.sluide.fileviewers.table.CsvFileViewer
+import dev.sluide.fileviewers.xml.XmlFileViewer
 import dev.sluide.textediting.CommentSyntax
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -60,7 +60,6 @@ class ViewerCommentSyntaxTest {
                 LessFileViewer() to CommentSyntax.SLASHES,
                 SassFileViewer() to CommentSyntax.SLASHES,
                 CssFileViewer() to CommentSyntax.CSS,
-                XmlFileViewer() to CommentSyntax.XML,
                 MdxFileViewer() to CommentSyntax.XML,
                 SingleFileComponentFileViewer() to CommentSyntax.XML,
                 SqlFileViewer() to CommentSyntax.SQL,
@@ -90,6 +89,7 @@ class ViewerCommentSyntaxTest {
                 SvgFileViewer() to CommentSyntax.XML,
                 CsvFileViewer() to CommentSyntax.NONE,
                 JsonFileViewer() to CommentSyntax.NONE,
+                XmlFileViewer() to CommentSyntax.XML,
                 NotebookFileViewer() to CommentSyntax.NONE,
                 MermaidFileViewer() to CommentSyntax.MERMAID,
                 CookiesFileViewer() to CommentSyntax.NONE,

@@ -2,6 +2,8 @@ package dev.sluide.fileviewers
 
 import dev.sluide.fileviewers.bicep.BicepParamFileViewer
 import dev.sluide.fileviewers.code.CodeFileViewer
+import dev.sluide.fileviewers.html.HtmlFileViewer
+import dev.sluide.fileviewers.image.SvgFileViewer
 import dev.sluide.fileviewers.json.JsonFileViewer
 import dev.sluide.fileviewers.languages.CaddyfileFileViewer
 import dev.sluide.fileviewers.languages.ConfigFileViewer
@@ -28,9 +30,10 @@ import dev.sluide.fileviewers.languages.SshConfigFileViewer
 import dev.sluide.fileviewers.languages.TomlFileViewer
 import dev.sluide.fileviewers.languages.TsxFileViewer
 import dev.sluide.fileviewers.languages.TypeScriptFileViewer
-import dev.sluide.fileviewers.languages.XmlFileViewer
 import dev.sluide.fileviewers.languages.YamlFileViewer
 import dev.sluide.fileviewers.markdown.MdxFileViewer
+import dev.sluide.fileviewers.notebook.NotebookFileViewer
+import dev.sluide.fileviewers.xml.XmlFileViewer
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.io.path.writeBytes
@@ -56,7 +59,6 @@ class CodeFileViewersTest {
             TypeScriptFileViewer() to listOf("app.ts", "types.d.ts", "module.mts", "config.cts"),
             JsxFileViewer() to listOf("Button.jsx"),
             TsxFileViewer() to listOf("App.tsx"),
-            XmlFileViewer() to listOf("pom.xml", "schema.xsd", "style.xsl", "transform.xslt", "view.fxml", "app.iml"),
             SingleFileComponentFileViewer() to listOf("App.vue", "Page.svelte"),
             YamlFileViewer() to listOf("ci.yml", "config.yaml"),
             MdxFileViewer() to listOf("docs.mdx"),
@@ -120,6 +122,26 @@ class CodeFileViewersTest {
         assertFalse(json.canOpen(dir.resolve("missing.json")))
         assertFalse(json.canOpen(dir.resolve("binary.json").apply { writeBytes(byteArrayOf(0x61, 0x00, 0x62)) }))
         assertFalse(json.canOpen(dir.resolve("Pipfile.lock-binary").apply { writeBytes(byteArrayOf(0x61, 0)) }))
+    }
+
+    @Test
+    fun `the XML viewer opens its text files by extension, and svg html and notebooks stay with theirs`() {
+        val xml = XmlFileViewer()
+        val own = listOf("pom.xml", "schema.xsd", "style.xsl", "transform.xslt", "view.fxml", "app.iml", "BUILD.XML")
+
+        assertEquals(own, (own + others).filter { xml.canOpen(file(it)) })
+        assertFalse(xml.canOpen(dir.resolve("missing.xml")))
+        assertFalse(xml.canOpen(dir.resolve("binary.xml").apply { writeBytes(byteArrayOf(0x61, 0x00, 0x62)) }))
+
+        val fallback = DefaultTextFileViewer()
+        val svg = SvgFileViewer()
+        val html = HtmlFileViewer()
+        val notebook = NotebookFileViewer()
+        val viewers = FileViewers(listOf(fallback, xml, svg, html, notebook), fallback)
+        assertSame(xml, viewers.viewerFor(file("pom.xml")))
+        assertSame(svg, viewers.viewerFor(file("icon.svg")))
+        assertSame(html, viewers.viewerFor(file("index.html")))
+        assertSame(notebook, viewers.viewerFor(file("analysis.ipynb")))
     }
 
     @Test

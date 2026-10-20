@@ -30,7 +30,6 @@ import dev.sluide.fileviewers.languages.SqlFileViewer
 import dev.sluide.fileviewers.languages.SshConfigFileViewer
 import dev.sluide.fileviewers.languages.TsxFileViewer
 import dev.sluide.fileviewers.languages.TypeScriptFileViewer
-import dev.sluide.fileviewers.languages.XmlFileViewer
 import dev.sluide.fileviewers.languages.YamlFileViewer
 import dev.sluide.fileviewers.markdown.MarkdownFileViewer
 import dev.sluide.fileviewers.markdown.MdxFileViewer
@@ -39,6 +38,7 @@ import dev.sluide.fileviewers.notebook.NotebookFileViewer
 import dev.sluide.fileviewers.pem.PemFileViewer
 import dev.sluide.fileviewers.table.CookiesFileViewer
 import dev.sluide.fileviewers.table.CsvFileViewer
+import dev.sluide.fileviewers.xml.XmlFileViewer
 import dev.sluide.textediting.CommentSyntax
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
