@@ -29,12 +29,19 @@ and screens with high pixel density. The Markdown preview already has an Export 
   - **The WebView only paints in a showing window.** A Scene that is never shown gives blank snapshots. So the
     `WebView` sits in a `Popup` far off screen, owned by the IDE window, for the duration of the export. A popup
     takes no focus, has no taskbar entry and is not moved by window managers.
+  - **Drawn in tiles of at most 1024 × 1024 px** (amended 2026-10-20): the `WebView` has the size of one tile, the
+    `<img>` keeps its full size and is shifted under it tile by tile, and each tile's snapshot is copied into the
+    image. Before, the popup, WebKit's back buffer and the snapshot had the full size (6144² device pixels at 300 % of
+    a 1024 px SVG on Retina). With JavaFX 27's default Metal pipeline on macOS, that crashed the JVM natively now and
+    then, while it created such a texture (`MTLRTTexture.nInitRTT` → `MTLTexture replaceRegion`); nothing was logged.
+    With tiles, the view, its back buffer and the snapshot are at most one tile.
   - **Snapshot timing:** WebKit paints after a few pulses. The first complete picture came on the third frame, and
-    large images showed only the old 800×600 viewport before that. Snapshots are therefore taken from the third frame
-    on, until two in a row are equal, and at the twentieth frame at the latest, since an animated SVG never settles.
-  - **Limits:** 8192 px per side and 2²⁵ pixels (about 33 MP) in total. Snapshot and copy happen on the FX thread,
-    each about 128 MiB at that size. There is a 30 s timeout. A blank picture never counts as settled, so a blank SVG
-    takes all 20 frames, about a third of a second.
+    large images showed only the old 800×600 viewport before that. Snapshots of a tile are therefore taken from the
+    third frame after it was shifted into view, until two in a row are equal, and at the twentieth frame at the
+    latest, since an animated SVG never settles.
+  - **Limits:** 8192 px per side and 2²⁵ pixels (about 33 MP) in total, the image being 128 MiB at that size. There is
+    a 30 s timeout. A blank tile never counts as settled, so it takes all 20 frames, about a third of a second; at the
+    limit (e.g. 5121 × 6552 px), 42 tiles take about 14 s at most.
   - **The saved file's bytes are drawn,** not its text re-encoded, so an encoding named in the XML declaration holds.
   - **No `javafx.swing` dependency:** the pixels are copied into a `BufferedImage` by hand and written with `ImageIO`.
 - **Rejected:**

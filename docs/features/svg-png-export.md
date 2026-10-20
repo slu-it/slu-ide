@@ -10,7 +10,8 @@ Decision in [ADR 0059](../adr/0059-svg-export-as-png.md).
 - **Size:** 100 % is the SVG's own size, which the preview shows at 100 % (`width`/`height`, or the `viewBox` if
   those are missing). 200 % and 300 % are drawn at that size, not enlarged, so edges and text stay sharp.
 - **Look:** the background stays transparent. The SVG is drawn by the same engine as the preview, with its CSS, fonts
-  and HTML labels, and its scripts do not run.
+  and HTML labels, and its scripts do not run. It is drawn in tiles of at most 1024 × 1024 px, so that large images do
+  not need large graphics textures (which crashed the app on macOS).
 - **Overwriting:** if the PNG already exists, a dialog asks whether to replace it. Cancel is the default and writes
   nothing.
 - **While it runs:** the export runs in the background and the button is disabled meanwhile. A successful export shows
