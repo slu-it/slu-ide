@@ -19,7 +19,6 @@ import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleObjectProperty
 import javafx.collections.ListChangeListener
 import javafx.concurrent.Worker
-import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Alert
 import javafx.scene.control.Button
@@ -27,19 +26,13 @@ import javafx.scene.control.ButtonBar
 import javafx.scene.control.ButtonType
 import javafx.scene.control.Label
 import javafx.scene.control.SplitPane
-import javafx.scene.control.ToggleButton
 import javafx.scene.control.ToggleGroup
-import javafx.scene.control.Tooltip
 import javafx.scene.input.DragEvent
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.BorderPane
-import javafx.scene.layout.HBox
-import javafx.scene.layout.Priority
-import javafx.scene.layout.Region
 import javafx.scene.layout.StackPane
 import javafx.scene.layout.VBox
-import javafx.scene.web.WebEngine
 import javafx.scene.web.WebView
 import netscape.javascript.JSObject
 import java.io.IOException
@@ -64,93 +57,6 @@ abstract class PreviewFileViewer internal constructor(
     internal fun matchesExtension(file: Path): Boolean = file.extension.lowercase() in extensions
 
     override fun open(file: Path): FileView = PreviewFileView(file, highlighter, preview, comment)
-}
-
-/** How a [PreviewFileView] renders a file. */
-internal interface Preview {
-    /**
-     * Shows [text], the content of [file], in [engine]; the page is to use dark colours if [dark] and may use the files
-     * in [root] (see [root]).
-     */
-    @Throws(IOException::class)
-    fun load(
-        engine: WebEngine,
-        file: Path,
-        text: String,
-        dark: Boolean,
-        root: Path,
-    )
-
-    /** Whether the page has `sluide.scrollToLine` and blocks with `data-line`, so it can scroll with the source. */
-    val syncsScroll: Boolean get() = false
-
-    /**
-     * Whether the page brings our script (`preview.js`): it follows the colour scheme (`sluide.setDark`) and hands
-     * link clicks to the view.
-     */
-    val hasOwnScript: Boolean get() = true
-
-    /** Whether [load] uses its `root`, so that the page has to be loaded again when the root changes. */
-    val usesRoot: Boolean get() = false
-
-    /** The folder whose files the page for [file] may use, given the [projectFolder] the view belongs to. */
-    fun root(
-        file: Path,
-        projectFolder: Path?,
-    ): Path = projectFolder?.takeIf { file.startsWith(it) } ?: file.parent
-
-    /** Whether the page's own scripts may run when the user allows it (a toolbar toggle, off by default). */
-    val offersScripts: Boolean get() = false
-
-    /**
-     * Whether the preview at [location] still shows the page for [file]; anything else is a navigation away, which
-     * the view turns back. Pages loaded from a string have no location.
-     */
-    fun isOwnPage(
-        location: String?,
-        file: Path,
-    ): Boolean = isPageFromString(location)
-
-    /** Where [href], a link clicked or followed in the page for [file], leads. */
-    fun linkTarget(
-        href: String,
-        file: Path,
-    ): LinkTarget? = resolveLink(href, file.parent)
-
-    /** What a newly opened view shows. */
-    val defaultMode: PreviewMode get() = PreviewMode.SPLIT
-
-    /**
-     * Whether the page is a zoomable image or diagram (`sluide.setZoom`): the view then has zoom controls
-     * ([ZoomControls]) while it shows the preview.
-     */
-    val zooms: Boolean get() = false
-
-    /** Whether the preview has headings ([outline]), so that the view has a table of contents ([TableOfContents]). */
-    val hasOutline: Boolean get() = false
-
-    /**
-     * The items of the preview's Export menu (empty: no menu); the Export button sits beside the table of contents'
-     * button or the zoom controls, so only previews with an [outline][hasOutline] or that [zoom][zooms] show it.
-     */
-    val exports: List<FileExport> get() = emptyList()
-
-    /**
-     * The headings of [text] for the table of contents, or `null` if the preview has none ([hasOutline]).
-     */
-    fun outline(text: String): List<Heading>? = null
-}
-
-/** Whether a `WebView` at [location] shows a page loaded from a string (`loadContent`), which has no location. */
-internal fun isPageFromString(location: String?): Boolean = location.isNullOrEmpty() || location == "about:blank"
-
-/** What a [PreviewFileView] shows. */
-internal enum class PreviewMode(
-    val label: String,
-) {
-    SOURCE("Source"),
-    SPLIT("Split"),
-    PREVIEW("Preview"),
 }
 
 /**
@@ -312,42 +218,11 @@ internal class PreviewFileView(
     /** Whether the view started a load that has not finished yet; a load it did not start is the page's own doing. */
     private var loading = false
 
+    private val toolbar = PreviewToolbar(preview, modes, mode, scripts, toc, export, zoom, webView)
+    private val buttons = toolbar.buttons
+
     init {
-        val buttons =
-            PreviewMode.entries.map { mode ->
-                ToggleButton(mode.label).apply {
-                    toggleGroup = modes
-                    userData = mode
-                    styleClass += "preview-mode"
-                    // A click leaves the focus where it is, e.g. in the preview, whose zoom keys keep working.
-                    isFocusTraversable = false
-                }
-            }
-        val extras =
-            if (preview.offersScripts) {
-                listOf(
-                    ToggleButton("Scripts").apply {
-                        styleClass += "preview-scripts"
-                        tooltip = Tooltip("Run the page's scripts. They can read the files served with the page.")
-                        selectedProperty().bindBidirectional(scripts)
-                    },
-                    Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
-                )
-            } else if (toc != null) {
-                listOfNotNull(toc.button, export?.button, Region().apply { HBox.setHgrow(this, Priority.ALWAYS) })
-            } else if (zoom != null) {
-                zoom.node.visibleProperty().bind(mode.map { it != PreviewMode.SOURCE })
-                zoom.node.managedProperty().bind(zoom.node.visibleProperty())
-                zoom.install(webView)
-                listOfNotNull(zoom.node, export?.button, Region().apply { HBox.setHgrow(this, Priority.ALWAYS) })
-            } else {
-                emptyList()
-            }
-        pane.top =
-            HBox(*(extras + buttons).toTypedArray()).apply {
-                styleClass += "preview-toolbar"
-                alignment = Pos.CENTER_RIGHT
-            }
+        pane.top = toolbar.node
         engine.isJavaScriptEnabled = !preview.offersScripts
         scripts.addListener { _, _, allowed ->
             // Also the toggle going back off after the warning was cancelled: nothing changed, nothing to render.
