@@ -48,8 +48,9 @@ class JsonPreviewUiTest {
     private fun show(
         robot: FxRobot,
         name: String = "data.json",
+        content: String = text,
     ): Pair<Path, PreviewFileView> {
-        val file = dir.resolve(name).apply { writeText(text) }
+        val file = dir.resolve(name).apply { writeText(content) }
         val view = WaitForAsyncUtils.asyncFx<PreviewFileView> { JsonFileViewer().open(file) as PreviewFileView }.get()
         robot.interact { container.children.setAll(view.node) }
         // The page loads even while the preview is hidden.
@@ -106,6 +107,56 @@ class JsonPreviewUiTest {
         assertEquals(0, view.open())
         robot.fire(".preview-expand-all")
         assertEquals(4, view.open())
+    }
+
+    private val nested =
+        """{"a": {"x": {"p": [1, 2, 3]}, "y": [{"q": 1}, {"r": 2}]}, "b": {"z": {"s": [1]}}, "c": [[1, 2], [3]]}"""
+
+    /** The closed containers on screen that are taller than their summary line, with both heights; empty if none. */
+    private fun PreviewFileView.gaps() =
+        script(
+            """
+            (function () {
+                var gaps = [];
+                var closed = document.querySelectorAll('details[data-path]:not([open])');
+                for (var i = 0; i < closed.length; i++) {
+                    if (closed[i].getClientRects().length === 0) continue;
+                    var height = closed[i].getBoundingClientRect().height;
+                    var line = closed[i].firstElementChild.getBoundingClientRect().height;
+                    var path = closed[i].getAttribute('data-path');
+                    if (Math.abs(height - line) > 1) gaps.push(path + ': ' + height + ' > ' + line);
+                }
+                return gaps.join('; ');
+            })()
+            """.trimIndent(),
+        )
+
+    private fun PreviewFileView.clickSummary(path: String) =
+        script("document.querySelector('details[data-path=\"$path\"] > summary').click()")
+
+    @Test
+    fun `containers opened by hand after Collapse All show their closed children one line each`(robot: FxRobot) {
+        val (_, view) = show(robot, content = nested)
+
+        robot.fire(".preview-collapse-all")
+        view.clickSummary("")
+        assertEquals(true, view.isOpen(""))
+        assertEquals("", view.gaps())
+        view.clickSummary("/a")
+        assertEquals(true, view.isOpen("/a"))
+        assertEquals("", view.gaps())
+    }
+
+    @Test
+    fun `Collapse All after a container was closed by hand leaves its children one line each`(robot: FxRobot) {
+        val (_, view) = show(robot, content = nested)
+        view.clickSummary("/a")
+
+        robot.fire(".preview-collapse-all")
+        view.clickSummary("")
+        view.clickSummary("/a")
+        assertEquals(true, view.isOpen("/a"))
+        assertEquals("", view.gaps())
     }
 
     @Test

@@ -118,6 +118,23 @@
         window.scrollBy(newX - x, newY - y);
     }
 
+    // Lays out the outermost of the given <details> anew, keeping the scroll position. JavaFX's WebKit keeps the open
+    // height of a <details> closed while inside a closed one (as setAllOpen(false) closes them), which shows as a gap
+    // below its line once its parent is opened. Closing innermost first does not avoid it (layout waits for the end
+    // of the script); laying the tree out again from scratch drops that height.
+    function relayout(details) {
+        var outermost = [];
+        for (var i = 0; i < details.length; i++) {
+            if (!details[i].parentElement.closest('details')) outermost.push(details[i]);
+        }
+        var x = window.scrollX;
+        var y = window.scrollY;
+        for (var j = 0; j < outermost.length; j++) outermost[j].style.display = 'none';
+        void document.body.offsetHeight;
+        for (var k = 0; k < outermost.length; k++) outermost[k].style.display = '';
+        window.scrollTo(x, y);
+    }
+
     window.sluide = {
         // Scrolls so that source line `line` (0-based) is at the top, interpolating between the blocks around it.
         scrollToLine: function (line) {
@@ -198,6 +215,7 @@
         setAllOpen: function (open) {
             var all = document.querySelectorAll('details');
             for (var i = 0; i < all.length; i++) all[i].open = !!open;
+            if (!open) relayout(all);
         },
         // Zooms a zoomable page's image or diagram to scale (null: fit to the view); keeps the point at the viewport
         // coordinates (x, y) in place, if given.
