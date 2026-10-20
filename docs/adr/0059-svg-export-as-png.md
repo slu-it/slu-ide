@@ -26,15 +26,26 @@ and screens with high pixel density. The Markdown preview already has an Export 
     stay sharp. A 100 % snapshot is not enlarged.
   - **Background:** transparent. Text uses greyscale smoothing, since subpixel smoothing leaves coloured fringes on a
     transparent background.
-  - **The WebView only paints in a showing window.** A Scene that is never shown gives blank snapshots. So the
-    `WebView` sits in a `Popup` far off screen, owned by the IDE window, for the duration of the export. A popup
-    takes no focus, has no taskbar entry and is not moved by window managers.
+  - **The WebView only paints in a showing window** (amended 2026-10-20). A Scene that is never shown gives blank
+    snapshots. So for the duration of the export the `WebView` sits in the root `Pane` of the IDE window, in a `Group`
+    that is not managed, has opacity 0, is mouse transparent and lies far outside the window; the view is not focus
+    traversable. A snapshot draws the view without its parents, so the opacity does not show in it. Not `visible =
+    false`: a `WebView` whose tree is invisible drops its paints. Not in the preview's own tab either, which turns
+    invisible when another tab is selected.
+  - **No window of its own** (amended 2026-10-20): before, the `WebView` sat in a `Popup` at (-20000, -20000). On
+    macOS with two displays of different scales (a 1× external display and a 2× Retina panel) that crashed the JVM
+    natively at the start of an export, even at 100 %, in the popup's first frame: `MTLSwapChain` wraps Glass's
+    drawable as the back buffer, and `MTLRTTexture.nInitRTT` clears it from a Java array of the size Prism expects,
+    while the native `replaceRegion` copies the drawable's own size. Most likely (from reading the JavaFX source;
+    the sizes are not in the crash report) the popup on no screen got a drawable larger than Prism expected, and the
+    copy read past the array. With one display connected it worked. Other render textures (snapshots, WebKit's back
+    buffer) are created at the size Java expects. Not yet confirmed on a Mac with two displays.
   - **Drawn in tiles of at most 1024 × 1024 px** (amended 2026-10-20): the `WebView` has the size of one tile, the
     `<img>` keeps its full size and is shifted under it tile by tile, and each tile's snapshot is copied into the
-    image. Before, the popup, WebKit's back buffer and the snapshot had the full size (6144² device pixels at 300 % of
-    a 1024 px SVG on Retina). With JavaFX 27's default Metal pipeline on macOS, that crashed the JVM natively now and
-    then, while it created such a texture (`MTLRTTexture.nInitRTT` → `MTLTexture replaceRegion`); nothing was logged.
-    With tiles, the view, its back buffer and the snapshot are at most one tile.
+    image. Before, the view, WebKit's back buffer and the snapshot had the full size (6144² device pixels at 300 % of
+    a 1024 px SVG on Retina). With tiles, they are at most one tile, so that large images need no large textures.
+    The tiles were first meant to fix a native crash in `MTLRTTexture.nInitRTT`; they did not, since its cause was
+    most likely the popup's back buffer (see "No window of its own").
   - **Snapshot timing:** WebKit paints after a few pulses. The first complete picture came on the third frame, and
     large images showed only the old 800×600 viewport before that. Snapshots of a tile are therefore taken from the
     third frame after it was shifted into view, until two in a row are equal, and at the twentieth frame at the
@@ -50,9 +61,10 @@ and screens with high pixel density. The Markdown preview already has an Export 
   - Apache Batik: a heavy dependency, with the same gaps.
   - Enlarging a 100 % snapshot: blurry.
   - An undecorated `Stage` off screen: it takes focus, appears in the taskbar, and window managers keep it on screen.
+  - A `Popup` off screen (the first implementation): crashed with displays of different scales on macOS, see above.
 
 ## Consequences
-- Exporting needs a showing IDE window ("No window to draw in" otherwise); the popup cannot be seen. A popup hides
-  with its owner, so an export whose window closes fails ("The window closed") instead of writing a blank PNG.
+- Exporting needs a showing IDE window whose root is a `Pane` ("No window to draw in" otherwise); the view cannot be
+  seen. An export whose window closes fails ("The window closed") instead of writing a blank PNG.
 - PDF, or PNGs of Mermaid files, can join as further `FileExport`s.
 - Added to [../index.md](../index.md).
