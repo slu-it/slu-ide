@@ -25,7 +25,8 @@ new ones too (ADR 0032).
   apply the `javafx` plugin as in `ide/build.gradle.kts` (ADR 0003).
 - Tests that create JavaFX controls are TestFX tests tagged `@Tag("ui")`; running or screenshotting the UI in a
   headless sandbox: `docs/testing.md`. Never claim UI was verified without actually running it.
-- Significant decisions get an ADR (`docs/adr/template.md`), new features a page in `docs/features/`;
+- Significant decisions get an ADR (`docs/adr/template.md`), new features a page in `docs/features/`, explored but
+  undecided ideas a page in `docs/ideas/`;
   add every new doc to `docs/index.md` with a one-line summary.
 - Files over ~400 lines (big UI test classes; `.claude/scripts/check-file-sizes.sh` lists production files over 600):
   find the place with Grep, then Read only that range (`offset`/`limit`). Don't read whole test classes to add one

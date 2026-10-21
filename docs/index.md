@@ -1,7 +1,7 @@
 # Thoreau documentation index
 
 Entry point for agents: read this file first, then open only the documents relevant to your task.
-Keep it up to date: every new ADR or feature description must be added here with a one-line summary.
+Keep it up to date: every new ADR, feature description or idea must be added here with a one-line summary.
 
 ## Overview
 - [architecture.md](architecture.md) — Module layout, dependency rules, runtime startup, CI and release process.
@@ -103,3 +103,7 @@ Keep it up to date: every new ADR or feature description must be added here with
 - [features/env-files.md](features/env-files.md) — `.env`, `.env.*`, `*.env` highlighted with their values masked (caret line and selected find match revealed, Show values toggle off on every open), text untouched for copy/find/save, placeholder files (`.example`, `.sample`, `.template`) unmasked, diffs unmasked.
 - [features/http-client.md](features/http-client.md) — `.http`/`.rest` files: request format, variables and environments (public + private files), OAuth2 and client certificates, running from the toolbar, Shortcut+Enter or gutter icons, the response pane, New HTTP Client Setup (env files with `local`, `.gitignore` line, `example.http`), what is not supported.
 - [features/http-client-env-editor.md](features/http-client-env-editor.md) — Split JSON/visual editor for `http-client.env.json` and `http-client.private.env.json`: both files merged in a tree table with one column per environment (Variables, Auth sections, Client certificate), locks moving values between the files, masked private values with Show values, form edits through the editor (one undo step) and the other file's unsaved tab, `{}` for a missing other file, read-only on invalid JSON, "changed meanwhile" refusals.
+
+## Ideas
+Explored but not decided or built; options and trade-offs, no commitment.
+- [ideas/code-navigation.md](ideas/code-navigation.md) — Go to Definition (Cmd/Ctrl+click from a use to its declaration), Kotlin first: navigation UI needed in any case (hover underline, open at offset, Back/Forward, chooser); three resolvers compared: one-file syntax (tree-sitter), project-wide name index (Sublime/ctags style), language server (kotlin-lsp, Alpha; project trust); suggested: UI first, name index as default, LSP spike.
