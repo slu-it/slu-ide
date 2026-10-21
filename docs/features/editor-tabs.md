@@ -60,8 +60,10 @@
   `openWebPage` calls `EditorArea.openWebPage`, which the main window sets to the system browser
   (`HostServices.showDocument`, through the `SystemBrowser` bean), and `projectFolder` is the window's project folder
   (`EditorArea.projectFolder`, set by the main window), whose files HTML previews may use. `windowService(type)`
-  answers from `EditorArea.windowServices`, which the main window sets to its `HttpClientSession`
-  ([ADR 0026](../adr/0026-http-client-window-session.md)). `currentText(file)` gives the text of a file's tab with
+  answers from `EditorArea.windowServices`, an exact-type registry (`WindowServices`) in which the main window
+  registers its `HttpClientSession` and `BackgroundTasks`
+  ([ADR 0026](../adr/0026-http-client-window-session.md), [ADR 0070](../adr/0070-window-services.md)).
+  `currentText(file)` gives the text of a file's tab with
   unsaved changes (`null` if it is not open in a `TextEditableView` or that view is read-only); `editText(file, edit)`
   changes it there as one undo step, unsaved, opening the file in a tab that is not selected (nor focused) if it is
   not open, for views that edit another file ([ADR 0057](../adr/0057-visual-environment-editor.md)); `false` if the

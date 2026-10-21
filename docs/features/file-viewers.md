@@ -134,8 +134,9 @@ the Bicep graph and `BicepParamFileViewer`.
 - A `FileView` can open other files and web pages through its `host` (`FileViewHost`: `openFile`, `openWebPage`),
   which whoever shows the view sets; the editor area does ([editor-tabs.md](editor-tabs.md)). Views that open nothing
   ignore it. The previews use it for links; HTML previews also take the files they may use from its `projectFolder`.
-  `windowService(type)` gives a service of the window, e.g. the HTTP client's session, or `null`
-  ([ADR 0026](../adr/0026-http-client-window-session.md)).
+  `windowService(type)` gives the service the window registered under exactly `type` (`WindowServices`), e.g. the
+  HTTP client's session, or `null` ([ADR 0026](../adr/0026-http-client-window-session.md),
+  [ADR 0070](../adr/0070-window-services.md)).
 - For viewers of other modules, the root package `dev.sluide.fileviewers` is the API:
   - `CodeEditors.open(file, highlighter, lineComment, blockComment)` (`CodeEditors.kt`) creates the editable code view
     as a `CodeEditor`: `EditableFileView` and `GutterColumns` with `text`, `textProperty`, `onTextChanged` (every

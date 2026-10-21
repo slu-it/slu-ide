@@ -30,7 +30,9 @@ assembled from Gradle modules.
 - Feature modules expose UI as JavaFX nodes/controls registered as Spring beans (`@Component`), so `ide` can inject them.
   Beans that hold the state of one window (a project) are `@Scope("window")`.
 - Cross-module state (e.g. the current project folder) lives in `ide` or a shared module, and modules receive it
-  through their public API (e.g. `FileExplorerView.open(path)`), not by reaching into each other.
+  through their public API (e.g. `FileExplorerView.open(path)`), not by reaching into each other. Window-scoped
+  services that views of another module need reach them only through `FileViewHost.windowService`, registered by
+  `MainWindow` in `EditorArea.windowServices` ([ADR 0070](adr/0070-window-services.md)).
 - Documented module dependencies (`api` unless noted):
   - `file-explorer` -> `file-watcher` and `editor-area` -> `file-watcher`: loaded folders and open files are watched
     ([ADR 0006](adr/0006-file-watching.md)).

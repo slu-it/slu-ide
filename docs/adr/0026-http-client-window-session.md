@@ -20,6 +20,8 @@ icons in the gutter), whose implementation is internal to that module.
   `EditorArea.windowServices` that is an instance of `type`; `MainWindow` sets `windowServices = listOf(httpSession)`.
   The mechanism is generic, so other per-window services need no new host method. Without a session (a view shown
   elsewhere, tests of other modules) the view cannot run requests: Run is disabled with a tooltip.
+  Amended by [ADR 0070](0070-window-services.md): the services are an exact-type registry, `WindowServices`, filled by
+  `MainWindow` with `register`.
 - **Off the FX thread** (`HttpClientSession.inBackground`, results back through `dispatch`): reading the environment
   files (the environment list shows the previous one until they are read; a run reads them again on its worker),
   acquiring tokens, and decoding and formatting responses (`ResponseContent`); the FX thread only sets texts and styles.
