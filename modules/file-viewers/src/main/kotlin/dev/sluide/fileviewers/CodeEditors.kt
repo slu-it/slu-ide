@@ -4,7 +4,9 @@ import dev.sluide.fileviewers.code.CodeView
 import dev.sluide.fileviewers.code.codeStyleSpans
 import dev.sluide.textediting.CommentSyntax
 import javafx.beans.value.ObservableValue
+import javafx.collections.ListChangeListener
 import javafx.scene.Node
+import javafx.util.Subscription
 import org.fxmisc.flowless.VirtualizedScrollPane
 import org.fxmisc.richtext.CodeArea
 import org.fxmisc.richtext.LineNumberFactory
@@ -30,6 +32,39 @@ interface CodeEditor :
 
     /** Moves the caret to the start of [line] (0-based) and scrolls it into view. */
     fun moveCaretTo(line: Int)
+
+    /**
+     * The text as last read from or saved to the file, `\n` line breaks, without unsaved changes: what a preview of
+     * the file shows.
+     */
+    val savedText: String
+
+    /**
+     * [savedText] as it changes: when the file is saved or read again, or the user keeps the unsaved text over the
+     * file's new one, which then counts as saved. Listeners run on the FX thread.
+     */
+    val savedTextProperty: ObservableValue<String>
+
+    /** [caretLine] as it changes; listeners run on the FX thread. */
+    val caretLineProperty: ObservableValue<Int>
+
+    /** The first line (0-based) shown at the top, or -1 while the editor shows no line. */
+    val topLine: Int
+
+    /**
+     * Calls [action] on the FX thread whenever the shown lines change: when the editor scrolls, is resized or is shown
+     * again (e.g. its tab selected), or a shown line is edited. Unsubscribing stops it.
+     */
+    fun onShownLinesChanged(action: () -> Unit): Subscription
+
+    /**
+     * Calls [action] on the FX thread on every change of the text, without building the text as [textProperty]'s
+     * listeners do; cheap enough for big files. Unsubscribing stops it.
+     */
+    fun onTextChanged(action: () -> Unit): Subscription
+
+    /** Moves the caret to the start of [line] (0-based, kept within the text) and scrolls that line to the top. */
+    fun showLineAtTop(line: Int)
 }
 
 /** A read-only text with line numbers, highlighted like code views, e.g. the body of an HTTP response. */
@@ -125,5 +160,31 @@ private class CodeViewEditor(
     override fun moveCaretTo(line: Int) {
         view.area.moveTo(line.coerceIn(0, view.area.paragraphs.size - 1), 0)
         view.area.requestFollowCaret()
+    }
+
+    override val savedText: String get() = view.savedText
+
+    override val savedTextProperty: ObservableValue<String> get() = view.savedTextProperty
+
+    override val caretLineProperty: ObservableValue<Int> get() = view.area.currentParagraphProperty()
+
+    override val topLine: Int
+        get() = if (view.area.visibleParagraphs.isEmpty()) -1 else view.area.firstVisibleParToAllParIndex()
+
+    override fun onShownLinesChanged(action: () -> Unit): Subscription {
+        val listener = ListChangeListener<Any?> { action() }
+        view.area.visibleParagraphs.addListener(listener)
+        return Subscription { view.area.visibleParagraphs.removeListener(listener) }
+    }
+
+    override fun onTextChanged(action: () -> Unit): Subscription {
+        val changes = view.area.plainTextChanges().subscribe { action() }
+        return Subscription { changes.unsubscribe() }
+    }
+
+    override fun showLineAtTop(line: Int) {
+        val shown = line.coerceIn(0, view.area.paragraphs.size - 1)
+        view.area.moveTo(shown, 0)
+        view.area.showParagraphAtTop(shown)
     }
 }
