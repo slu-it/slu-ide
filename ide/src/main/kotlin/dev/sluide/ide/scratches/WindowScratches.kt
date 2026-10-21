@@ -3,6 +3,8 @@ package dev.sluide.ide.scratches
 import dev.sluide.editor.EditorArea
 import dev.sluide.fileexplorer.ExplorerRoot
 import dev.sluide.fileexplorer.FileExplorerView
+import dev.sluide.fileexplorer.FolderIcons
+import dev.sluide.fileicons.FileIcon
 import dev.sluide.scratches.ScratchFiles
 import dev.sluide.scratches.ScratchType
 import dev.sluide.scratches.ScratchTypePicker
@@ -50,7 +52,13 @@ internal class WindowScratches(
     fun roots(): List<ExplorerRoot> =
         try {
             scratchFiles.ensureFolder()
-            listOf(ExplorerRoot(scratchFiles.folder, SCRATCHES_LABEL))
+            listOf(
+                ExplorerRoot(
+                    scratchFiles.folder,
+                    SCRATCHES_LABEL,
+                    FolderIcons(FileIcon.SCRATCHES, FileIcon.SCRATCH_FOLDER, FileIcon.SCRATCH_FOLDER_OPEN),
+                ),
+            )
         } catch (e: IOException) {
             log.log(System.Logger.Level.WARNING, "Cannot create the scratches folder ${scratchFiles.folder}", e)
             emptyList()

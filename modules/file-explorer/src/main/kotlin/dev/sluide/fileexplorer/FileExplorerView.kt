@@ -267,7 +267,15 @@ class FileExplorerView(
         val project = root?.let { FileTreeItem(it.toAbsolutePath().normalize(), onChildrenLoaded = ::watch) }
         project?.isExpanded = true
         projectItem = project
-        val extras = extraRoots.map { FileTreeItem(it.folder.toAbsolutePath().normalize(), it.label, ::watch) }
+        val extras =
+            extraRoots.map {
+                FileTreeItem(
+                    it.folder.toAbsolutePath().normalize(),
+                    it.label,
+                    it.folderIcons,
+                    ::watch,
+                )
+            }
         this.root =
             if (project == null && extras.isEmpty()) {
                 null

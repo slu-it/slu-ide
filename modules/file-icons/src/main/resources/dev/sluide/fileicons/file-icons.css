@@ -5,6 +5,7 @@
  */
 
 .file-icon-folder     { -fx-icon-color: #c99a2e; }
+.file-icon-scratch-folder { -fx-icon-color: #2a9d8f; }
 .file-icon-text       { -fx-icon-color: -fx-text-base-color; }
 .file-icon-binary     { -fx-icon-color: #9a9a9a; }
 .file-icon-kotlin     { -fx-icon-color: #7f52ff; }
@@ -84,6 +85,7 @@
 
 @media (prefers-color-scheme: dark) {
     .file-icon-folder     { -fx-icon-color: #e0b553; }
+    .file-icon-scratch-folder { -fx-icon-color: #4fc3b4; }
     .file-icon-binary     { -fx-icon-color: #6f6f6f; }
     .file-icon-kotlin     { -fx-icon-color: #a78bfa; }
     .file-icon-java       { -fx-icon-color: #f0913a; }

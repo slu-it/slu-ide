@@ -1,5 +1,6 @@
 package dev.sluide.fileexplorer.tree
 
+import dev.sluide.fileexplorer.FolderIcons
 import javafx.beans.property.SimpleObjectProperty
 import javafx.collections.ObservableList
 import javafx.scene.control.TreeItem
@@ -15,6 +16,8 @@ internal class FileTreeItem(
     path: Path,
     /** Shown instead of the name of the folder, for a top-level folder with a given name; `null` for the others. */
     val label: String? = null,
+    /** Icons for this folder and the folders below it, if they differ from the normal ones; inherited by children. */
+    val folderIcons: FolderIcons? = null,
     private val onChildrenLoaded: (FileTreeItem) -> Unit = {},
 ) : TreeItem<Path>(path) {
     private val directory: Boolean = Files.isDirectory(path)
@@ -86,5 +89,5 @@ internal class FileTreeItem(
             listOf(this) + super.getChildren().filterIsInstance<FileTreeItem>().flatMap { it.loadedFolders() }
         }
 
-    private fun child(path: Path) = FileTreeItem(path, onChildrenLoaded = onChildrenLoaded)
+    private fun child(path: Path) = FileTreeItem(path, onChildrenLoaded = onChildrenLoaded, folderIcons = folderIcons)
 }

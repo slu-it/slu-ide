@@ -1,5 +1,6 @@
 package dev.sluide.ide
 
+import dev.sluide.fileicons.FileIcon
 import dev.sluide.scratches.SCRATCH_TYPES
 import dev.sluide.scratches.ScratchType
 import javafx.scene.Node
@@ -9,11 +10,13 @@ import javafx.scene.control.TreeItem
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
+import javafx.scene.layout.HBox
 import javafx.stage.PopupWindow
 import javafx.stage.Stage
 import javafx.stage.Window
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
+import org.kordamp.ikonli.javafx.FontIcon
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
@@ -89,6 +92,20 @@ class MainWindowScratchesUiTest : MainWindowUiFixture() {
         assertEquals(listOf(true, false), topLevel().map { it.isExpanded })
         val texts = robot.lookup(".tree-cell").queryAllAs(TreeCell::class.java).mapNotNull { it.text }
         assertTrue("Scratches" in texts, "rows: $texts")
+    }
+
+    @Test
+    fun `the scratches row shows the folder-edit icon in the scratch colour`(robot: FxRobot) {
+        openProject(robot)
+
+        val cell =
+            robot
+                .lookup(".tree-cell")
+                .queryAllAs(TreeCell::class.java)
+                .first { it.text == "Scratches" }
+        val icon = (cell.graphic as HBox).children.filterIsInstance<FontIcon>().first()
+        assertEquals(FileIcon.SCRATCHES.ikon, icon.iconCode)
+        assertTrue(FileIcon.SCRATCHES.styleClass in icon.styleClass, "classes: ${icon.styleClass}")
     }
 
     @Test

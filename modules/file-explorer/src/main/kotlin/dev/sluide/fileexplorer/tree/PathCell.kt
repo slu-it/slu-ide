@@ -115,9 +115,18 @@ internal class PathCell(
             graphic = null
             return
         }
+        val folderIcons = treeItem.folderIcons.takeIf { treeItem.isDirectory }
         val fileIcon =
-            fileIconFor(treeItem.value, treeItem.isDirectory, treeItem.isExpanded) {
-                treeItem.readable.value ?: canOpenFile(treeItem.value).also { treeItem.readable.value = it }
+            if (folderIcons != null) {
+                when {
+                    treeItem.parent !is FileTreeItem -> folderIcons.top
+                    treeItem.isExpanded -> folderIcons.open
+                    else -> folderIcons.closed
+                }
+            } else {
+                fileIconFor(treeItem.value, treeItem.isDirectory, treeItem.isExpanded) {
+                    treeItem.readable.value ?: canOpenFile(treeItem.value).also { treeItem.readable.value = it }
+                }
             }
         icon.show(fileIcon)
         graphic = content

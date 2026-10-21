@@ -40,6 +40,11 @@ enum class FileIcon(
     FOLDER(MaterialDesignF.FOLDER, "file-icon-folder"),
     FOLDER_OPEN(MaterialDesignF.FOLDER_OPEN, "file-icon-folder"),
 
+    /** The scratches folder (ADR 0066) and the folders in it: teal instead of the folders' amber. */
+    SCRATCHES(MaterialDesignF.FOLDER_EDIT, "file-icon-scratch-folder"),
+    SCRATCH_FOLDER(MaterialDesignF.FOLDER, "file-icon-scratch-folder"),
+    SCRATCH_FOLDER_OPEN(MaterialDesignF.FOLDER_OPEN, "file-icon-scratch-folder"),
+
     /** Readable file of no known type. */
     TEXT(MaterialDesignF.FILE_DOCUMENT_OUTLINE, "file-icon-text", setOf("txt", "text", "log")),
 
