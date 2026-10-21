@@ -21,7 +21,10 @@ Files for notes and experiments outside the project, shared by all project windo
 - **The Scratches node:** every window's explorer shows the folder as a second top-level node "Scratches" below the
   project, collapsed until opened, with the full path as its tooltip ([file-explorer.md](file-explorer.md)). Files in
   it open, rename, delete and are created like any other (New File…, New Folder… from its context menu); the node
-  itself cannot be renamed or deleted. If the folder cannot be created, the node is missing and a warning is logged.
+  itself cannot be renamed or deleted. The node shows a folder with a pencil (`folder-edit`), expanded or not; the
+  folders in it show the normal closed and open folder icons. Both are teal instead of the folders' amber, so the
+  scratches stand out from the project; files in it keep their type icons. If the folder cannot be created, the node is missing and a warning is
+  logged.
 - **Empty scratches are deleted** when their last tab closes, in any window (closing the tab, Close Others/All,
   closing the window): only if the file is empty and no other window has it open. A scratch with content stays until
   you delete it in the explorer.

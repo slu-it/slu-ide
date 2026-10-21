@@ -25,6 +25,12 @@ elsewhere needs a folder chooser, which a window cannot show in its explorer.
   if that fails, a warning is logged and the window shows only the project.
 - **Names without a dialog:** `scratch.<ext>`, else `scratch_<n>.<ext>` with the lowest free n >= 1, created with
   `CREATE_NEW`; a name taken meanwhile (by another window, or a case-insensitive twin) tries the next number.
+- **A look of its own:** the Scratches node shows the Material Design icon `folder-edit` (a folder with a pencil),
+  the same expanded or collapsed; the folders in it keep the normal closed/open folder glyphs, so the open/closed cue
+  stays. All are teal (`FileIcon.SCRATCHES`, `SCRATCH_FOLDER`, `SCRATCH_FOLDER_OPEN`) instead of the folders' amber;
+  files keep their type icons. `ide` passes them in as `ExplorerRoot.folderIcons` (`FolderIcons`), so the explorer
+  stays generic. The pack's marked folders (`folder-star`, `folder-lock`, ...) are not used for subfolders: they have
+  no open variant, and a deep tree of them would get busy.
 - **A type picker** (`ScratchTypePicker`, a popup near the top of the window) with a curated list of types (name,
   extension, file-type icon): filter by name or extension, Up/Down, Enter or click. The type chosen last is
   preselected next time; it is kept in memory only, since a setting for it is not worth the storage.

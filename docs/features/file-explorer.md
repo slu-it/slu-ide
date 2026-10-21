@@ -3,10 +3,13 @@
 **Module:** `modules/file-explorer` (package `dev.sluide.fileexplorer` and its sub-packages, [ADR 0055](../adr/0055-sub-packages-within-modules.md))
 
 - `FileExplorerView` is a `TreeView<Path>` (Spring `@Component`). `open(root, extraRoots)` shows the project folder
-  `root` expanded and after it each `ExplorerRoot(folder, label)` of `extraRoots` collapsed, as top-level nodes below a
-  hidden tree root; `open(null)` clears the view. The window passes the scratches folder as "Scratches"
-  ([scratch-files.md](scratch-files.md)); the explorer knows nothing about scratches. An extra root's folder must exist
-  when `open` runs. Extra roots show their label instead of the folder name, with the full path as tooltip, and are
+  `root` expanded and after it each `ExplorerRoot(folder, label, folderIcons)` of `extraRoots` collapsed, as top-level nodes
+  below a hidden tree root; `open(null)` clears the view. The window passes the scratches folder as "Scratches"
+  ([scratch-files.md](scratch-files.md)); the explorer knows nothing about scratches.
+  `ExplorerRoot.folderIcons` (`FolderIcons(top, closed, open)`, default `null` = the normal folder icons) replaces the
+  icons of the root (`top`, expanded or not) and of every folder below it (`closed`/`open`); files keep their type
+  icons, and the project tree is unaffected. The window uses it to colour the scratches (teal, `folder-edit` root).
+  An extra root's folder must exist when `open` runs. Extra roots show their label instead of the folder name, with the full path as tooltip, and are
   loaded and watched once expanded.
 - `reveal(path, focus = false)` expands the top-level node holding `path` (the innermost one if they nest) and the
   folders down to it, loading them, then selects and scrolls to it; it takes the focus only if `focus`. It returns

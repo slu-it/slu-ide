@@ -85,9 +85,10 @@ assembled from Gradle modules.
     the diff of given texts for deleted files, in a `WorkingTreeDiffTab`; `false` when not shown as text), and tells it
     with `showStatus` when a file cannot be shown as text; its `beforeFileChange(action)` asks
     `EditorArea.saveBeforeGitChange`.
-  - `file-explorer` -> `file-icons` and `git-log` -> `file-icons` (`implementation`): both show files with the
-    file-type icons of `FileIcon`/`fileIconFor`, `FontIcon.show` and `FILE_ICONS_CSS`; `file-icons` is a plain library
-    without Spring beans ([ADR 0012](adr/0012-file-icons.md),
+  - `file-explorer` -> `file-icons` (`api`): the explorer shows files with the file-type icons of
+    `FileIcon`/`fileIconFor`, `FontIcon.show` and `FILE_ICONS_CSS`, and `ExplorerRoot.folderIcons` takes `FileIcon`s,
+    so `ide` needs no dependency of its own. `git-log` -> `file-icons` (`implementation`): the same icons in the
+    commit details. `file-icons` is a plain library without Spring beans ([ADR 0012](adr/0012-file-icons.md),
     [ADR 0047](adr/0047-module-dependencies-and-shared-modules.md)).
   - `scratches` -> `file-icons` (`implementation`): the type picker shows each type with its file-type icon
     ([ADR 0066](adr/0066-scratch-files.md)).
