@@ -1,6 +1,6 @@
 # Git Diff
 
-**Modules:** `modules/git` (diff), `modules/file-viewers` (markers and view), `modules/editor` (tabs), wired in
+**Modules:** `modules/git` (diff), `modules/file-viewers` (markers and view), `modules/editor-area` (tabs), wired in
 `MainWindow`; decisions in [ADR 0015](../adr/0015-git-diff.md) and
 [ADR 0021](../adr/0021-change-markers-and-diffs-on-demand.md)
 

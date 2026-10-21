@@ -17,6 +17,7 @@ icons because the icons were `internal` to `file-explorer`, and depending on tha
   `file-viewers`, `terminal`, `docker-sandbox`, `http-client`: what is shown as editor tabs or file views) is one
   capability family, so its existing edges (`editor` -> `file-viewers`, `terminal` -> `editor`, `docker-sandbox` ->
   `terminal`, `http-client` -> `file-viewers`) follow the rule.
+  Amended by [ADR 0071](0071-editor-area-module.md): `editor` is now `editor-area`.
 - Unrelated feature modules do not depend on each other. `ide` wires them through callbacks, as `git-log` with
   `editor` and `file-viewers`, and `git` with the explorer's markers.
 - When two modules need the same piece of a third, that piece is extracted into a small module instead of depending

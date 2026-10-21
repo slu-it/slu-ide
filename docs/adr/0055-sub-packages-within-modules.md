@@ -25,7 +25,8 @@ packages.
   `fileviewers.markdown`, and the settings pages in `settings.pages`. Component scanning covers `dev.sluide`
   recursively, and bean names come from the simple class name, so a move changes neither.
 - **Small modules stay flat:** about six files or fewer, or nearly all of them API. These are `text-editing`,
-  `editor`, `docker-sandbox`, `project-trust`, `projects`, `file-icons` and `file-watcher`.
+  `editor` (now `editor-area`, [ADR 0071](0071-editor-area-module.md)), `docker-sandbox`, `project-trust`,
+  `projects`, `file-icons` and `file-watcher`.
 - **Visibility is unchanged.** `internal` covers the whole module. Inheritors of a sealed type stay in its package,
   which is why `CommitChanges` and `PushOperation` live in `gitlog.operations` next to `RefOperation`.
 - **Moved classes load their resources by absolute path** (`/dev/sluide/<module>/…`), and the resources stay in the

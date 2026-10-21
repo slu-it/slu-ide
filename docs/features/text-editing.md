@@ -1,6 +1,6 @@
 # Text Editing
 
-**Modules:** `modules/text-editing` (logic without JavaFX), `modules/file-viewers` (`CodeView`), `modules/editor`
+**Modules:** `modules/text-editing` (logic without JavaFX), `modules/file-viewers` (`CodeView`), `modules/editor-area`
 (saving and prompts), wired in `MainWindow`; decisions in [ADR 0020](../adr/0020-editing-and-saving-files.md) (editing
 and saving), [ADR 0022](../adr/0022-editor-key-bindings.md) (keys) and
 [ADR 0023](../adr/0023-indentation-from-editorconfig.md) (indentation)
@@ -115,7 +115,7 @@ and saving), [ADR 0022](../adr/0022-editor-key-bindings.md) (keys) and
     `changedSpanRange` from `StyleRanges.kt`, line numbers and change markers in its `Gutter`); `EditorKeys.kt` (the
     editing keys as a wellbehavedfx `InputMap`, `applyEdit`, `applyEdits`), `FindBar` (matches overlaid on the token
     styles), `GoToLine` (dialog replaceable in tests); the viewers pass their `CommentSyntax` to the view.
-  - `editor`: `EditorArea.save()`, `saveAll()`, `confirmCloseAll()`, `confirmSave` and `showError` (replaceable in
+  - `editor-area`: `EditorArea.save()`, `saveAll()`, `confirmCloseAll()`, `confirmSave` and `showError` (replaceable in
     tests), `OpenFile.dirty` for the title; `askToSave` / `SaveChoice` in `CloseConfirmation.kt`.
 - Not yet implemented: other encodings than UTF-8, Save As, autosave, an Edit menu or other ways to discover and
   rebind the keys, find in several files, smart indentation beyond brackets (e.g. after `:` in Python).

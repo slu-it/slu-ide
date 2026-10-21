@@ -1,6 +1,6 @@
 # Editor Tabs
 
-**Module:** `modules/editor` (package `dev.sluide.editor`), depends on `modules/file-viewers` and
+**Module:** `modules/editor-area` (package `dev.sluide.editorarea`), depends on `modules/file-viewers` and
 `modules/file-watcher`
 
 - `EditorArea` (Spring `@Component`) is the central area right of the file explorer. `open(path)` shows a file in a
