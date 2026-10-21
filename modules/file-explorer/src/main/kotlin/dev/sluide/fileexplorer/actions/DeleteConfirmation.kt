@@ -49,10 +49,9 @@ internal fun deleteQuestion(
     unsaved: Int,
 ): DeleteQuestion {
     val names =
-        entries.take(MAX_NAMES).map { (path, kind) ->
+        entries.map { (path, kind) ->
             "“${path.fileName}”" + if (kind == EntryKind.FOLDER) " and everything in it" else ""
         }
-    val more = entries.size - MAX_NAMES
     val lost =
         when (unsaved) {
             0 -> null
@@ -62,11 +61,17 @@ internal fun deleteQuestion(
     return DeleteQuestion(
         "Delete ${entries.size} entries?",
         listOfNotNull(
-            names.joinToString("\n") + if (more > 0) "\nand $more more" else "",
+            nameLines(names),
             lost,
             "They are deleted permanently, not moved to the trash. This cannot be undone.",
         ).joinToString("\n"),
     )
+}
+
+/** [names] one per line, at most ten of them, then "and N more" for the rest. */
+internal fun nameLines(names: List<String>): String {
+    val more = names.size - MAX_NAMES
+    return names.take(MAX_NAMES).joinToString("\n") + if (more > 0) "\nand $more more" else ""
 }
 
 private const val MAX_NAMES = 10
