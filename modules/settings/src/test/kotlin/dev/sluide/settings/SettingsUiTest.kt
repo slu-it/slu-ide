@@ -2,7 +2,6 @@ package dev.sluide.settings
 
 import dev.sluide.settings.pages.AppearancePage
 import dev.sluide.settings.pages.FontsPage
-import dev.sluide.settings.pages.TerminalScrollPage
 import javafx.application.ColorScheme
 import javafx.beans.property.SimpleObjectProperty
 import javafx.event.Event
@@ -46,8 +45,6 @@ class SettingsUiTest {
         ThemeSettings(SettingsStore(dir.resolve("settings.properties")), { SimpleObjectProperty(ColorScheme.LIGHT) })
     }
     private val appearancePage by lazy { AppearancePage(themeSettings) }
-    private val scrollSettings by lazy { TerminalScrollSettings(SettingsStore(dir.resolve("settings.properties"))) }
-    private val scrollPage by lazy { TerminalScrollPage(scrollSettings) }
 
     /** A second page in another group, to check the tree. */
     private class OtherPage : SettingsPage {
@@ -296,31 +293,22 @@ class SettingsUiTest {
     }
 
     @Test
-    fun `the terminal scroll speeds change on OK, in steps of 5 percent`(robot: FxRobot) {
-        val dialog = open(robot, fontsPage, scrollPage)
+    fun `OK applies the shown page and closes the dialog, pages of other groups are listed after Display`(
+        robot: FxRobot,
+    ) {
+        val other = OtherPage()
+        val dialog = open(robot, fontsPage, other)
         assertEquals(
-            listOf("Display", "Terminal"),
+            listOf("Display", "Other"),
             dialog.tree.root.children
                 .map { it.value.name },
         )
-        robot.interact { dialog.select(listOf("Terminal", "Scrolling")) }
-        assertSame(scrollPage, dialog.shownPage)
-        assertEquals(100.0, scrollPage.trackpad.value)
-        assertEquals("100 %", scrollPage.wheelValue.text)
-
-        robot.interact {
-            scrollPage.trackpad.value = 36.0
-            scrollPage.wheel.decrement()
-        }
-        assertEquals(35.0, scrollPage.trackpad.value, "whole multiples of 5")
-        assertEquals("35 %", scrollPage.trackpadValue.text)
-        assertEquals("95 %", scrollPage.wheelValue.text)
-        assertEquals(100, scrollSettings.trackpad.get(), "not applied yet")
+        robot.interact { dialog.select(listOf("Other", "Things")) }
+        assertSame(other, dialog.shownPage)
 
         close(robot, dialog, ButtonType.OK)
         assertFalse(dialog.isShowing)
-        assertEquals(35, scrollSettings.trackpad.get())
-        assertEquals(95, scrollSettings.wheel.get())
+        assertEquals(1, other.applied)
     }
 
     private fun enter(node: Node) =

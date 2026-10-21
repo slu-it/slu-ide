@@ -31,13 +31,13 @@ import dev.sluide.scratches.ScratchFiles
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.SettingsStore
-import dev.sluide.settings.TerminalScrollSettings
 import dev.sluide.settings.ThemeSettings
 import dev.sluide.settings.ThemedWindows
 import dev.sluide.settings.pages.AppearancePage
 import dev.sluide.settings.pages.FontsPage
-import dev.sluide.settings.pages.TerminalScrollPage
 import dev.sluide.terminal.Terminals
+import dev.sluide.terminal.settings.TerminalScrollPage
+import dev.sluide.terminal.settings.TerminalScrollSettings
 import org.junit.jupiter.api.io.TempDir
 import org.springframework.boot.WebApplicationType
 import org.springframework.boot.builder.SpringApplicationBuilder

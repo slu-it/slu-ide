@@ -27,11 +27,11 @@ import dev.sluide.scratches.ScratchFiles
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.SettingsStore
-import dev.sluide.settings.TerminalScrollSettings
 import dev.sluide.settings.ThemeSettings
 import dev.sluide.settings.ThemedWindows
 import dev.sluide.settings.pages.FontsPage
 import dev.sluide.terminal.Terminals
+import dev.sluide.terminal.settings.TerminalScrollSettings
 import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.control.Label

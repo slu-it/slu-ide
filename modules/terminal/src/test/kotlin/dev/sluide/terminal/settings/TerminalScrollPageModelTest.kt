@@ -1,7 +1,6 @@
-package dev.sluide.settings.pages
+package dev.sluide.terminal.settings
 
 import dev.sluide.settings.SettingsStore
-import dev.sluide.settings.TerminalScrollSettings
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.test.Test

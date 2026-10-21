@@ -1,5 +1,6 @@
-package dev.sluide.settings
+package dev.sluide.terminal.settings
 
+import dev.sluide.settings.SettingsStore
 import javafx.beans.property.ReadOnlyIntegerProperty
 import javafx.beans.property.ReadOnlyIntegerWrapper
 import org.springframework.stereotype.Component

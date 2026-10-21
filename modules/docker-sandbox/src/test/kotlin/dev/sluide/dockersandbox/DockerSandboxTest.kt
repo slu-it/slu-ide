@@ -2,8 +2,8 @@ package dev.sluide.dockersandbox
 
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.SettingsStore
-import dev.sluide.settings.TerminalScrollSettings
 import dev.sluide.terminal.Terminals
+import dev.sluide.terminal.settings.TerminalScrollSettings
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path

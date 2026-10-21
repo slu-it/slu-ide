@@ -96,8 +96,9 @@ assembled from Gradle modules.
     `ExplorerRoot`, adds File → New Scratch File… with the type picker, reveals and opens new scratches, deletes empty
     ones on `EditorArea.onFileClosed` unless another window has them open, and keeps scratch-only changes from
     refreshing the git status ([ADR 0066](adr/0066-scratch-files.md)).
-  - `file-explorer`, `editor`, `terminal` -> `settings`: they use the configured fonts, the terminal also the
-    configured scroll speeds ([ADR 0008](adr/0008-settings.md)).
+  - `file-explorer`, `editor`, `terminal` -> `settings`: they use the configured fonts; terminals use the terminal font,
+    store their scroll settings with `SettingsStore` and add a `SettingsPage` ([ADR 0008](adr/0008-settings.md),
+    [ADR 0067](adr/0067-feature-settings-in-their-module.md)).
 - Shared build configuration (JDK toolchain, test setup, Spring BOM) is in the root `build.gradle.kts`.
 
 ## Runtime

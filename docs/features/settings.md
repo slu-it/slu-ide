@@ -33,10 +33,12 @@
 - Structure: `FontSpec`, `FontStyle`, `FontArea` (values), `SettingsStore` (properties file), `FontSettings` (Spring
   bean, properties per area), `SettingsPage`/`SettingsPages` (pages as beans), `SettingsDialog`, `FontsPage` with
   `FontsPageModel` (drafts), `Theme`, `ThemeSettings` (Spring bean, theme and colour scheme), `ThemedWindows` (applies
-  the colour scheme and `theme.css` to every window), `AppearancePage` with `AppearancePageModel`,
-  `TerminalScrollSettings` (Spring bean, trackpad and wheel speed), `TerminalScrollPage` with
-  `TerminalScrollPageModel`. Users: `FileExplorerView`, `EditorArea` (binds every open file view and diff tab),
-  `Terminals` (each `TerminalView` follows the terminal font and scroll speeds), `MainWindow` (installs
-  `ThemedWindows`).
+  the colour scheme and `theme.css` to every window), `AppearancePage` with `AppearancePageModel`.
+  Users: `FileExplorerView`, `EditorArea` (binds every open file view and diff tab),
+  `Terminals` (each `TerminalView` follows the terminal font), `MainWindow` (installs
+  `ThemedWindows`). The terminal scroll settings live in the `terminal` module (package `dev.sluide.terminal.settings`,
+  [ADR 0067](../adr/0067-feature-settings-in-their-module.md)): `TerminalScrollSettings` (Spring bean, trackpad and
+  wheel speed), `TerminalScrollPage` with `TerminalScrollPageModel`; they are stored in the same file under the same
+  keys and the page is a `SettingsPage` bean like the others.
 - Not yet implemented: font settings for menus and dialogs, line spacing, per-project settings, a light terminal,
   custom colours.

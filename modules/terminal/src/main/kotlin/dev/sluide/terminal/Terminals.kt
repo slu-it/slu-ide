@@ -3,7 +3,7 @@ package dev.sluide.terminal
 import dev.sluide.editor.EditorTab
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
-import dev.sluide.settings.TerminalScrollSettings
+import dev.sluide.terminal.settings.TerminalScrollSettings
 import dev.sluide.terminal.view.ScrollSpeeds
 import dev.sluide.terminal.view.TerminalTab
 import dev.sluide.terminal.view.TerminalView

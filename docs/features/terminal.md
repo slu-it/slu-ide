@@ -64,6 +64,8 @@
 - Structure: `Terminals` (window-scoped Spring bean: opens terminals, ends them when its window closes),
   `TerminalTab` (`EditorTab`), `TerminalView` (canvas, input, selection; JediTerm `TerminalDisplay`),
   `TerminalSession` (pty4j process and JediTerm emulator), `TerminalKeys` (key translation), `TerminalMouse` (mouse
-  translation), `ScrollAccumulator` (scroll speeds, fractions of lines), `TerminalColors` (palette).
+  translation), `ScrollAccumulator` (scroll speeds, fractions of lines), `TerminalColors` (palette), `settings` package: `TerminalScrollSettings` (Spring bean, trackpad and wheel
+  speed), `TerminalScrollPage` with `TerminalScrollPageModel` (Terminal → Scrolling,
+  [ADR 0067](../adr/0067-feature-settings-in-their-module.md)).
 - Not yet implemented: window titles set by programs, clickable links, search, colour settings (including a light
   palette), split terminals, Windows shells.

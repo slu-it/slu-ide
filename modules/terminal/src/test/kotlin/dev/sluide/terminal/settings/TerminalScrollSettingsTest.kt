@@ -1,5 +1,6 @@
-package dev.sluide.settings
+package dev.sluide.terminal.settings
 
+import dev.sluide.settings.SettingsStore
 import org.junit.jupiter.api.io.TempDir
 import java.io.IOException
 import java.nio.file.Path

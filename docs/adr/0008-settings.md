@@ -28,6 +28,8 @@ read by several feature modules, changed in one dialog, and must survive a resta
   file to back up or reset.
 - The dialog is built from `SettingsPage` beans: each page names its place in the tree (e.g. Display → Fonts) and
   applies its own edits. New pages need no change to the dialog.
+  Amended by [ADR 0067](0067-feature-settings-in-their-module.md): settings that belong to one feature, such as the
+  terminal scroll speeds, and their pages live in that feature's module.
 
 ## Consequences
 - Adding a setting means adding a property to a settings bean (or a new bean) and a page; the views that use it bind

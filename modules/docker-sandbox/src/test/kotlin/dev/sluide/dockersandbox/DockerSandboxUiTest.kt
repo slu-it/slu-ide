@@ -3,9 +3,9 @@ package dev.sluide.dockersandbox
 import dev.sluide.editor.EditorTab
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.SettingsStore
-import dev.sluide.settings.TerminalScrollSettings
 import dev.sluide.terminal.TerminalStartException
 import dev.sluide.terminal.Terminals
+import dev.sluide.terminal.settings.TerminalScrollSettings
 import javafx.scene.Scene
 import javafx.scene.control.Label
 import javafx.scene.layout.StackPane
