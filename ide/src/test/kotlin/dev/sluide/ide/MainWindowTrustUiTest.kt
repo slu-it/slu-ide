@@ -2,6 +2,7 @@ package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.git.GitTrustCheck
+import dev.sluide.ide.git.GIT_OFF
 import dev.sluide.ide.trust.KEEP_OFF_BUTTON
 import dev.sluide.ide.trust.TRUST_BUTTON
 import dev.sluide.ide.trust.trustConfirmation
