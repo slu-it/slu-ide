@@ -34,7 +34,10 @@ packages.
   stay in the root. A shared test helper goes where most of its users are.
 - **Dependencies between sub-packages run one way where a single move allows it.** For example, the heading
   functions of the table of contents live in `fileviewers.preview` rather than `fileviewers.markdown`.
-  `gitlog.operations` ↔ `gitlog.branches` remains (`BranchActions` uses `BranchNode`).
+  In `git-log`, the branch tree model (`BranchTree.kt`) and `SHORT_HASH` live in `gitlog.data`, not in
+  `gitlog.branches` and `gitlog.ui` (moved on 2026-10-21), so `gitlog.operations` does not depend on `gitlog.branches`
+  and `data` depends on no other gitlog package. Sub-packages using the root package's API types (for example `area`
+  using `CommitFileDiff`) is not a cycle in this sense, since the root holds the module's API.
 
 ## Consequences
 - The root listing of a module shows what it offers. `file-viewers` has 13 root files instead of 86, and `git-log` 3

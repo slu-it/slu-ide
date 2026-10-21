@@ -1,5 +1,10 @@
 # Git Log
 
+The module `git-log` is the git area under the editor: the log, the branches pane, the history of a file, compare, the
+Commit tab and the Push dialog, and the write operations (checkout, branches and tags, cherry-pick, revert, reset,
+rebase, fetch, push). It keeps its name; the user sees "Git Log". This page covers the area and the log; the Commit tab
+and the Push dialog are in [commit-and-push.md](commit-and-push.md), file history in [file-history.md](file-history.md).
+
 **Module:** `modules/git-log` (package `dev.sluide.gitlog` and its sub-packages, [ADR 0055](../adr/0055-sub-packages-within-modules.md)) — `GitLogView` (the area: construction, layout and wiring of `HeaderStatus` (the header's message),
 `AreaTabs` (the Log, Commit and History tabs), `CommitTable` (the commits and their menu), `CommitNavigation` (Go to),
 `RefActions` (the writes and the Push dialog's launcher), `CompareBar`, `PendingBar`, `CommitDiffs` and
@@ -9,7 +14,7 @@ reloads, without controls), `GraphLayout` (the commit graph's lanes), `GraphCell
 `CommitDetailsPane`, `changeTree` and `FileDiffs` (`ChangedFiles.kt`, without controls), `ChangedFilesPane` with the
 tree `ChangeTreeView` (shared with the working-tree window), `LogComparison` (in `GitLogPages.kt`, without controls),
 `WorkingTreeComparison` (without controls) and `WorkingTreeWindow`,
-`FilterBar` (`FilterBar.kt`) with `FilterButton` and `FilterPopup` (`FilterButton.kt`, `FilterPopup.kt`), `branchNodes` (`BranchTree.kt`, without controls) and
+`FilterBar` (`FilterBar.kt`) with `FilterButton` and `FilterPopup` (`FilterButton.kt`, `FilterPopup.kt`), `branchNodes` (`BranchTree.kt` in `gitlog.data`, without controls) and
 `BranchesPane`, the operations that change the repository with `branchActions`, `nameProblem` and their `RefWriter`
 (`RefOperations.kt`, without controls), the cherry-pick, revert and reset operations (`CommitOperations.kt`, without
 controls), Fetch and its summary (`FetchOperations.kt`, without controls) and their dialogs (`RefDialogs.kt`, `CommitDialogs.kt`); the commits (filtered by a `GitLogFilter`), refs,
