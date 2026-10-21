@@ -23,10 +23,11 @@ internal const val MAX_TEXT_FILE_SIZE = 10L * 1024 * 1024
 fun isTextFile(file: Path): Boolean = readTextSample(file) != null
 
 /**
- * The first [TEXT_SAMPLE_SIZE] bytes of [file] if it is a text file as [isTextFile] decides, else `null`, so callers
- * that also look at the start of the file read it only once.
+ * The first bytes (8 KB) of [file] if it is a text file as [isTextFile] decides, else `null`, so that a viewer that
+ * also looks at the start of a file, e.g. for a shebang or a PEM marker, reads it only once. The sample may end inside
+ * a multi-byte UTF-8 character.
  */
-internal fun readTextSample(file: Path): ByteArray? =
+fun readTextSample(file: Path): ByteArray? =
     try {
         if (Files.isRegularFile(file) && Files.size(file) <= MAX_TEXT_FILE_SIZE) {
             readSample(file).takeIf(::isTextSample)

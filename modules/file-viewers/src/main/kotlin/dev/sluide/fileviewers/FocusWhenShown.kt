@@ -6,10 +6,11 @@ import javafx.util.Subscription
 
 /**
  * Focuses a node of a view at once if it is in a scene, or else as soon as it gets one: a view is often asked for the
- * focus before it is shown, and a split pane adds its items to the scene only when it is skinned. A newer [request]
- * or [cancel] drops a pending one. FX thread only.
+ * focus before it is shown, and a split pane adds its items to the scene only when it is skinned (ADR 0050). A view
+ * keeps one instance for its [FileView.focus] and [FileView.focusText]; a newer [request] or [cancel] drops a pending
+ * one, so a view cancels on [FileView.dispose] and wherever it must no longer take the focus. FX thread only.
  */
-internal class FocusWhenShown {
+class FocusWhenShown {
     /** Counts the requests; a pending one runs only while it is the last. */
     private var requests = 0
     private var waiting: Subscription = Subscription.EMPTY
@@ -45,7 +46,7 @@ internal class FocusWhenShown {
         waiting = Subscription.EMPTY
     }
 
-    companion object {
+    internal companion object {
         private val KEY = Any()
 
         /** The requests for the view whose node is [node], kept with it; for views without their own. */
