@@ -4,8 +4,8 @@ import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewHost
-import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.FocusWhenShown
+import dev.sluide.fileviewers.SourceFileViewer
 import dev.sluide.fileviewers.SyntaxHighlighter
 import dev.sluide.fileviewers.TextDiff
 import dev.sluide.fileviewers.code.CodeView
@@ -50,7 +50,10 @@ abstract class PreviewFileViewer internal constructor(
     internal val highlighter: SyntaxHighlighter,
     private val preview: Preview,
     internal val comment: CommentSyntax = CommentSyntax.NONE,
-) : FileViewer {
+) : SourceFileViewer {
+    /** The source is highlighted like the previews show it, and so are its diffs. */
+    final override val sourceHighlighter: SyntaxHighlighter get() = highlighter
+
     override fun canOpen(file: Path): Boolean = matchesExtension(file) && Files.isReadable(file) && isTextFile(file)
 
     /** Whether the extension of [file] is one of this viewer's; the file is not looked at. */
