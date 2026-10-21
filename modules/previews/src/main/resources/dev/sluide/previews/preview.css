@@ -233,24 +233,114 @@ body.csv {
     padding: 0 0 24px 0;
 }
 
+/* Separate borders, so that they move with the sticky header cells instead of letting the rows show through. */
 table.csv-table {
     font-size: 13px;
     line-height: 1.4;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+table.csv-table th,
+table.csv-table td {
+    border-width: 0 1px 1px 0;
+}
+
+table.csv-table tr > :first-child {
+    border-left-width: 1px;
+}
+
+table.csv-table tr.csv-labels > th {
+    border-top-width: 1px;
+}
+
+/* Both header rows stay at the top: the labels at 0, the search fields below them (csv-table.js sets their top). */
+table.csv-table thead th,
+table.csv-table thead td {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: #f6f8fa;
 }
 
 table.csv-table th {
-    position: sticky;
-    top: 0;
     cursor: pointer;
-    background: #f6f8fa;
     white-space: nowrap;
 }
 
 table.csv-table th.ascending::after { content: " \25B4"; }
 table.csv-table th.descending::after { content: " \25BE"; }
 
-body.dark table.csv-table th {
+table.csv-table tr.csv-filters td {
+    padding: 2px 4px;
+}
+
+table.csv-table input.csv-filter {
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 4em;
+    padding: 2px 4px;
+    font: inherit;
+    color: inherit;
+    background: #ffffff;
+    border: 1px solid #d1d9e0;
+    border-radius: 3px;
+}
+
+/* Stripes on the shown rows only (csv-table.js sets csv-odd); nth-child would count hidden ones. */
+table.csv-table tbody tr,
+body.dark table.csv-table tbody tr {
+    background: transparent;
+}
+
+table.csv-table tbody tr.csv-odd {
+    background: #f6f8fa;
+}
+
+body.dark table.csv-table tbody tr.csv-odd {
     background: #313335;
+}
+
+/* With a header, the first record is shown as the labels instead. */
+table.csv-table.has-header tr.csv-first {
+    display: none;
+}
+
+.csv-bar {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    padding: 6px 8px;
+    font-size: 13px;
+}
+
+.csv-bar label {
+    display: inline-flex;
+    gap: 4px;
+    align-items: center;
+    cursor: pointer;
+}
+
+.csv-bar input {
+    margin: 0;
+}
+
+.csv-count {
+    color: #59636e;
+}
+
+body.dark table.csv-table thead th,
+body.dark table.csv-table thead td {
+    background: #313335;
+}
+
+body.dark table.csv-table input.csv-filter {
+    background: #2b2b2b;
+    border-color: #3d444d;
+}
+
+body.dark .csv-count {
+    color: #9198a1;
 }
 
 .csv-note {

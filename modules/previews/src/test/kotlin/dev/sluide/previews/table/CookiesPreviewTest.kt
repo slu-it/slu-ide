@@ -3,6 +3,7 @@ package dev.sluide.previews.table
 import org.jsoup.Jsoup
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class CookiesPreviewTest {
@@ -17,11 +18,14 @@ class CookiesPreviewTest {
         val page = Jsoup.parse(CookiesPreview.render(jar, dark = false))
 
         assertEquals(listOf("domain", "path", "name", "value", "date"), page.select("thead th").map { it.text() })
+        assertEquals(5, page.select("input.csv-filter").size)
+        assertNull(page.selectFirst("input.csv-header-toggle"))
         assertEquals(
             listOf("abc123", "\"dark\"", "\"open"),
-            page.select("tbody tr").map { it.select("td")[3].text() },
+            page.select("tbody tr:not(.csv-first)").map { it.select("td")[3].text() },
         )
-        assertEquals(listOf("0", "1", "2", "3"), page.select("tr").map { it.attr("data-line") })
+        assertEquals(listOf("0", "1", "2", "3"), page.select("tbody tr").map { it.attr("data-line") })
+        assertEquals("0", page.selectFirst("tr.csv-labels")?.attr("data-line"))
     }
 
     @Test
@@ -34,5 +38,12 @@ class CookiesPreviewTest {
             "Empty file",
             Jsoup.parse(CookiesPreview.render("", dark = false)).selectFirst(".csv-note")?.text(),
         )
+    }
+
+    @Test
+    fun `a jar of numbers keeps its first line as header`() {
+        val page = Jsoup.parse(CookiesPreview.render("1\t2\n3\t4\n", dark = false))
+
+        assertEquals(listOf("1", "2"), page.select("thead th").map { it.text() })
     }
 }

@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component
 import java.nio.file.Path
 
 /**
- * Shows cookie jars (`.cookies`, IntelliJ's `http-client.cookies`) as text beside a sortable table ([CookiesPreview]).
+ * Shows cookie jars (`.cookies`, IntelliJ's `http-client.cookies`) as text beside a sortable, searchable table ([CookiesPreview]).
  */
 @Component
 class CookiesFileViewer :
@@ -26,12 +26,21 @@ internal object CookiesPreview : Preview {
         text: String,
         dark: Boolean,
         root: Path,
-    ) = engine.loadContent(render(text, dark))
+    ) = engine.loadContent(render(text, dark, TableState.read(engine)))
 
     fun render(
         text: String,
         dark: Boolean,
-    ): String = CsvRenderer.render(text.replaceFirst(headerMark, ""), '\t', dark, quotes = false)
+        state: TableState = TableState(),
+    ): String =
+        CsvRenderer.render(
+            text.replaceFirst(headerMark, ""),
+            '\t',
+            dark,
+            quotes = false,
+            fixedHeader = true,
+            state = state,
+        )
 
     /** The `# ` before the header's first column; the line stays, so rows keep their source lines. */
     private val headerMark = Regex("^\uFEFF?# *")

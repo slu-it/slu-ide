@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component
 import java.nio.file.Path
 import kotlin.io.path.extension
 
-/** Shows CSV and TSV files (`.csv`, `.tsv`) as text beside a sortable table ([CsvRenderer]). */
+/** Shows CSV and TSV files (`.csv`, `.tsv`) as text beside a sortable, searchable table ([CsvRenderer]). */
 @Component
 class CsvFileViewer :
     PreviewFileViewer(setOf("csv", "tsv"), SyntaxHighlighter { emptyList() }, CsvPreview, CommentSyntax.NONE)
@@ -22,7 +22,9 @@ internal object CsvPreview : Preview {
         text: String,
         dark: Boolean,
         root: Path,
-    ) = engine.loadContent(CsvRenderer.render(text, CsvRenderer.delimiter(file.extension, text), dark))
+    ) = engine.loadContent(
+        CsvRenderer.render(text, CsvRenderer.delimiter(file.extension, text), dark, state = TableState.read(engine)),
+    )
 
     override val syncsScroll get() = true
 }

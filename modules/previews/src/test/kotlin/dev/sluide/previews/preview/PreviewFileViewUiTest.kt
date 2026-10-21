@@ -260,7 +260,7 @@ class PreviewFileViewUiTest {
         robot.interact { container.children.setAll(view.node) }
         awaitLoaded(view)
         val names =
-            "Array.prototype.map.call(document.querySelectorAll('tbody tr'), " +
+            "Array.prototype.map.call(document.querySelectorAll('tbody tr:not(.csv-first)'), " +
                 "function (r) { return r.cells[0].textContent; }).join()"
 
         assertEquals("Bob,Ada,Cy", view.script(names))
@@ -291,7 +291,7 @@ class PreviewFileViewUiTest {
                 "Array.prototype.map.call(document.querySelectorAll('th'), function (h) { return h.textContent; }).join()",
             ),
         )
-        assertEquals("\"x\"", view.script("document.querySelectorAll('tbody td')[3].textContent"))
+        assertEquals("\"x\"", view.script("document.querySelectorAll('tbody tr:not(.csv-first) td')[3].textContent"))
     }
 
     @Test
@@ -305,7 +305,7 @@ class PreviewFileViewUiTest {
 
         // Descending by n: the rows are in reverse order.
         view.script("document.querySelectorAll('th')[1].click(); document.querySelectorAll('th')[1].click()")
-        assertEquals("r200", view.script("document.querySelector('tbody td').textContent"))
+        assertEquals("r200", view.script("document.querySelector('tbody tr:not(.csv-first) td').textContent"))
         robot.interact { view.sourceArea.showParagraphAtTop(150) }
         WaitForAsyncUtils.waitForFxEvents()
 
