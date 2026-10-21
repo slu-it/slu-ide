@@ -275,8 +275,8 @@ class ProjectWindowsUiTest {
         val second = windows.stages[1]
         lateinit var terminals: Terminals
         robot.interact {
-            window(second).openTerminal(second)
-            terminals = window(second).terminals
+            window(second).tools.openTerminal(second)
+            terminals = window(second).tools.terminals
         }
         assertEquals(1, terminals.openCount)
 

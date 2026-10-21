@@ -2,8 +2,6 @@ package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.dockersandbox.DockerSandbox
-import dev.sluide.dockersandbox.SandboxAction
-import dev.sluide.dockersandbox.SandboxNotAllowedException
 import dev.sluide.editor.EditorArea
 import dev.sluide.editor.askToClose
 import dev.sluide.fileexplorer.FileExplorerView
@@ -26,6 +24,7 @@ import dev.sluide.ide.git.toTextDiff
 import dev.sluide.ide.git.wouldCommit
 import dev.sluide.ide.logging.currentLogFolder
 import dev.sluide.ide.scratches.WindowScratches
+import dev.sluide.ide.tools.WindowTools
 import dev.sluide.ide.trust.WindowTrust
 import dev.sluide.projects.RecentProjects
 import dev.sluide.projecttrust.ProjectTrust
@@ -34,9 +33,7 @@ import dev.sluide.scratches.ScratchFiles
 import dev.sluide.settings.SettingsDialog
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.ThemedWindows
-import dev.sluide.terminal.TerminalStartException
 import dev.sluide.terminal.Terminals
-import javafx.application.Platform
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.geometry.Orientation
 import javafx.scene.Scene
@@ -84,8 +81,8 @@ class MainWindow(
     private val projectService: ProjectService,
     private val fileExplorer: FileExplorerView,
     private val editorArea: EditorArea,
-    internal val terminals: Terminals,
-    private val dockerSandbox: DockerSandbox,
+    terminals: Terminals,
+    dockerSandbox: DockerSandbox,
     private val gitStatus: GitStatusService,
     private val gitLogView: GitLogView,
     private val fileViewers: FileViewers,
@@ -135,6 +132,10 @@ class MainWindow(
     /** The trust bar and the questions behind it (ADR 0053). */
     internal val trust = WindowTrust(projectTrust, folder = { folder })
 
+    /** The Terminal and Docker Sandbox menus and the tabs they open. */
+    internal val tools =
+        WindowTools(projectService, terminals, dockerSandbox, editorArea, showError = { s, m -> showError(s, m) })
+
     /** The project folder of this window; `null` until a folder is opened in it. */
     val folder: Path? get() = projectService.projectFolder.get()
 
@@ -171,7 +172,13 @@ class MainWindow(
             BorderPane().apply {
                 top =
                     VBox(
-                        MenuBar(fileMenu(stage), viewMenu(), gitMenu(), terminalMenu(stage), dockerSandboxMenu(stage)),
+                        MenuBar(
+                            fileMenu(stage),
+                            viewMenu(),
+                            gitMenu(),
+                            tools.terminalMenu(stage),
+                            tools.dockerSandboxMenu(stage),
+                        ),
                         trust.bar,
                     )
                 center = split
@@ -508,72 +515,6 @@ class MainWindow(
                 setOnAction { gitLogView.showPush() }
             }
         return Menu("Git", null, commit, push)
-    }
-
-    private fun terminalMenu(stage: Stage): Menu {
-        val newTerminal =
-            MenuItem("New Terminal").apply {
-                // Ctrl+Shift+letter is not sent to the shell, so this also works while a terminal has the focus
-                // (unlike Ctrl+letter shortcuts such as Ctrl+O on Linux, which the terminal sends to the shell).
-                accelerator = KeyCodeCombination(KeyCode.T, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN)
-                setOnAction { openTerminal(stage) }
-            }
-        return Menu("Terminal", null, newTerminal)
-    }
-
-    /**
-     * Opens a terminal tab in the project folder, or in the home folder if no project is open; shows an error if the
-     * shell cannot be started.
-     */
-    internal fun openTerminal(stage: Stage) {
-        val folder = projectService.projectFolder.get() ?: Path.of(System.getProperty("user.home"))
-        try {
-            editorArea.open(terminals.open(folder))
-        } catch (e: TerminalStartException) {
-            showError(stage, "The terminal cannot be started. ${e.message}")
-        }
-    }
-
-    /**
-     * The sandbox actions; each is enabled only where it may run, which is checked again when it is started. The whole
-     * menu is disabled until the check for `sbx` has found it.
-     */
-    private fun dockerSandboxMenu(stage: Stage): Menu {
-        val items =
-            SandboxAction.entries.associateWith { action ->
-                MenuItem(action.title).apply { setOnAction { openSandbox(stage, action) } }
-            }
-
-        fun updateItems() =
-            items.forEach { (action, item) ->
-                item.isDisable = dockerSandbox.problem(action, projectService.projectFolder.get()) != null
-            }
-        projectService.projectFolder.subscribe { _ -> updateItems() }
-        return Menu("Docker Sandbox", null, *items.values.toTypedArray()).apply {
-            // Also picks up an sbxenv.yaml created or deleted since the folder was opened.
-            setOnShowing { updateItems() }
-            isDisable = true
-            dockerSandbox.sbxInstalled.thenAccept { installed ->
-                Platform.runLater {
-                    isDisable = !installed
-                    updateItems()
-                }
-            }
-        }
-    }
-
-    private fun openSandbox(
-        stage: Stage,
-        action: SandboxAction,
-    ) {
-        fun cannotStart(e: RuntimeException) = showError(stage, "${action.title} cannot be started. ${e.message}")
-        try {
-            editorArea.open(dockerSandbox.open(action, projectService.projectFolder.get()))
-        } catch (e: SandboxNotAllowedException) {
-            cannotStart(e)
-        } catch (e: TerminalStartException) {
-            cannotStart(e)
-        }
     }
 
     private fun chooseFolder(stage: Stage) {
