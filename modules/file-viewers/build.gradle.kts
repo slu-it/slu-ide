@@ -7,12 +7,11 @@ plugins {
 javafx {
     // Maven Central publishes no Gradle metadata for JavaFX, so the plugin picks the platform jars.
     version = libs.versions.javafx.get()
-    // javafx.web: the previews and the image view are WebViews (ADRs 0016, 0017).
-    modules("javafx.controls", "javafx.web")
+    modules("javafx.controls")
 }
 
 dependencies {
-    // Deliberate module dependency: highlighting, exports and image downloads run on logged threads, ADR 0060.
+    // Deliberate module dependency: highlighting runs on logged threads, ADR 0060.
     implementation(project(":modules:background-tasks"))
     implementation(libs.spring.context)
     // Deliberate module dependency: code views edit text with its line endings and changes on disk (text-editing).
@@ -20,12 +19,7 @@ dependencies {
     // Code views: RichTextFX renders, RSyntaxTextArea only provides its lexers (ADR 0005).
     implementation(libs.richtextfx)
     implementation(libs.rsyntaxtextarea)
-    // Markdown preview: commonmark renders HTML, jsoup sanitises it (ADR 0016).
-    implementation(libs.bundles.commonmark)
-    implementation(libs.jsoup)
-    // Jupyter notebooks are JSON (ADR 0017).
-    implementation(libs.jackson.databind)
-    // Toolbar icons: Material Design Icons, like the file explorer's (ADR 0012).
+    // Toolbar icons of the find bar and the diff views: Material Design Icons, like the file explorer's (ADR 0012).
     implementation(libs.ikonli.javafx)
     implementation(libs.ikonli.materialdesign2)
 
