@@ -4,8 +4,10 @@ import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.fileexplorer.actions.DeleteQuestion
 import dev.sluide.fileexplorer.actions.ExplorerEditHost
 import dev.sluide.fileexplorer.actions.ExplorerEdits
+import dev.sluide.fileexplorer.actions.ExplorerMenuHost
 import dev.sluide.fileexplorer.actions.askForName
 import dev.sluide.fileexplorer.actions.askToDelete
+import dev.sluide.fileexplorer.actions.buildExplorerMenu
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileexplorer.tree.PathCell
 import dev.sluide.fileexplorer.tree.startWidth
@@ -18,9 +20,7 @@ import javafx.application.Platform
 import javafx.beans.property.SimpleIntegerProperty
 import javafx.beans.value.ObservableValue
 import javafx.scene.control.Alert
-import javafx.scene.control.ContextMenu
-import javafx.scene.control.MenuItem
-import javafx.scene.control.SeparatorMenuItem
+import javafx.scene.control.SelectionMode
 import javafx.scene.control.TreeItem
 import javafx.scene.control.TreeView
 import javafx.scene.control.skin.VirtualFlow
@@ -148,7 +148,8 @@ class FileExplorerView(
                 requestOpen = { requestOpen(it) },
                 select = { parent, path -> select(parent, path) },
                 selectRow = { selectRow(it) },
-                selectedItem = { selectionModel.selectedItem },
+                selectedItems = { selectionModel.selectedItems.filterNotNull() },
+                rows = { (0 until expandedItemCount).mapNotNull { getTreeItem(it) } },
                 isShown = { isShown(it) },
                 closeWatchesUnder = { path ->
                     watches.keys.filter { it.value.startsWith(path) }.forEach { watches.remove(it)?.close() }
@@ -157,8 +158,11 @@ class FileExplorerView(
             ),
         )
 
-    /** The entry the context menu was opened for; `null` for the empty area, which stands for the project folder. */
-    private var menuTarget: FileTreeItem? = null
+    /**
+     * The entries the context menu was opened for, in row order; empty for the empty area, which stands for the
+     * project folder.
+     */
+    private var menuTargets: List<FileTreeItem> = emptyList()
 
     /** Counts calls of [refreshMarkers]; the cells listen to it. */
     private val markerChanges = SimpleIntegerProperty()
@@ -184,7 +188,7 @@ class FileExplorerView(
                 markerChanges,
                 { path, directory -> markers(path, directory) },
                 { path -> canOpenFile(path) },
-                { target -> menuTarget = target },
+                { target -> menuTargets = targetsFor(target) },
                 { path -> requestOpen(path) },
             )
         }
@@ -192,11 +196,12 @@ class FileExplorerView(
         styleProperty().bind(font.map(FontSpec::toCss))
         stylesheets += checkNotNull(FileExplorerView::class.java.getResource("file-explorer.css")).toExternalForm()
         stylesheets += FILE_ICONS_CSS
+        selectionModel.selectionMode = SelectionMode.MULTIPLE
         addEventHandler(KeyEvent.KEY_PRESSED) { event ->
-            val selected = selectionModel.selectedItem?.value
-            val changeable = (selectionModel.selectedItem as? FileTreeItem)?.takeIf(::canChange)
+            val selected = selectedEntries()
+            val single = selected.singleOrNull()?.takeIf(::canChange)
             when {
-                event.code == KeyCode.ENTER && selected != null && requestOpen(selected) -> {
+                event.code == KeyCode.ENTER && openFiles(selected) > 0 -> {
                     event.consume()
                 }
 
@@ -205,71 +210,55 @@ class FileExplorerView(
                     event.consume()
                 }
 
-                event.code == KeyCode.F2 && changeable != null -> {
-                    rename(changeable)
+                event.code == KeyCode.F2 && single != null -> {
+                    rename(single)
                     event.consume()
                 }
 
                 // On macOS, Cmd+Backspace, as in the Finder: Mac keyboards often have no Delete key.
                 (event.code == KeyCode.DELETE || (event.code == KeyCode.BACK_SPACE && event.isShortcutDown)) &&
-                    changeable != null -> {
-                    delete(changeable)
+                    selected.isNotEmpty() && selected.all(::canChange) -> {
+                    delete(selected)
                     event.consume()
                 }
             }
         }
-        contextMenu = fileMenu()
-        // Cells for entries set the target afterwards; a menu opened by keyboard is for the selected entry.
+        contextMenu =
+            buildExplorerMenu(
+                ExplorerMenuHost(
+                    targets = { menuTargets },
+                    projectOpen = { projectItem != null },
+                    canChange = ::canChange,
+                    folderActions = { folderActions },
+                    historyOffered = { showHistory != null },
+                    canShowHistory = { canShowHistory(it) },
+                    showHistory = { showHistory?.invoke(it) },
+                    openFiles = { openFiles(it) },
+                    create = { target, folder -> create(target, folder) },
+                    runFolderAction = { action, target -> runFolderAction(action, target) },
+                    rename = { rename(it) },
+                    delete = { delete(it) },
+                    refreshAll = { refreshAll() },
+                ),
+            )
+        // Cells for entries set the targets afterwards; a menu opened by keyboard is for the selection.
         addEventFilter(ContextMenuEvent.CONTEXT_MENU_REQUESTED) { event ->
-            menuTarget = if (event.isKeyboardTrigger) selectionModel.selectedItem as? FileTreeItem else null
+            menuTargets = if (event.isKeyboardTrigger) selectedEntries() else emptyList()
         }
     }
 
-    private fun fileMenu(): ContextMenu {
-        val newFile = MenuItem("New File…").apply { setOnAction { create(menuTarget, folder = false) } }
-        val newFolder = MenuItem("New Folder…").apply { setOnAction { create(menuTarget, folder = true) } }
-        val rename = MenuItem("Rename…").apply { setOnAction { menuTarget?.let(::rename) } }
-        val delete = MenuItem("Delete…").apply { setOnAction { menuTarget?.let(::delete) } }
-        val history =
-            MenuItem(
-                "Show History",
-            ).apply { setOnAction { historyTarget()?.let { showHistory?.invoke(it) } } }
-        val historySeparator = SeparatorMenuItem()
-        val actionItems = mutableListOf<MenuItem>()
-        return ContextMenu(
-            newFile,
-            newFolder,
-            SeparatorMenuItem(),
-            rename,
-            delete,
-            historySeparator,
-            history,
-            SeparatorMenuItem(),
-            MenuItem("Refresh").apply { setOnAction { refreshAll() } },
-        ).apply {
-            setOnShowing {
-                items.removeAll(actionItems)
-                actionItems.clear()
-                folderActions.mapTo(actionItems) { action ->
-                    MenuItem(action.label).apply {
-                        isDisable = targetFolder(menuTarget) == null
-                        setOnAction { runFolderAction(action, menuTarget) }
-                    }
-                }
-                items.addAll(items.indexOf(newFolder) + 1, actionItems)
-                newFile.isDisable = targetFolder(menuTarget) == null
-                newFolder.isDisable = targetFolder(menuTarget) == null
-                rename.isDisable = !canChange(menuTarget)
-                delete.isDisable = !canChange(menuTarget)
-                history.isVisible = showHistory != null
-                historySeparator.isVisible = showHistory != null
-                history.isDisable = historyTarget()?.let(canShowHistory) != true
-            }
-        }
+    /** The selected entries, in row order. */
+    private fun selectedEntries(): List<FileTreeItem> =
+        selectionModel.selectedItems.filterIsInstance<FileTreeItem>().sortedBy { getRow(it) }
+
+    /** The targets of a menu opened on the row of [target]: the selection if it holds the row, else the row alone. */
+    private fun targetsFor(target: FileTreeItem?): List<FileTreeItem> {
+        val selected = selectedEntries()
+        return if (target != null && selected.any { it === target }) selected else listOfNotNull(target)
     }
 
-    /** The file the context menu was opened for, for Show History; `null` for a folder or the empty area. */
-    private fun historyTarget(): Path? = menuTarget?.takeIf { !it.isDirectory }?.value
+    /** Opens every regular file among [items], in the order given; returns how many it opened. */
+    internal fun openFiles(items: List<FileTreeItem>): Int = items.count { requestOpen(it.value) }
 
     /**
      * Shows [root] (expanded) and after it each of [extraRoots] (collapsed) as top-level nodes; `open(null)` clears
@@ -400,15 +389,13 @@ class FileExplorerView(
     }
 
     /**
-     * Asks for a name and creates a file or [folder] of that name in [target] if it is a folder, else beside it; in the
-     * project folder for `null`. The new entry is selected, and a new file opened.
+     * Asks for a name and creates a file or [folder] of that name in [target], which must be a folder; in the project
+     * folder for `null`. The new entry is selected, and a new file opened.
      */
     internal fun create(
         target: FileTreeItem?,
         folder: Boolean,
     ) = edits.create(target, folder)
-
-    private fun targetFolder(target: FileTreeItem?): FileTreeItem? = edits.targetFolder(target)
 
     /** Runs [action] on the folder for [target] (as for [create]); see [ExplorerEdits.runFolderAction]. */
     internal fun runFolderAction(
@@ -421,8 +408,8 @@ class FileExplorerView(
     /** Asks for a new name of [item] and renames it in its folder, reporting it to [onMoved]. */
     internal fun rename(item: FileTreeItem) = edits.rename(item)
 
-    /** Asks whether to delete [item] and deletes it permanently in the background, reporting it to [onDeleted]. */
-    internal fun delete(item: FileTreeItem) = edits.delete(item)
+    /** Asks once whether to delete [items] and deletes them permanently in the background, see [ExplorerEdits.delete]. */
+    internal fun delete(items: List<FileTreeItem>) = edits.delete(items)
 
     /** Whether [item] is still in the tree, e.g. not gone with a folder opened since. */
     private fun isShown(item: TreeItem<Path>): Boolean = generateSequence(item) { it.parent }.last() === root

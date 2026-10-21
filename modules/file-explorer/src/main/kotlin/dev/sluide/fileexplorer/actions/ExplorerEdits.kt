@@ -30,7 +30,9 @@ internal class ExplorerEditHost(
     /** Shows a path of a folder at once, selects and returns it. */
     val select: (parent: FileTreeItem, path: Path) -> TreeItem<Path>?,
     val selectRow: (TreeItem<Path>) -> Unit,
-    val selectedItem: () -> TreeItem<Path>?,
+    val selectedItems: () -> List<TreeItem<Path>>,
+    /** Every shown row, top to bottom. */
+    val rows: () -> List<TreeItem<Path>>,
     val isShown: (TreeItem<Path>) -> Boolean,
     /** Ends the watches of the folders at or below a path, which moved. */
     val closeWatchesUnder: (Path) -> Unit,
@@ -45,8 +47,8 @@ internal class ExplorerEdits(
     private val deleting = mutableSetOf<Path>()
 
     /**
-     * Asks for a name and creates a file or [folder] of that name in [target] if it is a folder, else beside it; in the
-     * project folder for `null`. The new entry is selected, and a new file opened.
+     * Asks for a name and creates a file or [folder] of that name in [target], which must be a folder; in the project
+     * folder for `null`. The new entry is selected, and a new file opened.
      */
     fun create(
         target: FileTreeItem?,
@@ -69,11 +71,11 @@ internal class ExplorerEdits(
     }
 
     /**
-     * The folder an action on [target] works in: [target] if a folder, else its folder; the project folder for `null`.
+     * The folder an action on [target] works in: [target] if a folder, `null` for a file; the project folder for `null`.
      */
     fun targetFolder(target: FileTreeItem?): FileTreeItem? {
         val item = target ?: host.projectItem() ?: return null
-        return if (item.isDirectory) item else item.parent as? FileTreeItem
+        return item.takeIf { it.isDirectory }
     }
 
     /**
@@ -142,81 +144,134 @@ internal class ExplorerEdits(
     }
 
     /**
-     * Asks whether to delete [item], warning about the files with `unsavedUnder` that would be lost, and deletes it
-     * permanently in the background, reporting it to the `onDeleted` hook. If it is selected, the entry after it (or
-     * before it, or its folder) is selected right away, before the folder's watch may remove it.
+     * Asks once whether to delete [items], warning about the files with `unsavedUnder` that would be lost, and deletes
+     * them permanently in the background, in row order, stopping at the first failure; every entry deleted completely
+     * is reported to the `onDeleted` hook. Entries at or below another one are left out, being deleted with it. If the
+     * selection lies in the deleted entries, the next row that stays (or the one before, or the folder) is selected
+     * right away, before the folders' watches may remove them.
      */
-    fun delete(item: FileTreeItem) {
-        val parent = item.parent as? FileTreeItem ?: return
-        val path = item.value
-        val kind = entryKind(path) ?: return
-        val unsaved = host.unsavedUnder(path)
-        if (!host.confirmDelete(deleteQuestion(path, kind, unsaved.size))) return
-        // The question was about this kind of entry, e.g. not about a folder with everything in it.
-        if (entryKind(path) != kind) {
-            host.showError("“${path.fileName}” changed while asking and was not deleted.")
-            parent.refresh()
-            return
-        }
-        if (!canChange(item)) return
-        val replacement =
-            if (host.selectedItem()?.value?.startsWith(path) == true) {
-                val siblings = parent.children
-                val index = siblings.indexOf(item)
-                (siblings.getOrNull(index + 1) ?: siblings.getOrNull(index - 1) ?: parent).also(host.selectRow)
-            } else {
-                null
+    fun delete(items: List<FileTreeItem>) {
+        val distinct = items.filter { it.parent is FileTreeItem }.distinctBy { it.value }
+        val targets = distinct.filter { item -> distinct.none { it !== item && item.value.startsWith(it.value) } }
+        val asked =
+            targets.mapNotNull { item ->
+                entryKind(item.value)?.let { kind -> DeleteEntry(item, kind, host.unsavedUnder(item.value)) }
             }
-        deleting.add(path)
-        host.runInBackground {
-            log.log(System.Logger.Level.INFO, "Deleting $path")
-            val started = System.nanoTime()
-            var failure: FileOperationException? = null
-            // Only set once the delete returned: an Error leaves neither a failure nor a success.
-            var completed = false
-            try {
-                FileOperations.delete(path)
-                completed = true
-            } catch (e: FileOperationException) {
-                log.log(System.Logger.Level.WARNING, "Cannot delete $path", e)
-                failure = e
-            } catch (e: Exception) {
-                // Unexpected: the end of the delete must still run, or the entry stays locked.
-                log.log(System.Logger.Level.ERROR, "Deleting $path failed unexpectedly", e)
-                failure =
-                    FileOperationException("Cannot delete “${path.fileName}”: ${e.message ?: e::class.simpleName}", e)
-            } finally {
-                // Also after an Error, which the thread logs: the entry must not stay locked.
-                val millis = (System.nanoTime() - started) / 1_000_000
-                if (completed) {
-                    log.log(System.Logger.Level.INFO, "Deleted $path in $millis ms")
+        if (asked.isEmpty()) return
+        val question =
+            asked.singleOrNull()?.let { deleteQuestion(it.path, it.kind, it.unsaved.size) }
+                ?: deleteQuestion(asked.map { it.path to it.kind }, asked.sumOf { it.unsaved.size })
+        if (!host.confirmDelete(question)) return
+        // The question was about this kind of entry, e.g. not about a folder with everything in it.
+        val changed = asked.filter { entryKind(it.path) != it.kind }
+        if (changed.isNotEmpty()) {
+            val names = changed.joinToString(" and ") { "“${it.path.fileName}”" }
+            host.showError(
+                if (changed.size == 1) {
+                    "$names changed while asking and was not deleted."
                 } else {
-                    log.log(System.Logger.Level.WARNING, "Delete of $path failed after $millis ms")
+                    "$names changed while asking and were not deleted."
+                },
+            )
+            changed.mapNotNull { it.item.parent as? FileTreeItem }.distinct().forEach(FileTreeItem::refresh)
+        }
+        val entries = asked.filter { it !in changed && canChange(it.item) }
+        if (entries.isEmpty()) return
+        val paths = entries.map { it.path }
+        val replacement = replacementSelection(entries)?.also(host.selectRow)
+        deleting.addAll(paths)
+        host.runInBackground {
+            val done = mutableListOf<DeleteEntry>()
+            var failure: FileOperationException? = null
+            try {
+                for (entry in entries) {
+                    failure = deleteOne(entry.path)
+                    if (failure != null) break
+                    done += entry
                 }
+            } finally {
                 val outcome = failure
-                val succeeded = completed
                 host.dispatch {
                     try {
                         outcome?.let { host.showError(it.message.orEmpty()) }
+                        // Still the replacement, or lost, not chosen otherwise meanwhile.
+                        val selected = host.selectedItems()
+                        val keepReplacement =
+                            replacement != null &&
+                                (selected.none(host.isShown) || selected.singleOrNull() === replacement)
                         // Also after a failure, which may have deleted a part.
-                        if (host.isShown(parent)) {
-                            parent.refresh()
-                            host.closeWatchesOfVanishedFolders()
-                            // Removing an expanded folder above it can lose the selection.
-                            val selected = host.selectedItem()
-                            if (replacement != null && host.isShown(replacement) &&
-                                (selected == null || !host.isShown(selected))
-                            ) {
-                                host.selectRow(replacement)
-                            }
+                        entries
+                            .mapNotNull { it.item.parent as? FileTreeItem }
+                            .distinct()
+                            .filter(host.isShown)
+                            .forEach(FileTreeItem::refresh)
+                        host.closeWatchesOfVanishedFolders()
+                        // Removing an expanded folder above it loses the selection or moves it to another row.
+                        if (keepReplacement && replacement != null && host.isShown(replacement) &&
+                            host.selectedItems().singleOrNull() !== replacement
+                        ) {
+                            host.selectRow(replacement)
                         }
-                        if (succeeded) host.onDeleted(path, unsaved)
+                        done.forEach { host.onDeleted(it.path, it.unsaved) }
                     } finally {
-                        deleting.remove(path)
+                        deleting.removeAll(paths.toSet())
                     }
                 }
             }
         }
+    }
+
+    /** Deletes [path] and logs it; returns why it failed, `null` on success. */
+    private fun deleteOne(path: Path): FileOperationException? {
+        log.log(System.Logger.Level.INFO, "Deleting $path")
+        val started = System.nanoTime()
+        var failure: FileOperationException? = null
+        // Only set once the delete returned: an Error leaves neither a failure nor a success.
+        var completed = false
+        try {
+            FileOperations.delete(path)
+            completed = true
+        } catch (e: FileOperationException) {
+            log.log(System.Logger.Level.WARNING, "Cannot delete $path", e)
+            failure = e
+        } catch (e: Exception) {
+            // Unexpected: the end of the delete must still run, or the entries stay locked.
+            log.log(System.Logger.Level.ERROR, "Deleting $path failed unexpectedly", e)
+            failure = FileOperationException("Cannot delete “${path.fileName}”: ${e.message ?: e::class.simpleName}", e)
+        } finally {
+            val millis = (System.nanoTime() - started) / 1_000_000
+            if (completed) {
+                log.log(System.Logger.Level.INFO, "Deleted $path in $millis ms")
+            } else {
+                log.log(System.Logger.Level.WARNING, "Delete of $path failed after $millis ms")
+            }
+        }
+        return failure
+    }
+
+    /**
+     * The row to select when the selection lies at or below [entries]: the first row after the last entry that is not
+     * at or below one, else the nearest such row before the first entry, else the folder of the first entry; `null` if
+     * the selection stays.
+     */
+    private fun replacementSelection(entries: List<DeleteEntry>): TreeItem<Path>? {
+        fun deleted(item: TreeItem<Path>) = entries.any { item.value.startsWith(it.path) }
+        if (host.selectedItems().none(::deleted)) return null
+        val rows = host.rows()
+        val indices = entries.map { rows.indexOf(it.item) }.filter { it >= 0 }
+        val first = indices.minOrNull() ?: return null
+        val last = indices.max()
+        return rows.drop(last + 1).firstOrNull { !deleted(it) }
+            ?: rows.take(first).lastOrNull { !deleted(it) }
+            ?: entries.first().item.parent
+    }
+
+    private class DeleteEntry(
+        val item: FileTreeItem,
+        val kind: EntryKind,
+        val unsaved: List<Path>,
+    ) {
+        val path: Path get() = item.value
     }
 
     /** The kind of entry at [path], not following a link; `null` if there is none. */

@@ -34,4 +34,35 @@ class DeleteConfirmationTest {
             deleteQuestion(Path.of("/p/src"), EntryKind.FOLDER, 3).details,
         )
     }
+
+    @Test
+    fun `asks once for several entries, naming them`() {
+        val question =
+            deleteQuestion(
+                listOf(
+                    Path.of("/p/a.txt") to EntryKind.FILE,
+                    Path.of("/p/src") to EntryKind.FOLDER,
+                    Path.of("/p/o") to EntryKind.LINK,
+                ),
+                0,
+            )
+
+        assertEquals("Delete 3 entries?", question.header)
+        assertEquals(
+            "“a.txt”\n“src” and everything in it\n“o”\nThey are deleted permanently, not moved to the trash. " +
+                "This cannot be undone.",
+            question.details,
+        )
+    }
+
+    @Test
+    fun `names at most ten entries, then counts the rest, and sums the unsaved files`() {
+        val entries = (1..13).map { Path.of("/p/f$it") to EntryKind.FILE }
+
+        val details = deleteQuestion(entries, 4).details.lines()
+
+        assertEquals((1..10).map { "“f$it”" } + "and 3 more", details.take(11))
+        assertEquals("4 files with unsaved changes will be lost.", details[11])
+        assertEquals(13, deleteQuestion(entries, 0).header.filter(Char::isDigit).toInt())
+    }
 }

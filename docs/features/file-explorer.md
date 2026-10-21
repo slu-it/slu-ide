@@ -26,7 +26,10 @@
 - Folders are listed before files; each group is sorted by name, case-insensitively (`listDirectory`).
 - Children are loaded lazily when a folder is first expanded (`FileTreeItem`), so large trees and symlink cycles
   are not traversed eagerly. Unreadable folders appear empty.
-- Double-click or Enter on a file calls `onOpenFile` (folders keep their expand behavior). `MainWindow` passes the
+- The selection is multiple (Shift+click or Shift+Up/Down for a range, Shortcut+click to add or remove, Shortcut+A for
+  all).
+- Double-click on a file calls `onOpenFile` for that file; Enter with files selected (and the Open menu item) calls it
+  for every selected regular file in row order (folders keep their expand behavior). `MainWindow` passes the
   file to the editor area, which opens it only if a file viewer accepts it ([editor-tabs.md](editor-tabs.md)) and moves
   the focus into it ([ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md)).
 - Changes on disk show up by themselves. Every loaded folder is watched ([file-watching.md](file-watching.md)), and
@@ -59,25 +62,33 @@
   follows. On the selected row the name has the selection's text colour, so it stays readable, and bubbles get a ring
   in that colour. Colours light and dark in `file-explorer.css`.
 - File operations ([ADR 0024](../adr/0024-file-operations-in-the-explorer.md), `FileOperations`), from the context
-  menu of an entry (right-click, or the context-menu key for the selected one) or of the empty area below the entries,
-  which stands for the project folder:
-  - New File… / New Folder… create an empty entry in the clicked folder, or beside the clicked file. A new file is
-    opened. Single names only (no `a/b`).
+  menu (`actions/ExplorerMenu.kt`) of the selected entries (right-click, or the context-menu key) or of the empty area
+  below the entries, which stands for the project folder. A right-click on a selected row keeps the selection and the
+  menu applies to all of it; on another row it is for that row alone. `menuState` decides which items are enabled:
+  - Open (first item) opens every regular file among the targets, in row order, skipping folders; enabled when there
+    is at least one.
+  - New File… / New Folder… create an empty entry in the clicked folder or, on the empty area, in the project folder.
+    They are enabled for exactly one folder (also a top-level one) or the empty area while a folder is open; disabled
+    on a file and for several entries. A new file is opened. Single names only (no `a/b`).
   - Folder actions (`FolderAction`, set by the window as `folderActions`) follow New Folder…, e.g. "New HTTP Client
-    Setup" ([http-client.md](http-client.md)). They run on the same folder as New File…; the file an action returns
-    is selected (if it is in that folder) and opened, the folder is expanded and read again, a note it returns is
-    shown, and an IOException is shown as an error. New File…, New Folder… and the folder actions are enabled whenever
-    the folder they would work in exists (disabled on the empty area without a project).
-  - Rename… (F2 on the selected entry) renames within the same folder; the dialog starts with the name, its base name
-    (before the last dot, not a leading one) selected. A folder keeps its content and stays expanded. Changing only
-    the case of a name works on case-insensitive file systems.
-  - Delete… (Delete, or Cmd+Backspace on macOS / Ctrl+Backspace elsewhere, on the selected entry) deletes permanently,
-    a folder with everything in it and a link without its target, after a confirmation that names the entry, says it
-    is not moved to the trash and counts the files with unsaved changes that will be lost. Cancel is the default
-    button. If the entry was selected, the next one (or the one before, or its folder) is selected at once. Deleting
-    runs in the background, so a large folder does not block the IDE; meanwhile the entry cannot be renamed or deleted
-    again. If the entry became something else while asking (e.g. a file a folder), it is not deleted. A failed delete stops at the first entry it cannot delete and can leave a
-    folder partly deleted; the error is shown and `onDeleted` is not called.
+    Setup" ([http-client.md](http-client.md)). They run on the same folder and are enabled like New File…; the file an
+    action returns is selected (if it is in that folder) and opened, the folder is expanded and read again, a note it
+    returns is shown, and an IOException is shown as an error.
+  - Rename… (F2) works on exactly one entry that can be changed and renames within the same folder; the dialog starts
+    with the name, its base name (before the last dot, not a leading one) selected. A folder keeps its content and
+    stays expanded. Changing only the case of a name works on case-insensitive file systems.
+  - Delete… (Delete, or Cmd+Backspace on macOS / Ctrl+Backspace elsewhere) works on all selected entries when all can
+    be changed. Entries at or below another selected one are left out. One confirmation: for one entry it names it, for
+    several it says "Delete N entries?" and lists the first ten names (folders "and everything in it", then "and N
+    more"); it counts the files with unsaved changes over all entries and says that nothing is moved to the trash.
+    Cancel is the default button. If the selection lay in the deleted entries, the first remaining row after them (or
+    the nearest before, or the folder) is selected at once. Deleting runs in the background, in row order, so a large
+    folder does not block the IDE; meanwhile the entries cannot be renamed or deleted again. Entries that became
+    something else while asking (e.g. a file a folder) are not deleted and reported in one error; the others are. A
+    failed delete stops at the first entry it cannot delete (later ones are not tried) and can leave a folder partly
+    deleted; the error is shown, `onDeleted` is called for every entry deleted completely, not for the failed one.
+  - Show History is enabled for exactly one file (`canShowHistory`), never for folders, several entries or the empty
+    area. Refresh is always enabled.
   - The name dialog checks the name while typing (not empty, no `/`, `\` or NUL, not `.`/`..`, no leading or
     trailing whitespace, no characters the file system cannot store, not taken, on case-insensitive file systems also
     not in another case) and keeps OK disabled while it shows a problem. Errors on disk (e.g. permissions) are shown in an error dialog.

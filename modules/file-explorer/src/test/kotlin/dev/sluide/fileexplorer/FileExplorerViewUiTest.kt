@@ -156,9 +156,9 @@ class FileExplorerViewUiTest {
         robot.interact { view.open(project) }
 
         robot.interact {
-            view.selectionModel.select(view.projectNode.children.single())
+            view.selectOnly(view.projectNode.children.single())
             pressKey(KeyCode.ENTER)
-            view.selectionModel.select(view.projectNode)
+            view.selectOnly(view.projectNode)
             pressKey(KeyCode.ENTER)
         }
 
@@ -230,7 +230,7 @@ class FileExplorerViewUiTest {
         robot.interact {
             val sub = view.projectNode.children.single()
             sub.isExpanded = true
-            view.selectionModel.select(sub.children.single())
+            view.selectOnly(sub.children.single())
         }
 
         // Inserted before the selected file, which moves down a row.
@@ -332,7 +332,9 @@ class FileExplorerViewUiTest {
     }
 
     @Test
-    fun `New File creates a file beside the clicked file, selects and opens it at once`(robot: FxRobot) {
+    fun `New File creates a file in the clicked folder, selects and opens it at once, and is disabled on a file`(
+        robot: FxRobot,
+    ) {
         project.resolve("sub/taken.txt").createParentDirectories().createFile()
         useUnwatchedView(robot)
         val opened = mutableListOf<Path>()
@@ -350,7 +352,9 @@ class FileExplorerViewUiTest {
         }
         WaitForAsyncUtils.waitForFxEvents()
 
-        val newFile = menuItemFor(robot, cellNamed(robot, "taken.txt"), "New File…")
+        assertTrue(menuItemFor(robot, cellNamed(robot, "taken.txt"), "New File…").isDisable)
+        val newFile = menuItemFor(robot, cellNamed(robot, "sub"), "New File…")
+        assertFalse(newFile.isDisable)
         robot.interact { newFile.fire() }
         WaitForAsyncUtils.waitForFxEvents()
 
@@ -399,7 +403,7 @@ class FileExplorerViewUiTest {
         project.resolve("z.txt").createFile()
         view.askName = { _, _, _ -> "a" }
         robot.interact { view.open(project) }
-        robot.interact { view.selectionModel.select(view.projectNode.children.single()) }
+        robot.interact { view.selectOnly(view.projectNode.children.single()) }
         WaitForAsyncUtils.waitForFxEvents()
 
         robot.interact { view.create(null, folder = true) }
@@ -506,9 +510,9 @@ class FileExplorerViewUiTest {
         robot.interact { view.open(project) }
 
         robot.interact {
-            view.selectionModel.select(view.projectNode.children.single())
+            view.selectOnly(view.projectNode.children.single())
             pressKey(KeyCode.F2)
-            view.selectionModel.select(view.projectNode)
+            view.selectOnly(view.projectNode)
             pressKey(KeyCode.F2)
         }
 
@@ -614,7 +618,7 @@ class FileExplorerViewUiTest {
         }
         WaitForAsyncUtils.waitForFxEvents()
         // As a right-click does.
-        robot.interact { view.selectionModel.select(view.projectNode.children.first()) }
+        robot.interact { view.selectOnly(view.projectNode.children.first()) }
 
         val delete = menuItemFor(robot, cellNamed(robot, "sub"), "Delete…")
         assertFalse(delete.isDisable)
@@ -651,7 +655,7 @@ class FileExplorerViewUiTest {
         view.onDeleted = { path, _ -> deleted.add(path) }
         robot.interact { view.open(project) }
         robot.interact {
-            view.selectionModel.select(view.projectNode.children.first())
+            view.selectOnly(view.projectNode.children.first())
             pressKey(KeyCode.DELETE)
         }
         WaitForAsyncUtils.waitForFxEvents()
@@ -660,7 +664,7 @@ class FileExplorerViewUiTest {
         robot.interact {
             // The next entry is selected at once.
             assertEquals(project.resolve("b.txt"), view.selectionModel.selectedItem?.value)
-            view.selectionModel.select(view.projectNode.children.first())
+            view.selectOnly(view.projectNode.children.first())
             pressKey(KeyCode.DELETE)
         }
         assertEquals(1, confirmations)
@@ -689,7 +693,7 @@ class FileExplorerViewUiTest {
         }
         WaitForAsyncUtils.waitForFxEvents()
 
-        robot.interact { view.delete(item) }
+        robot.interact { view.delete(listOf(item)) }
         assertTrue(file.exists())
 
         view.confirmDelete = { true }
@@ -698,7 +702,7 @@ class FileExplorerViewUiTest {
             file.deleteExisting()
             task.run()
         }
-        robot.interact { view.delete(item) }
+        robot.interact { view.delete(listOf(item)) }
         WaitForAsyncUtils.waitForFxEvents()
         assertEquals(listOf("Could not delete “a.txt”: $file does not exist."), errors)
         assertEquals(emptyList(), deleted)
@@ -724,7 +728,7 @@ class FileExplorerViewUiTest {
         }
         WaitForAsyncUtils.waitForFxEvents()
 
-        robot.interact { view.delete(item) }
+        robot.interact { view.delete(listOf(item)) }
         WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf("“a” changed while asking and was not deleted."), errors)
@@ -741,7 +745,7 @@ class FileExplorerViewUiTest {
             null
         }
         robot.interact { view.open(project) }
-        robot.interact { view.selectionModel.select(view.projectNode.children.single()) }
+        robot.interact { view.selectOnly(view.projectNode.children.single()) }
         WaitForAsyncUtils.waitForFxEvents()
 
         val rename = menuItemFor(robot, view, "Rename…", keyboard = true)
@@ -767,13 +771,13 @@ class FileExplorerViewUiTest {
         robot.interact { view.open(project) }
 
         robot.interact {
-            view.selectionModel.select(view.projectNode.children.first())
+            view.selectOnly(view.projectNode.children.first())
             pressKey(KeyCode.DELETE)
-            view.selectionModel.select(view.projectNode.children.last())
+            view.selectOnly(view.projectNode.children.last())
             pressKey(KeyCode.BACK_SPACE)
             // Control and Meta, so the shortcut key is down on every platform.
             Event.fireEvent(view, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.BACK_SPACE, false, true, false, true))
-            view.selectionModel.select(view.projectNode)
+            view.selectOnly(view.projectNode)
             pressKey(KeyCode.DELETE)
         }
 
@@ -929,7 +933,7 @@ class FileExplorerViewUiTest {
         assertEquals(normal, nameLabelOf(robot, "clean.kt").textFill)
 
         // On the selection bar the name has the selection's text colour, so it stays readable.
-        robot.interact { view.selectionModel.select(view.projectNode.children.first { it.value.name == "changed.kt" }) }
+        robot.interact { view.selectOnly(view.projectNode.children.first { it.value.name == "changed.kt" }) }
         WaitForAsyncUtils.waitForFxEvents()
         assertNull(nameColourOf(robot, "changed.kt"))
         assertEquals(cellNamed(robot, "changed.kt").textFill, nameLabelOf(robot, "changed.kt").textFill)

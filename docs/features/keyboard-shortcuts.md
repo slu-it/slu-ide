@@ -83,10 +83,13 @@ the source beside it; Markdown and notebook previews do not zoom ([previews.md](
 
 | Keys | Action |
 |---|---|
-| Enter | Open the selected file |
+| Shift+click, Shift+Up/Down | Select a range |
+| Shortcut+click | Add or remove an entry from the selection |
+| Shortcut+A | Select all |
+| Enter | Open the selected files (all regular files of the selection) |
 | F5 | Refresh |
-| F2 | Rename |
-| Delete or Shortcut+Backspace | Delete |
+| F2 | Rename (only when one entry is selected) |
+| Delete or Shortcut+Backspace | Delete the selected entries (one confirmation) |
 
 ## Terminal
 [terminal.md](terminal.md)

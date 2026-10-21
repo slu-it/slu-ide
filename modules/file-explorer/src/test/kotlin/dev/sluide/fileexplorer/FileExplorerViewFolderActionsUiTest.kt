@@ -144,7 +144,7 @@ class FileExplorerViewFolderActionsUiTest {
     }
 
     @Test
-    fun `the action runs on the clicked folder, the folder of a clicked file, or the opened folder`(robot: FxRobot) {
+    fun `the action runs on the clicked folder or the opened folder, and is disabled on a file`(robot: FxRobot) {
         openProject(robot)
         robot.interact {
             view.projectNode.children
@@ -155,10 +155,10 @@ class FileExplorerViewFolderActionsUiTest {
         view.folderActions = listOf(action { FolderActionResult(null) })
 
         fireAction(robot, cellNamed(robot, "sub"))
-        fireAction(robot, cellNamed(robot, "inner.txt"))
+        assertTrue(actionItem(robot, cellNamed(robot, "inner.txt"), "Do it").isDisable)
         fireAction(robot, view)
 
-        assertEquals(listOf(project.resolve("sub"), project.resolve("sub"), project), ranOn)
+        assertEquals(listOf(project.resolve("sub"), project), ranOn)
     }
 
     @Test

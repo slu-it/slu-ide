@@ -43,6 +43,34 @@ internal fun deleteQuestion(
     )
 }
 
+/** Asks whether to delete several [entries] (path and kind), with [unsaved] files with unsaved changes in them. */
+internal fun deleteQuestion(
+    entries: List<Pair<Path, EntryKind>>,
+    unsaved: Int,
+): DeleteQuestion {
+    val names =
+        entries.take(MAX_NAMES).map { (path, kind) ->
+            "“${path.fileName}”" + if (kind == EntryKind.FOLDER) " and everything in it" else ""
+        }
+    val more = entries.size - MAX_NAMES
+    val lost =
+        when (unsaved) {
+            0 -> null
+            1 -> "1 file with unsaved changes will be lost."
+            else -> "$unsaved files with unsaved changes will be lost."
+        }
+    return DeleteQuestion(
+        "Delete ${entries.size} entries?",
+        listOfNotNull(
+            names.joinToString("\n") + if (more > 0) "\nand $more more" else "",
+            lost,
+            "They are deleted permanently, not moved to the trash. This cannot be undone.",
+        ).joinToString("\n"),
+    )
+}
+
+private const val MAX_NAMES = 10
+
 /** Asks [question] in a dialog and waits for the answer; returns whether to delete. */
 internal fun askToDelete(
     owner: Window?,
