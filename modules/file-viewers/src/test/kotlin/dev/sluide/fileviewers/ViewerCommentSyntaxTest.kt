@@ -1,10 +1,6 @@
 package dev.sluide.fileviewers
 
-import dev.sluide.fileviewers.bicep.BicepFileViewer
 import dev.sluide.fileviewers.bicep.BicepParamFileViewer
-import dev.sluide.fileviewers.html.HtmlFileViewer
-import dev.sluide.fileviewers.image.SvgFileViewer
-import dev.sluide.fileviewers.json.JsonFileViewer
 import dev.sluide.fileviewers.languages.CaddyfileFileViewer
 import dev.sluide.fileviewers.languages.ConfigFileViewer
 import dev.sluide.fileviewers.languages.CssFileViewer
@@ -32,17 +28,14 @@ import dev.sluide.fileviewers.languages.TomlFileViewer
 import dev.sluide.fileviewers.languages.TsxFileViewer
 import dev.sluide.fileviewers.languages.TypeScriptFileViewer
 import dev.sluide.fileviewers.languages.YamlFileViewer
-import dev.sluide.fileviewers.markdown.MarkdownFileViewer
-import dev.sluide.fileviewers.markdown.MermaidFileViewer
-import dev.sluide.fileviewers.notebook.NotebookFileViewer
-import dev.sluide.fileviewers.table.CookiesFileViewer
-import dev.sluide.fileviewers.table.CsvFileViewer
-import dev.sluide.fileviewers.xml.XmlFileViewer
 import dev.sluide.textediting.CommentSyntax
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/** How the source of each viewer comments out lines (Shortcut+/). Add a row per viewer. */
+/**
+ * How each code viewer comments out lines (Shortcut+/); the sources of the previews: PreviewCommentSyntaxTest. Add a
+ * row per viewer.
+ */
 class ViewerCommentSyntaxTest {
     @Test
     fun `code viewers comment out lines in their language`() {
@@ -76,24 +69,6 @@ class ViewerCommentSyntaxTest {
                 TomlFileViewer() to CommentSyntax.HASH,
                 BicepParamFileViewer() to CommentSyntax.SLASHES,
                 KqlFileViewer() to CommentSyntax.LINE_SLASHES,
-            )
-        for ((viewer, comment) in expected) assertEquals(comment, viewer.comment, viewer::class.simpleName)
-    }
-
-    @Test
-    fun `preview viewers comment out lines of their source`() {
-        val expected =
-            mapOf(
-                HtmlFileViewer() to CommentSyntax.XML,
-                MarkdownFileViewer() to CommentSyntax.XML,
-                SvgFileViewer() to CommentSyntax.XML,
-                CsvFileViewer() to CommentSyntax.NONE,
-                JsonFileViewer() to CommentSyntax.NONE,
-                XmlFileViewer() to CommentSyntax.XML,
-                NotebookFileViewer() to CommentSyntax.NONE,
-                MermaidFileViewer() to CommentSyntax.MERMAID,
-                CookiesFileViewer() to CommentSyntax.NONE,
-                BicepFileViewer() to CommentSyntax.SLASHES,
             )
         for ((viewer, comment) in expected) assertEquals(comment, viewer.comment, viewer::class.simpleName)
     }

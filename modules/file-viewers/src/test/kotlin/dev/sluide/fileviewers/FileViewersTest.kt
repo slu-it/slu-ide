@@ -2,14 +2,11 @@ package dev.sluide.fileviewers
 
 import dev.sluide.fileviewers.code.CodeFileViewer
 import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
-import dev.sluide.fileviewers.image.ImageFileViewer
-import dev.sluide.fileviewers.json.JsonFileViewer
 import dev.sluide.fileviewers.languages.CaddyfileFileViewer
 import dev.sluide.fileviewers.languages.DockerfileFileViewer
 import dev.sluide.fileviewers.languages.IgnoreFileViewer
 import dev.sluide.fileviewers.languages.KotlinFileViewer
 import dev.sluide.fileviewers.languages.PythonFileViewer
-import dev.sluide.fileviewers.markdown.MarkdownFileViewer
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
@@ -83,30 +80,28 @@ class FileViewersTest {
     }
 
     @Test
-    fun `names like Dockerfile dot something open by their extension if a viewer takes it`() {
-        val viewers =
-            listOf(
-                DockerfileFileViewer(),
-                CaddyfileFileViewer(),
-                IgnoreFileViewer(),
-                MarkdownFileViewer(),
-                JsonFileViewer(),
-            )
+    fun `names like Dockerfile dot something open by their extension if a viewer of another kind takes it`() {
+        val dockerfile = DockerfileFileViewer()
+        val caddyfile = CaddyfileFileViewer()
+        val ignore = IgnoreFileViewer()
+        val markdown = ExtensionsStub(setOf("md"))
+        val json = ExtensionsStub(setOf("json"))
+        val viewers = listOf(dockerfile, caddyfile, ignore, markdown, json)
         val expected =
             mapOf(
-                "Dockerfile.md" to MarkdownFileViewer::class,
-                "Caddyfile.json" to JsonFileViewer::class,
-                "Dockerfile.dev" to DockerfileFileViewer::class,
-                "Dockerfile.prod" to DockerfileFileViewer::class,
-                "Caddyfile.dev" to CaddyfileFileViewer::class,
-                "Dockerfile.dockerignore" to IgnoreFileViewer::class,
-                "Dockerfile.dev.dockerignore" to IgnoreFileViewer::class,
+                "Dockerfile.md" to markdown,
+                "Caddyfile.json" to json,
+                "Dockerfile.dev" to dockerfile,
+                "Dockerfile.prod" to dockerfile,
+                "Caddyfile.dev" to caddyfile,
+                "Dockerfile.dockerignore" to ignore,
+                "Dockerfile.dev.dockerignore" to ignore,
             )
 
         for (order in listOf(viewers, viewers.reversed())) {
             for ((name, viewer) in expected) {
                 val file = dir.resolve(name).apply { writeText("x\n") }
-                assertEquals(viewer, FileViewers(order, fallback).viewerFor(file)?.let { it::class }, name)
+                assertSame(viewer, FileViewers(order, fallback).viewerFor(file), name)
             }
         }
     }
@@ -190,8 +185,8 @@ class FileViewersTest {
     @Test
     fun `the viewer for a diff of given texts is picked by the name alone, without the file`() {
         val kotlin = KotlinFileViewer()
-        val markdown = MarkdownFileViewer()
-        val image = ImageFileViewer()
+        val markdown = ExtensionsStub(setOf("md", "markdown"))
+        val image = ExtensionsStub(setOf("png", "jpg"))
         val python = PythonFileViewer()
         val viewers = FileViewers(listOf(image, markdown, kotlin, python), fallback)
 
@@ -245,10 +240,17 @@ class FileViewersTest {
         override fun open(file: Path): FileView = error("not needed")
     }
 
+    /** A viewer of another module showing JSON files as text, like the JSON preview. */
+    private class JsonStub :
+        ExtensionsStub(setOf("json")),
+        SourceFileViewer {
+        override val sourceHighlighter = Highlighters.json
+    }
+
     @Test
     fun `a named viewer wins over a viewer for the extension for its file names, in any order, ignoring case`() {
         val named = EnvironmentViewer()
-        val json = JsonFileViewer()
+        val json = JsonStub()
         val env = dir.resolve("http-client.env.json").apply { writeText("{}") }
         // In a folder of its own, for case-insensitive file systems.
         val upper =
@@ -270,22 +272,24 @@ class FileViewersTest {
         }
     }
 
-    @Test
-    fun `Pipfile lock goes to the JSON viewer, which shows diffs, by file and by name`() {
-        val json = JsonFileViewer()
-        val pipfileLock = dir.resolve("Pipfile.lock").apply { writeText("{}") }
-        val viewers = FileViewers(listOf(json), fallback)
-
-        assertSame(json, viewers.viewerFor(pipfileLock))
-        assertSame(json, viewers.viewerByName(dir.resolve("pipfile.lock"), ""))
-        assertSame(json, viewers.viewerByName(dir.resolve("a.json"), ""))
-        assertTrue(viewers.showsDiffs(json))
+    /** A viewer of another module for JSON files and Pipenv's lock file, shown as text, like the JSON preview. */
+    private class NamedJsonStub :
+        ExtensionsStub(setOf("json")),
+        NamedFileViewer,
+        SourceFileViewer {
+        override val fileNames = setOf("Pipfile.lock")
+        override val sourceHighlighter = Highlighters.json
     }
 
     @Test
-    fun `a diff of given texts is not shown for images`() {
-        val viewers = FileViewers(listOf(ImageFileViewer()), fallback)
+    fun `a viewer for names and extensions is picked by either, ignoring case, and shows diffs`() {
+        val json = NamedJsonStub()
+        val viewers = FileViewers(listOf(json, KotlinFileViewer()), fallback)
 
-        assertNull(viewers.openDiff(dir.resolve("logo.png"), "", TextDiff("", emptyList())))
+        // None of these files exists.
+        assertSame(json, viewers.viewerByName(dir.resolve("pipfile.lock"), ""))
+        assertSame(json, viewers.viewerByName(dir.resolve("a.json"), ""))
+        assertSame(fallback, viewers.viewerByName(dir.resolve("other.lock"), ""))
+        assertTrue(viewers.showsDiffs(json))
     }
 }

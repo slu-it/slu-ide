@@ -1,10 +1,7 @@
 package dev.sluide.fileviewers.preview
 
-import dev.sluide.fileviewers.DefaultTextFileViewer
-import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.Highlighters
 import dev.sluide.fileviewers.bicep.BicepFileViewer
-import dev.sluide.fileviewers.bicep.BicepParamFileViewer
 import dev.sluide.fileviewers.html.HtmlFileViewer
 import dev.sluide.fileviewers.image.ImageFileViewer
 import dev.sluide.fileviewers.image.ImagePage
@@ -56,8 +53,9 @@ class PreviewFileViewersTest {
         val names = listOf("main.bicep", "Infra.BICEP", "main.bicepparam", "main.bicep.json", "bicep")
         assertEquals(listOf("main.bicep", "Infra.BICEP"), names.filter { BicepFileViewer().canOpen(text(it)) })
         assertFalse(BicepFileViewer().canOpen(binary("broken.bicep")))
-        val viewers = FileViewers(listOf(BicepFileViewer(), BicepParamFileViewer()), DefaultTextFileViewer())
-        assertEquals(BicepParamFileViewer::class, viewers.viewerFor(text("main.bicepparam"))?.let { it::class })
+        for (viewers in allViewersInEitherOrder()) {
+            assertEquals("BicepParamFileViewer", viewerNameFor(viewers, text("main.bicepparam")))
+        }
     }
 
     @Test

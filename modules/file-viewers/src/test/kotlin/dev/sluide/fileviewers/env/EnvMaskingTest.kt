@@ -1,44 +1,7 @@
 package dev.sluide.fileviewers.env
 
 import dev.sluide.fileviewers.DefaultTextFileViewer
-import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.FileViewers
-import dev.sluide.fileviewers.html.HtmlFileViewer
-import dev.sluide.fileviewers.image.ImageFileViewer
-import dev.sluide.fileviewers.image.SvgFileViewer
-import dev.sluide.fileviewers.json.JsonFileViewer
-import dev.sluide.fileviewers.languages.CaddyfileFileViewer
-import dev.sluide.fileviewers.languages.ConfigFileViewer
-import dev.sluide.fileviewers.languages.CssFileViewer
-import dev.sluide.fileviewers.languages.DockerfileFileViewer
-import dev.sluide.fileviewers.languages.GitBlameIgnoreRevsFileViewer
-import dev.sluide.fileviewers.languages.IgnoreFileViewer
-import dev.sluide.fileviewers.languages.IniFileViewer
-import dev.sluide.fileviewers.languages.JavaFileViewer
-import dev.sluide.fileviewers.languages.JavaScriptFileViewer
-import dev.sluide.fileviewers.languages.JsxFileViewer
-import dev.sluide.fileviewers.languages.KotlinFileViewer
-import dev.sluide.fileviewers.languages.LessFileViewer
-import dev.sluide.fileviewers.languages.MakefileFileViewer
-import dev.sluide.fileviewers.languages.MdxFileViewer
-import dev.sluide.fileviewers.languages.PowerShellFileViewer
-import dev.sluide.fileviewers.languages.PythonFileViewer
-import dev.sluide.fileviewers.languages.SassFileViewer
-import dev.sluide.fileviewers.languages.ScssFileViewer
-import dev.sluide.fileviewers.languages.ShellFileViewer
-import dev.sluide.fileviewers.languages.SingleFileComponentFileViewer
-import dev.sluide.fileviewers.languages.SqlFileViewer
-import dev.sluide.fileviewers.languages.SshConfigFileViewer
-import dev.sluide.fileviewers.languages.TsxFileViewer
-import dev.sluide.fileviewers.languages.TypeScriptFileViewer
-import dev.sluide.fileviewers.languages.YamlFileViewer
-import dev.sluide.fileviewers.markdown.MarkdownFileViewer
-import dev.sluide.fileviewers.markdown.MermaidFileViewer
-import dev.sluide.fileviewers.notebook.NotebookFileViewer
-import dev.sluide.fileviewers.pem.PemFileViewer
-import dev.sluide.fileviewers.table.CookiesFileViewer
-import dev.sluide.fileviewers.table.CsvFileViewer
-import dev.sluide.fileviewers.xml.XmlFileViewer
 import dev.sluide.textediting.CommentSyntax
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
@@ -147,68 +110,4 @@ class EnvMaskingTest {
         assertEquals(CommentSyntax.HASH, viewer.comment)
         assertTrue(FileViewers(listOf(viewer), DefaultTextFileViewer()).showsDiffs(viewer))
     }
-
-    @Test
-    fun `among all viewers, env files open as env unless their extension names another language`() {
-        val viewers = FileViewers(allViewers(), DefaultTextFileViewer())
-        val env = listOf(".env", ".env.local", ".env.production", "prod.env")
-        for (name in env) {
-            assertTrue(viewers.viewerFor(dir.resolve(name).apply { writeText("A=1\n") }) is EnvFileViewer, name)
-        }
-        val json = dir.resolve(".env.json").apply { writeText("{}\n") }
-        assertTrue(viewers.viewerFor(json) is JsonFileViewer, "an extension wins over a name pattern")
-    }
-
-    @Test
-    fun `among all viewers, PEM files open as PEM details`() {
-        val viewers = FileViewers(allViewers(), DefaultTextFileViewer())
-        val pem = "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n"
-        for (name in listOf("cert.pem", "site.crt", "ca.cer", "tls.key")) {
-            assertTrue(viewers.viewerFor(dir.resolve(name).apply { writeText(pem) }) is PemFileViewer, name)
-        }
-        val raw = dir.resolve("raw.key").apply { writeText("not PEM\n") }
-        assertTrue(viewers.viewerFor(raw) is DefaultTextFileViewer, "a key without PEM text is plain text")
-    }
-
-    /** Every viewer of the module, the env and PEM viewers first, so that their rank and not the order decides. */
-    private fun allViewers(): List<FileViewer> =
-        listOf(
-            EnvFileViewer(),
-            PemFileViewer(),
-            CaddyfileFileViewer(),
-            ConfigFileViewer(),
-            CookiesFileViewer(),
-            CssFileViewer(),
-            CsvFileViewer(),
-            DockerfileFileViewer(),
-            GitBlameIgnoreRevsFileViewer(),
-            HtmlFileViewer(),
-            IgnoreFileViewer(),
-            ImageFileViewer(),
-            IniFileViewer(),
-            JavaFileViewer(),
-            JavaScriptFileViewer(),
-            JsonFileViewer(),
-            JsxFileViewer(),
-            KotlinFileViewer(),
-            LessFileViewer(),
-            MakefileFileViewer(),
-            MarkdownFileViewer(),
-            MdxFileViewer(),
-            MermaidFileViewer(),
-            NotebookFileViewer(),
-            PowerShellFileViewer(),
-            PythonFileViewer(),
-            SassFileViewer(),
-            ScssFileViewer(),
-            ShellFileViewer(),
-            SingleFileComponentFileViewer(),
-            SqlFileViewer(),
-            SshConfigFileViewer(),
-            SvgFileViewer(),
-            TsxFileViewer(),
-            TypeScriptFileViewer(),
-            XmlFileViewer(),
-            YamlFileViewer(),
-        )
 }
