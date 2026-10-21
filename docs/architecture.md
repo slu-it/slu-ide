@@ -7,11 +7,39 @@ assembled from Gradle modules.
 | Path | Purpose |
 |------|---------|
 | `ide/` | Application module: launcher, Spring Boot configuration, main window. Produces the fat jar (`./gradlew :ide:bootJar`). |
-| `modules/<name>/` | One Gradle module per IDE capability: `file-explorer`, `editor-area` (tabs), `file-viewers` (views of files: code views with highlighting, keys and find; change markers and side-by-side diffs; language viewers; `.env`; own tokenizers for TOML, Bicep and KQL), `previews` (the `javafx.web` WebView previews of Markdown, HTML, SVG and images, JSON, XML, CSV and cookie jars, notebooks, Mermaid, PEM and Bicep, [ADR 0069](adr/0069-previews-module.md)), `file-watcher` (changes on disk), `terminal` (shells in editor tabs), `settings` (settings state, storage and dialog), `docker-sandbox` (`sbx` in terminal tabs), `git` (git status of the open repository, diffs against `HEAD`, pages of the git log, refs, commit details, changed files and their diffs, comparison counts and differences from the working tree, revisions resolved to commits and the branches containing a commit, the history of a file; checkouts and changes of branches and tags, cherry-pick, revert and reset; fetch), `git-log` (the git log area under the editor), `file-icons` (library: file-type icons and their colours, shared by the explorer and the git log), `text-editing` (logic of editing text without JavaFX: line endings, changes on disk, indentation incl. `.editorconfig` via ec4j-core, line operations, comments, find and replace, go to line), `http-client` (`.http` files: requests run from the editor with environments and auth), `projects` (remembered projects and the project picker), `background-tasks` (foundation: per-window background tasks (registry and indicator) and logged named threads), `project-trust` (foundation: whether the tools of an opened folder may run what it defines; the `ProjectTrustCheck` extension point, the combined decision and its storage, [ADR 0053](adr/0053-project-trust.md)), `scratches` (the scratch files shared by all windows in `~/.sluide/scratches`: their naming, the deletion of empty ones and the type picker popup, [ADR 0066](adr/0066-scratch-files.md)). |
+| `modules/<name>/` | One Gradle module per capability; see [Modules](#modules) below. |
 | `gradle/libs.versions.toml` | Single place for dependency and plugin versions. |
 | `docs/` | This documentation. Start at [index.md](index.md). |
 | `.claude/` | Claude Code settings, agents, rules, scripts. |
 | `.github/` | CI/CD workflows. |
+
+## Modules
+| Module | Kind | Purpose | ADR |
+|--------|------|---------|-----|
+| `editor-area` | feature | Tabs of the editor area: `EditorTab`s, opening and saving files, asking `FileViewers` for the view of a file. | [0071](adr/0071-editor-area-module.md), [0004](adr/0004-file-viewer-selection.md) |
+| `file-viewers` | feature | Views of files: code views with highlighting, keys and find, change markers and side-by-side diffs, language viewers, `.env`, the Bicep graph and parameter files, own tokenizers for TOML, Bicep and KQL. | [0004](adr/0004-file-viewer-selection.md), [0005](adr/0005-syntax-highlighting.md), [0031](adr/0031-own-tokenizers.md), [0069](adr/0069-previews-module.md) |
+| `previews` | feature | The `javafx.web` WebView previews of Markdown, HTML, SVG and images, JSON, XML, CSV and cookie jars, notebooks, Mermaid, PEM and Bicep, with their exports. | [0069](adr/0069-previews-module.md) |
+| `terminal` | feature | Shells in editor tabs. | [0007](adr/0007-terminal.md) |
+| `docker-sandbox` | feature | `sbx` (Docker sandboxes) in terminal tabs. | [0010](adr/0010-docker-sandbox.md) |
+| `http-client` | feature | `.http` files: requests run from the editor with environments and auth. | [0025](adr/0025-http-client.md), [0026](adr/0026-http-client-window-session.md) |
+| `git` | feature | Git status, diffs, the log's reads and the write operations, behind `GitCli`. | [0013](adr/0013-git-status.md), [0015](adr/0015-git-diff.md), [0041](adr/0041-git-write-operations.md) |
+| `git-log` | feature | The git area under the editor (user-facing name "Git Log"): log and graph, branches pane, file history, compare, the Commit tab and the Push dialog, and the write operations; `gitlog.data` is the model and reading layer. | [0035](adr/0035-git-log-area.md), [0048](adr/0048-commit-tab.md), [0049](adr/0049-push.md) |
+| `file-explorer` | feature | The file tree of the open folder with file operations. | [0024](adr/0024-file-operations-in-the-explorer.md) |
+| `projects` | feature | Remembered projects and the project picker. | [0034](adr/0034-project-picker.md) |
+| `scratches` | feature | The scratch files shared by all windows in `~/.sluide/scratches`: their naming, the deletion of empty ones and the type picker popup. | [0066](adr/0066-scratch-files.md) |
+| `settings` | foundation | Settings state, storage and dialog; features add their own `SettingsPage`s. | [0008](adr/0008-settings.md), [0067](adr/0067-feature-settings-in-their-module.md) |
+| `file-watcher` | foundation | Changes on disk. | [0006](adr/0006-file-watching.md) |
+| `text-editing` | foundation (library, no Spring beans) | Logic of editing text without JavaFX: line endings, changes on disk, indentation incl. `.editorconfig` via ec4j-core, line operations, comments, find and replace, go to line. | [0020](adr/0020-editing-and-saving-files.md), [0023](adr/0023-indentation-from-editorconfig.md) |
+| `file-icons` | foundation (library, no Spring beans) | File-type icons and their colours, shared by the explorer, the git log and the scratches. | [0012](adr/0012-file-icons.md), [0047](adr/0047-module-dependencies-and-shared-modules.md) |
+| `project-trust` | foundation | Whether the tools of an opened folder may run what it defines: the `ProjectTrustCheck` extension point, the combined decision and its storage. | [0053](adr/0053-project-trust.md) |
+| `background-tasks` | foundation | Per-window background tasks (registry and indicator) and logged named threads (`NamedThreads`). | [0060](adr/0060-logging-conventions.md), [0061](adr/0061-background-tasks.md) |
+| `ide` | app | Launcher, Spring Boot configuration, main window and its window parts; wires the modules together. | [0002](adr/0002-spring-inside-javafx.md), [0068](adr/0068-window-parts-in-ide.md) |
+
+Feature modules are one IDE capability each. The editor family (`editor-area`, `file-viewers`, `previews`, `terminal`,
+`docker-sandbox`, `http-client`: what is shown as editor tabs or file views) is one capability family, and so are `git`
+and `git-log` ([ADR 0047](adr/0047-module-dependencies-and-shared-modules.md), amended by
+[ADR 0071](adr/0071-editor-area-module.md) and [ADR 0069](adr/0069-previews-module.md)). Foundation modules are small
+and meant for sharing; they may be plain libraries without Spring beans.
 
 ## Module rules
 - Modules (`modules/*`) never depend on `ide`. `ide` depends on all feature modules and wires them together.
@@ -21,12 +49,10 @@ assembled from Gradle modules.
   `background-tasks`).
   Unrelated feature modules do not depend on each other: `ide` wires them through callbacks (`git-log` with `editor-area`
   and `file-viewers`, `git` with the explorer's markers). When two modules need the same piece of a third, it is
-  extracted into a small module rather than depending on the whole feature module. A foundation module may be a plain
-  library without Spring beans. The editor family (`editor-area`, `file-viewers`, `previews`, `terminal`,
-  `docker-sandbox`, `http-client`: what is shown as editor tabs or file views) is one capability family, so
-  `editor-area` -> `file-viewers`, `terminal` -> `editor-area`, `docker-sandbox` -> `terminal`,
-  `http-client` -> `file-viewers` and `previews` -> `file-viewers` follow the rule.
-- Every module dependency is listed below with its reason and commented in the module's `build.gradle.kts`.
+  extracted into a small module rather than depending on the whole feature module. The families are defined under
+  [Modules](#modules).
+- Every module dependency is listed in [Module dependencies](#module-dependencies) with its reason and commented in
+  the module's `build.gradle.kts`.
 - Feature modules expose UI as JavaFX nodes/controls registered as Spring beans (`@Component`), so `ide` can inject them.
   Beans that hold the state of one window (a project) are `@Scope("window")`.
 - Cross-module state (e.g. the current project folder) lives in `ide` or a shared module, and modules receive it
