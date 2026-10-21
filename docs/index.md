@@ -80,6 +80,7 @@ Keep it up to date: every new ADR, feature description or idea must be added her
 - [adr/0069-previews-module.md](adr/0069-previews-module.md) — The WebView previews (Markdown, HTML, SVG and images, JSON, XML, CSV, notebooks, Mermaid, PEM, Bicep) live in the `previews` module (`dev.sluide.previews`), which uses only the public root API of `file-viewers`; `ide` depends on it for the Spring beans.
 - [adr/0070-window-services.md](adr/0070-window-services.md) — `WindowServices`: the exact-type registry of window-scoped services (HTTP client session, background tasks) that file views of singleton viewers reach through `FileViewHost.windowService`; owned by `EditorArea`, filled by `MainWindow`; the one sanctioned channel.
 - [adr/0071-editor-area-module.md](adr/0071-editor-area-module.md) — The editor area module is `editor-area` (`dev.sluide.editorarea`), not `editor`: it holds the tabs, while the code editor lives in `file-viewers`.
+- [adr/0072-csv-table-header-guess-and-state.md](adr/0072-csv-table-header-guess-and-state.md) — CSV table: the header is guessed by column-type votes with a checkbox override, sort/filters/header choice survive re-renders like fold state, search is substring or numeric comparison.
 - [adr/template.md](adr/template.md) — Template for new ADRs.
 
 ## Features

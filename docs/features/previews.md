@@ -94,18 +94,29 @@ Images, SVG files, Mermaid files and Bicep resource graphs zoom; Markdown and no
 - Modified images open normally, never as a diff.
 
 ## CSV and TSV (`.csv`, `.tsv`) — `CsvFileViewer`
-- A table beside the plain text: the first row is the header (sticky); click a header to sort by it, again for
-  descending (numbers as numbers, empty cells last). Side by side, the table scrolls with the source.
+- A table beside the plain text. A "First row is header" checkbox above it starts with a guess (ADR 0072): columns
+  of numbers or dates below a first row of another type count for a header, columns whose first cell has the same
+  type count against; a tie or a text-only file means a header. With a header, the first row gives the labels and
+  is left out of sorting and search; without one, the labels are A, B, …, Z, AA and the first row is data.
+- Click a label to sort by it, again for descending, a third time back to file order (numbers as numbers, empty
+  cells last). Labels and search fields stay at the top; side by side, the table scrolls with the source.
+- Under each label is a search field: text matches cells containing it, ignoring case; `>100`, `>=5`, `<0`, `<=5`,
+  `=3` and `10..20` (inclusive) compare numbers (negatives allowed; with `;` files in decimal-comma form), where
+  cells that are not numbers (also dates like `01.02.2024`) never match. All filled fields must match; the bar then
+  shows "n of m rows".
+- Sort, searches and the header choice survive saves (the page is rendered again); the header choice only once the
+  checkbox was clicked, otherwise each render guesses again.
 - Parsing follows RFC 4180: quoted fields with delimiters, line breaks and `""`. The delimiter is a tab for `.tsv`;
   for `.csv` a comma, or `;` if the first line has more of those — then numbers sort with decimal commas (`1.234,5`).
   Blank lines are skipped; short rows are padded; a leading byte order mark (Excel's "CSV UTF-8") is ignored.
   Scroll sync keeps working after sorting.
-- At most 10,000 rows are shown, with a note saying how many there are.
+- At most 10,000 rows below the first are shown, with a note saying how many there are (counting the first row as
+  data when there is no header); search covers only those.
 
 ## Cookie jars (`.cookies`) — `CookiesFileViewer`
-- IntelliJ's `http-client.cookies` (tab-separated) as a sortable table beside the text, like CSV: the first line
-  `# domain path name value date` is the header without its `# ` and shows as a comment in the source. The table
-  scrolls with the source.
+- IntelliJ's `http-client.cookies` (tab-separated) as a sortable, searchable table beside the text, like CSV: the
+  first line `# domain path name value date` is always the header (no checkbox) without its `# ` and shows as a
+  comment in the source. The table scrolls with the source; sort and searches survive saves.
 - Quotes are part of the values (`"dark"` stays quoted; `CsvRenderer` with `quotes = false`).
 
 ## Jupyter notebooks (`.ipynb`) — `NotebookFileViewer`
