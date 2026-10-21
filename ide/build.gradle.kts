@@ -13,6 +13,8 @@ javafx {
 
 springBoot {
     mainClass = "dev.sluide.ide.SluIdeLauncher"
+    // META-INF/build-info.properties with the version for the window title; without the time, so it stays cacheable.
+    buildInfo { excludes = setOf("time") }
 }
 
 dependencies {

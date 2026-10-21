@@ -37,9 +37,10 @@
   only below `.git/refs/` (e.g. `git branch x`) are counted with the next change noticed directly in `.git`.
 - Modified files get change markers and a diff against `HEAD` ([git-diff.md](git-diff.md));
   `GitStatusService.diffAsync(file, done)` reads it on a thread of its own (ADR 0062).
-- The window title shows the checked-out ref: `slu-ide [master] – Thoreau` on a branch,
-  `slu-ide [detached at 5f070b9] – Thoreau` on a detached `HEAD` (7-character hash), and the branch name of a
-  repository without commits (`[main]`). Without a repository, git or a first status it stays `slu-ide – Thoreau`.
+- The window title shows the checked-out ref: `slu-ide [master] – Thoreau v0.1.0` on a branch,
+  `slu-ide [detached at 5f070b9] – Thoreau v0.1.0` on a detached `HEAD` (7-character hash), and the branch name of a
+  repository without commits (`[main]`). Without a repository, git or a first status it stays
+  `slu-ide – Thoreau v0.1.0`.
   The ref comes from the `# branch.head` and `# branch.oid` headers of `git status --branch` and is part of the
   status snapshot, so a checkout in Thoreau's terminal or any other tool updates it through the watch of `.git`
   (`HEAD` changes), which does not happen for a `.git` file (worktrees, submodules). Like the markers, the title keeps

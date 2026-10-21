@@ -11,7 +11,6 @@ import dev.sluide.fileexplorer.FolderAction
 import dev.sluide.fileexplorer.FolderActionResult
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.git.GitChange
-import dev.sluide.git.GitHead
 import dev.sluide.git.GitStatusService
 import dev.sluide.git.GitTrustCheck
 import dev.sluide.gitlog.CommitFileDiff
@@ -65,8 +64,6 @@ import java.nio.file.InvalidPathException
 import java.nio.file.LinkOption
 import java.nio.file.Path
 
-private const val APP_NAME = "Thoreau"
-
 private val log = System.getLogger("dev.sluide.ide.MainWindow")
 
 /** Alt+digit types characters on macOS, so window shortcuts with digits use Cmd there. */
@@ -77,20 +74,6 @@ private const val GIT_LOG_DIVIDER = 0.7
 
 /** What the git log area says while the folder's trust keeps git off (ADR 0053). */
 internal const val GIT_OFF = "Git is off until the folder is trusted."
-
-/**
- * The window title: the folder's name, the checked-out branch (or `detached at` and the short commit) in brackets if
- * [head] is known, and the app name; just the app name without a [folder].
- */
-internal fun windowTitle(
-    folder: Path?,
-    head: GitHead?,
-): String {
-    if (folder == null) return APP_NAME
-    val name = folder.fileName ?: folder
-    val ref = head?.branch?.let { " [$it]" } ?: head?.shortCommit?.let { " [detached at $it]" } ?: ""
-    return "$name$ref – $APP_NAME"
-}
 
 /**
  * The main IDE window: menu bar on top, file explorer on the left, open files and terminals in tabs on the right, and

@@ -232,8 +232,8 @@ class ProjectWindowsUiTest {
         assertSame(first, windows.stages[0])
         assertEquals(a, window(first).folder)
         assertEquals(b, window(second).folder)
-        assertEquals("a – Thoreau", first.title)
-        assertEquals("b – Thoreau", second.title)
+        assertEquals("a – ${appTitle()}", first.title)
+        assertEquals("b – ${appTitle()}", second.title)
         assertTrue(second.isShowing)
         assertNotSame(first.scene.root, second.scene.root)
         // The explorers are different nodes, each in its own window.
@@ -372,7 +372,7 @@ class ProjectWindowsUiTest {
 
         assertTrue(errors.single().contains("missing"), errors.single())
         assertFalse(stage.isShowing)
-        assertEquals(listOf(first.title, "b – Thoreau"), windows.stages.map { it.title })
+        assertEquals(listOf(first.title, "b – ${appTitle()}"), windows.stages.map { it.title })
         assertEquals(emptyList(), pickers())
     }
 

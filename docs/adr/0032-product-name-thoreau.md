@@ -12,10 +12,11 @@ Renaming everything (repository, Gradle project, packages, classes, published ar
 nearly every file, break existing settings and release coordinates, and gain nothing a user sees.
 
 ## Decision
-- The name shown to the user is **Thoreau**: window titles (`Thoreau`, `<folder> – Thoreau`), messages on stderr, the
-  font preview text, the header of the settings file, the default `User-Agent` of the HTTP client, the native app
-  (`Thoreau.app`, `bin/Thoreau` on Linux), the macOS bundle and menu name, the disk image
-  (`Thoreau-<version>-mac-aarch64.dmg`), and the prose of README, docs and agent instructions.
+- The name shown to the user is **Thoreau**: window titles (`Thoreau`, `<folder> – Thoreau`, since followed by the
+  version, see `features/open-folder.md`), messages on stderr, the font preview text, the header of the settings
+  file, the default `User-Agent` of the HTTP client, the native app (`Thoreau.app`, `bin/Thoreau` on Linux), the
+  macOS bundle and menu name, the disk image (`Thoreau-<version>-mac-aarch64.dmg`), and the prose of README, docs and
+  agent instructions.
 - The technical name stays **sluide**: repository `slu-ide`, Gradle project, packages `dev.sluide.*`, class names
   (`SluIdeApplication`, `SluIdeLauncher`, `SluIdeConfiguration`), Maven group `dev.sluide` and artifacts
   `ide-<os>-<arch>`, the settings folder `~/.sluide`, the macOS bundle identifier `dev.sluide.ide`, thread names,
