@@ -9,7 +9,7 @@ reloads, without controls), `GraphLayout` (the commit graph's lanes), `GraphCell
 `CommitDetailsPane`, `changeTree` and `FileDiffs` (`ChangedFiles.kt`, without controls), `ChangedFilesPane` with the
 tree `ChangeTreeView` (shared with the working-tree window), `LogComparison` (in `GitLogPages.kt`, without controls),
 `WorkingTreeComparison` (without controls) and `WorkingTreeWindow`,
-`FilterBar` with `FilterPopup` (`FilterBar.kt`), `branchNodes` (`BranchTree.kt`, without controls) and
+`FilterBar` (`FilterBar.kt`) with `FilterButton` and `FilterPopup` (`FilterButton.kt`, `FilterPopup.kt`), `branchNodes` (`BranchTree.kt`, without controls) and
 `BranchesPane`, the operations that change the repository with `branchActions`, `nameProblem` and their `RefWriter`
 (`RefOperations.kt`, without controls), the cherry-pick, revert and reset operations (`CommitOperations.kt`, without
 controls), Fetch and its summary (`FetchOperations.kt`, without controls) and their dialogs (`RefDialogs.kt`, `CommitDialogs.kt`); the commits (filtered by a `GitLogFilter`), refs,
