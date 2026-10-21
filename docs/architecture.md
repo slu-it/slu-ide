@@ -59,85 +59,62 @@ and meant for sharing; they may be plain libraries without Spring beans.
   through their public API (e.g. `FileExplorerView.open(path)`), not by reaching into each other. Window-scoped
   services that views of another module need reach them only through `FileViewHost.windowService`, registered by
   `MainWindow` in `EditorArea.windowServices` ([ADR 0070](adr/0070-window-services.md)).
-- Documented module dependencies (`api` unless noted):
-  - `file-explorer` -> `file-watcher` and `editor-area` -> `file-watcher`: loaded folders and open files are watched
-    ([ADR 0006](adr/0006-file-watching.md)).
-  - `editor-area` -> `file-viewers`: the editor area asks `FileViewers` for the view of a file
-    ([ADR 0004](adr/0004-file-viewer-selection.md)).
-  - `file-viewers` -> `text-editing` (`implementation`): code views keep line endings and decide what a change on disk
-    means for edited text ([ADR 0020](adr/0020-editing-and-saving-files.md)); their keys indent, move and comment
-    lines, find, replace and go to a line with its commands ([ADR 0022](adr/0022-editor-key-bindings.md)).
-    `text-editing` itself depends at runtime only on ec4j-core (besides Kotlin), which reads `.editorconfig`
-    ([ADR 0023](adr/0023-indentation-from-editorconfig.md)).
-  - `previews` -> `file-viewers` (`api`): its public viewers are `FileViewer`s; their source side is the public
-    `CodeEditors` and their highlighting comes from `Highlighters`
-    ([ADR 0069](adr/0069-previews-module.md)).
-  - `previews` -> `text-editing`, `background-tasks` (`implementation`): the comment syntax of the source side;
-    exports and image downloads.
-  - `ide` -> `previews` (`implementation`): for the Spring beans only, the previews are found by component scan.
-  - `editor-area` -> `previews` (`testImplementation`): the UI tests open files in real previews.
-  - `http-client` -> `file-viewers`: `.http` files are shown in the public code editor (`CodeEditors`), and request
-    bodies and scripts are highlighted with the code views' highlighters (`Highlighters.forLanguage`,
-    [ADR 0005](adr/0005-syntax-highlighting.md), [ADR 0026](adr/0026-http-client-window-session.md)). The window's
-    `HttpClientSession` reaches the views through `FileViewHost.windowService`, set up by `ide` (`MainWindow`), which
-    also tells the session whether git would commit a file.
-  - `terminal` -> `editor-area`: terminals are shown as `EditorTab`s ([ADR 0007](adr/0007-terminal.md)).
-  - `docker-sandbox` -> `terminal`: sandboxes run in terminal tabs and look `sbx` up in the same login shell
-    (`loginShellRunning`) ([ADR 0010](adr/0010-docker-sandbox.md)).
-  - `git` -> `file-watcher`: the `.git` folder is watched to refresh the status
-    ([ADR 0013](adr/0013-git-status.md)). Markers and diffs reach the explorer and the editor through `ide`
-    (`MainWindow`), not through module dependencies ([ADR 0015](adr/0015-git-diff.md),
-    [ADR 0021](adr/0021-change-markers-and-diffs-on-demand.md)).
-  - `git` -> `project-trust`: git's tools run only in folders the user trusts; `GitTrustCheck` is the
-    `ProjectTrustCheck` that says what a repository's own configuration and hooks would make git run
-    ([ADR 0053](adr/0053-project-trust.md)).
-  - `git`, `git-log`, `project-trust`, `file-viewers`, `previews`, `http-client`, `file-explorer` and
-    `docker-sandbox` ->
-    `background-tasks` (`api` for `git`, `git-log`, `project-trust` and `http-client`, `implementation` for the
-    others): their background work runs on `NamedThreads`, which logs what a task throws
-    ([ADR 0060](adr/0060-logging-conventions.md)): the status thread of `git`; the read and write threads of `git-log`;
-    the trust checks of `project-trust`; highlighting of `file-viewers`; exports and image downloads of
-    `previews`; response formatting and token requests of `http-client`; deletes of `file-explorer`; the `sbx`
-    check of `docker-sandbox`. `git`, `git-log`, `project-trust` and `http-client` also register their
-    long-running work as tasks of the window's `BackgroundTasks`
-    ([ADR 0061](adr/0061-background-tasks.md)), given to `GitStatusService`, `GitLogView`, `ProjectTrust` and
-    `HttpClientSession` by their public constructors (hence `api`), and `previews` registers its exports through
-    `FileViewHost.windowService`, so `previews` needs only `implementation`.
-  - `ide` -> `background-tasks` (`implementation`): `MainWindow` shows the window's `BackgroundTasks` as a
-    `BackgroundTasksView` under the file explorer (`leftPane`) and hands the registry to file views through
-    `FileViewHost.windowService` ([ADR 0061](adr/0061-background-tasks.md)).
-  - `git-log` -> `git`: the git log area reads its commits, refs, commit details, changed files and file diffs with
-    `GitLog` and shows `GitCommit`s, `GitRef`s, `GitCommitDetails` and `GitChangedFile`s
-    ([ADR 0035](adr/0035-git-log-area.md), [ADR 0037](adr/0037-ref-labels-and-commit-details.md),
-    [ADR 0038](adr/0038-changed-files-and-commit-diffs.md)), also the counts of a comparison with `HEAD` and the files
-    that differ from the working tree with their diffs ([ADR 0044](adr/0044-git-log-compare.md)), resolves revisions and
-    reads the branches containing a commit ([ADR 0045](adr/0045-git-log-navigation.md)) and the history of a file
-    ([ADR 0046](adr/0046-git-log-file-history.md)), checks out and changes branches and tags with
-    `GitBranches` ([ADR 0041](adr/0041-git-write-operations.md)), cherry-picks, reverts and resets with `GitCommits`
-    ([ADR 0042](adr/0042-git-log-commit-operations.md)) and fetches with `GitRemotes`
-    ([ADR 0043](adr/0043-git-log-fetch.md)); `WindowGitLog` in `ide` tells it the followed repository and
-    refreshes it on `GitStatusService.gitFolderChanged`. It does not depend on `editor-area` or `file-viewers`: `WindowGitLog`
-    sets its callbacks `onOpenFile` (opened with `EditorArea.open`), `onShowDiff` (a `CommitFileDiff`, shown with
-    `FileViewers.openDiff(name, current, diff)`, the diff of given texts, in a `CommitDiffTab` of `ide`, by `GitDiffTabs`) and
-    `onShowWorkingTreeDiff` (a `WorkingTreeFileDiff`, shown with `FileViewers.openDiff(file, diff)`, the live file, or
-    the diff of given texts for deleted files, in a `WorkingTreeDiffTab`; `false` when not shown as text), and tells it
-    with `showStatus` when a file cannot be shown as text; its `beforeFileChange(action)` asks
-    `EditorArea.saveBeforeGitChange`.
-  - `file-explorer` -> `file-icons` (`api`): the explorer shows files with the file-type icons of
-    `FileIcon`/`fileIconFor`, `FontIcon.show` and `FILE_ICONS_CSS`, and `ExplorerRoot.folderIcons` takes `FileIcon`s,
-    so `ide` needs no dependency of its own. `git-log` -> `file-icons` (`implementation`): the same icons in the
-    commit details. `file-icons` is a plain library without Spring beans ([ADR 0012](adr/0012-file-icons.md),
-    [ADR 0047](adr/0047-module-dependencies-and-shared-modules.md)).
-  - `scratches` -> `file-icons` (`implementation`): the type picker shows each type with its file-type icon
-    ([ADR 0066](adr/0066-scratch-files.md)).
-  - `ide` -> `scratches` (`implementation`): `WindowScratches` passes the scratches folder to the explorer as an
-    `ExplorerRoot`, adds File → New Scratch File… with the type picker, reveals and opens new scratches, deletes empty
-    ones on `EditorArea.onFileClosed` unless another window has them open, and keeps scratch-only changes from
-    refreshing the git status ([ADR 0066](adr/0066-scratch-files.md)).
-  - `file-explorer`, `editor-area`, `terminal` -> `settings`: they use the configured fonts; terminals use the terminal font,
-    store their scroll settings with `SettingsStore` and add a `SettingsPage` ([ADR 0008](adr/0008-settings.md),
-    [ADR 0067](adr/0067-feature-settings-in-their-module.md)).
-- Shared build configuration (JDK toolchain, test setup, Spring BOM) is in the root `build.gradle.kts`.
+
+## Module dependencies
+Every edge between modules, as in the `build.gradle.kts` files
+([ADR 0047](adr/0047-module-dependencies-and-shared-modules.md)).
+`api` means the module's public API (constructors, properties, supertypes) exposes the other module's types, so its users see them.
+
+| From | To | Scope | Why | ADR |
+|------|----|-------|-----|-----|
+| `editor-area` | `file-viewers` | `api` | Asks `FileViewers` for the view of a file; `EditorTab`s and `EditorArea` expose `FileView`, `FileViewer`, `FileViewers` and `TextDiff`. | [0004](adr/0004-file-viewer-selection.md) |
+| `editor-area` | `file-watcher` | `api` | Open files are watched; `EditorArea` takes the `FileWatcher`. | [0006](adr/0006-file-watching.md) |
+| `editor-area` | `settings` | `api` | Uses the configured fonts; `EditorArea` takes `FontSettings`. | [0008](adr/0008-settings.md), [0067](adr/0067-feature-settings-in-their-module.md) |
+| `editor-area` | `previews` | `testImplementation` | The UI tests open files in real previews. | [0069](adr/0069-previews-module.md) |
+| `file-viewers` | `text-editing` | `implementation` | Code views keep line endings, decide what a change on disk means for edited text, indent, move and comment lines, find, replace and go to a line. | [0020](adr/0020-editing-and-saving-files.md), [0022](adr/0022-editor-key-bindings.md), [0023](adr/0023-indentation-from-editorconfig.md) |
+| `file-viewers` | `background-tasks` | `implementation` | Highlighting runs on `NamedThreads`, which logs what a task throws. | [0060](adr/0060-logging-conventions.md) |
+| `previews` | `file-viewers` | `api` | Its viewers are `FileViewer`s; their source side is the public `CodeEditors`, highlighting comes from `Highlighters`. | [0069](adr/0069-previews-module.md) |
+| `previews` | `text-editing` | `implementation` | The comment syntax of the source side. | [0069](adr/0069-previews-module.md) |
+| `previews` | `background-tasks` | `implementation` | Exports and image downloads run on `NamedThreads`; exports register their task through `FileViewHost.windowService`, so no `api`. | [0060](adr/0060-logging-conventions.md), [0061](adr/0061-background-tasks.md), [0069](adr/0069-previews-module.md) |
+| `terminal` | `editor-area` | `api` | Terminals are shown as `EditorTab`s. | [0007](adr/0007-terminal.md) |
+| `terminal` | `settings` | `api` | Uses the terminal font, stores its scroll settings with `SettingsStore` and adds a `SettingsPage`; `Terminals` takes `FontSettings`. | [0008](adr/0008-settings.md), [0067](adr/0067-feature-settings-in-their-module.md) |
+| `docker-sandbox` | `terminal` | `api` | Sandboxes run in terminal tabs and look `sbx` up in the same login shell (`loginShellRunning`); `api`: `DockerSandbox` takes `Terminals` and `open()` returns an `EditorTab`. | [0010](adr/0010-docker-sandbox.md) |
+| `docker-sandbox` | `background-tasks` | `implementation` | The `sbx` check runs on `NamedThreads`. | [0060](adr/0060-logging-conventions.md) |
+| `http-client` | `file-viewers` | `api` | `.http` files are shown in the public code editor (`CodeEditors`); request bodies and scripts use `Highlighters.forLanguage`; `api`: `HttpFileViewer` and `HttpEnvironmentFileViewer` are public `SourceFileViewer`s. `HttpClientSession` reaches the views through `FileViewHost.windowService`, and `ide` sets whether git would commit a file (`wouldCommit`). | [0005](adr/0005-syntax-highlighting.md), [0026](adr/0026-http-client-window-session.md), [0070](adr/0070-window-services.md) |
+| `http-client` | `background-tasks` | `api` | Response formatting and token requests run on `NamedThreads`; `HttpClientSession` registers long-running work as `BackgroundTasks`, given by its constructor. | [0060](adr/0060-logging-conventions.md), [0061](adr/0061-background-tasks.md) |
+| `git` | `file-watcher` | `api` | The `.git` folder is watched to refresh the status; `GitStatusService` takes the `FileWatcher`. | [0013](adr/0013-git-status.md) |
+| `git` | `project-trust` | `api` | Git runs only in trusted folders; `GitTrustCheck` is the `ProjectTrustCheck` for a repository's own configuration and hooks; `GitStatusService` takes `ProjectTrust`. | [0053](adr/0053-project-trust.md) |
+| `git` | `background-tasks` | `api` | The status thread runs on `NamedThreads`; `GitStatusService` registers its work as `BackgroundTasks`, given by its constructor. | [0060](adr/0060-logging-conventions.md), [0061](adr/0061-background-tasks.md) |
+| `git-log` | `git` | `api` | Reads commits, refs, details, diffs, comparisons and file history with `GitLog`, and writes with `GitBranches`, `GitCommits`, `GitRebases`, `GitRemotes` and `GitPush`; `GitLogView`'s constructor takes them. | [0035](adr/0035-git-log-area.md), [0037](adr/0037-ref-labels-and-commit-details.md), [0038](adr/0038-changed-files-and-commit-diffs.md), [0041](adr/0041-git-write-operations.md), [0042](adr/0042-git-log-commit-operations.md), [0043](adr/0043-git-log-fetch.md), [0044](adr/0044-git-log-compare.md), [0045](adr/0045-git-log-navigation.md), [0046](adr/0046-git-log-file-history.md), [0049](adr/0049-push.md), [0063](adr/0063-git-log-rebase.md) |
+| `git-log` | `background-tasks` | `api` | Read and write threads run on `NamedThreads`; `GitLogView` registers its work as `BackgroundTasks`, given by its constructor. | [0060](adr/0060-logging-conventions.md), [0061](adr/0061-background-tasks.md) |
+| `git-log` | `file-icons` | `implementation` | File-type icons in the commit details. | [0012](adr/0012-file-icons.md) |
+| `project-trust` | `background-tasks` | `api` | The trust checks run on `NamedThreads` and as `BackgroundTasks`; `ProjectTrust`'s constructor takes the registry. | [0060](adr/0060-logging-conventions.md), [0061](adr/0061-background-tasks.md) |
+| `file-explorer` | `file-watcher` | `api` | Loaded folders are watched; `FileExplorerView` takes the `FileWatcher`. | [0006](adr/0006-file-watching.md) |
+| `file-explorer` | `settings` | `api` | Uses the configured fonts; `FileExplorerView` takes `FontSettings`. | [0008](adr/0008-settings.md), [0067](adr/0067-feature-settings-in-their-module.md) |
+| `file-explorer` | `file-icons` | `api` | Shows files with the file-type icons (`FileIcon`/`fileIconFor`, `FontIcon.show`, `FILE_ICONS_CSS`); `ExplorerRoot.folderIcons` takes `FileIcon`s, so `ide` needs no dependency of its own. | [0012](adr/0012-file-icons.md) |
+| `file-explorer` | `background-tasks` | `implementation` | Deletes run on `NamedThreads`. | [0060](adr/0060-logging-conventions.md) |
+| `scratches` | `file-icons` | `implementation` | The type picker shows each type with its file-type icon. | [0066](adr/0066-scratch-files.md) |
+| `ide` | every module but `file-icons` and `text-editing` | `implementation` | Wires the modules together; those two arrive through `api` edges. | [0002](adr/0002-spring-inside-javafx.md), [0068](adr/0068-window-parts-in-ide.md) |
+| `ide` | `previews` | `implementation` | For the Spring beans only: the previews are `FileViewer`s found by component scan, `ide` imports nothing from them. | [0069](adr/0069-previews-module.md) |
+| `ide` | `background-tasks` | `implementation` | `MainWindow` shows the window's `BackgroundTasks` as a `BackgroundTasksView` under the file explorer and hands the registry to file views through `FileViewHost.windowService`. | [0061](adr/0061-background-tasks.md) |
+| `ide` | `scratches` | `implementation` | `WindowScratches` gives the explorer the scratches folder as an `ExplorerRoot`, adds File → New Scratch File…, deletes empty scratches when closed, and keeps scratch-only changes from refreshing the git status. | [0066](adr/0066-scratch-files.md) |
+
+`NamedThreads` and `BackgroundTasks` are two things of `background-tasks`: every consumer above uses `NamedThreads`,
+and `git`, `git-log`, `project-trust` and `http-client` also register tasks. Their constructors expose the registry
+(hence `api`); `previews` gets it through `FileViewHost.windowService` (hence `implementation`).
+
+### Wiring through `ide`
+Unrelated feature modules do not depend on each other; `ide` connects them. `git-log` depends on neither `editor-area`
+nor `file-viewers`: `WindowGitLog` sets its callbacks `onOpenFile` (opened with `EditorArea.open`), `onShowDiff` and
+`onShowWorkingTreeDiff` (diffs shown with `FileViewers.openDiff` in tabs of `ide`, by `GitDiffTabs`) and
+`beforeFileChange` (`EditorArea.saveBeforeGitChange`), tells it the followed repository, and refreshes it on
+`GitStatusService.gitFolderChanged`; `showStatus` tells when a file cannot be shown as text. The details are in
+[ADR 0038](adr/0038-changed-files-and-commit-diffs.md), [ADR 0042](adr/0042-git-log-commit-operations.md),
+[ADR 0044](adr/0044-git-log-compare.md) and [ADR 0068](adr/0068-window-parts-in-ide.md). Likewise `git` does not
+depend on `file-explorer` or `editor-area`: its markers and diffs reach them through `ide` (`MainWindow`)
+([ADR 0015](adr/0015-git-diff.md), [ADR 0021](adr/0021-change-markers-and-diffs-on-demand.md)).
+
+Shared build configuration (JDK toolchain, test setup, Spring BOM) is in the root `build.gradle.kts`.
 
 ## Runtime
 1. `SluIdeLauncher.main` calls `Application.launch(SluIdeApplication)`.
