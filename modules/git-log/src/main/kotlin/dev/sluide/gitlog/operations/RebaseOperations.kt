@@ -5,7 +5,7 @@ import dev.sluide.git.GitRebaseResult
 import dev.sluide.git.GitResult
 import dev.sluide.git.GitUncheckedConflict
 import dev.sluide.gitlog.data.GitLogWrites
-import dev.sluide.gitlog.ui.SHORT_HASH
+import dev.sluide.gitlog.data.SHORT_HASH
 import java.nio.file.Path
 
 /**

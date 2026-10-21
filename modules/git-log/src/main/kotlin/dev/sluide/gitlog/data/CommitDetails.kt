@@ -222,3 +222,6 @@ private val HASH_CANDIDATE = Regex("(?<![\\p{L}\\p{N}_])[0-9a-fA-F]{7,40}(?![\\p
 
 /** Where in [text] the words are that may be (short) commit hashes (ADR 0045). */
 internal fun hashCandidates(text: String): List<IntRange> = HASH_CANDIDATE.findAll(text).map { it.range }.toList()
+
+/** As many characters of the hash as the details show. */
+internal const val SHORT_HASH = 8

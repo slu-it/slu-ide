@@ -6,14 +6,14 @@ import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefNames
 import dev.sluide.git.GitResult
-import dev.sluide.gitlog.branches.BranchFolder
-import dev.sluide.gitlog.branches.BranchGroup
-import dev.sluide.gitlog.branches.BranchLeaf
-import dev.sluide.gitlog.branches.BranchNode
-import dev.sluide.gitlog.branches.BranchRemote
-import dev.sluide.gitlog.branches.REMOTE
+import dev.sluide.gitlog.data.BranchFolder
+import dev.sluide.gitlog.data.BranchGroup
+import dev.sluide.gitlog.data.BranchLeaf
+import dev.sluide.gitlog.data.BranchNode
+import dev.sluide.gitlog.data.BranchRemote
 import dev.sluide.gitlog.data.GitLogWrites
-import dev.sluide.gitlog.ui.SHORT_HASH
+import dev.sluide.gitlog.data.REMOTE
+import dev.sluide.gitlog.data.SHORT_HASH
 import javafx.scene.control.ButtonType
 import java.nio.file.Path
 

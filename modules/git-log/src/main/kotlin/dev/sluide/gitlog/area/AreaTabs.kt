@@ -13,12 +13,11 @@ import dev.sluide.gitlog.data.CommitBranches
 import dev.sluide.gitlog.data.CommitDetails
 import dev.sluide.gitlog.data.GitLogPages
 import dev.sluide.gitlog.data.GitLogSource
+import dev.sluide.gitlog.data.SHORT_HASH
 import dev.sluide.gitlog.history.FileHistory
 import dev.sluide.gitlog.history.FileHistoryKey
-import dev.sluide.gitlog.history.FileHistoryState
 import dev.sluide.gitlog.history.FileHistoryView
 import dev.sluide.gitlog.operations.CommitChanges
-import dev.sluide.gitlog.ui.SHORT_HASH
 import dev.sluide.gitlog.ui.contains
 import javafx.beans.property.BooleanProperty
 import javafx.beans.value.ObservableBooleanValue

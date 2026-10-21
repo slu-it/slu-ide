@@ -8,10 +8,10 @@ import dev.sluide.gitlog.actions.RefActions
 import dev.sluide.gitlog.data.GitLogPages
 import dev.sluide.gitlog.data.GitLogRow
 import dev.sluide.gitlog.data.GitLogState
+import dev.sluide.gitlog.data.SHORT_HASH
 import dev.sluide.gitlog.operations.CheckoutRevision
 import dev.sluide.gitlog.operations.pickTitle
 import dev.sluide.gitlog.ui.COPY
-import dev.sluide.gitlog.ui.SHORT_HASH
 import javafx.beans.binding.Bindings
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.value.ObservableBooleanValue

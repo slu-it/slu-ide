@@ -5,9 +5,9 @@ import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitPendingOperation
 import dev.sluide.git.GitPendingPick
 import dev.sluide.git.GitPendingRebase
+import dev.sluide.gitlog.data.SHORT_HASH
 import dev.sluide.gitlog.operations.operationText
 import dev.sluide.gitlog.operations.sentence
-import dev.sluide.gitlog.ui.SHORT_HASH
 import javafx.beans.property.ReadOnlyObjectProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
 import java.nio.file.Path

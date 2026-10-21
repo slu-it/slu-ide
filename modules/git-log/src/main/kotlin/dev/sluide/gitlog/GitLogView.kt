@@ -31,6 +31,7 @@ import dev.sluide.gitlog.data.GitLogPages
 import dev.sluide.gitlog.data.GitLogSource
 import dev.sluide.gitlog.data.GitLogState
 import dev.sluide.gitlog.data.GitLogWrites
+import dev.sluide.gitlog.data.SHORT_HASH
 import dev.sluide.gitlog.details.ChangedFilesPane
 import dev.sluide.gitlog.details.CommitDetailsPane
 import dev.sluide.gitlog.filter.FilterBar
@@ -39,7 +40,6 @@ import dev.sluide.gitlog.operations.Fetch
 import dev.sluide.gitlog.operations.PendingBar
 import dev.sluide.gitlog.table.CommitTable
 import dev.sluide.gitlog.ui.GIT_LOG_CSS
-import dev.sluide.gitlog.ui.SHORT_HASH
 import dev.sluide.gitlog.ui.SharedSplit
 import dev.sluide.gitlog.ui.contains
 import dev.sluide.gitlog.workingtree.WorkingTreeWindow

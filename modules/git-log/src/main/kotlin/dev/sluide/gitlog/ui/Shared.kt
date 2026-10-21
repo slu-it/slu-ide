@@ -4,9 +4,6 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
 
-/** As many characters of the hash as the details show. */
-internal const val SHORT_HASH = 8
-
 internal val COPY = KeyCodeCombination(KeyCode.C, KeyCombination.SHORTCUT_DOWN)
 
 private object Resources

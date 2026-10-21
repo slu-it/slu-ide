@@ -3,8 +3,8 @@ package dev.sluide.gitlog.details
 import dev.sluide.git.GitChangedFile
 import dev.sluide.gitlog.data.ChangedFilesState
 import dev.sluide.gitlog.data.GitLogRow
+import dev.sluide.gitlog.data.SHORT_HASH
 import dev.sluide.gitlog.ui.ChangeTreeView
-import dev.sluide.gitlog.ui.SHORT_HASH
 import javafx.animation.PauseTransition
 import javafx.application.Platform
 import javafx.beans.value.ObservableValue

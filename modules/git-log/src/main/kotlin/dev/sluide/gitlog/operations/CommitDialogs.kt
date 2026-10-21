@@ -2,8 +2,8 @@ package dev.sluide.gitlog.operations
 
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitResetMode
+import dev.sluide.gitlog.data.SHORT_HASH
 import dev.sluide.gitlog.ui.GIT_LOG_CSS
-import dev.sluide.gitlog.ui.SHORT_HASH
 import javafx.application.Platform
 import javafx.scene.control.Alert
 import javafx.scene.control.Button

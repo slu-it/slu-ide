@@ -3,6 +3,15 @@ package dev.sluide.gitlog.branches
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
+import dev.sluide.gitlog.data.BranchFolder
+import dev.sluide.gitlog.data.BranchGroup
+import dev.sluide.gitlog.data.BranchLeaf
+import dev.sluide.gitlog.data.BranchNode
+import dev.sluide.gitlog.data.BranchParent
+import dev.sluide.gitlog.data.BranchRemote
+import dev.sluide.gitlog.data.TAGS
+import dev.sluide.gitlog.data.branchNodes
+import dev.sluide.gitlog.data.filterBranches
 import dev.sluide.gitlog.operations.BranchActions
 import dev.sluide.gitlog.operations.Fetch
 import dev.sluide.gitlog.operations.branchActions

@@ -1,9 +1,8 @@
-package dev.sluide.gitlog.branches
+package dev.sluide.gitlog.data
 
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
-import dev.sluide.gitlog.ui.SHORT_HASH
 
 /**
  * A node of the branches pane's tree (ADR 0040). [path] identifies it across rebuilds, e.g. to keep it collapsed:

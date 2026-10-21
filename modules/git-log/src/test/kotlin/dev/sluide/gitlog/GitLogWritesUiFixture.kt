@@ -16,7 +16,7 @@ import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitTreePath
-import dev.sluide.gitlog.branches.BranchNode
+import dev.sluide.gitlog.data.BranchNode
 import dev.sluide.gitlog.data.FakeWrites
 import dev.sluide.gitlog.data.GitLogSource
 import dev.sluide.gitlog.data.GitLogWrites

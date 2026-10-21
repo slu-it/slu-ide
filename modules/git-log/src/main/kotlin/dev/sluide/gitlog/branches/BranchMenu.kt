@@ -6,7 +6,12 @@ import dev.sluide.git.GitRefs
 import dev.sluide.gitlog.actions.RefActions
 import dev.sluide.gitlog.area.CommitDiffs
 import dev.sluide.gitlog.area.CompareBar
+import dev.sluide.gitlog.data.BranchLeaf
+import dev.sluide.gitlog.data.BranchNode
 import dev.sluide.gitlog.data.GitLogPages
+import dev.sluide.gitlog.data.LOCAL
+import dev.sluide.gitlog.data.REMOTE
+import dev.sluide.gitlog.data.TAGS
 import dev.sluide.gitlog.filter.FilterBar
 import dev.sluide.gitlog.operations.BranchActions
 import dev.sluide.gitlog.operations.Fetch

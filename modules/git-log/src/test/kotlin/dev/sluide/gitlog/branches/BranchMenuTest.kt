@@ -3,6 +3,9 @@ package dev.sluide.gitlog.branches
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
+import dev.sluide.gitlog.data.BranchNode
+import dev.sluide.gitlog.data.BranchParent
+import dev.sluide.gitlog.data.branchNodes
 import dev.sluide.gitlog.operations.CheckoutBranch
 import dev.sluide.gitlog.operations.RebaseBranch
 import kotlin.test.Test

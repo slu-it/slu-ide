@@ -5,10 +5,10 @@ import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitOutgoing
 import dev.sluide.gitlog.data.GitLogSource
+import dev.sluide.gitlog.data.SHORT_HASH
 import dev.sluide.gitlog.operations.Fetch
 import dev.sluide.gitlog.operations.isProtectedBranch
 import dev.sluide.gitlog.operations.nameProblem
-import dev.sluide.gitlog.ui.SHORT_HASH
 import javafx.beans.property.ReadOnlyBooleanProperty
 import javafx.beans.property.ReadOnlyBooleanWrapper
 import javafx.beans.property.ReadOnlyObjectProperty

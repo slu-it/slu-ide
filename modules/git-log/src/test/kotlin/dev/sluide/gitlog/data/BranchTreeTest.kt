@@ -1,4 +1,4 @@
-package dev.sluide.gitlog.branches
+package dev.sluide.gitlog.data
 
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
