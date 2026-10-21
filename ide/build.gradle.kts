@@ -21,6 +21,8 @@ dependencies {
     implementation(libs.spring.boot.starter)
     implementation(project(":modules:file-explorer"))
     implementation(project(":modules:file-viewers"))
+    // Needed only for the Spring beans: the previews are FileViewers found by component scan (ADR 0069).
+    implementation(project(":modules:previews"))
     implementation(project(":modules:editor-area"))
     implementation(project(":modules:file-watcher"))
     implementation(project(":modules:terminal"))

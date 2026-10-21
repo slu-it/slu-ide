@@ -24,6 +24,7 @@ dependencyResolutionManagement {
 include("modules:file-explorer")
 include("modules:file-icons")
 include("modules:file-viewers")
+include("modules:previews")
 include("modules:editor-area")
 include("modules:file-watcher")
 include("modules:terminal")
