@@ -8,19 +8,14 @@ import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileexplorer.FolderAction
 import dev.sluide.fileexplorer.FolderActionResult
 import dev.sluide.fileviewers.FileViewers
-import dev.sluide.git.GitChange
 import dev.sluide.git.GitStatusService
 import dev.sluide.git.GitTrustCheck
-import dev.sluide.gitlog.CommitFileDiff
 import dev.sluide.gitlog.GitLogView
-import dev.sluide.gitlog.WorkingTreeFileDiff
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpClientSetup
-import dev.sluide.ide.git.CommitDiffTab
-import dev.sluide.ide.git.WorkingTreeDiffTab
+import dev.sluide.ide.git.GitDiffTabs
 import dev.sluide.ide.git.markers
 import dev.sluide.ide.git.textDiff
-import dev.sluide.ide.git.toTextDiff
 import dev.sluide.ide.git.wouldCommit
 import dev.sluide.ide.logging.currentLogFolder
 import dev.sluide.ide.scratches.WindowScratches
@@ -53,14 +48,9 @@ import javafx.stage.DirectoryChooser
 import javafx.stage.Stage
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
-import java.io.IOException
 import java.net.URI
 import java.nio.file.Files
-import java.nio.file.InvalidPathException
-import java.nio.file.LinkOption
 import java.nio.file.Path
-
-private val log = System.getLogger("dev.sluide.ide.MainWindow")
 
 /** Alt+digit types characters on macOS, so window shortcuts with digits use Cmd there. */
 private val isMac = System.getProperty("os.name").lowercase().contains("mac")
@@ -162,6 +152,8 @@ class MainWindow(
     /** The height of the expanded git log in pixels, kept while it is collapsed; 0 until it was expanded. */
     private var gitLogHeight = 0.0
 
+    private val diffTabs = GitDiffTabs(editorArea, fileViewers, gitLogView::showStatus)
+
     fun show(stage: Stage) {
         themedWindows.install()
         val left = leftPane(fileExplorer, backgroundTasks)
@@ -254,9 +246,9 @@ class MainWindow(
         gitLogView.returnFocus = editorArea::focusSelected
         // Files and what commits changed in them open in the editor area (ADR 0038).
         gitLogView.onOpenFile = { editorArea.open(it) }
-        gitLogView.onShowDiff = ::showCommitDiff
+        gitLogView.onShowDiff = diffTabs::showCommitDiff
         // How files differ from the working tree opens there too, with the file on disk on the right (ADR 0044).
-        gitLogView.onShowWorkingTreeDiff = ::showWorkingTreeDiff
+        gitLogView.onShowWorkingTreeDiff = diffTabs::showWorkingTreeDiff
         // A checkout, cherry-pick or hard reset changes files on disk: edited files in the repository may be saved first
         // (ADRs 0041, 0042).
         gitLogView.beforeFileChange =
@@ -308,77 +300,6 @@ class MainWindow(
         return gitLogPresent.get() && normalized != root && normalized.startsWith(root) &&
             !Files.isDirectory(normalized)
     }
-
-    /**
-     * Shows what a commit changed in a file side by side in a tab of its own, or selects the tab that already shows it
-     * (ADR 0038); says so in the git log if the file is not shown as text.
-     */
-    private fun showCommitDiff(diff: CommitFileDiff) {
-        editorArea.tabs
-            .filterIsInstance<CommitDiffTab>()
-            .firstOrNull { it.shows(diff) }
-            ?.let { return editorArea.select(it) }
-        val view = fileViewers.openDiff(nameOf(diff.path), diff.current, diff.toTextDiff())
-        if (view == null) {
-            gitLogView.showStatus("${diff.path.substringAfterLast('/')} cannot be shown as text.")
-            return
-        }
-        editorArea.open(CommitDiffTab(diff, view))
-    }
-
-    /**
-     * Shows how a file differs between a commit and the working tree side by side in a tab of its own, the file on disk
-     * on the right where the JVM can read it (else the text read with the diff, also empty for a deleted file), and
-     * focuses it; a tab that shows the same comparison already shows it read again instead (ADR 0044). `false` if the
-     * file is not shown as text.
-     */
-    private fun showWorkingTreeDiff(diff: WorkingTreeFileDiff): Boolean {
-        val file = liveFile(diff)
-        val textDiff = diff.toTextDiff(unsaved = file != null && editorArea.dirtyUnder(file).isNotEmpty())
-        val view =
-            try {
-                if (file != null) {
-                    fileViewers.openDiff(file, textDiff)
-                } else {
-                    fileViewers.openDiff(nameOf(diff.path), diff.current, textDiff)
-                }
-            } catch (e: IOException) {
-                log.log(System.Logger.Level.WARNING, "Cannot open the diff of ${diff.path}", e)
-                null
-            } ?: return false
-        val tab = editorArea.tabs.filterIsInstance<WorkingTreeDiffTab>().firstOrNull { it.shows(diff) }
-        if (tab != null) {
-            tab.replace(diff, view)
-            editorArea.select(tab)
-        } else {
-            editorArea.open(WorkingTreeDiffTab(diff, view))
-        }
-        view.node.requestFocus()
-        return true
-    }
-
-    /** The file of [diff] on disk, if it is a regular file there that the JVM can name; not for a deleted one. */
-    private fun liveFile(diff: WorkingTreeFileDiff): Path? {
-        if (diff.change == GitChange.DELETED) return null
-        val file =
-            try {
-                diff.root.resolve(diff.path)
-            } catch (_: InvalidPathException) {
-                return null
-            }
-        return file.takeIf { Files.isRegularFile(it, LinkOption.NOFOLLOW_LINKS) }
-    }
-
-    /**
-     * The repository path [path] as a [Path] that picks the file's viewer by its name; characters that file names
-     * cannot have in the JVM's locale (non-ASCII ones in a plain ASCII locale) are replaced, keeping the extension.
-     */
-    private fun nameOf(path: String): Path =
-        try {
-            Path.of(path)
-        } catch (_: InvalidPathException) {
-            Path.of(path.substringAfterLast('/').map { if (it.code < 128) it else '_' }.joinToString(""))
-        }
 
     /**
      * Opens the repository in the git log while the folder's trust allows git, and reads its status again when it
