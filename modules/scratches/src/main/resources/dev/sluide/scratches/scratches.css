@@ -1,0 +1,21 @@
+/* The New Scratch File popup; colours from Modena's looked-up colours, so light and dark themes both apply (ADR 0009). */
+.scratch-picker {
+    -fx-spacing: 6;
+    -fx-padding: 8;
+    -fx-background-color: -fx-outer-border, -fx-background;
+    -fx-background-insets: 0, 1;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.35), 12, 0, 0, 3);
+}
+
+.scratch-picker-title {
+    -fx-font-weight: bold;
+}
+
+.scratch-picker-row {
+    -fx-spacing: 6;
+    -fx-alignment: center-left;
+}
+
+.scratch-picker-extension {
+    -fx-opacity: 0.55;
+}
