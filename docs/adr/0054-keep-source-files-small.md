@@ -50,7 +50,7 @@ through both files.
 - Open: the result types `GitCli` returns still live in its wrappers' files (`GitResult` in `GitBranches.kt`,
   `GitInProgress` in `GitCommits.kt`, …); moving them next to the core would make the layering clean.
 - Next candidates, by size and read volume: `GitCommits.kt`, `RSyntaxHighlighter.kt`, `MainWindow.kt`,
-  `PreviewFileViewer.kt`, `FilterBar.kt`, `RefOperations.kt`, `TerminalView.kt`.
+  `PreviewFileViewer.kt`, `RefOperations.kt`.
 - The split files have since moved into sub-packages of their modules (`git.cli`, the packages of `dev.sluide.gitlog`),
   [ADR 0055](0055-sub-packages-within-modules.md).
 - Added to [../index.md](../index.md).
