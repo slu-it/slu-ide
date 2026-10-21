@@ -250,8 +250,8 @@ class TableOfContentsUiTest {
 
         awaitPreviewAt(view, lines[1])
         assertFalse(toc.isOpen)
-        assertEquals(lines[1], view.source.area.currentParagraph)
-        assertEquals(0, view.source.area.caretColumn)
+        assertEquals(lines[1], view.sourceArea.currentParagraph)
+        assertEquals(0, view.sourceArea.caretColumn)
     }
 
     @Test
@@ -266,7 +266,7 @@ class TableOfContentsUiTest {
         WaitForAsyncUtils.waitForFxEvents()
         assertFalse(toc.isOpen)
         assertFalse(toc.button.isSelected)
-        assertTrue(view.source.area.isFocused, "Escape gives the focus back to the source")
+        assertTrue(view.sourceArea.isFocused, "Escape gives the focus back to the source")
 
         robot.interact { toc.open() }
         WaitForAsyncUtils.waitForFxEvents()

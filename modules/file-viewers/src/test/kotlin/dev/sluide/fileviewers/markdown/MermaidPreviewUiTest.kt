@@ -3,6 +3,7 @@ package dev.sluide.fileviewers.markdown
 import dev.sluide.fileviewers.preview.PreviewFileView
 import dev.sluide.fileviewers.preview.PreviewMode
 import dev.sluide.fileviewers.preview.ZoomSteps
+import dev.sluide.fileviewers.preview.sourceArea
 import javafx.application.ColorScheme
 import javafx.concurrent.Worker
 import javafx.scene.Scene
@@ -271,11 +272,11 @@ class MermaidPreviewUiTest {
             view.focus()
         }
         WaitForAsyncUtils.waitForFxEvents()
-        assertSame(view.source.area, fx { container.scene.focusOwner }, "Source: the source")
+        assertSame(view.sourceArea, fx { container.scene.focusOwner }, "Source: the source")
 
         robot.interact { view.mode.set(PreviewMode.SPLIT) }
         WaitForAsyncUtils.waitForFxEvents()
 
-        assertSame(view.source.area, fx { container.scene.focusOwner })
+        assertSame(view.sourceArea, fx { container.scene.focusOwner })
     }
 }

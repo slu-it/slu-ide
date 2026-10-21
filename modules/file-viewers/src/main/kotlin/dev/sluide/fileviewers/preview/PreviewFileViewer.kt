@@ -1,6 +1,8 @@
 package dev.sluide.fileviewers.preview
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.fileviewers.CodeEditor
+import dev.sluide.fileviewers.CodeEditors
 import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.ExtensionFileViewer
 import dev.sluide.fileviewers.FileView
@@ -9,7 +11,6 @@ import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.fileviewers.SourceFileViewer
 import dev.sluide.fileviewers.SyntaxHighlighter
 import dev.sluide.fileviewers.TextDiff
-import dev.sluide.fileviewers.code.CodeView
 import dev.sluide.fileviewers.isTextFile
 import dev.sluide.textediting.CommentSyntax
 import javafx.application.ColorScheme
@@ -18,7 +19,6 @@ import javafx.beans.property.BooleanProperty
 import javafx.beans.property.ObjectProperty
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleObjectProperty
-import javafx.collections.ListChangeListener
 import javafx.concurrent.Worker
 import javafx.scene.Node
 import javafx.scene.control.Alert
@@ -65,7 +65,7 @@ abstract class PreviewFileViewer internal constructor(
 }
 
 /**
- * [file] as highlighted, editable source ([CodeView]) and a rendered [preview] in a `WebView`, side by side or one
+ * [file] as highlighted, editable source ([CodeEditor]) and a rendered [preview] in a `WebView`, side by side or one
  * of them alone ([mode], chosen in a toolbar). The preview shows the saved text: it follows the window's colour scheme
  * and is rendered again when the file is saved or changes on disk. Editing and saving are the source's.
  *
@@ -119,7 +119,7 @@ internal class PreviewFileView(
     /** The file shown; it changes when the file is [moved]. */
     private var file = file.toAbsolutePath().normalize()
 
-    val source = CodeView(file, highlighter, comment)
+    val source: CodeEditor = CodeEditors.open(file, highlighter, comment.line, comment.block)
     val webView = WebView().apply { isContextMenuEnabled = false }
     val mode: ObjectProperty<PreviewMode> = SimpleObjectProperty(preview.defaultMode)
 
@@ -150,7 +150,7 @@ internal class PreviewFileView(
     val toc: TableOfContents? =
         if (preview.hasOutline) {
             TableOfContents(
-                headings = { preview.outline(source.area.text).orEmpty() },
+                headings = { preview.outline(source.text).orEmpty() },
                 currentLine = ::currentLine,
                 navigate = ::navigateTo,
                 restoreFocus = ::focusText,
@@ -262,8 +262,8 @@ internal class PreviewFileView(
         if (toc != null) {
             // A press anywhere in the view, also in the web view, outside the table closes it.
             pane.addEventFilter(MouseEvent.MOUSE_PRESSED, ::closeTocOnPress)
-            source.area.currentParagraphProperty().subscribe { _ -> refreshToc() }
-            source.area.plainTextChanges().subscribe { refreshToc() }
+            source.caretLineProperty.subscribe { _ -> refreshToc() }
+            source.onTextChanged { refreshToc() }
         }
         modes.selectedToggleProperty().subscribe { old, new ->
             // A mode is always selected: clicking the selected button keeps it.
@@ -274,8 +274,7 @@ internal class PreviewFileView(
             show(mode)
             syncScroll()
         }
-        // The visible paragraphs change when the source scrolls, is resized or is shown again (e.g. its tab selected).
-        source.area.visibleParagraphs.addListener(ListChangeListener { syncScroll() })
+        source.onShownLinesChanged { syncScroll() }
         // Saved, reloaded, or the user kept the unsaved text over the file's new one, which then counts as saved.
         source.savedTextProperty.addListener { _, _, _ -> if (!disposed) render() }
         engine.loadWorker.stateProperty().subscribe { state -> if (state == Worker.State.SUCCEEDED) onLoaded() }
@@ -321,7 +320,7 @@ internal class PreviewFileView(
                 if (!disposed && !stopped && this.mode.get() != PreviewMode.SOURCE) webView.requestFocus()
             }
         } else {
-            pendingFocus.request(source.area) { if (!disposed) source.focusText() }
+            pendingFocus.request(source.node) { if (!disposed) source.focusText() }
         }
     }
 
@@ -507,7 +506,7 @@ internal class PreviewFileView(
             tocJump?.let { if (pageState() == it.page) return it.line }
             (engine.executeScript("sluide.topLine()") as? Number)?.let { return it.toInt() }
         }
-        return source.area.currentParagraph
+        return source.caretLine
     }
 
     /** Updates the open table of contents to the caret and text; calls before it ran are merged into one. */
@@ -545,10 +544,8 @@ internal class PreviewFileView(
 
     /** Brings [heading] to the top of the source, and of the preview if it is shown alone (else the scroll sync does). */
     private fun navigateTo(heading: Heading) {
-        val area = source.area
-        val line = heading.line.coerceIn(0, area.paragraphs.size - 1)
-        area.moveTo(line, 0)
-        area.showParagraphAtTop(line)
+        source.showLineAtTop(heading.line)
+        val line = source.caretLine
         if (mode.get() == PreviewMode.PREVIEW && isLoaded) {
             engine.executeScript("sluide.scrollToLine($line)")
             tocJump = pageState()?.let { TocJump(line, it) }
@@ -562,11 +559,9 @@ internal class PreviewFileView(
         syncPending = true
         Platform.runLater {
             syncPending = false
-            val area = source.area
-            if (preview.syncsScroll && mode.get() == PreviewMode.SPLIT && isLoaded &&
-                area.visibleParagraphs.isNotEmpty()
-            ) {
-                engine.executeScript("sluide.scrollToLine(${area.firstVisibleParToAllParIndex()})")
+            val top = source.topLine
+            if (preview.syncsScroll && mode.get() == PreviewMode.SPLIT && isLoaded && top >= 0) {
+                engine.executeScript("sluide.scrollToLine($top)")
             }
         }
     }

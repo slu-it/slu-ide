@@ -145,7 +145,7 @@ class PreviewFileViewUiTest {
     fun `the source is edited and the preview renders it when saved`(robot: FxRobot) {
         val (file, view) = show(robot, "# Before\n")
 
-        robot.interact { view.source.area.replaceText(2, 8, "After") }
+        robot.interact { view.sourceArea.replaceText(2, 8, "After") }
         WaitForAsyncUtils.waitForFxEvents()
         assertTrue(view.dirty.get())
         assertEquals("Before", view.script("document.querySelector('h1').textContent"), "unsaved edits do not render")
@@ -161,7 +161,7 @@ class PreviewFileViewUiTest {
     @Test
     fun `keeping unsaved edits over a change on disk renders the file's new text`(robot: FxRobot) {
         val (file, view) = show(robot, "# Before\n")
-        robot.interact { view.source.area.replaceText(2, 8, "Mine") }
+        robot.interact { view.sourceArea.replaceText(2, 8, "Mine") }
         file.writeText("# Theirs\n")
         robot.interact { view.reload() }
         assertEquals("Before", view.script("document.querySelector('h1').textContent"), "the conflict renders nothing")
@@ -176,7 +176,7 @@ class PreviewFileViewUiTest {
         awaitLoaded(view)
 
         assertEquals("Theirs", view.script("document.querySelector('h1').textContent"))
-        assertEquals("# Mine\n", view.source.area.text)
+        assertEquals("# Mine\n", view.sourceArea.text)
     }
 
     @Test
@@ -205,7 +205,7 @@ class PreviewFileViewUiTest {
         val (_, view) = show(robot, longDocument)
         WaitForAsyncUtils.waitForFxEvents()
 
-        assertEquals(0, view.source.area.firstVisibleParToAllParIndex())
+        assertEquals(0, view.sourceArea.firstVisibleParToAllParIndex())
         assertEquals(0.0, (view.script("window.scrollY") as Number).toDouble())
     }
 
@@ -213,7 +213,7 @@ class PreviewFileViewUiTest {
     fun `side by side, the preview scrolls with the source`(robot: FxRobot) {
         val (_, view) = show(robot, longDocument)
 
-        robot.interact { view.source.area.showParagraphAtTop(100) }
+        robot.interact { view.sourceArea.showParagraphAtTop(100) }
         WaitForAsyncUtils.waitForFxEvents()
 
         assertTrue((view.script("window.scrollY") as Number).toDouble() > 100.0)
@@ -223,7 +223,7 @@ class PreviewFileViewUiTest {
     @Test
     fun `after a reload the preview keeps its place`(robot: FxRobot) {
         val (file, view) = show(robot, longDocument)
-        robot.interact { view.source.area.showParagraphAtTop(60) }
+        robot.interact { view.sourceArea.showParagraphAtTop(60) }
         WaitForAsyncUtils.waitForFxEvents()
 
         file.writeText(longDocument + "\nAdded\n")
@@ -306,7 +306,7 @@ class PreviewFileViewUiTest {
         // Descending by n: the rows are in reverse order.
         view.script("document.querySelectorAll('th')[1].click(); document.querySelectorAll('th')[1].click()")
         assertEquals("r200", view.script("document.querySelector('tbody td').textContent"))
-        robot.interact { view.source.area.showParagraphAtTop(150) }
+        robot.interact { view.sourceArea.showParagraphAtTop(150) }
         WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(0.0, view.offsetOf(150), 5.0)
@@ -400,7 +400,7 @@ class PreviewFileViewUiTest {
         val (file, view) = show(robot, "# Before\n\n[other](other.md)\n")
         val host = RecordingHost()
         view.host = host
-        robot.interact { view.source.area.replaceText(2, 8, "After") }
+        robot.interact { view.sourceArea.replaceText(2, 8, "After") }
         val moved = dir.resolve("docs").createDirectories().resolve("guide.md")
         file.moveTo(moved)
 
@@ -578,7 +578,7 @@ class PreviewFileViewUiTest {
 
         robot.interact { view.focus() }
         WaitForAsyncUtils.waitForFxEvents()
-        assertSame(view.source.area, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get(), "Split")
+        assertSame(view.sourceArea, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get(), "Split")
 
         robot.interact {
             view.mode.set(PreviewMode.PREVIEW)

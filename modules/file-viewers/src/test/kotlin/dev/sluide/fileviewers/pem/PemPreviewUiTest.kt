@@ -2,6 +2,7 @@ package dev.sluide.fileviewers.pem
 
 import dev.sluide.fileviewers.preview.PreviewFileView
 import dev.sluide.fileviewers.preview.PreviewMode
+import dev.sluide.fileviewers.preview.sourceArea
 import javafx.concurrent.Worker
 import javafx.scene.Node
 import javafx.scene.Scene
@@ -61,6 +62,6 @@ class PemPreviewUiTest {
                     )
                 }.get()
         assertEquals("Certificate 1 of 2: leaf.sluide.test |Certificate 2 of 2: SluIde Test CA ", titles)
-        assertTrue("keyword" in view.source.area.getStyleOfChar(1), "BEGIN line highlighted")
+        assertTrue("keyword" in view.sourceArea.getStyleOfChar(1), "BEGIN line highlighted")
     }
 }

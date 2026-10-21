@@ -299,7 +299,7 @@ class ZoomUiTest {
                 KeyCode.NUMPAD9,
             )
         for (code in codes) {
-            fire(view.source.area, keyPress(code))
+            fire(view.sourceArea, keyPress(code))
             assertEquals(before, fx { zoom.scale to zoom.fit }, "$code in the source")
         }
         assertEquals("100%", fx { zoom.level.text })
@@ -398,7 +398,7 @@ class ZoomUiTest {
         assertEquals(view.webView, fx { container.scene.focusOwner }, "Preview: the preview")
         robot.interact { view.mode.set(PreviewMode.SPLIT) }
         robot.interact { view.focusText() }
-        assertEquals(view.source.area, fx { container.scene.focusOwner }, "Split: the source")
+        assertEquals(view.sourceArea, fx { container.scene.focusOwner }, "Split: the source")
 
         robot.interact { view.webView.requestFocus() }
         val preview = fx { view.node.lookupAll(".preview-mode").first { (it as ToggleButton).text == "Preview" } }

@@ -4,6 +4,7 @@ import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.preview.PreviewFileView
 import dev.sluide.fileviewers.preview.PreviewMode
+import dev.sluide.fileviewers.preview.sourceArea
 import javafx.concurrent.Worker
 import javafx.event.ActionEvent
 import javafx.scene.Scene
@@ -85,7 +86,7 @@ class JsonPreviewUiTest {
         assertEquals(4, view.open(), "root, deps, b and other are containers")
         robot.interact { view.focus() }
         WaitForAsyncUtils.waitForFxEvents()
-        assertSame(view.source.area, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get())
+        assertSame(view.sourceArea, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get())
     }
 
     @Test
@@ -166,7 +167,7 @@ class JsonPreviewUiTest {
         view.script("document.querySelector('details[data-path=\"/deps\"]').open = false")
         assertEquals(false, view.isOpen("/deps"))
 
-        robot.interact { view.source.area.replaceText(text.length - 1, text.length - 1, ", \"more\": {\"d\": 1}") }
+        robot.interact { view.sourceArea.replaceText(text.length - 1, text.length - 1, ", \"more\": {\"d\": 1}") }
         robot.interact { view.save() }
         awaitLoaded(view)
 
@@ -200,11 +201,11 @@ class JsonPreviewUiTest {
         view.script("document.querySelector('details[data-path=\"/other\"]').open = false")
 
         for (broken in listOf("{\"deps\": [1,\n", "", "{\"deps\": [1,\n")) {
-            robot.interact { view.source.area.replaceText(0, view.source.area.length, broken) }
+            robot.interact { view.sourceArea.replaceText(0, view.sourceArea.length, broken) }
             robot.interact { view.save() }
             awaitLoaded(view)
         }
-        robot.interact { view.source.area.replaceText(0, view.source.area.length, text) }
+        robot.interact { view.sourceArea.replaceText(0, view.sourceArea.length, text) }
         robot.interact { view.save() }
         awaitLoaded(view)
 
@@ -220,7 +221,7 @@ class JsonPreviewUiTest {
         view.script("document.querySelector('details[data-path=\"/other\"]').open = false")
 
         for (next in listOf("""{"deps": {"a": 1}}""", text)) {
-            robot.interact { view.source.area.replaceText(0, view.source.area.length, next) }
+            robot.interact { view.sourceArea.replaceText(0, view.sourceArea.length, next) }
             robot.interact { view.save() }
             awaitLoaded(view)
         }
@@ -271,7 +272,7 @@ class JsonPreviewUiTest {
     fun `Copy Formatted puts the saved text formatted on the clipboard, without unsaved edits`(robot: FxRobot) {
         val (_, view) = show(robot)
         robot.interact { view.mode.set(PreviewMode.SPLIT) }
-        robot.interact { view.source.area.replaceText(1, 1, "\"unsaved\": 1, ") }
+        robot.interact { view.sourceArea.replaceText(1, 1, "\"unsaved\": 1, ") }
         assertTrue(view.dirty.get())
 
         setClipboard("MARKER")
@@ -290,7 +291,7 @@ class JsonPreviewUiTest {
     fun `Copy Formatted leaves the clipboard alone when the saved text is invalid`(robot: FxRobot) {
         val (_, view) = show(robot)
         robot.interact { view.mode.set(PreviewMode.SPLIT) }
-        robot.interact { view.source.area.replaceText(0, view.source.area.length, "{\"a\" 1}") }
+        robot.interact { view.sourceArea.replaceText(0, view.sourceArea.length, "{\"a\" 1}") }
         robot.interact { view.save() }
         awaitLoaded(view)
         setClipboard("MARKER")
@@ -319,7 +320,7 @@ class JsonPreviewUiTest {
 
         robot.fire(".preview-copy-formatted")
         assertEquals("Copied", view.message())
-        robot.interact { view.source.area.replaceText(0, 0, " ") }
+        robot.interact { view.sourceArea.replaceText(0, 0, " ") }
         robot.interact { view.save() }
         awaitLoaded(view)
         assertEquals("", view.message())

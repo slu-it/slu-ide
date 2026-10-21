@@ -7,6 +7,7 @@ import dev.sluide.fileviewers.isTextFile
 import dev.sluide.fileviewers.json.JsonFileViewer
 import dev.sluide.fileviewers.languages.PythonFileViewer
 import dev.sluide.fileviewers.preview.PreviewFileView
+import dev.sluide.fileviewers.preview.sourceArea
 import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.Label
@@ -442,7 +443,7 @@ class CodeViewUiTest {
                 "editing this one.",
             generatedMessage(robot),
         )
-        assertTrue("property" in (view as PreviewFileView).source.area.getStyleOfChar(2))
+        assertTrue("property" in (view as PreviewFileView).sourceArea.getStyleOfChar(2))
     }
 
     @Test

@@ -3,6 +3,7 @@ package dev.sluide.fileviewers.bicep
 import dev.sluide.fileviewers.preview.PreviewFileView
 import dev.sluide.fileviewers.preview.PreviewMode
 import dev.sluide.fileviewers.preview.ZoomSteps
+import dev.sluide.fileviewers.preview.sourceArea
 import javafx.application.ColorScheme
 import javafx.concurrent.Worker
 import javafx.scene.Scene
@@ -183,17 +184,17 @@ class BicepPreviewUiTest {
         WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(PreviewMode.SOURCE, WaitForAsyncUtils.asyncFx<PreviewMode> { view.mode.get() }.get())
-        assertSame(view.source.area, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get())
+        assertSame(view.sourceArea, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get())
     }
 
     @Test
     fun `switching a Bicep file from Source to Split leaves the focus in the source`(robot: FxRobot) {
         val view = show(robot, MAIN_BICEP)
-        robot.interact { view.source.area.requestFocus() }
+        robot.interact { view.sourceArea.requestFocus() }
 
         robot.interact { view.mode.set(PreviewMode.SPLIT) }
         WaitForAsyncUtils.waitForFxEvents()
 
-        assertSame(view.source.area, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get())
+        assertSame(view.sourceArea, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get())
     }
 }

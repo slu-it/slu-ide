@@ -2,6 +2,7 @@ package dev.sluide.fileviewers.xml
 
 import dev.sluide.fileviewers.preview.PreviewFileView
 import dev.sluide.fileviewers.preview.PreviewMode
+import dev.sluide.fileviewers.preview.sourceArea
 import javafx.concurrent.Worker
 import javafx.event.ActionEvent
 import javafx.scene.Scene
@@ -95,7 +96,7 @@ class XmlPreviewUiTest {
         assertEquals(4, view.open(), "project, deps, b and other are elements with children")
         robot.interact { view.focus() }
         WaitForAsyncUtils.waitForFxEvents()
-        assertSame(view.source.area, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get())
+        assertSame(view.sourceArea, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get())
     }
 
     @Test
@@ -165,7 +166,7 @@ class XmlPreviewUiTest {
         assertEquals(false, view.isOpen(deps))
 
         val end = text.indexOf("</project>")
-        robot.interact { view.source.area.replaceText(end, end, "<more><d>1</d></more>\n") }
+        robot.interact { view.sourceArea.replaceText(end, end, "<more><d>1</d></more>\n") }
         robot.interact { view.save() }
         awaitLoaded(view)
 
@@ -199,11 +200,11 @@ class XmlPreviewUiTest {
         view.script("document.querySelector('details[data-path=\"$other\"]').open = false")
 
         for (broken in listOf("<project>\n<deps>\n", "", "<project>\n<deps>&nope;</deps>")) {
-            robot.interact { view.source.area.replaceText(0, view.source.area.length, broken) }
+            robot.interact { view.sourceArea.replaceText(0, view.sourceArea.length, broken) }
             robot.interact { view.save() }
             awaitLoaded(view)
         }
-        robot.interact { view.source.area.replaceText(0, view.source.area.length, text) }
+        robot.interact { view.sourceArea.replaceText(0, view.sourceArea.length, text) }
         robot.interact { view.save() }
         awaitLoaded(view)
 
@@ -219,7 +220,7 @@ class XmlPreviewUiTest {
         view.script("document.querySelector('details[data-path=\"$other\"]').open = false")
 
         for (next in listOf("<project><deps><a>1</a><b><x>1</x></b></deps></project>", text)) {
-            robot.interact { view.source.area.replaceText(0, view.source.area.length, next) }
+            robot.interact { view.sourceArea.replaceText(0, view.sourceArea.length, next) }
             robot.interact { view.save() }
             awaitLoaded(view)
         }
@@ -231,9 +232,9 @@ class XmlPreviewUiTest {
     fun `an invalid file shows the error and the page so far`(robot: FxRobot) {
         val (_, view) = show(robot, "broken.xml")
         robot.interact {
-            view.source.area.replaceText(
+            view.sourceArea.replaceText(
                 0,
-                view.source.area.length,
+                view.sourceArea.length,
                 "<a>\n<b>1</b>\n<c>&nope;</c>\n</a>",
             )
         }
@@ -279,7 +280,7 @@ class XmlPreviewUiTest {
     fun `Copy Formatted puts the saved text formatted on the clipboard, without unsaved edits`(robot: FxRobot) {
         val (_, view) = show(robot)
         robot.interact { view.mode.set(PreviewMode.SPLIT) }
-        robot.interact { view.source.area.replaceText(0, 0, "<!-- unsaved -->\n") }
+        robot.interact { view.sourceArea.replaceText(0, 0, "<!-- unsaved -->\n") }
         assertTrue(view.dirty.get())
 
         setClipboard("MARKER")
@@ -298,7 +299,7 @@ class XmlPreviewUiTest {
     fun `Copy Formatted leaves the clipboard alone when the saved text is invalid`(robot: FxRobot) {
         val (_, view) = show(robot)
         robot.interact { view.mode.set(PreviewMode.SPLIT) }
-        robot.interact { view.source.area.replaceText(0, view.source.area.length, "<a>\n<b>") }
+        robot.interact { view.sourceArea.replaceText(0, view.sourceArea.length, "<a>\n<b>") }
         robot.interact { view.save() }
         awaitLoaded(view)
         setClipboard("MARKER")
@@ -327,7 +328,7 @@ class XmlPreviewUiTest {
 
         robot.fire(".preview-copy-formatted")
         assertEquals("Copied", view.message())
-        robot.interact { view.source.area.replaceText(0, 0, " ") }
+        robot.interact { view.sourceArea.replaceText(0, 0, " ") }
         robot.interact { view.save() }
         awaitLoaded(view)
         assertEquals("", view.message())
