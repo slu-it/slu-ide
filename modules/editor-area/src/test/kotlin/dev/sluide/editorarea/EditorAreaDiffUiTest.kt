@@ -4,7 +4,7 @@ import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.LineChange
 import dev.sluide.fileviewers.TextDiff
-import dev.sluide.fileviewers.markdown.MarkdownFileViewer
+import dev.sluide.previews.markdown.MarkdownFileViewer
 import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.Scene

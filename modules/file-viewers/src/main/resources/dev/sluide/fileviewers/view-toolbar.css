@@ -1,7 +1,7 @@
 /*
  * Toolbars of the views of the core (not the previews): the diff view (SideBySideDiffView), with buttons that jump
  * between changes and one back to the editor, and the .env view (EnvFileView), which has the previews' toolbar.
- * preview-view.css keeps its own copy of the .preview-toolbar block; keep the two in sync.
+ * preview-view.css in previews keeps its own copy of the .preview-toolbar block; keep the two in sync.
  */
 
 .preview-toolbar, .diff-toolbar {

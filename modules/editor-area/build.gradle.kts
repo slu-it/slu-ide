@@ -21,6 +21,8 @@ dependencies {
 
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
+    // The UI tests open files in real previews.
+    testImplementation(project(":modules:previews"))
     // Diff views are RichTextFX code areas; the tests read their text.
     testImplementation(libs.richtextfx)
 }

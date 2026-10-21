@@ -3,8 +3,8 @@
  * This stylesheet is added to code views only, so the token rules need no `.code-view` ancestor. They must not have
  * one: JavaFX 27 applies descendant selectors inside `@media` blocks whatever the colour scheme, so the dark rules
  * below use single classes, and the light rules use the same specificity so that the dark ones can override them.
- * The token colours (one rule per TokenStyle.styleClass) are duplicated for the previews' pages in preview.css; keep
- * the two in sync.
+ * The token colours (one rule per TokenStyle.styleClass) are duplicated for the previews' pages in preview.css of
+ * previews; keep the two in sync.
  */
 
 .code-view .code-area {

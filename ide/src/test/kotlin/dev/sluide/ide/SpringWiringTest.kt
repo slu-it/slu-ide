@@ -7,7 +7,6 @@ import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.FileViewers
-import dev.sluide.fileviewers.json.JsonFileViewer
 import dev.sluide.fileviewers.languages.PythonFileViewer
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitBranches
@@ -23,6 +22,8 @@ import dev.sluide.gitlog.GitLogView
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpEnvironmentFileViewer
 import dev.sluide.httpclient.HttpFileViewer
+import dev.sluide.previews.json.JsonFileViewer
+import dev.sluide.previews.markdown.MarkdownFileViewer
 import dev.sluide.projects.ProjectPicker
 import dev.sluide.projects.RecentProjects
 import dev.sluide.projecttrust.ProjectTrust
@@ -71,6 +72,7 @@ class SpringWiringTest {
                         FileViewers::class.java,
                         DefaultTextFileViewer::class.java,
                         PythonFileViewer::class.java,
+                        MarkdownFileViewer::class.java,
                         FileWatcher::class.java,
                         Terminals::class.java,
                         FontSettings::class.java,

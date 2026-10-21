@@ -1,0 +1,62 @@
+package dev.sluide.previews.bicep
+
+import dev.sluide.fileviewers.BicepResourceGraph
+import dev.sluide.fileviewers.Highlighters
+import dev.sluide.previews.markdown.MarkdownRenderer
+import dev.sluide.previews.markdown.MermaidPreview
+import dev.sluide.previews.preview.Preview
+import dev.sluide.previews.preview.PreviewFileViewer
+import dev.sluide.previews.preview.PreviewMode
+import dev.sluide.textediting.CommentSyntax
+import javafx.scene.web.WebEngine
+import org.jsoup.nodes.Element
+import org.springframework.stereotype.Component
+import java.nio.file.Path
+
+/**
+ * Shows Bicep files (`.bicep`) as highlighted source ([Highlighters.bicep]) and, one click away, the graph of their
+ * resources and modules ([BicepPreview]).
+ */
+@Component
+class BicepFileViewer : PreviewFileViewer(setOf("bicep"), Highlighters.bicep, BicepPreview, CommentSyntax.SLASHES)
+
+/**
+ * The resource graph ([BicepResourceGraph]) drawn by Mermaid like a Mermaid file ([MermaidPreview]): zoomable, fitted
+ * at first, drawn again in the other colour scheme. A file without resources or modules shows a note instead.
+ */
+internal object BicepPreview : Preview {
+    override fun load(
+        engine: WebEngine,
+        file: Path,
+        text: String,
+        dark: Boolean,
+        root: Path,
+    ) = engine.loadContent(render(text, dark))
+
+    fun render(
+        text: String,
+        dark: Boolean,
+    ): String {
+        val graph =
+            try {
+                BicepResourceGraph.of(text)
+            } catch (e: RuntimeException) {
+                return note("The resource graph could not be read: ${e.message}", dark)
+            }
+        if (graph.isEmpty) return note("No resources or modules in this file.", dark)
+        return MermaidPreview.render(graph.mermaid, dark, graph.note)
+    }
+
+    private fun note(
+        text: String,
+        dark: Boolean,
+    ): String {
+        val body = Element("body")
+        body.appendElement("p").addClass("diagram-note").text(text)
+        return MarkdownRenderer.page(body, dark)
+    }
+
+    override val defaultMode get() = PreviewMode.SOURCE
+
+    override val zooms get() = true
+}
