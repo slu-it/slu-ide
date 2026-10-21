@@ -14,16 +14,12 @@ import javafx.beans.value.ObservableBooleanValue
 import javafx.beans.value.ObservableValue
 import javafx.collections.ListChangeListener
 import javafx.scene.Node
-import javafx.scene.control.Alert
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.StackPane
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.io.IOException
 import java.net.URI
-import java.nio.file.AccessDeniedException
-import java.nio.file.FileSystemException
-import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 
 private val log = System.getLogger(EditorArea::class.java.name)
@@ -69,7 +65,7 @@ class EditorArea(
         { files, action -> askToSaveBeforeGitChange(scene?.window, files, action) }
 
     /** Shows an error message, e.g. that a file could not be saved, and waits until it is closed; tests replace it. */
-    var showError: (message: String) -> Unit = ::showErrorDialog
+    var showError: (message: String) -> Unit = { showErrorAlert(scene?.window, it) }
     private val watches = mutableMapOf<EditorTab, AutoCloseable>()
 
     /**
@@ -101,6 +97,14 @@ class EditorArea(
         set(value) {
             tabStrip.canShowHistory = value
         }
+
+    /**
+     * Called on the FX thread with the path of each file tab removed from the tabs in any way (closed from the UI,
+     * [closeAll], [closeUnder], after a delete, or a move its tab cannot follow) when no tab of that path is open in this
+     * area anymore, e.g. not when a tab is replaced by a new view of the same file; a move followed in place reports
+     * nothing. Called once the change of the tabs is processed; set by the window.
+     */
+    var onFileClosed: (Path) -> Unit = {}
 
     /** The services of the window that file views may look up ([FileViewHost.windowService]); set by the window. */
     var windowServices: List<Any> = emptyList()
@@ -142,11 +146,13 @@ class EditorArea(
         // tabs lose their watch and font binding.
         editorTabs.tabs.addListener(
             ListChangeListener { change ->
+                val closed = mutableSetOf<Path>()
                 while (change.next()) {
                     change.removed.forEach { tab ->
                         watches.remove(tab)?.close()
                         // Unbinding also lets the shared font binding forget the closed view.
                         if (tab.usesEditorFont) tab.content.styleProperty().unbind()
+                        if (tab is OpenFile) closed.add(tab.path)
                     }
                     change.addedSubList.filter { it.usesEditorFont }.forEach {
                         it.content.styleProperty().bind(
@@ -154,6 +160,7 @@ class EditorArea(
                         )
                     }
                 }
+                closed.filter { editorTabs.find(it) == null }.forEach(onFileClosed)
             },
         )
         styleClass += "editor-area"
@@ -521,25 +528,9 @@ class EditorArea(
             view.save()
             true
         } catch (e: IOException) {
-            showError("${openFile.name} could not be saved. ${reason(e)}")
+            showError("${openFile.name} could not be saved. ${saveFailureReason(e)}")
             false
         }
-    }
-
-    private fun reason(e: IOException): String =
-        when (e) {
-            is NoSuchFileException -> "Its folder does not exist."
-            is AccessDeniedException -> "Access denied."
-            is FileSystemException -> e.reason ?: e.toString()
-            else -> e.message ?: e.toString()
-        }
-
-    private fun showErrorDialog(message: String) {
-        Alert(Alert.AlertType.ERROR, message)
-            .apply {
-                scene?.window?.let(::initOwner)
-                headerText = null
-            }.showAndWait()
     }
 
     /** Closes all tabs without asking, including the ones that do not show files. */
