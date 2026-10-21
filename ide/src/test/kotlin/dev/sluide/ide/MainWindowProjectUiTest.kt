@@ -1,7 +1,9 @@
 package dev.sluide.ide
 
+import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.backgroundtasks.BackgroundTasksView
 import dev.sluide.fileexplorer.FileExplorerView
+import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.settings.FontArea
 import javafx.scene.Node
 import javafx.scene.control.Label
@@ -33,6 +35,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -53,7 +56,8 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
 
     @Test
     fun `file views find the window's HTTP client session and background tasks`() {
-        assertEquals(listOf<Any>(httpSessions.single(), backgroundTasks.single()), editorArea.windowServices)
+        assertSame(httpSessions.single(), editorArea.windowServices.get(HttpClientSession::class.java))
+        assertSame(backgroundTasks.single(), editorArea.windowServices.get(BackgroundTasks::class.java))
     }
 
     @Test

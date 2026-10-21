@@ -189,15 +189,14 @@ class EditorAreaViewsUiTest : EditorAreaUiFixture() {
         val fallback = DefaultTextFileViewer()
         val area = EditorArea(FileViewers(listOf(fallback, viewer), fallback), watcher, fontSettings)
         val service = StringBuilder("session")
-        area.windowServices = listOf(42, service)
+        area.windowServices.register(StringBuilder::class.java, service)
         robot.interact { stage.scene = Scene(area, 800.0, 400.0) }
 
         robot.interact { area.open(textFile("readme.link")) }
         val host = assertNotNull(viewer.views.single().host)
 
         assertSame(service, host.windowService(StringBuilder::class.java))
-        assertSame(service, host.windowService(CharSequence::class.java))
-        assertEquals(42, host.windowService(Number::class.java))
+        assertNull(host.windowService(CharSequence::class.java))
         assertNull(host.windowService(Thread::class.java))
     }
 

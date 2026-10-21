@@ -142,9 +142,9 @@ interface FileViewHost {
     ) {}
 
     /**
-     * The service of [type] that the window showing the view holds for its views, e.g. the HTTP client's session with
-     * its cookies and tokens; `null` if there is none (e.g. in tests). Viewers are shared by all windows, so per-window
-     * state reaches their views this way (ADR 0026).
+     * The service registered under exactly [type] in the window showing the view (see [WindowServices]), e.g. the HTTP
+     * client's session with its cookies and tokens; `null` if there is none (e.g. in tests). Viewers are shared by all
+     * windows, so per-window state reaches their views this way (ADR 0026, ADR 0070).
      */
     fun <T : Any> windowService(type: Class<T>): T? = null
 

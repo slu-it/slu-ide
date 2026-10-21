@@ -2,6 +2,7 @@ package dev.sluide.httpclient.envedit
 
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.fileviewers.FileViewHost
+import dev.sluide.fileviewers.WindowServices
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpEnvironmentFileViewer
 import dev.sluide.httpclient.env.EnvironmentFiles
@@ -60,7 +61,9 @@ internal abstract class EnvironmentFileViewUiFixture {
 
         override fun openWebPage(uri: URI) {}
 
-        override fun <T : Any> windowService(type: Class<T>): T? = session.takeIf(type::isInstance)?.let(type::cast)
+        private val services = WindowServices().apply { register(HttpClientSession::class.java, session) }
+
+        override fun <T : Any> windowService(type: Class<T>): T? = services.get(type)
 
         override fun currentText(file: Path): String? = tabs[file.toAbsolutePath().normalize()]
 

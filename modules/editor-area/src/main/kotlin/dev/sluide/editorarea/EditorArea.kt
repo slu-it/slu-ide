@@ -5,6 +5,7 @@ import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.TextDiff
+import dev.sluide.fileviewers.WindowServices
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
@@ -106,8 +107,8 @@ class EditorArea(
      */
     var onFileClosed: (Path) -> Unit = {}
 
-    /** The services of the window that file views may look up ([FileViewHost.windowService]); set by the window. */
-    var windowServices: List<Any> = emptyList()
+    /** The services of the window that file views look up by exact type ([FileViewHost.windowService], ADR 0070). */
+    val windowServices = WindowServices()
 
     /** Lets the file views open files in this area and web pages through [openWebPage]. */
     private val viewHost =
@@ -123,8 +124,7 @@ class EditorArea(
                 line: Int,
             ) = showChangesAt(file, line)
 
-            override fun <T : Any> windowService(type: Class<T>): T? =
-                windowServices.firstOrNull(type::isInstance)?.let(type::cast)
+            override fun <T : Any> windowService(type: Class<T>): T? = windowServices.get(type)
 
             override fun currentText(file: Path): String? = tabTexts.currentText(file)
 

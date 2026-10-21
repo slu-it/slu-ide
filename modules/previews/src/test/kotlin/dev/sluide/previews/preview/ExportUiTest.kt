@@ -2,6 +2,7 @@ package dev.sluide.previews.preview
 
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.fileviewers.FileViewHost
+import dev.sluide.fileviewers.WindowServices
 import dev.sluide.previews.image.SvgFileViewer
 import dev.sluide.previews.markdown.MarkdownFileViewer
 import dev.sluide.previews.table.CsvFileViewer
@@ -197,8 +198,9 @@ class ExportUiTest {
 
                 override fun openWebPage(uri: URI) {}
 
-                override fun <T : Any> windowService(type: Class<T>): T? =
-                    tasks.takeIf(type::isInstance)?.let(type::cast)
+                private val services = WindowServices().apply { register(BackgroundTasks::class.java, tasks) }
+
+                override fun <T : Any> windowService(type: Class<T>): T? = services.get(type)
             }
         robot.interact { view.host = host }
 

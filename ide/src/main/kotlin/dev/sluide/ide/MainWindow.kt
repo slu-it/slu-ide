@@ -177,7 +177,8 @@ class MainWindow(
         editorArea.onFileClosed = scratches::fileClosed
         // Views of .http files share the window's cookies, tokens and chosen environments (ADR 0026); file views may
         // register their work as background tasks (ADR 0061).
-        editorArea.windowServices = listOf(httpSession, backgroundTasks)
+        editorArea.windowServices.register(HttpClientSession::class.java, httpSession)
+        editorArea.windowServices.register(BackgroundTasks::class.java, backgroundTasks)
         // It warns about private environment files that git would commit.
         httpSession.wouldCommit = { gitStatus.snapshot.get().wouldCommit(it) }
         gitStatus.snapshot.subscribe { snapshot ->

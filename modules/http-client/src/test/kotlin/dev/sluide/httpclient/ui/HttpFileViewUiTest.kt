@@ -4,6 +4,7 @@ import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.FileViewers
+import dev.sluide.fileviewers.WindowServices
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpFileViewer
 import dev.sluide.httpclient.auth.TokenEndpoint
@@ -69,7 +70,9 @@ class HttpFileViewUiTest {
 
             override fun openWebPage(uri: URI) {}
 
-            override fun <T : Any> windowService(type: Class<T>): T? = session.takeIf(type::isInstance)?.let(type::cast)
+            private val services = WindowServices().apply { register(HttpClientSession::class.java, session) }
+
+            override fun <T : Any> windowService(type: Class<T>): T? = services.get(type)
         }
 
     @Start
@@ -530,8 +533,9 @@ class HttpFileViewUiTest {
 
                     override fun openWebPage(uri: URI) {}
 
-                    override fun <T : Any> windowService(type: Class<T>): T? =
-                        session.takeIf(type::isInstance)?.let(type::cast)
+                    private val services = WindowServices().apply { register(HttpClientSession::class.java, session) }
+
+                    override fun <T : Any> windowService(type: Class<T>): T? = services.get(type)
                 }
         }
         session.chooseEnvironment(old, "dev")
