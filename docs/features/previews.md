@@ -1,6 +1,6 @@
 # Previews
 
-**Module:** `file-viewers` — `PreviewFileViewer` / `PreviewFileView` (shared with the
+**Module:** `previews` — `PreviewFileViewer` / `PreviewFileView` (shared with the
 [Markdown preview](markdown-preview.md)) and one viewer per format; decisions in
 [ADR 0016](../adr/0016-markdown-preview.md), [ADR 0017](../adr/0017-webview-previews.md),
 [ADR 0018](../adr/0018-html-preview-server.md), [ADR 0033](../adr/0033-zooming-images-and-diagrams.md) and

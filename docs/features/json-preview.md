@@ -1,6 +1,6 @@
 # JSON preview
 
-**Module:** `file-viewers` — `JsonFileViewer` and `JsonPreview` / `JsonRenderer` in the shared `PreviewFileView`
+**Module:** `previews` — `JsonFileViewer` and `JsonPreview` / `JsonRenderer` in the shared `PreviewFileView`
 ([previews.md](previews.md)); decision in [ADR 0064](../adr/0064-json-preview.md)
 
 JSON files show their highlighted source with a formatted, foldable view beside it.

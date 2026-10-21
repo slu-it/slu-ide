@@ -1,6 +1,6 @@
 # XML preview
 
-**Module:** `file-viewers` — `XmlFileViewer` and `XmlPreview` / `XmlRenderer` in the shared `PreviewFileView`
+**Module:** `previews` — `XmlFileViewer` and `XmlPreview` / `XmlRenderer` in the shared `PreviewFileView`
 ([previews.md](previews.md)); decision in [ADR 0065](../adr/0065-xml-preview.md)
 
 XML files show their highlighted source with a formatted, foldable view beside it, like [JSON](json-preview.md).

@@ -2,6 +2,12 @@
 
 **Module:** `modules/file-viewers` (package `dev.sluide.fileviewers` and its sub-packages, [ADR 0055](../adr/0055-sub-packages-within-modules.md))
 
+The WebView previews (Markdown, HTML, SVG and images, JSON, XML, CSV, cookie jars, notebooks, Mermaid, PEM and
+the Bicep preview) are not in this module: they live in `modules/previews` (package `dev.sluide.previews`,
+[previews.md](previews.md), [ADR 0069](../adr/0069-previews-module.md)) and use only the root package of this
+module as API, listed at the end. This module keeps the code views, highlighters, diffs, language viewers, .env,
+the Bicep graph and `BicepParamFileViewer`.
+
 - `FileViewer` is the extension point: `canOpen(file)` decides cheaply whether the viewer can show a file, and
   `open(file)` creates a `FileView` for it. A `FileView` has the JavaFX `node` and `reload()`, which re-reads the file
   and keeps the scroll position and caret; the editor calls it when the file changes on disk. It never throws away

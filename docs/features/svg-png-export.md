@@ -1,6 +1,6 @@
 # SVG export as PNG
 
-**Module:** `file-viewers`: `SvgPngExport`, `WebViewSvgRasterizer`, `ExportControls` (toolbar of the SVG preview).
+**Module:** `previews`: `SvgPngExport`, `WebViewSvgRasterizer`, `ExportControls` (toolbar of the SVG preview).
 Decision in [ADR 0059](../adr/0059-svg-export-as-png.md).
 
 - The **Export** menu beside the zoom controls of an SVG file has the items **PNG 100%**, **PNG 200%** and

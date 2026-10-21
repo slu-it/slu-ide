@@ -1,6 +1,6 @@
 # Markdown preview
 
-**Module:** `file-viewers` — `MarkdownFileViewer` (a `PreviewFileViewer`), `PreviewFileView`, `MarkdownRenderer`, `TableOfContents`,
+**Module:** `previews` — `MarkdownFileViewer` (a `PreviewFileViewer`), `PreviewFileView`, `MarkdownRenderer`, `TableOfContents`,
 `MarkdownOutline`; decision in
 [ADR 0016](../adr/0016-markdown-preview.md)
 

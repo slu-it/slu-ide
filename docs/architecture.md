@@ -7,7 +7,7 @@ assembled from Gradle modules.
 | Path | Purpose |
 |------|---------|
 | `ide/` | Application module: launcher, Spring Boot configuration, main window. Produces the fat jar (`./gradlew :ide:bootJar`). |
-| `modules/<name>/` | One Gradle module per IDE capability: `file-explorer`, `editor-area` (tabs), `file-viewers` (views of files, change markers and side-by-side diffs; the previews of Markdown, HTML, SVG, CSV, cookie jars, notebooks, Mermaid, PEM and Bicep files and the image view are `javafx.web` WebViews; own tokenizers for TOML, Bicep and KQL), `file-watcher` (changes on disk), `terminal` (shells in editor tabs), `settings` (settings state, storage and dialog), `docker-sandbox` (`sbx` in terminal tabs), `git` (git status of the open repository, diffs against `HEAD`, pages of the git log, refs, commit details, changed files and their diffs, comparison counts and differences from the working tree, revisions resolved to commits and the branches containing a commit, the history of a file; checkouts and changes of branches and tags, cherry-pick, revert and reset; fetch), `git-log` (the git log area under the editor), `file-icons` (library: file-type icons and their colours, shared by the explorer and the git log), `text-editing` (logic of editing text without JavaFX: line endings, changes on disk, indentation incl. `.editorconfig` via ec4j-core, line operations, comments, find and replace, go to line), `http-client` (`.http` files: requests run from the editor with environments and auth), `projects` (remembered projects and the project picker), `background-tasks` (foundation: per-window background tasks (registry and indicator) and logged named threads), `project-trust` (foundation: whether the tools of an opened folder may run what it defines; the `ProjectTrustCheck` extension point, the combined decision and its storage, [ADR 0053](adr/0053-project-trust.md)), `scratches` (the scratch files shared by all windows in `~/.sluide/scratches`: their naming, the deletion of empty ones and the type picker popup, [ADR 0066](adr/0066-scratch-files.md)). |
+| `modules/<name>/` | One Gradle module per IDE capability: `file-explorer`, `editor-area` (tabs), `file-viewers` (views of files: code views with highlighting, keys and find; change markers and side-by-side diffs; language viewers; `.env`; own tokenizers for TOML, Bicep and KQL), `previews` (the `javafx.web` WebView previews of Markdown, HTML, SVG and images, JSON, XML, CSV and cookie jars, notebooks, Mermaid, PEM and Bicep, [ADR 0069](adr/0069-previews-module.md)), `file-watcher` (changes on disk), `terminal` (shells in editor tabs), `settings` (settings state, storage and dialog), `docker-sandbox` (`sbx` in terminal tabs), `git` (git status of the open repository, diffs against `HEAD`, pages of the git log, refs, commit details, changed files and their diffs, comparison counts and differences from the working tree, revisions resolved to commits and the branches containing a commit, the history of a file; checkouts and changes of branches and tags, cherry-pick, revert and reset; fetch), `git-log` (the git log area under the editor), `file-icons` (library: file-type icons and their colours, shared by the explorer and the git log), `text-editing` (logic of editing text without JavaFX: line endings, changes on disk, indentation incl. `.editorconfig` via ec4j-core, line operations, comments, find and replace, go to line), `http-client` (`.http` files: requests run from the editor with environments and auth), `projects` (remembered projects and the project picker), `background-tasks` (foundation: per-window background tasks (registry and indicator) and logged named threads), `project-trust` (foundation: whether the tools of an opened folder may run what it defines; the `ProjectTrustCheck` extension point, the combined decision and its storage, [ADR 0053](adr/0053-project-trust.md)), `scratches` (the scratch files shared by all windows in `~/.sluide/scratches`: their naming, the deletion of empty ones and the type picker popup, [ADR 0066](adr/0066-scratch-files.md)). |
 | `gradle/libs.versions.toml` | Single place for dependency and plugin versions. |
 | `docs/` | This documentation. Start at [index.md](index.md). |
 | `.claude/` | Claude Code settings, agents, rules, scripts. |
@@ -22,9 +22,10 @@ assembled from Gradle modules.
   Unrelated feature modules do not depend on each other: `ide` wires them through callbacks (`git-log` with `editor-area`
   and `file-viewers`, `git` with the explorer's markers). When two modules need the same piece of a third, it is
   extracted into a small module rather than depending on the whole feature module. A foundation module may be a plain
-  library without Spring beans. The editor family (`editor-area`, `file-viewers`, `terminal`, `docker-sandbox`,
-  `http-client`: what is shown as editor tabs or file views) is one capability family, so `editor-area` -> `file-viewers`,
-  `terminal` -> `editor-area`, `docker-sandbox` -> `terminal` and `http-client` -> `file-viewers` follow the rule.
+  library without Spring beans. The editor family (`editor-area`, `file-viewers`, `previews`, `terminal`,
+  `docker-sandbox`, `http-client`: what is shown as editor tabs or file views) is one capability family, so
+  `editor-area` -> `file-viewers`, `terminal` -> `editor-area`, `docker-sandbox` -> `terminal`,
+  `http-client` -> `file-viewers` and `previews` -> `file-viewers` follow the rule.
 - Every module dependency is listed below with its reason and commented in the module's `build.gradle.kts`.
 - Feature modules expose UI as JavaFX nodes/controls registered as Spring beans (`@Component`), so `ide` can inject them.
   Beans that hold the state of one window (a project) are `@Scope("window")`.
@@ -40,6 +41,13 @@ assembled from Gradle modules.
     lines, find, replace and go to a line with its commands ([ADR 0022](adr/0022-editor-key-bindings.md)).
     `text-editing` itself depends at runtime only on ec4j-core (besides Kotlin), which reads `.editorconfig`
     ([ADR 0023](adr/0023-indentation-from-editorconfig.md)).
+  - `previews` -> `file-viewers` (`api`): its public viewers are `FileViewer`s; their source side is the public
+    `CodeEditors` and their highlighting comes from `Highlighters`
+    ([ADR 0069](adr/0069-previews-module.md)).
+  - `previews` -> `text-editing`, `background-tasks` (`implementation`): the comment syntax of the source side;
+    exports and image downloads.
+  - `ide` -> `previews` (`implementation`): for the Spring beans only, the previews are found by component scan.
+  - `editor-area` -> `previews` (`testImplementation`): the UI tests open files in real previews.
   - `http-client` -> `file-viewers`: `.http` files are shown in the public code editor (`CodeEditors`), and request
     bodies and scripts are highlighted with the code views' highlighters (`Highlighters.forLanguage`,
     [ADR 0005](adr/0005-syntax-highlighting.md), [ADR 0026](adr/0026-http-client-window-session.md)). The window's
@@ -55,16 +63,18 @@ assembled from Gradle modules.
   - `git` -> `project-trust`: git's tools run only in folders the user trusts; `GitTrustCheck` is the
     `ProjectTrustCheck` that says what a repository's own configuration and hooks would make git run
     ([ADR 0053](adr/0053-project-trust.md)).
-  - `git`, `git-log`, `project-trust`, `file-viewers`, `http-client`, `file-explorer` and `docker-sandbox` ->
+  - `git`, `git-log`, `project-trust`, `file-viewers`, `previews`, `http-client`, `file-explorer` and
+    `docker-sandbox` ->
     `background-tasks` (`api` for `git`, `git-log`, `project-trust` and `http-client`, `implementation` for the
     others): their background work runs on `NamedThreads`, which logs what a task throws
     ([ADR 0060](adr/0060-logging-conventions.md)): the status thread of `git`; the read and write threads of `git-log`;
-    the trust checks of `project-trust`; highlighting, exports and image downloads of `file-viewers`; response
-    formatting and token requests of `http-client`; deletes of `file-explorer`; the `sbx` check of `docker-sandbox`.
-    `git`, `git-log`, `project-trust`, `file-viewers` and `http-client` also register their long-running work as tasks
-    of the window's `BackgroundTasks` ([ADR 0061](adr/0061-background-tasks.md)), given to `GitStatusService`,
-    `GitLogView`, `ProjectTrust` and `HttpClientSession` by their public constructors (hence `api`) and to exports
-    through `FileViewHost.windowService` (`file-viewers` keeps it internal).
+    the trust checks of `project-trust`; highlighting of `file-viewers`; exports and image downloads of
+    `previews`; response formatting and token requests of `http-client`; deletes of `file-explorer`; the `sbx`
+    check of `docker-sandbox`. `git`, `git-log`, `project-trust` and `http-client` also register their
+    long-running work as tasks of the window's `BackgroundTasks`
+    ([ADR 0061](adr/0061-background-tasks.md)), given to `GitStatusService`, `GitLogView`, `ProjectTrust` and
+    `HttpClientSession` by their public constructors (hence `api`), and `previews` registers its exports through
+    `FileViewHost.windowService`, so `previews` needs only `implementation`.
   - `ide` -> `background-tasks` (`implementation`): `MainWindow` shows the window's `BackgroundTasks` as a
     `BackgroundTasksView` under the file explorer (`leftPane`) and hands the registry to file views through
     `FileViewHost.windowService` ([ADR 0061](adr/0061-background-tasks.md)).
@@ -127,7 +137,7 @@ assembled from Gradle modules.
 `dev.sluide` to be found by component scanning.
 
 The root package of a module holds its API: what other modules' main code imports, plus launch points. Everything
-else lives in sub-packages of files that belong together, by feature or by layer, e.g. `dev.sluide.fileviewers.markdown`,
+else lives in sub-packages of files that belong together, by feature or by layer, e.g. `dev.sluide.previews.markdown`,
 `dev.sluide.git.cli`, `dev.sluide.gitlog.push`; beans that only scanning finds included. Small modules stay flat
 ([ADR 0055](adr/0055-sub-packages-within-modules.md)).
 

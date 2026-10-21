@@ -19,6 +19,8 @@ packages.
   `git.cli`.
 - **Everything else moves into sub-packages of files that belong together.** The grouping is chosen per module:
   - by feature or file type, e.g. `fileviewers.markdown`, `fileviewers.pem`, `gitlog.push`, `gitlog.history`;
+    Amended by [ADR 0069](0069-previews-module.md): the previews moved to the `previews` module, so these
+    are now `previews.markdown` and `previews.pem`.
   - by layer, e.g. `git.cli` (the process core and its reads), `git.parse`, `gitlog.data`;
   - shared helpers in a small `ui` package, e.g. `gitlog.ui`.
 - **Spring beans that nothing imports live with their group**, e.g. the file viewers in `fileviewers.languages` or

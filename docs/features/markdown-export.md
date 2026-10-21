@@ -1,6 +1,6 @@
 # Markdown export
 
-**Module:** `file-viewers`: `MarkdownHtmlExport`, `HttpImageFetcher`, `WebViewExportRenderer`, `ExportControls`
+**Module:** `previews`: `MarkdownHtmlExport`, `HttpImageFetcher`, `WebViewExportRenderer`, `ExportControls`
 (toolbar of `PreviewFileView`).
 Decision in [ADR 0058](../adr/0058-markdown-html-export.md).
 
