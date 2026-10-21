@@ -5,11 +5,15 @@ import dev.sluide.fileexplorer.actions.DeleteQuestion
 import dev.sluide.fileexplorer.actions.ExplorerEditHost
 import dev.sluide.fileexplorer.actions.ExplorerEdits
 import dev.sluide.fileexplorer.actions.ExplorerMenuHost
+import dev.sluide.fileexplorer.actions.ExplorerMoves
+import dev.sluide.fileexplorer.actions.MoveQuestion
 import dev.sluide.fileexplorer.actions.askForName
 import dev.sluide.fileexplorer.actions.askToDelete
+import dev.sluide.fileexplorer.actions.askToMove
 import dev.sluide.fileexplorer.actions.buildExplorerMenu
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileexplorer.tree.PathCell
+import dev.sluide.fileexplorer.tree.TreeDragAndDrop
 import dev.sluide.fileexplorer.tree.startWidth
 import dev.sluide.fileicons.FILE_ICONS_CSS
 import dev.sluide.filewatcher.FileWatcher
@@ -67,8 +71,8 @@ class FileExplorerView(
     var onFilesChanged: (Set<Path>) -> Unit = {}
 
     /**
-     * Called after a file or folder was renamed in the explorer, with its old and new path. A folder's content moved
-     * along with it.
+     * Called after a file or folder was renamed or moved to another folder in the explorer, with its old and new path.
+     * A folder's content moved along with it.
      */
     var onMoved: (from: Path, to: Path) -> Unit = { _, _ -> }
 
@@ -99,6 +103,9 @@ class FileExplorerView(
 
     /** Asks whether to delete an entry; shows a confirmation dialog, tests replace it, since it blocks. */
     internal var confirmDelete: (DeleteQuestion) -> Boolean = { askToDelete(scene?.window, it) }
+
+    /** Asks whether to move entries; shows a confirmation dialog, tests replace it, since it blocks. */
+    internal var confirmMove: (MoveQuestion) -> Boolean = { askToMove(scene?.window, it) }
 
     /** Runs a delete, which may take long (e.g. `node_modules`), away from the JavaFX thread; tests replace it. */
     internal var runInBackground: (Runnable) -> Unit = { NamedThreads.virtual("sluide-delete", it) }
@@ -132,31 +139,33 @@ class FileExplorerView(
     }
 
     // The hooks and test seams are read when an edit runs, not now, so later changes take effect.
-    private val edits =
-        ExplorerEdits(
-            ExplorerEditHost(
-                projectItem = { projectItem },
-                askName = { title, initial, validate -> askName(title, initial, validate) },
-                showError = { showError(it) },
-                showInfo = { showInfo(it) },
-                confirmDelete = { confirmDelete(it) },
-                runInBackground = { runInBackground(it) },
-                dispatch = { dispatch(it) },
-                onMoved = { from, to -> onMoved(from, to) },
-                unsavedUnder = { unsavedUnder(it) },
-                onDeleted = { path, unsaved -> onDeleted(path, unsaved) },
-                requestOpen = { requestOpen(it) },
-                select = { parent, path -> select(parent, path) },
-                selectRow = { selectRow(it) },
-                selectedItems = { selectionModel.selectedItems.filterNotNull() },
-                rows = { (0 until expandedItemCount).mapNotNull { getTreeItem(it) } },
-                isShown = { isShown(it) },
-                closeWatchesUnder = { path ->
-                    watches.keys.filter { it.value.startsWith(path) }.forEach { watches.remove(it)?.close() }
-                },
-                closeWatchesOfVanishedFolders = { closeWatchesOfVanishedFolders() },
-            ),
+    private val editHost =
+        ExplorerEditHost(
+            projectItem = { projectItem },
+            askName = { title, initial, validate -> askName(title, initial, validate) },
+            showError = { showError(it) },
+            showInfo = { showInfo(it) },
+            confirmDelete = { confirmDelete(it) },
+            confirmMove = { confirmMove(it) },
+            runInBackground = { runInBackground(it) },
+            dispatch = { dispatch(it) },
+            onMoved = { from, to -> onMoved(from, to) },
+            unsavedUnder = { unsavedUnder(it) },
+            onDeleted = { path, unsaved -> onDeleted(path, unsaved) },
+            requestOpen = { requestOpen(it) },
+            select = { parent, path -> select(parent, path) },
+            selectRow = { selectRow(it) },
+            selectRows = { selectRows(it) },
+            selectedItems = { selectionModel.selectedItems.filterNotNull() },
+            rows = { (0 until expandedItemCount).mapNotNull { getTreeItem(it) } },
+            isShown = { isShown(it) },
+            closeWatchesUnder = { path ->
+                watches.keys.filter { it.value.startsWith(path) }.forEach { watches.remove(it)?.close() }
+            },
+            closeWatchesOfVanishedFolders = { closeWatchesOfVanishedFolders() },
         )
+    private val edits = ExplorerEdits(editHost)
+    private val moves = ExplorerMoves(editHost, edits::canChange, edits::isBeingDeleted)
 
     /**
      * The entries the context menu was opened for, in row order; empty for the empty area, which stands for the
@@ -179,6 +188,18 @@ class FileExplorerView(
     // Material Design icons leave a margin around the glyph, so they are a bit larger than the text.
     private val fileIconSize: ObservableValue<Int> = font.map { (it.size * ICON_SCALE).roundToInt() }
 
+    // Moving entries by drag and drop; the cells mark its drop target.
+    private val dragAndDrop =
+        TreeDragAndDrop(
+            tree = this,
+            projectItem = { projectItem },
+            canChange = ::canChange,
+            canDropInto = { !edits.isBeingDeleted(it.value) },
+            selectedEntries = ::selectedEntries,
+            reselect = { items -> selectRows(items.filter(::isShown)) },
+            move = { items, folder -> move(items, folder) },
+        )
+
     init {
         // The top-level folders are the children of a hidden root, indented like a root shown by itself.
         isShowRoot = false
@@ -190,6 +211,7 @@ class FileExplorerView(
                 { path -> canOpenFile(path) },
                 { target -> menuTargets = targetsFor(target) },
                 { path -> requestOpen(path) },
+                dragAndDrop.dropTarget,
             )
         }
         // The cells inherit the font.
@@ -411,6 +433,15 @@ class FileExplorerView(
     /** Asks once whether to delete [items] and deletes them permanently in the background, see [ExplorerEdits.delete]. */
     internal fun delete(items: List<FileTreeItem>) = edits.delete(items)
 
+    /**
+     * Asks once whether to move [items] into [folder] and moves them, reporting each to [onMoved]; see
+     * [ExplorerMoves.move]. Dropping dragged entries on a folder runs it.
+     */
+    internal fun move(
+        items: List<FileTreeItem>,
+        folder: FileTreeItem,
+    ) = moves.move(items, folder)
+
     /** Whether [item] is still in the tree, e.g. not gone with a folder opened since. */
     private fun isShown(item: TreeItem<Path>): Boolean = generateSequence(item) { it.parent }.last() === root
 
@@ -434,6 +465,13 @@ class FileExplorerView(
         // Rows inserted or removed before the focused one move the focus later, away from the selection.
         Platform.runLater { focusModel.focus(getRow(item)) }
         (lookup(".virtual-flow") as? VirtualFlow<*>)?.scrollTo(row) ?: scrollTo(row)
+    }
+
+    /** Selects exactly [items], scrolling to the first of them like [selectRow]; nothing for none. */
+    private fun selectRows(items: List<TreeItem<Path>>) {
+        val rows = items.sortedBy { getRow(it) }
+        selectRow(rows.firstOrNull() ?: return)
+        rows.drop(1).forEach { selectionModel.select(it) }
     }
 
     /** Passes [path] to [onOpenFile] if it is a regular file; returns whether it did. */

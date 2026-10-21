@@ -17,7 +17,25 @@
     -fx-stroke-width: 1;
 }
 
+/*
+ * The folder dragged entries would be moved into (TreeDragAndDrop): framed in the accent colour on a pale tint of it,
+ * a deep one in the dark theme below; the text in the normal colour, also on a selected row.
+ */
+.tree-cell:drop-target,
+.tree-cell:drop-target:selected,
+.tree-cell:drop-target:focused:selected {
+    -fx-background-color: -fx-accent, derive(-fx-accent, 80%);
+    -fx-background-insets: 0, 1;
+    -fx-text-fill: -fx-text-background-color;
+}
+
 @media (prefers-color-scheme: dark) {
+    .tree-cell:drop-target,
+    .tree-cell:drop-target:selected,
+    .tree-cell:drop-target:focused:selected {
+        -fx-background-color: -fx-accent, derive(-fx-accent, -55%);
+    }
+
     .file-marker-unversioned { -fx-fill: #ef6461; }
     .file-marker-added       { -fx-fill: #5cbf62; }
     .file-marker-modified    { -fx-fill: #5a9ae6; }

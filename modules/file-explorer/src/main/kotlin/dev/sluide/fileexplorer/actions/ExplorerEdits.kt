@@ -21,6 +21,7 @@ internal class ExplorerEditHost(
     val showError: (String) -> Unit,
     val showInfo: (String) -> Unit,
     val confirmDelete: (DeleteQuestion) -> Boolean,
+    val confirmMove: (MoveQuestion) -> Boolean,
     val runInBackground: (Runnable) -> Unit,
     val dispatch: (Runnable) -> Unit,
     val onMoved: (from: Path, to: Path) -> Unit,
@@ -30,6 +31,8 @@ internal class ExplorerEditHost(
     /** Shows a path of a folder at once, selects and returns it. */
     val select: (parent: FileTreeItem, path: Path) -> TreeItem<Path>?,
     val selectRow: (TreeItem<Path>) -> Unit,
+    /** Selects exactly these rows, scrolling to the first; nothing for none. */
+    val selectRows: (List<TreeItem<Path>>) -> Unit,
     val selectedItems: () -> List<TreeItem<Path>>,
     /** Every shown row, top to bottom. */
     val rows: () -> List<TreeItem<Path>>,
@@ -43,7 +46,10 @@ internal class ExplorerEditHost(
 internal class ExplorerEdits(
     private val host: ExplorerEditHost,
 ) {
-    /** The entries being deleted; they and everything in them cannot be renamed or deleted meanwhile. */
+    /**
+     * The entries being deleted; they, everything in them and the folders holding them cannot be renamed, moved or
+     * deleted meanwhile, and nothing can be moved into them.
+     */
     private val deleting = mutableSetOf<Path>()
 
     /**
@@ -111,11 +117,17 @@ internal class ExplorerEdits(
     }
 
     /**
-     * Whether [item] can be renamed or deleted: an entry of a top-level folder, not a top-level folder itself (their
-     * parent is the hidden root), and not being deleted.
+     * Whether [item] can be renamed, moved or deleted: an entry of a top-level folder, not a top-level folder itself
+     * (their parent is the hidden root), not being deleted, and not a folder holding an entry being deleted (which
+     * would take a half-deleted tree along).
      */
     fun canChange(item: TreeItem<Path>?): Boolean =
-        item is FileTreeItem && item.parent is FileTreeItem && deleting.none { item.value.startsWith(it) }
+        item is FileTreeItem &&
+            item.parent is FileTreeItem &&
+            deleting.none { item.value.startsWith(it) || it.startsWith(item.value) }
+
+    /** Whether [path] is being deleted or lies in an entry being deleted; nothing may be moved into it. */
+    fun isBeingDeleted(path: Path): Boolean = deleting.any { path.startsWith(it) }
 
     /**
      * Asks for a new name of [item] and renames it in its folder, reporting it to the `onMoved` hook. The renamed entry
