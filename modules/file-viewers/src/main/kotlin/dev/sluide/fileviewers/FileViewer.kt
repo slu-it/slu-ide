@@ -27,6 +27,15 @@ interface NamedFileViewer : FileViewer {
     val fileNames: Set<String>
 }
 
+/**
+ * A viewer for files with one of the [fileExtensions] (lower case, without the dot). [FileViewers] also picks it by
+ * the name alone, without the file, e.g. for a commit's version of a file (ADR 0038). [fileExtensions] only tells
+ * the name; [canOpen] must still accept those files.
+ */
+interface ExtensionFileViewer : FileViewer {
+    val fileExtensions: Set<String>
+}
+
 /** A file shown by a [FileViewer]. */
 interface FileView {
     /** The JavaFX node displaying the file. */

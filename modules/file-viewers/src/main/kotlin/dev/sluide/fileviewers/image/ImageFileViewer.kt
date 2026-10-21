@@ -1,7 +1,7 @@
 package dev.sluide.fileviewers.image
 
+import dev.sluide.fileviewers.ExtensionFileViewer
 import dev.sluide.fileviewers.FileView
-import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.fileviewers.preview.ZoomControls
 import dev.sluide.fileviewers.preview.isPageFromString
@@ -26,9 +26,12 @@ import kotlin.io.path.readBytes
 
 /** Shows image files (png, jpg, gif, webp, bmp, ico) up to 50 MB in an [ImageFileView]. */
 @Component
-class ImageFileViewer : FileViewer {
+class ImageFileViewer : ExtensionFileViewer {
+    /** The image types of the previews but SVG, which is shown as text. */
+    override val fileExtensions: Set<String> = imageTypes.keys - "svg"
+
     override fun canOpen(file: Path): Boolean {
-        if (!isImageName(file)) return false
+        if (file.extension.lowercase() !in fileExtensions) return false
         return try {
             file.isRegularFile() && Files.isReadable(file) && file.fileSize() <= MAX_IMAGE_BYTES
         } catch (_: IOException) {
@@ -40,9 +43,6 @@ class ImageFileViewer : FileViewer {
 
     internal companion object {
         const val MAX_IMAGE_BYTES = 50L * 1024 * 1024
-
-        /** Whether the name of [file] is one of an image this viewer shows (SVG is shown as text); not read. */
-        fun isImageName(file: Path): Boolean = file.extension.lowercase().let { it != "svg" && it in imageTypes }
     }
 }
 

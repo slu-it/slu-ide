@@ -3,8 +3,6 @@ package dev.sluide.fileviewers
 import dev.sluide.fileviewers.code.CodeFileViewer
 import dev.sluide.fileviewers.diff.CurrentText
 import dev.sluide.fileviewers.diff.SideBySideDiffView
-import dev.sluide.fileviewers.image.ImageFileViewer
-import dev.sluide.fileviewers.preview.PreviewFileViewer
 import org.springframework.stereotype.Component
 import java.io.IOException
 import java.nio.file.Path
@@ -88,7 +86,7 @@ class FileViewers(
 
     /**
      * The viewer [viewerFor] would pick for a file named [name] with the content [text], told without the file: by
-     * the name as far as viewers tell it without reading the file (named, code, preview and image viewers), then by a
+     * the name as far as viewers tell it without reading the file (named, code and extension viewers), then by a
      * shebang in [text] for names without an extension, else [DefaultTextFileViewer].
      */
     internal fun viewerByName(
@@ -112,10 +110,12 @@ class FileViewers(
         when {
             viewer is NamedFileViewer && viewer.names(name) -> NameMatch.NAME
             viewer is CodeFileViewer -> viewer.nameMatch(name)
-            viewer is PreviewFileViewer -> NameMatch.EXTENSION.takeIf { viewer.matchesExtension(name) }
-            viewer is ImageFileViewer -> NameMatch.EXTENSION.takeIf { ImageFileViewer.isImageName(name) }
+            viewer is ExtensionFileViewer -> NameMatch.EXTENSION.takeIf { viewer.takes(name) }
             else -> null
         }
+
+    /** Whether the extension of [file] is one of the [ExtensionFileViewer.fileExtensions]. */
+    private fun ExtensionFileViewer.takes(file: Path): Boolean = file.extension.lowercase() in fileExtensions
 
     /** Whether the name of [file] is one of the [NamedFileViewer.fileNames], ignoring case. */
     private fun NamedFileViewer.names(file: Path): Boolean {

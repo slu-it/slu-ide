@@ -212,6 +212,27 @@ class FileViewersTest {
         assertSame(fallback, viewer("empty"))
     }
 
+    /** A viewer of another module for files with the [fileExtensions], e.g. images. */
+    private open class ExtensionsStub(
+        override val fileExtensions: Set<String>,
+    ) : ExtensionFileViewer {
+        override fun canOpen(file: Path) = file.extension.lowercase() in fileExtensions
+
+        override fun open(file: Path): FileView = error("not needed")
+    }
+
+    @Test
+    fun `a viewer for extensions is picked by the name alone, ignoring case`() {
+        val images = ExtensionsStub(setOf("png", "jpg"))
+        val viewers = FileViewers(listOf(images, KotlinFileViewer()), fallback)
+
+        // None of these files exists.
+        assertSame(images, viewers.viewerByName(dir.resolve("logo.png"), ""))
+        assertSame(images, viewers.viewerByName(dir.resolve("LOGO.JPG"), ""))
+        assertSame(fallback, viewers.viewerByName(dir.resolve("logo.gif"), ""))
+        assertNull(viewers.openDiff(dir.resolve("logo.png"), "", TextDiff("", emptyList())), "not shown as text")
+    }
+
     /** A source viewer of another module for the HTTP client's environment files, which are JSON. */
     private class EnvironmentViewer :
         NamedFileViewer,
