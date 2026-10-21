@@ -2,11 +2,18 @@
 
 **Module:** `modules/file-explorer` (package `dev.sluide.fileexplorer` and its sub-packages, [ADR 0055](../adr/0055-sub-packages-within-modules.md))
 
-- `FileExplorerView` is a `TreeView<Path>` (Spring `@Component`). `open(root)` shows the folder with the root
-  expanded; `open(null)` clears the view.
+- `FileExplorerView` is a `TreeView<Path>` (Spring `@Component`). `open(root, extraRoots)` shows the project folder
+  `root` expanded and after it each `ExplorerRoot(folder, label)` of `extraRoots` collapsed, as top-level nodes below a
+  hidden tree root; `open(null)` clears the view. The window passes the scratches folder as "Scratches"
+  ([scratch-files.md](scratch-files.md)); the explorer knows nothing about scratches. An extra root's folder must exist
+  when `open` runs. Extra roots show their label instead of the folder name, with the full path as tooltip, and are
+  loaded and watched once expanded.
+- `reveal(path, focus = false)` expands the top-level node holding `path` (the innermost one if they nest) and the
+  folders down to it, loading them, then selects and scrolls to it; it takes the focus only if `focus`. It returns
+  `false`, changing nothing, if no top-level node holds the path or it does not exist.
 - Uses the explorer font from the settings and follows its changes ([settings.md](settings.md)).
-- Width: the window starts the explorer as wide as the names of the shown entries need, with their icons and
-  indentation (`startWidth()`), but at least 12 and at most 24 times the explorer font size; without a folder it is
+- Width: the window starts the explorer as wide as the names (labels for extra roots) of the shown entries need, with
+  their icons and indentation (`startWidth()`), but at least 12 and at most 24 times the explorer font size; without a folder it is
   12 times, and in a narrow window at most half of it. It gets this width when the window opens and when a folder
   opens in it. Resizing the window resizes the editor area; the explorer keeps its width until the divider is dragged,
   unless the window gets so narrow that the editor area cannot shrink any further. Later changes (expanding folders,
@@ -22,8 +29,9 @@
 - Changes on disk show up by themselves. Every loaded folder is watched ([file-watching.md](file-watching.md)), and
   on a change `FileTreeItem.refresh()` re-reads it. Unchanged items are kept, so expanded folders stay expanded
   and the selection stays. A loaded subfolder that is deleted and recreated (e.g. `build/`) is watched again.
-- Limitation: if the opened folder itself is deleted, its watch ends; recreated later, it is not watched again (it has
-  no parent in the tree that would notice) until "Refresh"/F5 or reopening it.
+- Limitation: if a top-level folder itself (the project or an extra root) is deleted, its watch ends; recreated later,
+  it is not watched again (it has no parent in the tree that would notice) until "Refresh"/F5 or reopening it. Watches
+  belong to tree items, so a folder shown twice (an extra root inside the project) is watched by each.
 - Manual refresh: "Refresh" in the tree's context menu, or F5, re-reads all loaded folders, checks again which of
   their files can be opened (icons) and renews their watches.
 - Show History in the context menu, while the window offers it (`showHistory`; enabled by `canShowHistory`, never for
@@ -49,13 +57,14 @@
   in that colour. Colours light and dark in `file-explorer.css`.
 - File operations ([ADR 0024](../adr/0024-file-operations-in-the-explorer.md), `FileOperations`), from the context
   menu of an entry (right-click, or the context-menu key for the selected one) or of the empty area below the entries,
-  which stands for the opened folder:
+  which stands for the project folder:
   - New File… / New Folder… create an empty entry in the clicked folder, or beside the clicked file. A new file is
     opened. Single names only (no `a/b`).
   - Folder actions (`FolderAction`, set by the window as `folderActions`) follow New Folder…, e.g. "New HTTP Client
     Setup" ([http-client.md](http-client.md)). They run on the same folder as New File…; the file an action returns
     is selected (if it is in that folder) and opened, the folder is expanded and read again, a note it returns is
-    shown, and an IOException is shown as an error. Disabled without an opened folder.
+    shown, and an IOException is shown as an error. New File…, New Folder… and the folder actions are enabled whenever
+    the folder they would work in exists (disabled on the empty area without a project).
   - Rename… (F2 on the selected entry) renames within the same folder; the dialog starts with the name, its base name
     (before the last dot, not a leading one) selected. A folder keeps its content and stays expanded. Changing only
     the case of a name works on case-insensitive file systems.
@@ -70,7 +79,7 @@
     trailing whitespace, no characters the file system cannot store, not taken, on case-insensitive file systems also
     not in another case) and keeps OK disabled while it shows a problem. Errors on disk (e.g. permissions) are shown in an error dialog.
   - The result shows at once, without waiting for the folder's watch, and is selected. Rename and Delete are disabled
-    for the opened folder itself.
+    on every top-level node (the project folder and the extra roots).
   - For open tabs, `onMoved(from, to)` reports renames, `onDeleted(path, unsaved)` deletions with the files the
     confirmation counted as lost, and `unsavedUnder(path)` is asked for the files with unsaved changes. `MainWindow`
     connects them to the editor area ([editor-tabs.md](editor-tabs.md)): tabs of a renamed file, or of the files in a

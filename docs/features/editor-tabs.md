@@ -23,6 +23,11 @@
 - Tabs do not have to show files: `open(tab: EditorTab)` adds any tab (title, which may change, tooltip and content
   node) and selects it, e.g. a terminal ([terminal.md](terminal.md)). Every way of closing a tab calls its
   `EditorTab.dispose()` once. `openPaths` and `selectedPath` only report file tabs.
+- `onFileClosed(path)`, set by the window, is called for each file whose last tab in the area closed, in whatever way
+  (×, the context menu, `closeAll()` when the window closes, after a delete, or a move its tab cannot follow), once
+  the change of the tab list is processed; not for other tabs, not when a tab is replaced by a new view of the same
+  file, and not for a move its tab follows in place. The window deletes empty scratch files with it
+  ([scratch-files.md](scratch-files.md)).
 - Closing file tabs with unsaved changes from the UI (×, middle click, any context menu entry) first asks once, listing
   them: Save, Don't Save or Cancel (`askToSave`, replaced in tests via `EditorArea.confirmSave`). Save saves them and
   closes nothing if one cannot be saved; Cancel closes nothing. The window asks the same for all its files
