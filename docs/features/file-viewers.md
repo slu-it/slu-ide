@@ -56,7 +56,9 @@
   the background once typing pauses ([ADR 0020](../adr/0020-editing-and-saving-files.md)). Token classes: `keyword`, `type`, `builtin`, `string`, `number`, `comment`, `annotation`, `property`, `tag`, `attribute`, `operator`.
   The viewer's `comment` parameter (a `CommentSyntax`) says how Shortcut+/ comments out lines; preview viewers take
   one for their source too ([text-editing.md](text-editing.md)).
-- Highlighted languages, with the corrections for outdated lexers (configured in `RSyntaxHighlighter`'s companion):
+- Highlighted languages, with the corrections for outdated lexers (configured by family in `highlight`:
+  `WebLanguages`, `ScriptLanguages`, `ConfigLanguages`, `MarkupLanguages`; `RSyntaxHighlighter`'s companion
+  delegates to them):
 
   | Viewer | Files | Corrections to the lexer |
   |--------|------------|--------------------------|
@@ -128,19 +130,32 @@
   ignore it. The previews use it for links; HTML previews also take the files they may use from its `projectFolder`.
   `windowService(type)` gives a service of the window, e.g. the HTTP client's session, or `null`
   ([ADR 0026](../adr/0026-http-client-window-session.md)).
-- For viewers of other modules (`CodeEditors.kt`): `CodeEditors.open(file, highlighter, lineComment, blockComment)` creates the editable code view
-  as a `CodeEditor` (`EditableFileView` and `GutterColumns` with `text`, `textProperty`, `caretLine`, `moveCaretTo`),
-  `CodeEditors.display()` a read-only highlighted `CodeDisplay` (texts over 1 MiB stay plain). Viewers that show files
-  as text implement `SourceFileViewer` (`sourceHighlighter`) to get change markers and highlighted diffs. Highlighters
-  for embedded code: `Highlighters.forLanguage(name)`; `SyntaxHighlighter`, `HighlightSpan`, `TokenStyle` and
-  `isTextFile` are public. `HttpFileViewer` (`.http`, `.rest`, module `http-client`) uses them
-  ([http-client.md](http-client.md)).
+- For viewers of other modules, the root package `dev.sluide.fileviewers` is the API:
+  - `CodeEditors.open(file, highlighter, lineComment, blockComment)` (`CodeEditors.kt`) creates the editable code view
+    as a `CodeEditor`: `EditableFileView` and `GutterColumns` with `text`, `textProperty`, `onTextChanged` (every
+    edit, without building the text), `caretLine`, `caretLineProperty`, `moveCaretTo`, `savedText`,
+    `savedTextProperty` (what a preview renders), `topLine` (-1 while no line is shown), `onShownLinesChanged`
+    (scrolling, resizing, shown again, a shown line edited) and `showLineAtTop`. `CodeEditors.display()` creates a
+    read-only highlighted `CodeDisplay` (texts over 1 MiB stay plain).
+  - Viewers that show files as text implement `SourceFileViewer` (`sourceHighlighter`) to get change markers and
+    highlighted diffs. Viewers for extensions implement `ExtensionFileViewer` (`fileExtensions`, lower case, no dot)
+    and viewers for exact names `NamedFileViewer` (`fileNames`), so that `FileViewers` also picks them by the name
+    alone, e.g. for a commit's version of a file.
+  - Highlighters: `Highlighters.forLanguage(name)` for embedded code, the named `Highlighters.json`, `xml`, `html`,
+    `markdown`, `mermaid`, `bicep`, `cookies` and `pem`, and `Highlighters.fenceLanguage(info)` for the language of a
+    code fence. `SyntaxHighlighter`, `HighlightSpan` and `TokenStyle` are public.
+  - `BicepResourceGraph.of(text)` gives a Bicep file's resource graph as Mermaid (`mermaid`, `isEmpty`, `note`).
+  - `FocusWhenShown` focuses a view's node at once or once it is in a scene
+    ([ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md)); `isTextFile` and `readTextSample` tell text files
+    and give their first 8 KB.
+  - `HttpFileViewer` (`.http`, `.rest`, module `http-client`) uses them ([http-client.md](http-client.md)).
 - To add a viewer, implement `FileViewer` as a `@Component` in any module below `dev.sluide`. For a language with an
-  RSyntaxTextArea lexer, add its highlighter to `RSyntaxHighlighter`'s companion, extend `CodeFileViewer` like
-  `PythonFileViewer` does, and add a row to `CodeFileViewersTest` and a `<Language>HighlightingTest`. A larger
+  RSyntaxTextArea lexer, add its highlighter to the family file in `highlight` (`WebLanguages.kt`,
+  `ScriptLanguages.kt`, `ConfigLanguages.kt` or `MarkupLanguages.kt`) with a one-line delegation in
+  `RSyntaxHighlighter`'s companion, extend `CodeFileViewer` like `PythonFileViewer` does, and add a row to `CodeFileViewersTest` and a `<Language>HighlightingTest`. A larger
   language without a lexer gets its own `SyntaxHighlighter` object instead ([ADR 0031](../adr/0031-own-tokenizers.md),
   rules there), plus cases in `HighlightingPerformanceTest`. Add its names
-  to `RSyntaxHighlighter.forLanguage` too: that list decides which fenced code (` ```py `) in Markdown and which
+  to `MarkupLanguages.forLanguage` too: that list decides which fenced code (` ```py `) in Markdown and which
   notebook languages are highlighted. It knows `java`; `kotlin` `kt` `kts`; `python` `py`; `javascript` `js` `mjs`
   `cjs`; `jsx`; `typescript` `ts`; `tsx`; `json` `jsonc`; `xml` `svg`; `html`; `vue` `svelte`; `yaml` `yml`; `css`;
   `scss`; `sass`; `less`; `markdown` `md`; `mdx`; `sql`; `kql` `kusto` `csl`; `bash` `sh` `shell` `zsh` `ksh`; `powershell` `ps1` `pwsh`;
