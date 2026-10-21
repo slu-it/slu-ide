@@ -2,12 +2,10 @@ package dev.sluide.fileexplorer
 
 import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.fileexplorer.actions.DeleteQuestion
-import dev.sluide.fileexplorer.actions.EntryKind
-import dev.sluide.fileexplorer.actions.FileOperationException
-import dev.sluide.fileexplorer.actions.FileOperations
+import dev.sluide.fileexplorer.actions.ExplorerEditHost
+import dev.sluide.fileexplorer.actions.ExplorerEdits
 import dev.sluide.fileexplorer.actions.askForName
 import dev.sluide.fileexplorer.actions.askToDelete
-import dev.sluide.fileexplorer.actions.deleteQuestion
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileexplorer.tree.PathCell
 import dev.sluide.fileexplorer.tree.startWidth
@@ -31,15 +29,11 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
-import java.io.IOException
-import java.io.UncheckedIOException
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.util.IdentityHashMap
 import kotlin.math.roundToInt
-
-private val log = System.getLogger(FileExplorerView::class.java.name)
 
 /**
  * Tree view showing the complete content of a folder, including hidden files. Every folder whose content has been
@@ -112,9 +106,6 @@ class FileExplorerView(
     /** Runs the end of a delete on the JavaFX thread; tests replace it. */
     internal var dispatch: (Runnable) -> Unit = Platform::runLater
 
-    /** The entries being deleted; they and everything in them cannot be renamed or deleted meanwhile. */
-    private val deleting = mutableSetOf<Path>()
-
     /**
      * Asks for a name, starting with `initial`, while `validate` tells what is wrong with it; `null` if cancelled.
      * Shows a dialog; tests replace it, since it blocks.
@@ -139,6 +130,32 @@ class FileExplorerView(
                 headerText = null
             }.showAndWait()
     }
+
+    // The hooks and test seams are read when an edit runs, not now, so later changes take effect.
+    private val edits =
+        ExplorerEdits(
+            ExplorerEditHost(
+                projectItem = { projectItem },
+                askName = { title, initial, validate -> askName(title, initial, validate) },
+                showError = { showError(it) },
+                showInfo = { showInfo(it) },
+                confirmDelete = { confirmDelete(it) },
+                runInBackground = { runInBackground(it) },
+                dispatch = { dispatch(it) },
+                onMoved = { from, to -> onMoved(from, to) },
+                unsavedUnder = { unsavedUnder(it) },
+                onDeleted = { path, unsaved -> onDeleted(path, unsaved) },
+                requestOpen = { requestOpen(it) },
+                select = { parent, path -> select(parent, path) },
+                selectRow = { selectRow(it) },
+                selectedItem = { selectionModel.selectedItem },
+                isShown = { isShown(it) },
+                closeWatchesUnder = { path ->
+                    watches.keys.filter { it.value.startsWith(path) }.forEach { watches.remove(it)?.close() }
+                },
+                closeWatchesOfVanishedFolders = { closeWatchesOfVanishedFolders() },
+            ),
+        )
 
     /** The entry the context menu was opened for; `null` for the empty area, which stands for the project folder. */
     private var menuTarget: FileTreeItem? = null
@@ -389,182 +406,23 @@ class FileExplorerView(
     internal fun create(
         target: FileTreeItem?,
         folder: Boolean,
-    ) {
-        val parent = targetFolder(target) ?: return
-        val name =
-            askName(if (folder) "New Folder" else "New File", "") { FileOperations.nameProblem(it, parent.value) }
-                ?: return
-        val operation = if (folder) FileOperations::createFolder else FileOperations::createFile
-        val created =
-            try {
-                operation(parent.value, name)
-            } catch (e: FileOperationException) {
-                showError(e.message.orEmpty())
-                return
-            }
-        select(parent, created)
-        if (!folder) requestOpen(created)
-    }
+    ) = edits.create(target, folder)
 
-    /**
-     * The folder an action on [target] works in: [target] if a folder, else its folder; the project folder for `null`.
-     */
-    private fun targetFolder(target: FileTreeItem?): FileTreeItem? {
-        val item = target ?: projectItem ?: return null
-        return if (item.isDirectory) item else item.parent as? FileTreeItem
-    }
+    private fun targetFolder(target: FileTreeItem?): FileTreeItem? = edits.targetFolder(target)
 
-    /**
-     * Runs [action] on the folder for [target] (as for [create]). A returned file is selected, if it is in that folder,
-     * and opened; the folder is expanded and read again so that new entries show at once. A note is shown after it.
-     */
+    /** Runs [action] on the folder for [target] (as for [create]); see [ExplorerEdits.runFolderAction]. */
     internal fun runFolderAction(
         action: FolderAction,
         target: FileTreeItem?,
-    ) {
-        val folder = targetFolder(target) ?: return
-        val result =
-            try {
-                action.perform(folder.value)
-            } catch (e: IOException) {
-                log.log(System.Logger.Level.WARNING, "A folder action failed in ${folder.value}", e)
-                showError(e.message.orEmpty())
-                return
-            } catch (e: UncheckedIOException) {
-                log.log(System.Logger.Level.WARNING, "A folder action failed in ${folder.value}", e)
-                showError((e.cause?.message ?: e.message).orEmpty())
-                return
-            }
-        val open = result.open
-        if (open != null && open.parent == folder.value) {
-            select(folder, open)
-        } else {
-            folder.isExpanded = true
-            folder.refresh()
-        }
-        if (open != null) requestOpen(open)
-        result.note?.let(showInfo)
-    }
+    ) = edits.runFolderAction(action, target)
 
-    /**
-     * Whether [item] can be renamed or deleted: an entry of a top-level folder, not a top-level folder itself (their
-     * parent is the hidden root), and not being deleted.
-     */
-    private fun canChange(item: TreeItem<Path>?): Boolean =
-        item is FileTreeItem && item.parent is FileTreeItem && deleting.none { item.value.startsWith(it) }
+    private fun canChange(item: TreeItem<Path>?): Boolean = edits.canChange(item)
 
-    /**
-     * Asks for a new name of [item] and renames it in its folder, reporting it to [onMoved]. The renamed entry is
-     * selected, a folder stays expanded if it was.
-     */
-    internal fun rename(item: FileTreeItem) {
-        val parent = item.parent as? FileTreeItem ?: return
-        val path = item.value
-        val name =
-            askName("Rename", path.fileName.toString()) {
-                FileOperations.nameProblem(it, parent.value, renaming = path)
-            }
-                ?: return
-        val renamed =
-            try {
-                FileOperations.rename(path, name)
-            } catch (e: FileOperationException) {
-                showError(e.message.orEmpty())
-                return
-            }
-        if (renamed == path) return
-        // The folder and its loaded subfolders have new paths, watched once they are loaded again.
-        watches.keys.filter { it.value.startsWith(path) }.forEach { watches.remove(it)?.close() }
-        onMoved(path, renamed)
-        select(parent, renamed)?.isExpanded = item.isExpanded
-    }
+    /** Asks for a new name of [item] and renames it in its folder, reporting it to [onMoved]. */
+    internal fun rename(item: FileTreeItem) = edits.rename(item)
 
-    /**
-     * Asks whether to delete [item], warning about the files with [unsavedUnder] that would be lost, and deletes it
-     * permanently in the background, reporting it to [onDeleted]. If it is selected, the entry after it (or before it,
-     * or its folder) is selected right away, before the folder's watch may remove it.
-     */
-    internal fun delete(item: FileTreeItem) {
-        val parent = item.parent as? FileTreeItem ?: return
-        val path = item.value
-        val kind = entryKind(path) ?: return
-        val unsaved = unsavedUnder(path)
-        if (!confirmDelete(deleteQuestion(path, kind, unsaved.size))) return
-        // The question was about this kind of entry, e.g. not about a folder with everything in it.
-        if (entryKind(path) != kind) {
-            showError("“${path.fileName}” changed while asking and was not deleted.")
-            parent.refresh()
-            return
-        }
-        if (!canChange(item)) return
-        val replacement =
-            if (selectionModel.selectedItem?.value?.startsWith(path) == true) {
-                val siblings = parent.children
-                val index = siblings.indexOf(item)
-                (siblings.getOrNull(index + 1) ?: siblings.getOrNull(index - 1) ?: parent).also(::selectRow)
-            } else {
-                null
-            }
-        deleting.add(path)
-        runInBackground {
-            log.log(System.Logger.Level.INFO, "Deleting $path")
-            val started = System.nanoTime()
-            var failure: FileOperationException? = null
-            // Only set once the delete returned: an Error leaves neither a failure nor a success.
-            var completed = false
-            try {
-                FileOperations.delete(path)
-                completed = true
-            } catch (e: FileOperationException) {
-                log.log(System.Logger.Level.WARNING, "Cannot delete $path", e)
-                failure = e
-            } catch (e: Exception) {
-                // Unexpected: the end of the delete must still run, or the entry stays locked.
-                log.log(System.Logger.Level.ERROR, "Deleting $path failed unexpectedly", e)
-                failure =
-                    FileOperationException("Cannot delete “${path.fileName}”: ${e.message ?: e::class.simpleName}", e)
-            } finally {
-                // Also after an Error, which the thread logs: the entry must not stay locked.
-                val millis = (System.nanoTime() - started) / 1_000_000
-                if (completed) {
-                    log.log(System.Logger.Level.INFO, "Deleted $path in $millis ms")
-                } else {
-                    log.log(System.Logger.Level.WARNING, "Delete of $path failed after $millis ms")
-                }
-                val outcome = failure
-                val succeeded = completed
-                dispatch {
-                    try {
-                        outcome?.let { showError(it.message.orEmpty()) }
-                        // Also after a failure, which may have deleted a part.
-                        if (isShown(parent)) {
-                            parent.refresh()
-                            closeWatchesOfVanishedFolders()
-                            // Removing an expanded folder above it can lose the selection.
-                            val selected = selectionModel.selectedItem
-                            if (replacement != null && isShown(replacement) &&
-                                (selected == null || !isShown(selected))
-                            ) {
-                                selectRow(replacement)
-                            }
-                        }
-                        if (succeeded) onDeleted(path, unsaved)
-                    } finally {
-                        deleting.remove(path)
-                    }
-                }
-            }
-        }
-    }
-
-    /** The kind of entry at [path], not following a link; `null` if there is none. */
-    private fun entryKind(path: Path): EntryKind? =
-        when {
-            Files.isSymbolicLink(path) -> EntryKind.LINK
-            Files.isDirectory(path, LinkOption.NOFOLLOW_LINKS) -> EntryKind.FOLDER
-            Files.exists(path, LinkOption.NOFOLLOW_LINKS) -> EntryKind.FILE
-            else -> null
-        }
+    /** Asks whether to delete [item] and deletes it permanently in the background, reporting it to [onDeleted]. */
+    internal fun delete(item: FileTreeItem) = edits.delete(item)
 
     /** Whether [item] is still in the tree, e.g. not gone with a folder opened since. */
     private fun isShown(item: TreeItem<Path>): Boolean = generateSequence(item) { it.parent }.last() === root
