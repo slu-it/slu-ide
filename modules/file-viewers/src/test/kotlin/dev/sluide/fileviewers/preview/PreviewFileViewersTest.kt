@@ -2,9 +2,9 @@ package dev.sluide.fileviewers.preview
 
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
+import dev.sluide.fileviewers.Highlighters
 import dev.sluide.fileviewers.bicep.BicepFileViewer
 import dev.sluide.fileviewers.bicep.BicepParamFileViewer
-import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import dev.sluide.fileviewers.html.HtmlFileViewer
 import dev.sluide.fileviewers.image.ImageFileViewer
 import dev.sluide.fileviewers.image.ImagePage
@@ -143,7 +143,7 @@ class PreviewFileViewersTest {
         }
         for (preview in listOf(folding(scripts = true), folding(zoom = true), folding(outline = true))) {
             assertFailsWith<IllegalArgumentException> {
-                PreviewFileView(text("page.html"), RSyntaxHighlighter.xml, preview)
+                PreviewFileView(text("page.html"), Highlighters.xml, preview)
             }
         }
     }
@@ -163,7 +163,7 @@ class PreviewFileViewersTest {
                 override val offersScripts get() = true
                 override val zooms get() = true
             }
-        assertFailsWith<IllegalArgumentException> { PreviewFileView(text("page.html"), RSyntaxHighlighter.xml, both) }
+        assertFailsWith<IllegalArgumentException> { PreviewFileView(text("page.html"), Highlighters.xml, both) }
     }
 
     @Test
@@ -183,7 +183,7 @@ class PreviewFileViewersTest {
         assertFailsWith<IllegalArgumentException> {
             PreviewFileView(
                 text("page.html"),
-                RSyntaxHighlighter.xml,
+                Highlighters.xml,
                 copying,
             )
         }

@@ -1,7 +1,7 @@
 package dev.sluide.fileviewers.notebook
 
+import dev.sluide.fileviewers.Highlighters
 import dev.sluide.fileviewers.SyntaxHighlighter
-import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import dev.sluide.fileviewers.markdown.MarkdownRenderer
 import dev.sluide.fileviewers.preview.writeHighlighted
 import org.jsoup.nodes.Element
@@ -73,7 +73,7 @@ internal object NotebookRenderer {
                 .ifEmpty { metadata.path("kernelspec").path("language").asString() }
                 .ifEmpty { "python" }
                 .lowercase()
-        val highlighter = RSyntaxHighlighter.forLanguage(language)
+        val highlighter = Highlighters.forLanguage(language)
         for (cell in notebook.path("cells").values()) {
             when (cell.path("cell_type").asString()) {
                 "markdown" -> {

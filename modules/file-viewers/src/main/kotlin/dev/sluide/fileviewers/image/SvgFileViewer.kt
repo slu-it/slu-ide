@@ -1,6 +1,6 @@
 package dev.sluide.fileviewers.image
 
-import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
+import dev.sluide.fileviewers.Highlighters
 import dev.sluide.fileviewers.preview.Preview
 import dev.sluide.fileviewers.preview.PreviewFileViewer
 import dev.sluide.fileviewers.preview.PreviewMode
@@ -11,7 +11,7 @@ import java.nio.file.Path
 
 /** Shows SVG images (`.svg`) as highlighted XML beside the rendered image ([ImagePage]); the image comes first. */
 @Component
-class SvgFileViewer : PreviewFileViewer(setOf("svg"), RSyntaxHighlighter.xml, SvgPreview, CommentSyntax.XML)
+class SvgFileViewer : PreviewFileViewer(setOf("svg"), Highlighters.xml, SvgPreview, CommentSyntax.XML)
 
 /** The SVG as an image, so that its scripts never run; exported as PNG at 100, 200 and 300% ([SvgPngExport]). */
 internal object SvgPreview : Preview {

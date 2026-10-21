@@ -1,6 +1,6 @@
 package dev.sluide.fileviewers.html
 
-import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
+import dev.sluide.fileviewers.Highlighters
 import dev.sluide.fileviewers.preview.LinkTarget
 import dev.sluide.fileviewers.preview.Preview
 import dev.sluide.fileviewers.preview.PreviewFileViewer
@@ -19,7 +19,7 @@ import java.nio.file.Path
  */
 @Component
 class HtmlFileViewer :
-    PreviewFileViewer(setOf("html", "htm", "xhtml"), RSyntaxHighlighter.html, HtmlPreview, CommentSyntax.XML)
+    PreviewFileViewer(setOf("html", "htm", "xhtml"), Highlighters.html, HtmlPreview, CommentSyntax.XML)
 
 /** The HTML file itself, as the author styled it; links leave it and are opened elsewhere by the view. */
 internal object HtmlPreview : Preview {

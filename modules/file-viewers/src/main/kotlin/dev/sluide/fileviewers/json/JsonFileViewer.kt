@@ -1,7 +1,7 @@
 package dev.sluide.fileviewers.json
 
+import dev.sluide.fileviewers.Highlighters
 import dev.sluide.fileviewers.NamedFileViewer
-import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import dev.sluide.fileviewers.isTextFile
 import dev.sluide.fileviewers.preview.FoldState
 import dev.sluide.fileviewers.preview.Preview
@@ -19,7 +19,7 @@ import java.nio.file.Path
  */
 @Component
 class JsonFileViewer :
-    PreviewFileViewer(setOf("json", "jsonc"), RSyntaxHighlighter.json, JsonPreview, CommentSyntax.NONE),
+    PreviewFileViewer(setOf("json", "jsonc"), Highlighters.json, JsonPreview, CommentSyntax.NONE),
     NamedFileViewer {
     override val fileNames: Set<String> = setOf("Pipfile.lock")
 

@@ -1,8 +1,5 @@
 package dev.sluide.fileviewers.table
 
-import dev.sluide.fileviewers.TokenStyle
-import dev.sluide.fileviewers.highlight.Highlighted
-import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import org.jsoup.Jsoup
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -37,13 +34,5 @@ class CookiesPreviewTest {
             "Empty file",
             Jsoup.parse(CookiesPreview.render("", dark = false)).selectFirst(".csv-note")?.text(),
         )
-    }
-
-    @Test
-    fun `the header is a comment in the source`() {
-        val cookies = Highlighted(jar, RSyntaxHighlighter.cookies)
-
-        assertEquals(setOf(TokenStyle.COMMENT), cookies.stylesOf("# domain\tpath\tname\tvalue\tdate"))
-        assertEquals(emptySet(), cookies.stylesOf("localhost"))
     }
 }

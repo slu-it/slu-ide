@@ -1,7 +1,6 @@
 package dev.sluide.fileviewers.markdown
 
-import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
-import dev.sluide.fileviewers.highlight.fenceLanguage
+import dev.sluide.fileviewers.Highlighters
 import dev.sluide.fileviewers.image.imageTypes
 import dev.sluide.fileviewers.preview.HtmlPage
 import dev.sluide.fileviewers.preview.LinkTarget
@@ -300,7 +299,7 @@ body.dark .theme-toggle {
 
         override fun render(node: Node) {
             val block = node as FencedCodeBlock
-            val language = fenceLanguage(block.info.orEmpty())
+            val language = Highlighters.fenceLanguage(block.info.orEmpty())
             val code = block.literal
             if (language == "mermaid") {
                 html.line()
@@ -319,7 +318,7 @@ body.dark .theme-toggle {
                 html.line()
                 return
             }
-            val highlighter = if (language.isEmpty()) null else RSyntaxHighlighter.forLanguage(language)
+            val highlighter = if (language.isEmpty()) null else Highlighters.forLanguage(language)
             html.line()
             html.tag("pre", context.extendAttributes(block, "pre", emptyMap()))
             val codeClass = if (language.isEmpty()) emptyMap() else mapOf("class" to "language-$language")

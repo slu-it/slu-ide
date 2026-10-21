@@ -1,6 +1,6 @@
 package dev.sluide.fileviewers.pem
 
-import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
+import dev.sluide.fileviewers.Highlighters
 import dev.sluide.fileviewers.preview.Preview
 import dev.sluide.fileviewers.preview.PreviewFileViewer
 import dev.sluide.fileviewers.preview.PreviewMode
@@ -18,7 +18,7 @@ import kotlin.io.path.extension
  * binary (DER) certificate is no text file, and a `.key` without PEM text opens as plain text.
  */
 @Component
-class PemFileViewer : PreviewFileViewer(PEM_EXTENSIONS, RSyntaxHighlighter.pem, PemPreview, CommentSyntax.NONE) {
+class PemFileViewer : PreviewFileViewer(PEM_EXTENSIONS, Highlighters.pem, PemPreview, CommentSyntax.NONE) {
     override fun canOpen(file: Path): Boolean =
         file.extension.lowercase() in PEM_EXTENSIONS &&
             Files.isReadable(file) &&

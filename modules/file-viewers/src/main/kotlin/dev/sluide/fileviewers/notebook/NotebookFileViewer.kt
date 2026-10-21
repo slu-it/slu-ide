@@ -1,6 +1,6 @@
 package dev.sluide.fileviewers.notebook
 
-import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
+import dev.sluide.fileviewers.Highlighters
 import dev.sluide.fileviewers.preview.Preview
 import dev.sluide.fileviewers.preview.PreviewFileViewer
 import dev.sluide.fileviewers.preview.PreviewMode
@@ -11,8 +11,7 @@ import java.nio.file.Path
 
 /** Shows Jupyter notebooks (`.ipynb`) rendered ([NotebookRenderer]), with their JSON source one click away. */
 @Component
-class NotebookFileViewer :
-    PreviewFileViewer(setOf("ipynb"), RSyntaxHighlighter.json, NotebookPreview, CommentSyntax.NONE)
+class NotebookFileViewer : PreviewFileViewer(setOf("ipynb"), Highlighters.json, NotebookPreview, CommentSyntax.NONE)
 
 /** The notebook with its stored outputs; its JSON lines do not match cells, so it does not scroll with the source. */
 internal object NotebookPreview : Preview {

@@ -1,6 +1,6 @@
 package dev.sluide.fileviewers.bicep
 
-import dev.sluide.fileviewers.highlight.BicepHighlighter
+import dev.sluide.fileviewers.Highlighters
 import dev.sluide.fileviewers.markdown.MarkdownRenderer
 import dev.sluide.fileviewers.markdown.MermaidPreview
 import dev.sluide.fileviewers.preview.Preview
@@ -13,11 +13,11 @@ import org.springframework.stereotype.Component
 import java.nio.file.Path
 
 /**
- * Shows Bicep files (`.bicep`) as highlighted source ([BicepHighlighter]) and, one click away, the graph of their
+ * Shows Bicep files (`.bicep`) as highlighted source ([Highlighters.bicep]) and, one click away, the graph of their
  * resources and modules ([BicepPreview]).
  */
 @Component
-class BicepFileViewer : PreviewFileViewer(setOf("bicep"), BicepHighlighter, BicepPreview, CommentSyntax.SLASHES)
+class BicepFileViewer : PreviewFileViewer(setOf("bicep"), Highlighters.bicep, BicepPreview, CommentSyntax.SLASHES)
 
 /**
  * The resource graph ([BicepGraph]) drawn by Mermaid like a Mermaid file ([MermaidPreview]): zoomable, fitted at first,

@@ -1,6 +1,6 @@
 package dev.sluide.fileviewers.table
 
-import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
+import dev.sluide.fileviewers.Highlighters
 import dev.sluide.fileviewers.preview.Preview
 import dev.sluide.fileviewers.preview.PreviewFileViewer
 import dev.sluide.textediting.CommentSyntax
@@ -13,7 +13,7 @@ import java.nio.file.Path
  */
 @Component
 class CookiesFileViewer :
-    PreviewFileViewer(setOf("cookies"), RSyntaxHighlighter.cookies, CookiesPreview, CommentSyntax.NONE)
+    PreviewFileViewer(setOf("cookies"), Highlighters.cookies, CookiesPreview, CommentSyntax.NONE)
 
 /**
  * The cookies as a table ([CsvRenderer]), scrolling with the source: tab-separated, the first line

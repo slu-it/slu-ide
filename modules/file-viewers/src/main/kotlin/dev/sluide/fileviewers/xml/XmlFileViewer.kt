@@ -1,6 +1,6 @@
 package dev.sluide.fileviewers.xml
 
-import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
+import dev.sluide.fileviewers.Highlighters
 import dev.sluide.fileviewers.preview.FoldState
 import dev.sluide.fileviewers.preview.Preview
 import dev.sluide.fileviewers.preview.PreviewFileViewer
@@ -17,7 +17,7 @@ import java.nio.file.Path
 class XmlFileViewer :
     PreviewFileViewer(
         setOf("xml", "xsd", "xsl", "xslt", "fxml", "iml"),
-        RSyntaxHighlighter.xml,
+        Highlighters.xml,
         XmlPreview,
         CommentSyntax.XML,
     )

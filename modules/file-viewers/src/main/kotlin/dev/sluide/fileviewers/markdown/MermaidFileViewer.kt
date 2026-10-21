@@ -1,6 +1,6 @@
 package dev.sluide.fileviewers.markdown
 
-import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
+import dev.sluide.fileviewers.Highlighters
 import dev.sluide.fileviewers.preview.Preview
 import dev.sluide.fileviewers.preview.PreviewFileViewer
 import dev.sluide.textediting.CommentSyntax
@@ -12,7 +12,7 @@ import java.nio.file.Path
 /** Shows Mermaid diagrams (`.mmd`, `.mermaid`) as highlighted source beside the drawn diagram ([MermaidPreview]). */
 @Component
 class MermaidFileViewer :
-    PreviewFileViewer(setOf("mmd", "mermaid"), RSyntaxHighlighter.mermaid, MermaidPreview, CommentSyntax.MERMAID)
+    PreviewFileViewer(setOf("mmd", "mermaid"), Highlighters.mermaid, MermaidPreview, CommentSyntax.MERMAID)
 
 /**
  * The file as one diagram, drawn like ` ```mermaid ` fences in Markdown ([MarkdownRenderer.page], `preview.js`), but

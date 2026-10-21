@@ -1,8 +1,5 @@
 package dev.sluide.fileviewers.pem
 
-import dev.sluide.fileviewers.TokenStyle
-import dev.sluide.fileviewers.highlight.Highlighted
-import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import dev.sluide.fileviewers.pem.PemRenderer.Badge
 import java.security.AlgorithmParameters
 import java.security.KeyPairGenerator
@@ -216,18 +213,5 @@ class PemRendererTest {
         assertTrue("<body class=\"pem\">" in certificate)
         assertTrue("<span class=\"pem-badge valid\">Valid</span>" in certificate)
         assertTrue("<th>Subject</th><td>CN=leaf.sluide.test</td>" in certificate)
-    }
-
-    @Test
-    fun `headers and markers are highlighted, base64 is not`() {
-        val pem = Highlighted(fixture("test-only-traditional-encrypted.key"), RSyntaxHighlighter.pem)
-
-        assertEquals(setOf(TokenStyle.KEYWORD), pem.stylesOf("-----BEGIN EC PRIVATE KEY-----"))
-        assertEquals(setOf(TokenStyle.KEYWORD), pem.stylesOf("-----END EC PRIVATE KEY-----"))
-        assertEquals(setOf(TokenStyle.PROPERTY), pem.stylesOf("Proc-Type:"))
-        assertEquals(setOf(TokenStyle.PROPERTY), pem.stylesOf("DEK-Info:"))
-        assertEquals(emptySet(), pem.stylesOf("4,ENCRYPTED"))
-        val base64 = fixture("test-only-traditional-encrypted.key").lines()[4]
-        assertEquals(emptySet(), pem.stylesOf(base64))
     }
 }

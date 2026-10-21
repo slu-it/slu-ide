@@ -1,6 +1,6 @@
 package dev.sluide.fileviewers.markdown
 
-import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
+import dev.sluide.fileviewers.Highlighters
 import dev.sluide.fileviewers.preview.Preview
 import dev.sluide.fileviewers.preview.PreviewFileViewer
 import dev.sluide.textediting.CommentSyntax
@@ -14,7 +14,7 @@ import java.nio.file.Path
  */
 @Component
 class MarkdownFileViewer :
-    PreviewFileViewer(setOf("md", "markdown"), RSyntaxHighlighter.markdown, MarkdownPreview, CommentSyntax.XML)
+    PreviewFileViewer(setOf("md", "markdown"), Highlighters.markdown, MarkdownPreview, CommentSyntax.XML)
 
 /** Markdown rendered by [MarkdownRenderer], scrolling with the source. */
 internal object MarkdownPreview : Preview {
