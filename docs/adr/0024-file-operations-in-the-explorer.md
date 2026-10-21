@@ -1,6 +1,7 @@
 # 0024. File operations in the explorer
 
-- Status: accepted
+- Status: accepted; partly superseded by [0073](0073-explorer-multi-selection-and-moving.md) (moving to another
+  folder, and deleting several entries)
 - Date: 2026-10-14
 
 ## Context
@@ -17,10 +18,11 @@ module, not the explorer.
   counts and a name differing only in case counts on case-insensitive file systems). No nested paths such as `a/b`: one dialog creates one entry.
   The name dialog checks while typing; OK stays disabled while there is a problem, which is shown below the field.
 - **Rename** stays within the folder (`Files.move` without replacing; on Unix that is a check before the rename, so an
-  entry created in between can still be replaced). Moving to another folder (drag and drop, paths in
-  the name) is out of scope. Changing only the case of a name works on case-insensitive file systems over a temporary
-  name, since there `Files.move` sees the target as the file itself and does nothing. If the second step fails, the
-  entry is moved back, and if that fails too, the error says where it was left.
+  entry created in between can still be replaced). Moving to another folder came with
+  [ADR 0073](0073-explorer-multi-selection-and-moving.md), by drag and drop; paths in the name stay out of scope.
+  Changing only the case of a name works on case-insensitive file systems over a temporary name, since there
+  `Files.move` sees the target as the file itself and does nothing. If the second step fails, the entry is moved
+  back, and if that fails too, the error says where it was left.
 - **Delete** is permanent, a folder with everything in it, after a confirmation that names the entry, says that it
   cannot be undone and counts the files with unsaved changes that would be lost. Cancel is its default button, so
   Enter keeps everything. If the entry changed its kind while asking (e.g. a file became a folder), nothing is

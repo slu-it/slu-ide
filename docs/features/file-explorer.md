@@ -83,7 +83,8 @@
     more"); it counts the files with unsaved changes over all entries and says that nothing is moved to the trash.
     Cancel is the default button. If the selection lay in the deleted entries, the first remaining row after them (or
     the nearest before, or the folder) is selected at once. Deleting runs in the background, in row order, so a large
-    folder does not block the IDE; meanwhile the entries cannot be renamed or deleted again. Entries that became
+    folder does not block the IDE; meanwhile the entries, and the folders holding them, cannot be renamed, deleted or
+    moved, and nothing can be moved into them. Entries that became
     something else while asking (e.g. a file a folder) are not deleted and reported in one error; the others are. A
     failed delete stops at the first entry it cannot delete (later ones are not tried) and can leave a folder partly
     deleted; the error is shown, `onDeleted` is called for every entry deleted completely, not for the failed one.
@@ -94,9 +95,39 @@
     not in another case) and keeps OK disabled while it shows a problem. Errors on disk (e.g. permissions) are shown in an error dialog.
   - The result shows at once, without waiting for the folder's watch, and is selected. Rename and Delete are disabled
     on every top-level node (the project folder and the extra roots).
-  - For open tabs, `onMoved(from, to)` reports renames, `onDeleted(path, unsaved)` deletions with the files the
+  - For open tabs, `onMoved(from, to)` reports renames and moves (below), `onDeleted(path, unsaved)` deletions with the files the
     confirmation counted as lost, and `unsavedUnder(path)` is asked for the files with unsaved changes. `MainWindow`
     connects them to the editor area ([editor-tabs.md](editor-tabs.md)): tabs of a renamed file, or of the files in a
     renamed folder, stay open at the new path with their unsaved changes; the confirmation of a delete counts the
     unsaved files at or below the entry, and once it is deleted their tabs and those without unsaved changes close
     without asking again. Files edited after the confirmation keep their tabs, showing the file deleted.
+- Moving by drag and drop ([ADR 0073](../adr/0073-explorer-multi-selection-and-moving.md), `tree/TreeDragAndDrop.kt`,
+  `actions/ExplorerMoves.kt`, `FileOperations.move`):
+  - Dragging a selected row drags the whole selection, another row only itself (and selects it). Top-level nodes and
+    entries being deleted or holding one being deleted cannot be dragged; entries inside a dragged folder go along
+    with it. A drag that ends without a drop selects the dragged entries again.
+  - Drop targets are folder rows of any top-level node, so entries move into and out of Scratches too, and the empty
+    area below the rows, which stands for the project folder. File rows, the scroll bars, a dragged folder and the
+    folders inside it, the folder all dragged entries are in already (`canDrop`), and a folder being deleted or
+    inside one refuse the drop. Only drags started in the same
+    explorer are accepted (a private dragboard format): nothing is dragged in from or out to other applications or
+    windows.
+  - The target row is framed and tinted in the accent colour (`:drop-target`, `file-explorer.css`, light and dark); on
+    the empty area the project row is marked. A collapsed folder held under the pointer for 700 ms expands. Near the
+    top or bottom edge (within a row) the tree scrolls while the pointer stays there; the row scrolling under the
+    pointer becomes the target.
+  - Every drop asks first, in a dialog (`MoveConfirmation.kt`, Cancel the default button): "Move “a.txt” to
+    “folder”?" or "Move N entries to “folder”?" listing the first ten names. The dialog opens after the drop has
+    completed (`Platform.runLater`), not inside the drop handler.
+  - Names that exist in the target already (also in another case on case-insensitive file systems, also a dangling
+    link) are never replaced: the question says which are skipped and its button reads "Move the others"; if every
+    entry clashes, an error says so and nothing moves.
+  - The entries are moved in order on the JavaFX thread. Each move checks again that the name is free and the entry
+    still there; the first failure stops the rest and is shown, earlier moves stay. A delete started while asking
+    stops it before anything moves. Moves are renames only: a link is moved itself, not its target, and nothing is
+    moved to another drive, neither a file nor a folder ("it cannot be moved to another drive"; no copy and delete).
+  - Afterwards the source folders and the target are read again, the target is expanded, and the moved entries are
+    selected (the view scrolls to the first); a moved folder that was expanded stays expanded.
+  - Open tabs follow: every move is reported through `onMoved(from, to)`, as for a rename, so tabs of a moved file or
+    of the files in a moved folder stay open at the new path with their unsaved changes.
+  - `FileExplorerView.move(items, folder)` runs the same flow without a gesture (tests).

@@ -25,6 +25,10 @@ Files for notes and experiments outside the project, shared by all project windo
   folders in it show the normal closed and open folder icons. Both are teal instead of the folders' amber, so the
   scratches stand out from the project; files in it keep their type icons. If the folder cannot be created, the node is missing and a warning is
   logged.
+- **Moving:** entries can be dragged from the project into Scratches (onto the node or a folder in it) and out of it,
+  after a confirmation ([file-explorer.md](file-explorer.md)); open tabs follow. A file moved in counts as a scratch
+  from then on: if it is empty when its last tab closes (in any window), it is deleted like any empty scratch. A file
+  moved out is no scratch any more and stays when empty.
 - **Empty scratches are deleted** when their last tab closes, in any window (closing the tab, Close Others/All,
   closing the window): only if the file is empty and no other window has it open. A scratch with content stays until
   you delete it in the explorer.
