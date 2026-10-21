@@ -2,6 +2,10 @@ package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.git.GitTrustCheck
+import dev.sluide.ide.trust.KEEP_OFF_BUTTON
+import dev.sluide.ide.trust.TRUST_BUTTON
+import dev.sluide.ide.trust.trustConfirmation
+import dev.sluide.ide.trust.trustDetails
 import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.projecttrust.ProjectTrustState
 import dev.sluide.projecttrust.TrustCheckResult
@@ -38,7 +42,7 @@ class MainWindowTrustUiTest : MainWindowUiFixture() {
 
     private fun answerTrust(vararg trusted: Boolean) {
         answers += trusted.toList()
-        mainWindow.confirmTrust = { _, state ->
+        mainWindow.trust.confirmTrust = { _, state ->
             asked += state
             answers.removeFirst()
         }
@@ -55,7 +59,7 @@ class MainWindowTrustUiTest : MainWindowUiFixture() {
     private val tracked: Path get() = project.resolve("tracked.md")
 
     private fun trustMessage() =
-        mainWindow.trustBar.children
+        mainWindow.trust.bar.children
             .filterIsInstance<Label>()
             .single()
             .text
@@ -70,7 +74,7 @@ class MainWindowTrustUiTest : MainWindowUiFixture() {
         eventually(robot) { assertTrue(fileExplorer.canShowHistory(tracked), "the git log has the repository") }
         eventually(robot) { assertEquals(project.toAbsolutePath().normalize(), gitStatus.snapshot.get().root) }
         assertEquals(emptyList(), asked)
-        assertFalse(mainWindow.trustBar.isVisible)
+        assertFalse(mainWindow.trust.bar.isVisible)
     }
 
     @Test
@@ -87,7 +91,7 @@ class MainWindowTrustUiTest : MainWindowUiFixture() {
         val state = assertIs<ProjectTrustState.Ask>(asked.single())
         assertEquals("Git", state.flagged.single().name)
         eventually(robot) {
-            assertTrue(mainWindow.trustBar.isVisible)
+            assertTrue(mainWindow.trust.bar.isVisible)
             assertEquals("Git is off: this folder defines commands it would run.", trustMessage())
         }
         WaitForAsyncUtils.waitForFxEvents()
@@ -95,14 +99,14 @@ class MainWindowTrustUiTest : MainWindowUiFixture() {
         assertEquals(null, gitStatus.snapshot.get().root, "no git status")
 
         robot.interact {
-            mainWindow.trustBar.children
+            mainWindow.trust.bar.children
                 .filterIsInstance<Button>()
                 .single()
                 .fire()
         }
 
         eventually(robot) {
-            assertFalse(mainWindow.trustBar.isVisible)
+            assertFalse(mainWindow.trust.bar.isVisible)
             assertTrue(robot.lookup(".git-log-status").queryAll<Label>().none { it.text == GIT_OFF })
             assertTrue(fileExplorer.canShowHistory(tracked))
             assertEquals(project.toAbsolutePath().normalize(), gitStatus.snapshot.get().root)
@@ -132,7 +136,7 @@ class MainWindowTrustUiTest : MainWindowUiFixture() {
         runGit("config", "filter.crypt.clean", "./clean.sh")
 
         eventually(robot) {
-            assertTrue(mainWindow.trustBar.isVisible)
+            assertTrue(mainWindow.trust.bar.isVisible)
             assertEquals("Git is off: what this folder makes it run changed.", trustMessage())
             assertFalse(fileExplorer.canShowHistory(tracked))
         }
@@ -190,7 +194,7 @@ class MainWindowTrustUiTest : MainWindowUiFixture() {
         robot.interact { projectService.open(project) }
 
         eventually(robot) {
-            assertTrue(mainWindow.trustBar.isVisible)
+            assertTrue(mainWindow.trust.bar.isVisible)
             assertTrue(menu(robot, "Git").items.all { it.isDisable }, "Commit… and Push…")
             assertTrue(robot.lookup(".git-log-status").queryAll<Label>().any { it.text == GIT_OFF })
         }

@@ -1,4 +1,4 @@
-package dev.sluide.ide
+package dev.sluide.ide.trust
 
 import dev.sluide.projecttrust.ProjectTrustState
 import javafx.application.Platform

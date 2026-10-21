@@ -26,6 +26,7 @@ import dev.sluide.ide.git.toTextDiff
 import dev.sluide.ide.git.wouldCommit
 import dev.sluide.ide.logging.currentLogFolder
 import dev.sluide.ide.scratches.WindowScratches
+import dev.sluide.ide.trust.WindowTrust
 import dev.sluide.projects.RecentProjects
 import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.projecttrust.ProjectTrustState
@@ -40,8 +41,6 @@ import javafx.beans.property.SimpleBooleanProperty
 import javafx.geometry.Orientation
 import javafx.scene.Scene
 import javafx.scene.control.Alert
-import javafx.scene.control.Button
-import javafx.scene.control.Label
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuBar
 import javafx.scene.control.MenuItem
@@ -51,8 +50,6 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
 import javafx.scene.layout.BorderPane
-import javafx.scene.layout.HBox
-import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
 import javafx.stage.DirectoryChooser
@@ -125,14 +122,6 @@ class MainWindow(
         askToClose(stage, "Close Window", "Close this window anyway?", warnings)
     }
 
-    /**
-     * Asks whether to trust what the checks of the folder found (ADR 0053): `true` to trust it. Shows a dialog; tests
-     * replace it, since it blocks.
-     */
-    internal var confirmTrust: (Stage, ProjectTrustState) -> Boolean = { stage, state ->
-        askToTrust(stage, folder ?: Path.of(""), state)
-    }
-
     /** The shared scratch files in this window's explorer and editor (ADR 0066). */
     internal val scratches =
         WindowScratches(
@@ -143,18 +132,8 @@ class MainWindow(
             showError = { stage, message -> showError(stage, message) },
         )
 
-    /** Says which tools are off until the folder is trusted, with Review… to decide (ADR 0053); hidden otherwise. */
-    private val trustMessage = Label()
-    private val trustReview = Button("Review…")
-    internal val trustBar =
-        HBox(trustMessage, Region().apply { HBox.setHgrow(this, Priority.ALWAYS) }, trustReview).apply {
-            styleClass += "trust-bar"
-            isVisible = false
-            isManaged = false
-        }
-
-    /** Whether the folder's findings were asked about since it was opened; later ones show only the bar. */
-    private var trustAsked = false
+    /** The trust bar and the questions behind it (ADR 0053). */
+    internal val trust = WindowTrust(projectTrust, folder = { folder })
 
     /** The project folder of this window; `null` until a folder is opened in it. */
     val folder: Path? get() = projectService.projectFolder.get()
@@ -193,7 +172,7 @@ class MainWindow(
                 top =
                     VBox(
                         MenuBar(fileMenu(stage), viewMenu(), gitMenu(), terminalMenu(stage), dockerSandboxMenu(stage)),
-                        trustBar,
+                        trust.bar,
                     )
                 center = split
                 stylesheets += checkNotNull(MainWindow::class.java.getResource("main-window.css")).toExternalForm()
@@ -247,9 +226,9 @@ class MainWindow(
         // Git runs only while the folder's trust allows it (ADR 0053), after its checks or the user's decision.
         projectTrust.state.subscribe { state ->
             followGitTrust()
-            followTrust(stage, state)
+            trust.follow(stage, state)
         }
-        trustReview.setOnAction { reviewTrust(stage, projectTrust.state.get()) }
+        trust.attach(stage)
 
         // The git log follows the repository's .git folder (commits, checkouts, fetches); collapsed, it only notes that
         // it is outdated (ADR 0035).
@@ -393,61 +372,6 @@ class MainWindow(
         } catch (_: InvalidPathException) {
             Path.of(path.substringAfterLast('/').map { if (it.code < 128) it else '_' }.joinToString(""))
         }
-
-    /**
-     * Shows the trust bar while tools of the folder are off. The first findings after opening the folder are asked
-     * about at once; later ones, found when something changed, only show the bar, so that no dialog interrupts work.
-     */
-    private fun followTrust(
-        stage: Stage,
-        state: ProjectTrustState,
-    ) {
-        val off = state is ProjectTrustState.Ask || state is ProjectTrustState.Untrusted
-        trustBar.isVisible = off
-        trustBar.isManaged = off
-        if (state is ProjectTrustState.Closed) trustAsked = false
-        if (!off) return
-        val tools = toolsOff(state)
-        val (verb, pronoun) = if (state.flagged.size == 1) "is" to "it" else "are" to "they"
-        trustMessage.text =
-            when {
-                state.flagged.all { it.findings == null } -> {
-                    "$tools $verb off: this folder could not be checked."
-                }
-
-                state is ProjectTrustState.Ask && state.changed -> {
-                    "$tools $verb off: what this folder makes $pronoun run changed."
-                }
-
-                else -> {
-                    "$tools $verb off: this folder defines commands $pronoun would run."
-                }
-            }
-        if (state is ProjectTrustState.Ask && !state.changed && !trustAsked) {
-            trustAsked = true
-            // Not while the state is being set: the dialog waits in a nested event loop.
-            Platform.runLater { if (projectTrust.state.get() === state) reviewTrust(stage, state) }
-        }
-    }
-
-    /**
-     * Asks whether to trust what [state] found and decides. If the findings changed while the dialog was open, the
-     * answer is not taken, and the new findings are asked about.
-     */
-    private fun reviewTrust(
-        stage: Stage,
-        state: ProjectTrustState,
-    ) {
-        if (state !is ProjectTrustState.Ask && state !is ProjectTrustState.Untrusted) return
-        if (projectTrust.decide(state, confirmTrust(stage, state))) return
-        // The new findings may be set already, or still on their way to followTrust, which then asks.
-        trustAsked = false
-        val now = projectTrust.state.get()
-        if (now is ProjectTrustState.Ask && now != state) {
-            trustAsked = true
-            Platform.runLater { if (projectTrust.state.get() === now) reviewTrust(stage, now) }
-        }
-    }
 
     /**
      * Opens the repository in the git log while the folder's trust allows git, and reads its status again when it
