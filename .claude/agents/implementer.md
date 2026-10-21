@@ -18,7 +18,9 @@ update and docs to read.
    and `uiTest --tests` for the UI test classes the brief names plus the ones you wrote. Never run `./gradlew build`
    or an unfiltered `uiTest`: the main session runs the full build after the last review. Report the exact commands
    and their real result; a skipped `uiTest` (no `DISPLAY`) is not a pass.
-6. Update `docs/` and `docs/index.md` when behavior, structure or decisions change.
+6. Update `docs/` and `docs/index.md` when behavior, structure or decisions change. A new, changed or removed key
+   binding (accelerator, key combination, `InputMap` entry, key handler) also goes into
+   `docs/features/keyboard-shortcuts.md` (`.claude/rules/key-bindings.md`); check there first that the keys are free.
 
 Stop and report instead of guessing when the brief leaves a design decision open or the code contradicts it
 (missing API, conflicting test, change needed outside the named files). Say what you found and what you would need.

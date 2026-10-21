@@ -20,7 +20,7 @@ Sonnet does well with a precise brief and guesses without one. Every implementer
 4. Tests to add or change, unit or `@Tag("ui")`, and the existing test classes to run, by class name: the related
    UI test classes and, when an API changes, unit tests of dependent modules (e.g. `:ide`'s `SpringWiringTest`).
    The implementer runs only those, its own and the touched modules' unit tests.
-5. Docs to update: feature page, ADR, `docs/index.md`.
+5. Docs to update: feature page, ADR, `docs/index.md`; `docs/features/keyboard-shortcuts.md` when key bindings change.
 6. Docs to read (so the agent skips the 17 KB index), with sections where useful.
 7. Base: master, or the worktree and the commit to rebase onto.
 8. For large files, the classes or line ranges that matter, so the agent reads ranges instead of whole files.

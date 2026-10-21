@@ -15,7 +15,10 @@ Check, most important first:
 2. Architecture: follows `docs/architecture.md` and `.claude/rules/` (module direction, package, versions in the catalog).
 3. Tests: new behavior covered, no weakened assertions; the reported test commands cover the changed code (a related
    UI test class that was not run is a finding); a skipped `uiTest` is not a pass.
-4. Docs: `docs/index.md`, ADRs and feature pages updated when needed.
+4. Docs: `docs/index.md`, ADRs and feature pages updated when needed. A diff that adds, changes or removes a key
+   binding (`accelerator`, `KeyCodeCombination`, `KeyCharacterCombination`, `InputMap`, a `KeyCode` handler) must
+   update `docs/features/keyboard-shortcuts.md`, and the keys must not clash with another binding in the same
+   context.
 5. Commit hygiene: one logical step, no Claude attribution or session links.
 
 Report only findings, by severity with `file:line`; no summary of the diff. Say "no issues" explicitly when that is
