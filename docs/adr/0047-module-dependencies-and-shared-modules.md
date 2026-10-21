@@ -17,14 +17,17 @@ icons because the icons were `internal` to `file-explorer`, and depending on tha
   `file-viewers`, `terminal`, `docker-sandbox`, `http-client`: what is shown as editor tabs or file views) is one
   capability family, so its existing edges (`editor` -> `file-viewers`, `terminal` -> `editor`, `docker-sandbox` ->
   `terminal`, `http-client` -> `file-viewers`) follow the rule.
-  Amended by [ADR 0071](0071-editor-area-module.md): `editor` is now `editor-area`.
-  Amended by [ADR 0069](0069-previews-module.md): `previews` joins the editor family (`previews` -> `file-viewers`).
+  - Amended by [ADR 0071](0071-editor-area-module.md): `editor` is now `editor-area`.
+  - Amended by [ADR 0069](0069-previews-module.md): `previews` joins the editor family (`previews` -> `file-viewers`).
+  - The foundation modules `project-trust` and `background-tasks` came later
+    ([ADR 0053](0053-project-trust.md), [ADR 0061](0061-background-tasks.md)); `docs/architecture.md` lists all
+    modules under "Modules".
 - Unrelated feature modules do not depend on each other. `ide` wires them through callbacks, as `git-log` with
   `editor` and `file-viewers`, and `git` with the explorer's markers.
 - When two modules need the same piece of a third, that piece is extracted into a small module instead of depending
   on the whole feature module.
-- Every module dependency is listed in `docs/architecture.md` with its reason and commented in the module's
-  `build.gradle.kts`.
+- Every module dependency is listed in the "Module dependencies" table of `docs/architecture.md` with its reason and
+  commented in the module's `build.gradle.kts`.
 - A foundation module may be a plain library without Spring beans; "expose UI as a `@Component`" is for feature
   modules.
 - `modules/file-icons` is the first extracted module: `FileIcon`, `fileIconFor`, their colours and a helper to show an

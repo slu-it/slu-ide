@@ -4,7 +4,7 @@ Entry point for agents: read this file first, then open only the documents relev
 Keep it up to date: every new ADR, feature description or idea must be added here with a one-line summary.
 
 ## Overview
-- [architecture.md](architecture.md) — Module layout, dependency rules, runtime startup, CI and release process.
+- [architecture.md](architecture.md) — Module table, module rules and dependency table, runtime startup, CI and release process.
 
 - [testing.md](testing.md) — Unit vs. TestFX UI tests, `uiTest` task, running a subset of the tests, display handling locally and in CI, how to write UI tests, running and screenshotting the app in a headless sandbox.
 
