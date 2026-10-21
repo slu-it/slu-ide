@@ -5,6 +5,7 @@ import javafx.scene.control.Alert
 import javafx.scene.control.Button
 import javafx.scene.control.ButtonBar
 import javafx.scene.control.ButtonType
+import javafx.scene.layout.Region
 import javafx.stage.Window
 
 /**
@@ -56,6 +57,8 @@ internal fun moveConfirmation(
         owner?.let(::initOwner)
         title = "Move"
         headerText = question.header
+        // Else the dialog keeps the height of one line of details and cuts the names off.
+        dialogPane.minHeight = Region.USE_PREF_SIZE
         val cancel = dialogPane.lookupButton(ButtonType.CANCEL) as Button
         (dialogPane.lookupButton(move) as Button).isDefaultButton = false
         cancel.isDefaultButton = true
