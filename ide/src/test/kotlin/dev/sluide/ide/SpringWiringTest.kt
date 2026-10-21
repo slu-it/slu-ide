@@ -27,6 +27,7 @@ import dev.sluide.projects.ProjectPicker
 import dev.sluide.projects.RecentProjects
 import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.projecttrust.TrustedProjects
+import dev.sluide.scratches.ScratchFiles
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.SettingsStore
@@ -99,6 +100,7 @@ class SpringWiringTest {
                         ProjectPicker::class.java,
                         GitTrustCheck::class.java,
                         TrustedProjects::class.java,
+                        ScratchFiles::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")

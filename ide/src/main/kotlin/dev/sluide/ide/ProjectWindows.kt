@@ -1,5 +1,6 @@
 package dev.sluide.ide
 
+import dev.sluide.ide.scratches.isSameFile
 import dev.sluide.projects.ProjectPicker
 import javafx.application.Platform
 import javafx.scene.control.Alert
@@ -56,6 +57,15 @@ class ProjectWindows(
 
     /** The stages of the open windows, oldest first. */
     val stages: List<Stage> get() = open.map { it.stage }
+
+    /**
+     * Whether a window other than [window] has a tab of the file [path] open, also under another name for it (a case
+     * variant, a symbolic link), e.g. before an empty scratch file is deleted.
+     */
+    fun isOpenElsewhere(
+        path: Path,
+        window: MainWindow,
+    ): Boolean = open.any { it.window !== window && it.window.openPaths.any { shown -> isSameFile(shown, path) } }
 
     /** The main window shown in [stage], for tests. */
     internal fun windowOf(stage: Stage): MainWindow = open.single { it.stage == stage }.window

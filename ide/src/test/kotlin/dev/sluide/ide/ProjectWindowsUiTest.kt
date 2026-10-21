@@ -22,6 +22,8 @@ import dev.sluide.projects.ProjectPicker
 import dev.sluide.projects.RecentProjects
 import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.projecttrust.TrustedProjects
+import dev.sluide.scratches.SCRATCH_TYPES
+import dev.sluide.scratches.ScratchFiles
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.SettingsStore
@@ -53,6 +55,7 @@ import java.nio.file.Path
 import java.util.concurrent.Callable
 import java.util.function.Supplier
 import kotlin.io.path.createDirectories
+import kotlin.io.path.createSymbolicLinkPointingTo
 import kotlin.io.path.name
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -92,6 +95,7 @@ class ProjectWindowsUiTest {
                 register(WindowScopeConfiguration::class.java, ProjectWindows::class.java, SystemBrowser::class.java)
                 registerBean(SettingsStore::class.java, Supplier { store })
                 registerBean(RecentProjects::class.java, Supplier { recentProjects })
+                registerBean(ScratchFiles::class.java, Supplier { ScratchFiles(dir.resolve("scratches")) })
                 registerBean(ProjectPicker::class.java, Supplier { ProjectPicker(recentProjects) })
                 registerBean(FontSettings::class.java, Supplier { FontSettings(store) })
                 registerBean(TerminalScrollSettings::class.java, Supplier { TerminalScrollSettings(store) })
@@ -282,6 +286,39 @@ class ProjectWindowsUiTest {
         assertEquals(0, terminals.openCount)
         assertEquals(listOf(first), windows.stages)
         assertEquals(a, window(first).folder)
+    }
+
+    @Test
+    fun `an empty scratch file open in another window is deleted only when the last of them closes`(robot: FxRobot) {
+        val a = dir.resolve("a").createDirectories()
+        val b = dir.resolve("b").createDirectories()
+        robot.interact {
+            window(first).openFolder(a)
+            window(first).openFolder(b)
+        }
+        val second = windows.stages[1]
+        robot.interact {
+            for (stage in listOf(first, second)) {
+                window(stage).scratches.askType = { _, onPick -> onPick(SCRATCH_TYPES.first()) }
+            }
+            window(first).scratches.newScratchFile(first)
+        }
+        val scratch = dir.resolve("scratches/scratch.txt")
+        assertTrue(Files.isRegularFile(scratch))
+        assertTrue(windows.isOpenElsewhere(scratch, window(second)))
+        assertFalse(windows.isOpenElsewhere(scratch, window(first)))
+        // The same file under another name counts too.
+        val link = b.resolve("link.txt").createSymbolicLinkPointingTo(scratch)
+        assertTrue(windows.isOpenElsewhere(link, window(second)))
+
+        robot.interact { second.hide() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertTrue(Files.isRegularFile(scratch), "the first window still has it open")
+
+        robot.interact { first.hide() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertFalse(Files.exists(scratch))
+        assertEquals(1, pickers().size)
     }
 
     @Test

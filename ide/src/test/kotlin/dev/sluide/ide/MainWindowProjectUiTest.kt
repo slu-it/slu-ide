@@ -89,7 +89,8 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
     @Test
     fun `offers File - Open Folder with Ctrl+O`(robot: FxRobot) {
         val fileMenu = menu(robot, "File")
-        val openFolder = fileMenu.items.first()
+        // After New Scratch File… and a separator.
+        val openFolder = fileMenu.items[2]
 
         assertEquals("Open Folder…", openFolder.text)
         val accelerator = openFolder.accelerator as KeyCodeCombination
@@ -99,7 +100,7 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
 
     @Test
     fun `offers File - Open Project after Open Folder, which shows the project picker`(robot: FxRobot) {
-        val openProject = menu(robot, "File").items[1]
+        val openProject = menu(robot, "File").items[3]
         assertEquals("Open Project…", openProject.text)
         // The fixture's windows know no window: closing the picker would end the application.
         projectWindows.exit = {}
@@ -137,7 +138,8 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
                 .queryAllAs(TreeCell::class.java)
                 .sortedBy { it.index }
                 .mapNotNull { it.text }
-        assertEquals(listOf(project.name, ".hidden", "README.md"), names)
+        // The scratches below the project, collapsed (ADR 0066).
+        assertEquals(listOf(project.name, ".hidden", "README.md", "Scratches"), names)
     }
 
     @Test

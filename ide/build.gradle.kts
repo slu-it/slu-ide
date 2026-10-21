@@ -33,6 +33,8 @@ dependencies {
     implementation(project(":modules:project-trust"))
     // The window's background tasks, shown under the file explorer (ADR 0061).
     implementation(project(":modules:background-tasks"))
+    // The shared scratch files in every window's explorer and editor (ADR 0066).
+    implementation(project(":modules:scratches"))
 
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)

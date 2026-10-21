@@ -22,6 +22,7 @@ import dev.sluide.projects.ProjectPicker
 import dev.sluide.projects.RecentProjects
 import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.projecttrust.TrustedProjects
+import dev.sluide.scratches.ScratchFiles
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.SettingsStore
@@ -88,6 +89,12 @@ abstract class MainWindowUiFixture {
     /** The folders the window asked to open in other windows. */
     internal val openedElsewhere = mutableListOf<Path>()
 
+    /** The files that count as open in other windows ([ProjectWindows.isOpenElsewhere]). */
+    internal val openInOtherWindows = mutableSetOf<Path>()
+
+    /** The shared scratch files, in the test's home folder, never in `~/.sluide`; created when a folder opens. */
+    internal val scratchFiles by lazy { ScratchFiles(home.resolve(".sluide/scratches")) }
+
     /** The remembered projects, kept in the test's settings folder, never in `~/.sluide`. */
     internal val recentProjects by lazy { RecentProjects(settingsDir.resolve("projects.properties")) }
     internal val projectWindows by lazy {
@@ -95,6 +102,11 @@ abstract class MainWindowUiFixture {
             override fun open(folder: Path) {
                 openedElsewhere.add(folder)
             }
+
+            override fun isOpenElsewhere(
+                path: Path,
+                window: MainWindow,
+            ) = path in openInOtherWindows
         }
     }
 
@@ -195,6 +207,7 @@ abstract class MainWindowUiFixture {
             recentProjects,
             projectTrust,
             tasks,
+            scratchFiles,
             SystemBrowser(),
         )
     }

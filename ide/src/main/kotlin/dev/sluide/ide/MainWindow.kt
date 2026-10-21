@@ -25,9 +25,11 @@ import dev.sluide.ide.git.textDiff
 import dev.sluide.ide.git.toTextDiff
 import dev.sluide.ide.git.wouldCommit
 import dev.sluide.ide.logging.currentLogFolder
+import dev.sluide.ide.scratches.WindowScratches
 import dev.sluide.projects.RecentProjects
 import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.projecttrust.ProjectTrustState
+import dev.sluide.scratches.ScratchFiles
 import dev.sluide.settings.SettingsDialog
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.ThemedWindows
@@ -97,6 +99,7 @@ class MainWindow(
     private val recentProjects: RecentProjects,
     private val projectTrust: ProjectTrust,
     private val backgroundTasks: BackgroundTasks,
+    scratchFiles: ScratchFiles,
     systemBrowser: SystemBrowser,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
@@ -130,6 +133,16 @@ class MainWindow(
         askToTrust(stage, folder ?: Path.of(""), state)
     }
 
+    /** The shared scratch files in this window's explorer and editor (ADR 0066). */
+    internal val scratches =
+        WindowScratches(
+            scratchFiles,
+            fileExplorer,
+            editorArea,
+            isOpenElsewhere = { projectWindows.isOpenElsewhere(it, this) },
+            showError = { stage, message -> showError(stage, message) },
+        )
+
     /** Says which tools are off until the folder is trusted, with Review… to decide (ADR 0053); hidden otherwise. */
     private val trustMessage = Label()
     private val trustReview = Button("Review…")
@@ -145,6 +158,9 @@ class MainWindow(
 
     /** The project folder of this window; `null` until a folder is opened in it. */
     val folder: Path? get() = projectService.projectFolder.get()
+
+    /** The files open in this window's tabs. */
+    internal val openPaths: List<Path> get() = editorArea.openPaths
 
     /** Whether the git log is shown below the editor area: only for folders whose git status is followed. */
     private val gitLogPresent = SimpleBooleanProperty(false)
@@ -201,7 +217,10 @@ class MainWindow(
         // Git status markers, if git is installed and the folder is a repository (ADR 0013).
         fileExplorer.markers = { path, directory -> gitStatus.snapshot.get().markers(path, directory) }
         // Not for the log file growing inside the folder: the status's own log lines would trigger the next refresh.
-        fileExplorer.onFilesChanged = { changed -> if (!currentLogFolder.onlyLogFiles(changed)) gitStatus.refresh() }
+        // Nor for scratch files, which are normally in no repository (ADR 0066).
+        fileExplorer.onFilesChanged = { changed ->
+            if (!currentLogFolder.onlyLogFiles(changed) && !scratches.onlyScratches(changed)) gitStatus.refresh()
+        }
         // The changes of modified files against HEAD are marked in their editors, updated with the status (ADR 0021).
         editorArea.diffOf = gitStatus::textDiff
         // Links in file views (e.g. the Markdown preview) to web pages open in the system browser.
@@ -209,6 +228,8 @@ class MainWindow(
         // HTML previews are served with the project's files, and only those (ADR 0018).
         editorArea.projectFolder = { folder }
         editorArea.showError = { showError(stage, it) }
+        // An empty scratch file is deleted when its last tab in any window closes (ADR 0066).
+        editorArea.onFileClosed = scratches::fileClosed
         // Views of .http files share the window's cookies, tokens and chosen environments (ADR 0026); file views may
         // register their work as background tasks (ADR 0061).
         editorArea.windowServices = listOf(httpSession, backgroundTasks)
@@ -262,7 +283,8 @@ class MainWindow(
 
         // A window gets its folder once (ADR 0014); other folders open in new windows.
         projectService.projectFolder.subscribe { folder ->
-            fileExplorer.open(folder)
+            // The scratches below the project, only once there is one (ADR 0066).
+            fileExplorer.open(folder, if (folder != null) scratches.roots() else emptyList())
             // Tools run only what a trusted folder defines; git's status waits for the checks (ADR 0053).
             projectTrust.open(folder)
             gitStatus.open(folder)
@@ -523,8 +545,8 @@ class MainWindow(
                 accelerator = KeyCodeCombination(KeyCode.COMMA, KeyCombination.SHORTCUT_DOWN)
                 setOnAction { showSettings(stage) }
             }
-        val items = arrayOf(openFolder, openProject, SeparatorMenuItem(), save, saveAll, SeparatorMenuItem(), settings)
-        return Menu("File", null, *items)
+        val opening = arrayOf(scratches.menuItem(stage), SeparatorMenuItem(), openFolder, openProject)
+        return Menu("File", null, *opening, SeparatorMenuItem(), save, saveAll, SeparatorMenuItem(), settings)
     }
 
     private fun viewMenu(): Menu {
