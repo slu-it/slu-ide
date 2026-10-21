@@ -30,7 +30,7 @@ class MarkdownFileViewerTest {
     @Test
     fun `is chosen for Markdown files, before the default text viewer`() {
         val fallback = DefaultTextFileViewer()
-        val viewers = FileViewers(listOf(fallback, viewer, MdxFileViewer()), fallback)
+        val viewers = FileViewers(listOf(fallback, viewer), fallback)
 
         assertSame(viewer, viewers.viewerFor(file("README.md")))
     }

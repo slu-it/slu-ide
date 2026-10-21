@@ -19,6 +19,7 @@ import dev.sluide.fileviewers.languages.KotlinFileViewer
 import dev.sluide.fileviewers.languages.KqlFileViewer
 import dev.sluide.fileviewers.languages.LessFileViewer
 import dev.sluide.fileviewers.languages.MakefileFileViewer
+import dev.sluide.fileviewers.languages.MdxFileViewer
 import dev.sluide.fileviewers.languages.PowerShellFileViewer
 import dev.sluide.fileviewers.languages.PythonFileViewer
 import dev.sluide.fileviewers.languages.SassFileViewer
@@ -31,7 +32,6 @@ import dev.sluide.fileviewers.languages.TomlFileViewer
 import dev.sluide.fileviewers.languages.TsxFileViewer
 import dev.sluide.fileviewers.languages.TypeScriptFileViewer
 import dev.sluide.fileviewers.languages.YamlFileViewer
-import dev.sluide.fileviewers.markdown.MdxFileViewer
 import dev.sluide.fileviewers.notebook.NotebookFileViewer
 import dev.sluide.fileviewers.xml.XmlFileViewer
 import org.junit.jupiter.api.io.TempDir
