@@ -2,6 +2,7 @@ package dev.sluide.fileexplorer.actions
 
 import java.io.IOException
 import java.nio.file.AccessDeniedException
+import java.nio.file.DirectoryNotEmptyException
 import java.nio.file.FileAlreadyExistsException
 import java.nio.file.FileSystemException
 import java.nio.file.FileVisitResult
@@ -21,8 +22,9 @@ internal class FileOperationException(
 ) : IOException(message, cause)
 
 /**
- * Creates, renames and deletes files and folders after checking their names (ADR 0024). Names are single entries of
- * a folder: no paths, and renaming never moves anything to another folder. Deleting is permanent.
+ * Creates, renames, moves and deletes files and folders after checking their names (ADR 0024, ADR 0073). Names are
+ * single entries of a folder: no paths, and renaming never moves anything to another folder; [move] does, keeping the
+ * name. Deleting is permanent.
  */
 internal object FileOperations {
     /**
@@ -134,6 +136,51 @@ internal object FileOperations {
         }
         return target
     }
+
+    /**
+     * Moves [path] into [folder], keeping its name, and returns the new path; [path] itself if it is in [folder]
+     * already. A folder keeps its content; a symbolic link is moved, not its target. Refused if [folder] is [path] or
+     * lies inside it, or if the name exists in [folder] (also in another case on case-insensitive file systems):
+     * nothing is ever replaced. Moves are renames only: nothing is moved to another file store (drive), where
+     * `Files.move` would copy and delete.
+     */
+    fun move(
+        path: Path,
+        folder: Path,
+    ): Path {
+        val name = path.fileName.toString()
+        if (path.parent == folder) return path
+        if (folder.startsWith(path)) throw FileOperationException("“$name” cannot be moved into itself.")
+        val target = folder.resolve(name)
+        if (Files.exists(target, NOFOLLOW_LINKS)) {
+            throw FileOperationException("“$name” already exists in “${folder.fileName ?: folder}”.")
+        }
+        if (!onSameFileStore(path, folder)) throw FileOperationException(otherDrive(name))
+        return failingWith("move", path) {
+            try {
+                Files.move(path, target)
+            } catch (e: DirectoryNotEmptyException) {
+                // Without replacing, only another file store refuses like this, should the check above have missed it.
+                throw FileOperationException(otherDrive(name), e)
+            }
+        }
+    }
+
+    /**
+     * Whether [path] (by its folder, so a link counts where it is, not where it points) and [folder] are on the same
+     * file store; `true` if that cannot be told, leaving it to the move.
+     */
+    private fun onSameFileStore(
+        path: Path,
+        folder: Path,
+    ): Boolean =
+        try {
+            Files.getFileStore(checkNotNull(path.parent) { "$path has no folder" }) == Files.getFileStore(folder)
+        } catch (_: IOException) {
+            true
+        }
+
+    private fun otherDrive(name: String) = "Could not move “$name”: it cannot be moved to another drive."
 
     /**
      * Deletes [path] permanently, a folder with everything in it. Symbolic links are deleted themselves, their

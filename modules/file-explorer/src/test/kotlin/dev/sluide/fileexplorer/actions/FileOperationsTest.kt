@@ -1,6 +1,7 @@
 package dev.sluide.fileexplorer.actions
 
 import org.junit.jupiter.api.Assumptions.assumeFalse
+import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.AccessDeniedException
 import java.nio.file.Files
@@ -260,5 +261,111 @@ class FileOperationsTest {
         val failure = assertFailsWith<FileOperationException> { FileOperations.delete(gone) }
 
         assertEquals("Could not delete “gone.txt”: $gone does not exist.", failure.message)
+    }
+
+    @Test
+    fun `moves files and folders with their content into another folder, keeping their names`() {
+        val file = folder.resolve("a.txt").apply { writeText("content") }
+        val sub = folder.resolve("sub").createDirectories()
+        sub.resolve("inner.txt").writeText("inner")
+        val target = folder.resolve("target").createDirectories()
+
+        val movedFile = FileOperations.move(file, target)
+        val movedSub = FileOperations.move(sub, target)
+
+        assertEquals(target.resolve("a.txt"), movedFile)
+        assertEquals(target.resolve("sub"), movedSub)
+        assertEquals("content", movedFile.readText())
+        assertEquals("inner", movedSub.resolve("inner.txt").readText())
+        assertEquals(listOf("target"), folder.listDirectoryEntries().map { it.name })
+    }
+
+    @Test
+    fun `refuses to move onto an entry of the same name and replaces nothing`() {
+        val file = folder.resolve("a.txt").apply { writeText("mine") }
+        val target = folder.resolve("target").createDirectories()
+        target.resolve("a.txt").writeText("theirs")
+        target.resolve("dangling").createSymbolicLinkPointingTo(folder.resolve("nowhere"))
+        val link = folder.resolve("dangling").createFile()
+
+        val failure = assertFailsWith<FileOperationException> { FileOperations.move(file, target) }
+        assertFailsWith<FileOperationException> { FileOperations.move(link, target) }
+
+        assertEquals("“a.txt” already exists in “target”.", failure.message)
+        assertEquals("mine", file.readText())
+        assertEquals("theirs", target.resolve("a.txt").readText())
+        assertTrue(link.isRegularFile())
+        assertTrue(Files.isSymbolicLink(target.resolve("dangling")))
+    }
+
+    @Test
+    fun `refuses to move a folder into itself or a folder inside it`() {
+        val sub = folder.resolve("sub").createDirectories()
+        val deeper = sub.resolve("a/b").createDirectories()
+
+        val itself = assertFailsWith<FileOperationException> { FileOperations.move(sub, sub) }
+        assertFailsWith<FileOperationException> { FileOperations.move(sub, deeper) }
+
+        assertEquals("“sub” cannot be moved into itself.", itself.message)
+        assertTrue(deeper.isDirectory())
+        assertEquals(listOf("sub"), folder.listDirectoryEntries().map { it.name })
+    }
+
+    @Test
+    fun `moves a link, not its target`() {
+        val outside = folder.resolve("outside").createDirectories()
+        outside.resolve("keep.txt").writeText("content")
+        val link = folder.resolve("link").createSymbolicLinkPointingTo(outside)
+        val target = folder.resolve("target").createDirectories()
+
+        val moved = FileOperations.move(link, target)
+
+        assertTrue(Files.isSymbolicLink(moved))
+        assertFalse(Files.exists(link, LinkOption.NOFOLLOW_LINKS))
+        assertEquals(listOf("keep.txt"), outside.listDirectoryEntries().map { it.name })
+        assertEquals("content", moved.resolve("keep.txt").readText())
+    }
+
+    @Test
+    fun `moving into the folder it is in already does nothing`() {
+        val file = folder.resolve("a.txt").createFile()
+
+        assertEquals(file, FileOperations.move(file, folder))
+        assertTrue(file.exists())
+    }
+
+    @Test
+    fun `reports why moving failed`() {
+        val gone = folder.resolve("gone.txt")
+        val target = folder.resolve("target").createDirectories()
+
+        val failure = assertFailsWith<FileOperationException> { FileOperations.move(gone, target) }
+
+        assertEquals("Could not move “gone.txt”: $gone does not exist.", failure.message)
+    }
+
+    @Test
+    fun `nothing is moved to another drive, neither a folder nor a file`() {
+        // /dev/shm is a file system of its own on Linux.
+        val shm = Path.of("/dev/shm")
+        assumeTrue(shm.isDirectory() && Files.isWritable(shm))
+        val other = Files.createTempDirectory(shm, "sluide-move")
+        try {
+            assumeTrue(Files.getFileStore(other) != Files.getFileStore(folder))
+            val sub = folder.resolve("sub").createDirectories()
+            sub.resolve("inner.txt").writeText("inner")
+            val file = folder.resolve("a.txt").apply { writeText("a") }
+
+            val failure = assertFailsWith<FileOperationException> { FileOperations.move(sub, other) }
+            val fileFailure = assertFailsWith<FileOperationException> { FileOperations.move(file, other) }
+
+            assertEquals("Could not move “sub”: it cannot be moved to another drive.", failure.message)
+            assertEquals("Could not move “a.txt”: it cannot be moved to another drive.", fileFailure.message)
+            assertEquals("inner", sub.resolve("inner.txt").readText())
+            assertEquals("a", file.readText())
+            assertEquals(emptyList(), other.listDirectoryEntries())
+        } finally {
+            FileOperations.delete(other)
+        }
     }
 }
