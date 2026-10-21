@@ -4,7 +4,12 @@
     -fx-padding: 8;
     -fx-background-color: -fx-outer-border, -fx-background;
     -fx-background-insets: 0, 1;
-    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.35), 12, 0, 0, 3);
+    /* No drop shadow: where popups cannot be transparent (Linux without a compositor) its area shows as a white frame. */
+}
+
+/* The prompt dimmed against the field's background in both themes; Modena's own fill is dark on dark. */
+.scratch-picker-field {
+    -fx-prompt-text-fill: ladder(-fx-control-inner-background, derive(-fx-control-inner-background, 50%) 49%, derive(-fx-control-inner-background, -30%) 50%);
 }
 
 .scratch-picker-title {
