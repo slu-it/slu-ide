@@ -2,8 +2,8 @@ package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.dockersandbox.DockerSandbox
-import dev.sluide.editor.EditorArea
-import dev.sluide.editor.askToClose
+import dev.sluide.editorarea.EditorArea
+import dev.sluide.editorarea.askToClose
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileexplorer.FolderAction
 import dev.sluide.fileexplorer.FolderActionResult

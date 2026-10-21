@@ -1,6 +1,6 @@
 package dev.sluide.ide
 
-import dev.sluide.editor.EditorTab
+import dev.sluide.editorarea.EditorTab
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitHunk
 import dev.sluide.git.GitStatus

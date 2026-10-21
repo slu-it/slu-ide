@@ -1,6 +1,6 @@
 package dev.sluide.terminal.view
 
-import dev.sluide.editor.EditorTab
+import dev.sluide.editorarea.EditorTab
 import javafx.beans.binding.Bindings
 import javafx.beans.value.ObservableValue
 import javafx.scene.Node

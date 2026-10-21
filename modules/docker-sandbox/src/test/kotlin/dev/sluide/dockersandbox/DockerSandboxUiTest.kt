@@ -1,6 +1,6 @@
 package dev.sluide.dockersandbox
 
-import dev.sluide.editor.EditorTab
+import dev.sluide.editorarea.EditorTab
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.SettingsStore
 import dev.sluide.terminal.TerminalStartException

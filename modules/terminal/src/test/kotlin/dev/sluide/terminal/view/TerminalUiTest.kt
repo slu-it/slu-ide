@@ -1,6 +1,6 @@
 package dev.sluide.terminal.view
 
-import dev.sluide.editor.EditorTab
+import dev.sluide.editorarea.EditorTab
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontSpec

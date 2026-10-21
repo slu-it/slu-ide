@@ -1,6 +1,6 @@
 package dev.sluide.ide.git
 
-import dev.sluide.editor.EditorTab
+import dev.sluide.editorarea.EditorTab
 import dev.sluide.fileviewers.DiffFileView
 import dev.sluide.fileviewers.LineChange
 import dev.sluide.fileviewers.TextDiff

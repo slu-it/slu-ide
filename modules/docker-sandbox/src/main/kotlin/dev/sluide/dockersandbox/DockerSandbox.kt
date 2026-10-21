@@ -1,7 +1,7 @@
 package dev.sluide.dockersandbox
 
 import dev.sluide.backgroundtasks.NamedThreads
-import dev.sluide.editor.EditorTab
+import dev.sluide.editorarea.EditorTab
 import dev.sluide.terminal.Terminals
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Scope

@@ -1,6 +1,6 @@
 package dev.sluide.ide.scratches
 
-import dev.sluide.editor.EditorArea
+import dev.sluide.editorarea.EditorArea
 import dev.sluide.fileexplorer.ExplorerRoot
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileexplorer.FolderIcons

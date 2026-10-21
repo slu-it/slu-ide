@@ -1,6 +1,6 @@
 package dev.sluide.ide
 
-import dev.sluide.editor.SaveChoice
+import dev.sluide.editorarea.SaveChoice
 import javafx.event.ActionEvent
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination

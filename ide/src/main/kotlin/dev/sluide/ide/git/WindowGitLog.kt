@@ -1,6 +1,6 @@
 package dev.sluide.ide.git
 
-import dev.sluide.editor.EditorArea
+import dev.sluide.editorarea.EditorArea
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.git.GitStatusService

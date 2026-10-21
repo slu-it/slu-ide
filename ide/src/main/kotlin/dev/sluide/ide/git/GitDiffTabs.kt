@@ -1,6 +1,6 @@
 package dev.sluide.ide.git
 
-import dev.sluide.editor.EditorArea
+import dev.sluide.editorarea.EditorArea
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.git.GitChange
 import dev.sluide.gitlog.CommitFileDiff

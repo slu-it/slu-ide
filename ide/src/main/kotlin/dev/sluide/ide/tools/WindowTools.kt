@@ -3,7 +3,7 @@ package dev.sluide.ide.tools
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.dockersandbox.SandboxAction
 import dev.sluide.dockersandbox.SandboxNotAllowedException
-import dev.sluide.editor.EditorArea
+import dev.sluide.editorarea.EditorArea
 import dev.sluide.ide.ProjectService
 import dev.sluide.terminal.TerminalStartException
 import dev.sluide.terminal.Terminals

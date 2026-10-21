@@ -21,7 +21,7 @@ dependencies {
     implementation(libs.spring.boot.starter)
     implementation(project(":modules:file-explorer"))
     implementation(project(":modules:file-viewers"))
-    implementation(project(":modules:editor"))
+    implementation(project(":modules:editor-area"))
     implementation(project(":modules:file-watcher"))
     implementation(project(":modules:terminal"))
     implementation(project(":modules:settings"))
