@@ -28,21 +28,38 @@ taken in the target, and affects files open in tabs, which belong to the editor 
   into them. If the selection lay in the deleted entries, the first remaining row after them (else before them, else
   their folder) is selected at once.
 - **Moving by drag and drop** (`tree/TreeDragAndDrop.kt`, `actions/ExplorerMoves.kt`, `FileOperations.move`):
+  - **A plain mouse drag within the tree, not the platform's drag and drop** (`startDragAndDrop`). Event filters on
+    the tree follow a press on a row; moving 5 px with the button down starts the drag, the release ends it. The row
+    under the pointer is found by position among the shown cells, since JavaFX delivers the drag's events to the
+    pressed row. The pressed row's icon and name follow the pointer in a `Popup`, offset so it is never under it;
+    the cursor is a closed hand over a target. Escape (handled on that popup too, which gets the window's key events
+    while it shows), any mouse press (also a primary one after a release that never reached the tree), losing the
+    focus (the drag takes it), another tree content (`open`), or releasing elsewhere cancels. The gesture's events
+    are consumed, so a drag is no click on its release (no selection change, no double-click opening), and the rest
+    of a press that cancelled it, its context menu included, is kept from the rows. The move flow also refuses
+    entries no longer shown.
+  - Why not the platform drag and drop: on Linux it broke the confirmation. JavaFX's GTK glass (`glass_window.cpp`)
+    grabs the pointer for the main window when the mouse moves with a button down (`grab_mouse_drag_focus`,
+    `sm_mouse_drag_window`) and releases the grab only on a button release in that window; GTK's drag and drop
+    swallowed that release, so the grab stayed, and the modal Move dialog opened after the drop got no mouse clicks
+    (they went to the disabled main window) until it was closed by keyboard. A `runLater` from the drop handler also
+    still ran inside GTK's drag loop. Nothing needs the platform's drag and drop: entries are only dragged within the
+    tree, never in from or out to other applications or windows.
   - Sources: the selection if the pressed row is selected, else that row; not top-level folders, not entries being
     deleted or holding one being deleted. Entries inside another dragged folder go along with it. A drag that ends
-    without a drop selects them again.
-  - Only drags started in the same tree count: the dragboard carries a private format
-    (`application/x-sluide-explorer-paths`) and the gesture source must be the tree. Nothing is dragged in from other
-    applications or windows, or out to them.
+    without a move (cancelled, released elsewhere, the question cancelled or every name taken) selects them again.
+  - The press keeps a selection of several entries, so it can be dragged: JavaFX's cell behaviour selects only the
+    pressed row on the release if the row was selected and the mouse not dragged. The filters keep moves below the
+    threshold from the row, so a press and release that stays a click still selects only that row.
   - Targets: a folder row, or the empty area below the rows for the project folder; any folder of any top-level root,
     so entries move into and out of Scratches. Not a file row, not the scroll bars, not a dragged folder or a folder
     inside one, not the folder all dragged entries are in already (`canDrop`), and not a folder being deleted or
     inside one. The target row gets `:drop-target` (the project row for the empty area); a collapsed folder under the
     pointer expands after 700 ms, and the tree scrolls while the pointer is within a row of its top or bottom edge,
     taking the row that scrolls under the pointer as the target.
-  - Every drop is confirmed. The drop handler completes the drop and runs the move with `Platform.runLater`: the
-    confirmation waits in a nested event loop, which must not run inside the drag-and-drop event handler on some
-    platforms.
+  - Every drop is confirmed: the release runs the move with `Platform.runLater`, so the confirmation, which waits in
+    an event loop of its own, opens after the release has been handled. For one entry the question says where from
+    and where to (folders with their top-level folder, e.g. "From “Scratches/notes” to “project/src”.").
   - Names taken in the target are never replaced: those entries are skipped, after the question says so ("Move the
     others"); if all clash, an error is shown instead. Each move checks again (`Files.move` without
     `REPLACE_EXISTING`, a name taken while asking stops with an error). A delete started while asking stops the move

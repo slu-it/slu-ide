@@ -103,22 +103,30 @@
     without asking again. Files edited after the confirmation keep their tabs, showing the file deleted.
 - Moving by drag and drop ([ADR 0073](../adr/0073-explorer-multi-selection-and-moving.md), `tree/TreeDragAndDrop.kt`,
   `actions/ExplorerMoves.kt`, `FileOperations.move`):
-  - Dragging a selected row drags the whole selection, another row only itself (and selects it). Top-level nodes and
-    entries being deleted or holding one being deleted cannot be dragged; entries inside a dragged folder go along
-    with it. A drag that ends without a drop selects the dragged entries again.
+  - A plain mouse drag within the explorer (not the platform's drag and drop, which on Linux left the confirmation
+    without mouse input; ADR 0073): press a row and move 5 px with the button down. Dragging a selected row drags the
+    whole selection (the press keeps it), another row only itself (and selects it); a press and release without
+    moving that far stays a click. Top-level nodes and entries being deleted or holding one being deleted cannot be
+    dragged; entries inside a dragged folder go along with it.
+  - The pressed row's icon and name follow the pointer, slightly below and to the right of it, in the explorer font on
+    a small framed box (`.explorer-drag-image`, readable in both themes); with several entries a "+N" badge in the
+    accent colour counts the others (entries inside a dragged folder not counted). Over a target the cursor is a
+    closed hand. Escape, another mouse button (over the explorer no context menu opens), the explorer losing the focus (a drag takes
+    it), opening another folder or releasing anywhere else cancels; a drag that ends without a move selects the
+    dragged entries again. A drag never counts as a click on its release, and the rest of a press that cancelled it
+    does nothing.
   - Drop targets are folder rows of any top-level node, so entries move into and out of Scratches too, and the empty
     area below the rows, which stands for the project folder. File rows, the scroll bars, a dragged folder and the
     folders inside it, the folder all dragged entries are in already (`canDrop`), and a folder being deleted or
-    inside one refuse the drop. Only drags started in the same
-    explorer are accepted (a private dragboard format): nothing is dragged in from or out to other applications or
-    windows.
+    inside one refuse the drop. Nothing is dragged in from or out to other applications or windows.
   - The target row is framed and tinted in the accent colour (`:drop-target`, `file-explorer.css`, light and dark); on
     the empty area the project row is marked. A collapsed folder held under the pointer for 700 ms expands. Near the
     top or bottom edge (within a row) the tree scrolls while the pointer stays there; the row scrolling under the
     pointer becomes the target.
   - Every drop asks first, in a dialog (`MoveConfirmation.kt`, Cancel the default button): "Move “a.txt” to
-    “folder”?" or "Move N entries to “folder”?" listing the first ten names. The dialog opens after the drop has
-    completed (`Platform.runLater`), not inside the drop handler.
+    “folder”?" with "From “project/src” to “project/folder”." (folders with their top-level folder), or "Move N
+    entries to “folder”?" listing the first ten names. The dialog opens after the release has been handled
+    (`Platform.runLater`).
   - Names that exist in the target already (also in another case on case-insensitive file systems, also a dangling
     link) are never replaced: the question says which are skipped and its button reads "Move the others"; if every
     entry clashes, an error says so and nothing moves.

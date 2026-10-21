@@ -91,6 +91,7 @@ the source beside it; Markdown and notebook previews do not zoom ([previews.md](
 | F2 | Rename (only when one entry is selected) |
 | Delete or Shortcut+Backspace | Delete the selected entries (one confirmation) |
 | Drag entries onto a folder or the empty area | Move them (after a confirmation) |
+| Escape while dragging entries | Cancel the drag |
 
 ## Terminal
 [terminal.md](terminal.md)

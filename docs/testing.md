@@ -33,10 +33,6 @@ Subagents verify with subsets; the full `./gradlew build` is the main session's 
   through the scene graph (`robot.lookup(".tree-cell")`). Examples: `FileExplorerViewUiTest`, `MainWindowProjectUiTest`.
 - Change state via `robot.interact { ... }` followed by `WaitForAsyncUtils.waitForFxEvents()`, not via synthetic
   mouse/keyboard input. Synthetic input needs OS permissions on macOS and is flaky on virtual displays.
-- Exception: drag and drop between nodes (`startDragAndDrop`) needs real input (`robot.drag(...).dropTo(...)`), since
-  DRAG_OVER and DRAG_DROPPED carry a `Dragboard` that only a gesture the platform started from real mouse input
-  creates; synthetic `MouseEvent`s never start one. Keep such tests few, test the logic behind the drop without input,
-  and check them over several runs on a virtual display. Example: `FileExplorerViewDragUiTest`.
 - To test real mouse handling (e.g. a press that must not reach a parent), fire `MouseEvent`s at the node with
   `Event.fireEvent` instead of calling `Button.fire()`, which skips the mouse handlers. Example: `fireMouse` in
   `EditorAreaUiFixture`.
