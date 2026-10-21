@@ -10,6 +10,7 @@ import dev.sluide.fileexplorer.actions.askToDelete
 import dev.sluide.fileexplorer.actions.deleteQuestion
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileexplorer.tree.PathCell
+import dev.sluide.fileexplorer.tree.startWidth
 import dev.sluide.fileicons.FILE_ICONS_CSS
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.settings.FontArea
@@ -28,7 +29,6 @@ import javafx.scene.control.skin.VirtualFlow
 import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
-import javafx.scene.text.Text
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.io.IOException
@@ -36,6 +36,7 @@ import java.io.UncheckedIOException
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
+import java.util.IdentityHashMap
 import kotlin.math.roundToInt
 
 private val log = System.getLogger(FileExplorerView::class.java.name)
@@ -139,13 +140,18 @@ class FileExplorerView(
             }.showAndWait()
     }
 
-    /** The entry the context menu was opened for; `null` for the empty area, which stands for the opened folder. */
+    /** The entry the context menu was opened for; `null` for the empty area, which stands for the project folder. */
     private var menuTarget: FileTreeItem? = null
 
     /** Counts calls of [refreshMarkers]; the cells listen to it. */
     private val markerChanges = SimpleIntegerProperty()
 
-    private val watches = mutableMapOf<Path, AutoCloseable>()
+    /** The top-level item of the opened (project) folder; `null` without one. */
+    internal var projectItem: FileTreeItem? = null
+        private set
+
+    // By item, not path: a folder can be shown twice (e.g. an extra root inside the project), each copy watched.
+    private val watches = IdentityHashMap<FileTreeItem, AutoCloseable>()
 
     private val font = fontSettings.font(FontArea.EXPLORER)
 
@@ -153,6 +159,8 @@ class FileExplorerView(
     private val fileIconSize: ObservableValue<Int> = font.map { (it.size * ICON_SCALE).roundToInt() }
 
     init {
+        // The top-level folders are the children of a hidden root, indented like a root shown by itself.
+        isShowRoot = false
         setCellFactory {
             PathCell(
                 fileIconSize,
@@ -227,13 +235,13 @@ class FileExplorerView(
                 actionItems.clear()
                 folderActions.mapTo(actionItems) { action ->
                     MenuItem(action.label).apply {
-                        isDisable = root == null
+                        isDisable = targetFolder(menuTarget) == null
                         setOnAction { runFolderAction(action, menuTarget) }
                     }
                 }
                 items.addAll(items.indexOf(newFolder) + 1, actionItems)
-                newFile.isDisable = root == null
-                newFolder.isDisable = root == null
+                newFile.isDisable = targetFolder(menuTarget) == null
+                newFolder.isDisable = targetFolder(menuTarget) == null
                 rename.isDisable = !canChange(menuTarget)
                 delete.isDisable = !canChange(menuTarget)
                 history.isVisible = showHistory != null
@@ -246,11 +254,65 @@ class FileExplorerView(
     /** The file the context menu was opened for, for Show History; `null` for a folder or the empty area. */
     private fun historyTarget(): Path? = menuTarget?.takeIf { !it.isDirectory }?.value
 
-    /** Shows [root] and its content; `null` clears the view. */
-    fun open(root: Path?) {
+    /**
+     * Shows [root] (expanded) and after it each of [extraRoots] (collapsed) as top-level nodes; `open(null)` clears
+     * the view.
+     */
+    fun open(
+        root: Path?,
+        extraRoots: List<ExplorerRoot> = emptyList(),
+    ) {
         watches.values.forEach(AutoCloseable::close)
         watches.clear()
-        this.root = root?.let { FileTreeItem(it, ::watch).apply { isExpanded = true } }
+        val project = root?.let { FileTreeItem(it.toAbsolutePath().normalize(), onChildrenLoaded = ::watch) }
+        project?.isExpanded = true
+        projectItem = project
+        val extras = extraRoots.map { FileTreeItem(it.folder.toAbsolutePath().normalize(), it.label, ::watch) }
+        this.root =
+            if (project == null && extras.isEmpty()) {
+                null
+            } else {
+                TreeItem<Path>().apply {
+                    isExpanded = true
+                    children.setAll(listOfNotNull(project) + extras)
+                }
+            }
+    }
+
+    /** The top-level folders, the project first. */
+    private fun topLevel(): List<FileTreeItem> = root?.children.orEmpty().filterIsInstance<FileTreeItem>()
+
+    /**
+     * Expands the top-level node holding [path] and the folders down to it, loading them, then selects and scrolls to
+     * [path]; takes the focus only if [focus]. Returns false, expanding nothing, if no top-level node holds it or it
+     * does not exist.
+     */
+    fun reveal(
+        path: Path,
+        focus: Boolean = false,
+    ): Boolean {
+        val target = path.toAbsolutePath().normalize()
+        val top = topLevel().filter { target.startsWith(it.value) }.maxByOrNull { it.value.nameCount } ?: return false
+        if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) return false
+        var item: TreeItem<Path> = top
+        val folders = mutableListOf<FileTreeItem>()
+        for (segment in top.value.relativize(target).filter { it.toString().isNotEmpty() }) {
+            val folder = item as? FileTreeItem ?: return false
+            folders += folder
+            val next = folder.value.resolve(segment)
+            // The entry may be new, before the watch reported it.
+            var found = folder.children.firstOrNull { it.value == next }
+            if (found == null) {
+                folder.refresh()
+                found = folder.children.firstOrNull { it.value == next }
+            }
+            item = found ?: return false
+        }
+        // Only now, so that a path not found leaves the tree as it was.
+        folders.forEach { it.isExpanded = true }
+        selectRow(item)
+        if (focus) requestFocus()
+        return true
     }
 
     /**
@@ -258,7 +320,7 @@ class FileExplorerView(
      * change on disk was missed.
      */
     fun refreshAll() {
-        (root as? FileTreeItem)?.loadedFolders()?.forEach { folder ->
+        topLevel().flatMap(FileTreeItem::loadedFolders).forEach { folder ->
             folder.refresh()
             folder.forgetReadability(listOf(folder.value))
             watch(folder)
@@ -269,33 +331,10 @@ class FileExplorerView(
 
     /**
      * The width the explorer would like to start with: enough for the names of the shown entries with their icons and
-     * indentation, in the explorer font, but at least [MIN_START_WIDTH] and at most [MAX_START_WIDTH] times its size,
+     * indentation, in the explorer font, but at least 12 and at most 24 times its size (`tree.startWidth`),
      * so that a few short names still leave room and a long one does not take the window.
      */
-    fun startWidth(): Double {
-        val spec = font.value
-        val text = Text().apply { font = spec.toFont() }
-        val max = MAX_START_WIDTH * spec.size
-        var width = MIN_START_WIDTH * spec.size
-        // Stops once a name needs the largest width, so a folder with thousands of entries is not measured in full.
-        for ((item, level) in shownEntries(root, 0)) {
-            text.text = (item.value.fileName ?: item.value).toString()
-            width = maxOf(width, (level + ROW_EXTRA) * spec.size + text.layoutBounds.width)
-            if (width >= max) return max
-        }
-        return width
-    }
-
-    /** [item] at [level] and, if it is expanded, its entries below it, in the order shown. */
-    private fun shownEntries(
-        item: TreeItem<Path>?,
-        level: Int,
-    ): Sequence<Pair<TreeItem<Path>, Int>> =
-        sequence {
-            if (item == null) return@sequence
-            yield(item to level)
-            if (item.isExpanded) item.children.forEach { yieldAll(shownEntries(it, level + 1)) }
-        }
+    fun startWidth(): Double = startWidth(topLevel(), font.value)
 
     /** Asks [markers] again for every shown entry. */
     fun refreshMarkers() {
@@ -303,15 +342,17 @@ class FileExplorerView(
     }
 
     private fun watch(folder: FileTreeItem) {
-        val path = folder.value
-        watches.remove(path)?.close()
-        watches[path] = fileWatcher.watch(path) { changed -> onFolderChanged(folder, changed) }
+        if (!isShown(folder)) return
+        watches.remove(folder)?.close()
+        watches[folder] = fileWatcher.watch(folder.value) { changed -> onFolderChanged(folder, changed) }
     }
 
     private fun onFolderChanged(
         folder: FileTreeItem,
         changed: List<Path>,
     ) {
+        // A callback queued before the folder left the tree, e.g. by open.
+        if (!isShown(folder)) return
         folder.refresh()
         folder.forgetReadability(changed)
         // The folder itself is reported when events were lost or it was deleted; watch it anew if it is there.
@@ -328,14 +369,14 @@ class FileExplorerView(
         onFilesChanged(changed.toSet())
     }
 
-    /** Deleted folders are removed from the tree by their parent's refresh; their watches end here. */
+    /** Folders deleted or no longer in the tree (the parent's refresh removes them); their watches end here. */
     private fun closeWatchesOfVanishedFolders() {
-        watches.keys.filterNot(Files::isDirectory).forEach { watches.remove(it)?.close() }
+        watches.keys.filter { !Files.isDirectory(it.value) || !isShown(it) }.forEach { watches.remove(it)?.close() }
     }
 
     /**
      * Asks for a name and creates a file or [folder] of that name in [target] if it is a folder, else beside it; in the
-     * opened folder for `null`. The new entry is selected, and a new file opened.
+     * project folder for `null`. The new entry is selected, and a new file opened.
      */
     internal fun create(
         target: FileTreeItem?,
@@ -357,9 +398,11 @@ class FileExplorerView(
         if (!folder) requestOpen(created)
     }
 
-    /** The folder an action on [target] works in: [target] if a folder, else its folder; the opened folder for `null`. */
+    /**
+     * The folder an action on [target] works in: [target] if a folder, else its folder; the project folder for `null`.
+     */
     private fun targetFolder(target: FileTreeItem?): FileTreeItem? {
-        val item = target ?: root as? FileTreeItem ?: return null
+        val item = target ?: projectItem ?: return null
         return if (item.isDirectory) item else item.parent as? FileTreeItem
     }
 
@@ -396,8 +439,8 @@ class FileExplorerView(
     }
 
     /**
-     * Whether [item] can be renamed or deleted: an entry of the opened folder, not the folder itself, and not being
-     * deleted.
+     * Whether [item] can be renamed or deleted: an entry of a top-level folder, not a top-level folder itself (their
+     * parent is the hidden root), and not being deleted.
      */
     private fun canChange(item: TreeItem<Path>?): Boolean =
         item is FileTreeItem && item.parent is FileTreeItem && deleting.none { item.value.startsWith(it) }
@@ -423,7 +466,7 @@ class FileExplorerView(
             }
         if (renamed == path) return
         // The folder and its loaded subfolders have new paths, watched once they are loaded again.
-        watches.keys.filter { it.startsWith(path) }.forEach { watches.remove(it)?.close() }
+        watches.keys.filter { it.value.startsWith(path) }.forEach { watches.remove(it)?.close() }
         onMoved(path, renamed)
         select(parent, renamed)?.isExpanded = item.isExpanded
     }
@@ -531,7 +574,7 @@ class FileExplorerView(
         return item
     }
 
-    /** Selects and focuses [item], scrolling only as far as needed to show it. */
+    /** Selects [item], scrolling only as far as needed to show it, and focuses its row in the focus model. */
     private fun selectRow(item: TreeItem<Path>) {
         val row = getRow(item)
         selectionModel.clearAndSelect(row)
@@ -549,10 +592,3 @@ class FileExplorerView(
 }
 
 private const val ICON_SCALE = 1.25
-
-// The start width in multiples of the font size: the bounds, and what a row needs besides its indentation (Modena's
-// 1 em per level) and name: the disclosure arrow, the icon, the gaps and padding, a marker bubble or two and the
-// vertical scroll bar.
-private const val MIN_START_WIDTH = 12.0
-private const val MAX_START_WIDTH = 24.0
-private const val ROW_EXTRA = 6.0

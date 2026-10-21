@@ -112,7 +112,7 @@ class FileExplorerViewUiTest {
         robot.interact { view.open(project) }
 
         robot.interact {
-            view.root.children
+            view.projectNode.children
                 .single()
                 .isExpanded = true
         }
@@ -156,9 +156,9 @@ class FileExplorerViewUiTest {
         robot.interact { view.open(project) }
 
         robot.interact {
-            view.selectionModel.select(view.root.children.single())
+            view.selectionModel.select(view.projectNode.children.single())
             pressKey(KeyCode.ENTER)
-            view.selectionModel.select(view.root)
+            view.selectionModel.select(view.projectNode)
             pressKey(KeyCode.ENTER)
         }
 
@@ -228,7 +228,7 @@ class FileExplorerViewUiTest {
         val kept = project.resolve("sub/kept.txt").createParentDirectories().createFile()
         robot.interact { view.open(project) }
         robot.interact {
-            val sub = view.root.children.single()
+            val sub = view.projectNode.children.single()
             sub.isExpanded = true
             view.selectionModel.select(sub.children.single())
         }
@@ -286,7 +286,7 @@ class FileExplorerViewUiTest {
         val sub = project.resolve("sub").createDirectories()
         robot.interact { view.open(project) }
         robot.interact {
-            view.root.children
+            view.projectNode.children
                 .single()
                 .isExpanded = true
         }
@@ -344,7 +344,7 @@ class FileExplorerViewUiTest {
         }
         robot.interact { view.open(project) }
         robot.interact {
-            view.root.children
+            view.projectNode.children
                 .single()
                 .isExpanded = true
         }
@@ -399,7 +399,7 @@ class FileExplorerViewUiTest {
         project.resolve("z.txt").createFile()
         view.askName = { _, _, _ -> "a" }
         robot.interact { view.open(project) }
-        robot.interact { view.selectionModel.select(view.root.children.single()) }
+        robot.interact { view.selectionModel.select(view.projectNode.children.single()) }
         WaitForAsyncUtils.waitForFxEvents()
 
         robot.interact { view.create(null, folder = true) }
@@ -429,7 +429,7 @@ class FileExplorerViewUiTest {
             sub.deleteExisting()
             "late.txt"
         }
-        robot.interact { view.create(view.root.children.single() as FileTreeItem, folder = false) }
+        robot.interact { view.create(view.projectNode.children.single() as FileTreeItem, folder = false) }
         assertEquals(listOf("Could not create “late.txt”: ${sub.resolve("late.txt")} does not exist."), errors)
     }
 
@@ -478,13 +478,13 @@ class FileExplorerViewUiTest {
         view.askName = { _, _, _ -> "renamed" }
         robot.interact { view.open(project) }
         robot.interact {
-            view.root.children
+            view.projectNode.children
                 .single()
                 .isExpanded = true
         }
         WaitForAsyncUtils.waitForFxEvents()
 
-        robot.interact { view.rename(view.root.children.single() as FileTreeItem) }
+        robot.interact { view.rename(view.projectNode.children.single() as FileTreeItem) }
         WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf(project.resolve("sub") to project.resolve("renamed")), moves)
@@ -506,9 +506,9 @@ class FileExplorerViewUiTest {
         robot.interact { view.open(project) }
 
         robot.interact {
-            view.selectionModel.select(view.root.children.single())
+            view.selectionModel.select(view.projectNode.children.single())
             pressKey(KeyCode.F2)
-            view.selectionModel.select(view.root)
+            view.selectionModel.select(view.projectNode)
             pressKey(KeyCode.F2)
         }
 
@@ -565,7 +565,7 @@ class FileExplorerViewUiTest {
         lateinit var item: FileTreeItem
         robot.interact {
             view.open(project)
-            item = view.root.children.single() as FileTreeItem
+            item = view.projectNode.children.single() as FileTreeItem
         }
         WaitForAsyncUtils.waitForFxEvents()
 
@@ -608,13 +608,13 @@ class FileExplorerViewUiTest {
         }
         robot.interact { view.open(project) }
         robot.interact {
-            view.root.children
+            view.projectNode.children
                 .first()
                 .isExpanded = true
         }
         WaitForAsyncUtils.waitForFxEvents()
         // As a right-click does.
-        robot.interact { view.selectionModel.select(view.root.children.first()) }
+        robot.interact { view.selectionModel.select(view.projectNode.children.first()) }
 
         val delete = menuItemFor(robot, cellNamed(robot, "sub"), "Delete…")
         assertFalse(delete.isDisable)
@@ -651,7 +651,7 @@ class FileExplorerViewUiTest {
         view.onDeleted = { path, _ -> deleted.add(path) }
         robot.interact { view.open(project) }
         robot.interact {
-            view.selectionModel.select(view.root.children.first())
+            view.selectionModel.select(view.projectNode.children.first())
             pressKey(KeyCode.DELETE)
         }
         WaitForAsyncUtils.waitForFxEvents()
@@ -660,7 +660,7 @@ class FileExplorerViewUiTest {
         robot.interact {
             // The next entry is selected at once.
             assertEquals(project.resolve("b.txt"), view.selectionModel.selectedItem?.value)
-            view.selectionModel.select(view.root.children.first())
+            view.selectionModel.select(view.projectNode.children.first())
             pressKey(KeyCode.DELETE)
         }
         assertEquals(1, confirmations)
@@ -685,7 +685,7 @@ class FileExplorerViewUiTest {
         lateinit var item: FileTreeItem
         robot.interact {
             view.open(project)
-            item = view.root.children.single() as FileTreeItem
+            item = view.projectNode.children.single() as FileTreeItem
         }
         WaitForAsyncUtils.waitForFxEvents()
 
@@ -720,7 +720,7 @@ class FileExplorerViewUiTest {
         lateinit var item: FileTreeItem
         robot.interact {
             view.open(project)
-            item = view.root.children.single() as FileTreeItem
+            item = view.projectNode.children.single() as FileTreeItem
         }
         WaitForAsyncUtils.waitForFxEvents()
 
@@ -741,7 +741,7 @@ class FileExplorerViewUiTest {
             null
         }
         robot.interact { view.open(project) }
-        robot.interact { view.selectionModel.select(view.root.children.single()) }
+        robot.interact { view.selectionModel.select(view.projectNode.children.single()) }
         WaitForAsyncUtils.waitForFxEvents()
 
         val rename = menuItemFor(robot, view, "Rename…", keyboard = true)
@@ -767,13 +767,13 @@ class FileExplorerViewUiTest {
         robot.interact { view.open(project) }
 
         robot.interact {
-            view.selectionModel.select(view.root.children.first())
+            view.selectionModel.select(view.projectNode.children.first())
             pressKey(KeyCode.DELETE)
-            view.selectionModel.select(view.root.children.last())
+            view.selectionModel.select(view.projectNode.children.last())
             pressKey(KeyCode.BACK_SPACE)
             // Control and Meta, so the shortcut key is down on every platform.
             Event.fireEvent(view, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.BACK_SPACE, false, true, false, true))
-            view.selectionModel.select(view.root)
+            view.selectionModel.select(view.projectNode)
             pressKey(KeyCode.DELETE)
         }
 
@@ -929,7 +929,7 @@ class FileExplorerViewUiTest {
         assertEquals(normal, nameLabelOf(robot, "clean.kt").textFill)
 
         // On the selection bar the name has the selection's text colour, so it stays readable.
-        robot.interact { view.selectionModel.select(view.root.children.first { it.value.name == "changed.kt" }) }
+        robot.interact { view.selectionModel.select(view.projectNode.children.first { it.value.name == "changed.kt" }) }
         WaitForAsyncUtils.waitForFxEvents()
         assertNull(nameColourOf(robot, "changed.kt"))
         assertEquals(cellNamed(robot, "changed.kt").textFill, nameLabelOf(robot, "changed.kt").textFill)
@@ -1032,11 +1032,11 @@ class FileExplorerViewUiTest {
         robot.interact { view.open(project) }
         WaitForAsyncUtils.waitForFxEvents()
 
-        robot.interact { view.root.isExpanded = false }
+        robot.interact { view.projectNode.isExpanded = false }
         WaitForAsyncUtils.waitForFxEvents()
         robot.interact { assertEquals(FileIcon.FOLDER.ikon, iconOf(robot, project.name).iconCode) }
 
-        robot.interact { view.root.isExpanded = true }
+        robot.interact { view.projectNode.isExpanded = true }
         WaitForAsyncUtils.waitForFxEvents()
         robot.interact { assertEquals(FileIcon.FOLDER_OPEN.ikon, iconOf(robot, project.name).iconCode) }
     }

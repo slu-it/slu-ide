@@ -11,6 +11,7 @@ import javafx.beans.value.ObservableValue
 import javafx.geometry.Pos
 import javafx.scene.control.ContentDisplay
 import javafx.scene.control.Label
+import javafx.scene.control.Tooltip
 import javafx.scene.control.TreeCell
 import javafx.scene.control.TreeItem
 import javafx.scene.input.ContextMenuEvent
@@ -32,6 +33,7 @@ internal class PathCell(
     private val onMenuRequested: (FileTreeItem?) -> Unit,
     private val open: (Path) -> Unit,
 ) : TreeCell<Path>() {
+    private val pathTooltip = Tooltip()
     private val icon = FontIcon().apply { iconSizeProperty().bind(fileIconSize) }
     private val iconUpdater = InvalidationListener { updateIcon() }
 
@@ -99,8 +101,10 @@ internal class PathCell(
         empty: Boolean,
     ) {
         super.updateItem(item, empty)
-        text = if (empty || item == null) null else (item.fileName ?: item).toString()
+        val labelled = (treeItem as? FileTreeItem)?.label
+        text = if (empty || item == null) null else labelled ?: (item.fileName ?: item).toString()
         name.text = text
+        tooltip = if (labelled != null && item != null) pathTooltip.also { it.text = item.toString() } else null
         updateIcon()
         updateMarkers()
     }

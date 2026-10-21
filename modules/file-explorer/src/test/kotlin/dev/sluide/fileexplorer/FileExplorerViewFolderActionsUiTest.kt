@@ -147,7 +147,7 @@ class FileExplorerViewFolderActionsUiTest {
     fun `the action runs on the clicked folder, the folder of a clicked file, or the opened folder`(robot: FxRobot) {
         openProject(robot)
         robot.interact {
-            view.root.children
+            view.projectNode.children
                 .single()
                 .isExpanded = true
         }
@@ -185,7 +185,7 @@ class FileExplorerViewFolderActionsUiTest {
     @Test
     fun `an action without a file expands the collapsed folder and shows the new entry at once`(robot: FxRobot) {
         openProject(robot)
-        val sub = view.root.children.single() as FileTreeItem
+        val sub = view.projectNode.children.single() as FileTreeItem
         view.folderActions =
             listOf(
                 action {
@@ -208,7 +208,7 @@ class FileExplorerViewFolderActionsUiTest {
     @Test
     fun `a file elsewhere is opened but not selected, the folder is expanded and shows the new entry`(robot: FxRobot) {
         openProject(robot)
-        val sub = view.root.children.single() as FileTreeItem
+        val sub = view.projectNode.children.single() as FileTreeItem
         val elsewhere = project.resolve("other.txt").createFile()
         view.folderActions =
             listOf(

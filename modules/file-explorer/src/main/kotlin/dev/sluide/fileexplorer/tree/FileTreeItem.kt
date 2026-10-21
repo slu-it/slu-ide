@@ -13,6 +13,8 @@ import java.nio.file.Path
  */
 internal class FileTreeItem(
     path: Path,
+    /** Shown instead of the name of the folder, for a top-level folder with a given name; `null` for the others. */
+    val label: String? = null,
     private val onChildrenLoaded: (FileTreeItem) -> Unit = {},
 ) : TreeItem<Path>(path) {
     private val directory: Boolean = Files.isDirectory(path)
@@ -84,5 +86,5 @@ internal class FileTreeItem(
             listOf(this) + super.getChildren().filterIsInstance<FileTreeItem>().flatMap { it.loadedFolders() }
         }
 
-    private fun child(path: Path) = FileTreeItem(path, onChildrenLoaded)
+    private fun child(path: Path) = FileTreeItem(path, onChildrenLoaded = onChildrenLoaded)
 }
