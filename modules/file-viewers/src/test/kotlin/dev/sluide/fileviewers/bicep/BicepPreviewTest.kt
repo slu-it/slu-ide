@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers.bicep
 
+import dev.sluide.fileviewers.BicepResourceGraph
 import dev.sluide.fileviewers.preview.PreviewMode
 import dev.sluide.fileviewers.preview.Vendor
 import org.jsoup.Jsoup
@@ -15,7 +16,7 @@ class BicepPreviewTest {
         val page = Jsoup.parse(BicepPreview.render(MAIN_BICEP, dark = true))
         val diagram = assertNotNull(page.selectFirst("pre.mermaid"))
 
-        assertEquals(BicepGraph.parse(MAIN_BICEP).toMermaid(), diagram.attr("data-source"))
+        assertEquals(BicepResourceGraph.of(MAIN_BICEP).mermaid, diagram.attr("data-source"))
         assertTrue(diagram.hasAttr("data-errors"))
         assertTrue(page.body().hasClass("dark") && page.body().hasClass("mermaid-file"))
         assertNull(page.selectFirst(".diagram-note"))

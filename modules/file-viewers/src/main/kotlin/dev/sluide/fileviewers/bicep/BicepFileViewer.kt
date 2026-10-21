@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers.bicep
 
+import dev.sluide.fileviewers.BicepResourceGraph
 import dev.sluide.fileviewers.Highlighters
 import dev.sluide.fileviewers.markdown.MarkdownRenderer
 import dev.sluide.fileviewers.markdown.MermaidPreview
@@ -20,8 +21,8 @@ import java.nio.file.Path
 class BicepFileViewer : PreviewFileViewer(setOf("bicep"), Highlighters.bicep, BicepPreview, CommentSyntax.SLASHES)
 
 /**
- * The resource graph ([BicepGraph]) drawn by Mermaid like a Mermaid file ([MermaidPreview]): zoomable, fitted at first,
- * drawn again in the other colour scheme. A file without resources or modules shows a note instead.
+ * The resource graph ([BicepResourceGraph]) drawn by Mermaid like a Mermaid file ([MermaidPreview]): zoomable, fitted
+ * at first, drawn again in the other colour scheme. A file without resources or modules shows a note instead.
  */
 internal object BicepPreview : Preview {
     override fun load(
@@ -38,12 +39,12 @@ internal object BicepPreview : Preview {
     ): String {
         val graph =
             try {
-                BicepGraph.parse(text)
+                BicepResourceGraph.of(text)
             } catch (e: RuntimeException) {
                 return note("The resource graph could not be read: ${e.message}", dark)
             }
-        if (graph.nodes.isEmpty()) return note("No resources or modules in this file.", dark)
-        return MermaidPreview.render(graph.toMermaid(), dark, graph.note)
+        if (graph.isEmpty) return note("No resources or modules in this file.", dark)
+        return MermaidPreview.render(graph.mermaid, dark, graph.note)
     }
 
     private fun note(
