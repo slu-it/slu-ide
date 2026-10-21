@@ -3,8 +3,8 @@
 **Module:** `modules/git-log` (package `dev.sluide.gitlog` and its sub-packages, [ADR 0055](../adr/0055-sub-packages-within-modules.md)) — `CommitView` (the tab's tree, message and buttons),
 `CommitReader` and `CommitChecks` (what the tab reads and which files are checked, `CommitDraft.kt`, without controls)
 and the `CommitChanges` operation (`CommitChanges.kt`, without controls), opened by `GitLogView.showCommit`; the
-changes are read and committed by `GitCommits.commitChanges` and `commit` in `modules/git`. The Git menu is in
-`MainWindow`. Decisions in [ADR 0048](../adr/0048-commit-tab.md); the area itself in [git-log.md](git-log.md).
+changes are read and committed by `GitCommits.commitChanges` and `commit` in `modules/git`. The Git menu is made by
+`WindowGitLog` in `ide`. Decisions in [ADR 0048](../adr/0048-commit-tab.md); the area itself in [git-log.md](git-log.md).
 
 - **Opening it,** as IntelliJ's Commit tool window: **Git → Commit…** (Shortcut+K), disabled while the window has no
   git log area. It opens a `Commit` tab in the area's header, right of `Log` and left of the file histories

@@ -1,7 +1,7 @@
 # Project Trust
 
 **Modules:** `modules/project-trust` (package `dev.sluide.projecttrust`), git's check in `modules/git`
-(`GitTrustCheck`), the dialog and bar in `ide`; decision in [ADR 0053](../adr/0053-project-trust.md)
+(`GitTrustCheck`), the dialog and bar in `ide` (`WindowTrust`); decision in [ADR 0053](../adr/0053-project-trust.md)
 
 - Thoreau runs some tools by itself in an opened folder: git's status for the explorer's markers and the editor's
   changes, and the git log. A folder can make such a tool run commands of its own. For git that is its configuration

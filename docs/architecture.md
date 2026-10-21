@@ -77,10 +77,10 @@ assembled from Gradle modules.
     ([ADR 0046](adr/0046-git-log-file-history.md)), checks out and changes branches and tags with
     `GitBranches` ([ADR 0041](adr/0041-git-write-operations.md)), cherry-picks, reverts and resets with `GitCommits`
     ([ADR 0042](adr/0042-git-log-commit-operations.md)) and fetches with `GitRemotes`
-    ([ADR 0043](adr/0043-git-log-fetch.md)); `MainWindow` tells it the followed repository and
-    refreshes it on `GitStatusService.gitFolderChanged`. It does not depend on `editor` or `file-viewers`: `MainWindow`
+    ([ADR 0043](adr/0043-git-log-fetch.md)); `WindowGitLog` in `ide` tells it the followed repository and
+    refreshes it on `GitStatusService.gitFolderChanged`. It does not depend on `editor` or `file-viewers`: `WindowGitLog`
     sets its callbacks `onOpenFile` (opened with `EditorArea.open`), `onShowDiff` (a `CommitFileDiff`, shown with
-    `FileViewers.openDiff(name, current, diff)`, the diff of given texts, in a `CommitDiffTab` of `ide`) and
+    `FileViewers.openDiff(name, current, diff)`, the diff of given texts, in a `CommitDiffTab` of `ide`, by `GitDiffTabs`) and
     `onShowWorkingTreeDiff` (a `WorkingTreeFileDiff`, shown with `FileViewers.openDiff(file, diff)`, the live file, or
     the diff of given texts for deleted files, in a `WorkingTreeDiffTab`; `false` when not shown as text), and tells it
     with `showStatus` when a file cannot be shown as text; its `beforeFileChange(action)` asks
@@ -110,7 +110,8 @@ assembled from Gradle modules.
    instead ([ADR 0034](adr/0034-project-picker.md)).
 4. Each window gets its own instances of the beans with `@Scope("window")` (`WindowScope`, [ADR 0014](adr/0014-project-windows.md)):
    `MainWindow`, `ProjectService`, `FileExplorerView`, `EditorArea`, `Terminals`, `DockerSandbox`, `GitStatusService`,
-   `GitLogView`, `HttpClientSession`, `ProjectTrust`, `BackgroundTasks`.
+   `GitLogView`, `HttpClientSession`, `ProjectTrust`, `BackgroundTasks`. `MainWindow` coordinates; the integration of each
+   feature is a window part class in `ide` ([ADR 0068](adr/0068-window-parts-in-ide.md)).
    They are created when the window opens and destroyed (`close()`) when it closes. Singletons must not depend on
    them.
 5. When the last window is closed, `ProjectWindows` shows the project picker. Cancelling the picker while no window

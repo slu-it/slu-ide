@@ -49,7 +49,7 @@ through both files.
 - `run`, `runBytes`, `execute` and `Execution` are `internal` instead of `private`, so the read files can use them.
 - Open: the result types `GitCli` returns still live in its wrappers' files (`GitResult` in `GitBranches.kt`,
   `GitInProgress` in `GitCommits.kt`, …); moving them next to the core would make the layering clean.
-- Next candidates, by size and read volume: `GitCommits.kt`, `RSyntaxHighlighter.kt`, `MainWindow.kt`,
+- Next candidates, by size and read volume: `GitCommits.kt`, `RSyntaxHighlighter.kt`,
   `PreviewFileViewer.kt`, `RefOperations.kt`.
 - The split files have since moved into sub-packages of their modules (`git.cli`, the packages of `dev.sluide.gitlog`),
   [ADR 0055](0055-sub-packages-within-modules.md).

@@ -1,7 +1,7 @@
 # Docker Sandbox
 
 **Module:** `modules/docker-sandbox` (package `dev.sluide.dockersandbox`), depends on `modules/terminal`; menu in
-`ide` (`MainWindow`); decision in [ADR 0010](../adr/0010-docker-sandbox.md)
+`ide` (`WindowTools`); decision in [ADR 0010](../adr/0010-docker-sandbox.md)
 
 - Menu **Docker Sandbox**:
   - **Claude Code** runs `sbx run claude .` in the project folder.

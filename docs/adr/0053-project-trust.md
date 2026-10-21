@@ -121,7 +121,7 @@ without reading.
     for another folder (`GitLogView.open(null)`): the Commit tab with its draft and the file histories are closed, a
     running fetch is stopped, any other operation finishes and its outcome is dropped
     ([ADR 0041](0041-git-write-operations.md)).
-- **The question** (`ProjectTrustDialog.kt`, `MainWindow.confirmTrust`): the first `Ask` after opening the folder shows
+- **The question** (`ProjectTrustDialog.kt`, `MainWindow.confirmTrust`, now `WindowTrust.confirmTrust`, [ADR 0068](0068-window-parts-in-ide.md)): the first `Ask` after opening the folder shows
   a warning dialog "Trust Folder?", "evil defines commands that Git would run.", with the findings per tool in a
   read-only monospace area, those known to run first with when they run, then the others ("not known to Thoreau"),
   and "Trust the folder only if you set it up yourself or know where it comes from. Until then, Git stays off for it."
