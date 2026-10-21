@@ -290,7 +290,7 @@ class ProjectWindowsUiTest {
         WaitForAsyncUtils.waitForFxEvents()
 
         val picker = pickers().single()
-        assertEquals("Thoreau", picker.title)
+        assertEquals(appTitle(), picker.title)
         assertFalse(picker in windows.stages)
         assertEquals(emptyList(), windows.stages)
         assertEquals(0, exits)
@@ -415,7 +415,7 @@ class ProjectWindowsUiTest {
 
         assertSame(failure, thrown)
         assertEquals(emptyList(), windows.stages)
-        assertEquals("Thoreau", pickers().single().title)
+        assertEquals(appTitle(), pickers().single().title)
         assertEquals(0, exits)
     }
 
@@ -548,7 +548,7 @@ class ProjectWindowsUiTest {
         }
         WaitForAsyncUtils.waitForFxEvents()
 
-        assertEquals("Thoreau", pickers().single().title)
+        assertEquals(appTitle(), pickers().single().title)
         assertFalse(stage.isShowing)
         assertEquals(listOf(first), windows.stages)
     }

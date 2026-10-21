@@ -53,11 +53,12 @@ class ProjectPicker(
 
     /**
      * Shows a new picker window without blocking. Exactly one of the callbacks is called: [onOpen] with the chosen
-     * folder, or [onCancel] when the window is closed or Escape is pressed.
+     * folder, or [onCancel] when the window is closed or Escape is pressed. The window is titled [title].
      */
     fun show(
         onOpen: (Path) -> Unit,
         onCancel: () -> Unit,
+        title: String = "Thoreau",
     ): Stage {
         val stage = Stage()
         var opening = false
@@ -123,7 +124,7 @@ class ProjectPicker(
         }
         scene.stylesheets.add(checkNotNull(ProjectPicker::class.java.getResource("projects.css")).toExternalForm())
 
-        stage.title = "Thoreau"
+        stage.title = title
         stage.scene = scene
         stage.minWidth = 360.0
         stage.minHeight = 280.0

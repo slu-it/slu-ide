@@ -8,7 +8,7 @@ in `ide`. Decision in [ADR 0034](../adr/0034-project-picker.md)
   line ([open-folder.md](open-folder.md)). The list is stored in `~/.sluide/projects.properties` (folder path → time
   it was last opened). A file that cannot be read is left alone and the picker lists nothing; errors writing it are
   logged and do not stop the project from opening.
-- The picker is a window of its own, titled "Thoreau". It appears
+- The picker is a window of its own, titled like a window without a folder: "Thoreau v<version>". It appears
   - at startup when no folder is given on the command line (folders given there open right away, without it);
   - when the last project window is closed, instead of quitting;
   - with **File → Open Project…** in a project window (right after Open Folder…), to open another project. A picker

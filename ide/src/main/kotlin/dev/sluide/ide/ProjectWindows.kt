@@ -96,6 +96,7 @@ class ProjectWindows(
                     }
                 },
                 onCancel = { if (open.isEmpty()) exit() },
+                title = appTitle(),
             )
     }
 

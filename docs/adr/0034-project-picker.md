@@ -16,10 +16,11 @@ quitting and restarting.
   with Open Folder… and on the command line are all remembered. As with the settings ([ADR 0008](0008-settings.md)),
   a file that cannot be read is never replaced, and write errors are only logged: losing the list must not stop a
   project from opening.
-- **The project picker** (`ProjectPicker`) is its own `Stage` titled "Thoreau": "Open new project…" (the folder
-  chooser), then the remembered projects, newest first. It is shown at startup without command-line folders and
-  whenever the last project window closes (`ProjectWindows.start`, `ProjectWindows.showPicker`). Choosing a project
-  hides the picker and opens it like Open Folder…; a folder that is already open brings its window to the front.
+- **The project picker** (`ProjectPicker`) is its own `Stage` titled "Thoreau" (since followed by the version, see
+  `features/project-picker.md`): "Open new project…" (the folder chooser), then the remembered projects, newest
+  first. It is shown at startup without command-line folders and whenever the last project window closes
+  (`ProjectWindows.start`, `ProjectWindows.showPicker`). Choosing a project hides the picker and opens it like Open
+  Folder…; a folder that is already open brings its window to the front.
 - **Quitting**: `SluIdeApplication.start` calls `Platform.setImplicitExit(false)`, so the last window closing no longer
   ends the app. The app ends only when the picker is cancelled (closed or Escape) while no project window is open:
   `ProjectWindows` then calls `Platform.exit()`, and `stop()` closes the Spring context. Closing the context

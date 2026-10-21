@@ -148,6 +148,18 @@ class ProjectPickerUiTest {
     }
 
     @Test
+    fun `the window is titled Thoreau unless given a title`(robot: FxRobot) {
+        assertEquals("Thoreau", show(robot).title)
+
+        robot.interact {
+            stage.hide()
+            stage = picker.show({}, {}, title = "Thoreau v1.2.3")
+        }
+
+        assertEquals("Thoreau v1.2.3", stage.title)
+    }
+
+    @Test
     fun `a long path shows no horizontal scroll bar`(robot: FxRobot) {
         store = RecentProjects(dir.resolve("projects.properties"))
         store.opened(folder("a-rather-long-project-name-".repeat(6)))
