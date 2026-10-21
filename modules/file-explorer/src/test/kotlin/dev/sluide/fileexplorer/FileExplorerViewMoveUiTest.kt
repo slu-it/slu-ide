@@ -150,7 +150,8 @@ class FileExplorerViewMoveUiTest {
         move(robot, listOf(item("a.txt"), item("b.txt")), item("target"))
 
         val question = questions.single()
-        assertEquals(moveQuestion(listOf("a.txt"), listOf("b.txt"), "target"), question)
+        val root = project.fileName.toString()
+        assertEquals(moveQuestion(listOf("a.txt"), listOf("b.txt"), "target", root, "$root/target"), question)
         assertTrue(question.skips)
         assertEquals(listOf(project.resolve("a.txt") to project.resolve("target/a.txt")), moved)
         assertEquals("mine", project.resolve("b.txt").readText())
@@ -168,6 +169,7 @@ class FileExplorerViewMoveUiTest {
         open(robot)
 
         move(robot, listOf(item("a.txt")), item("target"))
+        robot.interact { view.selectionModel.clearSelection() }
         move(robot, listOf(item("a.txt"), item("b.txt")), item("target"))
 
         assertEquals(
@@ -181,6 +183,8 @@ class FileExplorerViewMoveUiTest {
         assertEquals(emptyList(), moved)
         assertEquals("mine", project.resolve("a.txt").readText())
         assertEquals("theirs", project.resolve("target/a.txt").readText())
+        // A drag may have lost the selection; the entries are selected again.
+        robot.interact { assertEquals(listOf(project.resolve("a.txt"), project.resolve("b.txt")), selectedPaths()) }
     }
 
     @Test
@@ -220,6 +224,7 @@ class FileExplorerViewMoveUiTest {
         move(robot, listOf(item("a.txt")), scratchesItem())
 
         assertEquals("Move “a.txt” to “Scratches”?", questions.single().header)
+        assertEquals("From “${project.fileName}” to “Scratches”.", questions.single().details)
         assertEquals(listOf(project.resolve("a.txt") to scratches.resolve("a.txt")), moved)
         robot.interact {
             assertTrue(scratchesItem().isExpanded)
@@ -229,6 +234,7 @@ class FileExplorerViewMoveUiTest {
         move(robot, listOf(item("notes/s.md", scratchesItem())), view.projectNode as FileTreeItem)
 
         assertEquals(scratches.resolve("notes/s.md") to project.resolve("s.md"), moved.last())
+        assertEquals("From “Scratches/notes” to “${project.fileName}”.", questions.last().details)
         assertTrue(project.resolve("s.md").exists())
         robot.interact { assertEquals(listOf(project.resolve("s.md")), selectedPaths()) }
     }
@@ -385,7 +391,24 @@ class FileExplorerViewMoveUiTest {
 
         assertEquals(1, questions.size)
         assertEquals(emptyList(), moved)
-        assertEquals(listOf("Nothing was moved: “target” or one of the entries is being deleted."), errors)
+        assertEquals(listOf("Nothing was moved: “target” or one of the entries is being deleted or gone."), errors)
+        assertTrue(project.resolve("a.txt").exists())
+    }
+
+    @Test
+    fun `entries no longer shown are not moved`(robot: FxRobot) {
+        project.resolve("a.txt").createFile()
+        project.resolve("target").createDirectories()
+        open(robot)
+        lateinit var stale: FileTreeItem
+        robot.interact { stale = item("a.txt") }
+        // Opened again: new items, the old ones gone from the tree.
+        open(robot)
+
+        move(robot, listOf(stale), item("target"))
+
+        assertEquals(emptyList(), questions)
+        assertEquals(emptyList(), moved)
         assertTrue(project.resolve("a.txt").exists())
     }
 }

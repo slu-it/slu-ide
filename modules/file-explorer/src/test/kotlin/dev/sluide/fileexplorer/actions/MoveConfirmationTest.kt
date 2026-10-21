@@ -13,6 +13,23 @@ class MoveConfirmationTest {
     }
 
     @Test
+    fun `for one entry the details say where from and where to`() {
+        assertEquals(
+            MoveQuestion("Move “a.txt” to “target”?", "From “p/src” to “Scratches/target”.", false),
+            moveQuestion(listOf("a.txt"), emptyList(), "target", "p/src", "Scratches/target"),
+        )
+        assertEquals(
+            "From “p” to “p/target”.\n\n“b.txt” already exists in “target” and is skipped.",
+            moveQuestion(listOf("a.txt"), listOf("b.txt"), "target", "p", "p/target").details,
+        )
+        assertEquals(
+            "“a.txt”\n“b”",
+            moveQuestion(listOf("a.txt", "b"), emptyList(), "target", "p", "p/target").details,
+            "several entries are listed instead",
+        )
+    }
+
+    @Test
     fun `counts and lists several entries`() {
         assertEquals(
             MoveQuestion("Move 3 entries to “Scratches”?", "“a.txt”\n“src”\n“b”", false),

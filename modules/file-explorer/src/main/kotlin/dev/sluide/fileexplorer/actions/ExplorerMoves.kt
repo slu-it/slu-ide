@@ -22,8 +22,9 @@ internal class ExplorerMoves(
     /**
      * Asks once whether to move [items] into [folder] and moves them, in order, on the calling (JavaFX) thread, keeping
      * their names. Entries at or below another one go along with it; entries directly in [folder] already are left
-     * out. Nothing happens if [items] cannot be moved there ([canDrop]), one of them cannot be changed or [folder] is
-     * being deleted; if that changes while asking, an error says so and nothing moves. Entries whose names exist in
+     * out. Nothing happens if [items] cannot be moved there ([canDrop]), one of them cannot be changed or is no longer
+     * shown, or [folder] is being deleted or no longer shown; if that changes while asking, an error says so and
+     * nothing moves. Entries whose names exist in
      * [folder] are skipped, never replaced: the question says so, and if all clash an error is shown instead. Each
      * move is reported to the `onMoved` hook; the first failure, also a name taken while asking, stops the rest and is
      * shown. Afterwards the folders are read again, [folder] is expanded and the moved entries are selected, a moved
@@ -48,13 +49,16 @@ internal class ExplorerMoves(
             return
         }
         val others = moving.filter { item -> clashing.none { it === item } }
-        if (!host.confirmMove(moveQuestion(others.map(::name), clashing.map(::name), folderName))) {
+        val from = others.singleOrNull()?.parent as? FileTreeItem
+        val question =
+            moveQuestion(others.map(::name), clashing.map(::name), folderName, from?.let(::location), location(folder))
+        if (!host.confirmMove(question)) {
             reselect(items)
             return
         }
-        // A delete may have started while asking.
+        // A delete may have started while asking, or an entry vanished from the tree.
         if (!canMove(sources, folder)) {
-            host.showError("Nothing was moved: “$folderName” or one of the entries is being deleted.")
+            host.showError("Nothing was moved: “$folderName” or one of the entries is being deleted or gone.")
             return
         }
         val moved = mutableListOf<Pair<FileTreeItem, Path>>()
@@ -99,9 +103,23 @@ internal class ExplorerMoves(
             host.isShown(folder) &&
             !isBeingDeleted(folder.value) &&
             sources.isNotEmpty() &&
-            sources.all(canChange)
+            sources.all(canChange) &&
+            sources.all(host.isShown)
 
     private fun reselect(items: List<FileTreeItem>) = host.selectRows(items.filter(host.isShown))
+
+    /** Where [folder] is, for the question: its top-level folder's label or name, then the path below it. */
+    private fun location(folder: FileTreeItem): String {
+        val top = generateSequence(folder) { it.parent as? FileTreeItem }.last()
+        val name = top.label ?: (top.value.fileName ?: top.value).toString()
+        return (
+            listOf(name) +
+                top.value
+                    .relativize(folder.value)
+                    .map { it.toString() }
+                    .filter { it.isNotEmpty() }
+        ).joinToString("/")
+    }
 
     private fun name(item: FileTreeItem): String = item.value.fileName.toString()
 }

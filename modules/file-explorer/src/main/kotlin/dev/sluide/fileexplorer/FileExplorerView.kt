@@ -442,6 +442,9 @@ class FileExplorerView(
         folder: FileTreeItem,
     ) = moves.move(items, folder)
 
+    /** The folder dragged entries would be moved into if released now; `null` while there is none. */
+    internal fun dropTarget(): TreeItem<Path>? = dragAndDrop.dropTarget.value
+
     /** Whether [item] is still in the tree, e.g. not gone with a folder opened since. */
     private fun isShown(item: TreeItem<Path>): Boolean = generateSequence(item) { it.parent }.last() === root
 

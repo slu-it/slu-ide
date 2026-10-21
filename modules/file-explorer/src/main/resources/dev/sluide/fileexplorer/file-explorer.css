@@ -29,6 +29,32 @@
     -fx-text-fill: -fx-text-background-color;
 }
 
+/*
+ * The image of dragged entries beside the pointer (TreeDragAndDrop): icon and name in the normal text colour on the
+ * tree's background with a thin border, and "+N" for further entries as a small badge in the accent colour.
+ */
+.explorer-drag-image {
+    -fx-alignment: center-left;
+    -fx-spacing: 4;
+    -fx-padding: 2 6 2 4;
+    -fx-background-color: -fx-box-border, -fx-control-inner-background;
+    -fx-background-insets: 0, 1;
+    -fx-background-radius: 3, 2;
+}
+
+.explorer-drag-image .label {
+    -fx-text-fill: -fx-text-inner-color;
+}
+
+/* -fx-background makes Modena's text colour ladder pick a light text on the accent, as on a selected row. */
+.explorer-drag-image .explorer-drag-count {
+    -fx-background: -fx-accent;
+    -fx-background-color: -fx-background;
+    -fx-background-radius: 1em;
+    -fx-padding: 0 5 0 5;
+    -fx-text-fill: -fx-text-background-color;
+}
+
 @media (prefers-color-scheme: dark) {
     .tree-cell:drop-target,
     .tree-cell:drop-target:selected,

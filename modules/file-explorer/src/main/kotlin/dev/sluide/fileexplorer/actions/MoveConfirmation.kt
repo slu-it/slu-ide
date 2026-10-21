@@ -20,16 +20,24 @@ internal data class MoveQuestion(
 
 /**
  * Asks whether to move the entries named [moving] (at least one) into the folder named [folder]; those named [skipped]
- * exist there already and stay where they are.
+ * exist there already and stay where they are. For a single entry, the details say where it is moved [from] and [to]
+ * (e.g. folders with their top-level folder), if given.
  */
 internal fun moveQuestion(
     moving: List<String>,
     skipped: List<String>,
     folder: String,
+    from: String? = null,
+    to: String = folder,
 ): MoveQuestion {
     val header =
         moving.singleOrNull()?.let { "Move “$it” to “$folder”?" } ?: "Move ${moving.size} entries to “$folder”?"
-    val names = if (moving.size > 1) nameLines(moving.map { "“$it”" }) else null
+    val names =
+        when {
+            moving.size > 1 -> nameLines(moving.map { "“$it”" })
+            from != null -> "From “$from” to “$to”."
+            else -> null
+        }
     val skipping =
         when (skipped.size) {
             0 -> null

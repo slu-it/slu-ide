@@ -119,6 +119,18 @@ internal class PathCell(
         pseudoClassStateChanged(DROP_TARGET, !isEmpty && treeItem != null && treeItem === dropTarget.value)
     }
 
+    /** A copy of this row's icon, same glyph, colour class and size, e.g. for a drag image; `null` without one. */
+    internal fun iconCopy(): FontIcon? =
+        if (graphic == null) {
+            null
+        } else {
+            FontIcon().apply {
+                iconCode = icon.iconCode
+                styleClass.setAll(icon.styleClass)
+                iconSize = icon.iconSize
+            }
+        }
+
     private fun updateIcon() {
         val treeItem: TreeItem<Path>? = treeItem
         if (isEmpty || treeItem !is FileTreeItem) {
