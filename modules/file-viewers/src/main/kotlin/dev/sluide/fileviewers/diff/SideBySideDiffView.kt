@@ -101,7 +101,7 @@ internal class SideBySideDiffView(
     private val root =
         BorderPane(SplitPane(left.box, right.box)).apply {
             styleClass += "diff-view"
-            for (sheet in listOf("syntax.css", "preview-view.css")) {
+            for (sheet in listOf("syntax.css", "view-toolbar.css")) {
                 stylesheets +=
                     checkNotNull(
                         SideBySideDiffView::class.java.getResource("/dev/sluide/fileviewers/$sheet"),

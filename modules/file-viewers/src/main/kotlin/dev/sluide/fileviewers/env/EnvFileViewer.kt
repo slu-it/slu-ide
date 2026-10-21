@@ -83,7 +83,7 @@ internal class EnvFileView(
         BorderPane(source.node).apply {
             stylesheets +=
                 checkNotNull(
-                    EnvFileView::class.java.getResource("/dev/sluide/fileviewers/preview-view.css"),
+                    EnvFileView::class.java.getResource("/dev/sluide/fileviewers/view-toolbar.css"),
                 ).toExternalForm()
         }
 

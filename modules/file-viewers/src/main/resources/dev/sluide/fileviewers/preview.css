@@ -1,6 +1,7 @@
 /*
- * Pages of the preview WebView (MarkdownRenderer, CsvRenderer, NotebookRenderer). Token classes come from TokenStyle, colours match
- * syntax.css. Dark colours apply when PreviewFileView sets the class "dark" on the body.
+ * Pages of the preview WebView (MarkdownRenderer, CsvRenderer, NotebookRenderer). Token classes come from TokenStyle,
+ * colours match syntax.css: the token colours (one rule per TokenStyle.styleClass) are duplicated there for the code
+ * views; keep the two in sync. Dark colours apply when PreviewFileView sets the class "dark" on the body.
  */
 
 body {
