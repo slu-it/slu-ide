@@ -1,0 +1,17 @@
+name: Caller
+on: push
+jobs:
+  build:
+    uses: ./.github/workflows/build.yml
+    with:
+      java: "25"
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: ./.github/actions/setup
+        with:
+          java: "25"
+      - uses: ./.github/actions/missing
+      - run: ./gradlew test

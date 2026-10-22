@@ -131,7 +131,10 @@ class ActionManifestsTest {
 
     @Test
     fun `broken YAML, custom tags and other documents fail with a short reason`() {
-        assertTrue(failed("runs:\n  using: [composite\n").contains("(line "), failed("runs:\n  using: [composite\n"))
+        assertTrue(
+            failed("runs:\n  using: [composite\n").startsWith("line 3: "),
+            failed("runs:\n  using: [composite\n"),
+        )
         assertTrue("Global tag is not allowed" in failed("runs: !!javax.script.ScriptEngineManager [x]"))
         assertEquals("not a YAML mapping", failed("- a\n- b"))
         assertEquals("not a YAML mapping", failed(""))

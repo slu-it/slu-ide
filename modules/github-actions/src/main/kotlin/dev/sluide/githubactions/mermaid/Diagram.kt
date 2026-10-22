@@ -25,10 +25,10 @@ internal enum class Style(
     /** A `uses:` drawn as a black box. */
     BLACKBOX("blackbox", "stroke-width:3px"),
 
-    /** A reference that could not be followed. */
+    /** A local reference whose target does not exist. */
     UNRESOLVED("unresolved", "stroke-dasharray: 5 5"),
 
-    /** A reference whose target could not be read. */
+    /** A local reference whose target could not be read or parsed, or lies outside the repository. */
     FAILED("failed", "stroke:#d9534f,stroke-width:2px"),
 
     /** A reference back to a workflow or action already being expanded. */
@@ -46,14 +46,15 @@ internal data class Node(
 ) : Element
 
 /**
- * A `uses:` [reference]. Without [expansion] it is drawn as a [Style.BLACKBOX] box with [label]; a later step may
- * resolve it into the subgraph of what it refers to, drawn in its place under the same [id].
+ * A `uses:` [reference]. Without [expansion] it is drawn as a box with [label] in [style] (a black box, or why it was
+ * not followed); with one, that subgraph of what it refers to is drawn in its place under the same [id].
  */
 internal data class ReferenceNode(
     override val id: String,
     val label: List<String>,
     val reference: UsesReference,
     val expansion: Cluster? = null,
+    val style: Style = Style.BLACKBOX,
 ) : Element
 
 /** A subgraph with an escaped [title], its [children] and the [links] between them, laid out top to bottom. */

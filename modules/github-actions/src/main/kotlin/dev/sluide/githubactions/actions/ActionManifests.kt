@@ -118,8 +118,9 @@ internal object ActionManifests {
     private fun reason(e: RuntimeException): String {
         val text =
             if (e is MarkedYAMLException) {
-                val line = (e.problemMark ?: e.contextMark)?.let { " (line ${it.line + 1})" }.orEmpty()
-                (e.problem ?: e.context ?: "invalid YAML") + line
+                // The line first: a box cuts long labels at their end.
+                val line = (e.problemMark ?: e.contextMark)?.let { "line ${it.line + 1}: " }.orEmpty()
+                line + (e.problem ?: e.context ?: "invalid YAML")
             } else {
                 e.message
                     ?.lineSequence()

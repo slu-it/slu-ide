@@ -1,0 +1,20 @@
+name: Build
+on:
+  workflow_call:
+    inputs:
+      java:
+        type: string
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./.github/actions/setup
+        with:
+          java: ${{ inputs.java }}
+      - run: ./gradlew assemble
+  package:
+    needs: compile
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - run: ./gradlew bootJar

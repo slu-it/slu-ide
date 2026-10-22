@@ -94,7 +94,7 @@ internal object MermaidWriter {
             is ReferenceNode -> {
                 val expansion = element.expansion
                 if (expansion == null) {
-                    styled.getOrPut(Style.BLACKBOX) { mutableListOf() } += element.id
+                    styled.getOrPut(element.style) { mutableListOf() } += element.id
                 } else {
                     for (child in expansion.children) collectStyles(child, styled)
                 }

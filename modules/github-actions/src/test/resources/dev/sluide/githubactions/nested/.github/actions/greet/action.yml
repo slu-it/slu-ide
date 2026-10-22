@@ -1,0 +1,9 @@
+name: Greet
+inputs:
+  who:
+    required: true
+  how:
+    default: politely
+runs:
+  using: node20
+  main: index.js
