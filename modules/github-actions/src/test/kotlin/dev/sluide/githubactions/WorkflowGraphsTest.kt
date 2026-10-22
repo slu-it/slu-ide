@@ -28,7 +28,7 @@ class WorkflowGraphsTest {
                     t0(["push #183; branches: main, master"])
                     t1(["pull_request"])
                 end
-                subgraph j0 ["Build (#36;#123;#123; matrix.os #125;#125;) #183; #36;#123;#123; matrix.os #125;#125; #183; matrix os (2)"]
+                subgraph j0 ["Build (#36;#123;#123; matrix.os #125;#125;) #183; matrix os (2)"]
                     direction TB
                     j0s0["actions/checkout@v6"]
                     j0s1["actions/setup-java@v6"]

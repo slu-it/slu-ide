@@ -107,7 +107,10 @@ internal class WorkflowDrawing private constructor(
         val title: String
         when (val body = job.body) {
             is JobBody.Steps -> {
-                title = title(job.name.ifPresent() ?: job.id, job.runsOn, job.matrix?.title())
+                val name = job.name.ifPresent() ?: job.id
+                // `name: Build (${{ matrix.os }})` with `runs-on: ${{ matrix.os }}` says the runner already.
+                val runsOn = job.runsOn?.takeUnless { it.isNotBlank() && it in name }
+                title = title(name, runsOn, job.matrix?.title())
                 for ((position, step) in body.steps.withIndex()) {
                     val element = step("${id}s$position", step)
                     if (!takeNode(size(element))) break
