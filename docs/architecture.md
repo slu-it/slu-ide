@@ -22,6 +22,7 @@ assembled from Gradle modules.
 | `terminal` | feature | Shells in editor tabs. | [0007](adr/0007-terminal.md) |
 | `docker-sandbox` | feature | `sbx` (Docker sandboxes) in terminal tabs. | [0010](adr/0010-docker-sandbox.md) |
 | `http-client` | feature | `.http` files: requests run from the editor with environments and auth. | [0025](adr/0025-http-client.md), [0026](adr/0026-http-client-window-session.md) |
+| `github-actions` | feature (library, no Spring beans) | GitHub Actions workflows as Mermaid flowcharts: decodes the bundled workflow parser's JSON (`model`, incl. `uses:` references and matrix counts) and draws triggers, jobs, steps and `needs` (`mermaid`); `previews` runs the parser and shows the chart. | |
 | `git` | feature | Git status, diffs, the log's reads and the write operations, behind `GitCli`. | [0013](adr/0013-git-status.md), [0015](adr/0015-git-diff.md), [0041](adr/0041-git-write-operations.md) |
 | `git-log` | feature | The git area under the editor (user-facing name "Git Log"): log and graph, branches pane, file history, compare, the Commit tab and the Push dialog, and the write operations; `gitlog.data` is the model and reading layer. | [0035](adr/0035-git-log-area.md), [0048](adr/0048-commit-tab.md), [0049](adr/0049-push.md) |
 | `file-explorer` | feature | The file tree of the open folder with file operations. | [0024](adr/0024-file-operations-in-the-explorer.md) |
@@ -36,10 +37,11 @@ assembled from Gradle modules.
 | `ide` | app | Launcher, Spring Boot configuration, main window and its window parts; wires the modules together. | [0002](adr/0002-spring-inside-javafx.md), [0068](adr/0068-window-parts-in-ide.md) |
 
 Feature modules are one IDE capability each. The editor family (`editor-area`, `file-viewers`, `previews`, `terminal`,
-`docker-sandbox`, `http-client`: what is shown as editor tabs or file views) is one capability family, and so are `git`
-and `git-log` ([ADR 0047](adr/0047-module-dependencies-and-shared-modules.md), amended by
-[ADR 0071](adr/0071-editor-area-module.md) and [ADR 0069](adr/0069-previews-module.md)). Foundation modules are small
-and meant for sharing; they may be plain libraries without Spring beans.
+`docker-sandbox`, `http-client`, `github-actions`: what is shown as editor tabs or file views) is one capability
+family, and so are `git` and `git-log` ([ADR 0047](adr/0047-module-dependencies-and-shared-modules.md), amended by
+[ADR 0071](adr/0071-editor-area-module.md) and [ADR 0069](adr/0069-previews-module.md)). A member of a family that
+has no UI of its own may be a plain library without Spring beans (`github-actions`, which `previews` shows). Foundation
+modules are small and meant for sharing; they may be plain libraries without Spring beans.
 
 ## Module rules
 - Modules (`modules/*`) never depend on `ide`. `ide` depends on all feature modules and wires them together.
@@ -54,7 +56,8 @@ and meant for sharing; they may be plain libraries without Spring beans.
 - Every module dependency is listed in [Module dependencies](#module-dependencies) with its reason and commented in
   the module's `build.gradle.kts`.
 - Feature modules expose UI as JavaFX nodes/controls registered as Spring beans (`@Component`), so `ide` can inject them.
-  Beans that hold the state of one window (a project) are `@Scope("window")`.
+  A family member without UI of its own may be a plain library without beans (`github-actions`). Beans that hold
+  the state of one window (a project) are `@Scope("window")`.
 - Cross-module state (e.g. the current project folder) lives in `ide` or a shared module, and modules receive it
   through their public API (e.g. `FileExplorerView.open(path)`), not by reaching into each other. Window-scoped
   services that views of another module need reach them only through `FileViewHost.windowService`, registered by
