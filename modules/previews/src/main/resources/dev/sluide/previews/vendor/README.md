@@ -10,3 +10,19 @@ was checked before unpacking. Only the files listed are kept.
 
 To update: download `https://registry.npmjs.org/<name>/-/<name>-<version>.tgz`, compare its sha512 (base64) with
 `dist.integrity` from `https://registry.npmjs.org/<name>`, copy the files above, update this table.
+
+## Workflow parser (built, not copied)
+
+`workflow-parser/workflow-parser.min.js` is built, not copied: GitHub's Actions workflow parser and its dependencies
+bundled by esbuild 0.28.2 with our entry, which returns our own JSON. Sources, build (`./build.sh`), version updates
+and the JSON contract: `src/main/js/workflow-parser/README.md` in this module. `npm ci` checks each tarball against
+the `integrity` hashes in that folder's `package-lock.json`.
+
+Bundle: 277,997 bytes, sha256 `0c071cdf681254e80580b2c3fe439d3384cd9a0d161ce8c355ee383e8dd9e6fd`.
+
+| Library | Version | Licence |
+|---------|---------|---------|
+| [@actions/workflow-parser](https://github.com/actions/languageservices) | 0.3.61 | MIT (`workflow-parser/LICENSE-actions-workflow-parser`) |
+| [@actions/expressions](https://github.com/actions/languageservices) | 0.3.61 | MIT (`workflow-parser/LICENSE-actions-expressions`) |
+| [yaml](https://eemeli.org/yaml/) | 2.9.1 | ISC (`workflow-parser/LICENSE-yaml`) |
+| [cronstrue](https://github.com/bradymholt/cRonstrue) | 2.59.0 | MIT (`workflow-parser/LICENSE-cronstrue`) |
