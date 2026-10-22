@@ -9,6 +9,7 @@ import dev.sluide.previews.markdown.MermaidFileViewer
 import dev.sluide.previews.notebook.NotebookFileViewer
 import dev.sluide.previews.table.CookiesFileViewer
 import dev.sluide.previews.table.CsvFileViewer
+import dev.sluide.previews.workflow.WorkflowFileViewer
 import dev.sluide.previews.xml.XmlFileViewer
 import dev.sluide.textediting.CommentSyntax
 import kotlin.test.Test
@@ -30,6 +31,7 @@ class PreviewCommentSyntaxTest {
                 MermaidFileViewer() to CommentSyntax.MERMAID,
                 CookiesFileViewer() to CommentSyntax.NONE,
                 BicepFileViewer() to CommentSyntax.SLASHES,
+                WorkflowFileViewer() to CommentSyntax.HASH,
             )
         for ((viewer, comment) in expected) assertEquals(comment, viewer.comment, viewer::class.simpleName)
     }

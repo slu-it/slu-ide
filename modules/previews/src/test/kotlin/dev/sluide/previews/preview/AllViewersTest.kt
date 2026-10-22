@@ -4,8 +4,10 @@ import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.previews.json.JsonFileViewer
 import dev.sluide.previews.markdown.MarkdownFileViewer
 import dev.sluide.previews.pem.PemFileViewer
+import dev.sluide.previews.workflow.WorkflowFileViewer
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -37,6 +39,31 @@ class AllViewersTest {
             }
             val json = dir.resolve(".env.json").apply { writeText("{}\n") }
             assertTrue(viewers.viewerFor(json) is JsonFileViewer, "an extension wins over a name pattern")
+        }
+    }
+
+    @Test
+    fun `among all viewers, YAML directly in a workflows folder of a github folder opens as a workflow`() {
+        val workflows = dir.resolve(".github/workflows").createDirectories()
+        val elsewhere =
+            listOf(
+                dir.resolve("config.yml"),
+                dir.resolve(".github/dependabot.yml"),
+                dir.resolve("workflows").createDirectories().resolve("ci.yml"),
+                workflows.resolve("sub").createDirectories().resolve("ci.yml"),
+            )
+        for (viewers in allViewersInEitherOrder()) {
+            for (name in listOf("ci.yml", "release.YAML")) {
+                val file = workflows.resolve(name).apply { writeText("on: push\n") }
+                assertTrue(viewers.viewerFor(file) is WorkflowFileViewer, name)
+            }
+            val notes = workflows.resolve("notes.txt").apply { writeText("x\n") }
+            assertTrue(viewers.viewerFor(notes) is DefaultTextFileViewer, "only YAML is a workflow")
+            for (file in elsewhere) {
+                assertEquals("YamlFileViewer", viewerNameFor(viewers, file.apply { writeText("a: 1\n") }), "$file")
+            }
+            // FileViewers picks it by the path for diffs by name too (its FileViewersTest); it shows them as YAML text.
+            assertTrue(viewers.showsDiffs(allViewers.single { it is WorkflowFileViewer }))
         }
     }
 

@@ -11,17 +11,20 @@ import dev.sluide.previews.markdown.MermaidFileViewer
 import dev.sluide.previews.pem.PemFileViewer
 import dev.sluide.previews.pem.PemPreview
 import dev.sluide.previews.table.CookiesFileViewer
+import dev.sluide.previews.workflow.WorkflowFileViewer
 import dev.sluide.textediting.CommentSyntax
 import javafx.scene.web.WebEngine
 import org.junit.jupiter.api.io.TempDir
 import java.io.RandomAccessFile
 import java.nio.file.Path
+import kotlin.io.path.createDirectories
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 
 /** Which files the preview and image viewers accept. */
 class PreviewFileViewersTest {
@@ -56,6 +59,23 @@ class PreviewFileViewersTest {
         for (viewers in allViewersInEitherOrder()) {
             assertEquals("BicepParamFileViewer", viewerNameFor(viewers, text("main.bicepparam")))
         }
+    }
+
+    @Test
+    fun `workflows open with their graph only directly in a workflows folder of a github folder`() {
+        val viewer = WorkflowFileViewer()
+        val workflows = dir.resolve(".github/workflows").createDirectories()
+        val names = listOf("ci.yml", "Release.YAML", "notes.txt", "ci.yml.bak")
+        assertEquals(
+            listOf("ci.yml", "Release.YAML"),
+            names.filter { viewer.canOpen(workflows.resolve(it).apply { writeText("on: push\n") }) },
+        )
+        assertFalse(viewer.canOpen(text("ci.yml")), "not in .github/workflows")
+        assertFalse(viewer.canOpen(workflows.resolve("missing.yml")))
+        assertFalse(viewer.canOpen(workflows.resolve("binary.yml").apply { writeBytes(byteArrayOf(0x61, 0)) }))
+        assertTrue(viewer.matchesPath(Path.of(".github/workflows/ci.yml")))
+        assertFalse(viewer.matchesPath(Path.of(".github/workflows/sub/ci.yml")))
+        assertEquals(setOf("yml", "yaml"), viewer.fileExtensions)
     }
 
     @Test
