@@ -51,3 +51,6 @@ they come with their own scripts and links and are shown as their author made th
 - The fat jar grows from 78 MB to 82 MB (Mermaid 3.5 MB, KaTeX with fonts 0.6 MB, Jackson); a page with a diagram
   carries Mermaid's 3.5 MB inline, which is parsed again each time the file changes, a noticeable moment with an
   editor that saves often. Updating the libraries is manual (`vendor/README.md`).
+- Amended by [ADR 0075](0075-github-actions-workflow-graph.md): a library may also be built from pinned sources (an
+  npm lockfile with integrity hashes, a pinned bundler, a build script) instead of copied as released; the GitHub
+  Actions workflow parser is the first.

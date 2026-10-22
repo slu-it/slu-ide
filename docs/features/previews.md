@@ -168,6 +168,10 @@ Images, SVG files, Mermaid files and Bicep resource graphs zoom; Markdown and no
   (`#35;`), so a name can neither leave its label nor start a Mermaid statement; ids are `r_<n>`, and
   `securityLevel: 'strict'` stays. Nodes are no links (no `click`).
 
+## GitHub Actions workflows (`.github/workflows/*.yml`) — `WorkflowFileViewer`
+- Workflows open in **Source** and draw as a graph of triggers, jobs, steps and `needs`, parsed by GitHub's own
+  parser: [github-actions-graph.md](github-actions-graph.md).
+
 ## PEM certificates and keys (`.pem`, `.crt`, `.cer`, `.key`) — `PemFileViewer`
 - Opens only files with `-----BEGIN ` in their first 8 KiB: binary (DER) certificates are no text and are not
   opened, a `.key` without PEM text opens as plain text. BEGIN and END lines must be lines of their own.
