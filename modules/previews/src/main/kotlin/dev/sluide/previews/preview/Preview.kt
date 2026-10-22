@@ -1,5 +1,6 @@
 package dev.sluide.previews.preview
 
+import dev.sluide.fileviewers.FileViewHost
 import javafx.scene.web.WebEngine
 import java.io.IOException
 import java.nio.file.Path
@@ -18,6 +19,27 @@ internal interface Preview {
         dark: Boolean,
         root: Path,
     )
+
+    /**
+     * Called once by the view showing this preview, on the FX thread, before the first [load]: [rerender] makes the
+     * view render again (it calls [load] again with the current saved text, even if unchanged), [host] gives the
+     * view's current host (null until set, e.g. in tests). A preview that computes its page in the background keeps
+     * them and calls [rerender] on the FX thread when done. Only previews created per view
+     * ([PreviewFileViewer.newPreview]) may keep them.
+     *
+     * [rerender] does nothing while the view is stopped (it calls [load] again when it resumes) and after [detach], so
+     * a background preview caches its result for the next [load].
+     */
+    fun attach(
+        rerender: () -> Unit,
+        host: () -> FileViewHost?,
+    ) {}
+
+    /**
+     * Called once when the view is disposed, on the FX thread; the preview drops what [attach] gave it and stops its
+     * work.
+     */
+    fun detach() {}
 
     /** Whether the page has `sluide.scrollToLine` and blocks with `data-line`, so it can scroll with the source. */
     val syncsScroll: Boolean get() = false

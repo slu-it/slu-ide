@@ -30,5 +30,11 @@ abstract class PreviewFileViewer internal constructor(
     /** Whether the extension of [file] is one of this viewer's; the file is not looked at. */
     internal fun matchesExtension(file: Path): Boolean = file.extension.lowercase() in fileExtensions
 
-    override fun open(file: Path): FileView = PreviewFileView(file, highlighter, preview, comment)
+    /**
+     * The preview for a new view; a viewer whose preview keeps per-view state ([Preview.attach]) returns a new one
+     * for each view.
+     */
+    internal open fun newPreview(): Preview = preview
+
+    override fun open(file: Path): FileView = PreviewFileView(file, highlighter, newPreview(), comment)
 }

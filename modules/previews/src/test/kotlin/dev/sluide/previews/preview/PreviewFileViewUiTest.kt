@@ -587,4 +587,116 @@ class PreviewFileViewUiTest {
         WaitForAsyncUtils.waitForFxEvents()
         assertSame(view.webView, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get(), "Preview")
     }
+
+    /** A preview that keeps what [attach] gave it, like one that computes its page in the background. */
+    private class PerViewPreview : Preview {
+        val texts = mutableListOf<String>()
+        var rerender: (() -> Unit)? = null
+        var host: (() -> FileViewHost?)? = null
+        var detached = 0
+        var attachedBeforeLoad = true
+
+        override fun load(
+            engine: WebEngine,
+            file: Path,
+            text: String,
+            dark: Boolean,
+            root: Path,
+        ) {
+            attachedBeforeLoad = attachedBeforeLoad && rerender != null && host != null
+            texts += text
+            engine.loadContent("<h1>$text ${texts.size}</h1>")
+        }
+
+        override val hasOwnScript get() = false
+
+        override fun attach(
+            rerender: () -> Unit,
+            host: () -> FileViewHost?,
+        ) {
+            this.rerender = rerender
+            this.host = host
+        }
+
+        override fun detach() {
+            detached++
+        }
+    }
+
+    private fun viewOf(preview: Preview): PreviewFileView {
+        val file = dir.resolve("a.txt").apply { writeText("a") }
+        return WaitForAsyncUtils
+            .asyncFx<PreviewFileView> { PreviewFileView(file, MarkdownFileViewer().highlighter, preview) }
+            .get()
+    }
+
+    private fun PreviewFileView.heading() =
+        script("document.querySelector('h1') && document.querySelector('h1').textContent")
+
+    private fun PreviewFileView.noticeShown() = WaitForAsyncUtils.asyncFx<Boolean> { notice.parent.isVisible }.get()
+
+    @Test
+    fun `a preview can make its view render again, until the view is disposed`(robot: FxRobot) {
+        val preview = PerViewPreview()
+        val view = viewOf(preview)
+        robot.interact { container.children.setAll(view.node) }
+        awaitLoaded(view)
+        assertEquals(listOf("a"), preview.texts)
+        assertTrue(preview.attachedBeforeLoad, "attach runs before the first load")
+
+        robot.interact { preview.rerender?.invoke() }
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { view.heading() == "a 2" }
+        WaitForAsyncUtils.sleep(500, TimeUnit.MILLISECONDS)
+        assertEquals(listOf("a", "a"), preview.texts)
+        assertFalse(view.noticeShown(), view.notice.text)
+
+        robot.interact { view.dispose() }
+        assertEquals(1, preview.detached)
+        robot.interact { preview.rerender?.invoke() }
+        robot.interact { view.dispose() }
+        assertEquals(listOf("a", "a"), preview.texts)
+        assertEquals(1, preview.detached)
+    }
+
+    @Test
+    fun `a preview rerendering while its page still loads is not taken for a page reloading itself`(robot: FxRobot) {
+        val preview = PerViewPreview()
+        val view = viewOf(preview)
+        robot.interact { container.children.setAll(view.node) }
+        // Twice in one pulse, the first load still running.
+        robot.interact {
+            preview.rerender?.invoke()
+            preview.rerender?.invoke()
+        }
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { view.heading() == "a ${preview.texts.size}" }
+        WaitForAsyncUtils.sleep(500, TimeUnit.MILLISECONDS)
+        assertEquals("a ${preview.texts.size}", view.heading())
+        assertFalse(view.noticeShown(), view.notice.text)
+    }
+
+    @Test
+    fun `a preview reaches the host of its view`(robot: FxRobot) {
+        val preview = PerViewPreview()
+        val view = viewOf(preview)
+        val host = RecordingHost()
+        assertEquals(null, preview.host?.invoke())
+        robot.interact { view.host = host }
+        assertSame(host, preview.host?.invoke())
+        robot.interact { view.dispose() }
+    }
+
+    @Test
+    fun `a viewer opens each view with the preview it makes for it`(robot: FxRobot) {
+        val previews = mutableListOf<PerViewPreview>()
+        val viewer =
+            object : PreviewFileViewer(setOf("txt"), MarkdownFileViewer().highlighter, PerViewPreview()) {
+                override fun newPreview(): Preview = PerViewPreview().also { previews += it }
+            }
+        val file = dir.resolve("a.txt").apply { writeText("a") }
+        val views = WaitForAsyncUtils.asyncFx<List<Any>> { listOf(viewer.open(file), viewer.open(file)) }.get()
+        assertEquals(2, previews.size)
+        assertNotSame(previews[0], previews[1])
+        robot.interact { views.forEach { (it as PreviewFileView).dispose() } }
+        assertEquals(listOf(1, 1), previews.map { it.detached })
+    }
 }

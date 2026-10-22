@@ -257,6 +257,7 @@ internal class PreviewFileView(
                 dark = scheme == ColorScheme.DARK
                 applyTheme()
             }
+        preview.attach({ if (!disposed && !stopped) rerender() }) { host }
         // Whoever shows the view sets its host, and with it the root, right after creating it; loading the page
         // before would serve it with the wrong files.
         if (preview.usesRoot) Platform.runLater(::render) else render()
@@ -311,6 +312,7 @@ internal class PreviewFileView(
 
     /** Stops the page for good: a disposed view never renders again, not even on [reload] or [resume]. */
     override fun dispose() {
+        if (disposed) return
         disposed = true
         stopped = true
         pendingFocus.cancel()
@@ -318,6 +320,7 @@ internal class PreviewFileView(
         toc?.close()
         engine.load("")
         source.dispose()
+        preview.detach()
     }
 
     private fun show(mode: PreviewMode) {
