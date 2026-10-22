@@ -22,6 +22,7 @@ internal data class MenuState(
     val rename: Boolean,
     val delete: Boolean,
     val history: Boolean,
+    val fileManager: Boolean,
 )
 
 /**
@@ -34,12 +35,14 @@ internal fun menuState(
     canShowHistory: () -> Boolean,
 ): MenuState {
     val single = targets.singleOrNull()
+    val create = if (targets.isEmpty()) projectOpen else single?.isDirectory == true
     return MenuState(
         open = targets.any { it.isRegularFile },
-        create = if (targets.isEmpty()) projectOpen else single?.isDirectory == true,
+        create = create,
         rename = single?.canChange == true,
         delete = targets.isNotEmpty() && targets.all { it.canChange },
         history = single != null && !single.isDirectory && canShowHistory(),
+        fileManager = create,
     )
 }
 
@@ -59,6 +62,9 @@ internal class ExplorerMenuHost(
     val runFolderAction: (FolderAction, FileTreeItem?) -> Unit,
     val rename: (FileTreeItem) -> Unit,
     val delete: (List<FileTreeItem>) -> Unit,
+    /** The label of the item opening a folder in the file manager of the system. */
+    val fileManagerLabel: () -> String,
+    val openInFileManager: (FileTreeItem?) -> Unit,
     val refreshAll: () -> Unit,
 )
 
@@ -79,6 +85,8 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
                     ?.let(host.showHistory)
             }
         }
+    val fileManager =
+        MenuItem().apply { setOnAction { host.openInFileManager(host.targets().singleOrNull()) } }
     val historySeparator = SeparatorMenuItem()
     val actionItems = mutableListOf<MenuItem>()
     return ContextMenu(
@@ -91,6 +99,8 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
         delete,
         historySeparator,
         history,
+        SeparatorMenuItem(),
+        fileManager,
         SeparatorMenuItem(),
         MenuItem("Refresh").apply { setOnAction { host.refreshAll() } },
     ).apply {
@@ -118,6 +128,8 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
             history.isVisible = host.historyOffered()
             historySeparator.isVisible = host.historyOffered()
             history.isDisable = !state.history
+            fileManager.text = host.fileManagerLabel()
+            fileManager.isDisable = !state.fileManager
         }
     }
 }

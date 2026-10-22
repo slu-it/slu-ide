@@ -7,10 +7,13 @@ import dev.sluide.fileexplorer.actions.ExplorerEdits
 import dev.sluide.fileexplorer.actions.ExplorerMenuHost
 import dev.sluide.fileexplorer.actions.ExplorerMoves
 import dev.sluide.fileexplorer.actions.MoveQuestion
+import dev.sluide.fileexplorer.actions.SystemFileManager
 import dev.sluide.fileexplorer.actions.askForName
 import dev.sluide.fileexplorer.actions.askToDelete
 import dev.sluide.fileexplorer.actions.askToMove
 import dev.sluide.fileexplorer.actions.buildExplorerMenu
+import dev.sluide.fileexplorer.actions.launch
+import dev.sluide.fileexplorer.actions.systemFileManager
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileexplorer.tree.PathCell
 import dev.sluide.fileexplorer.tree.TreeDragAndDrop
@@ -33,6 +36,7 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
@@ -136,6 +140,22 @@ class FileExplorerView(
                 scene?.window?.let(::initOwner)
                 headerText = null
             }.showAndWait()
+    }
+
+    /** The file manager of the operating system, for Open in Finder/Explorer/File Manager. */
+    internal var fileManager: SystemFileManager = systemFileManager()
+
+    /** Starts the command of the file manager; tests replace it. */
+    internal var launchCommand: (List<String>) -> Unit = ::launch
+
+    /** Opens the folder of [target], the project folder for the empty area, in the file manager of the system. */
+    internal fun openInFileManager(target: FileTreeItem?) {
+        val folder = (target ?: projectItem)?.value ?: return
+        try {
+            launchCommand(fileManager.command(folder))
+        } catch (e: IOException) {
+            showError("Could not open $folder in ${fileManager.name}: ${e.message}")
+        }
     }
 
     // The hooks and test seams are read when an edit runs, not now, so later changes take effect.
@@ -260,6 +280,8 @@ class FileExplorerView(
                     runFolderAction = { action, target -> runFolderAction(action, target) },
                     rename = { rename(it) },
                     delete = { delete(it) },
+                    fileManagerLabel = { fileManager.label },
+                    openInFileManager = { openInFileManager(it) },
                     refreshAll = { refreshAll() },
                 ),
             )

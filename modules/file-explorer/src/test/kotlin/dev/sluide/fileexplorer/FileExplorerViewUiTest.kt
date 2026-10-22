@@ -36,6 +36,7 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
@@ -527,6 +528,43 @@ class FileExplorerViewUiTest {
 
         assertTrue(menuItemFor(robot, cellNamed(robot, project.name), "Rename…").isDisable)
         assertTrue(menuItemFor(robot, view, "Rename…").isDisable)
+    }
+
+    @Test
+    fun `Open in file manager starts the command for a folder, not for a file`(robot: FxRobot) {
+        project.resolve("a.txt").createFile()
+        val sub = project.resolve("sub").createDirectories()
+        robot.interact { view.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+        val commands = mutableListOf<List<String>>()
+        view.launchCommand = { commands.add(it) }
+        val label = view.fileManager.label
+
+        assertTrue(menuItemFor(robot, cellNamed(robot, "a.txt"), label).isDisable)
+        val item = menuItemFor(robot, cellNamed(robot, "sub"), label)
+        assertFalse(item.isDisable)
+        robot.interact { item.fire() }
+        assertEquals(listOf(sub.toString()), commands.map { it.last() })
+        val empty = menuItemFor(robot, view, label)
+        assertFalse(empty.isDisable)
+        robot.interact { empty.fire() }
+        assertEquals(project.toString(), commands.last().last())
+    }
+
+    @Test
+    fun `Open in file manager shows an error if the command cannot start`(robot: FxRobot) {
+        val sub = project.resolve("sub").createDirectories()
+        robot.interact { view.open(project) }
+        WaitForAsyncUtils.waitForFxEvents()
+        val errors = mutableListOf<String>()
+        view.showError = { errors.add(it) }
+        view.launchCommand = { throw IOException("no such program") }
+
+        val item = menuItemFor(robot, cellNamed(robot, "sub"), view.fileManager.label)
+        robot.interact { item.fire() }
+        assertEquals(1, errors.size)
+        assertTrue(errors.single().contains(sub.toString()))
+        assertTrue(errors.single().contains("no such program"))
     }
 
     @Test
