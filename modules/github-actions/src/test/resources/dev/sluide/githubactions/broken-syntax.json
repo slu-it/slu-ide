@@ -1,0 +1,1 @@
+{"schema":1,"errors":[{"message":"Missing closing \"quote at line 8, column 1:\n\n      - run: echo ok\n\n^\n","line":8,"column":1}],"name":null,"events":[],"jobs":[]}
