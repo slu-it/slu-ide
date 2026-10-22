@@ -89,7 +89,17 @@
     failed delete stops at the first entry it cannot delete (later ones are not tried) and can leave a folder partly
     deleted; the error is shown, `onDeleted` is called for every entry deleted completely, not for the failed one.
   - Show History is enabled for exactly one file (`canShowHistory`), never for folders, several entries or the empty
-    area. Refresh is always enabled.
+    area.
+  - "Open in Finder" (macOS, `open <folder>`), "Open in Explorer" (Windows, `explorer.exe <folder>`) or "Open in File
+    Manager" (otherwise, `xdg-open <folder>`), in its own group before Refresh (`actions/SystemFileManager.kt`).
+    Enabled like New File…: one folder (also a top-level one) or the empty area while a folder is open, which stands
+    for the project folder; disabled on files and several entries. The command is started and not waited for, its
+    output is discarded and its exit code ignored (`explorer.exe` returns 1 on success); if it cannot start, the
+    IOException is shown as an error. It uses `ProcessBuilder` instead of `HostServices` (on Linux it can fall back to
+    a web browser) or `java.awt.Desktop` (it would start AWT next to JavaFX on macOS). Known limitations: on macOS,
+    `open` launches bundle folders (e.g. `Foo.app`, `Foo.xcodeproj`) instead of showing them. On Windows,
+    `explorer.exe` misreads folder paths containing commas and opens a default location.
+  - Refresh is always enabled.
   - The name dialog checks the name while typing (not empty, no `/`, `\` or NUL, not `.`/`..`, no leading or
     trailing whitespace, no characters the file system cannot store, not taken, on case-insensitive file systems also
     not in another case) and keeps OK disabled while it shows a problem. Errors on disk (e.g. permissions) are shown in an error dialog.
