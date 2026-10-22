@@ -250,13 +250,32 @@ class MainWindow(
                 accelerator = KeyCodeCombination(KeyCode.S, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN)
                 setOnAction { editorArea.saveAll() }
             }
+        // Only file and diff tabs close; a terminal keeps Ctrl+W for the shell, and Cmd+W on macOS finds the item
+        // disabled.
+        val closeTab =
+            MenuItem("Close Tab").apply {
+                accelerator = KeyCodeCombination(KeyCode.W, KeyCombination.SHORTCUT_DOWN)
+                disableProperty().bind(editorArea.canCloseSelected.map { !it })
+                setOnAction { editorArea.closeSelected() }
+            }
         val settings =
             MenuItem("Settings…").apply {
                 accelerator = KeyCodeCombination(KeyCode.COMMA, KeyCombination.SHORTCUT_DOWN)
                 setOnAction { showSettings(stage) }
             }
         val opening = arrayOf(scratches.menuItem(stage), SeparatorMenuItem(), openFolder, openProject)
-        return Menu("File", null, *opening, SeparatorMenuItem(), save, saveAll, SeparatorMenuItem(), settings)
+        return Menu(
+            "File",
+            null,
+            *opening,
+            SeparatorMenuItem(),
+            save,
+            saveAll,
+            SeparatorMenuItem(),
+            closeTab,
+            SeparatorMenuItem(),
+            settings,
+        )
     }
 
     private fun viewMenu(): Menu {

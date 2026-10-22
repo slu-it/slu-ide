@@ -172,6 +172,34 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
     }
 
     @Test
+    fun `closeSelected closes the selected file tab and selects its neighbour`(robot: FxRobot) {
+        open(robot, textFile("a.txt"), textFile("b.txt"))
+
+        robot.interact { editor.closeSelected() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(listOf("a.txt"), tabTitles(robot))
+        assertEquals("content of a.txt", shownText(robot))
+    }
+
+    @Test
+    fun `canCloseSelected follows the selection, and a tab not closable by shortcut stays`(robot: FxRobot) {
+        val a = textFile("a.txt")
+        val terminal = WarningTab("Terminal 1", null)
+        assertFalse(editor.canCloseSelected.value)
+        open(robot, a)
+        assertTrue(editor.canCloseSelected.value)
+
+        robot.interact { editor.open(terminal) }
+        assertFalse(editor.canCloseSelected.value)
+        robot.interact { editor.closeSelected() }
+        assertEquals(listOf("a.txt", "Terminal 1"), tabTitles(robot))
+
+        robot.interact { click(tabLabel(robot, "a.txt")) }
+        assertTrue(editor.canCloseSelected.value)
+    }
+
+    @Test
     fun `scroll buttons and overflow menu appear only when tabs do not fit`(robot: FxRobot) {
         open(robot, textFile("a.txt"))
         val strip = editor.tabStrip

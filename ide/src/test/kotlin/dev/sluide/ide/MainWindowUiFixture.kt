@@ -331,9 +331,16 @@ abstract class MainWindowUiFixture {
     internal fun pressShortcutS(
         target: Node,
         alt: Boolean = false,
+    ) = pressShortcut(target, KeyCode.S, alt)
+
+    /** Presses Shortcut+[code], with Alt if [alt], on [target] as [pressShortcutS] does. */
+    internal fun pressShortcut(
+        target: Node,
+        code: KeyCode,
+        alt: Boolean = false,
     ) {
         val mac = System.getProperty("os.name").startsWith("Mac")
-        Event.fireEvent(target, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.S, false, !mac, alt, mac))
+        Event.fireEvent(target, KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, !mac, alt, mac))
     }
 
     /** Asks to close the window like its close button does; closes it unless a handler consumes the request. */

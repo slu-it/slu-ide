@@ -321,6 +321,10 @@ class EditorArea(
     val canToggleDiff: ObservableValue<Boolean> =
         editorTabs.selected.flatMap { (it as? OpenFile)?.hasDiff ?: NO_DIFF }.orElse(false)
 
+    /** Whether [closeSelected] does something. */
+    val canCloseSelected: ObservableValue<Boolean> =
+        editorTabs.selected.map { it?.closableByShortcut ?: false }.orElse(false)
+
     /**
      * Shows the diff of the selected file ([diffOf]) side by side over its editor, or the editor again while the diff
      * is shown. The diff is of the file as saved; the editor keeps its unsaved changes, caret and undo history
@@ -447,6 +451,12 @@ class EditorArea(
     ) = log.log(System.Logger.Level.WARNING, "$what $path", e)
 
     private fun hosted(view: FileView): FileView = view.apply { host = viewHost }
+
+    /** Closes the selected tab if it is closable by shortcut, asking as the tab strip does. FX thread. */
+    fun closeSelected() {
+        val tab = editorTabs.selected.get()?.takeIf { it.closableByShortcut } ?: return
+        if (confirmClosing(listOf(tab))) editorTabs.close(tab)
+    }
 
     /**
      * Whether to close [tabs] from the UI: files with unsaved changes are saved or discarded as [confirmSave] says,

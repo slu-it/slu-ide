@@ -41,6 +41,12 @@ interface EditorTab {
      */
     val usesEditorFont: Boolean get() = false
 
+    /**
+     * Whether Shortcut+W (File → Close Tab) closes the tab while it is selected. Terminals keep `false`: the key
+     * belongs to the shell there.
+     */
+    val closableByShortcut: Boolean get() = false
+
     /** Releases the tab's resources. Called once, when the tab is closed. */
     fun dispose() {}
 }
@@ -59,6 +65,8 @@ internal class OpenFile(
     /** The viewer that opened the [editor], if known. */
     val viewer: FileViewer? = null,
 ) : EditorTab {
+    override val closableByShortcut = true
+
     /** The file's path; title and tooltip follow it. */
     val pathProperty = SimpleObjectProperty(path)
 

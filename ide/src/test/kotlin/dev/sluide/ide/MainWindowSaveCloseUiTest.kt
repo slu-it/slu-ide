@@ -94,6 +94,36 @@ class MainWindowSaveCloseUiTest : MainWindowUiFixture() {
     }
 
     @Test
+    fun `offers File - Close Tab with Ctrl+W`(robot: FxRobot) {
+        val close = fileMenuItem(robot, "Close Tab").accelerator as KeyCodeCombination
+        assertEquals(KeyCode.W, close.code)
+        assertEquals(KeyCombination.ModifierValue.DOWN, close.shortcut)
+        assertEquals(KeyCombination.ModifierValue.UP, close.alt)
+        assertTrue(fileMenuItem(robot, "Close Tab").isDisable, "no tab is open")
+    }
+
+    @Test
+    fun `the close shortcut closes a file tab, and a terminal tab stays open`(robot: FxRobot) {
+        val a = project.resolve("a.txt").apply { writeText("a") }
+        robot.interact {
+            projectService.open(project)
+            editorArea.open(a)
+        }
+        assertFalse(fileMenuItem(robot, "Close Tab").isDisable)
+        robot.interact { pressShortcut(shownArea(robot), KeyCode.W) }
+        assertEquals(emptyList(), tabTitles(robot))
+
+        robot.interact { editorArea.open(terminals.open(project, "Job", "sleep 300")) }
+        val terminal = checkNotNull(editorArea.selectedTab).content
+        assertTrue(fileMenuItem(robot, "Close Tab").isDisable)
+        robot.interact { pressShortcut(terminal, KeyCode.W) }
+        // Outside the terminal the key reaches the menu item, which is disabled.
+        robot.interact { pressShortcut(stage.scene.root, KeyCode.W) }
+        assertTrue(fileMenuItem(robot, "Close Tab").isDisable)
+        assertEquals(1, tabTitles(robot).size)
+    }
+
+    @Test
     fun `closing the window asks once while tabs run something, Cancel keeps it open`(robot: FxRobot) {
         robot.interact { projectService.open(project) }
         robot.interact { editorArea.open(terminals.open(project, "Job 1", "sleep 300")) }

@@ -130,6 +130,21 @@ class EditorAreaSavingUiTest : EditorAreaUiFixture() {
     }
 
     @Test
+    fun `closeSelected asks for a file with unsaved changes, Cancel keeps it`(robot: FxRobot) {
+        val a = textFile("a.txt", "a")
+        var answer = SaveChoice.CANCEL
+        val asked = openEdited(robot, a) { answer }
+
+        robot.interact { editor.closeSelected() }
+        assertEquals(listOf(listOf("a.txt")), asked)
+        assertEquals(listOf("\u25cf a.txt"), tabTitles(robot))
+
+        answer = SaveChoice.DISCARD
+        robot.interact { editor.closeSelected() }
+        assertEquals(emptyList(), tabTitles(robot))
+    }
+
+    @Test
     fun `Save saves the files before their tabs close, and close all asks once for all of them`(robot: FxRobot) {
         val a = textFile("a.txt", "a")
         val b = textFile("b.txt", "b")

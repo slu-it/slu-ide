@@ -33,6 +33,7 @@ internal class WorkingTreeDiffTab(
     override val tooltip = "${diff.path}: ${diff.commitTitle()} ↔ Working Tree"
 
     override val usesEditorFont = true
+    override val closableByShortcut = true
 
     private val holder = StackPane(view.node)
 
