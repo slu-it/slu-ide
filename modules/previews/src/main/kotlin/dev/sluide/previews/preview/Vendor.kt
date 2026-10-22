@@ -12,6 +12,9 @@ internal object Vendor {
 
     val mermaidJs: String by lazy { text("mermaid/mermaid.min.js") }
 
+    /** GitHub's workflow parser with our entry (`sluideWorkflowParser`), built from `src/main/js/workflow-parser`. */
+    val workflowParserJs: String by lazy { text("workflow-parser/workflow-parser.min.js") }
+
     /**
      * KaTeX's stylesheet with its woff fonts inlined; the woff2 and ttf alternatives are dropped. JavaFX's WebKit fails
      * to load woff2 fonts from `data:` URIs.

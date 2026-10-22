@@ -18,6 +18,9 @@ dependencies {
     // Deliberate module dependency: exports and image downloads run on logged threads and as window tasks,
     // ADRs 0060, 0061.
     implementation(project(":modules:background-tasks"))
+    // Deliberate module dependency: the workflow viewer draws GitHub Actions workflows with WorkflowGraphs, fed by
+    // the bundled parser it runs (ADR 0075).
+    implementation(project(":modules:github-actions"))
     // Deliberate module dependency: the source side of a preview knows the comment syntax of a file (CommentSyntax).
     implementation(project(":modules:text-editing"))
     implementation(libs.spring.context)
