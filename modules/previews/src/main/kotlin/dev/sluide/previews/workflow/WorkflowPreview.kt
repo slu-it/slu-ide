@@ -2,9 +2,11 @@ package dev.sluide.previews.workflow
 
 import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.fileviewers.FileViewHost
+import dev.sluide.githubactions.RepositoryFiles
 import dev.sluide.githubactions.WorkflowGraph
 import dev.sluide.githubactions.WorkflowGraphs
 import dev.sluide.githubactions.WorkflowParser
+import dev.sluide.githubactions.WorkflowSources
 import dev.sluide.previews.markdown.MarkdownRenderer
 import dev.sluide.previews.markdown.MermaidPreview
 import dev.sluide.previews.preview.Preview
@@ -25,17 +27,24 @@ import java.util.concurrent.Executor
  * example), its note shows and the text is tried once more right away; after that the note is kept until the file is
  * edited or opened again. A result for a text that is no longer the latest is dropped; nothing comes after [detach].
  * Calls other than the executor's are on the FX thread, which [runLater] goes back to.
+ *
+ * A workflow in `<root>/.github/workflows/` has its local reusable workflows and actions read from `<root>`
+ * ([RepositoryFiles]) and drawn nested; their reading stops once the text is outdated. A parser failure for one of them
+ * counts like one for the workflow (parsed once more, then kept). The graph is kept for the workflow's own text, so a
+ * change to a file it refers to shows once the workflow is edited or opened again.
  */
 internal class WorkflowPreview(
     private val parser: WorkflowParser,
     private val executor: Executor = parsingThread,
     private val runLater: (Runnable) -> Unit = Platform::runLater,
 ) : Preview {
-    /** A workflow's file name and text: what its graph depends on. */
+    /** A workflow's file and text: what its graph depends on (besides the files it refers to). */
     private data class Input(
-        val fileName: String,
+        val file: Path,
         val text: String,
-    )
+    ) {
+        val fileName get() = file.fileName.toString()
+    }
 
     private var rerender: (() -> Unit)? = null
     private var detached = false
@@ -86,7 +95,7 @@ internal class WorkflowPreview(
         text: String,
         dark: Boolean,
     ): String {
-        val input = Input(file.fileName.toString(), text)
+        val input = Input(file, text)
         if (!detached) latest = input
         val graph = drawn?.takeIf { it.first == input }?.second
         if (graph != null) return render(graph, dark)
@@ -107,17 +116,26 @@ internal class WorkflowPreview(
         parsing = input
         executor.execute {
             var threw = false
+            var outdated = false
             val recording =
                 WorkflowParser { fileName, text ->
                     try {
                         parser.parse(fileName, text)
                     } catch (e: Exception) {
+                        // Also for a referenced workflow: its box says the parser failed, so the graph is retried.
                         threw = true
                         throw e
                     }
                 }
-            val graph = if (latest == input) WorkflowGraphs.of(input.fileName, input.text, recording) else null
-            runLater { parsed(input, graph, threw) }
+            val cancelled = { (latest != input).also { if (it) outdated = true } }
+            val graph =
+                if (latest == input) {
+                    WorkflowGraphs.of(input.fileName, input.text, recording, sources(input.file), cancelled)
+                } else {
+                    null
+                }
+            // A graph cut short for being outdated is never kept, even if its text is the latest again by now.
+            runLater { parsed(input, graph.takeUnless { outdated }, threw) }
         }
     }
 
@@ -152,6 +170,16 @@ internal class WorkflowPreview(
     companion object {
         /** What the page says while the workflow is parsed. */
         const val READING = "Reading the workflow…"
+
+        /** Where [file]'s local references are read from: its repository if it is in `<root>/.github/workflows/`. */
+        fun sources(file: Path): WorkflowSources {
+            val workflows = file.toAbsolutePath().parent
+            val github = workflows?.parent
+            val root = github?.parent
+            val inWorkflows =
+                workflows?.fileName?.toString() == "workflows" && github?.fileName?.toString() == ".github"
+            return if (root != null && inWorkflows) RepositoryFiles(root) else WorkflowSources.NONE
+        }
 
         /** The thread all workflow views parse on, one workflow after the other, as the parser takes them anyway. */
         private val parsingThread: Executor by lazy { NamedThreads.single("Workflow graph") }

@@ -1,10 +1,17 @@
 package dev.sluide.previews.workflow
 
+import dev.sluide.githubactions.RepositoryFiles
 import dev.sluide.githubactions.WorkflowParser
+import dev.sluide.githubactions.WorkflowSources
+import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import kotlin.io.path.createDirectories
+import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /** When [WorkflowPreview] parses, which result it keeps and when it has its view render again; no WebEngine. */
@@ -215,7 +222,88 @@ class WorkflowPreviewTest {
         assertTrue(preview.page("a").isGraphOf("a"))
     }
 
+    /** A repository in [repo] whose `ci.yml` calls `called.yml`; returns `ci.yml`. */
+    private fun callingRepository(repo: Path): Path {
+        val workflows = repo.resolve(".github/workflows").createDirectories()
+        workflows.resolve("called.yml").writeText("called")
+        return workflows.resolve("ci.yml")
+    }
+
+    @Test
+    fun `references are read from the workflow's repository, their parser failures retry once like the workflow's`(
+        @TempDir repo: Path,
+    ) {
+        val file = callingRepository(repo)
+        val preview =
+            WorkflowPreview(
+                WorkflowParser { fileName, _ ->
+                    parsed += fileName
+                    if (fileName == "called.yml") error("broken parser") else CALLS
+                },
+                background::addLast,
+                fxThread::addLast,
+            ).apply { attach({ rerenders++ }) { null } }
+
+        preview.page(file, "calls", dark = false)
+        runBackground()
+        runFx()
+
+        assertEquals(listOf("ci.yml", "called.yml"), parsed)
+        assertEquals(1, rerenders)
+        assertTrue("parser failed: broken parser" in preview.page(file, "calls", dark = false), "shown once")
+        runBackground()
+        runFx()
+
+        assertEquals(listOf("ci.yml", "called.yml", "ci.yml", "called.yml"), parsed, "parsed once more")
+        assertEquals(2, rerenders)
+        assertTrue("parser failed: broken parser" in preview.page(file, "calls", dark = false), "then kept")
+        assertTrue(background.isEmpty())
+    }
+
+    @Test
+    fun `an outdated text stops reading its references and its graph is not kept`(
+        @TempDir repo: Path,
+    ) {
+        val file = callingRepository(repo)
+        lateinit var preview: WorkflowPreview
+        preview =
+            WorkflowPreview(
+                WorkflowParser { fileName, text ->
+                    parsed += "$fileName: $text"
+                    if (text == "calls") {
+                        // Edited while this text is parsed.
+                        preview.page(file, "edited", dark = false)
+                        CALLS
+                    } else {
+                        job(text)
+                    }
+                },
+                background::addLast,
+                fxThread::addLast,
+            ).apply { attach({ rerenders++ }) { null } }
+
+        preview.page(file, "calls", dark = false)
+        runBackground()
+        runFx()
+
+        assertEquals(listOf("ci.yml: calls", "ci.yml: edited"), parsed, "called.yml not parsed for the outdated text")
+        assertEquals(1, rerenders)
+        assertTrue(preview.page(file, "edited", dark = false).isGraphOf("edited"))
+    }
+
+    @Test
+    fun `only workflows in a repository's workflows folder read references`() {
+        assertIs<RepositoryFiles>(WorkflowPreview.sources(Path.of("/repo/.github/workflows/ci.yml")))
+        assertSame(WorkflowSources.NONE, WorkflowPreview.sources(Path.of("/repo/workflows/ci.yml")))
+        assertSame(WorkflowSources.NONE, WorkflowPreview.sources(Path.of("/repo/.github/ci.yml")))
+    }
+
     private companion object {
+        /** The parser's JSON for a workflow calling `./.github/workflows/called.yml`. */
+        const val CALLS =
+            """{"schema": 1, "errors": [], "events": [], "jobs": [{"id": "call", "type": "reusableWorkflowJob",
+            "needs": [], "uses": "./.github/workflows/called.yml"}]}"""
+
         /** The parser's JSON for a workflow with one job named [id], none if it is blank. */
         fun job(id: String): String {
             val jobs =

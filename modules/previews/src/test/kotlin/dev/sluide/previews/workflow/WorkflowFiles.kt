@@ -21,5 +21,8 @@ internal object WorkflowFiles {
 
     fun workflow(name: String): Path = root.resolve(".github/workflows").resolve(name)
 
+    /** The small repository of `github-actions`' tests with a reusable workflow and local actions. */
+    val nested: Path = root.resolve("modules/github-actions/src/test/resources/dev/sluide/githubactions/nested")
+
     fun fixture(name: String): Path = fixtures.single { it.name == name }
 }

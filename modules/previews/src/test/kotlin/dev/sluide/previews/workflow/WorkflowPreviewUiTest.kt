@@ -1,5 +1,6 @@
 package dev.sluide.previews.workflow
 
+import dev.sluide.githubactions.RepositoryFiles
 import dev.sluide.githubactions.WorkflowGraphs
 import dev.sluide.githubactions.WorkflowParser
 import dev.sluide.previews.preview.PreviewFileView
@@ -21,6 +22,7 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
@@ -189,6 +191,122 @@ class WorkflowPreviewUiTest {
         view.webView.engine.awaitDrawing()
         assertEquals(null, view.webView.engine.mermaidError())
         assertTrue("./deploy.sh" in view.diagramText())
+    }
+
+    @Test
+    fun `local reusable workflows and composite actions are drawn nested`(robot: FxRobot) {
+        val workflows = workflowsFolder()
+        workflows.resolve("build.yml").writeText(
+            """
+            on:
+              workflow_call:
+            jobs:
+              compile:
+                runs-on: ubuntu-latest
+                steps:
+                  - name: Compile inside
+                    run: ./gradlew assemble
+            """.trimIndent(),
+        )
+        dir.resolve(".github/actions/setup").createDirectories().resolve("action.yml").writeText(
+            """
+            name: Set up
+            runs:
+              using: composite
+              steps:
+                - name: Install inside
+                  run: ./install.sh
+                  shell: bash
+            """.trimIndent(),
+        )
+        val file = workflows.resolve("ci.yml")
+        file.writeText(
+            """
+            on: push
+            jobs:
+              build:
+                uses: ./.github/workflows/build.yml
+              test:
+                needs: build
+                runs-on: ubuntu-latest
+                steps:
+                  - uses: ./.github/actions/setup
+                  - run: ./gradlew test
+            """.trimIndent(),
+        )
+        val view = show(robot) { WorkflowFileViewer().open(file) as PreviewFileView }
+        robot.interact { view.mode.set(PreviewMode.SPLIT) }
+
+        view.awaitGraph()
+        assertEquals(null, view.webView.engine.mermaidError())
+        assertEquals(null, view.script("var p = document.querySelector('.diagram-note'); p && p.textContent"))
+        val text = view.diagramText()
+        for (part in listOf(
+            "calls build.yml",
+            "Compile inside",
+            "Set up (composite)",
+            "Install inside",
+            "gradlew test",
+        )) {
+            assertTrue(part in text, "$part in $text")
+        }
+    }
+
+    @Test
+    fun `nested graphs draw without a Mermaid error, also with cycle and limit boxes deep inside`(robot: FxRobot) {
+        Files.walk(WorkflowFiles.nested).use { paths ->
+            paths.filter { Files.isRegularFile(it) }.forEach {
+                val target = dir.resolve(WorkflowFiles.nested.relativize(it).toString())
+                target.parent.createDirectories()
+                it.copyTo(target)
+            }
+        }
+        val workflows = workflowsFolder()
+        for (level in 0..11) {
+            val next = "./.github/workflows/deep${level + 1}.yml"
+            workflows.resolve("deep$level.yml").writeText("on:\n  workflow_call:\njobs:\n  next:\n    uses: $next\n")
+        }
+        dir.resolve(".github/actions/loop").createDirectories().resolve("action.yml").writeText(
+            """
+            runs:
+              using: composite
+              steps:
+                - run: echo before
+                  shell: bash
+                - uses: ./.github/actions/loop
+            """.trimIndent(),
+        )
+        workflows.resolve("cycles.yml").writeText(
+            """
+            on: push
+            jobs:
+              main:
+                runs-on: ubuntu-latest
+                steps:
+                  - uses: ./.github/actions/loop
+                  - uses: ./.github/actions/setup
+            """.trimIndent(),
+        )
+        val webView = WaitForAsyncUtils.asyncFx<WebView> { WebView() }.get()
+        robot.interact { container.children.setAll(webView) }
+        val engine = webView.engine
+        val expected =
+            mapOf(
+                "caller.yml" to "class j1s2 unresolved",
+                "deep0.yml" to "class ${"j0w".repeat(11)} limit",
+                "cycles.yml" to "class j0s0s1 cycle",
+            )
+
+        for ((name, classes) in expected) {
+            val file = workflows.resolve(name)
+            val graph = WorkflowGraphs.of(name, file.readText(), WebViewWorkflowParser.shared, RepositoryFiles(dir))
+            assertTrue(classes in graph.mermaid, "$name:\n${graph.mermaid}")
+            robot.interact { engine.loadContent(WorkflowPreview.render(graph, dark = false)) }
+            awaitLoaded(engine)
+            engine.awaitDrawing()
+            assertEquals(null, engine.mermaidError(), "$name:\n${graph.mermaid}")
+            assertEquals(1, engine.count("pre.mermaid svg"), name)
+        }
     }
 
     @Test
