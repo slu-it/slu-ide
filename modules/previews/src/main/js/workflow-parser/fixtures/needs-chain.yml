@@ -1,0 +1,38 @@
+name: Needs chain
+on: push
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - run: ./gradlew spotlessCheck
+  test:
+    name: Unit tests
+    needs: lint
+    runs-on: [self-hosted, linux]
+    steps:
+      - run: ./gradlew test
+  ui-test:
+    needs: lint
+    runs-on:
+      group: big-runners
+      labels: [linux, x64]
+    if: "github.event_name == 'push'"
+    steps:
+      - run: ./gradlew uiTest
+  package:
+    needs: [test, ui-test]
+    runs-on: ${{ inputs.runner || 'ubuntu-latest' }}
+    if: ${{ !cancelled() }}
+    steps:
+      - name: Package
+        run: |
+
+          # build the jar
+          ./gradlew bootJar
+          ls build/libs
+  always-report:
+    needs: package
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo done

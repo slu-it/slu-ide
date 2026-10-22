@@ -1,0 +1,25 @@
+on: push
+concurrency:
+  group: ci
+  cancel-in-progress: maybe
+jobs:
+  a:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: [1, 2]
+    steps:
+      - run: ''
+      - run: |
+
+      - parallel:
+          - run: echo one
+          - run: echo two
+      - uses: actions/checkout@v4
+  b:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: ubuntu-latest
+        include: windows
+    steps:
+      - run: echo b

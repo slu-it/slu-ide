@@ -1,0 +1,44 @@
+on: [push, pull_request]
+jobs:
+  static:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        java: [21, 25]
+        experimental: [false]
+        include:
+          - os: windows-latest
+            java: 25
+            experimental: true
+          - os: ubuntu-latest
+            flags: { debug: true }
+        exclude:
+          - os: macos-latest
+            java: 21
+    steps:
+      - run: echo ${{ matrix.java }}
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+    steps:
+      - id: set
+        run: echo 'matrix={"os":["a","b"]}' >> "$GITHUB_OUTPUT"
+  dynamic:
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      matrix: ${{ fromJSON(needs.setup.outputs.matrix) }}
+    steps:
+      - run: echo dynamic
+  partly-dynamic:
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: ${{ fromJSON(needs.setup.outputs.matrix).os }}
+        include: ${{ fromJSON(needs.setup.outputs.matrix).include }}
+    steps:
+      - run: echo partly

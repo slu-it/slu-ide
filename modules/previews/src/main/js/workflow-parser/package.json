@@ -1,0 +1,14 @@
+{
+  "name": "sluide-workflow-parser",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Build input for the vendored GitHub Actions workflow parser bundle; see README.md",
+  "license": "UNLICENSED",
+  "type": "module",
+  "dependencies": {
+    "@actions/workflow-parser": "0.3.61"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

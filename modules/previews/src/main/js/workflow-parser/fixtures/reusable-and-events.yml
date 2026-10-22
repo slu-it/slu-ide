@@ -1,0 +1,57 @@
+name: Reusable workflows and events
+on:
+  push:
+    branches: [main, 'release/**']
+    tags: v*
+    paths-ignore: [docs/**]
+  pull_request:
+    types: [opened, synchronize]
+    branches: main
+  schedule:
+    - cron: '0 3 * * 1'
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+    inputs:
+      runner:
+        type: string
+      dry-run:
+        type: boolean
+  workflow_call:
+  release:
+    types: [published]
+jobs:
+  local:
+    uses: ./.github/workflows/build.yml
+    with:
+      java: 25
+      flags: "a b"
+      ref: ${{ github.sha }}
+  remote:
+    name: Deploy ${{ github.ref_name }}
+    needs: local
+    uses: owner/repo/.github/workflows/deploy.yml@v1
+    with:
+      environment: production
+    secrets: inherit
+  remote-explicit:
+    needs: local
+    uses: owner/repo/.github/workflows/deploy.yml@0123456789abcdef0123456789abcdef01234567
+    secrets:
+      token: ${{ secrets.TOKEN }}
+  steps:
+    needs: [remote, remote-explicit]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ./local-action
+      - id: checkout
+        name: Check out
+        uses: actions/checkout@v4
+      - uses: owner/repo/path/to/action@0123456789abcdef0123456789abcdef01234567
+        with:
+          a: b
+      - uses: docker://alpine:3
+        if: success() && github.ref == 'refs/heads/main'
+      - run: echo "${{ github.ref }}"
+      - name: 'Quoted ${{ github.sha }}'
+        if: "${{ github.event_name == 'push' }}"
+        run: "echo ${{ github.sha }}"

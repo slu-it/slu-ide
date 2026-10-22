@@ -1,0 +1,15 @@
+on: push
+colour: red
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout: 5
+    steps:
+      - run: echo build
+      - name: neither uses nor run
+  deploy:
+    needs: [build, missing]
+    runs-on: ubuntu-latest
+    if: ${{ github.ref == }}
+    steps:
+      - run: echo deploy
