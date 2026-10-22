@@ -5,4 +5,4 @@ The JSON of the bundled workflow parser (schema 1) for `.github/workflows/ci.yml
 `node check.mjs <file.yml>` in that folder and keep the output of one file per `.json` file.
 
 `nested/` is a small repository for nested graphs: `nested-caller.json` and `nested-build.json` are the JSON of its
-`.github/workflows/caller.yml` and `build.yml`, made the same way (`node check.mjs <path to nested/.github/workflows/caller.yml>`).
+`.github/workflows/caller.yml` and `build.yml`, made the same way.

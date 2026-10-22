@@ -39,6 +39,18 @@ of our own would drift from GitHub's; the user chose exact upstream semantics.
   directly in `.github/workflows`; other YAML stays with the YAML code viewer. It opens in Source, like Bicep.
 - **`uses:` is a black box for now:** actions and reusable workflows are drawn as one box with their reference.
   Resolving them (local files first, then remote ones through a git cache) is planned.
+- **Amended (2026-10-22): local `uses:` are followed.** Reusable workflows go through the same parser; action
+  manifests (`action.yml`) are read in Kotlin with **SnakeYAML** (managed by the Spring Boot BOM, already in the fat
+  jar), as a node tree only (`compose`, every scalar kept as text; nothing is constructed, non-standard `!!` tags are
+  refused; at most 50 aliases, nesting 50, 1 MB). Guards, as constants with tests: paths confined to the repository's
+  root (normalised, then checked and opened as the real path), cycles on the expansion stack, at most 10 nested
+  expansions (GitHub's limit), 50 distinct files read per graph, 1 MB per file, and the diagram limits: an expansion
+  is drawn on trial and left out whole if it does not fit; later ones are still tried, up to 10 that did not fit (a
+  graph costs at most about ten budgets' work), and a called workflow is not even read once its expansion could not
+  be drawn. A file is expanded once per graph; other uses say where (`expanded in build / compile`). Parser work is
+  bounded too: after the parser throws once, it is not called again for that graph, such a graph is retried and kept
+  like one whose own parse failed, and an outdated text stops reading its references. The graph stays cached by the
+  workflow's own text; there is no file watching.
 
 ## Consequences
 - The graph has GitHub's semantics and errors; updating them is a rebuild of the bundle (README of the build inputs),
@@ -52,5 +64,6 @@ of our own would drift from GitHub's; the user chose exact upstream semantics.
   new engine; a second failure is kept with the text. After that, edit the file or reopen it: the view renders
   unchanged text again only when asked to, so saving or reloading it does not retry. GitHub's own errors are kept
   with the text like a graph.
-- Mermaid's limits apply (500 edges, 50,000 characters): large workflows are cut, with a note saying so.
+- Mermaid's limits apply (500 edges, 50,000 characters): large workflows are cut, with a note saying so; with
+  nested expansions the text estimate counts their deeper indents and longer ids.
 - The first workflow parsed creates the engine (a few hundred milliseconds); it stays for the app's lifetime.

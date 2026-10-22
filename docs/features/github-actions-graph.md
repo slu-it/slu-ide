@@ -35,7 +35,8 @@
   `secrets: inherit`.
 - **Links**: from each job a job `needs`, or from the triggers when it needs none. A job with an `if:` gets dotted
   links labelled with the condition.
-- **`uses:` is a black box** (thick border): actions and reusable workflows are not opened yet.
+- **Local `uses:` are drawn nested** (next section); remote actions (`owner/repo@ref`), remote reusable workflows,
+  `docker://` images and references the parser cannot read are a **black box** (thick border) with the reference.
 - A line above the graph names problems: GitHub's errors (`2 problems; first: Unexpected value 'colour' (line 2).`),
   jobs that need unknown jobs, and what was left out when the graph is too large (at most 200 boxes, 400 links and
   about 45,000 characters, below Mermaid's limits). The graph still shows what could be read.
@@ -44,6 +45,40 @@
 - Labels are escaped: names, conditions and expressions (`${{ … }}`) are drawn as text and cannot start Mermaid
   statements; `securityLevel: 'strict'` stays.
 
+## Following local `uses:`
+A workflow in `<root>/.github/workflows/` reads what its `./…` references point to from `<root>`, the folder holding
+`.github` (as GitHub resolves them against the repository's root), also from the files it opens in turn:
+- **Reusable workflow** (`jobs.<id>.uses: ./.github/workflows/x.yml`): parsed by the same parser and drawn inside the
+  calling job's box as a box `calls x.yml` (with the `with:` inputs and `secrets: inherit`), holding its jobs with
+  their steps and `needs` links, like the workflow's own.
+- **Local action** (`steps[*].uses: ./path`): `<root>/path/action.yml`, else `action.yaml`, read as YAML with every
+  value kept as text (so `on`, `yes` stay words; no types are built from tags, aliases, nesting and size are limited).
+  - `runs.using: composite`: a box `<name or path> (composite)` (with the step's name and `if:`) in place of the
+    step, holding its steps chained like a job's.
+  - `node20`, `node24`, …: stays a black box, with `JS action (node20)` and `inputs: a*, b` (`*` for required ones).
+  - `docker`: a black box with `Docker (<image>)` and its inputs.
+- A box says why it was **not followed**, below the reference as written:
+  - `not found` (dashed border): no such workflow; `not found (no action.yml)`: neither `action.yml` nor
+    `action.yaml`.
+  - `outside the repository` or a short reason (red border): a path leaving the root, also through a symbolic link,
+    a file over 1 MB or unreadable (`unreadable (AccessDeniedException)`), a manifest that is not YAML (`line 3: …`)
+    or has no known `runs.using`, a workflow the parser rejects (its first error) or that has no jobs.
+  - `cycle: back to <where>` (orange, dashed): the file is already being expanded further out, in the job given by its id or
+    `this workflow` (`a.yml` → `b.yml` → `a.yml`, an action using itself, however the path is written).
+  - `expanded in <where>` (black box): the file is drawn expanded elsewhere in this graph already, in the jobs given by their
+    ids (`build / compile`: job `compile` of the workflow job `build` calls); every file is expanded once, so an action
+    used by every job shows up in full once.
+  - `not expanded (depth limit)`, `(file limit)`, `(diagram limit)` (dotted): at most 10 expansions nest (GitHub's
+    limit), at most 50 files are read per graph, and an expansion that would push the graph over its limits (above)
+    is left out whole. Later, smaller ones are still tried, up to 10 that did not fit; after that, and once the graph
+    is full, called workflows are not even read. The note line says so for the last two.
+- Problems GitHub reports in a called workflow go into the note line (`Called workflows with problems: ./…`). If the
+  parser fails on one, its box says so (`parser failed: …`), later ones say `parser unavailable`, and the whole graph
+  is retried once and then kept, as when the workflow's own parse fails.
+- The graph is kept for the workflow's own text: a change to a file it refers to shows once the workflow is edited or
+  opened again. Files are read on the parsing thread, never on the FX thread; once the text is edited again, the
+  outdated graph stops reading and is dropped.
+
 ## Not yet
-- Following `uses:` into local actions and reusable workflows, then remote ones through a git cache.
+- Remote actions and reusable workflows through a git cache.
 - Clicking a box to jump to its line.
