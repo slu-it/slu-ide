@@ -10,7 +10,7 @@ The menu accelerators work everywhere in the window, in a focused terminal only 
 ## Menus
 Accelerators of the menu bar ([open-folder.md](open-folder.md), [settings.md](settings.md),
 [scratch-files.md](scratch-files.md), [git-diff.md](git-diff.md), [git-log.md](git-log.md),
-[commit-and-push.md](commit-and-push.md), [terminal.md](terminal.md)).
+[commit-and-push.md](commit-and-push.md), [terminal.md](terminal.md), [editor-tabs.md](editor-tabs.md)).
 
 | Keys | Action |
 |---|---|
@@ -18,6 +18,7 @@ Accelerators of the menu bar ([open-folder.md](open-folder.md), [settings.md](se
 | Shortcut+O | File → Open Folder… |
 | Shortcut+S | File → Save |
 | Shortcut+Alt+S | File → Save All |
+| Shortcut+W | File → Close Tab (file and diff tabs, not terminals) |
 | Shortcut+, | File → Settings… |
 | Shortcut+Shift+D | View → Show Changes (side-by-side diff of the current file) |
 | Alt+9 (Cmd+9 on macOS) | View → Git Log (expand or collapse) |
@@ -101,9 +102,10 @@ the source beside it; Markdown and notebook previews do not zoom ([previews.md](
 | Shortcut+Shift+C | Copy the selection |
 | Shortcut+Shift+V | Paste |
 
-All other keys the terminal translates go to the shell. On Linux and Windows these include Ctrl+O, Ctrl+S, Ctrl+K and
-Alt+9, which then do not reach their menu items; Shortcut+Shift+letter, Ctrl+, and Ctrl+Alt+S still do, and on macOS
-every Cmd shortcut does ([terminal.md](terminal.md)).
+All other keys the terminal translates go to the shell. On Linux and Windows these include Ctrl+O, Ctrl+S, Ctrl+W,
+Ctrl+K and Alt+9, which then do not reach their menu items; Shortcut+Shift+letter, Ctrl+, and Ctrl+Alt+S still do, and
+on macOS every Cmd shortcut does, but Cmd+W leaves a terminal tab open: File → Close Tab is disabled for terminals
+([terminal.md](terminal.md)).
 
 ## Git log
 [git-log.md](git-log.md), [commit-and-push.md](commit-and-push.md), [file-history.md](file-history.md)

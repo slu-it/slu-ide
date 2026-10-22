@@ -61,4 +61,5 @@ and the editor's tabs are hooks of `FileExplorerView` and `EditorArea`, set by `
   thread of its own, so a slow one holds up neither the log nor other histories; its git is stopped when a newer read
   replaces it, its tab closes or another folder opens.
 - Not yet implemented: several rows selected (and their combined diff), a history of a folder, the changed files of a
-  history's commit, a diff preview, Annotate, Shortcut+W to close a tab.
+  history's commit, a diff preview, Annotate, closing a history tab with a key (Shortcut+W is File → Close Tab for
+  editor tabs).

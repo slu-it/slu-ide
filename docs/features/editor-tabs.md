@@ -49,7 +49,10 @@
   it one tab every 300 ms, so tabs can be dragged to positions out of view. The tab list reports a move as a
   permutation (`EditorTabs.move`), so a moved file keeps its watch and font. This is a plain mouse drag within the tab
   row, not JavaFX drag and drop (`Dragboard`), which is meant for transfers between nodes or applications.
-- Tabs close via their × button or a middle click. Closing the selected tab selects its right neighbour, or the left
+- Tabs close via their × button or a middle click. Shortcut+W (File → Close Tab, in the whole window, like Save)
+  closes the selected tab the same way and asks the same questions, but only for file and diff tabs
+  (`EditorTab.closableByShortcut`, `EditorArea.closeSelected`); it is disabled while a terminal or Docker sandbox tab
+  is selected, as Ctrl+W belongs to the shell there. Closing the selected tab selects its right neighbour, or the left
   one if there is none.
 - Right-clicking a tab opens a context menu: Close, Close Others, Close Tabs to the Left, Close Tabs to the Right,
   Close All. Entries that would close nothing are disabled. Close Others selects the clicked tab; closing to the
@@ -103,5 +106,5 @@
 - Structure: `EditorTabs` (model: open tabs, `OpenFile` for files, and the selection), `TabOverflow` (which tabs fit, scroll positions,
   where a dragged tab belongs),
   `TabStrip` (header row and layout), styles in `editor.css`.
-- Not yet implemented: keyboard shortcuts for tabs, dragging tabs into another window or out of the tab
+- Not yet implemented: other keyboard shortcuts for tabs (switching), dragging tabs into another window or out of the tab
   row, cancelling a drag with Escape.
