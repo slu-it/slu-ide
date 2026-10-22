@@ -17,10 +17,7 @@ import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleObjectProperty
 import javafx.concurrent.Worker
 import javafx.scene.Node
-import javafx.scene.control.Alert
 import javafx.scene.control.Button
-import javafx.scene.control.ButtonBar
-import javafx.scene.control.ButtonType
 import javafx.scene.control.Label
 import javafx.scene.control.SplitPane
 import javafx.scene.control.ToggleGroup
@@ -98,7 +95,7 @@ internal class PreviewFileView(
     val scripts: BooleanProperty = SimpleBooleanProperty(false)
 
     /** Asks whether to run the page's scripts after a warning; tests replace it, since it blocks. */
-    var confirmScripts: () -> Boolean = ::showScriptsWarning
+    var confirmScripts: () -> Boolean = { showScriptsWarning(root, file, pane.scene?.window) }
 
     /** Shown over the preview when the page navigated on its own; see [stop]. */
     val notice = Label().apply { isWrapText = true }
@@ -173,7 +170,7 @@ internal class PreviewFileView(
     private val root: Path get() = preview.root(file, host?.projectFolder?.toAbsolutePath()?.normalize())
 
     /** Receives the page's link clicks and zoom changes; held here because the WebView only keeps a weak reference. */
-    private val bridge = PageBridge()
+    private val bridge = PageBridge(::openLink) { scale, fitted -> zoom?.zoomed(scale, fitted) }
 
     private var renderedText: String? = null
     private var dark = false
@@ -403,23 +400,6 @@ internal class PreviewFileView(
         rerender()
     }
 
-    private fun showScriptsWarning(): Boolean {
-        val run = ButtonType("Run Scripts", ButtonBar.ButtonData.OK_DONE)
-        val alert =
-            Alert(
-                Alert.AlertType.WARNING,
-                "The page's scripts can read the files in $root (except hidden ones) and send them to the web. " +
-                    "Run them only for pages you trust.",
-                run,
-                ButtonType.CANCEL,
-            ).apply {
-                pane.scene?.window?.let(::initOwner)
-                title = "Run Scripts"
-                headerText = "Run the scripts of ${file.fileName}?"
-            }
-        return alert.showAndWait().orElse(ButtonType.CANCEL) == run
-    }
-
     /** Whether the user just pressed a mouse button or key in the preview, or dropped something; it counts once. */
     private fun isUserInput(): Boolean {
         val input = lastInput ?: return false
@@ -534,21 +514,6 @@ internal class PreviewFileView(
             if (preview.syncsScroll && mode.get() == PreviewMode.SPLIT && isLoaded && top >= 0) {
                 engine.executeScript("sluide.scrollToLine($top)")
             }
-        }
-    }
-
-    /**
-     * Called by the page's script: `sluideBridge.open(href)` when a link is clicked, `sluideBridge.zoomed` when the
-     * zoom changed.
-     */
-    inner class PageBridge {
-        fun open(href: String) = openLink(href)
-
-        fun zoomed(
-            scale: Double,
-            fitted: Boolean,
-        ) {
-            zoom?.zoomed(scale, fitted)
         }
     }
 }
