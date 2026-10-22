@@ -26,12 +26,13 @@ the Bicep graph and `BicepParamFileViewer`.
   save it there from now on, keeping text, unsaved changes, caret and undo history, take the indentation again for
   the new path, and previews render it again from there; other views return `false` by default, and the editor opens the file anew.
 - `FileViewers` asks every specific `FileViewer` bean whether it can open a file. Of those that agree it takes the one
-  whose name match is strongest (`NameMatch`): an exact file name, then the extension, then a name pattern; viewers
+  whose name match is strongest (`NameMatch`): the file's path (a `PathFileViewer`, e.g. YAML files in
+  `.github/workflows`, which takes part only at its paths), an exact file name, then the extension, then a name pattern; viewers
   other than `CodeFileViewer`s (previews, images, `.http`) count as extension matches, and Spring's bean order only
   decides between equals. So `Dockerfile.md` is Markdown, `Caddyfile.json` and `.env.json` are JSON,
   `Dockerfile.dev` is a Dockerfile and `Dockerfile.dockerignore` an ignore file, whatever the order of the viewers.
   `DefaultTextFileViewer` is always asked last ([ADR 0004](../adr/0004-file-viewer-selection.md),
-  [ADR 0029](../adr/0029-file-name-and-shebang-matching.md)). Returns `null` if no viewer agrees. Before the
+  [ADR 0029](../adr/0029-file-name-and-shebang-matching.md), [ADR 0074](../adr/0074-path-matched-file-viewers.md)). Returns `null` if no viewer agrees. Before the
   fallback, a text file without an extension that no viewer opens by name goes to the first viewer opening the
   interpreter of its shebang (`ShebangViewer`, implemented by every `CodeFileViewer`), see below.
 - `DefaultTextFileViewer` shows any text file as plain text in an editable `CodeView` without highlighting. A file is text if its
@@ -40,7 +41,7 @@ the Bicep graph and `BicepParamFileViewer`.
   text files with syntax highlighting and line numbers in an editable `CodeView`. Which files they open is decided by
   `FileMatch`, all case-insensitive: a file extension, an exact file name (`names`, e.g. `dockerfile`, `.bashrc`), or a
   `Regex` matching the whole name (`namePatterns`, e.g. `caddyfile\..+`); `canOpen` looks at nothing else. Of several
-  viewers matching a name, `FileViewers` prefers exact name over extension over pattern (above). A file without
+  viewers matching a name, `FileViewers` prefers path, then exact name, extension and pattern (above). A file without
   an extension that no viewer opens this way is also opened by the first viewer whose `interpreters` include the one
   its shebang names: `#!/bin/bash`, `#! /bin/sh`, `#!/usr/bin/env node`, `#!/usr/bin/env -S python3 -u`
   (options of `env`, including the argument of `-u`/`--unset`, `-C`/`--chdir` and `-P`, and `NAME=value` are skipped).
@@ -147,7 +148,10 @@ the Bicep graph and `BicepParamFileViewer`.
   - Viewers that show files as text implement `SourceFileViewer` (`sourceHighlighter`) to get change markers and
     highlighted diffs. Viewers for extensions implement `ExtensionFileViewer` (`fileExtensions`, lower case, no dot)
     and viewers for exact names `NamedFileViewer` (`fileNames`), so that `FileViewers` also picks them by the name
-    alone, e.g. for a commit's version of a file.
+    alone, e.g. for a commit's version of a file. Viewers for a location implement `PathFileViewer`
+    (`matchesPath`, helper `isInFolders(file, ".github", "workflows")`): they beat every name match but take part only
+    at their paths, looked at without the disk, also for a diff's relative name; the type of file stays with
+    `canOpen`/`fileExtensions` ([ADR 0074](../adr/0074-path-matched-file-viewers.md)).
   - Highlighters: `Highlighters.forLanguage(name)` for embedded code, the named `Highlighters.json`, `xml`, `html`,
     `markdown`, `mermaid`, `bicep`, `cookies` and `pem`, and `Highlighters.fenceLanguage(info)` for the language of a
     code fence. `SyntaxHighlighter`, `HighlightSpan` and `TokenStyle` are public.

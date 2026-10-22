@@ -43,3 +43,4 @@ Rejected:
   config).
 - Binary files other than images (`.xlsx`, `.pptx`, SQLite) are still not opened.
 - Partly supersedes [ADR 0004](0004-file-viewer-selection.md) (first viewer that agrees).
+- Amended by [ADR 0074](0074-path-matched-file-viewers.md): a viewer for a path (`.github/workflows`) beats every name match.

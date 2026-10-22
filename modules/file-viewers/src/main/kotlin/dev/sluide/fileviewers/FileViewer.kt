@@ -28,6 +28,33 @@ interface NamedFileViewer : FileViewer {
 }
 
 /**
+ * A viewer for files at certain paths, e.g. in `.github/workflows`, preferred over every viewer matching by name or
+ * extension (ADR 0074). It takes part only for files at those paths, whatever else it is (an [ExtensionFileViewer],
+ * say). [matchesPath] only ranks the viewer; [canOpen] must still accept those files.
+ */
+interface PathFileViewer : FileViewer {
+    /**
+     * Whether [file] (absolute, or relative like a diff's name) is at one of this viewer's paths; looks at the
+     * location only, never the disk, and not at the type of file: [canOpen] (or [ExtensionFileViewer.fileExtensions],
+     * when by name) tells that. See [isInFolders].
+     */
+    fun matchesPath(file: Path): Boolean
+}
+
+/**
+ * Whether the folders directly containing [file], the innermost last, end with [folders] exactly (case-sensitive):
+ * `isInFolders(file, ".github", "workflows")` for `.github/workflows/ci.yml` and `/repo/.github/workflows/ci.yml`, not
+ * for `workflows/ci.yml` or `.github/workflows/sub/ci.yml`. Looks at the path only; false for a bare file name.
+ */
+fun isInFolders(
+    file: Path,
+    vararg folders: String,
+): Boolean {
+    val parents = file.parent?.map { it.toString() } ?: return false
+    return parents.size >= folders.size && parents.takeLast(folders.size) == folders.toList()
+}
+
+/**
  * A viewer for files with one of the [fileExtensions] (lower case, without the dot). [FileViewers] also picks it by
  * the name alone, without the file, e.g. for a commit's version of a file (ADR 0038). [fileExtensions] only tells
  * the name; [canOpen] must still accept those files.

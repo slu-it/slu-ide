@@ -292,4 +292,106 @@ class FileViewersTest {
         assertSame(fallback, viewers.viewerByName(dir.resolve("other.lock"), ""))
         assertTrue(viewers.showsDiffs(json))
     }
+
+    /** A viewer of another module for YAML files directly in `.github/workflows`, like the workflow graph. */
+    private class WorkflowStub :
+        ExtensionsStub(setOf("yml", "yaml")),
+        PathFileViewer {
+        override fun matchesPath(file: Path) = isInFolders(file, ".github", "workflows")
+    }
+
+    @Test
+    fun `a path viewer wins over a code viewer of the extension only at its path, in any order`() {
+        val workflow = WorkflowStub()
+        val yaml = NamesViewer(extensions = setOf("yml", "yaml"))
+        val at =
+            dir
+                .resolve(".github/workflows")
+                .createDirectories()
+                .resolve("ci.yml")
+                .apply { writeText("on: push") }
+        val elsewhere = listOf(".github/ci.yml", "workflows/ci.yml", "config.yml", "x/.github/workflows/sub/ci.yml")
+        val files = elsewhere.map { dir.resolve(it).apply { parent.createDirectories() }.apply { writeText("a: 1") } }
+
+        for (order in listOf(listOf(workflow, yaml), listOf(yaml, workflow))) {
+            val viewers = FileViewers(order, fallback)
+            assertSame(workflow, viewers.viewerFor(at))
+            files.forEach { assertSame(yaml, viewers.viewerFor(it), it.toString()) }
+            assertSame(workflow, viewers.viewerByName(Path.of(".github/workflows/ci.yaml"), ""))
+            assertSame(workflow, viewers.viewerByName(Path.of("/repo/.github/workflows/ci.yml"), ""))
+            elsewhere.forEach { assertSame(yaml, viewers.viewerByName(Path.of(it), ""), it) }
+            assertSame(yaml, viewers.viewerByName(Path.of("a.yml"), ""))
+        }
+    }
+
+    @Test
+    fun `a path viewer is not picked for other kinds of files at its path`() {
+        val viewers = FileViewers(listOf(WorkflowStub()), fallback)
+        val folder = dir.resolve(".github/workflows").createDirectories()
+
+        for (name in listOf("README.md", "dependabot.json")) {
+            val file = folder.resolve(name).apply { writeText("x") }
+            assertSame(fallback, viewers.viewerFor(file), name)
+            assertSame(fallback, viewers.viewerByName(Path.of(".github/workflows/$name"), ""), name)
+        }
+    }
+
+    /** A path viewer that would also take scripts naming python by their shebang. */
+    private class ScriptPathStub :
+        PathFileViewer,
+        ShebangViewer {
+        override fun matchesPath(file: Path) = isInFolders(file, ".github", "workflows")
+
+        override fun canOpen(file: Path) = true
+
+        override fun opensInterpreter(interpreter: String) = interpreter == "python3"
+
+        override fun open(file: Path): FileView = error("not needed")
+    }
+
+    @Test
+    fun `a path viewer is never picked by shebang`() {
+        val viewers = FileViewers(listOf(ScriptPathStub()), fallback)
+        val script = dir.resolve("run").apply { writeText("#!/usr/bin/env python3\nprint()\n") }
+
+        assertSame(fallback, viewers.viewerFor(script))
+        assertSame(fallback, viewers.viewerByName(Path.of("run"), "#!/usr/bin/env python3\n"))
+    }
+
+    @Test
+    fun `a path viewer alone is not picked for other paths`() {
+        val viewers = FileViewers(listOf(WorkflowStub()), fallback)
+        val other = dir.resolve("a.yml").apply { writeText("a: 1") }
+
+        assertSame(fallback, viewers.viewerFor(other))
+        assertSame(fallback, viewers.viewerByName(Path.of("a.yml"), ""))
+    }
+
+    @Test
+    fun `a diff by name is not shown as text at a path viewer's path, at other paths the code viewer is picked`() {
+        val yaml = NamesViewer(extensions = setOf("yml"))
+        val viewers = FileViewers(listOf(WorkflowStub(), yaml), fallback)
+
+        assertSame(yaml, viewers.viewerByName(Path.of("config.yml"), ""))
+        assertNull(viewers.openDiff(Path.of(".github/workflows/ci.yml"), "a: 1\n", TextDiff("", emptyList())))
+    }
+
+    @Test
+    fun `isInFolders compares the innermost folders exactly`() {
+        fun inFolders(
+            path: String,
+            vararg folders: String,
+        ) = isInFolders(Path.of(path), *folders)
+
+        assertTrue(inFolders(".github/workflows/ci.yml", ".github", "workflows"))
+        assertTrue(inFolders("/repo/.github/workflows/ci.yml", ".github", "workflows"))
+        assertTrue(inFolders("/repo/.github/workflows/ci.yml", "workflows"))
+        assertTrue(inFolders("/repo/.github/workflows/ci.yml"))
+        assertFalse(inFolders("workflows/ci.yml", ".github", "workflows"))
+        assertFalse(inFolders(".github/workflows/sub/ci.yml", ".github", "workflows"))
+        assertFalse(inFolders(".GitHub/Workflows/ci.yml", ".github", "workflows"))
+        assertFalse(inFolders("ci.yml", ".github", "workflows"))
+        assertFalse(inFolders("ci.yml", "workflows"))
+        assertFalse(inFolders("/ci.yml", "workflows"))
+    }
 }

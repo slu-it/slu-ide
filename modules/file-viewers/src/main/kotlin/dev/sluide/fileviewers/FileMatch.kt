@@ -54,11 +54,12 @@ internal class FileMatch(
 }
 
 /**
- * How a file's name matches a viewer, strongest first: [FileViewers] prefers a viewer naming the file exactly
- * (`Dockerfile`) over one taking its extension (`.md`), and that over one matching a name pattern (`dockerfile\..+`),
- * so that `Dockerfile.md` is Markdown whatever the order of the viewers.
+ * How a file's name matches a viewer, strongest first: [FileViewers] prefers a viewer for the file's path
+ * (`.github/workflows`, ADR 0074), then one naming the file exactly (`Dockerfile`), then one taking its extension
+ * (`.md`), and that over one matching a name pattern (`dockerfile\..+`), so that `Dockerfile.md` is Markdown whatever
+ * the order of the viewers.
  */
-internal enum class NameMatch { NAME, EXTENSION, PATTERN }
+internal enum class NameMatch { PATH, NAME, EXTENSION, PATTERN }
 
 /**
  * The interpreter a shebang [line] names, without its folder: `bash` for `#!/bin/bash` or `#! /bin/bash -e`, and

@@ -18,24 +18,27 @@ class FileViewers(
     private val fallback: DefaultTextFileViewer,
 ) {
     private val specific = viewers.filterNot { it === fallback }
-    private val shebangViewers = specific.filterIsInstance<ShebangViewer>()
+    private val shebangViewers = specific.filter { it !is PathFileViewer }.filterIsInstance<ShebangViewer>()
 
     val viewers: List<FileViewer> = specific + fallback
 
     /**
      * The viewer to show [file] with, or `null` if none can, in which case the file is not opened: of the specific
-     * viewers that can open it, the one its name matches best ([NameMatch]: exact name, then extension, then name
-     * pattern; a [NamedFileViewer] listing the file's name counts as an exact name, other viewers than
+     * viewers that can open it, the one its name matches best ([NameMatch]: path, then exact name, then extension,
+     * then name pattern; a [PathFileViewer] takes part only if [PathFileViewer.matchesPath] accepts the file
+     * (ADR 0074); a [NamedFileViewer] listing the file's name counts as an exact name, other viewers than
      * [CodeFileViewer]s as matching the extension), the first of equals; for a text file without an extension, else
-     * the first [ShebangViewer] that opens the interpreter its shebang names (the file is read once for this); else
+     * the first [ShebangViewer] that opens the interpreter its shebang names (the file is read once for this;
+     * [PathFileViewer]s are left out of this step); else
      * [DefaultTextFileViewer] if it can. A viewer that opens the file by its name thus always wins over one that would
      * open it by its shebang.
      */
     fun viewerFor(file: Path): FileViewer? {
         specific
-            .filter { it.canOpen(file) }
+            .filter { it.canOpen(file) && (it !is PathFileViewer || it.matchesPath(file)) }
             .minByOrNull { viewer ->
                 when {
+                    viewer is PathFileViewer -> NameMatch.PATH
                     viewer is NamedFileViewer && viewer.names(file) -> NameMatch.NAME
                     viewer is CodeFileViewer -> viewer.nameMatch(file) ?: NameMatch.EXTENSION
                     else -> NameMatch.EXTENSION
@@ -86,8 +89,9 @@ class FileViewers(
 
     /**
      * The viewer [viewerFor] would pick for a file named [name] with the content [text], told without the file: by
-     * the name as far as viewers tell it without reading the file (named, code and extension viewers), then by a
-     * shebang in [text] for names without an extension, else [DefaultTextFileViewer].
+     * the name as far as viewers tell it without reading the file (path, named, code and extension viewers; [name] may
+     * be relative, e.g. `.github/workflows/ci.yml`), then by a shebang in [text] for names without an extension, else
+     * [DefaultTextFileViewer].
      */
     internal fun viewerByName(
         name: Path,
@@ -102,16 +106,38 @@ class FileViewers(
         return shebangViewers.firstOrNull { it.opensInterpreter(interpreter) } ?: fallback
     }
 
-    /** How [name] matches [viewer] without reading the file; `null` if it does not, or the viewer cannot tell. */
+    /**
+     * How [name] matches [viewer] without reading the file; `null` if it does not, or the viewer cannot tell. A
+     * [PathFileViewer] is `null` unless its path matches and, if it is also an [ExtensionFileViewer], the extension
+     * does.
+     */
     private fun nameMatch(
         viewer: FileViewer,
         name: Path,
     ): NameMatch? =
         when {
-            viewer is NamedFileViewer && viewer.names(name) -> NameMatch.NAME
-            viewer is CodeFileViewer -> viewer.nameMatch(name)
-            viewer is ExtensionFileViewer -> NameMatch.EXTENSION.takeIf { viewer.takes(name) }
-            else -> null
+            viewer is PathFileViewer -> {
+                NameMatch.PATH.takeIf {
+                    viewer.matchesPath(name) &&
+                        (viewer !is ExtensionFileViewer || viewer.takes(name))
+                }
+            }
+
+            viewer is NamedFileViewer && viewer.names(name) -> {
+                NameMatch.NAME
+            }
+
+            viewer is CodeFileViewer -> {
+                viewer.nameMatch(name)
+            }
+
+            viewer is ExtensionFileViewer -> {
+                NameMatch.EXTENSION.takeIf { viewer.takes(name) }
+            }
+
+            else -> {
+                null
+            }
         }
 
     /** Whether the extension of [file] is one of the [ExtensionFileViewer.fileExtensions]. */
