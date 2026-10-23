@@ -7,6 +7,7 @@ import dev.sluide.git.RemoteRead
 import dev.sluide.git.RemoteRepository
 import dev.sluide.githubactions.RemoteFile
 import dev.sluide.githubactions.RemoteText
+import java.net.URI
 import java.nio.file.Path
 import java.time.Instant
 import java.util.Collections
@@ -85,6 +86,50 @@ class WindowWorkflowSourcesTest {
         },
     )
 
+    /** The page of actions/checkout's [path] at [commit] on [host]. */
+    private fun page(
+        commit: String,
+        path: String = "action.yml",
+        host: String = "github.com",
+    ) = URI("https://$host/actions/checkout/blob/$commit/$path")
+
+    @Test
+    fun `a file found comes with its page at the commit by https on the host it was read from`() {
+        val origins =
+            mapOf(
+                "https://ghes.example.com:8443/team/project.git" to "ghes.example.com:8443",
+                "https://ghes.example.com/team/project.git" to "ghes.example.com",
+                "git@ghes.example.com:team/project.git" to "ghes.example.com",
+                "ssh://git@ghes.example.com:2222/team/project.git" to "ghes.example.com",
+                "https://github.com/team/project.git" to "github.com",
+                "git@github.com:team/project.git" to "github.com",
+            )
+        for ((origin, host) in origins) {
+            cache.commits[host to "v6"] = CachedCommit("abc123", fetchedAt)
+            cache.files[host to "my action/action.yml"] = RemoteRead.Found("text")
+            val text =
+                sources(
+                    origin,
+                ).reader(network = false) { false }.read(action.copy(path = "my action/action.yml"))
+            assertEquals(page("abc123", "my%20action/action.yml", host), (text as RemoteText.Found).web, origin)
+            cache.commits.clear()
+        }
+    }
+
+    @Test
+    fun `percent signs, hashes and question marks of a path are encoded in its page, which has no query or fragment`() {
+        cached("github.com")
+        val path = "a%2e%2e/b#c?d.yml"
+        cache.files["github.com" to path] = RemoteRead.Found("text")
+
+        val web = (sources().reader(network = false) { false }.read(action.copy(path = path)) as RemoteText.Found).web
+
+        assertEquals(page("c-github.com", "a%252e%252e/b%23c%3Fd.yml"), web)
+        assertEquals("/actions/checkout/blob/c-github.com/$path", web?.path)
+        assertEquals(null, web?.rawQuery)
+        assertEquals(null, web?.rawFragment)
+    }
+
     private fun cached(
         host: String,
         ref: String = "v6",
@@ -97,7 +142,7 @@ class WindowWorkflowSourcesTest {
         cached("github.com")
         cache.files["github.com" to "action.yml"] = RemoteRead.Found("name: Checkout")
         val text = sources().reader(network = false) { false }.read(action)
-        assertEquals(RemoteText.Found("name: Checkout", "c-github.com", fetchedAt), text)
+        assertEquals(RemoteText.Found("name: Checkout", "c-github.com", fetchedAt, page("c-github.com")), text)
         assertEquals(
             listOf("commit github.com actions/checkout@v6", "read github.com c-github.com action.yml network=false"),
             cache.calls,
@@ -122,7 +167,7 @@ class WindowWorkflowSourcesTest {
         cached("github.com", sha)
         cache.files["github.com" to "action.yml"] = RemoteRead.Found("name: Checkout")
         val text = sources().reader(network = false) { false }.read(action.copy(ref = sha))
-        assertEquals(RemoteText.Found("name: Checkout", "c-github.com", null), text)
+        assertEquals(RemoteText.Found("name: Checkout", "c-github.com", null, page("c-github.com")), text)
     }
 
     @Test
@@ -267,7 +312,7 @@ class WindowWorkflowSourcesTest {
         val reader = sources().reader(network = true) { false }
         assertEquals(RemoteText.Missing, reader.read(action))
         assertEquals(
-            RemoteText.Found("fetched action.yaml", "new", fetchedAt),
+            RemoteText.Found("fetched action.yaml", "new", fetchedAt, page("new", "action.yaml")),
             reader.read(action.copy(path = "action.yaml")),
         )
         assertEquals(1, cache.calls.count { it.startsWith("fetch") })
@@ -283,7 +328,7 @@ class WindowWorkflowSourcesTest {
         cached("github.com", sha)
         cache.files["github.com" to "action.yml"] = RemoteRead.Found("pinned")
         val text = sources().reader(network = true) { false }.read(action.copy(ref = sha))
-        assertEquals(RemoteText.Found("pinned", "c-github.com", null), text)
+        assertEquals(RemoteText.Found("pinned", "c-github.com", null, page("c-github.com")), text)
         assertTrue(cache.calls.none { it.startsWith("fetch") }, "${cache.calls}")
     }
 
@@ -293,7 +338,7 @@ class WindowWorkflowSourcesTest {
         cache.fetchable["github.com" to "v6"] = RemoteFetch.Fetched(CachedCommit("gh", fetchedAt))
         cache.files["github.com" to "action.yml"] = RemoteRead.Found("from github.com")
         val reader = sources("git@ghes.example.com:team/project.git").reader(network = true) { false }
-        assertEquals(RemoteText.Found("from github.com", "gh", fetchedAt), reader.read(action))
+        assertEquals(RemoteText.Found("from github.com", "gh", fetchedAt, page("gh")), reader.read(action))
         reader.read(action.copy(path = "action.yaml"))
         assertEquals(
             listOf(

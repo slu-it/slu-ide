@@ -11,6 +11,7 @@ import dev.sluide.githubactions.RemoteFile
 import dev.sluide.githubactions.RemoteReader
 import dev.sluide.githubactions.RemoteSources
 import dev.sluide.githubactions.RemoteText
+import java.net.URI
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -83,7 +84,8 @@ internal interface RemoteCache {
  * each host, repository and ref at most once (a full commit SHA only if not cached), trying github.com when the
  * origin's host fails, and lets git fetch file contents as they are read; a host it could not reach (network error,
  * timeout) it does not ask again. A running git stops soon after the reader is cancelled. Readers are used from one
- * thread at a time, never the FX thread; several may run at once.
+ * thread at a time, never the FX thread; several may run at once. A file found comes with its page on the web at the
+ * commit read, on the host it was read from ([webPage]).
  */
 internal class WindowWorkflowSources(
     private val cache: RemoteCache,
@@ -133,7 +135,7 @@ internal class WindowWorkflowSources(
                 val cached = cache.commit(repository, file.ref) ?: continue
                 if (cancelled()) return RemoteText.NotFetched
                 val read = cache.read(repository, cached.commit, file.path, network = false, GitCancellation())
-                return text(read, cached, file.ref)
+                return text(read, cached, repository, file)
             }
             return RemoteText.NotFetched
         }
@@ -168,7 +170,7 @@ internal class WindowWorkflowSources(
                 val network = repository.host !in unreachable
                 val read = watched { cache.read(repository, commit.commit, file.path, network, cancellation) }
                 if (read is RemoteRead.Failed) remember(repository, read.reason)
-                return if (stopped()) RemoteText.NotFetched else text(read, commit, file.ref)
+                return if (stopped()) RemoteText.NotFetched else text(read, commit, repository, file)
             }
             return RemoteText.Failed(reason(failures))
         }
@@ -216,25 +218,37 @@ internal class WindowWorkflowSources(
     }
 }
 
+/**
+ * The page of [path] at [commit] in [repository] on the web: `https://<host>/<owner>/<name>/blob/<commit>/<path>`, by
+ * https also when the repository is reached by ssh. The host is the cache's: an https port is kept, an ssh one is not
+ * there (GitHub and GHES serve their pages by https on the host's https port).
+ */
+internal fun webPage(
+    repository: RemoteRepository,
+    commit: String,
+    path: String,
+): URI = URI("https", repository.host, "/${repository.owner}/${repository.name}/blob/$commit/$path", null, null)
+
 /** The reason of all hosts that failed: one if they agree, else each with its host. */
 private fun reason(failures: List<Pair<String, String>>): String {
     val reasons = failures.map { it.second }.distinct()
     return reasons.singleOrNull() ?: failures.joinToString("; ") { (host, reason) -> "$host: $reason" }
 }
 
+/** What [read] of [file] from [repository] at [commit] found, with the file's page there ([webPage]). */
 private fun text(
     read: RemoteRead,
     commit: CachedCommit,
-    ref: String,
+    repository: RemoteRepository,
+    file: RemoteFile,
 ): RemoteText =
     when (read) {
         is RemoteRead.Found -> {
             RemoteText.Found(
                 read.text,
                 commit.commit,
-                commit.fetchedAt.takeUnless {
-                    FULL_COMMIT.matches(ref)
-                },
+                commit.fetchedAt.takeUnless { FULL_COMMIT.matches(file.ref) },
+                webPage(repository, commit.commit, file.path),
             )
         }
 
