@@ -11,14 +11,15 @@ import dev.sluide.githubactions.model.UsesReference
 import dev.sluide.githubactions.model.Workflow
 import dev.sluide.githubactions.resolve.ReferenceResolver
 import dev.sluide.githubactions.resolve.Resolution
+import dev.sluide.githubactions.resolve.Target
 
 /**
  * Draws a [Workflow]: its events in a `Triggers` subgraph, one subgraph per job with its steps chained top to bottom,
- * and the jobs linked by `needs` (from the triggers when a job needs none). With a [resolver], local reusable workflows
- * and composite actions are drawn nested in place of their `uses:` box, the same way; every other `uses:` is a box
- * (a black box, or why it was not followed). Over [Budget]'s boxes, links or characters, the rest is left out and the
- * note says so; an expansion that does not fit stays a box marked as not expanded, and after [MAX_FAILED_ATTEMPTS]
- * of those no further ones are tried.
+ * and the jobs linked by `needs` (from the triggers when a job needs none). With a [resolver], reusable workflows and
+ * composite actions (local ones, remote ones if it reads them) are drawn nested in place of their `uses:` box, the same
+ * way; every other `uses:` is a box (a black box, or why it was not followed). Over [Budget]'s boxes, links or
+ * characters, the rest is left out and the note says so; an expansion that does not fit stays a box marked as not
+ * expanded, and after [MAX_FAILED_ATTEMPTS] of those no further ones are tried.
  */
 internal class WorkflowDrawing private constructor(
     private val workflow: Workflow,
@@ -27,21 +28,23 @@ internal class WorkflowDrawing private constructor(
     path: String,
 ) {
     /** The targets being expanded, outermost first: the workflow drawn, then its expansions. */
-    private val stack = mutableListOf(path)
+    private val stack = mutableListOf(Target(null, path))
 
     /**
      * What expansions changed, taken back with an expansion that did not fit: the targets expanded with where
-     * (`build / compile`), called workflows with problems, references not expanded for the diagram's limits, and
-     * whether a file was not read for the file limit.
+     * (`build / compile`), called workflows with problems, references not expanded for the diagram's limits, whether
+     * a file was not read for the file limit, the remote files drawn as not fetched and the remote references drawn.
      */
     private data class Expanded(
-        val keys: Map<String, String>,
-        val withProblems: Set<String>,
+        val keys: Map<Target, String>,
+        val withProblems: Set<Target>,
         val unexpanded: Int,
         val filesCapped: Boolean,
+        val unfetched: Set<Target> = emptySet(),
+        val remote: Int = 0,
     )
 
-    private var expanded = Expanded(mapOf(path to THIS_WORKFLOW), emptySet(), 0, false)
+    private var expanded = Expanded(mapOf(stack.single() to THIS_WORKFLOW), emptySet(), 0, false)
 
     /** The ids of the jobs being drawn, outermost first: where an expansion is. */
     private val jobPath = mutableListOf<String>()
@@ -65,7 +68,7 @@ internal class WorkflowDrawing private constructor(
                     ?.let { "Not linked, unknown jobs: ${it.joinToString(", ")}." },
                 expanded.withProblems
                     .takeIf { it.isNotEmpty() }
-                    ?.let { "Called workflows with problems: ${it.joinToString(", ") { key -> "./$key" }}." },
+                    ?.let { "Called workflows with problems: ${it.joinToString(", ") { key -> key.written }}." },
                 if (budget.nodesCut) {
                     "Too large: showing ${budget.nodes} boxes, ${jobs.drawn} of ${workflow.jobs.size} jobs."
                 } else {
@@ -78,9 +81,11 @@ internal class WorkflowDrawing private constructor(
                 } else {
                     null
                 },
+                unfetchedNote(expanded.unfetched.size),
             )
         val mermaid = MermaidWriter.write(Diagram(elements, jobs.links))
-        return WorkflowGraph(mermaid, notes.joinToString(" ").ifEmpty { null }, false)
+        val note = notes.joinToString(" ").ifEmpty { null }
+        return WorkflowGraph(mermaid, note, false, expanded.unfetched.size, expanded.remote)
     }
 
     private fun triggers(): Cluster? {
@@ -194,8 +199,14 @@ internal class WorkflowDrawing private constructor(
                         ?.let { "with: ${it.joinToString(", ")}" }
                 val secrets = if (body.secretsInherit) "secrets: inherit" else null
                 val element =
-                    reference("${id}w", lines(body.text, with, secrets), body.reference, depth + 1, null) { called ->
-                        title(called, with, secrets)
+                    reference(
+                        "${id}w",
+                        lines(body.text, with, secrets),
+                        body.reference,
+                        depth + 1,
+                        null,
+                    ) { called, asOf ->
+                        title(called, asOf, with, secrets)
                     }
                 if (element != null) children += element
             }
@@ -255,8 +266,8 @@ internal class WorkflowDrawing private constructor(
             }
 
             is StepAction.Uses -> {
-                reference(id, lines(step.name, action.text), action.reference, depth, condition) { composite ->
-                    title(step.name, composite, condition)
+                reference(id, lines(step.name, action.text), action.reference, depth, condition) { composite, asOf ->
+                    title(step.name, composite, asOf, condition)
                 }
             }
         }
@@ -264,8 +275,9 @@ internal class WorkflowDrawing private constructor(
 
     /**
      * The box of a `uses:` [reference] at [depth] with [lines], what was found out about it and the step's
-     * [condition]; or what it refers to drawn nested under its [id], with [title] made from the target's (`calls x.yml`,
-     * `Name (composite)`). Null if it does not fit.
+     * [condition]; or what it refers to drawn nested under its [id], with [title] made from what the target is
+     * (`calls x.yml`, `Name (composite)`) and when it was fetched if remote (`as of 2026-10-20`). Null if it does not
+     * fit; a remote reference is counted once it is drawn.
      */
     private fun reference(
         id: String,
@@ -273,14 +285,22 @@ internal class WorkflowDrawing private constructor(
         reference: UsesReference,
         depth: Int,
         condition: String?,
-        title: (String) -> String,
+        title: (what: String, asOf: String?) -> String,
     ): Element? {
+        fun drawn(node: ReferenceNode): ReferenceNode {
+            if (reference is UsesReference.RemoteAction || reference is UsesReference.RemoteWorkflow) {
+                expanded = expanded.copy(remote = expanded.remote + 1)
+            }
+            return node
+        }
+
         fun box(
             found: List<String>,
             style: Style,
         ): ReferenceNode? {
             val label = lines + found.map { label(it) } + lines(condition)
-            return ReferenceNode(id, label, reference, style = style).takeIf { budget.takeNode(size(label), id, depth) }
+            val node = ReferenceNode(id, label, reference, style = style)
+            return if (budget.takeNode(size(label), id, depth)) drawn(node) else null
         }
 
         val canExpand = failedAttempts < MAX_FAILED_ATTEMPTS && budget.hasRoom()
@@ -311,18 +331,28 @@ internal class WorkflowDrawing private constructor(
                 }
 
                 is Resolution.Stopped -> {
-                    return box(listOf(resolution.text), style(resolution.reason))
+                    val node = box(listOf(resolution.text), style(resolution.reason))
+                    val key = resolution.key
+                    if (node != null && key != null && resolution.reason == Resolution.Reason.NOT_FETCHED) {
+                        expanded = expanded.copy(unfetched = expanded.unfetched + key)
+                    }
+                    return node
                 }
 
                 is Resolution.CalledWorkflow -> {
                     expand(resolution.key) {
-                        calledWorkflow(id, resolution, depth, title("calls ${resolution.fileName}"))
+                        calledWorkflow(
+                            id,
+                            resolution,
+                            depth,
+                            title("calls ${resolution.fileName}", resolution.asOf),
+                        )
                     }
                 }
 
                 is Resolution.Composite -> {
                     expand(resolution.key) {
-                        val clusterTitle = title("${resolution.title} (composite)")
+                        val clusterTitle = title("${resolution.title} (composite)", resolution.asOf)
                         budget.addCluster(clusterTitle.length, id, depth)
                         steps(id, resolution.steps, depth + 1, all = true)?.let { children ->
                             Cluster(id, clusterTitle, children, chain(children, depth + 1))
@@ -331,7 +361,7 @@ internal class WorkflowDrawing private constructor(
                 }
             }
         return if (expansion != null) {
-            ReferenceNode(id, lines, reference, expansion)
+            drawn(ReferenceNode(id, lines, reference, expansion))
         } else {
             box(listOf(NOT_EXPANDED), Style.LIMIT)
         }
@@ -342,7 +372,7 @@ internal class WorkflowDrawing private constructor(
      * the reference is counted as not expanded and the attempt as failed.
      */
     private fun expand(
-        key: String,
+        key: Target,
         draw: () -> Cluster?,
     ): Cluster? {
         val before = expanded
@@ -426,11 +456,19 @@ internal class WorkflowDrawing private constructor(
 
         private fun style(reason: Resolution.Reason): Style =
             when (reason) {
-                Resolution.Reason.NOT_FOUND -> Style.UNRESOLVED
+                Resolution.Reason.NOT_FOUND, Resolution.Reason.NOT_FETCHED -> Style.UNRESOLVED
                 Resolution.Reason.FAILED -> Style.FAILED
                 Resolution.Reason.CYCLE -> Style.CYCLE
                 Resolution.Reason.LIMIT, Resolution.Reason.FILE_LIMIT, Resolution.Reason.DIAGRAM_LIMIT -> Style.LIMIT
                 Resolution.Reason.SEEN -> Style.BLACKBOX
+            }
+
+        /** What the note says about [count] remote files not fetched, or null for none. */
+        private fun unfetchedNote(count: Int): String? =
+            when (count) {
+                0 -> null
+                1 -> "1 reference not fetched — Fetch References to show it."
+                else -> "$count references not fetched — Fetch References to show them."
             }
 
         /** `N problems; first: <message> (line L).`, with the first line of the first message, or null without any. */

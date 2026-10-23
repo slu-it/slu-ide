@@ -14,15 +14,31 @@ object WorkflowGraphs {
 
     /**
      * Parses [text] of [fileName] (in `.github/workflows/` of its repository) with [parser] and draws it, its local
-     * reusable workflows and composite actions read from [sources] and drawn nested (with the same [parser]); never
-     * throws for bad input, a failing parser or unreadable references (a note or a marked box instead). Once
-     * [cancelled] says the graph is no longer wanted, nothing more is read or parsed (the rest is marked "cancelled").
+     * reusable workflows and composite actions read from [sources] and drawn nested (with the same [parser]); remote
+     * ones stay black boxes. Never throws for bad input, a failing parser or unreadable references (a note or a marked
+     * box instead). Once [cancelled] says the graph is no longer wanted, nothing more is read or parsed (the rest is
+     * marked "cancelled").
      */
     fun of(
         fileName: String,
         text: String,
         parser: WorkflowParser,
         sources: WorkflowSources,
+        cancelled: () -> Boolean = { false },
+    ): WorkflowGraph = of(fileName, text, parser, sources, null, cancelled)
+
+    /**
+     * Like the overload without [remote], and with a [remote] reader the remote reusable workflows and actions
+     * (`owner/repo[/path]@ref`) are read from it and drawn nested like local ones, also those they use in turn; a file
+     * the reader has not fetched is a box saying so, counted in [WorkflowGraph.unfetched]. Null: remote references
+     * stay black boxes.
+     */
+    fun of(
+        fileName: String,
+        text: String,
+        parser: WorkflowParser,
+        sources: WorkflowSources,
+        remote: RemoteReader?,
         cancelled: () -> Boolean = { false },
     ): WorkflowGraph {
         val json =
@@ -39,7 +55,11 @@ object WorkflowGraphs {
 
             is WorkflowJson.Result.Decoded -> {
                 val resolver =
-                    if (sources === WorkflowSources.NONE) null else ReferenceResolver(sources, parser, cancelled)
+                    if (sources === WorkflowSources.NONE && remote == null) {
+                        null
+                    } else {
+                        ReferenceResolver(sources, parser, cancelled, remote)
+                    }
                 WorkflowDrawing.draw(decoded.workflow, resolver = resolver, path = "$WORKFLOWS/$fileName")
             }
         }
