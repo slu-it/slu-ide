@@ -41,7 +41,7 @@ Subagents run only targeted tests; the full build is the final gate.
 
 ## Final gate
 Once the reviewer reports no issues and no agent runs Gradle in the main tree any more, the main session runs
-`.claude/scripts/full-build.sh` in the background: it repairs a stale or hung display `:99`, refuses while another
+`.claude/scripts/full-build.sh` in the background: it repairs stale or hung displays (`:99` upwards, one per parallel `uiTest`), refuses while another
 Gradle build runs in the tree, then runs `./gradlew build -q` and `.claude/scripts/check-docs-index.sh`. It fixes failures
 itself instead of starting another implementer round: rerun the failing class with `--tests`, fix the cause (never by weakening the test), fold the fix
 into the matching commit (`fixup!` + autosquash). A fix that touches production code gets a short reviewer pass on

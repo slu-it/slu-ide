@@ -11,7 +11,7 @@ new ones too (ADR 0032).
   Module and package rules: `docs/architecture.md`.
 
 ## Commands
-- Build and test everything: `.claude/scripts/full-build.sh` (`./gradlew build -q` on a repaired display, then the
+- Build and test everything: `.claude/scripts/full-build.sh` (`./gradlew build -q` on a pool of repaired displays, then the
   docs index check; refuses while another Gradle build runs in the tree). Unit tests in `test`, TestFX UI tests in
   `uiTest`, which needs a display; `-q` prints only errors and failed tests with their exception, so read the output in
   full instead of tailing
