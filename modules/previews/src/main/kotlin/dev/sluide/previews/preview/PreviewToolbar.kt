@@ -2,8 +2,10 @@ package dev.sluide.previews.preview
 
 import javafx.beans.property.BooleanProperty
 import javafx.beans.property.ObjectProperty
+import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.Node
+import javafx.scene.control.Button
 import javafx.scene.control.ToggleButton
 import javafx.scene.control.ToggleGroup
 import javafx.scene.control.Tooltip
@@ -15,7 +17,9 @@ import javafx.scene.web.WebView
 /**
  * The toolbar of a [PreviewFileView]: the mode buttons ([buttons], one per [PreviewMode], in [modes]) on the right and
  * on the left what the [preview] has: the scripts toggle, the table of contents' button, the zoom controls, the fold
- * controls, the Copy Formatted button, and the Export button. Everything runs on the FX thread.
+ * controls, the Copy Formatted button, and the Export button. The preview's own [actions][Preview.actions] are
+ * [actionButtons] before the mode buttons, shown like the zoom controls only while the preview shows. Everything runs
+ * on the FX thread.
  */
 internal class PreviewToolbar(
     preview: Preview,
@@ -37,6 +41,20 @@ internal class PreviewToolbar(
                 styleClass += "preview-mode"
                 // A click leaves the focus where it is, e.g. in the preview, whose zoom keys keep working.
                 isFocusTraversable = false
+            }
+        }
+
+    val actionButtons =
+        preview.actions.map { action ->
+            Button(action.label).apply {
+                styleClass += "preview-action"
+                tooltip = Tooltip(action.tooltip)
+                isFocusTraversable = false
+                disableProperty().bind(action.disabled)
+                visibleProperty().bind(mode.map { it != PreviewMode.SOURCE })
+                managedProperty().bind(visibleProperty())
+                setOnAction { action.run() }
+                HBox.setMargin(this, Insets(0.0, 6.0, 0.0, 0.0))
             }
         }
 
@@ -77,7 +95,7 @@ internal class PreviewToolbar(
                 emptyList()
             }
         node =
-            HBox(*(extras + buttons).toTypedArray()).apply {
+            HBox(*(extras + actionButtons + buttons).toTypedArray()).apply {
                 styleClass += "preview-toolbar"
                 alignment = Pos.CENTER_RIGHT
             }

@@ -112,6 +112,12 @@ internal interface Preview {
     val exports: List<FileExport> get() = emptyList()
 
     /**
+     * Buttons of the preview's own ([PreviewAction]), on the right of the toolbar before the mode toggles, while the
+     * preview shows; asked once, when the view is created.
+     */
+    val actions: List<PreviewAction> get() = emptyList()
+
+    /**
      * The headings of [text] for the table of contents, or `null` if the preview has none ([hasOutline]).
      */
     fun outline(text: String): List<Heading>? = null

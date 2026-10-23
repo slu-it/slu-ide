@@ -64,6 +64,8 @@ import java.nio.file.Path
  * Previews that [fold][Preview.folds] have the [folds] buttons (Collapse All, Expand All) on the left of the toolbar
  * while the preview shows. If they also [copy their text formatted][Preview.copiesFormatted], the Copy Formatted button
  * follows them.
+ *
+ * A preview's own [actions][Preview.actions] are buttons before the mode toggles, also only while the preview shows.
  */
 internal class PreviewFileView(
     file: Path,
@@ -210,6 +212,9 @@ internal class PreviewFileView(
     private val toolbar =
         PreviewToolbar(preview, modes, mode, scripts, toc, export, zoom, folds, copyFormatted, webView)
     private val buttons = toolbar.buttons
+
+    /** The buttons of the preview's [actions][Preview.actions], shown while the preview shows. */
+    val actionButtons get() = toolbar.actionButtons
 
     init {
         pane.top = toolbar.node
