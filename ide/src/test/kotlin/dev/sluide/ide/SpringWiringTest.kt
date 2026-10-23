@@ -17,6 +17,7 @@ import dev.sluide.git.GitRebases
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitStatusService
 import dev.sluide.git.GitTrustCheck
+import dev.sluide.git.RemoteSourceCache
 import dev.sluide.git.cli.GitCli
 import dev.sluide.gitlog.GitLogView
 import dev.sluide.httpclient.HttpClientSession
@@ -91,6 +92,7 @@ class SpringWiringTest {
                         GitCommits::class.java,
                         GitRebases::class.java,
                         GitRemotes::class.java,
+                        RemoteSourceCache::class.java,
                         GitPush::class.java,
                         GitLogView::class.java,
                         ProjectWindows::class.java,

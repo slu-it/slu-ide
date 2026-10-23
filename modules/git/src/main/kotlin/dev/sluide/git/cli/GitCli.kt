@@ -6,6 +6,8 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import java.io.ByteArrayOutputStream
 import java.io.IOException
+import java.io.InputStream
+import java.io.OutputStream
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
@@ -176,7 +178,8 @@ class GitCli(
      * one of the processes. A [cancellation] stops git as the timeout does, unless git has ended by then; one before git
      * starts keeps it from starting. With [maxOutput], git and what it started are killed as soon as it writes more
      * than that many bytes, and the result says it [overflowed][Execution.overflowed]. A read in a [directory] runs no
-     * `core.fsmonitor` hook ([fsmonitorGuard]) unless [guardFsmonitor] is `false`.
+     * `core.fsmonitor` hook ([fsmonitorGuard]) unless [guardFsmonitor] is `false`. A write keeps at most [maxErrors]
+     * bytes of its standard error if given (what a server sends to it, e.g.), and drops the rest as it is read.
      */
     internal fun execute(
         arguments: List<String>,
@@ -188,6 +191,7 @@ class GitCli(
         cancellation: GitCancellation? = null,
         maxOutput: Long? = null,
         guardFsmonitor: Boolean = true,
+        maxErrors: Long? = null,
     ): Execution? {
         if (cancellation?.cancelled == true) return Execution(null, ByteArray(0), ByteArray(0), false, cancelled = true)
         val guard = if (!write && guardFsmonitor && directory != null) fsmonitorGuard(directory) else emptyList()
@@ -228,7 +232,19 @@ class GitCli(
                         }
                     }
                 },
-                if (write) Thread.ofVirtual().start { process.errorStream.use { it.transferTo(errors) } } else null,
+                if (write) {
+                    Thread.ofVirtual().start {
+                        process.errorStream.use {
+                            keepErrors(
+                                it,
+                                errors,
+                                maxErrors,
+                            )
+                        }
+                    }
+                } else {
+                    null
+                },
             )
         // Only for the log (ADR 0060): the first bytes of what a read says on standard error. Not part of `complete`.
         val errorReader =
@@ -285,6 +301,19 @@ class GitCli(
         val complete = readers.none(Thread::isAlive)
         entry.exited(process.exitValue(), outputBytes, errorBytes, complete, overflowed.get())
         return Execution(process.exitValue(), outputBytes, errorBytes, complete, overflowed = overflowed.get())
+    }
+
+    /** Reads [stream] to its end into [errors], at most [limit] bytes of it if given. */
+    private fun keepErrors(
+        stream: InputStream,
+        errors: ByteArrayOutputStream,
+        limit: Long?,
+    ) {
+        if (limit == null || copyAtMost(stream, errors, limit)) {
+            stream.transferTo(errors)
+        } else {
+            stream.transferTo(OutputStream.nullOutputStream())
+        }
     }
 
     /**

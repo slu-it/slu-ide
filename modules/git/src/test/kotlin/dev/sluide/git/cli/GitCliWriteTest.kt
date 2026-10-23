@@ -150,4 +150,17 @@ class GitCliWriteTest {
         assertTrue(git.writeWithOutput(folder, listOf("x"), timeout = 1.seconds).timedOut)
         assertFalse(fakeGit("exit 3").writeWithOutput(folder, listOf("x")).timedOut, "a failure is no timeout")
     }
+
+    @Test
+    fun `a write keeps at most the standard error asked for and reads the rest to its end`() {
+        // 200 KB, far more than a pipe holds: git would block if the rest were not read.
+        val git = fakeGit("head -c 204800 /dev/zero | tr '\\0' e >&2; echo done; exit 0")
+
+        val execution =
+            git.execute(listOf("x"), folder, 10.seconds, null, write = true, maxErrors = 1000)
+
+        assertEquals(0, execution?.exitValue)
+        assertEquals("e".repeat(1000), execution?.errors?.toString(Charsets.UTF_8))
+        assertEquals("done", execution?.output?.toString(Charsets.UTF_8)?.trim())
+    }
 }
