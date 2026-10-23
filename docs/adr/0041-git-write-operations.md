@@ -37,7 +37,9 @@ POSIX locale cannot pass non-ASCII arguments ([ADR 0038](0038-changed-files-and-
 - **Commands** (names are short names, starts and revisions full hashes or refnames):
   - checkout of a local branch: `git switch --no-overwrite-ignore --end-of-options <name>`;
   - checkout of a commit or tag: `git switch --detach --no-overwrite-ignore --end-of-options <hash or refs/tags/x>`;
-  - checkout of a remote branch: its local branch if there is one (as above), else
+  - checkout of a remote branch: its local branch if there is one and it contains the remote branch (as above); if
+    it does not, after the confirmation below `git branch -f --end-of-options <b> refs/remotes/<r>/<b>`, then
+    `git switch --no-overwrite-ignore --end-of-options <b>`; else
     `git branch --track --end-of-options <b> refs/remotes/<r>/<b>`, then
     `git switch --no-overwrite-ignore --end-of-options <b>`;
   - new branch: `git branch [-f] --end-of-options <name> <start>`, with checkout then
@@ -74,8 +76,17 @@ POSIX locale cannot pass non-ASCII arguments ([ADR 0038](0038-changed-files-and-
     with git's message. After a failed detached checkout of a commit or tag, the same if `HEAD` is detached at its
     commit ("Checked out 1a2b3c4d, but git reported an error.").
   - A remote branch's local name is the part after the remote (`origin/fix` → `fix`), as git's `--track` names it and
-    as the branches pane splits remotes. If a local branch of that name exists, it is checked out instead, whatever it
-    tracks.
+    as the branches pane splits remotes. If a local branch of that name exists and contains the remote branch (the same
+    commit or ahead), it is checked out as it is, whatever it tracks. Otherwise a confirmation asks first, "Overwrite
+    Branch", with "Local branch 'fix' is behind origin/fix. Overwrite it with origin/fix and check it out?" or, if the
+    branches diverged or their ancestry cannot be read, "'fix' has commits that are not on origin/fix; they will only
+    be reachable through the reflog. Overwrite it with origin/fix and check it out?"; Overwrite or Cancel (the
+    default). On Overwrite the branch is moved there with `git branch -f` and checked out (as for a new branch with
+    overwrite, including its undo), and the header says "Overwrote fix with origin/fix and checked it out.". With
+    git's default `branch.autoSetupMerge`, `git branch -f` from the remote-tracking ref also makes the branch track
+    `origin/fix` (replacing another upstream); an undo after a failed switch moves the branch back but not its
+    upstream. An unreadable tip shows a "Checkout Failed" dialog saying "The commit of branch 'fix' could not be
+    read." and changes nothing.
   - A tag message goes to git's standard input as UTF-8 (messages often have non-ASCII characters, which an argument
     could not carry in a POSIX locale); `--cleanup=whitespace` keeps lines starting with `#`, which git's default
     `strip` would drop, and only removes leading and trailing blank lines and trailing whitespace and collapses
@@ -98,8 +109,9 @@ POSIX locale cannot pass non-ASCII arguments ([ADR 0038](0038-changed-files-and-
   Tag Failed", "Rename Failed", "Delete Failed") with git's message in a selectable, read-only monospace area sized to
   it, long lines wrapped, beyond 12 rows scrolled. There is no smart checkout and no automatic stash: git's refusal is
   the answer, as on the command line.
-- **Confirmation for deletes** (and for an overwrite that would orphan commits, below): checkouts run at once; new
-  branches, tags and renames are confirmed by their dialogs. Deleting always asks ("Delete branch 'x'?", "Delete 2
+- **Confirmation for deletes** (and for an overwrite that would orphan commits, below): checkouts run at once, except that of a remote
+  branch whose local branch is not at or ahead of it (it asks whether to overwrite the local branch); new branches,
+  tags and renames are confirmed by their dialogs. Deleting always asks ("Delete branch 'x'?", "Delete 2
   branches and 1 tag?", listing them as "branch x" and "tag v1" in an area that scrolls, Cancel the default button).
   Branches that `git branch -d` leaves (it goes on after refusing one) are offered for force deletion in a second
   confirmation with git's message and "Force Delete" (`-D` for those only). Which branches are left is read from the

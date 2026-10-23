@@ -260,6 +260,110 @@ class RefOperationsTest {
     }
 
     @Test
+    fun `a local branch whose commit is missing is checked out as it is`() {
+        val writes = FakeWrites()
+        writes.localBranches = setOf("fix")
+
+        val outcome = CheckoutRemote(ref("refs/remotes/origin/fix")).run(writes, root)
+
+        assertNull(outcome.confirmation)
+        assertEquals("Checked out local branch fix.", outcome.done)
+        assertEquals(listOf("switch fix"), writes.calls)
+    }
+
+    @Test
+    fun `a local branch that contains the remote branch is checked out without a question`() {
+        val writes = FakeWrites()
+        writes.localBranches = setOf("fix")
+        writes.tips = mapOf("fix" to "h9")
+        writes.ancestry = { ancestor, descendant -> ancestor == "refs/remotes/origin/fix" && descendant == "h9" }
+
+        val outcome = CheckoutRemote(ref("refs/remotes/origin/fix")).run(writes, root)
+
+        assertNull(outcome.confirmation)
+        assertEquals("Checked out local branch fix.", outcome.done)
+        assertEquals(listOf("switch fix"), writes.calls)
+    }
+
+    @Test
+    fun `a local branch behind the remote branch is overwritten only after asking`() {
+        val writes = FakeWrites()
+        val remote = CheckoutRemote(ref("refs/remotes/origin/fix"))
+        writes.localBranches = setOf("fix")
+        writes.tips = mapOf("fix" to "h9")
+        writes.ancestry = { ancestor, _ -> ancestor == "h9" }
+
+        val confirmation = remote.run(writes, root).confirmation
+
+        assertEquals("Overwrite Branch", confirmation?.title)
+        assertEquals(
+            "Local branch 'fix' is behind origin/fix. Overwrite it with origin/fix and check it out?",
+            confirmation?.question,
+        )
+        assertEquals(OVERWRITE_BUTTON, confirmation?.button)
+        assertEquals(remote.copy(overwrite = true), confirmation?.confirmed)
+        assertEquals(emptyList(), writes.calls)
+    }
+
+    @Test
+    fun `a diverged local branch or one with unreadable ancestry asks with the reflog question`() {
+        val writes = FakeWrites()
+        val remote = CheckoutRemote(ref("refs/remotes/origin/fix"))
+        writes.localBranches = setOf("fix")
+        writes.tips = mapOf("fix" to "h9")
+        val reflog =
+            "'fix' has commits that are not on origin/fix; they will only be reachable through the reflog. " +
+                "Overwrite it with origin/fix and check it out?"
+
+        writes.ancestry = { _, _ -> false }
+        assertEquals(reflog, remote.run(writes, root).confirmation?.question)
+        writes.ancestry = { _, _ -> null }
+        val unknown = remote.run(writes, root).confirmation
+        assertEquals(reflog, unknown?.question)
+        assertEquals(remote.copy(overwrite = true), unknown?.confirmed)
+        assertEquals(emptyList(), writes.calls)
+    }
+
+    @Test
+    fun `an unreadable local branch commit stops the remote checkout`() {
+        val writes = FakeWrites()
+        writes.localBranches = setOf("fix")
+        writes.unreadable = setOf("fix")
+
+        val outcome = CheckoutRemote(ref("refs/remotes/origin/fix")).run(writes, root)
+
+        assertEquals(RefOutcome(GitResult(false, "The commit of branch 'fix' could not be read."), null), outcome)
+        assertEquals(emptyList(), writes.calls)
+    }
+
+    @Test
+    fun `a confirmed overwrite moves the local branch to the remote one and checks it out`() {
+        val writes = FakeWrites()
+        val remote = CheckoutRemote(ref("refs/remotes/origin/fix"), overwrite = true)
+        writes.localBranches = setOf("fix")
+
+        val outcome = remote.run(writes, root)
+
+        assertEquals("Overwrote fix with origin/fix and checked it out.", outcome.done)
+        assertEquals(listOf("switch -C fix refs/remotes/origin/fix"), writes.calls)
+    }
+
+    @Test
+    fun `a confirmed overwrite still asks about the commits a detached HEAD leaves behind`() {
+        val writes = FakeWrites()
+        val remote = CheckoutRemote(ref("refs/remotes/origin/fix"), overwrite = true)
+        writes.localBranches = setOf("fix")
+        writes.leftBehind = 2
+
+        val confirmation = remote.run(writes, root).confirmation
+
+        assertEquals(listOf("left behind refs/remotes/origin/fix"), writes.reads)
+        assertEquals(remote.copy(confirmed = true), confirmation?.confirmed)
+        assertEquals(true, (confirmation?.confirmed as CheckoutRemote).overwrite)
+        assertEquals(emptyList(), writes.calls)
+    }
+
+    @Test
     fun `branches git refuses without force are handed back, other failures are shown`() {
         val writes = FakeWrites()
         writes.result =

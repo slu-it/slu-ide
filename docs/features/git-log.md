@@ -240,7 +240,11 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
     for `HEAD`, the current branch, a remote branch whose local branch of the same name is the current one, folders,
     groups and several; Delete as soon as the selection holds the current branch, a remote branch, `HEAD`, a folder or
     a group. A local branch is checked out, a tag detached; a remote branch `origin/fix` checks out the local branch
-    `fix` if there is one ("Checked out local branch fix."), else creates `fix` tracking it and checks it out
+    `fix` if there is one and it is at or ahead of `origin/fix` ("Checked out local branch fix."). If `fix` is behind,
+    has diverged or cannot be compared with `origin/fix`, "Overwrite Branch" asks whether to overwrite it with
+    `origin/fix` (Overwrite or Cancel, the default; "Overwrote fix with origin/fix and checked it out."; with git's
+    default settings `fix` then tracks `origin/fix`); the log's branch submenus behave the same, as they
+    share the item. Without a local branch it creates `fix` tracking it and checks it out
     ("Checked out new branch fix tracking origin/fix."). There are no further keys. A checkout never overwrites an
     ignored file the other commit tracks (a local `.env`): git refuses as for untracked files ("The following untracked
     working tree files would be overwritten by checkout: .env"), shown in the error dialog.

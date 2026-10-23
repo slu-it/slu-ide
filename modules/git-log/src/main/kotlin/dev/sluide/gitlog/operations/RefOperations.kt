@@ -152,11 +152,15 @@ internal data class CheckoutRevision(
 
 /**
  * Checks out the remote branch [ref] (`refs/remotes/origin/fix`): the local branch of the same name (`fix`) if there
- * is one, else a new local branch tracking it. Unless [confirmed], asks first as [CheckoutBranch] does.
+ * is one and it contains the remote branch, else a new local branch tracking it. A local branch that does not contain
+ * it is only checked out after asking whether to overwrite it with the remote one. Unless [confirmed], asks first as
+ * [CheckoutBranch] does.
  */
 internal data class CheckoutRemote(
     val ref: GitRef,
     val confirmed: Boolean = false,
+    /** Whether overwriting the local branch with the remote one was confirmed (or is not needed to ask about). */
+    val overwrite: Boolean = false,
 ) : RefOperation {
     /** The local branch's name: the remote branch's without the remote, as git names it. */
     val local: String get() = ref.shortName.substringAfter('/')
@@ -171,15 +175,66 @@ internal data class CheckoutRemote(
         root: Path,
     ): RefOutcome {
         val exists = writes.branchExists(root, local)
+        if (exists && !overwrite) overwriteQuestion(writes, root)?.let { return it }
         if (!confirmed) {
-            val (target, label) = if (exists) "$HEADS$local" to local else ref.name to ref.shortName
+            val (target, label) =
+                when {
+                    !exists -> ref.name to ref.shortName
+                    overwrite -> ref.name to local
+                    else -> "$HEADS$local" to local
+                }
             leavingQuestion(writes, root, target, label, copy(confirmed = true))?.let { return it }
         }
-        return if (exists) {
-            writes.switchBranch(root, local).outcome("Checked out local branch $local.")
-        } else {
-            writes.switchTracking(root, ref.name).outcome("Checked out new branch $local tracking ${ref.shortName}.")
+        return when {
+            !exists -> {
+                writes
+                    .switchTracking(
+                        root,
+                        ref.name,
+                    ).outcome("Checked out new branch $local tracking ${ref.shortName}.")
+            }
+
+            overwrite -> {
+                writes
+                    .createBranch(root, local, ref.name, checkout = true, overwrite = true)
+                    .outcome("Overwrote $local with ${ref.shortName} and checked it out.")
+            }
+
+            else -> {
+                writes.switchBranch(root, local).outcome("Checked out local branch $local.")
+            }
         }
+    }
+
+    /** The outcome that asks whether to overwrite the local branch if it does not contain [ref], else null. */
+    private fun overwriteQuestion(
+        writes: GitLogWrites,
+        root: Path,
+    ): RefOutcome? {
+        val tip =
+            when (val found = writes.branchTip(root, local)) {
+                GitBranchTip.Missing -> {
+                    return null
+                }
+
+                GitBranchTip.Unknown -> {
+                    return RefOutcome(GitResult(false, "The commit of branch '$local' could not be read."), null)
+                }
+
+                is GitBranchTip.At -> {
+                    found.commit
+                }
+            }
+        if (writes.isAncestor(root, ref.name, tip) == true) return null
+        val question =
+            if (writes.isAncestor(root, tip, ref.name) == true) {
+                "Local branch '$local' is behind ${ref.shortName}. Overwrite it with ${ref.shortName} and check it out?"
+            } else {
+                "'$local' has commits that are not on ${ref.shortName}; they will only be reachable through the " +
+                    "reflog. Overwrite it with ${ref.shortName} and check it out?"
+            }
+        val confirmation = RefConfirmation("Overwrite Branch", question, OVERWRITE_BUTTON, copy(overwrite = true))
+        return RefOutcome(GitResult(true, ""), null, confirmation = confirmation)
     }
 }
 

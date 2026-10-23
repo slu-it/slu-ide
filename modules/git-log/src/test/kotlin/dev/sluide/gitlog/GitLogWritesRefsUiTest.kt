@@ -154,6 +154,40 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
     }
 
     @Test
+    fun `checking out a remote branch whose local branch is behind asks to overwrite it, Cancel the default`(
+        robot: FxRobot,
+    ) {
+        openAndExpand(robot)
+        writes.localBranches = setOf("old")
+        writes.tips = mapOf("old" to "h-old")
+        writes.ancestry = { ancestor, _ -> ancestor == "h-old" }
+
+        selectBranches(robot, "Remote/origin/old")
+        fireLater(branches.checkoutItem)
+        var question = awaitDialog(robot)
+        assertEquals("Overwrite Branch", (question.scene.window as Stage).title)
+        assertEquals(
+            "Local branch 'old' is behind origin/old. Overwrite it with origin/old and check it out?",
+            question.headerText,
+        )
+        assertTrue((question.lookupButton(ButtonType.CANCEL) as Button).isDefaultButton)
+        press(robot, question, ButtonType.CANCEL)
+        assertEquals(emptyList(), writes.calls, "Cancel checks out nothing")
+
+        writes.leftBehind = 1
+        fireLater(branches.checkoutItem)
+        question = awaitDialog(robot)
+        press(robot, question, OVERWRITE_BUTTON)
+        question = awaitDialog(robot)
+        assertEquals("Check Out", (question.scene.window as Stage).title)
+        assertTrue(question.headerText.endsWith("Check out old anyway?"))
+        press(robot, question, CHECKOUT_BUTTON)
+        eventually { assertEquals(listOf("switch -C old refs/remotes/origin/old"), writes.calls) }
+        eventually { assertEquals("Overwrote old with origin/old and checked it out.", status(robot)) }
+        assertEquals(2, beforeCheckoutCalls, "unsaved editors asked once per checkout, not again on confirming")
+    }
+
+    @Test
     fun `a checkout that leaves commits of a detached HEAD behind asks first, Cancel the default`(robot: FxRobot) {
         openAndExpand(robot)
         writes.leftBehind = 2
