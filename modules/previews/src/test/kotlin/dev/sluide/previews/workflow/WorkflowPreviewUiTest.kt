@@ -1,8 +1,15 @@
 package dev.sluide.previews.workflow
 
+import dev.sluide.fileviewers.FileViewHost
+import dev.sluide.fileviewers.WindowServices
+import dev.sluide.githubactions.RemoteFile
+import dev.sluide.githubactions.RemoteReader
+import dev.sluide.githubactions.RemoteSources
+import dev.sluide.githubactions.RemoteText
 import dev.sluide.githubactions.RepositoryFiles
 import dev.sluide.githubactions.WorkflowGraphs
 import dev.sluide.githubactions.WorkflowParser
+import dev.sluide.previews.markdown.MermaidFileViewer
 import dev.sluide.previews.preview.PreviewFileView
 import dev.sluide.previews.preview.PreviewMode
 import dev.sluide.previews.preview.sourceArea
@@ -22,8 +29,10 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -306,6 +315,86 @@ class WorkflowPreviewUiTest {
             engine.awaitDrawing()
             assertEquals(null, engine.mermaidError(), "$name:\n${graph.mermaid}")
             assertEquals(1, engine.count("pre.mermaid svg"), name)
+        }
+    }
+
+    @Test
+    fun `Fetch References shows only while the preview shows and draws the fetched remote action nested`(
+        robot: FxRobot,
+    ) {
+        val file = workflowsFolder().resolve("remote.yml")
+        file.writeText(
+            "on: push\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - uses: acme/setup@v1\n",
+        )
+        val composite =
+            "name: Set up\nruns:\n  using: composite\n  steps:\n    - name: Install inside\n      run: x\n      " +
+                "shell: bash\n    - uses: ./local\n"
+        val remote = FakeRemoteSources(mapOf(RemoteFile("acme", "setup", "v1", "action.yml") to composite))
+        val services = WindowServices().apply { register(RemoteSources::class.java, remote) }
+        val host =
+            object : FileViewHost {
+                override fun openFile(file: Path) = false
+
+                override fun openWebPage(uri: URI) {}
+
+                override fun <T : Any> windowService(type: Class<T>): T? = services.get(type)
+            }
+        // As a tab does: the view renders once before it gets its host.
+        val view = show(robot) { (WorkflowFileViewer().open(file) as PreviewFileView).also { it.host = host } }
+        val button = view.actionButtons.single()
+        assertEquals(WorkflowPreview.FETCH, button.text)
+        assertFalse(button.isVisible, "not in Source")
+
+        robot.interact { view.mode.set(PreviewMode.SPLIT) }
+        view.awaitGraph()
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { !button.isDisabled }
+        assertTrue(button.isVisible)
+        assertTrue("not fetched" in view.diagramText(), view.diagramText())
+
+        robot.interact { button.fire() }
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
+            view.script("document.querySelector('pre.mermaid svg') !== null") == true &&
+                "Install inside" in view.diagramText()
+        }
+        view.webView.engine.awaitDrawing()
+        assertEquals(null, view.webView.engine.mermaidError())
+        val text = view.diagramText()
+        for (part in listOf("acme/setup@v1 (composite)", "Install inside", "workspace-relative")) {
+            assertTrue(part in text, "$part in $text")
+        }
+        assertEquals(listOf(false, true), remote.readers)
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { !button.isDisabled }
+
+        robot.interact { view.mode.set(PreviewMode.SOURCE) }
+        assertFalse(button.isVisible)
+        val mermaid = dir.resolve("chart.mmd").apply { writeText("flowchart LR\n  a --> b\n") }
+        val other = show(robot) { MermaidFileViewer().open(mermaid) as PreviewFileView }
+        assertTrue(other.actionButtons.isEmpty(), "only the workflow preview has the button")
+    }
+
+    /** Remote files of [repository] (by file, the text), cached once a reader that may fetch read them. */
+    private class FakeRemoteSources(
+        private val repository: Map<RemoteFile, String>,
+    ) : RemoteSources {
+        private val cache = ConcurrentHashMap<RemoteFile, RemoteText>()
+
+        /** The `network` of each reader made. */
+        val readers = CopyOnWriteArrayList<Boolean>()
+
+        override fun reader(
+            network: Boolean,
+            cancelled: () -> Boolean,
+        ): RemoteReader {
+            readers += network
+            return RemoteReader { file ->
+                if (network) {
+                    val text = repository[file]?.let { RemoteText.Found(it, "c0ffee", null) } ?: RemoteText.Missing
+                    cache[file] = text
+                    text
+                } else {
+                    cache[file] ?: RemoteText.NotFetched
+                }
+            }
         }
     }
 
