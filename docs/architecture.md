@@ -117,7 +117,9 @@ nor `file-viewers`: `WindowGitLog` sets its callbacks `onOpenFile` (opened with 
 [ADR 0038](adr/0038-changed-files-and-commit-diffs.md), [ADR 0042](adr/0042-git-log-commit-operations.md),
 [ADR 0044](adr/0044-git-log-compare.md) and [ADR 0068](adr/0068-window-parts-in-ide.md). Likewise `git` does not
 depend on `file-explorer` or `editor-area`: its markers and diffs reach them through `ide` (`MainWindow`)
-([ADR 0015](adr/0015-git-diff.md), [ADR 0021](adr/0021-change-markers-and-diffs-on-demand.md)).
+([ADR 0015](adr/0015-git-diff.md), [ADR 0021](adr/0021-change-markers-and-diffs-on-demand.md)), and which
+`.gitignore` lines have an effect reaches `file-viewers` through the `IgnoreRuleEffects` window service
+([ADR 0080](adr/0080-gitignore-line-effects.md)).
 
 Shared build configuration (JDK toolchain, test setup, Spring BOM) is in the root `build.gradle.kts`.
 
