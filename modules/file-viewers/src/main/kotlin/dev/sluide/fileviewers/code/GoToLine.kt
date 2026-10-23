@@ -26,7 +26,14 @@ internal class GoToLine(
     fun goToLine() {
         val input = ask("${area.currentParagraph + 1}:${area.caretColumn + 1}") ?: return
         val position = parseGoTo(input, area.paragraphs.size) ?: return
-        area.moveTo(position.offsetIn(area.text))
+        moveTo(position.offsetIn(area.text))
+    }
+
+    /** Goes to the start of [line] (0-based, kept within the text) without asking. */
+    fun goTo(line: Int) = moveTo(area.getAbsolutePosition(line.coerceIn(0, area.paragraphs.size - 1), 0))
+
+    private fun moveTo(offset: Int) {
+        area.moveTo(offset)
         area.requestFollowCaret()
         area.requestFocus()
     }

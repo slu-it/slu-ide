@@ -304,6 +304,16 @@ internal class PreviewFileView(
         if (stopped && source.savedText != renderedText) resume() else render()
     }
 
+    /**
+     * Goes to [line] of the source, showing it beside the preview if the preview shows alone. The source takes the
+     * focus, also once it is in the scene again, in place of a request still pending for the preview.
+     */
+    override fun showLine(line: Int) {
+        if (mode.get() == PreviewMode.PREVIEW) mode.set(PreviewMode.SPLIT)
+        source.showLine(line)
+        pendingFocus.request(source.node) { if (!disposed) source.focusText() }
+    }
+
     /** Reads and saves the file at [to] from now on, keeping the source's text and unsaved changes, and renders it there. */
     override fun moved(to: Path): Boolean {
         // While the page is still the old file's own one; for HTML, it is not the new file's.

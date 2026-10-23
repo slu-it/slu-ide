@@ -108,6 +108,13 @@ interface FileView {
     fun moved(to: Path): Boolean = false
 
     /**
+     * Moves the caret to the start of [line] (0-based, kept within the text), scrolls it into view and focuses the text,
+     * as Go to Line does; shows the text first if the view hides it. Does nothing in views without a caret, as by
+     * default.
+     */
+    fun showLine(line: Int) {}
+
+    /**
      * Lets the view open other files and web pages, e.g. when a link in it is clicked. Set by whoever shows the view;
      * views that never open anything ignore it.
      */
@@ -152,6 +159,15 @@ interface TextEditableView : FileView {
 interface FileViewHost {
     /** Shows [file] in the IDE, e.g. in a tab; `false` if it cannot be shown. */
     fun openFile(file: Path): Boolean
+
+    /**
+     * Shows [file] like [openFile(file)][openFile], with the caret at the start of its [line] (0-based) if its view has
+     * one ([FileView.showLine]), e.g. when a box of a graph is clicked. By default only opens it.
+     */
+    fun openFile(
+        file: Path,
+        line: Int,
+    ): Boolean = openFile(file)
 
     /** Shows [uri] outside the IDE, e.g. a web page in the system browser. */
     fun openWebPage(uri: URI)

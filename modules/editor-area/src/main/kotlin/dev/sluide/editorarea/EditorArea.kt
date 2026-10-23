@@ -110,33 +110,12 @@ class EditorArea(
     /** The services of the window that file views look up by exact type ([FileViewHost.windowService], ADR 0070). */
     val windowServices = WindowServices()
 
-    /** Lets the file views open files in this area and web pages through [openWebPage]. */
-    private val viewHost =
-        object : FileViewHost {
-            override fun openFile(file: Path): Boolean = open(file)
-
-            override fun openWebPage(uri: URI) = this@EditorArea.openWebPage(uri)
-
-            override val projectFolder get() = this@EditorArea.projectFolder()
-
-            override fun showChanges(
-                file: Path,
-                line: Int,
-            ) = showChangesAt(file, line)
-
-            override fun <T : Any> windowService(type: Class<T>): T? = windowServices.get(type)
-
-            override fun currentText(file: Path): String? = tabTexts.currentText(file)
-
-            override fun editText(
-                file: Path,
-                edit: (String) -> String,
-            ): Boolean = tabTexts.editText(file, edit)
-        }
-
     /** Another file's tab for views that edit it; opened without being selected or focused (ADR 0057). */
     private val tabTexts =
         TabTexts(editorTabs) { path -> openTab(path, select = false) { view -> TabTexts.editable(view) != null } }
+
+    /** Lets the file views open files in this area and web pages through [openWebPage]. */
+    private val viewHost = ViewHost(this, ::showChangesAt, tabTexts)
 
     /** The editor font as CSS; file views and diffs inherit it from their tab's node. */
     private val editorCss = fontSettings.font(FontArea.EDITOR).map(FontSpec::toCss)

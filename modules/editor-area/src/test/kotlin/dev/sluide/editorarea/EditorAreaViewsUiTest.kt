@@ -34,6 +34,7 @@ import org.testfx.util.WaitForAsyncUtils
 import java.awt.image.BufferedImage
 import java.net.URI
 import java.nio.file.Path
+import java.util.concurrent.TimeUnit
 import javax.imageio.ImageIO
 import kotlin.io.path.name
 import kotlin.test.Test
@@ -181,6 +182,87 @@ class EditorAreaViewsUiTest : EditorAreaUiFixture() {
         assertEquals(other, area.selectedPath)
         assertEquals(listOf(URI("https://example.com")), opened)
         assertEquals(dir, host.projectFolder)
+    }
+
+    @Test
+    fun `a file opened at a line through the host has the caret there, a preview shown alone shows its source too`(
+        robot: FxRobot,
+    ) {
+        val viewer = HostRecordingViewer()
+        val fallback = DefaultTextFileViewer()
+        val area =
+            EditorArea(FileViewers(listOf(fallback, viewer, MarkdownFileViewer()), fallback), watcher, fontSettings)
+        robot.interact { stage.scene = Scene(area, 800.0, 400.0) }
+        val text = textFile("lines.txt", (1..100).joinToString("\n") { "line $it" })
+        robot.interact { area.open(textFile("readme.link")) }
+        val host = assertNotNull(viewer.views.single().host)
+
+        robot.interact { assertTrue(host.openFile(text, 79)) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val code = robot.lookup(".editor-content .code-area").queryAs(CodeArea::class.java)
+        assertEquals(text, area.selectedPath)
+        assertEquals(79 to 0, code.currentParagraph to code.caretColumn)
+        assertTrue(code.isFocused)
+        assertTrue(79 in code.firstVisibleParToAllParIndex()..code.lastVisibleParToAllParIndex(), "scrolled to it")
+        robot.interact { assertTrue(host.openFile(text, 500)) }
+        assertEquals(99, code.currentParagraph, "beyond the end: the last line")
+
+        val markdown = textFile("notes.md", (1..200).joinToString("\n\n") { "Paragraph $it" })
+        robot.interact { host.openFile(markdown) }
+        val tab = checkNotNull(area.selectedTab).content
+
+        fun modeButton(label: String) =
+            robot
+                .from(tab)
+                .lookup(".toggle-button")
+                .queryAllAs(ToggleButton::class.java)
+                .single { it.text == label }
+        robot.interact { modeButton("Preview").fire() }
+        robot.interact { area.open(text) }
+
+        robot.interact { assertTrue(host.openFile(markdown, 300)) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertTrue(modeButton("Split").isSelected, "the source shows beside the preview")
+        val source = robot.from(tab).lookup(".code-area").queryAs(CodeArea::class.java)
+        assertEquals(300, source.currentParagraph)
+        eventually(robot) {
+            assertTrue(300 in source.firstVisibleParToAllParIndex()..source.lastVisibleParToAllParIndex(), "shown")
+        }
+        assertTrue(source.isFocused, "the source, not the preview: ${stage.scene.focusOwner}")
+        robot.interact { assertFalse(host.openFile(dir.resolve("missing.txt"), 3), "a file that cannot be opened") }
+    }
+
+    @Test
+    fun `a zooming preview opened at a line focuses its source, not its diagram`(robot: FxRobot) {
+        val viewer = HostRecordingViewer()
+        val fallback = DefaultTextFileViewer()
+        val area =
+            EditorArea(FileViewers(listOf(fallback, viewer, MermaidFileViewer()), fallback), watcher, fontSettings)
+        robot.interact { stage.scene = Scene(area, 800.0, 400.0) }
+        robot.interact { area.open(textFile("readme.link")) }
+        val host = assertNotNull(viewer.views.single().host)
+        val chart = textFile("flow.mmd", "flowchart TB\n" + (1..200).joinToString("\n") { "  n$it --> n${it + 1}" })
+
+        // Opened anew, its view asks to focus the diagram once its split pane is in the scene.
+        robot.interact { assertTrue(host.openFile(chart, 150)) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val source =
+            robot
+                .from(
+                    checkNotNull(area.selectedTab).content,
+                ).lookup(".code-area")
+                .queryAs(CodeArea::class.java)
+        eventually(robot) {
+            assertEquals(150, source.currentParagraph)
+            assertTrue(150 in source.firstVisibleParToAllParIndex()..source.lastVisibleParToAllParIndex(), "shown")
+        }
+        // Whatever the view asked for before runs by now.
+        WaitForAsyncUtils.sleep(300, TimeUnit.MILLISECONDS)
+        WaitForAsyncUtils.waitForFxEvents()
+        assertTrue(source.isFocused, "the source, not the diagram: ${stage.scene.focusOwner}")
     }
 
     @Test

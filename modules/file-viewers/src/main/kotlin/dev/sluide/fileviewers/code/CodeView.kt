@@ -485,6 +485,8 @@ internal class CodeView(
 
     override fun focusText() = area.requestFocus()
 
+    override fun showLine(line: Int) = goToLine.goTo(line)
+
     /** Focuses the text, keeping caret and scroll position; the text of a view in a split pane once it is shown. */
     override fun focus() = pendingFocus.request(area) { if (!disposed) area.requestFocus() }
 
