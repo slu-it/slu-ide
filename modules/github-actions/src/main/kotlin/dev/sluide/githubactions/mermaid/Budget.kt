@@ -61,6 +61,25 @@ internal class Budget(
         return true
     }
 
+    /**
+     * A box with escaped [labelLength] characters and its link to [target], both or neither: one that does not fit is
+     * left out without counting as cut, so the rest of the diagram is as it would be without it.
+     */
+    fun takeOptional(
+        labelLength: Int,
+        id: String,
+        target: String,
+        depth: Int,
+    ): Boolean {
+        val node = labelLength + NODE_OVERHEAD + INDENT * depth + 2 * id.length
+        val edge = EDGE_OVERHEAD + INDENT * depth + id.length + target.length
+        if (nodes >= maxNodes || edges >= maxEdges || text + node + edge > maxText) return false
+        nodes++
+        edges++
+        text += node + edge
+        return true
+    }
+
     /** A subgraph's three lines (`subgraph id ["title"]`, `direction TB`, `end`) at [depth]; may go over the limit. */
     fun addCluster(
         titleLength: Int,

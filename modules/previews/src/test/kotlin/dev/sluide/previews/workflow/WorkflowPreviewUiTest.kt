@@ -209,6 +209,9 @@ class WorkflowPreviewUiTest {
             """
             on:
               workflow_call:
+                inputs:
+                  java:
+                    type: string
             jobs:
               compile:
                 runs-on: ubuntu-latest
@@ -235,11 +238,15 @@ class WorkflowPreviewUiTest {
             jobs:
               build:
                 uses: ./.github/workflows/build.yml
+                with:
+                  java: 21
               test:
                 needs: build
                 runs-on: ubuntu-latest
                 steps:
                   - uses: ./.github/actions/setup
+                    with:
+                      who: me
                   - run: ./gradlew test
             """.trimIndent(),
         )
@@ -252,9 +259,11 @@ class WorkflowPreviewUiTest {
         val text = view.diagramText()
         for (part in listOf(
             "calls build.yml",
+            "java: 21",
             "Compile inside",
             "Set up",
             "<composite>",
+            "who: me",
             "Install inside",
             "gradlew test",
         )) {

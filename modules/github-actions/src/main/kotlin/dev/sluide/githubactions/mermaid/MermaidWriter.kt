@@ -71,6 +71,7 @@ internal object MermaidWriter {
         when (shape) {
             Shape.BOX -> append("[\"").append(text).append("\"]\n")
             Shape.STADIUM -> append("([\"").append(text).append("\"])\n")
+            Shape.ROUNDED -> append("(\"").append(text).append("\")\n")
         }
     }
 

@@ -113,11 +113,15 @@ class WorkflowDrawingTest {
                 end
                 subgraph j0 ["local #183; calls <b>./.github/workflows/build.yml</b>"]
                     direction TB
-                    j0w["<b>./.github/workflows/build.yml</b><br/>with: java, flags, ref"]
+                    j0w["<b>./.github/workflows/build.yml</b>"]
+                    j0wi("java: 25<br/>flags: a b<br/>ref: #36;#123;#123; github.sha #125;#125;")
+                    j0wi -.-> j0w
                 end
                 subgraph j1 ["Deploy #36;#123;#123; github.ref_name #125;#125; #183; calls <b>owner/repo/.github/workflows/deploy.yml@v1</b>"]
                     direction TB
-                    j1w["<b>owner/repo/.github/workflows/deploy.yml@v1</b><br/>with: environment<br/>secrets: inherit"]
+                    j1w["<b>owner/repo/.github/workflows/deploy.yml@v1</b><br/>secrets: inherit"]
+                    j1wi("environment: production")
+                    j1wi -.-> j1w
                 end
                 subgraph j2 ["remote-explicit #183; calls <b>owner/repo/.github/workflows/deploy.yml@0123456#8230;</b>"]
                     direction TB
@@ -143,7 +147,8 @@ class WorkflowDrawingTest {
                 j1 --> j3
                 j2 --> j3
 
-            """.trimIndent() + CLASS_DEFS + "    class j0w,j1w,j2w,j3s0,j3s1,j3s2,j3s3 blackbox\n",
+            """.trimIndent() + CLASS_DEFS +
+                "    class j0w,j1w,j2w,j3s0,j3s1,j3s2,j3s3 blackbox\n    class j0wi,j1wi inputs\n",
             graph.mermaid,
         )
     }
@@ -290,6 +295,89 @@ class WorkflowDrawingTest {
         assertTrue("        j0s0[\"Check out<br/><b>actions/checkout@v4</b>\"]\n" in graph.mermaid, graph.mermaid)
     }
 
+    private fun withInputs(
+        text: String,
+        inputs: Map<String, String>,
+    ) = uses(text).copy(inputs = inputs)
+
+    @Test
+    fun `a step's inputs are a rounded box with a dotted link, capped, a value cut to its first line`() {
+        val inputs =
+            linkedMapOf("script" to "\n  echo one\n\n  echo two\n", "ref" to "\${{ github.ref }}") +
+                (1..8).associate { "k$it" to "v$it" }
+        val graph = WorkflowDrawing.draw(workflow(job("a", withInputs("actions/checkout@v4", inputs), run("x"))))
+
+        assertTrue(
+            """
+            |        j0s0["<b>actions/checkout@v4</b>"]
+            |        j0s1["run: x"]
+            |        j0s0i("script: echo one #8230;<br/>ref: #36;#123;#123; github.ref #125;#125;<br/>k1: v1<br/>k2: v2<br/>k3: v3<br/>k4: v4<br/>k5: v5<br/>k6: v6<br/>#43;2 more")
+            |        j0s0 --> j0s1
+            |        j0s0i -.-> j0s0
+            |
+            """.trimMargin() in graph.mermaid,
+            graph.mermaid,
+        )
+        assertTrue("    class j0s0i inputs\n" in graph.mermaid)
+    }
+
+    @Test
+    fun `an empty with gives no inputs element`() {
+        val graph = WorkflowDrawing.draw(workflow(job("a", withInputs("actions/checkout@v4", emptyMap()))))
+
+        assertFalse("j0s0i" in graph.mermaid, graph.mermaid)
+        assertFalse(" inputs" in graph.mermaid.substringAfter("class "), graph.mermaid)
+    }
+
+    /** The smallest text limit at which [draw] without inputs gives a graph with no note. */
+    private fun tightestText(draw: (Int) -> WorkflowGraph): Int {
+        var limit = 3_000
+        while (limit > 0 && draw(limit - 1).note == null) limit--
+        return limit
+    }
+
+    @Test
+    fun `inputs never take room from steps, links or the text a job needs`() {
+        fun steps(inputs: Boolean) =
+            arrayOf(
+                withInputs("a/b@v1", if (inputs) mapOf("x" to "1") else emptyMap()),
+                withInputs("c/d@v1", if (inputs) mapOf("y" to "2") else emptyMap()),
+            )
+
+        fun draw(
+            inputs: Boolean,
+            nodes: Int = 100,
+            edges: Int = 100,
+            text: Int = 100_000,
+        ) = WorkflowDrawing.draw(workflow(job("a", *steps(inputs))), nodes, edges, text)
+
+        val limits =
+            listOf(
+                Triple(3, 100, 100_000),
+                Triple(100, 2, 100_000),
+                Triple(100, 100, tightestText { draw(false, text = it) }),
+            )
+        for ((nodes, edges, text) in limits) {
+            assertNull(draw(false, nodes, edges, text).note, "the steps alone fit $limits")
+            val graph = draw(true, nodes, edges, text)
+
+            assertTrue("j0s0[" in graph.mermaid && "j0s1[" in graph.mermaid, graph.mermaid)
+            assertTrue("j0s0 --> j0s1" in graph.mermaid, graph.mermaid)
+            assertFalse("j0s0i" in graph.mermaid || "j0s1i" in graph.mermaid, graph.mermaid)
+            assertNull(graph.note)
+        }
+    }
+
+    @Test
+    fun `inputs that fit are all drawn, in the order of the steps, as many as fit`() {
+        val steps = arrayOf(withInputs("a/b@v1", mapOf("x" to "1")), withInputs("c/d@v1", mapOf("y" to "2")))
+        val graph = WorkflowDrawing.draw(workflow(job("a", *steps)), maxNodes = 4)
+
+        assertTrue("j0s0i(" in graph.mermaid, graph.mermaid)
+        assertFalse("j0s1i" in graph.mermaid, graph.mermaid)
+        assertNull(graph.note)
+    }
+
     @Test
     fun `long conditions are cut on the link`() {
         val condition = "github.event_name == 'push' && github.ref == 'refs/heads/main'"
@@ -323,15 +411,32 @@ class WorkflowDrawingTest {
                         "a",
                         run(hostile, name = hostile, condition = hostile),
                         uses(hostile, name = hostile),
+                        withInputs("x/y@v1", mapOf(hostile to hostile, "k" to hostile)),
                         name = hostile,
                     ),
                     job("b", run("x"), needs = listOf("a"), condition = hostile),
+                    Job(
+                        "c",
+                        hostile,
+                        null,
+                        emptyList(),
+                        null,
+                        null,
+                        null,
+                        JobBody.WorkflowCall(
+                            hostile,
+                            UsesReference.parse(hostile, UsesSite.JOB),
+                            mapOf(hostile to hostile),
+                            true,
+                        ),
+                    ),
                     events = listOf(Event(hostile, hostile)),
                 ),
             )
 
         val quoted = Regex("\"([^\"]*)\"").findAll(graph.mermaid).map { it.groupValues[1] }.toList()
-        assertTrue(quoted.size >= 6, "$quoted")
+        assertTrue(quoted.size >= 10, "$quoted")
+        assertTrue("j0s2i(" in graph.mermaid && "j2wi(" in graph.mermaid, graph.mermaid)
         for (text in quoted) assertTrue(text.matches(SAFE_LABEL), "unsafe label: $text")
         for (line in graph.mermaid.lines()) {
             val outside = line.replace(Regex("\"[^\"]*\""), "")
@@ -411,6 +516,7 @@ class WorkflowDrawingTest {
             |    classDef failed stroke:#d9534f,stroke-width:2px
             |    classDef cycle stroke:#f0ad4e,stroke-width:2px,stroke-dasharray: 2 2
             |    classDef limit stroke-dasharray: 1 4
+            |    classDef inputs stroke-dasharray: 4 3,stroke-width:1px
             |
             """.trimMargin()
     }

@@ -51,10 +51,13 @@ class SourceLocationsTest {
                 // The job calling build.yml and the box of the call: the job's line.
                 "j0" to Local(caller, 4),
                 "j0w" to Local(caller, 4),
+                // The inputs elements are at the line of their step or job.
+                "j0wi" to Local(caller, 4),
                 "j0wj0" to Local(build, 8),
                 // The composite action's box: the line of its `uses:`; its steps: their lines in action.yml.
                 "j0wj0s0" to Local(build, 11),
                 "j0wj0s0s0" to Local(setup, 8),
+                "j0wj0s0s0i" to Local(setup, 8),
                 "j0wj0s0s1" to Local(setup, 11),
                 "j0wj0s0s2" to Local(setup, 13),
                 "j0wj0s1" to Local(build, 14),

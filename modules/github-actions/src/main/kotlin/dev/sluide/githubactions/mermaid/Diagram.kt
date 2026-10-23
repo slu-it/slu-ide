@@ -38,7 +38,7 @@ internal sealed interface Element {
     val location: SourceLocation?
 }
 
-internal enum class Shape { BOX, STADIUM }
+internal enum class Shape { BOX, STADIUM, ROUNDED }
 
 /** The direction a [Cluster] lays out its children in. */
 internal enum class Direction { TB, LR }
@@ -62,6 +62,9 @@ internal enum class Style(
 
     /** Where expanding stopped at a limit. */
     LIMIT("limit", "stroke-dasharray: 1 4"),
+
+    /** The inputs a step or reusable workflow job is given: a thin dashed border. */
+    INPUTS("inputs", "stroke-dasharray: 4 3,stroke-width:1px"),
 }
 
 internal data class Node(

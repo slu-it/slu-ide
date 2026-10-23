@@ -38,8 +38,12 @@ and `github-actions` (model and drawing, `WorkflowGraphs`, the `RemoteSources` i
 - **A box around each job**, titled with its `name` (else its id), `runs-on` and a matrix summary
   (`matrix os×java (6)`, `matrix (dynamic)` when built by an expression). Inside, its `run` and `uses` steps from top
   to bottom: a step's name, else `run:` with the script's first line; for `uses` the reference, **bold**, below the
-  step's name; `if:` conditions as written. A job that calls a reusable workflow is one box with
-  `calls <reference>` (the reference bold), its input names and `secrets: inherit`.
+  step's name; `if:` conditions as written. A job that calls a reusable workflow is one box with `calls <reference>`
+  (the reference bold) and `secrets: inherit`.
+- **Inputs**: a `uses:` step's `with:` (and a reusable workflow job's) is a separate rounded box with a thin dashed
+  border next to the step, one `name: value` line per input actually set (a multi-line value shows its first line
+  and ` …`), at most 8 lines then `+N more`, and a dotted arrow into the step (or into the expanded subgraph). No `with:`,
+  no box. If the box does not fit the diagram's limits it is left out and the step stays, without a note.
 - **Links**: from each job a job `needs`, or from the triggers when it needs none. A job with an `if:` gets dotted
   links labelled with the condition.
 - **Local `uses:` are drawn nested** (next section), and so are remote ones once fetched
@@ -57,12 +61,12 @@ and `github-actions` (model and drawing, `WorkflowGraphs`, the `RemoteSources` i
 A workflow in `<root>/.github/workflows/` reads what its `./…` references point to from `<root>`, the folder holding
 `.github` (as GitHub resolves them against the repository's root), also from the files it opens in turn:
 - **Reusable workflow** (`jobs.<id>.uses: ./.github/workflows/x.yml`): parsed by the same parser and drawn inside the
-  calling job's box as a box `calls x.yml` (the file name bold; with the `with:` inputs and `secrets: inherit`),
-  holding its jobs with their steps and `needs` links, like the workflow's own.
+  calling job's box as a box `calls x.yml` (the file name bold), holding its jobs with their steps and `needs` links,
+  like the workflow's own; the job's `with:` is its inputs box.
 - **Local action** (`steps[*].uses: ./path`): `<root>/path/action.yml`, else `action.yaml`, read as YAML with every
   value kept as text (so `on`, `yes` stay words; no types are built from tags, aliases, nesting and size are limited).
   - `runs.using: composite`: a box `<name or path> · <composite>` (name bold, `<composite>` italic; with the step's
-    name and `if:`) in place of the step, holding its steps chained like a job's.
+    name and `if:`) in place of the step, holding its steps chained like a job's, each with its inputs box.
   - `node20`, `node24`, …: stays a black box, with an italic `<JS action (node20)>` below the reference.
   - `docker`: a black box with an italic `<Docker (<image>)>`.
 - A box says why it was **not followed**, below the reference as written:
@@ -104,8 +108,8 @@ Without that service they stay black boxes.
   refresh branches and tags. Editing the file or closing it stops a fetch; its graph is dropped.
 - Followed like local ones: `action.yml`, else `action.yaml`, under the reference's path (normalised; a `..` leaving
   the repository is `outside the repository`). A composite action is drawn nested as
-  `owner/repo[/path]@ref · <composite>`, JS and Docker actions are annotated black boxes, a reusable workflow is
-  parsed by the same parser and drawn nested as `calls x.yml`.
+  `owner/repo[/path]@ref · <composite>`, JS and Docker actions are annotated black boxes, a reusable workflow is parsed
+  by the same parser and drawn nested as `calls x.yml`.
 - Inside a remote file, a reusable workflow's `./.github/workflows/y.yml` is read from the same repository and ref; an
   action's `./…` (in a composite action or a remote workflow's step) refers to the caller's workspace checkout and is a
   black box `workspace-relative`. Remote references in remote files are followed in turn.

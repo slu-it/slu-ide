@@ -99,7 +99,7 @@ class NestedGraphsTest {
                 end
                 subgraph j0 ["build #183; calls <b>./.github/workflows/build.yml</b>"]
                     direction TB
-                    subgraph j0w ["calls <b>build.yml</b> #183; with: java"]
+                    subgraph j0w ["calls <b>build.yml</b>"]
                         direction TB
                         subgraph j0wj0 ["compile #183; ubuntu-latest"]
                             direction TB
@@ -108,8 +108,10 @@ class NestedGraphsTest {
                                 j0wj0s0s0["<b>actions/setup-java@v5</b>"]
                                 j0wj0s0s1["<b>./.github/actions/greet</b><br/><i>#60;JS action (node20)#62;</i><br/>if: runner.os #61;#61; #39;Linux#39;"]
                                 j0wj0s0s2["Show version"]
+                                j0wj0s0s0i("java-version: #36;#123;#123; inputs.java #125;#125;")
                                 j0wj0s0s0 --> j0wj0s0s1
                                 j0wj0s0s1 --> j0wj0s0s2
+                                j0wj0s0s0i -.-> j0wj0s0s0
                             end
                             j0wj0s1["run: ./gradlew assemble"]
                             j0wj0s0 --> j0wj0s1
@@ -120,6 +122,8 @@ class NestedGraphsTest {
                         end
                         j0wj0 -.->|"if: github.ref #61;#61; #39;refs/heads/main#39;"| j0wj1
                     end
+                    j0wi("java: 25")
+                    j0wi -.-> j0w
                 end
                 subgraph j1 ["test #183; ubuntu-latest"]
                     direction TB
@@ -138,8 +142,10 @@ class NestedGraphsTest {
                 classDef failed stroke:#d9534f,stroke-width:2px
                 classDef cycle stroke:#f0ad4e,stroke-width:2px,stroke-dasharray: 2 2
                 classDef limit stroke-dasharray: 1 4
+                classDef inputs stroke-dasharray: 4 3,stroke-width:1px
                 class j0wj0s0s0,j0wj0s0s1,j1s0,j1s1 blackbox
                 class j1s2 unresolved
+                class j0wj0s0s0i,j0wi inputs
 
             """.trimIndent(),
             graph.mermaid,
@@ -413,6 +419,150 @@ class NestedGraphsTest {
 
         assertTrue(graph.mermaid.length in 40_000..<50_000, "${graph.mermaid.length} characters")
         assertTrue(WorkflowDrawing.NOT_EXPANDED in graph.mermaid)
+    }
+
+    @Test
+    fun `the inputs of a step that is an expanded composite point at its subgraph`() {
+        action("c", "runs:\n  using: composite\n  steps:\n    - run: echo")
+        workflow(
+            "main.yml",
+            """{"schema":1,"errors":[],"events":[],"jobs":[{"id":"main","type":"job","needs":[],""" +
+                """"runsOn":"x","steps":[{"uses":"./c","with":{"a":"1"}}]}]}""",
+        )
+
+        val graph = draw("main.yml")
+
+        assertTrue("        j0s0i(\"a: 1\")\n        j0s0i -.-> j0s0\n" in graph.mermaid, graph.mermaid)
+        assertTrue("        subgraph j0s0 [" in graph.mermaid, graph.mermaid)
+        assertEquals(listOf("j0s0i"), graph.styled("inputs"))
+    }
+
+    /** [json] drawn with the given limits, expanding what the repository holds. */
+    private fun drawLimited(
+        json: String,
+        nodes: Int = 100,
+        edges: Int = 100,
+        text: Int = 100_000,
+    ): WorkflowGraph {
+        val workflow = assertIs<WorkflowJson.Result.Decoded>(WorkflowJson.decode(json)).workflow
+        return WorkflowDrawing.draw(
+            workflow,
+            nodes,
+            edges,
+            text,
+            ReferenceResolver(RepositoryFiles(repo), parser),
+            ".github/workflows/main.yml",
+        )
+    }
+
+    /** The smallest text limit at which [json] still draws with [needed] and without a note. */
+    private fun tightestText(
+        json: String,
+        needed: String,
+    ): Int {
+        var limit = 3_000
+        while (limit > 1) {
+            val graph = drawLimited(json, text = limit - 1)
+            if (graph.note != null || needed !in graph.mermaid) break
+            limit--
+        }
+        return limit
+    }
+
+    @Test
+    fun `inputs of steps in a composite never keep it from being expanded`() {
+        action(
+            "c",
+            "runs:\n  using: composite\n  steps:\n    - uses: x/y@v1\n      with: {a: 1}\n" +
+                "    - uses: x/z@v1\n      with: {b: 2}",
+        )
+        workflow(
+            "main.yml",
+            """{"schema":1,"errors":[],"events":[],"jobs":[{"id":"main","type":"job","needs":[],""" +
+                """"runsOn":"x","steps":[{"uses":"./c"}]}]}""",
+        )
+        val json = workflows["main.yml"]!!
+
+        val full = drawLimited(json)
+        assertTrue("j0s0s0i(" in full.mermaid && "j0s0s1i(" in full.mermaid, full.mermaid)
+
+        // Two boxes inside the composite, one link between them: all it needs.
+        for (graph in listOf(drawLimited(json, nodes = 2), drawLimited(json, edges = 1))) {
+            assertNull(graph.note, graph.mermaid)
+            assertTrue("subgraph j0s0 [" in graph.mermaid, graph.mermaid)
+            assertTrue("j0s0s0[" in graph.mermaid && "j0s0s1[" in graph.mermaid, graph.mermaid)
+            assertFalse("j0s0s0i" in graph.mermaid || "j0s0s1i" in graph.mermaid, graph.mermaid)
+        }
+        val tight = drawLimited(json, text = tightestText(json, "subgraph j0s0 ["))
+        assertNull(tight.note, tight.mermaid)
+        assertTrue("subgraph j0s0 [" in tight.mermaid, tight.mermaid)
+        assertFalse("j0s0s0i" in tight.mermaid || "j0s0s1i" in tight.mermaid, tight.mermaid)
+    }
+
+    @Test
+    fun `inputs asked for by an expansion that did not fit are forgotten, those of the next one are drawn`() {
+        val steps = (0 until 4).joinToString("") { "    - uses: x/y$it@v1\n      with: {k: v}\n" }
+        action("a", "runs:\n  using: composite\n  steps:\n$steps")
+        action("b", "runs:\n  using: composite\n  steps:\n    - uses: x/z@v1\n      with: {k: v}\n")
+        workflow(
+            "main.yml",
+            """{"schema":1,"errors":[],"events":[],"jobs":[{"id":"main","type":"job","needs":[],""" +
+                """"runsOn":"x","steps":[{"uses":"./a"},{"uses":"./b"}]}]}""",
+        )
+        val json = workflows["main.yml"]!!
+
+        // a's three links do not fit in two; b has no link, the job one, and its inputs' dotted one: two in all.
+        val graph = drawLimited(json, edges = 2)
+
+        assertTrue(WorkflowDrawing.NOT_EXPANDED in graph.box("j0s0"), graph.mermaid)
+        assertTrue("subgraph j0s1 [" in graph.mermaid, graph.mermaid)
+        assertTrue("j0s1s0i(" in graph.mermaid, graph.mermaid)
+        assertFalse("j0s0s0i" in graph.mermaid, graph.mermaid)
+    }
+
+    @Test
+    fun `the inputs of a reusable workflow job never keep its called workflow from being expanded`() {
+        workflow("b.yml", steps("actions/checkout@v6"))
+        workflow(
+            "main.yml",
+            """{"schema":1,"errors":[],"events":[],"jobs":[{"id":"a","type":"reusableWorkflowJob","needs":[],""" +
+                """"uses":"./.github/workflows/b.yml","with":{"x":"1"}}]}""",
+        )
+        val json = workflows["main.yml"]!!
+
+        assertTrue("j0wi(" in drawLimited(json).mermaid)
+        val tight = drawLimited(json, text = tightestText(json, "j0wj0s0["))
+        assertNull(tight.note, tight.mermaid)
+        assertTrue("j0wj0s0[" in tight.mermaid, tight.mermaid)
+        assertFalse("j0wi" in tight.mermaid, tight.mermaid)
+    }
+
+    @Test
+    fun `hostile image names, action names and inputs of actions stay text`() {
+        val hostile = "\"] --> evil[\"x\"] %% <script>alert(1)</script> `md` #35; ;"
+        action("d", "runs:\n  using: docker\n  image: '$hostile'")
+        action(
+            "c",
+            "name: '$hostile'\nruns:\n  using: composite\n  steps:\n    - uses: ./d\n" +
+                "      with: {'$hostile': '$hostile'}",
+        )
+        workflow(
+            "main.yml",
+            """{"schema":1,"errors":[],"events":[],"jobs":[{"id":"main","type":"job","needs":[],""" +
+                """"runsOn":"x","steps":[{"uses":"./c"},{"uses":"./d"}]}]}""",
+        )
+
+        val graph = draw("main.yml")
+
+        val quoted = Regex("\"([^\"]*)\"").findAll(graph.mermaid).map { it.groupValues[1] }.toList()
+        assertTrue(quoted.size >= 5, "$quoted")
+        assertTrue("j0s0s0i(" in graph.mermaid && "#60;Docker (" in graph.mermaid, graph.mermaid)
+        val safe = Regex("""([A-Za-z0-9 _\-./:@(),]|#\d+;|</?(br|b|i)/?>)*""")
+        for (text in quoted) assertTrue(text.matches(safe), "unsafe label: $text")
+        for (line in graph.mermaid.lines()) {
+            val outside = line.replace(Regex("\"[^\"]*\""), "")
+            assertFalse("%%" in outside || "<" in outside || "evil" in outside, "outside labels: $line")
+        }
     }
 
     @Test

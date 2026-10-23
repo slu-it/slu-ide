@@ -5,6 +5,7 @@ import dev.sluide.githubactions.WorkflowGraph
 import dev.sluide.githubactions.mermaid.MermaidLabels.bold
 import dev.sluide.githubactions.mermaid.MermaidLabels.label
 import dev.sluide.githubactions.mermaid.MermaidLabels.type
+import dev.sluide.githubactions.mermaid.PendingInputs.Wanted
 import dev.sluide.githubactions.model.Job
 import dev.sluide.githubactions.model.JobBody
 import dev.sluide.githubactions.model.Problem
@@ -56,6 +57,9 @@ internal class WorkflowDrawing private constructor(
     /** The ids of the jobs being drawn, outermost first: where an expansion is. */
     private val jobPath = mutableListOf<String>()
 
+    /** The inputs elements wanted, drawn once everything else is, in the order they were asked for. */
+    private val inputs = PendingInputs(budget, ::size)
+
     /** Expansions that did not fit; after [MAX_FAILED_ATTEMPTS] none is tried, which bounds a graph's work. */
     private var failedAttempts = 0
 
@@ -67,6 +71,7 @@ internal class WorkflowDrawing private constructor(
         if (triggers != null) elements += triggers
         val jobs = jobs("", workflow, 1, triggers?.id)
         elements += jobs.elements
+        inputs.draw()
         val notes =
             listOfNotNull(
                 problems,
@@ -195,6 +200,7 @@ internal class WorkflowDrawing private constructor(
         depth: Int,
     ): Cluster? {
         val children = mutableListOf<Element>()
+        val links = mutableListOf<Link>()
         val title: String
         when (val body = job.body) {
             is JobBody.Steps -> {
@@ -202,7 +208,11 @@ internal class WorkflowDrawing private constructor(
                 // `name: Build (${{ matrix.os }})` with `runs-on: ${{ matrix.os }}` says the runner already.
                 val runsOn = job.runsOn?.takeUnless { it.isNotBlank() && it in name }
                 title = title(name, runsOn, job.matrix?.title())
-                children += steps(id, body.steps, depth + 1) ?: emptyList()
+                steps(id, body.steps, depth + 1)?.let { drawn ->
+                    children += drawn.elements
+                    links += chain(drawn.elements, depth + 1)
+                    inputs.defer(drawn.inputs, depth + 1, children, links)
+                }
             }
 
             is JobBody.WorkflowCall -> {
@@ -212,30 +222,34 @@ internal class WorkflowDrawing private constructor(
                         "calls " + bold(label(body.text)),
                         esc(job.matrix?.title()),
                     )
-                val with =
-                    body.inputs.keys
-                        .takeIf { it.isNotEmpty() }
-                        ?.let { "with: ${it.joinToString(", ")}" }
                 val secrets = if (body.secretsInherit) "secrets: inherit" else null
                 val element =
                     reference(
                         "${id}w",
-                        lines(body.text).map { bold(it) } + lines(with, secrets),
+                        lines(body.text).map { bold(it) } + lines(secrets),
                         body.reference,
                         depth + 1,
                         null,
                         here(job.line),
                     ) { called ->
-                        join(called, esc(with), esc(secrets))
+                        join(called, esc(secrets))
                     }
-                if (element != null) children += element
+                if (element != null) {
+                    children += element
+                    inputs.defer(listOf(Wanted("${id}w", body.inputs, here(job.line))), depth + 1, children, links)
+                }
             }
         }
         if (children.isEmpty()) return null
-        val links = chain(children, depth + 1)
         budget.addCluster(title.length, id, depth)
         return Cluster(id, title, children, links, here(job.line))
     }
+
+    /** What [steps] drew: the [elements] to chain, and the [inputs] their `uses:` steps want drawn beside them. */
+    private class Steps(
+        val elements: MutableList<Element>,
+        val inputs: List<Wanted>,
+    )
 
     /**
      * The [steps] as `<prefix>s<position>` at [depth], or a `no steps` box; as many as fit, or null if not all of them
@@ -246,23 +260,26 @@ internal class WorkflowDrawing private constructor(
         steps: List<Step>,
         depth: Int,
         all: Boolean = false,
-    ): List<Element>? {
-        val children = mutableListOf<Element>()
+    ): Steps? {
+        val elements = mutableListOf<Element>()
+        val wanted = mutableListOf<Wanted>()
         for ((position, step) in steps.withIndex()) {
-            children += step("${prefix}s$position", step, depth) ?: if (all) return null else break
+            val id = "${prefix}s$position"
+            elements += step(id, step, depth) ?: if (all) return null else break
+            if (step.action is StepAction.Uses) wanted += Wanted(id, step.inputs, here(step.line))
         }
         if (steps.isEmpty()) {
             val none = Node("${prefix}none", listOf(label("no steps")))
-            if (budget.takeNode(size(none.label), none.id, depth)) children += none
+            if (budget.takeNode(size(none.label), none.id, depth)) elements += none
         }
-        return children
+        return Steps(elements, wanted)
     }
 
     /** Links from each of [children] to the next, written at [depth]. */
     private fun chain(
         children: List<Element>,
         depth: Int,
-    ): List<Link> {
+    ): MutableList<Link> {
         val links = mutableListOf<Link>()
         for (position in 1 until children.size) {
             val from = children[position - 1].id
@@ -377,8 +394,10 @@ internal class WorkflowDrawing private constructor(
                     expand(resolution.key, resolution.file) {
                         val clusterTitle = title(bold(label(resolution.title)) + SEPARATOR + type("composite"))
                         budget.addCluster(clusterTitle.length, id, depth)
-                        steps(id, resolution.steps, depth + 1, all = true)?.let { children ->
-                            Cluster(id, clusterTitle, children, chain(children, depth + 1))
+                        steps(id, resolution.steps, depth + 1, all = true)?.let { drawn ->
+                            val links = chain(drawn.elements, depth + 1)
+                            inputs.defer(drawn.inputs, depth + 1, drawn.elements, links)
+                            Cluster(id, clusterTitle, drawn.elements, links)
                         }
                     }
                 }
@@ -400,6 +419,7 @@ internal class WorkflowDrawing private constructor(
         draw: () -> Cluster?,
     ): Cluster? {
         val before = expanded
+        val deferred = inputs.mark()
         val where = jobPath.joinToString(" / ").ifEmpty { THIS_WORKFLOW }
         val cluster =
             budget.attempt {
@@ -414,6 +434,7 @@ internal class WorkflowDrawing private constructor(
                 }
             }
         if (cluster == null) {
+            inputs.trim(deferred)
             expanded = before.copy(unexpanded = before.unexpanded + 1)
             failedAttempts++
         }
