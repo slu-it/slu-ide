@@ -171,6 +171,9 @@ Images, SVG files, Mermaid files and Bicep resource graphs zoom; Markdown and no
 ## GitHub Actions workflows (`.github/workflows/*.yml`) — `WorkflowFileViewer`
 - Workflows open in **Source** and draw as a graph of triggers, jobs, steps and `needs`, parsed by GitHub's own
   parser: [github-actions-graph.md](github-actions-graph.md).
+- While the graph shows, a **Fetch References** button sits before the Source / Split / Preview toggles (a preview's
+  own toolbar button, `Preview.actions`): it fetches the actions and workflows the workflow uses from their
+  repositories and draws them nested ([github-actions-graph.md](github-actions-graph.md#remote-uses)).
 
 ## PEM certificates and keys (`.pem`, `.crt`, `.cer`, `.key`) — `PemFileViewer`
 - Opens only files with `-----BEGIN ` in their first 8 KiB: binary (DER) certificates are no text and are not

@@ -1,8 +1,8 @@
 # GitHub Actions workflow graph
 
 **Modules:** `previews` (`WorkflowFileViewer`, `WorkflowPreview`, `WebViewWorkflowParser`) and `github-actions`
-(model and drawing, `WorkflowGraphs`); decisions in [ADR 0075](../adr/0075-github-actions-workflow-graph.md) and
-[ADR 0074](../adr/0074-path-matched-file-viewers.md)
+(model and drawing, `WorkflowGraphs`, the `RemoteSources` interface for remote files); decisions in
+[ADR 0075](../adr/0075-github-actions-workflow-graph.md) and [ADR 0074](../adr/0074-path-matched-file-viewers.md)
 
 ## Which files
 - `.yml` and `.yaml` files **directly** in a `.github/workflows` folder (case-sensitive; also below a project's
@@ -35,8 +35,9 @@
   `secrets: inherit`.
 - **Links**: from each job a job `needs`, or from the triggers when it needs none. A job with an `if:` gets dotted
   links labelled with the condition.
-- **Local `uses:` are drawn nested** (next section); remote actions (`owner/repo@ref`), remote reusable workflows,
-  `docker://` images and references the parser cannot read are a **black box** (thick border) with the reference.
+- **Local `uses:` are drawn nested** (next section), and so are remote ones once fetched
+  ([Remote `uses:`](#remote-uses)); `docker://` images and references the parser cannot read are a **black box**
+  (thick border) with the reference.
 - A line above the graph names problems: GitHub's errors (`2 problems; first: Unexpected value 'colour' (line 2).`),
   jobs that need unknown jobs, and what was left out when the graph is too large (at most 200 boxes, 400 links and
   about 45,000 characters, below Mermaid's limits). The graph still shows what could be read.
@@ -79,6 +80,32 @@ A workflow in `<root>/.github/workflows/` reads what its `./…` references poin
   opened again. Files are read on the parsing thread, never on the FX thread; once the text is edited again, the
   outdated graph stops reading and is dropped.
 
+## Remote `uses:`
+Remote actions (`owner/repo@ref`, `owner/repo/path@ref`) and remote reusable workflows
+(`owner/repo/.github/workflows/x.yml@ref`) are read from the window's remote sources (`RemoteSources`, a window
+service the app registers; how it caches and fetches: ADR 0076). Without that service they stay black boxes.
+- **Not fetched by default:** drawing the graph only reads what is cached, never the network. A reference that is not
+  cached is a box `not fetched` (dashed border), and the note line says
+  `N references not fetched — Fetch References to show them.`
+- **Fetch References** (a button on the right of the toolbar, before Source / Split / Preview, only while the graph
+  shows): draws the graph again, letting the remote sources fetch every repository and ref the graph needs (each once
+  per fetch; a branch or tag again, a full commit SHA only if not cached), as a background task "Fetching workflow
+  references" of the window (cancellable there). Meanwhile the note line says `Fetching references…` and the old graph
+  stays. The new graph is kept like a parsed one; later drawings, also after an edit, find the files in the cache. The
+  button is disabled while a fetch runs and for a graph without remote references; it is offered again afterwards to
+  refresh branches and tags. Editing the file or closing it stops a fetch; its graph is dropped.
+- Followed like local ones: `action.yml`, else `action.yaml`, under the reference's path (normalised; a `..` leaving
+  the repository is `outside the repository`). A composite action is drawn nested as
+  `owner/repo[/path]@ref (composite)`, JS and Docker actions are annotated black boxes, a reusable workflow is parsed
+  by the same parser and drawn nested as `calls x.yml`. Fetched for a branch or tag, the box or title adds
+  `as of <date>` (the day it was fetched).
+- Inside a remote file, a reusable workflow's `./.github/workflows/y.yml` is read from the same repository and ref; an
+  action's `./…` (in a composite action or a remote workflow's step) refers to the caller's workspace checkout and is a
+  black box `workspace-relative`. Remote references in remote files are followed in turn.
+- Boxes say why a remote reference was not followed: `not found` (`not found (no action.yml)` for actions; dashed),
+  or the reader's reason (red, e.g. the repository could not be fetched). The same guards apply as for local ones:
+  cycles (also across repositories, `a@v1` → `b@v1` → `a@v1`), 10 nested expansions, 50 files, the diagram limits and
+  the parser's failures.
+
 ## Not yet
-- Remote actions and reusable workflows through a git cache.
 - Clicking a box to jump to its line.
