@@ -23,7 +23,8 @@ Subagents verify with subsets; the full `./gradlew build` is the main session's 
 ## Display handling
 - **Linux without `DISPLAY` and without `CI`:** `uiTest` is *skipped* (not failed), so a headless sandbox stays usable.
   Skipped is not verified: run `.claude/scripts/setup-display.sh`, `export DISPLAY=:99`, then the `uiTest` classes
-  you need ("Running a subset"); only the main session's final gate runs all of them.
+  you need ("Running a subset"); only the main session's final gate runs all of them, with
+  `.claude/scripts/full-build.sh`, which sets up (and if needed repairs) display `:99` first.
 - **CI:** `CI` is always set, so a missing display fails loudly. The Linux job runs Gradle under `xvfb-run -a`;
   the macOS jobs of CI and release skip `uiTest` (about 30 minutes there). The *macOS UI tests* workflow
   (`.github/workflows/macos-ui-tests.yml`, started by hand) runs them on the native macOS display.
@@ -60,6 +61,7 @@ xdotool key ctrl+o                         # drive the UI
   context menus never appear. Start one to test them: `apt-get install -y openbox` once, then `openbox &`.
 - Pass the project folder as an argument (above) instead of driving the GTK folder chooser, which opens in its
   "Recent" view. Files in the explorer open with a double-click (`xdotool mousemove X Y click --repeat 2 1`).
-- If `setup-display.sh` says Xvfb is running but nothing can connect, a stale `/tmp/.X99-lock` is left over: remove it
-  and `/tmp/.X11-unix/X99`, then run the script again.
+- `setup-display.sh` only reports a display as running if it answers (`xdpyinfo`, with a timeout). One that does not
+  (Xvfb gone with its `/tmp/.X99-lock` and `/tmp/.X11-unix/X99` left over, or hung) is stopped, cleaned up and started
+  again, so rerunning the script is the fix whenever UI tests fail with "Unable to open DISPLAY".
 - Stop Xvfb when done; never claim the UI was verified unless you actually ran it.

@@ -40,13 +40,15 @@ Squash review fixes non-interactively: `GIT_SEQUENCE_EDITOR=: git rebase -i --au
 Subagents run only targeted tests; the full build is the final gate.
 
 ## Final gate
-Once the reviewer reports no issues, the main session starts the display (`.claude/scripts/setup-display.sh`), runs
-`DISPLAY=:99 ./gradlew build -q` and `.claude/scripts/check-docs-index.sh` (in the background). It fixes failures
+Once the reviewer reports no issues and no agent runs Gradle in the main tree any more, the main session runs
+`.claude/scripts/full-build.sh` in the background: it repairs a stale or hung display `:99`, refuses while another
+Gradle build runs in the tree, then runs `./gradlew build -q` and `.claude/scripts/check-docs-index.sh`. It fixes failures
 itself instead of starting another implementer round: rerun the failing class with `--tests`, fix the cause (never by weakening the test), fold the fix
 into the matching commit (`fixup!` + autosquash). A fix that touches production code gets a short reviewer pass on
 that diff; then run the gate again. Hand back to the implementer only when the failure turns out to be a design
-problem, not a local fix. Known flake: about one full `uiTest` run in ten fails one module with "Unable to open
-DISPLAY"; rerun once.
+problem, not a local fix. "Unable to open DISPLAY" means a display broke during the run (the script checked it
+before): rerun the script once, which repairs the display; if it fails the same way again, stop and investigate
+(`pgrep -a Xvfb`, `xdpyinfo -display :99`).
 
 ## Parallel packages
 - At most three worktree agents at a time (12 cores, about 6 GB free).

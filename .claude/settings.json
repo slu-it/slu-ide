@@ -16,7 +16,8 @@
       "Bash(git diff*)",
       "Bash(git log*)",
       "Bash(.claude/scripts/check-docs-index.sh)",
-      "Bash(.claude/scripts/setup-display.sh*)"
+      "Bash(.claude/scripts/setup-display.sh*)",
+      "Bash(.claude/scripts/full-build.sh*)"
     ]
   },
   "hooks": {
