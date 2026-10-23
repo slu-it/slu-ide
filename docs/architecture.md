@@ -18,7 +18,7 @@ assembled from Gradle modules.
 |--------|------|---------|-----|
 | `editor-area` | feature | Tabs of the editor area: `EditorTab`s, opening and saving files, asking `FileViewers` for the view of a file. | [0071](adr/0071-editor-area-module.md), [0004](adr/0004-file-viewer-selection.md) |
 | `file-viewers` | feature | Views of files: code views with highlighting, keys and find, change markers and side-by-side diffs, language viewers, `.env`, the Bicep graph and parameter files, own tokenizers for TOML, Bicep and KQL. | [0004](adr/0004-file-viewer-selection.md), [0005](adr/0005-syntax-highlighting.md), [0031](adr/0031-own-tokenizers.md), [0069](adr/0069-previews-module.md) |
-| `previews` | feature | The `javafx.web` WebView previews of Markdown, HTML, SVG and images, JSON, XML, CSV and cookie jars, notebooks, Mermaid, PEM, Bicep and GitHub Actions workflows, with their exports. | [0069](adr/0069-previews-module.md), [0075](adr/0075-github-actions-workflow-graph.md) |
+| `previews` | feature | The `javafx.web` WebView previews of Markdown, HTML, SVG and images, JSON, XML, YAML, CSV and cookie jars, notebooks, Mermaid, PEM, Bicep and GitHub Actions workflows, with their exports. | [0069](adr/0069-previews-module.md), [0075](adr/0075-github-actions-workflow-graph.md) |
 | `terminal` | feature | Shells in editor tabs. | [0007](adr/0007-terminal.md) |
 | `docker-sandbox` | feature | `sbx` (Docker sandboxes) in terminal tabs. | [0010](adr/0010-docker-sandbox.md) |
 | `http-client` | feature | `.http` files: requests run from the editor with environments and auth. | [0025](adr/0025-http-client.md), [0026](adr/0026-http-client-window-session.md) |

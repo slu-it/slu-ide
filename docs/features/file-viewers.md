@@ -2,8 +2,8 @@
 
 **Module:** `modules/file-viewers` (package `dev.sluide.fileviewers` and its sub-packages, [ADR 0055](../adr/0055-sub-packages-within-modules.md))
 
-The WebView previews (Markdown, HTML, SVG and images, JSON, XML, CSV, cookie jars, notebooks, Mermaid, PEM and
-the Bicep preview) are not in this module: they live in `modules/previews` (package `dev.sluide.previews`,
+The WebView previews (Markdown, HTML, SVG and images, JSON, XML, YAML, CSV, cookie jars, notebooks, Mermaid, PEM
+and the Bicep preview) are not in this module: they live in `modules/previews` (package `dev.sluide.previews`,
 [previews.md](previews.md), [ADR 0069](../adr/0069-previews-module.md)) and use only the root package of this
 module as API, listed at the end. This module keeps the code views, highlighters, diffs, language viewers, .env,
 the Bicep graph and `BicepParamFileViewer`.
@@ -78,9 +78,9 @@ the Bicep graph and `BicepParamFileViewer`.
   | `TsxFileViewer` | `.tsx` | as TypeScript plus JSX like `JsxFileViewer`; generics (`useState<T>(`, `<T>(x: T) => T`, `<T,>`) are no tags. Known gap (also in `.ts`): after `= <` the lexer reads E4X markup to the end of the line, so the rest of a generic arrow function's line is unstyled |
   | `JsonFileViewer` (source side of the preview, [json-preview.md](json-preview.md)) | `.json`, `.jsonc`; `Pipfile.lock` | keys as `property`; `//` comments allowed (`/* */` are not recognised by the highlighting; the preview accepts both) |
   | `XmlFileViewer` (source side of the preview, [xml-preview.md](xml-preview.md)) | `.xml`, `.xsd`, `.xsl`, `.xslt`, `.fxml`, `.iml` (IntelliJ modules) | none needed; DTDs/processing instructions styled as `annotation`, entities as `number`, CDATA as `string` |
+  | `YamlFileViewer` (source side of the preview, [yaml-preview.md](yaml-preview.md)) | `.yaml`, `.yml` | the lexer only knows comments and quoted strings; line rules add keys (`property`), numbers, `true`/`false`/`null`/`~`, anchors/aliases/tags (`annotation`) and `---`/`...`. Known gap: block scalar content (after `\|`/`>`) is not shown as string |
   | `HtmlFileViewer` (source side of the preview, [previews.md](previews.md)) | `.html`, `.htm`, `.xhtml` | none needed; `<!DOCTYPE>` as `annotation`, entities as `number`, embedded `<script>` and `<style>` highlighted as JavaScript and CSS |
   | `SingleFileComponentFileViewer` | `.vue`, `.svelte` | as HTML; tag names the lexer does not know (`<template>`, components like `<MyCard>`) are made `tag` by the same whole-tag rules as JSX. Known gaps: `<script lang="ts">` is lexed as JavaScript; template expressions (`{{ … }}`, `{…}`, `{#if}`) are plain text |
-  | `YamlFileViewer` | `.yaml`, `.yml` | the lexer only knows comments and quoted strings; line rules add keys (`property`), numbers, `true`/`false`/`null`/`~`, anchors/aliases/tags (`annotation`) and `---`/`...`. Known gap: block scalar content (after `\|`/`>`) is not shown as string |
   | `MdxFileViewer` | `.mdx` | headings and bold as `keyword`, emphasis as `type`, inline code as `string`, links and images as `attribute`, inline HTML as markup with component names as `tag`, `import`/`export` lines as `keyword`; fenced code with a known language highlighted as that language (`FencedCodeHighlighter`), other fences `string` |
   | `CssFileViewer` | `.css` | uses the LESS lexer (handles nesting and units better); at-rules (`@media`, `@supports`, `@layer`, …) as `keyword`; custom properties (`--gap`) and `#id`s as `annotation`. Selectors are `type`, properties and pseudo-classes `keyword`. Known gap: some nested selectors show as `keyword` |
   | `ScssFileViewer` | `.scss` | as CSS; `@mixin`/`@include`/`@use` (lexed as LESS variables) as `keyword`; `$variables`, also inside `#{…}`, as `annotation` |
@@ -112,6 +112,7 @@ the Bicep graph and `BicepParamFileViewer`.
   HTML, SVG, CSV/TSV, cookie jars (`CookiesFileViewer`, `.cookies`), notebooks, Mermaid (`MermaidFileViewer`, `.mmd`,
   `.mermaid`), JSON (`JsonFileViewer`, `.json`, `.jsonc`, `Pipfile.lock`, [json-preview.md](json-preview.md)),
   XML (`XmlFileViewer`, `.xml`, `.xsd`, `.xsl`, `.xslt`, `.fxml`, `.iml`, [xml-preview.md](xml-preview.md)),
+  YAML (`YamlFileViewer`, `.yml`, `.yaml`, [yaml-preview.md](yaml-preview.md)),
   PEM certificates and keys (`PemFileViewer`, `.pem`, `.crt`, `.cer`, `.key`, only with PEM text) and
   the resource graph of Bicep files (`BicepFileViewer`, `.bicep`) in [previews.md](previews.md). Their diffs are highlighted like their source.
   A preview that answers `Preview.outline` with headings (Markdown) gets a table-of-contents button in the toolbar.
@@ -154,8 +155,8 @@ the Bicep graph and `BicepParamFileViewer`.
     (`matchesPath`, helper `isInFolders(file, ".github", "workflows")`): they beat every name match but take part only
     at their paths, looked at without the disk, also for a diff's relative name; the type of file stays with
     `canOpen`/`fileExtensions` ([ADR 0074](../adr/0074-path-matched-file-viewers.md)).
-  - Highlighters: `Highlighters.forLanguage(name)` for embedded code, the named `Highlighters.json`, `xml`, `html`,
-    `markdown`, `mermaid`, `bicep`, `cookies` and `pem`, and `Highlighters.fenceLanguage(info)` for the language of a
+  - Highlighters: `Highlighters.forLanguage(name)` for embedded code, the named `Highlighters.json`, `xml`, `yaml`,
+    `html`, `markdown`, `mermaid`, `bicep`, `cookies` and `pem`, and `Highlighters.fenceLanguage(info)` for the language of a
     code fence. `SyntaxHighlighter`, `HighlightSpan` and `TokenStyle` are public.
   - `BicepResourceGraph.of(text)` gives a Bicep file's resource graph as Mermaid (`mermaid`, `isEmpty`, `note`).
   - `FocusWhenShown` focuses a view's node at once or once it is in a scene

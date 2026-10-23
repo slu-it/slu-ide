@@ -17,6 +17,8 @@ work the same way.
 - **A `PathFileViewer` takes part only when its path matches**, in `viewerFor` and `viewerByName`, even if it is also
   an `ExtensionFileViewer`; elsewhere it is never picked, so plain `.yml` files stay with the YAML code viewer.
   `canOpen` must still accept the files at its paths.
+  Amended by [ADR 0079](0079-yaml-preview.md): YAML files outside workflow folders now open with the YAML preview
+  (`YamlFileViewer` in `previews`), no longer a code viewer; the path match still wins for workflows.
 - **`matchesPath` is about the location only;** the type of file is checked by `canOpen`, and by name by the
   `fileExtensions` of a viewer that is also an `ExtensionFileViewer`, so `.github/workflows/README.md` is not a
   workflow. Shebang viewers that are `PathFileViewer`s are not asked for shebangs.
