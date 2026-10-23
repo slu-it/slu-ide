@@ -29,7 +29,7 @@ internal class WorkflowMermaidExport(
             graph(file, text)
                 ?: throw IOException("The graph of this workflow is still being read; try again in a moment")
         if (shown.isEmpty) throw IOException(shown.note ?: WorkflowPreview.NO_JOBS)
-        writeReplacing(target) { Files.writeString(it, shown.mermaid) }
+        writeReplacing(target) { Files.writeString(it, shown.exportMermaid) }
         return listOfNotNull(shown.note)
     }
 }

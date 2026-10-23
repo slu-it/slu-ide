@@ -113,15 +113,13 @@ class WorkflowDrawingTest {
                 end
                 subgraph j0 ["local #183; calls <b>./.github/workflows/build.yml</b>"]
                     direction TB
-                    j0w["<b>./.github/workflows/build.yml</b>"]
                     j0wi("java: 25<br/>flags: a b<br/>ref: #36;#123;#123; github.sha #125;#125;")
-                    j0wi -.-> j0w
+                    j0w["<b>./.github/workflows/build.yml</b>"]
                 end
                 subgraph j1 ["Deploy #36;#123;#123; github.ref_name #125;#125; #183; calls <b>owner/repo/.github/workflows/deploy.yml@v1</b>"]
                     direction TB
-                    j1w["<b>owner/repo/.github/workflows/deploy.yml@v1</b><br/>secrets: inherit"]
                     j1wi("environment: production")
-                    j1wi -.-> j1w
+                    j1w["<b>owner/repo/.github/workflows/deploy.yml@v1</b><br/>secrets: inherit"]
                 end
                 subgraph j2 ["remote-explicit #183; calls <b>owner/repo/.github/workflows/deploy.yml@0123456#8230;</b>"]
                     direction TB
@@ -151,6 +149,8 @@ class WorkflowDrawingTest {
                 "    class j0w,j1w,j2w,j3s0,j3s1,j3s2,j3s3 blackbox\n    class j0wi,j1wi inputs\n",
             graph.mermaid,
         )
+        assertEquals(listOf("j0wi" to "j0w", "j1wi" to "j1w"), graph.sideLinks)
+        assertTrue("        j0wi -.-> j0w\n" in graph.exportMermaid && "        j1wi -.-> j1w\n" in graph.exportMermaid)
     }
 
     @Test
@@ -301,24 +301,118 @@ class WorkflowDrawingTest {
     ) = uses(text).copy(inputs = inputs)
 
     @Test
-    fun `a step's inputs are a rounded box with a dotted link, capped, a value cut to its first line`() {
+    fun `a step's inputs are a rounded box before the step, capped, a value cut to its first line`() {
         val inputs =
             linkedMapOf("script" to "\n  echo one\n\n  echo two\n", "ref" to "\${{ github.ref }}") +
                 (1..8).associate { "k$it" to "v$it" }
         val graph = WorkflowDrawing.draw(workflow(job("a", withInputs("actions/checkout@v4", inputs), run("x"))))
 
+        // The first step's box needs no spacer above; the one below holds the last rank.
         assertTrue(
             """
+            |        j0s0i("script: echo one #8230;<br/>ref: #36;#123;#123; github.ref #125;#125;<br/>k1: v1<br/>k2: v2<br/>k3: v3<br/>k4: v4<br/>k5: v5<br/>k6: v6<br/>#43;2 more")
             |        j0s0["<b>actions/checkout@v4</b>"]
             |        j0s1["run: x"]
-            |        j0s0i("script: echo one #8230;<br/>ref: #36;#123;#123; github.ref #125;#125;<br/>k1: v1<br/>k2: v2<br/>k3: v3<br/>k4: v4<br/>k5: v5<br/>k6: v6<br/>#43;2 more")
+            |        j0sp1("#32;")
+            |        j0s0i ~~~ j0sp1
             |        j0s0 --> j0s1
-            |        j0s0i -.-> j0s0
+            |    end
             |
             """.trimMargin() in graph.mermaid,
             graph.mermaid,
         )
-        assertTrue("    class j0s0i inputs\n" in graph.mermaid)
+        assertTrue("    class j0s0i inputs\n    class j0sp1 spacer\n" in graph.mermaid, graph.mermaid)
+        assertEquals(listOf("j0s0i" to "j0s0"), graph.sideLinks)
+        assertEquals(
+            emptySet(),
+            graph.locations.keys
+                .filter { "sp" in it }
+                .toSet(),
+        )
+    }
+
+    @Test
+    fun `inputs boxes are chained by invisible links as long as the steps between them, first rank to last`() {
+        val graph =
+            WorkflowDrawing.draw(
+                workflow(
+                    job(
+                        "a",
+                        run("one"),
+                        withInputs("a/b@v1", mapOf("x" to "1")),
+                        run("two"),
+                        withInputs("c/d@v1", mapOf("y" to "2")),
+                        run("three"),
+                    ),
+                ),
+            )
+
+        assertTrue(
+            """
+            |    subgraph j0 ["a #183; ubuntu-latest"]
+            |        direction TB
+            |        j0sp0("#32;")
+            |        j0s0["run: one"]
+            |        j0s1i("x: 1")
+            |        j0s1["<b>a/b@v1</b>"]
+            |        j0s2["run: two"]
+            |        j0s3i("y: 2")
+            |        j0s3["<b>c/d@v1</b>"]
+            |        j0s4["run: three"]
+            |        j0sp1("#32;")
+            |        j0sp0 ~~~ j0s1i
+            |        j0s1i ~~~~ j0s3i
+            |        j0s3i ~~~ j0sp1
+            |        j0s0 --> j0s1
+            |        j0s1 --> j0s2
+            |        j0s2 --> j0s3
+            |        j0s3 --> j0s4
+            |    end
+            |
+            """.trimMargin() in graph.mermaid,
+            graph.mermaid,
+        )
+        assertEquals(listOf("j0s1i" to "j0s1", "j0s3i" to "j0s3"), graph.sideLinks)
+    }
+
+    @Test
+    fun `the export links inputs to their steps with dotted arrows, without spacers or invisible links`() {
+        val graph =
+            WorkflowDrawing.draw(
+                workflow(job("a", run("one"), withInputs("a/b@v1", mapOf("x" to "1")), run("two"))),
+            )
+
+        assertTrue(
+            """
+            |    subgraph j0 ["a #183; ubuntu-latest"]
+            |        direction TB
+            |        j0s0["run: one"]
+            |        j0s1i("x: 1")
+            |        j0s1["<b>a/b@v1</b>"]
+            |        j0s2["run: two"]
+            |        j0s0 --> j0s1
+            |        j0s1 --> j0s2
+            |        j0s1i -.-> j0s1
+            |    end
+            |
+            """.trimMargin() in graph.exportMermaid,
+            graph.exportMermaid,
+        )
+        assertFalse("~~~" in graph.exportMermaid || "sp0" in graph.exportMermaid, graph.exportMermaid)
+        assertTrue("    class j0s1i inputs\n" in graph.exportMermaid, graph.exportMermaid)
+        assertTrue("j0sp0 ~~~ j0s1i" in graph.mermaid && "-.->" !in graph.mermaid, graph.mermaid)
+    }
+
+    @Test
+    fun `a single step with inputs needs no spacer and no invisible link`() {
+        val graph = WorkflowDrawing.draw(workflow(job("a", withInputs("a/b@v1", mapOf("x" to "1")))))
+
+        assertTrue(
+            "        j0s0i(\"x: 1\")\n        j0s0[\"<b>a/b@v1</b>\"]\n    end\n" in graph.mermaid,
+            graph.mermaid,
+        )
+        assertFalse("~~~" in graph.mermaid || "spacer\n" in graph.mermaid.substringAfter("class "), graph.mermaid)
+        assertEquals(listOf("j0s0i" to "j0s0"), graph.sideLinks)
     }
 
     @Test
@@ -369,13 +463,38 @@ class WorkflowDrawingTest {
     }
 
     @Test
-    fun `inputs that fit are all drawn, in the order of the steps, as many as fit`() {
+    fun `a subgraph's inputs are drawn all or none, the subgraphs' in the order of the jobs`() {
         val steps = arrayOf(withInputs("a/b@v1", mapOf("x" to "1")), withInputs("c/d@v1", mapOf("y" to "2")))
-        val graph = WorkflowDrawing.draw(workflow(job("a", *steps)), maxNodes = 4)
+        val single = withInputs("e/f@v1", mapOf("z" to "3"))
 
-        assertTrue("j0s0i(" in graph.mermaid, graph.mermaid)
-        assertFalse("j0s1i" in graph.mermaid, graph.mermaid)
-        assertNull(graph.note)
+        // The trigger and the steps take 4 boxes and 3 links; a's inputs 2 boxes and 3 links (1 invisible, 2 into the
+        // steps), b's 1 box and 1 link.
+        fun draw(
+            nodes: Int,
+            edges: Int = 100,
+        ) = WorkflowDrawing.draw(workflow(job("a", *steps), job("b", single)), nodes, edges)
+
+        for (graph in listOf(draw(5), draw(100, edges = 5))) {
+            assertFalse("j0s0i" in graph.mermaid || "j0s1i" in graph.mermaid, graph.mermaid)
+            assertTrue("j1s0i(" in graph.mermaid, graph.mermaid)
+            assertEquals(listOf("j1s0i" to "j1s0"), graph.sideLinks)
+            assertNull(graph.note)
+        }
+        val both = draw(6, edges = 6)
+        assertTrue("j0s0i(" in both.mermaid && "j0s1i(" in both.mermaid, both.mermaid)
+        assertTrue("        j0s0i ~~~ j0s1i\n" in both.mermaid, both.mermaid)
+        assertFalse("j1s0i" in both.mermaid, both.mermaid)
+        assertEquals(listOf("j0s0i" to "j0s0", "j0s1i" to "j0s1"), both.sideLinks)
+    }
+
+    @Test
+    fun `inputs are left out when their subgraph's steps are not all linked`() {
+        val steps = arrayOf(withInputs("a/b@v1", mapOf("x" to "1")), run("x"), run("y"))
+        val graph = WorkflowDrawing.draw(workflow(job("a", *steps)), maxEdges = 1)
+
+        assertTrue("j0s2[" in graph.mermaid && "j0s1 --> j0s2" !in graph.mermaid, graph.mermaid)
+        assertFalse("j0s0i" in graph.mermaid, graph.mermaid)
+        assertEquals(emptyList(), graph.sideLinks)
     }
 
     @Test
@@ -517,6 +636,7 @@ class WorkflowDrawingTest {
             |    classDef cycle stroke:#f0ad4e,stroke-width:2px,stroke-dasharray: 2 2
             |    classDef limit stroke-dasharray: 1 4
             |    classDef inputs stroke-dasharray: 4 3,stroke-width:1px
+            |    classDef spacer fill:none,stroke:none
             |
             """.trimMargin()
     }

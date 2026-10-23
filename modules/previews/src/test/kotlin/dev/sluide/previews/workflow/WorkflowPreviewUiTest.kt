@@ -271,6 +271,168 @@ class WorkflowPreviewUiTest {
         }
     }
 
+    /**
+     * A workflow whose steps have inputs: first, middle and last of a job, an expanded composite and its steps, and a
+     * job calling a reusable workflow (expanded); six inputs boxes.
+     */
+    private fun inputsWorkflow(): Path {
+        dir.resolve(".github/actions/build").createDirectories().resolve("action.yml").writeText(
+            """
+            name: Build
+            runs:
+              using: composite
+              steps:
+                - uses: actions/cache@v4
+                  with:
+                    path: ~/.gradle
+                    key: gradle
+                - name: Gradle
+                  uses: gradle/actions/setup-gradle@v4
+                  with:
+                    arguments: build
+                - run: ls
+                  shell: bash
+            """.trimIndent(),
+        )
+        workflowsFolder().resolve("deploy.yml").writeText(
+            """
+            on:
+              workflow_call:
+                inputs:
+                  environment:
+                    type: string
+            jobs:
+              deploy:
+                runs-on: ubuntu-latest
+                steps:
+                  - run: ./deploy.sh
+            """.trimIndent(),
+        )
+        val file = workflowsFolder().resolve("ci.yml")
+        file.writeText(
+            """
+            on: [push, pull_request]
+            jobs:
+              build:
+                runs-on: ubuntu-latest
+                steps:
+                  - uses: actions/checkout@v4
+                    with:
+                      fetch-depth: 0
+                  - name: Set up Java
+                    uses: actions/setup-java@v4
+                    with:
+                      java-version: 21
+                      distribution: temurin
+                  - uses: ./.github/actions/build
+                    with:
+                      tasks: build test
+                  - run: echo done
+              deploy:
+                needs: build
+                uses: ./.github/workflows/deploy.yml
+                with:
+                  environment: prod
+            """.trimIndent(),
+        )
+        return file
+    }
+
+    /** The screen box (left, right, top, bottom) of side link [index] of the drawn diagram. */
+    private fun PreviewFileView.arrow(index: Int): List<Double> {
+        val box =
+            script(
+                "var r = document.querySelectorAll('path.side-link')[$index].getBoundingClientRect(); " +
+                    "[r.left, r.right, r.top, r.bottom].join(' ')",
+            ) as String
+        return box.split(" ").map { it.toDouble() }
+    }
+
+    /** The screen box (left, right, top, bottom) of the node or subgraph [id] of the drawn diagram. */
+    private fun PreviewFileView.box(id: String): List<Double> {
+        val box =
+            script(
+                """
+                (function () {
+                  var svg = document.querySelector('pre.mermaid svg');
+                  var found = Array.prototype.filter.call(svg.querySelectorAll('g.node'), function (node) {
+                    return new RegExp('-flowchart-$id-\\d+$').test(node.id);
+                  })[0] || svg.querySelector('g.cluster[id="' + svg.id + '-$id"]');
+                  var r = found.getBoundingClientRect();
+                  return [r.left, r.right, r.top, r.bottom].join(' ');
+                })()
+                """,
+            ) as String
+        return box.split(" ").map { it.toDouble() }
+    }
+
+    @Test
+    fun `inputs stand left of their step and level with it, with a dotted arrow into it, in both colour schemes`(
+        robot: FxRobot,
+    ) {
+        val view = show(robot) { WorkflowFileViewer().open(inputsWorkflow()) as PreviewFileView }
+        robot.interact { view.mode.set(PreviewMode.PREVIEW) }
+
+        for (dark in listOf(false, true)) {
+            if (dark) {
+                robot.interact { container.scene.preferences.colorScheme = ColorScheme.DARK }
+                view.webView.engine.awaitTrue("document.body.classList.contains('dark')")
+            }
+            view.awaitGraph()
+            assertEquals(null, view.webView.engine.mermaidError())
+            // Middle step, a composite's subgraph, a step inside it, and the job's first step.
+            val pairs = listOf("j0s1i" to "j0s1", "j0s2i" to "j0s2", "j0s2s1i" to "j0s2s1", "j0s0i" to "j0s0")
+            for ((inputs, step) in pairs) {
+                val (left, right, top, bottom) = view.box(inputs)
+                val target = view.box(step)
+                assertTrue(right <= target[0], "$inputs $left..$right left of $step ${target[0]}..${target[1]}")
+                assertTrue(top < target[3] && target[2] < bottom, "$inputs $top..$bottom level with $step $target")
+            }
+            val column = listOf("j0s0", "j0s1", "j0s2", "j0s3").map { view.box(it).let { (l, r) -> (l + r) / 2 } }
+            assertTrue(column.max() - column.min() < 2, "the steps in one column: $column")
+
+            assertEquals(6, view.count("pre.mermaid svg path.side-link[marker-end]"), "one arrow per inputs box")
+            val (start, end, high, low) = view.arrow(0)
+            val (from, to) = view.box("j0s0i") to view.box("j0s0")
+            assertTrue(start >= from[1] - 1 && end <= to[0] + 1, "arrow $start..$end between $from and $to")
+            assertTrue(low - high < 2 && high > to[2] && low < to[3], "a horizontal arrow at the step: $high..$low")
+
+            // Beside a called workflow's subgraph, dagre puts the box on the right: the arrow comes from that side.
+            val (box, called) = view.box("j1wi") to view.box("j1w")
+            assertTrue(box[0] >= called[1], "j1wi $box right of j1w $called")
+            val (left, right, top, bottom) = view.arrow(5)
+            assertTrue(left >= called[1] - 1 && right <= box[0] + 1, "arrow $left..$right between $called and $box")
+            assertTrue(bottom - top < 2 && top > called[2] && bottom < called[3], "horizontal into j1w: $top..$bottom")
+        }
+    }
+
+    @Test
+    fun `side links drawn while the workflow opened in Source show in Preview and are drawn again on a theme change`(
+        robot: FxRobot,
+    ) {
+        val view = show(robot) { WorkflowFileViewer().open(inputsWorkflow()) as PreviewFileView }
+        assertEquals(PreviewMode.SOURCE, view.mode.get())
+        view.awaitGraph()
+        robot.interact { view.mode.set(PreviewMode.PREVIEW) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(null, view.webView.engine.mermaidError())
+        assertEquals(6, view.count("pre.mermaid svg path.side-link"))
+        val (left, right) = view.box("j0s1i")
+        val (start, end) = view.arrow(1)
+        assertTrue(
+            start >= right - 1 && end > start && end <= view.box("j0s1")[0] + 1,
+            "$start..$end from $left..$right",
+        )
+
+        robot.interact { container.scene.preferences.colorScheme = ColorScheme.DARK }
+        view.webView.engine.awaitTrue("document.body.classList.contains('dark')")
+        view.webView.engine.awaitDrawing()
+        assertEquals(null, view.webView.engine.mermaidError())
+        assertEquals(1, view.count("pre.mermaid svg g.side-links"))
+        assertEquals(6, view.count("pre.mermaid svg path.side-link"))
+    }
+
     @Test
     fun `a click on a linked box opens its source at its line, a click elsewhere still zooms`(robot: FxRobot) {
         val action = dir.resolve(".github/actions/setup").createDirectories().resolve("action.yml")

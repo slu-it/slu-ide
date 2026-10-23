@@ -154,6 +154,7 @@ class RemoteGraphsTest {
                 classDef cycle stroke:#f0ad4e,stroke-width:2px,stroke-dasharray: 2 2
                 classDef limit stroke-dasharray: 1 4
                 classDef inputs stroke-dasharray: 4 3,stroke-width:1px
+                classDef spacer fill:none,stroke:none
                 class j0s0s1,j0s0s2,j0s1 blackbox
 
             """.trimIndent(),

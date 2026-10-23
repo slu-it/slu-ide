@@ -30,6 +30,22 @@ internal data class Diagram(
             }
             elements.forEach(::collect)
         }
+
+    /** The [side links][LinkKind.SIDE] of every subgraph, as (from, to): what the preview draws itself. */
+    fun sideLinks(): List<Pair<String, String>> =
+        buildList {
+            fun collect(element: Element) {
+                val cluster =
+                    when (element) {
+                        is Node -> null
+                        is ReferenceNode -> element.expansion
+                        is Cluster -> element
+                    } ?: return
+                cluster.links.filter { it.kind == LinkKind.SIDE }.forEach { add(it.from to it.to) }
+                cluster.children.forEach(::collect)
+            }
+            elements.forEach(::collect)
+        }
 }
 
 /** A box or subgraph; [location] the line it comes from, if known. */
@@ -65,6 +81,9 @@ internal enum class Style(
 
     /** The inputs a step or reusable workflow job is given: a thin dashed border. */
     INPUTS("inputs", "stroke-dasharray: 4 3,stroke-width:1px"),
+
+    /** An empty box that only holds a rank for the inputs boxes ([PendingInputs]): invisible, not exported. */
+    SPACER("spacer", "fill:none,stroke:none"),
 }
 
 internal data class Node(
@@ -98,10 +117,24 @@ internal data class Cluster(
     val direction: Direction = Direction.TB,
 ) : Element
 
-/** An edge; [label] is escaped. Dotted edges are conditional. */
+/** An edge of [kind]; [label] is escaped. Dotted arrows are conditional. */
 internal data class Link(
     val from: String,
     val to: String,
     val label: String? = null,
     val dotted: Boolean = false,
+    val kind: LinkKind = LinkKind.ARROW,
+    val length: Int = 1,
 )
+
+/** How a [Link] is written: the preview lays inputs out beside their step, a standalone export links them plainly. */
+internal enum class LinkKind {
+    /** An arrow, solid or [dotted][Link.dotted]. */
+    ARROW,
+
+    /** Only for the layout: puts [Link.to] [Link.length] ranks below [Link.from]; not drawn, not exported. */
+    INVISIBLE,
+
+    /** From an inputs box into its step: drawn by the preview (`data-side-links`), a dotted arrow when exported. */
+    SIDE,
+}

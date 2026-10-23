@@ -488,7 +488,7 @@ internal class WorkflowPreview(
             if (graph.isEmpty) {
                 note(note ?: NO_JOBS, dark)
             } else {
-                MermaidPreview.render(graph.mermaid, dark, note, graph.locations.keys)
+                MermaidPreview.render(graph.mermaid, dark, note, graph.locations.keys, graph.sideLinks)
             }
 
         private fun note(

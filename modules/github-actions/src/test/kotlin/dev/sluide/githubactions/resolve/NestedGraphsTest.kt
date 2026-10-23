@@ -99,19 +99,21 @@ class NestedGraphsTest {
                 end
                 subgraph j0 ["build #183; calls <b>./.github/workflows/build.yml</b>"]
                     direction TB
+                    j0wi("java: 25")
                     subgraph j0w ["calls <b>build.yml</b>"]
                         direction TB
                         subgraph j0wj0 ["compile #183; ubuntu-latest"]
                             direction TB
                             subgraph j0wj0s0 ["<b>Set up Java</b> #183; <i>#60;composite#62;</i>"]
                                 direction TB
+                                j0wj0s0s0i("java-version: #36;#123;#123; inputs.java #125;#125;")
                                 j0wj0s0s0["<b>actions/setup-java@v5</b>"]
                                 j0wj0s0s1["<b>./.github/actions/greet</b><br/><i>#60;JS action (node20)#62;</i><br/>if: runner.os #61;#61; #39;Linux#39;"]
                                 j0wj0s0s2["Show version"]
-                                j0wj0s0s0i("java-version: #36;#123;#123; inputs.java #125;#125;")
+                                j0wj0s0sp1("#32;")
+                                j0wj0s0s0i ~~~~ j0wj0s0sp1
                                 j0wj0s0s0 --> j0wj0s0s1
                                 j0wj0s0s1 --> j0wj0s0s2
-                                j0wj0s0s0i -.-> j0wj0s0s0
                             end
                             j0wj0s1["run: ./gradlew assemble"]
                             j0wj0s0 --> j0wj0s1
@@ -122,8 +124,6 @@ class NestedGraphsTest {
                         end
                         j0wj0 -.->|"if: github.ref #61;#61; #39;refs/heads/main#39;"| j0wj1
                     end
-                    j0wi("java: 25")
-                    j0wi -.-> j0w
                 end
                 subgraph j1 ["test #183; ubuntu-latest"]
                     direction TB
@@ -143,13 +143,16 @@ class NestedGraphsTest {
                 classDef cycle stroke:#f0ad4e,stroke-width:2px,stroke-dasharray: 2 2
                 classDef limit stroke-dasharray: 1 4
                 classDef inputs stroke-dasharray: 4 3,stroke-width:1px
+                classDef spacer fill:none,stroke:none
                 class j0wj0s0s0,j0wj0s0s1,j1s0,j1s1 blackbox
                 class j1s2 unresolved
-                class j0wj0s0s0i,j0wi inputs
+                class j0wi,j0wj0s0s0i inputs
+                class j0wj0s0sp1 spacer
 
             """.trimIndent(),
             graph.mermaid,
         )
+        assertEquals(listOf("j0wi" to "j0w", "j0wj0s0s0i" to "j0wj0s0s0"), graph.sideLinks)
     }
 
     @Test
@@ -432,8 +435,9 @@ class NestedGraphsTest {
 
         val graph = draw("main.yml")
 
-        assertTrue("        j0s0i(\"a: 1\")\n        j0s0i -.-> j0s0\n" in graph.mermaid, graph.mermaid)
-        assertTrue("        subgraph j0s0 [" in graph.mermaid, graph.mermaid)
+        assertTrue("        j0s0i(\"a: 1\")\n        subgraph j0s0 [" in graph.mermaid, graph.mermaid)
+        assertEquals(listOf("j0s0i" to "j0s0"), graph.sideLinks)
+        assertTrue("        j0s0i -.-> j0s0\n" in graph.exportMermaid, graph.exportMermaid)
         assertEquals(listOf("j0s0i"), graph.styled("inputs"))
     }
 

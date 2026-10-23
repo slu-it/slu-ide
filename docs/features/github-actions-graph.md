@@ -26,9 +26,11 @@ and `github-actions` (model and drawing, `WorkflowGraphs`, the `RemoteSources` i
   reloading unchanged text does not try again.
 - **Export → Mermaid** (beside the zoom controls) writes `<name>.mmd` beside the workflow (`ci.yml` and `ci.yaml`
   give `ci.mmd`), which GitHub ignores and Thoreau opens in its Mermaid viewer. It is the graph as shown, including
-  remote references fetched or cached, and without the box links. It asks before replacing an existing file, and the
-  note line (GitHub's errors, left-out parts, unfetched files) comes back as problems in the export's report. While
-  the graph is still being read, or the file has no jobs, the export fails with a message saying so.
+  remote references fetched or cached, and without the box links; inputs boxes are linked to their steps with
+  ordinary dotted arrows (no spacers, no invisible links), as other renderers cannot run the preview's script. It
+  asks before replacing an existing file, and the note line (GitHub's errors, left-out parts, unfetched files) comes
+  back as problems in the export's report. While the graph is still being read, or the file has no jobs, the export
+  fails with a message saying so.
 - The parser is GitHub's own (`@actions/workflow-parser`), so what it accepts, rejects and reports is what GitHub
   does.
 
@@ -41,9 +43,19 @@ and `github-actions` (model and drawing, `WorkflowGraphs`, the `RemoteSources` i
   step's name; `if:` conditions as written. A job that calls a reusable workflow is one box with `calls <reference>`
   (the reference bold) and `secrets: inherit`.
 - **Inputs**: a `uses:` step's `with:` (and a reusable workflow job's) is a separate rounded box with a thin dashed
-  border next to the step, one `name: value` line per input actually set (a multi-line value shows its first line
-  and ` …`), at most 8 lines then `+N more`, and a dotted arrow into the step (or into the expanded subgraph). No `with:`,
-  no box. If the box does not fit the diagram's limits it is left out and the step stays, without a note.
+  border left of the step and level with it, one `name: value` line per input actually set (a multi-line value shows
+  its first line and ` …`), at most 8 lines then `+N more`, and a horizontal dotted arrow into the step (or into the
+  expanded subgraph). No `with:`, no box. The steps stay in one column.
+  - How: Mermaid (dagre) cannot link boxes within one rank, and a link from a step would pull the steps out of their
+    column. So a subgraph's inputs boxes are chained to each other by invisible links (`~~~`, one `~` more per
+    further step between them) from the first rank to the last; an invisible spacer box (`<subgraph>sp0`,
+    `<subgraph>sp1`, class `spacer`) holds the first or last rank where no box does, and a subgraph with a single
+    child needs neither. The arrows are `WorkflowGraph.sideLinks`, listed in `data-side-links` and drawn by
+    `preview.js` after Mermaid. Which side dagre puts a box on is not promised (beside a called workflow's subgraph it
+    ends up on the right); the arrow then leaves the box's left side into the target's right side.
+  - A subgraph's inputs boxes are drawn last, all or none: if its boxes, spacers and links (the invisible ones, with
+    their length, and the arrows the export writes) do not fit the diagram's limits, or a link between its steps was
+    left out, they are left out and the steps stay, without a note.
 - **Links**: from each job a job `needs`, or from the triggers when it needs none. A job with an `if:` gets dotted
   links labelled with the condition.
 - **Local `uses:` are drawn nested** (next section), and so are remote ones once fetched

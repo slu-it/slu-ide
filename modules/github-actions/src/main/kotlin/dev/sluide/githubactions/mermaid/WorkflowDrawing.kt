@@ -104,6 +104,8 @@ internal class WorkflowDrawing private constructor(
             expanded.unfetched.size,
             expanded.remote,
             diagram.locations(),
+            diagram.sideLinks(),
+            MermaidWriter.write(diagram, standalone = true),
         )
     }
 
@@ -211,7 +213,7 @@ internal class WorkflowDrawing private constructor(
                 steps(id, body.steps, depth + 1)?.let { drawn ->
                     children += drawn.elements
                     links += chain(drawn.elements, depth + 1)
-                    inputs.defer(drawn.inputs, depth + 1, children, links)
+                    inputs.defer(id, drawn.inputs, depth + 1, children, links)
                 }
             }
 
@@ -236,7 +238,7 @@ internal class WorkflowDrawing private constructor(
                     }
                 if (element != null) {
                     children += element
-                    inputs.defer(listOf(Wanted("${id}w", body.inputs, here(job.line))), depth + 1, children, links)
+                    inputs.defer(id, listOf(Wanted("${id}w", body.inputs, here(job.line))), depth + 1, children, links)
                 }
             }
         }
@@ -396,7 +398,7 @@ internal class WorkflowDrawing private constructor(
                         budget.addCluster(clusterTitle.length, id, depth)
                         steps(id, resolution.steps, depth + 1, all = true)?.let { drawn ->
                             val links = chain(drawn.elements, depth + 1)
-                            inputs.defer(drawn.inputs, depth + 1, drawn.elements, links)
+                            inputs.defer(id, drawn.inputs, depth + 1, drawn.elements, links)
                             Cluster(id, clusterTitle, drawn.elements, links)
                         }
                     }
