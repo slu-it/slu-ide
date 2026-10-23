@@ -1,0 +1,19 @@
+on: push
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref }}
+          submodules: true
+      - uses: ./.github/actions/setup
+        with:
+          script: |
+            echo one
+
+            echo two
+          empty:
+      - uses: actions/cache@v4
+      - run: echo hi

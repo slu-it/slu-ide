@@ -76,6 +76,7 @@ class WebViewWorkflowParserUiTest {
                 "schedule-as-string.yml" to (0 to listOf("a")),
                 "schedule-in-list.yml" to (0 to listOf("a")),
                 "schedule-while-typing.yml" to (1 to listOf("a")),
+                "step-inputs.yml" to (0 to listOf("build")),
             )
         assertEquals(expected.keys, WorkflowFiles.fixtures.map { it.name }.toSet(), "a row per fixture")
         for (file in WorkflowFiles.fixtures) {
@@ -94,6 +95,38 @@ class WebViewWorkflowParserUiTest {
                 .path("uses")
                 .asString(),
         )
+    }
+
+    @Test
+    fun `a step's with inputs reach the JSON as written, null without one`() {
+        val steps = parse(WorkflowFiles.fixture("step-inputs.yml")).path("jobs").get(0).path("steps")
+
+        assertEquals(
+            listOf("fetch-depth", "ref", "submodules"),
+            steps
+                .get(0)
+                .path("with")
+                .propertyNames()
+                .toList(),
+        )
+        assertEquals(
+            "\${{ github.ref }}",
+            steps
+                .get(0)
+                .path("with")
+                .path("ref")
+                .asString(),
+        )
+        assertEquals(
+            "echo one\n\necho two\n",
+            steps
+                .get(1)
+                .path("with")
+                .path("script")
+                .asString(),
+        )
+        assertTrue(steps.get(2).path("with").isNull)
+        assertTrue(steps.get(3).path("with").isNull)
     }
 
     @Test

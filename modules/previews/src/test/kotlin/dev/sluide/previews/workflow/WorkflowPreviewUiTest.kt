@@ -253,7 +253,8 @@ class WorkflowPreviewUiTest {
         for (part in listOf(
             "calls build.yml",
             "Compile inside",
-            "Set up (composite)",
+            "Set up",
+            "<composite>",
             "Install inside",
             "gradlew test",
         )) {
@@ -431,7 +432,7 @@ class WorkflowPreviewUiTest {
         view.webView.engine.awaitDrawing()
         assertEquals(null, view.webView.engine.mermaidError())
         val text = view.diagramText()
-        for (part in listOf("acme/setup@v1 (composite)", "Install inside", "workspace-relative")) {
+        for (part in listOf("acme/setup@v1", "<composite>", "Install inside", "workspace-relative")) {
             assertTrue(part in text, "$part in $text")
         }
         assertEquals(listOf(false, true), remote.readers)

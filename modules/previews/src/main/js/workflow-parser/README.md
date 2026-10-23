@@ -83,7 +83,7 @@ the value is `null` when absent. All lines and columns are 1-based. Field order 
       "include": [], "exclude": [], "includeExpression": null, "excludeExpression": null
     },
     "uses": null, "with": null, "secretsInherit": false,
-    "steps": [{ "id": null, "name": null, "line": 24, "uses": "actions/checkout@v6", "run": null, "if": null }]
+    "steps": [{ "id": null, "name": null, "line": 24, "uses": "actions/checkout@v6", "run": null, "with": null, "if": null }]
   }]
 }
 ```
@@ -146,6 +146,9 @@ Step:
   `docker://alpine:3`) for a `uses` step, otherwise null.
 - `run`: for a `run` step the script's first non-blank line, trimmed; `""` when the script is empty or blank.
   Otherwise null. Exactly one of `uses` and `run` is non-null (a step with both, a schema error, counts as `run`).
+- `with`: the step's inputs as written, key to value text in written order, or null when there is no `with` (or it is
+  not a mapping). Read from the step's own mapping, as the converter drops it. Added without a schema bump: a decoder
+  that does not know it ignores it. A list or mapping value (a schema error) is flow-style text, YAML null is null.
 - `if`: as for jobs.
 
 Text values: strings unquoted, expressions as written (`${{ x }}` alone is rebuilt from the expression, so spacing

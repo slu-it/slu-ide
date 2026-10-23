@@ -18,7 +18,7 @@ bundled by esbuild 0.28.2 with our entry, which returns our own JSON. Sources, b
 and the JSON contract: `src/main/js/workflow-parser/README.md` in this module. `npm ci` checks each tarball against
 the `integrity` hashes in that folder's `package-lock.json`.
 
-Bundle: 277,997 bytes, sha256 `0c071cdf681254e80580b2c3fe439d3384cd9a0d161ce8c355ee383e8dd9e6fd`.
+Bundle: 278,041 bytes, sha256 `856267e8edeee6092358edbfea3e9ecf3b9a5bb8993a0fc261abb57c5404cf0f`.
 
 | Library | Version | Licence |
 |---------|---------|---------|

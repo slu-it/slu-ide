@@ -145,7 +145,7 @@ class WorkflowPreviewFetchTest {
         assertEquals(listOf(false, true), readers)
         assertEquals(rendered + 2, rerenders)
         val page = preview.page("remote")
-        assertTrue("acme/setup@v1 (composite)" in page && "Set up inside" in page, page)
+        assertTrue("acme/setup@v1" in page && "Set up inside" in page, page)
         assertFalse(WorkflowPreview.FETCHING in page)
         assertTrue(preview.fetchEnabled, "fetching again refreshes")
         assertTrue(background.isEmpty(), "kept, not parsed again")

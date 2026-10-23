@@ -107,6 +107,28 @@ class WorkflowJsonTest {
     }
 
     @Test
+    fun `a step has its with inputs in written order, none without one`() {
+        val steps =
+            assertIs<JobBody.Steps>(
+                decode(
+                    """
+                    {"schema":1,"jobs":[{"id":"a","steps":[
+                      {"uses":"actions/checkout@v6","with":{"ref":"${'$'}{{ github.ref }}","fetch-depth":"0","empty":null,"n":1}},
+                      {"uses":"actions/cache@v4"},{"uses":"x/y@v1","with":[]}]}]}
+                    """,
+                ).jobs
+                    .single()
+                    .body,
+            ).steps
+
+        assertEquals(listOf("ref", "fetch-depth", "empty"), steps[0].inputs.keys.toList())
+        assertEquals("\${{ github.ref }}", steps[0].inputs["ref"])
+        assertEquals("", steps[0].inputs["empty"])
+        assertEquals(emptyMap(), steps[1].inputs)
+        assertEquals(emptyMap(), steps[2].inputs)
+    }
+
+    @Test
     fun `values of the wrong type count as missing`() {
         val workflow =
             decode(

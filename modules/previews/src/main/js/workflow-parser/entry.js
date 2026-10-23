@@ -133,12 +133,15 @@ function job(j, raw) {
 function step(s, raw) {
     const mapping = raw.get(s.uses || s.run);
     const run = s.run ? (text0(s.run) || "").split("\n").find(l => l.trim()) || "" : null;
+    // The converter drops a step's `with`; read it from the step as written.
+    const written = mapping && find(mapping, "with");
     return {
         id: s.id && !s.id.startsWith("__") ? s.id : null, // the converter generates ids starting with "__"
         name: text0(s.name),
         line: line(mapping),
         uses: s.run ? null : s.uses.value,
         run: run === null ? null : run.trim(),
+        with: written && isMapping(written) ? texts(written) : null,
         if: condition(s.if, mapping)
     };
 }

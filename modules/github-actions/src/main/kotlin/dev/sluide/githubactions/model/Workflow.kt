@@ -53,6 +53,8 @@ internal data class Step(
     val line: Int?,
     val action: StepAction,
     val condition: String?,
+    /** The `with:` inputs of a `uses` step as written, name to value text. */
+    val inputs: Map<String, String> = emptyMap(),
 )
 
 internal sealed interface StepAction {

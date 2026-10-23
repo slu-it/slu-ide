@@ -65,6 +65,37 @@ class ActionManifestsTest {
     }
 
     @Test
+    fun `a composite step's with inputs are read as text in written order`() {
+        val manifest =
+            parsed(
+                """
+                runs:
+                  using: composite
+                  steps:
+                    - uses: actions/checkout@v6
+                      with:
+                        ref: ${'$'}{{ inputs.ref }}
+                        depth: 0
+                        list: [a, b]
+                        map: {k: v, deep: {x: [1]}}
+                        script: |
+                          one
+                          two
+                    - uses: actions/cache@v4
+                """.trimIndent(),
+            )
+
+        val steps = assertIs<Runs.Composite>(manifest.runs).steps
+        assertEquals(listOf("ref", "depth", "list", "map", "script"), steps[0].inputs.keys.toList())
+        assertEquals("\${{ inputs.ref }}", steps[0].inputs["ref"])
+        assertEquals("0", steps[0].inputs["depth"])
+        assertEquals("[a, b]", steps[0].inputs["list"])
+        assertEquals("{k: v, deep: {x: …}}", steps[0].inputs["map"])
+        assertEquals("one\ntwo\n", steps[0].inputs["script"])
+        assertEquals(emptyMap(), steps[1].inputs)
+    }
+
+    @Test
     fun `JavaScript and Docker actions say how they run`() {
         assertEquals(Runs.JavaScript("node20"), parsed("runs:\n  using: node20\n  main: index.js").runs)
         assertEquals(Runs.JavaScript("node24"), parsed("runs:\n  using: 'node24'").runs)

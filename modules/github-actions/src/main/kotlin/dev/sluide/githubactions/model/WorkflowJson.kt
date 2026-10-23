@@ -87,7 +87,13 @@ internal object WorkflowJson {
 
                 else -> return null
             }
-        return Step(node.string("id"), node.name(), node.int("line"), action, node.string("if"))
+        val inputs =
+            node
+                .obj("with")
+                ?.let(::texts)
+                ?.mapValues { it.value.orEmpty() }
+                .orEmpty()
+        return Step(node.string("id"), node.name(), node.int("line"), action, node.string("if"), inputs)
     }
 
     private fun matrix(node: JsonNode) =

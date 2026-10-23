@@ -90,8 +90,46 @@ internal object ActionManifests {
 
                 else -> return null
             }
-        return Step(node.text("id"), node.text("name"), node.startMark.line + 1, action, node.text("if"))
+        return Step(node.text("id"), node.text("name"), node.startMark.line + 1, action, node.text("if"), inputs(node))
     }
+
+    /** The step's `with`: a scalar as its text, a sequence or mapping in short flow style, or `…` when deeper. */
+    private fun inputs(step: MappingNode): Map<String, String> {
+        val inputs = LinkedHashMap<String, String>()
+        for (tuple in step.mapping("with")?.value.orEmpty()) {
+            val name = (tuple.keyNode as? ScalarNode)?.value ?: continue
+            inputs[name] = flow(tuple.valueNode, 0)
+        }
+        return inputs
+    }
+
+    private fun flow(
+        node: Node,
+        depth: Int,
+    ): String =
+        when {
+            node is ScalarNode -> {
+                node.value
+            }
+
+            depth >= MAX_FLOW_DEPTH -> {
+                "…"
+            }
+
+            node is SequenceNode -> {
+                node.value.joinToString(", ", "[", "]") { flow(it, depth + 1) }
+            }
+
+            node is MappingNode -> {
+                node.value.joinToString(", ", "{", "}") {
+                    "${(it.keyNode as? ScalarNode)?.value ?: "…"}: ${flow(it.valueNode, depth + 1)}"
+                }
+            }
+
+            else -> {
+                "…"
+            }
+        }
 
     private fun firstLine(script: String) =
         script
@@ -124,4 +162,5 @@ internal object ActionManifests {
 
     private val NODE = Regex("""node\d+""")
     private const val MAX_REASON = 80
+    private const val MAX_FLOW_DEPTH = 2
 }
