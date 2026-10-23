@@ -1,6 +1,6 @@
 # 0070. Window services for file views
 
-- Status: accepted
+- Status: accepted; amended by [0076](0076-cache-of-remote-action-sources.md) (`RemoteSources` added)
 - Date: 2026-10-21
 
 ## Context
@@ -24,6 +24,9 @@ The entries today:
 - `HttpClientSession` (module `http-client`, [ADR 0026](0026-http-client-window-session.md)), for the views of `.http`
   and environment files.
 - `BackgroundTasks` (module `background-tasks`, [ADR 0061](0061-background-tasks.md)), for the exports of the previews.
+- `RemoteSources` (module `github-actions`, implemented in `ide` by `WindowWorkflowSources`,
+  [ADR 0076](0076-cache-of-remote-action-sources.md)), for the remote references of the workflow graph; it also uses
+  `BackgroundTasks` for Fetch References.
 
 ## Consequences
 - A type registered twice fails at once instead of one service hiding the other.

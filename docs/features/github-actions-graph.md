@@ -1,8 +1,10 @@
 # GitHub Actions workflow graph
 
 **Modules:** `previews` (`WorkflowFileViewer`, `WorkflowPreview`, `WebViewWorkflowParser`) and `github-actions`
-(model and drawing, `WorkflowGraphs`, the `RemoteSources` interface for remote files); decisions in
-[ADR 0075](../adr/0075-github-actions-workflow-graph.md) and [ADR 0074](../adr/0074-path-matched-file-viewers.md)
+(model and drawing, `WorkflowGraphs`, the `RemoteSources` interface for remote files), `git` (`RemoteSourceCache`)
+and `ide` (`WindowWorkflowSources`, the window's `RemoteSources`); decisions in
+[ADR 0075](../adr/0075-github-actions-workflow-graph.md), [ADR 0076](../adr/0076-cache-of-remote-action-sources.md)
+and [ADR 0074](../adr/0074-path-matched-file-viewers.md)
 
 ## Which files
 - `.yml` and `.yaml` files **directly** in a `.github/workflows` folder (case-sensitive; also below a project's
@@ -83,7 +85,8 @@ A workflow in `<root>/.github/workflows/` reads what its `./…` references poin
 ## Remote `uses:`
 Remote actions (`owner/repo@ref`, `owner/repo/path@ref`) and remote reusable workflows
 (`owner/repo/.github/workflows/x.yml@ref`) are read from the window's remote sources (`RemoteSources`, a window
-service the app registers; how it caches and fetches: ADR 0076). Without that service they stay black boxes.
+service the app registers; how it caches and fetches: [ADR 0076](../adr/0076-cache-of-remote-action-sources.md)).
+Without that service they stay black boxes.
 - **Not fetched by default:** drawing the graph only reads what is cached, never the network. A reference that is not
   cached is a box `not fetched` (dashed border), and the note line says
   `N references not fetched — Fetch References to show them.`
@@ -106,6 +109,26 @@ service the app registers; how it caches and fetches: ADR 0076). Without that se
   or the reader's reason (red, e.g. the repository could not be fetched). The same guards apply as for local ones:
   cycles (also across repositories, `a@v1` → `b@v1` → `a@v1`), 10 nested expansions, 50 files, the diagram limits and
   the parser's failures.
+
+### Where remote files come from
+- **Hosts:** a reference `owner/repo` is looked for on the host of the project's `origin` remote first, if that is not
+  github.com (GitHub Enterprise Server, which may also serve github.com's actions through GitHub Connect), and then on
+  github.com. The origin is read only if the folder is trusted for git (a graph drawn right after the folder opened
+  waits for the trust checks); otherwise, without a folder, or with an origin that is not an `https://`, `http://`,
+  `ssh://` or `[user@]host:path` URL (`git+ssh://`, `ssh+git://`, local paths and others), only github.com is asked.
+- **How:** a host is reached as the origin is, if it is that host: by ssh with the origin's user and port
+  (`git@host:owner/repo.git`, `ssh://user@host:2222/owner/repo.git`), otherwise by https (an `http://` origin too, on
+  the default port). Thoreau takes no token; git uses the user's ssh keys and credential helpers, and does not ask on
+  a terminal unless the environment sets its own ssh (`GIT_SSH_COMMAND`, ADR 0076). Credentials in the origin's URL
+  are never used. Owner and repository names count without case.
+- **Fetch References** fetches each repository and ref once per click: from the origin's host and, if that fails,
+  from github.com. A box that could not be fetched from either says why for each host (e.g.
+  `ghes.example.com: repository not found or no access; github.com: network error`). A host that could not be reached
+  (network error, timeout) is not asked again during that fetch.
+- **The cache** is `~/.sluide/cache/git/<host>/<owner>/<repo>.git`: shallow bare repositories that hold one commit's
+  folders per fetched ref and the files that were read (at most 1 MB each), shared by all windows. Nothing is removed
+  automatically; delete the folder by hand to free the space (not while a fetch runs). Then references show
+  `not fetched` again until they are fetched.
 
 ## Not yet
 - Clicking a box to jump to its line.

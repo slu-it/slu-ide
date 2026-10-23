@@ -156,3 +156,8 @@ Only regular files are read (at most 1 MB + 1 byte each); FIFOs and devices coun
 Security rule: whatever the check may depend on is an input; without a stamp (no check yet, a check that could not
 check or kept git off, an include path that cannot be resolved such as `~user/`, more than 256 hook entries or 16 MB to
 read), every change of `.git` runs the check again, as before. The first change after opening the folder always does.
+
+Note 2026-10-23: the workflow graph's remote sources ([ADR 0076](0076-cache-of-remote-action-sources.md)) read the
+project's `remote.origin.url` with git only if `awaitAllows("git")` (off the FX thread); otherwise they look on
+github.com only. Their cache
+of remote repositories runs git outside the project, in its own folders, and does not depend on the trust.

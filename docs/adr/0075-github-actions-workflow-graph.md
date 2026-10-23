@@ -1,6 +1,6 @@
 # 0075. GitHub Actions workflow graph
 
-- Status: accepted
+- Status: accepted; amended by [0076](0076-cache-of-remote-action-sources.md) (remote `uses:` are followed)
 - Date: 2026-10-22
 
 ## Context
@@ -38,7 +38,8 @@ of our own would drift from GitHub's; the user chose exact upstream semantics.
 - **Path-matched viewer** (`WorkflowFileViewer`, [ADR 0074](0074-path-matched-file-viewers.md)): `.yml` and `.yaml`
   directly in `.github/workflows`; other YAML stays with the YAML code viewer. It opens in Source, like Bicep.
 - **`uses:` is a black box for now:** actions and reusable workflows are drawn as one box with their reference.
-  Resolving them (local files first, then remote ones through a git cache) is planned.
+  Resolving them (local files first, then remote ones through a git cache) is planned. Amended below for local ones
+  and by [ADR 0076](0076-cache-of-remote-action-sources.md) for remote ones.
 - **Amended (2026-10-22): local `uses:` are followed.** Reusable workflows go through the same parser; action
   manifests (`action.yml`) are read in Kotlin with **SnakeYAML** (managed by the Spring Boot BOM, already in the fat
   jar), as a node tree only (`compose`, every scalar kept as text; nothing is constructed, non-standard `!!` tags are
