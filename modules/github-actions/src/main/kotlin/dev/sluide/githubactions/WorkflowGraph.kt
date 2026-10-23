@@ -3,7 +3,9 @@ package dev.sluide.githubactions
 /**
  * A workflow drawn as a Mermaid flowchart: [mermaid] (empty if [isEmpty]), [note] a line shown above it (problems,
  * limits) or null. [unfetched] remote files are drawn "not fetched" (each counted once); [remoteReferences] counts the
- * remote `uses:` drawn, so that fetching them is worth offering (also to refresh them).
+ * remote `uses:` drawn, so that fetching them is worth offering (also to refresh them). [locations] says where the
+ * boxes drawn come from, by their Mermaid node or subgraph id; a box without a line, or from a remote file without a
+ * web page, has none.
  */
 class WorkflowGraph(
     val mermaid: String,
@@ -11,4 +13,5 @@ class WorkflowGraph(
     val isEmpty: Boolean,
     val unfetched: Int = 0,
     val remoteReferences: Int = 0,
+    val locations: Map<String, SourceLocation> = emptyMap(),
 )

@@ -5,7 +5,8 @@ import dev.sluide.githubactions.model.Workflow
 
 /**
  * What a `uses:` leads to ([ReferenceResolver]); [key] is the target, [asOf] the date a remote one was fetched for a
- * branch or tag (`as of 2026-10-20`), null for a local one or a commit SHA.
+ * branch or tag (`as of 2026-10-20`), null for a local one or a commit SHA; [file] the file read, whose lines the
+ * nested boxes come from.
  */
 internal sealed interface Resolution {
     /** Not a reference to follow (`docker://`, unparsed, nothing to read it from): a black box as written. */
@@ -17,6 +18,7 @@ internal sealed interface Resolution {
         val fileName: String,
         val workflow: Workflow,
         val asOf: String? = null,
+        val file: SourceFile,
     ) : Resolution
 
     /** A composite action, [title] its name or path (`owner/repo@ref` for a remote one), to draw nested. */
@@ -25,6 +27,7 @@ internal sealed interface Resolution {
         val title: String,
         val steps: List<Step>,
         val asOf: String? = null,
+        val file: SourceFile,
     ) : Resolution
 
     /**

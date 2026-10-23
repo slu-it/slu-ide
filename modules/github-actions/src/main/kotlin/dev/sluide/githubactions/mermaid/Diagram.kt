@@ -1,5 +1,6 @@
 package dev.sluide.githubactions.mermaid
 
+import dev.sluide.githubactions.SourceLocation
 import dev.sluide.githubactions.model.UsesReference
 
 /**
@@ -9,10 +10,32 @@ import dev.sluide.githubactions.model.UsesReference
 internal data class Diagram(
     val elements: List<Element>,
     val links: List<Link>,
-)
+) {
+    /** Where the boxes and subgraphs drawn come from, by id; an expanded reference by the line of its `uses:`. */
+    fun locations(): Map<String, SourceLocation> =
+        buildMap {
+            fun collect(element: Element) {
+                element.location?.let { put(element.id, it) }
+                when (element) {
+                    is Node -> {}
 
+                    is ReferenceNode -> {
+                        element.expansion?.children?.forEach(::collect)
+                    }
+
+                    is Cluster -> {
+                        element.children.forEach(::collect)
+                    }
+                }
+            }
+            elements.forEach(::collect)
+        }
+}
+
+/** A box or subgraph; [location] the line it comes from, if known. */
 internal sealed interface Element {
     val id: String
+    val location: SourceLocation?
 }
 
 internal enum class Shape { BOX, STADIUM }
@@ -43,6 +66,7 @@ internal data class Node(
     val label: List<String>,
     val shape: Shape = Shape.BOX,
     val style: Style? = null,
+    override val location: SourceLocation? = null,
 ) : Element
 
 /**
@@ -55,6 +79,7 @@ internal data class ReferenceNode(
     val reference: UsesReference,
     val expansion: Cluster? = null,
     val style: Style = Style.BLACKBOX,
+    override val location: SourceLocation? = null,
 ) : Element
 
 /** A subgraph with an escaped [title], its [children] and the [links] between them, laid out top to bottom. */
@@ -63,6 +88,7 @@ internal data class Cluster(
     val title: String,
     val children: List<Element>,
     val links: List<Link> = emptyList(),
+    override val location: SourceLocation? = null,
 ) : Element
 
 /** An edge; [label] is escaped. Dotted edges are conditional. */

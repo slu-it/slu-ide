@@ -1,5 +1,6 @@
 package dev.sluide.githubactions.mermaid
 
+import dev.sluide.githubactions.SourceLocation
 import dev.sluide.githubactions.WorkflowGraph
 import dev.sluide.githubactions.mermaid.MermaidLabels.label
 import dev.sluide.githubactions.model.Job
@@ -11,6 +12,7 @@ import dev.sluide.githubactions.model.UsesReference
 import dev.sluide.githubactions.model.Workflow
 import dev.sluide.githubactions.resolve.ReferenceResolver
 import dev.sluide.githubactions.resolve.Resolution
+import dev.sluide.githubactions.resolve.SourceFile
 import dev.sluide.githubactions.resolve.Target
 
 /**
@@ -29,6 +31,9 @@ internal class WorkflowDrawing private constructor(
 ) {
     /** The targets being expanded, outermost first: the workflow drawn, then its expansions. */
     private val stack = mutableListOf(Target(null, path))
+
+    /** The files of [stack], whose lines the boxes drawn come from: the last one's. */
+    private val files = mutableListOf<SourceFile>(SourceFile.Local(path))
 
     /**
      * What expansions changed, taken back with an expansion that did not fit: the targets expanded with where
@@ -83,9 +88,16 @@ internal class WorkflowDrawing private constructor(
                 },
                 unfetchedNote(expanded.unfetched.size),
             )
-        val mermaid = MermaidWriter.write(Diagram(elements, jobs.links))
+        val diagram = Diagram(elements, jobs.links)
         val note = notes.joinToString(" ").ifEmpty { null }
-        return WorkflowGraph(mermaid, note, false, expanded.unfetched.size, expanded.remote)
+        return WorkflowGraph(
+            MermaidWriter.write(diagram),
+            note,
+            false,
+            expanded.unfetched.size,
+            expanded.remote,
+            diagram.locations(),
+        )
     }
 
     private fun triggers(): Cluster? {
@@ -205,6 +217,7 @@ internal class WorkflowDrawing private constructor(
                         body.reference,
                         depth + 1,
                         null,
+                        here(job.line),
                     ) { called, asOf ->
                         title(called, asOf, with, secrets)
                     }
@@ -214,7 +227,7 @@ internal class WorkflowDrawing private constructor(
         if (children.isEmpty()) return null
         val links = chain(children, depth + 1)
         budget.addCluster(title.length, id, depth)
-        return Cluster(id, title, children, links)
+        return Cluster(id, title, children, links, here(job.line))
     }
 
     /**
@@ -262,11 +275,12 @@ internal class WorkflowDrawing private constructor(
         return when (val action = step.action) {
             is StepAction.Run -> {
                 val label = lines(step.name.ifPresent() ?: "run: ${action.firstLine}".trimEnd(), condition)
-                Node(id, label).takeIf { budget.takeNode(size(label), id, depth) }
+                Node(id, label, location = here(step.line)).takeIf { budget.takeNode(size(label), id, depth) }
             }
 
             is StepAction.Uses -> {
-                reference(id, lines(step.name, action.text), action.reference, depth, condition) { composite, asOf ->
+                val label = lines(step.name, action.text)
+                reference(id, label, action.reference, depth, condition, here(step.line)) { composite, asOf ->
                     title(step.name, composite, asOf, condition)
                 }
             }
@@ -276,8 +290,8 @@ internal class WorkflowDrawing private constructor(
     /**
      * The box of a `uses:` [reference] at [depth] with [lines], what was found out about it and the step's
      * [condition]; or what it refers to drawn nested under its [id], with [title] made from what the target is
-     * (`calls x.yml`, `Name (composite)`) and when it was fetched if remote (`as of 2026-10-20`). Null if it does not
-     * fit; a remote reference is counted once it is drawn.
+     * (`calls x.yml`, `Name (composite)`) and when it was fetched if remote (`as of 2026-10-20`). Either comes from
+     * [location], the line of the `uses:`. Null if it does not fit; a remote reference is counted once it is drawn.
      */
     private fun reference(
         id: String,
@@ -285,6 +299,7 @@ internal class WorkflowDrawing private constructor(
         reference: UsesReference,
         depth: Int,
         condition: String?,
+        location: SourceLocation?,
         title: (what: String, asOf: String?) -> String,
     ): Element? {
         fun drawn(node: ReferenceNode): ReferenceNode {
@@ -299,7 +314,7 @@ internal class WorkflowDrawing private constructor(
             style: Style,
         ): ReferenceNode? {
             val label = lines + found.map { label(it) } + lines(condition)
-            val node = ReferenceNode(id, label, reference, style = style)
+            val node = ReferenceNode(id, label, reference, style = style, location = location)
             return if (budget.takeNode(size(label), id, depth)) drawn(node) else null
         }
 
@@ -340,7 +355,7 @@ internal class WorkflowDrawing private constructor(
                 }
 
                 is Resolution.CalledWorkflow -> {
-                    expand(resolution.key) {
+                    expand(resolution.key, resolution.file) {
                         calledWorkflow(
                             id,
                             resolution,
@@ -351,7 +366,7 @@ internal class WorkflowDrawing private constructor(
                 }
 
                 is Resolution.Composite -> {
-                    expand(resolution.key) {
+                    expand(resolution.key, resolution.file) {
                         val clusterTitle = title("${resolution.title} (composite)", resolution.asOf)
                         budget.addCluster(clusterTitle.length, id, depth)
                         steps(id, resolution.steps, depth + 1, all = true)?.let { children ->
@@ -361,18 +376,19 @@ internal class WorkflowDrawing private constructor(
                 }
             }
         return if (expansion != null) {
-            drawn(ReferenceNode(id, lines, reference, expansion))
+            drawn(ReferenceNode(id, lines, reference, expansion, location = location))
         } else {
             box(listOf(NOT_EXPANDED), Style.LIMIT)
         }
     }
 
     /**
-     * [draw]s the expansion of [key] on trial, or null if it does not fit: then everything it changed is taken back,
-     * the reference is counted as not expanded and the attempt as failed.
+     * [draw]s the expansion of [key], read from [file], on trial, or null if it does not fit: then everything it
+     * changed is taken back, the reference is counted as not expanded and the attempt as failed.
      */
     private fun expand(
         key: Target,
+        file: SourceFile,
         draw: () -> Cluster?,
     ): Cluster? {
         val before = expanded
@@ -381,10 +397,12 @@ internal class WorkflowDrawing private constructor(
             budget.attempt {
                 expanded = expanded.copy(keys = expanded.keys + (key to where))
                 stack += key
+                files += file
                 try {
                     draw()
                 } finally {
                     stack.removeAt(stack.lastIndex)
+                    files.removeAt(files.lastIndex)
                 }
             }
         if (cluster == null) {
@@ -408,6 +426,9 @@ internal class WorkflowDrawing private constructor(
         }
         return Cluster(id, title, jobs.elements, jobs.links)
     }
+
+    /** Where [line] of the file being drawn is. */
+    private fun here(line: Int?): SourceLocation? = files.last().at(line)
 
     /** The escaped label lines of the [texts] that are not blank. */
     private fun lines(vararg texts: String?): List<String> =

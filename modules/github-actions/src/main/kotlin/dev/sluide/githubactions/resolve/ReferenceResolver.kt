@@ -120,7 +120,7 @@ internal class ReferenceResolver(
                     if (workflow.jobs.isEmpty()) {
                         failed(workflow.problems.firstOrNull()?.message ?: "no jobs")
                     } else {
-                        Resolution.CalledWorkflow(key, fileName, workflow, file.asOf)
+                        Resolution.CalledWorkflow(key, fileName, workflow, file.asOf, file.source)
                     }
                 }
             }
@@ -136,7 +136,7 @@ internal class ReferenceResolver(
         val result =
             when (val parsed = ActionManifests.parse(file.text)) {
                 is ActionManifests.Result.Failed -> failed(parsed.reason)
-                is ActionManifests.Result.Parsed -> manifest(key, parsed.manifest, file.asOf)
+                is ActionManifests.Result.Parsed -> manifest(key, parsed.manifest, file)
             }
         return keep(key, result)
     }
@@ -157,8 +157,9 @@ internal class ReferenceResolver(
     private fun manifest(
         key: Target,
         manifest: ActionManifest,
-        asOf: String?,
+        file: Read.Text,
     ): Resolution {
+        val asOf = file.asOf
         val inputs =
             manifest.inputs
                 .takeIf { it.isNotEmpty() }
@@ -167,7 +168,7 @@ internal class ReferenceResolver(
             is Runs.Composite -> {
                 // A remote one by its reference: the step's box, which said it, is replaced.
                 val title = if (key.repository == null) manifest.name ?: key.written else key.written
-                Resolution.Composite(key, title, runs.steps, asOf)
+                Resolution.Composite(key, title, runs.steps, asOf, file.source)
             }
 
             is Runs.JavaScript -> {
@@ -192,7 +193,7 @@ internal class ReferenceResolver(
         val repository = file.repository
         return try {
             if (repository == null) {
-                sources.local(file.path)?.let { Read.Text(it, null) } ?: Read.Missing
+                sources.local(file.path)?.let { Read.Text(it, null, SourceFile.Local(file.path)) } ?: Read.Missing
             } else {
                 remote(RemoteFile(repository.owner, repository.repo, repository.ref, file.path))
             }
@@ -216,7 +217,7 @@ internal class ReferenceResolver(
                 if (text.text.length > RepositoryFiles.MAX_BYTES) {
                     Read.Failed("larger than 1 MB")
                 } else {
-                    Read.Text(text.text, text.asOf?.let(::asOf))
+                    Read.Text(text.text, text.asOf?.let(::asOf), SourceFile.Remote(text.web))
                 }
             }
 
@@ -244,10 +245,11 @@ internal class ReferenceResolver(
     private fun failed(reason: String) = Resolution.Stopped(Reason.FAILED, firstLine(reason))
 
     private sealed interface Read {
-        /** [asOf]: `as of <date>` for a remote file fetched for a branch or tag. */
+        /** [asOf]: `as of <date>` for a remote file fetched for a branch or tag; [source] where its lines are. */
         data class Text(
             val text: String,
             val asOf: String?,
+            val source: SourceFile,
         ) : Read
 
         data object Missing : Read
