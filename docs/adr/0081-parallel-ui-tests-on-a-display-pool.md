@@ -34,5 +34,6 @@ parallelism as such. CI time was acceptable and is not the goal.
 - Modules no longer share a display, but each module's own tests still run in one JVM on one display, as before.
 - The longest module now sets the build time. Going below it needs parallel forks inside a module, which a
   display per task cannot give: Gradle forks a task's test JVMs with the same environment, and `DISPLAY` is read once
-  per JVM.
+  per JVM. The headless JavaFX platform would allow that, but is not ready for this suite yet
+  ([../ideas/headless-ui-tests.md](../ideas/headless-ui-tests.md)).
 - More displays cost memory: each one runs a JavaFX JVM with software rendering next to the unit test JVMs.
