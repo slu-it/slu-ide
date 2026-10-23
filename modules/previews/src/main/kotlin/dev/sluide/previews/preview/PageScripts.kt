@@ -7,14 +7,18 @@ import javafx.stage.Window
 import java.nio.file.Path
 
 /**
- * Called by the page's script: `sluideBridge.open(href)` when a link is clicked, `sluideBridge.zoomed` when the zoom
- * changed. Public members only, as the page's script reaches them by reflection.
+ * Called by the page's script: `sluideBridge.open(href)` when a link is clicked, `sluideBridge.openNode(id)` when a
+ * linked node of a diagram is clicked (`data-node-links`), `sluideBridge.zoomed` when the zoom changed. Public members
+ * only, as the page's script reaches them by reflection.
  */
 internal class PageBridge(
     private val openLink: (String) -> Unit,
+    private val nodeClicked: (String) -> Unit,
     private val zoomChanged: (Double, Boolean) -> Unit,
 ) {
     fun open(href: String) = openLink(href)
+
+    fun openNode(id: String) = nodeClicked(id)
 
     fun zoomed(
         scale: Double,

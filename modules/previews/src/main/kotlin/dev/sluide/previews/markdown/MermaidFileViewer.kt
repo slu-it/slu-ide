@@ -34,21 +34,25 @@ internal object MermaidPreview : Preview {
 
     /**
      * The page of [source], with [note] (if any) as a line above the diagram; both are only ever text and the source
-     * an attribute value, never HTML.
+     * an attribute value, never HTML. The nodes and subgraphs whose ids are [links] are clickable: `preview.js` marks
+     * them and hands a click on one to the view ([Preview.openNode]) instead of zooming.
      */
     fun render(
         source: String,
         dark: Boolean,
         note: String? = null,
+        links: Set<String> = emptySet(),
     ): String {
         val body = Element("body").addClass("mermaid-file").addClass("zoomable")
         if (note != null) body.appendElement("p").addClass("diagram-note").text(note)
-        body
-            .appendElement("pre")
-            .addClass("mermaid")
-            .attr("data-source", source)
-            .attr("data-errors", "")
-            .text(source)
+        val pre =
+            body
+                .appendElement("pre")
+                .addClass("mermaid")
+                .attr("data-source", source)
+                .attr("data-errors", "")
+                .text(source)
+        if (links.isNotEmpty()) pre.attr("data-node-links", links.joinToString(" "))
         return MarkdownRenderer.page(body, dark)
     }
 }

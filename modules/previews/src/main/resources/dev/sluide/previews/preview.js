@@ -118,6 +118,47 @@
         window.scrollBy(newX - x, newY - y);
     }
 
+    // Marks the nodes and subgraphs of the drawn diagrams whose ids (as the Mermaid source names them) a diagram lists
+    // in its data-node-links, space-separated: class "linked" and data-node-link with the id, so that a click on one
+    // goes to sluideBridge.openNode. Mermaid 11 prefixes the element ids with the drawing's (the svg's id and '-'): a
+    // flowchart node is <svg id>-flowchart-<id>-<n>, a subgraph <svg id>-<id>; a data-id, where Mermaid sets one, is
+    // taken as it is. Of a subgraph only the title is linked, its area stays the diagram's (a click there zooms).
+    function markLinkedNodes() {
+        var diagrams = document.querySelectorAll('pre.mermaid[data-node-links]');
+        for (var i = 0; i < diagrams.length; i++) {
+            var svg = diagrams[i].querySelector('svg');
+            if (!svg) continue;
+            var ids = {};
+            diagrams[i].getAttribute('data-node-links').split(' ').forEach(function (id) {
+                if (id) ids[id] = true;
+            });
+            var prefix = svg.id ? svg.id + '-' : '';
+            var nodes = svg.querySelectorAll('g.node');
+            for (var j = 0; j < nodes.length; j++) {
+                var name = ownId(nodes[j], prefix).replace(/^flowchart-/, '').replace(/-\d+$/, '');
+                var id = nodes[j].getAttribute('data-id') || name;
+                if (ids.hasOwnProperty(id)) markLinked(nodes[j], id);
+            }
+            var clusters = svg.querySelectorAll('g.cluster');
+            for (var k = 0; k < clusters.length; k++) {
+                var clusterId = clusters[k].getAttribute('data-id') || ownId(clusters[k], prefix);
+                var title = clusters[k].querySelector('.cluster-label');
+                if (title && ids.hasOwnProperty(clusterId)) markLinked(title, clusterId);
+            }
+        }
+    }
+
+    // The element's id without the drawing's prefix.
+    function ownId(element, prefix) {
+        var id = element.id || '';
+        return prefix && id.indexOf(prefix) === 0 ? id.substring(prefix.length) : id;
+    }
+
+    function markLinked(element, id) {
+        element.classList.add('linked');
+        element.setAttribute('data-node-link', id);
+    }
+
     // Lays out the outermost of the given <details> anew, keeping the scroll position. JavaFX's WebKit keeps the open
     // height of a <details> closed while inside a closed one (as setAllOpen(false) closes them), which shows as a gap
     // below its line once its parent is opened. Closing innermost first does not avoid it (layout waits for the end
@@ -207,7 +248,10 @@
                 return Promise.all(checks).then(function (parsed) {
                     var nodes = diagrams.filter(function (diagram, i) { return parsed[i]; });
                     return nodes.length ? mermaid.run({ nodes: nodes, suppressErrors: true }) : undefined;
-                }).then(applyZoom);
+                }).then(function () {
+                    markLinkedNodes();
+                    applyZoom();
+                });
             });
             return diagramsDrawn;
         },
@@ -241,6 +285,14 @@
     };
 
     document.addEventListener('click', function (event) {
+        // A linked node of a diagram (markLinkedNodes) opens what it stands for, without zooming.
+        var node = event.target.closest ? event.target.closest('[data-node-link]') : null;
+        if (node) {
+            if (window.sluideBridge && window.sluideBridge.openNode) {
+                window.sluideBridge.openNode(node.getAttribute('data-node-link'));
+            }
+            return;
+        }
         var link = event.target.closest ? event.target.closest('a[href]') : null;
         if (!link) {
             // A click on the image or a Mermaid file's diagram: from fitting the view to 100% at the pointer, and back.

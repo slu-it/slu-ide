@@ -195,6 +195,21 @@ body.zoomable.fitted pre.mermaid svg {
     cursor: zoom-in;
 }
 
+/*
+ * A box or subgraph title that opens its source when clicked (data-node-links, marked by preview.js): a pointer, and
+ * its label underlined while hovered, in the label's own colour in both themes.
+ */
+pre.mermaid svg .linked,
+pre.mermaid svg .linked * {
+    cursor: pointer;
+}
+
+pre.mermaid svg .linked:hover .nodeLabel,
+pre.mermaid svg .linked:hover .nodeLabel *,
+pre.mermaid svg .linked:hover text {
+    text-decoration: underline;
+}
+
 /* A Mermaid file that does not parse (MermaidPreview): Mermaid's message. */
 pre.mermaid.error {
     text-align: left;

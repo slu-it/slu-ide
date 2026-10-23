@@ -77,6 +77,16 @@ internal interface Preview {
         file: Path,
     ): LinkTarget? = resolveLink(href, file.parent)
 
+    /**
+     * Called on the FX thread when a linked node [id] of the page's diagram is clicked (the ids the page lists in
+     * `data-node-links` on its `pre.mermaid`, `preview.js`); the preview opens what the node stands for through [host].
+     * By default nothing.
+     */
+    fun openNode(
+        id: String,
+        host: FileViewHost,
+    ) {}
+
     /** What a newly opened view shows. */
     val defaultMode: PreviewMode get() = PreviewMode.SPLIT
 

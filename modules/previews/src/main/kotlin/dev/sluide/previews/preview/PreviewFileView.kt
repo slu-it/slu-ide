@@ -171,8 +171,14 @@ internal class PreviewFileView(
     /** The folder whose files the page may use ([Preview.root]). */
     private val root: Path get() = preview.root(file, host?.projectFolder?.toAbsolutePath()?.normalize())
 
-    /** Receives the page's link clicks and zoom changes; held here because the WebView only keeps a weak reference. */
-    private val bridge = PageBridge(::openLink) { scale, fitted -> zoom?.zoomed(scale, fitted) }
+    /**
+     * Receives the page's link and diagram node clicks and zoom changes; held here because the WebView only keeps a
+     * weak reference.
+     */
+    private val bridge =
+        PageBridge(::openLink, { id -> host?.let { preview.openNode(id, it) } }) { scale, fitted ->
+            zoom?.zoomed(scale, fitted)
+        }
 
     private var renderedText: String? = null
     private var dark = false

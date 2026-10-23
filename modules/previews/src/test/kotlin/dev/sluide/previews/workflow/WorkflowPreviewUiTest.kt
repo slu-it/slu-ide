@@ -262,6 +262,78 @@ class WorkflowPreviewUiTest {
     }
 
     @Test
+    fun `a click on a linked box opens its source at its line, a click elsewhere still zooms`(robot: FxRobot) {
+        val action = dir.resolve(".github/actions/setup").createDirectories().resolve("action.yml")
+        action.writeText(
+            "name: Set up\nruns:\n  using: composite\n  steps:\n    - name: Install inside\n      run: x\n" +
+                "      shell: bash\n",
+        )
+        val file = workflowsFolder().resolve("ci.yml")
+        file.writeText(
+            "on: push\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n" +
+                "      - uses: ./.github/actions/setup\n      - run: ./gradlew test\n",
+        )
+        val opened = CopyOnWriteArrayList<Pair<Path, Int>>()
+        val host =
+            object : FileViewHost {
+                override fun openFile(file: Path) = false
+
+                override fun openFile(
+                    file: Path,
+                    line: Int,
+                ): Boolean {
+                    opened += file to line
+                    return true
+                }
+
+                override fun openWebPage(uri: URI) {}
+            }
+        val view = show(robot) { (WorkflowFileViewer().open(file) as PreviewFileView).also { it.host = host } }
+        robot.interact { view.mode.set(PreviewMode.SPLIT) }
+        view.awaitGraph()
+        val linked =
+            "Array.prototype.map.call(document.querySelectorAll('pre.mermaid svg .linked'), " +
+                "function (e) { return e.getAttribute('data-node-link'); }).sort().join(' ')"
+        // The job's title, the composite action's title and its step, the run step; not the trigger.
+        assertEquals("j0 j0s0 j0s0s0 j0s1", view.script(linked))
+        val zoom = checkNotNull(view.zoom)
+        val fitted = WaitForAsyncUtils.asyncFx<Boolean> { zoom.fit }.get()
+
+        view.script(
+            "document.querySelector('[data-node-link=\"j0s0s0\"] .nodeLabel')" +
+                ".dispatchEvent(new MouseEvent('click', { bubbles: true }))",
+        )
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(listOf(action.toAbsolutePath().normalize() to 4), opened.toList(), "0-based")
+        assertEquals(fitted, WaitForAsyncUtils.asyncFx<Boolean> { zoom.fit }.get(), "the zoom stays")
+
+        // A subgraph's title: the composite action's `uses:` in the workflow.
+        view.script(
+            "document.querySelector('[data-node-link=\"j0s0\"] .nodeLabel')" +
+                ".dispatchEvent(new MouseEvent('click', { bubbles: true }))",
+        )
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(file.toAbsolutePath().normalize() to 5, opened.last())
+        assertEquals(fitted, WaitForAsyncUtils.asyncFx<Boolean> { zoom.fit }.get(), "the zoom stays")
+
+        view.script(
+            "document.querySelector('pre.mermaid svg').dispatchEvent(new MouseEvent('click', { bubbles: true }))",
+        )
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(!fitted, WaitForAsyncUtils.asyncFx<Boolean> { zoom.fit }.get(), "a click elsewhere zooms")
+
+        // The area of a linked subgraph, outside its title: zooms too.
+        view.script(
+            "document.querySelector('[data-node-link=\"j0s0\"]').parentNode.querySelector(':scope > rect')" +
+                ".dispatchEvent(new MouseEvent('click', { bubbles: true }))",
+        )
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(fitted, WaitForAsyncUtils.asyncFx<Boolean> { zoom.fit }.get(), "a subgraph's area zooms")
+        assertEquals(2, opened.size)
+    }
+
+    @Test
     fun `nested graphs draw without a Mermaid error, also with cycle and limit boxes deep inside`(robot: FxRobot) {
         Files.walk(WorkflowFiles.nested).use { paths ->
             paths.filter { Files.isRegularFile(it) }.forEach {

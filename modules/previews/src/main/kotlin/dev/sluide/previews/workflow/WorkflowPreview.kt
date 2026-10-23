@@ -8,6 +8,7 @@ import dev.sluide.githubactions.RemoteReader
 import dev.sluide.githubactions.RemoteSources
 import dev.sluide.githubactions.RemoteText
 import dev.sluide.githubactions.RepositoryFiles
+import dev.sluide.githubactions.SourceLocation
 import dev.sluide.githubactions.WorkflowGraph
 import dev.sluide.githubactions.WorkflowGraphs
 import dev.sluide.githubactions.WorkflowParser
@@ -21,10 +22,15 @@ import javafx.application.Platform
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.scene.web.WebEngine
 import org.jsoup.nodes.Element
+import java.net.URI
+import java.net.URISyntaxException
+import java.nio.file.InvalidPathException
 import java.nio.file.Path
 import java.util.concurrent.Executor
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.atomic.AtomicBoolean
+
+private val log = System.getLogger(WorkflowPreview::class.java.name)
 
 /**
  * A GitHub Actions workflow drawn by Mermaid ([WorkflowGraphs], ADR 0075) like a Mermaid file ([MermaidPreview]):
@@ -46,6 +52,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  * Remote references are read from the window's [RemoteSources] (a window service of the host), from its cache only;
  * the [fetchAction] (Fetch References) draws the graph again on [fetchExecutor], letting the reader fetch them, as a
  * background task of the window. Its graph is kept like a parsed one; later drawings find the files in the cache.
+ *
+ * The boxes with a source line link to it: a click opens the file at that line, or a remote file's page ([openNode]).
  */
 internal class WorkflowPreview(
     private val parser: WorkflowParser,
@@ -356,6 +364,30 @@ internal class WorkflowPreview(
         keep(input, graph, threw)
     }
 
+    /**
+     * Opens where the box [id] of the graph shown comes from ([WorkflowGraph.locations]): a file of the workflow's
+     * repository in the IDE at its line, if it stays in the repository; a remote file's page at its commit and line on
+     * the web.
+     */
+    override fun openNode(
+        id: String,
+        host: FileViewHost,
+    ) {
+        val input = latest ?: return
+        val graph = drawn?.takeIf { it.first == input }?.second ?: return
+        when (val location = graph.locations[id]) {
+            is SourceLocation.Local -> {
+                localFile(input.file, location.path)?.let { host.openFile(it, location.line - 1) }
+            }
+
+            is SourceLocation.Remote -> {
+                webPageAt(location.web, location.line)?.let(host::openWebPage)
+            }
+
+            null -> {}
+        }
+    }
+
     override val defaultMode get() = PreviewMode.SOURCE
 
     override val zooms get() = true
@@ -374,13 +406,56 @@ internal class WorkflowPreview(
         const val FETCHING_TASK = "Fetching workflow references"
 
         /** Where [file]'s local references are read from: its repository if it is in `<root>/.github/workflows/`. */
-        fun sources(file: Path): WorkflowSources {
-            val workflows = file.toAbsolutePath().parent
+        fun sources(file: Path): WorkflowSources = root(file)?.let(::RepositoryFiles) ?: WorkflowSources.NONE
+
+        /**
+         * The file at [path] (relative) in the repository of [workflow], normalised; null if the workflow is in none
+         * (see [sources]) or the path leaves the repository's root.
+         */
+        fun localFile(
+            workflow: Path,
+            path: String,
+        ): Path? {
+            val root = root(workflow) ?: return null
+            val file =
+                try {
+                    root.resolve(path).normalize()
+                } catch (_: InvalidPathException) {
+                    return null
+                }
+            return file.takeIf { it.startsWith(root) }
+        }
+
+        /**
+         * The page [web] (https only) at [line]: its fragment, if any, replaced by `L<line>`, as ASCII; null (logged)
+         * for another scheme or a page that is no valid URI then.
+         */
+        fun webPageAt(
+            web: URI,
+            line: Int,
+        ): URI? {
+            if (!web.scheme.equals("https", ignoreCase = true)) {
+                log.log(System.Logger.Level.WARNING, "Not opening the workflow source $web: not https")
+                return null
+            }
+            return try {
+                URI(URI(web.scheme, web.authority, web.path, web.query, "L$line").toASCIIString())
+            } catch (e: URISyntaxException) {
+                log.log(System.Logger.Level.WARNING, "Not opening the workflow source $web", e)
+                null
+            } catch (e: IllegalArgumentException) {
+                log.log(System.Logger.Level.WARNING, "Not opening the workflow source $web", e)
+                null
+            }
+        }
+
+        /** The root of [file]'s repository, normalised, if it is in `<root>/.github/workflows/`. */
+        private fun root(file: Path): Path? {
+            val workflows = file.toAbsolutePath().normalize().parent
             val github = workflows?.parent
-            val root = github?.parent
             val inWorkflows =
                 workflows?.fileName?.toString() == "workflows" && github?.fileName?.toString() == ".github"
-            return if (root != null && inWorkflows) RepositoryFiles(root) else WorkflowSources.NONE
+            return if (inWorkflows) github?.parent else null
         }
 
         /**
@@ -397,7 +472,7 @@ internal class WorkflowPreview(
             if (graph.isEmpty) {
                 note(note ?: "No jobs in this workflow.", dark)
             } else {
-                MermaidPreview.render(graph.mermaid, dark, note)
+                MermaidPreview.render(graph.mermaid, dark, note, graph.locations.keys)
             }
 
         private fun note(

@@ -46,4 +46,13 @@ class MermaidPreviewTest {
 
         assertTrue(markdown.select("pre.mermaid").none { it.hasAttr("data-errors") })
     }
+
+    @Test
+    fun `linked node ids are listed on the diagram, which has none without them`() {
+        val linked = Jsoup.parse(MermaidPreview.render(source, dark = false, links = linkedSetOf("a", "b1")))
+        val plain = Jsoup.parse(MermaidPreview.render(source, dark = false))
+
+        assertEquals("a b1", linked.selectFirst("pre.mermaid")?.attr("data-node-links"))
+        assertTrue(plain.select("pre.mermaid[data-node-links]").isEmpty())
+    }
 }
