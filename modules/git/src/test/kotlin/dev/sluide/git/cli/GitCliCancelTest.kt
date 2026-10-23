@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.ForkJoinPool
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.exists
 import kotlin.io.path.readText
@@ -123,6 +125,35 @@ class GitCliCancelTest {
             assertFalse(awaitEnd(running, 100.milliseconds, null), "still running after the timeout")
         } finally {
             running.destroyForcibly()
+        }
+    }
+
+    @Test
+    fun `the end of a process is seen while the common pool is busy`() {
+        // As on a machine with few cores, where the common pool has one or two threads and other work takes them all.
+        val pool = ForkJoinPool.commonPool()
+        val busy = CountDownLatch(pool.parallelism)
+        val release = CountDownLatch(1)
+        val tasks =
+            List(pool.parallelism) {
+                CompletableFuture.runAsync {
+                    busy.countDown()
+                    while (release.count > 0) Thread.sleep(10)
+                }
+            }
+        try {
+            assertTrue(busy.await(10, TimeUnit.SECONDS), "the common pool is busy")
+            val process = ProcessBuilder("sh", "-c", "sleep 0.2").start()
+            val started = System.nanoTime()
+
+            assertTrue(awaitEnd(process, 10.seconds, GitCancellation()))
+            assertTrue(
+                System.nanoTime() - started < TimeUnit.SECONDS.toNanos(5),
+                "seen when it ended, not at the timeout",
+            )
+        } finally {
+            release.countDown()
+            tasks.forEach { it.get(10, TimeUnit.SECONDS) }
         }
     }
 }

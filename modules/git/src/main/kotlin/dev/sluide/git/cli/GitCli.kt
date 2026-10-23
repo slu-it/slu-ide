@@ -14,9 +14,7 @@ import java.nio.file.Path
 import java.security.MessageDigest
 import java.util.HexFormat
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
@@ -391,15 +389,8 @@ class GitCli(
                 process.toHandle().destroy()
                 process.waitFor(deadline - System.nanoTime(), TimeUnit.NANOSECONDS)
                 // Git ends on SIGTERM at once; what it started may take a little longer to clean up.
-                descendants.forEach { descendant ->
-                    try {
-                        descendant.onExit().get(maxOf(0L, deadline - System.nanoTime()), TimeUnit.NANOSECONDS)
-                    } catch (_: TimeoutException) {
-                        // Killed below.
-                    } catch (_: ExecutionException) {
-                        // Whether it ended is told by destroyForcibly below.
-                    }
-                }
+                // Those still alive by the deadline are killed below.
+                descendants.forEach { awaitEndBy(it, deadline) }
             } catch (_: InterruptedException) {
                 Thread.currentThread().interrupt()
             } finally {
