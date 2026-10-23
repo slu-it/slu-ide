@@ -8,6 +8,7 @@ import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileexplorer.FolderAction
 import dev.sluide.fileexplorer.FolderActionResult
 import dev.sluide.fileviewers.FileViewers
+import dev.sluide.fileviewers.IgnoreRuleEffects
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitStatusService
 import dev.sluide.git.GitTrustCheck
@@ -17,6 +18,7 @@ import dev.sluide.gitlog.GitLogView
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpClientSetup
 import dev.sluide.ide.git.WindowGitLog
+import dev.sluide.ide.git.ignoreRuleEffects
 import dev.sluide.ide.git.markers
 import dev.sluide.ide.git.textDiff
 import dev.sluide.ide.git.wouldCommit
@@ -139,6 +141,9 @@ class MainWindow(
             originUrl = { gitRemotes.url(it) },
         )
 
+    /** Which lines of `.gitignore` files have an effect, as git decides (ADR 0080). */
+    private val ignoreRuleEffects = gitStatus.ignoreRuleEffects()
+
     /** The Terminal and Docker Sandbox menus and the tabs they open. */
     internal val tools =
         WindowTools(projectService, terminals, dockerSandbox, editorArea, showError = { s, m -> showError(s, m) })
@@ -198,10 +203,12 @@ class MainWindow(
         // An empty scratch file is deleted when its last tab in any window closes (ADR 0066).
         editorArea.onFileClosed = scratches::fileClosed
         // Views of .http files share the window's cookies, tokens and chosen environments (ADR 0026); file views may
-        // register their work as background tasks (ADR 0061); workflow graphs read remote references (ADR 0076).
+        // register their work as background tasks (ADR 0061); workflow graphs read remote references (ADR 0076);
+        // .gitignore views show which of their lines have an effect (ADR 0080).
         editorArea.windowServices.register(HttpClientSession::class.java, httpSession)
         editorArea.windowServices.register(BackgroundTasks::class.java, backgroundTasks)
         editorArea.windowServices.register(RemoteSources::class.java, workflowSources)
+        editorArea.windowServices.register(IgnoreRuleEffects::class.java, ignoreRuleEffects)
         // It warns about private environment files that git would commit.
         httpSession.wouldCommit = { gitStatus.snapshot.get().wouldCommit(it) }
         gitStatus.snapshot.subscribe { snapshot ->
@@ -209,6 +216,7 @@ class MainWindow(
             fileExplorer.refreshMarkers()
             editorArea.refreshDiffs()
             httpSession.gitStatusChanged()
+            ignoreRuleEffects.changed()
             // The Commit tab lists what can be committed (ADR 0048).
             gitLog.workingTreeChanged()
         }
