@@ -471,6 +471,37 @@ class WorkflowPreviewUiTest {
     }
 
     @Test
+    fun `Export Mermaid writes the graph shown beside the workflow, which the Mermaid viewer draws`(robot: FxRobot) {
+        val (file, view) = show(robot, "ci.yml")
+        robot.interact { view.mode.set(PreviewMode.PREVIEW) }
+        view.awaitGraph()
+        val export = checkNotNull(view.export)
+        val reports = CopyOnWriteArrayList<String>()
+        export.report = { reports += it }
+
+        WaitForAsyncUtils
+            .asyncFx<Unit> {
+                export.button.items
+                    .single { it.text == "Mermaid" }
+                    .fire()
+            }.get()
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
+            WaitForAsyncUtils.asyncFx<Boolean> { !export.button.isDisable }.get()
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(emptyList(), reports)
+        val mermaid = file.resolveSibling("ci.mmd").readText()
+        assertTrue(mermaid.startsWith("flowchart LR\n"), mermaid)
+        assertTrue("actions/checkout@v6" in mermaid, mermaid)
+
+        val other = show(robot) { MermaidFileViewer().open(file.resolveSibling("ci.mmd")) as PreviewFileView }
+        robot.interact { other.mode.set(PreviewMode.PREVIEW) }
+        other.awaitGraph()
+        assertEquals(null, other.webView.engine.mermaidError())
+        assertTrue("actions/checkout@v6" in other.diagramText())
+    }
+
+    @Test
     fun `a workflow with errors only shows a note`(robot: FxRobot) {
         val file = workflowsFolder().resolve("broken.yml")
         WorkflowFiles.fixture("broken-syntax.yml").copyTo(file)

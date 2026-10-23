@@ -10,6 +10,7 @@ import dev.sluide.githubactions.RepositoryFiles
 import dev.sluide.githubactions.WorkflowParser
 import dev.sluide.githubactions.WorkflowSources
 import org.junit.jupiter.api.io.TempDir
+import java.io.IOException
 import java.net.URI
 import java.nio.file.Path
 import java.util.concurrent.CountDownLatch
@@ -17,9 +18,11 @@ import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.io.path.createDirectories
+import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
@@ -73,6 +76,27 @@ class WorkflowPreviewTest {
         assertEquals(1, rerenders)
         assertTrue(preview.page("build").isGraphOf("build"))
         assertTrue(preview.page("build").isGraphOf("build"))
+        assertEquals(listOf("build"), parsed)
+    }
+
+    @Test
+    fun `the Mermaid export writes the graph shown and nothing else`(
+        @TempDir dir: Path,
+    ) {
+        val preview = preview()
+        val export = preview.exports.single()
+        val target = dir.resolve("ci.mmd")
+
+        assertFailsWith<IOException> { export.write(file, "build", target) }
+        preview.page("build")
+        assertFailsWith<IOException> { export.write(file, "build", target) }
+        runBackground()
+        runFx()
+
+        export.write(file, "build", target)
+        val mermaid = target.readText()
+        assertTrue("flowchart LR" in mermaid && "build" in mermaid)
+        assertFailsWith<IOException> { export.write(file, "other", target) }
         assertEquals(listOf("build"), parsed)
     }
 

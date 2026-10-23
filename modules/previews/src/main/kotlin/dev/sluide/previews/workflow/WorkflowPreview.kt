@@ -15,6 +15,7 @@ import dev.sluide.githubactions.WorkflowParser
 import dev.sluide.githubactions.WorkflowSources
 import dev.sluide.previews.markdown.MarkdownRenderer
 import dev.sluide.previews.markdown.MermaidPreview
+import dev.sluide.previews.preview.FileExport
 import dev.sluide.previews.preview.Preview
 import dev.sluide.previews.preview.PreviewAction
 import dev.sluide.previews.preview.PreviewMode
@@ -54,6 +55,7 @@ private val log = System.getLogger(WorkflowPreview::class.java.name)
  * background task of the window. Its graph is kept like a parsed one; later drawings find the files in the cache.
  *
  * The boxes with a source line link to it: a click opens the file at that line, or a remote file's page ([openNode]).
+ * The Export menu writes the graph shown as Mermaid source ([WorkflowMermaidExport]); it parses and fetches nothing.
  */
 internal class WorkflowPreview(
     private val parser: WorkflowParser,
@@ -73,7 +75,11 @@ internal class WorkflowPreview(
     private var host: () -> FileViewHost? = { null }
     private var detached = false
 
-    /** The graph of the last input parsed that was the latest requested then. */
+    /**
+     * The graph of the last input parsed that was the latest requested then. Assigned on the FX thread only, to an
+     * immutable pair; the export reads it from its own thread.
+     */
+    @Volatile
     private var drawn: Pair<Input, WorkflowGraph>? = null
 
     /**
@@ -104,6 +110,13 @@ internal class WorkflowPreview(
     val fetchAction = PreviewAction(FETCH, FETCH_TOOLTIP, fetchDisabled, ::fetch)
 
     override val actions get() = listOf(fetchAction)
+
+    override val exports by lazy { listOf(WorkflowMermaidExport(::shownGraph)) }
+
+    private fun shownGraph(
+        file: Path,
+        text: String,
+    ): WorkflowGraph? = drawn?.takeIf { it.first == Input(file, text) }?.second
 
     override fun attach(
         rerender: () -> Unit,
@@ -399,6 +412,9 @@ internal class WorkflowPreview(
         /** What the note above the graph says while its references are fetched. */
         const val FETCHING = "Fetching references…"
 
+        /** What the page says for a workflow without jobs and without a note. */
+        const val NO_JOBS = "No jobs in this workflow."
+
         const val FETCH = "Fetch References"
         const val FETCH_TOOLTIP = "Fetch the actions and workflows this workflow uses from their repositories"
 
@@ -470,7 +486,7 @@ internal class WorkflowPreview(
             note: String? = graph.note,
         ): String =
             if (graph.isEmpty) {
-                note(note ?: "No jobs in this workflow.", dark)
+                note(note ?: NO_JOBS, dark)
             } else {
                 MermaidPreview.render(graph.mermaid, dark, note, graph.locations.keys)
             }
