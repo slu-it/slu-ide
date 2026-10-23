@@ -1,3 +1,12 @@
+import org.gradle.build.event.BuildEventsListenerRegistry
+import org.gradle.tooling.events.FinishEvent
+import org.gradle.tooling.events.OperationCompletionListener
+import org.gradle.tooling.events.task.TaskOperationDescriptor
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
+import javax.inject.Inject
+
 plugins {
     alias(libs.plugins.kotlin.jvm) apply false
     alias(libs.plugins.kotlin.spring) apply false
@@ -28,12 +37,57 @@ allprojects {
 }
 
 /**
- * Lets one `uiTest` task at a time use the display: TestFX tests of parallel modules on one display took each other's
- * window focus, which closed their popups (auto-hide follows the owner window's focus) and failed tests at random.
+ * Gives every running `uiTest` task a display of its own: TestFX tests of parallel modules on one display took each
+ * other's window focus, which closed their popups (auto-hide follows the owner window's focus) and failed tests at
+ * random. With one display (CI, a plain `./gradlew build`) the tasks run one at a time; full-build.sh starts a pool and
+ * passes it as `-Psluide.uiDisplays=:99,:100,…` (ADR 0081). A display is given back when its task finishes, failed or
+ * not; the finish event can arrive after Gradle already started the next task, so [lease] waits for it.
  */
-abstract class DisplayService : BuildService<BuildServiceParameters.None>
+abstract class DisplayService :
+    BuildService<DisplayService.Params>,
+    OperationCompletionListener {
+    interface Params : BuildServiceParameters {
+        val displays: ListProperty<String>
+    }
 
-val display = gradle.sharedServices.registerIfAbsent("display", DisplayService::class) { maxParallelUsages.set(1) }
+    private val free = LinkedBlockingQueue(parameters.displays.get())
+    private val leased = ConcurrentHashMap<String, String>()
+
+    fun lease(taskPath: String): String {
+        val display = free.poll(1, TimeUnit.MINUTES) ?: error("No display became free for $taskPath")
+        leased[taskPath] = display
+        return display
+    }
+
+    override fun onFinish(event: FinishEvent) {
+        val taskPath = (event.descriptor as? TaskOperationDescriptor)?.taskPath ?: return
+        leased.remove(taskPath)?.let(free::put)
+    }
+}
+
+/** The registry that tells [DisplayService] when a task finishes; only injectable into Gradle-created objects. */
+abstract class BuildEvents {
+    @get:Inject
+    abstract val registry: BuildEventsListenerRegistry
+}
+
+// One empty entry on systems without DISPLAY (macOS): their tests then keep the environment as it is. An empty
+// property counts as unset.
+val uiDisplays =
+    providers
+        .gradleProperty("sluide.uiDisplays")
+        .map { property -> property.split(",").map(String::trim).filter(String::isNotEmpty) }
+        .filter(List<String>::isNotEmpty)
+        .orElse(providers.environmentVariable("DISPLAY").map(::listOf))
+        .orElse(listOf(""))
+        .get()
+
+val display =
+    gradle.sharedServices.registerIfAbsent("display", DisplayService::class) {
+        parameters.displays.set(uiDisplays)
+        maxParallelUsages.set(uiDisplays.size)
+    }
+objects.newInstance<BuildEvents>().registry.onTaskCompletion(display)
 
 // Shared configuration for every Kotlin module (modules/* and ide).
 subprojects {
@@ -78,6 +132,9 @@ subprojects {
         }
 
         val testSourceSet = extensions.getByType<SourceSetContainer>().named("test")
+        // A local copy: task actions that read a property of the build script would drag the script into the
+        // configuration cache.
+        val displayService = display
         val displayAvailable =
             providers.environmentVariable("DISPLAY").isPresent ||
                 providers.environmentVariable("CI").isPresent ||
@@ -93,7 +150,12 @@ subprojects {
                 // Software rendering is the most reliable pipeline on virtual displays.
                 systemProperty("prism.order", "sw")
                 onlyIf("a display is available") { displayAvailable }
-                usesService(display)
+                usesService(displayService)
+                // The environment is no task input, so the leased display changes no up-to-date check or cache key.
+                doFirst {
+                    val leased = displayService.get().lease(path)
+                    if (leased.isNotEmpty()) (this as Test).environment("DISPLAY", leased)
+                }
                 shouldRunAfter(tasks.named("test"))
             }
         tasks.named("check") { dependsOn(uiTest) }
