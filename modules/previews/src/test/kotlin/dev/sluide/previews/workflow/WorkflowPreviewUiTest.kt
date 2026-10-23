@@ -272,8 +272,8 @@ class WorkflowPreviewUiTest {
     }
 
     /**
-     * A workflow whose steps have inputs: first, middle and last of a job, an expanded composite and its steps, and a
-     * job calling a reusable workflow (expanded); six inputs boxes.
+     * A workflow whose steps have inputs: steps of a job, an expanded composite and its steps, and a job calling a
+     * reusable workflow, which is expanded.
      */
     private fun inputsWorkflow(): Path {
         dir.resolve(".github/actions/build").createDirectories().resolve("action.yml").writeText(
@@ -338,27 +338,23 @@ class WorkflowPreviewUiTest {
         return file
     }
 
-    /** The screen box (left, right, top, bottom) of side link [index] of the drawn diagram. */
-    private fun PreviewFileView.arrow(index: Int): List<Double> {
-        val box =
-            script(
-                "var r = document.querySelectorAll('path.side-link')[$index].getBoundingClientRect(); " +
-                    "[r.left, r.right, r.top, r.bottom].join(' ')",
-            ) as String
-        return box.split(" ").map { it.toDouble() }
-    }
-
-    /** The screen box (left, right, top, bottom) of the node or subgraph [id] of the drawn diagram. */
-    private fun PreviewFileView.box(id: String): List<Double> {
+    /**
+     * The screen box (left, right, top, bottom) of what [select] (a script expression with `svg`, the diagram, and
+     * `node(id)` and `cluster(id)`, its node and subgraph of a Mermaid id) gives.
+     */
+    private fun PreviewFileView.box(select: String): List<Double> {
         val box =
             script(
                 """
                 (function () {
                   var svg = document.querySelector('pre.mermaid svg');
-                  var found = Array.prototype.filter.call(svg.querySelectorAll('g.node'), function (node) {
-                    return new RegExp('-flowchart-$id-\\d+$').test(node.id);
-                  })[0] || svg.querySelector('g.cluster[id="' + svg.id + '-$id"]');
-                  var r = found.getBoundingClientRect();
+                  function node(id) {
+                    return Array.prototype.filter.call(svg.querySelectorAll('g.node'), function (n) {
+                      return new RegExp('-flowchart-' + id + '-\\d+$').test(n.id);
+                    })[0];
+                  }
+                  function cluster(id) { return svg.querySelector('g.cluster[id="' + svg.id + '-' + id + '"]'); }
+                  var r = ($select).getBoundingClientRect();
                   return [r.left, r.right, r.top, r.bottom].join(' ');
                 })()
                 """,
@@ -366,8 +362,14 @@ class WorkflowPreviewUiTest {
         return box.split(" ").map { it.toDouble() }
     }
 
+    /** Whether [inner] (left, right, top, bottom) lies within [outer], give or take a pixel. */
+    private fun within(
+        inner: List<Double>,
+        outer: List<Double>,
+    ) = inner[0] >= outer[0] - 1 && inner[1] <= outer[1] + 1 && inner[2] >= outer[2] - 1 && inner[3] <= outer[3] + 1
+
     @Test
-    fun `inputs stand left of their step and level with it, with a dotted arrow into it, in both colour schemes`(
+    fun `inputs are framed in their step's box and boxed at the top of an expansion, in both colour schemes`(
         robot: FxRobot,
     ) {
         val view = show(robot) { WorkflowFileViewer().open(inputsWorkflow()) as PreviewFileView }
@@ -380,57 +382,33 @@ class WorkflowPreviewUiTest {
             }
             view.awaitGraph()
             assertEquals(null, view.webView.engine.mermaidError())
-            // Middle step, a composite's subgraph, a step inside it, and the job's first step.
-            val pairs = listOf("j0s1i" to "j0s1", "j0s2i" to "j0s2", "j0s2s1i" to "j0s2s1", "j0s0i" to "j0s0")
-            for ((inputs, step) in pairs) {
-                val (left, right, top, bottom) = view.box(inputs)
-                val target = view.box(step)
-                assertTrue(right <= target[0], "$inputs $left..$right left of $step ${target[0]}..${target[1]}")
-                assertTrue(top < target[3] && target[2] < bottom, "$inputs $top..$bottom level with $step $target")
+
+            for (step in listOf("j0s0", "j0s1", "j0s2s0", "j0s2s1")) {
+                val frame = view.box("node('$step').querySelector('foreignObject div.sluide-inputs')")
+                val shape = view.box("node('$step').querySelector('rect')")
+                assertTrue(within(frame, shape), "$step: inputs $frame in its box $shape")
             }
-            val column = listOf("j0s0", "j0s1", "j0s2", "j0s3").map { view.box(it).let { (l, r) -> (l + r) / 2 } }
-            assertTrue(column.max() - column.min() < 2, "the steps in one column: $column")
+            assertEquals(4, view.count("pre.mermaid svg div.sluide-inputs"))
 
-            assertEquals(6, view.count("pre.mermaid svg path.side-link[marker-end]"), "one arrow per inputs box")
-            val (start, end, high, low) = view.arrow(0)
-            val (from, to) = view.box("j0s0i") to view.box("j0s0")
-            assertTrue(start >= from[1] - 1 && end <= to[0] + 1, "arrow $start..$end between $from and $to")
-            assertTrue(low - high < 2 && high > to[2] && low < to[3], "a horizontal arrow at the step: $high..$low")
+            // The composite's inputs box: in its subgraph, below the title, above its steps.
+            val composite = view.box("cluster('j0s2')")
+            val inputs = view.box("node('j0s2i')")
+            assertTrue(within(inputs, composite), "j0s2i $inputs in j0s2 $composite")
+            assertTrue(
+                inputs[2] >= view.box("cluster('j0s2').querySelector('.cluster-label')")[3] - 1,
+                "below the title",
+            )
+            for (step in listOf("j0s2s0", "j0s2s1", "j0s2s2")) {
+                assertTrue(inputs[3] <= view.box("node('$step')")[2], "j0s2i $inputs above $step")
+            }
 
-            // Beside a called workflow's subgraph, dagre puts the box on the right: the arrow comes from that side.
-            val (box, called) = view.box("j1wi") to view.box("j1w")
-            assertTrue(box[0] >= called[1], "j1wi $box right of j1w $called")
-            val (left, right, top, bottom) = view.arrow(5)
-            assertTrue(left >= called[1] - 1 && right <= box[0] + 1, "arrow $left..$right between $called and $box")
-            assertTrue(bottom - top < 2 && top > called[2] && bottom < called[3], "horizontal into j1w: $top..$bottom")
+            // The called workflow's inputs box: in its subgraph, above its job.
+            val called = view.box("cluster('j1w')")
+            val callInputs = view.box("node('j1wi')")
+            assertTrue(within(callInputs, called), "j1wi $callInputs in j1w $called")
+            assertTrue(callInputs[2] >= view.box("cluster('j1w').querySelector('.cluster-label')")[3] - 1)
+            assertTrue(callInputs[3] <= view.box("cluster('j1wj0')")[2], "j1wi $callInputs above job j1wj0")
         }
-    }
-
-    @Test
-    fun `side links drawn while the workflow opened in Source show in Preview and are drawn again on a theme change`(
-        robot: FxRobot,
-    ) {
-        val view = show(robot) { WorkflowFileViewer().open(inputsWorkflow()) as PreviewFileView }
-        assertEquals(PreviewMode.SOURCE, view.mode.get())
-        view.awaitGraph()
-        robot.interact { view.mode.set(PreviewMode.PREVIEW) }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        assertEquals(null, view.webView.engine.mermaidError())
-        assertEquals(6, view.count("pre.mermaid svg path.side-link"))
-        val (left, right) = view.box("j0s1i")
-        val (start, end) = view.arrow(1)
-        assertTrue(
-            start >= right - 1 && end > start && end <= view.box("j0s1")[0] + 1,
-            "$start..$end from $left..$right",
-        )
-
-        robot.interact { container.scene.preferences.colorScheme = ColorScheme.DARK }
-        view.webView.engine.awaitTrue("document.body.classList.contains('dark')")
-        view.webView.engine.awaitDrawing()
-        assertEquals(null, view.webView.engine.mermaidError())
-        assertEquals(1, view.count("pre.mermaid svg g.side-links"))
-        assertEquals(6, view.count("pre.mermaid svg path.side-link"))
     }
 
     @Test

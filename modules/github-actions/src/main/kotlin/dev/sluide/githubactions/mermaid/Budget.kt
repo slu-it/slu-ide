@@ -61,6 +61,16 @@ internal class Budget(
         return true
     }
 
+    /**
+     * [length] more characters for a box drawn already (its inputs), if they fit; one that does not fit is left out
+     * without counting as cut, so the rest of the diagram is as it would be without it.
+     */
+    fun takeText(length: Int): Boolean {
+        if (text + length > maxText) return false
+        text += length
+        return true
+    }
+
     /** A subgraph's three lines (`subgraph id ["title"]`, `direction TB`, `end`) at [depth]; may go over the limit. */
     fun addCluster(
         titleLength: Int,

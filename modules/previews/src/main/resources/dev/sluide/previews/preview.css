@@ -210,6 +210,26 @@ pre.mermaid svg .linked:hover text {
     text-decoration: underline;
 }
 
+/*
+ * The inputs of a workflow step, framed below its label (MermaidLabels.inputs). An inline block, so that the label's
+ * underline while hovered does not reach into it. No opacity, transform or filter here: JavaFX's WebKit paints such
+ * a layer inside an SVG foreignObject at the page's origin, not in its box.
+ */
+pre.mermaid .sluide-inputs {
+    display: inline-block;
+    border: 1px dashed currentColor;
+    border-radius: 6px;
+    padding: 2px 6px;
+    margin-top: 4px;
+    text-align: left;
+    font-weight: normal;
+    white-space: nowrap;
+}
+
+pre.mermaid svg .linked:hover .nodeLabel .sluide-inputs {
+    text-decoration: none;
+}
+
 /* A Mermaid file that does not parse (MermaidPreview): Mermaid's message. */
 pre.mermaid.error {
     text-align: left;

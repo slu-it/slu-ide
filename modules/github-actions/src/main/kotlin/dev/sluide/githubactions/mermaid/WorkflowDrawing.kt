@@ -57,7 +57,7 @@ internal class WorkflowDrawing private constructor(
     /** The ids of the jobs being drawn, outermost first: where an expansion is. */
     private val jobPath = mutableListOf<String>()
 
-    /** The inputs elements wanted, drawn once everything else is, in the order they were asked for. */
+    /** The inputs wanted, drawn once everything else is, in the order they were asked for. */
     private val inputs = PendingInputs(budget, ::size)
 
     /** Expansions that did not fit; after [MAX_FAILED_ATTEMPTS] none is tried, which bounds a graph's work. */
@@ -104,8 +104,6 @@ internal class WorkflowDrawing private constructor(
             expanded.unfetched.size,
             expanded.remote,
             diagram.locations(),
-            diagram.sideLinks(),
-            MermaidWriter.write(diagram, standalone = true),
         )
     }
 
@@ -213,7 +211,7 @@ internal class WorkflowDrawing private constructor(
                 steps(id, body.steps, depth + 1)?.let { drawn ->
                     children += drawn.elements
                     links += chain(drawn.elements, depth + 1)
-                    inputs.defer(id, drawn.inputs, depth + 1, children, links)
+                    inputs.defer(drawn.inputs, depth + 1, children)
                 }
             }
 
@@ -238,7 +236,7 @@ internal class WorkflowDrawing private constructor(
                     }
                 if (element != null) {
                     children += element
-                    inputs.defer(id, listOf(Wanted("${id}w", body.inputs, here(job.line))), depth + 1, children, links)
+                    inputs.defer(listOf(Wanted("${id}w", body.inputs)), depth + 1, children)
                 }
             }
         }
@@ -247,7 +245,7 @@ internal class WorkflowDrawing private constructor(
         return Cluster(id, title, children, links, here(job.line))
     }
 
-    /** What [steps] drew: the [elements] to chain, and the [inputs] their `uses:` steps want drawn beside them. */
+    /** What [steps] drew: the [elements] to chain, and the [inputs] their `uses:` steps want shown. */
     private class Steps(
         val elements: MutableList<Element>,
         val inputs: List<Wanted>,
@@ -268,7 +266,7 @@ internal class WorkflowDrawing private constructor(
         for ((position, step) in steps.withIndex()) {
             val id = "${prefix}s$position"
             elements += step(id, step, depth) ?: if (all) return null else break
-            if (step.action is StepAction.Uses) wanted += Wanted(id, step.inputs, here(step.line))
+            if (step.action is StepAction.Uses) wanted += Wanted(id, step.inputs)
         }
         if (steps.isEmpty()) {
             val none = Node("${prefix}none", listOf(label("no steps")))
@@ -398,7 +396,7 @@ internal class WorkflowDrawing private constructor(
                         budget.addCluster(clusterTitle.length, id, depth)
                         steps(id, resolution.steps, depth + 1, all = true)?.let { drawn ->
                             val links = chain(drawn.elements, depth + 1)
-                            inputs.defer(id, drawn.inputs, depth + 1, drawn.elements, links)
+                            inputs.defer(drawn.inputs, depth + 1, drawn.elements)
                             Cluster(id, clusterTitle, drawn.elements, links)
                         }
                     }

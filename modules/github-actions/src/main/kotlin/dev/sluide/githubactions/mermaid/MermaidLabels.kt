@@ -42,6 +42,12 @@ internal object MermaidLabels {
     /** Already escaped text in bold; the tags are HTML, which Mermaid's sanitizer lets through. */
     fun bold(escaped: String): String = "<b>$escaped</b>"
 
+    /**
+     * Already escaped [lines] as a block below a box's label, which the preview frames (`.sluide-inputs` in
+     * `preview.css`); the `div` is HTML, which Mermaid's sanitizer lets through with its class, and grows the box.
+     */
+    fun inputs(lines: List<String>): String = "<div class='$INPUTS_CLASS'>" + lines.joinToString("<br/>") + "</div>"
+
     /** [text] as an italic `<text>` (the angle brackets escaped, so they show). */
     fun type(text: String): String = "<i>" + label("<$text>") + "</i>"
 
@@ -56,4 +62,5 @@ internal object MermaidLabels {
 
     private const val ELLIPSIS = 0x2026
     private const val SAFE = " _-./:@(),"
+    private const val INPUTS_CLASS = "sluide-inputs"
 }

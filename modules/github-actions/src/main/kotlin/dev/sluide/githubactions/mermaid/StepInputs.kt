@@ -2,7 +2,7 @@ package dev.sluide.githubactions.mermaid
 
 import dev.sluide.githubactions.mermaid.MermaidLabels.label
 
-/** The inputs element of a `uses:` step or reusable workflow job: the `with:` that is set, as escaped lines. */
+/** The inputs of a `uses:` step or reusable workflow job: the `with:` that is set, as escaped lines. */
 internal object StepInputs {
     const val MAX_INPUTS = 8
 

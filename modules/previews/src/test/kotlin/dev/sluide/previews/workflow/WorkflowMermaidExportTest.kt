@@ -31,18 +31,11 @@ class WorkflowMermaidExportTest {
     }
 
     @Test
-    fun `writing puts the graph's standalone Mermaid source into the target`() {
-        val graph =
-            WorkflowGraph(
-                "flowchart LR\n  i(\"x: 1\")\n  a[build]",
-                null,
-                false,
-                sideLinks = listOf("i" to "a"),
-                exportMermaid = "flowchart LR\n  i(\"x: 1\")\n  a[build]\n  i -.-> a",
-            )
+    fun `writing puts the graph's Mermaid source into the target`() {
+        val graph = graph()
         val target = dir.resolve("ci.mmd").apply { writeText("old") }
         val problems = export(graph).write(dir.resolve("ci.yml"), "x", target)
-        assertEquals(graph.exportMermaid, target.readText())
+        assertEquals(graph.mermaid, target.readText())
         assertEquals(emptyList(), problems)
     }
 

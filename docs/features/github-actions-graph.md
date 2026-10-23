@@ -26,11 +26,10 @@ and `github-actions` (model and drawing, `WorkflowGraphs`, the `RemoteSources` i
   reloading unchanged text does not try again.
 - **Export → Mermaid** (beside the zoom controls) writes `<name>.mmd` beside the workflow (`ci.yml` and `ci.yaml`
   give `ci.mmd`), which GitHub ignores and Thoreau opens in its Mermaid viewer. It is the graph as shown, including
-  remote references fetched or cached, and without the box links; inputs boxes are linked to their steps with
-  ordinary dotted arrows (no spacers, no invisible links), as other renderers cannot run the preview's script. It
-  asks before replacing an existing file, and the note line (GitHub's errors, left-out parts, unfetched files) comes
-  back as problems in the export's report. While the graph is still being read, or the file has no jobs, the export
-  fails with a message saying so.
+  remote references fetched or cached, the inputs in their boxes (other renderers draw the block without its frame),
+  and without the box links. It asks before replacing an existing file, and the note line (GitHub's errors, left-out
+  parts, unfetched files) comes back as problems in the export's report. While the graph is still being read, or the
+  file has no jobs, the export fails with a message saying so.
 - The parser is GitHub's own (`@actions/workflow-parser`), so what it accepts, rejects and reports is what GitHub
   does.
 
@@ -42,20 +41,14 @@ and `github-actions` (model and drawing, `WorkflowGraphs`, the `RemoteSources` i
   to bottom: a step's name, else `run:` with the script's first line; for `uses` the reference, **bold**, below the
   step's name; `if:` conditions as written. A job that calls a reusable workflow is one box with `calls <reference>`
   (the reference bold) and `secrets: inherit`.
-- **Inputs**: a `uses:` step's `with:` (and a reusable workflow job's) is a separate rounded box with a thin dashed
-  border left of the step and level with it, one `name: value` line per input actually set (a multi-line value shows
-  its first line and ` …`), at most 8 lines then `+N more`, and a horizontal dotted arrow into the step (or into the
-  expanded subgraph). No `with:`, no box. The steps stay in one column.
-  - How: Mermaid (dagre) cannot link boxes within one rank, and a link from a step would pull the steps out of their
-    column. So a subgraph's inputs boxes are chained to each other by invisible links (`~~~`, one `~` more per
-    further step between them) from the first rank to the last; an invisible spacer box (`<subgraph>sp0`,
-    `<subgraph>sp1`, class `spacer`) holds the first or last rank where no box does, and a subgraph with a single
-    child needs neither. The arrows are `WorkflowGraph.sideLinks`, listed in `data-side-links` and drawn by
-    `preview.js` after Mermaid. Which side dagre puts a box on is not promised (beside a called workflow's subgraph it
-    ends up on the right); the arrow then leaves the box's left side into the target's right side.
-  - A subgraph's inputs boxes are drawn last, all or none: if its boxes, spacers and links (the invisible ones, with
-    their length, and the arrows the export writes) do not fit the diagram's limits, or a link between its steps was
-    left out, they are left out and the steps stay, without a note.
+- **Inputs**: a `uses:` step's `with:` (and a reusable workflow job's) is shown inside the step's box, below its name,
+  reference and type, as a block with a thin dashed, rounded frame: one `name: value` line per input actually set (a
+  multi-line value shows its first line and ` …`), at most 8 lines then `+N more`, each on one line. An expanded
+  composite action or called workflow shows them in a dashed box at the top of its box instead, above its steps or
+  the jobs that need none (kept there by invisible links). No `with:`, no block. Inputs are added last: those that do
+  not fit the diagram's limits are left out, without a note, and the step stays.
+  - The block is a `div.sluide-inputs` in the box's label (Mermaid sizes the box around it), framed by `preview.css`;
+    it has no opacity, transform or filter, which JavaFX's WebKit paints at the page's origin inside an SVG label.
 - **Links**: from each job a job `needs`, or from the triggers when it needs none. A job with an `if:` gets dotted
   links labelled with the condition.
 - **Local `uses:` are drawn nested** (next section), and so are remote ones once fetched
@@ -74,11 +67,12 @@ A workflow in `<root>/.github/workflows/` reads what its `./…` references poin
 `.github` (as GitHub resolves them against the repository's root), also from the files it opens in turn:
 - **Reusable workflow** (`jobs.<id>.uses: ./.github/workflows/x.yml`): parsed by the same parser and drawn inside the
   calling job's box as a box `calls x.yml` (the file name bold), holding its jobs with their steps and `needs` links,
-  like the workflow's own; the job's `with:` is its inputs box.
+  like the workflow's own; the job's `with:` is a dashed box at its top.
 - **Local action** (`steps[*].uses: ./path`): `<root>/path/action.yml`, else `action.yaml`, read as YAML with every
   value kept as text (so `on`, `yes` stay words; no types are built from tags, aliases, nesting and size are limited).
   - `runs.using: composite`: a box `<name or path> · <composite>` (name bold, `<composite>` italic; with the step's
-    name and `if:`) in place of the step, holding its steps chained like a job's, each with its inputs box.
+    name and `if:`) in place of the step, holding its steps chained like a job's, each with its inputs, and the
+    step's own `with:` in a dashed box at its top.
   - `node20`, `node24`, …: stays a black box, with an italic `<JS action (node20)>` below the reference.
   - `docker`: a black box with an italic `<Docker (<image>)>`.
 - A box says why it was **not followed**, below the reference as written:
@@ -157,7 +151,8 @@ a hand over those boxes and their label is underlined while hovered.
 - **Which boxes:** steps, the box of a job's subgraph title, the call of a reusable workflow (the job's line), a
   composite action's or called workflow's title (the line of its `uses:`), black boxes and the boxes saying why a
   reference was not followed (the line of their `uses:`), all also inside nested workflows and actions, at the line
-  of the file they come from. Not the triggers, and not the area of a subgraph: a click there zooms as before.
+  of the file they come from. Not the triggers, not the inputs box at the top of an expanded composite action or
+  called workflow (its title opens the same line), and not the area of a subgraph: a click there zooms as before.
 - **A file of the repository** (the workflow itself, a local reusable workflow, an `action.yml`) opens in its tab, or
   a new one, with the caret at the start of the line, scrolled into view. A workflow whose preview shows alone shows
   its source beside it. Paths stay within the repository's root.
