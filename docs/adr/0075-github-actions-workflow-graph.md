@@ -33,8 +33,9 @@ of our own would drift from GitHub's; the user chose exact upstream semantics.
   JavaFX): `WorkflowJson` decodes the JSON into a model, `WorkflowGraphs` draws it as a Mermaid flowchart with
   escaped labels, size limits and a note line for problems. `previews` implements its `WorkflowParser`.
 - **A per-view preview** (`WorkflowPreview`, created by `newPreview`): parsing blocks, so the page says "Reading the
-  workflow…" while a background thread parses the saved text, then the view renders again with the graph
-  (`Preview.attach`'s rerender), which the preview keeps for that file name and text. Only the latest text counts.
+  workflow…" while a background thread of the view's own parses the saved text, then the view renders again with the
+  graph (`Preview.attach`'s rerender), which the preview keeps for that file name and text. Only the latest text
+  counts.
 - **Path-matched viewer** (`WorkflowFileViewer`, [ADR 0074](0074-path-matched-file-viewers.md)): `.yml` and `.yaml`
   directly in `.github/workflows`; other YAML stays with the YAML code viewer. It opens in Source, like Bicep.
 - **`uses:` is a black box for now:** actions and reusable workflows are drawn as one box with their reference.

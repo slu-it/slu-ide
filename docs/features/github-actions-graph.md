@@ -114,7 +114,8 @@ Without that service they stay black boxes.
 - **Hosts:** a reference `owner/repo` is looked for on the host of the project's `origin` remote first, if that is not
   github.com (GitHub Enterprise Server, which may also serve github.com's actions through GitHub Connect), and then on
   github.com. The origin is read only if the folder is trusted for git (a graph drawn right after the folder opened
-  waits for the trust checks); otherwise, without a folder, or with an origin that is not an `https://`, `http://`,
+  waits for the trust checks, at most 30 s; only that view waits, and it stops waiting when the workflow is edited or
+  its view closes); otherwise, without a folder, or with an origin that is not an `https://`, `http://`,
   `ssh://` or `[user@]host:path` URL (`git+ssh://`, `ssh+git://`, local paths and others), only github.com is asked.
 - **How:** a host is reached as the origin is, if it is that host: by ssh with the origin's user and port
   (`git@host:owner/repo.git`, `ssh://user@host:2222/owner/repo.git`), otherwise by https (an `http://` origin too, on

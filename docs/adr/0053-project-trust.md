@@ -46,7 +46,8 @@ without reading.
 - **Off per tool:** once the checks have run, a tool may run if the folder is trusted or its own check found nothing.
   - `allows(id)` answers at once and says no while the checks run.
   - `awaitAllows(id)` first waits for them, for tools asking from their own thread, at most 30 s (no then). A check must
-    end in a few seconds, or when its thread is interrupted.
+    end in a few seconds, or when its thread is interrupted. `awaitAllows(id, cancelled)` also stops waiting (no) within
+    100 ms once `cancelled()` says so.
   - A tool's findings never turn off another tool, and a tool without a check runs once the checks have run.
 - **Decisions are stored per folder with their fingerprint** in `~/.sluide/project-trust.properties` (`TrustedProjects`,
   in the same pattern as `RecentProjects`, [ADR 0034](0034-project-picker.md)): `trusted:<fingerprint>` or
@@ -158,6 +159,6 @@ check or kept git off, an include path that cannot be resolved such as `~user/`,
 read), every change of `.git` runs the check again, as before. The first change after opening the folder always does.
 
 Note 2026-10-23: the workflow graph's remote sources ([ADR 0076](0076-cache-of-remote-action-sources.md)) read the
-project's `remote.origin.url` with git only if `awaitAllows("git")` (off the FX thread); otherwise they look on
-github.com only. Their cache
+project's `remote.origin.url` with git only if `awaitAllows("git", cancelled)` (off the FX thread; a variant that stops
+waiting, with no, once the view's reader is cancelled); otherwise they look on github.com only. Their cache
 of remote repositories runs git outside the project, in its own folders, and does not depend on the trust.

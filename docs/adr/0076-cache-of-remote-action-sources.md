@@ -77,8 +77,10 @@ window service `RemoteSources`, [ADR 0070](0070-window-services.md)):
 - A reference `owner/repo` is looked for on the project's origin host first, if the folder's trust allows git, the
   origin's URL can be read (`GitRemotes.url`, `remote.origin.url`, at most once per reader) and its host is not
   github.com: GHES, which may also serve github.com's actions through GitHub Connect. Then on github.com. Readers run
-  off the FX thread, so the trust is asked with `awaitAllows("git")`, which waits for the checks of a folder just
-  opened: a graph restored with the window would otherwise miss its origin.
+  off the FX thread, so the trust is asked with `awaitAllows("git", cancelled)`, which waits for the checks of a folder
+  just opened (a graph restored with the window would otherwise miss its origin) until the reader is cancelled, its
+  view edited or closed; a reader cancelled while it waits reads nothing. Each view parses on a thread of its own
+  (`WorkflowPreview`, shut down with the view), so a view that waits holds up no other view's graph.
 - Each host is reached as the origin is, if it is that host: ssh with the origin's user and port
   (`git@host:owner/repo.git`, `ssh://user@host:port/owner/repo.git`), otherwise https (with the origin's https port;
   an `http://` origin is reached by https on the default port). github.com with an origin elsewhere, or none, is
@@ -121,7 +123,9 @@ Rejected:
 - Batch mode replaces a `core.sshCommand` the user configured, for the cache only; an ssh chosen in the environment
   (`GIT_SSH_COMMAND`, `GIT_SSH`, `GIT_SSH_VARIANT`) is kept and may ask on the terminal Thoreau was started from.
 - Opening a folder with a workflow graph that has remote references waits for the trust checks before the graph
-  shows (usually well under a second, at most 30 s).
+  shows (usually well under a second, at most 30 s). The wait holds up only that view's graph, and it stops when the
+  workflow is edited (the new text waits anew) or its view closes. Fetch References draws on one thread shared by all
+  views, so a fetch that waits for the checks holds up other fetches, never parsing.
 - Nothing asks on a terminal, and Git Credential Manager opens no window, but a configured credential helper still
   runs: the macOS keychain may ask whether git may read an entry another app stored, and a helper of another kind may
   show its own UI. An ssh agent may ask for a confirmation or a security key touch.
