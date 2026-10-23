@@ -1,4 +1,4 @@
-/* The foldable formatted pages (JSON, XML): one line per node, containers fold with <details>. */
+/* The foldable formatted pages (JSON, XML, YAML): one line per node, containers fold with <details>. */
 body.fold-page { padding-left: 28px; }
 .fold-tree {
     font-family: "JetBrains Mono", Menlo, Consolas, monospace;

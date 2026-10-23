@@ -18,7 +18,7 @@ import java.nio.file.Path
 class WorkflowFileViewer :
     PreviewFileViewer(
         setOf("yml", "yaml"),
-        checkNotNull(Highlighters.forLanguage("yaml")) { "no YAML highlighter" },
+        Highlighters.yaml,
         // Never shown: every view gets its own preview (newPreview).
         WorkflowPreview(WebViewWorkflowParser.shared),
         CommentSyntax.HASH,

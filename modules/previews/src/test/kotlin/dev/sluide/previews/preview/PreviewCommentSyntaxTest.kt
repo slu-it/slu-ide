@@ -11,6 +11,7 @@ import dev.sluide.previews.table.CookiesFileViewer
 import dev.sluide.previews.table.CsvFileViewer
 import dev.sluide.previews.workflow.WorkflowFileViewer
 import dev.sluide.previews.xml.XmlFileViewer
+import dev.sluide.previews.yaml.YamlFileViewer
 import dev.sluide.textediting.CommentSyntax
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -27,6 +28,7 @@ class PreviewCommentSyntaxTest {
                 CsvFileViewer() to CommentSyntax.NONE,
                 JsonFileViewer() to CommentSyntax.NONE,
                 XmlFileViewer() to CommentSyntax.XML,
+                YamlFileViewer() to CommentSyntax.HASH,
                 NotebookFileViewer() to CommentSyntax.NONE,
                 MermaidFileViewer() to CommentSyntax.MERMAID,
                 CookiesFileViewer() to CommentSyntax.NONE,

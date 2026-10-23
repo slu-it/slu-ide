@@ -15,6 +15,9 @@ object Highlighters {
     /** XML, also SVG. */
     val xml: SyntaxHighlighter = RSyntaxHighlighter.xml
 
+    /** YAML, also GitHub Actions workflows. */
+    val yaml: SyntaxHighlighter = RSyntaxHighlighter.yaml
+
     /** HTML, with embedded `<script>` and `<style>` content. */
     val html: SyntaxHighlighter = RSyntaxHighlighter.html
 

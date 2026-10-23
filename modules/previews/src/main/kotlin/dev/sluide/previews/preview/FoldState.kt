@@ -6,7 +6,7 @@ import tools.jackson.core.JacksonException
 import tools.jackson.databind.json.JsonMapper
 
 /**
- * The folds of the foldable previews (JSON, XML), carried from one rendered page to the next: [read] asks the current
+ * The folds of the foldable previews (JSON, XML, YAML), carried from one rendered page to the next: [read] asks the current
  * page (`fold-tree.js`) which containers it has closed, [appendFoldState] gives an incomplete page the folds it
  * could not show.
  */

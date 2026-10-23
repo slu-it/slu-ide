@@ -28,7 +28,6 @@ import dev.sluide.fileviewers.languages.SshConfigFileViewer
 import dev.sluide.fileviewers.languages.TomlFileViewer
 import dev.sluide.fileviewers.languages.TsxFileViewer
 import dev.sluide.fileviewers.languages.TypeScriptFileViewer
-import dev.sluide.fileviewers.languages.YamlFileViewer
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.io.path.writeBytes
@@ -55,7 +54,6 @@ class CodeFileViewersTest {
             JsxFileViewer() to listOf("Button.jsx"),
             TsxFileViewer() to listOf("App.tsx"),
             SingleFileComponentFileViewer() to listOf("App.vue", "Page.svelte"),
-            YamlFileViewer() to listOf("ci.yml", "config.yaml"),
             MdxFileViewer() to listOf("docs.mdx"),
             CssFileViewer() to listOf("site.css"),
             ScssFileViewer() to listOf("_vars.scss"),

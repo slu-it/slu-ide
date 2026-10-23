@@ -27,7 +27,6 @@ import dev.sluide.fileviewers.languages.SshConfigFileViewer
 import dev.sluide.fileviewers.languages.TomlFileViewer
 import dev.sluide.fileviewers.languages.TsxFileViewer
 import dev.sluide.fileviewers.languages.TypeScriptFileViewer
-import dev.sluide.fileviewers.languages.YamlFileViewer
 import dev.sluide.textediting.CommentSyntax
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -42,7 +41,6 @@ class ViewerCommentSyntaxTest {
         val expected =
             mapOf(
                 PythonFileViewer() to CommentSyntax.HASH,
-                YamlFileViewer() to CommentSyntax.HASH,
                 KotlinFileViewer() to CommentSyntax.SLASHES,
                 JavaFileViewer() to CommentSyntax.SLASHES,
                 JavaScriptFileViewer() to CommentSyntax.SLASHES,

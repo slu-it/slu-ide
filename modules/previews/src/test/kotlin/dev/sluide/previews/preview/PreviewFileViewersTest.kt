@@ -12,6 +12,8 @@ import dev.sluide.previews.pem.PemFileViewer
 import dev.sluide.previews.pem.PemPreview
 import dev.sluide.previews.table.CookiesFileViewer
 import dev.sluide.previews.workflow.WorkflowFileViewer
+import dev.sluide.previews.yaml.YamlFileViewer
+import dev.sluide.previews.yaml.YamlPreview
 import dev.sluide.textediting.CommentSyntax
 import javafx.scene.web.WebEngine
 import org.junit.jupiter.api.io.TempDir
@@ -76,6 +78,18 @@ class PreviewFileViewersTest {
         assertTrue(viewer.matchesPath(Path.of(".github/workflows/ci.yml")))
         assertFalse(viewer.matchesPath(Path.of(".github/workflows/sub/ci.yml")))
         assertEquals(setOf("yml", "yaml"), viewer.fileExtensions)
+    }
+
+    @Test
+    fun `YAML files open with a foldable preview in Split that copies its text formatted`() {
+        val viewer = YamlFileViewer()
+        val names = listOf("config.yml", "values.YAML", "notes.txt", "config.yml.bak", "yml")
+
+        assertEquals(listOf("config.yml", "values.YAML"), names.filter { viewer.canOpen(text(it)) })
+        assertFalse(viewer.canOpen(binary("broken.yaml")))
+        assertEquals(PreviewMode.SPLIT, YamlPreview.defaultMode)
+        assertTrue(YamlPreview.folds && YamlPreview.copiesFormatted && YamlPreview.syncsScroll)
+        assertEquals(CommentSyntax.HASH, viewer.comment)
     }
 
     @Test
