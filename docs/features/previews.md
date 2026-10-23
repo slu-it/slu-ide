@@ -50,6 +50,9 @@ Images, SVG files, Mermaid files and Bicep resource graphs zoom; Markdown and no
   pointer) and from any other scale back to fit; the pointer is a magnifier with + while fitted, with − otherwise.
   A box of a diagram that links to its source (the workflow graph's, `data-node-links`) opens it instead of zooming
   ([github-actions-graph.md](github-actions-graph.md#going-to-the-source)).
+- A diagram may list side links (`data-side-links`, `from>to`, the workflow graph's inputs into their steps):
+  `preview.js` draws each as a horizontal dotted arrow between the two boxes, which stand in one rank, after Mermaid
+  drew (also after a theme change; the zoom does not move it). Mermaid and Markdown diagrams have none.
 - The zoom (fitted or the scale) is kept when the file is saved, changes on disk or the theme changes.
 - A zoomed image or diagram scrolls to every edge.
 

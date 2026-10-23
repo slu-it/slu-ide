@@ -35,13 +35,16 @@ internal object MermaidPreview : Preview {
     /**
      * The page of [source], with [note] (if any) as a line above the diagram; both are only ever text and the source
      * an attribute value, never HTML. The nodes and subgraphs whose ids are [links] are clickable: `preview.js` marks
-     * them and hands a click on one to the view ([Preview.openNode]) instead of zooming.
+     * them and hands a click on one to the view ([Preview.openNode]) instead of zooming. Each of [sideLinks] (from, to)
+     * is drawn by `preview.js` as a horizontal dotted arrow between the two (`data-side-links`), for boxes Mermaid cannot
+     * link within one rank.
      */
     fun render(
         source: String,
         dark: Boolean,
         note: String? = null,
         links: Set<String> = emptySet(),
+        sideLinks: List<Pair<String, String>> = emptyList(),
     ): String {
         val body = Element("body").addClass("mermaid-file").addClass("zoomable")
         if (note != null) body.appendElement("p").addClass("diagram-note").text(note)
@@ -53,6 +56,9 @@ internal object MermaidPreview : Preview {
                 .attr("data-errors", "")
                 .text(source)
         if (links.isNotEmpty()) pre.attr("data-node-links", links.joinToString(" "))
+        if (sideLinks.isNotEmpty()) {
+            pre.attr("data-side-links", sideLinks.joinToString(" ") { (from, to) -> "$from>$to" })
+        }
         return MarkdownRenderer.page(body, dark)
     }
 }
