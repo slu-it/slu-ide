@@ -1,8 +1,8 @@
 # GitHub Actions workflow graph
 
-**Modules:** `previews` (`WorkflowFileViewer`, `WorkflowPreview`, `WebViewWorkflowParser`) and `github-actions`
-(model and drawing, `WorkflowGraphs`, the `RemoteSources` interface for remote files), `git` (`RemoteSourceCache`)
-and `ide` (`WindowWorkflowSources`, the window's `RemoteSources`); decisions in
+**Modules:** `previews` (`WorkflowFileViewer`, `WorkflowPreview`, `WebViewWorkflowParser`, `WorkflowMermaidExport`)
+and `github-actions` (model and drawing, `WorkflowGraphs`, the `RemoteSources` interface for remote files), `git`
+(`RemoteSourceCache`) and `ide` (`WindowWorkflowSources`, the window's `RemoteSources`); decisions in
 [ADR 0075](../adr/0075-github-actions-workflow-graph.md), [ADR 0076](../adr/0076-cache-of-remote-action-sources.md),
 [ADR 0077](../adr/0077-graph-nodes-open-their-source.md) and [ADR 0074](../adr/0074-path-matched-file-viewers.md)
 
@@ -24,6 +24,11 @@ and `ide` (`WindowWorkflowSources`, the window's `RemoteSources`); decisions in
 - If the parser itself fails (it does not answer within 10 seconds, or cannot start), the preview says so and the
   text is tried once more right away, with a new parser engine; after that, edit the file or reopen it. Saving or
   reloading unchanged text does not try again.
+- **Export → Mermaid** (beside the zoom controls) writes `<name>.mmd` beside the workflow (`ci.yml` and `ci.yaml`
+  give `ci.mmd`), which GitHub ignores and Thoreau opens in its Mermaid viewer. It is the graph as shown, including
+  remote references fetched or cached, and without the box links. It asks before replacing an existing file, and the
+  note line (GitHub's errors, left-out parts, unfetched files) comes back as problems in the export's report. While
+  the graph is still being read, or the file has no jobs, the export fails with a message saying so.
 - The parser is GitHub's own (`@actions/workflow-parser`), so what it accepts, rejects and reports is what GitHub
   does.
 

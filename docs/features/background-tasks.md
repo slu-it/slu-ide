@@ -22,7 +22,7 @@ explorer). Decision in [ADR 0061](../adr/0061-background-tasks.md).
     history ("Loading history of App.kt", with ✕: the rows loaded stay; a cancelled further page loads again when you
     scroll, a cancelled first load or refresh says "Loading cancelled. Refresh to load." until Refresh);
   - "Refreshing Git status" and "Checking project trust";
-  - exports ("Exporting notes.md as HTML", "Exporting logo.svg as PNG 200%");
+  - exports ("Exporting notes.md as HTML", "Exporting logo.svg as PNG 200%", "Exporting ci.yml as Mermaid");
   - HTTP requests, by their name in the `.http` file ("GET Get users") or else their host ("GET example.com"), never
     the path or query, with ✕; and OAuth token requests ("Acquiring token 'api'", "Refreshing token 'api'"), also
     while they wait for a certificate's passphrase.
