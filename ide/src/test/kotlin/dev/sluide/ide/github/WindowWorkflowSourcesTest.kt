@@ -73,7 +73,7 @@ class WindowWorkflowSourcesTest {
 
     private fun sources(
         origin: String? = null,
-        trusted: () -> Boolean = { true },
+        trusted: (cancelled: () -> Boolean) -> Boolean = { true },
         folder: Path? = Path.of("/project"),
     ) = WindowWorkflowSources(
         cache,
@@ -166,6 +166,89 @@ class WindowWorkflowSourcesTest {
         assertEquals("from GHES", (reader.read(action) as RemoteText.Found).text)
         reader.read(action.copy(path = "action.yaml"))
         assertEquals(1, asked)
+    }
+
+    /** A trust that waits until [cancelled] says so (as `ProjectTrust.awaitAllows` does), then `false`. */
+    private fun waitingUntilCancelled(asked: CountDownLatch): (() -> Boolean) -> Boolean =
+        { cancelled ->
+            asked.countDown()
+            while (!cancelled()) Thread.sleep(10)
+            false
+        }
+
+    @Test
+    fun `a reader cancelled while it waits for the trust reads no origin and nothing else`() {
+        cached("ghes.example.com")
+        cached("github.com")
+        for (network in listOf(false, true)) {
+            val asked = CountDownLatch(1)
+            val cancelled = AtomicBoolean(false)
+            val reader = sources(ghes, trusted = waitingUntilCancelled(asked)).reader(network) { cancelled.get() }
+            Thread {
+                asked.await(10, TimeUnit.SECONDS)
+                cancelled.set(true)
+            }.start()
+
+            assertEquals(RemoteText.NotFetched, reader.read(action), "network=$network")
+            assertEquals(RemoteText.NotFetched, reader.read(action.copy(path = "action.yaml")), "network=$network")
+        }
+        assertEquals(emptyList(), originReads)
+        assertEquals(emptyList(), cache.calls)
+    }
+
+    @Test
+    fun `a wait for the trust cancelled by an edit that was undone decides nothing`() {
+        cached("ghes.example.com")
+        cached("github.com")
+        cache.files["ghes.example.com" to "action.yml"] = RemoteRead.Found("from GHES")
+        cache.fetchable["github.com" to "v6"] = RemoteFetch.Fetched(CachedCommit("c-github.com", fetchedAt))
+        val cancelled = AtomicBoolean(false)
+        var asked = 0
+
+        /** The first time edited while it waits, which stops the wait, then undone; allows the second time. */
+        val trusted = { readerCancelled: () -> Boolean ->
+            if (++asked == 1) {
+                cancelled.set(true)
+                val stopped = readerCancelled()
+                cancelled.set(false)
+                !stopped
+            } else {
+                !readerCancelled()
+            }
+        }
+
+        val fetching = sources(ghes, trusted).reader(network = true) { cancelled.get() }
+        assertEquals(RemoteText.NotFetched, fetching.read(action))
+        assertEquals(RemoteText.NotFetched, fetching.read(action), "stays cancelled")
+        assertEquals(emptyList(), cache.calls, "nothing fetched from github.com")
+        assertEquals(emptyList(), originReads)
+
+        asked = 0
+        val reading = sources(ghes, trusted).reader(network = false) { cancelled.get() }
+        assertEquals(RemoteText.NotFetched, reading.read(action))
+        assertEquals(emptyList(), originReads, "the cancelled wait decided no origin")
+        assertEquals("from GHES", (reading.read(action) as RemoteText.Found).text, "asked again")
+        assertEquals(listOf(Path.of("/project")), originReads)
+        assertEquals(2, asked)
+    }
+
+    @Test
+    fun `the trust may allow after a wait the reader's cancellation did not stop`() {
+        cached("ghes.example.com")
+        cache.files["ghes.example.com" to "action.yml"] = RemoteRead.Found("from GHES")
+        val given = mutableListOf<Boolean>()
+        val reader =
+            sources(ghes, trusted = { readerCancelled ->
+                given += readerCancelled()
+                Thread.sleep(50)
+                given += readerCancelled()
+                true
+            }).reader(network = true) { false }
+
+        cache.fetchable["ghes.example.com" to "v6"] = RemoteFetch.Fetched(CachedCommit("c-ghes", fetchedAt))
+        assertEquals("from GHES", (reader.read(action) as RemoteText.Found).text)
+        assertEquals(listOf(false, false), given)
+        assertEquals(listOf(Path.of("/project")), originReads)
     }
 
     @Test

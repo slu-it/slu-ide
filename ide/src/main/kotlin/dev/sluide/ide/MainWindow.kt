@@ -128,13 +128,14 @@ class MainWindow(
     /**
      * The remote files of the workflow graphs (ADR 0076): from the shared cache, the origin's host first if the
      * folder's trust allows git, which reads the origin's URL. Readers run off the FX thread, so they may wait for the
-     * trust checks of a folder just opened, as a graph restored with the window would otherwise miss its origin.
+     * trust checks of a folder just opened, as a graph restored with the window would otherwise miss its origin, until
+     * the reader's view is edited or closed.
      */
     private val workflowSources =
         WindowWorkflowSources(
             RemoteCache.of(remoteSourceCache),
             folder = { folder },
-            trusted = { projectTrust.awaitAllows(GitTrustCheck.ID) },
+            trusted = { cancelled -> projectTrust.awaitAllows(GitTrustCheck.ID, cancelled) },
             originUrl = { gitRemotes.url(it) },
         )
 

@@ -75,8 +75,9 @@ internal interface RemoteCache {
  * The remote files of one window's workflow graphs (ADR 0076), from the remote source [cache]: a repository is looked
  * for on the project's origin host, if that is not github.com, then on github.com ([remoteRepositories]). The origin's
  * URL ([originUrl] of the window's [folder], which runs git) is read only if the folder's trust allows git ([trusted],
- * which may wait for the trust checks), at most once per reader, when it first reads; otherwise only github.com is
- * asked, by https.
+ * which may wait for the trust checks until the reader is cancelled), at most once per reader, when it first reads;
+ * otherwise only github.com is asked, by https. A read cancelled while it waited reads nothing, and the wait decides
+ * nothing: a later read asks again if the reader is no longer cancelled (one with the network stays cancelled).
  *
  * A reader without the network reads what the cache has: the first host that has the ref. One with the network fetches
  * each host, repository and ref at most once (a full commit SHA only if not cached), trying github.com when the
@@ -87,7 +88,7 @@ internal interface RemoteCache {
 internal class WindowWorkflowSources(
     private val cache: RemoteCache,
     private val folder: () -> Path?,
-    private val trusted: () -> Boolean,
+    private val trusted: (cancelled: () -> Boolean) -> Boolean,
     private val originUrl: (Path) -> String?,
 ) : RemoteSources {
     override fun reader(
@@ -96,19 +97,39 @@ internal class WindowWorkflowSources(
     ): RemoteReader = if (network) FetchingReader(cancelled) else CachedReader(cancelled)
 
     private abstract inner class Reader : RemoteReader {
-        private val origin by lazy {
-            folder()?.takeIf { trusted() }?.let(originUrl)?.let(::originHost)
-        }
+        /** Whether the reader was cancelled; also what its wait for the trust stops on. */
+        abstract fun stopped(): Boolean
 
-        fun repositories(file: RemoteFile) = remoteRepositories(origin, file.owner, file.repo)
+        /** Whether [origin] was decided: by a wait for the trust that was not cancelled. */
+        private var originDecided = false
+        private var origin: OriginHost? = null
+
+        /**
+         * Where to look for [file]; `null` once the reader is cancelled. A wait for the trust that was cancelled
+         * decides nothing: a later read asks again.
+         */
+        fun repositories(file: RemoteFile): List<RemoteRepository>? {
+            if (!originDecided) {
+                val folder = folder()
+                var waitCancelled = false
+                val allowed = folder != null && trusted { stopped().also { if (it) waitCancelled = true } }
+                if (waitCancelled || stopped()) return null
+                origin = folder?.takeIf { allowed }?.let(originUrl)?.let(::originHost)
+                originDecided = true
+            }
+            return remoteRepositories(origin, file.owner, file.repo).takeUnless { stopped() }
+        }
     }
 
     private inner class CachedReader(
         private val cancelled: () -> Boolean,
     ) : Reader() {
+        override fun stopped() = cancelled()
+
         override fun read(file: RemoteFile): RemoteText {
             if (cancelled()) return RemoteText.NotFetched
-            for (repository in repositories(file)) {
+            val repositories = repositories(file) ?: return RemoteText.NotFetched
+            for (repository in repositories) {
                 val cached = cache.commit(repository, file.ref) ?: continue
                 if (cancelled()) return RemoteText.NotFetched
                 val read = cache.read(repository, cached.commit, file.path, network = false, GitCancellation())
@@ -134,8 +155,9 @@ internal class WindowWorkflowSources(
 
         override fun read(file: RemoteFile): RemoteText {
             if (stopped()) return RemoteText.NotFetched
+            val repositories = repositories(file) ?: return RemoteText.NotFetched
             val failures = mutableListOf<Pair<String, String>>()
-            for (repository in repositories(file)) {
+            for (repository in repositories) {
                 val fetched = fetched(repository, file.ref)
                 if (stopped()) return RemoteText.NotFetched
                 if (fetched is RemoteFetch.Failed) {
@@ -158,8 +180,8 @@ internal class WindowWorkflowSources(
             if (reason in UNREACHABLE) unreachable.putIfAbsent(repository.host, reason)
         }
 
-        /** Whether the reader was cancelled; cancels the git it runs then. */
-        private fun stopped(): Boolean {
+        /** Whether the reader was cancelled, for good once it was; cancels the git it runs then. */
+        override fun stopped(): Boolean {
             if (!cancellation.cancelled && cancelled()) cancellation.cancel()
             return cancellation.cancelled
         }
