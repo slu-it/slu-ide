@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.nio.file.Path
 import java.security.MessageDigest
+import java.time.Duration
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Future
 import java.util.concurrent.RejectedExecutionException
@@ -18,7 +19,10 @@ import java.util.concurrent.TimeUnit
 private val log = System.getLogger(ProjectTrust::class.java.name)
 
 /** How long a tool waits for the checks of an opened folder before it stays off. */
-private const val CHECKS_TIMEOUT_SECONDS = 30L
+private val CHECKS_TIMEOUT: Duration = Duration.ofSeconds(30)
+
+/** How often a cancellable wait for the checks asks whether it was cancelled. */
+private val WAIT_SLICE: Duration = Duration.ofMillis(100)
 
 /** The name of the task of the checks (ADR 0061). */
 private const val CHECKING = "Checking project trust"
@@ -68,6 +72,9 @@ class ProjectTrust(
     }
 
     private val lock = Any()
+
+    /** How long [awaitAllows] and [recheck] wait for the checks; shorter in tests. */
+    @Volatile internal var checksTimeout: Duration = CHECKS_TIMEOUT
 
     @Volatile private var opened: Opened? = null
 
@@ -131,10 +138,20 @@ class ProjectTrust(
      * Like [allows], but first waits for the checks of the opened folder, up to 30 s (`false` then); never call it on
      * the JavaFX thread.
      */
-    fun awaitAllows(checkId: String): Boolean {
+    fun awaitAllows(checkId: String): Boolean = awaitAllows(checkId) { false }
+
+    /**
+     * Like [awaitAllows], but stops waiting as soon as [cancelled] says so (asked every 100 ms at most), then `false`:
+     * for a tool whose work became pointless while it waited (its view was edited or closed). Never call it on the
+     * JavaFX thread.
+     */
+    fun awaitAllows(
+        checkId: String,
+        cancelled: () -> Boolean,
+    ): Boolean {
         checkNotFxThread("awaitAllows")
         val target = opened ?: return false
-        if (!awaitChecked(target)) return false
+        if (!awaitChecked(target, cancelled)) return false
         return synchronized(lock) { opened === target && allowed(target, checkId) }
     }
 
@@ -190,14 +207,27 @@ class ProjectTrust(
     private fun checkNotFxThread(what: String) =
         check(Thread.currentThread().name != "JavaFX Application Thread") { "$what blocks; not on the FX thread" }
 
-    /** Waits for the checks of [target]; `false` if interrupted or they take longer than the timeout. */
-    private fun awaitChecked(target: Opened): Boolean =
+    /**
+     * Waits for the checks of [target] in slices of [WAIT_SLICE]; `false` if [cancelled], interrupted or they take
+     * longer than the timeout.
+     */
+    private fun awaitChecked(
+        target: Opened,
+        cancelled: () -> Boolean = { false },
+    ): Boolean {
+        val deadline = System.nanoTime() + checksTimeout.toNanos()
         try {
-            target.checked.await(CHECKS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+            while (!cancelled()) {
+                val left = deadline - System.nanoTime()
+                if (left <= 0) return false
+                if (target.checked.await(minOf(left, WAIT_SLICE.toNanos()), TimeUnit.NANOSECONDS)) return true
+            }
+            return false
         } catch (_: InterruptedException) {
             Thread.currentThread().interrupt()
-            false
+            return false
         }
+    }
 
     private fun allowed(
         target: Opened,

@@ -4,10 +4,12 @@ import dev.sluide.backgroundtasks.BackgroundTasks
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import java.time.Duration
 import java.util.concurrent.Callable
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
 import kotlin.io.path.name
@@ -291,6 +293,83 @@ class ProjectTrustTest {
         assertFalse(waiting.get(5, TimeUnit.SECONDS))
         trust.open(folder)
         assertFalse(trust.awaitAllows("git"))
+    }
+
+    /** A check that finds nothing once [release] is counted down; [started] once it runs. */
+    private class GatedCheck : ProjectTrustCheck {
+        override val id = "git"
+        override val name = "Git"
+        val started = CountDownLatch(1)
+        val release = CountDownLatch(1)
+
+        override fun check(folder: Path): List<TrustFinding> {
+            started.countDown()
+            release.await()
+            return emptyList()
+        }
+    }
+
+    /** A trust of [folder] whose [check] runs until released; [timeout] is how long it is waited for. */
+    private fun gated(
+        check: GatedCheck,
+        timeout: Duration = Duration.ofSeconds(30),
+    ): ProjectTrust =
+        ProjectTrust(listOf(check), store(), BackgroundTasks.forTests(), Runnable::run).also {
+            it.checksTimeout = timeout
+            opened += it
+            it.open(folder)
+            check.started.await()
+        }
+
+    @Test
+    fun `a cancellable wait returns once the checks have run`() {
+        val check = GatedCheck()
+        val trust = gated(check)
+        val waiting = Executors.newSingleThreadExecutor().submit(Callable { trust.awaitAllows("git") { false } })
+
+        check.release.countDown()
+
+        assertTrue(waiting.get(5, TimeUnit.SECONDS))
+    }
+
+    @Test
+    fun `a cancellable wait stops soon after it is cancelled`() {
+        val check = GatedCheck()
+        val trust = gated(check)
+        val cancelled = AtomicBoolean(false)
+        val asked = CountDownLatch(2)
+        val waiting =
+            Executors.newSingleThreadExecutor().submit(
+                Callable {
+                    trust.awaitAllows("git") {
+                        asked.countDown()
+                        cancelled.get()
+                    }
+                },
+            )
+        assertTrue(asked.await(5, TimeUnit.SECONDS), "waits, asking whether it was cancelled")
+
+        val start = System.nanoTime()
+        cancelled.set(true)
+
+        assertFalse(waiting.get(5, TimeUnit.SECONDS))
+        val took = Duration.ofNanos(System.nanoTime() - start)
+        assertTrue(took < Duration.ofSeconds(2), "far below the 30 s limit; took $took")
+        check.release.countDown()
+    }
+
+    @Test
+    fun `waiting for the checks ends at the time limit`() {
+        val check = GatedCheck()
+        val trust = gated(check, timeout = Duration.ofMillis(250))
+
+        val start = System.nanoTime()
+        assertFalse(trust.awaitAllows("git") { false })
+        assertFalse(trust.awaitAllows("git"))
+
+        val took = Duration.ofNanos(System.nanoTime() - start)
+        assertTrue(took >= Duration.ofMillis(500) && took < Duration.ofSeconds(5), "took $took")
+        check.release.countDown()
     }
 
     @Test
