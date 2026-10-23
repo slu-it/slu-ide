@@ -55,16 +55,4 @@ class MermaidPreviewTest {
         assertEquals("a b1", linked.selectFirst("pre.mermaid")?.attr("data-node-links"))
         assertTrue(plain.select("pre.mermaid[data-node-links]").isEmpty())
     }
-
-    @Test
-    fun `side links are listed on the diagram as from and to, which has none without them`() {
-        val sided =
-            Jsoup.parse(
-                MermaidPreview.render(source, dark = false, sideLinks = listOf("ai" to "a", "bi" to "b1")),
-            )
-        val plain = Jsoup.parse(MermaidPreview.render(source, dark = false))
-
-        assertEquals("ai>a bi>b1", sided.selectFirst("pre.mermaid")?.attr("data-side-links"))
-        assertTrue(plain.select("pre.mermaid[data-side-links]").isEmpty())
-    }
 }

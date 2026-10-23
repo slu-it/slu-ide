@@ -118,135 +118,34 @@
         window.scrollBy(newX - x, newY - y);
     }
 
-    // The nodes and subgraphs of a drawn diagram by their ids as the Mermaid source names them. Mermaid 11 prefixes the
-    // element ids with the drawing's (the svg's id and '-'): a flowchart node is <svg id>-flowchart-<id>-<n>, a
-    // subgraph <svg id>-<id>; a data-id, where Mermaid sets one, is taken as it is.
-    function drawnElements(svg) {
-        var prefix = svg.id ? svg.id + '-' : '';
-        var drawn = { nodes: {}, clusters: {} };
-        var nodes = svg.querySelectorAll('g.node');
-        for (var i = 0; i < nodes.length; i++) {
-            var name = ownId(nodes[i], prefix).replace(/^flowchart-/, '').replace(/-\d+$/, '');
-            drawn.nodes[nodes[i].getAttribute('data-id') || name] = nodes[i];
-        }
-        var clusters = svg.querySelectorAll('g.cluster');
-        for (var j = 0; j < clusters.length; j++) {
-            drawn.clusters[clusters[j].getAttribute('data-id') || ownId(clusters[j], prefix)] = clusters[j];
-        }
-        return drawn;
-    }
-
-    // The ids a diagram lists in its attribute, space-separated.
-    function listed(diagram, attribute) {
-        return diagram.getAttribute(attribute).split(' ').filter(function (id) { return id; });
-    }
-
     // Marks the nodes and subgraphs of the drawn diagrams whose ids (as the Mermaid source names them) a diagram lists
-    // in its data-node-links: class "linked" and data-node-link with the id, so that a click on one goes to
-    // sluideBridge.openNode. Of a subgraph only the title is linked, its area stays the diagram's (a click there
-    // zooms).
+    // in its data-node-links, space-separated: class "linked" and data-node-link with the id, so that a click on one
+    // goes to sluideBridge.openNode. Mermaid 11 prefixes the element ids with the drawing's (the svg's id and '-'): a
+    // flowchart node is <svg id>-flowchart-<id>-<n>, a subgraph <svg id>-<id>; a data-id, where Mermaid sets one, is
+    // taken as it is. Of a subgraph only the title is linked, its area stays the diagram's (a click there zooms).
     function markLinkedNodes() {
         var diagrams = document.querySelectorAll('pre.mermaid[data-node-links]');
         for (var i = 0; i < diagrams.length; i++) {
             var svg = diagrams[i].querySelector('svg');
             if (!svg) continue;
-            var drawn = drawnElements(svg);
-            listed(diagrams[i], 'data-node-links').forEach(function (id) {
-                if (drawn.nodes.hasOwnProperty(id)) markLinked(drawn.nodes[id], id);
-                var title = drawn.clusters.hasOwnProperty(id) && drawn.clusters[id].querySelector('.cluster-label');
-                if (title) markLinked(title, id);
+            var ids = {};
+            diagrams[i].getAttribute('data-node-links').split(' ').forEach(function (id) {
+                if (id) ids[id] = true;
             });
-        }
-    }
-
-    // Draws the side links a diagram lists in its data-side-links ("from>to"): horizontal dotted arrows between boxes
-    // that stand in one rank, which Mermaid cannot link (the workflow graph's inputs beside their steps). One leaves
-    // node `from` at its side facing node or subgraph `to` and enters `to` at the height they share (`from`'s middle if
-    // that is within `to`), so it holds whichever side `from` ended up on. It is styled like Mermaid's dotted edges,
-    // with the arrowhead of Mermaid's arrows, and drawn last (on top) in a group in the svg's own user space: positions
-    // come from the transforms of the boxes' groups, not from the viewport, so they hold while the view has no size
-    // yet (a preview opened in Source) and at any zoom. Drawing again replaces what was drawn; a diagram that fails
-    // is left without its side links rather than stopping the drawing of the page.
-    var SVG_NS = 'http://www.w3.org/2000/svg';
-    var ARROW_OFFSET = 4; // as Mermaid shortens a line for its arrowhead
-
-    function drawSideLinks() {
-        var diagrams = document.querySelectorAll('pre.mermaid[data-side-links]');
-        for (var i = 0; i < diagrams.length; i++) {
-            var svg = diagrams[i].querySelector('svg');
-            if (!svg) continue;
-            var old = svg.querySelector('g.side-links');
-            if (old) old.parentNode.removeChild(old);
-            try {
-                drawSideLinksOf(svg, listed(diagrams[i], 'data-side-links'));
-            } catch (e) {
-                // Mermaid's drawing stays as it is.
+            var prefix = svg.id ? svg.id + '-' : '';
+            var nodes = svg.querySelectorAll('g.node');
+            for (var j = 0; j < nodes.length; j++) {
+                var name = ownId(nodes[j], prefix).replace(/^flowchart-/, '').replace(/-\d+$/, '');
+                var id = nodes[j].getAttribute('data-id') || name;
+                if (ids.hasOwnProperty(id)) markLinked(nodes[j], id);
+            }
+            var clusters = svg.querySelectorAll('g.cluster');
+            for (var k = 0; k < clusters.length; k++) {
+                var clusterId = clusters[k].getAttribute('data-id') || ownId(clusters[k], prefix);
+                var title = clusters[k].querySelector('.cluster-label');
+                if (title && ids.hasOwnProperty(clusterId)) markLinked(title, clusterId);
             }
         }
-    }
-
-    function drawSideLinksOf(svg, pairs) {
-        var drawn = drawnElements(svg);
-        var layer = document.createElementNS(SVG_NS, 'g');
-        layer.setAttribute('class', 'side-links');
-        var marker = arrowMarker(svg);
-        pairs.forEach(function (pair) {
-            var ends = pair.split('>');
-            var from = ends.length === 2 && drawn.nodes[ends[0]];
-            var to = from && (drawn.nodes[ends[1]] || drawn.clusters[ends[1]]);
-            var source = to && boxIn(from, svg);
-            var target = source && boxIn(to, svg);
-            if (target) layer.appendChild(sideLink(source, target, marker));
-        });
-        svg.appendChild(layer);
-    }
-
-    // The marker-end of Mermaid's arrows in the svg: that of a drawn edge, else the flowchart's arrowhead, if any.
-    function arrowMarker(svg) {
-        var edge = svg.querySelector('path.flowchart-link[marker-end]');
-        if (edge) return edge.getAttribute('marker-end');
-        var id = svg.id + '_flowchart-v2-pointEnd';
-        return svg.querySelector('marker[id="' + id + '"]') ? 'url(#' + id + ')' : null;
-    }
-
-    // The bounding box of element in the user space of its svg: its own box moved by the transforms of it and its
-    // groups up to the svg (Mermaid translates them); null if it has no size.
-    function boxIn(element, svg) {
-        var box = element.getBBox();
-        if (!box.width || !box.height) return null;
-        var matrix = svg.createSVGMatrix();
-        for (var e = element; e && e !== svg; e = e.parentNode) {
-            var transform = e.transform && e.transform.baseVal.consolidate();
-            if (transform) matrix = transform.matrix.multiply(matrix);
-        }
-        var corner = svg.createSVGPoint();
-        corner.x = box.x;
-        corner.y = box.y;
-        var a = corner.matrixTransform(matrix);
-        corner.x = box.x + box.width;
-        corner.y = box.y + box.height;
-        var b = corner.matrixTransform(matrix);
-        return {
-            left: Math.min(a.x, b.x), right: Math.max(a.x, b.x),
-            top: Math.min(a.y, b.y), bottom: Math.max(a.y, b.y)
-        };
-    }
-
-    function sideLink(source, target, marker) {
-        var leftOf = source.left + source.right < target.left + target.right;
-        var start = leftOf ? source.right : source.left;
-        var end = leftOf ? target.left - ARROW_OFFSET : target.right + ARROW_OFFSET;
-        var low = Math.max(source.top, target.top);
-        var high = Math.min(source.bottom, target.bottom);
-        var middle = (source.top + source.bottom) / 2;
-        var y = low <= high
-            ? Math.min(high, Math.max(low, middle))
-            : Math.min(target.bottom, Math.max(target.top, middle));
-        var path = document.createElementNS(SVG_NS, 'path');
-        path.setAttribute('class', 'side-link flowchart-link edge-thickness-normal edge-pattern-dotted');
-        path.setAttribute('d', 'M' + start + ',' + y + 'L' + end + ',' + y);
-        if (marker) path.setAttribute('marker-end', marker);
-        return path;
     }
 
     // The element's id without the drawing's prefix.
@@ -351,7 +250,6 @@
                     return nodes.length ? mermaid.run({ nodes: nodes, suppressErrors: true }) : undefined;
                 }).then(function () {
                     markLinkedNodes();
-                    drawSideLinks();
                     applyZoom();
                 });
             });
