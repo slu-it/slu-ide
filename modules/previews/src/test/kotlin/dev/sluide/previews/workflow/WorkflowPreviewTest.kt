@@ -1,16 +1,28 @@
 package dev.sluide.previews.workflow
 
+import dev.sluide.backgroundtasks.NamedThreads
+import dev.sluide.fileviewers.FileViewHost
+import dev.sluide.fileviewers.WindowServices
+import dev.sluide.githubactions.RemoteReader
+import dev.sluide.githubactions.RemoteSources
+import dev.sluide.githubactions.RemoteText
 import dev.sluide.githubactions.RepositoryFiles
 import dev.sluide.githubactions.WorkflowParser
 import dev.sluide.githubactions.WorkflowSources
 import org.junit.jupiter.api.io.TempDir
+import java.net.URI
 import java.nio.file.Path
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -143,6 +155,108 @@ class WorkflowPreviewTest {
 
         assertEquals(0, rerenders)
         assertTrue(parsed.isEmpty(), "the queued parsing saw it was outdated")
+    }
+
+    /** A parser that blocks on "slow" until [release] is counted down, recording whether it was interrupted. */
+    private class BlockingParser : WorkflowParser {
+        val blocked = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val interrupted = AtomicBoolean(false)
+
+        override fun parse(
+            fileName: String,
+            text: String,
+        ): String {
+            if (text == "slow") {
+                blocked.countDown()
+                try {
+                    release.await(10, TimeUnit.SECONDS)
+                } catch (_: InterruptedException) {
+                    interrupted.set(true)
+                }
+            }
+            return job(text)
+        }
+    }
+
+    /** Remote sources whose readers block in [RemoteReader.read] (as on the wait for the trust) until [release]. */
+    private class BlockingRemoteSources : RemoteSources {
+        val reading = CountDownLatch(1)
+        val release = CountDownLatch(1)
+
+        override fun reader(
+            network: Boolean,
+            cancelled: () -> Boolean,
+        ) = RemoteReader {
+            reading.countDown()
+            release.await(10, TimeUnit.SECONDS)
+            RemoteText.NotFetched
+        }
+    }
+
+    /** A window whose only service is [sources]. */
+    private fun hostWith(sources: RemoteSources): FileViewHost {
+        val services = WindowServices().apply { register(RemoteSources::class.java, sources) }
+        return object : FileViewHost {
+            override fun openFile(file: Path) = false
+
+            override fun openWebPage(uri: URI) {}
+
+            override fun <T : Any> windowService(type: Class<T>): T? = services.get(type)
+        }
+    }
+
+    @Test
+    fun `a view whose remote reader waits holds up no other view's graph`() {
+        // Locked like the WebEngine parser: the reader blocks outside the lock, between parses.
+        val lock = Any()
+        val parser =
+            WorkflowParser { _, text -> synchronized(lock) { if (text == "remote") REMOTE else job(text) } }
+        val sources = BlockingRemoteSources()
+        val done = LinkedBlockingQueue<Runnable>()
+        val waiting = WorkflowPreview(parser, runLater = done::put).apply { attach({}) { hostWith(sources) } }
+        val other = WorkflowPreview(parser, runLater = done::put).apply { attach({}) { hostWith(sources) } }
+        try {
+            waiting.page(file, "remote", dark = false)
+            assertTrue(sources.reading.await(5, TimeUnit.SECONDS))
+
+            other.page(file, "local", dark = false)
+            assertNotNull(done.poll(5, TimeUnit.SECONDS), "drawn while the other view's reader waits").run()
+            assertTrue(other.page(file, "local", dark = false).isGraphOf("local"))
+        } finally {
+            sources.release.countDown()
+            waiting.detach()
+            other.detach()
+        }
+    }
+
+    @Test
+    fun `after detach a page parses nothing on the view's shut down thread`() {
+        val executor = NamedThreads.single("Workflow graph test")
+        val preview = WorkflowPreview(parser, executor, runLater = {}).apply { attach({}) { null } }
+
+        preview.detach()
+
+        assertTrue(preview.page("build").isReading(), "no RejectedExecutionException")
+        assertTrue(executor.isShutdown)
+        assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+        assertTrue(parsed.isEmpty())
+    }
+
+    @Test
+    fun `detach shuts the view's thread down and lets a running parse finish`() {
+        val parser = BlockingParser()
+        val executor = NamedThreads.single("Workflow graph test")
+        val preview = WorkflowPreview(parser, executor, runLater = {}).apply { attach({}) { null } }
+        preview.page(file, "slow", dark = false)
+        assertTrue(parser.blocked.await(5, TimeUnit.SECONDS))
+
+        preview.detach()
+
+        assertTrue(executor.isShutdown)
+        parser.release.countDown()
+        assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS))
+        assertFalse(parser.interrupted.get(), "the running parse is not interrupted")
     }
 
     @Test
@@ -299,6 +413,13 @@ class WorkflowPreviewTest {
     }
 
     private companion object {
+        /** The parser's JSON for a workflow with a step using `acme/setup@v1`. */
+        const val REMOTE =
+            """{"schema": 1, "errors": [], "name": null, "events": [], "jobs": [{"id": "build", "name": null,
+            "line": 3, "type": "job", "needs": [], "if": null, "runsOn": "ubuntu-latest", "matrix": null,
+            "uses": null, "with": null, "secretsInherit": false,
+            "steps": [{"id": null, "name": null, "line": 5, "uses": "acme/setup@v1", "run": null, "if": null}]}]}"""
+
         /** The parser's JSON for a workflow calling `./.github/workflows/called.yml`. */
         const val CALLS =
             """{"schema": 1, "errors": [], "events": [], "jobs": [{"id": "call", "type": "reusableWorkflowJob",

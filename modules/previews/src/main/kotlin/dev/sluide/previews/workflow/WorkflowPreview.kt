@@ -23,6 +23,7 @@ import javafx.scene.web.WebEngine
 import org.jsoup.nodes.Element
 import java.nio.file.Path
 import java.util.concurrent.Executor
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -30,7 +31,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  * zoomable, fitted at first, drawn again in the other colour scheme. A workflow without jobs to draw shows a note.
  *
  * One per view ([attach]): parsing blocks ([WebViewWorkflowParser]), so the page says "Reading the workflow…" while
- * [executor] parses the latest saved text, then the view renders again ([attach]'s rerender) with the graph, which
+ * [executor] (the view's own thread, shut down by [detach]; a view waiting for its references holds up no other)
+ * parses the latest saved text, then the view renders again ([attach]'s rerender) with the graph, which
  * this preview keeps for that text; GitHub's errors are kept like a graph. If the parser itself fails (a timeout, for
  * example), its note shows and the text is tried once more right away; after that the note is kept until the file is
  * edited or opened again. A result for a text that is no longer the latest is dropped; nothing comes after [detach].
@@ -47,7 +49,7 @@ import java.util.concurrent.atomic.AtomicBoolean
  */
 internal class WorkflowPreview(
     private val parser: WorkflowParser,
-    private val executor: Executor = parsingThread,
+    private val executor: Executor = NamedThreads.single("Workflow graph"),
     private val runLater: (Runnable) -> Unit = Platform::runLater,
     private val fetchExecutor: Executor = fetchingThread,
 ) : Preview {
@@ -108,6 +110,8 @@ internal class WorkflowPreview(
         rerender = null
         latest = null
         fetchDisabled.set(true)
+        // A running parse finishes (the WebEngine call is not interrupted); queued ones find themselves outdated.
+        (executor as? ExecutorService)?.shutdown()
     }
 
     override fun load(
@@ -379,12 +383,9 @@ internal class WorkflowPreview(
             return if (root != null && inWorkflows) RepositoryFiles(root) else WorkflowSources.NONE
         }
 
-        /** The thread all workflow views parse on, one workflow after the other, as the parser takes them anyway. */
-        private val parsingThread: Executor by lazy { NamedThreads.single("Workflow graph") }
-
         /**
          * The thread fetches draw on, one after the other: fetching may take long and must not hold up parsing (the
-         * parser itself takes one call at a time from either).
+         * parser itself takes one call at a time from either). Each view parses on a thread of its own ([executor]).
          */
         private val fetchingThread: Executor by lazy { NamedThreads.single("Workflow references") }
 
