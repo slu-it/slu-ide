@@ -1,6 +1,6 @@
 package dev.sluide.previews.yaml
 
-/** YAML texts covering what the preview lays out. */
+/** YAML texts covering what the preview lays out; [YamlTextTest] checks that each reads back the same formatted. */
 internal object YamlFixtures {
     val kubernetes =
         """
