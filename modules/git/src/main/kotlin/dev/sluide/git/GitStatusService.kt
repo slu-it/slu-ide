@@ -6,6 +6,7 @@ import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.cli.GitCli
 import dev.sluide.git.cli.diffToHead
 import dev.sluide.git.cli.headContent
+import dev.sluide.git.cli.ignoreRules
 import dev.sluide.git.cli.status
 import dev.sluide.git.parse.GitDiffParser
 import dev.sluide.projecttrust.ProjectTrust
@@ -133,6 +134,9 @@ class GitStatusService(
 
     /** The newest request of [diffAsync] by file, which alone is answered; used on the thread [dispatch] runs on. */
     private val diffRequests = HashMap<Path, GitCancellation>()
+
+    /** The newest request of [ignoreRulesAsync] by file, apart from the diffs; used on the thread [dispatch] runs on. */
+    private val ignoreRulesRequests = HashMap<Path, GitCancellation>()
 
     /** The repository being followed; a new object for every [open], so results for an older one are dropped. */
     @Volatile private var target: Target? = null
@@ -447,14 +451,57 @@ class GitStatusService(
         diffRequests.remove(file.toAbsolutePath().normalize())?.cancel()
     }
 
+    /**
+     * Finds which lines of the ignore [file] decide which paths ([GitIgnoreRules], ADR 0080) on the thread of
+     * [diffAsync], and gives them to [done] through [dispatch]: `null` if no repository is followed, [file] is not in
+     * it, the folder's trust keeps git off (also while it is checked again after a change of `.git`), or git fails.
+     * Only the newest request for a file is answered, apart from its diffs: an older one does not start, its running
+     * git is stopped and its result dropped ([cancelIgnoreRules] too). A result for a repository no longer followed
+     * (after another [open]) is dropped as well. Call it on the thread [dispatch] runs on.
+     */
+    fun ignoreRulesAsync(
+        file: Path,
+        done: (GitIgnoreRules?) -> Unit,
+    ) {
+        val path = file.toAbsolutePath().normalize()
+        val request = GitCancellation()
+        ignoreRulesRequests.put(path, request)?.cancel()
+        val current = target
+        try {
+            diffExecutor.execute {
+                if (request.cancelled) return@execute
+                val rules = current?.takeIf(::allowsGit)?.let { git.ignoreRules(it.root, path, request) }
+                dispatch(
+                    Runnable {
+                        if (ignoreRulesRequests[path] !== request) return@Runnable
+                        ignoreRulesRequests.remove(path)
+                        if (target === current) done(rules)
+                    },
+                )
+            }
+        } catch (_: RejectedExecutionException) {
+            // Closed.
+            ignoreRulesRequests.remove(path, request)
+        }
+    }
+
+    /** Drops the request of [ignoreRulesAsync] for [file], if any; its git is stopped. */
+    fun cancelIgnoreRules(file: Path) {
+        ignoreRulesRequests.remove(file.toAbsolutePath().normalize())?.cancel()
+    }
+
+    /** Whether git may run for [current] on the thread of [diffAsync]: it is followed and allowed to run. */
+    private fun allowsGit(current: Target?): Boolean =
+        current != null && target === current && gitChanges.get() == confirmedChanges &&
+            trust.allows(GitTrustCheck.ID)
+
     /** The diff of [diffAsync], on its thread: git runs only while [current] is followed and allowed to run. */
     private fun diff(
         current: Target?,
         path: Path,
         cancellation: GitCancellation,
     ): GitDiff? {
-        if (current == null || target !== current) return null
-        if (gitChanges.get() != confirmedChanges || !trust.allows(GitTrustCheck.ID)) return null
+        if (current == null || !allowsGit(current)) return null
         val original = git.headContent(current.root, path, cancellation) ?: return null
         val output = git.diffToHead(current.root, path, cancellation) ?: return null
         return GitDiff(original, GitDiffParser.parse(output))
