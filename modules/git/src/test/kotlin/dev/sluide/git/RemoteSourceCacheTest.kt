@@ -188,6 +188,32 @@ class RemoteSourceCacheTest {
     }
 
     @Test
+    fun `nothing asks for credentials, also with an ssh the user chose`() {
+        commit("action.yml" to "name: one\n")
+        val seen = folder.resolve("seen")
+        val hook = hook("echo \"\$GIT_ASKPASS|\$SSH_ASKPASS_REQUIRE|\$GCM_INTERACTIVE\" > '$seen'\nexec \"\$@\"")
+        val chosen = cacheWith("[uploadpack]\n\tpackObjectsHook = $hook\n", mapOf("GIT_SSH_COMMAND" to "ssh"))
+
+        assertIs<RemoteFetch.Fetched>(chosen.fetch(repository, "main"))
+        assertEquals(listOf("|never|never"), seen.readLines())
+    }
+
+    @Test
+    fun `a failed fetch deletes the folder it created, not one that was there`() {
+        val gone = repository.copy(url = "file://${folder.resolve("gone/owner/repo")}")
+        assertEquals(RemoteFetch.Failed("repository not found or no access"), cache.fetch(gone, "main"))
+        assertFalse(bareRepository.exists(), "no folder for a repository that does not exist")
+        assertTrue(bareRepository.resolveSibling("repo.git.lock").exists(), "the lock file stays")
+
+        val head = commit("action.yml" to "name: one\n")
+        fetched("main")
+        assertEquals(RemoteFetch.Failed("ref not found"), cache.fetch(repository, "v9"))
+        assertEquals(RemoteFetch.Failed("repository not found or no access"), cache.fetch(gone, "main"))
+        assertEquals(head, cache.commit(repository, "main")?.commit)
+        assertEquals(RemoteRead.Found("name: one\n"), cache.read(repository, head, "action.yml", network = true))
+    }
+
+    @Test
     fun `refuses invalid names, refs, commits, paths and URLs before git runs`() {
         val commit = commit("action.yml" to "name: one\n")
         val invalid =
@@ -240,6 +266,7 @@ class RemoteSourceCacheTest {
 
         assertEquals(RemoteFetch.Failed("cancelled"), fetch.get(10, TimeUnit.SECONDS))
         assertNull(slow.commit(repository, "main"))
+        assertFalse(bareRepository.exists(), "the folder the cancelled fetch created is deleted")
     }
 
     @Test

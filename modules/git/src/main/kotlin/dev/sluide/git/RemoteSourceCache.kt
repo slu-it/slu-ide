@@ -37,15 +37,19 @@ private val log = System.getLogger(RemoteSourceCache::class.java.name)
  * file contents (`--depth=1 --filter=blob:none`, a partial clone); a file's content is fetched when it is read with the
  * network allowed, and stays.
  *
- * Git runs only in these repositories, never in a project, each command with `--git-dir`: hooks are off
- * (`core.hooksPath=/dev/null`, created without templates), only https and ssh are allowed (`GIT_ALLOW_PROTOCOL`, which
- * beats any `protocol.*` setting, and `protocol.*` as well), nothing asks for anything (ssh in batch mode, no askpass,
- * no credential manager window) and git speaks English (`LC_ALL=C`) so that its errors can be told apart. The URL must
- * be the repository's own ([RemoteRepository]) and is given to git per command (`-c remote.sluide-cache.url`), never stored.
+ * Git runs only in these repositories, never in a project, each command but `init --bare` with `--git-dir`: hooks are
+ * off (`core.hooksPath=/dev/null`, created without templates), only https and ssh are allowed (`GIT_ALLOW_PROTOCOL`,
+ * which beats any `protocol.*` setting, and `protocol.*` as well), nothing asks for anything (ssh in batch mode, no
+ * askpass program for git or ssh, no credential manager window) and git speaks English (`LC_ALL=C`) so that its errors
+ * can be told apart. Batch mode replaces a configured `core.sshCommand`; but if the user's environment sets
+ * `GIT_SSH_COMMAND`, `GIT_SSH` or `GIT_SSH_VARIANT`, their ssh runs as they chose, and it may ask for a passphrase on
+ * the terminal Thoreau was started from, if any, until the network timeout. The URL must be the repository's own
+ * ([RemoteRepository]) and is given to git per command (`-c remote.sluide-cache.url`), never stored.
  * A read without the network has no URL, no protocol allowed and `GIT_NO_LAZY_FETCH=1`: with git 2.44 or later git
  * does not even start a lazy fetch, before that the one it starts fails at once. Fetches of one repository take turns,
  * also with other running apps (a file lock); reads run beside them. A cache folder git itself does not take for a
- * repository (`rev-parse --git-dir`, after a failed fetch) is created anew. A download is bounded by the timeout only.
+ * repository (`rev-parse --git-dir`, after a failed fetch) is created anew; one a failed fetch created is deleted
+ * again. A download is bounded by the timeout only.
  *
  * Blocking, git runs on the calling thread: never call it on the JavaFX thread. Safe to call from several threads.
  */
@@ -155,20 +159,43 @@ class RemoteSourceCache internal constructor(
         return result
     }
 
-    /** Fetches [ref] into the repository at [directory], created if missing or broken; under its lock. */
+    /**
+     * Fetches [ref] into the repository at [directory], created if missing or broken; under its lock. A repository
+     * created by this call is deleted again unless the fetch stored something (also when cancelled), so that a
+     * repository that does not exist leaves no folder; the lock file stays.
+     */
     private fun fetchInto(
         repository: RemoteRepository,
         directory: Path,
         ref: String,
         cancellation: GitCancellation,
     ): RemoteFetch {
+        var created = false
+        var result: RemoteFetch? = null
+        try {
+            result = fetchInto(repository, directory, ref, cancellation) { created = true }
+            return result
+        } finally {
+            if (created && result !is RemoteFetch.Fetched) discard(directory)
+        }
+    }
+
+    private fun fetchInto(
+        repository: RemoteRepository,
+        directory: Path,
+        ref: String,
+        cancellation: GitCancellation,
+        creating: () -> Unit,
+    ): RemoteFetch {
         if (!Files.isDirectory(directory, LinkOption.NOFOLLOW_LINKS)) {
             if (Files.exists(directory, LinkOption.NOFOLLOW_LINKS)) Files.delete(directory)
+            creating()
             create(directory)?.let { return RemoteFetch.Failed(it) }
         }
         var execution = gitFetch(repository, directory, ref, cancellation)
         if (execution?.exitValue == 128 && !isRepository(directory, cancellation)) {
             log.log(System.Logger.Level.WARNING, "The cache $directory is no git repository; creating it anew")
+            creating()
             recreate(directory)?.let { return RemoteFetch.Failed(it) }
             execution = gitFetch(repository, directory, ref, cancellation)
         }
@@ -307,6 +334,17 @@ class RemoteSourceCache internal constructor(
         Files.writeString(fresh.resolve("config"), config, StandardOpenOption.APPEND)
         Files.move(fresh, directory, StandardCopyOption.ATOMIC_MOVE)
         return null
+    }
+
+    /** Deletes the repository at [directory] that a failed fetch created; a failure to is only logged. */
+    private fun discard(directory: Path) {
+        try {
+            deleteRecursively(directory)
+        } catch (e: IOException) {
+            log.log(System.Logger.Level.WARNING, "Cannot delete $directory", e)
+        } catch (e: UncheckedIOException) {
+            log.log(System.Logger.Level.WARNING, "Cannot delete $directory", e)
+        }
     }
 
     /** Moves the broken repository at [directory] aside, deletes it, and creates it anew. */
@@ -468,8 +506,12 @@ class RemoteSourceCache internal constructor(
         /** Git's messages in English, to tell failures apart. */
         val LOCAL_ENVIRONMENT = mapOf("LC_ALL" to "C")
 
-        /** Nothing asks: no askpass program (an empty one counts as none), no credential manager window. */
-        val NETWORK_ENVIRONMENT = mapOf("GIT_ASKPASS" to "", "GCM_INTERACTIVE" to "never")
+        /**
+         * Nothing asks: no askpass program for git (an empty one counts as none) or ssh (`SSH_ASKPASS_REQUIRE`, also
+         * for an ssh the user chose), no credential manager window.
+         */
+        val NETWORK_ENVIRONMENT =
+            mapOf("GIT_ASKPASS" to "", "SSH_ASKPASS_REQUIRE" to "never", "GCM_INTERACTIVE" to "never")
 
         private fun normalized(ref: String) = if (isFullCommit(ref)) ref.lowercase() else ref
 
