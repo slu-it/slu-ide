@@ -135,6 +135,8 @@ the Bicep graph and `BicepParamFileViewer`.
 - A `FileView` can open other files and web pages through its `host` (`FileViewHost`: `openFile`, `openWebPage`),
   which whoever shows the view sets; the editor area does ([editor-tabs.md](editor-tabs.md)). Views that open nothing
   ignore it. The previews use it for links; HTML previews also take the files they may use from its `projectFolder`.
+  `openFile(file, line)` (0-based) opens a file at a line: views with a caret implement `FileView.showLine` (code views
+  as Go to Line does, previews in their source); the workflow graph's boxes use it.
   `windowService(type)` gives the service the window registered under exactly `type` (`WindowServices`), e.g. the
   HTTP client's session, or `null` ([ADR 0026](../adr/0026-http-client-window-session.md),
   [ADR 0070](../adr/0070-window-services.md)).

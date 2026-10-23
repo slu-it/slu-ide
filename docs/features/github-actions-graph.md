@@ -3,8 +3,8 @@
 **Modules:** `previews` (`WorkflowFileViewer`, `WorkflowPreview`, `WebViewWorkflowParser`) and `github-actions`
 (model and drawing, `WorkflowGraphs`, the `RemoteSources` interface for remote files), `git` (`RemoteSourceCache`)
 and `ide` (`WindowWorkflowSources`, the window's `RemoteSources`); decisions in
-[ADR 0075](../adr/0075-github-actions-workflow-graph.md), [ADR 0076](../adr/0076-cache-of-remote-action-sources.md)
-and [ADR 0074](../adr/0074-path-matched-file-viewers.md)
+[ADR 0075](../adr/0075-github-actions-workflow-graph.md), [ADR 0076](../adr/0076-cache-of-remote-action-sources.md),
+[ADR 0077](../adr/0077-graph-nodes-open-their-source.md) and [ADR 0074](../adr/0074-path-matched-file-viewers.md)
 
 ## Which files
 - `.yml` and `.yaml` files **directly** in a `.github/workflows` folder (case-sensitive; also below a project's
@@ -131,5 +131,19 @@ Without that service they stay black boxes.
   automatically; delete the folder by hand to free the space (not while a fetch runs). Then references show
   `not fetched` again until they are fetched.
 
-## Not yet
-- Clicking a box to jump to its line.
+## Going to the source
+A click on a box opens where it is written ([ADR 0077](../adr/0077-graph-nodes-open-their-source.md)); the pointer is
+a hand over those boxes and their label is underlined while hovered.
+- **Which boxes:** steps, the box of a job's subgraph title, the call of a reusable workflow (the job's line), a
+  composite action's or called workflow's title (the line of its `uses:`), black boxes and the boxes saying why a
+  reference was not followed (the line of their `uses:`), all also inside nested workflows and actions, at the line
+  of the file they come from. Not the triggers, and not the area of a subgraph: a click there zooms as before.
+- **A file of the repository** (the workflow itself, a local reusable workflow, an `action.yml`) opens in its tab, or
+  a new one, with the caret at the start of the line, scrolled into view. A workflow whose preview shows alone shows
+  its source beside it. Paths stay within the repository's root.
+- **A remote file** opens in the browser on the page of the file at the commit it was read at, at the line
+  (`https://<host>/<owner>/<repo>/blob/<commit>/<path>#L<line>`, by https on the host it was read from, also when
+  fetched over ssh). Boxes of a remote file whose page is not known are not clickable.
+- In `github-actions`, `WorkflowGraph.locations` maps the Mermaid ids to `SourceLocation`s; the page lists the
+  clickable ids in `data-node-links`, `preview.js` marks the drawn elements and hands a click to
+  `WorkflowPreview.openNode`, which opens it through `FileViewHost.openFile(file, line)` or `openWebPage`.

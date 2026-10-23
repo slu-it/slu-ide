@@ -59,7 +59,8 @@
   left/right keeps the selection unless the selected tab was closed, then the clicked tab is selected. Tabs that show
   a file on disk have Show History at the end while the window offers it (`EditorArea.showHistory`, enabled by
   `canShowHistory`), which opens the file's history in the git log area ([file-history.md](file-history.md)).
-- Every file view gets the editor area as its `FileViewHost`: `openFile` opens a file like the explorer does,
+- Every file view gets the editor area as its `FileViewHost` (`ViewHost`): `openFile` opens a file like the explorer
+  does, `openFile(file, line)` then lets its view go to the line (`FileView.showLine`, as Go to Line moves the caret),
   `openWebPage` calls `EditorArea.openWebPage`, which the main window sets to the system browser
   (`HostServices.showDocument`, through the `SystemBrowser` bean), and `projectFolder` is the window's project folder
   (`EditorArea.projectFolder`, set by the main window), whose files HTML previews may use. `windowService(type)`

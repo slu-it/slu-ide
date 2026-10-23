@@ -48,6 +48,8 @@ Images, SVG files, Mermaid files and Bicep resource graphs zoom; Markdown and no
   opens fitted.
 - A **click** (on an image's page anywhere, on a diagram's page on the diagram) goes from fitted to 100% (at the
   pointer) and from any other scale back to fit; the pointer is a magnifier with + while fitted, with − otherwise.
+  A box of a diagram that links to its source (the workflow graph's, `data-node-links`) opens it instead of zooming
+  ([github-actions-graph.md](github-actions-graph.md#going-to-the-source)).
 - The zoom (fitted or the scale) is kept when the file is saved, changes on disk or the theme changes.
 - A zoomed image or diagram scrolls to every edge.
 

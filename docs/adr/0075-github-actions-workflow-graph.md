@@ -1,6 +1,7 @@
 # 0075. GitHub Actions workflow graph
 
-- Status: accepted; amended by [0076](0076-cache-of-remote-action-sources.md) (remote `uses:` are followed)
+- Status: accepted; amended by [0076](0076-cache-of-remote-action-sources.md) (remote `uses:` are followed) and
+  [0077](0077-graph-nodes-open-their-source.md) (boxes open their source)
 - Date: 2026-10-22
 
 ## Context
