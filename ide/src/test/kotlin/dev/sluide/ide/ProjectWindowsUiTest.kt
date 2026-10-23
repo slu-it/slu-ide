@@ -15,6 +15,7 @@ import dev.sluide.git.GitRebases
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitStatusService
 import dev.sluide.git.GitTrustCheck
+import dev.sluide.git.RemoteSourceCache
 import dev.sluide.git.cli.GitCli
 import dev.sluide.gitlog.GitLogView
 import dev.sluide.httpclient.HttpClientSession
@@ -117,6 +118,10 @@ class ProjectWindowsUiTest {
                 register(GitRebases::class.java)
                 register(GitRemotes::class.java)
                 register(GitPush::class.java)
+                registerBean(
+                    RemoteSourceCache::class.java,
+                    Supplier { RemoteSourceCache(getBean(GitCli::class.java), dir.resolve("cache/git")) },
+                )
                 val fallback = DefaultTextFileViewer()
                 registerBean(FileViewers::class.java, Supplier { FileViewers(listOf(fallback), fallback) })
                 // The window-scoped beans, as in the application.

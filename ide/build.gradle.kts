@@ -37,6 +37,9 @@ dependencies {
     implementation(project(":modules:background-tasks"))
     // The shared scratch files in every window's explorer and editor (ADR 0066).
     implementation(project(":modules:scratches"))
+    // Deliberate module dependency: `ide` implements the workflow graph's `RemoteSources` over the git module's remote
+    // source cache and registers it as a window service (ADR 0076).
+    implementation(project(":modules:github-actions"))
 
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)

@@ -15,6 +15,7 @@ import dev.sluide.git.GitRebases
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitStatusService
 import dev.sluide.git.GitTrustCheck
+import dev.sluide.git.RemoteSourceCache
 import dev.sluide.git.cli.GitCli
 import dev.sluide.gitlog.GitLogView
 import dev.sluide.httpclient.HttpClientSession
@@ -94,6 +95,9 @@ abstract class MainWindowUiFixture {
 
     /** The shared scratch files, in the test's home folder, never in `~/.sluide`; created when a folder opens. */
     internal val scratchFiles by lazy { ScratchFiles(home.resolve(".sluide/scratches")) }
+
+    /** The cache of remote repositories, in the test's home folder, never in `~/.sluide`; nothing fetches in these tests. */
+    internal val remoteSourceCache by lazy { RemoteSourceCache(git, home.resolve(".sluide/cache/git")) }
 
     /** The remembered projects, kept in the test's settings folder, never in `~/.sluide`. */
     internal val recentProjects by lazy { RecentProjects(settingsDir.resolve("projects.properties")) }
@@ -209,6 +213,8 @@ abstract class MainWindowUiFixture {
             tasks,
             scratchFiles,
             SystemBrowser(),
+            remoteSourceCache,
+            GitRemotes(git),
         )
     }
 

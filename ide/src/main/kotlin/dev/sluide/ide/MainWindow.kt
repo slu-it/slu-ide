@@ -8,7 +8,11 @@ import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileexplorer.FolderAction
 import dev.sluide.fileexplorer.FolderActionResult
 import dev.sluide.fileviewers.FileViewers
+import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitStatusService
+import dev.sluide.git.GitTrustCheck
+import dev.sluide.git.RemoteSourceCache
+import dev.sluide.githubactions.RemoteSources
 import dev.sluide.gitlog.GitLogView
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpClientSetup
@@ -16,6 +20,8 @@ import dev.sluide.ide.git.WindowGitLog
 import dev.sluide.ide.git.markers
 import dev.sluide.ide.git.textDiff
 import dev.sluide.ide.git.wouldCommit
+import dev.sluide.ide.github.RemoteCache
+import dev.sluide.ide.github.WindowWorkflowSources
 import dev.sluide.ide.logging.currentLogFolder
 import dev.sluide.ide.scratches.WindowScratches
 import dev.sluide.ide.tools.WindowTools
@@ -71,6 +77,8 @@ class MainWindow(
     private val backgroundTasks: BackgroundTasks,
     scratchFiles: ScratchFiles,
     systemBrowser: SystemBrowser,
+    remoteSourceCache: RemoteSourceCache,
+    gitRemotes: GitRemotes,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
     internal var openWebPage: (URI) -> Unit = systemBrowser::open
@@ -116,6 +124,19 @@ class MainWindow(
 
     /** The git log below the editor area, the Git menu and their wiring (ADRs 0035, 0053). */
     private val gitLog = WindowGitLog(gitLogView, gitStatus, projectTrust, editorArea, fileExplorer, fileViewers)
+
+    /**
+     * The remote files of the workflow graphs (ADR 0076): from the shared cache, the origin's host first if the
+     * folder's trust allows git, which reads the origin's URL. Readers run off the FX thread, so they may wait for the
+     * trust checks of a folder just opened, as a graph restored with the window would otherwise miss its origin.
+     */
+    private val workflowSources =
+        WindowWorkflowSources(
+            RemoteCache.of(remoteSourceCache),
+            folder = { folder },
+            trusted = { projectTrust.awaitAllows(GitTrustCheck.ID) },
+            originUrl = { gitRemotes.url(it) },
+        )
 
     /** The Terminal and Docker Sandbox menus and the tabs they open. */
     internal val tools =
@@ -176,9 +197,10 @@ class MainWindow(
         // An empty scratch file is deleted when its last tab in any window closes (ADR 0066).
         editorArea.onFileClosed = scratches::fileClosed
         // Views of .http files share the window's cookies, tokens and chosen environments (ADR 0026); file views may
-        // register their work as background tasks (ADR 0061).
+        // register their work as background tasks (ADR 0061); workflow graphs read remote references (ADR 0076).
         editorArea.windowServices.register(HttpClientSession::class.java, httpSession)
         editorArea.windowServices.register(BackgroundTasks::class.java, backgroundTasks)
+        editorArea.windowServices.register(RemoteSources::class.java, workflowSources)
         // It warns about private environment files that git would commit.
         httpSession.wouldCommit = { gitStatus.snapshot.get().wouldCommit(it) }
         gitStatus.snapshot.subscribe { snapshot ->
