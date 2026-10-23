@@ -33,6 +33,21 @@ class GitRemotes(
     ): List<String>? = git.remoteNames(root, cancellation = cancellation)
 
     /**
+     * The URL configured for [remote] in the repository at [root] (`remote.<name>.url`, the first of several, as git
+     * fetches from it; not rewritten by `url.<base>.insteadOf`); `null` if it is not set, the name cannot be passed to
+     * git ([refusal]) or git fails. A read like the others here: callers run it only in folders the user trusts
+     * (ADR 0053). The URL may hold credentials (`https://user:token@host/…`): never log or show it, take only what is
+     * needed (its scheme and host).
+     */
+    fun url(
+        root: Path,
+        remote: String = "origin",
+    ): String? {
+        if (refusal(remote) != null) return null
+        return git.configValues(root, "remote.$remote.url")?.firstOrNull()
+    }
+
+    /**
      * The remotes of the repository at [root] that fetching all of them fetches, in git's order: all but those with
      * `remote.<name>.skipFetchAll`, as `git fetch --all`; `null` if git fails.
      */

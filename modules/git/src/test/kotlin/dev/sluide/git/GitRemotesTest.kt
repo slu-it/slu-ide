@@ -299,6 +299,17 @@ class GitRemotesTest {
     }
 
     @Test
+    fun `tells the URL of a remote`() {
+        assertEquals(upstream.toString(), remotes.url(repo))
+        git("remote", "add", "other", "https://example.com/other.git")
+        assertEquals("https://example.com/other.git", remotes.url(repo, "other"))
+        assertEquals(null, remotes.url(repo, "missing"))
+        assertEquals(null, remotes.url(repo, "-x"))
+        git("remote", "remove", "origin")
+        assertEquals(null, remotes.url(repo))
+    }
+
+    @Test
     fun `tells whether ssh is configured`() {
         assertEquals(false, git.sshConfigured(repo))
         git("config", "ssh.variant", "simple")
