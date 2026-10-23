@@ -27,6 +27,11 @@ internal data class BranchActions(
     val workingTreeDiff: GitRef? = null,
     /** Rebases the current branch onto the one selected branch or remote branch (ADR 0063); not onto `HEAD`'s commit. */
     val rebase: RebaseBranch? = null,
+    /**
+     * The selected remote branches with their remotes, to delete there (ADR 0078), if that is all the selection holds
+     * and the remote of each is known; never `<remote>/HEAD` or a protected branch ([isProtectedBranch]).
+     */
+    val deleteRemote: List<RemoteBranch> = emptyList(),
 )
 
 /** The text of the rebase item: for [current] onto [target] (short names), or generic if either is not known. */
@@ -38,7 +43,8 @@ internal fun rebaseText(
 /**
  * The [BranchActions] for the [selected] nodes of the branches pane; [currentBranch] is the checked-out branch's full
  * refname, whose remote branch of the same name is not checked out either (it would check out the current branch).
- * What is fetched is the one of the [remotes] (all names, `git remote`) that the selected node is in or is.
+ * What is fetched is the one of the [remotes] (all names, `git remote`) that the selected node is in or is; a remote
+ * branch is deleted on the one it is in.
  */
 internal fun branchActions(
     selected: List<BranchNode>,
@@ -80,6 +86,14 @@ internal fun branchActions(
                     !node.current &&
                     (node.ref.kind == GitRefKind.LOCAL_BRANCH || node.ref.kind == GitRefKind.TAG)
             }
+    val remoteBranches =
+        selected.map { node ->
+            (node as? BranchLeaf)
+                ?.takeIf { it.ref.kind == GitRefKind.REMOTE_BRANCH }
+                ?.let { leaf -> remoteOf(leaf, remotes)?.let { RemoteBranch(it, leaf.ref) } }
+                ?.takeIf { it.ref.shortName != "${it.remote}/HEAD" && !isProtectedBranch(it.nameOnRemote) }
+        }
+    val deleteRemote = if (remoteBranches.all { it != null }) remoteBranches.filterNotNull() else emptyList()
     val fetch = selected.singleOrNull()?.let { remoteOf(it, remotes) }
     val current = currentBranch?.removePrefix("refs/heads/")
     val rebase =
@@ -100,6 +114,7 @@ internal fun branchActions(
         compare = ref?.takeIf { single?.current == false && it.kind != GitRefKind.HEAD },
         workingTreeDiff = ref,
         rebase = rebase,
+        deleteRemote = deleteRemote,
     )
 }
 

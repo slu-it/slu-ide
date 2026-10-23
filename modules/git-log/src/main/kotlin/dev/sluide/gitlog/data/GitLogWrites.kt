@@ -15,6 +15,8 @@ import dev.sluide.git.GitPush
 import dev.sluide.git.GitPushResult
 import dev.sluide.git.GitRebaseResult
 import dev.sluide.git.GitRebases
+import dev.sluide.git.GitRemoteDeletion
+import dev.sluide.git.GitRemoteDeletionResult
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitResetMode
 import dev.sluide.git.GitResult
@@ -22,8 +24,9 @@ import dev.sluide.git.GitUncheckedConflict
 import java.nio.file.Path
 
 /**
- * How the git log changes a repository (ADRs 0041, 0042, 0043, 0049, 0063); [GitBranches], [GitCommits], [GitRebases],
- * [GitRemotes] and [GitPush] in the application, a fake in tests. Called off the FX thread, except [canPass].
+ * How the git log changes a repository (ADRs 0041, 0042, 0043, 0049, 0063, 0078); [GitBranches], [GitCommits],
+ * [GitRebases], [GitRemotes] and [GitPush] in the application, a fake in tests. Called off the FX thread, except
+ * [canPass].
  */
 internal interface GitLogWrites {
     /** Whether [argument] can be passed to git unchanged in the JVM's locale. */
@@ -244,6 +247,24 @@ internal interface GitLogWrites {
         setUpstream: Boolean,
         cancellation: GitCancellation,
     ): GitPushResult
+
+    /**
+     * The branch of [remote] (`refs/heads/…`) that the remote-tracking ref [trackingRef] (full refname) keeps, as the
+     * fetch refspecs map it (ADR 0078); `null` if none does or git fails.
+     */
+    fun remoteBranch(
+        root: Path,
+        remote: String,
+        trackingRef: String,
+    ): String?
+
+    /** Deletes the [refs] on [remote] in one push, branches with their lease (ADR 0078); [cancellation] stops git. */
+    fun deleteRemoteRefs(
+        root: Path,
+        remote: String,
+        refs: List<GitRemoteDeletion>,
+        cancellation: GitCancellation,
+    ): GitRemoteDeletionResult
 }
 
 /** Changes the repository with the git command line. */
@@ -422,4 +443,17 @@ internal class GitLogCliWrites(
         setUpstream: Boolean,
         cancellation: GitCancellation,
     ) = gitPush.push(root, remote, branch, target, force, expected, setUpstream, cancellation)
+
+    override fun remoteBranch(
+        root: Path,
+        remote: String,
+        trackingRef: String,
+    ) = gitPush.remoteBranch(root, remote, trackingRef)
+
+    override fun deleteRemoteRefs(
+        root: Path,
+        remote: String,
+        refs: List<GitRemoteDeletion>,
+        cancellation: GitCancellation,
+    ) = gitPush.deleteRemoteRefs(root, remote, refs, cancellation)
 }

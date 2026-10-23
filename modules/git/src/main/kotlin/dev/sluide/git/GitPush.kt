@@ -19,11 +19,14 @@ import dev.sluide.git.parse.refspecDestinations
 import org.springframework.stereotype.Component
 import java.nio.file.Path
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.nanoseconds
+import kotlin.time.Duration.Companion.seconds
 
 /**
- * Pushes a branch and tells what a push would send (ADR 0049) with the git command line. A push runs as a fetch does
- * (ADR 0043): git never asks for anything ([fetchEnvironment]), it stops after 10 minutes or on a cancel, and names
- * that cannot be passed to git ([refusal]) fail without running it. Runs git on the calling thread.
+ * Pushes a branch, tells what a push would send (ADR 0049) and deletes refs on a remote (ADR 0078) with the git
+ * command line. A push runs as a fetch does (ADR 0043): git never asks for anything ([fetchEnvironment]), it stops
+ * after 10 minutes or on a cancel, and names that cannot be passed to git ([refusal]) fail without running it. Runs git
+ * on the calling thread.
  */
 @Component
 class GitPush(
@@ -98,6 +101,25 @@ class GitPush(
         val source = HEADS + branch
         val refspecs = git.configValues(root, "remote.$remote.fetch", cancellation = cancellation).orEmpty()
         return refspecs.firstNotNullOfOrNull { mapped(it, source) } ?: "refs/remotes/$remote/$branch"
+    }
+
+    /**
+     * The branch of [remote] (`refs/heads/<branch>`) that git keeps in the remote-tracking ref [trackingRef] (a full
+     * refname such as `refs/remotes/origin/fix`), the inverse of [trackingRef]: the first of `remote.<remote>.fetch`
+     * that maps a branch there (ADR 0078). `null` if none does (also for a remote without fetch refspecs: nothing says
+     * where the ref came from), the remote cannot be passed to git ([refusal]) or git fails.
+     */
+    fun remoteBranch(
+        root: Path,
+        remote: String,
+        trackingRef: String,
+        cancellation: GitCancellation? = null,
+    ): String? {
+        if (refusal(remote) != null) return null
+        val refspecs = git.configValues(root, "remote.$remote.fetch", cancellation = cancellation) ?: return null
+        return refspecs
+            .firstNotNullOfOrNull { refspec -> reversed(refspec)?.let { mapped(it, trackingRef) } }
+            ?.takeIf { it.startsWith(HEADS) && it.length > HEADS.length }
     }
 
     /**
@@ -276,6 +298,138 @@ class GitPush(
         return GitPushResult(result, rejection = rejection)
     }
 
+    /**
+     * Deletes the [refs] on [remote] in one push (ADR 0078): `git push --porcelain --recurse-submodules=no
+     * [--force-with-lease=<ref>:<expected>…] --end-of-options <remote> :<ref>…`, with the environment and the limits of
+     * [push]: git never asks, it stops after the [timeout] or on a [cancellation], and names that cannot be passed to
+     * git ([refusal]), refs not below `refs/` and an expected value that is no full hash fail without running it. A
+     * branch is deleted only if the remote has it at its [GitRemoteDeletion.expected] commit (the lease); a tag has no
+     * lease, and one the remote does not have counts as deleted, as git reports it. The refs are deleted one by one, so
+     * some may be and others not: the result tells for each ref what became of it, read from git's report. Git reports
+     * a failed lease alike for a branch that moved and one that is gone; only for those `git ls-remote` asks the push
+     * URL of the remote which it is (with the same environment and cancellation, in the time left of the [timeout], which
+     * covers both), and if that fails, it stays open.
+     */
+    fun deleteRemoteRefs(
+        root: Path,
+        remote: String,
+        refs: List<GitRemoteDeletion>,
+        cancellation: GitCancellation,
+        timeout: Duration = GitCli.FETCH_TIMEOUT,
+    ): GitRemoteDeletionResult {
+        require(refs.isNotEmpty()) { "nothing to delete" }
+        val names = listOf(remote) + refs.map { it.ref } + refs.mapNotNull { it.expected }
+        names.firstNotNullOfOrNull { refusal(it) }?.let { return GitRemoteDeletionResult(GitResult(false, it)) }
+        refs.firstOrNull { !it.ref.startsWith("refs/") }?.let {
+            return GitRemoteDeletionResult(GitResult(false, "'${it.ref}' is no full ref name."))
+        }
+        refs.firstOrNull { it.expected != null && !FULL_HASH.matches(it.expected) }?.let {
+            return GitRemoteDeletionResult(GitResult(false, "'${it.expected}' is not a full commit hash."))
+        }
+        if (cancellation.cancelled) return GitRemoteDeletionResult(GitResult(false, GitCli.CANCELLED), cancelled = true)
+        val started = System.nanoTime()
+        val arguments =
+            buildList {
+                addAll(listOf("push", "--porcelain", "--recurse-submodules=no"))
+                refs.forEach { ref -> ref.expected?.let { add("--force-with-lease=${ref.ref}:$it") } }
+                addAll(listOf("--end-of-options", remote))
+                refs.forEach { add(":${it.ref}") }
+            }
+        val environment = fetchEnvironment(git.environment, git.sshConfigured(root) == true)
+        val written =
+            git.writeWithOutput(
+                root,
+                arguments,
+                timeout = timeout,
+                environment = environment,
+                cancellation = cancellation,
+            )
+        if (written.exitValue == null && cancellation.cancelled) {
+            return GitRemoteDeletionResult(GitResult(false, GitCli.CANCELLED), cancelled = true)
+        }
+        val outcomes = LinkedHashMap<String, GitRemoteRefResult>()
+        for (ref in refs) {
+            val status = deletionStatus(written.output, ref.ref) ?: continue
+            outcomes[ref.ref] =
+                when {
+                    status.flag == '-' -> {
+                        GitRemoteRefResult(GitRemoteDeletionOutcome.DELETED)
+                    }
+
+                    status.flag == '!' && rejection(status.summary) == GitPushRejection.STALE -> {
+                        GitRemoteRefResult(GitRemoteDeletionOutcome.STALE, status.summary)
+                    }
+
+                    else -> {
+                        GitRemoteRefResult(GitRemoteDeletionOutcome.REJECTED, status.summary)
+                    }
+                }
+        }
+        val stale = outcomes.filterValues { it.outcome == GitRemoteDeletionOutcome.STALE }.keys
+        if (stale.isNotEmpty()) {
+            // Within the one timeout of the whole deletion.
+            val left = timeout - (System.nanoTime() - started).nanoseconds
+            val existing = remoteRefs(root, remote, stale.toList(), environment, cancellation, left)
+            for (ref in stale) {
+                val outcome =
+                    when {
+                        existing == null -> GitRemoteDeletionOutcome.STALE_OR_MISSING
+                        ref in existing -> GitRemoteDeletionOutcome.STALE
+                        else -> GitRemoteDeletionOutcome.MISSING
+                    }
+                outcomes[ref] = outcomes.getValue(ref).copy(outcome = outcome)
+            }
+        }
+        if (written.result.success) return GitRemoteDeletionResult(GitResult(true, written.errors), outcomes = outcomes)
+        // Stopped while it waited for the server's answer, it may have deleted all the same, as a cancel may.
+        val unknown = if (written.timedOut) "\nIt may have reached $remote. Fetch to check." else ""
+        val result = written.result.copy(message = written.result.message + unknown)
+        return GitRemoteDeletionResult(result, outcomes = outcomes)
+    }
+
+    /**
+     * Which of the [refs] (full refnames) [remote] has, as `git ls-remote --end-of-options <url> <ref>…` lists them at
+     * the URL a push of [remote] goes to (`git remote get-url --push`, which may differ from the one fetched from),
+     * within the [timeout] left; `null` if that URL cannot be read or passed to git ([refusal]), or `ls-remote` fails,
+     * is cancelled or times out.
+     */
+    private fun remoteRefs(
+        root: Path,
+        remote: String,
+        refs: List<String>,
+        environment: Map<String, String>,
+        cancellation: GitCancellation,
+        timeout: Duration,
+    ): Set<String>? {
+        if (!timeout.isPositive()) return null
+        val url =
+            git
+                .run(
+                    listOf("remote", "get-url", "--push", "--end-of-options", remote),
+                    root,
+                    minOf(timeout, URL_TIMEOUT),
+                    cancellation,
+                )?.lineSequence()
+                ?.firstOrNull()
+                ?.trim()
+                ?.takeIf { refusal(it) == null }
+                ?: return null
+        val listed =
+            git.writeWithOutput(
+                root,
+                listOf("ls-remote", "--end-of-options", url) + refs,
+                timeout = timeout,
+                environment = environment,
+                cancellation = cancellation,
+            )
+        if (!listed.result.success) return null
+        // Patterns match the end of a name: only the exact names count.
+        return listed.output
+            .lineSequence()
+            .mapNotNull { line -> line.split('\t', limit = 2).getOrNull(1) }
+            .filterTo(HashSet()) { it in refs }
+    }
+
     /** A status line of `git push --porcelain`: `<flag> TAB <from>:<to> TAB <summary>`. */
     private class Status(
         val flag: Char,
@@ -286,6 +440,9 @@ class GitPush(
         const val HEADS = "refs/heads/"
 
         val FULL_HASH = Regex("[0-9a-f]{40}|[0-9a-f]{64}")
+
+        /** How long reading the push URL of a remote may take; a read of the configuration. */
+        val URL_TIMEOUT = 3.seconds
 
         /** The values of `push.default` that push to the upstream branch; `tracking` is its old name. */
         val UPSTREAM_MODES = setOf("upstream", "tracking")
@@ -313,6 +470,22 @@ class GitPush(
             if (!source.startsWith(prefix) || !source.endsWith(suffix)) return null
             return to.replace("*", source.substring(prefix.length, source.length - suffix.length))
         }
+
+        /** [refspec] with source and destination swapped, to map back ([remoteBranch]); `null` for a negative one. */
+        fun reversed(refspec: String): String? {
+            val spec = refspec.trim().removePrefix("+")
+            if (spec.startsWith('^') || ':' !in spec) return null
+            return spec.substringAfter(':') + ":" + spec.substringBefore(':')
+        }
+
+        /**
+         * The status line of deleting [ref] in the porcelain [output]: `:<ref>`, or `(delete):<ref>` when git refused it
+         * itself (a failed lease).
+         */
+        fun deletionStatus(
+            output: String,
+            ref: String,
+        ): Status? = status(output, ":$ref") ?: status(output, "(delete):$ref")
 
         /** The status line of the refspec [refs] (`refs/heads/a:refs/heads/b`) in the porcelain [output]. */
         fun status(

@@ -236,18 +236,20 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
   - **Branches pane:** its context menu has, after Copy Name and a separator, Compare with Current and Show Diff with
     Working Tree (below), and after another separator Checkout, "New Branch from '<name>'…"
     (from any one branch, tag or `HEAD`), Rename… (local branches, also the current one; also F2) and Delete (local
-    branches and tags, several at once; also Delete, or Shortcut+Backspace as in the explorer). Checkout is disabled
-    for `HEAD`, the current branch, a remote branch whose local branch of the same name is the current one, folders,
-    groups and several; Delete as soon as the selection holds the current branch, a remote branch, `HEAD`, a folder or
-    a group. A local branch is checked out, a tag detached; a remote branch `origin/fix` checks out the local branch
-    `fix` if there is one and it is at or ahead of `origin/fix` ("Checked out local branch fix."). If `fix` is behind,
-    has diverged or cannot be compared with `origin/fix`, "Overwrite Branch" asks whether to overwrite it with
-    `origin/fix` (Overwrite or Cancel, the default; "Overwrote fix with origin/fix and checked it out."; with git's
-    default settings `fix` then tracks `origin/fix`); the log's branch submenus behave the same, as they
-    share the item. Without a local branch it creates `fix` tracking it and checks it out
-    ("Checked out new branch fix tracking origin/fix."). There are no further keys. A checkout never overwrites an
-    ignored file the other commit tracks (a local `.env`): git refuses as for untracked files ("The following untracked
-    working tree files would be overwritten by checkout: .env"), shown in the error dialog.
+    branches and tags, or remote branches, several at once; also Delete, or Shortcut+Backspace as in the explorer).
+    Checkout is disabled for `HEAD`, the current branch, a remote branch whose local branch of the same name is the
+    current one, folders, groups and several; Delete as soon as the selection holds the current branch, `HEAD`,
+    `<remote>/HEAD`, a protected remote branch (`main`, `master`, as for Force Push), a folder, a group, a remote branch
+    of a remote that is not configured, or remote branches together with local branches or tags. A local branch is
+    checked out, a tag detached; a remote branch `origin/fix` checks out the local branch `fix` if there is one and it
+    is at or ahead of `origin/fix` ("Checked out local branch fix."). If `fix` is behind, has diverged or cannot be
+    compared with `origin/fix`, "Overwrite Branch" asks whether to overwrite it with `origin/fix` (Overwrite or Cancel,
+    the default; "Overwrote fix with origin/fix and checked it out."; with git's default settings `fix` then tracks
+    `origin/fix`); the log's branch submenus behave the same, as they share the item. Without a local branch it creates
+    `fix` tracking it and checks it out ("Checked out new branch fix tracking origin/fix."). There are no further keys.
+    A checkout never overwrites an ignored file the other commit tracks (a local `.env`): git refuses as for untracked
+    files ("The following untracked working tree files would be overwritten by checkout: .env"), shown in the error
+    dialog.
   - **Rebase** ([ADR 0063](../adr/0063-git-log-rebase.md)): the branches pane's context menu has, after Checkout,
     "Rebase 'feature' onto 'main'" (the current branch onto the one selected local or remote branch, e.g.
     'origin/main'; "Rebase Current Branch onto…" without a current branch or a single such branch). It is enabled for
@@ -266,8 +268,9 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
     submenu per local or remote branch at that commit (named "feature", "origin/main"; not `HEAD` or tags), then a
     separator. A submenu has the items of the branches pane for that branch, with the same texts and enabling:
     Filter Log by Branch, Copy Name, Compare with Current, Show Diff with Working Tree, Checkout, Rebase …, New Branch
-    from '…'…, Rename…, Delete (and Fetch for a remote branch). It is built when the menu opens, so it follows the
-    state at that moment (nothing that writes while an operation runs, no rebase while one is in progress).
+    from '…'…, Rename…, Delete (a remote branch on its remote, below), and Fetch for a remote branch. It is built
+    when the menu opens, so it follows the state at that moment (nothing that writes while an operation runs, no
+    rebase while one is in progress).
   - **Leaving a detached HEAD:** a checkout (also of a revision from the log, or a new branch with Checkout) that would
     leave commits of a detached `HEAD` on no branch, remote branch or tag asks first: "2 commits of the detached HEAD
     will no longer be on any branch or tag; they stay reachable through the reflog for a while." and below it "To
@@ -293,14 +296,31 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
   - **Delete** always asks first ("Delete branch 'x'?", "Delete 2 branches and 1 tag?", listing "branch x" and "tag
     v1" in an area that scrolls; Cancel is the default). Branches git does not delete with `-d` (not fully merged)
     are offered again with git's message and "Force Delete".
+  - **Remote branches and tags on remotes** ([ADR 0078](../adr/0078-deleting-remote-branches-and-tags.md)): Delete of
+    remote branches asks "Delete remote branch 'origin/fix'?" / "Delete 3 remote branches?" (listing "remote branch
+    origin/fix"; Cancel the default) and deletes them on their remotes, one push per remote, only if the remote still
+    has them where the last fetch saw them (`--force-with-lease`). The local branch `fix` stays. Protected branches
+    (`main`, `master`, in any case, as for Force Push) are never deleted: Delete is disabled for them, and should the
+    branch the fetch refspecs map be one, nothing is deleted ("Deleting origin/main is not allowed (protected
+    branch)."). The header says "Deleted remote branch origin/fix." / "Deleted 3 remote branches.", "origin/fix changed
+    since your last fetch. Fetch and check it before deleting." or "origin/fix no longer exists on origin. Fetch to
+    update."; refusals of the remote (a protected branch) open "Delete Failed", which lists every branch not deleted
+    with the reason. It can be cancelled like a push: "Delete cancelled; it may have reached origin. Fetch to check."
+    for the remote whose push was stopped, "Delete cancelled." when the remotes after it were skipped. With tags in the
+    selection, the delete confirmation has an unchecked "Also delete the tag on <remote>" ("the tags" for several) per
+    remote; the checked remotes delete the tags first, and if that fails or is cancelled nothing is deleted locally
+    ("Deleted on origin before that: v1." in the error dialog). A tag the remote does not have counts as deleted.
   - **Running:** one operation at a time, in the background; meanwhile all these actions are disabled and the header
     says "Checking out main…", "Creating branch x…" and so on, then "Checked out main.", "Created branch x.", "Created
     and checked out branch x.", "Created tag v1.", "Renamed branch a to b.", "Deleted branch x." or "Deleted 3 refs."
-    until the next operation (another message of the log shows instead while there is one). Afterwards, also after a
-    failure, the log reloads once, after the folder's trust check ran again; while the operation runs, refreshes for
-    changes of `.git` wait (for a checkout, cherry-pick, revert, hard reset or commit also the explorer's markers), and
-    one refresh at its end covers them ([ADR 0062](../adr/0062-git-concurrency.md)). After a checkout the window title,
-    the explorer's markers and the open files follow by themselves. Closing the window lets a running operation finish.
+    (with tags deleted on remotes: "Deleted tag v1. Also deleted on origin.", "Deleted 3 refs, the tags also on origin
+    and upstream.", or "Deleted tag v1 on origin." when the local deletion failed; for remote branches "Deleted remote
+    branch origin/fix." or "Deleted 3 remote branches.") until the next operation (another message of the log shows
+    instead while there is one). Afterwards, also after a failure, the log reloads once, after the folder's trust check
+    ran again; while the operation runs, refreshes for changes of `.git` wait (for a checkout, cherry-pick, revert, hard
+    reset or commit also the explorer's markers), and one refresh at its end covers them
+    ([ADR 0062](../adr/0062-git-concurrency.md)). After a checkout the window title, the explorer's markers and the open
+    files follow by themselves. Closing the window lets a running operation finish.
   - **Failures** show an error dialog titled after the operation ("Checkout Failed", …) with git's own message,
     without its `hint:` lines, in a selectable monospace area that wraps long lines, e.g. that local changes would be
     overwritten by the checkout; nothing is stashed. A checkout, cherry-pick, revert, reset, abort or continue may
@@ -446,7 +466,7 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
 - Not yet implemented (next packages): a flat list of the changed files, their combined changes for several commits, comparing two branches or commits with each other (and the
   files since their merge base), the changes against each parent of a merge, a diff preview in the log, a date filter, dotted
   edges through commits hidden by filters, tracking information in the branches pane, remembering the area's height
-  and state, and more operations: updating local branches after a fetch, pull, merge, deleting remote branches, pushing tags; for
+  and state, and more operations: updating local branches after a fetch, pull, merge, pushing tags; for
   cherry-pick and revert several commits at once, a merge tool or three-way view, `-x` and edited messages; `reset
   --keep`; rebasing with `--onto`, interactively, a branch other than the current one, or onto a tag or commit;
   continuing or aborting merges and sequences from the bar.

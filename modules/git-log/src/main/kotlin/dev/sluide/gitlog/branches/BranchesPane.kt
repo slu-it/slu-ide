@@ -56,9 +56,9 @@ import org.kordamp.ikonli.materialdesign2.MaterialDesignT
  * hands it to [navigate] (`null` for any other selection); a double-click, Enter or Filter Log by Branch hands the
  * full refnames of the selected branches to [filter]. Collapsed nodes (Tags at first) and the selection stay when the
  * refs are [shown][show] again. Its context menu also checks out, creates, renames and deletes branches and tags
- * through its [commands] ([menuActions], ADR 0041), fetches a remote (ADR 0043) and rebases the current branch onto
- * another (ADR 0063; not while [writing] or [busy]); it compares a ref with `HEAD` and with the working tree
- * (ADR 0044), also while [writing].
+ * through its [commands] ([menuActions], ADR 0041; remote branches on their remotes, ADR 0078), fetches a remote
+ * (ADR 0043) and rebases the current branch onto another (ADR 0063; not while [writing] or [busy]); it compares a ref
+ * with `HEAD` and with the working tree (ADR 0044), also while [writing].
  */
 internal class BranchesPane : BorderPane() {
     /** Shows the commit of the one selected branch; `null` when not exactly one branch is selected. */
@@ -422,11 +422,7 @@ internal class BranchesPane : BorderPane() {
         return true
     }
 
-    private fun deleteSelected(): Boolean {
-        val refs = actions().delete.ifEmpty { return false }
-        commands.delete(refs)
-        return true
-    }
+    private fun deleteSelected(): Boolean = deleteWith(actions(), commands)
 
     private fun updateActions() {
         val count = selectedBranches.size
@@ -442,7 +438,7 @@ internal class BranchesPane : BorderPane() {
         rebaseItem.isDisable = actions.rebase == null
         newBranchItem.isDisable = actions.newBranchFrom == null
         renameItem.isDisable = actions.rename == null
-        deleteItem.isDisable = actions.delete.isEmpty()
+        deleteItem.isDisable = actions.delete.isEmpty() && actions.deleteRemote.isEmpty()
         fetchItem.isDisable = actions.fetch == null
         compareItem.isDisable = actions.compare == null
         workingTreeItem.isDisable = actions.workingTreeDiff == null

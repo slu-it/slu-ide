@@ -149,8 +149,9 @@ POSIX locale cannot pass non-ASCII arguments ([ADR 0038](0038-changed-files-and-
 - Overwriting a branch can leave commits reachable only through the reflog; the confirmation says so, and the reflog
   is where they can be found again.
 - A checkout may keep the header saying "Checking out…" for up to 10 minutes, and no other operation starts meanwhile.
-- Deferred: deleting remote branches and anything else that needs the network (fetch, pull, push), cherry-pick,
-  revert, reset, merge, rebase, stashes, and pushing tags.
+- Deferred: deleting remote branches (done in [ADR 0078](0078-deleting-remote-branches-and-tags.md), with tags on
+  remotes) and anything else that needs the network (fetch, pull, push), cherry-pick, revert, reset, merge, rebase,
+  stashes, and pushing tags.
 
 Note 2026-10-19: every operation tells its start and its end (also a failed or thrown one) to the window's git status,
 which holds its refreshes meanwhile (also of the explorer's markers for an operation that changes or commits files) and

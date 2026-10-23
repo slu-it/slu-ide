@@ -18,6 +18,7 @@ import dev.sluide.gitlog.operations.CreateBranch
 import dev.sluide.gitlog.operations.CreateTag
 import dev.sluide.gitlog.operations.DELETE_BUTTON
 import dev.sluide.gitlog.operations.DeleteRefs
+import dev.sluide.gitlog.operations.DeleteRemoteBranches
 import dev.sluide.gitlog.operations.FORCE_DELETE_BUTTON
 import dev.sluide.gitlog.operations.NewBranchDialog
 import dev.sluide.gitlog.operations.NewTagDialog
@@ -27,6 +28,7 @@ import dev.sluide.gitlog.operations.RefNameKind
 import dev.sluide.gitlog.operations.RefOperation
 import dev.sluide.gitlog.operations.RefOutcome
 import dev.sluide.gitlog.operations.RefWriter
+import dev.sluide.gitlog.operations.RemoteBranch
 import dev.sluide.gitlog.operations.RenameBranch
 import dev.sluide.gitlog.operations.RenameBranchDialog
 import dev.sluide.gitlog.operations.ResetBranch
@@ -34,6 +36,7 @@ import dev.sluide.gitlog.operations.ResetDialog
 import dev.sluide.gitlog.operations.abortButton
 import dev.sluide.gitlog.operations.deleteQuestion
 import dev.sluide.gitlog.operations.deleteRefsConfirmation
+import dev.sluide.gitlog.operations.deleteRemoteQuestion
 import dev.sluide.gitlog.operations.forceDeleteConfirmation
 import dev.sluide.gitlog.operations.forceDeleteQuestion
 import dev.sluide.gitlog.operations.gitErrorDialog
@@ -301,15 +304,28 @@ internal class RefActions(
         start(RenameBranch(old, new))
     }
 
-    /** Asks whether to delete the local branches and tags [refs] and deletes them. */
+    /**
+     * Asks whether to delete the local branches and tags [refs] and deletes them; with tags, also on the remotes the
+     * user checks (ADR 0078), from those the log read last.
+     */
     fun deleteRefs(refs: List<GitRef>) {
         if (writer.running.get()) return
         val branches = refs.filter { it.kind == GitRefKind.LOCAL_BRANCH }.map { it.shortName }
         val tags = refs.filter { it.kind == GitRefKind.TAG }.map { it.shortName }
         val names = branches.map { "branch $it" } + tags.map { "tag $it" }
-        val confirmation = deleteRefsConfirmation(window(), deleteQuestion(branches, tags), names)
-        if (confirmation.showAndWait().orElse(ButtonType.CANCEL) != DELETE_BUTTON) return
-        start(DeleteRefs(branches, tags))
+        val remotes = if (tags.isEmpty()) emptyList() else pages.remotes.orEmpty()
+        val confirmation = deleteRefsConfirmation(window(), deleteQuestion(branches, tags), names, remotes, tags.size)
+        if (confirmation.alert.showAndWait().orElse(ButtonType.CANCEL) != DELETE_BUTTON) return
+        start(DeleteRefs(branches, tags, remotes = confirmation.checkedRemotes))
+    }
+
+    /** Asks whether to delete the remote [branches] on their remotes (ADR 0078) and deletes them. */
+    fun deleteRemoteBranches(branches: List<RemoteBranch>) {
+        if (writer.running.get() || branches.isEmpty()) return
+        val names = branches.map { "remote branch ${it.ref.shortName}" }
+        val confirmation = deleteRefsConfirmation(window(), deleteRemoteQuestion(branches), names)
+        if (confirmation.alert.showAndWait().orElse(ButtonType.CANCEL) != DELETE_BUTTON) return
+        start(DeleteRemoteBranches(branches))
     }
 
     /** Cancels the fetch, commit or push going on, if any (ADR 0043). */

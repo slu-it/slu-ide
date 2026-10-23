@@ -195,27 +195,51 @@ internal fun gitErrorDialog(
         dialogPane.content = messagePane(message)
     }
 
+/** The delete confirmation's [alert] and, by remote, the checkboxes that delete the tags there too (ADR 0078). */
+internal class DeleteConfirmation(
+    val alert: Alert,
+    val remotes: Map<String, CheckBox>,
+) {
+    /** The remotes whose checkbox is checked, in their order. */
+    val checkedRemotes: List<String> get() = remotes.filterValues { it.isSelected }.keys.toList()
+}
+
 /**
  * Asks [question] before deleting refs, listing their [names] ("branch x", "tag v1") one per line in an area that
- * scrolls when they are many; Cancel is the default button and has the focus, so Enter deletes nothing. Not shown yet.
+ * scrolls when they are many; below it, for each of the [remotes], an unchecked checkbox "Also delete the tag on
+ * <remote>" ("the tags" for more than one of the [tags], ADR 0078). Cancel is the default button and has the focus, so
+ * Enter deletes nothing. Not shown yet.
  */
 internal fun deleteRefsConfirmation(
     owner: Window?,
     question: String,
     names: List<String>,
-): Alert =
-    cancelFirst(Alert(Alert.AlertType.CONFIRMATION, null, DELETE_BUTTON, ButtonType.CANCEL), owner).apply {
-        headerText = question
-        val list =
-            TextArea(names.joinToString("\n")).apply {
-                styleClass += "git-delete-names"
-                isEditable = false
-                prefColumnCount = NAME_COLUMNS
-                prefRowCount = names.size.coerceIn(DELETE_ROWS_MIN, DELETE_ROWS_MAX)
+    remotes: List<String> = emptyList(),
+    tags: Int = 0,
+): DeleteConfirmation {
+    val what = if (tags == 1) "the tag" else "the tags"
+    val boxes =
+        remotes.associateWith { remote ->
+            CheckBox("Also delete $what on $remote").apply {
+                styleClass += "git-delete-remote"
+                isMnemonicParsing = false
             }
-        // In a pane of its own: the dialog pane pads its content, which would pad the text inside the area.
-        dialogPane.content = VBox(list)
-    }
+        }
+    val alert =
+        cancelFirst(Alert(Alert.AlertType.CONFIRMATION, null, DELETE_BUTTON, ButtonType.CANCEL), owner).apply {
+            headerText = question
+            val list =
+                TextArea(names.joinToString("\n")).apply {
+                    styleClass += "git-delete-names"
+                    isEditable = false
+                    prefColumnCount = NAME_COLUMNS
+                    prefRowCount = names.size.coerceIn(DELETE_ROWS_MIN, DELETE_ROWS_MAX)
+                }
+            // In a pane of its own: the dialog pane pads its content, which would pad the text inside the area.
+            dialogPane.content = VBox(SPACING, list, *boxes.values.toTypedArray())
+        }
+    return DeleteConfirmation(alert, boxes)
+}
 
 /**
  * Asks the question of [confirmation] before its operation runs, e.g. overwriting a branch that has commits nowhere

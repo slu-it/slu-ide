@@ -52,3 +52,49 @@ data class GitPushResult(
     val upToDate: Boolean = false,
     val created: Boolean = false,
 )
+
+/**
+ * A ref to delete on a remote (ADR 0078): its full name there ([ref]: `refs/heads/fix`, `refs/tags/v1`) and, for a
+ * branch, the commit the remote must have it at ([expected], a full hash: the lease); `null` for a tag.
+ */
+data class GitRemoteDeletion(
+    val ref: String,
+    val expected: String? = null,
+)
+
+/** What became of a ref that a deletion on a remote pushed (ADR 0078). */
+enum class GitRemoteDeletionOutcome {
+    /** The remote deleted it; also a tag it did not have, as git reports it. */
+    DELETED,
+
+    /** The lease failed: the remote has the branch at another commit than expected. */
+    STALE,
+
+    /** The lease failed: the remote no longer has the branch. */
+    MISSING,
+
+    /** The lease failed, and whether the remote still has the branch could not be read. */
+    STALE_OR_MISSING,
+
+    /** The remote refused it for another reason, e.g. a protected or its default branch. */
+    REJECTED,
+}
+
+/** What became of one ref of a deletion: its [outcome] and git's [summary] for a refusal (`[remote rejected] (…)`). */
+data class GitRemoteRefResult(
+    val outcome: GitRemoteDeletionOutcome,
+    val summary: String = "",
+)
+
+/**
+ * What a deletion on a remote gave (ADR 0078): git's [result] (a success only if every ref was deleted; a failure has
+ * git's standard error), whether a cancel stopped the push ([cancelled]; one that stops the `ls-remote` after it only
+ * leaves refs [STALE_OR_MISSING][GitRemoteDeletionOutcome.STALE_OR_MISSING]), and by full refname what became of each
+ * ref git reported on ([outcomes]); a ref git did not report on (it failed before, e.g. the remote could not be reached)
+ * is not in it.
+ */
+data class GitRemoteDeletionResult(
+    val result: GitResult,
+    val cancelled: Boolean = false,
+    val outcomes: Map<String, GitRemoteRefResult> = emptyMap(),
+)

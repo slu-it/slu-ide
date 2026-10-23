@@ -16,6 +16,7 @@ import dev.sluide.gitlog.filter.FilterBar
 import dev.sluide.gitlog.operations.BranchActions
 import dev.sluide.gitlog.operations.Fetch
 import dev.sluide.gitlog.operations.RefOperation
+import dev.sluide.gitlog.operations.RemoteBranch
 import dev.sluide.gitlog.operations.branchActions
 import dev.sluide.gitlog.operations.rebaseText
 import javafx.scene.control.Menu
@@ -40,6 +41,9 @@ internal class BranchCommands {
 
     /** Asks whether to delete the given local branches and tags (Delete). */
     var delete: (List<GitRef>) -> Unit = {}
+
+    /** Asks whether to delete the given remote branches on their remotes (Delete, ADR 0078). */
+    var deleteRemote: (List<RemoteBranch>) -> Unit = {}
 
     /** Fetches the given remote. */
     var fetch: (String) -> Unit = {}
@@ -73,6 +77,7 @@ internal fun branchCommands(
         showWorkingTreeDiff = { ref -> diffs.showWorkingTreeDiff(ref.name, ref.shortName) }
         rename = actions::renameBranch
         delete = actions::deleteRefs
+        deleteRemote = actions::deleteRemoteBranches
         fetch = { remote -> actions.start(Fetch(remote)) }
         rebase = { operation -> actions.start(operation) }
     }
@@ -112,6 +117,22 @@ internal fun menuActions(
             reads
         }
     }
+}
+
+/**
+ * Deletes what [actions] allow with [commands]: the local branches and tags, or the remote branches; `false` if
+ * neither.
+ */
+internal fun deleteWith(
+    actions: BranchActions,
+    commands: BranchCommands,
+): Boolean {
+    when {
+        actions.delete.isNotEmpty() -> commands.delete(actions.delete)
+        actions.deleteRemote.isNotEmpty() -> commands.deleteRemote(actions.deleteRemote)
+        else -> return false
+    }
+    return true
 }
 
 /** The leaf for [ref] as the tree of [refs] has it: [BranchLeaf.current] follows the checked-out branch of [refs]. */
@@ -199,8 +220,8 @@ internal fun branchMenu(
                 actions.newBranchFrom?.let(commands.newBranchFrom)
             },
             item("branch-rename", "Rename…", actions.rename != null) { actions.rename?.let(commands.rename) },
-            item("branch-delete", "Delete", actions.delete.isNotEmpty()) {
-                actions.delete.ifEmpty { null }?.let(commands.delete)
+            item("branch-delete", "Delete", actions.delete.isNotEmpty() || actions.deleteRemote.isNotEmpty()) {
+                deleteWith(actions, commands)
             },
         )
     if (ref.kind == GitRefKind.REMOTE_BRANCH) {

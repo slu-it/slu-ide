@@ -7,10 +7,13 @@ import dev.sluide.git.GitRefs
 import dev.sluide.gitlog.branches.BranchCommands
 import dev.sluide.gitlog.branches.branchMenu
 import dev.sluide.gitlog.operations.CheckoutRemote
+import dev.sluide.gitlog.operations.DELETE_BUTTON
 import dev.sluide.gitlog.operations.RebaseBranch
 import dev.sluide.gitlog.operations.RefOperation
 import javafx.application.Platform
 import javafx.event.Event
+import javafx.scene.control.Button
+import javafx.scene.control.ButtonType
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
 import javafx.scene.control.SeparatorMenuItem
@@ -114,7 +117,7 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
         val (main, remote) = menus()
         assertEquals("- - - -", main.enabled())
         assertFalse(main.item("branch-rename").isDisable)
-        assertEquals("- - P -", remote.enabled(), "its local branch is the current one, and it is at HEAD")
+        assertEquals("- - P -", remote.enabled(), "its local branch is the current one, it is at HEAD, protected")
         assertEquals("Rebase 'main' onto 'origin/main'", remote.item("branch-rebase").text)
     }
 
@@ -191,6 +194,8 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
                 newBranchFrom = { calls += "new ${it.name}" }
                 rename = { calls += "rename ${it.name}" }
                 delete = { calls += "delete $it" }
+                deleteRemote =
+                    { branches -> calls += "delete remote " + branches.joinToString { "${it.remote} ${it.ref.name}" } }
                 fetch = { calls += "fetch $it" }
                 compare = { calls += "compare ${it.name}" }
                 showWorkingTreeDiff = { calls += "diff ${it.name}" }
@@ -209,10 +214,18 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
         assertEquals("New Branch from 'origin/JIRA_1'\u2026", menu.item("branch-new-branch").text)
         assertEquals("Rebase 'main' onto 'origin/JIRA_1'", menu.item("branch-rebase").text)
 
-        listOf("filter", "copy-name", "compare", "working-tree-diff", "checkout", "rebase", "new-branch", "fetch")
-            .forEach { fire(menu.item("branch-$it")) }
+        listOf(
+            "filter",
+            "copy-name",
+            "compare",
+            "working-tree-diff",
+            "checkout",
+            "rebase",
+            "new-branch",
+            "fetch",
+            "delete",
+        ).forEach { fire(menu.item("branch-$it")) }
         assertTrue(menu.item("branch-rename").isDisable, "a remote branch is not renamed")
-        assertTrue(menu.item("branch-delete").isDisable)
         assertEquals(
             listOf(
                 "filter [refs/remotes/origin/JIRA_1]",
@@ -222,6 +235,7 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
                 "rebase",
                 "new refs/remotes/origin/JIRA_1",
                 "fetch origin",
+                "delete remote origin refs/remotes/origin/JIRA_1",
             ),
             calls,
         )
@@ -239,5 +253,25 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
         fire(localMenu.item("branch-rename"))
         fire(localMenu.item("branch-delete"))
         assertEquals(listOf("rename refs/heads/feature/b", "delete [$local]"), calls)
+    }
+
+    @Test
+    fun `Delete in the submenu of a remote branch deletes it on its remote after asking`(robot: FxRobot) {
+        currentRefs =
+            GitRefs(refs.refs + GitRef("refs/remotes/origin/fix", GitRefKind.REMOTE_BRANCH, "h1"), refs.currentBranch)
+        openAndExpand(robot)
+        selectRows(robot, 0)
+
+        assertTrue(menus().single { it.text == "origin/main" }.item("branch-delete").isDisable, "protected")
+        val remote = menus().single { it.text == "origin/fix" }
+        fireLater(remote.item("branch-delete"))
+        val pane = awaitDialog(robot)
+        assertEquals("Delete remote branch 'origin/fix'?", pane.headerText)
+        assertTrue((pane.lookupButton(ButtonType.CANCEL) as Button).isDefaultButton)
+        press(robot, pane, DELETE_BUTTON)
+
+        eventually { assertEquals("Deleted remote branch origin/fix.", status(robot)) }
+        assertEquals(listOf("push --delete origin refs/heads/fix:h1"), writes.calls)
+        assertEquals(setOf("sluide-git-write"), writes.threads.toSet())
     }
 }

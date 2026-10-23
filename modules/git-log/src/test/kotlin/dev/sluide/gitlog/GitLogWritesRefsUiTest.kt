@@ -1,6 +1,12 @@
 package dev.sluide.gitlog
 
 import dev.sluide.git.GitPendingRebase
+import dev.sluide.git.GitRef
+import dev.sluide.git.GitRefKind
+import dev.sluide.git.GitRefs
+import dev.sluide.git.GitRemoteDeletionOutcome
+import dev.sluide.git.GitRemoteDeletionResult
+import dev.sluide.git.GitRemoteRefResult
 import dev.sluide.git.GitResult
 import dev.sluide.gitlog.operations.CHECKOUT_BUTTON
 import dev.sluide.gitlog.operations.CREATE_BUTTON
@@ -74,10 +80,10 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         assertEquals("- - N - -", paneActions())
         assertEquals("New Branch from 'HEAD'\u2026", branches.newBranchItem.text)
         selectBranches(robot, "Remote/origin/old")
-        assertEquals("C B N - -", paneActions())
+        assertEquals("C B N - D", paneActions(), "deleted on its remote")
         assertEquals("Rebase 'main' onto 'origin/old'", branches.rebaseItem.text)
         selectBranches(robot, "Remote/origin/main")
-        assertEquals("- - N - -", paneActions(), "its local branch is the current one, and it is at HEAD")
+        assertEquals("- - N - -", paneActions(), "its local branch is the current one, it is at HEAD, protected")
         assertEquals("Rebase 'main' onto 'origin/main'", branches.rebaseItem.text)
         selectBranches(robot, "Tags/v0.9")
         assertEquals("C - N - D", paneActions())
@@ -431,6 +437,125 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
 
         eventually { assertEquals(listOf("branch -d feature/a feature/b", "branch -D feature/a"), writes.calls) }
         eventually { assertEquals("Deleted branch feature/a.", status(robot)) }
+        assertNoDialog()
+    }
+
+    @Test
+    fun `Delete of remote branches asks first, Cancel the default, then deletes them on their remote`(robot: FxRobot) {
+        currentRefs =
+            GitRefs(refs.refs + GitRef("refs/remotes/origin/fix", GitRefKind.REMOTE_BRANCH, "h3"), refs.currentBranch)
+        openAndExpand(robot)
+        selectBranches(robot, "Remote/origin/old")
+
+        pressInTree(KeyCode.DELETE)
+        var pane = awaitDialog(robot)
+        assertEquals("Delete", (pane.scene.window as Stage).title)
+        assertEquals("Delete remote branch 'origin/old'?", pane.headerText)
+        assertEquals("remote branch origin/old", (pane.lookup(".git-delete-names") as TextArea).text)
+        assertTrue(pane.lookupAll(".git-delete-remote").isEmpty(), "no tag checkboxes")
+        assertTrue((pane.lookupButton(ButtonType.CANCEL) as Button).isDefaultButton)
+        assertFalse((pane.lookupButton(DELETE_BUTTON) as Button).isDefaultButton)
+        press(robot, pane, ButtonType.CANCEL)
+        assertEquals(emptyList(), writes.calls)
+
+        selectBranches(robot, "Remote/origin/main", "Remote/origin/old")
+        assertEquals("- - - - -", paneActions(), "origin/main is protected")
+        selectBranches(robot, "Remote/origin/fix", "Remote/origin/old")
+        fireLater(branches.deleteItem)
+        pane = awaitDialog(robot)
+        assertEquals("Delete 2 remote branches?", pane.headerText)
+        assertEquals(
+            "remote branch origin/fix\nremote branch origin/old",
+            (pane.lookup(".git-delete-names") as TextArea).text,
+        )
+        press(robot, pane, DELETE_BUTTON)
+
+        eventually { assertEquals("Deleted 2 remote branches.", status(robot)) }
+        assertEquals(listOf("push --delete origin refs/heads/fix:h3 refs/heads/old:h4"), writes.calls)
+        assertEquals(setOf("sluide-git-write"), writes.threads.toSet(), "the mapping and the push off the FX thread")
+        assertEquals(0, beforeCheckoutCalls, "no question about unsaved editors")
+
+        // Not with local branches or tags in the selection.
+        selectBranches(robot, "Remote/origin/old", "Local/feature/a")
+        assertEquals("- - - - -", paneActions())
+        pressInTree(KeyCode.DELETE)
+        assertNoDialog()
+    }
+
+    @Test
+    fun `a remote branch that changed since the fetch is told in the header`(robot: FxRobot) {
+        openAndExpand(robot)
+        writes.deleteRemoteResult = { _, refs ->
+            GitRemoteDeletionResult(
+                GitResult(false, "error: failed to push some refs"),
+                outcomes = refs.associate { it.ref to GitRemoteRefResult(GitRemoteDeletionOutcome.STALE) },
+            )
+        }
+        selectBranches(robot, "Remote/origin/old")
+
+        fireLater(branches.deleteItem)
+        press(robot, awaitDialog(robot), DELETE_BUTTON)
+
+        eventually {
+            assertEquals("origin/old changed since your last fetch. Fetch and check it before deleting.", status(robot))
+        }
+        assertEquals(setOf("sluide-git-write"), writes.threads.toSet())
+        assertNoDialog()
+    }
+
+    @Test
+    fun `tags get an unchecked checkbox per remote, and a checked one deletes them there first`(robot: FxRobot) {
+        currentRemotes = listOf("origin", "upstream")
+        openAndExpand(robot)
+        selectBranches(robot, "Tags/v0.9")
+
+        fireLater(branches.deleteItem)
+        val pane = awaitDialog(robot)
+        assertEquals("Delete tag 'v0.9'?", pane.headerText)
+        val boxes = pane.lookupAll(".git-delete-remote").map { it as CheckBox }
+        assertEquals(listOf("Also delete the tag on origin", "Also delete the tag on upstream"), boxes.map { it.text })
+        assertTrue(boxes.none { it.isSelected }, "unchecked by default")
+        assertTrue((pane.lookupButton(ButtonType.CANCEL) as Button).isDefaultButton)
+        robot.interact { boxes.first().isSelected = true }
+        press(robot, pane, DELETE_BUTTON)
+
+        eventually { assertEquals("Deleted tag v0.9. Also deleted on origin.", status(robot)) }
+        assertEquals(listOf("push --delete origin refs/tags/v0.9", "tag -d v0.9"), writes.calls)
+        assertEquals(setOf("sluide-git-write"), writes.threads.toSet())
+
+        // Several tags: "the tags".
+        selectBranches(robot, "Tags/v0.9", "Tags/v1.0")
+        fireLater(branches.deleteItem)
+        val tagsPane = awaitDialog(robot)
+        assertEquals(
+            listOf("Also delete the tags on origin", "Also delete the tags on upstream"),
+            tagsPane.lookupAll(".git-delete-remote").map { (it as CheckBox).text },
+        )
+        press(robot, tagsPane, ButtonType.CANCEL)
+
+        // Only branches: no checkboxes.
+        selectBranches(robot, "Local/feature/a")
+        fireLater(branches.deleteItem)
+        val branchPane = awaitDialog(robot)
+        assertTrue(branchPane.lookupAll(".git-delete-remote").isEmpty())
+        press(robot, branchPane, ButtonType.CANCEL)
+    }
+
+    @Test
+    fun `Cancel in the header stops a remote delete, which may have reached the remote`(robot: FxRobot) {
+        openAndExpand(robot)
+        selectBranches(robot, "Remote/origin/old")
+        writes.gate = CountDownLatch(1)
+
+        fireLater(branches.deleteItem)
+        press(robot, awaitDialog(robot), DELETE_BUTTON)
+        eventually { assertTrue(cancelShown()) }
+        robot.interact { view.cancelButton.fire() }
+
+        eventually { assertEquals("Delete cancelled; it may have reached origin. Fetch to check.", status(robot)) }
+        assertEquals(listOf("push --delete origin refs/heads/old:h4"), writes.calls)
+        assertEquals(setOf("sluide-git-write"), writes.threads.toSet())
+        assertFalse(cancelShown())
         assertNoDialog()
     }
 }

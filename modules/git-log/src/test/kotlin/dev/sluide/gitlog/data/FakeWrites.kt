@@ -12,6 +12,10 @@ import dev.sluide.git.GitPick
 import dev.sluide.git.GitPickResult
 import dev.sluide.git.GitPushResult
 import dev.sluide.git.GitRebaseResult
+import dev.sluide.git.GitRemoteDeletion
+import dev.sluide.git.GitRemoteDeletionOutcome
+import dev.sluide.git.GitRemoteDeletionResult
+import dev.sluide.git.GitRemoteRefResult
 import dev.sluide.git.GitResetMode
 import dev.sluide.git.GitResult
 import dev.sluide.git.GitUncheckedConflict
@@ -389,6 +393,56 @@ internal class FakeWrites : GitLogWrites {
         calls += line
         if (cancellation.cancelled) return GitPushResult(GitResult(false, "Cancelled."), cancelled = true)
         return pushResult(line)
+    }
+
+    /** The branch of a remote a remote-tracking ref keeps, by remote and ref; by default the usual refspec's. */
+    @Volatile
+    var remoteBranch: (String, String) -> String? = { remote, ref ->
+        ref.takeIf { it.startsWith("refs/remotes/$remote/") }?.let {
+            "refs/heads/" +
+                it.removePrefix("refs/remotes/$remote/")
+        }
+    }
+
+    override fun remoteBranch(
+        root: Path,
+        remote: String,
+        trackingRef: String,
+    ): String? {
+        threads += Thread.currentThread().name
+        return remoteBranch(remote, trackingRef)
+    }
+
+    /** What deleting refs on a remote gives, by its line, unless it was cancelled; by default all are deleted. */
+    @Volatile
+    var deleteRemoteResult: (String, List<GitRemoteDeletion>) -> GitRemoteDeletionResult = { _, refs ->
+        GitRemoteDeletionResult(
+            GitResult(true, ""),
+            outcomes = refs.associate { it.ref to GitRemoteRefResult(GitRemoteDeletionOutcome.DELETED) },
+        )
+    }
+
+    /**
+     * Records `push --delete <remote> <ref>[:<expected>]…` and answers with [deleteRemoteResult]; waits for the [gate]
+     * like a push, ending as soon as it is cancelled.
+     */
+    override fun deleteRemoteRefs(
+        root: Path,
+        remote: String,
+        refs: List<GitRemoteDeletion>,
+        cancellation: GitCancellation,
+    ): GitRemoteDeletionResult {
+        threads += Thread.currentThread().name
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
+        while (gate?.await(10, TimeUnit.MILLISECONDS) == false && !cancellation.cancelled) {
+            if (System.nanoTime() > deadline) break
+        }
+        val line =
+            "push --delete $remote " +
+                refs.joinToString(" ") { ref -> ref.ref + ref.expected?.let { ":$it" }.orEmpty() }
+        calls += line
+        if (cancellation.cancelled) return GitRemoteDeletionResult(GitResult(false, "Cancelled."), cancelled = true)
+        return deleteRemoteResult(line, refs)
     }
 
     companion object {

@@ -123,7 +123,7 @@ on macOS every Cmd shortcut does, but Cmd+W leaves a terminal tab open: File →
 | Escape in the branch search | Clear it |
 | Enter or Down in the branch search | Move into the branch tree |
 | Enter in the branch tree | Expand or collapse a group, or filter the log by the branch |
-| F2 / Delete or Shortcut+Backspace in the branch tree | Rename / delete the branch |
+| F2 / Delete or Shortcut+Backspace in the branch tree | Rename / delete the branches (remote branches on their remote) |
 | Enter or Shortcut+D on a changed file | Show the diff |
 | F4 on a changed file | Open the local file |
 | Space in the Commit tab | Include or exclude the file |
