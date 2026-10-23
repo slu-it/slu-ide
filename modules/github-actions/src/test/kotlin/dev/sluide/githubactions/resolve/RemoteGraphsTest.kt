@@ -14,9 +14,6 @@ import dev.sluide.githubactions.resolve.NestedGraphsTest.Companion.calls
 import dev.sluide.githubactions.resolve.NestedGraphsTest.Companion.steps
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
-import java.time.Instant
-import java.time.ZoneId
-import java.time.ZoneOffset
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 import kotlin.test.Test
@@ -54,15 +51,14 @@ class RemoteGraphsTest {
         return RemoteFile(owner, repo, ref, path)
     }
 
-    /** [text] as [path] in [repository] at [ref], fetched as of [asOf] (null: a commit SHA). */
+    /** [text] as [path] in [repository] at [ref]. */
     private fun found(
         repository: String,
         ref: String,
         path: String,
         text: String,
-        asOf: Instant? = AS_OF,
     ) {
-        files[file(repository, ref, path)] = RemoteText.Found(text.trimIndent(), "c0ffee", asOf)
+        files[file(repository, ref, path)] = RemoteText.Found(text.trimIndent(), "c0ffee")
     }
 
     /** A remote workflow file whose parser JSON is [json]. */
@@ -82,14 +78,13 @@ class RemoteGraphsTest {
         sources: WorkflowSources = WorkflowSources.NONE,
         remote: RemoteReader? = reader,
         cancelled: () -> Boolean = { false },
-        zone: ZoneId = ZoneOffset.UTC,
         maxNodes: Int = WorkflowDrawing.MAX_NODES,
     ): WorkflowGraph {
         val workflow = assertIs<WorkflowJson.Result.Decoded>(WorkflowJson.decode(json)).workflow
         return WorkflowDrawing.draw(
             workflow,
             maxNodes = maxNodes,
-            resolver = ReferenceResolver(sources, parser, cancelled, remote, zone),
+            resolver = ReferenceResolver(sources, parser, cancelled, remote),
             path = ".github/workflows/main.yml",
         )
     }
@@ -123,7 +118,7 @@ class RemoteGraphsTest {
                 - uses: acme/node@$SHA
             """,
         )
-        found("acme/node", SHA, "action.yml", "runs:\n  using: node20", asOf = null)
+        found("acme/node", SHA, "action.yml", "runs:\n  using: node20")
         found(
             "acme/tools",
             "main",
@@ -142,15 +137,15 @@ class RemoteGraphsTest {
             flowchart LR
                 subgraph j0 ["main #183; ubuntu-latest"]
                     direction TB
-                    subgraph j0s0 ["acme/setup@v1 (composite) #183; as of 2026-10-20"]
+                    subgraph j0s0 ["<b>acme/setup@v1</b> #183; <i>#60;composite#62;</i>"]
                         direction TB
                         j0s0s0["run: echo hi"]
-                        j0s0s1["./scripts/local<br/>workspace-relative"]
-                        j0s0s2["acme/node@${SHA.dropLast(3)}#8230;<br/>JS action (node20)"]
+                        j0s0s1["<b>./scripts/local</b><br/>workspace-relative"]
+                        j0s0s2["<b>acme/node@${SHA.dropLast(3)}#8230;</b><br/><i>#60;JS action (node20)#62;</i>"]
                         j0s0s0 --> j0s0s1
                         j0s0s1 --> j0s0s2
                     end
-                    j0s1["acme/tools/lint@main<br/>Docker (Dockerfile)<br/>inputs: level#42;<br/>as of 2026-10-20"]
+                    j0s1["<b>acme/tools/lint@main</b><br/><i>#60;Docker (Dockerfile)#62;</i>"]
                     j0s0 --> j0s1
                 end
                 classDef blackbox stroke-width:3px
@@ -183,11 +178,11 @@ class RemoteGraphsTest {
         val graph = draw(calls("acme/flows/.github/workflows/build.yml@v2"))
 
         assertNull(graph.note)
-        assertTrue("subgraph j0w [\"calls build.yml #183; as of 2026-10-20\"]" in graph.mermaid, graph.mermaid)
-        assertTrue("subgraph j0wj0w [\"calls inner.yml #183; as of 2026-10-20\"]" in graph.mermaid, graph.mermaid)
-        assertEquals("j0wj0wj0s0[\"./local<br/>workspace-relative\"]", graph.box("j0wj0wj0s0"))
+        assertTrue("subgraph j0w [\"calls <b>build.yml</b>\"]" in graph.mermaid, graph.mermaid)
+        assertTrue("subgraph j0wj0w [\"calls <b>inner.yml</b>\"]" in graph.mermaid, graph.mermaid)
+        assertEquals("j0wj0wj0s0[\"<b>./local</b><br/>workspace-relative\"]", graph.box("j0wj0wj0s0"))
         assertEquals(
-            "j0wj0wj0s1[\"acme/flows@v2<br/>JS action (node24)<br/>as of 2026-10-20\"]",
+            "j0wj0wj0s1[\"<b>acme/flows@v2</b><br/><i>#60;JS action (node24)#62;</i>\"]",
             graph.box("j0wj0wj0s1"),
         )
         assertEquals(
@@ -216,12 +211,12 @@ class RemoteGraphsTest {
 
         val graph = draw(json)
 
-        assertEquals("j0w[\"acme/new/.github/workflows/x.yml@v1<br/>not fetched\"]", graph.box("j0w"))
-        assertEquals("j1w[\"acme/gone/.github/workflows/x.yml@v1<br/>not found\"]", graph.box("j1w"))
-        assertEquals("j2s0[\"acme/new@v1<br/>not fetched\"]", graph.box("j2s0"))
-        assertEquals("j2s1[\"acme/new@v1<br/>not fetched\"]", graph.box("j2s1"))
-        assertEquals("j2s2[\"acme/gone@v1<br/>not found (no action.yml)\"]", graph.box("j2s2"))
-        assertEquals("j2s3[\"acme/broken@v1<br/>Repository not found\"]", graph.box("j2s3"))
+        assertEquals("j0w[\"<b>acme/new/.github/workflows/x.yml@v1</b><br/>not fetched\"]", graph.box("j0w"))
+        assertEquals("j1w[\"<b>acme/gone/.github/workflows/x.yml@v1</b><br/>not found\"]", graph.box("j1w"))
+        assertEquals("j2s0[\"<b>acme/new@v1</b><br/>not fetched\"]", graph.box("j2s0"))
+        assertEquals("j2s1[\"<b>acme/new@v1</b><br/>not fetched\"]", graph.box("j2s1"))
+        assertEquals("j2s2[\"<b>acme/gone@v1</b><br/>not found (no action.yml)\"]", graph.box("j2s2"))
+        assertEquals("j2s3[\"<b>acme/broken@v1</b><br/>Repository not found\"]", graph.box("j2s3"))
         assertEquals(listOf("j0w", "j1w", "j2s0", "j2s1", "j2s2"), graph.styled("unresolved"))
         assertEquals(listOf("j2s3"), graph.styled("failed"))
         assertEquals(2, graph.unfetched)
@@ -249,19 +244,20 @@ class RemoteGraphsTest {
     }
 
     @Test
-    fun `the date it was fetched is the day in the time zone given`() {
+    fun `a branch ref shows no fetch date`() {
         found("acme/a", "v1", "action.yml", "runs:\n  using: node20")
 
-        val graph = draw(steps("acme/a@v1"), zone = ZoneId.of("Pacific/Kiritimati"))
+        val graph = draw(steps("acme/a@v1"))
 
-        assertTrue(graph.box("j0s0").endsWith("<br/>as of 2026-10-21\"]"), graph.box("j0s0"))
+        assertTrue("as of" !in graph.mermaid, graph.mermaid)
+        assertTrue(graph.box("j0s0").contains("#60;JS action (node20)#62;"), graph.box("j0s0"))
     }
 
     @Test
     fun `a reader that throws fails the reference with its message`() {
         val graph = draw(steps("acme/x@v1"), remote = { error("network down") })
 
-        assertEquals("j0s0[\"acme/x@v1<br/>network down\"]", graph.box("j0s0"))
+        assertEquals("j0s0[\"<b>acme/x@v1</b><br/>network down\"]", graph.box("j0s0"))
         assertEquals(listOf("j0s0"), graph.styled("failed"))
     }
 
@@ -271,9 +267,9 @@ class RemoteGraphsTest {
 
         val graph = draw(steps("acme/repo/../../x@v1", "acme/repo/sub/../x@v1"))
 
-        assertEquals("j0s0[\"acme/repo/../../x@v1<br/>outside the repository\"]", graph.box("j0s0"))
+        assertEquals("j0s0[\"<b>acme/repo/../../x@v1</b><br/>outside the repository\"]", graph.box("j0s0"))
         assertEquals(listOf("j0s0"), graph.styled("failed"))
-        assertTrue("JS action (node20)" in graph.box("j0s1"), graph.box("j0s1"))
+        assertTrue("#60;JS action (node20)#62;" in graph.box("j0s1"), graph.box("j0s1"))
         assertEquals(listOf(file("acme/repo", "v1", "x/action.yml")), reads)
     }
 
@@ -284,19 +280,9 @@ class RemoteGraphsTest {
 
         val graph = draw(steps("acme/a@v1"))
 
-        assertTrue("subgraph j0s0s0 [\"acme/b@v1 (composite) #183; as of 2026-10-20\"]" in graph.mermaid)
-        assertEquals("j0s0s0s0[\"acme/a@v1<br/>cycle: back to main\"]", graph.box("j0s0s0s0"))
+        assertTrue("subgraph j0s0s0 [\"<b>acme/b@v1</b> #183; <i>#60;composite#62;</i>\"]" in graph.mermaid)
+        assertEquals("j0s0s0s0[\"<b>acme/a@v1</b><br/>cycle: back to main\"]", graph.box("j0s0s0s0"))
         assertEquals(listOf("j0s0s0s0"), graph.styled("cycle"))
-    }
-
-    @Test
-    fun `a long reference does not cut off when it was fetched`() {
-        found("acme/set-up-the-whole-toolchain", "v1", "action.yml", "runs:\n  using: composite\n  steps: []")
-
-        val graph = draw(steps("acme/set-up-the-whole-toolchain@v1"))
-
-        val title = graph.mermaid.lines().single { "subgraph j0s0 " in it }
-        assertTrue(title.endsWith(" #183; as of 2026-10-20\"]"), title)
     }
 
     @Test
@@ -306,7 +292,7 @@ class RemoteGraphsTest {
 
         val graph = draw(steps("acme/a@v1"))
 
-        assertTrue("JS action (node20)" in graph.box("j0s0s0"), graph.mermaid)
+        assertTrue("#60;JS action (node20)#62;" in graph.box("j0s0s0"), graph.mermaid)
     }
 
     @Test
@@ -350,8 +336,8 @@ class RemoteGraphsTest {
 
         val graph = draw(steps("acme/a@v1", "./local"), RepositoryFiles(repo), remote = null)
 
-        assertEquals("j0s0[\"acme/a@v1\"]", graph.box("j0s0"))
-        assertTrue("JS action (node20)" in graph.box("j0s1"))
+        assertEquals("j0s0[\"<b>acme/a@v1</b>\"]", graph.box("j0s0"))
+        assertTrue("#60;JS action (node20)#62;" in graph.box("j0s1"))
         assertEquals(listOf("j0s0", "j0s1"), graph.styled("blackbox"))
         assertEquals(0, graph.unfetched)
         assertEquals(1, graph.remoteReferences)
@@ -362,14 +348,11 @@ class RemoteGraphsTest {
     fun `with a reader but no repository, local references stay black boxes`() {
         val graph = draw(steps("./local"))
 
-        assertEquals("j0s0[\"./local\"]", graph.box("j0s0"))
+        assertEquals("j0s0[\"<b>./local</b>\"]", graph.box("j0s0"))
         assertTrue(reads.isEmpty())
     }
 
     private companion object {
-        /** Noon UTC: 2026-10-20 in the tests' zone, UTC. */
-        val AS_OF: Instant = Instant.parse("2026-10-20T12:00:00Z")
-
         const val SHA = "0123456789abcdef0123456789abcdef01234567"
     }
 }

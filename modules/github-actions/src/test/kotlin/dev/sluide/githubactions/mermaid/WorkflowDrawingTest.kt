@@ -59,7 +59,7 @@ class WorkflowDrawingTest {
             """
             flowchart LR
                 subgraph triggers ["Triggers"]
-                    direction TB
+                    direction LR
                     t0(["push"])
                 end
                 subgraph j0 ["lint #183; ubuntu-latest"]
@@ -103,7 +103,7 @@ class WorkflowDrawingTest {
             """
             flowchart LR
                 subgraph triggers ["Triggers"]
-                    direction TB
+                    direction LR
                     t0(["push #183; branches: main, release/#42;#42;#59; tags: v#42;#59; pa#8230;"])
                     t1(["pull_request #183; branches: main#59; types: opened, s#8230;"])
                     t2(["schedule #183; cron: 0 3 #42; #42; 1, 30 2 #42; #42; #42;"])
@@ -111,24 +111,24 @@ class WorkflowDrawingTest {
                     t4(["workflow_call"])
                     t5(["release #183; types: published"])
                 end
-                subgraph j0 ["local #183; calls ./.github/workflows/build.yml"]
+                subgraph j0 ["local #183; calls <b>./.github/workflows/build.yml</b>"]
                     direction TB
-                    j0w["./.github/workflows/build.yml<br/>with: java, flags, ref"]
+                    j0w["<b>./.github/workflows/build.yml</b><br/>with: java, flags, ref"]
                 end
-                subgraph j1 ["Deploy #36;#123;#123; github.ref_name #125;#125; #183; calls owner/repo/.github/workflows/deploy.yml@v1"]
+                subgraph j1 ["Deploy #36;#123;#123; github.ref_name #125;#125; #183; calls <b>owner/repo/.github/workflows/deploy.yml@v1</b>"]
                     direction TB
-                    j1w["owner/repo/.github/workflows/deploy.yml@v1<br/>with: environment<br/>secrets: inherit"]
+                    j1w["<b>owner/repo/.github/workflows/deploy.yml@v1</b><br/>with: environment<br/>secrets: inherit"]
                 end
-                subgraph j2 ["remote-explicit #183; calls owner/repo/.github/workflows/deploy.yml@0#8230;"]
+                subgraph j2 ["remote-explicit #183; calls <b>owner/repo/.github/workflows/deploy.yml@0123456#8230;</b>"]
                     direction TB
-                    j2w["owner/repo/.github/workflows/deploy.yml@0123456#8230;"]
+                    j2w["<b>owner/repo/.github/workflows/deploy.yml@0123456#8230;</b>"]
                 end
                 subgraph j3 ["steps #183; ubuntu-latest"]
                     direction TB
-                    j3s0["./local-action"]
-                    j3s1["Check out<br/>actions/checkout@v4"]
-                    j3s2["owner/repo/path/to/action@0123456789abcdef01234#8230;"]
-                    j3s3["docker://alpine:3<br/>if: success() #38;#38; github.ref #61;#61; #39;refs/heads/main#39;"]
+                    j3s0["<b>./local-action</b>"]
+                    j3s1["Check out<br/><b>actions/checkout@v4</b>"]
+                    j3s2["<b>owner/repo/path/to/action@0123456789abcdef01234#8230;</b>"]
+                    j3s3["<b>docker://alpine:3</b><br/>if: success() #38;#38; github.ref #61;#61; #39;refs/heads/main#39;"]
                     j3s4["run: echo #34;#36;#123;#123; github.ref #125;#125;#34;"]
                     j3s5["Quoted #36;#123;#123; github.sha #125;#125;<br/>if: #36;#123;#123; github.event_name #61;#61; #39;push#39; #125;#125;"]
                     j3s0 --> j3s1
@@ -181,7 +181,8 @@ class WorkflowDrawingTest {
 
         assertEquals("5 problems; first: Unexpected value 'maybe' (line 4).", graph.note)
         assertTrue(
-            "        j0s0[\"run:\"]\n        j0s1[\"run:\"]\n        j0s2[\"actions/checkout@v4\"]\n" in graph.mermaid,
+            "        j0s0[\"run:\"]\n        j0s1[\"run:\"]\n        j0s2[\"<b>actions/checkout@v4</b>\"]\n" in
+                graph.mermaid,
         )
         assertTrue("subgraph j1 [\"b #183; ubuntu-latest #183; matrix (0)\"]" in graph.mermaid)
     }
@@ -241,7 +242,8 @@ class WorkflowDrawingTest {
         val graph = WorkflowDrawing.draw(workflow(Job("deploy", null, null, emptyList(), null, null, matrix, call)))
 
         assertTrue(
-            "subgraph j0 [\"deploy #183; calls ./.github/workflows/d.yml #183; matrix env (2)\"]" in graph.mermaid,
+            "subgraph j0 [\"deploy #183; calls <b>./.github/workflows/d.yml</b> #183; matrix env (2)\"]" in
+                graph.mermaid,
         )
     }
 
@@ -272,6 +274,20 @@ class WorkflowDrawingTest {
         assertTrue("        j0s0[\"#32;\"]\n" in graph.mermaid)
         assertTrue("    subgraph j1 [\"b #183; ubuntu-latest\"]\n" in graph.mermaid, "no stray separator")
         assertTrue("        j1s0[\"run: x\"]\n" in graph.mermaid)
+    }
+
+    @Test
+    fun `triggers lay out left to right so they stack, a reference is bold below its step name`() {
+        val graph =
+            WorkflowDrawing.draw(
+                workflow(
+                    job("a", uses("actions/checkout@v4", name = "Check out")),
+                    events = listOf(Event("push", null), Event("pull_request", null)),
+                ),
+            )
+
+        assertTrue("    subgraph triggers [\"Triggers\"]\n        direction LR\n" in graph.mermaid, graph.mermaid)
+        assertTrue("        j0s0[\"Check out<br/><b>actions/checkout@v4</b>\"]\n" in graph.mermaid, graph.mermaid)
     }
 
     @Test
@@ -385,8 +401,8 @@ class WorkflowDrawingTest {
     }
 
     companion object {
-        /** Letters, digits, `_-./:@(),`, blanks, entity codes and line breaks. */
-        private val SAFE_LABEL = Regex("""([A-Za-z0-9 _\-./:@(),]|#\d+;|<br/>)*""")
+        /** Letters, digits, `_-./:@(),`, blanks, entity codes, line breaks and the bold and italic tags. */
+        private val SAFE_LABEL = Regex("""([A-Za-z0-9 _\-./:@(),]|#\d+;|</?(br|b|i)/?>)*""")
 
         private val CLASS_DEFS =
             """

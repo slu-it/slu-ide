@@ -34,7 +34,7 @@ class WorkflowPreviewNodesTest {
                 network: Boolean,
                 cancelled: () -> Boolean,
             ) = RemoteReader { file ->
-                if (file.path == "action.yml") RemoteText.Found(manifest, "c0ffee", null, web) else RemoteText.Missing
+                if (file.path == "action.yml") RemoteText.Found(manifest, "c0ffee", web) else RemoteText.Missing
             }
         }
     private val services = WindowServices().apply { register(RemoteSources::class.java, remote) }

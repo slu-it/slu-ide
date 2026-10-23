@@ -33,13 +33,13 @@ and `github-actions` (model and drawing, `WorkflowGraphs`, the `RemoteSources` i
   does.
 
 ## What is drawn
-- **Triggers**: a box per event of `on`, in file order, with its filters (`push · branches: main, master`, a
-  schedule's crons, the names of `workflow_dispatch` inputs).
+- **Triggers**: a box per event of `on`, in file order, stacked vertically, with its filters
+  (`push · branches: main, master`, a schedule's crons, the names of `workflow_dispatch` inputs).
 - **A box around each job**, titled with its `name` (else its id), `runs-on` and a matrix summary
   (`matrix os×java (6)`, `matrix (dynamic)` when built by an expression). Inside, its `run` and `uses` steps from top
-  to bottom: a step's name, else `run:` with the script's first line; for `uses` the reference; `if:` conditions as
-  written. A job that calls a reusable workflow is one box with `calls <reference>`, its input names and
-  `secrets: inherit`.
+  to bottom: a step's name, else `run:` with the script's first line; for `uses` the reference, **bold**, below the
+  step's name; `if:` conditions as written. A job that calls a reusable workflow is one box with
+  `calls <reference>` (the reference bold), its input names and `secrets: inherit`.
 - **Links**: from each job a job `needs`, or from the triggers when it needs none. A job with an `if:` gets dotted
   links labelled with the condition.
 - **Local `uses:` are drawn nested** (next section), and so are remote ones once fetched
@@ -57,14 +57,14 @@ and `github-actions` (model and drawing, `WorkflowGraphs`, the `RemoteSources` i
 A workflow in `<root>/.github/workflows/` reads what its `./…` references point to from `<root>`, the folder holding
 `.github` (as GitHub resolves them against the repository's root), also from the files it opens in turn:
 - **Reusable workflow** (`jobs.<id>.uses: ./.github/workflows/x.yml`): parsed by the same parser and drawn inside the
-  calling job's box as a box `calls x.yml` (with the `with:` inputs and `secrets: inherit`), holding its jobs with
-  their steps and `needs` links, like the workflow's own.
+  calling job's box as a box `calls x.yml` (the file name bold; with the `with:` inputs and `secrets: inherit`),
+  holding its jobs with their steps and `needs` links, like the workflow's own.
 - **Local action** (`steps[*].uses: ./path`): `<root>/path/action.yml`, else `action.yaml`, read as YAML with every
   value kept as text (so `on`, `yes` stay words; no types are built from tags, aliases, nesting and size are limited).
-  - `runs.using: composite`: a box `<name or path> (composite)` (with the step's name and `if:`) in place of the
-    step, holding its steps chained like a job's.
-  - `node20`, `node24`, …: stays a black box, with `JS action (node20)` and `inputs: a*, b` (`*` for required ones).
-  - `docker`: a black box with `Docker (<image>)` and its inputs.
+  - `runs.using: composite`: a box `<name or path> · <composite>` (name bold, `<composite>` italic; with the step's
+    name and `if:`) in place of the step, holding its steps chained like a job's.
+  - `node20`, `node24`, …: stays a black box, with an italic `<JS action (node20)>` below the reference.
+  - `docker`: a black box with an italic `<Docker (<image>)>`.
 - A box says why it was **not followed**, below the reference as written:
   - `not found` (dashed border): no such workflow; `not found (no action.yml)`: neither `action.yml` nor
     `action.yaml`.
@@ -104,9 +104,8 @@ Without that service they stay black boxes.
   refresh branches and tags. Editing the file or closing it stops a fetch; its graph is dropped.
 - Followed like local ones: `action.yml`, else `action.yaml`, under the reference's path (normalised; a `..` leaving
   the repository is `outside the repository`). A composite action is drawn nested as
-  `owner/repo[/path]@ref (composite)`, JS and Docker actions are annotated black boxes, a reusable workflow is parsed
-  by the same parser and drawn nested as `calls x.yml`. Fetched for a branch or tag, the box or title adds
-  `as of <date>` (the day it was fetched).
+  `owner/repo[/path]@ref · <composite>`, JS and Docker actions are annotated black boxes, a reusable workflow is
+  parsed by the same parser and drawn nested as `calls x.yml`.
 - Inside a remote file, a reusable workflow's `./.github/workflows/y.yml` is read from the same repository and ref; an
   action's `./…` (in a composite action or a remote workflow's step) refers to the caller's workspace checkout and is a
   black box `workspace-relative`. Remote references in remote files are followed in turn.

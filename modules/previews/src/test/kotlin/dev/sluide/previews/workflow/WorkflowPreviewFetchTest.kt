@@ -288,7 +288,6 @@ class WorkflowPreviewFetchTest {
             RemoteText.Found(
                 "name: Set up\nruns:\n  using: composite\n  steps:\n    - name: Set up inside\n      run: x\n",
                 "c0ffee",
-                null,
             )
 
         /** The parser's JSON for a workflow whose step uses `acme/setup@v1` if [text] starts with `remote`. */

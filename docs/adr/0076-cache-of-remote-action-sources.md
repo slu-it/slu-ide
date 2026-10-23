@@ -96,6 +96,7 @@ window service `RemoteSources`, [ADR 0070](0070-window-services.md)):
   network. A virtual thread checks every 200 ms whether the drawing was cancelled and then stops the running git
   (`GitCancellation`).
 - A branch or tag shows the time it was fetched (`as of`), a full commit SHA none.
+  (Amended 2026-10-23: the graph no longer shows the fetch date, and `RemoteText.Found` no longer carries it.)
 
 **(d) The graph** (`github-actions`, `previews`; details in
 [the feature page](../features/github-actions-graph.md#remote-uses)): remote actions and reusable workflows are read

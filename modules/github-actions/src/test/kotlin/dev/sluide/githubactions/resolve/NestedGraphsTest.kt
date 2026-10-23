@@ -94,19 +94,19 @@ class NestedGraphsTest {
             """
             flowchart LR
                 subgraph triggers ["Triggers"]
-                    direction TB
+                    direction LR
                     t0(["push"])
                 end
-                subgraph j0 ["build #183; calls ./.github/workflows/build.yml"]
+                subgraph j0 ["build #183; calls <b>./.github/workflows/build.yml</b>"]
                     direction TB
-                    subgraph j0w ["calls build.yml #183; with: java"]
+                    subgraph j0w ["calls <b>build.yml</b> #183; with: java"]
                         direction TB
                         subgraph j0wj0 ["compile #183; ubuntu-latest"]
                             direction TB
-                            subgraph j0wj0s0 ["Set up Java (composite)"]
+                            subgraph j0wj0s0 ["<b>Set up Java</b> #183; <i>#60;composite#62;</i>"]
                                 direction TB
-                                j0wj0s0s0["actions/setup-java@v5"]
-                                j0wj0s0s1["./.github/actions/greet<br/>JS action (node20)<br/>inputs: who#42;, how<br/>if: runner.os #61;#61; #39;Linux#39;"]
+                                j0wj0s0s0["<b>actions/setup-java@v5</b>"]
+                                j0wj0s0s1["<b>./.github/actions/greet</b><br/><i>#60;JS action (node20)#62;</i><br/>if: runner.os #61;#61; #39;Linux#39;"]
                                 j0wj0s0s2["Show version"]
                                 j0wj0s0s0 --> j0wj0s0s1
                                 j0wj0s0s1 --> j0wj0s0s2
@@ -123,9 +123,9 @@ class NestedGraphsTest {
                 end
                 subgraph j1 ["test #183; ubuntu-latest"]
                     direction TB
-                    j1s0["actions/checkout@v6"]
-                    j1s1["./.github/actions/setup<br/>expanded in build / compile"]
-                    j1s2["./.github/actions/missing<br/>not found (no action.yml)"]
+                    j1s0["<b>actions/checkout@v6</b>"]
+                    j1s1["<b>./.github/actions/setup</b><br/>expanded in build / compile"]
+                    j1s2["<b>./.github/actions/missing</b><br/>not found (no action.yml)"]
                     j1s3["run: ./gradlew test"]
                     j1s0 --> j1s1
                     j1s1 --> j1s2
@@ -164,9 +164,12 @@ class NestedGraphsTest {
         val graph = draw("a.yml")
 
         assertEquals(listOf("a.yml", "b.yml"), parsed)
-        assertTrue("subgraph j0w [\"calls b.yml\"]" in graph.mermaid, graph.mermaid)
+        assertTrue("subgraph j0w [\"calls <b>b.yml</b>\"]" in graph.mermaid, graph.mermaid)
         assertEquals(listOf("j0wj0w"), graph.styled("cycle"))
-        assertEquals("j0wj0w[\"./.github/workflows/a.yml<br/>cycle: back to this workflow\"]", graph.box("j0wj0w"))
+        assertEquals(
+            "j0wj0w[\"<b>./.github/workflows/a.yml</b><br/>cycle: back to this workflow\"]",
+            graph.box("j0wj0w"),
+        )
     }
 
     @Test
@@ -184,8 +187,8 @@ class NestedGraphsTest {
 
         val graph = draw("main.yml")
 
-        assertTrue("subgraph j0s0 [\"./x (composite)\"]" in graph.mermaid, graph.mermaid)
-        assertEquals("j0s0s0[\"./y/../x/<br/>cycle: back to main\"]", graph.box("j0s0s0"))
+        assertTrue("subgraph j0s0 [\"<b>./x</b> #183; <i>#60;composite#62;</i>\"]" in graph.mermaid, graph.mermaid)
+        assertEquals("j0s0s0[\"<b>./y/../x/</b><br/>cycle: back to main\"]", graph.box("j0s0s0"))
         assertEquals(listOf("j0s0s0"), graph.styled("cycle"))
     }
 
@@ -196,8 +199,8 @@ class NestedGraphsTest {
         val graph = draw("w0.yml")
 
         assertEquals((0..10).map { "w$it.yml" }, parsed)
-        assertTrue("[\"calls w10.yml\"]" in graph.mermaid)
-        assertFalse("calls w11.yml\"]" in graph.mermaid)
+        assertTrue("[\"calls <b>w10.yml</b>\"]" in graph.mermaid)
+        assertFalse("calls <b>w11.yml</b>\"]" in graph.mermaid)
         val deepest = "j0w".repeat(11)
         assertEquals(listOf(deepest), graph.styled("limit"))
         assertTrue("not expanded (depth limit)" in graph.box(deepest))
@@ -244,13 +247,13 @@ class NestedGraphsTest {
         val graph = draw("main.yml")
 
         assertEquals(listOf("main.yml", "b.yml"), parsed)
-        assertTrue("subgraph j0w [\"calls b.yml\"]" in graph.mermaid)
+        assertTrue("subgraph j0w [\"calls <b>b.yml</b>\"]" in graph.mermaid)
         assertEquals(
-            "j1w[\"./.github/workflows/b.yml<br/>expanded in a\"]",
+            "j1w[\"<b>./.github/workflows/b.yml</b><br/>expanded in a\"]",
             graph.box("j1w"),
         )
         for (id in listOf("j2s0", "j2s1")) {
-            assertEquals("$id[\"./d<br/>Docker (Dockerfile)<br/>inputs: image#42;\"]", graph.box(id))
+            assertEquals("$id[\"<b>./d</b><br/><i>#60;Docker (Dockerfile)#62;</i>\"]", graph.box(id))
         }
         assertEquals(listOf("j0wj0s0", "j1w", "j2s0", "j2s1"), graph.styled("blackbox"))
     }
@@ -290,10 +293,10 @@ class NestedGraphsTest {
         assertTrue("<br/>Unexpected value #39;x#39;\"]" in graph.box("j0w"), graph.box("j0w"))
         assertTrue("<br/>parser failed: boom\"]" in graph.box("j1w"), graph.box("j1w"))
         assertTrue("<br/>parser unavailable\"]" in graph.box("j2w"), graph.box("j2w"))
-        assertEquals("j3s0[\"./../outside<br/>outside the repository\"]", graph.box("j3s0"))
-        assertEquals("j3s1[\"./link<br/>outside the repository\"]", graph.box("j3s1"))
-        assertTrue("./broken<br/>line 1: " in graph.box("j3s2"), graph.box("j3s2"))
-        assertEquals("j3s3[\"./python<br/>unknown runs.using: python\"]", graph.box("j3s3"))
+        assertEquals("j3s0[\"<b>./../outside</b><br/>outside the repository\"]", graph.box("j3s0"))
+        assertEquals("j3s1[\"<b>./link</b><br/>outside the repository\"]", graph.box("j3s1"))
+        assertTrue("<b>./broken</b><br/>line 1: " in graph.box("j3s2"), graph.box("j3s2"))
+        assertEquals("j3s3[\"<b>./python</b><br/>unknown runs.using: python\"]", graph.box("j3s3"))
     }
 
     @Test
@@ -306,7 +309,7 @@ class NestedGraphsTest {
 
         val graph = WorkflowGraphs.of("main.yml", "", parser, refusing)
 
-        assertEquals("j0s0[\"./locked<br/>unreadable (AccessDeniedException)\"]", graph.box("j0s0"))
+        assertEquals("j0s0[\"<b>./locked</b><br/>unreadable (AccessDeniedException)\"]", graph.box("j0s0"))
     }
 
     @Test
@@ -344,8 +347,8 @@ class NestedGraphsTest {
             )
 
         assertEquals(listOf("j0s0"), graph.styled("limit"))
-        assertEquals("j0s0[\"./big<br/>${WorkflowDrawing.NOT_EXPANDED}\"]", graph.box("j0s0"))
-        assertTrue("subgraph j0s1 [\"./small (composite)\"]" in graph.mermaid, graph.mermaid)
+        assertEquals("j0s0[\"<b>./big</b><br/>${WorkflowDrawing.NOT_EXPANDED}\"]", graph.box("j0s0"))
+        assertTrue("subgraph j0s1 [\"<b>./small</b> #183; <i>#60;composite#62;</i>\"]" in graph.mermaid, graph.mermaid)
         assertEquals("Some references are not expanded, to stay within the limits.", graph.note)
     }
 
@@ -392,7 +395,7 @@ class NestedGraphsTest {
 
         assertTrue(graph.mermaid.length < 50_000, "${graph.mermaid.length} characters")
         assertTrue(graph.mermaid.lines().count { "-->" in it } <= WorkflowDrawing.MAX_EDGES)
-        assertTrue("[\"calls w2.yml" in graph.mermaid, "some levels are expanded")
+        assertTrue("[\"calls <b>w2.yml</b>" in graph.mermaid, "some levels are expanded")
         assertTrue(WorkflowDrawing.NOT_EXPANDED in graph.mermaid, "the deepest are not")
         assertTrue("Some references are not expanded" in graph.note.orEmpty(), graph.note)
     }

@@ -2,7 +2,9 @@ package dev.sluide.githubactions.mermaid
 
 import dev.sluide.githubactions.SourceLocation
 import dev.sluide.githubactions.WorkflowGraph
+import dev.sluide.githubactions.mermaid.MermaidLabels.bold
 import dev.sluide.githubactions.mermaid.MermaidLabels.label
+import dev.sluide.githubactions.mermaid.MermaidLabels.type
 import dev.sluide.githubactions.model.Job
 import dev.sluide.githubactions.model.JobBody
 import dev.sluide.githubactions.model.Problem
@@ -111,7 +113,7 @@ internal class WorkflowDrawing private constructor(
         if (events.isEmpty()) return null
         val title = label("Triggers")
         budget.addCluster(title.length, TRIGGERS, 1)
-        return Cluster(TRIGGERS, title, events)
+        return Cluster(TRIGGERS, title, events, direction = Direction.LR)
     }
 
     /** The jobs of a workflow drawn at [depth], with their links, how many were drawn and needs of unknown jobs. */
@@ -204,7 +206,12 @@ internal class WorkflowDrawing private constructor(
             }
 
             is JobBody.WorkflowCall -> {
-                title = title(job.name.ifPresent() ?: job.id, "calls ${body.text}", job.matrix?.title())
+                title =
+                    join(
+                        esc(job.name.ifPresent() ?: job.id),
+                        "calls " + bold(label(body.text)),
+                        esc(job.matrix?.title()),
+                    )
                 val with =
                     body.inputs.keys
                         .takeIf { it.isNotEmpty() }
@@ -213,13 +220,13 @@ internal class WorkflowDrawing private constructor(
                 val element =
                     reference(
                         "${id}w",
-                        lines(body.text, with, secrets),
+                        lines(body.text).map { bold(it) } + lines(with, secrets),
                         body.reference,
                         depth + 1,
                         null,
                         here(job.line),
-                    ) { called, asOf ->
-                        title(called, asOf, with, secrets)
+                    ) { called ->
+                        join(called, esc(with), esc(secrets))
                     }
                 if (element != null) children += element
             }
@@ -279,9 +286,9 @@ internal class WorkflowDrawing private constructor(
             }
 
             is StepAction.Uses -> {
-                val label = lines(step.name, action.text)
-                reference(id, label, action.reference, depth, condition, here(step.line)) { composite, asOf ->
-                    title(step.name, composite, asOf, condition)
+                val label = lines(step.name) + lines(action.text).map { bold(it) }
+                reference(id, label, action.reference, depth, condition, here(step.line)) { composite ->
+                    join(esc(step.name), composite, esc(condition))
                 }
             }
         }
@@ -290,7 +297,7 @@ internal class WorkflowDrawing private constructor(
     /**
      * The box of a `uses:` [reference] at [depth] with [lines], what was found out about it and the step's
      * [condition]; or what it refers to drawn nested under its [id], with [title] made from what the target is
-     * (`calls x.yml`, `Name (composite)`) and when it was fetched if remote (`as of 2026-10-20`). Either comes from
+     * (`calls x.yml`, `Name <composite>`), made of escaped text and tags. Either comes from
      * [location], the line of the `uses:`. Null if it does not fit; a remote reference is counted once it is drawn.
      */
     private fun reference(
@@ -300,7 +307,7 @@ internal class WorkflowDrawing private constructor(
         depth: Int,
         condition: String?,
         location: SourceLocation?,
-        title: (what: String, asOf: String?) -> String,
+        title: (what: String) -> String,
     ): Element? {
         fun drawn(node: ReferenceNode): ReferenceNode {
             if (reference is UsesReference.RemoteAction || reference is UsesReference.RemoteWorkflow) {
@@ -312,8 +319,9 @@ internal class WorkflowDrawing private constructor(
         fun box(
             found: List<String>,
             style: Style,
+            type: String? = null,
         ): ReferenceNode? {
-            val label = lines + found.map { label(it) } + lines(condition)
+            val label = lines + listOfNotNull(type?.let { type(it) }) + found.map { label(it) } + lines(condition)
             val node = ReferenceNode(id, label, reference, style = style, location = location)
             return if (budget.takeNode(size(label), id, depth)) drawn(node) else null
         }
@@ -342,7 +350,7 @@ internal class WorkflowDrawing private constructor(
                 }
 
                 is Resolution.Annotated -> {
-                    return box(resolution.lines, Style.BLACKBOX)
+                    return box(resolution.lines, Style.BLACKBOX, resolution.type)
                 }
 
                 is Resolution.Stopped -> {
@@ -360,14 +368,14 @@ internal class WorkflowDrawing private constructor(
                             id,
                             resolution,
                             depth,
-                            title("calls ${resolution.fileName}", resolution.asOf),
+                            title("calls " + bold(label(resolution.fileName))),
                         )
                     }
                 }
 
                 is Resolution.Composite -> {
                     expand(resolution.key, resolution.file) {
-                        val clusterTitle = title("${resolution.title} (composite)", resolution.asOf)
+                        val clusterTitle = title(bold(label(resolution.title)) + SEPARATOR + type("composite"))
                         budget.addCluster(clusterTitle.length, id, depth)
                         steps(id, resolution.steps, depth + 1, all = true)?.let { children ->
                             Cluster(id, clusterTitle, children, chain(children, depth + 1))
@@ -439,6 +447,12 @@ internal class WorkflowDrawing private constructor(
 
     /** The [parts] that are not blank, escaped and joined with ` · `. */
     private fun title(vararg parts: String?): String = lines(*parts).joinToString(SEPARATOR)
+
+    /** [text] escaped, or null when it is blank or null. */
+    private fun esc(text: String?): String? = text.ifPresent()?.let { label(it) }
+
+    /** The escaped [parts] that are not null or blank, joined with ` · `. */
+    private fun join(vararg parts: String?): String = parts.filter { !it.isNullOrBlank() }.joinToString(SEPARATOR)
 
     private fun size(label: List<String>): Int = label.sumOf { it.length + BREAK }
 

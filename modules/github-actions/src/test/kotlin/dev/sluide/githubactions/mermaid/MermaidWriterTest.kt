@@ -52,4 +52,18 @@ class MermaidWriterTest {
         )
         assertEquals(listOf("    class j0s1 blackbox", "    class j0s0e1 unresolved", ""), lines.takeLast(3))
     }
+
+    @Test
+    fun `a cluster writes its direction`() {
+        val diagram =
+            Diagram(
+                listOf(Cluster("t", "Triggers", listOf(Node("t0", listOf("push"))), direction = Direction.LR)),
+                emptyList(),
+            )
+
+        assertEquals(
+            listOf("flowchart LR", "    subgraph t [\"Triggers\"]", "        direction LR"),
+            MermaidWriter.write(diagram).lines().take(3),
+        )
+    }
 }

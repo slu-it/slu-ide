@@ -24,20 +24,20 @@ class WorkflowGraphsTest {
             """
             flowchart LR
                 subgraph triggers ["Triggers"]
-                    direction TB
+                    direction LR
                     t0(["push #183; branches: main, master"])
                     t1(["pull_request"])
                 end
                 subgraph j0 ["Build (#36;#123;#123; matrix.os #125;#125;) #183; matrix os (2)"]
                     direction TB
-                    j0s0["actions/checkout@v6"]
-                    j0s1["actions/setup-java@v6"]
-                    j0s2["gradle/actions/setup-gradle@v6"]
+                    j0s0["<b>actions/checkout@v6</b>"]
+                    j0s1["<b>actions/setup-java@v6</b>"]
+                    j0s2["<b>gradle/actions/setup-gradle@v6</b>"]
                     j0s3["Check docs index<br/>if: runner.os #61;#61; #39;Linux#39;"]
                     j0s4["Install virtual display<br/>if: runner.os #61;#61; #39;Linux#39;"]
                     j0s5["Build<br/>if: runner.os #61;#61; #39;Linux#39;"]
                     j0s6["Build without UI tests<br/>if: runner.os #61;#61; #39;macOS#39;"]
-                    j0s7["Upload test reports<br/>actions/upload-artifact@v7<br/>if: failure()"]
+                    j0s7["Upload test reports<br/><b>actions/upload-artifact@v7</b><br/>if: failure()"]
                     j0s0 --> j0s1
                     j0s1 --> j0s2
                     j0s2 --> j0s3

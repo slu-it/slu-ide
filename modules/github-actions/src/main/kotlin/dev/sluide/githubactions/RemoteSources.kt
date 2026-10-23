@@ -1,7 +1,6 @@
 package dev.sluide.githubactions
 
 import java.net.URI
-import java.time.Instant
 
 /** A file in another repository, as a `uses:` names it: [path] relative to the repository root, normalised, never `..`. */
 data class RemoteFile(
@@ -14,13 +13,12 @@ data class RemoteFile(
 /** What a [RemoteReader] found for a [RemoteFile]. */
 sealed interface RemoteText {
     /**
-     * [commit] the ref was fetched as, [asOf] when (null for a full commit SHA ref, which never changes); [web] the
-     * file's page at that commit, if known: the graph's boxes from the file link to it ([SourceLocation.Remote]).
+     * [commit] the ref was fetched as; [web] the file's page at that commit, if known: the graph's boxes from the
+     * file link to it ([SourceLocation.Remote]).
      */
     data class Found(
         val text: String,
         val commit: String,
-        val asOf: Instant?,
         val web: URI? = null,
     ) : RemoteText
 

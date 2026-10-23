@@ -1,8 +1,9 @@
 package dev.sluide.githubactions.mermaid
 
 /**
- * Writes a [Diagram] as a Mermaid `flowchart LR`. Subgraphs lay out their children top to bottom; Mermaid ignores a
- * subgraph's `direction` once a node inside it links outside, so links between jobs join the subgraphs, not steps.
+ * Writes a [Diagram] as a Mermaid `flowchart LR`. Subgraphs lay out their children top to bottom (the triggers left to
+ * right, so unlinked events stack); Mermaid ignores a subgraph's `direction` once a node inside it links outside, so
+ * links between jobs join the subgraphs, not steps.
  */
 internal object MermaidWriter {
     fun write(diagram: Diagram): String =
@@ -53,7 +54,7 @@ internal object MermaidWriter {
             .append(" [\"")
             .append(cluster.title.ifBlank { EMPTY })
             .append("\"]\n")
-        indent(depth + 1).append("direction TB\n")
+        indent(depth + 1).append("direction ${cluster.direction}\n")
         for (child in cluster.children) element(child, depth + 1)
         for (link in cluster.links) link(link, depth + 1)
         indent(depth).append("end\n")

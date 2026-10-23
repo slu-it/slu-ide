@@ -142,7 +142,7 @@ class WindowWorkflowSourcesTest {
         cached("github.com")
         cache.files["github.com" to "action.yml"] = RemoteRead.Found("name: Checkout")
         val text = sources().reader(network = false) { false }.read(action)
-        assertEquals(RemoteText.Found("name: Checkout", "c-github.com", fetchedAt, page("c-github.com")), text)
+        assertEquals(RemoteText.Found("name: Checkout", "c-github.com", page("c-github.com")), text)
         assertEquals(
             listOf("commit github.com actions/checkout@v6", "read github.com c-github.com action.yml network=false"),
             cache.calls,
@@ -167,7 +167,7 @@ class WindowWorkflowSourcesTest {
         cached("github.com", sha)
         cache.files["github.com" to "action.yml"] = RemoteRead.Found("name: Checkout")
         val text = sources().reader(network = false) { false }.read(action.copy(ref = sha))
-        assertEquals(RemoteText.Found("name: Checkout", "c-github.com", null, page("c-github.com")), text)
+        assertEquals(RemoteText.Found("name: Checkout", "c-github.com", page("c-github.com")), text)
     }
 
     @Test
@@ -312,7 +312,7 @@ class WindowWorkflowSourcesTest {
         val reader = sources().reader(network = true) { false }
         assertEquals(RemoteText.Missing, reader.read(action))
         assertEquals(
-            RemoteText.Found("fetched action.yaml", "new", fetchedAt, page("new", "action.yaml")),
+            RemoteText.Found("fetched action.yaml", "new", page("new", "action.yaml")),
             reader.read(action.copy(path = "action.yaml")),
         )
         assertEquals(1, cache.calls.count { it.startsWith("fetch") })
@@ -328,7 +328,7 @@ class WindowWorkflowSourcesTest {
         cached("github.com", sha)
         cache.files["github.com" to "action.yml"] = RemoteRead.Found("pinned")
         val text = sources().reader(network = true) { false }.read(action.copy(ref = sha))
-        assertEquals(RemoteText.Found("pinned", "c-github.com", null, page("c-github.com")), text)
+        assertEquals(RemoteText.Found("pinned", "c-github.com", page("c-github.com")), text)
         assertTrue(cache.calls.none { it.startsWith("fetch") }, "${cache.calls}")
     }
 
@@ -338,7 +338,7 @@ class WindowWorkflowSourcesTest {
         cache.fetchable["github.com" to "v6"] = RemoteFetch.Fetched(CachedCommit("gh", fetchedAt))
         cache.files["github.com" to "action.yml"] = RemoteRead.Found("from github.com")
         val reader = sources("git@ghes.example.com:team/project.git").reader(network = true) { false }
-        assertEquals(RemoteText.Found("from github.com", "gh", fetchedAt, page("gh")), reader.read(action))
+        assertEquals(RemoteText.Found("from github.com", "gh", page("gh")), reader.read(action))
         reader.read(action.copy(path = "action.yaml"))
         assertEquals(
             listOf(

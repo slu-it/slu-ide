@@ -48,7 +48,6 @@ internal object ActionManifests {
         return Result.Parsed(
             ActionManifest(
                 name = mapping.text("name")?.takeIf { it.isNotBlank() },
-                inputs = inputs(mapping.mapping("inputs")),
                 runs = runs(mapping.mapping("runs")),
             ),
         )
@@ -61,13 +60,6 @@ internal object ActionManifests {
             codePointLimit = MAX_CODE_POINTS
             isProcessComments = false
             tagInspector = TagInspector { false }
-        }
-
-    private fun inputs(node: MappingNode?): List<ActionInput> =
-        node?.value.orEmpty().mapNotNull { tuple ->
-            val name = (tuple.keyNode as? ScalarNode)?.value ?: return@mapNotNull null
-            val required = (tuple.valueNode as? MappingNode)?.text("required")?.trim().equals("true", ignoreCase = true)
-            ActionInput(name, required)
         }
 
     private fun runs(node: MappingNode?): Runs {

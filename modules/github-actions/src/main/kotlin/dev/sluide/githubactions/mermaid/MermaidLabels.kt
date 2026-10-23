@@ -39,6 +39,12 @@ internal object MermaidLabels {
         return if (keepEnd) ellipsis + kept.asReversed().joinToString("") else kept.joinToString("") + ellipsis
     }
 
+    /** Already escaped text in bold; the tags are HTML, which Mermaid's sanitizer lets through. */
+    fun bold(escaped: String): String = "<b>$escaped</b>"
+
+    /** [text] as an italic `<text>` (the angle brackets escaped, so they show). */
+    fun type(text: String): String = "<i>" + label("<$text>") + "</i>"
+
     private fun escape(point: Int): String =
         when {
             point < 0x20 || point == 0x7f -> " "

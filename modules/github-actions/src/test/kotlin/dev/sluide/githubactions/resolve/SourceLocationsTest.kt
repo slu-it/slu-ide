@@ -103,7 +103,7 @@ class SourceLocationsTest {
         val graph =
             draw(
                 steps("acme/setup@v1", "acme/other@v2"),
-                mapOf(action to RemoteText.Found(manifest, "c0ffee", null, web)),
+                mapOf(action to RemoteText.Found(manifest, "c0ffee", web)),
             )
 
         val main = ".github/workflows/main.yml"
@@ -125,7 +125,7 @@ class SourceLocationsTest {
     fun `boxes from a remote file without a web page have no location`() {
         val action = RemoteFile("acme", "setup", "v1", "action.yml")
 
-        val graph = draw(steps("acme/setup@v1"), mapOf(action to RemoteText.Found(manifest, "c0ffee", null)))
+        val graph = draw(steps("acme/setup@v1"), mapOf(action to RemoteText.Found(manifest, "c0ffee")))
 
         assertTrue("j0s0s0" in graph.mermaid)
         assertEquals(setOf("j0", "j0s0"), graph.locations.keys)
@@ -142,7 +142,7 @@ class SourceLocationsTest {
         val graph =
             draw(
                 json,
-                mapOf(called to RemoteText.Found("remote", "beef", null, web)),
+                mapOf(called to RemoteText.Found("remote", "beef", web)),
                 mapOf("remote" to steps("actions/checkout@v6")),
             )
 

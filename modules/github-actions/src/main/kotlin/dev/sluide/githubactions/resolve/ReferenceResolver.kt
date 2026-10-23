@@ -13,9 +13,6 @@ import dev.sluide.githubactions.model.UsesReference
 import dev.sluide.githubactions.model.WorkflowJson
 import dev.sluide.githubactions.resolve.Resolution.Reason
 import java.nio.file.FileSystemException
-import java.time.Instant
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
 
 /**
  * Follows `uses:` for one graph: reads the reusable workflow or the action's manifest, local ones (`./…`) from
@@ -26,14 +23,13 @@ import java.time.format.DateTimeFormatter
  * ([resolve]'s `stack`) are cycles, to what was expanded already ([resolve]'s `expanded`) say where. At most
  * [MAX_DEPTH] expansions nest and [MAX_FILES] distinct files are read; results are kept per file, so a file is read and
  * parsed once per graph. After the parser threw once it is not called again for this graph, and nothing more is read
- * once [cancelled] says so. When a remote file was fetched is shown as a date in [zone].
+ * once [cancelled] says so.
  */
 internal class ReferenceResolver(
     private val sources: WorkflowSources,
     private val parser: WorkflowParser,
     private val cancelled: () -> Boolean = { false },
     private val remote: RemoteReader? = null,
-    private val zone: ZoneId = ZoneId.systemDefault(),
 ) {
     /** The files read (or tried), at most [MAX_FILES]. */
     private val read = HashSet<Target>()
@@ -120,7 +116,7 @@ internal class ReferenceResolver(
                     if (workflow.jobs.isEmpty()) {
                         failed(workflow.problems.firstOrNull()?.message ?: "no jobs")
                     } else {
-                        Resolution.CalledWorkflow(key, fileName, workflow, file.asOf, file.source)
+                        Resolution.CalledWorkflow(key, fileName, workflow, file.source)
                     }
                 }
             }
@@ -158,32 +154,26 @@ internal class ReferenceResolver(
         key: Target,
         manifest: ActionManifest,
         file: Read.Text,
-    ): Resolution {
-        val asOf = file.asOf
-        val inputs =
-            manifest.inputs
-                .takeIf { it.isNotEmpty() }
-                ?.joinToString(", ", prefix = "inputs: ") { if (it.required) "${it.name}*" else it.name }
-        return when (val runs = manifest.runs) {
+    ): Resolution =
+        when (val runs = manifest.runs) {
             is Runs.Composite -> {
                 // A remote one by its reference: the step's box, which said it, is replaced.
                 val title = if (key.repository == null) manifest.name ?: key.written else key.written
-                Resolution.Composite(key, title, runs.steps, asOf, file.source)
+                Resolution.Composite(key, title, runs.steps, file.source)
             }
 
             is Runs.JavaScript -> {
-                Resolution.Annotated(listOfNotNull("JS action (${runs.using})", inputs, asOf))
+                Resolution.Annotated(emptyList(), "JS action (${runs.using})")
             }
 
             is Runs.Docker -> {
-                Resolution.Annotated(listOfNotNull("Docker (${runs.image ?: "no image"})", inputs, asOf))
+                Resolution.Annotated(emptyList(), "Docker (${runs.image ?: "no image"})")
             }
 
             is Runs.Unknown -> {
                 failed(runs.using?.let { "unknown runs.using: $it" } ?: "no runs.using")
             }
         }
-    }
 
     private fun read(file: Target): Read {
         if (file !in read) {
@@ -193,7 +183,7 @@ internal class ReferenceResolver(
         val repository = file.repository
         return try {
             if (repository == null) {
-                sources.local(file.path)?.let { Read.Text(it, null, SourceFile.Local(file.path)) } ?: Read.Missing
+                sources.local(file.path)?.let { Read.Text(it, SourceFile.Local(file.path)) } ?: Read.Missing
             } else {
                 remote(RemoteFile(repository.owner, repository.repo, repository.ref, file.path))
             }
@@ -217,7 +207,7 @@ internal class ReferenceResolver(
                 if (text.text.length > RepositoryFiles.MAX_BYTES) {
                     Read.Failed("larger than 1 MB")
                 } else {
-                    Read.Text(text.text, text.asOf?.let(::asOf), SourceFile.Remote(text.web))
+                    Read.Text(text.text, SourceFile.Remote(text.web))
                 }
             }
 
@@ -234,9 +224,6 @@ internal class ReferenceResolver(
             }
         }
 
-    /** `as of 2026-10-20`, the date in [zone]. */
-    private fun asOf(instant: Instant) = "as of ${DateTimeFormatter.ISO_LOCAL_DATE.format(instant.atZone(zone))}"
-
     private fun keep(
         key: Target,
         result: Resolution,
@@ -245,10 +232,9 @@ internal class ReferenceResolver(
     private fun failed(reason: String) = Resolution.Stopped(Reason.FAILED, firstLine(reason))
 
     private sealed interface Read {
-        /** [asOf]: `as of <date>` for a remote file fetched for a branch or tag; [source] where its lines are. */
+        /** [source]: where its lines are. */
         data class Text(
             val text: String,
-            val asOf: String?,
             val source: SourceFile,
         ) : Read
 

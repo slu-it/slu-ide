@@ -460,7 +460,7 @@ class WorkflowPreviewUiTest {
             readers += network
             return RemoteReader { file ->
                 if (network) {
-                    val text = repository[file]?.let { RemoteText.Found(it, "c0ffee", null) } ?: RemoteText.Missing
+                    val text = repository[file]?.let { RemoteText.Found(it, "c0ffee") } ?: RemoteText.Missing
                     cache[file] = text
                     text
                 } else {

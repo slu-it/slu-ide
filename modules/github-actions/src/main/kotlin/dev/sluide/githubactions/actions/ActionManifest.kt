@@ -2,16 +2,10 @@ package dev.sluide.githubactions.actions
 
 import dev.sluide.githubactions.model.Step
 
-/** A local action's `action.yml` as far as the graph needs it: its [name], [inputs] and how it [runs]. */
+/** A local action's `action.yml` as far as the graph needs it: its [name] and how it [runs]. */
 internal data class ActionManifest(
     val name: String?,
-    val inputs: List<ActionInput>,
     val runs: Runs,
-)
-
-internal data class ActionInput(
-    val name: String,
-    val required: Boolean,
 )
 
 /** `runs:` of a manifest, by its `using`. */

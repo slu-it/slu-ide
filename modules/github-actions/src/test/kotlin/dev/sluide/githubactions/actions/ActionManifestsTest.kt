@@ -43,7 +43,6 @@ class ActionManifestsTest {
             )
 
         assertEquals("Set up", manifest.name)
-        assertEquals(listOf(ActionInput("java", true), ActionInput("cache", false)), manifest.inputs)
         assertEquals(
             Runs.Composite(
                 listOf(
@@ -98,10 +97,6 @@ class ActionManifestsTest {
             )
 
         assertEquals("yes", manifest.name)
-        assertEquals(
-            listOf(ActionInput("on", false), ActionInput("no", false), ActionInput("0x10", true)),
-            manifest.inputs,
-        )
         val step = assertIs<Runs.Composite>(manifest.runs).steps.single()
         assertEquals("off", step.name)
         assertEquals("on", step.condition)

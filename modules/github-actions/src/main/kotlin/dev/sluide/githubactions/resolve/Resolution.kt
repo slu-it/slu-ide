@@ -4,9 +4,8 @@ import dev.sluide.githubactions.model.Step
 import dev.sluide.githubactions.model.Workflow
 
 /**
- * What a `uses:` leads to ([ReferenceResolver]); [key] is the target, [asOf] the date a remote one was fetched for a
- * branch or tag (`as of 2026-10-20`), null for a local one or a commit SHA; [file] the file read, whose lines the
- * nested boxes come from.
+ * What a `uses:` leads to ([ReferenceResolver]); [key] is the target, [file] the file read, whose lines the nested
+ * boxes come from.
  */
 internal sealed interface Resolution {
     /** Not a reference to follow (`docker://`, unparsed, nothing to read it from): a black box as written. */
@@ -17,7 +16,6 @@ internal sealed interface Resolution {
         val key: Target,
         val fileName: String,
         val workflow: Workflow,
-        val asOf: String? = null,
         val file: SourceFile,
     ) : Resolution
 
@@ -26,16 +24,16 @@ internal sealed interface Resolution {
         val key: Target,
         val title: String,
         val steps: List<Step>,
-        val asOf: String? = null,
         val file: SourceFile,
     ) : Resolution
 
     /**
-     * An action that stays a black box, with [lines] saying what it is (`JS action (node20)`, its inputs, `as of …`), or
-     * a `./…` in a remote file, which refers to the caller's workspace.
+     * An action that stays a black box, with its [type] (`JS action (node20)`, `Docker (alpine)`) and [lines] saying
+     * what else is known, or a `./…` in a remote file, which refers to the caller's workspace.
      */
     data class Annotated(
         val lines: List<String>,
+        val type: String? = null,
     ) : Resolution
 
     /** A reference not followed, for the [reason] a box with [text] shows; [key] the target if known. */

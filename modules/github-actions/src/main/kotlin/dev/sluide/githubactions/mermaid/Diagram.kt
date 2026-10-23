@@ -40,6 +40,9 @@ internal sealed interface Element {
 
 internal enum class Shape { BOX, STADIUM }
 
+/** The direction a [Cluster] lays out its children in. */
+internal enum class Direction { TB, LR }
+
 /** The Mermaid classes of the diagram, stroke-only so that light and dark themes both work. */
 internal enum class Style(
     val cssClass: String,
@@ -82,13 +85,14 @@ internal data class ReferenceNode(
     override val location: SourceLocation? = null,
 ) : Element
 
-/** A subgraph with an escaped [title], its [children] and the [links] between them, laid out top to bottom. */
+/** A subgraph with an escaped [title], its [children] and the [links] between them, laid out in [direction]. */
 internal data class Cluster(
     override val id: String,
     val title: String,
     val children: List<Element>,
     val links: List<Link> = emptyList(),
     override val location: SourceLocation? = null,
+    val direction: Direction = Direction.TB,
 ) : Element
 
 /** An edge; [label] is escaped. Dotted edges are conditional. */

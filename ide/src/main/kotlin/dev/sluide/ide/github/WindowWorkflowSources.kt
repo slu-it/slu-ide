@@ -247,7 +247,6 @@ private fun text(
             RemoteText.Found(
                 read.text,
                 commit.commit,
-                commit.fetchedAt.takeUnless { FULL_COMMIT.matches(file.ref) },
                 webPage(repository, commit.commit, file.path),
             )
         }
