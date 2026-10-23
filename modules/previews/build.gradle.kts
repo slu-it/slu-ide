@@ -29,6 +29,9 @@ dependencies {
     implementation(libs.jsoup)
     // Jupyter notebooks are JSON (ADR 0017).
     implementation(libs.jackson.databind)
+    // The YAML preview reads SnakeYAML's event stream only, never constructing types (ADR 0079). No version here: the
+    // Spring Boot BOM manages it.
+    implementation(libs.snakeyaml)
     // Toolbar icons: Material Design Icons, like the file explorer's (ADR 0012).
     implementation(libs.ikonli.javafx)
     implementation(libs.ikonli.materialdesign2)
