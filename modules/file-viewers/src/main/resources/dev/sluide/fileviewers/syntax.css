@@ -218,3 +218,41 @@
         -rtfx-background-color: #4e535a;
     }
 }
+
+/*
+ * The dots beside the pattern lines of .gitignore files (GitignoreFileView): a filled green dot for a line that decides
+ * an untracked path, orange for one that matches only tracked files, a hollow grey ring for one without effect. The
+ * dot (.ignore-rule-dot) is a cell as high as the row; the mark inside it (.ignore-rule-mark) is the 7 px circle.
+ */
+.ignore-rule-mark {
+    -fx-background-radius: 4;
+    -fx-border-radius: 4;
+}
+
+.ignore-rule-mark.ignore-rule-active {
+    -fx-background-color: #4fa65b;
+}
+
+.ignore-rule-mark.ignore-rule-tracked {
+    -fx-background-color: #e0932f;
+}
+
+.ignore-rule-mark.ignore-rule-none {
+    -fx-background-color: transparent;
+    -fx-border-color: #8c8c8c;
+    -fx-border-width: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+    .ignore-rule-mark.ignore-rule-active {
+        -fx-background-color: #6aaa75;
+    }
+
+    .ignore-rule-mark.ignore-rule-tracked {
+        -fx-background-color: #d9a343;
+    }
+
+    .ignore-rule-mark.ignore-rule-none {
+        -fx-border-color: #7a7e85;
+    }
+}
