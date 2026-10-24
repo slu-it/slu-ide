@@ -5,6 +5,7 @@ import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.TextEditableView
 import dev.sluide.httpclient.HttpClientSession
+import dev.sluide.httpclient.problemSummary
 import javafx.animation.PauseTransition
 import javafx.application.Platform
 import javafx.beans.property.SimpleObjectProperty
@@ -350,13 +351,9 @@ internal class EnvironmentFileView(
                 readOnly,
                 table.error,
             ) + table.problems
-        warning.text =
-            when (problems.size) {
-                0 -> ""
-                1 -> problems.single()
-                else -> "${problems.first()} (and ${problems.size - 1} more)"
-            }
-        warning.tooltip = if (problems.isEmpty()) null else Tooltip(problems.joinToString("\n"))
+        val (summary, all) = problemSummary(problems)
+        warning.text = summary
+        warning.tooltip = all?.let(::Tooltip)
         warning.isVisible = problems.isNotEmpty()
         warning.isManaged = problems.isNotEmpty()
     }

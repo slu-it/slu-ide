@@ -8,6 +8,7 @@ import dev.sluide.httpclient.env.Environment
 import dev.sluide.httpclient.env.EnvironmentFiles
 import dev.sluide.httpclient.env.Environments
 import dev.sluide.httpclient.parse.HttpFileParser
+import dev.sluide.httpclient.problemSummary
 import dev.sluide.httpclient.send.Cancellable
 import dev.sluide.httpclient.send.HttpFailure
 import javafx.animation.PauseTransition
@@ -355,13 +356,9 @@ internal class HttpFileView(
     }
 
     private fun showProblems(problems: List<String>) {
-        warning.text =
-            when (problems.size) {
-                0 -> ""
-                1 -> problems.single()
-                else -> "${problems.first()} (and ${problems.size - 1} more)"
-            }
-        warning.tooltip = if (problems.isEmpty()) null else Tooltip(problems.joinToString("\n"))
+        val (summary, all) = problemSummary(problems)
+        warning.text = summary
+        warning.tooltip = all?.let(::Tooltip)
         warning.isVisible = problems.isNotEmpty()
         warning.isManaged = problems.isNotEmpty()
     }
@@ -429,7 +426,7 @@ internal class HttpFileView(
         error: Boolean = false,
     ) {
         // Long texts (e.g. errors) are cut short, so the toolbar keeps its controls; the tooltip has all of it.
-        message.text = if (text.length > MESSAGE_LENGTH) text.take(MESSAGE_LENGTH - 1) + "…" else text
+        message.text = truncated(text, MESSAGE_LENGTH)
         message.styleClass.remove("http-message-error")
         if (error) message.styleClass += "http-message-error"
         message.tooltip = Tooltip(text)
