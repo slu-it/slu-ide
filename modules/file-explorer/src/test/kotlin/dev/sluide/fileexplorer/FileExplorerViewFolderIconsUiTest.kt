@@ -106,15 +106,6 @@ class FileExplorerViewFolderIconsUiTest {
     ) = assertEquals(expected.ikon.description to listOf(expected.styleClass), iconOf(robot, name), name)
 
     @Test
-    fun `the extra root shows the top icon collapsed and expanded`(robot: FxRobot) {
-        open(robot, icons)
-        assertIcon(robot, "Extra", FileIcon.SCRATCHES)
-
-        expand(robot, "Extra")
-        assertIcon(robot, "Extra", FileIcon.SCRATCHES)
-    }
-
-    @Test
     fun `a folder in the extra root shows the closed then the open icon`(robot: FxRobot) {
         open(robot, icons)
         expand(robot, "Extra")
@@ -122,13 +113,6 @@ class FileExplorerViewFolderIconsUiTest {
 
         expand(robot, "sub")
         assertIcon(robot, "sub", FileIcon.SCRATCH_FOLDER_OPEN)
-    }
-
-    @Test
-    fun `a file in the extra root keeps its type icon`(robot: FxRobot) {
-        open(robot, icons)
-        expand(robot, "Extra")
-        assertIcon(robot, "Main.kt", FileIcon.KOTLIN)
     }
 
     @Test
@@ -145,16 +129,6 @@ class FileExplorerViewFolderIconsUiTest {
     }
 
     @Test
-    fun `an extra root without folder icons keeps the normal ones`(robot: FxRobot) {
-        open(robot, null)
-        assertIcon(robot, "Extra", FileIcon.FOLDER)
-
-        expand(robot, "Extra")
-        assertIcon(robot, "Extra", FileIcon.FOLDER_OPEN)
-        assertIcon(robot, "sub", FileIcon.FOLDER)
-    }
-
-    @Test
     fun `a folder created and then renamed after loading shows the closed icon`(robot: FxRobot) {
         open(robot, icons)
         expand(robot, "Extra")
@@ -166,18 +140,5 @@ class FileExplorerViewFolderIconsUiTest {
         view.askName = { _, _, _ -> "renamed" }
         robot.interact { view.rename(item("later")) }
         assertIcon(robot, "renamed", FileIcon.SCRATCH_FOLDER)
-    }
-
-    @Test
-    fun `a project folder shown again as an extra root keeps the normal icons in the project`(robot: FxRobot) {
-        val pdir = project.resolve("pdir").createDirectories()
-        pdir.resolve("deeper").createDirectories()
-        robot.interact { view.open(project, listOf(ExplorerRoot(pdir, "Extra", icons))) }
-        assertIcon(robot, "pdir", FileIcon.FOLDER)
-        assertIcon(robot, "Extra", FileIcon.SCRATCHES)
-
-        expand(robot, "pdir", "Extra")
-        assertIcon(robot, "pdir", FileIcon.FOLDER_OPEN)
-        assertIcon(robot, "Extra", FileIcon.SCRATCHES)
     }
 }

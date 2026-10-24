@@ -26,6 +26,7 @@ import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
 import kotlin.io.path.exists
@@ -125,6 +126,22 @@ class FileExplorerViewRootsUiTest {
             val error = failure ?: return
             if (System.nanoTime() > deadline) throw error
             Thread.sleep(50)
+        }
+    }
+
+    /**
+     * Creates [name] in [dir] and waits until another subscription on [dir] has been told. It shares the batch with the
+     * subscriptions of the view, so these have been told as well by then: a proof of "no report" without sleeping.
+     */
+    private fun createAndAwaitReport(
+        robot: FxRobot,
+        dir: Path,
+        name: String,
+    ) {
+        val seen = CopyOnWriteArrayList<Path>()
+        watcher.watch(dir) { seen.addAll(it) }.use {
+            val file = dir.resolve(name).createFile()
+            eventually(robot) { assertTrue(file in seen, "the sentinel was told about $file, got $seen") }
         }
     }
 
@@ -427,9 +444,7 @@ class FileExplorerViewRootsUiTest {
         project.resolve("x.txt").createFile()
         eventually(robot) { assertTrue(changes.any { project.resolve("x.txt") in it }) }
         changes.clear()
-        sub.resolve("y.txt").createFile()
-        Thread.sleep(700)
-        WaitForAsyncUtils.waitForFxEvents()
+        createAndAwaitReport(robot, sub, "y.txt")
 
         assertTrue(changes.none { change -> change.any { it.startsWith(sub) } })
     }
@@ -443,18 +458,14 @@ class FileExplorerViewRootsUiTest {
         changes.clear()
 
         robot.interact { view.open(null) }
-        scratches.resolve("one.txt").createFile()
-        Thread.sleep(700)
-        WaitForAsyncUtils.waitForFxEvents()
+        createAndAwaitReport(robot, scratches, "one.txt")
         assertEquals(emptyList(), changes)
 
         robot.interact { view.open(project, extras) }
         robot.interact { scratchesItem().isExpanded = true }
         robot.interact { view.open(project, extras) }
         changes.clear()
-        scratches.resolve("two.txt").createFile()
-        Thread.sleep(700)
-        WaitForAsyncUtils.waitForFxEvents()
+        createAndAwaitReport(robot, scratches, "two.txt")
         assertEquals(emptyList(), changes)
     }
 }

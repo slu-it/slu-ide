@@ -2,7 +2,6 @@ package dev.sluide.fileexplorer.tree
 
 import dev.sluide.fileexplorer.FileMarker
 import dev.sluide.fileexplorer.FileMarkers
-import dev.sluide.fileicons.fileIconFor
 import dev.sluide.fileicons.show
 import javafx.beans.InvalidationListener
 import javafx.beans.Observable
@@ -137,19 +136,7 @@ internal class PathCell(
             graphic = null
             return
         }
-        val folderIcons = treeItem.folderIcons.takeIf { treeItem.isDirectory }
-        val fileIcon =
-            if (folderIcons != null) {
-                when {
-                    treeItem.parent !is FileTreeItem -> folderIcons.top
-                    treeItem.isExpanded -> folderIcons.open
-                    else -> folderIcons.closed
-                }
-            } else {
-                fileIconFor(treeItem.value, treeItem.isDirectory, treeItem.isExpanded) {
-                    treeItem.readable.value ?: canOpenFile(treeItem.value).also { treeItem.readable.value = it }
-                }
-            }
+        val fileIcon = treeItem.fileIcon(canOpenFile)
         icon.show(fileIcon)
         graphic = content
     }

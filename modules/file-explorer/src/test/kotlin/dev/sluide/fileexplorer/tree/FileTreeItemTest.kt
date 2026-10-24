@@ -1,5 +1,8 @@
 package dev.sluide.fileexplorer.tree
 
+import dev.sluide.fileexplorer.FolderIcons
+import dev.sluide.fileicons.FileIcon
+import javafx.scene.control.TreeItem
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
@@ -11,6 +14,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotSame
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -128,5 +132,73 @@ class FileTreeItemTest {
         checkAll()
         item.forgetReadability(listOf(root))
         assertEquals(mapOf("sub" to true, "a.txt" to null, "b.txt" to null), readability())
+    }
+
+    private val icons = FolderIcons(FileIcon.SCRATCHES, FileIcon.SCRATCH_FOLDER, FileIcon.SCRATCH_FOLDER_OPEN)
+
+    /** Puts [top] below a hidden root, like the explorer's top-level folders. */
+    private fun topLevel(
+        top: FileTreeItem,
+        hidden: TreeItem<Path> = TreeItem(),
+    ): FileTreeItem = top.also { hidden.children.add(it) }
+
+    @Test
+    fun `children inherit the folder icons but not the label`() {
+        root.resolve("sub/deeper").createDirectories()
+        val top = FileTreeItem(root, label = "Extra", folderIcons = icons)
+
+        val sub = top.children.single() as FileTreeItem
+        val deeper = sub.children.single() as FileTreeItem
+
+        assertEquals(icons, sub.folderIcons)
+        assertEquals(icons, deeper.folderIcons)
+        assertNull(sub.label)
+        assertEquals("Extra", top.label)
+    }
+
+    @Test
+    fun `a root with folder icons shows the top icon, collapsed or expanded, and its folders the closed or open one`() {
+        root.resolve("sub").createDirectories()
+        root.resolve("Main.kt").createFile()
+        val top = topLevel(FileTreeItem(root, label = "Extra", folderIcons = icons))
+        val sub = top.children.first() as FileTreeItem
+        val file = top.children.last() as FileTreeItem
+
+        assertEquals(FileIcon.SCRATCHES, top.fileIcon { true })
+        top.isExpanded = true
+        assertEquals(FileIcon.SCRATCHES, top.fileIcon { true })
+        assertEquals(FileIcon.SCRATCH_FOLDER, sub.fileIcon { true })
+        sub.isExpanded = true
+        assertEquals(FileIcon.SCRATCH_FOLDER_OPEN, sub.fileIcon { true })
+        assertEquals(FileIcon.KOTLIN, file.fileIcon { true }, "files keep the icon of their type")
+    }
+
+    @Test
+    fun `folders without folder icons, also beside a root with them, keep the normal ones`() {
+        root.resolve("pdir").createDirectories()
+        val other = root.resolve("other").createDirectories()
+        val hidden = TreeItem<Path>()
+        val project = topLevel(FileTreeItem(root), hidden)
+        val extra = topLevel(FileTreeItem(other, label = "Extra", folderIcons = icons), hidden)
+        val pdir = project.children.first() as FileTreeItem
+
+        assertEquals(FileIcon.FOLDER, project.fileIcon { true })
+        project.isExpanded = true
+        assertEquals(FileIcon.FOLDER_OPEN, project.fileIcon { true })
+        assertEquals(FileIcon.FOLDER, pdir.fileIcon { true })
+        pdir.isExpanded = true
+        assertEquals(FileIcon.FOLDER_OPEN, pdir.fileIcon { true })
+        assertEquals(FileIcon.SCRATCHES, extra.fileIcon { true })
+    }
+
+    @Test
+    fun `the readability of a file of unknown type is asked once and kept`() {
+        val item = FileTreeItem(root.resolve("data").createFile())
+        var asked = 0
+
+        assertEquals(FileIcon.BINARY, item.fileIcon { asked++ < 0 })
+        assertEquals(FileIcon.BINARY, item.fileIcon { asked++ < 0 })
+
+        assertEquals(1, asked)
     }
 }
