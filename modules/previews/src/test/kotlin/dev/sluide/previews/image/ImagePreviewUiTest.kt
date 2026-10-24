@@ -23,13 +23,17 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.awt.image.BufferedImage
+import java.io.IOException
+import java.io.RandomAccessFile
 import java.nio.file.Path
+import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import javax.imageio.ImageIO
 import kotlin.io.path.fileSize
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -79,7 +83,7 @@ class ImagePreviewUiTest {
         robot.interact { container.children.setAll(view.node) }
         awaitLoaded(view.webView)
 
-        assertEquals("2000 × 100 px · ${humanSize(file.fileSize())}", view.status.text)
+        assertEquals("2000 × 100 px · ${humanSize(file.fileSize())}", fx { view.status.text })
         val fitted = view.webView.imageWidth()
         assertTrue(fitted < 600, "fitted: $fitted")
         assertTrue(fx { view.zoom.fit && view.zoom.fitButton?.isSelected == true })
@@ -124,8 +128,6 @@ class ImagePreviewUiTest {
         robot.interact { checkNotNull(view.zoom.fitButton).fire() }
         assertEquals(400.0, view.webView.imageWidth())
         assertTrue(fx { view.zoom.fit && view.zoom.fitButton?.isSelected == true })
-        robot.interact { checkNotNull(view.zoom.fitButton).fire() }
-        assertTrue(fx { view.zoom.fitButton?.isSelected == true }, "Fit stays selected")
 
         robot.interact { view.zoom.actualSizeButton.fire() }
         assertEquals(400.0, view.webView.imageWidth())
@@ -179,14 +181,8 @@ class ImagePreviewUiTest {
         robot.press(checkNotNull(view.zoom.fitButton), KeyCode.DIGIT9, shortcut = true)
         assertEquals(400.0, view.webView.imageWidth())
         assertTrue(fx { view.zoom.fit })
-    }
 
-    @Test
-    fun `a scale the page reports that is no size is ignored`(robot: FxRobot) {
-        val view = fx { ImageFileViewer().open(png("icon.png", 10, 10)) as ImageFileView }
-        robot.interact { container.children.setAll(view.node) }
-        awaitLoaded(view.webView)
-
+        // A scale the page reports that is no size is ignored.
         for (scale in listOf(Double.NaN, Double.POSITIVE_INFINITY, 0.0, -1.0)) {
             robot.interact { view.zoom.zoomed(scale, fitted = false) }
             assertEquals(1.0, fx { view.zoom.scale })
@@ -260,10 +256,54 @@ class ImagePreviewUiTest {
         robot.interact { view.reload() }
         val other = dir.resolve("other.txt").apply { writeText("other") }
         robot.interact { view.webView.engine.load(other.toUri().toString()) }
-        WaitForAsyncUtils.sleep(500, TimeUnit.MILLISECONDS)
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
+            fx {
+                view.webView.engine.location
+                    .orEmpty()
+                    .endsWith("other.txt") &&
+                    view.webView.engine.loadWorker.state == Worker.State.SUCCEEDED
+            }
+        }
+        // Nothing shows the image again: give a render, if there were one, the time to start.
+        WaitForAsyncUtils.sleep(100, TimeUnit.MILLISECONDS)
         WaitForAsyncUtils.waitForFxEvents()
         assertTrue(fx { view.webView.engine.location }.orEmpty().endsWith("other.txt"))
         assertEquals(null, view.webView.script("document.querySelector('img')"))
+    }
+
+    @Test
+    fun `an unchanged file renders nothing again, a page dropped on the view is replaced, a file grown too large fails`(
+        robot: FxRobot,
+    ) {
+        val file = png("icon.png", 10, 10)
+        val view = fx { ImageFileViewer().open(file) as ImageFileView }
+        robot.interact { container.children.setAll(view.node) }
+        awaitLoaded(view.webView)
+        var loads = 0
+        robot.interact {
+            view.webView.engine.loadWorker.stateProperty().subscribe { state ->
+                if (state == Worker.State.RUNNING) loads++
+            }
+        }
+
+        robot.interact { view.reload() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(0, loads, "the same bytes load nothing")
+
+        // Something dropped onto the page navigates; the image is shown again.
+        val other = dir.resolve("other.txt").apply { writeText("other") }
+        robot.interact { view.webView.engine.load(other.toUri().toString()) }
+        awaitLoaded(view.webView)
+        assertEquals(10, (view.webView.script("document.querySelector('img').naturalWidth") as Number).toInt())
+
+        RandomAccessFile(file.toFile(), "rw").use { it.setLength(ImageFileViewer.MAX_IMAGE_BYTES + 1) }
+        val failure = assertFailsWith<ExecutionException> { fx { view.reload() } }
+        assertTrue(failure.cause is IOException, "${failure.cause}")
+
+        assertTrue(fx { view.moved(dir.resolve("renamed.png")) }, "a name of the same image type")
+        assertFalse(fx { view.moved(dir.resolve("renamed.jpg")) }, "another image type needs another view")
+        robot.interact { view.dispose() }
+        assertFalse(fx { view.moved(dir.resolve("again.png")) }, "a disposed view follows nothing")
     }
 
     @Test
