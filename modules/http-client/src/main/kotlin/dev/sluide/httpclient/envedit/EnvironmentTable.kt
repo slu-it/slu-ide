@@ -196,12 +196,10 @@ internal class EnvironmentTable(
     private fun fitColumns() {
         val width = tree.width
         if (width <= 0.0) return
-        nameColumn.prefWidth = (width * NAME_SHARE).coerceIn(NAME_MIN_WIDTH, NAME_WIDTH)
         val environments = tree.columns.drop(2)
-        if (environments.isEmpty()) return
-        val rest = width - nameColumn.prefWidth - typeColumn.prefWidth - SCROLL_BAR_ALLOWANCE
-        val each = maxOf(ENV_MIN_WIDTH, rest / environments.size)
-        environments.forEach { it.prefWidth = each }
+        val (name, each) = columnWidths(width, typeColumn.prefWidth, environments.size)
+        nameColumn.prefWidth = name
+        if (each != null) environments.forEach { it.prefWidth = each }
     }
 
     private fun environmentColumn(env: String) =
@@ -479,7 +477,22 @@ internal class EnvironmentTable(
         action: () -> Unit,
     ) = MenuItem(text).apply { setOnAction { action() } }
 
-    private companion object {
+    internal companion object {
+        /**
+         * The widths of the Name column and of each of [envCount] environment columns (`null` without any) in a table
+         * of [width] with a Type column of [typeWidth]; see [fitColumns].
+         */
+        fun columnWidths(
+            width: Double,
+            typeWidth: Double,
+            envCount: Int,
+        ): Pair<Double, Double?> {
+            val name = (width * NAME_SHARE).coerceIn(NAME_MIN_WIDTH, NAME_WIDTH)
+            if (envCount == 0) return name to null
+            val rest = width - name - typeWidth - SCROLL_BAR_ALLOWANCE
+            return name to maxOf(ENV_MIN_WIDTH, rest / envCount)
+        }
+
         /** Wide enough for "Custom Request Parameters" inside an auth section. */
         const val NAME_WIDTH = 250.0
         const val NAME_MIN_WIDTH = 160.0
