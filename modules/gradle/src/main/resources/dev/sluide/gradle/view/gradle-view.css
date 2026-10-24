@@ -20,7 +20,7 @@
     -fx-background-insets: 0;
 }
 
-.gradle-task-bar, .gradle-run-bar > .h-box {
+.gradle-task-bar, .gradle-run-row {
     -fx-padding: 3 6 3 6;
     -fx-spacing: 4;
     -fx-alignment: center-left;
@@ -41,6 +41,10 @@
 
 .gradle-task-description, .gradle-placeholder {
     -fx-text-fill: derive(-fx-text-base-color, 45%);
+}
+
+.tree-cell:selected .gradle-task-description {
+    -fx-text-fill: derive(-fx-selection-bar-text, -15%);
 }
 
 .gradle-group {

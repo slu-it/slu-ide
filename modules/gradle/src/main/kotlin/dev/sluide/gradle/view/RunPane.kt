@@ -8,6 +8,7 @@ import javafx.scene.control.TextField
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
+import javafx.scene.layout.Region
 import javafx.scene.layout.StackPane
 import javafx.scene.layout.VBox
 
@@ -36,6 +37,11 @@ internal class RunPane {
 
     val rerun = Button("Rerun").apply { isDisable = true }
 
+    init {
+        // A long status line is cut, not the buttons.
+        for (button in listOf(stop, rerun)) button.minWidth = Region.USE_PREF_SIZE
+    }
+
     private val placeholder =
         Label("The output of the tasks you run shows here.").apply { styleClass += "gradle-placeholder" }
 
@@ -46,8 +52,11 @@ internal class RunPane {
             styleClass += "gradle-run-pane"
             top =
                 VBox(
-                    HBox(arguments),
-                    HBox(status, stop, rerun).apply { alignment = Pos.CENTER_LEFT },
+                    HBox(arguments).apply { styleClass += "gradle-run-row" },
+                    HBox(status, stop, rerun).apply {
+                        styleClass += "gradle-run-row"
+                        alignment = Pos.CENTER_LEFT
+                    },
                 ).apply { styleClass += "gradle-run-bar" }
             minHeight = 0.0
         }
