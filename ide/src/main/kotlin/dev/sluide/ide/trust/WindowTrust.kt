@@ -55,27 +55,12 @@ internal class WindowTrust(
         stage: Stage,
         state: ProjectTrustState,
     ) {
-        val off = state is ProjectTrustState.Ask || state is ProjectTrustState.Untrusted
-        bar.isVisible = off
-        bar.isManaged = off
+        val text = trustBarMessage(state)
+        bar.isVisible = text != null
+        bar.isManaged = text != null
         if (state is ProjectTrustState.Closed) asked = false
-        if (!off) return
-        val tools = toolsOff(state)
-        val (verb, pronoun) = if (state.flagged.size == 1) "is" to "it" else "are" to "they"
-        message.text =
-            when {
-                state.flagged.all { it.findings == null } -> {
-                    "$tools $verb off: this folder could not be checked."
-                }
-
-                state is ProjectTrustState.Ask && state.changed -> {
-                    "$tools $verb off: what this folder makes $pronoun run changed."
-                }
-
-                else -> {
-                    "$tools $verb off: this folder defines commands $pronoun would run."
-                }
-            }
+        if (text == null) return
+        message.text = text
         if (state is ProjectTrustState.Ask && !state.changed && !asked) {
             asked = true
             // Not while the state is being set: the dialog waits in a nested event loop.
@@ -99,6 +84,33 @@ internal class WindowTrust(
         if (now is ProjectTrustState.Ask && now != state) {
             asked = true
             Platform.runLater { if (projectTrust.state.get() === now) reviewTrust(stage, now) }
+        }
+    }
+}
+
+/** What the trust bar says about [state]: which tools are off and why; `null` while no tool is off. */
+internal fun trustBarMessage(state: ProjectTrustState): String? {
+    if (state !is ProjectTrustState.Ask && state !is ProjectTrustState.Untrusted) return null
+    val tools = toolsOff(state)
+    val (verb, subject, target) =
+        if (state.flagged.size ==
+            1
+        ) {
+            Triple("is", "it", "it")
+        } else {
+            Triple("are", "they", "them")
+        }
+    return when {
+        state.flagged.all { it.findings == null } -> {
+            "$tools $verb off: this folder could not be checked."
+        }
+
+        state is ProjectTrustState.Ask && state.changed -> {
+            "$tools $verb off: what this folder makes $target run changed."
+        }
+
+        else -> {
+            "$tools $verb off: this folder defines commands $subject would run."
         }
     }
 }

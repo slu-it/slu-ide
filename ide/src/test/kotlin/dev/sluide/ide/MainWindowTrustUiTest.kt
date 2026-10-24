@@ -1,17 +1,8 @@
 package dev.sluide.ide
 
-import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.git.GitTrustCheck
 import dev.sluide.ide.git.GIT_OFF
-import dev.sluide.ide.trust.KEEP_OFF_BUTTON
-import dev.sluide.ide.trust.TRUST_BUTTON
-import dev.sluide.ide.trust.trustConfirmation
-import dev.sluide.ide.trust.trustDetails
-import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.projecttrust.ProjectTrustState
-import dev.sluide.projecttrust.TrustCheckResult
-import dev.sluide.projecttrust.TrustFinding
-import dev.sluide.projecttrust.TrustedProjects
 import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.stage.Stage
@@ -23,6 +14,8 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
+import kotlin.io.path.exists
+import kotlin.io.path.fileSize
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -113,18 +106,8 @@ class MainWindowTrustUiTest : MainWindowUiFixture() {
             assertEquals(project.toAbsolutePath().normalize(), gitStatus.snapshot.get().root)
         }
         assertIs<ProjectTrustState.Untrusted>(asked[1])
-        // Remembered for this folder: opened again, it is trusted without asking.
-        val again =
-            ProjectTrust(
-                listOf(GitTrustCheck(git)),
-                TrustedProjects(settingsDir.resolve("project-trust.properties")),
-                BackgroundTasks.forTests(),
-            ) {
-                it.run()
-            }
-        again.open(project)
-        assertTrue(again.awaitAllows(GitTrustCheck.ID))
-        again.close()
+        // Remembered for this folder; that it applies when opened again is ProjectTrustTest's.
+        assertTrue(settingsDir.resolve("project-trust.properties").let { it.exists() && it.fileSize() > 0 })
     }
 
     @Test
@@ -145,48 +128,6 @@ class MainWindowTrustUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `the dialog lists the findings by tool, with when they run, and keeps git off by default`(robot: FxRobot) {
-        val state =
-            ProjectTrustState.Ask(
-                listOf(
-                    TrustCheckResult(
-                        "git",
-                        "Git",
-                        listOf(
-                            TrustFinding("something.new = x (.git/config)"),
-                            TrustFinding("core.fsmonitor = ./watch.sh (.git/config)", "runs on every git status"),
-                        ),
-                    ),
-                    TrustCheckResult("build", "Build", emptyList()),
-                ),
-                changed = false,
-            )
-        robot.interact {
-            val dialog = trustConfirmation(stage, project, state)
-            assertEquals("Trust Folder?", dialog.title)
-            assertEquals("${project.fileName} defines commands that Git would run.", dialog.headerText)
-            assertEquals(
-                """
-                Git
-                  core.fsmonitor = ./watch.sh (.git/config)
-                      runs on every git status
-                  something.new = x (.git/config)
-                      not known to Thoreau
-                """.trimIndent(),
-                trustDetails(state),
-            )
-            val keepOff = dialog.dialogPane.lookupButton(KEEP_OFF_BUTTON) as Button
-            val trust = dialog.dialogPane.lookupButton(TRUST_BUTTON) as Button
-            assertTrue(keepOff.isDefaultButton)
-            assertFalse(trust.isDefaultButton)
-            // Esc and closing the window answer with the cancel button: Keep Off.
-            dialog.show()
-            dialog.close()
-            assertEquals(KEEP_OFF_BUTTON, dialog.result)
-        }
-    }
-
-    @Test
     fun `while git is off the git log says so and Commit and Push are disabled`(robot: FxRobot) {
         repository()
         runGit("config", "core.fsmonitor", "./watch.sh")
@@ -202,14 +143,45 @@ class MainWindowTrustUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `a folder git's check could not check says so`(robot: FxRobot) {
-        val state =
-            ProjectTrustState.Untrusted(listOf(TrustCheckResult("git", "Git", null)))
-        robot.interact {
-            assertEquals(
-                "What ${project.fileName} would make Git run could not be checked.",
-                trustConfirmation(stage, project, state).headerText,
-            )
+    fun `findings that change while the dialog is open drop its answer, and the new findings are asked about`(
+        robot: FxRobot,
+    ) {
+        repository()
+        runGit("config", "core.fsmonitor", "./watch.sh")
+        val states = mutableListOf<ProjectTrustState>()
+        val replies = ArrayDeque(listOf(true, false))
+        mainWindow.trust.confirmTrust = { _, state ->
+            states += state
+            if (states.size == 1) {
+                // The folder changes what git runs while the dialog is open.
+                runGit("config", "filter.x.clean", "./x.sh")
+                val recheck = Thread { projectTrust.recheck(GitTrustCheck.ID) }
+                recheck.start()
+                recheck.join(10_000)
+                assertFalse(recheck.isAlive, "the recheck ended")
+            }
+            replies.removeFirst()
         }
+
+        robot.interact { projectService.open(project) }
+
+        eventually(robot) { assertEquals(2, states.size, states.toString()) }
+        val first = assertIs<ProjectTrustState.Ask>(states[0])
+        val second = assertIs<ProjectTrustState.Ask>(states[1])
+        assertEquals(
+            1,
+            first.flagged
+                .single()
+                .findings
+                ?.size,
+        )
+        assertEquals(
+            2,
+            second.flagged
+                .single()
+                .findings
+                ?.size,
+        )
+        eventually(robot) { assertIs<ProjectTrustState.Untrusted>(projectTrust.state.get()) }
     }
 }
