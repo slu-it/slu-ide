@@ -249,4 +249,21 @@ class CsvRendererTest {
             TableState.parse("""{"header":"yes","sortColumn":-1,"descending":1,"filters":[3,"y"]}"""),
         )
     }
+
+    @Test
+    fun `an unclosed quote takes the rest of the file, quotes inside or after a field are kept as typed`() {
+        assertEquals(listOf(listOf("a", "b\nc")), cells("a,\"b\nc"))
+        assertEquals(listOf(listOf("a\"b", "c")), cells("a\"b,c"))
+        assertEquals(listOf(listOf("ab", "c")), cells("\"a\"b,c"))
+    }
+
+    @Test
+    fun `the header guess looks at 200 rows below the first only`() {
+        fun numbers(textAt: Int) = rows(*(0..250).map { if (it == textAt) "x,x" else "$it,$it" }.toTypedArray())
+
+        // The text in row 200 (the last sampled) spoils both columns' votes: a tie means a header.
+        assertTrue(hasHeader(numbers(textAt = 200), decimalComma = false))
+        // In row 201 it is not looked at any more: the numbers decide, and the first row is one, too.
+        assertFalse(hasHeader(numbers(textAt = 201), decimalComma = false))
+    }
 }
