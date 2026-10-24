@@ -1,6 +1,5 @@
 package dev.sluide.git.parse
 
-import dev.sluide.git.cli.refs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse

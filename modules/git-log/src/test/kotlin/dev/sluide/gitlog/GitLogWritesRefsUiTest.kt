@@ -9,7 +9,6 @@ import dev.sluide.gitlog.operations.CHECKOUT_BUTTON
 import dev.sluide.gitlog.operations.CREATE_BUTTON
 import dev.sluide.gitlog.operations.DELETE_BUTTON
 import dev.sluide.gitlog.operations.FORCE_DELETE_BUTTON
-import dev.sluide.gitlog.operations.Fetch
 import dev.sluide.gitlog.operations.OVERWRITE_BUTTON
 import dev.sluide.gitlog.operations.RENAME_BUTTON
 import javafx.scene.control.Button

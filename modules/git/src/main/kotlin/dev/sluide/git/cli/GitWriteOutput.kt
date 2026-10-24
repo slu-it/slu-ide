@@ -1,7 +1,6 @@
 package dev.sluide.git.cli
 
 import dev.sluide.git.GitResult
-import java.nio.file.Files
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 
