@@ -93,6 +93,7 @@ internal object MarkupLanguages {
         when (language) {
             "java" -> ScriptLanguages.java
             "kotlin", "kt", "kts" -> ScriptLanguages.kotlin
+            "groovy", "gradle" -> ScriptLanguages.groovy
             "python", "py" -> ScriptLanguages.python
             "javascript", "js", "mjs", "cjs" -> WebLanguages.javaScript
             "jsx" -> WebLanguages.javaScriptReact

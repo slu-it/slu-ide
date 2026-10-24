@@ -232,6 +232,7 @@ internal class RSyntaxHighlighter(
     companion object {
         val java = ScriptLanguages.java
         val kotlin = ScriptLanguages.kotlin
+        val groovy = ScriptLanguages.groovy
         val python = ScriptLanguages.python
         val sql = ScriptLanguages.sql
         val shell = ScriptLanguages.shell

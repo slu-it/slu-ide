@@ -5,7 +5,7 @@ import org.fife.ui.rsyntaxtextarea.SyntaxConstants
 import org.fife.ui.rsyntaxtextarea.TokenTypes
 
 /**
- * The [RSyntaxHighlighter]s of programming and scripting languages: Java, Kotlin, Python, SQL, shell scripts and
+ * The [RSyntaxHighlighter]s of programming and scripting languages: Java, Kotlin, Groovy, Python, SQL, shell scripts and
  * PowerShell.
  */
 internal object ScriptLanguages {
@@ -18,6 +18,10 @@ internal object ScriptLanguages {
             keywords = setOf("package"),
             rawStringDelimiter = "\"\"\"",
         )
+
+    /** Groovy, also Gradle's Groovy DSL (`build.gradle`). */
+    val groovy =
+        RSyntaxHighlighter(SyntaxConstants.SYNTAX_STYLE_GROOVY, keywords = setOf("trait", "var", "record"))
 
     /** The Python lexer predates Python 3 in places; these corrections bring it up to date. */
     val python =

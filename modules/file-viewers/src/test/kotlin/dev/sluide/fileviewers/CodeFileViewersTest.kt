@@ -7,6 +7,7 @@ import dev.sluide.fileviewers.languages.ConfigFileViewer
 import dev.sluide.fileviewers.languages.CssFileViewer
 import dev.sluide.fileviewers.languages.DockerfileFileViewer
 import dev.sluide.fileviewers.languages.GitBlameIgnoreRevsFileViewer
+import dev.sluide.fileviewers.languages.GroovyFileViewer
 import dev.sluide.fileviewers.languages.IgnoreFileViewer
 import dev.sluide.fileviewers.languages.IniFileViewer
 import dev.sluide.fileviewers.languages.JavaFileViewer
@@ -47,6 +48,7 @@ class CodeFileViewersTest {
         mapOf(
             PythonFileViewer() to listOf("main.py", "gui.pyw", "types.pyi", "LEGACY.PY"),
             KotlinFileViewer() to listOf("Main.kt", "build.gradle.kts"),
+            GroovyFileViewer() to listOf("build.gradle", "settings.gradle", "Script.groovy"),
             JavaFileViewer() to listOf("Main.java"),
             JavaScriptFileViewer() to listOf("app.js", "module.mjs", "config.cjs"),
             TypeScriptFileViewer() to listOf("app.ts", "types.d.ts", "module.mts", "config.cts"),

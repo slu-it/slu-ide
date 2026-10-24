@@ -71,6 +71,7 @@ the Bicep graph and `BicepParamFileViewer`.
   |--------|------------|--------------------------|
   | `PythonFileViewer` | `.py`, `.pyw`, `.pyi`; shebang `python`, `python3` | `async`/`await`/`nonlocal` keywords, `print`/`exec` builtins, string prefixes like `f` belong to the string |
   | `KotlinFileViewer` | `.kt`, `.kts` | `package` keyword; multi-line raw strings (`"""…"""`). Known gap: ranges like `1..2` show as two numbers |
+  | `GroovyFileViewer` | `.groovy`, `.gradle` (Gradle's Groovy DSL) | `trait`/`var`/`record` keywords. Known gaps: dollar-slashy strings (`$/…/$`) are not recognised; `${…}` in a GString stays unstyled code |
   | `JavaFileViewer` | `.java` | none needed (text blocks, records, sealed types work) |
   | `JavaScriptFileViewer` | `.js`, `.mjs`, `.cjs`; shebang `node`, `deno`, `bun` | `from`/`undefined` keywords; `${…}` in template literals stays unstyled code |
   | `TypeScriptFileViewer` | `.ts`, `.mts`, `.cts` | keywords such as `type`, `readonly`, `as`, `keyof`, `satisfies`; types `unknown`, `never`, `object`, `symbol`, `bigint`; decorators |
@@ -157,8 +158,9 @@ the Bicep graph and `BicepParamFileViewer`.
     at their paths, looked at without the disk, also for a diff's relative name; the type of file stays with
     `canOpen`/`fileExtensions` ([ADR 0074](../adr/0074-path-matched-file-viewers.md)).
   - Highlighters: `Highlighters.forLanguage(name)` for embedded code, the named `Highlighters.json`, `xml`, `yaml`,
-    `html`, `markdown`, `mermaid`, `bicep`, `cookies` and `pem`, and `Highlighters.fenceLanguage(info)` for the language of a
-    code fence. `SyntaxHighlighter`, `HighlightSpan` and `TokenStyle` are public.
+    `html`, `markdown`, `mermaid`, `bicep`, `groovy`, `kotlin`, `cookies` and `pem`, and
+    `Highlighters.fenceLanguage(info)` for the language of a code fence.
+    `SyntaxHighlighter`, `HighlightSpan` and `TokenStyle` are public.
   - `BicepResourceGraph.of(text)` gives a Bicep file's resource graph as Mermaid (`mermaid`, `isEmpty`, `note`).
   - `FocusWhenShown` focuses a view's node at once or once it is in a scene
     ([ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md)); `isTextFile` and `readTextSample` tell text files
@@ -167,15 +169,16 @@ the Bicep graph and `BicepParamFileViewer`.
 - To add a viewer, implement `FileViewer` as a `@Component` in any module below `dev.sluide`. For a language with an
   RSyntaxTextArea lexer, add its highlighter to the family file in `highlight` (`WebLanguages.kt`,
   `ScriptLanguages.kt`, `ConfigLanguages.kt` or `MarkupLanguages.kt`) with a one-line delegation in
-  `RSyntaxHighlighter`'s companion, extend `CodeFileViewer` like `PythonFileViewer` does, and add a row to `CodeFileViewersTest` and a `<Language>HighlightingTest`. A larger
-  language without a lexer gets its own `SyntaxHighlighter` object instead ([ADR 0031](../adr/0031-own-tokenizers.md),
-  rules there), plus cases in `HighlightingPerformanceTest`. Add its names
-  to `MarkupLanguages.forLanguage` too: that list decides which fenced code (` ```py `) in Markdown and which
-  notebook languages are highlighted. It knows `java`; `kotlin` `kt` `kts`; `python` `py`; `javascript` `js` `mjs`
-  `cjs`; `jsx`; `typescript` `ts`; `tsx`; `json` `jsonc`; `xml` `svg`; `html`; `vue` `svelte`; `yaml` `yml`; `css`;
-  `scss`; `sass`; `less`; `markdown` `md`; `mdx`; `sql`; `kql` `kusto` `csl`; `bash` `sh` `shell` `zsh` `ksh`; `powershell` `ps1` `pwsh`;
-  `dockerfile` `docker` `containerfile`; `makefile` `make` `mk`; `ini` `cfg` `conf` `editorconfig` `gitconfig`;
-  `gitignore`; `ssh-config` `sshconfig` `ssh_config` `sshd_config`; `caddyfile` `caddy`; `mermaid` `mmd`;
-  `bicep` `bicepparam`; `dotenv` `env`; `toml`.
+  `RSyntaxHighlighter`'s companion, extend `CodeFileViewer` like `PythonFileViewer` does, and add a row to
+  `CodeFileViewersTest` and a `<Language>HighlightingTest`. A larger language without a lexer gets its own
+  `SyntaxHighlighter` object instead ([ADR 0031](../adr/0031-own-tokenizers.md), rules there), plus cases in
+  `HighlightingPerformanceTest`. Add its names to `MarkupLanguages.forLanguage` too: that list decides which fenced
+  code (` ```py `) in Markdown and which notebook languages are highlighted. It knows `java`; `kotlin` `kt` `kts`;
+  `groovy` `gradle`; `python` `py`; `javascript` `js` `mjs` `cjs`; `jsx`; `typescript` `ts`; `tsx`; `json` `jsonc`;
+  `xml` `svg`; `html`; `vue` `svelte`; `yaml` `yml`; `css`; `scss`; `sass`; `less`; `markdown` `md`; `mdx`; `sql`;
+  `kql` `kusto` `csl`; `bash` `sh` `shell` `zsh` `ksh`; `powershell` `ps1` `pwsh`; `dockerfile` `docker`
+  `containerfile`; `makefile` `make` `mk`; `ini` `cfg` `conf` `editorconfig` `gitconfig`; `gitignore`; `ssh-config`
+  `sshconfig` `ssh_config` `sshd_config`; `caddyfile` `caddy`; `mermaid` `mmd`; `bicep` `bicepparam`; `dotenv`
+  `env`; `toml`.
 - Not yet implemented: encodings other than UTF-8, and views of binary files other than images (`.xlsx`, `.pptx`,
   SQLite).

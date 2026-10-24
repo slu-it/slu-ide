@@ -26,6 +26,8 @@ class HighlightersTest {
                 "markdown" to Highlighters.markdown,
                 "mermaid" to Highlighters.mermaid,
                 "bicep" to Highlighters.bicep,
+                "groovy" to Highlighters.groovy,
+                "kotlin" to Highlighters.kotlin,
             )
         for ((language, highlighter) in named) assertSame(Highlighters.forLanguage(language), highlighter, language)
         assertSame(RSyntaxHighlighter.cookies, Highlighters.cookies)

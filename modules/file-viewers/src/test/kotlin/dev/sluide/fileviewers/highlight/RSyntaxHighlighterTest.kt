@@ -27,6 +27,7 @@ class RSyntaxHighlighterTest {
     fun `fence names map to their highlighters`() {
         val expected =
             mapOf(
+                RSyntaxHighlighter.groovy to listOf("groovy", "gradle"),
                 RSyntaxHighlighter.sql to listOf("sql"),
                 RSyntaxHighlighter.shell to listOf("bash", "sh", "shell", "zsh"),
                 RSyntaxHighlighter.powerShell to listOf("powershell", "ps1", "pwsh"),

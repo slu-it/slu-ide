@@ -30,6 +30,12 @@ object Highlighters {
     /** Azure Bicep files. */
     val bicep: SyntaxHighlighter = BicepHighlighter
 
+    /** Groovy, also Gradle's Groovy DSL. */
+    val groovy: SyntaxHighlighter = RSyntaxHighlighter.groovy
+
+    /** Kotlin, also Gradle's Kotlin DSL. */
+    val kotlin: SyntaxHighlighter = RSyntaxHighlighter.kotlin
+
     /** IntelliJ's cookie jar (`http-client.cookies`): its header line as a comment. */
     val cookies: SyntaxHighlighter = RSyntaxHighlighter.cookies
 

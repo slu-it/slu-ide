@@ -6,6 +6,7 @@ import dev.sluide.fileviewers.languages.ConfigFileViewer
 import dev.sluide.fileviewers.languages.CssFileViewer
 import dev.sluide.fileviewers.languages.DockerfileFileViewer
 import dev.sluide.fileviewers.languages.GitBlameIgnoreRevsFileViewer
+import dev.sluide.fileviewers.languages.GroovyFileViewer
 import dev.sluide.fileviewers.languages.IgnoreFileViewer
 import dev.sluide.fileviewers.languages.IniFileViewer
 import dev.sluide.fileviewers.languages.JavaFileViewer
@@ -42,6 +43,7 @@ class ViewerCommentSyntaxTest {
             mapOf(
                 PythonFileViewer() to CommentSyntax.HASH,
                 KotlinFileViewer() to CommentSyntax.SLASHES,
+                GroovyFileViewer() to CommentSyntax.SLASHES,
                 JavaFileViewer() to CommentSyntax.SLASHES,
                 JavaScriptFileViewer() to CommentSyntax.SLASHES,
                 TypeScriptFileViewer() to CommentSyntax.SLASHES,
