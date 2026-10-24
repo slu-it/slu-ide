@@ -18,6 +18,7 @@ import dev.sluide.git.GitTrustCheck
 import dev.sluide.git.RemoteSourceCache
 import dev.sluide.git.cli.GitCli
 import dev.sluide.gitlog.GitLogView
+import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.projects.ProjectPicker
 import dev.sluide.projects.RecentProjects
@@ -135,6 +136,7 @@ class ProjectWindowsUiTest {
                     GitStatusService::class.java,
                     GitLogView::class.java,
                     HttpClientSession::class.java,
+                    GradleSession::class.java,
                     ProjectTrust::class.java,
                     BackgroundTasks::class.java,
                 )

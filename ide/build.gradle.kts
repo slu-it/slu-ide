@@ -40,6 +40,8 @@ dependencies {
     // Deliberate module dependency: `ide` implements the workflow graph's `RemoteSources` over the git module's remote
     // source cache and registers it as a window service (ADR 0076).
     implementation(project(":modules:github-actions"))
+    // The Gradle view of build files and its window session (ADR 0085).
+    implementation(project(":modules:gradle"))
 
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)

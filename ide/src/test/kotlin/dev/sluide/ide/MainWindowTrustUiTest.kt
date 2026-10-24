@@ -77,7 +77,7 @@ class MainWindowTrustUiTest : MainWindowUiFixture() {
     ) {
         repository()
         runGit("config", "core.fsmonitor", "./watch.sh")
-        answerTrust(false, true)
+        answerTrust(false, false, true)
 
         robot.interact { projectService.open(project) }
 
@@ -91,6 +91,9 @@ class MainWindowTrustUiTest : MainWindowUiFixture() {
         WaitForAsyncUtils.waitForFxEvents()
         assertFalse(fileExplorer.canShowHistory(tracked), "no git log")
         assertEquals(null, gitStatus.snapshot.get().root, "no git status")
+        // Review… of a Gradle view asks the same way.
+        robot.interact { gradleSessions.single().reviewTrust() }
+        assertEquals(2, asked.size)
 
         robot.interact {
             mainWindow.trust.bar.children
@@ -105,7 +108,7 @@ class MainWindowTrustUiTest : MainWindowUiFixture() {
             assertTrue(fileExplorer.canShowHistory(tracked))
             assertEquals(project.toAbsolutePath().normalize(), gitStatus.snapshot.get().root)
         }
-        assertIs<ProjectTrustState.Untrusted>(asked[1])
+        assertIs<ProjectTrustState.Untrusted>(asked[2])
         // Remembered for this folder; that it applies when opened again is ProjectTrustTest's.
         assertTrue(settingsDir.resolve("project-trust.properties").let { it.exists() && it.fileSize() > 0 })
     }

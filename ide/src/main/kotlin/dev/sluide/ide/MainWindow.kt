@@ -15,6 +15,7 @@ import dev.sluide.git.GitTrustCheck
 import dev.sluide.git.RemoteSourceCache
 import dev.sluide.githubactions.RemoteSources
 import dev.sluide.gitlog.GitLogView
+import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpClientSetup
 import dev.sluide.ide.git.WindowGitLog
@@ -81,6 +82,7 @@ class MainWindow(
     systemBrowser: SystemBrowser,
     remoteSourceCache: RemoteSourceCache,
     gitRemotes: GitRemotes,
+    private val gradleSession: GradleSession,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
     internal var openWebPage: (URI) -> Unit = systemBrowser::open
@@ -209,6 +211,11 @@ class MainWindow(
         editorArea.windowServices.register(BackgroundTasks::class.java, backgroundTasks)
         editorArea.windowServices.register(RemoteSources::class.java, workflowSources)
         editorArea.windowServices.register(IgnoreRuleEffects::class.java, ignoreRuleEffects)
+        // Views of build files share the task lists of their builds; a saved build file marks its build's list stale,
+        // and Review… of a view whose Gradle is off asks about the folder's trust (ADR 0085).
+        editorArea.windowServices.register(GradleSession::class.java, gradleSession)
+        editorArea.onFileSaved = gradleSession::fileSaved
+        gradleSession.reviewTrust = { trust.review(stage) }
         // It warns about private environment files that git would commit.
         httpSession.wouldCommit = { gitStatus.snapshot.get().wouldCommit(it) }
         gitStatus.snapshot.subscribe { snapshot ->

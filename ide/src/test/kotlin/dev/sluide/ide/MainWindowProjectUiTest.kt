@@ -5,6 +5,7 @@ import dev.sluide.backgroundtasks.BackgroundTasksView
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.IgnoreRuleEffects
 import dev.sluide.githubactions.RemoteSources
+import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.ide.github.WindowWorkflowSources
 import dev.sluide.settings.FontArea
@@ -59,6 +60,7 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         assertEquals(listOf("New HTTP Client Setup"), fileExplorer.folderActions.map { it.label })
 
         assertSame(httpSessions.single(), editorArea.windowServices.get(HttpClientSession::class.java))
+        assertSame(gradleSessions.single(), editorArea.windowServices.get(GradleSession::class.java))
         assertSame(backgroundTasks.single(), editorArea.windowServices.get(BackgroundTasks::class.java))
         assertIs<WindowWorkflowSources>(editorArea.windowServices.get(RemoteSources::class.java))
         assertIs<IgnoreRuleEffects>(editorArea.windowServices.get(IgnoreRuleEffects::class.java))

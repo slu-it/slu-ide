@@ -20,6 +20,8 @@ import dev.sluide.git.GitTrustCheck
 import dev.sluide.git.RemoteSourceCache
 import dev.sluide.git.cli.GitCli
 import dev.sluide.gitlog.GitLogView
+import dev.sluide.gradle.GradleSession
+import dev.sluide.gradle.trust.GradleTrustCheck
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpEnvironmentFileViewer
 import dev.sluide.httpclient.HttpFileViewer
@@ -103,6 +105,8 @@ class SpringWiringTest {
                         RecentProjects::class.java,
                         ProjectPicker::class.java,
                         GitTrustCheck::class.java,
+                        GradleTrustCheck::class.java,
+                        GradleSession::class.java,
                         TrustedProjects::class.java,
                         ScratchFiles::class.java,
                     )
@@ -121,6 +125,7 @@ class SpringWiringTest {
                         GitStatusService::class.java,
                         GitLogView::class.java,
                         HttpClientSession::class.java,
+                        GradleSession::class.java,
                         ProjectTrust::class.java,
                         BackgroundTasks::class.java,
                     )

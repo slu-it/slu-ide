@@ -9,6 +9,7 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
@@ -28,9 +29,11 @@ class EditorAreaSavingUiTest : EditorAreaUiFixture() {
     fun start(stage: Stage) = startView(stage)
 
     @Test
-    fun `save and saveAll save the edited files`(robot: FxRobot) {
+    fun `save and saveAll save the edited files and report them`(robot: FxRobot) {
         val a = textFile("a.txt", "a")
         val b = textFile("b.txt", "b")
+        val saved = mutableListOf<Path>()
+        editor.onFileSaved = { saved.add(it) }
         open(robot, a)
         robot.interact { shownArea(robot).appendText("1") }
         open(robot, b)
@@ -38,9 +41,11 @@ class EditorAreaSavingUiTest : EditorAreaUiFixture() {
 
         robot.interact { assertTrue(editor.save()) }
         assertEquals(listOf("a", "b2"), listOf(a.readText(), b.readText()))
+        assertEquals(listOf(b), saved)
 
         robot.interact { assertTrue(editor.saveAll()) }
         assertEquals(listOf("a1", "b2"), listOf(a.readText(), b.readText()))
+        assertEquals(listOf(b, a), saved)
         assertEquals(listOf("a.txt", "b.txt"), tabTitles(robot))
     }
 
@@ -49,6 +54,8 @@ class EditorAreaSavingUiTest : EditorAreaUiFixture() {
         val area = areaWith(robot, UnsavableViewer())
         val errors = mutableListOf<String>()
         area.showError = { errors += it }
+        val saved = mutableListOf<Path>()
+        area.onFileSaved = { saved.add(it) }
         val a = textFile("a.txt", "a")
         val b = textFile("b.txt", "b")
         val notes = textFile("notes.unsavable")
@@ -68,6 +75,7 @@ class EditorAreaSavingUiTest : EditorAreaUiFixture() {
 
         assertEquals(listOf("a1", "b1"), listOf(a.readText(), b.readText()))
         assertEquals(listOf("notes.unsavable could not be saved. Disk full"), errors)
+        assertEquals(listOf(a, b), saved, "a file that could not be saved is not reported")
         assertEquals(listOf("a.txt", "\u25cf notes.unsavable", "b.txt"), area.tabs.map { it.title.value })
 
         robot.interact {
@@ -101,6 +109,8 @@ class EditorAreaSavingUiTest : EditorAreaUiFixture() {
         val b = textFile("b.txt", "b")
         val asked = openEdited(robot, a, b) { SaveChoice.SAVE }
         open(robot, textFile("clean.txt"))
+        val saved = mutableListOf<Path>()
+        editor.onFileSaved = { saved.add(it) }
 
         robot.interact {
             editor.tabStrip
@@ -113,6 +123,7 @@ class EditorAreaSavingUiTest : EditorAreaUiFixture() {
         assertEquals(listOf(listOf("a.txt", "b.txt")), asked)
         assertEquals(emptyList(), tabTitles(robot))
         assertEquals(listOf("edited a", "edited b"), listOf(a.readText(), b.readText()))
+        assertEquals(listOf(a, b), saved)
     }
 
     @Test

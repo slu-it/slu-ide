@@ -1,6 +1,7 @@
 package dev.sluide.ide
 
 import dev.sluide.editorarea.SaveChoice
+import dev.sluide.gradle.tasks.TaskModel
 import javafx.event.ActionEvent
 import javafx.scene.input.KeyCode
 import javafx.stage.Stage
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.test.Test
@@ -27,7 +29,12 @@ class MainWindowSaveCloseUiTest : MainWindowUiFixture() {
 
     @Test
     fun `the save shortcut works in the editor, and in a terminal Ctrl+S stays the shell's`(robot: FxRobot) {
-        val a = project.resolve("a.txt").apply { writeText("a") }
+        val a = project.resolve("gradle.properties").apply { writeText("a") }
+        // A saved build file marks the loaded task list of its build stale (ADR 0085), on the session's thread.
+        val gradle = gradleSessions.single()
+        gradle.store(TaskModel(project, emptyList()))
+        val gradleChanges = AtomicInteger()
+        gradle.onChange { gradleChanges.incrementAndGet() }
         robot.interact {
             projectService.open(project)
             editorArea.open(a)
@@ -35,6 +42,7 @@ class MainWindowSaveCloseUiTest : MainWindowUiFixture() {
         }
         robot.interact { pressShortcutS(shownArea(robot)) }
         assertEquals("a1", a.readText())
+        eventually(robot) { assertEquals(1, gradleChanges.get()) }
 
         var saves = 0
         var savesAll = 0

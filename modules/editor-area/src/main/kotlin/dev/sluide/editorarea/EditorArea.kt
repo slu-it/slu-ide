@@ -107,6 +107,12 @@ class EditorArea(
      */
     var onFileClosed: (Path) -> Unit = {}
 
+    /**
+     * Called on the FX thread with the path of each file saved from a tab ([save], [saveAll], saving before closing or
+     * before a change of the working tree), once it is written; set by the window.
+     */
+    var onFileSaved: (Path) -> Unit = {}
+
     /** The services of the window that file views look up by exact type ([FileViewHost.windowService], ADR 0070). */
     val windowServices = WindowServices()
 
@@ -506,6 +512,7 @@ class EditorArea(
         val view = openFile.editor as? EditableFileView ?: return true
         return try {
             view.save()
+            onFileSaved(openFile.path)
             true
         } catch (e: IOException) {
             showError("${openFile.name} could not be saved. ${saveFailureReason(e)}")

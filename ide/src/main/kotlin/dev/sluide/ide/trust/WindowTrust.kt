@@ -47,6 +47,9 @@ internal class WindowTrust(
         review.setOnAction { reviewTrust(stage, projectTrust.state.get()) }
     }
 
+    /** Asks about the folder's findings now, e.g. for Review… of a view whose tool is off. */
+    fun review(stage: Stage) = reviewTrust(stage, projectTrust.state.get())
+
     /**
      * Shows the trust bar while tools of the folder are off. The first findings after opening the folder are asked
      * about at once; later ones, found when something changed, only show the bar, so that no dialog interrupts work.

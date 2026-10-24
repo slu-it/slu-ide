@@ -19,7 +19,13 @@ dependencies {
     // Deliberate module dependency: the global gradle check is loginShellFinds, and the view runs Gradle in embedded
     // terminals.
     implementation(project(":modules:terminal"))
+    // Deliberate module API dependency: the viewers of build files are public SourceFileViewers and NamedFileViewers
+    // showing a CodeEditor (ADR 0047).
+    api(project(":modules:file-viewers"))
     // The task list is JSON written by the init script (ADR 0085).
     implementation(libs.jackson.databind)
     implementation(libs.spring.context)
+
+    testImplementation(libs.testfx.core)
+    testImplementation(libs.testfx.junit5)
 }

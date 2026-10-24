@@ -20,6 +20,7 @@ import dev.sluide.git.GitTrustCheck
 import dev.sluide.git.RemoteSourceCache
 import dev.sluide.git.cli.GitCli
 import dev.sluide.gitlog.GitLogView
+import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.projects.ProjectPicker
 import dev.sluide.projects.RecentProjects
@@ -148,6 +149,7 @@ abstract class MainWindowUiFixture {
         gitLogViews.forEach(GitLogView::close)
         watcher.close()
         httpSessions.forEach(HttpClientSession::close)
+        gradleSessions.forEach(GradleSession::close)
         backgroundTasks.forEach(BackgroundTasks::close)
     }
 
@@ -157,6 +159,9 @@ abstract class MainWindowUiFixture {
 
     /** The HTTP client sessions of the windows a test created; closed after it. */
     internal val httpSessions = mutableListOf<HttpClientSession>()
+
+    /** The Gradle sessions of the windows a test created, the main window's first; closed after it. */
+    internal val gradleSessions = mutableListOf<GradleSession>()
 
     /** The background tasks of the windows a test created, the main window's first; closed after it. */
     internal val backgroundTasks = mutableListOf<BackgroundTasks>()
@@ -217,6 +222,7 @@ abstract class MainWindowUiFixture {
             SystemBrowser(),
             remoteSourceCache,
             GitRemotes(git),
+            GradleSession(projectTrust, tasks, terminals).also(gradleSessions::add),
         )
     }
 
