@@ -106,7 +106,8 @@ the Bicep graph and `BicepParamFileViewer`.
 - `ImageFileViewer` shows image files (png, jpg, gif, webp, bmp, ico up to 50 MB), although they are binary
   ([previews.md](previews.md)). It reads and base64-encodes the whole file on the JavaFX thread.
 - Images and the SVG, Mermaid and Bicep previews zoom: toolbar, Shortcut + `+`/`-`/`0`/`9`, Shortcut+wheel, pinch
-  (`ZoomControls`, [previews.md](previews.md), [ADR 0033](../adr/0033-zooming-images-and-diagrams.md)).
+  (`ZoomControls`, [previews.md](previews.md), [ADR 0033](../adr/0033-zooming-images-and-diagrams.md)). Every other
+  preview zooms as a document, without Fit ([ADR 0083](../adr/0083-zooming-document-previews.md)).
 - Preview viewers (`PreviewFileViewer`) show highlighted, editable source beside a rendered `WebView`, with a Source /
   Split / Preview toolbar; the preview renders the saved text: Markdown ([markdown-preview.md](markdown-preview.md)) and
   HTML, SVG, CSV/TSV, cookie jars (`CookiesFileViewer`, `.cookies`), notebooks, Mermaid (`MermaidFileViewer`, `.mmd`,

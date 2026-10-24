@@ -36,6 +36,8 @@ theme change.
 ## Consequences
 - Zooming works the same in the image view and in the SVG, Mermaid and Bicep previews; Markdown and notebook previews
   do not zoom (their diagrams and images are part of a text).
+  Amended by [ADR 0083](0083-zooming-document-previews.md): every other preview zooms as a document with
+  `WebView.zoom`, without Fit, its controls before the mode toggles.
 - The page's script owns the layout of zoomable pages: CSS alone no longer fits the image, so a page without our script
   would show it at its natural size.
 - Natural sizes come from the image (`naturalWidth`; an SVG without a size of its own as laid out, 300 × 150) or from

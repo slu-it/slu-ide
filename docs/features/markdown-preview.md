@@ -7,6 +7,8 @@
 - Markdown files (`.md`, `.markdown`) open as highlighted source (left, like every code view) beside a rendered
   preview (right). MDX stays source only: its JSX cannot be rendered.
 - A toolbar above switches between **Source**, **Split** (default) and **Preview**. Clicking the selected mode keeps it.
+- The preview zooms as a document (controls before the mode buttons, keys, Shortcut+wheel, pinch; no Fit):
+  [previews.md](previews.md#zooming-documents).
 - Rendering: CommonMark with GitHub's tables, strikethrough, task lists, autolinks and heading anchors; fenced code
   with a known language is highlighted like the code views.
 - Math, typeset by KaTeX (bundled, works offline): `$…$` inline (no space inside the dollars, no digit after the

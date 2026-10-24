@@ -10,6 +10,7 @@ YAML files show their highlighted source with a formatted, foldable view beside 
   [graph view](github-actions-graph.md).
 - **Modes:** the toolbar's **Source**, **Split** and **Preview**. A file opens in **Split**, the focus in the source
   so it can be edited at once ([ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md)).
+- **Zoom:** the formatted view zooms as a document: [previews.md](previews.md#zooming-documents).
 - **What it shows:** one entry or item per line in block style, indented by 2, in the colours of the source's
   highlighting: keys, quoted and block scalars, booleans and null, numbers, anchors, aliases, tags and directives.
   Flow collections (`{a: 1}`, `[x, y]`) are shown expanded; empty ones stay `{}` and `[]`. Scalars show as written

@@ -9,6 +9,7 @@ XML files show their highlighted source with a formatted, foldable view beside i
   their [page preview](previews.md), notebooks their rendered view.
 - **Modes:** the toolbar's **Source**, **Split** and **Preview**. A file opens in **Split**, the focus in the source
   so it can be edited at once ([ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md)).
+- **Zoom:** the formatted view zooms as a document: [previews.md](previews.md#zooming-documents).
 - **What it shows:** one node per line, indented, in the colours of the source's highlighting: tags, attribute names,
   attribute values, comments, processing instructions and the DOCTYPE. CDATA shows as CDATA. Text is trimmed and
   whitespace-only text left out; the `<?xml?>` declaration is left out. Prefixes and `xmlns` attributes show as written.

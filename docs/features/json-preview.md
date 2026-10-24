@@ -11,6 +11,7 @@ JSON files show their highlighted source with a formatted, foldable view beside 
 - **Modes:** the toolbar's **Source**, **Split** and **Preview**. A file opens in **Split**, with the focus in the source
   so it can be edited at once ([ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md)); Source hides the formatted
   view, Preview shows it alone.
+- **Zoom:** the formatted view zooms as a document: [previews.md](previews.md#zooming-documents).
 - **What it shows:** the JSON indented, one member or element per line, keys, strings, numbers and `true`/`false`/
   `null` in the colours of the source's highlighting, numbers as written in the file. Empty objects and arrays are
   plain `{}` and `[]`; every other object and array is a node with a triangle. Closed, a node shows

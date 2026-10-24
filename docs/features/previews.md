@@ -3,7 +3,8 @@
 **Module:** `previews` — `PreviewFileViewer` / `PreviewFileView` (shared with the
 [Markdown preview](markdown-preview.md)) and one viewer per format; decisions in
 [ADR 0016](../adr/0016-markdown-preview.md), [ADR 0017](../adr/0017-webview-previews.md),
-[ADR 0018](../adr/0018-html-preview-server.md), [ADR 0033](../adr/0033-zooming-images-and-diagrams.md) and
+[ADR 0018](../adr/0018-html-preview-server.md), [ADR 0033](../adr/0033-zooming-images-and-diagrams.md),
+[ADR 0083](../adr/0083-zooming-document-previews.md) and
 [ADR 0064](../adr/0064-json-preview.md), [ADR 0065](../adr/0065-xml-preview.md) and
 [ADR 0079](../adr/0079-yaml-preview.md)
 
@@ -28,8 +29,11 @@ the preview shows. It puts the formatted plain text of the saved file on the cli
 shows instead. What the text contains: [json-preview.md](json-preview.md), [xml-preview.md](xml-preview.md),
 [yaml-preview.md](yaml-preview.md).
 
-## Zooming images and diagrams (`ZoomControls`)
-Images, SVG files, Mermaid files and Bicep resource graphs zoom; Markdown and notebook previews do not.
+## Zooming (`ZoomControls`)
+Every preview zooms. Images, SVG files, Mermaid files, Bicep resource graphs and workflow graphs zoom the image or
+diagram in the page, and can fit it; every other preview (Markdown, HTML, JSON, XML, YAML, CSV/TSV, cookie jars,
+notebooks, PEM) zooms as a document: the whole page scales and reflows, as in a browser (see
+[Zooming documents](#zooming-documents)). The rest of this section is about images and diagrams.
 - **Toolbar** (on the left; in previews only while the preview shows, not in Source): zoom out, the scale in percent,
   zoom in, **100%** and **Fit** (selected while fitted). Tooltips name the shortcuts.
 - **Keys** (while the preview or its zoom controls have the focus, never in the source beside it; the zoom buttons and
@@ -55,6 +59,18 @@ Images, SVG files, Mermaid files and Bicep resource graphs zoom; Markdown and no
   ([github-actions-graph.md](github-actions-graph.md#going-to-the-source)).
 - The zoom (fitted or the scale) is kept when the file is saved, changes on disk or the theme changes.
 - A zoomed image or diagram scrolls to every edge.
+
+### Zooming documents
+- **Toolbar** (on the right, after the preview's own buttons and before Source / Split / Preview, only while the
+  preview shows): zoom out, the scale in percent, zoom in and **100%**; no Fit. The left of the toolbar keeps the
+  preview's own buttons.
+- **Keys, wheel and pinch** as for images (while the preview or its zoom controls have the focus, never in the source
+  beside it): Shortcut + `+` (also `=` and numpad `+`), Shortcut + `-`, Shortcut + `0`; Shortcut + `9` does nothing.
+  **Shortcut+wheel** and **pinching** zoom without keeping the point under the pointer in place.
+- Same steps and range as images (10%–1600%); a view opens at 100%.
+- The zoom belongs to the view: it is kept when the file is saved, changes on disk or the theme changes (HTML pages
+  with their scripts off too), and not stored when the tab closes. Side by side, a preview that scrolls with its
+  source (Markdown, JSON, XML, YAML, CSV/TSV, cookie jars) lines up with the source's top line again after a zoom.
 
 ## HTML (`.html`, `.htm`, `.xhtml`) — `HtmlFileViewer`
 - The page is served by a local server (`PreviewServer`, on `127.0.0.1`) with the files of its project, so its

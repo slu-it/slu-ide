@@ -56,16 +56,17 @@ Code views and the editors built on them, e.g. `.http` files ([text-editing.md](
 | Escape | Back to editing, when the diff was opened from the editor |
 
 ## Previews
-Images, SVG files, Mermaid files and Bicep resource graphs zoom, only while the rendered view has the focus, not in
-the source beside it; Markdown and notebook previews do not zoom ([previews.md](previews.md),
-[ADR 0033](../adr/0033-zooming-images-and-diagrams.md)). The table of contents is the Markdown preview's
+All previews and images zoom, only while the rendered view has the focus, not in the source beside it; Fit
+(Shortcut+9) only for images and diagrams (SVG, Mermaid, Bicep and workflow graphs), not for documents
+([previews.md](previews.md), [ADR 0033](../adr/0033-zooming-images-and-diagrams.md),
+[ADR 0083](../adr/0083-zooming-document-previews.md)). The table of contents is the Markdown preview's
 ([markdown-preview.md](markdown-preview.md)).
 
 | Keys | Action |
 |---|---|
 | Shortcut+Plus (or =) / Shortcut+Minus | Zoom in / out |
 | Shortcut+0 | 100 % |
-| Shortcut+9 | Fit |
+| Shortcut+9 | Fit (images and diagrams only) |
 | Shortcut+mouse wheel, pinch | Zoom |
 | Enter / Escape in the table of contents | Jump to the heading / close it |
 
