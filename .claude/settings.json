@@ -17,7 +17,10 @@
       "Bash(git log*)",
       "Bash(.claude/scripts/check-docs-index.sh)",
       "Bash(.claude/scripts/setup-display.sh*)",
-      "Bash(.claude/scripts/full-build.sh*)"
+      "Bash(.claude/scripts/full-build.sh*)",
+      "Bash(.claude/scripts/check-unused-imports.sh*)",
+      "Bash(.claude/scripts/check-tests.sh*)",
+      "Bash(.claude/scripts/test-times.sh*)"
     ]
   },
   "hooks": {
@@ -28,6 +31,10 @@
           {
             "type": "command",
             "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/scripts/docs-index-hook.sh"
+          },
+          {
+            "type": "command",
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/scripts/test-patterns-hook.sh"
           }
         ]
       }
