@@ -1,6 +1,7 @@
 package dev.sluide.gradle.view
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.fileviewers.CodeEditors
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.gradle.GradleSession
 import dev.sluide.gradle.tasks.GradleTask
@@ -30,6 +31,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.createDirectories
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
+import kotlin.time.Duration
 
 /**
  * A Gradle view of a fixture build whose `gradlew` is a fake POSIX sh script: `sluideTaskList` writes the task list
@@ -81,8 +83,11 @@ abstract class GradleFileViewUiFixture {
         )
     }
 
+    /** The session's background tasks; shown at once, so a test can cancel them. */
+    internal val backgroundTasks by lazy { BackgroundTasks.forTests { taskLog += it } }
+
     internal val session by lazy {
-        GradleSession(trust, BackgroundTasks.forTests { taskLog += it }, terminals) {
+        GradleSession(trust, backgroundTasks, terminals) {
             globalChecks.incrementAndGet()
             globalGradle
         }.apply { reviewTrust = { reviews++ } }
@@ -103,8 +108,11 @@ abstract class GradleFileViewUiFixture {
 
     private val views = mutableListOf<GradleFileView>()
 
-    /** The file the fake script writes the pid of `:slow` to. */
+    /** The file the fake script writes the pid of `:slow` and `:stubborn` to. */
     internal val slowPid: Path get() = support.resolve("slow.pid")
+
+    /** The file the fake script appends the arguments of every run to, each followed by `|`. */
+    internal val runs: Path get() = support.resolve("runs.log")
 
     /** The file the fake script appends a line to for every task list it writes. */
     internal val loads: Path get() = support.resolve("loads.log")
@@ -135,7 +143,7 @@ abstract class GradleFileViewUiFixture {
                 .replace("/work/fx", project.toRealPath().toString())
                 .replaceFirst(
                     "\"tasks\": [",
-                    "\"tasks\": [" + task("fail", "Exits with 1") + "," + task("slow", "Sleeps") + ",",
+                    "\"tasks\": [" + listOf("fail", "slow", "stubborn").joinToString("") { task(it) + "," },
                 )
         val taskList = support.resolve("task-list.json").apply { writeText(json) }
         project.resolve("gradle/wrapper").createDirectories()
@@ -144,6 +152,8 @@ abstract class GradleFileViewUiFixture {
             writeText(
                 """
                 |#!/bin/sh
+                |printf '%s|' "$@" >> '$runs'
+                |echo >> '$runs'
                 |for arg in "$@"; do
                 |  case "${'$'}arg" in -Dsluide.taskList=*) out="${'$'}{arg#-Dsluide.taskList=}" ;; esac
                 |done
@@ -151,6 +161,7 @@ abstract class GradleFileViewUiFixture {
                 |  *" sluideTaskList "*) cp '$taskList' "${'$'}out"; echo load >> '$loads'; exit 0 ;;
                 |  *" :fail "*) echo failing; exit 1 ;;
                 |  *" :slow "*) echo ${'$'}${'$'} > '$slowPid'; exec sleep 30 ;;
+                |  *" :stubborn "*) trap '' INT; echo ${'$'}${'$'} > '$slowPid'; exec sleep 30 ;;
                 |esac
                 |echo "ran $*"
                 """.trimMargin(),
@@ -159,21 +170,28 @@ abstract class GradleFileViewUiFixture {
         }
     }
 
-    private fun task(
-        name: String,
-        description: String,
-    ) = """{"name": "$name", "path": ":$name", "group": "demo", "description": "$description"}"""
+    private fun task(name: String) = """{"name": "$name", "path": ":$name", "group": "demo", "description": "Fake"}"""
 
     /** Opens [file] (relative to the project) in a Gradle view inside the window and gives it the host. */
     internal fun open(
         robot: FxRobot,
         file: String = "build.gradle",
+        stopGrace: Duration? = null,
     ): GradleFileView {
         lateinit var view: GradleFileView
         robot.interact {
             val path = project.resolve(file)
             val viewer = if (file.endsWith(".kts")) GradleKotlinFileViewer() else GradleGroovyFileViewer()
-            view = viewer.open(path) as GradleFileView
+            view =
+                if (stopGrace == null) {
+                    viewer.open(path) as GradleFileView
+                } else {
+                    GradleFileView(
+                        path,
+                        CodeEditors.open(path, viewer.sourceHighlighter, "//", "/*" to "*/"),
+                        stopGrace,
+                    )
+                }
             views += view
             root.children.setAll(view.node)
             view.host = host

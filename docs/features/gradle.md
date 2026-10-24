@@ -45,7 +45,7 @@ runs them. Decisions: [ADR 0085](../adr/0085-gradle-integration.md); the termina
   A view loads when it first finds Gradle, the folder is trusted, and no list of its build is loaded yet. Views of the
   same build (the same wrapper folder, or the project root for the global `gradle`) never load at the same time: while
   one loads, the others say "Loading tasks…" and show its result, or "Another view could not load the tasks — Refresh
-  to try again." when it failed or was stopped.
+  to try again." when it failed, was stopped or was not started.
 - **Refresh** finds Gradle again and reloads the list, for every view of the build.
 - After a build file of a loaded build is saved (`*.gradle`, `*.gradle.kts`, `gradle.properties`,
   `*.versions.toml`), the tree says "Build files changed since loading — Refresh to reload." Nothing reloads by itself.

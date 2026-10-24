@@ -8,13 +8,8 @@ import dev.sluide.fileviewers.SplitMode
 import dev.sluide.fileviewers.TextEditableView
 import dev.sluide.fileviewers.ViewActivity
 import dev.sluide.gradle.GradleSession
-import dev.sluide.gradle.LoadedBuild
 import dev.sluide.gradle.detect.GradleCommand
 import dev.sluide.gradle.detect.GradleInstallation
-import dev.sluide.gradle.detect.GradleLocator
-import dev.sluide.gradle.run.RunState
-import dev.sluide.gradle.tasks.GradleProject
-import dev.sluide.gradle.tasks.TaskModel
 import dev.sluide.gradle.trust.GradleTrustCheck
 import javafx.application.Platform
 import javafx.beans.property.ReadOnlyObjectWrapper
@@ -29,19 +24,16 @@ import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
-import java.io.IOException
-import java.nio.file.Files
+import javafx.scene.text.Font
 import java.nio.file.Path
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
-private val log = System.getLogger(GradleFileView::class.java.name)
-
 /**
  * The view of `build.gradle` and `build.gradle.kts` (ADR 0085): the file's [editor] beside the build's tasks above the
  * terminal of their runs. Until Gradle is found (once the [host] gives the project folder and the window's
- * [GradleSession]) it looks like plain source; then the modes Source | Split | Gradle appear, in Split. The tasks load
- * once per build and window (shared through the session) when the folder's trust allows Gradle, and again on Refresh.
+ * [GradleSession]) it looks like plain source; then the modes Source | Split | Gradle appear, in Split. The tasks
+ * ([BuildTasks]) load once per build and window when the folder's trust allows Gradle, and again on Refresh.
  */
 internal class GradleFileView(
     file: Path,
@@ -99,30 +91,26 @@ internal class GradleFileView(
     private var session: GradleSession? = null
     var runner: GradleRunner? = null
         private set
+    private var buildTasks: BuildTasks? = null
 
     private val activityWrapper = ReadOnlyObjectWrapper(ViewActivity.NONE)
-    private var subscriptions: List<AutoCloseable> = emptyList()
+    private var disposed = false
 
     /** The Gradle found for the file; `null` while none is (yet). */
-    var installation: GradleInstallation? = null
-        private set
-
-    /** The loaded build shown, and the view's projects in it. */
-    private var build: LoadedBuild? = null
-    private var projects: List<GradleProject>? = null
-
-    /** Whether the tasks are to be loaded once the folder's trust allows it. */
-    private var loadWanted = false
-    private var loading = false
-    private var detections = 0
-    private var disposed = false
+    val installation: GradleInstallation? get() = buildTasks?.installation
 
     init {
         (editor.node as? Region)?.minWidth = 0.0
-        tasks.onRun = { runTasks(it, fromTree = true) }
-        tasks.onRefresh = { detect(reload = true) }
+        // The editor font the tab gives its content is for the source; the Gradle side uses the UI font.
+        Font.getDefault().let { font ->
+            val css = "-fx-font-family: \"${font.family}\"; -fx-font-size: ${font.size}px;"
+            gradlePane.style = css
+            toolbar.style = css
+        }
+        tasks.onRun = ::runTasks
+        tasks.onRefresh = { buildTasks?.detect(reload = true) }
         tasks.onReview = { session?.reviewTrust?.invoke() }
-        runPane.rerun.setOnAction { runner?.lastTasks?.let { runTasks(it.paths, fromTree = false) } }
+        runPane.rerun.setOnAction { runner?.lastTasks?.let { runTasks(it.paths) } }
     }
 
     override val text: String get() = editor.text
@@ -144,209 +132,36 @@ internal class GradleFileView(
             if (session != null && this.session == null && !disposed) attach(session)
         }
 
-    private val allowed: Boolean get() = session?.projectTrust?.allows(GradleTrustCheck.ID) == true
-
     private fun attach(session: GradleSession) {
         this.session = session
         val runner = GradleRunner(session, runPane, { file.parent }, { r, n -> confirmStop(r, n) }, stopGrace)
         this.runner = runner
         activityWrapper.bind(runner.activity)
-        val trust = session.projectTrust.state.subscribe { _, _ -> onFx(::trustChanged) }
-        subscriptions =
-            listOf(
-                AutoCloseable { trust.unsubscribe() },
-                session.onChange { onFx(::buildsChanged) },
-            )
+        val buildTasks = BuildTasks(session, runner, tasks, { file }, { host?.projectFolder }, ::found)
+        this.buildTasks = buildTasks
         // Not while the host is being set: the project folder may follow.
-        Platform.runLater { detect(reload = false) }
+        Platform.runLater { buildTasks.detect(reload = false) }
     }
 
-    /**
-     * Finds Gradle for the file off the FX thread (the global check may take a while), and the loaded build it belongs
-     * to unless [reload]; then shows the result.
-     */
-    private fun detect(reload: Boolean) {
-        val session = session ?: return
-        if (disposed) return
-        val detection = ++detections
-        val file = file
-        val projectFolder = host?.projectFolder
-        session.execute {
-            val found = GradleLocator.locate(file, projectFolder) { session.globalAvailable() }
-            val build = if (found != GradleInstallation.None && !reload) session.modelFor(file) else null
-            val projects = build?.model?.subtreeOf(file)
-            Platform.runLater { if (!disposed && detection == detections) detected(found, build, projects, reload) }
-        }
-    }
-
-    private fun detected(
-        found: GradleInstallation,
-        build: LoadedBuild?,
-        projects: List<GradleProject>?,
-        reload: Boolean,
-    ) {
-        val before = installation
-        installation = found.takeIf { it != GradleInstallation.None }
+    /** Shows the modes, in Split the first time, once Gradle is found; plain source without one. */
+    private fun found(installation: GradleInstallation?) {
+        val before = toolbar.isVisible
         toolbar.isVisible = installation != null
         toolbar.isManaged = installation != null
         if (installation == null) {
             split.mode.set(SplitMode.SOURCE)
-            return
-        }
-        if (before == null) split.mode.set(SplitMode.SPLIT)
-        if (build != null && projects != null) show(build, projects)
-        loadWanted = reload || build == null
-        trustChanged()
-    }
-
-    /** Shows the note while Gradle is off; once the folder is trusted, the tasks, loading them if needed. */
-    private fun trustChanged() {
-        if (installation == null || disposed) return
-        if (!allowed) return tasks.showNote(TaskNote.UNTRUSTED)
-        if (loadWanted) {
-            load()
-        } else {
-            projects?.let(tasks::showTasks)
+        } else if (!before) {
+            split.mode.set(SplitMode.SPLIT)
         }
     }
 
-    /** Another view loaded or refreshed a build, or a build file was saved. */
-    private fun buildsChanged() {
-        val session = session ?: return
-        if (disposed || installation == null || loading) return
-        val current = build
-        if (current == null) {
-            // Another view of the same build may have loaded it.
-            if (loadWanted && !allowed) return
-            resolve(session)
-            return
-        }
-        val now = session.build(current.key) ?: return
-        if (now.model === current.model) {
-            build = now
-            tasks.showStale(now.stale)
-        } else {
-            resolve(session)
-        }
-    }
-
-    /** Looks up the file's loaded build off the FX thread and shows it, if there is one. */
-    private fun resolve(session: GradleSession) {
-        val file = file
-        val detection = detections
-        session.execute {
-            val build = session.modelFor(file) ?: return@execute
-            val projects = build.model.subtreeOf(file)
-            Platform.runLater {
-                if (!disposed && detection == detections && !loading) {
-                    loadWanted = false
-                    show(build, projects)
-                    if (allowed) tasks.showTasks(projects)
-                }
-            }
-        }
-    }
-
-    private fun show(
-        build: LoadedBuild,
-        projects: List<GradleProject>,
-    ) {
-        this.build = build
-        this.projects = projects
-        tasks.showStale(build.stale)
-        if (allowed) tasks.showTasks(projects)
-    }
-
-    /** Loads the task list through the runner, visibly in its terminal. */
-    private fun load() {
-        val session = session ?: return
+    /** Runs the task [paths] with the arguments of the view; the focus stays where it is. */
+    private fun runTasks(paths: List<String>) {
         val runner = runner ?: return
         val installation = installation ?: return
-        val output =
-            try {
-                session.taskListFile()
-            } catch (e: IOException) {
-                runner.showProblem("✖ No temporary file for the task list: ${e.message}")
-                tasks.showNote(TaskNote.FAILED)
-                return
-            }
-        val result =
-            runner.start(
-                GradleJob.LoadTasks,
-                command = { GradleCommand.loadTasks(installation, session.initScript(), output) },
-                ended = { state -> loaded(state, output) },
-            )
-        when (result) {
-            StartResult.STARTED -> {
-                loadWanted = false
-                loading = true
-                tasks.showNote(TaskNote.LOADING)
-            }
-
-            StartResult.FAILED -> {
-                loadWanted = false
-                tasks.showNote(TaskNote.FAILED)
-                Files.deleteIfExists(output)
-            }
-
-            StartResult.CANCELLED -> {
-                Files.deleteIfExists(output)
-            }
-        }
-    }
-
-    private fun loaded(
-        state: RunState,
-        output: Path,
-    ) {
-        val session = session ?: return
-        if (state !is RunState.Finished) {
-            loading = false
-            Files.deleteIfExists(output)
-            tasks.showNote(TaskNote.FAILED)
-            return
-        }
-        val file = file
-        session.execute {
-            val (build, problem) =
-                try {
-                    session.keep(TaskModel.parse(Files.readString(output))) to null
-                } catch (e: IOException) {
-                    null to "The task list could not be read: ${e.message}"
-                } catch (e: IllegalArgumentException) {
-                    null to (e.message ?: "The task list is not valid")
-                } finally {
-                    Files.deleteIfExists(output)
-                }
-            val projects = build?.model?.subtreeOf(file)
-            Platform.runLater {
-                loading = false
-                if (disposed) return@runLater
-                if (build == null || projects == null) {
-                    log.log(System.Logger.Level.WARNING, "Gradle tasks of $file: $problem")
-                    runner?.showProblem("✖ $problem")
-                    tasks.showNote(TaskNote.FAILED)
-                } else {
-                    show(build, projects)
-                }
-            }
-        }
-    }
-
-    private fun runTasks(
-        paths: List<String>,
-        fromTree: Boolean,
-    ) {
-        val runner = runner ?: return
-        val installation = installation ?: return
-        if (paths.isEmpty() || !allowed) return
+        if (paths.isEmpty() || session?.projectTrust?.allows(GradleTrustCheck.ID) != true) return
         val arguments = runPane.arguments.text
-        runner.start(
-            GradleJob.Tasks(paths),
-            command = { GradleCommand.run(installation, arguments, paths) },
-            // The terminal takes the focus once it is in the scene, later on the FX thread.
-            started = { if (fromTree) Platform.runLater { if (!disposed) tasks.tree.requestFocus() } },
-        )
+        runner.start(GradleJob.Tasks(paths), command = { GradleCommand.run(installation, arguments, paths) })
     }
 
     /** Focuses the source, or the tasks while they are shown alone; a failed run no longer marks the tab. */
@@ -375,23 +190,16 @@ internal class GradleFileView(
         val name = to.fileName?.toString() ?: return false
         if (!name.equals(file.fileName.toString(), ignoreCase = true) || !editor.moved(to)) return false
         file = to.toAbsolutePath().normalize()
-        build = null
-        projects = null
-        detect(reload = false)
+        buildTasks?.moved()
         return true
     }
 
     override fun dispose() {
         disposed = true
         runner?.dispose()
+        buildTasks?.close()
         activityWrapper.unbind()
-        subscriptions.forEach(AutoCloseable::close)
-        subscriptions = emptyList()
         editor.dispose()
-    }
-
-    private fun onFx(action: () -> Unit) {
-        if (Platform.isFxApplicationThread()) action() else Platform.runLater(action)
     }
 
     private companion object {

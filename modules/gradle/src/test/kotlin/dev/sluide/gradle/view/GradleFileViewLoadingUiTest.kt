@@ -10,6 +10,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
+import org.testfx.util.WaitForAsyncUtils
 import kotlin.io.path.readLines
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -102,10 +103,12 @@ class GradleFileViewLoadingUiTest : GradleFileViewUiFixture() {
         build()
         findings = listOf(TrustFinding("Gradle wrapper in ."))
         val view = open(robot)
+        val app = open(robot, "app/build.gradle")
 
         eventually(robot) {
             assertIs<ProjectTrustState.Ask>(trust.state.get())
             assertEquals(TaskNote.UNTRUSTED, view.tasks.shownNote)
+            assertEquals(TaskNote.UNTRUSTED, app.tasks.shownNote)
         }
         robot.interact {
             view.tasks.node
@@ -119,7 +122,27 @@ class GradleFileViewLoadingUiTest : GradleFileViewUiFixture() {
 
         robot.interact { trust.decide(assertIs<ProjectTrustState.Ask>(trust.state.get()), true, remember = false) }
         awaitTasks(robot, view)
-        assertEquals(1, loads.readLines().size)
+        awaitTasks(robot, app)
+        assertEquals(1, loads.readLines().size, "one view loads, the other waits for it")
+    }
+
+    @Test
+    fun `the terminal of a load leaves the focus in the source, also when it is shown again`(robot: FxRobot) {
+        build()
+        val view = open(robot)
+        awaitTasks(robot, view)
+        robot.interact {
+            view.split.mode.set(SplitMode.SOURCE)
+            view.focus()
+        }
+        robot.interact { view.split.mode.set(SplitMode.SPLIT) }
+        // A terminal that takes the focus when shown asks for it later on the FX thread.
+        WaitForAsyncUtils.waitForFxEvents()
+
+        robot.interact {
+            val owner = view.node.scene.focusOwner
+            assertTrue("code-area" in owner.styleClass, "focus in $owner")
+        }
     }
 
     private fun label(value: Any?) = (value as TreeProject).label

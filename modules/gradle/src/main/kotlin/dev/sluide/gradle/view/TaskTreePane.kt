@@ -25,6 +25,10 @@ internal enum class TaskNote(
 ) {
     LOADING("Loading tasks…"),
     FAILED("Could not load tasks — see the output below."),
+    STOPPED("Loading the tasks was stopped — Refresh to load them."),
+    NOT_LOADED("The tasks are not loaded — Refresh to load them."),
+    FAILED_ELSEWHERE("Another view could not load the tasks — Refresh to try again."),
+    CHECKING("Checking project trust…"),
     UNTRUSTED("Gradle is off until the folder is trusted."),
 }
 

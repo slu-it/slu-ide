@@ -65,18 +65,14 @@ internal class GradleRunner(
     /** The job running now, if any. */
     val running: GradleJob? get() = job.takeIf { runs.state is RunState.Running }
 
-    /** The state of the last run. */
-    val state: RunState get() = runs.state
-
     /**
      * Starts [job] with the command line [command] (whose [IllegalArgumentException] the status line shows) and calls
-     * [ended] with its outcome. While another job runs, asks first; stopping it closes its terminal at once. [started]
-     * runs once the terminal is shown.
+     * [ended] with its outcome. While another job runs, asks first; stopping it closes its terminal at once. The new
+     * terminal leaves the focus where it is.
      */
     fun start(
         job: GradleJob,
         command: () -> String,
-        started: () -> Unit = {},
         ended: (RunState) -> Unit = {},
     ): StartResult {
         if (disposed) return StartResult.CANCELLED
@@ -106,7 +102,6 @@ internal class GradleRunner(
         if (job is GradleJob.Tasks) lastTasks = job
         onEnded = ended
         pane.showTerminal(next.node)
-        started()
         runs.started(tasksOf(job))
         escalation =
             StopEscalation(

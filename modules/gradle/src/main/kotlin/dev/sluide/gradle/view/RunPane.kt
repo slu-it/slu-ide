@@ -5,6 +5,7 @@ import javafx.scene.Node
 import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.scene.control.TextField
+import javafx.scene.control.Tooltip
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
@@ -25,12 +26,15 @@ internal class RunPane {
             HBox.setHgrow(this, Priority.ALWAYS)
         }
 
+    /** Takes the width the buttons leave; cut text shows whole in its tooltip. */
     val status =
         Label().apply {
             styleClass += "gradle-status"
             minWidth = 0.0
             maxWidth = Double.MAX_VALUE
             HBox.setHgrow(this, Priority.ALWAYS)
+            val text = textProperty()
+            tooltip = Tooltip().apply { textProperty().bind(text) }
         }
 
     val stop = Button("Stop").apply { isDisable = true }
