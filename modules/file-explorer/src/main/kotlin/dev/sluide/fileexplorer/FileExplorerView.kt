@@ -17,6 +17,7 @@ import dev.sluide.fileexplorer.actions.systemFileManager
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileexplorer.tree.PathCell
 import dev.sluide.fileexplorer.tree.TreeDragAndDrop
+import dev.sluide.fileexplorer.tree.findForReveal
 import dev.sluide.fileexplorer.tree.startWidth
 import dev.sluide.fileicons.FILE_ICONS_CSS
 import dev.sluide.filewatcher.FileWatcher
@@ -38,7 +39,6 @@ import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.io.IOException
 import java.nio.file.Files
-import java.nio.file.LinkOption
 import java.nio.file.Path
 import java.util.IdentityHashMap
 import kotlin.math.roundToInt
@@ -349,23 +349,7 @@ class FileExplorerView(
         path: Path,
         focus: Boolean = false,
     ): Boolean {
-        val target = path.toAbsolutePath().normalize()
-        val top = topLevel().filter { target.startsWith(it.value) }.maxByOrNull { it.value.nameCount } ?: return false
-        if (!Files.exists(target, LinkOption.NOFOLLOW_LINKS)) return false
-        var item: TreeItem<Path> = top
-        val folders = mutableListOf<FileTreeItem>()
-        for (segment in top.value.relativize(target).filter { it.toString().isNotEmpty() }) {
-            val folder = item as? FileTreeItem ?: return false
-            folders += folder
-            val next = folder.value.resolve(segment)
-            // The entry may be new, before the watch reported it.
-            var found = folder.children.firstOrNull { it.value == next }
-            if (found == null) {
-                folder.refresh()
-                found = folder.children.firstOrNull { it.value == next }
-            }
-            item = found ?: return false
-        }
+        val (folders, item) = findForReveal(topLevel(), path) ?: return false
         // Only now, so that a path not found leaves the tree as it was.
         folders.forEach { it.isExpanded = true }
         selectRow(item)

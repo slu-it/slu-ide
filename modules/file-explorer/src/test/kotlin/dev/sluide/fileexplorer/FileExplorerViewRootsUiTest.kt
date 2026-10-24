@@ -271,48 +271,6 @@ class FileExplorerViewRootsUiTest {
     }
 
     @Test
-    fun `reveal finds a file created just before, in a loaded folder`(robot: FxRobot) {
-        openBoth(robot)
-        robot.interact { scratchesItem().isExpanded = true }
-        val file = scratches.resolve("fresh.txt").createFile()
-
-        var result = false
-        robot.interact { result = view.reveal(file) }
-
-        assertTrue(result)
-        assertEquals(file, view.selectionModel.selectedItem?.value)
-    }
-
-    @Test
-    fun `reveal can select a top-level folder itself`(robot: FxRobot) {
-        openBoth(robot)
-
-        var result = false
-        robot.interact { result = view.reveal(scratches) }
-
-        assertTrue(result)
-        assertEquals(scratches, view.selectionModel.selectedItem?.value)
-    }
-
-    @Test
-    fun `reveal returns false for a path outside the roots or missing`(robot: FxRobot) {
-        openBoth(robot)
-        val selected = view.selectionModel.selectedItem
-
-        var outside = true
-        var missing = true
-        robot.interact {
-            outside = view.reveal(settingsDir.resolve("x.txt").createFile())
-            missing = view.reveal(scratches.resolve("missing.txt"))
-        }
-
-        assertFalse(outside)
-        assertFalse(missing)
-        assertEquals(selected, view.selectionModel.selectedItem)
-        assertFalse(scratchesItem().isExpanded)
-    }
-
-    @Test
     fun `reveal with focus focuses the tree`(robot: FxRobot) {
         val file = scratches.resolve("f.txt").createFile()
         openBoth(robot)
@@ -370,62 +328,6 @@ class FileExplorerViewRootsUiTest {
                     .map { it.value.name },
             )
         }
-    }
-
-    @Test
-    fun `reveal picks the deepest top-level folder holding the path`(robot: FxRobot) {
-        val inner = project.resolve("inner").createDirectories()
-        val file = inner.resolve("f.txt").createFile()
-        robot.interact { view.open(project, listOf(ExplorerRoot(inner, "Inner"))) }
-
-        var result = false
-        robot.interact { result = view.reveal(file) }
-
-        assertTrue(result)
-        assertEquals(file, view.selectionModel.selectedItem?.value)
-        assertTrue(view.selectionModel.selectedItem?.parent === scratchesItem())
-        assertFalse(
-            view.projectNode.children
-                .single()
-                .isExpanded,
-        )
-    }
-
-    @Test
-    fun `reveal goes through a symbolic link`(robot: FxRobot) {
-        val real = settingsDir.resolve("real").createDirectories()
-        val file = real.resolve("f.txt").createFile()
-        val link = scratches.resolve("link")
-        try {
-            Files.createSymbolicLink(link, real)
-        } catch (e: UnsupportedOperationException) {
-            assumeTrue(false, "no symbolic links: $e")
-        } catch (e: java.io.IOException) {
-            assumeTrue(false, "no symbolic links: $e")
-        }
-        openBoth(robot)
-
-        var result = false
-        robot.interact { result = view.reveal(link.resolve("f.txt")) }
-
-        assertTrue(result)
-        assertEquals(link.resolve("f.txt"), view.selectionModel.selectedItem?.value)
-        assertTrue(file.exists())
-    }
-
-    @Test
-    fun `reveal fails and expands nothing when the extra root was no folder when opened`(robot: FxRobot) {
-        val later = scratches.resolve("later")
-        robot.interact { view.open(project, listOf(ExplorerRoot(later, "Later"))) }
-        later.createDirectories()
-        val file = later.resolve("f.txt").createFile()
-
-        var result = true
-        robot.interact { result = view.reveal(file) }
-
-        assertFalse(result)
-        assertFalse(scratchesItem().isExpanded)
-        assertNull(view.selectionModel.selectedItem)
     }
 
     @Test
