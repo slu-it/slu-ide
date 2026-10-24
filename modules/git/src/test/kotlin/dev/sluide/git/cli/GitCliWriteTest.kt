@@ -5,6 +5,7 @@ import dev.sluide.git.GitResult
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
@@ -13,6 +14,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 class GitCliWriteTest {
@@ -22,13 +25,17 @@ class GitCliWriteTest {
     private var fakes = 0
 
     /** A stand-in for git that answers `--version` and runs [script] for anything else. */
-    private fun fakeGit(script: String): GitCli {
+    private fun fakeGit(
+        script: String,
+        stopGrace: Duration = 2.seconds,
+        pipeGrace: Duration = 2.seconds,
+    ): GitCli {
         val executable =
             folder.resolve("fake-git-${++fakes}").apply {
                 writeText(FAKE_GIT_START + "$script\n")
                 toFile().setExecutable(true)
             }
-        return GitCli(executable.toString(), System.getenv()).also {
+        return GitCli(executable.toString(), System.getenv(), stopGrace, pipeGrace).also {
             assumeTrue(it.available, "no /bin/sh to stand in for git")
         }
     }
@@ -85,12 +92,13 @@ class GitCliWriteTest {
     @Test
     fun `a write that ignores SIGTERM is killed after a grace period`() {
         val pid = folder.resolve("pid")
-        val git = fakeGit("echo $$ > '$pid'; trap '' TERM; while true; do sleep 0.1; done")
+        val git =
+            fakeGit("echo $$ > '$pid'; trap '' TERM; while true; do sleep 0.1; done", stopGrace = 300.milliseconds)
         val started = System.nanoTime()
 
         val result = git.write(folder, listOf("x"), timeout = 1.seconds)
 
-        assertEquals(GitResult(false, "git did not finish within 1 s."), result)
+        assertEquals(GitResult(false, timedOut(1.seconds, writesFiles = false)), result)
         assertTrue(System.nanoTime() - started < 8_000_000_000, "killed after the grace period")
         val process = ProcessHandle.of(pid.readText().trim().toLong())
         // SIGKILL is sent before the write returns, but the process may take a moment to go.
@@ -110,11 +118,22 @@ class GitCliWriteTest {
 
     @Test
     fun `a read whose output is still held open after git ended fails instead of giving what was read`() {
-        val git = fakeGit("(sleep 20 &); echo name; exit 0")
-        val started = System.nanoTime()
+        val sink = GitCommandLogSink.sink
+        val lines = CopyOnWriteArrayList<Pair<System.Logger.Level, String>>()
+        GitCommandLogSink.sink = { level, message, _ -> lines += level to message }
+        try {
+            val git = fakeGit("(sleep 20 &); echo name; exit 0", pipeGrace = 300.milliseconds)
+            val started = System.nanoTime()
 
-        assertNull(git.userName(folder))
-        assertTrue(System.nanoTime() - started < 10_000_000_000)
+            assertNull(git.userName(folder))
+            assertTrue(System.nanoTime() - started < 10_000_000_000)
+            assertTrue(
+                lines.any { it.first == System.Logger.Level.WARNING && "not read to the end" in it.second },
+                "warned: $lines",
+            )
+        } finally {
+            GitCommandLogSink.sink = sink
+        }
 
         val quick = fakeGit("echo name; exit 0")
         assertEquals("name", quick.userName(folder))
@@ -122,7 +141,7 @@ class GitCliWriteTest {
 
     @Test
     fun `a process left behind holding git's output does not keep the write waiting`() {
-        val git = fakeGit("(sleep 20 &); echo done >&2; exit 0")
+        val git = fakeGit("(sleep 20 &); echo done >&2; exit 0", pipeGrace = 300.milliseconds)
         val started = System.nanoTime()
 
         val result = git.write(folder, listOf("x"), timeout = 30.seconds)
@@ -135,20 +154,42 @@ class GitCliWriteTest {
     fun `a write that takes too long is stopped and says so`() {
         val git = fakeGit("sleep 10")
 
-        val result = git.write(folder, listOf("x"), timeout = 1.seconds)
+        val timeout = 300.milliseconds
 
-        assertEquals(GitResult(false, "git did not finish within 1 s."), result)
+        val output = git.writeWithOutput(folder, listOf("x"), timeout = timeout)
+
+        assertEquals(GitResult(false, timedOut(timeout, writesFiles = false)), output.result)
+        assertTrue(output.timedOut)
         // One that changes files may have changed some of them.
         assertEquals(
-            GitResult(
-                false,
-                "git did not finish within 1 s. Files and the index may be partly changed; check git status in a terminal.",
-            ),
-            git.write(folder, listOf("x"), timeout = 1.seconds, writesFiles = true),
+            GitResult(false, timedOut(timeout, writesFiles = true)),
+            git.write(folder, listOf("x"), timeout = timeout, writesFiles = true),
+        )
+        assertTrue(
+            timedOut(
+                timeout,
+                writesFiles = true,
+            ).endsWith("Files and the index may be partly changed; check git status in a terminal."),
         )
         assertEquals("git did not finish within 10 min.", timedOut(GitCli.CHECKOUT_TIMEOUT, writesFiles = false))
-        assertTrue(git.writeWithOutput(folder, listOf("x"), timeout = 1.seconds).timedOut)
         assertFalse(fakeGit("exit 3").writeWithOutput(folder, listOf("x")).timedOut, "a failure is no timeout")
+    }
+
+    @Test
+    fun `a write without git says so, and one whose git cannot be started says that`() {
+        val missing = GitCli(folder.resolve("none").toString(), System.getenv())
+        assertEquals(GitResult(false, "git is not available."), missing.write(folder, listOf("x")))
+
+        val executable =
+            folder.resolve("vanishing-git").apply {
+                writeText(FAKE_GIT_START + "exit 0\n")
+                toFile().setExecutable(true)
+            }
+        val git = GitCli(executable.toString(), System.getenv())
+        assumeTrue(git.available, "no /bin/sh to stand in for git")
+        executable.toFile().delete()
+
+        assertEquals(GitResult(false, "git could not be run."), git.write(folder, listOf("x")))
     }
 
     @Test

@@ -30,11 +30,17 @@ private val log = System.getLogger(GitCli::class.java.name)
  * startup; without it, [status] returns `null` and Thoreau shows no git information.
  */
 @Component
-class GitCli(
+class GitCli internal constructor(
     /** The git executable, looked up on the `PATH` unless it is a path. */
     private val executable: String,
     environment: Map<String, String>,
+    /** How long a stopped write may take to end by itself before it is killed. */
+    internal val stopGrace: Duration = 2.seconds,
+    /** How long the output of a git that has ended may take to be read to its end, whatever the timeout. */
+    internal val pipeGrace: Duration = 2.seconds,
 ) {
+    constructor(executable: String, environment: Map<String, String>) : this(executable, environment, 2.seconds)
+
     @Autowired
     constructor() : this("git", System.getenv())
 
@@ -278,7 +284,7 @@ class GitCli(
             // Git has ended, but its output may not be read to its end yet; a process it left behind (e.g. started by a
             // hook) may even hold the pipes open, so that the readers never end. They get a little time, whatever the
             // timeout: a read whose output is not read to its end by then fails, a write keeps what was read.
-            val readDeadline = System.nanoTime() + PIPE_GRACE.inWholeNanoseconds
+            val readDeadline = System.nanoTime() + pipeGrace.inWholeNanoseconds
             readers.forEach { reader ->
                 reader.join(
                     (readDeadline - System.nanoTime()).nanoseconds.coerceAtLeast(Duration.ZERO).toJavaDuration(),
@@ -372,7 +378,7 @@ class GitCli(
      * Kills git and whatever it started (hooks, helpers, ssh); the descendants first, as they are lost with git: those
      * found before are killed too if they outlive it. A [write] and its descendants are asked to end first (SIGTERM, on
      * which git, also a git a hook started, removes its lock files) and killed only if they have not after a moment,
-     * one shared [STOP_GRACE] for all of them.
+     * one shared [stopGrace] for all of them.
      */
     private fun stop(
         process: Process,
@@ -382,7 +388,7 @@ class GitCli(
         if (write) {
             val interrupted = Thread.interrupted()
             try {
-                val deadline = System.nanoTime() + STOP_GRACE.inWholeNanoseconds
+                val deadline = System.nanoTime() + stopGrace.inWholeNanoseconds
                 descendants.forEach { it.destroy() }
                 // Not process.destroy(): it also closes git's pipes, and what git started would die of SIGPIPE on its
                 // next word to them (a shell reporting its killed child) instead of cleaning up.
@@ -433,12 +439,6 @@ class GitCli(
 
         /** The message of a write that was cancelled (ADR 0043). */
         const val CANCELLED = "Cancelled."
-
-        /** How long a stopped write may take to end by itself before it is killed. */
-        private val STOP_GRACE = 2.seconds
-
-        /** How long the output of a git that has ended may take to be read to its end, whatever the timeout. */
-        private val PIPE_GRACE = 2.seconds
 
         /** How long the standard error of a read that has ended may take to be read, for the log only. */
         private val ERROR_GRACE = 100.milliseconds

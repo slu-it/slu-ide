@@ -13,6 +13,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 class GitCommandLogTest {
@@ -84,11 +85,11 @@ class GitCommandLogTest {
     @Test
     fun `a timeout is logged once as a warning`() {
         val git = fakeGit("sleep 5")
-        assertNull(git.run(listOf("marker-slow"), folder, 1.seconds))
+        assertNull(git.run(listOf("marker-slow"), folder, 300.milliseconds))
 
         val warnings = lines("marker-slow").filter { it.first == System.Logger.Level.WARNING }
         assertEquals(1, warnings.size)
-        assertTrue("took longer than 1s" in warnings.single().second)
+        assertTrue("took longer than 300ms" in warnings.single().second)
     }
 
     @Test
@@ -193,7 +194,7 @@ class GitCommandLogTest {
         for ((marker, write) in listOf("marker-cancel-read" to false, "marker-cancel-write" to true)) {
             val cancellation = GitCancellation()
             Thread.ofPlatform().start {
-                Thread.sleep(500)
+                while (lines(marker).isEmpty()) Thread.sleep(20)
                 cancellation.cancel()
             }
             git.execute(listOf(marker), folder, 20.seconds, null, write = write, cancellation = cancellation)
@@ -225,14 +226,4 @@ class GitCommandLogTest {
         marker: String,
         what: String,
     ) = commandLines(marker).single { " $what: " in it.second }.first
-
-    @Test
-    fun `output that is not read to the end is a warning`() {
-        // A child that keeps standard output open after git has ended.
-        val git = fakeGit("sleep 4 &\necho hi")
-        val execution = git.execute(listOf("marker-incomplete"), folder, 10.seconds, null, write = false)!!
-
-        assertTrue(!execution.complete)
-        assertTrue(warnings("marker-incomplete").single().contains("not read to the end"))
-    }
 }

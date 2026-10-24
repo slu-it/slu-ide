@@ -28,13 +28,16 @@ class GitCliCancelTest {
     @TempDir
     lateinit var folder: Path
 
-    private fun fakeGit(script: String): GitCli {
+    private fun fakeGit(
+        script: String,
+        stopGrace: kotlin.time.Duration = 2.seconds,
+    ): GitCli {
         val executable =
             folder.resolve("fake-git").apply {
                 writeText(FAKE_GIT_START + "$script\n")
                 toFile().setExecutable(true)
             }
-        return GitCli(executable.toString(), System.getenv()).also {
+        return GitCli(executable.toString(), System.getenv(), stopGrace = stopGrace).also {
             assumeTrue(it.available, "no /bin/sh to stand in for git")
         }
     }
@@ -90,11 +93,13 @@ class GitCliCancelTest {
         val pid = folder.resolve("pid")
         val childPid = folder.resolve("child")
         val ready = folder.resolve("ready")
+        val grace = 300.milliseconds
         // Git tells it started only once the child set its trap, so that a SIGTERM cannot reach the child first.
         val git =
             fakeGit(
                 "(trap '' TERM; : > '$ready'; while true; do sleep 0.1; done) & echo $! > '$childPid'; " +
                     "until [ -e '$ready' ]; do sleep 0.01; done; echo $$ > '$pid'; while true; do sleep 0.1; done",
+                stopGrace = grace,
             )
         val cancellation = GitCancellation()
         val writing = startWriting(git, cancellation, pid)
@@ -108,7 +113,7 @@ class GitCliCancelTest {
         assertEquals(GitResult(false, "Cancelled."), result)
         child.get().onExit().get(5, TimeUnit.SECONDS)
         assertFalse(child.get().isAlive, "killed")
-        assertTrue(System.nanoTime() - started >= TimeUnit.MILLISECONDS.toNanos(1500), "only after the grace period")
+        assertTrue(System.nanoTime() - started >= (grace * 0.75).inWholeNanoseconds, "only after the grace period")
     }
 
     @Test

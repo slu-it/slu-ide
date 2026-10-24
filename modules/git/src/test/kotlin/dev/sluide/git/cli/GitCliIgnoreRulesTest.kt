@@ -301,9 +301,9 @@ class GitCliIgnoreRulesTest {
         assumeTrue(slow.available, "no /bin/sh to stand in for git")
         val start = System.nanoTime()
 
-        val rules = assertNotNull(slow.ignoreRules(repo, repo.resolve(".gitignore"), null, deadline = 5.seconds))
+        val rules = assertNotNull(slow.ignoreRules(repo, repo.resolve(".gitignore"), null, deadline = 1.seconds))
 
-        assertTrue(System.nanoTime() - start < 9.5.seconds.inWholeNanoseconds, "stopped at the deadline")
+        assertTrue(System.nanoTime() - start < 5.seconds.inWholeNanoseconds, "stopped at the deadline")
         assertFalse(rules.complete)
         assertEquals(mapOf(1 to ignoring("first.log")), rules.lines)
     }
