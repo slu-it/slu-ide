@@ -319,8 +319,7 @@ class EditorAreaDiffUiTest : EditorAreaUiFixture() {
 
     @Test
     fun `only files shown as text are asked for their diff`(robot: FxRobot) {
-        val fallback = DefaultTextFileViewer()
-        val area = EditorArea(FileViewers(listOf(fallback, UnsavableViewer()), fallback), watcher, fontSettings)
+        val area = areaWith(robot, UnsavableViewer())
         val asked = mutableListOf<String>()
         area.diffOf =
             immediately { path ->

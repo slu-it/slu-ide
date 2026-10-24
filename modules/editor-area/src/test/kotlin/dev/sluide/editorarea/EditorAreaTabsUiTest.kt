@@ -1,10 +1,14 @@
 package dev.sluide.editorarea
 
+import dev.sluide.fileviewers.LineChange
+import dev.sluide.fileviewers.TextDiff
+import javafx.beans.property.SimpleStringProperty
 import javafx.scene.Node
 import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.scene.control.MenuItem
 import javafx.scene.control.SeparatorMenuItem
+import javafx.scene.control.TextField
 import javafx.scene.input.MouseButton
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
@@ -361,6 +365,74 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         assertSame(tabs.first(), editor.selectedTab)
         assertSame(tabs.first(), strip.visibleTabs().last())
         assertTrue(strip.scrollRightButton.isDisable, "scrolled to the end")
+    }
+
+    @Test
+    fun `dragging the last tab beyond the left edge of an overflowing row scrolls it back`(robot: FxRobot) {
+        robot.interact { stage.width = 300.0 }
+        val tabs = openTabs(robot)
+        val strip = editor.tabStrip
+        val label = tabLabel(robot, "file-number-7.txt")
+
+        dragBy(robot, label, -stage.width, release = false)
+        eventually(robot) { assertSame(tabs.last(), editor.tabs.first()) }
+        releaseOn(robot, label, -stage.width)
+
+        assertSame(tabs.last(), editor.selectedTab)
+        assertSame(tabs.last(), strip.visibleTabs().first())
+        assertTrue(strip.scrollLeftButton.isDisable, "scrolled to the start")
+    }
+
+    @Test
+    fun `a tab closed while it is dragged leaves no dragging tab and its release does nothing`(robot: FxRobot) {
+        val tabs = openTabs(robot, 3)
+        val label = tabLabel(robot, "file-number-0.txt")
+
+        dragBy(robot, label, 80.0, release = false)
+        assertEquals(1, robot.lookup(".editor-tab.dragging").queryAll<Node>().size)
+        robot.interact { editor.editorTabs.close(tabs.first()) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertTrue(robot.lookup(".editor-tab.dragging").queryAll<Node>().isEmpty())
+        releaseOn(robot, label, 80.0)
+        assertEquals(tabs.drop(1), editor.tabs)
+        assertTrue(robot.lookup(".editor-tab.dragging").queryAll<Node>().isEmpty())
+    }
+
+    /** A tab whose content is a text field, to see where the focus goes. */
+    private class FieldTab : EditorTab {
+        override val title = SimpleStringProperty("Fields")
+        override val tooltip = "Fields"
+        override val content = TextField()
+    }
+
+    @Test
+    fun `focusSelected focuses the area without tabs, a file's view, its diff while shown, or another tab's content`(
+        robot: FxRobot,
+    ) {
+        val field = fieldAbove(robot)
+        robot.interact { field.requestFocus() }
+        robot.interact { editor.focusSelected() }
+        assertSame(editor, focusOwner(), "no tab: the area")
+
+        val a = textFile("a.txt", "new\n")
+        editor.diffOf = immediately { TextDiff("old\n", listOf(LineChange(0..0, 0..0))) }
+        open(robot, a)
+        robot.interact { field.requestFocus() }
+        robot.interact { editor.focusSelected() }
+        assertSame(shownArea(robot), focusOwner(), "a file: its view")
+
+        robot.interact { editor.toggleDiff() }
+        robot.interact { field.requestFocus() }
+        robot.interact { editor.focusSelected() }
+        val diff = robot.lookup(".editor-content .diff-view").queryAs(Node::class.java)
+        assertTrue(focusOwner()?.isInside(diff) == true, "a diff shown: the diff")
+
+        val fields = FieldTab()
+        robot.interact { editor.open(fields) }
+        robot.interact { field.requestFocus() }
+        robot.interact { editor.focusSelected() }
+        assertSame(fields.content, focusOwner(), "another tab: its content")
     }
 
     @Test
