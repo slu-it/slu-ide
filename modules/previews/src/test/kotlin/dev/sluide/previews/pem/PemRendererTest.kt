@@ -214,4 +214,91 @@ class PemRendererTest {
         assertTrue("<span class=\"pem-badge valid\">Valid</span>" in certificate)
         assertTrue("<th>Subject</th><td>CN=leaf.sluide.test</td>" in certificate)
     }
+
+    @Test
+    fun `a certificate on its last day or the day before says so`() {
+        val until = Instant.parse("2036-01-01T00:00:00Z")
+
+        assertEquals(
+            Badge("Expires today", "expiring"),
+            describe("test-only-self-signed.crt", until.minusSeconds(12 * 3600)).single().badge,
+        )
+        assertEquals(
+            Badge("Expires in 1 day", "expiring"),
+            describe("test-only-self-signed.crt", until.minusSeconds(36 * 3600)).single().badge,
+        )
+    }
+
+    @Test
+    fun `traditional keys are encrypted as their headers say, RSA public keys have a type only`() {
+        fun block(
+            label: String,
+            headers: String = "",
+        ) = "-----BEGIN $label-----\n$headers\nAAAA\n-----END $label-----\n"
+
+        val plain = PemRenderer.describe(block("RSA PRIVATE KEY"), now).single()
+        assertEquals("RSA private key (OpenSSL)", plain.field("Type"))
+        assertEquals("No", plain.field("Encrypted"))
+        val noCipher = PemRenderer.describe(block("RSA PRIVATE KEY", "Proc-Type: 4,ENCRYPTED\n"), now).single()
+        assertEquals("Yes", noCipher.field("Encrypted"))
+        val publicKey = PemRenderer.describe(block("RSA PUBLIC KEY"), now).single()
+        assertEquals("Public key", publicKey.title)
+        assertEquals("RSA public key (PKCS #1)", publicKey.field("Type"))
+    }
+
+    private fun uint32(value: Int) = byteArrayOf(0, 0, 0, value.toByte())
+
+    private fun sshString(bytes: ByteArray) = uint32(bytes.size) + bytes
+
+    private fun sshString(text: String) = sshString(text.toByteArray())
+
+    /** `openssh-key-v1`, built here: cipher, kdf, kdf options, one key, its public part (only the type is read). */
+    private fun openSshKey(cipher: String) =
+        "openssh-key-v1\u0000".toByteArray() + sshString(cipher) + sshString("none") + sshString("") + uint32(1) +
+            sshString(sshString("ssh-ed25519") + sshString(ByteArray(32)))
+
+    private fun details(
+        label: String,
+        bytes: ByteArray,
+    ) = PemRenderer.describe(pem(label, bytes), now).single()
+
+    @Test
+    fun `an OpenSSH private key shows its type and whether it is encrypted`() {
+        val plain = details("OPENSSH PRIVATE KEY", openSshKey("none"))
+        assertNull(plain.error)
+        assertEquals("OpenSSH private key (ssh-ed25519)", plain.field("Type"))
+        assertEquals("No", plain.field("Encrypted"))
+
+        assertEquals("Yes (aes256-ctr)", details("OPENSSH PRIVATE KEY", openSshKey("aes256-ctr")).field("Encrypted"))
+    }
+
+    @Test
+    fun `a broken OpenSSH private key is an error, not a crash`() {
+        val key = openSshKey("none")
+
+        assertEquals("Truncated OpenSSH private key", details("OPENSSH PRIVATE KEY", key.copyOf(24)).error)
+        assertEquals("Truncated OpenSSH private key", details("OPENSSH PRIVATE KEY", key.copyOf(key.size - 20)).error)
+        assertEquals(
+            "Not an OpenSSH private key",
+            details("OPENSSH PRIVATE KEY", ByteArray(20) { 'x'.code.toByte() }).error,
+        )
+    }
+
+    @Test
+    fun `a broken certificate request is an error, not a crash`() {
+        val der =
+            Base64.getMimeDecoder().decode(
+                fixture("test-only-request.csr")
+                    .lines()
+                    .filter {
+                        '-' !in it
+                    }.joinToString(""),
+            )
+
+        assertEquals("Truncated DER", details("CERTIFICATE REQUEST", der.copyOf(der.size / 2)).error)
+        assertEquals(
+            "Unsupported DER length",
+            details("CERTIFICATE REQUEST", byteArrayOf(0x30, 0x84.toByte(), 0, 0, 0, 5, 1, 2, 3, 4, 5)).error,
+        )
+    }
 }
