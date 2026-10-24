@@ -1,6 +1,7 @@
 # 0007. Terminals with pty4j and the JediTerm core, drawn by our own JavaFX view
 
-- Status: accepted
+- Status: accepted; amended by [0086](0086-embedded-command-terminals.md) (one-command terminals embedded in other
+  views)
 - Date: 2026-10-13
 
 ## Context

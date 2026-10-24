@@ -62,8 +62,16 @@
   `$SHELL -l -c` in a tab with the given name; the tab shows "(exited)" when the command ends (used by
   [docker-sandbox.md](docker-sandbox.md)). `loginShellRunning(command, environment)` returns that shell's command line,
   for running a command in the same login environment outside a terminal (the `sbx` check of the sandboxes).
+- Views of other modules can embed a terminal that runs one command, in a pane of their own instead of a tab
+  (`Terminals.embed(folder, command)`, an `EmbeddedTerminal`; [ADR 0086](../adr/0086-embedded-command-terminals.md)).
+  It runs `$SHELL -l -c` like a command tab and follows the font and scroll settings. When the command ends,
+  `exited` turns true and `exitCode` holds its exit code (none if it was closed before); the output stays visible.
+  `interrupt()` sends Ctrl+C through the pseudo terminal (exit code 130 for a command that dies of it), `close()` ends
+  the command with a hangup like closing a tab. Embedded terminals do not count as open tabs, but are closed with the
+  window. Each run gets a fresh terminal.
 - Structure: `Terminals` (window-scoped Spring bean: opens terminals, ends them when its window closes),
-  `TerminalTab` (`EditorTab`), `TerminalView` (canvas, input, selection; JediTerm `TerminalDisplay`),
+  `TerminalTab` (`EditorTab`), `EmbeddedTerminal` with `EmbeddedTerminalView` (one-command terminal for another
+  view), `TerminalView` (canvas, input, selection; JediTerm `TerminalDisplay`),
   `TerminalPainter` (`TerminalPainter.kt`: draws the canvas), `TerminalSession` (pty4j process and JediTerm emulator),
   `TerminalKeys` (key translation), `TerminalMouse` (mouse translation), `ScrollAccumulator` (scroll speeds, fractions
   of lines), `TerminalColors` (palette), `settings` package: `TerminalScrollSettings` (Spring bean, trackpad and wheel
