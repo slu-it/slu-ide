@@ -40,7 +40,7 @@ internal const val STALE_NOTE = "Build files changed since loading — Refresh t
  * ([TaskNote]) in their place. Double-click on a task or Enter runs the selected tasks ([onRun]). FX thread.
  */
 internal class TaskTreePane {
-    /** Runs the task paths, in tree order. */
+    /** Runs the task arguments ([selectedArguments]). */
     var onRun: (List<String>) -> Unit = {}
 
     var onRefresh: () -> Unit = {}
@@ -99,21 +99,26 @@ internal class TaskTreePane {
         private set
 
     private var projects: List<GradleProject> = emptyList()
+    private var ownProject: String? = null
 
     init {
         filter.textProperty().addListener { _, _, _ -> render() }
         tree.addEventHandler(KeyEvent.KEY_PRESSED) { event ->
             if (event.code == KeyCode.ENTER) {
-                val tasks = selectedTasks()
-                if (tasks.isNotEmpty()) onRun(tasks)
+                val arguments = selectedArguments()
+                if (arguments.isNotEmpty()) onRun(arguments)
                 event.consume()
             }
         }
     }
 
     /** Shows [projects] (a subtree, the view's own project first among its ancestors) as the tree. */
-    fun showTasks(projects: List<GradleProject>) {
+    fun showTasks(
+        projects: List<GradleProject>,
+        ownProject: String?,
+    ) {
         this.projects = projects
+        this.ownProject = ownProject
         shownNote = null
         content.children.setAll(tree)
         render()
@@ -132,15 +137,18 @@ internal class TaskTreePane {
         stale.isManaged = shown
     }
 
-    /** The paths of the selected tasks in the order of the rows; projects and groups do not count. */
-    fun selectedTasks(): List<String> =
-        tree.selectionModel.selectedItems
-            .filter { it?.value is GradleTask }
-            .sortedBy { tree.getRow(it) }
-            .map { (it.value as GradleTask).path }
+    /** What Gradle gets for the selected tasks ([taskArguments]), in the order of the rows; projects and groups do not count. */
+    fun selectedArguments(): List<String> =
+        taskArguments(
+            tree.selectionModel.selectedItems
+                .filter { it?.value is GradleTask }
+                .sortedBy { tree.getRow(it) }
+                .map { it.value as GradleTask },
+            ownProject,
+        )
 
     private fun render() {
-        val entries = taskTree(projects, ownProject(projects), filter.text)
+        val entries = taskTree(projects, ownProject ?: ownProject(projects), filter.text)
         tree.root.children.setAll(
             entries.map { project ->
                 TreeItem<Any>(project).apply {
@@ -167,7 +175,7 @@ internal class TaskTreePane {
         init {
             setOnMouseClicked { event ->
                 if (event.button == MouseButton.PRIMARY && event.clickCount == 2 && item is GradleTask) {
-                    onRun(selectedTasks())
+                    onRun(selectedArguments())
                     event.consume()
                 }
             }
@@ -197,7 +205,7 @@ internal class TaskTreePane {
                     name.text = item.name
                     description.text = item.description.orEmpty()
                     graphic = box
-                    tooltip = Tooltip(listOfNotNull(item.path, item.description).joinToString("\n"))
+                    tooltip = Tooltip(taskTooltip(item, ownProject))
                 }
             }
         }

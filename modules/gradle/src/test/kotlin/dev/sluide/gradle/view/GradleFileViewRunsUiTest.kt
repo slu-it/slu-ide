@@ -47,7 +47,7 @@ class GradleFileViewRunsUiTest : GradleFileViewUiFixture() {
             doubleClick(taskCell(robot, view, ":hello"))
         }
         eventually(robot) {
-            assertTrue(status(view).startsWith("✔ :hello — finished in "), status(view))
+            assertTrue(status(view).startsWith("✔ hello — finished in "), status(view))
             assertEquals(ViewActivity.NONE, view.activity.value)
         }
         robot.interact { assertSame(view.tasks.tree, view.node.scene.focusOwner) }
@@ -60,9 +60,18 @@ class GradleFileViewRunsUiTest : GradleFileViewUiFixture() {
             Event.fireEvent(tree, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.ENTER, false, false, false, false))
         }
         eventually(robot) {
-            assertTrue(status(view).startsWith("✔ :hello :help — finished in "), status(view))
+            assertTrue(status(view).startsWith("✔ hello help — finished in "), status(view))
         }
-        assertTrue(taskLog.any { it.endsWith("started: Gradle: :hello :help") }, taskLog.toString())
+        assertEquals("hello|help|", runs.readLines().last())
+        assertTrue(taskLog.any { it.endsWith("started: Gradle: hello help") }, taskLog.toString())
+
+        // A task of a child project keeps its full path: only that task runs.
+        robot.interact { view.tasks.filter.text = "appTask" }
+        robot.interact { doubleClick(taskCell(robot, view, ":app:appTask")) }
+        eventually(robot) {
+            assertTrue(status(view).startsWith("✔ :app:appTask — finished in "), status(view))
+        }
+        assertEquals(":app:appTask|", runs.readLines().last())
     }
 
     @Test
@@ -70,11 +79,11 @@ class GradleFileViewRunsUiTest : GradleFileViewUiFixture() {
         val view = loaded(robot)
         robot.interact { doubleClick(taskCell(robot, view, ":fail")) }
         eventually(robot) {
-            assertTrue(status(view).startsWith("✖ :fail — failed (exit 1) after "), status(view))
+            assertTrue(status(view).startsWith("✖ fail — failed (exit 1) after "), status(view))
             assertEquals(ViewActivity.FAILED, view.activity.value)
         }
         assertTrue(
-            taskLog.any { it.contains("failed after") && it.endsWith("Gradle: :fail: exit 1") },
+            taskLog.any { it.contains("failed after") && it.endsWith("Gradle: fail: exit 1") },
             taskLog.toString(),
         )
 
@@ -85,7 +94,7 @@ class GradleFileViewRunsUiTest : GradleFileViewUiFixture() {
 
         robot.interact { view.runPane.rerun.fire() }
         eventually(robot) { assertEquals(ViewActivity.FAILED, view.activity.value) }
-        assertEquals(2, taskLog.count { it.endsWith("started: Gradle: :fail") })
+        assertEquals(2, taskLog.count { it.endsWith("started: Gradle: fail") })
     }
 
     @Test
@@ -107,17 +116,17 @@ class GradleFileViewRunsUiTest : GradleFileViewUiFixture() {
 
         robot.interact { doubleClick(taskCell(robot, view, ":hello")) }
         assertEquals(
-            listOf<Pair<GradleJob, GradleJob>>(GradleJob.Tasks(listOf(":slow")) to GradleJob.Tasks(listOf(":hello"))),
+            listOf<Pair<GradleJob, GradleJob>>(GradleJob.Tasks(listOf("slow")) to GradleJob.Tasks(listOf("hello"))),
             asked,
         )
         robot.interact {
-            assertEquals(GradleJob.Tasks(listOf(":slow")), view.runner?.running)
+            assertEquals(GradleJob.Tasks(listOf("slow")), view.runner?.running)
             assertSame(slowOutput, view.runPane.shownOutput)
         }
 
         answer = true
         robot.interact { doubleClick(taskCell(robot, view, ":hello")) }
-        eventually(robot) { assertTrue(status(view).startsWith("✔ :hello — finished in "), status(view)) }
+        eventually(robot) { assertTrue(status(view).startsWith("✔ hello — finished in "), status(view)) }
         robot.interact { assertNotSame(slowOutput, view.runPane.shownOutput) }
         eventually(robot) { check(!slow.isAlive) { "the stopped run still runs" } }
     }
@@ -127,11 +136,11 @@ class GradleFileViewRunsUiTest : GradleFileViewUiFixture() {
         val view = loaded(robot)
         robot.interact { doubleClick(taskCell(robot, view, ":slow")) }
         val slow = slowProcess(robot)
-        robot.interact { assertEquals("build.gradle is still running :slow.", view.closeWarning) }
+        robot.interact { assertEquals("build.gradle is still running slow.", view.closeWarning) }
 
-        robot.interact { backgroundTasks.shown.single { it.name.value == "Gradle: :slow" }.cancel() }
+        robot.interact { backgroundTasks.shown.single { it.name.value == "Gradle: slow" }.cancel() }
         eventually(robot) {
-            assertEquals("■ :slow — stopped", status(view))
+            assertEquals("■ slow — stopped", status(view))
             assertEquals(ViewActivity.NONE, view.activity.value)
             assertNull(view.closeWarning)
         }
@@ -148,7 +157,7 @@ class GradleFileViewRunsUiTest : GradleFileViewUiFixture() {
         robot.interact { view.runPane.stop.fire() }
 
         eventually(robot) {
-            assertEquals("\u25a0 :stubborn \u2014 stopped", status(view))
+            assertEquals("\u25a0 stubborn \u2014 stopped", status(view))
             check(!stubborn.isAlive) { "the run still runs" }
         }
     }
@@ -160,15 +169,15 @@ class GradleFileViewRunsUiTest : GradleFileViewUiFixture() {
             view.runPane.arguments.text = "--info -Dgreeting='a b'"
             doubleClick(taskCell(robot, view, ":hello"))
         }
-        eventually(robot) { assertTrue(status(view).startsWith("\u2714 :hello"), status(view)) }
-        assertEquals("--info|-Dgreeting=a b|:hello|", runs.readLines().last())
+        eventually(robot) { assertTrue(status(view).startsWith("\u2714 hello"), status(view)) }
+        assertEquals("--info|-Dgreeting=a b|hello|", runs.readLines().last())
 
         robot.interact {
             view.runPane.arguments.text = "--quiet"
             view.runPane.rerun.fire()
         }
         eventually(robot) {
-            assertEquals("--quiet|:hello|", runs.readLines().last())
+            assertEquals("--quiet|hello|", runs.readLines().last())
             assertNull(view.runner?.running)
         }
 
@@ -180,7 +189,7 @@ class GradleFileViewRunsUiTest : GradleFileViewUiFixture() {
             assertNull(view.runner?.running)
         }
         // Nothing was started: no task, so no process could still write.
-        assertTrue(taskLog.none { it.endsWith("started: Gradle: :help") }, taskLog.toString())
+        assertTrue(taskLog.none { it.endsWith("started: Gradle: help") }, taskLog.toString())
         assertEquals(before, runs.readLines().size)
     }
 
@@ -193,6 +202,6 @@ class GradleFileViewRunsUiTest : GradleFileViewUiFixture() {
         robot.interact { view.dispose() }
 
         eventually(robot) { check(!slow.isAlive) { "the run of the closed view still runs" } }
-        assertTrue(taskLog.any { it.endsWith("Gradle: :slow") && it.contains("finished in") }, taskLog.toString())
+        assertTrue(taskLog.any { it.endsWith("Gradle: slow") && it.contains("finished in") }, taskLog.toString())
     }
 }

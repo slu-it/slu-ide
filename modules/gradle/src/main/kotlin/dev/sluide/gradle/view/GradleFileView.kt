@@ -110,7 +110,7 @@ internal class GradleFileView(
         tasks.onRun = ::runTasks
         tasks.onRefresh = { buildTasks?.detect(reload = true) }
         tasks.onReview = { session?.reviewTrust?.invoke() }
-        runPane.rerun.setOnAction { runner?.lastTasks?.let { runTasks(it.paths) } }
+        runPane.rerun.setOnAction { runner?.lastTasks?.let { runTasks(it.arguments) } }
     }
 
     override val text: String get() = editor.text
@@ -155,13 +155,13 @@ internal class GradleFileView(
         }
     }
 
-    /** Runs the task [paths] with the arguments of the view; the focus stays where it is. */
-    private fun runTasks(paths: List<String>) {
+    /** Runs the [tasks] (arguments for Gradle: names or paths) with the arguments of the view; the focus stays where it is. */
+    private fun runTasks(tasks: List<String>) {
         val runner = runner ?: return
         val installation = installation ?: return
-        if (paths.isEmpty() || session?.projectTrust?.allows(GradleTrustCheck.ID) != true) return
+        if (tasks.isEmpty() || session?.projectTrust?.allows(GradleTrustCheck.ID) != true) return
         val arguments = runPane.arguments.text
-        runner.start(GradleJob.Tasks(paths), command = { GradleCommand.run(installation, arguments, paths) })
+        runner.start(GradleJob.Tasks(tasks), command = { GradleCommand.run(installation, arguments, tasks) })
     }
 
     /** Focuses the source, or the tasks while they are shown alone; a failed run no longer marks the tab. */

@@ -64,9 +64,16 @@ run on every configuration), so it falls under [ADR 0053](0053-project-trust.md)
 - **Reload only on Refresh.** A saved build file (`*.gradle`, `*.gradle.kts`, `gradle.properties`, `*.versions.toml`)
   under a loaded build marks it stale, which its views note; nothing reloads by itself, since a load runs the build's
   configuration. Detection also reruns only on opening and Refresh.
-- **One fresh process per run** (ADR 0086): the arguments of the view and the task paths in tree order. A run while
+- **One fresh process per run** (ADR 0086): the arguments of the view and the selected tasks in tree order. A run while
   another one (or the load) goes **asks whether to stop it**; the old terminal is closed at once. Stop is Ctrl+C, then
   the process is ended after 5 s.
+- **Own project's tasks by name, the others by path.** Gradle matches a bare task name in the project of the working
+  folder and all its subprojects, a task path (`:clean`) selects that one task. A user expects what `./gradlew clean`
+  in the build file's folder does (also IntelliJ), so tasks of the view's own project (the project whose build file
+  it shows) are passed by name, tasks of the child projects below it by full path. The command runs in the build
+  file's folder, which is where Gradle takes the project from, so a project owns the view only if the build file is
+  in the project's folder. A build file that no project owns (e.g. `buildSrc`), or one outside its project's folder
+  (a custom `buildFile`), has no own project: all its tasks go by path, as do task names starting with `-`.
 - **Status in three places**: a status line with Stop and Rerun, a background task row whose ✕ stops (ADR 0061), and
   the tab marker (`FileView.activity`: running; failed until the tab is shown again). `FileView.closeWarning` asks
   before the tab or window closes during a run.

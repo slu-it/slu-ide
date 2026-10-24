@@ -27,16 +27,16 @@ class RunTextsTest {
 
     @Test
     fun `the status line names the tasks, or the loading, and how it went`() {
-        val running = RunState.Running(test.paths, TimeSource.Monotonic.markNow())
+        val running = RunState.Running(test.arguments, TimeSource.Monotonic.markNow())
         assertEquals("▶ :app:test — running 0:42", runningText(test, 42.seconds))
         assertEquals("▶ Loading tasks… 0:03", runningText(load, 3.seconds))
         assertEquals(
             "✔ :app:clean :app:build — finished in 1:03",
-            endedText(two, RunState.Finished(two.paths, 63.seconds)),
+            endedText(two, RunState.Finished(two.arguments, 63.seconds)),
         )
         assertEquals(
             "✖ :app:test — failed (exit 1) after 0:12",
-            endedText(test, RunState.Failed(test.paths, 1, 12.seconds)),
+            endedText(test, RunState.Failed(test.arguments, 1, 12.seconds)),
         )
         assertEquals("■ :app:test — stopped", endedText(test, RunState.Stopped))
         assertEquals("✔ Tasks loaded in 0:05", endedText(load, RunState.Finished(emptyList(), 5.seconds)))
@@ -53,9 +53,9 @@ class RunTextsTest {
     fun `styles and tab markers follow the state, a failure marks the tab`() {
         val states =
             listOf(
-                RunState.Running(test.paths, TimeSource.Monotonic.markNow()),
-                RunState.Finished(test.paths, 1.seconds),
-                RunState.Failed(test.paths, 2, 1.seconds),
+                RunState.Running(test.arguments, TimeSource.Monotonic.markNow()),
+                RunState.Finished(test.arguments, 1.seconds),
+                RunState.Failed(test.arguments, 2, 1.seconds),
                 RunState.Stopped,
                 RunState.Idle,
             )

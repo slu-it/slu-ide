@@ -59,8 +59,14 @@ runs them. Decisions: [ADR 0085](../adr/0085-gradle-integration.md); the termina
   expanded.
 
 ## Running
-- **Double-click** a task or press **Enter** with tasks selected: the selected tasks run in one invocation by their
-  paths, in tree order (`:app:clean :app:build`). Projects and groups in the selection are ignored. The focus stays
+- **Double-click** a task or press **Enter** with tasks selected: the selected tasks run in one invocation, in
+  tree order. Tasks of the view's own project are passed by **name** (`clean`): Gradle runs them in that project and
+  its subprojects, like `./gradlew clean` in the build file's folder. Tasks of the child projects listed below keep
+  their **full path** (`:app:clean`) and run only that task. A build file that no project owns, or that is not in its
+  project's folder (custom `buildFile`), passes all by path (the run starts in the build file's folder, which is where
+  Gradle takes the project from); so does a task name starting with `-`.
+  The tooltip of a task row says which: "clean (this project and its subprojects)" or ":app:clean (only this task)",
+  then the description. Projects and groups in the selection are ignored. The focus stays
   where it was: the run's terminal takes it only when clicked (e.g. to answer a prompt).
 - **Arguments** above the terminal are added to every run of the view (e.g. `--info -x test`). They are split into
   words like a shell does (spaces separate, quotes group), but each word is passed quoted: there is no `$VAR`, `~` or
@@ -70,19 +76,19 @@ runs them. Decisions: [ADR 0085](../adr/0085-gradle-integration.md); the termina
   a terminal tab (e.g. `.zshrc`, where SDKMAN sets `JAVA_HOME` and `PATH`), so Gradle finds the same Java
   ([ADR 0087](../adr/0087-commands-in-an-interactive-login-shell.md)); what those files print shows above Gradle's
   output.
-- Starting a run while another one (or the load) is going asks: ":app:test is still running. Stop it and run
-  :app:build?" Stopping closes the old terminal at once.
+- Starting a run while another one (or the load) is going asks: "test is still running. Stop it and run
+  build?" Stopping closes the old terminal at once.
 - **Stop** sends Ctrl+C (Gradle cancels the build) and ends the process if it has not stopped after 5 seconds.
   **Rerun** runs the last run's tasks with the current arguments.
 
 ## Status
 A run shows in three places:
-- the **status line** of the run pane: "▶ :app:test — running 0:42", "✔ :app:test — finished in 1:03",
-  "✖ :app:test — failed (exit 1) after 0:12", "■ :app:test — stopped" (its tooltip shows it whole when it is cut);
-- a **background task** row ("Gradle: :app:test", "Gradle: loading tasks") whose ✕ stops the run;
+- the **status line** of the run pane: "▶ test — running 0:42", "✔ test — finished in 1:03",
+  "✖ test — failed (exit 1) after 0:12", "■ test — stopped" (its tooltip shows it whole when it is cut);
+- a **background task** row ("Gradle: test", "Gradle: loading tasks") whose ✕ stops the run;
 - a **marker on the editor tab**: running, or failed until the tab is next shown.
 
-Closing the tab or the window while a run or load is going asks first ("build.gradle.kts is still running :app:test.").
+Closing the tab or the window while a run or load is going asks first ("build.gradle.kts is still running test.").
 
 ## Known limits
 - Gradle 6 or newer (the init script).

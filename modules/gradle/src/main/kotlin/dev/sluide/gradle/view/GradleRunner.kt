@@ -184,7 +184,7 @@ internal class GradleRunner(
         return StartResult.FAILED
     }
 
-    private fun tasksOf(job: GradleJob) = (job as? GradleJob.Tasks)?.paths ?: emptyList()
+    private fun tasksOf(job: GradleJob) = (job as? GradleJob.Tasks)?.arguments ?: emptyList()
 
     private companion object {
         /** Stands for the exit code of a process closed before it ended; such a run counts as stopped. */

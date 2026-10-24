@@ -32,15 +32,14 @@ internal object GradleCommand {
         }
 
     /**
-     * The command running [taskPaths] with the [userArguments] (tokenized like a shell does: spaces separate, quotes
+     * The command running [tasks] with the [userArguments] (tokenized like a shell does: spaces separate, quotes
      * group); throws [IllegalArgumentException] with a message to show if a quote is not closed.
      */
     fun run(
         installation: GradleInstallation,
         userArguments: String,
-        taskPaths: List<String>,
-    ): String =
-        (listOf(executable(installation)) + (tokenize(userArguments) + taskPaths).map(::quote)).joinToString(" ")
+        tasks: List<String>,
+    ): String = (listOf(executable(installation)) + (tokenize(userArguments) + tasks).map(::quote)).joinToString(" ")
 
     /** The command writing the task list of the build to [output] with the [initScript]. */
     fun loadTasks(

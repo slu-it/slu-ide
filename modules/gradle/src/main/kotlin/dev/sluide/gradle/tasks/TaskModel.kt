@@ -26,6 +26,15 @@ data class GradleTask(
 /** The group shown for tasks without one. */
 const val OTHER_GROUP = "other"
 
+/**
+ * The [projects] a build file shows: its own project's path ([own], null if no project has the file or the file is
+ * not in the project's folder) and the projects below it.
+ */
+data class ProjectSubtree(
+    val own: String?,
+    val projects: List<GradleProject>,
+)
+
 /** The projects and tasks of a build, read from the JSON of the init script (ADR 0085). */
 class TaskModel(
     val rootFolder: Path,
@@ -33,13 +42,17 @@ class TaskModel(
 ) {
     /**
      * The project whose build file is [buildFile] and every project below it (`:app` then `:app:core`; the root all);
-     * all projects if no project has that build file. Reads the file system (links are resolved), so not on the
-     * JavaFX thread; the projects' paths are resolved once.
+     * if no project has that build file, no own project and all projects; no own project either if the file is not in
+     * its project's folder (a custom `buildFile`), with the projects below it. Reads the file system (links are
+     * resolved), so not on the JavaFX thread; the projects' paths are resolved once.
      */
-    fun subtreeOf(buildFile: Path): List<GradleProject> {
+    fun subtreeOf(buildFile: Path): ProjectSubtree {
         val file = realPath(buildFile)
-        val own = projects.firstOrNull { realBuildFiles[it] == file } ?: return projects
-        return projects.filter { it.path == own.path || isBelow(it.path, own.path) }
+        val own = projects.firstOrNull { realBuildFiles[it] == file } ?: return ProjectSubtree(null, projects)
+        val subtree = projects.filter { it.path == own.path || isBelow(it.path, own.path) }
+        // The run starts in the build file's folder; Gradle takes the project from there, so it must be the project's.
+        val inFolder = file.parent == realPath(own.folder)
+        return ProjectSubtree(own.path.takeIf { inFolder }, subtree)
     }
 
     private val realBuildFiles: Map<GradleProject, Path?> by lazy {

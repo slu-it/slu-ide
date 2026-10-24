@@ -88,4 +88,52 @@ class TaskTreeTest {
     fun `a project without tasks stays without a filter`() {
         assertEquals(listOf("-:empty"), render(taskTree(listOf(project(":empty")), ":", "")))
     }
+
+    private fun task(
+        project: GradleProject,
+        name: String,
+    ) = project.tasks.single { it.name == name }
+
+    @Test
+    fun `tasks of the own root project are passed by name, those of child projects by path`() {
+        val tasks = listOf(task(root, "build"), task(app, "test"), task(core, "coreTask"))
+        assertEquals(listOf("build", ":app:test", ":app:core:coreTask"), taskArguments(tasks, ":"))
+    }
+
+    @Test
+    fun `tasks of an own subproject are passed by name, those of its children and others by path`() {
+        val tasks = listOf(task(app, "test"), task(core, "coreTask"), task(appX, "x"), task(root, "help"))
+        assertEquals(listOf("test", ":app:core:coreTask", ":app-x:x", ":help"), taskArguments(tasks, ":app"))
+    }
+
+    @Test
+    fun `without an own project every task is passed by path, in the order given`() {
+        val tasks = listOf(task(app, "test"), task(root, "build"), task(core, "coreTask"))
+        assertEquals(listOf(":app:test", ":build", ":app:core:coreTask"), taskArguments(tasks, null))
+        assertEquals(emptyList(), taskArguments(emptyList(), ":"))
+    }
+
+    @Test
+    fun `a task belongs to its own project only, not to one whose path it starts with`() {
+        assertEquals(true, isOwn(task(app, "test"), ":app"))
+        assertEquals(false, isOwn(task(core, "coreTask"), ":app"))
+        assertEquals(false, isOwn(task(app, "test"), ":"))
+    }
+
+    @Test
+    fun `a task name that would be read as an option keeps its path`() {
+        val dash = GradleTask("-x", ":-x", null, null)
+        assertEquals(listOf(":-x"), taskArguments(listOf(dash), ":"))
+    }
+
+    @Test
+    fun `the tooltip says what Gradle gets and its scope, then the description`() {
+        val described = GradleTask("clean", ":clean", null, "Deletes the build directory.")
+        assertEquals(
+            "clean (this project and its subprojects)\nDeletes the build directory.",
+            taskTooltip(described, ":"),
+        )
+        assertEquals(":clean (only this task)\nDeletes the build directory.", taskTooltip(described, ":app"))
+        assertEquals(":app:test (only this task)", taskTooltip(task(app, "test"), null))
+    }
 }

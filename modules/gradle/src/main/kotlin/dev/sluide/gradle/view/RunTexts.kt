@@ -10,9 +10,9 @@ internal sealed interface GradleJob {
     val label: String
 
     data class Tasks(
-        val paths: List<String>,
+        val arguments: List<String>,
     ) : GradleJob {
-        override val label = paths.joinToString(" ")
+        override val label = arguments.joinToString(" ")
     }
 
     data object LoadTasks : GradleJob {

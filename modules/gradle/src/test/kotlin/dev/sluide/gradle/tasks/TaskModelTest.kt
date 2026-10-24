@@ -20,6 +20,8 @@ class TaskModelTest {
 
     private fun paths(projects: List<GradleProject>) = projects.map { it.path }
 
+    private fun paths(subtree: ProjectSubtree) = paths(subtree.projects)
+
     @Test
     fun `the task list of the init script is read`() {
         assertEquals(Path.of("/work/fx"), model.rootFolder)
@@ -49,6 +51,7 @@ class TaskModelTest {
     @Test
     fun `the root build file gets every project`() {
         assertEquals(paths(model.projects), paths(model.subtreeOf(Path.of("/work/fx/build.gradle"))))
+        assertEquals(":", model.subtreeOf(Path.of("/work/fx/build.gradle")).own)
     }
 
     @Test
@@ -56,6 +59,8 @@ class TaskModelTest {
         assertEquals(listOf(":app", ":app:core"), paths(model.subtreeOf(Path.of("/work/fx/app/build.gradle"))))
         assertEquals(listOf(":app:core"), paths(model.subtreeOf(Path.of("/work/fx/app/core/build.gradle"))))
         assertEquals(listOf(":lib"), paths(model.subtreeOf(Path.of("/work/fx/lib/build.gradle.kts"))))
+        assertEquals(":app", model.subtreeOf(Path.of("/work/fx/app/build.gradle")).own)
+        assertEquals(":app:core", model.subtreeOf(Path.of("/work/fx/app/core/build.gradle")).own)
     }
 
     @Test
@@ -75,8 +80,10 @@ class TaskModelTest {
     }
 
     @Test
-    fun `a file of no project gets all projects`() {
-        assertEquals(paths(model.projects), paths(model.subtreeOf(Path.of("/work/fx/buildSrc/build.gradle"))))
+    fun `a file of no project gets all projects and no own project`() {
+        val subtree = model.subtreeOf(Path.of("/work/fx/buildSrc/build.gradle"))
+        assertEquals(paths(model.projects), paths(subtree))
+        assertNull(subtree.own)
     }
 
     @Test
@@ -134,10 +141,24 @@ class TaskModelTest {
             TaskModel.parse(
                 """{"version":1,"rootFolder":"/r","projects":[
                     {"path":":","name":"r","folder":"/r","buildFile":"/r/build.gradle","tasks":[]},
-                    {"path":":x","name":"x","folder":"/r/x","buildFile":"$realFile","tasks":[]},
+                    {"path":":x","name":"x","folder":"${real.toRealPath()}","buildFile":"$realFile","tasks":[]},
                     {"path":":x:y","name":"y","folder":"/r/x/y","buildFile":"/r/x/y/build.gradle","tasks":[]}]}""",
             )
         // An unknown file would give all three projects.
         assertEquals(listOf(":x", ":x:y"), paths(parsed.subtreeOf(link.resolve("build.gradle"))))
+    }
+
+    @Test
+    fun `a build file outside its project's folder gives no own project but the projects below`() {
+        val parsed =
+            TaskModel.parse(
+                """{"version":1,"rootFolder":"/r","projects":[
+                    {"path":":","name":"r","folder":"/r","buildFile":"/r/build.gradle","tasks":[]},
+                    {"path":":x","name":"x","folder":"/r/x","buildFile":"/r/build/x.gradle","tasks":[]},
+                    {"path":":x:y","name":"y","folder":"/r/x/y","buildFile":"/r/x/y/build.gradle","tasks":[]}]}""",
+            )
+        val subtree = parsed.subtreeOf(Path.of("/r/build/x.gradle"))
+        assertNull(subtree.own)
+        assertEquals(listOf(":x", ":x:y"), paths(subtree))
     }
 }

@@ -24,6 +24,35 @@ internal data class TreeGroup(
 internal fun projectLabel(project: GradleProject): String =
     if (project.path == ":") "${project.name} (:)" else project.path
 
+/**
+ * What Gradle gets for [tasks]: a task of [ownProject] by its name (Gradle matches it in the project of the working
+ * folder and its subprojects), any other task by its path (only that task); all paths without an [ownProject], and for a name Gradle would read
+ * as an option (`-x`).
+ */
+internal fun taskArguments(
+    tasks: List<GradleTask>,
+    ownProject: String?,
+): List<String> = tasks.map { if (isOwn(it, ownProject)) it.name else it.path }
+
+/** Whether [task] is a task of [ownProject]: its path is the project's path and the name (`:` + name for the root). */
+internal fun isOwn(
+    task: GradleTask,
+    ownProject: String?,
+): Boolean =
+    ownProject != null &&
+        !task.name.startsWith("-") &&
+        task.path == (if (ownProject == ":") ":" else "$ownProject:") + task.name
+
+/** A task row's tooltip: what Gradle gets and its scope, then the description. */
+internal fun taskTooltip(
+    task: GradleTask,
+    ownProject: String?,
+): String {
+    val scope = if (isOwn(task, ownProject)) "this project and its subprojects" else "only this task"
+    return listOfNotNull("${taskArguments(listOf(task), ownProject).single()} ($scope)", task.description)
+        .joinToString("\n")
+}
+
 /** The project of the view's build file among [projects] (a subtree): the one all others are below of. */
 internal fun ownProject(projects: List<GradleProject>): String? = projects.minByOrNull { depth(it.path) }?.path
 

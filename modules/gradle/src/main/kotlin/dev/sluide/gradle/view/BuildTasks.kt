@@ -7,7 +7,7 @@ import dev.sluide.gradle.detect.GradleInstallation
 import dev.sluide.gradle.detect.GradleLocator
 import dev.sluide.gradle.realPath
 import dev.sluide.gradle.run.RunState
-import dev.sluide.gradle.tasks.GradleProject
+import dev.sluide.gradle.tasks.ProjectSubtree
 import dev.sluide.gradle.tasks.TaskModel
 import dev.sluide.gradle.trust.GradleTrustCheck
 import dev.sluide.projecttrust.ProjectTrustState
@@ -42,7 +42,7 @@ internal class BuildTasks(
 
     /** The loaded build shown, and the view's projects in it. */
     private var build: LoadedBuild? = null
-    private var projects: List<GradleProject>? = null
+    private var projects: ProjectSubtree? = null
 
     /** Whether the tasks are to be loaded once the folder's trust allows it. */
     private var loadWanted = false
@@ -92,7 +92,7 @@ internal class BuildTasks(
         found: GradleInstallation,
         key: Path?,
         build: LoadedBuild?,
-        projects: List<GradleProject>?,
+        projects: ProjectSubtree?,
         reload: Boolean,
     ) {
         installation = found.takeIf { key != null && it != GradleInstallation.None }
@@ -111,7 +111,7 @@ internal class BuildTasks(
         when {
             loadWanted -> load()
             waiting || loading -> pane.showNote(TaskNote.LOADING)
-            else -> projects?.let(pane::showTasks)
+            else -> projects?.let { pane.showTasks(it.projects, it.own) }
         }
     }
 
@@ -154,12 +154,12 @@ internal class BuildTasks(
 
     private fun show(
         build: LoadedBuild,
-        projects: List<GradleProject>,
+        projects: ProjectSubtree,
     ) {
         this.build = build
         this.projects = projects
         pane.showStale(build.stale)
-        if (allowed) pane.showTasks(projects)
+        if (allowed) pane.showTasks(projects.projects, projects.own)
     }
 
     /**
@@ -221,7 +221,7 @@ internal class BuildTasks(
             StartResult.CANCELLED -> {
                 // The user kept the running job; views waiting for this load must not start one unasked either.
                 loadEnded(key, output, null, failed = true)
-                projects?.let(pane::showTasks) ?: pane.showNote(TaskNote.NOT_LOADED)
+                projects?.let { pane.showTasks(it.projects, it.own) } ?: pane.showNote(TaskNote.NOT_LOADED)
             }
         }
     }

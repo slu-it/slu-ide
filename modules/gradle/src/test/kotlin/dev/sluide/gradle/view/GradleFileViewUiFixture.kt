@@ -35,7 +35,7 @@ import kotlin.time.Duration
 
 /**
  * A Gradle view of a fixture build whose `gradlew` is a fake POSIX sh script: `sluideTaskList` writes the task list
- * (the init script's real output, paths moved to the fixture), `:fail` exits 1, `:slow` writes its pid and sleeps, other
+ * (the init script's real output, paths moved to the fixture), `fail` exits 1, `slow` writes its pid and sleeps, other
  * tasks echo. Runs in terminals with `/bin/sh` as the login shell.
  */
 abstract class GradleFileViewUiFixture {
@@ -161,9 +161,9 @@ abstract class GradleFileViewUiFixture {
                 |done
                 |case " $* " in
                 |  *" sluideTaskList "*) cp '$taskList' "${'$'}out"; echo load >> '$loads'; exit 0 ;;
-                |  *" :fail "*) echo failing; exit 1 ;;
-                |  *" :slow "*) echo ${'$'}${'$'} > '$slowPid'; exec sleep 30 ;;
-                |  *" :stubborn "*) trap '' INT; echo ${'$'}${'$'} > '$slowPid'; exec sleep 30 ;;
+                |  *" :fail "*|*" fail "*) echo failing; exit 1 ;;
+                |  *" :slow "*|*" slow "*) echo ${'$'}${'$'} > '$slowPid'; exec sleep 30 ;;
+                |  *" :stubborn "*|*" stubborn "*) trap '' INT; echo ${'$'}${'$'} > '$slowPid'; exec sleep 30 ;;
                 |esac
                 |echo "ran $*"
                 """.trimMargin(),
