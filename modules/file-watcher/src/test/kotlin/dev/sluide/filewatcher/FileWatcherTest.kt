@@ -72,18 +72,24 @@ class FileWatcherTest {
     }
 
     @Test
-    fun `a burst of changes is reported once per path in few calls`() {
+    fun `a burst of changes is reported once per path in few calls`(
+        @TempDir other: Path,
+    ) {
         val recorder = Recorder()
         watcher.watch(dir, recorder)
         val files = (1..50).map { dir.resolve("file-$it.txt") }
+        // A change in a folder outside the watched one, reported after the burst, shows that a late duplicate would
+        // have arrived.
+        val sentinel = Recorder()
+        watcher.watch(other, sentinel)
 
         files.forEach { it.writeText("x") }
         await("all 50 files reported, got ${recorder.paths.toSet().size}") { recorder.paths.containsAll(files) }
-        Thread.sleep(200)
+        sentinel.awaitPath(other.resolve("marker.txt").apply { writeText("x") })
 
         assertEquals(recorder.paths.toSet().size, recorder.paths.size, "each path once")
         assertTrue(recorder.calls.size <= 5, "events are combined, but got ${recorder.calls.size} calls")
-        assertEquals(recorder.calls.size, dispatches.size, "one dispatch per batch")
+        assertEquals(recorder.calls.size + sentinel.calls.size, dispatches.size, "one dispatch per batch")
     }
 
     @Test

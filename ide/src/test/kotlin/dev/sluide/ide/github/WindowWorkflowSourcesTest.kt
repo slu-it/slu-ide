@@ -285,7 +285,6 @@ class WindowWorkflowSourcesTest {
         val reader =
             sources(ghes, trusted = { readerCancelled ->
                 given += readerCancelled()
-                Thread.sleep(50)
                 given += readerCancelled()
                 true
             }).reader(network = true) { false }
