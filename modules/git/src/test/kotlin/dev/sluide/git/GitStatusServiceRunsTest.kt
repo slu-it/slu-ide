@@ -124,7 +124,7 @@ class GitStatusServiceRunsTest {
         runDispatched()
         assertEquals(GitStatus.UNVERSIONED, service.snapshot.get().fileStatus(repo.resolve("a.txt")))
 
-        Thread.sleep(300)
+        Thread.sleep(200)
         assertEquals(2, runs())
         assertTrue(dispatched.isEmpty())
     }

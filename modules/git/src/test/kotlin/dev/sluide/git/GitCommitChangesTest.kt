@@ -384,9 +384,26 @@ class GitCommitChangesTest {
     fun `refuses blank messages and empty selections without running git`() {
         base()
         write("a.txt", "a2\n")
+        val calls = folder.resolve("calls.txt")
+        val wrapper =
+            folder.resolve("recording-git").apply {
+                writeText("#!/bin/sh\necho \" \$* \" >> '$calls'\nexec git \"\$@\"\n")
+                toFile().setExecutable(true)
+            }
+        val recorded = GitCommits(GitCli(wrapper.toString(), testGitEnvironment()))
 
-        assertFalse(changed("a.txt", message = " \n").result.success)
-        assertFalse(changed().result.success)
+        assertFalse(
+            recorded
+                .commit(
+                    repo,
+                    " \n",
+                    listOf(GitChangedFile(GitChange.MODIFIED, "a.txt")),
+                    emptyList(),
+                    false,
+                ).result.success,
+        )
+        assertFalse(recorded.commit(repo, "Subject", emptyList(), emptyList(), false).result.success)
+        assertTrue(!calls.toFile().exists() || calls.toFile().readLines().none { " commit " in it }, "git committed")
         assertEquals("a.txt", git("status", "--porcelain").substringAfter(' ').trim())
         assertEquals("1", git("rev-list", "--count", "HEAD"))
     }

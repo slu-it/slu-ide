@@ -550,7 +550,7 @@ class GitBranchesTest {
         val result = branches.createTag(repo, "v1", first, message = null)
 
         assertFalse(result.success)
-        assertTrue(result.message.isNotBlank())
+        assertTrue("editor" in result.message, result.message)
         assertTrue(System.nanoTime() - started < 10_000_000_000, "fails at once")
         assertEquals(emptyList(), tags())
     }

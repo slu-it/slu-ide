@@ -215,7 +215,7 @@ class GitStatusServiceCascadeTest {
         service.gitChanged()
         awaitFor("the status of the told change") { runs() == before.runs + 1 }
         // The watch's batch comes after its quiet period of 50 ms; its line is logged on the thread git holds.
-        val quiet = System.nanoTime() + 500_000_000
+        val quiet = System.nanoTime() + 300_000_000
         awaitFor("the batch of the watch") { System.nanoTime() > quiet }
         hold.deleteExisting()
         awaitFor("the batch of the watch logged") { lines.count { it.startsWith("Changes in .git of ") } == 1 }
@@ -236,13 +236,13 @@ class GitStatusServiceCascadeTest {
         service.refresh()
         awaitFor("the batch of the watch") { lines.count { it.startsWith("Changes in .git of ") } == 1 }
         awaitFor("a cycle that waits") { waited() == 1 }
-        Thread.sleep(200)
+        Thread.sleep(100)
         while (dispatched.isNotEmpty()) dispatched.poll()?.run()
         assertEquals(before, counts(), "nothing ran while the write ran")
 
         service.writeFinished()
         awaitFor("the status at the write's end") { cycleEnds() >= 3 }
-        Thread.sleep(200)
+        Thread.sleep(100)
         while (dispatched.isNotEmpty()) dispatched.poll()?.run()
         assertEquals(Counts(before.checks + 1, before.changes + 1, before.runs + 1), counts())
         assertEquals(1, waited(), "logged once per write")

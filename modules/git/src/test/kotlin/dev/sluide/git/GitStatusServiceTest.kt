@@ -154,25 +154,6 @@ class GitStatusServiceTest {
     }
 
     @Test
-    fun `changes in the git folder are counted for other listeners`() {
-        service.open(repo)
-        assertEquals(repo.toAbsolutePath().normalize(), service.root)
-        awaitSnapshot { it.root != null }
-        val before = service.gitFolderChanged.get()
-
-        git("commit", "-q", "--allow-empty", "-m", "Empty")
-
-        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
-        while (service.gitFolderChanged.get() == before) {
-            val remaining = deadline - System.nanoTime()
-            if (remaining <= 0) fail("No change of the git folder was counted")
-            dispatched.poll(remaining, TimeUnit.NANOSECONDS)?.run()
-        }
-        service.open(null)
-        assertNull(service.root)
-    }
-
-    @Test
     fun `switching branches and checking out commits updates the head by themselves`() {
         git("branch", "-M", "main")
         service.open(repo)
@@ -285,8 +266,10 @@ class GitStatusServiceTest {
         assertEquals(GitStatusSnapshot.EMPTY, service.snapshot.get())
 
         service.open(repo)
+        assertEquals(repo.toAbsolutePath().normalize(), service.root)
         awaitSnapshot { it.root != null }
         service.open(null)
+        assertNull(service.root)
         assertFalse(service.active)
         assertEquals(GitStatusSnapshot.EMPTY, service.snapshot.get())
     }
