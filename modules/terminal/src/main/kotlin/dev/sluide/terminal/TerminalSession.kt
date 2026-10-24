@@ -105,6 +105,9 @@ internal class TerminalSession(
 
     val isAlive: Boolean get() = process.isAlive
 
+    /** The process's exit code once it has ended (after [PtyProcess.onExit] completed), `null` while it runs. */
+    val exitCode: Int? get() = if (process.isAlive) null else process.exitValue()
+
     /**
      * The names of the programs the shell started that are still running (e.g. `java`), in the foreground or as
      * background jobs; empty when only the shell itself runs.

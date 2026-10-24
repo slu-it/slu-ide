@@ -495,6 +495,7 @@ class TerminalUiTest {
                     failure.message,
                 )
                 assertFailsWith<TerminalStartException> { failing.open(dir, "Job 1", "true") }
+                assertFailsWith<TerminalStartException> { failing.embed(dir, "true") }
             }
             assertEquals(0, failing.openCount)
 
