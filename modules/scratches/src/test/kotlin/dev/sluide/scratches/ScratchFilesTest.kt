@@ -88,6 +88,17 @@ class ScratchFilesTest {
     }
 
     @Test
+    fun `changes only in the scratches folder count as scratch changes, none is a manual refresh`() {
+        val files = scratches()
+        val scratch = files.folder.resolve("scratch.kt")
+
+        assertTrue(files.onlyScratches(listOf(scratch, files.folder)))
+        assertTrue(files.onlyScratches(listOf(files.folder.resolve("x/.."))))
+        assertFalse(files.onlyScratches(listOf(scratch, temp.resolve("a.txt"))))
+        assertFalse(files.onlyScratches(emptyList()), "a manual refresh")
+    }
+
+    @Test
     fun `deleteIfEmpty deletes only an empty contained file`() {
         val files = scratches()
         val empty = files.create(kotlin)

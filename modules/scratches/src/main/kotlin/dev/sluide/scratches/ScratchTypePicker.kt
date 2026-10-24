@@ -102,13 +102,7 @@ class ScratchTypePicker(
     fun hide() = popup.hide()
 
     private fun filter() {
-        val wanted =
-            field.text
-                .orEmpty()
-                .trim()
-                .removePrefix(".")
-        val shown =
-            types.filter { wanted.isEmpty() || it.name.contains(wanted, true) || it.extension.contains(wanted, true) }
+        val shown = matchingTypes(types, field.text)
         list.items.setAll(shown)
         list.prefHeight = maxOf(1, minOf(shown.size, VISIBLE_ROWS)) * CELL_HEIGHT + LIST_INSETS
         if (shown.isNotEmpty()) list.selectionModel.selectFirst()
@@ -167,4 +161,16 @@ class ScratchTypePicker(
         const val LIST_INSETS = 2.0
         const val TOP_GAP = 40.0
     }
+}
+
+/**
+ * The [types] whose name or extension contains [text] ignoring case, after trimming it and dropping a leading dot;
+ * all of them for empty [text].
+ */
+internal fun matchingTypes(
+    types: List<ScratchType>,
+    text: String?,
+): List<ScratchType> {
+    val wanted = text.orEmpty().trim().removePrefix(".")
+    return types.filter { wanted.isEmpty() || it.name.contains(wanted, true) || it.extension.contains(wanted, true) }
 }

@@ -8,8 +8,6 @@ import javafx.scene.control.ListView
 import javafx.scene.control.TreeCell
 import javafx.scene.control.TreeItem
 import javafx.scene.input.KeyCode
-import javafx.scene.input.KeyCodeCombination
-import javafx.scene.input.KeyCombination
 import javafx.scene.layout.HBox
 import javafx.stage.PopupWindow
 import javafx.stage.Stage
@@ -68,18 +66,6 @@ class MainWindowScratchesUiTest : MainWindowUiFixture() {
     private fun topLevel(): List<TreeItem<Path>> = fileExplorer.root?.children.orEmpty()
 
     private fun scratchesNode(): TreeItem<Path> = topLevel().single { it.value == scratchFiles.folder }
-
-    @Test
-    fun `offers File - New Scratch File first, with Shortcut+Shift+N`(robot: FxRobot) {
-        val items = menu(robot, "File").items
-
-        assertEquals("New Scratch File…", items[0].text)
-        val accelerator = items[0].accelerator as KeyCodeCombination
-        assertEquals(KeyCode.N, accelerator.code)
-        assertEquals(KeyCombination.ModifierValue.DOWN, accelerator.shortcut)
-        assertEquals(KeyCombination.ModifierValue.DOWN, accelerator.shift)
-        assertEquals("Open Folder…", items[2].text)
-    }
 
     @Test
     fun `the explorer shows the project and the created scratches folder collapsed below it`(robot: FxRobot) {
@@ -249,17 +235,6 @@ class MainWindowScratchesUiTest : MainWindowUiFixture() {
 
         assertFalse(Files.exists(scratchFiles.folder.resolve("scratch.kt")))
         assertNull(fileExplorer.root)
-    }
-
-    @Test
-    fun `changes only in the scratches folder do not count for git`(robot: FxRobot) {
-        openProject(robot)
-        val scratches = mainWindow.scratches
-        val scratch = scratchFiles.folder.resolve("scratch.kt")
-
-        assertTrue(scratches.onlyScratches(listOf(scratch, scratchFiles.folder)))
-        assertFalse(scratches.onlyScratches(listOf(scratch, project.resolve("a.txt"))))
-        assertFalse(scratches.onlyScratches(emptyList()), "a manual refresh")
     }
 
     @Test

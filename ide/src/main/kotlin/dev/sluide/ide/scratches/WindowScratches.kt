@@ -65,8 +65,7 @@ internal class WindowScratches(
         }
 
     /** Whether [changed] names only scratch files or the scratches folder; `false` for none (a manual refresh). */
-    fun onlyScratches(changed: Collection<Path>): Boolean =
-        changed.isNotEmpty() && changed.all { scratchFiles.contains(it) || it == scratchFiles.folder }
+    fun onlyScratches(changed: Collection<Path>): Boolean = scratchFiles.onlyScratches(changed)
 
     /**
      * File → New Scratch File… on Shortcut+Shift+N, IntelliJ's key on macOS; Ctrl+Shift+letter is not sent to the

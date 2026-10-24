@@ -95,6 +95,10 @@ class ScratchFiles(
         return normalized != folder && normalized.startsWith(folder)
     }
 
+    /** Whether [changed] names only files below [folder] or the folder itself; `false` for none (a manual refresh). */
+    fun onlyScratches(changed: Collection<Path>): Boolean =
+        changed.isNotEmpty() && changed.all { contains(it) || it.toAbsolutePath().normalize() == folder }
+
     /** Deletes [path] if it is contained, a regular file (links not followed) and empty; says whether it did. */
     fun deleteIfEmpty(path: Path): Boolean {
         if (!contains(path)) return false

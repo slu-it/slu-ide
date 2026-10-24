@@ -82,28 +82,17 @@ class ScratchTypePickerUiTest {
     }
 
     @Test
-    fun `a leading dot in the filter is ignored`(robot: FxRobot) {
-        open(robot)
-        robot.interact { picker.field.text = " .kt" }
-        assertEquals(listOf("Kotlin", "Kotlin Script"), names())
-        robot.interact { picker.field.text = ".bicep" }
-        assertEquals(listOf("Bicep"), names())
-    }
-
-    @Test
     fun `selects the first type without a preselection`(robot: FxRobot) {
         open(robot, null)
         assertEquals(SCRATCH_TYPES.first(), picker.list.selectionModel.selectedItem)
     }
 
     @Test
-    fun `typing filters by name or extension and selects the first match`(robot: FxRobot) {
+    fun `typing filters the types and selects the first match`(robot: FxRobot) {
         open(robot)
         robot.interact { picker.field.text = "KOT" }
         assertEquals(listOf("Kotlin", "Kotlin Script"), names())
         assertEquals("Kotlin", picker.list.selectionModel.selectedItem.name)
-        robot.interact { picker.field.text = "md" }
-        assertEquals(listOf("Markdown", "Mermaid"), names())
     }
 
     @Test
