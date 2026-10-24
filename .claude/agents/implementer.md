@@ -12,8 +12,15 @@ update and docs to read.
 2. Put code in the module that owns the capability. A new capability gets a new `modules/<name>` module: register it in
    `settings.gradle.kts`, apply `kotlin-jvm` (plus `javafx` if it uses JavaFX).
 3. Smallest change that fulfils the task, matching the surrounding code.
-4. Keep logic in plain Kotlin classes, outside JavaFX controls, so it is unit-testable without a toolkit.
-5. Add or adjust tests with the change and verify narrowly (commands: `docs/testing.md`, "Running a subset"):
+4. Keep logic in plain Kotlin classes, outside JavaFX controls, so it is unit-testable without a toolkit (ADR 0084):
+   decisions in `internal` pure functions or plain classes, an FX-free host interface for what they need from the
+   view, delays and debounces as constructor parameters with the real default.
+5. Add or adjust tests with the change at the lowest level that can see the behavior (`docs/testing.md`, "Choosing
+   the test level"). Before adding a test, grep for an existing one of the same behavior and extend it. A new
+   `@Tag("ui")` test needs a reason a unit test cannot cover it; say it in the report. When logic moves out of a view,
+   keep one UI test of the wiring. For wiring, races and negative checks, break the code once and see the test fail.
+   Run `.claude/scripts/check-tests.sh` on the test files you touched. Verify narrowly (commands: `docs/testing.md`,
+   "Running a subset"):
    `spotlessApply`, `./gradlew testClasses -q` (everything compiles), the unit `test` task of each module you touched,
    and `uiTest --tests` for the UI test classes the brief names plus the ones you wrote. Never run `./gradlew build`
    or an unfiltered `uiTest`: the main session runs the full build after the last review. Report the exact commands
