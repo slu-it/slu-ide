@@ -14,7 +14,6 @@ import javafx.beans.property.ReadOnlyBooleanWrapper
 import javafx.beans.value.ObservableBooleanValue
 import javafx.beans.value.ObservableValue
 import javafx.collections.ListChangeListener
-import javafx.scene.Node
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.StackPane
 import org.springframework.context.annotation.Scope
@@ -562,20 +561,5 @@ class EditorArea(
     val selectedTab: EditorTab? get() = editorTabs.selected.get()
 }
 
-/**
- * The [path] of a file as questions show it: relative to the project [folder] if it is within it, else in full. A
- * sibling folder that only shares the name's start (`app2` next to `app`) is outside.
- */
-internal fun shownPath(
-    path: Path,
-    folder: Path?,
-): String {
-    val base = folder?.toAbsolutePath()?.normalize()
-    return if (base != null && path.startsWith(base)) base.relativize(path).toString() else path.toString()
-}
-
 /** The [OpenFile.hasDiff] of tabs that do not show files. */
 private val NO_DIFF: ObservableBooleanValue = ReadOnlyBooleanWrapper(false).readOnlyProperty
-
-/** Whether this node is [ancestor] or within it. */
-internal fun Node.isInside(ancestor: Node): Boolean = generateSequence(this) { it.parent }.any { it === ancestor }
