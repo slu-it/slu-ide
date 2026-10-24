@@ -27,6 +27,9 @@ new ones too (ADR 0032).
   apply the `javafx` plugin as in `ide/build.gradle.kts` (ADR 0003).
 - Tests that create JavaFX controls are TestFX tests tagged `@Tag("ui")`; running or screenshotting the UI in a
   headless sandbox: `docs/testing.md`. Never claim UI was verified without actually running it.
+- Unit test first: extract logic out of controls instead of testing it through the UI; UI tests only for what needs a
+  scene, plus one wiring test per view→logic connection; extend the existing test instead of adding a duplicate
+  (`docs/testing.md` "Choosing the test level", ADR 0084, `.claude/rules/testing.md`).
 - Significant decisions get an ADR (`docs/adr/template.md`), new features a page in `docs/features/`, explored but
   undecided ideas a page in `docs/ideas/`;
   add every new doc to `docs/index.md` with a one-line summary.
