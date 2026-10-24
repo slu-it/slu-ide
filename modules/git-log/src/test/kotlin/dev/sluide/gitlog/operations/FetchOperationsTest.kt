@@ -260,42 +260,4 @@ class FetchOperationsTest {
             "the longest match",
         )
     }
-
-    @Test
-    fun `the writer cancels only a cancellable run and passes its progress on`() {
-        val background = mutableListOf<Runnable>()
-        val writes = FakeWrites()
-        writes.remotes = listOf("origin", "fork")
-        val writer = RefWriter(writes, background::add, Runnable::run, BackgroundTasks.forTests())
-        val outcomes = mutableListOf<RefOutcome>()
-        val progress = mutableListOf<String>()
-
-        assertTrue(writer.run(root, CheckoutBranch("main"), outcomes::add))
-        assertFalse(writer.cancellable.get())
-        assertFalse(writer.cancel(), "a checkout is never stopped")
-        background.removeFirst().run()
-        assertEquals("Checked out main.", outcomes.single().done)
-
-        assertTrue(writer.run(root, Fetch(), progress::add, outcomes::add))
-        assertTrue(writer.cancellable.get())
-        assertTrue(writer.cancel())
-        assertFalse(writer.cancellable.get(), "cancelled once")
-        assertTrue(writer.running.get(), "until git has stopped")
-        background.removeFirst().run()
-
-        assertEquals("Fetch cancelled.", outcomes.last().done)
-        assertEquals(emptyList(), progress, "no remote fetched")
-        assertFalse(writer.running.get())
-        assertFalse(writer.cancel())
-
-        writer.run(root, Fetch(), progress::add, outcomes::add)
-        background.removeFirst().run()
-        assertEquals(listOf("Fetching origin…", "Fetching fork…"), progress)
-
-        progress.clear()
-        writer.run(root, Fetch(), progress::add, outcomes::add)
-        writer.forget()
-        background.removeFirst().run()
-        assertEquals(emptyList(), progress, "dropped with the outcome")
-    }
 }

@@ -400,51 +400,6 @@ class RefOperationsTest {
     }
 
     @Test
-    fun `runs one operation at a time on the background and drops outcomes after forget`() {
-        val background = mutableListOf<Runnable>()
-        val dispatched = mutableListOf<Runnable>()
-        val writer = RefWriter(FakeWrites(), background::add, dispatched::add, BackgroundTasks.forTests())
-        val outcomes = mutableListOf<RefOutcome>()
-
-        assertTrue(writer.run(root, CheckoutBranch("main"), outcomes::add))
-        assertTrue(writer.running.get())
-        assertFalse(writer.run(root, CheckoutBranch("other"), outcomes::add), "one at a time")
-        assertEquals(1, background.size)
-
-        background.removeFirst().run()
-        assertTrue(writer.running.get(), "until the outcome is handled")
-        dispatched.removeFirst().run()
-        assertFalse(writer.running.get())
-        assertEquals(listOf("Checked out main."), outcomes.map { it.done })
-
-        assertTrue(writer.run(root, CheckoutBranch("other"), outcomes::add))
-        writer.forget()
-        background.removeFirst().run()
-        dispatched.removeFirst().run()
-        assertFalse(writer.running.get())
-        assertEquals(1, outcomes.size, "dropped")
-    }
-
-    @Test
-    fun `a failure of the operation itself is an outcome`() {
-        val background = mutableListOf<Runnable>()
-        val writes =
-            object : GitLogWrites by FakeWrites() {
-                override fun switchBranch(
-                    root: Path,
-                    branch: String,
-                ): GitResult = throw IllegalStateException("broken")
-            }
-        val outcomes = mutableListOf<RefOutcome>()
-        val writer = RefWriter(writes, background::add, Runnable::run, BackgroundTasks.forTests())
-
-        writer.run(root, CheckoutBranch("main"), outcomes::add)
-        background.single().run()
-
-        assertEquals(listOf(RefOutcome(GitResult(false, "broken"), null)), outcomes)
-    }
-
-    @Test
     fun `overwriting a branch with commits that are not on the start point asks first`() {
         val writes = FakeWrites()
         writes.tips = mapOf("x" to "old")

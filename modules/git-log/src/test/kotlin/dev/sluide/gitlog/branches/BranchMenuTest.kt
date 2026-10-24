@@ -40,7 +40,8 @@ class BranchMenuTest {
         refs: GitRefs = this.refs,
         writing: Boolean = false,
         busy: Boolean = false,
-    ) = menuActions(selected(refs, path), refs, emptyList(), writing, busy)
+        remotes: List<String> = emptyList(),
+    ) = menuActions(selected(refs, path), refs, remotes, writing, busy)
 
     @Test
     fun `offers everything that fits the selection`() {
@@ -64,6 +65,19 @@ class BranchMenuTest {
         assertTrue(actions.delete.isEmpty())
         assertNotNull(actions.compare)
         assertNotNull(actions.workingTreeDiff)
+    }
+
+    @Test
+    fun `while writing a remote branch can neither be fetched nor deleted on its remote`() {
+        val withRemote =
+            GitRefs(refs.refs + GitRef("refs/remotes/origin/x", GitRefKind.REMOTE_BRANCH, "h2"), "refs/heads/main")
+        val idle = actions("Remote/origin/x", withRemote, remotes = listOf("origin"))
+        assertEquals("origin", idle.fetch)
+        assertEquals(1, idle.deleteRemote.size)
+
+        val writing = actions("Remote/origin/x", withRemote, writing = true, remotes = listOf("origin"))
+        assertNull(writing.fetch)
+        assertTrue(writing.deleteRemote.isEmpty())
     }
 
     @Test

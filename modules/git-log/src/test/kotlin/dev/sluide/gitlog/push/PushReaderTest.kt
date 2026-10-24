@@ -37,6 +37,11 @@ class PushReaderTest {
     private var target: GitPushTarget? = GitPushTarget("origin", "main", hasUpstream = true)
     private val outgoingReads = mutableListOf<String>()
 
+    /** What a read of the refs, of the files of a commit and of what a push sends answers; `null` fails. */
+    private var refsFail = false
+    private var filesFail = false
+    private var outgoingResult: GitOutgoing? = GitOutgoing(emptyList(), false, null, 0, null)
+
     /** The cancellation of every read of what a push sends, and what happens meanwhile. */
     private val outgoingCancellations = mutableListOf<GitCancellation?>()
     private var whileReadingOutgoing: () -> Unit = {}
@@ -64,7 +69,7 @@ class PushReaderTest {
             override fun refs(
                 root: Path,
                 cancellation: GitCancellation?,
-            ) = GitRefs(emptyList(), currentBranch)
+            ) = if (refsFail) null else GitRefs(emptyList(), currentBranch)
 
             override fun remotes(
                 root: Path,
@@ -82,7 +87,7 @@ class PushReaderTest {
                 commit: String,
                 firstParent: String?,
                 cancellation: GitCancellation?,
-            ) = listOf(GitChangedFile(GitChange.MODIFIED, "$commit-$firstParent"))
+            ) = if (filesFail) null else listOf(GitChangedFile(GitChange.MODIFIED, "$commit-$firstParent"))
 
             override fun fileDiff(
                 root: Path,
@@ -113,11 +118,11 @@ class PushReaderTest {
                 branch: String,
                 limit: Int,
                 cancellation: GitCancellation?,
-            ): GitOutgoing {
+            ): GitOutgoing? {
                 outgoingReads += "$remote $branch"
                 outgoingCancellations += cancellation
                 whileReadingOutgoing()
-                return GitOutgoing(emptyList(), false, null, 0, null)
+                return outgoingResult
             }
         }
 
@@ -238,9 +243,58 @@ class PushReaderTest {
         assertEquals("c2-null", (reader.files.get() as PushFiles.Loaded).files.single().path)
 
         reader.load(null, null)
+        reader.files("c3", null)
         reader.close()
         runAll()
         assertNull(reader.state.get())
+        assertEquals(PushFiles.Loading("c3", null), reader.files.get(), "a read going on at close stays unfinished")
+    }
+
+    @Test
+    fun `files that cannot be read fail, and no files drops the read going on`() {
+        filesFail = true
+        reader.files("c1", null)
+        runAll()
+        assertEquals(PushFiles.Failed, reader.files.get())
+
+        filesFail = false
+        reader.files("c2", "p2")
+        reader.noFiles()
+        runAll()
+        assertEquals(PushFiles.None, reader.files.get(), "the read that waited is dropped")
+
+        reader.files("c3", null)
+        tasks.single().second.run()
+        reader.noFiles()
+        runAll()
+        assertEquals(PushFiles.None, reader.files.get(), "the result of a read going on is dropped")
+    }
+
+    @Test
+    fun `a failed read of the refs, the push target or what is sent fails the state, the next read recovers`() {
+        refsFail = true
+        reader.load(null, null)
+        runAll()
+        assertTrue(reader.state.get()?.failed == true, "refs")
+
+        refsFail = false
+        target = null
+        reader.load(null, null)
+        runAll()
+        assertTrue(reader.state.get()?.failed == true, "push target")
+
+        target = GitPushTarget("origin", "main", hasUpstream = true)
+        outgoingResult = null
+        reader.load(null, null)
+        runAll()
+        assertTrue(reader.state.get()?.failed == true, "outgoing")
+
+        outgoingResult = GitOutgoing(emptyList(), false, null, 0, null)
+        reader.load("fork", "feature")
+        runAll()
+        val state = reader.state.get()
+        assertEquals(false, state?.failed)
+        assertEquals("origin" to "main", state?.remote to state?.target, "defaults again after a failed state")
     }
 
     @Test

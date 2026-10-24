@@ -71,4 +71,54 @@ class CommitLinksTest {
         assertEquals(listOf(listOf("abc1234", "deadbee", "1111111", "ffffffff")), asked)
         assertEquals(mapOf("abc1234" to full), (details.state.get() as CommitDetailsState.Loaded).links)
     }
+
+    /** The state of the details of a commit whose message is [message], read with the given [resolve]. */
+    private fun loadedWith(
+        message: String,
+        resolve: (List<String>) -> List<GitRevisionResolution>?,
+    ): CommitDetailsState {
+        val repo = Path.of("/repo")
+        val background = ArrayDeque<Runnable>()
+        val dispatched = ArrayDeque<Runnable>()
+        val commit = GitCommit("h", emptyList(), "A", "a@example.com", Instant.EPOCH, "Subject")
+        val row = GitLogRow(commit, GraphLayout().next("h", emptyList()))
+        val details =
+            CommitDetails(
+                { _, _, _ -> GitCommitDetails(commit, "A", "a@example.com", Instant.EPOCH, message) },
+                { _, _, _ -> emptyList() },
+                background::addLast,
+                dispatched::addLast,
+                { _, revisions, _ -> resolve(revisions) },
+            ).apply {
+                selection = { listOf(row) }
+                root = { repo }
+            }
+        details.selectionChanged()
+        while (background.isNotEmpty() || dispatched.isNotEmpty()) {
+            dispatched.removeFirstOrNull()?.run()
+            background.removeFirstOrNull()?.run()
+        }
+        return details.state.get()
+    }
+
+    @Test
+    fun `details without links are still shown when resolving the candidates fails`() {
+        val state = loadedWith("Revert abc1234") { null }
+        assertEquals(emptyMap(), (state as CommitDetailsState.Loaded).links)
+    }
+
+    @Test
+    fun `at most 100 distinct candidates are resolved`() {
+        val words = (1..120).map { "%07x".format(0xabc0000 + it) }
+        val asked = mutableListOf<List<String>>()
+
+        val state =
+            loadedWith(words.joinToString(" ") + " " + words.first()) { revisions ->
+                asked += revisions
+                revisions.map { GitRevisionResolution.Missing }
+            }
+
+        assertEquals(listOf(words.take(100)), asked)
+        assertEquals(emptyMap(), (state as CommitDetailsState.Loaded).links)
+    }
 }

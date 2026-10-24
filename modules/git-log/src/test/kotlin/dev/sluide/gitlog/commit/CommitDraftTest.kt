@@ -160,6 +160,37 @@ class CommitDraftTest {
         assertTrue(tasks.isEmpty())
     }
 
+    @Test
+    fun `showing the tab again reads nothing if not stale, a read and a message in flight at close are dropped`() {
+        val tasks = ArrayDeque<Runnable>()
+        val reader =
+            CommitReader(
+                Path.of("/repo"),
+                { _ -> CommitSnapshot(changes(1), "h1") },
+                { "message" },
+                tasks::addLast,
+                Runnable::run,
+            )
+        var loaded = 0
+        var handled = 0
+        reader.loaded = { loaded++ }
+        reader.visible = true
+        tasks.removeFirst().run()
+        assertEquals(1, loaded)
+
+        reader.visible = false
+        reader.visible = true
+        assertTrue(tasks.isEmpty(), "nothing stale: no read")
+
+        reader.reload()
+        reader.headMessage { handled++ }
+        reader.close()
+        while (tasks.isNotEmpty()) tasks.removeFirst().run()
+
+        assertEquals(1, loaded, "the read in flight is dropped")
+        assertEquals(0, handled, "the message in flight is dropped")
+    }
+
     private fun changes(untracked: Int) =
         GitCommitChanges(emptyList(), (1..untracked).map { "u$it" }, null, emptyList(), false)
 }

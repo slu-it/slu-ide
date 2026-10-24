@@ -110,6 +110,17 @@ class CommitDetailsTest {
     }
 
     @Test
+    fun `without an opened folder nothing is selected and nothing is read`() {
+        details.root = { null }
+        select(row("a"))
+        settle()
+
+        assertEquals(CommitDetailsState.NoneSelected, details.state.get())
+        assertEquals(ChangedFilesState.NoneSelected, details.files.get())
+        assertEquals(emptyList(), loads)
+    }
+
+    @Test
     fun `looks at the selection once its changes are done`() {
         val a = row("a")
         select()

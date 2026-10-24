@@ -71,6 +71,65 @@ class RefWriterTest {
     }
 
     @Test
+    fun `runs one operation at a time, which runs until its outcome is handled`() {
+        val dispatched = mutableListOf<Runnable>()
+        val writer = RefWriter(writes, background::add, dispatched::add, tasks)
+
+        assertTrue(writer.run(root, CheckoutBranch("main"), outcomes::add))
+        assertTrue(writer.running.get())
+        assertFalse(writer.run(root, CheckoutBranch("other"), outcomes::add), "one at a time")
+        assertEquals(1, background.size)
+
+        background.removeFirst().run()
+        assertTrue(writer.running.get(), "until the outcome is handled")
+        dispatched.removeFirst().run()
+        assertFalse(writer.running.get())
+        assertEquals(listOf("Checked out main."), outcomes.map { it.done })
+        assertTrue(writer.run(root, CheckoutBranch("other"), outcomes::add))
+    }
+
+    @Test
+    fun `only a fetch can be cancelled, which runs until git has stopped and then reports no progress`() {
+        val progress = mutableListOf<String>()
+        writes.remotes = listOf("origin", "fork")
+        assertFalse(writer.cancel(), "nothing runs")
+
+        assertTrue(writer.run(root, CheckoutBranch("main"), outcomes::add))
+        assertFalse(writer.cancellable.get())
+        assertFalse(writer.cancel(), "a checkout is never stopped")
+        background.removeFirst().run()
+        assertEquals("Checked out main.", outcomes.single().done)
+
+        assertTrue(writer.run(root, Fetch(), progress::add, outcomes::add))
+        assertTrue(writer.cancellable.get())
+        assertTrue(writer.cancel())
+        assertFalse(writer.cancellable.get(), "cancelled once")
+        assertTrue(writer.running.get(), "until git has stopped")
+        background.removeFirst().run()
+
+        assertEquals("Fetch cancelled.", outcomes.last().done)
+        assertEquals(emptyList(), progress, "no remote fetched")
+        assertFalse(writer.running.get())
+        assertFalse(writer.cancel())
+    }
+
+    @Test
+    fun `a fetch's progress is passed on, and dropped with its outcome`() {
+        writes.remotes = listOf("origin", "fork")
+        val progress = mutableListOf<String>()
+
+        writer.run(root, Fetch(), progress::add, outcomes::add)
+        background.removeFirst().run()
+        assertEquals(listOf("Fetching origin…", "Fetching fork…"), progress)
+
+        progress.clear()
+        writer.run(root, Fetch(), progress::add, outcomes::add)
+        writer.forget()
+        background.removeFirst().run()
+        assertEquals(emptyList(), progress, "dropped with the outcome")
+    }
+
+    @Test
     fun `a write that throws ends its task as failed`() {
         writes.result = { throw IllegalStateException("broken") }
 

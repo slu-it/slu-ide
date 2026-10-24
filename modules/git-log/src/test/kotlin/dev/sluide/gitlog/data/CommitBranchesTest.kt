@@ -129,7 +129,7 @@ class CommitBranchesTest {
     }
 
     @Test
-    fun `a result read before the refs changed or another folder opened is not kept`() {
+    fun `a result read before another folder opened is not kept`() {
         branches.show(repo, "a")
         background.removeFirst().run()
         branches.clear()
@@ -138,6 +138,22 @@ class CommitBranchesTest {
         branches.show(repo, "a")
         runAll()
         assertEquals(listOf("a", "a"), loads)
+    }
+
+    @Test
+    fun `a result read before the refs changed is not kept, even if the read again fails`() {
+        branches.show(repo, "a")
+        background.removeFirst().run()
+        refnames = emptyMap()
+        branches.refsChanged()
+        runAll()
+        assertEquals(BranchesState.Failed("a"), branches.state.get())
+
+        refnames = mapOf("a" to listOf("refs/heads/main", "refs/heads/new"))
+        branches.show(repo, "a")
+        runAll()
+        assertEquals(listOf("a", "a", "a"), loads, "the old result was not served from the cache")
+        assertEquals(BranchesState.Read("a", listOf("main", "new")), branches.state.get())
     }
 
     @Test
