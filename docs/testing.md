@@ -60,9 +60,10 @@ A behavior is tested once, at the lowest level that can see it
   copies.
 - **It must fail without the code.** For a test whose failure is not obvious (wiring, races, negative checks),
   break the code once, see the test fail, restore it.
-- `.claude/scripts/check-tests.sh [files]` reports fixed sleeps without a reason, synthetic OS input,
-  `waitForFxEvents()` right after `interact` and test classes over 800 lines; a hook runs it on newly written test
-  code. `.claude/scripts/test-times.sh` lists task times and the slowest classes from the last test results.
+- `.claude/scripts/check-tests.sh [files]` reports fixed sleeps without a reason (poll intervals inside a `while`
+  loop do not count), synthetic OS input without a `//` reason, `waitForFxEvents()` right after `interact` and test
+  classes over 800 lines; a hook runs it on newly written test code. `.claude/scripts/test-times.sh` lists task
+  times and the slowest classes from the last test results.
 
 ## Writing UI tests
 - Use `@ExtendWith(ApplicationExtension::class)`, build the real component in a `@Start` method, and inspect it
@@ -73,8 +74,9 @@ A behavior is tested once, at the lowest level that can see it
   `interact`, e.g. a file written by the test.
 - Wait on a signal, never a fixed sleep: an idle barrier of the subject's executor (`readersIdle()` in git-log,
   `commitReaderIdle()`), a latch in a fake, a log line, or a sentinel (a second watch that must have seen a later
-  change before a "nothing reported" check, as in `FileWatcherTest`). A negative check that has no signal keeps a short
-  sleep (about 200 ms) with a comment saying why. Debounces and delays the test does not test become constructor
+  change before a "nothing reported" check, as in `FileWatcherTest`). A short sleep as the interval of a loop that
+  re-checks its condition until a deadline is such a wait. A negative check that has no signal keeps a short sleep
+  (about 200 ms) with a comment saying why. Debounces and delays the test does not test become constructor
   parameters with the real value as default (`CodeView(highlightPause)`, `GitCli(stopGrace)`, `dragExpandDelay`).
 - To test real mouse handling (e.g. a press that must not reach a parent), fire `MouseEvent`s at the node with
   `Event.fireEvent` instead of calling `Button.fire()`, which skips the mouse handlers. Example: `fireMouse` in

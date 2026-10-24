@@ -121,7 +121,7 @@ class MainWindowScratchesUiTest : MainWindowUiFixture() {
         openProject(robot)
 
         newScratchFile(robot)
-        robot.write("kt").type(KeyCode.ENTER)
+        robot.write("kt").type(KeyCode.ENTER) // real input on purpose, see above
         WaitForAsyncUtils.waitForFxEvents()
 
         val scratch = scratchFiles.folder.resolve("scratch.kt")

@@ -14,8 +14,10 @@ Details: `docs/testing.md` ("Choosing the test level"), ADR 0084.
 - Search before adding: grep the asserted message and the function; extend the existing test. Test shared code once;
   feature behavior in its module, `ide` only the wiring.
 - Same test with other input: one `@ParameterizedTest`, not copies.
-- Wait on a signal (idle barrier, latch, log line, sentinel), never a fixed sleep; a negative check without a signal
-  keeps a short sleep with a `//` reason. Delays and debounces are constructor parameters with the real default.
-- No synthetic OS input (`clickOn`, `moveTo`, `type`, `scroll`); `interact` already waits for FX events.
+- Wait on a signal (idle barrier, latch, log line, sentinel, or a poll loop with a deadline), never a fixed sleep; a
+  negative check without a signal keeps a short sleep with a `//` reason. Delays and debounces are constructor
+  parameters with the real default.
+- No synthetic OS input (`clickOn`, `moveTo`, `type`, `scroll`) unless only real input can test it (`//` reason);
+  `interact` already waits for FX events.
 - A test must fail without its code: for wiring, races and negative checks, break the code once and see it fail.
 - Deleting a test: open the test that keeps it covered first. Remove the imports a deletion leaves behind.
