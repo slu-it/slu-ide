@@ -158,7 +158,6 @@ internal abstract class EnvironmentFileViewUiFixture {
         env: String,
     ): EnvValueCell {
         robot.interact { form.tree.scrollTo(form.tree.getRow(item(path))) }
-        WaitForAsyncUtils.waitForFxEvents()
         return robot
             .lookup(".env-value-cell")
             .queryAllAs(EnvValueCell::class.java)
@@ -180,7 +179,6 @@ internal abstract class EnvironmentFileViewUiFixture {
     ): EnvValueCell {
         val cell = cell(robot, path, env)
         robot.interact { form.tree.edit(form.tree.getRow(item(path)), cell.tableColumn) }
-        WaitForAsyncUtils.waitForFxEvents()
         return cell
     }
 

@@ -80,7 +80,6 @@ class GitLogViewGraphUiTest : GitLogViewUiFixture() {
 
         fun laneColour(scheme: ColorScheme): Paint {
             robot.interact { view.scene.preferences.colorScheme = scheme }
-            WaitForAsyncUtils.waitForFxEvents()
             return edges.single { "git-graph-edge-0" in it.styleClass }.stroke
         }
         val light = laneColour(ColorScheme.LIGHT)
@@ -94,7 +93,6 @@ class GitLogViewGraphUiTest : GitLogViewUiFixture() {
         history = listOf(commit("m", "b", "f"), commit("f", "a"), commit("b", "a"), commit("a"))
         openAndExpand(robot)
         robot.interact { view.table.selectionModel.select(1) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         val cells = graphCells(robot).filter { it.item != null }.associateBy { it.index }
         val selected = cells.getValue(1)
@@ -180,7 +178,6 @@ class GitLogViewGraphUiTest : GitLogViewUiFixture() {
         robot.interact { for (cell in graphCells(robot)) assertDrawn(cell) }
         for (target in listOf(203, 37, 451)) {
             robot.interact { view.table.scrollTo(target) }
-            WaitForAsyncUtils.waitForFxEvents()
             robot.interact { for (cell in graphCells(robot)) assertDrawn(cell) }
         }
         assertTrue(
@@ -264,7 +261,6 @@ class GitLogViewGraphUiTest : GitLogViewUiFixture() {
 
         for (target in listOf(30, 0, 39)) {
             robot.interact { view.table.scrollTo(target) }
-            WaitForAsyncUtils.waitForFxEvents()
             robot.interact {
                 for (cell in graphCells(robot).filter { it.item != null }) {
                     val expected = someRefs.at(cell.item.commit.hash)
@@ -289,7 +285,6 @@ class GitLogViewGraphUiTest : GitLogViewUiFixture() {
         refs = someRefs
         openAndExpand(robot)
         robot.interact { view.table.selectionModel.select(0) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         robot.interact {
             val cells = graphCells(robot).filter { it.item != null }.associateBy { it.item.commit.hash }
@@ -330,7 +325,6 @@ class GitLogViewGraphUiTest : GitLogViewUiFixture() {
 
         fun headColour(scheme: ColorScheme): Paint {
             robot.interact { view.scene.preferences.colorScheme = scheme }
-            WaitForAsyncUtils.waitForFxEvents()
             return (first.labels.lookup(".git-ref-head") as org.kordamp.ikonli.javafx.FontIcon).iconColor
         }
         val light = headColour(ColorScheme.LIGHT)

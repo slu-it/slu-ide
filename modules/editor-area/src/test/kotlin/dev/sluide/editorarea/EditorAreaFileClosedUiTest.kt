@@ -32,7 +32,6 @@ class EditorAreaFileClosedUiTest : EditorAreaUiFixture() {
         val menu = editor.tabStrip.contextMenuOf(checkNotNull(editor.editorTabs.find(a)))
 
         robot.interact { menu.items.single { it.text == "Close" }.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf(a), closed)
     }
@@ -44,7 +43,6 @@ class EditorAreaFileClosedUiTest : EditorAreaUiFixture() {
         val menu = editor.tabStrip.contextMenuOf(checkNotNull(editor.editorTabs.find(files[1])))
 
         robot.interact { menu.items.single { it.text == "Close Others" }.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf(files[0], files[2]), closed)
     }
@@ -58,7 +56,6 @@ class EditorAreaFileClosedUiTest : EditorAreaUiFixture() {
         open(robot, b)
 
         robot.interact { editor.closeAll() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf(a, b), closed)
     }
@@ -69,7 +66,6 @@ class EditorAreaFileClosedUiTest : EditorAreaUiFixture() {
         robot.interact { editor.open(terminal) }
 
         robot.interact { editor.editorTabs.close(terminal) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(emptyList(), closed)
     }

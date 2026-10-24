@@ -13,7 +13,6 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
-import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
 import java.time.Instant
 import java.util.concurrent.CountDownLatch
@@ -101,7 +100,6 @@ class GitLogViewAreaUiTest : GitLogViewUiFixture() {
         // screen, which on the macOS runners is barely wider than the test's window.
         val start = columns.map { it.width }
         robot.interact { view.scene.window.width -= 300 }
-        WaitForAsyncUtils.waitForFxEvents()
         val narrower = columns.map { it.width }
         assertEquals(start[0] - 300, narrower[0], 2.0, "$start -> $narrower")
         assertEquals(start[1], narrower[1], 1.0, "$start -> $narrower")
@@ -109,13 +107,11 @@ class GitLogViewAreaUiTest : GitLogViewUiFixture() {
 
         // Too narrow for all of them: author and date shrink, the date stays in view.
         robot.interact { view.scene.window.width = 260.0 }
-        WaitForAsyncUtils.waitForFxEvents()
         val narrow = columns.map { it.width }
         assertTrue(narrow[1] < start[1] && narrow[2] < start[2], "$start -> $narrow")
         assertTrue(narrow.sum() <= view.table.width, "$narrow in ${view.table.width}")
 
         robot.interact { view.scene.window.width = 800.0 }
-        WaitForAsyncUtils.waitForFxEvents()
         val back = columns.map { it.width }
         for (index in start.indices) assertEquals(start[index], back[index], 1.0, "$start -> $back")
 

@@ -13,7 +13,6 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
-import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -183,7 +182,6 @@ class GitLogViewFilterPopupsUiTest : GitLogViewUiFixture() {
 
         robot.interact { popup.hide() }
         robot.interact { path.button.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(1, pathLoads.size, "not read again for a filter change")
         robot.interact { popup.hide() }
 

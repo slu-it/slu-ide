@@ -139,7 +139,6 @@ class EditorAreaDiffUiTest : EditorAreaUiFixture() {
         editor.diffOf = immediately { TextDiff(original, listOf(LineChange(59..59, 59..59))) }
         open(robot, a)
         robot.interact { shownArea(robot).showParagraphAtTop(50) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         val marker =
             robot
@@ -330,7 +329,6 @@ class EditorAreaDiffUiTest : EditorAreaUiFixture() {
         assertTrue(editor.canToggleDiff.value)
 
         robot.interact { editor.toggleDiff() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(emptyList(), shownDiff(robot))
         assertEquals("edited new\n", shownText(robot))

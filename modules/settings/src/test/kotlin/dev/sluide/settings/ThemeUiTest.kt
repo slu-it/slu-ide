@@ -43,7 +43,6 @@ class ThemeUiTest {
 
     private fun install(robot: FxRobot) {
         robot.interact { themed.install() }
-        WaitForAsyncUtils.waitForFxEvents()
     }
 
     @AfterEach
@@ -64,7 +63,6 @@ class ThemeUiTest {
         assertTrue(!root.isDark(), "light by default")
 
         robot.interact { settings.apply(Theme.DARK) }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(ColorScheme.DARK, stage.scene.preferences.colorScheme)
         assertTrue(root.isDark(), "dark after applying the dark theme")
 
@@ -84,7 +82,6 @@ class ThemeUiTest {
         robot.interact { settings.apply(Theme.DARK) }
 
         robot.interact { stage.scene = Scene(StackPane(Label("new scene")), 200.0, 100.0) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(ColorScheme.DARK, stage.scene.preferences.colorScheme)
         assertTrue((stage.scene.root as Region).isDark())
@@ -95,7 +92,6 @@ class ThemeUiTest {
         install(robot)
 
         robot.interact { system.set(ColorScheme.DARK) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(ColorScheme.DARK, stage.scene.preferences.colorScheme)
         assertTrue((stage.scene.root as Region).isDark())

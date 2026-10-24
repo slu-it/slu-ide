@@ -134,33 +134,27 @@ class GitLogViewBranchesUiTest : GitLogViewUiFixture() {
         robot.interact { branches.tree.requestFocus() }
 
         robot.interact { bar.branchesToggle.isSelected = false }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(listOf<Node>(view.inner), view.body.items)
         assertNull(branches.scene)
         assertSame<Node?>(view.table, view.scene.focusOwner)
         robot.interact { assertEquals(view.body.width, view.inner.width, 1.0) }
 
         robot.interact { bar.branchesToggle.isSelected = true }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(listOf<Node>(branches, view.inner), view.body.items)
         robot.interact { assertEquals(view.body.width * 0.2, branches.width, 10.0) }
         assertSame<Node?>(view.table, view.scene.focusOwner)
 
         // Dragged, hidden and shown again, and resized: the share stays.
         robot.interact { view.body.setDividerPositions(0.35) }
-        WaitForAsyncUtils.waitForFxEvents()
         robot.interact { bar.branchesToggle.isSelected = false }
         robot.interact { bar.branchesToggle.isSelected = true }
-        WaitForAsyncUtils.waitForFxEvents()
         try {
             robot.interact { assertEquals(view.body.width * 0.35, branches.width, 10.0) }
             robot.interact { view.scene.window.width = 600.0 }
-            WaitForAsyncUtils.waitForFxEvents()
             robot.interact { assertEquals(view.body.width * 0.35, branches.width, 10.0) }
         } finally {
             // The stage is shared by the tests.
             robot.interact { view.scene.window.width = 800.0 }
-            WaitForAsyncUtils.waitForFxEvents()
         }
 
         // A click on the toggle leaves the focus where it was.

@@ -153,7 +153,6 @@ class GitLogViewDetailsUiTest : GitLogViewUiFixture() {
 
         fun resize(width: Double) {
             robot.interact { view.scene.window.width = width }
-            WaitForAsyncUtils.waitForFxEvents()
         }
         try {
             assertEquals(0.3, share(), 0.02)
@@ -164,7 +163,6 @@ class GitLogViewDetailsUiTest : GitLogViewUiFixture() {
 
             // Dragged by the user: that share is kept.
             robot.interact { view.inner.setDividerPositions(0.5) }
-            WaitForAsyncUtils.waitForFxEvents()
             resize(560.0)
             assertEquals(0.5, share(), 0.02, "${details.width} of ${view.inner.width}")
             resize(800.0)

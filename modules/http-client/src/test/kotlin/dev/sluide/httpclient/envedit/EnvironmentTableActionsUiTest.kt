@@ -39,7 +39,6 @@ internal class EnvironmentTableActionsUiTest : EnvironmentFileViewUiFixture() {
         button: Button,
     ) {
         robot.interact { button.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
     }
 
     @Test
@@ -134,9 +133,7 @@ internal class EnvironmentTableActionsUiTest : EnvironmentFileViewUiFixture() {
             assertEquals("Text", cell.text)
             assertNull(cell.choice)
             robot.interact { view.form.tree.edit(view.form.tree.getRow(view.item(path)), cell.tableColumn) }
-            WaitForAsyncUtils.waitForFxEvents()
             robot.interact { assertNotNull(cell.choice).value = type }
-            WaitForAsyncUtils.waitForFxEvents()
             assertNull(cell.choice)
         }
 
@@ -192,7 +189,6 @@ internal class EnvironmentTableActionsUiTest : EnvironmentFileViewUiFixture() {
             view.form.tree.columns
                 .first { it.text == "dev" }
         robot.interact { dev.contextMenu.items[0].fire() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(listOf("local", "stage"), view.form.table.environments)
         assertTrue("\"local\"" in tab(privateFile).orEmpty())
 
@@ -200,7 +196,6 @@ internal class EnvironmentTableActionsUiTest : EnvironmentFileViewUiFixture() {
             view.form.tree.columns
                 .first { it.text == "stage" }
         robot.interact { stage.contextMenu.items[1].fire() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(listOf("Remove the environment \"stage\" from both files?"), questions)
         assertEquals(listOf("local"), view.form.table.environments)
         assertEquals(
@@ -244,7 +239,6 @@ internal class EnvironmentTableActionsUiTest : EnvironmentFileViewUiFixture() {
         assertEquals(listOf("Remove configuration", "Add to prod"), menu.map { it.text })
 
         robot.interact { menu[1].fire() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         val group = (view.item("auth:api").value as EnvEntry.Auth).group
         assertEquals(setOf("dev", "prod"), EnvTexts.authEnvironments(group))
@@ -268,12 +262,10 @@ internal class EnvironmentTableActionsUiTest : EnvironmentFileViewUiFixture() {
         @Suppress("UNCHECKED_CAST")
         val choice = format.graphic as ComboBox<String>
         robot.interact { choice.value = "PEM" }
-        WaitForAsyncUtils.waitForFxEvents()
         assertTrue("\"format\": \"PEM\"" in tab(privateFile).orEmpty(), tab(privateFile))
 
         val file = view.edit(robot, EnvSchema.certificatePath(CertificatePart.CERTIFICATE), "dev")
         robot.interact { ((file.graphic as HBox).lookup(".env-browse") as Button).fire() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertTrue("\"path\": \"certs/client.pem\"" in tab(privateFile).orEmpty(), tab(privateFile))
         assertEquals("""{"dev": {}}""", view.text)
     }
@@ -305,7 +297,6 @@ internal class EnvironmentTableActionsUiTest : EnvironmentFileViewUiFixture() {
         assertEquals(listOf("Remove row"), view.texts(host, null))
 
         robot.interact { view.form.menuItems(token, "dev")[1].fire() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertTrue("\"token\": \"t\"" in view.text, view.text)
     }
@@ -323,7 +314,6 @@ internal class EnvironmentTableActionsUiTest : EnvironmentFileViewUiFixture() {
         assertEquals(listOf("Remove from dev", "Add to prod"), view.texts(certificate, null))
 
         robot.interact { view.form.menuItems(certificate, null)[1].fire() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf("Remove from dev", "Remove from prod"), view.texts(view.item("certificate").value, null))
     }
@@ -370,7 +360,6 @@ internal class EnvironmentTableActionsUiTest : EnvironmentFileViewUiFixture() {
             @Suppress("UNCHECKED_CAST")
             val choice = cell.graphic as ComboBox<String>
             robot.interact { choice.value = value }
-            WaitForAsyncUtils.waitForFxEvents()
         }
 
         choose("in body")

@@ -68,7 +68,6 @@ class TableOfContentsControlUiTest {
         headings = all
         line = currentLine
         robot.interact { toc.open() }
-        WaitForAsyncUtils.waitForFxEvents()
     }
 
     private fun cell(text: String): ListCell<*> =
@@ -221,7 +220,6 @@ class TableOfContentsControlUiTest {
         // A wheel turned down (a negative delta) over the list, a few times as the real wheel does.
         val flow = fx { toc.list.lookup(".virtual-flow") }
         repeat(40) { robot.interact { Event.fireEvent(flow, scrollEvent(-400.0, shortcut = false)) } }
-        WaitForAsyncUtils.waitForFxEvents()
         val lastBottom =
             fx {
                 val last =

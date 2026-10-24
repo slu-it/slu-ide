@@ -75,7 +75,6 @@ class ProjectPickerUiTest {
         picker.home = dir.resolve("home")
         picker.chooseFolder = chooser
         robot.interact { stage = picker.show({ opened.add(it) }, { cancelled++ }) }
-        WaitForAsyncUtils.waitForFxEvents()
         return stage
     }
 
@@ -232,7 +231,6 @@ class ProjectPickerUiTest {
         click(robot, button)
         assertEquals(2, cells().size)
         robot.interact { button.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(1, cells().size)
         assertEquals(emptyList(), store.list())
@@ -286,7 +284,6 @@ class ProjectPickerUiTest {
                 "escape" to { key(robot, KeyCode.ESCAPE) },
                 "closing the window" to {
                     robot.interact { stage.fireEvent(WindowEvent(stage, WindowEvent.WINDOW_CLOSE_REQUEST)) }
-                    WaitForAsyncUtils.waitForFxEvents()
                 },
             )
         for ((index, trigger) in triggers.entries.withIndex()) {
@@ -393,6 +390,5 @@ class ProjectPickerUiTest {
         index: Int,
     ) {
         robot.interact { list().selectionModel.select(index) }
-        WaitForAsyncUtils.waitForFxEvents()
     }
 }

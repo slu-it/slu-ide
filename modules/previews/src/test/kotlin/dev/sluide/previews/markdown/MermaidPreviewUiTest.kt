@@ -275,7 +275,6 @@ class MermaidPreviewUiTest {
         assertSame(view.sourceArea, fx { container.scene.focusOwner }, "Source: the source")
 
         robot.interact { view.mode.set(PreviewMode.SPLIT) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertSame(view.sourceArea, fx { container.scene.focusOwner })
     }

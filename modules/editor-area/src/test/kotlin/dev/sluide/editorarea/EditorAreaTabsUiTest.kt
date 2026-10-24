@@ -43,7 +43,6 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
     ): List<WarningTab> {
         val tabs = List(count) { WarningTab("file-number-$it.txt", null) }
         robot.interact { tabs.forEach(editor::open) }
-        WaitForAsyncUtils.waitForFxEvents()
         return tabs
     }
 
@@ -157,7 +156,6 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         robot.interact { field.requestFocus() }
 
         robot.interact { editor.closeUnder(b, emptyList()) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals("content of a.txt", shownText(robot))
         assertSame(field, focusOwner())
@@ -178,7 +176,6 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         open(robot, textFile("a.txt"), textFile("b.txt"))
 
         robot.interact { editor.closeSelected() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf("a.txt"), tabTitles(robot))
         assertEquals("content of a.txt", shownText(robot))
@@ -235,7 +232,6 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         val before = firstVisibleIndex()
 
         robot.interact { strip.scrollLeftButton.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(before - 1, firstVisibleIndex())
         assertSame(tabs.last(), editor.selectedTab)
@@ -249,7 +245,6 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         val strip = editor.tabStrip
 
         robot.interact { strip.overflowMenu.show() }
-        WaitForAsyncUtils.waitForFxEvents()
         val items = strip.overflowMenu.items
         assertEquals(strip.hiddenTabs().map { it.title.value }, items.map { it.text })
         assertEquals("file-number-0.txt", items.first().text)
@@ -282,14 +277,12 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         assertEquals(a, editor.selectedPath)
 
         robot.interact { click(tabLabel(robot, "b.txt").parent.lookup(".close-button")) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf("a.txt", "c.txt"), tabTitles(robot))
         assertEquals(a, editor.selectedPath)
         assertEquals("content of a.txt", shownText(robot))
 
         robot.interact { (tabLabel(robot, "a.txt").parent.lookup(".close-button") as Button).fire() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf("c.txt"), tabTitles(robot))
         assertEquals(c, editor.selectedPath, "closing the selected tab selects its neighbour")
@@ -391,7 +384,6 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         dragBy(robot, label, 80.0, release = false)
         assertEquals(1, robot.lookup(".editor-tab.dragging").queryAll<Node>().size)
         robot.interact { editor.editorTabs.close(tabs.first()) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertTrue(robot.lookup(".editor-tab.dragging").queryAll<Node>().isEmpty())
         releaseOn(robot, label, 80.0)
@@ -440,7 +432,6 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         open(robot, textFile("a.txt"), textFile("b.txt"))
 
         robot.interact { click(tabLabel(robot, "a.txt"), MouseButton.MIDDLE) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf("b.txt"), tabTitles(robot))
     }
@@ -456,7 +447,6 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         menu.showingProperty().subscribe { showing -> if (showing) shown = true }
 
         robot.interact { requestContextMenu(tabLabel(robot, "b.txt")) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertTrue(shown)
         val items = menu.items.filterNot { it is SeparatorMenuItem }
@@ -483,7 +473,6 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         open(robot, a)
 
         robot.interact { requestContextMenu(tabLabel(robot, "a.txt")) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         val menu = editor.tabStrip.contextMenuOf(checkNotNull(editor.editorTabs.find(a)))
         val disabled = menu.items.filter { it !is SeparatorMenuItem && it.isDisable }.map { it.text }
@@ -498,12 +487,10 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         val menu = editor.tabStrip.contextMenuOf(checkNotNull(editor.editorTabs.find(files[0])))
 
         robot.interact { menu.items.single { it.text == "Close Others" }.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(listOf("a.txt"), tabTitles(robot))
         assertEquals("content of a.txt", shownText(robot))
 
         robot.interact { menu.items.single { it.text == "Close All" }.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(emptyList(), tabTitles(robot))
     }
 
@@ -514,14 +501,12 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         open(robot, a, b)
         val other = WarningTab("Terminal 1", null)
         robot.interact { editor.open(other) }
-        WaitForAsyncUtils.waitForFxEvents()
         val shown = mutableListOf<java.nio.file.Path>()
         editor.showHistory = { shown.add(it) }
         editor.canShowHistory = { it == a }
 
         fun items(title: String): List<MenuItem> {
             robot.interact { requestContextMenu(tabLabel(robot, title)) }
-            WaitForAsyncUtils.waitForFxEvents()
             val tab = editor.tabs.single { it.title.value == title }
             val menu = editor.tabStrip.contextMenuOf(tab)
             robot.interact { menu.hide() }

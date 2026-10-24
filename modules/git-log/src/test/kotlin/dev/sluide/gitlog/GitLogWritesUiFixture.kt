@@ -381,7 +381,6 @@ abstract class GitLogWritesUiFixture {
         button: ButtonType,
     ) {
         robot.interact { (pane.lookupButton(button) as Button).fire() }
-        WaitForAsyncUtils.waitForFxEvents()
     }
 
     internal fun status(robot: FxRobot) = robot.lookup(".git-log-status").queryAs(Label::class.java).text

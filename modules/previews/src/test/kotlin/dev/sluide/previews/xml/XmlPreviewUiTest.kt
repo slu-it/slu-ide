@@ -93,7 +93,6 @@ class XmlPreviewUiTest {
         assertTrue(WaitForAsyncUtils.asyncFx<Boolean> { folds.node.isVisible }.get())
         assertEquals(4, view.open(), "project, deps, b and other are elements with children")
         robot.interact { view.focus() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertSame(view.sourceArea, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get())
     }
 

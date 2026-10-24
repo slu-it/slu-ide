@@ -80,7 +80,6 @@ abstract class EditorAreaUiFixture {
     ): List<Boolean> {
         val results = mutableListOf<Boolean>()
         robot.interact { files.forEach { results += editor.open(it) } }
-        WaitForAsyncUtils.waitForFxEvents()
         return results
     }
 
@@ -178,7 +177,6 @@ abstract class EditorAreaUiFixture {
         sceneX: Double,
     ) {
         robot.interact { fireMouse(node, MouseEvent.MOUSE_RELEASED, sceneX = sceneX, buttonDown = false) }
-        WaitForAsyncUtils.waitForFxEvents()
     }
 
     /** Sends a context menu request through the scene graph, like a right-click, without OS input. */

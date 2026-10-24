@@ -104,7 +104,6 @@ internal class EnvironmentFileViewSyncUiTest : EnvironmentFileViewUiFixture() {
         assertEquals("s3cret", view.shown(robot, path("token"), "dev"))
 
         robot.interact { view.lock(robot, path("host"), "dev").fire() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf(privateFile), host.edited)
         assertEquals("", view.warning.text)
@@ -119,7 +118,6 @@ internal class EnvironmentFileViewSyncUiTest : EnvironmentFileViewUiFixture() {
         assertEquals("s3cret", view.shown(robot, path("token"), "dev"))
 
         robot.interact { view.lock(robot, path("token"), "dev").fire() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf(privateFile), host.edited)
         assertTrue("s3cret" in view.text, view.text)

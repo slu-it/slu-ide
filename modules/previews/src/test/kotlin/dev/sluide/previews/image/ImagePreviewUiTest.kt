@@ -287,7 +287,6 @@ class ImagePreviewUiTest {
         }
 
         robot.interact { view.reload() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(0, loads, "the same bytes load nothing")
 
         // Something dropped onto the page navigates; the image is shown again.

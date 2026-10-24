@@ -55,12 +55,10 @@ class MainWindowScratchesUiTest : MainWindowUiFixture() {
 
     private fun newScratchFile(robot: FxRobot) {
         robot.interact { fileMenuItem(robot, "New Scratch File…").fire() }
-        WaitForAsyncUtils.waitForFxEvents()
     }
 
     private fun openProject(robot: FxRobot) {
         robot.interact { projectService.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
     }
 
     private fun topLevel(): List<TreeItem<Path>> = fileExplorer.root?.children.orEmpty()
@@ -180,7 +178,6 @@ class MainWindowScratchesUiTest : MainWindowUiFixture() {
         val written = scratchFiles.folder.resolve("scratch_1.kt").apply { writeText("fun main() {}") }
 
         robot.interact { editorArea.closeAll() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertFalse(Files.exists(empty))
         assertTrue(Files.isRegularFile(written))
@@ -197,7 +194,6 @@ class MainWindowScratchesUiTest : MainWindowUiFixture() {
         robot.interact { editorArea.open(projectFile) }
 
         robot.interact { editorArea.closeAll() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertTrue(Files.isRegularFile(scratch))
         assertTrue(Files.isRegularFile(projectFile))
@@ -218,7 +214,6 @@ class MainWindowScratchesUiTest : MainWindowUiFixture() {
         robot.interact { editorArea.open(link) }
 
         robot.interact { editorArea.closeUnder(scratch, emptyList()) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf(link), editorArea.openPaths)
         assertTrue(Files.isRegularFile(scratch))
@@ -231,7 +226,6 @@ class MainWindowScratchesUiTest : MainWindowUiFixture() {
         newScratchFile(robot)
 
         robot.interact { mainWindow.dispose() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertFalse(Files.exists(scratchFiles.folder.resolve("scratch.kt")))
         assertNull(fileExplorer.root)

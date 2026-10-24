@@ -522,11 +522,9 @@ class ZoomUiTest {
         assertSame(other, fx { container.scene.focusOwner })
 
         robot.interact { container.children.setAll(other, view.node) }
-        WaitForAsyncUtils.waitForFxEvents()
         assertSame(other, fx { container.scene.focusOwner }, "not on its own")
 
         robot.interact { view.focus() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertSame(view.webView, fx { container.scene.focusOwner })
     }
 
@@ -553,7 +551,6 @@ class ZoomUiTest {
         val view = showImage(robot, 400, 200)
         val zoom = view.zoom
         robot.interact { container.applyCss() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         fun measure() =
             fx {

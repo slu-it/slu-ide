@@ -454,7 +454,6 @@ class TerminalUiTest {
         val sizeBefore = shellSize()
 
         robot.interact { fontSettings.apply(mapOf(FontArea.TERMINAL to FontSpec("Monospaced", 26.0))) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(26.0, tab.view.font.size)
         assertTrue(tab.view.cell.width > before.width * 1.5, "cells grow: ${before.width} -> ${tab.view.cell.width}")

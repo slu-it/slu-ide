@@ -103,7 +103,6 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         assertTrue(robot.lookup(".git-log-table").tryQuery<Node>().isEmpty)
 
         robot.interact { gitLogItem.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(0.3 * logSplit.height, gitLogView.height, DIVIDER_SLACK + 4, "the lower 30 %")
         val table = robot.lookup(".git-log-table").queryAs(TableView::class.java)
         assertSame<Node?>(table, stage.scene.focusOwner)
@@ -128,16 +127,13 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         // The window's height goes to the editor area.
         val expandedHeight = gitLogView.height
         robot.interact { stage.height -= 100 }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(expandedHeight, gitLogView.height, DIVIDER_SLACK)
 
         // Collapsing gives the focus back to the editor and pins the log to its header.
         robot.interact { logSplit.setDividerPositions(0.5) }
-        WaitForAsyncUtils.waitForFxEvents()
         val dragged = gitLogView.height
         assertTrue(dragged > expandedHeight + 50, "dragged from $expandedHeight to $dragged")
         robot.interact { gitLogItem.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(header.height, gitLogView.height, 1.0, "collapsed again")
         val editorContent = editorArea.selectedTab?.content
         val focused = stage.scene.focusOwner
@@ -146,14 +142,11 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
             "focus on $focused",
         )
         robot.interact { logSplit.setDividerPositions(0.5) }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(header.height, gitLogView.height, 1.0, "the divider of the collapsed log does not move")
 
         // Expanding again restores the dragged height, also after the window was resized meanwhile.
         robot.interact { stage.height -= 100 }
-        WaitForAsyncUtils.waitForFxEvents()
         robot.interact { gitLogItem.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(dragged, gitLogView.height, DIVIDER_SLACK)
     }
 
@@ -340,7 +333,6 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         project.resolve("folder").createDirectories()
 
         robot.interact { projectService.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         fun showHistoryItem(name: String): MenuItem {
             val cell =
@@ -364,7 +356,6 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         assertFalse(item.isDisable)
 
         robot.interact { item.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertTrue(gitLogView.expanded.get())
         assertEquals(
@@ -426,7 +417,6 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         project.resolve("README.md").createFile()
 
         robot.interact { projectService.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertTrue(robot.lookup(".git-log").tryQuery<Node>().isEmpty)
         assertEquals(listOf<Node>(fileExplorer.parent, editorArea), splitPaneOf(editorArea).items)
@@ -462,7 +452,6 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         project.resolve("tracked.md").writeText("two")
         project.resolve("new.md").writeText("new")
         robot.interact { projectService.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
         assertFalse(commitItem.isDisable)
         assertFalse(pushItem.isDisable)
         robot.interact { commitItem.fire() }
@@ -533,7 +522,6 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         }
         eventually(robot) { assertEquals(listOf("One"), shownSubjects(robot)) }
         robot.interact { gitLogView.onShowDiff(picture) }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(0, editorArea.tabs.size)
         assertEquals(
             "pic.bin cannot be shown as text.",

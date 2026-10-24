@@ -190,7 +190,6 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
         text: String,
     ) {
         robot.interact { commitView().messageArea.text = text }
-        WaitForAsyncUtils.waitForFxEvents()
     }
 
     @Test
@@ -466,7 +465,6 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
         assertEquals("Earlier\n\nBody changed", draft.messageArea.text)
         typeMessage(robot, "Mine")
         robot.interact { draft.amendBox.isSelected = true }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals("Mine", draft.messageArea.text)
         assertEquals(2, headMessageReads.size, "not read for a message")
 

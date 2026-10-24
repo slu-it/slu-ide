@@ -44,7 +44,6 @@ class PythonFileViewerUiTest {
         val file = dir.resolve("main.py").apply { writeText(source) }
 
         robot.interact { container.children.setAll(PythonFileViewer().open(file).node) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         val area = robot.lookup(".code-area").queryAs(CodeArea::class.java)
         assertEquals(source, area.text)
@@ -62,7 +61,6 @@ class PythonFileViewerUiTest {
 
         fun keywordFill(scheme: ColorScheme): Paint {
             robot.interact { container.scene.preferences.colorScheme = scheme }
-            WaitForAsyncUtils.waitForFxEvents()
             return robot
                 .lookup(".keyword")
                 .queryAllAs(Text::class.java)
@@ -80,7 +78,6 @@ class PythonFileViewerUiTest {
         val file = dir.resolve("long.py").apply { writeText((1..300).joinToString("\n") { "x$it = $it" }) }
 
         robot.interact { container.children.setAll(PythonFileViewer().open(file).node) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(0, robot.lookup(".code-area").queryAs(CodeArea::class.java).firstVisibleParToAllParIndex())
     }
@@ -90,7 +87,6 @@ class PythonFileViewerUiTest {
         val file = dir.resolve("empty.py").apply { writeText("") }
 
         robot.interact { container.children.setAll(PythonFileViewer().open(file).node) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals("", robot.lookup(".code-area").queryAs(CodeArea::class.java).text)
     }
@@ -102,12 +98,10 @@ class PythonFileViewerUiTest {
         robot.interact { container.children.setAll(view.node) }
         val pane = robot.lookup(".code-view").queryAs(VirtualizedScrollPane::class.java)
         robot.interact { pane.scrollYToPixel(1000.0) }
-        WaitForAsyncUtils.waitForFxEvents()
         val before = pane.estimatedScrollY
 
         file.writeText((1..300).joinToString("\n") { "x$it = $it" } + "\ndef added(): pass")
         robot.interact { view.reload() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         val area = robot.lookup(".code-area").queryAs(CodeArea::class.java)
         assertTrue(area.text.endsWith("def added(): pass"))

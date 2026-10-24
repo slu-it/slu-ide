@@ -128,7 +128,6 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
         path: String,
     ) {
         robot.interact { dialog().tree.selectionModel.select(fileItem(dialog().tree.root, path)) }
-        WaitForAsyncUtils.waitForFxEvents()
     }
 
     /** The item of the file at [path] below [item]. */

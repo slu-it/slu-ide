@@ -47,14 +47,12 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
         robot.interact { projectService.open(project) }
 
         robot.interact { menu(robot, "Terminal").items.single().fire() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf("Terminal 1"), tabTitles(robot))
         val tab = checkNotNull(editorArea.selectedTab)
         assertEquals("Terminal in $project", tab.tooltip)
 
         robot.interact { mainWindow.dispose() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(emptyList(), tabTitles(robot))
         assertEquals(0, terminals.openCount)
         assertEquals(0, fileExplorer.root?.children?.size ?: 0)

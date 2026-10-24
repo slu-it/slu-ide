@@ -13,7 +13,6 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
-import org.testfx.util.WaitForAsyncUtils
 import java.util.concurrent.CountDownLatch
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -220,7 +219,6 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
     fun `Fetch shows in the collapsed header and is disabled once the log found no remotes`(robot: FxRobot) {
         currentRemotes = emptyList()
         robot.interact { view.open(repo) }
-        WaitForAsyncUtils.waitForFxEvents()
         assertTrue(view.fetchButton.isVisible)
         assertFalse(view.fetchButton.isDisable, "not known before the log is read")
 

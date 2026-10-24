@@ -127,7 +127,6 @@ class CodeEditorUiTest {
         assertEquals(0, editor.topLine)
 
         robot.interact { editor.showLineAtTop(40) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(40, editor.topLine)
         assertEquals(40, editor.caretLine)
@@ -135,7 +134,6 @@ class CodeEditorUiTest {
         robot.interact { editor.showLineAtTop(500) }
         assertEquals(99, editor.caretLine, "kept within the text")
         robot.interact { editor.showLineAtTop(-3) }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(0, editor.topLine)
     }
 
@@ -148,18 +146,15 @@ class CodeEditorUiTest {
         val subscription = WaitForAsyncUtils.asyncFx<Subscription> { editor.onShownLinesChanged { changes++ } }.get()
 
         robot.interact { editor.showLineAtTop(40) }
-        WaitForAsyncUtils.waitForFxEvents()
         assertTrue(changes > 0, "scrolled")
         val scrolled = changes
         // The editor, not the stage, which the next tests share.
         robot.interact { (editor.node as Region).maxHeight = 100.0 }
-        WaitForAsyncUtils.waitForFxEvents()
         assertTrue(changes > scrolled, "resized")
 
         robot.interact { subscription.unsubscribe() }
         val before = changes
         robot.interact { editor.showLineAtTop(10) }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(before, changes)
     }
 
@@ -179,7 +174,6 @@ class CodeEditorUiTest {
         val editor = open(dir.resolve("a.json").apply { writeText("{\n}\n") }, robot)
 
         robot.interact { editor.addGutterColumn { line -> if (line == 1) Label("run") else null } }
-        WaitForAsyncUtils.waitForFxEvents()
 
         val labels = robot.lookup(".gutter .label").queryAllAs(Label::class.java)
         assertEquals(listOf("run"), labels.filterNot { "lineno" in it.styleClass }.map { it.text })

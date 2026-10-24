@@ -304,7 +304,6 @@ class CsvTableUiTest {
         view.clickLabel(1)
         assertEquals("r200", view.visible().substringBefore(','))
         robot.interact { view.sourceArea.showParagraphAtTop(150) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         val top = view.script("document.querySelector('[data-line=\"150\"]').getBoundingClientRect().top") as Number
         assertEquals(0.0, top.toDouble(), 5.0)

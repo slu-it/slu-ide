@@ -144,7 +144,6 @@ class HtmlPreviewUiTest {
         }
         view.confirmScripts = { false }
         robot.interact { toggle.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertTrue(!toggle.isSelected)
         assertEquals("Static", fx { view.webView.engine.title })
         assertEquals(0, loads, "cancelling the warning loads nothing")

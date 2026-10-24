@@ -237,7 +237,6 @@ class ProjectWindowsUiTest {
             window(first).tools.openTerminal(first)
         }
         robot.interact { window(first).openFolder(b) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(2, windows.stages.size)
         assertEquals(
@@ -274,7 +273,6 @@ class ProjectWindowsUiTest {
         }
 
         robot.interact { window(windows.stages[1]).openFolder(a.resolve(".")) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(2, windows.stages.size)
         assertEquals(listOf(a.name, b.name), windows.stages.map { window(it).folder?.name })
@@ -297,7 +295,6 @@ class ProjectWindowsUiTest {
         assertEquals(1, terminals.openCount)
 
         robot.interact { second.hide() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(0, terminals.openCount)
         assertEquals(listOf(first), windows.stages)
@@ -328,11 +325,9 @@ class ProjectWindowsUiTest {
         assertTrue(windows.isOpenElsewhere(link, window(second)))
 
         robot.interact { second.hide() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertTrue(Files.isRegularFile(scratch), "the first window still has it open")
 
         robot.interact { first.hide() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertFalse(Files.exists(scratch))
         assertEquals(1, pickers().size)
     }
@@ -342,7 +337,6 @@ class ProjectWindowsUiTest {
         val remembered = dir.resolve("remembered").createDirectories()
         recentProjects.opened(remembered)
         robot.interact { first.hide() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         choose(robot, pickers().single(), "remembered")
 
@@ -361,7 +355,6 @@ class ProjectWindowsUiTest {
     ) {
         recentProjects.opened(dir.resolve(name).createDirectories())
         robot.interact { first.hide() }
-        WaitForAsyncUtils.waitForFxEvents()
         choose(robot, pickers().single(), name)
     }
 
@@ -452,7 +445,6 @@ class ProjectWindowsUiTest {
         var thrown: Throwable? = null
 
         robot.interact { thrown = runCatching { last.hide() }.exceptionOrNull() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertSame(failure, thrown)
         assertEquals(emptyList(), windows.stages)
@@ -463,7 +455,6 @@ class ProjectWindowsUiTest {
     @Test
     fun `closing the last window shows the project picker, cancelling it ends the application`(robot: FxRobot) {
         robot.interact { first.hide() }
-        WaitForAsyncUtils.waitForFxEvents()
         val picker = pickers().single()
         assertEquals(appTitle(), picker.title)
         assertFalse(picker in windows.stages)
@@ -479,7 +470,6 @@ class ProjectWindowsUiTest {
     @Test
     fun `cancelling the picker while a window is open keeps the application running`(robot: FxRobot) {
         robot.interact { windows.showPicker() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         escape(robot, pickers().single())
 
@@ -499,7 +489,6 @@ class ProjectWindowsUiTest {
 
         robot.interact { windows.pickProject() }
         robot.interact { windows.pickProject() }
-        WaitForAsyncUtils.waitForFxEvents()
         choose(robot, pickers().single(), "remembered")
 
         assertEquals(emptyList(), pickers())
@@ -518,7 +507,6 @@ class ProjectWindowsUiTest {
         windows.isFolder = { false }
 
         robot.interact { windows.pickProject() }
-        WaitForAsyncUtils.waitForFxEvents()
         choose(robot, pickers().single(), "vanished")
 
         assertTrue(errors.single().contains("vanished"), errors.single())
@@ -535,7 +523,6 @@ class ProjectWindowsUiTest {
         val picker = pickers().single()
 
         robot.interact { first.hide() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf(picker), pickers())
         assertEquals(0, exits)
@@ -548,7 +535,6 @@ class ProjectWindowsUiTest {
         robot.interact { window(first).openFolder(dir.resolve("a").createDirectories()) }
 
         robot.interact { context.close() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(emptyList(), windows.stages)
         assertEquals(emptyList(), pickers())

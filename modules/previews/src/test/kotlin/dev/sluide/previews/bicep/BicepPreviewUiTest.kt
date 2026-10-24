@@ -172,13 +172,11 @@ class BicepPreviewUiTest {
     fun `a Bicep file in Source gives the focus to its source, also after switching to Split`(robot: FxRobot) {
         val view = show(robot, MAIN_BICEP)
         robot.interact { view.focus() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(PreviewMode.SOURCE, WaitForAsyncUtils.asyncFx<PreviewMode> { view.mode.get() }.get())
         assertSame(view.sourceArea, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get())
 
         robot.interact { view.mode.set(PreviewMode.SPLIT) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertSame(view.sourceArea, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get())
     }

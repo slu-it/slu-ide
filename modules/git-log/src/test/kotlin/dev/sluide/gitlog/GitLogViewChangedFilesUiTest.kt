@@ -83,7 +83,6 @@ class GitLogViewChangedFilesUiTest : GitLogViewUiFixture() {
 
         fun addedColour(scheme: ColorScheme): Paint {
             robot.interact { view.scene.preferences.colorScheme = scheme }
-            WaitForAsyncUtils.waitForFxEvents()
             return nameOf(treeCell(robot, "Two.kt")).textFill
         }
         val light = addedColour(ColorScheme.LIGHT)

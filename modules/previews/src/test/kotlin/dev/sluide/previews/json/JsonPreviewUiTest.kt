@@ -87,7 +87,6 @@ class JsonPreviewUiTest {
         assertTrue(WaitForAsyncUtils.asyncFx<Boolean> { folds.node.isVisible }.get())
         assertEquals(4, view.open(), "root, deps, b and other are containers")
         robot.interact { view.focus() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertSame(view.sourceArea, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get())
     }
 
@@ -235,7 +234,6 @@ class JsonPreviewUiTest {
             PreviewMode.PREVIEW to true,
         )) {
             robot.interact { view.mode.set(mode) }
-            WaitForAsyncUtils.waitForFxEvents()
             assertEquals(visible, WaitForAsyncUtils.asyncFx<Boolean> { copy.node.isVisible }.get(), mode.name)
             assertEquals(visible, WaitForAsyncUtils.asyncFx<Boolean> { copy.node.isManaged }.get(), mode.name)
         }

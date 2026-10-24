@@ -10,7 +10,6 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
-import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
 import kotlin.io.path.readText
 import kotlin.io.path.writeBytes
@@ -64,7 +63,6 @@ class EditorAreaTextEditsUiTest : EditorAreaUiFixture() {
 
         var edited = false
         robot.interact { edited = host.editText(b) { it + "more\n" } }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertTrue(edited)
         assertEquals("b\nmore\n", host.currentText(b))
@@ -85,7 +83,6 @@ class EditorAreaTextEditsUiTest : EditorAreaUiFixture() {
 
         var edited = false
         robot.interact { edited = host.editText(c) { "{$it}" } }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertTrue(edited)
         assertEquals(listOf(a, c), editor.openPaths)
@@ -143,7 +140,6 @@ class EditorAreaTextEditsUiTest : EditorAreaUiFixture() {
 
         var edits = listOf<Boolean>()
         robot.interact { edits = listOf(closed, shown).map { file -> host.editText(file) { "b" } } }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf(false, false), edits)
         assertNull(host.currentText(shown))

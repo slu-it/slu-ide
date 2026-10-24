@@ -109,7 +109,6 @@ class YamlPreviewUiTest {
         assertTrue(WaitForAsyncUtils.asyncFx<Boolean> { folds.node.isVisible }.get())
         assertEquals(4, view.open(), "spec, ports, env and other are non-empty collections")
         robot.interact { view.focus() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertSame(view.sourceArea, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get())
     }
 

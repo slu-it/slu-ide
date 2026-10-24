@@ -202,7 +202,6 @@ class EditorAreaSavingUiTest : EditorAreaUiFixture() {
         }
         val busy = WarningTab("Terminal 1", "Terminal 1 is still running java.")
         robot.interact { editor.open(busy) }
-        WaitForAsyncUtils.waitForFxEvents()
         val close = tabLabel(robot, "Terminal 1").parent.lookup(".close-button") as Button
 
         robot.interact { close.fire() }
@@ -211,7 +210,6 @@ class EditorAreaSavingUiTest : EditorAreaUiFixture() {
 
         answer = true
         robot.interact { close.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(emptyList(), tabTitles(robot))
     }
 

@@ -153,7 +153,6 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         projectWindows.exit = {}
 
         robot.interact { openProject.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         val pickers =
             WaitForAsyncUtils
@@ -176,7 +175,6 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         project.resolve("README.md").createFile()
 
         robot.interact { projectService.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals("${project.name} – ${appTitle()}", stage.title)
         val names =
@@ -195,7 +193,6 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
     ) {
         project.resolve("README.md").createFile()
         robot.interact { projectService.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
         val fontSize = fontSettings.font(FontArea.EXPLORER).value.size
         val shortNames = fileExplorer.startWidth()
         assertTrue(shortNames < 24 * fontSize - DIVIDER_SLACK, "start width $shortNames for font size $fontSize")
@@ -211,12 +208,10 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         // barely wider than its 1000 px.
         val editorWidth = editorArea.width
         robot.interact { stage.width -= 300 }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(start, fileExplorer.width, DIVIDER_SLACK)
         assertEquals(editorWidth - 300, editorArea.width, DIVIDER_SLACK)
 
         robot.interact { stage.width += 300 }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(start, fileExplorer.width, DIVIDER_SLACK)
         assertEquals(editorWidth, editorArea.width, DIVIDER_SLACK)
     }
@@ -232,9 +227,7 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         val width = stage.width
         try {
             robot.interact { stage.width = 400.0 }
-            WaitForAsyncUtils.waitForFxEvents()
             robot.interact { projectService.open(project) }
-            WaitForAsyncUtils.waitForFxEvents()
             val split = splitPaneOf(fileExplorer)
             assertTrue(fileExplorer.startWidth() > split.width / 2, "a name that needs more than half the window")
             assertEquals(split.width / 2, fileExplorer.width, DIVIDER_SLACK)
@@ -292,7 +285,6 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         robot.interact { projectService.open(project) }
 
         robot.interact { fileExplorer.onOpenFile(readme) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf("README.md"), tabTitles(robot))
         val text = robot.lookup(".editor-content .code-area").queryAs(CodeArea::class.java)
@@ -325,7 +317,6 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         val readme = project.resolve("README.md").apply { writeText("# Hello") }
         robot.interact { projectService.open(project) }
         robot.interact { fileExplorer.onOpenFile(notes) }
-        WaitForAsyncUtils.waitForFxEvents()
         robot.interact { shownArea(robot).appendText("!") }
         robot.interact {
             fileExplorer.onOpenFile(todo)
@@ -337,7 +328,6 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
 
         docs.toFile().deleteRecursively()
         robot.interact { fileExplorer.onDeleted(docs, unsaved) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf("README.md"), tabTitles(robot))
     }

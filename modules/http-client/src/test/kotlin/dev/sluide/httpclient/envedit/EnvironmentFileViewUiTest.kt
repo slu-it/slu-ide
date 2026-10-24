@@ -138,7 +138,6 @@ internal class EnvironmentFileViewUiTest : EnvironmentFileViewUiFixture() {
         assertEquals("Public file", lock.tooltip.text)
 
         robot.interact { lock.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals("{}\n", privateFile.readText())
         assertTrue("\"host\": \"https://dev\"" in tab(privateFile).orEmpty(), tab(privateFile))
@@ -158,7 +157,6 @@ internal class EnvironmentFileViewUiTest : EnvironmentFileViewUiFixture() {
         val view = open(robot, publicText, privateText)
 
         robot.interact { (view.cell(robot, path("token"), "dev").lookup(".env-lock") as Button).fire() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertTrue("\"token\": \"s3cret\"" in view.text, view.text)
         assertFalse("s3cret" in tab(privateFile).orEmpty())

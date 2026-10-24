@@ -58,7 +58,6 @@ class WindowIconsUiTest {
     @Test
     fun `open stages and stages opened later get the logo in every size`(robot: FxRobot) {
         robot.interact { windowIcons.install() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(listOf(16.0, 32.0, 64.0, 128.0, 256.0), stage.icons.map { it.width })
         assertTrue(stage.icons.none { it.isError }, "all images load")
 

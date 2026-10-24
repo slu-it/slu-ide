@@ -53,7 +53,6 @@ class BackgroundTasksViewUiTest {
     private fun elapse(robot: FxRobot) {
         WaitForAsyncUtils.waitForFxEvents()
         robot.interact { timers.toList().forEach { it.run() } }
-        WaitForAsyncUtils.waitForFxEvents()
     }
 
     private fun rows(robot: FxRobot) =

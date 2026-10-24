@@ -87,7 +87,6 @@ class HttpFileViewUiTest {
     ): HttpFileView {
         val view = WaitForAsyncUtils.asyncFx<HttpFileView> { viewer.open(file) as HttpFileView }.get()
         robot.interact { container.children.setAll(view.node) }
-        WaitForAsyncUtils.waitForFxEvents()
         return view
     }
 

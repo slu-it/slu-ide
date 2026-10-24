@@ -87,15 +87,12 @@ class FoldControlsUiTest {
 
         fun visible() = WaitForAsyncUtils.asyncFx<Boolean> { folds.node.isVisible }.get()
         robot.interact { view.mode.set(PreviewMode.SOURCE) }
-        WaitForAsyncUtils.waitForFxEvents()
         assertFalse(visible())
         robot.interact { view.mode.set(PreviewMode.SPLIT) }
-        WaitForAsyncUtils.waitForFxEvents()
         assertTrue(visible())
         assertNotNull(robot.lookup(".preview-collapse-all").queryAs(Button::class.java))
         assertNotNull(robot.lookup(".preview-expand-all").queryAs(Button::class.java))
         robot.interact { view.mode.set(PreviewMode.PREVIEW) }
-        WaitForAsyncUtils.waitForFxEvents()
         assertTrue(visible())
     }
 

@@ -152,7 +152,6 @@ class PreviewFileViewUiTest {
         val loads = view.countLoads()
 
         robot.interact { view.sourceArea.replaceText(2, 8, "After") }
-        WaitForAsyncUtils.waitForFxEvents()
         assertTrue(view.dirty.get())
         assertEquals(0, loads.get(), "unsaved edits load nothing")
         assertEquals("Before", view.script("document.querySelector('h1').textContent"), "unsaved edits do not render")
@@ -172,7 +171,6 @@ class PreviewFileViewUiTest {
         file.writeText("# Theirs\n")
         val loads = view.countLoads()
         robot.interact { view.reload() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(0, loads.get(), "the conflict loads nothing")
         assertEquals("Before", view.script("document.querySelector('h1').textContent"), "the conflict renders nothing")
 
@@ -195,7 +193,6 @@ class PreviewFileViewUiTest {
 
         fun darkAfter(scheme: ColorScheme): Any? {
             robot.interact { container.scene.preferences.colorScheme = scheme }
-            WaitForAsyncUtils.waitForFxEvents()
             return view.script("document.body.classList.contains('dark')")
         }
 
@@ -224,7 +221,6 @@ class PreviewFileViewUiTest {
         val (_, view) = show(robot, longDocument)
 
         robot.interact { view.sourceArea.showParagraphAtTop(100) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertTrue((view.script("window.scrollY") as Number).toDouble() > 100.0)
         assertEquals(0.0, view.offsetOf(100), 5.0)
@@ -234,7 +230,6 @@ class PreviewFileViewUiTest {
     fun `after a reload the preview keeps its place`(robot: FxRobot) {
         val (file, view) = show(robot, longDocument)
         robot.interact { view.sourceArea.showParagraphAtTop(60) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         file.writeText(longDocument + "\nAdded\n")
         robot.interact { view.reload() }
@@ -468,7 +463,6 @@ class PreviewFileViewUiTest {
         )
 
         robot.interact { view.focus() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertSame(view.sourceArea, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get(), "Split")
 
         robot.interact {
@@ -485,7 +479,6 @@ class PreviewFileViewUiTest {
         robot.interact { view.mode.set(PreviewMode.PREVIEW) }
 
         robot.interact { view.showLine(40) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(PreviewMode.SPLIT, view.mode.get())
         assertEquals(40, WaitForAsyncUtils.asyncFx<Int> { view.sourceArea.currentParagraph }.get())
@@ -512,7 +505,6 @@ class PreviewFileViewUiTest {
         assertTrue(view.noticeShown(), "stopped")
 
         robot.interact { view.focus() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertSame(view.sourceArea, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get(), "Split")
 
         robot.interact {

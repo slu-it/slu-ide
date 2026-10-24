@@ -132,7 +132,6 @@ class TableOfContentsUiTest {
         mode: PreviewMode,
     ) {
         robot.interact { this.mode.set(mode) }
-        WaitForAsyncUtils.waitForFxEvents()
     }
 
     private fun FxRobot.modeButton(mode: PreviewMode) =
@@ -164,7 +163,6 @@ class TableOfContentsUiTest {
 
         robot.interact { area.moveTo(lines[2] + 10, 0) }
         robot.interact { toc.open() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertTrue(toc.isOpen)
         assertTrue(toc.overlay.isVisible)
@@ -185,9 +183,7 @@ class TableOfContentsUiTest {
         val target = lines[4]
 
         robot.interact { toc.open() }
-        WaitForAsyncUtils.waitForFxEvents()
         robot.interact { Event.fireEvent(cell(view, "Epsilon"), primaryMouseEvent(MouseEvent.MOUSE_CLICKED)) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(target, area.currentParagraph)
         assertEquals(0, area.caretColumn)
@@ -212,7 +208,6 @@ class TableOfContentsUiTest {
         view.script("sluide.scrollToLine(${lines[3] + 2})")
         WaitForAsyncUtils.waitForFxEvents()
         robot.interact { toc.open() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(3, toc.list.selectionModel.selectedIndex)
 
         robot.interact { toc.list.selectionModel.select(1) }
@@ -232,7 +227,6 @@ class TableOfContentsUiTest {
         val area = area(robot)
 
         robot.interact { toc.open() }
-        WaitForAsyncUtils.waitForFxEvents()
         robot.press(toc.list, KeyCode.ESCAPE)
         WaitForAsyncUtils.waitForFxEvents()
         assertFalse(toc.isOpen)
@@ -240,16 +234,12 @@ class TableOfContentsUiTest {
         assertTrue(view.sourceArea.isFocused, "Escape gives the focus back to the source")
 
         robot.interact { toc.open() }
-        WaitForAsyncUtils.waitForFxEvents()
         robot.interact { Event.fireEvent(area, primaryMouseEvent(MouseEvent.MOUSE_PRESSED)) }
-        WaitForAsyncUtils.waitForFxEvents()
         assertFalse(toc.isOpen)
         assertFalse(toc.button.isSelected)
 
         robot.interact { toc.open() }
-        WaitForAsyncUtils.waitForFxEvents()
         robot.interact { toc.button.isSelected = false }
-        WaitForAsyncUtils.waitForFxEvents()
         assertFalse(toc.isOpen)
 
         // The button itself opens it again and closes it: a press on it is not outside.
@@ -276,16 +266,13 @@ class TableOfContentsUiTest {
 
         robot.interact { area.moveTo(lines[0] + 5, 0) }
         robot.interact { toc.open() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(0, toc.list.selectionModel.selectedIndex)
 
         robot.interact { area.moveTo(lines[4] + 5, 0) }
-        WaitForAsyncUtils.waitForFxEvents()
         assertTrue(toc.isOpen)
         assertEquals(4, toc.list.selectionModel.selectedIndex)
 
         robot.interact { area.insertText(0, 0, "# Intro\n\n") }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(listOf("Intro") + titles.map { it.first }, toc.list.items.map { it.text })
         // The editor puts the caret at the end of the inserted text, in the section of Alpha, now at line 2.
         assertEquals(2, area.currentParagraph)
@@ -293,7 +280,6 @@ class TableOfContentsUiTest {
         assertEquals(2, toc.list.items[1].line)
 
         robot.interact { area.moveTo(lines[4] + 2 + 5, 0) }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals("Epsilon", selectedTexts(view))
     }
 
@@ -315,7 +301,6 @@ class TableOfContentsUiTest {
         index: Int,
     ) {
         robot.interact { toc.open() }
-        WaitForAsyncUtils.waitForFxEvents()
         robot.interact { toc.list.selectionModel.select(index) }
         robot.press(toc.list, KeyCode.ENTER)
         WaitForAsyncUtils.waitForFxEvents()
@@ -364,7 +349,6 @@ class TableOfContentsUiTest {
         WaitForAsyncUtils.waitForFxEvents()
 
         robot.interact { toc.open() }
-        WaitForAsyncUtils.waitForFxEvents()
         val headings = toc.list.items
         val top = (view.script("sluide.topLine()") as Number).toInt()
         assertEquals(7, headings.size)
@@ -382,7 +366,6 @@ class TableOfContentsUiTest {
         view.script("sluide.scrollToLine(${lines[2] + 2})")
         WaitForAsyncUtils.waitForFxEvents()
         robot.interact { toc.open() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(
             "Hidden",
@@ -404,7 +387,6 @@ class TableOfContentsUiTest {
         val toc = view.toc!!
 
         robot.interact { toc.open() }
-        WaitForAsyncUtils.waitForFxEvents()
         val source = robot.modeButton(PreviewMode.SOURCE)
         robot.interact {
             Event.fireEvent(source, primaryMouseEvent(MouseEvent.MOUSE_PRESSED))

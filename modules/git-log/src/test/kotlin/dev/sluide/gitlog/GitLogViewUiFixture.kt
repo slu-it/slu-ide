@@ -462,7 +462,6 @@ abstract class GitLogViewUiFixture {
         sceneY: Double = 1.0,
     ) {
         robot.interact { fireClick(node, clickCount, sceneX, sceneY) }
-        WaitForAsyncUtils.waitForFxEvents()
     }
 
     /** Fires a click at [node] on the JavaFX thread, without waiting: for steps that must not be interrupted. */

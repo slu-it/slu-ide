@@ -97,7 +97,6 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
         file: Path = app,
     ) {
         robot.interact { view.showHistory(file) }
-        WaitForAsyncUtils.waitForFxEvents()
     }
 
     private fun selectHistoryRow(
@@ -105,7 +104,6 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
         index: Int,
     ) {
         robot.interact { historyView.table.selectionModel.clearAndSelect(index) }
-        WaitForAsyncUtils.waitForFxEvents()
     }
 
     private fun middleClick(
@@ -211,7 +209,6 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
         // Up to here: the commit's path, from the commit on; a deleted file's from its first parent.
         robot.interact { view.tabs.showHistoryUpTo(commitOf(4), GitChangedFile(GitChange.MODIFIED, "src/App.kt")) }
         robot.interact { view.tabs.showHistoryUpTo(commitOf(7), GitChangedFile(GitChange.DELETED, "gone.txt")) }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(listOf("Log", "History: App.kt", "History: App.kt", "[History: gone.txt]"), headerTabs())
         eventually {
             assertTrue(listOf("src/App.kt", "h4", 0, 500) in historyLoads)
@@ -385,7 +382,6 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
 
         selectHistoryRow(robot, 2)
         robot.interact { historyView.showInLogItem.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertNull(view.tabs.selectedHistoryView)
         assertEquals(listOf("[Log]", "History: App.kt"), headerTabs())
         eventually {
@@ -460,7 +456,6 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
         robot.interact { view.expanded.set(false) }
         val before = historyLoads.size
         robot.interact { view.refresh() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(before, historyLoads.size)
         robot.interact { view.expanded.set(true) }
         eventually { assertEquals(before + 1, historyLoads.size) }
@@ -484,7 +479,6 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
         assertFalse(changes.showHistoryItem.isDisable)
 
         robot.interact { changes.showHistoryItem.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf("Log", "[History: new.md]"), headerTabs())
         eventually { assertTrue(listOf("docs/new.md", "h1", 0, 500) in historyLoads) }
@@ -578,7 +572,6 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
         // A history that failed while not shown says so when it is again.
         fileHistoryOf = { _, _ -> null }
         robot.interact { view.refresh() }
-        WaitForAsyncUtils.waitForFxEvents()
         click(
             robot,
             view.tabs.historyTabs

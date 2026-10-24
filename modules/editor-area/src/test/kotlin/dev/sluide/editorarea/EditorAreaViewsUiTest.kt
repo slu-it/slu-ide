@@ -69,7 +69,6 @@ class EditorAreaViewsUiTest : EditorAreaUiFixture() {
             }
 
         robot.interact { editor.open(tab) }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(listOf("a.txt", "Terminal 1"), tabTitles(robot))
         assertSame(tab, editor.selectedTab)
         assertNull(editor.selectedPath)
@@ -77,7 +76,6 @@ class EditorAreaViewsUiTest : EditorAreaUiFixture() {
         assertTrue(robot.lookup(".editor-content .other-content").tryQuery<Node>().isPresent)
 
         robot.interact { shellTitle.set("vim README.md") }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(listOf("a.txt", "vim README.md"), tabTitles(robot))
 
         robot.interact { editor.closeAll() }
@@ -93,7 +91,6 @@ class EditorAreaViewsUiTest : EditorAreaUiFixture() {
         val serif = FontSpec("Serif", 21.0, FontStyle.ITALIC)
 
         robot.interact { fontSettings.apply(mapOf(FontArea.EDITOR to serif)) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         val codeText =
             robot
@@ -103,7 +100,6 @@ class EditorAreaViewsUiTest : EditorAreaUiFixture() {
         assertEquals(21.0, codeText.font.size, "code view text inherits the size")
         assertEquals("Serif", codeText.font.family)
         robot.interact { editor.editorTabs.select(checkNotNull(editor.editorTabs.find(text))) }
-        WaitForAsyncUtils.waitForFxEvents()
         val plainText =
             robot
                 .lookup(".editor-content .code-area .text")
@@ -192,7 +188,6 @@ class EditorAreaViewsUiTest : EditorAreaUiFixture() {
         val host = assertNotNull(viewer.views.single().host)
 
         robot.interact { assertTrue(host.openFile(text, 79)) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         val code = robot.lookup(".editor-content .code-area").queryAs(CodeArea::class.java)
         assertEquals(text, area.selectedPath)
@@ -216,7 +211,6 @@ class EditorAreaViewsUiTest : EditorAreaUiFixture() {
         robot.interact { area.open(text) }
 
         robot.interact { assertTrue(host.openFile(markdown, 300)) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertTrue(modeButton("Split").isSelected, "the source shows beside the preview")
         val source = robot.from(tab).lookup(".code-area").queryAs(CodeArea::class.java)
@@ -238,7 +232,6 @@ class EditorAreaViewsUiTest : EditorAreaUiFixture() {
 
         // Opened anew, its view asks to focus the diagram once its split pane is in the scene.
         robot.interact { assertTrue(host.openFile(chart, 150)) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         val source =
             robot

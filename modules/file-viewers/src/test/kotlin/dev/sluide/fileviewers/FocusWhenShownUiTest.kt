@@ -46,7 +46,6 @@ class FocusWhenShownUiTest {
         assertEquals(emptyList(), calls, "not before it is shown")
 
         robot.interact { container.children.setAll(field) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf("field"), calls)
     }
@@ -57,7 +56,6 @@ class FocusWhenShownUiTest {
         robot.interact { focusing.request(field) }
 
         robot.interact { container.children.setAll(field) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertSame(field, field.scene.focusOwner)
     }
@@ -71,7 +69,6 @@ class FocusWhenShownUiTest {
         }
 
         robot.interact { container.children.setAll(field) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf("second"), calls)
     }
@@ -85,7 +82,6 @@ class FocusWhenShownUiTest {
         }
 
         robot.interact { container.children.setAll(field) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(emptyList(), calls)
     }

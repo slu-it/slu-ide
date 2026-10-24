@@ -177,7 +177,6 @@ class SettingsUiTest {
         val first = open(robot, fontsPage)
         val terminal = fontsPage.rows.getValue(FontArea.TERMINAL)
         robot.interact { terminal.size.valueFactory.value = 30.0 }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(
             30.0,
             fontsPage.terminalPreview

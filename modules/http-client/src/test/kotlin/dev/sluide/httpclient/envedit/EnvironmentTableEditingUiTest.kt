@@ -70,7 +70,6 @@ internal class EnvironmentTableEditingUiTest : EnvironmentFileViewUiFixture() {
         assertTrue(field.isFocused)
         robot.interact { field.text = "https://left" }
         robot.interact { view.showValues.requestFocus() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertTrue("\"host\": \"https://left\"" in view.text, view.text)
         assertNull(view.form.tree.editingCell)
@@ -84,7 +83,6 @@ internal class EnvironmentTableEditingUiTest : EnvironmentFileViewUiFixture() {
         val field = cell.graphic as TextField
         robot.interact { field.text = "80 80" }
         robot.interact { view.showValues.requestFocus() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertFalse(cell.isEditing)
         assertEquals(publicText, view.text)
@@ -119,7 +117,6 @@ internal class EnvironmentTableEditingUiTest : EnvironmentFileViewUiFixture() {
         val top = flow().firstVisibleCell.index
 
         robot.interact { view.form.setValue("dev", path("v40"), EnvJson.nodes.stringNode("changed")) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertTrue("\"v40\": \"changed\"" in view.text)
         assertFalse(view.item(path("db")).isExpanded)
@@ -133,7 +130,6 @@ internal class EnvironmentTableEditingUiTest : EnvironmentFileViewUiFixture() {
     fun `the environments share the width the name and type leave`(robot: FxRobot) {
         val view = open(robot, publicText, privateText)
         robot.interact { view.modeButtons[2].fire() }
-        WaitForAsyncUtils.waitForFxEvents()
         val tree = view.form.tree
         val (name, type, dev, prod) = tree.columns.toList()
 

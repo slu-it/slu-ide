@@ -292,12 +292,10 @@ class DocumentZoomUiTest {
             view.key(KeyCode.EQUALS)
             try {
                 robot.interact { container.scene.preferences.colorScheme = ColorScheme.DARK }
-                WaitForAsyncUtils.waitForFxEvents()
                 awaitShows(view, INITIAL)
                 assertZoom(view, 1.25, "125%")
             } finally {
                 robot.interact { container.scene.preferences.colorScheme = ColorScheme.LIGHT }
-                WaitForAsyncUtils.waitForFxEvents()
             }
         }
     }

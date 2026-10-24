@@ -77,7 +77,6 @@ class DiffFileViewUiTest {
     ): Pair<CodeArea, CodeArea> {
         val view = openDiff(file, diff)
         robot.interact { container.children.setAll(view.node) }
-        WaitForAsyncUtils.waitForFxEvents()
         val areas = robot.lookup(".code-area").queryAllAs(CodeArea::class.java).sortedBy { it.localToScene(0.0, 0.0).x }
         return areas[0] to areas[1]
     }
@@ -96,7 +95,6 @@ class DiffFileViewUiTest {
         right: CodeArea,
     ): Int {
         interact { navigationButton(button).fire() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(left.currentParagraph, right.currentParagraph)
         return right.currentParagraph
     }
@@ -246,7 +244,6 @@ class DiffFileViewUiTest {
         val (left, right) = open(robot, file, TextDiff(long, listOf(LineChange(149..149, 149..149))))
 
         robot.interact { robot.navigationButton("Next").fire() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         val visible =
             WaitForAsyncUtils.asyncFx<List<Int>> { listOf(left, right).map { it.firstVisibleParToAllParIndex() } }
@@ -281,11 +278,9 @@ class DiffFileViewUiTest {
         val view =
             openDiff(file, TextDiff(long, emptyList()))
         robot.interact { container.children.setAll(view.node) }
-        WaitForAsyncUtils.waitForFxEvents()
         val areas = robot.lookup(".code-area").queryAllAs(CodeArea::class.java).toList()
 
         robot.interact { areas[0].scrollYToPixel(500.0) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         val first = areas[0].firstVisibleParToAllParIndex()
         assertTrue(first > 10, "scrolled to row $first")
@@ -301,7 +296,6 @@ class DiffFileViewUiTest {
 
         file.writeText("a\n")
         robot.interact { view.show(TextDiff("a\n", emptyList())) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         val right = robot.lookup(".code-area").queryAllAs(CodeArea::class.java).maxBy { it.localToScene(0.0, 0.0).x }
         assertEquals("a", right.text)
@@ -314,7 +308,6 @@ class DiffFileViewUiTest {
         val diff = TextDiff("a\n", listOf(LineChange(1 until 1, 1..1)))
         val view = openDiff(file, diff)
         robot.interact { container.children.setAll(view.node) }
-        WaitForAsyncUtils.waitForFxEvents()
         val right = robot.lookup(".code-area").queryAllAs(CodeArea::class.java).maxBy { it.localToScene(0.0, 0.0).x }
         val before = right.paragraphClasses()
 
@@ -337,7 +330,6 @@ class DiffFileViewUiTest {
         val view =
             assertNotNull(WaitForAsyncUtils.asyncFx<DiffFileView?> { viewers.openDiff(name, current, diff) }.get())
         robot.interact { container.children.setAll(view.node) }
-        WaitForAsyncUtils.waitForFxEvents()
         val (left, right) =
             robot.lookup(".code-area").queryAllAs(CodeArea::class.java).sortedBy { it.localToScene(0.0, 0.0).x }
 

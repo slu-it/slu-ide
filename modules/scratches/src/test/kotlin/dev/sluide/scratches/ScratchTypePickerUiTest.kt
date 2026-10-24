@@ -51,7 +51,6 @@ class ScratchTypePickerUiTest {
         preselected: ScratchType? = markdown,
     ) {
         robot.interact { picker.show(stage, preselected) { picked = it } }
-        WaitForAsyncUtils.waitForFxEvents()
     }
 
     private fun names() = picker.list.items.map { it.name }
