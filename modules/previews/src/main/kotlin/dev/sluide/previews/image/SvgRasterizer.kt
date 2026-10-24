@@ -148,13 +148,13 @@ internal class WebViewSvgRasterizer(
                 listOf("naturalWidth", "naturalHeight").map {
                     (engine.executeScript("document.getElementById('svg').$it") as? Number)?.toLong() ?: 0
                 }
-            // An image that WebKit could not decode has no size.
-            if (naturalWidth <= 0 || naturalHeight <= 0) return fail("Not an SVG image")
-            val (width, height) = naturalWidth * scale to naturalHeight * scale
-            if (width > MAX_SIDE || height > MAX_SIDE || width * height > MAX_PIXELS) {
-                return fail("Too large at ${scale * 100}%: $width × $height px")
-            }
-            val image = BufferedImage(width.toInt(), height.toInt(), BufferedImage.TYPE_INT_ARGB)
+            val (width, height) =
+                try {
+                    checkedSize(naturalWidth, naturalHeight, scale)
+                } catch (e: IOException) {
+                    return fail(e.message.orEmpty())
+                }
+            val image = BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB)
             val (viewWidth, viewHeight) = minOf(tile, image.width).toDouble() to minOf(tile, image.height).toDouble()
             webView.setMinSize(viewWidth, viewHeight)
             webView.setPrefSize(viewWidth, viewHeight)
@@ -300,4 +300,26 @@ internal class WebViewSvgRasterizer(
                 append(Base64.getEncoder().encodeToString(svg)).append("\">")
             }
     }
+}
+
+/**
+ * The size in pixels of an image of [naturalWidth] × [naturalHeight] drawn at [scale] times its size.
+ *
+ * @throws IOException if the image has no size (WebKit could not decode it) or is larger than
+ *   [WebViewSvgRasterizer.MAX_SIDE] on a side or [WebViewSvgRasterizer.MAX_PIXELS] in all
+ */
+internal fun checkedSize(
+    naturalWidth: Long,
+    naturalHeight: Long,
+    scale: Int,
+): Pair<Int, Int> {
+    if (naturalWidth <= 0 || naturalHeight <= 0) throw IOException("Not an SVG image")
+    val (width, height) = naturalWidth * scale to naturalHeight * scale
+    if (width > WebViewSvgRasterizer.MAX_SIDE ||
+        height > WebViewSvgRasterizer.MAX_SIDE ||
+        width * height > WebViewSvgRasterizer.MAX_PIXELS
+    ) {
+        throw IOException("Too large at ${scale * 100}%: $width × $height px")
+    }
+    return width.toInt() to height.toInt()
 }

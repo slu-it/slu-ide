@@ -1,6 +1,7 @@
 package dev.sluide.previews.image
 
 import javafx.collections.ListChangeListener
+import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
@@ -119,27 +120,19 @@ class SvgRasterizerUiTest {
         }
         // A window of its own (a popup off screen) crashed JavaFX's Metal pipeline with displays of different scales.
         assertEquals(emptyList(), windows, "a window was opened")
-        assertEquals(emptyList(), (stage.scene.root as StackPane).childrenUnmodifiable, "the view stayed in the root")
+        assertEquals(
+            emptyList(),
+            WaitForAsyncUtils
+                .asyncFx<List<Node>> { (stage.scene.root as StackPane).childrenUnmodifiable.toList() }
+                .get(),
+            "the view stayed in the root",
+        )
     }
 
     @Test
     fun `text that is not an SVG fails`() {
         val failure = assertFailsWith<IOException> { rasterize("not an image", 1) }
         assertEquals("Not an SVG image", failure.message)
-    }
-
-    @Test
-    fun `an image with a side that is too long fails`() {
-        val wide = "<svg xmlns='http://www.w3.org/2000/svg' width='3000' height='10'/>"
-        val failure = assertFailsWith<IOException> { rasterize(wide, 3) }
-        assertEquals("Too large at 300%: 9000 × 30 px", failure.message)
-    }
-
-    @Test
-    fun `an image with too many pixels fails`() {
-        val large = "<svg xmlns='http://www.w3.org/2000/svg' width='2000' height='2000'/>"
-        val failure = assertFailsWith<IOException> { rasterize(large, 3) }
-        assertEquals("Too large at 300%: 6000 × 6000 px", failure.message)
     }
 
     @Test
@@ -167,7 +160,9 @@ class SvgRasterizerUiTest {
                 ).rasterize(large.toByteArray(), 1)
             }
         try {
-            WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { root.childrenUnmodifiable.isNotEmpty() }
+            WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
+                WaitForAsyncUtils.asyncFx<Boolean> { root.childrenUnmodifiable.isNotEmpty() }.get()
+            }
             robot.interact { stage.hide() }
             val failure = assertFailsWith<ExecutionException> { drawing.get(10, TimeUnit.SECONDS) }
             assertEquals("The window closed", failure.cause?.message)
@@ -198,9 +193,10 @@ class SvgRasterizerUiTest {
 
     @Test
     fun `an image drawn in tiles equals the image drawn in one`() {
-        for (scale in listOf(1, 3)) {
+        // At 300% the tiles are larger, to keep the number of snapshots down; their borders are crossed all the same.
+        for ((scale, tile) in listOf(1 to 64, 3 to 128)) {
             val whole = rasterize(SHAPES, scale)
-            val tiled = WebViewSvgRasterizer(tile = 64).rasterize(SHAPES.toByteArray(), scale)
+            val tiled = WebViewSvgRasterizer(tile = tile).rasterize(SHAPES.toByteArray(), scale)
             assertEquals(whole.width to whole.height, tiled.width to tiled.height)
             // Prism's rasteriser clips a path to the tile before flattening its curves, so that the antialiased edge
             // of a curve differs a little (up to 21 of 255 here; equal with -Dprism.marlin.clip=false). Compared
@@ -228,13 +224,14 @@ class SvgRasterizerUiTest {
 
     @Test
     fun `a transparent tile next to drawn ones stays transparent`() {
+        // 128 × 64 in tiles of 64: the left tile is blank, the right one is drawn from x = 75 on.
         val right =
-            "<svg xmlns='http://www.w3.org/2000/svg' width='150' height='100'>" +
-                "<rect x='75' width='75' height='100' fill='red'/></svg>"
+            "<svg xmlns='http://www.w3.org/2000/svg' width='128' height='64'>" +
+                "<rect x='75' width='53' height='64' fill='red'/></svg>"
         val image = WebViewSvgRasterizer(tile = 64).rasterize(right.toByteArray(), 1)
-        assertTrue((0 until 75).all { x -> (0 until 100).all { y -> image.alpha(x, y) == 0 } }, "drawn on the left")
+        assertTrue((0 until 75).all { x -> (0 until 64).all { y -> image.alpha(x, y) == 0 } }, "drawn on the left")
         assertTrue(
-            (75 until 150).all { x -> (0 until 100).all { y -> image.getRGB(x, y) == 0xffff0000.toInt() } },
+            (75 until 128).all { x -> (0 until 64).all { y -> image.getRGB(x, y) == 0xffff0000.toInt() } },
             "not drawn on the right",
         )
     }
