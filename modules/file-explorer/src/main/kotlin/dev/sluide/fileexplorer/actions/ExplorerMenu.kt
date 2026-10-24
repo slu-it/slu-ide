@@ -134,7 +134,9 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
             fileActionItems.clear()
             val paths = targets.map { it.value }
             fileActionsFor(paths, Files::isRegularFile, host.fileActions()).mapTo(fileActionItems) { action ->
-                MenuItem(action.label, action.icon?.invoke()).apply { setOnAction { action.perform(paths.single()) } }
+                // The icon takes the colour of the item's text (file-explorer.css), in both themes.
+                val icon = action.icon?.invoke()?.apply { styleClass += "file-action-icon" }
+                MenuItem(action.label, icon).apply { setOnAction { action.perform(paths.single()) } }
             }
             items.addAll(items.indexOf(open) + 1, fileActionItems)
             items.removeAll(actionItems)

@@ -18,6 +18,18 @@
 }
 
 /*
+ * The icons of file actions in the context menu (FileAction, e.g. Run) in the colour of the item's text, also on the
+ * selected item; Modena's looked-up colours, so theme.css re-tints them for the dark theme (ADR 0009).
+ */
+.file-action-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.menu-item:focused .file-action-icon {
+    -fx-icon-color: -fx-selection-bar-text;
+}
+
+/*
  * The folder dragged entries would be moved into (TreeDragAndDrop): framed in the accent colour on a pale tint of it,
  * a deep one in the dark theme below; the text in the normal colour, also on a selected row.
  */

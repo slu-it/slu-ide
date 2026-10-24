@@ -2,12 +2,16 @@ package dev.sluide.fileexplorer
 
 import javafx.event.Event
 import javafx.scene.Node
+import javafx.scene.control.Labeled
 import javafx.scene.control.MenuItem
 import javafx.scene.input.ContextMenuEvent
 import javafx.scene.layout.Region
+import javafx.scene.paint.Color
+import javafx.scene.paint.Paint
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
+import org.kordamp.ikonli.javafx.FontIcon
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
@@ -18,6 +22,7 @@ import kotlin.io.path.name
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -141,5 +146,30 @@ class FileExplorerViewFolderActionsUiTest : FileExplorerViewUiFixture() {
         assertNotNull(run.graphic)
         robot.interact { run.fire() }
         assertEquals(listOf(project.resolve("run.txt")), performed)
+    }
+
+    @Test
+    fun `the icon of a file action has the colour of the menu's text, also on a dark base`(robot: FxRobot) {
+        project.resolve("run.txt").createFile()
+        openProject(robot)
+        view.fileActions = listOf(FileAction("Run", { FontIcon() }, { true }) {})
+        // Dark like the dark theme, which re-tints Modena's base colour: an icon left black would vanish.
+        robot.interact { view.scene.stylesheets += "data:text/css,.root { -fx-base: %232b2b2b; }" }
+
+        robot.interact {
+            val cell = cellNamed(robot, "run.txt")
+            Event.fireEvent(
+                cell,
+                ContextMenuEvent(ContextMenuEvent.CONTEXT_MENU_REQUESTED, 1.0, 1.0, 1.0, 1.0, false, null),
+            )
+        }
+        robot.interact {
+            val item = view.contextMenu.items.single { it.text == "Run" }
+            val icon = item.graphic as FontIcon
+            val label = robot.lookup(".context-menu .label").queryAll<Labeled>().first { it.text == "Run" }
+            assertEquals(label.textFill, icon.iconColor)
+            assertNotEquals<Paint>(Color.BLACK, icon.iconColor)
+            view.contextMenu.hide()
+        }
     }
 }
