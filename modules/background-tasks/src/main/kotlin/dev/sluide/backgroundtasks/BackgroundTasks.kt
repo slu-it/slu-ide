@@ -101,7 +101,8 @@ class BackgroundTasks internal constructor(
     /** The window closes: tasks still running are logged as abandoned; later starts still log but are never shown. */
     override fun close() {
         closed = true
-        for (task in running.sortedBy { it.number }) task.abandon()
+        // toTypedArray, not toList: a task ending meanwhile must not make the copy throw (size read, then iterated).
+        for (task in running.toTypedArray().sortedBy { it.number }) task.abandon()
         dispatch(Runnable { shownTasks.clear() })
     }
 
