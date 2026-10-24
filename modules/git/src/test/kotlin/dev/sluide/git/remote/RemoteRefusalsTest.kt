@@ -3,6 +3,7 @@ package dev.sluide.git.remote
 import dev.sluide.git.RemoteRepository
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 
 class RemoteRefusalsTest {
@@ -89,6 +90,49 @@ class RemoteRefusalsTest {
     fun `accepts refs that name branches, tags and commits`() {
         for (ref in listOf("main", "v4", "v4.1.2", "release/1.x", "feature_a-b", "a".repeat(40))) {
             assertNull(refRefusal(ref), ref)
+        }
+    }
+
+    @Test
+    fun `refuses refs that are no branch, tag or commit name`() {
+        for (ref in listOf("-v", "a..b", "x.lock", "a//b", "/a", "a/", ".a", "a b", "@{1}", "HEAD@{1}", "")) {
+            assertEquals("invalid ref '$ref'", refRefusal(ref), ref)
+        }
+    }
+
+    @Test
+    fun `refuses paths that are not relative and slash-separated`() {
+        for (path in listOf("", "/action.yml", "../action.yml", "a/../action.yml", "a\\b", "a//b", "./action.yml")) {
+            assertEquals("invalid path '$path'", pathRefusal(path), path)
+        }
+        for (path in listOf("action.yml", ".github/workflows/ci.yml", "a/b.c")) {
+            assertNull(pathRefusal(path), path)
+        }
+    }
+
+    @Test
+    fun `refuses hosts, owners and names that cannot name a cache folder`() {
+        val repository = RemoteRepository("example.com", "owner", "repo", "https://example.com/owner/repo.git")
+        assertNull(locationRefusal(repository))
+        val invalid =
+            listOf(
+                repository.copy(host = "-oProxyCommand=x"),
+                repository.copy(host = "example.com/x"),
+                repository.copy(owner = ".."),
+                repository.copy(owner = "-x"),
+                repository.copy(name = "a/b"),
+            )
+        for (candidate in invalid) {
+            assertNotNull(locationRefusal(candidate), candidate.toString())
+        }
+    }
+
+    @Test
+    fun `only a full commit hash is a commit`() {
+        assertNull(commitRefusal("a".repeat(40)))
+        assertNull(commitRefusal("A".repeat(64)))
+        for (commit in listOf("main", "a".repeat(12), "a".repeat(39), "a".repeat(41), "")) {
+            assertEquals("invalid commit '$commit'", commitRefusal(commit), commit)
         }
     }
 

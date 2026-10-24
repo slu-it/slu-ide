@@ -216,39 +216,26 @@ class RemoteSourceCacheTest {
     @Test
     fun `refuses invalid names, refs, commits, paths and URLs before git runs`() {
         val commit = commit("action.yml" to "name: one\n")
-        val invalid =
-            listOf(
-                repository.copy(host = "-oProxyCommand=x"),
-                repository.copy(host = "example.com/x"),
-                repository.copy(owner = ".."),
-                repository.copy(owner = "-x"),
-                repository.copy(name = "a/b"),
-                repository.copy(url = "ext::sh -c touch% /tmp/pwned"),
-                repository.copy(url = "-oProxyCommand=x"),
-                repository.copy(url = "ssh://-oProxyCommand=x/a/b"),
-                repository.copy(url = "https://user:token@example.com/a/b.git"),
-                repository.copy(url = "http://example.com/a/b.git"),
-                repository.copy(url = "/tmp/a/b"),
-                repository.copy(url = "../a/b"),
-                repository.copy(url = "https://example.com/other/repo.git"),
-                repository.copy(url = "https://example.org/owner/repo.git"),
-                repository.copy(url = "file://${folder.resolve("server/owner/other")}"),
-            )
-        for (repository in invalid) {
-            assertIs<RemoteFetch.Failed>(cache.fetch(repository, "main"), repository.toString())
-        }
-        for (ref in listOf("-v", "a..b", "x.lock", "a//b", "/a", "a/", ".a", "a b", "@{1}", "HEAD@{1}", "")) {
-            assertIs<RemoteFetch.Failed>(cache.fetch(repository, ref), ref)
-            assertNull(cache.commit(repository, ref), ref)
-        }
-        for (path in listOf("", "/action.yml", "../action.yml", "a/../action.yml", "a\\b", "a//b", "./action.yml")) {
-            assertIs<RemoteRead.Failed>(cache.read(repository, commit, path, network = true), path)
-        }
+        // One case per entry point; what each refusal covers is tested in RemoteRefusalsTest.
+        assertIs<RemoteFetch.Failed>(cache.fetch(repository.copy(host = "-oProxyCommand=x"), "main"))
+        assertIs<RemoteFetch.Failed>(cache.fetch(repository.copy(url = "ext::sh -c touch% /tmp/pwned"), "main"))
+        assertIs<RemoteFetch.Failed>(cache.fetch(repository, "a..b"))
+        assertNull(cache.commit(repository, "a..b"))
+        assertIs<RemoteRead.Failed>(cache.read(repository, commit, "../action.yml", network = true))
         assertIs<RemoteRead.Failed>(cache.read(repository, "main", "action.yml", network = true))
         assertIs<RemoteRead.Failed>(cache.read(repository, commit.take(12), "action.yml", network = true))
         // Local servers only for tests.
         assertIs<RemoteFetch.Failed>(RemoteSourceCache(git, cacheFolder).fetch(repository, "main"))
         assertFalse(cacheFolder.exists())
+    }
+
+    @Test
+    fun `a cache folder that cannot be created is not writable`() {
+        commit("action.yml" to "name: one\n")
+        cacheFolder.writeText("a file where the folder should be")
+
+        assertEquals(RemoteFetch.Failed("cache folder not writable"), cache.fetch(repository, "main"))
+        assertNull(cache.commit(repository, "main"))
     }
 
     @Test
@@ -258,7 +245,7 @@ class RemoteSourceCacheTest {
         assertEquals(RemoteFetch.Failed("cancelled"), cache.fetch(repository, "main", cancelled))
 
         val started = folder.resolve("started")
-        val slow = slowCache(started, folder.resolve("log"), seconds = 30)[0]
+        val slow = slowCache(started, folder.resolve("log"), seconds = "30")[0]
         val cancellation = GitCancellation()
         val fetch = CompletableFuture.supplyAsync { slow.fetch(repository, "main", cancellation) }
         awaitFile(started)
@@ -270,13 +257,36 @@ class RemoteSourceCacheTest {
     }
 
     @Test
+    fun `a fetch cancelled while it waits for another fetch of the repository fails at once`() {
+        commit("action.yml" to "name: one\n")
+        val started = folder.resolve("started")
+        val slow = slowCache(started, folder.resolve("log"), seconds = "30")
+        val running = GitCancellation()
+        val first = CompletableFuture.supplyAsync { slow[0].fetch(repository, "main", running) }
+        awaitFile(started)
+        val waitingCancellation = GitCancellation()
+        val waiting = CompletableFuture.supplyAsync { slow[1].fetch(repository, "main", waitingCancellation) }
+        Thread.sleep(300)
+        assertFalse(waiting.isDone, "it waits for the lock")
+        val cancelledAt = System.nanoTime()
+
+        waitingCancellation.cancel()
+
+        assertEquals(RemoteFetch.Failed("cancelled"), waiting.get(5, TimeUnit.SECONDS))
+        assertTrue(System.nanoTime() - cancelledAt < TimeUnit.SECONDS.toNanos(5), "well before the first fetch ends")
+        assertFalse(first.isDone, "the first fetch is still running")
+        running.cancel()
+        assertEquals(RemoteFetch.Failed("cancelled"), first.get(10, TimeUnit.SECONDS))
+    }
+
+    @Test
     fun `fetches of one repository take turns`() {
         commit("action.yml" to "name: one\n")
         git("tag", "v1")
         commit("action.yml" to "name: two\n")
         val log = folder.resolve("log")
         // Two caches on one folder: also they take turns, with one lock.
-        val slow = slowCache(folder.resolve("started"), log, seconds = 1)
+        val slow = slowCache(folder.resolve("started"), log, seconds = "0.3")
 
         val fetches =
             listOf("main", "v1").zip(slow).map { (ref, cache) ->
@@ -387,7 +397,7 @@ class RemoteSourceCacheTest {
     private fun slowCache(
         started: Path,
         log: Path,
-        seconds: Int,
+        seconds: String,
     ): List<RemoteSourceCache> {
         val hook = hook("echo start >> '$log'\ntouch '$started'\nsleep $seconds\necho end >> '$log'\nexec \"$@\"")
         return List(2) { cacheWith("[uploadpack]\n\tpackObjectsHook = $hook\n") }
