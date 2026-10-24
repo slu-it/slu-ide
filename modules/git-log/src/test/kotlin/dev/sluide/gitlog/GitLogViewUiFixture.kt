@@ -18,41 +18,14 @@ import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitRevisionResolution
 import dev.sluide.git.GitTreePath
-import dev.sluide.gitlog.data.BranchLeaf
-import dev.sluide.gitlog.data.BranchNode
-import dev.sluide.gitlog.data.BranchParent
-import dev.sluide.gitlog.data.ChangeFile
-import dev.sluide.gitlog.data.ChangeFolder
-import dev.sluide.gitlog.data.ChangeNode
 import dev.sluide.gitlog.data.FakeWrites
-import dev.sluide.gitlog.data.GitLogRow
 import dev.sluide.gitlog.data.GitLogSource
-import dev.sluide.gitlog.data.GraphRow
-import dev.sluide.gitlog.data.MAX_LANES
-import dev.sluide.gitlog.filter.FilterButton
-import dev.sluide.gitlog.filter.FilterItem
-import dev.sluide.gitlog.filter.FilterPopup
-import dev.sluide.gitlog.table.GraphCell
-import dev.sluide.gitlog.table.GraphPane
-import dev.sluide.gitlog.table.LANE_WIDTH
 import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.Scene
-import javafx.scene.control.Label
-import javafx.scene.control.ListCell
-import javafx.scene.control.TableRow
-import javafx.scene.control.TreeCell
-import javafx.scene.control.TreeItem
-import javafx.scene.control.skin.VirtualFlow
-import javafx.scene.input.Clipboard
-import javafx.scene.input.KeyCode
-import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
-import javafx.scene.shape.Circle
-import javafx.scene.shape.LineTo
-import javafx.scene.shape.MoveTo
 import javafx.scene.text.Text
 import javafx.stage.Stage
 import org.junit.jupiter.api.AfterEach
@@ -64,12 +37,8 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import kotlin.test.assertEquals
 import kotlin.test.assertNotSame
-import kotlin.test.assertNull
-import kotlin.test.assertSame
 import kotlin.test.assertTrue
-import javafx.scene.shape.Path as ShapePath
 
 /**
  * The real git log view with a fake loader, shared by the `GitLogView*UiTest` classes. Needs a display, see the
@@ -499,98 +468,10 @@ abstract class GitLogViewUiFixture {
         }
     }
 
-    internal fun shownSubjects(robot: FxRobot): List<String> =
-        robot
-            .lookup(".git-log-table .table-row-cell")
-            .queryAllAs(TableRow::class.java)
-            .filter { !it.isEmpty && it.item != null }
-            .sortedBy { it.index }
-            .map { (it.item as GitLogRow).commit.subject }
-
-    internal fun placeholder(robot: FxRobot) =
-        robot.lookup(".git-log-table .placeholder .label").queryAs(Label::class.java).text
-
-    internal fun clipboard() = WaitForAsyncUtils.asyncFx<String> { Clipboard.getSystemClipboard().string }.get()
-
     internal fun commit(
         hash: String,
         vararg parents: String,
     ) = GitCommit(hash, parents.toList(), "A", "a@example.com", Instant.EPOCH, "Subject $hash")
-
-    /** A line of the graph: from (x, y) to (x, y) in a colour index. */
-    internal data class Segment(
-        val fromX: Double,
-        val fromY: Double,
-        val toX: Double,
-        val toY: Double,
-        val colour: Int,
-    )
-
-    /** The coloured lines [pane] draws (not its halo). */
-    internal fun drawn(pane: GraphPane): Set<Segment> =
-        pane.childrenUnmodifiable
-            .filterIsInstance<ShapePath>()
-            .filter { "git-graph-edge" in it.styleClass }
-            .flatMap { path ->
-                val colour =
-                    path.styleClass
-                        .single { it.matches(Regex("git-graph-edge-\\d")) }
-                        .last()
-                        .digitToInt()
-                path.elements.chunked(2).map { (move, line) ->
-                    move as MoveTo
-                    line as LineTo
-                    Segment(move.x, move.y, line.x, line.y, colour)
-                }
-            }.toSet()
-
-    /** The lines [row] should be drawn with at [height]: all but those with both ends beyond the lane cap. */
-    internal fun expected(
-        row: GraphRow,
-        height: Double,
-    ): Set<Segment> {
-        fun x(position: Int) = (position + 0.5) * LANE_WIDTH
-        val upper = (0 until row.upperEdges).map { Triple(row.upperFrom(it), row.upperTo(it), row.upperColour(it)) }
-        val lower = (0 until row.lowerEdges).map { Triple(row.lowerFrom(it), row.lowerTo(it), row.lowerColour(it)) }
-        return (
-            upper.map { (from, to, colour) -> Segment(x(from), 0.0, x(to), height / 2, colour) to (from to to) } +
-                lower.map { (from, to, colour) -> Segment(x(from), height / 2, x(to), height, colour) to (from to to) }
-        ).filter { (_, ends) -> ends.first < MAX_LANES || ends.second < MAX_LANES }
-            .map { it.first }
-            .toSet()
-    }
-
-    /** Asserts that [cell] shows exactly the graph of its row, or none when it is empty. */
-    internal fun assertDrawn(cell: GraphCell) {
-        val item = cell.item
-        if (item == null) {
-            assertNull(cell.graphic, "empty cell ${cell.index}")
-            assertNull(cell.content.parent, "empty cell ${cell.index}")
-            return
-        }
-        val graph = item.graph
-        assertSame<Node?>(cell.content, cell.graphic)
-        assertEquals(minOf(graph.width, MAX_LANES) * LANE_WIDTH, cell.graph.width, "row ${cell.index}")
-        assertEquals(expected(graph, cell.height), drawn(cell.graph), "row ${cell.index}")
-        val dot =
-            cell.graph.childrenUnmodifiable
-                .filterIsInstance<Circle>()
-                .single { "git-graph-dot" in it.styleClass }
-        assertEquals((graph.dot + 0.5) * LANE_WIDTH, dot.centerX, "row ${cell.index}")
-        assertEquals(cell.height / 2, dot.centerY, "row ${cell.index}")
-        assertTrue("git-graph-dot-${graph.colour}" in dot.styleClass, "row ${cell.index}: ${dot.styleClass}")
-        assertEquals(
-            1,
-            dot.styleClass.count { it.startsWith("git-graph-dot-") },
-            "row ${cell.index}: ${dot.styleClass}",
-        )
-    }
-
-    internal fun graphCells(robot: FxRobot) =
-        robot
-            .lookup(".git-graph-cell")
-            .queryAllAs(GraphCell::class.java)
-            .filter { it.tableRow?.isVisible == true && it.index >= 0 }
 
     internal fun ref(
         name: String,
@@ -612,12 +493,6 @@ abstract class GitLogViewUiFixture {
             "refs/heads/main",
         )
 
-    internal fun visibleIcons(cell: GraphCell) =
-        cell.labels
-            .lookupAll(".git-ref-icon")
-            .filter { it.isVisible && it.isManaged }
-            .map { icon -> icon.styleClass.single { it.startsWith("git-ref-") && it != "git-ref-icon" } }
-
     /** The details of a commit of [commits]: committed by its author when it was written, with a long body. */
     internal fun defaultDetails(hash: String): GitCommitDetails? {
         val commit = history?.firstOrNull { it.hash == hash } ?: return null
@@ -637,30 +512,6 @@ abstract class GitLogViewUiFixture {
         return "${date.withZone(zone).format(time)} at ${clock.withZone(zone).format(time)}"
     }
 
-    internal fun select(
-        robot: FxRobot,
-        vararg indices: Int,
-    ) {
-        robot.interact {
-            view.table.selectionModel.clearSelection()
-            indices.forEach(view.table.selectionModel::select)
-        }
-    }
-
-    internal val details get() = view.detailsPane
-
-    internal fun showsDetailsOf(subject: String) =
-        details.scroll.isVisible && !details.placeholder.isVisible && details.subject.text == subject
-
-    internal fun placeholderShown() =
-        if (details.placeholder.isVisible &&
-            !details.scroll.isVisible
-        ) {
-            details.placeholder.text
-        } else {
-            null
-        }
-
     internal val someFiles =
         listOf(
             GitChangedFile(GitChange.MODIFIED, "src/main/kotlin/dev/One.kt"),
@@ -668,154 +519,6 @@ abstract class GitLogViewUiFixture {
             GitChangedFile(GitChange.DELETED, "README.md"),
             GitChangedFile(GitChange.RENAMED, "docs/new.md", "docs/old.md"),
         )
-
-    internal val changes get() = view.changesPane
-
-    /** The expanded tree as indented names, folders ending with `/`. */
-    internal fun shownTree(): List<String> {
-        fun lines(
-            item: TreeItem<ChangeNode>,
-            indent: String,
-        ): List<String> =
-            item.children.flatMap { child ->
-                when (val node = child.value) {
-                    is ChangeFolder -> {
-                        listOf("$indent${node.name}/") +
-                            if (child.isExpanded) lines(child, "$indent  ") else emptyList()
-                    }
-
-                    is ChangeFile -> {
-                        listOf("$indent${node.name}")
-                    }
-                }
-            }
-        return if (changes.tree.isVisible) lines(changes.tree.root, "") else emptyList()
-    }
-
-    internal fun filesPlaceholder() =
-        if (changes.placeholder.isVisible && !changes.tree.isVisible) changes.placeholder.text else null
-
-    /** The shown cells of the tree, top to bottom. */
-    internal fun treeCells(robot: FxRobot): List<TreeCell<*>> =
-        robot
-            .lookup(".git-changes-tree .tree-cell")
-            .queryAllAs(TreeCell::class.java)
-            .filter { !it.isEmpty && it.item != null }
-            .sortedBy { it.index }
-
-    /** The cell of the file or folder named [name]. */
-    internal fun treeCell(
-        robot: FxRobot,
-        name: String,
-    ): TreeCell<*> = treeCells(robot).single { (it.item as ChangeNode).name == name }
-
-    /** Selects the file or folder named [name] in the tree. */
-    internal fun selectFile(
-        robot: FxRobot,
-        name: String,
-    ) {
-        robot.interact {
-            val index =
-                (0 until changes.tree.expandedItemCount).single {
-                    changes.tree
-                        .getTreeItem(it)
-                        .value.name == name
-                }
-            changes.tree.selectionModel.clearAndSelect(index)
-        }
-    }
-
-    internal fun pressInTree(
-        robot: FxRobot,
-        code: KeyCode,
-        shortcut: Boolean = false,
-    ) {
-        val mac = System.getProperty("os.name").startsWith("Mac")
-        robot.interact {
-            Event.fireEvent(
-                changes.tree,
-                KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, shortcut && !mac, false, shortcut && mac),
-            )
-        }
-        WaitForAsyncUtils.waitForFxEvents()
-    }
-
-    internal fun status(robot: FxRobot) = robot.lookup(".git-log-status").queryAs(Label::class.java).text
-
-    internal fun showFilesOfFirstCommit(robot: FxRobot) {
-        openAndExpand(robot)
-        select(robot, 0)
-        eventually { assertTrue(shownTree().isNotEmpty()) }
-    }
-
-    internal val bar get() = view.filterBar
-
-    /** Fires a key press at [node], with the shortcut key (Ctrl, Cmd on macOS) if [shortcut]. */
-    internal fun press(
-        robot: FxRobot,
-        node: Node,
-        code: KeyCode,
-        shortcut: Boolean = false,
-    ) {
-        val mac = System.getProperty("os.name").startsWith("Mac")
-        robot.interact {
-            Event.fireEvent(
-                node,
-                KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, shortcut && !mac, false, shortcut && mac),
-            )
-        }
-        WaitForAsyncUtils.waitForFxEvents()
-    }
-
-    /** The texts of the items a filter popup lists, in order. */
-    internal fun items(popup: FilterPopup) = popup.list.items.map { it.text }
-
-    /** The list cell of [popup] showing [text]. */
-    internal fun listCell(
-        popup: FilterPopup,
-        text: String,
-    ): ListCell<*> =
-        popup.list
-            .lookupAll(".list-cell")
-            .filterIsInstance<ListCell<*>>()
-            .single { (it.item as? FilterItem)?.text == text }
-
-    /** Clicks the list cell of [popup] showing [text]. */
-    internal fun clickItem(
-        robot: FxRobot,
-        popup: FilterPopup,
-        text: String,
-        clickCount: Int = 1,
-    ) {
-        WaitForAsyncUtils.waitForFxEvents()
-        val cell = listCell(popup, text)
-        // A double click: a first click, then one with a click count of 2.
-        for (count in 1..clickCount) click(robot, cell, count)
-    }
-
-    /**
-     * Waits until the popup of [filter] lists [expected], showing it again if it was closed meanwhile: popups close
-     * when another test JVM on the display takes the window's focus, and only a showing popup takes items read later.
-     * If it stayed open, the items reached it while it was showing (`FilterPopup.refresh`).
-     */
-    internal fun eventuallyLists(
-        filter: FilterButton,
-        expected: List<String>,
-    ) {
-        var shownAgain = false
-        var showingWhenListed = false
-        eventually {
-            if (!filter.popup.popup.isShowing) {
-                filter.button.fire()
-                shownAgain = true
-            }
-            assertEquals(expected, items(filter.popup))
-            showingWhenListed = filter.popup.popup.isShowing
-        }
-        if (!shownAgain) assertTrue(showingWhenListed, "the items reached the open popup")
-    }
-
-    internal val branches get() = view.branchesPane
 
     /** HEAD and main on h1, branches in folders, two remotes (one far down) and two tags. */
     internal val branchRefs =
@@ -834,82 +537,4 @@ abstract class GitLogViewUiFixture {
             ),
             "refs/heads/main",
         )
-
-    /** The tree as shown: the expanded nodes indented, groups and folders ending with `/`. */
-    internal fun shownBranches(): List<String> = WaitForAsyncUtils.asyncFx<List<String>> { branchLines() }.get()
-
-    /** [shownBranches], on the JavaFX thread. */
-    internal fun branchLines(): List<String> {
-        fun lines(
-            item: TreeItem<BranchNode>,
-            indent: String,
-        ): List<String> =
-            item.children.flatMap { child ->
-                when (val node = child.value) {
-                    is BranchParent -> {
-                        listOf("$indent${node.name}/") +
-                            if (child.isExpanded) lines(child, "$indent  ") else emptyList()
-                    }
-
-                    is BranchLeaf -> {
-                        listOf("$indent${node.name}")
-                    }
-                }
-            }
-        return lines(branches.tree.root, "")
-    }
-
-    /** The tree item of the node at [path], also in collapsed nodes. */
-    internal fun branchItem(path: String): TreeItem<BranchNode> {
-        fun find(item: TreeItem<BranchNode>): TreeItem<BranchNode>? =
-            if (item.value?.path == path) item else item.children.firstNotNullOfOrNull(::find)
-        return checkNotNull(find(branches.tree.root)) { path }
-    }
-
-    /** Selects the nodes at [paths] in the tree, as with the mouse and Shift/Ctrl. */
-    internal fun selectBranches(
-        robot: FxRobot,
-        vararg paths: String,
-    ) {
-        robot.interact {
-            // At once, as a click with Shift does: not one after the other.
-            val rows = paths.map { branches.tree.getRow(branchItem(it)) }
-            branches.tree.selectionModel.clearSelection()
-            branches.tree.selectionModel.selectIndices(rows.first(), *rows.drop(1).toIntArray())
-        }
-        WaitForAsyncUtils.waitForFxEvents()
-    }
-
-    /** Clicks [cell] at its right end, where a click selects it (not on the disclosure arrow). */
-    internal fun clickBranch(
-        robot: FxRobot,
-        cell: TreeCell<*>,
-        clickCount: Int = 1,
-    ) {
-        val point = WaitForAsyncUtils.asyncFx<javafx.geometry.Point2D> { cell.localToScene(cell.width - 10, 5.0) }.get()
-        click(robot, cell, clickCount, point.x, point.y)
-    }
-
-    internal fun branchCell(path: String): TreeCell<*> =
-        branches.tree
-            .lookupAll(".tree-cell")
-            .filterIsInstance<TreeCell<*>>()
-            .single { (it.item as? BranchNode)?.path == path }
-
-    internal fun openBranches(robot: FxRobot) {
-        refs = branchRefs
-        openAndExpand(robot)
-        eventually {
-            assertTrue(
-                branches.tree.root.children
-                    .isNotEmpty(),
-            )
-        }
-    }
-
-    /** The indices of the table's rows in view, the first and last possibly cut off. */
-    internal fun visibleRows(): IntRange {
-        val flow = view.table.lookup(".virtual-flow") as VirtualFlow<*>
-        return flow.firstVisibleCell.index..flow.lastVisibleCell.index
-    }
 }
