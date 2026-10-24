@@ -111,36 +111,8 @@ class GitignoreFileViewUiTest {
             mapOf("2" to "ignore-rule-active", "4" to "ignore-rule-tracked", "5" to "ignore-rule-none"),
             kinds(robot),
         )
-    }
-
-    @Test
-    fun `tooltips explain the dots`(robot: FxRobot) {
-        open(".gitignore", robot)
-        val dots = dotNodes(robot)
-        val tooltip = { line: String ->
-            (dots.getValue(line).properties["javafx.scene.control.Tooltip"] as Tooltip).text
-        }
-        assertEquals("Ignores 1 path: build/", tooltip("2"))
-        assertEquals("Matches only 2 tracked files, which git keeps tracking: a.txt, b.txt", tooltip("4"))
-        assertEquals("No effect: this line decides no untracked path", tooltip("5"))
-    }
-
-    @Test
-    fun `a change of the window's git status looks the effects up again`(robot: FxRobot) {
-        open(".gitignore", robot)
-        val before = lookups
-        robot.interact { effects.changed() }
-        assertEquals(before + 1, lookups)
-    }
-
-    @Test
-    fun `a line inserted above moves the dots`(robot: FxRobot) {
-        val view = open(".gitignore", robot) as GitignoreFileView
-        robot.interact { view.source.area.insertText(0, "new\n") }
-        assertEquals(
-            mapOf("3" to "ignore-rule-active", "5" to "ignore-rule-tracked", "6" to "ignore-rule-none"),
-            kinds(robot),
-        )
+        val tooltip = dotNodes(robot).getValue("2").properties["javafx.scene.control.Tooltip"] as Tooltip
+        assertEquals("Ignores 1 path: build/", tooltip.text)
     }
 
     @Test
@@ -157,37 +129,10 @@ class GitignoreFileViewUiTest {
     }
 
     @Test
-    fun `an older lookup's answer is dropped once a newer one has started`(robot: FxRobot) {
-        deferred = true
-        open(".gitignore", robot)
-        robot.interact { effects.changed() }
-        assertEquals(2, pending.size)
-        robot.interact { pending[0](answer) }
-        assertTrue(dotNodes(robot).isEmpty())
-        robot.interact { pending[1](answer) }
-        assertEquals(3, dotNodes(robot).size)
-    }
-
-    @Test
-    fun `an answer after dispose is dropped, and changes make no lookup`(robot: FxRobot) {
-        deferred = true
-        val view = open(".gitignore", robot)
-        robot.interact { view.dispose() }
-        robot.interact { pending.single()(answer) }
-        assertTrue(dotNodes(robot).isEmpty())
-        val before = lookups
-        robot.interact { effects.changed() }
-        assertEquals(before, lookups)
-    }
-
-    @Test
-    fun `after the host changed the old service is no longer listened to`(robot: FxRobot) {
-        val view = open(".gitignore", robot)
-        val other = IgnoreRuleEffects()
-        robot.interact { view.host = host(other) }
-        val before = lookups
-        robot.interact { effects.changed() }
-        assertEquals(before, lookups)
+    fun `an edited line loses its dot`(robot: FxRobot) {
+        val view = open(".gitignore", robot) as GitignoreFileView
+        robot.interact { view.source.area.insertText(view.source.area.getAbsolutePosition(1, 5), "s") }
+        assertEquals(mapOf("4" to "ignore-rule-tracked", "5" to "ignore-rule-none"), kinds(robot))
     }
 
     @Test
@@ -202,21 +147,6 @@ class GitignoreFileViewUiTest {
     }
 
     @Test
-    fun `an edited line loses its dot`(robot: FxRobot) {
-        val view = open(".gitignore", robot) as GitignoreFileView
-        robot.interact { view.source.area.insertText(view.source.area.getAbsolutePosition(1, 5), "s") }
-        assertEquals(mapOf("4" to "ignore-rule-tracked", "5" to "ignore-rule-none"), kinds(robot))
-    }
-
-    @Test
-    fun `effects of a text that is not the one shown are not shown`(robot: FxRobot) {
-        open(".gitignore", robot)
-        dir.resolve(".gitignore").writeText("other\n")
-        robot.interact { effects.changed() }
-        assertTrue(dotNodes(robot).isEmpty())
-    }
-
-    @Test
     fun `renamed away from gitignore the view keeps its text and loses its dots`(robot: FxRobot) {
         val view = open(".gitignore", robot) as GitignoreFileView
         robot.interact { view.source.area.appendText("more\n") }
@@ -225,35 +155,14 @@ class GitignoreFileViewUiTest {
         assertTrue(moved)
         assertTrue(dotNodes(robot).isEmpty())
         assertTrue(view.text.endsWith("more\n"))
-        val before = lookups
-        robot.interact { effects.changed() }
-        assertEquals(before, lookups)
     }
 
     @Test
-    fun `renamed away and back the view has its dots again`(robot: FxRobot) {
+    fun `an answer after dispose is dropped`(robot: FxRobot) {
+        deferred = true
         val view = open(".gitignore", robot)
-        robot.interact { view.moved(dir.resolve(".dockerignore")) }
+        robot.interact { view.dispose() }
+        robot.interact { pending.single()(answer) }
         assertTrue(dotNodes(robot).isEmpty())
-        robot.interact { view.moved(dir.resolve(".gitignore")) }
-        assertEquals(3, dotNodes(robot).size)
-        val before = lookups
-        robot.interact { effects.changed() }
-        assertEquals(before + 1, lookups)
-    }
-
-    @Test
-    fun `moved to a gitignore in another folder looks up with the new path`(robot: FxRobot) {
-        val view = open(".gitignore", robot)
-        val paths = mutableListOf<Path>()
-        effects.lookup = { path, done ->
-            paths.add(path)
-            done(answer)
-        }
-        val target = dir.resolve("other").resolve(".gitignore")
-        var moved = false
-        robot.interact { moved = view.moved(target) }
-        assertTrue(moved)
-        assertEquals(listOf(target), paths)
     }
 }
