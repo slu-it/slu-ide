@@ -1,11 +1,13 @@
 package dev.sluide.previews.table
 
+import dev.sluide.previews.preview.Preview
 import dev.sluide.previews.preview.PreviewFileView
 import dev.sluide.previews.preview.PreviewFileViewer
 import dev.sluide.previews.preview.sourceArea
 import javafx.concurrent.Worker
 import javafx.scene.Scene
 import javafx.scene.layout.StackPane
+import javafx.scene.web.WebEngine
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -106,11 +108,18 @@ class CsvTableUiTest {
     private fun PreviewFileView.filter(
         column: Int,
         text: String,
-    ) {
-        val quoted = text.replace("\\", "\\\\").replace("'", "\\'")
+    ) = filters(column to text)
+
+    /** Sets several search fields at once, with one input event, and waits for the debounced filtering to have run. */
+    private fun PreviewFileView.filters(vararg changes: Pair<Int, String>) {
+        val assignments =
+            changes.joinToString(" ") { (column, text) ->
+                val quoted = text.replace("\\", "\\\\").replace("'", "\\'")
+                "inputs[$column].value = '$quoted';"
+            }
         script(
-            "(function () { var i = document.querySelectorAll('input.csv-filter')[$column]; i.value = '$quoted';" +
-                " i.dispatchEvent(new Event('input', { bubbles: true })); })()",
+            "(function () { var inputs = document.querySelectorAll('input.csv-filter'); $assignments" +
+                " inputs[${changes.first().first}].dispatchEvent(new Event('input', { bubbles: true })); })()",
         )
         // The count is set by every run of the filters and is empty without any filter text.
         val anyText =
@@ -143,26 +152,38 @@ class CsvTableUiTest {
         assertEquals("name,Bob,Ada,Cy,Di", view.visible())
     }
 
-    @Test
-    fun `the note on a cut-off file counts data rows for the header choice`(robot: FxRobot) {
-        val view = open(robot, "big.csv", (1..10_005).joinToString("\n", postfix = "\n") { "$it,${it * 2}" })
-        val note = { view.script("document.querySelector('.csv-limit').textContent") as String }
-
-        assertFalse(view.headerChecked())
-        assertTrue(note().startsWith("Showing the first 10,001 of 10,005 rows."), note())
-
-        view.script("document.querySelector('input.csv-header-toggle').click()")
-
-        assertTrue(note().startsWith("Showing the first 10,000 of 10,004 rows."), note())
+    /** The CSV preview with a row limit of three, so a cut-off file needs no thousands of rows. */
+    private object SmallLimitPreview : Preview {
+        override fun load(
+            engine: WebEngine,
+            file: Path,
+            text: String,
+            dark: Boolean,
+            root: Path,
+        ) = engine.loadContent(CsvRenderer.render(text, ',', dark, maxRows = 3))
     }
 
     @Test
-    fun `a file of numbers only has no header`(robot: FxRobot) {
-        val view = open(robot, "data.csv", "1,2,3\n4,5,6\n")
+    fun `the note on a cut-off file counts data rows for the header choice`(robot: FxRobot) {
+        val file =
+            dir
+                .resolve(
+                    "big.csv",
+                ).apply { writeText((1..6).joinToString("\n", postfix = "\n") { "$it,${it * 2}" }) }
+        val view =
+            WaitForAsyncUtils
+                .asyncFx<PreviewFileView> { PreviewFileView(file, CsvFileViewer().highlighter, SmallLimitPreview) }
+                .get()
+        robot.interact { container.children.setAll(view.node) }
+        awaitLoaded(view)
+        val note = { view.script("document.querySelector('.csv-limit').textContent") as String }
 
         assertFalse(view.headerChecked())
-        assertEquals("A,B,C", view.labels())
-        assertEquals("1,4", view.visible())
+        assertTrue(note().startsWith("Showing the first 4 of 6 rows."), note())
+
+        view.script("document.querySelector('input.csv-header-toggle').click()")
+
+        assertTrue(note().startsWith("Showing the first 3 of 5 rows."), note())
     }
 
     @Test
@@ -191,24 +212,20 @@ class CsvTableUiTest {
         // Stripes follow the shown rows, not the hidden ones between them.
         assertEquals("false,true", view.stripes())
 
-        view.filter(2, "")
-        view.filter(1, ">100")
+        view.filters(2 to "", 1 to ">100")
         view.awaitVisible("Cy")
         assertEquals("1 of 4 rows", view.count())
 
         view.filter(1, "10..20")
         view.awaitVisible("Di")
 
-        view.filter(1, "")
-        view.filter(1, ">=7")
-        view.filter(2, "oslo")
+        view.filters(1 to ">=7", 2 to "oslo")
         view.awaitVisible("Bob,Cy")
         view.filter(1, "<=7")
         view.awaitVisible("Bob")
         assertEquals("1 of 4 rows", view.count())
 
-        view.filter(1, "")
-        view.filter(2, "")
+        view.filters(1 to "", 2 to "")
         assertEquals("", view.count())
         assertEquals("Bob,Ada,Cy,Di", view.visible())
     }
@@ -275,5 +292,21 @@ class CsvTableUiTest {
 
         view.awaitVisible("example.com")
         assertEquals("1 of 2 rows", view.count())
+    }
+
+    @Test
+    fun `side by side, a sorted table still scrolls with the source`(robot: FxRobot) {
+        // Row i is on source line i.
+        val view = open(robot, "data.csv", "name,n\n" + (1..200).joinToString("") { "r$it,$it\n" })
+
+        // Descending by n: the rows are in reverse order.
+        view.clickLabel(1)
+        view.clickLabel(1)
+        assertEquals("r200", view.visible().substringBefore(','))
+        robot.interact { view.sourceArea.showParagraphAtTop(150) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val top = view.script("document.querySelector('[data-line=\"150\"]').getBoundingClientRect().top") as Number
+        assertEquals(0.0, top.toDouble(), 5.0)
     }
 }

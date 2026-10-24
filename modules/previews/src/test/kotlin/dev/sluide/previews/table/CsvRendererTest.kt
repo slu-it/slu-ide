@@ -77,6 +77,17 @@ class CsvRendererTest {
     }
 
     @Test
+    fun `the row limit can be lowered`() {
+        val page = Jsoup.parse(CsvRenderer.render("n\n1\n2\n3\n4\n", ',', dark = false, maxRows = 2))
+
+        assertEquals(2, page.select("tbody tr:not(.csv-first)").size)
+        assertEquals(
+            "Showing the first 2 of 4 rows. Search covers only the rows shown.",
+            page.selectFirst(".csv-note")?.text(),
+        )
+    }
+
+    @Test
     fun `without a header the first row counts in the note on cut-off files`() {
         val text = (1..10_005).joinToString("\n")
         val page = Jsoup.parse(CsvRenderer.render(text, ',', dark = false))

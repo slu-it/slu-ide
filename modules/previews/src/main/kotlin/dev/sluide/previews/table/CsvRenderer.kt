@@ -111,7 +111,8 @@ internal object CsvRenderer {
     /**
      * The table page of [text], parsed with [delimiter] and [quotes] as [parse] does. The first record is the header
      * if [state] says so, else if [hasHeader] guesses so; with [fixedHeader] it always is and there is no checkbox.
-     * The table carries [state] for `csv-table.js`, which restores its sort and filters.
+     * The table carries [state] for `csv-table.js`, which restores its sort and filters. [maxRows] is
+     * [MAX_ROWS] except in tests.
      */
     fun render(
         text: String,
@@ -120,6 +121,7 @@ internal object CsvRenderer {
         quotes: Boolean = true,
         fixedHeader: Boolean = false,
         state: TableState = TableState(),
+        maxRows: Int = MAX_ROWS,
     ): String {
         val rows = parse(text, delimiter, quotes)
         val first = rows.firstOrNull()
@@ -130,7 +132,7 @@ internal object CsvRenderer {
             if (first == null) {
                 append("<p class=\"csv-note\">Empty file</p>\n")
             } else {
-                appendTable(rows, columns, first, decimalComma, fixedHeader, state)
+                appendTable(rows, columns, first, decimalComma, fixedHeader, state, maxRows)
             }
         }
     }
@@ -142,6 +144,7 @@ internal object CsvRenderer {
         decimalComma: Boolean,
         fixedHeader: Boolean,
         state: TableState,
+        maxRows: Int,
     ) {
         val header = fixedHeader || (state.header ?: hasHeader(rows, decimalComma))
         val restored =
@@ -177,7 +180,7 @@ internal object CsvRenderer {
             append("></td>")
         }
         append("</tr></thead>\n<tbody>\n")
-        for ((index, row) in rows.take(MAX_ROWS + 1).withIndex()) {
+        for ((index, row) in rows.take(maxRows + 1).withIndex()) {
             append("<tr").append(if (index == 0) " class=\"csv-first\"" else "")
             append(" data-line=\"").append(row.line).append("\">")
             for (column in 0 until columns) {
@@ -186,7 +189,7 @@ internal object CsvRenderer {
             append("</tr>\n")
         }
         append("</tbody>\n</table>\n")
-        val shown = minOf(rows.size, MAX_ROWS + 1)
+        val shown = minOf(rows.size, maxRows + 1)
         if (rows.size > shown) {
             // In data rows: without a header the first record counts, too; csv-table.js rewrites it on a toggle.
             val skip = if (header) 1 else 0
