@@ -333,6 +333,8 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         project.resolve("folder").createDirectories()
 
         robot.interact { projectService.open(project) }
+        // Show History needs the git log, which opens once the folder's trust check is through.
+        eventually(robot) { assertIs<ProjectTrustState.Trusted>(projectTrust.state.get()) }
 
         fun showHistoryItem(name: String): MenuItem {
             val cell =
@@ -452,7 +454,8 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         project.resolve("tracked.md").writeText("two")
         project.resolve("new.md").writeText("new")
         robot.interact { projectService.open(project) }
-        assertFalse(commitItem.isDisable)
+        // The git log, and with it Commit and Push, opens once the folder's trust check is through.
+        eventually(robot) { assertFalse(commitItem.isDisable) }
         assertFalse(pushItem.isDisable)
         robot.interact { commitItem.fire() }
 
