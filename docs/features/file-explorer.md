@@ -67,6 +67,9 @@
   menu applies to all of it; on another row it is for that row alone. `menuState` decides which items are enabled:
   - Open (first item) opens every regular file among the targets, in row order, skipping folders; enabled when there
     is at least one.
+  - File actions (`FileAction`: label, optional icon, `appliesTo`, `perform`; set by the window as `fileActions`)
+    follow Open. They are listed only when the menu is for exactly one regular file they apply to
+    (`fileActionsFor`), never disabled, and run on that file.
   - New File… / New Folder… create an empty entry in the clicked folder or, on the empty area, in the project folder.
     They are enabled for exactly one folder (also a top-level one) or the empty area while a folder is open; disabled
     on a file and for several entries. A new file is opened. Single names only (no `a/b`).

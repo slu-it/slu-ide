@@ -104,6 +104,9 @@ class FileExplorerView(
     /** Actions on a folder, listed in the context menu after New Folder…. Set by the window. */
     var folderActions: List<FolderAction> = emptyList()
 
+    /** Actions on a single file, listed in the context menu after Open for files they apply to. Set by the window. */
+    var fileActions: List<FileAction> = emptyList()
+
     /** Whether Show History is enabled for a file (never for folders); asked when the context menu opens. */
     var canShowHistory: (Path) -> Boolean = { false }
 
@@ -278,6 +281,7 @@ class FileExplorerView(
                     projectOpen = { projectItem != null },
                     canChange = ::canChange,
                     folderActions = { folderActions },
+                    fileActions = { fileActions },
                     historyOffered = { showHistory != null },
                     canShowHistory = { canShowHistory(it) },
                     showHistory = { showHistory?.invoke(it) },

@@ -4,6 +4,7 @@ import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.control.MenuItem
 import javafx.scene.input.ContextMenuEvent
+import javafx.scene.layout.Region
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -13,11 +14,16 @@ import org.testfx.framework.junit5.Start
 import java.nio.file.Path
 import kotlin.io.path.createFile
 import kotlin.io.path.createParentDirectories
+import kotlin.io.path.name
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
-/** The folder actions the window adds to the explorer's context menu. Needs a display, see the `uiTest` task. */
+/**
+ * The folder and file actions the window adds to the explorer's context menu. Needs a display, see the `uiTest` task.
+ */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
 class FileExplorerViewFolderActionsUiTest : FileExplorerViewUiFixture() {
@@ -116,5 +122,24 @@ class FileExplorerViewFolderActionsUiTest : FileExplorerViewUiFixture() {
             )
         }
         assertTrue(actionItem(robot, view, "Do it", keyboard = true).isDisable)
+    }
+
+    @Test
+    fun `a file action follows Open for a single file it applies to and runs on that file`(robot: FxRobot) {
+        project.resolve("run.txt").createFile()
+        project.resolve("readme.md").createFile()
+        openProject(robot)
+        val performed = mutableListOf<Path>()
+        view.fileActions =
+            listOf(FileAction("Run", { Region() }, { it.name.endsWith(".txt") }) { performed.add(it) })
+
+        val texts = menuTexts(robot, cellNamed(robot, "run.txt"))
+        assertEquals("Run", texts[texts.indexOf("Open") + 1])
+        assertFalse("Run" in menuTexts(robot, cellNamed(robot, "readme.md")), "gone for a file it does not apply to")
+
+        val run = actionItem(robot, cellNamed(robot, "run.txt"), "Run")
+        assertNotNull(run.graphic)
+        robot.interact { run.fire() }
+        assertEquals(listOf(project.resolve("run.txt")), performed)
     }
 }

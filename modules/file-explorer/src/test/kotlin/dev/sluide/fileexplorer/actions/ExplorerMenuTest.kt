@@ -1,5 +1,7 @@
 package dev.sluide.fileexplorer.actions
 
+import dev.sluide.fileexplorer.FileAction
+import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -87,5 +89,27 @@ class ExplorerMenuTest {
         assertEquals(false, state(file).fileManager)
         assertEquals(false, state(folder, folder).fileManager)
         assertEquals(false, state(projectOpen = false).fileManager)
+    }
+
+    private val script = Path.of("/project/run.sh")
+    private val notes = Path.of("/project/notes.txt")
+    private val src = Path.of("/project/src")
+    private val run = FileAction("Run", appliesTo = { it.toString().endsWith(".sh") }, perform = {})
+    private val view = FileAction("View", appliesTo = { true }, perform = {})
+
+    private fun actionsFor(vararg targets: Path) =
+        fileActionsFor(targets.toList(), { it != src }, listOf(run, view)).map { it.label }
+
+    @Test
+    fun `a single regular file lists the file actions that apply to it`() {
+        assertEquals(listOf("Run", "View"), actionsFor(script))
+        assertEquals(listOf("View"), actionsFor(notes))
+    }
+
+    @Test
+    fun `file actions are left out for several targets, a folder and the empty area`() {
+        assertEquals(emptyList(), actionsFor(script, notes))
+        assertEquals(emptyList(), actionsFor(src))
+        assertEquals(emptyList(), actionsFor())
     }
 }

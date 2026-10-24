@@ -1,5 +1,6 @@
 package dev.sluide.fileexplorer.actions
 
+import dev.sluide.fileexplorer.FileAction
 import dev.sluide.fileexplorer.FolderAction
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import javafx.scene.control.ContextMenu
@@ -46,6 +47,19 @@ internal fun menuState(
     )
 }
 
+/**
+ * The [actions] the menu lists for [targets]: those that apply to the target if it is exactly one regular file
+ * ([isRegularFile]), else none.
+ */
+internal fun fileActionsFor(
+    targets: List<Path>,
+    isRegularFile: (Path) -> Boolean,
+    actions: List<FileAction>,
+): List<FileAction> {
+    val file = targets.singleOrNull()?.takeIf(isRegularFile) ?: return emptyList()
+    return actions.filter { it.appliesTo(file) }
+}
+
 /** What [buildExplorerMenu] needs from the explorer; read when the menu opens or an item runs. */
 internal class ExplorerMenuHost(
     /** The entries the menu was opened for, in row order; empty for the empty area. */
@@ -53,6 +67,7 @@ internal class ExplorerMenuHost(
     val projectOpen: () -> Boolean,
     val canChange: (FileTreeItem) -> Boolean,
     val folderActions: () -> List<FolderAction>,
+    val fileActions: () -> List<FileAction>,
     /** Whether Show History is offered at all. */
     val historyOffered: () -> Boolean,
     val canShowHistory: (Path) -> Boolean,
@@ -68,7 +83,10 @@ internal class ExplorerMenuHost(
     val refreshAll: () -> Unit,
 )
 
-/** The context menu of the explorer; its items are enabled when it opens, as [menuState] says. */
+/**
+ * The context menu of the explorer; its items are enabled when it opens, as [menuState] says, and the file actions
+ * that apply ([fileActionsFor]) are listed after Open.
+ */
 internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
     val open = MenuItem("Open").apply { setOnAction { host.openFiles(host.targets()) } }
     val newFile = MenuItem("New File…").apply { setOnAction { host.create(host.targets().singleOrNull(), false) } }
@@ -89,6 +107,7 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
         MenuItem().apply { setOnAction { host.openInFileManager(host.targets().singleOrNull()) } }
     val historySeparator = SeparatorMenuItem()
     val actionItems = mutableListOf<MenuItem>()
+    val fileActionItems = mutableListOf<MenuItem>()
     return ContextMenu(
         open,
         SeparatorMenuItem(),
@@ -111,6 +130,13 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
                     targets.map { MenuTarget(it.isDirectory, Files.isRegularFile(it.value), host.canChange(it)) },
                     host.projectOpen(),
                 ) { host.canShowHistory(targets.single().value) }
+            items.removeAll(fileActionItems)
+            fileActionItems.clear()
+            val paths = targets.map { it.value }
+            fileActionsFor(paths, Files::isRegularFile, host.fileActions()).mapTo(fileActionItems) { action ->
+                MenuItem(action.label, action.icon?.invoke()).apply { setOnAction { action.perform(paths.single()) } }
+            }
+            items.addAll(items.indexOf(open) + 1, fileActionItems)
             items.removeAll(actionItems)
             actionItems.clear()
             host.folderActions().mapTo(actionItems) { action ->
