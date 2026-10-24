@@ -43,6 +43,21 @@ class TerminalKeysTest {
     }
 
     @Test
+    fun `ctrl with backslash, bracket, minus and 2 sends the other ASCII control characters`() {
+        val ctrl = Modifiers(control = true)
+        assertEquals(bytes(28), pressed(KeyCode.BACK_SLASH, ctrl))
+        assertEquals(bytes(29), pressed(KeyCode.CLOSE_BRACKET, ctrl))
+        assertEquals(bytes(31), pressed(KeyCode.MINUS, ctrl))
+        assertEquals(bytes(0), pressed(KeyCode.DIGIT2, ctrl))
+    }
+
+    @Test
+    fun `ctrl with alt and a letter sends nothing, alt with a digit sends escape and the digit`() {
+        assertNull(pressed(KeyCode.F, Modifiers(control = true, alt = true)))
+        assertEquals(bytes(27, '1'.code), pressed(KeyCode.DIGIT1, Modifiers(alt = true)))
+    }
+
+    @Test
     fun `ctrl+shift+letter and meta shortcuts are left to the application`() {
         assertNull(pressed(KeyCode.T, Modifiers(control = true, shift = true)))
         assertNull(pressed(KeyCode.C, Modifiers(meta = true)))

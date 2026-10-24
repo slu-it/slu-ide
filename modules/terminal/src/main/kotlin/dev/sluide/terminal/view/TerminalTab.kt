@@ -27,17 +27,27 @@ internal class TerminalTab(
      * has no shell above it whose children could be checked.
      */
     override val closeWarning: String?
-        get() {
-            if (command != null) return if (view.session.isAlive) "$name is still running: $command" else null
-            return view.session
-                .runningPrograms()
-                .distinct()
-                .takeIf { it.isNotEmpty() }
-                ?.let { "$name is still running ${it.joinToString(", ")}." }
-        }
+        get() = closeWarning(name, command, view.session.isAlive) { view.session.runningPrograms() }
 
     override fun dispose() {
         view.dispose()
         onDisposed(this)
     }
+}
+
+/**
+ * The warning for closing a terminal [name], `null` if nothing runs. [programs] is only asked for tabs without a
+ * [command].
+ */
+internal fun closeWarning(
+    name: String,
+    command: String?,
+    alive: Boolean,
+    programs: () -> List<String>,
+): String? {
+    if (command != null) return if (alive) "$name is still running: $command" else null
+    return programs()
+        .distinct()
+        .takeIf { it.isNotEmpty() }
+        ?.let { "$name is still running ${it.joinToString(", ")}." }
 }

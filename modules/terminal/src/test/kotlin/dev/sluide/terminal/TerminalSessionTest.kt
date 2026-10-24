@@ -201,6 +201,20 @@ class TerminalSessionTest {
     }
 
     @Test
+    fun `an exited shell can still be resized, asked for programs and closed twice`() {
+        start()
+
+        run("exit")
+        await("the shell to exit") { !session.isAlive }
+
+        session.resize(TermSize(60, 10))
+        assertEquals(emptyList(), session.runningPrograms())
+        session.close()
+        session.close()
+        assertFalse(session.isAlive)
+    }
+
+    @Test
     fun `a shell that does not exist cannot be started`() {
         assertFailsWith<IOException> {
             TerminalSession(dir, NoDisplay, TermSize(80, 24), listOf(dir.resolve("no-shell").toString()), mapOf())

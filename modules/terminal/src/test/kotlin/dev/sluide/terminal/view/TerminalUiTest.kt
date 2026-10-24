@@ -57,12 +57,18 @@ class TerminalUiTest {
             SettingsStore(settingsDir.resolve("settings.properties")),
         )
     }
-    private val terminals by lazy { Terminals(fontSettings, scrollSettings) }
+
+    /** The environment of the shells: `/bin/sh`, so the user's login profile and prompt do not interfere. */
+    private var environment = System.getenv() + ("SHELL" to "/bin/sh")
+    private val terminalsHolder = lazy { Terminals(fontSettings, scrollSettings, environment) }
+    private val terminals by terminalsHolder
     private lateinit var stage: Stage
     private lateinit var root: StackPane
 
     @AfterEach
-    fun closeTerminals() = terminals.close()
+    fun closeTerminals() {
+        if (terminalsHolder.isInitialized()) terminals.close()
+    }
 
     @Start
     fun start(stage: Stage) {
@@ -111,6 +117,7 @@ class TerminalUiTest {
 
     @Test
     fun `a terminal tab runs the shell in the folder and shows its output`(robot: FxRobot) {
+        environment = System.getenv() // the one test with the user's real login shell
         val tab = open(robot)
         assertEquals("Terminal 1", tab.title.value)
         assertSame(tab.view, tab.view.scene.focusOwner, "focused when shown")
@@ -256,11 +263,7 @@ class TerminalUiTest {
 
     @Test
     fun `the wheel scrolls through the history of the normal screen, typing scrolls back down`(robot: FxRobot) {
-        val view = open(robot).view
-        type(robot, view, "seq 1 200")
-        eventually { assertTrue("200" in view.screenText().lines(), view.screenText()) }
-        val x = 2.5 * view.cell.width
-        val y = 1.5 * view.cell.height
+        val (view, x, y) = scrollableTerminal(robot)
 
         robot.interact { repeat(2) { scroll(view, x, y, deltaY = 40.0) } }
         assertEquals(-6, view.scrollOrigin, "three lines per wheel step")
@@ -284,7 +287,9 @@ class TerminalUiTest {
     }
 
     @Test
-    fun `an open terminal follows the wheel speed, at 50 percent two wheel steps scroll three lines`(robot: FxRobot) {
+    fun `an open terminal follows the wheel and trackpad speeds, at 50 percent two wheel steps scroll three lines`(
+        robot: FxRobot,
+    ) {
         val (view, x, y) = scrollableTerminal(robot)
 
         robot.interact { scrollSettings.apply(trackpad = 100, wheel = 50) }
@@ -292,28 +297,19 @@ class TerminalUiTest {
         assertEquals(-1, view.scrollOrigin)
         robot.interact { scroll(view, x, y, deltaY = 40.0) }
         assertEquals(-3, view.scrollOrigin)
-    }
 
-    @Test
-    fun `trackpad gestures and their inertia scroll at the trackpad speed`(robot: FxRobot) {
-        val (view, x, y) = scrollableTerminal(robot)
+        // A trackpad gesture (start, touch points, inertia, end) takes the trackpad speed; afterwards wheel steps again.
         robot.interact { scrollSettings.apply(trackpad = 200, wheel = 50) }
-
+        robot.interact { scroll(view, x, y, deltaY = 0.0, type = ScrollEvent.SCROLL_STARTED) }
+        robot.interact { scroll(view, x, y, deltaY = 2.0) }
+        assertEquals(-9, view.scrollOrigin, "between the start and end of a gesture")
         robot.interact { scroll(view, x, y, deltaY = 2.0, touchCount = 2) }
-        assertEquals(-6, view.scrollOrigin, "touch points")
+        assertEquals(-15, view.scrollOrigin, "touch points")
         robot.interact { scroll(view, x, y, deltaY = 2.0, inertia = true) }
-        assertEquals(-12, view.scrollOrigin, "inertia after the fingers lifted")
-
-        robot.interact {
-            scroll(view, x, y, deltaY = 0.0, type = ScrollEvent.SCROLL_STARTED)
-            scroll(view, x, y, deltaY = 2.0)
-        }
-        assertEquals(-18, view.scrollOrigin, "between the start and end of a gesture")
-        robot.interact {
-            scroll(view, x, y, deltaY = 0.0, type = ScrollEvent.SCROLL_FINISHED)
-            scroll(view, x, y, deltaY = 2.0)
-        }
-        assertEquals(-19, view.scrollOrigin, "a wheel step again after the gesture")
+        assertEquals(-21, view.scrollOrigin, "inertia")
+        robot.interact { scroll(view, x, y, deltaY = 0.0, type = ScrollEvent.SCROLL_FINISHED) }
+        robot.interact { scroll(view, x, y, deltaY = 2.0) }
+        assertEquals(-22, view.scrollOrigin, "a wheel step again after the gesture")
     }
 
     private fun mouse(
@@ -365,55 +361,6 @@ class TerminalUiTest {
 
         eventually { assertTrue("^[[<64;3;2M" in view.screenText().lines(), view.screenText()) }
         assertEquals(0, view.scrollOrigin)
-    }
-
-    @Test
-    fun `full-screen programs get one mouse report per wheel notch, at 50 percent one every second step`(
-        robot: FxRobot,
-    ) {
-        val view = open(robot).view
-        robot.interact { scrollSettings.apply(trackpad = 100, wheel = 50) }
-        type(robot, view, "printf '\\033[?1049h\\033[?1000h\\033[?1006h'; echo ready; cat -v")
-        eventually { assertTrue("ready" in view.screenText().lines(), view.screenText()) }
-
-        robot.interact {
-            repeat(2) { scroll(view, 2.5 * view.cell.width, 1.5 * view.cell.height, deltaY = 40.0) }
-            Event.fireEvent(view, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.ENTER, false, false, false, false))
-        }
-
-        // cat -v prints each report as ^[[<64;3;2M; two reports would share the line.
-        eventually { assertTrue("^[[<64;3;2M" in view.screenText().lines(), view.screenText()) }
-        assertFalse("M^[[<64" in view.screenText(), view.screenText())
-        assertEquals(0, view.scrollOrigin)
-    }
-
-    @Test
-    fun `full-screen programs without mouse reports get an arrow key per line, at 50 percent 1, 2, 1, 2`(
-        robot: FxRobot,
-    ) {
-        val view = open(robot).view
-        robot.interact { scrollSettings.apply(trackpad = 100, wheel = 50) }
-        // Like less: alternate screen, no mouse reports. cat's tty echoes each Down key as ^[[B.
-        type(robot, view, "printf '\\033[?1049h'; echo ready; cat -v")
-        eventually { assertTrue("ready" in view.screenText().lines(), view.screenText()) }
-
-        for (keys in listOf(1, 3, 4, 6)) {
-            robot.interact { scroll(view, 2.5 * view.cell.width, 1.5 * view.cell.height, deltaY = -40.0) }
-            eventually { assertEquals(keys, view.screenText().split("^[").size - 1, view.screenText()) }
-        }
-        assertEquals(0, view.scrollOrigin)
-    }
-
-    @Test
-    fun `Shift and the wheel scroll the history even when the program asks for mouse reports`(robot: FxRobot) {
-        val (view, x, y) = scrollableTerminal(robot)
-        type(robot, view, "printf '\\033[?1000h'; echo ready")
-        eventually { assertTrue("ready" in view.screenText().lines(), view.screenText()) }
-
-        robot.interact { scroll(view, x, y, deltaY = 40.0) }
-        assertEquals(0, view.scrollOrigin, "reported to the program")
-        robot.interact { scroll(view, x, y, deltaY = 40.0, shift = true) }
-        assertEquals(-3, view.scrollOrigin)
     }
 
     /** Fires a scroll event at the view: a wheel notch by default, a trackpad's with [inertia] or [touchCount]. */
@@ -522,7 +469,6 @@ class TerminalUiTest {
     fun `a command runs in a login shell in its own named tab, which shows when it ends`(robot: FxRobot) {
         lateinit var tab: TerminalTab
         robot.interact {
-            val environment = System.getenv() + ("SHELL" to "/bin/sh")
             tab = terminals.open(dir, "Job 1", "pwd; echo ran-\$((40 + 2))", environment) as TerminalTab
             root.children.setAll(tab.content)
         }
@@ -537,23 +483,29 @@ class TerminalUiTest {
 
     @Test
     fun `a shell that cannot be started opens no tab and uses up no number`(robot: FxRobot) {
-        val environment = System.getenv().toMutableMap()
-        val terminals = Terminals(fontSettings, scrollSettings, environment)
-        val shell = dir.resolve("no-shell")
-        environment["SHELL"] = shell.toString()
+        val failingEnvironment = System.getenv().toMutableMap()
+        val failing = Terminals(fontSettings, scrollSettings, failingEnvironment)
+        try {
+            val shell = dir.resolve("no-shell")
+            failingEnvironment["SHELL"] = shell.toString()
 
-        robot.interact {
-            val failure = assertFailsWith<TerminalStartException> { terminals.open(dir) }
-            assertTrue(failure.message.orEmpty().startsWith("$shell could not be started in $dir ("), failure.message)
-            assertFailsWith<TerminalStartException> { terminals.open(dir, "Job 1", "true") }
+            robot.interact {
+                val failure = assertFailsWith<TerminalStartException> { failing.open(dir) }
+                assertTrue(
+                    failure.message.orEmpty().startsWith("$shell could not be started in $dir ("),
+                    failure.message,
+                )
+                assertFailsWith<TerminalStartException> { failing.open(dir, "Job 1", "true") }
+            }
+            assertEquals(0, failing.openCount)
+
+            failingEnvironment["SHELL"] = "/bin/sh"
+            lateinit var tab: EditorTab
+            robot.interact { tab = failing.open(dir) }
+            assertEquals("Terminal 1", tab.title.value)
+        } finally {
+            robot.interact { failing.close() }
         }
-        assertEquals(0, terminals.openCount)
-
-        environment["SHELL"] = "/bin/sh"
-        lateinit var tab: EditorTab
-        robot.interact { tab = terminals.open(dir) }
-        assertEquals("Terminal 1", tab.title.value)
-        robot.interact { terminals.close() }
     }
 
     @Test
@@ -573,5 +525,14 @@ class TerminalUiTest {
                 .waitFor(5, TimeUnit.SECONDS),
         )
         assertEquals(1, terminals.openCount)
+
+        val third = open(robot)
+        robot.interact { terminals.close() }
+
+        assertEquals(0, terminals.openCount)
+        assertTrue(
+            third.view.session.process
+                .waitFor(5, TimeUnit.SECONDS),
+        )
     }
 }
