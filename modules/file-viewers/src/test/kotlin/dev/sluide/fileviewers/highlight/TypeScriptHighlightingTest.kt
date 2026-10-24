@@ -32,7 +32,7 @@ class TypeScriptHighlightingTest {
         val keywords =
             listOf("import", "type", "from", "interface", "readonly", "enum", "export", "abstract", "class", "private")
         for (keyword in keywords) {
-            assertEquals(setOf(TokenStyle.KEYWORD), ts.stylesOf(keyword), keyword)
+            ts.assertExactly(TokenStyle.KEYWORD, keyword, wholeWord = true)
         }
         // In context, so that e.g. "is" does not match inside another word; the rest of each snippet is unstyled.
         for (snippet in listOf("constructor(", "v is", "(v as", " satisfies ", "declare ", " null;")) {
@@ -43,7 +43,7 @@ class TypeScriptHighlightingTest {
     @Test
     fun types() {
         for (type in listOf("string", "number", "unknown", "any", "object", "bigint")) {
-            assertEquals(setOf(TokenStyle.TYPE), ts.stylesOf(type), type)
+            ts.assertExactly(TokenStyle.TYPE, type, wholeWord = true)
         }
     }
 

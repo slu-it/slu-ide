@@ -31,7 +31,7 @@ class PythonHighlightingTest {
     @Test
     fun `keywords and constants`() {
         for (keyword in listOf("import", "class", "def", "return", "True", "async", "await")) {
-            assertEquals(setOf(TokenStyle.KEYWORD), python.stylesOf(keyword), keyword)
+            python.assertExactly(TokenStyle.KEYWORD, keyword, wholeWord = true)
         }
     }
 

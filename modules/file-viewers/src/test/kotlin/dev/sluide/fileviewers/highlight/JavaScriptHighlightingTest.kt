@@ -28,10 +28,10 @@ class JavaScriptHighlightingTest {
     @Test
     fun keywords() {
         for (keyword in listOf("import", "from", "export", "default", "class", "extends", "static", "async", "const")) {
-            assertEquals(setOf(TokenStyle.KEYWORD), js.stylesOf(keyword), keyword)
+            js.assertExactly(TokenStyle.KEYWORD, keyword, wholeWord = true)
         }
         for (keyword in listOf("return", "await", "undefined", "typeof", "null", "true")) {
-            assertEquals(setOf(TokenStyle.KEYWORD), js.stylesOf(keyword), keyword)
+            js.assertExactly(TokenStyle.KEYWORD, keyword, wholeWord = true)
         }
     }
 
