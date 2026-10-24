@@ -18,6 +18,7 @@ import dev.sluide.git.GitRefs
 import dev.sluide.git.GitTreePath
 import dev.sluide.gitlog.data.BranchNode
 import dev.sluide.gitlog.data.FakeWrites
+import dev.sluide.gitlog.data.GitLogRow
 import dev.sluide.gitlog.data.GitLogSource
 import dev.sluide.gitlog.data.GitLogWrites
 import javafx.application.Platform
@@ -28,6 +29,7 @@ import javafx.scene.control.ButtonType
 import javafx.scene.control.DialogPane
 import javafx.scene.control.Label
 import javafx.scene.control.MenuItem
+import javafx.scene.control.TableRow
 import javafx.scene.control.TreeItem
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
@@ -155,9 +157,12 @@ abstract class GitLogWritesUiFixture {
 
     internal lateinit var view: GitLogView
 
+    /** A source of a test's own instead of the fixture's, `null` for the fixture's. */
+    internal open fun ownSource(): GitLogSource? = null
+
     internal fun startView(stage: Stage) {
         val source =
-            object : GitLogSource {
+            ownSource() ?: object : GitLogSource {
                 override fun page(
                     root: Path,
                     filter: GitLogFilter,
@@ -380,6 +385,19 @@ abstract class GitLogWritesUiFixture {
     }
 
     internal fun status(robot: FxRobot) = robot.lookup(".git-log-status").queryAs(Label::class.java).text
+
+    /** What the table says in place of rows. */
+    internal fun placeholder(robot: FxRobot) =
+        robot.lookup(".git-log-table .placeholder .label").queryAs(Label::class.java).text
+
+    /** The subjects of the rows the table shows, top down. */
+    internal fun shownSubjects(robot: FxRobot): List<String> =
+        robot
+            .lookup(".git-log-table .table-row-cell")
+            .queryAllAs(TableRow::class.java)
+            .filter { !it.isEmpty && it.item != null }
+            .sortedBy { it.index }
+            .map { (it.item as GitLogRow).commit.subject }
 
     internal fun selectRows(
         robot: FxRobot,

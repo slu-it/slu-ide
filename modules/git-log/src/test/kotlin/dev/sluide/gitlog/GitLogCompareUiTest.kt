@@ -1,6 +1,5 @@
 package dev.sluide.gitlog
 
-import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
@@ -17,27 +16,19 @@ import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitTreePath
 import dev.sluide.git.GitWorkingTreeChanges
-import dev.sluide.gitlog.data.BranchNode
 import dev.sluide.gitlog.data.ChangeFile
 import dev.sluide.gitlog.data.ChangeFolder
 import dev.sluide.gitlog.data.ChangeNode
-import dev.sluide.gitlog.data.FakeWrites
-import dev.sluide.gitlog.data.GitLogRow
 import dev.sluide.gitlog.data.GitLogSource
 import dev.sluide.gitlog.data.LOCAL
 import dev.sluide.gitlog.data.TAGS
 import dev.sluide.gitlog.workingtree.WorkingTreeWindow
-import javafx.application.Platform
 import javafx.event.Event
-import javafx.scene.Scene
-import javafx.scene.control.Label
-import javafx.scene.control.TableRow
 import javafx.scene.control.TreeItem
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.stage.Screen
 import javafx.stage.Stage
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.api.FxRobot
@@ -47,7 +38,6 @@ import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
 import java.time.Instant
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -56,16 +46,15 @@ import kotlin.test.assertTrue
 /** Compare with Current in the real git log view with a fake source (ADR 0044). Needs a display. */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
-class GitLogCompareUiTest {
-    private val repo: Path = Path.of("/repo")
-
+class GitLogCompareUiTest : GitLogWritesUiFixture() {
     private val main = GitRef("refs/heads/main", GitRefKind.LOCAL_BRANCH, "m2")
     private val feature = GitRef("refs/heads/feature", GitRefKind.LOCAL_BRANCH, "f2")
     private val tag = GitRef("refs/tags/v1", GitRefKind.TAG, "b1")
 
     /** The refs of the repository: `HEAD` on main. */
     @Volatile
-    private var refs: GitRefs? = GitRefs(listOf(GitRef("HEAD", GitRefKind.HEAD, "m2"), main, feature, tag), main.name)
+    private var compareRefs: GitRefs? =
+        GitRefs(listOf(GitRef("HEAD", GitRefKind.HEAD, "m2"), main, feature, tag), main.name)
 
     private val featureOnly = listOf(commit("f2", "Feature 2", "f1"), commit("f1", "Feature 1", "b1"))
     private val mainOnly = listOf(commit("m2", "Main 2", "m1"), commit("m1", "Main 1", "b1"))
@@ -97,14 +86,12 @@ class GitLogCompareUiTest {
 
     /** How a file differs from the working tree. */
     @Volatile
-    private var workingTreeDiff: (GitChangedFile) -> GitFileDiff? = { file ->
+    private var diffWithWorkingTree: (GitChangedFile) -> GitFileDiff? = { file ->
         GitFileDiff.Text("old ${file.path}\n", "new ${file.path}\n", listOf(GitHunk(0..0, 0..0)))
     }
 
     /** The (commit, path) of every read of a diff with the working tree. */
-    private val workingTreeDiffLoads = CopyOnWriteArrayList<Pair<String, String>>()
-
-    private lateinit var view: GitLogView
+    private val diffLoadsWithWorkingTree = CopyOnWriteArrayList<Pair<String, String>>()
 
     /** The commits of the log: the range of a comparison, else all by date; the text matches the subject. */
     private inner class FakeSource : GitLogSource {
@@ -152,7 +139,7 @@ class GitLogCompareUiTest {
         override fun refs(
             root: Path,
             cancellation: GitCancellation?,
-        ) = refs
+        ) = compareRefs
 
         override fun details(
             root: Path,
@@ -195,8 +182,8 @@ class GitLogCompareUiTest {
             commit: String,
             file: GitChangedFile,
         ): GitFileDiff? {
-            workingTreeDiffLoads += commit to file.path
-            return workingTreeDiff(file)
+            diffLoadsWithWorkingTree += commit to file.path
+            return diffWithWorkingTree(file)
         }
 
         override fun commitChanges(root: Path): GitCommitChanges? = null
@@ -216,77 +203,11 @@ class GitLogCompareUiTest {
     ) = GitCommit(hash, parents.toList(), "A", "a@example.com", Instant.EPOCH, subject)
 
     @Start
-    fun start(stage: Stage) {
-        view = GitLogView(FakeSource(), Platform::runLater, FakeWrites(), BackgroundTasks.forTests())
-        stage.scene = Scene(view, 1000.0, 400.0)
-        stage.show()
-    }
+    fun start(stage: Stage) = startView(stage)
 
-    @AfterEach
-    fun close() {
-        view.close()
-    }
-
-    private fun eventually(assertion: () -> Unit) {
-        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
-        while (true) {
-            WaitForAsyncUtils.waitForFxEvents()
-            val failure = WaitForAsyncUtils.asyncFx<Throwable?> { runCatching(assertion).exceptionOrNull() }.get()
-            if (failure == null) return
-            if (System.nanoTime() > deadline) throw failure
-            Thread.sleep(20)
-        }
-    }
-
-    private fun openAndExpand(robot: FxRobot) {
-        robot.interact {
-            view.open(repo)
-            view.expanded.set(true)
-        }
-        eventually { assertTrue(view.table.items.isNotEmpty()) }
-        eventually {
-            assertTrue(
-                view.branchesPane.tree.root.children
-                    .isNotEmpty(),
-            )
-        }
-    }
+    override fun ownSource(): GitLogSource = FakeSource()
 
     private fun subjects() = view.table.items.map { it.commit.subject }
-
-    private fun shownSubjects(robot: FxRobot): List<String> =
-        robot
-            .lookup(".git-log-table .table-row-cell")
-            .queryAllAs(TableRow::class.java)
-            .filter { !it.isEmpty && it.item != null }
-            .sortedBy { it.index }
-            .map { (it.item as GitLogRow).commit.subject }
-
-    private fun placeholder(robot: FxRobot) =
-        robot.lookup(".git-log-table .placeholder .label").queryAs(Label::class.java).text
-
-    private fun status(robot: FxRobot) = robot.lookup(".git-log-status").queryAs(Label::class.java).text
-
-    private fun branchItem(path: String): TreeItem<BranchNode> {
-        fun find(item: TreeItem<BranchNode>): TreeItem<BranchNode>? =
-            if (item.value?.path == path) item else item.children.firstNotNullOfOrNull(::find)
-        return checkNotNull(find(view.branchesPane.tree.root)) { path }
-    }
-
-    /** Selects the nodes at [paths] in the branches tree, as with the mouse and Shift/Ctrl. */
-    private fun selectBranches(
-        robot: FxRobot,
-        vararg paths: String,
-    ) {
-        robot.interact {
-            val tree = view.branchesPane.tree
-            branchItem(TAGS).isExpanded = true
-            val rows = paths.map { tree.getRow(branchItem(it)) }
-            tree.selectionModel.clearSelection()
-            tree.selectionModel.selectIndices(rows.first(), *rows.drop(1).toIntArray())
-        }
-        WaitForAsyncUtils.waitForFxEvents()
-    }
 
     private val pane get() = view.branchesPane
 
@@ -384,7 +305,7 @@ class GitLogCompareUiTest {
         // A selected commit is selected again by the reload, which must not take the message away.
         robot.interact { view.table.selectionModel.clearAndSelect(1) }
 
-        refs = refs?.let { GitRefs(it.refs.filter { ref -> ref != tag }, it.currentBranch) }
+        compareRefs = compareRefs?.let { GitRefs(it.refs.filter { ref -> ref != tag }, it.currentBranch) }
         robot.interact { view.refresh() }
         eventually {
             assertFalse(view.compareBar.isVisible)
@@ -575,9 +496,9 @@ class GitLogCompareUiTest {
             ),
             shown.single(),
         )
-        assertEquals(listOf("commit-of-$commit" to "docs/new.md"), workingTreeDiffLoads)
+        assertEquals(listOf("commit-of-$commit" to "docs/new.md"), diffLoadsWithWorkingTree)
 
-        workingTreeDiff = { GitFileDiff.Binary }
+        diffWithWorkingTree = { GitFileDiff.Binary }
         robot.interact {
             selectFile(window, "One.kt")
             press(window, KeyCode.ENTER)
@@ -586,7 +507,7 @@ class GitLogCompareUiTest {
         robot.interact { selectFile(window, "Two.kt") }
         robot.interact { assertEquals("", window.status.text, "cleared by the next selection") }
 
-        workingTreeDiff = { file -> GitFileDiff.Text("same\n", "same\n", emptyList()) }
+        diffWithWorkingTree = { file -> GitFileDiff.Text("same\n", "same\n", emptyList()) }
         robot.interact { press(window, KeyCode.ENTER) }
         eventually { assertEquals(2, shown.size) }
         robot.interact {
@@ -596,7 +517,7 @@ class GitLogCompareUiTest {
         eventually { assertEquals("new.md has no content changes.", window.status.text) }
 
         showable = false
-        workingTreeDiff = { GitFileDiff.Text("a\n", "b\n", listOf(GitHunk(0..0, 0..0))) }
+        diffWithWorkingTree = { GitFileDiff.Text("a\n", "b\n", listOf(GitHunk(0..0, 0..0))) }
         robot.interact {
             selectFile(window, "One.kt")
             press(window, KeyCode.ENTER)

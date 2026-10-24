@@ -27,7 +27,8 @@ class BranchMenuUiTest {
     private val main = GitRef("refs/heads/main", GitRefKind.LOCAL_BRANCH, "h1")
     private val local = GitRef("refs/heads/feature/b", GitRefKind.LOCAL_BRANCH, "h2")
     private val remote = GitRef("refs/remotes/origin/JIRA_1", GitRefKind.REMOTE_BRANCH, "h4")
-    private val refs = GitRefs(listOf(main, local, remote), "refs/heads/main")
+    private val refs =
+        GitRefs(listOf(GitRef("HEAD", GitRefKind.HEAD, "h1"), main, local, remote), "refs/heads/main")
 
     private val calls = mutableListOf<String>()
     private val operations = mutableListOf<RefOperation>()
