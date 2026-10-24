@@ -4,7 +4,8 @@
 #   - fixed sleep without a reason: Thread.sleep( or WaitForAsyncUtils.sleep( with no // comment on the same or the
 #     previous line (wait on a signal instead, or say why there is none); a // inside a string literal is no comment.
 #     The interval of a poll is no fixed sleep: a sleep on a line with `while (`, or inside a block opened on a line
-#     with `while` or `do` (blocks nested in the loop count as inside it; `for` and `repeat` do not)
+#     with `while` or `do` (blocks nested in the loop count as inside it; `for` and `repeat` do not). The script
+#     trusts any `while` body to be a poll; keep sleeps in loops to polls that re-check a condition
 #   - synthetic OS input: clickOn, rightClickOn, doubleClickOn, robot.moveTo/type/write/scroll/drag (a bare moveTo
 #     is mostly Path.moveTo or a control method, so it is not reported), unless a // comment on the same or the
 #     previous line says why real input is needed
@@ -45,6 +46,32 @@ function withoutStrings(text) {
   gsub(/"([^"\\]|\\.)*"/, "", text)
   return text
 }
+# The line without the parts of raw strings (""") and char literals, which may hold braces or quotes.
+function withoutRawStringsAndChars(text,   out, p) {
+  out = ""
+  while ((p = index(text, "\"\"\"")) > 0) {
+    if (!inRawString) out = out substr(text, 1, p - 1)
+    inRawString = !inRawString
+    text = substr(text, p + 3)
+  }
+  if (!inRawString) out = out text
+  gsub(charLiteral, "", out)
+  return out
+}
+# The line without block comments, which may span lines.
+function withoutBlockComments(text,   out, p) {
+  out = ""
+  while (text != "") {
+    if (inBlockComment) {
+      if ((p = index(text, "*/")) == 0) break
+      inBlockComment = 0; text = substr(text, p + 2)
+    } else {
+      if ((p = index(text, "/*")) == 0) { out = out text; break }
+      out = out substr(text, 1, p - 1); inBlockComment = 1; text = substr(text, p + 2)
+    }
+  }
+  return out
+}
 # Follows the braces of a line (strings and // comments removed): a block opened on a loop line counts as a loop.
 function trackBlocks(code, loopLine,   i, c) {
   for (i = 1; i <= length(code); i++) {
@@ -59,21 +86,23 @@ function trackBlocks(code, loopLine,   i, c) {
 function endOfFile() {
   if (newText == "" && lastLine > 800) report("test class over 800 lines; split by topic", 1)
 }
+BEGIN { charLiteral = "\047(\\\\.|[^\047\\\\])\047" }
 FNR == 1 {
   if (NR > 1) endOfFile()
   currentFile = FILENAME
   previous = ""; previousOneLineInteract = 0
-  depth = 0; openLoops = 0
+  depth = 0; openLoops = 0; inRawString = 0; inBlockComment = 0
 }
 {
   lastLine = FNR
-  code = $0
+  wasInBlockComment = inBlockComment
+  code = withoutRawStringsAndChars($0)
   stripped = withoutStrings(code)
   trimmed = code; sub(/^[ \t]+/, "", trimmed)
-  isComment = (trimmed ~ /^(\/\/|\*|\/\*)/)
+  isComment = (wasInBlockComment || trimmed ~ /^(\/\/|\*|\/\*)/)
   reasoned = (stripped ~ /\/\// || previous ~ /\/\//)
-  codeOnly = stripped; sub(/\/\/.*/, "", codeOnly)
-  if (isComment) codeOnly = ""
+  codeOnly = withoutBlockComments(stripped); sub(/\/\/.*/, "", codeOnly)
+  if (isComment && !inBlockComment && wasInBlockComment) isComment = (codeOnly ~ /^[ \t]*$/)
   loopLine = (codeOnly ~ /(^|[^A-Za-z0-9_])while[ \t]*\(/ || codeOnly ~ /(^|[^A-Za-z0-9_])do[ \t]*\{/) ? 1 : 0
 
   if (!isComment && code ~ /(Thread|WaitForAsyncUtils)\.sleep\(/ && !reasoned && !loopLine && openLoops == 0) {

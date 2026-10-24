@@ -37,14 +37,16 @@ fi
 [ -n "$text" ] || exit 0
 
 # Where the written text starts in the file (the hook runs after the write), so that the lines above it give the
-# context: a comment above a sleep, an open poll loop. Not found: the text is checked on its own.
+# context: a comment above a sleep, an open poll loop. Not found, or found more than once: the text is checked on its
+# own.
 start="$(awk 'NR == FNR { text[++m] = $0; next }
   { file[++k] = $0 }
   END {
     for (i = 1; i <= k - m + 1; i++) {
       for (j = 1; j <= m && file[i + j - 1] == text[j]; j++) {}
-      if (j > m) { print i; exit }
+      if (j > m) { found++; at = i }
     }
+    if (found == 1) print at
   }' <(printf '%s\n' "$text") "$path" 2>/dev/null)" || start=""
 skip=$(( ${start:-1} - 1 ))
 
