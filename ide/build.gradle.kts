@@ -40,13 +40,16 @@ dependencies {
     // Deliberate module dependency: `ide` implements the workflow graph's `RemoteSources` over the git module's remote
     // source cache and registers it as a window service (ADR 0076).
     implementation(project(":modules:github-actions"))
-    // CommandRunSession is a window bean, created per window for GradleSession; the window tests create it, and
-    // MainWindow is to register it as a window service (ADR 0088).
+    // CommandRunSession is a window bean, created per window; MainWindow registers it as a window service for the views
+    // that run commands, and the window tests create it (ADR 0088).
     implementation(project(":modules:command-runs"))
     // The Gradle view of build files and its window session (ADR 0085).
     implementation(project(":modules:gradle"))
     // Needed only for the Spring bean: ShellScriptFileViewer is a FileViewer found by component scan (ADR 0089).
     implementation(project(":modules:shell-scripts"))
+    // The explorer's Run item has a Material Design play icon, like the HTTP client's Run (ADR 0012).
+    implementation(libs.ikonli.javafx)
+    implementation(libs.ikonli.materialdesign2)
 
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)

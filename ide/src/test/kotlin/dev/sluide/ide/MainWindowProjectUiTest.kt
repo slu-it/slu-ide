@@ -2,6 +2,7 @@ package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.backgroundtasks.BackgroundTasksView
+import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.IgnoreRuleEffects
 import dev.sluide.githubactions.RemoteSources
@@ -58,9 +59,11 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         assertEquals(appTitle(), stage.title)
         assertEquals(0, robot.lookup(".tree-cell").queryAllAs(TreeCell::class.java).count { it.text != null })
         assertEquals(listOf("New HTTP Client Setup"), fileExplorer.folderActions.map { it.label })
+        assertEquals(listOf("Run"), fileExplorer.fileActions.map { it.label })
 
         assertSame(httpSessions.single(), editorArea.windowServices.get(HttpClientSession::class.java))
         assertSame(gradleSessions.single(), editorArea.windowServices.get(GradleSession::class.java))
+        assertSame(commandRunSessions.single(), editorArea.windowServices.get(CommandRunSession::class.java))
         assertSame(backgroundTasks.single(), editorArea.windowServices.get(BackgroundTasks::class.java))
         assertIs<WindowWorkflowSources>(editorArea.windowServices.get(RemoteSources::class.java))
         assertIs<IgnoreRuleEffects>(editorArea.windowServices.get(IgnoreRuleEffects::class.java))

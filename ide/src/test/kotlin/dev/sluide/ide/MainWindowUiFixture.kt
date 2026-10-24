@@ -199,6 +199,7 @@ abstract class MainWindowUiFixture {
         sbxInstalled: CompletableFuture<Boolean>,
     ): MainWindow {
         val tasks = BackgroundTasks().also(backgroundTasks::add)
+        val commandRuns = CommandRunSession(terminals, tasks).also(commandRunSessions::add)
         return MainWindow(
             projectService,
             fileExplorer,
@@ -227,8 +228,8 @@ abstract class MainWindowUiFixture {
             SystemBrowser(),
             remoteSourceCache,
             GitRemotes(git),
-            GradleSession(projectTrust, CommandRunSession(terminals, tasks).also(commandRunSessions::add))
-                .also(gradleSessions::add),
+            GradleSession(projectTrust, commandRuns).also(gradleSessions::add),
+            commandRuns,
         )
     }
 

@@ -1,6 +1,7 @@
 package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
 import dev.sluide.editorarea.askToClose
@@ -27,6 +28,7 @@ import dev.sluide.ide.github.RemoteCache
 import dev.sluide.ide.github.WindowWorkflowSources
 import dev.sluide.ide.logging.currentLogFolder
 import dev.sluide.ide.scratches.WindowScratches
+import dev.sluide.ide.scripts.WindowScriptRuns
 import dev.sluide.ide.tools.WindowTools
 import dev.sluide.ide.trust.WindowTrust
 import dev.sluide.projects.RecentProjects
@@ -83,6 +85,7 @@ class MainWindow(
     remoteSourceCache: RemoteSourceCache,
     gitRemotes: GitRemotes,
     private val gradleSession: GradleSession,
+    private val commandRuns: CommandRunSession,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
     internal var openWebPage: (URI) -> Unit = systemBrowser::open
@@ -146,6 +149,9 @@ class MainWindow(
     /** Which lines of `.gitignore` files have an effect, as git decides (ADR 0080). */
     private val ignoreRuleEffects = gitStatus.ignoreRuleEffects()
 
+    /** The explorer's Run for files their view can run, e.g. shell scripts (ADR 0089). */
+    private val scriptRuns = WindowScriptRuns(fileViewers::viewerFor, { editorArea.open(it) }, editorArea::viewOf)
+
     /** The Terminal and Docker Sandbox menus and the tabs they open. */
     internal val tools =
         WindowTools(projectService, terminals, dockerSandbox, editorArea, showError = { s, m -> showError(s, m) })
@@ -188,6 +194,8 @@ class MainWindow(
                     HttpClientSetup.create(folder).let { FolderActionResult(it.example, it.note) }
                 },
             )
+        // A file's context menu runs it where its view can (ADR 0089).
+        fileExplorer.fileActions = listOf(scriptRuns.action)
         // Git status markers, if git is installed and the folder is a repository (ADR 0013).
         fileExplorer.markers = { path, directory -> gitStatus.snapshot.get().markers(path, directory) }
         // Not for the log file growing inside the folder: the status's own log lines would trigger the next refresh.
@@ -215,6 +223,9 @@ class MainWindow(
         // and Review… of a view whose Gradle is off asks about the folder's trust (ADR 0085).
         editorArea.windowServices.register(GradleSession::class.java, gradleSession)
         editorArea.onFileSaved = gradleSession::fileSaved
+        // Views that run commands (shell scripts) run them in the window's terminals and list them among its
+        // background tasks (ADR 0088, ADR 0089).
+        editorArea.windowServices.register(CommandRunSession::class.java, commandRuns)
         gradleSession.reviewTrust = { trust.review(stage) }
         // It warns about private environment files that git would commit.
         httpSession.wouldCommit = { gitStatus.snapshot.get().wouldCommit(it) }
