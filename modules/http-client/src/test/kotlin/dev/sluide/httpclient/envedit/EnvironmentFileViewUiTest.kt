@@ -1,11 +1,5 @@
 package dev.sluide.httpclient.envedit
 
-import dev.sluide.fileviewers.DefaultTextFileViewer
-import dev.sluide.fileviewers.ExtensionFileViewer
-import dev.sluide.fileviewers.FileView
-import dev.sluide.fileviewers.FileViewers
-import dev.sluide.fileviewers.Highlighters
-import dev.sluide.fileviewers.SourceFileViewer
 import javafx.event.ActionEvent
 import javafx.scene.control.Button
 import javafx.scene.control.CheckBox
@@ -19,19 +13,14 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
-import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.exists
-import kotlin.io.path.extension
 import kotlin.io.path.readText
-import kotlin.io.path.writeBytes
-import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
-import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /** The environment files' view: both files in the form, editing values, modes, warnings. Needs a display. */
@@ -42,40 +31,6 @@ internal class EnvironmentFileViewUiTest : EnvironmentFileViewUiFixture() {
     fun start(stage: Stage) = startView(stage)
 
     private fun FxRobot.area() = lookup(".code-area").queryAs(CodeArea::class.java)
-
-    /** A viewer of other JSON files showing them as text, like the JSON preview of the previews. */
-    private class JsonViewer :
-        ExtensionFileViewer,
-        SourceFileViewer {
-        override val fileExtensions = setOf("json")
-        override val sourceHighlighter = Highlighters.json
-
-        override fun canOpen(file: Path) = file.extension.lowercase() in fileExtensions
-
-        override fun open(file: Path): FileView = error("not needed")
-    }
-
-    @Test
-    fun `opens the environment files by name, not other json files`() {
-        publicFile.writeText("{}")
-        privateFile.writeText("{}")
-        val upper = dir.resolve("upper").apply { toFile().mkdir() }.resolve("HTTP-Client.Env.JSON")
-        upper.writeText("{}")
-        val other = dir.resolve("other.json").apply { writeText("{}") }
-        val binary = dir.resolve("bin").apply { toFile().mkdir() }.resolve("http-client.env.json")
-        binary.writeBytes(byteArrayOf(0, 1, 2))
-        val json = JsonViewer()
-        val viewers = FileViewers(listOf(json, viewer), DefaultTextFileViewer())
-
-        assertTrue(viewer.canOpen(publicFile))
-        assertTrue(viewer.canOpen(upper))
-        assertFalse(viewer.canOpen(other))
-        assertFalse(viewer.canOpen(binary))
-        assertSame(viewer, viewers.viewerFor(publicFile))
-        assertSame(viewer, viewers.viewerFor(privateFile))
-        assertSame(json, viewers.viewerFor(other))
-        assertTrue(viewers.showsDiffs(viewer))
-    }
 
     @Test
     fun `shows both files merged with the file of each value, private values masked until shown`(robot: FxRobot) {

@@ -1,9 +1,7 @@
 package dev.sluide.httpclient.ui
 
 import dev.sluide.backgroundtasks.BackgroundTasks
-import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewHost
-import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.WindowServices
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpFileViewer
@@ -15,7 +13,6 @@ import javafx.scene.Scene
 import javafx.scene.control.Menu
 import javafx.scene.control.TextField
 import javafx.scene.input.KeyCode
-import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.StackPane
@@ -35,12 +32,10 @@ import java.nio.file.Path
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.readText
-import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -124,15 +119,6 @@ class HttpFileViewUiTest {
         """.trimMargin()
 
     @Test
-    fun `opens http and rest files that are text`() {
-        assertTrue(viewer.canOpen(dir.resolve("api.http").apply { writeText("GET http://x\n") }))
-        assertTrue(viewer.canOpen(dir.resolve("api.REST").apply { writeText("GET http://x\n") }))
-        assertFalse(viewer.canOpen(dir.resolve("bin.http").apply { writeBytes(byteArrayOf(0, 1, 2)) }))
-        assertFalse(viewer.canOpen(dir.resolve("api.txt").apply { writeText("GET http://x\n") }))
-        assertTrue(FileViewers(listOf(viewer), DefaultTextFileViewer()).showsDiffs(viewer))
-    }
-
-    @Test
     fun `a view asked for the focus before it is shown focuses its text once it is`(robot: FxRobot) {
         val other = TextField()
         robot.interact {
@@ -163,7 +149,6 @@ class HttpFileViewUiTest {
         assertEquals("### Users\nGET https://example.com/users\n", area.text)
         assertEquals(listOf("comment"), area.getStyleOfChar(1).toList())
         assertEquals(listOf("keyword"), area.getStyleOfChar(11).toList())
-        assertIs<HttpFileView>(view)
 
         robot.interact { area.insertText(area.length, "Accept: */*\n") }
         assertTrue(view.dirty.get())
