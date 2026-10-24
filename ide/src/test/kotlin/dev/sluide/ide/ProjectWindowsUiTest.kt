@@ -232,11 +232,22 @@ class ProjectWindowsUiTest {
         val a = dir.resolve("a").createDirectories()
         val b = dir.resolve("b").createDirectories()
 
-        robot.interact { window(first).openFolder(a) }
+        robot.interact {
+            window(first).openFolder(a)
+            window(first).tools.openTerminal(first)
+        }
         robot.interact { window(first).openFolder(b) }
         WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(2, windows.stages.size)
+        assertEquals(
+            1,
+            first.scene.root
+                .lookupAll(".editor-tab")
+                .size,
+            "the first window keeps its tabs",
+        )
+        assertEquals(setOf(a, b), recentProjects.list().map { it.folder }.toSet(), "opened folders are remembered")
         val second = windows.stages[1]
         assertSame(first, windows.stages[0])
         assertEquals(a, window(first).folder)
@@ -254,7 +265,7 @@ class ProjectWindowsUiTest {
     }
 
     @Test
-    fun `opening a folder that is already open brings its window to the front`(robot: FxRobot) {
+    fun `opening a folder that is already open opens no second window for it`(robot: FxRobot) {
         val a = dir.resolve("a").createDirectories()
         val b = dir.resolve("b").createDirectories()
         robot.interact {
@@ -324,18 +335,6 @@ class ProjectWindowsUiTest {
         WaitForAsyncUtils.waitForFxEvents()
         assertFalse(Files.exists(scratch))
         assertEquals(1, pickers().size)
-    }
-
-    @Test
-    fun `closing the last window shows the project picker`(robot: FxRobot) {
-        robot.interact { first.hide() }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        val picker = pickers().single()
-        assertEquals(appTitle(), picker.title)
-        assertFalse(picker in windows.stages)
-        assertEquals(emptyList(), windows.stages)
-        assertEquals(0, exits)
     }
 
     @Test
@@ -462,11 +461,16 @@ class ProjectWindowsUiTest {
     }
 
     @Test
-    fun `cancelling the picker without an open window ends the application`(robot: FxRobot) {
+    fun `closing the last window shows the project picker, cancelling it ends the application`(robot: FxRobot) {
         robot.interact { first.hide() }
         WaitForAsyncUtils.waitForFxEvents()
+        val picker = pickers().single()
+        assertEquals(appTitle(), picker.title)
+        assertFalse(picker in windows.stages)
+        assertEquals(emptyList(), windows.stages)
+        assertEquals(0, exits)
 
-        escape(robot, pickers().single())
+        escape(robot, picker)
 
         assertEquals(emptyList(), pickers())
         assertEquals(1, exits)
@@ -613,20 +617,5 @@ class ProjectWindowsUiTest {
         assertEquals(listOf(a, b), started.map { window(it).folder })
         assertTrue(started.all { it.isShowing })
         robot.interact { started.forEach(Stage::hide) }
-    }
-
-    @Test
-    fun `opened folders are remembered`(robot: FxRobot) {
-        val a = dir.resolve("a").createDirectories()
-        val b = dir.resolve("b").createDirectories()
-
-        robot.interact {
-            window(first).openFolder(a)
-            window(first).openFolder(b)
-        }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        assertEquals(setOf(a, b), recentProjects.list().map { it.folder }.toSet())
-        robot.interact { windows.stages[1].hide() }
     }
 }
