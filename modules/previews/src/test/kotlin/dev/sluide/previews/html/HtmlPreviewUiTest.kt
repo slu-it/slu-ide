@@ -189,6 +189,12 @@ class HtmlPreviewUiTest {
         awaitPage(view, "Hello")
         // An anchor on the page itself stays.
         robot.interact { view.webView.engine.load(PreviewServer.url(dir, file).toString() + "#top") }
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
+            fx {
+                view.webView.engine.location
+                    .endsWith("#top")
+            }
+        }
         WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf(dir.resolve("other.html"), dir.resolve("style.css")), host.files)
@@ -228,7 +234,7 @@ class HtmlPreviewUiTest {
             10,
             TimeUnit.SECONDS,
         ) { fx { robot.lookup(".preview-notice").query<Node>().isVisible } }
-        WaitForAsyncUtils.sleep(1, TimeUnit.SECONDS)
+        WaitForAsyncUtils.sleep(200, TimeUnit.MILLISECONDS)
 
         assertTrue("other.html" in view.notice.text)
         assertEquals(emptyList(), host.files)
@@ -416,7 +422,11 @@ class HtmlPreviewUiTest {
             }
         }
 
-        WaitForAsyncUtils.sleep(3, TimeUnit.SECONDS)
+        WaitForAsyncUtils.waitFor(
+            10,
+            TimeUnit.SECONDS,
+        ) { fx { robot.lookup(".preview-notice").query<Node>().isVisible } }
+        WaitForAsyncUtils.sleep(300, TimeUnit.MILLISECONDS)
 
         assertTrue(loads <= 2, "loaded $loads times")
         assertTrue(robot.lookup(".preview-notice").query<Node>().isVisible)
