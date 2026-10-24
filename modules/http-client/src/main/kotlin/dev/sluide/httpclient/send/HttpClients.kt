@@ -23,7 +23,7 @@ internal class HttpClients(
         val sslContext: SSLContext? = null,
     )
 
-    private val cookies = CookieManager(null, CookiePolicy.ACCEPT_ORIGINAL_SERVER)
+    internal val cookies = CookieManager(null, CookiePolicy.ACCEPT_ORIGINAL_SERVER)
     private val lock = Any()
     private val clients = HashMap<ClientKey, HttpClient>()
     private var closed = false

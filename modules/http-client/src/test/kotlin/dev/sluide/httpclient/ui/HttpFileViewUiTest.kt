@@ -8,6 +8,7 @@ import dev.sluide.httpclient.HttpFileViewer
 import dev.sluide.httpclient.auth.TokenEndpoint
 import dev.sluide.httpclient.send.TestServer
 import javafx.event.Event
+import javafx.event.EventType
 import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.Menu
@@ -29,6 +30,7 @@ import org.testfx.util.WaitForAsyncUtils
 import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.readText
@@ -50,7 +52,10 @@ class HttpFileViewUiTest {
     private val container = StackPane()
     private val viewer = HttpFileViewer()
     private val server = TestServer()
-    private val session = HttpClientSession(BackgroundTasks.forTests())
+
+    /** The log lines of the background tasks of the requests. */
+    private val taskLines = CopyOnWriteArrayList<String>()
+    private val session = HttpClientSession(BackgroundTasks.forTests { taskLines += it })
 
     @AfterEach
     fun stop() {
@@ -232,7 +237,11 @@ class HttpFileViewUiTest {
 
         val icons = robot.lookup(".http-run-icon").queryAll<Node>().sortedBy { it.localToScene(0.0, 0.0).y }
         assertEquals(2, icons.size)
-        robot.interact { Event.fireEvent(icons[1], click(icons[1])) }
+        robot.interact {
+            robot.area().moveTo(5, 0)
+            Event.fireEvent(icons[1], mouse(icons[1], MouseEvent.MOUSE_PRESSED))
+            Event.fireEvent(icons[1], mouse(icons[1], MouseEvent.MOUSE_CLICKED))
+        }
 
         assertEquals("200 OK", awaitResult(view))
         assertTrue(
@@ -240,7 +249,7 @@ class HttpFileViewUiTest {
                 .startsWith("POST\n"),
             view.response.body.text,
         )
-        assertEquals(0, robot.area().currentParagraph, "the caret stays")
+        assertEquals(5, robot.area().currentParagraph, "the caret stays")
         assertEquals(0.5, view.split.dividerPositions.single(), 0.05, "the response takes half of the view")
     }
 
@@ -427,12 +436,11 @@ class HttpFileViewUiTest {
         val view = openHosted("GET ${server.base}/login\n\n###\nGET ${server.base}/echo\n", robot)
         robot.interact { view.runButton.fire() }
         awaitResult(view)
-
-        robot.interact { view.run(3) }
-        awaitResult(view)
-        assertTrue("cookie: session=abc" in view.response.body.text, view.response.body.text)
+        val jar = session.clients.cookies.cookieStore
+        assertEquals(listOf("session=abc"), jar.cookies.map { "${it.name}=${it.value}" })
 
         robot.interact { view.clearCookies.fire() }
+        assertTrue(jar.cookies.isEmpty())
         assertEquals("Cookies cleared", view.message.text)
         robot.interact { view.run(3) }
         awaitResult(view)
@@ -474,27 +482,29 @@ class HttpFileViewUiTest {
         WaitForAsyncUtils.waitForFxEvents()
     }
 
-    private fun click(node: Node) =
-        MouseEvent(
-            MouseEvent.MOUSE_CLICKED,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            MouseButton.PRIMARY,
-            1,
-            false,
-            false,
-            false,
-            false,
-            true,
-            false,
-            false,
-            true,
-            false,
-            false,
-            null,
-        ).copyFor(node, node)
+    private fun mouse(
+        node: Node,
+        type: EventType<MouseEvent>,
+    ) = MouseEvent(
+        type,
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+        MouseButton.PRIMARY,
+        1,
+        false,
+        false,
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+        false,
+        false,
+        null,
+    ).copyFor(node, node)
 
     @Test
     fun `comments lines with #`(robot: FxRobot) {
@@ -508,21 +518,8 @@ class HttpFileViewUiTest {
 
     @Test
     fun `follows the file when it is moved, with its environment`(robot: FxRobot) {
-        val session = HttpClientSession(BackgroundTasks.forTests())
-        val old = dir.resolve("api.http").apply { writeText("GET http://x\n") }
-        val view = open(old, robot)
-        robot.interact {
-            view.host =
-                object : FileViewHost {
-                    override fun openFile(file: Path) = false
-
-                    override fun openWebPage(uri: URI) {}
-
-                    private val services = WindowServices().apply { register(HttpClientSession::class.java, session) }
-
-                    override fun <T : Any> windowService(type: Class<T>): T? = services.get(type)
-                }
-        }
+        val old = dir.resolve("api.http")
+        val view = openHosted("GET http://x\n", robot)
         session.chooseEnvironment(old, "dev")
         val new = dir.resolve("users.http")
         Files.move(old, new)
@@ -537,7 +534,6 @@ class HttpFileViewUiTest {
         assertEquals("# moved\nGET http://x\n", new.readText())
         assertEquals("dev", session.environment(new))
         assertNull(session.environment(old))
-        session.close()
     }
 
     @Test
@@ -547,6 +543,81 @@ class HttpFileViewUiTest {
         robot.press(view.runButton, KeyCode.ENTER, shortcut = true)
 
         assertFalse(view.response.node in view.split.items)
+    }
+
+    @Test
+    fun `Shortcut+Enter in the field of the find bar runs nothing`(robot: FxRobot) {
+        val view = openHosted(twoRequests(), robot)
+        robot.press(robot.area(), KeyCode.F, shortcut = true)
+        WaitForAsyncUtils.waitForFxEvents()
+        val field = robot.lookup(".text-field").queryAllAs(TextField::class.java).single { it.isVisible }
+
+        robot.press(field, KeyCode.ENTER, shortcut = true)
+
+        assertFalse(view.response.node in view.split.items)
+    }
+
+    @Test
+    fun `switches the body between pretty and raw`(robot: FxRobot) {
+        server.handle("/json") { server.respond(it, 200, """{"a":1}""", "Content-Type" to "application/json") }
+        val view = openHosted("GET ${server.base}/json\n", robot)
+        robot.interact { view.runButton.fire() }
+        awaitResult(view)
+        val pane = view.response
+
+        assertTrue(
+            pane.body.text
+                .lines()
+                .size > 1,
+            pane.body.text,
+        )
+        assertTrue(pane.pretty.isSelected)
+        assertFalse(pane.raw.isDisable)
+
+        robot.interact { pane.raw.fire() }
+        assertEquals("""{"a":1}""", pane.body.text)
+        robot.interact { pane.raw.fire() }
+        assertTrue(pane.raw.isSelected, "one of the two stays selected")
+        assertEquals("""{"a":1}""", pane.body.text)
+
+        robot.interact { pane.pretty.fire() }
+        assertTrue(
+            pane.body.text
+                .lines()
+                .size > 1,
+            pane.body.text,
+        )
+    }
+
+    @Test
+    fun `offers no raw body when it is what is shown`(robot: FxRobot) {
+        val view = openHosted("GET ${server.base}/echo\n", robot)
+        robot.interact { view.runButton.fire() }
+        awaitResult(view)
+
+        assertTrue(view.response.raw.isDisable)
+    }
+
+    @Test
+    fun `the token menu names the missing auth configurations and clears all tokens`(robot: FxRobot) {
+        dir.resolve("http-client.env.json").writeText("""{"dev": {"host": "x"}}""")
+        val view = openHosted("GET ${server.base}/echo\n", robot)
+        awaitEnvironments(view, "No environment", "dev")
+        robot.interact {
+            view.environments.value = "dev"
+            view.auth.show()
+        }
+
+        assertEquals(
+            listOf("No Security.Auth in dev", "", "Clear All Tokens"),
+            view.auth.items.map { it.text.orEmpty() },
+        )
+        robot.interact {
+            view.auth.items
+                .last()
+                .fire()
+        }
+        assertEquals("All tokens cleared", view.message.text)
     }
 
     @Test
@@ -561,7 +632,12 @@ class HttpFileViewUiTest {
         assertTrue(reached.await(10, TimeUnit.SECONDS))
 
         robot.interact { view.run(3) }
-        WaitForAsyncUtils.sleep(500, TimeUnit.MILLISECONDS)
+        // The replaced request ends as cancelled; its result is handed over right after, and must not be shown.
+        // Had it been shown, it would take two more hops (FX thread, background formatting, FX thread): a short wait
+        // after the real signal, since nothing marks a result that was ignored.
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { taskLines.any { " cancelled after " in it } }
+        WaitForAsyncUtils.waitForFxEvents()
+        WaitForAsyncUtils.sleep(200, TimeUnit.MILLISECONDS)
         WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals("Failed", view.response.status.text)
