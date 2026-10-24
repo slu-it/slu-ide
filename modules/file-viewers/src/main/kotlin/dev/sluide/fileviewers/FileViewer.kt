@@ -1,6 +1,8 @@
 package dev.sluide.fileviewers
 
+import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.beans.value.ObservableBooleanValue
+import javafx.beans.value.ObservableValue
 import javafx.scene.Node
 import java.io.IOException
 import java.net.URI
@@ -121,7 +123,24 @@ interface FileView {
     var host: FileViewHost?
         get() = null
         set(_) {}
+
+    /**
+     * Why closing the view's tab from the UI should be confirmed first (e.g. "build.gradle.kts is still running
+     * :app:test."), or `null`, as by default. Also asked, with the others, when the window closes.
+     */
+    val closeWarning: String? get() = null
+
+    /**
+     * What the view is doing, shown as a marker on its tab; [ViewActivity.NONE] by default. Changes on the FX thread.
+     */
+    val activity: ObservableValue<ViewActivity> get() = NO_ACTIVITY
 }
+
+/** What a view shows on its tab besides its name. */
+enum class ViewActivity { NONE, RUNNING, FAILED }
+
+/** The [FileView.activity] of views that never do anything worth a marker. */
+private val NO_ACTIVITY: ObservableValue<ViewActivity> = ReadOnlyObjectWrapper(ViewActivity.NONE).readOnlyProperty
 
 /** A [FileView] in which the file can be edited and saved. */
 interface EditableFileView : FileView {
