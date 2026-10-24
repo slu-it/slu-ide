@@ -34,7 +34,7 @@ internal class GitignoreFileView(
     TextEditableView,
     GutterColumns {
     /** The text. */
-    val source = CodeView(file, highlighter, comment, defaultIndent, dispatch)
+    val source = CodeView(file, highlighter, comment, defaultIndent, dispatch = dispatch)
 
     private var disposed = false
 

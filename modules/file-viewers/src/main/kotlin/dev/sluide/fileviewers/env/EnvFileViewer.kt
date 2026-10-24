@@ -58,7 +58,7 @@ internal class EnvFileView(
 ) : EditableFileView,
     GutterColumns {
     /** The text; [dispatch] hands it the background highlighting, as for [CodeView]. */
-    val source = CodeView(file, highlighter, comment, defaultIndent, dispatch)
+    val source = CodeView(file, highlighter, comment, defaultIndent, dispatch = dispatch)
 
     /** Whether all values are shown. */
     val showValues: BooleanProperty = SimpleBooleanProperty(false)

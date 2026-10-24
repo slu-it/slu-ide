@@ -53,6 +53,7 @@ import javafx.util.Duration as FxDuration
 internal class FindBar(
     private val area: CodeArea,
     private val container: Pane,
+    private val followPause: Duration = FOLLOW_PAUSE,
 ) {
     val query = TextField().apply { styleClass += "find-query" }
     val matchCase = optionButton("Aa", "Match case")
@@ -173,7 +174,7 @@ internal class FindBar(
             following =
                 Subscription.multi(
                     area.plainTextChanges().subscribe { stale = true },
-                    area.multiPlainChanges().successionEnds(FOLLOW_PAUSE).subscribe {
+                    area.multiPlainChanges().successionEnds(followPause).subscribe {
                         if (stale) {
                             refresh()
                             restyle()
@@ -271,7 +272,7 @@ internal class FindBar(
                 area.applyEdits(result.edits, result.selection)
                 find()
                 restyle()
-                counter.text = if (result.count == 1) "1 replaced" else "${result.count} replaced"
+                counter.text = replacedText(result.count)
                 // Not an error, although nothing matches any more.
                 counter.pseudoClassStateChanged(ERROR, false)
             }
@@ -354,18 +355,8 @@ internal class FindBar(
 
     private fun showCounter() {
         val count = matches.size
-        val total = if (truncated) "$count+" else "$count"
-        val error = error
-        counter.text =
-            when {
-                error != null -> error
-                query.text.isEmpty() -> ""
-                count == 0 -> "No results"
-                current != null -> "${checkNotNull(current) + 1} of $total"
-                count == 1 && !truncated -> "1 result"
-                else -> "$total results"
-            }
-        counter.pseudoClassStateChanged(ERROR, error != null || (count == 0 && query.text.isNotEmpty()))
+        counter.text = counterText(count, truncated, current, error, query.text)
+        counter.pseudoClassStateChanged(ERROR, counterIsError(count, error, query.text))
     }
 
     private fun showError(message: String) {
@@ -452,7 +443,7 @@ private val MATCH_CLASSES = CURRENT_MATCH.toSet()
 private val ERROR = PseudoClass.getPseudoClass("error")
 
 /** How long typing pauses before the matches are found again in the changed text. */
-private val FOLLOW_PAUSE = Duration.ofMillis(150)
+internal val FOLLOW_PAUSE = Duration.ofMillis(150)
 
 /** How long typing the query pauses before it is searched in a large text. */
 private val QUERY_PAUSE = FxDuration.millis(300.0)

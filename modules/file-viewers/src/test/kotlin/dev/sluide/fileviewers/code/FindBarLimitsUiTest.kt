@@ -16,6 +16,7 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
+import java.time.Duration
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.writeText
 import kotlin.test.Test
@@ -42,9 +43,10 @@ class FindBarLimitsUiTest {
     private fun open(
         text: String,
         robot: FxRobot,
+        followPause: Duration = FOLLOW_PAUSE,
     ): CodeView {
         val file = dir.resolve("text.txt").apply { writeText(text) }
-        val view = WaitForAsyncUtils.asyncFx<CodeView> { CodeView(file, null) }.get()
+        val view = WaitForAsyncUtils.asyncFx<CodeView> { CodeView(file, null, followPause = followPause) }.get()
         robot.interact {
             container.children.setAll(view.node)
             view.area.requestFocus()
@@ -65,6 +67,32 @@ class FindBarLimitsUiTest {
         assertTrue(System.nanoTime() - started < 3_000_000_000L, "the UI is not blocked for long")
         assertEquals(TextSearch.TOO_LONG, bar.counter.text)
         assertTrue(bar.matches.isEmpty())
+    }
+
+    @Test
+    fun `a search that ran out of time is not repeated while typing`(robot: FxRobot) {
+        val view = open("a".repeat(40) + "c\n", robot, followPause = Duration.ofMillis(1))
+        robot.press(view.area, KeyCode.F, shortcut = true)
+        val bar = view.findBar
+        robot.interact {
+            bar.regex.isSelected = true
+            bar.query.text = "(a+)+\\1b"
+        }
+        assertEquals(TextSearch.TOO_LONG, bar.counter.text)
+
+        // A text this regex finds nothing in at once, so a repeated search would say "No results".
+        var pauseOver = false
+        val over =
+            view.area
+                .multiPlainChanges()
+                .successionEnds(Duration.ofMillis(50))
+                .subscribe { pauseOver = true }
+        robot.interact { view.area.replaceText("b\n") }
+        WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) { pauseOver }
+        WaitForAsyncUtils.waitForFxEvents()
+        over.unsubscribe()
+
+        assertEquals(TextSearch.TOO_LONG, bar.counter.text)
     }
 
     @Test
@@ -115,17 +143,17 @@ class FindBarLimitsUiTest {
 
     @Test
     fun `in a large text the query is searched once typing it pauses, or on enter`(robot: FxRobot) {
-        val view = open("x".repeat(1 shl 20) + " needle\n", robot)
+        val view = open("x\n".repeat(1 shl 19) + " needle\n", robot)
         robot.press(view.area, KeyCode.F, shortcut = true)
         val bar = view.findBar
 
-        // In one go on the FX thread: on a slow machine, rendering the long line between two steps can outlast the pause.
+        // In one go on the FX thread: on a slow machine, rendering the large text between two steps can outlast the pause.
         val (whileTyping, onEnter) =
             WaitForAsyncUtils
                 .asyncFx<Pair<Int, Int>> {
                     bar.query.text = "needle"
                     val typing = bar.matches.size
-                    Event.fireEvent(bar.query, keyPress(KeyCode.ENTER, shortcut = false))
+                    Event.fireEvent(bar.query, keyPress(KeyCode.ENTER))
                     typing to bar.matches.size
                 }.get()
         assertEquals(0, whileTyping, "not searched while typing")

@@ -71,13 +71,16 @@ import java.time.Duration
  * none. The file stays editable.
  *
  * Keys for editing ([editorKeys]) indent in the file's [indentStyle] (from `.editorconfig`, else detected, else
- * [defaultIndent]) and comment out lines with [comment].
+ * [defaultIndent]) and comment out lines with [comment]. [highlightPause] and [followPause] (find bar) are how long
+ * typing pauses before the text is highlighted and the matches are found again; tests shorten them.
  */
 internal class CodeView(
     initialFile: Path,
     private val highlighter: SyntaxHighlighter?,
     comment: CommentSyntax = CommentSyntax.NONE,
     private val defaultIndent: IndentStyle = IndentStyle.DEFAULT,
+    highlightPause: Duration = HIGHLIGHT_PAUSE,
+    followPause: Duration = FOLLOW_PAUSE,
     private val dispatch: (Runnable) -> Unit = Platform::runLater,
 ) : EditableFileView,
     TextEditableView,
@@ -118,7 +121,7 @@ internal class CodeView(
         }
 
     /** Finds in the text; shown above the banners. */
-    val findBar = FindBar(area, banners)
+    val findBar = FindBar(area, banners, followPause)
 
     /** Moves the caret to a line the user enters. */
     val goToLine = GoToLine(area)
@@ -236,7 +239,7 @@ internal class CodeView(
         // Markdown view (in a SplitPane) opened scrolled down.
         area.moveTo(0)
         area.requestFollowCaret()
-        val pause = Duration.ofMillis(if (savedText.length > LARGE_TEXT) 600 else 150)
+        val pause = if (savedText.length > LARGE_TEXT) highlightPause.multipliedBy(4) else highlightPause
         highlighting =
             Subscription.multi(
                 area.plainTextChanges().subscribe { revision++ },
@@ -560,6 +563,9 @@ private const val MASKED = "masked"
 
 /** Texts above this length (about 1 MiB) are highlighted after a longer pause in typing. */
 private const val LARGE_TEXT = 1 shl 20
+
+/** How long typing pauses before the text is highlighted again (four times as long in large texts). */
+private val HIGHLIGHT_PAUSE = Duration.ofMillis(150)
 
 /** Highlights edited code of all views, one text at a time. */
 private val highlightExecutor =

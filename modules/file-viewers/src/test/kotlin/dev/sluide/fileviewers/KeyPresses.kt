@@ -29,7 +29,7 @@ internal fun FxRobot.press(
 internal fun keyPress(
     code: KeyCode,
     shift: Boolean = false,
-    shortcut: Boolean = true,
+    shortcut: Boolean = false,
     alt: Boolean = false,
 ): KeyEvent =
     KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, shift, shortcut && !shortcutIsMeta, alt, shortcut && shortcutIsMeta)
@@ -43,7 +43,7 @@ internal fun slashKey(): Pair<KeyCode, Boolean>? =
         .asyncFx<Pair<KeyCode, Boolean>?> {
             KeyCode.entries.firstNotNullOfOrNull { code ->
                 listOf(false, true)
-                    .firstOrNull { shift -> TOGGLE_COMMENT.match(keyPress(code, shift)) }
+                    .firstOrNull { shift -> TOGGLE_COMMENT.match(keyPress(code, shift, shortcut = true)) }
                     ?.let { code to it }
             }
         }.get()

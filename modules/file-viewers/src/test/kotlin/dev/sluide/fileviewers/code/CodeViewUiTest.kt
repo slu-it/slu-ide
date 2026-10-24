@@ -21,6 +21,7 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
+import java.time.Duration
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.createDirectory
@@ -51,6 +52,10 @@ class CodeViewUiTest {
     fun start(stage: Stage) {
         stage.scene = Scene(container, 500.0, 300.0)
         stage.show()
+    }
+
+    private companion object {
+        val SHORT_PAUSE: Duration = Duration.ofMillis(1)
     }
 
     private fun open(
@@ -283,7 +288,11 @@ class CodeViewUiTest {
     @Test
     fun `edited code is highlighted after a pause and styling is no undo step`(robot: FxRobot) {
         val file = dir.resolve("main.py").apply { writeText("x = 1\n") }
-        val view = open(file, robot)
+        val view =
+            WaitForAsyncUtils
+                .asyncFx<CodeView> { CodeView(file, PythonFileViewer().highlighter, highlightPause = SHORT_PAUSE) }
+                .get()
+        robot.interact { container.children.setAll(view.node) }
 
         robot.interact { view.area.insertText(0, "def f(): pass\n") }
         WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) { "keyword" in view.area.getStyleOfChar(1) }
@@ -299,8 +308,9 @@ class CodeViewUiTest {
         val results = ConcurrentLinkedQueue<Runnable>()
         val view =
             WaitForAsyncUtils
-                .asyncFx<CodeView> { CodeView(file, PythonFileViewer().highlighter) { results += it } }
-                .get()
+                .asyncFx<CodeView> {
+                    CodeView(file, PythonFileViewer().highlighter, highlightPause = SHORT_PAUSE) { results += it }
+                }.get()
         robot.interact { container.children.setAll(view.node) }
 
         robot.interact { view.area.insertText(0, "def f(): pass\n") }

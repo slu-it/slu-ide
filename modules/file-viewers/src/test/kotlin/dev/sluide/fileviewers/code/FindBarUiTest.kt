@@ -2,6 +2,10 @@ package dev.sluide.fileviewers.code
 
 import dev.sluide.fileviewers.languages.PythonFileViewer
 import dev.sluide.fileviewers.press
+import dev.sluide.textediting.ReplaceResult
+import dev.sluide.textediting.SearchOptions
+import dev.sluide.textediting.TextSearch
+import javafx.application.Platform
 import javafx.scene.Scene
 import javafx.scene.input.KeyCode
 import javafx.scene.layout.StackPane
@@ -14,6 +18,7 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
+import java.time.Duration
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.writeBytes
@@ -21,6 +26,7 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -49,13 +55,23 @@ class FindBarUiTest {
         val view =
             WaitForAsyncUtils
                 .asyncFx<CodeView> {
-                    dispatch?.let { CodeView(file, highlighter, dispatch = it) } ?: CodeView(file, highlighter)
+                    CodeView(
+                        file,
+                        highlighter,
+                        highlightPause = SHORT_PAUSE,
+                        followPause = SHORT_PAUSE,
+                        dispatch = dispatch ?: Platform::runLater,
+                    )
                 }.get()
         robot.interact {
             container.children.setAll(view.node)
             view.area.requestFocus()
         }
         return view
+    }
+
+    private companion object {
+        val SHORT_PAUSE: Duration = Duration.ofMillis(1)
     }
 
     private fun CodeView.selected() = area.selection.start to area.selection.end
@@ -125,7 +141,8 @@ class FindBarUiTest {
             bar.query.text = "fo("
         }
         assertTrue(bar.matches.isEmpty())
-        assertTrue(bar.counter.text.isNotEmpty() && bar.counter.text != "No results", bar.counter.text)
+        val error = assertNotNull(TextSearch.find("Foo foo food\n", "fo(", SearchOptions(true, true, true)).error)
+        assertEquals(error, bar.counter.text)
     }
 
     @Test
@@ -236,7 +253,14 @@ class FindBarUiTest {
 
         robot.interact { bar.replaceAll() }
         assertEquals("a1\n", view.area.text)
-        assertTrue("2" in bar.counter.text, bar.counter.text)
+        val invalid =
+            TextSearch.replaceAll(
+                "a1\n",
+                "a(\\d)",
+                "$2",
+                SearchOptions(matchCase = false, wholeWord = false, regex = true),
+            )
+        assertEquals((invalid as ReplaceResult.Invalid).message, bar.counter.text)
 
         robot.interact { bar.replace() }
         assertEquals("a1\n", view.area.text)
