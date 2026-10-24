@@ -50,6 +50,12 @@ class GradleFileViewLoadingUiTest : GradleFileViewUiFixture() {
             )
         }
         assertTrue(taskLog.any { it.endsWith("started: Gradle: loading tasks") }, taskLog.toString())
+        // Going to a line shows the source again.
+        robot.interact {
+            view.split.mode.set(SplitMode.OTHER)
+            view.showLine(0)
+            assertEquals(SplitMode.SPLIT, view.split.mode.get())
+        }
 
         // Another view of the same build shares the loaded tasks.
         val app = open(robot, "app/build.gradle")
