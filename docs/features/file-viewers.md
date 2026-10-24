@@ -25,6 +25,12 @@ the Bicep graph and `BicepParamFileViewer`.
   `moved(to)` lets a view follow its file to a new path (a rename in the explorer): code views and previews read and
   save it there from now on, keeping text, unsaved changes, caret and undo history, take the indentation again for
   the new path, and previews render it again from there; other views return `false` by default, and the editor opens the file anew.
+  `closeWarning` (default `null`) says why closing the view's tab from the UI should be confirmed first, e.g. while
+  a view runs a build; the editor asks with it when the tab closes and, with the other warnings, when the window
+  closes.
+  `activity` (`ViewActivity`: `NONE` by default, `RUNNING`, `FAILED`; changes on the FX thread) is shown as a marker on
+  the view's tab; the view itself sets it back, e.g. from `FAILED` to `NONE` when its tab is shown again
+  ([editor-tabs.md](editor-tabs.md)).
 - `FileViewers` asks every specific `FileViewer` bean whether it can open a file. Of those that agree it takes the one
   whose name match is strongest (`NameMatch`): the file's path (a `PathFileViewer`, e.g. YAML files in
   `.github/workflows`, which takes part only at its paths), an exact file name, then the extension, then a name pattern; viewers
@@ -162,6 +168,12 @@ the Bicep graph and `BicepParamFileViewer`.
     `Highlighters.fenceLanguage(info)` for the language of a code fence.
     `SyntaxHighlighter`, `HighlightSpan` and `TokenStyle` are public.
   - `BicepResourceGraph.of(text)` gives a Bicep file's resource graph as Mermaid (`mermaid`, `isEmpty`, `note`).
+  - `SourceSplit(source, other, otherLabel, buttonStyleClass, initial)` puts a source beside another side in a
+    horizontal `SplitPane` (`node`), switched by the toggle buttons Source, Split and `otherLabel` (`modeButtons`, not
+    focus traversable) or the `mode` property (`SplitMode.SOURCE`, `SPLIT`, `OTHER`; Split by default). Clicking the
+    selected button keeps it selected, the divider (0.5 at first) is kept while one side is hidden, and both sides may
+    get narrower than their content. Moving the previews and the visual `.env` editor of the HTTP client onto it is
+    planned.
   - `FocusWhenShown` focuses a view's node at once or once it is in a scene
     ([ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md)); `isTextFile` and `readTextSample` tell text files
     and give their first 8 KB.

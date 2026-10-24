@@ -36,12 +36,18 @@
   Out", "Cherry-Pick", "Reset"…): "These files have unsaved changes. Save them before you check out?" with Save,
   "<action> Anyway" (the changes stay; a tab whose file changes on disk keeps them and offers Reload or Keep mine,
   below) and Cancel (`false`); tests replace it via `EditorArea.confirmSaveBeforeGitChange`.
-- A tab can have a `closeWarning` (e.g. a terminal with a running program). Closing such tabs from the UI (×, middle
-  click, any context menu entry) then shows one confirmation dialog listing the warnings; Cancel closes nothing.
+- A tab can have a `closeWarning` (e.g. a terminal with a running program); a file tab has its view's
+  (`FileView.closeWarning`, e.g. a view running a build). Closing such tabs from the UI (×, middle click, Shortcut+W,
+  any context menu entry) then shows one confirmation dialog listing the warnings; Cancel closes nothing. The window
+  lists the warnings of all its tabs, file views' included, before it closes.
   `closeAll()` (used when the window is closed, after the window's own confirmations) does not ask. Tests replace the dialog via
   `EditorArea.confirmClose`. The dialog ("Close this tab anyway?" / "Close these tabs anyway?", Close and Cancel) is
   `askToClose`, which the main window uses for "Close this window anyway?" too.
 - One tab per file: the file name as title, the full path as tooltip. Clicking a tab selects it.
+- A file tab shows what its view is doing (`FileView.activity`) as a marker before its title: a small spinner while it
+  runs something (`ViewActivity.RUNNING`, style class `tab-activity-running`) and a red dot after it failed
+  (`FAILED`, `tab-activity-failed`, lighter in the dark theme); nothing for `NONE`. The view decides how long a
+  failure shows (e.g. until its tab is shown again); the tab only displays it.
 - Dragging a tab header (not its ×) with the left mouse button moves the tab once the mouse has moved 5 px: the
   header follows the mouse inside the tab row, and the other tabs make room as soon as its right edge passes the
   centre of the tab to its right, or its left edge the centre of the tab to its left. Releasing the button drops it
