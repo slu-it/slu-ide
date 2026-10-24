@@ -17,7 +17,10 @@ Sonnet does well with a precise brief and guesses without one. Every implementer
 1. Goal and acceptance criteria (observable behavior).
 2. Files and classes to touch; anything outside them needs a stop-and-report.
 3. Signatures and behavior of new or changed API, including threading (FX thread or not).
-4. Tests to add or change, unit or `@Tag("ui")`, and the existing test classes to run, by class name: the related
+4. Tests to add or change, with the level per behavior (`docs/testing.md`, "Choosing the test level"): unit, naming
+   the function or class to extract when the logic sits in a control, or `@Tag("ui")` with the reason it needs a
+   scene, plus the one wiring test an extraction keeps. Name the existing test classes that already cover
+   neighbouring behavior, to extend rather than duplicate. Then the test classes to run, by class name: the related
    UI test classes and, when an API changes, unit tests of dependent modules (e.g. `:ide`'s `SpringWiringTest`).
    The implementer runs only those, its own and the touched modules' unit tests.
 5. Docs to update: feature page, ADR, `docs/index.md`; `docs/features/keyboard-shortcuts.md` when key bindings change.
@@ -38,20 +41,25 @@ Prefer fixing the brief over escalating: a stop-and-report usually means the pla
 Send reviewer findings back to the same implementer with SendMessage (it keeps its context), then review again.
 Squash review fixes non-interactively: `GIT_SEQUENCE_EDITOR=: git rebase -i --autosquash <base>`.
 Subagents run only targeted tests; the full build is the final gate.
+Before the main session decides a behavior change (a "bug" an agent or audit found), it checks the declared
+`@Throws`, the interface contract and every caller: what looks like a missing catch is often handled one level up.
+A test an audit or brief suggests can be vacuous; ask for it to be shown failing with the code broken.
 
 ## Final gate
 Once the reviewer reports no issues and no agent runs Gradle in the main tree any more, the main session runs
 `.claude/scripts/full-build.sh` in the background: it repairs stale or hung displays (`:99` upwards, one per parallel `uiTest`), refuses while another
-Gradle build runs in the tree, then runs `./gradlew build -q` and `.claude/scripts/check-docs-index.sh`. It fixes failures
+Gradle build runs in the tree, then runs `./gradlew build -q`, `.claude/scripts/check-docs-index.sh` and `check-unused-imports.sh`. It fixes failures
 itself instead of starting another implementer round: rerun the failing class with `--tests`, fix the cause (never by weakening the test), fold the fix
 into the matching commit (`fixup!` + autosquash). A fix that touches production code gets a short reviewer pass on
 that diff; then run the gate again. Hand back to the implementer only when the failure turns out to be a design
 problem, not a local fix. "Unable to open DISPLAY" means a display broke during the run (the script checked it
 before): rerun the script once, which repairs the display; if it fails the same way again, stop and investigate
-(`pgrep -a Xvfb`, `xdpyinfo -display :99`).
+(`pgrep -a Xvfb`, `xdpyinfo -display :99`). To measure build or test times, pass `--rerun-tasks`: the build cache
+reuses results of worktree runs, and `.claude/scripts/test-times.sh` reads the times afterwards.
 
 ## Parallel packages
-- At most three worktree agents at a time (12 cores, about 6 GB free).
+- At most three worktree agents at a time (12 cores, about 6 GB free). Count every implementer still running,
+  including one applying review fixes, before starting the next package.
 - Packages are pairwise disjoint on files; `docs/index.md`, README and `docs/architecture.md` go into a final
   package that collects each package's "index drift" notes. Freeze shared constructor signatures up front.
 - Worktrees (`isolation: "worktree"`) start at the session's first commit, not current master: the brief tells the
@@ -61,6 +69,7 @@ before): rerun the script once, which repairs the display; if it fails the same 
   and kills only processes it started.
 
 ## Merge gate (per package, on master)
-1. In the worktree: `git rebase master`; on master: `git merge --ff-only <branch>`.
+1. In the worktree: `git rebase master`; when master moved since the agent's last test run, compile there
+   (`./gradlew :<module>:testClasses -q`); on master: `git merge --ff-only <branch>`.
 2. The final gate on master (above). With `DISPLAY` set, `build` already includes `uiTest`.
 3. `git worktree remove --force <path>` and delete the branch; merged worktrees are not removed automatically.
