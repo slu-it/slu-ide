@@ -45,6 +45,8 @@ dependencies {
     implementation(project(":modules:command-runs"))
     // The Gradle view of build files and its window session (ADR 0085).
     implementation(project(":modules:gradle"))
+    // Needed only for the Spring bean: ShellScriptFileViewer is a FileViewer found by component scan (ADR 0089).
+    implementation(project(":modules:shell-scripts"))
 
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)

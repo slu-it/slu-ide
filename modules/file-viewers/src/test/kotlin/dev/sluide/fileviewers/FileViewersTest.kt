@@ -7,6 +7,7 @@ import dev.sluide.fileviewers.languages.DockerfileFileViewer
 import dev.sluide.fileviewers.languages.IgnoreFileViewer
 import dev.sluide.fileviewers.languages.KotlinFileViewer
 import dev.sluide.fileviewers.languages.PythonFileViewer
+import dev.sluide.fileviewers.languages.ShellFileViewer
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
@@ -308,6 +309,31 @@ class FileViewersTest {
         assertSame(json, viewers.viewerByName(dir.resolve("a.json"), ""))
         assertSame(fallback, viewers.viewerByName(dir.resolve("other.lock"), ""))
         assertTrue(viewers.showsDiffs(json))
+    }
+
+    /** A source viewer of another module for shell scripts, like the shell-scripts module's. */
+    private class ScriptSourceStub :
+        ExtensionsStub(setOf("sh", "bash", "zsh", "ksh")),
+        SourceFileViewer,
+        ShebangViewer {
+        override val sourceHighlighter = Highlighters.shell
+
+        override fun opensInterpreter(interpreter: String) = interpreter == "bash"
+    }
+
+    @Test
+    fun `a diff of a script is picked by its name for the script viewer, of a startup file for the shell viewer`() {
+        val shell = ShellFileViewer()
+        val scripts = ScriptSourceStub()
+        for (order in listOf(listOf(shell, scripts), listOf(scripts, shell))) {
+            val viewers = FileViewers(order, fallback)
+
+            // None of these files exists.
+            assertSame(scripts, viewers.viewerByName(dir.resolve("deploy.sh"), ""))
+            assertSame(scripts, viewers.viewerByName(dir.resolve("deploy"), "#!/bin/bash\n"))
+            assertSame(shell, viewers.viewerByName(dir.resolve(".bashrc"), "#!/bin/bash\n"))
+            assertSame(Highlighters.shell, viewers.highlighterOf(viewers.viewerByName(dir.resolve("x.sh"), "")))
+        }
     }
 
     /** A viewer of another module for YAML files directly in `.github/workflows`, like the workflow graph. */

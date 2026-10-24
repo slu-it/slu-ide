@@ -6,15 +6,15 @@ import dev.sluide.textediting.CommentSyntax
 import org.springframework.stereotype.Component
 
 /**
- * Shows shell scripts (`.sh`, `.bash`, `.zsh`, `.ksh`, startup files like `.bashrc`, scripts with an `sh`, `bash`,
- * `zsh`, `dash` or `ksh` shebang) with syntax highlighting.
+ * Shows the shell's startup files (`.bashrc`, `.bash_profile`, `.zshrc`, `.zprofile`, `.profile`) with syntax
+ * highlighting. Scripts to run (`.sh`, `.bash`, `.zsh`, `.ksh`, and shebangs naming a shell) have a viewer of their
+ * own in the `shell-scripts` module (ADR 0089).
  */
 @Component
 class ShellFileViewer :
     CodeFileViewer(
-        setOf("sh", "bash", "zsh", "ksh"),
+        emptySet(),
         RSyntaxHighlighter.shell,
         CommentSyntax.HASH,
         names = setOf(".bashrc", ".bash_profile", ".zshrc", ".zprofile", ".profile"),
-        interpreters = setOf("sh", "bash", "zsh", "dash", "ksh"),
     )

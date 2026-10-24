@@ -1,0 +1,29 @@
+/*
+ * View of shell scripts (ShellScriptView): Run and the mode buttons above the source and the run pane (RunPane, styled
+ * by run-pane.css of the command-runs module). No colours of its own, so no dark rules (ADR 0009).
+ */
+
+.script-toolbar {
+    -fx-padding: 2 6 2 6;
+    -fx-spacing: 4;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
+}
+
+.script-toolbar .button {
+    -fx-font-size: 0.9em;
+}
+
+.script-toolbar .toggle-button {
+    -fx-font-size: 0.9em;
+    -fx-padding: 1 8 1 8;
+}
+
+.script-toolbar .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.script-view .split-pane {
+    -fx-padding: 0;
+    -fx-background-insets: 0;
+}

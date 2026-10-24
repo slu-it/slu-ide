@@ -42,6 +42,7 @@ import dev.sluide.settings.ThemeSettings
 import dev.sluide.settings.ThemedWindows
 import dev.sluide.settings.pages.AppearancePage
 import dev.sluide.settings.pages.FontsPage
+import dev.sluide.shellscripts.ShellScriptFileViewer
 import dev.sluide.terminal.Terminals
 import dev.sluide.terminal.settings.TerminalScrollPage
 import dev.sluide.terminal.settings.TerminalScrollSettings
@@ -113,6 +114,7 @@ class SpringWiringTest {
                         CommandRunSession::class.java,
                         GradleKotlinFileViewer::class.java,
                         GradleGroovyFileViewer::class.java,
+                        ShellScriptFileViewer::class.java,
                         TrustedProjects::class.java,
                         ScratchFiles::class.java,
                     )

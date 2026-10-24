@@ -61,8 +61,8 @@ class CodeFileViewersTest {
             LessFileViewer() to listOf("theme.less"),
             SassFileViewer() to listOf("old.sass"),
             SqlFileViewer() to listOf("schema.sql"),
-            ShellFileViewer() to
-                listOf("build.sh", "run.bash", "env.zsh", "old.ksh", ".bashrc", ".bash_profile", ".zshrc", ".profile"),
+            // Scripts to run (.sh and the like) are the shell-scripts module's.
+            ShellFileViewer() to listOf(".bashrc", ".bash_profile", ".zshrc", ".profile"),
             PowerShellFileViewer() to listOf("build.ps1", "Tools.psm1", "Tools.psd1"),
             DockerfileFileViewer() to
                 listOf("Dockerfile", "Containerfile", "Dockerfile.dev", "dockerfile.prod.local", "app.Dockerfile"),
@@ -91,7 +91,20 @@ class CodeFileViewersTest {
         )
 
     private val others =
-        listOf("notes.txt", "README", "py", "README.md", "index.html", "icon.svg", "yarn.lock", "main.bicep")
+        listOf(
+            "notes.txt",
+            "README",
+            "py",
+            "README.md",
+            "index.html",
+            "icon.svg",
+            "yarn.lock",
+            "main.bicep",
+            "build.sh",
+            "run.bash",
+            "env.zsh",
+            "old.ksh",
+        )
 
     private fun file(name: String) = dir.resolve(name).apply { writeText("x = 1\n") }
 
@@ -125,10 +138,9 @@ class CodeFileViewersTest {
                     ),
                 javaScript to
                     listOf("#!/usr/bin/env node\n", "#!/usr/bin/env -S deno run\n", "#!/usr/bin/env bun\n"),
-                shell to
-                    listOf("#!/bin/bash\n", "#!/bin/sh -e\n", "#!/usr/bin/env zsh\n", "#!/bin/dash\n", "#!/bin/ksh\n"),
                 powerShell to listOf("#!/usr/bin/env pwsh\n"),
-                fallback to listOf("#!/usr/bin/env ruby\n", "# python3\n", "#!/usr/bin/env fish\n"),
+                // Shell scripts are the shell-scripts module's; the startup files' viewer takes no shebang.
+                fallback to listOf("#!/usr/bin/env ruby\n", "# python3\n", "#!/usr/bin/env fish\n", "#!/bin/bash\n"),
             )
 
         for ((expected, shebangs) in scripts) {
