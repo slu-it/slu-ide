@@ -8,10 +8,12 @@ import dev.sluide.githubactions.WorkflowGraph
 import dev.sluide.githubactions.WorkflowGraphs
 import dev.sluide.githubactions.WorkflowParser
 import dev.sluide.githubactions.WorkflowSources
+import dev.sluide.githubactions.box
 import dev.sluide.githubactions.mermaid.WorkflowDrawing
 import dev.sluide.githubactions.model.WorkflowJson
 import dev.sluide.githubactions.resolve.NestedGraphsTest.Companion.calls
 import dev.sluide.githubactions.resolve.NestedGraphsTest.Companion.steps
+import dev.sluide.githubactions.styled
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
@@ -89,20 +91,8 @@ class RemoteGraphsTest {
         )
     }
 
-    /** The `class … <style>` line's ids. */
-    private fun WorkflowGraph.styled(style: String): List<String> =
-        mermaid
-            .lines()
-            .singleOrNull { it.startsWith("    class ") && it.endsWith(" $style") }
-            ?.removePrefix("    class ")
-            ?.removeSuffix(" $style")
-            ?.split(",") ?: emptyList()
-
-    /** The line drawing the box [id]. */
-    private fun WorkflowGraph.box(id: String): String = mermaid.lines().single { it.trim().startsWith("$id[") }.trim()
-
     @Test
-    fun `a remote composite action is drawn nested, JS and Docker actions annotated, with when they were fetched`() {
+    fun `a remote composite action is drawn nested, JS and Docker actions annotated`() {
         found(
             "acme/setup",
             "v1",
@@ -245,13 +235,19 @@ class RemoteGraphsTest {
     }
 
     @Test
-    fun `a branch ref shows no fetch date`() {
-        found("acme/a", "v1", "action.yml", "runs:\n  using: node20")
+    fun `a remote text over 1 MB and failures without a message are told apart`() {
+        found("acme/big", "v1", "action.yml", "x".repeat(RepositoryFiles.MAX_BYTES + 1))
+        files[file("acme/empty", "v1", "action.yml")] = RemoteText.Failed("")
 
-        val graph = draw(steps("acme/a@v1"))
+        val graph =
+            draw(steps("acme/big@v1", "acme/empty@v1", "acme/silent@v1"), remote = { file ->
+                if (file.repo == "silent") throw IllegalStateException() else files[file] ?: RemoteText.NotFetched
+            })
 
-        assertTrue("as of" !in graph.mermaid, graph.mermaid)
-        assertTrue(graph.box("j0s0").contains("#60;JS action (node20)#62;"), graph.box("j0s0"))
+        assertEquals("j0s0[\"<b>acme/big@v1</b><br/>larger than 1 MB\"]", graph.box("j0s0"))
+        assertEquals("j0s1[\"<b>acme/empty@v1</b><br/>unreadable\"]", graph.box("j0s1"))
+        assertEquals("j0s2[\"<b>acme/silent@v1</b><br/>unreadable\"]", graph.box("j0s2"))
+        assertEquals(listOf("j0s0", "j0s1", "j0s2"), graph.styled("failed"))
     }
 
     @Test

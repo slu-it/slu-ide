@@ -1,13 +1,16 @@
 package dev.sluide.githubactions.resolve
 
 import dev.sluide.githubactions.RepositoryFiles
+import dev.sluide.githubactions.SAFE_LABEL
 import dev.sluide.githubactions.WorkflowGraph
 import dev.sluide.githubactions.WorkflowGraphs
 import dev.sluide.githubactions.WorkflowParser
 import dev.sluide.githubactions.WorkflowSources
+import dev.sluide.githubactions.box
 import dev.sluide.githubactions.mermaid.WorkflowDrawing
 import dev.sluide.githubactions.model.WorkflowJson
 import dev.sluide.githubactions.sampleJson
+import dev.sluide.githubactions.styled
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.AccessDeniedException
 import java.nio.file.Files
@@ -63,18 +66,6 @@ class NestedGraphsTest {
     }
 
     private fun draw(name: String): WorkflowGraph = WorkflowGraphs.of(name, "", parser, RepositoryFiles(repo))
-
-    /** The `class … <style>` line's ids. */
-    private fun WorkflowGraph.styled(style: String): List<String> =
-        mermaid
-            .lines()
-            .singleOrNull { it.startsWith("    class ") && it.endsWith(" $style") }
-            ?.removePrefix("    class ")
-            ?.removeSuffix(" $style")
-            ?.split(",") ?: emptyList()
-
-    /** The line drawing the box [id]. */
-    private fun WorkflowGraph.box(id: String): String = mermaid.lines().single { it.trim().startsWith("$id[") }.trim()
 
     @Test
     fun `a reusable workflow and composite actions are drawn nested, a second use refers to the first`() {
@@ -275,6 +266,8 @@ class NestedGraphsTest {
         workflow("throws.yml", "")
         workflows.remove("throws.yml")
         workflow("after.yml", steps("./x"))
+        action("nouse", "name: x")
+        action("noimage", "runs:\n  using: docker")
         workflow(
             "empty.yml",
             """{"schema":1,"errors":[{"message":"Unexpected value 'x'.\nMore","line":2}],"jobs":[]}""",
@@ -286,14 +279,18 @@ class NestedGraphsTest {
                 """{"id":"b","type":"reusableWorkflowJob","needs":[],"uses":"./.github/workflows/throws.yml"},""" +
                 """{"id":"c","type":"reusableWorkflowJob","needs":[],"uses":"./.github/workflows/after.yml"},""" +
                 """{"id":"d","type":"job","needs":[],"steps":[""" +
-                """{"uses":"./../outside"},{"uses":"./link"},{"uses":"./broken"},{"uses":"./python"}]}]}""",
+                """{"uses":"./../outside"},{"uses":"./link"},{"uses":"./broken"},{"uses":"./python"},""" +
+                """{"uses":"./nouse"},{"uses":"./noimage"}]}]}""",
         )
 
         val graph = draw("main.yml")
 
         assertNull(graph.note)
         assertEquals(listOf("main.yml", "empty.yml", "throws.yml"), parsed, "not called again after it threw")
-        assertEquals(listOf("j0w", "j1w", "j2w", "j3s0", "j3s1", "j3s2", "j3s3"), graph.styled("failed"))
+        assertEquals(
+            listOf("j0w", "j1w", "j2w", "j3s0", "j3s1", "j3s2", "j3s3", "j3s4"),
+            graph.styled("failed"),
+        )
         assertTrue("<br/>Unexpected value #39;x#39;\"]" in graph.box("j0w"), graph.box("j0w"))
         assertTrue("<br/>parser failed: boom\"]" in graph.box("j1w"), graph.box("j1w"))
         assertTrue("<br/>parser unavailable\"]" in graph.box("j2w"), graph.box("j2w"))
@@ -301,6 +298,55 @@ class NestedGraphsTest {
         assertEquals("j3s1[\"<b>./link</b><br/>outside the repository\"]", graph.box("j3s1"))
         assertTrue("<b>./broken</b><br/>line 1: " in graph.box("j3s2"), graph.box("j3s2"))
         assertEquals("j3s3[\"<b>./python</b><br/>unknown runs.using: python\"]", graph.box("j3s3"))
+        assertEquals("j3s4[\"<b>./nouse</b><br/>no runs.using\"]", graph.box("j3s4"))
+        assertEquals("j3s5[\"<b>./noimage</b><br/><i>#60;Docker (no image)#62;</i>\"]", graph.box("j3s5"))
+    }
+
+    @Test
+    fun `a nested parser or source that is interrupted restores the interrupt flag`() {
+        workflow("b.yml", steps("actions/checkout@v6"))
+        workflow("main.yml", calls("./.github/workflows/b.yml"))
+        val interrupting =
+            WorkflowParser { fileName, _ ->
+                if (fileName == "b.yml") throw InterruptedException() else workflows.getValue(fileName)
+            }
+
+        val parserGraph = WorkflowGraphs.of("main.yml", "", interrupting, RepositoryFiles(repo))
+
+        try {
+            assertTrue(Thread.interrupted(), "parser: interrupt flag restored (and cleared here)")
+            assertTrue("parser failed: " in parserGraph.box("j0w"), parserGraph.box("j0w"))
+
+            val interrupted =
+                object : WorkflowSources {
+                    override fun local(path: String): String =
+                        if (path.endsWith("b.yml")) throw InterruptedException() else "# main"
+                }
+            val sourceGraph = WorkflowGraphs.of("main.yml", "", parser, interrupted)
+
+            assertTrue(Thread.interrupted(), "source: interrupt flag restored (and cleared here)")
+            assertTrue("<br/>unreadable\"]" in sourceGraph.box("j0w"), sourceGraph.box("j0w"))
+        } finally {
+            Thread.interrupted()
+        }
+    }
+
+    @Test
+    fun `called workflows with unsupported output or without jobs fail with a reason`() {
+        workflow("v2.yml", """{"schema":2}""")
+        workflow("nojobs.yml", """{"schema":1,"jobs":[]}""")
+        workflow(
+            "main.yml",
+            """{"schema":1,"errors":[],"events":[],"jobs":[""" +
+                """{"id":"a","type":"reusableWorkflowJob","needs":[],"uses":"./.github/workflows/v2.yml"},""" +
+                """{"id":"b","type":"reusableWorkflowJob","needs":[],"uses":"./.github/workflows/nojobs.yml"}]}""",
+        )
+
+        val graph = draw("main.yml")
+
+        assertTrue("<br/>Unsupported parser output (schema 2, expected 1)\"]" in graph.box("j0w"), graph.box("j0w"))
+        assertTrue("<br/>no jobs\"]" in graph.box("j1w"), graph.box("j1w"))
+        assertEquals(listOf("j0w", "j1w"), graph.styled("failed"))
     }
 
     @Test
@@ -500,13 +546,15 @@ class NestedGraphsTest {
         json: String,
         needed: String,
     ): Int {
-        var limit = 3_000
-        while (limit > 1) {
-            val graph = drawLimited(json, text = limit - 1)
-            if (graph.note != null || needed !in graph.mermaid) break
-            limit--
+        // Binary search: a larger limit never draws less.
+        var low = 1
+        var high = 3_000
+        while (low < high) {
+            val middle = (low + high) / 2
+            val graph = drawLimited(json, text = middle)
+            if (graph.note == null && needed in graph.mermaid) high = middle else low = middle + 1
         }
-        return limit
+        return low
     }
 
     @Test
@@ -521,7 +569,7 @@ class NestedGraphsTest {
             """{"schema":1,"errors":[],"events":[],"jobs":[{"id":"main","type":"job","needs":[],""" +
                 """"runsOn":"x","steps":[{"uses":"./c"}]}]}""",
         )
-        val json = workflows["main.yml"]!!
+        val json = workflows.getValue("main.yml")
 
         val full = drawLimited(json)
         assertEquals(2, Regex("sluide-inputs").findAll(full.mermaid).count(), full.mermaid)
@@ -549,7 +597,7 @@ class NestedGraphsTest {
             """{"schema":1,"errors":[],"events":[],"jobs":[{"id":"main","type":"job","needs":[],""" +
                 """"runsOn":"x","steps":[{"uses":"./a"},{"uses":"./b"}]}]}""",
         )
-        val json = workflows["main.yml"]!!
+        val json = workflows.getValue("main.yml")
 
         // a's three links do not fit in one; b has none, and the job's link is the one.
         val graph = drawLimited(json, edges = 1)
@@ -569,7 +617,7 @@ class NestedGraphsTest {
             """{"schema":1,"errors":[],"events":[],"jobs":[{"id":"main","type":"job","needs":[],""" +
                 """"runsOn":"x","steps":[{"uses":"./outer"}]}]}""",
         )
-        val json = workflows["main.yml"]!!
+        val json = workflows.getValue("main.yml")
 
         assertTrue("j0s0s0i(" in drawLimited(json).mermaid)
         // outer's link and inner's do not fit in one: outer is a box, and inner's inputs box went with it.
@@ -586,7 +634,7 @@ class NestedGraphsTest {
             """{"schema":1,"errors":[],"events":[],"jobs":[{"id":"a","type":"reusableWorkflowJob","needs":[],""" +
                 """"uses":"./.github/workflows/b.yml","with":{"x":"1"}}]}""",
         )
-        val json = workflows["main.yml"]!!
+        val json = workflows.getValue("main.yml")
 
         assertTrue("j0wi(" in drawLimited(json).mermaid)
         val tight = drawLimited(json, text = tightestText(json, "j0wj0s0["))
@@ -618,8 +666,7 @@ class NestedGraphsTest {
             "</i><div class='sluide-inputs'>#34;" in graph.box("j0s0s0") && "#60;Docker (" in graph.mermaid,
             graph.mermaid,
         )
-        val safe = Regex("""([A-Za-z0-9 _\-./:@(),]|#\d+;|</?(br|b|i)/?>|<div class='sluide-inputs'>|</div>)*""")
-        for (text in quoted) assertTrue(text.matches(safe), "unsafe label: $text")
+        for (text in quoted) assertTrue(text.matches(SAFE_LABEL), "unsafe label: $text")
         for (line in graph.mermaid.lines()) {
             val outside = line.replace(Regex("\"[^\"]*\""), "")
             assertFalse("%%" in outside || "<" in outside || "evil" in outside, "outside labels: $line")

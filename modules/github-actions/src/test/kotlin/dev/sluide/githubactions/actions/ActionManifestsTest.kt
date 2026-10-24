@@ -14,7 +14,7 @@ class ActionManifestsTest {
     private fun failed(text: String) = assertIs<ActionManifests.Result.Failed>(ActionManifests.parse(text)).reason
 
     @Test
-    fun `a composite action has its name, inputs and steps with their lines`() {
+    fun `a composite action has its name and steps with their lines`() {
         val manifest =
             parsed(
                 """
@@ -164,7 +164,9 @@ class ActionManifestsTest {
         assertTrue("Global tag is not allowed" in failed("runs: !!javax.script.ScriptEngineManager [x]"))
         assertEquals("not a YAML mapping", failed("- a\n- b"))
         assertEquals("not a YAML mapping", failed(""))
-        assertTrue(failed("a: 1\n---\nb: 2").length <= 80)
+        val multiple = failed("a: 1\n---\nb: 2")
+        assertTrue(multiple.length <= 80, multiple)
+        assertTrue(multiple.startsWith("line ") || "expected a single document" in multiple, multiple)
     }
 
     @Test

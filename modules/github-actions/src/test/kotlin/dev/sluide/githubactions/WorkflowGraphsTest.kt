@@ -83,13 +83,9 @@ class WorkflowGraphsTest {
 
     @Test
     fun `output the module cannot read becomes a note`() {
-        for ((json, note) in listOf(
-            "not json" to "Unsupported parser output (no JSON object).",
-            """{"schema":2,"jobs":[]}""" to "Unsupported parser output (schema 2, expected 1).",
-        )) {
-            val graph = WorkflowGraphs.of("ci.yml", "") { _, _ -> json }
-            assertTrue(graph.isEmpty)
-            assertEquals(note, graph.note)
-        }
+        // The reasons themselves are WorkflowJsonTest's; this is the wiring.
+        val graph = WorkflowGraphs.of("ci.yml", "") { _, _ -> "not json" }
+        assertTrue(graph.isEmpty)
+        assertEquals("Unsupported parser output (no JSON object).", graph.note)
     }
 }

@@ -5,6 +5,7 @@ import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
+import kotlin.io.path.createSymbolicLinkPointingTo
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
@@ -32,6 +33,24 @@ class RepositoryFilesTest {
 
         assertEquals("name: Größe", files.local(".github/actions/setup/action.yml"))
         assertEquals("name: Größe", files.local("./.github/actions/../actions/setup/action.yml"))
+    }
+
+    @Test
+    fun `a root reached through a symbolic link reads its files`() {
+        repo.resolve("a.yml").writeText("name: a")
+        dir.resolve("secret.yml").writeText("secret")
+        val linked = RepositoryFiles(dir.resolve("link").createSymbolicLinkPointingTo(repo))
+
+        assertEquals("name: a", linked.local("a.yml"))
+        assertEquals(
+            RepositoryFiles.OUTSIDE,
+            assertFailsWith<IOException> { linked.local("../secret.yml") }.message,
+        )
+    }
+
+    @Test
+    fun `a path that is no path is refused as invalid`() {
+        assertEquals("invalid path", assertFailsWith<IOException> { files.local("a\u0000b") }.message)
     }
 
     @Test

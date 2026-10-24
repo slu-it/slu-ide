@@ -1,5 +1,6 @@
 package dev.sluide.githubactions.mermaid
 
+import dev.sluide.githubactions.SAFE_LABEL
 import dev.sluide.githubactions.WorkflowGraph
 import dev.sluide.githubactions.model.Event
 import dev.sluide.githubactions.model.Job
@@ -198,6 +199,13 @@ class WorkflowDrawingTest {
         val none = WorkflowDrawing.draw(workflow())
         assertTrue(none.isEmpty)
         assertEquals("No jobs in this workflow.", none.note)
+    }
+
+    @Test
+    fun `a first problem over 160 characters is cut with an ellipsis in the note`() {
+        val graph = WorkflowDrawing.draw(workflow(problems = listOf(Problem("x".repeat(200), 1, 1))))
+
+        assertEquals("1 problem: ${"x".repeat(159)}… (line 1).", graph.note)
     }
 
     @Test
@@ -511,10 +519,6 @@ class WorkflowDrawingTest {
     }
 
     companion object {
-        /** Letters, digits, `_-./:@(),`, blanks, entity codes, line breaks, the bold and italic tags and the inputs block. */
-        private val SAFE_LABEL =
-            Regex("""([A-Za-z0-9 _\-./:@(),]|#\d+;|</?(br|b|i)/?>|<div class='sluide-inputs'>|</div>)*""")
-
         private val CLASS_DEFS =
             """
             |    classDef blackbox stroke-width:3px

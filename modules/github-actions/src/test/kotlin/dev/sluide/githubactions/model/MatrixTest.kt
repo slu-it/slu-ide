@@ -67,6 +67,11 @@ class MatrixTest {
     }
 
     @Test
+    fun `an empty axis leaves only the include entries that match no combination`() {
+        assertEquals(1, matrix(mapOf("os" to emptyList()), include = listOf(mapOf("os" to "a"))).combinations())
+    }
+
+    @Test
     fun `without axes only include makes combinations`() {
         assertEquals(2, matrix(include = listOf(mapOf("a" to "1"), mapOf("a" to "2"))).combinations())
         assertEquals(0, matrix().combinations())
