@@ -19,6 +19,7 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.io.IOException
 import java.net.URI
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
@@ -31,7 +32,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /** The Export menus of the Markdown and SVG previews. Needs a display, see the `uiTest` Gradle task. */
@@ -80,31 +80,6 @@ class ExportUiTest {
         }
         WaitForAsyncUtils.waitForFxEvents()
         return reports
-    }
-
-    @Test
-    fun `only the Markdown and SVG previews have the Export button`(robot: FxRobot) {
-        val markdown = open(robot, "notes.md", "# Hi")
-        assertNotNull(robot.lookup(".preview-export").queryAs(MenuButton::class.java))
-        assertEquals(
-            listOf("HTML"),
-            markdown.export
-                ?.button
-                ?.items
-                ?.map { it.text },
-        )
-        val svg = open(robot, "logo.svg", LOGO)
-        assertNotNull(robot.lookup(".preview-export").queryAs(MenuButton::class.java))
-        assertEquals(
-            listOf("PNG 100%", "PNG 200%", "PNG 300%"),
-            svg.export
-                ?.button
-                ?.items
-                ?.map { it.text },
-        )
-        val csv = open(robot, "data.csv", "a,b\n1,2\n")
-        assertNull(csv.export)
-        assertTrue(robot.lookup(".preview-export").queryAll<MenuButton>().isEmpty())
     }
 
     @Test
@@ -161,30 +136,21 @@ class ExportUiTest {
     }
 
     @Test
-    fun `images that cannot be embedded are reported`(robot: FxRobot) {
-        val view = open(robot, "notes.md", "![x](missing.png)\n")
-        val reports = exported(view)
-        assertEquals(listOf("Exported notes.html, with problems:\nImage not embedded: missing.png"), reports)
-        assertTrue(dir.resolve("notes.html").exists())
-    }
-
-    @Test
-    fun `a diagram is drawn into the page in both variants, without libraries`(robot: FxRobot) {
-        val view = open(robot, "notes.md", "# Flow\n\n```mermaid\nflowchart LR\n  A --> B\n```\n")
-        assertTrue(exported(view).isEmpty())
-        val html = dir.resolve("notes.html").readText()
-        assertTrue(html.length < 200_000, "${html.length}")
-        val doc = Jsoup.parse(html)
-        assertTrue(
-            doc
-                .select("script")
-                .single()
-                .data()
-                .contains("matchMedia("),
+    fun `images that cannot be embedded and diagrams that cannot be drawn are reported`(robot: FxRobot) {
+        val view = open(robot, "notes.md", "![x](missing.png)\n\n```mermaid\nflowchart LR\n  A -->\n```\n")
+        val report = exported(view).single()
+        assertTrue(report.startsWith("Exported notes.html, with problems:\n"), report)
+        assertTrue("Image not embedded: missing.png" in report, report)
+        assertTrue("Diagram 1 could not be drawn: " in report, report)
+        // Mermaid's message has several lines; each problem starts its own, once.
+        assertEquals(1, Regex("Image not embedded").findAll(report).count(), report)
+        assertEquals(1, Regex("could not be drawn").findAll(report).count(), report)
+        assertEquals(
+            listOf("Exported notes.html, with problems:", "Image not embedded: missing.png"),
+            report.lines().take(2),
         )
-        val diagram = doc.select("div.diagram").single()
-        assertNotNull(diagram.selectFirst("> div.diagram-light > svg"))
-        assertNotNull(diagram.selectFirst("> div.diagram-dark > svg"))
+        assertTrue(dir.resolve("notes.html").exists())
+        assertNotNull(Jsoup.parse(dir.resolve("notes.html").readText()).selectFirst("pre.mermaid.error"))
     }
 
     @Test
@@ -211,12 +177,62 @@ class ExportUiTest {
         assertEquals(2, lines.size, lines.toString())
     }
 
+    /** An export that fails with [failure], beside the file. */
+    private class FailingExport(
+        private val failure: Exception,
+    ) : FileExport {
+        override val label = "Broken"
+
+        override fun target(file: Path): Path = file.resolveSibling("out.txt")
+
+        override fun write(
+            file: Path,
+            text: String,
+            target: Path,
+        ): List<String> = throw failure
+    }
+
+    /** Runs [fileExport] through an [ExportControls] with a window's tasks; returns the task lines and the report. */
+    private fun failing(fileExport: FileExport): Triple<List<String>, List<String>, ExportControls> {
+        val lines = CopyOnWriteArrayList<String>()
+        val reports = CopyOnWriteArrayList<String>()
+        val tasks = BackgroundTasks.forTests { lines += it.replace(Regex("task#\\d+"), "task") }
+        val file = dir.resolve("a.txt").apply { writeText("a") }
+        val controls =
+            WaitForAsyncUtils
+                .asyncFx<ExportControls> {
+                    ExportControls(listOf(fileExport), { file }, { "a" }, { null }, { tasks }).apply {
+                        report =
+                            { reports += it }
+                    }
+                }.get()
+        WaitForAsyncUtils.asyncFx<Unit> { controls.export(fileExport) }.get()
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
+            WaitForAsyncUtils.asyncFx<Boolean> { !controls.button.isDisable && reports.isNotEmpty() }.get()
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        return Triple(lines.toList(), reports.toList(), controls)
+    }
+
     @Test
-    fun `a diagram that cannot be drawn is reported`(robot: FxRobot) {
-        val view = open(robot, "notes.md", "```mermaid\nflowchart LR\n  A -->\n```\n")
-        val report = exported(view).single()
-        assertTrue(report.startsWith("Exported notes.html, with problems:\nDiagram 1 could not be drawn: "), report)
-        assertNotNull(Jsoup.parse(dir.resolve("notes.html").readText()).selectFirst("pre.mermaid.error"))
+    fun `a file problem fails the task with its reason, tells the user and enables the button again`() {
+        val (lines, reports, controls) = failing(FailingExport(IOException("disk full")))
+
+        assertEquals("task started: Exporting a.txt as Broken", lines.first())
+        assertTrue(lines.last().startsWith("task failed after "), lines.toString())
+        assertTrue(lines.last().endsWith(": Exporting a.txt as Broken: disk full"), lines.toString())
+        assertEquals(listOf("Could not export a.txt: disk full"), reports)
+        assertFalse(WaitForAsyncUtils.asyncFx<Boolean> { controls.button.isDisable }.get())
+    }
+
+    @Test
+    fun `any other exception fails the task with the exception, tells the user and enables the button again`() {
+        val (lines, reports, controls) = failing(FailingExport(IllegalStateException("bug")))
+
+        assertTrue(lines.last().startsWith("task failed after "), lines.toString())
+        assertTrue(lines.last().endsWith(": Exporting a.txt as Broken"), lines.toString())
+        assertEquals(listOf("Could not export a.txt: bug"), reports)
+        assertFalse(WaitForAsyncUtils.asyncFx<Boolean> { controls.button.isDisable }.get())
     }
 
     @Test

@@ -4,10 +4,13 @@ import dev.sluide.fileviewers.Highlighters
 import dev.sluide.previews.bicep.BicepFileViewer
 import dev.sluide.previews.html.HtmlFileViewer
 import dev.sluide.previews.image.SvgFileViewer
+import dev.sluide.previews.markdown.MarkdownFileViewer
 import dev.sluide.previews.markdown.MermaidFileViewer
+import dev.sluide.previews.notebook.NotebookFileViewer
 import dev.sluide.previews.pem.PemFileViewer
 import dev.sluide.previews.pem.PemPreview
 import dev.sluide.previews.table.CookiesFileViewer
+import dev.sluide.previews.table.CsvFileViewer
 import dev.sluide.previews.workflow.WorkflowFileViewer
 import dev.sluide.previews.yaml.YamlFileViewer
 import dev.sluide.previews.yaml.YamlPreview
@@ -182,6 +185,18 @@ class PreviewFileViewersTest {
         assertEquals(
             listOf(true, true, true, false, false),
             listOf(null, "", "about:blank", "file:///tmp/a.html", "http://127.0.0.1:1/").map(::isPageFromString),
+        )
+    }
+
+    @Test
+    fun `which previews zoom as pages, have an outline or export`() {
+        assertFalse(NotebookFileViewer().newPreview().zooms, "notebooks zoom as documents, without Fit")
+        assertFalse(CsvFileViewer().newPreview().hasOutline)
+        assertTrue(CsvFileViewer().newPreview().exports.isEmpty())
+        assertEquals(listOf("HTML"), MarkdownFileViewer().newPreview().exports.map { it.label })
+        assertEquals(
+            listOf("PNG 100%", "PNG 200%", "PNG 300%"),
+            SvgFileViewer().newPreview().exports.map { it.label },
         )
     }
 }

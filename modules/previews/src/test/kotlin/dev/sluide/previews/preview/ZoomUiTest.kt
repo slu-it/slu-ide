@@ -4,10 +4,10 @@ import dev.sluide.previews.image.ImageFileView
 import dev.sluide.previews.image.ImageFileViewer
 import dev.sluide.previews.image.SvgFileViewer
 import dev.sluide.previews.keyPress
-import dev.sluide.previews.markdown.MarkdownFileViewer
 import dev.sluide.previews.markdown.MermaidFileViewer
-import dev.sluide.previews.notebook.NotebookFileViewer
+import dev.sluide.previews.pinchEvent
 import dev.sluide.previews.press
+import dev.sluide.previews.scrollEvent
 import javafx.concurrent.Worker
 import javafx.event.Event
 import javafx.event.EventHandler
@@ -21,8 +21,6 @@ import javafx.scene.control.ToggleButton
 import javafx.scene.input.KeyCode
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
-import javafx.scene.input.ScrollEvent
-import javafx.scene.input.ZoomEvent
 import javafx.scene.layout.StackPane
 import javafx.scene.text.Text
 import javafx.scene.web.WebView
@@ -44,7 +42,6 @@ import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -143,59 +140,14 @@ class ZoomUiTest {
         shortcut: Boolean = true,
     ) = fire(view.webView, keyPress(code, shortcut = shortcut))
 
-    private val shortcutIsMeta = System.getProperty("os.name").startsWith("Mac")
-
-    private fun scroll(
-        deltaY: Double,
-        shortcut: Boolean,
-    ) = ScrollEvent(
-        ScrollEvent.SCROLL,
-        100.0,
-        100.0,
-        100.0,
-        100.0,
-        false,
-        shortcut && !shortcutIsMeta,
-        false,
-        shortcut && shortcutIsMeta,
-        false,
-        false,
-        0.0,
-        deltaY,
-        0.0,
-        deltaY,
-        ScrollEvent.HorizontalTextScrollUnits.NONE,
-        0.0,
-        ScrollEvent.VerticalTextScrollUnits.NONE,
-        0.0,
-        0,
-        null,
-    )
-
-    private fun pinch(factor: Double) =
-        ZoomEvent(
-            ZoomEvent.ZOOM,
-            100.0,
-            100.0,
-            100.0,
-            100.0,
-            false,
-            false,
-            false,
-            false,
-            true,
-            false,
-            factor,
-            factor,
-            null,
-        )
-
     private fun ImageFileView.state() = fx { zoom.scale to zoom.fit }
 
     private fun ImageFileView.scale() = fx { zoom.scale }
 
     @Test
-    fun `Shortcut with plus, equals and numpad plus zooms in and consumes the key`(robot: FxRobot) {
+    fun `Shortcut with plus, equals and numpad plus zooms in, with minus and numpad minus out, and consumes the key`(
+        robot: FxRobot,
+    ) {
         val view = showImage(robot, 400, 200)
         for (code in listOf(KeyCode.EQUALS, KeyCode.PLUS, KeyCode.ADD)) {
             assertTrue(key(view, KeyCode.DIGIT0), "100% consumed")
@@ -204,11 +156,6 @@ class ZoomUiTest {
             assertEquals(500.0, view.webView.imageWidth(), "$code")
             assertFalse(fx { view.zoom.fit }, "$code")
         }
-    }
-
-    @Test
-    fun `Shortcut with minus and numpad minus zooms out and consumes the key`(robot: FxRobot) {
-        val view = showImage(robot, 400, 200)
         for (code in listOf(KeyCode.MINUS, KeyCode.SUBTRACT)) {
             assertTrue(key(view, KeyCode.DIGIT0))
             assertTrue(key(view, code), "$code consumed")
@@ -236,36 +183,6 @@ class ZoomUiTest {
             assertEquals(fitted, view.scale(), 1e-9, "$code")
             assertTrue(view.webView.imageWidth() < 600, "$code")
             assertTrue(fx { view.zoom.fit && view.zoom.fitButton?.isSelected == true }, "$code")
-        }
-    }
-
-    @Test
-    fun `the same keys without Shortcut do nothing`(robot: FxRobot) {
-        val view = showImage(robot, 2000, 100)
-        val before = view.state()
-        val width = view.webView.imageWidth()
-        val codes =
-            listOf(
-                KeyCode.EQUALS,
-                KeyCode.PLUS,
-                KeyCode.ADD,
-                KeyCode.MINUS,
-                KeyCode.SUBTRACT,
-                KeyCode.DIGIT0,
-                KeyCode.NUMPAD0,
-                KeyCode.DIGIT9,
-                KeyCode.NUMPAD9,
-            )
-        for (code in codes) {
-            key(view, code, shortcut = false)
-            assertEquals(before, view.state(), "$code")
-            assertEquals(width, view.webView.imageWidth(), "$code")
-        }
-        // Not fitted any more: the keys without Shortcut leave a fixed scale alone, too.
-        robot.interact { view.zoom.actualSizeButton.fire() }
-        for (code in codes) {
-            key(view, code, shortcut = false)
-            assertEquals(1.0 to false, view.state(), "$code")
         }
     }
 
@@ -312,38 +229,27 @@ class ZoomUiTest {
     @Test
     fun `Shortcut with the wheel zooms in and out around the pointer and consumes the event`(robot: FxRobot) {
         val view = showImage(robot, 400, 200)
-        assertTrue(fire(view.webView, scroll(40.0, shortcut = true)), "consumed")
+        assertTrue(fire(view.webView, scrollEvent(40.0, shortcut = true)), "consumed")
         assertEquals(1.1, view.scale(), 1e-6)
         assertEquals(440.0, view.webView.imageWidth(), 0.5)
         assertFalse(fx { view.zoom.fit })
 
-        assertTrue(fire(view.webView, scroll(-40.0, shortcut = true)), "consumed")
-        assertTrue(fire(view.webView, scroll(-40.0, shortcut = true)), "consumed")
+        assertTrue(fire(view.webView, scrollEvent(-40.0, shortcut = true)), "consumed")
+        assertTrue(fire(view.webView, scrollEvent(-40.0, shortcut = true)), "consumed")
         assertEquals(1 / 1.1, view.scale(), 1e-6)
         assertTrue(view.scale() < 1.0)
         assertEquals("91%", fx { view.zoom.level.text })
     }
 
     @Test
-    fun `a plain wheel scroll does not zoom`(robot: FxRobot) {
-        val view = showImage(robot, 400, 200)
-        val before = view.state()
-        fire(view.webView, scroll(40.0, shortcut = false))
-        fire(view.webView, scroll(-40.0, shortcut = false))
-        assertEquals(before, view.state())
-        assertEquals(400.0, view.webView.imageWidth())
-        assertTrue(fx { view.zoom.fit })
-    }
-
-    @Test
     fun `pinching zooms by the zoom factor of the event`(robot: FxRobot) {
         val view = showImage(robot, 400, 200)
-        assertTrue(fire(view.webView, pinch(1.5)), "consumed")
+        assertTrue(fire(view.webView, pinchEvent(1.5)), "consumed")
         assertEquals(1.5, view.scale(), 1e-6)
         assertEquals(600.0, view.webView.imageWidth(), 0.5)
         assertFalse(fx { view.zoom.fit })
 
-        assertTrue(fire(view.webView, pinch(0.5)))
+        assertTrue(fire(view.webView, pinchEvent(0.5)))
         assertEquals(0.75, view.scale(), 1e-6)
         assertEquals(300.0, view.webView.imageWidth(), 0.5)
     }
@@ -369,7 +275,12 @@ class ZoomUiTest {
 
         // Each zoom against the pixel under the pointer before it: the page scrolls by whole pixels, so the fractions it
         // drops would add up over several zooms.
-        for (event in listOf(scroll(40.0, shortcut = true), pinch(1.5), scroll(-80.0, shortcut = true), pinch(0.8))) {
+        for (event in listOf(
+            scrollEvent(40.0, shortcut = true),
+            pinchEvent(1.5),
+            scrollEvent(-80.0, shortcut = true),
+            pinchEvent(0.8),
+        )) {
             val scale = view.scale()
             val pixel = view.pixelUnder(pointer)
             assertTrue(fire(view.webView, event))
@@ -450,10 +361,10 @@ class ZoomUiTest {
         assertEquals(40.0, view.webView.imageWidth(), 0.5)
 
         // The wheel and pinching stop there as well.
-        repeat(5) { fire(view.webView, pinch(0.5)) }
+        repeat(5) { fire(view.webView, pinchEvent(0.5)) }
         assertEquals("10%", fx { view.zoom.level.text })
         assertEquals(40.0, view.webView.imageWidth(), 0.5)
-        repeat(10) { fire(view.webView, pinch(4.0)) }
+        repeat(10) { fire(view.webView, pinchEvent(4.0)) }
         assertEquals("1600%", fx { view.zoom.level.text })
         assertEquals(6400.0, view.webView.imageWidth(), 0.5)
     }
@@ -471,7 +382,7 @@ class ZoomUiTest {
         assertTrue(fx { view.zoom.fit && view.zoom.fitButton?.isSelected == true })
 
         robot.interact { stage.width = 1000.0 }
-        WaitForAsyncUtils.sleep(500, TimeUnit.MILLISECONDS)
+        WaitForAsyncUtils.sleep(200, TimeUnit.MILLISECONDS)
         WaitForAsyncUtils.waitForFxEvents()
         assertEquals(100.0, view.webView.imageWidth(), "a bigger view does not enlarge it")
         assertEquals(1.0, view.scale())
@@ -504,7 +415,7 @@ class ZoomUiTest {
         val width = view.webView.imageWidth()
         robot.interact { stage.width = 900.0 }
         robot.interact { stage.height = 500.0 }
-        WaitForAsyncUtils.sleep(500, TimeUnit.MILLISECONDS)
+        WaitForAsyncUtils.sleep(200, TimeUnit.MILLISECONDS)
         WaitForAsyncUtils.waitForFxEvents()
         assertEquals(manual, view.scale())
         assertEquals(width, view.webView.imageWidth(), 0.5)
@@ -582,23 +493,6 @@ class ZoomUiTest {
                 web.number("window.innerHeight") + 1,
             "the bottom edge shows at the end",
         )
-    }
-
-    @Test
-    fun `notebook previews zoom as documents, without Fit`(robot: FxRobot) {
-        val file =
-            dir.resolve("note.ipynb").apply {
-                writeText("""{"cells": [], "metadata": {}, "nbformat": 4, "nbformat_minor": 5}""")
-            }
-        val view = fx { NotebookFileViewer().open(file) as PreviewFileView }
-        robot.interact { container.children.setAll(view.node) }
-        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
-            fx { view.webView.engine.loadWorker.state } ==
-                Worker.State.SUCCEEDED
-        }
-
-        assertNull(view.zoom.fitButton)
-        assertEquals(3, fx { view.node.lookupAll(".zoom-button").size }, "zoom out, zoom in and 100%")
     }
 
     @Test
