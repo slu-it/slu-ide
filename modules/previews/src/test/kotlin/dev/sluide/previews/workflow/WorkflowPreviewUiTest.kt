@@ -652,21 +652,6 @@ class WorkflowPreviewUiTest {
     }
 
     @Test
-    fun `a workflow with errors only shows a note`(robot: FxRobot) {
-        val file = workflowsFolder().resolve("broken.yml")
-        WorkflowFiles.fixture("broken-syntax.yml").copyTo(file)
-        val view = show(robot) { WorkflowFileViewer().open(file) as PreviewFileView }
-        robot.interact { view.mode.set(PreviewMode.PREVIEW) }
-
-        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
-            view.note().let { it is String && it != WorkflowPreview.READING }
-        }
-        val note = view.note() as String
-        assertTrue("Missing closing" in note, note)
-        assertEquals(0, view.count("pre.mermaid"))
-    }
-
-    @Test
     fun `the graphs of the repository's workflows and of the parser's fixtures draw without a Mermaid error`(
         robot: FxRobot,
     ) {

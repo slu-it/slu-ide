@@ -9,6 +9,7 @@ import dev.sluide.githubactions.RemoteText
 import dev.sluide.githubactions.RepositoryFiles
 import dev.sluide.githubactions.WorkflowParser
 import dev.sluide.githubactions.WorkflowSources
+import org.jsoup.Jsoup
 import org.junit.jupiter.api.io.TempDir
 import java.io.IOException
 import java.net.URI
@@ -343,6 +344,27 @@ class WorkflowPreviewTest {
         assertTrue("No jobs in this workflow." in preview.page(""))
         assertEquals(listOf(""), parsed)
         assertEquals(1, rerenders)
+    }
+
+    @Test
+    fun `a workflow with errors only shows a note with the errors`() {
+        val withErrors =
+            WorkflowParser { _, _ ->
+                """{"schema": 1, "errors": [{"message": "Missing closing quote.", "line": 3, "column": 5}],
+                "name": null, "events": [], "jobs": []}"""
+            }
+        val preview = WorkflowPreview(withErrors, background::addLast, fxThread::addLast).apply { attach({}) { null } }
+
+        preview.page("broken")
+        runBackground()
+        runFx()
+
+        val page = Jsoup.parse(preview.page("broken"))
+        assertTrue(
+            "Missing closing quote" in page.select("p.diagram-note").text(),
+            page.select("p.diagram-note").text(),
+        )
+        assertTrue(page.select("pre.mermaid").isEmpty())
     }
 
     @Test

@@ -89,8 +89,10 @@ class ExportRendererUiTest {
 
     @Test
     fun `nothing to render returns at once`() {
+        val started = System.nanoTime()
         val empty = WebViewExportRenderer().render(emptyList(), emptyList())
         assertTrue(empty.math.isEmpty() && empty.diagrams.isEmpty())
+        assertTrue(System.nanoTime() - started < Duration.ofSeconds(1).toNanos(), "no engine is started for nothing")
     }
 
     @Test
