@@ -20,6 +20,8 @@
 - A file tab whose editor has unsaved changes (`EditableFileView.dirty`) shows a dot before its name (`● a.txt`),
   also while its diff is shown (`OpenFile.dirty`). `save()` saves the selected file, `saveAll()` every edited one
   (File → Save, Save All); a failure is shown through `showError` (the window's error dialog) and keeps the changes.
+  `onFileSaved(path)`, set by the window, is called for every file saved from a tab (also before closing or a git
+  change), once it is written; the window passes it on to the Gradle session ([gradle.md](gradle.md)).
 - Tabs do not have to show files: `open(tab: EditorTab)` adds any tab (title, which may change, tooltip and content
   node) and selects it, e.g. a terminal ([terminal.md](terminal.md)). Every way of closing a tab calls its
   `EditorTab.dispose()` once. `openPaths` and `selectedPath` only report file tabs.

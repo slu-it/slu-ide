@@ -80,6 +80,15 @@ All previews and images zoom, only while the rendered view has the focus, not in
 | Enter or F2 in the environment table | Edit the cell |
 | Escape while editing a cell | Cancel the edit |
 
+## Gradle
+[gradle.md](gradle.md)
+
+| Keys | Action |
+|---|---|
+| Enter in the task tree | Run the selected tasks, in tree order |
+| Double-click on a task | Run the selected tasks (the clicked one) |
+| Shift+click, Shortcut+click in the task tree | Select several tasks to run together |
+
 ## File explorer
 [file-explorer.md](file-explorer.md)
 

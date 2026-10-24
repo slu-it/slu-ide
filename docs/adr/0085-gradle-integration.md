@@ -46,12 +46,47 @@ run on every configuration), so it falls under [ADR 0053](0053-project-trust.md)
 - The command line is built by `GradleCommand`: every word single-quoted for POSIX `sh` unless it is plain; the
   user's arguments are tokenized like a shell does.
 
+**The view (`GradleFileView`)**
+- Only `build.gradle` and `build.gradle.kts` get it, through two named viewers (Groovy and Kotlin highlighting), which
+  beat the extension viewers. Modes **Source | Split | Gradle** (`SourceSplit`), default **Split**: the source beside
+  the task tree above the run pane. The modes appear only once the locator found a Gradle, so a file without one looks
+  like plain source.
+- **One task list per build and window**, kept by the window-scoped `GradleSession` (a window service, ADR 0070) by the
+  real path of the build's root folder: every view of the build shows it, and a load or Refresh of one view updates
+  all. The session also asks for the global `gradle` once per window and extracts the init script once.
+- **The load is visible**: it runs through the same runner and terminal as tasks, so a distribution download or a
+  script error shows in the run pane; the tree shows a note meanwhile or on failure.
+- **One load per build at a time**: the session tracks running loads by what is known before loading (the wrapper's
+  folder, or the project root for the global `gradle`). Other views of that key wait for its end and show its list,
+  or say that it failed; they load themselves only if the stored list does not contain their file (e.g. `buildSrc`).
+- **Reload only on Refresh.** A saved build file (`*.gradle`, `*.gradle.kts`, `gradle.properties`, `*.versions.toml`)
+  under a loaded build marks it stale, which its views note; nothing reloads by itself, since a load runs the build's
+  configuration. Detection also reruns only on opening and Refresh.
+- **One fresh process per run** (ADR 0086): the arguments of the view and the task paths in tree order. A run while
+  another one (or the load) goes **asks whether to stop it**; the old terminal is closed at once. Stop is Ctrl+C, then
+  the process is ended after 5 s.
+- **Status in three places**: a status line with Stop and Rerun, a background task row whose ✕ stops (ADR 0061), and
+  the tab marker (`FileView.activity`: running; failed until the tab is shown again). `FileView.closeWarning` asks
+  before the tab or window closes during a run.
+- While the folder's trust keeps Gradle off, the tree says so with Review…, which opens the window's trust dialog; the
+  view follows the trust state and loads once it is trusted.
+
 **Logic**
 - The module's logic is free of JavaFX ([ADR 0084](0084-testability-logic-out-of-controls.md)): `GradleLocator`,
   `GradleCommand`, `TaskModel`, `GradleTrustCheck`, and `GradleRuns` with `StopEscalation` (the run state machine
   and the interrupt-then-kill escalation with the grace as parameter). The global check is `loginShellFinds` of the
-  terminal module, which the `sbx` check uses too.
+  terminal module, which the `sbx` check uses too. The view's decisions are pure functions beside it: the task tree
+  (`taskTree`) and the status, question and warning texts (`RunTexts`); the session's lookups and stale rule need no
+  JavaFX either.
 
 ## Consequences
 - Every project with a Gradle build asks for trust when opened; the finding names what Gradle would download or run.
 - The init script was checked against Gradle 9.8.1 (this repository's wrapper) on a multi-project fixture.
+- A list can be out of date until the user presses Refresh; the stale note says when a build file was saved, but not
+  when one changed outside Thoreau.
+- Build files of `buildSrc` or included builds belong to no project of the root build's list, so their views load on
+  their own after the root build's load; a failed load never replaces or clears a stored list.
+- The view keeps its decisions in plain parts: `BuildTasks` (detection, trust, loading and following the session)
+  and `GradleRunner` (runs), beside the pure `taskTree` and `RunTexts`; file system work runs on the session's
+  thread.
+- The editor area reports every saved file (`EditorArea.onFileSaved`), which the window passes to the session.

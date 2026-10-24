@@ -76,8 +76,8 @@ the Bicep graph and `BicepParamFileViewer`.
   | Viewer | Files | Corrections to the lexer |
   |--------|------------|--------------------------|
   | `PythonFileViewer` | `.py`, `.pyw`, `.pyi`; shebang `python`, `python3` | `async`/`await`/`nonlocal` keywords, `print`/`exec` builtins, string prefixes like `f` belong to the string |
-  | `KotlinFileViewer` | `.kt`, `.kts` | `package` keyword; multi-line raw strings (`"""…"""`). Known gap: ranges like `1..2` show as two numbers |
-  | `GroovyFileViewer` | `.groovy`, `.gradle` (Gradle's Groovy DSL) | `trait`/`var`/`record` keywords. Known gaps: dollar-slashy strings (`$/…/$`) are not recognised; `${…}` in a GString stays unstyled code |
+  | `KotlinFileViewer` | `.kt`, `.kts` (not `build.gradle.kts`, see [gradle.md](gradle.md)) | `package` keyword; multi-line raw strings (`"""…"""`). Known gap: ranges like `1..2` show as two numbers |
+  | `GroovyFileViewer` | `.groovy`, `.gradle` (Gradle's Groovy DSL; not `build.gradle`, see [gradle.md](gradle.md)) | `trait`/`var`/`record` keywords. Known gaps: dollar-slashy strings (`$/…/$`) are not recognised; `${…}` in a GString stays unstyled code |
   | `JavaFileViewer` | `.java` | none needed (text blocks, records, sealed types work) |
   | `JavaScriptFileViewer` | `.js`, `.mjs`, `.cjs`; shebang `node`, `deno`, `bun` | `from`/`undefined` keywords; `${…}` in template literals stays unstyled code |
   | `TypeScriptFileViewer` | `.ts`, `.mts`, `.cts` | keywords such as `type`, `readonly`, `as`, `keyof`, `satisfies`; types `unknown`, `never`, `object`, `symbol`, `bigint`; decorators |
