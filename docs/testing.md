@@ -6,12 +6,14 @@
 | Unit tests | `src/test/kotlin`, Gradle task `test` (JUnit 5 + kotlin-test) | no |
 | UI tests | Same source set, class annotated `@Tag("ui")`, run by Gradle task `uiTest` (TestFX) | yes |
 
-`./gradlew build` runs both (`check` depends on `uiTest`). With `-q` the output is only errors and failed tests, each
+`./gradlew build` runs both (`check` depends on `uiTest`, or on its two parts, see below). With `-q` the output is only errors and failed tests, each
 with its exception and stack trace up to the test (`testLogging` in the root build); passed tests print nothing. The `uiTest` task is defined once in the root
 `build.gradle.kts` and uses software rendering (`-Dprism.order=sw`). Tests of parallel modules on one display took each
 other's window focus and closed each other's popups, so each running `uiTest` task gets a display of its own from a
 pool (ADR 0081), given as `-Psluide.uiDisplays=:99,:100,…`; without it the pool is just `DISPLAY` and the tasks run
-one at a time (CI).
+one at a time (CI). A module whose UI tests would take longest alone (git-log) runs them as two tasks, `uiTestPart1` and
+`uiTestPart2`, split by a class name pattern in the root build's `uiTestSplits` (ADR 0082). `uiTest` still runs all its
+classes and takes `--tests`; `./gradlew build uiTest` would run them twice. `-x uiTest` leaves out the parts too.
 
 ## Running a subset
 Subagents verify with subsets; the full `./gradlew build` is the main session's final gate (delegate skill).
@@ -27,7 +29,7 @@ Subagents verify with subsets; the full `./gradlew build` is the main session's 
   Skipped is not verified: run `.claude/scripts/setup-display.sh`, `export DISPLAY=:99`, then the `uiTest` classes
   you need ("Running a subset"); only the main session's final gate runs all of them, with
   `.claude/scripts/full-build.sh`. It sets up (and if needed repairs) displays `:99` upwards first,
-  `SLUIDE_UI_DISPLAYS` of them (default 6, about 7.7 GB in use at peak; set it lower on a smaller machine), and
+  `SLUIDE_UI_DISPLAYS` of them (default 8, about 9.5 GB in use at peak; set it lower on a smaller machine), and
   passes them to Gradle as the pool. `DISPLAY=:99` is enough for single classes.
 - **CI:** `CI` is always set, so a missing display fails loudly. The Linux job runs Gradle under `xvfb-run -a`;
   the macOS jobs of CI and release skip `uiTest` (about 30 minutes there). The *macOS UI tests* workflow

@@ -28,6 +28,8 @@ parallelism as such. CI time was acceptable and is not the goal.
   14:02 min, 3 displays 5:18, 4 displays 4:42, 6 displays 3:48 with at most 7.7 GB in use. Six is close to the floor,
   the longest module (git-log, about 3.5 minutes); more displays would only cost memory. A machine with less memory
   sets `SLUIDE_UI_DISPLAYS` lower.
+  Amended by [ADR 0082](0082-split-ui-tests-of-long-modules.md): git-log's UI tests run as two tasks, and the default
+  is 8 displays.
 
 ## Consequences
 - The full build takes under 4 instead of 14 minutes; the Gradle configuration cache still applies.
