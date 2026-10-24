@@ -10,6 +10,7 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 class TextSearchTest {
     private val plain = SearchOptions()
@@ -119,6 +120,8 @@ class TextSearchTest {
     fun `does not replace what is no longer a match`() {
         assertNull(TextSearch.replace("a bar b", 2..4, "foo", "x", plain))
         assertNull(TextSearch.replace("foo", 0..1, "foo", "x", plain))
+        assertNull(TextSearch.replace("foo", 1..5, "o", "x", plain))
+        assertNull(TextSearch.replace("foo", -1..1, "f", "x", plain))
     }
 
     @Test
@@ -170,6 +173,21 @@ class TextSearchTest {
         )
 
         assertTrue(System.nanoTime() - started < 5_000_000_000L, "gave up in time")
+    }
+
+    @Test
+    fun `reports a regex that overflows the stack as too complex`() {
+        val text = "ab".repeat(100_000)
+        val budget = 30.seconds
+
+        assertEquals(
+            SearchResult(emptyList(), TextSearch.TOO_COMPLEX),
+            TextSearch.find(text, "(a|b)*c", regex, budget = budget),
+        )
+        assertEquals(
+            ReplaceResult.Invalid(TextSearch.TOO_COMPLEX),
+            TextSearch.replaceAll(text, "(a|b)*", "x", regex, budget = budget),
+        )
     }
 
     @Test

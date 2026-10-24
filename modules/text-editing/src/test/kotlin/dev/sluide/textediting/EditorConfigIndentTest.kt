@@ -90,6 +90,20 @@ class EditorConfigIndentTest {
     }
 
     @Test
+    fun `takes the tab width as size for indent_style tab without an indent size`() {
+        editorConfig(".", "root = true\n[*]\nindent_style = tab\ntab_width = 3\n")
+        assertEquals(EditorConfigIndent(true, 3, 3), EditorConfigIndent.of(folder.resolve("a.go")))
+    }
+
+    @Test
+    fun `sets nothing for an invalid or unreadable editorconfig`() {
+        editorConfig("invalid", "[*\nindent_size = 2\n")
+        folder.resolve("directory/.editorconfig").createDirectories()
+        assertEquals(EditorConfigIndent(), EditorConfigIndent.of(folder.resolve("invalid/a.kt")))
+        assertEquals(EditorConfigIndent(), EditorConfigIndent.of(folder.resolve("directory/a.kt")))
+    }
+
+    @Test
     fun `chooses the style of a file from editorconfig, then the text, then 4 spaces`() {
         editorConfig("configured", "root = true\n[*]\nindent_style = space\nindent_size = 2\n")
         editorConfig("partial", "root = true\n[*]\nindent_style = space\n")

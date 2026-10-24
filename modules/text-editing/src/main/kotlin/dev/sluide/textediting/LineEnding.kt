@@ -17,8 +17,8 @@ enum class LineEnding(
 
     companion object {
         /**
-         * The ending used by most lines of [text]; [LF] for texts without line breaks and on ties, so a file with
-         * mixed endings is written with one of them.
+         * The ending used by most lines of [text]; [LF] for texts without line breaks and on ties with LF. A tie
+         * of [CRLF] and [CR] alone gives [CRLF]. So a file with mixed endings is written with one of its endings.
          */
         fun of(text: String): LineEnding {
             var lf = 0

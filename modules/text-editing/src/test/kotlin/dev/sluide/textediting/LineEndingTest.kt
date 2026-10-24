@@ -23,6 +23,7 @@ class LineEndingTest {
         assertEquals(LineEnding.LF, LineEnding.of("a\nb\nc\r\n"))
         assertEquals(LineEnding.LF, LineEnding.of("a\r\nb\n"))
         assertEquals(LineEnding.CR, LineEnding.of("a\rb\rc\n"))
+        assertEquals(LineEnding.CRLF, LineEnding.of("a\r\nb\rc"), "CRLF and CR tie: CRLF, as LF is not used")
     }
 
     @Test
