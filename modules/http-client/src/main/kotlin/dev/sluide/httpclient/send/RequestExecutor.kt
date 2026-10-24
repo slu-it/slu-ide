@@ -235,14 +235,14 @@ internal class RequestExecutor(
                     failure("Cancelled", cancelled = true)
                 } else {
                     logFailure(e.cause ?: e)
-                    failure(message(e.cause ?: e))
+                    failure(message(e.cause ?: e, request.uri, connectTimeout))
                 }
             } catch (e: Exception) {
                 if (cancelled) {
                     failure("Cancelled", cancelled = true)
                 } else {
                     logFailure(e)
-                    failure(message(e))
+                    failure(message(e, request.uri, connectTimeout))
                 }
             }
 
@@ -332,10 +332,40 @@ internal class RequestExecutor(
             )
         }
 
+        /** Interrupted by [cancel] or by [close]. */
+        private fun interrupted(): HttpFailure =
+            if (cancelled) failure("Cancelled", cancelled = true) else failure("Interrupted", cancelled = true)
+
+        private fun failure(
+            message: String,
+            cancelled: Boolean = false,
+        ) = HttpFailure(message, cancelled, elapsed(), notes.toList(), if (::request.isInitialized) request else null)
+
+        private fun elapsed() = Duration.ofNanos(System.nanoTime() - start)
+    }
+
+    companion object {
+        val DEFAULT_TIMEOUT: Duration = Duration.ofSeconds(60)
+        const val DEFAULT_BODY_LIMIT = 50 * 1024 * 1024
+
+        /**
+         * The task's name of a [method] request named [name] in its `.http` file to [uri] (ADR 0061): "GET Get users", or
+         * without a name "GET example.com". Never the path, the query or user info, which may hold secrets (webhook
+         * tokens, `;jsessionid=`, `/bot<token>/`); the name goes to the log at INFO with every request.
+         */
+        internal fun taskName(
+            method: String,
+            name: String?,
+            uri: URI,
+        ) = "$method ${name?.trim()?.takeIf { it.isNotEmpty() } ?: uri.host.orEmpty()}".trim()
+
         /** A readable message for [error], from the most telling exception of its cause chain. */
-        private fun message(error: Throwable): String {
+        internal fun message(
+            error: Throwable,
+            uri: URI,
+            connectTimeout: Duration,
+        ): String {
             val chain = generateSequence(error) { it.cause }.toList()
-            val uri = request.uri
             val port = uri.port.takeIf { it >= 0 } ?: if (uri.scheme.equals("https", ignoreCase = true)) 443 else 80
             val ssl = chain.filterIsInstance<SSLException>().firstOrNull()
             val connect = chain.filterIsInstance<ConnectException>().firstOrNull { !it.message.isNullOrBlank() }
@@ -367,33 +397,6 @@ internal class RequestExecutor(
                 }
             }
         }
-
-        /** Interrupted by [cancel] or by [close]. */
-        private fun interrupted(): HttpFailure =
-            if (cancelled) failure("Cancelled", cancelled = true) else failure("Interrupted", cancelled = true)
-
-        private fun failure(
-            message: String,
-            cancelled: Boolean = false,
-        ) = HttpFailure(message, cancelled, elapsed(), notes.toList(), if (::request.isInitialized) request else null)
-
-        private fun elapsed() = Duration.ofNanos(System.nanoTime() - start)
-    }
-
-    companion object {
-        val DEFAULT_TIMEOUT: Duration = Duration.ofSeconds(60)
-        const val DEFAULT_BODY_LIMIT = 50 * 1024 * 1024
-
-        /**
-         * The task's name of a [method] request named [name] in its `.http` file to [uri] (ADR 0061): "GET Get users", or
-         * without a name "GET example.com". Never the path, the query or user info, which may hold secrets (webhook
-         * tokens, `;jsessionid=`, `/bot<token>/`); the name goes to the log at INFO with every request.
-         */
-        internal fun taskName(
-            method: String,
-            name: String?,
-            uri: URI,
-        ) = "$method ${name?.trim()?.takeIf { it.isNotEmpty() } ?: uri.host.orEmpty()}".trim()
 
         private fun describe(duration: Duration) =
             if (duration.toMillis() % 1000 == 0L) "${duration.toSeconds()} s" else "${duration.toMillis()} ms"

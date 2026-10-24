@@ -7,9 +7,13 @@ import dev.sluide.httpclient.parse.HttpVersion
 import dev.sluide.httpclient.parse.RequestTags
 import dev.sluide.httpclient.vars.VariableResolver
 import java.io.ByteArrayOutputStream
+import java.io.IOException
+import java.net.ConnectException
 import java.net.ServerSocket
 import java.net.URI
+import java.net.UnknownHostException
 import java.net.http.HttpClient
+import java.net.http.HttpConnectTimeoutException
 import java.nio.channels.ClosedByInterruptException
 import java.nio.file.Path
 import java.security.MessageDigest
@@ -23,10 +27,10 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.zip.DeflaterOutputStream
 import java.util.zip.GZIPOutputStream
+import javax.net.ssl.SSLException
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
@@ -298,14 +302,52 @@ class RequestExecutorTest {
     }
 
     @Test
-    fun `hands out no clients once closed`() {
-        val closed = HttpClients().also { it.close() }
-
-        assertFailsWith<IllegalStateException> {
-            closed.client(
-                HttpClients.ClientKey(true, true, Duration.ofSeconds(1)),
-            )
+    fun `reports a request that the closed executor interrupted`() {
+        val reached = CountDownLatch(1)
+        server.handle("/wait") {
+            reached.countDown()
+            server.released.await()
         }
+        val result = CompletableFuture<ExchangeResult>()
+
+        executor.run(server.request("/wait"), RequestTags(), result::complete)
+        assertTrue(reached.await(10, TimeUnit.SECONDS))
+        executor.close()
+
+        val failure = assertIs<HttpFailure>(result.get(10, TimeUnit.SECONDS))
+        assertEquals("Interrupted", failure.message)
+        assertTrue(failure.cancelled)
+    }
+
+    @Test
+    fun `describes errors by the most telling exception of the chain`() {
+        val https = URI("https://example.com/x")
+        val http = URI("http://localhost:8080/x")
+        val timeout = Duration.ofSeconds(2)
+
+        fun message(
+            error: Throwable,
+            uri: URI = https,
+        ) = RequestExecutor.message(error, uri, timeout)
+
+        assertEquals(
+            "Connection timed out after 2 s (@connection-timeout)",
+            message(RuntimeException(HttpConnectTimeoutException("x"))),
+        )
+        assertEquals(
+            "Connection timed out after 1500 ms (@connection-timeout)",
+            RequestExecutor.message(HttpConnectTimeoutException("x"), https, Duration.ofMillis(1500)),
+        )
+        assertEquals("Unknown host: example.com", message(RuntimeException(UnknownHostException("example.com"))))
+        assertEquals("TLS handshake failed: bad cert", message(IOException(SSLException("bad cert"))))
+        assertEquals("Connection refused: example.com:443", message(ConnectException("Connection refused")))
+        assertEquals("Connection refused: localhost:8080", message(IOException(ConnectException()), http))
+        assertEquals(
+            "Cannot connect to localhost:8080: Network is unreachable",
+            message(IOException(ConnectException("Network is unreachable")), http),
+        )
+        assertEquals("IllegalStateException: boom", message(RuntimeException(null, IllegalStateException("boom"))))
+        assertEquals("IllegalStateException", message(IllegalStateException()))
     }
 
     @Test
