@@ -5,6 +5,8 @@ import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.DefaultTextFileViewer
+import dev.sluide.fileviewers.ExtensionFileViewer
+import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitBranches
@@ -175,7 +177,7 @@ abstract class MainWindowUiFixture {
         mainWindow.show(stage)
     }
 
-    internal val fileViewers = DefaultTextFileViewer().let { FileViewers(listOf(it), it) }
+    internal val fileViewers = DefaultTextFileViewer().let { FileViewers(listOf(it, BinaryFileViewer()), it) }
 
     internal fun editorArea(): EditorArea = EditorArea(fileViewers, watcher, fontSettings)
 
@@ -374,3 +376,12 @@ abstract class MainWindowUiFixture {
 
 // How far the explorer's width may be off its start width: the divider position is a fraction, rounded to pixels.
 internal const val DIVIDER_SLACK = 2.0
+
+/** Shows `.bin` files, which no diff shows as text. */
+private class BinaryFileViewer : ExtensionFileViewer {
+    override val fileExtensions = setOf("bin")
+
+    override fun canOpen(file: Path) = file.toString().endsWith(".bin")
+
+    override fun open(file: Path): FileView = error("not opened in tests")
+}

@@ -1,12 +1,16 @@
 package dev.sluide.ide
 
 import dev.sluide.editorarea.EditorTab
+import dev.sluide.fileviewers.IgnoreFileEffects
+import dev.sluide.fileviewers.IgnoreRuleEffects
 import dev.sluide.git.GitChange
 import dev.sluide.git.GitHunk
 import dev.sluide.git.GitStatus
+import dev.sluide.gitlog.CommitFileDiff
 import dev.sluide.gitlog.WorkingTreeFileDiff
 import dev.sluide.ide.git.CommitDiffTab
 import dev.sluide.ide.git.WorkingTreeDiffTab
+import dev.sluide.projecttrust.ProjectTrustState
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSpec
 import javafx.beans.property.SimpleStringProperty
@@ -28,6 +32,7 @@ import javafx.scene.input.KeyEvent
 import javafx.scene.layout.Region
 import javafx.scene.text.Text
 import javafx.stage.Stage
+import javafx.stage.Window
 import org.fxmisc.richtext.CodeArea
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Tag
@@ -37,10 +42,7 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
-import java.util.concurrent.atomic.AtomicInteger
-import java.util.logging.Handler
-import java.util.logging.LogRecord
-import java.util.logging.Logger
+import java.util.concurrent.LinkedBlockingQueue
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
 import kotlin.io.path.name
@@ -48,6 +50,7 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -376,7 +379,7 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `a write of the git log reloads it once, also with the watch's batch of the write`(robot: FxRobot) {
+    fun `a write of the git log reloads the log when it ends`(robot: FxRobot) {
         assumeTrue(git.available, "git is not installed")
         runGit("init", "-q")
         runGit(
@@ -390,55 +393,31 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
             "-m",
             "One",
         )
-        // Every first page of the log, as git's own log line says (ADR 0060); a JUL logger is held weakly.
-        val gitLogger = Logger.getLogger("dev.sluide.git.cli.GitCli")
-        val pages = AtomicInteger()
-        val counting =
-            object : Handler() {
-                override fun publish(record: LogRecord) {
-                    if (" log --branches --remotes --tags " in record.message.orEmpty()) pages.incrementAndGet()
-                }
-
-                override fun flush() {}
-
-                override fun close() {}
-            }
-        gitLogger.addHandler(counting)
-        try {
-            robot.interact {
-                projectService.open(project)
-                gitLogView.expanded.set(true)
-            }
-            eventually(robot) { assertEquals(listOf("One"), shownSubjects(robot)) }
-            // The first change after opening checks the trust again; then the window is settled.
-            Thread.sleep(500)
-            WaitForAsyncUtils.waitForFxEvents()
-            val before = pages.get()
-
-            // As the log's operations do: start, git writes (also directly in .git, which the watch sees), end.
-            robot.interact { gitLogView.onWriteStarted(true) }
-            runGit(
-                "-c",
-                "user.name=Test",
-                "-c",
-                "user.email=test@example.com",
-                "commit",
-                "-q",
-                "--allow-empty",
-                "-m",
-                "Two",
-            )
-            Thread.sleep(300)
-            robot.interact { gitLogView.onWriteFinished() }
-
-            eventually(robot) { assertEquals(listOf("Two", "One"), shownSubjects(robot)) }
-            // Long enough for a late batch of the watch (50 ms quiet period) and the cycle it would run.
-            Thread.sleep(1500)
-            WaitForAsyncUtils.waitForFxEvents()
-            assertEquals(before + 1, pages.get(), "one reload for the write")
-        } finally {
-            gitLogger.removeHandler(counting)
+        robot.interact {
+            projectService.open(project)
+            gitLogView.expanded.set(true)
         }
+        eventually(robot) { assertEquals(listOf("One"), shownSubjects(robot)) }
+
+        // The log's operations tell the status service, which holds its cycles meanwhile.
+        assertEquals<Any>(gitStatus::writeStarted, gitLogView.onWriteStarted)
+        assertEquals<Any>(gitStatus::writeFinished, gitLogView.onWriteFinished)
+        // As the log's operations do: start, git writes, end. That it reloads once is GitStatusServiceCascadeTest's.
+        robot.interact { gitLogView.onWriteStarted(true) }
+        runGit(
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.com",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "Two",
+        )
+        robot.interact { gitLogView.onWriteFinished() }
+
+        eventually(robot) { assertEquals(listOf("Two", "One"), shownSubjects(robot)) }
     }
 
     @Test
@@ -499,6 +478,91 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         }
         val message = robot.lookup(".git-commit-message").queryAs(Node::class.java)
         assertSame<Node?>(message, stage.scene.focusOwner)
+
+        robot.interact { pushItem.fire() }
+        eventually(robot) {
+            assertTrue(
+                Window.getWindows().any {
+                    it is Stage && it.isShowing &&
+                        it.title?.startsWith("Push Commits") == true
+                },
+            )
+        }
+        robot.interact {
+            Window
+                .getWindows()
+                .filter {
+                    it is Stage && it.title?.startsWith(
+                        "Push Commits",
+                    ) == true
+                }.forEach { it.hide() }
+        }
+    }
+
+    @Test
+    fun `a diff of a file that cannot be shown as text opens no tab and says so in the git log`(robot: FxRobot) {
+        val commit = "c".repeat(40)
+        val picture =
+            CommitFileDiff(
+                project,
+                "docs/pic.bin",
+                null,
+                GitChange.MODIFIED,
+                commit,
+                "p".repeat(40),
+                "",
+                "",
+                emptyList(),
+            )
+        assumeTrue(git.available, "git is not installed")
+        runGit("init", "-q")
+        runGit(
+            "-c",
+            "user.name=Test",
+            "-c",
+            "user.email=test@example.com",
+            "commit",
+            "-q",
+            "--allow-empty",
+            "-m",
+            "One",
+        )
+        robot.interact {
+            projectService.open(project)
+            gitLogView.expanded.set(true)
+        }
+        eventually(robot) { assertEquals(listOf("One"), shownSubjects(robot)) }
+        robot.interact { gitLogView.onShowDiff(picture) }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(0, editorArea.tabs.size)
+        assertEquals(
+            "pic.bin cannot be shown as text.",
+            robot.lookup(".git-log-status").queryAs(Label::class.java).text,
+        )
+
+        val working =
+            WorkingTreeFileDiff(project, "docs/pic.bin", null, GitChange.MODIFIED, commit, "main", "", "", emptyList())
+        robot.interact { assertFalse(gitLogView.onShowWorkingTreeDiff(working)) }
+        assertEquals(0, editorArea.tabs.size)
+    }
+
+    @Test
+    fun `the window tells the lines of a gitignore file that ignore something`(robot: FxRobot) {
+        assumeTrue(git.available, "git is not installed")
+        runGit("init", "-q")
+        val ignoreFile = project.resolve(".gitignore").apply { writeText("*.log\n") }
+        project.resolve("a.log").writeText("log")
+        robot.interact { projectService.open(project) }
+        // Git runs only once the folder's trust check is through; before, the lookup answers nothing.
+        eventually(robot) { assertIs<ProjectTrustState.Trusted>(projectTrust.state.get()) }
+        val effects = checkNotNull(editorArea.windowServices.get(IgnoreRuleEffects::class.java))
+
+        val answers = LinkedBlockingQueue<IgnoreFileEffects?>()
+        robot.interact { effects.lookup(ignoreFile) { answers.add(it) } }
+        eventually(robot) {
+            val answer = answers.peek()
+            assertEquals(1, answer?.lines?.get(0)?.ignored)
+        }
     }
 
     @Test
