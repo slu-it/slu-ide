@@ -1,58 +1,24 @@
 package dev.sluide.fileviewers.highlight
 
-import dev.sluide.fileviewers.HighlightSpan
 import dev.sluide.fileviewers.TokenStyle
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertSame
 
 class KqlHighlightingTest {
     private fun kql(text: String) = Highlighted(text, KqlHighlighter)
 
-    private fun Char.isWordPart() = isLetterOrDigit() || this == '_'
-
-    /** Where the [occurrence]th [snippet] starts that is no part of a longer name (`with` is not in `startswith`). */
-    private fun Highlighted.find(
-        snippet: String,
-        occurrence: Int,
-    ): Int {
-        var start = -1
-        var found = -1
-        while (found < occurrence) {
-            start = text.indexOf(snippet, start + 1)
-            check(start >= 0) { "not in text: $snippet (#$occurrence)" }
-            val end = start + snippet.length
-            val inName =
-                (snippet.first().isWordPart() && start > 0 && text[start - 1].isWordPart()) ||
-                    (snippet.last().isWordPart() && end < text.length && text[end].isWordPart())
-            if (!inName) found++
-        }
-        return start
-    }
-
-    /** The [occurrence]th [snippet] is exactly one span of [style], from its first to its last character. */
-    private fun Highlighted.assertExactly(
+    /** The [occurrence]th [snippet] that is no part of a longer name is exactly one span of [style]. */
+    private fun Highlighted.assertWord(
         style: TokenStyle,
         snippet: String,
         occurrence: Int = 0,
-    ) {
-        val start = find(snippet, occurrence)
-        val overlapping = spans.filter { it.start < start + snippet.length && it.end > start }
-        assertEquals(
-            listOf(HighlightSpan(start, start + snippet.length, style)),
-            overlapping,
-            "$snippet (#$occurrence)",
-        )
-    }
+    ) = assertExactly(style, snippet, occurrence, wholeWord = true)
 
-    private fun Highlighted.assertPlain(
+    /** The [occurrence]th [snippet] that is no part of a longer name has no style. */
+    private fun Highlighted.assertPlainWord(
         snippet: String,
         occurrence: Int = 0,
-    ) {
-        val start = find(snippet, occurrence)
-        val overlapping = spans.filter { it.start < start + snippet.length && it.end > start }
-        assertEquals(emptyList(), overlapping, "$snippet (#$occurrence)")
-    }
+    ) = assertPlain(snippet, occurrence, wholeWord = true)
 
     private val signIns =
         kql(
@@ -124,52 +90,52 @@ class KqlHighlightingTest {
 
     @Test
     fun `comments run to the end of their line`() {
-        signIns.assertExactly(TokenStyle.COMMENT, "// Failed sign-ins per hour, last day")
-        signIns.assertExactly(TokenStyle.COMMENT, "// alerts of the same day")
-        kql("T // | where x == 'a'\n| take 1").assertExactly(TokenStyle.COMMENT, "// | where x == 'a'")
+        signIns.assertWord(TokenStyle.COMMENT, "// Failed sign-ins per hour, last day")
+        signIns.assertWord(TokenStyle.COMMENT, "// alerts of the same day")
+        kql("T // | where x == 'a'\n| take 1").assertWord(TokenStyle.COMMENT, "// | where x == 'a'")
     }
 
     @Test
     fun `strings with escapes, verbatim, obfuscated and multi-line`() {
-        signIns.assertExactly(TokenStyle.STRING, "\"0\"")
-        signIns.assertExactly(TokenStyle.STRING, "@\"svc\\\"", 0)
-        table.assertExactly(TokenStyle.STRING, "'b\\'s'")
-        table.assertExactly(TokenStyle.STRING, "\"^[ab]$\"")
-        commands.assertExactly(TokenStyle.STRING, "h'p@ss'")
-        commands.assertExactly(TokenStyle.STRING, "h@\"C:\\temp\"")
-        commands.assertExactly(TokenStyle.STRING, "```line one\nline // two```")
-        kql("print @'it''s'").assertExactly(TokenStyle.STRING, "@'it''s'")
-        kql("print H\"secret\"").assertExactly(TokenStyle.STRING, "H\"secret\"")
-        kql("print h```a\nb```").assertExactly(TokenStyle.STRING, "h```a\nb```")
+        signIns.assertWord(TokenStyle.STRING, "\"0\"")
+        signIns.assertWord(TokenStyle.STRING, "@\"svc\\\"", 0)
+        table.assertWord(TokenStyle.STRING, "'b\\'s'")
+        table.assertWord(TokenStyle.STRING, "\"^[ab]$\"")
+        commands.assertWord(TokenStyle.STRING, "h'p@ss'")
+        commands.assertWord(TokenStyle.STRING, "h@\"C:\\temp\"")
+        commands.assertWord(TokenStyle.STRING, "```line one\nline // two```")
+        kql("print @'it''s'").assertWord(TokenStyle.STRING, "@'it''s'")
+        kql("print H\"secret\"").assertWord(TokenStyle.STRING, "H\"secret\"")
+        kql("print h```a\nb```").assertWord(TokenStyle.STRING, "h```a\nb```")
     }
 
     @Test
     fun `unterminated strings end with their line, multi-line ones with the text`() {
         val text = kql("print 'open\n| take 1\nprint ```never\nclosed\n")
-        text.assertExactly(TokenStyle.STRING, "'open")
-        text.assertExactly(TokenStyle.KEYWORD, "take")
-        text.assertExactly(TokenStyle.STRING, "```never\nclosed\n")
-        kql("print \"a\\\n| take 1").assertExactly(TokenStyle.STRING, "\"a\\")
+        text.assertWord(TokenStyle.STRING, "'open")
+        text.assertWord(TokenStyle.KEYWORD, "take")
+        text.assertWord(TokenStyle.STRING, "```never\nclosed\n")
+        kql("print \"a\\\n| take 1").assertWord(TokenStyle.STRING, "\"a\\")
     }
 
     @Test
     fun `pipes and comparisons are operators`() {
         for (operator in listOf("|", "==", "!=", ">", ">=", "<>", "<=", "=~", "!~")) {
             val sample = if (operator in listOf("|", "==", "!=", ">")) signIns else table
-            sample.assertExactly(TokenStyle.OPERATOR, operator)
+            sample.assertWord(TokenStyle.OPERATOR, operator)
         }
-        commands.assertExactly(TokenStyle.OPERATOR, "<|")
-        signIns.assertPlain("=")
-        signIns.assertPlain(" - ")
+        commands.assertWord(TokenStyle.OPERATOR, "<|")
+        signIns.assertPlainWord("=")
+        signIns.assertPlainWord(" - ")
     }
 
     @Test
     fun `tabular operators after a pipe are keywords`() {
         for (word in listOf("where", "extend", "summarize", "join", "order", "render")) {
-            signIns.assertExactly(TokenStyle.KEYWORD, word)
+            signIns.assertWord(TokenStyle.KEYWORD, word)
         }
-        table.assertExactly(TokenStyle.KEYWORD, "top")
-        commands.assertExactly(TokenStyle.KEYWORD, "distinct")
+        table.assertWord(TokenStyle.KEYWORD, "top")
+        commands.assertWord(TokenStyle.KEYWORD, "distinct")
     }
 
     @Test
@@ -179,9 +145,9 @@ class KqlHighlightingTest {
             "mv-expand",
             "project-rename",
         )) {
-            signIns.assertExactly(TokenStyle.KEYWORD, word)
+            signIns.assertWord(TokenStyle.KEYWORD, word)
         }
-        table.assertExactly(TokenStyle.KEYWORD, "project-keep")
+        table.assertWord(TokenStyle.KEYWORD, "project-keep")
         val text =
             kql("T\n| make-series n = count() on t step 1h\n| graph-to-table nodes\n| parse-where x with * \"a\" y")
         for (word in listOf(
@@ -189,34 +155,34 @@ class KqlHighlightingTest {
             "graph-to-table",
             "parse-where",
         )) {
-            text.assertExactly(TokenStyle.KEYWORD, word)
+            text.assertWord(TokenStyle.KEYWORD, word)
         }
     }
 
     @Test
     fun `arithmetic with a minus stays plain`() {
         val text = kql("T\n| extend d = a-b, e = Count-1, f = project-x, g = top-nested")
-        text.assertPlain("a-b")
-        text.assertPlain("Count")
-        text.assertPlain("project-x")
-        text.assertExactly(TokenStyle.KEYWORD, "top-nested")
+        text.assertPlainWord("a-b")
+        text.assertPlainWord("Count")
+        text.assertPlainWord("project-x")
+        text.assertWord(TokenStyle.KEYWORD, "top-nested")
     }
 
     @Test
     fun `other keywords and string operators`() {
         for (word in listOf("let", "and", "by", "kind", "on", "desc", "nulls")) {
-            signIns.assertExactly(TokenStyle.KEYWORD, word)
+            signIns.assertWord(TokenStyle.KEYWORD, word)
         }
-        signIns.assertExactly(TokenStyle.KEYWORD, "last", 1)
-        for (word in listOf("!has", "!contains")) signIns.assertExactly(TokenStyle.KEYWORD, word)
+        signIns.assertWord(TokenStyle.KEYWORD, "last", 1)
+        for (word in listOf("!has", "!contains")) signIns.assertWord(TokenStyle.KEYWORD, word)
         for (word in listOf("in~", "!in", "!in~", "or", "has_any", "matches", "regex", "between", "asc")) {
-            table.assertExactly(TokenStyle.KEYWORD, word)
+            table.assertWord(TokenStyle.KEYWORD, word)
         }
-        commands.assertExactly(TokenStyle.KEYWORD, "startswith")
-        commands.assertExactly(TokenStyle.KEYWORD, "with")
+        commands.assertWord(TokenStyle.KEYWORD, "startswith")
+        commands.assertWord(TokenStyle.KEYWORD, "with")
         val negated = kql("T\n| where a !startswith_cs 'x' and not(b) and c !between (1 .. 2) and d !hasprefix 'y'")
         for (word in listOf("!startswith_cs", "not", "!between", "!hasprefix")) {
-            negated.assertExactly(TokenStyle.KEYWORD, word)
+            negated.assertWord(TokenStyle.KEYWORD, word)
         }
     }
 
@@ -239,17 +205,17 @@ class KqlHighlightingTest {
                 |
                 """.trimMargin(),
             )
-        text.assertExactly(TokenStyle.KEYWORD, "print")
-        text.assertExactly(TokenStyle.KEYWORD, "range")
-        text.assertExactly(TokenStyle.KEYWORD, "range", 1)
-        text.assertExactly(TokenStyle.KEYWORD, "union")
-        text.assertExactly(TokenStyle.KEYWORD, "print", 1)
-        text.assertExactly(TokenStyle.KEYWORD, "datatable")
-        text.assertExactly(TokenStyle.KEYWORD, "search")
-        text.assertExactly(TokenStyle.KEYWORD, "count")
-        text.assertExactly(TokenStyle.KEYWORD, "set")
-        text.assertExactly(TokenStyle.KEYWORD, "declare")
-        text.assertExactly(TokenStyle.BUILTIN, "query_parameters")
+        text.assertWord(TokenStyle.KEYWORD, "print")
+        text.assertWord(TokenStyle.KEYWORD, "range")
+        text.assertWord(TokenStyle.KEYWORD, "range", 1)
+        text.assertWord(TokenStyle.KEYWORD, "union")
+        text.assertWord(TokenStyle.KEYWORD, "print", 1)
+        text.assertWord(TokenStyle.KEYWORD, "datatable")
+        text.assertWord(TokenStyle.KEYWORD, "search")
+        text.assertWord(TokenStyle.KEYWORD, "count")
+        text.assertWord(TokenStyle.KEYWORD, "set")
+        text.assertWord(TokenStyle.KEYWORD, "declare")
+        text.assertWord(TokenStyle.BUILTIN, "query_parameters")
     }
 
     @Test
@@ -265,102 +231,102 @@ class KqlHighlightingTest {
                 |
                 """.trimMargin(),
             )
-        for (word in listOf("count", "sample", "range", "where")) text.assertPlain(word)
-        text.assertExactly(TokenStyle.BUILTIN, "count", 1)
-        text.assertPlain("count", 2)
-        text.assertExactly(TokenStyle.KEYWORD, "where", 1)
-        text.assertPlain("print")
-        text.assertExactly(TokenStyle.BUILTIN, "range", 1)
-        text.assertPlain("sample", 1)
-        text.assertPlain("T")
+        for (word in listOf("count", "sample", "range", "where")) text.assertPlainWord(word)
+        text.assertWord(TokenStyle.BUILTIN, "count", 1)
+        text.assertPlainWord("count", 2)
+        text.assertWord(TokenStyle.KEYWORD, "where", 1)
+        text.assertPlainWord("print")
+        text.assertWord(TokenStyle.BUILTIN, "range", 1)
+        text.assertPlainWord("sample", 1)
+        text.assertPlainWord("T")
     }
 
     @Test
     fun `literals and declared types are types`() {
-        signIns.assertExactly(TokenStyle.TYPE, "datetime")
+        signIns.assertWord(TokenStyle.TYPE, "datetime")
         for ((word, occurrence) in listOf("string" to 0, "long" to 0, "datetime" to 0, "datetime" to 1, "guid" to 0)) {
-            table.assertExactly(TokenStyle.TYPE, word, occurrence)
+            table.assertWord(TokenStyle.TYPE, word, occurrence)
         }
-        commands.assertExactly(TokenStyle.TYPE, "string")
+        commands.assertWord(TokenStyle.TYPE, "string")
         val text = kql("print a = int(5), b = real(+inf), c = bool(true), d = dynamic({\"k\": [1]}), e = typeof(long)")
-        for (word in listOf("int", "real", "bool", "dynamic", "long")) text.assertExactly(TokenStyle.TYPE, word)
-        text.assertExactly(TokenStyle.KEYWORD, "true")
-        text.assertExactly(TokenStyle.BUILTIN, "typeof")
+        for (word in listOf("int", "real", "bool", "dynamic", "long")) text.assertWord(TokenStyle.TYPE, word)
+        text.assertWord(TokenStyle.KEYWORD, "true")
+        text.assertWord(TokenStyle.BUILTIN, "typeof")
         val columns = kql("T\n| project time, date, string\n| extend t = todatetime(x)")
-        for (word in listOf("time", "date", "string")) columns.assertPlain(word)
-        columns.assertExactly(TokenStyle.BUILTIN, "todatetime")
+        for (word in listOf("time", "date", "string")) columns.assertPlainWord(word)
+        columns.assertWord(TokenStyle.BUILTIN, "todatetime")
     }
 
     @Test
     fun `the values of date, time and guid literals are numbers`() {
-        signIns.assertExactly(TokenStyle.NUMBER, "2024-01-31 10:00")
-        table.assertExactly(TokenStyle.NUMBER, "2024-01-01")
-        table.assertExactly(TokenStyle.NUMBER, "74be27de-1e4e-49d9-b579-fe0b331d3642")
-        table.assertPlain("null")
-        kql("print timespan(1.02:03:04)").assertExactly(TokenStyle.NUMBER, "1.02:03:04")
+        signIns.assertWord(TokenStyle.NUMBER, "2024-01-31 10:00")
+        table.assertWord(TokenStyle.NUMBER, "2024-01-01")
+        table.assertWord(TokenStyle.NUMBER, "74be27de-1e4e-49d9-b579-fe0b331d3642")
+        table.assertPlainWord("null")
+        kql("print timespan(1.02:03:04)").assertWord(TokenStyle.NUMBER, "1.02:03:04")
         val unclosed = kql("print datetime(2024-01-01\n| take 1")
-        unclosed.assertExactly(TokenStyle.NUMBER, "2024")
-        unclosed.assertExactly(TokenStyle.KEYWORD, "take")
+        unclosed.assertWord(TokenStyle.NUMBER, "2024")
+        unclosed.assertWord(TokenStyle.KEYWORD, "take")
     }
 
     @Test
     fun `numbers, hex and timespans in every unit`() {
-        signIns.assertExactly(TokenStyle.NUMBER, "1d")
-        signIns.assertExactly(TokenStyle.NUMBER, "5")
-        signIns.assertExactly(TokenStyle.NUMBER, "1h")
-        signIns.assertExactly(TokenStyle.NUMBER, "5m")
-        table.assertExactly(TokenStyle.NUMBER, "0x1F")
-        table.assertExactly(TokenStyle.NUMBER, "1.5d")
+        signIns.assertWord(TokenStyle.NUMBER, "1d")
+        signIns.assertWord(TokenStyle.NUMBER, "5")
+        signIns.assertWord(TokenStyle.NUMBER, "1h")
+        signIns.assertWord(TokenStyle.NUMBER, "5m")
+        table.assertWord(TokenStyle.NUMBER, "0x1F")
+        table.assertWord(TokenStyle.NUMBER, "1.5d")
         val units =
             "1d 1day 1days 2h 2hr 2hrs 2hour 2hours 3m 3min 3minute 3minutes 4s 4sec 4second 4seconds 5ms 5milli " +
                 "5millis 5millisec 5millisecond 5milliseconds 6micro 6microsecond 6microseconds 7tick 7ticks 1.5h " +
                 "1e3 1.5e-3 2E+4 10"
         val text = kql("print x = dynamic([" + units.replace(" ", ", ") + "])")
-        for (literal in units.split(" ")) text.assertExactly(TokenStyle.NUMBER, literal)
+        for (literal in units.split(" ")) text.assertWord(TokenStyle.NUMBER, literal)
         val invalid = kql("print a = 1dayx, b = 2x, c = 1..10")
-        invalid.assertPlain("1dayx")
-        invalid.assertPlain("2x")
-        invalid.assertExactly(TokenStyle.NUMBER, "1")
-        invalid.assertExactly(TokenStyle.NUMBER, "10")
+        invalid.assertPlainWord("1dayx")
+        invalid.assertPlainWord("2x")
+        invalid.assertWord(TokenStyle.NUMBER, "1")
+        invalid.assertWord(TokenStyle.NUMBER, "10")
     }
 
     @Test
     fun `functions are builtins`() {
         for (word in listOf("materialize", "ago", "bin", "dcount", "todynamic")) {
-            signIns.assertExactly(TokenStyle.BUILTIN, word)
+            signIns.assertWord(TokenStyle.BUILTIN, word)
         }
-        signIns.assertExactly(TokenStyle.BUILTIN, "count")
-        table.assertExactly(TokenStyle.BUILTIN, "now")
-        commands.assertExactly(TokenStyle.BUILTIN, "HostsWith")
+        signIns.assertWord(TokenStyle.BUILTIN, "count")
+        table.assertWord(TokenStyle.BUILTIN, "now")
+        commands.assertWord(TokenStyle.BUILTIN, "HostsWith")
     }
 
     @Test
     fun `management commands where a statement begins or after a function body are annotations`() {
-        commands.assertExactly(TokenStyle.ANNOTATION, ".show")
-        commands.assertExactly(TokenStyle.ANNOTATION, ".create-or-alter")
-        commands.assertExactly(TokenStyle.ANNOTATION, ".set-or-append")
-        commands.assertPlain("tables")
-        commands.assertPlain("function")
-        commands.assertExactly(TokenStyle.KEYWORD, "print")
+        commands.assertWord(TokenStyle.ANNOTATION, ".show")
+        commands.assertWord(TokenStyle.ANNOTATION, ".create-or-alter")
+        commands.assertWord(TokenStyle.ANNOTATION, ".set-or-append")
+        commands.assertPlainWord("tables")
+        commands.assertPlainWord("function")
+        commands.assertWord(TokenStyle.KEYWORD, "print")
         val text = kql(".create function F() {\n    print 1\n}\n.drop table T\nT\n| extend y = x.show")
-        text.assertExactly(TokenStyle.ANNOTATION, ".drop")
-        text.assertPlain(".show")
+        text.assertWord(TokenStyle.ANNOTATION, ".drop")
+        text.assertPlainWord(".show")
     }
 
     @Test
     fun `a name first on a line after an expression continues it`() {
         val text = kql("T\n| extend p = Props\n    .name\n| where a == 1\n.other")
-        text.assertPlain(".name")
-        text.assertPlain(".other")
+        text.assertPlainWord(".name")
+        text.assertPlainWord(".other")
     }
 
     @Test
     fun `plain names and table names stay plain`() {
         for (word in listOf("SigninLogs", "failures", "TimeGenerated", "IPAddress", "timechart", "inner")) {
-            signIns.assertPlain(word)
+            signIns.assertPlainWord(word)
         }
-        signIns.assertPlain("\$left")
-        signIns.assertPlain("Hour")
+        signIns.assertPlainWord("\$left")
+        signIns.assertPlainWord("Hour")
     }
 
     @Test
@@ -384,22 +350,22 @@ class KqlHighlightingTest {
                 |
                 """.trimMargin(),
             )
-        text.assertExactly(TokenStyle.BUILTIN, "range")
-        text.assertExactly(TokenStyle.BUILTIN, "print")
-        text.assertExactly(TokenStyle.KEYWORD, "externaldata")
-        text.assertExactly(TokenStyle.TYPE, "string")
-        text.assertPlain("range", 1)
-        text.assertPlain("range", 2)
-        text.assertPlain("range", 3)
-        text.assertPlain("print", 1)
+        text.assertWord(TokenStyle.BUILTIN, "range")
+        text.assertWord(TokenStyle.BUILTIN, "print")
+        text.assertWord(TokenStyle.KEYWORD, "externaldata")
+        text.assertWord(TokenStyle.TYPE, "string")
+        text.assertPlainWord("range", 1)
+        text.assertPlainWord("range", 2)
+        text.assertPlainWord("range", 3)
+        text.assertPlainWord("print", 1)
     }
 
     @Test
     fun `deprecated operator names after a pipe`() {
         val text = kql("T\n| mvexpand x\n| makeseries n = count() on t from 0 to 9 step 1")
-        text.assertExactly(TokenStyle.KEYWORD, "mvexpand")
-        text.assertExactly(TokenStyle.KEYWORD, "makeseries")
-        for (word in listOf("from", "to", "step")) text.assertExactly(TokenStyle.KEYWORD, word)
+        text.assertWord(TokenStyle.KEYWORD, "mvexpand")
+        text.assertWord(TokenStyle.KEYWORD, "makeseries")
+        for (word in listOf("from", "to", "step")) text.assertWord(TokenStyle.KEYWORD, word)
     }
 
     @Test
@@ -415,20 +381,20 @@ class KqlHighlightingTest {
                 """.trimMargin(),
             )
         for (word in listOf("from", "to", "step")) {
-            text.assertExactly(TokenStyle.KEYWORD, word)
-            text.assertPlain(word, 1)
-            text.assertExactly(TokenStyle.KEYWORD, word, 2)
-            text.assertPlain(word, 3)
+            text.assertWord(TokenStyle.KEYWORD, word)
+            text.assertPlainWord(word, 1)
+            text.assertWord(TokenStyle.KEYWORD, word, 2)
+            text.assertPlainWord(word, 3)
         }
-        text.assertPlain("default")
-        text.assertExactly(TokenStyle.KEYWORD, "default", 1)
-        text.assertExactly(TokenStyle.BUILTIN, "range", 1)
+        text.assertPlainWord("default")
+        text.assertWord(TokenStyle.KEYWORD, "default", 1)
+        text.assertWord(TokenStyle.BUILTIN, "range", 1)
     }
 
     @Test
     fun `a blank line with CRLF line endings begins a statement`() {
         val text = kql("T\r\n| take 1\r\n\r\nprint 1\r\n| take 1\r\nprint 2\r\n")
-        text.assertExactly(TokenStyle.KEYWORD, "print")
-        text.assertPlain("print", 1)
+        text.assertWord(TokenStyle.KEYWORD, "print")
+        text.assertPlainWord("print", 1)
     }
 }

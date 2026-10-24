@@ -1,6 +1,5 @@
 package dev.sluide.fileviewers.highlight
 
-import dev.sluide.fileviewers.HighlightSpan
 import dev.sluide.fileviewers.TokenStyle
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -9,23 +8,6 @@ import kotlin.test.assertSame
 /** TOML 1.0, mostly with the examples of the specification (toml.io/en/v1.0.0). */
 class TomlHighlightingTest {
     private fun toml(text: String) = Highlighted(text, TomlHighlighter)
-
-    /** The [occurrence]th [snippet] is exactly one span of [style], from its first to its last character. */
-    private fun Highlighted.assertExactly(
-        style: TokenStyle,
-        snippet: String,
-        occurrence: Int = 0,
-    ) {
-        var start = -1
-        repeat(occurrence + 1) { start = text.indexOf(snippet, start + 1) }
-        check(start >= 0) { "not in text: $snippet (#$occurrence)" }
-        val overlapping = spans.filter { it.start < start + snippet.length && it.end > start }
-        assertEquals(
-            listOf(HighlightSpan(start, start + snippet.length, style)),
-            overlapping,
-            "$snippet (#$occurrence)",
-        )
-    }
 
     private fun Highlighted.assertUnstyled(
         snippet: String,
