@@ -158,7 +158,9 @@ class EditorAreaFileChangesUiTest : EditorAreaUiFixture() {
         assertEquals(renamed.toString(), editor.tabStrip.tooltipOf(tab).text)
         assertEquals(emptyList(), shownDiff(robot), "the diff of the old path is gone, as is the new path's")
         assertEquals(false, editor.canToggleDiff.value)
-        assertEquals(2, editor.watchCount)
+        // On the FX thread: a late event of the old watch renews the watch there, and between closing and watching
+        // again the count is one lower.
+        robot.interact { assertEquals(2, editor.watchCount) }
         // Reloaded after the old path's deletion was reported, which comes first.
         renamed.writeText("changed")
         eventually(robot) { assertEquals("changed", shownText(robot)) }
@@ -251,7 +253,8 @@ class EditorAreaFileChangesUiTest : EditorAreaUiFixture() {
         val cTab = checkNotNull(editor.editorTabs.find(dir.resolve("c.py")))
         assertTrue(cTab.viewer is DefaultTextFileViewer, "unsaved changes keep their view")
         assertEquals(listOf("a.py", "b.md", "\u25cf c.py"), tabTitles(robot))
-        assertEquals(3, editor.watchCount)
+        // On the FX thread, as a late event of an old watch renews a watch there.
+        robot.interact { assertEquals(3, editor.watchCount) }
     }
 
     @Test
