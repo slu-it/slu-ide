@@ -59,8 +59,11 @@ internal object XmlParser {
 
     private val completeReference = Regex("&#?\\w+;")
 
-    /** Deeper nesting is an error; it keeps the page (and its recursion) bounded. */
-    private const val MAX_DEPTH = 1000
+    /**
+     * Deeper nesting is an error; it keeps the page (and its recursion) bounded. Each level is two elements of the page
+     * (`<details>`, its children `<div>`), and WebKit's HTML parser nests at most 512 deep: deeper ones would show flat.
+     */
+    private const val MAX_DEPTH = 250
 
     private fun factory(): XMLInputFactory =
         // Not newFactory(): a StAX implementation on the class path must never replace the hardened JDK one.

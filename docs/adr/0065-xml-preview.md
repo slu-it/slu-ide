@@ -14,8 +14,9 @@ layouts nest deeply; the formatted, foldable view that JSON got ([ADR 0064](0064
   body class `fold-page`), `FoldState` (reads the old page's folds, writes `#fold-state`) and `HtmlPage.escape`.
 - **JDK StAX (`XMLInputFactory`), streaming**, no new dependency. A jsoup XML parse was rejected: it is lenient and
   would silently repair malformed XML instead of reporting it. A DOM parse was rejected: a streaming parse keeps
-  memory bounded (`MAX_NODES`, and nesting is capped at 1000 levels). `newDefaultFactory()` is used so that a StAX
-  implementation on the class path can never replace the hardened JDK parser.
+  memory bounded (`MAX_NODES`, and nesting is capped at 250 levels: two page elements per level stay within the
+  512 levels WebKit's HTML parser nests). `newDefaultFactory()` is used so that a StAX implementation on the class
+  path can never replace the hardened JDK parser.
 - **No XXE:** `SUPPORT_DTD` and `IS_SUPPORTING_EXTERNAL_ENTITIES` are off, `javax.xml.accessExternalDTD` is empty and
   there is no resolver. A DOCTYPE is shown as written (taken from the source, because the parser's own text is cut
   short at some declarations) but never loaded or expanded; entities it declares are undeclared, so a reference to

@@ -377,7 +377,9 @@ class XmlRendererTest {
         val doc = page(xml)
 
         assertNotNull(doc.selectFirst("p.fold-error"))
-        assertTrue(doc.select("details").size in 100..1100)
+        // The 250 levels of the cap, the innermost a leaf: two page elements per level stay within the 512 levels
+        // WebKit's HTML parser nests.
+        assertEquals(249, doc.select("details").size)
     }
 
     @Test
