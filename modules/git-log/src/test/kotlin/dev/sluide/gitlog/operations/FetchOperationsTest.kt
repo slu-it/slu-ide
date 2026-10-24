@@ -1,6 +1,5 @@
 package dev.sluide.gitlog.operations
 
-import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitFetchChanges
 import dev.sluide.git.GitFetchResult
@@ -9,9 +8,9 @@ import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitResult
 import dev.sluide.gitlog.data.BranchNode
-import dev.sluide.gitlog.data.BranchParent
 import dev.sluide.gitlog.data.FakeWrites
 import dev.sluide.gitlog.data.branchNodes
+import dev.sluide.gitlog.data.nodeAt
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -229,13 +228,7 @@ class FetchOperationsTest {
         val nodes = branchNodes(refs)
         val remotes = listOf("origin", "team/a", "trunk")
 
-        fun node(path: String): BranchNode {
-            fun find(nodes: List<BranchNode>): BranchNode? =
-                nodes.firstNotNullOfOrNull { node ->
-                    if (node.path == path) node else (node as? BranchParent)?.children?.let(::find)
-                }
-            return checkNotNull(find(nodes)) { path }
-        }
+        fun node(path: String): BranchNode = nodeAt(nodes, path)
 
         fun fetch(vararg paths: String) = branchActions(paths.map(::node), remotes = remotes).fetch
 

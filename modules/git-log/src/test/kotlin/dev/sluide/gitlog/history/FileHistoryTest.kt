@@ -244,6 +244,26 @@ class FileHistoryTest {
     }
 
     @Test
+    fun `every state has its placeholder text, and failures and cancels keep the rows`() {
+        val messages = FileHistoryState.entries.associateWith { it.message("a.txt") }
+        assertEquals(
+            mapOf(
+                FileHistoryState.IDLE to "",
+                FileHistoryState.LOADING to "Loading…",
+                FileHistoryState.LOADED to "",
+                FileHistoryState.EMPTY to "No history: a.txt has no commits.",
+                FileHistoryState.FAILED to "The history could not be read.",
+                FileHistoryState.CANCELLED to "Loading cancelled. Refresh to load.",
+            ),
+            messages,
+        )
+        assertEquals(
+            setOf(FileHistoryState.FAILED, FileHistoryState.CANCELLED),
+            FileHistoryState.entries.filter { it.keepsRows }.toSet(),
+        )
+    }
+
+    @Test
     fun `a load that throws is a failed page, not a history that keeps loading`() {
         val history = history()
         history.visible = true

@@ -274,10 +274,6 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
         historyGate?.countDown()
         eventually { assertEquals("No history: App.kt has no commits.", historyPlaceholder()) }
 
-        fileHistoryOf = { _, _ -> null }
-        openHistory(robot, Path.of("/repo/b.txt"))
-        eventually { assertEquals("The history could not be read.", historyPlaceholder()) }
-
         // A failed refresh keeps the rows; the header says it.
         fileHistoryOf = { _, _ -> renamed }
         openHistory(robot, Path.of("/repo/c.txt"))

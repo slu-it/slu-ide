@@ -1,16 +1,14 @@
 package dev.sluide.gitlog.operations
 
-import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitResult
 import dev.sluide.gitlog.data.BranchGroup
 import dev.sluide.gitlog.data.BranchNode
-import dev.sluide.gitlog.data.BranchParent
 import dev.sluide.gitlog.data.FakeWrites
-import dev.sluide.gitlog.data.GitLogWrites
 import dev.sluide.gitlog.data.branchNodes
+import dev.sluide.gitlog.data.nodeAt
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -38,13 +36,7 @@ class RefOperationsTest {
 
     private val nodes = branchNodes(refs)
 
-    private fun node(path: String): BranchNode {
-        fun find(nodes: List<BranchNode>): BranchNode? =
-            nodes.firstNotNullOfOrNull { node ->
-                if (node.path == path) node else (node as? BranchParent)?.children?.let(::find)
-            }
-        return checkNotNull(find(nodes)) { path }
-    }
+    private fun node(path: String): BranchNode = nodeAt(nodes, path)
 
     private fun actions(vararg paths: String) = branchActions(paths.map(::node))
 

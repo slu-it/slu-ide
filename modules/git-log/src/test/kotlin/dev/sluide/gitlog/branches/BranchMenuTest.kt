@@ -4,8 +4,8 @@ import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
 import dev.sluide.gitlog.data.BranchNode
-import dev.sluide.gitlog.data.BranchParent
 import dev.sluide.gitlog.data.branchNodes
+import dev.sluide.gitlog.data.findNode
 import dev.sluide.gitlog.operations.CheckoutBranch
 import dev.sluide.gitlog.operations.RebaseBranch
 import kotlin.test.Test
@@ -29,11 +29,7 @@ class BranchMenuTest {
     private fun selected(
         refs: GitRefs,
         path: String,
-    ): List<BranchNode> {
-        fun find(nodes: List<BranchNode>): BranchNode? =
-            nodes.firstNotNullOfOrNull { if (it.path == path) it else (it as? BranchParent)?.children?.let(::find) }
-        return listOfNotNull(find(branchNodes(refs)))
-    }
+    ): List<BranchNode> = listOfNotNull(findNode(branchNodes(refs), path))
 
     private fun actions(
         path: String = "Local/feature",
