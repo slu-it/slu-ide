@@ -1,6 +1,7 @@
 # 0010. Docker sandboxes run in terminal tabs, only below the home folder
 
-- Status: accepted
+- Status: accepted; amended by [0087](0087-commands-in-an-interactive-login-shell.md) (commands run in an interactive
+  login shell, `$SHELL -l -i -c`)
 - Date: 2026-10-13
 
 ## Context

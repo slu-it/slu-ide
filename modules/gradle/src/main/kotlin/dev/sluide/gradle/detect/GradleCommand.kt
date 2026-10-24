@@ -2,7 +2,7 @@ package dev.sluide.gradle.detect
 
 import java.nio.file.Path
 
-/** Builds the command strings run by `$SHELL -l -c` (ADR 0085). */
+/** Builds the command strings run by `$SHELL -l -i -c` (ADR 0085, ADR 0087). */
 internal object GradleCommand {
     /** Characters that need no quoting in a POSIX shell word. */
     private val SAFE = Regex("[A-Za-z0-9_./:-][A-Za-z0-9_./:=@%+,-]*")

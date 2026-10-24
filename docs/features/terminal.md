@@ -59,12 +59,15 @@
 - Copy and paste: dragging selects text. Ctrl+Shift+C / Ctrl+Shift+V (Cmd+Shift+C/V on macOS) or the context menu
   copy it and paste the clipboard. Pastes use bracketed paste when the shell asks for it.
 - Other modules can run a command in a terminal tab: `Terminals.open(folder, name, command)` runs it with
-  `$SHELL -l -c` in a tab with the given name; the tab shows "(exited)" when the command ends (used by
-  [docker-sandbox.md](docker-sandbox.md)). `loginShellRunning(command, environment)` returns that shell's command line,
-  for running a command in the same login environment outside a terminal (the `sbx` check of the sandboxes).
+  `$SHELL -l -i -c` (an interactive login shell, so the same startup files as a tab apply, e.g. `.zshrc`;
+  [ADR 0087](../adr/0087-commands-in-an-interactive-login-shell.md)) in a tab with the given name; the tab shows
+  "(exited)" when the command ends (used by [docker-sandbox.md](docker-sandbox.md)). `loginShellRunning(command,
+  environment)` returns that shell's command line. `loginShellFinds(program, environment)` asks that shell whether it
+  finds a program (`command -v`; the `sbx` and `gradle` checks), in a pseudo terminal of its own, so the interactive
+  shell never touches the terminal Thoreau was started from.
 - Views of other modules can embed a terminal that runs one command, in a pane of their own instead of a tab
   (`Terminals.embed(folder, command)`, an `EmbeddedTerminal`; [ADR 0086](../adr/0086-embedded-command-terminals.md)).
-  It runs `$SHELL -l -c` like a command tab and follows the font and scroll settings. When the command ends,
+  It runs `$SHELL -l -i -c` like a command tab and follows the font and scroll settings. When the command ends,
   `exited` turns true and `exitCode` holds its exit code (none if it was closed before); the output stays visible.
   `interrupt()` sends Ctrl+C through the pseudo terminal (exit code 130 for a command that dies of it), `close()` ends
   the command with a hangup like closing a tab. Embedded terminals do not count as open tabs, but are closed with the

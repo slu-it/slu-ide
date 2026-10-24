@@ -28,6 +28,9 @@ private val log = System.getLogger(TerminalSession::class.java.name)
 
 private const val EXIT_GRACE_SECONDS = 2L
 
+/** The terminal type shells are told (`TERM`), in terminals and in the program check ([loginShellFinds]). */
+internal const val TERMINAL_TYPE = "xterm-256color"
+
 /**
  * A shell running in a pseudo terminal, started in [folder], whose output is interpreted by the JediTerm emulator into
  * [buffer]. The emulator reads on a background thread and reports changes to [display] from there. Throws
@@ -45,7 +48,7 @@ internal class TerminalSession(
     val process: PtyProcess =
         PtyProcessBuilder(command.toTypedArray())
             .setDirectory(folder.toString())
-            .setEnvironment(environment + mapOf("TERM" to "xterm-256color", "PWD" to folder.toString()))
+            .setEnvironment(environment + mapOf("TERM" to TERMINAL_TYPE, "PWD" to folder.toString()))
             .setInitialColumns(size.columns)
             .setInitialRows(size.rows)
             .setRedirectErrorStream(true)
@@ -233,13 +236,14 @@ internal class TerminalSession(
         fun defaultShell(environment: Map<String, String>): List<String> = listOf(userShell(environment), "-l")
 
         /**
-         * The login shell (`SHELL` in [environment]) running [command] and then ending, with the login environment
-         * (e.g. its `PATH`).
+         * The login shell (`SHELL` in [environment]) running [command] and then ending, interactive (`-i`) so that it
+         * reads the same startup files as a terminal tab (e.g. `.zshrc`, where SDKMAN or nvm set `PATH` and
+         * `JAVA_HOME`), not only the login profile (ADR 0087).
          */
         fun loginShellRunning(
             command: String,
             environment: Map<String, String>,
-        ): List<String> = listOf(userShell(environment), "-l", "-c", command)
+        ): List<String> = listOf(userShell(environment), "-l", "-i", "-c", command)
 
         private fun userShell(environment: Map<String, String>) =
             environment["SHELL"]?.takeIf { it.isNotBlank() } ?: "/bin/bash"

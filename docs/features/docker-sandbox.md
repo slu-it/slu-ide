@@ -9,7 +9,8 @@
     subfolders).
 - Each opens a terminal tab ([terminal.md](terminal.md)) named "Claude Code 1", "Environment 1", … (numbered per
   action, so the second Claude Code tab is "Claude Code 2"), whose tooltip shows folder and command. The command runs
-  in the user's login shell (`$SHELL -l -c`), so `sbx` must be on its `PATH`. When `sbx` ends, the tab shows
+  in the user's interactive login shell (`$SHELL -l -i -c`, the startup files of a terminal tab), so `sbx` must
+  be on its `PATH`. When `sbx` ends, the tab shows
   "(exited)".
 - **Without `sbx` the whole menu is disabled.** Each window checks once, in the background when it opens, whether
   `command -v sbx` succeeds in the login shell; the menu stays disabled until that has found `sbx`. A shell that cannot

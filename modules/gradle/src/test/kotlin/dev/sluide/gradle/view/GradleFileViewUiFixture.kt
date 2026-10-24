@@ -79,7 +79,9 @@ abstract class GradleFileViewUiFixture {
         Terminals(
             FontSettings(store, FontSettings.systemDefaults()),
             TerminalScrollSettings(store),
-            System.getenv() + ("SHELL" to "/bin/sh"),
+            // bash with a home of its own, so the user's startup files do not interfere; not sh, since dash, run
+            // interactively with -c (ADR 0087), takes Ctrl+C as a return to its prompt instead of ending.
+            System.getenv() + mapOf("SHELL" to "/bin/bash", "HOME" to support.toString()),
         )
     }
 

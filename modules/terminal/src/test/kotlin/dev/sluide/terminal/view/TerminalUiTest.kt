@@ -58,8 +58,20 @@ class TerminalUiTest {
         )
     }
 
-    /** The environment of the shells: `/bin/sh`, so the user's login profile and prompt do not interfere. */
-    private var environment = System.getenv() + ("SHELL" to "/bin/sh")
+    /** Whether the shells are the user's real login shell, with the real home folder (one test). */
+    private var realShell = false
+
+    /**
+     * The environment of the shells: `/bin/sh` with the settings folder as home, so the user's startup files and prompt
+     * do not interfere.
+     */
+    private val environment: Map<String, String>
+        get() =
+            if (realShell) {
+                System.getenv()
+            } else {
+                System.getenv() + mapOf("SHELL" to "/bin/sh", "HOME" to settingsDir.toString())
+            }
     private val terminalsHolder = lazy { Terminals(fontSettings, scrollSettings, environment) }
     private val terminals by terminalsHolder
     private lateinit var stage: Stage
@@ -117,7 +129,7 @@ class TerminalUiTest {
 
     @Test
     fun `a terminal tab runs the shell in the folder and shows its output`(robot: FxRobot) {
-        environment = System.getenv() // the one test with the user's real login shell
+        realShell = true // the one test with the user's real login shell
         val tab = open(robot)
         assertEquals("Terminal 1", tab.title.value)
         assertSame(tab.view, tab.view.scene.focusOwner, "focused when shown")

@@ -1,6 +1,7 @@
 # 0085. Gradle integration: detection, trust and reading tasks
 
-- Status: accepted
+- Status: accepted; amended by [0087](0087-commands-in-an-interactive-login-shell.md) (commands run in an interactive
+  login shell)
 - Date: 2026-10-24
 
 ## Context
@@ -38,8 +39,9 @@ run on every configuration), so it falls under [ADR 0053](0053-project-trust.md)
   file, and tasks with name, path, group, description) to the file named by `-Dsluide.taskList=<file>`. The load runs
   with `-Dorg.gradle.configuration-cache=false`; the task is also marked not compatible with the configuration cache
   where Gradle has that API.
-- It runs through the same command as a task run (wrapper or `gradle` in the login shell), so PATH and `JAVA_HOME`
-  of the user apply. Gradle 6 or newer is needed.
+- It runs through the same command as a task run (wrapper or `gradle` in the login shell, interactive since
+  [ADR 0087](0087-commands-in-an-interactive-login-shell.md)), so PATH and `JAVA_HOME` of the user apply. Gradle 6
+  or newer is needed.
 - Rejected: the **Tooling API**: it needs a dependency from `repo.gradle.org`, runs on Thoreau's JDK 25 unless
   configured, and has no login-shell environment. Rejected: parsing **`gradle tasks --all`**: a human format that
   changes between versions.

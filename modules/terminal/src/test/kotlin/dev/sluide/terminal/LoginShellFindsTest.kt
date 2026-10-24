@@ -14,6 +14,7 @@ import kotlin.io.path.readText
 import kotlin.io.path.setPosixFilePermissions
 import kotlin.io.path.writeText
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -47,6 +48,33 @@ class LoginShellFindsTest {
         stubTool()
 
         assertTrue(loginShellFinds("sometool", environment))
+    }
+
+    @Test
+    fun `sometool on a PATH set only for interactive shells is found, as in a terminal tab`() {
+        // sh reads the file named by ENV only when interactive, as zsh reads .zshrc (where SDKMAN sets things up).
+        val interactive = home.resolve(".shrc")
+        home.resolve(".profile").writeText("ENV=\"$interactive\"\nexport ENV\n")
+        interactive.writeText("PATH=\"$bin\"\nexport PATH\n")
+        stubTool()
+
+        assertTrue(loginShellFinds("sometool", environment))
+    }
+
+    @Test
+    fun `the interactive shell runs in a session of its own, so it cannot take the IDE's terminal`() {
+        assumeTrue(System.getProperty("os.name") == "Linux", "ps -o sid is Linux only")
+        assumeTrue(Files.isExecutable(Path.of("/bin/ps")), "no /bin/ps")
+        val session = root.resolve("session")
+        home
+            .resolve(
+                ".profile",
+            ).writeText("PATH=\"$bin\"\nexport PATH\necho \"$$ \$(/bin/ps -o sid= -p $$)\" > \"$session\"\n")
+        stubTool()
+
+        assertTrue(loginShellFinds("sometool", environment))
+        val (shell, sessionId) = session.readText().trim().split(Regex("""\s+"""))
+        assertEquals(shell, sessionId, "the shell leads its own session")
     }
 
     @Test

@@ -51,8 +51,13 @@ class EmbeddedTerminalUiTest {
         )
     }
 
-    /** `/bin/sh`, so the user's login profile does not interfere. */
-    private val environment = System.getenv() + ("SHELL" to "/bin/sh")
+    /**
+     * bash with the settings folder as its home, so the user's startup files do not interfere. Not `sh`: dash, run
+     * interactively with `-c` as commands are (ADR 0087), takes Ctrl+C as a return to its prompt instead of ending.
+     */
+    private val environment by lazy {
+        System.getenv() + mapOf("SHELL" to "/bin/bash", "HOME" to settingsDir.toString())
+    }
     private val terminalsHolder = lazy { Terminals(fontSettings, scrollSettings, environment) }
     private val terminals by terminalsHolder
     private lateinit var root: StackPane

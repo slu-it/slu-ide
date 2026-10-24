@@ -1,6 +1,7 @@
 # 0086. Embedded terminals that run one command per run
 
-- Status: accepted
+- Status: accepted; amended by [0087](0087-commands-in-an-interactive-login-shell.md) (commands run in an interactive
+  login shell)
 - Date: 2026-10-24
 
 ## Context
@@ -20,7 +21,8 @@ Options considered:
 ## Decision
 - `Terminals.embed(folder, command, environment)` returns an `EmbeddedTerminal`: a node that another view shows, the
   `exited` flag and `exitCode` of the process, `isAlive`, `interrupt()` and `close()`.
-- Every run is a fresh process (`$SHELL -l -c '<command>'`, as command tabs) in a fresh terminal; the caller closes the
+- Every run is a fresh process (`$SHELL -l -c '<command>'`, as command tabs; `-l -i -c` since
+  [ADR 0087](0087-commands-in-an-interactive-login-shell.md)) in a fresh terminal; the caller closes the
   previous run's terminal and replaces its node, so the output is replaced per run. The output stays visible after
   the command ends, until the caller closes the terminal; until then it stays alive and follows the settings.
 - The exit code is the process's own, read once it has ended; `exited` turns true on the FX thread after that.

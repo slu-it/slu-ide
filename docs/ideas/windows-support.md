@@ -27,7 +27,7 @@ Thoreau. Open question: is the ongoing cost of a third OS worth it?
 ### Terminal and shell commands
 - `TerminalSession.defaultShell` starts `$SHELL -l`, falling back to `/bin/bash`. Windows has neither `SHELL` nor `-l`,
   so it needs PowerShell (`pwsh`, else `powershell.exe`) or `cmd.exe`. pty4j supports Windows through ConPTY.
-- `loginShellRunning` (`$SHELL -l -c …`) is also used by the Docker sandbox and by `loginShellFinds` (`command -v …`), behind `SbxCheck` and the Gradle check. It needs
+- `loginShellRunning` (`$SHELL -l -i -c …`) is also used by the Docker sandbox and by `loginShellFinds` (`command -v …`), behind `SbxCheck` and the Gradle check. It needs
   a Windows version, e.g. `where sbx`.
 
 ### File system behaviour

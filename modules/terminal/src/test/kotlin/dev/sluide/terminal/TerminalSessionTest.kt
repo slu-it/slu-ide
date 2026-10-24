@@ -227,11 +227,11 @@ class TerminalSessionTest {
         assertEquals(listOf("/bin/bash", "-l"), TerminalSession.defaultShell(mapOf()))
         assertEquals(listOf("/bin/bash", "-l"), TerminalSession.defaultShell(mapOf("SHELL" to " ")))
         assertEquals(
-            listOf("/bin/bash", "-l", "-c", "sbx env run"),
+            listOf("/bin/bash", "-l", "-i", "-c", "sbx env run"),
             TerminalSession.loginShellRunning("sbx env run", mapOf("SHELL" to "")),
         )
         assertEquals(
-            listOf("/bin/zsh", "-l", "-c", "sbx env run"),
+            listOf("/bin/zsh", "-l", "-i", "-c", "sbx env run"),
             TerminalSession.loginShellRunning("sbx env run", mapOf("SHELL" to "/bin/zsh")),
         )
     }
