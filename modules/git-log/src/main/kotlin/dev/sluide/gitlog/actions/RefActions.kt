@@ -225,7 +225,7 @@ internal class RefActions(
         }
         if (!outcome.result.success) {
             // Done all the same (a failing post-checkout hook): the header says what was done.
-            val header = outcome.done?.takeIf { outcome.result.changed } ?: outcome.failure ?: operation.failure
+            val header = errorHeader(operation, outcome)
             gitErrorDialog(window(), operation.errorTitle, header, outcome.result.message).showAndWait()
         }
         outcome.stopped?.let { stop ->
@@ -355,3 +355,12 @@ internal class RefActions(
         writeExecutor.shutdown()
     }
 }
+
+/**
+ * The header of the error dialog of a failed [operation]: what it did all the same (a failing post-checkout hook),
+ * else the question its outcome brings, else the operation's.
+ */
+internal fun errorHeader(
+    operation: RefOperation,
+    outcome: RefOutcome,
+): String = outcome.done?.takeIf { outcome.result.changed } ?: outcome.failure ?: operation.failure
