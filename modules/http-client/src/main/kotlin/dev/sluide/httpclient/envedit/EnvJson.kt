@@ -51,12 +51,12 @@ internal object EnvJson {
             .withArrayIndenter(DefaultIndenter("  ", "\n"))
 
     /**
-     * The single JSON value of [text], null for blank text; throws [EnvJsonException] if it is not valid JSON or holds
+     * The single JSON value of [text] (without a leading byte order mark, which editors keep), null for blank text; throws [EnvJsonException] if it is not valid JSON or holds
      * a number out of range.
      */
     fun parse(text: String): JsonNode? =
         try {
-            mapper.createParser(text).use { parser ->
+            mapper.createParser(text.removePrefix("\uFEFF")).use { parser ->
                 if (parser.nextToken() == null) return null
                 val node = read(parser)
                 if (parser.nextToken() != null) throw EnvJsonException("Unexpected content after the end of the value")

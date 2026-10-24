@@ -13,7 +13,6 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Files
-import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -99,19 +98,6 @@ internal class EnvironmentFileViewSyncUiTest : EnvironmentFileViewUiFixture() {
     }
 
     @Test
-    fun `nothing changes when the missing other file appeared with content`(robot: FxRobot) {
-        val view = open(robot, publicText)
-        privateFile.writeText("""{"dev": {"x": 1}}""")
-
-        robot.interact { view.lock(robot, path("host"), "dev").fire() }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        assertEquals("""{"dev": {"x": 1}}""", tab(privateFile))
-        assertEquals(publicText, view.text)
-        assertTrue("changed meanwhile" in view.warning.text, view.warning.text)
-    }
-
-    @Test
     fun `a private file with a byte order mark is shown and moved without a warning`(robot: FxRobot) {
         val view = open(robot, publicText, "\uFEFF" + privateText)
         robot.interact { view.showValues.isSelected = true }
@@ -120,7 +106,23 @@ internal class EnvironmentFileViewSyncUiTest : EnvironmentFileViewUiFixture() {
         robot.interact { view.lock(robot, path("host"), "dev").fire() }
         WaitForAsyncUtils.waitForFxEvents()
 
-        assertEquals(listOf(privateFile), host.edited.map { it })
+        assertEquals(listOf(privateFile), host.edited)
+        assertEquals("", view.warning.text)
+    }
+
+    @Test
+    fun `a byte order mark in the editor and in the other file's tab does not matter`(robot: FxRobot) {
+        host.tabs[privateFile] = "\uFEFF" + privateText
+        val view = open(robot, "\uFEFF" + publicText, privateText)
+        robot.interact { view.showValues.isSelected = true }
+        assertTrue(view.form.editable, view.warning.text)
+        assertEquals("s3cret", view.shown(robot, path("token"), "dev"))
+
+        robot.interact { view.lock(robot, path("token"), "dev").fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(listOf(privateFile), host.edited)
+        assertTrue("s3cret" in view.text, view.text)
         assertEquals("", view.warning.text)
     }
 

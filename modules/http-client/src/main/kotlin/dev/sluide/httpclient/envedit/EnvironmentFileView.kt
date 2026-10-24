@@ -26,7 +26,6 @@ import javafx.util.Duration
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.StandardOpenOption
 
 /** What an environment file's view shows: the JSON source, both side by side, or the form. */
 internal enum class EnvMode(
@@ -259,10 +258,10 @@ internal class EnvironmentFileView(
     private fun otherText(): String? {
         otherProblem = null
         val file = otherFile
-        host?.currentText(file)?.let { return it }
+        host?.currentText(file)?.let { return EnvFileWriter.normalize(it) }
         if (!Files.exists(file)) return null
         return try {
-            normalize(Files.readString(file))
+            EnvFileWriter.normalize(Files.readString(file))
         } catch (e: IOException) {
             otherProblem = "${file.fileName} cannot be read: ${e.message}"
             null
@@ -271,66 +270,22 @@ internal class EnvironmentFileView(
 
     /**
      * Applies [edit] of the form: first to the other file through its tab (creating it as `{}` if it is missing), then,
-     * if that worked, to the editor; then shows the files anew. Nothing is changed if the editor's text changed since
-     * the form read it, or the editor is read-only while the edit changes its file.
+     * if that worked, to the editor; then shows the files anew ([EnvFileWriter] decides what is written).
      */
     private fun apply(edit: EnvEdit) {
-        failure = null
-        val own = if (side == FileSide.PUBLIC) edit.public else edit.private
-        val other = if (side == FileSide.PUBLIC) edit.private else edit.public
-        val shown = if (side == FileSide.PUBLIC) document.publicText else document.privateText
-        when {
-            // Typed since the form last read the text (its pause still running): the edit would drop what was typed.
-            editor.text != shown -> failure = "${file.fileName} changed meanwhile; nothing was changed, try again"
-
-            own != null && !editor.canReplaceText -> failure = "${file.fileName} is read-only"
-
-            other == null || applyToOther(other) -> applyToOwn(own)
+        val outcome =
+            EnvFileWriter(
+                side,
+                file,
+                otherFile,
+            ).apply(edit, document, editor.text, editor.canReplaceText, host)
+        failure = outcome.failure
+        if (failure == null && outcome.ownText != null && !editor.replaceText(outcome.ownText)) {
+            failure = "${file.fileName} is read-only"
         }
         // Shows the editor's change at once, not once typing would have paused.
         reparse.stop()
         refresh(force = true)
-    }
-
-    private fun applyToOwn(own: String?) {
-        if (own != null && !editor.replaceText(own)) failure = "${file.fileName} is read-only"
-    }
-
-    private fun applyToOther(text: String): Boolean {
-        val file = otherFile
-        val host = host ?: return failed("${file.fileName} can only be changed in an IDE window")
-        val expected = if (side == FileSide.PUBLIC) document.privateText else document.publicText
-        if (!Files.exists(file)) {
-            try {
-                Files.writeString(file, EMPTY_FILE, StandardOpenOption.CREATE_NEW)
-            } catch (e: IOException) {
-                return failed("${file.fileName} cannot be created: ${e.message}")
-            }
-        }
-        var changedMeanwhile = false
-        val edited =
-            host.editText(file) { current ->
-                // The form showed another text of the file than its tab has now: nothing is changed then. A file that
-                // was missing has to be the one just created.
-                val unchanged =
-                    expected?.let { normalize(current) == it } ?: (current.isBlank() || current.trim() == "{}")
-                if (!unchanged) {
-                    changedMeanwhile = true
-                    current
-                } else {
-                    text
-                }
-            }
-        return when {
-            !edited -> failed("${file.fileName} cannot be changed: it cannot be opened as text or is read-only")
-            changedMeanwhile -> failed("${file.fileName} changed meanwhile; nothing was changed, try again")
-            else -> true
-        }
-    }
-
-    private fun failed(message: String): Boolean {
-        failure = message
-        return false
     }
 
     private fun showFailure(message: String) {
@@ -362,15 +317,11 @@ internal class EnvironmentFileView(
         private const val CSS = "/dev/sluide/httpclient/envedit/environment-editor.css"
         private const val REPARSE_MILLIS = 300.0
         private const val DIVIDER_POSITION = 0.5
-        private const val EMPTY_FILE = "{}\n"
 
         /** The side of an environment file by its name (ignoring case), `null` for other files. */
         fun sideOf(file: Path): FileSide? {
             val name = file.fileName?.toString() ?: return null
             return FileSide.entries.firstOrNull { it.fileName.equals(name, ignoreCase = true) }
         }
-
-        /** [text] with `\n` line breaks and without a byte order mark, as editors show it. */
-        private fun normalize(text: String) = text.removePrefix("﻿").replace("\r\n", "\n").replace('\r', '\n')
     }
 }

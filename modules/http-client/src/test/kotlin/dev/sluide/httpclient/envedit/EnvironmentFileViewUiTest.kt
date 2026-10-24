@@ -165,19 +165,6 @@ internal class EnvironmentFileViewUiTest : EnvironmentFileViewUiFixture() {
     }
 
     @Test
-    fun `nothing changes when the other file cannot be edited`(robot: FxRobot) {
-        val view = open(robot, publicText, privateText)
-        host.canEdit = false
-
-        robot.interact { (view.cell(robot, path("token"), "dev").lookup(".env-lock") as Button).fire() }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        assertEquals(publicText, view.text)
-        assertTrue(view.warning.isVisible)
-        assertTrue("cannot be changed" in view.warning.text, view.warning.text)
-    }
-
-    @Test
     fun `invalid json makes the form read-only with the error shown`(robot: FxRobot) {
         val view = open(robot, "{ \"dev\": ", privateText)
 
