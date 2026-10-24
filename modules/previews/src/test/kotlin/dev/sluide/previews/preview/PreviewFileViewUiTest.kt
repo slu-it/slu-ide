@@ -435,6 +435,7 @@ class PreviewFileViewUiTest {
         file.writeText("<h1>Changed</h1>")
         robot.interact { view.reload() }
         robot.interact { robot.lookup(".preview-notice .button").queryButton().fire() }
+        // A load the disposed view must not start would come later; nothing marks its absence.
         WaitForAsyncUtils.sleep(200, TimeUnit.MILLISECONDS)
         WaitForAsyncUtils.waitForFxEvents()
         assertBlank()
@@ -576,6 +577,7 @@ class PreviewFileViewUiTest {
 
         robot.interact { preview.rerender?.invoke() }
         WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { view.heading() == "a 2" }
+        // A further render, if one were wrongly triggered, would follow the heading; nothing marks its absence.
         WaitForAsyncUtils.sleep(200, TimeUnit.MILLISECONDS)
         assertEquals(listOf("a", "a"), preview.texts)
         assertFalse(view.noticeShown(), view.notice.text)
@@ -599,6 +601,7 @@ class PreviewFileViewUiTest {
             preview.rerender?.invoke()
         }
         WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { view.heading() == "a ${preview.texts.size}" }
+        // A page mistaken for reloading itself would show its notice after the heading; nothing marks its absence.
         WaitForAsyncUtils.sleep(200, TimeUnit.MILLISECONDS)
         assertEquals("a ${preview.texts.size}", view.heading())
         assertFalse(view.noticeShown(), view.notice.text)

@@ -233,6 +233,7 @@ class HtmlPreviewUiTest {
             10,
             TimeUnit.SECONDS,
         ) { fx { robot.lookup(".preview-notice").query<Node>().isVisible } }
+        // A reload loop would show as more loads after the notice; nothing marks that none follows.
         WaitForAsyncUtils.sleep(200, TimeUnit.MILLISECONDS)
 
         assertTrue("other.html" in view.notice.text)
@@ -425,6 +426,7 @@ class HtmlPreviewUiTest {
             10,
             TimeUnit.SECONDS,
         ) { fx { robot.lookup(".preview-notice").query<Node>().isVisible } }
+        // More loads, if the page kept reloading itself, would come after the notice; nothing marks their absence.
         WaitForAsyncUtils.sleep(300, TimeUnit.MILLISECONDS)
 
         assertTrue(loads <= 2, "loaded $loads times")

@@ -382,6 +382,7 @@ class ZoomUiTest {
         assertTrue(fx { view.zoom.fit && view.zoom.fitButton?.isSelected == true })
 
         robot.interact { stage.width = 1000.0 }
+        // An enlarging relayout would come after the resize through the page; nothing marks that none follows.
         WaitForAsyncUtils.sleep(200, TimeUnit.MILLISECONDS)
         WaitForAsyncUtils.waitForFxEvents()
         assertEquals(100.0, view.webView.imageWidth(), "a bigger view does not enlarge it")
@@ -415,6 +416,7 @@ class ZoomUiTest {
         val width = view.webView.imageWidth()
         robot.interact { stage.width = 900.0 }
         robot.interact { stage.height = 500.0 }
+        // A rescale of the zoomed image would come after the resize through the page; nothing marks its absence.
         WaitForAsyncUtils.sleep(200, TimeUnit.MILLISECONDS)
         WaitForAsyncUtils.waitForFxEvents()
         assertEquals(manual, view.scale())
