@@ -210,13 +210,30 @@ class OAuth2TokenCacheTest {
     @Test
     fun `concurrent requests share one token request`() {
         val release = CountDownLatch(1)
+        val callers = CopyOnWriteArrayList<Thread>()
+        val arrived = CountDownLatch(1)
         endpoint.respond = {
+            arrived.countDown()
             release.await(5, TimeUnit.SECONDS)
             200 to """{"access_token": "shared", "expires_in": 60}"""
         }
         Executors.newVirtualThreadPerTaskExecutor().use { threads ->
-            val futures = (1..8).map { threads.submit(Callable { token() }) }
-            Thread.sleep(200)
+            val futures =
+                (1..8).map {
+                    threads.submit(
+                        Callable {
+                            callers += Thread.currentThread()
+                            token()
+                        },
+                    )
+                }
+            assertTrue(arrived.await(10, TimeUnit.SECONDS))
+            // The first caller waits for the answer, the other seven for the first one's lock: all eight are parked.
+            val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
+            while (callers.size < 8 || callers.any { it.state != Thread.State.WAITING }) {
+                check(System.nanoTime() < deadline) { "Not all callers are waiting: ${callers.map { it.state }}" }
+                Thread.sleep(5)
+            }
             release.countDown()
 
             assertEquals(List(8) { "shared" }, futures.map { it.get(10, TimeUnit.SECONDS) })

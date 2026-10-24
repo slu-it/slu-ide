@@ -4,9 +4,12 @@ import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.httpclient.send.HttpClients
 import java.nio.file.Path
 import java.time.Duration
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 
 class HttpClientSessionTest {
@@ -36,6 +39,45 @@ class HttpClientSessionTest {
 
         assertNull(session.environment(old))
         assertEquals("dev", session.environment(new))
+    }
+
+    @Test
+    fun `a background task that throws still reports its failure`() {
+        val done = CompletableFuture<Result<Int>>()
+
+        session.inBackground({ error("boom") }, done::complete).join()
+
+        assertEquals("boom", done.get(5, TimeUnit.SECONDS).exceptionOrNull()?.message)
+    }
+
+    @Test
+    fun `a background task that fails with an error still reports it`() {
+        val done = CompletableFuture<Result<Int>>()
+
+        session.inBackground({ throw StackOverflowError("deep") }, done::complete).join()
+
+        assertIs<StackOverflowError>(done.get(5, TimeUnit.SECONDS).exceptionOrNull())
+    }
+
+    @Test
+    fun `a background task hands its value over`() {
+        val done = CompletableFuture<Result<Int>>()
+
+        session.inBackground({ 42 }, done::complete).join()
+
+        assertEquals(42, done.get(5, TimeUnit.SECONDS).getOrNull())
+    }
+
+    @Test
+    fun `closing the handle stops the git status listener`() {
+        var calls = 0
+        val handle = session.onGitStatusChanged { calls++ }
+
+        session.gitStatusChanged()
+        handle.close()
+        session.gitStatusChanged()
+
+        assertEquals(1, calls)
     }
 
     @Test

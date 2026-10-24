@@ -179,16 +179,14 @@ class RequestRunnerTest {
     @Test
     fun `cancels a running token request`() {
         val release = CountDownLatch(1)
+        val arrived = CountDownLatch(1)
         endpoint.respond = {
+            arrived.countDown()
             release.await(30, TimeUnit.SECONDS)
             200 to """{"access_token": "late"}"""
         }
         val (cancellable, result) = start("GET {{base}}/echo\nAuthorization: Bearer {{\$auth.token(\"a\")}}")
-        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
-        while (endpoint.calls == 0) {
-            check(System.nanoTime() < deadline) { "The token request did not arrive" }
-            Thread.sleep(10)
-        }
+        assertTrue(arrived.await(10, TimeUnit.SECONDS), "The token request did not arrive")
 
         cancellable.cancel()
 
