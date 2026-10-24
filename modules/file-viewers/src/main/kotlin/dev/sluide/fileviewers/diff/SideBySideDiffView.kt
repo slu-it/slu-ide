@@ -218,17 +218,9 @@ internal class SideBySideDiffView(
     }
 
     private fun updateToolbar() {
-        val changes = navigation.blocks.size
-        val index = navigation.indexAt(row)
-        counter.text =
-            when {
-                changes == 0 -> "No changes"
-                index != null -> "Change ${index + 1} of $changes"
-                changes == 1 -> "1 change"
-                else -> "$changes changes"
-            }
-        firstButton.isDisable = changes == 0
-        lastButton.isDisable = changes == 0
+        counter.text = navigation.counter(row)
+        firstButton.isDisable = !navigation.hasChanges
+        lastButton.isDisable = !navigation.hasChanges
         previousButton.isDisable = navigation.previous(row) == null
         nextButton.isDisable = navigation.next(row) == null
     }

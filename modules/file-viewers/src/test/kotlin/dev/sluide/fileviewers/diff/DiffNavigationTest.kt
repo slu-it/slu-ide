@@ -75,4 +75,24 @@ class DiffNavigationTest {
         assertEquals(1..1, navigation.at(rowOfCurrent(rows, 0)), "the next change")
         assertEquals(5..6, navigation.at(rowOfCurrent(rows, 9)), "the last change")
     }
+
+    @Test
+    fun `the counter tells the change the row is in, else how many changes there are`() {
+        assertEquals("Change 1 of 3", navigation.counter(1))
+        assertEquals("Change 3 of 3", navigation.counter(6))
+        assertEquals("3 changes", navigation.counter(0))
+        assertEquals("3 changes", navigation.counter(2))
+    }
+
+    @Test
+    fun `the counter of one change and of none`() {
+        val one = DiffNavigation(changeBlocks(alignDiff(2, 2, listOf(LineChange(1..1, 1..1)))))
+        assertEquals("1 change", one.counter(0))
+        assertEquals("Change 1 of 1", one.counter(1))
+        assertEquals(true, one.hasChanges)
+
+        val none = DiffNavigation(emptyList())
+        assertEquals("No changes", none.counter(0))
+        assertEquals(false, none.hasChanges)
+    }
 }

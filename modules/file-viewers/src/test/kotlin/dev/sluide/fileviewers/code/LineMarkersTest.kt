@@ -125,6 +125,20 @@ class LineMarkersTest {
         assertEquals(listOf(null, ADDED, null, null), markers.markers)
     }
 
+    @Test
+    fun `after too many edits a new diff gets the change between the saved and the edited text instead`() {
+        val saved = (0 until 2000).joinToString("\n") { "line $it" }
+        val edited = (0 until 2000).joinToString("\n") { if (it <= 1000) "Line $it" else "line $it" }
+        val markers = ChangeMarkers(saved)
+        repeat(1001) { markers.edited(LineEdit(it, 1, 1)) }
+        val modified = List(1001) { MODIFIED } + List(999) { null }
+        assertEquals(modified, markers.markers)
+
+        markers.show(TextDiff("", listOf(LineChange(1500 until 1500, 1500..1500))), saved, edited)
+
+        assertEquals(modified.mapIndexed { line, marker -> if (line == 1500) ADDED else marker }, markers.markers)
+    }
+
     /** A text of [lines] lines `line 1`, `line 2`, … */
     private fun lines(lines: Int) = (1..lines).joinToString("\n") { "line $it" }
 

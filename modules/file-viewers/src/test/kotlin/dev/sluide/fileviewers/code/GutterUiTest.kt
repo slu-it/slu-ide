@@ -187,6 +187,33 @@ class GutterUiTest {
     }
 
     @Test
+    fun `a diff given during a conflict is applied with the unsaved edits when mine is kept`(robot: FxRobot) {
+        val view = open("a\nb\nc\n", robot)
+        robot.interact { view.area.insertText(view.area.getAbsolutePosition(2, 0), "C") }
+        dir.resolve("main.py").writeText("a\nb\nc\nd\n")
+        robot.interact { view.reload() }
+        assertTrue(view.conflictShown)
+
+        // The diff of the file's new text against HEAD (A b c): a modified, d added.
+        val diff = TextDiff("A\nb\nc\n", listOf(LineChange(0..0, 0..0), LineChange(3 until 3, 3..3)))
+        robot.interact { view.showChanges(diff) }
+        assertEquals(mapOf("3" to "diff-modified"), markers(robot), "still the markers of the unsaved edits")
+
+        robot.interact {
+            robot
+                .lookup(".editor-banner .button")
+                .queryAllAs(Button::class.java)
+                .single { it.text == "Keep mine" }
+                .fire()
+        }
+
+        assertEquals("a\nb\nCc\n", view.area.text)
+        val kept = markers(robot)
+        assertEquals("diff-modified", kept["1"], "the line the diff marks")
+        assertEquals("diff-modified", kept["3"], "the unsaved edit")
+    }
+
+    @Test
     fun `several changes at once are each marked where they are`(robot: FxRobot) {
         val view = open("a\nb\nc\nd\ne\n", robot)
         robot.interact {

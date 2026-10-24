@@ -23,10 +23,13 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.io.IOException
 import java.nio.file.Path
+import kotlin.io.path.deleteExisting
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
@@ -303,6 +306,27 @@ class DiffFileViewUiTest {
         val right = robot.lookup(".code-area").queryAllAs(CodeArea::class.java).maxBy { it.localToScene(0.0, 0.0).x }
         assertEquals("a", right.text)
         assertEquals(listOf(emptyList<String>()), right.paragraphClasses())
+    }
+
+    @Test
+    fun `a file deleted meanwhile fails reload and show and leaves the shown diff as it is`(robot: FxRobot) {
+        val file = dir.resolve("a.txt").apply { writeText("a\nb\n") }
+        val diff = TextDiff("a\n", listOf(LineChange(1 until 1, 1..1)))
+        val view = openDiff(file, diff)
+        robot.interact { container.children.setAll(view.node) }
+        WaitForAsyncUtils.waitForFxEvents()
+        val right = robot.lookup(".code-area").queryAllAs(CodeArea::class.java).maxBy { it.localToScene(0.0, 0.0).x }
+        val before = right.paragraphClasses()
+
+        file.deleteExisting()
+        robot.interact {
+            assertFailsWith<IOException> { view.reload() }
+            assertFailsWith<IOException> { view.show(TextDiff("a\n", emptyList())) }
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals("a\nb", right.text)
+        assertEquals(before, right.paragraphClasses())
     }
 
     @Test

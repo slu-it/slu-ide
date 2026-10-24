@@ -251,11 +251,18 @@ class EnvFileViewUiTest {
     }
 
     @Test
-    fun `renamed to a placeholder file, the values show`(robot: FxRobot) {
+    fun `renamed to a placeholder file the values show, renamed back they are masked again`(robot: FxRobot) {
         val view = open(robot)
 
         robot.interact { view.moved(dir.resolve(".env.sample")) }
 
         assertTrue(view.isShown(text.trimEnd()))
+        assertTrue(robot.lookup(".env-show-values").queryAll<ToggleButton>().isEmpty())
+
+        robot.interact { view.moved(dir.resolve(".env")) }
+
+        assertTrue(view.isMasked("abc"))
+        assertTrue(view.isMasked("\"s3cret\""))
+        assertEquals(1, robot.lookup(".env-show-values").queryAll<ToggleButton>().size)
     }
 }

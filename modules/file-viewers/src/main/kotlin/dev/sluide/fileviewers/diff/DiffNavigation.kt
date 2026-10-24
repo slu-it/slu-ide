@@ -46,4 +46,18 @@ internal class DiffNavigation(
 
     /** The index of the change [row] is in. */
     fun indexAt(row: Int): Int? = blocks.indexOfFirst { row in it }.takeIf { it >= 0 }
+
+    /** Whether there is a change to go to, for the first and last buttons. */
+    val hasChanges: Boolean get() = blocks.isNotEmpty()
+
+    /** What the toolbar's counter says seen from [row]: the number of the change [row] is in, or how many there are. */
+    fun counter(row: Int): String {
+        val index = indexAt(row)
+        return when {
+            blocks.isEmpty() -> "No changes"
+            index != null -> "Change ${index + 1} of ${blocks.size}"
+            blocks.size == 1 -> "1 change"
+            else -> "${blocks.size} changes"
+        }
+    }
 }
