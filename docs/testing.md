@@ -40,6 +40,29 @@ Subagents verify with subsets; the full `./gradlew build` is the main session's 
   the macOS jobs of CI and release skip `uiTest` (about 30 minutes there). The *macOS UI tests* workflow
   (`.github/workflows/macos-ui-tests.yml`, started by hand) runs them on the native macOS display.
 
+## Choosing the test level
+A behavior is tested once, at the lowest level that can see it ([ADR 0084](adr/0084-testability-logic-out-of-controls.md)).
+- **Does it need a scene?** Only rendering, focus, event routing (a press that must not reach a parent), bindings
+  and WebView/WebKit behavior do. Texts, enable states, validation messages, path logic, sizes, key-to-action mapping
+  and what gets read or written do not: they are unit tests.
+- **Logic sits in a control?** Extract it rather than write a UI test: an `internal` pure function
+  (`missingMessage`, `counterText`, `zoomKeyAction`, `checkedSize`), a plain class beside the view
+  (`IgnoreDotsTracker`, `EnvFileWriter`, `ScrollRouting`), or an FX-free host interface the view implements and a
+  test fakes (`ExplorerEditHost` / `FakeEditHost`). Keep one UI test per such connection that fails if the view
+  stops calling the logic (save → lookup again, move → `moved`, dispose → late answers dropped); the logic's cases
+  stay in the unit test.
+- **Search before adding.** Grep for the asserted message, the function and its test class; extend that test instead
+  of adding a second one. Shared code (the fold tree of JSON/XML/YAML, `ZoomControls`, `FoldControls`) is tested in
+  one place, with one smoke test per preview that uses it. Feature behavior is tested in its module; `ide` tests only
+  the wiring between modules.
+- **Same test, other input:** one `@ParameterizedTest` (`@ValueSource`, `@MethodSource`, `@CsvSource`) instead of
+  copies.
+- **It must fail without the code.** For a test whose failure is not obvious (wiring, races, negative checks),
+  break the code once, see the test fail, restore it.
+- `.claude/scripts/check-tests.sh [files]` reports fixed sleeps without a reason, synthetic OS input,
+  `waitForFxEvents()` right after `interact` and test classes over 800 lines; a hook runs it on newly written test
+  code. `.claude/scripts/test-times.sh` lists task times and the slowest classes from the last test results.
+
 ## Writing UI tests
 - Use `@ExtendWith(ApplicationExtension::class)`, build the real component in a `@Start` method, and inspect it
   through the scene graph (`robot.lookup(".tree-cell")`). Examples: `FileExplorerViewUiTest`, `MainWindowProjectUiTest`.
@@ -57,7 +80,6 @@ Subagents verify with subsets; the full `./gradlew build` is the main session's 
   `EditorAreaUiFixture`.
 - `lookup(...).queryAllAs(...)` returns nodes in no particular order; sort (e.g. by `TreeCell.index`) before asserting.
 - Native dialogs (`DirectoryChooser`) cannot be driven by TestFX; test the logic behind them (`ProjectService`).
-- Keep logic out of controls so most behavior stays in fast unit tests.
 - Large UI test subjects are split by topic: an abstract `<Subject>UiFixture` (fake sources, `@AfterEach`, helpers)
   and one `<Subject><Topic>UiTest` per topic (`GitLogView*`, `GitLogWrites*`, `EditorArea*`, `FileExplorerView*`,
   `MainWindow*`).
