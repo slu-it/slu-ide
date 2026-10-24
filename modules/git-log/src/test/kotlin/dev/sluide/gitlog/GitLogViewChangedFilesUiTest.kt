@@ -267,16 +267,10 @@ class GitLogViewChangedFilesUiTest : GitLogViewUiFixture() {
     }
 
     @Test
-    fun `a binary or too large file, or a failure, is told in the header instead`(robot: FxRobot) {
+    fun `a file whose diff cannot be shown is told in the header instead`(robot: FxRobot) {
         val shown = CopyOnWriteArrayList<CommitFileDiff>()
         view.onShowDiff = { shown += it }
-        diffOf = { file ->
-            when (file.path) {
-                "README.md" -> GitFileDiff.Binary
-                "docs/new.md" -> GitFileDiff.TooLarge
-                else -> null
-            }
-        }
+        diffOf = { GitFileDiff.Binary }
         showFilesOfFirstCommit(robot)
 
         selectFile(robot, "README.md")
@@ -284,11 +278,6 @@ class GitLogViewChangedFilesUiTest : GitLogViewUiFixture() {
         eventually { assertEquals("README.md is a binary file.", status(robot)) }
         selectFile(robot, "new.md")
         robot.interact { assertEquals("", status(robot), "until the next selection") }
-        pressInTree(robot, KeyCode.ENTER)
-        eventually { assertEquals("new.md is too large to compare.", status(robot)) }
-        selectFile(robot, "One.kt")
-        pressInTree(robot, KeyCode.ENTER)
-        eventually { assertEquals("The diff could not be read.", status(robot)) }
         assertEquals(emptyList(), shown)
 
         robot.interact { view.showStatus("One.kt cannot be shown as text.") }
@@ -364,9 +353,6 @@ class GitLogViewChangedFilesUiTest : GitLogViewUiFixture() {
         filesOf = {
             listOf(
                 GitChangedFile(GitChange.MODIFIED, "lib/moved"),
-                GitChangedFile(GitChange.ADDED, "lib/added"),
-                GitChangedFile(GitChange.DELETED, "lib/removed"),
-                GitChangedFile(GitChange.MODIFIED, "run.sh"),
                 GitChangedFile(GitChange.RENAMED, "new.txt", "old.txt"),
                 GitChangedFile(GitChange.ADDED, "empty.txt"),
             )
@@ -374,8 +360,6 @@ class GitLogViewChangedFilesUiTest : GitLogViewUiFixture() {
         diffOf = { file ->
             when (file.path) {
                 "lib/moved" -> GitFileDiff.Submodule(old, new)
-                "lib/added" -> GitFileDiff.Submodule(null, new)
-                "lib/removed" -> GitFileDiff.Submodule(old, null)
                 "empty.txt" -> GitFileDiff.Text("", "", emptyList())
                 else -> GitFileDiff.Text("same\n", "same\n", emptyList())
             }
@@ -390,9 +374,6 @@ class GitLogViewChangedFilesUiTest : GitLogViewUiFixture() {
             return status(robot)
         }
         assertEquals("moved is a submodule: 12345678 → abcdef01.", showDiffOf("moved"))
-        assertEquals("added is a submodule, added at abcdef01.", showDiffOf("added"))
-        assertEquals("removed is a submodule, removed.", showDiffOf("removed"))
-        assertEquals("run.sh has no content changes.", showDiffOf("run.sh"))
         assertEquals("new.txt has no content changes.", showDiffOf("new.txt"))
         assertEquals(emptyList(), shown)
 

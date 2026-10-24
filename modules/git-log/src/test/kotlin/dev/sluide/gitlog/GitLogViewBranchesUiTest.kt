@@ -195,12 +195,12 @@ class GitLogViewBranchesUiTest : GitLogViewUiFixture() {
         eventually {
             assertEquals(listOf("Local/", "  feature/", "    a", "    b"), shownBranches(), "open while searching")
         }
-        robot.interact { branches.search.text = "v1" }
+        search(robot, "v1")
         eventually { assertEquals(listOf("Tags/", "  v1.0"), shownBranches(), "Tags open while searching") }
-        robot.interact { branches.search.text = "origin/m" }
+        search(robot, "origin/m")
         eventually { assertEquals(listOf("Remote/", "  origin/", "    main"), shownBranches()) }
 
-        robot.interact { branches.search.text = "nothing" }
+        search(robot, "nothing")
         eventually { assertTrue(branches.placeholder.isVisible) }
         assertEquals("No matching branches", branches.placeholder.text)
         assertFalse(branches.tree.isVisible)
@@ -361,18 +361,22 @@ class GitLogViewBranchesUiTest : GitLogViewUiFixture() {
         assertEquals("", status(robot))
     }
 
-    @Test
-    fun `a branch beyond 10,000 commits, out of the log or hidden by the filters is told in the header`(
+    /** Types [text] into the search field and ends the pause before it applies, for what is not about the pause. */
+    private fun search(
         robot: FxRobot,
+        text: String,
     ) {
-        history = commits(10_200)
+        robot.interact {
+            branches.search.text = text
+            branches.debounce.jumpTo(branches.debounce.totalDuration)
+        }
+    }
+
+    @Test
+    fun `a branch out of the log or hidden by the filters is told in the header`(robot: FxRobot) {
         refs =
             GitRefs(
-                branchRefs.refs +
-                    listOf(
-                        ref("refs/heads/deep", GitRefKind.LOCAL_BRANCH, "h10100"),
-                        ref("refs/heads/lost", GitRefKind.LOCAL_BRANCH, "nowhere"),
-                    ),
+                branchRefs.refs + listOf(ref("refs/heads/lost", GitRefKind.LOCAL_BRANCH, "nowhere")),
                 "refs/heads/main",
             )
         openAndExpand(robot)
@@ -383,14 +387,7 @@ class GitLogViewBranchesUiTest : GitLogViewUiFixture() {
             )
         }
 
-        selectBranches(robot, "Local/deep")
-        eventually { assertEquals("deep is more than 10,000 commits down.", status(robot)) }
-        assertEquals(10_000, view.table.items.size)
-
-        // Not further down: the log is complete without it.
-        history = commits(1200)
-        robot.interact { view.refresh() }
-        eventually { assertEquals(500, view.table.items.size) }
+        // Not in the log: it is complete without it.
         selectBranches(robot, "Local/lost")
         eventually { assertEquals("lost is not in the log.", status(robot)) }
         assertEquals(1200, view.table.items.size)

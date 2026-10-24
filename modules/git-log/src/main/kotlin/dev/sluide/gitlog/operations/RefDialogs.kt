@@ -165,15 +165,21 @@ internal fun gitMessage(message: String): TextArea =
         font = Font.font(MONOSPACED, Font.getDefault().size)
         isEditable = false
         isWrapText = true
-        val widths = message.lines().map { line -> line.sumOf { if (it == '\t') TAB_COLUMNS else 1 } }
-        val columns = (widths.maxOrNull() ?: 0).coerceIn(MESSAGE_COLUMNS_MIN, MESSAGE_COLUMNS_MAX)
+        val (columns, rows) = gitMessageSize(message)
         prefColumnCount = columns
-        // Wrapped at words, a long line may take a row more than its characters fill.
-        val rows = widths.sumOf { maxOf(1, (it + columns - 1) / columns) } + if (widths.any { it > columns }) 1 else 0
-        prefRowCount = rows.coerceIn(MESSAGE_ROWS_MIN, MESSAGE_ROWS_MAX)
+        prefRowCount = rows
         minWidth = Region.USE_PREF_SIZE
         minHeight = Region.USE_PREF_SIZE
     }
+
+/** The columns and rows [gitMessage] gives [message]: its longest line and its lines, within limits. */
+internal fun gitMessageSize(message: String): Pair<Int, Int> {
+    val widths = message.lines().map { line -> line.sumOf { if (it == '\t') TAB_COLUMNS else 1 } }
+    val columns = (widths.maxOrNull() ?: 0).coerceIn(MESSAGE_COLUMNS_MIN, MESSAGE_COLUMNS_MAX)
+    // Wrapped at words, a long line may take a row more than its characters fill.
+    val rows = widths.sumOf { maxOf(1, (it + columns - 1) / columns) } + if (widths.any { it > columns }) 1 else 0
+    return columns to rows.coerceIn(MESSAGE_ROWS_MIN, MESSAGE_ROWS_MAX)
+}
 
 /**
  * [gitMessage] in a pane of its own: the dialog pane pads its content (style class `content`), which would pad the

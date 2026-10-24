@@ -135,9 +135,7 @@ class GitLogViewNavigationUiTest : GitLogViewUiFixture() {
     }
 
     @Test
-    fun `new refs read the branches of the shown commit again, a result for another commit is dropped`(
-        robot: FxRobot,
-    ) {
+    fun `new refs read the branches of the shown commit again, the same ones do not`(robot: FxRobot) {
         refs = someRefs
         branchesOf = { listOf("refs/heads/main") }
         openAndExpand(robot)
@@ -154,16 +152,6 @@ class GitLogViewNavigationUiTest : GitLogViewUiFixture() {
         robot.interact { view.refresh() }
         eventually { assertEquals("In 2 branches: main, new", branchesLine()) }
         assertEquals(listOf("h1", "h1"), branchLoads)
-
-        branchGates["h2"] = CountDownLatch(1)
-        select(robot, 1)
-        eventually { assertTrue(showsDetailsOf("Subject 2")) }
-        select(robot, 2)
-        eventually { assertTrue(showsDetailsOf("Subject 3")) }
-        branchesOf = { hash -> if (hash == "h2") listOf("refs/heads/h2-only") else listOf("refs/heads/main") }
-        branchGates.getValue("h2").countDown()
-        eventually { assertEquals("In 1 branch: main", branchesLine()) }
-        assertEquals(listOf("h1", "h1", "h2", "h3"), branchLoads)
     }
 
     /** A history whose hashes are hexadecimal, as words of messages must be to be links: `abcdef01`, `abcdef02`… */

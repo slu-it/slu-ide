@@ -152,16 +152,7 @@ internal class CommitDetailsPane(
         val sameCommit = shown?.commit?.hash == row.commit.hash
         shown = row
         val commit = details.commit
-        val lines = details.message.lines()
-        val subjectLines = lines.dropWhile(String::isBlank).takeWhile { it.isNotBlank() }
-        val bodyText =
-            lines
-                .dropWhile(String::isBlank)
-                .drop(subjectLines.size)
-                .dropWhile(String::isBlank)
-                .dropLastWhile(String::isBlank)
-                .joinToString("\n")
-        val subjectText = subjectLines.joinToString("\n")
+        val (subjectText, bodyText) = splitMessage(details.message)
         subject.show(subjectText, textLinks(subjectText, links))
         // An empty message (--allow-empty-message) shows no empty bold line.
         subject.isVisible = subjectText.isNotEmpty()
@@ -171,11 +162,9 @@ internal class CommitDetailsPane(
         body.isManaged = body.isVisible
         author.text =
             "${commit.hash.take(SHORT_HASH)} ${commit.author}\n${commit.authorEmail}\non ${at(commit.authorTime)}"
-        val otherCommitter = details.committer != commit.author || details.committerEmail != commit.authorEmail
-        committed.text =
-            "committed on ${at(details.committerTime)}" + if (otherCommitter) " by ${details.committer}" else ""
-        // As shown, to the minute: an amend within the same minute would add a line saying the same.
-        committed.isVisible = otherCommitter || at(details.committerTime) != at(commit.authorTime)
+        val committedText = committedLine(details, ::at)
+        committed.text = committedText.orEmpty()
+        committed.isVisible = committedText != null
         committed.isManaged = committed.isVisible
         showRefs(row)
         placeholder.isVisible = false
@@ -275,6 +264,38 @@ internal class CommitDetailsPane(
         /** As many characters of the hash as IntelliJ shows. */
         const val SHORT_HASH = 8
     }
+}
+
+/**
+ * The subject (the paragraph after leading blank lines) and the body of a commit [message]; the body without its
+ * surrounding blank lines. An empty message has neither.
+ */
+internal fun splitMessage(message: String): Pair<String, String> {
+    val lines = message.lines()
+    val subjectLines = lines.dropWhile(String::isBlank).takeWhile { it.isNotBlank() }
+    val body =
+        lines
+            .dropWhile(String::isBlank)
+            .drop(subjectLines.size)
+            .dropWhile(String::isBlank)
+            .dropLastWhile(String::isBlank)
+            .joinToString("\n")
+    return subjectLines.joinToString("\n") to body
+}
+
+/**
+ * The line "committed on …" of the commit [details], naming the committer if it is not the author; `null` if the
+ * committer is the author and the time, as [at] shows it (to the minute), the same: an amend would add a line saying
+ * the same.
+ */
+internal fun committedLine(
+    details: GitCommitDetails,
+    at: (Instant) -> String,
+): String? {
+    val commit = details.commit
+    val otherCommitter = details.committer != commit.author || details.committerEmail != commit.authorEmail
+    if (!otherCommitter && at(details.committerTime) == at(commit.authorTime)) return null
+    return "committed on ${at(details.committerTime)}" + if (otherCommitter) " by ${details.committer}" else ""
 }
 
 /**

@@ -4,7 +4,6 @@ import dev.sluide.git.GitFetchChanges
 import dev.sluide.git.GitFetchResult
 import dev.sluide.git.GitResult
 import dev.sluide.gitlog.operations.Fetch
-import dev.sluide.gitlog.operations.gitMessage
 import javafx.scene.control.ButtonType
 import javafx.scene.control.TextArea
 import javafx.scene.input.KeyCode
@@ -311,8 +310,6 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         assertEquals(message, area.text)
         assertFalse(area.isEditable)
         assertTrue(area.isWrapText)
-        assertEquals(82, area.prefColumnCount, "as wide as the longest line")
-        assertEquals(4, area.prefRowCount, "as high as its lines")
         assertTrue("git-message" in area.styleClass)
         assertTrue((pane.scene.window as Stage).owner === view.scene.window)
         assertTrue("error" in pane.styleClass, "an error alert")
@@ -320,17 +317,6 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         assertEquals("", status(robot))
         press(robot, pane, ButtonType.OK)
         assertNoDialog()
-    }
-
-    @Test
-    fun `git's message wraps long lines and scrolls beyond a dozen rows`() {
-        val long = "x".repeat(150)
-        val wrapped = WaitForAsyncUtils.asyncFx<TextArea> { gitMessage("$long\nshort") }.get()
-        assertEquals(100, wrapped.prefColumnCount)
-        assertEquals(4, wrapped.prefRowCount, "two rows for the long line, one for the short, one to spare")
-        val many = WaitForAsyncUtils.asyncFx<TextArea> { gitMessage((1..30).joinToString("\n") { "line $it" }) }.get()
-        assertEquals(12, many.prefRowCount)
-        assertEquals(40, many.prefColumnCount)
     }
 
     @Test

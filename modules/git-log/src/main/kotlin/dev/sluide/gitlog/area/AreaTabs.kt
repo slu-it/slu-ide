@@ -2,7 +2,6 @@ package dev.sluide.gitlog.area
 
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.backgroundtasks.NamedThreads
-import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.gitlog.commit.CommitLoadState
@@ -264,14 +263,7 @@ internal class AreaTabs(
      */
     fun showHistory(file: Path) {
         val root = pages.root ?: return
-        val relative =
-            try {
-                root.toAbsolutePath().normalize().relativize(file.toAbsolutePath().normalize())
-            } catch (_: IllegalArgumentException) {
-                return
-            }
-        if (relative.toString().isEmpty() || relative.startsWith("..") || Files.isDirectory(file)) return
-        openHistory(FileHistoryKey(relative.joinToString("/")))
+        openHistory(historyKey(root, file, Files.isDirectory(file)) ?: return)
     }
 
     /**
@@ -282,13 +274,7 @@ internal class AreaTabs(
         commit: GitCommit,
         file: GitChangedFile,
     ) {
-        val key =
-            if (file.change == GitChange.DELETED) {
-                FileHistoryKey(file.path, commit.parents.firstOrNull() ?: return)
-            } else {
-                FileHistoryKey(file.path, commit.hash)
-            }
-        openHistory(key)
+        openHistory(historyKeyUpTo(commit, file) ?: return)
     }
 
     /** Selects the tab of the history [key], opening one if there is none, and expands the area. */

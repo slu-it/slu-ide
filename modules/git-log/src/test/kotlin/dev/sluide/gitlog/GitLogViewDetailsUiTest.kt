@@ -49,15 +49,6 @@ class GitLogViewDetailsUiTest : GitLogViewUiFixture() {
                     )
                 }
 
-                "h3" -> {
-                    details.copy(committerTime = Instant.ofEpochSecond(9000))
-                }
-
-                // Amended within the same minute.
-                "h4" -> {
-                    details.copy(committerTime = details.commit.authorTime.plusSeconds(30))
-                }
-
                 "h5" -> {
                     details.copy(message = "")
                 }
@@ -112,17 +103,7 @@ class GitLogViewDetailsUiTest : GitLogViewUiFixture() {
             assertFalse(details.refs.isVisible, "no refs")
         }
 
-        select(robot, 2)
-        eventually { assertTrue(showsDetailsOf("Subject 3")) }
-        robot.interact {
-            assertEquals("committed on ${at(Instant.ofEpochSecond(9000))}", details.committed.text)
-            assertEquals(listOf("v0.9"), details.refs.children.map { (it as Label).text })
-        }
-
-        select(robot, 3)
-        eventually { assertTrue(showsDetailsOf("Subject 4")) }
-        robot.interact { assertFalse(details.committed.isVisible, "the same minute") }
-
+        // The rules of the committer line and of splitting the message are CommitDetailsPaneTest's.
         select(robot, 4)
         eventually { assertTrue(details.author.text.startsWith("h5 Author 5")) }
         robot.interact {

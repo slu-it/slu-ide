@@ -112,17 +112,7 @@ internal class CommitDiffs(
         val requestedAt = selections()
         tell("")
         background {
-            val compared =
-                when {
-                    // Not at the commit: all of the working-tree file is new.
-                    file.change == GitChange.DELETED -> GitChangedFile(GitChange.ADDED, key.path)
-
-                    !inWorkingTree(root, key.path) -> GitChangedFile(GitChange.DELETED, file.path)
-
-                    file.path != key.path -> GitChangedFile(GitChange.RENAMED, key.path, file.path)
-
-                    else -> GitChangedFile(GitChange.MODIFIED, key.path)
-                }
+            val compared = comparedWithWorkingTree(key.path, file) { inWorkingTree(root, key.path) }
             val diff = source.workingTreeFileDiff(root, commit, compared)
             dispatch {
                 if (pages.root != root) return@dispatch
@@ -156,43 +146,13 @@ internal class CommitDiffs(
         diff: GitFileDiff?,
         show: (GitFileDiff.Text) -> Boolean,
     ): String? =
-        when (diff) {
-            null -> {
-                "The diff could not be read."
-            }
+        workingTreeDiffMessage(name, compared, diff)
+            ?: if (diff is GitFileDiff.Text && !show(diff)) "$name cannot be shown as text." else null
 
-            GitFileDiff.Binary -> {
-                "$name is a binary file."
-            }
-
-            GitFileDiff.TooLarge -> {
-                "$name is too large to compare."
-            }
-
-            is GitFileDiff.Submodule -> {
-                "$name is a submodule."
-            }
-
-            is GitFileDiff.Text -> {
-                val same = diff.original == diff.current && compared.change.changesContent
-                when {
-                    same -> "$name is the same in the working tree."
-                    show(diff) -> null
-                    else -> "$name cannot be shown as text."
-                }
-            }
-        }
-
-    /** Whether the working tree has a file at [path]; `true` if the JVM cannot name it (git reads it then). */
     private fun inWorkingTree(
         root: Path,
         path: String,
-    ): Boolean =
-        try {
-            fileExists(root.resolve(path))
-        } catch (_: InvalidPathException) {
-            true
-        }
+    ): Boolean = existsInWorkingTree(root, path, fileExists)
 
     /**
      * Opens a window with the files that differ between the commit [revision] names (a full refname, `HEAD` or a full
@@ -241,16 +201,8 @@ internal class CommitDiffs(
         workingTreeWindows.clear()
     }
 
-    /**
-     * [file] in the working tree; `null` without a repository or if its name cannot be a path in the JVM's locale
-     * (non-ASCII characters in a plain ASCII one).
-     */
-    fun localFile(file: GitChangedFile): Path? =
-        try {
-            pages.root?.resolve(file.path)
-        } catch (_: InvalidPathException) {
-            null
-        }
+    /** [file] in the working tree, see [localPath]. */
+    fun localFile(file: GitChangedFile): Path? = localPath(pages.root, file.path)
 
     /**
      * Reads what the commit of [row] changed in [file] and hands it to [showFileDiff]; a binary, too large or unchanged
@@ -280,33 +232,7 @@ internal class CommitDiffs(
         val root = pages.root ?: return
         fileDiffs.request(root, commit, parent, file) { diff ->
             val name = file.path.substringAfterLast('/')
-            val message =
-                when {
-                    diff == null -> {
-                        "The diff could not be read."
-                    }
-
-                    diff == GitFileDiff.Binary -> {
-                        "$name is a binary file."
-                    }
-
-                    diff == GitFileDiff.TooLarge -> {
-                        "$name is too large to compare."
-                    }
-
-                    diff is GitFileDiff.Submodule -> {
-                        submoduleMessage(name, diff)
-                    }
-
-                    // A pure rename or a change of the mode only: no empty diff.
-                    diff is GitFileDiff.Text && diff.original == diff.current && file.change.changesContent -> {
-                        "$name has no content changes."
-                    }
-
-                    else -> {
-                        null
-                    }
-                }
+            val message = commitDiffMessage(name, file.change, diff)
             if (message != null) {
                 report(message)
             } else if (diff is GitFileDiff.Text) {
@@ -326,17 +252,131 @@ internal class CommitDiffs(
             }
         }
     }
+}
 
-    private fun submoduleMessage(
-        name: String,
-        diff: GitFileDiff.Submodule,
-    ): String {
-        val old = diff.old?.take(SHORT_HASH)
-        val new = diff.new?.take(SHORT_HASH)
-        return when {
-            old != null && new != null -> "$name is a submodule: $old → $new."
-            new != null -> "$name is a submodule, added at $new."
-            else -> "$name is a submodule, removed."
+/**
+ * What keeps what [change] did to the file [name] from being shown as a diff of what the commit changed: `null` for a
+ * text diff that has changes to show.
+ */
+internal fun commitDiffMessage(
+    name: String,
+    change: GitChange,
+    diff: GitFileDiff?,
+): String? =
+    when {
+        diff == null -> {
+            "The diff could not be read."
+        }
+
+        diff == GitFileDiff.Binary -> {
+            "$name is a binary file."
+        }
+
+        diff == GitFileDiff.TooLarge -> {
+            "$name is too large to compare."
+        }
+
+        diff is GitFileDiff.Submodule -> {
+            submoduleMessage(name, diff)
+        }
+
+        // A pure rename or a change of the mode only: no empty diff.
+        diff is GitFileDiff.Text && diff.original == diff.current && change.changesContent -> {
+            "$name has no content changes."
+        }
+
+        else -> {
+            null
         }
     }
+
+private fun submoduleMessage(
+    name: String,
+    diff: GitFileDiff.Submodule,
+): String {
+    val old = diff.old?.take(SHORT_HASH)
+    val new = diff.new?.take(SHORT_HASH)
+    return when {
+        old != null && new != null -> "$name is a submodule: $old → $new."
+        new != null -> "$name is a submodule, added at $new."
+        else -> "$name is a submodule, removed."
+    }
 }
+
+/**
+ * What keeps the working-tree [diff] of the file [name] ([compared]) from being shown; `null` for a text diff, which
+ * the caller shows if it can.
+ */
+internal fun workingTreeDiffMessage(
+    name: String,
+    compared: GitChangedFile,
+    diff: GitFileDiff?,
+): String? =
+    when (diff) {
+        null -> {
+            "The diff could not be read."
+        }
+
+        GitFileDiff.Binary -> {
+            "$name is a binary file."
+        }
+
+        GitFileDiff.TooLarge -> {
+            "$name is too large to compare."
+        }
+
+        is GitFileDiff.Submodule -> {
+            "$name is a submodule."
+        }
+
+        is GitFileDiff.Text -> {
+            if (diff.original == diff.current && compared.change.changesContent) {
+                "$name is the same in the working tree."
+            } else {
+                null
+            }
+        }
+    }
+
+/**
+ * The change to show for the file at [path] in the working tree compared with the commit where it had the change [file]
+ * (the file's own path there, if it was renamed since): [inWorkingTree] tells whether the path exists in the working
+ * tree. Not at the commit, all of the working-tree file is new.
+ */
+internal fun comparedWithWorkingTree(
+    path: String,
+    file: GitChangedFile,
+    inWorkingTree: () -> Boolean,
+): GitChangedFile =
+    when {
+        file.change == GitChange.DELETED -> GitChangedFile(GitChange.ADDED, path)
+        !inWorkingTree() -> GitChangedFile(GitChange.DELETED, file.path)
+        file.path != path -> GitChangedFile(GitChange.RENAMED, path, file.path)
+        else -> GitChangedFile(GitChange.MODIFIED, path)
+    }
+
+/** Whether the working tree has a file at [path] below [root]; `true` if the JVM cannot name it (git reads it then). */
+internal fun existsInWorkingTree(
+    root: Path,
+    path: String,
+    fileExists: (Path) -> Boolean,
+): Boolean =
+    try {
+        fileExists(root.resolve(path))
+    } catch (_: InvalidPathException) {
+        true
+    }
+
+/**
+ * The file at [path] below [root]; `null` without a repository or if its name cannot be a path in the JVM's locale
+ * (non-ASCII characters in a plain ASCII one).
+ */
+internal fun localPath(
+    root: Path?,
+    path: String,
+): Path? =
+    try {
+        root?.resolve(path)
+    } catch (_: InvalidPathException) {
+        null
+    }

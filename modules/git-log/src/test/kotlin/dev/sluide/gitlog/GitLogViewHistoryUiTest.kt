@@ -368,26 +368,7 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
         assertEquals("h2", shown.last().label)
         assertEquals("src/App.kt", shown.last().path)
 
-        // At its old path: renamed since.
-        selectHistoryRow(robot, 2)
-        robot.interact { historyView.compareWithLocalItem.fire() }
-        eventually { assertEquals(2, shown.size) }
-        assertEquals("h6" to GitChangedFile(GitChange.RENAMED, "src/App.kt", "src/Old.kt"), workingTreeDiffLoads.last())
-        assertEquals("src/Old.kt", shown.last().oldPath)
-
-        // A commit that deleted it: all of the working-tree file is new.
-        selectHistoryRow(robot, 4)
-        robot.interact { historyView.compareWithLocalItem.fire() }
-        eventually { assertEquals(3, shown.size) }
-        assertEquals("h1" to GitChangedFile(GitChange.ADDED, "src/App.kt"), workingTreeDiffLoads.last())
-
-        // Gone from the working tree.
-        view.fileExists = { false }
-        selectHistoryRow(robot, 0)
-        robot.interact { historyView.compareWithLocalItem.fire() }
-        eventually { assertEquals(4, shown.size) }
-        assertEquals("h2" to GitChangedFile(GitChange.DELETED, "src/App.kt"), workingTreeDiffLoads.last())
-
+        // The other changes of the file to compare are CommitDiffsTest's.
         // The same content, or none shown as text: the header says so.
         view.fileExists = { true }
         workingTreeDiffOf = { GitFileDiff.Text("same\n", "same\n", emptyList()) }

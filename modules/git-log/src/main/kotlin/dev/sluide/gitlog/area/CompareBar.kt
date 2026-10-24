@@ -2,7 +2,6 @@ package dev.sluide.gitlog.area
 
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
-import dev.sluide.gitlog.data.ComparisonEnd
 import dev.sluide.gitlog.data.ComparisonSide
 import dev.sluide.gitlog.data.GitLogPages
 import dev.sluide.gitlog.data.LogComparison
@@ -120,18 +119,6 @@ internal class CompareBar(
         if (pages.comparison == null) return
         pages.comparison = null
         comparisonChanged()
-    }
-
-    /** What the header says once the log loaded again after the [comparison] [end]ed by itself. */
-    fun endMessage(
-        comparison: LogComparison,
-        end: ComparisonEnd,
-    ): String {
-        val name = comparison.ref.shortName
-        return when (end) {
-            ComparisonEnd.GONE -> "$name no longer exists."
-            ComparisonEnd.CURRENT -> "$name is the current branch now."
-        }
     }
 
     /** Shows the bar of the comparison, or hides it. */

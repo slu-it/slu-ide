@@ -5,12 +5,10 @@ import dev.sluide.git.GitRevisionResolution
 import dev.sluide.gitlog.data.CommitMissing
 import dev.sluide.gitlog.data.GitLogPages
 import dev.sluide.gitlog.data.GitLogRow
-import dev.sluide.gitlog.data.GitLogState
 import dev.sluide.gitlog.filter.FilterItem
 import javafx.scene.control.TableView
 import javafx.scene.control.skin.VirtualFlow
 import java.nio.file.Path
-import java.util.Locale
 
 /**
  * Goes to commits in the [table] of the [pages], loading pages until they are there (ADRs 0040, 0045): those of the
@@ -62,7 +60,7 @@ internal class CommitNavigation(
         pages.loadUntil(
             ref.commit,
             { index -> if (selectedRef() == ref) showRow(index) },
-            { missing -> if (selectedRef() == ref) tell(missingMessage(ref.shortName, missing)) },
+            { missing -> if (selectedRef() == ref) tell(whyMissing(ref.shortName, missing)) },
             ref.shortName,
         )
     }
@@ -83,7 +81,7 @@ internal class CommitNavigation(
                 showRow(index)
                 if (detailsFocused()) table.requestFocus()
             },
-            { missing -> tell(missingMessage(name, missing)) },
+            { missing -> tell(whyMissing(name, missing)) },
             name,
         )
     }
@@ -144,7 +142,7 @@ internal class CommitNavigation(
                         missing == CommitMissing.NOT_IN_LOG &&
                             pages.comparison == null &&
                             !pages.effectiveFilter.isDefault
-                    goToPopup.say(missingMessage(name, missing), offerClearFilters = hidden)
+                    goToPopup.say(whyMissing(name, missing), offerClearFilters = hidden)
                 }
             },
             name,
@@ -167,32 +165,11 @@ internal class CommitNavigation(
         if (pages.loadingUntil == target.first) pages.stopLoadingUntil()
     }
 
-    /** Why the commit called [name] is not in the table, as [GitLogPages.loadUntil] found it [missing]. */
-    private fun missingMessage(
+    /** Why the commit called [name] is not in the table, see [missingMessage]. */
+    private fun whyMissing(
         name: String,
         missing: CommitMissing,
-    ): String =
-        when {
-            missing == CommitMissing.UNREADABLE -> {
-                GitLogState.FAILED.message
-            }
-
-            missing == CommitMissing.BEYOND_LIMIT -> {
-                "$name is more than ${"%,d".format(Locale.ENGLISH, GitLogPages.SEEK_LIMIT)} commits down."
-            }
-
-            pages.comparison != null -> {
-                "$name is not in this comparison."
-            }
-
-            pages.effectiveFilter.isDefault -> {
-                "$name is not in the log."
-            }
-
-            else -> {
-                "$name is hidden by the filters."
-            }
-        }
+    ): String = missingMessage(name, missing, pages.comparison != null, pages.effectiveFilter.isDefault)
 
     /**
      * Follows a selected branch that a refresh moved from [before] to [after], but only while the user is still on it:

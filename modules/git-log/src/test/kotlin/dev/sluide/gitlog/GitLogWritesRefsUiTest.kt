@@ -4,9 +4,6 @@ import dev.sluide.git.GitPendingRebase
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
-import dev.sluide.git.GitRemoteDeletionOutcome
-import dev.sluide.git.GitRemoteDeletionResult
-import dev.sluide.git.GitRemoteRefResult
 import dev.sluide.git.GitResult
 import dev.sluide.gitlog.operations.CHECKOUT_BUTTON
 import dev.sluide.gitlog.operations.CREATE_BUTTON
@@ -73,31 +70,12 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         assertEquals("C B N R D", paneActions())
         assertEquals("New Branch from 'feature/a'\u2026", branches.newBranchItem.text)
         assertEquals("Rebase 'main' onto 'feature/a'", branches.rebaseItem.text)
-        selectBranches(robot, "Local/main")
-        assertEquals("- - N R -", paneActions(), "the current branch")
-        assertEquals("Rebase Current Branch onto\u2026", branches.rebaseItem.text)
-        selectBranches(robot, "HEAD")
-        assertEquals("- - N - -", paneActions())
-        assertEquals("New Branch from 'HEAD'\u2026", branches.newBranchItem.text)
-        selectBranches(robot, "Remote/origin/old")
-        assertEquals("C B N - D", paneActions(), "deleted on its remote")
-        assertEquals("Rebase 'main' onto 'origin/old'", branches.rebaseItem.text)
-        selectBranches(robot, "Remote/origin/main")
-        assertEquals("- - N - -", paneActions(), "its local branch is the current one, it is at HEAD, protected")
-        assertEquals("Rebase 'main' onto 'origin/main'", branches.rebaseItem.text)
-        selectBranches(robot, "Tags/v0.9")
-        assertEquals("C - N - D", paneActions())
+        // The rest of the matrix is RefOperationsTest's and BranchMenuTest's.
         selectBranches(robot, "Local/feature")
         assertEquals("- - - - -", paneActions(), "a folder")
         assertEquals("New Branch\u2026", branches.newBranchItem.text)
-        selectBranches(robot, "Local")
-        assertEquals("- - - - -", paneActions(), "a group")
         selectBranches(robot, "Local/feature/a", "Tags/v0.9")
         assertEquals("- - - - D", paneActions())
-        selectBranches(robot, "Local/feature/a", "Local/main")
-        assertEquals("- - - - -", paneActions())
-        selectBranches(robot, "Local/feature/a", "Remote/origin/old")
-        assertEquals("- - - - -", paneActions())
     }
 
     @Test
@@ -226,7 +204,6 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
     ) {
         openAndExpand(robot)
         selectRows(robot, 1)
-        writes.unpassable = setOf("Gr\u00fc\u00dfe")
 
         fireLater(view.table.newBranchItem)
         var pane = awaitDialog(robot)
@@ -250,10 +227,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         assertEquals("Moves 'feature/b' from h5.", dialog.problem.text, "a note, no problem")
         assertFalse(create.isDisable)
         robot.interact { overwrite.isSelected = false }
-        type("a..b")
-        assertEquals("'a..b' is not a valid branch name.", dialog.problem.text)
-        type("Gr\u00fc\u00dfe")
-        assertEquals("This name cannot be passed to git in this locale.", dialog.problem.text)
+        // The other texts of name problems are RefOperationsTest's.
         type("x")
         assertFalse(create.isDisable)
         robot.interact { checkout.isSelected = false }

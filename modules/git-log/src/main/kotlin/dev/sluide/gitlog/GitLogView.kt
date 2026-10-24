@@ -18,6 +18,7 @@ import dev.sluide.gitlog.area.CompareBar
 import dev.sluide.gitlog.area.GO_TO
 import dev.sluide.gitlog.area.HeaderBar
 import dev.sluide.gitlog.area.HeaderStatus
+import dev.sluide.gitlog.area.endMessage
 import dev.sluide.gitlog.branches.BranchesPane
 import dev.sluide.gitlog.branches.branchCommands
 import dev.sluide.gitlog.branches.branchMenus
@@ -485,7 +486,7 @@ class GitLogView internal constructor(
         }
         pages.comparisonEnded = { comparison, end ->
             compareBar.comparisonChanged()
-            status.tellAfterLoad(compareBar.endMessage(comparison, end))
+            status.tellAfterLoad(endMessage(comparison, end))
         }
         changesPane.showDiff = diffs::showDiff
         changesPane.openFile = { file -> diffs.localFile(file)?.let(onOpenFile) }
