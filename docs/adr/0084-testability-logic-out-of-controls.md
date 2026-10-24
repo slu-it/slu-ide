@@ -15,7 +15,7 @@ A test audit of all modules (2026-10-24) found the same causes everywhere:
 - **Slow and weak tests.** Fixed sleeps, delays and debounces the tests could not shorten (`STOP_GRACE`,
   `EXPAND_DELAY`), synthetic OS input, and tests that still passed with the code they named removed.
 
-Small extractions fixed it every time, and an FX-free host interface with a fake (`ExplorerEditHost`, `FakeEditHost`)
+Small extractions fixed it every time, and an FX-free host with a fake (`ExplorerEditHost`, `FakeEditHost`)
 moved 27 file-explorer UI tests to unit tests. UI test time fell by about a third, and the full build went from 3:18 to
 about 2:15 together with [ADR 0082](0082-split-ui-tests-of-long-modules.md)'s previews split.
 
@@ -23,8 +23,9 @@ about 2:15 together with [ADR 0082](0082-split-ui-tests-of-long-modules.md)'s pr
 - **Controls are thin adapters.** A control holds layout, bindings and event wiring. Decisions (texts, enablement,
   validation, mapping of input to actions, sizes, what to write or read) go into `internal` pure functions or plain
   classes beside it, in the same package.
-- **What logic needs from a view is an interface without JavaFX types** (`ExplorerEditHost`), so a unit test passes a
-  fake. `TreeItem` and other plain model classes work without the toolkit and may appear in it.
+- **What logic needs from a view is a host without JavaFX controls**, an interface or a class of function properties
+  (`ExplorerEditHost`), so a unit test passes a fake. `TreeItem` and other plain model classes work without the
+  toolkit and may appear in it.
 - **Timings are parameters.** Delays, debounces, graces and timeouts are constructor parameters (or an internal
   supplier) with the real value as default (`CodeView(highlightPause)`, `GitCli(stopGrace)`, `dragExpandDelay`);
   background work offers an idle barrier for tests to wait on (`GitLogView.readersIdle()`).

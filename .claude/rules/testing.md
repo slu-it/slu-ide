@@ -9,7 +9,7 @@ paths:
 Details: `docs/testing.md` ("Choosing the test level"), ADR 0084.
 
 - Unit test first. A `@Tag("ui")` test only for what needs a scene: rendering, focus, event routing, bindings, WebKit.
-- Logic in a control is extracted (an `internal` pure function, a plain class, an FX-free host interface with a fake),
+- Logic in a control is extracted (an `internal` pure function, a plain class, an FX-free host with a fake),
   not tested through the UI. Keep one UI test per view→logic connection that fails if the call is removed.
 - Search before adding: grep the asserted message and the function; extend the existing test. Test shared code once;
   feature behavior in its module, `ide` only the wiring.

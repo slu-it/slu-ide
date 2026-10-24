@@ -18,7 +18,7 @@ docs only when the brief names them.
   Same test with other input: one `@ParameterizedTest`.
 - A test must fail without its code: for wiring, races and negative checks, break the code once and see it fail.
   Wait on signals, not fixed sleeps; no synthetic OS input. Run `.claude/scripts/check-tests.sh` on the files you
-  touched.
+  touched and fix the findings in code you wrote.
 - Delete a test as a duplicate only after opening the test that keeps it covered; name it in the report. Remove the
   imports a deletion leaves behind.
 - Cover edge cases: hidden files, empty/missing/unreadable folders, invalid input, ordering.

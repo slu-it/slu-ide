@@ -22,8 +22,8 @@ Check, most important first:
    - an avoidable UI test: logic a small extraction would make unit-testable; shared code tested again per user;
    - a test that cannot fail: would it still pass with the code it names removed? For extracted logic, is the
      view→logic wiring still tested by one UI test?
-   - fixed sleeps without a reason, synthetic OS input, reads of UI state off the FX thread
-     (`.claude/scripts/check-tests.sh` on the changed test files);
+   - fixed sleeps without a reason, synthetic OS input (`.claude/scripts/check-tests.sh` on the changed test
+     files), reads of UI state off the FX thread;
    - a deleted test whose behavior no remaining test covers (open the claimed covering test); imports left behind;
      test classes over about 800 lines.
 4. Docs: `docs/index.md`, ADRs and feature pages updated when needed. A diff that adds, changes or removes a key

@@ -41,16 +41,17 @@ Subagents verify with subsets; the full `./gradlew build` is the main session's 
   (`.github/workflows/macos-ui-tests.yml`, started by hand) runs them on the native macOS display.
 
 ## Choosing the test level
-A behavior is tested once, at the lowest level that can see it ([ADR 0084](adr/0084-testability-logic-out-of-controls.md)).
+A behavior is tested once, at the lowest level that can see it
+([ADR 0084](adr/0084-testability-logic-out-of-controls.md)).
 - **Does it need a scene?** Only rendering, focus, event routing (a press that must not reach a parent), bindings
   and WebView/WebKit behavior do. Texts, enable states, validation messages, path logic, sizes, key-to-action mapping
   and what gets read or written do not: they are unit tests.
 - **Logic sits in a control?** Extract it rather than write a UI test: an `internal` pure function
   (`missingMessage`, `counterText`, `zoomKeyAction`, `checkedSize`), a plain class beside the view
-  (`IgnoreDotsTracker`, `EnvFileWriter`, `ScrollRouting`), or an FX-free host interface the view implements and a
-  test fakes (`ExplorerEditHost` / `FakeEditHost`). Keep one UI test per such connection that fails if the view
-  stops calling the logic (save → lookup again, move → `moved`, dispose → late answers dropped); the logic's cases
-  stay in the unit test.
+  (`IgnoreDotsTracker`, `EnvFileWriter`, `ScrollRouting`), or an FX-free host the view builds and a test fakes
+  (`ExplorerEditHost`, a class of function properties; `FakeEditHost` in the tests). Keep one UI test per such
+  connection that fails if the view stops calling the logic (save → lookup again, move → `moved`, dispose → late
+  answers dropped); the logic's cases stay in the unit test.
 - **Search before adding.** Grep for the asserted message, the function and its test class; extend that test instead
   of adding a second one. Shared code (the fold tree of JSON/XML/YAML, `ZoomControls`, `FoldControls`) is tested in
   one place, with one smoke test per preview that uses it. Feature behavior is tested in its module; `ide` tests only

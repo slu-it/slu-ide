@@ -37,7 +37,7 @@ waits on a real signal, fix weak assertions, and add the listed missing tests.
 - While working: `./gradlew :modules:<m>:test -q` and `:modules:<m>:uiTest --tests '<Class>' -q`.
 - At the end, in your own worktree only: the full `test` and `uiTest` tasks of each module in your package and
   `./gradlew testClasses -q`. Read the output in full; a skipped `uiTest` is not a pass.
-- Times before and after: `.claude/scripts/test-times.sh <module>` (baseline: the timings file in your prompt).
+- Times before and after: `.claude/scripts/test-times.sh modules/<m>` (baseline: the timings file in your prompt).
 
 ## Report (final message)
 - Commits (hash + subject).
