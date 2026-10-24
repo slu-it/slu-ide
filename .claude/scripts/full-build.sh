@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # The final gate: the full build with UI tests on displays that answer, then the docs index check.
 # On Linux it first runs setup-display.sh for a pool of virtual displays (:99 upwards, SLUIDE_UI_DISPLAYS of them,
-# default 6), which repairs left-over or hung ones, so UI tests never fail with "Unable to open DISPLAY" because of a
+# default 8), which repairs left-over or hung ones, so UI tests never fail with "Unable to open DISPLAY" because of a
 # stale one. Gradle hands each module's uiTest a display of its own, so that many modules test in parallel (ADR 0081).
 # It refuses to start while another Gradle build runs in this working tree (both would share build/, and classes would
 # vanish under the running tests).
@@ -21,7 +21,7 @@ for pid in $(ps -eo pid=,args= | awk '$2 ~ /(^|\/)java$/ && /gradle-wrapper[.]ja
 done
 
 if [ "$(uname -s)" = "Linux" ]; then
-  count="${SLUIDE_UI_DISPLAYS:-6}"
+  count="${SLUIDE_UI_DISPLAYS:-8}"
   [ "$count" -ge 1 ] || { echo "SLUIDE_UI_DISPLAYS must be at least 1, not $count" >&2; exit 1; }
   displays=()
   for number in $(seq 99 $((98 + count))); do

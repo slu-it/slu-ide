@@ -37,7 +37,7 @@ allprojects {
 }
 
 /**
- * Gives every running `uiTest` task a display of its own: TestFX tests of parallel modules on one display took each
+ * Gives every running UI test task a display of its own: TestFX tests of parallel modules on one display took each
  * other's window focus, which closed their popups (auto-hide follows the owner window's focus) and failed tests at
  * random. With one display (CI, a plain `./gradlew build`) the tasks run one at a time; full-build.sh starts a pool and
  * passes it as `-Psluide.uiDisplays=:99,:100,…` (ADR 0081). A display is given back when its task finishes, failed or
@@ -89,6 +89,11 @@ val display =
     }
 objects.newInstance<BuildEvents>().registry.onTaskCompletion(display)
 
+// Modules whose UI tests alone would set the build's duration run them as two tasks, on two displays at once
+// (ADR 0082): `uiTestPart1` the classes that match the pattern, `uiTestPart2` all others, so that no new class is left
+// out. `check` runs the two instead of `uiTest`, which still runs all classes, e.g. with `--tests`.
+val uiTestSplits = mapOf(":modules:git-log" to "dev.sluide.gitlog.GitLogView*")
+
 // Shared configuration for every Kotlin module (modules/* and ide).
 subprojects {
     pluginManager.withPlugin("org.jetbrains.kotlin.jvm") {
@@ -108,7 +113,8 @@ subprojects {
             add("testRuntimeOnly", rootProject.libs.junit.platform.launcher)
         }
 
-        // Plain unit tests never need a display. UI tests (JUnit tag "ui", TestFX) run in `uiTest`, part of `check`.
+        // Plain unit tests never need a display. UI tests (JUnit tag "ui", TestFX) run in `uiTest`, part of `check`
+        // (or in its two parts, see uiTestSplits).
         // Linux without DISPLAY (e.g. a headless sandbox) skips them unless CI is set; start a virtual display
         // with .claude/scripts/setup-display.sh to run them there.
         tasks.named<Test>("test") {
@@ -140,25 +146,47 @@ subprojects {
                 providers.environmentVariable("CI").isPresent ||
                 !System.getProperty("os.name").lowercase().contains("linux")
 
-        val uiTest =
-            tasks.register<Test>("uiTest") {
-                description = "Runs TestFX UI tests (JUnit tag 'ui'); needs a display."
-                group = "verification"
-                testClassesDirs = testSourceSet.get().output.classesDirs
-                classpath = testSourceSet.get().runtimeClasspath
-                useJUnitPlatform { includeTags("ui") }
-                // Software rendering is the most reliable pipeline on virtual displays.
-                systemProperty("prism.order", "sw")
-                onlyIf("a display is available") { displayAvailable }
-                usesService(displayService)
-                // The environment is no task input, so the leased display changes no up-to-date check or cache key.
-                doFirst {
-                    val leased = displayService.get().lease(path)
-                    if (leased.isNotEmpty()) (this as Test).environment("DISPLAY", leased)
-                }
-                shouldRunAfter(tasks.named("test"))
+        fun registerUiTest(
+            name: String,
+            taskDescription: String,
+            select: TestFilter.() -> Unit = {},
+        ) = tasks.register<Test>(name) {
+            description = taskDescription
+            group = "verification"
+            filter(select)
+            testClassesDirs = testSourceSet.get().output.classesDirs
+            classpath = testSourceSet.get().runtimeClasspath
+            useJUnitPlatform { includeTags("ui") }
+            // Software rendering is the most reliable pipeline on virtual displays.
+            systemProperty("prism.order", "sw")
+            onlyIf("a display is available") { displayAvailable }
+            usesService(displayService)
+            // The environment is no task input, so the leased display changes no up-to-date check or cache key.
+            doFirst {
+                val leased = displayService.get().lease(path)
+                if (leased.isNotEmpty()) (this as Test).environment("DISPLAY", leased)
             }
-        tasks.named("check") { dependsOn(uiTest) }
+            shouldRunAfter(tasks.named("test"))
+        }
+
+        val uiTest = registerUiTest("uiTest", "Runs TestFX UI tests (JUnit tag 'ui'); needs a display.")
+        val split = uiTestSplits[project.path]
+        // `-x uiTest` (the macOS jobs of CI and release) means no UI tests at all, so it leaves out the parts too.
+        val uiTestExcluded =
+            gradle.startParameter.excludedTaskNames.any { it == "uiTest" || it == "${project.path}:uiTest" }
+        if (split == null) {
+            tasks.named("check") { dependsOn(uiTest) }
+        } else {
+            val part1 =
+                registerUiTest("uiTestPart1", "Runs the UI tests of the classes matching $split.") {
+                    includeTestsMatching(split)
+                }
+            val part2 =
+                registerUiTest("uiTestPart2", "Runs the UI tests of the classes not matching $split.") {
+                    excludeTestsMatching(split)
+                }
+            if (!uiTestExcluded) tasks.named("check") { dependsOn(part1, part2) }
+        }
     }
 }
 
