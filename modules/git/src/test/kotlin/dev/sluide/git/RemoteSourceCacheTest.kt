@@ -265,8 +265,24 @@ class RemoteSourceCacheTest {
         val first = CompletableFuture.supplyAsync { slow[0].fetch(repository, "main", running) }
         awaitFile(started)
         val waitingCancellation = GitCancellation()
-        val waiting = CompletableFuture.supplyAsync { slow[1].fetch(repository, "main", waitingCancellation) }
-        Thread.sleep(300)
+        val waiting = CompletableFuture<RemoteFetch>()
+        val waitingThread =
+            Thread {
+                try {
+                    waiting.complete(slow[1].fetch(repository, "main", waitingCancellation))
+                } catch (e: Throwable) {
+                    waiting.completeExceptionally(e)
+                }
+            }.apply {
+                isDaemon = true
+                start()
+            }
+        // It polls the lock with a timeout; waiting in that state means it has reached the lock and not got it.
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
+        while (waitingThread.state != Thread.State.TIMED_WAITING) {
+            assertTrue(System.nanoTime() < deadline, "the second fetch never waited, state ${waitingThread.state}")
+            Thread.sleep(10)
+        }
         assertFalse(waiting.isDone, "it waits for the lock")
         val cancelledAt = System.nanoTime()
 

@@ -236,12 +236,14 @@ class GitStatusServiceCascadeTest {
         service.refresh()
         awaitFor("the batch of the watch") { lines.count { it.startsWith("Changes in .git of ") } == 1 }
         awaitFor("a cycle that waits") { waited() == 1 }
+        // A run that must not start would only show up later; the waiting cycle has no event to mark its absence.
         Thread.sleep(100)
         while (dispatched.isNotEmpty()) dispatched.poll()?.run()
         assertEquals(before, counts(), "nothing ran while the write ran")
 
         service.writeFinished()
         awaitFor("the status at the write's end") { cycleEnds() >= 3 }
+        // An extra run after the last cycle would arrive later; nothing marks that no further cycle starts.
         Thread.sleep(100)
         while (dispatched.isNotEmpty()) dispatched.poll()?.run()
         assertEquals(Counts(before.checks + 1, before.changes + 1, before.runs + 1), counts())

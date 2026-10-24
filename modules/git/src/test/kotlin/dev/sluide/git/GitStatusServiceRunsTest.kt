@@ -124,6 +124,7 @@ class GitStatusServiceRunsTest {
         runDispatched()
         assertEquals(GitStatus.UNVERSIONED, service.snapshot.get().fileStatus(repo.resolve("a.txt")))
 
+        // A third run, if the combined requests started one, would begin after the second; no event marks its absence.
         Thread.sleep(200)
         assertEquals(2, runs())
         assertTrue(dispatched.isEmpty())
