@@ -68,7 +68,8 @@
   `exited` turns true and `exitCode` holds its exit code (none if it was closed before); the output stays visible.
   `interrupt()` sends Ctrl+C through the pseudo terminal (exit code 130 for a command that dies of it), `close()` ends
   the command with a hangup like closing a tab. Embedded terminals do not count as open tabs, but are closed with the
-  window. Each run gets a fresh terminal.
+  window. Each run gets a fresh terminal. Unlike a tab, an embedded terminal does not take the focus when it is shown,
+  only when it is clicked, so the view keeps the focus where the user was.
 - Structure: `Terminals` (window-scoped Spring bean: opens terminals, ends them when its window closes),
   `TerminalTab` (`EditorTab`), `EmbeddedTerminal` with `EmbeddedTerminalView` (one-command terminal for another
   view), `TerminalView` (canvas, input, selection; JediTerm `TerminalDisplay`),

@@ -30,10 +30,13 @@ Options considered:
   closed pseudo terminal.
 - Embedded terminals follow the font and scroll settings like tabs and are closed with the window's `Terminals`, but
   do not count as open tabs (`openCount`).
+- Unlike a tab, an embedded terminal does **not take the focus when its node enters a scene**, only when it is clicked
+  (or focused by its view): runs start while the user works elsewhere in the view, and a view shown again must keep
+  the focus where its own `focus()` puts it.
 - Amends [ADR 0007](0007-terminal.md): terminals can also be shown outside the editor tabs.
 
 ## Consequences
 - Exit code, Stop and the status line are reliable without shell integration, for any user shell.
 - Earlier runs' output is gone once the next run starts; a view that wants a history must keep it itself.
-- The terminal takes the focus when its node is added to a scene, as tabs do; a view that keeps the focus elsewhere
-  (e.g. its task tree) must take it back.
+- A new run's terminal leaves the focus where it was (e.g. the task tree a run was started from); typing into the
+  command needs a click into the terminal first.

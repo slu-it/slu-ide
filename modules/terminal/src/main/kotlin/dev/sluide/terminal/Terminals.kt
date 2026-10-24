@@ -82,7 +82,7 @@ class Terminals(
     /**
      * Runs [command] in the user's login shell in [folder], like [open] with a command, but returns an [EmbeddedTerminal]
      * for another view to show. Must be called on the FX thread. Follows font and scroll settings like tabs; closed with
-     * the window ([close]).
+     * the window ([close]). Unlike a tab, it does not take the focus when shown, only when clicked.
      * @throws TerminalStartException if the shell cannot be started.
      */
     fun embed(
@@ -91,7 +91,13 @@ class Terminals(
         environment: Map<String, String> = this.environment,
     ): EmbeddedTerminal {
         val (view, settingsSubscription) =
-            startView(folder, TerminalSession.loginShellRunning(command, environment), environment)
+            // Shown inside another view, which keeps the focus where the user was (ADR 0086).
+            startView(
+                folder,
+                TerminalSession.loginShellRunning(command, environment),
+                environment,
+                focusWhenShown = false,
+            )
         return EmbeddedTerminalView(view) { terminal ->
             settingsSubscription.unsubscribe()
             embedded.remove(terminal)
@@ -117,6 +123,7 @@ class Terminals(
         folder: Path,
         command: List<String>,
         environment: Map<String, String>,
+        focusWhenShown: Boolean = true,
     ): Pair<TerminalView, Subscription> {
         val terminalFont = fontSettings.font(FontArea.TERMINAL)
         val view =
@@ -125,6 +132,7 @@ class Terminals(
                     { display, size -> TerminalSession(folder, display, size, command, environment) },
                     font = terminalFont.get(),
                     scrollSpeeds = scrollSpeeds(),
+                    focusWhenShown = focusWhenShown,
                 )
             } catch (e: IOException) {
                 // pty4j's messages alone are cryptic ("Exec_tty error:Unknown reason"), so name shell and folder.

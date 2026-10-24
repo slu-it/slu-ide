@@ -46,6 +46,8 @@ internal class TerminalView(
     private val colors: TerminalColors = TerminalColors(),
     font: FontSpec = FontSpec("Monospaced", 13.0),
     scrollSpeeds: ScrollSpeeds = ScrollSpeeds(),
+    /** Whether it takes the focus when it enters a scene (a tab being shown); otherwise only when clicked. */
+    focusWhenShown: Boolean = true,
 ) : Region(),
     TerminalDisplay {
     private val canvas = Canvas()
@@ -158,7 +160,7 @@ internal class TerminalView(
             event.consume()
         }
         // Focus the terminal when its tab is shown, so typing goes to the shell right away.
-        sceneProperty().subscribe { scene -> if (scene != null) Platform.runLater(::requestFocus) }
+        if (focusWhenShown) sceneProperty().subscribe { scene -> if (scene != null) Platform.runLater(::requestFocus) }
         // The cursor is filled while focused and outlined otherwise.
         focusedProperty().subscribe(::paint)
     }

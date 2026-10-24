@@ -7,7 +7,9 @@ import dev.sluide.settings.SettingsStore
 import dev.sluide.terminal.settings.TerminalScrollSettings
 import dev.sluide.terminal.view.TerminalView
 import javafx.scene.Scene
+import javafx.scene.control.TextField
 import javafx.scene.layout.StackPane
+import javafx.scene.layout.VBox
 import javafx.stage.Stage
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
@@ -23,6 +25,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
@@ -120,6 +123,24 @@ class EmbeddedTerminalUiTest {
         robot.interact { terminal.interrupt() }
         assertTrue(terminal.exited.get())
         assertEquals(3, terminal.exitCode, "interrupting an ended command changes nothing")
+    }
+
+    @Test
+    fun `an embedded terminal leaves the focus where it was when shown, unlike a tab's`(robot: FxRobot) {
+        val field = TextField()
+        lateinit var terminal: EmbeddedTerminal
+        robot.interact {
+            root.children.setAll(VBox(field))
+            field.requestFocus()
+            terminal = terminals.embed(dir, "sleep 30")
+            (root.children.single() as VBox).children += terminal.node
+        }
+        // The focus a tab's terminal takes when shown is requested later on the FX thread.
+        WaitForAsyncUtils.waitForFxEvents()
+        robot.interact { assertSame(field, root.scene.focusOwner) }
+
+        robot.interact { terminal.node.requestFocus() }
+        robot.interact { assertSame(terminal.node, root.scene.focusOwner) }
     }
 
     @Test
