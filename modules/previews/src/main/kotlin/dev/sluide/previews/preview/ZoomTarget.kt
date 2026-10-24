@@ -82,7 +82,7 @@ internal class PageZoom(
 }
 
 /**
- * The zoom of a document (ADR 0080): [WebView.zoom] scales the whole page, which reflows, like a browser's zoom. It
+ * The zoom of a document (ADR 0083): [WebView.zoom] scales the whole page, which reflows, like a browser's zoom. It
  * belongs to the [webView], so it outlasts every page loaded, also one whose scripts are off. It does not fit, and
  * wheel and pinch zoom without keeping the point under the pointer in place.
  */

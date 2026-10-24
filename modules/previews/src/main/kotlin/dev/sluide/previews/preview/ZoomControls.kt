@@ -24,7 +24,7 @@ import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
-/** The zoom levels of images, diagrams (ADR 0033) and documents (ADR 0080), as scales: 1.0 is 100%. */
+/** The zoom levels of images, diagrams (ADR 0033) and documents (ADR 0083), as scales: 1.0 is 100%. */
 internal object ZoomSteps {
     const val MIN = 0.1
     const val MAX = 16.0
@@ -57,7 +57,7 @@ internal object ZoomSteps {
 }
 
 /**
- * The zoom of a [target] (ADR 0033, ADR 0080): a toolbar [node] with zoom out, the [level], zoom in, 100% and, if the
+ * The zoom of a [target] (ADR 0033, ADR 0083): a toolbar [node] with zoom out, the [level], zoom in, 100% and, if the
  * target [fits][ZoomTarget.fits], Fit ([fitButton]), and the keys, Shortcut+wheel and pinch on the web view
  * ([install]). An image's or diagram's page ([PageZoom]) reports every change ([zoomed]), also its own; a document
  * ([DocumentZoom]) is shown at the scale asked for. Views that fit open fitted, others at 100%; the zoom is applied

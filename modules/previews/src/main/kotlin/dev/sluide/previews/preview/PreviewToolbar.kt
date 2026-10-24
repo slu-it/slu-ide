@@ -19,7 +19,7 @@ import javafx.scene.web.WebView
  * on the left what the [preview] has: the scripts toggle, the table of contents' button, the zoom controls of an image
  * or diagram that [zooms][Preview.zooms], the fold controls, the Copy Formatted button, and the Export button. The
  * preview's own [actions][Preview.actions] are [actionButtons] before the mode buttons; every other preview has its
- * [zoom] controls (a document's, ADR 0080) between them and the mode buttons. Both show like the zoom controls on the
+ * [zoom] controls (a document's, ADR 0083) between them and the mode buttons. Both show like the zoom controls on the
  * left only while the preview shows. Everything runs on the FX thread.
  */
 internal class PreviewToolbar(
