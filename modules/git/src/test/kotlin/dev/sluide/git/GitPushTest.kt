@@ -16,6 +16,7 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.test.fail
@@ -188,6 +189,39 @@ class GitPushTest {
 
         git("remote", "add", "origin", folder.resolve("o").toString())
         assertEquals(GitPushTarget("origin", "topic"), pushes.pushTarget(repo, "topic"), "origin among several")
+    }
+
+    /** The real git behind a wrapper that fails (exit 128; 1 would mean "not set" for config) calls with [failing]. */
+    private fun wrapped(failing: String): GitPush {
+        val wrapper =
+            folder.resolve("git-wrapper-${failing.hashCode()}").apply {
+                writeText(
+                    "#!/bin/sh\ncase \" \$* \" in *'$failing'*) echo 'error: refused by test' >&2; exit 128;; esac\n" +
+                        "exec git \"\$@\"\n",
+                )
+                toFile().setExecutable(true)
+            }
+        return GitPush(GitCli(wrapper.toString(), testGitEnvironment()))
+    }
+
+    @Test
+    fun `there is no target when git fails to read the remotes or a setting`() {
+        assertNotNull(pushes.pushTarget(repo, "main"))
+
+        assertNull(wrapped(" remote ").pushTarget(repo, "main"), "remote names")
+        for (key in listOf("pushRemote", "remote", "merge")) {
+            assertNull(wrapped("branch.main.$key").pushTarget(repo, "main"), key)
+        }
+        assertNull(wrapped("remote.pushDefault").pushTarget(repo, "main"), "remote.pushDefault")
+        assertNull(wrapped("push.default").pushTarget(repo, "main"), "push.default")
+    }
+
+    @Test
+    fun `nothing is outgoing when the fetch refspecs of the remote cannot be read`() {
+        commit("Second")
+        assertNotNull(pushes.outgoing(repo, "origin", "main"))
+
+        assertNull(wrapped("remote.origin.fetch").outgoing(repo, "origin", "main"))
     }
 
     @Test

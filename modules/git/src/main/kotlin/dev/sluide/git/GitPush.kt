@@ -98,10 +98,15 @@ class GitPush(
         branch: String,
         cancellation: GitCancellation? = null,
     ): String {
-        val source = HEADS + branch
         val refspecs = git.configValues(root, "remote.$remote.fetch", cancellation = cancellation).orEmpty()
-        return refspecs.firstNotNullOfOrNull { mapped(it, source) } ?: "refs/remotes/$remote/$branch"
+        return trackingRef(refspecs, remote, branch)
     }
+
+    private fun trackingRef(
+        refspecs: List<String>,
+        remote: String,
+        branch: String,
+    ): String = refspecs.firstNotNullOfOrNull { mapped(it, HEADS + branch) } ?: "refs/remotes/$remote/$branch"
 
     /**
      * The branch of [remote] (`refs/heads/<branch>`) that git keeps in the remote-tracking ref [trackingRef] (a full
@@ -138,7 +143,10 @@ class GitPush(
         require(limit > 0) { "limit must be positive: $limit" }
         if (refusal(remote) != null || refusal(branch) != null) return null
         if (git.headCommit(root, cancellation = cancellation) == null) return null
-        val ref = trackingRef(root, remote, branch, cancellation = cancellation)
+        // Read once: the tracking ref and the destinations must come from the same refspecs, and a failure is no "none".
+        val refspecs = git.configValues(root, "remote.$remote.fetch", cancellation = cancellation) ?: return null
+        val destinations = destinations(remote, refspecs)
+        val ref = trackingRef(refspecs, remote, branch)
         val remoteCommit =
             git
                 .refTips(
@@ -147,7 +155,6 @@ class GitPush(
                     cancellation = cancellation,
                 )?.get(ref)
         val tracked = remoteCommit != null
-        val destinations = destinations(root, remote, cancellation = cancellation)
         val globs = if (tracked) emptyList() else destinations.map(::glob)
         val filter =
             GitLogFilter(
@@ -211,17 +218,12 @@ class GitPush(
         return Result.success(oldest.getOrNull(1))
     }
 
-    /** Where the fetch refspecs of [remote] write; `refs/remotes/<remote>/` if it has none. */
+    /** Where the fetch [refspecs] of [remote] write; `refs/remotes/<remote>/` if it has none. */
     private fun destinations(
-        root: Path,
         remote: String,
-        cancellation: GitCancellation? = null,
+        refspecs: List<String>,
     ): List<RefspecDestination> =
-        git
-            .configValues(root, "remote.$remote.fetch", cancellation)
-            .orEmpty()
-            .let(::refspecDestinations)
-            .ifEmpty { listOf(RefspecDestination("refs/remotes/$remote/", glob = true)) }
+        refspecDestinations(refspecs).ifEmpty { listOf(RefspecDestination("refs/remotes/$remote/", glob = true)) }
 
     /**
      * Pushes the local [branch] to the [target] branch of [remote]
