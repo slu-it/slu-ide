@@ -1,16 +1,8 @@
 package dev.sluide.previews.preview
 
-import dev.sluide.fileviewers.DefaultTextFileViewer
-import dev.sluide.fileviewers.DiffFileView
 import dev.sluide.fileviewers.FileViewHost
-import dev.sluide.fileviewers.FileViewers
-import dev.sluide.fileviewers.LineChange
-import dev.sluide.fileviewers.TextDiff
 import dev.sluide.previews.html.HtmlFileViewer
 import dev.sluide.previews.markdown.MarkdownFileViewer
-import dev.sluide.previews.notebook.NotebookFileViewer
-import dev.sluide.previews.table.CookiesFileViewer
-import dev.sluide.previews.table.CsvFileViewer
 import javafx.application.ColorScheme
 import javafx.concurrent.Worker
 import javafx.scene.Node
@@ -33,6 +25,7 @@ import java.io.IOException
 import java.net.URI
 import java.nio.file.Path
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.io.path.createDirectories
 import kotlin.io.path.exists
 import kotlin.io.path.moveTo
@@ -41,7 +34,6 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
 import kotlin.test.assertNotSame
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -91,6 +83,18 @@ class PreviewFileViewUiTest {
             .asyncFx<Any?> {
                 webView.engine.executeScript(code)
             }.get()
+
+    /** Counts the page loads that start from now on. */
+    private fun PreviewFileView.countLoads(): AtomicInteger {
+        val loads = AtomicInteger()
+        WaitForAsyncUtils
+            .asyncFx {
+                webView.engine.loadWorker.stateProperty().subscribe { state ->
+                    if (state == Worker.State.RUNNING) loads.incrementAndGet()
+                }
+            }.get()
+        return loads
+    }
 
     private fun FxRobot.modeButton(mode: PreviewMode) =
         lookup(".preview-mode").queryAllAs(ToggleButton::class.java).single { it.text == mode.label }
@@ -145,9 +149,12 @@ class PreviewFileViewUiTest {
     fun `the source is edited and the preview renders it when saved`(robot: FxRobot) {
         val (file, view) = show(robot, "# Before\n")
 
+        val loads = view.countLoads()
+
         robot.interact { view.sourceArea.replaceText(2, 8, "After") }
         WaitForAsyncUtils.waitForFxEvents()
         assertTrue(view.dirty.get())
+        assertEquals(0, loads.get(), "unsaved edits load nothing")
         assertEquals("Before", view.script("document.querySelector('h1').textContent"), "unsaved edits do not render")
 
         robot.interact { view.save() }
@@ -163,7 +170,10 @@ class PreviewFileViewUiTest {
         val (file, view) = show(robot, "# Before\n")
         robot.interact { view.sourceArea.replaceText(2, 8, "Mine") }
         file.writeText("# Theirs\n")
+        val loads = view.countLoads()
         robot.interact { view.reload() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(0, loads.get(), "the conflict loads nothing")
         assertEquals("Before", view.script("document.querySelector('h1').textContent"), "the conflict renders nothing")
 
         robot.interact {
@@ -333,8 +343,12 @@ class PreviewFileViewUiTest {
         robot.interact { view.mode.set(PreviewMode.PREVIEW) }
 
         view.script("document.querySelector('a').click()")
-        // A navigation would take a moment to start; give it the chance.
-        WaitForAsyncUtils.sleep(500, TimeUnit.MILLISECONDS)
+        // The scroll is the anchor's effect; a navigation would start in the pulses after it.
+        WaitForAsyncUtils.waitFor(
+            10,
+            TimeUnit.SECONDS,
+        ) { (view.script("window.scrollY") as Number).toDouble() > 1000.0 }
+        WaitForAsyncUtils.waitForFxEvents()
         WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals("", WaitForAsyncUtils.asyncFx<String?> { view.webView.engine.location }.get().orEmpty())
@@ -351,8 +365,9 @@ class PreviewFileViewUiTest {
 
         // No click or key press before: not the user's navigation.
         robot.interact { view.webView.engine.load(other.toUri().toString()) }
-        WaitForAsyncUtils.waitForFxEvents()
-        WaitForAsyncUtils.sleep(500, TimeUnit.MILLISECONDS)
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
+            WaitForAsyncUtils.asyncFx<Boolean> { robot.lookup(".preview-notice").query<Node>().isVisible }.get()
+        }
 
         assertTrue(robot.lookup(".preview-notice").query<Node>().isVisible)
         assertTrue("other.html" in view.notice.text)
@@ -410,7 +425,7 @@ class PreviewFileViewUiTest {
 
         robot.interact { view.dispose() }
         // A page the view did not start would make it render again; give it the chance.
-        WaitForAsyncUtils.sleep(500, TimeUnit.MILLISECONDS)
+        WaitForAsyncUtils.sleep(200, TimeUnit.MILLISECONDS)
         WaitForAsyncUtils.waitForFxEvents()
 
         fun assertBlank() {
@@ -425,7 +440,7 @@ class PreviewFileViewUiTest {
         file.writeText("<h1>Changed</h1>")
         robot.interact { view.reload() }
         robot.interact { robot.lookup(".preview-notice .button").queryButton().fire() }
-        WaitForAsyncUtils.sleep(500, TimeUnit.MILLISECONDS)
+        WaitForAsyncUtils.sleep(200, TimeUnit.MILLISECONDS)
         WaitForAsyncUtils.waitForFxEvents()
         assertBlank()
     }
@@ -462,6 +477,53 @@ class PreviewFileViewUiTest {
         }
         WaitForAsyncUtils.waitForFxEvents()
         assertSame(view.webView, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get(), "Preview")
+    }
+
+    @Test
+    fun `showLine switches Preview to Split, goes to the line and focuses the source`(robot: FxRobot) {
+        val (_, view) = show(robot, longDocument)
+        robot.interact { view.mode.set(PreviewMode.PREVIEW) }
+
+        robot.interact { view.showLine(40) }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(PreviewMode.SPLIT, view.mode.get())
+        assertEquals(40, WaitForAsyncUtils.asyncFx<Int> { view.sourceArea.currentParagraph }.get())
+        assertSame(view.sourceArea, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get())
+    }
+
+    /** A zooming preview whose page cannot be loaded, so that its view is stopped. */
+    private object StoppedZoomingPreview : Preview {
+        override fun load(
+            engine: WebEngine,
+            file: Path,
+            text: String,
+            dark: Boolean,
+            root: Path,
+        ): Unit = throw IOException("no server")
+
+        override val zooms get() = true
+    }
+
+    @Test
+    fun `a stopped zooming preview gives the focus to the source in Split and takes none shown alone`(robot: FxRobot) {
+        val view = viewOf(StoppedZoomingPreview)
+        robot.interact { container.children.setAll(view.node) }
+        assertTrue(view.noticeShown(), "stopped")
+
+        robot.interact { view.focus() }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertSame(view.sourceArea, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get(), "Split")
+
+        robot.interact {
+            view.mode.set(PreviewMode.PREVIEW)
+            container.requestFocus()
+            view.focus()
+        }
+        WaitForAsyncUtils.waitForFxEvents()
+        val owner = WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get()
+        assertNotSame(view.webView, owner, "Preview")
+        assertNotSame(view.sourceArea, owner, "Preview")
     }
 
     /** A preview that keeps what [attach] gave it, like one that computes its page in the background. */
@@ -522,7 +584,7 @@ class PreviewFileViewUiTest {
 
         robot.interact { preview.rerender?.invoke() }
         WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { view.heading() == "a 2" }
-        WaitForAsyncUtils.sleep(500, TimeUnit.MILLISECONDS)
+        WaitForAsyncUtils.sleep(200, TimeUnit.MILLISECONDS)
         assertEquals(listOf("a", "a"), preview.texts)
         assertFalse(view.noticeShown(), view.notice.text)
 
@@ -545,7 +607,7 @@ class PreviewFileViewUiTest {
             preview.rerender?.invoke()
         }
         WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { view.heading() == "a ${preview.texts.size}" }
-        WaitForAsyncUtils.sleep(500, TimeUnit.MILLISECONDS)
+        WaitForAsyncUtils.sleep(200, TimeUnit.MILLISECONDS)
         assertEquals("a ${preview.texts.size}", view.heading())
         assertFalse(view.noticeShown(), view.notice.text)
     }
