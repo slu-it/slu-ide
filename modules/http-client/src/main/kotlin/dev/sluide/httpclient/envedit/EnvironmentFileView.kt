@@ -374,6 +374,6 @@ internal class EnvironmentFileView(
         }
 
         /** [text] with `\n` line breaks and without a byte order mark, as editors show it. */
-        private fun normalize(text: String) = text.removePrefix("").replace("\r\n", "\n").replace('\r', '\n')
+        private fun normalize(text: String) = text.removePrefix("﻿").replace("\r\n", "\n").replace('\r', '\n')
     }
 }

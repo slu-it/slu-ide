@@ -57,7 +57,7 @@ internal data class Environments(
         ): ObjectNode? {
             val node =
                 try {
-                    mapper.readTree(file.readText())
+                    mapper.readTree(file.readText().removePrefix("\uFEFF"))
                 } catch (e: JacksonException) {
                     problems += "${file.fileName}: ${e.originalMessage}"
                     return null

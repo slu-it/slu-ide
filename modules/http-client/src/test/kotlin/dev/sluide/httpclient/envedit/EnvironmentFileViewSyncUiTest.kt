@@ -112,6 +112,19 @@ internal class EnvironmentFileViewSyncUiTest : EnvironmentFileViewUiFixture() {
     }
 
     @Test
+    fun `a private file with a byte order mark is shown and moved without a warning`(robot: FxRobot) {
+        val view = open(robot, publicText, "\uFEFF" + privateText)
+        robot.interact { view.showValues.isSelected = true }
+        assertEquals("s3cret", view.shown(robot, path("token"), "dev"))
+
+        robot.interact { view.lock(robot, path("host"), "dev").fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(listOf(privateFile), host.edited.map { it })
+        assertEquals("", view.warning.text)
+    }
+
+    @Test
     fun `an unreadable other file makes the form read-only`(robot: FxRobot) {
         Files.createDirectory(privateFile)
         val view = open(robot, publicText)

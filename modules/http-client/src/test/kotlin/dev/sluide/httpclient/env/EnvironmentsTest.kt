@@ -40,6 +40,18 @@ class EnvironmentsTest {
     }
 
     @Test
+    fun `reads files that start with a byte order mark`() {
+        val environments =
+            load(
+                public = "\uFEFF{\"dev\": {\"host\": \"a\"}}",
+                private = "\uFEFF{\"dev\": {\"token\": \"t\"}}",
+            )
+
+        assertTrue(environments.problems.isEmpty(), environments.problems.toString())
+        assertEquals("""{"host":"a","token":"t"}""", environments["dev"]?.values.toString())
+    }
+
+    @Test
     fun `deep merges the private values over the public ones`() {
         val dev =
             load(
