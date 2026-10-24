@@ -31,31 +31,14 @@ import kotlin.time.Duration.Companion.milliseconds
 /** The icons of the folders of an [ExplorerRoot] with [FolderIcons]. Needs a display, see the `uiTest` task. */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
-class FileExplorerViewFolderIconsUiTest {
-    @TempDir
-    lateinit var project: Path
-
+class FileExplorerViewFolderIconsUiTest : FileExplorerViewUiFixture() {
     @TempDir
     lateinit var extra: Path
 
-    @TempDir
-    lateinit var settingsDir: Path
-
-    private lateinit var view: FileExplorerView
-    private val watcher = FileWatcher(Platform::runLater, 50.milliseconds)
     private val icons = FolderIcons(FileIcon.SCRATCHES, FileIcon.SCRATCH_FOLDER, FileIcon.SCRATCH_FOLDER_OPEN)
 
     @Start
-    fun start(stage: Stage) {
-        val fontSettings =
-            FontSettings(SettingsStore(settingsDir.resolve("settings.properties")), FontSettings.systemDefaults())
-        view = FileExplorerView(watcher, fontSettings)
-        stage.scene = Scene(VBox(view), 400.0, 600.0)
-        stage.show()
-    }
-
-    @AfterEach
-    fun closeWatcher() = watcher.close()
+    fun start(stage: Stage) = startView(stage)
 
     private fun open(
         robot: FxRobot,

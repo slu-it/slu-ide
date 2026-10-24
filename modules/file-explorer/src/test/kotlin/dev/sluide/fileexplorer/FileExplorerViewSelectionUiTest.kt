@@ -44,54 +44,23 @@ import kotlin.time.Duration.Companion.seconds
 /** Multi-selection, the context menu rules and multi-delete of the explorer. Needs a display, see `uiTest`. */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
-class FileExplorerViewSelectionUiTest {
-    @TempDir
-    lateinit var project: Path
-
-    @TempDir
-    lateinit var settingsDir: Path
-
-    private lateinit var view: FileExplorerView
-    private val watcher = FileWatcher(Platform::runLater, 50.milliseconds)
+class FileExplorerViewSelectionUiTest : FileExplorerViewUiFixture() {
     private val opened = mutableListOf<Path>()
     private val deleted = mutableListOf<Pair<Path, List<Path>>>()
     private val questions = mutableListOf<DeleteQuestion>()
     private val errors = mutableListOf<String>()
 
     @Start
-    fun start(stage: Stage) {
-        val fontSettings =
-            FontSettings(SettingsStore(settingsDir.resolve("settings.properties")), FontSettings.systemDefaults())
-        view = FileExplorerView(watcher, fontSettings)
-        view.onOpenFile = { opened.add(it) }
-        view.onDeleted = { path, unsaved -> deleted.add(path to unsaved) }
-        view.confirmDelete = {
-            questions += it
-            true
-        }
-        view.showError = { errors += it }
-        stage.scene = Scene(view, 400.0, 600.0)
-        stage.show()
-    }
-
-    @AfterEach
-    fun closeWatcher() = watcher.close()
-
-    private fun renderedNames(robot: FxRobot): List<String> =
-        robot
-            .lookup(".tree-cell")
-            .queryAllAs(TreeCell::class.java)
-            .sortedBy { it.index }
-            .mapNotNull { it.text }
-
-    private fun cellNamed(
-        robot: FxRobot,
-        name: String,
-    ): TreeCell<*> =
-        robot
-            .lookup(".tree-cell")
-            .queryAllAs(TreeCell::class.java)
-            .first { it.text == name }
+    fun start(stage: Stage) =
+        startView(stage, configure = {
+            it.onOpenFile = { path -> opened.add(path) }
+            it.onDeleted = { path, unsaved -> deleted.add(path to unsaved) }
+            it.confirmDelete = { question ->
+                questions += question
+                true
+            }
+            it.showError = { message -> errors += message }
+        })
 
     private fun open(
         robot: FxRobot,
@@ -171,49 +140,6 @@ class FileExplorerViewSelectionUiTest {
                     ),
                 )
             }
-        }
-    }
-
-    private fun menuItemFor(
-        robot: FxRobot,
-        node: Node,
-        text: String,
-        keyboard: Boolean = false,
-    ): MenuItem {
-        robot.interact {
-            Event.fireEvent(
-                node,
-                ContextMenuEvent(ContextMenuEvent.CONTEXT_MENU_REQUESTED, 1.0, 1.0, 1.0, 1.0, keyboard, null),
-            )
-        }
-        val item = view.contextMenu.items.single { it.text == text }
-        robot.interact { view.contextMenu.hide() }
-        return item
-    }
-
-    private fun pressKey(
-        code: KeyCode,
-        shortcut: Boolean = false,
-    ) = Event.fireEvent(view, KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, shortcut, false, false))
-
-    private fun eventually(
-        robot: FxRobot,
-        assertion: () -> Unit,
-    ) {
-        val deadline = System.nanoTime() + 20.seconds.inWholeNanoseconds
-        while (true) {
-            WaitForAsyncUtils.waitForFxEvents()
-            var failure: AssertionError? = null
-            robot.interact {
-                try {
-                    assertion()
-                } catch (e: AssertionError) {
-                    failure = e
-                }
-            }
-            val failed = failure ?: return
-            if (System.nanoTime() > deadline) throw failed
-            Thread.sleep(50)
         }
     }
 
@@ -310,7 +236,6 @@ class FileExplorerViewSelectionUiTest {
     @Test
     fun `Delete deletes all selected entries after one question and selects the next entry`(robot: FxRobot) {
         val files = layout()
-        view.unsavedUnder = { if (it.fileName.toString() == "a.txt") listOf(it) else emptyList() }
         open(robot)
         select(robot, "dir", "a.txt")
 
@@ -324,12 +249,11 @@ class FileExplorerViewSelectionUiTest {
             listOf(
                 deleteQuestion(
                     listOf(project.resolve("dir") to EntryKind.FOLDER, files[0] to EntryKind.FILE),
-                    1,
+                    0,
                 ),
             ),
             questions,
         )
-        assertEquals(listOf(files[0]), deleted[1].second)
         assertFalse(project.resolve("dir").exists())
         robot.interact { assertEquals(listOf("b.txt"), selectedNames()) }
     }

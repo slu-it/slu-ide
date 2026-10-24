@@ -60,37 +60,23 @@ import kotlin.time.Duration.Companion.seconds
  */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
-class FileExplorerViewDragUiTest {
-    @TempDir
-    lateinit var project: Path
-
-    @TempDir
-    lateinit var settingsDir: Path
-
-    private lateinit var view: FileExplorerView
+class FileExplorerViewDragUiTest : FileExplorerViewUiFixture() {
     private lateinit var other: TextField
-    private val watcher = FileWatcher(Platform::runLater, 50.milliseconds)
     private val questions = mutableListOf<MoveQuestion>()
     private val opened = mutableListOf<Path>()
 
     @Start
     fun start(stage: Stage) {
-        val fontSettings =
-            FontSettings(SettingsStore(settingsDir.resolve("settings.properties")), FontSettings.systemDefaults())
-        view = FileExplorerView(watcher, fontSettings)
-        view.dragExpandDelay = Duration.millis(50.0)
-        view.confirmMove = {
-            questions += it
-            true
-        }
-        view.onOpenFile = { opened.add(it) }
         other = TextField()
-        stage.scene = Scene(VBox(other, view), 400.0, 600.0)
-        stage.show()
+        startView(stage, configure = {
+            it.dragExpandDelay = Duration.millis(50.0)
+            it.confirmMove = { question ->
+                questions += question
+                true
+            }
+            it.onOpenFile = { path -> opened.add(path) }
+        }, wrap = { VBox(other, it) })
     }
-
-    @AfterEach
-    fun closeWatcher() = watcher.close()
 
     private fun open(
         robot: FxRobot,
@@ -108,7 +94,7 @@ class FileExplorerViewDragUiTest {
         }
 
     /** The shown row of [name], laid out first: right after an expansion the rows may not be placed yet. */
-    private fun cellNamed(
+    private fun rowNamed(
         robot: FxRobot,
         name: String,
     ): TreeCell<*> {
@@ -126,7 +112,7 @@ class FileExplorerViewDragUiTest {
     private fun at(
         robot: FxRobot,
         name: String,
-    ): Point2D = cellNamed(robot, name).let { it.localToScene(it.width / 2, it.height / 2) }
+    ): Point2D = rowNamed(robot, name).let { it.localToScene(it.width / 2, it.height / 2) }
 
     private fun selectedPaths(): List<Path> =
         view.selectionModel.selectedItems
@@ -191,7 +177,7 @@ class FileExplorerViewDragUiTest {
         robot: FxRobot,
         name: String,
     ): TreeCell<*> {
-        val cell = cellNamed(robot, name)
+        val cell = rowNamed(robot, name)
         val start = cell.localToScene(cell.width / 2, cell.height / 2)
         mouse(robot, cell, MouseEvent.MOUSE_PRESSED, start, true)
         mouse(robot, cell, MouseEvent.MOUSE_DRAGGED, start.add(0.0, 10.0), true)
@@ -267,7 +253,7 @@ class FileExplorerViewDragUiTest {
         assertSame(item("target"), view.dropTarget())
         waitFor("target expands") { item("target").isExpanded }
         // The folder may have expanded already: look at its row again.
-        assertTrue(cellNamed(robot, "target").isDropTarget())
+        assertTrue(rowNamed(robot, "target").isDropTarget())
         assertTrue(item("target").isExpanded, "held long enough, the folder expands")
 
         release(robot, pressed, at(robot, "target"))
@@ -275,7 +261,7 @@ class FileExplorerViewDragUiTest {
 
         assertEquals("Move “a.txt” to “target”?", questions.single().header)
         assertTrue(project.resolve("target/a.txt").exists())
-        assertFalse(cellNamed(robot, "target").isDropTarget())
+        assertFalse(rowNamed(robot, "target").isDropTarget())
         assertNull(dragImage(robot))
     }
 
@@ -360,7 +346,7 @@ class FileExplorerViewDragUiTest {
         val pressed = startDrag(robot, "a.txt")
         dragTo(robot, pressed, at(robot, "b.txt"))
         assertNull(view.dropTarget())
-        assertFalse(cellNamed(robot, "b.txt").isDropTarget())
+        assertFalse(rowNamed(robot, "b.txt").isDropTarget())
         release(robot, pressed, at(robot, "a.txt"))
         // The click that may follow a release on the pressed row, also as a double-click.
         mouse(robot, pressed, MouseEvent.MOUSE_CLICKED, at(robot, "a.txt"), false, clickCount = 2)
@@ -481,7 +467,7 @@ class FileExplorerViewDragUiTest {
         project.resolve("target").createDirectories()
         open(robot)
         select(robot, "a.txt", "b.txt")
-        val cell = cellNamed(robot, "a.txt")
+        val cell = rowNamed(robot, "a.txt")
         val start = at(robot, "a.txt")
 
         mouse(robot, cell, MouseEvent.MOUSE_PRESSED, start, true)
@@ -502,7 +488,7 @@ class FileExplorerViewDragUiTest {
         project.resolve("target").createDirectories()
         open(robot)
         val target = at(robot, "target")
-        val folderCell = cellNamed(robot, "target")
+        val folderCell = rowNamed(robot, "target")
 
         val pressed = startDrag(robot, "a.txt")
         dragTo(robot, pressed, target)
@@ -556,7 +542,7 @@ class FileExplorerViewDragUiTest {
         project.resolve("a.txt").createFile()
         project.resolve("target").createDirectories()
         open(robot)
-        val pressed = cellNamed(robot, "a.txt")
+        val pressed = rowNamed(robot, "a.txt")
         val start = at(robot, "a.txt")
         mouse(robot, pressed, MouseEvent.MOUSE_PRESSED, start, true)
         // The tree lacks the focus when the drag starts.

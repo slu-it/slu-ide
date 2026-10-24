@@ -43,91 +43,24 @@ import kotlin.time.Duration.Companion.seconds
 /** The explorer with an extra top-level folder after the project. Needs a display, see the `uiTest` task. */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
-class FileExplorerViewRootsUiTest {
-    @TempDir
-    lateinit var project: Path
-
+class FileExplorerViewRootsUiTest : FileExplorerViewUiFixture() {
     @TempDir
     lateinit var scratches: Path
 
-    @TempDir
-    lateinit var settingsDir: Path
-
-    private lateinit var view: FileExplorerView
     private lateinit var other: TextField
-    private val watcher = FileWatcher(Platform::runLater, 50.milliseconds)
     private val opened = mutableListOf<Path>()
     private val extras get() = listOf(ExplorerRoot(scratches, "Scratches"))
 
     @Start
     fun start(stage: Stage) {
-        val fontSettings =
-            FontSettings(SettingsStore(settingsDir.resolve("settings.properties")), FontSettings.systemDefaults())
-        view = FileExplorerView(watcher, fontSettings)
-        view.onOpenFile = { opened.add(it) }
-        view.askName = { _, _, _ -> "new.txt" }
         other = TextField()
-        stage.scene = Scene(VBox(other, view), 400.0, 600.0)
-        stage.show()
-    }
-
-    @AfterEach
-    fun closeWatcher() = watcher.close()
-
-    private fun renderedNames(robot: FxRobot): List<String> =
-        robot
-            .lookup(".tree-cell")
-            .queryAllAs(TreeCell::class.java)
-            .sortedBy { it.index }
-            .mapNotNull { it.text }
-
-    private fun cellNamed(
-        robot: FxRobot,
-        name: String,
-    ): TreeCell<*> =
-        robot
-            .lookup(".tree-cell")
-            .queryAllAs(TreeCell::class.java)
-            .first { it.text == name }
-
-    private fun menuItemFor(
-        robot: FxRobot,
-        node: Node,
-        text: String,
-    ): MenuItem {
-        robot.interact {
-            Event.fireEvent(
-                node,
-                ContextMenuEvent(ContextMenuEvent.CONTEXT_MENU_REQUESTED, 1.0, 1.0, 1.0, 1.0, false, null),
-            )
-        }
-        val item = view.contextMenu.items.single { it.text == text }
-        robot.interact { view.contextMenu.hide() }
-        return item
+        startView(stage, configure = {
+            it.onOpenFile = { path -> opened.add(path) }
+            it.askName = { _, _, _ -> "new.txt" }
+        }, wrap = { VBox(other, it) })
     }
 
     private fun scratchesItem() = view.root.children.last() as FileTreeItem
-
-    private fun eventually(
-        robot: FxRobot,
-        assertion: () -> Unit,
-    ) {
-        val deadline = System.nanoTime() + 20.seconds.inWholeNanoseconds
-        while (true) {
-            WaitForAsyncUtils.waitForFxEvents()
-            var failure: AssertionError? = null
-            robot.interact {
-                try {
-                    assertion()
-                } catch (e: AssertionError) {
-                    failure = e
-                }
-            }
-            val error = failure ?: return
-            if (System.nanoTime() > deadline) throw error
-            Thread.sleep(50)
-        }
-    }
 
     /**
      * Creates [name] in [dir] and waits until another subscription on [dir] has been told. It shares the batch with the

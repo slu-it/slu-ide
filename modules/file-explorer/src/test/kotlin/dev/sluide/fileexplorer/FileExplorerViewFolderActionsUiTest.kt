@@ -35,43 +35,11 @@ import kotlin.time.Duration.Companion.milliseconds
 /** The folder actions the window adds to the explorer's context menu. Needs a display, see the `uiTest` task. */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
-class FileExplorerViewFolderActionsUiTest {
-    @TempDir
-    lateinit var project: Path
-
-    @TempDir
-    lateinit var settingsDir: Path
-
-    private lateinit var view: FileExplorerView
-    private val watcher = FileWatcher(Platform::runLater, 50.milliseconds)
-    private val opened = mutableListOf<Path>()
-    private val errors = mutableListOf<String>()
-    private val infos = mutableListOf<String>()
+class FileExplorerViewFolderActionsUiTest : FileExplorerViewUiFixture() {
     private val ranOn = mutableListOf<Path>()
 
     @Start
-    fun start(stage: Stage) {
-        val fontSettings =
-            FontSettings(SettingsStore(settingsDir.resolve("settings.properties")), FontSettings.systemDefaults())
-        view = FileExplorerView(watcher, fontSettings)
-        view.onOpenFile = { opened.add(it) }
-        view.showError = { errors.add(it) }
-        view.showInfo = { infos.add(it) }
-        stage.scene = Scene(view, 400.0, 600.0)
-        stage.show()
-    }
-
-    @AfterEach
-    fun closeWatcher() = watcher.close()
-
-    private fun cellNamed(
-        robot: FxRobot,
-        name: String,
-    ): TreeCell<*> =
-        robot
-            .lookup(".tree-cell")
-            .queryAllAs(TreeCell::class.java)
-            .first { it.text == name }
+    fun start(stage: Stage) = startView(stage)
 
     private fun menuTexts(
         robot: FxRobot,
