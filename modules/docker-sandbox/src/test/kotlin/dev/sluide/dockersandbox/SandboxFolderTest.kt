@@ -66,6 +66,12 @@ class SandboxFolderTest {
     }
 
     @Test
+    fun `a missing home folder is reported`() {
+        val missing = root.resolve("no-home")
+        assertEquals("Your home folder $missing does not exist.", SandboxFolder.check(home, missing))
+    }
+
+    @Test
     fun `a file below the home folder is not allowed`() {
         val file =
             home

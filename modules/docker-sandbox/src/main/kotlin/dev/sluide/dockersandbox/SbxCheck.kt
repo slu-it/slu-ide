@@ -3,6 +3,7 @@ package dev.sluide.dockersandbox
 import dev.sluide.terminal.loginShellRunning
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 private val log = System.getLogger(SbxCheck::class.java.name)
@@ -12,13 +13,17 @@ private val log = System.getLogger(SbxCheck::class.java.name)
  * which may take a while with a slow profile, so this must not run on the FX thread.
  */
 internal object SbxCheck {
-    private val timeout = 10.seconds
-
-    /** Whether `command -v sbx` succeeds in the login shell started with [environment]. */
-    fun installed(environment: Map<String, String>): Boolean {
+    /**
+     * Whether `command -v sbx` succeeds in the login shell started with [environment]; false if it takes longer than
+     * [timeout].
+     */
+    fun installed(
+        environment: Map<String, String>,
+        timeout: Duration = 10.seconds,
+    ): Boolean {
         val started = System.nanoTime()
         log.log(System.Logger.Level.INFO, "Checking whether sbx is installed")
-        val installed = check(environment)
+        val installed = check(environment, timeout)
         val millis = (System.nanoTime() - started) / 1_000_000
         log.log(
             System.Logger.Level.INFO,
@@ -27,7 +32,10 @@ internal object SbxCheck {
         return installed
     }
 
-    private fun check(environment: Map<String, String>): Boolean {
+    private fun check(
+        environment: Map<String, String>,
+        timeout: Duration,
+    ): Boolean {
         val command = loginShellRunning("command -v sbx", environment)
         val process =
             try {

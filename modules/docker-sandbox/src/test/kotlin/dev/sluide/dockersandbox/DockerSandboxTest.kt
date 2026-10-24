@@ -48,14 +48,8 @@ class DockerSandboxTest {
     }
 
     @Test
-    fun `Claude Code runs in folders below the home folder only`() {
-        assertNull(sandbox.problem(SandboxAction.CLAUDE_CODE, project))
-        assertNotNull(sandbox.problem(SandboxAction.CLAUDE_CODE, home))
-        assertNotNull(sandbox.problem(SandboxAction.CLAUDE_CODE, root))
-    }
-
-    @Test
     fun `Environment also needs an sbxenv yaml in the folder`() {
+        assertNull(sandbox.problem(SandboxAction.CLAUDE_CODE, project))
         assertEquals("There is no sbxenv.yaml in $project.", sandbox.problem(SandboxAction.ENVIRONMENT, project))
 
         project.resolve("sbxenv.yaml").createFile()
@@ -106,6 +100,10 @@ class DockerSandboxTest {
 
         assertEquals(SBX_MISSING, sandbox.problem(SandboxAction.CLAUDE_CODE, project))
         assertEquals(false, sandbox.sbxInstalled.toCompletableFuture().get())
+
+        val cancelled = CompletableFuture<Boolean>().apply { cancel(false) }
+        assertEquals(SBX_MISSING, sandbox(cancelled).problem(SandboxAction.CLAUDE_CODE, project))
+        assertEquals(false, sandbox(cancelled).sbxInstalled.toCompletableFuture().get())
     }
 }
 
