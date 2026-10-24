@@ -6,6 +6,8 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.URI
 import java.time.Duration
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -18,8 +20,13 @@ class ImageFetcherTest {
     private var started = false
     private val bytes = ByteArray(100) { it.toByte() }
 
+    private val release = CountDownLatch(1)
+
     @AfterTest
-    fun stop() = server.stop(0)
+    fun stop() {
+        release.countDown()
+        server.stop(0)
+    }
 
     private fun serve(
         path: String,
@@ -118,7 +125,7 @@ class ImageFetcherTest {
             exchange.sendResponseHeaders(200, 0)
             exchange.responseBody.write(1)
             exchange.responseBody.flush()
-            runCatching { Thread.sleep(5000) }
+            release.await(5, TimeUnit.SECONDS)
             exchange.close()
         }
         val start = System.nanoTime()
