@@ -193,23 +193,35 @@ class EditorAreaSavingUiTest : EditorAreaUiFixture() {
     }
 
     @Test
-    fun `closing a tab with a warning asks first and keeps it on cancel`(robot: FxRobot) {
+    fun `closing a tab with a warning asks first and keeps it on cancel, also a file view's`(robot: FxRobot) {
+        val viewer = BusyViewer()
+        val area = areaWith(robot, viewer)
         val asked = mutableListOf<List<String>>()
         var answer = false
-        editor.confirmClose = { warnings ->
+        area.confirmClose = { warnings ->
             asked += warnings
             answer
         }
         val busy = WarningTab("Terminal 1", "Terminal 1 is still running java.")
-        robot.interact { editor.open(busy) }
+        robot.interact {
+            area.open(busy)
+            area.open(textFile("build.busy"))
+        }
+        viewer.views.single().closeWarning = "build.busy is still running :test."
         val close = tabLabel(robot, "Terminal 1").parent.lookup(".close-button") as Button
+        val closeFile = tabLabel(robot, "build.busy").parent.lookup(".close-button") as Button
 
         robot.interact { close.fire() }
-        assertEquals(listOf(listOf("Terminal 1 is still running java.")), asked)
-        assertEquals(listOf("Terminal 1"), tabTitles(robot))
+        robot.interact { closeFile.fire() }
+        assertEquals(
+            listOf(listOf("Terminal 1 is still running java."), listOf("build.busy is still running :test.")),
+            asked,
+        )
+        assertEquals(listOf("Terminal 1", "build.busy"), tabTitles(robot))
 
         answer = true
         robot.interact { close.fire() }
+        robot.interact { closeFile.fire() }
         assertEquals(emptyList(), tabTitles(robot))
     }
 

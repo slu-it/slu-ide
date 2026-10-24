@@ -38,3 +38,19 @@
 .editor-tab.dragging {
     -fx-effect: dropshadow(gaussian, derive(-fx-base, -50%), 8, 0, 0, 1);
 }
+
+/* The marker of a file view's activity (ViewActivity) before the tab's title: a spinner while it runs, a red dot
+   after it failed. Single-class colour rules, as dark rules must be (ADR 0009). */
+.tab-activity-running {
+    -fx-pref-width: 12;
+    -fx-pref-height: 12;
+    -fx-max-width: 12;
+    -fx-max-height: 12;
+    -fx-progress-color: -fx-accent;
+}
+
+.tab-activity-failed { -fx-fill: #d32f2f; }
+
+@media (prefers-color-scheme: dark) {
+    .tab-activity-failed { -fx-fill: #ef6461; }
+}

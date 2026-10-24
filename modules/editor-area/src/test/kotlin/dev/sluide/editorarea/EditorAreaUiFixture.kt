@@ -6,12 +6,14 @@ import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.TextDiff
+import dev.sluide.fileviewers.ViewActivity
 import dev.sluide.fileviewers.languages.PythonFileViewer
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.SettingsStore
 import javafx.application.Platform
 import javafx.beans.property.SimpleBooleanProperty
+import javafx.beans.property.SimpleObjectProperty
 import javafx.beans.property.SimpleStringProperty
 import javafx.event.Event
 import javafx.event.EventType
@@ -305,6 +307,25 @@ abstract class EditorAreaUiFixture {
             from.moveTo(to)
             editor.moved(from, to)
         }
+    }
+
+    /** Opens `.busy` files in a [BusyView], kept in [views], whose warning and activity the test sets. */
+    internal class BusyViewer : FileViewer {
+        val views = mutableListOf<BusyView>()
+
+        override fun canOpen(file: Path) = file.name.endsWith(".busy")
+
+        override fun open(file: Path): FileView = BusyView(file.name).also { views += it }
+    }
+
+    internal class BusyView(
+        name: String,
+    ) : FileView {
+        override val node = Label(name)
+        override var closeWarning: String? = null
+        override val activity = SimpleObjectProperty(ViewActivity.NONE)
+
+        override fun reload() {}
     }
 
     internal class WarningTab(

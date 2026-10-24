@@ -1,5 +1,6 @@
 package dev.sluide.editorarea
 
+import dev.sluide.fileviewers.ViewActivity
 import javafx.animation.Animation
 import javafx.animation.KeyFrame
 import javafx.animation.Timeline
@@ -11,14 +12,17 @@ import javafx.scene.control.ContextMenu
 import javafx.scene.control.Label
 import javafx.scene.control.MenuButton
 import javafx.scene.control.MenuItem
+import javafx.scene.control.ProgressIndicator
 import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.control.Tooltip
 import javafx.scene.input.MouseButton
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Pane
 import javafx.scene.layout.Region
+import javafx.scene.shape.Circle
 import javafx.scene.shape.Rectangle
 import javafx.util.Duration
+import javafx.util.Subscription
 import java.nio.file.Path
 import kotlin.math.abs
 
@@ -29,6 +33,11 @@ private const val DRAG_THRESHOLD = 5.0
 
 /** How often the row scrolls by one tab while a header is dragged beyond its edge. */
 private val AUTO_SCROLL_INTERVAL: Duration = Duration.millis(300.0)
+
+/** The style class of the marker a tab header shows for its view's [ViewActivity]. */
+private const val ACTIVITY_MARKER = "tab-activity"
+
+private const val ACTIVITY_DOT_RADIUS = 3.5
 
 /**
  * The row of tab headers above the editor content. When the headers do not fit, arrow buttons scroll the row
@@ -86,6 +95,7 @@ internal class TabStrip(
     private fun rebuildHeaders() {
         val old = headers.associateBy { it.tab }
         headers = editorTabs.tabs.map { old[it] ?: TabHeader(it) }
+        (old.values - headers.toSet()).forEach { it.dispose() }
         // The dragged tab was closed meanwhile, e.g. because its file was deleted.
         if (drag?.header?.let { it !in headers } == true) endDrag()
         headers.forEach { it.pseudoClassStateChanged(SELECTED, it.tab === editorTabs.selected.get()) }
@@ -295,6 +305,12 @@ internal class TabStrip(
         /** The tooltip of the header, showing [EditorTab.tooltip]. */
         val tooltip: Tooltip
 
+        /**
+         * What the header follows of its tab; ended by [dispose]. The activity may be a constant shared by all views,
+         * which would keep the header, and its tab's views, alive.
+         */
+        private val subscriptions = mutableListOf<Subscription>()
+
         /** Where the primary button was pressed, in scene and header x, while it may still start a drag. */
         private var press: Pair<Double, Double>? = null
 
@@ -314,8 +330,11 @@ internal class TabStrip(
             children.addAll(title, close)
             tooltip = Tooltip(tab.tooltip)
             Tooltip.install(this, tooltip)
-            // A file tab follows its file when it is renamed.
-            if (tab is OpenFile) tab.pathProperty.subscribe { _ -> tooltip.text = tab.tooltip }
+            if (tab is OpenFile) {
+                // A file tab follows its file when it is renamed.
+                subscriptions += tab.pathProperty.subscribe { _ -> tooltip.text = tab.tooltip }
+                subscriptions += tab.activity.subscribe(::showActivity)
+            }
             // Pressing the close button must not select the tab first. Consuming the press on the button instead
             // would keep the button from arming, so it would never fire.
             setOnMousePressed { event ->
@@ -339,6 +358,25 @@ internal class TabStrip(
                 menu.show(this, event.screenX, event.screenY)
                 event.consume()
             }
+        }
+
+        /** Stops following the tab, once the header is no longer shown. */
+        fun dispose() {
+            subscriptions.forEach { it.unsubscribe() }
+            subscriptions.clear()
+        }
+
+        /** Shows [activity] as a marker before the title: a spinner while running, a red dot after a failure. */
+        private fun showActivity(activity: ViewActivity) {
+            children.removeIf { it.styleClass.contains(ACTIVITY_MARKER) }
+            val marker =
+                when (activity) {
+                    ViewActivity.NONE -> null
+                    ViewActivity.RUNNING -> ProgressIndicator().apply { styleClass += "tab-activity-running" }
+                    ViewActivity.FAILED -> Circle(ACTIVITY_DOT_RADIUS).apply { styleClass += "tab-activity-failed" }
+                }
+            if (marker != null) children.add(0, marker.apply { styleClass += ACTIVITY_MARKER })
+            this@TabStrip.requestLayout()
         }
 
         private fun createMenu(): ContextMenu {

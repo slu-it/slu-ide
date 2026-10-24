@@ -2,6 +2,7 @@ package dev.sluide.editorarea
 
 import dev.sluide.fileviewers.LineChange
 import dev.sluide.fileviewers.TextDiff
+import dev.sluide.fileviewers.ViewActivity
 import javafx.beans.property.SimpleStringProperty
 import javafx.scene.Node
 import javafx.scene.control.Button
@@ -425,6 +426,37 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         robot.interact { field.requestFocus() }
         robot.interact { editor.focusSelected() }
         assertSame(fields.content, focusOwner(), "another tab: its content")
+    }
+
+    @Test
+    fun `a file tab shows its view's activity as a marker before its title until it closes`(robot: FxRobot) {
+        val viewer = BusyViewer()
+        val area = areaWith(robot, viewer)
+        robot.interact { area.open(textFile("build.busy")) }
+        val view = viewer.views.single()
+        val header = tabLabel(robot, "build.busy").parent
+
+        // The style classes of the nodes before the title.
+        fun markers() =
+            header.childrenUnmodifiable
+                .takeWhile { it !is Label }
+                .flatMap { it.styleClass }
+                .filter { it.startsWith("tab-activity-") }
+        assertEquals(emptyList(), markers())
+
+        robot.interact { view.activity.set(ViewActivity.RUNNING) }
+        assertEquals(listOf("tab-activity-running"), markers())
+
+        robot.interact { view.activity.set(ViewActivity.FAILED) }
+        assertEquals(listOf("tab-activity-failed"), markers())
+        assertEquals(listOf("build.busy"), tabTitles(robot))
+
+        robot.interact { view.activity.set(ViewActivity.NONE) }
+        assertEquals(emptyList(), markers())
+
+        robot.interact { area.closeAll() }
+        robot.interact { view.activity.set(ViewActivity.RUNNING) }
+        assertEquals(emptyList(), markers(), "a closed tab's header no longer follows its view")
     }
 
     @Test

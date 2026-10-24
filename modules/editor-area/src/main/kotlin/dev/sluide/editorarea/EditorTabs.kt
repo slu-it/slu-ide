@@ -5,6 +5,7 @@ import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.TextDiff
+import dev.sluide.fileviewers.ViewActivity
 import javafx.beans.binding.Bindings
 import javafx.beans.property.ReadOnlyBooleanWrapper
 import javafx.beans.property.ReadOnlyObjectProperty
@@ -86,6 +87,12 @@ internal class OpenFile(
         Bindings.createStringBinding({ if (isDirty) "● $name" else name }, dirty, pathProperty)
 
     override val tooltip: String get() = path.toString()
+
+    /** The [editor]'s warning, e.g. while it runs something; the window asks with it too. */
+    override val closeWarning: String? get() = editor.closeWarning
+
+    /** What the [editor] is doing, shown as a marker on the tab header. */
+    val activity: ObservableValue<ViewActivity> get() = editor.activity
 
     override val usesEditorFont = true
 
