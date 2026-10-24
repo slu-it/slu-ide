@@ -33,4 +33,4 @@
 - Structure: `DockerSandbox` (window-scoped Spring bean: `sbxInstalled`, `problem(action, folder)`,
   `open(action, folder)`; both take the folder as `Path?`, `null` meaning no folder is open), `SandboxAction` (title,
   command, required file), `SandboxFolder` (the folder rule), `SbxCheck` (`command -v sbx` in the login shell, via the
-  terminal module's `loginShellRunning`).
+  terminal module's `loginShellFinds`, which the Gradle check uses too).

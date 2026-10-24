@@ -1,4 +1,4 @@
-package dev.sluide.dockersandbox
+package dev.sluide.terminal
 
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
@@ -18,8 +18,8 @@ import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
-/** `sbx` is looked up by a login shell whose `.profile`, in a test home folder, sets the `PATH`. */
-class SbxCheckTest {
+/** `sometool` is looked up by a login shell whose `.profile`, in a test home folder, sets the `PATH`. */
+class LoginShellFindsTest {
     @TempDir
     lateinit var root: Path
 
@@ -35,29 +35,29 @@ class SbxCheckTest {
         home.resolve(".profile").writeText("PATH=\"$bin\"\nexport PATH\n")
     }
 
-    private fun stubSbx() {
-        bin.resolve("sbx").apply {
+    private fun stubTool() {
+        bin.resolve("sometool").apply {
             writeText("#!/bin/sh\n")
             setPosixFilePermissions(PosixFilePermissions.fromString("rwxr-xr-x"))
         }
     }
 
     @Test
-    fun `sbx on the PATH of the login shell is installed`() {
-        stubSbx()
+    fun `sometool on the PATH of the login shell is found`() {
+        stubTool()
 
-        assertTrue(SbxCheck.installed(environment))
+        assertTrue(loginShellFinds("sometool", environment))
     }
 
     @Test
-    fun `sbx missing from the PATH of the login shell is not installed`() {
-        assertFalse(SbxCheck.installed(environment))
+    fun `sometool missing from the PATH of the login shell is not found`() {
+        assertFalse(loginShellFinds("sometool", environment))
     }
 
     @Test
     fun `a shell that cannot be started finds nothing`() {
-        stubSbx()
-        assertFalse(SbxCheck.installed(environment + ("SHELL" to root.resolve("no-such-shell").toString())))
+        stubTool()
+        assertFalse(loginShellFinds("sometool", environment + ("SHELL" to root.resolve("no-such-shell").toString())))
     }
 
     @Test
@@ -72,7 +72,7 @@ class SbxCheckTest {
         val check = Executors.newSingleThreadExecutor()
         try {
             val started = System.nanoTime()
-            val result = check.submit<Boolean> { SbxCheck.installed(environment, timeout) }
+            val result = check.submit<Boolean> { loginShellFinds("sometool", environment, timeout) }
             val deadline = System.nanoTime() + 5_000_000_000
             while (!(pidFile.exists() && pidFile.readText().isNotBlank()) && System.nanoTime() < deadline) {
                 Thread.sleep(10)
