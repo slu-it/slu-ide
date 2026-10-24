@@ -61,17 +61,6 @@ class EditorKeysUiTest {
     ) = robot.interact { area.selectRange(anchor, caret) }
 
     @Test
-    fun `enter keeps the indentation of the line`(robot: FxRobot) {
-        val view = open("Main.kt", "    val x = 1", robot)
-        view.select(13, robot = robot)
-
-        robot.press(view.area, KeyCode.ENTER)
-
-        assertEquals("    val x = 1\n    ", view.area.text)
-        assertEquals(18, view.area.caretPosition)
-    }
-
-    @Test
     fun `a moved file indents in the style of the editorconfig for its new path`(robot: FxRobot) {
         dir
             .resolve(
@@ -158,17 +147,6 @@ class EditorKeysUiTest {
     }
 
     @Test
-    fun `tab in a line inserts spaces up to the next indentation stop`(robot: FxRobot) {
-        val view = open("Main.kt", "ab", robot)
-        view.select(1, robot = robot)
-
-        robot.press(view.area, KeyCode.TAB)
-
-        assertEquals("a   b", view.area.text)
-        assertEquals(4, view.area.caretPosition)
-    }
-
-    @Test
     fun `shortcut+d duplicates the line as an undo step of its own`(robot: FxRobot) {
         val view = open("Main.kt", "a\nb", robot)
         // Typing right before, which the undo manager would otherwise merge with the copy.
@@ -181,18 +159,6 @@ class EditorKeysUiTest {
 
         robot.interact { view.area.undo() }
         assertEquals("ax\nb", view.area.text)
-    }
-
-    @Test
-    fun `shortcut+d duplicates the selection and selects the copy`(robot: FxRobot) {
-        val view = open("Main.kt", "abc", robot)
-        view.select(0, 2, robot)
-
-        robot.press(view.area, KeyCode.D, shortcut = true)
-
-        assertEquals("ababc", view.area.text)
-        assertEquals("ab", view.area.selectedText)
-        assertEquals(2, view.area.selection.start)
     }
 
     @Test

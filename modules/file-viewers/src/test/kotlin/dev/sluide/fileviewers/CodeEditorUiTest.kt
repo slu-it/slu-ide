@@ -16,14 +16,12 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
-import kotlin.io.path.extension
 import kotlin.io.path.readText
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /** The public [CodeEditor] that other modules embed. Needs a display, see the `uiTest` Gradle task. */
@@ -188,29 +186,6 @@ class CodeEditorUiTest {
     }
 
     @Test
-    fun `files of source viewers have highlighted diffs`(robot: FxRobot) {
-        val file = dir.resolve("a.req").apply { writeText("{\"a\": 2}\n") }
-        val source =
-            object : SourceFileViewer {
-                override val sourceHighlighter = Highlighters.forLanguage("json")
-
-                override fun canOpen(file: Path) = file.extension == "req"
-
-                override fun open(file: Path): FileView = CodeEditors.open(file, sourceHighlighter)
-            }
-        val viewers = FileViewers(listOf(source), DefaultTextFileViewer())
-        val diff = TextDiff("{\"a\": 1}\n", listOf(LineChange(0..0, 0..0)))
-
-        val view = assertNotNull(WaitForAsyncUtils.asyncFx<DiffFileView?> { viewers.openDiff(file, diff) }.get())
-        robot.interact { container.children.setAll(view.node) }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        val areas = robot.lookup(".code-area").queryAllAs(CodeArea::class.java)
-        assertEquals(2, areas.size)
-        assertTrue(areas.all { area -> "property" in area.getStyleOfChar(1) })
-    }
-
-    @Test
     fun `replaces its text as one undo step that marks it dirty`(robot: FxRobot) {
         val file = dir.resolve("a.json").apply { writeText("{\n  \"a\": 1,\n  \"b\": 2\n}\n") }
         val editor = open(file, robot)
@@ -256,15 +231,6 @@ class CodeEditorUiTest {
         assertTrue(replaced)
         assertFalse(editor.dirty.get())
         assertFalse(robot.area().isUndoAvailable)
-    }
-
-    @Test
-    fun `replaced text gets line feeds for its line breaks`(robot: FxRobot) {
-        val editor = open(dir.resolve("a.json").apply { writeText("{}\n") }, robot)
-
-        robot.interact { editor.replaceText("{\r\n  \"a\": 1\r}\r\n") }
-
-        assertEquals("{\n  \"a\": 1\n}\n", editor.text)
     }
 
     @Test

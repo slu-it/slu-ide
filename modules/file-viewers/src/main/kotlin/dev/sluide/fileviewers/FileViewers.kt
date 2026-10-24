@@ -80,7 +80,7 @@ class FileViewers(
         return SideBySideDiffView(CurrentText.Fixed(current), highlighterOf(viewer), diff)
     }
 
-    private fun highlighterOf(viewer: FileViewer): SyntaxHighlighter? =
+    internal fun highlighterOf(viewer: FileViewer): SyntaxHighlighter? =
         when (viewer) {
             is CodeFileViewer -> viewer.highlighter
             is SourceFileViewer -> viewer.sourceHighlighter

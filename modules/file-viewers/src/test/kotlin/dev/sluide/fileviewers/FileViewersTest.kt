@@ -183,6 +183,23 @@ class FileViewersTest {
     }
 
     @Test
+    fun `the diff of a source viewer is highlighted by its source highlighter`() {
+        val source =
+            object : SourceFileViewer {
+                override val sourceHighlighter = Highlighters.forLanguage("json")
+
+                override fun canOpen(file: Path) = file.extension == "req"
+
+                override fun open(file: Path): FileView = error("not needed")
+            }
+        val viewers = FileViewers(listOf(source), fallback)
+
+        assertSame(source.sourceHighlighter, viewers.highlighterOf(source))
+        assertSame(KotlinFileViewer().highlighter, viewers.highlighterOf(KotlinFileViewer()))
+        assertNull(viewers.highlighterOf(ExtensionViewer("txt")))
+    }
+
+    @Test
     fun `the viewer for a diff of given texts is picked by the name alone, without the file`() {
         val kotlin = KotlinFileViewer()
         val markdown = ExtensionsStub(setOf("md", "markdown"))

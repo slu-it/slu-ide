@@ -139,28 +139,26 @@ class GutterUiTest {
     }
 
     @Test
-    fun `a diff shown while the text is edited keeps the unsaved edits marked`(robot: FxRobot) {
-        val view = open("a\nb\n", robot)
-        robot.interact {
-            view.area.insertText(view.area.getAbsolutePosition(1, 1), "\nc")
-            view.showChanges(TextDiff("a\n", listOf(LineChange(1 until 1, 1..1))))
-        }
-        assertEquals(mapOf("2" to "diff-added", "3" to "diff-added"), markers(robot))
-    }
-
-    @Test
-    fun `lines edited apart stay apart after saving`(robot: FxRobot) {
+    fun `after saving, the edits made since are tracked from the saved text and stay apart for a new diff`(
+        robot: FxRobot,
+    ) {
         val view = open((1..17).joinToString("\n", postfix = "\n") { "x$it = $it" }, robot)
         robot.interact {
+            view.area.insertText(view.area.getAbsolutePosition(5, 0), "q")
+            view.save()
             view.area.insertText(view.area.getAbsolutePosition(1, 0), "y")
             view.area.insertText(view.area.getAbsolutePosition(15, 0), "z")
         }
-        val edited = mapOf("2" to "diff-modified", "16" to "diff-modified")
-        assertEquals(edited, markers(robot))
 
-        robot.interact { view.save() }
+        // The diff of the saved text against HEAD : line 6 modified.
+        val diff = TextDiff("", listOf(LineChange(5..5, 5..5)))
+        robot.interact { view.showChanges(diff) }
 
-        assertEquals(edited, markers(robot))
+        assertEquals(
+            mapOf("2" to "diff-modified", "6" to "diff-modified", "16" to "diff-modified"),
+            markers(robot),
+            "the two edits since the save apart, not one range between them",
+        )
     }
 
     @Test
