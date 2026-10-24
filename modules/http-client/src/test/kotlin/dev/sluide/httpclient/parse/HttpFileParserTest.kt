@@ -244,7 +244,31 @@ class HttpFileParserTest {
         val file = parse("@nothing", "GET http://x")
 
         assertTrue(file.variables.isEmpty())
-        assertEquals(0, file.problems.single().line)
+        assertEquals(
+            listOf(ParseProblem(0, "Expected a variable definition: @name = value")),
+            file.problems,
+        )
+    }
+
+    @Test
+    fun `reports a name tag without a name`() {
+        val file = parse("# @name", "GET http://x")
+
+        assertEquals(listOf(ParseProblem(0, "@name needs a name")), file.problems)
+        assertNull(file.requests.single().name)
+    }
+
+    @Test
+    fun `reports HTTP versions it does not support and strips them from the URL`() {
+        for (version in listOf("1.0", "3")) {
+            val file = parse("GET http://x/a HTTP/$version")
+
+            assertEquals(
+                listOf(ParseProblem(0, "HTTP/$version is not supported; HTTP/1.1 is used")),
+                file.problems,
+            )
+            assertEquals("http://x/a", file.requests.single().url)
+        }
     }
 
     @Test
