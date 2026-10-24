@@ -2,6 +2,8 @@ package dev.sluide.filewatcher
 
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.api.parallel.Execution
+import org.junit.jupiter.api.parallel.ExecutionMode
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
@@ -18,7 +20,10 @@ import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Uses the real file system. Timeouts are generous because the JDK may poll on macOS; on Linux events arrive at once.
+ * The tests run in parallel (`junit-platform.properties` of this module enables it, the default mode stays
+ * same-thread): each has its own directory and watcher, and on macOS each waits for poll cycles.
  */
+@Execution(ExecutionMode.CONCURRENT)
 class FileWatcherTest {
     @TempDir
     lateinit var dir: Path
@@ -58,7 +63,7 @@ class FileWatcherTest {
         recorder.awaitPath(file)
         recorder.paths.clear()
 
-        file.writeText("two")
+        file.writeText("two, longer")
         recorder.awaitPath(file)
         recorder.paths.clear()
 
@@ -86,11 +91,55 @@ class FileWatcherTest {
         val recorder = Recorder()
         val handle = watcher.watch(dir, recorder)
         handle.close()
+        // Another directory tells when the watcher has had time to report the change below, if it were to.
+        val other = dir.resolve("other").createDirectories()
+        val sentinel = Recorder()
+        watcher.watch(other, sentinel)
 
         dir.resolve("late.txt").writeText("x")
-        Thread.sleep(500)
+        val marker = other.resolve("marker.txt").apply { writeText("x") }
+        sentinel.awaitPath(marker)
 
         assertEquals(emptyList(), recorder.paths)
+    }
+
+    @Test
+    fun `closing the watcher stops the callbacks of its subscriptions`() {
+        val recorder = Recorder()
+        watcher.watch(dir, recorder)
+        watcher.close()
+        val observer =
+            FileWatcher(dispatch = { it.run() }, quietPeriod = 50.milliseconds)
+        try {
+            val sentinel = Recorder()
+            observer.watch(dir, sentinel)
+
+            val file = dir.resolve("after-close.txt").apply { writeText("x") }
+            sentinel.awaitPath(file)
+
+            assertEquals(emptyList(), recorder.paths)
+        } finally {
+            observer.close()
+        }
+    }
+
+    @Test
+    fun `a listener that throws does not stop the others or later batches`() {
+        val thrower = Recorder()
+        val failing: (List<Path>) -> Unit = {
+            thrower(it)
+            throw IllegalStateException("listener failed")
+        }
+        val other = Recorder()
+        watcher.watch(dir, failing)
+        watcher.watch(dir, other)
+
+        val first = dir.resolve("first.txt").apply { writeText("x") }
+        other.awaitPath(first)
+        val second = dir.resolve("second.txt").apply { writeText("x") }
+
+        other.awaitPath(second)
+        thrower.awaitPath(second)
     }
 
     @Test
@@ -139,6 +188,10 @@ class FileWatcherTest {
         second.awaitPath(file)
     }
 
+    /**
+     * On macOS a poll cycle of the JDK is longer than the quiet period, so delivery there comes from the quiet
+     * period and not from the maximum delay this test is about; only Linux, where events arrive at once, proves it.
+     */
     @Test
     fun `a directory that keeps changing is still reported`() {
         val recorder = Recorder()
