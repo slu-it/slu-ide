@@ -15,6 +15,11 @@ one at a time (CI). A module whose UI tests would take longest alone (git-log) r
 `uiTestPart2`, split by a class name pattern in the root build's `uiTestSplits` (ADR 0082). `uiTest` still runs all its
 classes and takes `--tests`; `./gradlew build uiTest` would run them twice. `-x uiTest` leaves out the parts too.
 
+Unit tests run one class after another in one JVM, with two exceptions that wait on child processes or the file
+system rather than the CPU: the git module's `test` runs in three forks (`maxParallelForks`; its global log sinks are
+per JVM, so forks keep them apart), and `FileWatcherTest` runs its tests concurrently (`@Execution(CONCURRENT)`,
+enabled by `junit-platform.properties` in file-watcher's test resources; every other class stays same-thread).
+
 ## Running a subset
 Subagents verify with subsets; the full `./gradlew build` is the main session's final gate (delegate skill).
 ```bash
@@ -38,8 +43,15 @@ Subagents verify with subsets; the full `./gradlew build` is the main session's 
 ## Writing UI tests
 - Use `@ExtendWith(ApplicationExtension::class)`, build the real component in a `@Start` method, and inspect it
   through the scene graph (`robot.lookup(".tree-cell")`). Examples: `FileExplorerViewUiTest`, `MainWindowProjectUiTest`.
-- Change state via `robot.interact { ... }` followed by `WaitForAsyncUtils.waitForFxEvents()`, not via synthetic
-  mouse/keyboard input. Synthetic input needs OS permissions on macOS and is flaky on virtual displays.
+- Change state via `robot.interact { ... }`, not via synthetic mouse/keyboard input (`robot.clickOn`, `type`,
+  `moveTo`, `scroll`). Synthetic input needs OS permissions on macOS and is flaky on virtual displays. `interact`
+  already ends with `WaitForAsyncUtils.waitForFxEvents()` (TestFX 4.0.18); call that again only after work outside
+  `interact`, e.g. a file written by the test.
+- Wait on a signal, never a fixed sleep: an idle barrier of the subject's executor (`readersIdle()` in git-log,
+  `commitReaderIdle()`), a latch in a fake, a log line, or a sentinel (a second watch that must have seen a later
+  change before a "nothing reported" check, as in `FileWatcherTest`). A negative check that has no signal keeps a short
+  sleep (about 200 ms) with a comment saying why. Debounces and delays the test does not test become constructor
+  parameters with the real value as default (`CodeView(highlightPause)`, `GitCli(stopGrace)`, `dragExpandDelay`).
 - To test real mouse handling (e.g. a press that must not reach a parent), fire `MouseEvent`s at the node with
   `Event.fireEvent` instead of calling `Button.fire()`, which skips the mouse handlers. Example: `fireMouse` in
   `EditorAreaUiFixture`.
@@ -47,7 +59,8 @@ Subagents verify with subsets; the full `./gradlew build` is the main session's 
 - Native dialogs (`DirectoryChooser`) cannot be driven by TestFX; test the logic behind them (`ProjectService`).
 - Keep logic out of controls so most behavior stays in fast unit tests.
 - Large UI test subjects are split by topic: an abstract `<Subject>UiFixture` (fake sources, `@AfterEach`, helpers)
-  and one `<Subject><Topic>UiTest` per topic (`GitLogView*`, `GitLogWrites*`, `EditorArea*`, `MainWindow*`).
+  and one `<Subject><Topic>UiTest` per topic (`GitLogView*`, `GitLogWrites*`, `EditorArea*`, `FileExplorerView*`,
+  `MainWindow*`).
   ApplicationExtension only finds `@Start` on the test class itself, so each topic class declares `@Start` and calls
   the fixture's `startView`. Read the fixture and the one topic class you work on; add new tests to the matching topic
   class, or a new one when a topic grows past about 800 lines.
