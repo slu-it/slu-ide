@@ -1,0 +1,110 @@
+{
+ "version": 1,
+ "rootFolder": "/work/fx",
+ "projects": [
+  {
+   "path": ":",
+   "name": "fx",
+   "folder": "/work/fx",
+   "buildFile": "/work/fx/build.gradle",
+   "tasks": [
+    {
+     "name": "hello",
+     "path": ":hello",
+     "group": "demo",
+     "description": "Says \"hello\""
+    },
+    {
+     "name": "help",
+     "path": ":help",
+     "group": "help",
+     "description": "Displays a help message."
+    },
+    {
+     "name": "tasks",
+     "path": ":tasks",
+     "group": "help",
+     "description": "Displays the tasks runnable from root project 'fx' (some of the displayed tasks may belong to subprojects)."
+    }
+   ]
+  },
+  {
+   "path": ":app",
+   "name": "app",
+   "folder": "/work/fx/app",
+   "buildFile": "/work/fx/app/build.gradle",
+   "tasks": [
+    {
+     "name": "appTask",
+     "path": ":app:appTask",
+     "group": "demo",
+     "description": "App"
+    },
+    {
+     "name": "help",
+     "path": ":app:help",
+     "group": "help",
+     "description": "Displays a help message."
+    },
+    {
+     "name": "tasks",
+     "path": ":app:tasks",
+     "group": "help",
+     "description": "Displays the tasks runnable from project ':app' (some of the displayed tasks may belong to subprojects)."
+    }
+   ]
+  },
+  {
+   "path": ":app:core",
+   "name": "core",
+   "folder": "/work/fx/app/core",
+   "buildFile": "/work/fx/app/core/build.gradle",
+   "tasks": [
+    {
+     "name": "coreTask",
+     "path": ":app:core:coreTask",
+     "group": null,
+     "description": "No group"
+    },
+    {
+     "name": "help",
+     "path": ":app:core:help",
+     "group": "help",
+     "description": "Displays a help message."
+    },
+    {
+     "name": "tasks",
+     "path": ":app:core:tasks",
+     "group": "help",
+     "description": "Displays the tasks runnable from project ':app:core'."
+    }
+   ]
+  },
+  {
+   "path": ":lib",
+   "name": "lib",
+   "folder": "/work/fx/lib",
+   "buildFile": "/work/fx/lib/build.gradle.kts",
+   "tasks": [
+    {
+     "name": "help",
+     "path": ":lib:help",
+     "group": "help",
+     "description": "Displays a help message."
+    },
+    {
+     "name": "libTask",
+     "path": ":lib:libTask",
+     "group": "lib stuff",
+     "description": "Kotlin DSL ünïcode"
+    },
+    {
+     "name": "tasks",
+     "path": ":lib:tasks",
+     "group": "help",
+     "description": "Displays the tasks runnable from project ':lib'."
+    }
+   ]
+  }
+ ]
+}

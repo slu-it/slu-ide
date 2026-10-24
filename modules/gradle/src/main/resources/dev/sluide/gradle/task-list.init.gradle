@@ -1,0 +1,43 @@
+// Thoreau's task list: writes the projects and tasks of the build as JSON to the file named by the system property
+// sluide.taskList. Run as: gradle --init-script task-list.init.gradle -Dsluide.taskList=<file> sluideTaskList
+// Needs Gradle 6 or newer.
+rootProject {
+    def listTask = tasks.register("sluideTaskList") {
+        group = null
+        description = "Writes the tasks of all projects as JSON (Thoreau)."
+        doLast {
+            def target = System.getProperty("sluide.taskList")
+            if (target == null) {
+                throw new GradleException("The system property sluide.taskList names no output file")
+            }
+            def projects = rootProject.allprojects.sort { it.path }.collect { p ->
+                def buildFile = p.buildFile
+                [
+                    path     : p.path,
+                    name     : p.name,
+                    folder   : p.projectDir.absolutePath,
+                    buildFile: (buildFile != null && buildFile.isFile()) ? buildFile.absolutePath : null,
+                    tasks    : p.tasks.collect { t ->
+                        [name: t.name, path: t.path, group: t.group, description: t.description]
+                    }.findAll { it.name != "sluideTaskList" }.sort { it.name },
+                ]
+            }
+            def json = groovy.json.JsonOutput.toJson([
+                version   : 1,
+                rootFolder: rootProject.projectDir.absolutePath,
+                projects  : projects,
+            ])
+            def file = new File(target)
+            file.parentFile?.mkdirs()
+            file.setText(json, "UTF-8")
+        }
+    }
+    // The task reads the whole build model at execution time, which the configuration cache cannot store; the load
+    // also passes -Dorg.gradle.configuration-cache=false. Older Gradle versions have no such method.
+    // The lookup runs inside the lazy configuration, where a missing method cannot be caught from outside.
+    listTask.configure { t ->
+        if (t.metaClass.respondsTo(t, "notCompatibleWithConfigurationCache", String)) {
+            t.notCompatibleWithConfigurationCache("Thoreau reads the build model")
+        }
+    }
+}
