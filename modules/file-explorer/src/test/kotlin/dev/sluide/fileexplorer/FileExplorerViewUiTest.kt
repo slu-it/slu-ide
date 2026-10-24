@@ -417,28 +417,6 @@ class FileExplorerViewUiTest {
     }
 
     @Test
-    fun `nothing is created when the name is cancelled, an error is shown when creating fails`(robot: FxRobot) {
-        val sub = project.resolve("sub").createDirectories()
-        val errors = mutableListOf<String>()
-        view.showError = { errors += it }
-        view.askName = { _, _, _ -> null }
-        robot.interact { view.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        robot.interact { view.create(null, folder = false) }
-        assertEquals(listOf("sub"), project.listDirectoryEntries().map { it.name })
-        assertEquals(emptyList(), errors)
-
-        // The folder vanishes while the name is asked for.
-        view.askName = { _, _, _ ->
-            sub.deleteExisting()
-            "late.txt"
-        }
-        robot.interact { view.create(view.projectNode.children.single() as FileTreeItem, folder = false) }
-        assertEquals(listOf("Could not create “late.txt”: ${sub.resolve("late.txt")} does not exist."), errors)
-    }
-
-    @Test
     fun `New File and New Folder are disabled without an opened folder`(robot: FxRobot) {
         val newFile = menuItemFor(robot, view, "New File…")
         val newFolder = view.contextMenu.items.single { it.text == "New Folder…" }
@@ -597,34 +575,6 @@ class FileExplorerViewUiTest {
     }
 
     @Test
-    fun `renaming to the same name changes nothing, a failed rename shows the error`(robot: FxRobot) {
-        val file = project.resolve("a.txt").createFile()
-        val moves = mutableListOf<Pair<Path, Path>>()
-        view.onMoved = { from, to -> moves += from to to }
-        val errors = mutableListOf<String>()
-        view.showError = { errors += it }
-        view.askName = { _, initial, _ -> initial }
-        lateinit var item: FileTreeItem
-        robot.interact {
-            view.open(project)
-            item = view.projectNode.children.single() as FileTreeItem
-        }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        robot.interact { view.rename(item) }
-        assertTrue(file.exists())
-        assertEquals(emptyList(), errors)
-
-        view.askName = { _, _, _ ->
-            file.deleteExisting()
-            "b.txt"
-        }
-        robot.interact { view.rename(item) }
-        assertEquals(listOf("Could not rename “a.txt”: $file does not exist."), errors)
-        assertEquals(emptyList(), moves)
-    }
-
-    @Test
     fun `Delete asks, deletes a folder with its content at once, reports it and selects the next entry`(
         robot: FxRobot,
     ) {
@@ -714,64 +664,6 @@ class FileExplorerViewUiTest {
         assertFalse(file.exists())
         assertEquals(listOf(file), deleted)
         assertEquals(listOf(project.name, "b.txt"), renderedNames(robot))
-    }
-
-    @Test
-    fun `nothing is deleted unless confirmed, a failed delete shows the error`(robot: FxRobot) {
-        val file = project.resolve("a.txt").createFile()
-        val errors = mutableListOf<String>()
-        view.showError = { errors += it }
-        val deleted = mutableListOf<Path>()
-        view.onDeleted = { path, _ -> deleted.add(path) }
-        view.confirmDelete = { false }
-        lateinit var item: FileTreeItem
-        robot.interact {
-            view.open(project)
-            item = view.projectNode.children.single() as FileTreeItem
-        }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        robot.interact { view.delete(listOf(item)) }
-        assertTrue(file.exists())
-
-        view.confirmDelete = { true }
-        // The file vanishes before it is deleted.
-        view.runInBackground = { task ->
-            file.deleteExisting()
-            task.run()
-        }
-        robot.interact { view.delete(listOf(item)) }
-        WaitForAsyncUtils.waitForFxEvents()
-        assertEquals(listOf("Could not delete “a.txt”: $file does not exist."), errors)
-        assertEquals(emptyList(), deleted)
-    }
-
-    @Test
-    fun `an entry that changes its kind while asking is not deleted`(robot: FxRobot) {
-        val entry = project.resolve("a").createFile()
-        val errors = mutableListOf<String>()
-        view.showError = { errors += it }
-        val deleted = mutableListOf<Path>()
-        view.onDeleted = { path, _ -> deleted.add(path) }
-        // The question was about a file; now it is a folder.
-        view.confirmDelete = {
-            entry.deleteExisting()
-            entry.resolve("inner.txt").createParentDirectories().createFile()
-            true
-        }
-        lateinit var item: FileTreeItem
-        robot.interact {
-            view.open(project)
-            item = view.projectNode.children.single() as FileTreeItem
-        }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        robot.interact { view.delete(listOf(item)) }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        assertEquals(listOf("“a” changed while asking and was not deleted."), errors)
-        assertTrue(entry.resolve("inner.txt").exists())
-        assertEquals(emptyList(), deleted)
     }
 
     @Test

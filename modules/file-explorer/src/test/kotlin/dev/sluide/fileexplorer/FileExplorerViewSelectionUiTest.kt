@@ -417,60 +417,6 @@ class FileExplorerViewSelectionUiTest {
     }
 
     @Test
-    fun `an entry inside a selected folder is deleted with it, not twice`(robot: FxRobot) {
-        layout()
-        open(robot)
-        select(robot, "inner.txt", "dir", "a.txt")
-
-        robot.interact { view.delete(view.selectionModel.selectedItems.filterIsInstance<FileTreeItem>()) }
-
-        eventually(robot) { assertEquals(2, deleted.size) }
-        assertEquals(listOf("dir", "a.txt").map { project.resolve(it) }, deleted.map { it.first })
-        assertEquals(1, questions.size)
-    }
-
-    @Test
-    fun `deleting stops at the first failure and the entries after it stay`(robot: FxRobot) {
-        layout()
-        open(robot)
-        select(robot, "a.txt", "b.txt", "c.txt")
-        // The second file vanishes before its turn, so deleting it fails.
-        view.runInBackground = { task ->
-            project.resolve("b.txt").toFile().delete()
-            task.run()
-        }
-
-        robot.interact { pressKey(KeyCode.DELETE) }
-
-        eventually(robot) { assertEquals(1, errors.size) }
-        WaitForAsyncUtils.waitForFxEvents()
-        assertEquals(listOf(project.resolve("a.txt")), deleted.map { it.first })
-        assertTrue(project.resolve("c.txt").exists(), "not attempted")
-        // Nothing stays locked.
-        assertFalse(menuItemFor(robot, cellNamed(robot, "c.txt"), "Delete…").isDisable)
-    }
-
-    @Test
-    fun `entries that changed their kind while asking are reported, the others are deleted`(robot: FxRobot) {
-        layout()
-        open(robot)
-        select(robot, "a.txt", "b.txt", "c.txt")
-        view.confirmDelete = {
-            project.resolve("a.txt").toFile().delete()
-            project.resolve("a.txt/x").createParentDirectories().createFile()
-            project.resolve("b.txt").toFile().delete()
-            project.resolve("b.txt/x").createParentDirectories().createFile()
-            true
-        }
-
-        robot.interact { pressKey(KeyCode.DELETE) }
-
-        eventually(robot) { assertEquals(listOf(project.resolve("c.txt")), deleted.map { it.first }) }
-        assertEquals(listOf("“a.txt” and “b.txt” changed while asking and were not deleted."), errors)
-        assertTrue(project.resolve("a.txt/x").exists())
-    }
-
-    @Test
     fun `Delete does nothing when a selected entry is top-level`(robot: FxRobot) {
         layout()
         open(robot)
@@ -480,46 +426,5 @@ class FileExplorerViewSelectionUiTest {
         robot.interact { pressKey(KeyCode.BACK_SPACE, shortcut = true) }
 
         assertEquals(emptyList(), questions)
-    }
-
-    @Test
-    fun `without a row after the deleted entries the row before is selected`(robot: FxRobot) {
-        layout()
-        open(robot)
-        select(robot, "b.txt", "c.txt")
-
-        robot.interact { pressKey(KeyCode.DELETE) }
-
-        eventually(robot) {
-            assertEquals(2, deleted.size)
-            assertEquals(listOf("a.txt"), selectedNames())
-        }
-    }
-
-    @Test
-    fun `when everything in the folder is deleted its folder is selected`(robot: FxRobot) {
-        project.resolve("a.txt").createFile()
-        project.resolve("b.txt").createFile()
-        open(robot)
-        select(robot, "a.txt", "b.txt")
-
-        robot.interact { pressKey(KeyCode.DELETE) }
-
-        eventually(robot) {
-            assertEquals(2, deleted.size)
-            assertEquals(listOf(project.fileName.toString()), selectedNames())
-        }
-    }
-
-    @Test
-    fun `a selection outside the deleted entries stays`(robot: FxRobot) {
-        layout()
-        open(robot)
-        select(robot, "a.txt", "b.txt")
-
-        robot.interact { view.delete(listOf(item("c.txt"))) }
-
-        eventually(robot) { assertEquals(1, deleted.size) }
-        robot.interact { assertEquals(listOf("a.txt", "b.txt"), selectedNames()) }
     }
 }

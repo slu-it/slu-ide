@@ -51,7 +51,7 @@ import kotlin.time.Duration.Companion.seconds
 
 /**
  * Dragging entries with the mouse, as synthetic events: a press on a row, drags (delivered to the pressed row, as
- * JavaFX does) and a release. The move flow behind a drop is tested in [FileExplorerViewMoveUiTest]. Needs a display,
+ * JavaFX does) and a release. The move flow behind a drop is tested in `ExplorerMovesTest`. Needs a display,
  * see `uiTest`.
  */
 @Tag("ui")
@@ -270,6 +270,26 @@ class FileExplorerViewDragUiTest {
         assertTrue(project.resolve("target/a.txt").exists())
         assertFalse(target.isDropTarget())
         assertNull(dragImage(robot))
+    }
+
+    @Test
+    fun `a dropped expanded folder is selected in its new folder and stays expanded`(robot: FxRobot) {
+        project.resolve("src/main").createDirectories()
+        project.resolve("src/main/inner.txt").createFile()
+        project.resolve("target").createDirectories()
+        open(robot, "src")
+
+        val pressed = startDrag(robot, "src")
+        dragTo(robot, pressed, at(robot, "target"))
+        release(robot, pressed, at(robot, "target"))
+        waitFor { project.resolve("target/src/main/inner.txt").exists() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        robot.interact {
+            assertTrue(item("target").isExpanded)
+            assertTrue(item("target/src").isExpanded, "a moved folder stays expanded")
+            assertEquals(listOf(project.resolve("target/src")), selectedPaths())
+        }
     }
 
     @Test
