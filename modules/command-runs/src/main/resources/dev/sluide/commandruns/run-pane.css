@@ -1,0 +1,52 @@
+/*
+ * The run pane of views that run commands (RunPane): the arguments, the status line with Stop and Rerun, and the
+ * terminal of the last run. Colours of its own have dark rules with single-class selectors (ADR 0009).
+ */
+
+.run-row {
+    -fx-padding: 3 6 3 6;
+    -fx-spacing: 4;
+    -fx-alignment: center-left;
+}
+
+.run-bar .button {
+    -fx-font-size: 0.9em;
+}
+
+.run-placeholder {
+    -fx-text-fill: derive(-fx-text-base-color, 45%);
+}
+
+.run-status-running {
+    -fx-text-fill: #1565c0;
+}
+
+.run-status-finished {
+    -fx-text-fill: #2e7d32;
+}
+
+.run-status-failed {
+    -fx-text-fill: #c62828;
+}
+
+.run-status-stopped {
+    -fx-text-fill: #b26a00;
+}
+
+@media (prefers-color-scheme: dark) {
+    .run-status-running {
+        -fx-text-fill: #64b5f6;
+    }
+
+    .run-status-finished {
+        -fx-text-fill: #81c784;
+    }
+
+    .run-status-failed {
+        -fx-text-fill: #ef5350;
+    }
+
+    .run-status-stopped {
+        -fx-text-fill: #e0a040;
+    }
+}
