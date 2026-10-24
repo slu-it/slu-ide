@@ -3,6 +3,7 @@ package dev.sluide.ide.logging
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 class FxWatchdogTest {
@@ -83,8 +84,15 @@ class FxWatchdogTest {
                 threshold = 100,
                 sink = { level, message, _ -> logged += level to message },
             )
+        // Each step throws and posts again, without a stall report.
+        repeat(2) { assertFailsWith<IllegalStateException> { failing.check() } }
+        assertTrue(logged.isEmpty())
+
         failing.start()
-        Thread.sleep(500)
+        val deadline = System.nanoTime() + 5_000_000_000L
+        while (logged.none { it.first == System.Logger.Level.ERROR } && System.nanoTime() < deadline) Thread.sleep(10)
+        // Long enough for steps past the threshold (100 ms), which would report a stall or a second error.
+        Thread.sleep(300)
         failing.stop()
 
         assertEquals(1, logged.count { it.first == System.Logger.Level.ERROR })

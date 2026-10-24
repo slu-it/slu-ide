@@ -280,26 +280,24 @@ class ProjectPickerUiTest {
     }
 
     @Test
-    fun `escape cancels once`(robot: FxRobot) {
-        show(robot)
+    fun `escape and closing the window each cancel once`(robot: FxRobot) {
+        val triggers =
+            mapOf<String, () -> Unit>(
+                "escape" to { key(robot, KeyCode.ESCAPE) },
+                "closing the window" to {
+                    robot.interact { stage.fireEvent(WindowEvent(stage, WindowEvent.WINDOW_CLOSE_REQUEST)) }
+                    WaitForAsyncUtils.waitForFxEvents()
+                },
+            )
+        for ((index, trigger) in triggers.entries.withIndex()) {
+            show(robot)
 
-        key(robot, KeyCode.ESCAPE)
+            trigger.value()
 
-        assertFalse(stage.isShowing)
-        assertEquals(1, cancelled)
-        assertTrue(opened.isEmpty())
-    }
-
-    @Test
-    fun `closing the window cancels once`(robot: FxRobot) {
-        show(robot)
-
-        robot.interact { stage.fireEvent(WindowEvent(stage, WindowEvent.WINDOW_CLOSE_REQUEST)) }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        assertFalse(stage.isShowing)
-        assertEquals(1, cancelled)
-        assertTrue(opened.isEmpty())
+            assertFalse(stage.isShowing, trigger.key)
+            assertEquals(index + 1, cancelled, trigger.key)
+            assertTrue(opened.isEmpty(), trigger.key)
+        }
     }
 
     @Test

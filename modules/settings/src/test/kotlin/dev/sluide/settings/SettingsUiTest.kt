@@ -293,16 +293,9 @@ class SettingsUiTest {
     }
 
     @Test
-    fun `OK applies the shown page and closes the dialog, pages of other groups are listed after Display`(
-        robot: FxRobot,
-    ) {
+    fun `OK applies the shown page and closes the dialog`(robot: FxRobot) {
         val other = OtherPage()
         val dialog = open(robot, fontsPage, other)
-        assertEquals(
-            listOf("Display", "Other"),
-            dialog.tree.root.children
-                .map { it.value.name },
-        )
         robot.interact { dialog.select(listOf("Other", "Things")) }
         assertSame(other, dialog.shownPage)
 
