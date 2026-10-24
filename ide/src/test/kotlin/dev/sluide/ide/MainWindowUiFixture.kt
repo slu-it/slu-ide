@@ -1,6 +1,7 @@
 package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
 import dev.sluide.fileexplorer.FileExplorerView
@@ -150,6 +151,7 @@ abstract class MainWindowUiFixture {
         watcher.close()
         httpSessions.forEach(HttpClientSession::close)
         gradleSessions.forEach(GradleSession::close)
+        commandRunSessions.forEach(CommandRunSession::close)
         backgroundTasks.forEach(BackgroundTasks::close)
     }
 
@@ -162,6 +164,9 @@ abstract class MainWindowUiFixture {
 
     /** The Gradle sessions of the windows a test created, the main window's first; closed after it. */
     internal val gradleSessions = mutableListOf<GradleSession>()
+
+    /** The command run sessions of the windows a test created; closed after it. */
+    internal val commandRunSessions = mutableListOf<CommandRunSession>()
 
     /** The background tasks of the windows a test created, the main window's first; closed after it. */
     internal val backgroundTasks = mutableListOf<BackgroundTasks>()
@@ -222,7 +227,8 @@ abstract class MainWindowUiFixture {
             SystemBrowser(),
             remoteSourceCache,
             GitRemotes(git),
-            GradleSession(projectTrust, tasks, terminals).also(gradleSessions::add),
+            GradleSession(projectTrust, CommandRunSession(terminals, tasks).also(commandRunSessions::add))
+                .also(gradleSessions::add),
         )
     }
 

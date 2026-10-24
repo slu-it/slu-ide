@@ -1,6 +1,7 @@
 package dev.sluide.gradle
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.gradle.tasks.GradleProject
 import dev.sluide.gradle.tasks.TaskModel
 import dev.sluide.projecttrust.ProjectTrust
@@ -35,6 +36,12 @@ class GradleSessionTest {
 
     private val store by lazy { SettingsStore(dir.resolve("settings/settings.properties")) }
     private val globalChecks = AtomicInteger()
+    private val runs by lazy {
+        CommandRunSession(
+            Terminals(FontSettings(store, FontSettings.systemDefaults()), TerminalScrollSettings(store)),
+            BackgroundTasks.forTests(),
+        )
+    }
     private val session by lazy {
         GradleSession(
             ProjectTrust(
@@ -42,8 +49,7 @@ class GradleSessionTest {
                 TrustedProjects(dir.resolve("settings/trust.properties")),
                 BackgroundTasks.forTests(),
             ),
-            BackgroundTasks.forTests(),
-            Terminals(FontSettings(store, FontSettings.systemDefaults()), TerminalScrollSettings(store)),
+            runs,
         ) {
             globalChecks.incrementAndGet()
             true
@@ -51,7 +57,10 @@ class GradleSessionTest {
     }
 
     @AfterEach
-    fun close() = session.close()
+    fun close() {
+        session.close()
+        runs.close()
+    }
 
     /** A build in [root] with a root project and `:app`, each with a build file of [name]. */
     private fun model(

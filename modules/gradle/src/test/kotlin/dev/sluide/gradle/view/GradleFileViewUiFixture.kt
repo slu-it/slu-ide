@@ -1,6 +1,7 @@
 package dev.sluide.gradle.view
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.fileviewers.CodeEditors
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.gradle.GradleSession
@@ -88,8 +89,10 @@ abstract class GradleFileViewUiFixture {
     /** The session's background tasks; shown at once, so a test can cancel them. */
     internal val backgroundTasks by lazy { BackgroundTasks.forTests { taskLog += it } }
 
+    private val runSession by lazy { CommandRunSession(terminals, backgroundTasks) }
+
     internal val session by lazy {
-        GradleSession(trust, backgroundTasks, terminals) {
+        GradleSession(trust, runSession) {
             globalChecks.incrementAndGet()
             globalGradle
         }.apply { reviewTrust = { reviews++ } }
@@ -129,6 +132,7 @@ abstract class GradleFileViewUiFixture {
     fun closeViews(robot: FxRobot) {
         robot.interact { views.forEach(GradleFileView::dispose) }
         session.close()
+        runSession.close()
         terminals.close()
         trust.close()
     }

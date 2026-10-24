@@ -13,11 +13,12 @@ javafx {
 dependencies {
     // Deliberate module API dependency: GradleTrustCheck is a ProjectTrustCheck (ADR 0053).
     api(project(":modules:project-trust"))
-    // Deliberate module API dependency: the run and load rows (BackgroundTasks) and NamedThreads in the view, ADRs
-    // 0060, 0061.
-    api(project(":modules:background-tasks"))
-    // Deliberate module dependency: the global gradle check is loginShellFinds, and the view runs Gradle in embedded
-    // terminals.
+    // Deliberate module API dependency: GradleSession takes the window's CommandRunSession, and the view runs tasks and
+    // loads with a CommandRunner in a RunPane (ADR 0088).
+    api(project(":modules:command-runs"))
+    // The session's thread is one of NamedThreads (ADR 0060).
+    implementation(project(":modules:background-tasks"))
+    // Deliberate module dependency: the global gradle check is loginShellFinds.
     implementation(project(":modules:terminal"))
     // Deliberate module API dependency: the viewers of build files are public SourceFileViewers and NamedFileViewers
     // showing a CodeEditor (ADR 0047).

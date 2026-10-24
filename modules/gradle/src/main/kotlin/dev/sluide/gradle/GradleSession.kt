@@ -1,12 +1,10 @@
 package dev.sluide.gradle
 
-import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.backgroundtasks.NamedThreads
-import dev.sluide.gradle.run.StopScheduler
+import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.gradle.tasks.TaskModel
 import dev.sluide.gradle.tasks.extractInitScript
 import dev.sluide.projecttrust.ProjectTrust
-import dev.sluide.terminal.Terminals
 import dev.sluide.terminal.loginShellFinds
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.context.annotation.Scope
@@ -16,7 +14,6 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.ExecutorService
-import java.util.concurrent.TimeUnit
 
 private val log = System.getLogger(GradleSession::class.java.name)
 
@@ -41,21 +38,20 @@ internal class LoadedBuild(
 @Scope("window")
 class GradleSession internal constructor(
     internal val projectTrust: ProjectTrust,
-    internal val backgroundTasks: BackgroundTasks,
-    internal val terminals: Terminals,
+    /** The window's terminals, background tasks and stop thread, which the views' runners use (ADR 0088). */
+    internal val runSession: CommandRunSession,
     private val globalCheck: () -> Boolean,
 ) : AutoCloseable {
     @Autowired
-    constructor(projectTrust: ProjectTrust, backgroundTasks: BackgroundTasks, terminals: Terminals) :
-        this(projectTrust, backgroundTasks, terminals, System.getenv())
+    constructor(projectTrust: ProjectTrust, runSession: CommandRunSession) :
+        this(projectTrust, runSession, System.getenv())
 
     /** For tests: the global check runs `command -v gradle` in the login shell of [environment]. */
     internal constructor(
         projectTrust: ProjectTrust,
-        backgroundTasks: BackgroundTasks,
-        terminals: Terminals,
+        runSession: CommandRunSession,
         environment: Map<String, String>,
-    ) : this(projectTrust, backgroundTasks, terminals, { loginShellFinds("gradle", environment) })
+    ) : this(projectTrust, runSession, { loginShellFinds("gradle", environment) })
 
     /** Opens the trust dialog of the window (Review…); set by the window. */
     var reviewTrust: () -> Unit = {}
@@ -65,16 +61,6 @@ class GradleSession internal constructor(
 
     /** Detection, model lookups and reading task lists, off the FX thread. */
     private val executor: ExecutorService = NamedThreads.single("Gradle")
-
-    /** Fires the delayed kills of stopped runs. */
-    private val stopTimer = NamedThreads.scheduled("Gradle stop")
-
-    /** Stop escalations schedule their kill here. */
-    internal val stopScheduler =
-        StopScheduler { delay, action ->
-            val future = stopTimer.schedule(action, delay.inWholeMilliseconds, TimeUnit.MILLISECONDS)
-            return@StopScheduler { future.cancel(false) }
-        }
 
     private val lock = Any()
     private val builds = mutableMapOf<Path, LoadedBuild>()
@@ -204,7 +190,6 @@ class GradleSession internal constructor(
     override fun close() {
         closed = true
         executor.shutdownNow()
-        stopTimer.shutdownNow()
         listeners.clear()
         val folder = synchronized(lock) { tempFolder.also { tempFolder = null } } ?: return
         try {

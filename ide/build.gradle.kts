@@ -40,6 +40,9 @@ dependencies {
     // Deliberate module dependency: `ide` implements the workflow graph's `RemoteSources` over the git module's remote
     // source cache and registers it as a window service (ADR 0076).
     implementation(project(":modules:github-actions"))
+    // CommandRunSession is a window bean, created per window for GradleSession; the window tests create it, and
+    // MainWindow is to register it as a window service (ADR 0088).
+    implementation(project(":modules:command-runs"))
     // The Gradle view of build files and its window session (ADR 0085).
     implementation(project(":modules:gradle"))
 

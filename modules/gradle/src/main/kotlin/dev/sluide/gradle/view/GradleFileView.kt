@@ -1,5 +1,8 @@
 package dev.sluide.gradle.view
 
+import dev.sluide.commandruns.CommandRunner
+import dev.sluide.commandruns.RunPane
+import dev.sluide.commandruns.stopQuestion
 import dev.sluide.fileviewers.CodeEditor
 import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileViewHost
@@ -46,7 +49,7 @@ internal class GradleFileView(
         private set
 
     val tasks = TaskTreePane()
-    val runPane = RunPane()
+    val runPane = RunPane("Arguments, e.g. --info -x test", "The output of the tasks you run shows here.")
 
     private val gradlePane =
         SplitPane(tasks.node, runPane.node).apply {
@@ -89,7 +92,7 @@ internal class GradleFileView(
     }
 
     private var session: GradleSession? = null
-    var runner: GradleRunner? = null
+    var runner: CommandRunner<GradleJob>? = null
         private set
     private var buildTasks: BuildTasks? = null
 
@@ -110,7 +113,7 @@ internal class GradleFileView(
         tasks.onRun = ::runTasks
         tasks.onRefresh = { buildTasks?.detect(reload = true) }
         tasks.onReview = { session?.reviewTrust?.invoke() }
-        runPane.rerun.setOnAction { runner?.lastTasks?.let { runTasks(it.arguments) } }
+        runPane.rerun.setOnAction { (runner?.last as? GradleJob.Tasks)?.let { runTasks(it.arguments) } }
     }
 
     override val text: String get() = editor.text
@@ -134,7 +137,15 @@ internal class GradleFileView(
 
     private fun attach(session: GradleSession) {
         this.session = session
-        val runner = GradleRunner(session, runPane, { file.parent }, { r, n -> confirmStop(r, n) }, stopGrace)
+        val runner =
+            CommandRunner<GradleJob>(
+                session.runSession,
+                runPane,
+                { file.parent },
+                { running, next -> confirmStop(running, next) },
+                rerunnable = { it is GradleJob.Tasks },
+                grace = stopGrace,
+            )
         this.runner = runner
         activityWrapper.bind(runner.activity)
         val buildTasks = BuildTasks(session, runner, tasks, { file }, { host?.projectFolder }, ::found)

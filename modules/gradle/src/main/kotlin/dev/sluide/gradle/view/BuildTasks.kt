@@ -1,12 +1,14 @@
 package dev.sluide.gradle.view
 
+import dev.sluide.commandruns.CommandRunner
+import dev.sluide.commandruns.RunState
+import dev.sluide.commandruns.StartResult
 import dev.sluide.gradle.GradleSession
 import dev.sluide.gradle.LoadedBuild
 import dev.sluide.gradle.detect.GradleCommand
 import dev.sluide.gradle.detect.GradleInstallation
 import dev.sluide.gradle.detect.GradleLocator
 import dev.sluide.gradle.realPath
-import dev.sluide.gradle.run.RunState
 import dev.sluide.gradle.tasks.ProjectSubtree
 import dev.sluide.gradle.tasks.TaskModel
 import dev.sluide.gradle.trust.GradleTrustCheck
@@ -27,7 +29,7 @@ private val log = System.getLogger(BuildTasks::class.java.name)
  */
 internal class BuildTasks(
     private val session: GradleSession,
-    private val runner: GradleRunner,
+    private val runner: CommandRunner<GradleJob>,
     private val pane: TaskTreePane,
     private val file: () -> Path,
     private val projectFolder: () -> Path?,

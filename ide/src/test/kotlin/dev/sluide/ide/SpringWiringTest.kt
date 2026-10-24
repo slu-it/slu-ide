@@ -1,6 +1,7 @@
 package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
 import dev.sluide.fileexplorer.FileExplorerView
@@ -109,6 +110,7 @@ class SpringWiringTest {
                         GitTrustCheck::class.java,
                         GradleTrustCheck::class.java,
                         GradleSession::class.java,
+                        CommandRunSession::class.java,
                         GradleKotlinFileViewer::class.java,
                         GradleGroovyFileViewer::class.java,
                         TrustedProjects::class.java,
@@ -130,6 +132,7 @@ class SpringWiringTest {
                         GitLogView::class.java,
                         HttpClientSession::class.java,
                         GradleSession::class.java,
+                        CommandRunSession::class.java,
                         ProjectTrust::class.java,
                         BackgroundTasks::class.java,
                     )
