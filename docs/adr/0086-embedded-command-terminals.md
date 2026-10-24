@@ -1,7 +1,7 @@
 # 0086. Embedded terminals that run one command per run
 
 - Status: accepted; amended by [0087](0087-commands-in-an-interactive-login-shell.md) (commands run in an interactive
-  login shell)
+  login shell) and [0088](0088-shared-command-runs.md) (the run machinery is shared in `command-runs`)
 - Date: 2026-10-24
 
 ## Context

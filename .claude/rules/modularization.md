@@ -14,7 +14,7 @@ paths:
   meant for sharing (`settings`, `file-watcher`, `text-editing`, `file-icons`, `project-trust`, `background-tasks`).
   Unrelated feature modules do not depend on each other; `ide` wires them through callbacks. The editor family
   (`editor-area`, `file-viewers`, `previews`, `terminal`, `docker-sandbox`, `http-client`, `github-actions`,
-  `gradle`: what is shown as editor tabs or file views) counts as one capability family.
+  `command-runs`, `gradle`: what is shown as editor tabs or file views) counts as one capability family.
 - When two modules need the same piece of a third, extract it into a small module instead of depending on the whole
   feature module.
 - Every module dependency is listed in the "Module dependencies" table of `docs/architecture.md` (modules and

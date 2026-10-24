@@ -23,7 +23,8 @@ assembled from Gradle modules.
 | `docker-sandbox` | feature | `sbx` (Docker sandboxes) in terminal tabs. | [0010](adr/0010-docker-sandbox.md) |
 | `http-client` | feature | `.http` files: requests run from the editor with environments and auth. | [0025](adr/0025-http-client.md), [0026](adr/0026-http-client-window-session.md) |
 | `github-actions` | feature (library, no Spring beans) | GitHub Actions workflows as Mermaid flowcharts: decodes the bundled workflow parser's JSON (`model`, incl. `uses:` references and matrix counts), follows local reusable workflows and actions within the repository (`resolve`, `RepositoryFiles`; manifests read with SnakeYAML in `actions`) and remote ones in other repositories through the `RemoteSources` interface (`RemoteReader`, `RemoteText`), and draws triggers, jobs, steps, `needs` and nested expansions (`mermaid`); `previews` runs the parser and shows the chart, `ide` implements `RemoteSources`. | [0075](adr/0075-github-actions-workflow-graph.md), [0076](adr/0076-cache-of-remote-action-sources.md) |
-| `gradle` | feature | Gradle builds: finding the wrapper or a global `gradle` (`detect`), the bundled init script and the task model it reads (`tasks`), the project trust check (`trust`), the run state of a view (`run`), the window's `GradleSession` (task lists per build, load claims, stale marks) and the Gradle view of build files with its task tree, run pane, runner and `BuildTasks` (`view`). | [0085](adr/0085-gradle-integration.md) |
+| `command-runs` | feature | The run machinery of views that run one command per run in an embedded terminal: `RunJob` (a run and its texts), `RunState`, the `RunPane` (arguments, status line with Stop and Rerun, terminal slot), `CommandRunner` (one run at a time, the question before stopping, Ctrl+C then kill, background row, tab marker, close warning), the window's `CommandRunSession` (terminals, background tasks, stop thread) and `ShellWords`. | [0088](adr/0088-shared-command-runs.md) |
+| `gradle` | feature | Gradle builds: finding the wrapper or a global `gradle` (`detect`), the bundled init script and the task model it reads (`tasks`), the project trust check (`trust`), the window's `GradleSession` (task lists per build, load claims, stale marks) and the Gradle view of build files with its task tree, its jobs (`GradleJob`) and `BuildTasks` (`view`); runs go through `command-runs`. | [0085](adr/0085-gradle-integration.md), [0088](adr/0088-shared-command-runs.md) |
 | `git` | feature | Git status, diffs, the log's reads and the write operations, behind `GitCli`; the cache of remote repositories to read single files at a ref (`RemoteSourceCache`). | [0013](adr/0013-git-status.md), [0015](adr/0015-git-diff.md), [0041](adr/0041-git-write-operations.md), [0076](adr/0076-cache-of-remote-action-sources.md) |
 | `git-log` | feature | The git area under the editor (user-facing name "Git Log"): log and graph, branches pane, file history, compare, the Commit tab and the Push dialog, and the write operations; `gitlog.data` is the model and reading layer. | [0035](adr/0035-git-log-area.md), [0048](adr/0048-commit-tab.md), [0049](adr/0049-push.md) |
 | `file-explorer` | feature | The file tree of the open folder with file operations. | [0024](adr/0024-file-operations-in-the-explorer.md) |
@@ -38,8 +39,8 @@ assembled from Gradle modules.
 | `ide` | app | Launcher, Spring Boot configuration, main window and its window parts; wires the modules together. | [0002](adr/0002-spring-inside-javafx.md), [0068](adr/0068-window-parts-in-ide.md) |
 
 Feature modules are one IDE capability each. The editor family (`editor-area`, `file-viewers`, `previews`, `terminal`,
-`docker-sandbox`, `http-client`, `github-actions`, `gradle`: what is shown as editor tabs or file views) is one capability
-family, and so are `git` and `git-log` ([ADR 0047](adr/0047-module-dependencies-and-shared-modules.md), amended by
+`docker-sandbox`, `http-client`, `github-actions`, `command-runs`, `gradle`: what is shown as editor tabs or file views)
+is one capability family, and so are `git` and `git-log` ([ADR 0047](adr/0047-module-dependencies-and-shared-modules.md), amended by
 [ADR 0071](adr/0071-editor-area-module.md) and [ADR 0069](adr/0069-previews-module.md)). A member of a family that
 has no UI of its own may be a plain library without Spring beans (`github-actions`, which `previews` shows). Foundation
 modules are small and meant for sharing; they may be plain libraries without Spring beans.
@@ -85,10 +86,14 @@ Every edge between modules, as in the `build.gradle.kts` files
 | `terminal` | `settings` | `api` | Uses the terminal font, stores its scroll settings with `SettingsStore` and adds a `SettingsPage`; `Terminals` takes `FontSettings`. | [0008](adr/0008-settings.md), [0067](adr/0067-feature-settings-in-their-module.md) |
 | `docker-sandbox` | `terminal` | `api` | Sandboxes run in terminal tabs and look `sbx` up in the same login shell (`loginShellFinds`); `api`: `DockerSandbox` takes `Terminals` and `open()` returns an `EditorTab`. | [0010](adr/0010-docker-sandbox.md) |
 | `docker-sandbox` | `background-tasks` | `implementation` | The `sbx` check runs on `NamedThreads`. | [0060](adr/0060-logging-conventions.md) |
+| `command-runs` | `terminal` | `api` | Every run is a fresh `EmbeddedTerminal` from the window's `Terminals`, which `CommandRunSession` takes. | [0086](adr/0086-embedded-command-terminals.md), [0088](adr/0088-shared-command-runs.md) |
+| `command-runs` | `background-tasks` | `api` | Runs are listed as `BackgroundTasks`, which `CommandRunSession` takes; the stop thread is one of `NamedThreads`. | [0061](adr/0061-background-tasks.md), [0088](adr/0088-shared-command-runs.md) |
+| `command-runs` | `file-viewers` | `api` | `CommandRunner.activity` is the `ViewActivity` of the view's tab. | [0088](adr/0088-shared-command-runs.md) |
+| `gradle` | `command-runs` | `api` | Task runs and loads go through a `CommandRunner` in a `RunPane`; `GradleSession` takes the window's `CommandRunSession`; the user's arguments are split and quoted with `ShellWords`. | [0088](adr/0088-shared-command-runs.md) |
 | `gradle` | `file-viewers` | `api` | `build.gradle` and `build.gradle.kts` are shown by public `SourceFileViewer`/`NamedFileViewer`s around the public code editor (`CodeEditors`, `SourceSplit`); `GradleSession` reaches the views through `FileViewHost.windowService`. | [0070](adr/0070-window-services.md), [0085](adr/0085-gradle-integration.md) |
 | `gradle` | `project-trust` | `api` | Gradle runs only in trusted folders; `GradleTrustCheck` is the `ProjectTrustCheck` for a project's wrappers and build scripts. | [0085](adr/0085-gradle-integration.md) |
-| `gradle` | `background-tasks` | `api` | Task loads and runs are listed as `BackgroundTasks` and run on `NamedThreads`. | [0061](adr/0061-background-tasks.md), [0085](adr/0085-gradle-integration.md) |
-| `gradle` | `terminal` | `implementation` | The global `gradle` is looked up in the login shell (`loginShellFinds`); tasks run in embedded terminals. | [0085](adr/0085-gradle-integration.md), [0086](adr/0086-embedded-command-terminals.md) |
+| `gradle` | `background-tasks` | `implementation` | The session's lookups and file work run on `NamedThreads`. | [0060](adr/0060-logging-conventions.md), [0085](adr/0085-gradle-integration.md) |
+| `gradle` | `terminal` | `implementation` | The global `gradle` is looked up in the login shell (`loginShellFinds`). | [0085](adr/0085-gradle-integration.md), [0087](adr/0087-commands-in-an-interactive-login-shell.md) |
 | `http-client` | `file-viewers` | `api` | `.http` files are shown in the public code editor (`CodeEditors`); request bodies and scripts use `Highlighters.forLanguage`; `api`: `HttpFileViewer` and `HttpEnvironmentFileViewer` are public `SourceFileViewer`s. `HttpClientSession` reaches the views through `FileViewHost.windowService`, and `ide` sets whether git would commit a file (`wouldCommit`). | [0005](adr/0005-syntax-highlighting.md), [0026](adr/0026-http-client-window-session.md), [0070](adr/0070-window-services.md) |
 | `http-client` | `background-tasks` | `api` | Response formatting and token requests run on `NamedThreads`; `HttpClientSession` registers long-running work as `BackgroundTasks`, given by its constructor. | [0060](adr/0060-logging-conventions.md), [0061](adr/0061-background-tasks.md) |
 | `git` | `file-watcher` | `api` | The `.git` folder is watched to refresh the status; `GitStatusService` takes the `FileWatcher`. | [0013](adr/0013-git-status.md) |
@@ -107,10 +112,11 @@ Every edge between modules, as in the `build.gradle.kts` files
 | `ide` | `previews` | `implementation` | For the Spring beans only: the previews are `FileViewer`s found by component scan, `ide` imports nothing from them. | [0069](adr/0069-previews-module.md) |
 | `ide` | `background-tasks` | `implementation` | `MainWindow` shows the window's `BackgroundTasks` as a `BackgroundTasksView` under the file explorer and hands the registry to file views through `FileViewHost.windowService`. | [0061](adr/0061-background-tasks.md) |
 | `ide` | `github-actions` | `implementation` | `WindowWorkflowSources` implements `RemoteSources` over `git`'s `RemoteSourceCache` (hosts chosen from the project's origin) and `MainWindow` registers it as a window service. | [0070](adr/0070-window-services.md), [0076](adr/0076-cache-of-remote-action-sources.md) |
+| `ide` | `command-runs` | `implementation` | `CommandRunSession` is a window bean, created per window (for now only as what `GradleSession` takes); the window tests create it and name it in their bean lists; `MainWindow` is to register it as a window service. | [0088](adr/0088-shared-command-runs.md) |
 | `ide` | `scratches` | `implementation` | `WindowScratches` gives the explorer the scratches folder as an `ExplorerRoot`, adds File → New Scratch File…, deletes empty scratches when closed, and keeps scratch-only changes from refreshing the git status. | [0066](adr/0066-scratch-files.md) |
 
 `NamedThreads` and `BackgroundTasks` are two things of `background-tasks`: every consumer above uses `NamedThreads`,
-and `git`, `git-log`, `project-trust` and `http-client` also register tasks. Their constructors expose the registry
+and `git`, `git-log`, `project-trust`, `http-client` and `command-runs` also register tasks. Their constructors expose the registry
 (hence `api`); `previews` gets it through `FileViewHost.windowService` (hence `implementation`).
 
 ### Wiring through `ide`
@@ -137,7 +143,7 @@ Shared build configuration (JDK toolchain, test setup, Spring BOM) is in the roo
    instead ([ADR 0034](adr/0034-project-picker.md)).
 4. Each window gets its own instances of the beans with `@Scope("window")` (`WindowScope`, [ADR 0014](adr/0014-project-windows.md)):
    `MainWindow`, `ProjectService`, `FileExplorerView`, `EditorArea`, `Terminals`, `DockerSandbox`, `GitStatusService`,
-   `GitLogView`, `HttpClientSession`, `ProjectTrust`, `BackgroundTasks`. `MainWindow` coordinates; the integration of each
+   `GitLogView`, `HttpClientSession`, `CommandRunSession`, `GradleSession`, `ProjectTrust`, `BackgroundTasks`. `MainWindow` coordinates; the integration of each
    feature is a window part class in `ide` ([ADR 0068](adr/0068-window-parts-in-ide.md)).
    They are created when the window opens and destroyed (`close()`) when it closes. Singletons must not depend on
    them.
