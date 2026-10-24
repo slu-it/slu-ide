@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The final gate: the full build with UI tests on displays that answer, then the docs index check,
-# the unused imports check.
+# the unused imports check and a report of the test code that breaks docs/testing.md.
 # On Linux it first runs setup-display.sh for a pool of virtual displays (:99 upwards, SLUIDE_UI_DISPLAYS of them,
 # default 8), which repairs left-over or hung ones, so UI tests never fail with "Unable to open DISPLAY" because of a
 # stale one. Gradle hands each module's uiTest a display of its own, so that many modules test in parallel (ADR 0081).
@@ -40,4 +40,6 @@ status=0
 ./gradlew build -q "$@" || status=$?
 "$root/.claude/scripts/check-docs-index.sh" || status=$((status == 0 ? 1 : status))
 "$root/.claude/scripts/check-unused-imports.sh" || status=$((status == 0 ? 1 : status))
+# Report only: the totals line of check-tests.sh, the findings are listed by running it alone.
+"$root/.claude/scripts/check-tests.sh" | tail -n 1 || true
 exit "$status"
