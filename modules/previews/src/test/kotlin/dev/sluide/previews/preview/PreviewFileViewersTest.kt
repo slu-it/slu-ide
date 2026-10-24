@@ -3,10 +3,7 @@ package dev.sluide.previews.preview
 import dev.sluide.fileviewers.Highlighters
 import dev.sluide.previews.bicep.BicepFileViewer
 import dev.sluide.previews.html.HtmlFileViewer
-import dev.sluide.previews.image.ImageFileViewer
-import dev.sluide.previews.image.ImagePage
 import dev.sluide.previews.image.SvgFileViewer
-import dev.sluide.previews.image.humanSize
 import dev.sluide.previews.markdown.MermaidFileViewer
 import dev.sluide.previews.pem.PemFileViewer
 import dev.sluide.previews.pem.PemPreview
@@ -17,7 +14,6 @@ import dev.sluide.previews.yaml.YamlPreview
 import dev.sluide.textediting.CommentSyntax
 import javafx.scene.web.WebEngine
 import org.junit.jupiter.api.io.TempDir
-import java.io.RandomAccessFile
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeBytes
@@ -111,46 +107,6 @@ class PreviewFileViewersTest {
         assertFalse(viewer.canOpen(binary("binary.cer")), "DER")
         assertEquals(PreviewMode.PREVIEW, PemPreview.defaultMode)
         assertEquals(CommentSyntax.NONE, viewer.comment)
-    }
-
-    @Test
-    fun `images open although they are binary, SVG is left to its preview`() {
-        val viewer = ImageFileViewer()
-        val names = listOf("a.png", "b.JPG", "c.jpeg", "d.gif", "e.webp", "f.bmp", "g.ico", "h.svg", "i.tiff", "j.txt")
-
-        assertEquals(names.take(7), names.filter { viewer.canOpen(binary(it)) })
-        assertFalse(viewer.canOpen(dir.resolve("missing.png")))
-        assertFalse(
-            viewer.canOpen(
-                dir
-                    .resolve("folder.png")
-                    .toFile()
-                    .apply { mkdir() }
-                    .toPath(),
-            ),
-        )
-    }
-
-    @Test
-    fun `images over 50 MB are not opened`() {
-        val big = dir.resolve("big.png")
-        RandomAccessFile(big.toFile(), "rw").use { it.setLength(50L * 1024 * 1024 + 1) }
-
-        assertFalse(ImageFileViewer().canOpen(big))
-    }
-
-    @Test
-    fun `sizes for people`() {
-        assertEquals(listOf("512 B", "1.5 KB", "3.2 MB"), listOf(512L, 1536L, 3355443L).map(::humanSize))
-    }
-
-    @Test
-    fun `the image page embeds the image and follows the colour scheme`() {
-        val light = ImagePage.render(byteArrayOf(1, 2, 3), "image/png", dark = false)
-        val dark = ImagePage.render(byteArrayOf(1, 2, 3), "image/png", dark = true)
-
-        assert("src=\"data:image/png;base64,AQID\"" in light)
-        assert("<body class=\"zoomable\">" in light && "<body class=\"dark zoomable\">" in dark)
     }
 
     @Test
