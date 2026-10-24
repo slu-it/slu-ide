@@ -21,3 +21,8 @@ dependencies {
     api(project(":modules:project-trust"))
     implementation(libs.spring.context)
 }
+
+tasks.named<Test>("test") {
+    // The tests mostly wait on git processes, not on the CPU; forks isolate the global log sinks of the tests.
+    maxParallelForks = 3
+}
