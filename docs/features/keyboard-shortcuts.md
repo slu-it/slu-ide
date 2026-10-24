@@ -89,6 +89,14 @@ All previews and images zoom, only while the rendered view has the focus, not in
 | Double-click on a task | Run the selected tasks (the clicked one) |
 | Shift+click, Shortcut+click in the task tree | Select several tasks to run together |
 
+## Shell scripts
+[shell-scripts.md](shell-scripts.md)
+
+| Keys | Action |
+|---|---|
+| Shortcut+Enter in a shell script's source | Run the script |
+| Enter in the script's arguments | Run the script |
+
 ## File explorer
 [file-explorer.md](file-explorer.md)
 

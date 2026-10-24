@@ -40,7 +40,8 @@ the Bicep graph and `BicepParamFileViewer`.
   `DefaultTextFileViewer` is always asked last ([ADR 0004](../adr/0004-file-viewer-selection.md),
   [ADR 0029](../adr/0029-file-name-and-shebang-matching.md), [ADR 0074](../adr/0074-path-matched-file-viewers.md)). Returns `null` if no viewer agrees. Before the
   fallback, a text file without an extension that no viewer opens by name goes to the first viewer opening the
-  interpreter of its shebang (`ShebangViewer`, implemented by every `CodeFileViewer`), see below.
+  interpreter of its shebang (`ShebangViewer`, implemented by every `CodeFileViewer` and by viewers of other modules
+  such as the shell scripts' ([shell-scripts.md](shell-scripts.md))), see below.
 - `DefaultTextFileViewer` shows any text file as plain text in an editable `CodeView` without highlighting. A file is text if its
   first 8 KiB contain no NUL byte and are valid UTF-8 (`isTextFile`); empty files are text, files over 10 MiB are not.
 - Code viewers extend `CodeFileViewer(extensions, highlighter, comment, names, namePatterns, interpreters)` and show
@@ -94,7 +95,7 @@ the Bicep graph and `BicepParamFileViewer`.
   | `LessFileViewer` | `.less` | as CSS; `@variables` as `annotation`, known CSS at-rules stay `keyword` |
   | `SassFileViewer` | `.sass` | indented syntax; without braces the lexer styles every word as `type`, so that is dropped and line rules add properties (`keyword`), `=mixin`/`+mixin`, `$variables` and selector lines (`type`). Known gaps: a property without a space after the colon (`margin:0`) and continuation lines of multi-line values look like selectors; `url(//…)` starts a comment |
   | `SqlFileViewer` | `.sql` | keywords of current dialects (`LIMIT`, `OFFSET`, `RETURNING`, `TRUE`, `IF`, window clauses, …), common data types as `type` and functions (`COUNT`, `coalesce`) as `builtin`, each in upper and lower case; the `.` of `a.id` as `operator`. Known gap: mixed case (`Limit`) only for words the lexer knows (`Select`) |
-  | `ShellFileViewer` | `.sh`, `.bash`, `.zsh`, `.ksh`; `.bashrc`, `.bash_profile`, `.zshrc`, `.zprofile`, `.profile`; shebang `sh`, `bash`, `zsh`, `dash`, `ksh` | variables (`$NAME`, `${1:-x}`, the `NAME` of `NAME=`) as `annotation`, also in strings; the shebang as `comment`; `function` keyword; `local`, `declare`, `source`, … builtins. Known gap: here-document content is lexed as code |
+  | `ShellFileViewer` | the startup files `.bashrc`, `.bash_profile`, `.zshrc`, `.zprofile`, `.profile` (scripts to run, `.sh`, `.bash`, `.zsh`, `.ksh` and shebangs `sh`, `bash`, `zsh`, `dash`, `ksh`, are `ShellScriptFileViewer`'s with the same highlighting, [shell-scripts.md](shell-scripts.md)) | variables (`$NAME`, `${1:-x}`, the `NAME` of `NAME=`) as `annotation`, also in strings; the shebang as `comment`; `function` keyword; `local`, `declare`, `source`, … builtins. Known gap: here-document content is lexed as code |
   | `PowerShellFileViewer` | `.ps1`, `.psm1`, `.psd1`; shebang `pwsh` | variables (`$name`, `$env:PATH`, `${x}`) outside strings as `annotation`; `$true`/`$false`/`$null` keywords in any case; `[string]`, `[int[]]` as `type`, `[CmdletBinding()]` as `annotation`, indexes (`$arr[i]`) plain. Known gap: here-string content is lexed as code |
   | `DockerfileFileViewer` | `Dockerfile`, `Containerfile`, `Dockerfile.*` (not `*.dockerignore`), `*.Dockerfile` | `HEALTHCHECK`, `SHELL` and the `AS` of a build stage (when `AS name` ends the line) as `keyword`; `$VAR`/`${VAR}` outside strings as `annotation`. Known gap: heredocs (`RUN <<EOF`) are plain |
   | `MakefileFileViewer` | `Makefile`, `GNUmakefile`, `.mk` | targets (also `%.o:`) as `type`; `include`, `export`, `override`, `vpath`, … keywords; `$(VAR)`, `${VAR}` and `$@`, `$<`, `$^`, … as `annotation`. Indented with tabs unless `.editorconfig` or the text say otherwise ([text-editing.md](text-editing.md)) |
@@ -170,7 +171,8 @@ the Bicep graph and `BicepParamFileViewer`.
     case-insensitive and with or without the version (`ksh93` as `ksh`, `python3.12` as `python3` and `python`).
   - Viewers whose views can run their file (e.g. shell scripts) implement `RunnableFileViewer`, and their views
     `RunnableFileView` (`run()`, FX thread: shows the output and runs the file, asking first what it needs to ask);
-    meant for the window to offer Run for the files such a viewer opens (not wired yet).
+    the window offers Run in the explorer for the files such a viewer opens, which opens the file's tab and calls
+    `run()` (`WindowScriptRuns` in `ide`, [ADR 0089](../adr/0089-running-shell-scripts.md)).
   - Highlighters: `Highlighters.forLanguage(name)` for embedded code, the named `Highlighters.json`, `xml`, `yaml`,
     `html`, `markdown`, `mermaid`, `bicep`, `groovy`, `kotlin`, `shell`, `cookies` and `pem`, and
     `Highlighters.fenceLanguage(info)` for the language of a code fence.

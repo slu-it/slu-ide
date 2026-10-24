@@ -69,7 +69,10 @@
     is at least one.
   - File actions (`FileAction`: label, optional icon, `appliesTo`, `perform`; set by the window as `fileActions`)
     follow Open. They are listed only when the menu is for exactly one regular file they apply to
-    (`fileActionsFor`), never disabled, and run on that file.
+    (`fileActionsFor`), never disabled, and run on that file. Their icons take the colour of the menu's text
+    (`file-action-icon`), in both themes. The window adds **Run** (play icon) for files whose
+    viewer can run them, e.g. shell scripts: it opens the file's tab and runs it there
+    ([shell-scripts.md](shell-scripts.md)).
   - New File… / New Folder… create an empty entry in the clicked folder or, on the empty area, in the project folder.
     They are enabled for exactly one folder (also a top-level one) or the empty area while a folder is open; disabled
     on a file and for several entries. A new file is opened. Single names only (no `a/b`).

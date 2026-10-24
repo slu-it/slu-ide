@@ -25,6 +25,7 @@ assembled from Gradle modules.
 | `github-actions` | feature (library, no Spring beans) | GitHub Actions workflows as Mermaid flowcharts: decodes the bundled workflow parser's JSON (`model`, incl. `uses:` references and matrix counts), follows local reusable workflows and actions within the repository (`resolve`, `RepositoryFiles`; manifests read with SnakeYAML in `actions`) and remote ones in other repositories through the `RemoteSources` interface (`RemoteReader`, `RemoteText`), and draws triggers, jobs, steps, `needs` and nested expansions (`mermaid`); `previews` runs the parser and shows the chart, `ide` implements `RemoteSources`. | [0075](adr/0075-github-actions-workflow-graph.md), [0076](adr/0076-cache-of-remote-action-sources.md) |
 | `command-runs` | feature | The run machinery of views that run one command per run in an embedded terminal: `RunJob` (a run and its texts), `RunState`, the `RunPane` (arguments, status line with Stop and Rerun, terminal slot), `CommandRunner` (one run at a time, the question before stopping, Ctrl+C then kill, background row, tab marker, close warning), the window's `CommandRunSession` (terminals, background tasks, stop thread) and `ShellWords`. | [0088](adr/0088-shared-command-runs.md) |
 | `gradle` | feature | Gradle builds: finding the wrapper or a global `gradle` (`detect`), the bundled init script and the task model it reads (`tasks`), the project trust check (`trust`), the window's `GradleSession` (task lists per build, load claims, stale marks) and the Gradle view of build files with its task tree, its jobs (`GradleJob`) and `BuildTasks` (`view`); runs go through `command-runs`. | [0085](adr/0085-gradle-integration.md), [0088](adr/0088-shared-command-runs.md) |
+| `shell-scripts` | feature | Shell scripts that run from their view: `ShellScriptFileViewer` (`.sh`, `.bash`, `.zsh`, `.ksh` and shell shebangs; a `RunnableFileViewer`), the view with Run and Source \| Split \| Output, the questions before a run (`ScriptRunFlow`: stop, unsaved changes, execute permission), the command line and the job's texts; runs go through `command-runs`. | [0089](adr/0089-running-shell-scripts.md) |
 | `git` | feature | Git status, diffs, the log's reads and the write operations, behind `GitCli`; the cache of remote repositories to read single files at a ref (`RemoteSourceCache`). | [0013](adr/0013-git-status.md), [0015](adr/0015-git-diff.md), [0041](adr/0041-git-write-operations.md), [0076](adr/0076-cache-of-remote-action-sources.md) |
 | `git-log` | feature | The git area under the editor (user-facing name "Git Log"): log and graph, branches pane, file history, compare, the Commit tab and the Push dialog, and the write operations; `gitlog.data` is the model and reading layer. | [0035](adr/0035-git-log-area.md), [0048](adr/0048-commit-tab.md), [0049](adr/0049-push.md) |
 | `file-explorer` | feature | The file tree of the open folder with file operations. | [0024](adr/0024-file-operations-in-the-explorer.md) |
@@ -39,8 +40,8 @@ assembled from Gradle modules.
 | `ide` | app | Launcher, Spring Boot configuration, main window and its window parts; wires the modules together. | [0002](adr/0002-spring-inside-javafx.md), [0068](adr/0068-window-parts-in-ide.md) |
 
 Feature modules are one IDE capability each. The editor family (`editor-area`, `file-viewers`, `previews`, `terminal`,
-`docker-sandbox`, `http-client`, `github-actions`, `command-runs`, `gradle`: what is shown as editor tabs or file views)
-is one capability family, and so are `git` and `git-log` ([ADR 0047](adr/0047-module-dependencies-and-shared-modules.md), amended by
+`docker-sandbox`, `http-client`, `github-actions`, `command-runs`, `gradle`, `shell-scripts`: what is shown as editor tabs
+or file views) is one capability family, and so are `git` and `git-log` ([ADR 0047](adr/0047-module-dependencies-and-shared-modules.md), amended by
 [ADR 0071](adr/0071-editor-area-module.md) and [ADR 0069](adr/0069-previews-module.md)). A member of a family that
 has no UI of its own may be a plain library without Spring beans (`github-actions`, which `previews` shows). Foundation
 modules are small and meant for sharing; they may be plain libraries without Spring beans.
@@ -94,6 +95,8 @@ Every edge between modules, as in the `build.gradle.kts` files
 | `gradle` | `project-trust` | `api` | Gradle runs only in trusted folders; `GradleTrustCheck` is the `ProjectTrustCheck` for a project's wrappers and build scripts. | [0085](adr/0085-gradle-integration.md) |
 | `gradle` | `background-tasks` | `implementation` | The session's lookups and file work run on `NamedThreads`. | [0060](adr/0060-logging-conventions.md), [0085](adr/0085-gradle-integration.md) |
 | `gradle` | `terminal` | `implementation` | The global `gradle` is looked up in the login shell (`loginShellFinds`). | [0085](adr/0085-gradle-integration.md), [0087](adr/0087-commands-in-an-interactive-login-shell.md) |
+| `shell-scripts` | `file-viewers` | `api` | `ShellScriptFileViewer` is a public `SourceFileViewer`, `ExtensionFileViewer`, `ShebangViewer` and `RunnableFileViewer` around the public code editor (`CodeEditors`, `SourceSplit`); the view gets the window's `CommandRunSession` through `FileViewHost.windowService` and saves through `FileViewHost.save`. | [0070](adr/0070-window-services.md), [0089](adr/0089-running-shell-scripts.md) |
+| `shell-scripts` | `command-runs` | `implementation` | Scripts run with a `CommandRunner` in a `RunPane`; arguments are split and quoted with `ShellWords`. | [0088](adr/0088-shared-command-runs.md), [0089](adr/0089-running-shell-scripts.md) |
 | `http-client` | `file-viewers` | `api` | `.http` files are shown in the public code editor (`CodeEditors`); request bodies and scripts use `Highlighters.forLanguage`; `api`: `HttpFileViewer` and `HttpEnvironmentFileViewer` are public `SourceFileViewer`s. `HttpClientSession` reaches the views through `FileViewHost.windowService`, and `ide` sets whether git would commit a file (`wouldCommit`). | [0005](adr/0005-syntax-highlighting.md), [0026](adr/0026-http-client-window-session.md), [0070](adr/0070-window-services.md) |
 | `http-client` | `background-tasks` | `api` | Response formatting and token requests run on `NamedThreads`; `HttpClientSession` registers long-running work as `BackgroundTasks`, given by its constructor. | [0060](adr/0060-logging-conventions.md), [0061](adr/0061-background-tasks.md) |
 | `git` | `file-watcher` | `api` | The `.git` folder is watched to refresh the status; `GitStatusService` takes the `FileWatcher`. | [0013](adr/0013-git-status.md) |
@@ -112,7 +115,8 @@ Every edge between modules, as in the `build.gradle.kts` files
 | `ide` | `previews` | `implementation` | For the Spring beans only: the previews are `FileViewer`s found by component scan, `ide` imports nothing from them. | [0069](adr/0069-previews-module.md) |
 | `ide` | `background-tasks` | `implementation` | `MainWindow` shows the window's `BackgroundTasks` as a `BackgroundTasksView` under the file explorer and hands the registry to file views through `FileViewHost.windowService`. | [0061](adr/0061-background-tasks.md) |
 | `ide` | `github-actions` | `implementation` | `WindowWorkflowSources` implements `RemoteSources` over `git`'s `RemoteSourceCache` (hosts chosen from the project's origin) and `MainWindow` registers it as a window service. | [0070](adr/0070-window-services.md), [0076](adr/0076-cache-of-remote-action-sources.md) |
-| `ide` | `command-runs` | `implementation` | `CommandRunSession` is a window bean, created per window (for now only as what `GradleSession` takes); the window tests create it and name it in their bean lists; `MainWindow` is to register it as a window service. | [0088](adr/0088-shared-command-runs.md) |
+| `ide` | `command-runs` | `implementation` | `CommandRunSession` is a window bean, created per window, which `GradleSession` takes; `MainWindow` registers it as a window service for the views that run commands (shell scripts); the window tests create it and name it in their bean lists. | [0088](adr/0088-shared-command-runs.md) |
+| `ide` | `shell-scripts` | `implementation` | For the Spring bean only: `ShellScriptFileViewer` is a `FileViewer` found by component scan; the explorer's Run (`WindowScriptRuns`) only needs `RunnableFileViewer`/`RunnableFileView` of `file-viewers`. | [0089](adr/0089-running-shell-scripts.md) |
 | `ide` | `scratches` | `implementation` | `WindowScratches` gives the explorer the scratches folder as an `ExplorerRoot`, adds File → New Scratch File…, deletes empty scratches when closed, and keeps scratch-only changes from refreshing the git status. | [0066](adr/0066-scratch-files.md) |
 
 `NamedThreads` and `BackgroundTasks` are two things of `background-tasks`: every consumer above uses `NamedThreads`,
@@ -130,7 +134,9 @@ nor `file-viewers`: `WindowGitLog` sets its callbacks `onOpenFile` (opened with 
 depend on `file-explorer` or `editor-area`: its markers and diffs reach them through `ide` (`MainWindow`)
 ([ADR 0015](adr/0015-git-diff.md), [ADR 0021](adr/0021-change-markers-and-diffs-on-demand.md)), and which
 `.gitignore` lines have an effect reaches `file-viewers` through the `IgnoreRuleEffects` window service
-([ADR 0080](adr/0080-gitignore-line-effects.md)).
+([ADR 0080](adr/0080-gitignore-line-effects.md)). The explorer's Run for runnable files (`WindowScriptRuns`) asks
+`FileViewers` whether a file's viewer is a `RunnableFileViewer`, opens it with `EditorArea.open` and calls
+`RunnableFileView.run()` on the view from `EditorArea.viewOf` ([ADR 0089](adr/0089-running-shell-scripts.md)).
 
 Shared build configuration (JDK toolchain, test setup, Spring BOM) is in the root `build.gradle.kts`.
 
