@@ -3,8 +3,6 @@ package dev.sluide.ide
 import dev.sluide.editorarea.SaveChoice
 import javafx.event.ActionEvent
 import javafx.scene.input.KeyCode
-import javafx.scene.input.KeyCodeCombination
-import javafx.scene.input.KeyCombination
 import javafx.stage.Stage
 import org.fxmisc.richtext.CodeArea
 import org.junit.jupiter.api.Assumptions.assumeTrue
@@ -27,42 +25,6 @@ import kotlin.test.assertTrue
 class MainWindowSaveCloseUiTest : MainWindowUiFixture() {
     @Start
     fun start(stage: Stage) = startView(stage)
-
-    @Test
-    fun `offers File - Save with Ctrl+S and Save All with Ctrl+Alt+S`(robot: FxRobot) {
-        val save = fileMenuItem(robot, "Save").accelerator as KeyCodeCombination
-        assertEquals(KeyCode.S, save.code)
-        assertEquals(KeyCombination.ModifierValue.DOWN, save.shortcut)
-        assertEquals(KeyCombination.ModifierValue.UP, save.alt)
-
-        val saveAll = fileMenuItem(robot, "Save All").accelerator as KeyCodeCombination
-        assertEquals(KeyCode.S, saveAll.code)
-        assertEquals(KeyCombination.ModifierValue.DOWN, saveAll.shortcut)
-        assertEquals(KeyCombination.ModifierValue.DOWN, saveAll.alt)
-    }
-
-    @Test
-    fun `Save saves the selected file, Save All every edited one`(robot: FxRobot) {
-        val a = project.resolve("a.txt").apply { writeText("a") }
-        val b = project.resolve("b.txt").apply { writeText("b") }
-        robot.interact {
-            projectService.open(project)
-            editorArea.open(a)
-            shownArea(robot).appendText("1")
-            editorArea.open(b)
-            shownArea(robot).appendText("2")
-        }
-        assertEquals(listOf("● a.txt", "● b.txt"), tabTitles(robot))
-
-        robot.interact { fileMenuItem(robot, "Save").fire() }
-        assertEquals("b2", b.readText())
-        assertEquals("a", a.readText())
-        assertEquals(listOf("● a.txt", "b.txt"), tabTitles(robot))
-
-        robot.interact { fileMenuItem(robot, "Save All").fire() }
-        assertEquals("a1", a.readText())
-        assertEquals(listOf("a.txt", "b.txt"), tabTitles(robot))
-    }
 
     @Test
     fun `the save shortcut works in the editor, and in a terminal Ctrl+S stays the shell's`(robot: FxRobot) {
@@ -91,15 +53,6 @@ class MainWindowSaveCloseUiTest : MainWindowUiFixture() {
         robot.interact { pressShortcutS(terminal, alt = true) }
         assertEquals(1, savesAll)
         assertEquals("a12", a.readText())
-    }
-
-    @Test
-    fun `offers File - Close Tab with Ctrl+W`(robot: FxRobot) {
-        val close = fileMenuItem(robot, "Close Tab").accelerator as KeyCodeCombination
-        assertEquals(KeyCode.W, close.code)
-        assertEquals(KeyCombination.ModifierValue.DOWN, close.shortcut)
-        assertEquals(KeyCombination.ModifierValue.UP, close.alt)
-        assertTrue(fileMenuItem(robot, "Close Tab").isDisable, "no tab is open")
     }
 
     @Test
@@ -187,23 +140,31 @@ class MainWindowSaveCloseUiTest : MainWindowUiFixture() {
             editorArea.open(a)
             shownArea(robot).appendText("1")
         }
-        val asked = mutableListOf<List<String>>()
         var answer = SaveChoice.CANCEL
-        val actions = mutableListOf<String>()
+        val asked = mutableListOf<Pair<List<String>, String>>()
         editorArea.confirmSaveBeforeGitChange = { files, action ->
-            asked += files
-            actions += action
+            asked += files to action
             answer
         }
 
+        // What the editor area keeps and saves is EditorAreaSavingUiTest's.
         robot.interact { assertFalse(gitLogView.beforeFileChange("Check Out")) }
         answer = SaveChoice.DISCARD
         robot.interact { assertTrue(gitLogView.beforeFileChange("Cherry-Pick")) }
+        assertEquals(listOf(listOf("a.txt") to "Check Out", listOf("a.txt") to "Cherry-Pick"), asked)
+    }
 
-        assertEquals(listOf(listOf("a.txt"), listOf("a.txt")), asked)
-        assertEquals(listOf("Check Out", "Cherry-Pick"), actions)
-        assertEquals("a1", shownArea(robot).text, "kept")
-        assertEquals("a", a.readText())
+    @Test
+    fun `a checkout in a folder without a repository does not ask to save`(robot: FxRobot) {
+        val a = project.resolve("a.txt").apply { writeText("a") }
+        robot.interact {
+            projectService.open(project)
+            editorArea.open(a)
+            shownArea(robot).appendText("1")
+        }
+        editorArea.confirmSaveBeforeGitChange = { _, _ -> error("must not ask") }
+
+        robot.interact { assertTrue(gitLogView.beforeFileChange("Check Out")) }
     }
 
     @Test

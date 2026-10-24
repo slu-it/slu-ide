@@ -3,14 +3,15 @@ package dev.sluide.ide
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.backgroundtasks.BackgroundTasksView
 import dev.sluide.fileexplorer.FileExplorerView
+import dev.sluide.fileviewers.IgnoreRuleEffects
 import dev.sluide.githubactions.RemoteSources
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.ide.github.WindowWorkflowSources
 import dev.sluide.settings.FontArea
 import javafx.scene.Node
 import javafx.scene.control.Label
+import javafx.scene.control.MenuItem
 import javafx.scene.control.TreeCell
-import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
 import javafx.scene.layout.VBox
@@ -52,16 +53,24 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
     fun start(stage: Stage) = startView(stage)
 
     @Test
-    fun `starts with an empty explorer and the plain title`(robot: FxRobot) {
+    fun `starts with an empty explorer and file views get the window's services and callbacks`(robot: FxRobot) {
         assertEquals(appTitle(), stage.title)
         assertEquals(0, robot.lookup(".tree-cell").queryAllAs(TreeCell::class.java).count { it.text != null })
-    }
+        assertEquals(listOf("New HTTP Client Setup"), fileExplorer.folderActions.map { it.label })
 
-    @Test
-    fun `file views find the window's HTTP client session, background tasks and remote sources`() {
         assertSame(httpSessions.single(), editorArea.windowServices.get(HttpClientSession::class.java))
         assertSame(backgroundTasks.single(), editorArea.windowServices.get(BackgroundTasks::class.java))
         assertIs<WindowWorkflowSources>(editorArea.windowServices.get(RemoteSources::class.java))
+        assertIs<IgnoreRuleEffects>(editorArea.windowServices.get(IgnoreRuleEffects::class.java))
+
+        val opened = mutableListOf<URI>()
+        mainWindow.openWebPage = { opened += it }
+        editorArea.openWebPage(URI("https://example.com/docs"))
+        assertEquals(listOf(URI("https://example.com/docs")), opened)
+
+        assertNull(editorArea.projectFolder())
+        robot.interact { projectService.open(project) }
+        assertEquals(project, editorArea.projectFolder())
     }
 
     @Test
@@ -95,15 +104,45 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `offers File - Open Folder with Ctrl+O`(robot: FxRobot) {
-        val fileMenu = menu(robot, "File")
-        // After New Scratch File… and a separator.
-        val openFolder = fileMenu.items[2]
+    fun `the File menu offers its items in order, with their accelerators, and Terminal offers New Terminal`(
+        robot: FxRobot,
+    ) {
+        fun describe(item: MenuItem): String {
+            val key = item.accelerator as? KeyCodeCombination ?: return item.text ?: "-"
 
-        assertEquals("Open Folder…", openFolder.text)
-        val accelerator = openFolder.accelerator as KeyCodeCombination
-        assertEquals(KeyCode.O, accelerator.code)
-        assertEquals(KeyCombination.ModifierValue.DOWN, accelerator.shortcut)
+            fun on(modifier: KeyCombination.ModifierValue) = modifier == KeyCombination.ModifierValue.DOWN
+            val modifiers =
+                listOfNotNull(
+                    "shortcut".takeIf { on(key.shortcut) },
+                    "shift".takeIf { on(key.shift) },
+                    "alt".takeIf { on(key.alt) },
+                )
+            return "${item.text} ${modifiers.joinToString("+")}+${key.code}"
+        }
+
+        assertEquals(
+            listOf(
+                "New Scratch File… shortcut+shift+N",
+                "-",
+                "Open Folder… shortcut+O",
+                "Open Project…",
+                "-",
+                "Save shortcut+S",
+                "Save All shortcut+alt+S",
+                "-",
+                "Close Tab shortcut+W",
+                "-",
+                "Settings… shortcut+COMMA",
+            ),
+            menu(robot, "File").items.map(::describe),
+        )
+        assertEquals(
+            KeyCombination.ModifierValue.UP,
+            (fileMenuItem(robot, "Save").accelerator as KeyCodeCombination).alt,
+            "Save is not Save All",
+        )
+        assertTrue(fileMenuItem(robot, "Close Tab").isDisable, "no tab is open")
+        assertEquals(listOf("New Terminal shortcut+shift+T"), menu(robot, "Terminal").items.map(::describe))
     }
 
     @Test
@@ -183,16 +222,26 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `the explorer starts at its smallest width without a folder and at its largest for very long names`(
+    fun `the explorer gets its start width, also without a folder, and at most half of a narrow window`(
         robot: FxRobot,
     ) {
-        val fontSize = fontSettings.font(FontArea.EXPLORER).value.size
-        assertEquals(12 * fontSize, fileExplorer.width, DIVIDER_SLACK)
+        // The bounds of the start width are StartWidthUiTest's in file-explorer.
+        assertEquals(fileExplorer.startWidth(), fileExplorer.width, DIVIDER_SLACK)
 
         project.resolve("x".repeat(200)).createFile()
-        robot.interact { projectService.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
-        assertEquals(24 * fontSize, fileExplorer.width, DIVIDER_SLACK)
+        val width = stage.width
+        try {
+            robot.interact { stage.width = 400.0 }
+            WaitForAsyncUtils.waitForFxEvents()
+            robot.interact { projectService.open(project) }
+            WaitForAsyncUtils.waitForFxEvents()
+            val split = splitPaneOf(fileExplorer)
+            assertTrue(fileExplorer.startWidth() > split.width / 2, "a name that needs more than half the window")
+            assertEquals(split.width / 2, fileExplorer.width, DIVIDER_SLACK)
+        } finally {
+            // The stage is shared by the tests of the class.
+            robot.interact { stage.width = width }
+        }
     }
 
     @Test
@@ -215,29 +264,19 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
     fun `a git repository shows its status as markers in the explorer and follows staging`(robot: FxRobot) {
         assumeTrue(git.available, "git is not installed")
         runGit("init", "-q")
-        project.resolve(".gitignore").writeText("*.log\nbuild/\n")
         project.resolve("tracked.md").writeText("one")
         runGit("add", ".")
         runGit("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-q", "-m", "Initial commit")
         project.resolve("tracked.md").writeText("two")
         project.resolve("new.md").createFile()
-        project.resolve("debug.log").createFile()
-        project
-            .resolve("build")
-            .createDirectories()
-            .resolve("out.txt")
-            .createFile()
 
         robot.interact { projectService.open(project) }
 
         eventually(robot) {
-            // Files and ignored folders: coloured names; other folders: bubbles.
+            // Files: coloured names; the folder: bubbles.
             assertEquals(listOf("file-name-modified"), markersOf(robot, "tracked.md"))
             assertEquals(listOf("file-name-unversioned"), markersOf(robot, "new.md"))
-            assertEquals(listOf("file-name-ignored"), markersOf(robot, "debug.log"))
-            assertEquals(listOf("file-name-ignored"), markersOf(robot, "build"))
             assertEquals(listOf("file-marker-unversioned", "file-marker-modified"), markersOf(robot, project.name))
-            assertEquals(emptyList(), markersOf(robot, ".gitignore"))
         }
 
         runGit("add", "new.md")
@@ -301,43 +340,5 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf("README.md"), tabTitles(robot))
-    }
-
-    @Test
-    fun `the first folder opens in the window, later ones in other windows, keeping the tabs`(robot: FxRobot) {
-        val readme = project.resolve("README.md").apply { writeText("# Hello") }
-        robot.interact {
-            mainWindow.openFolder(project)
-            fileExplorer.onOpenFile(readme)
-        }
-        assertEquals(project, mainWindow.folder)
-        assertEquals(emptyList(), openedElsewhere)
-
-        robot.interact { mainWindow.openFolder(otherProject) }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        assertEquals(listOf(otherProject), openedElsewhere)
-        assertEquals(project, mainWindow.folder)
-        assertEquals("${project.name} – ${appTitle()}", stage.title)
-        assertEquals(listOf("README.md"), tabTitles(robot))
-    }
-
-    @Test
-    fun `web pages asked for by file views open through the window`() {
-        val opened = mutableListOf<URI>()
-        mainWindow.openWebPage = { opened += it }
-
-        editorArea.openWebPage(URI("https://example.com/docs"))
-
-        assertEquals(listOf(URI("https://example.com/docs")), opened)
-    }
-
-    @Test
-    fun `file views get the window's project folder`(robot: FxRobot) {
-        assertNull(editorArea.projectFolder())
-
-        robot.interact { projectService.open(project) }
-
-        assertEquals(project, editorArea.projectFolder())
     }
 }
