@@ -5,6 +5,7 @@ import dev.sluide.previews.html.HtmlFileViewer
 import dev.sluide.previews.json.JsonFileViewer
 import dev.sluide.previews.keyPress
 import dev.sluide.previews.markdown.MarkdownFileViewer
+import dev.sluide.previews.scrollEvent
 import javafx.application.ColorScheme
 import javafx.concurrent.Worker
 import javafx.event.Event
@@ -15,8 +16,6 @@ import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.ToggleButton
 import javafx.scene.input.KeyCode
-import javafx.scene.input.ScrollEvent
-import javafx.scene.input.ZoomEvent
 import javafx.scene.layout.HBox
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
@@ -163,35 +162,6 @@ class DocumentZoomUiTest {
         shortcut: Boolean = true,
     ) = fire(webView, keyPress(code, shortcut = shortcut))
 
-    private val shortcutIsMeta = System.getProperty("os.name").startsWith("Mac")
-
-    private fun scroll(
-        deltaY: Double,
-        shortcut: Boolean,
-    ) = ScrollEvent(
-        ScrollEvent.SCROLL,
-        100.0,
-        100.0,
-        100.0,
-        100.0,
-        false,
-        shortcut && !shortcutIsMeta,
-        false,
-        shortcut && shortcutIsMeta,
-        false,
-        false,
-        0.0,
-        deltaY,
-        0.0,
-        deltaY,
-        ScrollEvent.HorizontalTextScrollUnits.NONE,
-        0.0,
-        ScrollEvent.VerticalTextScrollUnits.NONE,
-        0.0,
-        0,
-        null,
-    )
-
     private fun PreviewFileView.scale() = fx { zoom.scale }
 
     private fun PreviewFileView.label() = fx { zoom.level.text }
@@ -217,7 +187,9 @@ class DocumentZoomUiTest {
     private fun PreviewFileView.toolbar() = fx { node.lookup(".preview-toolbar") as HBox }
 
     @Test
-    fun `the controls show and take room in Split and Preview, not in Source`(robot: FxRobot) {
+    fun `the controls show in Split and Preview, not in Source, as three buttons before the mode toggles`(
+        robot: FxRobot,
+    ) {
         forEachKind(robot) { _, view ->
             for (mode in listOf(PreviewMode.SPLIT, PreviewMode.PREVIEW)) {
                 robot.interact { view.mode.set(mode) }
@@ -229,12 +201,8 @@ class DocumentZoomUiTest {
             assertFalse(fx { view.zoom.node.isManaged }, "unmanaged in Source")
             robot.interact { view.mode.set(PreviewMode.SPLIT) }
             assertTrue(fx { view.zoom.node.isVisible })
-        }
-    }
 
-    @Test
-    fun `documents have no Fit and open at 100 percent`(robot: FxRobot) {
-        forEachKind(robot) { _, view ->
+            // Documents have no Fit and open at 100 percent.
             assertNull(view.zoom.fitButton)
             assertFalse(fx { view.zoom.fit })
             assertEquals(3, fx { view.node.lookupAll(".zoom-button").size }, "zoom out, zoom in and 100%")
@@ -249,16 +217,11 @@ class DocumentZoomUiTest {
                 },
             )
             assertZoom(view, 1.0, "100%")
-        }
-    }
 
-    @Test
-    fun `the zoom controls sit after the action buttons and directly before the mode toggles`(robot: FxRobot) {
-        forEachKind(robot) { _, view ->
+            // After the action buttons and directly before the mode toggles.
             val children = fx { view.toolbar().children.toList() }
             val modes = PreviewMode.entries.size
             val index = children.indexOf(view.zoom.node)
-
             assertEquals(children.size - modes - 1, index, "directly before the mode toggles")
             assertEquals(
                 List(modes) { true },
@@ -269,134 +232,43 @@ class DocumentZoomUiTest {
     }
 
     @Test
+    fun `a key, a button and the wheel zoom each preview, whose page sees the scale`(robot: FxRobot) {
+        // The input handling itself is tested in ZoomControlsUiTest; this checks the wiring of each preview.
+        forEachKind(robot) { _, view ->
+            assertTrue(view.key(KeyCode.EQUALS), "consumed")
+            assertZoom(view, 1.25, "125%")
+            view.press(robot, view.zoom.actualSizeButton)
+            assertZoom(view, 1.0, "100%")
+            assertTrue(fire(view.webView, scrollEvent(40.0, shortcut = true)), "consumed")
+            assertZoom(view, 1.1, "110%")
+        }
+    }
+
+    /** Shows [kind]'s preview without waiting for its page: the toolbar does not depend on it. */
+    private fun showAtOnce(
+        robot: FxRobot,
+        kind: Kind,
+    ): PreviewFileView {
+        val file = dir.resolve(kind.name).apply { writeText(kind.content) }
+        val view = fx { kind.open(file) as PreviewFileView }
+        robot.interact { container.children.setAll(view.node) }
+        return view
+    }
+
+    @Test
     fun `the left of the toolbar keeps the buttons of the preview`(robot: FxRobot) {
-        val json = show(robot, kinds[0])
+        val json = showAtOnce(robot, kinds[0])
         val jsonChildren = fx { json.toolbar().children.toList() }
         assertSame(json.folds!!.node, jsonChildren[0], "Collapse and Expand first")
         assertSame(json.copyFormatted!!.node, jsonChildren[1], "then Copy Formatted")
 
-        val markdown = show(robot, kinds[1])
+        val markdown = showAtOnce(robot, kinds[1])
         assertSame(markdown.toc!!.button, fx { markdown.toolbar().children[0] }, "the table of contents first")
 
-        val html = show(robot, kinds[2])
+        val html = showAtOnce(robot, kinds[2])
         val first = fx { html.toolbar().children[0] }
         assertTrue(first is ToggleButton && first.text == "Scripts", "Scripts first")
         assertFalse(html.scripts.get(), "scripts are off by default")
-    }
-
-    @Test
-    fun `Shortcut with equals zooms in, minus twice zooms out, zero shows 100 percent`(robot: FxRobot) {
-        forEachKind(robot) { _, view ->
-            assertTrue(view.key(KeyCode.EQUALS), "consumed")
-            assertZoom(view, 1.25, "125%")
-            assertTrue(view.key(KeyCode.MINUS))
-            assertZoom(view, 1.0, "100%")
-            assertTrue(view.key(KeyCode.MINUS))
-            assertZoom(view, 0.75, "75%")
-            assertTrue(view.key(KeyCode.DIGIT0))
-            assertZoom(view, 1.0, "100%")
-        }
-    }
-
-    @Test
-    fun `Shortcut with plus, numpad plus and numpad minus zoom too`(robot: FxRobot) {
-        forEachKind(robot) { _, view ->
-            view.key(KeyCode.PLUS)
-            assertZoom(view, 1.25, "125%")
-            view.key(KeyCode.ADD)
-            assertZoom(view, 1.5, "150%")
-            view.key(KeyCode.SUBTRACT)
-            assertZoom(view, 1.25, "125%")
-            view.key(KeyCode.NUMPAD0)
-            assertZoom(view, 1.0, "100%")
-        }
-    }
-
-    @Test
-    fun `a key without Shortcut does not zoom`(robot: FxRobot) {
-        forEachKind(robot) { _, view ->
-            view.key(KeyCode.EQUALS, shortcut = false)
-            view.key(KeyCode.MINUS, shortcut = false)
-            assertZoom(view, 1.0, "100%")
-        }
-    }
-
-    @Test
-    fun `Shortcut with 9 changes nothing and is not consumed`(robot: FxRobot) {
-        forEachKind(robot) { _, view ->
-            view.key(KeyCode.EQUALS)
-            assertFalse(view.key(KeyCode.DIGIT9), "not consumed")
-            assertFalse(view.key(KeyCode.NUMPAD9), "not consumed")
-            assertZoom(view, 1.25, "125%")
-            assertFalse(fx { view.zoom.fit })
-        }
-    }
-
-    @Test
-    fun `the keys in the source beside the preview do not zoom`(robot: FxRobot) {
-        forEachKind(robot) { _, view ->
-            val area = view.sourceArea
-            for (code in listOf(KeyCode.EQUALS, KeyCode.PLUS, KeyCode.ADD, KeyCode.MINUS, KeyCode.DIGIT0)) {
-                fire(area, keyPress(code))
-            }
-            assertZoom(view, 1.0, "100%")
-
-            view.key(KeyCode.EQUALS)
-            fire(area, keyPress(KeyCode.MINUS))
-            fire(area, keyPress(KeyCode.DIGIT0))
-            assertZoom(view, 1.25, "125%")
-        }
-    }
-
-    @Test
-    fun `the zoom buttons do what the keys do`(robot: FxRobot) {
-        forEachKind(robot) { _, view ->
-            view.press(robot, view.zoom.zoomInButton)
-            assertZoom(view, 1.25, "125%")
-            view.press(robot, view.zoom.zoomInButton)
-            assertZoom(view, 1.5, "150%")
-            view.press(robot, view.zoom.actualSizeButton)
-            assertZoom(view, 1.0, "100%")
-            view.press(robot, view.zoom.zoomOutButton)
-            view.press(robot, view.zoom.zoomOutButton)
-            assertZoom(view, 0.67, "67%")
-        }
-    }
-
-    @Test
-    fun `Shortcut with the wheel at the web view zooms, a plain wheel does not`(robot: FxRobot) {
-        forEachKind(robot) { _, view ->
-            // The web view scrolls with a plain wheel itself, so whether it is consumed says nothing.
-            fire(view.webView, scroll(40.0, shortcut = false))
-            assertZoom(view, 1.0, "100%")
-
-            assertTrue(fire(view.webView, scroll(40.0, shortcut = true)), "consumed")
-            assertTrue(view.scale() > 1.0, "zoomed in, is ${view.scale()}")
-            assertEquals(view.scale(), view.webZoom(), 1e-9)
-            assertEquals(1.1, view.scale(), 1e-9)
-
-            fire(view.webView, scroll(-40.0, shortcut = true))
-            assertEquals(1.0, view.scale(), 1e-9)
-            assertEquals(1.0, view.webZoom(), 1e-9)
-        }
-    }
-
-    @Test
-    fun `zooming out stops at 10 percent and in at 1600 percent`(robot: FxRobot) {
-        forEachKind(robot) { _, view ->
-            repeat(10) { view.press(robot, view.zoom.zoomOutButton) }
-            assertZoom(view, 0.1, "10%")
-            view.key(KeyCode.MINUS)
-            fire(view.webView, scroll(-4000.0, shortcut = true))
-            assertZoom(view, 0.1, "10%")
-
-            view.key(KeyCode.DIGIT0)
-            repeat(12) { view.press(robot, view.zoom.zoomInButton) }
-            assertZoom(view, 16.0, "1600%")
-            view.key(KeyCode.EQUALS)
-            fire(view.webView, scroll(4000.0, shortcut = true))
-            assertZoom(view, 16.0, "1600%")
-        }
     }
 
     @Test
@@ -440,19 +312,6 @@ class DocumentZoomUiTest {
     fun `a JSON preview lines up with the top line of the source again after a zoom`(robot: FxRobot) {
         val text = (1..400).joinToString(",\n", prefix = "{\n", postfix = "\n}\n") { "  \"key$it\": $it" }
         assertAlignsAfterZoom(robot, "long.json", text, "key400") { JsonFileViewer().open(it) }
-    }
-
-    @Test
-    fun `a pinch zooms and stays within 10 percent and 1600 percent`(robot: FxRobot) {
-        forEachKind(robot) { _, view ->
-            assertTrue(fire(view.webView, pinch(1.5)), "consumed")
-            assertEquals(1.5, view.scale(), 1e-9)
-            assertEquals(1.5, view.webZoom(), 1e-9)
-            fire(view.webView, pinch(0.0001))
-            assertZoom(view, 0.1, "10%")
-            fire(view.webView, pinch(1_000_000.0))
-            assertZoom(view, 16.0, "1600%")
-        }
     }
 
     @Test
@@ -507,24 +366,6 @@ class DocumentZoomUiTest {
         repeat(2) { view.key(KeyCode.MINUS) }
         awaitAligned()
     }
-
-    private fun pinch(factor: Double) =
-        ZoomEvent(
-            ZoomEvent.ZOOM,
-            100.0,
-            100.0,
-            100.0,
-            100.0,
-            false,
-            false,
-            false,
-            false,
-            true,
-            false,
-            factor,
-            factor,
-            null,
-        )
 
     private companion object {
         const val INITIAL = "INITIALMARK"

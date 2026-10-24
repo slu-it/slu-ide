@@ -56,6 +56,22 @@ internal object ZoomSteps {
     fun label(scale: Double): String = "${(scale * 100).roundToInt()}%"
 }
 
+/** What a zoom key (with Shortcut) does. */
+internal enum class ZoomKeyAction { ZOOM_IN, ZOOM_OUT, ACTUAL_SIZE, FIT }
+
+/** The action of Shortcut+[code]; `null` for other keys, and for Fit (Shortcut+9) if the target does not [fits]. */
+internal fun zoomKeyAction(
+    code: KeyCode,
+    fits: Boolean,
+): ZoomKeyAction? =
+    when (code) {
+        KeyCode.PLUS, KeyCode.EQUALS, KeyCode.ADD -> ZoomKeyAction.ZOOM_IN
+        KeyCode.MINUS, KeyCode.SUBTRACT -> ZoomKeyAction.ZOOM_OUT
+        KeyCode.DIGIT0, KeyCode.NUMPAD0 -> ZoomKeyAction.ACTUAL_SIZE
+        KeyCode.DIGIT9, KeyCode.NUMPAD9 -> if (fits) ZoomKeyAction.FIT else null
+        else -> null
+    }
+
 /**
  * The zoom of a [target] (ADR 0033, ADR 0083): a toolbar [node] with zoom out, the [level], zoom in, 100% and, if the
  * target [fits][ZoomTarget.fits], Fit ([fitButton]), and the keys, Shortcut+wheel and pinch on the web view
@@ -178,12 +194,12 @@ internal class ZoomControls(
     private fun onKey(event: KeyEvent) {
         if (!event.isShortcutDown) return
         val action: (() -> Unit)? =
-            when (event.code) {
-                KeyCode.PLUS, KeyCode.EQUALS, KeyCode.ADD -> ::zoomIn
-                KeyCode.MINUS, KeyCode.SUBTRACT -> ::zoomOut
-                KeyCode.DIGIT0, KeyCode.NUMPAD0 -> ::actualSize
-                KeyCode.DIGIT9, KeyCode.NUMPAD9 -> if (target.fits) ::fitToView else null
-                else -> null
+            when (zoomKeyAction(event.code, target.fits)) {
+                ZoomKeyAction.ZOOM_IN -> ::zoomIn
+                ZoomKeyAction.ZOOM_OUT -> ::zoomOut
+                ZoomKeyAction.ACTUAL_SIZE -> ::actualSize
+                ZoomKeyAction.FIT -> ::fitToView
+                null -> null
             }
         if (action != null) {
             action()
