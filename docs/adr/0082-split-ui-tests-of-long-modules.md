@@ -26,10 +26,15 @@ its display. Two tasks can each lease a display of their own.
   now the longest) wait 70 s for a free one, and the build took 4:06. Full build with all tests rerun: 6 displays
   4:06, 7 displays 3:47, 8 displays 3:18, using at most 9.3 GB of 11 GB. Capping the test JVMs' heap at 1 GB did not
   lower that peak, so it is not Java heap.
+- **previews splits at its `preview` package** (amended 2026-10-24, after a test audit had cut duplicated and slow
+  UI tests): `dev.sluide.previews.preview.*` (the shared view, zoom, table of contents and export classes, about
+  67 s) and the format packages (about 68 s). Full build with all tests rerun: 2:51 unsplit, 2:10 to 2:17
+  split (two runs), at most 8.9 GB in use.
 
 ## Consequences
 - The full build takes 3:18 instead of 3:48 minutes. The floor is now previews' UI tests (about 170 s), the next
-  candidate for a split.
+  candidate for a split. With the previews split and the test audit, about 2:15; the floor is git-log's `uiTestPart1`
+  (about 97 s) and the 8 displays.
 - About 1.5 GB of memory stay free on the 11 GB sandbox; a smaller machine sets `SLUIDE_UI_DISPLAYS` lower.
 - Part 2 grows with every new non-view class of git-log; when the parts drift far apart, the pattern moves.
 - On CI's one display the parts run one after the other, as `uiTest` did, so CI time is unchanged.

@@ -11,7 +11,7 @@ with its exception and stack trace up to the test (`testLogging` in the root bui
 `build.gradle.kts` and uses software rendering (`-Dprism.order=sw`). Tests of parallel modules on one display took each
 other's window focus and closed each other's popups, so each running `uiTest` task gets a display of its own from a
 pool (ADR 0081), given as `-Psluide.uiDisplays=:99,:100,…`; without it the pool is just `DISPLAY` and the tasks run
-one at a time (CI). A module whose UI tests would take longest alone (git-log) runs them as two tasks, `uiTestPart1` and
+one at a time (CI). A module whose UI tests would take longest alone (git-log, previews) runs them as two tasks, `uiTestPart1` and
 `uiTestPart2`, split by a class name pattern in the root build's `uiTestSplits` (ADR 0082). `uiTest` still runs all its
 classes and takes `--tests`; `./gradlew build uiTest` would run them twice. `-x uiTest` leaves out the parts too.
 

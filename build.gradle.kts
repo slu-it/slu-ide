@@ -92,7 +92,11 @@ objects.newInstance<BuildEvents>().registry.onTaskCompletion(display)
 // Modules whose UI tests alone would set the build's duration run them as two tasks, on two displays at once
 // (ADR 0082): `uiTestPart1` the classes that match the pattern, `uiTestPart2` all others, so that no new class is left
 // out. `check` runs the two instead of `uiTest`, which still runs all classes, e.g. with `--tests`.
-val uiTestSplits = mapOf(":modules:git-log" to "dev.sluide.gitlog.GitLogView*")
+val uiTestSplits =
+    mapOf(
+        ":modules:git-log" to "dev.sluide.gitlog.GitLogView*",
+        ":modules:previews" to "dev.sluide.previews.preview.*",
+    )
 
 // Shared configuration for every Kotlin module (modules/* and ide).
 subprojects {
