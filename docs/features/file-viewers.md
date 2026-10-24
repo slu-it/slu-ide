@@ -148,7 +148,9 @@ the Bicep graph and `BicepParamFileViewer`.
   as Go to Line does, previews in their source); the workflow graph's boxes use it.
   `windowService(type)` gives the service the window registered under exactly `type` (`WindowServices`), e.g. the
   HTTP client's session, or `null` ([ADR 0026](../adr/0026-http-client-window-session.md),
-  [ADR 0070](../adr/0070-window-services.md)).
+  [ADR 0070](../adr/0070-window-services.md)). `save(file)` saves the open file's editor text as File → Save does
+  (the host shows errors): `true` when the file on disk holds the editor's text (saved now, or nothing was unsaved,
+  or the view is not editable); `false` by default, when the file is not open or saving failed.
 - For viewers of other modules, the root package `dev.sluide.fileviewers` is the API:
   - `CodeEditors.open(file, highlighter, lineComment, blockComment)` (`CodeEditors.kt`) creates the editable code view
     as a `CodeEditor`: `EditableFileView` and `GutterColumns` with `text`, `textProperty`, `onTextChanged` (every
@@ -162,9 +164,15 @@ the Bicep graph and `BicepParamFileViewer`.
     alone, e.g. for a commit's version of a file. Viewers for a location implement `PathFileViewer`
     (`matchesPath`, helper `isInFolders(file, ".github", "workflows")`): they beat every name match but take part only
     at their paths, looked at without the disk, also for a diff's relative name; the type of file stays with
-    `canOpen`/`fileExtensions` ([ADR 0074](../adr/0074-path-matched-file-viewers.md)).
+    `canOpen`/`fileExtensions` ([ADR 0074](../adr/0074-path-matched-file-viewers.md)). Viewers that also open
+    extensionless scripts by their shebang implement `ShebangViewer` (`opensInterpreter(interpreter)`, asked only when
+    no viewer opens the file by name); `interpreterMatches(interpreter, interpreters)` matches as code viewers do,
+    case-insensitive and with or without the version (`ksh93` as `ksh`, `python3.12` as `python3` and `python`).
+  - Viewers whose views can run their file (e.g. shell scripts) implement `RunnableFileViewer`, and their views
+    `RunnableFileView` (`run()`, FX thread: shows the output and runs the file, asking first what it needs to ask);
+    meant for the window to offer Run for the files such a viewer opens (not wired yet).
   - Highlighters: `Highlighters.forLanguage(name)` for embedded code, the named `Highlighters.json`, `xml`, `yaml`,
-    `html`, `markdown`, `mermaid`, `bicep`, `groovy`, `kotlin`, `cookies` and `pem`, and
+    `html`, `markdown`, `mermaid`, `bicep`, `groovy`, `kotlin`, `shell`, `cookies` and `pem`, and
     `Highlighters.fenceLanguage(info)` for the language of a code fence.
     `SyntaxHighlighter`, `HighlightSpan` and `TokenStyle` are public.
   - `BicepResourceGraph.of(text)` gives a Bicep file's resource graph as Mermaid (`mermaid`, `isEmpty`, `note`).

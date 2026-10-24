@@ -36,6 +36,9 @@ object Highlighters {
     /** Kotlin, also Gradle's Kotlin DSL. */
     val kotlin: SyntaxHighlighter = RSyntaxHighlighter.kotlin
 
+    /** Shell scripts (`sh`, `bash`, `zsh`, …). */
+    val shell: SyntaxHighlighter = RSyntaxHighlighter.shell
+
     /** IntelliJ's cookie jar (`http-client.cookies`): its header line as a comment. */
     val cookies: SyntaxHighlighter = RSyntaxHighlighter.cookies
 

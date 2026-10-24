@@ -42,18 +42,6 @@ class FileMatchTest {
     }
 
     @Test
-    fun `matches interpreters with and without their version`() {
-        val match = FileMatch(emptySet(), interpreters = setOf("python", "python3"))
-
-        for (interpreter in listOf("python", "python3", "Python3", "python3.12", "python2", "python2.7")) {
-            assertTrue(match.matchesInterpreter(interpreter), interpreter)
-        }
-        for (interpreter in listOf("bash", "pythonw", "ipython", "py")) {
-            assertFalse(match.matchesInterpreter(interpreter), interpreter)
-        }
-    }
-
-    @Test
     fun `name matches do not look at the shebang`() {
         val match = FileMatch(setOf("py"), interpreters = setOf("python3"))
 

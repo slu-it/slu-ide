@@ -38,19 +38,9 @@ internal class FileMatch(
 
     /**
      * Whether a shebang naming [interpreter] ([shebangInterpreter]) is one of the [interpreters], with or without its
-     * version: `python3.12` is accepted as `python3.12`, `python3` and `python`.
+     * version ([interpreterMatches]).
      */
-    fun matchesInterpreter(interpreter: String): Boolean {
-        val raw = interpreter.lowercase()
-        return raw in interpreters ||
-            raw.replace(MINOR_VERSIONS, "") in interpreters ||
-            raw.replace(VERSION, "") in interpreters
-    }
-
-    private companion object {
-        val MINOR_VERSIONS = Regex("""(\.\d+)+$""")
-        val VERSION = Regex("""\d+(\.\d+)*$""")
-    }
+    fun matchesInterpreter(interpreter: String): Boolean = interpreterMatches(interpreter, interpreters)
 }
 
 /**

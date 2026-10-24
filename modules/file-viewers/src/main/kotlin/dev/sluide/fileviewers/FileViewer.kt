@@ -227,4 +227,11 @@ interface FileViewHost {
         file: Path,
         edit: (String) -> String,
     ): Boolean = false
+
+    /**
+     * Saves the editor text of the open [file] as File → Save does (errors shown by the host); `true` when the file on
+     * disk holds the editor's text (saved now, or nothing was unsaved, or the view is not editable), `false` if the
+     * file is not open or could not be saved, as by default. FX thread.
+     */
+    fun save(file: Path): Boolean = false
 }
