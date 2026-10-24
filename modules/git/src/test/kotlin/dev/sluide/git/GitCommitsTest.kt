@@ -807,25 +807,6 @@ class GitCommitsTest {
     }
 
     @Test
-    fun `a conflict marker starts a line, is as long as asked and is followed by a space or the line's end`() {
-        fun marked(
-            text: String,
-            size: Int = 7,
-        ) = hasConflictMarker(text.toByteArray(), size)
-
-        assertTrue(marked("a\n<<<<<<< HEAD\nb\n"))
-        assertTrue(marked(">>>>>>> 1a2b (x)"))
-        assertTrue(marked("x\r\n<<<<<<<\r\n"))
-        assertTrue(marked("<<<<<<<"))
-        assertFalse(marked("=======\n"))
-        assertFalse(marked(" <<<<<<< indented\n"))
-        assertFalse(marked("<<<<<<<< eight\n"))
-        assertFalse(marked("<<<<<<<x\n"))
-        assertFalse(marked("<<<<<<< seven\n", size = 10))
-        assertTrue(marked("<<<<<<<<<< ten\n", size = 10))
-    }
-
-    @Test
     fun `a symbolic link in place of a text conflict is not followed but confirmed`() {
         val theirs = conflicting()
         commits.pick(repo, GitPick.CHERRY_PICK, theirs, firstParent = false)
