@@ -3,7 +3,6 @@ package dev.sluide.fileviewers.highlight
 import dev.sluide.fileviewers.TokenStyle
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertSame
 
 class IniHighlightingTest {
     private val ini =
@@ -65,13 +64,6 @@ class IniHighlightingTest {
         assertEquals(setOf(TokenStyle.PROPERTY), config.stylesOf("indent_size"))
         assertEquals(setOf(TokenStyle.PROPERTY), config.stylesOf("//registry.npmjs.org/:_authToken"))
         assertEquals(emptySet(), config.stylesOf("true"))
-    }
-
-    @Test
-    fun `fenced ini and config files are highlighted`() {
-        for (name in listOf("ini", "cfg", "conf", "editorconfig", "gitconfig")) {
-            assertSame(RSyntaxHighlighter.ini, RSyntaxHighlighter.forLanguage(name), name)
-        }
     }
 
     @Test

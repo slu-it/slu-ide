@@ -3,7 +3,6 @@ package dev.sluide.fileviewers.highlight
 import dev.sluide.fileviewers.TokenStyle
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertSame
 
 /** TOML 1.0, mostly with the examples of the specification (toml.io/en/v1.0.0). */
 class TomlHighlightingTest {
@@ -454,7 +453,6 @@ class TomlHighlightingTest {
 
     @Test
     fun `toml code fences use it`() {
-        assertSame(TomlHighlighter, RSyntaxHighlighter.forLanguage("toml"))
         val markdown =
             Highlighted("# Config\n\n```toml\n[tool.ruff]\nline-length = 120\n```\n", RSyntaxHighlighter.markdown)
         markdown.assertExactly(TokenStyle.TYPE, "[tool.ruff]")

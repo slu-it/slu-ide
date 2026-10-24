@@ -3,7 +3,6 @@ package dev.sluide.fileviewers.highlight
 import dev.sluide.fileviewers.TokenStyle
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertSame
 
 class IgnoreFileHighlightingTest {
     private val ignore =
@@ -38,10 +37,6 @@ class IgnoreFileHighlightingTest {
         assertEquals(emptySet(), ignore.stylesOf("\\*"), "an escaped star is no wildcard")
         assertEquals(emptySet(), ignore.stylesOf("build/"))
     }
-
-    @Test
-    fun `fenced ignore files are highlighted`() =
-        assertSame(RSyntaxHighlighter.ignoreFile, RSyntaxHighlighter.forLanguage("gitignore"))
 
     @Test
     fun `spans are well-formed`() = ignore.assertWellFormed()

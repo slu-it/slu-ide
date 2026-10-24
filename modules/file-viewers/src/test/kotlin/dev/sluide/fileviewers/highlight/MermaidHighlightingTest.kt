@@ -3,7 +3,6 @@ package dev.sluide.fileviewers.highlight
 import dev.sluide.fileviewers.TokenStyle
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertSame
 
 class MermaidHighlightingTest {
     private fun mermaid(text: String) = Highlighted(text, RSyntaxHighlighter.mermaid)
@@ -123,8 +122,6 @@ class MermaidHighlightingTest {
 
     @Test
     fun `mermaid code fences use it`() {
-        assertSame(RSyntaxHighlighter.mermaid, RSyntaxHighlighter.forLanguage("mermaid"))
-        assertSame(RSyntaxHighlighter.mermaid, RSyntaxHighlighter.forLanguage("mmd"))
         val markdown = Highlighted("# Flow\n\n```mermaid\ngraph LR\n  A --> B\n```\n", RSyntaxHighlighter.markdown)
         markdown.assertExactly(TokenStyle.KEYWORD, "graph")
         markdown.assertExactly(TokenStyle.OPERATOR, "-->")

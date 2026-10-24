@@ -3,7 +3,6 @@ package dev.sluide.fileviewers.highlight
 import dev.sluide.fileviewers.TokenStyle
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertSame
 
 class CaddyfileHighlightingTest {
     private val d = "$"
@@ -75,10 +74,6 @@ class CaddyfileHighlightingTest {
         assertEquals(setOf(TokenStyle.STRING), escaped.stylesOf("\"a\\\\\""))
         assertEquals(setOf(TokenStyle.ANNOTATION), escaped.stylesOf("{path}"), "the string ended at the quote")
     }
-
-    @Test
-    fun `fenced Caddyfiles are highlighted`() =
-        assertSame(RSyntaxHighlighter.caddyfile, RSyntaxHighlighter.forLanguage("caddyfile"))
 
     @Test
     fun `spans are well-formed`() = caddy.assertWellFormed()

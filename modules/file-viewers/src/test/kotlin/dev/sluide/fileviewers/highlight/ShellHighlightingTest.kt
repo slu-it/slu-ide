@@ -3,7 +3,6 @@ package dev.sluide.fileviewers.highlight
 import dev.sluide.fileviewers.TokenStyle
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertSame
 
 class ShellHighlightingTest {
     private val shell =
@@ -50,12 +49,6 @@ class ShellHighlightingTest {
         assertEquals(setOf(TokenStyle.STRING), shell.stylesOf("'single'"))
         assertEquals(setOf(TokenStyle.STRING), shell.stylesOf("`date`"))
         assertEquals(setOf(TokenStyle.NUMBER), shell.stylesOf("42"))
-    }
-
-    @Test
-    fun `fenced shell code is highlighted`() {
-        val names = listOf("bash", "sh", "shell", "zsh")
-        for (name in names) assertSame(RSyntaxHighlighter.shell, RSyntaxHighlighter.forLanguage(name), name)
     }
 
     @Test

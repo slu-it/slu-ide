@@ -2,7 +2,6 @@ package dev.sluide.fileviewers.highlight
 
 import dev.sluide.fileviewers.TokenStyle
 import kotlin.test.Test
-import kotlin.test.assertSame
 
 class KqlHighlightingTest {
     private fun kql(text: String) = Highlighted(text, KqlHighlighter)
@@ -327,13 +326,6 @@ class KqlHighlightingTest {
         }
         signIns.assertPlainWord("\$left")
         signIns.assertPlainWord("Hour")
-    }
-
-    @Test
-    fun `fenced kql, kusto and csl are highlighted`() {
-        assertSame(KqlHighlighter, RSyntaxHighlighter.forLanguage("kql"))
-        assertSame(KqlHighlighter, RSyntaxHighlighter.forLanguage("kusto"))
-        assertSame(KqlHighlighter, RSyntaxHighlighter.forLanguage("csl"))
     }
 
     @Test

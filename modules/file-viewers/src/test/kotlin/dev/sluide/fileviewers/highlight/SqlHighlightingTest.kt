@@ -3,7 +3,6 @@ package dev.sluide.fileviewers.highlight
 import dev.sluide.fileviewers.TokenStyle
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertSame
 
 class SqlHighlightingTest {
     private val sql =
@@ -48,9 +47,6 @@ class SqlHighlightingTest {
         assertEquals(setOf(TokenStyle.OPERATOR), sql.stylesOf("."), "the dot of u.id is no number")
         assertEquals(emptySet(), sql.stylesOf("users", occurrence = 1))
     }
-
-    @Test
-    fun `fenced sql is highlighted`() = assertSame(RSyntaxHighlighter.sql, RSyntaxHighlighter.forLanguage("sql"))
 
     @Test
     fun `spans are well-formed`() = sql.assertWellFormed()

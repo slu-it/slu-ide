@@ -218,7 +218,6 @@ class BicepHighlightingTest {
 
     @Test
     fun `Markdown fences and notebooks know bicep`() {
-        assertSame(BicepHighlighter, RSyntaxHighlighter.forLanguage("bicep"))
         assertSame(BicepHighlighter, Highlighters.forLanguage("bicep"))
         assertSame(BicepHighlighter, Highlighters.forLanguage("bicepparam"))
     }

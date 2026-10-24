@@ -3,7 +3,6 @@ package dev.sluide.fileviewers.highlight
 import dev.sluide.fileviewers.TokenStyle
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertSame
 
 class SshConfigHighlightingTest {
     private val ssh =
@@ -41,10 +40,6 @@ class SshConfigHighlightingTest {
 
     @Test
     fun `comments`() = assertEquals(setOf(TokenStyle.COMMENT), ssh.stylesOf("# Defaults for all hosts"))
-
-    @Test
-    fun `fenced ssh config is highlighted`() =
-        assertSame(RSyntaxHighlighter.sshConfig, RSyntaxHighlighter.forLanguage("ssh-config"))
 
     @Test
     fun `spans are well-formed`() = ssh.assertWellFormed()

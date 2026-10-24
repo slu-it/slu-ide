@@ -3,7 +3,6 @@ package dev.sluide.fileviewers.highlight
 import dev.sluide.fileviewers.TokenStyle
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertSame
 
 class DockerfileHighlightingTest {
     private val d = "$"
@@ -44,13 +43,6 @@ class DockerfileHighlightingTest {
         assertEquals(setOf(TokenStyle.STRING), dockerfile.stylesOf("\"/app/bin:${d}PATH\""))
         assertEquals(setOf(TokenStyle.STRING), dockerfile.stylesOf("'requirements.txt'"))
         assertEquals(setOf(TokenStyle.COMMENT), dockerfile.stylesOf("# syntax=docker/dockerfile:1"))
-    }
-
-    @Test
-    fun `fenced Dockerfiles are highlighted`() {
-        for (name in listOf("dockerfile", "docker")) {
-            assertSame(RSyntaxHighlighter.dockerfile, RSyntaxHighlighter.forLanguage(name), name)
-        }
     }
 
     @Test

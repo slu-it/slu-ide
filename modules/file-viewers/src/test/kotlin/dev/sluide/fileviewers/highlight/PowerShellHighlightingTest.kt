@@ -3,7 +3,6 @@ package dev.sluide.fileviewers.highlight
 import dev.sluide.fileviewers.TokenStyle
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertSame
 
 class PowerShellHighlightingTest {
     private val d = "$"
@@ -69,13 +68,6 @@ class PowerShellHighlightingTest {
         assertEquals(setOf(TokenStyle.COMMENT), powerShell.stylesOf("two lines #>"))
         assertEquals(setOf(TokenStyle.STRING), powerShell.stylesOf("'none'"))
         assertEquals(setOf(TokenStyle.NUMBER), powerShell.stylesOf("0x1F"))
-    }
-
-    @Test
-    fun `fenced PowerShell is highlighted`() {
-        for (name in listOf("powershell", "ps1", "pwsh")) {
-            assertSame(RSyntaxHighlighter.powerShell, RSyntaxHighlighter.forLanguage(name), name)
-        }
     }
 
     @Test

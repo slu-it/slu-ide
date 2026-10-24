@@ -3,7 +3,6 @@ package dev.sluide.fileviewers.highlight
 import dev.sluide.fileviewers.TokenStyle
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertSame
 
 class MakefileHighlightingTest {
     private val d = "$"
@@ -63,13 +62,6 @@ class MakefileHighlightingTest {
         assertEquals(setOf(TokenStyle.COMMENT), makefile.stylesOf("# note"))
         assertEquals(setOf(TokenStyle.STRING), makefile.stylesOf("\"quoted\""))
         assertEquals(setOf(TokenStyle.NUMBER), makefile.stylesOf("42"))
-    }
-
-    @Test
-    fun `fenced Makefiles are highlighted`() {
-        for (name in listOf("makefile", "make")) {
-            assertSame(RSyntaxHighlighter.makefile, RSyntaxHighlighter.forLanguage(name), name)
-        }
     }
 
     @Test

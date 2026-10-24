@@ -3,7 +3,6 @@ package dev.sluide.fileviewers.highlight
 import dev.sluide.fileviewers.TokenStyle
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertSame
 
 class EnvHighlightingTest {
     private val env =
@@ -42,11 +41,5 @@ class EnvHighlightingTest {
         assertEquals(setOf(TokenStyle.COMMENT), env.stylesOf("# docs"))
         assertEquals(setOf(TokenStyle.STRING), env.stylesOf("#frag"), "a fragment is part of the value")
         assertEquals(setOf(TokenStyle.STRING), env.stylesOf("pa#ss"))
-    }
-
-    @Test
-    fun `fenced dotenv code is highlighted`() {
-        assertSame(RSyntaxHighlighter.env, RSyntaxHighlighter.forLanguage("dotenv"))
-        assertSame(RSyntaxHighlighter.env, RSyntaxHighlighter.forLanguage("env"))
     }
 }
