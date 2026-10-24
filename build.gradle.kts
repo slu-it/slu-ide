@@ -114,6 +114,7 @@ subprojects {
             // Versions of Spring and its transitive libraries are managed by the Spring Boot BOM.
             add("implementation", platform(rootProject.libs.spring.boot.dependencies))
             add("testImplementation", rootProject.libs.kotlin.test.junit5)
+            add("testImplementation", rootProject.libs.junit.jupiter.params)
             add("testRuntimeOnly", rootProject.libs.junit.platform.launcher)
         }
 
