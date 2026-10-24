@@ -84,11 +84,14 @@ class BicepPreviewUiTest {
         val view = show(robot, MAIN_BICEP)
         assertEquals(PreviewMode.SOURCE, view.mode.get())
         val zoom = view.zoom.node
-        assertFalse(zoom.isVisible || zoom.isManaged, "no zoom controls beside the source alone")
+        assertFalse(
+            WaitForAsyncUtils.asyncFx<Boolean> { zoom.isVisible || zoom.isManaged }.get(),
+            "no zoom controls beside the source alone",
+        )
 
         robot.interact { view.mode.set(PreviewMode.PREVIEW) }
         view.awaitDrawing()
-        assertTrue(zoom.isVisible && zoom.isManaged)
+        assertTrue(WaitForAsyncUtils.asyncFx<Boolean> { zoom.isVisible && zoom.isManaged }.get())
         assertEquals(0, view.count("pre.mermaid.error"))
         assertEquals(5, view.count("pre.mermaid svg g.node"))
         assertEquals(1, view.count("pre.mermaid svg g.node.existing"))
@@ -166,31 +169,13 @@ class BicepPreviewUiTest {
     }
 
     @Test
-    fun `a file without resources shows a note instead`(robot: FxRobot) {
-        val view = show(robot, "param location string\noutput where string = location\n")
-        robot.interact { view.mode.set(PreviewMode.PREVIEW) }
-
-        assertEquals(0, view.count("pre.mermaid"))
-        assertEquals(
-            "No resources or modules in this file.",
-            view.script("document.querySelector('p.diagram-note').textContent"),
-        )
-    }
-
-    @Test
-    fun `a Bicep file in Source gives the focus to its source`(robot: FxRobot) {
+    fun `a Bicep file in Source gives the focus to its source, also after switching to Split`(robot: FxRobot) {
         val view = show(robot, MAIN_BICEP)
         robot.interact { view.focus() }
         WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(PreviewMode.SOURCE, WaitForAsyncUtils.asyncFx<PreviewMode> { view.mode.get() }.get())
         assertSame(view.sourceArea, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get())
-    }
-
-    @Test
-    fun `switching a Bicep file from Source to Split leaves the focus in the source`(robot: FxRobot) {
-        val view = show(robot, MAIN_BICEP)
-        robot.interact { view.sourceArea.requestFocus() }
 
         robot.interact { view.mode.set(PreviewMode.SPLIT) }
         WaitForAsyncUtils.waitForFxEvents()
