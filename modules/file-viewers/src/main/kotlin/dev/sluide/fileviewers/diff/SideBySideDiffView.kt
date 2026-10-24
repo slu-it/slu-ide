@@ -7,6 +7,7 @@ import dev.sluide.fileviewers.SyntaxHighlighter
 import dev.sluide.fileviewers.TextDiff
 import dev.sluide.fileviewers.alignDiff
 import dev.sluide.fileviewers.code.codeStyleSpans
+import dev.sluide.fileviewers.code.overlayRanges
 import dev.sluide.fileviewers.textLines
 import javafx.application.Platform
 import javafx.beans.value.ChangeListener
@@ -325,27 +326,11 @@ internal class SideBySideDiffView(
                     val tokens =
                         highlighted?.subView(lineStarts[line], lineStarts[line] + length)
                             ?: StyleSpans.singleton<Collection<String>>(emptyList(), length)
-                    val styles = changedWords[line]?.let { tokens.overlay(wordSpans(it, length)) { a, b -> a + b } }
+                    val styles = changedWords[line]?.let { overlayRanges(tokens, it) { listOf(CHANGED_WORDS_STYLE) } }
                     (styles ?: tokens).forEach { builder.add(it.style, it.length) }
                 }
                 if (index < rows.lastIndex) builder.add(emptyList(), 1)
             }
-            return builder.create()
-        }
-
-        /** [CHANGED_WORDS_STYLE] on the column ranges [words] of a line of [length] characters. */
-        private fun wordSpans(
-            words: List<IntRange>,
-            length: Int,
-        ): StyleSpans<Collection<String>> {
-            val builder = StyleSpansBuilder<Collection<String>>()
-            var column = 0
-            for (word in words) {
-                if (word.first > column) builder.add(emptyList(), word.first - column)
-                builder.add(listOf(CHANGED_WORDS_STYLE), word.last + 1 - word.first)
-                column = word.last + 1
-            }
-            if (length > column) builder.add(emptyList(), length - column)
             return builder.create()
         }
     }

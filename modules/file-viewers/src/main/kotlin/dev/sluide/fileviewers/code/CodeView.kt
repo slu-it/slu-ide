@@ -36,7 +36,6 @@ import org.fxmisc.flowless.VirtualizedScrollPane
 import org.fxmisc.richtext.CodeArea
 import org.fxmisc.richtext.model.PlainTextChange
 import org.fxmisc.richtext.model.StyleSpans
-import org.fxmisc.richtext.model.StyleSpansBuilder
 import org.fxmisc.richtext.model.TwoDimensional
 import org.fxmisc.richtext.util.UndoUtils
 import org.fxmisc.wellbehaved.event.Nodes
@@ -537,19 +536,7 @@ internal class CodeView(
     private fun withMasks(
         text: String,
         spans: StyleSpans<Collection<String>>,
-    ): StyleSpans<Collection<String>> {
-        val ranges = maskedRanges?.invoke(text).orEmpty()
-        if (ranges.isEmpty()) return spans
-        val builder = StyleSpansBuilder<Collection<String>>()
-        var position = 0
-        for (range in ranges) {
-            if (range.first > position) builder.add(emptyList(), range.first - position)
-            builder.add(listOf(MASKED), range.last + 1 - range.first)
-            position = range.last + 1
-        }
-        if (spans.length() > position) builder.add(emptyList(), spans.length() - position)
-        return spans.overlay(builder.create()) { token, mask -> if (mask.isEmpty()) token else token + mask }
-    }
+    ): StyleSpans<Collection<String>> = overlayRanges(spans, maskedRanges?.invoke(text).orEmpty()) { listOf(MASKED) }
 }
 
 /** A file's content as read, [raw] with its line endings; not [valid] UTF-8 if it shows replacement characters. */

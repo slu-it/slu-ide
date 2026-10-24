@@ -24,7 +24,6 @@ import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
 import org.fxmisc.richtext.CodeArea
 import org.fxmisc.richtext.model.StyleSpans
-import org.fxmisc.richtext.model.StyleSpansBuilder
 import org.fxmisc.wellbehaved.event.EventPattern.keyPressed
 import org.fxmisc.wellbehaved.event.InputMap
 import org.kordamp.ikonli.Ikon
@@ -387,18 +386,8 @@ internal class FindBar(
     }
 
     /** [spans] with the match styles added. */
-    private fun withMatches(spans: StyleSpans<Collection<String>>): StyleSpans<Collection<String>> {
-        if (matches.isEmpty()) return spans
-        val builder = StyleSpansBuilder<Collection<String>>()
-        var position = 0
-        matches.forEachIndexed { index, match ->
-            if (match.first > position) builder.add(emptyList(), match.first - position)
-            builder.add(if (index == current) CURRENT_MATCH else MATCH, match.last + 1 - match.first)
-            position = match.last + 1
-        }
-        if (spans.length() > position) builder.add(emptyList(), spans.length() - position)
-        return spans.overlay(builder.create()) { token, search -> if (search.isEmpty()) token else token + search }
-    }
+    private fun withMatches(spans: StyleSpans<Collection<String>>): StyleSpans<Collection<String>> =
+        overlayRanges(spans, matches) { index -> if (index == current) CURRENT_MATCH else MATCH }
 
     private fun optionButton(
         text: String,
