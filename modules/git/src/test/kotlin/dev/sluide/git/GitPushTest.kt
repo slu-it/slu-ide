@@ -665,7 +665,10 @@ class GitPushTest {
     @Test
     fun `a push stopped by its timeout may have reached the remote and says so`() {
         val script = folder.resolve("slow-git")
-        script.writeText(FAKE_GIT_START + "echo 'Writing objects: 100%' >&2\nexec sleep 30\n")
+        script.writeText(
+            FAKE_GIT_START +
+                "case \"\$*\" in *config*) exit 1;; esac\necho 'Writing objects: 100%' >&2\nexec sleep 30\n",
+        )
         script.toFile().setExecutable(true)
         val fake = GitCli(script.toString(), testGitEnvironment())
         assumeTrue(fake.available, "no /bin/sh to stand in for git")
