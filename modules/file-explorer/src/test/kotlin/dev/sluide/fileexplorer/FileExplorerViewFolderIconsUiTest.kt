@@ -141,6 +141,10 @@ class FileExplorerViewFolderIconsUiTest {
 
         expand(robot, "pdir")
         assertIcon(robot, "pdir", FileIcon.FOLDER_OPEN)
+
+        robot.interact { item("pdir").isExpanded = false }
+        WaitForAsyncUtils.waitForFxEvents()
+        assertIcon(robot, "pdir", FileIcon.FOLDER)
     }
 
     @Test

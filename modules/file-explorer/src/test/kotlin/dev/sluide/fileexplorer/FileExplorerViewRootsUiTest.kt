@@ -212,17 +212,12 @@ class FileExplorerViewRootsUiTest {
             assertTrue(menuItemFor(robot, cellNamed(robot, name), "Rename…").isDisable, name)
             assertTrue(menuItemFor(robot, cellNamed(robot, name), "Delete…").isDisable, name)
         }
+        // The empty area stands for the opened folder.
+        assertTrue(menuItemFor(robot, view, "Rename…").isDisable)
+        assertTrue(menuItemFor(robot, view, "Delete…").isDisable)
         val file = cellNamed(robot, "s.txt")
         assertFalse(menuItemFor(robot, file, "Rename…").isDisable)
         assertFalse(menuItemFor(robot, file, "Delete…").isDisable)
-    }
-
-    @Test
-    fun `the empty area enables New File when there is a project`(robot: FxRobot) {
-        openBoth(robot)
-
-        assertFalse(menuItemFor(robot, view, "New File…").isDisable)
-        assertFalse(menuItemFor(robot, view, "New Folder…").isDisable)
     }
 
     @Test
@@ -237,20 +232,6 @@ class FileExplorerViewRootsUiTest {
         WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf("a.txt", "p.txt"), view.projectNode.children.map { it.value.name })
-        assertEquals(listOf("s.txt"), scratchesItem().children.map { it.value.name })
-    }
-
-    @Test
-    fun `F5 refreshes both roots`(robot: FxRobot) {
-        openBoth(robot)
-        robot.interact { scratchesItem().isExpanded = true }
-        WaitForAsyncUtils.waitForFxEvents()
-        scratches.resolve("s.txt").createFile()
-
-        robot.interact { view.requestFocus() }
-        robot.press(KeyCode.F5).release(KeyCode.F5)
-        WaitForAsyncUtils.waitForFxEvents()
-
         assertEquals(listOf("s.txt"), scratchesItem().children.map { it.value.name })
     }
 
@@ -359,6 +340,7 @@ class FileExplorerViewRootsUiTest {
         WaitForAsyncUtils.waitForFxEvents()
 
         assertTrue(menuItemFor(robot, view, "New File…").isDisable)
+        assertTrue(menuItemFor(robot, view, "New Folder…").isDisable)
         assertFalse(menuItemFor(robot, cellNamed(robot, "Scratches"), "New File…").isDisable)
     }
 

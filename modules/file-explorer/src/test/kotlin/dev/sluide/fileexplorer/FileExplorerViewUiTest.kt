@@ -135,21 +135,6 @@ class FileExplorerViewUiTest {
     }
 
     @Test
-    fun `requests opening files but not folders`(robot: FxRobot) {
-        val file = project.resolve("a.txt").createFile()
-        val folder = project.resolve("sub").createDirectories()
-        val requested = mutableListOf<Path>()
-        view.onOpenFile = { requested.add(it) }
-
-        robot.interact {
-            assertTrue(view.requestOpen(file))
-            assertFalse(view.requestOpen(folder))
-        }
-
-        assertEquals(listOf(file), requested)
-    }
-
-    @Test
     fun `Enter on a selected file requests opening it`(robot: FxRobot) {
         val file = project.resolve("a.txt").createFile()
         val requested = mutableListOf<Path>()
@@ -245,7 +230,7 @@ class FileExplorerViewUiTest {
     }
 
     @Test
-    fun `Refresh in the context menu re-reads loaded folders`(robot: FxRobot) {
+    fun `Refresh in the context menu and F5 re-read loaded folders`(robot: FxRobot) {
         // Without working watches, only a manual refresh can show the new file.
         val unwatched = FileWatcher(Platform::runLater, 50.milliseconds).apply { close() }
         lateinit var manual: FileExplorerView
@@ -259,27 +244,14 @@ class FileExplorerViewUiTest {
         val refresh = manual.contextMenu.items.single { it.text == "Refresh" }
         robot.interact { refresh.fire() }
         WaitForAsyncUtils.waitForFxEvents()
-
         assertEquals(listOf(project.name, "late.txt"), renderedNames(robot))
-    }
 
-    @Test
-    fun `F5 refreshes`(robot: FxRobot) {
-        val unwatched = FileWatcher(Platform::runLater, 50.milliseconds).apply { close() }
-        lateinit var manual: FileExplorerView
-        robot.interact {
-            manual = FileExplorerView(unwatched, fontSettings)
-            view.scene.root = manual
-            manual.open(project)
-        }
-        project.resolve("late.txt").createFile()
-
+        project.resolve("later.txt").createFile()
         robot.interact {
             Event.fireEvent(manual, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.F5, false, false, false, false))
         }
         WaitForAsyncUtils.waitForFxEvents()
-
-        assertEquals(listOf(project.name, "late.txt"), renderedNames(robot))
+        assertEquals(listOf(project.name, "late.txt", "later.txt"), renderedNames(robot))
     }
 
     @Test
@@ -391,6 +363,7 @@ class FileExplorerViewUiTest {
         // The empty area below the entries stands for the opened folder.
         name = "top"
         val inProject = menuItemFor(robot, view, "New Folder…")
+        assertFalse(inProject.isDisable)
         robot.interact { inProject.fire() }
         WaitForAsyncUtils.waitForFxEvents()
         assertTrue(Files.isDirectory(project.resolve("top")))
@@ -414,15 +387,6 @@ class FileExplorerViewUiTest {
             assertEquals(project.resolve("a"), view.selectionModel.selectedItem?.value)
             assertEquals(project.resolve("a"), view.focusModel.focusedItem?.value)
         }
-    }
-
-    @Test
-    fun `New File and New Folder are disabled without an opened folder`(robot: FxRobot) {
-        val newFile = menuItemFor(robot, view, "New File…")
-        val newFolder = view.contextMenu.items.single { it.text == "New Folder…" }
-
-        assertTrue(newFile.isDisable)
-        assertTrue(newFolder.isDisable)
     }
 
     @Test
@@ -497,15 +461,6 @@ class FileExplorerViewUiTest {
 
         assertEquals(listOf("a.txt"), asked)
         assertTrue(project.resolve("a.txt").exists())
-    }
-
-    @Test
-    fun `Rename is disabled for the opened folder and the empty area`(robot: FxRobot) {
-        robot.interact { view.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        assertTrue(menuItemFor(robot, cellNamed(robot, project.name), "Rename…").isDisable)
-        assertTrue(menuItemFor(robot, view, "Rename…").isDisable)
     }
 
     @Test
@@ -709,18 +664,14 @@ class FileExplorerViewUiTest {
             Event.fireEvent(view, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.BACK_SPACE, false, true, false, true))
             view.selectOnly(view.projectNode)
             pressKey(KeyCode.DELETE)
+            // The opened folder among several entries: nothing is deleted either.
+            view.selectOnly(view.projectNode.children.first())
+            view.selectionModel.select(view.projectNode)
+            pressKey(KeyCode.DELETE)
+            Event.fireEvent(view, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.BACK_SPACE, false, true, false, true))
         }
 
         assertEquals(listOf("Delete the file “a.txt”?", "Delete the file “b.txt”?"), asked)
-    }
-
-    @Test
-    fun `Delete is disabled for the opened folder and the empty area`(robot: FxRobot) {
-        robot.interact { view.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        assertTrue(menuItemFor(robot, cellNamed(robot, project.name), "Delete…").isDisable)
-        assertTrue(menuItemFor(robot, view, "Delete…").isDisable)
     }
 
     /** Repeats [assertion] on the FX thread until it passes; the JDK may poll for file changes on macOS. */
@@ -755,7 +706,7 @@ class FileExplorerViewUiTest {
         robot.interact { view.open(project) }
         WaitForAsyncUtils.waitForFxEvents()
 
-        robot.interact { fontSettings.apply(mapOf(FontArea.EXPLORER to FontSpec("Serif", 19.0, FontStyle.BOLD))) }
+        robot.interact { fontSettings.apply(mapOf(FontArea.EXPLORER to FontSpec("Serif", 20.0, FontStyle.BOLD))) }
         WaitForAsyncUtils.waitForFxEvents()
 
         val cell =
@@ -763,7 +714,9 @@ class FileExplorerViewUiTest {
                 .lookup(".tree-cell")
                 .queryAllAs(TreeCell::class.java)
                 .first { it.text == "README.md" }
-        assertEquals(19.0, cell.font.size)
+        assertEquals(20.0, cell.font.size)
+        // The icons are larger than the text, Material Design icons leave a margin.
+        robot.interact { assertEquals(25, iconOf(robot, "README.md").iconSize) }
         assertEquals("Serif", cell.font.family)
         assertTrue("Bold" in cell.font.style, cell.font.style)
     }
@@ -961,21 +914,6 @@ class FileExplorerViewUiTest {
     }
 
     @Test
-    fun `the folder icon opens and closes with the folder`(robot: FxRobot) {
-        project.resolve("sub").createDirectories()
-        robot.interact { view.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        robot.interact { view.projectNode.isExpanded = false }
-        WaitForAsyncUtils.waitForFxEvents()
-        robot.interact { assertEquals(FileIcon.FOLDER.ikon, iconOf(robot, project.name).iconCode) }
-
-        robot.interact { view.projectNode.isExpanded = true }
-        WaitForAsyncUtils.waitForFxEvents()
-        robot.interact { assertEquals(FileIcon.FOLDER_OPEN.ikon, iconOf(robot, project.name).iconCode) }
-    }
-
-    @Test
     fun `a file that changes on disk is checked again`(robot: FxRobot) {
         val file = project.resolve("data")
         file.writeBytes(byteArrayOf(0, 1, 2))
@@ -1010,16 +948,6 @@ class FileExplorerViewUiTest {
         WaitForAsyncUtils.waitForFxEvents()
 
         robot.interact { assertEquals(FileIcon.TEXT.ikon, iconOf(robot, "data").iconCode) }
-    }
-
-    @Test
-    fun `icons are sized to the explorer font`(robot: FxRobot) {
-        project.resolve("README.md").createFile()
-        robot.interact { view.open(project) }
-        robot.interact { fontSettings.apply(mapOf(FontArea.EXPLORER to FontSpec("Serif", 20.0))) }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        robot.interact { assertEquals(25, iconOf(robot, "README.md").iconSize) }
     }
 
     @Test

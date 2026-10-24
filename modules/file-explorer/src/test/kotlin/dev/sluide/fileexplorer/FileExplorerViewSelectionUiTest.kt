@@ -273,85 +273,6 @@ class FileExplorerViewSelectionUiTest {
     }
 
     @Test
-    fun `the items are enabled by the entries the menu is for`(robot: FxRobot) {
-        layout()
-        open(robot)
-        val file = cellNamed(robot, "a.txt")
-        val folder = cellNamed(robot, "dir")
-        val top = cellNamed(robot, project.fileName.toString())
-
-        // A file: Open, Rename and Delete, but nothing is created beside it.
-        assertEquals(
-            listOf(false, true, true, false, false),
-            listOf(
-                "Open",
-                "New File…",
-                "New Folder…",
-                "Rename…",
-                "Delete…",
-            ).map { menuItemFor(robot, file, it).isDisable },
-        )
-        // A folder.
-        assertEquals(
-            listOf(true, false, false, false, false),
-            listOf(
-                "Open",
-                "New File…",
-                "New Folder…",
-                "Rename…",
-                "Delete…",
-            ).map { menuItemFor(robot, folder, it).isDisable },
-        )
-        // A top-level folder: creating only.
-        assertEquals(
-            listOf(true, false, false, true, true),
-            listOf(
-                "Open",
-                "New File…",
-                "New Folder…",
-                "Rename…",
-                "Delete…",
-            ).map { menuItemFor(robot, top, it).isDisable },
-        )
-        // The empty area stands for the project folder.
-        assertEquals(
-            listOf(true, false, false, true, true),
-            listOf(
-                "Open",
-                "New File…",
-                "New Folder…",
-                "Rename…",
-                "Delete…",
-            ).map { menuItemFor(robot, view, it).isDisable },
-        )
-        // Several entries, the keyboard opening the menu for the selection.
-        select(robot, "a.txt", "dir")
-        assertEquals(
-            listOf(false, true, true, true, false),
-            listOf("Open", "New File…", "New Folder…", "Rename…", "Delete…").map {
-                menuItemFor(robot, view, it, keyboard = true).isDisable
-            },
-        )
-        // One of them top-level: no Delete.
-        select(robot, "a.txt", project.fileName.toString())
-        assertTrue(menuItemFor(robot, view, "Delete…", keyboard = true).isDisable)
-        assertFalse(menuItemFor(robot, view, "Refresh", keyboard = true).isDisable)
-    }
-
-    @Test
-    fun `folder actions follow New File and are disabled on a file`(robot: FxRobot) {
-        layout()
-        view.folderActions = listOf(FolderAction("Do it") { FolderActionResult(null) })
-        open(robot)
-
-        assertTrue(menuItemFor(robot, cellNamed(robot, "a.txt"), "Do it").isDisable)
-        assertFalse(menuItemFor(robot, cellNamed(robot, "dir"), "Do it").isDisable)
-        assertFalse(menuItemFor(robot, view, "Do it").isDisable)
-        select(robot, "dir", "a.txt")
-        assertTrue(menuItemFor(robot, view, "Do it", keyboard = true).isDisable)
-    }
-
-    @Test
     fun `Open opens every selected file in row order and skips folders`(robot: FxRobot) {
         layout()
         open(robot)
@@ -414,17 +335,5 @@ class FileExplorerViewSelectionUiTest {
         assertEquals(listOf(files[0]), deleted[1].second)
         assertFalse(project.resolve("dir").exists())
         robot.interact { assertEquals(listOf("b.txt"), selectedNames()) }
-    }
-
-    @Test
-    fun `Delete does nothing when a selected entry is top-level`(robot: FxRobot) {
-        layout()
-        open(robot)
-        select(robot, "a.txt", project.fileName.toString())
-
-        robot.interact { pressKey(KeyCode.DELETE) }
-        robot.interact { pressKey(KeyCode.BACK_SPACE, shortcut = true) }
-
-        assertEquals(emptyList(), questions)
     }
 }

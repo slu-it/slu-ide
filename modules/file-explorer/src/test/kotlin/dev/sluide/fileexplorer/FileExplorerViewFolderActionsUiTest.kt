@@ -76,11 +76,12 @@ class FileExplorerViewFolderActionsUiTest {
     private fun menuTexts(
         robot: FxRobot,
         node: Node,
+        keyboard: Boolean = false,
     ): List<String?> {
         robot.interact {
             Event.fireEvent(
                 node,
-                ContextMenuEvent(ContextMenuEvent.CONTEXT_MENU_REQUESTED, 1.0, 1.0, 1.0, 1.0, false, null),
+                ContextMenuEvent(ContextMenuEvent.CONTEXT_MENU_REQUESTED, 1.0, 1.0, 1.0, 1.0, keyboard, null),
             )
         }
         WaitForAsyncUtils.waitForFxEvents()
@@ -93,8 +94,9 @@ class FileExplorerViewFolderActionsUiTest {
         robot: FxRobot,
         node: Node,
         label: String,
+        keyboard: Boolean = false,
     ): MenuItem {
-        menuTexts(robot, node)
+        menuTexts(robot, node, keyboard)
         return view.contextMenu.items.single { it.text == label }
     }
 
@@ -137,13 +139,6 @@ class FileExplorerViewFolderActionsUiTest {
     }
 
     @Test
-    fun `the items are disabled without an opened folder`(robot: FxRobot) {
-        view.folderActions = listOf(action { FolderActionResult(null) })
-
-        assertTrue(actionItem(robot, view, "Do it").isDisable)
-    }
-
-    @Test
     fun `the action runs on the clicked folder or the opened folder, and is disabled on a file`(robot: FxRobot) {
         openProject(robot)
         robot.interact {
@@ -159,5 +154,17 @@ class FileExplorerViewFolderActionsUiTest {
         fireAction(robot, view)
 
         assertEquals(listOf(project.resolve("sub"), project), ranOn)
+        // Several entries are no folder.
+        robot.interact {
+            view.selectionModel.clearSelection()
+            view.selectionModel.select(view.projectNode.children.single())
+            view.selectionModel.select(
+                view.projectNode.children
+                    .single()
+                    .children
+                    .single(),
+            )
+        }
+        assertTrue(actionItem(robot, view, "Do it", keyboard = true).isDisable)
     }
 }
