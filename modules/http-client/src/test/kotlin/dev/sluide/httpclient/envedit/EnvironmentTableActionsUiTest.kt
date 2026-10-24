@@ -10,6 +10,7 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -285,5 +286,122 @@ internal class EnvironmentTableActionsUiTest : EnvironmentFileViewUiFixture() {
 
         assertTrue("\"prod\": {\n    \"a\": \"y\"" in view.text, view.text)
         assertNull(view.form.tree.editingCell)
+    }
+
+    private fun EnvironmentFileView.texts(
+        entry: EnvEntry,
+        env: String?,
+    ) = form.menuItems(entry, env).map { it.text }
+
+    @Test
+    fun `the cell menu removes the value of an environment and moves it to the other file`(robot: FxRobot) {
+        val view = open(robot, """{"dev": {"host": "a"}, "prod": {}}""", """{"dev": {"token": "t"}}""")
+        val host = view.item(path("host")).value
+        val token = view.item(path("token")).value
+
+        assertEquals(listOf("Remove from dev", "Make private", "Remove row"), view.texts(host, "dev"))
+        assertEquals(listOf("Remove from dev", "Make public", "Remove row"), view.texts(token, "dev"))
+        assertEquals(listOf("Remove row"), view.texts(host, "prod"), "prod has no value to remove or move")
+        assertEquals(listOf("Remove row"), view.texts(host, null))
+
+        robot.interact { view.form.menuItems(token, "dev")[1].fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertTrue("\"token\": \"t\"" in view.text, view.text)
+    }
+
+    @Test
+    fun `the certificate menu adds to and removes from each environment`(robot: FxRobot) {
+        val view =
+            open(
+                robot,
+                """{"dev": {}, "prod": {}}""",
+                """{"dev": {"SSLConfiguration": {"clientCertificate": "c.pem"}}, "prod": {}}""",
+            )
+        val certificate = view.item("certificate").value
+
+        assertEquals(listOf("Remove from dev", "Add to prod"), view.texts(certificate, null))
+
+        robot.interact { view.form.menuItems(certificate, null)[1].fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(listOf("Remove from dev", "Remove from prod"), view.texts(view.item("certificate").value, null))
+    }
+
+    @Test
+    fun `removes an auth configuration and the certificate from the buttons after asking`(robot: FxRobot) {
+        val view =
+            open(
+                robot,
+                """{"dev": {"Security": {"Auth": {"api": {"Type": "OAuth2", "Grant Type": "Password"}}}}}""",
+                """{"dev": {"SSLConfiguration": {"clientCertificate": "c.pem"}}}""",
+            )
+        view.answer(yes = true)
+
+        view.select(robot, "auth:api")
+        view.fire(robot, view.form.removeButton)
+        view.select(robot, "certificate")
+        view.fire(robot, view.form.removeButton)
+
+        assertEquals(
+            listOf(
+                "Remove the auth configuration \"api\" from all environments?",
+                "Remove the client certificate from all environments?",
+            ),
+            questions,
+        )
+        assertFalse("Security" in view.text, view.text)
+        assertFalse("SSLConfiguration" in tab(privateFile).orEmpty(), tab(privateFile))
+    }
+
+    @Test
+    fun `chooses a value of an auth setting, also back to another one`(robot: FxRobot) {
+        val view =
+            open(
+                robot,
+                """{"dev": {"Security": {"Auth": {"api": {"Type": "OAuth2", "Grant Type": "Password"}}}}}""",
+            )
+        val group = (view.item("auth:api").value as EnvEntry.Auth).group
+        val credentials = group.rows.first { it.label == "Client Credentials" }.path
+
+        fun choose(value: String) {
+            val cell = view.edit(robot, credentials, "dev")
+
+            @Suppress("UNCHECKED_CAST")
+            val choice = cell.graphic as ComboBox<String>
+            robot.interact { choice.value = value }
+            WaitForAsyncUtils.waitForFxEvents()
+        }
+
+        choose("in body")
+        assertTrue("\"Client Credentials\": \"in body\"" in view.text, view.text)
+        choose("none")
+        assertTrue("\"Client Credentials\": \"none\"" in view.text, view.text)
+    }
+
+    @Test
+    fun `closing the choice list without a choice cancels the edit and shows an empty choice as none`(robot: FxRobot) {
+        val view =
+            open(
+                robot,
+                """{"dev": {"Security": {"Auth": {"api": {"Type": "OAuth2", "Grant Type": "Password"}}}}}""",
+            )
+        val group = (view.item("auth:api").value as EnvEntry.Auth).group
+        val credentials = group.rows.first { it.label == "Client Credentials" }.path
+        val original = view.text
+
+        val cell = view.edit(robot, credentials, "dev")
+
+        @Suppress("UNCHECKED_CAST")
+        val choice = cell.graphic as ComboBox<String>
+        assertEquals("", choice.value)
+        assertEquals("(none)", choice.converter.toString(choice.value))
+        assertEquals("", choice.converter.fromString("(none)"))
+        WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) { choice.isShowing }
+
+        robot.interact { choice.hide() }
+        WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) { view.form.tree.editingCell == null }
+
+        assertEquals(original, view.text)
     }
 }
