@@ -1,0 +1,92 @@
+/*
+ * View of build.gradle and build.gradle.kts (GradleFileView): mode buttons above the source and the Gradle side, which
+ * holds the task tree above the run pane. Colours of its own have dark rules with single-class selectors (ADR 0009).
+ */
+
+.gradle-toolbar {
+    -fx-padding: 2 6 2 6;
+    -fx-spacing: 4;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
+}
+
+.gradle-toolbar .toggle-button {
+    -fx-font-size: 0.9em;
+    -fx-padding: 1 8 1 8;
+}
+
+.gradle-view .split-pane {
+    -fx-padding: 0;
+    -fx-background-insets: 0;
+}
+
+.gradle-task-bar, .gradle-run-bar > .h-box {
+    -fx-padding: 3 6 3 6;
+    -fx-spacing: 4;
+    -fx-alignment: center-left;
+}
+
+.gradle-task-bar .button, .gradle-run-bar .button {
+    -fx-font-size: 0.9em;
+}
+
+.gradle-note {
+    -fx-padding: 8;
+    -fx-spacing: 6;
+}
+
+.gradle-task {
+    -fx-spacing: 8;
+}
+
+.gradle-task-description, .gradle-placeholder {
+    -fx-text-fill: derive(-fx-text-base-color, 45%);
+}
+
+.gradle-group {
+    -fx-font-style: italic;
+}
+
+.gradle-stale {
+    -fx-text-fill: #b26a00;
+    -fx-font-size: 0.9em;
+    -fx-padding: 3 8 3 8;
+}
+
+.gradle-status-running {
+    -fx-text-fill: #1565c0;
+}
+
+.gradle-status-finished {
+    -fx-text-fill: #2e7d32;
+}
+
+.gradle-status-failed {
+    -fx-text-fill: #c62828;
+}
+
+.gradle-status-stopped {
+    -fx-text-fill: #b26a00;
+}
+
+@media (prefers-color-scheme: dark) {
+    .gradle-stale {
+        -fx-text-fill: #e0a040;
+    }
+
+    .gradle-status-running {
+        -fx-text-fill: #64b5f6;
+    }
+
+    .gradle-status-finished {
+        -fx-text-fill: #81c784;
+    }
+
+    .gradle-status-failed {
+        -fx-text-fill: #ef5350;
+    }
+
+    .gradle-status-stopped {
+        -fx-text-fill: #e0a040;
+    }
+}
