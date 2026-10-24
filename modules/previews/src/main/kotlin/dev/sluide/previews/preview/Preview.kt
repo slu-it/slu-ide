@@ -91,8 +91,9 @@ internal interface Preview {
     val defaultMode: PreviewMode get() = PreviewMode.SPLIT
 
     /**
-     * Whether the page is a zoomable image or diagram (`sluide.setZoom`): the view then has zoom controls
-     * ([ZoomControls]) while it shows the preview.
+     * Whether the page is a zoomable image or diagram (`sluide.setZoom`): the view then zooms it in the page, with Fit
+     * ([PageZoom]), its zoom controls ([ZoomControls]) on the left of the toolbar. Every other preview zooms as a
+     * document ([DocumentZoom], `WebView.zoom`), without Fit, its controls before the mode toggles.
      */
     val zooms: Boolean get() = false
 

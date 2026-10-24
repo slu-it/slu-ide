@@ -44,14 +44,13 @@ import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
  * Zoom (ADR 0033) beyond the basics of the image and preview tests: keys, wheel and pinch fired at the web view,
- * clamping, fit and resizing, clicks, scrolling, and the previews that do not zoom. Needs a display, see the `uiTest`
+ * clamping, fit and resizing, clicks, scrolling, and the previews that zoom as documents. Needs a display, see the `uiTest`
  * Gradle task.
  */
 @Tag("ui")
@@ -236,7 +235,7 @@ class ZoomUiTest {
             assertTrue(key(view, code), "$code consumed")
             assertEquals(fitted, view.scale(), 1e-9, "$code")
             assertTrue(view.webView.imageWidth() < 600, "$code")
-            assertTrue(fx { view.zoom.fit && view.zoom.fitButton.isSelected }, "$code")
+            assertTrue(fx { view.zoom.fit && view.zoom.fitButton?.isSelected == true }, "$code")
         }
     }
 
@@ -282,7 +281,7 @@ class ZoomUiTest {
         view.webView.script("window.drawn = false; sluide.renderDiagrams().then(function () { window.drawn = true; })")
         WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { view.webView.script("window.drawn === true") == true }
         assertEquals(PreviewMode.SPLIT, view.mode.get())
-        val zoom = checkNotNull(view.zoom)
+        val zoom = view.zoom
         val before = fx { zoom.scale to zoom.fit }
         assertTrue(before.second)
 
@@ -392,7 +391,7 @@ class ZoomUiTest {
         val view = fx { SvgFileViewer().open(dir.resolve("logo.svg").apply { writeText(svg) }) as PreviewFileView }
         robot.interact { container.children.setAll(view.node) }
         awaitLoaded(view.webView)
-        val zoom = checkNotNull(view.zoom)
+        val zoom = view.zoom
 
         robot.interact { view.focusText() }
         assertEquals(view.webView, fx { container.scene.focusOwner }, "Preview: the preview")
@@ -465,11 +464,11 @@ class ZoomUiTest {
         assertEquals(100.0, view.webView.imageWidth())
         robot.interact { view.zoom.zoomInButton.fire() }
         assertEquals(125.0, view.webView.imageWidth())
-        robot.interact { view.zoom.fitButton.fire() }
+        robot.interact { checkNotNull(view.zoom.fitButton).fire() }
         assertEquals(100.0, view.webView.imageWidth())
         assertEquals(1.0, view.scale())
         assertEquals("100%", fx { view.zoom.level.text })
-        assertTrue(fx { view.zoom.fit && view.zoom.fitButton.isSelected })
+        assertTrue(fx { view.zoom.fit && view.zoom.fitButton?.isSelected == true })
 
         robot.interact { stage.width = 1000.0 }
         WaitForAsyncUtils.sleep(500, TimeUnit.MILLISECONDS)
@@ -490,7 +489,7 @@ class ZoomUiTest {
         WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { view.scale() > small * 1.2 }
         val bigger = view.scale()
         assertTrue(bigger < 1.0, "still below 100%: $bigger")
-        assertTrue(fx { view.zoom.fit && view.zoom.fitButton.isSelected })
+        assertTrue(fx { view.zoom.fit && view.zoom.fitButton?.isSelected == true })
         assertEquals(ZoomSteps.label(bigger), fx { view.zoom.level.text })
         assertEquals(3000 * bigger, view.webView.imageWidth(), 1.0)
 
@@ -517,8 +516,8 @@ class ZoomUiTest {
         val view = showImage(robot, 2000, 100)
         val fitted = view.webView.imageWidth()
         assertTrue(fitted < 600)
-        robot.interact { view.zoom.fitButton.fire() }
-        assertTrue(fx { view.zoom.fitButton.isSelected }, "still selected")
+        robot.interact { checkNotNull(view.zoom.fitButton).fire() }
+        assertTrue(fx { view.zoom.fitButton?.isSelected == true }, "still selected")
         assertTrue(fx { view.zoom.fit })
         assertEquals(fitted, view.webView.imageWidth(), 0.5)
         assertEquals(true, view.webView.script("document.body.classList.contains('fitted')"))
@@ -534,7 +533,7 @@ class ZoomUiTest {
         assertEquals(2500.0, view.webView.imageWidth(), 0.5)
 
         view.webView.script("document.body.click()")
-        assertTrue(fx { view.zoom.fit && view.zoom.fitButton.isSelected })
+        assertTrue(fx { view.zoom.fit && view.zoom.fitButton?.isSelected == true })
         assertEquals(fitted, view.webView.imageWidth(), 0.5)
 
         robot.interact { view.zoom.zoomOutButton.fire() }
@@ -586,7 +585,7 @@ class ZoomUiTest {
     }
 
     @Test
-    fun `Markdown previews have no zoom controls`(robot: FxRobot) {
+    fun `Markdown previews zoom as documents, without Fit`(robot: FxRobot) {
         val file = dir.resolve("README.md").apply { writeText("# Title\n\nText\n") }
         val view = fx { MarkdownFileViewer().open(file) as PreviewFileView }
         robot.interact { container.children.setAll(view.node) }
@@ -595,14 +594,14 @@ class ZoomUiTest {
                 Worker.State.SUCCEEDED
         }
 
-        assertNull(view.zoom)
-        assertTrue(fx { view.node.lookupAll(".zoom-button").isEmpty() })
-        assertTrue(fx { view.node.lookupAll(".zoom-controls").isEmpty() })
-        assertNotNull(fx { view.node.lookup(".preview-toolbar") }, "the toolbar is there, without zoom")
+        assertNull(view.zoom.fitButton)
+        assertFalse(fx { view.zoom.fit })
+        assertEquals(3, fx { view.node.lookupAll(".zoom-button").size }, "zoom out, zoom in and 100%")
+        assertEquals(1, fx { view.node.lookupAll(".zoom-controls").size })
     }
 
     @Test
-    fun `notebook previews have no zoom controls`(robot: FxRobot) {
+    fun `notebook previews zoom as documents, without Fit`(robot: FxRobot) {
         val file =
             dir.resolve("note.ipynb").apply {
                 writeText("""{"cells": [], "metadata": {}, "nbformat": 4, "nbformat_minor": 5}""")
@@ -614,8 +613,8 @@ class ZoomUiTest {
                 Worker.State.SUCCEEDED
         }
 
-        assertNull(view.zoom)
-        assertTrue(fx { view.node.lookupAll(".zoom-button").isEmpty() })
+        assertNull(view.zoom.fitButton)
+        assertEquals(3, fx { view.node.lookupAll(".zoom-button").size }, "zoom out, zoom in and 100%")
     }
 
     @Test

@@ -82,12 +82,12 @@ class ImagePreviewUiTest {
         assertEquals("2000 × 100 px · ${humanSize(file.fileSize())}", view.status.text)
         val fitted = view.webView.imageWidth()
         assertTrue(fitted < 600, "fitted: $fitted")
-        assertTrue(fx { view.zoom.fit && view.zoom.fitButton.isSelected })
+        assertTrue(fx { view.zoom.fit && view.zoom.fitButton?.isSelected == true })
         assertEquals(ZoomSteps.label(fitted / 2000), fx { view.zoom.level.text })
 
         view.webView.script("document.body.click()")
         assertEquals(2000.0, view.webView.imageWidth())
-        assertFalse(fx { view.zoom.fit || view.zoom.fitButton.isSelected })
+        assertFalse(fx { view.zoom.fit || view.zoom.fitButton?.isSelected == true })
         assertEquals("100%", fx { view.zoom.level.text })
 
         view.webView.script("document.body.click()")
@@ -121,11 +121,11 @@ class ImagePreviewUiTest {
         assertEquals(500.0, view.webView.imageWidth())
         assertFalse(fx { view.zoom.fit })
 
-        robot.interact { view.zoom.fitButton.fire() }
+        robot.interact { checkNotNull(view.zoom.fitButton).fire() }
         assertEquals(400.0, view.webView.imageWidth())
-        assertTrue(fx { view.zoom.fit && view.zoom.fitButton.isSelected })
-        robot.interact { view.zoom.fitButton.fire() }
-        assertTrue(fx { view.zoom.fitButton.isSelected }, "Fit stays selected")
+        assertTrue(fx { view.zoom.fit && view.zoom.fitButton?.isSelected == true })
+        robot.interact { checkNotNull(view.zoom.fitButton).fire() }
+        assertTrue(fx { view.zoom.fitButton?.isSelected == true }, "Fit stays selected")
 
         robot.interact { view.zoom.actualSizeButton.fire() }
         assertEquals(400.0, view.webView.imageWidth())
@@ -176,7 +176,7 @@ class ImagePreviewUiTest {
         assertEquals(600.0, view.webView.imageWidth())
 
         // Should the toolbar have the focus anyway, the keys work there too.
-        robot.press(view.zoom.fitButton, KeyCode.DIGIT9, shortcut = true)
+        robot.press(checkNotNull(view.zoom.fitButton), KeyCode.DIGIT9, shortcut = true)
         assertEquals(400.0, view.webView.imageWidth())
         assertTrue(fx { view.zoom.fit })
     }
@@ -299,7 +299,7 @@ class ImagePreviewUiTest {
         val view = fx { SvgFileViewer().open(dir.resolve("logo.svg").apply { writeText(svg) }) as PreviewFileView }
         robot.interact { container.children.setAll(view.node) }
         awaitLoaded(view.webView)
-        val zoom = checkNotNull(view.zoom)
+        val zoom = view.zoom
         assertEquals(120.0, view.webView.imageWidth())
 
         robot.interact { zoom.zoomInButton.fire() }

@@ -15,7 +15,6 @@ import javafx.scene.input.ScrollEvent
 import javafx.scene.input.ZoomEvent
 import javafx.scene.layout.HBox
 import javafx.scene.text.Text
-import javafx.scene.web.WebEngine
 import javafx.scene.web.WebView
 import org.kordamp.ikonli.Ikon
 import org.kordamp.ikonli.javafx.FontIcon
@@ -25,7 +24,7 @@ import kotlin.math.min
 import kotlin.math.pow
 import kotlin.math.roundToInt
 
-/** The zoom levels of images and diagrams (ADR 0033), as scales: 1.0 is 100%. */
+/** The zoom levels of images, diagrams (ADR 0033) and documents (ADR 0080), as scales: 1.0 is 100%. */
 internal object ZoomSteps {
     const val MIN = 0.1
     const val MAX = 16.0
@@ -58,19 +57,20 @@ internal object ZoomSteps {
 }
 
 /**
- * The zoom of a page with an image or a diagram (`sluide.setZoom` in `preview.js`, ADR 0033): a toolbar [node] with
- * zoom out, the [level], zoom in, 100% and Fit, and the keys, Shortcut+wheel and pinch on the web view ([install]).
- * The page sizes the image itself and reports every change ([zoomed]), also its own (a click, a resize while fitted,
- * a diagram drawn again). Views open fitted; the zoom is applied again to every page loaded ([applyTo]).
+ * The zoom of a [target] (ADR 0033, ADR 0080): a toolbar [node] with zoom out, the [level], zoom in, 100% and, if the
+ * target [fits][ZoomTarget.fits], Fit ([fitButton]), and the keys, Shortcut+wheel and pinch on the web view
+ * ([install]). An image's or diagram's page ([PageZoom]) reports every change ([zoomed]), also its own; a document
+ * ([DocumentZoom]) is shown at the scale asked for. Views that fit open fitted, others at 100%; the zoom is applied
+ * again to every page loaded ([applyTo]). [onZoomed] is called after every change of [scale] or [fit].
  *
- * Scripts run only while [isLoaded] says the [engine] shows the view's own page. Everything runs on the FX thread.
+ * Everything runs on the FX thread.
  */
 internal class ZoomControls(
-    private val engine: WebEngine,
-    private val isLoaded: () -> Boolean,
+    private val target: ZoomTarget,
+    private val onZoomed: () -> Unit = {},
 ) {
-    /** Whether the image is fitted to the view; else it is shown at [scale]. */
-    var fit = true
+    /** Whether the content is fitted to the view; else it is shown at [scale]. Never for a target that does not fit. */
+    var fit = target.fits
         private set
 
     /** The scale in effect, as the page last reported it (or as last asked for). */
@@ -104,18 +104,24 @@ internal class ZoomControls(
             tooltip = Tooltip("Actual size (${ACTUAL_SIZE_KEY.displayText})")
             setOnAction { actualSize() }
         }
+
+    /** The Fit button, selected while fitted; none if the target does not [fit][ZoomTarget.fits]. */
     val fitButton =
-        ToggleButton("Fit").apply {
-            styleClass += "zoom-button"
-            isFocusTraversable = false
-            tooltip = Tooltip("Fit to the view (${FIT_KEY.displayText})")
-            isSelected = true
-            // Clicking it while fitted would deselect it: it mirrors fit instead.
-            setOnAction { fitToView() }
+        if (target.fits) {
+            ToggleButton("Fit").apply {
+                styleClass += "zoom-button"
+                isFocusTraversable = false
+                tooltip = Tooltip("Fit to the view (${FIT_KEY.displayText})")
+                isSelected = true
+                // Clicking it while fitted would deselect it: it mirrors fit instead.
+                setOnAction { fitToView() }
+            }
+        } else {
+            null
         }
 
     val node: Node =
-        HBox(zoomOutButton, level, zoomInButton, actualSizeButton, fitButton).apply {
+        HBox(*listOfNotNull(zoomOutButton, level, zoomInButton, actualSizeButton, fitButton).toTypedArray()).apply {
             styleClass += "zoom-controls"
             alignment = Pos.CENTER_LEFT
         }
@@ -125,14 +131,17 @@ internal class ZoomControls(
     }
 
     /** Applies the zoom to the page that just loaded. */
-    fun applyTo() = setZoom(if (fit) "null" else "$scale")
+    fun applyTo() = target.applyTo(scale, fit)
 
-    /** Called by the page (`sluideBridge.zoomed`) after it applied the zoom; a scale that is no size is ignored. */
+    /**
+     * Called by the page (`sluideBridge.zoomed`) after it applied the zoom; ignored if the target does not
+     * [report][ZoomTarget.reports] its zoom (a document's page has no say in it) or the scale is no size.
+     */
     fun zoomed(
         scale: Double,
         fitted: Boolean,
     ) {
-        if (scale.isFinite() && scale > 0) show(scale, fitted)
+        if (target.reports && scale.isFinite() && scale > 0) show(scale, fitted)
     }
 
     fun zoomIn() = zoomTo(ZoomSteps.zoomIn(scale))
@@ -141,9 +150,11 @@ internal class ZoomControls(
 
     fun actualSize() = zoomTo(1.0)
 
+    /** Fits the content to the view; nothing if the target does not [fit][ZoomTarget.fits]. */
     fun fitToView() {
+        if (!target.fits) return
         show(scale, fitted = true)
-        setZoom("null")
+        target.fit()
     }
 
     /**
@@ -171,7 +182,7 @@ internal class ZoomControls(
                 KeyCode.PLUS, KeyCode.EQUALS, KeyCode.ADD -> ::zoomIn
                 KeyCode.MINUS, KeyCode.SUBTRACT -> ::zoomOut
                 KeyCode.DIGIT0, KeyCode.NUMPAD0 -> ::actualSize
-                KeyCode.DIGIT9, KeyCode.NUMPAD9 -> ::fitToView
+                KeyCode.DIGIT9, KeyCode.NUMPAD9 -> if (target.fits) ::fitToView else null
                 else -> null
             }
         if (action != null) {
@@ -180,36 +191,31 @@ internal class ZoomControls(
         }
     }
 
-    /** Zooms to [target], keeping the middle of the view in place. */
-    private fun zoomTo(target: Double) {
-        show(ZoomSteps.clamp(target, scale), fitted = false)
-        setZoom("$scale, window.innerWidth / 2, window.innerHeight / 2")
+    /** Zooms to [scale], keeping the middle of the view in place where the target can. */
+    private fun zoomTo(scale: Double) {
+        show(ZoomSteps.clamp(scale, this.scale), fitted = false)
+        target.zoomTo(this.scale)
     }
 
-    /** Zooms by [factor], keeping the point at [x], [y] (web view coordinates, the page's viewport) in place. */
+    /** Zooms by [factor], keeping the point at [x], [y] (web view coordinates) in place where the target can. */
     private fun zoomBy(
         factor: Double,
         x: Double,
         y: Double,
     ) {
-        if (factor.isFinite() && factor > 0) run("sluide.zoomBy($factor, $x, $y)")
-    }
-
-    private fun setZoom(arguments: String) = run("sluide.setZoom($arguments)")
-
-    /** Runs [call] on the view's own page, if it is loaded and has the zoom. */
-    private fun run(call: String) {
-        if (isLoaded()) engine.executeScript("if (window.sluide && sluide.setZoom) $call")
+        if (factor.isFinite() && factor > 0) target.zoomBy(factor, x, y, scale)?.let { show(it, fitted = false) }
     }
 
     private fun show(
         scale: Double,
         fitted: Boolean,
     ) {
+        val changed = scale != this.scale || fitted != fit
         this.scale = scale
         fit = fitted
         level.text = ZoomSteps.label(scale)
-        fitButton.isSelected = fitted
+        fitButton?.isSelected = fitted
+        if (changed) onZoomed()
     }
 
     private fun button(

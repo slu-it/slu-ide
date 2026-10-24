@@ -172,7 +172,7 @@ class WorkflowPreviewUiTest {
         for (part in listOf("push", "pull_request", "Build (\${{ matrix.os }})", "actions/checkout@v6")) {
             assertTrue(part in text, "$part in $text")
         }
-        assertTrue(checkNotNull(view.zoom).node.isVisible)
+        assertTrue(view.zoom.node.isVisible)
 
         robot.interact { container.scene.preferences.colorScheme = ColorScheme.DARK }
         view.webView.engine.awaitTrue("document.body.classList.contains('dark')")
@@ -446,7 +446,7 @@ class WorkflowPreviewUiTest {
                 "function (e) { return e.getAttribute('data-node-link'); }).sort().join(' ')"
         // The job's title, the composite action's title and its step, the run step; not the trigger.
         assertEquals("j0 j0s0 j0s0s0 j0s1", view.script(linked))
-        val zoom = checkNotNull(view.zoom)
+        val zoom = view.zoom
         val fitted = WaitForAsyncUtils.asyncFx<Boolean> { zoom.fit }.get()
 
         view.script(

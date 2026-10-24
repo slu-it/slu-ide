@@ -3,6 +3,7 @@ package dev.sluide.previews.image
 import dev.sluide.fileviewers.ExtensionFileViewer
 import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FocusWhenShown
+import dev.sluide.previews.preview.PageZoom
 import dev.sluide.previews.preview.ZoomControls
 import dev.sluide.previews.preview.isPageFromString
 import javafx.application.ColorScheme
@@ -60,7 +61,7 @@ internal class ImageFileView(
     private val engine = webView.engine
 
     /** The image's zoom, in the toolbar above it and on the keys, wheel and pinch in the web view. */
-    internal val zoom = ZoomControls(engine) { isLoaded }
+    internal val zoom = ZoomControls(PageZoom(engine) { isLoaded })
 
     /** Receives the page's zoom changes; held here because the WebView only keeps a weak reference. */
     private val bridge = ZoomBridge()

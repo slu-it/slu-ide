@@ -83,7 +83,7 @@ class BicepPreviewUiTest {
     fun `a Bicep file opens as source, its preview draws the resource graph in both colour schemes`(robot: FxRobot) {
         val view = show(robot, MAIN_BICEP)
         assertEquals(PreviewMode.SOURCE, view.mode.get())
-        val zoom = checkNotNull(view.zoom).node
+        val zoom = view.zoom.node
         assertFalse(zoom.isVisible || zoom.isManaged, "no zoom controls beside the source alone")
 
         robot.interact { view.mode.set(PreviewMode.PREVIEW) }
@@ -111,7 +111,7 @@ class BicepPreviewUiTest {
         val view = show(robot, MAIN_BICEP)
         robot.interact { view.mode.set(PreviewMode.SPLIT) }
         view.awaitDrawing()
-        val zoom = checkNotNull(view.zoom)
+        val zoom = view.zoom
         val width = "document.querySelector('pre.mermaid svg').getBoundingClientRect().width"
         val actual = view.number("parseFloat(document.querySelector('pre.mermaid svg').getAttribute('data-width'))")
         val room = view.number("document.querySelector('pre.mermaid').clientWidth - 32")
@@ -132,7 +132,7 @@ class BicepPreviewUiTest {
         val view = show(robot, MAIN_BICEP)
         // The page draws while the preview is not shown, and is not drawn again.
         view.awaitTrue("document.querySelector('pre.mermaid svg') !== null")
-        val zoom = checkNotNull(view.zoom)
+        val zoom = view.zoom
         // Without room to fit into, the graph is left as Mermaid drew it, and nothing is reported.
         assertEquals("", view.script("document.querySelector('pre.mermaid svg').style.width"))
         assertEquals("100%", WaitForAsyncUtils.asyncFx<String> { zoom.level.text }.get())

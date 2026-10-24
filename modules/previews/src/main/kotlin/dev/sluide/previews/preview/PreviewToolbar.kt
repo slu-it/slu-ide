@@ -16,10 +16,11 @@ import javafx.scene.web.WebView
 
 /**
  * The toolbar of a [PreviewFileView]: the mode buttons ([buttons], one per [PreviewMode], in [modes]) on the right and
- * on the left what the [preview] has: the scripts toggle, the table of contents' button, the zoom controls, the fold
- * controls, the Copy Formatted button, and the Export button. The preview's own [actions][Preview.actions] are
- * [actionButtons] before the mode buttons, shown like the zoom controls only while the preview shows. Everything runs
- * on the FX thread.
+ * on the left what the [preview] has: the scripts toggle, the table of contents' button, the zoom controls of an image
+ * or diagram that [zooms][Preview.zooms], the fold controls, the Copy Formatted button, and the Export button. The
+ * preview's own [actions][Preview.actions] are [actionButtons] before the mode buttons; every other preview has its
+ * [zoom] controls (a document's, ADR 0080) between them and the mode buttons. Both show like the zoom controls on the
+ * left only while the preview shows. Everything runs on the FX thread.
  */
 internal class PreviewToolbar(
     preview: Preview,
@@ -28,7 +29,7 @@ internal class PreviewToolbar(
     scripts: BooleanProperty,
     toc: TableOfContents?,
     export: ExportControls?,
-    zoom: ZoomControls?,
+    zoom: ZoomControls,
     folds: FoldControls?,
     copy: CopyFormattedControls?,
     webView: WebView,
@@ -73,10 +74,7 @@ internal class PreviewToolbar(
                 )
             } else if (toc != null) {
                 listOfNotNull(toc.button, export?.button, Region().apply { HBox.setHgrow(this, Priority.ALWAYS) })
-            } else if (zoom != null) {
-                zoom.node.visibleProperty().bind(mode.map { it != PreviewMode.SOURCE })
-                zoom.node.managedProperty().bind(zoom.node.visibleProperty())
-                zoom.install(webView)
+            } else if (preview.zooms) {
                 listOfNotNull(zoom.node, export?.button, Region().apply { HBox.setHgrow(this, Priority.ALWAYS) })
             } else if (folds != null) {
                 folds.node.visibleProperty().bind(mode.map { it != PreviewMode.SOURCE })
@@ -94,8 +92,19 @@ internal class PreviewToolbar(
             } else {
                 emptyList()
             }
+        zoom.node.visibleProperty().bind(mode.map { it != PreviewMode.SOURCE })
+        zoom.node.managedProperty().bind(zoom.node.visibleProperty())
+        zoom.install(webView)
+        // A document's zoom sits on the right: the left holds the preview's own buttons.
+        val documentZoom =
+            if (preview.zooms) {
+                emptyList()
+            } else {
+                HBox.setMargin(zoom.node, Insets(0.0, 6.0, 0.0, 0.0))
+                listOf(zoom.node)
+            }
         node =
-            HBox(*(extras + actionButtons + buttons).toTypedArray()).apply {
+            HBox(*(extras + actionButtons + documentZoom + buttons).toTypedArray()).apply {
                 styleClass += "preview-toolbar"
                 alignment = Pos.CENTER_RIGHT
             }

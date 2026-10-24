@@ -58,8 +58,11 @@ import java.nio.file.Path
  * toolbar opens an overlay over the top left of the view that lists the headings, selects the section of the caret (of
  * the preview's top line while only the preview shows) and jumps to the chosen heading in the source and the preview.
  *
- * Images and diagrams that [zoom][Preview.zooms] have the [zoom] controls on the left of the toolbar while the preview
- * shows; the page keeps the zoom when it is rendered again.
+ * Every preview has [zoom] controls while the preview shows, kept when the page is rendered again. Images and diagrams
+ * that [zoom][Preview.zooms] have them on the left of the toolbar, with Fit, and scale in the page ([PageZoom]);
+ * every other preview zooms as a document ([DocumentZoom], ADR 0083), with the controls before the mode toggles.
+ * Side by side, a preview that [syncs its scroll][Preview.syncsScroll] lines up with the source's top line again after
+ * a zoom.
  *
  * Previews that [fold][Preview.folds] have the [folds] buttons (Collapse All, Expand All) on the left of the toolbar
  * while the preview shows. If they also [copy their text formatted][Preview.copiesFormatted], the Copy Formatted button
@@ -74,7 +77,7 @@ internal class PreviewFileView(
     comment: CommentSyntax = CommentSyntax.NONE,
 ) : EditableFileView {
     init {
-        // They would share the left of the toolbar, and pages that run their own scripts have no zoom of ours.
+        // They would share the left of the toolbar, and pages that run their own scripts have no in-page zoom of ours.
         require(!(preview.offersScripts && preview.zooms)) { "A preview cannot both offer scripts and zoom" }
         require(!(preview.hasOutline && (preview.offersScripts || preview.zooms))) {
             "A preview with an outline cannot offer scripts or zoom"
@@ -147,8 +150,14 @@ internal class PreviewFileView(
         }
     private val engine = webView.engine
 
-    /** The zoom of an image or diagram, if the preview [zooms][Preview.zooms]. */
-    val zoom: ZoomControls? = if (preview.zooms) ZoomControls(engine) { isLoaded } else null
+    /** The zoom of the image or diagram in the page if the preview [zooms][Preview.zooms], else of the document. */
+    val zoom =
+        if (preview.zooms) {
+            ZoomControls(PageZoom(engine) { isLoaded })
+        } else {
+            // The page reflows: side by side, it lines up with the source again.
+            ZoomControls(DocumentZoom(webView)) { syncScroll() }
+        }
 
     /** The Collapse All and Expand All buttons, if the preview [folds][Preview.folds]. */
     val folds: FoldControls? = if (preview.folds) FoldControls(engine) { isLoaded } else null
@@ -177,7 +186,7 @@ internal class PreviewFileView(
      */
     private val bridge =
         PageBridge(::openLink, { id -> host?.let { preview.openNode(id, it) } }) { scale, fitted ->
-            zoom?.zoomed(scale, fitted)
+            zoom.zoomed(scale, fitted)
         }
 
     private var renderedText: String? = null
@@ -446,7 +455,7 @@ internal class PreviewFileView(
             return
         }
         if (preview.hasOwnScript) (engine.executeScript("window") as JSObject).setMember("sluideBridge", bridge)
-        zoom?.applyTo()
+        zoom.applyTo()
         applyTheme()
         if (!preview.syncsScroll || mode.get() == PreviewMode.PREVIEW) {
             engine.executeScript("window.scrollTo(0, $previewScrollY)")

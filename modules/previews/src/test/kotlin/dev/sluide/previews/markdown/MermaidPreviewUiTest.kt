@@ -117,7 +117,7 @@ class MermaidPreviewUiTest {
         val (file, view) = show(robot, "flowchart TD\n  A --> B\n")
         view.awaitDrawing()
         assertEquals(view.number(actualWidth), view.number(svgWidth), 1.0)
-        val zoom = checkNotNull(view.zoom)
+        val zoom = view.zoom
         assertTrue(fx { zoom.fit })
         assertEquals("100%", fx { zoom.level.text })
 
@@ -159,7 +159,7 @@ class MermaidPreviewUiTest {
 
         view.script(clickDiagram)
         assertTrue(view.number(svgWidth) <= pageWidth)
-        assertTrue(fx { zoom.fit && zoom.fitButton.isSelected })
+        assertTrue(fx { zoom.fit && zoom.fitButton?.isSelected == true })
     }
 
     @Test
@@ -167,7 +167,7 @@ class MermaidPreviewUiTest {
         fun chain(steps: Int) = "flowchart LR\n" + (1..steps).joinToString("\n") { "  S$it --> S${it + 1}" } + "\n"
         val (file, view) = show(robot, chain(120))
         view.awaitDrawing()
-        val zoom = checkNotNull(view.zoom)
+        val zoom = view.zoom
         val fitted = fx { zoom.scale }
         assertTrue(fitted < 0.1 && fx { zoom.fit }, "fitted at $fitted")
 
@@ -189,7 +189,7 @@ class MermaidPreviewUiTest {
     fun `the zoom controls size the diagram`(robot: FxRobot) {
         val (_, view) = show(robot, "flowchart TD\n  A --> B\n")
         view.awaitDrawing()
-        val zoom = checkNotNull(view.zoom)
+        val zoom = view.zoom
         val actual = view.number(actualWidth)
 
         robot.interact { zoom.zoomInButton.fire() }
@@ -201,7 +201,7 @@ class MermaidPreviewUiTest {
         robot.interact { zoom.actualSizeButton.fire() }
         assertEquals(actual, view.number(svgWidth), 1.0)
         assertFalse(fx { zoom.fit })
-        robot.interact { zoom.fitButton.fire() }
+        robot.interact { checkNotNull(zoom.fitButton).fire() }
         assertTrue(fx { zoom.fit })
     }
 
