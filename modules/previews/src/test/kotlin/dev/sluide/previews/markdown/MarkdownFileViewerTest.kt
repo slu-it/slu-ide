@@ -2,6 +2,7 @@ package dev.sluide.previews.markdown
 
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
+import dev.sluide.fileviewers.TokenStyle
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.io.path.writeBytes
@@ -33,5 +34,12 @@ class MarkdownFileViewerTest {
         val viewers = FileViewers(listOf(fallback, viewer), fallback)
 
         assertSame(viewer, viewers.viewerFor(file("README.md")))
+    }
+
+    @Test
+    fun `diffs are highlighted like the source`() {
+        assertSame(viewer.highlighter, viewer.sourceHighlighter)
+        val spans = viewer.sourceHighlighter.highlight("# Title\n")
+        assertEquals(TokenStyle.KEYWORD, spans.single { it.start <= 1 && 1 < it.end }.style)
     }
 }

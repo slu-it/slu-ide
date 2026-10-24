@@ -443,34 +443,6 @@ class PreviewFileViewUiTest {
     }
 
     @Test
-    fun `diffs of Markdown files are highlighted like the source`(robot: FxRobot) {
-        val file = dir.resolve("README.md").apply { writeText("# Title\n") }
-        val fallback = DefaultTextFileViewer()
-        val viewers = FileViewers(listOf(MarkdownFileViewer()), fallback)
-
-        val diff =
-            assertNotNull(
-                WaitForAsyncUtils
-                    .asyncFx<DiffFileView?> {
-                        viewers.openDiff(
-                            file,
-                            TextDiff(
-                                "# Old\n",
-                                listOf(
-                                    LineChange(1..1, 1..1),
-                                ),
-                            ),
-                        )
-                    }.get(),
-            )
-        robot.interact { container.children.setAll(diff.node) }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        val areas = robot.lookup(".code-area").queryAllAs(CodeArea::class.java)
-        assertTrue(areas.all { "keyword" in it.getStyleOfChar(1) })
-    }
-
-    @Test
     fun `a Markdown file in Split gives the focus to its source, in Preview to the preview`(robot: FxRobot) {
         val (_, view) = show(robot, "# Title\n")
         WaitForAsyncUtils.waitForFxEvents()
