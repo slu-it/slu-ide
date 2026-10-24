@@ -492,14 +492,21 @@ internal class GitLogPages(
         background {
             if (run.get() != current || token.cancelled) return@background
             val task = tasks.start(name)
+            var thrown: RuntimeException? = null
             val loaded =
                 try {
                     loadPage(root, filter, barFilter, compared, skip, current, token)
+                } catch (e: RuntimeException) {
+                    // A failed page, not a log that stays loading.
+                    thrown = e
+                    FirstPage(null)
                 } catch (t: Throwable) {
                     task.failed(t)
                     throw t
                 }
             when {
+                thrown != null -> task.failed(thrown)
+
                 // Its git was stopped, or what it read is dropped anyway: no failure.
                 token.cancelled -> task.failed(CancellationException("Superseded"))
 

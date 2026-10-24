@@ -244,6 +244,31 @@ class FileHistoryTest {
     }
 
     @Test
+    fun `a load that throws is a failed page, not a history that keeps loading`() {
+        val history = history()
+        history.visible = true
+        loading = { throw IllegalStateException("boom") }
+        settle()
+
+        assertEquals(FileHistoryState.FAILED, history.state.get())
+        assertTrue(taskLines.last().startsWith("task failed after: Loading history of a.txt"), "$taskLines")
+
+        loading = {}
+        history.refresh()
+        settle()
+        assertEquals(FileHistoryState.LOADED, history.state.get())
+
+        loading = { throw IllegalStateException("boom") }
+        history.shown(4)
+        settle()
+        assertEquals(FileHistoryState.FAILED, history.state.get())
+        loading = {}
+        history.refresh()
+        settle()
+        assertEquals(FileHistoryState.LOADED, history.state.get(), "loading more is not stuck either")
+    }
+
+    @Test
     fun `after a failed page a refresh reads only the rows loaded before it`() {
         val history = history()
         history.visible = true

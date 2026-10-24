@@ -670,6 +670,22 @@ class GitLogPagesTest {
     }
 
     @Test
+    fun `a load that throws is a failed page, not a log that keeps loading`() {
+        pages.open(repo)
+        pages.visible = true
+        whileLoading = { throw IllegalStateException("boom") }
+        settle()
+
+        assertEquals(GitLogState.FAILED, pages.state.get())
+        assertTrue(taskLines.last().startsWith("task failed after: Loading Git log"), "$taskLines")
+
+        whileLoading = {}
+        pages.refresh()
+        settle()
+        assertEquals(GitLogState.LOADED, pages.state.get())
+    }
+
+    @Test
     fun `a reload stops the git of the load still running, which ends its task as cancelled`() {
         pages.open(repo)
         pages.visible = true

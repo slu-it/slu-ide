@@ -256,14 +256,20 @@ internal class FileHistory(
                     stopped.set(true)
                     cancellation.cancel()
                 }
+            var thrown: RuntimeException? = null
             val (page, refs) =
                 try {
                     read()
+                } catch (e: RuntimeException) {
+                    // A failed page, not a history that stays loading.
+                    thrown = e
+                    null to null
                 } catch (t: Throwable) {
                     task.failed(t)
                     throw t
                 }
             when {
+                thrown != null -> task.failed(thrown)
                 page != null -> task.close()
                 cancellation.cancelled -> task.failed(CancellationException("Cancelled"))
                 else -> task.failed(FileHistoryState.FAILED.message(key.name))
