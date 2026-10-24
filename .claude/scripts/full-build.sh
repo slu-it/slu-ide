@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
-# The final gate: the full build with UI tests on displays that answer, then the docs index check.
+# The final gate: the full build with UI tests on displays that answer, then the docs index check,
+# the unused imports check.
 # On Linux it first runs setup-display.sh for a pool of virtual displays (:99 upwards, SLUIDE_UI_DISPLAYS of them,
 # default 8), which repairs left-over or hung ones, so UI tests never fail with "Unable to open DISPLAY" because of a
 # stale one. Gradle hands each module's uiTest a display of its own, so that many modules test in parallel (ADR 0081).
 # It refuses to start while another Gradle build runs in this working tree (both would share build/, and classes would
 # vanish under the running tests).
-# Usage: .claude/scripts/full-build.sh [extra Gradle arguments]; exits with the build's status.
+# Usage: .claude/scripts/full-build.sh [extra Gradle arguments]; exits with the build's status, or 1 when only a check
+# failed.
 set -euo pipefail
 
 root="$(cd "$(dirname "$0")/../.." && pwd -P)"
@@ -37,4 +39,5 @@ fi
 status=0
 ./gradlew build -q "$@" || status=$?
 "$root/.claude/scripts/check-docs-index.sh" || status=$((status == 0 ? 1 : status))
+"$root/.claude/scripts/check-unused-imports.sh" || status=$((status == 0 ? 1 : status))
 exit "$status"
