@@ -108,6 +108,7 @@ class NamedThreadsTest {
                     error("boom")
                 }, 0, 10, TimeUnit.MILLISECONDS)
             assertFailsWith<ExecutionException> { future.get(5, TimeUnit.SECONDS) }
+            // Guards against a rerun: a failed periodic task must not be rescheduled.
             Thread.sleep(100)
         } finally {
             executor.finish()
@@ -124,7 +125,6 @@ class NamedThreadsTest {
             val future = executor.scheduleAtFixedRate({ ran.countDown() }, 0, 10, TimeUnit.MILLISECONDS)
             assertTrue(ran.await(5, TimeUnit.SECONDS))
             future.cancel(false)
-            Thread.sleep(50)
         } finally {
             executor.finish()
         }

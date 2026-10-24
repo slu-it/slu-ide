@@ -5,6 +5,9 @@ import java.time.Duration
 import java.util.concurrent.CancellationException
 import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
@@ -32,7 +35,7 @@ class BackgroundTasksTest {
     private val timers = mutableListOf<Timer>()
     private var now = 0L
 
-    private val tasks =
+    private fun registry() =
         BackgroundTasks(
             dispatch = { fx += it },
             clock = { now },
@@ -42,6 +45,8 @@ class BackgroundTasksTest {
             },
             delay = Duration.ofMillis(500),
         ).apply { report = { level, message, error -> lines += Line(level, message, error) } }
+
+    private val tasks = registry()
 
     /** Runs what was dispatched to the FX thread. */
     private fun runFx() {
@@ -326,25 +331,113 @@ class BackgroundTasksTest {
         assertTrue(lines.all { it.level == Level.INFO && it.error == null })
     }
 
+    /**
+     * Runs a renamer, a canceller and [closer] on [task] at the same moment (one barrier, a reused pool), [rounds]
+     * times with a new task each; returns the lines of every task once its threads are done.
+     */
+    private fun raceEnd(
+        rounds: Int,
+        closer: (BackgroundTask) -> Unit,
+    ): List<List<String>> {
+        val pool = Executors.newFixedThreadPool(3)
+        val gate = CyclicBarrier(3)
+        try {
+            return List(rounds) {
+                val task = tasks.start("Task") {}
+                val work =
+                    listOf<() -> Unit>(
+                        { repeat(50) { i -> task.rename("Task $i") } },
+                        { task.cancel() },
+                        { closer(task) },
+                    ).map { action ->
+                        pool.submit {
+                            gate.await(10, TimeUnit.SECONDS)
+                            action()
+                        }
+                    }
+                work.forEach { it.get(10, TimeUnit.SECONDS) }
+                messages().filter { it.startsWith("task#${task.number} ") || it.startsWith("task#${task.number}:") }
+            }
+        } finally {
+            pool.shutdownNow()
+        }
+    }
+
     @Test
     fun `the end line is the last line of a task, also with renames and cancels racing it`() {
-        repeat(200) {
-            val task = tasks.start("Task") {}
-            val renamer = Thread { repeat(50) { i -> task.rename("Task $i") } }
-            val canceller = Thread { task.cancel() }
-            renamer.start()
-            canceller.start()
-            task.close()
-            renamer.join()
-            canceller.join()
-            val own =
-                messages().filter {
-                    it.startsWith(
-                        "task#${task.number} ",
-                    ) || it.startsWith("task#${task.number}:")
-                }
+        for (own in raceEnd(200) { it.close() }) {
             assertTrue(own.last().contains("finished in"), own.joinToString("\n"))
-            assertEquals(1, own.count { "finished in" in it })
+            assertEquals(1, own.count { "finished in" in it }, own.joinToString("\n"))
+        }
+    }
+
+    @Test
+    fun `a failure racing a cancel ends as cancelled or failed, once and last`() {
+        val end = Regex("""task#\d+ (cancelled|failed) after .*""")
+        for (own in raceEnd(200) { it.failed(IllegalStateException()) }) {
+            assertTrue(end.matches(own.last()), own.joinToString("\n"))
+            assertEquals(1, own.count { " after " in it }, own.joinToString("\n"))
+        }
+    }
+
+    @Test
+    fun `closing the registry while a task ends gives each task exactly one end line`() {
+        val pool = Executors.newSingleThreadExecutor()
+        val gate = CyclicBarrier(2)
+        val end = Regex("""task#\d+ (finished in|failed after|abandoned after) .*""")
+        try {
+            repeat(200) { round ->
+                val fresh = registry()
+                val task = fresh.start("Task")
+                val ending =
+                    pool.submit {
+                        gate.await(10, TimeUnit.SECONDS)
+                        if (round % 2 == 0) task.close() else task.failed("boom")
+                    }
+                gate.await(10, TimeUnit.SECONDS)
+                fresh.close()
+                ending.get(10, TimeUnit.SECONDS)
+                runFx()
+
+                val own = messages().filter { it.startsWith("task#${task.number} ") }
+                assertEquals(1, own.count { end.matches(it) }, own.joinToString("\n"))
+                assertTrue(fresh.shown.isEmpty(), "round $round")
+                lines.clear()
+            }
+        } finally {
+            pool.shutdownNow()
+        }
+    }
+
+    @Test
+    fun `tasks started from many threads are numbered uniquely and abandoned in order`() {
+        val threads = 8
+        val pool = Executors.newFixedThreadPool(threads)
+        val gate = CyclicBarrier(threads)
+        try {
+            val started =
+                List(threads) {
+                    pool.submit<List<BackgroundTask>> {
+                        gate.await(10, TimeUnit.SECONDS)
+                        List(50) { tasks.start("Task") }
+                    }
+                }.flatMap { it.get(10, TimeUnit.SECONDS) }
+            tasks.close()
+            runFx()
+
+            assertEquals(400, started.map { it.number }.toSet().size)
+            val abandoned =
+                messages().filter { "abandoned after" in it }.map {
+                    it
+                        .substringAfter(
+                            "task#",
+                        ).substringBefore(' ')
+                        .toInt()
+                }
+            assertEquals(started.map { it.number }.sorted(), abandoned)
+            assertTrue(tasks.shown.isEmpty())
+        } finally {
+            pool.shutdownNow()
         }
     }
 
