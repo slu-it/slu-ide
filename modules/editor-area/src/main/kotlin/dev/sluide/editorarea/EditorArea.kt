@@ -220,7 +220,7 @@ class EditorArea(
     ) {
         val source = from.toAbsolutePath().normalize()
         val target = to.toAbsolutePath().normalize()
-        for (openFile in filesUnder(source)) {
+        for (openFile in editorTabs.filesUnder(source)) {
             follow(openFile, target.resolve(source.relativize(openFile.path)))
         }
     }
@@ -464,7 +464,7 @@ class EditorArea(
         folder: Path,
         action: String,
     ): Boolean {
-        val dirty = filesUnder(folder).filter { it.isDirty }
+        val dirty = editorTabs.filesUnder(folder).filter { it.isDirty }
         if (dirty.isEmpty()) return true
         return when (confirmSaveBeforeGitChange(dirty.map(::shownPath), action)) {
             SaveChoice.SAVE -> dirty.map(::save).all { it }
@@ -485,20 +485,11 @@ class EditorArea(
     }
 
     /** The path of [openFile] as questions show it: within the project folder, or in full outside of it. */
-    private fun shownPath(openFile: OpenFile): String {
-        val folder = projectFolder()?.toAbsolutePath()?.normalize()
-        val path = openFile.path
-        return if (folder != null && path.startsWith(folder)) folder.relativize(path).toString() else path.toString()
-    }
+    private fun shownPath(openFile: OpenFile): String = shownPath(openFile.path, projectFolder())
 
     private fun showCloseDialog(warnings: List<String>): Boolean {
-        val single = warnings.size == 1
-        return askToClose(
-            scene?.window,
-            if (single) "Close Tab" else "Close Tabs",
-            if (single) "Close this tab anyway?" else "Close these tabs anyway?",
-            warnings,
-        )
+        val (title, header) = closeTabsTexts(warnings.size)
+        return askToClose(scene?.window, title, header, warnings)
     }
 
     /**
@@ -526,7 +517,7 @@ class EditorArea(
     fun closeAll() = editorTabs.closeAll()
 
     /** The open files at or below [path] with unsaved changes, e.g. to warn before [path] is deleted. */
-    fun dirtyUnder(path: Path): List<Path> = filesUnder(path).filter { it.isDirty }.map { it.path }
+    fun dirtyUnder(path: Path): List<Path> = editorTabs.filesUnder(path).filter { it.isDirty }.map { it.path }
 
     /**
      * Closes the tabs of the files at or below [path] without asking, after [path] was deleted: those without unsaved
@@ -537,7 +528,7 @@ class EditorArea(
         path: Path,
         discarded: List<Path>,
     ) {
-        for (openFile in filesUnder(path)) {
+        for (openFile in editorTabs.filesUnder(path)) {
             if (!openFile.isDirty ||
                 openFile.path in discarded
             ) {
@@ -546,11 +537,6 @@ class EditorArea(
                 onChangedOnDisk(openFile)
             }
         }
-    }
-
-    private fun filesUnder(path: Path): List<OpenFile> {
-        val folder = path.toAbsolutePath().normalize()
-        return editorTabs.files.filter { it.path.startsWith(folder) }
     }
 
     /** The paths of all open files in tab order. */
@@ -567,6 +553,18 @@ class EditorArea(
 
     /** The selected tab, if any. */
     val selectedTab: EditorTab? get() = editorTabs.selected.get()
+}
+
+/**
+ * The [path] of a file as questions show it: relative to the project [folder] if it is within it, else in full. A
+ * sibling folder that only shares the name's start (`app2` next to `app`) is outside.
+ */
+internal fun shownPath(
+    path: Path,
+    folder: Path?,
+): String {
+    val base = folder?.toAbsolutePath()?.normalize()
+    return if (base != null && path.startsWith(base)) base.relativize(path).toString() else path.toString()
 }
 
 /** The [OpenFile.hasDiff] of tabs that do not show files. */

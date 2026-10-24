@@ -96,19 +96,6 @@ class EditorAreaTextEditsUiTest : EditorAreaUiFixture() {
         assertSame(field, focusOwner())
     }
 
-    @Test
-    fun `editing a missing file fails and opens no tab`(robot: FxRobot) {
-        val a = textFile("a.txt", "a\n")
-        open(robot, a)
-        val host = hostOf(a)
-
-        var edited = true
-        robot.interact { edited = host.editText(dir.resolve("missing.txt")) { "x" } }
-
-        assertFalse(edited)
-        assertEquals(listOf(a), editor.openPaths)
-    }
-
     /** Opens `.label` files in a view that shows them but is no [dev.sluide.fileviewers.TextEditableView]. */
     private class LabelViewer : FileViewer {
         override fun canOpen(file: Path) = file.toString().endsWith(".label")

@@ -2,6 +2,7 @@ package dev.sluide.editorarea
 
 import javafx.scene.Node
 import javafx.scene.control.Button
+import javafx.scene.control.Label
 import javafx.scene.control.MenuItem
 import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.input.MouseButton
@@ -30,6 +31,17 @@ import kotlin.test.assertTrue
 class EditorAreaTabsUiTest : EditorAreaUiFixture() {
     @Start
     fun start(stage: Stage) = startView(stage)
+
+    /** Opens [count] tabs that are no files, as light as tabs get, to fill the tab row. */
+    private fun openTabs(
+        robot: FxRobot,
+        count: Int = 8,
+    ): List<WarningTab> {
+        val tabs = List(count) { WarningTab("file-number-$it.txt", null) }
+        robot.interact { tabs.forEach(editor::open) }
+        WaitForAsyncUtils.waitForFxEvents()
+        return tabs
+    }
 
     @Test
     fun `opening files adds selected tabs showing their content`(robot: FxRobot) {
@@ -158,20 +170,6 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
     }
 
     @Test
-    fun `close button closes the tab and selects its neighbour`(robot: FxRobot) {
-        val a = textFile("a.txt")
-        val b = textFile("b.txt")
-        open(robot, a, b)
-
-        val closeB = tabLabel(robot, "b.txt").parent.lookup(".close-button") as Button
-        robot.interact { closeB.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        assertEquals(listOf("a.txt"), tabTitles(robot))
-        assertEquals("content of a.txt", shownText(robot))
-    }
-
-    @Test
     fun `closeSelected closes the selected file tab and selects its neighbour`(robot: FxRobot) {
         open(robot, textFile("a.txt"), textFile("b.txt"))
 
@@ -201,13 +199,13 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
 
     @Test
     fun `scroll buttons and overflow menu appear only when tabs do not fit`(robot: FxRobot) {
-        open(robot, textFile("a.txt"))
+        robot.interact { editor.open(WarningTab("a.txt", null)) }
         val strip = editor.tabStrip
         assertFalse(strip.scrollLeftButton.isVisible)
         assertFalse(strip.overflowMenu.isVisible)
 
         robot.interact { stage.width = 300.0 }
-        open(robot, *Array(8) { textFile("file-number-$it.txt") })
+        openTabs(robot)
 
         assertTrue(strip.scrollLeftButton.isVisible)
         assertTrue(strip.scrollRightButton.isVisible)
@@ -226,26 +224,24 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
     @Test
     fun `scroll buttons move the visible tabs without changing the selection`(robot: FxRobot) {
         robot.interact { stage.width = 300.0 }
-        val files = Array(8) { textFile("file-number-$it.txt") }
-        open(robot, *files)
+        val tabs = openTabs(robot)
         val strip = editor.tabStrip
 
-        fun firstVisibleIndex() = files.indexOf((strip.visibleTabs().first() as OpenFile).path)
+        fun firstVisibleIndex() = tabs.indexOf(strip.visibleTabs().first())
         val before = firstVisibleIndex()
 
         robot.interact { strip.scrollLeftButton.fire() }
         WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(before - 1, firstVisibleIndex())
-        assertEquals(files.last(), editor.selectedPath)
+        assertSame(tabs.last(), editor.selectedTab)
         assertFalse(strip.scrollRightButton.isDisable)
     }
 
     @Test
     fun `overflow menu lists hidden tabs and selecting one reveals it`(robot: FxRobot) {
         robot.interact { stage.width = 300.0 }
-        val files = Array(8) { textFile("file-number-$it.txt") }
-        open(robot, *files)
+        val tabs = openTabs(robot)
         val strip = editor.tabStrip
 
         robot.interact { strip.overflowMenu.show() }
@@ -260,7 +256,7 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         }
         WaitForAsyncUtils.waitForFxEvents()
 
-        assertEquals(files.first(), editor.selectedPath)
+        assertSame(tabs.first(), editor.selectedTab)
         assertEquals(
             "file-number-0.txt",
             strip
@@ -268,7 +264,7 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
                 .first()
                 .title.value,
         )
-        assertEquals("content of file-number-0.txt", shownText(robot))
+        assertEquals("file-number-0.txt", (editor.selectedTab?.content as Label).text)
     }
 
     @Test
@@ -287,6 +283,13 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         assertEquals(listOf("a.txt", "c.txt"), tabTitles(robot))
         assertEquals(a, editor.selectedPath)
         assertEquals("content of a.txt", shownText(robot))
+
+        robot.interact { (tabLabel(robot, "a.txt").parent.lookup(".close-button") as Button).fire() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(listOf("c.txt"), tabTitles(robot))
+        assertEquals(c, editor.selectedPath, "closing the selected tab selects its neighbour")
+        assertEquals("content of c.txt", shownText(robot))
     }
 
     @Test
@@ -346,18 +349,17 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
     @Test
     fun `dragging a tab beyond the edge of an overflowing row scrolls it`(robot: FxRobot) {
         robot.interact { stage.width = 300.0 }
-        val files = Array(8) { textFile("file-number-$it.txt") }
-        open(robot, *files)
-        open(robot, files.first())
+        val tabs = openTabs(robot)
+        robot.interact { editor.editorTabs.select(tabs.first()) }
         val strip = editor.tabStrip
         val label = tabLabel(robot, "file-number-0.txt")
 
         dragBy(robot, label, stage.width, release = false)
-        eventually(robot) { assertEquals(files.first(), editor.openPaths.last()) }
+        eventually(robot) { assertSame(tabs.first(), editor.tabs.last()) }
         releaseOn(robot, label, stage.width)
 
-        assertEquals(files.first(), editor.selectedPath)
-        assertEquals(files.first(), (strip.visibleTabs().last() as OpenFile).path)
+        assertSame(tabs.first(), editor.selectedTab)
+        assertSame(tabs.first(), strip.visibleTabs().last())
         assertTrue(strip.scrollRightButton.isDisable, "scrolled to the end")
     }
 
@@ -369,18 +371,6 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf("b.txt"), tabTitles(robot))
-    }
-
-    @Test
-    fun `closeAll removes all tabs and the shown content`(robot: FxRobot) {
-        open(robot, textFile("a.txt"), textFile("b.txt"))
-
-        robot.interact { editor.closeAll() }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        assertEquals(emptyList(), tabTitles(robot))
-        assertNull(shownText(robot))
-        assertNull(editor.selectedPath)
     }
 
     @Test

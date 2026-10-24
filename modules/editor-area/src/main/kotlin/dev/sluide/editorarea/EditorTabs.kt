@@ -145,6 +145,12 @@ internal class EditorTabs {
 
     fun find(path: Path): OpenFile? = files.firstOrNull { it.path == path }
 
+    /** The tabs of the files at or below [path], a file or a folder; `src2` is not below `src`. */
+    fun filesUnder(path: Path): List<OpenFile> {
+        val folder = path.toAbsolutePath().normalize()
+        return files.filter { it.path.startsWith(folder) }
+    }
+
     /**
      * Adds a tab for [path] showing [view], opened by [viewer], and selects it; with [select] `false` only if no tab
      * is selected (none is open), e.g. for a file another file's view edits (ADR 0057).

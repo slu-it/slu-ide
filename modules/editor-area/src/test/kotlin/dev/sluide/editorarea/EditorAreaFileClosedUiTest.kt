@@ -89,15 +89,4 @@ class EditorAreaFileClosedUiTest : EditorAreaUiFixture() {
         assertEquals(emptyList(), closed)
         assertEquals(listOf(a), editor.openPaths)
     }
-
-    @Test
-    fun `a tab closed because its file was deleted reports its path`(robot: FxRobot) {
-        val a = textFile("a.txt")
-        open(robot, a)
-
-        a.deleteExisting()
-
-        eventually(robot) { assertEquals(listOf(a), closed) }
-        assertEquals(emptyList(), editor.openPaths)
-    }
 }

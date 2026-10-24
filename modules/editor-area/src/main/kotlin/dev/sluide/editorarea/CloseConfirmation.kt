@@ -58,8 +58,11 @@ internal val DISCARD_BUTTON = ButtonType("Don't Save", ButtonBar.ButtonData.NO)
 internal fun askToSave(
     owner: Window?,
     files: List<String>,
-): SaveChoice =
-    when (saveConfirmation(owner, files).showAndWait().orElse(ButtonType.CANCEL)) {
+): SaveChoice = saveChoiceOf(saveConfirmation(owner, files).showAndWait().orElse(ButtonType.CANCEL))
+
+/** What the [answer] of [saveConfirmation] means; anything but Save and Don't Save, a dismissed dialog too, cancels. */
+internal fun saveChoiceOf(answer: ButtonType): SaveChoice =
+    when (answer) {
         SAVE_BUTTON -> SaveChoice.SAVE
         DISCARD_BUTTON -> SaveChoice.DISCARD
         else -> SaveChoice.CANCEL
@@ -97,13 +100,20 @@ internal fun askToSaveBeforeGitChange(
     action: String,
 ): SaveChoice {
     val alert = gitChangeSaveConfirmation(owner, files, action)
-    val answer = alert.showAndWait().orElse(ButtonType.CANCEL)
-    return when {
+    return gitChangeChoiceOf(alert.showAndWait().orElse(ButtonType.CANCEL))
+}
+
+/** What the [answer] of [gitChangeSaveConfirmation] means: Save, any "Anyway" button, else cancel. */
+internal fun gitChangeChoiceOf(answer: ButtonType): SaveChoice =
+    when {
         answer == SAVE_BUTTON -> SaveChoice.SAVE
         answer.buttonData == ButtonBar.ButtonData.NO -> SaveChoice.DISCARD
         else -> SaveChoice.CANCEL
     }
-}
+
+/** The title and header of the dialog that asks to close [count] tabs with warnings. */
+internal fun closeTabsTexts(count: Int): Pair<String, String> =
+    if (count == 1) "Close Tab" to "Close this tab anyway?" else "Close Tabs" to "Close these tabs anyway?"
 
 /** The dialog of [askToSaveBeforeGitChange], not shown yet. */
 internal fun gitChangeSaveConfirmation(

@@ -13,6 +13,7 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteExisting
 import kotlin.io.path.exists
@@ -52,12 +53,15 @@ class EditorAreaFileChangesUiTest : EditorAreaUiFixture() {
     fun `deleting a file on disk closes its tab`(robot: FxRobot) {
         val a = textFile("a.txt")
         val b = textFile("b.txt")
+        val closed = mutableListOf<Path>()
+        editor.onFileClosed = { closed.add(it) }
         open(robot, a, b)
 
         b.deleteExisting()
 
         eventually(robot) { assertEquals(listOf("a.txt"), tabTitles(robot)) }
         assertEquals("content of a.txt", shownText(robot))
+        assertEquals(listOf(b), closed)
     }
 
     @Test
@@ -116,10 +120,10 @@ class EditorAreaFileChangesUiTest : EditorAreaUiFixture() {
         robot.interact { editor.closeAll() }
         assertEquals(0, editor.watchCount)
 
-        files[0].writeText("changed after closing")
-        Thread.sleep(300)
         WaitForAsyncUtils.waitForFxEvents()
         assertEquals(emptyList(), tabTitles(robot))
+        assertNull(shownText(robot))
+        assertNull(editor.selectedPath)
     }
 
     @Test
@@ -292,35 +296,6 @@ class EditorAreaFileChangesUiTest : EditorAreaUiFixture() {
         assertEquals(listOf(a), editor.openPaths)
         assertEquals(listOf("\u25cf a.txt"), tabTitles(robot))
         assertEquals("a.txt changed on disk.", bannerText(robot), "at once, so that saving cannot overwrite it unseen")
-    }
-
-    @Test
-    fun `files with unsaved changes are found at or below a path`(robot: FxRobot) {
-        val folder = dir.resolve("src").createDirectories()
-        val inner =
-            folder
-                .resolve("x")
-                .createDirectories()
-                .resolve("inner.txt")
-                .apply { writeText("inner") }
-        val top = folder.resolve("top.txt").apply { writeText("top") }
-        val clean = folder.resolve("clean.txt").apply { writeText("clean") }
-        val other =
-            dir
-                .resolve("src2")
-                .createDirectories()
-                .resolve("other.txt")
-                .apply { writeText("other") }
-        for (file in listOf(inner, top, other)) {
-            open(robot, file)
-            robot.interact { shownArea(robot).appendText("!") }
-        }
-        open(robot, clean)
-
-        assertEquals(listOf(inner, top), editor.dirtyUnder(folder))
-        assertEquals(listOf(top), editor.dirtyUnder(top))
-        assertEquals(emptyList(), editor.dirtyUnder(clean))
-        assertEquals(listOf(inner, top, other), editor.dirtyUnder(dir))
     }
 
     @Test

@@ -396,6 +396,22 @@ class EditorTabsTest {
     }
 
     @Test
+    fun `files at or below a path are found, a sibling that shares the name's start is not below it`() {
+        val inner = tabs.open(Path.of("/project/src/x/inner.txt"), EditedView())
+        val top = tabs.open(Path.of("/project/src/top.txt"), EditedView())
+        val sibling = tabs.open(Path.of("/project/src2/other.txt"), EditedView())
+        val clean = tabs.open(Path.of("/project/src/clean.txt"), CountingView())
+        tabs.open(DisposableTab("not a file"))
+
+        assertEquals(listOf(inner, top, clean), tabs.filesUnder(Path.of("/project/src/x/../")))
+        assertEquals(listOf(inner, top, clean), tabs.filesUnder(Path.of("/project/src")))
+        assertEquals(listOf(top), tabs.filesUnder(Path.of("/project/src/top.txt")))
+        assertEquals(listOf(sibling), tabs.filesUnder(Path.of("/project/src2")))
+        assertEquals(emptyList(), tabs.filesUnder(Path.of("/project/src/none")))
+        assertEquals(4, tabs.filesUnder(Path.of("/project")).size, "tabs that are no files are skipped")
+    }
+
+    @Test
     fun `the dot follows the editor while its diff is shown`() {
         val edited = EditedView()
         val file = open("a.txt", edited)
