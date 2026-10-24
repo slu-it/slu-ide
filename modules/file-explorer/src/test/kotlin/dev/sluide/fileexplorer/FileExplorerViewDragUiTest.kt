@@ -69,7 +69,8 @@ class FileExplorerViewDragUiTest : FileExplorerViewUiFixture() {
     fun start(stage: Stage) {
         other = TextField()
         startView(stage, configure = {
-            it.dragExpandDelay = Duration.millis(50.0)
+            // Never fires: a drag that hovers a folder must not expand it, except in the tests that wait for that.
+            it.dragExpandDelay = Duration.minutes(60.0)
             it.confirmMove = { question ->
                 questions += question
                 true
@@ -236,6 +237,7 @@ class FileExplorerViewDragUiTest : FileExplorerViewUiFixture() {
         project.resolve("a.txt").createFile()
         project.resolve("target").createDirectories()
         project.resolve("target/inside.txt").createFile()
+        view.dragExpandDelay = SHORT_EXPAND_DELAY
         open(robot)
         val pressed = startDrag(robot, "a.txt")
         dragTo(robot, pressed, at(robot, "target"))
@@ -404,6 +406,7 @@ class FileExplorerViewDragUiTest : FileExplorerViewUiFixture() {
         project.resolve("src").createDirectories()
         project.resolve("src/b.txt").createFile()
         project.resolve("a.txt").createFile()
+        view.dragExpandDelay = SHORT_EXPAND_DELAY
         open(robot, "src")
         select(robot, "src", "src/b.txt")
 
@@ -607,3 +610,6 @@ class FileExplorerViewDragUiTest : FileExplorerViewUiFixture() {
         assertEquals(listOf(project.resolve("a.txt")), selectedPaths())
     }
 }
+
+/** The hold time before a folder expands, for the tests that wait for it; the others keep the real one. */
+private val SHORT_EXPAND_DELAY = Duration.millis(50.0)
