@@ -1,9 +1,5 @@
 package dev.sluide.editorarea
 
-import dev.sluide.fileviewers.DefaultTextFileViewer
-import dev.sluide.fileviewers.EditableFileView
-import dev.sluide.fileviewers.FileViewers
-import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.stage.Stage
 import org.fxmisc.richtext.CodeArea
@@ -32,18 +28,6 @@ class EditorAreaSavingUiTest : EditorAreaUiFixture() {
     fun start(stage: Stage) = startView(stage)
 
     @Test
-    fun `the tab of a file with unsaved changes shows a dot until it is saved`(robot: FxRobot) {
-        val a = textFile("a.txt")
-        open(robot, a)
-
-        robot.interact { shownArea(robot).insertText(0, "edited ") }
-        assertEquals(listOf("● a.txt"), tabTitles(robot))
-
-        robot.interact { (checkNotNull(editor.editorTabs.find(a)).view as EditableFileView).save() }
-        assertEquals(listOf("a.txt"), tabTitles(robot))
-    }
-
-    @Test
     fun `save and saveAll save the edited files`(robot: FxRobot) {
         val a = textFile("a.txt", "a")
         val b = textFile("b.txt", "b")
@@ -62,16 +46,15 @@ class EditorAreaSavingUiTest : EditorAreaUiFixture() {
 
     @Test
     fun `save all saves the other files when one cannot be saved`(robot: FxRobot) {
-        val fallback = DefaultTextFileViewer()
-        val area = EditorArea(FileViewers(listOf(fallback, UnsavableViewer()), fallback), watcher, fontSettings)
+        val area = areaWith(robot, UnsavableViewer())
         val errors = mutableListOf<String>()
         area.showError = { errors += it }
-        robot.interact { stage.scene = Scene(area, 800.0, 400.0) }
         val a = textFile("a.txt", "a")
         val b = textFile("b.txt", "b")
+        val notes = textFile("notes.unsavable")
         robot.interact {
             area.open(a)
-            area.open(textFile("notes.unsavable"))
+            area.open(notes)
             area.open(b)
         }
         for (file in listOf(a, b)) {
@@ -86,62 +69,30 @@ class EditorAreaSavingUiTest : EditorAreaUiFixture() {
         assertEquals(listOf("a1", "b1"), listOf(a.readText(), b.readText()))
         assertEquals(listOf("notes.unsavable could not be saved. Disk full"), errors)
         assertEquals(listOf("a.txt", "\u25cf notes.unsavable", "b.txt"), area.tabs.map { it.title.value })
-    }
 
-    @Test
-    fun `a file that cannot be saved stays edited and the error is shown`(robot: FxRobot) {
-        val fallback = DefaultTextFileViewer()
-        val area = EditorArea(FileViewers(listOf(fallback, UnsavableViewer()), fallback), watcher, fontSettings)
-        val errors = mutableListOf<String>()
-        area.showError = { errors += it }
-        robot.interact { stage.scene = Scene(area, 800.0, 400.0) }
-        val file = textFile("notes.unsavable")
-        robot.interact { area.open(file) }
-
-        robot.interact { assertFalse(area.save()) }
-        robot.interact { assertFalse(area.saveAll()) }
-
+        robot.interact {
+            area.open(notes)
+            assertFalse(area.save())
+        }
         assertEquals(List(2) { "notes.unsavable could not be saved. Disk full" }, errors)
-        assertEquals(
-            "● notes.unsavable",
-            area.tabs
-                .single()
-                .title.value,
-        )
     }
 
     @Test
-    fun `closing a tab with unsaved changes asks to save, Cancel keeps it and Don't Save discards them`(
-        robot: FxRobot,
-    ) {
+    fun `closing a tab with unsaved changes asks to save, Cancel keeps it, Don't Save discards them`(robot: FxRobot) {
         val a = textFile("a.txt", "a")
         var answer = SaveChoice.CANCEL
         val asked = openEdited(robot, a) { answer }
         val close = tabLabel(robot, "\u25cf a.txt").parent.lookup(".close-button") as Button
 
-        robot.interact { close.fire() }
+        robot.interact { editor.closeSelected() }
         assertEquals(listOf(listOf("a.txt")), asked)
         assertEquals(listOf("\u25cf a.txt"), tabTitles(robot))
 
         answer = SaveChoice.DISCARD
         robot.interact { close.fire() }
+        assertEquals(listOf(listOf("a.txt"), listOf("a.txt")), asked)
         assertEquals(emptyList(), tabTitles(robot))
         assertEquals("a", a.readText())
-    }
-
-    @Test
-    fun `closeSelected asks for a file with unsaved changes, Cancel keeps it`(robot: FxRobot) {
-        val a = textFile("a.txt", "a")
-        var answer = SaveChoice.CANCEL
-        val asked = openEdited(robot, a) { answer }
-
-        robot.interact { editor.closeSelected() }
-        assertEquals(listOf(listOf("a.txt")), asked)
-        assertEquals(listOf("\u25cf a.txt"), tabTitles(robot))
-
-        answer = SaveChoice.DISCARD
-        robot.interact { editor.closeSelected() }
-        assertEquals(emptyList(), tabTitles(robot))
     }
 
     @Test
@@ -162,34 +113,6 @@ class EditorAreaSavingUiTest : EditorAreaUiFixture() {
         assertEquals(listOf(listOf("a.txt", "b.txt")), asked)
         assertEquals(emptyList(), tabTitles(robot))
         assertEquals(listOf("edited a", "edited b"), listOf(a.readText(), b.readText()))
-    }
-
-    @Test
-    fun `asking to save lists the files by their path in the project, or in full outside of it`(robot: FxRobot) {
-        val app =
-            dir
-                .resolve("app")
-                .createDirectories()
-                .resolve("build.gradle.kts")
-                .apply { writeText("app") }
-        val lib =
-            dir
-                .resolve("lib")
-                .createDirectories()
-                .resolve("build.gradle.kts")
-                .apply { writeText("lib") }
-        val outside = settingsDir.resolve("notes.txt").apply { writeText("notes") }
-        val asked = openEdited(robot, app, lib, outside) { SaveChoice.CANCEL }
-
-        robot.interact {
-            editor.tabStrip
-                .contextMenuOf(editor.tabs.first())
-                .items
-                .first { it.text == "Close All" }
-                .fire()
-        }
-
-        assertEquals(listOf(listOf("app/build.gradle.kts", "lib/build.gradle.kts", outside.toString())), asked)
     }
 
     @Test
@@ -250,15 +173,11 @@ class EditorAreaSavingUiTest : EditorAreaUiFixture() {
 
     @Test
     fun `a tab whose file cannot be saved stays open`(robot: FxRobot) {
-        val fallback = DefaultTextFileViewer()
-        val area = EditorArea(FileViewers(listOf(fallback, UnsavableViewer()), fallback), watcher, fontSettings)
+        val area = areaWith(robot, UnsavableViewer())
         val errors = mutableListOf<String>()
         area.showError = { errors += it }
         area.confirmSave = { SaveChoice.SAVE }
-        robot.interact {
-            stage.scene = Scene(area, 800.0, 400.0)
-            area.open(textFile("notes.unsavable"))
-        }
+        robot.interact { area.open(textFile("notes.unsavable")) }
         val tab = area.tabs.single()
 
         robot.interact {

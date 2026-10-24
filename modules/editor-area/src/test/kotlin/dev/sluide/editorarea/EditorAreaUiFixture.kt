@@ -34,6 +34,7 @@ import java.io.IOException
 import java.nio.file.Path
 import kotlin.io.path.moveTo
 import kotlin.io.path.name
+import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.math.abs
 import kotlin.time.Duration.Companion.milliseconds
@@ -217,6 +218,20 @@ abstract class EditorAreaUiFixture {
         return field
     }
 
+    /**
+     * A new editor area that shows files with [viewers] before the default text viewer, in the stage; [editor] stays
+     * the original one.
+     */
+    internal fun areaWith(
+        robot: FxRobot,
+        vararg viewers: FileViewer,
+    ): EditorArea {
+        val fallback = DefaultTextFileViewer()
+        val area = EditorArea(FileViewers(listOf(fallback) + viewers, fallback), watcher, fontSettings)
+        robot.interact { stage.scene = Scene(area, 800.0, 400.0) }
+        return area
+    }
+
     /** The node with the focus in the stage. */
     internal fun focusOwner(): Node? = WaitForAsyncUtils.asyncFx<Node?> { stage.scene.focusOwner }.get()
 
@@ -237,6 +252,33 @@ abstract class EditorAreaUiFixture {
 
                 override fun save() = throw IOException("Disk full")
             }
+    }
+
+    /**
+     * Shows `.broken` files as a label with their text. [open] throws while [failOpen] is set, [reload] (which is
+     * counted in [reloads]) while [failReload] is.
+     */
+    internal class FailingViewer : FileViewer {
+        @Volatile var failOpen = false
+
+        @Volatile var failReload = false
+
+        @Volatile var reloads = 0
+
+        override fun canOpen(file: Path) = file.toString().endsWith(".broken")
+
+        override fun open(file: Path): FileView {
+            if (failOpen) throw IOException("Cannot open")
+            return object : FileView {
+                override val node = Label(file.readText())
+
+                override fun reload() {
+                    reloads++
+                    if (failReload) throw IOException("Cannot reload")
+                    node.text = file.readText()
+                }
+            }
+        }
     }
 
     /** The texts of the code areas of the shown diff, left to right; empty if no diff is shown. */

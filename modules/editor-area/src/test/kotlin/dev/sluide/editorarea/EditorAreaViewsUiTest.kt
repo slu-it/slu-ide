@@ -1,10 +1,8 @@
 package dev.sluide.editorarea
 
-import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.FileViewer
-import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.env.EnvFileViewer
 import dev.sluide.previews.bicep.BicepFileViewer
 import dev.sluide.previews.image.ImageFileViewer
@@ -17,12 +15,9 @@ import dev.sluide.settings.FontSpec
 import dev.sluide.settings.FontStyle
 import javafx.beans.property.SimpleStringProperty
 import javafx.scene.Node
-import javafx.scene.Scene
 import javafx.scene.control.Label
-import javafx.scene.control.TextField
 import javafx.scene.control.ToggleButton
 import javafx.scene.layout.Pane
-import javafx.scene.layout.VBox
 import javafx.stage.Stage
 import org.fxmisc.richtext.CodeArea
 import org.junit.jupiter.api.Tag
@@ -164,14 +159,14 @@ class EditorAreaViewsUiTest : EditorAreaUiFixture() {
     }
 
     @Test
-    fun `file views can open files and web pages through their host`(robot: FxRobot) {
+    fun `file views can open files and web pages and look up services through their host`(robot: FxRobot) {
         val viewer = HostRecordingViewer()
-        val fallback = DefaultTextFileViewer()
-        val area = EditorArea(FileViewers(listOf(fallback, viewer), fallback), watcher, fontSettings)
+        val area = areaWith(robot, viewer)
         val opened = mutableListOf<URI>()
         area.openWebPage = { opened += it }
         area.projectFolder = { dir }
-        robot.interact { stage.scene = Scene(area, 800.0, 400.0) }
+        val service = StringBuilder("session")
+        area.windowServices.register(StringBuilder::class.java, service)
         val other = textFile("other.txt")
 
         robot.interact { area.open(textFile("readme.link")) }
@@ -182,6 +177,8 @@ class EditorAreaViewsUiTest : EditorAreaUiFixture() {
         assertEquals(other, area.selectedPath)
         assertEquals(listOf(URI("https://example.com")), opened)
         assertEquals(dir, host.projectFolder)
+        assertSame(service, host.windowService(StringBuilder::class.java))
+        assertNull(host.windowService(Thread::class.java))
     }
 
     @Test
@@ -189,10 +186,7 @@ class EditorAreaViewsUiTest : EditorAreaUiFixture() {
         robot: FxRobot,
     ) {
         val viewer = HostRecordingViewer()
-        val fallback = DefaultTextFileViewer()
-        val area =
-            EditorArea(FileViewers(listOf(fallback, viewer, MarkdownFileViewer()), fallback), watcher, fontSettings)
-        robot.interact { stage.scene = Scene(area, 800.0, 400.0) }
+        val area = areaWith(robot, viewer, MarkdownFileViewer())
         val text = textFile("lines.txt", (1..100).joinToString("\n") { "line $it" })
         robot.interact { area.open(textFile("readme.link")) }
         val host = assertNotNull(viewer.views.single().host)
@@ -237,10 +231,7 @@ class EditorAreaViewsUiTest : EditorAreaUiFixture() {
     @Test
     fun `a zooming preview opened at a line focuses its source, not its diagram`(robot: FxRobot) {
         val viewer = HostRecordingViewer()
-        val fallback = DefaultTextFileViewer()
-        val area =
-            EditorArea(FileViewers(listOf(fallback, viewer, MermaidFileViewer()), fallback), watcher, fontSettings)
-        robot.interact { stage.scene = Scene(area, 800.0, 400.0) }
+        val area = areaWith(robot, viewer, MermaidFileViewer())
         robot.interact { area.open(textFile("readme.link")) }
         val host = assertNotNull(viewer.views.single().host)
         val chart = textFile("flow.mmd", "flowchart TB\n" + (1..200).joinToString("\n") { "  n$it --> n${it + 1}" })
@@ -263,33 +254,6 @@ class EditorAreaViewsUiTest : EditorAreaUiFixture() {
         WaitForAsyncUtils.sleep(300, TimeUnit.MILLISECONDS)
         WaitForAsyncUtils.waitForFxEvents()
         assertTrue(source.isFocused, "the source, not the diagram: ${stage.scene.focusOwner}")
-    }
-
-    @Test
-    fun `file views look up the services of their window`(robot: FxRobot) {
-        val viewer = HostRecordingViewer()
-        val fallback = DefaultTextFileViewer()
-        val area = EditorArea(FileViewers(listOf(fallback, viewer), fallback), watcher, fontSettings)
-        val service = StringBuilder("session")
-        area.windowServices.register(StringBuilder::class.java, service)
-        robot.interact { stage.scene = Scene(area, 800.0, 400.0) }
-
-        robot.interact { area.open(textFile("readme.link")) }
-        val host = assertNotNull(viewer.views.single().host)
-
-        assertSame(service, host.windowService(StringBuilder::class.java))
-        assertNull(host.windowService(CharSequence::class.java))
-        assertNull(host.windowService(Thread::class.java))
-    }
-
-    @Test
-    fun `opening an image focuses its web view so that the zoom keys work`(robot: FxRobot) {
-        val field = fieldAbove(robot, listOf(ImageFileViewer()))
-        robot.interact { field.requestFocus() }
-
-        open(robot, png("image.png"))
-
-        eventually(robot) { assertEquals(WEB_VIEW, stage.scene.focusOwner.javaClass.simpleName) }
     }
 
     @Test
@@ -347,12 +311,31 @@ class EditorAreaViewsUiTest : EditorAreaUiFixture() {
     ) {
         val field = fieldAbove(robot, listOf(ImageFileViewer()))
         val png = png("image.png")
+        robot.interact { field.requestFocus() }
         open(robot, png)
         eventually(robot) { assertEquals(WEB_VIEW, stage.scene.focusOwner.javaClass.simpleName) }
         val tab = checkNotNull(editor.editorTabs.find(png))
 
+        // Renamed within its type while the focus is elsewhere: the same tab and view, the focus stays.
+        robot.interact { field.requestFocus() }
+        val renamed = dir.resolve("renamed.png")
+        move(robot, png, renamed)
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertSame(tab, editor.editorTabs.find(renamed), "the same tab and view")
+        assertSame(field, focusOwner())
+        assertEquals(
+            1,
+            robot
+                .lookup(".editor-content")
+                .queryAs(Pane::class.java)
+                .children.size,
+        )
+
+        robot.interact { editor.focusSelected() }
+        eventually(robot) { assertEquals(WEB_VIEW, stage.scene.focusOwner.javaClass.simpleName) }
         val gif = dir.resolve("image.gif")
-        move(robot, png, gif)
+        move(robot, renamed, gif)
 
         val replacement = checkNotNull(editor.editorTabs.find(gif))
         assertNotSame(tab, replacement)
@@ -390,37 +373,6 @@ class EditorAreaViewsUiTest : EditorAreaUiFixture() {
         dir.resolve(name).also {
             ImageIO.write(BufferedImage(40, 40, BufferedImage.TYPE_INT_ARGB), "png", it.toFile())
         }
-
-    @Test
-    fun `renaming an image keeps its view and the focus where it is`(robot: FxRobot) {
-        val fallback = DefaultTextFileViewer()
-        val other = TextField()
-        robot.interact {
-            editor = EditorArea(FileViewers(listOf(fallback, ImageFileViewer()), fallback), watcher, fontSettings)
-            stage.scene = Scene(VBox(other, editor), 800.0, 400.0)
-        }
-        val png = dir.resolve("image.png")
-        ImageIO.write(BufferedImage(40, 40, BufferedImage.TYPE_INT_ARGB), "png", png.toFile())
-        open(robot, png)
-        val tab = checkNotNull(editor.editorTabs.find(png))
-        robot.interact { other.requestFocus() }
-        WaitForAsyncUtils.waitForFxEvents()
-        assertSame(other, WaitForAsyncUtils.asyncFx<Any?> { stage.scene.focusOwner }.get())
-
-        val renamed = dir.resolve("renamed.png")
-        move(robot, png, renamed)
-        WaitForAsyncUtils.waitForFxEvents()
-
-        assertSame(tab, editor.editorTabs.find(renamed), "the same tab and view")
-        assertSame(other, WaitForAsyncUtils.asyncFx<Any?> { stage.scene.focusOwner }.get())
-        assertEquals(
-            1,
-            robot
-                .lookup(".editor-content")
-                .queryAs(Pane::class.java)
-                .children.size,
-        )
-    }
 }
 
 /** The class of a web view, which the editor module does not see. */

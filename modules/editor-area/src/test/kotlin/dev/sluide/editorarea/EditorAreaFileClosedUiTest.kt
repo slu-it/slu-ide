@@ -9,7 +9,6 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
-import kotlin.io.path.deleteExisting
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
