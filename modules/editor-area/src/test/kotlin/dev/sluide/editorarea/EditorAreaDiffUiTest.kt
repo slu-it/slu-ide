@@ -19,6 +19,7 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import kotlin.io.path.deleteExisting
 import kotlin.io.path.name
 import kotlin.io.path.readText
 import kotlin.io.path.writeText
@@ -315,6 +316,24 @@ class EditorAreaDiffUiTest : EditorAreaUiFixture() {
         assertEquals(mapOf(1 to "diff-modified", 2 to "diff-modified"), shownMarkers(robot))
         robot.interact { area.showParagraphAtBottom(300) }
         assertEquals(mapOf(300 to "diff-modified"), shownMarkers(robot))
+    }
+
+    @Test
+    fun `a diff that cannot be shown leaves the editor in place`(robot: FxRobot) {
+        val a = textFile("a.txt", "new\n")
+        editor.diffOf = immediately { TextDiff("old\n", listOf(LineChange(0..0, 0..0))) }
+        open(robot, a)
+        robot.interact { shownArea(robot).insertText(0, "edited ") }
+        // With unsaved changes the tab stays open, but the file the diff reads is gone.
+        a.deleteExisting()
+        eventually(robot) { assertNotNull(bannerText(robot)) }
+        assertTrue(editor.canToggleDiff.value)
+
+        robot.interact { editor.toggleDiff() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals(emptyList(), shownDiff(robot))
+        assertEquals("edited new\n", shownText(robot))
     }
 
     @Test

@@ -5,6 +5,7 @@ import dev.sluide.fileviewers.LineChange
 import dev.sluide.fileviewers.TextDiff
 import dev.sluide.fileviewers.languages.PythonFileViewer
 import javafx.beans.property.SimpleStringProperty
+import javafx.scene.control.Label
 import javafx.scene.layout.Pane
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
@@ -17,6 +18,7 @@ import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.deleteExisting
 import kotlin.io.path.exists
+import kotlin.io.path.moveTo
 import kotlin.io.path.readText
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
@@ -139,6 +141,57 @@ class EditorAreaFileChangesUiTest : EditorAreaUiFixture() {
 
         file.writeText("v3")
         eventually(robot) { assertEquals("v3", shownText(robot)) }
+    }
+
+    @Test
+    fun `a file whose viewer cannot open it opens no tab and no watch`(robot: FxRobot) {
+        val viewer = FailingViewer().apply { failOpen = true }
+        val area = areaWith(robot, viewer)
+        var opened = true
+
+        robot.interact { opened = area.open(textFile("x.broken")) }
+
+        assertFalse(opened)
+        assertEquals(emptyList(), area.tabs)
+        assertEquals(0, area.watchCount)
+    }
+
+    @Test
+    fun `a tab renamed to a file its new viewer cannot open closes`(robot: FxRobot) {
+        val viewer = FailingViewer().apply { failOpen = true }
+        val area = areaWith(robot, viewer)
+        val a = textFile("a.txt")
+        robot.interact { area.open(a) }
+        val broken = dir.resolve("a.broken")
+
+        robot.interact {
+            a.moveTo(broken)
+            area.moved(a, broken)
+        }
+
+        assertEquals(emptyList(), area.tabs)
+        assertEquals(0, area.watchCount)
+    }
+
+    @Test
+    fun `a file that cannot be reloaded keeps its last content, and reloads once it can`(robot: FxRobot) {
+        val viewer = FailingViewer()
+        val area = areaWith(robot, viewer)
+        val file = textFile("x.broken", "first")
+        robot.interact { area.open(file) }
+        val label = checkNotNull(area.editorTabs.find(file)).editor.node as Label
+        viewer.failReload = true
+
+        file.writeText("second")
+        eventually(robot) { assertTrue(viewer.reloads >= 1, "tried to reload") }
+
+        assertEquals("first", label.text)
+        assertEquals(listOf(file), area.openPaths)
+        assertEquals(1, area.watchCount)
+
+        viewer.failReload = false
+        file.writeText("third")
+        eventually(robot) { assertEquals("third", label.text) }
     }
 
     @Test
