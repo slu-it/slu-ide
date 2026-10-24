@@ -49,9 +49,9 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
- * Zoom (ADR 0033) beyond the basics of the image and preview tests: keys, wheel and pinch fired at the web view,
- * clamping, fit and resizing, clicks, scrolling, and the previews that zoom as documents. Needs a display, see the `uiTest`
- * Gradle task.
+ * Zoom (ADR 0033, ADR 0083) beyond the basics of the image and preview tests: keys, wheel and pinch fired at the
+ * web view, clamping, fit and resizing, clicks, scrolling, and the notebook preview that zooms as a document. Needs a
+ * display, see the `uiTest` Gradle task.
  */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
@@ -582,22 +582,6 @@ class ZoomUiTest {
                 web.number("window.innerHeight") + 1,
             "the bottom edge shows at the end",
         )
-    }
-
-    @Test
-    fun `Markdown previews zoom as documents, without Fit`(robot: FxRobot) {
-        val file = dir.resolve("README.md").apply { writeText("# Title\n\nText\n") }
-        val view = fx { MarkdownFileViewer().open(file) as PreviewFileView }
-        robot.interact { container.children.setAll(view.node) }
-        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
-            fx { view.webView.engine.loadWorker.state } ==
-                Worker.State.SUCCEEDED
-        }
-
-        assertNull(view.zoom.fitButton)
-        assertFalse(fx { view.zoom.fit })
-        assertEquals(3, fx { view.node.lookupAll(".zoom-button").size }, "zoom out, zoom in and 100%")
-        assertEquals(1, fx { view.node.lookupAll(".zoom-controls").size })
     }
 
     @Test
