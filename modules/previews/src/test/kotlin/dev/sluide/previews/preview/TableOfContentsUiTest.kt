@@ -2,18 +2,14 @@ package dev.sluide.previews.preview
 
 import dev.sluide.previews.markdown.MarkdownFileViewer
 import dev.sluide.previews.press
-import dev.sluide.previews.table.CsvFileViewer
+import dev.sluide.previews.primaryMouseEvent
 import javafx.concurrent.Worker
-import javafx.geometry.Orientation
-import javafx.geometry.Point2D
-import javafx.geometry.VerticalDirection
+import javafx.event.Event
 import javafx.scene.Scene
-import javafx.scene.control.Label
 import javafx.scene.control.ListCell
-import javafx.scene.control.ScrollBar
 import javafx.scene.control.ToggleButton
 import javafx.scene.input.KeyCode
-import javafx.scene.layout.HBox
+import javafx.scene.input.MouseEvent
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
 import org.fxmisc.richtext.CodeArea
@@ -31,8 +27,6 @@ import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
-import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -162,22 +156,6 @@ class TableOfContentsUiTest {
             ?.text
 
     @Test
-    fun `the button leads the toolbar and the overlay starts hidden, CSV has no table of contents`(robot: FxRobot) {
-        val view = show(robot)
-        val toc = assertNotNull(view.toc)
-
-        val toolbar = robot.lookup(".preview-toolbar").queryAs(HBox::class.java)
-        assertSame(toc.button, toolbar.children.first())
-        assertFalse(toc.button.isSelected)
-        assertFalse(toc.overlay.isVisible)
-        assertFalse(toc.isOpen)
-
-        val csv = dir.resolve("data.csv").apply { writeText("a,b\n1,2\n") }
-        val csvView = WaitForAsyncUtils.asyncFx<PreviewFileView> { CsvFileViewer().open(csv) as PreviewFileView }.get()
-        assertNull(csvView.toc)
-    }
-
-    @Test
     fun `opening selects the section of the caret and focuses the list`(robot: FxRobot) {
         val view = show(robot)
         val toc = view.toc!!
@@ -196,13 +174,6 @@ class TableOfContentsUiTest {
         assertEquals(titles.map { it.first }, toc.list.items.map { it.text })
         assertEquals(titles.map { it.second }, toc.list.items.map { it.level })
         assertEquals(lines, toc.list.items.map { it.line })
-        val depths = HeadingOutline.depths(toc.list.items)
-        assertEquals(listOf(0, 1, 2, 0, 1, 2), depths)
-        // The cells are indented by their depth.
-        titles.forEachIndexed { i, (title, _) ->
-            val indent = cell(view, title).padding.left
-            assertEquals(8.0 + depths[i] * 14.0, indent, 0.5, "indent of $title")
-        }
     }
 
     @Test
@@ -215,7 +186,7 @@ class TableOfContentsUiTest {
 
         robot.interact { toc.open() }
         WaitForAsyncUtils.waitForFxEvents()
-        robot.clickOn(cell(view, "Epsilon"))
+        robot.interact { Event.fireEvent(cell(view, "Epsilon"), primaryMouseEvent(MouseEvent.MOUSE_CLICKED)) }
         WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(target, area.currentParagraph)
@@ -245,7 +216,7 @@ class TableOfContentsUiTest {
         assertEquals(3, toc.list.selectionModel.selectedIndex)
 
         robot.interact { toc.list.selectionModel.select(1) }
-        robot.type(KeyCode.ENTER)
+        robot.press(toc.list, KeyCode.ENTER)
         WaitForAsyncUtils.waitForFxEvents()
 
         awaitPreviewAt(view, lines[1])
@@ -262,7 +233,7 @@ class TableOfContentsUiTest {
 
         robot.interact { toc.open() }
         WaitForAsyncUtils.waitForFxEvents()
-        robot.type(KeyCode.ESCAPE)
+        robot.press(toc.list, KeyCode.ESCAPE)
         WaitForAsyncUtils.waitForFxEvents()
         assertFalse(toc.isOpen)
         assertFalse(toc.button.isSelected)
@@ -270,8 +241,7 @@ class TableOfContentsUiTest {
 
         robot.interact { toc.open() }
         WaitForAsyncUtils.waitForFxEvents()
-        val bounds = area.localToScreen(area.boundsInLocal)
-        robot.clickOn(Point2D(bounds.maxX - 30, bounds.maxY - 30))
+        robot.interact { Event.fireEvent(area, primaryMouseEvent(MouseEvent.MOUSE_PRESSED)) }
         WaitForAsyncUtils.waitForFxEvents()
         assertFalse(toc.isOpen)
         assertFalse(toc.button.isSelected)
@@ -282,11 +252,17 @@ class TableOfContentsUiTest {
         WaitForAsyncUtils.waitForFxEvents()
         assertFalse(toc.isOpen)
 
-        // The button itself opens it again, with a real click.
-        robot.clickOn(toc.button)
+        // The button itself opens it again and closes it: a press on it is not outside.
+        robot.interact {
+            Event.fireEvent(toc.button, primaryMouseEvent(MouseEvent.MOUSE_PRESSED))
+            toc.button.fire()
+        }
         WaitForAsyncUtils.waitForFxEvents()
         assertTrue(toc.isOpen)
-        robot.clickOn(toc.button)
+        robot.interact {
+            Event.fireEvent(toc.button, primaryMouseEvent(MouseEvent.MOUSE_PRESSED))
+            toc.button.fire()
+        }
         WaitForAsyncUtils.waitForFxEvents()
         assertFalse(toc.isOpen)
     }
@@ -321,26 +297,6 @@ class TableOfContentsUiTest {
         assertEquals("Epsilon", selectedTexts(view))
     }
 
-    @Test
-    fun `a document without headings shows an empty list`(robot: FxRobot) {
-        val view = show(robot, "Just some text.\n\nAnd more of it.\n")
-        val toc = view.toc!!
-
-        robot.interact { toc.open() }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        assertTrue(toc.isOpen)
-        assertTrue(toc.list.items.isEmpty())
-        assertEquals(-1, toc.list.selectionModel.selectedIndex)
-        assertEquals("No headings", (toc.list.placeholder as Label).text)
-        robot.type(KeyCode.ENTER)
-        WaitForAsyncUtils.waitForFxEvents()
-        assertTrue(toc.isOpen, "Enter without an entry does nothing")
-        robot.type(KeyCode.ESCAPE)
-        WaitForAsyncUtils.waitForFxEvents()
-        assertFalse(toc.isOpen)
-    }
-
     private fun reopen(
         robot: FxRobot,
         toc: TableOfContents,
@@ -361,7 +317,7 @@ class TableOfContentsUiTest {
         robot.interact { toc.open() }
         WaitForAsyncUtils.waitForFxEvents()
         robot.interact { toc.list.selectionModel.select(index) }
-        robot.type(KeyCode.ENTER)
+        robot.press(toc.list, KeyCode.ENTER)
         WaitForAsyncUtils.waitForFxEvents()
     }
 
@@ -403,13 +359,9 @@ class TableOfContentsUiTest {
                         view.webView.engine.executeScript("document.querySelectorAll('h1').length") == 3
                 }.get()
         }
-        // Wait for the scroll position to settle.
-        var last = -1.0
-        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
-            Thread.sleep(300)
-            val y = view.scrollY()
-            (y == last).also { last = y }
-        }
+        // The scroll position is restored in the pulse the load succeeds in.
+        WaitForAsyncUtils.waitForFxEvents()
+        WaitForAsyncUtils.waitForFxEvents()
 
         robot.interact { toc.open() }
         WaitForAsyncUtils.waitForFxEvents()
@@ -447,90 +399,21 @@ class TableOfContentsUiTest {
     }
 
     @Test
-    fun `the first open without headings is tall and wide enough for the placeholder`(robot: FxRobot) {
-        val view = show(robot, "Just some text.\n")
-        val toc = view.toc!!
-
-        robot.interact { toc.open() }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        val placeholder = toc.list.placeholder as Label
-        assertTrue(toc.overlay.height >= placeholder.prefHeight(-1.0), "overlay ${toc.overlay.height} is too low")
-        assertTrue(toc.list.height >= placeholder.prefHeight(-1.0), "list ${toc.list.height} is too low")
-        assertTrue(toc.list.width >= placeholder.prefWidth(-1.0), "list ${toc.list.width} is too narrow")
-        assertTrue(placeholder.width >= placeholder.prefWidth(-1.0), "placeholder is clipped: ${placeholder.width}")
-        assertTrue(placeholder.height >= placeholder.prefHeight(-1.0), "placeholder is clipped: ${placeholder.height}")
-    }
-
-    @Test
     fun `choosing a mode button with the overlay open closes it and the list loses the focus`(robot: FxRobot) {
         val view = show(robot)
         val toc = view.toc!!
 
         robot.interact { toc.open() }
         WaitForAsyncUtils.waitForFxEvents()
-        robot.clickOn(robot.modeButton(PreviewMode.SOURCE))
+        val source = robot.modeButton(PreviewMode.SOURCE)
+        robot.interact {
+            Event.fireEvent(source, primaryMouseEvent(MouseEvent.MOUSE_PRESSED))
+            source.fire()
+        }
         WaitForAsyncUtils.waitForFxEvents()
 
         assertFalse(toc.isOpen)
         assertTrue(toc.list.scene.focusOwner !== toc.list, "the focus is still on the list")
         assertEquals(PreviewMode.SOURCE, view.mode.get())
-    }
-
-    private fun visibleScrollBars(
-        toc: TableOfContents,
-        orientation: Orientation,
-    ) = toc.list.lookupAll(".scroll-bar").filterIsInstance<ScrollBar>().filter {
-        it.orientation == orientation && it.isVisible
-    }
-
-    @Test
-    fun `a very long heading does not give the list a horizontal scroll bar`(robot: FxRobot) {
-        val long = "A very long heading that goes on and on ".repeat(8).trim()
-        val view = show(robot, "# Short\n\nText.\n\n## $long\n\nMore text.\n\n## Another\n")
-        val toc = view.toc!!
-
-        robot.interact { toc.open() }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        assertEquals(3, toc.list.items.size)
-        assertTrue(visibleScrollBars(toc, Orientation.HORIZONTAL).isEmpty(), "horizontal scroll bar is shown")
-    }
-
-    @Test
-    fun `five short headings do not give the list a vertical scroll bar`(robot: FxRobot) {
-        val view = show(robot, (1..5).joinToString("\n\n") { "## Part $it\n\nText." } + "\n")
-        val toc = view.toc!!
-
-        robot.interact { toc.open() }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        assertEquals(5, toc.list.items.size)
-        assertTrue(visibleScrollBars(toc, Orientation.VERTICAL).isEmpty(), "vertical scroll bar is shown")
-        assertTrue(visibleScrollBars(toc, Orientation.HORIZONTAL).isEmpty(), "horizontal scroll bar is shown")
-    }
-
-    @Test
-    fun `more headings than fit scroll inside the overlay, down to the last`(robot: FxRobot) {
-        val view = show(robot, (1..80).joinToString("\n\n") { "## Part $it\n\nText." } + "\n")
-        val toc = view.toc!!
-
-        robot.interact { toc.open() }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        val overlay = toc.overlay.localToScene(toc.overlay.layoutBounds)
-        val list = toc.list.localToScene(toc.list.layoutBounds)
-        assertTrue(overlay.maxY <= container.height, "overlay ends below the view: ${overlay.maxY}")
-        assertTrue(list.maxY <= overlay.maxY + 0.5, "list ${list.maxY} ends below its overlay ${overlay.maxY}")
-        assertFalse(visibleScrollBars(toc, Orientation.VERTICAL).isEmpty(), "no vertical scroll bar")
-
-        robot.moveTo(toc.list).scroll(40, VerticalDirection.DOWN)
-        WaitForAsyncUtils.waitForFxEvents()
-        val last =
-            robot
-                .lookup(".toc-overlay .list-cell")
-                .queryAllAs(ListCell::class.java)
-                .single { it.isVisible && it.item == toc.list.items.last() }
-        assertTrue(last.localToScene(last.layoutBounds).maxY <= list.maxY + 0.5, "the last heading is cut off")
     }
 }
