@@ -100,7 +100,6 @@ class FileExplorerViewRootsUiTest {
                 ContextMenuEvent(ContextMenuEvent.CONTEXT_MENU_REQUESTED, 1.0, 1.0, 1.0, 1.0, false, null),
             )
         }
-        WaitForAsyncUtils.waitForFxEvents()
         val item = view.contextMenu.items.single { it.text == text }
         robot.interact { view.contextMenu.hide() }
         return item
@@ -132,7 +131,6 @@ class FileExplorerViewRootsUiTest {
     private fun openBoth(robot: FxRobot) {
         project.resolve("a.txt").createFile()
         robot.interact { view.open(project, extras) }
-        WaitForAsyncUtils.waitForFxEvents()
     }
 
     @Test
@@ -162,7 +160,6 @@ class FileExplorerViewRootsUiTest {
         openBoth(robot)
 
         robot.interact { scratchesItem().isExpanded = true }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(listOf(project.name, "a.txt", "Scratches", "sub", "a.txt", "b.txt"), renderedNames(robot))
 
         scratches.resolve("c.txt").createFile()
@@ -181,7 +178,6 @@ class FileExplorerViewRootsUiTest {
         val newFile = menuItemFor(robot, view, "New File…")
         assertFalse(newFile.isDisable)
         robot.interact { newFile.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertTrue(project.resolve("new.txt").exists())
         assertFalse(scratches.resolve("new.txt").exists())
@@ -194,7 +190,6 @@ class FileExplorerViewRootsUiTest {
         val newFile = menuItemFor(robot, cellNamed(robot, "Scratches"), "New File…")
         assertFalse(newFile.isDisable)
         robot.interact { newFile.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertTrue(scratches.resolve("new.txt").exists())
         assertFalse(project.resolve("new.txt").exists())
@@ -206,7 +201,6 @@ class FileExplorerViewRootsUiTest {
         scratches.resolve("s.txt").createFile()
         openBoth(robot)
         robot.interact { scratchesItem().isExpanded = true }
-        WaitForAsyncUtils.waitForFxEvents()
 
         for (name in listOf(project.name, "Scratches")) {
             assertTrue(menuItemFor(robot, cellNamed(robot, name), "Rename…").isDisable, name)
@@ -224,12 +218,10 @@ class FileExplorerViewRootsUiTest {
     fun `Refresh reads the loaded folders of both roots again`(robot: FxRobot) {
         openBoth(robot)
         robot.interact { scratchesItem().isExpanded = true }
-        WaitForAsyncUtils.waitForFxEvents()
 
         project.resolve("p.txt").createFile()
         scratches.resolve("s.txt").createFile()
         robot.interact { view.refreshAll() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf("a.txt", "p.txt"), view.projectNode.children.map { it.value.name })
         assertEquals(listOf("s.txt"), scratchesItem().children.map { it.value.name })
@@ -253,7 +245,6 @@ class FileExplorerViewRootsUiTest {
 
         var result = false
         robot.interact { result = view.reveal(file) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertTrue(result)
         assertEquals(file, view.selectionModel.selectedItem?.value)
@@ -266,7 +257,6 @@ class FileExplorerViewRootsUiTest {
     fun `reveal finds a file created just before, in a loaded folder`(robot: FxRobot) {
         openBoth(robot)
         robot.interact { scratchesItem().isExpanded = true }
-        WaitForAsyncUtils.waitForFxEvents()
         val file = scratches.resolve("fresh.txt").createFile()
 
         var result = false
@@ -312,7 +302,6 @@ class FileExplorerViewRootsUiTest {
         robot.interact { other.requestFocus() }
 
         robot.interact { view.reveal(file, focus = true) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertTrue(view.isFocused)
         assertEquals(file, view.selectionModel.selectedItem?.value)
@@ -323,13 +312,11 @@ class FileExplorerViewRootsUiTest {
         scratches.resolve("s.txt").createFile()
 
         robot.interact { view.open(null, extras) }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(listOf("Scratches"), renderedNames(robot))
         assertNull(view.projectItem)
         assertNotNull(view.root)
 
         robot.interact { view.open(null) }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(emptyList(), renderedNames(robot))
         assertNull(view.root)
     }
@@ -337,7 +324,6 @@ class FileExplorerViewRootsUiTest {
     @Test
     fun `without a project the empty area cannot create but an extra root can`(robot: FxRobot) {
         robot.interact { view.open(null, extras) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertTrue(menuItemFor(robot, view, "New File…").isDisable)
         assertTrue(menuItemFor(robot, view, "New Folder…").isDisable)
@@ -348,14 +334,12 @@ class FileExplorerViewRootsUiTest {
     fun `a folder shown twice is watched in both copies`(robot: FxRobot) {
         val inner = project.resolve("inner").createDirectories()
         robot.interact { view.open(project, listOf(ExplorerRoot(inner, "Inner"))) }
-        WaitForAsyncUtils.waitForFxEvents()
         robot.interact {
             view.projectNode.children
                 .single()
                 .isExpanded = true
             scratchesItem().isExpanded = true
         }
-        WaitForAsyncUtils.waitForFxEvents()
 
         inner.resolve("both.txt").createFile()
 
@@ -376,7 +360,6 @@ class FileExplorerViewRootsUiTest {
         val inner = project.resolve("inner").createDirectories()
         val file = inner.resolve("f.txt").createFile()
         robot.interact { view.open(project, listOf(ExplorerRoot(inner, "Inner"))) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         var result = false
         robot.interact { result = view.reveal(file) }
@@ -417,7 +400,6 @@ class FileExplorerViewRootsUiTest {
     fun `reveal fails and expands nothing when the extra root was no folder when opened`(robot: FxRobot) {
         val later = scratches.resolve("later")
         robot.interact { view.open(project, listOf(ExplorerRoot(later, "Later"))) }
-        WaitForAsyncUtils.waitForFxEvents()
         later.createDirectories()
         val file = later.resolve("f.txt").createFile()
 
@@ -440,7 +422,6 @@ class FileExplorerViewRootsUiTest {
                 .single()
                 .isExpanded = true
         }
-        WaitForAsyncUtils.waitForFxEvents()
 
         robot.interact { view.projectNode.children.clear() }
         project.resolve("x.txt").createFile()
@@ -459,7 +440,6 @@ class FileExplorerViewRootsUiTest {
         view.onFilesChanged = { changes.add(it) }
         openBoth(robot)
         robot.interact { scratchesItem().isExpanded = true }
-        WaitForAsyncUtils.waitForFxEvents()
         changes.clear()
 
         robot.interact { view.open(null) }
@@ -470,7 +450,6 @@ class FileExplorerViewRootsUiTest {
 
         robot.interact { view.open(project, extras) }
         robot.interact { scratchesItem().isExpanded = true }
-        WaitForAsyncUtils.waitForFxEvents()
         robot.interact { view.open(project, extras) }
         changes.clear()
         scratches.resolve("two.txt").createFile()

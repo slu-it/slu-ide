@@ -42,7 +42,6 @@ class NameDialogUiTest {
             dialog = NameDialog(stage, title, initial, ::validate)
             dialog.show()
         }
-        WaitForAsyncUtils.waitForFxEvents()
         return dialog
     }
 

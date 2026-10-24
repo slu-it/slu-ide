@@ -65,7 +65,6 @@ class FileExplorerViewFolderIconsUiTest {
         extra.resolve("sub").createDirectories()
         extra.resolve("Main.kt").createFile()
         robot.interact { view.open(project, listOf(ExplorerRoot(extra, "Extra", folderIcons))) }
-        WaitForAsyncUtils.waitForFxEvents()
     }
 
     private fun item(name: String): FileTreeItem {
@@ -85,7 +84,6 @@ class FileExplorerViewFolderIconsUiTest {
         vararg names: String,
     ) {
         robot.interact { names.forEach { item(it).isExpanded = true } }
-        WaitForAsyncUtils.waitForFxEvents()
     }
 
     private fun iconOf(
@@ -143,7 +141,6 @@ class FileExplorerViewFolderIconsUiTest {
         assertIcon(robot, "pdir", FileIcon.FOLDER_OPEN)
 
         robot.interact { item("pdir").isExpanded = false }
-        WaitForAsyncUtils.waitForFxEvents()
         assertIcon(robot, "pdir", FileIcon.FOLDER)
     }
 
@@ -164,12 +161,10 @@ class FileExplorerViewFolderIconsUiTest {
 
         extra.resolve("later").createDirectories()
         robot.interact { view.refreshAll() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertIcon(robot, "later", FileIcon.SCRATCH_FOLDER)
 
         view.askName = { _, _, _ -> "renamed" }
         robot.interact { view.rename(item("later")) }
-        WaitForAsyncUtils.waitForFxEvents()
         assertIcon(robot, "renamed", FileIcon.SCRATCH_FOLDER)
     }
 
@@ -178,7 +173,6 @@ class FileExplorerViewFolderIconsUiTest {
         val pdir = project.resolve("pdir").createDirectories()
         pdir.resolve("deeper").createDirectories()
         robot.interact { view.open(project, listOf(ExplorerRoot(pdir, "Extra", icons))) }
-        WaitForAsyncUtils.waitForFxEvents()
         assertIcon(robot, "pdir", FileIcon.FOLDER)
         assertIcon(robot, "Extra", FileIcon.SCRATCHES)
 

@@ -43,7 +43,6 @@ class MoveConfirmationUiTest {
             dialog = moveConfirmation(stage, question)
             dialog.show()
         }
-        WaitForAsyncUtils.waitForFxEvents()
         return dialog
     }
 
@@ -68,7 +67,6 @@ class MoveConfirmationUiTest {
                 .getValue(KeyCodeCombination(KeyCode.ENTER))
                 .run()
         }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(ButtonType.CANCEL, dialog.result)
         assertFalse(dialog.isShowing)
@@ -83,7 +81,6 @@ class MoveConfirmationUiTest {
         assertTrue((dialog.dialogPane.lookupButton(ButtonType.CANCEL) as Button).isDefaultButton)
 
         robot.interact { (dialog.dialogPane.lookupButton(MOVE_OTHERS_BUTTON) as Button).fire() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(MOVE_OTHERS_BUTTON, dialog.result)
     }

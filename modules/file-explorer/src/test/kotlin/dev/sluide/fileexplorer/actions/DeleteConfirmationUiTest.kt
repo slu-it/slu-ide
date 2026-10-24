@@ -42,7 +42,6 @@ class DeleteConfirmationUiTest {
             dialog = deleteConfirmation(stage, question)
             dialog.show()
         }
-        WaitForAsyncUtils.waitForFxEvents()
         val delete = dialog.dialogPane.lookupButton(DELETE_BUTTON) as Button
         val cancel = dialog.dialogPane.lookupButton(ButtonType.CANCEL) as Button
 
@@ -60,7 +59,6 @@ class DeleteConfirmationUiTest {
                 .getValue(KeyCodeCombination(KeyCode.ENTER))
                 .run()
         }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(ButtonType.CANCEL, dialog.result)
         assertFalse(dialog.isShowing)

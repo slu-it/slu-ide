@@ -98,7 +98,6 @@ class FileExplorerViewUiTest {
         project.resolve("visible.txt").createFile()
 
         robot.interact { view.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(
             listOf(project.name, ".hidden-dir", "sub", ".hidden-file", "visible.txt"),
@@ -117,7 +116,6 @@ class FileExplorerViewUiTest {
                 .single()
                 .isExpanded = true
         }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf(project.name, "sub", "deeper", "inner.txt"), renderedNames(robot))
     }
@@ -128,7 +126,6 @@ class FileExplorerViewUiTest {
         robot.interact { view.open(project) }
 
         robot.interact { view.open(null) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertNull(view.root)
         assertEquals(emptyList(), renderedNames(robot))
@@ -161,7 +158,6 @@ class FileExplorerViewUiTest {
         val requested = mutableListOf<Path>()
         view.onOpenFile = { requested.add(it) }
         robot.interact { view.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         val cells = robot.lookup(".tree-cell").queryAllAs(TreeCell::class.java).filter { it.item != null }
         robot.interact {
@@ -243,14 +239,12 @@ class FileExplorerViewUiTest {
 
         val refresh = manual.contextMenu.items.single { it.text == "Refresh" }
         robot.interact { refresh.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(listOf(project.name, "late.txt"), renderedNames(robot))
 
         project.resolve("later.txt").createFile()
         robot.interact {
             Event.fireEvent(manual, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.F5, false, false, false, false))
         }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(listOf(project.name, "late.txt", "later.txt"), renderedNames(robot))
     }
 
@@ -288,7 +282,6 @@ class FileExplorerViewUiTest {
                 ContextMenuEvent(ContextMenuEvent.CONTEXT_MENU_REQUESTED, 1.0, 1.0, 1.0, 1.0, keyboard, null),
             )
         }
-        WaitForAsyncUtils.waitForFxEvents()
         val item = view.contextMenu.items.single { it.text == text }
         robot.interact { view.contextMenu.hide() }
         return item
@@ -323,13 +316,11 @@ class FileExplorerViewUiTest {
                 .single()
                 .isExpanded = true
         }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertTrue(menuItemFor(robot, cellNamed(robot, "taken.txt"), "New File…").isDisable)
         val newFile = menuItemFor(robot, cellNamed(robot, "sub"), "New File…")
         assertFalse(newFile.isDisable)
         robot.interact { newFile.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         val created = project.resolve("sub/new.txt")
         assertEquals(listOf("New File", "", "“taken.txt” already exists in this folder.", null), asked)
@@ -348,11 +339,9 @@ class FileExplorerViewUiTest {
         var name = "nested"
         view.askName = { _, _, _ -> name }
         robot.interact { view.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         val inSub = menuItemFor(robot, cellNamed(robot, "sub"), "New Folder…")
         robot.interact { inSub.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertTrue(Files.isDirectory(project.resolve("sub/nested")))
         assertEquals(listOf(project.name, "sub", "nested", "inner.txt"), renderedNames(robot))
         robot.interact {
@@ -365,7 +354,6 @@ class FileExplorerViewUiTest {
         val inProject = menuItemFor(robot, view, "New Folder…")
         assertFalse(inProject.isDisable)
         robot.interact { inProject.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertTrue(Files.isDirectory(project.resolve("top")))
         assertEquals(listOf(project.name, "sub", "nested", "inner.txt", "top"), renderedNames(robot))
         robot.interact { assertEquals(project.resolve("top"), view.selectionModel.selectedItem?.value) }
@@ -378,10 +366,8 @@ class FileExplorerViewUiTest {
         view.askName = { _, _, _ -> "a" }
         robot.interact { view.open(project) }
         robot.interact { view.selectOnly(view.projectNode.children.single()) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         robot.interact { view.create(null, folder = true) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         robot.interact {
             assertEquals(project.resolve("a"), view.selectionModel.selectedItem?.value)
@@ -402,12 +388,10 @@ class FileExplorerViewUiTest {
             "new.txt"
         }
         robot.interact { view.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         val rename = menuItemFor(robot, cellNamed(robot, "old.txt"), "Rename…")
         assertFalse(rename.isDisable)
         robot.interact { rename.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         val renamed = project.resolve("new.txt")
         assertEquals(listOf("Rename", "old.txt", null, "“other.txt” already exists in this folder."), asked)
@@ -429,10 +413,8 @@ class FileExplorerViewUiTest {
                 .single()
                 .isExpanded = true
         }
-        WaitForAsyncUtils.waitForFxEvents()
 
         robot.interact { view.rename(view.projectNode.children.single() as FileTreeItem) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf(project.resolve("sub") to project.resolve("renamed")), moves)
         assertEquals(listOf(project.name, "renamed", "inner.txt"), renderedNames(robot))
@@ -468,7 +450,6 @@ class FileExplorerViewUiTest {
         project.resolve("a.txt").createFile()
         val sub = project.resolve("sub").createDirectories()
         robot.interact { view.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
         val commands = mutableListOf<List<String>>()
         view.launchCommand = { commands.add(it) }
         val label = view.fileManager.label
@@ -488,7 +469,6 @@ class FileExplorerViewUiTest {
     fun `Open in file manager shows an error if the command cannot start`(robot: FxRobot) {
         val sub = project.resolve("sub").createDirectories()
         robot.interact { view.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
         val errors = mutableListOf<String>()
         view.showError = { errors.add(it) }
         view.launchCommand = { throw IOException("no such program") }
@@ -506,7 +486,6 @@ class FileExplorerViewUiTest {
         val other = project.resolve("b.txt").createFile()
         project.resolve("sub").createDirectories()
         robot.interact { view.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
         assertFalse(menuItemFor(robot, cellNamed(robot, "a.txt"), "Show History").isVisible)
 
         val shown = mutableListOf<Path>()
@@ -559,7 +538,6 @@ class FileExplorerViewUiTest {
                 .first()
                 .isExpanded = true
         }
-        WaitForAsyncUtils.waitForFxEvents()
         // As a right-click does.
         robot.interact { view.selectOnly(view.projectNode.children.first()) }
 
@@ -601,7 +579,6 @@ class FileExplorerViewUiTest {
             view.selectOnly(view.projectNode.children.first())
             pressKey(KeyCode.DELETE)
         }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertTrue(file.exists())
         robot.interact {
@@ -631,7 +608,6 @@ class FileExplorerViewUiTest {
         }
         robot.interact { view.open(project) }
         robot.interact { view.selectOnly(view.projectNode.children.single()) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         val rename = menuItemFor(robot, view, "Rename…", keyboard = true)
         assertFalse(rename.isDisable)
@@ -704,10 +680,8 @@ class FileExplorerViewUiTest {
     fun `the tree uses the explorer font and follows its changes`(robot: FxRobot) {
         project.resolve("README.md").createFile()
         robot.interact { view.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         robot.interact { fontSettings.apply(mapOf(FontArea.EXPLORER to FontSpec("Serif", 20.0, FontStyle.BOLD))) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         val cell =
             robot
@@ -775,7 +749,6 @@ class FileExplorerViewUiTest {
             shown[path.name] ?: FileMarkers.NONE
         }
         robot.interact { view.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(
             listOf("file-marker-unversioned", "file-marker-added", "file-marker-modified"),
@@ -792,7 +765,6 @@ class FileExplorerViewUiTest {
 
         shown = mapOf("clean.kt" to FileMarkers(bubbles = listOf(FileMarker.IGNORED)))
         robot.interact { view.refreshMarkers() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(emptyList(), markersOf(robot, "sub"))
         assertEquals(emptyList(), markersOf(robot, "changed.kt"))
@@ -806,7 +778,6 @@ class FileExplorerViewUiTest {
         var shown = mapOf("changed.kt" to FileMarkers(name = FileMarker.MODIFIED))
         view.markers = { path, _ -> shown[path.name] ?: FileMarkers.NONE }
         robot.interact { view.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals("file-name-modified", nameColourOf(robot, "changed.kt"))
         assertEquals(Color.web("#1e63c8"), nameLabelOf(robot, "changed.kt").textFill)
@@ -817,16 +788,13 @@ class FileExplorerViewUiTest {
 
         // On the selection bar the name has the selection's text colour, so it stays readable.
         robot.interact { view.selectOnly(view.projectNode.children.first { it.value.name == "changed.kt" }) }
-        WaitForAsyncUtils.waitForFxEvents()
         assertNull(nameColourOf(robot, "changed.kt"))
         assertEquals(cellNamed(robot, "changed.kt").textFill, nameLabelOf(robot, "changed.kt").textFill)
         robot.interact { view.selectionModel.clearSelection() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals("file-name-modified", nameColourOf(robot, "changed.kt"))
 
         shown = emptyMap()
         robot.interact { view.refreshMarkers() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertNull(nameColourOf(robot, "changed.kt"))
         assertEquals(normal, nameLabelOf(robot, "changed.kt").textFill)
@@ -837,7 +805,6 @@ class FileExplorerViewUiTest {
         val reports = mutableListOf<Set<Path>>()
         view.onFilesChanged = { reports += it }
         robot.interact { view.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         val created = project.resolve("new.txt").createFile()
         eventually(robot) { assertEquals(1, reports.size) }
@@ -855,7 +822,6 @@ class FileExplorerViewUiTest {
         var nameMarker = FileMarker.UNVERSIONED
         view.markers = { _, _ -> FileMarkers(name = nameMarker, bubbles = FileMarker.entries) }
         robot.interact { view.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         fun bubbleColours() =
             FileMarker.entries.map {
@@ -867,14 +833,12 @@ class FileExplorerViewUiTest {
             FileMarker.entries.map {
                 nameMarker = it
                 robot.interact { view.refreshMarkers() }
-                WaitForAsyncUtils.waitForFxEvents()
                 nameLabelOf(robot, "a.kt").textFill
             }
         val light = bubbleColours()
         assertEquals(Color.web("#d32f2f"), light.first())
         assertEquals(light, nameColours())
         robot.interact { view.scene.preferences.colorScheme = ColorScheme.DARK }
-        WaitForAsyncUtils.waitForFxEvents()
         val dark = bubbleColours()
         assertEquals(Color.web("#ef6461"), dark.first())
         assertEquals(dark, nameColours())
@@ -895,7 +859,6 @@ class FileExplorerViewUiTest {
         }
 
         robot.interact { view.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         robot.interact {
             assertEquals(FileIcon.FOLDER_OPEN.ikon, iconOf(robot, project.name).iconCode)
@@ -909,7 +872,6 @@ class FileExplorerViewUiTest {
         }
         // Only files without a known extension are checked, each once however often its cell is rendered.
         robot.interact { view.refresh() }
-        WaitForAsyncUtils.waitForFxEvents()
         assertEquals(listOf("blob.bin", "notes.adoc"), checked.sorted())
     }
 
@@ -919,7 +881,6 @@ class FileExplorerViewUiTest {
         file.writeBytes(byteArrayOf(0, 1, 2))
         view.canOpenFile = { 0.toByte() !in Files.readAllBytes(it) }
         robot.interact { view.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
         robot.interact { assertEquals(FileIcon.BINARY.ikon, iconOf(robot, "data").iconCode) }
 
         file.writeText("now text")
@@ -940,12 +901,10 @@ class FileExplorerViewUiTest {
             view.scene.root = manual
             manual.open(project)
         }
-        WaitForAsyncUtils.waitForFxEvents()
         robot.interact { assertEquals(FileIcon.BINARY.ikon, iconOf(robot, "data").iconCode) }
 
         file.writeText("now text")
         robot.interact { manual.refreshAll() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         robot.interact { assertEquals(FileIcon.TEXT.ikon, iconOf(robot, "data").iconCode) }
     }
@@ -954,11 +913,9 @@ class FileExplorerViewUiTest {
     fun `icon colours follow the theme`(robot: FxRobot) {
         project.resolve("Main.kt").createFile()
         robot.interact { view.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
 
         fun kotlinColor(scheme: ColorScheme): Any? {
             robot.interact { view.scene.preferences.colorScheme = scheme }
-            WaitForAsyncUtils.waitForFxEvents()
             var color: Any? = null
             robot.interact { color = iconOf(robot, "Main.kt").iconColor }
             return color

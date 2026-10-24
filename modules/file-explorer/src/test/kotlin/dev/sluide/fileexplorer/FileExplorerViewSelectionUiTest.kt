@@ -105,7 +105,6 @@ class FileExplorerViewSelectionUiTest {
                     .forEach { it.isExpanded = true }
             }
         }
-        WaitForAsyncUtils.waitForFxEvents()
     }
 
     private fun item(name: String): FileTreeItem =
@@ -173,7 +172,6 @@ class FileExplorerViewSelectionUiTest {
                 )
             }
         }
-        WaitForAsyncUtils.waitForFxEvents()
     }
 
     private fun menuItemFor(
@@ -188,7 +186,6 @@ class FileExplorerViewSelectionUiTest {
                 ContextMenuEvent(ContextMenuEvent.CONTEXT_MENU_REQUESTED, 1.0, 1.0, 1.0, 1.0, keyboard, null),
             )
         }
-        WaitForAsyncUtils.waitForFxEvents()
         val item = view.contextMenu.items.single { it.text == text }
         robot.interact { view.contextMenu.hide() }
         return item

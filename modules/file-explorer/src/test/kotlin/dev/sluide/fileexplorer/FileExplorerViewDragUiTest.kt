@@ -95,7 +95,6 @@ class FileExplorerViewDragUiTest {
             view.open(project)
             expand.forEach { item(it).isExpanded = true }
         }
-        WaitForAsyncUtils.waitForFxEvents()
     }
 
     private fun item(name: String): TreeItem<Path> =
@@ -180,7 +179,6 @@ class FileExplorerViewDragUiTest {
                 ),
             )
         }
-        WaitForAsyncUtils.waitForFxEvents()
     }
 
     /** A drag started on the row of [name]: pressed, then moved past the threshold. Returns the pressed row. */
@@ -189,7 +187,7 @@ class FileExplorerViewDragUiTest {
         name: String,
     ): TreeCell<*> {
         val cell = cellNamed(robot, name)
-        val start = at(robot, name)
+        val start = cell.localToScene(cell.width / 2, cell.height / 2)
         mouse(robot, cell, MouseEvent.MOUSE_PRESSED, start, true)
         mouse(robot, cell, MouseEvent.MOUSE_DRAGGED, start.add(0.0, 10.0), true)
         return cell
@@ -384,7 +382,6 @@ class FileExplorerViewDragUiTest {
         robot.interact {
             Event.fireEvent(view, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.ESCAPE, false, false, false, false))
         }
-        WaitForAsyncUtils.waitForFxEvents()
         assertNull(view.dropTarget())
         dragTo(robot, pressed, at(robot, "target"))
         assertNull(view.dropTarget())
@@ -473,7 +470,6 @@ class FileExplorerViewDragUiTest {
                 ),
             )
         }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertNull(view.dropTarget())
         assertNull(dragImage(robot))
@@ -510,7 +506,6 @@ class FileExplorerViewDragUiTest {
         assertTrue(view.isFocused, "a drag takes the focus")
         assertSame(item("target"), view.dropTarget())
         robot.interact { other.requestFocus() }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertNull(view.dropTarget())
         assertNull(dragImage(robot))
@@ -556,7 +551,6 @@ class FileExplorerViewDragUiTest {
                 KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.ESCAPE, false, false, false, false),
             )
         }
-        WaitForAsyncUtils.waitForFxEvents()
 
         assertNull(view.dropTarget())
         assertNull(dragImage(robot))

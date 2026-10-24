@@ -84,7 +84,6 @@ class FileExplorerViewFolderActionsUiTest {
                 ContextMenuEvent(ContextMenuEvent.CONTEXT_MENU_REQUESTED, 1.0, 1.0, 1.0, 1.0, keyboard, null),
             )
         }
-        WaitForAsyncUtils.waitForFxEvents()
         val texts = view.contextMenu.items.map { it.text }
         robot.interact { view.contextMenu.hide() }
         return texts
@@ -119,7 +118,6 @@ class FileExplorerViewFolderActionsUiTest {
     private fun openProject(robot: FxRobot) {
         project.resolve("sub/inner.txt").createParentDirectories().createFile()
         robot.interact { view.open(project) }
-        WaitForAsyncUtils.waitForFxEvents()
     }
 
     @Test
@@ -146,7 +144,6 @@ class FileExplorerViewFolderActionsUiTest {
                 .single()
                 .isExpanded = true
         }
-        WaitForAsyncUtils.waitForFxEvents()
         view.folderActions = listOf(action { FolderActionResult(null) })
 
         fireAction(robot, cellNamed(robot, "sub"))
