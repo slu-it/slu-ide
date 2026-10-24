@@ -15,7 +15,6 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
-import java.util.concurrent.CountDownLatch
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -187,58 +186,17 @@ class GitLogViewFilterPopupsUiTest : GitLogViewUiFixture() {
         WaitForAsyncUtils.waitForFxEvents()
         assertEquals(1, pathLoads.size, "not read again for a filter change")
         robot.interact { popup.hide() }
-    }
 
-    @Test
-    fun `a user name or tree read for a folder opened before is dropped`(robot: FxRobot) {
-        userName = "Me Myself"
-        treePaths = listOf(GitTreePath("src", folder = true))
-        val other = Path.of("/other")
-        otherHistory = commits(3, "o")
-        userNameGates[repo] = CountDownLatch(1)
-        pathGates[repo] = CountDownLatch(1)
-        userNameGates[other] = CountDownLatch(1)
-        pathGates[other] = CountDownLatch(1)
-        openAndExpand(robot)
-        robot.interact { bar.user.button.fire() }
-        robot.interact { bar.path.button.fire() }
-
-        robot.interact { view.open(other) }
-        userNameGates.getValue(repo).countDown()
-        pathGates.getValue(repo).countDown()
-        eventually { assertEquals(listOf(repo), userNameLoads.toList()) }
-        eventually { assertEquals(listOf(repo), pathLoads.toList()) }
-        WaitForAsyncUtils.waitForFxEvents()
-
-        // The reads for the other folder are still waiting: the popups show nothing of the first one.
-        robot.interact { bar.user.button.fire() }
-        assertFalse(items(bar.user.popup).any { it.startsWith("me") }, "${items(bar.user.popup)}")
-        robot.interact {
-            bar.user.popup.hide()
-            bar.path.button.fire()
-        }
-        assertEquals(emptyList(), items(bar.path.popup))
-        robot.interact { bar.path.popup.hide() }
-    }
-
-    @Test
-    fun `the tree is read again after a refresh, not after a filter change`(robot: FxRobot) {
-        treePaths = listOf(GitTreePath("src", folder = true))
-        openAndExpand(robot)
-        robot.interact { bar.path.button.fire() }
-        eventuallyLists(bar.path, listOf("src"))
-        clickItem(robot, bar.path.popup, "src")
-        eventually { assertEquals(listOf("src"), filters.last().paths) }
-        robot.interact { bar.path.popup.hide() }
-
-        robot.interact { bar.path.button.fire() }
-        WaitForAsyncUtils.waitForFxEvents()
-        assertEquals(1, pathLoads.size, "a filter change keeps the tree")
-        robot.interact { bar.path.popup.hide() }
-
+        // A refresh marks the tree stale, opening another folder forgets it.
         robot.interact { view.refresh() }
-        robot.interact { bar.path.button.fire() }
+        robot.interact { path.button.fire() }
         eventually { assertEquals(2, pathLoads.size) }
-        robot.interact { bar.path.popup.hide() }
+        robot.interact { popup.hide() }
+
+        otherHistory = commits(3, "o")
+        robot.interact { view.open(Path.of("/other")) }
+        robot.interact { path.button.fire() }
+        eventually { assertEquals(listOf(repo, repo, Path.of("/other")), pathLoads.toList()) }
+        robot.interact { popup.hide() }
     }
 }

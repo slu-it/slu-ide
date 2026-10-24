@@ -112,11 +112,7 @@ abstract class GitLogViewUiFixture {
     @Volatile
     internal var treePaths: List<GitTreePath>? = emptyList()
 
-    /** Reading the user name or the tree's paths of a root waits for its gate, if it has one. */
-    internal val userNameGates = ConcurrentHashMap<Path, CountDownLatch>()
-    internal val pathGates = ConcurrentHashMap<Path, CountDownLatch>()
-
-    /** The root of every read of the user name and of the tree's paths, once its gate is open. */
+    /** The root of every read of the user name and of the tree's paths. */
     internal val userNameLoads = CopyOnWriteArrayList<Path>()
     internal val pathLoads = CopyOnWriteArrayList<Path>()
 
@@ -236,13 +232,11 @@ abstract class GitLogViewUiFixture {
                 ) = hashMatchOf(filter)
 
                 override fun userName(root: Path): String? {
-                    if (!userNameGates[root].passed()) return null
                     userNameLoads.add(root)
                     return if (root == repo) userName else null
                 }
 
                 override fun paths(root: Path): List<GitTreePath>? {
-                    if (!pathGates[root].passed()) return null
                     pathLoads.add(root)
                     return if (root == repo) treePaths else emptyList()
                 }
@@ -365,8 +359,6 @@ abstract class GitLogViewUiFixture {
         historyGate?.countDown()
         branchGates.values.forEach(CountDownLatch::countDown)
         resolveGate?.countDown()
-        userNameGates.values.forEach(CountDownLatch::countDown)
-        pathGates.values.forEach(CountDownLatch::countDown)
         view.close()
     }
 

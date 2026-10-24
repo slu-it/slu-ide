@@ -31,12 +31,18 @@ internal class FilterSources(
     /** The author names of all rows loaded since the root was opened, for the user filter. */
     private val knownAuthors = HashSet<String>()
 
-    /** The root whose user name is read (or being read); `null` if it is not asked for yet. */
+    /** The root whose user name is read (or being read); `null` if it is not asked for yet or the read failed. */
     private var userNameRoot: Path? = null
+
+    /** Counts the reads of the user name; only the latest one's result counts. */
+    private var userNameReads = 0L
     private var userName: String? = null
 
-    /** The root whose tree paths are read (or being read); `null` if they are not asked for yet. */
+    /** The root whose tree paths are read (or being read); `null` if not asked for yet or the read failed. */
     private var pathsRoot: Path? = null
+
+    /** Counts the reads of the tree paths; only the latest one's result counts. */
+    private var pathReads = 0L
     private var paths: List<GitTreePath> = emptyList()
 
     /** Whether the log was refreshed since the paths were read, so that they are read again. */
@@ -56,8 +62,10 @@ internal class FilterSources(
     fun reset() {
         knownAuthors.clear()
         userNameRoot = null
+        userNameReads++
         userName = null
         pathsRoot = null
+        pathReads++
         paths = emptyList()
     }
 
@@ -105,34 +113,52 @@ internal class FilterSources(
         }
     }
 
-    /** Reads the user name in the background, once per opened root; the user popup shows it when it is there. */
+    /**
+     * Reads the user name in the background, once per opened root unless the read failed; the user popup shows it when
+     * it is there.
+     */
     fun readUserName() {
         val root = pages.root ?: return
         if (userNameRoot == root) return
         userNameRoot = root
+        val current = ++userNameReads
         background {
             val name = loadUserName(root)
             dispatch {
-                if (pages.root == root && userNameRoot == root) {
-                    userName = name
-                    userNameRead()
+                if (pages.root == root && userNameReads == current) {
+                    if (name == null) {
+                        // A failed read is asked again when the popup is opened next.
+                        userNameRoot = null
+                    } else {
+                        userName = name
+                        userNameRead()
+                    }
                 }
             }
         }
     }
 
-    /** Reads the tree paths in the background, once per opened root and refresh; the path popup shows them then. */
+    /**
+     * Reads the tree paths in the background, once per opened root and refresh unless the read failed; the path popup
+     * shows them then.
+     */
     fun readPaths() {
         val root = pages.root ?: return
         if (pathsRoot == root && !pathsStale) return
         pathsRoot = root
         pathsStale = false
+        val current = ++pathReads
         background {
             val read = loadPaths(root)
             dispatch {
-                if (pages.root == root && pathsRoot == root) {
-                    paths = read.orEmpty()
-                    pathsRead()
+                if (pages.root == root && pathReads == current) {
+                    if (read == null) {
+                        // A failed read is asked again when the popup is opened next.
+                        pathsRoot = null
+                    } else {
+                        paths = read
+                        pathsRead()
+                    }
                 }
             }
         }
