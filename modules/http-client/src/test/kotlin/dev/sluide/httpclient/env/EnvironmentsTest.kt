@@ -86,8 +86,11 @@ class EnvironmentsTest {
     fun `reports files and environments of the wrong shape`() {
         val environments = load(public = "[1]", private = """{"dev": 5}""")
 
-        assertEquals(1, environments.problems.size)
-        assertEquals(1, environments["dev"]?.problems?.size)
+        assertEquals(listOf("${EnvironmentFiles.PUBLIC}: expected an object of environments"), environments.problems)
+        assertEquals(
+            listOf("${EnvironmentFiles.PRIVATE}: environment \"dev\" must be an object"),
+            environments["dev"]?.problems,
+        )
     }
 
     @Test
@@ -95,7 +98,7 @@ class EnvironmentsTest {
         val environments = load(public = """{"${'$'}shared": {"a": 1}, "dev": {}}""")
 
         assertEquals(listOf("dev"), environments.names)
-        assertEquals(1, environments.problems.size)
+        assertEquals(listOf("\"\$shared\" is not supported and ignored"), environments.problems)
     }
 
     @Test
@@ -175,7 +178,52 @@ class EnvironmentsTest {
 
         assertNotNull(dev)
         assertEquals(setOf("a"), dev.auth.keys)
-        assertEquals(3, dev.problems.size)
+        assertEquals(
+            listOf(
+                "Auth \"b\" must be an object",
+                "Auth \"a\": unknown Client Credentials \"header\" (basic, in body or none); basic is used",
+                "Auth \"a\": \"Use ID Token\" must be true or false",
+            ),
+            dev.problems,
+        )
+    }
+
+    @Test
+    fun `reports a Security Auth that is not an object`() {
+        val dev = load(public = """{"dev": {"Security": {"Auth": [1]}}}""")["dev"]
+
+        assertNotNull(dev)
+        assertEquals(listOf("Security.Auth must be an object"), dev.problems)
+        assertTrue(dev.auth.isEmpty())
+    }
+
+    @Test
+    fun `an empty or blank file reports no problem`() {
+        for (text in listOf("", "  \n")) {
+            val environments = load(public = text)
+
+            assertTrue(environments.problems.isEmpty(), "'$text': ${environments.problems}")
+            assertTrue(environments.names.isEmpty())
+        }
+    }
+
+    @Test
+    fun `reports SSL settings it does not understand`() {
+        fun problems(ssl: String) = load(private = """{"dev": {"SSLConfiguration": $ssl}}""")["dev"]?.problems
+
+        assertEquals(listOf("SSLConfiguration must be an object"), problems("[]"))
+        assertEquals(
+            listOf("SSLConfiguration: \"verifyHostCertificate\" must be true or false"),
+            problems("""{"verifyHostCertificate": "no"}"""),
+        )
+        val needsPath = listOf("SSLConfiguration: \"clientCertificate\" needs a path")
+        assertEquals(needsPath, problems("""{"clientCertificate": ""}"""))
+        assertEquals(needsPath, problems("""{"clientCertificate": {"format": "pem"}}"""))
+        assertEquals(needsPath, problems("""{"clientCertificate": {"path": 5}}"""))
+        assertEquals(
+            listOf("SSLConfiguration: unknown format \"pfx\" of \"clientCertificateKey\" (PEM, P12 or DER)"),
+            problems("""{"clientCertificateKey": {"path": "k", "format": "pfx"}}"""),
+        )
     }
 
     @Test
