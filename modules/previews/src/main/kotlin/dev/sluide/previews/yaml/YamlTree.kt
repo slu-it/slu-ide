@@ -94,8 +94,11 @@ internal class ParsedYaml(
  * constructed, so tags never instantiate classes and aliases are never expanded. Comments are not read.
  */
 internal object YamlParser {
-    /** Deeper nesting is an error; it keeps the page (and its recursion) bounded. */
-    const val MAX_DEPTH = 1000
+    /**
+     * Deeper nesting is an error; it keeps the page (and its recursion) bounded. The layout takes about three calls per
+     * level: 1000 levels overflowed the default 1 MB thread stack.
+     */
+    const val MAX_DEPTH = 200
 
     /** `while parsing a block mapping`, the context SnakeYAML gives a problem. */
     private val context = Regex("""^while (?:parsing|scanning) (?:an? )?(.+)$""")

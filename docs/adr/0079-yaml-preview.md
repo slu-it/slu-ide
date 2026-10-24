@@ -24,7 +24,8 @@ left the shared fold parts ready for a third preview that needs only a renderer.
 - **Security:** only events are read, so no tag ever constructs a type (no gadget classes) and aliases are never
   expanded (no billion laughs: `*a` is shown as `*a`). Comments are not processed. `codePointLimit` is raised to
   `Int.MAX_VALUE`, because the default 3 MB would reject files the editor shows; the page is bounded by `MAX_NODES`
-  (100,000, with a note) and nesting deeper than 1000 levels is an error (the layout recurses).
+  (100,000, with a note) and nesting deeper than 200 levels is an error (the layout recurses, about three calls per
+  level; 1000 levels overflowed the default 1 MB thread stack on the Linux CI runner).
 - **Scalars as written:** a scalar's text is the source between its marks (SnakeYAML's marks count code points; they
   are converted to char offsets), after its properties, so quotes, escapes and numbers show as spelled. Anchors and
   tags are taken from the source too (`!!str`, `!Ref`, `!e!foo` as written). Multi-line scalars are indented anew:

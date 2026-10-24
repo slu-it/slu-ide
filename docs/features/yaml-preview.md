@@ -40,5 +40,5 @@ YAML files show their highlighted source with a formatted, foldable view beside 
   above what could be read before it. Tabs used for indentation are errors, as in YAML.
 - **Safe by design:** tags never create objects and aliases are never expanded, so YAML bombs and type gadgets do
   nothing.
-- **Large files:** at most 100 000 nodes are shown, and nesting deeper than 1000 levels is an error; a note or notice
+- **Large files:** at most 100 000 nodes are shown, and nesting deeper than 200 levels is an error; a note or notice
   says so. The source always shows everything.
