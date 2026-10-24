@@ -185,6 +185,39 @@ class CodeEditorUiTest {
         assertEquals(listOf("run"), labels.filterNot { "lineno" in it.styleClass }.map { it.text })
     }
 
+    private fun display(robot: FxRobot): CodeDisplay {
+        val display = WaitForAsyncUtils.asyncFx<CodeDisplay> { CodeEditors.display() }.get()
+        robot.interact { container.children.setAll(display.node) }
+        return display
+    }
+
+    @Test
+    fun `a display shows highlighted text that cannot be edited, with the caret at the top`(robot: FxRobot) {
+        val display = display(robot)
+
+        robot.interact { display.show("{\"a\": 1}\n", Highlighters.forLanguage("json")) }
+
+        val area = robot.area()
+        assertEquals("{\"a\": 1}\n", display.text)
+        assertFalse(area.isEditable)
+        assertTrue("property" in area.getStyleOfChar(2), area.getStyleOfChar(2).toString())
+        assertEquals(0, area.caretPosition)
+    }
+
+    @Test
+    fun `a display shows a text over the highlight limit plain`(robot: FxRobot) {
+        val display = display(robot)
+        val text = "{\"a\": 1}\n".repeat(CodeEditors.HIGHLIGHT_LIMIT / 9 + 1)
+        assertTrue(text.length > CodeEditors.HIGHLIGHT_LIMIT)
+
+        robot.interact { display.show(text, Highlighters.forLanguage("json")) }
+
+        val area = robot.area()
+        assertEquals(text.length, display.text.length)
+        assertTrue(area.getStyleSpans(0, area.length).all { it.style.isEmpty() })
+        assertEquals(0, area.caretPosition)
+    }
+
     @Test
     fun `replaces its text as one undo step that marks it dirty`(robot: FxRobot) {
         val file = dir.resolve("a.json").apply { writeText("{\n  \"a\": 1,\n  \"b\": 2\n}\n") }

@@ -192,6 +192,37 @@ class CodeViewUiTest {
     }
 
     @Test
+    fun `a file that switched to CRLF on disk is saved with CRLF`(robot: FxRobot) {
+        val file = dir.resolve("main.py").apply { writeText("a = 1\n") }
+        val view = open(file, robot)
+
+        file.writeBytes("a = 1\r\n".toByteArray())
+        robot.interact { view.reload() }
+        robot.interact {
+            view.area.appendText("b = 2\n")
+            view.save()
+        }
+
+        assertContentEquals("a = 1\r\nb = 2\r\n".toByteArray(), file.readBytes())
+    }
+
+    @Test
+    fun `a reload to a text without a line break keeps the line ending`(robot: FxRobot) {
+        val file = dir.resolve("main.py").apply { writeBytes("a = 1\r\nb = 2\r\n".toByteArray()) }
+        val view = open(file, robot)
+
+        file.writeText("x")
+        robot.interact { view.reload() }
+        assertEquals("x", view.area.text)
+        robot.interact {
+            view.area.appendText("\ny")
+            view.save()
+        }
+
+        assertContentEquals("x\r\ny".toByteArray(), file.readBytes())
+    }
+
+    @Test
     fun `a change on disk replaces only what changed and keeps caret and undo`(robot: FxRobot) {
         val file = dir.resolve("main.py").apply { writeText("a = 1\nb = 2\nc = 3\n") }
         val view = open(file, robot)
@@ -324,6 +355,27 @@ class CodeViewUiTest {
         WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) { results.isNotEmpty() }
         robot.interact { results.poll().run() }
         assertTrue("keyword" in view.area.getStyleOfChar(1))
+    }
+
+    @Test
+    fun `highlighting that arrives after dispose is dropped`(robot: FxRobot) {
+        val file = dir.resolve("main.py").apply { writeText("x = 1\n") }
+        val results = ConcurrentLinkedQueue<Runnable>()
+        val view =
+            WaitForAsyncUtils
+                .asyncFx<CodeView> {
+                    CodeView(file, PythonFileViewer().highlighter, highlightPause = SHORT_PAUSE) { results += it }
+                }.get()
+        robot.interact { container.children.setAll(view.node) }
+
+        robot.interact { view.area.insertText(0, "def f(): pass\n") }
+        WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) { results.isNotEmpty() }
+        robot.interact {
+            view.dispose()
+            results.poll().run()
+        }
+
+        assertTrue(view.area.getStyleOfChar(1).isEmpty(), "the result is not applied to a disposed view")
     }
 
     @Test
