@@ -77,22 +77,7 @@ class GitLogWritesRebaseUiTest : GitLogWritesUiFixture() {
         assertTrue(writes.calls.isEmpty())
         assertTrue(fileChanges.isEmpty(), "not asked about editors before confirming")
 
-        pending = null
-        fire(robot, view.pendingBar.skipButton)
-        press(robot, awaitDialog(robot), SKIP_REBASE_BUTTON)
-        eventually { assertEquals("Skipped the commit; rebased feature.", status(robot)) }
-        assertEquals(listOf("rebase --skip"), writes.calls)
-        assertEquals(listOf("Skip"), fileChanges)
-        eventually { assertFalse(view.pendingBar.isVisible) }
-    }
-
-    @Test
-    fun `the buttons are disabled while a write runs`(robot: FxRobot) {
-        pending = GitPendingRebase("feature", onto, stopped, 3, 7, listOf("a.txt"))
-        writes.inProgress = pending
-        openAndExpand(robot)
-        eventually { assertTrue(view.pendingBar.isVisible) }
-
+        // The buttons are disabled while a write runs, and enabled again once it ended.
         writes.gate = CountDownLatch(1)
         fire(robot, view.pendingBar.continueButton)
         eventually { assertTrue(view.pendingBar.skipButton.isDisable) }
@@ -100,6 +85,18 @@ class GitLogWritesRebaseUiTest : GitLogWritesUiFixture() {
         assertTrue(view.pendingBar.abortButton.isDisable)
         writes.gate?.countDown()
         eventually { assertFalse(view.pendingBar.skipButton.isDisable) }
+        assertFalse(view.pendingBar.continueButton.isDisable)
+        assertFalse(view.pendingBar.abortButton.isDisable)
+        writes.calls.clear()
+        fileChanges.clear()
+
+        pending = null
+        fire(robot, view.pendingBar.skipButton)
+        press(robot, awaitDialog(robot), SKIP_REBASE_BUTTON)
+        eventually { assertEquals("Skipped the commit; rebased feature.", status(robot)) }
+        assertEquals(listOf("rebase --skip"), writes.calls)
+        assertEquals(listOf("Skip"), fileChanges)
+        eventually { assertFalse(view.pendingBar.isVisible) }
     }
 
     @Test

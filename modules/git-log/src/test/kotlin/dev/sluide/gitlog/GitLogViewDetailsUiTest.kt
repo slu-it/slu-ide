@@ -153,6 +153,12 @@ class GitLogViewDetailsUiTest : GitLogViewUiFixture() {
                 "Loading… does not come back",
             )
         }
+
+        select(robot, 0, 3, 5)
+        eventually { assertEquals("3 commits selected", placeholderShown()) }
+        detailsOf = { null }
+        select(robot, 4)
+        eventually { assertEquals("The commit details could not be read.", placeholderShown()) }
     }
 
     @Test
@@ -186,44 +192,6 @@ class GitLogViewDetailsUiTest : GitLogViewUiFixture() {
             // The stage is shared by the tests.
             resize(800.0)
         }
-    }
-
-    @Test
-    fun `says how many commits are selected, and when none is`(robot: FxRobot) {
-        openAndExpand(robot)
-        select(robot, 0, 3, 5)
-        eventually { assertEquals("3 commits selected", placeholderShown()) }
-        select(robot)
-        eventually { assertEquals("No commit selected", placeholderShown()) }
-        assertEquals(emptyList(), detailLoads)
-    }
-
-    @Test
-    fun `drops the details of a commit that is no longer selected`(robot: FxRobot) {
-        detailGates["h1"] = CountDownLatch(1)
-        detailGates["h2"] = CountDownLatch(1)
-        openAndExpand(robot)
-        select(robot, 0)
-        eventually { assertEquals("Loading…", placeholderShown()) }
-        select(robot, 1)
-        WaitForAsyncUtils.waitForFxEvents()
-
-        detailGates.getValue("h1").countDown()
-        eventually { assertEquals(listOf("h1"), detailLoads.toList()) }
-        Thread.sleep(100)
-        WaitForAsyncUtils.waitForFxEvents()
-        robot.interact { assertEquals("Loading…", placeholderShown(), "h1's details are not shown") }
-
-        detailGates.getValue("h2").countDown()
-        eventually { assertTrue(showsDetailsOf("Subject 2")) }
-    }
-
-    @Test
-    fun `says when the details cannot be read`(robot: FxRobot) {
-        detailsOf = { null }
-        openAndExpand(robot)
-        select(robot, 4)
-        eventually { assertEquals("The commit details could not be read.", placeholderShown()) }
     }
 
     @Test

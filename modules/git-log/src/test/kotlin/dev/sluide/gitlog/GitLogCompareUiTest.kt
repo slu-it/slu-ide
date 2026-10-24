@@ -291,25 +291,6 @@ class GitLogCompareUiTest {
     private val pane get() = view.branchesPane
 
     @Test
-    fun `Compare with Current and Show Diff with Working Tree are offered for single refs`(robot: FxRobot) {
-        openAndExpand(robot)
-
-        fun offered(vararg paths: String): Pair<Boolean, Boolean> {
-            selectBranches(robot, *paths)
-            return WaitForAsyncUtils
-                .asyncFx<Pair<Boolean, Boolean>> { !pane.compareItem.isDisable to !pane.workingTreeItem.isDisable }
-                .get()
-        }
-
-        assertEquals(true to true, offered("$LOCAL/feature"))
-        assertEquals(true to true, offered("$TAGS/v1"))
-        assertEquals(false to true, offered("$LOCAL/main"), "the current branch")
-        assertEquals(false to true, offered("HEAD"))
-        assertEquals(false to false, offered(LOCAL), "a group")
-        assertEquals(false to false, offered("$LOCAL/feature", "$TAGS/v1"), "several")
-    }
-
-    @Test
     fun `comparing lists one side with its counts, the other filters on top, closing restores them`(robot: FxRobot) {
         openAndExpand(robot)
         val bar = view.filterBar

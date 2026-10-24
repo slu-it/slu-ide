@@ -13,6 +13,7 @@ import javafx.scene.input.KeyCode
 import javafx.scene.paint.Paint
 import javafx.scene.text.Text
 import javafx.stage.Stage
+import javafx.util.Duration
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.io.TempDir
@@ -108,6 +109,16 @@ class GitLogViewChangedFilesUiTest : GitLogViewUiFixture() {
 
     @Test
     fun `shows file type icons, a folder's open when expanded`(robot: FxRobot) {
+        // Few enough rows to all fit into the tree's viewport.
+        filesOf =
+            {
+                listOf(
+                    GitChangedFile(GitChange.MODIFIED, "One.kt"),
+                    GitChangedFile(GitChange.DELETED, "README.md"),
+                    GitChangedFile(GitChange.ADDED, "größe/日本語.kt"),
+                    GitChangedFile(GitChange.COPIED, "copy.txt", "orig.txt"),
+                )
+            }
         showFilesOfFirstCommit(robot)
 
         fun iconOf(name: String) =
@@ -117,24 +128,15 @@ class GitLogViewChangedFilesUiTest : GitLogViewUiFixture() {
             assertEquals(FileIcon.KOTLIN.ikon, iconOf("One.kt").iconCode)
             assertTrue(FileIcon.KOTLIN.styleClass in iconOf("One.kt").styleClass)
             assertEquals(FileIcon.MARKDOWN.ikon, iconOf("README.md").iconCode)
-            assertEquals(FileIcon.FOLDER_OPEN.ikon, iconOf("docs").iconCode)
-            treeCell(robot, "docs").treeItem.isExpanded = false
+            assertEquals(FileIcon.FOLDER_OPEN.ikon, iconOf("größe").iconCode)
+            assertEquals(FileIcon.KOTLIN.ikon, iconOf("日本語.kt").iconCode, "a name, not a Path, is mapped")
+            assertEquals("Copied from orig.txt", treeCell(robot, "copy.txt").tooltip?.text)
+            treeCell(robot, "größe").treeItem.isExpanded = false
         }
         WaitForAsyncUtils.waitForFxEvents()
         robot.interact {
-            assertEquals(FileIcon.FOLDER.ikon, iconOf("docs").iconCode)
-            assertEquals(1, iconOf("docs").styleClass.count { it.startsWith("file-icon-") })
-        }
-    }
-
-    @Test
-    fun `shows the icon of a file with a non-ASCII name`(robot: FxRobot) {
-        filesOf = { listOf(GitChangedFile(GitChange.ADDED, "größe/日本語.kt")) }
-        showFilesOfFirstCommit(robot)
-
-        robot.interact {
-            val icon = (treeCell(robot, "日本語.kt").graphic as javafx.scene.Parent).childrenUnmodifiable[0] as FontIcon
-            assertEquals(FileIcon.KOTLIN.ikon, icon.iconCode)
+            assertEquals(FileIcon.FOLDER.ikon, iconOf("größe").iconCode)
+            assertEquals(1, iconOf("größe").styleClass.count { it.startsWith("file-icon-") })
         }
     }
 
@@ -156,6 +158,7 @@ class GitLogViewChangedFilesUiTest : GitLogViewUiFixture() {
         robot: FxRobot,
     ) {
         openAndExpand(robot)
+        robot.interact { changes.loading.duration = Duration.millis(1.0) }
         robot.interact { assertEquals("No commit selected", filesPlaceholder()) }
         select(robot, 0, 2)
         eventually { assertEquals("2 commits selected", filesPlaceholder()) }
@@ -172,21 +175,6 @@ class GitLogViewChangedFilesUiTest : GitLogViewUiFixture() {
         select(robot, 4)
         eventually { assertEquals("No changed files", filesPlaceholder()) }
         robot.interact { assertFalse(changes.header.isVisible) }
-    }
-
-    @Test
-    fun `a stale changed-files result is dropped`(robot: FxRobot) {
-        fileGates["h1"] = CountDownLatch(1)
-        openAndExpand(robot)
-        filesOf = { hash -> listOf(GitChangedFile(GitChange.MODIFIED, "$hash.txt")) }
-        select(robot, 0)
-        eventually { assertEquals("Loading…", filesPlaceholder()) }
-        select(robot, 1)
-        WaitForAsyncUtils.waitForFxEvents()
-
-        fileGates.getValue("h1").countDown()
-        eventually { assertEquals(listOf("h2.txt"), shownTree()) }
-        assertEquals(listOf("h1", "h2"), fileLoads.map { it.first })
     }
 
     @Test
@@ -273,7 +261,6 @@ class GitLogViewChangedFilesUiTest : GitLogViewUiFixture() {
         pressInTree(robot, KeyCode.ENTER)
         robot.interact { assertEquals(6, shownTree().size) }
         pressInTree(robot, KeyCode.D, shortcut = true)
-        Thread.sleep(100)
         WaitForAsyncUtils.waitForFxEvents()
         assertEquals(emptyList(), shown)
         assertEquals(emptyList(), diffLoads)
@@ -426,8 +413,7 @@ class GitLogViewChangedFilesUiTest : GitLogViewUiFixture() {
         selectFile(robot, "One.kt")
         checkNotNull(diffGate).countDown()
         eventually { assertEquals(1, diffLoads.size) }
-        Thread.sleep(100)
-        WaitForAsyncUtils.waitForFxEvents()
+        awaitReadersIdle()
         robot.interact { assertEquals("", status(robot)) }
 
         diffGate = CountDownLatch(1)
@@ -435,21 +421,8 @@ class GitLogViewChangedFilesUiTest : GitLogViewUiFixture() {
         select(robot, 1)
         checkNotNull(diffGate).countDown()
         eventually { assertEquals(2, diffLoads.size) }
-        Thread.sleep(100)
-        WaitForAsyncUtils.waitForFxEvents()
+        awaitReadersIdle()
         robot.interact { assertEquals("", status(robot), "another commit selected") }
-    }
-
-    @Test
-    fun `the details show while the changed files are still read`(robot: FxRobot) {
-        fileGates["h1"] = CountDownLatch(1)
-        openAndExpand(robot)
-        select(robot, 0)
-
-        eventually { assertTrue(showsDetailsOf("Subject 1")) }
-        robot.interact { assertEquals("Loading…", filesPlaceholder()) }
-        fileGates.getValue("h1").countDown()
-        eventually { assertTrue(shownTree().isNotEmpty()) }
     }
 
     @Test

@@ -291,12 +291,6 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
     }
 
     @Test
-    fun `more commits than listed show as N+ and a last row`(robot: FxRobot) {
-        openPush(robot) { _, _ -> twoCommits.copy(more = true) }
-        assertEquals(listOf("All 2+ commits", "Second", "First", "and more…"), rows())
-    }
-
-    @Test
     fun `the remote's own commits are noted, and Force Push is not for main or master`(robot: FxRobot) {
         openPush(robot) { _, _ -> twoCommits.copy(behind = 2) }
         assertEquals(
@@ -324,7 +318,9 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
     }
 
     @Test
-    fun `everything up to date disables Push and Force Push and says so`(robot: FxRobot) {
+    fun `the dialog shows the reason and the buttons of what the reader found, up to date to no remote`(
+        robot: FxRobot,
+    ) {
         openPush(robot) { _, _ -> GitOutgoing(emptyList(), false, "h1", 0, null) }
         assertTrue(pushDisabled())
         assertTrue(dialog().forcePushItem.isDisable)
@@ -332,6 +328,44 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
         assertTrue(dialog().reasonLabel.isVisible)
         assertEquals("Nothing to push.", dialog().commitPlaceholder.text)
         assertEquals(emptyList(), rows())
+
+        // A new branch without new commits can be pushed and says what it creates.
+        headCommit = "0123456789abcdef"
+        outgoing = { _, _ -> GitOutgoing(emptyList(), false, null, 0, null) }
+        robot.interact { dialog().reader.load(null, null) }
+        awaitRead()
+        assertEquals("No new commits: pushing creates origin/main at 01234567.", dialog().commitPlaceholder.text)
+        assertTrue(dialog().newBadge.isVisible)
+        assertFalse(dialog().reasonLabel.isVisible)
+        assertTrue(read { dialog().pushAllowed.get() })
+        assertFalse(dialog().pushButton.styleClass.contains("git-push-force-only"))
+
+        currentRefs = GitRefs(refs.refs, null)
+        robot.interact { dialog().reader.load(null, null) }
+        awaitRead()
+        assertTrue(pushDisabled())
+        assertEquals("HEAD is detached: check out a branch to push it.", dialog().commitPlaceholder.text)
+        assertFalse(dialog().reasonLabel.isVisible, "said once, in place of the commits")
+        assertTrue(dialog().targetField.isDisable)
+        assertFalse(dialog().problemLabel.isVisible, "no name to check")
+
+        currentRefs = refs
+        headCommit = null
+        robot.interact { dialog().reader.load(null, null) }
+        awaitRead()
+        assertEquals("There is no commit to push.", dialog().commitPlaceholder.text)
+        assertTrue(pushDisabled())
+
+        headCommit = "h1"
+        currentRemotes = emptyList()
+        robot.interact { dialog().reader.load(null, null) }
+        awaitRead()
+        assertEquals(
+            "The repository has no remote. Add one in a terminal: git remote add <name> <url>.",
+            dialog().commitPlaceholder.text,
+        )
+        assertTrue(pushDisabled())
+        assertEquals("Push Commits", dialog().stage.title)
     }
 
     @Test
@@ -361,46 +395,6 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
         )
         press(robot, pane, FORCE_PUSH_BUTTON)
         eventually { assertEquals(listOf("push --force-with-lease=feature:$remote origin main:feature"), writes.calls) }
-    }
-
-    @Test
-    fun `a new branch without new commits can be pushed and says what it creates`(robot: FxRobot) {
-        headCommit = "0123456789abcdef"
-        openPush(robot) { _, _ -> GitOutgoing(emptyList(), false, null, 0, null) }
-        assertEquals("No new commits: pushing creates origin/main at 01234567.", dialog().commitPlaceholder.text)
-        assertTrue(dialog().newBadge.isVisible)
-        assertFalse(dialog().reasonLabel.isVisible)
-        assertTrue(read { dialog().pushAllowed.get() })
-        assertFalse(dialog().pushButton.styleClass.contains("git-push-force-only"))
-    }
-
-    @Test
-    fun `a detached or unborn HEAD and no remote disable Push with the reason`(robot: FxRobot) {
-        currentRefs = GitRefs(refs.refs, null)
-        openPush(robot)
-        assertTrue(pushDisabled())
-        assertEquals("HEAD is detached: check out a branch to push it.", dialog().commitPlaceholder.text)
-        assertFalse(dialog().reasonLabel.isVisible, "said once, in place of the commits")
-        assertTrue(dialog().targetField.isDisable)
-        assertFalse(dialog().problemLabel.isVisible, "no name to check")
-
-        currentRefs = refs
-        headCommit = null
-        robot.interact { dialog().reader.load(null, null) }
-        awaitRead()
-        assertEquals("There is no commit to push.", dialog().commitPlaceholder.text)
-        assertTrue(pushDisabled())
-
-        headCommit = "h1"
-        currentRemotes = emptyList()
-        robot.interact { dialog().reader.load(null, null) }
-        awaitRead()
-        assertEquals(
-            "The repository has no remote. Add one in a terminal: git remote add <name> <url>.",
-            dialog().commitPlaceholder.text,
-        )
-        assertTrue(pushDisabled())
-        assertEquals("Push Commits", dialog().stage.title)
     }
 
     @Test

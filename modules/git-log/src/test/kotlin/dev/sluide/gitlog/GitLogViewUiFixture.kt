@@ -432,6 +432,16 @@ abstract class GitLogViewUiFixture {
         WaitForAsyncUtils.waitForFxEvents()
     }
 
+    /**
+     * Waits until the readers' threads have run what they were given and what that gave the JavaFX thread, so that a
+     * read that did not happen by then does not happen: the end of a negative check, instead of a sleep.
+     */
+    internal fun awaitReadersIdle() {
+        WaitForAsyncUtils.waitForFxEvents()
+        view.readersIdle().get(10, TimeUnit.SECONDS)
+        WaitForAsyncUtils.waitForFxEvents()
+    }
+
     /** Waits until [assertion] holds on the JavaFX thread. */
     internal fun eventually(assertion: () -> Unit) {
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)

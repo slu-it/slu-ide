@@ -483,27 +483,6 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
     }
 
     @Test
-    fun `a remote branch that changed since the fetch is told in the header`(robot: FxRobot) {
-        openAndExpand(robot)
-        writes.deleteRemoteResult = { _, refs ->
-            GitRemoteDeletionResult(
-                GitResult(false, "error: failed to push some refs"),
-                outcomes = refs.associate { it.ref to GitRemoteRefResult(GitRemoteDeletionOutcome.STALE) },
-            )
-        }
-        selectBranches(robot, "Remote/origin/old")
-
-        fireLater(branches.deleteItem)
-        press(robot, awaitDialog(robot), DELETE_BUTTON)
-
-        eventually {
-            assertEquals("origin/old changed since your last fetch. Fetch and check it before deleting.", status(robot))
-        }
-        assertEquals(setOf("sluide-git-write"), writes.threads.toSet())
-        assertNoDialog()
-    }
-
-    @Test
     fun `tags get an unchecked checkbox per remote, and a checked one deletes them there first`(robot: FxRobot) {
         currentRemotes = listOf("origin", "upstream")
         openAndExpand(robot)

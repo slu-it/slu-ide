@@ -33,6 +33,7 @@ import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -509,6 +510,7 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
         assertEquals("HEAD", diff.label)
         assertEquals("old\n", diff.original)
         assertEquals(listOf("h1 MODIFIED src/main/App.kt"), workingTreeDiffLoads)
+        assertEquals(listOf("sluide-git-commit"), workingTreeDiffThreads.toList())
 
         select(robot, "notes.txt")
         robot.interact { commitView().showDiffItem.fire() }
@@ -657,14 +659,14 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
         robot.interact { view.expanded.set(false) }
         robot.interact { view.workingTreeChanged() }
         robot.interact { view.workingTreeChanged() }
-        Thread.sleep(100)
+        view.tabs.commitReaderIdle().get(10, TimeUnit.SECONDS)
         assertEquals(reads, commitReads.size, "collapsed")
         robot.interact { view.expanded.set(true) }
         eventually { assertEquals(reads + 1, commitReads.size) }
 
         robot.interact { view.tabs.logTab.onSelect() }
         robot.interact { view.workingTreeChanged() }
-        Thread.sleep(100)
+        view.tabs.commitReaderIdle().get(10, TimeUnit.SECONDS)
         assertEquals(reads + 1, commitReads.size, "the Log is shown")
         robot.interact { view.tabs.commitAreaTab.onSelect() }
         eventually { assertEquals(reads + 2, commitReads.size) }

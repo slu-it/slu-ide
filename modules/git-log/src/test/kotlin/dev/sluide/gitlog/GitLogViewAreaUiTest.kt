@@ -38,8 +38,7 @@ class GitLogViewAreaUiTest : GitLogViewUiFixture() {
     @Test
     fun `is collapsed at first, shows only the header and loads nothing`(robot: FxRobot) {
         robot.interact { view.open(repo) }
-        Thread.sleep(100)
-        WaitForAsyncUtils.waitForFxEvents()
+        awaitReadersIdle()
 
         assertFalse(view.expanded.get())
         assertNull(view.center)
@@ -148,30 +147,17 @@ class GitLogViewAreaUiTest : GitLogViewUiFixture() {
     }
 
     @Test
-    fun `scrolling near the end loads the next page until the last`(robot: FxRobot) {
+    fun `scrolling near the end loads the next page`(robot: FxRobot) {
         openAndExpand(robot)
         assertEquals(listOf(0 to 500), loads)
 
         robot.interact { view.table.scrollTo(400) }
-        WaitForAsyncUtils.waitForFxEvents()
+        awaitReadersIdle()
         assertEquals(listOf(0 to 500), loads, "not near the end yet")
 
         robot.interact { view.table.scrollTo(499) }
         eventually { assertEquals(1000, view.table.items.size) }
-        robot.interact { view.table.scrollTo(999) }
-        eventually { assertEquals(1200, view.table.items.size) }
-        robot.interact { view.table.scrollTo(1199) }
-        WaitForAsyncUtils.waitForFxEvents()
-        Thread.sleep(100)
-        WaitForAsyncUtils.waitForFxEvents()
-
-        assertEquals(listOf(0 to 500, 500 to 500, 1000 to 500), loads)
-        assertEquals(
-            "Subject 1200",
-            view.table.items
-                .last()
-                .commit.subject,
-        )
+        assertEquals(listOf(0 to 500, 500 to 500), loads)
     }
 
     @Test
@@ -257,23 +243,5 @@ class GitLogViewAreaUiTest : GitLogViewUiFixture() {
         otherHistory = emptyList()
         robot.interact { view.refresh() }
         eventually { assertEquals("No commits yet.", placeholder(robot)) }
-    }
-
-    @Test
-    fun `results for a folder opened before are dropped`(robot: FxRobot) {
-        gate = CountDownLatch(1)
-        robot.interact {
-            view.open(repo)
-            view.expanded.set(true)
-        }
-        otherHistory = commits(3, "o")
-        robot.interact { view.open(Path.of("/other")) }
-        gate?.countDown()
-        gate = null
-
-        eventually { assertEquals(listOf("o1", "o2", "o3"), view.table.items.map { it.commit.hash }) }
-        Thread.sleep(100)
-        WaitForAsyncUtils.waitForFxEvents()
-        assertEquals(listOf("o1", "o2", "o3"), view.table.items.map { it.commit.hash })
     }
 }

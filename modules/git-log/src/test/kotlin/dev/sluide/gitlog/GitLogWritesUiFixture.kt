@@ -114,6 +114,9 @@ abstract class GitLogWritesUiFixture {
     internal var workingTreeDiff: GitFileDiff? = GitFileDiff.Text("old\n", "new\n", emptyList())
     internal val workingTreeDiffLoads = CopyOnWriteArrayList<String>()
 
+    /** The name of the thread of every working-tree diff read. */
+    internal val workingTreeDiffThreads = CopyOnWriteArrayList<String>()
+
     /** Where the source says the current branch is pushed by default (ADR 0049). */
     @Volatile
     internal var pushTarget: GitPushTarget? = GitPushTarget("origin", "main", hasUpstream = true)
@@ -242,6 +245,7 @@ abstract class GitLogWritesUiFixture {
                     file: GitChangedFile,
                 ): GitFileDiff? {
                     workingTreeDiffLoads += "$commit ${file.change} ${file.path}"
+                    workingTreeDiffThreads += Thread.currentThread().name
                     return workingTreeDiff
                 }
 

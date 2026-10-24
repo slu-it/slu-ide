@@ -154,7 +154,8 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
         assertTrue(view.expanded.get(), "opening a history expands the area")
         assertEquals(listOf("Log", "[History: App.kt]"), headerTabs())
         assertSame(historyView, view.center)
-        assertTrue(historyLoads.isNotEmpty())
+        eventually { assertTrue(historyLoads.isNotEmpty()) }
+        awaitReadersIdle()
         assertTrue(loads.isEmpty(), "the log is not read while a history is shown")
         assertSame(historyView.table, view.scene.focusOwner)
         assertEquals(
@@ -633,8 +634,10 @@ class GitLogViewHistoryUiTest : GitLogViewUiFixture() {
         openHistory(robot)
         eventually { assertEquals(4, historySubjects().size) }
         historyGate = CountDownLatch(1)
+        val readsBefore = historyCancellations.size
         robot.interact { view.refresh() }
-        eventually { assertFalse(historyCancellations.last().cancelled) }
+        eventually { assertEquals(readsBefore + 1, historyCancellations.size, "the new load started") }
+        assertFalse(historyCancellations.last().cancelled)
         robot.interact { view.open(Path.of("/other")) }
         historyGate?.countDown()
         eventually { assertTrue(historyCancellations.last().cancelled) }

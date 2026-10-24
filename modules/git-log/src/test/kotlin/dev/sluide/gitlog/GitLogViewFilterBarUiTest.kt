@@ -43,6 +43,8 @@ class GitLogViewFilterBarUiTest : GitLogViewUiFixture() {
     @Start
     fun start(stage: Stage) = startView(stage)
 
+    private fun debounceStatus() = WaitForAsyncUtils.asyncFx<Animation.Status> { bar.debounce.status }.get()
+
     @Test
     fun `typing filters the commits after a pause, Enter at once, Escape clears, Refresh keeps it`(robot: FxRobot) {
         openAndExpand(robot)
@@ -64,8 +66,8 @@ class GitLogViewFilterBarUiTest : GitLogViewUiFixture() {
         robot.interact { bar.text.text = "  Subject 7 " }
         press(robot, bar.text, KeyCode.ENTER)
         eventually { assertEquals(GitLogFilter(text = "Subject 7"), filters.last()) }
-        Thread.sleep(500)
-        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(Animation.Status.STOPPED, debounceStatus(), "Enter applied it and stopped the pause")
+        awaitReadersIdle()
         assertEquals(1, filters.count { it.text == "Subject 7" }, "Enter applied it, the pause adds nothing")
 
         robot.interact { view.refresh() }
@@ -89,8 +91,8 @@ class GitLogViewFilterBarUiTest : GitLogViewUiFixture() {
         assertEquals("Match Case", bar.matchCase.tooltip.text)
 
         robot.interact { bar.regex.isSelected = true }
-        Thread.sleep(400)
-        WaitForAsyncUtils.waitForFxEvents()
+        assertNotEquals(Animation.Status.RUNNING, debounceStatus(), "no pause to wait for")
+        awaitReadersIdle()
         assertEquals(1, filters.size, "nothing to match without a text")
 
         robot.interact { bar.text.text = "subject 5" }
@@ -257,8 +259,8 @@ class GitLogViewFilterBarUiTest : GitLogViewUiFixture() {
         assertEquals(listOf("Branch", "User", "Path"), listOf(bar.branch, bar.user, bar.path).map { it.label.text })
         eventually { assertEquals(listOf("o1", "o2", "o3"), view.table.items.map { it.commit.hash }) }
         assertEquals(GitLogFilter(), filters.last())
-        Thread.sleep(400)
-        WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(Animation.Status.STOPPED, debounceStatus(), "opening reset the pause")
+        awaitReadersIdle()
         assertEquals(GitLogFilter(), filters.last(), "no late text from before")
     }
 

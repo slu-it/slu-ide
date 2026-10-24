@@ -29,6 +29,7 @@ import javafx.scene.layout.HBox
 import javafx.scene.shape.Rectangle
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ExecutorService
 
 /**
@@ -237,6 +238,10 @@ internal class AreaTabs(
             }
         return CommitTab(view, commitExecutor)
     }
+
+    /** Completes once everything the Commit tab's thread was given so far has run; for tests that assert no read. */
+    internal fun commitReaderIdle(): CompletableFuture<Void> =
+        commitTab?.executor?.let { CompletableFuture.runAsync({}, it) } ?: CompletableFuture.completedFuture(null)
 
     /** Closes the Commit tab, keeping its draft; if it was selected, the Log is. */
     private fun closeCommit() {
