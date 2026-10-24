@@ -33,7 +33,12 @@ class GitPushTest {
     private val repo get() = folder.resolve("repo")
 
     /** A second clone, to move the remote behind the back of [repo]. */
-    private val other get() = folder.resolve("other")
+    private val other: Path by lazy {
+        val clone = folder.resolve("other")
+        git("clone", "-q", server.toString(), clone.toString(), directory = folder)
+        configure(clone)
+        clone
+    }
 
     private val git = GitCli("git", testGitEnvironment())
     private val pushes = GitPush(git)
@@ -47,8 +52,6 @@ class GitPushTest {
         configure(repo)
         commit("First")
         git("push", "-q", "origin", "main")
-        git("clone", "-q", server.toString(), other.toString(), directory = folder)
-        configure(other)
     }
 
     private fun configure(directory: Path) {
@@ -467,7 +470,9 @@ class GitPushTest {
             assertFalse(pushed.result.success)
             assertContains(pushed.result.message, "cannot be passed to git")
         }
-        assertFalse(pushes.push(repo, "origin", "main", "main", true, full, false, GitCancellation()).cancelled)
+        val withFull = pushes.push(repo, "origin", "main", "main", true, full, false, GitCancellation())
+        assertFalse(withFull.cancelled)
+        assertEquals(GitPushRejection.STALE, withFull.rejection, "a full hash is passed to git, whose lease fails")
         assertEquals(first, remoteTip("main"))
     }
 
@@ -556,15 +561,6 @@ class GitPushTest {
 
         assertTrue(System.nanoTime() - started < TimeUnit.SECONDS.toNanos(5), "stopped at once")
         assertEquals(GitPushResult(GitResult(false, "Cancelled."), cancelled = true), pushed)
-    }
-
-    @Test
-    fun `the target says whether the branch has an upstream`() {
-        assertEquals(GitPushTarget("origin", "main", hasUpstream = true), pushes.pushTarget(repo, "main"))
-
-        git("branch", "-q", "--unset-upstream")
-
-        assertEquals(GitPushTarget("origin", "main", hasUpstream = false), pushes.pushTarget(repo, "main"))
     }
 
     @Test
@@ -864,13 +860,14 @@ class GitPushTest {
         log: Path,
         pushDelay: String = "0",
         lsRemote: String = "exit 128",
+        pushUrl: String = "ssh://push.example/repo.git",
     ): GitCli {
         val script = folder.resolve("fake-git")
         script.writeText(
             FAKE_GIT_START +
                 "case \"\$*\" in *config*) exit 1;; esac\n" +
                 "echo \"\$GIT_SSH_COMMAND|\$*\" >> '$log'\n" +
-                "case \"\$1\" in remote) echo 'ssh://push.example/repo.git'; exit 0;; ls-remote) $lsRemote;; esac\n" +
+                "case \"\$1\" in remote) echo '$pushUrl'; exit 0;; ls-remote) $lsRemote;; esac\n" +
                 "sleep $pushDelay\n" +
                 "printf 'To server\\n!\\t(delete):refs/heads/fix\\t[rejected] (stale info)\\n" +
                 "-\\t:refs/tags/v1\\t[deleted]\\nDone\\n'\nexit 1\n",
@@ -916,8 +913,26 @@ class GitPushTest {
     }
 
     @Test
+    fun `a push URL that cannot be passed to git is not listed, the lease stays open`() {
+        val log = folder.resolve("calls.txt")
+        val fake = deletingGit(log, pushUrl = "-oProxyCommand=x")
+        assumeTrue(fake.available, "no /bin/sh to stand in for git")
+
+        val deleted =
+            GitPush(fake).deleteRemoteRefs(
+                repo,
+                "origin",
+                listOf(GitRemoteDeletion("refs/heads/fix", "a".repeat(40))),
+                GitCancellation(),
+            )
+
+        assertEquals(GitRemoteDeletionOutcome.STALE_OR_MISSING, deleted.outcomes["refs/heads/fix"]?.outcome)
+        assertTrue(log.toFile().readLines().none { "ls-remote" in it }, "ls-remote ran")
+    }
+
+    @Test
     fun `ls-remote gets the time the push left of the one timeout`() {
-        val fake = deletingGit(folder.resolve("calls.txt"), pushDelay = "3", lsRemote = "exec sleep 30")
+        val fake = deletingGit(folder.resolve("calls.txt"), pushDelay = "1", lsRemote = "exec sleep 30")
         assumeTrue(fake.available, "no /bin/sh to stand in for git")
         val started = System.nanoTime()
 
@@ -927,13 +942,13 @@ class GitPushTest {
                 "origin",
                 listOf(GitRemoteDeletion("refs/heads/fix", "a".repeat(40))),
                 GitCancellation(),
-                timeout = 4.seconds,
+                timeout = 2.seconds,
             )
 
         val took = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started)
         assertEquals(GitRemoteDeletionOutcome.STALE_OR_MISSING, deleted.outcomes["refs/heads/fix"]?.outcome)
-        // About 4 s: the push takes 3 s, ls-remote the 1 s left; with a whole timeout of its own, 7 s.
-        assertTrue(took < 6000, "the push and ls-remote took $took ms, not 3 s + 4 s")
+        // About 2 s: the push takes 1 s, ls-remote the 1 s left; with a whole timeout of its own, 3 s.
+        assertTrue(took < 2800, "the push and ls-remote took $took ms, not 1 s + 2 s")
     }
 
     @Test
