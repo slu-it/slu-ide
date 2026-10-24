@@ -6,7 +6,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-class MarkdownLinksTest {
+class LinkTargetTest {
     private val folder = Path.of("/projects/app/docs")
 
     @Test
