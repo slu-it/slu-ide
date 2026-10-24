@@ -18,6 +18,7 @@ import java.time.Duration
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /** UI tests of the background tasks' inline list. Needs a display, see the `uiTest` Gradle task. */
@@ -139,10 +140,12 @@ class BackgroundTasksViewUiTest {
         tasks.start("Second")
         elapse(robot)
         assertEquals(2, rows(robot).size)
+        val secondRow = rows(robot)[1]
 
         first.close()
         WaitForAsyncUtils.waitForFxEvents()
         assertEquals(listOf("Second"), rows(robot).map { it.name() })
+        assertSame(secondRow, rows(robot).single(), "a surviving task keeps its row")
 
         tasks.close()
         WaitForAsyncUtils.waitForFxEvents()
