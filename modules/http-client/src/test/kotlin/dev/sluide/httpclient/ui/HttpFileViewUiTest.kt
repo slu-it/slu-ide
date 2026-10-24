@@ -632,10 +632,10 @@ class HttpFileViewUiTest {
 
         robot.interact { view.run(3) }
         // The replaced request ends as cancelled; its result is handed over right after, and must not be shown.
-        // Had it been shown, it would take two more hops (FX thread, background formatting, FX thread): a short wait
-        // after the real signal, since nothing marks a result that was ignored.
         WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { taskLines.any { " cancelled after " in it } }
         WaitForAsyncUtils.waitForFxEvents()
+        // A shown result would take two more hops (FX thread, background formatting, FX thread); nothing marks one
+        // that was ignored, so this waits a short time after the real signal.
         WaitForAsyncUtils.sleep(200, TimeUnit.MILLISECONDS)
         WaitForAsyncUtils.waitForFxEvents()
 

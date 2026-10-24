@@ -242,7 +242,7 @@ class ProjectTrustTest {
                     if (folder.name == "first") {
                         started.countDown()
                         try {
-                            Thread.sleep(10_000)
+                            CountDownLatch(1).await() // stands for a slow check; closing interrupts it
                         } catch (e: InterruptedException) {
                             interrupted.countDown()
                             throw e
@@ -279,7 +279,7 @@ class ProjectTrustTest {
 
                 override fun check(folder: Path): List<TrustFinding>? {
                     started.countDown()
-                    Thread.sleep(10_000)
+                    CountDownLatch(1).await() // stands for a slow check; closing interrupts it
                     return emptyList()
                 }
             }

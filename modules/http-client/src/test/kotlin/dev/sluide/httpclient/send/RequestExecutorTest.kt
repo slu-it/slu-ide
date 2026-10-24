@@ -469,6 +469,7 @@ class RequestExecutorTest {
         }) { throw StackOverflowError("deep") }
 
         assertTrue(done.await(5, TimeUnit.SECONDS))
+        // A second result, if one were given, would follow the first; no event marks its absence.
         Thread.sleep(100)
         val failure = assertIs<HttpFailure>(results.single())
         assertEquals("Unexpected error: java.lang.StackOverflowError: deep", failure.message)
@@ -482,7 +483,7 @@ class RequestExecutorTest {
             executor.run(RequestTags(), result::complete) {
                 preparing.countDown()
                 try {
-                    Thread.sleep(10_000)
+                    CountDownLatch(1).await() // stands for slow preparation; the cancel interrupts it
                 } catch (e: InterruptedException) {
                     throw java.nio.channels
                         .ClosedByInterruptException()
@@ -510,7 +511,7 @@ class RequestExecutorTest {
             val running =
                 pooled.run(RequestTags(), first::complete) {
                     preparing.countDown()
-                    Thread.sleep(10_000)
+                    CountDownLatch(1).await() // stands for slow preparation; the cancel interrupts it
                     server.request("/echo")
                 }
             assertTrue(preparing.await(5, TimeUnit.SECONDS))
