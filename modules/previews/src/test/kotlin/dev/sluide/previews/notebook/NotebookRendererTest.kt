@@ -165,4 +165,36 @@ class NotebookRendererTest {
             },
         )
     }
+
+    @Test
+    fun `an error without a traceback shows its name and value`() {
+        val json =
+            """{"cells":[{"cell_type":"code","source":"x","outputs":[
+            {"output_type":"error","ename":"KeyError","evalue":"'a'","traceback":[]}]}]}"""
+
+        val output = assertNotNull(render(json).selectFirst(".output.error"))
+        assertEquals("KeyError: 'a'", output.text())
+    }
+
+    @Test
+    fun `an attachment without an image type gives an image without a source`() {
+        val json =
+            """{"cells":[{"cell_type":"markdown","source":"![a](attachment:a.txt) ![b](attachment:missing.png)",
+            "attachments":{"a.txt":{"text/plain":"x"}}}]}"""
+
+        val images = render(json).select(".cell.markdown img")
+        assertEquals(2, images.size)
+        assertTrue(images.none { it.hasAttr("src") }, images.toString())
+    }
+
+    @Test
+    fun `output data of unknown types shows an empty output`() {
+        val json =
+            """{"cells":[{"cell_type":"code","source":"x","outputs":[
+            {"output_type":"display_data","data":{"application/x-custom":"data"}}]}]}"""
+
+        val output = assertNotNull(render(json).selectFirst(".output"))
+        assertEquals("", output.text())
+        assertEquals(0, output.children().size)
+    }
 }
