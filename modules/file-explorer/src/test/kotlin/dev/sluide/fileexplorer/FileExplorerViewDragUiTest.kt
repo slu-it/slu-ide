@@ -16,6 +16,7 @@ import javafx.scene.control.ScrollBar
 import javafx.scene.control.TextField
 import javafx.scene.control.TreeCell
 import javafx.scene.control.TreeItem
+import javafx.scene.control.skin.VirtualFlow
 import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
@@ -28,6 +29,7 @@ import javafx.scene.paint.Color
 import javafx.stage.Popup
 import javafx.stage.Stage
 import javafx.stage.Window
+import javafx.util.Duration
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -43,9 +45,11 @@ import kotlin.io.path.exists
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlin.test.fail
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -74,6 +78,7 @@ class FileExplorerViewDragUiTest {
         val fontSettings =
             FontSettings(SettingsStore(settingsDir.resolve("settings.properties")), FontSettings.systemDefaults())
         view = FileExplorerView(watcher, fontSettings)
+        view.dragExpandDelay = Duration.millis(50.0)
         view.confirmMove = {
             questions += it
             true
@@ -205,9 +210,14 @@ class FileExplorerViewDragUiTest {
         point: Point2D,
     ) = mouse(robot, pressed, MouseEvent.MOUSE_RELEASED, point, false)
 
-    private fun waitFor(condition: () -> Boolean) {
+    /** Waits until [condition] holds; fails after 10 seconds, so a scenario that does not happen is not passed. */
+    private fun waitFor(
+        message: String,
+        condition: () -> Boolean,
+    ) {
         val deadline = System.nanoTime() + 10.seconds.inWholeNanoseconds
-        while (!condition() && System.nanoTime() < deadline) {
+        while (!condition()) {
+            if (System.nanoTime() > deadline) fail(message)
             WaitForAsyncUtils.waitForFxEvents()
             Thread.sleep(50)
         }
@@ -241,8 +251,6 @@ class FileExplorerViewDragUiTest {
         project.resolve("target").createDirectories()
         project.resolve("target/inside.txt").createFile()
         open(robot)
-        val target = cellNamed(robot, "target")
-
         val pressed = startDrag(robot, "a.txt")
         dragTo(robot, pressed, at(robot, "target"))
 
@@ -256,17 +264,18 @@ class FileExplorerViewDragUiTest {
                 .last()
                 .fill as Color
         assertTrue((name.textFill as Color).brightness - background.brightness < -0.5, "dark text on a light ground")
-        assertTrue(target.isDropTarget())
         assertSame(item("target"), view.dropTarget())
-        waitFor { item("target").isExpanded }
+        waitFor("target expands") { item("target").isExpanded }
+        // The folder may have expanded already: look at its row again.
+        assertTrue(cellNamed(robot, "target").isDropTarget())
         assertTrue(item("target").isExpanded, "held long enough, the folder expands")
 
         release(robot, pressed, at(robot, "target"))
-        waitFor { project.resolve("target/a.txt").exists() }
+        waitFor("the move happens") { project.resolve("target/a.txt").exists() }
 
         assertEquals("Move “a.txt” to “target”?", questions.single().header)
         assertTrue(project.resolve("target/a.txt").exists())
-        assertFalse(target.isDropTarget())
+        assertFalse(cellNamed(robot, "target").isDropTarget())
         assertNull(dragImage(robot))
     }
 
@@ -280,7 +289,7 @@ class FileExplorerViewDragUiTest {
         val pressed = startDrag(robot, "src")
         dragTo(robot, pressed, at(robot, "target"))
         release(robot, pressed, at(robot, "target"))
-        waitFor { project.resolve("target/src/main/inner.txt").exists() }
+        waitFor("the move happens") { project.resolve("target/src/main/inner.txt").exists() }
         WaitForAsyncUtils.waitForFxEvents()
 
         robot.interact {
@@ -288,6 +297,58 @@ class FileExplorerViewDragUiTest {
             assertTrue(item("target/src").isExpanded, "a moved folder stays expanded")
             assertEquals(listOf(project.resolve("target/src")), selectedPaths())
         }
+
+        // The moved folder is watched at its new path.
+        project.resolve("target/src/new.txt").createFile()
+        waitFor("the new file shows in the moved folder") {
+            var shown = false
+            robot.interact { shown = item("target/src").children.any { it.value.fileName.toString() == "new.txt" } }
+            shown
+        }
+    }
+
+    @Test
+    fun `a top-level row cannot be dragged`(robot: FxRobot) {
+        project.resolve("target").createDirectories()
+        open(robot)
+
+        val pressed = startDrag(robot, project.fileName.toString())
+        assertNull(dragImage(robot))
+        dragTo(robot, pressed, at(robot, "target"))
+        assertNull(view.dropTarget())
+        release(robot, pressed, at(robot, "target"))
+
+        assertEquals(emptyList(), questions)
+    }
+
+    @Test
+    fun `the tree scrolls near its bottom edge and the target follows the row under a still pointer`(robot: FxRobot) {
+        (1..60).forEach { project.resolve("d%02d".format(it)).createDirectories() }
+        open(robot)
+
+        fun firstVisible(): Int {
+            var index = -1
+            robot.interact { index = (view.lookup(".virtual-flow") as VirtualFlow<*>).firstVisibleCell?.index ?: -1 }
+            return index
+        }
+        assertEquals(0, firstVisible())
+        val bottom = view.localToScene(view.width / 2, view.height - 4)
+
+        val pressed = startDrag(robot, "d01")
+        dragTo(robot, pressed, bottom)
+        waitFor("the tree scrolls") { firstVisible() > 0 }
+
+        // Read in one step: the pointer stands still, the rows move under it.
+        robot.interact {
+            val flow = view.lookup(".virtual-flow") as VirtualFlow<*>
+            val under =
+                (flow.firstVisibleCell.index..flow.lastVisibleCell.index)
+                    .mapNotNull { flow.getVisibleCell(it) as? TreeCell<*> }
+                    .firstOrNull { it.localToScene(it.layoutBounds).contains(bottom) }
+            assertNotNull(under)
+            assertSame(under.treeItem, view.dropTarget())
+        }
+        release(robot, pressed, bottom)
     }
 
     @Test
@@ -344,7 +405,7 @@ class FileExplorerViewDragUiTest {
         dragTo(robot, pressed, empty)
         assertSame(view.projectNode, view.dropTarget())
         release(robot, pressed, empty)
-        waitFor { project.resolve("a.txt").exists() }
+        waitFor("the move happens") { project.resolve("a.txt").exists() }
 
         assertEquals("Move “a.txt” to “${project.fileName}”?", questions.single().header)
         assertTrue(project.resolve("a.txt").exists())
@@ -363,7 +424,7 @@ class FileExplorerViewDragUiTest {
         // The folder above the dragged entries expands, which can lose the selection.
         val pressed = startDrag(robot, "src")
         dragTo(robot, pressed, at(robot, "lib"))
-        waitFor { item("lib").isExpanded }
+        waitFor("lib expands") { item("lib").isExpanded }
         dragTo(robot, pressed, at(robot, "a.txt"))
         release(robot, pressed, at(robot, "a.txt"))
 
@@ -406,7 +467,7 @@ class FileExplorerViewDragUiTest {
         assertEquals(listOf("a.txt", "+1"), dragImage(robot)?.texts())
         dragTo(robot, pressed, at(robot, "target"))
         release(robot, pressed, at(robot, "target"))
-        waitFor { project.resolve("target/b.txt").exists() }
+        waitFor("the move happens") { project.resolve("target/b.txt").exists() }
 
         assertEquals("Move 2 entries to “target”?", questions.single().header)
         assertTrue(project.resolve("target/a.txt").exists())

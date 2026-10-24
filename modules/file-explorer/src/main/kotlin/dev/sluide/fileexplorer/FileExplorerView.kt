@@ -14,6 +14,7 @@ import dev.sluide.fileexplorer.actions.askToMove
 import dev.sluide.fileexplorer.actions.buildExplorerMenu
 import dev.sluide.fileexplorer.actions.launch
 import dev.sluide.fileexplorer.actions.systemFileManager
+import dev.sluide.fileexplorer.tree.EXPAND_DELAY
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileexplorer.tree.PathCell
 import dev.sluide.fileexplorer.tree.TreeDragAndDrop
@@ -35,6 +36,7 @@ import javafx.scene.control.skin.VirtualFlow
 import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
+import javafx.util.Duration
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.io.IOException
@@ -208,6 +210,9 @@ class FileExplorerView(
     // Material Design icons leave a margin around the glyph, so they are a bit larger than the text.
     private val fileIconSize: ObservableValue<Int> = font.map { (it.size * ICON_SCALE).roundToInt() }
 
+    /** How long a collapsed folder is held under a dragged entry before it expands; tests shorten it. */
+    internal var dragExpandDelay: Duration = EXPAND_DELAY
+
     // Moving entries by drag and drop; the cells mark its drop target.
     private val dragAndDrop =
         TreeDragAndDrop(
@@ -218,6 +223,7 @@ class FileExplorerView(
             selectedEntries = ::selectedEntries,
             reselect = { items -> selectRows(items.filter(::isShown)) },
             move = { items, folder -> move(items, folder) },
+            expandDelay = { dragExpandDelay },
         )
 
     init {

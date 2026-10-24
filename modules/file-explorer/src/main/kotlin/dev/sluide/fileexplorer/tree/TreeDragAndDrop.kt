@@ -71,6 +71,8 @@ internal class TreeDragAndDrop(
     /** Selects the entries of a drag that ended without a move, those still shown. */
     private val reselect: (List<FileTreeItem>) -> Unit,
     private val move: (items: List<FileTreeItem>, folder: FileTreeItem) -> Unit,
+    /** How long a collapsed folder must stay under the pointer before it expands; read when the pointer enters it. */
+    private val expandDelay: () -> Duration = { EXPAND_DELAY },
 ) {
     private val target = SimpleObjectProperty<TreeItem<Path>?>()
 
@@ -387,6 +389,7 @@ internal class TreeDragAndDrop(
                 collapsed.isExpanded = true
                 expanding = null
             }
+            expandTimer.duration = expandDelay()
             expandTimer.playFromStart()
         }
     }
@@ -424,7 +427,7 @@ private const val DRAG_IMAGE_OFFSET = 12.0
 private const val DRAG_IMAGE_OPACITY = 0.9
 
 /** How long a collapsed folder must stay under the pointer before it expands. */
-private val EXPAND_DELAY = Duration.millis(700.0)
+internal val EXPAND_DELAY = Duration.millis(700.0)
 
 /** How often the tree scrolls by half a row while the pointer is near its edge. */
 private val SCROLL_INTERVAL = Duration.millis(40.0)
