@@ -20,6 +20,8 @@
 - A file tab whose editor has unsaved changes (`EditableFileView.dirty`) shows a dot before its name (`● a.txt`),
   also while its diff is shown (`OpenFile.dirty`). `save()` saves the selected file, `saveAll()` every edited one
   (File → Save, Save All); a failure is shown through `showError` (the window's error dialog) and keeps the changes.
+  `save(file)` saves one file's tab the same way, selected or not (`false` if it has no tab or saving failed), and
+  `viewOf(file)` gives the view a file's tab was opened with (`null` without a tab).
   `onFileSaved(path)`, set by the window, is called for every file saved from a tab (also before closing or a git
   change), once it is written; the window passes it on to the Gradle session ([gradle.md](gradle.md)).
 - Tabs do not have to show files: `open(tab: EditorTab)` adds any tab (title, which may change, tooltip and content
@@ -79,7 +81,8 @@
   unsaved changes (`null` if it is not open in a `TextEditableView` or that view is read-only); `editText(file, edit)`
   changes it there as one undo step, unsaved, opening the file in a tab that is not selected (nor focused) if it is
   not open, for views that edit another file ([ADR 0057](../adr/0057-visual-environment-editor.md)); `false` if the
-  file cannot be shown in a `TextEditableView` or is read-only, then no tab opens.
+  file cannot be shown in a `TextEditableView` or is read-only, then no tab opens. `save(file)` is
+  `EditorArea.save(file)`.
 - Open files are watched ([file-watching.md](file-watching.md)). When a file changes on disk, its tab reloads and
   keeps its scroll position and caret (`FileView.reload`); unsaved changes are never thrown away, the view offers to
   reload or keep them instead ([text-editing.md](text-editing.md)). If reading it fails, the tab keeps showing the last

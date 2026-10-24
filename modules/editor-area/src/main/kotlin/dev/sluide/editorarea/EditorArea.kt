@@ -506,6 +506,15 @@ class EditorArea(
     /** Saves every open file with unsaved changes, like [save]; `false` if one of them could not be saved. */
     fun saveAll(): Boolean = editorTabs.files.map(::save).all { it }
 
+    /**
+     * Saves the tab of [file] like [save], also when it is not selected; `true` when saved or nothing was unsaved,
+     * `false` if [file] has no tab or saving failed (after showing why).
+     */
+    fun save(file: Path): Boolean = editorTabs.find(file.toAbsolutePath().normalize())?.let(::save) ?: false
+
+    /** The view of [file]'s tab, the one it was opened with ([OpenFile.editor]), or `null` if it has no tab. */
+    fun viewOf(file: Path): FileView? = editorTabs.find(file.toAbsolutePath().normalize())?.editor
+
     private fun save(openFile: OpenFile): Boolean {
         if (!openFile.isDirty) return true
         val view = openFile.editor as? EditableFileView ?: return true

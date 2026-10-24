@@ -6,7 +6,8 @@ import java.nio.file.Path
 
 /**
  * Lets the file views of [area] open files in it (also at a line), web pages through [EditorArea.openWebPage], show a
- * file's changes ([showChangesAt]), look up the window's services and read and edit other tabs' texts ([tabTexts]).
+ * file's changes ([showChangesAt]), look up the window's services, read and edit other tabs' texts ([tabTexts]) and
+ * save a tab's file ([EditorArea.save]).
  */
 internal class ViewHost(
     private val area: EditorArea,
@@ -45,4 +46,6 @@ internal class ViewHost(
         file: Path,
         edit: (String) -> String,
     ): Boolean = tabTexts.editText(file, edit)
+
+    override fun save(file: Path): Boolean = area.save(file)
 }

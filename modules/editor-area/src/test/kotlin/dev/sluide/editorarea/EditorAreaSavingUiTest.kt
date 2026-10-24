@@ -16,6 +16,8 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -47,6 +49,40 @@ class EditorAreaSavingUiTest : EditorAreaUiFixture() {
         assertEquals(listOf("a1", "b2"), listOf(a.readText(), b.readText()))
         assertEquals(listOf(b, a), saved)
         assertEquals(listOf("a.txt", "b.txt"), tabTitles(robot))
+    }
+
+    @Test
+    fun `save(file) saves that file's tab also when it is not selected, and is false for a file without a tab`(
+        robot: FxRobot,
+    ) {
+        val a = textFile("a.txt", "a")
+        val saved = mutableListOf<Path>()
+        editor.onFileSaved = { saved.add(it) }
+        open(robot, a)
+        robot.interact { shownArea(robot).appendText("1") }
+        open(robot, textFile("b.txt", "b"))
+
+        robot.interact { assertTrue(editor.save(dir.resolve("sub/../a.txt"))) }
+        robot.interact { assertFalse(editor.save(textFile("closed.txt"))) }
+
+        assertEquals("a1", a.readText())
+        assertEquals(listOf(a), saved)
+        assertEquals(listOf("a.txt", "b.txt"), tabTitles(robot))
+    }
+
+    @Test
+    fun `viewOf gives a file tab's view, whose host saves the file through the area`(robot: FxRobot) {
+        val a = textFile("a.txt", "a")
+        open(robot, a)
+        robot.interact { shownArea(robot).appendText("1") }
+
+        val view = assertNotNull(editor.viewOf(a))
+        robot.interact { assertTrue(shownArea(robot).isInside(view.node)) }
+        assertNull(editor.viewOf(textFile("closed.txt")))
+
+        robot.interact { assertTrue(assertNotNull(view.host).save(a)) }
+        assertEquals("a1", a.readText())
+        assertEquals(listOf("a.txt"), tabTitles(robot))
     }
 
     @Test
