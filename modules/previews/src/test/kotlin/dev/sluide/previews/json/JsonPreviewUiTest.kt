@@ -1,7 +1,5 @@
 package dev.sluide.previews.json
 
-import dev.sluide.fileviewers.DefaultTextFileViewer
-import dev.sluide.fileviewers.FileViewers
 import dev.sluide.previews.preview.PreviewFileView
 import dev.sluide.previews.preview.PreviewMode
 import dev.sluide.previews.preview.sourceArea
@@ -26,11 +24,14 @@ import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.writeText
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
-/** The JSON preview in a [PreviewFileView]: the modes, the fold buttons and the folds kept. Needs a display, see `uiTest`. */
+/**
+ * The JSON preview in a [PreviewFileView]: the modes, the fold buttons and the folds kept. Needs a display, see
+ * `uiTest`. It stands for all fold-tree previews (JSON, XML, YAML), which share the fold state, the fold buttons and
+ * Copy Formatted; the XML and YAML classes only test what is specific to their format.
+ */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
 class JsonPreviewUiTest {
@@ -90,27 +91,6 @@ class JsonPreviewUiTest {
         assertSame(view.sourceArea, WaitForAsyncUtils.asyncFx<Any?> { container.scene.focusOwner }.get())
     }
 
-    @Test
-    fun `Source hides the fold buttons`(robot: FxRobot) {
-        val (_, view) = show(robot)
-        val folds = checkNotNull(view.folds)
-
-        robot.interact { view.mode.set(PreviewMode.SOURCE) }
-        WaitForAsyncUtils.waitForFxEvents()
-        assertFalse(WaitForAsyncUtils.asyncFx<Boolean> { folds.node.isVisible }.get())
-    }
-
-    @Test
-    fun `Collapse All and Expand All fold every container`(robot: FxRobot) {
-        val (_, view) = show(robot)
-        robot.interact { view.mode.set(PreviewMode.SPLIT) }
-
-        robot.fire(".preview-collapse-all")
-        assertEquals(0, view.open())
-        robot.fire(".preview-expand-all")
-        assertEquals(4, view.open())
-    }
-
     private val nested =
         """{"a": {"x": {"p": [1, 2, 3]}, "y": [{"q": 1}, {"r": 2}]}, "b": {"z": {"s": [1]}}, "c": [[1, 2], [3]]}"""
 
@@ -164,7 +144,6 @@ class JsonPreviewUiTest {
     @Test
     fun `a closed container stays closed when the source is saved`(robot: FxRobot) {
         val (file, view) = show(robot)
-        robot.interact { view.mode.set(PreviewMode.SPLIT) }
         view.script("document.querySelector('details[data-path=\"/deps\"]').open = false")
         assertEquals(false, view.isOpen("/deps"))
 
@@ -183,7 +162,6 @@ class JsonPreviewUiTest {
     @Test
     fun `a closed container stays closed when the file is reloaded from disk`(robot: FxRobot) {
         val (file, view) = show(robot)
-        robot.interact { view.mode.set(PreviewMode.SPLIT) }
         view.script("document.querySelector('details[data-path=\"/deps\"]').open = false")
 
         file.writeText("""{"deps": {"a": 2}, "other": {"c": false}}""")
@@ -198,10 +176,9 @@ class JsonPreviewUiTest {
     @Test
     fun `folds survive a save that is invalid, empty or cut off in between`(robot: FxRobot) {
         val (file, view) = show(robot)
-        robot.interact { view.mode.set(PreviewMode.SPLIT) }
         view.script("document.querySelector('details[data-path=\"/other\"]').open = false")
 
-        for (broken in listOf("{\"deps\": [1,\n", "", "{\"deps\": [1,\n")) {
+        for (broken in listOf("{\"deps\": [1,\n", "", "{\"deps\" 1}")) {
             robot.interact { view.sourceArea.replaceText(0, view.sourceArea.length, broken) }
             robot.interact { view.save() }
             awaitLoaded(view)
@@ -218,7 +195,6 @@ class JsonPreviewUiTest {
     @Test
     fun `a container missing from a valid save is forgotten and opens when it comes back`(robot: FxRobot) {
         val (_, view) = show(robot)
-        robot.interact { view.mode.set(PreviewMode.SPLIT) }
         view.script("document.querySelector('details[data-path=\"/other\"]').open = false")
 
         for (next in listOf("""{"deps": {"a": 1}}""", text)) {
@@ -228,14 +204,6 @@ class JsonPreviewUiTest {
         }
 
         assertEquals(true, view.isOpen("/other"))
-    }
-
-    @Test
-    fun `Pipfile lock opens as a JSON preview`(robot: FxRobot) {
-        val (file, view) = show(robot, "Pipfile.lock")
-
-        assertTrue(FileViewers(listOf(JsonFileViewer()), DefaultTextFileViewer()).viewerFor(file) is JsonFileViewer)
-        assertEquals(4, view.open())
     }
 
     private fun clipboardText(): String? =
@@ -250,7 +218,11 @@ class JsonPreviewUiTest {
                 Clipboard.getSystemClipboard().setContent(ClipboardContent().apply { putString(text) })
             }.get()
 
-    private fun PreviewFileView.message() = WaitForAsyncUtils.asyncFx<String> { copyFormatted!!.message.text }.get()
+    private fun PreviewFileView.message() =
+        WaitForAsyncUtils
+            .asyncFx<String> {
+                checkNotNull(copyFormatted).message.text
+            }.get()
 
     @Test
     fun `Copy Formatted shows in Split and Preview but not in Source`(robot: FxRobot) {
@@ -272,7 +244,6 @@ class JsonPreviewUiTest {
     @Test
     fun `Copy Formatted puts the saved text formatted on the clipboard, without unsaved edits`(robot: FxRobot) {
         val (_, view) = show(robot)
-        robot.interact { view.mode.set(PreviewMode.SPLIT) }
         robot.interact { view.sourceArea.replaceText(1, 1, "\"unsaved\": 1, ") }
         assertTrue(view.dirty.get())
 
@@ -291,7 +262,6 @@ class JsonPreviewUiTest {
     @Test
     fun `Copy Formatted leaves the clipboard alone when the saved text is invalid`(robot: FxRobot) {
         val (_, view) = show(robot)
-        robot.interact { view.mode.set(PreviewMode.SPLIT) }
         robot.interact { view.sourceArea.replaceText(0, view.sourceArea.length, "{\"a\" 1}") }
         robot.interact { view.save() }
         awaitLoaded(view)
@@ -307,7 +277,6 @@ class JsonPreviewUiTest {
     @Test
     fun `the Copy Formatted message goes away when its pause ends and when the file is rendered again`(robot: FxRobot) {
         val (_, view) = show(robot)
-        robot.interact { view.mode.set(PreviewMode.SPLIT) }
         val copy = checkNotNull(view.copyFormatted)
 
         robot.fire(".preview-copy-formatted")

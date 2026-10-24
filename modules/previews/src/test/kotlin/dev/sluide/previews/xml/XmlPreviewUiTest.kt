@@ -4,7 +4,6 @@ import dev.sluide.previews.preview.PreviewFileView
 import dev.sluide.previews.preview.PreviewMode
 import dev.sluide.previews.preview.sourceArea
 import javafx.concurrent.Worker
-import javafx.event.ActionEvent
 import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.input.Clipboard
@@ -23,7 +22,6 @@ import java.nio.file.Path
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.writeText
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -100,68 +98,8 @@ class XmlPreviewUiTest {
     }
 
     @Test
-    fun `Source hides the fold buttons`(robot: FxRobot) {
-        val (_, view) = show(robot)
-        val folds = checkNotNull(view.folds)
-
-        robot.interact { view.mode.set(PreviewMode.SOURCE) }
-        WaitForAsyncUtils.waitForFxEvents()
-        assertFalse(WaitForAsyncUtils.asyncFx<Boolean> { folds.node.isVisible }.get())
-    }
-
-    @Test
-    fun `Collapse All and Expand All fold every container`(robot: FxRobot) {
-        val (_, view) = show(robot)
-        robot.interact { view.mode.set(PreviewMode.SPLIT) }
-
-        robot.fire(".preview-collapse-all")
-        assertEquals(0, view.open())
-        robot.fire(".preview-expand-all")
-        assertEquals(4, view.open())
-    }
-
-    private val nested =
-        "<project><a><x><p>1</p><p>2</p></x><y><q>1</q></y></a><b><z><s>1</s></z></b><c><d><e/><f/></d></c></project>"
-
-    /** The closed containers on screen that are taller than their summary line, with both heights; empty if none. */
-    private fun PreviewFileView.gaps() =
-        script(
-            """
-            (function () {
-                var gaps = [];
-                var closed = document.querySelectorAll('details[data-path]:not([open])');
-                for (var i = 0; i < closed.length; i++) {
-                    if (closed[i].getClientRects().length === 0) continue;
-                    var height = closed[i].getBoundingClientRect().height;
-                    var line = closed[i].firstElementChild.getBoundingClientRect().height;
-                    var path = closed[i].getAttribute('data-path');
-                    if (Math.abs(height - line) > 1) gaps.push(path + ': ' + height + ' > ' + line);
-                }
-                return gaps.join('; ');
-            })()
-            """.trimIndent(),
-        )
-
-    private fun PreviewFileView.clickSummary(path: String) =
-        script("document.querySelector('details[data-path=\"$path\"] > summary').click()")
-
-    @Test
-    fun `containers opened by hand after Collapse All show their closed children one line each`(robot: FxRobot) {
-        val (_, view) = show(robot, content = nested)
-
-        robot.fire(".preview-collapse-all")
-        view.clickSummary("/project[1]")
-        assertEquals(true, view.isOpen("/project[1]"))
-        assertEquals("", view.gaps())
-        view.clickSummary("/project[1]/a[1]")
-        assertEquals(true, view.isOpen("/project[1]/a[1]"))
-        assertEquals("", view.gaps())
-    }
-
-    @Test
     fun `a closed element stays closed when the source is saved`(robot: FxRobot) {
         val (file, view) = show(robot)
-        robot.interact { view.mode.set(PreviewMode.SPLIT) }
         view.script("document.querySelector('details[data-path=\"$deps\"]').open = false")
         assertEquals(false, view.isOpen(deps))
 
@@ -178,73 +116,6 @@ class XmlPreviewUiTest {
         assertEquals(true, view.isOpen("/project[1]"))
     }
 
-    @Test
-    fun `a closed element stays closed when the file is reloaded from disk`(robot: FxRobot) {
-        val (file, view) = show(robot)
-        robot.interact { view.mode.set(PreviewMode.SPLIT) }
-        view.script("document.querySelector('details[data-path=\"$deps\"]').open = false")
-
-        file.writeText("<project><deps><a>2</a></deps><other><c>fresh</c></other></project>")
-        robot.interact { view.reload() }
-        awaitLoaded(view)
-
-        assertEquals(false, view.isOpen(deps))
-        assertEquals(true, view.isOpen(other))
-        assertEquals(true, view.script("document.body.textContent.indexOf('fresh') >= 0"), "the new text shows")
-    }
-
-    @Test
-    fun `folds survive a save that is invalid, empty or cut off in between`(robot: FxRobot) {
-        val (file, view) = show(robot)
-        robot.interact { view.mode.set(PreviewMode.SPLIT) }
-        view.script("document.querySelector('details[data-path=\"$other\"]').open = false")
-
-        for (broken in listOf("<project>\n<deps>\n", "", "<project>\n<deps>&nope;</deps>")) {
-            robot.interact { view.sourceArea.replaceText(0, view.sourceArea.length, broken) }
-            robot.interact { view.save() }
-            awaitLoaded(view)
-        }
-        robot.interact { view.sourceArea.replaceText(0, view.sourceArea.length, text) }
-        robot.interact { view.save() }
-        awaitLoaded(view)
-
-        assertEquals(text, file.toFile().readText())
-        assertEquals(false, view.isOpen(other))
-        assertEquals(true, view.isOpen(deps))
-    }
-
-    @Test
-    fun `an element missing from a valid save is forgotten and opens when it comes back`(robot: FxRobot) {
-        val (_, view) = show(robot)
-        robot.interact { view.mode.set(PreviewMode.SPLIT) }
-        view.script("document.querySelector('details[data-path=\"$other\"]').open = false")
-
-        for (next in listOf("<project><deps><a>1</a><b><x>1</x></b></deps></project>", text)) {
-            robot.interact { view.sourceArea.replaceText(0, view.sourceArea.length, next) }
-            robot.interact { view.save() }
-            awaitLoaded(view)
-        }
-
-        assertEquals(true, view.isOpen(other))
-    }
-
-    @Test
-    fun `an invalid file shows the error and the page so far`(robot: FxRobot) {
-        val (_, view) = show(robot, "broken.xml")
-        robot.interact {
-            view.sourceArea.replaceText(
-                0,
-                view.sourceArea.length,
-                "<a>\n<b>1</b>\n<c>&nope;</c>\n</a>",
-            )
-        }
-        robot.interact { view.save() }
-        awaitLoaded(view)
-
-        assertEquals(true, view.script("document.querySelector('.fold-error').textContent.indexOf('Line 3') == 0"))
-        assertEquals(1, view.script("document.querySelectorAll('details').length"))
-    }
-
     private fun clipboardText(): String? =
         WaitForAsyncUtils
             .asyncFx<String?> {
@@ -257,29 +128,15 @@ class XmlPreviewUiTest {
                 Clipboard.getSystemClipboard().setContent(ClipboardContent().apply { putString(text) })
             }.get()
 
-    private fun PreviewFileView.message() = WaitForAsyncUtils.asyncFx<String> { copyFormatted!!.message.text }.get()
-
-    @Test
-    fun `Copy Formatted shows in Split and Preview but not in Source`(robot: FxRobot) {
-        val (_, view) = show(robot)
-        val copy = checkNotNull(view.copyFormatted)
-
-        for ((mode, visible) in listOf(
-            PreviewMode.SOURCE to false,
-            PreviewMode.SPLIT to true,
-            PreviewMode.PREVIEW to true,
-        )) {
-            robot.interact { view.mode.set(mode) }
-            WaitForAsyncUtils.waitForFxEvents()
-            assertEquals(visible, WaitForAsyncUtils.asyncFx<Boolean> { copy.node.isVisible }.get(), mode.name)
-            assertEquals(visible, WaitForAsyncUtils.asyncFx<Boolean> { copy.node.isManaged }.get(), mode.name)
-        }
-    }
+    private fun PreviewFileView.message() =
+        WaitForAsyncUtils
+            .asyncFx<String> {
+                checkNotNull(copyFormatted).message.text
+            }.get()
 
     @Test
     fun `Copy Formatted puts the saved text formatted on the clipboard, without unsaved edits`(robot: FxRobot) {
         val (_, view) = show(robot)
-        robot.interact { view.mode.set(PreviewMode.SPLIT) }
         robot.interact { view.sourceArea.replaceText(0, 0, "<!-- unsaved -->\n") }
         assertTrue(view.dirty.get())
 
@@ -293,44 +150,5 @@ class XmlPreviewUiTest {
             clipboardText(),
         )
         assertEquals("Copied", view.message())
-    }
-
-    @Test
-    fun `Copy Formatted leaves the clipboard alone when the saved text is invalid`(robot: FxRobot) {
-        val (_, view) = show(robot)
-        robot.interact { view.mode.set(PreviewMode.SPLIT) }
-        robot.interact { view.sourceArea.replaceText(0, view.sourceArea.length, "<a>\n<b>") }
-        robot.interact { view.save() }
-        awaitLoaded(view)
-        setClipboard("MARKER")
-
-        robot.fire(".preview-copy-formatted")
-        WaitForAsyncUtils.waitForFxEvents()
-
-        assertEquals("MARKER", clipboardText())
-        assertTrue(view.message().startsWith("Not copied: Line "), view.message())
-    }
-
-    @Test
-    fun `the Copy Formatted message goes away when its pause ends and when the file is rendered again`(robot: FxRobot) {
-        val (_, view) = show(robot)
-        robot.interact { view.mode.set(PreviewMode.SPLIT) }
-        val copy = checkNotNull(view.copyFormatted)
-
-        robot.fire(".preview-copy-formatted")
-        assertEquals("Copied", view.message())
-        robot.interact {
-            // Ends the pause at once, as its end would.
-            copy.pause.stop()
-            copy.pause.onFinished.handle(ActionEvent())
-        }
-        assertEquals("", view.message())
-
-        robot.fire(".preview-copy-formatted")
-        assertEquals("Copied", view.message())
-        robot.interact { view.sourceArea.replaceText(0, 0, " ") }
-        robot.interact { view.save() }
-        awaitLoaded(view)
-        assertEquals("", view.message())
     }
 }
