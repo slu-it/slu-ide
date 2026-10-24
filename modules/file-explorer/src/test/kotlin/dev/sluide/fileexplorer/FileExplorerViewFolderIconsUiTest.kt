@@ -2,16 +2,9 @@ package dev.sluide.fileexplorer
 
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileicons.FileIcon
-import dev.sluide.filewatcher.FileWatcher
-import dev.sluide.settings.FontSettings
-import dev.sluide.settings.SettingsStore
-import javafx.application.Platform
-import javafx.scene.Scene
 import javafx.scene.control.TreeCell
 import javafx.scene.layout.HBox
-import javafx.scene.layout.VBox
 import javafx.stage.Stage
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.io.TempDir
@@ -19,14 +12,12 @@ import org.kordamp.ikonli.javafx.FontIcon
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
-import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
 import kotlin.io.path.name
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.time.Duration.Companion.milliseconds
 
 /** The icons of the folders of an [ExplorerRoot] with [FolderIcons]. Needs a display, see the `uiTest` task. */
 @Tag("ui")

@@ -4,32 +4,19 @@ import dev.sluide.fileexplorer.actions.DeleteQuestion
 import dev.sluide.fileexplorer.actions.EntryKind
 import dev.sluide.fileexplorer.actions.deleteQuestion
 import dev.sluide.fileexplorer.tree.FileTreeItem
-import dev.sluide.filewatcher.FileWatcher
-import dev.sluide.settings.FontSettings
-import dev.sluide.settings.SettingsStore
-import javafx.application.Platform
 import javafx.event.Event
-import javafx.scene.Node
-import javafx.scene.Scene
-import javafx.scene.control.MenuItem
 import javafx.scene.control.SelectionMode
-import javafx.scene.control.TreeCell
 import javafx.scene.control.TreeItem
-import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.KeyCode
-import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.input.PickResult
 import javafx.stage.Stage
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
-import org.junit.jupiter.api.io.TempDir
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
-import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
 import kotlin.io.path.createFile
 import kotlin.io.path.createParentDirectories
@@ -38,8 +25,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
 
 /** Multi-selection, the context menu rules and multi-delete of the explorer. Needs a display, see `uiTest`. */
 @Tag("ui")

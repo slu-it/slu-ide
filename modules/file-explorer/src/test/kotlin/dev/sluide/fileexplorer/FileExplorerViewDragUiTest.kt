@@ -1,16 +1,11 @@
 package dev.sluide.fileexplorer
 
 import dev.sluide.fileexplorer.actions.MoveQuestion
-import dev.sluide.filewatcher.FileWatcher
-import dev.sluide.settings.FontSettings
-import dev.sluide.settings.SettingsStore
-import javafx.application.Platform
 import javafx.event.Event
 import javafx.event.EventType
 import javafx.geometry.Orientation
 import javafx.geometry.Point2D
 import javafx.scene.Node
-import javafx.scene.Scene
 import javafx.scene.control.Label
 import javafx.scene.control.ScrollBar
 import javafx.scene.control.TextField
@@ -30,10 +25,8 @@ import javafx.stage.Popup
 import javafx.stage.Stage
 import javafx.stage.Window
 import javafx.util.Duration
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
-import org.junit.jupiter.api.io.TempDir
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
@@ -50,7 +43,6 @@ import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.test.fail
-import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 /**
