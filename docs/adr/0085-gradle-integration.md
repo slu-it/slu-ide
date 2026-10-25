@@ -36,9 +36,11 @@ run on every configuration), so it falls under [ADR 0053](0053-project-trust.md)
 **Reading the tasks**
 - A bundled **init script** (`task-list.init.gradle`, Groovy) registers `sluideTaskList` on the root project. It walks
   `allprojects` and their tasks and writes JSON (`version`, `rootFolder`, projects with path, name, folder, build
-  file, and tasks with name, path, group, description) to the file named by `-Dsluide.taskList=<file>`. The load runs
-  with `-Dorg.gradle.configuration-cache=false`; the task is also marked not compatible with the configuration cache
-  where Gradle has that API.
+  file, and tasks with name, path, group, description) to the file named by `-Dsluide.taskList=<file>`. The load asks
+  for `:sluideTaskList`, the root path, because it runs in the build file's folder and a bare name would look in a
+  subproject there. It runs with `-Dorg.gradle.configuration-cache=false`; the task is also marked not compatible with
+  the configuration cache where Gradle has that API. It also runs with `--no-configure-on-demand`, since a root path
+  would otherwise configure only the root project and list no tasks registered by the others.
 - It runs through the same command as a task run (wrapper or `gradle` in the login shell, interactive since
   [ADR 0087](0087-commands-in-an-interactive-login-shell.md)), so PATH and `JAVA_HOME` of the user apply. Gradle 6
   or newer is needed.

@@ -112,7 +112,6 @@ Closing the tab or the window while a run or load is going asks first ("build.gr
 - Gradle 6 or newer (the init script).
 - Gradle finds a `settings.gradle` above the project root itself: a project that is part of a bigger build lists and
   runs that build.
-- With configure-on-demand, projects Gradle does not configure may list fewer tasks.
 - Build files that belong to no project of the root build (`buildSrc`, included builds) are not found in its loaded
   list: their view loads on its own once the build's load has ended. What that load lists depends on where Gradle
   finds the settings; a failed load never replaces or clears the shared list.

@@ -1,5 +1,6 @@
 // Thoreau's task list: writes the projects and tasks of the build as JSON to the file named by the system property
-// sluide.taskList. Run as: gradle --init-script task-list.init.gradle -Dsluide.taskList=<file> sluideTaskList
+// sluide.taskList. Run as: gradle --init-script task-list.init.gradle -Dsluide.taskList=<file> :sluideTaskList
+// (the root path, so it also works from a subproject's folder).
 // Needs Gradle 6 or newer.
 rootProject {
     def listTask = tasks.register("sluideTaskList") {

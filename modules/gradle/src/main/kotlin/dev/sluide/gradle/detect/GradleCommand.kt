@@ -40,7 +40,11 @@ internal object GradleCommand {
         tasks: List<String>,
     ): String = (listOf(executable(installation)) + (tokenize(userArguments) + tasks).map(::quote)).joinToString(" ")
 
-    /** The command writing the task list of the build to [output] with the [initScript]. */
+    /**
+     * The command writing the task list of the build to [output] with the [initScript]. The task is addressed by its
+     * root path: the command runs in the build file's folder, which for a subproject selects that project. A root path
+     * configures only the root project under configure-on-demand, so that is switched off to list every project.
+     */
     fun loadTasks(
         installation: GradleInstallation,
         initScript: Path,
@@ -52,6 +56,7 @@ internal object GradleCommand {
             quote(initScript.toAbsolutePath().toString()),
             quote("-Dsluide.taskList=${output.toAbsolutePath()}"),
             "-Dorg.gradle.configuration-cache=false",
-            "sluideTaskList",
+            "--no-configure-on-demand",
+            ":sluideTaskList",
         ).joinToString(" ")
 }

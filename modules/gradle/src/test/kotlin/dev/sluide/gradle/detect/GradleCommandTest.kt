@@ -48,10 +48,10 @@ class GradleCommandTest {
     }
 
     @Test
-    fun `loading tasks passes the init script and the output and switches off the configuration cache`() {
+    fun `loading tasks passes init script and output, all projects configured, the root project task`() {
         assertEquals(
             "/p/gradlew --init-script /i/init.gradle -Dsluide.taskList=/o/out.json " +
-                "-Dorg.gradle.configuration-cache=false sluideTaskList",
+                "-Dorg.gradle.configuration-cache=false --no-configure-on-demand :sluideTaskList",
             GradleCommand.loadTasks(
                 GradleInstallation.Wrapper(Path.of("/p"), true),
                 Path.of("/i/init.gradle"),
@@ -60,7 +60,7 @@ class GradleCommandTest {
         )
         assertEquals(
             "gradle --init-script '/i d/init.gradle' '-Dsluide.taskList=/o d/out.json' " +
-                "-Dorg.gradle.configuration-cache=false sluideTaskList",
+                "-Dorg.gradle.configuration-cache=false --no-configure-on-demand :sluideTaskList",
             GradleCommand.loadTasks(GradleInstallation.Global, Path.of("/i d/init.gradle"), Path.of("/o d/out.json")),
         )
     }
