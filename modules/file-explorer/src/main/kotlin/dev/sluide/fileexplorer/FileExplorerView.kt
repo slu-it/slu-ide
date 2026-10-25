@@ -21,6 +21,7 @@ import dev.sluide.fileexplorer.tree.EXPAND_DELAY
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileexplorer.tree.PathCell
 import dev.sluide.fileexplorer.tree.TreeDragAndDrop
+import dev.sluide.fileexplorer.tree.defaultCopyModifier
 import dev.sluide.fileexplorer.tree.findForReveal
 import dev.sluide.fileexplorer.tree.startWidth
 import dev.sluide.fileicons.FILE_ICONS_CSS
@@ -240,6 +241,9 @@ class FileExplorerView(
     /** How long a collapsed folder is held under a dragged entry before it expands; tests shorten it. */
     internal var dragExpandDelay: Duration = EXPAND_DELAY
 
+    /** Whether the held Alt and Control keys make a drop copy; the platform's choice, tests set their own. */
+    internal var dragCopyModifier: (isAltDown: Boolean, isControlDown: Boolean) -> Boolean = ::defaultCopyModifier
+
     // Moving entries by drag and drop; the cells mark its drop target.
     private val dragAndDrop =
         TreeDragAndDrop(
@@ -250,7 +254,9 @@ class FileExplorerView(
             selectedEntries = ::selectedEntries,
             reselect = { items -> selectRows(items.filter(::isShown)) },
             move = { items, folder -> move(items, folder) },
+            copy = { items, folder -> copies.copyDrop(items, folder) },
             expandDelay = { dragExpandDelay },
+            copyModifier = { alt, control -> dragCopyModifier(alt, control) },
         )
 
     init {

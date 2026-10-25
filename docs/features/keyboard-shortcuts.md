@@ -122,6 +122,7 @@ All previews and images zoom, only while the rendered view has the focus, not in
 | Shortcut+V | Paste into the selected folder, the folder of the selected file, or the project folder: copies, or moves cut entries |
 | Escape | Cancel a cut (when no drag runs) |
 | Drag entries onto a folder or the empty area | Move them (after a confirmation) |
+| Option+drag (macOS) / Ctrl+drag (Windows, Linux) entries onto a folder or the empty area | Copy them instead of moving (after a confirmation) |
 | Escape while dragging entries | Cancel the drag |
 
 ## Terminal

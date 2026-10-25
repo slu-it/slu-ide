@@ -35,6 +35,27 @@ class TreeDragAndDropTest {
     }
 
     @Test
+    fun `copies can be dropped into the folder they are in`() {
+        assertTrue(canDrop(listOf(p("/p/a.txt"), p("/p/b.txt")), p("/p"), copy = true))
+        assertFalse(canDrop(listOf(p("/p/a.txt")), p("/p"), copy = false))
+    }
+
+    @Test
+    fun `copies still cannot go into a source or a folder inside one`() {
+        assertFalse(canDrop(listOf(p("/p/src")), p("/p/src"), copy = true))
+        assertFalse(canDrop(listOf(p("/p/a.txt"), p("/p/src")), p("/p/src/main"), copy = true))
+        assertFalse(canDrop(emptyList(), p("/p"), copy = true))
+    }
+
+    @Test
+    fun `the copy modifier is Option on macOS and Ctrl elsewhere`() {
+        assertTrue(isCopyModifier(isMac = true, isAltDown = true, isControlDown = false))
+        assertFalse(isCopyModifier(isMac = true, isAltDown = false, isControlDown = true))
+        assertTrue(isCopyModifier(isMac = false, isAltDown = false, isControlDown = true))
+        assertFalse(isCopyModifier(isMac = false, isAltDown = true, isControlDown = false))
+    }
+
+    @Test
     fun `outermost leaves out entries at or below another one and keeps the order`() {
         val paths = listOf(p("/p/b"), p("/p/a/x.txt"), p("/p/a"), p("/p/b/c/d"), p("/p/b"), p("/p/ab"))
 

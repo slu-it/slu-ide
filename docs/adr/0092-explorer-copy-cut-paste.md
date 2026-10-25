@@ -69,10 +69,11 @@ meet taken names, include links and executable files, and come from files with u
   dropped, and the clipboard cleared if it still holds the cut entries.
 - **No clipboard events:** JavaFX reports no clipboard changes, so the mark is checked again when the explorer gains
   the focus, when its window gains the focus, when the context menu opens and before every paste.
-- **Drag copy** (next step, same decision): holding Option (Alt) on macOS, Ctrl on Windows and Linux at the drop copies
+- **Drag copy** (`TreeDragAndDrop`, `isCopyModifier`): holding Option (Alt) on macOS, Ctrl on Windows and Linux at the drop copies
   instead of moving. The modifier is read at the release and may change during the drag, as in the Finder; while it is
-  held the drag image shows a `+` badge. A copy drop also accepts the folder the entries are in already (they get
-  copy names). It is confirmed like a move: "Copy N entries to “folder”?", listing the entries that get another name
+  held the drag image shows a round green `+` badge (`.explorer-drag-copy`), separate from the accent-coloured `+N`
+  count; Alt and Control key events are tracked during the drag, so the mode, the badge and the drop target change
+  without a mouse move. A copy drop also accepts the folder the entries are in already (they get copy names). It is confirmed like a move: "Copy N entries to “folder”?", listing the entries that get another name
   ("“a.txt” → “a-copy.txt”") and the files with unsaved changes, Copy / Cancel, Cancel the default
   (`ExplorerCopies.copyDrop`, `copyDropQuestion`). On Windows and Linux a Ctrl+press stays multi-selection, so Ctrl
   must be pressed after the drag has started.

@@ -144,6 +144,14 @@
     folders inside it, the folder all dragged entries are in already (`canDrop`), and a folder being deleted or
     inside one refuse the drop. Nothing is dragged in from or out to other applications or windows; files come in and
     go out over the clipboard instead (Copy, cut and paste, below).
+  - Copying by drag ([ADR 0092](../adr/0092-explorer-copy-cut-paste.md)): holding Option (macOS) or Ctrl (Windows,
+    Linux) at the release copies the entries instead of moving them. Like in the Finder the modifier can be pressed or
+    released during the drag, with or without moving the mouse; the drag image shows a round green "+" badge
+    (`.explorer-drag-copy`, next to the accent-coloured "+N" count) while copying, and the target is checked again. On Windows and
+    Linux Ctrl with the press stays multi-selection, so Ctrl must be pressed after the drag has started. A copy may
+    also be dropped into the folder the entries are in (they get `-copy` names); a source or a folder inside one is
+    still refused. The drop asks "Copy N entries to “folder”?" (`ExplorerCopies.copyDrop`), listing renamed entries and
+    files with unsaved changes, Cancel the default; Escape and the other cancels work as for a move.
   - The target row is framed and tinted in the accent colour (`:drop-target`, `file-explorer.css`, light and dark); on
     the empty area the project row is marked. A collapsed folder held under the pointer for 700 ms expands. Near the
     top or bottom edge (within a row) the tree scrolls while the pointer stays there; the row scrolling under the

@@ -37,12 +37,30 @@ internal fun <T> outermost(
 
 /**
  * Whether entries at [sources] can be moved into the folder [target]: not into one of them or a folder inside one, and
- * not if all of them are directly in [target] already.
+ * not if all of them are directly in [target] already. Copies ([copy]) may go into the folder they are in.
  */
 internal fun canDrop(
     sources: List<Path>,
     target: Path,
-): Boolean = sources.isNotEmpty() && sources.none { target.startsWith(it) } && sources.any { it.parent != target }
+    copy: Boolean = false,
+): Boolean =
+    sources.isNotEmpty() &&
+        sources.none { target.startsWith(it) } &&
+        (copy || sources.any { it.parent != target })
+
+/** Whether the modifiers held mean copying instead of moving: Option on macOS, Ctrl elsewhere. */
+internal fun isCopyModifier(
+    isMac: Boolean,
+    isAltDown: Boolean,
+    isControlDown: Boolean,
+): Boolean = if (isMac) isAltDown else isControlDown
+
+private val onMac = System.getProperty("os.name").orEmpty().startsWith("Mac", ignoreCase = true)
+
+internal fun defaultCopyModifier(
+    isAltDown: Boolean,
+    isControlDown: Boolean,
+) = isCopyModifier(onMac, isAltDown, isControlDown)
 
 /**
  * Moving entries of [tree] by dragging them with the mouse onto a folder or the empty area below the rows, which stands
@@ -55,9 +73,11 @@ internal fun canDrop(
  * the pointer, a collapsed folder held under the pointer expands, and the tree scrolls while the pointer is near its
  * top or bottom edge. Releasing over a target hands the entries and the folder to [move], after the release; releasing
  * elsewhere, Escape, any mouse press, losing the focus or another tree content cancels, selecting the dragged entries
- * again ([reselect]); the rest of that press is kept from the rows (no selection change, click or context menu). A
- * press and release without a drag stay a click: on a selected row of several, the tree selects only that row on the
- * release.
+ * again ([reselect]); the rest of that press is kept from the rows (no selection change, click or context menu). With
+ * the copy modifier ([copyModifier]: Option on macOS, Ctrl elsewhere) held at the release, the entries go to [copy]
+ * instead, also into the folder they are in; it can be pressed and released during the drag, which shows a green "+"
+ * badge on the image while copying. A press and release without a drag stay a click: on a selected row of several, the
+ * tree selects only that row on the release.
  */
 internal class TreeDragAndDrop(
     private val tree: TreeView<Path>,
@@ -71,8 +91,11 @@ internal class TreeDragAndDrop(
     /** Selects the entries of a drag that ended without a move, those still shown. */
     private val reselect: (List<FileTreeItem>) -> Unit,
     private val move: (items: List<FileTreeItem>, folder: FileTreeItem) -> Unit,
+    private val copy: (items: List<FileTreeItem>, folder: FileTreeItem) -> Unit,
     /** How long a collapsed folder must stay under the pointer before it expands; read when the pointer enters it. */
     private val expandDelay: () -> Duration = { EXPAND_DELAY },
+    /** Whether the held Alt and Control keys mean copying. */
+    private val copyModifier: (isAltDown: Boolean, isControlDown: Boolean) -> Boolean = ::defaultCopyModifier,
 ) {
     private val target = SimpleObjectProperty<TreeItem<Path>?>()
 
@@ -93,6 +116,11 @@ internal class TreeDragAndDrop(
 
     /** The image of the pressed row following the pointer. */
     private var dragImage: Popup? = null
+    private var dragImageBox: HBox? = null
+
+    /** Whether a release now would copy; kept up to date while dragging. */
+    private var copying = false
+    private val copyBadge = Label("+").apply { styleClass += "explorer-drag-copy" }
 
     /** Set when a drag ends on a release, so the click that may follow it does nothing. */
     private var swallowClick = false
@@ -122,6 +150,8 @@ internal class TreeDragAndDrop(
         }
         tree.addEventFilter(ContextMenuEvent.CONTEXT_MENU_REQUESTED) { event -> if (swallowMenu) event.consume() }
         tree.addEventFilter(KeyEvent.KEY_PRESSED, ::cancelOnEscape)
+        tree.addEventFilter(KeyEvent.KEY_PRESSED, ::trackModifier)
+        tree.addEventFilter(KeyEvent.KEY_RELEASED, ::trackModifier)
         tree.focusedProperty().addListener { _, _, focused -> if (!focused) cancel() }
         // Another folder opened: the dragged entries are no longer shown.
         tree.rootProperty().addListener { _ -> cancel() }
@@ -173,6 +203,8 @@ internal class TreeDragAndDrop(
         event.consume()
         if (sources == null) return
         pointer = point
+        copying = copyModifier(event.isAltDown, event.isControlDown)
+        showCopyBadge(copying)
         dragImage?.apply {
             x = event.screenX + DRAG_IMAGE_OFFSET
             y = event.screenY + DRAG_IMAGE_OFFSET
@@ -198,12 +230,14 @@ internal class TreeDragAndDrop(
         if (sources == null) return
         event.consume()
         swallowClick = true
+        copying = copyModifier(event.isAltDown, event.isControlDown)
         val folder = hover(spotAt(Point2D(event.sceneX, event.sceneY)))
         val items = selection
+        val copyIt = copying
         end()
         if (folder != null) {
-            // After the release: the move asks in a dialog with an event loop of its own.
-            Platform.runLater { move(items, folder) }
+            // After the release: the move or copy asks in a dialog with an event loop of its own.
+            Platform.runLater { if (copyIt) copy(items, folder) else move(items, folder) }
         } else {
             reselect(items)
         }
@@ -260,6 +294,8 @@ internal class TreeDragAndDrop(
                 style = tree.style
                 opacity = DRAG_IMAGE_OPACITY
             }
+        dragImageBox = image
+        showCopyBadge(copying)
         dragImage =
             Popup().apply {
                 content += image
@@ -267,6 +303,8 @@ internal class TreeDragAndDrop(
                 // While a popup shows, the window's key events go to it, Escape included, which would only hide it.
                 isHideOnEscape = false
                 scene.addEventFilter(KeyEvent.KEY_PRESSED, ::cancelOnEscape)
+                scene.addEventFilter(KeyEvent.KEY_PRESSED, ::trackModifier)
+                scene.addEventFilter(KeyEvent.KEY_RELEASED, ::trackModifier)
                 show(window, event.screenX + DRAG_IMAGE_OFFSET, event.screenY + DRAG_IMAGE_OFFSET)
             }
     }
@@ -275,6 +313,25 @@ internal class TreeDragAndDrop(
         if (event.code == KeyCode.ESCAPE && sources != null) {
             cancel()
             event.consume()
+        }
+    }
+
+    /** Follows Alt and Control going down or up during a drag, so the mode changes without a mouse move. */
+    private fun trackModifier(event: KeyEvent) {
+        if (sources == null || (event.code != KeyCode.ALT && event.code != KeyCode.CONTROL)) return
+        val copy = copyModifier(event.isAltDown, event.isControlDown)
+        if (copy == copying) return
+        copying = copy
+        showCopyBadge(copy)
+        pointer?.let { hover(spotAt(it)) }
+    }
+
+    private fun showCopyBadge(show: Boolean) {
+        val children = dragImageBox?.children ?: return
+        if (show && copyBadge !in children) {
+            children += copyBadge
+        } else if (!show) {
+            children -= copyBadge
         }
     }
 
@@ -301,6 +358,8 @@ internal class TreeDragAndDrop(
         scroller.stop()
         dragImage?.hide()
         dragImage = null
+        dragImageBox = null
+        copying = false
         tree.cursor = null
     }
 
@@ -354,7 +413,7 @@ internal class TreeDragAndDrop(
                 Spot.Empty -> projectItem()
                 is Spot.Row -> (spot.cell.treeItem as? FileTreeItem)?.takeIf { it.isDirectory }
             }
-        return folder?.takeIf { canDrop(dragged.map { it.value }, it.value) && canDropInto(it) }
+        return folder?.takeIf { canDrop(dragged.map { it.value }, it.value, copying) && canDropInto(it) }
     }
 
     /** The row holding [node]; `null` for the parts of the tree outside the rows. */

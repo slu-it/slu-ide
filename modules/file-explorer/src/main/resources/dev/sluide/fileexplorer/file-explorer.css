@@ -67,6 +67,17 @@
     -fx-text-fill: -fx-text-background-color;
 }
 
+/* The copy badge, a round green "+" as in the Finder, while the copy modifier is held; not the accent-coloured count. */
+.explorer-drag-image .explorer-drag-copy {
+    -fx-background-color: #2e9e44;
+    -fx-background-radius: 1em;
+    -fx-min-width: 1.2em;
+    -fx-alignment: center;
+    -fx-padding: 0 3 0 3;
+    -fx-text-fill: white;
+    -fx-font-weight: bold;
+}
+
 @media (prefers-color-scheme: dark) {
     .tree-cell:drop-target,
     .tree-cell:drop-target:selected,

@@ -1,5 +1,6 @@
 package dev.sluide.fileexplorer
 
+import dev.sluide.fileexplorer.actions.CopyQuestion
 import dev.sluide.fileexplorer.actions.MoveQuestion
 import javafx.event.Event
 import javafx.event.EventType
@@ -55,6 +56,7 @@ import kotlin.time.Duration.Companion.seconds
 class FileExplorerViewDragUiTest : FileExplorerViewUiFixture() {
     private lateinit var other: TextField
     private val questions = mutableListOf<MoveQuestion>()
+    private val copyQuestions = mutableListOf<CopyQuestion>()
     private val opened = mutableListOf<Path>()
 
     @Start
@@ -65,6 +67,12 @@ class FileExplorerViewDragUiTest : FileExplorerViewUiFixture() {
             it.dragExpandDelay = Duration.minutes(60.0)
             it.confirmMove = { question ->
                 questions += question
+                true
+            }
+            // Option as on macOS, whatever the platform the test runs on.
+            it.dragCopyModifier = { alt, _ -> alt }
+            it.confirmCopy = { question ->
+                copyQuestions += question
                 true
             }
             it.onOpenFile = { path -> opened.add(path) }
@@ -134,6 +142,7 @@ class FileExplorerViewDragUiTest : FileExplorerViewUiFixture() {
         clickCount: Int = 1,
         button: MouseButton = MouseButton.PRIMARY,
         secondaryDown: Boolean = false,
+        alt: Boolean = false,
     ) {
         robot.interact {
             val screen = view.scene.root.localToScreen(point)
@@ -151,7 +160,7 @@ class FileExplorerViewDragUiTest : FileExplorerViewUiFixture() {
                     clickCount,
                     false,
                     false,
-                    false,
+                    alt,
                     false,
                     down,
                     false,
@@ -181,13 +190,15 @@ class FileExplorerViewDragUiTest : FileExplorerViewUiFixture() {
         robot: FxRobot,
         pressed: Node,
         point: Point2D,
-    ) = mouse(robot, pressed, MouseEvent.MOUSE_DRAGGED, point, true)
+        alt: Boolean = false,
+    ) = mouse(robot, pressed, MouseEvent.MOUSE_DRAGGED, point, true, alt = alt)
 
     private fun release(
         robot: FxRobot,
         pressed: Node,
         point: Point2D,
-    ) = mouse(robot, pressed, MouseEvent.MOUSE_RELEASED, point, false)
+        alt: Boolean = false,
+    ) = mouse(robot, pressed, MouseEvent.MOUSE_RELEASED, point, false, alt = alt)
 
     /** Waits until [condition] holds; fails after 10 seconds, so a scenario that does not happen is not passed. */
     private fun waitFor(
@@ -413,6 +424,80 @@ class FileExplorerViewDragUiTest : FileExplorerViewUiFixture() {
         assertEquals(listOf(project.resolve("src"), project.resolve("src/b.txt")), selectedPaths())
     }
 
+    private fun key(
+        robot: FxRobot,
+        type: EventType<KeyEvent>,
+        code: KeyCode,
+        alt: Boolean,
+        target: Node = view,
+    ) = robot.interact { Event.fireEvent(target, KeyEvent(type, "", "", code, false, false, alt, false)) }
+
+    private fun HBox.hasCopyBadge() = children.any { "explorer-drag-copy" in it.styleClass }
+
+    @Test
+    fun `an Option-drag onto another folder copies the entry there and selects the copy`(robot: FxRobot) {
+        project.resolve("a.txt").createFile()
+        project.resolve("target").createDirectories()
+        open(robot)
+
+        val pressed = startDrag(robot, "a.txt")
+        dragTo(robot, pressed, at(robot, "target"), alt = true)
+        assertTrue(checkNotNull(dragImage(robot)).hasCopyBadge())
+        release(robot, pressed, at(robot, "target"), alt = true)
+        waitFor("the copy happens") { project.resolve("target/a.txt").exists() }
+        waitFor("the copy is selected") { selectedPaths() == listOf(project.resolve("target/a.txt")) }
+
+        assertTrue(project.resolve("a.txt").exists())
+        assertEquals(emptyList(), questions)
+        assertEquals(1, copyQuestions.size)
+    }
+
+    @Test
+    fun `the copy mode toggles during the drag with the key and changes the accepted targets`(robot: FxRobot) {
+        project.resolve("a.txt").createFile()
+        project.resolve("target").createDirectories()
+        open(robot)
+
+        val pressed = startDrag(robot, "a.txt")
+        dragTo(robot, pressed, at(robot, "target"))
+        assertFalse(checkNotNull(dragImage(robot)).hasCopyBadge())
+        // The own folder is the project, under the rows.
+        val below = Point2D(at(robot, "target").x, view.height - 4)
+        dragTo(robot, pressed, below)
+        assertNull(view.dropTarget())
+
+        // While the drag image shows, the window's key events go to it.
+        val popupRoot = checkNotNull(dragImage(robot)).scene.root
+        key(robot, KeyEvent.KEY_PRESSED, KeyCode.ALT, alt = true, target = popupRoot)
+        assertTrue(checkNotNull(dragImage(robot)).hasCopyBadge())
+        assertSame(view.projectNode, view.dropTarget())
+
+        key(robot, KeyEvent.KEY_RELEASED, KeyCode.ALT, alt = false, target = popupRoot)
+        assertFalse(checkNotNull(dragImage(robot)).hasCopyBadge())
+        assertNull(view.dropTarget())
+
+        key(robot, KeyEvent.KEY_PRESSED, KeyCode.ALT, alt = true)
+        release(robot, pressed, below, alt = true)
+        waitFor("the copy happens") { project.resolve("a-copy.txt").exists() }
+        assertTrue(project.resolve("a.txt").exists())
+    }
+
+    @Test
+    fun `the release decides by its own modifiers, not the drag's last ones`(robot: FxRobot) {
+        project.resolve("a.txt").createFile()
+        project.resolve("target").createDirectories()
+        open(robot)
+
+        val pressed = startDrag(robot, "a.txt")
+        dragTo(robot, pressed, at(robot, "target"), alt = true)
+        release(robot, pressed, at(robot, "target"), alt = false)
+        waitFor("the move happens") { project.resolve("target/a.txt").exists() }
+
+        assertEquals(1, questions.size)
+        assertEquals(emptyList(), copyQuestions)
+        assertFalse(project.resolve("a.txt").exists())
+    }
+
     @Test
     fun `Escape cancels the drag and the rest of the press does nothing`(robot: FxRobot) {
         project.resolve("a.txt").createFile()
@@ -420,16 +505,17 @@ class FileExplorerViewDragUiTest : FileExplorerViewUiFixture() {
         open(robot)
 
         val pressed = startDrag(robot, "a.txt")
-        dragTo(robot, pressed, at(robot, "target"))
+        dragTo(robot, pressed, at(robot, "target"), alt = true)
         robot.interact {
             Event.fireEvent(view, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.ESCAPE, false, false, false, false))
         }
         assertNull(view.dropTarget())
-        dragTo(robot, pressed, at(robot, "target"))
+        dragTo(robot, pressed, at(robot, "target"), alt = true)
         assertNull(view.dropTarget())
-        release(robot, pressed, at(robot, "target"))
+        release(robot, pressed, at(robot, "target"), alt = true)
         WaitForAsyncUtils.waitForFxEvents()
 
+        assertEquals(emptyList(), copyQuestions)
         assertEquals(emptyList(), questions)
         assertTrue(project.resolve("a.txt").exists())
         assertEquals(listOf(project.resolve("a.txt")), selectedPaths())
