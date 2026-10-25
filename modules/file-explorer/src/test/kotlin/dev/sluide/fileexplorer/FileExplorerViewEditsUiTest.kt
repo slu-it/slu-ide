@@ -6,9 +6,14 @@ import dev.sluide.fileexplorer.actions.deleteQuestion
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.filewatcher.FileWatcher
 import javafx.application.Platform
+import javafx.css.PseudoClass
 import javafx.event.Event
+import javafx.scene.control.Button
+import javafx.scene.input.Clipboard
+import javafx.scene.input.DataFormat
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
+import javafx.scene.layout.HBox
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -16,6 +21,7 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.io.File
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -400,5 +406,145 @@ class FileExplorerViewEditsUiTest : FileExplorerViewUiFixture() {
         }
 
         assertEquals(listOf("Delete the file “a.txt”?", "Delete the file “b.txt”?"), asked)
+    }
+
+    /** Whether the row of [name] is dimmed as cut. */
+    private fun isCut(
+        robot: FxRobot,
+        name: String,
+    ): Boolean = PseudoClass.getPseudoClass("cut") in cellNamed(robot, name).pseudoClassStates
+
+    /** The files and the text on the system clipboard. */
+    private fun systemClipboard(): Pair<List<File>, String?> =
+        WaitForAsyncUtils
+            .asyncFx<Pair<List<File>, String?>> {
+                val clipboard = Clipboard.getSystemClipboard()
+                (if (clipboard.hasFiles()) clipboard.files else emptyList<File>()) to clipboard.string
+            }.get()
+
+    @Test
+    fun `the shortcut key with C puts the selection on the system clipboard, with V it is pasted as a copy`(
+        robot: FxRobot,
+    ) {
+        project.resolve("a.txt").writeText("a")
+        robot.interact { view.open(project) }
+        val file =
+            view.projectNode.children
+                .single()
+                .value
+
+        robot.interact {
+            view.selectOnly(view.projectNode.children.single())
+            pressKey(KeyCode.C, shortcut = true)
+        }
+
+        assertEquals(listOf(file.toFile()) to file.toString(), systemClipboard())
+        robot.interact { pressKey(KeyCode.V, shortcut = true) }
+        eventually(robot) {
+            assertEquals("a", project.resolve("a-copy.txt").readText())
+            assertEquals(listOf(file.resolveSibling("a-copy.txt")), view.selectionModel.selectedItems.map { it.value })
+        }
+
+        // Files another application put there, without their paths as text, paste as well.
+        val outside = settingsDir.resolve("outside.txt").apply { writeText("outside") }
+        robot.interact {
+            Clipboard.getSystemClipboard().setContent(mapOf(DataFormat.FILES to listOf(outside.toFile())))
+            pressKey(KeyCode.V, shortcut = true)
+        }
+        eventually(robot) { assertEquals("outside", project.resolve("outside.txt").readText()) }
+    }
+
+    @Test
+    fun `the shortcut key with X dims the entry until Escape, and a paste after it moves the entry`(robot: FxRobot) {
+        project.resolve("a.txt").writeText("a")
+        project.resolve("target").createDirectories()
+        val moved = mutableListOf<Pair<Path, Path>>()
+        view.onMoved = { from, to -> moved += from to to }
+        robot.interact { view.open(project) }
+        val file =
+            view.projectNode.children
+                .last()
+                .value
+
+        robot.interact {
+            view.selectOnly(view.projectNode.children.last())
+            pressKey(KeyCode.X, shortcut = true)
+        }
+        assertTrue(isCut(robot, "a.txt"))
+        assertFalse(isCut(robot, "target"))
+        assertEquals(listOf(file.toFile()), systemClipboard().first)
+
+        robot.interact { pressKey(KeyCode.ESCAPE) }
+        assertFalse(isCut(robot, "a.txt"))
+        assertEquals(emptyList(), systemClipboard().first, "Escape clears the clipboard holding the cut")
+
+        robot.interact {
+            pressKey(KeyCode.X, shortcut = true)
+            view.selectOnly(view.projectNode.children.first())
+            pressKey(KeyCode.V, shortcut = true)
+        }
+
+        val target = file.resolveSibling("target")
+        assertEquals("a", target.resolve("a.txt").readText())
+        assertFalse(file.exists())
+        assertEquals(listOf(file to target.resolve("a.txt")), moved)
+        assertEquals(emptyList(), systemClipboard().first, "the paste ends the cut")
+    }
+
+    @Test
+    fun `a cut is undimmed when the explorer gets the focus while the clipboard holds something else`(robot: FxRobot) {
+        project.resolve("a.txt").writeText("a")
+        val other = Button("other")
+        robot.interact {
+            view.open(project)
+            view.scene.root = HBox(other, view)
+            view.selectOnly(view.projectNode.children.single())
+            pressKey(KeyCode.X, shortcut = true)
+            other.requestFocus()
+            Clipboard.getSystemClipboard().setContent(mapOf(DataFormat.PLAIN_TEXT to "text"))
+        }
+        assertTrue(isCut(robot, "a.txt"), "no clipboard event: dimmed until checked")
+
+        robot.interact { view.requestFocus() }
+
+        assertFalse(isCut(robot, "a.txt"))
+    }
+
+    @Test
+    fun `the context menu has Cut, Copy and Paste showing their keys, Paste only with files on the clipboard`(
+        robot: FxRobot,
+    ) {
+        project.resolve("a.txt").writeText("a")
+        robot.interact {
+            view.open(project)
+            Clipboard.getSystemClipboard().setContent(mapOf(DataFormat.PLAIN_TEXT to "text"))
+        }
+        val cell = cellNamed(robot, "a.txt")
+        val mac = System.getProperty("os.name").lowercase().contains("mac")
+        val shortcutC = KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.C, false, !mac, false, mac)
+        assertTrue(COPY_KEYS.match(shortcutC))
+
+        assertEquals(COPY_KEYS.displayText, menuItemFor(robot, cell, "Copy").accelerator.displayText)
+        assertEquals(CUT_KEYS.displayText, menuItemFor(robot, cell, "Cut").accelerator.displayText)
+        assertFalse(menuItemFor(robot, cell, "Cut").isDisable)
+        assertTrue(menuItemFor(robot, cell, "Paste").isDisable)
+        assertTrue(menuItemFor(robot, view, "Cut").isDisable, "nothing to cut on the empty area")
+        // The keys are the explorer's own: a scene accelerator would copy entries while the editor has the focus.
+        assertTrue(
+            view.scene.accelerators.keys
+                .isNotEmpty() &&
+                view.scene.accelerators.keys
+                    .none { it.match(shortcutC) },
+        )
+
+        val copy = menuItemFor(robot, cell, "Copy")
+        robot.interact { copy.fire() }
+
+        assertEquals(listOf(project.resolve("a.txt").toFile()), systemClipboard().first)
+        val paste = menuItemFor(robot, view, "Paste")
+        assertEquals(PASTE_KEYS.displayText, paste.accelerator.displayText)
+        assertFalse(paste.isDisable)
+        robot.interact { paste.fire() }
+        eventually(robot) { assertTrue(project.resolve("a-copy.txt").exists()) }
     }
 }

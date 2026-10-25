@@ -90,10 +90,26 @@ abstract class FileExplorerViewUiFixture {
         return item
     }
 
+    /** Presses [code] on the view, with the shortcut key (Cmd on macOS, else Ctrl) if [shortcut]. */
     protected fun pressKey(
         code: KeyCode,
         shortcut: Boolean = false,
-    ) = Event.fireEvent(view, KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, shortcut, false, false))
+    ) {
+        val mac = System.getProperty("os.name").lowercase().contains("mac")
+        Event.fireEvent(
+            view,
+            KeyEvent(
+                KeyEvent.KEY_PRESSED,
+                "",
+                "",
+                code,
+                false,
+                shortcut && !mac,
+                false,
+                shortcut && mac,
+            ),
+        )
+    }
 
     /** Repeats [assertion] on the FX thread until it passes; the JDK may poll for file changes on macOS. */
     protected fun eventually(
