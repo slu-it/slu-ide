@@ -15,7 +15,9 @@ module, not the explorer.
   a toolkit; the explorer adds the context menu, the dialogs and the keys.
 - **Names** are single entries of a folder: not empty, no `/` or `\`, no NUL, not `.` or `..`, no leading or trailing
   whitespace, storable by the file system, and not taken (`Files.exists` without following links, so a dangling link
-  counts and a name differing only in case counts on case-insensitive file systems). No nested paths such as `a/b`: one dialog creates one entry.
+  counts and a name differing only in case counts on case-insensitive file systems).
+  No nested paths such as `a/b`: one dialog creates one entry (New File… / New Folder… take paths since
+  [ADR 0094](0094-paths-in-new-file-and-folder.md); Rename does not).
   The name dialog checks while typing; OK stays disabled while there is a problem, which is shown below the field.
 - **Rename** stays within the folder (`Files.move` without replacing; on Unix that is a check before the rename, so an
   entry created in between can still be replaced). Moving to another folder came with

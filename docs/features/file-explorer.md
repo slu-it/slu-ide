@@ -80,7 +80,10 @@
     being deleted (`ExplorerCopies.canPaste`, the same decision as the paste).
   - New File… / New Folder… create an empty entry in the clicked folder or, on the empty area, in the project folder.
     They are enabled for exactly one folder (also a top-level one) or the empty area while a folder is open; disabled
-    on a file and for several entries. A new file is opened. Single names only (no `a/b`).
+    on a file and for several entries. A new file is opened. The name may be a path (`a/b/c.txt`, `/` also `\` on Windows):
+    missing folders are created top-down, the tree expands to the result and selects it; a trailing `/` in New File…
+    creates folders only, nothing is opened. Rename takes single names only
+    ([ADR 0094](../adr/0094-paths-in-new-file-and-folder.md)).
   - Folder actions (`FolderAction`, set by the window as `folderActions`) follow New Folder…, e.g. "New HTTP Client
     Setup" ([http-client.md](http-client.md)). They run on the same folder and are enabled like New File…; the file an
     action returns is selected (if it is in that folder) and opened, the folder is expanded and read again, a note it
@@ -126,7 +129,9 @@
   - Refresh is always enabled.
   - The name dialog checks the name while typing (not empty, no `/`, `\` or NUL, not `.`/`..`, no leading or
     trailing whitespace, no characters the file system cannot store, not taken, on case-insensitive file systems also
-    not in another case) and keeps OK disabled while it shows a problem. Errors on disk (e.g. permissions) are shown in an error dialog.
+    not in another case) and keeps OK disabled while it shows a problem.
+    In New File… / New Folder… the same rules apply to every part of a path; no empty part (`a//b`, leading `/`), a
+    folder on the way must be a folder. Errors on disk (e.g. permissions) are shown in an error dialog.
   - The result shows at once, without waiting for the folder's watch, and is selected. Rename and Delete are disabled
     on every top-level node (the project folder and the extra roots).
   - For open tabs, `onMoved(from, to)` reports renames and moves (below), `onDeleted(path, unsaved)` deletions with the files the
