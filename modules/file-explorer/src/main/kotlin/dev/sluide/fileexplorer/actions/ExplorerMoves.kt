@@ -8,7 +8,10 @@ import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
 
-/** Moving entries of the explorer into another folder, e.g. by drag and drop (ADR 0073). */
+/**
+ * Moving entries of the explorer into another folder: by drag and drop (ADR 0073), or by pasting entries that were cut
+ * (ADR 0092).
+ */
 internal class ExplorerMoves(
     private val host: ExplorerEditHost,
     /**
@@ -18,6 +21,8 @@ internal class ExplorerMoves(
     private val canChange: (TreeItem<Path>?) -> Boolean,
     /** Whether a folder is being deleted or lies in an entry being deleted; nothing is moved into it. */
     private val isBeingDeleted: (Path) -> Boolean,
+    /** As [canChange] for the entry at a path, also one not shown. */
+    private val canChangePath: (Path) -> Boolean,
 ) {
     /**
      * Asks once whether to move [items] into [folder] and moves them, in order, on the calling (JavaFX) thread, keeping
@@ -37,34 +42,115 @@ internal class ExplorerMoves(
     ) {
         val sources = outermost(items) { it.value }
         if (!canMove(sources, folder) || !canDrop(sources.map { it.value }, folder.value)) return
-        val moving = sources.filter { it.value.parent != folder.value }
-        val folderName = folder.label ?: (folder.value.fileName ?: folder.value).toString()
-        val clashing = moving.filter { Files.exists(folder.value.resolve(name(it)), LinkOption.NOFOLLOW_LINKS) }
+        moveAll(
+            sources.map { Source(it.value, it) },
+            folder,
+            confirm = true,
+            stillMovable = { canMove(sources, folder) },
+            reselect = { reselect(items) },
+        )
+    }
+
+    /**
+     * Moves the entries at [paths] into [folder] like [move], without asking first, e.g. when pasting cut entries; the
+     * entries need not be shown (in a collapsed folder, or another window). Only names that exist in [folder] are
+     * asked about, as for [move]. Nothing happens if all entries are in [folder] already; an error says why if [folder]
+     * lies in one of them (also through a link), one of them cannot be changed (a top-level folder, or being deleted),
+     * or [folder] is being deleted or no longer shown. Entries gone from the disk are reported, the others moved.
+     * Returns whether entries were moved.
+     */
+    fun move(
+        paths: List<Path>,
+        folder: FileTreeItem,
+    ): Boolean {
+        val all = outermost(paths) { it }
+        if (all.isEmpty() || !canMoveInto(folder)) return false
+        all.firstOrNull { FileOperations.isAtOrBelow(folder.value, it) }?.let {
+            host.showError("“${it.fileName}” cannot be moved into itself.")
+            return false
+        }
+        val (sources, gone) = all.partition { Files.exists(it, LinkOption.NOFOLLOW_LINKS) }
+        val goneText = goneMessage(gone, "moved")
+        if (sources.isEmpty() || !canDrop(sources, folder.value)) {
+            goneText?.let(host.showError)
+            return false
+        }
+        val stillMovable = { canMoveInto(folder) && sources.all(canChangePath) }
+        if (!stillMovable()) {
+            host.showError(NOTHING_MOVED.format(folderName(folder)))
+            return false
+        }
+        val shown = host.rows().filterIsInstance<FileTreeItem>()
+        return moveAll(
+            sources.map { path -> Source(path, shown.firstOrNull { it.value == path }) },
+            folder,
+            confirm = false,
+            stillMovable = stillMovable,
+            reselect = {},
+            note = goneText,
+        )
+    }
+
+    /** An entry to move: its path, and its row if it is shown. */
+    private class Source(
+        val path: Path,
+        val item: FileTreeItem?,
+    ) {
+        val name: String get() = path.fileName.toString()
+    }
+
+    /**
+     * Moves [sources] into [folder] after asking, if [confirm] or some names are taken there; returns whether entries
+     * were moved. [stillMovable] is checked again after the question, [reselect] runs if nothing moves. A [note] is
+     * shown with the errors, or alone when the moves are done.
+     */
+    private fun moveAll(
+        sources: List<Source>,
+        folder: FileTreeItem,
+        confirm: Boolean,
+        stillMovable: () -> Boolean,
+        reselect: () -> Unit,
+        note: String? = null,
+    ): Boolean {
+        fun showError(message: String?) =
+            listOfNotNull(note, message).takeIf { it.isNotEmpty() }?.let { host.showError(it.joinToString("\n\n")) }
+
+        val moving = sources.filter { it.path.parent != folder.value }
+        val folderName = folderName(folder)
+        val clashing = moving.filter { Files.exists(folder.value.resolve(it.name), LinkOption.NOFOLLOW_LINKS) }
         if (clashing.size == moving.size) {
-            reselect(items)
-            host.showError(
-                clashing.singleOrNull()?.let { "“${name(it)}” already exists in “$folderName”." }
+            reselect()
+            showError(
+                clashing.singleOrNull()?.let { "“${it.name}” already exists in “$folderName”." }
                     ?: "None of the ${clashing.size} entries can be moved: their names already exist in “$folderName”.",
             )
-            return
+            return false
         }
-        val others = moving.filter { item -> clashing.none { it === item } }
-        val from = others.singleOrNull()?.parent as? FileTreeItem
-        val question =
-            moveQuestion(others.map(::name), clashing.map(::name), folderName, from?.let(::location), location(folder))
-        if (!host.confirmMove(question)) {
-            reselect(items)
-            return
+        val others = moving.filter { source -> clashing.none { it === source } }
+        if (confirm || clashing.isNotEmpty()) {
+            val from = others.singleOrNull()?.item?.parent as? FileTreeItem
+            val question =
+                moveQuestion(
+                    others.map { it.name },
+                    clashing.map { it.name },
+                    folderName,
+                    from?.let(::location),
+                    location(folder),
+                )
+            if (!host.confirmMove(question)) {
+                reselect()
+                return false
+            }
         }
         // A delete may have started while asking, or an entry vanished from the tree.
-        if (!canMove(sources, folder)) {
-            host.showError("Nothing was moved: “$folderName” or one of the entries is being deleted or gone.")
-            return
+        if (!stillMovable()) {
+            showError(NOTHING_MOVED.format(folderName))
+            return false
         }
-        val moved = mutableListOf<Pair<FileTreeItem, Path>>()
+        val moved = mutableListOf<Pair<Source, Path>>()
         var failure: String? = null
-        for (item in others) {
-            val from = item.value
+        for (source in others) {
+            val from = source.path
             val to =
                 try {
                     // Checks again that the name is free: the folder may have changed while asking.
@@ -76,23 +162,26 @@ internal class ExplorerMoves(
             // The folder and its loaded subfolders have new paths, watched once they are loaded again.
             host.closeWatchesUnder(from)
             host.onMoved(from, to)
-            moved += item to to
+            moved += source to to
         }
         // Also after a failure: the entries moved before it are gone from their folders.
-        others
-            .mapNotNull { it.parent as? FileTreeItem }
-            .distinct()
+        val sourceFolders = others.map { it.path.parent }.toSet()
+        (
+            others.mapNotNull { it.item?.parent as? FileTreeItem } +
+                host.rows().filterIsInstance<FileTreeItem>().filter { it.value in sourceFolders && it !== folder }
+        ).distinct()
             .filter(host.isShown)
             .forEach(FileTreeItem::refresh)
         folder.isExpanded = true
         folder.refresh()
         host.closeWatchesOfVanishedFolders()
         val shown =
-            moved.mapNotNull { (item, to) ->
-                folder.children.firstOrNull { it.value == to }?.also { it.isExpanded = item.isExpanded }
+            moved.mapNotNull { (source, to) ->
+                folder.children.firstOrNull { it.value == to }?.also { it.isExpanded = source.item?.isExpanded == true }
             }
         host.selectRows(shown)
-        failure?.let(host.showError)
+        showError(failure)
+        return moved.isNotEmpty()
     }
 
     private fun canMove(
@@ -106,7 +195,13 @@ internal class ExplorerMoves(
             sources.all(canChange) &&
             sources.all(host.isShown)
 
+    private fun canMoveInto(folder: FileTreeItem): Boolean =
+        folder.isDirectory && host.isShown(folder) && !isBeingDeleted(folder.value)
+
     private fun reselect(items: List<FileTreeItem>) = host.selectRows(items.filter(host.isShown))
+
+    private fun folderName(folder: FileTreeItem): String =
+        folder.label ?: (folder.value.fileName ?: folder.value).toString()
 
     /** Where [folder] is, for the question: its top-level folder's label or name, then the path below it. */
     private fun location(folder: FileTreeItem): String {
@@ -120,6 +215,6 @@ internal class ExplorerMoves(
                     .filter { it.isNotEmpty() }
         ).joinToString("/")
     }
-
-    private fun name(item: FileTreeItem): String = item.value.fileName.toString()
 }
+
+private const val NOTHING_MOVED = "Nothing was moved: “%s” or one of the entries is being deleted or gone."

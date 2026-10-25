@@ -83,3 +83,11 @@
     .file-name-modified      { -fx-text-fill: #5a9ae6; }
     .file-name-ignored       { -fx-text-fill: #f5a742; }
 }
+
+/*
+ * Entries that were cut (ExplorerClipboard) until they are pasted, Escape or the clipboard holds something else: icon,
+ * name and markers faded, the same in the light and the dark theme, also on a selected row.
+ */
+.tree-cell:cut > .explorer-entry {
+    -fx-opacity: 0.45;
+}

@@ -3,6 +3,7 @@ package dev.sluide.ide
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.backgroundtasks.BackgroundTasksView
 import dev.sluide.commandruns.CommandRunSession
+import dev.sluide.fileexplorer.ExplorerClipboard
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.IgnoreRuleEffects
 import dev.sluide.githubactions.RemoteSources
@@ -246,7 +247,7 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
     @Test
     fun `a window opened with its folder starts the explorer as wide as its names need`(robot: FxRobot) {
         project.resolve("README.md").createFile()
-        val explorer = FileExplorerView(watcher, fontSettings)
+        val explorer = FileExplorerView(watcher, fontSettings, ExplorerClipboard())
         robot.interact {
             val stage = Stage().also { otherStages += it }
             val projectService = ProjectService().apply { open(project) }

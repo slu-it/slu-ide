@@ -1,11 +1,16 @@
 package dev.sluide.fileexplorer.actions
 
+import dev.sluide.fileexplorer.COPY_KEYS
+import dev.sluide.fileexplorer.CUT_KEYS
 import dev.sluide.fileexplorer.FileAction
 import dev.sluide.fileexplorer.FolderAction
+import dev.sluide.fileexplorer.PASTE_KEYS
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import javafx.scene.control.ContextMenu
 import javafx.scene.control.MenuItem
 import javafx.scene.control.SeparatorMenuItem
+import javafx.scene.input.KeyCombination
+import javafx.scene.input.KeyEvent
 import java.nio.file.Files
 import java.nio.file.Path
 
@@ -24,15 +29,20 @@ internal data class MenuState(
     val delete: Boolean,
     val history: Boolean,
     val fileManager: Boolean,
+    val cut: Boolean,
+    val copy: Boolean,
+    val paste: Boolean,
 )
 
 /**
  * Enablement of the context menu for [targets] (none: the empty area, standing for the project folder if
- * [projectOpen]). [canShowHistory] is only asked for a single file.
+ * [projectOpen]). [canShowHistory] is only asked for a single file. Paste is enabled if it would paste something
+ * ([canPaste], decided as the paste itself decides: `ExplorerCopies.canPaste`).
  */
 internal fun menuState(
     targets: List<MenuTarget>,
     projectOpen: Boolean,
+    canPaste: Boolean = false,
     canShowHistory: () -> Boolean,
 ): MenuState {
     val single = targets.singleOrNull()
@@ -44,7 +54,30 @@ internal fun menuState(
         delete = targets.isNotEmpty() && targets.all { it.canChange },
         history = single != null && !single.isDirectory && canShowHistory(),
         fileManager = create,
+        cut = targets.isNotEmpty() && targets.all { it.canChange },
+        copy = targets.isNotEmpty(),
+        paste = canPaste,
     )
+}
+
+/**
+ * Shows [keys] in a menu item without being an accelerator: it matches no key. A control's context menu puts the
+ * accelerators of its items into the whole scene (JavaFX's `ControlAcceleratorSupport`), where Shortcut+C would copy
+ * explorer entries while the editor or terminal has the focus. The explorer's own key handler takes the keys instead.
+ */
+internal class ShownKeys(
+    val keys: KeyCombination,
+) : KeyCombination() {
+    override fun match(event: KeyEvent): Boolean = false
+
+    override fun getDisplayText(): String = keys.displayText
+
+    override fun getName(): String = keys.name
+
+    // By identity: KeyCombination compares only the modifiers, which would make it equal to unrelated combinations.
+    override fun equals(other: Any?): Boolean = this === other
+
+    override fun hashCode(): Int = System.identityHashCode(this)
 }
 
 /**
@@ -77,6 +110,12 @@ internal class ExplorerMenuHost(
     val runFolderAction: (FolderAction, FileTreeItem?) -> Unit,
     val rename: (FileTreeItem) -> Unit,
     val delete: (List<FileTreeItem>) -> Unit,
+    /** Whether a paste for the targets would paste something; asked when the menu opens. */
+    val canPaste: (List<FileTreeItem>) -> Boolean,
+    val cut: (List<FileTreeItem>) -> Unit,
+    val copy: (List<FileTreeItem>) -> Unit,
+    /** Pastes into the folder for the targets. */
+    val paste: (List<FileTreeItem>) -> Unit,
     /** The label of the item opening a folder in the file manager of the system. */
     val fileManagerLabel: () -> String,
     val openInFileManager: (FileTreeItem?) -> Unit,
@@ -93,6 +132,9 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
     val newFolder = MenuItem("New Folder…").apply { setOnAction { host.create(host.targets().singleOrNull(), true) } }
     val rename = MenuItem("Rename…").apply { setOnAction { host.targets().singleOrNull()?.let(host.rename) } }
     val delete = MenuItem("Delete…").apply { setOnAction { host.delete(host.targets()) } }
+    val cut = shortcutItem("Cut", CUT_KEYS) { host.cut(host.targets()) }
+    val copy = shortcutItem("Copy", COPY_KEYS) { host.copy(host.targets()) }
+    val paste = shortcutItem("Paste", PASTE_KEYS) { host.paste(host.targets()) }
     val history =
         MenuItem("Show History").apply {
             setOnAction {
@@ -110,6 +152,10 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
     val fileActionItems = mutableListOf<MenuItem>()
     return ContextMenu(
         open,
+        SeparatorMenuItem(),
+        cut,
+        copy,
+        paste,
         SeparatorMenuItem(),
         newFile,
         newFolder,
@@ -129,6 +175,7 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
                 menuState(
                     targets.map { MenuTarget(it.isDirectory, Files.isRegularFile(it.value), host.canChange(it)) },
                     host.projectOpen(),
+                    host.canPaste(targets),
                 ) { host.canShowHistory(targets.single().value) }
             items.removeAll(fileActionItems)
             fileActionItems.clear()
@@ -153,6 +200,9 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
             newFolder.isDisable = !state.create
             rename.isDisable = !state.rename
             delete.isDisable = !state.delete
+            cut.isDisable = !state.cut
+            copy.isDisable = !state.copy
+            paste.isDisable = !state.paste
             history.isVisible = host.historyOffered()
             historySeparator.isVisible = host.historyOffered()
             history.isDisable = !state.history
@@ -161,3 +211,14 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
         }
     }
 }
+
+/** A menu item showing [keys] (the explorer's key handler takes them, see [ShownKeys]) and running [action]. */
+private fun shortcutItem(
+    text: String,
+    keys: KeyCombination,
+    action: () -> Unit,
+): MenuItem =
+    MenuItem(text).apply {
+        accelerator = ShownKeys(keys)
+        setOnAction { action() }
+    }

@@ -5,6 +5,7 @@ import dev.sluide.commandruns.ArgumentHistories
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
+import dev.sluide.fileexplorer.ExplorerClipboard
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.ExtensionFileViewer
@@ -191,7 +192,7 @@ abstract class MainWindowUiFixture {
                 TerminalScrollSettings(SettingsStore(settingsDir.resolve("settings.properties"))),
                 shellEnvironment,
             )
-        fileExplorer = FileExplorerView(watcher, fontSettings)
+        fileExplorer = FileExplorerView(watcher, fontSettings, ExplorerClipboard())
         editorArea = editorArea()
         mainWindow = mainWindow(projectService, fileExplorer, editorArea, CompletableFuture.completedFuture(true))
         mainWindow.show(stage)
@@ -256,7 +257,12 @@ abstract class MainWindowUiFixture {
         robot.interact {
             val stage = Stage().also { otherStages += it }
             val projectService = ProjectService()
-            mainWindow(projectService, FileExplorerView(watcher, fontSettings), editorArea(), sbxInstalled).show(stage)
+            mainWindow(
+                projectService,
+                FileExplorerView(watcher, fontSettings, ExplorerClipboard()),
+                editorArea(),
+                sbxInstalled,
+            ).show(stage)
             projectService.open(home.resolve("work/project").createDirectories())
             menu =
                 robot

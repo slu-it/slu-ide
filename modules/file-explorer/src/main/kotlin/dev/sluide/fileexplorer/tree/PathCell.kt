@@ -24,7 +24,8 @@ import java.nio.file.Path
 /**
  * One row of the explorer tree: the icon, the name and the marker bubbles after it. [markers] and [canOpenFile] are
  * asked whenever the row is shown; [markerChanges] invalidates when the answers of [markers] change. The row of
- * [dropTarget] has the pseudo-class `:drop-target`.
+ * [dropTarget] has the pseudo-class `:drop-target`; rows of entries that were cut ([isCut], asked again when
+ * [cutChanges] invalidates) have `:cut`.
  */
 internal class PathCell(
     private val fileIconSize: ObservableValue<Int>,
@@ -34,6 +35,8 @@ internal class PathCell(
     private val onMenuRequested: (FileTreeItem?) -> Unit,
     private val open: (Path) -> Unit,
     private val dropTarget: ObservableValue<TreeItem<Path>?>,
+    cutChanges: Observable,
+    private val isCut: (Path) -> Boolean,
 ) : TreeCell<Path>() {
     private val pathTooltip = Tooltip()
     private val icon = FontIcon().apply { iconSizeProperty().bind(fileIconSize) }
@@ -63,11 +66,13 @@ internal class PathCell(
         }
     private val content =
         HBox(icon, name, bubbles).apply {
+            styleClass += "explorer-entry"
             alignment = Pos.CENTER_LEFT
             spacingProperty().bind(this@PathCell.graphicTextGapProperty())
         }
     private val markerUpdater = InvalidationListener { updateMarkers() }
     private val dropTargetUpdater = InvalidationListener { updateDropTarget() }
+    private val cutUpdater = InvalidationListener { updateCut() }
 
     /** The marker colouring the name, if any; not shown on the selection bar, where it would be hard to read. */
     private var nameMarker: FileMarker? = null
@@ -77,6 +82,7 @@ internal class PathCell(
         contentDisplay = ContentDisplay.GRAPHIC_ONLY
         markerChanges.addListener(WeakInvalidationListener(markerUpdater))
         dropTarget.addListener(WeakInvalidationListener(dropTargetUpdater))
+        cutChanges.addListener(WeakInvalidationListener(cutUpdater))
         selectedProperty().addListener { _ -> updateNameColour() }
         // Folders open and close, and readability is checked later or reset, without a call to updateItem.
         treeItemProperty().addListener { _, old, new ->
@@ -112,10 +118,16 @@ internal class PathCell(
         updateIcon()
         updateMarkers()
         updateDropTarget()
+        updateCut()
     }
 
     private fun updateDropTarget() {
         pseudoClassStateChanged(DROP_TARGET, !isEmpty && treeItem != null && treeItem === dropTarget.value)
+    }
+
+    private fun updateCut() {
+        val path = item
+        pseudoClassStateChanged(CUT, !isEmpty && path != null && isCut(path))
     }
 
     /** A copy of this row's icon, same glyph, colour class and size, e.g. for a drag image; `null` without one. */
@@ -170,6 +182,7 @@ internal class PathCell(
 
 private const val FILE_MARKER_CLASS = "file-marker"
 private val DROP_TARGET = PseudoClass.getPseudoClass("drop-target")
+private val CUT = PseudoClass.getPseudoClass("cut")
 private val nameStyleClasses = FileMarker.entries.map(FileMarker::nameStyleClass)
 
 // Bubble radius relative to the icon size, and the gap between bubbles in pixels.

@@ -170,7 +170,7 @@ class FileExplorerViewUiTest : FileExplorerViewUiFixture() {
         val unwatched = FileWatcher(Platform::runLater, 50.milliseconds).apply { close() }
         lateinit var manual: FileExplorerView
         robot.interact {
-            manual = FileExplorerView(unwatched, fontSettings)
+            manual = FileExplorerView(unwatched, fontSettings, ExplorerClipboard())
             view.scene.root = manual
             manual.open(project)
         }

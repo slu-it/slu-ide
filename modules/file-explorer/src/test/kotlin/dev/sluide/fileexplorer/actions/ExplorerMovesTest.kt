@@ -298,4 +298,31 @@ class ExplorerMovesTest {
         assertEquals(emptyList(), fake.moved)
         assertTrue(project.resolve("a.txt").exists())
     }
+
+    @Test
+    fun `entries moved by path, as cut ones, are refused into themselves and while being deleted`() {
+        project.resolve("src/main").createDirectories()
+        project.resolve("a.txt").writeText("a")
+        project.resolve("doomed").createDirectories()
+        open()
+        fake.item("src").isExpanded = true
+
+        assertFalse(fake.moves.move(listOf(project.resolve("src")), fake.item("src/main")))
+        fake.inline = false
+        fake.edits.delete(listOf(fake.item("a.txt")))
+        assertFalse(fake.moves.move(listOf(project.resolve("a.txt")), fake.item("src")))
+        assertFalse(fake.moves.move(listOf(project), fake.item("src")), "not a top-level folder")
+
+        val root = project.fileName
+        assertEquals(
+            listOf(
+                "“src” cannot be moved into itself.",
+                "Nothing was moved: “src” or one of the entries is being deleted or gone.",
+                "“$root” cannot be moved into itself.",
+            ),
+            fake.errors,
+        )
+        assertEquals(emptyList(), fake.moved)
+        assertTrue(project.resolve("src/main").exists())
+    }
 }

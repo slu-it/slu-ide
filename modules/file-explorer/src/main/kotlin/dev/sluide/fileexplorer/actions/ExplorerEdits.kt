@@ -22,6 +22,7 @@ internal class ExplorerEditHost(
     val showInfo: (String) -> Unit,
     val confirmDelete: (DeleteQuestion) -> Boolean,
     val confirmMove: (MoveQuestion) -> Boolean,
+    val confirmCopy: (CopyQuestion) -> Boolean,
     val runInBackground: (Runnable) -> Unit,
     val dispatch: (Runnable) -> Unit,
     val onMoved: (from: Path, to: Path) -> Unit,
@@ -128,6 +129,14 @@ internal class ExplorerEdits(
 
     /** Whether [path] is being deleted or lies in an entry being deleted; nothing may be moved into it. */
     fun isBeingDeleted(path: Path): Boolean = deleting.any { path.startsWith(it) }
+
+    /**
+     * Whether the entry at [path], shown or not, can be moved: as [canChange], not a top-level folder, not being
+     * deleted and not holding an entry being deleted.
+     */
+    fun canChangePath(path: Path): Boolean =
+        host.rows().none { it.parent !is FileTreeItem && it.value == path } &&
+            deleting.none { path.startsWith(it) || it.startsWith(path) }
 
     /**
      * Asks for a new name of [item] and renames it in its folder, reporting it to the `onMoved` hook. The renamed entry

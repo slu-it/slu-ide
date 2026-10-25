@@ -5,6 +5,7 @@ import dev.sluide.commandruns.ArgumentHistories
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
+import dev.sluide.fileexplorer.ExplorerClipboard
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
@@ -117,6 +118,7 @@ class ProjectWindowsUiTest {
                     Supplier { SettingsPages(listOf(FontsPage(getBean(FontSettings::class.java)))) },
                 )
                 registerBean(FileWatcher::class.java, Supplier { FileWatcher(Platform::runLater, 50.milliseconds) })
+                register(ExplorerClipboard::class.java)
                 registerBean(GitCli::class.java, Supplier { GitCli(dir.resolve("no-git").toString(), System.getenv()) })
                 registerBean(
                     TrustedProjects::class.java,

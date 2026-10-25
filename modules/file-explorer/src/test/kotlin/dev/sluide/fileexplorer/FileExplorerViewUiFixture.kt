@@ -46,7 +46,7 @@ abstract class FileExplorerViewUiFixture {
     ) {
         fontSettings =
             FontSettings(SettingsStore(settingsDir.resolve("settings.properties")), FontSettings.systemDefaults())
-        view = FileExplorerView(watcher, fontSettings)
+        view = FileExplorerView(watcher, fontSettings, ExplorerClipboard())
         configure(view)
         stage.scene = Scene(wrap(view), 400.0, 600.0)
         stage.show()

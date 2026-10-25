@@ -1,14 +1,16 @@
 package dev.sluide.fileexplorer.actions
 
+import dev.sluide.fileexplorer.ClipboardFiles
+import dev.sluide.fileexplorer.ExplorerClipboard
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import javafx.scene.control.TreeItem
 import java.nio.file.Files
 import java.nio.file.Path
 
 /**
- * An [ExplorerEditHost] without a view, for testing [ExplorerEdits] and [ExplorerMoves] without a display: a hidden
- * root holding the project folder and the extra roots, every callback recorded, and the answers of the questions set
- * by the test. The tree items work without the JavaFX toolkit.
+ * An [ExplorerEditHost] without a view, for testing [ExplorerEdits], [ExplorerMoves] and [ExplorerCopies] without a
+ * display: a hidden root holding the project folder and the extra roots, every callback recorded, the answers of the
+ * questions set by the test, and a clipboard in memory. The tree items work without the JavaFX toolkit.
  */
 internal class FakeEditHost(
     private val project: Path,
@@ -24,6 +26,7 @@ internal class FakeEditHost(
     // Answers; they may change the disk first, as can happen while a dialog is open.
     var answerMove: () -> Boolean = { true }
     var answerDelete: () -> Boolean = { true }
+    var answerCopy: () -> Boolean = { true }
     var answerName: (String) -> String? = { null }
     var unsaved: (Path) -> List<Path> = { emptyList() }
 
@@ -34,6 +37,7 @@ internal class FakeEditHost(
     val errors = mutableListOf<String>()
     val infos = mutableListOf<String>()
     val moveQuestions = mutableListOf<MoveQuestion>()
+    val copyQuestions = mutableListOf<CopyQuestion>()
     val deleteQuestions = mutableListOf<DeleteQuestion>()
     val nameAsks = mutableListOf<NameAsk>()
     val moved = mutableListOf<Pair<Path, Path>>()
@@ -70,6 +74,10 @@ internal class FakeEditHost(
                 moveQuestions += it
                 answerMove()
             },
+            confirmCopy = {
+                copyQuestions += it
+                answerCopy()
+            },
             runInBackground = { if (inline) it.run() else pending += it },
             dispatch = { it.run() },
             onMoved = { from, to -> moved += from to to },
@@ -100,7 +108,12 @@ internal class FakeEditHost(
         )
 
     val edits = ExplorerEdits(host)
-    val moves = ExplorerMoves(host, edits::canChange, edits::isBeingDeleted)
+    val moves = ExplorerMoves(host, edits::canChange, edits::isBeingDeleted, edits::canChangePath)
+
+    /** The clipboard the copies use, on [clipboardFiles] instead of the system clipboard. */
+    val clipboardFiles = FakeClipboardFiles()
+    val clipboard = ExplorerClipboard(clipboardFiles)
+    val copies = ExplorerCopies(host, moves, { clipboard }, edits::canChange, edits::isBeingDeleted)
 
     init {
         reopen()
@@ -143,4 +156,19 @@ internal class FakeEditHost(
 
     /** The selected paths in row order. */
     fun selectedPaths(): List<Path> = selected.map { it.value }
+}
+
+/** A clipboard in memory: the files put on it, `null` for something else (e.g. text). */
+internal class FakeClipboardFiles : ClipboardFiles {
+    var content: List<Path>? = null
+
+    override fun files(): List<Path> = content.orEmpty()
+
+    override fun put(files: List<Path>) {
+        content = files
+    }
+
+    override fun clear() {
+        content = null
+    }
 }

@@ -1,7 +1,9 @@
 package dev.sluide.fileexplorer
 
 import dev.sluide.backgroundtasks.NamedThreads
+import dev.sluide.fileexplorer.actions.CopyQuestion
 import dev.sluide.fileexplorer.actions.DeleteQuestion
+import dev.sluide.fileexplorer.actions.ExplorerCopies
 import dev.sluide.fileexplorer.actions.ExplorerEditHost
 import dev.sluide.fileexplorer.actions.ExplorerEdits
 import dev.sluide.fileexplorer.actions.ExplorerMenuHost
@@ -9,6 +11,7 @@ import dev.sluide.fileexplorer.actions.ExplorerMoves
 import dev.sluide.fileexplorer.actions.MoveQuestion
 import dev.sluide.fileexplorer.actions.SystemFileManager
 import dev.sluide.fileexplorer.actions.askForName
+import dev.sluide.fileexplorer.actions.askToCopy
 import dev.sluide.fileexplorer.actions.askToDelete
 import dev.sluide.fileexplorer.actions.askToMove
 import dev.sluide.fileexplorer.actions.buildExplorerMenu
@@ -26,16 +29,18 @@ import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontSpec
 import javafx.application.Platform
+import javafx.beans.InvalidationListener
+import javafx.beans.WeakInvalidationListener
 import javafx.beans.property.SimpleIntegerProperty
 import javafx.beans.value.ObservableValue
+import javafx.scene.Scene
 import javafx.scene.control.Alert
 import javafx.scene.control.SelectionMode
 import javafx.scene.control.TreeItem
 import javafx.scene.control.TreeView
 import javafx.scene.control.skin.VirtualFlow
 import javafx.scene.input.ContextMenuEvent
-import javafx.scene.input.KeyCode
-import javafx.scene.input.KeyEvent
+import javafx.stage.Window
 import javafx.util.Duration
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
@@ -57,6 +62,8 @@ import kotlin.math.roundToInt
 class FileExplorerView(
     private val fileWatcher: FileWatcher,
     fontSettings: FontSettings,
+    /** The clipboard of Copy, Cut and Paste: the application's singleton, shared by the explorers of all windows. */
+    private val clipboard: ExplorerClipboard,
 ) : TreeView<Path>() {
     /** Called with a file the user wants to open (double-click or Enter). Never called for folders. */
     var onOpenFile: (Path) -> Unit = {}
@@ -116,6 +123,9 @@ class FileExplorerView(
     /** Asks whether to move entries; shows a confirmation dialog, tests replace it, since it blocks. */
     internal var confirmMove: (MoveQuestion) -> Boolean = { askToMove(scene?.window, it) }
 
+    /** Asks whether to copy entries; shows a confirmation dialog, tests replace it, since it blocks. */
+    internal var confirmCopy: (CopyQuestion) -> Boolean = { askToCopy(scene?.window, it) }
+
     /** Runs a delete, which may take long (e.g. `node_modules`), away from the JavaFX thread; tests replace it. */
     internal var runInBackground: (Runnable) -> Unit = { NamedThreads.virtual("sluide-delete", it) }
 
@@ -172,6 +182,7 @@ class FileExplorerView(
             showInfo = { showInfo(it) },
             confirmDelete = { confirmDelete(it) },
             confirmMove = { confirmMove(it) },
+            confirmCopy = { confirmCopy(it) },
             runInBackground = { runInBackground(it) },
             dispatch = { dispatch(it) },
             onMoved = { from, to -> onMoved(from, to) },
@@ -190,7 +201,18 @@ class FileExplorerView(
             closeWatchesOfVanishedFolders = { closeWatchesOfVanishedFolders() },
         )
     private val edits = ExplorerEdits(editHost)
-    private val moves = ExplorerMoves(editHost, edits::canChange, edits::isBeingDeleted)
+    private val moves = ExplorerMoves(editHost, edits::canChange, edits::isBeingDeleted, edits::canChangePath)
+
+    /**
+     * Counts changes of the cut entries of [clipboard]; the cells listen to it. The clipboard is listened to weakly, so
+     * it does not keep a closed window.
+     */
+    private val cutChanges = SimpleIntegerProperty()
+    private val cutUpdater = InvalidationListener { cutChanges.set(cutChanges.get() + 1) }
+    private val copies = ExplorerCopies(editHost, moves, { clipboard }, edits::canChange, edits::isBeingDeleted)
+
+    // The clipboard has no change event: the cut is checked again when the explorer or its window gets the focus.
+    private val windowFocused = sceneProperty().flatMap(Scene::windowProperty).flatMap(Window::focusedProperty)
 
     /**
      * The entries the context menu was opened for, in row order; empty for the empty area, which stands for the
@@ -241,39 +263,32 @@ class FileExplorerView(
                 { target -> menuTargets = targetsFor(target) },
                 { path -> requestOpen(path) },
                 dragAndDrop.dropTarget,
-            )
+                cutChanges,
+            ) { path -> clipboard.isCut(path) }
         }
+        clipboard.cutChanges.addListener(WeakInvalidationListener(cutUpdater))
+        focusedProperty().addListener { _, _, focused -> if (focused) clipboard.checkCut() }
+        windowFocused.addListener { _, _, focused -> if (focused == true) clipboard.checkCut() }
         // The cells inherit the font.
         styleProperty().bind(font.map(FontSpec::toCss))
         stylesheets += checkNotNull(FileExplorerView::class.java.getResource("file-explorer.css")).toExternalForm()
         stylesheets += FILE_ICONS_CSS
         selectionModel.selectionMode = SelectionMode.MULTIPLE
-        addEventHandler(KeyEvent.KEY_PRESSED) { event ->
-            val selected = selectedEntries()
-            val single = selected.singleOrNull()?.takeIf(::canChange)
-            when {
-                event.code == KeyCode.ENTER && openFiles(selected) > 0 -> {
-                    event.consume()
-                }
-
-                event.code == KeyCode.F5 -> {
-                    refreshAll()
-                    event.consume()
-                }
-
-                event.code == KeyCode.F2 && single != null -> {
-                    rename(single)
-                    event.consume()
-                }
-
-                // On macOS, Cmd+Backspace, as in the Finder: Mac keyboards often have no Delete key.
-                (event.code == KeyCode.DELETE || (event.code == KeyCode.BACK_SPACE && event.isShortcutDown)) &&
-                    selected.isNotEmpty() && selected.all(::canChange) -> {
-                    delete(selected)
-                    event.consume()
-                }
-            }
-        }
+        installExplorerKeys(
+            this,
+            ExplorerKeyHost(
+                selectedEntries = ::selectedEntries,
+                canChange = ::canChange,
+                openFiles = ::openFiles,
+                refreshAll = ::refreshAll,
+                rename = ::rename,
+                delete = ::delete,
+                copy = copies::copy,
+                cut = copies::cut,
+                paste = copies::paste,
+                cancelCut = copies::cancelCut,
+            ),
+        )
         contextMenu =
             buildExplorerMenu(
                 ExplorerMenuHost(
@@ -290,6 +305,10 @@ class FileExplorerView(
                     runFolderAction = { action, target -> runFolderAction(action, target) },
                     rename = { rename(it) },
                     delete = { delete(it) },
+                    canPaste = { copies.canPaste(it) },
+                    cut = { copies.cut(it) },
+                    copy = { copies.copy(it) },
+                    paste = { copies.paste(it) },
                     fileManagerLabel = { fileManager.label },
                     openInFileManager = { openInFileManager(it) },
                     refreshAll = { refreshAll() },

@@ -5,6 +5,7 @@ import dev.sluide.commandruns.ArgumentHistories
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
+import dev.sluide.fileexplorer.ExplorerClipboard
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewer
@@ -79,6 +80,7 @@ class SpringWiringTest {
                         MainWindow::class.java,
                         ProjectService::class.java,
                         FileExplorerView::class.java,
+                        ExplorerClipboard::class.java,
                         EditorArea::class.java,
                         FileViewers::class.java,
                         DefaultTextFileViewer::class.java,

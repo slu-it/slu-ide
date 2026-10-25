@@ -1,9 +1,15 @@
 package dev.sluide.fileexplorer.actions
 
 import dev.sluide.fileexplorer.FileAction
+import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyCodeCombination
+import javafx.scene.input.KeyCombination
+import javafx.scene.input.KeyEvent
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 
 class ExplorerMenuTest {
     private val file = MenuTarget(isDirectory = false, isRegularFile = true, canChange = true)
@@ -15,12 +21,23 @@ class ExplorerMenuTest {
         vararg targets: MenuTarget,
         projectOpen: Boolean = true,
         history: Boolean = true,
-    ) = menuState(targets.toList(), projectOpen) { history }
+        canPaste: Boolean = false,
+    ) = menuState(targets.toList(), projectOpen, canPaste) { history }
 
     @Test
     fun `a file enables Open, Rename, Delete and History but no creating`() {
         assertEquals(
-            MenuState(open = true, create = false, rename = true, delete = true, history = true, fileManager = false),
+            MenuState(
+                open = true,
+                create = false,
+                rename = true,
+                delete = true,
+                history = true,
+                fileManager = false,
+                cut = true,
+                copy = true,
+                paste = false,
+            ),
             state(file),
         )
     }
@@ -28,7 +45,17 @@ class ExplorerMenuTest {
     @Test
     fun `a folder enables creating, Rename and Delete but not Open or History`() {
         assertEquals(
-            MenuState(open = false, create = true, rename = true, delete = true, history = false, fileManager = true),
+            MenuState(
+                open = false,
+                create = true,
+                rename = true,
+                delete = true,
+                history = false,
+                fileManager = true,
+                cut = true,
+                copy = true,
+                paste = false,
+            ),
             state(folder),
         )
     }
@@ -36,7 +63,17 @@ class ExplorerMenuTest {
     @Test
     fun `a top-level folder enables creating only`() {
         assertEquals(
-            MenuState(open = false, create = true, rename = false, delete = false, history = false, fileManager = true),
+            MenuState(
+                open = false,
+                create = true,
+                rename = false,
+                delete = false,
+                history = false,
+                fileManager = true,
+                cut = false,
+                copy = true,
+                paste = false,
+            ),
             state(topLevel),
         )
     }
@@ -44,7 +81,17 @@ class ExplorerMenuTest {
     @Test
     fun `the empty area stands for the project folder, if one is open`() {
         assertEquals(
-            MenuState(open = false, create = true, rename = false, delete = false, history = false, fileManager = true),
+            MenuState(
+                open = false,
+                create = true,
+                rename = false,
+                delete = false,
+                history = false,
+                fileManager = true,
+                cut = false,
+                copy = false,
+                paste = false,
+            ),
             state(),
         )
         assertEquals(false, state(projectOpen = false).create)
@@ -53,7 +100,17 @@ class ExplorerMenuTest {
     @Test
     fun `several targets enable Open and Delete only`() {
         assertEquals(
-            MenuState(open = true, create = false, rename = false, delete = true, history = false, fileManager = false),
+            MenuState(
+                open = true,
+                create = false,
+                rename = false,
+                delete = true,
+                history = false,
+                fileManager = false,
+                cut = true,
+                copy = true,
+                paste = false,
+            ),
             state(file, folder),
         )
         assertEquals(
@@ -64,6 +121,9 @@ class ExplorerMenuTest {
                 delete = true,
                 history = false,
                 fileManager = false,
+                cut = true,
+                copy = true,
+                paste = false,
             ),
             state(folder, folder),
         )
@@ -89,6 +149,31 @@ class ExplorerMenuTest {
         assertEquals(false, state(file).fileManager)
         assertEquals(false, state(folder, folder).fileManager)
         assertEquals(false, state(projectOpen = false).fileManager)
+    }
+
+    @Test
+    fun `Copy needs a target, Cut every target to be changeable`() {
+        assertEquals(true, state(topLevel).copy)
+        assertEquals(true, state(file, busy).copy)
+        assertEquals(false, state().copy)
+        assertEquals(false, state(file, busy).cut)
+        assertEquals(false, state(file, topLevel).cut)
+        assertEquals(false, state().cut)
+    }
+
+    @Test
+    fun `Paste is enabled when the paste would paste something`() {
+        assertEquals(true, state(file, canPaste = true).paste)
+        assertEquals(false, state(file).paste)
+    }
+
+    @Test
+    fun `menu items show their keys without taking them`() {
+        val shown = ShownKeys(KeyCodeCombination(KeyCode.C, KeyCombination.CONTROL_DOWN))
+
+        assertEquals(KeyCodeCombination(KeyCode.C, KeyCombination.CONTROL_DOWN).displayText, shown.displayText)
+        assertFalse(shown.match(KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.C, false, true, false, false)))
+        assertNotEquals<KeyCombination>(shown, ShownKeys(KeyCodeCombination(KeyCode.V, KeyCombination.CONTROL_DOWN)))
     }
 
     private val script = Path.of("/project/run.sh")
