@@ -117,6 +117,9 @@
     renamed folder, stay open at the new path with their unsaved changes; the confirmation of a delete counts the
     unsaved files at or below the entry, and once it is deleted their tabs and those without unsaved changes close
     without asking again. Files edited after the confirmation keep their tabs, showing the file deleted.
+  - `MainWindow` also carries the per-file project data (such as the argument histories of runs) along: a rename or
+    move re-keys the data of the entry and everything under it, also of files that are not open, before the tabs
+    follow; a delete drops it ([ADR 0091](../adr/0091-argument-history-of-runs.md)).
 - Moving by drag and drop ([ADR 0073](../adr/0073-explorer-multi-selection-and-moving.md), `tree/TreeDragAndDrop.kt`,
   `actions/ExplorerMoves.kt`, `FileOperations.move`):
   - A plain mouse drag within the explorer (not the platform's drag and drop, which on Linux left the confirmation

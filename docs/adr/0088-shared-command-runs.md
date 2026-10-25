@@ -41,6 +41,9 @@ Options considered:
 - **`ShellWords`**: splitting user arguments like a POSIX shell and quoting words, moved from `GradleCommand`.
 - Amends [ADR 0085](0085-gradle-integration.md) and [ADR 0086](0086-embedded-command-terminals.md): the Gradle view's
   runs, texts and stop thread now come from `command-runs`; what the user sees is unchanged.
+- Amended by [ADR 0091](0091-argument-history-of-runs.md): the `RunPane` shows the history of past arguments below the
+  field, `CommandRunner.start` records the arguments of started runs, and `CommandRunSession` hands the views the
+  `ArgumentHistories`.
 
 ## Consequences
 - A new view that runs commands needs a `RunJob` type, a `RunPane` and a `CommandRunner`; it gets the question before

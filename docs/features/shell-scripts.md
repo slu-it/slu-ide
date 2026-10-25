@@ -90,3 +90,9 @@ is opened anew with the viewer of the new name, as for any file ([editor-tabs.md
 - Run Saved Version runs the file on disk; saving it while that run is going changes the running script.
 - On macOS, scripts in protected folders (Documents, Desktop, Downloads) may make macOS ask whether Thoreau may access
   them the first time.
+- A script renamed, moved or deleted outside the explorer (in a terminal, by git) keeps its argument history
+  under the old path; the new path starts without one.
+- A scratch deleted automatically because it was closed empty keeps its history entry in
+  `~/.sluide/outside-projects.json`.
+- Two views of the same file in different windows see the entries the other records or removes only after the view
+  is opened again or the file is moved.

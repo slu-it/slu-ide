@@ -20,7 +20,9 @@ read by several feature modules, changed in one dialog, and must survive a resta
 - Keys and formats: `theme=LIGHT|DARK|SYSTEM`; per font area (`explorer`, `editor`, `terminal`)
   `font.<area>.family` (a family name), `font.<area>.size` (a decimal number, e.g. `13.0`) and `font.<area>.style`
   (`REGULAR`, `BOLD`, `ITALIC` or `BOLD_ITALIC`); `terminal.scroll.trackpad` and `terminal.scroll.wheel` (percent,
-  a multiple of 5 from 10 to 200, default 100). Keys the IDE does not know are kept when it writes the file.
+  a multiple of 5 from 10 to 200, default 100); `runs.history.expanded` (`true` or `false`, default `true`: whether
+  the argument histories of run panes are expanded, [ADR 0091](0091-argument-history-of-runs.md)). Keys the IDE does
+  not know are kept when it writes the file.
 - A setting is changed only after it is stored. When storing fails, the dialog applies the other pages and shows
   one error message for the failed ones; OK keeps the dialog open, so the edits are not lost. The file is written
   synchronously on the FX thread: it is tiny, and a slow or failing home folder shows up right away.

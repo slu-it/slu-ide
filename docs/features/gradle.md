@@ -88,9 +88,9 @@ Below the arguments, the **History** section lists the arguments of the build fi
 - A run's arguments are recorded when it starts, trimmed; not when the question before it is answered no or it cannot
   start (e.g. an unclosed quote), and not when they are blank. Arguments used again move to the top; at most 20 are
   kept per build file, the oldest drops.
-- Kept per file with the project, in `~/.sluide/projects/<id>.json`, or in `~/.sluide/outside-projects.json` for a
-  file outside the project ([ADR 0090](../adr/0090-per-project-metadata-store.md)). Moving or renaming the file in the
-  explorer keeps its history; deleting it there drops it.
+- Kept per file with the project, in `~/.sluide/projects/<id>.json`
+  ([ADR 0090](../adr/0090-per-project-metadata-store.md)). Moving or renaming the file in the explorer keeps its
+  history; deleting it there drops it.
 - A click on an entry puts it into the arguments field, without running. **✕** (on the row under the mouse or the
   selected one) removes that entry.
 - **Down** in the arguments goes into the list, on the newest entry; **Up**/**Down** choose, **Enter** puts the
@@ -117,3 +117,7 @@ Closing the tab or the window while a run or load is going asks first ("build.gr
   list: their view loads on its own once the build's load has ended. What that load lists depends on where Gradle
   finds the settings; a failed load never replaces or clears the shared list.
 - `file:line` in the output is not clickable yet.
+- A build file renamed, moved or deleted outside the explorer (in a terminal, by git) keeps its argument history
+  under the old path; the new path starts without one.
+- Two views of the same file in different windows see the entries the other records or removes only after the view
+  is opened again or the file is moved.

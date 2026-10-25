@@ -21,7 +21,8 @@ whether the project trust ([ADR 0053](0053-project-trust.md)) applies.
   `SourceFileViewer` and a `RunnableFileViewer`. `ShellFileViewer` keeps only the startup files (`.bashrc`,
   `.bash_profile`, `.zshrc`, `.zprofile`, `.profile`) and no shebangs, so the two viewers never claim the same file and
   the choice does not depend on Spring's bean order ([ADR 0029](0029-file-name-and-shebang-matching.md)).
-- **The view** opens as Split since 2026-10-25 (user decision: scripts usually get arguments), not as plain source;
+- **The view** opens as Split since 2026-10-25 (user decision: scripts usually get arguments; amended by
+  [ADR 0091](0091-argument-history-of-runs.md)), not as plain source;
   Run (play icon) on the left of a toolbar and Source | Split | Output on the right.
   Output is a `RunPane` (arguments, status line with Stop and Rerun, the terminal). Run, Shortcut+Enter in the source,
   Enter in the arguments, Rerun, and `RunnableFileView.run()` all run the script and show the output beside the source
@@ -48,7 +49,9 @@ whether the project trust ([ADR 0053](0053-project-trust.md)) applies.
 - **Explorer**: the window part `WindowScriptRuns` adds Run to the context menu of exactly one regular file whose viewer
   is a `RunnableFileViewer` (a `FileAction` after Open); it opens or selects the file's tab and calls
   `RunnableFileView.run()` there, with the same questions.
-- **Arguments** are kept per open tab only, not stored.
+- **Arguments** are kept per open tab only, not stored. Amended by [ADR 0091](0091-argument-history-of-runs.md): the
+  field starts empty, and the arguments of started runs are kept per script in its project data, offered in a history
+  below the field.
 - **Runs need a window**: the view gets the window's `CommandRunSession` through `FileViewHost.windowService`;
   `MainWindow` now registers it ([ADR 0070](0070-window-services.md)). Without it Run is disabled ("Scripts run in an
   IDE window").
