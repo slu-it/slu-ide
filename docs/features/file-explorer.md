@@ -14,8 +14,8 @@
 - `reveal(path, focus = false)` expands the top-level node holding `path` (the innermost one if they nest) and the
   folders down to it, loading them, then selects and scrolls to it; it takes the focus only if `focus`. It returns
   `false`, changing nothing, if no top-level node holds the path or it does not exist.
-- Button bar (`ExplorerBar`, in the window above the tree, in both themes; room for a further Compact toggle): icon
-  buttons with tooltips, none focus-traversable. **Select Opened File** (Alt+F1, Option+F1 on macOS, shown in the
+- Button bar (`ExplorerBar`, in the window above the tree, in both themes): icon buttons with tooltips, none
+  focus-traversable. **Select Opened File** (Alt+F1, Option+F1 on macOS, shown in the
   tooltip) reveals the file of the selected editor tab with `reveal(path, focus = true)`: it expands, selects, scrolls
   and focuses the explorer; it is disabled while the tab has no file (terminal, diff, no tab) or the file lies under
   no top-level node (`canReveal`, a cheap check: it does nothing if the file is no longer shown, e.g.
@@ -24,6 +24,7 @@
   (`collapseAll()`, `tree/CollapseAll.kt`) collapses every folder of every top-level node: the project stays expanded
   (its first level visible), extra roots such as Scratches collapse; a selected row that becomes hidden moves to its
   nearest ancestor still shown, the focus stays. **Refresh (F5)** is the context menu's Refresh.
+  **Compact Middle Folders** is a toggle button (shown pressed while on) for the setting of the same name, below.
   [ADR 0095](../adr/0095-explorer-button-bar-and-select-opened-file.md).
 - Uses the explorer font from the settings and follows its changes ([settings.md](settings.md)).
 - Width: the window starts the explorer as wide as the names (labels for extra roots) of the shown entries need, with
@@ -37,6 +38,29 @@
 - Folders are listed before files; each group is sorted by name, case-insensitively (`listDirectory`).
 - Children are loaded lazily when a folder is first expanded (`FileTreeItem`), so large trees and symlink cycles
   are not traversed eagerly. Unreadable folders appear empty.
+- Compact Middle Folders ([ADR 0096](../adr/0096-compact-middle-folders.md), on by default, the bar's toggle; stored
+  for all projects and windows as `explorer.compactFolders` by `ExplorerSettings`): a folder that holds exactly one
+  entry, a folder, is shown as one row with it, and so on down the chain: `src/main/kotlin` (`tree/FolderChain.kt`).
+  The chain goes only through real folders (no links, neither the folder nor its entry), ends at a folder holding
+  `.git` (a nested repository or submodule), at an unreadable folder and after 64 folders. It applies below every
+  top-level node; a top-level row itself is never joined with its child. The row's value is the deepest folder, its
+  `chain` all the folders; its tooltip is the deepest folder's full path, icon and markers are the deepest folder's.
+  - As a target the row is the deepest folder: expanding, dropping, pasting, New File…/New Folder…, folder actions,
+    Open in Terminal and Open in Finder go into `kotlin`.
+  - As a source it is the whole chain, its first folder: Delete, drag move and copy, Cut and Copy act on `src`, and the
+    questions name the row as shown ("src/main/kotlin").
+  - Rename (F2) is described below.
+  - Every middle folder is watched: a new entry in `src/main` turns `src/main/kotlin` into `src/main` with `kotlin`
+    below it, and deleting it joins them again; a loaded folder left with only one subfolder joins it the same way. A
+    folder that was never expanded is checked only when its parent is read again. A new row is expanded if all of
+    its folders were: an expanded row that splits stays open in all its parts, a join is open only if every joined
+    folder was (deleting `x.txt` from an expanded `src` holding a collapsed `main` gives a collapsed `src/main`). The
+    selection stays on the same entry (a middle folder's compacted row). Building the rows reads up to two entries of
+    each subfolder on every listing, on the JavaFX thread; in a huge, busy folder (`node_modules` during an install)
+    or on a slow share that costs time, and turning the toggle off avoids it.
+  - Toggling rebuilds the tree, keeping what was expanded and the selected entry selected (its compacted row if it
+    became a middle folder). `reveal` and Select Opened File step through compacted rows; revealing a middle folder
+    selects its row.
 - The selection is multiple (Shift+click or Shift+Up/Down for a range, Shortcut+click to add or remove, Shortcut+A for
   all).
 - Double-click on a file calls `onOpenFile` for that file; Enter with files selected (and the Open menu item) calls it
@@ -44,7 +68,8 @@
   file to the editor area, which opens it only if a file viewer accepts it ([editor-tabs.md](editor-tabs.md)) and moves
   the focus into it ([ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md)).
 - Changes on disk show up by themselves. Every loaded folder is watched ([file-watching.md](file-watching.md)), and
-  on a change `FileTreeItem.refresh()` re-reads it. Unchanged items are kept, so expanded folders stay expanded
+  so is every middle folder of a compacted row (`tree/TreeWatches.kt`); on a change `FileTreeItem.refresh()` re-reads
+  the folder (for a middle folder the row's parent). Unchanged items are kept, so expanded folders stay expanded
   and the selection stays. A loaded subfolder that is deleted and recreated (e.g. `build/`) is watched again.
 - Limitation: if a top-level folder itself (the project or an extra root) is deleted, its watch ends; recreated later,
   it is not watched again (it has no parent in the tree that would notice) until "Refresh"/F5 or reopening it. Watches
@@ -101,9 +126,13 @@
     returns is shown, and an IOException is shown as an error.
   - Rename… (F2) works on exactly one entry that can be changed and renames within the same folder; the dialog starts
     with the name, its base name (before the last dot, not a leading one) selected. A folder keeps its content and
-    stays expanded. Changing only the case of a name works on case-insensitive file systems.
+    stays expanded. Changing only the case of a name works on case-insensitive file systems. On a compacted row the
+    dialog shows `src/main/kotlin` with the last name selected: any of the names may change, each checked in its own
+    folder, but folders cannot be added or removed (the same number of names); the changed folders are renamed in
+    place, the deepest first, each reported through `onMoved`; the first failure stops the rest and is shown.
   - Delete… (Delete, or Cmd+Backspace on macOS / Ctrl+Backspace elsewhere) works on all selected entries when all can
-    be changed. Entries at or below another selected one are left out. One confirmation: for one entry it names it, for
+    be changed; a compacted row deletes its first folder with everything in it. Entries at or below another selected
+    one are left out. One confirmation: for one entry it names it, for
     several it says "Delete N entries?" and lists the first ten names (folders "and everything in it", then "and N
     more"); it counts the files with unsaved changes over all entries and says that nothing is moved to the trash.
     Cancel is the default button. If the selection lay in the deleted entries, the first remaining row after them (or
@@ -160,7 +189,8 @@
     without mouse input; ADR 0073): press a row and move 5 px with the button down. Dragging a selected row drags the
     whole selection (the press keeps it), another row only itself (and selects it); a press and release without
     moving that far stays a click. Top-level nodes and entries being deleted or holding one being deleted cannot be
-    dragged; entries inside a dragged folder go along with it.
+    dragged; entries inside a dragged folder go along with it. A compacted row is dragged as its first folder and,
+    as a drop target, receives the entries in its deepest folder.
   - The pressed row's icon and name follow the pointer, slightly below and to the right of it, in the explorer font on
     a small framed box (`.explorer-drag-image`, readable in both themes); with several entries a "+N" badge in the
     accent colour counts the others (entries inside a dragged folder not counted). Over a target the cursor is a

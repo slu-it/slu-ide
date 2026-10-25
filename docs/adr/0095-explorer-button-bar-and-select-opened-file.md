@@ -9,9 +9,10 @@ context menu. Other IDEs have a small toolbar for this.
 
 ## Decision
 - **Bar:** `ExplorerBar` (module file-explorer), a slim row of Ikonli Material Design icon buttons directly above the
-  tree (`leftPane` in the ide module places it): Select Opened File, Collapse All, Refresh. A further Compact Middle
-  Folders toggle is planned for the same row. Tooltips name the action and its key as the platform writes it. Buttons
-  are not focus-traversable, so clicking them keeps the focus in the tree.
+  tree (`leftPane` in the ide module places it): Select Opened File, Collapse All, Refresh. The Compact Middle
+  Folders toggle joined the same row as the fourth button ([ADR 0096](0096-compact-middle-folders.md)). Tooltips
+  name the action and its key as the platform writes it. Buttons are not focus-traversable, so clicking them keeps
+  the focus in the tree.
 - **Select Opened File is manual only:** the tree never follows the selected tab (the user's choice). Three triggers do
   the same, `FileExplorerView.reveal(path, focus = true)`: the bar button, View → Select Opened File with Alt+F1
   (Option+F1 on macOS), and "Select in Explorer" in a file tab's context menu next to Show History (it acts on that
