@@ -126,10 +126,12 @@ class FileExplorerView(
     /** Asks whether to copy entries; shows a confirmation dialog, tests replace it, since it blocks. */
     internal var confirmCopy: (CopyQuestion) -> Boolean = { askToCopy(scene?.window, it) }
 
-    /** Runs a delete, which may take long (e.g. `node_modules`), away from the JavaFX thread; tests replace it. */
-    internal var runInBackground: (Runnable) -> Unit = { NamedThreads.virtual("sluide-delete", it) }
+    /**
+     * Runs a delete or a copy, which may take long (e.g. `node_modules`), away from the JavaFX thread; tests replace it.
+     */
+    internal var runInBackground: (Runnable) -> Unit = { NamedThreads.virtual("sluide-file-operation", it) }
 
-    /** Runs the end of a delete on the JavaFX thread; tests replace it. */
+    /** Runs the end of a delete or a copy on the JavaFX thread; tests replace it. */
     internal var dispatch: (Runnable) -> Unit = Platform::runLater
 
     /**
