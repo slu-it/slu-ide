@@ -206,6 +206,8 @@ class MainWindow(
             )
         // A file's context menu runs it where its view can (ADR 0089).
         fileExplorer.fileActions = listOf(scriptRuns.action)
+        // A context menu's Open in Terminal opens a terminal tab in the folder (ADR 0093).
+        fileExplorer.openInTerminal = { tools.openTerminal(stage, it) }
         // Git status markers, if git is installed and the folder is a repository (ADR 0013).
         fileExplorer.markers = { path, directory -> gitStatus.snapshot.get().markers(path, directory) }
         // Not for the log file growing inside the folder: the status's own log lines would trigger the next refresh.

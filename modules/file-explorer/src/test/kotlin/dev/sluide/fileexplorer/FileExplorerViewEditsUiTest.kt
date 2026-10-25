@@ -3,12 +3,14 @@ package dev.sluide.fileexplorer
 import dev.sluide.fileexplorer.actions.DeleteQuestion
 import dev.sluide.fileexplorer.actions.EntryKind
 import dev.sluide.fileexplorer.actions.deleteQuestion
+import dev.sluide.fileexplorer.actions.systemFileManager
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.filewatcher.FileWatcher
 import javafx.application.Platform
 import javafx.css.PseudoClass
 import javafx.event.Event
 import javafx.scene.control.Button
+import javafx.scene.control.MenuItem
 import javafx.scene.input.Clipboard
 import javafx.scene.input.DataFormat
 import javafx.scene.input.KeyCode
@@ -204,15 +206,20 @@ class FileExplorerViewEditsUiTest : FileExplorerViewUiFixture() {
     }
 
     @Test
-    fun `Open in file manager starts the command for a folder, not for a file`(robot: FxRobot) {
+    fun `The file manager item opens a folder and reveals a single file`(robot: FxRobot) {
         project.resolve("a.txt").createFile()
         val sub = project.resolve("sub").createDirectories()
         robot.interact { view.open(project) }
         val commands = mutableListOf<List<String>>()
         view.launchCommand = { commands.add(it) }
+        view.fileManager = systemFileManager("Mac OS X")
         val label = view.fileManager.label
 
-        assertTrue(menuItemFor(robot, cellNamed(robot, "a.txt"), label).isDisable)
+        val reveal = menuItemFor(robot, cellNamed(robot, "a.txt"), view.fileManager.revealLabel)
+        assertFalse(reveal.isDisable)
+        robot.interact { reveal.fire() }
+        assertEquals(project.resolve("a.txt").toString(), commands.single().last())
+        commands.clear()
         val item = menuItemFor(robot, cellNamed(robot, "sub"), label)
         assertFalse(item.isDisable)
         robot.interact { item.fire() }
@@ -221,6 +228,52 @@ class FileExplorerViewEditsUiTest : FileExplorerViewUiFixture() {
         assertFalse(empty.isDisable)
         robot.interact { empty.fire() }
         assertEquals(project.toString(), commands.last().last())
+    }
+
+    @Test
+    fun `Revealing with several commands runs them off the FX thread and shows the failure`(robot: FxRobot) {
+        project.resolve("a.txt").createFile()
+        robot.interact { view.open(project) }
+        val errors = mutableListOf<String>()
+        val tried = mutableListOf<List<List<String>>>()
+        view.showError = { errors.add(it) }
+        view.fileManager = systemFileManager("Linux")
+        val background = mutableListOf<Runnable>()
+        view.runInBackground = { background.add(it) }
+        view.dispatch = { it.run() }
+        view.launchFirst = {
+            tried.add(it)
+            IOException("no file manager")
+        }
+
+        val item = menuItemFor(robot, cellNamed(robot, "a.txt"), "Reveal in File Manager")
+        robot.interact { item.fire() }
+        assertEquals(emptyList(), tried, "nothing runs on the FX thread")
+        robot.interact { background.single().run() }
+        assertEquals(2, tried.single().size)
+        assertTrue(errors.single().contains("no file manager"))
+    }
+
+    @Test
+    fun `Open in Terminal gives the hook the folder of a file, a folder or the project`(robot: FxRobot) {
+        project.resolve("a.txt").createFile()
+        val sub = project.resolve("sub").createDirectories()
+        robot.interact { view.open(project) }
+        val opened = mutableListOf<Path>()
+        assertFalse(menuItemFor(robot, cellNamed(robot, "sub"), "Open in Terminal").isVisible)
+        view.openInTerminal = { opened.add(it) }
+
+        fun fire(item: MenuItem) {
+            assertFalse(item.isDisable)
+            robot.interact { item.fire() }
+        }
+        fire(menuItemFor(robot, cellNamed(robot, "a.txt"), "Open in Terminal"))
+        fire(menuItemFor(robot, cellNamed(robot, "sub"), "Open in Terminal"))
+        fire(menuItemFor(robot, view, "Open in Terminal"))
+        assertEquals(listOf(project, sub, project), opened)
+
+        robot.interact { view.selectionModel.selectIndices(1, 2) }
+        assertTrue(menuItemFor(robot, view, "Open in Terminal", keyboard = true).isDisable)
     }
 
     @Test

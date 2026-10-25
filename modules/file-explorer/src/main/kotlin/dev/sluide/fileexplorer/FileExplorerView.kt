@@ -16,6 +16,7 @@ import dev.sluide.fileexplorer.actions.askToDelete
 import dev.sluide.fileexplorer.actions.askToMove
 import dev.sluide.fileexplorer.actions.buildExplorerMenu
 import dev.sluide.fileexplorer.actions.launch
+import dev.sluide.fileexplorer.actions.launchFirstSuccess
 import dev.sluide.fileexplorer.actions.systemFileManager
 import dev.sluide.fileexplorer.tree.EXPAND_DELAY
 import dev.sluide.fileexplorer.tree.FileTreeItem
@@ -109,6 +110,11 @@ class FileExplorerView(
      */
     var showHistory: ((Path) -> Unit)? = null
 
+    /**
+     * Opens a terminal in a folder (ADR 0093); `null` leaves Open in Terminal out of the context menu. Set by the window.
+     */
+    var openInTerminal: ((Path) -> Unit)? = null
+
     /** Actions on a folder, listed in the context menu after New Folder…. Set by the window. */
     var folderActions: List<FolderAction> = emptyList()
 
@@ -166,13 +172,38 @@ class FileExplorerView(
     /** Starts the command of the file manager; tests replace it. */
     internal var launchCommand: (List<String>) -> Unit = ::launch
 
-    /** Opens the folder of [target], the project folder for the empty area, in the file manager of the system. */
+    /**
+     * Runs the commands of a reveal in order until one succeeds, waiting for each (so off the JavaFX thread); the
+     * failure of the last one, or null. Tests replace it.
+     */
+    internal var launchFirst: (List<List<String>>) -> IOException? = ::launchFirstSuccess
+
+    /**
+     * Opens the folder of [target], the project folder for the empty area, in the file manager of the system; shows a
+     * regular file in its folder instead.
+     */
     internal fun openInFileManager(target: FileTreeItem?) {
         val folder = (target ?: projectItem)?.value ?: return
+        if (target != null && Files.isRegularFile(folder)) return reveal(folder)
         try {
             launchCommand(fileManager.command(folder))
         } catch (e: IOException) {
             showError("Could not open $folder in ${fileManager.name}: ${e.message}")
+        }
+    }
+
+    private fun reveal(file: Path) {
+        val commands = fileManager.reveal(file)
+        val fail = { e: IOException -> showError("Could not open $file in ${fileManager.name}: ${e.message}") }
+        if (commands.size == 1) {
+            // Finder and Explorer return at once (and Explorer exits with 1 on success): start, do not wait.
+            try {
+                launchCommand(commands.single())
+            } catch (e: IOException) {
+                fail(e)
+            }
+        } else {
+            runInBackground { launchFirst(commands)?.let { e -> dispatch { fail(e) } } }
         }
     }
 
@@ -317,8 +348,14 @@ class FileExplorerView(
                     cut = { copies.cut(it) },
                     copy = { copies.copy(it) },
                     paste = { copies.paste(it) },
-                    fileManagerLabel = { fileManager.label },
+                    fileManagerLabel = { if (it) fileManager.revealLabel else fileManager.label },
                     openInFileManager = { openInFileManager(it) },
+                    terminalOffered = { openInTerminal != null },
+                    openInTerminal = { target ->
+                        val path = (target ?: projectItem)?.value
+                        val folder = if (path != null && Files.isRegularFile(path)) path.parent else path
+                        folder?.let { openInTerminal?.invoke(it) }
+                    },
                     refreshAll = { refreshAll() },
                 ),
             )

@@ -34,6 +34,8 @@ class ExplorerMenuTest {
                 delete = true,
                 history = true,
                 fileManager = false,
+                reveal = true,
+                terminal = true,
                 cut = true,
                 copy = true,
                 paste = false,
@@ -52,6 +54,8 @@ class ExplorerMenuTest {
                 delete = true,
                 history = false,
                 fileManager = true,
+                reveal = false,
+                terminal = true,
                 cut = true,
                 copy = true,
                 paste = false,
@@ -70,6 +74,8 @@ class ExplorerMenuTest {
                 delete = false,
                 history = false,
                 fileManager = true,
+                reveal = false,
+                terminal = true,
                 cut = false,
                 copy = true,
                 paste = false,
@@ -88,6 +94,8 @@ class ExplorerMenuTest {
                 delete = false,
                 history = false,
                 fileManager = true,
+                reveal = false,
+                terminal = true,
                 cut = false,
                 copy = false,
                 paste = false,
@@ -107,6 +115,8 @@ class ExplorerMenuTest {
                 delete = true,
                 history = false,
                 fileManager = false,
+                reveal = false,
+                terminal = false,
                 cut = true,
                 copy = true,
                 paste = false,
@@ -121,6 +131,8 @@ class ExplorerMenuTest {
                 delete = true,
                 history = false,
                 fileManager = false,
+                reveal = false,
+                terminal = false,
                 cut = true,
                 copy = true,
                 paste = false,
@@ -149,6 +161,25 @@ class ExplorerMenuTest {
         assertEquals(false, state(file).fileManager)
         assertEquals(false, state(folder, folder).fileManager)
         assertEquals(false, state(projectOpen = false).fileManager)
+    }
+
+    @Test
+    fun `Reveal is for exactly one regular file`() {
+        assertEquals(true, state(file).reveal)
+        assertEquals(false, state(folder).reveal)
+        assertEquals(false, state(file, file).reveal)
+        assertEquals(false, state().reveal)
+    }
+
+    @Test
+    fun `Open in Terminal is for one folder or file, or the empty area with a project`() {
+        assertEquals(true, state(folder).terminal)
+        assertEquals(true, state(topLevel).terminal)
+        assertEquals(true, state(file).terminal)
+        assertEquals(true, state().terminal)
+        assertEquals(false, state(projectOpen = false).terminal)
+        assertEquals(false, state(file, file).terminal)
+        assertEquals(false, state(folder, file).terminal)
     }
 
     @Test

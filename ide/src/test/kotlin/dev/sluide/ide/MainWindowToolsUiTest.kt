@@ -1,5 +1,8 @@
 package dev.sluide.ide
 
+import javafx.event.Event
+import javafx.scene.control.TreeCell
+import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
@@ -10,9 +13,11 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
+import kotlin.io.path.name
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -40,6 +45,30 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
         mainWindow.showSettings = { shownFor = it }
         robot.interact { settings.fire() }
         assertEquals(stage, shownFor)
+    }
+
+    @Test
+    fun `Open in Terminal in the explorer opens a terminal tab in the clicked folder`(robot: FxRobot) {
+        val sub = project.resolve("sub").createDirectories()
+        robot.interact { projectService.open(project) }
+        val cell =
+            robot
+                .lookup(".tree-cell")
+                .queryAllAs(TreeCell::class.java)
+                .single { (it.item as? Path)?.name == "sub" }
+        robot.interact {
+            Event.fireEvent(
+                cell,
+                ContextMenuEvent(ContextMenuEvent.CONTEXT_MENU_REQUESTED, 1.0, 1.0, 1.0, 1.0, false, null),
+            )
+        }
+        val item = fileExplorer.contextMenu.items.single { it.text == "Open in Terminal" }
+        robot.interact { fileExplorer.contextMenu.hide() }
+
+        robot.interact { item.fire() }
+
+        assertEquals(listOf("Terminal 1"), tabTitles(robot))
+        assertEquals("Terminal in $sub", checkNotNull(editorArea.selectedTab).tooltip)
     }
 
     @Test

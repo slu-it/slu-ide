@@ -41,11 +41,13 @@ internal class WindowTools(
     }
 
     /**
-     * Opens a terminal tab in the project folder, or in the home folder if no project is open; shows an error if the
-     * shell cannot be started.
+     * Opens a terminal tab in [folder], by default the project folder, or the home folder if no project is open; shows
+     * an error if the shell cannot be started.
      */
-    internal fun openTerminal(stage: Stage) {
-        val folder = projectService.projectFolder.get() ?: Path.of(System.getProperty("user.home"))
+    internal fun openTerminal(
+        stage: Stage,
+        folder: Path = projectService.projectFolder.get() ?: Path.of(System.getProperty("user.home")),
+    ) {
         try {
             editorArea.open(terminals.open(folder))
         } catch (e: TerminalStartException) {

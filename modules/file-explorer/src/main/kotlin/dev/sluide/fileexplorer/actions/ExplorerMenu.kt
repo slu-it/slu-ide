@@ -29,6 +29,10 @@ internal data class MenuState(
     val delete: Boolean,
     val history: Boolean,
     val fileManager: Boolean,
+    /** Exactly one regular file: the file manager item reveals it instead of opening a folder. */
+    val reveal: Boolean,
+    /** Open in Terminal: exactly one entry (a folder, or a regular file for its folder), or the empty area with a project. */
+    val terminal: Boolean,
     val cut: Boolean,
     val copy: Boolean,
     val paste: Boolean,
@@ -54,6 +58,8 @@ internal fun menuState(
         delete = targets.isNotEmpty() && targets.all { it.canChange },
         history = single != null && !single.isDirectory && canShowHistory(),
         fileManager = create,
+        reveal = single?.isRegularFile == true,
+        terminal = if (targets.isEmpty()) projectOpen else single?.let { it.isDirectory || it.isRegularFile } == true,
         cut = targets.isNotEmpty() && targets.all { it.canChange },
         copy = targets.isNotEmpty(),
         paste = canPaste,
@@ -116,9 +122,14 @@ internal class ExplorerMenuHost(
     val copy: (List<FileTreeItem>) -> Unit,
     /** Pastes into the folder for the targets. */
     val paste: (List<FileTreeItem>) -> Unit,
-    /** The label of the item opening a folder in the file manager of the system. */
-    val fileManagerLabel: () -> String,
+    /** The label of the item opening a folder, or revealing a file, in the file manager of the system. */
+    val fileManagerLabel: (reveal: Boolean) -> String,
+    /** Opens the folder of the target, or reveals a file; null is the empty area. */
     val openInFileManager: (FileTreeItem?) -> Unit,
+    /** Whether Open in Terminal is offered at all. */
+    val terminalOffered: () -> Boolean,
+    /** Opens a terminal in the folder (for a file, its folder; for the empty area, the project folder). */
+    val openInTerminal: (FileTreeItem?) -> Unit,
     val refreshAll: () -> Unit,
 )
 
@@ -147,6 +158,10 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
         }
     val fileManager =
         MenuItem().apply { setOnAction { host.openInFileManager(host.targets().singleOrNull()) } }
+    val terminal =
+        MenuItem(
+            "Open in Terminal",
+        ).apply { setOnAction { host.openInTerminal(host.targets().singleOrNull()) } }
     val historySeparator = SeparatorMenuItem()
     val actionItems = mutableListOf<MenuItem>()
     val fileActionItems = mutableListOf<MenuItem>()
@@ -166,6 +181,7 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
         history,
         SeparatorMenuItem(),
         fileManager,
+        terminal,
         SeparatorMenuItem(),
         MenuItem("Refresh").apply { setOnAction { host.refreshAll() } },
     ).apply {
@@ -206,8 +222,10 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
             history.isVisible = host.historyOffered()
             historySeparator.isVisible = host.historyOffered()
             history.isDisable = !state.history
-            fileManager.text = host.fileManagerLabel()
-            fileManager.isDisable = !state.fileManager
+            fileManager.text = host.fileManagerLabel(state.reveal)
+            fileManager.isDisable = !(state.fileManager || state.reveal)
+            terminal.isVisible = host.terminalOffered()
+            terminal.isDisable = !state.terminal
         }
     }
 }
