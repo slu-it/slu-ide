@@ -11,7 +11,8 @@ paths:
 - Dependency direction: `ide` -> `modules/*`. Modules never depend on `ide`, and module dependencies never form a
   cycle (ADR 0047).
 - A module may depend on a module of its own capability family (`git-log` -> `git`) or on a small foundation module
-  meant for sharing (`settings`, `file-watcher`, `text-editing`, `file-icons`, `project-trust`, `background-tasks`).
+  meant for sharing (`settings`, `file-watcher`, `text-editing`, `file-icons`, `project-trust`, `background-tasks`,
+  `project-data`).
   Unrelated feature modules do not depend on each other; `ide` wires them through callbacks. The editor family
   (`editor-area`, `file-viewers`, `previews`, `terminal`, `docker-sandbox`, `http-client`, `github-actions`,
   `command-runs`, `gradle`, `shell-scripts`: what is shown as editor tabs or file views) counts as one capability

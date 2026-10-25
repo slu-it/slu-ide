@@ -37,6 +37,7 @@ assembled from Gradle modules.
 | `file-icons` | foundation (library, no Spring beans) | File-type icons and their colours, shared by the explorer, the git log and the scratches. | [0012](adr/0012-file-icons.md), [0047](adr/0047-module-dependencies-and-shared-modules.md) |
 | `project-trust` | foundation | Whether the tools of an opened folder may run what it defines: the `ProjectTrustCheck` extension point, the combined decision and its storage. | [0053](adr/0053-project-trust.md) |
 | `background-tasks` | foundation | Per-window background tasks (registry and indicator) and logged named threads (`NamedThreads`). | [0060](adr/0060-logging-conventions.md), [0061](adr/0061-background-tasks.md) |
+| `project-data` | foundation | Per-project metadata, one JSON file per project in `~/.sluide/projects` (`ProjectDataStore`), with per-file data in it or, for files outside any project, in `~/.sluide/outside-projects.json`; the migration of old properties files (`LegacyProjectData`). | [0090](adr/0090-per-project-metadata-store.md) |
 | `ide` | app | Launcher, Spring Boot configuration, main window and its window parts; wires the modules together. | [0002](adr/0002-spring-inside-javafx.md), [0068](adr/0068-window-parts-in-ide.md) |
 
 Feature modules are one IDE capability each. The editor family (`editor-area`, `file-viewers`, `previews`, `terminal`,
@@ -51,7 +52,7 @@ modules are small and meant for sharing; they may be plain libraries without Spr
 - Modules may depend on other modules ([ADR 0047](adr/0047-module-dependencies-and-shared-modules.md)), without cycles
   (Gradle refuses cycles anyway), but only on a module of the same capability family (`git-log` -> `git`) or on a small
   foundation module meant for sharing (`settings`, `file-watcher`, `text-editing`, `file-icons`, `project-trust`,
-  `background-tasks`).
+  `background-tasks`, `project-data`).
   Unrelated feature modules do not depend on each other: `ide` wires them through callbacks (`git-log` with `editor-area`
   and `file-viewers`, `git` with the explorer's markers). When two modules need the same piece of a third, it is
   extracted into a small module rather than depending on the whole feature module. The families are defined under
