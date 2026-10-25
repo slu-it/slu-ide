@@ -68,7 +68,10 @@
   Close All. Entries that would close nothing are disabled. Close Others selects the clicked tab; closing to the
   left/right keeps the selection unless the selected tab was closed, then the clicked tab is selected. Tabs that show
   a file on disk have Show History at the end while the window offers it (`EditorArea.showHistory`, enabled by
-  `canShowHistory`), which opens the file's history in the git log area ([file-history.md](file-history.md)).
+  `canShowHistory`), which opens the file's history in the git log area ([file-history.md](file-history.md)). Select in Explorer follows
+  it (`EditorArea.selectInExplorer`, enabled by `canSelectInExplorer`): it reveals that tab's file in the explorer and
+  focuses it, not necessarily the selected tab's ([file-explorer.md](file-explorer.md)). `EditorArea.selectedFile` is
+  the file of the selected tab (`null` for terminals, diffs and no tab) and follows renames.
 - Every file view gets the editor area as its `FileViewHost` (`ViewHost`): `openFile` opens a file like the explorer
   does, `openFile(file, line)` then lets its view go to the line (`FileView.showLine`, as Go to Line moves the caret),
   `openWebPage` calls `EditorArea.openWebPage`, which the main window sets to the system browser

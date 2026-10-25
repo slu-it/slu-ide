@@ -14,6 +14,17 @@
 - `reveal(path, focus = false)` expands the top-level node holding `path` (the innermost one if they nest) and the
   folders down to it, loading them, then selects and scrolls to it; it takes the focus only if `focus`. It returns
   `false`, changing nothing, if no top-level node holds the path or it does not exist.
+- Button bar (`ExplorerBar`, in the window above the tree, in both themes; room for a further Compact toggle): icon
+  buttons with tooltips, none focus-traversable. **Select Opened File** (Alt+F1, Option+F1 on macOS, shown in the
+  tooltip) reveals the file of the selected editor tab with `reveal(path, focus = true)`: it expands, selects, scrolls
+  and focuses the explorer; it is disabled while the tab has no file (terminal, diff, no tab) or the file lies under
+  no top-level node (`canReveal`, a cheap check: it does nothing if the file is no longer shown, e.g.
+  deleted outside the IDE). The same action is View → Select Opened File and "Select in Explorer" in a file
+  tab's menu ([editor-tabs.md](editor-tabs.md)); the tree never follows the tabs by itself. **Collapse All**
+  (`collapseAll()`, `tree/CollapseAll.kt`) collapses every folder of every top-level node: the project stays expanded
+  (its first level visible), extra roots such as Scratches collapse; a selected row that becomes hidden moves to its
+  nearest ancestor still shown, the focus stays. **Refresh (F5)** is the context menu's Refresh.
+  [ADR 0095](../adr/0095-explorer-button-bar-and-select-opened-file.md).
 - Uses the explorer font from the settings and follows its changes ([settings.md](settings.md)).
 - Width: the window starts the explorer as wide as the names (labels for extra roots) of the shown entries need, with
   their icons and indentation (`startWidth()`), but at least 12 and at most 24 times the explorer font size; without a folder it is

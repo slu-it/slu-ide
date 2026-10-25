@@ -21,6 +21,7 @@ Accelerators of the menu bar ([open-folder.md](open-folder.md), [settings.md](se
 | Shortcut+W | File → Close Tab (file and diff tabs, not terminals) |
 | Shortcut+, | File → Settings… |
 | Shortcut+Shift+D | View → Show Changes (side-by-side diff of the current file) |
+| Alt+F1 (Option+F1 on macOS) | View → Select Opened File (reveals the selected tab's file in the explorer and focuses it; not while a terminal has the focus, it sends Alt+F1 to the shell; many Linux desktops (GNOME, KDE, Xfce) grab Alt+F1 themselves, so it may never reach the app there) |
 | Alt+9 (Cmd+9 on macOS) | View → Git Log (expand or collapse) |
 | Shortcut+K | Git → Commit… |
 | Shortcut+Shift+K | Git → Push… |
@@ -136,7 +137,8 @@ All previews and images zoom, only while the rendered view has the focus, not in
 All other keys the terminal translates go to the shell. On Linux and Windows these include Ctrl+O, Ctrl+S, Ctrl+W,
 Ctrl+K and Alt+9, which then do not reach their menu items; Shortcut+Shift+letter, Ctrl+, and Ctrl+Alt+S still do, and
 on macOS every Cmd shortcut does, but Cmd+W leaves a terminal tab open: File → Close Tab is disabled for terminals
-([terminal.md](terminal.md)).
+([terminal.md](terminal.md)). Alt+F1 (Option+F1 on macOS) goes to the shell on all platforms, so View → Select Opened
+File does not react to it while a terminal has the focus.
 
 ## Git log
 [git-log.md](git-log.md), [commit-and-push.md](commit-and-push.md), [file-history.md](file-history.md)

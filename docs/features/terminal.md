@@ -36,11 +36,11 @@
   PgUp/PgDn, Insert/Delete and F1–F12 are sent as xterm sequences, Ctrl+letter as control characters (Ctrl+C, Ctrl+D, …),
   and so are Ctrl+Space, Ctrl+2, Ctrl+[, Ctrl+\, Ctrl+] and Ctrl+-. Alt+letter sends Esc and the letter, except on
   macOS, where Option types characters. Ctrl+Shift+letter and Cmd shortcuts are not sent to the shell, so menu
-  shortcuts with them keep working (New Terminal, and on macOS all menu shortcuts), and so does Ctrl+, (Settings).
+  shortcuts with them keep working (New Terminal, and on macOS all menu shortcuts except Option+F1), and so does Ctrl+, (Settings).
   Menu shortcuts that the terminal sends to the shell do not reach the menu: on Linux, Ctrl+O sends ^O to the shell
   instead of opening File → Open Folder, Ctrl+W goes to the shell instead of closing the tab (on macOS Cmd+W finds
-  File → Close Tab disabled for terminals and leaves the tab open), and Ctrl+K sends ^K instead of opening
-  Git → Commit…, while a terminal has the focus; use the menu or click outside the terminal first.
+  File → Close Tab disabled for terminals and leaves the tab open), Ctrl+K sends ^K instead of opening
+  Git → Commit…, and Alt+F1 (Option+F1 on macOS too) is sent to the shell as the xterm sequence for Alt+F1 instead of choosing View → Select Opened File, while a terminal has the focus; use the menu or click outside the terminal first.
 - Scrollback: the mouse wheel scrolls through the history (the last 5000 lines, JediTerm's default; older lines are
   dropped). Typing or pasting scrolls back down. Full-screen programs scroll themselves: the wheel is reported to them
   if they asked for mouse reports (e.g. Claude Code's fullscreen TUI, `vim` with `mouse=a`), otherwise sent as Up/Down
