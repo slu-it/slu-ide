@@ -287,6 +287,15 @@ internal class TabStrip(
     /** Whether Show History is enabled for a tab's file; asked when its context menu opens. */
     var canShowHistory: (Path) -> Boolean = { false }
 
+    /**
+     * Selects a tab's file in the file explorer: Select in Explorer in the context menu of the tabs that show a file,
+     * only while set. Set by the window.
+     */
+    var selectInExplorer: ((Path) -> Unit)? = null
+
+    /** Whether Select in Explorer is enabled for a tab's file; asked when its context menu opens. */
+    var canSelectInExplorer: (Path) -> Boolean = { false }
+
     /** The context menu of the header of [tab]. */
     fun contextMenuOf(tab: EditorTab): ContextMenu = headers.single { it.tab === tab }.menu
 
@@ -391,7 +400,8 @@ internal class TabStrip(
                 item("Close Tabs to the Right") { close(editorTabs.rightOf(tab)) { editorTabs.closeRightOf(tab) } }
             val file = tab as? OpenFile
             val history = item("Show History") { file?.let { showHistory?.invoke(it.path) } }
-            val historyItems = listOf(SeparatorMenuItem(), history)
+            val select = item("Select in Explorer") { file?.let { selectInExplorer?.invoke(it.path) } }
+            val fileItems = listOf(SeparatorMenuItem(), history, select)
             return ContextMenu(
                 item("Close") { close(listOf(tab)) { editorTabs.close(tab) } },
                 SeparatorMenuItem(),
@@ -408,10 +418,16 @@ internal class TabStrip(
                     closeLeft.isDisable = index <= 0
                     closeRight.isDisable = index >= editorTabs.tabs.lastIndex
                     // Only for files, and only while the window offers it.
-                    items.removeAll(historyItems)
-                    if (file != null && showHistory != null) {
-                        items.addAll(historyItems)
+                    items.removeAll(fileItems)
+                    if (file != null) {
+                        val offered =
+                            listOfNotNull(
+                                history.takeIf { showHistory != null },
+                                select.takeIf { selectInExplorer != null },
+                            )
+                        if (offered.isNotEmpty()) items.addAll(listOf(fileItems.first()) + offered)
                         history.isDisable = !canShowHistory(file.path)
+                        select.isDisable = !canSelectInExplorer(file.path)
                     }
                 }
             }

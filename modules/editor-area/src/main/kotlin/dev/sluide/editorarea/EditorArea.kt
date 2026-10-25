@@ -99,6 +99,27 @@ class EditorArea(
         }
 
     /**
+     * Selects a file in the file explorer: Select in Explorer in the context menu of the tabs that show a file, only
+     * while set. Set by the window.
+     */
+    var selectInExplorer: ((Path) -> Unit)?
+        get() = tabStrip.selectInExplorer
+        set(value) {
+            tabStrip.selectInExplorer = value
+        }
+
+    /** Whether Select in Explorer is enabled for a tab's file; asked when the tab's context menu opens. */
+    var canSelectInExplorer: (Path) -> Boolean
+        get() = tabStrip.canSelectInExplorer
+        set(value) {
+            tabStrip.canSelectInExplorer = value
+        }
+
+    /** The file of the selected tab, `null` if it shows none (a terminal, a diff, no tab); follows a moved file. */
+    val selectedFile: ObservableValue<Path?> =
+        editorTabs.selected.flatMap { (it as? OpenFile)?.pathProperty }
+
+    /**
      * Called on the FX thread with the path of each file tab removed from the tabs in any way (closed from the UI,
      * [closeAll], [closeUnder], after a delete, or a move its tab cannot follow) when no tab of that path is open in this
      * area anymore, e.g. not when a tab is replaced by a new view of the same file; a move followed in place reports

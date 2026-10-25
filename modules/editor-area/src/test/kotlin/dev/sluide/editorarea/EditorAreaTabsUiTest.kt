@@ -527,33 +527,79 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
     }
 
     @Test
-    fun `Show History is in the menu of file tabs while it is offered, enabled for files it can show`(robot: FxRobot) {
+    fun `file tabs have Show History and Select in Explorer in their menu while offered, each enabled per file`(
+        robot: FxRobot,
+    ) {
         val a = textFile("a.txt")
         val b = textFile("b.txt")
         open(robot, a, b)
         val other = WarningTab("Terminal 1", null)
         robot.interact { editor.open(other) }
         val shown = mutableListOf<java.nio.file.Path>()
+        val selected = mutableListOf<java.nio.file.Path>()
         editor.showHistory = { shown.add(it) }
         editor.canShowHistory = { it == a }
+        editor.selectInExplorer = { selected.add(it) }
+        editor.canSelectInExplorer = { it == b }
 
         fun items(title: String): List<MenuItem> {
             robot.interact { requestContextMenu(tabLabel(robot, title)) }
-            val tab = editor.tabs.single { it.title.value == title }
-            val menu = editor.tabStrip.contextMenuOf(tab)
-            robot.interact { menu.hide() }
-            return menu.items.toList()
+            return WaitForAsyncUtils
+                .asyncFx<List<MenuItem>> {
+                    val menu = editor.tabStrip.contextMenuOf(editor.tabs.single { it.title.value == title })
+                    menu.hide()
+                    menu.items.toList()
+                }.get()
         }
 
-        val history = items("a.txt").single { it.text == "Show History" }
-        assertFalse(history.isDisable)
-        robot.interact { history.fire() }
-        assertEquals(listOf(a), shown)
-        assertTrue(items("b.txt").single { it.text == "Show History" }.isDisable)
-        assertTrue(items("Terminal 1").none { it.text == "Show History" }, "not for tabs without a file")
+        fun List<MenuItem>.named(text: String) = singleOrNull { it.text == text }
 
+        fun disabled(item: MenuItem?) = WaitForAsyncUtils.asyncFx<Boolean> { checkNotNull(item).isDisable }.get()
+
+        val forA = items("a.txt")
+        assertFalse(disabled(forA.named("Show History")))
+        assertTrue(disabled(forA.named("Select in Explorer")))
+        robot.interact { forA.named("Show History")?.fire() }
+        assertEquals(listOf(a), shown)
+        val forB = items("b.txt")
+        assertTrue(disabled(forB.named("Show History")))
+        assertFalse(disabled(forB.named("Select in Explorer")))
+        // Acts on the tab's file, not the selected tab (the terminal).
+        robot.interact { forB.named("Select in Explorer")?.fire() }
+        assertEquals(listOf(b), selected)
+        val forTerminal = items("Terminal 1")
+        assertNull(forTerminal.named("Show History"), "not for tabs without a file")
+        assertNull(forTerminal.named("Select in Explorer"), "not for tabs without a file")
+
+        // One separator before the items offered, none without any.
+        assertEquals(10, forA.size)
         editor.showHistory = null
-        // Without it, the menu is as before, also its separators.
+        assertEquals(9, items("a.txt").size)
+        editor.selectInExplorer = null
         assertEquals(7, items("a.txt").size)
+    }
+
+    @Test
+    fun `selectedFile is the selected tab's file, none for other tabs, and follows a moved file`(robot: FxRobot) {
+        val a = textFile("a.txt")
+        val b = textFile("b.txt")
+        open(robot, a, b)
+        val other = WarningTab("Terminal 1", null)
+        robot.interact { editor.open(other) }
+
+        // Observed, as the window's menu and bar do: the value is then kept, not read afresh.
+        val seen = java.util.concurrent.CopyOnWriteArrayList<java.nio.file.Path?>()
+        robot.interact { editor.selectedFile.subscribe { path -> seen.add(path) } }
+
+        fun selectedFile() = WaitForAsyncUtils.asyncFx<java.nio.file.Path?> { editor.selectedFile.value }.get()
+
+        assertNull(selectedFile())
+        robot.interact { editor.select(editor.tabs.single { it.title.value == "b.txt" }) }
+        assertEquals(b, selectedFile())
+
+        val moved = dir.resolve("c.txt")
+        move(robot, b, moved)
+        assertEquals(moved, selectedFile())
+        assertEquals(moved, seen.last())
     }
 }
