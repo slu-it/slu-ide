@@ -2,6 +2,7 @@ package dev.sluide.fileexplorer.actions
 
 import dev.sluide.fileexplorer.FolderAction
 import dev.sluide.fileexplorer.FolderActionResult
+import dev.sluide.fileexplorer.tree.FileTreeItem
 import org.junit.jupiter.api.io.TempDir
 import java.io.IOException
 import java.io.UncheckedIOException
@@ -498,5 +499,90 @@ class ExplorerEditsTest {
         assertFalse(fake.edits.canChange(row))
         assertFalse(fake.edits.canChange(app))
         assertTrue(fake.edits.isBeingDeleted(project.resolve("src/main")))
+    }
+
+    @Test
+    fun `renaming a compacted row asks for its folder names, renames a changed middle one in place and selects it`() {
+        project.resolve("src/main/kotlin/App.kt").createParentDirectories().createFile()
+        val fake = FakeEditHost(project, compact = true)
+        val row = fake.row("src/main/kotlin").apply { isExpanded = true }
+        fake.answerName = { "src/core/kotlin" }
+
+        fake.edits.rename(row)
+
+        val ask = fake.nameAsks.single()
+        assertEquals("src/main/kotlin", ask.initial)
+        assertNull(ask.validate("src/main/kotlin"))
+        assertNull(ask.validate("Src/main/kotlin"), "only the case changes")
+        assertEquals(
+            "Keep the 3 folder names separated by “/”: folders cannot be added or removed here.",
+            ask.validate("src/kotlin"),
+        )
+        assertEquals(
+            "Keep the 3 folder names separated by “/”: folders cannot be added or removed here.",
+            ask.validate("src/main/kotlin/more"),
+        )
+        assertEquals("Enter a name.", ask.validate("src//kotlin"))
+        assertEquals("The name must not contain / or \\.", ask.validate("src/ma\\in/kotlin"))
+        assertEquals(listOf(project.resolve("src/main") to project.resolve("src/core")), fake.moved)
+        assertTrue(project.resolve("src/core/kotlin/App.kt").exists())
+        val selected = fake.selected.single() as FileTreeItem
+        assertEquals("src/core/kotlin", selected.displayName)
+        assertTrue(selected.isExpanded)
+        assertEquals(listOf(project.resolve("src/main")), fake.closedUnder)
+    }
+
+    @Test
+    fun `several folder names of a compacted row are renamed deepest first, each reported`() {
+        project.resolve("src/main/kotlin").createDirectories()
+        val fake = FakeEditHost(project, compact = true)
+        fake.answerName = { "source/core/java" }
+
+        fake.edits.rename(fake.row("src/main/kotlin"))
+
+        assertEquals(
+            listOf(
+                project.resolve("src/main/kotlin") to project.resolve("src/main/java"),
+                project.resolve("src/main") to project.resolve("src/core"),
+                project.resolve("src") to project.resolve("source"),
+            ),
+            fake.moved,
+        )
+        assertEquals(listOf(project.resolve("source/core/java")), fake.selectedPaths())
+    }
+
+    @Test
+    fun `the case of a folder name of a compacted row can change`() {
+        project.resolve("src/main/kotlin").createDirectories()
+        val fake = FakeEditHost(project, compact = true)
+        fake.answerName = { "src/Main/kotlin" }
+
+        fake.edits.rename(fake.row("src/main/kotlin"))
+
+        assertEquals(listOf(project.resolve("src/main") to project.resolve("src/Main")), fake.moved)
+        assertEquals(listOf("Main"), project.resolve("src").listDirectoryEntries().map { it.name })
+        assertEquals("src/Main/kotlin", (fake.selected.single() as FileTreeItem).displayName)
+    }
+
+    @Test
+    fun `the first failed rename of a compacted row stops the others and is shown, unchanged names do nothing`() {
+        project.resolve("src/main/kotlin").createDirectories()
+        val fake = FakeEditHost(project, compact = true)
+        fake.answerName = { it }
+        fake.edits.rename(fake.row("src/main/kotlin"))
+        assertEquals(emptyList(), fake.moved)
+        assertEquals(emptyList(), fake.selected)
+
+        fake.answerName = {
+            // Taken while asking.
+            project.resolve("src/core").createDirectories()
+            "source/core/java"
+        }
+        fake.edits.rename(fake.row("src/main/kotlin"))
+
+        assertEquals(listOf(project.resolve("src/main/kotlin") to project.resolve("src/main/java")), fake.moved)
+        assertEquals(listOf("“core” already exists in this folder."), fake.errors)
+        assertTrue(project.resolve("src/main/java").exists())
+        assertEquals(listOf(project.resolve("src/main/java")), fake.selectedPaths())
     }
 }

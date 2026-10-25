@@ -19,7 +19,10 @@ internal fun askForName(
     validate: (String) -> String?,
 ): String? = NameDialog(owner, title, initial, validate).showAndWait().orElse(null)
 
-/** The dialog of [askForName]. The base name of [initial] is selected, so typing replaces it but keeps the extension. */
+/**
+ * The dialog of [askForName]. The base name of [initial] (of its last `/`-separated part) is selected, so typing
+ * replaces it but keeps the extension.
+ */
 internal class NameDialog(
     owner: Window?,
     title: String,
@@ -48,10 +51,16 @@ internal class NameDialog(
             // Later, since the enabled default button takes the focus once the dialog is shown.
             Platform.runLater {
                 field.requestFocus()
-                field.selectRange(0, baseNameLength(initial))
+                selection(initial).let { field.selectRange(it.first, it.last + 1) }
             }
         }
     }
+}
+
+/** The part of [initial] selected at first: the base name of its last `/`-separated part ([baseNameLength]). */
+internal fun selection(initial: String): IntRange {
+    val start = initial.lastIndexOf('/') + 1
+    return start until start + baseNameLength(initial.substring(start))
 }
 
 /** The length of [name] without its extension; a leading dot does not start an extension (`.gitignore`). */

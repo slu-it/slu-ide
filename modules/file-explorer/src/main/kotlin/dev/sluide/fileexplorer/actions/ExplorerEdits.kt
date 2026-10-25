@@ -141,10 +141,11 @@ internal class ExplorerEdits(
 
     /**
      * Asks for a new name of [item] and renames it in its folder, reporting it to the `onMoved` hook. The renamed entry
-     * is selected, a folder stays expanded if it was.
+     * is selected, a folder stays expanded if it was. A compacted row renames its folders ([renameChain]).
      */
     fun rename(item: FileTreeItem) {
         val parent = item.parent as? FileTreeItem ?: return
+        if (item.isCompacted) return renameChain(item, parent)
         val path = item.value
         val name =
             host.askName("Rename", path.fileName.toString()) {
@@ -163,6 +164,40 @@ internal class ExplorerEdits(
         host.closeWatchesUnder(path)
         host.onMoved(path, renamed)
         host.select(parent, renamed)?.isExpanded = item.isExpanded
+    }
+
+    /**
+     * Asks for new names of the folders of the compacted row [item] (`src/main/kotlin`, ADR 0096), as many as before,
+     * each checked in its folder ([chainNameProblem]), and renames the changed ones in place, the deepest first so that
+     * the paths of the outer ones stay valid. Each rename is reported to the `onMoved` hook; the first failure stops
+     * the rest and is shown. The row is selected afterwards and stays expanded if it was.
+     */
+    private fun renameChain(
+        item: FileTreeItem,
+        parent: FileTreeItem,
+    ) {
+        val chain = item.chain
+        val names = chain.map { it.fileName.toString() }
+        val answer = host.askName("Rename", item.displayName) { chainNameProblem(it, chain) } ?: return
+        val wanted = answer.split('/')
+        val renamed = names.toMutableList()
+        for (index in chain.indices.reversed()) {
+            if (wanted[index] == names[index]) continue
+            val from = chain[index]
+            val to =
+                try {
+                    FileOperations.rename(from, wanted[index])
+                } catch (e: FileOperationException) {
+                    host.showError(e.message.orEmpty())
+                    break
+                }
+            if (to == from) continue
+            host.closeWatchesUnder(from)
+            host.onMoved(from, to)
+            renamed[index] = to.fileName.toString()
+        }
+        if (renamed == names) return
+        host.select(parent, renamed.fold(parent.value, Path::resolve))?.isExpanded = item.isExpanded
     }
 
     /**

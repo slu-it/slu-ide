@@ -12,4 +12,12 @@ class NameDialogTest {
         assertEquals(8, baseNameLength("Makefile"))
         assertEquals(0, baseNameLength(""))
     }
+
+    @Test
+    fun `the selection is the base name of the last part of a path`() {
+        assertEquals(0 until 4, selection("Main.kt"))
+        assertEquals(9 until 15, selection("src/main/kotlin"))
+        assertEquals(4 until 6, selection("src/my.dir"))
+        assertEquals(0 until 0, selection(""))
+    }
 }
