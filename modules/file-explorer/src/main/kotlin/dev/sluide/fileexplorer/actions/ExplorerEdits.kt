@@ -29,7 +29,7 @@ internal class ExplorerEditHost(
     val unsavedUnder: (Path) -> List<Path>,
     val onDeleted: (path: Path, unsaved: List<Path>) -> Unit,
     val requestOpen: (Path) -> Boolean,
-    /** Shows a path of a folder at once, selects and returns it. */
+    /** Shows a path below a folder at once (expanding the folders down to it), selects and returns it. */
     val select: (parent: FileTreeItem, path: Path) -> TreeItem<Path>?,
     val selectRow: (TreeItem<Path>) -> Unit,
     /** Selects exactly these rows, scrolling to the first; nothing for none. */
@@ -54,8 +54,9 @@ internal class ExplorerEdits(
     private val deleting = mutableSetOf<Path>()
 
     /**
-     * Asks for a name and creates a file or [folder] of that name in [target], which must be a folder; in the project
-     * folder for `null`. The new entry is selected, and a new file opened.
+     * Asks for a name or `/`-separated path (ADR 0094) and creates a file or [folder] of that name in [target], which
+     * must be a folder; in the project folder for `null`. Missing folders on the way are created. The new entry (the
+     * deepest folder for a trailing `/`) is selected, shown with the folders down to it, and a new file opened.
      */
     fun create(
         target: FileTreeItem?,
@@ -63,18 +64,17 @@ internal class ExplorerEdits(
     ) {
         val parent = targetFolder(target) ?: return
         val name =
-            host.askName(if (folder) "New Folder" else "New File", "") { FileOperations.nameProblem(it, parent.value) }
+            host.askName(if (folder) "New Folder" else "New File", "") { FileOperations.pathProblem(it, parent.value) }
                 ?: return
-        val operation = if (folder) FileOperations::createFolder else FileOperations::createFile
         val created =
             try {
-                operation(parent.value, name)
+                FileOperations.createPath(parent.value, name, folder)
             } catch (e: FileOperationException) {
                 host.showError(e.message.orEmpty())
                 return
             }
         host.select(parent, created)
-        if (!folder) host.requestOpen(created)
+        if (!folder && Files.isRegularFile(created)) host.requestOpen(created)
     }
 
     /**

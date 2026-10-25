@@ -61,6 +61,160 @@ class FileOperationsTest {
         assertEquals("“..” cannot be used as a name.", problem(".."))
     }
 
+    private fun pathProblem(
+        path: String,
+        windows: Boolean = false,
+    ) = FileOperations.pathProblem(path, folder, windows)
+
+    @Test
+    fun `accepts paths with new or existing folders, a trailing slash and single names`() {
+        folder.resolve("a").createDirectories()
+        folder.resolve("link").createSymbolicLinkPointingTo(folder.resolve("a"))
+        listOf("a/b/c.txt", "new/x/", "a/b", "link/c.txt", "plain.txt").forEach { assertNull(pathProblem(it), it) }
+    }
+
+    @Test
+    fun `refuses paths with empty parts, dot parts and bad parts`() {
+        val empty = "The path must not contain an empty part (//)."
+        assertEquals(empty, pathProblem("a//b"))
+        assertEquals(empty, pathProblem("a//"))
+        assertEquals("The path must be relative: it must not start with /.", pathProblem("/a/b"))
+        assertEquals("“..” cannot be used as a name.", pathProblem("a/../b"))
+        assertEquals("“.” cannot be used as a name.", pathProblem("./b"))
+        assertEquals("“ b”: The name must not start or end with a space.", pathProblem("a/ b/c"))
+        assertEquals("The name must not contain a NUL character.", pathProblem("a/b\u0000/c"))
+        assertEquals("The name must not contain / or \\.", pathProblem("a\\b/c"))
+    }
+
+    @Test
+    fun `a backslash separates parts only on Windows`() {
+        assertNull(pathProblem("a\\b\\c.txt", windows = true))
+        assertEquals("The path must be relative: it must not start with /.", pathProblem("\\a", windows = true))
+        assertEquals("The name must not contain / or \\.", pathProblem("a\\b/c", windows = false))
+        folder
+            .resolve("a")
+            .createDirectories()
+            .resolve("b")
+            .createFile()
+        assertEquals("“a/b” already exists in this folder.", pathProblem("a\\b", windows = true))
+    }
+
+    @Test
+    fun `refuses a path through a file or ending at a taken entry, in any case`() {
+        folder
+            .resolve("a")
+            .createDirectories()
+            .resolve("f.txt")
+            .createFile()
+        assertEquals("“a/f.txt” exists and is not a folder.", pathProblem("a/f.txt/x"))
+        assertEquals("“a/f.txt” already exists in this folder.", pathProblem("a/f.txt"))
+        assertEquals("“a” already exists in this folder.", pathProblem("a/"))
+        // Taken in another case only where the file system ignores the case.
+        val ignoresCase = Files.exists(folder.resolve("A"))
+        assertEquals(ignoresCase, pathProblem("A/F.TXT") != null)
+    }
+
+    @Test
+    fun `creates the folders of a path top-down and the file or folder at its end`() {
+        folder.resolve("a").createDirectories()
+
+        val file = FileOperations.createPath(folder, "a/b/c.txt", isFolder = false)
+        val deep = FileOperations.createPath(folder, "x/y/", isFolder = false)
+        val sub = FileOperations.createPath(folder, "p/q/r/", isFolder = true)
+
+        assertEquals(folder.resolve("a/b/c.txt"), file)
+        assertTrue(file.isRegularFile())
+        assertEquals(folder.resolve("x/y"), deep)
+        assertTrue(deep.isDirectory())
+        assertTrue(sub.isDirectory())
+        assertEquals(folder.resolve("p/q/r"), sub)
+        assertFailsWith<FileOperationException> { FileOperations.createPath(folder, "a/b/c.txt", false) }
+    }
+
+    @Test
+    fun `an existing folder on the way is taken with its name on disk`() {
+        folder.resolve("a").createDirectories()
+        // Only where the file system ignores the case.
+        assumeTrue(Files.exists(folder.resolve("A")))
+
+        val file = FileOperations.createPath(folder, "A/B/f.txt", isFolder = false)
+
+        assertEquals(folder.resolve("a/B/f.txt"), file)
+        assertTrue(file.isRegularFile())
+    }
+
+    @Test
+    fun `an exact match of a folder on the way wins over one differing in case`() {
+        folder.resolve("a").createDirectories()
+        folder.resolve("A").createDirectories()
+        assumeFalse(Files.isSameFile(folder.resolve("a"), folder.resolve("A")))
+
+        val file = FileOperations.createPath(folder, "A/f.txt", isFolder = false)
+
+        assertEquals(folder.resolve("A/f.txt"), file)
+    }
+
+    @Test
+    fun `a folder on the way that cannot be listed is used as typed`() {
+        assumeTrue(Files.getFileAttributeView(folder, PosixFileAttributeView::class.java) != null)
+        val a = folder.resolve("a").createDirectories()
+        a.resolve("b").createDirectories()
+        a.setPosixFilePermissions(
+            setOf(PosixFilePermission.OWNER_WRITE, PosixFilePermission.OWNER_EXECUTE),
+        )
+        try {
+            // Root can list anything.
+            assumeFalse(Files.isReadable(a))
+
+            val file = FileOperations.createPath(folder, "a/b/f.txt", isFolder = false)
+
+            assertEquals(folder.resolve("a/b/f.txt"), file)
+        } finally {
+            a.setPosixFilePermissions(PosixFilePermission.entries.take(3).toSet())
+        }
+    }
+
+    @Test
+    fun `a Windows drive in a part is refused only on Windows`() {
+        assertEquals("“D:”: The name must not contain :.", pathProblem("D:/x", windows = true))
+        assertNull(pathProblem("D:/x", windows = false))
+        assertEquals("“D:foo”: The name must not contain :.", pathProblem("D:foo", windows = true))
+        assertEquals("“f.txt:s”: The name must not contain :.", pathProblem("f.txt:s", windows = true))
+        assertNull(pathProblem("D:foo", windows = false))
+    }
+
+    @Test
+    fun `a path stops at the first part that fails and names it`() {
+        val view = Files.getFileAttributeView(folder, PosixFileAttributeView::class.java)
+        assumeTrue(view != null)
+        val locked = folder.resolve("a/b").createDirectories()
+        locked.setPosixFilePermissions(setOf(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_EXECUTE))
+        try {
+            assumeFalse(Files.isWritable(locked))
+
+            val failed =
+                assertFailsWith<FileOperationException> { FileOperations.createPath(folder, "a/b/c/d.txt", false) }
+
+            assertTrue(failed.message.orEmpty().startsWith("Could not create “c”"), failed.message)
+            assertFalse(locked.resolve("c").exists())
+        } finally {
+            locked.setPosixFilePermissions(PosixFilePermission.entries.take(3).toSet())
+        }
+    }
+
+    @Test
+    fun `folders created before a failing last part stay`() {
+        // A name beyond the file name limit of the file system fails after the folders were made.
+        val tooLong = "x".repeat(300)
+        assertTrue(pathProblem("n/m/$tooLong") == null)
+
+        val failure =
+            assertFailsWith<FileOperationException> { FileOperations.createPath(folder, "n/m/$tooLong", false) }
+
+        assertTrue(failure.message.orEmpty().startsWith("Could not create “xxx"), failure.message)
+        assertTrue(folder.resolve("n/m").isDirectory())
+    }
+
     @Test
     fun `refuses names that are taken, also by a dangling link`() {
         folder.resolve("taken.txt").createFile()
@@ -82,8 +236,8 @@ class FileOperationsTest {
 
     @Test
     fun `creates files and folders`() {
-        val file = FileOperations.createFile(folder, "new.txt")
-        val sub = FileOperations.createFolder(folder, "sub")
+        val file = FileOperations.createPath(folder, "new.txt", isFolder = false)
+        val sub = FileOperations.createPath(folder, "sub", isFolder = true)
 
         assertEquals(folder.resolve("new.txt"), file)
         assertTrue(file.isRegularFile())
@@ -96,9 +250,9 @@ class FileOperationsTest {
     fun `refuses to create with a bad or taken name and does not touch existing files`() {
         folder.resolve("taken.txt").writeText("keep")
 
-        val taken = assertFailsWith<FileOperationException> { FileOperations.createFile(folder, "taken.txt") }
+        val taken = assertFailsWith<FileOperationException> { FileOperations.createPath(folder, "taken.txt", false) }
         assertEquals("“taken.txt” already exists in this folder.", taken.message)
-        assertFailsWith<FileOperationException> { FileOperations.createFolder(folder, "a/b") }
+        assertFailsWith<FileOperationException> { FileOperations.createPath(folder, "../b", true) }
         assertEquals("keep", folder.resolve("taken.txt").readText())
         assertEquals(listOf("taken.txt"), folder.listDirectoryEntries().map { it.name })
     }
@@ -107,7 +261,7 @@ class FileOperationsTest {
     fun `reports why creating failed`() {
         val gone = folder.resolve("gone")
 
-        val failure = assertFailsWith<FileOperationException> { FileOperations.createFile(gone, "a.txt") }
+        val failure = assertFailsWith<FileOperationException> { FileOperations.createPath(gone, "a.txt", false) }
 
         assertEquals("Could not create “a.txt”: ${gone.resolve("a.txt")} does not exist.", failure.message)
     }

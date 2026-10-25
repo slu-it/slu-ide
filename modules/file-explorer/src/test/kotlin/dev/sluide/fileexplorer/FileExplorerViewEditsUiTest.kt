@@ -91,6 +91,25 @@ class FileExplorerViewEditsUiTest : FileExplorerViewUiFixture() {
     }
 
     @Test
+    fun `New File with a path creates the folders, expands them down to the file, selects and opens it`(
+        robot: FxRobot,
+    ) {
+        useUnwatchedView(robot)
+        val opened = mutableListOf<Path>()
+        view.onOpenFile = { opened.add(it) }
+        view.askName = { _, _, _ -> "a/b/c.txt" }
+        robot.interact { view.open(project) }
+
+        robot.interact { menuItemFor(robot, cellNamed(robot, project.name), "New File…").fire() }
+
+        val created = project.resolve("a/b/c.txt")
+        assertTrue(Files.isRegularFile(created))
+        assertEquals(listOf(project.name, "a", "b", "c.txt"), renderedNames(robot))
+        robot.interact { assertEquals(created, view.selectionModel.selectedItem?.value) }
+        assertEquals(listOf(created), opened)
+    }
+
+    @Test
     fun `New Folder creates a folder in the clicked folder and expands it, or in the opened folder`(robot: FxRobot) {
         project.resolve("sub/inner.txt").createParentDirectories().createFile()
         useUnwatchedView(robot)

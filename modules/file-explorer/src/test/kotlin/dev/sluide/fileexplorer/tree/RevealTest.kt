@@ -13,6 +13,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 /** Finding the item of a path for the explorer's reveal; no display needed. */
 class RevealTest {
@@ -119,5 +120,19 @@ class RevealTest {
         val file = later.resolve("f.txt").createFile()
 
         assertNull(findForReveal(tops, file))
+    }
+
+    @Test
+    fun `expanding to a new nested path loads the new folders and expands them`() {
+        val top = FileTreeItem(project)
+        top.children
+        val file = project.resolve("a/b/c.txt").also { it.parent.createDirectories() }.createFile()
+
+        val item = assertNotNull(expandTo(top, file))
+
+        assertEquals(file, item.value)
+        val a = top.children.single()
+        assertTrue(top.isExpanded && a.isExpanded && a.children.single().isExpanded)
+        assertNull(expandTo(top, outside.resolve("x")))
     }
 }

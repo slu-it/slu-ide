@@ -33,3 +33,20 @@ internal fun findForReveal(
     }
     return folders to item
 }
+
+/**
+ * Expands [parent] and the folders below it down to [path], reading a folder again if the entry is new, and returns
+ * the item of [path]; `null`, expanding what was found on the way, if [path] is not below [parent] or does not exist.
+ * A direct child is found after reading [parent] again.
+ */
+internal fun expandTo(
+    parent: FileTreeItem,
+    path: Path,
+): TreeItem<Path>? {
+    parent.isExpanded = true
+    // Reads the folder for the first time, or again if it was loaded.
+    parent.refresh()
+    val (folders, item) = findForReveal(listOf(parent), path) ?: return null
+    folders.forEach { it.isExpanded = true }
+    return item
+}

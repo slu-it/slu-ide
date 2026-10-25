@@ -20,6 +20,7 @@ import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileexplorer.tree.PathCell
 import dev.sluide.fileexplorer.tree.TreeDragAndDrop
 import dev.sluide.fileexplorer.tree.defaultCopyModifier
+import dev.sluide.fileexplorer.tree.expandTo
 import dev.sluide.fileexplorer.tree.findForReveal
 import dev.sluide.fileexplorer.tree.startWidth
 import dev.sluide.fileicons.FILE_ICONS_CSS
@@ -489,15 +490,12 @@ class FileExplorerView(
     /** Whether [item] is still in the tree, e.g. not gone with a folder opened since. */
     private fun isShown(item: TreeItem<Path>): Boolean = generateSequence(item) { it.parent }.last() === root
 
-    /** Shows [path], an entry of [parent], at once, without waiting for the watch, selects and returns it. */
+    /** Shows [path], an entry below [parent], at once, without waiting for the watch, selects and returns it. */
     private fun select(
         parent: FileTreeItem,
         path: Path,
     ): TreeItem<Path>? {
-        parent.isExpanded = true
-        // Reads the folder for the first time, or again if it was loaded.
-        parent.refresh()
-        val item = parent.children.firstOrNull { it.value == path } ?: return null
+        val item = expandTo(parent, path) ?: return null
         selectRow(item)
         return item
     }

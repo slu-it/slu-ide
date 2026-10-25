@@ -11,6 +11,8 @@ import kotlin.io.path.createFile
 import kotlin.io.path.createParentDirectories
 import kotlin.io.path.deleteExisting
 import kotlin.io.path.exists
+import kotlin.io.path.isDirectory
+import kotlin.io.path.isRegularFile
 import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.name
 import kotlin.io.path.writeText
@@ -84,6 +86,37 @@ class ExplorerEditsTest {
     }
 
     @Test
+    fun `a path creates the missing folders, selects the new file and opens it`() {
+        project.resolve("a").createDirectories()
+        val fake = open()
+        fake.answerName = { "a/b/c.txt" }
+
+        fake.edits.create(null, folder = false)
+
+        assertEquals(project.resolve("a/b/c.txt"), fake.selectedPaths().single())
+        assertTrue(project.resolve("a/b/c.txt").isRegularFile())
+        assertEquals(listOf(project.resolve("a/b/c.txt")), fake.opened)
+        assertTrue(fake.item("a").isExpanded)
+        assertEquals("“a/b/c.txt” already exists in this folder.", fake.nameAsks.single().validate("a/b/c.txt"))
+        assertEquals("The path must not contain an empty part (//).", fake.nameAsks.single().validate("a//b"))
+    }
+
+    @Test
+    fun `a new folder path selects the deepest folder, a trailing slash in a new file creates folders only`() {
+        val fake = open()
+        fake.answerName = { "a/b/c" }
+        fake.edits.create(null, folder = true)
+        assertEquals(listOf(project.resolve("a/b/c")), fake.selectedPaths())
+
+        fake.answerName = { "docs/notes/" }
+        fake.edits.create(null, folder = false)
+
+        assertTrue(project.resolve("docs/notes").isDirectory())
+        assertEquals(listOf(project.resolve("docs/notes")), fake.selectedPaths())
+        assertEquals(emptyList(), fake.opened)
+    }
+
+    @Test
     fun `nothing is created in a file`() {
         project.resolve("a.txt").createFile()
         val fake = open()
@@ -104,6 +137,8 @@ class ExplorerEditsTest {
         fake.edits.rename(fake.item("a.txt"))
         assertTrue(file.exists())
         assertEquals(emptyList(), fake.errors)
+        // Rename takes single names, unlike New File.
+        assertEquals("The name must not contain / or \\.", fake.nameAsks.single().validate("a/b"))
 
         fake.answerName = {
             file.deleteExisting()

@@ -3,6 +3,7 @@ package dev.sluide.fileexplorer.actions
 import dev.sluide.fileexplorer.ClipboardFiles
 import dev.sluide.fileexplorer.ExplorerClipboard
 import dev.sluide.fileexplorer.tree.FileTreeItem
+import dev.sluide.fileexplorer.tree.expandTo
 import javafx.scene.control.TreeItem
 import java.nio.file.Files
 import java.nio.file.Path
@@ -87,9 +88,7 @@ internal class FakeEditHost(
                 Files.isRegularFile(path).also { if (it) opened.add(path) }
             },
             select = { parent, path ->
-                parent.isExpanded = true
-                parent.refresh()
-                parent.children.firstOrNull { it.value == path }?.also(::selectRow)
+                expandTo(parent, path)?.also(::selectRow)
             },
             selectRow = ::selectRow,
             selectRows = { items ->

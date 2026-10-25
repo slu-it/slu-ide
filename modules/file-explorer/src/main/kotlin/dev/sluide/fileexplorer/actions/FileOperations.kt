@@ -25,8 +25,9 @@ internal class FileOperationException(
 
 /**
  * Creates, renames, moves, copies and deletes files and folders after checking their names (ADR 0024, ADR 0073,
- * ADR 0092). Names are single entries of a folder: no paths, and renaming never moves anything to another folder;
- * [move] does, keeping the name. Deleting is permanent.
+ * ADR 0092, ADR 0094). Names are single entries of a folder, only new entries may be given as a path
+ * ([createPath]); renaming never moves anything to another folder; [move] does, keeping the name. Deleting is
+ * permanent.
  */
 internal object FileOperations {
     /**
@@ -38,59 +39,112 @@ internal object FileOperations {
         name: String,
         folder: Path,
         renaming: Path? = null,
-    ): String? =
+    ): String? {
+        syntaxProblem(name)?.let { return it }
+        if (renaming != null && name == renaming.fileName.toString()) return null
+        val target = resolveOrNull(folder, name) ?: return "The name contains characters the file system cannot store."
+        return when {
+            renaming != null && isSameEntry(target, renaming) -> null
+            Files.exists(target, NOFOLLOW_LINKS) -> "“$name” already exists in this folder."
+            else -> null
+        }
+    }
+
+    private fun syntaxProblem(name: String): String? =
         when {
-            name.isEmpty() -> {
-                "Enter a name."
-            }
+            name.isEmpty() -> "Enter a name."
+            '\u0000' in name -> "The name must not contain a NUL character."
+            name.isBlank() || name != name.trim() -> "The name must not start or end with a space."
+            '/' in name || '\\' in name -> "The name must not contain / or \\."
+            name == "." || name == ".." -> "“$name” cannot be used as a name."
+            else -> null
+        }
 
-            '\u0000' in name -> {
-                "The name must not contain a NUL character."
-            }
+    private fun resolveOrNull(
+        folder: Path,
+        name: String,
+    ): Path? =
+        try {
+            folder.resolve(name)
+        } catch (_: InvalidPathException) {
+            null
+        }
 
-            name.isBlank() || name != name.trim() -> {
-                "The name must not start or end with a space."
+    /**
+     * Why [path], `/`-separated (also `\` if [windows]), cannot be created in [folder]; `null` if it can (ADR 0094).
+     * The folders on the way may exist (as folders, links to folders too) or be created; the last part must be free.
+     * A trailing `/` is allowed. A single name is checked by [nameProblem].
+     */
+    fun pathProblem(
+        path: String,
+        folder: Path,
+        windows: Boolean = IS_WINDOWS,
+    ): String? {
+        val text = if (windows) path.replace('\\', '/') else path
+        if (windows && ':' in text.substringBefore('/')) {
+            return "“${text.substringBefore('/')}”: The name must not contain :."
+        }
+        if ('/' !in text) return nameProblem(text, folder)
+        if (text.startsWith("/")) return "The path must be relative: it must not start with /."
+        val parts = text.removeSuffix("/").split('/')
+        if (parts.any { it.isEmpty() }) return "The path must not contain an empty part (//)."
+        var current = folder
+        var missing = false
+        for ((index, part) in parts.withIndex()) {
+            syntaxProblem(part)?.let { return if (part.isBlank() || part != part.trim()) "“$part”: $it" else it }
+            // A drive such as D: would leave the folder.
+            if (windows && ':' in part) return "“$part”: The name must not contain :."
+            current = resolveOrNull(current, part) ?: return "“$part” contains characters the file system cannot store."
+            if (!current.normalize().startsWith(folder.normalize())) return "The path must stay inside the folder."
+            val last = index == parts.lastIndex
+            if (missing || !Files.exists(current, NOFOLLOW_LINKS)) {
+                missing = true
+            } else if (last) {
+                return "“${parts.joinToString("/")}” already exists in this folder."
+            } else if (!Files.isDirectory(current)) {
+                return "“${parts.take(index + 1).joinToString("/")}” exists and is not a folder."
             }
+        }
+        return null
+    }
 
-            '/' in name || '\\' in name -> {
-                "The name must not contain / or \\."
-            }
-
-            name == "." || name == ".." -> {
-                "“$name” cannot be used as a name."
-            }
-
-            renaming != null && name == renaming.fileName.toString() -> {
-                null
-            }
-
-            else -> {
-                val target =
+    /**
+     * Creates the folders of [path] (as for [pathProblem]) in [folder] top-down, then the empty file, or a folder if
+     * [isFolder] or [path] ends with `/`, and returns the last one. A folder on the way that exists is taken with its
+     * name on disk, so a path differing in case (case-insensitive file systems) still leads to the created entry.
+     * If it fails part way, what was created stays.
+     */
+    fun createPath(
+        folder: Path,
+        path: String,
+        isFolder: Boolean,
+        windows: Boolean = IS_WINDOWS,
+    ): Path {
+        pathProblem(path, folder, windows)?.let { throw FileOperationException(it) }
+        val text = if (windows) path.replace('\\', '/') else path
+        val parts = text.removeSuffix("/").split('/')
+        val lastIsFolder = isFolder || text.endsWith("/")
+        var current = folder
+        for ((index, part) in parts.withIndex()) {
+            val last = index == parts.lastIndex
+            current = current.resolve(if (last) part else nameOnDisk(current, part))
+            if (last && !lastIsFolder) {
+                failingWith("create", current) { Files.createFile(current) }
+            } else if (!Files.isDirectory(current)) {
+                failingWith("create", current) {
                     try {
-                        folder.resolve(name)
-                    } catch (_: InvalidPathException) {
-                        null
+                        Files.createDirectory(current)
+                    } catch (e: FileAlreadyExistsException) {
+                        // Covers a race (made meanwhile by another process); fine if it is a folder now.
+                        // Untested: it needs the race.
+                        if (!Files.isDirectory(current)) throw e
+                        current
                     }
-                when {
-                    target == null -> "The name contains characters the file system cannot store."
-                    renaming != null && isSameEntry(target, renaming) -> null
-                    Files.exists(target, NOFOLLOW_LINKS) -> "“$name” already exists in this folder."
-                    else -> null
                 }
             }
         }
-
-    /** Creates the empty file [name] in [folder] and returns it. */
-    fun createFile(
-        folder: Path,
-        name: String,
-    ): Path = create(folder, name) { Files.createFile(it) }
-
-    /** Creates the empty folder [name] in [folder] and returns it. */
-    fun createFolder(
-        folder: Path,
-        name: String,
-    ): Path = create(folder, name) { Files.createDirectory(it) }
+        return current
+    }
 
     /**
      * Renames [path] to [newName] in the same folder and returns the new path. A folder keeps its content; a symbolic
@@ -377,14 +431,20 @@ internal object FileOperations {
         }
     }
 
-    private fun create(
+    /** The name of the entry [name] of [folder] as stored, if it exists in another case; [name] otherwise. */
+    private fun nameOnDisk(
         folder: Path,
         name: String,
-        create: (Path) -> Path,
-    ): Path {
-        requireUsableName(folder, name, null)
-        val path = folder.resolve(name)
-        return failingWith("create", path) { create(path) }
+    ): String {
+        if (!Files.exists(folder.resolve(name), NOFOLLOW_LINKS)) return name
+        val names =
+            try {
+                Files.newDirectoryStream(folder).use { entries -> entries.map { it.fileName.toString() } }
+            } catch (_: IOException) {
+                // Not listable (e.g. only traversable): the name as typed is the best guess.
+                return name
+            }
+        return names.firstOrNull { it == name } ?: names.firstOrNull { it.equals(name, ignoreCase = true) } ?: name
     }
 
     private fun requireUsableName(
@@ -437,6 +497,8 @@ internal object FileOperations {
             else -> e.message ?: e.javaClass.simpleName
         }
 }
+
+private val IS_WINDOWS = System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true)
 
 private const val COPY = "-copy"
 
