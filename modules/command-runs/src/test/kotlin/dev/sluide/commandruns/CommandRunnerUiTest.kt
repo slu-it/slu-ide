@@ -19,6 +19,8 @@ import org.testfx.framework.junit5.ApplicationExtension
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 /**
@@ -82,7 +84,9 @@ class CommandRunnerUiTest {
     }
 
     @Test
-    fun `only a run that started records its arguments`(robot: FxRobot) {
+    fun `only a run that started records its arguments, which the pane shows until the runner is disposed`(
+        robot: FxRobot,
+    ) {
         robot.interact {
             val histories =
                 ArgumentHistories(
@@ -91,7 +95,8 @@ class CommandRunnerUiTest {
                 )
             val history = ArgumentHistory(histories, { dir.resolve("run.sh") }, { dir })
             var stop = false
-            val runner = CommandRunner<Job>(session, RunPane("", ""), { dir }, { _, _ -> stop }, history = history)
+            val pane = RunPane("", "")
+            val runner = CommandRunner<Job>(session, pane, { dir }, { _, _ -> stop }, history = history)
             runner.embed = { _, _ -> LateTerminal() }
 
             assertEquals(StartResult.STARTED, runner.start(Job("a"), command = { "a" }, arguments = "-x"))
@@ -102,7 +107,14 @@ class CommandRunnerUiTest {
             assertEquals(StartResult.FAILED, runner.start(Job("c"), command = unclosed, arguments = "'-z"))
 
             assertEquals(listOf("-x"), histories.entries(dir.resolve("run.sh"), dir))
+            assertEquals(listOf("-x"), pane.history.list.items)
+            assertTrue(pane.history.node.isVisible)
             runner.dispose()
+
+            assertFalse(pane.history.node.isVisible)
+            // Let go of the global expanded state.
+            histories.expanded.set(!histories.expanded.get())
+            assertNotEquals(histories.expanded.get(), pane.history.header.isSelected)
         }
     }
 }

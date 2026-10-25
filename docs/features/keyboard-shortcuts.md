@@ -88,6 +88,10 @@ All previews and images zoom, only while the rendered view has the focus, not in
 | Enter in the task tree | Run the selected tasks, in tree order |
 | Double-click on a task | Run the selected tasks (the clicked one) |
 | Shift+click, Shortcut+click in the task tree | Select several tasks to run together |
+| Down in the arguments | Into the argument history (when it shows) |
+| Up / Down in the argument history | Choose an entry |
+| Enter in the argument history | Put the entry into the arguments |
+| Escape in the argument history | Back to the arguments |
 
 ## Shell scripts
 [shell-scripts.md](shell-scripts.md)
@@ -96,6 +100,10 @@ All previews and images zoom, only while the rendered view has the focus, not in
 |---|---|
 | Shortcut+Enter in a shell script's source | Run the script |
 | Enter in the script's arguments | Run the script |
+| Down in the arguments | Into the argument history (when it shows) |
+| Up / Down in the argument history | Choose an entry |
+| Enter in the argument history | Put the entry into the arguments |
+| Escape in the argument history | Back to the arguments |
 
 ## File explorer
 [file-explorer.md](file-explorer.md)

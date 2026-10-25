@@ -15,8 +15,8 @@ import javafx.scene.layout.VBox
 
 /**
  * The run pane of a view that runs commands (ADR 0088): the labelled arguments of every run ([argumentsPrompt] is an
- * example in the empty field), the status line with Stop and Rerun, and the terminal of the current or last run
- * ([placeholder] before the first). FX thread.
+ * example in the empty field), the history of past arguments (ADR 0091), the status line with Stop and Rerun, and the
+ * terminal of the current or last run ([placeholder] before the first). FX thread.
  */
 class RunPane(
     argumentsPrompt: String,
@@ -57,6 +57,9 @@ class RunPane(
         for (button in listOf(stop, rerun)) button.minWidth = Region.USE_PREF_SIZE
     }
 
+    /** The history of past arguments below them; hidden until a runner attaches one, and while it is empty. */
+    internal val history = ArgumentHistoryPane(arguments)
+
     private val placeholderLabel = Label(placeholder).apply { styleClass += "run-placeholder" }
 
     private val slot = StackPane(placeholderLabel).apply { styleClass += "run-terminal-slot" }
@@ -70,6 +73,7 @@ class RunPane(
                         styleClass += "run-row"
                         alignment = Pos.CENTER_LEFT
                     },
+                    history.node,
                     HBox(status, stop, rerun).apply {
                         styleClass += "run-row"
                         alignment = Pos.CENTER_LEFT

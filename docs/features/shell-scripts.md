@@ -14,8 +14,8 @@ Shell scripts open as source that can be run, with the output in a terminal besi
 ## The view
 - Opens as **Split**: the source on the left, the run pane on the right (scripts usually get arguments). The toolbar
   has **Run** (play icon) on the left and the modes **Source | Split | Output** on the right. Output is the run pane:
-  the arguments field (labelled "Arguments:"), the status line with **Stop** and **Rerun**, and the terminal of the
-  last run.
+  the arguments field (labelled "Arguments:"), the history of past arguments, the status line with **Stop** and
+  **Rerun**, and the terminal of the last run.
 - A run shows the output beside the source: Source switches to Split; Split and Output stay as they are.
 - Shown again (tab selected), the view focuses the source, or the arguments while the output is shown alone. Going to a
   line while only the output shows switches to Split first.
@@ -32,7 +32,8 @@ Shell scripts open as source that can be run, with the output in a terminal besi
   shows above the script's output.
 - **Arguments** (e.g. `--verbose input.txt`) are split into words like a shell does (spaces separate, quotes group,
   `\` escapes), but each word is passed as it is: no `$VAR`, `~` or glob expansion. An unclosed quote is reported in
-  the status line and nothing runs. Arguments are kept while the tab is open, not stored.
+  the status line and nothing runs. The field starts empty when the view opens; past arguments are in the history
+  (below).
 - Before the run starts, in this order:
   1. While the script still runs: "deploy.sh is still running. Stop it and run deploy.sh?" Asked before saving, since
      the shell reads a script while it runs it. Stopping closes the old terminal at once.
@@ -42,6 +43,23 @@ Shell scripts open as source that can be run, with the output in a terminal besi
      execute permission only (`chmod u+x`) and runs; if the file still cannot be executed (e.g. on a `noexec` mount or
      a file system without permissions) the status line says so.
 - There is no project trust check: a run is always started by the user.
+
+## History
+Below the arguments, the **History** section lists the arguments of the script's past runs, newest first
+([ADR 0091](../adr/0091-argument-history-of-runs.md)):
+- A run's arguments are recorded when it starts, trimmed; not when the question before it is answered no or it cannot
+  start (e.g. an unclosed quote), and not when they are blank. Arguments used again move to the top; at most 20 are
+  kept per script, the oldest drops.
+- Kept per file with the project, in `~/.sluide/projects/<id>.json`, or in `~/.sluide/outside-projects.json` for a
+  file outside the project, such as a scratch ([ADR 0090](../adr/0090-per-project-metadata-store.md)). Moving or
+  renaming the file in the explorer keeps its history; deleting it there drops it.
+- A click on an entry puts it into the arguments field, without running. **✕** (on the row under the mouse or the
+  selected one) removes that entry.
+- **Down** in the arguments goes into the list, on the newest entry; **Up**/**Down** choose, **Enter** puts the
+  entry into the arguments, **Escape** goes back to the arguments unchanged.
+- **▾ History** / **▸ History** expands or collapses the list; up to 5 rows show, more scroll. Whether it is expanded
+  is one setting for all run panes (the Gradle view's too), kept across restarts. The section is hidden while the
+  history is empty.
 
 ## Status
 As for Gradle runs ([gradle.md](gradle.md)):

@@ -1,6 +1,6 @@
 /*
- * The run pane of views that run commands (RunPane): the arguments, the status line with Stop and Rerun, and the
- * terminal of the last run. Colours of its own have dark rules with single-class selectors (ADR 0009).
+ * The run pane of views that run commands (RunPane): the arguments, their history, the status line with Stop and Rerun,
+ * and the terminal of the last run. Colours of its own have dark rules with single-class selectors (ADR 0009).
  */
 
 .run-row {
@@ -49,4 +49,47 @@
     .run-status-stopped {
         -fx-text-fill: #e0a040;
     }
+}
+
+/* The history of past arguments (ArgumentHistoryPane): a flat toggle and a calm list, Modena's colours only. */
+
+.run-history {
+    -fx-padding: 0 6 3 6;
+    -fx-spacing: 2;
+}
+
+.run-history-header {
+    -fx-background-color: transparent;
+    -fx-background-radius: 3;
+    -fx-padding: 1 4 1 2;
+}
+
+.run-history-header:hover {
+    -fx-background-color: -fx-hover-base;
+}
+
+.run-history-header:focused {
+    -fx-background-color: -fx-faint-focus-color;
+}
+
+.run-history-list {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.run-history-list .list-cell {
+    -fx-padding: 0 4 0 4;
+}
+
+.run-history-remove {
+    -fx-background-color: transparent;
+    -fx-background-radius: 3;
+    -fx-padding: 0 3 0 3;
+    -fx-text-fill: -fx-text-background-color;
+}
+
+.run-history-remove:hover {
+    -fx-background-color: -fx-hover-base;
+    -fx-text-fill: -fx-text-base-color;
 }

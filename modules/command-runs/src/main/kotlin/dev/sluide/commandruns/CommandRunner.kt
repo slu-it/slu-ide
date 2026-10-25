@@ -18,7 +18,8 @@ import kotlin.time.Duration.Companion.seconds
  * Runs the jobs of one view (ADR 0086, ADR 0088), one at a time, each a fresh process in a fresh embedded terminal in
  * the [pane] that replaces the previous one: asks before stopping a running job for the next one ([confirmStop]), shows
  * the status line ticking every [tick], the background task row (✕ stops) and the [activity] for the tab. Stop sends
- * Ctrl+C and ends the process after [grace]. The arguments of started runs go into the [history]. FX thread.
+ * Ctrl+C and ends the process after [grace]. The arguments of started runs go into the [history], which the pane shows until
+ * [dispose]. FX thread.
  */
 class CommandRunner<J : RunJob>(
     private val session: CommandRunSession,
@@ -61,6 +62,7 @@ class CommandRunner<J : RunJob>(
 
     init {
         pane.stop.setOnAction { stop() }
+        history?.let(pane.history::attach)
     }
 
     /** The job running now, if any. */
@@ -159,6 +161,8 @@ class CommandRunner<J : RunJob>(
     fun dispose() {
         disposed = true
         onEnded = null
+        // The expanded state is global: the pane must not stay bound to it.
+        if (history != null) pane.history.detach()
         timer.stop()
         if (runs.state is RunState.Running) runs.stopRequested()
         terminal?.close()

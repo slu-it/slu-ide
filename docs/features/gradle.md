@@ -70,7 +70,8 @@ runs them. Decisions: [ADR 0085](../adr/0085-gradle-integration.md); the termina
   where it was: the run's terminal takes it only when clicked (e.g. to answer a prompt).
 - The words in the **Arguments:** field above the terminal are added to every run of the view (e.g. `--info -x test`).
   They are split into words like a shell does (spaces separate, quotes group), but each word is passed quoted: there is no `$VAR`, `~` or
-  glob expansion. An unclosed quote is reported in the status line and nothing runs.
+  glob expansion. An unclosed quote is reported in the status line and nothing runs. The field starts empty when the
+  view opens; past arguments are in the history (below).
 - Every run is a fresh process (`$SHELL -l -i -c '<gradle> <arguments> <tasks>'`) in the build file's folder, in a
   fresh terminal that replaces the previous run's output. The interactive login shell reads the same startup files as
   a terminal tab (e.g. `.zshrc`, where SDKMAN sets `JAVA_HOME` and `PATH`), so Gradle finds the same Java
@@ -80,6 +81,23 @@ runs them. Decisions: [ADR 0085](../adr/0085-gradle-integration.md); the termina
   build?" Stopping closes the old terminal at once.
 - **Stop** sends Ctrl+C (Gradle cancels the build) and ends the process if it has not stopped after 5 seconds.
   **Rerun** runs the last run's tasks with the current arguments.
+
+## History
+Below the arguments, the **History** section lists the arguments of the build file's past runs, newest first
+([ADR 0091](../adr/0091-argument-history-of-runs.md)), as for shell scripts ([shell-scripts.md](shell-scripts.md)):
+- A run's arguments are recorded when it starts, trimmed; not when the question before it is answered no or it cannot
+  start (e.g. an unclosed quote), and not when they are blank. Arguments used again move to the top; at most 20 are
+  kept per build file, the oldest drops.
+- Kept per file with the project, in `~/.sluide/projects/<id>.json`, or in `~/.sluide/outside-projects.json` for a
+  file outside the project ([ADR 0090](../adr/0090-per-project-metadata-store.md)). Moving or renaming the file in the
+  explorer keeps its history; deleting it there drops it.
+- A click on an entry puts it into the arguments field, without running. **✕** (on the row under the mouse or the
+  selected one) removes that entry.
+- **Down** in the arguments goes into the list, on the newest entry; **Up**/**Down** choose, **Enter** puts the
+  entry into the arguments, **Escape** goes back to the arguments unchanged.
+- **▾ History** / **▸ History** expands or collapses the list; up to 5 rows show, more scroll. Whether it is expanded
+  is one setting for all run panes (shell scripts' too), kept across restarts. The section is hidden while the history
+  is empty.
 
 ## Status
 A run shows in three places:
