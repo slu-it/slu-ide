@@ -12,4 +12,10 @@
         -fx-faint-focus-color: #3d7bd922;
         -fx-selection-bar-non-focused: #464a4d;
     }
+
+    /* Modena's prompt text is darker than the field, barely readable on a dark one: a grey dimmer than the text instead
+       (about 4:1 against the field). */
+    .text-input {
+        -fx-prompt-text-fill: #8c8c8c;
+    }
 }

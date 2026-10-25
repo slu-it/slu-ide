@@ -16,7 +16,8 @@
   settings and is not overwritten.
 - Display → Appearance: the theme, Light, Dark or System (default; follows the operating system's light or dark mode,
   also while the IDE runs). It applies to all windows, menus and dialogs, including syntax colours; the terminal stays
-  dark. See [ADR 0009](../adr/0009-themes.md).
+  dark. Placeholder text of input fields is lighter than the field in the dark theme, so it stays readable.
+  See [ADR 0009](../adr/0009-themes.md).
 - Display → Fonts: font, size (6–72) and style (Regular, Bold, Italic, Bold Italic) separately for
   - File Explorer (default: the system UI font),
   - Editor, i.e. all open file views and the diffs opened from the git log (default: Monospaced at the system font

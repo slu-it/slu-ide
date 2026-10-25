@@ -4,9 +4,11 @@ import javafx.application.ColorScheme
 import javafx.beans.property.SimpleObjectProperty
 import javafx.scene.Scene
 import javafx.scene.control.Label
+import javafx.scene.control.TextField
 import javafx.scene.layout.Region
 import javafx.scene.layout.StackPane
 import javafx.scene.paint.Color
+import javafx.scene.text.Text
 import javafx.stage.Stage
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
@@ -56,7 +58,7 @@ class ThemeUiTest {
     }
 
     @Test
-    fun `the dark theme darkens open windows and windows opened later`(robot: FxRobot) {
+    fun `the dark theme darkens open windows and windows opened later, with readable placeholder text`(robot: FxRobot) {
         install(robot)
         val root = stage.scene.root as Region
         assertEquals(ColorScheme.LIGHT, stage.scene.preferences.colorScheme)
@@ -65,6 +67,23 @@ class ThemeUiTest {
         robot.interact { settings.apply(Theme.DARK) }
         assertEquals(ColorScheme.DARK, stage.scene.preferences.colorScheme)
         assertTrue(root.isDark(), "dark after applying the dark theme")
+
+        val field = TextField().apply { promptText = "placeholder" }
+        lateinit var prompt: Color
+        robot.interact {
+            (stage.scene.root as StackPane).children.add(field)
+            field.applyCss()
+            prompt =
+                field
+                    .lookupAll(".text")
+                    .filterIsInstance<Text>()
+                    .first { it.text == "placeholder" }
+                    .fill as Color
+        }
+        assertTrue(
+            prompt.brightness > Color.web("#2b2b2b").brightness + 0.3,
+            "placeholder text is readable, was $prompt",
+        )
 
         lateinit var second: Stage
         robot.interact {
