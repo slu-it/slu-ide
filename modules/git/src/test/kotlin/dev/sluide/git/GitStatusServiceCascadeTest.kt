@@ -94,7 +94,7 @@ class GitStatusServiceCascadeTest {
         assumeTrue(git.available, "no /bin/sh to stand in for git")
         GitStatusLog.sink = { lines += it }
         GitStatusLog.warningSink = { warnings += it }
-        trust = testTrust(repo, listOf(check), scripts.resolve("trust.properties"))
+        trust = testTrust(repo, listOf(check), scripts.resolve("project-data"))
         val inputs =
             GitTrustInputs(setOf(gitFolder.resolve("config")), setOf(gitFolder.resolve("hooks")), emptySet())
         service =

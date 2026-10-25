@@ -1,10 +1,9 @@
 package dev.sluide.projecttrust
 
+import dev.sluide.projectdata.ProjectDataStore
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
-import kotlin.io.path.readText
-import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
@@ -13,7 +12,11 @@ class TrustedProjectsTest {
     @TempDir
     lateinit var dir: Path
 
-    private fun store() = TrustedProjects(dir.resolve("config/project-trust.properties"))
+    private val data by lazy {
+        ProjectDataStore(dir.resolve("projects"), dir.resolve("outside-projects.json"), emptyList())
+    }
+
+    private fun store() = TrustedProjects(data)
 
     private val folder by lazy { dir.resolve("project").createDirectories() }
 
@@ -27,7 +30,7 @@ class TrustedProjectsTest {
     }
 
     @Test
-    fun `without a file there is no decision`() {
+    fun `without a decision there is none`() {
         assertNull(store().decision(folder, "abc"))
     }
 
@@ -41,21 +44,20 @@ class TrustedProjectsTest {
     }
 
     @Test
-    fun `folders are compared normalized`() {
-        store().remember(folder.resolve("sub/.."), "abc", trusted = true)
+    fun `other data of the project is kept`() {
+        data.update(folder) { it.put("lastOpened", 5L) }
 
-        assertEquals(true, store().decision(folder, "abc"))
+        store().remember(folder, "abc", trusted = true)
+
+        assertEquals(5, data.read(folder)?.get("lastOpened")?.asLong())
     }
 
     @Test
-    fun `an unreadable file is never replaced`() {
-        val store = store()
-        store.file.parent.createDirectories()
-        store.file.writeText("key=\\uZZZZ")
+    fun `a malformed trust object gives no decision`() {
+        data.update(folder) { it.put("trust", "yes") }
+        assertNull(store().decision(folder, "abc"))
 
-        store.remember(folder, "abc", trusted = true)
-
-        assertEquals("key=\\uZZZZ", store.file.readText())
-        assertNull(store.decision(folder, "abc"))
+        data.update(folder) { it.putObject("trust").put("fingerprint", "abc") }
+        assertNull(store().decision(folder, "abc"))
     }
 }

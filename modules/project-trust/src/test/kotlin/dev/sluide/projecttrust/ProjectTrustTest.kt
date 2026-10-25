@@ -1,6 +1,7 @@
 package dev.sluide.projecttrust
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.projectdata.ProjectDataStore
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
@@ -45,7 +46,10 @@ class ProjectTrustTest {
 
     private val folder by lazy { dir.resolve("project").createDirectories() }
 
-    private fun store() = TrustedProjects(dir.resolve("config/project-trust.properties"))
+    private fun store() =
+        TrustedProjects(
+            ProjectDataStore(dir.resolve("config/projects"), dir.resolve("config/outside.json"), emptyList()),
+        )
 
     /** A trust of [folder] with [checks] whose first checks have run. */
     private fun opened(vararg checks: ProjectTrustCheck): ProjectTrust {
@@ -73,7 +77,7 @@ class ProjectTrustTest {
 
         assertIs<ProjectTrustState.Trusted>(trust.state.get())
         assertTrue(trust.allows("git"))
-        assertFalse(store().file.exists())
+        assertFalse(dir.resolve("config/projects").exists())
     }
 
     @Test
@@ -162,7 +166,7 @@ class ProjectTrustTest {
 
         trust.answer(true)
         assertTrue(trust.allows("git"))
-        assertFalse(store().file.exists())
+        assertFalse(dir.resolve("config/projects").exists())
     }
 
     @Test
@@ -189,7 +193,7 @@ class ProjectTrustTest {
 
         val state = assertIs<ProjectTrustState.Ask>(trust.state.get())
         assertEquals(2, assertNotNull(state.flagged.single().findings).size)
-        assertFalse(store().file.exists())
+        assertFalse(dir.resolve("config/projects").exists())
     }
 
     @Test
@@ -266,7 +270,7 @@ class ProjectTrustTest {
         assertTrue(trust.awaitAllows("other"))
         val state = assertIs<ProjectTrustState.Ask>(trust.state.get())
         assertEquals(listOf(hook), state.flagged.single().findings)
-        assertFalse(store().file.exists())
+        assertFalse(dir.resolve("config/projects").exists())
     }
 
     @Test
@@ -379,7 +383,7 @@ class ProjectTrustTest {
         assertFalse(trust.decide(trust.state.get(), trusted = false))
 
         assertIs<ProjectTrustState.Trusted>(trust.state.get())
-        assertFalse(store().file.exists())
+        assertFalse(dir.resolve("config/projects").exists())
     }
 
     @Test

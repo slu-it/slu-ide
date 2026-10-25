@@ -64,14 +64,10 @@ Files outside any project have per-file data too: scratch scripts in `~/.sluide/
   this costs little, and nothing is cached that could go stale between windows.
 - Two writers in one process are serialized by the store; two Thoreau processes can still overwrite each other's
   change of the same file (as with the properties files).
-- `projects` and `project-trust` adopt the store in later changes, each with its `LegacyProjectData`; until then the
-  properties files stay as they are.
+- `projects` (`lastOpened`) and `project-trust` (`trust`) keep their data in the store, each with its
+  `LegacyProjectData`; removing a project from the picker forgets its trust decision too.
 - A damaged project file that becomes readable later may bring back data that was changed in the new file meanwhile
   (whichever file is newer wins); this is preferred to blocking every new project while one file is broken.
-- Pending for the package that adopts the store: no module depends on `project-data` yet, so `ide` does not either,
-  and the `ide` row of the module dependencies in [architecture.md](../architecture.md) ("every module but
-  `file-icons` and `text-editing`") does not hold until then; that package adds the dependency edges and updates the
-  row.
 
 ### Rejected alternatives
 - **One JSON file for all projects:** every change rewrites everything, and one broken file loses all projects.

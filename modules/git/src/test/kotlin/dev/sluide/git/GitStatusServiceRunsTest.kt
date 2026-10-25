@@ -227,7 +227,7 @@ class GitStatusServiceRunsTest {
 
     /** A service whose folder's trust has [check]; closed after the test. */
     private fun gated(check: ProjectTrustCheck): Pair<GitStatusService, ProjectTrust> {
-        val trust = testTrust(repo, listOf(check), scripts.resolve("trust.properties"))
+        val trust = testTrust(repo, listOf(check), scripts.resolve("project-data"))
         val gated =
             GitStatusService(
                 GitCli(scripts.resolve("git").toString(), System.getenv()),

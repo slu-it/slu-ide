@@ -6,6 +6,7 @@ import dev.sluide.fileviewers.CodeEditors
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.gradle.GradleSession
 import dev.sluide.gradle.tasks.GradleTask
+import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.projecttrust.ProjectTrustCheck
 import dev.sluide.projecttrust.TrustFinding
@@ -69,7 +70,9 @@ abstract class GradleFileViewUiFixture {
             }
         ProjectTrust(
             listOf(check),
-            TrustedProjects(support.resolve("trust.properties")),
+            TrustedProjects(
+                ProjectDataStore(support.resolve("projects"), support.resolve("outside.json"), emptyList()),
+            ),
             BackgroundTasks.forTests(),
             javafx.application.Platform::runLater,
         ).apply { open(project) }

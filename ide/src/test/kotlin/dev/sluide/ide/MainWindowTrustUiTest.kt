@@ -14,8 +14,6 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
-import kotlin.io.path.exists
-import kotlin.io.path.fileSize
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -110,7 +108,7 @@ class MainWindowTrustUiTest : MainWindowUiFixture() {
         }
         assertIs<ProjectTrustState.Untrusted>(asked[2])
         // Remembered for this folder; that it applies when opened again is ProjectTrustTest's.
-        assertTrue(settingsDir.resolve("project-trust.properties").let { it.exists() && it.fileSize() > 0 })
+        assertTrue(projectData.read(project)?.has("trust") == true)
     }
 
     @Test

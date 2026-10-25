@@ -119,7 +119,7 @@ class ProjectWindowsUiTest {
                 registerBean(GitCli::class.java, Supplier { GitCli(dir.resolve("no-git").toString(), System.getenv()) })
                 registerBean(
                     TrustedProjects::class.java,
-                    Supplier { TrustedProjects(dir.resolve("settings/trust.properties")) },
+                    Supplier { TrustedProjects(projectData) },
                 )
                 register(GitTrustCheck::class.java)
                 register(GitLog::class.java)

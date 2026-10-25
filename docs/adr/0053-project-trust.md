@@ -3,6 +3,7 @@
 - Status: accepted; partly superseded by [0062](0062-git-concurrency.md) (git's check runs again only when a stamp of
   its inputs changed)
 - Date: 2026-10-18
+- Storage superseded by [ADR 0090](0090-per-project-metadata-store.md) (2026-10-25)
 
 ## Context
 Thoreau runs tools on its own in an opened folder. Git is one: `git status` runs on open and on every change, and the

@@ -22,8 +22,9 @@
   - **Trust:** the tools run as usual, with what the folder defines.
   - **Keep Off** (the default; also Esc): the tools with findings stay off for the folder. For git: no markers, no
     changes in editors, an empty git log. A bar under the menu bar says so, with Review… to decide again.
-- **Remembered** per folder (`~/.sluide/project-trust.properties`) for exactly what was shown: opened again with the
-  same findings, nothing is asked. Other findings ask again.
+- **Remembered** per folder for exactly what was shown, in the project's JSON file (field `trust`, [ADR 0090](../adr/0090-per-project-metadata-store.md);
+  migrated from `project-trust.properties`): opened again with the same findings, nothing is asked. Other findings
+  ask again. Removing the project from the picker forgets the decision.
 - **While working:** whenever `.git` changes in what git's check reads (its configuration and included files, hooks,
   the index, `HEAD`, a submodule's `.git`: a commit, a checkout, a setting written by a tool or in a terminal) and after
   every operation of the git log, git's check runs again before git; other changes of `.git` (new objects, reflogs)

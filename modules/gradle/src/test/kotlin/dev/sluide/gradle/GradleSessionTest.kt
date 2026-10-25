@@ -4,6 +4,7 @@ import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.gradle.tasks.GradleProject
 import dev.sluide.gradle.tasks.TaskModel
+import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.projecttrust.TrustedProjects
 import dev.sluide.settings.FontSettings
@@ -46,7 +47,13 @@ class GradleSessionTest {
         GradleSession(
             ProjectTrust(
                 emptyList(),
-                TrustedProjects(dir.resolve("settings/trust.properties")),
+                TrustedProjects(
+                    ProjectDataStore(
+                        dir.resolve("settings/projects"),
+                        dir.resolve("settings/outside.json"),
+                        emptyList(),
+                    ),
+                ),
                 BackgroundTasks.forTests(),
             ),
             runs,

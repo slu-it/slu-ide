@@ -33,6 +33,8 @@ dependencies {
     implementation(project(":modules:http-client"))
     implementation(project(":modules:projects"))
     implementation(project(":modules:project-trust"))
+    // MainWindow's fixtures and the explorer wiring use the ProjectDataStore (ADR 0090).
+    implementation(project(":modules:project-data"))
     // The window's background tasks, shown under the file explorer (ADR 0061).
     implementation(project(":modules:background-tasks"))
     // The shared scratch files in every window's explorer and editor (ADR 0066).

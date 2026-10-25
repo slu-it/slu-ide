@@ -1,6 +1,7 @@
 package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.projecttrust.TrustedProjects
 import java.nio.file.Path
@@ -9,7 +10,13 @@ import java.nio.file.Path
 internal fun trustingTrust(): ProjectTrust =
     ProjectTrust(
         emptyList(),
-        TrustedProjects(Path.of(System.getProperty("java.io.tmpdir"), "sluide-test-trust-never-written.properties")),
+        TrustedProjects(
+            ProjectDataStore(
+                Path.of(System.getProperty("java.io.tmpdir"), "sluide-test-trust-never-written"),
+                Path.of(System.getProperty("java.io.tmpdir"), "sluide-test-trust-never-written.json"),
+                emptyList(),
+            ),
+        ),
         BackgroundTasks.forTests(),
         Runnable::run,
     ).apply {

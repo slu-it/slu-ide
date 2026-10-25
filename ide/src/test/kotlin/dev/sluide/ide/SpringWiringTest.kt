@@ -34,6 +34,7 @@ import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.projects.LegacyRecentProjects
 import dev.sluide.projects.ProjectPicker
 import dev.sluide.projects.RecentProjects
+import dev.sluide.projecttrust.LegacyTrustDecisions
 import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.projecttrust.TrustedProjects
 import dev.sluide.scratches.ScratchFiles
@@ -120,11 +121,16 @@ class SpringWiringTest {
                         GradleGroovyFileViewer::class.java,
                         ShellScriptFileViewer::class.java,
                         TrustedProjects::class.java,
+                        LegacyTrustDecisions::class.java,
                         ScratchFiles::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")
                 }
+                // The store is created with its migration beans (no cycle); creating beans does no I/O, so nothing
+                // reads or writes ~/.sluide here (the migration runs on the store's first access).
+                context.getBean(RecentProjects::class.java)
+                context.getBean(TrustedProjects::class.java)
                 // Every window has its own instance of these (ADR 0014).
                 val windowTypes =
                     listOf(

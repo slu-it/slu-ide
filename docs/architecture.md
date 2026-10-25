@@ -107,6 +107,7 @@ Every edge between modules, as in the `build.gradle.kts` files
 | `git-log` | `background-tasks` | `api` | Read and write threads run on `NamedThreads`; `GitLogView` registers its work as `BackgroundTasks`, given by its constructor. | [0060](adr/0060-logging-conventions.md), [0061](adr/0061-background-tasks.md) |
 | `git-log` | `file-icons` | `implementation` | File-type icons in the commit details. | [0012](adr/0012-file-icons.md) |
 | `projects` | `project-data` | `api` | `RecentProjects` keeps `lastOpened` in the project's data and takes the `ProjectDataStore`; `LegacyRecentProjects` migrates `projects.properties`. | [0090](adr/0090-per-project-metadata-store.md) |
+| `project-trust` | `project-data` | `api` | `TrustedProjects` keeps the `trust` field in the project's data and takes the `ProjectDataStore`; `LegacyTrustDecisions` migrates `project-trust.properties`. | [0090](adr/0090-per-project-metadata-store.md) |
 | `project-trust` | `background-tasks` | `api` | The trust checks run on `NamedThreads` and as `BackgroundTasks`; `ProjectTrust`'s constructor takes the registry. | [0060](adr/0060-logging-conventions.md), [0061](adr/0061-background-tasks.md) |
 | `file-explorer` | `file-watcher` | `api` | Loaded folders are watched; `FileExplorerView` takes the `FileWatcher`. | [0006](adr/0006-file-watching.md) |
 | `file-explorer` | `settings` | `api` | Uses the configured fonts; `FileExplorerView` takes `FontSettings`. | [0008](adr/0008-settings.md), [0067](adr/0067-feature-settings-in-their-module.md) |

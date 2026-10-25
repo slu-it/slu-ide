@@ -136,7 +136,7 @@ abstract class MainWindowUiFixture {
     internal val projectTrust by lazy {
         ProjectTrust(
             listOf(gitTrustCheck),
-            TrustedProjects(settingsDir.resolve("project-trust.properties")),
+            TrustedProjects(projectData),
             BackgroundTasks.forTests(),
         )
     }
