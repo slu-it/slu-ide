@@ -2,6 +2,7 @@ package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.backgroundtasks.BackgroundTasksView
+import dev.sluide.fileexplorer.ExplorerBar
 import dev.sluide.fileexplorer.FileExplorerView
 import javafx.beans.InvalidationListener
 import javafx.beans.Observable
@@ -10,14 +11,15 @@ import javafx.scene.layout.Priority
 import javafx.scene.layout.VBox
 
 /**
- * The left part of the main window: the file explorer, and below it the background tasks running for a while
- * (ADR 0061), which take no room while there are none.
+ * The left part of the main window: the file explorer under its button [bar], and below it the background tasks
+ * running for a while (ADR 0061), which take no room while there are none.
  */
 internal fun leftPane(
+    bar: ExplorerBar,
     fileExplorer: FileExplorerView,
     backgroundTasks: BackgroundTasks,
 ): VBox =
-    VBox(fileExplorer, BackgroundTasksView(backgroundTasks)).apply {
+    VBox(bar, fileExplorer, BackgroundTasksView(backgroundTasks)).apply {
         VBox.setVgrow(fileExplorer, Priority.ALWAYS)
     }
 

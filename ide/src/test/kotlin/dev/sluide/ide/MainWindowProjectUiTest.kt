@@ -3,6 +3,7 @@ package dev.sluide.ide
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.backgroundtasks.BackgroundTasksView
 import dev.sluide.commandruns.CommandRunSession
+import dev.sluide.fileexplorer.ExplorerBar
 import dev.sluide.fileexplorer.ExplorerClipboard
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.IgnoreRuleEffects
@@ -15,6 +16,7 @@ import javafx.scene.Node
 import javafx.scene.control.Label
 import javafx.scene.control.MenuItem
 import javafx.scene.control.TreeCell
+import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
 import javafx.scene.layout.VBox
@@ -85,7 +87,9 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         val left = fileExplorer.parent as VBox
         assertEquals<Node>(left, splitPaneOf(editorArea).items.first())
         val view = left.children.filterIsInstance<BackgroundTasksView>().single()
-        assertEquals(listOf<Node>(fileExplorer, view), left.children)
+        val bar = left.children.first()
+        assertIs<ExplorerBar>(bar, "the button bar is above the explorer")
+        assertEquals(listOf<Node>(bar, fileExplorer, view), left.children)
         assertFalse(view.isVisible, "idle")
         assertFalse(view.isManaged)
         val minWidth = left.minWidth(-1.0)
@@ -103,7 +107,7 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         )
         assertTrue(view.height > 0)
         assertEquals(fileExplorer.layoutY + fileExplorer.height, view.layoutY, 1.0, "below the explorer")
-        assertEquals(left.height, fileExplorer.height + view.height, 1.0)
+        assertEquals(left.height, bar.layoutBounds.height + fileExplorer.height + view.height, 1.0)
         assertEquals(minWidth, left.minWidth(-1.0), "a narrow explorer stays narrow")
 
         task.close()
@@ -368,4 +372,59 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         assertNull(storedArguments(script))
         assertEquals("[\"--x\"]", storedArguments(readme))
     }
+
+    @Test
+    fun `Select Opened File reveals the selected tab's file in the explorer and focuses it, from menu, bar and tab`(
+        robot: FxRobot,
+    ) {
+        val file =
+            project
+                .resolve(
+                    "src/main/kotlin/Deep.kt",
+                ).also { it.parent.createDirectories() }
+                .also { it.createFile() }
+        robot.interact { projectService.open(project) }
+        val select = menu(robot, "View").items.single { it.text == "Select Opened File" }
+        assertEquals(KeyCodeCombination(KeyCode.F1, KeyCombination.ALT_DOWN), select.accelerator)
+        robot.interact { assertTrue(select.isDisable, "no tab") }
+        val bar = (fileExplorer.parent as VBox).children.filterIsInstance<ExplorerBar>().single()
+        robot.interact { assertTrue(bar.selectOpenedButton.isDisable, "no tab") }
+
+        robot.interact { editorArea.open(file) }
+        robot.interact { assertFalse(select.isDisable) }
+        robot.interact { assertFalse(bar.selectOpenedButton.isDisable) }
+
+        // The tab menu offers the item for the file, since the explorer can show it.
+        assertTrue(WaitForAsyncUtils.asyncFx(Callable { editorArea.tabMenu.canSelectInExplorer(file) }).get())
+
+        // Each trigger shows the file from a collapsed tree and moves the focus into the explorer.
+        val triggers =
+            mapOf<String, () -> Unit>(
+                "View menu" to { select.fire() },
+                "bar button" to { bar.selectOpenedButton.fire() },
+                "tab menu hook" to { checkNotNull(editorArea.selectInExplorer)(file) },
+            )
+        for ((name, fire) in triggers) {
+            robot.interact {
+                fileExplorer.collapseAll()
+                fileExplorer.scene.root.requestFocus()
+            }
+            assertFalse(renderedExplorerNames(robot).contains("Deep.kt"), name)
+
+            robot.interact { fire() }
+
+            robot.interact {
+                assertEquals(file, fileExplorer.selectionModel.selectedItem?.value, name)
+                assertTrue(fileExplorer.isFocused, "$name: the explorer has the focus")
+            }
+            assertTrue(renderedExplorerNames(robot).contains("Deep.kt"), name)
+        }
+
+        robot.interact { menu(robot, "Terminal").items.single().fire() }
+        robot.interact { assertTrue(select.isDisable, "a terminal tab has no file") }
+        robot.interact { assertTrue(bar.selectOpenedButton.isDisable, "a terminal tab has no file") }
+    }
+
+    private fun renderedExplorerNames(robot: FxRobot): List<String?> =
+        robot.lookup(".tree-cell").queryAllAs(TreeCell::class.java).mapNotNull { it.text }
 }

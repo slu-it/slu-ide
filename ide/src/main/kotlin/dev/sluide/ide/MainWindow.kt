@@ -5,6 +5,7 @@ import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
 import dev.sluide.editorarea.askToClose
+import dev.sluide.fileexplorer.ExplorerBar
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileexplorer.FolderAction
 import dev.sluide.fileexplorer.FolderActionResult
@@ -39,6 +40,7 @@ import dev.sluide.settings.SettingsDialog
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.ThemedWindows
 import dev.sluide.terminal.Terminals
+import javafx.beans.value.ObservableValue
 import javafx.scene.Scene
 import javafx.scene.control.Alert
 import javafx.scene.control.Menu
@@ -160,7 +162,9 @@ class MainWindow(
 
     fun show(stage: Stage) {
         themedWindows.install()
-        val left = leftPane(fileExplorer, backgroundTasks)
+        val explorerBar =
+            ExplorerBar(fileExplorer, editorArea.selectedFile, ::selectOpenedFile, selectOpenedKey.displayText)
+        val left = leftPane(explorerBar, fileExplorer, backgroundTasks)
         // Resizing the window resizes the editor area; the explorer keeps its width until the user drags the divider
         // (or the editor area is as narrow as it can be).
         val split = SplitPane(left, editorArea).apply { SplitPane.setResizableWithParent(left, false) }
@@ -170,7 +174,7 @@ class MainWindow(
                     VBox(
                         MenuBar(
                             fileMenu(stage),
-                            viewMenu(),
+                            viewMenu(explorerBar.canSelectOpened),
                             gitLog.gitMenu(),
                             tools.terminalMenu(stage),
                             tools.dockerSandboxMenu(stage),
@@ -182,6 +186,8 @@ class MainWindow(
             }
 
         fileExplorer.onOpenFile = { editorArea.open(it) }
+        editorArea.selectInExplorer = { fileExplorer.reveal(it, focus = true) }
+        editorArea.canSelectInExplorer = fileExplorer::canReveal
         fileExplorer.canOpenFile = editorArea::canOpen
         // Per-file project data (run-argument histories, ADR 0091) follows files and folders renamed or moved in the
         // explorer, also of files not open; re-keyed first, so a view that follows reads its data under the new path.
@@ -339,7 +345,9 @@ class MainWindow(
         )
     }
 
-    private fun viewMenu(): Menu {
+    private val selectOpenedKey = KeyCodeCombination(KeyCode.F1, KeyCombination.ALT_DOWN)
+
+    private fun viewMenu(canSelectOpened: ObservableValue<Boolean>): Menu {
         // Switches between the editor of the selected file and its diff against HEAD (ADR 0021).
         val showChanges =
             MenuItem("Show Changes").apply {
@@ -347,7 +355,19 @@ class MainWindow(
                 disableProperty().bind(editorArea.canToggleDiff.map { !it })
                 setOnAction { editorArea.toggleDiff() }
             }
-        return Menu("View", null, showChanges, gitLog.gitLogMenuItem())
+        // Reveals the selected tab's file in the explorer and focuses it (ADR 0095); Alt is Option on macOS.
+        val selectOpened =
+            MenuItem("Select Opened File").apply {
+                accelerator = selectOpenedKey
+                disableProperty().bind(canSelectOpened.map { !it })
+                setOnAction { selectOpenedFile() }
+            }
+        return Menu("View", null, showChanges, selectOpened, gitLog.gitLogMenuItem())
+    }
+
+    /** Reveals the file of the selected tab in the explorer, with the focus; nothing without a file under a root. */
+    private fun selectOpenedFile() {
+        editorArea.selectedFile.value?.let { fileExplorer.reveal(it, focus = true) }
     }
 
     private fun chooseFolder(stage: Stage) {
