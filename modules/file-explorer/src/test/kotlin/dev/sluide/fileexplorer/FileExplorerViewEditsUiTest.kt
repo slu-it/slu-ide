@@ -211,11 +211,11 @@ class FileExplorerViewEditsUiTest : FileExplorerViewUiFixture() {
         val sub = project.resolve("sub").createDirectories()
         robot.interact { view.open(project) }
         val commands = mutableListOf<List<String>>()
-        view.launchCommand = { commands.add(it) }
-        view.fileManager = systemFileManager("Mac OS X")
-        val label = view.fileManager.label
+        view.fileManagerActions.launchCommand = { commands.add(it) }
+        view.fileManagerActions.fileManager = systemFileManager("Mac OS X")
+        val label = view.fileManagerActions.fileManager.label
 
-        val reveal = menuItemFor(robot, cellNamed(robot, "a.txt"), view.fileManager.revealLabel)
+        val reveal = menuItemFor(robot, cellNamed(robot, "a.txt"), view.fileManagerActions.fileManager.revealLabel)
         assertFalse(reveal.isDisable)
         robot.interact { reveal.fire() }
         assertEquals(project.resolve("a.txt").toString(), commands.single().last())
@@ -237,11 +237,11 @@ class FileExplorerViewEditsUiTest : FileExplorerViewUiFixture() {
         val errors = mutableListOf<String>()
         val tried = mutableListOf<List<List<String>>>()
         view.showError = { errors.add(it) }
-        view.fileManager = systemFileManager("Linux")
+        view.fileManagerActions.fileManager = systemFileManager("Linux")
         val background = mutableListOf<Runnable>()
         view.runInBackground = { background.add(it) }
         view.dispatch = { it.run() }
-        view.launchFirst = {
+        view.fileManagerActions.launchFirst = {
             tried.add(it)
             IOException("no file manager")
         }
@@ -282,9 +282,9 @@ class FileExplorerViewEditsUiTest : FileExplorerViewUiFixture() {
         robot.interact { view.open(project) }
         val errors = mutableListOf<String>()
         view.showError = { errors.add(it) }
-        view.launchCommand = { throw IOException("no such program") }
+        view.fileManagerActions.launchCommand = { throw IOException("no such program") }
 
-        val item = menuItemFor(robot, cellNamed(robot, "sub"), view.fileManager.label)
+        val item = menuItemFor(robot, cellNamed(robot, "sub"), view.fileManagerActions.fileManager.label)
         robot.interact { item.fire() }
         assertEquals(1, errors.size)
         assertTrue(errors.single().contains(sub.toString()))

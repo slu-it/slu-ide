@@ -8,16 +8,13 @@ import dev.sluide.fileexplorer.actions.ExplorerEditHost
 import dev.sluide.fileexplorer.actions.ExplorerEdits
 import dev.sluide.fileexplorer.actions.ExplorerMenuHost
 import dev.sluide.fileexplorer.actions.ExplorerMoves
+import dev.sluide.fileexplorer.actions.FileManagerActions
 import dev.sluide.fileexplorer.actions.MoveQuestion
-import dev.sluide.fileexplorer.actions.SystemFileManager
 import dev.sluide.fileexplorer.actions.askForName
 import dev.sluide.fileexplorer.actions.askToCopy
 import dev.sluide.fileexplorer.actions.askToDelete
 import dev.sluide.fileexplorer.actions.askToMove
 import dev.sluide.fileexplorer.actions.buildExplorerMenu
-import dev.sluide.fileexplorer.actions.launch
-import dev.sluide.fileexplorer.actions.launchFirstSuccess
-import dev.sluide.fileexplorer.actions.systemFileManager
 import dev.sluide.fileexplorer.tree.EXPAND_DELAY
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileexplorer.tree.PathCell
@@ -46,7 +43,6 @@ import javafx.stage.Window
 import javafx.util.Duration
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
-import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.IdentityHashMap
@@ -166,46 +162,15 @@ class FileExplorerView(
             }.showAndWait()
     }
 
-    /** The file manager of the operating system, for Open in Finder/Explorer/File Manager. */
-    internal var fileManager: SystemFileManager = systemFileManager()
-
-    /** Starts the command of the file manager; tests replace it. */
-    internal var launchCommand: (List<String>) -> Unit = ::launch
-
-    /**
-     * Runs the commands of a reveal in order until one succeeds, waiting for each (so off the JavaFX thread); the
-     * failure of the last one, or null. Tests replace it.
-     */
-    internal var launchFirst: (List<List<String>>) -> IOException? = ::launchFirstSuccess
-
-    /**
-     * Opens the folder of [target], the project folder for the empty area, in the file manager of the system; shows a
-     * regular file in its folder instead.
-     */
-    internal fun openInFileManager(target: FileTreeItem?) {
-        val folder = (target ?: projectItem)?.value ?: return
-        if (target != null && Files.isRegularFile(folder)) return reveal(folder)
-        try {
-            launchCommand(fileManager.command(folder))
-        } catch (e: IOException) {
-            showError("Could not open $folder in ${fileManager.name}: ${e.message}")
-        }
-    }
-
-    private fun reveal(file: Path) {
-        val commands = fileManager.reveal(file)
-        val fail = { e: IOException -> showError("Could not open $file in ${fileManager.name}: ${e.message}") }
-        if (commands.size == 1) {
-            // Finder and Explorer return at once (and Explorer exits with 1 on success): start, do not wait.
-            try {
-                launchCommand(commands.single())
-            } catch (e: IOException) {
-                fail(e)
-            }
-        } else {
-            runInBackground { launchFirst(commands)?.let { e -> dispatch { fail(e) } } }
-        }
-    }
+    /** Open in File Manager, Reveal and Open in Terminal; its seams are replaced by tests. */
+    internal val fileManagerActions =
+        FileManagerActions(
+            projectFolder = { projectItem?.value },
+            showError = { showError(it) },
+            runInBackground = { runInBackground(it) },
+            dispatch = { dispatch(it) },
+            openInTerminal = { openInTerminal },
+        )
 
     // The hooks and test seams are read when an edit runs, not now, so later changes take effect.
     private val editHost =
@@ -348,14 +313,10 @@ class FileExplorerView(
                     cut = { copies.cut(it) },
                     copy = { copies.copy(it) },
                     paste = { copies.paste(it) },
-                    fileManagerLabel = { if (it) fileManager.revealLabel else fileManager.label },
-                    openInFileManager = { openInFileManager(it) },
+                    fileManagerLabel = { fileManagerActions.label(it) },
+                    openInFileManager = { fileManagerActions.open(it?.value) },
                     terminalOffered = { openInTerminal != null },
-                    openInTerminal = { target ->
-                        val path = (target ?: projectItem)?.value
-                        val folder = if (path != null && Files.isRegularFile(path)) path.parent else path
-                        folder?.let { openInTerminal?.invoke(it) }
-                    },
+                    openInTerminal = { fileManagerActions.openTerminal(it?.value) },
                     refreshAll = { refreshAll() },
                 ),
             )
