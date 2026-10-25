@@ -93,8 +93,8 @@ internal class WindowGitLog(
         // Show History in the explorer and the editor's tabs opens a file's history in the git log area (ADR 0046).
         fileExplorer.showHistory = gitLogView::showHistory
         fileExplorer.canShowHistory = ::canShowHistory
-        editorArea.showHistory = gitLogView::showHistory
-        editorArea.canShowHistory = ::canShowHistory
+        editorArea.tabMenu.showHistory = gitLogView::showHistory
+        editorArea.tabMenu.canShowHistory = ::canShowHistory
     }
 
     /** The Commit tab lists what can be committed: tells it that the working tree changed (ADR 0048). */

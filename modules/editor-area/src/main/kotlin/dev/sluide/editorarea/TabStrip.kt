@@ -23,7 +23,6 @@ import javafx.scene.shape.Circle
 import javafx.scene.shape.Rectangle
 import javafx.util.Duration
 import javafx.util.Subscription
-import java.nio.file.Path
 import kotlin.math.abs
 
 private val SELECTED: PseudoClass = PseudoClass.getPseudoClass("selected")
@@ -278,23 +277,8 @@ internal class TabStrip(
     private fun Node.contains(target: EventTarget): Boolean =
         generateSequence(target as? Node) { it.parent }.any { it === this }
 
-    /**
-     * Shows the history of a tab's file, e.g. in the git log area (ADR 0046); `null` leaves Show History out of the
-     * tabs' context menus, which have it only for tabs showing a file on disk.
-     */
-    var showHistory: ((Path) -> Unit)? = null
-
-    /** Whether Show History is enabled for a tab's file; asked when its context menu opens. */
-    var canShowHistory: (Path) -> Boolean = { false }
-
-    /**
-     * Selects a tab's file in the file explorer: Select in Explorer in the context menu of the tabs that show a file,
-     * only while set. Set by the window.
-     */
-    var selectInExplorer: ((Path) -> Unit)? = null
-
-    /** Whether Select in Explorer is enabled for a tab's file; asked when its context menu opens. */
-    var canSelectInExplorer: (Path) -> Boolean = { false }
+    /** What the window offers in the context menus of the tabs. */
+    val menuHooks = TabMenuHooks()
 
     /** The context menu of the header of [tab]. */
     fun contextMenuOf(tab: EditorTab): ContextMenu = headers.single { it.tab === tab }.menu
@@ -399,8 +383,8 @@ internal class TabStrip(
             val closeRight =
                 item("Close Tabs to the Right") { close(editorTabs.rightOf(tab)) { editorTabs.closeRightOf(tab) } }
             val file = tab as? OpenFile
-            val history = item("Show History") { file?.let { showHistory?.invoke(it.path) } }
-            val select = item("Select in Explorer") { file?.let { selectInExplorer?.invoke(it.path) } }
+            val history = item("Show History") { file?.let { menuHooks.showHistory?.invoke(it.path) } }
+            val select = item("Select in Explorer") { file?.let { menuHooks.selectInExplorer?.invoke(it.path) } }
             val fileItems = listOf(SeparatorMenuItem(), history, select)
             return ContextMenu(
                 item("Close") { close(listOf(tab)) { editorTabs.close(tab) } },
@@ -422,12 +406,12 @@ internal class TabStrip(
                     if (file != null) {
                         val offered =
                             listOfNotNull(
-                                history.takeIf { showHistory != null },
-                                select.takeIf { selectInExplorer != null },
+                                history.takeIf { menuHooks.showHistory != null },
+                                select.takeIf { menuHooks.selectInExplorer != null },
                             )
                         if (offered.isNotEmpty()) items.addAll(listOf(fileItems.first()) + offered)
-                        history.isDisable = !canShowHistory(file.path)
-                        select.isDisable = !canSelectInExplorer(file.path)
+                        history.isDisable = !menuHooks.canShowHistory(file.path)
+                        select.isDisable = !menuHooks.canSelectInExplorer(file.path)
                     }
                 }
             }

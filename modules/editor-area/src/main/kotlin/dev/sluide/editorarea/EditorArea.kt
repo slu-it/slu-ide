@@ -81,39 +81,8 @@ class EditorArea(
     /** The project folder of the window, whose files HTML previews may use; set by the window. */
     var projectFolder: () -> Path? = { null }
 
-    /**
-     * Shows the history of a file, e.g. in the git log area (ADR 0046): Show History in the context menu of the tabs
-     * that show a file on disk, only while set. Set by the window.
-     */
-    var showHistory: ((Path) -> Unit)?
-        get() = tabStrip.showHistory
-        set(value) {
-            tabStrip.showHistory = value
-        }
-
-    /** Whether Show History is enabled for a tab's file; asked when the tab's context menu opens. */
-    var canShowHistory: (Path) -> Boolean
-        get() = tabStrip.canShowHistory
-        set(value) {
-            tabStrip.canShowHistory = value
-        }
-
-    /**
-     * Selects a file in the file explorer: Select in Explorer in the context menu of the tabs that show a file, only
-     * while set. Set by the window.
-     */
-    var selectInExplorer: ((Path) -> Unit)?
-        get() = tabStrip.selectInExplorer
-        set(value) {
-            tabStrip.selectInExplorer = value
-        }
-
-    /** Whether Select in Explorer is enabled for a tab's file; asked when the tab's context menu opens. */
-    var canSelectInExplorer: (Path) -> Boolean
-        get() = tabStrip.canSelectInExplorer
-        set(value) {
-            tabStrip.canSelectInExplorer = value
-        }
+    /** What the window offers in the tabs' context menus: Show History, Select in Explorer; set by the window. */
+    val tabMenu: TabMenuHooks get() = tabStrip.menuHooks
 
     /** The file of the selected tab, `null` if it shows none (a terminal, a diff, no tab); follows a moved file. */
     val selectedFile: ObservableValue<Path?> =

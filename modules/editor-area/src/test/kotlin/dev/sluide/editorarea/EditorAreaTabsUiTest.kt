@@ -537,10 +537,10 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         robot.interact { editor.open(other) }
         val shown = mutableListOf<java.nio.file.Path>()
         val selected = mutableListOf<java.nio.file.Path>()
-        editor.showHistory = { shown.add(it) }
-        editor.canShowHistory = { it == a }
-        editor.selectInExplorer = { selected.add(it) }
-        editor.canSelectInExplorer = { it == b }
+        editor.tabMenu.showHistory = { shown.add(it) }
+        editor.tabMenu.canShowHistory = { it == a }
+        editor.tabMenu.selectInExplorer = { selected.add(it) }
+        editor.tabMenu.canSelectInExplorer = { it == b }
 
         fun items(title: String): List<MenuItem> {
             robot.interact { requestContextMenu(tabLabel(robot, title)) }
@@ -573,9 +573,9 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
 
         // One separator before the items offered, none without any.
         assertEquals(10, forA.size)
-        editor.showHistory = null
+        editor.tabMenu.showHistory = null
         assertEquals(9, items("a.txt").size)
-        editor.selectInExplorer = null
+        editor.tabMenu.selectInExplorer = null
         assertEquals(7, items("a.txt").size)
     }
 

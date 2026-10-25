@@ -32,5 +32,6 @@ context menu. Other IDEs have a small toolbar for this.
   outside the IDE, under `.git`), `reveal` finds nothing and Select Opened File does nothing; there is no feedback.
 
 ## Consequences
-- `EditorArea` and `TabStrip` gain `selectInExplorer` / `canSelectInExplorer`, like Show History.
+- The tab menu's window hooks (`showHistory`, `canShowHistory`, `selectInExplorer`, `canSelectInExplorer`) live in
+  `TabMenuHooks`, owned by `TabStrip` and exposed as `EditorArea.tabMenu`.
 - The file-explorer module now depends on `ikonli-materialdesign2`.

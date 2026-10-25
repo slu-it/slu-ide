@@ -67,9 +67,9 @@
 - Right-clicking a tab opens a context menu: Close, Close Others, Close Tabs to the Left, Close Tabs to the Right,
   Close All. Entries that would close nothing are disabled. Close Others selects the clicked tab; closing to the
   left/right keeps the selection unless the selected tab was closed, then the clicked tab is selected. Tabs that show
-  a file on disk have Show History at the end while the window offers it (`EditorArea.showHistory`, enabled by
+  a file on disk have Show History at the end while the window offers it (`EditorArea.tabMenu.showHistory`, enabled by
   `canShowHistory`), which opens the file's history in the git log area ([file-history.md](file-history.md)). Select in Explorer follows
-  it (`EditorArea.selectInExplorer`, enabled by `canSelectInExplorer`): it reveals that tab's file in the explorer and
+  it (`EditorArea.tabMenu.selectInExplorer`, enabled by `canSelectInExplorer`): it reveals that tab's file in the explorer and
   focuses it, not necessarily the selected tab's ([file-explorer.md](file-explorer.md)). `EditorArea.selectedFile` is
   the file of the selected tab (`null` for terminals, diffs and no tab) and follows renames.
 - Every file view gets the editor area as its `FileViewHost` (`ViewHost`): `openFile` opens a file like the explorer

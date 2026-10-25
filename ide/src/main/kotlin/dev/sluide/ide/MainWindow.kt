@@ -186,8 +186,8 @@ class MainWindow(
             }
 
         fileExplorer.onOpenFile = { editorArea.open(it) }
-        editorArea.selectInExplorer = { fileExplorer.reveal(it, focus = true) }
-        editorArea.canSelectInExplorer = fileExplorer::canReveal
+        editorArea.tabMenu.selectInExplorer = { fileExplorer.reveal(it, focus = true) }
+        editorArea.tabMenu.canSelectInExplorer = fileExplorer::canReveal
         fileExplorer.canOpenFile = editorArea::canOpen
         // Per-file project data (run-argument histories, ADR 0091) follows files and folders renamed or moved in the
         // explorer, also of files not open; re-keyed first, so a view that follows reads its data under the new path.

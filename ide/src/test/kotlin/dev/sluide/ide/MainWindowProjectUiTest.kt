@@ -402,7 +402,7 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
             mapOf<String, () -> Unit>(
                 "View menu" to { select.fire() },
                 "bar button" to { bar.selectOpenedButton.fire() },
-                "tab menu hook" to { checkNotNull(editorArea.selectInExplorer)(file) },
+                "tab menu hook" to { checkNotNull(editorArea.tabMenu.selectInExplorer)(file) },
             )
         for ((name, fire) in triggers) {
             robot.interact {
