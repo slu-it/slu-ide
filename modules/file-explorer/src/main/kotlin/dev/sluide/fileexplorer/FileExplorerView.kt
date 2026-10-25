@@ -64,6 +64,8 @@ class FileExplorerView(
     fontSettings: FontSettings,
     /** The clipboard of Copy, Cut and Paste: the application's singleton, shared by the explorers of all windows. */
     private val clipboard: ExplorerClipboard,
+    /** The explorer's settings: the application's singleton, shared by the explorers of all windows. */
+    private val settings: ExplorerSettings,
 ) : TreeView<Path>() {
     /** Called with a file the user wants to open (double-click or Enter). Never called for folders. */
     var onOpenFile: (Path) -> Unit = {}

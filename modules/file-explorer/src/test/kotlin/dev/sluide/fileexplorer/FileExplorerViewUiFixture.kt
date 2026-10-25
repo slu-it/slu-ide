@@ -36,6 +36,12 @@ abstract class FileExplorerViewUiFixture {
 
     protected lateinit var view: FileExplorerView
     protected lateinit var fontSettings: FontSettings
+
+    /**
+     * The settings of [view]. Compact Middle Folders starts off here, so tests about other things see one row per
+     * folder; the tests of compacting turn it on.
+     */
+    protected lateinit var explorerSettings: ExplorerSettings
     protected val watcher = FileWatcher(Platform::runLater, 50.milliseconds)
 
     /** Creates [view] (set up by [configure] before it is shown) and shows it, or what [wrap] makes of it, in [stage]. */
@@ -44,9 +50,10 @@ abstract class FileExplorerViewUiFixture {
         configure: (FileExplorerView) -> Unit = {},
         wrap: (FileExplorerView) -> Parent = { it },
     ) {
-        fontSettings =
-            FontSettings(SettingsStore(settingsDir.resolve("settings.properties")), FontSettings.systemDefaults())
-        view = FileExplorerView(watcher, fontSettings, ExplorerClipboard())
+        val store = SettingsStore(settingsDir.resolve("settings.properties"))
+        fontSettings = FontSettings(store, FontSettings.systemDefaults())
+        explorerSettings = ExplorerSettings(store).apply { compactFolders.set(false) }
+        view = FileExplorerView(watcher, fontSettings, ExplorerClipboard(), explorerSettings)
         configure(view)
         stage.scene = Scene(wrap(view), 400.0, 600.0)
         stage.show()

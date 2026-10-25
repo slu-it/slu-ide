@@ -6,6 +6,7 @@ import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
 import dev.sluide.fileexplorer.ExplorerClipboard
+import dev.sluide.fileexplorer.ExplorerSettings
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.ExtensionFileViewer
@@ -116,6 +117,13 @@ abstract class MainWindowUiFixture {
     private val argumentHistories by lazy {
         ArgumentHistories(projectData, SettingsStore(settingsDir.resolve("settings.properties")))
     }
+
+    /** The explorer's settings, a singleton bean in the application, in the test's settings folder. */
+    internal val explorerSettings by lazy {
+        ExplorerSettings(
+            SettingsStore(settingsDir.resolve("settings.properties")),
+        )
+    }
     internal val projectWindows by lazy {
         object : ProjectWindows(DefaultListableBeanFactory(), ProjectPicker(recentProjects)) {
             override fun open(folder: Path) {
@@ -192,7 +200,7 @@ abstract class MainWindowUiFixture {
                 TerminalScrollSettings(SettingsStore(settingsDir.resolve("settings.properties"))),
                 shellEnvironment,
             )
-        fileExplorer = FileExplorerView(watcher, fontSettings, ExplorerClipboard())
+        fileExplorer = FileExplorerView(watcher, fontSettings, ExplorerClipboard(), explorerSettings)
         editorArea = editorArea()
         mainWindow = mainWindow(projectService, fileExplorer, editorArea, CompletableFuture.completedFuture(true))
         mainWindow.show(stage)
@@ -259,7 +267,7 @@ abstract class MainWindowUiFixture {
             val projectService = ProjectService()
             mainWindow(
                 projectService,
-                FileExplorerView(watcher, fontSettings, ExplorerClipboard()),
+                FileExplorerView(watcher, fontSettings, ExplorerClipboard(), explorerSettings),
                 editorArea(),
                 sbxInstalled,
             ).show(stage)
