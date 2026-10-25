@@ -102,3 +102,19 @@
 .tree-cell:cut > .explorer-entry {
     -fx-opacity: 0.45;
 }
+
+/* The button bar above the tree (ExplorerBar). */
+.explorer-bar-button {
+    -fx-background-color: transparent;
+    -fx-background-radius: 3;
+    -fx-padding: 3 4 3 4;
+}
+
+.explorer-bar-button:hover {
+    -fx-background-color: -fx-hover-base;
+}
+
+.explorer-bar-button .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+    -fx-icon-size: 14;
+}

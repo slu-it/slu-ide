@@ -19,6 +19,7 @@ import dev.sluide.fileexplorer.tree.EXPAND_DELAY
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileexplorer.tree.PathCell
 import dev.sluide.fileexplorer.tree.TreeDragAndDrop
+import dev.sluide.fileexplorer.tree.collapseAll
 import dev.sluide.fileexplorer.tree.defaultCopyModifier
 import dev.sluide.fileexplorer.tree.expandTo
 import dev.sluide.fileexplorer.tree.findForReveal
@@ -391,6 +392,22 @@ class FileExplorerView(
         selectRow(item)
         if (focus) requestFocus()
         return true
+    }
+
+    /** Whether a top-level node holds [path], so that [reveal] may find it. */
+    fun canReveal(path: Path): Boolean {
+        val target = path.toAbsolutePath().normalize()
+        return topLevel().any { target.startsWith(it.value) }
+    }
+
+    /**
+     * Collapses every folder of every top-level node; the project stays expanded, the others collapse. A selected row
+     * that is hidden by it is replaced by its nearest ancestor still shown; the focus stays where it was.
+     */
+    fun collapseAll() {
+        val selected = selectionModel.selectedItems.filterNotNull().toList()
+        val rows = collapseAll(topLevel(), projectItem, selected)
+        if (rows != selected) selectRows(rows)
     }
 
     /**

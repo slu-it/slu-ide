@@ -18,6 +18,7 @@ dependencies {
     // Deliberate module API dependency: the tree uses the explorer font from the settings (ADR 0008).
     api(project(":modules:settings"))
     implementation(libs.spring.context)
+    implementation(libs.ikonli.materialdesign2)
     // Deliberate module API dependency: the file-type icons and their colours are shared with the git log (ADR 0012,
     // 0047), and ExplorerRoot.folderIcons takes FileIcon.
     api(project(":modules:file-icons"))
