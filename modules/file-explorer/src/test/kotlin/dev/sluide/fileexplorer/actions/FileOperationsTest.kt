@@ -3,19 +3,29 @@ package dev.sluide.fileexplorer.actions
 import org.junit.jupiter.api.Assumptions.assumeFalse
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import java.nio.file.AccessDeniedException
 import java.nio.file.Files
 import java.nio.file.LinkOption
 import java.nio.file.Path
+import java.nio.file.attribute.FileTime
+import java.nio.file.attribute.PosixFileAttributeView
+import java.nio.file.attribute.PosixFilePermission
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
 import kotlin.io.path.createSymbolicLinkPointingTo
 import kotlin.io.path.exists
+import kotlin.io.path.getLastModifiedTime
+import kotlin.io.path.getPosixFilePermissions
 import kotlin.io.path.isDirectory
 import kotlin.io.path.isRegularFile
 import kotlin.io.path.listDirectoryEntries
 import kotlin.io.path.name
+import kotlin.io.path.readSymbolicLink
 import kotlin.io.path.readText
+import kotlin.io.path.setLastModifiedTime
+import kotlin.io.path.setPosixFilePermissions
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -367,5 +377,168 @@ class FileOperationsTest {
         } finally {
             FileOperations.delete(other)
         }
+    }
+
+    @ParameterizedTest(name = "{0} (folder: {1}) next to [{2}] -> {3}")
+    @CsvSource(
+        delimiter = '|',
+        value = [
+            "notes.txt | false |  | notes.txt",
+            "notes.txt | false | notes.txt | notes-copy.txt",
+            "archive.tar.gz | false | archive.tar.gz | archive-copy.tar.gz",
+            ".env | false | .env | .env-copy",
+            ".env.local | false | .env.local | .env-copy.local",
+            "Makefile | false | Makefile | Makefile-copy",
+            "my.dir | true | my.dir | my.dir-copy",
+            "notes.txt | false | notes.txt notes-copy.txt | notes-copy2.txt",
+            "notes.txt | false | notes.txt notes-copy.txt notes-copy2.txt | notes-copy3.txt",
+            "notes.txt | false | notes.txt notes-copy2.txt | notes-copy.txt",
+            "notes-copy.txt | false | notes-copy.txt | notes-copy2.txt",
+            "notes-copy.txt | false | notes-copy.txt notes-copy2.txt | notes-copy3.txt",
+            "notes-copy3.txt | false | notes-copy3.txt notes-copy.txt | notes-copy2.txt",
+            "notes-copy10.txt | false | notes-copy10.txt | notes-copy2.txt",
+            "notes-copy1.txt | false | notes-copy1.txt | notes-copy1-copy.txt",
+            "notes-copy02.txt | false | notes-copy02.txt | notes-copy02-copy.txt",
+            "dir-copy | true | dir-copy | dir-copy2",
+            "notes.txt | false | NOTES.TXT Notes-Copy.txt | notes-copy2.txt",
+        ],
+    )
+    fun `a copy is named as its entry if that is free, else with the first free copy suffix before the extension`(
+        name: String,
+        isFolder: Boolean,
+        taken: String?,
+        expected: String,
+    ) {
+        // Compared in any case, as copy() does.
+        val names =
+            taken
+                .orEmpty()
+                .split(' ')
+                .filter { it.isNotEmpty() }
+                .map { it.lowercase() }
+
+        assertEquals(expected, FileOperations.copyName(name, isFolder) { it.lowercase() in names })
+    }
+
+    @Test
+    fun `copies a file next to itself under a copy name, and into another folder under its own name`() {
+        val file = folder.resolve("notes.txt").apply { writeText("content") }
+        val target = folder.resolve("target").createDirectories()
+
+        val beside = FileOperations.copy(file, folder)
+        val again = FileOperations.copy(file, folder)
+        val elsewhere = FileOperations.copy(file, target)
+
+        assertEquals(folder.resolve("notes-copy.txt"), beside)
+        assertEquals(folder.resolve("notes-copy2.txt"), again)
+        assertEquals(target.resolve("notes.txt"), elsewhere)
+        listOf(file, beside, again, elsewhere).forEach { assertEquals("content", it.readText()) }
+    }
+
+    @Test
+    fun `a copy never replaces an entry, also one differing only in case`() {
+        val file = folder.resolve("a.txt").apply { writeText("mine") }
+        val target = folder.resolve("target").createDirectories()
+        target.resolve("A.TXT").writeText("theirs")
+        target.resolve("a-copy.txt").createSymbolicLinkPointingTo(folder.resolve("nowhere"))
+
+        val copy = FileOperations.copy(file, target)
+
+        assertEquals(target.resolve("a-copy2.txt"), copy)
+        assertEquals("mine", copy.readText())
+        assertEquals("theirs", target.resolve("A.TXT").readText())
+        assertTrue(Files.isSymbolicLink(target.resolve("a-copy.txt")))
+    }
+
+    @Test
+    fun `copies a folder with everything in it, links as links, keeping permissions and times`() {
+        assumeTrue(Files.getFileAttributeView(folder, PosixFileAttributeView::class.java) != null)
+        val outside = folder.resolve("outside").createDirectories()
+        outside.resolve("keep.txt").writeText("outside")
+        val src = folder.resolve("src").createDirectories()
+        val script = src.resolve("bin/run.sh").also { it.parent.createDirectories() }.apply { writeText("echo") }
+        script.setPosixFilePermissions(script.getPosixFilePermissions() + PosixFilePermission.OWNER_EXECUTE)
+        val time = FileTime.fromMillis(1_000_000_000_000)
+        script.setLastModifiedTime(time)
+        src.resolve("link").createSymbolicLinkPointingTo(outside)
+        // A read-only folder still gets its content.
+        val locked = src.resolve("locked").createDirectories()
+        locked.resolve("inner.txt").writeText("inner")
+        locked.setPosixFilePermissions(setOf(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_EXECUTE))
+        src.setLastModifiedTime(time)
+        val target = folder.resolve("target").createDirectories()
+
+        try {
+            val copy = FileOperations.copy(src, target)
+
+            assertEquals(target.resolve("src"), copy)
+            assertEquals("echo", copy.resolve("bin/run.sh").readText())
+            assertTrue(PosixFilePermission.OWNER_EXECUTE in copy.resolve("bin/run.sh").getPosixFilePermissions())
+            assertEquals(time, copy.resolve("bin/run.sh").getLastModifiedTime())
+            assertEquals(time, copy.getLastModifiedTime())
+            assertTrue(Files.isSymbolicLink(copy.resolve("link")))
+            assertEquals(outside, copy.resolve("link").readSymbolicLink())
+            assertEquals(listOf("keep.txt"), outside.listDirectoryEntries().map { it.name })
+            assertEquals("inner", copy.resolve("locked/inner.txt").readText())
+            assertEquals(locked.getPosixFilePermissions(), copy.resolve("locked").getPosixFilePermissions())
+        } finally {
+            // Else the temporary folder cannot be cleaned up.
+            listOf(locked, target.resolve("src/locked")).filter { it.exists() }.forEach {
+                it.setPosixFilePermissions(it.getPosixFilePermissions() + PosixFilePermission.OWNER_WRITE)
+            }
+        }
+    }
+
+    @Test
+    fun `copies a link itself, not its target`() {
+        val outside = folder.resolve("outside").createDirectories()
+        val link = folder.resolve("link").createSymbolicLinkPointingTo(outside)
+        val target = folder.resolve("target").createDirectories()
+
+        val copy = FileOperations.copy(link, target)
+
+        assertTrue(Files.isSymbolicLink(copy))
+        assertEquals(outside, copy.readSymbolicLink())
+    }
+
+    @Test
+    fun `refuses to copy a folder into itself or a folder inside it, before copying anything`() {
+        val sub = folder.resolve("sub").createDirectories()
+        val deeper = sub.resolve("a/b").createDirectories()
+
+        val itself = assertFailsWith<FileOperationException> { FileOperations.copy(sub, sub) }
+        assertFailsWith<FileOperationException> { FileOperations.copy(sub, deeper) }
+
+        assertEquals("“sub” cannot be copied into itself.", itself.message)
+        assertEquals(listOf("a"), sub.listDirectoryEntries().map { it.name })
+        assertEquals(emptyList(), deeper.listDirectoryEntries())
+    }
+
+    @Test
+    fun `a folder reached through a link inside the entry counts as inside it, for copies and moves`() {
+        val releases = folder.resolve("releases").createDirectories()
+        releases.resolve("v1").createDirectories()
+        val current = folder.resolve("current").createSymbolicLinkPointingTo(releases.resolve("v1"))
+        // A link to a folder is an entry of its own: it may go into the folder it points to.
+        val link = folder.resolve("link").createSymbolicLinkPointingTo(releases)
+
+        val copy = assertFailsWith<FileOperationException> { FileOperations.copy(releases, current) }
+        val move = assertFailsWith<FileOperationException> { FileOperations.move(releases, current) }
+
+        assertEquals("“releases” cannot be copied into itself.", copy.message)
+        assertEquals("“releases” cannot be moved into itself.", move.message)
+        assertEquals(listOf("v1"), releases.listDirectoryEntries().map { it.name })
+        assertEquals(emptyList(), releases.resolve("v1").listDirectoryEntries())
+        assertFalse(FileOperations.isAtOrBelow(releases, link))
+        assertTrue(Files.isSymbolicLink(FileOperations.copy(link, releases)))
+    }
+
+    @Test
+    fun `reports a source that is gone`() {
+        val gone = folder.resolve("gone.txt")
+
+        val failure = assertFailsWith<FileOperationException> { FileOperations.copy(gone, folder) }
+
+        assertEquals("Could not copy “gone.txt”: $gone does not exist.", failure.message)
     }
 }

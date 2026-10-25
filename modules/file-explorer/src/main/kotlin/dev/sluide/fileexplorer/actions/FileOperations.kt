@@ -12,7 +12,9 @@ import java.nio.file.LinkOption.NOFOLLOW_LINKS
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 import java.nio.file.SimpleFileVisitor
+import java.nio.file.StandardCopyOption
 import java.nio.file.attribute.BasicFileAttributes
+import java.nio.file.attribute.PosixFileAttributeView
 import java.util.UUID
 
 /** A file operation was refused or failed; the message is meant for the user. */
@@ -22,9 +24,9 @@ internal class FileOperationException(
 ) : IOException(message, cause)
 
 /**
- * Creates, renames, moves and deletes files and folders after checking their names (ADR 0024, ADR 0073). Names are
- * single entries of a folder: no paths, and renaming never moves anything to another folder; [move] does, keeping the
- * name. Deleting is permanent.
+ * Creates, renames, moves, copies and deletes files and folders after checking their names (ADR 0024, ADR 0073,
+ * ADR 0092). Names are single entries of a folder: no paths, and renaming never moves anything to another folder;
+ * [move] does, keeping the name. Deleting is permanent.
  */
 internal object FileOperations {
     /**
@@ -150,7 +152,7 @@ internal object FileOperations {
     ): Path {
         val name = path.fileName.toString()
         if (path.parent == folder) return path
-        if (folder.startsWith(path)) throw FileOperationException("“$name” cannot be moved into itself.")
+        if (isAtOrBelow(folder, path)) throw FileOperationException("“$name” cannot be moved into itself.")
         val target = folder.resolve(name)
         if (Files.exists(target, NOFOLLOW_LINKS)) {
             throw FileOperationException("“$name” already exists in “${folder.fileName ?: folder}”.")
@@ -181,6 +183,169 @@ internal object FileOperations {
         }
 
     private fun otherDrive(name: String) = "Could not move “$name”: it cannot be moved to another drive."
+
+    /**
+     * The name for a copy of the entry [name] (a folder if [isFolder]) in a folder where [taken] says which names are
+     * in use: [name] itself if it is free, else the first free of `-copy`, `-copy2`, `-copy3`, … added to its base name
+     * (ADR 0092). The base name ends before the first extension; a leading dot does not start one, and a folder has
+     * none (`archive.tar.gz` → `archive-copy.tar.gz`, `.env.local` → `.env-copy.local`, `my.dir` → `my.dir-copy`). A
+     * base name ending in `-copy` or `-copyN` (N ≥ 2) is the name of a copy already: its copies count on from `-copy2`
+     * (`notes-copy.txt` → `notes-copy2.txt`).
+     */
+    fun copyName(
+        name: String,
+        isFolder: Boolean,
+        taken: (String) -> Boolean,
+    ): String {
+        if (!taken(name)) return name
+        val end = if (isFolder) name.length else name.indexOf('.', 1).takeIf { it > 0 } ?: name.length
+        val base = name.take(end)
+        val extension = name.drop(end)
+        val copy = COPY_SUFFIX.matchEntire(base)
+        val stem = copy?.groupValues?.get(1) ?: base
+        val first = if (copy == null) 1 else 2
+        return generateSequence(first) { it + 1 }
+            .map { number -> stem + COPY + (if (number == 1) "" else number.toString()) + extension }
+            .first { !taken(it) }
+    }
+
+    /**
+     * Copies [source] into [folder] and returns the copy: named as [source] if that name is free in [folder], else as
+     * [copyName] says, also when [folder] holds [source] itself. Nothing is ever replaced: the copy is created only if
+     * its name is still free, else the next name is tried. A folder is copied with everything in it; symbolic links
+     * are copied as links, never followed. Permissions (e.g. the executable bit) and modification times are kept. Copies
+     * to another file store (drive) work. Refused if [folder] is the folder [source] or lies inside it. Stops at the
+     * first entry that cannot be copied, leaving what was copied.
+     */
+    fun copy(
+        source: Path,
+        folder: Path,
+    ): Path {
+        val name = source.fileName.toString()
+        val isFolder = Files.isDirectory(source, NOFOLLOW_LINKS)
+        if (isFolder && isAtOrBelow(folder, source)) throw FileOperationException(copyIntoItself(name))
+        if (!Files.exists(source, NOFOLLOW_LINKS)) {
+            throw FileOperationException("Could not copy “$name”: $source does not exist.")
+        }
+        val target = failingWith("copy", source) { createCopy(source, folder, name, isFolder) }
+        if (isFolder) failingWith("copy", source) { copyContent(source, target) }
+        return target
+    }
+
+    /**
+     * Whether [folder] is the entry [entry] or lies inside it, also when either is reached through a symbolic link
+     * (`current` → `releases/v1` lies inside `releases`; `/var` is `/private/var` on macOS). Compared as real paths,
+     * with [entry] itself not followed (a link is an entry of its own); as written if they cannot be resolved.
+     */
+    fun isAtOrBelow(
+        folder: Path,
+        entry: Path,
+    ): Boolean {
+        if (folder.startsWith(entry)) return true
+        val parent = entry.parent ?: return false
+        return try {
+            folder.toRealPath().startsWith(parent.toRealPath().resolve(entry.fileName))
+        } catch (_: IOException) {
+            false
+        }
+    }
+
+    /** The message why the folder [name] cannot be copied into itself or a folder inside it. */
+    fun copyIntoItself(name: String) = "“$name” cannot be copied into itself."
+
+    /**
+     * Creates the copy of [source] in [folder] under the first free name: the file or link with its attributes, a
+     * folder empty. A name taken meanwhile makes it try the next one.
+     */
+    private fun createCopy(
+        source: Path,
+        folder: Path,
+        name: String,
+        isFolder: Boolean,
+    ): Path {
+        var attempt = 0
+        while (true) {
+            val target = folder.resolve(copyName(name, isFolder, takenIn(folder)))
+            try {
+                // Both fail if the target exists, checked by the file system as it creates it (exclusive create).
+                if (isFolder) {
+                    Files.createDirectory(target)
+                } else {
+                    Files.copy(source, target, NOFOLLOW_LINKS, StandardCopyOption.COPY_ATTRIBUTES)
+                }
+                return target
+            } catch (e: FileAlreadyExistsException) {
+                if (++attempt >= MAX_COPY_ATTEMPTS) throw e
+            }
+        }
+    }
+
+    /**
+     * Which names are taken in [folder]: those of its entries in any case, so no copy differs from an entry only in
+     * case, as on case-insensitive file systems; also those the file system finds (a dangling link counts).
+     */
+    private fun takenIn(folder: Path): (String) -> Boolean {
+        val names = Files.list(folder).use { entries -> entries.map { it.fileName.toString().lowercase() }.toList() }
+        return { it.lowercase() in names || Files.exists(folder.resolve(it), NOFOLLOW_LINKS) }
+    }
+
+    /**
+     * Copies everything in the folder [source] into the new, empty folder [target]. Folders get the permissions and
+     * modification times of theirs once their content is copied, so a read-only folder can be filled first.
+     */
+    private fun copyContent(
+        source: Path,
+        target: Path,
+    ) {
+        Files.walkFileTree(
+            source,
+            object : SimpleFileVisitor<Path>() {
+                override fun preVisitDirectory(
+                    directory: Path,
+                    attributes: BasicFileAttributes,
+                ): FileVisitResult {
+                    if (directory == source) return FileVisitResult.CONTINUE
+                    // Should the copy lie inside the folder after all, it is not copied into itself again and again.
+                    if (Files.isSameFile(directory, target)) return FileVisitResult.SKIP_SUBTREE
+                    Files.createDirectory(target.resolve(source.relativize(directory)))
+                    return FileVisitResult.CONTINUE
+                }
+
+                override fun visitFile(
+                    file: Path,
+                    attributes: BasicFileAttributes,
+                ): FileVisitResult {
+                    Files.copy(
+                        file,
+                        target.resolve(source.relativize(file)),
+                        NOFOLLOW_LINKS,
+                        StandardCopyOption.COPY_ATTRIBUTES,
+                    )
+                    return FileVisitResult.CONTINUE
+                }
+
+                override fun postVisitDirectory(
+                    directory: Path,
+                    exception: IOException?,
+                ): FileVisitResult {
+                    if (exception != null) throw exception
+                    copyFolderAttributes(directory, target.resolve(source.relativize(directory)))
+                    return FileVisitResult.CONTINUE
+                }
+            },
+        )
+    }
+
+    /** Gives the folder [copy] the permissions (where the file system has them) and modification time of [folder]. */
+    private fun copyFolderAttributes(
+        folder: Path,
+        copy: Path,
+    ) {
+        Files.getFileAttributeView(folder, PosixFileAttributeView::class.java, NOFOLLOW_LINKS)?.let { view ->
+            Files.setPosixFilePermissions(copy, view.readAttributes().permissions())
+        }
+        Files.setLastModifiedTime(copy, Files.getLastModifiedTime(folder, NOFOLLOW_LINKS))
+    }
 
     /**
      * Deletes [path] permanently, a folder with everything in it. Symbolic links are deleted themselves, their
@@ -272,3 +437,11 @@ internal object FileOperations {
             else -> e.message ?: e.javaClass.simpleName
         }
 }
+
+private const val COPY = "-copy"
+
+/** A base name that is the name of a copy: the stem, then `-copy` or `-copyN` with N ≥ 2 and no leading zero. */
+private val COPY_SUFFIX = Regex("(.*)-copy([2-9]|[1-9][0-9]+)?")
+
+/** How often a copy tries the next free name when the one it picked was taken meanwhile. */
+private const val MAX_COPY_ATTEMPTS = 100
