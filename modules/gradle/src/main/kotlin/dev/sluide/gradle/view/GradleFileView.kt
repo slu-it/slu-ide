@@ -1,5 +1,6 @@
 package dev.sluide.gradle.view
 
+import dev.sluide.commandruns.ArgumentHistory
 import dev.sluide.commandruns.CommandRunner
 import dev.sluide.commandruns.RunPane
 import dev.sluide.commandruns.stopQuestion
@@ -96,6 +97,9 @@ internal class GradleFileView(
         private set
     private var buildTasks: BuildTasks? = null
 
+    /** The arguments of the build file's runs (ADR 0091); `null` until the [runner] is. */
+    private var history: ArgumentHistory? = null
+
     private val activityWrapper = ReadOnlyObjectWrapper(ViewActivity.NONE)
     private var disposed = false
 
@@ -137,6 +141,8 @@ internal class GradleFileView(
 
     private fun attach(session: GradleSession) {
         this.session = session
+        val history = ArgumentHistory(session.runSession.histories, { file }, { host?.projectFolder })
+        this.history = history
         val runner =
             CommandRunner<GradleJob>(
                 session.runSession,
@@ -144,6 +150,7 @@ internal class GradleFileView(
                 { file.parent },
                 { running, next -> confirmStop(running, next) },
                 rerunnable = { it is GradleJob.Tasks },
+                history = history,
                 grace = stopGrace,
             )
         this.runner = runner
@@ -172,7 +179,11 @@ internal class GradleFileView(
         val installation = installation ?: return
         if (tasks.isEmpty() || session?.projectTrust?.allows(GradleTrustCheck.ID) != true) return
         val arguments = runPane.arguments.text
-        runner.start(GradleJob.Tasks(tasks), command = { GradleCommand.run(installation, arguments, tasks) })
+        runner.start(
+            GradleJob.Tasks(tasks),
+            command = { GradleCommand.run(installation, arguments, tasks) },
+            arguments = arguments,
+        )
     }
 
     /** Focuses the source, or the tasks while they are shown alone; a failed run no longer marks the tab. */
@@ -196,12 +207,16 @@ internal class GradleFileView(
         if (split.mode.get() == SplitMode.OTHER) tasks.tree.requestFocus() else editor.focusText()
     }
 
-    /** Follows the file to [to] if it has the same name (the same viewer shows it), and finds its Gradle again. */
+    /**
+     * Follows the file to [to] if it has the same name (the same viewer shows it), finds its Gradle again and shows the
+     * history stored for the new path.
+     */
     override fun moved(to: Path): Boolean {
         val name = to.fileName?.toString() ?: return false
         if (!name.equals(file.fileName.toString(), ignoreCase = true) || !editor.moved(to)) return false
         file = to.toAbsolutePath().normalize()
         buildTasks?.moved()
+        history?.reload()
         return true
     }
 

@@ -1,6 +1,7 @@
 package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.commandruns.ArgumentHistories
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
@@ -122,6 +123,7 @@ class ProjectWindowsUiTest {
                     Supplier { TrustedProjects(projectData) },
                 )
                 register(GitTrustCheck::class.java)
+                register(ArgumentHistories::class.java)
                 register(GitLog::class.java)
                 register(GitBranches::class.java)
                 register(GitCommits::class.java)

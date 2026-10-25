@@ -9,7 +9,8 @@ import java.util.concurrent.TimeUnit
 
 /**
  * What the command runners of one IDE window share (ADR 0088): the window's [terminals] the runs are embedded from,
- * its [backgroundTasks] that list them, and the thread that ends stopped runs after their grace.
+ * its [backgroundTasks] that list them, the [histories] of run arguments (ADR 0091) and the thread that ends stopped
+ * runs after their grace.
  */
 @Component
 // One instance per IDE window (the "window" scope of the ide module, ADR 0014).
@@ -17,6 +18,7 @@ import java.util.concurrent.TimeUnit
 class CommandRunSession(
     val terminals: Terminals,
     val backgroundTasks: BackgroundTasks,
+    val histories: ArgumentHistories,
 ) : AutoCloseable {
     /** Fires the delayed kills of stopped runs. */
     private val stopTimer = NamedThreads.scheduled("Command stop")

@@ -1,6 +1,7 @@
 package dev.sluide.gradle.view
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.commandruns.ArgumentHistories
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.fileviewers.CodeEditors
 import dev.sluide.fileviewers.FileViewHost
@@ -60,6 +61,10 @@ abstract class GradleFileViewUiFixture {
     internal var findings: List<TrustFinding> = emptyList()
     internal var reviews = 0
 
+    internal val projectData by lazy {
+        ProjectDataStore(support.resolve("projects"), support.resolve("outside.json"), emptyList())
+    }
+
     internal val trust by lazy {
         val check =
             object : ProjectTrustCheck {
@@ -70,9 +75,7 @@ abstract class GradleFileViewUiFixture {
             }
         ProjectTrust(
             listOf(check),
-            TrustedProjects(
-                ProjectDataStore(support.resolve("projects"), support.resolve("outside.json"), emptyList()),
-            ),
+            TrustedProjects(projectData),
             BackgroundTasks.forTests(),
             javafx.application.Platform::runLater,
         ).apply { open(project) }
@@ -92,7 +95,10 @@ abstract class GradleFileViewUiFixture {
     /** The session's background tasks; shown at once, so a test can cancel them. */
     internal val backgroundTasks by lazy { BackgroundTasks.forTests { taskLog += it } }
 
-    private val runSession by lazy { CommandRunSession(terminals, backgroundTasks) }
+    /** The run-argument histories of the session's views. */
+    internal val histories by lazy { ArgumentHistories(projectData, store) }
+
+    private val runSession by lazy { CommandRunSession(terminals, backgroundTasks, histories) }
 
     internal val session by lazy {
         GradleSession(trust, runSession) {

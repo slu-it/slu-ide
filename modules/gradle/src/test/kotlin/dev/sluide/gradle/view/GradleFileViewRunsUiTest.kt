@@ -3,6 +3,7 @@ package dev.sluide.gradle.view
 import dev.sluide.fileviewers.ViewActivity
 import javafx.event.Event
 import javafx.scene.Node
+import javafx.scene.control.ListView
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.stage.Stage
@@ -11,6 +12,8 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
+import kotlin.io.path.createDirectories
+import kotlin.io.path.moveTo
 import kotlin.io.path.readLines
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -191,6 +194,24 @@ class GradleFileViewRunsUiTest : GradleFileViewUiFixture() {
         // Nothing was started: no task, so no process could still write.
         assertTrue(taskLog.none { it.endsWith("started: Gradle: help") }, taskLog.toString())
         assertEquals(before, runs.readLines().size)
+        // The started runs' arguments are the build file's history, newest first; not those that ran nothing.
+        val recorded = listOf("--quiet", "--info -Dgreeting='a b'")
+        val history = robot.from(view.node).lookup(".run-history-list").query<ListView<String>>()
+        robot.interact {
+            assertEquals(recorded, histories.entries(view.file, project))
+            assertEquals(recorded, history.items)
+        }
+
+        // Moved (the explorer moves the history first), it shows what is stored for the new path, also an entry
+        // another window recorded there.
+        val moved = project.resolve("relocated").createDirectories().resolve("build.gradle")
+        view.file.moveTo(moved)
+        robot.interact {
+            projectData.moved(view.file, moved, project)
+            histories.record(moved, project, "--elsewhere")
+            assertTrue(view.moved(moved))
+            assertEquals(listOf("--elsewhere") + recorded, history.items)
+        }
     }
 
     @Test

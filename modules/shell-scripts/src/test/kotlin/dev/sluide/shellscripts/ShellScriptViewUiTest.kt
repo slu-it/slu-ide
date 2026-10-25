@@ -1,10 +1,12 @@
 package dev.sluide.shellscripts
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.commandruns.ArgumentHistories
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.SplitMode
 import dev.sluide.fileviewers.ViewActivity
+import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.SettingsStore
 import dev.sluide.terminal.Terminals
@@ -12,6 +14,7 @@ import dev.sluide.terminal.settings.TerminalScrollSettings
 import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.Scene
+import javafx.scene.control.ListView
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.layout.StackPane
@@ -66,7 +69,12 @@ class ShellScriptViewUiTest {
             System.getenv() + mapOf("SHELL" to "/bin/bash", "HOME" to support.toString()),
         )
     }
-    private val runSession by lazy { CommandRunSession(terminals, BackgroundTasks.forTests()) }
+    private val projectData by lazy {
+        ProjectDataStore(support.resolve("projects"), support.resolve("outside-projects.json"), emptyList())
+    }
+    private val runSession by lazy {
+        CommandRunSession(terminals, BackgroundTasks.forTests(), ArgumentHistories(projectData, store))
+    }
 
     /** The files the host saved. */
     private val saved = mutableListOf<Path>()
@@ -77,6 +85,9 @@ class ShellScriptViewUiTest {
             override fun openFile(file: Path) = false
 
             override fun openWebPage(uri: URI) {}
+
+            // The scripts' folder is in the project.
+            override val projectFolder: Path get() = dir
 
             @Suppress("UNCHECKED_CAST")
             override fun <T : Any> windowService(type: Class<T>): T? =
@@ -278,6 +289,13 @@ class ShellScriptViewUiTest {
             assertEquals(original, view.text, "Shortcut+Enter left the source alone")
             assertFalse(view.dirty.get())
         }
+        // The started runs' arguments are the script's history, newest first, shown in the run pane.
+        val history = robot.from(view.node).lookup(".run-history-list").query<ListView<String>>()
+        val recorded = listOf("rerun", "arguments", "source", "button")
+        robot.interact {
+            assertEquals(recorded, runSession.histories.entries(script, dir))
+            assertEquals(recorded, history.items)
+        }
 
         // Shortcut+Enter in the find bar, a text field inside the source, does not run.
         robot.interact { Event.fireEvent(area, shortcut(KeyCode.F)) }
@@ -289,14 +307,24 @@ class ShellScriptViewUiTest {
         }
 
         // Renamed without its extension, it is still the same view, and runs under its new name.
+        // The history follows, as the explorer moves it in the project data first; the view shows what is stored for
+        // the new path, also an entry another window recorded there.
         val renamed = script.moveTo(script.resolveSibling("deploy"))
         robot.interact {
+            projectData.moved(script, renamed, dir)
+            runSession.histories.record(renamed, dir, "elsewhere")
             assertTrue(view.moved(renamed))
+            assertEquals(listOf("elsewhere") + recorded, history.items)
             view.runPane.arguments.text = "moved"
             view.runButton.fire()
         }
         ended(robot, view, "✔ deploy moved — finished in ")
         assertEquals(listOf("button|", "source|", "arguments|", "rerun|", "moved|"), runs.readLines())
+        robot.interact {
+            assertEquals(listOf("moved", "elsewhere") + recorded, runSession.histories.entries(renamed, dir))
+            assertEquals(listOf("moved", "elsewhere") + recorded, history.items)
+            assertEquals(emptyList(), runSession.histories.entries(script, dir))
+        }
     }
 
     @Test

@@ -36,10 +36,11 @@ internal interface ScriptRunHost {
     /** Makes way for [job]: asks before stopping a running one; `false` if it keeps running. */
     fun replaceRunning(job: ScriptJob): Boolean
 
-    /** Starts [job] with the command line [command]. */
+    /** Starts [job] with the command line [command]; [arguments] as typed, for the history of a started run. */
     fun start(
         job: ScriptJob,
         command: String,
+        arguments: String,
     )
 
     /** Shows [text] as a failure where the run's status shows. */
@@ -90,7 +91,7 @@ internal class ScriptRunFlow(
             }
             if (!host.isExecutable()) return host.showProblem(stillNotExecutable(name))
         }
-        host.start(job, scriptCommand(host.file, words))
+        host.start(job, scriptCommand(host.file, words), arguments)
     }
 }
 

@@ -1,5 +1,6 @@
 package dev.sluide.shellscripts
 
+import dev.sluide.commandruns.ArgumentHistory
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.commandruns.CommandRunner
 import dev.sluide.commandruns.RunPane
@@ -113,6 +114,9 @@ internal class ShellScriptView(
     var runner: CommandRunner<ScriptJob>? = null
         private set
 
+    /** The arguments of the script's runs (ADR 0091); `null` until the [runner] is. */
+    private var history: ArgumentHistory? = null
+
     private val activityWrapper = ReadOnlyObjectWrapper(ViewActivity.NONE)
     private var disposed = false
 
@@ -138,9 +142,10 @@ internal class ShellScriptView(
                 override fun start(
                     job: ScriptJob,
                     command: String,
+                    arguments: String,
                 ) {
                     showOutput()
-                    runner?.start(job, command = { command })
+                    runner?.start(job, command = { command }, arguments = arguments)
                 }
 
                 override fun showProblem(text: String) {
@@ -183,12 +188,15 @@ internal class ShellScriptView(
         }
 
     private fun attach(session: CommandRunSession) {
+        val history = ArgumentHistory(session.histories, { file }, { host?.projectFolder })
+        this.history = history
         val runner =
             CommandRunner<ScriptJob>(
                 session,
                 runPane,
                 { checkNotNull(file.parent) },
                 { running, next -> confirmStop(running, next) },
+                history = history,
                 grace = stopGrace,
             )
         this.runner = runner
@@ -257,12 +265,14 @@ internal class ShellScriptView(
     }
 
     /**
-     * Follows the script to [to], keeping its run, arguments and unsaved changes. The editor area asks only when this
-     * viewer also shows the new path, or the tab has unsaved changes it must not lose.
+     * Follows the script to [to], keeping its run, arguments and unsaved changes, and shows the history stored for
+     * the new path. The editor area asks only when this viewer also shows the new path, or the tab has unsaved
+     * changes it must not lose.
      */
     override fun moved(to: Path): Boolean {
         if (!editor.moved(to)) return false
         file = to.toAbsolutePath().normalize()
+        history?.reload()
         return true
     }
 

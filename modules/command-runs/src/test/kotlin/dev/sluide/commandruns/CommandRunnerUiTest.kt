@@ -52,11 +52,17 @@ class CommandRunnerUiTest {
         override fun close() {}
     }
 
+    private val settings by lazy { SettingsStore(dir.resolve("settings.properties")) }
+
+    private val histories by lazy {
+        ArgumentHistories(ProjectDataStore(dir.resolve("projects"), dir.resolve("outside.json"), emptyList()), settings)
+    }
+
     private val session by lazy {
-        val store = SettingsStore(dir.resolve("settings.properties"))
         CommandRunSession(
-            Terminals(FontSettings(store, FontSettings.systemDefaults()), TerminalScrollSettings(store)),
+            Terminals(FontSettings(settings, FontSettings.systemDefaults()), TerminalScrollSettings(settings)),
             BackgroundTasks.forTests(),
+            histories,
         )
     }
 
@@ -88,11 +94,6 @@ class CommandRunnerUiTest {
         robot: FxRobot,
     ) {
         robot.interact {
-            val histories =
-                ArgumentHistories(
-                    ProjectDataStore(dir.resolve("projects"), dir.resolve("outside.json"), emptyList()),
-                    SettingsStore(dir.resolve("settings.properties")),
-                )
             val history = ArgumentHistory(histories, { dir.resolve("run.sh") }, { dir })
             var stop = false
             val pane = RunPane("", "")

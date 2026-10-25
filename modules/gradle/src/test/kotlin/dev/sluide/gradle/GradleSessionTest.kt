@@ -1,6 +1,7 @@
 package dev.sluide.gradle
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.commandruns.ArgumentHistories
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.gradle.tasks.GradleProject
 import dev.sluide.gradle.tasks.TaskModel
@@ -37,23 +38,21 @@ class GradleSessionTest {
 
     private val store by lazy { SettingsStore(dir.resolve("settings/settings.properties")) }
     private val globalChecks = AtomicInteger()
+    private val projectData by lazy {
+        ProjectDataStore(dir.resolve("settings/projects"), dir.resolve("settings/outside.json"), emptyList())
+    }
     private val runs by lazy {
         CommandRunSession(
             Terminals(FontSettings(store, FontSettings.systemDefaults()), TerminalScrollSettings(store)),
             BackgroundTasks.forTests(),
+            ArgumentHistories(projectData, store),
         )
     }
     private val session by lazy {
         GradleSession(
             ProjectTrust(
                 emptyList(),
-                TrustedProjects(
-                    ProjectDataStore(
-                        dir.resolve("settings/projects"),
-                        dir.resolve("settings/outside.json"),
-                        emptyList(),
-                    ),
-                ),
+                TrustedProjects(projectData),
                 BackgroundTasks.forTests(),
             ),
             runs,

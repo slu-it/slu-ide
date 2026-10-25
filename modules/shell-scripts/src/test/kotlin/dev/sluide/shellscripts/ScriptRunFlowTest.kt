@@ -41,8 +41,9 @@ class ScriptRunFlowTest {
         override fun start(
             job: ScriptJob,
             command: String,
+            arguments: String,
         ) {
-            calls += "start: ${job.label} | $command"
+            calls += "start: ${job.label} | $command | $arguments"
         }
 
         override fun showProblem(text: String) {
@@ -56,7 +57,8 @@ class ScriptRunFlowTest {
 
     private val start =
         "start: deploy.sh --dry-run two words | " +
-            "unset -f cd 2>/dev/null; \\cd /work/scripts && /work/scripts/deploy.sh --dry-run 'two words'"
+            "unset -f cd 2>/dev/null; \\cd /work/scripts && /work/scripts/deploy.sh --dry-run 'two words' | " +
+            "--dry-run 'two words'"
 
     @Test
     fun `a saved executable script just starts, after making way for it`() {

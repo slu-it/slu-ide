@@ -1,6 +1,7 @@
 package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.commandruns.ArgumentHistories
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
@@ -109,6 +110,11 @@ abstract class MainWindowUiFixture {
         ProjectDataStore(settingsDir.resolve("projects"), settingsDir.resolve("outside-projects.json"), emptyList())
     }
     internal val recentProjects by lazy { RecentProjects(projectData) }
+
+    /** The run-argument histories, a singleton bean in the application, in the test's project data. */
+    private val argumentHistories by lazy {
+        ArgumentHistories(projectData, SettingsStore(settingsDir.resolve("settings.properties")))
+    }
     internal val projectWindows by lazy {
         object : ProjectWindows(DefaultListableBeanFactory(), ProjectPicker(recentProjects)) {
             override fun open(folder: Path) {
@@ -203,7 +209,7 @@ abstract class MainWindowUiFixture {
         sbxInstalled: CompletableFuture<Boolean>,
     ): MainWindow {
         val tasks = BackgroundTasks().also(backgroundTasks::add)
-        val commandRuns = CommandRunSession(terminals, tasks).also(commandRunSessions::add)
+        val commandRuns = CommandRunSession(terminals, tasks, argumentHistories).also(commandRunSessions::add)
         return MainWindow(
             projectService,
             fileExplorer,
