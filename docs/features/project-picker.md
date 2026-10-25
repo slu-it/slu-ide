@@ -5,9 +5,11 @@
 in `ide`. Decision in [ADR 0034](../adr/0034-project-picker.md)
 
 - Every folder Thoreau opens is remembered: chosen in the picker, with File → Open Folder… or given on the command
-  line ([open-folder.md](open-folder.md)). The list is stored in `~/.sluide/projects.properties` (folder path → time
-  it was last opened). A file that cannot be read is left alone and the picker lists nothing; errors writing it are
-  logged and do not stop the project from opening.
+  line ([open-folder.md](open-folder.md)). The time it was last opened is stored in the project's JSON file
+  `~/.sluide/projects/<id>.json` (field `lastOpened`, [ADR 0090](../adr/0090-per-project-metadata-store.md)), migrated
+  from `projects.properties` on the first start. A file that cannot be read is left alone; errors writing it are logged
+  and do not stop the project from opening. Remove forgets everything about the project, including its trust decision
+  and argument histories.
 - The picker is a window of its own, titled like a window without a folder: "Thoreau v<version>". It appears
   - at startup when no folder is given on the command line (folders given there open right away, without it);
   - when the last project window is closed, instead of quitting;
@@ -22,7 +24,7 @@ in `ide`. Decision in [ADR 0034](../adr/0034-project-picker.md)
 - A click on an entry, or Enter on the selected one, opens it: the picker closes and the folder opens in a new window,
   or its window comes to the front if it is already open.
 - The delete icon, Delete or Backspace removes the selected project from the list; the selection stays on the same row,
-  so the next one can be removed right away. Only the entry is forgotten, the folder itself is never touched.
+  so the next one can be removed right away. Everything remembered about the project is forgotten; the folder itself is never touched.
   "Open new project…" cannot be removed.
 - Folders that no longer exist stay in the list, dimmed, with "— folder not found" after the path. They cannot be
   opened, only removed. A folder deleted while the picker is open is marked like that when it is chosen.

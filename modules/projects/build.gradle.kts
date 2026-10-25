@@ -11,6 +11,8 @@ javafx {
 }
 
 dependencies {
+    // Deliberate module API dependency: RecentProjects takes the ProjectDataStore (ADR 0090).
+    api(project(":modules:project-data"))
     implementation(libs.spring.context)
     implementation(libs.ikonli.javafx)
     implementation(libs.ikonli.materialdesign2)

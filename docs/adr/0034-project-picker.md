@@ -2,6 +2,7 @@
 
 - Status: accepted
 - Date: 2026-10-15
+- Storage superseded by [ADR 0090](0090-per-project-metadata-store.md) (2026-10-25)
 
 ## Context
 Thoreau forgot every folder it had opened. Without command-line arguments it started with an empty window, and

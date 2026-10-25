@@ -30,6 +30,8 @@ import dev.sluide.httpclient.HttpEnvironmentFileViewer
 import dev.sluide.httpclient.HttpFileViewer
 import dev.sluide.previews.json.JsonFileViewer
 import dev.sluide.previews.markdown.MarkdownFileViewer
+import dev.sluide.projectdata.ProjectDataStore
+import dev.sluide.projects.LegacyRecentProjects
 import dev.sluide.projects.ProjectPicker
 import dev.sluide.projects.RecentProjects
 import dev.sluide.projecttrust.ProjectTrust
@@ -106,7 +108,9 @@ class SpringWiringTest {
                         HttpClientSession::class.java,
                         HttpFileViewer::class.java,
                         HttpEnvironmentFileViewer::class.java,
+                        ProjectDataStore::class.java,
                         RecentProjects::class.java,
+                        LegacyRecentProjects::class.java,
                         ProjectPicker::class.java,
                         GitTrustCheck::class.java,
                         GradleTrustCheck::class.java,

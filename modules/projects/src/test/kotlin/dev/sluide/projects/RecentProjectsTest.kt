@@ -1,14 +1,14 @@
 package dev.sluide.projects
 
+import dev.sluide.projectdata.ProjectDataStore
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.Instant
 import kotlin.io.path.createDirectories
-import kotlin.io.path.readText
-import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class RecentProjectsTest {
@@ -17,7 +17,9 @@ class RecentProjectsTest {
 
     private val t0 = Instant.ofEpochSecond(1_000)
 
-    private fun store() = RecentProjects(dir.resolve("config/projects.properties"))
+    private fun data() = ProjectDataStore(dir.resolve("projects"), dir.resolve("outside-projects.json"), emptyList())
+
+    private fun store() = RecentProjects(data())
 
     private fun folder(name: String) = dir.resolve(name).createDirectories()
 
@@ -44,16 +46,27 @@ class RecentProjectsTest {
     }
 
     @Test
-    fun `remove drops the entry but not the folder`() {
-        val store = store()
+    fun `remove forgets the whole project but not the folder`() {
+        val data = data()
+        val store = RecentProjects(data)
         val a = folder("a")
         store.opened(a, t0)
+        data.update(a) { it.putObject("trust").put("trusted", true) }
         store.opened(folder("b"), t0.plusSeconds(1))
 
         store.remove(a)
 
         assertEquals(listOf("b"), store.list().map { it.name })
+        assertNull(data.read(a))
         assertTrue(Files.isDirectory(a))
+    }
+
+    @Test
+    fun `a lastOpened that is not a number is not listed`() {
+        val data = data()
+        data.update(folder("a")) { it.put("lastOpened", "yesterday") }
+
+        assertEquals(emptyList(), RecentProjects(data).list())
     }
 
     @Test
@@ -64,39 +77,18 @@ class RecentProjectsTest {
     }
 
     @Test
-    fun `a missing file means no projects`() {
+    fun `a missing project folder means no projects`() {
         assertEquals(emptyList(), store().list())
     }
 
     @Test
-    fun `an unreadable file gives no projects and is not replaced`() {
-        val store = store()
-        store.file.parent.createDirectories()
-        store.file.writeText("a=\\uZZZZ")
+    fun `a project with only other data is not listed`() {
+        val data = data()
+        data.update(folder("a")) { it.putObject("trust").put("trusted", true) }
+        val store = RecentProjects(data)
+        store.opened(folder("b"), t0)
 
-        assertEquals(emptyList(), store.list())
-        store.opened(folder("a"), t0)
-
-        assertEquals("a=\\uZZZZ", store.file.readText())
-    }
-
-    @Test
-    fun `entries with an unparsable time are skipped`() {
-        val store = store()
-        store.opened(folder("a"), t0)
-        store.file.writeText(store.file.readText() + "/x/y=yesterday\n")
-
-        assertEquals(listOf("a"), store.list().map { it.name })
-    }
-
-    @Test
-    fun `paths are made absolute and normalized`() {
-        val store = store()
-        val a = folder("a")
-        store.opened(dir.resolve("b/../a"), t0)
-        store.opened(a, t0.plusSeconds(1))
-
-        assertEquals(listOf(a), store.list().map { it.folder })
+        assertEquals(listOf("b"), store.list().map { it.name })
     }
 
     @Test

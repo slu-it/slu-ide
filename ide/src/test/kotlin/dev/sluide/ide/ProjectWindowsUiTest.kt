@@ -21,6 +21,7 @@ import dev.sluide.git.cli.GitCli
 import dev.sluide.gitlog.GitLogView
 import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
+import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.projects.ProjectPicker
 import dev.sluide.projects.RecentProjects
 import dev.sluide.projecttrust.ProjectTrust
@@ -92,11 +93,18 @@ class ProjectWindowsUiTest {
         first = stage
         val store = SettingsStore(dir.resolve("settings/settings.properties"))
         // Never the user's ~/.sluide.
-        recentProjects = RecentProjects(dir.resolve("settings/projects.properties"))
+        val projectData =
+            ProjectDataStore(
+                dir.resolve("settings/projects"),
+                dir.resolve("settings/outside-projects.json"),
+                emptyList(),
+            )
+        recentProjects = RecentProjects(projectData)
         context =
             AnnotationConfigApplicationContext().apply {
                 register(WindowScopeConfiguration::class.java, ProjectWindows::class.java, SystemBrowser::class.java)
                 registerBean(SettingsStore::class.java, Supplier { store })
+                registerBean(ProjectDataStore::class.java, Supplier { projectData })
                 registerBean(RecentProjects::class.java, Supplier { recentProjects })
                 registerBean(ScratchFiles::class.java, Supplier { ScratchFiles(dir.resolve("scratches")) })
                 registerBean(ProjectPicker::class.java, Supplier { ProjectPicker(recentProjects) })

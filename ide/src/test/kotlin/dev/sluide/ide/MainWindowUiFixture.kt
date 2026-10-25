@@ -23,6 +23,7 @@ import dev.sluide.git.cli.GitCli
 import dev.sluide.gitlog.GitLogView
 import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
+import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.projects.ProjectPicker
 import dev.sluide.projects.RecentProjects
 import dev.sluide.projecttrust.ProjectTrust
@@ -104,7 +105,10 @@ abstract class MainWindowUiFixture {
     internal val remoteSourceCache by lazy { RemoteSourceCache(git, home.resolve(".sluide/cache/git")) }
 
     /** The remembered projects, kept in the test's settings folder, never in `~/.sluide`. */
-    internal val recentProjects by lazy { RecentProjects(settingsDir.resolve("projects.properties")) }
+    internal val projectData by lazy {
+        ProjectDataStore(settingsDir.resolve("projects"), settingsDir.resolve("outside-projects.json"), emptyList())
+    }
+    internal val recentProjects by lazy { RecentProjects(projectData) }
     internal val projectWindows by lazy {
         object : ProjectWindows(DefaultListableBeanFactory(), ProjectPicker(recentProjects)) {
             override fun open(folder: Path) {

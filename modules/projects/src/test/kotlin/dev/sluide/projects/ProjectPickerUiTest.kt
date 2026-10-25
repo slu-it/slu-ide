@@ -1,5 +1,6 @@
 package dev.sluide.projects
 
+import dev.sluide.projectdata.ProjectDataStore
 import javafx.event.Event
 import javafx.geometry.Orientation
 import javafx.scene.Node
@@ -43,6 +44,10 @@ class ProjectPickerUiTest {
     private val opened = mutableListOf<Path>()
     private var cancelled = 0
     private lateinit var store: RecentProjects
+
+    private fun recentProjects() =
+        RecentProjects(ProjectDataStore(dir.resolve("projects"), dir.resolve("outside-projects.json"), emptyList()))
+
     private lateinit var picker: ProjectPicker
     private lateinit var stage: Stage
 
@@ -63,7 +68,7 @@ class ProjectPickerUiTest {
         robot: FxRobot,
         chooser: (Stage) -> Path? = { null },
     ): Stage {
-        store = RecentProjects(dir.resolve("projects.properties"))
+        store = recentProjects()
         return showWith(robot, chooser)
     }
 
@@ -160,7 +165,7 @@ class ProjectPickerUiTest {
 
     @Test
     fun `a long path shows no horizontal scroll bar`(robot: FxRobot) {
-        store = RecentProjects(dir.resolve("projects.properties"))
+        store = recentProjects()
         store.opened(folder("a-rather-long-project-name-".repeat(6)))
         showWith(robot)
 
@@ -193,7 +198,7 @@ class ProjectPickerUiTest {
 
     @Test
     fun `projects are listed newest first with name and path`(robot: FxRobot) {
-        store = RecentProjects(dir.resolve("projects.properties"))
+        store = recentProjects()
         store.opened(folder("old"), Instant.ofEpochSecond(100))
         store.opened(folder("new"), Instant.ofEpochSecond(300))
         store.opened(folder("mid"), Instant.ofEpochSecond(200))
@@ -208,7 +213,7 @@ class ProjectPickerUiTest {
 
     @Test
     fun `clicking a project opens it and closes the picker`(robot: FxRobot) {
-        store = RecentProjects(dir.resolve("projects.properties"))
+        store = recentProjects()
         val a = folder("a")
         store.opened(a)
         showWith(robot)
@@ -222,7 +227,7 @@ class ProjectPickerUiTest {
 
     @Test
     fun `the delete button removes the entry only`(robot: FxRobot) {
-        store = RecentProjects(dir.resolve("projects.properties"))
+        store = recentProjects()
         val a = folder("a")
         store.opened(a)
         showWith(robot)
@@ -241,7 +246,7 @@ class ProjectPickerUiTest {
 
     @Test
     fun `a missing folder is marked and cannot be opened`(robot: FxRobot) {
-        store = RecentProjects(dir.resolve("projects.properties"))
+        store = recentProjects()
         val gone = dir.resolve("home/gone")
         store.opened(gone)
         showWith(robot)
@@ -299,7 +304,7 @@ class ProjectPickerUiTest {
 
     @Test
     fun `enter opens the selected project`(robot: FxRobot) {
-        store = RecentProjects(dir.resolve("projects.properties"))
+        store = recentProjects()
         val a = folder("a")
         store.opened(a)
         showWith(robot)
@@ -327,7 +332,7 @@ class ProjectPickerUiTest {
 
     @Test
     fun `delete and backspace remove the selected project and select the next row`(robot: FxRobot) {
-        store = RecentProjects(dir.resolve("projects.properties"))
+        store = recentProjects()
         for ((i, name) in listOf("a", "b", "c").withIndex()) store.opened(folder(name), Instant.ofEpochSecond(i + 1L))
         showWith(robot)
         select(robot, 1)
@@ -344,7 +349,7 @@ class ProjectPickerUiTest {
 
     @Test
     fun `delete on open new project does nothing`(robot: FxRobot) {
-        store = RecentProjects(dir.resolve("projects.properties"))
+        store = recentProjects()
         store.opened(folder("a"))
         showWith(robot)
 
@@ -356,7 +361,7 @@ class ProjectPickerUiTest {
 
     @Test
     fun `a folder deleted after the picker opened is marked missing instead of opened`(robot: FxRobot) {
-        store = RecentProjects(dir.resolve("projects.properties"))
+        store = recentProjects()
         val a = folder("a")
         store.opened(a)
         showWith(robot)
