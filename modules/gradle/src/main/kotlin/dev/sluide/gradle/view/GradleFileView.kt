@@ -49,7 +49,7 @@ internal class GradleFileView(
         private set
 
     val tasks = TaskTreePane()
-    val runPane = RunPane("Arguments, e.g. --info -x test", "The output of the tasks you run shows here.")
+    val runPane = RunPane("e.g. --info -x test", "The output of the tasks you run shows here.")
 
     private val gradlePane =
         SplitPane(tasks.node, runPane.node).apply {

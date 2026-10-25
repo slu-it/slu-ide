@@ -12,9 +12,10 @@ Shell scripts open as source that can be run, with the output in a terminal besi
 - Diffs of scripts (also a commit's version) are highlighted as shell.
 
 ## The view
-- Opens as plain source (**Source**). The toolbar has **Run** (play icon) on the left and the modes **Source | Split |
-  Output** on the right. Output is the run pane: the arguments, the status line with **Stop** and **Rerun**, and the
-  terminal of the last run.
+- Opens as **Split**: the source on the left, the run pane on the right (scripts usually get arguments). The toolbar
+  has **Run** (play icon) on the left and the modes **Source | Split | Output** on the right. Output is the run pane:
+  the arguments field (labelled "Arguments:"), the status line with **Stop** and **Rerun**, and the terminal of the
+  last run.
 - A run shows the output beside the source: Source switches to Split; Split and Output stay as they are.
 - Shown again (tab selected), the view focuses the source, or the arguments while the output is shown alone. Going to a
   line while only the output shows switches to Split first.

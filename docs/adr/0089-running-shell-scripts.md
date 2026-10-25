@@ -21,7 +21,8 @@ whether the project trust ([ADR 0053](0053-project-trust.md)) applies.
   `SourceFileViewer` and a `RunnableFileViewer`. `ShellFileViewer` keeps only the startup files (`.bashrc`,
   `.bash_profile`, `.zshrc`, `.zprofile`, `.profile`) and no shebangs, so the two viewers never claim the same file and
   the choice does not depend on Spring's bean order ([ADR 0029](0029-file-name-and-shebang-matching.md)).
-- **The view** opens as plain source, Run (play icon) on the left of a toolbar and Source | Split | Output on the right.
+- **The view** opens as Split since 2026-10-25 (user decision: scripts usually get arguments), not as plain source;
+  Run (play icon) on the left of a toolbar and Source | Split | Output on the right.
   Output is a `RunPane` (arguments, status line with Stop and Rerun, the terminal). Run, Shortcut+Enter in the source,
   Enter in the arguments, Rerun, and `RunnableFileView.run()` all run the script and show the output beside the source
   (Output alone stays Output).

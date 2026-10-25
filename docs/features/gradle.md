@@ -68,8 +68,8 @@ runs them. Decisions: [ADR 0085](../adr/0085-gradle-integration.md); the termina
   The tooltip of a task row says which: "clean (this project and its subprojects)" or ":app:clean (only this task)",
   then the description. Projects and groups in the selection are ignored. The focus stays
   where it was: the run's terminal takes it only when clicked (e.g. to answer a prompt).
-- **Arguments** above the terminal are added to every run of the view (e.g. `--info -x test`). They are split into
-  words like a shell does (spaces separate, quotes group), but each word is passed quoted: there is no `$VAR`, `~` or
+- The words in the **Arguments:** field above the terminal are added to every run of the view (e.g. `--info -x test`).
+  They are split into words like a shell does (spaces separate, quotes group), but each word is passed quoted: there is no `$VAR`, `~` or
   glob expansion. An unclosed quote is reported in the status line and nothing runs.
 - Every run is a fresh process (`$SHELL -l -i -c '<gradle> <arguments> <tasks>'`) in the build file's folder, in a
   fresh terminal that replaces the previous run's output. The interactive login shell reads the same startup files as

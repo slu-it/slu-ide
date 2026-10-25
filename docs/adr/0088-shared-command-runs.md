@@ -27,8 +27,8 @@ Options considered:
   job type overrides what differs (Gradle: the load's texts). `stopQuestion(running, next)` combines two jobs.
 - **`RunState`** (`Idle`, `Running`, `Finished`, `Failed` with the exit code, `Stopped`), `RunStatus` (the colour of
   the status line), `StartResult`, and the pure `elapsedText`, `statusOf` and `activityOf`.
-- **`RunPane`**: arguments, status line with Stop and Rerun, the terminal slot with a placeholder; prompt and
-  placeholder are given by the view. Its own stylesheet (`run-pane.css`, classes `run-*`, dark rules as in
+- **`RunPane`**: arguments (labelled "Arguments:" since 2026-10-25), status line with Stop and Rerun, the terminal
+  slot with a placeholder; the arguments' example prompt and the placeholder are given by the view. Its own stylesheet (`run-pane.css`, classes `run-*`, dark rules as in
   [ADR 0009](0009-themes.md)).
 - **`CommandRunner<J : RunJob>`**: one run at a time per view, each a fresh process in a fresh embedded terminal in
   the pane. `replaceRunning(next)` asks before stopping a running job and closes its terminal at once (it counts as

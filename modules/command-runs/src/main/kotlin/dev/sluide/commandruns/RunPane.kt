@@ -14,9 +14,9 @@ import javafx.scene.layout.StackPane
 import javafx.scene.layout.VBox
 
 /**
- * The run pane of a view that runs commands (ADR 0088): the arguments of every run (prompt [argumentsPrompt]), the
- * status line with Stop and Rerun, and the terminal of the current or last run ([placeholder] before the first). FX
- * thread.
+ * The run pane of a view that runs commands (ADR 0088): the labelled arguments of every run ([argumentsPrompt] is an
+ * example in the empty field), the status line with Stop and Rerun, and the terminal of the current or last run
+ * ([placeholder] before the first). FX thread.
  */
 class RunPane(
     argumentsPrompt: String,
@@ -28,6 +28,13 @@ class RunPane(
             promptText = argumentsPrompt
             styleClass += "run-arguments"
             HBox.setHgrow(this, Priority.ALWAYS)
+        }
+
+    private val argumentsLabel =
+        Label("Arguments:").apply {
+            styleClass += "run-arguments-label"
+            labelFor = arguments
+            minWidth = Region.USE_PREF_SIZE
         }
 
     /** Takes the width the buttons leave; cut text shows whole in its tooltip. */
@@ -59,7 +66,10 @@ class RunPane(
             styleClass += "run-pane"
             top =
                 VBox(
-                    HBox(arguments).apply { styleClass += "run-row" },
+                    HBox(argumentsLabel, arguments).apply {
+                        styleClass += "run-row"
+                        alignment = Pos.CENTER_LEFT
+                    },
                     HBox(status, stop, rerun).apply {
                         styleClass += "run-row"
                         alignment = Pos.CENTER_LEFT

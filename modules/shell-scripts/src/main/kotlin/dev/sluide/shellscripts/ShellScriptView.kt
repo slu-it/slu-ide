@@ -40,8 +40,8 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * The view of a shell script (ADR 0089): its [editor] as plain source, Run in the toolbar and the modes Source | Split
- * | Output, where Output is the [runPane] with the arguments and the terminal of the runs. Run (the button, Shortcut+
+ * The view of a shell script (ADR 0089): its [editor], Run in the toolbar and the modes Source | Split | Output (opens
+ * in Split), where Output is the [runPane] with the arguments and the terminal of the runs. Run (the button, Shortcut+
  * Enter in the source, Enter in the arguments, Rerun, or [run] from outside) shows the output beside the source and
  * runs the script through a [ScriptRunFlow], once the [host] gives the window's [CommandRunSession].
  */
@@ -56,9 +56,9 @@ internal class ShellScriptView(
     var file: Path = path.toAbsolutePath().normalize()
         private set
 
-    val runPane = RunPane("Arguments, e.g. --verbose input.txt", "The output of the script shows here.")
+    val runPane = RunPane("e.g. --verbose input.txt", "The output of the script shows here.")
 
-    val split = SourceSplit(editor.node, runPane.node, "Output", "script-mode", SplitMode.SOURCE)
+    val split = SourceSplit(editor.node, runPane.node, "Output", "script-mode", SplitMode.SPLIT)
 
     /** Runs the script; disabled outside an IDE window (no [CommandRunSession]). */
     val runButton =

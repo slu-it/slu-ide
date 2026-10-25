@@ -199,7 +199,8 @@ class ShellScriptViewUiTest {
         }
         lateinit var placeholder: Node
         robot.interact {
-            assertEquals(SplitMode.SOURCE, view.split.mode.get())
+            assertEquals(SplitMode.SPLIT, view.split.mode.get(), "opens in Split")
+            view.split.mode.set(SplitMode.SOURCE)
             placeholder = view.runPane.shownOutput
             view.runPane.arguments.text = "wait 'two words'"
             view.run()
