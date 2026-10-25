@@ -240,6 +240,7 @@ abstract class MainWindowUiFixture {
             GitRemotes(git),
             GradleSession(projectTrust, commandRuns).also(gradleSessions::add),
             commandRuns,
+            projectData,
         )
     }
 

@@ -28,6 +28,7 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.net.URI
+import java.nio.file.Path
 import java.util.concurrent.Callable
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
@@ -297,29 +298,55 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         assertEquals(true, text.isEditable)
     }
 
+    /** Stores run arguments for each of [files] in the project's per-file data. */
+    private fun storeArguments(vararg files: Path) =
+        files.forEach { file -> projectData.updateFileData(file, project) { it.putArray("runArguments").add("--x") } }
+
+    /** The run arguments stored for [file], as JSON; `null` if none are. */
+    private fun storedArguments(file: Path) = projectData.fileData(file, project)?.get("runArguments")?.toString()
+
     @Test
-    fun `the tab of a file renamed in the explorer follows it`(robot: FxRobot) {
+    fun `the tab and the project data of a file renamed in the explorer follow it`(robot: FxRobot) {
         val notes = project.resolve("notes.txt").apply { writeText("notes") }
+        val script =
+            project
+                .resolve("lib")
+                .createDirectories()
+                .resolve("run.sh")
+                .apply { writeText("echo") }
+        storeArguments(notes, script)
         robot.interact { projectService.open(project) }
         robot.interact { fileExplorer.onOpenFile(notes) }
         val renamed = project.resolve("todo.txt")
+        val tools = project.resolve("tools")
 
         robot.interact {
             notes.moveTo(renamed)
             fileExplorer.onMoved(notes, renamed)
+            // A folder with a file that is not open.
+            script.parent.moveTo(tools)
+            fileExplorer.onMoved(script.parent, tools)
         }
         WaitForAsyncUtils.waitForFxEvents()
 
         assertEquals(listOf("todo.txt"), tabTitles(robot))
         assertEquals(listOf(renamed), editorArea.openPaths)
+        assertEquals("[\"--x\"]", storedArguments(renamed))
+        assertEquals("[\"--x\"]", storedArguments(tools.resolve("run.sh")))
+        assertNull(storedArguments(notes))
+        assertNull(storedArguments(script))
     }
 
     @Test
-    fun `deleting in the explorer counts the unsaved files and closes the tabs below`(robot: FxRobot) {
+    fun `deleting in the explorer counts the unsaved files, closes the tabs and forgets the project data below`(
+        robot: FxRobot,
+    ) {
         val docs = project.resolve("docs").createDirectories()
         val notes = docs.resolve("notes.txt").apply { writeText("notes") }
         val todo = docs.resolve("todo.txt").apply { writeText("todo") }
         val readme = project.resolve("README.md").apply { writeText("# Hello") }
+        val script = docs.resolve("run.sh").apply { writeText("echo") }
+        storeArguments(notes, script, readme)
         robot.interact { projectService.open(project) }
         robot.interact { fileExplorer.onOpenFile(notes) }
         robot.interact { shownArea(robot).appendText("!") }
@@ -335,5 +362,9 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         robot.interact { fileExplorer.onDeleted(docs, unsaved) }
 
         assertEquals(listOf("README.md"), tabTitles(robot))
+        // The project data below the deleted folder is forgotten, also of files that were not open.
+        assertNull(storedArguments(notes))
+        assertNull(storedArguments(script))
+        assertEquals("[\"--x\"]", storedArguments(readme))
     }
 }

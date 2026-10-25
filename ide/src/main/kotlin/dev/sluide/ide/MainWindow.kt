@@ -31,6 +31,7 @@ import dev.sluide.ide.scratches.WindowScratches
 import dev.sluide.ide.scripts.WindowScriptRuns
 import dev.sluide.ide.tools.WindowTools
 import dev.sluide.ide.trust.WindowTrust
+import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.projects.RecentProjects
 import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.scratches.ScratchFiles
@@ -86,6 +87,7 @@ class MainWindow(
     gitRemotes: GitRemotes,
     private val gradleSession: GradleSession,
     private val commandRuns: CommandRunSession,
+    private val projectData: ProjectDataStore,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
     internal var openWebPage: (URI) -> Unit = systemBrowser::open
@@ -181,12 +183,20 @@ class MainWindow(
 
         fileExplorer.onOpenFile = { editorArea.open(it) }
         fileExplorer.canOpenFile = editorArea::canOpen
-        // Tabs follow files and folders renamed in the explorer instead of closing as if they were deleted.
-        fileExplorer.onMoved = editorArea::moved
-        // Deleting warns about unsaved changes and, once done, closes the tabs without asking again: clean ones and
-        // those it warned about.
+        // Per-file project data (run-argument histories, ADR 0091) follows files and folders renamed or moved in the
+        // explorer, also of files not open; re-keyed first, so a view that follows reads its data under the new path.
+        // Tabs follow instead of closing as if they were deleted.
+        fileExplorer.onMoved = { from, to ->
+            projectData.moved(from, to, folder)
+            editorArea.moved(from, to)
+        }
+        // Deleting warns about unsaved changes and, once done, forgets the per-file project data below the path and
+        // closes the tabs without asking again: clean ones and those it warned about.
         fileExplorer.unsavedUnder = editorArea::dirtyUnder
-        fileExplorer.onDeleted = editorArea::closeUnder
+        fileExplorer.onDeleted = { path, unsaved ->
+            projectData.deleted(path, folder)
+            editorArea.closeUnder(path, unsaved)
+        }
         // A folder's context menu creates the files to start with the HTTP client there (ADR 0056).
         fileExplorer.folderActions =
             listOf(

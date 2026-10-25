@@ -1,6 +1,7 @@
 package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.commandruns.ArgumentHistories
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
@@ -117,6 +118,7 @@ class SpringWiringTest {
                         GradleTrustCheck::class.java,
                         GradleSession::class.java,
                         CommandRunSession::class.java,
+                        ArgumentHistories::class.java,
                         GradleKotlinFileViewer::class.java,
                         GradleGroovyFileViewer::class.java,
                         ShellScriptFileViewer::class.java,
