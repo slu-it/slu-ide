@@ -111,10 +111,12 @@ internal class PathCell(
         empty: Boolean,
     ) {
         super.updateItem(item, empty)
-        val labelled = (treeItem as? FileTreeItem)?.label
-        text = if (empty || item == null) null else labelled ?: (item.fileName ?: item).toString()
+        val entry = treeItem as? FileTreeItem
+        text = if (empty || item == null) null else entry?.displayName ?: (item.fileName ?: item).toString()
         name.text = text
-        tooltip = if (labelled != null && item != null) pathTooltip.also { it.text = item.toString() } else null
+        // Labelled and compacted rows show more or other than the name: the tooltip has the full path.
+        val withPath = entry != null && (entry.label != null || entry.isCompacted)
+        tooltip = if (withPath && !empty && item != null) pathTooltip.also { it.text = item.toString() } else null
         updateIcon()
         updateMarkers()
         updateDropTarget()
@@ -126,7 +128,8 @@ internal class PathCell(
     }
 
     private fun updateCut() {
-        val path = item
+        // A compacted row is cut as its first folder.
+        val path = (treeItem as? FileTreeItem)?.sourcePath ?: item
         pseudoClassStateChanged(CUT, !isEmpty && path != null && isCut(path))
     }
 

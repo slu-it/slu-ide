@@ -225,6 +225,37 @@ class FileExplorerViewEditsUiTest : FileExplorerViewUiFixture() {
     }
 
     @Test
+    fun `F2 on a compacted row renames a middle folder, and the renamed row is watched, also collapsed`(
+        robot: FxRobot,
+    ) {
+        project.resolve("src/main/kotlin/App.kt").createParentDirectories().createFile()
+        val moves = mutableListOf<Pair<Path, Path>>()
+        view.onMoved = { from, to -> moves += from to to }
+        val asked = mutableListOf<String>()
+        view.askName = { _, initial, _ ->
+            asked += initial
+            "src/core/kotlin"
+        }
+        robot.interact {
+            explorerSettings.compactFolders.set(true)
+            view.open(project)
+        }
+
+        robot.interact {
+            view.selectOnly(view.projectNode.children.single())
+            pressKey(KeyCode.F2)
+        }
+
+        assertEquals(listOf("src/main/kotlin"), asked)
+        assertEquals(listOf(project.resolve("src/main") to project.resolve("src/core")), moves)
+        assertEquals(listOf(project.name, "src/core/kotlin"), renderedNames(robot))
+        robot.interact { assertEquals(project.resolve("src/core/kotlin"), view.selectionModel.selectedItem?.value) }
+        // Its parent folder did not change, so only the watch of the new middle folder can see this.
+        project.resolve("src/core/notes.txt").createFile()
+        eventually(robot) { assertEquals(listOf(project.name, "src/core"), renderedNames(robot)) }
+    }
+
+    @Test
     fun `The file manager item opens a folder and reveals a single file`(robot: FxRobot) {
         project.resolve("a.txt").createFile()
         val sub = project.resolve("sub").createDirectories()

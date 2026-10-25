@@ -3,7 +3,7 @@ package dev.sluide.fileexplorer
 import dev.sluide.filewatcher.FileWatcher
 import javafx.application.Platform
 import javafx.beans.property.SimpleObjectProperty
-import javafx.scene.control.Button
+import javafx.scene.control.Control
 import javafx.scene.layout.VBox
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
@@ -36,14 +36,12 @@ class ExplorerBarUiTest : FileExplorerViewUiFixture() {
             VBox(bar, it)
         })
 
-    private fun Button.tipText() = tooltip.text
-
     @Test
-    fun `the bar has the three buttons with tooltips naming the action and key`(robot: FxRobot) {
+    fun `the bar has the four buttons with tooltips naming the action and key`(robot: FxRobot) {
         robot.interact {
             assertEquals(
-                listOf("Select Opened File (Alt+F1)", "Collapse All", "Refresh (F5)"),
-                bar.children.map { (it as Button).tipText() },
+                listOf("Select Opened File (Alt+F1)", "Collapse All", "Refresh (F5)", "Compact Middle Folders"),
+                bar.children.map { (it as Control).tooltip.text },
             )
             assertTrue(bar.children.none { it.isFocusTraversable })
         }
@@ -106,5 +104,31 @@ class ExplorerBarUiTest : FileExplorerViewUiFixture() {
         robot.interact { bar.refreshButton.fire() }
 
         assertEquals(listOf(project.name, "late.txt"), renderedNames(robot))
+    }
+
+    @Test
+    fun `the compact toggle follows the setting and switches the tree, keeping the selection and expansion`(
+        robot: FxRobot,
+    ) {
+        project.resolve("src/main/kotlin").createDirectories()
+        val app = project.resolve("src/main/kotlin/App.kt").createFile()
+        project.resolve("README.md").createFile()
+        robot.interact { view.open(project) }
+        robot.interact { view.reveal(app) }
+        assertFalse(bar.compactToggle.isSelected, "off in the fixture")
+        assertEquals(listOf(project.name, "src", "main", "kotlin", "App.kt", "README.md"), renderedNames(robot))
+
+        robot.interact { bar.compactToggle.fire() }
+
+        assertTrue(explorerSettings.compactFolders.get())
+        assertEquals(listOf(project.name, "src/main/kotlin", "App.kt", "README.md"), renderedNames(robot))
+        robot.interact { assertEquals(app, view.selectionModel.selectedItem?.value) }
+
+        robot.interact { view.reveal(project.resolve("src/main")) }
+        robot.interact { explorerSettings.compactFolders.set(false) }
+
+        assertFalse(bar.compactToggle.isSelected)
+        assertEquals(listOf(project.name, "src", "main", "kotlin", "App.kt", "README.md"), renderedNames(robot))
+        robot.interact { assertEquals(project.resolve("src/main/kotlin"), view.selectionModel.selectedItem?.value) }
     }
 }

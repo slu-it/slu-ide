@@ -35,6 +35,7 @@ import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
+import kotlin.io.path.createParentDirectories
 import kotlin.io.path.exists
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -686,6 +687,24 @@ class FileExplorerViewDragUiTest : FileExplorerViewUiFixture() {
         WaitForAsyncUtils.waitForFxEvents()
         assertEquals(emptyList(), questions)
         assertEquals(listOf(project.resolve("a.txt")), selectedPaths())
+    }
+
+    @Test
+    fun `a drop onto a compacted row moves into its deepest folder`(robot: FxRobot) {
+        project.resolve("src/main/kotlin/App.kt").createParentDirectories().createFile()
+        project.resolve("a.txt").createFile()
+        robot.interact { explorerSettings.compactFolders.set(true) }
+        open(robot)
+
+        val pressed = startDrag(robot, "a.txt")
+        dragTo(robot, pressed, at(robot, "src/main/kotlin"))
+        assertTrue(rowNamed(robot, "src/main/kotlin").isDropTarget())
+        release(robot, pressed, at(robot, "src/main/kotlin"))
+        waitFor("the move happens") { project.resolve("src/main/kotlin/a.txt").exists() }
+        WaitForAsyncUtils.waitForFxEvents()
+
+        assertEquals("Move “a.txt” to “src/main/kotlin”?", questions.single().header)
+        robot.interact { assertEquals(listOf(project.resolve("src/main/kotlin/a.txt")), selectedPaths()) }
     }
 }
 

@@ -207,4 +207,41 @@ class FileExplorerViewUiTest : FileExplorerViewUiFixture() {
             assertEquals(listOf(project.name, "sub", "first.txt", "second.txt"), renderedNames(robot))
         }
     }
+
+    @Test
+    fun `a compacted row shows its folders, splits when a middle folder gets an entry on disk and joins again`(
+        robot: FxRobot,
+    ) {
+        val app = project.resolve("src/main/kotlin/App.kt").createParentDirectories().createFile()
+        project.resolve("README.md").createFile()
+        robot.interact {
+            explorerSettings.compactFolders.set(true)
+            view.open(project)
+        }
+        robot.interact { view.reveal(app) }
+        assertEquals(listOf(project.name, "src/main/kotlin", "App.kt", "README.md"), renderedNames(robot))
+        robot.interact {
+            assertEquals(
+                project.resolve("src/main/kotlin").toString(),
+                cellNamed(robot, "src/main/kotlin").tooltip?.text,
+            )
+        }
+
+        val notes = project.resolve("src/main/notes.txt").createFile()
+
+        eventually(robot) {
+            assertEquals(
+                listOf(project.name, "src/main", "kotlin", "App.kt", "notes.txt", "README.md"),
+                renderedNames(robot),
+            )
+            assertEquals(app, view.selectionModel.selectedItem?.value)
+        }
+
+        notes.deleteExisting()
+
+        eventually(robot) {
+            assertEquals(listOf(project.name, "src/main/kotlin", "App.kt", "README.md"), renderedNames(robot))
+            assertEquals(app, view.selectionModel.selectedItem?.value)
+        }
+    }
 }

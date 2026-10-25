@@ -19,7 +19,7 @@ internal fun startWidth(
     var width = MIN_START_WIDTH * spec.size
     // Stops once a name needs the largest width, so a folder with thousands of entries is not measured in full.
     for ((item, level) in roots.asSequence().flatMap { shownEntries(it, 0) }) {
-        text.text = (item as? FileTreeItem)?.label ?: (item.value.fileName ?: item.value).toString()
+        text.text = (item as? FileTreeItem)?.displayName ?: (item.value.fileName ?: item.value).toString()
         width = maxOf(width, (level + ROW_EXTRA) * spec.size + text.layoutBounds.width)
         if (width >= max) return max
     }

@@ -19,6 +19,7 @@ import dev.sluide.fileexplorer.tree.EXPAND_DELAY
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileexplorer.tree.PathCell
 import dev.sluide.fileexplorer.tree.TreeDragAndDrop
+import dev.sluide.fileexplorer.tree.TreeWatches
 import dev.sluide.fileexplorer.tree.collapseAll
 import dev.sluide.fileexplorer.tree.defaultCopyModifier
 import dev.sluide.fileexplorer.tree.expandTo
@@ -32,8 +33,11 @@ import dev.sluide.settings.FontSpec
 import javafx.application.Platform
 import javafx.beans.InvalidationListener
 import javafx.beans.WeakInvalidationListener
+import javafx.beans.property.BooleanProperty
 import javafx.beans.property.SimpleIntegerProperty
+import javafx.beans.value.ChangeListener
 import javafx.beans.value.ObservableValue
+import javafx.beans.value.WeakChangeListener
 import javafx.scene.Scene
 import javafx.scene.control.Alert
 import javafx.scene.control.SelectionMode
@@ -47,7 +51,6 @@ import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.nio.file.Files
 import java.nio.file.Path
-import java.util.IdentityHashMap
 import kotlin.math.roundToInt
 
 /**
@@ -176,6 +179,10 @@ class FileExplorerView(
             openInTerminal = { openInTerminal },
         )
 
+    // Loaded folders and the middle folders of compacted rows (ADR 0096).
+    private val watches =
+        TreeWatches(fileWatcher, ::isShown, ::keepSelection) { changed -> onFilesChanged(changed) }
+
     // The hooks and test seams are read when an edit runs, not now, so later changes take effect.
     private val editHost =
         ExplorerEditHost(
@@ -198,10 +205,8 @@ class FileExplorerView(
             selectedItems = { selectionModel.selectedItems.filterNotNull() },
             rows = { (0 until expandedItemCount).mapNotNull { getTreeItem(it) } },
             isShown = { isShown(it) },
-            closeWatchesUnder = { path ->
-                watches.keys.filter { it.value.startsWith(path) }.forEach { watches.remove(it)?.close() }
-            },
-            closeWatchesOfVanishedFolders = { closeWatchesOfVanishedFolders() },
+            closeWatchesUnder = { watches.closeUnder(it) },
+            closeWatchesOfVanishedFolders = { watches.closeVanished() },
         )
     private val edits = ExplorerEdits(editHost)
     private val moves = ExplorerMoves(editHost, edits::canChange, edits::isBeingDeleted, edits::canChangePath)
@@ -230,8 +235,9 @@ class FileExplorerView(
     internal var projectItem: FileTreeItem? = null
         private set
 
-    // By item, not path: a folder can be shown twice (e.g. an extra root inside the project), each copy watched.
-    private val watches = IdentityHashMap<FileTreeItem, AutoCloseable>()
+    /** Whether middle folders are compacted (ADR 0096); shared by all windows, so the view listens to it weakly. */
+    internal val compactFolders: BooleanProperty get() = settings.compactFolders
+    private val compactUpdater = ChangeListener<Boolean> { _, _, _ -> recompact() }
 
     private val font = fontSettings.font(FontArea.EXPLORER)
 
@@ -277,6 +283,7 @@ class FileExplorerView(
         clipboard.cutChanges.addListener(WeakInvalidationListener(cutUpdater))
         focusedProperty().addListener { _, _, focused -> if (focused) clipboard.checkCut() }
         windowFocused.addListener { _, _, focused -> if (focused == true) clipboard.checkCut() }
+        compactFolders.addListener(WeakChangeListener(compactUpdater))
         // The cells inherit the font.
         styleProperty().bind(font.map(FontSpec::toCss))
         stylesheets += checkNotNull(FileExplorerView::class.java.getResource("file-explorer.css")).toExternalForm()
@@ -351,20 +358,11 @@ class FileExplorerView(
         root: Path?,
         extraRoots: List<ExplorerRoot> = emptyList(),
     ) {
-        watches.values.forEach(AutoCloseable::close)
-        watches.clear()
-        val project = root?.let { FileTreeItem(it.toAbsolutePath().normalize(), onChildrenLoaded = ::watch) }
+        watches.closeAll()
+        val project = root?.let { topLevelItem(it, null, null) }
         project?.isExpanded = true
         projectItem = project
-        val extras =
-            extraRoots.map {
-                FileTreeItem(
-                    it.folder.toAbsolutePath().normalize(),
-                    it.label,
-                    it.folderIcons,
-                    onChildrenLoaded = ::watch,
-                )
-            }
+        val extras = extraRoots.map { topLevelItem(it.folder, it.label, it.folderIcons) }
         this.root =
             if (project == null && extras.isEmpty()) {
                 null
@@ -375,6 +373,19 @@ class FileExplorerView(
                 }
             }
     }
+
+    private fun topLevelItem(
+        folder: Path,
+        label: String?,
+        folderIcons: FolderIcons?,
+    ) = FileTreeItem(
+        folder.toAbsolutePath().normalize(),
+        label,
+        folderIcons,
+        compact = compactFolders::get,
+        onChildrenAdded = watches::watchChildMiddles,
+        onChildrenLoaded = watches::watch,
+    )
 
     /** The top-level folders, the project first. */
     private fun topLevel(): List<FileTreeItem> = root?.children.orEmpty().filterIsInstance<FileTreeItem>()
@@ -417,13 +428,38 @@ class FileExplorerView(
      * change on disk was missed.
      */
     fun refreshAll() {
-        topLevel().flatMap(FileTreeItem::loadedFolders).forEach { folder ->
-            folder.refresh()
-            folder.forgetReadability(listOf(folder.value))
-            watch(folder)
+        keepSelection {
+            topLevel().flatMap(FileTreeItem::loadedFolders).forEach { folder ->
+                folder.refresh()
+                folder.forgetReadability(listOf(folder.value))
+                watches.watch(folder)
+            }
+            watches.closeVanished()
         }
-        closeWatchesOfVanishedFolders()
         onFilesChanged(emptySet())
+    }
+
+    /** Builds the tree again after compacting was turned on or off, keeping what was expanded and selected. */
+    private fun recompact() =
+        keepSelection {
+            topLevel().forEach(FileTreeItem::refreshTree)
+            watches.closeVanished()
+        }
+
+    /**
+     * Runs [change] and selects the entries again that were selected if their rows were replaced (a compacted row split
+     * or joined): the row that stands for the entry now, for a middle folder its compacted row.
+     */
+    private fun keepSelection(change: () -> Unit) {
+        val selected = selectionModel.selectedItems.filterNotNull().toList()
+        change()
+        if (selected.all(::isShown)) return
+        val rows = (0 until expandedItemCount).mapNotNull { getTreeItem(it) as? FileTreeItem }
+        selectRows(
+            selected
+                .mapNotNull { item -> item.takeIf(::isShown) ?: rows.firstOrNull { it.represents(item.value) } }
+                .distinct(),
+        )
     }
 
     /**
@@ -436,39 +472,6 @@ class FileExplorerView(
     /** Asks [markers] again for every shown entry. */
     fun refreshMarkers() {
         markerChanges.set(markerChanges.get() + 1)
-    }
-
-    private fun watch(folder: FileTreeItem) {
-        if (!isShown(folder)) return
-        watches.remove(folder)?.close()
-        watches[folder] = fileWatcher.watch(folder.value) { changed -> onFolderChanged(folder, changed) }
-    }
-
-    private fun onFolderChanged(
-        folder: FileTreeItem,
-        changed: List<Path>,
-    ) {
-        // A callback queued before the folder left the tree, e.g. by open.
-        if (!isShown(folder)) return
-        folder.refresh()
-        folder.forgetReadability(changed)
-        // The folder itself is reported when events were lost or it was deleted; watch it anew if it is there.
-        if (folder.value in changed && Files.isDirectory(folder.value)) watch(folder)
-        // A loaded subfolder that was deleted and recreated (e.g. build/) has new content and needs a new watch.
-        folder.children
-            .filterIsInstance<FileTreeItem>()
-            .filter { it.isLoaded && it.value in changed }
-            .forEach { subfolder ->
-                subfolder.refresh()
-                watch(subfolder)
-            }
-        closeWatchesOfVanishedFolders()
-        onFilesChanged(changed.toSet())
-    }
-
-    /** Folders deleted or no longer in the tree (the parent's refresh removes them); their watches end here. */
-    private fun closeWatchesOfVanishedFolders() {
-        watches.keys.filter { !Files.isDirectory(it.value) || !isShown(it) }.forEach { watches.remove(it)?.close() }
     }
 
     /**
