@@ -1,5 +1,6 @@
 package dev.sluide.fileexplorer.actions
 
+import dev.sluide.fileexplorer.tree.FileTreeItem
 import org.junit.jupiter.api.Assumptions.assumeFalse
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
@@ -469,5 +470,45 @@ class ExplorerCopiesTest {
             CopyQuestion("Copy “a.txt” to “target”?", "“a.txt” has unsaved changes; the copy gets what is saved."),
             copyDropQuestion(listOf("a.txt" to "a.txt"), "target", listOf("a.txt")),
         )
+    }
+
+    // Compact Middle Folders (ADR 0096)
+
+    @Test
+    fun `a compacted row is copied and cut as its first folder, a paste into one goes into its deepest folder`() {
+        project.resolve("src/main/kotlin/App.kt").also { it.parent.createDirectories() }.writeText("app")
+        project.resolve("lib/a/b/x.txt").also { it.parent.createDirectories() }.writeText("x")
+        fake = FakeEditHost(project, listOf(scratches), compact = true)
+        val src = fake.row("src/main/kotlin")
+        val lib = fake.row("lib/a/b")
+
+        fake.copies.cut(listOf(src))
+        assertEquals(listOf(project.resolve("src")), fake.clipboardFiles.content)
+        assertTrue(fake.clipboard.isCut(project.resolve("src")))
+        fake.copies.copy(listOf(src, fake.row("App.kt", src.also { it.isExpanded = true })))
+        assertEquals(listOf(project.resolve("src")), fake.clipboardFiles.content)
+
+        assertSame(lib, fake.copies.pasteTarget(listOf(lib)))
+        fake.copies.paste(listOf(lib))
+
+        assertEquals("app", project.resolve("lib/a/b/src/main/kotlin/App.kt").readText())
+        val copy = fake.selected.single() as FileTreeItem
+        assertEquals("src/main/kotlin", copy.displayName)
+        assertEquals(project.resolve("lib/a/b/src"), copy.sourcePath)
+    }
+
+    @Test
+    fun `a drop of a compacted row names it as shown, with the name of its copy`() {
+        project.resolve("src/main/kotlin").createDirectories()
+        project.resolve("other.txt").writeText("o")
+        fake = FakeEditHost(project, listOf(scratches), compact = true)
+
+        fake.copies.copyDrop(listOf(fake.row("src/main/kotlin")), fake.projectItem)
+
+        assertEquals(
+            listOf(copyDropQuestion(listOf("src/main/kotlin" to "src-copy/main/kotlin"), project.name, emptyList())),
+            fake.copyQuestions,
+        )
+        assertTrue(project.resolve("src-copy/main/kotlin").exists())
     }
 }

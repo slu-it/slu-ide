@@ -16,6 +16,8 @@ import java.nio.file.Path
 internal class FakeEditHost(
     private val project: Path,
     private val extraRoots: List<Path> = emptyList(),
+    /** Whether middle folders are compacted (ADR 0096), as the view does by default. */
+    private val compact: Boolean = false,
 ) {
     private var root = TreeItem<Path>()
 
@@ -120,8 +122,8 @@ internal class FakeEditHost(
 
     /** Opens the folders again as new items; the old ones are no longer shown. */
     fun reopen() {
-        projectItem = FileTreeItem(project).also { it.isExpanded = true }
-        extraItems = extraRoots.map { FileTreeItem(it).also { item -> item.isExpanded = true } }
+        projectItem = FileTreeItem(project, compact = { compact }).also { it.isExpanded = true }
+        extraItems = extraRoots.map { FileTreeItem(it, compact = { compact }).also { item -> item.isExpanded = true } }
         root = TreeItem<Path>()
         root.children.setAll(listOf(projectItem) + extraItems)
     }
@@ -147,6 +149,12 @@ internal class FakeEditHost(
         name.split('/').fold(top as TreeItem<Path>) { folder, segment ->
             folder.children.first { it.value.fileName.toString() == segment }
         } as FileTreeItem
+
+    /** The shown row named [name] as shown (`src/main/kotlin` for a compacted one) in [parent], the project by default. */
+    fun row(
+        name: String,
+        parent: TreeItem<Path> = projectItem,
+    ): FileTreeItem = parent.children.map { it as FileTreeItem }.first { it.displayName == name }
 
     /** Selects [names] like a click, without a selection call being recorded. */
     fun select(vararg names: String) {

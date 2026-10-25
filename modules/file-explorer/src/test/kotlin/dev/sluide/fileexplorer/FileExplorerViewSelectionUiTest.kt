@@ -220,7 +220,7 @@ class FileExplorerViewSelectionUiTest : FileExplorerViewUiFixture() {
 
     @Test
     fun `Delete deletes all selected entries after one question and selects the next entry`(robot: FxRobot) {
-        val files = layout()
+        layout()
         open(robot)
         select(robot, "dir", "a.txt")
 
@@ -233,7 +233,7 @@ class FileExplorerViewSelectionUiTest : FileExplorerViewUiFixture() {
         assertEquals(
             listOf(
                 deleteQuestion(
-                    listOf(project.resolve("dir") to EntryKind.FOLDER, files[0] to EntryKind.FILE),
+                    listOf("dir" to EntryKind.FOLDER, "a.txt" to EntryKind.FILE),
                     0,
                 ),
             ),

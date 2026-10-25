@@ -7,7 +7,6 @@ import javafx.scene.control.ButtonBar
 import javafx.scene.control.ButtonType
 import javafx.scene.layout.Region
 import javafx.stage.Window
-import java.nio.file.Path
 
 /** What the confirmation before deleting an entry says: the question and the consequences below it. */
 internal data class DeleteQuestion(
@@ -24,9 +23,12 @@ internal enum class EntryKind(
     LINK("link"),
 }
 
-/** Asks whether to delete [path], a [kind] of entry with [unsaved] files with unsaved changes in or at it. */
+/**
+ * Asks whether to delete the entry shown as [name] (a compacted row's `src/main/kotlin`), a [kind] of entry with
+ * [unsaved] files with unsaved changes in or at it.
+ */
 internal fun deleteQuestion(
-    path: Path,
+    name: String,
     kind: EntryKind,
     unsaved: Int,
 ): DeleteQuestion {
@@ -38,20 +40,20 @@ internal fun deleteQuestion(
             else -> "$unsaved files with unsaved changes will be lost."
         }
     return DeleteQuestion(
-        "Delete the ${kind.noun} “${path.fileName}”$content?",
+        "Delete the ${kind.noun} “$name”$content?",
         listOfNotNull(lost, "It is deleted permanently, not moved to the trash. This cannot be undone.")
             .joinToString("\n"),
     )
 }
 
-/** Asks whether to delete several [entries] (path and kind), with [unsaved] files with unsaved changes in them. */
+/** Asks whether to delete several [entries] (name as shown, and kind), with [unsaved] files with unsaved changes in them. */
 internal fun deleteQuestion(
-    entries: List<Pair<Path, EntryKind>>,
+    entries: List<Pair<String, EntryKind>>,
     unsaved: Int,
 ): DeleteQuestion {
     val names =
-        entries.map { (path, kind) ->
-            "“${path.fileName}”" + if (kind == EntryKind.FOLDER) " and everything in it" else ""
+        entries.map { (name, kind) ->
+            "“$name”" + if (kind == EntryKind.FOLDER) " and everything in it" else ""
         }
     val lost =
         when (unsaved) {

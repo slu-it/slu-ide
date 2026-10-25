@@ -2,7 +2,9 @@ package dev.sluide.fileexplorer.actions
 
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileexplorer.tree.canDrop
+import dev.sluide.fileexplorer.tree.canDropRows
 import dev.sluide.fileexplorer.tree.outermost
+import dev.sluide.fileexplorer.tree.sourceRows
 import javafx.scene.control.TreeItem
 import java.nio.file.Files
 import java.nio.file.LinkOption
@@ -40,10 +42,10 @@ internal class ExplorerMoves(
         items: List<FileTreeItem>,
         folder: FileTreeItem,
     ) {
-        val sources = outermost(items) { it.value }
-        if (!canMove(sources, folder) || !canDrop(sources.map { it.value }, folder.value)) return
+        val sources = sourceRows(items)
+        if (!canMove(sources, folder) || !canDropRows(sources, folder)) return
         moveAll(
-            sources.map { Source(it.value, it) },
+            sources.map { Source(it.sourcePath, it) },
             folder,
             confirm = true,
             stillMovable = { canMove(sources, folder) },
@@ -82,7 +84,7 @@ internal class ExplorerMoves(
         }
         val shown = host.rows().filterIsInstance<FileTreeItem>()
         return moveAll(
-            sources.map { path -> Source(path, shown.firstOrNull { it.value == path }) },
+            sources.map { path -> Source(path, shown.firstOrNull { it.sourcePath == path }) },
             folder,
             confirm = false,
             stillMovable = stillMovable,
@@ -91,12 +93,15 @@ internal class ExplorerMoves(
         )
     }
 
-    /** An entry to move: its path, and its row if it is shown. */
+    /** An entry to move: its path, and its row if it is shown (a compacted row for its first folder). */
     private class Source(
         val path: Path,
         val item: FileTreeItem?,
     ) {
         val name: String get() = path.fileName.toString()
+
+        /** The name in questions: the row's (`src/main/kotlin` for a compacted one), else the entry's. */
+        val shownName: String get() = item?.displayName ?: name
     }
 
     /**
@@ -131,7 +136,7 @@ internal class ExplorerMoves(
             val from = others.singleOrNull()?.item?.parent as? FileTreeItem
             val question =
                 moveQuestion(
-                    others.map { it.name },
+                    others.map { it.shownName },
                     clashing.map { it.name },
                     folderName,
                     from?.let(::location),
@@ -177,7 +182,9 @@ internal class ExplorerMoves(
         host.closeWatchesOfVanishedFolders()
         val shown =
             moved.mapNotNull { (source, to) ->
-                folder.children.firstOrNull { it.value == to }?.also { it.isExpanded = source.item?.isExpanded == true }
+                folder.children
+                    .firstOrNull { (it as? FileTreeItem)?.sourcePath == to }
+                    ?.also { it.isExpanded = source.item?.isExpanded == true }
             }
         host.selectRows(shown)
         showError(failure)
@@ -200,8 +207,7 @@ internal class ExplorerMoves(
 
     private fun reselect(items: List<FileTreeItem>) = host.selectRows(items.filter(host.isShown))
 
-    private fun folderName(folder: FileTreeItem): String =
-        folder.label ?: (folder.value.fileName ?: folder.value).toString()
+    private fun folderName(folder: FileTreeItem): String = folder.displayName
 
     /** Where [folder] is, for the question: its top-level folder's label or name, then the path below it. */
     private fun location(folder: FileTreeItem): String {

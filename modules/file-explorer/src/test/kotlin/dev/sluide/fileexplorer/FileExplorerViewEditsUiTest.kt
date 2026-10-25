@@ -382,7 +382,7 @@ class FileExplorerViewEditsUiTest : FileExplorerViewUiFixture() {
         }
         WaitForAsyncUtils.waitForFxEvents()
         assertEquals(listOf(sub), asked)
-        assertEquals(listOf(deleteQuestion(sub, EntryKind.FOLDER, 2)), questions)
+        assertEquals(listOf(deleteQuestion(sub.name, EntryKind.FOLDER, 2)), questions)
         assertEquals(listOf(sub.resolve("deeper/inner.txt"), sub.resolve("x.txt")), lost, "the files counted as lost")
         assertFalse(sub.exists())
         robot.interact {

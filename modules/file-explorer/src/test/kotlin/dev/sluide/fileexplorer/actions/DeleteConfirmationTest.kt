@@ -1,6 +1,5 @@
 package dev.sluide.fileexplorer.actions
 
-import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -11,15 +10,15 @@ class DeleteConfirmationTest {
     fun `names the entry and says that deleting is permanent`() {
         assertEquals(
             DeleteQuestion("Delete the file “a.txt”?", permanent),
-            deleteQuestion(Path.of("/p/a.txt"), EntryKind.FILE, 0),
+            deleteQuestion("a.txt", EntryKind.FILE, 0),
         )
         assertEquals(
             DeleteQuestion("Delete the folder “src” and everything in it?", permanent),
-            deleteQuestion(Path.of("/p/src"), EntryKind.FOLDER, 0),
+            deleteQuestion("src", EntryKind.FOLDER, 0),
         )
         assertEquals(
             DeleteQuestion("Delete the link “out”?", permanent),
-            deleteQuestion(Path.of("/p/out"), EntryKind.LINK, 0),
+            deleteQuestion("out", EntryKind.LINK, 0),
         )
     }
 
@@ -27,11 +26,11 @@ class DeleteConfirmationTest {
     fun `counts the files with unsaved changes that will be lost`() {
         assertEquals(
             "1 file with unsaved changes will be lost.\n$permanent",
-            deleteQuestion(Path.of("/p/a.txt"), EntryKind.FILE, 1).details,
+            deleteQuestion("a.txt", EntryKind.FILE, 1).details,
         )
         assertEquals(
             "3 files with unsaved changes will be lost.\n$permanent",
-            deleteQuestion(Path.of("/p/src"), EntryKind.FOLDER, 3).details,
+            deleteQuestion("src", EntryKind.FOLDER, 3).details,
         )
     }
 
@@ -40,9 +39,9 @@ class DeleteConfirmationTest {
         val question =
             deleteQuestion(
                 listOf(
-                    Path.of("/p/a.txt") to EntryKind.FILE,
-                    Path.of("/p/src") to EntryKind.FOLDER,
-                    Path.of("/p/o") to EntryKind.LINK,
+                    "a.txt" to EntryKind.FILE,
+                    "src" to EntryKind.FOLDER,
+                    "o" to EntryKind.LINK,
                 ),
                 0,
             )
@@ -57,7 +56,7 @@ class DeleteConfirmationTest {
 
     @Test
     fun `names at most ten entries, then counts the rest, and sums the unsaved files`() {
-        val entries = (1..13).map { Path.of("/p/f$it") to EntryKind.FILE }
+        val entries = (1..13).map { "f$it" to EntryKind.FILE }
 
         val details = deleteQuestion(entries, 4).details.lines()
 

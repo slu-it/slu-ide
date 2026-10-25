@@ -13,7 +13,6 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
-import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -35,7 +34,7 @@ class DeleteConfirmationUiTest {
 
     @Test
     fun `Cancel is the default button and has the focus, so Enter deletes nothing`(robot: FxRobot) {
-        val question = deleteQuestion(Path.of("/p/src"), EntryKind.FOLDER, 0)
+        val question = deleteQuestion("src", EntryKind.FOLDER, 0)
         lateinit var dialog: Alert
         robot.interact {
             dialog = deleteConfirmation(stage, question)

@@ -48,6 +48,22 @@ internal fun canDrop(
         sources.none { target.startsWith(it) } &&
         (copy || sources.any { it.parent != target })
 
+/**
+ * The rows a drag, move, cut or copy of [items] acts on: rows at or below another one left out, compared by the entry
+ * each stands for as a source, the whole chain of a compacted row ([FileTreeItem.sourcePath], ADR 0096).
+ */
+internal fun sourceRows(items: List<FileTreeItem>): List<FileTreeItem> = outermost(items) { it.sourcePath }
+
+/**
+ * [canDrop] for the rows [sources] onto the row [folder]: the sources are the entries the rows stand for (the first
+ * folder of a compacted row), the target is the folder the row shows (the deepest one of a compacted row).
+ */
+internal fun canDropRows(
+    sources: List<FileTreeItem>,
+    folder: FileTreeItem,
+    copy: Boolean = false,
+): Boolean = canDrop(sources.map { it.sourcePath }, folder.value, copy)
+
 /** Whether the modifiers held mean copying instead of moving: Option on macOS, Ctrl elsewhere. */
 internal fun isCopyModifier(
     isMac: Boolean,
@@ -261,7 +277,7 @@ internal class TreeDragAndDrop(
                 listOf(start.item)
             }
         if (items.isEmpty() || !items.all(canChange)) return false
-        sources = outermost(items) { it.value }
+        sources = sourceRows(items)
         selection = items
         // So that losing the focus cancels.
         if (!tree.isFocused) tree.requestFocus()
@@ -413,7 +429,7 @@ internal class TreeDragAndDrop(
                 Spot.Empty -> projectItem()
                 is Spot.Row -> (spot.cell.treeItem as? FileTreeItem)?.takeIf { it.isDirectory }
             }
-        return folder?.takeIf { canDrop(dragged.map { it.value }, it.value, copying) && canDropInto(it) }
+        return folder?.takeIf { canDropRows(dragged, it, copying) && canDropInto(it) }
     }
 
     /** The row holding [node]; `null` for the parts of the tree outside the rows. */

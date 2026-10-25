@@ -325,4 +325,58 @@ class ExplorerMovesTest {
         assertEquals(emptyList(), fake.moved)
         assertTrue(project.resolve("src/main").exists())
     }
+
+    // Compact Middle Folders (ADR 0096)
+
+    @Test
+    fun `a compacted row as a target receives the entries in its deepest folder`() {
+        project.resolve("a.txt").writeText("a")
+        project.resolve("src/main/kotlin").createDirectories()
+        fake = FakeEditHost(project, listOf(scratches), compact = true)
+        val row = fake.row("src/main/kotlin")
+
+        move(listOf(fake.item("a.txt")), row)
+
+        val root = project.fileName.toString()
+        assertEquals(
+            listOf(moveQuestion(listOf("a.txt"), emptyList(), "src/main/kotlin", root, "$root/src/main/kotlin")),
+            fake.moveQuestions,
+        )
+        assertEquals(listOf(project.resolve("a.txt") to project.resolve("src/main/kotlin/a.txt")), fake.moved)
+        assertEquals(listOf(project.resolve("src/main/kotlin/a.txt")), fake.selectedPaths())
+    }
+
+    @Test
+    fun `a compacted row moves as its first folder, named as shown, and is selected as a row again`() {
+        project.resolve("src/main/kotlin/App.kt").also { it.parent.createDirectories() }.writeText("app")
+        project.resolve("target/x.txt").also { it.parent.createDirectories() }.writeText("x")
+        fake = FakeEditHost(project, listOf(scratches), compact = true)
+        val row = fake.row("src/main/kotlin").apply { isExpanded = true }
+
+        move(listOf(row, fake.row("App.kt", row)), fake.row("target"))
+
+        val root = project.fileName.toString()
+        assertEquals(
+            listOf(moveQuestion(listOf("src/main/kotlin"), emptyList(), "target", root, "$root/target")),
+            fake.moveQuestions,
+        )
+        assertEquals(listOf(project.resolve("src") to project.resolve("target/src")), fake.moved)
+        assertEquals("app", project.resolve("target/src/main/kotlin/App.kt").readText())
+        val moved = fake.selected.single() as FileTreeItem
+        assertEquals("src/main/kotlin", moved.displayName)
+        assertEquals(project.resolve("target/src"), moved.sourcePath)
+        assertTrue(moved.isExpanded, "a moved row stays expanded")
+    }
+
+    @Test
+    fun `a compacted row cannot be moved into its own deepest folder`() {
+        project.resolve("src/main/kotlin").createDirectories()
+        fake = FakeEditHost(project, listOf(scratches), compact = true)
+        val row = fake.row("src/main/kotlin")
+
+        move(listOf(row), row)
+
+        assertEquals(emptyList(), fake.moveQuestions)
+        assertTrue(project.resolve("src/main/kotlin").exists())
+    }
 }

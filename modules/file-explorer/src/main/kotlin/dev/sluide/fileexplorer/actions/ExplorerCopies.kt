@@ -3,6 +3,7 @@ package dev.sluide.fileexplorer.actions
 import dev.sluide.fileexplorer.ExplorerClipboard
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileexplorer.tree.outermost
+import dev.sluide.fileexplorer.tree.sourceRows
 import javafx.scene.control.TreeItem
 import java.io.IOException
 import java.io.UncheckedIOException
@@ -26,17 +27,17 @@ internal class ExplorerCopies(
     /** Whether a folder is being deleted or lies in an entry being deleted; nothing is pasted into it. */
     private val isBeingDeleted: (Path) -> Boolean,
 ) {
-    /** Puts [items] (outermost only) on the clipboard to be copied; also top-level folders. Ends a cut. */
+    /** Puts [items] (outermost only, a compacted row's first folder) on the clipboard to be copied; also top-level folders. Ends a cut. */
     fun copy(items: List<FileTreeItem>): Boolean {
         if (items.isEmpty()) return false
-        clipboard().copy(outermost(items) { it.value }.map { it.value })
+        clipboard().copy(sourceRows(items).map { it.sourcePath })
         return true
     }
 
-    /** Puts [items] (outermost only) on the clipboard marked as cut, if all can be changed; returns whether it did. */
+    /** Puts [items] (as for [copy]) on the clipboard marked as cut, if all can be changed; returns whether it did. */
     fun cut(items: List<FileTreeItem>): Boolean {
         if (items.isEmpty() || !items.all(canChange)) return false
-        clipboard().cut(outermost(items) { it.value }.map { it.value })
+        clipboard().cut(sourceRows(items).map { it.sourcePath })
         return true
     }
 
@@ -115,12 +116,19 @@ internal class ExplorerCopies(
         items: List<FileTreeItem>,
         folder: FileTreeItem,
     ) {
-        val sources = outermost(items) { it.value }.map { it.value }
+        val rows = sourceRows(items)
+        val sources = rows.map { it.sourcePath }
         if (sources.isEmpty() || refusedInto(sources, folder)) return
-        val folderName = folder.label ?: (folder.value.fileName ?: folder.value).toString()
+        val folderName = folder.displayName
         val names =
             try {
-                plannedNames(sources, folder.value)
+                plannedNames(sources, folder.value).zip(rows) { (name, copy), row ->
+                    // A compacted row is named as shown; its copy keeps the folders below the first.
+                    when {
+                        row.isCompacted -> row.displayName to (copy + row.displayName.removePrefix(name))
+                        else -> name to copy
+                    }
+                }
             } catch (e: IOException) {
                 host.showError("Could not copy into “$folderName”: ${e.message ?: e::class.simpleName}")
                 return
@@ -219,7 +227,7 @@ internal class ExplorerCopies(
                     if (host.isShown(folder)) {
                         folder.isExpanded = true
                         folder.refresh()
-                        host.selectRows(folder.children.filter { it.value in copies })
+                        host.selectRows(folder.children.filter { (it as? FileTreeItem)?.sourcePath in copies })
                     }
                     listOfNotNull(goneText, outcome).takeIf { it.isNotEmpty() }?.let {
                         host.showError(it.joinToString("\n\n"))

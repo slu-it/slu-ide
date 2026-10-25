@@ -2,6 +2,7 @@ package dev.sluide.fileexplorer.actions
 
 import dev.sluide.fileexplorer.FolderAction
 import dev.sluide.fileexplorer.tree.FileTreeItem
+import dev.sluide.fileexplorer.tree.sourceRows
 import javafx.scene.control.TreeItem
 import java.io.IOException
 import java.io.UncheckedIOException
@@ -120,12 +121,12 @@ internal class ExplorerEdits(
     /**
      * Whether [item] can be renamed, moved or deleted: an entry of a top-level folder, not a top-level folder itself
      * (their parent is the hidden root), not being deleted, and not a folder holding an entry being deleted (which
-     * would take a half-deleted tree along).
+     * would take a half-deleted tree along); for a compacted row, all of its chain.
      */
     fun canChange(item: TreeItem<Path>?): Boolean =
         item is FileTreeItem &&
             item.parent is FileTreeItem &&
-            deleting.none { item.value.startsWith(it) || it.startsWith(item.value) }
+            deleting.none { item.sourcePath.startsWith(it) || it.startsWith(item.sourcePath) }
 
     /** Whether [path] is being deleted or lies in an entry being deleted; nothing may be moved into it. */
     fun isBeingDeleted(path: Path): Boolean = deleting.any { path.startsWith(it) }
@@ -172,21 +173,21 @@ internal class ExplorerEdits(
      * right away, before the folders' watches may remove them.
      */
     fun delete(items: List<FileTreeItem>) {
-        val distinct = items.filter { it.parent is FileTreeItem }.distinctBy { it.value }
-        val targets = distinct.filter { item -> distinct.none { it !== item && item.value.startsWith(it.value) } }
+        // A compacted row stands for its first folder (ADR 0096).
+        val targets = sourceRows(items.filter { it.parent is FileTreeItem })
         val asked =
             targets.mapNotNull { item ->
-                entryKind(item.value)?.let { kind -> DeleteEntry(item, kind, host.unsavedUnder(item.value)) }
+                entryKind(item.sourcePath)?.let { kind -> DeleteEntry(item, kind, host.unsavedUnder(item.sourcePath)) }
             }
         if (asked.isEmpty()) return
         val question =
-            asked.singleOrNull()?.let { deleteQuestion(it.path, it.kind, it.unsaved.size) }
-                ?: deleteQuestion(asked.map { it.path to it.kind }, asked.sumOf { it.unsaved.size })
+            asked.singleOrNull()?.let { deleteQuestion(it.item.displayName, it.kind, it.unsaved.size) }
+                ?: deleteQuestion(asked.map { it.item.displayName to it.kind }, asked.sumOf { it.unsaved.size })
         if (!host.confirmDelete(question)) return
         // The question was about this kind of entry, e.g. not about a folder with everything in it.
         val changed = asked.filter { entryKind(it.path) != it.kind }
         if (changed.isNotEmpty()) {
-            val names = changed.joinToString(" and ") { "“${it.path.fileName}”" }
+            val names = changed.joinToString(" and ") { "“${it.item.displayName}”" }
             host.showError(
                 if (changed.size == 1) {
                     "$names changed while asking and was not deleted."
@@ -292,7 +293,7 @@ internal class ExplorerEdits(
         val kind: EntryKind,
         val unsaved: List<Path>,
     ) {
-        val path: Path get() = item.value
+        val path: Path get() = item.sourcePath
     }
 
     /** The kind of entry at [path], not following a link; `null` if there is none. */

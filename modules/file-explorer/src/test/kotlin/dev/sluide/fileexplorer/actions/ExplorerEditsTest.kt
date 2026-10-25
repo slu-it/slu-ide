@@ -237,7 +237,7 @@ class ExplorerEditsTest {
         assertEquals(
             listOf(
                 deleteQuestion(
-                    listOf(project.resolve("dir") to EntryKind.FOLDER, project.resolve("a.txt") to EntryKind.FILE),
+                    listOf("dir" to EntryKind.FOLDER, "a.txt" to EntryKind.FILE),
                     1,
                 ),
             ),
@@ -466,5 +466,37 @@ class ExplorerEditsTest {
         fake.edits.runFolderAction(action, fake.item("a.txt"))
 
         assertEquals(listOf(project), ranOn)
+    }
+
+    // Compact Middle Folders (ADR 0096)
+
+    @Test
+    fun `deleting a compacted row deletes its first folder, asking with the row's name`() {
+        val app = project.resolve("src/main/kotlin/App.kt").createParentDirectories().createFile()
+        project.resolve("b.txt").createFile()
+        val fake = FakeEditHost(project, compact = true)
+        fake.unsaved = { if (it == project.resolve("src")) listOf(app) else emptyList() }
+
+        fake.edits.delete(listOf(fake.row("src/main/kotlin"), fake.row("src/main/kotlin")))
+
+        assertEquals(listOf(deleteQuestion("src/main/kotlin", EntryKind.FOLDER, 1)), fake.deleteQuestions)
+        assertFalse(project.resolve("src").exists())
+        assertEquals(listOf(project.resolve("src") to listOf(app)), fake.deleted)
+        assertEquals(listOf("b.txt"), fake.projectItem.children.map { it.value.name })
+    }
+
+    @Test
+    fun `a compacted row being deleted cannot be changed, nor can a row inside it`() {
+        project.resolve("src/main/kotlin/App.kt").createParentDirectories().createFile()
+        val fake = FakeEditHost(project, compact = true)
+        val row = fake.row("src/main/kotlin").apply { isExpanded = true }
+        val app = fake.row("App.kt", row)
+        fake.inline = false
+
+        fake.edits.delete(listOf(row))
+
+        assertFalse(fake.edits.canChange(row))
+        assertFalse(fake.edits.canChange(app))
+        assertTrue(fake.edits.isBeingDeleted(project.resolve("src/main")))
     }
 }

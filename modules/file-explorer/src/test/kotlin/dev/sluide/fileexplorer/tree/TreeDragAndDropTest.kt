@@ -1,6 +1,11 @@
 package dev.sluide.fileexplorer.tree
 
+import javafx.scene.control.TreeItem
+import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
+import kotlin.io.path.createDirectories
+import kotlin.io.path.createFile
+import kotlin.io.path.createParentDirectories
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -60,5 +65,29 @@ class TreeDragAndDropTest {
         val paths = listOf(p("/p/b"), p("/p/a/x.txt"), p("/p/a"), p("/p/b/c/d"), p("/p/b"), p("/p/ab"))
 
         assertEquals(listOf(p("/p/b"), p("/p/a"), p("/p/ab")), outermost(paths) { it })
+    }
+
+    @TempDir
+    lateinit var project: Path
+
+    @Test
+    fun `a compacted row is dragged as its first folder and receives drops in its deepest folder`() {
+        project.resolve("src/main/kotlin/App.kt").createParentDirectories().createFile()
+        project.resolve("lib/a").createDirectories()
+        project.resolve("lib/b.txt").createFile()
+        val top = FileTreeItem(project, compact = { true }).also { TreeItem<Path>().children.add(it) }
+        val lib = top.children.first { it.value.endsWith("lib") } as FileTreeItem
+        val src = top.children.first { it.value.endsWith("kotlin") } as FileTreeItem
+        src.isExpanded = true
+        val app = src.children.single() as FileTreeItem
+
+        assertEquals(listOf(src), sourceRows(listOf(src, app)), "App.kt goes along with src")
+        assertEquals(listOf(app), sourceRows(listOf(app)))
+        assertTrue(canDropRows(listOf(src), lib))
+        assertFalse(canDropRows(listOf(src), src), "not into itself")
+        assertFalse(canDropRows(listOf(src), top), "src is in the project already")
+        assertTrue(canDropRows(listOf(src), top, copy = true))
+        assertFalse(canDropRows(listOf(app), src), "App.kt is in kotlin already")
+        assertTrue(canDropRows(listOf(app), top))
     }
 }
