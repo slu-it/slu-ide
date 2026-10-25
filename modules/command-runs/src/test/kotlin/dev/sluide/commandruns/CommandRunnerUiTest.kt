@@ -1,6 +1,7 @@
 package dev.sluide.commandruns
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.SettingsStore
 import dev.sluide.terminal.EmbeddedTerminal
@@ -76,6 +77,31 @@ class CommandRunnerUiTest {
             assertEquals(StartResult.STARTED, runner.start(Job("build"), command = { "build" }))
             assertEquals(1, questions)
             assertEquals(Job("build"), runner.running)
+            runner.dispose()
+        }
+    }
+
+    @Test
+    fun `only a run that started records its arguments`(robot: FxRobot) {
+        robot.interact {
+            val histories =
+                ArgumentHistories(
+                    ProjectDataStore(dir.resolve("projects"), dir.resolve("outside.json"), emptyList()),
+                    SettingsStore(dir.resolve("settings.properties")),
+                )
+            val history = ArgumentHistory(histories, { dir.resolve("run.sh") }, { dir })
+            var stop = false
+            val runner = CommandRunner<Job>(session, RunPane("", ""), { dir }, { _, _ -> stop }, history = history)
+            runner.embed = { _, _ -> LateTerminal() }
+
+            assertEquals(StartResult.STARTED, runner.start(Job("a"), command = { "a" }, arguments = "-x"))
+            assertEquals(listOf("-x"), history.entries)
+            assertEquals(StartResult.CANCELLED, runner.start(Job("b"), command = { "b" }, arguments = "-y"))
+            stop = true
+            val unclosed = { throw IllegalArgumentException("Unclosed quote") }
+            assertEquals(StartResult.FAILED, runner.start(Job("c"), command = unclosed, arguments = "'-z"))
+
+            assertEquals(listOf("-x"), histories.entries(dir.resolve("run.sh"), dir))
             runner.dispose()
         }
     }

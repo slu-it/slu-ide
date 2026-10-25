@@ -19,6 +19,12 @@ dependencies {
     api(project(":modules:background-tasks"))
     // Deliberate module API dependency: the runner's activity is the tab marker of a file view (ViewActivity).
     api(project(":modules:file-viewers"))
+    // Deliberate module API dependency: ArgumentHistories keeps the run-argument history of each file in the project data
+    // (ADR 0090, ADR 0091).
+    api(project(":modules:project-data"))
+    // Deliberate module API dependency: ArgumentHistories stores whether the history sections are expanded in the
+    // settings (ADR 0091).
+    api(project(":modules:settings"))
     implementation(libs.spring.context)
 
     testImplementation(libs.testfx.core)

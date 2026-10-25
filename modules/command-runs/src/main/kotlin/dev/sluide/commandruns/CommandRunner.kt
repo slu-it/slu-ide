@@ -18,7 +18,7 @@ import kotlin.time.Duration.Companion.seconds
  * Runs the jobs of one view (ADR 0086, ADR 0088), one at a time, each a fresh process in a fresh embedded terminal in
  * the [pane] that replaces the previous one: asks before stopping a running job for the next one ([confirmStop]), shows
  * the status line ticking every [tick], the background task row (✕ stops) and the [activity] for the tab. Stop sends
- * Ctrl+C and ends the process after [grace]. FX thread.
+ * Ctrl+C and ends the process after [grace]. The arguments of started runs go into the [history]. FX thread.
  */
 class CommandRunner<J : RunJob>(
     private val session: CommandRunSession,
@@ -29,6 +29,8 @@ class CommandRunner<J : RunJob>(
     private val confirmStop: (running: J, next: J) -> Boolean,
     /** Whether Rerun runs a job again ([last]). */
     private val rerunnable: (J) -> Boolean = { true },
+    /** The arguments of the view's file, recorded when a run starts (ADR 0091); none for views without. */
+    private val history: ArgumentHistory? = null,
     private val grace: Duration = 5.seconds,
     tick: javafx.util.Duration = javafx.util.Duration.seconds(1.0),
 ) {
@@ -86,12 +88,14 @@ class CommandRunner<J : RunJob>(
     /**
      * Starts [job] with the command line [command] (whose [IllegalArgumentException] the status line shows) and calls
      * [ended] with its outcome. While another job runs, asks first ([replaceRunning]). The new terminal leaves the
-     * focus where it is.
+     * focus where it is. Only a run that started ([StartResult.STARTED]) records its [arguments] in the history, not
+     * one cancelled by the question or that failed to start.
      */
     fun start(
         job: J,
         command: () -> String,
         ended: (RunState) -> Unit = {},
+        arguments: String? = null,
     ): StartResult {
         if (disposed) return StartResult.CANCELLED
         if (!replaceRunning(job)) return StartResult.CANCELLED
@@ -129,6 +133,7 @@ class CommandRunner<J : RunJob>(
         pane.rerun.isDisable = last == null
         timer.playFromStart()
         showRunning()
+        arguments?.let { history?.record(it) }
         return StartResult.STARTED
     }
 
