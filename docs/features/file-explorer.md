@@ -73,6 +73,11 @@
     (`file-action-icon`), in both themes. The window adds **Run** (play icon) for files whose
     viewer can run them, e.g. shell scripts: it opens the file's tab and runs it there
     ([shell-scripts.md](shell-scripts.md)).
+  - Cut, Copy and Paste follow, in a group of their own, showing their keys (Shortcut+X / C / V); see Copy, cut and
+    paste below. Copy is enabled for at least one target (also a top-level folder), Cut when all targets can be changed
+    (as Delete), Paste when the clipboard holds files and there is one folder to paste into: the clicked folder, the
+    folder of the clicked file, or the project folder on the empty area; not for several entries, not into a folder
+    being deleted (`ExplorerCopies.canPaste`, the same decision as the paste).
   - New File… / New Folder… create an empty entry in the clicked folder or, on the empty area, in the project folder.
     They are enabled for exactly one folder (also a top-level one) or the empty area while a folder is open; disabled
     on a file and for several entries. A new file is opened. Single names only (no `a/b`).
@@ -137,7 +142,8 @@
   - Drop targets are folder rows of any top-level node, so entries move into and out of Scratches too, and the empty
     area below the rows, which stands for the project folder. File rows, the scroll bars, a dragged folder and the
     folders inside it, the folder all dragged entries are in already (`canDrop`), and a folder being deleted or
-    inside one refuse the drop. Nothing is dragged in from or out to other applications or windows.
+    inside one refuse the drop. Nothing is dragged in from or out to other applications or windows; files come in and
+    go out over the clipboard instead (Copy, cut and paste, below).
   - The target row is framed and tinted in the accent colour (`:drop-target`, `file-explorer.css`, light and dark); on
     the empty area the project row is marked. A collapsed folder held under the pointer for 700 ms expands. Near the
     top or bottom edge (within a row) the tree scrolls while the pointer stays there; the row scrolling under the
@@ -158,3 +164,45 @@
   - Open tabs follow: every move is reported through `onMoved(from, to)`, as for a rename, so tabs of a moved file or
     of the files in a moved folder stay open at the new path with their unsaved changes.
   - `FileExplorerView.move(items, folder)` runs the same flow without a gesture (tests).
+- Copy, cut and paste ([ADR 0092](../adr/0092-explorer-copy-cut-paste.md), `ExplorerClipboard.kt`,
+  `actions/ExplorerCopies.kt`, `FileOperations.copy`), with Shortcut+C / X / V in the explorer or the context menu:
+  - Copy (Shortcut+C) puts the selected entries on the system clipboard as files (`DataFormat.FILES`) and as their
+    absolute paths, one per line, as text. Entries inside another selected folder go along with it. A file manager
+    pastes them (Cmd+V in the Finder, also from another window or after leaving Thoreau), and files copied in a file
+    manager paste in Thoreau. Copy ends a pending cut.
+  - Paste (Shortcut+V) goes into the single selected folder, the folder of the single selected file, or the project
+    folder when nothing is selected (in the menu: the empty area); nothing for several selected entries, for a folder
+    being deleted or without files on the clipboard. Each file or folder is copied in clipboard order: under its own
+    name if free, else with `-copy`, `-copy2`, `-copy3`, … (the first free one) before the first extension, a leading
+    dot not counting and folders taking it at the end: `notes.txt` → `notes-copy.txt`, `archive.tar.gz` →
+    `archive-copy.tar.gz`, `.env.local` → `.env-copy.local`, `Makefile` → `Makefile-copy`, folder `my.dir` →
+    `my.dir-copy`. A copy of a copy counts on: `notes-copy.txt` → `notes-copy2.txt`. Names count as taken in any case,
+    so no copy differs from an entry only in case. Pasting into the entry's own folder makes such a copy; entries of
+    the same name from several folders get suffixes in order.
+  - No question for a paste, unless files with unsaved changes are among the copied entries (also inside a copied
+    folder): then one dialog names them and says the copies get what is saved (Copy / Cancel, Cancel the default).
+  - Copies are made in the background, so a large folder does not block the IDE: folders with everything in them,
+    links as links (never followed), permissions such as the executable bit and modification times kept, also to
+    another drive. Nothing is ever replaced: a name taken while copying makes it take the next one. A folder pasted
+    into itself or a folder inside it is refused with an error before anything is copied, also one reached through a
+    link inside it (compared as real paths). Entries gone from the disk
+    are reported and the others copied; the first failure stops the rest and is shown, what was copied stays.
+    Afterwards the target folder is read again and expanded, and the copies are selected.
+  - Cut (Shortcut+X) works when every selected entry can be changed (as Delete): it puts the same content on the
+    clipboard and marks the entries as cut, their rows dimmed (`:cut`, `file-explorer.css`). Paste then moves them
+    instead of copying: without a confirmation, but names taken in the target are skipped after the question of drag
+    moves ("Move the others" / Cancel; an error if all are taken), never replaced; moves as by drag and drop (renames
+    only, `onMoved`, tabs follow, no other drive). Cut entries gone from the disk are reported, the others moved. After
+    a paste that moved something the mark and the clipboard are cleared; after Cancel, every name taken or a failure
+    before the first move the entries stay cut. Pasting them into their own folder does nothing. The mark
+    (`ExplorerClipboard`, a singleton bean) is shared by all windows, so entries cut in one window move when pasted in
+    another (only the pasting window reports the moves; the other sees them as changes on disk). Escape in the explorer
+    (not during a drag) cancels a cut and clears the clipboard if it still holds the cut entries.
+  - The mark holds only while the clipboard holds exactly the cut files. JavaFX reports no clipboard changes, so it
+    is checked when the explorer or its window gets the focus, when the menu opens and before a paste; copying
+    anything else (also in another application) undims the rows then and makes the next paste copy. A file manager
+    pasting cut entries copies them (its own rule).
+  - The menu items show the keys without being accelerators: a control's context-menu accelerators would apply to the
+    whole window and take Shortcut+C from the editor and the terminal. The explorer's key handler
+    (`ExplorerKeys.kt`) takes the keys while it has the focus.
+  - Project data (such as the argument histories of runs) is not carried over to copies.

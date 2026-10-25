@@ -117,6 +117,10 @@ All previews and images zoom, only while the rendered view has the focus, not in
 | F5 | Refresh |
 | F2 | Rename (only when one entry is selected) |
 | Delete or Shortcut+Backspace | Delete the selected entries (one confirmation) |
+| Shortcut+C | Copy the selected entries to the clipboard (files and their paths as text) |
+| Shortcut+X | Cut the selected entries (dimmed until pasted) |
+| Shortcut+V | Paste into the selected folder, the folder of the selected file, or the project folder: copies, or moves cut entries |
+| Escape | Cancel a cut (when no drag runs) |
 | Drag entries onto a folder or the empty area | Move them (after a confirmation) |
 | Escape while dragging entries | Cancel the drag |
 

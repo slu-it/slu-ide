@@ -1,6 +1,7 @@
 # 0073. Multi-selection and moving entries in the explorer
 
-- Status: accepted
+- Status: accepted; its rejection of Cut/Copy/Paste is superseded by
+  [0092](0092-explorer-copy-cut-paste.md) (files come in and go out over the clipboard)
 - Date: 2026-10-21
 
 ## Context
@@ -73,7 +74,8 @@ taken in the target, and affects files open in tabs, which belong to the editor 
     cannot be moved to another drive (if a store cannot be read, the move is tried, and `Files.move` refusing a folder
     with content gives the same error). `Files.move` would copy and delete across stores, which could take long on
     the JavaFX thread and leave half a copy behind; there is no copy fallback.
-- **Rejected:** Cut/Copy/Paste of entries (more state to explain, clipboard semantics across windows), a "Move to…"
+- **Rejected:** Cut/Copy/Paste of entries (more state to explain, clipboard semantics across windows; came later
+  with [ADR 0092](0092-explorer-copy-cut-paste.md)), a "Move to…"
   dialog with a folder chooser (slower than dropping on the visible tree), and replacing clashing entries after a
   question (one wrong answer destroys a file with no trash or undo).
 
