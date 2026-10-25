@@ -5,6 +5,9 @@
 
 - Terminal → New Terminal (Ctrl+Shift+T, Cmd+Shift+T on macOS) opens a terminal tab in the editor area
   ([editor-tabs.md](editor-tabs.md)). The shell starts in the project folder, or in the home folder if none is open.
+- The explorer's context menu has Open in Terminal: the same kind of tab with a folder as working directory (the
+  folder, the folder of a file, or the project folder on the empty area; tooltip "Terminal in <folder>"), with the same
+  error if the shell cannot start ([ADR 0093](../adr/0093-explorer-open-in-terminal-and-reveal.md)).
 - The shell is the user's login shell (`$SHELL -l`, falling back to `/bin/bash -l` if `SHELL` is unset or blank) in a
   pseudo terminal with `TERM=xterm-256color`. `PWD` is set to the start folder, so shells show it as given, not with
   symlinks resolved.

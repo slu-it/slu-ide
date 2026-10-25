@@ -104,12 +104,25 @@
   - "Open in Finder" (macOS, `open <folder>`), "Open in Explorer" (Windows, `explorer.exe <folder>`) or "Open in File
     Manager" (otherwise, `xdg-open <folder>`), in its own group before Refresh (`actions/SystemFileManager.kt`).
     Enabled like New File…: one folder (also a top-level one) or the empty area while a folder is open, which stands
-    for the project folder; disabled on files and several entries. The command is started and not waited for, its
+    for the project folder; disabled on several entries. The command is started and not waited for, its
     output is discarded and its exit code ignored (`explorer.exe` returns 1 on success); if it cannot start, the
     IOException is shown as an error. It uses `ProcessBuilder` instead of `HostServices` (on Linux it can fall back to
     a web browser) or `java.awt.Desktop` (it would start AWT next to JavaFX on macOS). Known limitations: on macOS,
     `open` launches bundle folders (e.g. `Foo.app`, `Foo.xcodeproj`) instead of showing them. On Windows,
     `explorer.exe` misreads folder paths containing commas and opens a default location.
+  - On exactly one regular file the same item reads "Reveal in Finder" / "Reveal in Explorer" / "Reveal in File
+    Manager" and shows the file selected in its folder ([ADR 0093](../adr/0093-explorer-open-in-terminal-and-reveal.md)):
+    macOS `open -R <file>`; Windows `explorer.exe /select,<file>` (one argument; **untested on Windows**, the comma
+    limitation applies too); Linux asks the file manager over D-Bus (`dbus-send --session --print-reply
+    --reply-timeout=5000 --dest=org.freedesktop.FileManager1 … ShowItems array:string:<file URI> string:`, commas in
+    the URI as `%2C`, since `dbus-send` splits array values at commas) and, if that cannot start, exits non-zero or
+    gets no reply within 5 s, falls back to `xdg-open <folder of the file>`. The D-Bus call runs on a background thread,
+    since its exit code is needed; `xdg-open` is only started, not waited for, so only a failure to start it is shown
+    (as the same error).
+  - Open in Terminal, after the file-manager item, only while the window sets `openInTerminal`: for exactly one
+    folder (also a top-level one) the shell starts in it, for exactly one regular file in its folder, on the empty
+    area (while a folder is open) in the project folder; disabled for several entries. It opens a normal terminal tab
+    as Terminal → New Terminal does ([terminal.md](terminal.md)); if the shell cannot start, the same error is shown.
   - Refresh is always enabled.
   - The name dialog checks the name while typing (not empty, no `/`, `\` or NUL, not `.`/`..`, no leading or
     trailing whitespace, no characters the file system cannot store, not taken, on case-insensitive file systems also
