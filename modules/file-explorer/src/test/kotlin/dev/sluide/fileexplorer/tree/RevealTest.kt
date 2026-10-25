@@ -1,5 +1,6 @@
 package dev.sluide.fileexplorer.tree
 
+import javafx.scene.control.TreeItem
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.io.TempDir
 import java.io.IOException
@@ -7,6 +8,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
+import kotlin.io.path.deleteExisting
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -134,5 +136,60 @@ class RevealTest {
         val a = top.children.single()
         assertTrue(top.isExpanded && a.isExpanded && a.children.single().isExpanded)
         assertNull(expandTo(top, outside.resolve("x")))
+    }
+
+    // Compact Middle Folders (ADR 0096)
+
+    /** A compacting top-level item of [folder] below a hidden root. */
+    private fun compactTop(folder: Path) =
+        FileTreeItem(folder, compact = { true }).also { TreeItem<Path>().children.add(it) }
+
+    @Test
+    fun `a file below a compacted row is found through it, a middle folder is found as the row`() {
+        val file = project.resolve("src/main/kotlin/App.kt").also { it.parent.createDirectories() }.createFile()
+        val top = compactTop(project)
+
+        val (folders, item) = assertNotNull(findForReveal(listOf(top), file))
+        val row = folders.last()
+        assertEquals(listOf(project, project.resolve("src/main/kotlin")), folders.map { it.value })
+        assertEquals(file, item.value)
+
+        val (middleFolders, middle) = assertNotNull(findForReveal(listOf(top), project.resolve("src/main")))
+        assertEquals(listOf(top), middleFolders)
+        assertSame(row, middle)
+        assertSame(row, findForReveal(listOf(top), project.resolve("src/main/kotlin"))?.second)
+    }
+
+    @Test
+    fun `a row that no longer stands for its folders is read again on the way, split or joined`() {
+        val app = project.resolve("src/main/kotlin/App.kt").also { it.parent.createDirectories() }.createFile()
+        val top = compactTop(project)
+        assertEquals(project.resolve("src/main/kotlin"), top.children.single().value)
+        val readme = project.resolve("src/main/README.md").createFile()
+
+        val (folders, item) = assertNotNull(findForReveal(listOf(top), readme))
+        assertEquals(listOf(project, project.resolve("src/main")), folders.map { it.value })
+        assertEquals(readme, item.value)
+
+        readme.deleteExisting()
+        val (joined, _) = assertNotNull(findForReveal(listOf(top), app))
+        assertEquals(listOf(project, project.resolve("src/main/kotlin")), joined.map { it.value })
+    }
+
+    @Test
+    fun `expanding to a path created in an empty folder takes the compacted row the folder now belongs to`() {
+        val empty = project.resolve("empty").createDirectories()
+        project.resolve("other.txt").createFile()
+        val top = compactTop(project)
+        val emptyRow = top.children.first() as FileTreeItem
+        val file = empty.resolve("a/b/c.txt").also { it.parent.createDirectories() }.createFile()
+
+        val item = assertNotNull(expandTo(emptyRow, file))
+
+        assertEquals(file, item.value)
+        val row = item.parent as FileTreeItem
+        assertEquals("empty/a/b", row.displayName)
+        assertSame(top, row.parent)
+        assertTrue(row.isExpanded)
     }
 }

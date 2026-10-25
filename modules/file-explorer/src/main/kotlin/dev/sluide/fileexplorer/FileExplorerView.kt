@@ -362,7 +362,7 @@ class FileExplorerView(
                     it.folder.toAbsolutePath().normalize(),
                     it.label,
                     it.folderIcons,
-                    ::watch,
+                    onChildrenLoaded = ::watch,
                 )
             }
         this.root =

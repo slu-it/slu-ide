@@ -6,7 +6,7 @@ import java.nio.file.Path
 
 private val log = System.getLogger("dev.sluide.fileexplorer.tree.DirectoryListing")
 
-private const val GIT_ENTRY = ".git"
+internal const val GIT_ENTRY = ".git"
 
 private class Entry(
     val path: Path,
