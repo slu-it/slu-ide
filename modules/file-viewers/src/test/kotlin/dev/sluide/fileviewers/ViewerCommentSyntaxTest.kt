@@ -14,6 +14,7 @@ import dev.sluide.fileviewers.languages.CssFileViewer
 import dev.sluide.fileviewers.languages.DFileViewer
 import dev.sluide.fileviewers.languages.DartFileViewer
 import dev.sluide.fileviewers.languages.DockerfileFileViewer
+import dev.sluide.fileviewers.languages.DtdFileViewer
 import dev.sluide.fileviewers.languages.FortranFileViewer
 import dev.sluide.fileviewers.languages.GitBlameIgnoreRevsFileViewer
 import dev.sluide.fileviewers.languages.GitattributesFileViewer
@@ -21,15 +22,19 @@ import dev.sluide.fileviewers.languages.GoFileViewer
 import dev.sluide.fileviewers.languages.GoModFileViewer
 import dev.sluide.fileviewers.languages.GraphQlFileViewer
 import dev.sluide.fileviewers.languages.GroovyFileViewer
+import dev.sluide.fileviewers.languages.HandlebarsFileViewer
+import dev.sluide.fileviewers.languages.HtaccessFileViewer
 import dev.sluide.fileviewers.languages.IgnoreFileViewer
 import dev.sluide.fileviewers.languages.IniFileViewer
 import dev.sluide.fileviewers.languages.JavaFileViewer
 import dev.sluide.fileviewers.languages.JavaScriptFileViewer
 import dev.sluide.fileviewers.languages.Json5FileViewer
 import dev.sluide.fileviewers.languages.JsonLinesFileViewer
+import dev.sluide.fileviewers.languages.JspFileViewer
 import dev.sluide.fileviewers.languages.JsxFileViewer
 import dev.sluide.fileviewers.languages.KotlinFileViewer
 import dev.sluide.fileviewers.languages.KqlFileViewer
+import dev.sluide.fileviewers.languages.LatexFileViewer
 import dev.sluide.fileviewers.languages.LessFileViewer
 import dev.sluide.fileviewers.languages.LispFileViewer
 import dev.sluide.fileviewers.languages.LuaFileViewer
@@ -41,6 +46,7 @@ import dev.sluide.fileviewers.languages.PerlFileViewer
 import dev.sluide.fileviewers.languages.PhpFileViewer
 import dev.sluide.fileviewers.languages.PowerShellFileViewer
 import dev.sluide.fileviewers.languages.PropertiesFileViewer
+import dev.sluide.fileviewers.languages.ProtobufFileViewer
 import dev.sluide.fileviewers.languages.PythonFileViewer
 import dev.sluide.fileviewers.languages.RubyFileViewer
 import dev.sluide.fileviewers.languages.RustFileViewer
@@ -107,6 +113,12 @@ class ViewerCommentSyntaxTest {
                 CssFileViewer() to CommentSyntax.CSS,
                 MdxFileViewer() to CommentSyntax.XML,
                 SingleFileComponentFileViewer() to CommentSyntax.XML,
+                ProtobufFileViewer() to CommentSyntax.SLASHES,
+                LatexFileViewer() to CommentSyntax.PERCENT,
+                HandlebarsFileViewer() to CommentSyntax.HANDLEBARS,
+                JspFileViewer() to CommentSyntax.JSP,
+                DtdFileViewer() to CommentSyntax.XML,
+                HtaccessFileViewer() to CommentSyntax.HASH,
                 SqlFileViewer() to CommentSyntax.SQL,
                 ShellFileViewer() to CommentSyntax.HASH,
                 PowerShellFileViewer() to CommentSyntax.POWERSHELL,

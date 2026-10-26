@@ -77,6 +77,87 @@ class HighlightingPerformanceTest {
     }
 
     @Test
+    fun `markup and template languages`() {
+        val blanks = " ".repeat(80_000)
+        assertFast(
+            "Protobuf",
+            RSyntaxHighlighter.protobuf,
+            lines("  rpc A (stream B) returns (stream map<a, b>) to max"),
+        )
+        assertFast("LaTeX", RSyntaxHighlighter.latex, lines("\\begin{a} \$x\$ \\(y\\) \\verb|z % w| \\[q\\] 5\\% % c"))
+        assertFast("Handlebars", RSyntaxHighlighter.handlebars, lines("{{#if @a}}<b>{{> p x}} {{this}}{{/if}}"))
+        assertFast("JSP", RSyntaxHighlighter.jsp, lines("<%@ page a=\"b\" %><c:if test=\"\${a}\">#{b}</c:if>"))
+        assertFast("DTD", RSyntaxHighlighter.dtd, lines("<!ATTLIST a b CDATA #REQUIRED c ID \"x\"> %p; <?x y?>"))
+        assertFast("htaccess", RSyntaxHighlighter.htaccess, lines("RewriteRule ^(.*)\$ /\$1 %{HTTP_HOST} [L]"))
+        assertFast(
+            "Protobuf long",
+            RSyntaxHighlighter.protobuf,
+            "(" + "stream ".repeat(20_000) + "to ".repeat(20_000) + "\n",
+        )
+        assertFast(
+            "Protobuf quotes",
+            RSyntaxHighlighter.protobuf,
+            "\"\\\"".repeat(40_000) + "\n" + "\"a".repeat(80_000) + "\n",
+        )
+        assertFast("Protobuf blanks", RSyntaxHighlighter.protobuf, "map$blanks<\n  edition$blanks=\n(stream$blanks\n")
+        assertFast(
+            "LaTeX dollars",
+            RSyntaxHighlighter.latex,
+            "\$".repeat(80_000) + "\n" + "\$a\\\$".repeat(20_000) + "\n",
+        )
+        assertFast(
+            "LaTeX verb",
+            RSyntaxHighlighter.latex,
+            "\\verb|".repeat(20_000) + "\n" + "\\verb+a".repeat(20_000) + "\n",
+        )
+        assertFast(
+            "LaTeX math brackets",
+            RSyntaxHighlighter.latex,
+            "\\(".repeat(40_000) + "\n" + "\\[\\".repeat(30_000) + "\n",
+        )
+        assertFast(
+            "LaTeX environments",
+            RSyntaxHighlighter.latex,
+            "\\begin".repeat(10_000) + "{" + "a".repeat(80_000) + "\n",
+        )
+        assertFast(
+            "Handlebars braces",
+            RSyntaxHighlighter.handlebars,
+            "{{".repeat(40_000) + "\n" + "{{@".repeat(30_000) + "\n",
+        )
+        assertFast(
+            "Handlebars blanks",
+            RSyntaxHighlighter.handlebars,
+            "{{#$blanks\n{{$blanks>$blanks\n{{ this$blanks\n",
+        )
+        assertFast("JSP delimiters", RSyntaxHighlighter.jsp, "<%@".repeat(30_000) + "\n" + "\${".repeat(40_000) + "\n")
+        assertFast("JSP tags", RSyntaxHighlighter.jsp, "</a:" + "b".repeat(80_000) + "\n" + "<a$blanks:b\n")
+        assertFast(
+            "DTD processing instructions",
+            RSyntaxHighlighter.dtd,
+            "<?".repeat(40_000) + "\n" + "<?a ?".repeat(20_000) + "\n",
+        )
+        assertFast(
+            "DTD declarations",
+            RSyntaxHighlighter.dtd,
+            "<!ELEMENT $blanks\n" + "<!ELEMENT a ".repeat(10_000) + "\n",
+        )
+        assertFast("DTD types", RSyntaxHighlighter.dtd, " ID".repeat(30_000) + "\n" + " CDATA$blanks\n")
+        assertFast(
+            "htaccess quotes",
+            RSyntaxHighlighter.htaccess,
+            "\"\\\"".repeat(40_000) + "\n" + "\"a".repeat(80_000) + "\n",
+        )
+        assertFast("DTD quotes", RSyntaxHighlighter.dtd, "\"a".repeat(40_000) + "\n" + "'a ".repeat(40_000) + "\n")
+        assertFast("htaccess blanks", RSyntaxHighlighter.htaccess, "$blanks\n${blanks}Header$blanks\n")
+        assertFast(
+            "htaccess variables",
+            RSyntaxHighlighter.htaccess,
+            "%{".repeat(40_000) + "\n" + "\${".repeat(40_000) + "\n",
+        )
+    }
+
+    @Test
     fun `compiled languages with line rules, masks and raw strings`() {
         assertFast("C digit separators", RSyntaxHighlighter.c, lines("int n = 1'000'000 + 0xFF'FF; char c = 'a';"))
         assertFast(

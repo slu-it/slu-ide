@@ -130,6 +130,102 @@ internal object WebLanguages {
      */
     val singleFileComponent = RSyntaxHighlighter(SyntaxConstants.SYNTAX_STYLE_HTML, lineRules = markupTags)
 
+    /**
+     * Handlebars and Mustache templates: HTML with `{{…}}` the lexer reads as plain text, partly as operators and
+     * helper names. Line rules (so one mustache within one line) style, in this order:
+     * - partials `{{> name}}` and `{{#> layout}}` (`keyword`, the name `type`);
+     * - block helpers `{{#if}}`, `{{/if}}`, `{{#*inline}}` and `{{^inverse}}` as `keyword` (the lexer styles `else`);
+     * - the delimiters `{{`, `{{{`, `}}`, `}}}` with their `~` as `operator`;
+     * - `@data` variables (`annotation`) and `this` (`keyword`) inside a mustache;
+     * - angle-bracket components (`<Ui::Card`, `</Ui::Card`: a capital right after `<`, then a blank, `/` or `>`) as
+     *   `tag`, which the lexer takes for attributes.
+     * Comments (`{{! }}`, `{{!-- --}}`) come from the lexer. Known gaps: a mustache over several lines; helper names
+     * other than the lexer's (`lookup`, `log`) stay plain.
+     */
+    val handlebars =
+        RSyntaxHighlighter(
+            SyntaxConstants.SYNTAX_STYLE_HANDLEBARS,
+            lineRules =
+                listOf(
+                    Regex("""\{\{~?+(?<keyword>#?+>)\s*+(?<type>[\w./@-]++)?"""),
+                    Regex("""\{\{~?+(?<keyword>[#/]\s*+\*?+[\w.@-]++|\^[\w.@-]*+)"""),
+                    Regex("""(?<operator>\{\{\{?+~?+|~?+}}}?+)"""),
+                    Regex("""(?<=\{\{[^}\n]{0,200})(?<annotation>@[A-Za-z_][\w.]*+)"""),
+                    Regex("""(?<=\{\{[^}\n]{0,200})(?<![\w.@-])(?<keyword>this)(?![\w-])"""),
+                    Regex("""(?<tag></?+[A-Z][\w.:-]*+)(?=[\s/>]|$)"""),
+                ),
+        )
+
+    /**
+     * JSP: the lexer styles Java in scriptlets and the name of a `<%@ %>` directive (`keyword`), but takes tag library
+     * tags (`<c:forEach>`) for attributes and knows no `${…}`. Line rules make the directive (`<%@ page`)
+     * `annotation`, taglib and `<jsp:…>` tags `tag` and EL expressions `${…}`/`#{…}` `annotation` (an unclosed
+     * one runs to the line end), except inside attribute values, which stay strings. Known gap: an EL expression
+     * over several lines.
+     */
+    val jsp =
+        RSyntaxHighlighter(
+            SyntaxConstants.SYNTAX_STYLE_JSP,
+            lineRules =
+                listOf(
+                    Regex("""(?<annotation><%@\s*+[\w.]++)"""),
+                    Regex("""(?<tag></?[A-Za-z][\w-]*+:[\w.-]++)"""),
+                    Regex("""(?<annotation>[$#]\{[^}\n]*+(?:}|$))"""),
+                ),
+        )
+
+    /**
+     * DTDs: the lexer styles `<!ELEMENT` and its parts as tag and attributes and does not know the rest of an
+     * `<!ENTITY` at all, so its tag styles are replaced by line rules styled like an inline DTD in XML: quoted
+     * values (also of `<!ENTITY`, `<!NOTATION`, `PUBLIC`, `SYSTEM`; references inside them stay part of the string)
+     * as `string`, declarations and processing instructions as `annotation`, parameter and general entity references
+     * outside quotes as `number`. Also `#PCDATA`, `#REQUIRED`, `#IMPLIED`, `#FIXED`, `EMPTY`/`ANY` after an element
+     * name, and `SYSTEM`/`PUBLIC`/`NDATA` as `keyword`, and attribute types (`CDATA`, `ID`, `NMTOKENS`, …) as
+     * `type` when a default or `#` follows. Known gaps: an attribute type at the end of a line, `EMPTY`/`ANY` on a
+     * line after the element name, and a quoted value over several lines.
+     */
+    val dtd =
+        RSyntaxHighlighter(
+            SyntaxConstants.SYNTAX_STYLE_DTD,
+            tokenStyles =
+                mapOf(
+                    TokenTypes.MARKUP_TAG_DELIMITER to null,
+                    TokenTypes.MARKUP_TAG_NAME to null,
+                    TokenTypes.MARKUP_TAG_ATTRIBUTE to null,
+                ),
+            lineRules =
+                listOf(
+                    Regex("""(?<annotation><\?(?:[^?]++|\?(?!>))*+(?:\?>|$))"""),
+                    Regex("""(?<string>"[^"\n]*+"|'[^'\n]*+')"""),
+                    Regex("""(?<annotation><!(?:ELEMENT|ATTLIST|ENTITY|NOTATION)(?![\w-]))"""),
+                    Regex("""(?<annotation><!\[\s*+(?:INCLUDE|IGNORE|%[\w.:-]++;)?+\s*+\[|]]>)"""),
+                    Regex("""(?<keyword>#(?:PCDATA|REQUIRED|IMPLIED|FIXED))(?![\w-])"""),
+                    Regex("""<!ELEMENT\s++[^\s>]++\s++(?<keyword>EMPTY|ANY)(?![\w-])"""),
+                    Regex("""(?<=\s)(?<type>CDATA|ID|IDREFS?+|ENTITY|ENTITIES|NMTOKENS?+)(?=\s*+(?:[#"']|$))"""),
+                    Regex("""(?<=\s)(?<keyword>SYSTEM|PUBLIC|NDATA)(?=\s)"""),
+                    Regex("""(?<number>[%&]#?+[\w.:-]++;)"""),
+                ),
+        )
+
+    /**
+     * Apache `.htaccess`: the lexer knows only some directives (`php_value` or `SetOutputFilter` are plain) and no
+     * variables. Line rules style the first word of a line as `builtin` (directives; sections like `<IfModule>`
+     * stay `tag`, their arguments plain) and `%{HTTP_HOST}`, `%1`, `$1` and `${map:key}` as `annotation`;
+     * quoted values as `string`; regex arguments stay plain. Known gaps: the continuation line of a directive ending
+     * in `\` shows its first word as a directive; variables inside quotes stay strings.
+     */
+    val htaccess =
+        RSyntaxHighlighter(
+            SyntaxConstants.SYNTAX_STYLE_HTACCESS,
+            tokenStyles = mapOf(TokenTypes.MARKUP_TAG_ATTRIBUTE to null),
+            lineRules =
+                listOf(
+                    Regex("""(?<string>(?<!\\)"(?:[^"\\\n]++|\\.)*+")"""),
+                    Regex("""^\s*+(?<builtin>[A-Za-z_][\w-]*+)(?=\s|$)"""),
+                    Regex("""(?<annotation>%\{[\w:.-]++}|\$\{[^}\n]*+(?:}|$)|[%$]\d)"""),
+                ),
+        )
+
     /** SCSS and Sass variables (`$primary`), styled like custom properties. */
     private val sassVariable = Regex("""(?<annotation>\$[\w-]+)""")
 

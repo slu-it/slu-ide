@@ -311,6 +311,12 @@ internal class RSyntaxHighlighter(
         val json = WebLanguages.json
         val xml = WebLanguages.xml
         val html = WebLanguages.html
+        val protobuf = MarkupLanguages.protobuf
+        val latex = MarkupLanguages.latex
+        val handlebars = WebLanguages.handlebars
+        val jsp = WebLanguages.jsp
+        val dtd = WebLanguages.dtd
+        val htaccess = WebLanguages.htaccess
         val singleFileComponent = WebLanguages.singleFileComponent
         val css = WebLanguages.css
         val less = WebLanguages.less

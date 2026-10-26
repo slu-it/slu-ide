@@ -36,6 +36,62 @@ internal object MarkupLanguages {
     /** MDX: Markdown with `import`/`export` lines and JSX components. */
     val mdx = markdown(lineRules = listOf(Regex("""^(?<keyword>import|export)\b""")))
 
+    /** `\verb|text|`: the delimiter is any character but a letter, `*` or blank; unclosed, the text ends the line. */
+    private const val VERB = """\\verb\*?+(?<d>[^A-Za-z*\s])(?:(?!\k<d>).)*+(?:\k<d>|$)"""
+
+    /** `$…$` and `$$…$$` math; a `$` escaped as `\$` neither starts nor ends it. */
+    private const val DOLLAR_MATH = """(?<!\\)\$\$?+(?:[^$\\]++|\\.)*+\$\$?+"""
+
+    /**
+     * LaTeX: the lexer takes the `%` in `\verb|a % b|` for a comment (a mask hides `\verb` text from it), shows
+     * commands as `builtin` (made `keyword`, also `\@ifundefined` and `\int_0`) and the names in `\begin{…}` as
+     * keywords. Line rules style, earlier ones winning: `\verb` text and math `$…$`, `$$…$$` as `string` (one
+     * rule, so a `$` in `\verb` starts no math), environment names (`type`), `\(…\)` and `\[…\]` (`string`; an
+     * unclosed one runs to the line end, `\\[2pt]` is no math), then commands. `\%` is no comment. Known gaps: math
+     * over several lines, and the content of `verbatim` environments (a `%` there starts a comment).
+     */
+    val latex =
+        RSyntaxHighlighter(
+            SyntaxConstants.SYNTAX_STYLE_LATEX,
+            tokenStyles = mapOf(TokenTypes.FUNCTION to TokenStyle.KEYWORD),
+            lexerMasks = listOf(Regex(VERB)),
+            lineRules =
+                listOf(
+                    Regex("""(?<string>$VERB|$DOLLAR_MATH)"""),
+                    Regex("""\\(?:begin|end)\s*+\{(?<type>[^}\\\n]++)}"""),
+                    Regex("""(?<string>(?<!\\)\\\((?:[^\\]++|\\(?!\)))*+(?:\\\)|$))"""),
+                    Regex("""(?<string>(?<!\\)\\\[(?:[^\\]++|\\(?!]))*+(?:\\]|$))"""),
+                    Regex("""(?<keyword>\\[A-Za-z@]++)"""),
+                ),
+        )
+
+    /** A Protocol Buffers string, `"…"` with escapes, on one line; the lexer runs one to the last `"` of a line. */
+    private const val PROTO_STRING = """(?<!\\)"(?:[^"\\\n]++|\\.)*+""""
+
+    /**
+     * Protocol Buffers: the lexer takes everything from the first to the last `"` of a line for one string, so
+     * strings are masked from it and styled by the first line rule (a comment after them stays a comment). Further
+     * line rules add the contextual words it misses, so that fields named like them stay plain: `edition = "2023"`,
+     * `map<…>` (`type`), `stream` in an rpc's parentheses, `extensions` and `group Name = 1 {`. Known gaps: a field
+     * named like a keyword (`string service = 1;`, `string to = 2;`, `max`) shows that keyword (the lexer's); a lone
+     * `"` in a block comment, followed on the same line by its closing marker and a string, keeps the comment open
+     * until the next closing marker; single-quoted strings are not masked, so the lexer merges `'x']; // 'y'`.
+     */
+    val protobuf =
+        RSyntaxHighlighter(
+            SyntaxConstants.SYNTAX_STYLE_PROTO,
+            lexerMasks = listOf(Regex(PROTO_STRING)),
+            lineRules =
+                listOf(
+                    Regex("""(?<string>$PROTO_STRING)"""),
+                    Regex("""^\s*+(?<keyword>edition)(?=\s*+=)"""),
+                    Regex("""(?<![\w.])(?<type>map)(?=\s*+<)"""),
+                    Regex("""\(\s*+(?<keyword>stream)\s++(?=[.\w])"""),
+                    Regex("""^\s*+(?<keyword>extensions)(?=\s++\d)"""),
+                    Regex("""^\s*+(?:(?:optional|required|repeated)\s++)?(?<keyword>group)(?=\s++\w++\s*+=)"""),
+                ),
+        )
+
     /** Statements of Mermaid's diagrams, the first word of a line. */
     private const val MERMAID_STATEMENTS =
         "classDef|class|style|linkStyle|subgraph|end|direction|click|participant|actor|loop|alt|else|opt|par|" +
@@ -124,6 +180,12 @@ internal object MarkupLanguages {
             "json", "jsonc" -> WebLanguages.json
             "xml", "svg" -> WebLanguages.xml
             "html" -> WebLanguages.html
+            "protobuf", "proto" -> protobuf
+            "latex", "tex" -> latex
+            "handlebars", "hbs", "mustache" -> WebLanguages.handlebars
+            "jsp" -> WebLanguages.jsp
+            "dtd" -> WebLanguages.dtd
+            "htaccess", "apacheconf" -> WebLanguages.htaccess
             "vue", "svelte" -> WebLanguages.singleFileComponent
             "yaml", "yml" -> ConfigLanguages.yaml
             "css" -> WebLanguages.css

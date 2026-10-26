@@ -15,6 +15,7 @@ import dev.sluide.fileviewers.languages.CssFileViewer
 import dev.sluide.fileviewers.languages.DFileViewer
 import dev.sluide.fileviewers.languages.DartFileViewer
 import dev.sluide.fileviewers.languages.DockerfileFileViewer
+import dev.sluide.fileviewers.languages.DtdFileViewer
 import dev.sluide.fileviewers.languages.FortranFileViewer
 import dev.sluide.fileviewers.languages.GitBlameIgnoreRevsFileViewer
 import dev.sluide.fileviewers.languages.GitattributesFileViewer
@@ -22,15 +23,19 @@ import dev.sluide.fileviewers.languages.GoFileViewer
 import dev.sluide.fileviewers.languages.GoModFileViewer
 import dev.sluide.fileviewers.languages.GraphQlFileViewer
 import dev.sluide.fileviewers.languages.GroovyFileViewer
+import dev.sluide.fileviewers.languages.HandlebarsFileViewer
+import dev.sluide.fileviewers.languages.HtaccessFileViewer
 import dev.sluide.fileviewers.languages.IgnoreFileViewer
 import dev.sluide.fileviewers.languages.IniFileViewer
 import dev.sluide.fileviewers.languages.JavaFileViewer
 import dev.sluide.fileviewers.languages.JavaScriptFileViewer
 import dev.sluide.fileviewers.languages.Json5FileViewer
 import dev.sluide.fileviewers.languages.JsonLinesFileViewer
+import dev.sluide.fileviewers.languages.JspFileViewer
 import dev.sluide.fileviewers.languages.JsxFileViewer
 import dev.sluide.fileviewers.languages.KotlinFileViewer
 import dev.sluide.fileviewers.languages.KqlFileViewer
+import dev.sluide.fileviewers.languages.LatexFileViewer
 import dev.sluide.fileviewers.languages.LessFileViewer
 import dev.sluide.fileviewers.languages.LispFileViewer
 import dev.sluide.fileviewers.languages.LuaFileViewer
@@ -42,6 +47,7 @@ import dev.sluide.fileviewers.languages.PerlFileViewer
 import dev.sluide.fileviewers.languages.PhpFileViewer
 import dev.sluide.fileviewers.languages.PowerShellFileViewer
 import dev.sluide.fileviewers.languages.PropertiesFileViewer
+import dev.sluide.fileviewers.languages.ProtobufFileViewer
 import dev.sluide.fileviewers.languages.PythonFileViewer
 import dev.sluide.fileviewers.languages.RubyFileViewer
 import dev.sluide.fileviewers.languages.RustFileViewer
@@ -68,6 +74,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
 /** Which files each code viewer accepts. Add a row per viewer. */
 class CodeFileViewersTest {
@@ -122,6 +129,12 @@ class CodeFileViewersTest {
             JsxFileViewer() to listOf("Button.jsx"),
             TsxFileViewer() to listOf("App.tsx"),
             SingleFileComponentFileViewer() to listOf("App.vue", "Page.svelte"),
+            ProtobufFileViewer() to listOf("api.proto"),
+            LatexFileViewer() to listOf("paper.tex", "style.sty", "old.ltx"),
+            HandlebarsFileViewer() to listOf("page.hbs", "layout.handlebars", "mail.mustache"),
+            JspFileViewer() to listOf("index.jsp", "footer.jspf", "card.tag"),
+            DtdFileViewer() to listOf("note.dtd", "latin1.ent"),
+            HtaccessFileViewer() to listOf(".htaccess", "site.htaccess"),
             MdxFileViewer() to listOf("docs.mdx"),
             CssFileViewer() to listOf("site.css"),
             ScssFileViewer() to listOf("_vars.scss"),
@@ -183,6 +196,11 @@ class CodeFileViewersTest {
             "py",
             "README.md",
             "index.html",
+            "api.protobuf",
+            "paper.text",
+            "page.hbs.txt",
+            "index.jspx",
+            "htaccess",
             "icon.svg",
             "yarn.lock",
             "main.bicep",
@@ -314,5 +332,24 @@ class CodeFileViewersTest {
             assertSame(toml, viewers.viewerFor(file(name)), name)
         }
         assertSame(fallback, viewers.viewerFor(file("yarn.lock")))
+    }
+
+    @Test
+    fun `cls files open as LaTeX only when their text looks like LaTeX`() {
+        val latex = LatexFileViewer()
+        val accepted =
+            mapOf(
+                "article.cls" to "\\NeedsTeXFormat{LaTeX2e}\n\\ProvidesClass{article}\n",
+                "percent.cls" to "\uFEFF\n  % class\nx\n",
+                "inside.cls" to "Some text\n\\ProvidesClass{x}\n",
+            )
+        for ((name, text) in accepted) {
+            assertTrue(latex.canOpen(dir.resolve(name).apply { writeText(text) }), name)
+        }
+        val apex = dir.resolve("Account.cls").apply { writeText("public class Account {\n  Integer n;\n}\n") }
+        val vba = dir.resolve("Module.cls").apply { writeText("VERSION 1.0 CLASS\nBEGIN\nEND\n") }
+        assertFalse(latex.canOpen(apex), "Apex")
+        assertFalse(latex.canOpen(vba), "VBA")
+        assertFalse(latex.canOpen(dir.resolve("missing.cls")), "missing")
     }
 }

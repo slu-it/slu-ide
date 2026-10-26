@@ -113,6 +113,12 @@ the Bicep graph and `BicepParamFileViewer`.
   | `XmlFileViewer` (source side of the preview, [xml-preview.md](xml-preview.md)) | `.xml`, `.xsd`, `.xsl`, `.xslt`, `.fxml`, `.iml` (IntelliJ modules), `.plist`, `.csproj`, `.fsproj`, `.vbproj`, `.props`, `.targets`, `.xaml`, `.resx`, `.nuspec`, `.wsdl`; `.config` only when the text starts with `<` (after a BOM and blanks; commit diffs go by name only, so `.config` files show there as plain text) | none needed; DTDs/processing instructions styled as `annotation`, entities as `number`, CDATA as `string` |
   | `YamlFileViewer` (source side of the preview, [yaml-preview.md](yaml-preview.md)) | `.yaml`, `.yml` | the lexer only knows comments and quoted strings; line rules add keys (`property`), numbers, `true`/`false`/`null`/`~`, anchors/aliases/tags (`annotation`) and `---`/`...`. Known gap: block scalar content (after `\|`/`>`) is not shown as string |
   | `HtmlFileViewer` (source side of the preview, [previews.md](previews.md)) | `.html`, `.htm`, `.xhtml` | none needed; `<!DOCTYPE>` as `annotation`, entities as `number`, embedded `<script>` and `<style>` highlighted as JavaScript and CSS |
+  | `ProtobufFileViewer` | `.proto` | strings are masked from the lexer, which runs a string to the last `"` of a line, and styled by a rule (so `reserved "A", "B";` and a trailing `// "c"` comment are right); `edition = …` (only before `=`), `map<…>` (`type`), `stream` in an rpc's parentheses, `extensions` and `group` as contextual keywords, so fields named like them stay plain; scalar types `type`, field numbers `number`. Known gaps (the lexer's): a field named like a keyword (`string service = 1;`, `string to = 2;`) shows the keyword; a lone `"` in a block comment, followed on the same line by `*/` and a string, keeps the comment open until the next `*/`; `'x']; // 'y'` is merged by the lexer (single quotes are not masked)
+  | `LatexFileViewer` | `.tex`, `.sty`, `.ltx`; `.cls` only when the text looks like LaTeX (starts with `%` or `\`, or has `\ProvidesClass`/`\NeedsTeXFormat`; Apex and VBA use `.cls` too, and commit diffs by name show it plain) | commands `keyword` (also `\@ifundefined`), the name in `\begin{…}`/`\end{…}` `type`, `%` comments but not `\%`, math (`$…$`, `$$…$$`, `\(…\)`, `\[…\]`; an unclosed `\(` or `\[` runs to the line end, `\\[2pt]` is no math) `string`, `\verb\|…\|` `string` (a mask hides its `%` from the lexer, and a `$` in it starts no math). Known gaps: math over several lines; a `%` in a `verbatim` environment starts a comment |
+  | `HandlebarsFileViewer` | `.hbs`, `.handlebars`, `.mustache` | HTML plus line rules: `{{#if}}`, `{{/if}}`, `{{^}}` `keyword` (`else` comes from the lexer), `{{> partial}}` (`keyword` and `type`), `{{`/`}}`/`{{{`/`~` `operator`, `@index` `annotation`, `this` `keyword`, angle-bracket components (`<Ui::Card`) `tag`; `{{! }}` and `{{!-- --}}` comments from the lexer. Known gaps: a mustache over several lines; custom helper names stay plain |
+  | `JspFileViewer` | `.jsp`, `.jspf`, `.tag` | Java in `<% %>`, `<%= %>`, `<%! %>` from the lexer, `<%-- --%>` comments; `<%@ page` directives `annotation`, `<c:forEach>`/`<jsp:include>` taglib tags `tag`, `${…}`/`#{…}` `annotation` (an unclosed one runs to the line end; not inside attribute values). Known gap: EL over several lines |
+  | `DtdFileViewer` | `.dtd`, `.ent` | the lexer's tag styles are replaced by line rules styled like an inline DTD in XML: quoted values `string`, `<!ELEMENT`, `<!ATTLIST`, `<!ENTITY`, `<!NOTATION`, `<![INCLUDE[` and `<?xml?>` `annotation`; `#PCDATA`, `#REQUIRED`, `#IMPLIED`, `#FIXED`, `EMPTY`/`ANY` (after an element name), `SYSTEM`/`PUBLIC` `keyword`; attribute types (`CDATA`, `ID`, …, before a default) `type`; `%pe;` and `&#169;` references outside quotes `number`. Known gaps: a quoted value over several lines, attribute type at a line end, `EMPTY` on a line after the element name |
+  | `HtaccessFileViewer` | `.htaccess` (also `foo.htaccess`) | the first word of a line `builtin` (also directives the lexer does not know, like `php_value`), `<IfModule>` sections `tag` with plain arguments, `%{HTTP_HOST}`, `%1`, `$1` `annotation`, quoted values `string`; regex arguments and flags plain. Known gaps: a continuation line shows its first word as a directive; variables in quotes stay `string` |
   | `SingleFileComponentFileViewer` | `.vue`, `.svelte` | as HTML; tag names the lexer does not know (`<template>`, components like `<MyCard>`) are made `tag` by the same whole-tag rules as JSX. Known gaps: `<script lang="ts">` is lexed as JavaScript; template expressions (`{{ … }}`, `{…}`, `{#if}`) are plain text |
   | `MdxFileViewer` | `.mdx` | headings and bold as `keyword`, emphasis as `type`, inline code as `string`, links and images as `attribute`, inline HTML as markup with component names as `tag`, `import`/`export` lines as `keyword`; fenced code with a known language highlighted as that language (`FencedCodeHighlighter`), other fences `string` |
   | `CssFileViewer` | `.css` | uses the LESS lexer (handles nesting and units better); at-rules (`@media`, `@supports`, `@layer`, …) as `keyword`; custom properties (`--gap`) and `#id`s as `annotation`. Selectors are `type`, properties and pseudo-classes `keyword`. Known gap: some nested selectors show as `keyword` |
@@ -224,21 +230,23 @@ the Bicep graph and `BicepParamFileViewer`.
     and give their first 8 KB.
   - `HttpFileViewer` (`.http`, `.rest`, module `http-client`) uses them ([http-client.md](http-client.md)).
 - To add a viewer, implement `FileViewer` as a `@Component` in any module below `dev.sluide`. For a language with an
-  RSyntaxTextArea lexer, add its highlighter to the family file in `highlight` (`WebLanguages.kt`,
-  `ScriptLanguages.kt`, `CompiledLanguages.kt`, `ConfigLanguages.kt` or `MarkupLanguages.kt`) with a one-line delegation in
+  RSyntaxTextArea lexer, add its highlighter to the family file in `highlight` (`WebLanguages.kt`, `ScriptLanguages.kt`,
+  `CompiledLanguages.kt`, `ConfigLanguages.kt` or `MarkupLanguages.kt`) with a one-line delegation in
   `RSyntaxHighlighter`'s companion, extend `CodeFileViewer` like `PythonFileViewer` does, and add a row to
   `CodeFileViewersTest` and a `<Language>HighlightingTest`. A larger language without a lexer gets its own
   `SyntaxHighlighter` object instead ([ADR 0031](../adr/0031-own-tokenizers.md), rules there), plus cases in
-  `HighlightingPerformanceTest`. Add its names to `MarkupLanguages.forLanguage` too: that list decides which fenced
-  code (` ```py `) in Markdown and which notebook languages are highlighted. It knows `java`; `c`; `cpp` `c++` `cxx` `h` `hpp`; `csharp` `cs` `c#`; `go` `golang`; `gomod` `go.mod` `go.work`;
-  `rust` `rs`; `d`; `scala`; `dart`; `vb` `vbnet` `vbscript`; `pascal` `delphi` `pas`; `fortran` `f90`; `asm` `nasm` `x86asm`;
-  `vhdl`; `kotlin` `kt` `kts`;
-  `groovy` `gradle`; `python` `py`; `ruby` `rb`; `php`; `perl` `pl`; `lua`; `clojure` `clj` `edn`; `lisp` `elisp` `emacs-lisp` `scheme` `racket`; `tcl`; `batch` `bat` `cmd` `batchfile` `dosbatch`; `javascript` `js` `mjs` `cjs`; `jsx`; `typescript` `ts`; `tsx`; `json` `jsonc`;
-  `xml` `svg`; `html`; `vue` `svelte`; `yaml` `yml`; `css`; `scss`; `sass`; `less`; `markdown` `md`; `mdx`; `sql`;
-  `kql` `kusto` `csl`; `graphql` `gql`; `bash` `sh` `shell` `zsh` `ksh`; `powershell` `ps1` `pwsh`; `dockerfile` `docker`
-  `containerfile`; `makefile` `make` `mk`; `ini` `cfg` `conf` `editorconfig` `gitconfig`; `properties`;
-  `json5` `jsonl` `ndjson`; `codeowners`; `gitattributes`; `mailmap`; `gitignore`; `ssh-config` `sshconfig`
-  `ssh_config` `sshd_config`; `caddyfile` `caddy`; `mermaid` `mmd`; `bicep` `bicepparam`; `hcl` `terraform` `tf`
-  `tfvars`; `dotenv` `env`; `toml`.
+  `HighlightingPerformanceTest`. Add its names to `MarkupLanguages.forLanguage` too: that list decides which fenced code
+  (` ```py `) in Markdown and which notebook languages are highlighted. It knows `java`; `c`; `cpp` `c++` `cxx` `h`
+  `hpp`; `csharp` `cs` `c#`; `go` `golang`; `gomod` `go.mod` `go.work`; `rust` `rs`; `d`; `scala`; `dart`; `vb` `vbnet`
+  `vbscript`; `pascal` `delphi` `pas`; `fortran` `f90`; `asm` `nasm` `x86asm`; `vhdl`; `kotlin` `kt` `kts`; `groovy`
+  `gradle`; `python` `py`; `ruby` `rb`; `php`; `perl` `pl`; `lua`; `clojure` `clj` `edn`; `lisp` `elisp` `emacs-lisp`
+  `scheme` `racket`; `tcl`; `batch` `bat` `cmd` `batchfile` `dosbatch`; `javascript` `js` `mjs` `cjs`; `jsx`;
+  `typescript` `ts`; `tsx`; `json` `jsonc`; `xml` `svg`; `html`; `protobuf` `proto`; `latex` `tex`; `handlebars` `hbs`
+  `mustache`; `jsp`; `dtd`; `htaccess` `apacheconf`; `vue` `svelte`; `yaml` `yml`; `css`; `scss`; `sass`; `less`;
+  `markdown` `md`; `mdx`; `sql`; `kql` `kusto` `csl`; `graphql` `gql`; `bash` `sh` `shell` `zsh` `ksh`; `powershell`
+  `ps1` `pwsh`; `dockerfile` `docker` `containerfile`; `makefile` `make` `mk`; `ini` `cfg` `conf` `editorconfig`
+  `gitconfig`; `properties`; `json5` `jsonl` `ndjson`; `codeowners`; `gitattributes`; `mailmap`; `gitignore`;
+  `ssh-config` `sshconfig` `ssh_config` `sshd_config`; `caddyfile` `caddy`; `mermaid` `mmd`; `bicep` `bicepparam`; `hcl`
+  `terraform` `tf` `tfvars`; `dotenv` `env`; `toml`.
 - Not yet implemented: encodings other than UTF-8 and Windows-1252, and views of binary files other than images
   (`.xlsx`, `.pptx`, SQLite).

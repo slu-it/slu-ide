@@ -102,6 +102,12 @@ class RSyntaxHighlighterTest {
                 RSyntaxHighlighter.fortran to listOf("fortran", "f90"),
                 RSyntaxHighlighter.assembler to listOf("asm", "nasm", "x86asm"),
                 RSyntaxHighlighter.vhdl to listOf("vhdl"),
+                RSyntaxHighlighter.protobuf to listOf("protobuf", "proto"),
+                RSyntaxHighlighter.latex to listOf("latex", "tex"),
+                RSyntaxHighlighter.handlebars to listOf("handlebars", "hbs", "mustache"),
+                RSyntaxHighlighter.jsp to listOf("jsp"),
+                RSyntaxHighlighter.dtd to listOf("dtd"),
+                RSyntaxHighlighter.htaccess to listOf("htaccess", "apacheconf"),
             )
         for ((highlighter, names) in expected) {
             for (name in names) {
