@@ -358,6 +358,8 @@ class HighlightingPerformanceTest {
     @Test
     fun `long lines`() {
         val blanks = " ".repeat(80_000)
+        // With RSyntaxTextArea's own token pool, these 700,000 tokens took 13 s.
+        assertFast("minified line", RSyntaxHighlighter.javaScript, "a(b,c);".repeat(100_000) + "\n")
         assertFast("INI blanks", RSyntaxHighlighter.ini, "a${blanks}b\nc$blanks=d\n")
         assertFast("INI colon", RSyntaxHighlighter.ini, "a$blanks:b\n")
         assertFast("properties blanks", RSyntaxHighlighter.properties, "a${blanks}b\nc$blanks=d$blanks\n")

@@ -6,6 +6,7 @@ import dev.sluide.fileviewers.TokenStyle
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants
 import org.fife.ui.rsyntaxtextarea.Token
 import org.fife.ui.rsyntaxtextarea.TokenMaker
+import org.fife.ui.rsyntaxtextarea.TokenMakerBase
 import org.fife.ui.rsyntaxtextarea.TokenMakerFactory
 import org.fife.ui.rsyntaxtextarea.TokenTypes
 import java.util.TreeMap
@@ -151,6 +152,7 @@ internal class RSyntaxHighlighter(
         if (syntaxStyle == SyntaxConstants.SYNTAX_STYLE_NONE) return emptyList()
         // Lexers keep state in their token list, so every call gets its own instance.
         val lexer = TokenMakerFactory.getDefaultInstance().getTokenMaker(syntaxStyle)
+        TokenPool.growFaster(lexer, text.length)
         val chars = text.toCharArray()
         for (mask in lexerMasks) {
             for (match in mask.findAll(text)) {
@@ -379,5 +381,39 @@ internal class RSyntaxHighlighter(
 
         /** The highlighter for a code fence's [language] (` ```ts `), lower case, or `null` if there is none. */
         fun forLanguage(language: String): SyntaxHighlighter? = MarkupLanguages.forLanguage(language)
+    }
+}
+
+/**
+ * RSyntaxTextArea's token pool grows by 10 tokens at a time and copies all of them each time: quadratic time in the
+ * tokens of a line, over a second for a minified line of 200,000 tokens, or for 80,000 blanks in a Handlebars
+ * mustache, one token each. The pool is private, so [growFaster] replaces it by reflection with one that grows
+ * in steps of a sixteenth of the text's length; should a later RSyntaxTextArea change it, lexers keep their own pool.
+ */
+private object TokenPool {
+    private const val START_SIZE = 30
+    private const val DEFAULT_INCREMENT = 10
+    private const val MAX_INCREMENT = 8192
+
+    private val field =
+        runCatching { TokenMakerBase::class.java.getDeclaredField("tokenFactory").apply { isAccessible = true } }
+            .getOrNull()
+    private val constructor =
+        runCatching {
+            Class
+                .forName("org.fife.ui.rsyntaxtextarea.DefaultTokenFactory")
+                .getDeclaredConstructor(Int::class.javaPrimitiveType, Int::class.javaPrimitiveType)
+                .apply { isAccessible = true }
+        }.getOrNull()
+
+    fun growFaster(
+        lexer: TokenMaker,
+        textLength: Int,
+    ) {
+        val increment = (textLength / 16).coerceAtMost(MAX_INCREMENT)
+        if (lexer !is TokenMakerBase || increment <= DEFAULT_INCREMENT) return
+        val field = field ?: return
+        val constructor = constructor ?: return
+        runCatching { field.set(lexer, constructor.newInstance(START_SIZE, increment)) }
     }
 }
