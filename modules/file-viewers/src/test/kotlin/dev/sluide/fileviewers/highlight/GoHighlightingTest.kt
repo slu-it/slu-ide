@@ -16,7 +16,7 @@ class GoHighlightingTest {
             |	multi "line" // not a comment
             |	${'`'}
             |	t := ${'`'}one line${'`'} + "x"
-            |	r := 'x' // comment
+            |	r := "${'`'}" + 'x' // comment
             |	return nil
             |}
             |
@@ -36,9 +36,11 @@ class GoHighlightingTest {
         val bt = '`'
         assertEquals(setOf(TokenStyle.STRING), go.stylesOf("${bt}raw\n\tmulti \"line\" // not a comment\n\t$bt"))
         assertEquals(setOf(TokenStyle.STRING), go.stylesOf("${bt}one line$bt"))
-        go.assertExactly(TokenStyle.COMMENT, "// comment")
         assertEquals(emptySet(), go.stylesOf("π"), "a Unicode identifier is no raw string")
+        // A backtick in an ordinary string starts no raw string, and the rest of its line is still lexed.
+        go.assertExactly(TokenStyle.STRING, "\"$bt\"")
         go.assertExactly(TokenStyle.STRING, "'x'")
+        go.assertExactly(TokenStyle.COMMENT, "// comment")
         assertEquals(setOf(TokenStyle.KEYWORD), go.stylesOf("return"), "code after the raw string is lexed again")
     }
 }

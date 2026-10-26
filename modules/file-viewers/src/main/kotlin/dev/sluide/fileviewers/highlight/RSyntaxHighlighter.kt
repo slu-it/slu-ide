@@ -5,6 +5,7 @@ import dev.sluide.fileviewers.SyntaxHighlighter
 import dev.sluide.fileviewers.TokenStyle
 import org.fife.ui.rsyntaxtextarea.SyntaxConstants
 import org.fife.ui.rsyntaxtextarea.Token
+import org.fife.ui.rsyntaxtextarea.TokenMaker
 import org.fife.ui.rsyntaxtextarea.TokenMakerFactory
 import org.fife.ui.rsyntaxtextarea.TokenTypes
 import java.util.TreeMap
@@ -163,24 +164,26 @@ internal class RSyntaxHighlighter(
         var start = 0
         // The last token type of a line tells the lexer how the next line starts, e.g. inside a """ string.
         var state = TokenTypes.NULL
+        // Where the next raw string delimiter at or after `start` begins, -1 if there is none.
+        var nextDelimiter = rawStringDelimiter?.let { text.indexOf(it) } ?: -1
         while (start <= chars.size) {
             val newline = text.indexOf('\n', start).let { if (it < 0) chars.size else it }
             val lineEnd = if (newline > start && chars[newline - 1] == '\r') newline - 1 else newline
-            var token: Token? = lexer.getTokenList(Segment(chars, start, lineEnd - start), state, start)
-            var lastType = TokenTypes.NULL
-            var rawStringEnd = -1
-            while (token != null) {
-                lastType = token.type
-                // Some lexers end a line with an empty token that only carries state, e.g. Markdown after ```ts.
-                if (token.isPaintable && token.length() > 0) {
-                    rawStringEnd = rawStringEnd(text, token)
-                    if (rawStringEnd >= 0) {
-                        spans += HighlightSpan(token.offset, rawStringEnd, TokenStyle.STRING)
-                        break
-                    }
-                    styleOf(token)?.let { spans += HighlightSpan(token.offset, token.offset + token.length(), it) }
+            // Lexing stops right after the next raw string delimiter: lexing to the line end after each raw string
+            // would take quadratic time on a line full of them. Where no raw string starts there (the delimiter is in
+            // a comment, say), the whole line is lexed after all.
+            if (nextDelimiter in 0..<start) rawStringDelimiter?.let { nextDelimiter = text.indexOf(it, start) }
+            val segmentEnd = rawStringDelimiter?.let { nextDelimiter + it.length }?.takeIf { nextDelimiter >= 0 }
+            val stopsEarly = segmentEnd != null && segmentEnd < lineEnd
+            val spanCount = spans.size
+            var (lastType, rawStringEnd) =
+                lexSegment(lexer, text, chars, start, if (stopsEarly) segmentEnd else lineEnd, state, spans)
+            if (stopsEarly && rawStringEnd < 0) {
+                spans.subList(spanCount, spans.size).clear()
+                lexSegment(lexer, text, chars, start, lineEnd, state, spans).let { (type, end) ->
+                    lastType = type
+                    rawStringEnd = end
                 }
-                token = token.nextToken
             }
             if (rawStringEnd >= 0) {
                 // Continue right after the raw string, which may be on a later line, with a fresh lexer state.
@@ -192,6 +195,37 @@ internal class RSyntaxHighlighter(
             }
         }
         return spans
+    }
+
+    /**
+     * Adds the spans of `chars[start, end)` lexed from [state] to [spans], up to the first raw string; returns the
+     * last token type and the raw string's end offset, -1 without one.
+     */
+    private fun lexSegment(
+        lexer: TokenMaker,
+        text: String,
+        chars: CharArray,
+        start: Int,
+        end: Int,
+        state: Int,
+        spans: MutableList<HighlightSpan>,
+    ): Pair<Int, Int> {
+        var token: Token? = lexer.getTokenList(Segment(chars, start, end - start), state, start)
+        var lastType = TokenTypes.NULL
+        while (token != null) {
+            lastType = token.type
+            // Some lexers end a line with an empty token that only carries state, e.g. Markdown after ```ts.
+            if (token.isPaintable && token.length() > 0) {
+                val rawStringEnd = rawStringEnd(text, token)
+                if (rawStringEnd >= 0) {
+                    spans += HighlightSpan(token.offset, rawStringEnd, TokenStyle.STRING)
+                    return lastType to rawStringEnd
+                }
+                styleOf(token)?.let { spans += HighlightSpan(token.offset, token.offset + token.length(), it) }
+            }
+            token = token.nextToken
+        }
+        return lastType to -1
     }
 
     /** End offset of the raw string starting at [token], or -1 if [token] does not start one. */
