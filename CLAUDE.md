@@ -32,7 +32,7 @@ new ones too (ADR 0032).
   (`docs/testing.md` "Choosing the test level", ADR 0084, `.claude/rules/testing.md`).
 - Significant decisions get an ADR (`docs/adr/template.md`), new features a page in `docs/features/`, explored but
   undecided ideas a page in `docs/ideas/`;
-  add every new doc to `docs/index.md` with a one-line summary.
+  add every new doc to `docs/index.md` as a table row with a short summary and keywords.
 - Files over ~400 lines (big UI test classes; `.claude/scripts/check-file-sizes.sh` lists production files over 600):
   find the place with Grep, then Read only that range (`offset`/`limit`). Don't read whole test classes to add one
   test; read a neighbouring test as a pattern. Don't grow a production file past 600 lines; split it by

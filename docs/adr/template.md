@@ -10,4 +10,4 @@ What problem or force requires a decision?
 What did we decide?
 
 ## Consequences
-What becomes easier or harder? Add the ADR to [../index.md](../index.md).
+What becomes easier or harder? Add the ADR to [../index.md](../index.md) (short summary, keywords, related ADRs).

@@ -9,6 +9,6 @@ esac
 
 if ! output="$("$(dirname "$0")/check-docs-index.sh" 2>&1)"; then
   echo "$output" >&2
-  echo "Add the missing documents to docs/index.md with a one-line summary." >&2
+  echo "Add the missing documents to docs/index.md as table rows with a short summary and keywords." >&2
   exit 2
 fi
