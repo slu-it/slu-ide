@@ -3,6 +3,7 @@ package dev.sluide.fileexplorer.tree
 import dev.sluide.filewatcher.FileWatcher
 import javafx.scene.control.TreeItem
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.Assumptions.assumeFalse
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import java.util.concurrent.LinkedBlockingQueue
@@ -90,9 +91,18 @@ class TreeWatchesTest {
     // of it: so the folder holding the new entry is never the first middle folder here, whose parent is always
     // watched, and the middle folders above it are recreated too.
 
+    /**
+     * The tests of recreated folders need watches that end with their folder and report its deletion, as on Linux.
+     * On macOS the JDK polls by path every 2 s (ADR 0006): a recreated folder keeps its watch, and a deletion and
+     * recreation between two polls may not be reported at all, so there is nothing to wait for.
+     */
+    private fun assumeWatchesEndWithTheirFolder() =
+        assumeFalse(System.getProperty("os.name").startsWith("Mac"), "macOS polls by path: watches survive recreation")
+
     @OptIn(ExperimentalPathApi::class)
     @Test
     fun `middle folders deleted and recreated with the first one, also of a collapsed row, are watched again`() {
+        assumeWatchesEndWithTheirFolder()
         project.resolve("gen/src/main").createDirectories()
         project.resolve("other.txt").createFile()
         val top = openProject()
@@ -115,6 +125,7 @@ class TreeWatchesTest {
     @OptIn(ExperimentalPathApi::class)
     @Test
     fun `middle folders deleted and recreated below the first one are watched again`() {
+        assumeWatchesEndWithTheirFolder()
         project.resolve("a/b/c/d").createDirectories()
         val top = openProject()
         assertEquals(listOf("a/b/c/d"), top.rows())
