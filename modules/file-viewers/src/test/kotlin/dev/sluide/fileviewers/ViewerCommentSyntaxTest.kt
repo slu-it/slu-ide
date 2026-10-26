@@ -2,9 +2,11 @@ package dev.sluide.fileviewers
 
 import dev.sluide.fileviewers.bicep.BicepParamFileViewer
 import dev.sluide.fileviewers.languages.AssemblerFileViewer
+import dev.sluide.fileviewers.languages.BatchFileViewer
 import dev.sluide.fileviewers.languages.CFileViewer
 import dev.sluide.fileviewers.languages.CSharpFileViewer
 import dev.sluide.fileviewers.languages.CaddyfileFileViewer
+import dev.sluide.fileviewers.languages.ClojureFileViewer
 import dev.sluide.fileviewers.languages.CodeownersFileViewer
 import dev.sluide.fileviewers.languages.ConfigFileViewer
 import dev.sluide.fileviewers.languages.CppFileViewer
@@ -28,13 +30,18 @@ import dev.sluide.fileviewers.languages.JsxFileViewer
 import dev.sluide.fileviewers.languages.KotlinFileViewer
 import dev.sluide.fileviewers.languages.KqlFileViewer
 import dev.sluide.fileviewers.languages.LessFileViewer
+import dev.sluide.fileviewers.languages.LispFileViewer
+import dev.sluide.fileviewers.languages.LuaFileViewer
 import dev.sluide.fileviewers.languages.MailmapFileViewer
 import dev.sluide.fileviewers.languages.MakefileFileViewer
 import dev.sluide.fileviewers.languages.MdxFileViewer
 import dev.sluide.fileviewers.languages.PascalFileViewer
+import dev.sluide.fileviewers.languages.PerlFileViewer
+import dev.sluide.fileviewers.languages.PhpFileViewer
 import dev.sluide.fileviewers.languages.PowerShellFileViewer
 import dev.sluide.fileviewers.languages.PropertiesFileViewer
 import dev.sluide.fileviewers.languages.PythonFileViewer
+import dev.sluide.fileviewers.languages.RubyFileViewer
 import dev.sluide.fileviewers.languages.RustFileViewer
 import dev.sluide.fileviewers.languages.SassFileViewer
 import dev.sluide.fileviewers.languages.ScalaFileViewer
@@ -43,6 +50,7 @@ import dev.sluide.fileviewers.languages.ShellFileViewer
 import dev.sluide.fileviewers.languages.SingleFileComponentFileViewer
 import dev.sluide.fileviewers.languages.SqlFileViewer
 import dev.sluide.fileviewers.languages.SshConfigFileViewer
+import dev.sluide.fileviewers.languages.TclFileViewer
 import dev.sluide.fileviewers.languages.TomlFileViewer
 import dev.sluide.fileviewers.languages.TsxFileViewer
 import dev.sluide.fileviewers.languages.TypeScriptFileViewer
@@ -62,6 +70,14 @@ class ViewerCommentSyntaxTest {
         val expected =
             mapOf(
                 PythonFileViewer() to CommentSyntax.HASH,
+                RubyFileViewer() to CommentSyntax.HASH,
+                PhpFileViewer() to CommentSyntax.SLASHES,
+                PerlFileViewer() to CommentSyntax.HASH,
+                LuaFileViewer() to CommentSyntax.LUA,
+                ClojureFileViewer() to CommentSyntax.SEMICOLON,
+                LispFileViewer() to CommentSyntax.SEMICOLON,
+                TclFileViewer() to CommentSyntax.HASH,
+                BatchFileViewer() to CommentSyntax.REM,
                 KotlinFileViewer() to CommentSyntax.SLASHES,
                 GroovyFileViewer() to CommentSyntax.SLASHES,
                 JavaFileViewer() to CommentSyntax.SLASHES,

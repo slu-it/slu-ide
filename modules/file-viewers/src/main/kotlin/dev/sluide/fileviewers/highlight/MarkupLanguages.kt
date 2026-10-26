@@ -109,6 +109,14 @@ internal object MarkupLanguages {
             "kotlin", "kt", "kts" -> ScriptLanguages.kotlin
             "groovy", "gradle" -> ScriptLanguages.groovy
             "python", "py" -> ScriptLanguages.python
+            "ruby", "rb" -> DynamicLanguages.ruby
+            "php" -> DynamicLanguages.php
+            "perl", "pl" -> DynamicLanguages.perl
+            "lua" -> DynamicLanguages.lua
+            "clojure", "clj", "edn" -> DynamicLanguages.clojure
+            "lisp", "elisp", "emacs-lisp", "scheme", "racket" -> DynamicLanguages.lisp
+            "tcl" -> DynamicLanguages.tcl
+            "batch", "bat", "cmd", "batchfile", "dosbatch" -> DynamicLanguages.batch
             "javascript", "js", "mjs", "cjs" -> WebLanguages.javaScript
             "jsx" -> WebLanguages.javaScriptReact
             "typescript", "ts" -> WebLanguages.typeScript

@@ -292,6 +292,14 @@ internal class RSyntaxHighlighter(
         val kotlin = ScriptLanguages.kotlin
         val groovy = ScriptLanguages.groovy
         val python = ScriptLanguages.python
+        val ruby = DynamicLanguages.ruby
+        val php = DynamicLanguages.php
+        val perl = DynamicLanguages.perl
+        val lua = DynamicLanguages.lua
+        val clojure = DynamicLanguages.clojure
+        val lisp = DynamicLanguages.lisp
+        val tcl = DynamicLanguages.tcl
+        val batch = DynamicLanguages.batch
         val sql = ScriptLanguages.sql
         val shell = ScriptLanguages.shell
         val powerShell = ScriptLanguages.powerShell

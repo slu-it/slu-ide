@@ -38,6 +38,18 @@ class HighlightingPerformanceTest {
 
     @Test
     fun `large files with line rules`() {
+        assertFast("Ruby", RSyntaxHighlighter.ruby, lines("  x = { name: 1, k: %i[a b] }.map(&:to_s) # c"))
+        assertFast("PHP", RSyntaxHighlighter.php, lines("#[Route('/a', name: 'b')]\n\$a = \$b->c; // d"))
+        assertFast("Perl", RSyntaxHighlighter.perl, lines("my @w = qw(a b) . q{x}; \$h{a} = @_;"))
+        assertFast("Lua", RSyntaxHighlighter.lua, lines("local x <const> = 1 ::a:: -- c"))
+        assertFast("Clojure", RSyntaxHighlighter.clojure, lines("(defn f [x] {:a ::b :c/d (str x)}) ; c"))
+        assertFast("Lisp", RSyntaxHighlighter.lisp, lines("(define (f x) (list :a #t #f x)) ; c"))
+        assertFast("Tcl", RSyntaxHighlighter.tcl, lines("puts \"\$a(b) \${c} \$::d::e\" ;# c"))
+        assertFast(
+            "batch",
+            RSyntaxHighlighter.batch,
+            lines(":a\nif x goto :b else call :c %~dp0 !A! %%i \"%B%\" & title t"),
+        )
         assertFast("SQL", RSyntaxHighlighter.sql, lines("INSERT INTO public.users (id, name) VALUES (1, 'a.b');"))
         assertFast("PowerShell", RSyntaxHighlighter.powerShell, lines("[int]\$a = \$b + \$c[0] # \$d"))
         assertFast("YAML", RSyntaxHighlighter.yaml, lines("  key: value # comment"))
@@ -185,6 +197,36 @@ class HighlightingPerformanceTest {
         assertFast("KQL", kql, "let x = 1;\nT\n" + lines(query, 15_000) + ".show tables\n")
         assertFast("KQL multi-line strings", kql, lines("print ```a\nb``` // ```", 25_000))
         val blanks = " ".repeat(80_000)
+        assertFast("Ruby keys and literals", RSyntaxHighlighter.ruby, "a${blanks}b: " + "%i[".repeat(40_000) + "\n")
+        assertFast("Ruby unclosed %i", RSyntaxHighlighter.ruby, "%i[a ".repeat(16_000) + "\n")
+        assertFast("Ruby names", RSyntaxHighlighter.ruby, "a".repeat(80_000) + ":" + "a:".repeat(40_000) + "\n")
+        assertFast(
+            "PHP attributes",
+            RSyntaxHighlighter.php,
+            "#[" + "a[b]".repeat(30_000) + "\n" + "#[".repeat(40_000) + "\n",
+        )
+        assertFast("PHP brackets", RSyntaxHighlighter.php, "#[[".repeat(30_000) + "\n#[" + "[".repeat(80_000) + "\n")
+        assertFast("Perl quotes", RSyntaxHighlighter.perl, "q(".repeat(40_000) + "\n" + "q ".repeat(40_000) + "\n")
+        assertFast("Lua attributes", RSyntaxHighlighter.lua, "a<".repeat(40_000) + "\n" + "::a".repeat(30_000) + "\n")
+        assertFast(
+            "Clojure keywords",
+            RSyntaxHighlighter.clojure,
+            "::".repeat(40_000) + "\n" + "::a ".repeat(20_000) + "\n",
+        )
+        assertFast("Lisp keywords", RSyntaxHighlighter.lisp, ":a".repeat(40_000) + "\n#" + "#t".repeat(30_000) + "\n")
+        assertFast("Tcl variables", RSyntaxHighlighter.tcl, "\$(".repeat(40_000) + "\n" + "\${".repeat(40_000) + "\n")
+        assertFast(
+            "Tcl scopes",
+            RSyntaxHighlighter.tcl,
+            "\$a" + "::a".repeat(30_000) + "\n\$a(" + "b".repeat(80_000) + "\n",
+        )
+        val batch = RSyntaxHighlighter.batch
+        assertFast(
+            "batch variables",
+            batch,
+            "%a".repeat(40_000) + "\n" + "!a".repeat(40_000) + "\n%" + "a".repeat(80_000) + "\n",
+        )
+        assertFast("batch blanks", batch, "goto$blanks:x\n($blanks" + "title$blanks\n:" + blanks + "x\n")
         assertFast("KQL blanks", kql, "T$blanks|$blanks where$blanks x\n$blanks.show\n")
         assertFast(
             "KQL query starts",
