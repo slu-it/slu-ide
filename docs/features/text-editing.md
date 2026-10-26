@@ -98,24 +98,35 @@ and saving), [ADR 0022](../adr/0022-editor-key-bindings.md) (keys) and
   hides it for the tab and gives the focus back to the text; reloads keep it hidden. The file stays editable and
   saves as usual. A rename or move decides again: while the new name is the same tool's file (a moved folder, a
   case-only rename) nothing changes, another tool's name shows the banner for that tool, an ordinary name removes it.
-- Only UTF-8 files are edited. A file that turns out not to be valid UTF-8 (only its first 8 KiB decide whether it
-  opens) is shown read-only with the banner "*file* is not valid UTF-8; it is shown read-only."; invalid bytes show
-  as replacement characters, and it is never saved. It becomes editable once it changes into valid UTF-8 on disk.
+- Files are read as UTF-8, else as Windows-1252 ([ADR 0098](../adr/0098-windows-1252-fallback.md)). A Windows-1252
+  file is edited and saved as Windows-1252, with the blue banner "*file* is not valid UTF-8: it is opened and saved
+  as Windows-1252." and a **Convert to UTF-8** button: it makes the tab dirty without changing the text, hides the
+  banner, and the next save writes UTF-8. Saving a character Windows-1252 cannot store (e.g. an emoji) fails with the
+  error "*file* could not be saved. Line *n* contains '*c*' (U+*XXXX*), which Windows-1252 cannot store. Convert the
+  file to UTF-8 first." and leaves the file as it is. The encoding follows the file on disk when it is read again
+  (a reload, or the editor's own save coming back), unless a conversion is pending and the file is not UTF-8 yet;
+  Keep mine keeps the view's encoding and a pending conversion. A file that is neither (bytes undefined in
+  Windows-1252: `0x81 0x8D 0x8F 0x90 0x9D`) is shown read-only with the banner "*file* is not valid UTF-8; it is
+  shown read-only."; those bytes show as replacement characters, and it is never saved. It becomes editable once it
+  decodes on disk.
 - Files always open in the editor, also when their git status is modified: the changed lines are marked in the
   gutter, following unsaved edits, and the read-only diff is shown on demand over the editor, which keeps its unsaved
   changes, caret and undo history meanwhile ([git-diff.md](git-diff.md)).
 - Structure:
-  - `text-editing`: `LineEnding` (detect, normalise, restore), `TextReplacement` (smallest replacement between two
-    texts, mapping of positions), `DiskChange` (what a change on disk means for an edited file); the editing
-    commands as `TextEdit`s of a text and `Selection`: `Indentation` (Enter, Tab, Shift+Tab, detection),
+  - `text-editing`: `TextEncoding` (`decodeText`, `decodeTextLeniently`, `isTextSample`: UTF-8 or Windows-1252),
+    `LineEnding` (detect, normalise, restore), `TextReplacement` (smallest replacement between two texts, mapping of
+    positions), `DiskChange` (what a change on disk means for an edited file); the editing commands as `TextEdit`s of
+    a text and `Selection`: `Indentation` (Enter, Tab, Shift+Tab, detection),
     `IndentStyle.forFile` with `EditorConfigIndent` (ec4j), `LineOperations`, `LineComments` with `CommentSyntax`,
     `TextSearch` (`SearchOptions`, find, replace, replace all), `parseGoTo` / `TextPosition`.
   - `file-viewers`: `EditableFileView` (`dirty`, `save()`, `showChanges(diff)`), `CodeView` (editable RichTextFX
-    area with plain-text undo, banners styled by `code-view.css` (`generated-banner` for generated files), highlighting in the background with
+    area with plain-text undo, banners styled by `code-view.css` (`generated-banner` for generated files,
+    `encoding-banner` for Windows-1252 ones, whose encoding `FileEncoding` keeps), highlighting in the background with
     `changedSpanRange` from `StyleRanges.kt`, line numbers and change markers in its `Gutter`); `EditorKeys.kt` (the
     editing keys as a wellbehavedfx `InputMap`, `applyEdit`, `applyEdits`), `FindBar` (matches overlaid on the token
     styles), `GoToLine` (dialog replaceable in tests); the viewers pass their `CommentSyntax` to the view.
   - `editor-area`: `EditorArea.save()`, `saveAll()`, `confirmCloseAll()`, `confirmSave` and `showError` (replaceable in
     tests), `OpenFile.dirty` for the title; `askToSave` / `SaveChoice` in `CloseConfirmation.kt`.
-- Not yet implemented: other encodings than UTF-8, Save As, autosave, an Edit menu or other ways to discover and
-  rebind the keys, find in several files, smart indentation beyond brackets (e.g. after `:` in Python).
+- Not yet implemented: encodings other than UTF-8 and Windows-1252 (no UTF-16, no byte order marks, `.editorconfig`'s
+  `charset` is not read), Save As, autosave, an Edit menu or other ways to discover and rebind the keys, find in
+  several files, smart indentation beyond brackets (e.g. after `:` in Python).

@@ -43,7 +43,9 @@ the Bicep graph and `BicepParamFileViewer`.
   interpreter of its shebang (`ShebangViewer`, implemented by every `CodeFileViewer` and by viewers of other modules
   such as the shell scripts' ([shell-scripts.md](shell-scripts.md))), see below.
 - `DefaultTextFileViewer` shows any text file as plain text in an editable `CodeView` without highlighting. A file is text if its
-  first 8 KiB contain no NUL byte and are valid UTF-8 (`isTextFile`); empty files are text, files over 10 MiB are not.
+  first 8 KiB contain no NUL byte and are valid UTF-8 or, if not, contain no control bytes other than tab, line
+  breaks, form feed and escape, as Windows-1252 text ([ADR 0098](../adr/0098-windows-1252-fallback.md);
+  `isTextFile`); empty files are text, files over 10 MiB are not.
 - Code viewers extend `CodeFileViewer(extensions, highlighter, comment, names, namePatterns, interpreters)` and show
   text files with syntax highlighting and line numbers in an editable `CodeView`. Which files they open is decided by
   `FileMatch`, all case-insensitive: a file extension, an exact file name (`names`, e.g. `dockerfile`, `.bashrc`), or a
@@ -226,5 +228,5 @@ the Bicep graph and `BicepParamFileViewer`.
   `containerfile`; `makefile` `make` `mk`; `ini` `cfg` `conf` `editorconfig` `gitconfig`; `properties`;
   `json5` `jsonl` `ndjson`; `codeowners`; `gitattributes`; `mailmap`; `gitignore`; `ssh-config` `sshconfig`
   `ssh_config` `sshd_config`; `caddyfile` `caddy`; `mermaid` `mmd`; `bicep` `bicepparam`; `dotenv` `env`; `toml`.
-- Not yet implemented: encodings other than UTF-8, and views of binary files other than images (`.xlsx`, `.pptx`,
-  SQLite).
+- Not yet implemented: encodings other than UTF-8 and Windows-1252, and views of binary files other than images
+  (`.xlsx`, `.pptx`, SQLite).
