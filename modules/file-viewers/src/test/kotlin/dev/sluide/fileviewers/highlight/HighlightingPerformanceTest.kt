@@ -41,6 +41,7 @@ class HighlightingPerformanceTest {
         assertFast("PowerShell", RSyntaxHighlighter.powerShell, lines("[int]\$a = \$b + \$c[0] # \$d"))
         assertFast("YAML", RSyntaxHighlighter.yaml, lines("  key: value # comment"))
         assertFast("INI", RSyntaxHighlighter.ini, lines("key = value"))
+        assertFast("properties", RSyntaxHighlighter.properties, lines("a.b = \${c.d}/x \\"))
         assertFast("ignore file", RSyntaxHighlighter.ignoreFile, lines("!**/build/*.lo?"))
         assertFast("Caddyfile", RSyntaxHighlighter.caddyfile, lines("    header X \"a {path}\" {host} # c"))
         assertFast(
@@ -100,6 +101,8 @@ class HighlightingPerformanceTest {
         val blanks = " ".repeat(80_000)
         assertFast("INI blanks", RSyntaxHighlighter.ini, "a${blanks}b\nc$blanks=d\n")
         assertFast("INI colon", RSyntaxHighlighter.ini, "a$blanks:b\n")
+        assertFast("properties blanks", RSyntaxHighlighter.properties, "a${blanks}b\nc$blanks=d$blanks\n")
+        assertFast("properties braces", RSyntaxHighlighter.properties, "a=" + "\${".repeat(40_000) + "\n")
         assertFast("ssh blanks", RSyntaxHighlighter.sshConfig, "Host a${blanks}b$blanks\n")
         assertFast("Caddy blanks", RSyntaxHighlighter.caddyfile, "a${blanks}b$blanks{ x\n")
         assertFast("Dockerfile options", RSyntaxHighlighter.dockerfile, "FROM " + "--a ".repeat(20_000) + "\n")

@@ -100,6 +100,26 @@ internal object ConfigLanguages {
                 ),
         )
 
+    /**
+     * Java `.properties` files (`application.properties`, `gradle.properties`). The lexer reports keys as reserved
+     * words and values as double-quoted strings, shown as keywords and strings: keys become properties, values stay
+     * plain. It knows `#` and `!` comments and continued values (a line after one ending in `\`), and `=` and `:`
+     * as separators (operators). `${placeholder}` is an annotation. Known gaps: with a blank as separator
+     * (`key value`) the value is shown like a key, and an escaped separator in a key (`a\=b`) ends it.
+     */
+    val properties =
+        RSyntaxHighlighter(
+            SyntaxConstants.SYNTAX_STYLE_PROPERTIES_FILE,
+            tokenStyles =
+                mapOf(
+                    TokenTypes.RESERVED_WORD to TokenStyle.PROPERTY,
+                    TokenTypes.LITERAL_STRING_DOUBLE_QUOTE to null,
+                    TokenTypes.VARIABLE to null,
+                ),
+            keptStyles = setOf(TokenStyle.COMMENT),
+            lineRules = listOf(Regex("""(?<annotation>\$\{[^{}\s]*+})""")),
+        )
+
     // Small formats without a lexer: line rules on plain text, the comment rule first, since rules do not overlap.
 
     /**

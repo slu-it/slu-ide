@@ -18,6 +18,7 @@ import dev.sluide.fileviewers.languages.LessFileViewer
 import dev.sluide.fileviewers.languages.MakefileFileViewer
 import dev.sluide.fileviewers.languages.MdxFileViewer
 import dev.sluide.fileviewers.languages.PowerShellFileViewer
+import dev.sluide.fileviewers.languages.PropertiesFileViewer
 import dev.sluide.fileviewers.languages.PythonFileViewer
 import dev.sluide.fileviewers.languages.SassFileViewer
 import dev.sluide.fileviewers.languages.ScssFileViewer
@@ -62,6 +63,7 @@ class ViewerCommentSyntaxTest {
                 MakefileFileViewer() to CommentSyntax.HASH,
                 IniFileViewer() to CommentSyntax.SEMICOLON,
                 ConfigFileViewer() to CommentSyntax.HASH,
+                PropertiesFileViewer() to CommentSyntax.HASH,
                 IgnoreFileViewer() to CommentSyntax.HASH,
                 GitBlameIgnoreRevsFileViewer() to CommentSyntax.HASH,
                 SshConfigFileViewer() to CommentSyntax.HASH,

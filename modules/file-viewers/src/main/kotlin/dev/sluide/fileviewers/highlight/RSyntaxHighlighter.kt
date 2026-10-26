@@ -255,6 +255,7 @@ internal class RSyntaxHighlighter(
         val dockerfile = ConfigLanguages.dockerfile
         val makefile = ConfigLanguages.makefile
         val ini = ConfigLanguages.ini
+        val properties = ConfigLanguages.properties
         val ignoreFile = ConfigLanguages.ignoreFile
         val blameIgnoreRevs = ConfigLanguages.blameIgnoreRevs
         val sshConfig = ConfigLanguages.sshConfig

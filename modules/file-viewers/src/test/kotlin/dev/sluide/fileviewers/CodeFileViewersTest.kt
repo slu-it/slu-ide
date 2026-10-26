@@ -19,6 +19,7 @@ import dev.sluide.fileviewers.languages.LessFileViewer
 import dev.sluide.fileviewers.languages.MakefileFileViewer
 import dev.sluide.fileviewers.languages.MdxFileViewer
 import dev.sluide.fileviewers.languages.PowerShellFileViewer
+import dev.sluide.fileviewers.languages.PropertiesFileViewer
 import dev.sluide.fileviewers.languages.PythonFileViewer
 import dev.sluide.fileviewers.languages.SassFileViewer
 import dev.sluide.fileviewers.languages.ScssFileViewer
@@ -69,6 +70,8 @@ class CodeFileViewersTest {
             MakefileFileViewer() to listOf("Makefile", "GNUmakefile", "rules.mk"),
             IniFileViewer() to listOf("php.ini"),
             ConfigFileViewer() to listOf("setup.cfg", "nginx.conf", ".npmrc", ".editorconfig", ".gitconfig"),
+            PropertiesFileViewer() to
+                listOf("application.properties", "gradle.properties", "gradle-wrapper.properties"),
             IgnoreFileViewer() to
                 listOf(
                     ".gitignore",

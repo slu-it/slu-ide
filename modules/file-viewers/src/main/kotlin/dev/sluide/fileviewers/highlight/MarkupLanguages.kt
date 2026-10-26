@@ -117,6 +117,7 @@ internal object MarkupLanguages {
             "dockerfile", "docker", "containerfile" -> ConfigLanguages.dockerfile
             "makefile", "make", "mk" -> ConfigLanguages.makefile
             "ini", "cfg", "conf", "editorconfig", "gitconfig" -> ConfigLanguages.ini
+            "properties" -> ConfigLanguages.properties
             "gitignore" -> ConfigLanguages.ignoreFile
             "ssh-config", "sshconfig", "ssh_config", "sshd_config" -> ConfigLanguages.sshConfig
             "caddyfile", "caddy" -> ConfigLanguages.caddyfile
