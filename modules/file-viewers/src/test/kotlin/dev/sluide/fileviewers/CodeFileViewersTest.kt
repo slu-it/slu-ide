@@ -3,10 +3,12 @@ package dev.sluide.fileviewers
 import dev.sluide.fileviewers.bicep.BicepParamFileViewer
 import dev.sluide.fileviewers.code.CodeFileViewer
 import dev.sluide.fileviewers.languages.CaddyfileFileViewer
+import dev.sluide.fileviewers.languages.CodeownersFileViewer
 import dev.sluide.fileviewers.languages.ConfigFileViewer
 import dev.sluide.fileviewers.languages.CssFileViewer
 import dev.sluide.fileviewers.languages.DockerfileFileViewer
 import dev.sluide.fileviewers.languages.GitBlameIgnoreRevsFileViewer
+import dev.sluide.fileviewers.languages.GitattributesFileViewer
 import dev.sluide.fileviewers.languages.GroovyFileViewer
 import dev.sluide.fileviewers.languages.IgnoreFileViewer
 import dev.sluide.fileviewers.languages.IniFileViewer
@@ -18,6 +20,7 @@ import dev.sluide.fileviewers.languages.JsxFileViewer
 import dev.sluide.fileviewers.languages.KotlinFileViewer
 import dev.sluide.fileviewers.languages.KqlFileViewer
 import dev.sluide.fileviewers.languages.LessFileViewer
+import dev.sluide.fileviewers.languages.MailmapFileViewer
 import dev.sluide.fileviewers.languages.MakefileFileViewer
 import dev.sluide.fileviewers.languages.MdxFileViewer
 import dev.sluide.fileviewers.languages.PowerShellFileViewer
@@ -74,6 +77,9 @@ class CodeFileViewersTest {
             IniFileViewer() to listOf("php.ini"),
             ConfigFileViewer() to
                 listOf("setup.cfg", "nginx.conf", ".npmrc", ".editorconfig", ".gitconfig", ".gitmodules"),
+            CodeownersFileViewer() to listOf("CODEOWNERS", "codeowners"),
+            GitattributesFileViewer() to listOf(".gitattributes", "foo.gitattributes"),
+            MailmapFileViewer() to listOf(".mailmap"),
             Json5FileViewer() to listOf("tsconfig.json5", "RULES.JSON5"),
             JsonLinesFileViewer() to listOf("events.jsonl", "log.ndjson"),
             PropertiesFileViewer() to

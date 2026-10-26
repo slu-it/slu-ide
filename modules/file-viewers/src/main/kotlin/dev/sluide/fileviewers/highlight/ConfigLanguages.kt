@@ -137,6 +137,57 @@ internal object ConfigLanguages {
                 ),
         )
 
+    /**
+     * Wildcards (`**`, `*`, `?`, not escaped with `\`) in the first word of a line, the file pattern, as operators:
+     * one match per wildcard, each continuing (`\G`) where the last stopped. The loop over the characters before a
+     * wildcard is possessive and its two alternatives start with different characters, so it runs in linear time.
+     */
+    private const val FIRST_WORD_WILDCARD = """(?:^\s*+|\G)(?:[^\s*?\\]|\\.)*+(?<operator>\*\*|[*?])"""
+
+    /**
+     * GitHub's `CODEOWNERS`: `#` comments (also after the owners), wildcards in the pattern (the first word) as
+     * operators, and the owners (`@user`, `@org/team`, e-mail addresses) as annotations.
+     */
+    val codeowners =
+        RSyntaxHighlighter(
+            SyntaxConstants.SYNTAX_STYLE_NONE,
+            lineRules =
+                listOf(
+                    Regex("""^\s*+(?<comment>#.*)"""),
+                    Regex("""(?<=\s)(?<comment>#.*)"""),
+                    Regex(FIRST_WORD_WILDCARD),
+                    Regex("""(?<=\s)(?<annotation>@[\w.-]++(?:/[\w.-]++)?+|[^\s@#]++@[^\s@#]++)"""),
+                ),
+        )
+
+    /**
+     * `.gitattributes`: `#` comment lines, wildcards in the pattern (the first word) as operators, and the
+     * attributes after it as properties; a `-` or `!` before an attribute is a keyword, and the value of
+     * `name=value` stays plain.
+     */
+    val gitattributes =
+        RSyntaxHighlighter(
+            SyntaxConstants.SYNTAX_STYLE_NONE,
+            lineRules =
+                listOf(
+                    Regex("""^\s*+(?<comment>#.*)"""),
+                    Regex(FIRST_WORD_WILDCARD),
+                    // After the pattern, or where the previous attribute (with its value) ended.
+                    Regex("""(?:^\s*+\S++|\G)\s++(?<keyword>[-!])?+(?<property>[^\s=!-][^\s=]*+)(?:=\S*+)?"""),
+                ),
+        )
+
+    /** Git's `.mailmap`: `#` comment lines and the `<e-mail>` addresses as strings. */
+    val mailmap =
+        RSyntaxHighlighter(
+            SyntaxConstants.SYNTAX_STYLE_NONE,
+            lineRules =
+                listOf(
+                    Regex("""^\s*+(?<comment>#.*)"""),
+                    Regex("""(?<string><[^<>\s]*+>)"""),
+                ),
+        )
+
     /** Git's `.git-blame-ignore-revs`: `#` comments, also after a commit, and commit hashes as numbers. */
     val blameIgnoreRevs =
         RSyntaxHighlighter(

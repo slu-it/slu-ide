@@ -119,6 +119,9 @@ internal object MarkupLanguages {
             "ini", "cfg", "conf", "editorconfig", "gitconfig" -> ConfigLanguages.ini
             "properties" -> ConfigLanguages.properties
             "json5", "jsonl", "ndjson" -> WebLanguages.json
+            "codeowners" -> ConfigLanguages.codeowners
+            "gitattributes" -> ConfigLanguages.gitattributes
+            "mailmap" -> ConfigLanguages.mailmap
             "gitignore" -> ConfigLanguages.ignoreFile
             "ssh-config", "sshconfig", "ssh_config", "sshd_config" -> ConfigLanguages.sshConfig
             "caddyfile", "caddy" -> ConfigLanguages.caddyfile

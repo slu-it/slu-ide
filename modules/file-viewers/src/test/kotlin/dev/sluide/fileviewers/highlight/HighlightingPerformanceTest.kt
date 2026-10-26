@@ -42,6 +42,9 @@ class HighlightingPerformanceTest {
         assertFast("YAML", RSyntaxHighlighter.yaml, lines("  key: value # comment"))
         assertFast("INI", RSyntaxHighlighter.ini, lines("key = value"))
         assertFast("properties", RSyntaxHighlighter.properties, lines("a.b = \${c.d}/x \\"))
+        assertFast("CODEOWNERS", RSyntaxHighlighter.codeowners, lines("/docs/**/*.md @org/team a@b.c # c"))
+        assertFast("gitattributes", RSyntaxHighlighter.gitattributes, lines("*.p?g text eol=lf -diff !merge"))
+        assertFast("mailmap", RSyntaxHighlighter.mailmap, lines("Jane Doe <jane@example.com> <old@example.org>"))
         assertFast("ignore file", RSyntaxHighlighter.ignoreFile, lines("!**/build/*.lo?"))
         assertFast("Caddyfile", RSyntaxHighlighter.caddyfile, lines("    header X \"a {path}\" {host} # c"))
         assertFast(
@@ -103,6 +106,18 @@ class HighlightingPerformanceTest {
         assertFast("INI colon", RSyntaxHighlighter.ini, "a$blanks:b\n")
         assertFast("properties blanks", RSyntaxHighlighter.properties, "a${blanks}b\nc$blanks=d$blanks\n")
         assertFast("properties braces", RSyntaxHighlighter.properties, "a=" + "\${".repeat(40_000) + "\n")
+        assertFast("CODEOWNERS wildcards", RSyntaxHighlighter.codeowners, "*".repeat(80_000) + " @a\n")
+        assertFast("CODEOWNERS blanks", RSyntaxHighlighter.codeowners, "a${blanks}b$blanks@x$blanks#c\n")
+        assertFast("CODEOWNERS at signs", RSyntaxHighlighter.codeowners, "a " + "@".repeat(80_000) + "\n")
+        assertFast("CODEOWNERS slashes", RSyntaxHighlighter.codeowners, "a @" + "a/".repeat(40_000) + "\n")
+        assertFast("gitattributes words", RSyntaxHighlighter.gitattributes, "a" + " -b".repeat(40_000) + "\n")
+        assertFast("gitattributes blanks", RSyntaxHighlighter.gitattributes, "a${blanks}b${blanks}c=d$blanks\n")
+        assertFast(
+            "gitattributes wildcards",
+            RSyntaxHighlighter.gitattributes,
+            "?".repeat(80_000) + "\\\\\\".repeat(10_000) + " x\n",
+        )
+        assertFast("mailmap brackets", RSyntaxHighlighter.mailmap, "<".repeat(80_000) + "a$blanks>\n")
         assertFast("ssh blanks", RSyntaxHighlighter.sshConfig, "Host a${blanks}b$blanks\n")
         assertFast("Caddy blanks", RSyntaxHighlighter.caddyfile, "a${blanks}b$blanks{ x\n")
         assertFast("Dockerfile options", RSyntaxHighlighter.dockerfile, "FROM " + "--a ".repeat(20_000) + "\n")

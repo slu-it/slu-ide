@@ -256,6 +256,9 @@ internal class RSyntaxHighlighter(
         val makefile = ConfigLanguages.makefile
         val ini = ConfigLanguages.ini
         val properties = ConfigLanguages.properties
+        val codeowners = ConfigLanguages.codeowners
+        val gitattributes = ConfigLanguages.gitattributes
+        val mailmap = ConfigLanguages.mailmap
         val ignoreFile = ConfigLanguages.ignoreFile
         val blameIgnoreRevs = ConfigLanguages.blameIgnoreRevs
         val sshConfig = ConfigLanguages.sshConfig

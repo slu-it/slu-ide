@@ -2,10 +2,12 @@ package dev.sluide.fileviewers
 
 import dev.sluide.fileviewers.bicep.BicepParamFileViewer
 import dev.sluide.fileviewers.languages.CaddyfileFileViewer
+import dev.sluide.fileviewers.languages.CodeownersFileViewer
 import dev.sluide.fileviewers.languages.ConfigFileViewer
 import dev.sluide.fileviewers.languages.CssFileViewer
 import dev.sluide.fileviewers.languages.DockerfileFileViewer
 import dev.sluide.fileviewers.languages.GitBlameIgnoreRevsFileViewer
+import dev.sluide.fileviewers.languages.GitattributesFileViewer
 import dev.sluide.fileviewers.languages.GroovyFileViewer
 import dev.sluide.fileviewers.languages.IgnoreFileViewer
 import dev.sluide.fileviewers.languages.IniFileViewer
@@ -17,6 +19,7 @@ import dev.sluide.fileviewers.languages.JsxFileViewer
 import dev.sluide.fileviewers.languages.KotlinFileViewer
 import dev.sluide.fileviewers.languages.KqlFileViewer
 import dev.sluide.fileviewers.languages.LessFileViewer
+import dev.sluide.fileviewers.languages.MailmapFileViewer
 import dev.sluide.fileviewers.languages.MakefileFileViewer
 import dev.sluide.fileviewers.languages.MdxFileViewer
 import dev.sluide.fileviewers.languages.PowerShellFileViewer
@@ -65,6 +68,9 @@ class ViewerCommentSyntaxTest {
                 MakefileFileViewer() to CommentSyntax.HASH,
                 IniFileViewer() to CommentSyntax.SEMICOLON,
                 ConfigFileViewer() to CommentSyntax.HASH,
+                CodeownersFileViewer() to CommentSyntax.HASH,
+                GitattributesFileViewer() to CommentSyntax.HASH,
+                MailmapFileViewer() to CommentSyntax.HASH,
                 Json5FileViewer() to CommentSyntax.SLASHES,
                 JsonLinesFileViewer() to CommentSyntax.NONE,
                 PropertiesFileViewer() to CommentSyntax.HASH,
