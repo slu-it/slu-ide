@@ -134,6 +134,7 @@ internal object MarkupLanguages {
             "mdx" -> mdx
             "sql" -> ScriptLanguages.sql
             "kql", "kusto", "csl" -> KqlHighlighter
+            "graphql", "gql" -> GraphQlHighlighter
             "bash", "sh", "shell", "zsh", "ksh" -> ScriptLanguages.shell
             "powershell", "ps1", "pwsh" -> ScriptLanguages.powerShell
             "dockerfile", "docker", "containerfile" -> ConfigLanguages.dockerfile

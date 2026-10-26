@@ -19,6 +19,7 @@ import dev.sluide.fileviewers.languages.GitBlameIgnoreRevsFileViewer
 import dev.sluide.fileviewers.languages.GitattributesFileViewer
 import dev.sluide.fileviewers.languages.GoFileViewer
 import dev.sluide.fileviewers.languages.GoModFileViewer
+import dev.sluide.fileviewers.languages.GraphQlFileViewer
 import dev.sluide.fileviewers.languages.GroovyFileViewer
 import dev.sluide.fileviewers.languages.IgnoreFileViewer
 import dev.sluide.fileviewers.languages.IniFileViewer
@@ -127,6 +128,7 @@ class ViewerCommentSyntaxTest {
                 BicepParamFileViewer() to CommentSyntax.SLASHES,
                 TerraformFileViewer() to CommentSyntax.SLASHES,
                 KqlFileViewer() to CommentSyntax.LINE_SLASHES,
+                GraphQlFileViewer() to CommentSyntax.HASH,
             )
         for ((viewer, comment) in expected) assertEquals(comment, viewer.comment, viewer::class.simpleName)
     }

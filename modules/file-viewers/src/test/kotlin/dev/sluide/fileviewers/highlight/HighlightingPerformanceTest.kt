@@ -243,6 +243,27 @@ class HighlightingPerformanceTest {
     }
 
     @Test
+    fun `GraphQL`() {
+        val graphQl = GraphQlHighlighter
+        val schema =
+            "\"\"\"A user.\"\"\"\ntype User implements Node & Entity @key(fields: \"id\") {\n" +
+                "  id: ID!\n  posts(first: Int = 10, tags: [String!]! = [\"a\"]): [[Post!]!]! @deprecated\n}\n" +
+                "query Q(\$id: ID!) { me: user(id: \$id) { ...F ... on User @include(if: true) { name } } }\n"
+        assertFast("GraphQL schema", graphQl, lines(schema, 10_000))
+        for (hostile in listOf("{", "\"", "\"\"\"", "@", "(", "[", "...", "\$", "!", "type ", "extend ", "... on ")) {
+            assertFast("GraphQL long line of $hostile", graphQl, hostile.repeat(80_000) + "\n")
+        }
+        assertFast("GraphQL unterminated block string", graphQl, "type A {\n\"\"\"" + "x\n".repeat(50_000))
+        assertFast(
+            "GraphQL unclosed braces",
+            graphQl,
+            "query Q {\n" + "  a(b: {c: [\n".repeat(30_000) + "type X { a: Int }\n",
+        )
+        val blanks = " ".repeat(80_000)
+        assertFast("GraphQL blanks", graphQl, "a${blanks}b${blanks}c\n$blanks:$blanks(\n")
+    }
+
+    @Test
     fun `masking env values is linear too`() {
         val text = lines("export URL=https://x.y/a#b # c\nKEY=\"a # b\" # c\nMULTI=\"x\ny\" # z\n# OLD=1")
         val blanks = " ".repeat(80_000)

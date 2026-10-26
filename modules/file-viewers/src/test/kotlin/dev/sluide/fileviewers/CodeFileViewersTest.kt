@@ -20,6 +20,7 @@ import dev.sluide.fileviewers.languages.GitBlameIgnoreRevsFileViewer
 import dev.sluide.fileviewers.languages.GitattributesFileViewer
 import dev.sluide.fileviewers.languages.GoFileViewer
 import dev.sluide.fileviewers.languages.GoModFileViewer
+import dev.sluide.fileviewers.languages.GraphQlFileViewer
 import dev.sluide.fileviewers.languages.GroovyFileViewer
 import dev.sluide.fileviewers.languages.IgnoreFileViewer
 import dev.sluide.fileviewers.languages.IniFileViewer
@@ -172,6 +173,7 @@ class CodeFileViewersTest {
                     "job.nomad",
                 ),
             KqlFileViewer() to listOf("failures.kql", "Commands.csl", "OLD.KQL"),
+            GraphQlFileViewer() to listOf("schema.graphql", "q.gql", "Types.GRAPHQLS"),
         )
 
     private val others =

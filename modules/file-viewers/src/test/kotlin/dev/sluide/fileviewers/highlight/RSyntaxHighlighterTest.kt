@@ -84,6 +84,7 @@ class RSyntaxHighlighterTest {
                 RSyntaxHighlighter.env to listOf("dotenv", "env"),
                 RSyntaxHighlighter.mermaid to listOf("mermaid", "mmd"),
                 KqlHighlighter to listOf("kql", "kusto", "csl"),
+                GraphQlHighlighter to listOf("graphql", "gql"),
                 TomlHighlighter to listOf("toml"),
                 BicepHighlighter to listOf("bicep"),
                 HclHighlighter to listOf("hcl", "terraform", "tf", "tfvars"),
