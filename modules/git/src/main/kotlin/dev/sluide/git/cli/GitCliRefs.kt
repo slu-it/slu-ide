@@ -30,6 +30,40 @@ internal fun GitCli.refs(
 }
 
 /**
+ * A local or remote branch as [branchRefs] reads it: its full [name], the full refname a symbolic ref such as
+ * `refs/remotes/origin/HEAD` points at ([target], empty for others), and the full refname of a local branch's
+ * upstream ([upstream], empty without one).
+ */
+internal data class BranchRef(
+    val name: String,
+    val target: String,
+    val upstream: String,
+)
+
+/**
+ * The local and remote branches of the repository at [root], symbolic refs included, with one `git for-each-ref`;
+ * `null` if git is not available, fails or takes longer than 10 s.
+ */
+internal fun GitCli.branchRefs(root: Path): List<BranchRef>? {
+    if (!available) return null
+    val arguments =
+        listOf(
+            "--no-optional-locks",
+            "for-each-ref",
+            "--format=%(refname)%1f%(symref)%1f%(upstream)",
+            "refs/heads",
+            "refs/remotes",
+        )
+    val output = run(arguments, root, 10.seconds) ?: return null
+    return output
+        .lineSequence()
+        .map { it.split('\u001f') }
+        .filter { it.size == 3 && it[0].isNotEmpty() }
+        .map { BranchRef(it[0], it[1], it[2]) }
+        .toList()
+}
+
+/**
  * The full refnames of the local branches of the repository at [root], one per line (`refs/heads/main`); `null`
  * if git is not available, fails or takes longer than 3 s.
  */
@@ -144,8 +178,18 @@ internal fun GitCli.parents(
  * The full message of the commit `HEAD` (`git show -s --format=%B`, as stored, with the newline git adds); `null` if
  * there is no commit, or if git is not available, fails or takes longer than 3 s.
  */
-internal fun GitCli.headMessage(root: Path): String? {
-    if (!available) return null
+internal fun GitCli.headMessage(root: Path): String? = commitMessage(root, "HEAD")
+
+/**
+ * The full message of the commit [revision] (`HEAD` or a full hash) as [headMessage] reads it, in UTF-8 whatever its
+ * `encoding` header says; `null` if there is no such commit, or if git is not available, fails or takes longer than
+ * 3 s.
+ */
+internal fun GitCli.commitMessage(
+    root: Path,
+    revision: String,
+): String? {
+    if (!available || revision.startsWith('-')) return null
     val arguments =
         listOf(
             "--no-optional-locks",
@@ -156,7 +200,7 @@ internal fun GitCli.headMessage(root: Path): String? {
             "--no-show-signature",
             "--encoding=UTF-8",
             "--format=%B",
-            "HEAD",
+            revision,
             "--",
         )
     return run(arguments, root, 3.seconds)
