@@ -12,9 +12,10 @@ The technical name is still `sluide` (repository, packages, artifacts, `~/.sluid
 - **File explorer:** the whole folder including hidden files, with file icons, git status colours and live updates.
 - **Files** open in tabs to edit and save (File → Save, Ctrl/Cmd+S; Save All), keeping their line endings, with
   a prompt before unsaved changes are closed: syntax highlighting for common languages (Kotlin, Java, Python,
-  JavaScript, TypeScript, JSON, XML, YAML, CSS, SQL, KQL, shell, PowerShell and more) and config files (Dockerfiles,
-  Makefiles, INI, TOML and lock files, Bicep, ignore files, Caddyfiles, `.env` with masked values), also by file name
-  or shebang, with a note on generated lock files; rendered previews beside the source for Markdown, HTML, SVG, CSV,
+  JavaScript, TypeScript, C, C++, C#, Go, Rust, Scala, Dart, Ruby, PHP, Perl, Lua, JSON, XML, YAML, CSS, SQL, KQL,
+  GraphQL, Protobuf, LaTeX, shell, PowerShell, batch and more) and config files (Dockerfiles, Makefiles, INI,
+  `.properties`, TOML and lock files, Terraform/HCL, Bicep, ignore files, Caddyfiles, `.env` with masked values), also
+  by file name or shebang, with a note on generated lock files; files that are not UTF-8 open as Windows-1252; rendered previews beside the source for Markdown, HTML, SVG, CSV,
   Jupyter notebooks, Mermaid diagrams, Bicep resource graphs, cookie jars and PEM certificates; images on their own
   page. Lines changed against `HEAD` in git are marked
   beside the line numbers, and View → Show Changes (Ctrl/Cmd+Shift+D) shows the side-by-side diff.
