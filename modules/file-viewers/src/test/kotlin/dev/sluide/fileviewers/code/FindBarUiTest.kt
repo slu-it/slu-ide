@@ -288,8 +288,9 @@ class FindBarUiTest {
 
     @Test
     fun `replacing is disabled while the view is read-only`(robot: FxRobot) {
-        // Valid UTF-8 in the sample that decides whether a file is text, invalid after it: shown read-only.
-        val file = dir.resolve("latin1.txt").apply { writeBytes("a".repeat(9000).toByteArray() + 0xE9.toByte()) }
+        // Valid UTF-8 in the sample that decides whether a file is text, after it a byte undefined in Windows-1252 too:
+        // shown read-only.
+        val file = dir.resolve("latin1.txt").apply { writeBytes("a".repeat(9000).toByteArray() + 0x81.toByte()) }
         val view = WaitForAsyncUtils.asyncFx<CodeView> { CodeView(file, null) }.get()
         robot.interact { container.children.setAll(view.node) }
         robot.press(view.area, KeyCode.R, shortcut = true)

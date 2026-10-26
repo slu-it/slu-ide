@@ -1,7 +1,8 @@
 /*
  * Code views (CodeView) around their text area, which syntax.css styles: banners at the top, e.g. when the file
- * changed on disk while the view has unsaved changes, or for generated files like uv.lock (an informative blue), and
- * the find bar above them, with the matches it marks in the text. Dark rules use single classes, see syntax.css.
+ * changed on disk while the view has unsaved changes, or for generated files like uv.lock and Windows-1252 files (an
+ * informative blue), and the find bar above them, with the matches it marks in the text. Dark rules use single
+ * classes, see syntax.css.
  */
 
 .editor-banner {
@@ -15,8 +16,8 @@
     -fx-border-color: transparent transparent #e5d08f transparent;
 }
 
-/* A generated file (GeneratedFiles): information rather than a warning. */
-.generated-banner {
+/* A generated file (GeneratedFiles) or one saved as Windows-1252 (FileEncoding): information rather than a warning. */
+.generated-banner, .encoding-banner {
     -fx-background-color: #e3effc;
     -fx-border-color: transparent transparent #b3cdf0 transparent;
 }
@@ -74,7 +75,7 @@
         -fx-border-color: transparent transparent #6b5d33 transparent;
     }
 
-    .generated-banner {
+    .generated-banner, .encoding-banner {
         -fx-background-color: #263a57;
         -fx-border-color: transparent transparent #35598c transparent;
     }

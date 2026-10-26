@@ -14,7 +14,8 @@ dependencies {
     // Deliberate module dependency: highlighting runs on logged threads, ADR 0060.
     implementation(project(":modules:background-tasks"))
     implementation(libs.spring.context)
-    // Deliberate module dependency: code views edit text with its line endings and changes on disk (text-editing).
+    // Deliberate module dependency: code views read, edit and save text with its encoding (UTF-8, else Windows-1252),
+    // line endings and changes on disk (text-editing).
     implementation(project(":modules:text-editing"))
     // Code views: RichTextFX renders, RSyntaxTextArea only provides its lexers (ADR 0005).
     implementation(libs.richtextfx)

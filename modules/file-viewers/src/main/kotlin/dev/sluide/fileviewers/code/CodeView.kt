@@ -8,11 +8,11 @@ import dev.sluide.fileviewers.GutterColumns
 import dev.sluide.fileviewers.SyntaxHighlighter
 import dev.sluide.fileviewers.TextDiff
 import dev.sluide.fileviewers.TextEditableView
-import dev.sluide.fileviewers.decodeUtf8
 import dev.sluide.textediting.CommentSyntax
 import dev.sluide.textediting.DiskChange
 import dev.sluide.textediting.IndentStyle
 import dev.sluide.textediting.LineEnding
+import dev.sluide.textediting.TextEncoding
 import dev.sluide.textediting.TextReplacement
 import javafx.application.Platform
 import javafx.beans.binding.Bindings
@@ -22,15 +22,10 @@ import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleObjectProperty
 import javafx.beans.property.SimpleStringProperty
 import javafx.beans.value.ObservableBooleanValue
-import javafx.beans.value.ObservableValue
-import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Button
-import javafx.scene.control.Label
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
-import javafx.scene.layout.Priority
-import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
 import org.fxmisc.flowless.VirtualizedScrollPane
 import org.fxmisc.richtext.CodeArea
@@ -52,8 +47,11 @@ import java.time.Duration
  *
  * The area holds the text with `\n` line breaks; [save] writes it with the file's [LineEnding]. The view is [dirty]
  * while its undo history is away from where the file was last read or saved; undo only covers the text, not the
- * highlighting. A file that is not valid UTF-8 is shown read-only, with a banner, and never saved: its invalid bytes
- * show as replacement characters, which saving would write back.
+ * highlighting. A file that is not valid UTF-8 is read and saved as Windows-1252 ([FileEncoding], ADR 0098), with a
+ * banner offering to convert it to UTF-8; saving fails rather than replace a character Windows-1252 cannot store. A
+ * file that is neither is shown read-only, with a banner, and never saved: its invalid bytes show as replacement
+ * characters, which saving would write back. The encoding follows the file on disk when it is read again, and stays
+ * when the file is [moved].
  *
  * Edited text is highlighted again once typing pauses, on a background thread; the result is handed to the FX thread
  * through [dispatch] (`Platform.runLater`, replaced in tests), and dropped if the text changed meanwhile. Only the
@@ -159,8 +157,24 @@ internal class CodeView(
             Button("Keep mine").apply { setOnAction { answered(::keepMine) } },
         )
 
-    /** Shown while the file is not valid UTF-8, and so read-only. */
+    /** Shown while the file is not valid UTF-8 nor Windows-1252, and so read-only. */
     private val invalidBanner = banner(fileName.map { "$it is not valid UTF-8; it is shown read-only." })
+
+    /** The encoding the file is saved in. */
+    private val encoding = FileEncoding(TextEncoding.UTF_8)
+
+    /** Shown while the file is Windows-1252, until converted to UTF-8; there is no dismissing it, saving needs it. */
+    private val encodingBanner =
+        banner(
+            fileName.map { "$it is not valid UTF-8: it is opened and saved as Windows-1252." },
+            Button("Convert to UTF-8").apply {
+                setOnAction {
+                    encoding.convert()
+                    showEncoding()
+                    area.requestFocus()
+                }
+            },
+        ).apply { styleClass += "encoding-banner" }
 
     /** The tool that writes the file, if it is a generated one like `uv.lock` ([GeneratedFiles]). */
     private val generated = SimpleObjectProperty<GeneratedFile?>()
@@ -222,11 +236,13 @@ internal class CodeView(
         private set
 
     init {
-        val content = read()
+        val content = readContent(file)
         lineEnding = LineEnding.of(content.raw)
         savedText = LineEnding.normalize(content.raw)
         show(savedText)
         showReadOnly(!content.valid)
+        encoding.read(content.encoding)
+        showEncoding()
         showGenerated()
         undoManager.forgetHistory()
         undoManager.mark()
@@ -257,7 +273,8 @@ internal class CodeView(
 
     override val canReplaceText: Boolean get() = !readOnly
 
-    override val dirty: ObservableBooleanValue = Bindings.not(undoManager.atMarkedPositionProperty()).or(keptMine)
+    override val dirty: ObservableBooleanValue =
+        Bindings.not(undoManager.atMarkedPositionProperty()).or(keptMine).or(encoding.converting)
 
     /** Whether the banner about a change on disk that meets unsaved changes is shown. */
     val conflictShown: Boolean get() = conflictBanner in banners.children
@@ -271,14 +288,19 @@ internal class CodeView(
     /** Whether the banner saying that the file is generated (e.g. `uv.lock`) is shown. */
     val generatedShown: Boolean get() = generatedBanner in banners.children
 
-    /** Writes the text to the file; does nothing while the view is [readOnly]. */
+    /**
+     * Writes the text to the file in its encoding; does nothing while the view is [readOnly]. Fails, leaving the file
+     * as it is, if the encoding cannot store a character of the text.
+     */
     override fun save() {
         if (readOnly) return
         val text = area.text
+        val bytes = encoding.encode(lineEnding.restore(text))
         // In place, so the file keeps its permissions and symbolic links stay links.
-        Files.writeString(file, lineEnding.restore(text))
+        Files.write(file, bytes)
         savedText = text
         keptMine.set(false)
+        encoding.saved()
         undoManager.mark()
         // Typing on would otherwise extend the change before the mark.
         undoManager.preventMerge()
@@ -358,7 +380,7 @@ internal class CodeView(
     override fun reload() {
         val content =
             try {
-                read()
+                readContent(file)
             } catch (_: NoSuchFileException) {
                 hideConflict()
                 if (!deletedShown) banners.children += deletedBanner
@@ -368,6 +390,9 @@ internal class CodeView(
         when (DiskChange.decide(content.raw, savedText, area.text, dirty.get())) {
             DiskChange.IGNORE -> {
                 adoptLineEnding(content.raw)
+                // Kept mine: the next save writes the view's text in the view's encoding over the file.
+                if (!keptMine.get()) encoding.unchanged(content.encoding)
+                showEncoding()
                 hideConflict()
             }
 
@@ -382,19 +407,14 @@ internal class CodeView(
         }
     }
 
-    /** The file's content: decoded strictly, or with replacement characters if it is not valid UTF-8. */
-    private fun read(): FileContent {
-        val bytes = Files.readAllBytes(file)
-        val text = decodeUtf8(bytes)
-        return FileContent(text ?: String(bytes, Charsets.UTF_8), valid = text != null)
-    }
-
     /** Shows [content] as the saved text, keeping caret, scroll position and undo history. */
     private fun load(content: FileContent) {
         val text = LineEnding.normalize(content.raw)
         hideConflict()
         adoptLineEnding(content.raw)
         showReadOnly(!content.valid)
+        encoding.read(content.encoding)
+        showEncoding()
         // The reload is an undo step of its own.
         replaceMinimally(text)
         savedText = text
@@ -454,10 +474,22 @@ internal class CodeView(
 
     private fun showReadOnly(readOnly: Boolean) {
         area.isEditable = !readOnly
-        if (!readOnly) {
-            banners.children -= invalidBanner
-        } else if (invalidBanner !in banners.children) {
-            banners.children += invalidBanner
+        showBanner(invalidBanner, readOnly)
+    }
+
+    private fun showEncoding() {
+        showBanner(encodingBanner, encoding.convertible)
+    }
+
+    /** Shows [banner] below the others if [shown], else hides it. */
+    private fun showBanner(
+        banner: HBox,
+        shown: Boolean,
+    ) {
+        if (!shown) {
+            banners.children -= banner
+        } else if (banner !in banners.children) {
+            banners.children += banner
         }
     }
 
@@ -539,12 +571,6 @@ internal class CodeView(
     ): StyleSpans<Collection<String>> = overlayRanges(spans, maskedRanges?.invoke(text).orEmpty()) { listOf(MASKED) }
 }
 
-/** A file's content as read, [raw] with its line endings; not [valid] UTF-8 if it shows replacement characters. */
-private class FileContent(
-    val raw: String,
-    val valid: Boolean,
-)
-
 /** The style class of [CodeView.maskedRanges] (`syntax.css`). */
 private const val MASKED = "masked"
 
@@ -557,19 +583,3 @@ private val HIGHLIGHT_PAUSE = Duration.ofMillis(150)
 /** Highlights edited code of all views, one text at a time. */
 private val highlightExecutor =
     NamedThreads.single("sluide-highlight")
-
-/** A bar at the top of a view with [message] and [actions]. */
-private fun banner(
-    message: ObservableValue<String>,
-    vararg actions: Button,
-): HBox =
-    HBox(
-        Label().apply {
-            textProperty().bind(message)
-        },
-        Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
-        *actions,
-    ).apply {
-        styleClass += "editor-banner"
-        alignment = Pos.CENTER_LEFT
-    }

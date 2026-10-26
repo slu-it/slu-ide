@@ -241,8 +241,9 @@ class EditorKeysUiTest {
 
     @Test
     fun `keys change nothing in a read-only view`(robot: FxRobot) {
-        // Valid UTF-8 in the sample that decides whether a file is text, invalid after it: shown read-only.
-        val bytes = "a = 1\n".repeat(1500).toByteArray() + 0xE9.toByte()
+        // Valid UTF-8 in the sample that decides whether a file is text, after it a byte undefined in Windows-1252 too:
+        // shown read-only.
+        val bytes = "a = 1\n".repeat(1500).toByteArray() + 0x81.toByte()
         val file = dir.resolve("latin1.py").apply { writeBytes(bytes) }
         val view = WaitForAsyncUtils.asyncFx<CodeView> { PythonFileViewer().open(file) as CodeView }.get()
         assertTrue(view.readOnly)

@@ -130,8 +130,9 @@ class EditorAreaTextEditsUiTest : EditorAreaUiFixture() {
 
     @Test
     fun `a read-only file gives no text and takes no edit, whether its tab is open or not`(robot: FxRobot) {
-        // Valid in the sample that decides whether a file is text, invalid after it: shown read-only.
-        val bytes = "a".repeat(9000).toByteArray() + 0xE9.toByte()
+        // Valid UTF-8 in the sample that decides whether a file is text, after it a byte undefined in Windows-1252 too:
+        // shown read-only.
+        val bytes = "a".repeat(9000).toByteArray() + 0x81.toByte()
         val shown = dir.resolve("shown.txt").apply { writeBytes(bytes) }
         val closed = dir.resolve("closed.txt").apply { writeBytes(bytes) }
         val a = textFile("a.txt", "a\n")

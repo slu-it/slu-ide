@@ -262,8 +262,9 @@ class CodeEditorUiTest {
 
     @Test
     fun `a read-only editor does not replace its text`(robot: FxRobot) {
-        // Valid in the sample that decides whether a file is text, invalid after it: shown read-only.
-        val file = dir.resolve("latin1.txt").apply { writeBytes("a".repeat(9000).toByteArray() + 0xE9.toByte()) }
+        // Valid UTF-8 in the sample that decides whether a file is text, after it a byte undefined in Windows-1252 too:
+        // shown read-only.
+        val file = dir.resolve("latin1.txt").apply { writeBytes("a".repeat(9000).toByteArray() + 0x81.toByte()) }
         val editor = open(file, robot)
         val before = editor.text
 

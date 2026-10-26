@@ -20,6 +20,7 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.io.IOException
 import java.nio.file.Path
 import java.time.Duration
 import java.util.concurrent.ConcurrentLinkedQueue
@@ -35,6 +36,7 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -132,10 +134,73 @@ class CodeViewUiTest {
         text: String,
     ): Button = robot.lookup(".editor-banner .button").queryAllAs(Button::class.java).single { it.text == text }
 
+    private fun encodingMessage(robot: FxRobot): String? =
+        robot
+            .lookup(".encoding-banner .label")
+            .queryAllAs(Label::class.java)
+            .singleOrNull()
+            ?.text
+
+    /** "Grüße" in Windows-1252, with CRLF line endings. */
+    private val windows1252 = byteArrayOf(0x47, 0x72, 0xFC.toByte(), 0xDF.toByte(), 0x65, 0x0D, 0x0A)
+
     @Test
-    fun `a file that is not valid UTF-8 is shown read-only and never saved`(robot: FxRobot) {
-        // Valid in the sample that decides whether a file is text, invalid after it.
-        val bytes = ByteArray(9000) { 'a'.code.toByte() } + 0xE9.toByte()
+    fun `a Windows-1252 file is edited and saved as Windows-1252, but no character it cannot store`(robot: FxRobot) {
+        val file = dir.resolve("latin1.txt").apply { writeBytes(windows1252) }
+        assertTrue(isTextFile(file))
+        val view = open(file, robot)
+        assertTrue(view.area.isEditable)
+        assertEquals("Grüße\n", view.area.text)
+        assertEquals("latin1.txt is not valid UTF-8: it is opened and saved as Windows-1252.", encodingMessage(robot))
+
+        robot.interact {
+            view.area.insertText(view.area.length, "ä")
+            view.save()
+        }
+        assertContentEquals(windows1252 + 0xE4.toByte(), file.readBytes())
+        // Its own save coming back.
+        robot.interact { view.reload() }
+        assertFalse(view.dirty.get())
+        assertFalse(view.conflictShown)
+        assertEquals("latin1.txt is not valid UTF-8: it is opened and saved as Windows-1252.", encodingMessage(robot))
+
+        robot.interact { view.area.insertText(view.area.length, "😀") }
+        val failure = WaitForAsyncUtils.asyncFx<IOException> { assertFailsWith<IOException> { view.save() } }.get()
+        assertTrue(failure.message.orEmpty().startsWith("Line 2 contains '😀'"))
+        assertContentEquals(windows1252 + 0xE4.toByte(), file.readBytes())
+        assertTrue(view.dirty.get())
+
+        // Converted elsewhere, the same text: the view follows and saves UTF-8.
+        file.writeBytes("Grüße\r\nä".toByteArray())
+        robot.interact { view.reload() }
+        assertEquals(null, encodingMessage(robot))
+        robot.interact { view.save() }
+        assertContentEquals("Grüße\r\nä😀".toByteArray(), file.readBytes())
+    }
+
+    @Test
+    fun `converting a Windows-1252 file makes it dirty and saves it as UTF-8`(robot: FxRobot) {
+        val file = dir.resolve("latin1.txt").apply { writeBytes(windows1252) }
+        val view = open(file, robot)
+
+        robot.interact { bannerButton(robot, "Convert to UTF-8").fire() }
+        assertTrue(view.dirty.get())
+        assertEquals(null, encodingMessage(robot))
+        assertEquals("Grüße\n", view.area.text)
+        // The file on disk, still Windows-1252, reported again: the conversion stays pending.
+        robot.interact { view.reload() }
+        assertTrue(view.dirty.get())
+        assertEquals(null, encodingMessage(robot))
+
+        robot.interact { view.save() }
+        assertContentEquals("Grüße\r\n".toByteArray(), file.readBytes())
+        assertFalse(view.dirty.get())
+    }
+
+    @Test
+    fun `a file that is neither UTF-8 nor Windows-1252 is shown read-only and never saved`(robot: FxRobot) {
+        // 0x81 is undefined in Windows-1252.
+        val bytes = "aä".toByteArray(Charsets.ISO_8859_1) + 0x81.toByte()
         val file = dir.resolve("latin1.txt").apply { writeBytes(bytes) }
         assertTrue(isTextFile(file))
         val view = open(file, robot)
@@ -146,17 +211,18 @@ class CodeViewUiTest {
             "latin1.txt is not valid UTF-8; it is shown read-only.",
             robot.lookup(".editor-banner .label").queryAs(Label::class.java).text,
         )
-        assertTrue(view.area.text.endsWith("a\uFFFD"))
+        assertEquals("a${Char(0xFFFD)}", view.area.text, "ä and 0x81 are one malformed UTF-8 sequence")
 
         robot.interact { view.save() }
         assertContentEquals(bytes, file.readBytes())
         assertFalse(view.dirty.get())
 
-        file.writeText("fixed\n")
+        file.writeBytes("fixé\n".toByteArray(Charsets.ISO_8859_1))
         robot.interact { view.reload() }
-        assertEquals("fixed\n", view.area.text)
+        assertEquals("fixé\n", view.area.text)
         assertTrue(view.area.isEditable)
         assertFalse(view.readOnly)
+        assertEquals("latin1.txt is not valid UTF-8: it is opened and saved as Windows-1252.", encodingMessage(robot))
     }
 
     @Test
@@ -279,10 +345,13 @@ class CodeViewUiTest {
     }
 
     @Test
-    fun `keeping the unsaved changes writes them over the file on the next save`(robot: FxRobot) {
-        val file = dir.resolve("main.py").apply { writeText("a = 1\n") }
+    fun `keeping the unsaved changes writes them over the file on the next save, in the view's encoding`(
+        robot: FxRobot,
+    ) {
+        val file = dir.resolve("main.py").apply { writeBytes("ä = 1\n".toByteArray(Charsets.ISO_8859_1)) }
         val view = open(file, robot)
         robot.interact { view.area.insertText(0, "mine = 1\n") }
+        // ASCII, so UTF-8.
         file.writeText("theirs = 1\n")
         robot.interact { view.reload() }
 
@@ -290,12 +359,14 @@ class CodeViewUiTest {
         assertFalse(view.conflictShown)
         assertTrue(view.dirty.get())
 
-        // The same content reported again is no new conflict.
+        // The same content reported again is no new conflict, and changes no encoding.
+        robot.interact { view.reload() }
         robot.interact { view.reload() }
         assertFalse(view.conflictShown)
+        assertEquals("main.py is not valid UTF-8: it is opened and saved as Windows-1252.", encodingMessage(robot))
 
         robot.interact { view.save() }
-        assertEquals("mine = 1\na = 1\n", file.readText())
+        assertContentEquals("mine = 1\nä = 1\n".toByteArray(Charsets.ISO_8859_1), file.readBytes())
     }
 
     @Test
