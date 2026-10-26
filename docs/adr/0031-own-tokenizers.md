@@ -1,6 +1,6 @@
 # 0031. Own tokenizers for languages without an RSyntaxTextArea lexer
 
-- Status: accepted
+- Status: accepted; amended by [0097](0097-second-file-type-round.md) (HCL and GraphQL tokenizers follow the same rules)
 - Date: 2026-10-15
 
 ## Context

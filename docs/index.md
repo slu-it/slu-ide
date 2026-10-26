@@ -50,7 +50,7 @@ updated when the summary or keywords no longer fit.
 | [0028](adr/0028-http-client-secrets.md) | Secrets only from env files; OAuth2 tokens and certificates per window | secrets, private env file, OAuth2, tokens, client certificates, trust-all | |
 | [0029](adr/0029-file-name-and-shebang-matching.md) | Viewers match by exact name, extension, pattern, then shebang | name matching, extension, shebang, `NameMatch`, line rules | amends 0004; amended by 0031, 0074 |
 | [0030](adr/0030-masking-env-values.md) | `.env` values masked by a style overlay, text untouched | `.env`, masking, `masked` style, Show values | |
-| [0031](adr/0031-own-tokenizers.md) | Own `SyntaxHighlighter`s for TOML, Bicep and KQL | tokenizers, TOML, Bicep, KQL, `SyntaxHighlighter` | amends 0005, 0029 |
+| [0031](adr/0031-own-tokenizers.md) | Own `SyntaxHighlighter`s for TOML, Bicep and KQL | tokenizers, TOML, Bicep, KQL, `SyntaxHighlighter` | amends 0005, 0029; amended by 0097 |
 | [0032](adr/0032-product-name-thoreau.md) | Users see the name Thoreau; the technical name `sluide` stays | Thoreau, `sluide`, naming, bundle identifier, `~/.sluide` | |
 | [0033](adr/0033-zooming-images-and-diagrams.md) | Images and diagrams zoom in the page, reported via `sluideBridge` | zoom, images, SVG, Mermaid, Bicep graph, Fit, `sluideBridge` | amended by 0050, 0083 |
 | [0034](adr/0034-project-picker.md) | Project picker at startup and after the last window closes | project picker, `lastOpened`, implicit exit, recent projects | amends 0014; amended by 0090 |
@@ -116,6 +116,8 @@ updated when the summary or keywords no longer fit.
 | [0094](adr/0094-paths-in-new-file-and-folder.md) | New File/New Folder take paths and create missing folders | New File, New Folder, paths, `expandTo` | |
 | [0095](adr/0095-explorer-button-bar-and-select-opened-file.md) | Explorer button bar; Select Opened File only by hand | button bar, Select Opened File, Alt+F1, Collapse All, Refresh | see 0096 |
 | [0096](adr/0096-compact-middle-folders.md) | Compact Middle Folders: single-folder chains as one row | compact folders, `explorer.compactFolders`, F2 rename, middle-folder watches | see 0095 |
+| [0097](adr/0097-second-file-type-round.md) | More RSyntaxTextArea languages with corrections; own tokenizers for HCL and GraphQL | languages, `CompiledLanguages`, `DynamicLanguages`, `lexerMasks`, `stringStyles`, HCL, Terraform, GraphQL | amends 0031; see 0005 |
+| [0098](adr/0098-windows-1252-fallback.md) | Text that is not UTF-8 opens and saves as Windows-1252 | encoding, Windows-1252, Latin-1, `TextEncoding`, `decodeText`, Convert to UTF-8, `readTextFile` | see 0097 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
@@ -141,8 +143,8 @@ updated when the summary or keywords no longer fit.
 | Feature | Summary | Keywords |
 |---|---|---|
 | [editor-tabs.md](features/editor-tabs.md) | Tab area for files and other `EditorTab`s | tabs, unsaved ●, close confirmation, tab menu, reordering, `onFileClosed`, activity marker |
-| [text-editing.md](features/text-editing.md) | Editing, saving and editor keys for code and text | save, Save All, changes on disk, line endings, indentation, find/replace, go to line |
-| [file-viewers.md](features/file-viewers.md) | The `FileViewer` extension point, code viewers and supported languages | `FileViewer`, `FileView`, `CodeFileViewer`, languages, `SourceSplit`, `RunnableFileViewer`, `closeWarning` |
+| [text-editing.md](features/text-editing.md) | Editing, saving and editor keys for code and text | save, Save All, changes on disk, line endings, indentation, find/replace, go to line, encoding, Windows-1252 |
+| [file-viewers.md](features/file-viewers.md) | The `FileViewer` extension point, code viewers and supported languages | `FileViewer`, `FileView`, `CodeFileViewer`, languages, syntax highlighting, `SourceSplit`, `RunnableFileViewer`, `closeWarning` |
 | [env-files.md](features/env-files.md) | `.env` files with masked values | `.env`, masking, Show values, placeholder files |
 
 ### Previews
