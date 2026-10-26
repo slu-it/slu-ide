@@ -149,6 +149,7 @@ internal object MarkupLanguages {
             "caddyfile", "caddy" -> ConfigLanguages.caddyfile
             "mermaid", "mmd" -> mermaid
             "bicep", "bicepparam" -> BicepHighlighter
+            "hcl", "terraform", "tf", "tfvars" -> HclHighlighter
             "dotenv", "env" -> ConfigLanguages.env
             "toml" -> TomlHighlighter
             else -> null

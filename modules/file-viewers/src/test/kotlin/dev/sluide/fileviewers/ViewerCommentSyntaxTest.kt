@@ -51,6 +51,7 @@ import dev.sluide.fileviewers.languages.SingleFileComponentFileViewer
 import dev.sluide.fileviewers.languages.SqlFileViewer
 import dev.sluide.fileviewers.languages.SshConfigFileViewer
 import dev.sluide.fileviewers.languages.TclFileViewer
+import dev.sluide.fileviewers.languages.TerraformFileViewer
 import dev.sluide.fileviewers.languages.TomlFileViewer
 import dev.sluide.fileviewers.languages.TsxFileViewer
 import dev.sluide.fileviewers.languages.TypeScriptFileViewer
@@ -124,6 +125,7 @@ class ViewerCommentSyntaxTest {
                 CaddyfileFileViewer() to CommentSyntax.HASH,
                 TomlFileViewer() to CommentSyntax.HASH,
                 BicepParamFileViewer() to CommentSyntax.SLASHES,
+                TerraformFileViewer() to CommentSyntax.SLASHES,
                 KqlFileViewer() to CommentSyntax.LINE_SLASHES,
             )
         for ((viewer, comment) in expected) assertEquals(comment, viewer.comment, viewer::class.simpleName)

@@ -86,6 +86,7 @@ class RSyntaxHighlighterTest {
                 KqlHighlighter to listOf("kql", "kusto", "csl"),
                 TomlHighlighter to listOf("toml"),
                 BicepHighlighter to listOf("bicep"),
+                HclHighlighter to listOf("hcl", "terraform", "tf", "tfvars"),
                 RSyntaxHighlighter.c to listOf("c"),
                 RSyntaxHighlighter.cpp to listOf("cpp", "c++", "cxx", "h", "hpp"),
                 RSyntaxHighlighter.csharp to listOf("csharp", "cs", "c#"),

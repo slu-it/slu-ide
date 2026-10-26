@@ -52,6 +52,7 @@ import dev.sluide.fileviewers.languages.SingleFileComponentFileViewer
 import dev.sluide.fileviewers.languages.SqlFileViewer
 import dev.sluide.fileviewers.languages.SshConfigFileViewer
 import dev.sluide.fileviewers.languages.TclFileViewer
+import dev.sluide.fileviewers.languages.TerraformFileViewer
 import dev.sluide.fileviewers.languages.TomlFileViewer
 import dev.sluide.fileviewers.languages.TsxFileViewer
 import dev.sluide.fileviewers.languages.TypeScriptFileViewer
@@ -160,6 +161,16 @@ class CodeFileViewersTest {
             TomlFileViewer() to
                 listOf("pyproject.toml", "Cargo.toml", "uv.lock", "poetry.lock", "pdm.lock", "Cargo.lock", "Pipfile"),
             BicepParamFileViewer() to listOf("main.bicepparam", "Prod.BICEPPARAM"),
+            TerraformFileViewer() to
+                listOf(
+                    "main.tf",
+                    "prod.tfvars",
+                    "Main.TF",
+                    "config.hcl",
+                    "web.pkr.hcl",
+                    ".terraform.lock.hcl",
+                    "job.nomad",
+                ),
             KqlFileViewer() to listOf("failures.kql", "Commands.csl", "OLD.KQL"),
         )
 
@@ -173,6 +184,8 @@ class CodeFileViewersTest {
             "icon.svg",
             "yarn.lock",
             "main.bicep",
+            "main.tf.json",
+            "prod.tfvars.json",
             "build.sh",
             "run.bash",
             "env.zsh",
