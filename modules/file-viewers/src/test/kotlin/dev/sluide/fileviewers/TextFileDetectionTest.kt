@@ -35,21 +35,24 @@ class TextFileDetectionTest {
     }
 
     @Test
-    fun `invalid UTF-8 is not text`() {
+    fun `Windows-1252 is text`() {
         val file = dir.resolve("latin1.txt").apply { writeBytes(byteArrayOf(0x47, 0x72, 0xFC.toByte(), 0x65)) }
-        assertFalse(isTextFile(file))
+        assertTrue(isTextFile(file))
     }
 
     @Test
-    fun `truncated character at the very end of a short file is not text`() {
-        val file = dir.resolve("broken.txt").apply { writeBytes("ab".toByteArray() + byteArrayOf(0xE2.toByte())) }
+    fun `truncated character at the very end of a short file is no UTF-8`() {
+        // With a control byte, so that it is no Windows-1252 text either.
+        val bytes = "a\u0001b".toByteArray() + byteArrayOf(0xE2.toByte())
+        val file = dir.resolve("broken.txt").apply { writeBytes(bytes) }
         assertFalse(isTextFile(file))
     }
 
     @Test
     fun `multi-byte character cut off by the sample size is still text`() {
         val euro = "€".toByteArray() // 3 bytes
-        val prefix = ByteArray(TEXT_SAMPLE_SIZE - 1) { 'a'.code.toByte() }
+        // With a control byte, so that it is text as UTF-8 only, not as Windows-1252.
+        val prefix = ByteArray(TEXT_SAMPLE_SIZE - 1) { if (it == 0) 1 else 'a'.code.toByte() }
         val file = dir.resolve("long.txt").apply { writeBytes(prefix + euro) }
         assertTrue(isTextFile(file))
     }
@@ -86,12 +89,5 @@ class TextFileDetectionTest {
         assertEquals("only line", firstLineOf("only line"))
         assertEquals("", firstLineOf(""))
         assertEquals("a".repeat(TEXT_SAMPLE_SIZE), firstLineOf("a".repeat(TEXT_SAMPLE_SIZE + 10)))
-    }
-
-    @Test
-    fun `decodes valid UTF-8 strictly`() {
-        assertEquals("ä€", decodeUtf8("ä€".toByteArray()))
-        assertEquals("", decodeUtf8(ByteArray(0)))
-        assertNull(decodeUtf8(ByteArray(9000) { 'a'.code.toByte() } + 0xE9.toByte()))
     }
 }
