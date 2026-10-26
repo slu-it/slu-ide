@@ -13,13 +13,19 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 /**
- * Shows JSON files (`.json`, `.jsonc`, and Pipenv's `Pipfile.lock`) as highlighted source, the side of the JSON preview
- * ([JsonPreview], ADR 0064) a [PreviewFileViewer] shows. The HTTP client's environment files are claimed by their own
- * viewer by name.
+ * Shows JSON files (`.json`, `.jsonc`, `.geojson`, Terraform's `.tfstate`, the dotfiles `.babelrc` and `.jshintrc`
+ * (a name like that counts as an extension), and Pipenv's `Pipfile.lock`) as highlighted source, the side of the JSON
+ * preview ([JsonPreview], ADR 0064) a [PreviewFileViewer] shows. The HTTP client's environment files are claimed by
+ * their own viewer by name.
  */
 @Component
 class JsonFileViewer :
-    PreviewFileViewer(setOf("json", "jsonc"), Highlighters.json, JsonPreview, CommentSyntax.NONE),
+    PreviewFileViewer(
+        setOf("json", "jsonc", "geojson", "tfstate", "babelrc", "jshintrc"),
+        Highlighters.json,
+        JsonPreview,
+        CommentSyntax.NONE,
+    ),
     NamedFileViewer {
     override val fileNames: Set<String> = setOf("Pipfile.lock")
 

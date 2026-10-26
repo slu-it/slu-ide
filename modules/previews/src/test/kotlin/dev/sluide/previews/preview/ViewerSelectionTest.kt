@@ -36,10 +36,21 @@ class ViewerSelectionTest {
     @Test
     fun `the JSON viewer opens its text files by extension and Pipfile lock by name`() {
         val json = JsonFileViewer()
-        val all = listOf("package.json", "tsconfig.jsonc", "Pipfile.lock", "pipfile.LOCK") + others
+        val own =
+            listOf(
+                "package.json",
+                "tsconfig.jsonc",
+                "Pipfile.lock",
+                "pipfile.LOCK",
+                "a.geojson",
+                "terraform.tfstate",
+                ".babelrc",
+                ".jshintrc",
+            )
+        val all = own + others
 
         assertEquals(
-            listOf("package.json", "tsconfig.jsonc", "Pipfile.lock", "pipfile.LOCK"),
+            own,
             all.filter { json.canOpen(file(it)) },
         )
         assertFalse(json.canOpen(dir.resolve("missing.json")))
@@ -50,7 +61,10 @@ class ViewerSelectionTest {
     @Test
     fun `the XML viewer opens its text files by extension, and svg html and notebooks stay with theirs`() {
         val xml = XmlFileViewer()
-        val own = listOf("pom.xml", "schema.xsd", "style.xsl", "transform.xslt", "view.fxml", "app.iml", "BUILD.XML")
+        val own =
+            listOf("pom.xml", "schema.xsd", "style.xsl", "transform.xslt", "view.fxml", "app.iml", "BUILD.XML") +
+                listOf("Info.plist", "a.csproj", "a.fsproj", "a.vbproj", "b.props", "b.targets", "w.xaml", "s.resx") +
+                listOf("a.nuspec", "s.wsdl")
 
         assertEquals(own, (own + others).filter { xml.canOpen(file(it)) })
         assertFalse(xml.canOpen(dir.resolve("missing.xml")))
@@ -67,6 +81,24 @@ class ViewerSelectionTest {
     }
 
     @Test
+    fun `config files open as XML only when their text starts with a tag`() {
+        val xml = XmlFileViewer()
+
+        fun config(
+            name: String,
+            text: String,
+        ) = dir.resolve(name).apply { writeText(text) }
+
+        assertTrue(xml.canOpen(config("web.config", "<?xml version=\"1.0\"?>\n<configuration/>\n")))
+        assertTrue(xml.canOpen(config("App.config", "<configuration>\n</configuration>\n")))
+        assertTrue(xml.canOpen(config("bom.config", "\uFEFF  \n<configuration/>\n")))
+        assertFalse(xml.canOpen(config("app.config", "key=value\n")))
+        assertFalse(xml.canOpen(config("empty.config", "")))
+        assertFalse(xml.canOpen(dir.resolve("binary.config").apply { writeBytes(byteArrayOf(0x3c, 0x00, 0x62)) }))
+        assertFalse("config" in xml.fileExtensions, "name-only matching, as for diffs, cannot look at the text")
+    }
+
+    @Test
     fun `Pipfile lock goes to the JSON viewer, which shows diffs, by file and by name`() {
         val json = JsonFileViewer()
         val viewers = FileViewers(listOf(json), fallback)
@@ -74,7 +106,7 @@ class ViewerSelectionTest {
         assertSame(json, viewers.viewerFor(file("Pipfile.lock")))
         // What FileViewers picks the viewer by when it has only the name.
         assertEquals(setOf("Pipfile.lock"), json.fileNames)
-        assertEquals(setOf("json", "jsonc"), json.fileExtensions)
+        assertEquals(setOf("json", "jsonc", "geojson", "tfstate", "babelrc", "jshintrc"), json.fileExtensions)
         assertTrue(viewers.showsDiffs(json))
     }
 
