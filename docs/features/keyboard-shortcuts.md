@@ -165,6 +165,7 @@ File does not react to it while a terminal has the focus.
 | Enter or Shortcut+D in a file history | Show the diff |
 | Shortcut+C in a file history | Copy the revision number |
 | Escape in the Push dialog | Close it |
+| Shortcut+Enter in the Edit Commit Message dialog | Change the message (when it differs; Enter is a newline) |
 
 ## Settings
 [settings.md](settings.md)

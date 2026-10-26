@@ -329,4 +329,4 @@ private const val MESSAGE_ROWS_MAX = 12
 private const val MESSAGE_COLUMNS_MIN = 40
 private const val MESSAGE_COLUMNS_MAX = 100
 private const val TAB_COLUMNS = 8
-private const val MONOSPACED = "Monospaced"
+internal const val MONOSPACED = "Monospaced"

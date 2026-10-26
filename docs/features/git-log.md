@@ -230,9 +230,10 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
   - **Commit table:** its context menu has, after Copy Revision Number, Compare with Local (below) and a separator,
     Checkout Revision (`HEAD`
     detached at the commit), New Branch… and New Tag… (at the commit), and after another separator Cherry-Pick, Revert
-    Commit and Reset Current Branch to Here… ([ADR 0042](../adr/0042-git-log-commit-operations.md), below); enabled
-    with exactly one commit selected, Reset only while the refs read show a `HEAD` commit. Go to Hash/Branch/Tag…
-    (above) follows after a last separator.
+    Commit, Reset Current Branch to Here… ([ADR 0042](../adr/0042-git-log-commit-operations.md), below) and Edit
+    Commit Message… ([ADR 0100](../adr/0100-editing-commit-messages.md)); enabled with exactly one commit selected,
+    Reset and Edit Commit Message only while the refs read show a `HEAD` commit (Edit also not while git is busy).
+    Go to Hash/Branch/Tag… (above) follows after a last separator.
   - **Branches pane:** its context menu has, after Copy Name and a separator, Compare with Current and Show Diff with
     Working Tree (below), and after another separator Checkout, "New Branch from '<name>'…"
     (from any one branch, tag or `HEAD`), Rename… (local branches, also the current one; also F2) and Delete (local
@@ -380,6 +381,17 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
     tracks, or the files in a folder where the commit has a file, a nested repository there as one entry `sub/`), for
     Mixed files whose staged changes differ from the file on disk ("Staged changes in 1 file that differ from the file
     on disk will be lost.", e.g. after `git add -p`). Done: "Reset main to 1a2b3c4d (hard); it was at 5e6f7a8b."
+  - **Edit Commit Message…:** changes the message of one commit of the current branch, also one before `HEAD`
+    ([ADR 0100](../adr/0100-editing-commit-messages.md)). On a detached `HEAD` the header says "Commit messages can be
+    changed only on a branch." Otherwise "Reading the message of 1a2b3c4d…" runs, and a refusal (e.g. the commit is on
+    the default branch) shows its reason in the header, without a dialog. The dialog "Edit Commit Message" ("Message of
+    1a2b3c4d on feature") has the message in a monospace area, focused, caret at its end, not wrapped; Enter is a
+    newline. Notes below, each only when it applies: "fix-x and fix-y keep the old commit." (other local branches that
+    contain it) and "Already pushed to origin/feature; a force push will be needed afterwards." Change Message
+    (Shortcut+Enter in the area) is disabled while the text is blank or equals the old one apart from trailing
+    whitespace of lines and blank lines at both ends; Escape or Cancel changes nothing. Done: "Changed the message of
+    1a2b3c4d."; "The message of 1a2b3c4d is unchanged."; a failure shows git's message in an error dialog. Working-tree
+    files are neither changed nor read, so unsaved editors are not asked about.
   - **Unsaved editors:** before an operation that changes files, files of the repository with unsaved changes are
     asked about, naming it: "These files have unsaved changes. Save them before you check out?" with Save, Check Out
     Anyway (the changes stay; an editor whose file the operation changed offers Reload or Keep mine) and Cancel (the

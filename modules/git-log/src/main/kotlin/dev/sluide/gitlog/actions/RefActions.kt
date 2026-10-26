@@ -13,6 +13,7 @@ import dev.sluide.gitlog.data.GitLogWrites
 import dev.sluide.gitlog.operations.ABORT_REBASE_BUTTON
 import dev.sluide.gitlog.operations.AbortPick
 import dev.sluide.gitlog.operations.AbortRebase
+import dev.sluide.gitlog.operations.CheckReword
 import dev.sluide.gitlog.operations.CommitChanges
 import dev.sluide.gitlog.operations.CreateBranch
 import dev.sluide.gitlog.operations.CreateTag
@@ -33,6 +34,8 @@ import dev.sluide.gitlog.operations.RenameBranch
 import dev.sluide.gitlog.operations.RenameBranchDialog
 import dev.sluide.gitlog.operations.ResetBranch
 import dev.sluide.gitlog.operations.ResetDialog
+import dev.sluide.gitlog.operations.RewordCommit
+import dev.sluide.gitlog.operations.RewordDialog
 import dev.sluide.gitlog.operations.abortButton
 import dev.sluide.gitlog.operations.deleteQuestion
 import dev.sluide.gitlog.operations.deleteRefsConfirmation
@@ -185,6 +188,20 @@ internal class RefActions(
     }
 
     /**
+     * Reads the message of [commit] and, if it can be changed (ADR 0100), asks for the new one; not on a detached
+     * `HEAD`.
+     */
+    fun editMessage(commit: GitCommit) {
+        if (writer.running.get()) return
+        val branch = pages.refs?.currentBranch?.removePrefix("refs/heads/")
+        if (branch == null) {
+            tellOperation("Commit messages can be changed only on a branch.")
+            return
+        }
+        start(CheckReword(branch, commit.hash))
+    }
+
+    /**
      * Runs [operation] (ADR 0041) unless one runs already; one that changes files asks [beforeFileChange] first, unless
      * [askFirst] is `false` (it was asked already). The header says what
      * it does, then what it did, and the log is refreshed; a failure is shown in an error dialog with git's message.
@@ -215,6 +232,11 @@ internal class RefActions(
             ) {
                 start(confirmation.confirmed, askFirst = false)
             }
+            return
+        }
+        outcome.reword?.let { prompt ->
+            val message = RewordDialog(window(), prompt).showAndWait().orElse(null) ?: return
+            start(RewordCommit(prompt.branch, prompt.commit, message))
             return
         }
         // A commit that was made (not one cancelled) ends the draft (ADR 0048); a failed one keeps it.

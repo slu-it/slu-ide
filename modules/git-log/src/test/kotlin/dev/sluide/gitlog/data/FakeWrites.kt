@@ -18,6 +18,8 @@ import dev.sluide.git.GitRemoteDeletionResult
 import dev.sluide.git.GitRemoteRefResult
 import dev.sluide.git.GitResetMode
 import dev.sluide.git.GitResult
+import dev.sluide.git.GitRewordCheck
+import dev.sluide.git.GitRewordResult
 import dev.sluide.git.GitUncheckedConflict
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
@@ -256,6 +258,33 @@ internal class FakeWrites : GitLogWrites {
     override fun skipRebase(root: Path) = rebaseCall("rebase --skip")
 
     override fun abortRebase(root: Path) = rebaseCall("rebase --abort")
+
+    /** What the check of a reword answers. */
+    @Volatile
+    var rewordCheck: GitRewordCheck = GitRewordCheck.Allowed("Old message", emptyList(), null)
+
+    /** What a reword answers. */
+    @Volatile
+    var rewordResult: GitRewordResult = GitRewordResult.Done(NEW_HEAD)
+
+    override fun rewordCheck(
+        root: Path,
+        branch: String,
+        commit: String,
+    ): GitRewordCheck {
+        calls += "reword check $branch $commit"
+        return rewordCheck
+    }
+
+    override fun reword(
+        root: Path,
+        branch: String,
+        commit: String,
+        message: String,
+    ): GitRewordResult {
+        calls += "reword $branch $commit $message"
+        return rewordResult
+    }
 
     override fun unreachableCount(
         root: Path,

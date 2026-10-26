@@ -10,6 +10,7 @@ import dev.sluide.git.GitPush
 import dev.sluide.git.GitRebases
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitRemotes
+import dev.sluide.git.GitRewords
 import dev.sluide.gitlog.actions.RefActions
 import dev.sluide.gitlog.area.AreaTabs
 import dev.sluide.gitlog.area.CommitDiffs
@@ -104,13 +105,14 @@ class GitLogView internal constructor(
         gitBranches: GitBranches,
         gitCommits: GitCommits,
         gitRebases: GitRebases,
+        gitRewords: GitRewords,
         gitRemotes: GitRemotes,
         gitPush: GitPush,
         tasks: BackgroundTasks,
     ) : this(
         GitLogCliSource(gitLog, gitRemotes, gitCommits, gitPush),
         Platform::runLater,
-        GitLogCliWrites(gitBranches, gitCommits, gitRebases, gitRemotes, gitPush),
+        GitLogCliWrites(gitBranches, gitCommits, gitRebases, gitRewords, gitRemotes, gitPush),
         tasks,
     )
 

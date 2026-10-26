@@ -15,9 +15,10 @@ import java.nio.file.Path
  * dialog), what the header says afterwards ([done], `null` if nothing was done), the branches git refused to delete
  * without force ([refused], with git's message [refusedMessage]), a question to ask before the operation may run
  * after all ([confirmation]; nothing was done then), a cherry-pick or revert git stopped and left for the user
- * ([stopped], ADR 0042) or a rebase ([rebaseStopped], ADR 0063), and the question above git's message in the error
- * dialog if it is not the operation's ([failure], e.g. naming the remotes that could not be fetched, ADR 0043), and whether it was [cancelled] before it
- * was done (a fetch, commit or push).
+ * ([stopped], ADR 0042) or a rebase ([rebaseStopped], ADR 0063), the message of a commit to edit ([reword], ADR
+ * 0100), and the question above git's message in the error dialog if it is not the operation's ([failure], e.g.
+ * naming the remotes that could not be fetched, ADR 0043), and whether it was [cancelled] before it was done (a
+ * fetch, commit or push).
  */
 internal data class RefOutcome(
     val result: GitResult,
@@ -27,6 +28,7 @@ internal data class RefOutcome(
     val confirmation: RefConfirmation? = null,
     val stopped: PickStop? = null,
     val rebaseStopped: RebaseStop? = null,
+    val reword: RewordPrompt? = null,
     val failure: String? = null,
     val cancelled: Boolean = false,
 )

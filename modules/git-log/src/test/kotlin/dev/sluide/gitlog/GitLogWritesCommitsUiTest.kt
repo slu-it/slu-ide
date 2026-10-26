@@ -8,21 +8,26 @@ import dev.sluide.git.GitPick
 import dev.sluide.git.GitPickResult
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
+import dev.sluide.git.GitRewordCheck
 import dev.sluide.git.GitUncheckedConflict
 import dev.sluide.gitlog.data.FakeWrites
 import dev.sluide.gitlog.operations.ABORT_CHERRY_PICK_BUTTON
 import dev.sluide.gitlog.operations.ABORT_REVERT_BUTTON
+import dev.sluide.gitlog.operations.CHANGE_MESSAGE_BUTTON
 import dev.sluide.gitlog.operations.CHERRY_PICK_BUTTON
 import dev.sluide.gitlog.operations.COMMIT_AS_ON_DISK_BUTTON
 import dev.sluide.gitlog.operations.RESET_BUTTON
 import dev.sluide.gitlog.operations.RESOLVE_BUTTON
 import dev.sluide.gitlog.operations.REVERT_BUTTON
 import javafx.application.Platform
+import javafx.event.Event
 import javafx.scene.control.Button
 import javafx.scene.control.ButtonType
 import javafx.scene.control.Label
 import javafx.scene.control.RadioButton
 import javafx.scene.control.TextArea
+import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyEvent
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -174,6 +179,7 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         selectRows(robot, 2)
         assertTrue(view.table.cherryPickItem.isDisable, "not while one is in progress")
         assertTrue(view.table.revertItem.isDisable)
+        assertTrue(view.table.editMessageItem.isDisable, "not while one is in progress")
         assertFalse(view.table.resetItem.isDisable, "the way out")
 
         writes.gate = CountDownLatch(1)
@@ -314,6 +320,63 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
     }
 
     @Test
+    fun `edits the message of a commit in a dialog, noting the branches that keep the old one and the push`(
+        robot: FxRobot,
+    ) {
+        openAndExpand(robot)
+        selectRows(robot, 1, 2)
+        assertTrue(view.table.editMessageItem.isDisable, "one commit only")
+        selectRows(robot, 2)
+        assertFalse(view.table.editMessageItem.isDisable)
+        writes.rewordCheck = GitRewordCheck.Allowed("Old subject\n\nBody", listOf("fix-x", "fix-y"), "origin/main")
+
+        fireLater(view.table.editMessageItem)
+        val pane = awaitDialog(robot)
+        assertEquals("Edit Commit Message", (pane.scene.window as Stage).title)
+        assertEquals("Message of h3 on main", pane.headerText)
+        val area = pane.lookup(".git-commit-message") as TextArea
+        assertEquals("Old subject\n\nBody", area.text)
+        assertTrue(area.isFocused)
+        assertEquals(area.text.length, area.caretPosition)
+        assertEquals(
+            listOf(
+                "fix-x and fix-y keep the old commit.",
+                "Already pushed to origin/main; a force push will be needed afterwards.",
+            ),
+            pane.lookupAll(".git-commit-note").map { (it as Label).text },
+        )
+        val change = pane.lookupButton(CHANGE_MESSAGE_BUTTON) as Button
+        assertTrue(change.isDisable, "unchanged")
+        assertFalse(change.isDefaultButton, "Enter stays a newline")
+
+        // Shortcut+Enter does nothing while the text is unchanged, and changes the message once it is a new one.
+        robot.interact { fireShortcutEnter(area) }
+        assertTrue(pane.scene.window.isShowing)
+        robot.interact { area.text = "New subject\n\nBody" }
+        assertFalse(change.isDisable)
+        robot.interact { fireShortcutEnter(area) }
+        eventually { assertEquals("Changed the message of h3.", status(robot)) }
+        assertEquals(
+            listOf("reword check main h3", "reword main h3 New subject\n\nBody"),
+            writes.calls,
+        )
+        assertEquals(emptyList(), fileChanges, "files stay")
+
+        // Cancel changes nothing; a refusal is shown in the header, without a dialog.
+        fireLater(view.table.editMessageItem)
+        press(robot, awaitDialog(robot), ButtonType.CANCEL)
+        assertEquals(3, writes.calls.size)
+        writes.rewordCheck = GitRewordCheck.Refused("It is on main.")
+        fireLater(view.table.editMessageItem)
+        eventually { assertEquals("It is on main.", status(robot)) }
+    }
+
+    private fun fireShortcutEnter(area: TextArea) {
+        val mac = System.getProperty("os.name").startsWith("Mac")
+        Event.fireEvent(area, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.ENTER, false, !mac, false, mac))
+    }
+
+    @Test
     fun `a detached HEAD is reset as HEAD, and without a HEAD commit there is no reset`(robot: FxRobot) {
         currentRefs = GitRefs(refs.refs, currentBranch = null)
         openAndExpand(robot)
@@ -325,10 +388,15 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         assertEquals("Reset detached HEAD (at h1) to h4", (pane.lookup(".git-reset-description") as Label).text)
         press(robot, pane, RESET_BUTTON)
         eventually { assertEquals("Reset HEAD to h4 (mixed); it was at h1.", status(robot)) }
+        val calls = writes.calls.size
+        fireLater(view.table.editMessageItem)
+        eventually { assertEquals("Commit messages can be changed only on a branch.", status(robot)) }
+        assertEquals(calls, writes.calls.size, "nothing runs")
 
         currentRefs = GitRefs(refs.refs.filter { it.kind != GitRefKind.HEAD }, "refs/heads/main")
         robot.interact { view.refresh() }
         eventually { assertTrue(view.table.resetItem.isDisable) }
+        assertTrue(view.table.editMessageItem.isDisable, "no HEAD commit")
         assertFalse(view.table.cherryPickItem.isDisable)
     }
 
@@ -347,6 +415,7 @@ class GitLogWritesCommitsUiTest : GitLogWritesUiFixture() {
         selectRows(robot, 1)
         assertTrue(view.table.cherryPickItem.isDisable)
         assertTrue(view.table.revertItem.isDisable)
+        assertTrue(view.table.editMessageItem.isDisable)
         assertFalse(view.table.resetItem.isDisable)
 
         pending = null

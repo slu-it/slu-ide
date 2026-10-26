@@ -43,6 +43,7 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
                 view.table.cherryPickItem,
                 view.table.revertItem,
                 view.table.resetItem,
+                view.table.editMessageItem,
             )
         assertEquals(
             listOf(
@@ -56,6 +57,7 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
                 "Cherry-Pick",
                 "Revert Commit",
                 "Reset Current Branch to Here\u2026",
+                "Edit Commit Message\u2026",
                 null,
                 "Go to Hash/Branch/Tag\u2026",
             ),

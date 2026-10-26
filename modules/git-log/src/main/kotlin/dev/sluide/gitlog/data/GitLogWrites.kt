@@ -20,6 +20,9 @@ import dev.sluide.git.GitRemoteDeletionResult
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitResetMode
 import dev.sluide.git.GitResult
+import dev.sluide.git.GitRewordCheck
+import dev.sluide.git.GitRewordResult
+import dev.sluide.git.GitRewords
 import dev.sluide.git.GitUncheckedConflict
 import java.nio.file.Path
 
@@ -170,6 +173,21 @@ internal interface GitLogWrites {
     /** Aborts the rebase in progress. */
     fun abortRebase(root: Path): GitRebaseResult
 
+    /** Whether the message of the commit (a full hash) of the current [branch] can be changed; ADR 0100. */
+    fun rewordCheck(
+        root: Path,
+        branch: String,
+        commit: String,
+    ): GitRewordCheck
+
+    /** Changes the message of the commit (a full hash) of the current [branch] to [message]; ADR 0100. */
+    fun reword(
+        root: Path,
+        branch: String,
+        commit: String,
+        message: String,
+    ): GitRewordResult
+
     /** How many commits a reset to [target] would leave on no branch or tag; `null` if that cannot be read. */
     fun unreachableCount(
         root: Path,
@@ -272,6 +290,7 @@ internal class GitLogCliWrites(
     private val branches: GitBranches,
     private val commits: GitCommits,
     private val rebases: GitRebases,
+    private val rewords: GitRewords,
     private val gitRemotes: GitRemotes,
     private val gitPush: GitPush,
 ) : GitLogWrites {
@@ -386,6 +405,19 @@ internal class GitLogCliWrites(
     override fun skipRebase(root: Path) = rebases.skipRebase(root)
 
     override fun abortRebase(root: Path) = rebases.abortRebase(root)
+
+    override fun rewordCheck(
+        root: Path,
+        branch: String,
+        commit: String,
+    ) = rewords.check(root, branch, commit)
+
+    override fun reword(
+        root: Path,
+        branch: String,
+        commit: String,
+        message: String,
+    ) = rewords.reword(root, branch, commit, message)
 
     override fun unreachableCount(
         root: Path,

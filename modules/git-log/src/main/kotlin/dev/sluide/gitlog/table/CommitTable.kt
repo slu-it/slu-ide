@@ -34,10 +34,11 @@ import java.time.format.FormatStyle
 /**
  * The commits of the [pages] with their graph, newest first, loaded as the user scrolls; several can be selected. The
  * context menu copies hashes (also Shortcut+C), compares a commit with the working tree ([compareWithLocal], ADR 0044),
- * checks it out, creates branches and tags at it (ADR 0041), cherry-picks, reverts and resets to it (ADR 0042) through
- * [actions], and opens Go to ([openGoTo], ADR 0045). Escape ends a comparison ([stopComparing]); while it lists an
- * empty side, the placeholder says [emptySide]. Cherry-pick and revert are not offered while git is [busy] with
- * something.
+ * checks it out, creates branches and tags at it (ADR 0041), cherry-picks, reverts and resets to it (ADR 0042), edits
+ * its message (ADR 0100) through [actions], and opens Go to ([openGoTo], ADR 0045). Escape ends a comparison
+ * ([stopComparing]); while it lists an empty side, the placeholder says [emptySide]. Cherry-pick, revert and Edit
+ * Commit Message are not offered while git is [busy] with something; Reset and Edit Commit Message need a `HEAD`
+ * commit.
  */
 internal class CommitTable(
     private val pages: GitLogPages,
@@ -107,6 +108,8 @@ internal class CommitTable(
         }
     internal val resetItem =
         MenuItem("Reset Current Branch to Here…").apply { setOnAction { singleCommit()?.let(actions::resetTo) } }
+    internal val editMessageItem =
+        MenuItem("Edit Commit Message…").apply { setOnAction { singleCommit()?.let(actions::editMessage) } }
 
     override fun createDefaultSkin() = PagingSkin(this, pages::shown)
 
@@ -148,6 +151,7 @@ internal class CommitTable(
                 cherryPickItem,
                 revertItem,
                 resetItem,
+                editMessageItem,
                 SeparatorMenuItem(),
                 goToItem,
             )
@@ -176,6 +180,7 @@ internal class CommitTable(
         // Not while git is in the middle of something: the bar says what.
         listOf(cherryPickItem, revertItem).forEach { it.disableProperty().bind(notOne.or(busy)) }
         resetItem.disableProperty().bind(notOne.or(hasHead.not()))
+        editMessageItem.disableProperty().bind(notOne.or(busy).or(hasHead.not()))
         addEventHandler(KeyEvent.KEY_PRESSED) { event ->
             if (COPY.match(event)) {
                 copyRevisionNumbers()

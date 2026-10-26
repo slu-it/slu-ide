@@ -72,7 +72,10 @@ without the user knowing.
   git write running. When chosen, `check` runs on the write thread; a refusal shows in the header status. Otherwise a
   dialog prefilled with the message names the other branches that keep the old commit and, if pushed, says "Already
   pushed to origin/feature; a force push will be needed afterwards."; OK is disabled while the message is blank or
-  unchanged.
+  unchanged (trailing whitespace of lines and blank lines at both ends do not count). Enter is a newline, so the
+  dialog has no default button; Shortcut+Enter in the area presses Change Message. On a detached `HEAD` nothing runs
+  and the header says commit messages can be changed only on a branch. Neither operation reads or changes working-tree
+  files, so no unsaved-editor question and no hold on the git status.
 
 ## Consequences
 - Any commit of the current branch that is not on the default branch can get a new message from the log, also with
