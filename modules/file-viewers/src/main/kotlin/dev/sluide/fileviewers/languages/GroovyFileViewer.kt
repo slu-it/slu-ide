@@ -5,6 +5,16 @@ import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import dev.sluide.textediting.CommentSyntax
 import org.springframework.stereotype.Component
 
-/** Shows Groovy sources and Gradle's Groovy DSL scripts (`.groovy`, `.gradle`) read-only with syntax highlighting. */
+/**
+ * Shows Groovy sources and Gradle's Groovy DSL scripts (`.groovy`, `.gradle`) with syntax highlighting, and Jenkins'
+ * pipelines (`Jenkinsfile`, `Jenkinsfile.prod`).
+ */
 @Component
-class GroovyFileViewer : CodeFileViewer(setOf("groovy", "gradle"), RSyntaxHighlighter.groovy, CommentSyntax.SLASHES)
+class GroovyFileViewer :
+    CodeFileViewer(
+        setOf("groovy", "gradle"),
+        RSyntaxHighlighter.groovy,
+        CommentSyntax.SLASHES,
+        names = setOf("jenkinsfile"),
+        namePatterns = listOf(Regex("""jenkinsfile\..+""")),
+    )

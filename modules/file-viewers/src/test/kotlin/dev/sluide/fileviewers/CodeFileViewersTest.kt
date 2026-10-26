@@ -12,6 +12,8 @@ import dev.sluide.fileviewers.languages.IgnoreFileViewer
 import dev.sluide.fileviewers.languages.IniFileViewer
 import dev.sluide.fileviewers.languages.JavaFileViewer
 import dev.sluide.fileviewers.languages.JavaScriptFileViewer
+import dev.sluide.fileviewers.languages.Json5FileViewer
+import dev.sluide.fileviewers.languages.JsonLinesFileViewer
 import dev.sluide.fileviewers.languages.JsxFileViewer
 import dev.sluide.fileviewers.languages.KotlinFileViewer
 import dev.sluide.fileviewers.languages.KqlFileViewer
@@ -49,7 +51,8 @@ class CodeFileViewersTest {
         mapOf(
             PythonFileViewer() to listOf("main.py", "gui.pyw", "types.pyi", "LEGACY.PY"),
             KotlinFileViewer() to listOf("Main.kt", "build.gradle.kts"),
-            GroovyFileViewer() to listOf("build.gradle", "settings.gradle", "Script.groovy"),
+            GroovyFileViewer() to
+                listOf("build.gradle", "settings.gradle", "Script.groovy", "Jenkinsfile", "jenkinsfile.prod"),
             JavaFileViewer() to listOf("Main.java"),
             JavaScriptFileViewer() to listOf("app.js", "module.mjs", "config.cjs"),
             TypeScriptFileViewer() to listOf("app.ts", "types.d.ts", "module.mts", "config.cts"),
@@ -69,7 +72,10 @@ class CodeFileViewersTest {
                 listOf("Dockerfile", "Containerfile", "Dockerfile.dev", "dockerfile.prod.local", "app.Dockerfile"),
             MakefileFileViewer() to listOf("Makefile", "GNUmakefile", "rules.mk"),
             IniFileViewer() to listOf("php.ini"),
-            ConfigFileViewer() to listOf("setup.cfg", "nginx.conf", ".npmrc", ".editorconfig", ".gitconfig"),
+            ConfigFileViewer() to
+                listOf("setup.cfg", "nginx.conf", ".npmrc", ".editorconfig", ".gitconfig", ".gitmodules"),
+            Json5FileViewer() to listOf("tsconfig.json5", "RULES.JSON5"),
+            JsonLinesFileViewer() to listOf("events.jsonl", "log.ndjson"),
             PropertiesFileViewer() to
                 listOf("application.properties", "gradle.properties", "gradle-wrapper.properties"),
             IgnoreFileViewer() to

@@ -118,6 +118,7 @@ internal object MarkupLanguages {
             "makefile", "make", "mk" -> ConfigLanguages.makefile
             "ini", "cfg", "conf", "editorconfig", "gitconfig" -> ConfigLanguages.ini
             "properties" -> ConfigLanguages.properties
+            "json5", "jsonl", "ndjson" -> WebLanguages.json
             "gitignore" -> ConfigLanguages.ignoreFile
             "ssh-config", "sshconfig", "ssh_config", "sshd_config" -> ConfigLanguages.sshConfig
             "caddyfile", "caddy" -> ConfigLanguages.caddyfile

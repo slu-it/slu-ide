@@ -11,6 +11,8 @@ import dev.sluide.fileviewers.languages.IgnoreFileViewer
 import dev.sluide.fileviewers.languages.IniFileViewer
 import dev.sluide.fileviewers.languages.JavaFileViewer
 import dev.sluide.fileviewers.languages.JavaScriptFileViewer
+import dev.sluide.fileviewers.languages.Json5FileViewer
+import dev.sluide.fileviewers.languages.JsonLinesFileViewer
 import dev.sluide.fileviewers.languages.JsxFileViewer
 import dev.sluide.fileviewers.languages.KotlinFileViewer
 import dev.sluide.fileviewers.languages.KqlFileViewer
@@ -63,6 +65,8 @@ class ViewerCommentSyntaxTest {
                 MakefileFileViewer() to CommentSyntax.HASH,
                 IniFileViewer() to CommentSyntax.SEMICOLON,
                 ConfigFileViewer() to CommentSyntax.HASH,
+                Json5FileViewer() to CommentSyntax.SLASHES,
+                JsonLinesFileViewer() to CommentSyntax.NONE,
                 PropertiesFileViewer() to CommentSyntax.HASH,
                 IgnoreFileViewer() to CommentSyntax.HASH,
                 GitBlameIgnoreRevsFileViewer() to CommentSyntax.HASH,
