@@ -25,7 +25,11 @@ import javax.swing.text.Segment
  *   `1'000`; every other offset stays the same;
  * - [lineRules] are regexes applied to every line; text in a named group whose name is a [TokenStyle.styleClass]
  *   (e.g. `(?<property>…)`) gets that style and replaces the lexer's spans there, except where the lexer found one
- *   of the [keptStyles] (by default comments and strings, so that e.g. a `<b>` in a string is no tag).
+ *   of the [keptStyles] (by default comments and strings, so that e.g. a `<b>` in a string is no tag). A lexed span
+ *   under a rule's span is dropped;
+ * - a rule span whose style is in [stringStyles] may also sit inside a lexed string (a variable in `"…$x…"`), which
+ *   then keeps the parts around it; such a span still keeps clear of the other [keptStyles], and all other rule spans
+ *   keep clear of strings too.
  *
  * Lexer errors are never shown: a viewer must not flag valid code that a lexer does not know yet.
  *
@@ -42,6 +46,7 @@ internal class RSyntaxHighlighter(
     private val lineRules: List<Regex> = emptyList(),
     private val lexerMasks: List<Regex> = emptyList(),
     private val keptStyles: Set<TokenStyle> = setOf(TokenStyle.COMMENT, TokenStyle.STRING),
+    private val stringStyles: Set<TokenStyle> = emptySet(),
 ) : SyntaxHighlighter {
     /** For each line rule, the styles that have a named group in it. */
     private val ruleStyles: List<Pair<Regex, List<TokenStyle>>> =
@@ -51,8 +56,15 @@ internal class RSyntaxHighlighter(
         val lexed = lex(text)
         if (lineRules.isEmpty()) return lexed
         // All three lists are sorted and free of overlaps, so each step is one pass over them.
-        val ruled = applyLineRules(text).withoutOverlapsWith(lexed.filter { it.style in keptStyles })
-        return merge(lexed.withoutOverlapsWith(ruled), ruled)
+        val kept = lexed.filter { it.style in keptStyles }
+        val (inStrings, others) = applyLineRules(text).partition { it.style in stringStyles }
+        val ruledInStrings = inStrings.withoutOverlapsWith(kept.filter { it.style != TokenStyle.STRING })
+        val ruledOthers = others.withoutOverlapsWith(kept)
+        val ruled = merge(ruledInStrings, ruledOthers)
+        return merge(
+            lexed.withoutOverlapsWith(ruledOthers).withoutOverlapsWith(ruledInStrings, splitStrings = true),
+            ruled,
+        )
     }
 
     /** The spans of all line rules, sorted; an earlier rule's span wins over a later one's overlapping it. */
@@ -83,14 +95,33 @@ internal class RSyntaxHighlighter(
         return spans.values.toList()
     }
 
-    /** These sorted, disjoint spans without those overlapping one of the sorted, disjoint [others]. */
-    private fun List<HighlightSpan>.withoutOverlapsWith(others: List<HighlightSpan>): List<HighlightSpan> {
+    /**
+     * These sorted, disjoint spans without those overlapping one of the sorted, disjoint [others]; with
+     * [splitStrings] a string span keeps the parts outside of them.
+     */
+    private fun List<HighlightSpan>.withoutOverlapsWith(
+        others: List<HighlightSpan>,
+        splitStrings: Boolean = false,
+    ): List<HighlightSpan> {
         var next = 0
-        return filter { span ->
+        val result = ArrayList<HighlightSpan>(size)
+        for (span in this) {
             // Spans of [others] ending before this one starts cannot overlap any later span either.
             while (next < others.size && others[next].end <= span.start) next++
-            next == others.size || others[next].start >= span.end
+            if (next == others.size || others[next].start >= span.end) {
+                result += span
+            } else if (splitStrings && span.style == TokenStyle.STRING) {
+                var position = span.start
+                var i = next
+                while (i < others.size && others[i].start < span.end) {
+                    if (others[i].start > position) result += HighlightSpan(position, others[i].start, span.style)
+                    position = maxOf(position, others[i].end)
+                    i++
+                }
+                if (position < span.end) result += HighlightSpan(position, span.end, span.style)
+            }
         }
+        return result
     }
 
     /** The spans of two sorted lists that do not overlap each other, in one sorted list. */

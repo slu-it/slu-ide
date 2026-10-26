@@ -41,6 +41,25 @@ class RSyntaxHighlighterTest {
     }
 
     @Test
+    fun `a rule in stringStyles splits a string, other rules and comments stay clear`() {
+        val java =
+            RSyntaxHighlighter(
+                SyntaxConstants.SYNTAX_STYLE_JAVA,
+                lineRules = listOf(Regex("""(?<annotation>@\w+)"""), Regex("""(?<keyword>\bbee\b)""")),
+                stringStyles = setOf(TokenStyle.ANNOTATION),
+            )
+        val code = Highlighted("String s = \"a @x bee\"; // @y bee\nint n; @z bee", java)
+
+        code.assertExactly(TokenStyle.ANNOTATION, "@x")
+        assertEquals(setOf(TokenStyle.STRING), code.stylesOf("\"a "))
+        assertEquals(setOf(TokenStyle.STRING), code.stylesOf(" bee\""))
+        assertEquals(setOf(TokenStyle.COMMENT), code.stylesOf("// @y bee"))
+        code.assertExactly(TokenStyle.ANNOTATION, "@z")
+        code.assertExactly(TokenStyle.KEYWORD, "bee", occurrence = 2)
+        code.assertWellFormed()
+    }
+
+    @Test
     fun `fence names map to their highlighters`() {
         val expected =
             mapOf(
