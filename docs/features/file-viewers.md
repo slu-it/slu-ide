@@ -68,7 +68,8 @@ the Bicep graph and `BicepParamFileViewer`.
   lines full of backslashes). Larger languages without a lexer (TOML, Bicep, KQL, HCL, GraphQL) have their own
   tokenizers (`TomlHighlighter`, `BicepHighlighter`, `KqlHighlighter`, `HclHighlighter`, `GraphQlHighlighter`;
   [ADR 0031](../adr/0031-own-tokenizers.md)): one linear pass over the whole text, never flagging errors. Line
-  rules and lexer spans are combined in near-linear time, so
+  rules and lexer spans are combined in near-linear time, and lines with many tokens (minified files) or raw strings
+  are lexed in near-linear time ([ADR 0099](../adr/0099-linear-lexing-of-long-lines.md)), so
   large files and long lines stay fast (`HighlightingPerformanceTest`). Edited text is highlighted again in
   the background once typing pauses ([ADR 0020](../adr/0020-editing-and-saving-files.md)). Token classes: `keyword`, `type`, `builtin`, `string`, `number`, `comment`, `annotation`, `property`, `tag`, `attribute`, `operator`.
   The viewer's `comment` parameter (a `CommentSyntax`) says how Shortcut+/ comments out lines; preview viewers take
