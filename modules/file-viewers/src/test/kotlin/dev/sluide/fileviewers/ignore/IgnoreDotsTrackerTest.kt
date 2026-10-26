@@ -3,9 +3,11 @@ package dev.sluide.fileviewers.ignore
 import dev.sluide.fileviewers.IgnoreFileEffects
 import dev.sluide.fileviewers.IgnoreLineEffect
 import dev.sluide.fileviewers.IgnoreRuleEffects
+import dev.sluide.textediting.TextEncoding
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.io.path.deleteExisting
+import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -18,7 +20,7 @@ class IgnoreDotsTrackerTest {
     @TempDir
     lateinit var dir: Path
 
-    private val saved = "# c\nbuild/\n\n*.log\nold\n"
+    private var saved = "# c\nbuild/\n\n*.log\nold\n"
     private var text = saved
     private var service: IgnoreRuleEffects? = IgnoreRuleEffects()
     private var lookups = 0
@@ -141,6 +143,16 @@ class IgnoreDotsTrackerTest {
         dir.resolve(".gitignore").writeText("other\n")
         service?.changed()
         assertFalse(tracker.isKnown)
+    }
+
+    @Test
+    fun `a Windows-1252 file on disk has the saved text`() {
+        val tracker = tracker()
+        // The saved text's comment is "# ä" now, in Windows-1252 on disk.
+        saved = saved.replace("# c", "# ä")
+        dir.resolve(".gitignore").writeBytes(saved.toByteArray(TextEncoding.WINDOWS_1252.charset))
+        service?.changed()
+        assertTrue(tracker.isKnown)
     }
 
     @Test

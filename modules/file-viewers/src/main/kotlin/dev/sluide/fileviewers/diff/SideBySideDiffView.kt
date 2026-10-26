@@ -9,6 +9,7 @@ import dev.sluide.fileviewers.alignDiff
 import dev.sluide.fileviewers.code.codeStyleSpans
 import dev.sluide.fileviewers.code.overlayRanges
 import dev.sluide.fileviewers.textLines
+import dev.sluide.textediting.decodeTextLeniently
 import javafx.application.Platform
 import javafx.beans.value.ChangeListener
 import javafx.geometry.Pos
@@ -34,7 +35,7 @@ import org.kordamp.ikonli.materialdesign2.MaterialDesignP
 import org.reactfx.value.Var
 import java.nio.file.Path
 import java.util.function.IntFunction
-import kotlin.io.path.readText
+import kotlin.io.path.readBytes
 import kotlin.math.abs
 
 /**
@@ -173,10 +174,10 @@ internal class SideBySideDiffView(
         right.pane.scrollYToPixel(scrollY)
     }
 
-    /** The text of the right side: the file as it is now, or the text given. */
+    /** The text of the right side: the file as it is now (UTF-8 or Windows-1252, ADR 0098), or the text given. */
     private fun currentText() =
         when (current) {
-            is CurrentText.File -> current.file.readText()
+            is CurrentText.File -> decodeTextLeniently(current.file.readBytes())
             is CurrentText.Fixed -> current.text
         }
 

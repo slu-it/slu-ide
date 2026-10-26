@@ -7,6 +7,7 @@ import dev.sluide.fileviewers.LineChange
 import dev.sluide.fileviewers.TextDiff
 import dev.sluide.fileviewers.languages.KotlinFileViewer
 import dev.sluide.fileviewers.press
+import dev.sluide.textediting.TextEncoding
 import javafx.event.Event
 import javafx.scene.Scene
 import javafx.scene.control.Button
@@ -26,6 +27,7 @@ import org.testfx.util.WaitForAsyncUtils
 import java.io.IOException
 import java.nio.file.Path
 import kotlin.io.path.deleteExisting
+import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -288,17 +290,17 @@ class DiffFileViewUiTest {
     }
 
     @Test
-    fun `show reads the file again and uses the new diff`(robot: FxRobot) {
+    fun `show reads the file again, Windows-1252 too, and uses the new diff`(robot: FxRobot) {
         val file = dir.resolve("a.txt").apply { writeText("a\nb\n") }
         val view =
             openDiff(file, TextDiff("a\n", listOf(LineChange(1 until 1, 1..1))))
         robot.interact { container.children.setAll(view.node) }
 
-        file.writeText("a\n")
-        robot.interact { view.show(TextDiff("a\n", emptyList())) }
+        file.writeBytes("ä\n".toByteArray(TextEncoding.WINDOWS_1252.charset))
+        robot.interact { view.show(TextDiff("ä\n", emptyList())) }
 
         val right = robot.lookup(".code-area").queryAllAs(CodeArea::class.java).maxBy { it.localToScene(0.0, 0.0).x }
-        assertEquals("a", right.text)
+        assertEquals("ä", right.text)
         assertEquals(listOf(emptyList<String>()), right.paragraphClasses())
     }
 

@@ -51,10 +51,3 @@ internal fun firstLine(sample: ByteArray): String {
 
 private fun readSample(file: Path): ByteArray =
     Files.newInputStream(file).use { input -> input.readNBytes(TEXT_SAMPLE_SIZE) }
-
-/** [bytes] decoded as UTF-8, or `null` if they are not valid UTF-8. */
-internal fun decodeUtf8(bytes: ByteArray): String? =
-    dev.sluide.textediting
-        .decodeText(bytes)
-        ?.takeIf { it.encoding == dev.sluide.textediting.TextEncoding.UTF_8 }
-        ?.text

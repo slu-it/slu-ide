@@ -2,8 +2,8 @@ package dev.sluide.fileviewers.ignore
 
 import dev.sluide.fileviewers.IgnoreFileEffects
 import dev.sluide.fileviewers.IgnoreRuleEffects
-import dev.sluide.fileviewers.decodeUtf8
 import dev.sluide.textediting.LineEnding
+import dev.sluide.textediting.decodeTextLeniently
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
@@ -94,7 +94,7 @@ internal class IgnoreDotsTracker(
     private fun onDisk(saved: String): Boolean =
         try {
             val bytes = Files.readAllBytes(file)
-            LineEnding.normalize(decodeUtf8(bytes) ?: String(bytes, Charsets.UTF_8)) == saved
+            LineEnding.normalize(decodeTextLeniently(bytes)) == saved
         } catch (_: IOException) {
             false
         }
