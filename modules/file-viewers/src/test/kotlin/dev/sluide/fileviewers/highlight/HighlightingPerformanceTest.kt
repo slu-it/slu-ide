@@ -6,6 +6,7 @@ import dev.sluide.fileviewers.env.EnvValues
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.measureTime
 
@@ -61,6 +62,117 @@ class HighlightingPerformanceTest {
         )
         assertFast("env", RSyntaxHighlighter.env, lines("export URL=https://x.y/a#b # c\nKEY=\"a # b\" # c"))
         assertFast("PEM", RSyntaxHighlighter.pem, lines("-----BEGIN CERTIFICATE-----\nProc-Type: 4\nMIIBVQIBADAN"))
+    }
+
+    @Test
+    fun `compiled languages with line rules, masks and raw strings`() {
+        assertFast("C digit separators", RSyntaxHighlighter.c, lines("int n = 1'000'000 + 0xFF'FF; char c = 'a';"))
+        assertFast(
+            "C++ std types",
+            RSyntaxHighlighter.cpp,
+            lines("std::vector<std::string> v = std::move(w); // 1'000"),
+        )
+        assertFast(
+            "C# attributes",
+            RSyntaxHighlighter.csharp,
+            lines("    [Obsolete(\"x\")] file class C { } \$\"a{b}\""),
+        )
+        assertFast("C# raw strings", RSyntaxHighlighter.csharp, lines("var s = \"\"\"a\"\"\"; var t = \"\";"))
+        assertFast("Go raw strings", RSyntaxHighlighter.go, lines("s := `a` + `b` + \"c\""))
+        assertFast("go.mod", RSyntaxHighlighter.goMod, lines("\tgolang.org/x/text v0.14.0 // indirect"))
+        assertFast(
+            "Rust",
+            RSyntaxHighlighter.rust,
+            lines("#[derive(Debug)] fn f<'a>(x: &'a str) { println!(\"{}\", 'x'); }"),
+        )
+        assertFast("Scala raw strings", RSyntaxHighlighter.scala, lines("val s = s\"\"\"a \$b\"\"\" + raw\"x\""))
+        assertFast("Visual Basic", RSyntaxHighlighter.visualBasic, lines("    REM comment : x = 1 : rem again"))
+        assertFast("Pascal", RSyntaxHighlighter.pascal, lines("  x := \$1F + 42; // comment"))
+        assertFast("Fortran", RSyntaxHighlighter.fortran, lines("  x = 1.5d0 + 2.0_dp .and. .not. b ! comment"))
+        assertFast("assembler", RSyntaxHighlighter.assembler, lines("loop: mov eax, 0x1F ; add r12d, 0FFh"))
+    }
+
+    @Test
+    fun `lexer masks cost little next to the lexer`() {
+        // The digit separator mask once ran its lookbehind at every position and made C 35 times slower than the bare
+        // lexer. The runs alternate and the best of each are compared, so that a busy machine slows both alike.
+        val text = lines("    int n = 1'000 + (a[i] * 0xFF) + sizeof(struct s); // comment 'x' \"s\"", 20_000)
+
+        val bareLexer = RSyntaxHighlighter("text/c")
+        val maskedLexer = RSyntaxHighlighter.c
+        bareLexer.highlight("warm up\n")
+        maskedLexer.highlight("warm up\n")
+        val bare = mutableListOf<Duration>()
+        val masked = mutableListOf<Duration>()
+        repeat(3) {
+            bare += measureTime { bareLexer.highlight(text) }
+            masked += measureTime { maskedLexer.highlight(text) }
+        }
+        assertTrue(masked.min() < bare.min() * 8 + 100.milliseconds, "masked C took $masked, the bare lexer $bare")
+    }
+
+    @Test
+    fun `compiled languages with long lines`() {
+        val blanks = " ".repeat(80_000)
+        assertFast(
+            "C digit separators",
+            RSyntaxHighlighter.cpp,
+            "1" + "'1".repeat(40_000) + "\n" + "'".repeat(80_000) + "\n",
+        )
+        assertFast("C# attribute blanks", RSyntaxHighlighter.csharp, "[a$blanks\nfile$blanks\n")
+        assertFast("C# attribute brackets", RSyntaxHighlighter.csharp, "[a" + "(b)".repeat(30_000) + "x\n")
+        assertFast(
+            "C# interpolation",
+            RSyntaxHighlighter.csharp,
+            "\$".repeat(80_000) + "\n" + "@\$".repeat(40_000) + "\n",
+        )
+        assertFast(
+            "go.mod versions",
+            RSyntaxHighlighter.goMod,
+            "go" + " v1.2.3".repeat(20_000) + "\n" + "1." + "1.".repeat(40_000) + "\n",
+        )
+        assertFast("go.mod comments", RSyntaxHighlighter.goMod, "// ".repeat(30_000) + "\n" + "/".repeat(80_000) + "\n")
+        val rust = RSyntaxHighlighter.rust
+        assertFast("Rust attributes", rust, "#[".repeat(30_000) + "\n" + "#![".repeat(20_000) + "]\n")
+        assertFast("Rust lifetimes", rust, "'a ".repeat(30_000) + "\n" + "'" + "a".repeat(80_000) + "\n")
+        assertFast("Rust macros", rust, "a!".repeat(30_000) + "\n" + "a" + "!".repeat(80_000) + "(\n")
+        assertFast("Rust raw string quotes", rust, "r#\"".repeat(20_000) + "\n")
+        assertFast("Go backticks", RSyntaxHighlighter.go, "`".repeat(80_000) + "\n" + "`a".repeat(30_000) + "\n")
+        assertFast(
+            "Scala quotes",
+            RSyntaxHighlighter.scala,
+            "\"\"\"a".repeat(20_000) + "\n" + "s".repeat(80_000) + "\"\n",
+        )
+        assertFast(
+            "Visual Basic rem",
+            RSyntaxHighlighter.visualBasic,
+            ":$blanks".repeat(2) + "rem\n" + ": ".repeat(40_000) + "\n",
+        )
+        assertFast(
+            "Fortran numbers",
+            RSyntaxHighlighter.fortran,
+            "1." + "1.".repeat(40_000) + "\n" + "1d" + "1".repeat(80_000) + "\n",
+        )
+        assertFast(
+            "assembler labels",
+            RSyntaxHighlighter.assembler,
+            "a" + ".a".repeat(40_000) + "\n" + blanks + "a" + blanks + "\n",
+        )
+        assertFast(
+            "assembler numbers",
+            RSyntaxHighlighter.assembler,
+            "1".repeat(80_000) + "\n" + "0x" + "f".repeat(80_000) + "\n",
+        )
+        assertFast(
+            "assembler registers",
+            RSyntaxHighlighter.assembler,
+            "r1".repeat(40_000) + "\n" + " eax".repeat(20_000) + "\n",
+        )
+        assertFast(
+            "Pascal hex",
+            RSyntaxHighlighter.pascal,
+            "\$f".repeat(40_000) + "\n" + "\$" + "f".repeat(80_000) + "\n",
+        )
     }
 
     @Test

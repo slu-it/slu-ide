@@ -244,6 +244,20 @@ internal class RSyntaxHighlighter(
     /** The configured languages, defined by family in [WebLanguages], [ScriptLanguages] and so on. */
     companion object {
         val java = ScriptLanguages.java
+        val c = CompiledLanguages.c
+        val cpp = CompiledLanguages.cpp
+        val csharp = CompiledLanguages.csharp
+        val go = CompiledLanguages.go
+        val goMod = CompiledLanguages.goMod
+        val rust = CompiledLanguages.rust
+        val d = CompiledLanguages.d
+        val scala = CompiledLanguages.scala
+        val dart = CompiledLanguages.dart
+        val visualBasic = CompiledLanguages.visualBasic
+        val pascal = CompiledLanguages.pascal
+        val fortran = CompiledLanguages.fortran
+        val assembler = CompiledLanguages.assembler
+        val vhdl = CompiledLanguages.vhdl
         val kotlin = ScriptLanguages.kotlin
         val groovy = ScriptLanguages.groovy
         val python = ScriptLanguages.python

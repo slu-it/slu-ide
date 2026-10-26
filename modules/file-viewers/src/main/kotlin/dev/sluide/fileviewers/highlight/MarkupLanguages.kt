@@ -92,6 +92,20 @@ internal object MarkupLanguages {
     fun forLanguage(language: String): SyntaxHighlighter? =
         when (language) {
             "java" -> ScriptLanguages.java
+            "c" -> CompiledLanguages.c
+            "cpp", "c++", "cxx", "h", "hpp" -> CompiledLanguages.cpp
+            "csharp", "cs", "c#" -> CompiledLanguages.csharp
+            "go", "golang" -> CompiledLanguages.go
+            "gomod", "go.mod", "go.work" -> CompiledLanguages.goMod
+            "rust", "rs" -> CompiledLanguages.rust
+            "d" -> CompiledLanguages.d
+            "scala" -> CompiledLanguages.scala
+            "dart" -> CompiledLanguages.dart
+            "vb", "vbnet", "vbscript" -> CompiledLanguages.visualBasic
+            "pascal", "delphi", "pas" -> CompiledLanguages.pascal
+            "fortran", "f90" -> CompiledLanguages.fortran
+            "asm", "nasm", "x86asm" -> CompiledLanguages.assembler
+            "vhdl" -> CompiledLanguages.vhdl
             "kotlin", "kt", "kts" -> ScriptLanguages.kotlin
             "groovy", "gradle" -> ScriptLanguages.groovy
             "python", "py" -> ScriptLanguages.python

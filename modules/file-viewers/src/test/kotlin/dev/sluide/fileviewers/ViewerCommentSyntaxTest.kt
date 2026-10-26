@@ -1,13 +1,22 @@
 package dev.sluide.fileviewers
 
 import dev.sluide.fileviewers.bicep.BicepParamFileViewer
+import dev.sluide.fileviewers.languages.AssemblerFileViewer
+import dev.sluide.fileviewers.languages.CFileViewer
+import dev.sluide.fileviewers.languages.CSharpFileViewer
 import dev.sluide.fileviewers.languages.CaddyfileFileViewer
 import dev.sluide.fileviewers.languages.CodeownersFileViewer
 import dev.sluide.fileviewers.languages.ConfigFileViewer
+import dev.sluide.fileviewers.languages.CppFileViewer
 import dev.sluide.fileviewers.languages.CssFileViewer
+import dev.sluide.fileviewers.languages.DFileViewer
+import dev.sluide.fileviewers.languages.DartFileViewer
 import dev.sluide.fileviewers.languages.DockerfileFileViewer
+import dev.sluide.fileviewers.languages.FortranFileViewer
 import dev.sluide.fileviewers.languages.GitBlameIgnoreRevsFileViewer
 import dev.sluide.fileviewers.languages.GitattributesFileViewer
+import dev.sluide.fileviewers.languages.GoFileViewer
+import dev.sluide.fileviewers.languages.GoModFileViewer
 import dev.sluide.fileviewers.languages.GroovyFileViewer
 import dev.sluide.fileviewers.languages.IgnoreFileViewer
 import dev.sluide.fileviewers.languages.IniFileViewer
@@ -22,10 +31,13 @@ import dev.sluide.fileviewers.languages.LessFileViewer
 import dev.sluide.fileviewers.languages.MailmapFileViewer
 import dev.sluide.fileviewers.languages.MakefileFileViewer
 import dev.sluide.fileviewers.languages.MdxFileViewer
+import dev.sluide.fileviewers.languages.PascalFileViewer
 import dev.sluide.fileviewers.languages.PowerShellFileViewer
 import dev.sluide.fileviewers.languages.PropertiesFileViewer
 import dev.sluide.fileviewers.languages.PythonFileViewer
+import dev.sluide.fileviewers.languages.RustFileViewer
 import dev.sluide.fileviewers.languages.SassFileViewer
+import dev.sluide.fileviewers.languages.ScalaFileViewer
 import dev.sluide.fileviewers.languages.ScssFileViewer
 import dev.sluide.fileviewers.languages.ShellFileViewer
 import dev.sluide.fileviewers.languages.SingleFileComponentFileViewer
@@ -34,6 +46,8 @@ import dev.sluide.fileviewers.languages.SshConfigFileViewer
 import dev.sluide.fileviewers.languages.TomlFileViewer
 import dev.sluide.fileviewers.languages.TsxFileViewer
 import dev.sluide.fileviewers.languages.TypeScriptFileViewer
+import dev.sluide.fileviewers.languages.VhdlFileViewer
+import dev.sluide.fileviewers.languages.VisualBasicFileViewer
 import dev.sluide.textediting.CommentSyntax
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -51,6 +65,20 @@ class ViewerCommentSyntaxTest {
                 KotlinFileViewer() to CommentSyntax.SLASHES,
                 GroovyFileViewer() to CommentSyntax.SLASHES,
                 JavaFileViewer() to CommentSyntax.SLASHES,
+                CFileViewer() to CommentSyntax.SLASHES,
+                CppFileViewer() to CommentSyntax.SLASHES,
+                CSharpFileViewer() to CommentSyntax.SLASHES,
+                GoFileViewer() to CommentSyntax.SLASHES,
+                GoModFileViewer() to CommentSyntax.LINE_SLASHES,
+                RustFileViewer() to CommentSyntax.SLASHES,
+                DFileViewer() to CommentSyntax.SLASHES,
+                ScalaFileViewer() to CommentSyntax.SLASHES,
+                DartFileViewer() to CommentSyntax.SLASHES,
+                VisualBasicFileViewer() to CommentSyntax.APOSTROPHE,
+                PascalFileViewer() to CommentSyntax.PASCAL,
+                FortranFileViewer() to CommentSyntax.BANG,
+                AssemblerFileViewer() to CommentSyntax.SEMICOLON,
+                VhdlFileViewer() to CommentSyntax.DOUBLE_DASH,
                 JavaScriptFileViewer() to CommentSyntax.SLASHES,
                 TypeScriptFileViewer() to CommentSyntax.SLASHES,
                 JsxFileViewer() to CommentSyntax.SLASHES,

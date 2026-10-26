@@ -2,13 +2,22 @@ package dev.sluide.fileviewers
 
 import dev.sluide.fileviewers.bicep.BicepParamFileViewer
 import dev.sluide.fileviewers.code.CodeFileViewer
+import dev.sluide.fileviewers.languages.AssemblerFileViewer
+import dev.sluide.fileviewers.languages.CFileViewer
+import dev.sluide.fileviewers.languages.CSharpFileViewer
 import dev.sluide.fileviewers.languages.CaddyfileFileViewer
 import dev.sluide.fileviewers.languages.CodeownersFileViewer
 import dev.sluide.fileviewers.languages.ConfigFileViewer
+import dev.sluide.fileviewers.languages.CppFileViewer
 import dev.sluide.fileviewers.languages.CssFileViewer
+import dev.sluide.fileviewers.languages.DFileViewer
+import dev.sluide.fileviewers.languages.DartFileViewer
 import dev.sluide.fileviewers.languages.DockerfileFileViewer
+import dev.sluide.fileviewers.languages.FortranFileViewer
 import dev.sluide.fileviewers.languages.GitBlameIgnoreRevsFileViewer
 import dev.sluide.fileviewers.languages.GitattributesFileViewer
+import dev.sluide.fileviewers.languages.GoFileViewer
+import dev.sluide.fileviewers.languages.GoModFileViewer
 import dev.sluide.fileviewers.languages.GroovyFileViewer
 import dev.sluide.fileviewers.languages.IgnoreFileViewer
 import dev.sluide.fileviewers.languages.IniFileViewer
@@ -23,10 +32,13 @@ import dev.sluide.fileviewers.languages.LessFileViewer
 import dev.sluide.fileviewers.languages.MailmapFileViewer
 import dev.sluide.fileviewers.languages.MakefileFileViewer
 import dev.sluide.fileviewers.languages.MdxFileViewer
+import dev.sluide.fileviewers.languages.PascalFileViewer
 import dev.sluide.fileviewers.languages.PowerShellFileViewer
 import dev.sluide.fileviewers.languages.PropertiesFileViewer
 import dev.sluide.fileviewers.languages.PythonFileViewer
+import dev.sluide.fileviewers.languages.RustFileViewer
 import dev.sluide.fileviewers.languages.SassFileViewer
+import dev.sluide.fileviewers.languages.ScalaFileViewer
 import dev.sluide.fileviewers.languages.ScssFileViewer
 import dev.sluide.fileviewers.languages.ShellFileViewer
 import dev.sluide.fileviewers.languages.SingleFileComponentFileViewer
@@ -35,6 +47,8 @@ import dev.sluide.fileviewers.languages.SshConfigFileViewer
 import dev.sluide.fileviewers.languages.TomlFileViewer
 import dev.sluide.fileviewers.languages.TsxFileViewer
 import dev.sluide.fileviewers.languages.TypeScriptFileViewer
+import dev.sluide.fileviewers.languages.VhdlFileViewer
+import dev.sluide.fileviewers.languages.VisualBasicFileViewer
 import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.io.path.writeBytes
@@ -57,6 +71,21 @@ class CodeFileViewersTest {
             GroovyFileViewer() to
                 listOf("build.gradle", "settings.gradle", "Script.groovy", "Jenkinsfile", "jenkinsfile.prod"),
             JavaFileViewer() to listOf("Main.java"),
+            CFileViewer() to listOf("main.c", "OLD.C"),
+            CppFileViewer() to
+                listOf("main.cpp", "a.cc", "b.cxx", "c.c++", "util.h", "v.hpp", "v.hh", "v.hxx", "blink.ino"),
+            CSharpFileViewer() to listOf("Program.cs", "script.csx", "build.cake"),
+            GoFileViewer() to listOf("main.go"),
+            GoModFileViewer() to listOf("go.mod", "go.work", "GO.MOD"),
+            RustFileViewer() to listOf("lib.rs"),
+            DFileViewer() to listOf("app.d"),
+            ScalaFileViewer() to listOf("Main.scala", "build.sc"),
+            DartFileViewer() to listOf("main.dart"),
+            VisualBasicFileViewer() to listOf("Form.vb", "run.vbs"),
+            PascalFileViewer() to listOf("unit.pas", "app.dpr", "app.lpr"),
+            FortranFileViewer() to listOf("a.f", "b.for", "c.f77", "d.f90", "e.f95", "f.f03", "g.f08"),
+            AssemblerFileViewer() to listOf("boot.asm", "start.s", "Start.S"),
+            VhdlFileViewer() to listOf("alu.vhd", "alu.vhdl"),
             JavaScriptFileViewer() to listOf("app.js", "module.mjs", "config.cjs"),
             TypeScriptFileViewer() to listOf("app.ts", "types.d.ts", "module.mts", "config.cts"),
             JsxFileViewer() to listOf("Button.jsx"),
@@ -119,6 +148,11 @@ class CodeFileViewersTest {
             "run.bash",
             "env.zsh",
             "old.ksh",
+            "main.go.txt",
+            "site.pp",
+            "go.sum",
+            "app.dartx",
+            "lib.rlib",
         )
 
     private fun file(name: String) = dir.resolve(name).apply { writeText("x = 1\n") }
@@ -138,8 +172,9 @@ class CodeFileViewersTest {
         val javaScript = JavaScriptFileViewer()
         val shell = ShellFileViewer()
         val powerShell = PowerShellFileViewer()
+        val scala = ScalaFileViewer()
         val fallback = DefaultTextFileViewer()
-        val scriptViewers = listOf(python, javaScript, shell, powerShell)
+        val scriptViewers = listOf(python, javaScript, shell, powerShell, scala)
         val viewers = FileViewers(scriptViewers, fallback)
         val scripts: Map<FileViewer, List<String>> =
             mapOf(
@@ -154,6 +189,7 @@ class CodeFileViewersTest {
                 javaScript to
                     listOf("#!/usr/bin/env node\n", "#!/usr/bin/env -S deno run\n", "#!/usr/bin/env bun\n"),
                 powerShell to listOf("#!/usr/bin/env pwsh\n"),
+                scala to listOf("#!/usr/bin/env scala\n", "#!/usr/bin/env -S scala-cli shebang\n"),
                 // Shell scripts are the shell-scripts module's; the startup files' viewer takes no shebang.
                 fallback to listOf("#!/usr/bin/env ruby\n", "# python3\n", "#!/usr/bin/env fish\n", "#!/bin/bash\n"),
             )

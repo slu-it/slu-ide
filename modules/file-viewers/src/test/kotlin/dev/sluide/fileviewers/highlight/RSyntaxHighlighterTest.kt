@@ -59,6 +59,20 @@ class RSyntaxHighlighterTest {
                 KqlHighlighter to listOf("kql", "kusto", "csl"),
                 TomlHighlighter to listOf("toml"),
                 BicepHighlighter to listOf("bicep"),
+                RSyntaxHighlighter.c to listOf("c"),
+                RSyntaxHighlighter.cpp to listOf("cpp", "c++", "cxx", "h", "hpp"),
+                RSyntaxHighlighter.csharp to listOf("csharp", "cs", "c#"),
+                RSyntaxHighlighter.go to listOf("go", "golang"),
+                RSyntaxHighlighter.goMod to listOf("gomod", "go.mod", "go.work"),
+                RSyntaxHighlighter.rust to listOf("rust", "rs"),
+                RSyntaxHighlighter.d to listOf("d"),
+                RSyntaxHighlighter.scala to listOf("scala"),
+                RSyntaxHighlighter.dart to listOf("dart"),
+                RSyntaxHighlighter.visualBasic to listOf("vb", "vbnet", "vbscript"),
+                RSyntaxHighlighter.pascal to listOf("pascal", "delphi", "pas"),
+                RSyntaxHighlighter.fortran to listOf("fortran", "f90"),
+                RSyntaxHighlighter.assembler to listOf("asm", "nasm", "x86asm"),
+                RSyntaxHighlighter.vhdl to listOf("vhdl"),
             )
         for ((highlighter, names) in expected) {
             for (name in names) {
