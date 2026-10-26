@@ -39,5 +39,9 @@
         ]
       }
     ]
+  },
+  "statusLine": {
+    "type": "command",
+    "command": "bash .claude/scripts/statusline.sh"
   }
 }
