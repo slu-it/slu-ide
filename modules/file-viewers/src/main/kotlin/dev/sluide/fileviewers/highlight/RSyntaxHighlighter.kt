@@ -20,6 +20,9 @@ import javax.swing.text.Segment
  * - an identifier in [stringPrefixes] directly before a string (like the `f` of `f'…'`) is part of the string;
  * - [rawStringDelimiter] (e.g. Kotlin's `"""`) marks everything up to the closing delimiter as string, for lexers
  *   that do not know multi-line raw strings;
+ * - [lexerMasks] are regexes whose matches the lexer sees as blanks, for text it misreads and a line rule can style
+ *   afterwards: Rust's `'a` lifetimes, which the lexer takes for the start of a character literal, or the `'` of C++'s
+ *   `1'000`; every other offset stays the same;
  * - [lineRules] are regexes applied to every line; text in a named group whose name is a [TokenStyle.styleClass]
  *   (e.g. `(?<property>…)`) gets that style and replaces the lexer's spans there, except where the lexer found one
  *   of the [keptStyles] (by default comments and strings, so that e.g. a `<b>` in a string is no tag).
@@ -37,6 +40,7 @@ internal class RSyntaxHighlighter(
     private val stringPrefixes: Set<String> = emptySet(),
     private val rawStringDelimiter: String? = null,
     private val lineRules: List<Regex> = emptyList(),
+    private val lexerMasks: List<Regex> = emptyList(),
     private val keptStyles: Set<TokenStyle> = setOf(TokenStyle.COMMENT, TokenStyle.STRING),
 ) : SyntaxHighlighter {
     /** For each line rule, the styles that have a named group in it. */
@@ -116,6 +120,13 @@ internal class RSyntaxHighlighter(
         // Lexers keep state in their token list, so every call gets its own instance.
         val lexer = TokenMakerFactory.getDefaultInstance().getTokenMaker(syntaxStyle)
         val chars = text.toCharArray()
+        for (mask in lexerMasks) {
+            for (match in mask.findAll(text)) {
+                for (i in match.range) {
+                    chars[i] = ' '
+                }
+            }
+        }
         val spans = mutableListOf<HighlightSpan>()
         // Lexing goes line by line; `start` is where lexing continues, usually the start of a line.
         var start = 0
@@ -158,7 +169,9 @@ internal class RSyntaxHighlighter(
         token: Token,
     ): Int {
         val delimiter = rawStringDelimiter ?: return -1
-        if (styleOf(token.type) != TokenStyle.STRING || !text.startsWith(delimiter, token.offset)) return -1
+        // Some lexers report the start of a raw string (Go's backtick) as an error token.
+        val startsString = styleOf(token.type) == TokenStyle.STRING || token.type == TokenTypes.ERROR_IDENTIFIER
+        if (!startsString || !text.startsWith(delimiter, token.offset)) return -1
         val close = text.indexOf(delimiter, token.offset + delimiter.length)
         if (close < 0) return text.length
         // Kotlin allows extra quotes right before the closing delimiter: """a"""" ends after the last quote.

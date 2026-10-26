@@ -24,6 +24,23 @@ class RSyntaxHighlighterTest {
     }
 
     @Test
+    fun `lexer masks hide text from the lexer without moving the rest`() {
+        val java =
+            RSyntaxHighlighter(
+                SyntaxConstants.SYNTAX_STYLE_JAVA,
+                lexerMasks = listOf(Regex("""'(?=a)""")),
+                lineRules = listOf(Regex("""(?<type>'a)""")),
+            )
+        // Unmasked, the quote starts a character literal that reaches over `class` to the next quote.
+        val code = Highlighted("int 'a class 'b' + 1;", java)
+
+        assertEquals(setOf(TokenStyle.KEYWORD), code.stylesOf("class"))
+        assertEquals(setOf(TokenStyle.TYPE), code.stylesOf("'a"), "line rules still see the original text")
+        assertEquals(setOf(TokenStyle.STRING), code.stylesOf("'b'"))
+        assertEquals(setOf(TokenStyle.NUMBER), code.stylesOf("1"), "offsets are unchanged")
+    }
+
+    @Test
     fun `fence names map to their highlighters`() {
         val expected =
             mapOf(
