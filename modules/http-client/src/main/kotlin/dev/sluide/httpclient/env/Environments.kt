@@ -1,12 +1,13 @@
 package dev.sluide.httpclient.env
 
+import dev.sluide.fileviewers.readTextFile
 import tools.jackson.core.JacksonException
 import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
 import tools.jackson.databind.node.ObjectNode
 import java.io.IOException
+import java.nio.file.Files
 import java.nio.file.Path
-import kotlin.io.path.readText
 
 /**
  * An environment: its variables ([values], without `Security` and `SSLConfiguration`), auth configurations by id,
@@ -57,7 +58,9 @@ internal data class Environments(
         ): ObjectNode? {
             val node =
                 try {
-                    mapper.readTree(file.readText().removePrefix("\uFEFF"))
+                    // Neither UTF-8 nor Windows-1252: with replacement characters, as the file's tab shows it.
+                    val text = readTextFile(file) ?: String(Files.readAllBytes(file), Charsets.UTF_8)
+                    mapper.readTree(text.removePrefix("\uFEFF"))
                 } catch (e: JacksonException) {
                     problems += "${file.fileName}: ${e.originalMessage}"
                     return null

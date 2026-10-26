@@ -90,4 +90,14 @@ class TextFileDetectionTest {
         assertEquals("", firstLineOf(""))
         assertEquals("a".repeat(TEXT_SAMPLE_SIZE), firstLineOf("a".repeat(TEXT_SAMPLE_SIZE + 10)))
     }
+
+    @Test
+    fun `reads a text file as the code views do, and nothing that is neither UTF-8 nor Windows-1252`() {
+        fun textOf(vararg bytes: Int) =
+            readTextFile(dir.resolve("file.txt").apply { writeBytes(ByteArray(bytes.size) { bytes[it].toByte() }) })
+
+        assertEquals("aä", textOf(0x61, 0xE4))
+        // 0x81 is undefined in Windows-1252.
+        assertNull(textOf(0x61, 0x81))
+    }
 }

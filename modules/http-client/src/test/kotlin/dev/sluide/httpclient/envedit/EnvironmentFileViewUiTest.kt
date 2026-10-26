@@ -13,9 +13,11 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.nio.charset.Charset
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.exists
 import kotlin.io.path.readText
+import kotlin.io.path.writeBytes
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -67,11 +69,15 @@ internal class EnvironmentFileViewUiTest : EnvironmentFileViewUiFixture() {
     }
 
     @Test
-    fun `shows the same form for the private file`(robot: FxRobot) {
-        val view = open(robot, publicText, privateText, open = privateFile)
+    fun `shows the same form for the private file, reading the other one as the editor does`(robot: FxRobot) {
+        // Windows-1252, read from disk as the file has no tab.
+        publicFile.writeBytes(
+            publicText.replace("https://prod", "https://prød").toByteArray(Charset.forName("windows-1252")),
+        )
+        val view = open(robot, null, privateText, open = privateFile)
 
         assertEquals(FileSide.PRIVATE, view.side)
-        assertEquals("https://prod", view.shown(robot, path("host"), "prod"))
+        assertEquals("https://prød", view.shown(robot, path("host"), "prod"))
         assertEquals(EnvTexts.MASK, view.shown(robot, path("token"), "dev"))
     }
 

@@ -8,6 +8,8 @@ import javafx.util.Duration
 import org.fxmisc.richtext.CodeArea
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
@@ -124,13 +126,24 @@ internal class EnvironmentFileViewSyncUiTest : EnvironmentFileViewUiFixture() {
         assertEquals("", view.warning.text)
     }
 
-    @Test
-    fun `an unreadable other file makes the form read-only`(robot: FxRobot) {
-        Files.createDirectory(privateFile)
+    @ParameterizedTest
+    @ValueSource(strings = ["a folder", "neither UTF-8 nor Windows-1252"])
+    fun `an unreadable other file makes the form read-only`(
+        other: String,
+        robot: FxRobot,
+    ) {
+        if (other == "a folder") {
+            Files.createDirectory(privateFile)
+        } else {
+            // 0x81 is undefined in Windows-1252.
+            Files.write(privateFile, "{\"dev\": {\"token\": \"a".toByteArray() + 0x81.toByte() + "\"}}".toByteArray())
+        }
         val view = open(robot, publicText)
 
         assertFalse(view.form.editable)
-        assertTrue(view.warning.text.startsWith("http-client.private.env.json cannot be read"), view.warning.text)
+        val warning =
+            if (other == "a folder") "cannot be read: " else "is neither UTF-8 nor Windows-1252"
+        assertTrue(view.warning.text.startsWith("http-client.private.env.json $warning"), view.warning.text)
         assertTrue(view.lock(robot, path("host"), "dev").isDisable)
     }
 

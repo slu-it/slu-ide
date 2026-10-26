@@ -6,7 +6,9 @@ import dev.sluide.httpclient.env.AuthConfig.ParameterUse
 import dev.sluide.httpclient.env.SslConfig.CertificateFile
 import dev.sluide.httpclient.env.SslConfig.CertificateFormat
 import org.junit.jupiter.api.io.TempDir
+import java.nio.charset.Charset
 import java.nio.file.Path
+import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -49,6 +51,20 @@ class EnvironmentsTest {
 
         assertTrue(environments.problems.isEmpty(), environments.problems.toString())
         assertEquals("""{"host":"a","token":"t"}""", environments["dev"]?.values.toString())
+    }
+
+    @Test
+    fun `reads Windows-1252 files as the editor does, and others with replacement characters`() {
+        val publicFile = root.resolve(EnvironmentFiles.PUBLIC)
+        publicFile.writeBytes("{\"dev\": {\"user\": \"Jörg\"}}".toByteArray(Charset.forName("windows-1252")))
+        // 0x81 is undefined in Windows-1252.
+        val privateFile = root.resolve(EnvironmentFiles.PRIVATE)
+        privateFile.writeBytes("{\"dev\": {\"token\": \"a".toByteArray() + 0x81.toByte() + "\"}}".toByteArray())
+
+        val environments = Environments.load(EnvironmentFiles(publicFile, privateFile))
+
+        assertTrue(environments.problems.isEmpty(), environments.problems.toString())
+        assertEquals("""{"user":"Jörg","token":"a${Char(0xFFFD)}"}""", environments["dev"]?.values.toString())
     }
 
     @Test

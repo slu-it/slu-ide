@@ -4,6 +4,7 @@ import dev.sluide.fileviewers.CodeEditor
 import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.TextEditableView
+import dev.sluide.fileviewers.readTextFile
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.problemSummary
 import javafx.animation.PauseTransition
@@ -261,7 +262,9 @@ internal class EnvironmentFileView(
         host?.currentText(file)?.let { return EnvFileWriter.normalize(it) }
         if (!Files.exists(file)) return null
         return try {
-            EnvFileWriter.normalize(Files.readString(file))
+            readTextFile(file)?.let(EnvFileWriter::normalize).also {
+                if (it == null) otherProblem = "${file.fileName} is neither UTF-8 nor Windows-1252"
+            }
         } catch (e: IOException) {
             otherProblem = "${file.fileName} cannot be read: ${e.message}"
             null

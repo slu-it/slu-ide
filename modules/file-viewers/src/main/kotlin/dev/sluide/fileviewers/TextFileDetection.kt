@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.textediting.decodeText
 import dev.sluide.textediting.isTextSample
 import java.io.IOException
 import java.nio.file.Files
@@ -51,3 +52,12 @@ internal fun firstLine(sample: ByteArray): String {
 
 private fun readSample(file: Path): ByteArray =
     Files.newInputStream(file).use { input -> input.readNBytes(TEXT_SAMPLE_SIZE) }
+
+/**
+ * The text of [file] as the code views read it (ADR 0098): UTF-8, else Windows-1252, or `null` if it is neither; for
+ * files that a view reads beside the one it shows, e.g. the other HTTP environment file.
+ *
+ * @throws IOException if the file cannot be read.
+ */
+@Throws(IOException::class)
+fun readTextFile(file: Path): String? = decodeText(Files.readAllBytes(file))?.text
