@@ -119,6 +119,7 @@ updated when the summary or keywords no longer fit.
 | [0097](adr/0097-second-file-type-round.md) | More RSyntaxTextArea languages with corrections; own tokenizers for HCL and GraphQL | languages, `CompiledLanguages`, `DynamicLanguages`, `lexerMasks`, `stringStyles`, HCL, Terraform, GraphQL | amends 0031; see 0005 |
 | [0098](adr/0098-windows-1252-fallback.md) | Text that is not UTF-8 opens and saves as Windows-1252 | encoding, Windows-1252, Latin-1, `TextEncoding`, `decodeText`, Convert to UTF-8, `readTextFile` | see 0097 |
 | [0099](adr/0099-linear-lexing-of-long-lines.md) | Lines with many tokens or raw strings lex in near-linear time | performance, quadratic, token pool, `TokenMakerBase`, reflection, `rawStringDelimiter`, minified, Handlebars | see 0005, 0097 |
+| [0100](adr/0100-editing-commit-messages.md) | Edit the message of any commit of the current branch by rewriting the commits after it | `GitRewords`, reword, edit commit message, `hash-object`, `update-ref`, default branch, `origin/HEAD`, signatures | see 0048, 0063 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
