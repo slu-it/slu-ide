@@ -355,6 +355,26 @@ class HighlightingPerformanceTest {
     }
 
     @Test
+    fun `HCL tokenizer`() {
+        val hcl = HclHighlighter
+        val block =
+            "resource \"aws_s3_bucket\" \"b\" {\n  bucket = \"\${var.prefix}-\${each.key}\" # c\n" +
+                "  tags = { for k, v in local.t : k => upper(v) if v != null }\n  lifecycle { ignore_changes = [a, b] }\n}"
+        assertFast("HCL lines", hcl, lines(block, count = 10_000))
+        assertFast("HCL attributes", hcl, lines("  name = \"x\${a}\" // c", count = 50_000))
+        assertFast("HCL interpolations", hcl, "a = \"" + "\${".repeat(80_000) + "\n" + "}\"".repeat(40_000))
+        assertFast("HCL unterminated interpolation", hcl, "a = \"\${f(" + lines("  b = 1", count = 20_000))
+        assertFast("HCL quotes", hcl, "a = " + "\"".repeat(80_000) + "\n")
+        assertFast("HCL brackets", hcl, "a = " + "[".repeat(80_000) + "\n" + "]{".repeat(40_000) + "\n")
+        assertFast("HCL header labels", hcl, "a" + " \"b\"".repeat(40_000) + " {\n")
+        assertFast("HCL unclosed heredoc", hcl, "a = <<EOF\n" + lines("  b \${c} %{if d}e%{endif}", count = 20_000))
+        assertFast("HCL heredoc lines", hcl, "a = <<EOF\n" + "x\n".repeat(80_000))
+        assertFast("HCL escapes", hcl, "a = \"" + "\\\"".repeat(80_000) + "\nb = \"" + "\$\${".repeat(40_000) + "\n")
+        assertFast("HCL block comments", hcl, "/**/".repeat(100_000) + "\n" + "/*".repeat(50_000))
+        assertFast("HCL members", hcl, "x" + ".a.0".repeat(50_000) + "\n")
+    }
+
+    @Test
     fun `long strings neither overflow the stack nor backtrack`() {
         val escapes = "\\x".repeat(100_000)
         assertFast("Caddy escapes", RSyntaxHighlighter.caddyfile, "  respond \"$escapes\" 200\n")
