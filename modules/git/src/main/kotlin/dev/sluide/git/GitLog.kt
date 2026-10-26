@@ -34,6 +34,7 @@ import dev.sluide.git.parse.GitLogParser
 import dev.sluide.git.parse.GitNameStatusParser
 import dev.sluide.git.parse.GitRefsParser
 import dev.sluide.git.parse.GitRevisionParser
+import dev.sluide.textediting.decodeTextLeniently
 import org.springframework.stereotype.Component
 import java.io.IOException
 import java.nio.file.Files
@@ -301,8 +302,9 @@ class GitLog(
         val currentBytes =
             currentObject?.let { git.blob(root, it.name, cancellation = cancellation) ?: return null } ?: ByteArray(0)
         if (isBinary(originalBytes) || isBinary(currentBytes)) return GitFileDiff.Binary
-        val originalText = originalBytes.toString(Charsets.UTF_8)
-        val currentText = currentBytes.toString(Charsets.UTF_8)
+        // As the editor decodes files: UTF-8 or Windows-1252 (ADR 0098).
+        val originalText = decodeTextLeniently(originalBytes)
+        val currentText = decodeTextLeniently(currentBytes)
         val hunks =
             when {
                 originalObject == null -> {
@@ -428,8 +430,8 @@ class GitLog(
                 is FilteredBlob.Content -> blob.bytes
             }
         if (isBinary(originalBytes) || isBinary(current)) return GitFileDiff.Binary
-        val originalText = originalBytes.toString(Charsets.UTF_8)
-        val currentText = current.toString(Charsets.UTF_8)
+        val originalText = decodeTextLeniently(originalBytes)
+        val currentText = decodeTextLeniently(current)
         val hunks =
             when {
                 originalObject == null -> wholeFile(lineCount(currentText), added = true)

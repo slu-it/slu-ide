@@ -19,6 +19,8 @@ dependencies {
     // Deliberate module API dependency: git's tools run only in folders the user trusts (ADR 0053); GitTrustCheck is a
     // ProjectTrustCheck.
     api(project(":modules:project-trust"))
+    // Deliberate module dependency: diffs decode file contents as the editor does, UTF-8 or Windows-1252 (ADR 0098).
+    implementation(project(":modules:text-editing"))
     implementation(libs.spring.context)
 }
 

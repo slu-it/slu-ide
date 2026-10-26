@@ -5,6 +5,7 @@ import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.cli.GitCli
 import dev.sluide.git.cli.headContent
 import dev.sluide.projecttrust.ProjectTrustState
+import dev.sluide.textediting.TextEncoding
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.BeforeEach
@@ -14,6 +15,7 @@ import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import kotlin.io.path.createDirectories
+import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -183,8 +185,11 @@ class GitStatusServiceTest {
         repo.resolve("lines.txt").writeText("a\nb\nc\nd\n")
         repo.resolve("star*.txt").writeText("one\n")
         repo.resolve("starX.txt").writeText("one\n")
+        val windows1252 = TextEncoding.WINDOWS_1252.charset
+        repo.resolve("latin1.txt").writeBytes("Grüße\n".toByteArray(windows1252))
         git("add", ".")
         git("commit", "-q", "-m", "More files")
+        repo.resolve("latin1.txt").writeBytes("Grüße!\n".toByteArray(windows1252))
         repo.resolve("lines.txt").writeText("a\nB\nc\nd\ne\n")
         repo.resolve("star*.txt").writeText("two\n")
         repo.resolve("starX.txt").writeText("zero\none\n")
@@ -199,11 +204,13 @@ class GitStatusServiceTest {
         // The name is not a pattern: starX.txt is not part of this diff.
         assertEquals(GitDiff("one\n", listOf(GitHunk(0..0, 0..0))), diffOf(repo.resolve("star*.txt")))
         assertEquals(GitDiff("val a = 1\n", emptyList()), diffOf(repo.resolve("tracked.kt")))
+        // Decoded as the editor decodes the file.
+        assertEquals(GitDiff("Grüße\n", listOf(GitHunk(0..0, 0..0))), diffOf(repo.resolve("latin1.txt")))
         assertNull(diffOf(repo.resolve("untracked.txt").apply { writeText("") }))
         assertNull(diffOf(repo.parent.resolve("outside.txt")))
         // GitCli takes relative paths from the working directory.
         val relative = Path.of("").toAbsolutePath().relativize(repo.resolve("lines.txt"))
-        assertEquals("a\nb\nc\nd\n", git.headContent(repo, relative))
+        assertEquals("a\nb\nc\nd\n", git.headContent(repo, relative)?.decodeToString())
     }
 
     @Test

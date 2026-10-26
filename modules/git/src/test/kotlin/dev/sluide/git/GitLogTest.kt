@@ -3,6 +3,7 @@ package dev.sluide.git
 import dev.sluide.git.cli.GitCli
 import dev.sluide.git.cli.changedFiles
 import dev.sluide.git.cli.refs
+import dev.sluide.textediting.TextEncoding
 import java.time.Instant
 import kotlin.io.path.appendText
 import kotlin.io.path.createDirectories
@@ -357,6 +358,20 @@ internal class GitLogTest : GitLogFixture() {
             GitFileDiff.Text("", "Größe\n", listOf(GitHunk(0 until 0, 0 until 1))),
             log.fileDiff(repo, commit, parent, files.orEmpty().single()),
         )
+    }
+
+    @Test
+    fun `a Windows-1252 file is decoded as the editor decodes it, in commits and against the working tree`() {
+        val windows1252 = TextEncoding.WINDOWS_1252.charset
+        val file = repo.resolve("latin1.txt").apply { writeBytes("Grüße\n".toByteArray(windows1252)) }
+        val first = commitFiles("First")
+        file.writeBytes("Grüße\nÄrger\n".toByteArray(windows1252))
+        val second = commitFiles("Second")
+        val modified = GitChangedFile(GitChange.MODIFIED, "latin1.txt")
+        val expected = GitFileDiff.Text("Grüße\n", "Grüße\nÄrger\n", listOf(GitHunk(1 until 1, 1 until 2)))
+
+        assertEquals(expected, log.fileDiff(repo, second, first, modified))
+        assertEquals(expected, log.workingTreeFileDiff(repo, first, modified))
     }
 
     @Test

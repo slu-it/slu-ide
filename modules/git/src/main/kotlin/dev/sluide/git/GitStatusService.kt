@@ -10,6 +10,7 @@ import dev.sluide.git.cli.ignoreRules
 import dev.sluide.git.cli.status
 import dev.sluide.git.parse.GitDiffParser
 import dev.sluide.projecttrust.ProjectTrust
+import dev.sluide.textediting.decodeTextLeniently
 import javafx.application.Platform
 import javafx.beans.property.ReadOnlyLongProperty
 import javafx.beans.property.ReadOnlyLongWrapper
@@ -502,7 +503,8 @@ class GitStatusService(
         cancellation: GitCancellation,
     ): GitDiff? {
         if (current == null || !allowsGit(current)) return null
-        val original = git.headContent(current.root, path, cancellation) ?: return null
+        // Decoded as the editor decodes the file: UTF-8 or Windows-1252 (ADR 0098).
+        val original = git.headContent(current.root, path, cancellation)?.let(::decodeTextLeniently) ?: return null
         val output = git.diffToHead(current.root, path, cancellation) ?: return null
         return GitDiff(original, GitDiffParser.parse(output))
     }

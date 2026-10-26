@@ -18,7 +18,7 @@ internal fun GitCli.status(root: Path): String? {
 }
 
 /**
- * The content of [file] at `HEAD` in the repository at [root], with the filters (line endings, smudge) a checkout
+ * The bytes of [file] at `HEAD` in the repository at [root], with the filters (line endings, smudge) a checkout
  * would apply, or `null` if git is not available, fails (e.g. the file is not in `HEAD`), takes longer than 3 s or is
  * stopped by [cancellation].
  */
@@ -26,10 +26,10 @@ internal fun GitCli.headContent(
     root: Path,
     file: Path,
     cancellation: GitCancellation? = null,
-): String? {
+): ByteArray? {
     if (!available) return null
     val path = relativePath(root, file) ?: return null
-    return run(listOf("cat-file", "--filters", "HEAD:$path"), root, 3.seconds, cancellation)
+    return runBytes(listOf("cat-file", "--filters", "HEAD:$path"), root, 3.seconds, cancellation = cancellation)
 }
 
 /**
