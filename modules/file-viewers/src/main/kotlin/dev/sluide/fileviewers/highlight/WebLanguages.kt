@@ -150,8 +150,9 @@ internal object WebLanguages {
                     Regex("""\{\{~?+(?<keyword>#?+>)\s*+(?<type>[\w./@-]++)?"""),
                     Regex("""\{\{~?+(?<keyword>[#/]\s*+\*?+[\w.@-]++|\^[\w.@-]*+)"""),
                     Regex("""(?<operator>\{\{\{?+~?+|~?+}}}?+)"""),
-                    Regex("""(?<=\{\{[^}\n]{0,200})(?<annotation>@[A-Za-z_][\w.]*+)"""),
-                    Regex("""(?<=\{\{[^}\n]{0,200})(?<![\w.@-])(?<keyword>this)(?![\w-])"""),
+                    // The lookahead first, so that the long lookbehind runs only where the word is.
+                    Regex("""(?=@)(?<=\{\{[^}\n]{0,200})(?<annotation>@[A-Za-z_][\w.]*+)"""),
+                    Regex("""(?=this)(?<=\{\{[^}\n]{0,200})(?<![\w.@-])(?<keyword>this)(?![\w-])"""),
                     Regex("""(?<tag></?+[A-Z][\w.:-]*+)(?=[\s/>]|$)"""),
                 ),
         )
