@@ -33,6 +33,33 @@ data class CommentSyntax(
         /** Mermaid diagrams, which have only line comments starting with `%%`. */
         val MERMAID = CommentSyntax("%%", null)
 
+        /** Windows batch files: `REM` comments (`::` labels work too, but not inside parenthesised blocks). */
+        val REM = CommentSyntax("REM", null)
+
+        /** Visual Basic and VBScript. */
+        val APOSTROPHE = CommentSyntax("'", null)
+
+        /** VHDL, which has only line comments starting with `--`. */
+        val DOUBLE_DASH = CommentSyntax("--", null)
+
+        /** Lua. */
+        val LUA = CommentSyntax("--", "--[[" to "]]")
+
+        /** Fortran (free form). */
+        val BANG = CommentSyntax("!", null)
+
+        /** LaTeX. */
+        val PERCENT = CommentSyntax("%", null)
+
+        /** Pascal and Delphi. */
+        val PASCAL = CommentSyntax("//", "{" to "}")
+
+        /** Handlebars and Mustache templates, which have only block comments. */
+        val HANDLEBARS = CommentSyntax(null, "{{!--" to "--}}")
+
+        /** JSP, which has only block comments. */
+        val JSP = CommentSyntax(null, "<%--" to "--%>")
+
         /** Languages without comments, such as JSON and plain text. */
         val NONE = CommentSyntax(null, null)
     }

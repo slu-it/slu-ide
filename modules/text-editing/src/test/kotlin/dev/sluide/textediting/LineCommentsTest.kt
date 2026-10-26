@@ -77,6 +77,14 @@ class LineCommentsTest {
     }
 
     @Test
+    fun `comments lines in batch files and Handlebars`() {
+        assertEquals("REM echo off|", toggle("echo off|", CommentSyntax.REM))
+        assertEquals("echo off|", toggle("REM echo off|", CommentSyntax.REM))
+        assertEquals("{{!-- {{name}}| --}}", toggle("{{name}}|", CommentSyntax.HANDLEBARS))
+        assertEquals("{{name}}|", toggle("{{!-- {{name}} --}}|", CommentSyntax.HANDLEBARS))
+    }
+
+    @Test
     fun `comments lines in KQL`() {
         assertEquals(
             "^// print a = 1\n// print b = 2|",
