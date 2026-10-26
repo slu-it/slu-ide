@@ -5,7 +5,7 @@
 
 JSON files show their highlighted source with a formatted, foldable view beside it.
 
-- **Files:** `.json`, `.jsonc` and Pipenv's `Pipfile.lock`. The HTTP client's environment files
+- **Files:** `.json`, `.jsonc`, `.geojson`, `.tfstate`, `.babelrc`, `.jshintrc` and Pipenv's `Pipfile.lock`. The HTTP client's environment files
   (`http-client.env.json`, `http-client.private.env.json`) keep their [visual editor](http-client-env-editor.md),
   notebooks (`.ipynb`) their [rendered view](previews.md).
 - **Modes:** the toolbar's **Source**, **Split** and **Preview**. A file opens in **Split**, with the focus in the source

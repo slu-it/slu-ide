@@ -78,14 +78,14 @@ the Bicep graph and `BicepParamFileViewer`.
   |--------|------------|--------------------------|
   | `PythonFileViewer` | `.py`, `.pyw`, `.pyi`; shebang `python`, `python3` | `async`/`await`/`nonlocal` keywords, `print`/`exec` builtins, string prefixes like `f` belong to the string |
   | `KotlinFileViewer` | `.kt`, `.kts` (not `build.gradle.kts`, see [gradle.md](gradle.md)) | `package` keyword; multi-line raw strings (`"""…"""`). Known gap: ranges like `1..2` show as two numbers |
-  | `GroovyFileViewer` | `.groovy`, `.gradle` (Gradle's Groovy DSL; not `build.gradle`, see [gradle.md](gradle.md)) | `trait`/`var`/`record` keywords. Known gaps: dollar-slashy strings (`$/…/$`) are not recognised; `${…}` in a GString stays unstyled code |
+  | `GroovyFileViewer` | `.groovy`, `.gradle` (Gradle's Groovy DSL; not `build.gradle`, see [gradle.md](gradle.md)), `Jenkinsfile`, `Jenkinsfile.*` | `trait`/`var`/`record` keywords. Known gaps: dollar-slashy strings (`$/…/$`) are not recognised; `${…}` in a GString stays unstyled code |
   | `JavaFileViewer` | `.java` | none needed (text blocks, records, sealed types work) |
   | `JavaScriptFileViewer` | `.js`, `.mjs`, `.cjs`; shebang `node`, `deno`, `bun` | `from`/`undefined` keywords; `${…}` in template literals stays unstyled code |
   | `TypeScriptFileViewer` | `.ts`, `.mts`, `.cts` | keywords such as `type`, `readonly`, `as`, `keyof`, `satisfies`; types `unknown`, `never`, `object`, `symbol`, `bigint`; decorators |
   | `JsxFileViewer` | `.jsx` | as JavaScript; line rules add JSX tags (`tag`: `<Name` and its `>`/`/>` when the tag is complete on its line or its attributes continue on the next lines, `</Name>`, fragments, a `>`/`/>` alone on a line) and attributes with a value (`attribute`). Code like `a <b && c > d` or `b="x"` stays code, and strings are never restyled. Known gaps: text between tags is lexed as code (e.g. `for` shows as a keyword); boolean attributes are unstyled |
   | `TsxFileViewer` | `.tsx` | as TypeScript plus JSX like `JsxFileViewer`; generics (`useState<T>(`, `<T>(x: T) => T`, `<T,>`) are no tags. Known gap (also in `.ts`): after `= <` the lexer reads E4X markup to the end of the line, so the rest of a generic arrow function's line is unstyled |
-  | `JsonFileViewer` (source side of the preview, [json-preview.md](json-preview.md)) | `.json`, `.jsonc`; `Pipfile.lock` | keys as `property`; `//` comments allowed (`/* */` are not recognised by the highlighting; the preview accepts both) |
-  | `XmlFileViewer` (source side of the preview, [xml-preview.md](xml-preview.md)) | `.xml`, `.xsd`, `.xsl`, `.xslt`, `.fxml`, `.iml` (IntelliJ modules) | none needed; DTDs/processing instructions styled as `annotation`, entities as `number`, CDATA as `string` |
+  | `JsonFileViewer` (source side of the preview, [json-preview.md](json-preview.md)) | `.json`, `.jsonc`, `.geojson`, `.tfstate`, `.babelrc`, `.jshintrc` (dotfile names count as extensions); `Pipfile.lock` | keys as `property`; `//` comments allowed (`/* */` are not recognised by the highlighting; the preview accepts both) |
+  | `XmlFileViewer` (source side of the preview, [xml-preview.md](xml-preview.md)) | `.xml`, `.xsd`, `.xsl`, `.xslt`, `.fxml`, `.iml` (IntelliJ modules), `.plist`, `.csproj`, `.fsproj`, `.vbproj`, `.props`, `.targets`, `.xaml`, `.resx`, `.nuspec`, `.wsdl`; `.config` only when the text starts with `<` (after a BOM and blanks; commit diffs go by name only, so `.config` files show there as plain text) | none needed; DTDs/processing instructions styled as `annotation`, entities as `number`, CDATA as `string` |
   | `YamlFileViewer` (source side of the preview, [yaml-preview.md](yaml-preview.md)) | `.yaml`, `.yml` | the lexer only knows comments and quoted strings; line rules add keys (`property`), numbers, `true`/`false`/`null`/`~`, anchors/aliases/tags (`annotation`) and `---`/`...`. Known gap: block scalar content (after `\|`/`>`) is not shown as string |
   | `HtmlFileViewer` (source side of the preview, [previews.md](previews.md)) | `.html`, `.htm`, `.xhtml` | none needed; `<!DOCTYPE>` as `annotation`, entities as `number`, embedded `<script>` and `<style>` highlighted as JavaScript and CSS |
   | `SingleFileComponentFileViewer` | `.vue`, `.svelte` | as HTML; tag names the lexer does not know (`<template>`, components like `<MyCard>`) are made `tag` by the same whole-tag rules as JSX. Known gaps: `<script lang="ts">` is lexed as JavaScript; template expressions (`{{ … }}`, `{…}`, `{#if}`) are plain text |
@@ -100,7 +100,13 @@ the Bicep graph and `BicepParamFileViewer`.
   | `DockerfileFileViewer` | `Dockerfile`, `Containerfile`, `Dockerfile.*` (not `*.dockerignore`), `*.Dockerfile` | `HEALTHCHECK`, `SHELL` and the `AS` of a build stage (when `AS name` ends the line) as `keyword`; `$VAR`/`${VAR}` outside strings as `annotation`. Known gap: heredocs (`RUN <<EOF`) are plain |
   | `MakefileFileViewer` | `Makefile`, `GNUmakefile`, `.mk` | targets (also `%.o:`) as `type`; `include`, `export`, `override`, `vpath`, … keywords; `$(VAR)`, `${VAR}` and `$@`, `$<`, `$^`, … as `annotation`. Indented with tabs unless `.editorconfig` or the text say otherwise ([text-editing.md](text-editing.md)) |
   | `IniFileViewer` | `.ini` | sections as `type`; keys as `property` (before the first `=` that is no `>=`, `<=`, `!=`, `~=`, `==`, or before a `:` on lines without `=`); `;` and `#` comments. Shortcut+/ with `;`. Known gap: a `#` or `;` inside a value starts a comment |
-  | `ConfigFileViewer` | `.cfg`, `.conf`, `.npmrc`, `.editorconfig`, `.gitconfig` | as INI; Shortcut+/ with `#`. nginx-style `.conf` files are read as INI too |
+  | `ConfigFileViewer` | `.cfg`, `.conf`, `.npmrc`, `.editorconfig`, `.gitconfig`, `.gitmodules` | as INI; Shortcut+/ with `#`. nginx-style `.conf` files are read as INI too |
+  | `PropertiesFileViewer` | `.properties` (also `gradle.properties`, `gradle-wrapper.properties`) | the lexer's keys (reserved words) become `property`, values (strings) plain; `=` and `:` as `operator`; `${placeholder}` as `annotation`; `#` and `!` comments; the lexer knows continued values (a line after one ending in `\`), which stay plain. Shortcut+/ with `#`. Known gaps: with a blank as separator (`key value`) the value is shown like a key; an escaped separator in a key (`a\=b`) ends it |
+  | `Json5FileViewer` | `.json5` | the JSON lexer, no preview; Shortcut+/ with `//`. Known gap: unquoted keys and single-quoted strings are not recognised |
+  | `JsonLinesFileViewer` | `.jsonl`, `.ndjson` | the JSON lexer, no preview (the preview parses one value); no comments |
+  | `CodeownersFileViewer` | `CODEOWNERS` | no lexer; line rules: `#` comments (also after the owners), unescaped `**`, `*`, `?` in the pattern (first word) as `operator`, `@user`, `@org/team` and e-mail addresses as `annotation` |
+  | `GitattributesFileViewer` | `.gitattributes`, `*.gitattributes` | no lexer; line rules: `#` comment lines, wildcards in the pattern as `operator`, attributes after it as `property`, a leading `-` or `!` as `keyword`, the value of `eol=lf` plain. Known gap: an indented pattern without attributes after it shows as an attribute |
+  | `MailmapFileViewer` | `.mailmap` | no lexer; line rules: `#` comment lines, `<e-mail>` as `string`. Known gap: a trailing `#` comment is not recognised |
   | `IgnoreFileViewer` | `.gitignore`, `.dockerignore`, `.npmignore`, `.prettierignore`, `.eslintignore`, `.helmignore` (by extension, so `Python.gitignore` too) | no lexer; line rules: `#` comments at the start of a line, a leading `!` as `keyword`, unescaped `**`, `*`, `?` as `operator`; files named exactly `.gitignore` open in `GitignoreFileView` with gutter dots for the lines that have an effect ([gitignore-line-effects.md](gitignore-line-effects.md)) |
   | `GitBlameIgnoreRevsFileViewer` | `.git-blame-ignore-revs` | no lexer; line rules: `#` comments, commit hashes (7 to 64 hex digits) as `number` |
   | `SshConfigFileViewer` | `sshd_config`, `ssh_config` | no lexer; line rules: `#` comment lines, the first word (the option) as `keyword`, what `Host`/`Match` apply to as `type` |
@@ -119,8 +125,10 @@ the Bicep graph and `BicepParamFileViewer`.
 - Preview viewers (`PreviewFileViewer`) show highlighted, editable source beside a rendered `WebView`, with a Source /
   Split / Preview toolbar; the preview renders the saved text: Markdown ([markdown-preview.md](markdown-preview.md)) and
   HTML, SVG, CSV/TSV, cookie jars (`CookiesFileViewer`, `.cookies`), notebooks, Mermaid (`MermaidFileViewer`, `.mmd`,
-  `.mermaid`), JSON (`JsonFileViewer`, `.json`, `.jsonc`, `Pipfile.lock`, [json-preview.md](json-preview.md)),
-  XML (`XmlFileViewer`, `.xml`, `.xsd`, `.xsl`, `.xslt`, `.fxml`, `.iml`, [xml-preview.md](xml-preview.md)),
+  `.mermaid`), JSON (`JsonFileViewer`, `.json`, `.jsonc`, `.geojson`, `.tfstate`, `.babelrc`, `.jshintrc`,
+  `Pipfile.lock`, [json-preview.md](json-preview.md)), XML (`XmlFileViewer`, `.xml`, `.xsd`, `.xsl`, `.xslt`, `.fxml`, `.iml`,
+  `.plist`, .NET project files, `.xaml`, `.resx`, `.nuspec`, `.wsdl`, `.config` with XML text,
+  [xml-preview.md](xml-preview.md)),
   YAML (`YamlFileViewer`, `.yml`, `.yaml`, [yaml-preview.md](yaml-preview.md)),
   PEM certificates and keys (`PemFileViewer`, `.pem`, `.crt`, `.cer`, `.key`, only with PEM text) and
   the resource graph of Bicep files (`BicepFileViewer`, `.bicep`) in [previews.md](previews.md). Their diffs are highlighted like their source.
@@ -199,8 +207,8 @@ the Bicep graph and `BicepParamFileViewer`.
   `groovy` `gradle`; `python` `py`; `javascript` `js` `mjs` `cjs`; `jsx`; `typescript` `ts`; `tsx`; `json` `jsonc`;
   `xml` `svg`; `html`; `vue` `svelte`; `yaml` `yml`; `css`; `scss`; `sass`; `less`; `markdown` `md`; `mdx`; `sql`;
   `kql` `kusto` `csl`; `bash` `sh` `shell` `zsh` `ksh`; `powershell` `ps1` `pwsh`; `dockerfile` `docker`
-  `containerfile`; `makefile` `make` `mk`; `ini` `cfg` `conf` `editorconfig` `gitconfig`; `gitignore`; `ssh-config`
-  `sshconfig` `ssh_config` `sshd_config`; `caddyfile` `caddy`; `mermaid` `mmd`; `bicep` `bicepparam`; `dotenv`
-  `env`; `toml`.
+  `containerfile`; `makefile` `make` `mk`; `ini` `cfg` `conf` `editorconfig` `gitconfig`; `properties`;
+  `json5` `jsonl` `ndjson`; `codeowners`; `gitattributes`; `mailmap`; `gitignore`; `ssh-config` `sshconfig`
+  `ssh_config` `sshd_config`; `caddyfile` `caddy`; `mermaid` `mmd`; `bicep` `bicepparam`; `dotenv` `env`; `toml`.
 - Not yet implemented: encodings other than UTF-8, and views of binary files other than images (`.xlsx`, `.pptx`,
   SQLite).

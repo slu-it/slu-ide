@@ -5,7 +5,9 @@
 
 XML files show their highlighted source with a formatted, foldable view beside it, like [JSON](json-preview.md).
 
-- **Files:** `.xml`, `.xsd`, `.xsl`, `.xslt`, `.fxml` and `.iml`. SVG files keep their image preview, HTML files
+- **Files:** `.xml`, `.xsd`, `.xsl`, `.xslt`, `.fxml`, `.iml`, `.plist`, `.csproj`, `.fsproj`, `.vbproj`,
+  `.props`, `.targets`, `.xaml`, `.resx`, `.nuspec` and `.wsdl`, and `.config` files whose text starts with `<`
+  (commit diffs go by name only, so `.config` files show there as plain text). SVG files keep their image preview, HTML files
   their [page preview](previews.md), notebooks their rendered view.
 - **Modes:** the toolbar's **Source**, **Split** and **Preview**. A file opens in **Split**, the focus in the source
   so it can be edited at once ([ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md)).
