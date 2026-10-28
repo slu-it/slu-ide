@@ -22,6 +22,9 @@ dependencies {
     implementation(libs.commonmark.ext.task.list.items)
     implementation(libs.commonmark.ext.autolink)
 
+    implementation(libs.ikonli.javafx)
+    implementation(libs.ikonli.materialdesign2)
+
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
 }

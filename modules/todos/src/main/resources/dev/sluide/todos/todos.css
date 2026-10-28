@@ -85,3 +85,105 @@
     -fx-fill: -fx-accent;
     -fx-underline: true;
 }
+
+/* The TODO panel (TodoPanel). */
+
+.todo-stripe {
+    -fx-alignment: top-center;
+    -fx-spacing: 10;
+    -fx-padding: 8 0 8 0;
+    -fx-cursor: hand;
+    -fx-background-color: -fx-control-inner-background-alt;
+    -fx-border-color: -fx-box-border;
+    -fx-border-width: 0 0 0 1;
+}
+
+.todo-stripe:hover,
+.todo-stripe:focused {
+    -fx-background-color: -fx-hover-base;
+}
+
+.todo-stripe .label {
+    -fx-text-fill: -fx-text-base-color;
+}
+
+.todo-header {
+    -fx-alignment: center-left;
+    -fx-spacing: 6;
+    -fx-padding: 4 6 4 6;
+    -fx-border-color: -fx-box-border;
+    -fx-border-width: 0 0 1 0;
+}
+
+.todo-title {
+    -fx-font-weight: bold;
+}
+
+.todo-icon-button {
+    -fx-background-color: transparent;
+    -fx-background-radius: 3;
+    -fx-padding: 3 4 3 4;
+}
+
+.todo-icon-button:hover {
+    -fx-background-color: -fx-hover-base;
+}
+
+.todo-icon-button .ikonli-font-icon,
+.todo-add-button .ikonli-font-icon,
+.todo-stripe .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+    -fx-icon-size: 14;
+}
+
+.todo-toolbar {
+    -fx-padding: 4 6 4 6;
+}
+
+.todo-scroll {
+    -fx-background-color: transparent;
+    -fx-padding: 0;
+}
+
+.todo-cards {
+    -fx-spacing: 6;
+    -fx-padding: 6;
+}
+
+.todo-empty {
+    -fx-opacity: 0.6;
+    -fx-padding: 8;
+}
+
+.todo-card {
+    -fx-background-color: -fx-control-inner-background-alt;
+    -fx-border-color: -fx-box-border;
+    -fx-border-radius: 4;
+    -fx-background-radius: 4;
+    -fx-padding: 4 6 6 6;
+    -fx-spacing: 4;
+}
+
+.todo-card.dragging {
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.35), 8, 0.2, 0, 2);
+    -fx-opacity: 0.9;
+}
+
+.todo-card-header {
+    -fx-alignment: top-left;
+    -fx-spacing: 2;
+}
+
+.todo-summary {
+    -fx-text-fill: -fx-text-base-color;
+    -fx-padding: 3 0 0 2;
+}
+
+.todo-segmented .todo-segment {
+    -fx-background-radius: 0;
+}
+
+.todo-segmented .todo-segment:selected {
+    -fx-background-color: -fx-accent;
+    -fx-text-fill: -fx-selection-bar-text;
+}
