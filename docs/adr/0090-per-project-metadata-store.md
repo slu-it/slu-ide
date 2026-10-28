@@ -1,6 +1,7 @@
 # 0090. Per-project metadata store
 
-- Status: accepted
+- Status: accepted; amended by [0101](0101-shared-data-file.md) (the outside file is the shared data file
+  `shared.json`)
 - Date: 2026-10-25
 
 ## Context

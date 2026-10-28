@@ -50,7 +50,7 @@ Below the arguments, the **History** section lists the arguments of the script's
 - A run's arguments are recorded when it starts, trimmed; not when the question before it is answered no or it cannot
   start (e.g. an unclosed quote), and not when they are blank. Arguments used again move to the top; at most 20 are
   kept per script, the oldest drops.
-- Kept per file with the project, in `~/.sluide/projects/<id>.json`, or in `~/.sluide/outside-projects.json` for a
+- Kept per file with the project, in `~/.sluide/projects/<id>.json`, or in `~/.sluide/shared.json` (the shared data file) for a
   file outside the project, such as a scratch ([ADR 0090](../adr/0090-per-project-metadata-store.md)). Moving or
   renaming the file in the explorer keeps its history; deleting it there drops it.
 - A click on an entry puts it into the arguments field, without running. **✕** (on the row under the mouse or the
@@ -93,6 +93,6 @@ is opened anew with the viewer of the new name, as for any file ([editor-tabs.md
 - A script renamed, moved or deleted outside the explorer (in a terminal, by git) keeps its argument history
   under the old path; the new path starts without one.
 - A scratch deleted automatically because it was closed empty keeps its history entry in
-  `~/.sluide/outside-projects.json`.
+  `~/.sluide/shared.json` (the shared data file).
 - Two views of the same file in different windows see the entries the other records or removes only after the view
   is opened again or the file is moved.
