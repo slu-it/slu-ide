@@ -95,7 +95,16 @@ class TodoPanel(
                 scope: TodoScope,
                 description: String,
             ) {
-                if (!todos.edit(todo.id, scope, scope, folder, todo.summary, description)) {
+                if (!todos.edit(
+                        todo.id,
+                        scope,
+                        scope,
+                        folder,
+                        todo.summary,
+                        description,
+                        todos.containerOf(scope, folder, todo.id),
+                    )
+                ) {
                     failed(scope)
                     // The checkbox and the renderer's source go back to what is stored.
                     lists
@@ -111,7 +120,7 @@ class TodoPanel(
                 id: String,
                 toIndex: Int,
             ) {
-                if (!todos.move(scope, folder, id, toIndex)) failed(scope)
+                if (!todos.move(scope, folder, id, TodoPlace(null, toIndex))) failed(scope)
             }
 
             override fun markdown(
@@ -283,7 +292,17 @@ class TodoPanel(
         scope: TodoScope,
     ) {
         val draft =
-            ask(todo, scope) { todos.edit(todo.id, scope, it.scope, folder, it.summary, it.description) } ?: return
+            ask(todo, scope) {
+                todos.edit(
+                    todo.id,
+                    scope,
+                    it.scope,
+                    folder,
+                    it.summary,
+                    it.description,
+                    todos.containerOf(scope, folder, todo.id),
+                )
+            } ?: return
         if (draft.scope != scope) tabPane.selectionModel.select(tabs.getValue(draft.scope))
     }
 }
