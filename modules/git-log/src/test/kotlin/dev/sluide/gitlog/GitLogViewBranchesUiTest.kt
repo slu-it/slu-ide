@@ -437,24 +437,24 @@ class GitLogViewBranchesUiTest : GitLogViewUiFixture() {
 
         // Enter with several selected: all of them, replacing the filter.
         selectBranches(robot, "HEAD", "Local/feature/b")
-        assertEquals("Filter Log by 2 Branches", branches.filterItem.text)
+        assertEquals("Filter Log by 2 Branches", branches.menu.filterItem.text)
         press(robot, branches.tree, KeyCode.ENTER)
         eventually { assertEquals(listOf("HEAD", "refs/heads/feature/b"), filters.last().revisions) }
         assertEquals("Branch: HEAD +1", bar.branch.label.text)
 
         // The context menu's item, for one branch.
         selectBranches(robot, "Local/feature/a")
-        assertEquals("Filter Log by Branch", branches.filterItem.text)
-        assertFalse(branches.filterItem.isDisable)
+        assertEquals("Filter Log by Branch", branches.menu.filterItem.text)
+        assertFalse(branches.menu.filterItem.isDisable)
         val loadsBefore = filters.size
-        robot.interact { branches.filterItem.fire() }
+        robot.interact { branches.menu.filterItem.fire() }
         eventually { assertEquals(listOf("refs/heads/feature/a"), filters.last().revisions) }
         assertEquals(loadsBefore + 1, filters.size, "applied once")
 
         // Enter on a folder opens or closes it.
         selectBranches(robot, "Local/feature")
-        assertTrue(branches.filterItem.isDisable)
-        assertTrue(branches.copyNameItem.isDisable)
+        assertTrue(branches.menu.filterItem.isDisable)
+        assertTrue(branches.menu.copyNameItem.isDisable)
         press(robot, branches.tree, KeyCode.ENTER)
         assertFalse(branchItem("Local/feature").isExpanded)
         press(robot, branches.tree, KeyCode.ENTER)
@@ -473,8 +473,8 @@ class GitLogViewBranchesUiTest : GitLogViewUiFixture() {
         )
 
         selectBranches(robot, "Remote/origin/old", "HEAD", "Local/feature/b")
-        assertFalse(branches.copyNameItem.isDisable)
-        robot.interact { branches.copyNameItem.fire() }
+        assertFalse(branches.menu.copyNameItem.isDisable)
+        robot.interact { branches.menu.copyNameItem.fire() }
         assertEquals("HEAD\nfeature/b\norigin/old", clipboard())
     }
 

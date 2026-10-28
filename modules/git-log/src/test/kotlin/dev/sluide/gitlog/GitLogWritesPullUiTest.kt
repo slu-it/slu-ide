@@ -95,9 +95,9 @@ class GitLogWritesPullUiTest : GitLogWritesUiFixture() {
         sources(upstream = null)
         openAndExpand(robot)
         selectBranches(robot, "Remote/origin/old")
-        assertEquals("Pull 'origin/old' into 'main'…", branches.pullItem.text)
-        assertFalse(branches.pullItem.isDisable)
-        fireLater(branches.pullItem)
+        assertEquals("Pull 'origin/old' into 'main'…", branches.menu.pullItem.text)
+        assertFalse(branches.menu.pullItem.isDisable)
+        fireLater(branches.menu.pullItem)
 
         val dialog = awaitDialog(robot)
         assertEquals(old, dialog.from.value)

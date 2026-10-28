@@ -14,10 +14,6 @@ import dev.sluide.gitlog.data.branchNodes
 import dev.sluide.gitlog.data.filterBranches
 import dev.sluide.gitlog.operations.BranchActions
 import dev.sluide.gitlog.operations.Fetch
-import dev.sluide.gitlog.operations.branchActions
-import dev.sluide.gitlog.operations.mergeText
-import dev.sluide.gitlog.operations.pullText
-import dev.sluide.gitlog.operations.rebaseText
 import dev.sluide.gitlog.ui.refStyleClass
 import javafx.animation.Animation
 import javafx.animation.PauseTransition
@@ -25,11 +21,8 @@ import javafx.beans.property.BooleanProperty
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.collections.ListChangeListener
 import javafx.geometry.Pos
-import javafx.scene.control.ContextMenu
 import javafx.scene.control.Label
-import javafx.scene.control.MenuItem
 import javafx.scene.control.SelectionMode
-import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.control.TextField
 import javafx.scene.control.Tooltip
 import javafx.scene.control.TreeCell
@@ -127,42 +120,18 @@ internal class BranchesPane : BorderPane() {
 
     internal val placeholder = Label().apply { styleClass += "git-branches-placeholder" }
 
-    internal val filterItem = MenuItem(FILTER_ONE).apply { setOnAction { filterSelected() } }
-    internal val copyNameItem = MenuItem("Copy Name").apply { setOnAction { copyNames() } }
-    internal val checkoutItem =
-        MenuItem("Checkout").apply { setOnAction { actions().checkout?.let(commands.checkout) } }
-    internal val rebaseItem =
-        MenuItem(rebaseText(null, null)).apply {
-            // A name with `_` would lose it as a mnemonic.
-            isMnemonicParsing = false
-            setOnAction { actions().rebase?.let(commands.rebase) }
-        }
-    internal val mergeItem =
-        MenuItem(mergeText(null, null)).apply {
-            isMnemonicParsing = false
-            setOnAction { actions().merge?.let(commands.merge) }
-        }
-    internal val pullItem =
-        MenuItem(pullText(null, null)).apply {
-            isMnemonicParsing = false
-            setOnAction { actions().pull?.let(commands.pull) }
-        }
-    internal val newBranchItem =
-        MenuItem(NEW_BRANCH).apply {
-            isMnemonicParsing = false
-            setOnAction { actions().newBranchFrom?.let(commands.newBranchFrom) }
-        }
-    internal val renameItem = MenuItem("Rename…").apply { setOnAction { renameSelected() } }
-    internal val deleteItem = MenuItem("Delete").apply { setOnAction { deleteSelected() } }
-    internal val fetchItem = MenuItem("Fetch").apply { setOnAction { actions().fetch?.let(commands.fetch) } }
-    internal val compareItem =
-        MenuItem("Compare with Current").apply {
-            setOnAction { actions().compare?.let(commands.compare) }
-        }
-    internal val workingTreeItem =
-        MenuItem("Show Diff with Working Tree").apply {
-            setOnAction { actions().workingTreeDiff?.let(commands.showWorkingTreeDiff) }
-        }
+    /** The context menu of the tree, with what it can do with the selection. */
+    internal val menu =
+        BranchPaneMenu(
+            ::selectedNodes,
+            { refs },
+            ::actions,
+            { commands },
+            { filterSelected() },
+            ::copyNames,
+            { renameSelected() },
+            { deleteSelected() },
+        )
 
     internal val tree: TreeView<BranchNode> =
         TreeView<BranchNode>(TreeItem()).apply {
@@ -170,25 +139,7 @@ internal class BranchesPane : BorderPane() {
             isShowRoot = false
             selectionModel.selectionMode = SelectionMode.MULTIPLE
             setCellFactory { BranchCell() }
-            contextMenu =
-                ContextMenu(
-                    filterItem,
-                    SeparatorMenuItem(),
-                    copyNameItem,
-                    SeparatorMenuItem(),
-                    compareItem,
-                    workingTreeItem,
-                    SeparatorMenuItem(),
-                    checkoutItem,
-                    rebaseItem,
-                    mergeItem,
-                    pullItem,
-                    newBranchItem,
-                    renameItem,
-                    deleteItem,
-                    SeparatorMenuItem(),
-                    fetchItem,
-                )
+            contextMenu = menu.contextMenu
             addEventFilter(KeyEvent.KEY_PRESSED) { event ->
                 if (event.code == KeyCode.ENTER && !event.isShortcutDown && enter()) event.consume()
             }
@@ -439,29 +390,7 @@ internal class BranchesPane : BorderPane() {
 
     private fun deleteSelected(): Boolean = deleteWith(actions(), commands)
 
-    private fun updateActions() {
-        val count = selectedBranches.size
-        filterItem.text = if (count > 1) "Filter Log by $count Branches" else FILTER_ONE
-        filterItem.isDisable = count == 0
-        copyNameItem.isDisable = count == 0
-        val actions = actions()
-        // The names of the refs it starts from and rebases onto even while writing or busy.
-        val unrestricted = branchActions(selectedNodes(), refs?.currentBranch)
-        newBranchItem.text = unrestricted.newBranchFrom?.let { "New Branch from '${it.shortName}'…" } ?: NEW_BRANCH
-        rebaseItem.text = rebaseMenuText(selectedNodes(), refs)
-        mergeItem.text = mergeMenuText(selectedNodes(), refs)
-        pullItem.text = pullMenuText(selectedNodes(), refs)
-        checkoutItem.isDisable = actions.checkout == null
-        rebaseItem.isDisable = actions.rebase == null
-        mergeItem.isDisable = actions.merge == null
-        pullItem.isDisable = actions.pull == null
-        newBranchItem.isDisable = actions.newBranchFrom == null
-        renameItem.isDisable = actions.rename == null
-        deleteItem.isDisable = actions.delete.isEmpty() && actions.deleteRemote.isEmpty()
-        fetchItem.isDisable = actions.fetch == null
-        compareItem.isDisable = actions.compare == null
-        workingTreeItem.isDisable = actions.workingTreeDiff == null
-    }
+    private fun updateActions() = menu.update()
 
     /** A group (its name), a remote or folder (a folder icon) or a branch (its ref icon, the current one in bold). */
     private inner class BranchCell : TreeCell<BranchNode>() {
@@ -527,8 +456,6 @@ internal class BranchesPane : BorderPane() {
     }
 
     private companion object {
-        const val FILTER_ONE = "Filter Log by Branch"
-        const val NEW_BRANCH = "New Branch…"
         const val LOADING = "Loading…"
         val SEARCH_DELAY: Duration = Duration.millis(200.0)
     }

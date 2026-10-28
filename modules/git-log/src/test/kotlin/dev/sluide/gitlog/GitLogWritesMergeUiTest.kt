@@ -45,8 +45,8 @@ class GitLogWritesMergeUiTest : GitLogWritesUiFixture() {
     private fun openDialog(robot: FxRobot): DialogPane {
         openAndExpand(robot)
         selectBranches(robot, "Local/feature/a")
-        assertEquals("Merge 'feature/a' into 'main'…", branches.mergeItem.text)
-        fireLater(branches.mergeItem)
+        assertEquals("Merge 'feature/a' into 'main'…", branches.menu.mergeItem.text)
+        fireLater(branches.menu.mergeItem)
         return awaitDialog(robot)
     }
 

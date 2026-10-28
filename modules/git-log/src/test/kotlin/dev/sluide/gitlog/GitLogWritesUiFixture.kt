@@ -435,11 +435,11 @@ abstract class GitLogWritesUiFixture {
         WaitForAsyncUtils
             .asyncFx<String> {
                 listOf(
-                    branches.checkoutItem to "C",
-                    branches.rebaseItem to "B",
-                    branches.newBranchItem to "N",
-                    branches.renameItem to "R",
-                    branches.deleteItem to "D",
+                    branches.menu.checkoutItem to "C",
+                    branches.menu.rebaseItem to "B",
+                    branches.menu.newBranchItem to "N",
+                    branches.menu.renameItem to "R",
+                    branches.menu.deleteItem to "D",
                 ).joinToString(" ") { (item, letter) -> if (item.isDisable) "-" else letter }
             }.get()
 

@@ -69,12 +69,12 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
 
         selectBranches(robot, "Local/feature/a")
         assertEquals("C B N R D", paneActions())
-        assertEquals("New Branch from 'feature/a'\u2026", branches.newBranchItem.text)
-        assertEquals("Rebase 'main' onto 'feature/a'", branches.rebaseItem.text)
+        assertEquals("New Branch from 'feature/a'\u2026", branches.menu.newBranchItem.text)
+        assertEquals("Rebase 'main' onto 'feature/a'", branches.menu.rebaseItem.text)
         // The rest of the matrix is RefOperationsTest's and BranchMenuTest's.
         selectBranches(robot, "Local/feature")
         assertEquals("- - - - -", paneActions(), "a folder")
-        assertEquals("New Branch\u2026", branches.newBranchItem.text)
+        assertEquals("New Branch\u2026", branches.menu.newBranchItem.text)
         selectBranches(robot, "Local/feature/a", "Tags/v0.9")
         assertEquals("- - - - D", paneActions())
     }
@@ -87,7 +87,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         openAndExpand(robot)
         selectBranches(robot, "Local/feature/a")
 
-        fireLater(branches.rebaseItem)
+        fireLater(branches.menu.rebaseItem)
 
         eventually {
             assertEquals(listOf("rebase merges refs/heads/feature/a", "rebase main refs/heads/feature/a"), writes.calls)
@@ -100,7 +100,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         robot.interact { view.refresh() }
         eventually { assertTrue(view.pendingBar.isVisible) }
         eventually { assertEquals("C - N R D", paneActions()) }
-        assertEquals("Rebase 'main' onto 'feature/a'", branches.rebaseItem.text, "the target stays named")
+        assertEquals("Rebase 'main' onto 'feature/a'", branches.menu.rebaseItem.text, "the target stays named")
 
         pending = null
         writes.inProgress = null
@@ -109,7 +109,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
 
         // Not while a write runs.
         writes.gate = CountDownLatch(1)
-        fireLater(branches.checkoutItem)
+        fireLater(branches.menu.checkoutItem)
         eventually { assertEquals("- - - - -", paneActions()) }
         writes.gate?.countDown()
         eventually { assertEquals("C B N R D", paneActions()) }
@@ -120,15 +120,15 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         openAndExpand(robot)
 
         selectBranches(robot, "Remote/origin/old")
-        fireLater(branches.checkoutItem)
+        fireLater(branches.menu.checkoutItem)
         eventually { assertEquals("Checked out new branch old tracking origin/old.", status(robot)) }
 
         writes.localBranches = setOf("old")
-        fireLater(branches.checkoutItem)
+        fireLater(branches.menu.checkoutItem)
         eventually { assertEquals("Checked out local branch old.", status(robot)) }
 
         selectBranches(robot, "Tags/v0.9")
-        fireLater(branches.checkoutItem)
+        fireLater(branches.menu.checkoutItem)
         eventually { assertEquals("Checked out v0.9.", status(robot)) }
 
         assertEquals(
@@ -148,7 +148,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         writes.ancestry = { ancestor, _ -> ancestor == "h-old" }
 
         selectBranches(robot, "Remote/origin/old")
-        fireLater(branches.checkoutItem)
+        fireLater(branches.menu.checkoutItem)
         var question = awaitDialog(robot)
         assertEquals("Overwrite Branch", (question.scene.window as Stage).title)
         assertEquals(
@@ -160,7 +160,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         assertEquals(emptyList(), writes.calls, "Cancel checks out nothing")
 
         writes.leftBehind = 1
-        fireLater(branches.checkoutItem)
+        fireLater(branches.menu.checkoutItem)
         question = awaitDialog(robot)
         press(robot, question, OVERWRITE_BUTTON)
         question = awaitDialog(robot)
@@ -178,7 +178,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         writes.leftBehind = 2
 
         selectBranches(robot, "Tags/v0.9")
-        fireLater(branches.checkoutItem)
+        fireLater(branches.menu.checkoutItem)
         var question = awaitDialog(robot)
         assertEquals("Check Out", (question.scene.window as Stage).title)
         assertEquals(
@@ -191,7 +191,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         press(robot, question, ButtonType.CANCEL)
         assertEquals(emptyList(), writes.calls, "Cancel checks out nothing")
 
-        fireLater(branches.checkoutItem)
+        fireLater(branches.menu.checkoutItem)
         question = awaitDialog(robot)
         press(robot, question, CHECKOUT_BUTTON)
         eventually { assertEquals(listOf("switch --detach refs/tags/v0.9"), writes.calls) }
@@ -251,7 +251,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         writes.tips = mapOf("feature/a" to "h3")
         writes.ancestry = { _, _ -> false }
         selectBranches(robot, "Remote/origin/old")
-        fireLater(branches.newBranchItem)
+        fireLater(branches.menu.newBranchItem)
         pane = awaitDialog(robot)
         val overwriting = NameControls(pane)
         robot.interact {
@@ -377,7 +377,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         assertNoDialog()
         assertEquals(emptyList(), writes.calls)
 
-        fireLater(branches.deleteItem)
+        fireLater(branches.menu.deleteItem)
         pane = awaitDialog(robot)
         press(robot, pane, DELETE_BUTTON)
 
@@ -399,7 +399,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         writes.notDeleted = { listOf("feature/a") }
         selectBranches(robot, "Local/feature/a", "Local/feature/b")
 
-        fireLater(branches.deleteItem)
+        fireLater(branches.menu.deleteItem)
         press(robot, awaitDialog(robot), DELETE_BUTTON)
 
         val pane = awaitDialog(robot)
@@ -436,7 +436,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         selectBranches(robot, "Remote/origin/main", "Remote/origin/old")
         assertEquals("- - - - -", paneActions(), "origin/main is protected")
         selectBranches(robot, "Remote/origin/fix", "Remote/origin/old")
-        fireLater(branches.deleteItem)
+        fireLater(branches.menu.deleteItem)
         pane = awaitDialog(robot)
         assertEquals("Delete 2 remote branches?", pane.headerText)
         assertEquals(
@@ -463,7 +463,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         openAndExpand(robot)
         selectBranches(robot, "Tags/v0.9")
 
-        fireLater(branches.deleteItem)
+        fireLater(branches.menu.deleteItem)
         val pane = awaitDialog(robot)
         assertEquals("Delete tag 'v0.9'?", pane.headerText)
         val boxes = pane.lookupAll(".git-delete-remote").map { it as CheckBox }
@@ -479,7 +479,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
 
         // Several tags: "the tags".
         selectBranches(robot, "Tags/v0.9", "Tags/v1.0")
-        fireLater(branches.deleteItem)
+        fireLater(branches.menu.deleteItem)
         val tagsPane = awaitDialog(robot)
         assertEquals(
             listOf("Also delete the tags on origin", "Also delete the tags on upstream"),
@@ -489,7 +489,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
 
         // Only branches: no checkboxes.
         selectBranches(robot, "Local/feature/a")
-        fireLater(branches.deleteItem)
+        fireLater(branches.menu.deleteItem)
         val branchPane = awaitDialog(robot)
         assertTrue(branchPane.lookupAll(".git-delete-remote").isEmpty())
         press(robot, branchPane, ButtonType.CANCEL)
@@ -501,7 +501,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
         selectBranches(robot, "Remote/origin/old")
         writes.gate = CountDownLatch(1)
 
-        fireLater(branches.deleteItem)
+        fireLater(branches.menu.deleteItem)
         press(robot, awaitDialog(robot), DELETE_BUTTON)
         eventually { assertTrue(cancelShown()) }
         robot.interact { view.cancelButton.fire() }

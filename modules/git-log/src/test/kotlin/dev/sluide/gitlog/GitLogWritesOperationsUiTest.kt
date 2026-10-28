@@ -100,7 +100,11 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         assertTrue(view.table.resetItem.isDisable)
         selectBranches(robot, "Local/feature/a")
         assertEquals("- - - - -", paneActions())
-        assertTrue(branches.copyNameItem.isDisable.not(), "reading actions stay")
+        assertTrue(
+            branches.menu.copyNameItem.isDisable
+                .not(),
+            "reading actions stay",
+        )
         // Keys do nothing either.
         pressInTree(KeyCode.F2)
         pressInTree(KeyCode.DELETE)
@@ -121,13 +125,13 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         selectBranches(robot, "Local/feature/a")
         beforeFileChange += false
 
-        fireLater(branches.checkoutItem)
+        fireLater(branches.menu.checkoutItem)
 
         assertEquals(1, beforeCheckoutCalls)
         assertEquals(emptyList(), writes.calls)
         assertEquals("", status(robot))
 
-        fireLater(branches.checkoutItem)
+        fireLater(branches.menu.checkoutItem)
         eventually { assertEquals(listOf("switch feature/a"), writes.calls) }
         assertEquals(2, beforeCheckoutCalls)
         eventually { assertEquals("Checked out feature/a.", status(robot)) }
@@ -139,7 +143,7 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         writes.result = { GitResult(false, "hook failed", changed = true) }
         selectBranches(robot, "Local/feature/a")
 
-        fireLater(branches.checkoutItem)
+        fireLater(branches.menu.checkoutItem)
 
         val pane = awaitDialog(robot)
         assertEquals("Checked out feature/a, but git reported an error.", pane.headerText)
@@ -181,7 +185,7 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         assertTrue(cancelShown())
         assertTrue(view.fetchButton.isDisable)
         selectBranches(robot, "Remote/origin")
-        assertTrue(branches.fetchItem.isDisable, "no other operation meanwhile")
+        assertTrue(branches.menu.fetchItem.isDisable, "no other operation meanwhile")
         selectRows(robot, 1)
         assertTrue(view.table.checkoutRevisionItem.isDisable)
 
@@ -270,25 +274,25 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         openAndExpand(robot)
 
         selectBranches(robot, "Local/main")
-        assertTrue(branches.fetchItem.isDisable)
+        assertTrue(branches.menu.fetchItem.isDisable)
         selectBranches(robot, "Remote/origin")
-        assertFalse(branches.fetchItem.isDisable)
+        assertFalse(branches.menu.fetchItem.isDisable)
 
-        fireLater(branches.fetchItem)
+        fireLater(branches.menu.fetchItem)
 
         eventually { assertEquals("Fetched origin: nothing new.", status(robot)) }
         assertEquals(listOf("fetch origin"), writes.calls)
 
         selectBranches(robot, "Remote/origin/old")
-        fireLater(branches.fetchItem)
+        fireLater(branches.menu.fetchItem)
         eventually { assertEquals(listOf("fetch origin", "fetch origin"), writes.calls) }
 
         // The remote was removed; its remote branches are still there.
         currentRemotes = listOf("fork")
         robot.interact { view.refresh() }
-        eventually { assertTrue(branches.fetchItem.isDisable) }
+        eventually { assertTrue(branches.menu.fetchItem.isDisable) }
         selectBranches(robot, "Remote/origin")
-        assertTrue(branches.fetchItem.isDisable)
+        assertTrue(branches.menu.fetchItem.isDisable)
     }
 
     @Test
@@ -301,7 +305,7 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         selectBranches(robot, "Local/feature/a")
         val loadsBefore = loads.size
 
-        fireLater(branches.checkoutItem)
+        fireLater(branches.menu.checkoutItem)
 
         val pane = awaitDialog(robot)
         assertEquals("Checkout Failed", (pane.scene.window as Stage).title)
@@ -326,7 +330,7 @@ class GitLogWritesOperationsUiTest : GitLogWritesUiFixture() {
         writes.result = { GitResult(false, "error: interrupted") }
         selectBranches(robot, "Local/feature/a")
 
-        fireLater(branches.checkoutItem)
+        fireLater(branches.menu.checkoutItem)
         eventually { assertEquals("Checking out feature/a\u2026", status(robot)) }
         robot.interact { view.close() }
         writes.gate?.countDown()

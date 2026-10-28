@@ -224,7 +224,7 @@ class GitLogCompareUiTest : GitLogWritesUiFixture() {
         assertFalse(view.compareBar.isVisible)
 
         selectBranches(robot, "$LOCAL/feature")
-        robot.interact { pane.compareItem.fire() }
+        robot.interact { pane.menu.compareItem.fire() }
 
         eventually {
             assertEquals(
@@ -270,7 +270,7 @@ class GitLogCompareUiTest : GitLogWritesUiFixture() {
     fun `Escape in the table stops comparing, filtering by branch too`(robot: FxRobot) {
         openAndExpand(robot)
         selectBranches(robot, "$LOCAL/feature")
-        robot.interact { pane.compareItem.fire() }
+        robot.interact { pane.menu.compareItem.fire() }
         eventually { assertEquals(listOf("Feature 2", "Feature 1"), subjects()) }
 
         robot.interact {
@@ -282,9 +282,9 @@ class GitLogCompareUiTest : GitLogWritesUiFixture() {
         eventually { assertEquals(GitLogFilter(), filters.last()) }
         robot.interact { assertFalse(view.compareBar.isVisible) }
 
-        robot.interact { pane.compareItem.fire() }
+        robot.interact { pane.menu.compareItem.fire() }
         eventually { assertTrue(view.compareBar.isVisible) }
-        robot.interact { pane.filterItem.fire() }
+        robot.interact { pane.menu.filterItem.fire() }
         eventually { assertEquals(GitLogFilter(revisions = listOf(feature.name)), filters.last()) }
         robot.interact { assertFalse(view.compareBar.isVisible) }
     }
@@ -294,7 +294,7 @@ class GitLogCompareUiTest : GitLogWritesUiFixture() {
         openAndExpand(robot)
         selectBranches(robot, "$TAGS/v1")
         counts = mapOf(tag.name to GitComparisonCounts(0, 5))
-        robot.interact { pane.compareItem.fire() }
+        robot.interact { pane.menu.compareItem.fire() }
         eventually {
             assertEquals(emptyList(), subjects())
             assertEquals("In v1, not in main (0)", view.compareBar.refOnlyToggle.text)
@@ -325,7 +325,7 @@ class GitLogCompareUiTest : GitLogWritesUiFixture() {
     fun `a branch outside the range is not in this comparison`(robot: FxRobot) {
         openAndExpand(robot)
         selectBranches(robot, "$LOCAL/feature")
-        robot.interact { pane.compareItem.fire() }
+        robot.interact { pane.menu.compareItem.fire() }
         eventually { assertEquals(listOf("Feature 2", "Feature 1"), subjects()) }
 
         selectBranches(robot, "$LOCAL/main")
@@ -339,7 +339,7 @@ class GitLogCompareUiTest : GitLogWritesUiFixture() {
     ) {
         openAndExpand(robot)
         selectBranches(robot, "$LOCAL/feature")
-        robot.interact { pane.compareItem.fire() }
+        robot.interact { pane.menu.compareItem.fire() }
         robot.interact { view.filterBar.text.text = "nothing" }
         robot.interact { view.filterBar.debounce.jumpTo(view.filterBar.debounce.totalDuration) }
         eventually { assertEquals("No commits match the filters.", placeholder(robot)) }
@@ -390,7 +390,7 @@ class GitLogCompareUiTest : GitLogWritesUiFixture() {
     fun `Show Diff with Working Tree opens a window with the files that differ, once per ref`(robot: FxRobot) {
         openAndExpand(robot)
         selectBranches(robot, "$LOCAL/feature")
-        robot.interact { pane.workingTreeItem.fire() }
+        robot.interact { pane.menu.workingTreeItem.fire() }
 
         val window = windowOf(feature.name)
         eventually { assertEquals(listOf("docs/", "new.md", "src/", "One.kt", "Two.kt", "README.md"), treeOf(window)) }
@@ -415,7 +415,7 @@ class GitLogCompareUiTest : GitLogWritesUiFixture() {
         assertEquals(feature.name, workingTreeLoads.first())
 
         // Again: the same window.
-        robot.interact { pane.workingTreeItem.fire() }
+        robot.interact { pane.menu.workingTreeItem.fire() }
         robot.interact {
             assertEquals(1, view.diffs.workingTreeWindows.size)
             assertTrue(window.stage.isShowing)
@@ -439,7 +439,7 @@ class GitLogCompareUiTest : GitLogWritesUiFixture() {
 
         // HEAD has a window of its own; another folder closes them all.
         selectBranches(robot, "HEAD")
-        robot.interact { pane.workingTreeItem.fire() }
+        robot.interact { pane.menu.workingTreeItem.fire() }
         val head = windowOf("HEAD")
         robot.interact { assertEquals("HEAD ↔ Working Tree", head.stage.title) }
         robot.interact { view.open(null) }
