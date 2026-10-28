@@ -257,9 +257,20 @@ class TodoPanelUiTest {
     }
 
     @Test
-    fun `a card without a description has no expand toggle`(robot: FxRobot) {
+    fun `a card without a description has no expand toggle but keeps its space`(robot: FxRobot) {
         add(robot, TodoScope.SHARED, "plain", " ")
-        assertFalse(cards(robot).single().toggle.isVisible)
+        add(robot, TodoScope.SHARED, "described", "text")
+        val (described, plain) = cards(robot)
+        assertFalse(plain.toggle.isVisible)
+        assertTrue(plain.toggle.isDisabled)
+        // The summaries line up with those of cards that have a chevron.
+        val (describedX, plainX) =
+            fixture.fx(robot) {
+                panel.expanded.set(true)
+                root.layout()
+                described.summary.layoutX to plain.summary.layoutX
+            }
+        assertEquals(describedX, plainX)
     }
 
     @Test

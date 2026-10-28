@@ -76,8 +76,9 @@ internal class TodoCard(
     private fun refresh() {
         summary.text = todo.summary
         val hasBody = todo.description.isNotBlank()
+        // Without a description the chevron keeps its space, so the summaries of all cards line up.
         toggle.isVisible = hasBody
-        toggle.isManaged = hasBody
+        toggle.isDisable = !hasBody
         toggle.graphic = FontIcon(if (isExpanded) MaterialDesignC.CHEVRON_DOWN else MaterialDesignC.CHEVRON_RIGHT)
         toggle.tooltip = Tooltip(if (isExpanded) "Collapse" else "Expand")
         children.setAll(if (isExpanded) listOf(header, body()) else listOf(header))

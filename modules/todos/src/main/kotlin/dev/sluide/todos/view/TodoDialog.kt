@@ -85,7 +85,11 @@ internal class TodoDialog(
     val writeButton = ToggleButton("Write").apply { toggleGroup = modeGroup }
     val previewButton = ToggleButton("Preview").apply { toggleGroup = modeGroup }
 
-    private val preview = ScrollPane().apply { isFitToWidth = true }
+    private val preview =
+        ScrollPane().apply {
+            isFitToWidth = true
+            styleClass += "todo-preview"
+        }
     val descriptionHolder = StackPane(editor.node)
 
     val confirmButton: Button get() = dialogPane.lookupButton(confirm) as Button

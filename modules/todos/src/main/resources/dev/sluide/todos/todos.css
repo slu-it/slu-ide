@@ -179,6 +179,12 @@
     -fx-padding: 3 0 0 2;
 }
 
+/* The dialog's preview of the description (TodoDialog). */
+
+.todo-preview {
+    -fx-padding: 8;
+}
+
 .todo-segmented .todo-segment {
     -fx-background-radius: 0;
 }

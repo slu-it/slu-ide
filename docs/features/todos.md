@@ -17,8 +17,8 @@ folder, as cards with Markdown notes.
 - **Tabs:** "Shared" (the default) and "Project", each with the number of its TODOs. The Project tab is disabled in a
   window without a folder.
 - **Cards:** a card shows the summary on one line with buttons to Expand (the chevron; also hides the description
-  again), Edit (pencil) and Delete (bin). Expanding shows the description as rendered Markdown. A double click on the
-  summary edits. Add (at the top of a tab) opens the dialog for the tab's scope; an empty tab says "No TODOs". New
+  again), Edit (pencil) and Delete (bin). Expanding shows the description as rendered Markdown; a card without a
+  description has no chevron, but its summary lines up with the others. A double click on the summary edits. Add (at the top of a tab) opens the dialog for the tab's scope; an empty tab says "No TODOs". New
   TODOs go to the top. There is no done state: delete a TODO when it is done.
 - **The dialog:** a Shared | Project switch (Project is disabled without a folder), a Summary field and a Description
   editor with Write | Preview. Write is a Markdown code editor in the editor font (the keys of code editors apply,
