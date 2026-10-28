@@ -9,6 +9,8 @@ import javafx.scene.control.Button
 import javafx.scene.control.ToggleButton
 import javafx.scene.control.Tooltip
 import javafx.scene.layout.HBox
+import javafx.scene.layout.Priority
+import javafx.scene.layout.Region
 import org.kordamp.ikonli.Ikon
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignC
@@ -18,9 +20,10 @@ import java.nio.file.Path
 
 /**
  * The slim row of icon buttons above the explorer's tree: Select Opened File, Collapse All, Refresh and the Compact
- * Middle Folders toggle, which follows and sets the explorer's setting (shared by all windows). The window
- * tells it which file is opened ([openedFile]) and what selecting it means ([selectOpened]); the explorer module
- * does not know the editor. [selectOpenedKey] is the platform's text of the shortcut, shown in the tooltip.
+ * Middle Folders toggle, which follows and sets the explorer's setting (shared by all windows), and at the right end
+ * Collapse, which hides the window's explorer column ([collapse], ADR 0104). The window tells it which file is opened
+ * ([openedFile]) and what selecting it means ([selectOpened]); the explorer module does not know the editor.
+ * [selectOpenedKey] is the platform's text of the shortcut, shown in the tooltip.
  */
 class ExplorerBar(
     private val explorer: FileExplorerView,
@@ -28,6 +31,7 @@ class ExplorerBar(
     selectOpened: () -> Unit,
     selectOpenedKey: String,
     refreshKey: String = "F5",
+    collapse: () -> Unit,
 ) : HBox(2.0) {
     /** Whether there is an opened file that a root holds; false while the tree is empty or the file is elsewhere. */
     val canSelectOpened: BooleanBinding =
@@ -67,11 +71,15 @@ class ExplorerBar(
             selectedProperty().bindBidirectional(explorer.compactFolders)
         }
 
+    /** Collapses the window's explorer column to a stripe; at the right end, next to the editor. */
+    val collapseButton: Button = button(MaterialDesignC.CHEVRON_LEFT, "Collapse", "explorer-collapse", collapse)
+
     init {
         styleClass += "explorer-bar"
         alignment = Pos.CENTER_LEFT
         padding = Insets(2.0, 4.0, 2.0, 4.0)
-        children.setAll(selectOpenedButton, collapseAllButton, refreshButton, compactToggle)
+        val spacer = Region().apply { HBox.setHgrow(this, Priority.ALWAYS) }
+        children.setAll(selectOpenedButton, collapseAllButton, refreshButton, compactToggle, spacer, collapseButton)
         stylesheets += checkNotNull(ExplorerBar::class.java.getResource("file-explorer.css")).toExternalForm()
     }
 

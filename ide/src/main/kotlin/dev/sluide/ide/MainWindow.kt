@@ -171,7 +171,13 @@ class MainWindow(
     fun show(stage: Stage) {
         themedWindows.install()
         val explorerBar =
-            ExplorerBar(fileExplorer, editorArea.selectedFile, ::selectOpenedFile, selectOpenedKey.displayText)
+            ExplorerBar(
+                fileExplorer,
+                editorArea.selectedFile,
+                ::selectOpenedFile,
+                selectOpenedKey.displayText,
+                collapse = {},
+            )
         val left = leftPane(explorerBar, fileExplorer, backgroundTasks)
         // Resizing the window resizes the editor area; the explorer keeps its width until the user drags the divider
         // (or the editor area is as narrow as it can be).

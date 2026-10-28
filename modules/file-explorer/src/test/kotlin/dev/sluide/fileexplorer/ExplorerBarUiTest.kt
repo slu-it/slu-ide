@@ -27,24 +27,41 @@ import kotlin.time.Duration.Companion.milliseconds
 class ExplorerBarUiTest : FileExplorerViewUiFixture() {
     private val opened = SimpleObjectProperty<Path?>()
     private var selectRequests = 0
+    private var collapses = 0
     private lateinit var bar: ExplorerBar
 
     @Start
     fun start(stage: Stage) =
         startView(stage, wrap = {
-            bar = ExplorerBar(it, opened, { selectRequests++ }, "Alt+F1")
+            bar = ExplorerBar(it, opened, { selectRequests++ }, "Alt+F1", collapse = { collapses++ })
             VBox(bar, it)
         })
 
     @Test
-    fun `the bar has the four buttons with tooltips naming the action and key`(robot: FxRobot) {
+    fun `the bar has the buttons with tooltips naming the action and key, Collapse at the right end`(robot: FxRobot) {
         robot.interact {
             assertEquals(
-                listOf("Select Opened File (Alt+F1)", "Collapse All", "Refresh (F5)", "Compact Middle Folders"),
-                bar.children.map { (it as Control).tooltip.text },
+                listOf(
+                    "Select Opened File (Alt+F1)",
+                    "Collapse All",
+                    "Refresh (F5)",
+                    "Compact Middle Folders",
+                    "Collapse",
+                ),
+                bar.children.filterIsInstance<Control>().map { it.tooltip.text },
             )
             assertTrue(bar.children.none { it.isFocusTraversable })
+            assertEquals(bar.collapseButton, bar.children.last())
+            val buttonsEnd = bar.compactToggle.boundsInParent.maxX
+            assertTrue(bar.collapseButton.boundsInParent.minX > buttonsEnd + 10, "pushed to the right by a spacer")
         }
+    }
+
+    @Test
+    fun `Collapse calls the window`(robot: FxRobot) {
+        robot.interact { bar.collapseButton.fire() }
+
+        assertEquals(1, collapses)
     }
 
     @Test
@@ -94,7 +111,7 @@ class ExplorerBarUiTest : FileExplorerViewUiFixture() {
         lateinit var manual: FileExplorerView
         robot.interact {
             manual = FileExplorerView(unwatched, fontSettings, ExplorerClipboard(), explorerSettings)
-            val manualBar = ExplorerBar(manual, opened, {}, "Alt+F1")
+            val manualBar = ExplorerBar(manual, opened, {}, "Alt+F1", collapse = {})
             view.scene.root = VBox(manualBar, manual)
             manual.open(project)
             bar = manualBar
