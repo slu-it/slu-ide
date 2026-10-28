@@ -40,6 +40,8 @@ import dev.sluide.settings.ThemedWindows
 import dev.sluide.settings.pages.FontsPage
 import dev.sluide.terminal.Terminals
 import dev.sluide.terminal.settings.TerminalScrollSettings
+import dev.sluide.todos.TodoPanel
+import dev.sluide.todos.Todos
 import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.control.Label
@@ -129,6 +131,7 @@ class ProjectWindowsUiTest {
                 )
                 register(GitTrustCheck::class.java)
                 register(ArgumentHistories::class.java)
+                register(Todos::class.java)
                 register(GitLog::class.java)
                 register(GitBranches::class.java)
                 register(GitCommits::class.java)
@@ -157,6 +160,7 @@ class ProjectWindowsUiTest {
                     CommandRunSession::class.java,
                     ProjectTrust::class.java,
                     BackgroundTasks::class.java,
+                    TodoPanel::class.java,
                 )
                 refresh()
             }

@@ -10,7 +10,7 @@ The menu accelerators work everywhere in the window, in a focused terminal only 
 ## Menus
 Accelerators of the menu bar ([open-folder.md](open-folder.md), [settings.md](settings.md),
 [scratch-files.md](scratch-files.md), [git-diff.md](git-diff.md), [git-log.md](git-log.md),
-[commit-and-push.md](commit-and-push.md), [terminal.md](terminal.md), [editor-tabs.md](editor-tabs.md)).
+[commit-and-push.md](commit-and-push.md), [terminal.md](terminal.md), [editor-tabs.md](editor-tabs.md), [todos.md](todos.md)).
 
 | Keys | Action |
 |---|---|
@@ -23,6 +23,7 @@ Accelerators of the menu bar ([open-folder.md](open-folder.md), [settings.md](se
 | Shortcut+Shift+D | View → Show Changes (side-by-side diff of the current file) |
 | Alt+F1 (Option+F1 on macOS) | View → Select Opened File (reveals the selected tab's file in the explorer and focuses it; not while a terminal has the focus, it sends Alt+F1 to the shell; many Linux desktops (GNOME, KDE, Xfce) grab Alt+F1 themselves, so it may never reach the app there) |
 | Alt+9 (Cmd+9 on macOS) | View → Git Log (expand or collapse) |
+| Alt+6 (Cmd+6 on macOS) | View → TODOs (expand or collapse the TODO panel; not while a terminal has the focus on Linux and Windows) |
 | Shortcut+K | Git → Commit… |
 | Shortcut+Shift+K | Git → Push… |
 | Shortcut+Shift+T | Terminal → New Terminal |
@@ -136,7 +137,7 @@ All previews and images zoom, only while the rendered view has the focus, not in
 | Shortcut+Shift+V | Paste |
 
 All other keys the terminal translates go to the shell. On Linux and Windows these include Ctrl+O, Ctrl+S, Ctrl+W,
-Ctrl+K and Alt+9, which then do not reach their menu items; Shortcut+Shift+letter, Ctrl+, and Ctrl+Alt+S still do, and
+Ctrl+K, Alt+9 and Alt+6, which then do not reach their menu items; Shortcut+Shift+letter, Ctrl+, and Ctrl+Alt+S still do, and
 on macOS every Cmd shortcut does, but Cmd+W leaves a terminal tab open: File → Close Tab is disabled for terminals
 ([terminal.md](terminal.md)). Alt+F1 (Option+F1 on macOS) goes to the shell on all platforms, so View → Select Opened
 File does not react to it while a terminal has the focus.
@@ -168,6 +169,20 @@ File does not react to it while a terminal has the focus.
 | Escape in the Push dialog | Close it |
 | Shortcut+Enter in the Edit Commit Message dialog | Change the message (when it differs; Enter is a newline) |
 
+## TODO panel
+[todos.md](todos.md)
+
+| Keys | Action |
+|---|---|
+| Alt+6 (Cmd+6 on macOS) | Expand or collapse the panel (View → TODOs; not while a terminal has the focus on Linux and Windows) |
+| Enter or Space on the focused stripe | Expand the panel |
+| Tab | Reach the cards' Expand, Edit and Delete buttons and the Collapse button |
+| Escape while dragging a card | Cancel the drag |
+| Enter in the delete question | Keep the TODO (Cancel is the default button) |
+| Enter in the dialog's Summary field | Add or save the TODO |
+| Escape in the dialog | Cancel it |
+| The editing keys of code editors in the dialog's description field | As in the other editors of dialogs, see [Code editor](#code-editor) |
+
 ## Settings
 [settings.md](settings.md)
 
@@ -179,6 +194,8 @@ File does not react to it while a terminal has the focus.
 | Input | Action |
 |---|---|
 | Middle-click on a tab (editor area, git log area) | Close the tab |
+| Drag a TODO card by its header | Reorder the cards of the list ([todos.md](todos.md)) |
+| Double-click on a TODO card's summary | Edit the TODO ([todos.md](todos.md)) |
 
 ## Pickers
 [scratch-files.md](scratch-files.md), [project-picker.md](project-picker.md)

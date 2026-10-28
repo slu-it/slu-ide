@@ -41,6 +41,8 @@ import dev.sluide.settings.ThemedWindows
 import dev.sluide.settings.pages.FontsPage
 import dev.sluide.terminal.Terminals
 import dev.sluide.terminal.settings.TerminalScrollSettings
+import dev.sluide.todos.TodoPanel
+import dev.sluide.todos.Todos
 import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.Node
@@ -173,6 +175,7 @@ abstract class MainWindowUiFixture {
         gradleSessions.forEach(GradleSession::close)
         commandRunSessions.forEach(CommandRunSession::close)
         backgroundTasks.forEach(BackgroundTasks::close)
+        todoPanels.forEach(TodoPanel::close)
     }
 
     /** The git log views of the windows a test created, the main window's first; closed after it. */
@@ -190,6 +193,13 @@ abstract class MainWindowUiFixture {
 
     /** The background tasks of the windows a test created, the main window's first; closed after it. */
     internal val backgroundTasks = mutableListOf<BackgroundTasks>()
+
+    /** The TODO panels of the windows a test created, the main window's first; closed after it. */
+    internal val todoPanels = mutableListOf<TodoPanel>()
+
+    /** The application-wide TODO store, in the test's project data and shared data file. */
+    internal val todos by lazy { Todos(projectData) }
+    internal val todoPanel get() = todoPanels.first()
 
     internal fun startView(stage: Stage) {
         this.stage = stage
@@ -252,6 +262,8 @@ abstract class MainWindowUiFixture {
             GradleSession(projectTrust, commandRuns).also(gradleSessions::add),
             commandRuns,
             projectData,
+            TodoPanel(todos).also(todoPanels::add),
+            fontSettings,
         )
     }
 

@@ -53,6 +53,8 @@ import dev.sluide.shellscripts.ShellScriptFileViewer
 import dev.sluide.terminal.Terminals
 import dev.sluide.terminal.settings.TerminalScrollPage
 import dev.sluide.terminal.settings.TerminalScrollSettings
+import dev.sluide.todos.TodoPanel
+import dev.sluide.todos.Todos
 import org.junit.jupiter.api.io.TempDir
 import org.springframework.boot.WebApplicationType
 import org.springframework.boot.builder.SpringApplicationBuilder
@@ -131,6 +133,7 @@ class SpringWiringTest {
                         TrustedProjects::class.java,
                         LegacyTrustDecisions::class.java,
                         ScratchFiles::class.java,
+                        Todos::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")
@@ -155,6 +158,7 @@ class SpringWiringTest {
                         CommandRunSession::class.java,
                         ProjectTrust::class.java,
                         BackgroundTasks::class.java,
+                        TodoPanel::class.java,
                     )
                 val scoped =
                     context.beanFactory.beanDefinitionNames.filter {

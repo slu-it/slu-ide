@@ -25,17 +25,20 @@ internal fun leftPane(
 
 /**
  * Gives the explorer, the left part of [split], its start width ([FileExplorerView.startWidth]), but at most half of a
- * narrow window, at once or, before the window is laid out, as soon as it is.
+ * narrow window, at once or, before the window is laid out, as soon as it is. Then it calls [afterFit], which sets the
+ * dividers behind this one again: they move with it.
  */
 internal fun fitExplorer(
     split: SplitPane,
     fileExplorer: FileExplorerView,
+    afterFit: () -> Unit = {},
 ) {
     // The position is that of the divider's middle. Views in the editor area may have split panes of their own.
     fun fit() {
         val divider = split.lookupAll(".split-pane-divider").firstOrNull { it.parent === split }
         val width = minOf(fileExplorer.startWidth(), split.width / 2)
         split.setDividerPositions((width + (divider?.prefWidth(-1.0) ?: 0.0) / 2) / split.width)
+        afterFit()
     }
     if (split.width > 0) {
         fit()

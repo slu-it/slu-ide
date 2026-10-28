@@ -49,6 +49,8 @@ dependencies {
     implementation(project(":modules:gradle"))
     // Needed only for the Spring bean: ShellScriptFileViewer is a FileViewer found by component scan (ADR 0089).
     implementation(project(":modules:shell-scripts"))
+    // The TODO panel at the right of every window; TodoPanel is a window bean, Todos a singleton (ADR 0102).
+    implementation(project(":modules:todos"))
     // The explorer's Run item has a Material Design play icon, like the HTTP client's Run (ADR 0012).
     implementation(libs.ikonli.javafx)
     implementation(libs.ikonli.materialdesign2)

@@ -6,6 +6,7 @@ import dev.sluide.fileviewers.FileViewers
 import dev.sluide.git.GitStatusService
 import dev.sluide.git.GitTrustCheck
 import dev.sluide.gitlog.GitLogView
+import dev.sluide.ide.isMac
 import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.projecttrust.ProjectTrustState
 import javafx.beans.property.SimpleBooleanProperty
@@ -19,9 +20,6 @@ import javafx.scene.input.KeyCombination
 import javafx.scene.layout.Region
 import java.nio.file.Files
 import java.nio.file.Path
-
-/** Alt+digit types characters on macOS, so window shortcuts with digits use Cmd there. */
-private val isMac = System.getProperty("os.name").lowercase().contains("mac")
 
 /** Where the divider above the git log starts when it is expanded: the log takes the lower 30 % (ADR 0035). */
 private const val GIT_LOG_DIVIDER = 0.7
@@ -133,8 +131,8 @@ internal class WindowGitLog(
     }
 
     /**
-     * Shows the git log below the editor area if [present], else only the editor area, on the right of the explorer
-     * [split]. Without the log there is neither its header nor a divider.
+     * Shows the git log below the editor area if [present], else only the editor area, between the explorer and
+     * the TODO panel of [split]. Without the log there is neither its header nor a divider.
      */
     fun show(
         split: SplitPane,
@@ -144,10 +142,11 @@ internal class WindowGitLog(
         val right = if (present) gitLogSplit else editorArea
         if (split.items.getOrNull(1) === right) return
         // Going from present to absent is defensive: a window gets its folder once today (ADR 0014).
-        // The editor area moves between the two split panes; it can be in only one of them.
+        // The editor area moves between the two split panes; it can be in only one of them, so it leaves the split
+        // before it goes into the log's split. The centre keeps its place (index 1): the TODO panel is after it.
         if (split.items.size > 1) split.items.removeAt(1)
         if (present) gitLogSplit.items.setAll(editorArea, gitLogView) else gitLogSplit.items.clear()
-        split.items.add(right)
+        split.items.add(1, right)
         // The skin makes the new divider only in its next layout; fitExplorer measures it right after this.
         split.applyCss()
         split.layout()

@@ -30,16 +30,19 @@ import dev.sluide.ide.github.WindowWorkflowSources
 import dev.sluide.ide.logging.currentLogFolder
 import dev.sluide.ide.scratches.WindowScratches
 import dev.sluide.ide.scripts.WindowScriptRuns
+import dev.sluide.ide.todos.WindowTodos
 import dev.sluide.ide.tools.WindowTools
 import dev.sluide.ide.trust.WindowTrust
 import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.projects.RecentProjects
 import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.scratches.ScratchFiles
+import dev.sluide.settings.FontSettings
 import dev.sluide.settings.SettingsDialog
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.ThemedWindows
 import dev.sluide.terminal.Terminals
+import dev.sluide.todos.TodoPanel
 import javafx.beans.value.ObservableValue
 import javafx.scene.Scene
 import javafx.scene.control.Alert
@@ -90,6 +93,8 @@ class MainWindow(
     private val gradleSession: GradleSession,
     private val commandRuns: CommandRunSession,
     private val projectData: ProjectDataStore,
+    todoPanel: TodoPanel,
+    fontSettings: FontSettings,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
     internal var openWebPage: (URI) -> Unit = systemBrowser::open
@@ -136,6 +141,9 @@ class MainWindow(
     /** The git log below the editor area, the Git menu and their wiring (ADRs 0035, 0053). */
     private val gitLog = WindowGitLog(gitLogView, gitStatus, projectTrust, editorArea, fileExplorer, fileViewers)
 
+    /** The TODO panel at the right of the window and the View menu's TODOs item (ADR 0102). */
+    private val todos = WindowTodos(todoPanel, editorArea, fontSettings) { openWebPage(it) }
+
     /**
      * The remote files of the workflow graphs (ADR 0076): from the shared cache, the origin's host first if the
      * folder's trust allows git, which reads the origin's URL. Readers run off the FX thread, so they may wait for the
@@ -168,6 +176,8 @@ class MainWindow(
         // Resizing the window resizes the editor area; the explorer keeps its width until the user drags the divider
         // (or the editor area is as narrow as it can be).
         val split = SplitPane(left, editorArea).apply { SplitPane.setResizableWithParent(left, false) }
+        // The TODO panel is the last item, collapsed to its stripe.
+        todos.attach(split)
         val root =
             BorderPane().apply {
                 top =
@@ -275,7 +285,9 @@ class MainWindow(
             gitStatus.open(folder)
             gitLog.show(split, gitStatus.active)
             gitLog.followTrust()
-            fitExplorer(split, fileExplorer)
+            // Setting the explorer's divider may move the TODO panel's, so that is set again after it.
+            fitExplorer(split, fileExplorer, afterFit = todos::fit)
+            todos.open(folder)
             stage.title = windowTitle(folder, gitStatus.snapshot.get().head)
             // Every opened folder is remembered for the project picker: chosen there, with Open Folder… or given on
             // the command line (ADR 0034).
@@ -362,7 +374,7 @@ class MainWindow(
                 disableProperty().bind(canSelectOpened.map { !it })
                 setOnAction { selectOpenedFile() }
             }
-        return Menu("View", null, showChanges, selectOpened, gitLog.gitLogMenuItem())
+        return Menu("View", null, showChanges, selectOpened, gitLog.gitLogMenuItem(), todos.menuItem())
     }
 
     /** Reveals the file of the selected tab in the explorer, with the focus; nothing without a file under a root. */
@@ -393,6 +405,7 @@ class MainWindow(
         fileExplorer.open(null)
         gitStatus.open(null)
         gitLog.dispose()
+        todos.dispose()
         projectTrust.open(null)
     }
 }
