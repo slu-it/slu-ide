@@ -1,0 +1,87 @@
+/* The Markdown of a TODO description (MarkdownRenderer). Modena's looked-up colours, so it follows light and dark. */
+
+.todo-markdown {
+    -fx-spacing: 6;
+}
+
+.todo-markdown .text {
+    -fx-fill: -fx-text-base-color;
+}
+
+.todo-markdown .em {
+    -fx-font-style: italic;
+}
+
+.todo-markdown .strong {
+    -fx-font-weight: bold;
+}
+
+.todo-markdown .strike {
+    -fx-strikethrough: true;
+}
+
+.todo-markdown .code {
+    -fx-font-family: monospace;
+}
+
+.todo-markdown .heading .text {
+    -fx-font-weight: bold;
+}
+
+.todo-markdown .h1 .text {
+    -fx-font-size: 1.7em;
+}
+
+.todo-markdown .h2 .text {
+    -fx-font-size: 1.45em;
+}
+
+.todo-markdown .h3 .text {
+    -fx-font-size: 1.25em;
+}
+
+.todo-markdown .h4 .text {
+    -fx-font-size: 1.1em;
+}
+
+.todo-markdown .h5 .text,
+.todo-markdown .h6 .text {
+    -fx-font-size: 1em;
+}
+
+.todo-markdown .code-block {
+    -fx-background-color: -fx-control-inner-background-alt;
+    -fx-border-color: -fx-box-border;
+    -fx-border-radius: 3;
+    -fx-background-radius: 3;
+    -fx-padding: 6;
+}
+
+.todo-markdown .quote {
+    -fx-border-color: transparent transparent transparent -fx-box-border;
+    -fx-border-width: 0 0 0 3;
+    -fx-padding: 0 0 0 8;
+    -fx-spacing: 6;
+}
+
+.todo-markdown .list {
+    -fx-spacing: 2;
+}
+
+.todo-markdown .item {
+    -fx-spacing: 6;
+}
+
+.todo-markdown .bullet {
+    -fx-min-width: 18;
+    -fx-alignment: top-right;
+}
+
+.todo-markdown .image-alt {
+    -fx-font-style: italic;
+}
+
+.todo-markdown .text.link {
+    -fx-fill: -fx-accent;
+    -fx-underline: true;
+}
