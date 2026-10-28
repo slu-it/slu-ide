@@ -2,15 +2,21 @@ package dev.sluide.todos.view
 
 import dev.sluide.todos.Todo
 import dev.sluide.todos.TodoScope
+import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.Parent
 import javafx.scene.control.ScrollPane
 import javafx.scene.control.TextArea
+import javafx.scene.input.MouseButton
+import javafx.scene.input.MouseEvent
+import javafx.scene.text.Text
 import javafx.scene.text.TextFlow
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
@@ -117,5 +123,73 @@ class TodoDialogUiTest {
     fun `cancel gives no draft`(robot: FxRobot) {
         val dialog = dialog(robot, request())
         assertNull(dialog.resultConverter.call(dialog.dialogPane.buttonTypes.last()))
+    }
+
+    @Test
+    fun `a draft from a failed save is shown instead of the TODO`(robot: FxRobot) {
+        val draft = TodoDraft(TodoScope.PROJECT, "Typed", "- some text")
+        val todo = Todo("id", "Stored", "stored text")
+        val request =
+            TodoDialogRequest(
+                null,
+                todo,
+                TodoScope.SHARED,
+                true,
+                Path.of("."),
+                { PlainDescriptionEditor(it) },
+                {},
+                {},
+                draft,
+            )
+        val dialog = dialog(robot, request)
+        assertEquals("Typed", dialog.summaryField.text)
+        assertEquals("- some text", dialog.editor.text)
+        assertEquals(TodoScope.PROJECT, dialog.scope)
+    }
+
+    @ParameterizedTest(name = "{0} scope opens the project link: {1}")
+    @CsvSource("PROJECT,true", "SHARED,false")
+    fun `the preview resolves project links only in the Project scope`(
+        scope: TodoScope,
+        opens: Boolean,
+        robot: FxRobot,
+    ) {
+        val opened = mutableListOf<Path>()
+        val folder = Path.of(".").toAbsolutePath().normalize()
+        val request =
+            TodoDialogRequest(null, null, scope, true, folder, { PlainDescriptionEditor(it) }, {}, opened::add)
+        val dialog = dialog(robot, request)
+        robot.interact {
+            (dialog.editor.node as TextArea).text = "[notes](notes/a.md)"
+            dialog.previewButton.fire()
+        }
+        val preview = dialog.descriptionHolder.children.single() as ScrollPane
+        val link = descendants(preview.content).filterIsInstance<Text>().single { it.styleClass.contains("link") }
+        robot.interact {
+            Event.fireEvent(
+                link,
+                MouseEvent(
+                    MouseEvent.MOUSE_CLICKED,
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0,
+                    MouseButton.PRIMARY,
+                    1,
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    null,
+                ),
+            )
+        }
+        assertEquals(if (opens) listOf(folder.resolve("notes/a.md")) else emptyList(), opened)
     }
 }

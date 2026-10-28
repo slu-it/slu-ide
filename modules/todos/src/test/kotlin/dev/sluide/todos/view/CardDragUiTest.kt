@@ -127,6 +127,22 @@ class CardDragUiTest {
     }
 
     @Test
+    fun `dragging a card up shifts the cards it passes down`(robot: FxRobot) {
+        val cards = threeCards(robot)
+        val bottom = cards[2]
+        robot.interact {
+            mouse(bottom.header, MouseEvent.MOUSE_PRESSED, centerY(bottom.header))
+            mouse(bottom.header, MouseEvent.MOUSE_DRAGGED, centerY(cards[0].header) - 5)
+            assertTrue(cards[0].translateY > 0, "first moved down: ${cards[0].translateY}")
+            assertTrue(cards[1].translateY > 0)
+            mouse(bottom.header, MouseEvent.MOUSE_RELEASED, centerY(cards[0].header) - 5)
+            assertEquals(0.0, cards[0].translateY)
+            assertEquals(0.0, cards[1].translateY)
+        }
+        assertEquals(listOf("a", "c", "b"), fixture.summaries(robot, TodoScope.SHARED, null))
+    }
+
+    @Test
     fun `Escape cancels a drag and the shifted cards return`(robot: FxRobot) {
         val cards = threeCards(robot)
         val top = cards[0]
