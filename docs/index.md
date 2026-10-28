@@ -123,6 +123,7 @@ updated when the summary or keywords no longer fit.
 | [0101](adr/0101-shared-data-file.md) | Shared data file `~/.sluide/shared.json` replaces outside-projects.json | shared data file, `shared.json`, `readShared`, `updateShared`, rename migration | amends 0090 |
 | [0102](adr/0102-todo-panel.md) | The TODO panel: Shared and Project cards with native Markdown, collapsed at the right of the window | TODOs, `todos`, `TodoPanel`, `Todos`, native Markdown, Alt+6, Shared/Project | see 0101, 0073, 0068; amended by 0103 |
 | [0103](adr/0103-todo-folders.md) | TODO folders: one level, mixed with TODOs in the same `todos` array, stored collapse (also of cards), drag with an insertion line | TODO folders, `TodoFolder`, `TodoPlace`, `dropTarget`, `ItemDrag`, collapsed, expanded, Keep TODOs | amends 0102; see 0073 |
+| [0104](adr/0104-collapsible-file-explorer.md) | The explorer column collapses to a stripe at the left like the TODO panel, expanded by default, background tasks included | collapse explorer, `ExplorerPanel`, `WindowExplorer`, stripe, Alt+1, View → Explorer | see 0102, 0068, 0095, 0061 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
@@ -141,7 +142,7 @@ updated when the summary or keywords no longer fit.
 ### Explorer
 | Feature | Summary | Keywords |
 |---|---|---|
-| [file-explorer.md](features/file-explorer.md) | Project tree with file operations, multi-selection and moves | tree, New File, Rename F2, Delete, drag move, copy/paste, compact folders, Select Opened File, Reveal, Open in Terminal |
+| [file-explorer.md](features/file-explorer.md) | Project tree with file operations, multi-selection and moves | tree, New File, Rename F2, Delete, drag move, copy/paste, compact folders, Select Opened File, Reveal, Open in Terminal, collapse, stripe, Alt+1 |
 | [scratch-files.md](features/scratch-files.md) | Scratch files of any type under the explorer's Scratches root | New Scratch File, Shortcut+Shift+N, `~/.sluide/scratches`, type picker |
 | [file-watching.md](features/file-watching.md) | `FileWatcher` reports folder changes to explorer, editor and git | `FileWatcher`, watches, combined events, macOS polling |
 

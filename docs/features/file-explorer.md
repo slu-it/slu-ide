@@ -25,14 +25,22 @@
   (its first level visible), extra roots such as Scratches collapse; a selected row that becomes hidden moves to its
   nearest ancestor still shown, the focus stays. **Refresh (F5)** is the context menu's Refresh.
   **Compact Middle Folders** is a toggle button (shown pressed while on) for the setting of the same name, below.
-  [ADR 0095](../adr/0095-explorer-button-bar-and-select-opened-file.md).
+  [ADR 0095](../adr/0095-explorer-button-bar-and-select-opened-file.md). **Collapse** (chevron, at the right end of the
+  bar) collapses the explorer column, below.
+- Collapsing ([ADR 0104](../adr/0104-collapsible-file-explorer.md)): the window's left column (bar, tree and the
+  [background tasks](background-tasks.md)) collapses to a narrow stripe at the left with the vertical label "Explorer";
+  a click on it, or Enter or Space while it has the focus, expands it. View → Explorer (Alt+1, Cmd+1 on macOS) toggles
+  it. Every window starts expanded; the state is not stored. The stripe cannot be widened by dragging its divider;
+  expanding gives the column back the width it had, and a TODO panel keeps its width. Collapsing with the focus in the
+  column focuses the editor, expanding focuses the tree. Select Opened File and "Select in Explorer" expand it first.
+  `ExplorerPanel` and `WindowExplorer` (`ide.explorer`) build and fit it.
 - Uses the explorer font from the settings and follows its changes ([settings.md](settings.md)).
 - Width: the window starts the explorer as wide as the names (labels for extra roots) of the shown entries need, with
   their icons and indentation (`startWidth()`), but at least 12 and at most 24 times the explorer font size; without a folder it is
   12 times, and in a narrow window at most half of it. It gets this width when the window opens and when a folder
   opens in it. Resizing the window resizes the editor area; the explorer keeps its width until the divider is dragged,
   unless the window gets so narrow that the editor area cannot shrink any further. Later changes (expanding folders,
-  another font) do not change it.
+  another font) do not change it. A collapse keeps it until the column expands again.
 - Shows everything: hidden files, dot-folders, nested folders. Only `.git` (folder, or file in worktrees and
   submodules) is left out.
 - Folders are listed before files; each group is sorted by name, case-insensitively (`listDirectory`).

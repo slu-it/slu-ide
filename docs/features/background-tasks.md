@@ -4,7 +4,8 @@
 explorer). Decision in [ADR 0061](../adr/0061-background-tasks.md).
 
 - **Where:** below the file explorer, in the left part of the window. While nothing runs in the background, the list is
-  hidden and the explorer has the whole height.
+  hidden and the explorer has the whole height. While the explorer is collapsed to its stripe, the list is hidden with
+  it and shows again on expand ([ADR 0104](../adr/0104-collapsible-file-explorer.md)); the tasks run on.
 - **When:** work appears once it has run for half a second; work that ends sooner never shows. A row leaves the list
   as soon as its work ends.
 - **A row:** the work's name (shortened with "…" if the explorer is narrow), a moving progress bar and, for work that

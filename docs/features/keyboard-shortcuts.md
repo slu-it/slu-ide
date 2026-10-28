@@ -22,6 +22,7 @@ Accelerators of the menu bar ([open-folder.md](open-folder.md), [settings.md](se
 | Shortcut+, | File → Settings… |
 | Shortcut+Shift+D | View → Show Changes (side-by-side diff of the current file) |
 | Alt+F1 (Option+F1 on macOS) | View → Select Opened File (reveals the selected tab's file in the explorer and focuses it; not while a terminal has the focus, it sends Alt+F1 to the shell; many Linux desktops (GNOME, KDE, Xfce) grab Alt+F1 themselves, so it may never reach the app there) |
+| Alt+1 (Cmd+1 on macOS) | View → Explorer (expand or collapse the explorer column; not while a terminal has the focus on Linux and Windows) |
 | Alt+9 (Cmd+9 on macOS) | View → Git Log (expand or collapse) |
 | Alt+6 (Cmd+6 on macOS) | View → TODOs (expand or collapse the TODO panel; not while a terminal has the focus on Linux and Windows) |
 | Shortcut+K | Git → Commit… |
@@ -127,6 +128,7 @@ All previews and images zoom, only while the rendered view has the focus, not in
 | Drag entries onto a folder or the empty area | Move them (after a confirmation) |
 | Option+drag (macOS) / Ctrl+drag (Windows, Linux) entries onto a folder or the empty area | Copy them instead of moving (after a confirmation) |
 | Escape while dragging entries | Cancel the drag |
+| Enter or Space on the collapsed explorer's stripe | Expand the explorer |
 
 ## Terminal
 [terminal.md](terminal.md)
@@ -137,7 +139,7 @@ All previews and images zoom, only while the rendered view has the focus, not in
 | Shortcut+Shift+V | Paste |
 
 All other keys the terminal translates go to the shell. On Linux and Windows these include Ctrl+O, Ctrl+S, Ctrl+W,
-Ctrl+K, Alt+9 and Alt+6, which then do not reach their menu items; Shortcut+Shift+letter, Ctrl+, and Ctrl+Alt+S still do, and
+Ctrl+K, Alt+1, Alt+9 and Alt+6, which then do not reach their menu items; Shortcut+Shift+letter, Ctrl+, and Ctrl+Alt+S still do, and
 on macOS every Cmd shortcut does, but Cmd+W leaves a terminal tab open: File → Close Tab is disabled for terminals
 ([terminal.md](terminal.md)). Alt+F1 (Option+F1 on macOS) goes to the shell on all platforms, so View → Select Opened
 File does not react to it while a terminal has the focus.

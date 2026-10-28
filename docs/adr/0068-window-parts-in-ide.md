@@ -23,6 +23,8 @@ File menu, and the menu bar, which it assembles from the parts' menus. It keeps 
 which are `internal val`s.
 
 The parts:
+- `WindowExplorer` (`ide.explorer`): the explorer column at the left end of the main split, its width and collapsing,
+  the View → Explorer item ([ADR 0104](0104-collapsible-file-explorer.md)).
 - `WindowScratches` (`ide.scratches`): scratch files in the explorer and editor, File → New Scratch File….
 - `WindowTrust` (`ide.trust`): the trust bar, asking about findings, the `confirmTrust` hook; with the trust dialog.
 - `WindowGitLog` (`ide.git`): the git log's place and height, the Git menu, the View → Git Log item, history and
@@ -32,7 +34,7 @@ The parts:
 
 ## Consequences
 - `MainWindow` is under 300 lines; a new cross-feature integration gets a part instead of growing it.
-- Tests reach the parts through `mainWindow.trust`, `.tools` and `.scratches` (`.gitLog` is private);
+- Tests reach the parts through `mainWindow.trust`, `.tools`, `.scratches` and `.explorer` (`.gitLog` is private);
   `showSettings`, `showError`, `confirmCloseWindow`, `openWebPage` and `openFolder` stay on `MainWindow`.
 - The order in which `MainWindow.show` wires the parts still matters (e.g. the trust subscription before the folder
   subscription); it is read top to bottom there.
