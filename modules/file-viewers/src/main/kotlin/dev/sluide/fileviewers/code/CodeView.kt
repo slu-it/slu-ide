@@ -1,6 +1,5 @@
 package dev.sluide.fileviewers.code
 
-import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.FocusWhenShown
@@ -34,7 +33,6 @@ import org.fxmisc.richtext.model.StyleSpans
 import org.fxmisc.richtext.model.TwoDimensional
 import org.fxmisc.richtext.util.UndoUtils
 import org.fxmisc.wellbehaved.event.Nodes
-import org.reactfx.Subscription
 import java.nio.file.Files
 import java.nio.file.NoSuchFileException
 import java.nio.file.Path
@@ -216,14 +214,9 @@ internal class CodeView(
         area.requestFocus()
     }
 
-    /** Counts the changes of the text, so that highlighting done for an older text is dropped. */
-    private var revision = 0L
-
-    /** The revision highlighting was asked for last; the worker skips older requests still waiting for it. */
-    @Volatile private var requested = 0L
     private var disposed = false
     private val pendingFocus = FocusWhenShown()
-    private val highlighting: Subscription
+    private val highlighting: BackgroundHighlighting
 
     /** The change markers shown in the [gutter], following unsaved edits. */
     private val changeMarkers: ChangeMarkers
@@ -256,10 +249,9 @@ internal class CodeView(
         area.requestFollowCaret()
         val pause = if (savedText.length > LARGE_TEXT) highlightPause.multipliedBy(4) else highlightPause
         highlighting =
-            Subscription.multi(
-                area.plainTextChanges().subscribe { revision++ },
-                area.multiPlainChanges().successionEnds(pause).subscribe { highlightInBackground() },
-            )
+            BackgroundHighlighting(area, highlighter, pause, dispatch) { text, spans ->
+                findBar.overlay(withMasks(text, spans))
+            }
         changeMarkers = ChangeMarkers(savedText)
         area.multiPlainChanges().subscribe(::moveChangeMarkers)
         // Undoing reaches the saved text only after the undone change was reported.
@@ -513,7 +505,7 @@ internal class CodeView(
     override fun dispose() {
         disposed = true
         pendingFocus.cancel()
-        highlighting.unsubscribe()
+        highlighting.dispose()
         findBar.dispose()
     }
 
@@ -523,26 +515,6 @@ internal class CodeView(
 
     /** Focuses the text, keeping caret and scroll position; the text of a view in a split pane once it is shown. */
     override fun focus() = pendingFocus.request(area) { if (!disposed) area.requestFocus() }
-
-    private fun highlightInBackground() {
-        val highlighter = highlighter ?: return
-        val text = area.text
-        if (text.isEmpty()) return
-        val highlighted = revision
-        requested = highlighted
-        highlightExecutor.execute {
-            if (requested != highlighted) return@execute
-            val spans = codeStyleSpans(text, highlighter)
-            dispatch(
-                Runnable {
-                    if (disposed || revision != highlighted) return@Runnable
-                    val styles = findBar.overlay(withMasks(text, spans))
-                    val range = changedSpanRange(area.getStyleSpans(0, area.length), styles) ?: return@Runnable
-                    area.setStyleSpans(range.first, styles.subView(range.first, range.last + 1))
-                },
-            )
-        }
-    }
 
     private fun show(text: String) {
         area.replaceText(text)
@@ -579,7 +551,3 @@ private const val LARGE_TEXT = 1 shl 20
 
 /** How long typing pauses before the text is highlighted again (four times as long in large texts). */
 private val HIGHLIGHT_PAUSE = Duration.ofMillis(150)
-
-/** Highlights edited code of all views, one text at a time. */
-private val highlightExecutor =
-    NamedThreads.single("sluide-highlight")
