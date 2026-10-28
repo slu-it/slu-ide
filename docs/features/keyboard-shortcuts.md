@@ -29,7 +29,8 @@ Accelerators of the menu bar ([open-folder.md](open-folder.md), [settings.md](se
 
 ## Code editor
 Code views and the editors built on them, e.g. `.http` files ([text-editing.md](text-editing.md),
-[ADR 0022](../adr/0022-editor-key-bindings.md)).
+[ADR 0022](../adr/0022-editor-key-bindings.md)). Editors in dialogs (`CodeEditors.text`) have the editing keys only:
+no find, replace or go to line, and Tab indents instead of moving the focus.
 
 | Keys | Action |
 |---|---|

@@ -200,7 +200,10 @@ the Bicep graph and `BicepParamFileViewer`.
     edit, without building the text), `caretLine`, `caretLineProperty`, `moveCaretTo`, `savedText`,
     `savedTextProperty` (what a preview renders), `topLine` (-1 while no line is shown), `onShownLinesChanged`
     (scrolling, resizing, shown again, a shown line edited) and `showLineAtTop`. `CodeEditors.display()` creates a
-    read-only highlighted `CodeDisplay` (texts over 1 MiB stay plain).
+    read-only highlighted `CodeDisplay` (texts over 1 MiB stay plain). `CodeEditors.text(text, highlighter,
+    lineComment, blockComment)` creates a file-less `TextEditor` (`node`, `text`, `textProperty`, `focus`) for fields of
+    dialogs: wrapped lines, no gutter, the editing keys, plain-text undo and background highlighting of code views. Its font is inherited from its `node`: the caller binds the
+    node's style to `FontSettings.font(FontArea.EDITOR)` (`FontSpec::toCss`) if it should have the editor font.
   - Viewers that show files as text implement `SourceFileViewer` (`sourceHighlighter`) to get change markers and
     highlighted diffs. Viewers for extensions implement `ExtensionFileViewer` (`fileExtensions`, lower case, no dot)
     and viewers for exact names `NamedFileViewer` (`fileNames`), so that `FileViewers` also picks them by the name

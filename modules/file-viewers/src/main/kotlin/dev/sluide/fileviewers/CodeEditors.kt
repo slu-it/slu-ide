@@ -1,6 +1,7 @@
 package dev.sluide.fileviewers
 
 import dev.sluide.fileviewers.code.CodeView
+import dev.sluide.fileviewers.code.TextAreaEditor
 import dev.sluide.fileviewers.code.codeStyleSpans
 import dev.sluide.textediting.CommentSyntax
 import javafx.beans.value.ObservableValue
@@ -84,6 +85,24 @@ interface CodeDisplay {
     )
 }
 
+/**
+ * An editor of a text in memory, e.g. a field of a dialog: code-view keys, undo and highlighting, no file. The font is
+ * inherited from [node], so the caller sets the editor font if wanted: `node.styleProperty()` bound to
+ * `FontSettings.font(FontArea.EDITOR)` mapped with `FontSpec::toCss`, as `EditorArea` does for file views.
+ */
+interface TextEditor {
+    val node: Node
+
+    /** The current text with `\n` line breaks. */
+    val text: String
+
+    /** The text as it changes, with each edit; listeners run on the FX thread. */
+    val textProperty: ObservableValue<String>
+
+    /** Gives the text area the keyboard focus. */
+    fun focus()
+}
+
 /** Creates [CodeEditor]s and [CodeDisplay]s. */
 object CodeEditors {
     /** Longer texts are shown plain by a [CodeDisplay]. */
@@ -101,8 +120,26 @@ object CodeEditors {
         blockComment: Pair<String, String>? = null,
     ): CodeEditor = CodeViewEditor(CodeView(file, highlighter, CommentSyntax(lineComment, blockComment)))
 
+    /** An editor of [text], highlighted by [highlighter] (plain without one). Call on the FX thread. */
+    fun text(
+        text: String,
+        highlighter: SyntaxHighlighter?,
+        lineComment: String? = null,
+        blockComment: Pair<String, String>? = null,
+    ): TextEditor = AreaTextEditor(TextAreaEditor(text, highlighter, CommentSyntax(lineComment, blockComment)))
+
     /** An empty display. Call on the FX thread. */
     fun display(): CodeDisplay = AreaDisplay()
+}
+
+private class AreaTextEditor(
+    private val editor: TextAreaEditor,
+) : TextEditor {
+    override val node: Node get() = editor.node
+    override val text: String get() = editor.text
+    override val textProperty: ObservableValue<String> get() = editor.textProperty
+
+    override fun focus() = editor.focus()
 }
 
 private class AreaDisplay : CodeDisplay {
