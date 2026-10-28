@@ -20,11 +20,12 @@ private val log = System.getLogger(ProjectDataStore::class.java.name)
 
 /**
  * The metadata of every project, one JSON file per project in [folder] (by default `~/.sluide/projects`), named by a
- * random UUID and found by its `path`; the per-file data of files outside any project lives in [outsideFile] (by default
- * `~/.sluide/outside-projects.json`), keyed by absolute path (ADR 0090).
+ * random UUID and found by its `path`; the per-file data of files outside any project lives in [sharedFile] (by default
+ * `~/.sluide/shared.json`, the shared data file of ADR 0101), keyed by absolute path under `files`.
  *
  * The store owns `version`, `path` and `files`; all other fields belong to the modules that write them and are kept as
- * they are. Before the first access, the [migrations] move the old properties files in. Problems with the files are
+ * they are. Before the first access, `outside-projects.json` is renamed to [sharedFile] (first, ADR 0101) and the
+ * [migrations] move the old properties files in. Problems with the files are
  * logged, never thrown; a file that cannot be read, or has a newer version, is never replaced. Thread-safe: every
  * method holds the store's lock.
  *
@@ -34,13 +35,13 @@ private val log = System.getLogger(ProjectDataStore::class.java.name)
 @Component
 class ProjectDataStore(
     internal val folder: Path,
-    internal val outsideFile: Path,
+    internal val sharedFile: Path,
     private val migrations: List<LegacyProjectData>,
 ) {
     @Autowired
     constructor(migrations: List<LegacyProjectData>) : this(
         Path.of(System.getProperty("user.home"), ".sluide", "projects"),
-        Path.of(System.getProperty("user.home"), ".sluide", "outside-projects.json"),
+        Path.of(System.getProperty("user.home"), ".sluide", "shared.json"),
         migrations,
     )
 
@@ -123,7 +124,7 @@ class ProjectDataStore(
      * file; an entry goes to the file its new path belongs to. Data stored for [to] and under it before is dropped in
      * both files, also when [from] has none, so a moved file never inherits stale data. The target is written first,
      * so a failure duplicates an entry rather than losing it. When [from] is the project folder itself, its entries go
-     * to the outside file (the explorer cannot move the project root).
+     * to the shared file (the explorer cannot move the project root).
      */
     @Synchronized
     fun moved(
@@ -167,7 +168,7 @@ class ProjectDataStore(
             }
     }
 
-    /** Forgets the data of [path] and of everything under it, in the file of [projectFolder] and in the outside file. */
+    /** Forgets the data of [path] and of everything under it, in the file of [projectFolder] and in the shared file. */
     @Synchronized
     fun deleted(
         path: Path,
@@ -192,21 +193,21 @@ class ProjectDataStore(
         val value: JsonNode,
     )
 
-    /** The project's file, then the outside file. */
+    /** The project's file, then the shared file. */
     private fun containers(project: Path?): List<Path?> = listOf(project, null).distinct()
 
-    /** The stored data of [project], or of the outside file if `null`; `null` if there is none or it is unreadable. */
+    /** The stored data of [project], or of the shared file if `null`; `null` if there is none or it is unreadable. */
     private fun root(project: Path?): ObjectNode? =
-        if (project != null) scan().newest(project)?.node else (readJson(outsideFile) as? JsonRead.Found)?.node
+        if (project != null) scan().newest(project)?.node else (readJson(sharedFile) as? JsonRead.Found)?.node
 
-    /** The per-file entries of the file of [project], or of the outside file if `null`. */
+    /** The per-file entries of the file of [project], or of the shared file if `null`. */
     private fun entries(project: Path?): List<Pair<String, JsonNode>> {
         val root = root(project)
         val files = root?.get(FILES_FIELD) as? ObjectNode ?: return emptyList()
         return files.properties().map { it.key to it.value }
     }
 
-    /** Applies [change] to the `files` object of [project]'s file, or of the outside file if `null`. */
+    /** Applies [change] to the `files` object of [project]'s file, or of the shared file if `null`. */
     private fun editFiles(
         project: Path?,
         create: Boolean,
@@ -217,7 +218,7 @@ class ProjectDataStore(
             change(files)
             if (files.isEmpty) root.remove(FILES_FIELD)
         }
-        return if (project != null) editProject(project, create, changeFiles) else editOutside(create, changeFiles)
+        return if (project != null) editProject(project, create, changeFiles) else editShared(create, changeFiles)
     }
 
     private fun editProject(
@@ -244,12 +245,12 @@ class ProjectDataStore(
         return root == existing.node || writeJson(existing.file, root)
     }
 
-    private fun editOutside(
+    private fun editShared(
         create: Boolean,
         change: (ObjectNode) -> Unit,
     ): Boolean {
         val existing =
-            when (val read = readJson(outsideFile)) {
+            when (val read = readJson(sharedFile)) {
                 is JsonRead.Found -> {
                     read.node
                 }
@@ -259,18 +260,18 @@ class ProjectDataStore(
                 }
 
                 is JsonRead.Unreadable -> {
-                    warnOnce("Not replacing the unreadable $outsideFile", read.cause)
+                    warnOnce("Not replacing the unreadable $sharedFile", read.cause)
                     return false
                 }
             }
         if (!existing.writable()) {
-            log.log(System.Logger.Level.WARNING, "Not replacing $outsideFile, written by a newer version")
+            log.log(System.Logger.Level.WARNING, "Not replacing $sharedFile, written by a newer version")
             return false
         }
         val root = existing.deepCopy()
         change(root)
         root.put(VERSION_FIELD, VERSION)
-        return root == existing || writeJson(outsideFile, root)
+        return root == existing || writeJson(sharedFile, root)
     }
 
     private class Stored(
@@ -355,12 +356,14 @@ class ProjectDataStore(
     }
 
     /**
-     * Runs the [migrations] once per store, before anything is read or written: an old file is deleted once its
-     * migration wrote everything, else kept for the next start.
+     * Once per store, before anything is read or written: first renames `outside-projects.json` to [sharedFile]
+     * ([migrateSharedFile]), then runs the [migrations]: an old file is deleted once its migration wrote everything,
+     * else kept for the next start.
      */
     private fun migrateLegacyFiles() {
         if (migrated) return
         migrated = true
+        migrateSharedFile(sharedFile)
         for (migration in migrations) {
             val file = migration.file
             if (file.notExists()) continue
