@@ -197,6 +197,7 @@ class TodoPanel(
     /** Stops following the TODO store; the window calls it when it closes (Todos is application-wide). */
     fun dispose() {
         subscription.unsubscribe()
+        lists.values.forEach(TodoList::cancelDrag)
     }
 
     /** The same as [dispose], so that the window scope's destruction stops the panel. */

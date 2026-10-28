@@ -36,6 +36,8 @@ internal class TodoList(
             styleClass += "todo-scroll"
         }
 
+    private val drag = CardDrag(scroll, cardsBox) { id, index -> host.move(scope, id, index) }
+
     /** The cards in display order. */
     val cards: List<TodoCard> get() = cardsBox.children.filterIsInstance<TodoCard>()
 
@@ -45,13 +47,16 @@ internal class TodoList(
         center = scroll
     }
 
+    /** Ends a drag in progress; the panel calls it when it is disposed. */
+    fun cancelDrag() = drag.cancel()
+
     /** Shows [todos]; a card of a TODO that is still there stays (with its expansion and the scroll position). */
     fun show(todos: List<Todo>) {
         val existing = cards.associateBy { it.todo.id }
         val shown =
             todos.map { todo ->
                 existing[todo.id]?.also { it.update(todo) }
-                    ?: TodoCard(todo, scope, host)
+                    ?: TodoCard(todo, scope, host).also(drag::attach)
             }
         cardsBox.children.setAll(shown.ifEmpty { listOf(Label("No TODOs").apply { styleClass += "todo-empty" }) })
     }
