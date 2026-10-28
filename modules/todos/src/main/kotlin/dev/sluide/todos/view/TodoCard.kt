@@ -20,7 +20,12 @@ internal class TodoCard(
     todo: Todo,
     val scope: TodoScope,
     private val host: TodoHost,
+    folderId: String?,
 ) : VBox() {
+    /** The folder that holds the TODO, null = root; changes when the card is reused in another container. */
+    var folderId: String? = folderId
+        private set
+
     var todo: Todo = todo
         private set
 
@@ -52,18 +57,22 @@ internal class TodoCard(
             if (!host.expandedIds.add(this.todo.id)) host.expandedIds.remove(this.todo.id)
             refresh()
         }
-        edit.setOnAction { host.edit(this.todo, scope) }
+        edit.setOnAction { host.edit(this.todo, scope, this.folderId) }
         delete.setOnAction { host.delete(this.todo, scope) }
         summary.setOnMouseClicked {
-            if (it.button == MouseButton.PRIMARY && it.clickCount == 2) host.edit(this.todo, scope)
+            if (it.button == MouseButton.PRIMARY && it.clickCount == 2) host.edit(this.todo, scope, this.folderId)
         }
         refresh()
     }
 
-    /** Shows [next], the same TODO (by id) as it is now stored; the expanded state stays. */
-    fun update(next: Todo) {
+    /** Shows [next], the same TODO (by id) as it is now stored, in [folder]; the expanded state stays. */
+    fun update(
+        next: Todo,
+        folder: String?,
+    ) {
         if (next.description != todo.description) body = null
         todo = next
+        folderId = folder
         refresh()
     }
 
@@ -86,7 +95,7 @@ internal class TodoCard(
 
     private fun body(): Region =
         body ?: MarkdownRenderer(
-            host.markdown(scope) { host.saveDescription(todo, scope, it) },
+            host.markdown(scope) { host.saveDescription(todo, scope, folderId, it) },
         ).render(todo.description).also {
             it.styleClass += "todo-card-body"
             body = it

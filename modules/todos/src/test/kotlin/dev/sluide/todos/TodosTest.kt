@@ -477,10 +477,8 @@ class TodosTest {
     }
 
     @Test
-    fun `a cross-scope edit of a TODO in a folder keeps its unknown fields and containerOf names the folder`() {
+    fun `a cross-scope edit of a TODO in a folder keeps its unknown fields`() {
         seed(TodoScope.PROJECT, "[${folderJson("F", entry("b", ""","k":1"""))}]")
-        assertEquals("F", todos.containerOf(TodoScope.PROJECT, folder, "b"))
-        assertNull(todos.containerOf(TodoScope.PROJECT, folder, "zz"))
         assertTrue(todos.edit("b", TodoScope.PROJECT, TodoScope.SHARED, folder, "x", "", null))
         assertEquals(
             1,
@@ -491,7 +489,6 @@ class TodosTest {
                 .get("k")
                 .intValue(),
         )
-        assertNull(todos.containerOf(TodoScope.SHARED, null, "b"))
         assertEquals("F[]", tree(TodoScope.PROJECT))
     }
 

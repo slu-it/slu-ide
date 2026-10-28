@@ -1,13 +1,17 @@
 package dev.sluide.todos
 
-import dev.sluide.todos.markdown.MarkdownContext
+import dev.sluide.todos.view.FolderDeletion
+import dev.sluide.todos.view.FolderDialog
+import dev.sluide.todos.view.FolderDialogRequest
+import dev.sluide.todos.view.FolderDraft
 import dev.sluide.todos.view.PlainDescriptionEditor
+import dev.sluide.todos.view.TodoActions
 import dev.sluide.todos.view.TodoDialog
 import dev.sluide.todos.view.TodoDialogRequest
 import dev.sluide.todos.view.TodoDraft
-import dev.sluide.todos.view.TodoHost
 import dev.sluide.todos.view.TodoList
 import dev.sluide.todos.view.askToDelete
+import dev.sluide.todos.view.askToDeleteFolder
 import dev.sluide.todos.view.iconButton
 import javafx.beans.property.BooleanProperty
 import javafx.beans.property.SimpleBooleanProperty
@@ -30,9 +34,6 @@ import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.net.URI
 import java.nio.file.Path
-
-private const val SAVE_FAILED =
-    "Could not save the TODO.\nThe shared data file or the project data could not be written; see the log."
 
 private const val STRIPE_WIDTH = 26.0
 private const val EXPANDED_WIDTH = 320.0
@@ -68,74 +69,26 @@ class TodoPanel(
             }.showAndWait()
     }
 
+    /** Shows the dialog to add or edit a folder; tests replace it, since it blocks. */
+    internal var editFolderDialog: (FolderDialogRequest) -> FolderDraft? =
+        { FolderDialog(it).showAndWait().orElse(null) }
+
     /** Asks whether to delete a TODO; tests replace it, since it blocks. */
     internal var confirmDelete: (Todo) -> Boolean = { askToDelete(scene?.window, it) }
 
-    private var folder: Path? = null
-    private val expandedIds = mutableSetOf<String>()
+    /** Asks how to delete a folder (null = cancel); tests replace it, since it blocks. */
+    internal var confirmDeleteFolder: (TodoFolder) -> FolderDeletion? = { askToDeleteFolder(scene?.window, it) }
 
-    private val host =
-        object : TodoHost {
-            override val expandedIds get() = this@TodoPanel.expandedIds
+    /** The window's project folder; null without one. */
+    internal var folder: Path? = null
+        private set
 
-            override fun edit(
-                todo: Todo,
-                scope: TodoScope,
-            ) = editExisting(todo, scope)
-
-            override fun delete(
-                todo: Todo,
-                scope: TodoScope,
-            ) {
-                if (confirmDelete(todo) && !todos.delete(scope, folder, todo.id)) failed(scope)
-            }
-
-            override fun saveDescription(
-                todo: Todo,
-                scope: TodoScope,
-                description: String,
-            ) {
-                if (!todos.edit(
-                        todo.id,
-                        scope,
-                        scope,
-                        folder,
-                        todo.summary,
-                        description,
-                        todos.containerOf(scope, folder, todo.id),
-                    )
-                ) {
-                    failed(scope)
-                    // The checkbox and the renderer's source go back to what is stored.
-                    lists
-                        .getValue(scope)
-                        .cards
-                        .firstOrNull { it.todo.id == todo.id }
-                        ?.reset()
-                }
-            }
-
-            override fun move(
-                scope: TodoScope,
-                id: String,
-                toIndex: Int,
-            ) {
-                if (!todos.move(scope, folder, id, TodoPlace(null, toIndex))) failed(scope)
-            }
-
-            override fun markdown(
-                scope: TodoScope,
-                sourceChanged: (String) -> Unit,
-            ) = MarkdownContext(
-                if (scope == TodoScope.PROJECT) folder else null,
-                { openWebPage(it) },
-                { openFile(it) },
-                sourceChanged,
-            )
-        }
+    private val actions = TodoActions(this, todos)
 
     internal val lists: Map<TodoScope, TodoList> =
-        TodoScope.entries.associateWith { scope -> TodoList(scope, host) { addTodo(scope) } }
+        TodoScope.entries.associateWith { scope ->
+            TodoList(scope, actions, { actions.add(scope) }, { actions.addFolder(scope) })
+        }
 
     internal val tabs: Map<TodoScope, Tab> =
         TodoScope.entries.associateWith { scope ->
@@ -240,69 +193,13 @@ class TodoPanel(
         if (scope == TodoScope.SHARED || path == folder?.toAbsolutePath()?.normalize()) refresh(scope)
     }
 
-    private fun refresh(scope: TodoScope) {
-        val items = todos.list(scope, folder)
+    internal fun refresh(scope: TodoScope) {
+        val items = todos.items(scope, folder)
         lists.getValue(scope).show(items)
-        tabs.getValue(scope).text = "${if (scope == TodoScope.SHARED) "Shared" else "Project"} (${items.size})"
+        val count = items.sumOf { if (it is TodoFolder) it.todos.size else 1 }
+        tabs.getValue(scope).text = "${if (scope == TodoScope.SHARED) "Shared" else "Project"} ($count)"
     }
 
-    /** Tells that a change could not be saved, and shows what is stored. */
-    private fun failed(scope: TodoScope) {
-        showError(SAVE_FAILED)
-        refresh(scope)
-    }
-
-    private fun request(
-        todo: Todo?,
-        scope: TodoScope,
-        draft: TodoDraft?,
-    ) = TodoDialogRequest(
-        scene?.window,
-        todo,
-        scope,
-        folder != null,
-        folder,
-        descriptionEditor,
-        { openWebPage(it) },
-        { openFile(it) },
-        draft,
-    )
-
-    /** Asks for a draft until it is saved or the dialog is cancelled; a failed save shows the draft again. */
-    private fun ask(
-        todo: Todo?,
-        scope: TodoScope,
-        save: (TodoDraft) -> Boolean,
-    ): TodoDraft? {
-        var draft: TodoDraft? = null
-        while (true) {
-            draft = editTodo(request(todo, scope, draft)) ?: return null
-            if (save(draft)) return draft
-            showError(SAVE_FAILED)
-        }
-    }
-
-    private fun addTodo(scope: TodoScope) {
-        val draft = ask(null, scope) { todos.add(it.scope, folder, it.summary, it.description) != null } ?: return
-        if (draft.scope != scope) tabPane.selectionModel.select(tabs.getValue(draft.scope))
-    }
-
-    private fun editExisting(
-        todo: Todo,
-        scope: TodoScope,
-    ) {
-        val draft =
-            ask(todo, scope) {
-                todos.edit(
-                    todo.id,
-                    scope,
-                    it.scope,
-                    folder,
-                    it.summary,
-                    it.description,
-                    todos.containerOf(scope, folder, todo.id),
-                )
-            } ?: return
-        if (draft.scope != scope) tabPane.selectionModel.select(tabs.getValue(draft.scope))
-    }
+    /** Shows the tab of [scope]. */
+    internal fun select(scope: TodoScope) = tabPane.selectionModel.select(tabs.getValue(scope))
 }

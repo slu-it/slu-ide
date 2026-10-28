@@ -11,6 +11,7 @@ import javafx.scene.control.ScrollPane
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
+import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
 import javafx.util.Duration
 import kotlin.math.abs
@@ -20,9 +21,10 @@ private const val SCROLL_STEP = 12.0
 private const val SCROLL_INTERVAL_MS = 30.0
 
 /**
- * Reorders the cards of [box] (in [scroll]) by a plain mouse drag on a card's header, not by platform drag and drop
+ * Reorders the root cards of [box] (in [scroll]) by a plain mouse drag on a card's header, not by platform drag and drop
  * (which leaves a stale pointer grab on Linux, ADR 0073). The dragged card follows the pointer; on release [move] gets
- * its new index. Escape cancels; near the edges the scroll pane scrolls.
+ * its new index, which counts the root cards and folders. Cards inside folders are not dragged yet. Escape cancels;
+ * near the edges the scroll pane scrolls.
  */
 internal class CardDrag(
     private val scroll: ScrollPane,
@@ -39,7 +41,7 @@ internal class CardDrag(
         val grabY: Double,
         val index: Int,
         val centers: List<Double>,
-        val cards: List<TodoCard>,
+        val items: List<Region>,
     ) {
         var dropIndex = index
     }
@@ -92,8 +94,11 @@ internal class CardDrag(
         card: TodoCard,
         pressed: Press,
     ) {
-        val cards = box.children.filterIsInstance<TodoCard>()
-        active = Active(card, pressed.grabY, cards.indexOf(card), cards.map { it.layoutY + it.height / 2 }, cards)
+        // The root items: cards and folders; a card inside a folder is not draggable yet.
+        val items = box.children.filter { it is TodoCard || it is FolderView }.filterIsInstance<Region>()
+        val index = items.indexOf(card)
+        if (index < 0) return
+        active = Active(card, pressed.grabY, index, items.map { it.layoutY + it.height / 2 }, items)
         card.styleClass += "dragging"
         card.viewOrder = -1.0
         scene = card.scene?.also { it.addEventFilter(KeyEvent.KEY_PRESSED, escape) }
@@ -119,12 +124,12 @@ internal class CardDrag(
         if (next == 0) autoScroll.stop() else autoScroll.play()
     }
 
-    /** Shifts the cards between the dragged card's place and the drop place by one card, to show where it lands. */
+    /** Shifts the items between the dragged card's place and the drop place by one card, to show where it lands. */
     private fun makeRoom(drag: Active) {
         val shift = drag.card.height + box.spacing
-        drag.cards.forEachIndexed { index, card ->
-            if (card === drag.card) return@forEachIndexed
-            card.translateY =
+        drag.items.forEachIndexed { index, item ->
+            if (item === drag.card) return@forEachIndexed
+            item.translateY =
                 when {
                     index in (drag.index + 1)..drag.dropIndex -> -shift
                     index in drag.dropIndex until drag.index -> shift
@@ -150,7 +155,7 @@ internal class CardDrag(
         scene?.removeEventFilter(KeyEvent.KEY_PRESSED, escape)
         scene = null
         active?.let { drag ->
-            drag.cards.forEach { it.translateY = 0.0 }
+            drag.items.forEach { it.translateY = 0.0 }
             drag.card.styleClass -= "dragging"
             drag.card.viewOrder = 0.0
         }

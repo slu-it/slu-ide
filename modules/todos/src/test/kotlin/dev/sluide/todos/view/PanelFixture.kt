@@ -27,6 +27,14 @@ internal class PanelFixture {
     val requests = mutableListOf<TodoDialogRequest>()
     val errors = mutableListOf<String>()
     var allowDelete = false
+
+    /** What the folder dialog returns when [folderDrafts] is empty. */
+    var folderDraft: FolderDraft? = null
+    val folderDrafts = ArrayDeque<FolderDraft>()
+    val folderRequests = mutableListOf<FolderDialogRequest>()
+
+    /** The answer of the folder delete confirmation. */
+    var folderDeletion: FolderDeletion? = null
     val panels = mutableListOf<TodoPanel>()
 
     fun newPanel(projectFolder: Path? = folder): TodoPanel =
@@ -37,7 +45,12 @@ internal class PanelFixture {
                 requests += it
                 drafts.removeFirstOrNull() ?: draft
             }
+            panel.editFolderDialog = {
+                folderRequests += it
+                folderDrafts.removeFirstOrNull() ?: folderDraft
+            }
             panel.confirmDelete = { allowDelete }
+            panel.confirmDeleteFolder = { folderDeletion }
             panel.showError = { errors += it }
         }
 

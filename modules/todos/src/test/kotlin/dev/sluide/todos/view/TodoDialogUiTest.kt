@@ -1,6 +1,7 @@
 package dev.sluide.todos.view
 
 import dev.sluide.todos.Todo
+import dev.sluide.todos.TodoFolder
 import dev.sluide.todos.TodoScope
 import javafx.event.Event
 import javafx.scene.Node
@@ -145,6 +146,70 @@ class TodoDialogUiTest {
         assertEquals("Typed", dialog.summaryField.text)
         assertEquals("- some text", dialog.editor.text)
         assertEquals(TodoScope.PROJECT, dialog.scope)
+    }
+
+    private val shared =
+        listOf(TodoFolder("s1", "Release", false, emptyList()), TodoFolder("both", "Both", false, emptyList()))
+    private val project =
+        listOf(TodoFolder("both", "Both too", false, emptyList()), TodoFolder("p1", "Mine", false, emptyList()))
+
+    private fun folderRequest(initialFolderId: String?) =
+        TodoDialogRequest(
+            null,
+            null,
+            TodoScope.SHARED,
+            true,
+            Path.of("."),
+            { PlainDescriptionEditor(it) },
+            {},
+            {},
+            null,
+            { if (it == TodoScope.SHARED) shared else project },
+            initialFolderId,
+        )
+
+    private fun TodoDialog.folderLabels() = folderBox.items.map { it.toString() }
+
+    @Test
+    fun `the folder options follow the scope switch and keep the folder if the new scope has it`(robot: FxRobot) {
+        val dialog = dialog(robot, folderRequest("both"))
+        assertEquals(listOf("No folder", "Release", "Both"), dialog.folderLabels())
+        assertEquals("both", dialog.folderBox.value.id)
+
+        robot.interact { dialog.scopeButtons.getValue(TodoScope.PROJECT).fire() }
+        assertEquals(listOf("No folder", "Both too", "Mine"), dialog.folderLabels())
+        assertEquals("both", dialog.folderBox.value.id)
+        assertEquals("both", dialog.answer()?.folderId)
+
+        robot.interact { dialog.folderBox.value = dialog.folderBox.items.last() }
+        robot.interact { dialog.scopeButtons.getValue(TodoScope.SHARED).fire() }
+        assertEquals("No folder", dialog.folderBox.value.toString())
+        assertNull(dialog.answer()?.folderId)
+    }
+
+    @Test
+    fun `the initial folder is selected and without one No folder`(robot: FxRobot) {
+        assertEquals("s1", dialog(robot, folderRequest("s1")).folderBox.value.id)
+        assertNull(dialog(robot, folderRequest(null)).folderBox.value.id)
+    }
+
+    @Test
+    fun `a draft from a failed save keeps its folder`(robot: FxRobot) {
+        val request =
+            TodoDialogRequest(
+                null,
+                null,
+                TodoScope.SHARED,
+                true,
+                Path.of("."),
+                { PlainDescriptionEditor(it) },
+                {},
+                {},
+                TodoDraft(TodoScope.SHARED, "Typed", "", "s1"),
+                { shared },
+                null,
+            )
+        assertEquals("s1", dialog(robot, request).folderBox.value.id)
     }
 
     @ParameterizedTest(name = "{0} scope opens the project link: {1}")

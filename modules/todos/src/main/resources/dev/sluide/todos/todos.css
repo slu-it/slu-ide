@@ -193,3 +193,39 @@
     -fx-background-color: -fx-accent;
     -fx-text-fill: -fx-selection-bar-text;
 }
+
+/* Folders (FolderView). */
+
+.todo-folder {
+    -fx-spacing: 4;
+}
+
+.todo-folder-header {
+    -fx-alignment: top-left;
+    -fx-spacing: 2;
+    -fx-padding: 2 0 0 0;
+}
+
+.todo-folder-name {
+    -fx-text-fill: -fx-text-base-color;
+    -fx-font-weight: bold;
+    -fx-padding: 3 0 0 2;
+    -fx-graphic-text-gap: 6;
+}
+
+.todo-folder-name .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+    -fx-icon-size: 14;
+}
+
+.todo-folder-cards {
+    -fx-spacing: 6;
+    -fx-padding: 0 0 0 14;
+    -fx-border-color: transparent transparent transparent -fx-box-border;
+    -fx-border-width: 0 0 0 1;
+}
+
+.todo-folder-empty {
+    -fx-opacity: 0.6;
+    -fx-padding: 4 0 4 0;
+}

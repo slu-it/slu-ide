@@ -41,13 +41,6 @@ class Todos(
         folder: Path?,
     ): List<Todo> = items(scope, folder).flatMap { if (it is TodoFolder) it.todos else listOf(it as Todo) }
 
-    /** The id of the folder that holds the TODO [id] in [scope], null for the root or if it is not there. */
-    internal fun containerOf(
-        scope: TodoScope,
-        folder: Path?,
-        id: String,
-    ): String? = rawArray(scope, folder)?.let { findTodo(it, id) }?.folderId
-
     /**
      * Adds a new TODO at the top of the folder [into], or of the root of [scope] if there is none or it does not exist;
      * the new TODO, or null if it could not be saved.
