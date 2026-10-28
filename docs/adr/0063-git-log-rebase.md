@@ -1,6 +1,7 @@
 # 0063. Git log rebases the current branch onto another branch; a stopped rebase is continued, skipped or aborted
 
-- Status: accepted
+- Status: accepted; amended by [0106](0106-git-log-pull.md) (a stash git keeps is told after Continue, Skip and
+  Abort; pulls rebase with the fork point and `--autostash`)
 - Date: 2026-10-19
 
 ## Context

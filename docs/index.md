@@ -80,9 +80,9 @@ updated when the summary or keywords no longer fit.
 | [0058](adr/0058-markdown-html-export.md) | Self-contained Markdown HTML export reusing the preview renderer | Markdown export, HTML, math, Mermaid, offscreen WebEngine, `<name>.css` | |
 | [0059](adr/0059-svg-export-as-png.md) | SVG to PNG at 100/200/300 % via a hidden WebView | SVG, PNG export, `FileExport`, Export menu, `@2x` | |
 | [0060](adr/0060-logging-conventions.md) | Logging conventions; every git command numbered | logging, log levels, `git#n`, stderr, FX watchdog | amends 0013; see 0051, 0061 |
-| [0061](adr/0061-background-tasks.md) | Per-window background-task registry shown under the explorer | `BackgroundTasks`, `background-tasks`, cancel, `BackgroundTasks.forTests` | |
+| [0061](adr/0061-background-tasks.md) | Per-window background-task registry shown under the explorer | `BackgroundTasks`, `background-tasks`, cancel, `withdrawCancel`, `BackgroundTasks.forTests` | amended by 0106 |
 | [0062](adr/0062-git-concurrency.md) | Which git work runs in parallel and which is queued | git concurrency, threads, `sluide-git-diff`, `diffAsync`, `GitCancellation`, `.git` stamps, write holds | amends 0013, 0015, 0021, 0035, 0041, 0053 |
-| [0063](adr/0063-git-log-rebase.md) | Rebase the current branch onto another, with Continue/Skip/Abort | `GitRebases`, rebase, `GitPendingRebase`, pending bar, conflicts | amends 0042 |
+| [0063](adr/0063-git-log-rebase.md) | Rebase the current branch onto another, with Continue/Skip/Abort | `GitRebases`, rebase, `GitPendingRebase`, pending bar, conflicts | amends 0042; amended by 0106 |
 | [0064](adr/0064-json-preview.md) | JSON Source/Split/Preview with a foldable tree | JSON preview, Jackson, folds, JSON Pointer, `Preview.folds` | |
 | [0065](adr/0065-xml-preview.md) | XML preview on shared fold parts, StAX with XXE off | XML preview, StAX, XXE, `fold-tree.js`, `FoldState`, `data-path` | see 0064 |
 | [0066](adr/0066-scratch-files.md) | Scratch files in `~/.sluide/scratches`, shown as an explorer root | scratch files, `ExplorerRoot`, Shortcut+Shift+N, type picker | |
@@ -125,6 +125,7 @@ updated when the summary or keywords no longer fit.
 | [0103](adr/0103-todo-folders.md) | TODO folders: one level, mixed with TODOs in the same `todos` array, stored collapse (also of cards), drag with an insertion line | TODO folders, `TodoFolder`, `TodoPlace`, `dropTarget`, `ItemDrag`, collapsed, expanded, Keep TODOs | amends 0102; see 0073 |
 | [0104](adr/0104-collapsible-file-explorer.md) | The explorer column collapses to a stripe at the left like the TODO panel, expanded by default, background tasks included | collapse explorer, `ExplorerPanel`, `WindowExplorer`, stripe, Alt+1, View → Explorer | see 0102, 0068, 0095, 0061 |
 | [0105](adr/0105-git-log-merge.md) | Merge a branch into the current one from the log; merges in progress (also from a terminal or `git pull`) continued or aborted from the bar | `GitMerges`, merge, `GitPendingMerge`, `MergeOptions`, fast-forward, squash, `--autostash`, `merge.ff`, `merge.autoStash`, `merge.suppressDest`, octopus | amends 0042; see 0063 |
+| [0106](adr/0106-git-log-pull.md) | Pull a remote branch into the current one as the log's fetch, then a merge or a fork-point rebase, chosen in a dialog | `GitPulls`, pull, Pull dialog, fork point, `ORIG_HEAD`, `--autostash`, upstream, `pull.rebase`, header button, Push dialog | amends 0061, 0063; see 0043, 0049, 0105 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
@@ -173,9 +174,9 @@ updated when the summary or keywords no longer fit.
 | [git-status.md](features/git-status.md) | Git status colours and bubbles in the explorer | status colours, unversioned, modified, ignored, folder bubbles |
 | [gitignore-line-effects.md](features/gitignore-line-effects.md) | Gutter dots showing which `.gitignore` lines have an effect | `.gitignore`, gutter dots, tracked-only matches, tooltips |
 | [git-diff.md](features/git-diff.md) | Change markers in the gutter and a side-by-side diff against `HEAD` | change markers, Show Changes, Shortcut+Shift+D, changed words |
-| [git-log.md](features/git-log.md) | Git log area: commits, graph, details, filters, branch and commit operations | Alt+9, commit graph, filters, branches pane, checkout, cherry-pick, rebase, merge, fetch |
+| [git-log.md](features/git-log.md) | Git log area: commits, graph, details, filters, branch and commit operations | Alt+9, commit graph, filters, branches pane, checkout, cherry-pick, rebase, merge, fetch, pull |
 | [file-history.md](features/file-history.md) | A file's history as a tab in the git log area | Show History, `History:` tab, renames, Compare with Local |
-| [commit-and-push.md](features/commit-and-push.md) | Commit tab and Push dialog | Commit (Shortcut+K), Amend, Push (Shortcut+Shift+K), Force Push, Commit and Push |
+| [commit-and-push.md](features/commit-and-push.md) | Commit tab and Push dialog | Commit (Shortcut+K), Amend, Push (Shortcut+Shift+K), Force Push, Commit and Push, Pull after a rejection |
 
 ### Tools
 | Feature | Summary | Keywords |

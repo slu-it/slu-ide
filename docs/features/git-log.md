@@ -2,40 +2,44 @@
 
 The module `git-log` is the git area under the editor: the log, the branches pane, the history of a file, compare, the
 Commit tab and the Push dialog, and the write operations (checkout, branches and tags, cherry-pick, revert, reset,
-rebase, fetch, push). It keeps its name; the user sees "Git Log". This page covers the area and the log; the Commit tab
-and the Push dialog are in [commit-and-push.md](commit-and-push.md), file history in [file-history.md](file-history.md).
+rebase, merge, fetch, pull, push). It keeps its name; the user sees "Git Log". This page covers the area and the log;
+the Commit tab and the Push dialog are in [commit-and-push.md](commit-and-push.md), file history in
+[file-history.md](file-history.md).
 
-**Module:** `modules/git-log` (package `dev.sluide.gitlog` and its sub-packages, [ADR 0055](../adr/0055-sub-packages-within-modules.md)) — `GitLogView` (the area: construction, layout and wiring of `HeaderStatus` (the header's message),
-`AreaTabs` (the Log, Commit and History tabs), `CommitTable` (the commits and their menu), `CommitNavigation` (Go to),
-`RefActions` (the writes and the Push dialog's launcher), `CompareBar`, `PendingBar`, `CommitDiffs` and
-`FilterSources`; [ADR 0054](../adr/0054-keep-source-files-small.md)), `GitLogPages` (paging and
-reloads, without controls), `GraphLayout` (the commit graph's lanes), `GraphCell` (drawing it, with the ref labels of
-`RefLabels` and `refGroups`), `CommitDetails` (which details and changed files to load, without controls),
+**Module:** `modules/git-log` (package `dev.sluide.gitlog` and its sub-packages, [ADR
+0055](../adr/0055-sub-packages-within-modules.md)) — `GitLogView` (the area: construction, layout and wiring of
+`HeaderStatus` (the header's message), `AreaTabs` (the Log, Commit and History tabs), `CommitTable` (the commits and
+their menu), `CommitNavigation` (Go to), `RefActions` (the writes and the Push dialog's launcher), `CompareBar`,
+`PendingBar`, `CommitDiffs` and `FilterSources`; [ADR 0054](../adr/0054-keep-source-files-small.md)), `GitLogPages`
+(paging and reloads, without controls), `GraphLayout` (the commit graph's lanes), `GraphCell` (drawing it, with the ref
+labels of `RefLabels` and `refGroups`), `CommitDetails` (which details and changed files to load, without controls),
 `CommitDetailsPane`, `changeTree` and `FileDiffs` (`ChangedFiles.kt`, without controls), `ChangedFilesPane` with the
 tree `ChangeTreeView` (shared with the working-tree window), `LogComparison` (in `GitLogPages.kt`, without controls),
-`WorkingTreeComparison` (without controls) and `WorkingTreeWindow`,
-`FilterBar` (`FilterBar.kt`) with `FilterButton` and `FilterPopup` (`FilterButton.kt`, `FilterPopup.kt`), `branchNodes` (`BranchTree.kt` in `gitlog.data`, without controls) and
-`BranchesPane`, the operations that change the repository with `branchActions`, `nameProblem` and their `RefWriter`
+`WorkingTreeComparison` (without controls) and `WorkingTreeWindow`, `FilterBar` (`FilterBar.kt`) with `FilterButton` and
+`FilterPopup` (`FilterButton.kt`, `FilterPopup.kt`), `branchNodes` (`BranchTree.kt` in `gitlog.data`, without controls)
+and `BranchesPane`, the operations that change the repository with `branchActions`, `nameProblem` and their `RefWriter`
 (`RefOperations.kt`, without controls), the cherry-pick, revert and reset operations (`CommitOperations.kt`, without
-controls), Fetch and its summary (`FetchOperations.kt`, without controls) and their dialogs (`RefDialogs.kt`, `CommitDialogs.kt`); the commits (filtered by a `GitLogFilter`), refs,
-details, changed files, diffs, user name, tree paths and the cherry-pick or revert in progress come from `GitLog` in
-`modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRemotes` (fetch) and `GitPush` there, names are checked
-with `GitRefNames`.
-Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-commit-graph-layout.md),
-[ADR 0037](../adr/0037-ref-labels-and-commit-details.md), [ADR 0038](../adr/0038-changed-files-and-commit-diffs.md),
-[ADR 0039](../adr/0039-git-log-filters.md), [ADR 0040](../adr/0040-git-log-branches-pane.md),
-[ADR 0041](../adr/0041-git-write-operations.md), [ADR 0042](../adr/0042-git-log-commit-operations.md),
-[ADR 0043](../adr/0043-git-log-fetch.md), [ADR 0044](../adr/0044-git-log-compare.md),
-[ADR 0046](../adr/0046-git-log-file-history.md), [ADR 0048](../adr/0048-commit-tab.md) (the Commit tab,
-`CommitView`) and [ADR 0049](../adr/0049-push.md) (the Push dialog, `PushDialog`)
+controls), Fetch and its summary (`FetchOperations.kt`, without controls), Pull (`PullOperations.kt`, without controls,
+and `PullDialog`) and their dialogs (`RefDialogs.kt`, `CommitDialogs.kt`); the commits (filtered by a `GitLogFilter`),
+refs, details, changed files, diffs, user name, tree paths and the cherry-pick or revert in progress come from `GitLog`
+in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebases`, `GitMerges`, `GitPulls`,
+`GitRemotes` (fetch) and `GitPush` there, names are checked with `GitRefNames`. Decisions in [ADR
+0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-commit-graph-layout.md), [ADR
+0037](../adr/0037-ref-labels-and-commit-details.md), [ADR 0038](../adr/0038-changed-files-and-commit-diffs.md), [ADR
+0039](../adr/0039-git-log-filters.md), [ADR 0040](../adr/0040-git-log-branches-pane.md), [ADR
+0041](../adr/0041-git-write-operations.md), [ADR 0042](../adr/0042-git-log-commit-operations.md), [ADR
+0043](../adr/0043-git-log-fetch.md), [ADR 0044](../adr/0044-git-log-compare.md), [ADR
+0046](../adr/0046-git-log-file-history.md), [ADR 0048](../adr/0048-commit-tab.md) (the Commit tab, `CommitView`), [ADR
+0049](../adr/0049-push.md) (the Push dialog, `PushDialog`) and [ADR 0106](../adr/0106-git-log-pull.md) (Pull)
 
 - **Where and when:** for a folder whose git status is followed ([git-status.md](git-status.md): git is available and
   the folder has `.git`), the window shows a Git Log area under the editor area. Other folders, and a window without a
   folder, have no such area: no header, no divider.
-- **Collapsed by default:** only its header bar shows: a chevron, "Git Log" and Push (an up arrow), Fetch (a down
-  arrow) and Refresh buttons on the right. Clicking the header (not its buttons) expands or collapses it, and so does **View → Git Log** (Alt+9, Cmd+9 on macOS),
-  which is disabled when there is no area. Expanding moves the focus to the commit table; collapsing while the table
-  has the focus gives it back to the editor (the selected tab, or the editor area without tabs). While the Commit tab
+- **Collapsed by default:** only its header bar shows: a chevron, "Git Log" and Push (an up arrow), Pull (the
+  source-pull icon), Fetch (a down arrow) and Refresh buttons on the right. Clicking the header (not its buttons)
+  expands or collapses it, and so does **View → Git Log** (Alt+9, Cmd+9 on macOS), which is disabled when there is no
+  area. Expanding moves the focus to the commit table; collapsing while the table has the focus gives it back to the
+  editor (the selected tab, or the editor area without tabs). While the Commit tab
   ([commit-and-push.md](commit-and-push.md)) or file histories ([file-history.md](file-history.md)) are open, "Git Log"
   becomes a row of tabs, the Log first, then Commit, then the histories, and the selected tab decides what the area
   shows.
@@ -285,13 +289,17 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
     Resolve the default, Abort Merge aborts without asking) and leave a bar (below) to continue or abort. A squash with
     conflicts leaves them without a merge in progress ("… with conflicts in 2 files; resolve them, then commit.").
     Ignored files in the way are not checked, as for a rebase.
-  - **Branch submenus in the log:** the table's context menu starts, with exactly one commit selected, with one
-    submenu per local or remote branch at that commit (named "feature", "origin/main"; not `HEAD` or tags), then a
-    separator. A submenu has the items of the branches pane for that branch, with the same texts and enabling:
-    Filter Log by Branch, Copy Name, Compare with Current, Show Diff with Working Tree, Checkout, Rebase …, Merge …,
-    New Branch from '…'…, Rename…, Delete (a remote branch on its remote, below), and Fetch for a remote branch. It is built
-    when the menu opens, so it follows the state at that moment (nothing that writes while an operation runs, no
-    rebase while one is in progress).
+  - **Pull** ([ADR 0106](../adr/0106-git-log-pull.md)): after Merge, "Pull 'origin/main' into 'feature'…" ("Pull into
+    Current Branch…" otherwise), enabled for exactly one remote branch of a configured remote (not `<remote>/HEAD`),
+    also one at `HEAD`'s commit, with a current branch that has a commit, while no operation runs and nothing is in
+    progress; it opens the Pull dialog (below) with that branch chosen.
+  - **Branch submenus in the log:** the table's context menu starts, with exactly one commit selected, with one submenu
+    per local or remote branch at that commit (named "feature", "origin/main"; not `HEAD` or tags), then a separator. A
+    submenu has the items of the branches pane for that branch, with the same texts and enabling: Filter Log by Branch,
+    Copy Name, Compare with Current, Show Diff with Working Tree, Checkout, Rebase …, Merge …, Pull …, New Branch from
+    '…'…, Rename…, Delete (a remote branch on its remote, below), and Fetch for a remote branch. It is built when the
+    menu opens, so it follows the state at that moment (nothing that writes while an operation runs, no rebase while one
+    is in progress).
   - **Leaving a detached HEAD:** a checkout (also of a revision from the log, or a new branch with Checkout) that would
     leave commits of a detached `HEAD` on no branch, remote branch or tag asks first: "2 commits of the detached HEAD
     will no longer be on any branch or tag; they stay reachable through the reflog for a while." and below it "To
@@ -418,12 +426,12 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
     whitespace of lines and blank lines at both ends; Escape or Cancel changes nothing. Done: "Changed the message of
     1a2b3c4d."; "The message of 1a2b3c4d is unchanged."; a failure shows git's message in an error dialog. Working-tree
     files are neither changed nor read, so unsaved editors are not asked about.
-  - **Unsaved editors:** before an operation that changes files, files of the repository with unsaved changes are
-    asked about, naming it: "These files have unsaved changes. Save them before you check out?" with Save, Check Out
-    Anyway (the changes stay; an editor whose file the operation changed offers Reload or Keep mine) and Cancel (the
-    operation does not run). Asked for checkouts (also of a new branch), Cherry-Pick, Revert, Rebase, Merge, a hard
-    reset, Skip, Abort and Continue (which stages the files from disk), with "Cherry-Pick Anyway", "Revert Anyway",
-    "Rebase Anyway", "Merge Anyway", "Reset Anyway", "Skip Anyway", "Abort Anyway" and "Continue Anyway"; not for
+  - **Unsaved editors:** before an operation that changes files, files of the repository with unsaved changes are asked
+    about, naming it: "These files have unsaved changes. Save them before you check out?" with Save, Check Out Anyway
+    (the changes stay; an editor whose file the operation changed offers Reload or Keep mine) and Cancel (the operation
+    does not run). Asked for checkouts (also of a new branch), Cherry-Pick, Revert, Rebase, Merge, a hard reset, Skip,
+    Abort and Continue (which stages the files from disk), and Pull, with "Cherry-Pick Anyway", "Revert Anyway", "Rebase
+    Anyway", "Merge Anyway", "Pull Anyway", "Reset Anyway", "Skip Anyway", "Abort Anyway" and "Continue Anyway"; not for
     soft and mixed resets or branch and tag operations.
 - **Fetch** ([ADR 0043](../adr/0043-git-log-fetch.md)): the down arrow in the header ("Fetch All Remotes", also while
   the log is collapsed) fetches every remote but those with `remote.<name>.skipFetchAll`, one after the other; Fetch in
@@ -460,6 +468,42 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
   disabled once the log found no remotes, but not while an operation runs (the dialog's Push waits for it). The push
   runs like a fetch: "Pushing main to origin/main…" with Cancel, then what was pushed, "Push Failed" with git's
   message for a rejection.
+- **Pull** ([ADR 0106](../adr/0106-git-log-pull.md)): Pull in the header (between Push and Fetch, also while the log is
+  collapsed; disabled while an operation runs and once the log found no remotes), **Git → Pull…** (no shortcut), the
+  branches pane and branch submenus (above) and Pull… in the Push dialog ([commit-and-push.md](commit-and-push.md))
+  first read what can be pulled ("Reading the branches to pull from…"). The header says why nothing can be: what git is
+  in the middle of ("A rebase is in progress; finish or abort it first."), "Pull needs a current branch.", "Pull needs a
+  commit to pull into.", "The repository has no remotes to pull from." or "No remote branches to pull from; fetch
+  first."; Git → Pull… while an operation runs says "Wait for the running git operation to finish." (the other places
+  are disabled then). Started from the Push dialog, the Pull dialog and what the pull asks or answers in dialogs (also
+  why nothing can be pulled, in a "Pull" message) show over the Push dialog.
+  - **The dialog** "Pull" ("Pull into 'feature'"): "From:" the remote branches of the configured remotes (short names,
+    sorted, without `<remote>/HEAD`), the one it was opened for chosen, else the current branch's upstream, else none
+    (Pull disabled until one is chosen). Merge, with the Merge dialog's options indented below it (Fast-forward if
+    possible, Always create a merge commit, Fast-forward only, Squash; the message "Merge remote-tracking branch
+    'origin/main' into feature" follows the branch chosen until it is edited), disabled while Rebase is chosen; Rebase,
+    chosen every time the dialog opens (`pull.rebase` and the like are not read). "Stash local changes and restore them
+    afterwards", checked (unchecked and disabled for a squash). Pull (the default) or Cancel. The tracking configuration
+    is never changed.
+  - **Running:** unsaved editors are asked about first ("Pull Anyway"). The branch's remote is fetched as Fetch does
+    (above): "Fetching origin…" with Cancel ("Pull cancelled.", nothing merged); a failed fetch opens "Pull Failed".
+    Cancel, and the ✕ of its row in the background tasks, go once the fetch is done; the merge or rebase is not
+    cancellable. A branch that is no longer the current one fails ("'feature' is no longer the current branch."), a
+    branch the fetch pruned fails ("origin/x no longer exists on origin."); one already contained says "feature is
+    already up to date with origin/main.". Merge merges the remote-tracking branch as the Merge dialog does: "Pulled
+    origin/main into feature (merge commit)." or "(fast-forward).", the squash texts for Squash. Rebase rebases onto it
+    with the fork point, so commits a force push removed from the remote are not replayed (the Rebase item does not use
+    it): "Rebasing feature onto origin/main…", the merge-commits question of Rebase (asked after the fetch, counting the
+    merges after the fork point; confirming does not fetch again), then "Pulled origin/main into feature (rebased 3
+    commits)." or "(fast-forward)." when the branch was only behind. Commits the fork point leaves out, also own commits
+    someone else removed with a force push, are told: "2 commits that origin/main no longer has were left out, as git
+    pull --rebase does; ORIG_HEAD still points to them." (a branch at `ORIG_HEAD` keeps them; Merge would keep them in
+    the branch). What the fetch changed comes first ("Fetched origin: 2 branches updated. Pulled …"). The stash is git's
+    `--autostash`, also for the rebase: local changes come back when the merge or rebase ends, also through Continue,
+    Skip or Abort in the bar; if they conflict, git keeps them as a stash entry, the files show the conflicts, and the
+    header adds "Your local changes could not be restored without conflicts; they are kept in the stash." (also after
+    Continue, Skip or Abort of any rebase started with `--autostash`). Without the stash, git refuses a rebase with
+    local changes ("Pull Failed" with its message). Stops open "Merge Stopped" or "Rebase Stopped" and leave the bar.
 - **Compare** ([ADR 0044](../adr/0044-git-log-compare.md)), only reading:
   - **Compare with Current** in the branches pane's context menu, on one local branch, remote branch (also the current
     branch's upstream) or tag that is not `HEAD` or the current branch (disabled for those, folders, groups, several and
@@ -502,11 +546,11 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
     file's attributes, the working tree's as on disk; the two are compared as they are, whatever the attributes say
     about diffing. A smudge filter (git-lfs) that makes the file larger than 5 MB gives "… is too large to compare.";
     one that fetches over the network may make Show Diff wait up to 10 s before "The diff could not be read."
-- Not yet implemented (next packages): a flat list of the changed files, their combined changes for several commits, comparing two branches or commits with each other (and the
-  files since their merge base), the changes against each parent of a merge, a diff preview in the log, a date filter, dotted
-  edges through commits hidden by filters, tracking information in the branches pane, remembering the area's height
-  and state, and more operations: updating local branches after a fetch, pull, pushing tags; for
-  cherry-pick and revert several commits at once, a merge tool or three-way view, `-x` and edited messages; `reset
-  --keep`; rebasing with `--onto`, interactively, a branch other than the current one, or onto a tag or commit;
-  merging tags or commits, octopus merges, `--no-commit` or strategies; continuing or aborting octopus merges and
-  sequences from the bar.
+- Not yet implemented (next packages): a flat list of the changed files, their combined changes for several commits,
+  comparing two branches or commits with each other (and the files since their merge base), the changes against each
+  parent of a merge, a diff preview in the log, a date filter, dotted edges through commits hidden by filters, tracking
+  information in the branches pane, remembering the area's height and state, and more operations: updating local
+  branches after a fetch, pulling several branches at once, pushing tags; for cherry-pick and revert several commits at
+  once, a merge tool or three-way view, `-x` and edited messages; `reset --keep`; rebasing with `--onto`, interactively,
+  a branch other than the current one, or onto a tag or commit; merging tags or commits, octopus merges, `--no-commit`
+  or strategies; continuing or aborting octopus merges and sequences from the bar.

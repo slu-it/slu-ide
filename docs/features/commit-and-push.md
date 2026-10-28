@@ -82,13 +82,15 @@ itself come from `GitPush` in `modules/git`. Decisions in [ADR 0049](../adr/0049
   the log.
 - **Notes above the buttons:** "origin/main has 2 commits that your branch does not have; a normal push will be
   rejected. Fetch, then merge or rebase, or force push." when the remote is ahead and there are commits to send (Push
-  stays enabled, git answers); "Everything is up to date." when the remote branch is at `HEAD` (Push and Force Push
-  disabled); "Your branch is behind origin/main; nothing to push." when `HEAD` is behind it (only Force Push, in
-  Push's menu, unless the branch is protected); "As of the last fetch of origin." always: nothing is fetched first. A
-  new branch without new commits says "No new commits: pushing creates origin/feature at 1a2b3c4d." in place of the
-  commits, and can be pushed. A detached `HEAD` ("HEAD is detached: check out a branch to push it."), no commit
-  ("There is no commit to push.") or no remote ("The repository has no remote. Add one in a terminal: git remote add
-  <name> <url>.") is said in place of the commits.
+  stays enabled, git answers), with **Pull…** next to it, which opens the Pull dialog with that remote branch chosen
+  ([git-log.md](git-log.md), [ADR 0106](../adr/0106-git-log-pull.md); disabled while an operation runs); the Push dialog
+  stays open and reads again once the pull is done; "Everything is up to date." when the remote branch is at `HEAD`
+  (Push and Force Push disabled); "Your branch is behind origin/main; nothing to push." when `HEAD` is behind it (only
+  Force Push, in Push's menu, unless the branch is protected); "As of the last fetch of origin." always: nothing is
+  fetched first. A new branch without new commits says "No new commits: pushing creates origin/feature at 1a2b3c4d." in
+  place of the commits, and can be pushed. A detached `HEAD` ("HEAD is detached: check out a branch to push it."), no
+  commit ("There is no commit to push.") or no remote ("The repository has no remote. Add one in a terminal: git remote
+  add <name> <url>.") is said in place of the commits.
 - **Push** pushes `HEAD`'s branch to the target and closes the dialog; the first push of a branch without an upstream
   sets it. Disabled for the reasons above, while reading and while another operation runs (the dialog opens all the
   same). The header says "Pushing main to origin/main…" with Cancel, then "Pushed 3 commits to origin/main.", "Pushed
@@ -106,4 +108,4 @@ itself come from `GitPush` in `modules/git`. Decisions in [ADR 0049](../adr/0049
   or an operation (a fetch, a commit) ends; another checked-out branch takes its defaults again.
 - Not yet implemented: committing parts of a file (chunks or lines), changelists, commit checks, author and sign-off,
   a history of earlier messages; pushing tags, skipping hooks, several branches at once, Push All up to Here, defining
-  remotes, pull, merge or rebase after a rejection.
+  remotes.

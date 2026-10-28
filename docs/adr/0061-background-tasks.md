@@ -1,6 +1,6 @@
 # 0061. Background tasks: a per-window registry and an inline list under the explorer
 
-- Status: accepted
+- Status: accepted; amended by [0106](0106-git-log-pull.md) (a task may withdraw its cancel: its ✕ goes)
 - Date: 2026-10-19
 
 ## Context

@@ -35,7 +35,7 @@
   (filters, fsmonitor, hooks path, ssh command, credential helpers, …) say when. Settings of the user's own
   configuration (`~/.gitconfig`) are never reported.
 - **Off while working:** the git log closes the repository as for another folder (the Commit tab's draft is lost, a
-  fetch is stopped); its header says "Git is off until the folder is trusted.", and Git → Commit… and Push… are
+  fetch is stopped); its header says "Git is off until the folder is trusted.", and Git → Commit…, Push… and Pull… are
   disabled. The http client's warning about private environment files git would commit is silent too.
 - **Not noticed until the next change of `.git`:** a hook edited in `.git/hooks`. Worktrees and submodules opened as
   folders (with a `.git` file) are checked only when opened.
