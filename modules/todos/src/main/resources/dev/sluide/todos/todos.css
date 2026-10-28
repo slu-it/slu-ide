@@ -164,9 +164,26 @@
     -fx-spacing: 4;
 }
 
-.todo-card.dragging {
+.todo-card.dragging,
+.todo-folder.dragging {
     -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.35), 8, 0.2, 0, 2);
-    -fx-opacity: 0.9;
+    -fx-opacity: 0.85;
+}
+
+/* A dragged folder has no background of its own; without one it would blend with the items it passes. */
+.todo-folder.dragging {
+    -fx-background-color: -fx-control-inner-background;
+}
+
+/* Where a dragged TODO or folder lands (ItemDrag): an insertion line, or the folder header or hint it goes into. */
+.todo-drop-line {
+    -fx-background-color: -fx-accent;
+}
+
+.todo-drop-target {
+    -fx-background-color: -fx-accent, -fx-control-inner-background;
+    -fx-background-insets: 0, 1;
+    -fx-background-radius: 3, 2;
 }
 
 .todo-card-header {

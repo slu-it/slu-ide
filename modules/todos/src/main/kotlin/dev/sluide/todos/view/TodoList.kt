@@ -3,7 +3,6 @@ package dev.sluide.todos.view
 import dev.sluide.todos.Todo
 import dev.sluide.todos.TodoFolder
 import dev.sluide.todos.TodoItem
-import dev.sluide.todos.TodoPlace
 import dev.sluide.todos.TodoScope
 import javafx.scene.control.Button
 import javafx.scene.control.Label
@@ -11,6 +10,8 @@ import javafx.scene.control.ScrollPane
 import javafx.scene.control.Tooltip
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
+import javafx.scene.layout.Region
+import javafx.scene.layout.StackPane
 import javafx.scene.layout.VBox
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignF
@@ -41,15 +42,18 @@ internal class TodoList(
 
     val cardsBox = VBox().apply { styleClass += "todo-cards" }
 
+    /** Shows where a dragged TODO or folder lands; over [cardsBox], not laid out by it. */
+    val dropLine = Region()
+
     val scroll =
-        ScrollPane(cardsBox).apply {
+        ScrollPane(StackPane(cardsBox, dropLine)).apply {
             isFitToWidth = true
             hbarPolicy = ScrollPane.ScrollBarPolicy.NEVER
             vbarPolicy = ScrollPane.ScrollBarPolicy.AS_NEEDED
             styleClass += "todo-scroll"
         }
 
-    private val drag = CardDrag(scroll, cardsBox) { id, index -> host.move(scope, id, TodoPlace(null, index)) }
+    private val drag = ItemDrag(scroll, cardsBox, dropLine) { id, place -> host.move(scope, id, place) }
 
     /** The cards at the root in display order. */
     val cards: List<TodoCard> get() = cardsBox.children.filterIsInstance<TodoCard>()
@@ -71,9 +75,11 @@ internal class TodoList(
 
     /**
      * Shows [items]; the card of a TODO and the view of a folder that are still there stay (with the expansion and the
-     * scroll position), also when a TODO moved to another container.
+     * scroll position), also when a TODO moved to another container. A drag in progress ends without a move.
      */
     fun show(items: List<TodoItem>) {
+        // The rows the drag captured at its start would no longer match what is shown.
+        drag.cancel()
         val cardsById = allCards.associateBy { it.todo.id }
         val foldersById = folders.associateBy { it.folder.id }
 
@@ -91,7 +97,7 @@ internal class TodoList(
                     }
 
                     is TodoFolder -> {
-                        (foldersById[item.id] ?: FolderView(item, scope, host)).also { view ->
+                        (foldersById[item.id] ?: FolderView(item, scope, host).also(drag::attach)).also { view ->
                             view.show(item, item.todos.map { card(it, item.id) })
                         }
                     }
