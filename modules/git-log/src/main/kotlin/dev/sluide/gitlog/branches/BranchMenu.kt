@@ -18,6 +18,7 @@ import dev.sluide.gitlog.operations.Fetch
 import dev.sluide.gitlog.operations.RefOperation
 import dev.sluide.gitlog.operations.RemoteBranch
 import dev.sluide.gitlog.operations.branchActions
+import dev.sluide.gitlog.operations.mergeText
 import dev.sluide.gitlog.operations.rebaseText
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
@@ -56,6 +57,9 @@ internal class BranchCommands {
 
     /** Rebases the current branch as the operation says (ADR 0063). */
     var rebase: (RefOperation) -> Unit = {}
+
+    /** Asks how to merge the given branch or remote branch into the current branch (ADR 0105). */
+    var merge: (GitRef) -> Unit = {}
 }
 
 /** The [BranchCommands] that start [actions], compare through [compareBar], show [diffs] and filter [filterBar]. */
@@ -80,12 +84,14 @@ internal fun branchCommands(
         deleteRemote = actions::deleteRemoteBranches
         fetch = { remote -> actions.start(Fetch(remote)) }
         rebase = { operation -> actions.start(operation) }
+        merge = actions::merge
     }
 
 /**
  * What the menu can do with the [selected] nodes of [refs]: nothing that changes the repository while [writing], no
- * rebase while [busy] (a rebase, cherry-pick or revert waits for its next step), no comparison with `HEAD` while it
- * has no commit. Comparing and showing the diff with the working tree only read, so [writing] leaves them.
+ * rebase or merge while [busy] (a merge, rebase, cherry-pick or revert waits for its next step), no comparison with
+ * `HEAD` while it has no commit. Comparing and showing the diff with the working tree only read, so [writing] leaves
+ * them.
  */
 internal fun menuActions(
     selected: List<BranchNode>,
@@ -110,7 +116,7 @@ internal fun menuActions(
         }
 
         busy -> {
-            reads.copy(rebase = null)
+            reads.copy(rebase = null, merge = null)
         }
 
         else -> {
@@ -159,13 +165,21 @@ internal fun branchLeaf(
 internal fun rebaseMenuText(
     selected: List<BranchNode>,
     refs: GitRefs?,
-): String {
+): String = rebaseText(refs?.currentBranch?.removePrefix("refs/heads/"), menuTarget(selected))
+
+/** The text of the merge item for the [selected] nodes, named as [rebaseMenuText] names them (ADR 0105). */
+internal fun mergeMenuText(
+    selected: List<BranchNode>,
+    refs: GitRefs?,
+): String = mergeText(refs?.currentBranch?.removePrefix("refs/heads/"), menuTarget(selected))
+
+/** The short name of the one selected local or remote branch that is not current; `null` for any other selection. */
+private fun menuTarget(selected: List<BranchNode>): String? {
     val leaf = selected.singleOrNull() as? BranchLeaf
-    val target =
-        leaf?.ref?.takeIf {
-            !leaf.current && (it.kind == GitRefKind.LOCAL_BRANCH || it.kind == GitRefKind.REMOTE_BRANCH)
-        }
-    return rebaseText(refs?.currentBranch?.removePrefix("refs/heads/"), target?.shortName)
+    return leaf
+        ?.ref
+        ?.takeIf { !leaf.current && (it.kind == GitRefKind.LOCAL_BRANCH || it.kind == GitRefKind.REMOTE_BRANCH) }
+        ?.shortName
 }
 
 /**
@@ -215,6 +229,9 @@ internal fun branchMenu(
             item("branch-checkout", "Checkout", actions.checkout != null) { actions.checkout?.let(commands.checkout) },
             item("branch-rebase", rebaseMenuText(selected, refs), actions.rebase != null) {
                 actions.rebase?.let(commands.rebase)
+            },
+            item("branch-merge", mergeMenuText(selected, refs), actions.merge != null) {
+                actions.merge?.let(commands.merge)
             },
             item("branch-new-branch", "New Branch from '${ref.shortName}'…", actions.newBranchFrom != null) {
                 actions.newBranchFrom?.let(commands.newBranchFrom)

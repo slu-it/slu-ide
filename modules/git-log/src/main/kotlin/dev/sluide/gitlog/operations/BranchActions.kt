@@ -27,6 +27,8 @@ internal data class BranchActions(
     val workingTreeDiff: GitRef? = null,
     /** Rebases the current branch onto the one selected branch or remote branch (ADR 0063); not onto `HEAD`'s commit. */
     val rebase: RebaseBranch? = null,
+    /** The one selected branch or remote branch to merge into the current branch (ADR 0105); as [rebase] allows. */
+    val merge: GitRef? = null,
     /**
      * The selected remote branches with their remotes, to delete there (ADR 0078), if that is all the selection holds
      * and the remote of each is known; never `<remote>/HEAD` or a protected branch ([isProtectedBranch]).
@@ -39,6 +41,12 @@ internal fun rebaseText(
     current: String?,
     target: String?,
 ): String = if (current == null || target == null) "Rebase Current Branch onto…" else "Rebase '$current' onto '$target'"
+
+/** The text of the merge item: [target] into [current] (short names), or generic if either is not known. */
+internal fun mergeText(
+    current: String?,
+    target: String?,
+): String = if (current == null || target == null) "Merge into Current Branch…" else "Merge '$target' into '$current'…"
 
 /**
  * The [BranchActions] for the [selected] nodes of the branches pane; [currentBranch] is the checked-out branch's full
@@ -114,6 +122,7 @@ internal fun branchActions(
         compare = ref?.takeIf { single?.current == false && it.kind != GitRefKind.HEAD },
         workingTreeDiff = ref,
         rebase = rebase,
+        merge = ref.takeIf { rebase != null },
         deleteRemote = deleteRemote,
     )
 }

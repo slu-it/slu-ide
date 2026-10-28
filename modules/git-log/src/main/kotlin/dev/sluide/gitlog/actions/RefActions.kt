@@ -7,6 +7,7 @@ import dev.sluide.git.GitCommit
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
+import dev.sluide.git.defaultMergeMessage
 import dev.sluide.gitlog.data.GitLogPages
 import dev.sluide.gitlog.data.GitLogSource
 import dev.sluide.gitlog.data.GitLogWrites
@@ -23,6 +24,8 @@ import dev.sluide.gitlog.operations.DELETE_BUTTON
 import dev.sluide.gitlog.operations.DeleteRefs
 import dev.sluide.gitlog.operations.DeleteRemoteBranches
 import dev.sluide.gitlog.operations.FORCE_DELETE_BUTTON
+import dev.sluide.gitlog.operations.MergeBranch
+import dev.sluide.gitlog.operations.MergeDialog
 import dev.sluide.gitlog.operations.NewBranchDialog
 import dev.sluide.gitlog.operations.NewTagDialog
 import dev.sluide.gitlog.operations.PickCommit
@@ -312,6 +315,18 @@ internal class RefActions(
             )
         val branch = dialog.showAndWait().orElse(null) ?: return
         start(CreateBranch(branch.name, startPoint, branch.checkout, branch.overwrite, startLabel))
+    }
+
+    /**
+     * Asks how to merge the branch or remote branch [ref] into the current branch (ADR 0105) and merges it; nothing
+     * without a current branch or while an operation runs.
+     */
+    fun merge(ref: GitRef) {
+        if (writer.running.get()) return
+        val branch = pages.refs?.currentBranch?.removePrefix("refs/heads/") ?: return
+        val dialog = MergeDialog(window(), ref.shortName, branch, defaultMergeMessage(ref.name, branch))
+        val choice = dialog.showAndWait().orElse(null) ?: return
+        start(MergeBranch(branch, ref.name, ref.shortName, choice.mode, choice.message, choice.autostash))
     }
 
     /** Asks for a new tag at [commit] and creates it. */

@@ -44,10 +44,15 @@ class RefOperationsTest {
         vararg paths: String,
         current: String? = "refs/heads/main",
         head: String? = "h1",
-    ) = branchActions(paths.map(::node), current, headCommit = head).rebase
+    ): RebaseBranch? {
+        val actions = branchActions(paths.map(::node), current, headCommit = head)
+        // Merge is offered exactly where rebase is, with the same branch (ADR 0105).
+        assertEquals(actions.rebase?.onto, actions.merge?.name)
+        return actions.rebase
+    }
 
     @Test
-    fun `rebases the current branch onto one other branch or remote branch at another commit`() {
+    fun `rebases the current branch onto, or merges into it, one other branch or remote branch at another commit`() {
         assertEquals(RebaseBranch("main", "refs/heads/feature/a", "feature/a"), rebase("Local/feature/a"))
         assertEquals(RebaseBranch("main", "refs/remotes/origin/fix", "origin/fix"), rebase("Remote/origin/fix"))
         assertNull(rebase("Local/feature/a", current = null), "a detached HEAD")
@@ -67,6 +72,9 @@ class RefOperationsTest {
         assertEquals("Rebase Current Branch onto\u2026", rebaseText(null, "main"))
         assertEquals("Rebase Current Branch onto\u2026", rebaseText("feature", null))
         assertEquals("Rebase Current Branch onto\u2026", rebaseText(null, null))
+        assertEquals("Merge 'origin/main' into 'feature'\u2026", mergeText("feature", "origin/main"))
+        assertEquals("Merge into Current Branch\u2026", mergeText(null, "main"))
+        assertEquals("Merge into Current Branch\u2026", mergeText("feature", null))
     }
 
     private fun ref(name: String) = refs.refs.single { it.name == name }

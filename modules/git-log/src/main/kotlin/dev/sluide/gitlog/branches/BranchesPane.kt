@@ -15,6 +15,7 @@ import dev.sluide.gitlog.data.filterBranches
 import dev.sluide.gitlog.operations.BranchActions
 import dev.sluide.gitlog.operations.Fetch
 import dev.sluide.gitlog.operations.branchActions
+import dev.sluide.gitlog.operations.mergeText
 import dev.sluide.gitlog.operations.rebaseText
 import dev.sluide.gitlog.ui.refStyleClass
 import javafx.animation.Animation
@@ -57,8 +58,8 @@ import org.kordamp.ikonli.materialdesign2.MaterialDesignT
  * full refnames of the selected branches to [filter]. Collapsed nodes (Tags at first) and the selection stay when the
  * refs are [shown][show] again. Its context menu also checks out, creates, renames and deletes branches and tags
  * through its [commands] ([menuActions], ADR 0041; remote branches on their remotes, ADR 0078), fetches a remote
- * (ADR 0043) and rebases the current branch onto another (ADR 0063; not while [writing] or [busy]); it compares a ref
- * with `HEAD` and with the working tree (ADR 0044), also while [writing].
+ * (ADR 0043), rebases the current branch onto another (ADR 0063) and merges another into it (ADR 0105; neither while
+ * [writing] or [busy]); it compares a ref with `HEAD` and with the working tree (ADR 0044), also while [writing].
  */
 internal class BranchesPane : BorderPane() {
     /** Shows the commit of the one selected branch; `null` when not exactly one branch is selected. */
@@ -134,6 +135,11 @@ internal class BranchesPane : BorderPane() {
             isMnemonicParsing = false
             setOnAction { actions().rebase?.let(commands.rebase) }
         }
+    internal val mergeItem =
+        MenuItem(mergeText(null, null)).apply {
+            isMnemonicParsing = false
+            setOnAction { actions().merge?.let(commands.merge) }
+        }
     internal val newBranchItem =
         MenuItem(NEW_BRANCH).apply {
             isMnemonicParsing = false
@@ -168,6 +174,7 @@ internal class BranchesPane : BorderPane() {
                     SeparatorMenuItem(),
                     checkoutItem,
                     rebaseItem,
+                    mergeItem,
                     newBranchItem,
                     renameItem,
                     deleteItem,
@@ -434,8 +441,10 @@ internal class BranchesPane : BorderPane() {
         val unrestricted = branchActions(selectedNodes(), refs?.currentBranch)
         newBranchItem.text = unrestricted.newBranchFrom?.let { "New Branch from '${it.shortName}'…" } ?: NEW_BRANCH
         rebaseItem.text = rebaseMenuText(selectedNodes(), refs)
+        mergeItem.text = mergeMenuText(selectedNodes(), refs)
         checkoutItem.isDisable = actions.checkout == null
         rebaseItem.isDisable = actions.rebase == null
+        mergeItem.isDisable = actions.merge == null
         newBranchItem.isDisable = actions.newBranchFrom == null
         renameItem.isDisable = actions.rename == null
         deleteItem.isDisable = actions.delete.isEmpty() && actions.deleteRemote.isEmpty()

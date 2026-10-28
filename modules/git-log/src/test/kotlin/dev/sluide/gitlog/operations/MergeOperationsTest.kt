@@ -10,6 +10,8 @@ import dev.sluide.git.GitRefs
 import dev.sluide.git.GitResult
 import dev.sluide.git.GitUncheckedConflict
 import dev.sluide.gitlog.data.FakeWrites
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -173,5 +175,20 @@ class MergeOperationsTest {
         assertEquals(ContinueMerge("origin/main", "feature"), continueMerge(pending, refs))
         assertEquals(ContinueMerge(null, "feature"), continueMerge(pending.copy(heads = listOf("other")), refs))
         assertEquals(ContinueMerge(null, null), continueMerge(pending, null))
+    }
+
+    @ParameterizedTest
+    @EnumSource(GitMergeMode::class)
+    fun `only a merge that may commit takes a changed message, only one that is not a squash stashes`(
+        mode: GitMergeMode,
+    ) {
+        val default = "Merge branch 'main' into feature"
+        val takes = mode == GitMergeMode.FAST_FORWARD || mode == GitMergeMode.MERGE_COMMIT
+
+        assertEquals(takes, takesMessage(mode))
+        assertEquals(if (takes) "Merge main\n\nWhy." else null, mergeMessage(default, "Merge main\n\nWhy.", mode))
+        assertNull(mergeMessage(default, "\n$default  \n\n", mode), "unchanged but for blank lines and spaces")
+        assertNull(mergeMessage(default, "  ", mode), "blank: git's own")
+        assertEquals(mode != GitMergeMode.SQUASH, stashes(mode), "a squash would keep the stash until the next commit")
     }
 }

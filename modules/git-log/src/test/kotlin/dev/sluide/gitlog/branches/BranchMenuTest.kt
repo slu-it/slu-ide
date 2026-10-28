@@ -45,6 +45,7 @@ class BranchMenuTest {
 
         assertEquals(CheckoutBranch("feature"), actions.checkout)
         assertEquals(RebaseBranch("main", "refs/heads/feature", "feature"), actions.rebase)
+        assertEquals("refs/heads/feature", actions.merge?.name)
         assertNotNull(actions.compare)
         assertNotNull(actions.workingTreeDiff)
         assertEquals(1, actions.delete.size)
@@ -56,6 +57,7 @@ class BranchMenuTest {
 
         assertNull(actions.checkout)
         assertNull(actions.rebase)
+        assertNull(actions.merge)
         assertNull(actions.newBranchFrom)
         assertNull(actions.rename)
         assertTrue(actions.delete.isEmpty())
@@ -77,10 +79,11 @@ class BranchMenuTest {
     }
 
     @Test
-    fun `while a rebase or pick waits only the rebase is left out`() {
+    fun `while a merge, rebase or pick waits only rebase and merge are left out`() {
         val actions = actions(busy = true)
 
         assertNull(actions.rebase)
+        assertNull(actions.merge)
         assertNotNull(actions.checkout)
         assertNotNull(actions.rename)
         assertNotNull(actions.compare)
@@ -111,10 +114,12 @@ class BranchMenuTest {
     }
 
     @Test
-    fun `names the rebase even where it is not possible, generic without a target`() {
+    fun `names the rebase and merge even where they are not possible, generic without a target`() {
         val atHead = GitRef("refs/remotes/origin/main", GitRefKind.REMOTE_BRANCH, "h1")
         val all = GitRefs(refs.refs + atHead, "refs/heads/main")
         assertEquals("Rebase 'main' onto 'origin/main'", rebaseMenuText(listOf(branchLeaf(atHead, all)), all))
+        assertEquals("Merge 'origin/main' into 'main'\u2026", mergeMenuText(listOf(branchLeaf(atHead, all)), all))
+        assertEquals("Merge into Current Branch\u2026", mergeMenuText(emptyList(), refs))
         assertEquals("Rebase Current Branch onto\u2026", rebaseMenuText(listOf(branchLeaf(refs.refs[1], refs)), refs))
         assertEquals("Rebase Current Branch onto\u2026", rebaseMenuText(emptyList(), refs))
         assertEquals(

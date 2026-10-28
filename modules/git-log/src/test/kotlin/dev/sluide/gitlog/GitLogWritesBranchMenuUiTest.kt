@@ -75,6 +75,7 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
                 null,
                 "branch-checkout",
                 "branch-rebase",
+                "branch-merge",
                 "branch-new-branch",
                 "branch-rename",
                 "branch-delete",
@@ -113,6 +114,8 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
         assertFalse(main.item("branch-rename").isDisable)
         assertEquals("- - P -", remote.enabled(), "its local branch is the current one, it is at HEAD, protected")
         assertEquals("Rebase 'main' onto 'origin/main'", remote.item("branch-rebase").text)
+        assertTrue(main.item("branch-merge").isDisable)
+        assertTrue(remote.item("branch-merge").isDisable, "at HEAD's commit")
     }
 
     @Test
@@ -124,6 +127,14 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
         val menu = menus().single()
         assertEquals("C B P D", menu.enabled())
         assertEquals("Rebase 'main' onto 'feature/a'", menu.item("branch-rebase").text)
+        assertEquals("Merge 'feature/a' into 'main'\u2026", menu.item("branch-merge").text)
+
+        // Merge asks how to merge first; the rest is GitLogWritesMergeUiTest's.
+        fire(menu.item("branch-merge"))
+        val dialog = awaitDialog(robot)
+        assertEquals("Merge 'feature/a' into 'main'", dialog.headerText)
+        press(robot, dialog, ButtonType.CANCEL)
+        assertTrue(writes.calls.isEmpty())
 
         fire(menu.item("branch-filter"))
         eventually {
@@ -159,6 +170,7 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
         assertEquals("- - P -", running.enabled(), "compare still reads")
         assertTrue(running.item("branch-rename").isDisable)
         assertTrue(running.item("branch-new-branch").isDisable)
+        assertTrue(running.item("branch-merge").isDisable)
         assertFalse(running.item("branch-working-tree-diff").isDisable)
         writes.gate?.countDown()
         eventually { assertFalse(view.actions.running.get()) }
@@ -170,6 +182,7 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
         selectRows(robot, 2)
         val waiting = menus().single()
         assertTrue(waiting.item("branch-rebase").isDisable)
+        assertTrue(waiting.item("branch-merge").isDisable)
         assertFalse(waiting.item("branch-checkout").isDisable)
     }
 
