@@ -1,22 +1,15 @@
 package dev.sluide.gitlog.commit
 
-import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.gitlog.data.ChangeFile
-import dev.sluide.gitlog.data.ChangeFolder
-import dev.sluide.gitlog.data.ChangeNode
 import dev.sluide.gitlog.data.changeTree
 import dev.sluide.gitlog.operations.CommitChanges
-import dev.sluide.gitlog.ui.ChangeGraphic
 import dev.sluide.gitlog.ui.SHOW_DIFF
 import dev.sluide.gitlog.ui.SharedSplit
-import javafx.beans.InvalidationListener
-import javafx.beans.WeakInvalidationListener
 import javafx.beans.binding.Bindings
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleIntegerProperty
 import javafx.beans.value.ObservableBooleanValue
-import javafx.geometry.Pos
 import javafx.scene.control.Button
 import javafx.scene.control.CheckBox
 import javafx.scene.control.ContextMenu
@@ -26,7 +19,6 @@ import javafx.scene.control.SelectionMode
 import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.control.TextArea
 import javafx.scene.control.Tooltip
-import javafx.scene.control.TreeCell
 import javafx.scene.control.TreeItem
 import javafx.scene.control.TreeView
 import javafx.scene.input.Clipboard
@@ -35,40 +27,12 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
 import javafx.scene.input.KeyEvent
-import javafx.scene.input.MouseButton
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
 import javafx.scene.layout.StackPane
 import javafx.scene.layout.VBox
 import javafx.scene.text.Font
-
-/** The two groups of the Commit tab's tree (ADR 0048). */
-internal enum class CommitGroup(
-    val title: String,
-) {
-    CHANGES("Changes"),
-    UNVERSIONED("Unversioned Files"),
-}
-
-/** A node of the Commit tab's tree; [paths] are the files below it (or the file itself) as the checks know them. */
-internal sealed interface CommitNode {
-    val group: CommitGroup
-    val paths: List<String>
-}
-
-/** The root of a [group], with the count of its files. */
-internal data class CommitGroupNode(
-    override val group: CommitGroup,
-    override val paths: List<String>,
-) : CommitNode
-
-/** A folder or file ([node]) of a [group]; a file's single path is its path as given to git. */
-internal data class CommitEntryNode(
-    val node: ChangeNode,
-    override val group: CommitGroup,
-    override val paths: List<String>,
-) : CommitNode
 
 /**
  * The content of the Commit tab of the git log area (ADR 0048), read by [reader]: left a tree of the changes with
@@ -129,7 +93,7 @@ internal class CommitView(
             styleClass += "git-commit-tree"
             isShowRoot = false
             selectionModel.selectionMode = SelectionMode.MULTIPLE
-            setCellFactory { CommitCell() }
+            setCellFactory { CommitCell(::checkState, { node -> toggle(listOf(node)) }, { showSelectedDiff() }) }
             contextMenu =
                 ContextMenu(showDiffItem, openFileItem, SeparatorMenuItem(), copyPathItem).apply {
                     setOnShowing { updateActions() }
@@ -316,84 +280,18 @@ internal class CommitView(
     ) {
         val selected =
             tree.selectionModel.selectedItems
-                .mapNotNull { it?.value?.let(::idOf) }
+                .mapNotNull { it?.value?.let(::commitNodeId) }
                 .toSet()
-        val collapsed = collapsedIds(tree.root)
-        // A nested repository is listed as its folder with a trailing slash; shown by its name.
-        val untrackedFiles = untracked.map { GitChangedFile(GitChange.ADDED, it.removeSuffix("/")) }
-        val untrackedPaths = untrackedFiles.zip(untracked).associate { (file, path) -> file.path to path }
-        val groups =
-            listOfNotNull(
-                group(CommitGroup.CHANGES, files, { it.path }, collapsed).takeIf { files.isNotEmpty() },
-                group(CommitGroup.UNVERSIONED, untrackedFiles, { untrackedPaths.getValue(it.path) }, collapsed)
-                    .takeIf { untracked.isNotEmpty() },
-            )
+        val collapsed = collapsedCommitIds(tree.root)
         tree.selectionModel.clearSelection()
-        tree.root.children.setAll(groups)
-        val rows = rowsOf(tree.root).filter { item -> item.value?.let(::idOf) in selected }.map(tree::getRow)
+        tree.root.children.setAll(commitTreeItems(files, untracked, collapsed))
+        val rows =
+            commitRows(tree.root)
+                .filter { item ->
+                    item.value?.let(::commitNodeId) in selected
+                }.map(tree::getRow)
         rows.filter { it >= 0 }.forEach(tree.selectionModel::select)
     }
-
-    private fun group(
-        group: CommitGroup,
-        files: List<GitChangedFile>,
-        pathOf: (GitChangedFile) -> String,
-        collapsed: Set<String>,
-    ): TreeItem<CommitNode> =
-        TreeItem<CommitNode>(CommitGroupNode(group, files.map(pathOf))).apply {
-            children.setAll(changeTree(files).map { item(it, group, pathOf, collapsed) })
-            isExpanded = idOf(value) !in collapsed
-        }
-
-    private fun item(
-        node: ChangeNode,
-        group: CommitGroup,
-        pathOf: (GitChangedFile) -> String,
-        collapsed: Set<String>,
-    ): TreeItem<CommitNode> =
-        when (node) {
-            is ChangeFolder -> {
-                TreeItem<CommitNode>(CommitEntryNode(node, group, filesBelow(node).map(pathOf))).apply {
-                    children.setAll(node.children.map { item(it, group, pathOf, collapsed) })
-                    isExpanded = idOf(value) !in collapsed
-                }
-            }
-
-            is ChangeFile -> {
-                TreeItem(CommitEntryNode(node, group, listOf(pathOf(node.file))))
-            }
-        }
-
-    private fun filesBelow(node: ChangeNode): List<GitChangedFile> =
-        when (node) {
-            is ChangeFolder -> node.children.flatMap(::filesBelow)
-            is ChangeFile -> listOf(node.file)
-        }
-
-    /** Names a node across rebuilds: its group and, for a folder or file, its path. */
-    private fun idOf(node: CommitNode): String =
-        when (node) {
-            is CommitGroupNode -> {
-                node.group.name
-            }
-
-            is CommitEntryNode -> {
-                when (val entry = node.node) {
-                    is ChangeFolder -> "${node.group.name}/${entry.path}/"
-                    is ChangeFile -> "${node.group.name}/${entry.file.path}"
-                }
-            }
-        }
-
-    private fun collapsedIds(item: TreeItem<CommitNode>): Set<String> =
-        item.children
-            .flatMap { child ->
-                val own = child.value?.takeIf { !child.isExpanded && child.children.isNotEmpty() }?.let(::idOf)
-                listOfNotNull(own) + collapsedIds(child)
-            }.toSet()
-
-    private fun rowsOf(item: TreeItem<CommitNode>): List<TreeItem<CommitNode>> =
-        item.children.flatMap { listOf(it) + rowsOf(it) }
 
     /** The checks changed: the checkboxes, the count and the summary follow. */
     private fun changed() {
@@ -503,85 +401,10 @@ internal class CommitView(
         openFileItem.isDisable = file == null || selectedRepository || !exists(file)
     }
 
-    /**
-     * A node with its checkbox: a group's title and count, or a folder or file as [ChangeGraphic] shows it, an untracked
-     * file's name in the colour of unversioned files.
-     */
-    private inner class CommitCell : TreeCell<CommitNode>() {
-        private val check =
-            CheckBox().apply {
-                styleClass += "git-commit-check"
-                isFocusTraversable = false
-                setOnAction { item?.let { toggle(listOf(it)) } }
-            }
-        private val look = ChangeGraphic()
-        private val groupName = Label().apply { styleClass += "git-commit-group" }
-        private val groupCount = Label().apply { styleClass += "git-commit-count" }
-        private val groupBox = HBox(groupName, groupCount).apply { alignment = Pos.CENTER_LEFT }
-        private val box = HBox(check).apply { alignment = Pos.CENTER_LEFT }
-
-        private val iconUpdater = InvalidationListener { updateIcon() }
-        private val weakIconUpdater = WeakInvalidationListener(iconUpdater)
-
-        init {
-            // A folder opens and closes without a call to updateItem.
-            treeItemProperty().addListener { _, old, new ->
-                old?.expandedProperty()?.removeListener(weakIconUpdater)
-                new?.expandedProperty()?.addListener(weakIconUpdater)
-            }
-            setOnMouseClicked { event ->
-                val file = (item as? CommitEntryNode)?.node is ChangeFile
-                if (event.button == MouseButton.PRIMARY && event.clickCount == 2 && file) {
-                    showSelectedDiff()
-                    event.consume()
-                }
-            }
-        }
-
-        override fun updateItem(
-            item: CommitNode?,
-            empty: Boolean,
-        ) {
-            super.updateItem(item, empty)
-            text = null
-            if (empty || item == null) {
-                graphic = null
-                tooltip = null
-                return
-            }
-            val state = checkState(item)
-            check.isSelected = state == CheckState.ALL
-            check.isIndeterminate = state == CheckState.SOME
-            when (item) {
-                is CommitGroupNode -> {
-                    groupName.text = item.group.title
-                    groupCount.text = item.paths.size.toString()
-                    tooltip = null
-                    box.children.setAll(check, groupBox)
-                }
-
-                is CommitEntryNode -> {
-                    val nameClass = if (item.group == CommitGroup.UNVERSIONED) UNVERSIONED_CLASS else null
-                    tooltip = look.show(item.node, treeItem?.isExpanded == true, nameClass)?.let(::Tooltip)
-                    box.children.setAll(check, look.box)
-                }
-            }
-            graphic = box
-        }
-
-        private fun updateIcon() {
-            val entry = item as? CommitEntryNode ?: return
-            val treeItem = treeItem
-            if (isEmpty || treeItem == null) return
-            look.showIcon(entry.node, treeItem.isExpanded)
-        }
-    }
-
     private companion object {
         const val MONOSPACED = "Monospaced"
         const val MESSAGE_ROWS = 6
         const val CHANGES_SHARE = 0.6
-        const val UNVERSIONED_CLASS = "git-change-unversioned"
 
         /** Commits from anywhere in the tab, as IntelliJ does; Enter alone is a new line in the message. */
         val COMMIT = KeyCodeCombination(KeyCode.ENTER, KeyCombination.SHORTCUT_DOWN)
