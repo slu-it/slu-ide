@@ -16,6 +16,7 @@ import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCommits
 import dev.sluide.git.GitLog
+import dev.sluide.git.GitMerges
 import dev.sluide.git.GitPush
 import dev.sluide.git.GitRebases
 import dev.sluide.git.GitRemotes
@@ -108,6 +109,7 @@ class SpringWiringTest {
                         GitBranches::class.java,
                         GitCommits::class.java,
                         GitRebases::class.java,
+                        GitMerges::class.java,
                         GitRewords::class.java,
                         GitRemotes::class.java,
                         RemoteSourceCache::class.java,

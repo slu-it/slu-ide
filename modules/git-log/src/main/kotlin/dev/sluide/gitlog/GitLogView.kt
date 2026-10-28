@@ -5,6 +5,7 @@ import dev.sluide.fileicons.FILE_ICONS_CSS
 import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCommits
 import dev.sluide.git.GitLog
+import dev.sluide.git.GitMerges
 import dev.sluide.git.GitPush
 import dev.sluide.git.GitRebases
 import dev.sluide.git.GitRemotes
@@ -99,6 +100,7 @@ class GitLogView internal constructor(
         gitBranches: GitBranches,
         gitCommits: GitCommits,
         gitRebases: GitRebases,
+        gitMerges: GitMerges,
         gitRewords: GitRewords,
         gitRemotes: GitRemotes,
         gitPush: GitPush,
@@ -106,7 +108,7 @@ class GitLogView internal constructor(
     ) : this(
         GitLogCliSource(gitLog, gitRemotes, gitCommits, gitPush),
         Platform::runLater,
-        GitLogCliWrites(gitBranches, gitCommits, gitRebases, gitRewords, gitRemotes, gitPush),
+        GitLogCliWrites(gitBranches, gitCommits, gitRebases, gitMerges, gitRewords, gitRemotes, gitPush),
         tasks,
     )
 

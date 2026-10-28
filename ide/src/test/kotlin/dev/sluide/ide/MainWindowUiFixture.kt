@@ -16,6 +16,7 @@ import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCommits
 import dev.sluide.git.GitLog
+import dev.sluide.git.GitMerges
 import dev.sluide.git.GitPush
 import dev.sluide.git.GitRebases
 import dev.sluide.git.GitRemotes
@@ -242,6 +243,7 @@ abstract class MainWindowUiFixture {
                 GitBranches(git),
                 GitCommits(git),
                 GitRebases(git),
+                GitMerges(git),
                 GitRewords(git),
                 GitRemotes(git),
                 GitPush(git),

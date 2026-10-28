@@ -8,6 +8,8 @@ import dev.sluide.git.GitCommitResult
 import dev.sluide.git.GitFetchChanges
 import dev.sluide.git.GitFetchResult
 import dev.sluide.git.GitInProgress
+import dev.sluide.git.GitMergeMode
+import dev.sluide.git.GitMergeResult
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitPickResult
 import dev.sluide.git.GitPushResult
@@ -258,6 +260,37 @@ internal class FakeWrites : GitLogWrites {
     override fun skipRebase(root: Path) = rebaseCall("rebase --skip")
 
     override fun abortRebase(root: Path) = rebaseCall("rebase --abort")
+
+    /** What a merge, continue or abort answers, by its line. */
+    @Volatile
+    var mergeResult: (String) -> GitMergeResult = { GitMergeResult.Done(NEW_HEAD) }
+
+    private fun mergeCall(line: String): GitMergeResult {
+        call(line)
+        return mergeResult(line)
+    }
+
+    override fun merge(
+        root: Path,
+        branch: String,
+        ref: String,
+        mode: GitMergeMode,
+        message: String?,
+        autostash: Boolean,
+    ): GitMergeResult {
+        val options = listOfNotNull(mode.name.lowercase(), message?.let { "-m $it" }, "autostash".takeIf { autostash })
+        return mergeCall("merge $branch $ref ${options.joinToString(" ")}")
+    }
+
+    override fun continueMerge(
+        root: Path,
+        confirmed: Set<GitUncheckedConflict>,
+    ): GitMergeResult {
+        confirmedSets += confirmed
+        return mergeCall("merge --continue${if (confirmed.isEmpty()) "" else " as on disk"}")
+    }
+
+    override fun abortMerge(root: Path) = mergeCall("merge --abort")
 
     /** What the check of a reword answers. */
     @Volatile
