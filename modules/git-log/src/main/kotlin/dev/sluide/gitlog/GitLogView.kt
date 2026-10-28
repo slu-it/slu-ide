@@ -1,14 +1,12 @@
 package dev.sluide.gitlog
 
 import dev.sluide.backgroundtasks.BackgroundTasks
-import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.fileicons.FILE_ICONS_CSS
 import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCommits
 import dev.sluide.git.GitLog
 import dev.sluide.git.GitPush
 import dev.sluide.git.GitRebases
-import dev.sluide.git.GitRefs
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitRewords
 import dev.sluide.gitlog.actions.RefActions
@@ -23,13 +21,9 @@ import dev.sluide.gitlog.area.endMessage
 import dev.sluide.gitlog.branches.BranchesPane
 import dev.sluide.gitlog.branches.branchCommands
 import dev.sluide.gitlog.branches.branchMenus
-import dev.sluide.gitlog.data.CommitBranches
-import dev.sluide.gitlog.data.CommitDetails
-import dev.sluide.gitlog.data.CommitDetailsState
-import dev.sluide.gitlog.data.FileDiffs
 import dev.sluide.gitlog.data.GitLogCliSource
 import dev.sluide.gitlog.data.GitLogCliWrites
-import dev.sluide.gitlog.data.GitLogPages
+import dev.sluide.gitlog.data.GitLogReaders
 import dev.sluide.gitlog.data.GitLogSource
 import dev.sluide.gitlog.data.GitLogState
 import dev.sluide.gitlog.data.GitLogWrites
@@ -116,51 +110,10 @@ class GitLogView internal constructor(
         tasks,
     )
 
-    private val executor =
-        NamedThreads.single("sluide-git-log")
-
-    private val pages =
-        GitLogPages(
-            source::page,
-            source::refs,
-            source::hashMatch,
-            executor::execute,
-            dispatch,
-            tasks,
-            loadPending = source::pending,
-            loadRemotes = source::remotes,
-            loadCounts = source::comparisonCounts,
-        )
-
-    private val details =
-        CommitDetails(
-            source::details,
-            { root, commit, cancellation ->
-                source.changedFiles(root, commit.hash, commit.parents.firstOrNull(), cancellation)
-            },
-            executor::execute,
-            dispatch,
-            source::resolveCommits,
-        )
-
-    private val fileDiffs = FileDiffs(source::fileDiff, executor::execute, dispatch)
-
-    /** Reads the branches containing the shown commit (ADR 0045), not behind the pages of the log nor delaying them. */
-    private val branchesExecutor =
-        NamedThreads.single("sluide-git-branches")
-
-    /** The branches containing the commit whose details are shown (ADR 0045). */
-    private val commitBranches =
-        CommitBranches(source::branchesContaining, branchesExecutor::execute, dispatch).apply {
-            currentBranch = { pages.refs?.currentBranch }
-        }
-
-    /** The refs the branches containing a commit were read with; new ones read them again. */
-    private var branchesRefs: GitRefs? = null
-
-    /** Reads for the working-tree windows (ADR 0044), not behind the pages of the log. */
-    private val compareExecutor =
-        NamedThreads.single("sluide-git-compare")
+    /** Reads the log, the details and the branches in the background. */
+    private val readers = GitLogReaders(source, dispatch, tasks)
+    private val pages = readers.pages
+    private val details = readers.details
 
     /**
      * Asked before an operation changes files on disk, with its action ("Check Out", "Cherry-Pick"), e.g. to save or
@@ -221,8 +174,8 @@ class GitLogView internal constructor(
         CommitDiffs(
             pages,
             source,
-            fileDiffs,
-            compareExecutor::execute,
+            readers.fileDiffs,
+            readers.compareReads,
             dispatch,
             { scene?.window },
             status::selection,
@@ -278,7 +231,7 @@ class GitLogView internal constructor(
             pages,
             table,
             source::resolveCommits,
-            executor::execute,
+            readers.logReads,
             dispatch,
             { filterSources.branchItems().drop(1) },
             { branchesPane.selectedRef },
@@ -289,7 +242,7 @@ class GitLogView internal constructor(
 
     /** What the filters above the table offer to pick. */
     private val filterSources: FilterSources =
-        FilterSources(pages, source::userName, source::paths, executor::execute, dispatch).apply {
+        FilterSources(pages, source::userName, source::paths, readers.logReads, dispatch).apply {
             userNameRead = { filterBar.user.popup.refresh() }
             pathsRead = { filterBar.path.popup.refresh() }
         }
@@ -317,7 +270,7 @@ class GitLogView internal constructor(
 
     /** The details of the selected commit. */
     internal val detailsPane =
-        CommitDetailsPane(details.state, commitBranches.state).apply {
+        CommitDetailsPane(details.state, readers.commitBranches.state).apply {
             openCommit = { hash -> navigation.goToCommit(hash, hash.take(SHORT_HASH)) }
         }
 
@@ -376,8 +329,8 @@ class GitLogView internal constructor(
             actions.running,
             body,
             table,
-            executor::execute,
-            branchesExecutor::execute,
+            readers.logReads,
+            readers.branchReads,
             dispatch,
             { scene?.focusOwner },
             { path -> fileExists(path) },
@@ -428,21 +381,6 @@ class GitLogView internal constructor(
             indices.forEach(table.selectionModel::select)
         }
         details.selection = { table.selectionModel.selectedItems.filterNotNull() }
-        details.root = { pages.root }
-        // Read once the details are shown, so that they never wait for them; kept while the next commit's load.
-        details.state.subscribe { state ->
-            when (state) {
-                is CommitDetailsState.Loaded -> {
-                    commitBranches.show(pages.root, state.row.commit.hash)
-                }
-
-                is CommitDetailsState.Loading -> {}
-
-                else -> {
-                    commitBranches.show(null, null)
-                }
-            }
-        }
         table.selectionModel.selectedItems.addListener(
             ListChangeListener {
                 status.selectionChanged()
@@ -467,10 +405,7 @@ class GitLogView internal constructor(
                 }
 
                 else -> {
-                    if (pages.refs != branchesRefs) {
-                        branchesRefs = pages.refs
-                        commitBranches.refsChanged()
-                    }
+                    readers.refsRead()
                     branchesPane.show(pages.refs)
                     compareBar.update()
                     pendingBar.show(pages.pending)
@@ -532,7 +467,7 @@ class GitLogView internal constructor(
 
     /** Shows the log of the repository at [root]; `null` shows nothing. Loads once (or as soon as) [expanded]. */
     fun open(root: Path?) {
-        fileDiffs.close()
+        readers.clear()
         diffs.closeWorkingTreeWindows()
         // The Push dialog closes; an operation going on in the previous repository ends unnoticed; a fetch is stopped
         // (ADR 0043).
@@ -540,8 +475,6 @@ class GitLogView internal constructor(
         navigation.goToPopup.hide()
         // Before the pages, which may start loading and have the pane say so.
         branchesPane.reset()
-        commitBranches.clear()
-        branchesRefs = null
         // Resets the filter and ends a comparison too, before the bar, which then tells no change.
         pages.open(root)
         tabs.closeAll()
@@ -569,27 +502,15 @@ class GitLogView internal constructor(
      * Completes once everything the threads reading the log, the details and the branches were given so far has run;
      * for tests that assert that something was not read.
      */
-    internal fun readersIdle(): CompletableFuture<Void> {
-        val log = CompletableFuture<Unit>()
-        executor.execute { log.complete(Unit) }
-        val branches = CompletableFuture<Unit>()
-        branchesExecutor.execute { branches.complete(Unit) }
-        return CompletableFuture.allOf(log, branches)
-    }
+    internal fun readersIdle(): CompletableFuture<Void> = readers.idle()
 
     override fun close() {
         tabs.close()
         diffs.closeWorkingTreeWindows()
         actions.close()
-        compareExecutor.shutdownNow()
-        pages.close()
-        details.close()
-        fileDiffs.close()
-        commitBranches.close()
-        branchesExecutor.shutdownNow()
         detailsPane.close()
         changesPane.close()
-        executor.shutdownNow()
+        readers.close()
     }
 }
 
