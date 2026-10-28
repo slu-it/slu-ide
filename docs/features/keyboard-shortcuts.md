@@ -176,10 +176,11 @@ File does not react to it while a terminal has the focus.
 |---|---|
 | Alt+6 (Cmd+6 on macOS) | Expand or collapse the panel (View → TODOs; not while a terminal has the focus on Linux and Windows) |
 | Enter or Space on the focused stripe | Expand the panel |
-| Tab | Reach the cards' Expand, Edit and Delete buttons and the Collapse button |
-| Escape while dragging a card | Cancel the drag |
-| Enter in the delete question | Keep the TODO (Cancel is the default button) |
+| Tab | Reach the buttons of the cards and folders and the Collapse button |
+| Escape while dragging a card or folder | Cancel the drag |
+| Enter in the delete question | Keep the TODO or folder (Cancel is the default button) |
 | Enter in the dialog's Summary field | Add or save the TODO |
+| Enter in the folder dialog's Name field | Add or save the folder |
 | Escape in the dialog | Cancel it |
 | The editing keys of code editors in the dialog's description field | As in the other editors of dialogs, see [Code editor](#code-editor) |
 
@@ -194,8 +195,10 @@ File does not react to it while a terminal has the focus.
 | Input | Action |
 |---|---|
 | Middle-click on a tab (editor area, git log area) | Close the tab |
-| Drag a TODO card by its header | Reorder the cards of the list ([todos.md](todos.md)) |
+| Drag a TODO card by its header | Reorder the TODOs, also into, out of and between folders ([todos.md](todos.md)) |
+| Drag a TODO folder by its header | Reorder the folders among the TODOs ([todos.md](todos.md)) |
 | Double-click on a TODO card's summary | Edit the TODO ([todos.md](todos.md)) |
+| Double-click on a TODO folder's name | Edit the folder ([todos.md](todos.md)) |
 
 ## Pickers
 [scratch-files.md](scratch-files.md), [project-picker.md](project-picker.md)

@@ -1,6 +1,6 @@
 # 0102. TODO panel
 
-- Status: accepted
+- Status: accepted, amended by [0103](0103-todo-folders.md) (folders)
 - Date: 2026-10-28
 
 ## Context
@@ -33,8 +33,8 @@ card per TODO.
   source and save it. Links and images are confined to the project: relative or absolute paths below the project folder
   open in the editor or load; `http`/`https` (and `mailto` links) go to the system browser; other schemes and paths
   outside the folder do nothing. Shared TODOs have no folder, so they only link to the web.
-- **Reordering by plain mouse drag** on a card's header (press, drag, release; Escape cancels), not platform drag and
-  drop, which leaves a stale pointer grab on Linux ([ADR 0073](0073-explorer-multi-selection-and-moving.md)).
+- **Reordering by plain mouse drag** on a card's header (press, drag, release; Escape cancels; with folders and an
+  insertion line since [ADR 0103](0103-todo-folders.md)), not platform drag and drop, which leaves a stale pointer grab on Linux ([ADR 0073](0073-explorer-multi-selection-and-moving.md)).
 - **The dialog's description editor is `CodeEditors.text`** of `file-viewers` with the Markdown highlighter, in the
   editor font, inside the dialog's Write | Preview switch. `ide` supplies it through `TodoPanel.descriptionEditor`, so
   `todos` does not depend on `file-viewers` ([ADR 0047](0047-module-dependencies-and-shared-modules.md)); without it the

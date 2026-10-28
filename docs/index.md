@@ -121,7 +121,8 @@ updated when the summary or keywords no longer fit.
 | [0099](adr/0099-linear-lexing-of-long-lines.md) | Lines with many tokens or raw strings lex in near-linear time | performance, quadratic, token pool, `TokenMakerBase`, reflection, `rawStringDelimiter`, minified, Handlebars | see 0005, 0097 |
 | [0100](adr/0100-editing-commit-messages.md) | Edit the message of any commit of the current branch by rewriting the commits after it | `GitRewords`, reword, edit commit message, `hash-object`, `update-ref`, default branch, `origin/HEAD`, signatures | see 0048, 0063 |
 | [0101](adr/0101-shared-data-file.md) | Shared data file `~/.sluide/shared.json` replaces outside-projects.json | shared data file, `shared.json`, `readShared`, `updateShared`, rename migration | amends 0090 |
-| [0102](adr/0102-todo-panel.md) | The TODO panel: Shared and Project cards with native Markdown, collapsed at the right of the window | TODOs, `todos`, `TodoPanel`, `Todos`, native Markdown, Alt+6, Shared/Project | see 0101, 0073, 0068 |
+| [0102](adr/0102-todo-panel.md) | The TODO panel: Shared and Project cards with native Markdown, collapsed at the right of the window | TODOs, `todos`, `TodoPanel`, `Todos`, native Markdown, Alt+6, Shared/Project | see 0101, 0073, 0068; amended by 0103 |
+| [0103](adr/0103-todo-folders.md) | TODO folders: one level, mixed with TODOs in the same `todos` array, stored collapse, drag with an insertion line | TODO folders, `TodoFolder`, `TodoPlace`, `dropTarget`, `ItemDrag`, collapsed, Keep TODOs | amends 0102; see 0073 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
