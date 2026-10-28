@@ -36,7 +36,7 @@ changes are read and committed by `GitCommits.commitChanges` and `commit` in `mo
   - **Amend:** ticked while the message is empty, it fills in the message of `HEAD`; unticked, that message goes again
     if it was not changed. "This commit is already pushed: amending it needs a force push." shows while Amend is
     ticked and `HEAD` is on its upstream. Disabled before the first commit;
-  - what keeps git from committing, e.g. "A merge is in progress; finish or abort it in the terminal." or "1 file has
+  - what keeps git from committing, e.g. "A merge is in progress; continue or abort it in the log first." or "1 file has
     conflicts; resolve it first.";
   - **Commit**, enabled with a message that is not blank, at least one checked file (or Amend, which then only changes
     the message), nothing in progress, no conflicts and no other operation running;

@@ -265,11 +265,31 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
     error dialog. Unsaved editors are asked about first, as for a checkout. Every stop (a conflict, an edit, a hook,
     untracked files in the way), also after Continue or Skip, opens "Rebase Stopped" with Resolve and Abort Rebase and
     leaves a bar (below) to continue, skip or abort.
+  - **Merge** ([ADR 0105](../adr/0105-git-log-merge.md)): after Rebase, "Merge 'main' into 'feature'…" ("Merge into
+    Current Branch…" without a current branch or a single such branch), enabled exactly as Rebase. A dialog "Merge"
+    ("Merge 'main' into 'feature'") offers Fast-forward if possible (preselected), Always create a merge commit,
+    Fast-forward only and Squash (the changes are staged, nothing is committed); the message in a monospace area,
+    prefilled with git's ("Merge branch 'main' into feature", "Merge remote-tracking branch 'origin/main' into feature";
+    nothing " into" for `main` and `master`), disabled for Fast-forward only and Squash; and "Stash local changes and
+    restore them afterwards", checked, unchecked and disabled for Squash (git would keep them stashed until the next
+    commit; local changes the squash does not touch stay as they are, those it would overwrite git refuses). Merge (the
+    default) or Cancel. The choices override `merge.ff` and `merge.autoStash`; an unchanged message leaves it to git, so
+    `merge.log` and the like still apply. Unsaved editors are asked about first ("Merge Anyway"). While it runs the
+    header says "Merging main into feature…", then "Fast-forwarded feature to main.", "Merged main into feature.",
+    "Squashed main into the index of feature; commit the changes." or, if the branch is already contained, "'main' is
+    already contained in 'feature'; nothing to merge." (nothing runs). If git could not restore the stashed changes
+    without conflicts it keeps them as a stash entry and the files show the conflicts of applying them; the header adds
+    "Your local changes could not be restored without conflicts; they are kept in the stash." Failures (fast-forward not
+    possible, local changes in the way without the stash) open "Merge Failed" with git's message. Conflicts open "Merge
+    Stopped" ("Merge of main into feature stopped with conflicts in:", the paths, git's message under Show Details;
+    Resolve the default, Abort Merge aborts without asking) and leave a bar (below) to continue or abort. A squash with
+    conflicts leaves them without a merge in progress ("… with conflicts in 2 files; resolve them, then commit.").
+    Ignored files in the way are not checked, as for a rebase.
   - **Branch submenus in the log:** the table's context menu starts, with exactly one commit selected, with one
     submenu per local or remote branch at that commit (named "feature", "origin/main"; not `HEAD` or tags), then a
     separator. A submenu has the items of the branches pane for that branch, with the same texts and enabling:
-    Filter Log by Branch, Copy Name, Compare with Current, Show Diff with Working Tree, Checkout, Rebase …, New Branch
-    from '…'…, Rename…, Delete (a remote branch on its remote, below), and Fetch for a remote branch. It is built
+    Filter Log by Branch, Copy Name, Compare with Current, Show Diff with Working Tree, Checkout, Rebase …, Merge …,
+    New Branch from '…'…, Rename…, Delete (a remote branch on its remote, below), and Fetch for a remote branch. It is built
     when the menu opens, so it follows the state at that moment (nothing that writes while an operation runs, no
     rebase while one is in progress).
   - **Leaving a detached HEAD:** a checkout (also of a revision from the log, or a new branch with Checkout) that would
@@ -348,9 +368,15 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
   - **In progress:** while a cherry-pick or revert is in progress, also one started in a terminal, a bar below the
     filter bar says "Cherry-pick of 1a2b3c4d is in progress: 2 files have conflicts." ("…: conflicts resolved." once
     none is unmerged in the index) with Continue and Abort; read with every refresh, it disappears after one without
-    it (and after a refresh that fails). A merge, `git am` or a cherry-pick or revert of several commits shows
-    there too, without buttons ("A cherry-pick sequence is in progress; continue or abort it in the terminal."). A
-    rebase, also one started in a terminal, shows "Rebasing feature onto 1a2b3c4d: stopped at 5e6f7a8b (3 of 7); 2
+    it (and after a refresh that fails). An octopus merge, `git am` or a cherry-pick or revert of several commits
+    shows there too, without buttons ("A cherry-pick sequence is in progress; continue or abort it in the terminal.").
+    A merge, also one started in a terminal or by `git pull`, shows the first line of its message and its conflicts
+    ("Merge branch 'main' into feature: 2 files have conflicts.") with Continue and Abort: Continue checks and stages
+    the conflicted files as for a cherry-pick and commits git's message ("Merged main into feature.", or "Merge
+    committed." when the branches are not known), restoring stashed local changes; Abort asks first ("Abort the merge?
+    Its changes are undone, also what was done to resolve its conflicts.", Cancel the default; "Aborted the merge.").
+    While a merge is in progress the Commit tab says "A merge is in progress; continue or abort it in the log first."
+    A rebase, also one started in a terminal, shows "Rebasing feature onto 1a2b3c4d: stopped at 5e6f7a8b (3 of 7); 2
     files have conflicts." with Continue, Skip and Abort. Continue works as for a cherry-pick (marker check, only
     unmerged paths staged) and keeps the prepared message; if nothing is left to commit it skips the commit. Skip and
     Abort ask first (Skip drops the commit's changes; Abort puts the branch back to where it was).
@@ -395,9 +421,10 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
   - **Unsaved editors:** before an operation that changes files, files of the repository with unsaved changes are
     asked about, naming it: "These files have unsaved changes. Save them before you check out?" with Save, Check Out
     Anyway (the changes stay; an editor whose file the operation changed offers Reload or Keep mine) and Cancel (the
-    operation does not run). Asked for checkouts (also of a new branch), Cherry-Pick, Revert, a hard reset, Abort and
-    Continue (which stages the files from disk), with "Cherry-Pick Anyway", "Revert Anyway", "Reset Anyway", "Abort
-    Anyway" and "Continue Anyway"; not for soft and mixed resets or branch and tag operations.
+    operation does not run). Asked for checkouts (also of a new branch), Cherry-Pick, Revert, Rebase, Merge, a hard
+    reset, Skip, Abort and Continue (which stages the files from disk), with "Cherry-Pick Anyway", "Revert Anyway",
+    "Rebase Anyway", "Merge Anyway", "Reset Anyway", "Skip Anyway", "Abort Anyway" and "Continue Anyway"; not for
+    soft and mixed resets or branch and tag operations.
 - **Fetch** ([ADR 0043](../adr/0043-git-log-fetch.md)): the down arrow in the header ("Fetch All Remotes", also while
   the log is collapsed) fetches every remote but those with `remote.<name>.skipFetchAll`, one after the other; Fetch in
   the branches pane's context menu (after Delete and a separator) on a remote, a folder of a remote or a remote branch
@@ -478,7 +505,8 @@ Decisions in [ADR 0035](../adr/0035-git-log-area.md), [ADR 0036](../adr/0036-com
 - Not yet implemented (next packages): a flat list of the changed files, their combined changes for several commits, comparing two branches or commits with each other (and the
   files since their merge base), the changes against each parent of a merge, a diff preview in the log, a date filter, dotted
   edges through commits hidden by filters, tracking information in the branches pane, remembering the area's height
-  and state, and more operations: updating local branches after a fetch, pull, merge, pushing tags; for
+  and state, and more operations: updating local branches after a fetch, pull, pushing tags; for
   cherry-pick and revert several commits at once, a merge tool or three-way view, `-x` and edited messages; `reset
   --keep`; rebasing with `--onto`, interactively, a branch other than the current one, or onto a tag or commit;
-  continuing or aborting merges and sequences from the bar.
+  merging tags or commits, octopus merges, `--no-commit` or strategies; continuing or aborting octopus merges and
+  sequences from the bar.
