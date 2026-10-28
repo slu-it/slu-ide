@@ -110,7 +110,7 @@ abstract class MainWindowUiFixture {
 
     /** The remembered projects, kept in the test's settings folder, never in `~/.sluide`. */
     internal val projectData by lazy {
-        ProjectDataStore(settingsDir.resolve("projects"), settingsDir.resolve("outside-projects.json"), emptyList())
+        ProjectDataStore(settingsDir.resolve("projects"), settingsDir.resolve("shared.json"), emptyList())
     }
     internal val recentProjects by lazy { RecentProjects(projectData) }
 

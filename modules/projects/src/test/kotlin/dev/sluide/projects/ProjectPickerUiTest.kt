@@ -46,7 +46,7 @@ class ProjectPickerUiTest {
     private lateinit var store: RecentProjects
 
     private fun recentProjects() =
-        RecentProjects(ProjectDataStore(dir.resolve("projects"), dir.resolve("outside-projects.json"), emptyList()))
+        RecentProjects(ProjectDataStore(dir.resolve("projects"), dir.resolve("shared.json"), emptyList()))
 
     private lateinit var picker: ProjectPicker
     private lateinit var stage: Stage

@@ -13,7 +13,7 @@ class TrustedProjectsTest {
     lateinit var dir: Path
 
     private val data by lazy {
-        ProjectDataStore(dir.resolve("projects"), dir.resolve("outside-projects.json"), emptyList())
+        ProjectDataStore(dir.resolve("projects"), dir.resolve("shared.json"), emptyList())
     }
 
     private fun store() = TrustedProjects(data)

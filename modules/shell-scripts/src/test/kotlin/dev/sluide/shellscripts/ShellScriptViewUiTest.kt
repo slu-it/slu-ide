@@ -70,7 +70,7 @@ class ShellScriptViewUiTest {
         )
     }
     private val projectData by lazy {
-        ProjectDataStore(support.resolve("projects"), support.resolve("outside-projects.json"), emptyList())
+        ProjectDataStore(support.resolve("projects"), support.resolve("shared.json"), emptyList())
     }
     private val runSession by lazy {
         CommandRunSession(terminals, BackgroundTasks.forTests(), ArgumentHistories(projectData, store))

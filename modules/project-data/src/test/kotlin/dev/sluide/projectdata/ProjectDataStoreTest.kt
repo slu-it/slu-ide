@@ -28,7 +28,7 @@ class ProjectDataStoreTest {
     private val projects by lazy { dir.resolve("projects") }
     private val project by lazy { dir.resolve("project").createDirectories() }
 
-    private fun store() = ProjectDataStore(projects, dir.resolve("outside-projects.json"), emptyList())
+    private fun store() = ProjectDataStore(projects, dir.resolve("shared.json"), emptyList())
 
     private fun jsonFiles() = projects.listDirectoryEntries("*.json")
 
@@ -193,7 +193,7 @@ class ProjectDataStoreTest {
                 }
             }
 
-        ProjectDataStore(projects, dir.resolve("outside-projects.json"), listOf(migration))
+        ProjectDataStore(projects, dir.resolve("shared.json"), listOf(migration))
 
         assertFalse(projects.exists())
         assertEquals(0, migrations)

@@ -19,7 +19,7 @@ class LegacyTrustDecisionsTest {
     private val legacy by lazy { LegacyTrustDecisions(dir.resolve("project-trust.properties")) }
 
     private fun store(vararg migrations: LegacyTrustDecisions) =
-        ProjectDataStore(dir.resolve("projects"), dir.resolve("outside-projects.json"), migrations.toList())
+        ProjectDataStore(dir.resolve("projects"), dir.resolve("shared.json"), migrations.toList())
 
     private fun folder(name: String) = dir.resolve(name).createDirectories()
 

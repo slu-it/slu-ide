@@ -100,7 +100,7 @@ class ProjectWindowsUiTest {
         val projectData =
             ProjectDataStore(
                 dir.resolve("settings/projects"),
-                dir.resolve("settings/outside-projects.json"),
+                dir.resolve("settings/shared.json"),
                 emptyList(),
             )
         recentProjects = RecentProjects(projectData)

@@ -19,7 +19,7 @@ class LegacyRecentProjectsTest {
     private val legacy by lazy { LegacyRecentProjects(dir.resolve("projects.properties")) }
 
     private fun store(vararg migrations: LegacyRecentProjects) =
-        ProjectDataStore(dir.resolve("projects"), dir.resolve("outside-projects.json"), migrations.toList())
+        ProjectDataStore(dir.resolve("projects"), dir.resolve("shared.json"), migrations.toList())
 
     private fun folder(name: String) = dir.resolve(name).createDirectories()
 

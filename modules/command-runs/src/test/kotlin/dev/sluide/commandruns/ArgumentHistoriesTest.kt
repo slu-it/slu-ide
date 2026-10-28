@@ -75,7 +75,7 @@ class ArgumentHistoriesTest {
     }
 
     @Test
-    fun `a file outside the project keeps its history in the outside file`() {
+    fun `a file outside the project keeps its history in the shared file`() {
         val file = dir.resolve("scratch.sh")
 
         histories.record(file, project, "a")

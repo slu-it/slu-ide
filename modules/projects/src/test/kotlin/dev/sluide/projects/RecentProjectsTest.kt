@@ -17,7 +17,7 @@ class RecentProjectsTest {
 
     private val t0 = Instant.ofEpochSecond(1_000)
 
-    private fun data() = ProjectDataStore(dir.resolve("projects"), dir.resolve("outside-projects.json"), emptyList())
+    private fun data() = ProjectDataStore(dir.resolve("projects"), dir.resolve("shared.json"), emptyList())
 
     private fun store() = RecentProjects(data())
 

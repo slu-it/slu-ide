@@ -38,7 +38,7 @@ class LegacyMigrationTest {
     }
 
     private fun store(migration: LegacyProjectData) =
-        ProjectDataStore(dir.resolve("projects"), dir.resolve("outside-projects.json"), listOf(migration))
+        ProjectDataStore(dir.resolve("projects"), dir.resolve("shared.json"), listOf(migration))
 
     private fun writeLegacy(vararg folders: Path) =
         legacy.writeText(folders.withIndex().joinToString("\n") { (i, folder) -> "${escaped(folder)}=${i + 1}" })
