@@ -4,13 +4,10 @@ import dev.sluide.fileicons.FILE_ICONS_CSS
 import dev.sluide.git.GitChangedFile
 import dev.sluide.gitlog.operations.PushOperation
 import dev.sluide.gitlog.operations.RefConfirmation
-import dev.sluide.gitlog.operations.commitCount
 import dev.sluide.gitlog.operations.isProtectedBranch
 import dev.sluide.gitlog.operations.nameProblem
 import dev.sluide.gitlog.operations.refConfirmation
-import dev.sluide.gitlog.ui.ChangeTreeView
 import dev.sluide.gitlog.ui.GIT_LOG_CSS
-import dev.sluide.gitlog.ui.SharedSplit
 import javafx.beans.binding.Bindings
 import javafx.beans.property.SimpleStringProperty
 import javafx.beans.value.ObservableBooleanValue
@@ -22,8 +19,6 @@ import javafx.scene.control.ButtonBar
 import javafx.scene.control.ButtonType
 import javafx.scene.control.ComboBox
 import javafx.scene.control.Label
-import javafx.scene.control.ListCell
-import javafx.scene.control.ListView
 import javafx.scene.control.MenuItem
 import javafx.scene.control.SplitMenuButton
 import javafx.scene.control.TextField
@@ -36,16 +31,12 @@ import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
-import javafx.scene.layout.StackPane
 import javafx.scene.layout.VBox
 import javafx.stage.Modality
 import javafx.stage.Screen
 import javafx.stage.Stage
 import javafx.stage.Window
 import javafx.util.Subscription
-import java.time.ZoneId
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 
 internal val FORCE_PUSH_BUTTON = ButtonType("Force Push", ButtonBar.ButtonData.OK_DONE)
 
@@ -56,9 +47,9 @@ internal val PUSH_KEYS = KeyCodeCombination(KeyCode.K, KeyCombination.SHORTCUT_D
  * The Push dialog of the git log (ADR 0049), as [reader] reads it: a window owned by the IDE window [ideWindow] (so it
  * stays above it), not modal, so that the diffs it opens can be looked at in the editor. At the top the branch, the
  * remote (a choice with several), the target branch, which can be edited (checked with [nameProblem], read again after
- * a pause), and "New" if the remote does not have it yet; left the outgoing commits, "All" first; right the files of
- * the selected row ([ChangeTreeView]), whose diffs go to [showDiff] with the commit and the parent and where to tell
- * what keeps one from being shown, Open Local File (F4) to [openFile] if the file [exists]. Below, notes (the target
+ * a pause), and "New" if the remote does not have it yet; in the middle the outgoing [commits] and the files of the
+ * selected one ([PushCommitsPane]), whose diffs go to [showDiff], Open Local File (F4) to [openFile] if the file
+ * [exists]. Below, notes (the target
  * has commits the branch has not, as of the last fetch, why nothing can be pushed) and Push, whose menu has Force Push
  * (asked first, never to a protected branch), and Cancel. Push and Force Push close the dialog and hand a
  * [PushOperation] to [push]; they are disabled while an operation is [running]. It reads again when it gains the
@@ -118,35 +109,19 @@ internal class PushDialog(
             managedProperty().bind(visibleProperty())
         }
 
-    internal val commitList =
-        ListView<PushRow>().apply {
-            styleClass += "git-push-commits"
-            setCellFactory { PushCell() }
-        }
-
-    internal val commitPlaceholder =
-        Label().apply {
-            styleClass += "git-push-placeholder"
-            isWrapText = true
-        }
-
-    internal val tree =
-        ChangeTreeView().apply {
-            showDiff = ::showFileDiff
-            openFile = { file -> this@PushDialog.openFile(file) }
-            exists = { file -> this@PushDialog.exists(file) }
-        }
-
-    internal val filesPlaceholder = Label().apply { styleClass += "git-push-placeholder" }
-
     internal val behindLabel = note("git-push-behind")
 
     internal val reasonLabel = note("git-push-reason")
 
     internal val protectedLabel = note("git-push-protected")
 
-    /** Why a diff cannot be shown, until the next selection or read. */
-    internal val statusLabel = note("git-push-status")
+    /** The outgoing commits and the files of the selected one. */
+    internal val commits =
+        PushCommitsPane(reader, ::note).apply {
+            showDiff = { commit, parent, file, tell -> this@PushDialog.showDiff(commit, parent, file, tell) }
+            openFile = { file -> this@PushDialog.openFile(file) }
+            exists = { file -> this@PushDialog.exists(file) }
+        }
 
     internal val fetchNote = note("git-push-fetch-note")
 
@@ -201,14 +176,6 @@ internal class PushDialog(
             setOnAction { close() }
         }
 
-    /** The commits left, the files of the selected row right. */
-    private val split =
-        SharedSplit(
-            StackPane(commitList),
-            StackPane(tree, filesPlaceholder).apply { styleClass += "git-push-files" },
-            COMMITS_SHARE,
-        ).apply { styleClass += "git-push-body" }
-
     internal val stage: Stage =
         Stage().apply {
             ideWindow?.let(::initOwner)
@@ -239,13 +206,13 @@ internal class PushDialog(
                                 },
                                 problemLabel,
                             ).apply { styleClass += "git-push-top" }
-                        center = split
+                        center = commits.node
                         bottom =
                             VBox(
                                 behindLabel,
                                 reasonLabel,
                                 protectedLabel,
-                                statusLabel,
+                                commits.statusLabel,
                                 fetchNote,
                                 HBox(
                                     Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
@@ -285,11 +252,7 @@ internal class PushDialog(
         running.subscribe { _, now -> if (!now && stage.isShowing && reader.state.get() != null) reload() }
 
     init {
-        commitList.placeholder = commitPlaceholder
         reader.state.subscribe { state -> if (state != null) showState(state) }
-        reader.files.subscribe { files -> showFiles(files) }
-        commitList.selectionModel.selectedItemProperty().subscribe { _ -> if (!updating) requestFiles() }
-        tree.selectionModel.selectedItemProperty().subscribe { _ -> statusLabel.text = "" }
         targetField.textProperty().subscribe { _, text -> targetChanged(text) }
         remoteBox.valueProperty().subscribe { _, remote ->
             stage.title = remote?.let { "$TITLE to $it" } ?: TITLE
@@ -301,7 +264,6 @@ internal class PushDialog(
         remoteBox.isDisable = true
         remoteBox.isVisible = false
         remoteBox.isManaged = false
-        commitPlaceholder.text = pushPlaceholder(null)
         problem.set(null)
     }
 
@@ -365,88 +327,12 @@ internal class PushDialog(
             // Why a normal push sends nothing; why nothing can be pushed at all is said in place of the commits.
             reasonLabel.text = state.nothingToPushNote.orEmpty()
             fetchNote.text = remote?.takeIf { !blocked }?.let { "As of the last fetch of $it." }.orEmpty()
-            showRows(state)
+            commits.showRows(state)
         } finally {
             updating = false
         }
         listOf(behindLabel, reasonLabel, fetchNote).forEach { it.isVisible = it.text.isNotEmpty() }
-        requestFiles()
-    }
-
-    /** Lists the commits of [state], keeping the selected commit if it is still listed, else selecting All. */
-    private fun showRows(state: PushState) {
-        val selected = commitList.selectionModel.selectedItem
-        val rows = pushRows(state.outgoing)
-        commitPlaceholder.text = pushPlaceholder(state)
-        if (commitList.items != rows) commitList.items.setAll(rows)
-        val index = rows.indexOf(selected).takeIf { selected is PushRow.Commit && it >= 0 } ?: 0
-        if (rows.isEmpty()) {
-            commitList.selectionModel.clearSelection()
-        } else if (commitList.selectionModel.selectedIndex != index) {
-            commitList.selectionModel.clearAndSelect(index)
-        }
-    }
-
-    /** Reads the files of the selected row, unless they are shown or read already. */
-    private fun requestFiles() {
-        val state = reader.state.get()
-        val key = pushFilesOf(commitList.selectionModel.selectedItem, state?.outgoing)
-        if (key == null) {
-            reader.noFiles()
-            return
-        }
-        val files = reader.files.get()
-        val current =
-            when (files) {
-                is PushFiles.Loaded -> files.commit to files.parent
-                is PushFiles.Loading -> files.commit to files.parent
-                else -> null
-            }
-        if (current != key) reader.files(key.first, key.second)
-    }
-
-    private fun showFiles(files: PushFiles) {
-        statusLabel.text = ""
-        statusLabel.isVisible = false
-        when (files) {
-            PushFiles.None -> {
-                tree.clear()
-                showFilesPlaceholder("")
-            }
-
-            is PushFiles.Loading -> {
-                tree.clear()
-                showFilesPlaceholder("Loading…")
-            }
-
-            is PushFiles.Loaded -> {
-                tree.show(files.files, keep = false)
-                showFilesPlaceholder(if (files.files.isEmpty()) "No files changed." else "")
-            }
-
-            PushFiles.Failed -> {
-                tree.clear()
-                showFilesPlaceholder("The files could not be read.")
-            }
-        }
-    }
-
-    private fun showFilesPlaceholder(text: String) {
-        filesPlaceholder.text = text
-        filesPlaceholder.isVisible = text.isNotEmpty()
-    }
-
-    /** Hands the diff of [file] of the files shown to [showDiff]. */
-    private fun showFileDiff(file: GitChangedFile) {
-        val files = reader.files.get() as? PushFiles.Loaded ?: return
-        statusLabel.text = ""
-        statusLabel.isVisible = false
-        showDiff(files.commit, files.parent, file) { message ->
-            if (reader.files.get() === files) {
-                statusLabel.text = message
-                statusLabel.isVisible = true
-            }
-        }
+        commits.requestFiles()
     }
 
     private fun showProtected() {
@@ -500,49 +386,6 @@ internal class PushDialog(
         stage.y = (window.y + (window.height - height) / 2).coerceIn(area.minY, area.maxY - height)
     }
 
-    /** A row of the commits: All with their number, a commit's subject, author and date, or that there are more. */
-    private inner class PushCell : ListCell<PushRow>() {
-        private val subject =
-            Label().apply {
-                styleClass += "git-push-subject"
-                minWidth = 0.0
-                maxWidth = Double.MAX_VALUE
-                HBox.setHgrow(this, Priority.ALWAYS)
-            }
-        private val author = Label().apply { styleClass += "git-push-author" }
-        private val date = Label().apply { styleClass += "git-push-date" }
-        private val box = HBox(subject, author, date).apply { styleClass += "git-push-cell" }
-
-        override fun updateItem(
-            item: PushRow?,
-            empty: Boolean,
-        ) {
-            super.updateItem(item, empty)
-            text = null
-            if (empty || item == null) {
-                graphic = null
-                return
-            }
-            val commit = (item as? PushRow.Commit)?.commit
-            subject.text =
-                when (item) {
-                    is PushRow.All -> "All ${commitCount(item.count, item.more)}"
-                    is PushRow.Commit -> item.commit.subject
-                    PushRow.More -> "and more…"
-                }
-            subject.styleClass.removeAll("git-push-all", "git-push-more")
-            if (item is PushRow.All) subject.styleClass += "git-push-all"
-            if (item == PushRow.More) subject.styleClass += "git-push-more"
-            author.text = commit?.author.orEmpty()
-            date.text = commit?.let { DATE_FORMAT.format(it.authorTime) }.orEmpty()
-            listOf(author, date).forEach {
-                it.isVisible = commit != null
-                it.isManaged = commit != null
-            }
-            graphic = box
-        }
-    }
-
     private companion object {
         const val TITLE = "Push Commits"
 
@@ -551,13 +394,9 @@ internal class PushDialog(
         const val WIDTH = 900.0
         const val HEIGHT = 560.0
         const val TARGET_COLUMNS = 20
-        const val COMMITS_SHARE = 0.5
 
         /** How long editing the target pauses before it is read. */
         const val DEBOUNCE_MILLIS = 300L
-
-        val DATE_FORMAT: DateTimeFormatter =
-            DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).withZone(ZoneId.systemDefault())
 
         fun note(styleClass: String) =
             Label().apply {

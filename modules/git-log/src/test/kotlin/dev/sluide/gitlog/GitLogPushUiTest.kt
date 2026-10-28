@@ -105,7 +105,7 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
 
     private fun rows(): List<String> =
         read {
-            dialog().commitList.items.map { row ->
+            dialog().commits.commitList.items.map { row ->
                 when (row) {
                     is PushRow.All -> "All ${commitCount(row.count, row.more)}"
                     is PushRow.Commit -> row.commit.subject
@@ -119,14 +119,18 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
         read {
             fun names(item: TreeItem<ChangeNode>): List<String> =
                 item.children.flatMap { listOf(it.value.name) + names(it) }
-            names(dialog().tree.root)
+            names(dialog().commits.tree.root)
         }
 
     private fun selectFile(
         robot: FxRobot,
         path: String,
     ) {
-        robot.interact { dialog().tree.selectionModel.select(fileItem(dialog().tree.root, path)) }
+        robot.interact {
+            dialog()
+                .commits.tree.selectionModel
+                .select(fileItem(dialog().commits.tree.root, path))
+        }
     }
 
     /** The item of the file at [path] below [item]. */
@@ -176,7 +180,7 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
         assertEquals("Push Commits to origin", stage.title)
         assertTrue(
             dialog()
-                .commitList.scene.root.styleClass
+                .commits.commitList.scene.root.styleClass
                 .contains("git-log"),
         )
         assertEquals("main", dialog().branchLabel.text)
@@ -186,7 +190,13 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
         assertEquals("main", dialog().targetField.text)
         assertFalse(dialog().newBadge.isVisible)
         assertEquals(listOf("All 2 commits", "Second", "First"), rows())
-        assertEquals(0, read { dialog().commitList.selectionModel.selectedIndex })
+        assertEquals(
+            0,
+            read {
+                dialog()
+                    .commits.commitList.selectionModel.selectedIndex
+            },
+        )
         assertEquals("As of the last fetch of origin.", dialog().fetchNote.text)
         assertFalse(dialog().behindLabel.isVisible)
         assertFalse(pushDisabled())
@@ -267,25 +277,41 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
         assertEquals(listOf("src", "App.kt", "README.md"), files())
         assertEquals("c2 mb", changedFilesReads.last())
         selectFile(robot, "src/App.kt")
-        robot.interact { dialog().tree.showDiffItem.fire() }
+        robot.interact {
+            dialog()
+                .commits.tree.showDiffItem
+                .fire()
+        }
         eventually { assertEquals(1, diffs.size) }
         assertEquals(listOf("src/App.kt", "c2", "mb"), diffs.single().let { listOf(it.path, it.commit, it.parent) })
         assertEquals("c2 mb src/App.kt", fileDiffLoads.single())
 
-        robot.interact { dialog().commitList.selectionModel.select(2) }
+        robot.interact {
+            dialog()
+                .commits.commitList.selectionModel
+                .select(2)
+        }
         awaitRead()
         assertEquals(listOf("README.md"), files())
         assertEquals("c1 r0", changedFilesReads.last())
         selectFile(robot, "README.md")
-        robot.interact { dialog().tree.showDiffItem.fire() }
+        robot.interact {
+            dialog()
+                .commits.tree.showDiffItem
+                .fire()
+        }
         eventually { assertEquals(2, diffs.size) }
         assertEquals(listOf("c1", "r0"), diffs.last().let { listOf(it.commit, it.parent) })
 
         // What keeps a diff from being shown is told in the dialog.
         commitFileDiff = null
-        robot.interact { dialog().tree.showDiffItem.fire() }
-        eventually { assertEquals("The diff could not be read.", dialog().statusLabel.text) }
-        assertTrue(dialog().statusLabel.isVisible)
+        robot.interact {
+            dialog()
+                .commits.tree.showDiffItem
+                .fire()
+        }
+        eventually { assertEquals("The diff could not be read.", dialog().commits.statusLabel.text) }
+        assertTrue(dialog().commits.statusLabel.isVisible)
     }
 
     @Test
@@ -324,7 +350,7 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
         assertTrue(dialog().forcePushItem.isDisable)
         assertEquals("Everything is up to date.", dialog().reasonLabel.text)
         assertTrue(dialog().reasonLabel.isVisible)
-        assertEquals("Nothing to push.", dialog().commitPlaceholder.text)
+        assertEquals("Nothing to push.", dialog().commits.commitPlaceholder.text)
         assertEquals(emptyList(), rows())
 
         // A new branch without new commits can be pushed and says what it creates.
@@ -332,7 +358,10 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
         outgoing = { _, _ -> GitOutgoing(emptyList(), false, null, 0, null) }
         robot.interact { dialog().reader.load(null, null) }
         awaitRead()
-        assertEquals("No new commits: pushing creates origin/main at 01234567.", dialog().commitPlaceholder.text)
+        assertEquals(
+            "No new commits: pushing creates origin/main at 01234567.",
+            dialog().commits.commitPlaceholder.text,
+        )
         assertTrue(dialog().newBadge.isVisible)
         assertFalse(dialog().reasonLabel.isVisible)
         assertTrue(read { dialog().pushAllowed.get() })
@@ -342,7 +371,7 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
         robot.interact { dialog().reader.load(null, null) }
         awaitRead()
         assertTrue(pushDisabled())
-        assertEquals("HEAD is detached: check out a branch to push it.", dialog().commitPlaceholder.text)
+        assertEquals("HEAD is detached: check out a branch to push it.", dialog().commits.commitPlaceholder.text)
         assertFalse(dialog().reasonLabel.isVisible, "said once, in place of the commits")
         assertTrue(dialog().targetField.isDisable)
         assertFalse(dialog().problemLabel.isVisible, "no name to check")
@@ -351,7 +380,7 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
         headCommit = null
         robot.interact { dialog().reader.load(null, null) }
         awaitRead()
-        assertEquals("There is no commit to push.", dialog().commitPlaceholder.text)
+        assertEquals("There is no commit to push.", dialog().commits.commitPlaceholder.text)
         assertTrue(pushDisabled())
 
         headCommit = "h1"
@@ -360,7 +389,7 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
         awaitRead()
         assertEquals(
             "The repository has no remote. Add one in a terminal: git remote add <name> <url>.",
-            dialog().commitPlaceholder.text,
+            dialog().commits.commitPlaceholder.text,
         )
         assertTrue(pushDisabled())
         assertEquals("Push Commits", dialog().stage.title)
