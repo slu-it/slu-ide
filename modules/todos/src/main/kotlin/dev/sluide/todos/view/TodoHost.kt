@@ -12,9 +12,6 @@ import org.kordamp.ikonli.javafx.FontIcon
 
 /** What the TODO cards and folders need from the panel; [folderId] is the folder that holds the TODO, null = root. */
 internal interface TodoHost {
-    /** The ids of the TODOs shown expanded; kept for the window's lifetime. */
-    val expandedIds: MutableSet<String>
-
     fun edit(
         todo: Todo,
         scope: TodoScope,
@@ -60,6 +57,13 @@ internal interface TodoHost {
         folder: TodoFolder,
         scope: TodoScope,
         collapsed: Boolean,
+    )
+
+    /** Stores that the card of [todo] shows its description ([expanded]) or not. */
+    fun setExpanded(
+        todo: Todo,
+        scope: TodoScope,
+        expanded: Boolean,
     )
 
     /** The context of the Markdown of a TODO in [scope]. */

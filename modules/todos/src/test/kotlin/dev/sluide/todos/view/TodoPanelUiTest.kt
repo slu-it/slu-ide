@@ -242,6 +242,7 @@ class TodoPanelUiTest {
         val box = fixture.fx(robot) { fixture.descendants(card).filterIsInstance<CheckBox>().single() }
         robot.interact { box.fire() }
         assertEquals("- [x] one", fixture.fx(robot) { todos.list(TodoScope.SHARED, null).single().description })
+        assertTrue(fixture.fx(robot) { todos.list(TodoScope.SHARED, null).single().expanded })
         // The refresh kept the card and its expansion, and rendered the body again.
         fixture.fx(robot) {
             val after = list().cards.single()
@@ -276,7 +277,7 @@ class TodoPanelUiTest {
     @Test
     fun `panels on the same Todos follow each other until closed`(robot: FxRobot) {
         val second = fixture.fx(robot) { fixture.newPanel().also { root.children.add(it) } }
-        add(robot, TodoScope.SHARED, "shared one")
+        add(robot, TodoScope.SHARED, "shared one", "text")
         assertEquals(
             listOf("shared one"),
             fixture.fx(robot) {
@@ -287,6 +288,16 @@ class TodoPanelUiTest {
             },
         )
         assertEquals("Shared (1)", tabText(robot, TodoScope.SHARED, second))
+        robot.interact { cards(robot).single().toggle.fire() }
+        assertTrue(
+            fixture.fx(robot) {
+                second.lists
+                    .getValue(TodoScope.SHARED)
+                    .cards
+                    .single()
+                    .isExpanded
+            },
+        )
         fixture.fx(robot) { second.close() }
         add(robot, TodoScope.SHARED, "shared two")
         assertEquals("Shared (1)", tabText(robot, TodoScope.SHARED, second))
@@ -345,10 +356,10 @@ class TodoPanelUiTest {
     @Test
     fun `a failed task toggle shows the error and the checkbox goes back`(robot: FxRobot) {
         add(robot, TodoScope.PROJECT, "tasks", "- [ ] one")
-        fixture.makeProjectReadOnly()
         robot.interact { panel.tabPane.selectionModel.select(panel.tabs.getValue(TodoScope.PROJECT)) }
         val card = cards(robot, TodoScope.PROJECT).single()
         robot.interact { card.toggle.fire() }
+        fixture.makeProjectReadOnly()
         val box = fixture.fx(robot) { fixture.descendants(card).filterIsInstance<CheckBox>().single() }
         robot.interact { box.fire() }
         assertEquals(1, fixture.errors.size)
@@ -361,6 +372,20 @@ class TodoPanelUiTest {
                     .isSelected,
             )
             assertEquals("- [ ] one", todos.list(TodoScope.PROJECT, folder).single().description)
+        }
+    }
+
+    @Test
+    fun `a failed expand shows the error and the card stays collapsed`(robot: FxRobot) {
+        add(robot, TodoScope.PROJECT, "tasks", "text")
+        fixture.makeProjectReadOnly()
+        robot.interact { panel.tabPane.selectionModel.select(panel.tabs.getValue(TodoScope.PROJECT)) }
+        val card = cards(robot, TodoScope.PROJECT).single()
+        robot.interact { card.toggle.fire() }
+        assertEquals(1, fixture.errors.size)
+        fixture.fx(robot) {
+            assertFalse(card.isExpanded)
+            assertFalse(todos.list(TodoScope.PROJECT, folder).single().expanded)
         }
     }
 

@@ -19,7 +19,9 @@ drag and drop and are sorted among the other TODOs.
   listed items of that container once the item is removed from its old place. `Todos.move` refuses a folder in a
   folder.
 - **Collapsed is stored** in the folder entry, so it lasts across restarts and applies to every window; new folders
-  start expanded, and adding a TODO into a collapsed folder expands it.
+  start expanded, and adding a TODO into a collapsed folder expands it. Cards store theirs the same way: a TODO entry
+  has `"expanded": true` while its description is shown, and no such field while collapsed (new TODOs), so the
+  expanded state also moves with the TODO.
 - **A folder changes scope with its dialog** (Shared | Project and the name): it moves with all its TODOs to the top of
   the other tab, target written first as for single TODOs. The TODO dialog has a Folder field (the folders of the
   selected scope), so editing can also move a TODO; one whose scope and folder stay keeps its place, else it goes to
@@ -37,9 +39,11 @@ Rejected:
 - Nested folders: deeper trees make the drop rules and the indentation much harder for little gain in a side panel.
 - Folders in a separate field with the TODOs referring to them: the display order of folders among TODOs would need a
   second ordering.
-- Keeping the collapsed state per window, as for expanded cards: folders are structure the user sets up once.
+- Keeping the collapsed or expanded state per window (as cards did before): the user wants the panel as they left it.
 
 ## Consequences
 - `Todos` reads and writes a tree: `items` gives it, `list` all TODOs flattened (the tab counts them all).
 - A version before this one shows a folder entry as a TODO without a summary.
+- Every expand or collapse, of a folder or a card, rewrites the data file and refreshes every window of that scope
+  (as any change does, ADR 0102). While the data cannot be written, the toggle shows the save error and nothing opens.
 - Listed in [../index.md](../index.md).

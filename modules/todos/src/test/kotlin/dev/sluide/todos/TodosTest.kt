@@ -254,6 +254,12 @@ class TodosTest {
     }
 
     @Test
+    fun `a non-boolean expanded reads as false`() {
+        seed(TodoScope.SHARED, "[${entry("a", ""","expanded":"yes"""")}]")
+        assertEquals(Todo("a", "sa", "da", false), todos.list(TodoScope.SHARED, null).single())
+    }
+
+    @Test
     fun `unknown fields of folders and TODOs survive unrelated writes`() {
         seed(TodoScope.SHARED, "[${folderJson("F", entry("b", ""","k":1"""), extra = ""","z":{"y":2}""")}]")
         todos.add(TodoScope.SHARED, null, "new", "")
@@ -458,6 +464,59 @@ class TodosTest {
         assertTrue((todos.items(TodoScope.SHARED, null)[1] as TodoFolder).collapsed)
         assertEquals(listOf(TodoScope.SHARED), events)
     }
+
+    @Test
+    fun `setExpanded writes at the root and in a folder, notifies and collapsing removes the field`() {
+        seedTree()
+        val events = mutableListOf<TodoScope>()
+        todos.onChanged { scope, _ -> events += scope }
+        assertTrue(todos.setExpanded(TodoScope.SHARED, null, "a", true))
+        assertTrue(todos.setExpanded(TodoScope.SHARED, null, "b", true))
+        assertEquals(listOf(true, true), listOf("a", "b").map { id -> expandedOf(id) })
+        assertEquals(listOf(TodoScope.SHARED, TodoScope.SHARED), events)
+        assertTrue(todos.setExpanded(TodoScope.SHARED, null, "a", false))
+        assertFalse(expandedOf("a"))
+        assertFalse(
+            store
+                .readShared()!!
+                .get("todos")
+                .get(0)
+                .has("expanded"),
+        )
+        assertTrue(todos.setExpanded(TodoScope.SHARED, null, "b", false))
+        assertFalse(store.readShared()!!.toString().contains("expanded"))
+    }
+
+    @Test
+    fun `setExpanded of a missing id changes nothing`() {
+        seedTree()
+        val before = store.readShared()
+        assertTrue(todos.setExpanded(TodoScope.SHARED, null, "gone", true))
+        assertEquals(before, store.readShared())
+    }
+
+    @Test
+    fun `the expanded flag survives edits, moves and deleting its folder with Keep TODOs`() {
+        seed(TodoScope.SHARED, "[${entry("a", ""","expanded":true""")},${folderJson("F")},${folderJson("G")}]")
+        assertTrue(todos.edit("a", TodoScope.SHARED, TodoScope.SHARED, null, "x", "y", null))
+        assertTrue(expandedOf("a"))
+        assertTrue(todos.move(TodoScope.SHARED, null, "a", TodoPlace("F", 0)))
+        assertTrue(expandedOf("a"))
+        assertTrue(todos.edit("a", TodoScope.SHARED, TodoScope.SHARED, null, "x", "y", "G"))
+        assertTrue(expandedOf("a"))
+        assertTrue(todos.deleteFolder(TodoScope.SHARED, null, "G", true))
+        assertTrue(expandedOf("a"))
+        assertTrue(todos.edit("a", TodoScope.SHARED, TodoScope.PROJECT, folder, "x", "y", null))
+        assertTrue(todos.list(TodoScope.PROJECT, folder).single().expanded)
+    }
+
+    private fun expandedOf(id: String): Boolean =
+        todos
+            .items(TodoScope.SHARED, null)
+            .flatMap { if (it is TodoFolder) it.todos else listOf(it) }
+            .filterIsInstance<Todo>()
+            .first { it.id == id }
+            .expanded
 
     @Test
     fun `delete finds a TODO inside a folder`() {

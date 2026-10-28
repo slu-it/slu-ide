@@ -19,8 +19,6 @@ internal class TodoActions(
     private val panel: TodoPanel,
     private val todos: Todos,
 ) : TodoHost {
-    override val expandedIds = mutableSetOf<String>()
-
     private val project get() = panel.folder
 
     override fun edit(
@@ -91,6 +89,14 @@ internal class TodoActions(
         if (!todos.deleteFolder(scope, project, folder.id, choice == FolderDeletion.KEEP_TODOS)) {
             failed(scope, SAVE_FOLDER_FAILED)
         }
+    }
+
+    override fun setExpanded(
+        todo: Todo,
+        scope: TodoScope,
+        expanded: Boolean,
+    ) {
+        if (!todos.setExpanded(scope, project, todo.id, expanded)) failed(scope)
     }
 
     override fun setCollapsed(

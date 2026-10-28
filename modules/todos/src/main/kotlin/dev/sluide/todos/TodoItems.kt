@@ -8,11 +8,15 @@ sealed interface TodoItem {
     val id: String
 }
 
-/** A TODO: a one-line [summary] and a Markdown [description] (may be empty). */
+/**
+ * A TODO: a one-line [summary] and a Markdown [description] (may be empty); [expanded] if its card shows the
+ * description.
+ */
 data class Todo(
     override val id: String,
     val summary: String,
     val description: String,
+    val expanded: Boolean = false,
 ) : TodoItem
 
 /** A folder of TODOs, one level deep; [todos] are its listed TODOs in display order. */

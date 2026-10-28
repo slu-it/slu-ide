@@ -48,14 +48,13 @@ internal class TodoCard(
     var body: Region? = null
         private set
 
-    val isExpanded: Boolean get() = todo.id in host.expandedIds && todo.description.isNotBlank()
+    val isExpanded: Boolean get() = todo.expanded && todo.description.isNotBlank()
 
     init {
         styleClass += "todo-card"
         header.styleClass += "todo-card-header"
         toggle.setOnAction {
-            if (!host.expandedIds.add(this.todo.id)) host.expandedIds.remove(this.todo.id)
-            refresh()
+            host.setExpanded(this.todo, scope, !this.todo.expanded)
         }
         edit.setOnAction { host.edit(this.todo, scope, this.folderId) }
         delete.setOnAction { host.delete(this.todo, scope) }
@@ -65,7 +64,7 @@ internal class TodoCard(
         refresh()
     }
 
-    /** Shows [next], the same TODO (by id) as it is now stored, in [folder]; the expanded state stays. */
+    /** Shows [next], the same TODO (by id) as it is now stored, in [folder], expanded as stored. */
     fun update(
         next: Todo,
         folder: String?,

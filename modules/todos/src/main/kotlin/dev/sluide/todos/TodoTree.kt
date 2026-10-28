@@ -21,7 +21,13 @@ internal fun isTodo(node: JsonNode): Boolean = node.idOrNull() != null && node.g
 /** Listed at the root of a tab: a TODO or a folder. */
 internal fun isListed(node: JsonNode): Boolean = node.idOrNull() != null
 
-internal fun todoOf(node: JsonNode) = Todo(node.idOrNull().orEmpty(), node.text("summary"), node.text("description"))
+internal fun todoOf(node: JsonNode) =
+    Todo(
+        node.idOrNull().orEmpty(),
+        node.text("summary"),
+        node.text("description"),
+        node.get("expanded")?.let { it.isBoolean && it.booleanValue() } ?: false,
+    )
 
 /** The TODOs of [folder], or null if its `todos` is present but no array. A missing one is [create]d or empty. */
 internal fun contentsOf(

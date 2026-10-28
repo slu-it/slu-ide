@@ -195,6 +195,21 @@ class Todos(
     ): Boolean = write(scope, folder) { findFolder(it, id)?.put("collapsed", collapsed) }
 
     /**
+     * Expands or collapses the card of the TODO [id] (at the root or in a folder): `"expanded": true` while expanded,
+     * the field is removed when collapsed. `true` if saved, also if it is not there (nothing changes then).
+     */
+    fun setExpanded(
+        scope: TodoScope,
+        folder: Path?,
+        id: String,
+        expanded: Boolean,
+    ): Boolean =
+        write(scope, folder) {
+            val node = findTodo(it, id)?.node as? ObjectNode ?: return@write
+            if (expanded) node.put("expanded", true) else node.remove("expanded")
+        }
+
+    /**
      * Deletes the folder [id]. With [keepTodos] all entries of its `todos` (listed or not, in order) take its place at the
      * root, else they go with it. `true` if saved (also if it was not there); `false` and unchanged if [keepTodos] but
      * its `todos` is no array.
