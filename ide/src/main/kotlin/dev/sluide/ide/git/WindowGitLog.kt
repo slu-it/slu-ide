@@ -147,7 +147,7 @@ internal class WindowGitLog(
         if (split.items.size > 1) split.items.removeAt(1)
         if (present) gitLogSplit.items.setAll(editorArea, gitLogView) else gitLogSplit.items.clear()
         split.items.add(1, right)
-        // The skin makes the new divider only in its next layout; fitExplorer measures it right after this.
+        // The skin makes the new divider only in its next layout; WindowExplorer.fitStart measures it right after this.
         split.applyCss()
         split.layout()
         fitGitLog(gitLogView.expanded.get())

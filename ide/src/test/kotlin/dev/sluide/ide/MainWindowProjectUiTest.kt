@@ -85,7 +85,8 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
     @Test
     fun `background tasks are listed below the explorer once they ran past the delay`(robot: FxRobot) {
         val left = fileExplorer.parent as VBox
-        assertEquals<Node>(left, splitPaneOf(editorArea).items.first())
+        // The column's content while expanded (ADR 0104).
+        assertEquals<Node>(left.parent, splitPaneOf(editorArea).items.first())
         val view = left.children.filterIsInstance<BackgroundTasksView>().single()
         val bar = left.children.first()
         assertIs<ExplorerBar>(bar, "the button bar is above the explorer")
@@ -228,9 +229,12 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `the explorer gets its start width, also without a folder, and at most half of a narrow window`(
+    fun `the explorer starts expanded at its start width, also without a folder, and at most half of a narrow window`(
         robot: FxRobot,
     ) {
+        // Every window starts with the explorer column expanded (ADR 0104).
+        val explorer = mainWindow.explorer.panel
+        robot.interact { assertTrue(explorer.expanded.get()) }
         // The bounds of the start width are StartWidthUiTest's in file-explorer.
         assertEquals(fileExplorer.startWidth(), fileExplorer.width, DIVIDER_SLACK)
 

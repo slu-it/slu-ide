@@ -96,7 +96,7 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         val logSplit = splitPaneOf(gitLogView)
         assertEquals(Orientation.VERTICAL, logSplit.orientation)
         assertEquals(listOf<Node>(editorArea, gitLogView), logSplit.items)
-        assertEquals(listOf<Node>(fileExplorer.parent, logSplit, todoPanel), splitPaneOf(fileExplorer).items)
+        assertEquals(listOf<Node>(mainWindow.explorer.panel, logSplit, todoPanel), splitPaneOf(fileExplorer).items)
         val header = robot.lookup(".git-log-header").queryAs(Region::class.java)
         assertTrue(header.height > 0)
         assertEquals(header.height, gitLogView.height, 1.0, "collapsed to its header")
@@ -421,7 +421,7 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         robot.interact { projectService.open(project) }
 
         assertTrue(robot.lookup(".git-log").tryQuery<Node>().isEmpty)
-        assertEquals(listOf<Node>(fileExplorer.parent, editorArea, todoPanel), splitPaneOf(editorArea).items)
+        assertEquals(listOf<Node>(mainWindow.explorer.panel, editorArea, todoPanel), splitPaneOf(editorArea).items)
         assertTrue(menu(robot, "View").items.single { it.text == "Git Log" }.isDisable)
         assertTrue(menu(robot, "Git").items.single { it.text == "Commit…" }.isDisable)
         assertTrue(menu(robot, "Git").items.single { it.text == "Push…" }.isDisable)

@@ -20,6 +20,7 @@ import dev.sluide.gitlog.GitLogView
 import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpClientSetup
+import dev.sluide.ide.explorer.WindowExplorer
 import dev.sluide.ide.git.WindowGitLog
 import dev.sluide.ide.git.ignoreRuleEffects
 import dev.sluide.ide.git.markers
@@ -141,6 +142,9 @@ class MainWindow(
     /** The git log below the editor area, the Git menu and their wiring (ADRs 0035, 0053). */
     private val gitLog = WindowGitLog(gitLogView, gitStatus, projectTrust, editorArea, fileExplorer, fileViewers)
 
+    /** The explorer column at the left of the window and the View menu's Explorer item (ADR 0104). */
+    internal val explorer = WindowExplorer(fileExplorer, backgroundTasks, editorArea)
+
     /** The TODO panel at the right of the window and the View menu's TODOs item (ADR 0102). */
     private val todos = WindowTodos(todoPanel, editorArea, fontSettings) { openWebPage(it) }
 
@@ -176,12 +180,11 @@ class MainWindow(
                 editorArea.selectedFile,
                 ::selectOpenedFile,
                 selectOpenedKey.displayText,
-                collapse = {},
+                collapse = explorer::collapse,
             )
-        val left = leftPane(explorerBar, fileExplorer, backgroundTasks)
-        // Resizing the window resizes the editor area; the explorer keeps its width until the user drags the divider
-        // (or the editor area is as narrow as it can be).
-        val split = SplitPane(left, editorArea).apply { SplitPane.setResizableWithParent(left, false) }
+        val split = SplitPane(editorArea)
+        // The explorer column is the first item, expanded.
+        explorer.attach(split, explorerBar)
         // The TODO panel is the last item, collapsed to its stripe.
         todos.attach(split)
         val root =
@@ -202,7 +205,7 @@ class MainWindow(
             }
 
         fileExplorer.onOpenFile = { editorArea.open(it) }
-        editorArea.tabMenu.selectInExplorer = { fileExplorer.reveal(it, focus = true) }
+        editorArea.tabMenu.selectInExplorer = explorer::select
         editorArea.tabMenu.canSelectInExplorer = fileExplorer::canReveal
         fileExplorer.canOpenFile = editorArea::canOpen
         // Per-file project data (run-argument histories, ADR 0091) follows files and folders renamed or moved in the
@@ -292,7 +295,7 @@ class MainWindow(
             gitLog.show(split, gitStatus.active)
             gitLog.followTrust()
             // Setting the explorer's divider may move the TODO panel's, so that is set again after it.
-            fitExplorer(split, fileExplorer, afterFit = todos::fit)
+            explorer.fitStart(afterFit = todos::fit)
             todos.open(folder)
             stage.title = windowTitle(folder, gitStatus.snapshot.get().head)
             // Every opened folder is remembered for the project picker: chosen there, with Open Folder… or given on
@@ -380,12 +383,13 @@ class MainWindow(
                 disableProperty().bind(canSelectOpened.map { !it })
                 setOnAction { selectOpenedFile() }
             }
-        return Menu("View", null, showChanges, selectOpened, gitLog.gitLogMenuItem(), todos.menuItem())
+        val panels = arrayOf(explorer.menuItem(), gitLog.gitLogMenuItem(), todos.menuItem())
+        return Menu("View", null, showChanges, selectOpened, *panels)
     }
 
     /** Reveals the file of the selected tab in the explorer, with the focus; nothing without a file under a root. */
     private fun selectOpenedFile() {
-        editorArea.selectedFile.value?.let { fileExplorer.reveal(it, focus = true) }
+        editorArea.selectedFile.value?.let(explorer::select)
     }
 
     private fun chooseFolder(stage: Stage) {
