@@ -60,7 +60,7 @@ app and window icons from it.
 | Path | Content |
 |------|---------|
 | `ide/` | Application: launcher, window, fat jar |
-| `modules/` | Feature modules (`file-explorer`, `editor-area`, `file-viewers`, `previews`, `file-watcher`, `terminal`, `settings`, `docker-sandbox`, `git`, `git-log`, `text-editing`, `http-client`, `projects`, `project-trust`, `file-icons`, `background-tasks`, `scratches`) |
+| `modules/` | Feature modules (`file-explorer`, `editor-area`, `file-viewers`, `previews`, `file-watcher`, `terminal`, `settings`, `docker-sandbox`, `git`, `git-log`, `text-editing`, `http-client`, `projects`, `project-trust`, `file-icons`, `background-tasks`, `scratches`, `todos`) |
 | `docs/` | Architecture, ADRs and feature descriptions, starting at [`docs/index.md`](docs/index.md) |
 | `.claude/` | Claude Code settings, agents, rules and scripts |
 | `.github/` | CI and release workflows |

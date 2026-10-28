@@ -27,6 +27,7 @@ The parts:
 - `WindowTrust` (`ide.trust`): the trust bar, asking about findings, the `confirmTrust` hook; with the trust dialog.
 - `WindowGitLog` (`ide.git`): the git log's place and height, the Git menu, the View → Git Log item, history and
   write hooks, following the folder's trust; it uses `GitDiffTabs` for the diff tabs of the log.
+- `WindowTodos` (`ide.todos`): the TODO panel at the right end of the main split, its width, the View → TODOs item.
 - `WindowTools` (`ide.tools`): the Terminal and Docker Sandbox menus and the tabs they open.
 
 ## Consequences

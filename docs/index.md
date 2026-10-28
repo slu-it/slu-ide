@@ -109,7 +109,7 @@ updated when the summary or keywords no longer fit.
 | [0087](adr/0087-commands-in-an-interactive-login-shell.md) | Commands run in an interactive login shell (`$SHELL -l -i -c`) | login shell, `.zshrc`, `loginShellFinds`, SDKMAN, nvm | amends 0010, 0085, 0086 |
 | [0088](adr/0088-shared-command-runs.md) | Shared run machinery in module `command-runs` | `command-runs`, `RunJob`, `RunPane`, `CommandRunner`, `CommandRunSession`, `ShellWords` | amends 0085, 0086; amended by 0091 |
 | [0089](adr/0089-running-shell-scripts.md) | Module `shell-scripts` runs scripts as files in the login shell | `.sh`, Run, Shortcut+Enter, `ShellScriptFileViewer`, `ShellFileViewer`, `RunnableFileView`, chmod | amended by 0091 |
-| [0090](adr/0090-per-project-metadata-store.md) | One JSON file per project in `~/.sluide/projects` | `project-data`, `~/.sluide/projects`, `outside-projects.json`, `LegacyProjectData`, migration | amends 0034, 0053 |
+| [0090](adr/0090-per-project-metadata-store.md) | One JSON file per project in `~/.sluide/projects` | `project-data`, `~/.sluide/projects`, `shared.json`, `LegacyProjectData`, migration | amends 0034, 0053; amended by 0101 |
 | [0091](adr/0091-argument-history-of-runs.md) | Per-file argument history in the shared `RunPane` | argument history, `runArguments`, `runs.history.expanded`, `RunPane` | amends 0088, 0089 |
 | [0092](adr/0092-explorer-copy-cut-paste.md) | Explorer copy, cut and paste over the system clipboard | Shortcut+C/X/V, clipboard, `ShownKeys`, `-copy` names, Finder, Option-drag | amends 0073 |
 | [0093](adr/0093-explorer-open-in-terminal-and-reveal.md) | Explorer Open in Terminal and Reveal in the file manager | Open in Terminal, Reveal, `open -R`, D-Bus ShowItems, `xdg-open` | |
@@ -120,6 +120,8 @@ updated when the summary or keywords no longer fit.
 | [0098](adr/0098-windows-1252-fallback.md) | Text that is not UTF-8 opens and saves as Windows-1252 | encoding, Windows-1252, Latin-1, `TextEncoding`, `decodeText`, Convert to UTF-8, `readTextFile` | see 0097 |
 | [0099](adr/0099-linear-lexing-of-long-lines.md) | Lines with many tokens or raw strings lex in near-linear time | performance, quadratic, token pool, `TokenMakerBase`, reflection, `rawStringDelimiter`, minified, Handlebars | see 0005, 0097 |
 | [0100](adr/0100-editing-commit-messages.md) | Edit the message of any commit of the current branch by rewriting the commits after it | `GitRewords`, reword, edit commit message, `hash-object`, `update-ref`, default branch, `origin/HEAD`, signatures | see 0048, 0063 |
+| [0101](adr/0101-shared-data-file.md) | Shared data file `~/.sluide/shared.json` replaces outside-projects.json | shared data file, `shared.json`, `readShared`, `updateShared`, rename migration | amends 0090 |
+| [0102](adr/0102-todo-panel.md) | The TODO panel: Shared and Project cards with native Markdown, collapsed at the right of the window | TODOs, `todos`, `TodoPanel`, `Todos`, native Markdown, Alt+6, Shared/Project | see 0101, 0073, 0068 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
@@ -130,6 +132,7 @@ updated when the summary or keywords no longer fit.
 | [open-folder.md](features/open-folder.md) | Open Folder or command-line folders open one window per project | Open Folder, command line, windows, unsaved files on close, running tabs |
 | [project-picker.md](features/project-picker.md) | Picker of remembered projects at startup and after the last window | `projects` module, Open Project…, recent projects, missing folders |
 | [project-trust.md](features/project-trust.md) | Folders whose git config or hooks would run commands ask once | Trust Folder?, git hooks, findings, Review… bar |
+| [todos.md](features/todos.md) | TODO panel at the right: Shared and Project tabs of Markdown cards | TODO panel, Shared/Project tabs, Markdown cards, drag to reorder, Alt+6, `shared.json` |
 | [settings.md](features/settings.md) | Settings dialog with appearance and font pages | File → Settings… (Ctrl+,), theme, fonts, OK/Apply/Cancel |
 | [keyboard-shortcuts.md](features/keyboard-shortcuts.md) | Every key binding in one overview | key bindings, shortcuts, Shortcut = Ctrl/Cmd, `.claude/rules/key-bindings.md` |
 | [background-tasks.md](features/background-tasks.md) | Longer work listed under the explorer with progress and cancel | background tasks, progress bar, ✕ cancel, "+N more" |
@@ -146,7 +149,7 @@ updated when the summary or keywords no longer fit.
 |---|---|---|
 | [editor-tabs.md](features/editor-tabs.md) | Tab area for files and other `EditorTab`s | tabs, unsaved ●, close confirmation, tab menu, reordering, `onFileClosed`, activity marker |
 | [text-editing.md](features/text-editing.md) | Editing, saving and editor keys for code and text | save, Save All, changes on disk, line endings, indentation, find/replace, go to line, encoding, Windows-1252 |
-| [file-viewers.md](features/file-viewers.md) | The `FileViewer` extension point, code viewers and supported languages | `FileViewer`, `FileView`, `CodeFileViewer`, languages, syntax highlighting, `SourceSplit`, `RunnableFileViewer`, `closeWarning` |
+| [file-viewers.md](features/file-viewers.md) | The `FileViewer` extension point, code viewers and supported languages | `FileViewer`, `FileView`, `CodeFileViewer`, languages, syntax highlighting, `SourceSplit`, `RunnableFileViewer`, `closeWarning`, `CodeEditors.text`, `TextEditor` |
 | [env-files.md](features/env-files.md) | `.env` files with masked values | `.env`, masking, Show values, placeholder files |
 
 ### Previews
