@@ -278,9 +278,12 @@ internal fun busyMessage(busy: GitInProgress): String =
             "A rebase is in progress; finish or abort it first."
         }
 
+        is GitPendingMerge -> {
+            "A merge is in progress; finish or abort it first."
+        }
+
         is GitPendingOperation -> {
             when (busy.operation) {
-                GitOperation.MERGE -> "A merge is in progress; finish or abort it first."
                 GitOperation.AM -> "A git am session is in progress; finish or abort it first."
                 GitOperation.CHERRY_PICK_SEQUENCE -> SEQUENCE_MESSAGE.format("cherry-pick")
                 GitOperation.REVERT_SEQUENCE -> SEQUENCE_MESSAGE.format("revert")

@@ -1,6 +1,7 @@
 package dev.sluide.gitlog.operations
 
 import dev.sluide.git.GitInProgress
+import dev.sluide.git.GitPendingMerge
 import dev.sluide.git.GitPendingOperation
 import dev.sluide.git.GitPendingPick
 import dev.sluide.git.GitPendingRebase
@@ -108,6 +109,7 @@ internal class PendingBar(
                 is GitPendingPick -> pendingText(inProgress)
                 is GitPendingOperation -> operationText(inProgress.operation)
                 is GitPendingRebase -> pendingRebaseText(inProgress)
+                is GitPendingMerge -> "A merge is in progress; finish or abort it in the terminal."
                 null -> ""
             }
         label.tooltip.text = label.text

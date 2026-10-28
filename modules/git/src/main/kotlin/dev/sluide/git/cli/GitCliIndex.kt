@@ -113,10 +113,10 @@ internal fun GitCli.mergeTree(
 
 /**
  * What git is in the middle of in the repository at [root] (ADR 0042): a rebase (`rebase-merge`, `rebase-apply`;
- * [pendingRebase], ADR 0063), `git am` (`rebase-apply/applying`), a merge (`MERGE_HEAD`) or a cherry-pick or revert
- * sequence (`sequencer`), found at their `git rev-parse --git-path` (per worktree), else a single cherry-pick or revert
- * (`CHERRY_PICK_HEAD`, `REVERT_HEAD`) with the paths still unmerged; `null` for nothing. A failure if git is not
- * available or fails.
+ * [pendingRebase], ADR 0063), `git am` (`rebase-apply/applying`), a merge (`MERGE_HEAD`; [pendingMerge], ADR 0105) or a
+ * cherry-pick or revert sequence (`sequencer`), found at their `git rev-parse --git-path` (per worktree), else a single
+ * cherry-pick or revert (`CHERRY_PICK_HEAD`, `REVERT_HEAD`) with the paths still unmerged; `null` for nothing. A
+ * failure if git is not available or fails.
  */
 internal fun GitCli.inProgress(
     root: Path,
@@ -124,9 +124,9 @@ internal fun GitCli.inProgress(
 ): Result<GitInProgress?> {
     val unreadable = Result.failure<GitInProgress?>(IllegalStateException("git could not be read"))
     if (!available) return unreadable
-    val (rebaseMerge, rebaseApply, sequencer) =
-        gitPaths(root, listOf("rebase-merge", "rebase-apply", "sequencer"), cancellation = cancellation)
-            ?: return unreadable
+    val names = listOf("rebase-merge", "rebase-apply", "sequencer", "MERGE_HEAD", "MERGE_MSG")
+    val (rebaseMerge, rebaseApply, sequencer, mergeHead, mergeMessage) =
+        gitPaths(root, names, cancellation = cancellation) ?: return unreadable
     val applying = Files.exists(rebaseApply.resolve("applying"))
     val rebaseState =
         when {
@@ -138,10 +138,12 @@ internal fun GitCli.inProgress(
         val rebase = pendingRebase(root, rebaseState, apply = rebaseState == rebaseApply, cancellation)
         return rebase?.let { Result.success(it) } ?: unreadable
     }
+    if (!applying && Files.exists(mergeHead)) {
+        return pendingMerge(root, mergeHead, mergeMessage, cancellation)?.let { Result.success(it) } ?: unreadable
+    }
     val operation =
         when {
             applying -> GitOperation.AM
-            commitOfRevision(root, "MERGE_HEAD", cancellation = cancellation) != null -> GitOperation.MERGE
             Files.isDirectory(sequencer) -> sequenceOperation(sequencer.resolve("todo"))
             else -> null
         }

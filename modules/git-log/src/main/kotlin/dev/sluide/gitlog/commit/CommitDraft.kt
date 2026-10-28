@@ -2,6 +2,7 @@ package dev.sluide.gitlog.commit
 
 import dev.sluide.git.GitCommitChanges
 import dev.sluide.git.GitInProgress
+import dev.sluide.git.GitPendingMerge
 import dev.sluide.git.GitPendingOperation
 import dev.sluide.git.GitPendingPick
 import dev.sluide.git.GitPendingRebase
@@ -190,6 +191,10 @@ internal fun commitBlocked(
 
         is GitPendingRebase -> {
             "A rebase is in progress; continue or abort it in the log first."
+        }
+
+        is GitPendingMerge -> {
+            "A merge is in progress; continue or abort it in the log first."
         }
 
         null -> {

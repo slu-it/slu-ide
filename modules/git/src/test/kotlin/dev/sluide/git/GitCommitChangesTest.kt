@@ -12,6 +12,7 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
@@ -412,7 +413,7 @@ class GitCommitChangesTest {
     fun `refuses during a merge and with conflicts`() {
         conflictingMerge()
         val changes = assertNotNull(commits.commitChanges(repo))
-        assertEquals(GitPendingOperation(GitOperation.MERGE), changes.inProgress)
+        assertEquals(git("rev-parse", "other"), assertIs<GitPendingMerge>(changes.inProgress).heads.single())
         assertEquals(listOf("a.txt"), changes.conflicts)
 
         val outcome = changed("a.txt")

@@ -32,15 +32,25 @@ data class GitPendingRebase(
     val conflicts: List<String>,
 ) : GitInProgress
 
+/**
+ * A merge in progress (ADR 0105), also one started in a terminal or by `git pull`: [heads] are the commits being merged
+ * (full hashes, `MERGE_HEAD`; more than one for an octopus merge, empty if the file cannot be read), [message] the
+ * first line of the message git prepared (`MERGE_MSG`; `null` if it cannot be read), [conflicts] the paths still
+ * unmerged, empty once all are staged.
+ */
+data class GitPendingMerge(
+    val heads: List<String>,
+    val message: String?,
+    val conflicts: List<String>,
+) : GitInProgress
+
 /** Another [operation] in progress, which Thoreau leaves to the terminal. */
 data class GitPendingOperation(
     val operation: GitOperation,
 ) : GitInProgress
 
-/** What git can be in the middle of besides a single cherry-pick, revert or a rebase. */
+/** What git can be in the middle of besides a single cherry-pick, revert, a rebase or a merge. */
 enum class GitOperation {
-    MERGE,
-
     /** `git am`, applying patches from mails. */
     AM,
 

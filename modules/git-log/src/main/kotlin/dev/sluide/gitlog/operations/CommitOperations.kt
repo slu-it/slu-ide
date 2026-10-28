@@ -3,6 +3,7 @@ package dev.sluide.gitlog.operations
 import dev.sluide.git.GitConflictReason
 import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitOperation
+import dev.sluide.git.GitPendingMerge
 import dev.sluide.git.GitPendingOperation
 import dev.sluide.git.GitPendingPick
 import dev.sluide.git.GitPendingRebase
@@ -354,9 +355,12 @@ internal fun busyResetWarning(
             "A rebase ${stays(mode, "commit")}"
         }
 
+        is GitPendingMerge -> {
+            "A merge is in progress; resetting abandons it."
+        }
+
         is GitPendingOperation -> {
             when (busy.operation) {
-                GitOperation.MERGE -> "A merge is in progress; resetting abandons it."
                 GitOperation.AM -> "A git am session ${stays(mode, "patch")}"
                 GitOperation.CHERRY_PICK_SEQUENCE -> "A cherry-pick sequence ${stays(mode, "commit")}"
                 GitOperation.REVERT_SEQUENCE -> "A revert sequence ${stays(mode, "commit")}"
@@ -424,14 +428,12 @@ internal fun pendingText(pending: GitPendingPick): String {
 internal fun operationText(operation: GitOperation): String {
     val what =
         when (operation) {
-            GitOperation.MERGE -> "A merge"
             GitOperation.AM -> "A git am session"
             GitOperation.CHERRY_PICK_SEQUENCE -> "A cherry-pick sequence"
             GitOperation.REVERT_SEQUENCE -> "A revert sequence"
             GitOperation.SEQUENCE -> "A cherry-pick or revert sequence"
         }
-    val verb = if (operation == GitOperation.MERGE) "finish" else "continue"
-    return "$what is in progress; $verb or abort it in the terminal."
+    return "$what is in progress; continue or abort it in the terminal."
 }
 
 /** The outcome of a cherry-pick or revert ([kind]) of [commit], or of continuing one, that gave [result]. */

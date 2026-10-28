@@ -4,8 +4,7 @@ import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommitChanges
 import dev.sluide.git.GitFileDiff
-import dev.sluide.git.GitOperation
-import dev.sluide.git.GitPendingOperation
+import dev.sluide.git.GitPendingMerge
 import dev.sluide.git.GitResult
 import dev.sluide.gitlog.area.AreaTab
 import dev.sluide.gitlog.commit.CheckState
@@ -358,10 +357,10 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
         clickCheck(robot, "README.md")
         assertFalse(commitDisabled())
 
-        commitChanges = changes().copy(inProgress = GitPendingOperation(GitOperation.MERGE))
+        commitChanges = changes().copy(inProgress = GitPendingMerge(listOf("h1"), null, emptyList()))
         robot.interact { view.workingTreeChanged() }
         eventually { assertTrue(commitView().blockedNote.isVisible) }
-        assertEquals("A merge is in progress; finish or abort it in the terminal.", commitView().blockedNote.text)
+        assertEquals("A merge is in progress; continue or abort it in the log first.", commitView().blockedNote.text)
         assertTrue(commitDisabled(), "a merge in progress")
         commitChanges = changes().copy(conflicts = listOf("README.md"))
         robot.interact { view.workingTreeChanged() }

@@ -2,6 +2,7 @@ package dev.sluide.gitlog.operations
 
 import dev.sluide.git.GitConflictReason
 import dev.sluide.git.GitOperation
+import dev.sluide.git.GitPendingMerge
 import dev.sluide.git.GitPendingOperation
 import dev.sluide.git.GitPendingPick
 import dev.sluide.git.GitPendingRebase
@@ -123,7 +124,7 @@ class CommitOperationsTest {
 
     @Test
     fun `while git is in the middle of something nothing is read first, the pick refuses`() {
-        writes.inProgress = GitPendingOperation(GitOperation.MERGE)
+        writes.inProgress = GitPendingMerge(listOf(hash), null, emptyList())
         writes.pickOverwritten = listOf(".env")
 
         assertNull(PickCommit(GitPick.CHERRY_PICK, hash).run(writes, root).confirmation)
@@ -353,7 +354,7 @@ class CommitOperationsTest {
             ),
             listOf(
                 GitPendingPick(GitPick.REVERT, hash, emptyList()),
-                GitPendingOperation(GitOperation.MERGE),
+                GitPendingMerge(listOf(hash), null, emptyList()),
                 GitPendingOperation(GitOperation.AM),
                 GitPendingOperation(GitOperation.CHERRY_PICK_SEQUENCE),
                 GitPendingOperation(GitOperation.REVERT_SEQUENCE),
@@ -441,7 +442,7 @@ class CommitOperationsTest {
             "Aborted the cherry-pick of 9f8e7d6c.",
             AbortPick(GitPick.CHERRY_PICK, hash).run(writes, root).done,
         )
-        writes.inProgress = GitPendingOperation(GitOperation.MERGE)
+        writes.inProgress = GitPendingMerge(listOf(hash), null, emptyList())
         assertEquals("Aborted the revert of 1a2b3c4d.", AbortPick(GitPick.REVERT, hash).run(writes, root).done)
     }
 
@@ -493,7 +494,10 @@ class CommitOperationsTest {
 
     @Test
     fun `the bar tells what else is in progress`() {
-        assertEquals("A merge is in progress; finish or abort it in the terminal.", operationText(GitOperation.MERGE))
+        assertEquals(
+            "A git am session is in progress; continue or abort it in the terminal.",
+            operationText(GitOperation.AM),
+        )
         assertEquals(
             "A cherry-pick sequence is in progress; continue or abort it in the terminal.",
             operationText(GitOperation.CHERRY_PICK_SEQUENCE),

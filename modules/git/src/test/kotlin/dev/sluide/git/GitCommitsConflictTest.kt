@@ -242,7 +242,10 @@ internal class GitCommitsConflictTest : GitCommitsFixture() {
         val ours = head()
 
         git("merge", "-q", "--no-commit", "--no-ff", "-s", "ours", "other")
-        assertEquals(GitPendingOperation(GitOperation.MERGE), commits.inProgress(repo))
+        assertEquals(
+            GitPendingMerge(listOf(theirs), "Merge branch 'other'", emptyList()),
+            commits.inProgress(repo),
+        )
         assertEquals(
             GitPickResult.Failed("A merge is in progress; finish or abort it first."),
             commits.pick(repo, GitPick.CHERRY_PICK, theirs, firstParent = false),
