@@ -2,9 +2,14 @@ package dev.sluide.git
 
 /** What a rebase, or continuing, skipping or aborting one, gave (ADR 0063). */
 sealed interface GitRebaseResult {
-    /** The rebase is done; [head] is the new `HEAD` (a full hash), `null` if it could not be read. */
+    /**
+     * The rebase is done (or aborted); [head] is the new `HEAD` (a full hash), `null` if it could not be read.
+     * [stashKept] if git stashed local changes (`--autostash`, ADR 0106) and could not apply them without conflicts:
+     * they are kept as a stash entry, the files have the conflicts of applying them.
+     */
     data class Done(
         val head: String?,
+        val stashKept: Boolean = false,
     ) : GitRebaseResult
 
     /** Nothing was run: what the branch is to be rebased onto is already contained in it. */

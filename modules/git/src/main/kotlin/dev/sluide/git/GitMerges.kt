@@ -1,6 +1,7 @@
 package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.StashTip
 import dev.sluide.git.cli.canPassArgument
 import dev.sluide.git.cli.commitOfRevision
 import dev.sluide.git.cli.currentBranch
@@ -10,6 +11,8 @@ import dev.sluide.git.cli.inProgress
 import dev.sluide.git.cli.isAncestor
 import dev.sluide.git.cli.namesOnly
 import dev.sluide.git.cli.refusal
+import dev.sluide.git.cli.stashKept
+import dev.sluide.git.cli.stashTip
 import dev.sluide.git.cli.unmergedEntries
 import dev.sluide.git.cli.unmergedPaths
 import org.springframework.stereotype.Component
@@ -113,7 +116,7 @@ class GitMerges(
         theirs: String,
     ): GitMergeResult {
         val before = git.headCommit(root)
-        val stash = git.commitOfRevision(root, STASH)
+        val stash = git.stashTip(root)
         val squashMessage = git.gitPaths(root, listOf("SQUASH_MSG"))?.single()
         val squashBefore = squashMessage?.let(::stamp)
         val (result, exit) =
@@ -123,7 +126,7 @@ class GitMerges(
         if (after == null && mode == GitMergeMode.SQUASH && squashAfter != null && squashAfter != squashBefore) {
             val left = git.unmergedPaths(root).orEmpty()
             if (exit == 0 || (exit == 1 && left.isNotEmpty())) {
-                val kept = git.commitOfRevision(root, STASH) != stash
+                val kept = stashKept(stash, git.stashTip(root))
                 return GitMergeResult.Done(git.headCommit(root), squashed = true, conflicts = left, stashKept = kept)
             }
         }
@@ -151,7 +154,7 @@ class GitMerges(
             val staged = conflicts.stage(root, entries)
             if (!staged.success) return GitMergeResult.Failed(staged.message)
         }
-        val stash = git.commitOfRevision(root, STASH)
+        val stash = git.stashTip(root)
         val (result, _) =
             git.writeWithExit(
                 root,
@@ -169,7 +172,7 @@ class GitMerges(
      */
     fun abortMerge(root: Path): GitMergeResult {
         pending(root).onFailure { return GitMergeResult.Failed(it.message.orEmpty()) }
-        val stash = git.commitOfRevision(root, STASH)
+        val stash = git.stashTip(root)
         val result = git.write(root, listOf("merge", "--abort"), timeout = GitCli.CHECKOUT_TIMEOUT, writesFiles = true)
         return outcome(root, result, git.inProgress(root).getOrNull(), stash) { false }
     }
@@ -203,13 +206,14 @@ class GitMerges(
      * What a merge command that gave [result] left, git being in the middle of [after] then: a merge still in progress
      * is [GitMergeResult.Stopped] (also when git succeeded), none after success is [GitMergeResult.Done] ([fastForward]
      * tells by the new `HEAD` whether it was one), none after a failure [GitMergeResult.Failed] with git's message. The
-     * stash kept is told by `refs/stash` other than [stashBefore]: an autostash git could not apply is stored there.
+     * stash kept is told by `refs/stash` other than [stashBefore] ([stashKept]): an autostash git could not apply is
+     * stored there.
      */
     private fun outcome(
         root: Path,
         result: GitResult,
         after: GitInProgress?,
-        stashBefore: String?,
+        stashBefore: StashTip?,
         fastForward: (head: String?) -> Boolean,
     ): GitMergeResult =
         when {
@@ -219,7 +223,7 @@ class GitMerges(
 
             result.success -> {
                 val head = git.headCommit(root)
-                val kept = git.commitOfRevision(root, STASH) != stashBefore
+                val kept = stashKept(stashBefore, git.stashTip(root))
                 GitMergeResult.Done(head, fastForward = fastForward(head), stashKept = kept)
             }
 
@@ -231,6 +235,5 @@ class GitMerges(
     private companion object {
         const val HEADS = "refs/heads/"
         const val REMOTES = "refs/remotes/"
-        const val STASH = "refs/stash"
     }
 }

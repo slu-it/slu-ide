@@ -1,6 +1,7 @@
 package dev.sluide.git
 
 import dev.sluide.git.cli.GitCli
+import dev.sluide.git.cli.StashTip
 import dev.sluide.git.cli.canPassArgument
 import dev.sluide.git.cli.changedPaths
 import dev.sluide.git.cli.currentBranch
@@ -10,6 +11,8 @@ import dev.sluide.git.cli.indexMatchesHead
 import dev.sluide.git.cli.isAncestor
 import dev.sluide.git.cli.mergeCount
 import dev.sluide.git.cli.refusal
+import dev.sluide.git.cli.stashKept
+import dev.sluide.git.cli.stashTip
 import dev.sluide.git.cli.unmergedEntries
 import dev.sluide.git.cli.unmergedPaths
 import org.springframework.stereotype.Component
@@ -34,15 +37,19 @@ class GitRebases(
      * Rebases [branch] (a short name, expected to be the current branch) onto [onto] (a full refname): `git -c
      * rebase.updateRefs=false -c rebase.rebaseMerges=false rebase --merge --no-autostash --no-fork-point
      * --end-of-options <onto>`, so that no other branch moves, merges are not recreated, local changes are not stashed
-     * (git refuses with them, leaving nothing) and commits that [onto] once had are kept. Refused without running git
-     * while git is in the middle of anything (or that cannot be read) or [branch] is no longer the current branch;
-     * [GitRebaseResult.UpToDate] without running git if [onto] is already contained in `HEAD` (a rebase would only
-     * drop the merges).
+     * (git refuses with them, leaving nothing) and commits that [onto] once had are kept. A pull (ADR 0106) passes
+     * [forkPoint] (`--fork-point`: commits [onto]'s reflog once had, e.g. before a force push, are not replayed) and
+     * [autostash] (`--autostash`: local changes are stashed and applied when the rebase ends, also through
+     * [continueRebase], [skipRebase] or [abortRebase]). Refused without running git while git is in the middle of
+     * anything (or that cannot be read) or [branch] is no longer the current branch; [GitRebaseResult.UpToDate]
+     * without running git if [onto] is already contained in `HEAD` (a rebase would only drop the merges).
      */
     fun rebase(
         root: Path,
         branch: String,
         onto: String,
+        forkPoint: Boolean = false,
+        autostash: Boolean = false,
     ): GitRebaseResult {
         refusal(onto)?.let { return GitRebaseResult.Failed(it) }
         val busy = git.inProgress(root).getOrElse { return GitRebaseResult.Failed(IN_PROGRESS_UNREADABLE) }
@@ -56,8 +63,15 @@ class GitRebases(
         if (contained) return GitRebaseResult.UpToDate
         val arguments =
             listOf("-c", "rebase.updateRefs=false", "-c", "rebase.rebaseMerges=false", "rebase", "--merge") +
-                listOf("--no-autostash", "--no-fork-point", "--end-of-options", onto)
-        return outcome(root, git.write(root, arguments, timeout = GitCli.CHECKOUT_TIMEOUT, writesFiles = true))
+                listOf(
+                    if (autostash) "--autostash" else "--no-autostash",
+                    if (forkPoint) "--fork-point" else "--no-fork-point",
+                    "--end-of-options",
+                    onto,
+                )
+        val stash = git.stashTip(root)
+        val result = git.write(root, arguments, timeout = GitCli.CHECKOUT_TIMEOUT, writesFiles = true)
+        return outcome(root, result, stash)
     }
 
     /**
@@ -93,6 +107,7 @@ class GitRebases(
             if (!staged.success) return GitRebaseResult.Failed(staged.message)
             if (nothingToCommit(root)) return skip(root)
         }
+        val stash = git.stashTip(root)
         val (result, _) =
             git.writeWithExit(
                 root,
@@ -101,7 +116,7 @@ class GitRebases(
                 environment = mapOf("GIT_EDITOR" to ":"),
                 writesFiles = true,
             )
-        return outcome(root, result)
+        return outcome(root, result, stash)
     }
 
     /** Skips the commit the rebase in progress stopped at: `git rebase --skip`, which resets the files to `HEAD`. */
@@ -113,8 +128,9 @@ class GitRebases(
     /** Aborts the rebase in progress: `git rebase --abort`, which takes the branch, index and files back to before it. */
     fun abortRebase(root: Path): GitRebaseResult {
         pending(root).onFailure { return GitRebaseResult.Failed(it.message.orEmpty()) }
+        val stash = git.stashTip(root)
         val result = git.write(root, listOf("rebase", "--abort"), timeout = GitCli.CHECKOUT_TIMEOUT, writesFiles = true)
-        return outcome(root, result)
+        return outcome(root, result, stash)
     }
 
     /** The rebase in progress; a failure with the message why nothing is done if there is none or that cannot be read. */
@@ -136,8 +152,9 @@ class GitRebases(
             git.changedPaths(root, staged = false)?.isEmpty() == true
 
     private fun skip(root: Path): GitRebaseResult {
+        val stash = git.stashTip(root)
         val result = git.write(root, listOf("rebase", "--skip"), timeout = GitCli.CHECKOUT_TIMEOUT, writesFiles = true)
-        return outcome(root, result)
+        return outcome(root, result, stash)
     }
 
     /**
@@ -145,16 +162,28 @@ class GitRebases(
      * git succeeded, e.g. at an `edit` instruction of an interactive one), none after success is
      * [GitRebaseResult.Done], none after a failure [GitRebaseResult.Failed] with git's message. If what git is in the
      * middle of cannot be read afterwards, git's exit value decides between done and failed; the refresh shows the rest.
+     * The stash kept is told by `refs/stash` other than [stashBefore] ([stashKept]): an autostash git could not apply
+     * is stored there (ADR 0106).
      */
     private fun outcome(
         root: Path,
         result: GitResult,
+        stashBefore: StashTip?,
     ): GitRebaseResult {
         val after = git.inProgress(root).getOrNull()
         return when {
-            after is GitPendingRebase -> GitRebaseResult.Stopped(after, result.message)
-            result.success -> GitRebaseResult.Done(git.headCommit(root))
-            else -> GitRebaseResult.Failed(result.message)
+            after is GitPendingRebase -> {
+                GitRebaseResult.Stopped(after, result.message)
+            }
+
+            result.success -> {
+                val kept = stashKept(stashBefore, git.stashTip(root))
+                GitRebaseResult.Done(git.headCommit(root), stashKept = kept)
+            }
+
+            else -> {
+                GitRebaseResult.Failed(result.message)
+            }
         }
     }
 }
