@@ -143,6 +143,27 @@ class CardDragUiTest {
     }
 
     @Test
+    fun `a tall expanded card lands where the pointer is, not where its centre is`(robot: FxRobot) {
+        robot.interact {
+            fixture.todos.add(TodoScope.SHARED, null, "tall", (1..20).joinToString("\n\n") { "line $it" })
+        }
+        val cards = cards(robot, "a")
+        val tall = cards.single { it.summary.text == "tall" }
+        robot.interact {
+            tall.toggle.fire()
+            panel.applyCss()
+            panel.layout()
+        }
+        val first = cards.single { it.summary.text == "a" }
+        robot.interact {
+            mouse(tall.header, MouseEvent.MOUSE_PRESSED, centerY(tall.header))
+            mouse(tall.header, MouseEvent.MOUSE_DRAGGED, centerY(first.header) - 5)
+            mouse(tall.header, MouseEvent.MOUSE_RELEASED, centerY(first.header) - 5)
+        }
+        assertEquals(listOf("tall", "a"), fixture.summaries(robot, TodoScope.SHARED, null))
+    }
+
+    @Test
     fun `Escape cancels a drag and the shifted cards return`(robot: FxRobot) {
         val cards = threeCards(robot)
         val top = cards[0]

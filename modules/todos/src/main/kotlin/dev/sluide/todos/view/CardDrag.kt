@@ -102,9 +102,10 @@ internal class CardDrag(
     private fun follow(sceneY: Double) {
         val drag = active ?: return
         lastSceneY = sceneY
-        val dy = box.sceneToLocal(0.0, sceneY).y - drag.grabY
-        drag.card.translateY = dy
-        drag.dropIndex = dropIndex(drag.centers, drag.index, drag.centers[drag.index] + dy)
+        val pointer = box.sceneToLocal(0.0, sceneY).y
+        drag.card.translateY = pointer - drag.grabY
+        // By the pointer, not the dragged card's centre: a tall expanded card would otherwise have to travel far.
+        drag.dropIndex = dropIndex(drag.centers, drag.index, pointer)
         makeRoom(drag)
         val local = scroll.sceneToLocal(0.0, sceneY).y
         val next =
