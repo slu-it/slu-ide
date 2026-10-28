@@ -190,7 +190,7 @@ internal class WindowGitLog(
             setOnAction { gitLogView.expanded.set(!gitLogView.expanded.get()) }
         }
 
-    /** The Git menu: Commit… and Push…, disabled while the git log has no repository open. */
+    /** The Git menu: Commit…, Push… and Pull…, disabled while the git log has no repository open. */
     fun gitMenu(): Menu {
         // The Commit tab of the git log area, on IntelliJ's shortcut (ADR 0048).
         val commit =
@@ -206,7 +206,13 @@ internal class WindowGitLog(
                 disableProperty().bind(gitLogOpen.not())
                 setOnAction { gitLogView.showPush() }
             }
-        return Menu("Git", null, commit, push)
+        // The Pull dialog (ADR 0106), once the git log has read what can be pulled; no shortcut.
+        val pull =
+            MenuItem("Pull…").apply {
+                disableProperty().bind(gitLogOpen.not())
+                setOnAction { gitLogView.showPull() }
+            }
+        return Menu("Git", null, commit, push, pull)
     }
 
     /** Closes the repository in the git log; called when the window is closed. */

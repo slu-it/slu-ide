@@ -51,6 +51,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
@@ -425,6 +426,7 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         assertTrue(menu(robot, "View").items.single { it.text == "Git Log" }.isDisable)
         assertTrue(menu(robot, "Git").items.single { it.text == "Commit…" }.isDisable)
         assertTrue(menu(robot, "Git").items.single { it.text == "Push…" }.isDisable)
+        assertTrue(menu(robot, "Git").items.single { it.text == "Pull…" }.isDisable)
     }
 
     @Test
@@ -444,7 +446,10 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         assertEquals(KeyCombination.ModifierValue.UP, accelerator.shift)
         assertTrue(commitItem.isDisable, "no folder, no git log")
         val pushItem = menu(robot, "Git").items.single { it.text == "Push…" }
-        assertEquals(listOf("Commit…", "Push…"), menu(robot, "Git").items.map { it.text })
+        val pullItem = menu(robot, "Git").items.single { it.text == "Pull…" }
+        assertEquals(listOf("Commit…", "Push…", "Pull…"), menu(robot, "Git").items.map { it.text })
+        assertNull(pullItem.accelerator)
+        assertTrue(pullItem.isDisable, "no folder, no git log")
         val pushAccelerator = pushItem.accelerator as KeyCodeCombination
         assertEquals(KeyCode.K, pushAccelerator.code)
         assertEquals(KeyCombination.ModifierValue.DOWN, pushAccelerator.shortcut)
@@ -457,6 +462,7 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         // The git log, and with it Commit and Push, opens once the folder's trust check is through.
         eventually(robot) { assertFalse(commitItem.isDisable) }
         assertFalse(pushItem.isDisable)
+        assertFalse(pullItem.isDisable)
         robot.interact { commitItem.fire() }
 
         eventually(robot) {
@@ -488,6 +494,13 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
                         "Push Commits",
                     ) == true
                 }.forEach { it.hide() }
+        }
+
+        // Pull… reaches the git log, which says there is no remote to pull from.
+        robot.interact { pullItem.fire() }
+        eventually(robot) {
+            val texts = robot.lookup(".git-log-status").queryAll<Label>().map { it.text }
+            assertTrue("The repository has no remotes to pull from." in texts, texts.toString())
         }
     }
 

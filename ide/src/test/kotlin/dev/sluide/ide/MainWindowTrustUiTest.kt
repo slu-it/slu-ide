@@ -138,7 +138,7 @@ class MainWindowTrustUiTest : MainWindowUiFixture() {
 
         eventually(robot) {
             assertTrue(mainWindow.trust.bar.isVisible)
-            assertTrue(menu(robot, "Git").items.all { it.isDisable }, "Commit… and Push…")
+            assertTrue(menu(robot, "Git").items.all { it.isDisable }, "Commit…, Push… and Pull…")
             assertTrue(robot.lookup(".git-log-status").queryAll<Label>().any { it.text == GIT_OFF })
         }
     }
