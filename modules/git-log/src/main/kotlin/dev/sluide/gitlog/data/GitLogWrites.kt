@@ -11,6 +11,7 @@ import dev.sluide.git.GitMergeMode
 import dev.sluide.git.GitMergeResult
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitPickResult
+import dev.sluide.git.GitPullSources
 import dev.sluide.git.GitPushResult
 import dev.sluide.git.GitRebaseResult
 import dev.sluide.git.GitRemoteDeletion
@@ -23,7 +24,7 @@ import dev.sluide.git.GitUncheckedConflict
 import java.nio.file.Path
 
 /**
- * How the git log changes a repository (ADRs 0041, 0042, 0043, 0049, 0063, 0078, 0105); [GitLogCliWrites] in the
+ * How the git log changes a repository (ADRs 0041, 0042, 0043, 0049, 0063, 0078, 0105, 0106); [GitLogCliWrites] in the
  * application, a fake in tests. Called off the FX thread, except [canPass].
  */
 internal interface GitLogWrites {
@@ -189,6 +190,44 @@ internal interface GitLogWrites {
 
     /** Aborts the merge in progress. */
     fun abortMerge(root: Path): GitMergeResult
+
+    /**
+     * What can be pulled: the current branch, the remote branches and remotes, what git is in the middle of; ADR 0106.
+     */
+    fun pullSources(root: Path): GitPullSources?
+
+    /** Whether the remote-tracking branch [ref] (full refname) exists; `null` if that cannot be read. */
+    fun remoteBranchExists(
+        root: Path,
+        ref: String,
+    ): Boolean?
+
+    /** How many commits [to] has that [from] has not (full refnames or hashes); `null` if that cannot be read. */
+    fun commitCount(
+        root: Path,
+        from: String,
+        to: String,
+    ): Int?
+
+    /** The short name of the current branch; `null` when detached or if that cannot be read. */
+    fun currentBranch(root: Path): String?
+
+    /** Where a rebase onto [ref] (full refname) with `--fork-point` starts; `null` without a fork point. ADR 0106. */
+    fun forkPoint(
+        root: Path,
+        ref: String,
+    ): String?
+
+    /**
+     * Rebases the current [branch] (short name) onto the remote-tracking branch [onto] (full refname) for a pull, with
+     * the fork point, local changes stashed and applied afterwards if [autostash]; ADR 0106.
+     */
+    fun pullRebase(
+        root: Path,
+        branch: String,
+        onto: String,
+        autostash: Boolean,
+    ): GitRebaseResult
 
     /** Whether the message of the commit (a full hash) of the current [branch] can be changed; ADR 0100. */
     fun rewordCheck(

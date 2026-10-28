@@ -4,7 +4,9 @@ import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommit
 import dev.sluide.git.GitCommitChanges
+import dev.sluide.git.GitFetchResult
 import dev.sluide.git.GitOutgoing
+import dev.sluide.git.GitPullSources
 import dev.sluide.git.GitPushRejection
 import dev.sluide.git.GitPushResult
 import dev.sluide.git.GitPushTarget
@@ -12,6 +14,7 @@ import dev.sluide.git.GitRefs
 import dev.sluide.git.GitResult
 import dev.sluide.gitlog.data.ChangeFile
 import dev.sluide.gitlog.data.ChangeNode
+import dev.sluide.gitlog.operations.PULL_BUTTON
 import dev.sluide.gitlog.operations.commitCount
 import dev.sluide.gitlog.push.FORCE_PUSH_BUTTON
 import dev.sluide.gitlog.push.PUSH_KEYS
@@ -21,6 +24,7 @@ import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.control.ButtonType
+import javafx.scene.control.ComboBox
 import javafx.scene.control.TextArea
 import javafx.scene.control.TreeItem
 import javafx.scene.input.KeyCode
@@ -339,6 +343,50 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
         awaitRead()
         assertFalse(dialog().forcePushItem.isDisable)
         assertFalse(dialog().protectedLabel.isVisible)
+    }
+
+    @Test
+    fun `Pull next to the remote's own commits opens the Pull dialog with the target chosen, its answers over it`(
+        robot: FxRobot,
+    ) {
+        writes.pullSources =
+            GitPullSources(
+                "main",
+                true,
+                listOf("refs/remotes/origin/main", "refs/remotes/origin/old"),
+                listOf("origin"),
+                "refs/remotes/origin/old",
+                null,
+            )
+        writes.ancestry = { _, _ -> false }
+        openPush(robot) { _, _ -> twoCommits.copy(behind = 2) }
+        assertTrue(read { dialog().pullButton.isVisible })
+        val reads = outgoingReads.size
+        robot.interact { Platform.runLater { dialog().pullButton.fire() } }
+
+        val pull = awaitDialog(robot)
+        assertEquals("refs/remotes/origin/main", (pull.lookup(".git-pull-from") as ComboBox<*>).value, "the target")
+        assertSame(dialog().stage, pull.scene.window.let { (it as Stage).owner })
+        press(robot, pull, PULL_BUTTON)
+
+        eventually { assertEquals("Pulled origin/main into main (rebased 1 commit).", status(robot)) }
+        assertTrue(read { dialog().stage.isShowing })
+        eventually { assertTrue(outgoingReads.size > reads, "read again after the pull") }
+
+        // What the pull answers is shown over the Push dialog too: a failure, and why nothing can be pulled.
+        writes.fetchResult = { GitFetchResult(GitResult(false, "fatal: unable to access")) }
+        robot.interact { Platform.runLater { dialog().pullButton.fire() } }
+        press(robot, awaitDialog(robot), PULL_BUTTON)
+        val failed = awaitDialog(robot)
+        assertEquals("Pull Failed", (failed.scene.window as Stage).title)
+        assertSame(dialog().stage, (failed.scene.window as Stage).owner)
+        press(robot, failed, ButtonType.OK)
+        writes.pullSources = writes.pullSources?.copy(busy = "A merge is in progress; finish or abort it first.")
+        robot.interact { Platform.runLater { dialog().pullButton.fire() } }
+        val refused = awaitDialog(robot)
+        assertEquals("A merge is in progress; finish or abort it first.", refused.headerText)
+        assertSame(dialog().stage, (refused.scene.window as Stage).owner)
+        press(robot, refused, ButtonType.OK)
     }
 
     @Test

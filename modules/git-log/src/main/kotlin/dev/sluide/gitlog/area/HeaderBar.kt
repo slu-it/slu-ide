@@ -17,12 +17,13 @@ import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignA
 import org.kordamp.ikonli.materialdesign2.MaterialDesignC
 import org.kordamp.ikonli.materialdesign2.MaterialDesignR
+import org.kordamp.ikonli.materialdesign2.MaterialDesignS
 
 /**
  * The header bar of the git log area (ADRs 0035, 0046): a chevron that follows [expanded], the tabs' [titles], the
  * [status] message, Cancel (only while the operation going on is [cancellable], ADR 0043) and, on the right, Push,
- * Fetch All Remotes and Refresh. Fetch is off while an operation is [running] or there are [noRemotes], Push without a
- * remote. Clicking the bar (but not its buttons) expands or collapses the area.
+ * Pull, Fetch All Remotes and Refresh. Fetch and Pull are off while an operation is [running] or there are [noRemotes],
+ * Push without a remote. Clicking the bar (but not its buttons) expands or collapses the area.
  */
 internal class HeaderBar(
     titles: Node,
@@ -34,6 +35,7 @@ internal class HeaderBar(
     refresh: () -> Unit,
     fetch: () -> Unit,
     push: () -> Unit,
+    pull: () -> Unit,
     cancel: () -> Unit,
 ) {
     private val chevron = FontIcon(MaterialDesignC.CHEVRON_RIGHT)
@@ -70,6 +72,17 @@ internal class HeaderBar(
             disableProperty().bind(noRemotes)
         }
 
+    /** Opens the Pull dialog (ADR 0106); not while an operation runs or without a remote. */
+    val pullButton =
+        Button(null, FontIcon(MaterialDesignS.SOURCE_PULL)).apply {
+            styleClass += "git-log-pull"
+            tooltip = Tooltip("Pull…")
+            isFocusTraversable = false
+            minWidth = Region.USE_PREF_SIZE
+            setOnAction { pull() }
+            disableProperty().bind(Bindings.or(running, noRemotes))
+        }
+
     /** Cancels the fetch, commit or push going on; shown only while there is one. */
     val cancelButton =
         Button("Cancel").apply {
@@ -89,6 +102,7 @@ internal class HeaderBar(
             cancelButton,
             Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
             pushButton,
+            pullButton,
             fetchButton,
             refreshButton,
         ).apply {
@@ -96,7 +110,13 @@ internal class HeaderBar(
             alignment = Pos.CENTER_LEFT
             setOnMouseClicked { event ->
                 val onButton =
-                    listOf(refreshButton, pushButton, fetchButton, cancelButton).any { it.contains(event.target) }
+                    listOf(
+                        refreshButton,
+                        pushButton,
+                        pullButton,
+                        fetchButton,
+                        cancelButton,
+                    ).any { it.contains(event.target) }
                 if (event.button == MouseButton.PRIMARY && !onButton) {
                     expanded.set(!expanded.get())
                 }

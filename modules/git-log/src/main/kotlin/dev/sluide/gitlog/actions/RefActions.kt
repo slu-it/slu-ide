@@ -29,6 +29,10 @@ import dev.sluide.gitlog.operations.MergeDialog
 import dev.sluide.gitlog.operations.NewBranchDialog
 import dev.sluide.gitlog.operations.NewTagDialog
 import dev.sluide.gitlog.operations.PickCommit
+import dev.sluide.gitlog.operations.PreparePull
+import dev.sluide.gitlog.operations.PullBranch
+import dev.sluide.gitlog.operations.PullDialog
+import dev.sluide.gitlog.operations.PullPrompt
 import dev.sluide.gitlog.operations.RefConfirmation
 import dev.sluide.gitlog.operations.RefNameKind
 import dev.sluide.gitlog.operations.RefOperation
@@ -55,10 +59,13 @@ import dev.sluide.gitlog.operations.overwriteNote
 import dev.sluide.gitlog.operations.pickButton
 import dev.sluide.gitlog.operations.pickStoppedDialog
 import dev.sluide.gitlog.operations.pickTitle
+import dev.sluide.gitlog.operations.pullRefusedAlert
 import dev.sluide.gitlog.operations.rebaseStoppedDialog
 import dev.sluide.gitlog.operations.refConfirmation
+import dev.sluide.gitlog.operations.remoteOfBranch
 import dev.sluide.gitlog.operations.resetDescription
 import dev.sluide.gitlog.operations.resetTitle
+import dev.sluide.gitlog.operations.startedInPush
 import dev.sluide.gitlog.push.PushDialog
 import dev.sluide.gitlog.push.PushReader
 import javafx.beans.property.ReadOnlyBooleanProperty
@@ -71,9 +78,10 @@ import java.util.concurrent.TimeUnit
 
 /**
  * Starts the operations that change the repository of the [pages] (ADR 0041) with the dialogs they ask first and
- * answer with, and opens the Push dialog ([showPush], ADR 0049). [writes] runs them on the thread `sluide-git-write`, one
- * at a time; their outcomes are handled through [dispatch]. What an operation does or did goes to [tellOperation], and
- * starting one clears the header ([clearStatus]). The dialogs are shown on the [window].
+ * answer with, and opens the Push dialog ([showPush], ADR 0049) and the Pull dialog ([showPull], ADR 0106). [writes]
+ * runs them on the thread `sluide-git-write`, one at a time; their outcomes are handled through [dispatch]. What an
+ * operation does or did goes to [tellOperation], and starting one clears the header ([clearStatus]). The dialogs are
+ * shown on the [window].
  */
 internal class RefActions(
     private val pages: GitLogPages,
@@ -146,6 +154,7 @@ internal class RefActions(
         val dialog =
             PushDialog(window(), reader, writer.running, ::pushNameProblem).apply {
                 push = { operation -> start(operation) }
+                pull = { ref -> showPull(ref, fromPush = true) }
                 showDiff = showCommitDiff
                 openFile = { file -> localFile(file)?.let(this@RefActions.openFile) }
                 exists = { file -> localFile(file)?.let(fileExists) == true }
@@ -156,6 +165,28 @@ internal class RefActions(
             pushExecutor.shutdownNow()
         }
         dialog.show()
+    }
+
+    /**
+     * Reads what can be pulled and asks with the Pull dialog (ADR 0106), [preselected] (the full refname of a remote
+     * branch) chosen if it can be pulled; owned by the Push dialog if asked for [fromPush] there. Nothing while an
+     * operation runs; the header says why nothing can be pulled.
+     */
+    fun showPull(
+        preselected: String? = null,
+        fromPush: Boolean = false,
+    ) {
+        if (writer.running.get()) return
+        start(PreparePull(preselected, fromPush))
+    }
+
+    /** Asks how to pull as [prompt] offers it and pulls. */
+    private fun pull(prompt: PullPrompt) {
+        val owner = pushDialog?.stage?.takeIf { prompt.fromPush && it.isShowing } ?: window()
+        val choice = PullDialog(owner, prompt).showAndWait().orElse(null) ?: return
+        val remote = remoteOfBranch(choice.ref.removePrefix("refs/remotes/"), prompt.remotes) ?: return
+        val pull = PullBranch(prompt.branch, remote, choice.ref, choice.mode, choice.message, choice.autostash)
+        start(pull.copy(fromPush = prompt.fromPush))
     }
 
     /** What is wrong with [name] as the branch to push to; `null` if nothing. */
@@ -226,18 +257,34 @@ internal class RefActions(
         }
     }
 
+    /**
+     * The window the dialogs of [operation] belong to: the Push dialog while it shows, for a pull started there, so
+     * that they are not hidden behind it (ADR 0106); else the IDE window.
+     */
+    private fun ownerOf(operation: RefOperation): Window? =
+        pushDialog?.stage?.takeIf { startedInPush(operation) && it.isShowing } ?: window()
+
     private fun finished(
         operation: RefOperation,
         outcome: RefOutcome,
     ) {
         tellOperation(outcome.done.orEmpty())
+        val owner = ownerOf(operation)
+        // Why nothing can be pulled: said in the header, which the Push dialog may cover.
+        if (operation is PreparePull && outcome.pull == null && outcome.result.success && owner !== window()) {
+            outcome.done?.let { pullRefusedAlert(owner, it).showAndWait() }
+        }
         outcome.confirmation?.let { confirmation ->
             // Nothing done yet; the unsaved editors were asked about already.
-            if (refConfirmation(window(), confirmation).showAndWait().orElse(ButtonType.CANCEL) ==
+            if (refConfirmation(owner, confirmation).showAndWait().orElse(ButtonType.CANCEL) ==
                 confirmation.button
             ) {
                 start(confirmation.confirmed, askFirst = false)
             }
+            return
+        }
+        outcome.pull?.let { prompt ->
+            pull(prompt)
             return
         }
         outcome.reword?.let { prompt ->
@@ -254,7 +301,7 @@ internal class RefActions(
         if (!outcome.result.success) {
             // Done all the same (a failing post-checkout hook): the header says what was done.
             val header = errorHeader(operation, outcome)
-            gitErrorDialog(window(), operation.errorTitle, header, outcome.result.message).showAndWait()
+            gitErrorDialog(owner, operation.errorTitle, header, outcome.result.message).showAndWait()
         }
         outcome.stopped?.let { stop ->
             // Resolve (or closing the dialog) leaves it for the user, with the bar above the table.
@@ -263,12 +310,12 @@ internal class RefActions(
             }
         }
         outcome.rebaseStopped?.let { stop ->
-            if (rebaseStoppedDialog(window(), stop).showAndWait().orElse(null) == ABORT_REBASE_BUTTON) {
+            if (rebaseStoppedDialog(owner, stop).showAndWait().orElse(null) == ABORT_REBASE_BUTTON) {
                 start(AbortRebase)
             }
         }
         outcome.mergeStopped?.let { stop ->
-            if (mergeStoppedDialog(window(), stop).showAndWait().orElse(null) == ABORT_MERGE_BUTTON) {
+            if (mergeStoppedDialog(owner, stop).showAndWait().orElse(null) == ABORT_MERGE_BUTTON) {
                 start(AbortMerge)
             }
         }

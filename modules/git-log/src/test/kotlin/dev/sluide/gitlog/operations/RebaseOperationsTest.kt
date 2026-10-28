@@ -236,6 +236,16 @@ class RebaseOperationsTest {
     }
 
     @Test
+    fun `local changes kept in the stash are told after a rebase is continued, skipped or aborted`() {
+        writes.inProgress = pending()
+        writes.rebaseResult = { GitRebaseResult.Done(hash, stashKept = true) }
+
+        assertEquals("Rebased feature. $STASH_KEPT", ContinueRebase().run(writes, root).done)
+        assertEquals("Skipped the commit; rebased feature. $STASH_KEPT", SkipRebase.run(writes, root).done)
+        assertEquals("Aborted the rebase of feature. $STASH_KEPT", AbortRebase.run(writes, root).done)
+    }
+
+    @Test
     fun `all hold the status and none can be cancelled`() {
         listOf(rebase, ContinueRebase(), SkipRebase, AbortRebase).forEach {
             assertTrue(it.holdsStatus)

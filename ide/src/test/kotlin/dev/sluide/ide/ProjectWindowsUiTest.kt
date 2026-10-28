@@ -15,6 +15,7 @@ import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCommits
 import dev.sluide.git.GitLog
 import dev.sluide.git.GitMerges
+import dev.sluide.git.GitPulls
 import dev.sluide.git.GitPush
 import dev.sluide.git.GitRebases
 import dev.sluide.git.GitRemotes
@@ -138,6 +139,7 @@ class ProjectWindowsUiTest {
                 register(GitCommits::class.java)
                 register(GitRebases::class.java)
                 register(GitMerges::class.java)
+                register(GitPulls::class.java)
                 register(GitRewords::class.java)
                 register(GitRemotes::class.java)
                 register(GitPush::class.java)

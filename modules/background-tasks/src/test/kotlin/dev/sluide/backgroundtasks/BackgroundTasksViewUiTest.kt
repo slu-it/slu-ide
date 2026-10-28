@@ -93,13 +93,14 @@ class BackgroundTasksViewUiTest {
     }
 
     @Test
-    fun `only cancellable tasks have a cancel button, which cancels`(robot: FxRobot) {
+    fun `only cancellable tasks have a cancel button, which cancels, until the task withdraws it`(robot: FxRobot) {
         var cancelled = 0
         tasks.start("Fetching origin…") { cancelled++ }
         tasks.start("Refreshing Git status")
+        val pull = tasks.start("Pulling…") { cancelled++ }
         elapse(robot)
 
-        val (fetch, status) = rows(robot)
+        val (fetch, status, pulling) = rows(robot)
         assertEquals("Fetching origin…", fetch.name())
         assertEquals(null, status.cancelButton())
         val cancel = checkNotNull(fetch.cancelButton())
@@ -108,6 +109,11 @@ class BackgroundTasksViewUiTest {
 
         robot.interact { cancel.fire() }
         assertEquals(1, cancelled)
+
+        val pullCancel = checkNotNull(pulling.cancelButton())
+        assertTrue(pullCancel.isVisible)
+        robot.interact { pull.withdrawCancel() }
+        assertFalse(pullCancel.isVisible, "gone once withdrawn")
     }
 
     @Test

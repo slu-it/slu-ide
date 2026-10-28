@@ -1,5 +1,7 @@
 package dev.sluide.backgroundtasks
 
+import javafx.beans.property.ReadOnlyBooleanProperty
+import javafx.beans.property.ReadOnlyBooleanWrapper
 import javafx.beans.property.ReadOnlyStringProperty
 import javafx.beans.property.ReadOnlyStringWrapper
 import java.util.concurrent.CancellationException
@@ -23,8 +25,19 @@ class BackgroundTask internal constructor(
     /** The name shown; updated on the FX thread. */
     val name: ReadOnlyStringProperty = nameWrapper.readOnlyProperty
 
-    /** Whether the work can be cancelled, so its row shows ✕. */
-    val cancellable: Boolean = onCancel != null
+    private val cancellableWrapper = ReadOnlyBooleanWrapper(onCancel != null)
+
+    /**
+     * Whether the work can be cancelled now, so its row shows ✕: if it was started with a cancel function and that was
+     * not [withdrawn][withdrawCancel]; updated on the FX thread.
+     */
+    val cancellableProperty: ReadOnlyBooleanProperty = cancellableWrapper.readOnlyProperty
+
+    /** Whether the work can be cancelled now ([cancellableProperty]), as of any thread. */
+    val cancellable: Boolean get() = onCancel != null && synchronized(this) { !withdrawn }
+
+    /** Whether [withdrawCancel] was called; guarded by `this`. */
+    private var withdrawn = false
 
     /** The latest name, also before the FX thread has shown it; guarded by `this`. */
     private var currentName = name
@@ -53,17 +66,30 @@ class BackgroundTask internal constructor(
     }
 
     /**
-     * Asks the work to stop; FX thread. Calls the cancel function at most once, only if [cancellable] and running. The
+     * Asks the work to stop; FX thread. Calls the cancel function at most once, only if [cancellable] (not withdrawn)
+     * and running. The
      * task still ends when the work does; its failure then counts as cancelled (see [failed]).
      */
     fun cancel() {
         val cancel = onCancel ?: return
         synchronized(this) {
-            if (ended || cancelled) return
+            if (ended || cancelled || withdrawn) return
             cancelled = true
             tasks.report(System.Logger.Level.INFO, "task#$number cancelled", null)
         }
         cancel()
+    }
+
+    /**
+     * Withdraws the cancel: the work goes on to a part that must not be stopped (a pull once it has fetched, ADR 0106);
+     * any thread. [cancel] does nothing from now on and the row hides ✕.
+     */
+    fun withdrawCancel() {
+        synchronized(this) {
+            if (onCancel == null || withdrawn) return
+            withdrawn = true
+        }
+        tasks.onFxThread { cancellableWrapper.set(false) }
     }
 
     /**

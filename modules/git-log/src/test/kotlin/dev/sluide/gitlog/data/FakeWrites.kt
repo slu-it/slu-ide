@@ -12,6 +12,7 @@ import dev.sluide.git.GitMergeMode
 import dev.sluide.git.GitMergeResult
 import dev.sluide.git.GitPick
 import dev.sluide.git.GitPickResult
+import dev.sluide.git.GitPullSources
 import dev.sluide.git.GitPushResult
 import dev.sluide.git.GitRebaseResult
 import dev.sluide.git.GitRemoteDeletion
@@ -260,6 +261,66 @@ internal class FakeWrites : GitLogWrites {
     override fun skipRebase(root: Path) = rebaseCall("rebase --skip")
 
     override fun abortRebase(root: Path) = rebaseCall("rebase --abort")
+
+    /** What a pull reads first; `null`: cannot be read. */
+    @Volatile
+    var pullSources: GitPullSources? =
+        GitPullSources("main", true, listOf("refs/remotes/origin/main"), listOf("origin"), null, null)
+
+    override fun pullSources(root: Path): GitPullSources? {
+        reads += "pull sources"
+        return pullSources
+    }
+
+    /** The remote-tracking branches that are gone (after a fetch); `null` as if that could not be read. */
+    @Volatile
+    var goneRemoteBranches: Set<String>? = emptySet()
+
+    override fun remoteBranchExists(
+        root: Path,
+        ref: String,
+    ): Boolean? {
+        reads += "exists $ref"
+        return goneRemoteBranches?.let { ref !in it }
+    }
+
+    /** How many commits the second has that the first has not, by `<from>..<to>`. */
+    @Volatile
+    var commitCounts: (String, String) -> Int? = { _, _ -> 1 }
+
+    override fun commitCount(
+        root: Path,
+        from: String,
+        to: String,
+    ): Int? {
+        reads += "count $from..$to"
+        return commitCounts(from, to)
+    }
+
+    /** The current branch; `null`: detached. */
+    @Volatile
+    var currentBranch: String? = "main"
+
+    override fun currentBranch(root: Path) = currentBranch
+
+    /** Where a fork-point rebase onto a ref starts; `null`: no fork point. */
+    @Volatile
+    var forkPoint: String? = null
+
+    override fun forkPoint(
+        root: Path,
+        ref: String,
+    ): String? {
+        reads += "fork point $ref"
+        return forkPoint
+    }
+
+    override fun pullRebase(
+        root: Path,
+        branch: String,
+        onto: String,
+        autostash: Boolean,
+    ) = rebaseCall("rebase --fork-point $branch $onto${if (autostash) " autostash" else ""}")
 
     /** What a merge, continue or abort answers, by its line. */
     @Volatile

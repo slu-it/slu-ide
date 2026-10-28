@@ -139,13 +139,19 @@ internal data object AbortRebase : RefOperation {
         val branch = pendingBranch(writes, root)
         val done = if (branch != null) "Aborted the rebase of $branch." else "Aborted the rebase."
         return when (val result = writes.abortRebase(root)) {
-            is GitRebaseResult.Done -> RefOutcome(GitResult(true, ""), done)
+            is GitRebaseResult.Done -> RefOutcome(GitResult(true, ""), withStashKept(done, result))
             is GitRebaseResult.Failed -> RefOutcome(GitResult(false, result.message), null)
             is GitRebaseResult.Stopped -> RefOutcome(GitResult(false, result.message), null)
             else -> RefOutcome(GitResult(false, "The rebase could not be aborted."), null)
         }
     }
 }
+
+/** [text], followed by [STASH_KEPT] if git kept the local changes it stashed for the rebase that is [done]. */
+private fun withStashKept(
+    text: String,
+    done: GitRebaseResult.Done,
+) = if (done.stashKept) "$text $STASH_KEPT" else text
 
 /** The branch of the rebase in progress as git has it now; `null` if detached or there is none. */
 private fun pendingBranch(
@@ -158,16 +164,16 @@ private fun finished(branch: String?) = if (branch != null) "Rebased $branch." e
 
 /**
  * The outcome of a rebase of [branch], or of continuing or skipping one, that gave [result]; [done] is what the header
- * says after it finished.
+ * says after it finished, followed by [STASH_KEPT] if git could not apply the local changes it stashed (ADR 0106).
  */
-private fun rebaseOutcome(
+internal fun rebaseOutcome(
     result: GitRebaseResult,
     branch: String?,
     done: () -> String,
 ): RefOutcome =
     when (result) {
         is GitRebaseResult.Done -> {
-            RefOutcome(GitResult(true, ""), done())
+            RefOutcome(GitResult(true, ""), withStashKept(done(), result))
         }
 
         is GitRebaseResult.UpToDate -> {

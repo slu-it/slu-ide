@@ -6,6 +6,7 @@ import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCommits
 import dev.sluide.git.GitLog
 import dev.sluide.git.GitMerges
+import dev.sluide.git.GitPulls
 import dev.sluide.git.GitPush
 import dev.sluide.git.GitRebases
 import dev.sluide.git.GitRemotes
@@ -34,6 +35,7 @@ import dev.sluide.gitlog.details.CommitDetailsPane
 import dev.sluide.gitlog.filter.FilterBar
 import dev.sluide.gitlog.filter.FilterSources
 import dev.sluide.gitlog.operations.Fetch
+import dev.sluide.gitlog.operations.PULL_WAITS
 import dev.sluide.gitlog.operations.PendingBar
 import dev.sluide.gitlog.table.CommitTable
 import dev.sluide.gitlog.ui.GIT_LOG_CSS
@@ -77,7 +79,8 @@ import java.util.concurrent.CompletableFuture
  * one is open, the header's title becomes a row of tabs, the Log first, and the selected tab decides what the area shows
  * (ADR 0046). [showCommit] opens the Commit tab, right of the Log, to commit chosen files; its draft stays while it is
  * closed, until another folder (ADR 0048); [workingTreeChanged] has it read the changes again. [showPush] (and Push in
- * the header, Commit and Push in the Commit tab) opens the Push dialog, which pushes the current branch (ADR 0049).
+ * the header, Commit and Push in the Commit tab) opens the Push dialog, which pushes the current branch (ADR 0049);
+ * [showPull] (and Pull in the header) the Pull dialog (ADR 0106).
  *
  * [source] reads the commits, refs, details, changed files and diffs on the thread `sluide-git-log` (a history, the
  * Commit tab and the Push dialog on threads of their own); [writes] changes the repository on the thread
@@ -101,6 +104,7 @@ class GitLogView internal constructor(
         gitCommits: GitCommits,
         gitRebases: GitRebases,
         gitMerges: GitMerges,
+        gitPulls: GitPulls,
         gitRewords: GitRewords,
         gitRemotes: GitRemotes,
         gitPush: GitPush,
@@ -108,7 +112,7 @@ class GitLogView internal constructor(
     ) : this(
         GitLogCliSource(gitLog, gitRemotes, gitCommits, gitPush),
         Platform::runLater,
-        GitLogCliWrites(gitBranches, gitCommits, gitRebases, gitMerges, gitRewords, gitRemotes, gitPush),
+        GitLogCliWrites(gitBranches, gitCommits, gitRebases, gitMerges, gitPulls, gitRewords, gitRemotes, gitPush),
         tasks,
     )
 
@@ -362,12 +366,14 @@ class GitLogView internal constructor(
             ::refresh,
             { actions.start(Fetch()) },
             ::showPush,
+            { showPull() },
             actions::cancel,
         )
     internal val header: HBox get() = headerBar.node
     internal val refreshButton get() = headerBar.refreshButton
     internal val fetchButton get() = headerBar.fetchButton
     internal val pushButton get() = headerBar.pushButton
+    internal val pullButton get() = headerBar.pullButton
     internal val cancelButton get() = headerBar.cancelButton
 
     init {
@@ -453,6 +459,15 @@ class GitLogView internal constructor(
      * runs, with Push disabled until it ends. Nothing without a repository.
      */
     fun showPush() = actions.showPush()
+
+    /**
+     * Opens the Pull dialog (ADR 0106) once it has read what can be pulled, [preselected] (the full refname of a remote
+     * branch) chosen if given, else the current branch's upstream; the header says why if nothing can be pulled, also
+     * that an operation runs. Nothing without a repository.
+     */
+    fun showPull(preselected: String? = null) {
+        if (actions.running.get()) status.tell(PULL_WAITS) else actions.showPull(preselected)
+    }
 
     /**
      * The working tree changed (the window's git status, ADR 0013): the Commit tab reads its changes again, at once if

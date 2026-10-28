@@ -3,6 +3,8 @@ package dev.sluide.gitlog.operations
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.git.GitFetchChanges
 import dev.sluide.git.GitFetchResult
+import dev.sluide.git.GitMergeMode
+import dev.sluide.git.GitMergeResult
 import dev.sluide.git.GitResetMode
 import dev.sluide.git.GitResult
 import dev.sluide.gitlog.data.FakeWrites
@@ -111,6 +113,32 @@ class RefWriterTest {
         assertEquals(emptyList(), progress, "no remote fetched")
         assertFalse(writer.running.get())
         assertFalse(writer.cancel())
+    }
+
+    @Test
+    fun `a pull can be cancelled while it fetches only`() {
+        val pull = PullBranch("feature", "origin", "refs/remotes/origin/main", GitMergeMode.FAST_FORWARD, null, true)
+        writes.ancestry = { _, _ -> false }
+        writes.currentBranch = "feature"
+        val whileMerging = mutableListOf<Boolean>()
+        writes.mergeResult = {
+            val task = tasks.shown.single()
+            whileMerging += writer.cancellable.get()
+            whileMerging += task.cancellable
+            // The task's ✕, too late: nothing is cancelled.
+            task.cancel()
+            GitMergeResult.Done("h2")
+        }
+
+        assertTrue(writer.run(root, pull, outcomes::add))
+        assertTrue(writer.cancellable.get())
+        background.removeFirst().run()
+
+        assertEquals(listOf(false, false), whileMerging, "Cancel and ✕ are gone once fetched")
+        assertEquals("Pulled origin/main into feature (merge commit).", outcomes.single().done)
+        assertFalse(writer.cancel())
+        assertTrue(lines().none { it.endsWith("cancelled") || "cancelled after" in it }, lines().toString())
+        assertTrue(lines().last().startsWith("task finished"), lines().toString())
     }
 
     @Test

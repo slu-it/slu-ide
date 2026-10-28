@@ -132,7 +132,7 @@ internal const val STASH_KEPT =
  * The outcome of a merge of [source] into [branch] (`null` where not known), or of continuing or aborting one, that
  * gave [result]; [done] is what the header says after it was done, followed by [STASH_KEPT] if that applies.
  */
-private fun mergeOutcome(
+internal fun mergeOutcome(
     result: GitMergeResult,
     source: String?,
     branch: String?,

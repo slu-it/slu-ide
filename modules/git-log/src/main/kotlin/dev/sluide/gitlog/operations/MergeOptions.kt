@@ -37,17 +37,29 @@ internal fun mergeMessage(
 ): String? = edited.takeIf { takesMessage(mode) && canChangeMessage(default, it) }
 
 /**
+ * The text of the message area when its default message goes from [oldDefault] to [newDefault] (the Pull dialog's
+ * branch changed, ADR 0106): the new default, unless the user changed the [text] (as [mergeMessage] tells it).
+ */
+internal fun updatedMessage(
+    oldDefault: String,
+    newDefault: String,
+    text: String,
+): String = if (canChangeMessage(oldDefault, text)) text else newDefault
+
+/**
  * The options of a merge (ADR 0105): Fast-forward if possible (at first), Always create a merge commit, Fast-forward
  * only and Squash, the message (prefilled with [defaultMessage], in a monospace font; disabled where the mode takes
  * none) and, [withAutostash], "Stash local changes and restore them afterwards" (checked). In the Merge dialog, and in
- * the Pull dialog below its Merge choice, which disables the [node] as a whole and has a stash checkbox of its own.
+ * the Pull dialog below its Merge choice, which disables the [node] as a whole, has a stash checkbox of its own and
+ * changes the [defaultMessage] with the branch chosen (ADR 0106).
  * The stash checkbox is disabled and unchecked while Squash is selected; another mode brings the choice back.
  */
 internal class MergeOptions(
-    private val defaultMessage: String,
+    private var defaultMessage: String,
     withAutostash: Boolean = true,
 ) {
-    private val modes = ToggleGroup()
+    /** The modes; the Pull dialog follows the choice. */
+    internal val modes = ToggleGroup()
 
     val fastForward = mode("Fast-forward if possible", GitMergeMode.FAST_FORWARD)
     val mergeCommit = mode("Always create a merge commit", GitMergeMode.MERGE_COMMIT)
@@ -91,6 +103,12 @@ internal class MergeOptions(
             autostash.isDisable = !stashes(mode)
             autostash.isSelected = stashes(mode) && stashChosen
         }
+    }
+
+    /** Prefills the message with [message] from now on, replacing the text unless the user changed it. */
+    fun defaultMessage(message: String) {
+        this.message.text = updatedMessage(defaultMessage, message, this.message.text)
+        defaultMessage = message
     }
 
     /** What was chosen: the mode, the message if it was changed and the mode takes one, and whether to stash. */

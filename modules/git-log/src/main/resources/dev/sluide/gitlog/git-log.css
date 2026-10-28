@@ -899,6 +899,15 @@
     -fx-text-fill: -git-warning;
 }
 
+.git-push-behind-row {
+    -fx-spacing: 8;
+}
+
+/* The dialog pane's own content padding (Modena), which a padding of the node would replace. */
+.git-pull-options {
+    -fx-padding: 0.833em;
+}
+
 .git-push-fetch-note {
     -fx-opacity: 0.6;
     -fx-font-size: 0.9em;

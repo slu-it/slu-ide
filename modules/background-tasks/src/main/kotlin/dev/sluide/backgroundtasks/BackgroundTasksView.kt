@@ -88,7 +88,10 @@ class BackgroundTasksView(
                 maxWidth = Region.USE_PREF_SIZE
             }
 
-        /** Holds ✕ if the task can be cancelled, else stays empty, so the progress bars of all rows line up. */
+        /**
+         * Holds ✕ while the task can be cancelled, else stays empty, so the progress bars of all rows line up; ✕ goes
+         * when the task withdraws its cancel.
+         */
         private val cancelSlot =
             StackPane().apply {
                 minWidth = CANCEL_WIDTH
@@ -101,6 +104,7 @@ class BackgroundTasksView(
                             tooltip = Tooltip("Cancel")
                             isFocusTraversable = false
                             setOnAction { task.cancel() }
+                            visibleProperty().bind(task.cancellableProperty)
                         }
                 }
             }

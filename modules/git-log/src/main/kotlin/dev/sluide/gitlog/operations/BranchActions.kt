@@ -30,6 +30,11 @@ internal data class BranchActions(
     /** The one selected branch or remote branch to merge into the current branch (ADR 0105); as [rebase] allows. */
     val merge: GitRef? = null,
     /**
+     * The one selected remote branch to pull into the current branch (ADR 0106): of a known remote, not
+     * `<remote>/HEAD`, with a current branch that has a commit; also at `HEAD`'s commit, as the fetch may bring more.
+     */
+    val pull: GitRef? = null,
+    /**
      * The selected remote branches with their remotes, to delete there (ADR 0078), if that is all the selection holds
      * and the remote of each is known; never `<remote>/HEAD` or a protected branch ([isProtectedBranch]).
      */
@@ -47,6 +52,12 @@ internal fun mergeText(
     current: String?,
     target: String?,
 ): String = if (current == null || target == null) "Merge into Current Branch…" else "Merge '$target' into '$current'…"
+
+/** The text of the pull item: [target] into [current] (short names), or generic if either is not known. */
+internal fun pullText(
+    current: String?,
+    target: String?,
+): String = if (current == null || target == null) "Pull into Current Branch…" else "Pull '$target' into '$current'…"
 
 /**
  * The [BranchActions] for the [selected] nodes of the branches pane; [currentBranch] is the checked-out branch's full
@@ -123,9 +134,35 @@ internal fun branchActions(
         workingTreeDiff = ref,
         rebase = rebase,
         merge = ref.takeIf { rebase != null },
+        pull = ref?.takeIf { pullable(it, single?.current == true, current, headCommit, remotes) },
         deleteRemote = deleteRemote,
     )
 }
+
+/**
+ * Whether [ref] (not [current]ly checked out) can be pulled into the current branch [branch] (`null` when detached)
+ * whose `HEAD` is at [headCommit]: a remote branch of one of the [remotes] that is not `<remote>/HEAD`.
+ */
+private fun pullable(
+    ref: GitRef,
+    current: Boolean,
+    branch: String?,
+    headCommit: String?,
+    remotes: List<String>,
+): Boolean {
+    if (current || branch == null || headCommit == null || ref.kind != GitRefKind.REMOTE_BRANCH) return false
+    val remote = remoteOfBranch(ref.shortName, remotes) ?: return false
+    return ref.shortName != "$remote/HEAD"
+}
+
+/**
+ * The remote of the remote branch [shortName] (`origin/main`) among the [remotes]: the longest whose name and `/`
+ * start it (`team/a` for `team/a/main`); `null` for none, e.g. a remote that was removed.
+ */
+internal fun remoteOfBranch(
+    shortName: String,
+    remotes: List<String>,
+): String? = remotes.filter { shortName.startsWith("$it/") }.maxByOrNull { it.length }
 
 /**
  * The remote of [node] among the [remotes], the longest that matches: a remote or folder node below Remote is that

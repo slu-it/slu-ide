@@ -16,9 +16,9 @@ import java.nio.file.Path
  * without force ([refused], with git's message [refusedMessage]), a question to ask before the operation may run after
  * all ([confirmation]; nothing was done then), a cherry-pick or revert git stopped and left for the user ([stopped],
  * ADR 0042), a rebase ([rebaseStopped], ADR 0063) or a merge ([mergeStopped], ADR 0105), the message of a commit to
- * edit ([reword], ADR 0100), and the question above git's message in the error dialog if it is not the operation's
- * ([failure], e.g. naming the remotes that could not be fetched, ADR 0043), and whether it was [cancelled] before it
- * was done (a fetch, commit or push).
+ * edit ([reword], ADR 0100), what to ask before a pull ([pull], ADR 0106), and the question above git's message in the
+ * error dialog if it is not the operation's ([failure], e.g. naming the remotes that could not be fetched, ADR 0043),
+ * and whether it was [cancelled] before it was done (a fetch, commit or push).
  */
 internal data class RefOutcome(
     val result: GitResult,
@@ -30,17 +30,20 @@ internal data class RefOutcome(
     val rebaseStopped: RebaseStop? = null,
     val mergeStopped: MergeStop? = null,
     val reword: RewordPrompt? = null,
+    val pull: PullPrompt? = null,
     val failure: String? = null,
     val cancelled: Boolean = false,
 )
 
 /**
- * What an operation gets while it runs besides git: the [cancellation] of a [RefOperation.cancellable] one, and where
- * to tell what it does now ([progress], e.g. which remote it fetches; from the thread it runs on).
+ * What an operation gets while it runs besides git: the [cancellation] of a [RefOperation.cancellable] one, where
+ * to tell what it does now ([progress], e.g. which remote it fetches; from the thread it runs on), and where to tell
+ * that what it does from now on can no longer be cancelled ([uncancellable]: a pull once it has fetched, ADR 0106).
  */
 internal class RunContext(
     val cancellation: GitCancellation = GitCancellation(),
     val progress: (String) -> Unit = {},
+    val uncancellable: () -> Unit = {},
 )
 
 /**

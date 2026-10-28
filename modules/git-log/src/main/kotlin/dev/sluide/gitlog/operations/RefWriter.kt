@@ -12,10 +12,11 @@ import java.util.concurrent.CancellationException
 import java.util.concurrent.atomic.AtomicLong
 
 /**
- * Runs the [RefOperation]s of a git log one at a time (ADR 0041): on [background] (the thread `sluide-git-write`),
- * the outcome handled through [dispatch]. While one runs, [running] is `true` and no other starts; while it is one
- * that can be [cancelled][cancel] (a fetch, ADR 0043) and is not yet, [cancellable] is `true`. The outcome of a run
- * started before the last [forget] is dropped. Used on the JavaFX thread (or whatever [dispatch] stands for in tests).
+ * Runs the [RefOperation]s of a git log one at a time (ADR 0041): on [background] (the thread `sluide-git-write`), the
+ * outcome handled through [dispatch]. While one runs, [running] is `true` and no other starts; while it is one that can
+ * be [cancelled][cancel] (a fetch, ADR 0043) and is not yet, nor told it no longer can be (a pull once fetched, ADR
+ * 0106), [cancellable] is `true`. The outcome of a run started before the last [forget] is dropped. Used on the JavaFX
+ * thread (or whatever [dispatch] stands for in tests).
  *
  * Each run is a task of [tasks] (ADR 0061), started on [background], named by what the header says it does and renamed
  * with its progress, with ✕ if it can be cancelled. It ends as finished, failed (git's message) or cancelled.
@@ -82,10 +83,7 @@ internal class RefWriter(
                     val ended = outcome
                     dispatch {
                         _running.set(false)
-                        if (cancellation === token) {
-                            cancellation = null
-                            _cancellable.set(false)
-                        }
+                        if (cancellation === token) endCancellable()
                         writeFinished()
                         if (ended != null && generation.get() == current) done(ended)
                     }
@@ -114,10 +112,18 @@ internal class RefWriter(
         val cancel = if (operation.cancellable) ({ if (cancellation === token) cancel() }) else null
         val task = tasks.start(operation.progress, cancel).also { this@RefWriter.task = it }
         val context =
-            RunContext(token) { text ->
-                task.rename(text)
-                dispatch { if (generation.get() == current) progress(text) }
-            }
+            RunContext(
+                token,
+                { text ->
+                    task.rename(text)
+                    dispatch { if (generation.get() == current) progress(text) }
+                },
+                // Cancel and the task's ✕ go away; a cancel already given is the operation's to see in its token.
+                {
+                    task.withdrawCancel()
+                    dispatch { if (cancellation === token) endCancellable() }
+                },
+            )
         val outcome =
             try {
                 operation.run(writes, root, context)
@@ -150,6 +156,12 @@ internal class RefWriter(
         running.cancel()
         _cancellable.set(false)
         return true
+    }
+
+    /** The run going on can no longer be cancelled. */
+    private fun endCancellable() {
+        cancellation = null
+        _cancellable.set(false)
     }
 
     /** Drops the outcome of the run going on, e.g. for another repository. */

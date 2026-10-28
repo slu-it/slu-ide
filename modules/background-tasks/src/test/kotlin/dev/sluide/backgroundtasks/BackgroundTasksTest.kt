@@ -227,6 +227,28 @@ class BackgroundTasksTest {
     }
 
     @Test
+    fun `a withdrawn cancel is no longer offered, and a cancel then does nothing`() {
+        var calls = 0
+        val task = tasks.start("Pulling…") { calls++ }
+        task.withdrawCancel()
+        assertTrue(!task.cancellable)
+        assertTrue(task.cancellableProperty.get(), "on the FX thread")
+        runFx()
+        assertTrue(!task.cancellableProperty.get())
+
+        task.cancel()
+        now += 1_000_000_000
+        task.failed("rejected")
+
+        assertEquals(0, calls)
+        assertTrue(messages().none { it == "task#${task.number} cancelled" })
+        assertEquals(Level.WARNING, lines.last().level, "a failure, not a cancel")
+        val plain = tasks.start("Committing…")
+        plain.withdrawCancel()
+        assertTrue(!plain.cancellableProperty.get())
+    }
+
+    @Test
     fun `an ended task is not cancelled`() {
         var calls = 0
         val task = tasks.start("Fetching origin…") { calls++ }

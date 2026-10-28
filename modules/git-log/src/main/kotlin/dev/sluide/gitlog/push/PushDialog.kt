@@ -49,12 +49,11 @@ internal val PUSH_KEYS = KeyCodeCombination(KeyCode.K, KeyCombination.SHORTCUT_D
  * remote (a choice with several), the target branch, which can be edited (checked with [nameProblem], read again after
  * a pause), and "New" if the remote does not have it yet; in the middle the outgoing [commits] and the files of the
  * selected one ([PushCommitsPane]), whose diffs go to [showDiff], Open Local File (F4) to [openFile] if the file
- * [exists]. Below, notes (the target
- * has commits the branch has not, as of the last fetch, why nothing can be pushed) and Push, whose menu has Force Push
- * (asked first, never to a protected branch), and Cancel. Push and Force Push close the dialog and hand a
- * [PushOperation] to [push]; they are disabled while an operation is [running]. It reads again when it gains the
- * focus, as the user may have committed meanwhile. Themed like every window, with `git-log.css` and the `.git-log`
- * colours.
+ * [exists]. Below, notes (the target has commits the branch has not, as of the last fetch, with Pull… to [pull] it,
+ * ADR 0106; why nothing can be pushed) and Push, whose menu has Force Push (asked first, never to a protected branch),
+ * and Cancel. Push and Force Push close the dialog and hand a [PushOperation] to [push]; they are disabled while an
+ * operation is [running]. It reads again when it gains the focus, as the user may have committed meanwhile. Themed
+ * like every window, with `git-log.css` and the `.git-log` colours.
  */
 internal class PushDialog(
     private val ideWindow: Window?,
@@ -64,6 +63,9 @@ internal class PushDialog(
 ) {
     /** Runs a push; the dialog is closed by then. */
     var push: (PushOperation) -> Unit = {}
+
+    /** Opens the Pull dialog with the given remote-tracking branch (a full refname) chosen; the dialog stays open. */
+    var pull: (String?) -> Unit = {}
 
     /** Shows the diff of a file of a commit against a parent; what keeps it from being shown goes to the last one. */
     var showDiff: (commit: String, parent: String?, file: GitChangedFile, tell: (String) -> Unit) -> Unit =
@@ -110,6 +112,16 @@ internal class PushDialog(
         }
 
     internal val behindLabel = note("git-push-behind")
+
+    /** Pulls the target into the branch (ADR 0106), next to the note that a normal push will be rejected. */
+    internal val pullButton =
+        Button("Pull…").apply {
+            styleClass += "git-push-pull"
+            visibleProperty().bind(behindLabel.visibleProperty())
+            managedProperty().bind(visibleProperty())
+            disableProperty().bind(running)
+            setOnAction { pull(reader.state.get()?.trackingRef) }
+        }
 
     internal val reasonLabel = note("git-push-reason")
 
@@ -209,7 +221,16 @@ internal class PushDialog(
                         center = commits.node
                         bottom =
                             VBox(
-                                behindLabel,
+                                HBox(behindLabel, pullButton).apply {
+                                    styleClass += "git-push-behind-row"
+                                    alignment = Pos.CENTER_LEFT
+                                    // The note wraps; the button keeps its width.
+                                    behindLabel.minWidth = 0.0
+                                    HBox.setHgrow(behindLabel, Priority.ALWAYS)
+                                    pullButton.minWidth = Region.USE_PREF_SIZE
+                                    visibleProperty().bind(behindLabel.visibleProperty())
+                                    managedProperty().bind(visibleProperty())
+                                },
                                 reasonLabel,
                                 protectedLabel,
                                 commits.statusLabel,

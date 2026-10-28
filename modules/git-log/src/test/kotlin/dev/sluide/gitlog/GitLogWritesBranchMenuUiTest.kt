@@ -76,6 +76,7 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
                 "branch-checkout",
                 "branch-rebase",
                 "branch-merge",
+                "branch-pull",
                 "branch-new-branch",
                 "branch-rename",
                 "branch-delete",
@@ -116,6 +117,9 @@ class GitLogWritesBranchMenuUiTest : GitLogWritesUiFixture() {
         assertEquals("Rebase 'main' onto 'origin/main'", remote.item("branch-rebase").text)
         assertTrue(main.item("branch-merge").isDisable)
         assertTrue(remote.item("branch-merge").isDisable, "at HEAD's commit")
+        assertTrue(main.item("branch-pull").isDisable)
+        assertFalse(remote.item("branch-pull").isDisable, "the fetch may bring more")
+        assertEquals("Pull 'origin/main' into 'main'\u2026", remote.item("branch-pull").text)
     }
 
     @Test

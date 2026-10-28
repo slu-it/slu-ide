@@ -79,7 +79,7 @@ class BranchMenuTest {
     }
 
     @Test
-    fun `while a merge, rebase or pick waits only rebase and merge are left out`() {
+    fun `while a merge, rebase or pick waits only rebase, merge and pull are left out`() {
         val actions = actions(busy = true)
 
         assertNull(actions.rebase)
@@ -97,6 +97,44 @@ class BranchMenuTest {
         assertNull(actions.compare)
         assertNull(actions.rebase)
         assertNotNull(actions.workingTreeDiff)
+    }
+
+    @Test
+    fun `a remote branch of a known remote can be pulled into the current branch, also at HEAD's commit`() {
+        val remote =
+            listOf(
+                GitRef("refs/remotes/origin/main", GitRefKind.REMOTE_BRANCH, "h1"),
+                GitRef("refs/remotes/origin/HEAD", GitRefKind.REMOTE_BRANCH, "h1"),
+                GitRef("refs/remotes/team/a/x", GitRefKind.REMOTE_BRANCH, "h2"),
+                GitRef("refs/remotes/gone/x", GitRefKind.REMOTE_BRANCH, "h2"),
+            )
+        val all = GitRefs(refs.refs + remote, "refs/heads/main")
+        val remotes = listOf("origin", "team", "team/a")
+
+        fun pull(
+            path: String,
+            refs: GitRefs = all,
+            writing: Boolean = false,
+            busy: Boolean = false,
+        ) = actions(path, refs, writing, busy, remotes).pull?.name
+
+        assertEquals("refs/remotes/origin/main", pull("Remote/origin/main"))
+        assertEquals("refs/remotes/team/a/x", pull("Remote/team/a/x"), "of the longest remote that matches")
+        assertNull(pull("Remote/origin/HEAD"))
+        assertNull(pull("Remote/gone/x"), "no such remote to fetch")
+        assertNull(pull("Local/feature"), "a local branch")
+        assertNull(pull("Remote/origin/main", writing = true))
+        assertNull(pull("Remote/origin/main", busy = true))
+        assertNull(pull("Remote/origin/main", GitRefs(all.refs, null)), "detached")
+        assertNull(
+            pull("Remote/origin/main", GitRefs(all.refs.filter { it.kind != GitRefKind.HEAD }, "refs/heads/main")),
+        )
+        assertNull(actions("Remote/origin", all, remotes = remotes).pull, "a remote, not a branch")
+
+        val leaf = selected(all, "Remote/origin/main")
+        assertEquals("Pull 'origin/main' into 'main'\u2026", pullMenuText(leaf, all))
+        assertEquals("Pull into Current Branch\u2026", pullMenuText(selected(all, "Local/feature"), all))
+        assertEquals("Pull into Current Branch\u2026", pullMenuText(leaf, GitRefs(all.refs, null)))
     }
 
     @Test

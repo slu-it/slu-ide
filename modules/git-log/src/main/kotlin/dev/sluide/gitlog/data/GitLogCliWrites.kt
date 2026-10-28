@@ -7,6 +7,7 @@ import dev.sluide.git.GitCommits
 import dev.sluide.git.GitMergeMode
 import dev.sluide.git.GitMerges
 import dev.sluide.git.GitPick
+import dev.sluide.git.GitPulls
 import dev.sluide.git.GitPush
 import dev.sluide.git.GitRebases
 import dev.sluide.git.GitRemoteDeletion
@@ -22,6 +23,7 @@ internal class GitLogCliWrites(
     private val commits: GitCommits,
     private val rebases: GitRebases,
     private val merges: GitMerges,
+    private val pulls: GitPulls,
     private val rewords: GitRewords,
     private val gitRemotes: GitRemotes,
     private val gitPush: GitPush,
@@ -153,6 +155,33 @@ internal class GitLogCliWrites(
     ) = merges.continueMerge(root, confirmed)
 
     override fun abortMerge(root: Path) = merges.abortMerge(root)
+
+    override fun pullSources(root: Path) = pulls.sources(root)
+
+    override fun remoteBranchExists(
+        root: Path,
+        ref: String,
+    ) = pulls.exists(root, ref)
+
+    override fun commitCount(
+        root: Path,
+        from: String,
+        to: String,
+    ) = pulls.commitCount(root, from, to)
+
+    override fun currentBranch(root: Path) = pulls.currentBranch(root)
+
+    override fun forkPoint(
+        root: Path,
+        ref: String,
+    ) = pulls.forkPoint(root, ref)
+
+    override fun pullRebase(
+        root: Path,
+        branch: String,
+        onto: String,
+        autostash: Boolean,
+    ) = pulls.rebase(root, branch, onto, autostash)
 
     override fun rewordCheck(
         root: Path,

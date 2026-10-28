@@ -56,6 +56,7 @@ class GitLogWritesRefsUiTest : GitLogWritesUiFixture() {
                 "Checkout",
                 "Rebase Current Branch onto\u2026",
                 "Merge into Current Branch\u2026",
+                "Pull into Current Branch\u2026",
                 "New Branch\u2026",
                 "Rename\u2026",
                 "Delete",
