@@ -28,6 +28,7 @@ internal val ABORT_REVERT_BUTTON = ButtonType("Abort Revert", ButtonBar.ButtonDa
 internal val REBASE_BUTTON = ButtonType("Rebase", ButtonBar.ButtonData.OK_DONE)
 internal val SKIP_REBASE_BUTTON = ButtonType("Skip", ButtonBar.ButtonData.OK_DONE)
 internal val ABORT_REBASE_BUTTON = ButtonType("Abort Rebase", ButtonBar.ButtonData.OTHER)
+internal val ABORT_MERGE_BUTTON = ButtonType("Abort Merge", ButtonBar.ButtonData.OTHER)
 
 /** The button that confirms a cherry-pick or revert ([kind]) of a merge commit. */
 internal fun pickButton(kind: GitPick) =
@@ -115,6 +116,37 @@ internal fun rebaseStoppedDialog(
         }
         val resolve = dialogPane.lookupButton(RESOLVE_BUTTON) as Button
         (dialogPane.lookupButton(ABORT_REBASE_BUTTON) as Button).isDefaultButton = false
+        resolve.isDefaultButton = true
+        setOnShown { Platform.runLater(resolve::requestFocus) }
+    }
+
+/**
+ * Tells that a merge stopped ([stop], ADR 0105), like [pickStoppedDialog]: what was merged into what and the conflicted
+ * paths; Resolve, the default, leaves it for the user, [ABORT_MERGE_BUTTON] aborts it.
+ */
+internal fun mergeStoppedDialog(
+    owner: Window?,
+    stop: MergeStop,
+): Alert =
+    Alert(Alert.AlertType.WARNING, null, RESOLVE_BUTTON, ABORT_MERGE_BUTTON).apply {
+        owner?.let(::initOwner)
+        title = "Merge Stopped"
+        headerText = mergeStopHeader(stop)
+        if (stop.conflicts.isEmpty()) {
+            dialogPane.content = StackPane(gitMessage(stop.message))
+        } else {
+            val paths =
+                TextArea(stop.conflicts.joinToString("\n")).apply {
+                    styleClass += "git-conflict-paths"
+                    isEditable = false
+                    prefColumnCount = PATH_COLUMNS
+                    prefRowCount = stop.conflicts.size.coerceIn(PATH_ROWS_MIN, PATH_ROWS_MAX)
+                }
+            dialogPane.content = VBox(paths)
+            if (stop.message.isNotBlank()) dialogPane.expandableContent = StackPane(gitMessage(stop.message))
+        }
+        val resolve = dialogPane.lookupButton(RESOLVE_BUTTON) as Button
+        (dialogPane.lookupButton(ABORT_MERGE_BUTTON) as Button).isDefaultButton = false
         resolve.isDefaultButton = true
         setOnShown { Platform.runLater(resolve::requestFocus) }
     }

@@ -10,7 +10,9 @@ import dev.sluide.git.GitRefKind
 import dev.sluide.gitlog.data.GitLogPages
 import dev.sluide.gitlog.data.GitLogSource
 import dev.sluide.gitlog.data.GitLogWrites
+import dev.sluide.gitlog.operations.ABORT_MERGE_BUTTON
 import dev.sluide.gitlog.operations.ABORT_REBASE_BUTTON
+import dev.sluide.gitlog.operations.AbortMerge
 import dev.sluide.gitlog.operations.AbortPick
 import dev.sluide.gitlog.operations.AbortRebase
 import dev.sluide.gitlog.operations.CheckReword
@@ -44,6 +46,7 @@ import dev.sluide.gitlog.operations.forceDeleteConfirmation
 import dev.sluide.gitlog.operations.forceDeleteQuestion
 import dev.sluide.gitlog.operations.gitErrorDialog
 import dev.sluide.gitlog.operations.mergeQuestion
+import dev.sluide.gitlog.operations.mergeStoppedDialog
 import dev.sluide.gitlog.operations.nameProblem
 import dev.sluide.gitlog.operations.overwriteNote
 import dev.sluide.gitlog.operations.pickButton
@@ -259,6 +262,11 @@ internal class RefActions(
         outcome.rebaseStopped?.let { stop ->
             if (rebaseStoppedDialog(window(), stop).showAndWait().orElse(null) == ABORT_REBASE_BUTTON) {
                 start(AbortRebase)
+            }
+        }
+        outcome.mergeStopped?.let { stop ->
+            if (mergeStoppedDialog(window(), stop).showAndWait().orElse(null) == ABORT_MERGE_BUTTON) {
+                start(AbortMerge)
             }
         }
         if (outcome.refused.isNotEmpty()) {

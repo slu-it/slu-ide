@@ -410,7 +410,7 @@ class GitLogView internal constructor(
                     readers.refsRead()
                     branchesPane.show(pages.refs)
                     compareBar.update()
-                    pendingBar.show(pages.pending)
+                    pendingBar.show(pages.pending, pages.refs)
                     noRemotes.set(pages.remotes?.isEmpty() == true)
                     branchesPane.remotes = pages.remotes.orEmpty()
                     table.refsChanged()

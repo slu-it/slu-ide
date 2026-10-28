@@ -5,6 +5,7 @@ import dev.sluide.git.GitPendingMerge
 import dev.sluide.git.GitPendingOperation
 import dev.sluide.git.GitPendingPick
 import dev.sluide.git.GitPendingRebase
+import dev.sluide.git.GitRefs
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.value.ObservableBooleanValue
 import javafx.geometry.Pos
@@ -18,10 +19,10 @@ import javafx.scene.layout.Region
 import javafx.stage.Window
 
 /**
- * The bar of what git is in the middle of (ADR 0042), below the filter bar: a cherry-pick or revert to continue or
- * abort, or a merge, rebase or sequence left to the terminal; hidden while there is nothing. The buttons are disabled
- * while a write [running]; they hand their operations to [start], Abort after the confirmation, which is shown on the
- * [window].
+ * The bar of what git is in the middle of (ADR 0042), below the filter bar: a cherry-pick, revert, rebase (ADR 0063) or
+ * merge (ADR 0105) to continue or abort, or an octopus merge, `git am` or sequence left to the terminal; hidden while
+ * there is nothing. The buttons are disabled while a write [running]; they hand their operations to [start], Abort
+ * after the confirmation, which is shown on the [window].
  */
 internal class PendingBar(
     private val running: ObservableBooleanValue,
@@ -35,8 +36,14 @@ internal class PendingBar(
     /** Whether git is in the middle of something, so that cherry-pick and revert are not offered. */
     val busy: ObservableBooleanValue = busyState
 
-    /** The single cherry-pick or revert, or the rebase, in progress the bar continues or aborts; `null` for others. */
+    /**
+     * The single cherry-pick or revert, the rebase or the merge in progress the bar continues or aborts; `null` for
+     * others.
+     */
     private var pending: GitInProgress? = null
+
+    /** The refs the log read with [pending], which name what a merge merges. */
+    private var refs: GitRefs? = null
 
     /** Shrinks with the log, as the buttons do not; its tooltip has the whole text. */
     internal val label =
@@ -58,6 +65,10 @@ internal class PendingBar(
 
                     is GitPendingRebase -> {
                         start(ContinueRebase())
+                    }
+
+                    is GitPendingMerge -> {
+                        start(continueMerge(p, refs))
                     }
 
                     else -> {}
@@ -98,18 +109,26 @@ internal class PendingBar(
     }
 
     /**
-     * Shows what git is in the middle of ([inProgress]), with Continue and Abort for a single cherry-pick or revert or
-     * a rebase (which also has Skip) only; hides the bar for `null`.
+     * Shows what git is in the middle of ([inProgress]), with Continue and Abort for a single cherry-pick or revert, a
+     * rebase (which also has Skip) or a merge of one commit only; hides the bar for `null`. [refs] are the ones read
+     * with it, which name the branches of a merge.
      */
-    fun show(inProgress: GitInProgress?) {
-        pending = inProgress.takeIf { it is GitPendingPick || it is GitPendingRebase }
+    fun show(
+        inProgress: GitInProgress?,
+        refs: GitRefs? = null,
+    ) {
+        this.refs = refs
+        pending =
+            inProgress.takeIf {
+                it is GitPendingPick || it is GitPendingRebase || (it is GitPendingMerge && !isOctopus(it))
+            }
         busyState.set(inProgress != null)
         label.text =
             when (inProgress) {
                 is GitPendingPick -> pendingText(inProgress)
                 is GitPendingOperation -> operationText(inProgress.operation)
                 is GitPendingRebase -> pendingRebaseText(inProgress)
-                is GitPendingMerge -> "A merge is in progress; finish or abort it in the terminal."
+                is GitPendingMerge -> pendingMergeText(inProgress)
                 null -> ""
             }
         label.tooltip.text = label.text
@@ -133,8 +152,8 @@ internal class PendingBar(
     }
 
     /**
-     * Aborts the cherry-pick, revert or rebase in progress ([pending]) once confirmed, as it undoes what was done to
-     * resolve its conflicts; Cancel is the default.
+     * Aborts the cherry-pick, revert, rebase or merge in progress ([pending]) once confirmed, as it undoes what was
+     * done to resolve its conflicts; Cancel is the default.
      */
     private fun abortPending(pending: GitInProgress) {
         if (running.value) return
@@ -156,6 +175,10 @@ internal class PendingBar(
                         ABORT_REBASE_BUTTON,
                         AbortRebase,
                     )
+                }
+
+                is GitPendingMerge -> {
+                    RefConfirmation("Abort Merge", ABORT_MERGE_QUESTION, ABORT_MERGE_BUTTON, AbortMerge)
                 }
 
                 else -> {
