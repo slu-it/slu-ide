@@ -81,6 +81,30 @@ class ProjectDataStore(
         return editProject(normalized(folder), create = true, change)
     }
 
+    /** A copy of the whole shared file (ADR 0101); `null` if there is none or it is unreadable. */
+    @Synchronized
+    fun readShared(): ObjectNode? {
+        migrateLegacyFiles()
+        return (readJson(sharedFile) as? JsonRead.Found)?.node?.deepCopy()
+    }
+
+    /**
+     * Applies [change] to the whole shared file, creating it if needed; `true` if it was saved or did not change. The
+     * store keeps `version` and `files` (the per-file data of files outside any project): [change] cannot break them.
+     * Nothing is written to an unreadable file or one of a newer version (`false`).
+     * [change] runs under the store's lock, on the caller's thread: it must not take other locks or call back into the
+     * store (a write nested in it would be overwritten by this one).
+     */
+    @Synchronized
+    fun updateShared(change: (ObjectNode) -> Unit): Boolean {
+        migrateLegacyFiles()
+        return editShared(create = true) { root ->
+            val files = root.get(FILES_FIELD)?.deepCopy()
+            change(root)
+            if (files != null) root.set(FILES_FIELD, files) else root.remove(FILES_FIELD)
+        }
+    }
+
     /** Forgets the project in [folder]: deletes its file(s); the folder itself is never touched. */
     @Synchronized
     fun remove(folder: Path) {

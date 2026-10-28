@@ -22,17 +22,16 @@ class FileDataTest {
     lateinit var dir: Path
 
     private val projects by lazy { dir.resolve("projects") }
-    private val outsideFile by lazy { dir.resolve("outside-projects.json") }
+    private val sharedFile by lazy { dir.resolve("shared.json") }
     private val project by lazy { dir.resolve("project").createDirectories() }
 
-    private val store by lazy { ProjectDataStore(projects, outsideFile, emptyList()) }
+    private val store by lazy { ProjectDataStore(projects, sharedFile, emptyList()) }
 
     /** The keys of the per-file entries in the project's file. */
     private fun projectKeys(): List<String> = store.read(project)?.let(::keys) ?: emptyList()
 
-    /** The keys of the per-file entries in the outside file. */
-    private fun outsideKeys(): List<String> =
-        (readJson(outsideFile) as? JsonRead.Found)?.node?.let(::keys) ?: emptyList()
+    /** The keys of the per-file entries in the shared file. */
+    private fun sharedKeys(): List<String> = (readJson(sharedFile) as? JsonRead.Found)?.node?.let(::keys) ?: emptyList()
 
     private fun keys(root: ObjectNode) = root.get("files")?.propertyNames()?.toList() ?: emptyList()
 
@@ -53,7 +52,7 @@ class FileDataTest {
         "project/a.txt, , ",
         "projectx/a.txt, project, ",
     )
-    fun `a file's data lives in its project's file, else in the outside file`(
+    fun `a file's data lives in its project's file, else in the shared file`(
         file: String,
         projectFolder: String?,
         projectKey: String?,
@@ -66,10 +65,10 @@ class FileDataTest {
         assertEquals("v", store.fileData(path, folder)?.get("value")?.stringValue())
         if (projectKey != null) {
             assertEquals(listOf(projectKey), projectKeys())
-            assertEquals(emptyList(), outsideKeys())
+            assertEquals(emptyList(), sharedKeys())
         } else {
             assertEquals(emptyList(), projectKeys())
-            assertEquals(listOf(absolute(file)), outsideKeys())
+            assertEquals(listOf(absolute(file)), sharedKeys())
         }
     }
 
@@ -121,10 +120,10 @@ class FileDataTest {
         assertNull(value(source))
         if (intoProject) {
             assertEquals(listOf("d/s.sh"), projectKeys())
-            assertEquals(emptyList(), outsideKeys())
+            assertEquals(emptyList(), sharedKeys())
         } else {
             assertEquals(emptyList(), projectKeys())
-            assertEquals(listOf(absolute("outside/d/s.sh")), outsideKeys())
+            assertEquals(listOf(absolute("outside/d/s.sh")), sharedKeys())
         }
     }
 
@@ -135,7 +134,7 @@ class FileDataTest {
         store.moved(dir.resolve("project/b.txt"), dir.resolve("project/c.txt"), project)
 
         assertEquals(listOf("a.txt"), projectKeys())
-        assertFalse(outsideFile.toFile().exists())
+        assertFalse(sharedFile.toFile().exists())
     }
 
     @Test
@@ -148,57 +147,61 @@ class FileDataTest {
         store.moved(dir.resolve("project/a.txt"), dir.resolve("project/t"), project)
 
         assertEquals(listOf("tu"), projectKeys())
-        assertEquals(emptyList(), outsideKeys())
+        assertEquals(emptyList(), sharedKeys())
     }
 
     @Test
-    fun `a move out of the project keeps the entry in the project's file when the outside file cannot be written`() {
+    fun `a move out of the project keeps the entry in the project's file when the shared file cannot be written`() {
         remember("project/s.sh", "script")
-        outsideFile.writeText("{broken")
+        sharedFile.writeText("{broken")
 
         store.moved(dir.resolve("project/s.sh"), dir.resolve("out/s.sh"), project)
 
         assertEquals(listOf("s.sh"), projectKeys())
-        assertEquals("{broken", outsideFile.readText())
+        assertEquals("{broken", sharedFile.readText())
     }
 
     @Test
-    fun `a moved project folder takes its entries to the outside file`() {
+    fun `a moved project folder takes its entries to the shared file`() {
         remember("project/a.txt", "a")
 
         store.moved(project, dir.resolve("moved"), project)
 
         assertEquals(emptyList(), projectKeys())
-        assertEquals(listOf(absolute("moved/a.txt")), outsideKeys())
+        assertEquals(listOf(absolute("moved/a.txt")), sharedKeys())
     }
 
     @ParameterizedTest
     @ValueSource(strings = ["{broken", "[]"])
-    fun `an unreadable outside file is never replaced`(content: String) {
-        outsideFile.writeText(content)
+    fun `an unreadable shared file is never replaced`(content: String) {
+        sharedFile.writeText(content)
         val file = dir.resolve("out/a.txt")
 
         assertFalse(store.updateFileData(file, project) { it.put("value", "v") })
+        assertFalse(store.updateShared { it.put("todos", 1) })
         store.moved(dir.resolve("out/b.txt"), file, project)
         store.deleted(file, project)
 
         assertNull(store.fileData(file, project))
-        assertEquals(content, outsideFile.readText())
+        assertNull(store.readShared())
+        assertEquals(content, sharedFile.readText())
     }
 
     @Test
-    fun `an outside file of a newer version is read but never written`() {
+    fun `a shared file of a newer version is read but never written`() {
         val file = dir.resolve("out/a.txt")
         val content = """{"version": 2, "files": {${mapper.writeValueAsString(
             absolute("out/a.txt"),
         )}: {"value": "v"}}}"""
-        outsideFile.writeText(content)
+        sharedFile.writeText(content)
 
         assertEquals("v", value("out/a.txt"))
         assertFalse(store.updateFileData(file, project) { it.put("value", "w") })
+        assertFalse(store.updateShared { it.put("todos", 1) })
         store.deleted(file, project)
 
-        assertEquals(content, outsideFile.readText())
+        assertEquals(2, store.readShared()?.get("version")?.intValue())
+        assertEquals(content, sharedFile.readText())
     }
 
     @ParameterizedTest(name = "deleting {0}")
@@ -220,7 +223,7 @@ class FileDataTest {
         store.deleted(dir.resolve(deleted), project)
 
         assertEquals(projectRemaining.split(";").toSet(), projectKeys().toSet())
-        assertEquals(outsideRemaining.split(";").map(::absolute).toSet(), outsideKeys().toSet())
+        assertEquals(outsideRemaining.split(";").map(::absolute).toSet(), sharedKeys().toSet())
     }
 
     @Test
@@ -234,6 +237,6 @@ class FileDataTest {
         assertNull(store.fileData(dir.resolve("project/a.txt"), project))
         val projectRoot = (readJson(projects.listDirectoryEntries("*.json").single()) as JsonRead.Found).node
         assertNull(projectRoot.get("files"))
-        assertNull((readJson(outsideFile) as JsonRead.Found).node.get("files"))
+        assertNull((readJson(sharedFile) as JsonRead.Found).node.get("files"))
     }
 }
