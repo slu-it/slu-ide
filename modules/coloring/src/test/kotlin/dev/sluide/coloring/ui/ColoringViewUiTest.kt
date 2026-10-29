@@ -9,6 +9,7 @@ import javafx.scene.Parent
 import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.Label
+import javafx.scene.control.ScrollPane
 import javafx.scene.control.TextField
 import javafx.scene.layout.BorderPane
 import javafx.scene.paint.Color
@@ -71,6 +72,7 @@ class ColoringViewUiTest {
         assertSame(view.toolTabs, root.center)
         assertEquals("coloring-right", root.right.id)
         assertNotNull(root.right.lookup("#coloring-use-for"))
+        assertTrue(view.toolTabs.tabs.all { (it.content as? ScrollPane)?.isFitToWidth == true }, "tool tabs scroll")
     }
 
     @Test

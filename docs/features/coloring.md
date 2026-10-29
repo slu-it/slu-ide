@@ -7,7 +7,7 @@
 The Coloring tool works with colors in all CSS notations: it compares colors, derives shades, harmonies, mixes and
 gradients, shows how people with color vision deficiencies see them, and shows any color in each notation. It is a tab
 of the editor area with three columns: the picker for the slot being edited at the left, the tools in tabs in the
-center and the inspector at the right.
+center (each scrolls when it is taller than the window) and the inspector at the right.
 
 ## Slots
 Each tool tab names the colors it works on, its **slots**: Contrast has Text and Background (Vision shows the same

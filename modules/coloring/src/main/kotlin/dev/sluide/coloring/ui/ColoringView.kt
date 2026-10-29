@@ -77,10 +77,17 @@ internal class ColoringView(
         maxWidth = width
     }
 
+    /** A tool tab; its content scrolls vertically, as a pane can be taller than a short window. */
     private fun tool(
         title: String,
         content: Node,
-    ) = Tab(title, content)
+    ) = Tab(
+        title,
+        ScrollPane(content).apply {
+            styleClass += "coloring-tool"
+            isFitToWidth = true
+        },
+    )
 
     /** Gives the focus to the first input of the tool: the color input field. */
     fun focus() = input.focus()
