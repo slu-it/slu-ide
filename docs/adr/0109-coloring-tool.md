@@ -30,7 +30,8 @@ names only, and knows none of the CSS Color 4 spaces (`lab`, `lch`, `oklab`, `ok
 - **Detection in source text** is by file type, for style and markup files only (CSS, SCSS, Sass, Less, HTML, XML, SVG,
   Vue, Svelte, JavaScript and TypeScript with JSX/TSX), with context rules against false hits: hex only where a value
   can be (not in id selectors, entities or private fields; in scripts only in strings), functions only with literal
-  arguments, names only in property values, color attributes or whole string literals.
+  arguments, names only in property values, color attributes or whole string literals. `.xml` files ignore 4 and 8
+  digit hex, as Android reads `#AARRGGBB` where CSS reads `#RRGGBBAA`.
 
 ## Consequences
 - No dependency to update, and conversions match browsers to the precision the tests pin; the color science is ours to
