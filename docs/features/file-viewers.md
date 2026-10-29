@@ -14,7 +14,8 @@ the Bicep graph and `BicepParamFileViewer`.
   unsaved changes. Views in which the file can be edited are `EditableFileView`s with `dirty` and `save()`
   ([text-editing.md](text-editing.md)): code views, plain text and the previews' source. Images and diffs are read-only.
   `EditableFileView.showChanges(diff)` marks the lines changed against an original in the gutter of the code view
-  (`Gutter`; code views implement the public column hook `GutterColumns`, e.g. for run icons;
+  (`Gutter`; code views implement the public column hook `GutterColumns`, e.g. for run icons; a column has a fixed width, so rows without a node stay
+  aligned;
   [git-diff.md](git-diff.md)). `focusText()` gives the focus to the content at once (a code view's text, a
   preview's source unless the preview shows alone), e.g. back from a diff; `focus()` is what the editor calls when the
   view's tab is shown: the main content by [ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md) (the preview
@@ -213,7 +214,8 @@ the Bicep graph and `BicepParamFileViewer`.
     code editor's context menu (asked each time it shows, for the caret's `EditorMenuTarget`, line and column; shown
     after the editing items and a separator, [text-editing.md](text-editing.md); a provider that throws is logged). The
     `AutoCloseable` it returns, if any, is closed when the view is disposed; an extension that throws is logged and the
-    others still run.
+    others still run. The Coloring tool uses it for the color swatches in the gutter and the "Open in Coloring" menu
+    item ([coloring.md](coloring.md)).
   - Viewers that show files as text implement `SourceFileViewer` (`sourceHighlighter`) to get change markers and
     highlighted diffs. Viewers for extensions implement `ExtensionFileViewer` (`fileExtensions`, lower case, no dot)
     and viewers for exact names `NamedFileViewer` (`fileNames`), so that `FileViewers` also picks them by the name

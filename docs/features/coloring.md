@@ -122,4 +122,19 @@ A translucent pair is composited first (background over white, text over that ba
 as a viewer sees the pixels; the swatch keeps its alpha. The pane follows the current color, the second color and the text/background roles.
 
 ## In the code editor
-(described with its implementation)
+Code editors of the window (also those embedded in other views) show the colors written in style files (`.css`,
+`.scss`, `.sass`, `.less`), markup (`.html`, `.htm`, `.xhtml`, `.svg`, `.xml`), scripts (`.js`, `.mjs`, `.cjs`, `.ts`,
+`.mts`, `.cts`, `.jsx`, `.tsx`) and components (`.vue`, `.svelte`); other files show none, and a file renamed to or
+away from such a type follows. A line with colors gets a small swatch (on a checkerboard, so that alpha
+shows) in the gutter, right of the line numbers and change markers. It shows the first color of the
+line; its tooltip
+lists the color texts of the line (ten at most, then "…and N more"). A click on the swatch makes that color the current
+one of the Coloring tool and shows its tab; it does not move the caret. Edited rows update at once, and only the
+lines on screen are looked at.
+
+The editor's context menu has "Open "#3b82f6" in Coloring" after the editing items for a caret on or just after a
+color (disabled, "Open in Coloring", elsewhere in these files); it opens that color in the tool.
+
+Colors are found line by line, without tracking comments or strings that span lines, so a few false hits and misses
+remain, for example a hex color in a block comment or a selector like `#abc`; lines over 5,000 characters show none.
+Details and limits: [ADR 0109](../adr/0109-coloring-tool.md), `ColorFinder`.
