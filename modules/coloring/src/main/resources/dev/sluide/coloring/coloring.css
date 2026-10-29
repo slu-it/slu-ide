@@ -19,7 +19,7 @@
 
 /* Saved colors */
 .coloring-muted {
-    -fx-text-fill: -fx-mid-text-color;
+    -fx-opacity: 0.7;
 }
 
 /* Input and formats */
