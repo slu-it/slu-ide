@@ -179,6 +179,13 @@ interface SourceFileViewer : FileViewer {
     val sourceHighlighter: SyntaxHighlighter?
 }
 
+/** Calls [action] whenever the visible paragraphs change, including edits of them. Unsubscribing stops it. */
+internal fun CodeArea.onShownParagraphsChanged(action: () -> Unit): Subscription {
+    val listener = ListChangeListener<Any?> { action() }
+    visibleParagraphs.addListener(listener)
+    return Subscription { visibleParagraphs.removeListener(listener) }
+}
+
 private class CodeViewEditor(
     private val view: CodeView,
 ) : CodeEditor,
@@ -208,11 +215,7 @@ private class CodeViewEditor(
     override val topLine: Int
         get() = if (view.area.visibleParagraphs.isEmpty()) -1 else view.area.firstVisibleParToAllParIndex()
 
-    override fun onShownLinesChanged(action: () -> Unit): Subscription {
-        val listener = ListChangeListener<Any?> { action() }
-        view.area.visibleParagraphs.addListener(listener)
-        return Subscription { view.area.visibleParagraphs.removeListener(listener) }
-    }
+    override fun onShownLinesChanged(action: () -> Unit): Subscription = view.area.onShownParagraphsChanged(action)
 
     override fun onTextChanged(action: () -> Unit): Subscription {
         val changes = view.area.plainTextChanges().subscribe { action() }

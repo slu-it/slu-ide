@@ -90,8 +90,16 @@ internal class CodeView(
     /** Line numbers, change markers ([showChanges]) and further columns ([addGutterColumn]). */
     private val gutter = Gutter(area) { line -> host?.showChanges(file, line) }
 
-    /** Shows the changes when a change marker is clicked. */
+    /** What features of the window see of the view and add to it (ADR 0108), from the first [host] that has them. */
+    val extensible = ExtensibleCodeView(this, area, initialFile)
+    private val extensions = CodeViewExtensions(extensible)
+
+    /** Shows the changes when a change marker is clicked; the first one with [extensions] extends the view. */
     override var host: FileViewHost? = null
+        set(value) {
+            field = value
+            extensions.attach(value)
+        }
 
     // The default undo manager would also undo highlighting.
     private val undoManager = UndoUtils.plainTextUndoManager(area).also { area.undoManager = it }
@@ -435,6 +443,7 @@ internal class CodeView(
         fileName.set(to.fileName.toString())
         indentStyle = IndentStyle.forFile(to, savedText, defaultIndent)
         showGenerated()
+        extensible.moved(to)
         return true
     }
 
@@ -443,6 +452,7 @@ internal class CodeView(
         pendingFocus.cancel()
         highlighting.dispose()
         findBar.dispose()
+        extensions.dispose()
     }
 
     override fun focusText() = area.requestFocus()

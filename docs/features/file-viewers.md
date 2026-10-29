@@ -204,6 +204,15 @@ the Bicep graph and `BicepParamFileViewer`.
     lineComment, blockComment)` creates a file-less `TextEditor` (`node`, `text`, `textProperty`, `focus`) for fields of
     dialogs: wrapped lines, no gutter, the editing keys, plain-text undo and background highlighting of code views. Its font is inherited from its `node`: the caller binds the
     node's style to `FontSettings.font(FontArea.EDITOR)` (`FontSpec::toCss`) if it should have the editor font.
+  - `CodeEditorExtensions` (`CodeEditorExtensions.kt`) is a window service that extends every code editor of the
+    window, whichever view embeds it ([ADR 0108](../adr/0108-code-editor-extensions-and-context-menu.md)). Each
+    `CodeEditorExtension` added to it gets `extend(editor)` once per code view, on the FX thread, when the view first
+    gets a host whose window has the service; later hosts change nothing, and editors without a host (`CodeEditors.text`
+    in dialogs) are never extended. The `ExtensibleCodeEditor` it gets has the gutter columns, the `file` (following
+    moves), `lineCount`, `lineText(line)`, `shownLines` with `onShownLinesChanged`, and `addContextMenuItems` for the
+    code editor's context menu (items for an `EditorMenuTarget`, line and column; the menu is not built yet). The
+    `AutoCloseable` it returns, if any, is closed when the view is disposed; an extension that throws is logged and the
+    others still run.
   - Viewers that show files as text implement `SourceFileViewer` (`sourceHighlighter`) to get change markers and
     highlighted diffs. Viewers for extensions implement `ExtensionFileViewer` (`fileExtensions`, lower case, no dot)
     and viewers for exact names `NamedFileViewer` (`fileNames`), so that `FileViewers` also picks them by the name
