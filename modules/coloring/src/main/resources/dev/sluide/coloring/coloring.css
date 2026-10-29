@@ -38,6 +38,30 @@
     -fx-cursor: hand;
 }
 
+.coloring-format-text {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 2 4 2 4;
+    -fx-font-family: monospace;
+}
+
+.coloring-format-text:focused {
+    -fx-background-color: -fx-control-inner-background;
+}
+
+.coloring-approximate {
+    -fx-text-fill: #b45309;
+}
+
+.coloring-copy {
+    -fx-background-color: transparent;
+    -fx-padding: 2 4 2 4;
+}
+
+.coloring-copy:hover {
+    -fx-background-color: -fx-hover-base;
+}
+
 @media (prefers-color-scheme: dark) {
     .coloring-input:invalid {
         -fx-border-color: #ef5350;
@@ -45,7 +69,8 @@
         -fx-faint-focus-color: #ef535033;
     }
 
-    .coloring-note {
+    .coloring-note,
+    .coloring-approximate {
         -fx-text-fill: #fbbf24;
     }
 }

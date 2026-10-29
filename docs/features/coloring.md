@@ -30,6 +30,10 @@ Below the field a 56 px preview shows the color on a checkerboard (so alpha is v
 lies outside sRGB and is shown mapped into the gamut. "Name: x" shows an exact named color, "Nearest name: x" the closest
 by deltaE OK (the distance in the tooltip); a click on the name makes that named color current, keeping the alpha.
 
+The Formats section below the picker lists the color in groups (CSS, Modern CSS, Design tools) with a selectable text
+and a copy button per row. A "≈" marks a text that is the gamut-mapped color of one outside sRGB. The Name row appears
+only for an exact named color.
+
 ### Picker
 (described with its implementation)
 

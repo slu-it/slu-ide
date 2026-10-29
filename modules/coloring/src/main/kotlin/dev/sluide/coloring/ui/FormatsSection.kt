@@ -1,20 +1,109 @@
 package dev.sluide.coloring.ui
 
-import dev.sluide.coloring.color.ColorFormatter
+import dev.sluide.coloring.color.ColorFormat
+import dev.sluide.coloring.color.FormatGroup
+import dev.sluide.coloring.color.FormattedColor
+import dev.sluide.coloring.color.formatGroups
+import javafx.geometry.Pos
 import javafx.scene.Node
+import javafx.scene.control.Button
 import javafx.scene.control.Label
+import javafx.scene.control.TextField
+import javafx.scene.control.Tooltip
+import javafx.scene.input.Clipboard
+import javafx.scene.input.ClipboardContent
+import javafx.scene.layout.HBox
+import javafx.scene.layout.Priority
+import javafx.scene.layout.VBox
+import javafx.util.Subscription
+import org.kordamp.ikonli.javafx.FontIcon
+import org.kordamp.ikonli.materialdesign2.MaterialDesignC
 
-/** The current color in the CSS notations, each with a copy button. */
+/** The current color in the CSS notations and the design tool notations, each with a copy button. */
 internal class FormatsSection(
     private val state: ColoringState,
 ) {
-    private val label = Label().apply { styleClass += "coloring-section-title" }
-    val node: Node = label
+    private class Row(
+        val text: TextField,
+        val marker: Label,
+    )
+
+    private val column = VBox(4.0).apply { styleClass += "coloring-formats" }
+    private var rows = emptyList<Row>()
+    private var shape = emptyList<Pair<String, ColorFormat>>()
+    private val subscription: Subscription
+
+    val node: Node = column
 
     init {
-        label.textProperty().bind(state.current.map { "Formats: " + ColorFormatter.hex(it) })
+        subscription = state.current.subscribe { color -> refresh(formatGroups(color)) }
+    }
+
+    private fun refresh(groups: List<FormatGroup>) {
+        val newShape = groups.flatMap { g -> g.entries.map { g.title to it.format } }
+        if (newShape != shape) {
+            shape = newShape
+            rebuild(groups)
+        }
+        rows.zip(groups.flatMap { it.entries }).forEach { (row, entry) -> show(row, entry) }
+    }
+
+    private fun show(
+        row: Row,
+        entry: FormattedColor,
+    ) {
+        row.text.text = entry.text
+        row.marker.isVisible = entry.approximate
+    }
+
+    private fun rebuild(groups: List<FormatGroup>) {
+        val built = mutableListOf<Row>()
+        column.children.clear()
+        for (group in groups) {
+            if (group.entries.isEmpty()) continue
+            column.children += Label(group.title).apply { styleClass += "coloring-section-title" }
+            for (entry in group.entries) {
+                val text =
+                    TextField().apply {
+                        isEditable = false
+                        styleClass += "coloring-format-text"
+                        HBox.setHgrow(this, Priority.ALWAYS)
+                    }
+                val marker =
+                    Label("≈").apply {
+                        tooltip = Tooltip("Outside sRGB: mapped into the gamut")
+                        styleClass += "coloring-approximate"
+                    }
+                val copy =
+                    Button().apply {
+                        graphic = FontIcon(MaterialDesignC.CONTENT_COPY)
+                        tooltip = Tooltip("Copy")
+                        styleClass += "coloring-copy"
+                        setOnAction {
+                            Clipboard.getSystemClipboard().setContent(ClipboardContent().apply { putString(text.text) })
+                        }
+                    }
+                val label =
+                    Label(entry.format.label).apply {
+                        styleClass += "coloring-format-label"
+                        minWidth = LABEL_WIDTH
+                        prefWidth = LABEL_WIDTH
+                    }
+                column.children +=
+                    HBox(4.0, label, text, marker, copy).apply {
+                        alignment = Pos.CENTER_LEFT
+                        styleClass += "coloring-format-row"
+                    }
+                built += Row(text, marker)
+            }
+        }
+        rows = built
     }
 
     /** Releases the listeners on the window's state. */
-    fun dispose() = label.textProperty().unbind()
+    fun dispose() = subscription.unsubscribe()
+
+    private companion object {
+        const val LABEL_WIDTH = 64.0
+    }
 }
