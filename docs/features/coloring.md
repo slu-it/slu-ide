@@ -94,14 +94,15 @@ interpolated in OKLCH, and is shown large on a checkerboard.
 - **Type:** Linear, Radial (a circle to the farthest corner) or Conic. The angle (slider and number field, 0 to 360)
   is the direction of a linear gradient (0deg points up, 90deg to the right, so the corners lie on 0 % and 100 %) or
   the `from` angle of a conic one; it is disabled for Radial.
-- **Interpolation:** sRGB (the CSS default, left out of the text), OKLab or OKLCH, written as `in oklch`. Mixing in
+- **Interpolation:** sRGB (the CSS default, left out of the text unless a stop is in a modern notation such as `oklch()`, which browsers would then interpolate in Oklab, so `in srgb` is written), OKLab or OKLCH, written as `in oklch`. Mixing in
   sRGB passes through a dull gray between complementary colors such as blue and yellow; OKLCH interpolates lightness
   and chroma and turns the hue along the shorter arc, so the middle stays colorful. The preview is drawn from the
   interpolated colors, so it shows the chosen space, and colors outside sRGB are clipped per channel, as browsers
   paint gradients.
 - **Stops:** a bar under the preview has a handle per stop. Click one to select it, drag it to move it (it may pass
   the other stops; two at one position make a sharp edge). The selected stop's color is edited in the text field beside its swatch, in any notation
-  (`:invalid` while the text is not a color); **Set to current color** copies the current color into it,
+  (`:invalid` while the text is not a color: the stop keeps its last valid color and the mark stays until the text is corrected
+  or Escape restores the stop's text); **Set to current color** copies the current color into it,
   **Use stop as current** makes its color the current color. **Add stop** inserts a stop in the middle of the widest
   gap with the interpolated color there; **Remove stop** removes the selected one (two stay).
 - **Output:** the CSS in a read-only field, for example `linear-gradient(in oklch 90deg, #3b82f6 0%, #ffffff 100%)`,

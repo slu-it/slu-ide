@@ -193,8 +193,8 @@ File does not react to it while a terminal has the focus.
 
 | Keys | Action |
 |---|---|
-| Escape in the color input field | Restore the text of the current color and clear the invalid mark |
-| Enter in the color input field | Select all the text |
+| Escape in a color field (input, second color, gradient stop, mix) | Restore the text of the field's color and clear the invalid mark |
+| Enter in a color field | Select all the text |
 
 ## Settings
 [settings.md](settings.md)

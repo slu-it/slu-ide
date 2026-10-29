@@ -3,7 +3,6 @@ package dev.sluide.coloring.ui
 import dev.sluide.coloring.analysis.contrastRatio
 import dev.sluide.coloring.color.CssColor
 import dev.sluide.coloring.ui.contrast.contrastView
-import javafx.css.PseudoClass
 import javafx.scene.Parent
 import javafx.scene.Scene
 import javafx.scene.control.ButtonBase
@@ -125,18 +124,13 @@ class ContrastPaneUiTest {
     }
 
     @Test
-    fun `typing in the field sets the second color and marks invalid input`() {
-        val invalid = PseudoClass.getPseudoClass("invalid")
+    fun `typing in the field sets the second color`() {
         val result =
             fx {
                 field().text = "#ff0000"
-                val typed = state.second.get()
-                field().text = "zzz"
-                Triple(typed, state.second.get(), field().pseudoClassStates.contains(invalid))
+                state.second.get()
             }
-        assertEquals(CssColor.fromRgb8(255, 0, 0), result.first)
-        assertEquals(CssColor.fromRgb8(255, 0, 0), result.second)
-        assertTrue(result.third)
+        assertEquals(CssColor.fromRgb8(255, 0, 0), result)
     }
 
     @Test

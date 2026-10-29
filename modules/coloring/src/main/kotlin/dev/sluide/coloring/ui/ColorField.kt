@@ -18,11 +18,13 @@ import javafx.util.Subscription
 internal class ColorField(
     private val color: ObjectProperty<CssColor>,
     columns: Int = 12,
+    promptText: String? = null,
 ) {
     val node: TextField =
         TextField().apply {
             styleClass += "coloring-input"
             prefColumnCount = columns
+            this.promptText = promptText
         }
     private var settingText = false
     private val subscriptions: List<Subscription>

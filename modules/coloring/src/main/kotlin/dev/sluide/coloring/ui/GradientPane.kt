@@ -70,11 +70,7 @@ internal class GradientPane(
             prefColumnCount = 4
         }
     private val stopField =
-        TextField().apply {
-            id = "gradient-stop-text"
-            styleClass += "coloring-input"
-            promptText = "Color of the stop"
-        }
+        ColorField(selectedColor, promptText = "Color of the stop").apply { node.id = "gradient-stop-text" }
     private val addButton = Button("Add stop").apply { id = "gradient-add" }
     private val removeButton = Button("Remove stop").apply { id = "gradient-remove" }
     private val setCurrentButton = Button("Set to current color").apply { id = "gradient-set-current" }
@@ -97,7 +93,7 @@ internal class GradientPane(
         val spaceRow = HBox(4.0).apply { children += segmented(spaces, SPACES.map { it to it.label }) }
         val angleRow =
             HBox(8.0, Label("Angle"), angle.also { HBox.setHgrow(it, Priority.ALWAYS) }, angleField, Label("deg"))
-        val stopRow = HBox(8.0, selectedSwatch, stopField.also { HBox.setHgrow(it, Priority.ALWAYS) })
+        val stopRow = HBox(8.0, selectedSwatch, stopField.node.also { HBox.setHgrow(it, Priority.ALWAYS) })
         val stopButtons = HBox(6.0, addButton, removeButton, setCurrentButton, useButton)
         copyButton.tooltip = Tooltip("Copy the CSS")
         val outRow = HBox(6.0, cssField.also { HBox.setHgrow(it, Priority.ALWAYS) }, copyButton)
@@ -124,7 +120,7 @@ internal class GradientPane(
             if (!updating) apply(gradient.copy(angleDeg = v.toDouble().roundToInt().toDouble()))
         }
         angleField.textProperty().subscribe { text -> if (!updating) onAngleText(text) }
-        stopField.textProperty().subscribe { text -> if (!updating) onStopText(text) }
+        selectedColor.subscribe { c -> if (!updating) apply(setStopColor(gradient, selected, c)) }
         addButton.setOnAction { addStop(gradient).let { (g, i) -> apply(g, i) } }
         removeButton.setOnAction { apply(removeStop(gradient, selected), selected) }
         setCurrentButton.setOnAction { apply(setStopColor(gradient, selected, state.current.get())) }
@@ -139,6 +135,7 @@ internal class GradientPane(
     /** Releases the listeners on the window's state and disposes the swatches. */
     fun dispose() {
         currentSubscription.unsubscribe()
+        stopField.dispose()
         selectedSwatch.dispose()
         preview.dispose()
     }
@@ -180,23 +177,6 @@ internal class GradientPane(
         }
     }
 
-    private fun onStopText(text: String) {
-        when (val result = ColorInputModel.onTyped(text)) {
-            is InputResult.Valid -> {
-                stopField.pseudoClassStateChanged(INVALID, false)
-                apply(setStopColor(gradient, selected, result.color))
-            }
-
-            InputResult.Invalid -> {
-                stopField.pseudoClassStateChanged(INVALID, true)
-            }
-
-            InputResult.Blank -> {
-                stopField.pseudoClassStateChanged(INVALID, false)
-            }
-        }
-    }
-
     private fun refresh() {
         updating = true
         try {
@@ -214,11 +194,6 @@ internal class GradientPane(
             if (angleField.text.trim().toDoubleOrNull() != gradient.angleDeg) {
                 angleField.text = gradient.angleDeg.roundToInt().toString()
                 angleField.pseudoClassStateChanged(INVALID, false)
-            }
-            // The stop's color is written back only when the text does not already denote it exactly.
-            ColorInputModel.textFor(color, stopField.text.orEmpty())?.let {
-                stopField.text = it
-                stopField.pseudoClassStateChanged(INVALID, false)
             }
             removeButton.isDisable = gradient.stops.size <= 2
             updateSetCurrent()

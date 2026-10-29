@@ -3,13 +3,11 @@ package dev.sluide.coloring.ui
 import dev.sluide.coloring.color.CssColor
 import dev.sluide.coloring.ui.contrast.ContrastSummary
 import dev.sluide.coloring.ui.contrast.contrastView
-import javafx.css.PseudoClass
 import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Button
 import javafx.scene.control.Label
-import javafx.scene.control.TextField
 import javafx.scene.control.ToggleButton
 import javafx.scene.control.ToggleGroup
 import javafx.scene.control.Tooltip
@@ -37,13 +35,7 @@ internal class ContrastPane(
 ) {
     private val textRole = ToggleButton("Text")
     private val backgroundRole = ToggleButton("Background")
-    private val secondField =
-        TextField().apply {
-            id = "contrast-second"
-            styleClass += "coloring-input"
-            prefColumnCount = 10
-        }
-    private var settingText = false
+    private val secondField = ColorField(state.second, columns = 10).apply { node.id = "contrast-second" }
     private val secondSwatch = Swatch.of(state.second, state)
 
     private val sampleBox =
@@ -112,8 +104,6 @@ internal class ContrastPane(
         backgroundRole.setOnAction { state.currentIsText.set(false) }
         subscriptions += state.currentIsText.subscribe { isText -> showRole(isText) }
 
-        secondField.textProperty().subscribe { text -> typed(text.orEmpty()) }
-        subscriptions += state.second.subscribe { c -> syncField(c) }
         subscriptions += state.current.subscribe { _ -> refresh() }
         subscriptions += state.second.subscribe { _ -> refresh() }
         subscriptions += state.currentIsText.subscribe { _ -> refresh() }
@@ -122,36 +112,6 @@ internal class ContrastPane(
     private fun showRole(isText: Boolean) {
         textRole.isSelected = isText
         backgroundRole.isSelected = !isText
-    }
-
-    private fun typed(text: String) {
-        if (settingText) return
-        when (val result = ColorInputModel.onTyped(text)) {
-            is InputResult.Valid -> {
-                secondField.pseudoClassStateChanged(INVALID, false)
-                state.second.set(result.color)
-            }
-
-            InputResult.Invalid -> {
-                secondField.pseudoClassStateChanged(INVALID, true)
-            }
-
-            InputResult.Blank -> {
-                secondField.pseudoClassStateChanged(INVALID, false)
-            }
-        }
-    }
-
-    private fun syncField(color: CssColor) {
-        val text = ColorInputModel.textFor(color, secondField.text.orEmpty())
-        secondField.pseudoClassStateChanged(INVALID, false)
-        if (text == null) return
-        settingText = true
-        try {
-            secondField.text = text
-        } finally {
-            settingText = false
-        }
     }
 
     private fun roleRow() =
@@ -174,7 +134,7 @@ internal class ContrastPane(
             8.0,
             Label("Second color:"),
             secondSwatch,
-            secondField,
+            secondField.node,
             Button("White").apply { setOnAction { state.second.set(CssColor.srgb(1.0, 1.0, 1.0)) } },
             Button("Black").apply { setOnAction { state.second.set(CssColor.srgb(0.0, 0.0, 0.0)) } },
         ).apply { alignment = Pos.CENTER_LEFT }
@@ -227,12 +187,9 @@ internal class ContrastPane(
     fun dispose() {
         subscriptions.forEach { it.unsubscribe() }
         subscriptions.clear()
+        secondField.dispose()
         secondSwatch.dispose()
         suggestionSwatches.forEach { it.dispose() }
         suggestionSwatches.clear()
-    }
-
-    private companion object {
-        val INVALID: PseudoClass = PseudoClass.getPseudoClass("invalid")
     }
 }

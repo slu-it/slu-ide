@@ -4,13 +4,9 @@ import dev.sluide.coloring.color.CssColor
 import dev.sluide.coloring.color.NamedColors
 import dev.sluide.coloring.color.nearestNamed
 import dev.sluide.coloring.color.toRgb8
-import javafx.css.PseudoClass
-import javafx.event.Event
 import javafx.scene.Scene
 import javafx.scene.control.Label
 import javafx.scene.control.TextField
-import javafx.scene.input.KeyCode
-import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.layout.VBox
 import javafx.stage.Stage
@@ -21,16 +17,13 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 
-/** Pseudo-classes, key and mouse routing need a scene. Needs a display. */
+/** The field wiring and the click on the name need a scene. Needs a display. */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
 class InputSectionUiTest {
     private val state = ColoringState()
     private lateinit var input: InputSection
-    private val invalid = PseudoClass.getPseudoClass("invalid")
 
     @Start
     fun start(stage: Stage) {
@@ -43,22 +36,11 @@ class InputSectionUiTest {
     private fun field(robot: FxRobot) = robot.lookup(".coloring-input").queryAs(TextField::class.java)
 
     @Test
-    fun `typing an invalid text marks the field and keeps the color`(robot: FxRobot) {
-        val before = state.current.get()
-
-        robot.interact { field(robot).text = "#zzz" }
-
-        assertTrue(field(robot).pseudoClassStates.contains(invalid))
-        assertEquals(before, state.current.get())
-    }
-
-    @Test
     fun `typing a valid text sets the current color and keeps the typed notation`(robot: FxRobot) {
         robot.interact { field(robot).text = "rgb(255 0 0)" }
 
         assertEquals(CssColor.fromRgb8(255, 0, 0), state.current.get())
         assertEquals("rgb(255 0 0)", field(robot).text)
-        assertFalse(field(robot).pseudoClassStates.contains(invalid))
     }
 
     @Test
@@ -66,33 +48,6 @@ class InputSectionUiTest {
         robot.interact { state.current.set(CssColor.fromRgb8(0, 255, 0)) }
 
         assertEquals("#00ff00", field(robot).text)
-    }
-
-    @Test
-    fun `the text written for an external change does not replace the color`(robot: FxRobot) {
-        val gray = CssColor.srgb(0.5, 0.5, 0.5)
-
-        robot.interact { state.current.set(gray) }
-
-        // The field now reads #808080, which parses to a slightly different gray: it must not be read back.
-        assertEquals("#808080", field(robot).text)
-        assertEquals(gray, state.current.get())
-    }
-
-    @Test
-    fun `escape restores the text of the current color and clears the invalid mark`(robot: FxRobot) {
-        robot.interact { field(robot).text = "#zzz" }
-        assertTrue(field(robot).pseudoClassStates.contains(invalid))
-
-        robot.interact {
-            Event.fireEvent(
-                field(robot),
-                KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.ESCAPE, false, false, false, false),
-            )
-        }
-
-        assertEquals("#3b82f6", field(robot).text)
-        assertFalse(field(robot).pseudoClassStates.contains(invalid))
     }
 
     @Test

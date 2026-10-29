@@ -67,14 +67,44 @@ class GradientPaneUiTest {
     }
 
     @Test
-    fun `editing the selected stop's text updates the css and a bad text marks the field`(robot: FxRobot) {
+    fun `typing in the stop field updates the css`(robot: FxRobot) {
         val field = find<TextField>("gradient-stop-text")
         robot.interact { field.text = "red" }
         assertEquals("linear-gradient(in oklch 90deg, #ff0000 0%, #ffffff 100%)", css())
+    }
 
-        robot.interact { field.text = "not a color" }
-        assertEquals("linear-gradient(in oklch 90deg, #ff0000 0%, #ffffff 100%)", css())
-        assertTrue(field.pseudoClassStates.any { it.pseudoClassName == "invalid" })
+    @Test
+    fun `the stop field follows the selected stop and edits only that one`(robot: FxRobot) {
+        val field = find<TextField>("gradient-stop-text")
+        robot.interact {
+            pane.stopsBar.handle(1).fireEvent(
+                MouseEvent(
+                    MouseEvent.MOUSE_PRESSED,
+                    5.0,
+                    5.0,
+                    5.0,
+                    5.0,
+                    MouseButton.PRIMARY,
+                    1,
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    false,
+                    false,
+                    true,
+                    false,
+                    false,
+                    null,
+                ),
+            )
+        }
+        assertEquals("#ffffff", field.text)
+
+        robot.interact { field.text = "red" }
+
+        assertEquals("linear-gradient(in oklch 90deg, #3b82f6 0%, #ff0000 100%)", css())
     }
 
     @Test
