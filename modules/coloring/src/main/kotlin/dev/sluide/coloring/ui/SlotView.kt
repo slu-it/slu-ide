@@ -8,6 +8,7 @@ import javafx.scene.control.TextField
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.HBox
+import javafx.scene.layout.Region
 import javafx.util.Subscription
 
 /**
@@ -39,6 +40,8 @@ internal class SlotView(
         HBox(6.0, Label(slot.label), swatch, field).apply {
             styleClass += "color-slot"
             alignment = Pos.CENTER_LEFT
+            // The ring of the slot being edited hugs the slot, also where its row is wider.
+            maxWidth = Region.USE_PREF_SIZE
         }
 
     private val subscriptions: List<Subscription>

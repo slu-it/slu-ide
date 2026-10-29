@@ -11,7 +11,9 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
+import org.testfx.util.WaitForAsyncUtils
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -67,6 +69,21 @@ class SlotViewUiTest {
         assertSame(state.contrastBackground, state.editing.get())
         assertSame(state.contrastBackground, state.remembered[ColoringState.VISION])
         assertTrue(background.field.isFocused, "focus follows the slot being edited")
+    }
+
+    @Test
+    fun `the slot keeps its own width in a wider row, so the ring of the slot being edited hugs it`() {
+        val (width, pref) =
+            WaitForAsyncUtils
+                .asyncFx<Pair<Double, Double>> {
+                    text.node.layoutBounds.width to
+                        text.node.prefWidth(
+                            -1.0,
+                        )
+                }.get()
+
+        assertEquals(pref, width, 0.5)
+        assertTrue(width < 340.0, "narrower than the row")
     }
 
     @Test
