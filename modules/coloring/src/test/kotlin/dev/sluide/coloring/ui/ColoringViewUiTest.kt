@@ -7,6 +7,7 @@ import javafx.beans.property.SimpleObjectProperty
 import javafx.event.Event
 import javafx.scene.Parent
 import javafx.scene.Scene
+import javafx.scene.control.TextField
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.stage.Stage
@@ -19,6 +20,7 @@ import org.testfx.framework.junit5.Start
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 /** The Coloring view needs a scene for its tabs and the swatch's mouse handling. Needs a display. */
 @Tag("ui")
@@ -44,6 +46,14 @@ class ColoringViewUiTest {
             listOf("Contrast", "Shades & Harmonies", "Mix", "Gradient", "Vision"),
             view.toolTabs.tabs.map { it.text },
         )
+    }
+
+    @Test
+    fun `focus gives the focus to the color input field`(robot: FxRobot) {
+        robot.interact { view.focus() }
+
+        val focused = view.node.scene.focusOwner
+        assertTrue(focused is TextField && "coloring-input" in focused.styleClass)
     }
 
     @Test

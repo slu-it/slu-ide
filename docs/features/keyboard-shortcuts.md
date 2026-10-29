@@ -188,6 +188,14 @@ File does not react to it while a terminal has the focus.
 | Escape in the dialog | Cancel it |
 | The editing keys of code editors in the dialog's description field | As in the other editors of dialogs, see [Code editor](#code-editor) |
 
+## Coloring tool
+[coloring.md](coloring.md)
+
+| Keys | Action |
+|---|---|
+| Escape in the color input field | Restore the text of the current color and clear the invalid mark |
+| Enter in the color input field | Select all the text |
+
 ## Settings
 [settings.md](settings.md)
 

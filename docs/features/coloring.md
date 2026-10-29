@@ -19,7 +19,16 @@ tabs at the right.
 ## Current color
 
 ### Input and formats
-(described with its implementation)
+The field at the top of the left column reads any CSS color notation as you type: hex (a bare `3b82f6` and a
+trailing `;` too), `rgb()`, `hsl()`, `hwb()`, `lab()`, `lch()`, `oklab()`, `oklch()`, `color()`, named colors, and the
+non-CSS `hsv()` and `cmyk()`. A valid text becomes the current color; text that is no color marks the field with a red
+border and leaves the color unchanged (blank text is neither). When the color changes elsewhere the field shows its CSS
+text, except while the typed text already denotes that color. Escape restores the text of the current color, Enter
+selects all.
+
+Below the field a 56 px preview shows the color on a checkerboard (so alpha is visible). A note appears when the color
+lies outside sRGB and is shown mapped into the gamut. "Name: x" shows an exact named color, "Nearest name: x" the closest
+by deltaE OK (the distance in the tooltip); a click on the name makes that named color current, keeping the alpha.
 
 ### Picker
 (described with its implementation)

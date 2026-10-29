@@ -69,7 +69,7 @@ internal class ColoringView(
                     maxWidth = COLUMN_WIDTH
                 }
             center = toolTabs
-            // Focus goes to the tool when its tab is shown, as in a terminal; nothing takes it yet.
+            // Focus goes to the color input field when the tab is shown, as in a terminal.
             sceneProperty().subscribe { scene -> if (scene != null) Platform.runLater(::focus) }
         }
 
@@ -78,8 +78,8 @@ internal class ColoringView(
         content: Node,
     ) = Tab(title, content)
 
-    /** Gives the focus to the first input of the tool; none yet. */
-    fun focus() {}
+    /** Gives the focus to the first input of the tool: the color input field. */
+    fun focus() = input.focus()
 
     /** Releases the listeners of all sections and panes on the window's state. */
     fun dispose() {

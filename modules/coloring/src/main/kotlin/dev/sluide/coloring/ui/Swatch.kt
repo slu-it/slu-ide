@@ -13,13 +13,19 @@ import javafx.scene.paint.ImagePattern
 import javafx.scene.shape.Rectangle
 import javafx.util.Subscription
 
-/** A clickable color square on a checkerboard, so that the alpha shows; [onClick] runs on a primary click. */
+/**
+ * A clickable color square (or a [width] x [height] rectangle) on a checkerboard, so that the alpha shows; [onClick]
+ * runs on a primary click.
+ */
 internal class Swatch(
     private val color: ObservableValue<CssColor>,
     size: Double = 24.0,
+    width: Double = size,
+    height: Double = size,
     onClick: (CssColor) -> Unit = {},
 ) : Region() {
-    private val fill = Rectangle(size, size)
+    private val fill = Rectangle(width, height)
+    private val checker = Rectangle(width, height).apply { this.fill = CHECKER }
     private val tip = Tooltip()
     private val subscription: Subscription
 
@@ -28,15 +34,23 @@ internal class Swatch(
 
     init {
         styleClass += "swatch"
-        setMinSize(size, size)
-        setPrefSize(size, size)
-        setMaxSize(size, size)
-        children += Rectangle(size, size).apply { this.fill = CHECKER }
+        setMinSize(width, height)
+        setPrefSize(width, height)
+        setMaxSize(width, height)
+        children += checker
         children += fill
         Tooltip.install(this, tip)
         subscription = color.subscribe { c -> show(c) }
         setOnMouseClicked { e ->
             if (e.button == MouseButton.PRIMARY) color.value?.let(onClick)
+        }
+    }
+
+    /** The rectangles follow the size of the region, so a swatch that may grow (the preview) fills its space. */
+    override fun layoutChildren() {
+        listOf(checker, fill).forEach {
+            it.width = width
+            it.height = height
         }
     }
 
