@@ -133,4 +133,10 @@ class ColorFormatsTest {
         )
         assertEquals("oklch(70% 0.4 150)", cssText(parse("oklch(0.7 0.4 150)")))
     }
+
+    @Test
+    fun `css text keeps none in oklch colors`() {
+        assertEquals("oklch(70% 0.1 none)", cssText(parse("oklch(0.7 0.1 none)")))
+        assertEquals("oklch(none 0.1 150 / none)", cssText(parse("oklch(none 0.1 150 / none)")))
+    }
 }

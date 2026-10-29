@@ -76,7 +76,16 @@ If AA normal fails, the pane offers the nearest text color passing AA, found by 
   swatch is its CSS color. A click makes a swatch current. A gray has no hue, so all its harmonies are the gray.
 
 ## Mix
-(described with its implementation)
+- **Mix**: the current color and the second color (swatch and a text field, `:invalid` on bad input) are mixed with
+  the slider "Amount of second color" (0 to 100 %, default 50) in sRGB, Oklab or OKLCH (default). The result swatch
+  (click: current) shows the mix, with the CSS `color-mix(in oklch, <current> 50%, <second> 50%)` and the result's
+  color, each with a copy button. Both percentages are always written. The strip below shows the mixes at 10 % to
+  90 % in the chosen space; a click makes one current.
+- **Opacity over a background**: the current color at the slider's opacity (0 to 100 %, multiplied with its own
+  alpha) over a background (default white, text field as above) is flattened to one color, composited on the
+  sRGB components as browsers do; it is solid only over an opaque background. Useful for the solid color of a
+  translucent overlay. The mix shown is that of the colors as the emitted CSS text reads them (8-bit hex, rounded
+  `oklch()`), so it equals what a browser renders for the `color-mix()` text.
 
 ## Gradient
 A CSS gradient builder. It starts as a linear gradient at 90deg from the current color to the second color,

@@ -89,6 +89,24 @@ fun nearestNamed(color: CssColor): NamedMatch {
 
 /**
  * The shortest faithful CSS text of [color] for generated CSS (`color-mix()`, gradients): hex (8 digits when
- * the alpha is below 1) inside the sRGB gamut, else the `oklch()` text.
+ * the alpha is below 1) inside the sRGB gamut, else the `oklch()` text. A color with missing components (`none`) is
+ * written as `oklch()` with `none` in their place, so that a browser mixes it as the tool does.
  */
-fun cssText(color: CssColor): String = if (color.outOfSrgb) ColorFormatter.oklch(color) else ColorFormatter.hex(color)
+fun cssText(color: CssColor): String =
+    when {
+        color.missing != 0 && color.space == ColorSpace.OKLCH -> oklchKeepingNone(color)
+        color.outOfSrgb -> ColorFormatter.oklch(color)
+        else -> ColorFormatter.hex(color)
+    }
+
+private fun oklchKeepingNone(color: CssColor): String {
+    val parts =
+        ColorFormatter
+            .oklch(color)
+            .removePrefix("oklch(")
+            .removeSuffix(")")
+            .split(" / ")
+    val channels = parts[0].split(" ").mapIndexed { i, t -> if (color.isMissing(i)) "none" else t }
+    val alpha = if (color.isMissing(CssColor.ALPHA)) "none" else parts.getOrNull(1)
+    return "oklch(" + channels.joinToString(" ") + (alpha?.let { " / $it" } ?: "") + ")"
+}
