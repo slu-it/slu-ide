@@ -1,6 +1,7 @@
 package dev.sluide.coloring.analysis
 
 import dev.sluide.coloring.color.CssColor
+import dev.sluide.coloring.color.CssColorParser
 import dev.sluide.coloring.color.toRgb8
 import org.junit.jupiter.api.Test
 import kotlin.math.cos
@@ -47,6 +48,26 @@ class GradientsTest {
             "conic-gradient(from 90deg in oklch, #3b82f6 0%, #ffffff 100%)",
             css(gradient(GradientType.CONIC, space = MixSpace.OKLCH)),
         )
+    }
+
+    @Test
+    fun `a stop with a missing component is written with none like the mix text`() {
+        val noChroma = CssColorParser.parse("oklch(0.7 none 150)")!!
+        val noHue = CssColorParser.parse("oklch(0.7 0.1 none)")!!
+        assertEquals(
+            "linear-gradient(in oklch 90deg, oklch(70% none 150) 0%, oklch(70% 0.1 none) 100%)",
+            css(gradient(space = MixSpace.OKLCH, a = noChroma, b = noHue)),
+        )
+    }
+
+    @Test
+    fun `srgb without a space is written explicitly when a stop is not in legacy syntax`() {
+        val modern = CssColorParser.parse("oklch(0.7 0.35 150)")!!
+        assertEquals(
+            "linear-gradient(in srgb 90deg, oklch(70% 0.35 150) 0%, #ffffff 100%)",
+            css(gradient(a = modern)),
+        )
+        assertEquals("linear-gradient(90deg, #3b82f6 0%, #ffffff 100%)", css(gradient()))
     }
 
     @Test

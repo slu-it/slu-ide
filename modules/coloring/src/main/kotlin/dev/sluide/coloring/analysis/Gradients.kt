@@ -1,7 +1,6 @@
 package dev.sluide.coloring.analysis
 
 import dev.sluide.coloring.color.CssColor
-import dev.sluide.coloring.color.cssText
 import java.math.BigDecimal
 import java.math.RoundingMode
 import kotlin.math.abs
@@ -41,7 +40,10 @@ data class Point(
  * circle reaching the farthest corner, the CSS default size) and `conic-gradient(from 90deg in oklch, …)`.
  */
 fun css(gradient: Gradient): String {
-    val inSpace = gradient.space?.let { "in ${it.css}" }
+    val stopTexts = gradient.stops.map { emittedCss(it.color) }
+    // A browser interpolates in Oklab when a stop is not in legacy sRGB syntax, so "no space" must then say srgb.
+    val inSpace =
+        (gradient.space?.css ?: if (stopTexts.all(::isLegacySrgbText)) null else "srgb")?.let { "in $it" }
     val angle = "${num(gradient.angleDeg)}deg"
     val head =
         when (gradient.type) {
@@ -49,7 +51,10 @@ fun css(gradient: Gradient): String {
             GradientType.RADIAL -> listOfNotNull("circle", inSpace)
             GradientType.CONIC -> listOfNotNull("from $angle", inSpace)
         }.joinToString(" ")
-    val stops = gradient.stops.joinToString(", ") { "${cssText(it.color)} ${num(it.position * 100)}%" }
+    val stops =
+        gradient.stops.indices.joinToString(
+            ", ",
+        ) { "${stopTexts[it]} ${num(gradient.stops[it].position * 100)}%" }
     return "${gradient.type.name.lowercase()}-gradient($head, $stops)"
 }
 
@@ -175,3 +180,6 @@ fun setStopColor(
 /** At most one decimal, no trailing zeros. */
 private fun num(value: Double): String =
     BigDecimal(value).setScale(1, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString()
+
+private fun isLegacySrgbText(text: String): Boolean =
+    text.startsWith("#") || text.startsWith("rgb(") || text.startsWith("rgba(") || text.startsWith("hsl(")
