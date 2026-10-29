@@ -3,6 +3,7 @@ package dev.sluide.coloring.ui.contrast
 import dev.sluide.coloring.analysis.contrastRatio
 import dev.sluide.coloring.color.CssColor
 import dev.sluide.coloring.color.cssText
+import dev.sluide.coloring.color.toRgb8
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
@@ -24,7 +25,7 @@ class ContrastModelTest {
 
     @Test
     fun `black on white is 21 and passes everything`() {
-        val s = contrastView(black, white, currentIsText = true)
+        val s = contrastView(black, white, ContrastRole.TEXT)
         assertEquals("21.00 : 1", s.ratioText)
         assertTrue(s.badges.all { it.pass })
         assertNull(s.suggestion)
@@ -33,46 +34,80 @@ class ContrastModelTest {
 
     @Test
     fun `verdict flags at the thresholds`() {
-        val s = contrastView(grey, white, currentIsText = true)
+        val s = contrastView(grey, white, ContrastRole.TEXT)
         assertEquals(
             listOf("AA normal", "AA large", "AAA normal", "AAA large", "UI components"),
             s.badges.map { it.label },
         )
         // 150 grey on white is about 2.9 : 1, 118 grey about 4.5 : 1
         assertEquals(listOf(false, false, false, false, false), s.badges.map { it.pass })
-        val mid = contrastView(CssColor.fromRgb8(118, 118, 118), white, currentIsText = true)
+        val mid = contrastView(CssColor.fromRgb8(118, 118, 118), white, ContrastRole.TEXT)
         assertEquals(listOf(true, true, false, true, true), mid.badges.map { it.pass })
     }
 
     @Test
-    fun `currentIsText decides which color is the text`() {
-        val asText = contrastView(black, white, currentIsText = true)
-        val asBackground = contrastView(black, white, currentIsText = false)
-        assertEquals(black, asText.text)
-        assertEquals(white, asBackground.text)
-        assertEquals(black, asBackground.background)
-        assertTrue(asBackground.apcaText.startsWith("Lc -"), asBackground.apcaText)
+    fun `the sample is always the text on the background`() {
+        val s = contrastView(black, white, ContrastRole.BACKGROUND)
+        assertEquals(black, s.text)
+        assertEquals(white, s.background)
+        assertTrue(s.apcaText.startsWith("Lc 10"), s.apcaText)
+    }
+
+    @Test
+    fun `the text suggestion is titled for the text`() {
+        val s = contrastView(CssColor.fromRgb8(0x77, 0x77, 0x77), white, ContrastRole.TEXT).suggestion
+        assertNotNull(s?.color)
+        assertEquals(ContrastRole.TEXT, s.role)
+        assertEquals("Nearest text color passing AA:", s.title)
+    }
+
+    @Test
+    fun `the background suggestion keeps the text`() {
+        val text = CssColor.fromRgb8(0x77, 0x77, 0x77)
+        val s = contrastView(text, white, ContrastRole.BACKGROUND).suggestion
+        val color = assertNotNull(s?.color)
+        assertEquals(ContrastRole.BACKGROUND, s.role)
+        assertEquals("Nearest background passing AA:", s.title)
+        assertTrue(contrastRatio(text, color) >= 4.5)
+        assertTrue(color != white)
+    }
+
+    @Test
+    fun `a translucent text is measured over the suggested background`() {
+        val text = CssColor.srgb(1.0, 1.0, 1.0, 0.5)
+        val s = contrastView(text, CssColor.fromRgb8(0x4d, 0x4d, 0x4d), ContrastRole.BACKGROUND).suggestion
+        val color = assertNotNull(s?.color)
+        assertTrue(contrastRatio(text, color) >= 4.5)
+    }
+
+    @Test
+    fun `the suggested background is the nearest one for a translucent text`() {
+        val text = CssColor.srgb(0.0, 0.0, 0.0, 0.8)
+        val s = contrastView(text, CssColor.fromRgb8(0x80, 0x80, 0x80), ContrastRole.BACKGROUND).suggestion
+        val color = assertNotNull(s?.color)
+        assertTrue(contrastRatio(text, color) >= 4.5)
+        assertTrue(color.toRgb8().r < 0x90, cssText(color))
     }
 
     @Test
     fun `the suggestion targets AA when it fails, AAA when only that fails, none when both pass`() {
-        val failing = contrastView(grey, white, true).suggestion
+        val failing = contrastView(grey, white, ContrastRole.TEXT).suggestion
         assertEquals("AA", failing?.level)
         assertEquals(4.5, failing?.target)
         assertNotNull(failing?.color)
         assertNotNull(failing?.colorText)
 
-        val aaOnly = contrastView(CssColor.fromRgb8(118, 118, 118), white, true).suggestion
+        val aaOnly = contrastView(CssColor.fromRgb8(118, 118, 118), white, ContrastRole.TEXT).suggestion
         assertEquals("AAA", aaOnly?.level)
         assertEquals(7.0, aaOnly?.target)
 
-        assertNull(contrastView(black, white, true).suggestion)
+        assertNull(contrastView(black, white, ContrastRole.TEXT).suggestion)
     }
 
     @Test
     fun `an unreachable AAA target gives a suggestion without color`() {
         // Black is already the darkest text; on mid grey AA passes (about 5.3) but AAA cannot be reached.
-        val s = contrastView(black, CssColor.fromRgb8(128, 128, 128), true).suggestion
+        val s = contrastView(black, CssColor.fromRgb8(128, 128, 128), ContrastRole.TEXT).suggestion
         assertNotNull(s)
         assertEquals("AAA", s.level)
         assertNull(s.color)
@@ -92,11 +127,11 @@ class ContrastModelTest {
                 Triple(CssColor.fromRgb8(60, 130, 246), CssColor.fromRgb8(20, 30, 90), 4.5),
             )
         for ((text, bg, target) in cases) {
-            val s = contrastView(text, bg, true).suggestion
+            val s = contrastView(text, bg, ContrastRole.TEXT).suggestion
             val color = assertNotNull(s?.color, "$text on $bg")
             assertTrue(contrastRatio(color, bg) >= target, "${s?.colorText} on $bg for $target")
             assertEquals(s?.colorText, cssText(color))
         }
-        assertTrue(contrastView(grey, white, true).suggestion?.colorText != "#777777")
+        assertTrue(contrastView(grey, white, ContrastRole.TEXT).suggestion?.colorText != "#777777")
     }
 }

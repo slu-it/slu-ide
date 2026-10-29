@@ -145,8 +145,7 @@
 
 /* Vision */
 .vision-grid {
-    -fx-hgap: 12;
-    -fx-vgap: 8;
+    -fx-spacing: 10;
 }
 
 .vision-sample {

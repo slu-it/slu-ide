@@ -1,6 +1,7 @@
 package dev.sluide.coloring.ui
 
 import dev.sluide.coloring.analysis.contrastRatio
+import dev.sluide.coloring.color.ColorFormatter
 import dev.sluide.coloring.color.CssColor
 import javafx.scene.Parent
 import javafx.scene.Scene
@@ -46,7 +47,10 @@ class ContrastPaneUiTest {
     private fun button(text: String) =
         root.lookupAll(".button").filterIsInstance<ButtonBase>().first { it.text == text }
 
-    private fun field() = root.lookup("#contrast-second") as TextField
+    private fun suggestionTitle() =
+        ((root.lookup("#contrast-suggestion") as Parent).childrenUnmodifiable[0] as Label).text
+
+    private fun field() = root.lookup("#contrast-background") as TextField
 
     @Test
     fun `the ratio follows the text color`() {
@@ -86,6 +90,43 @@ class ContrastPaneUiTest {
     }
 
     @Test
+    fun `with the Background slot being edited the suggestion and Use change the background`() {
+        val result =
+            fx {
+                state.contrastText.color.set(grey)
+                state.contrastBackground.color.set(white)
+                state.edit(state.contrastBackground, ColoringState.CONTRAST)
+                val title = suggestionTitle()
+                button("Use").fire()
+                Triple(title, state.contrastText.color.get(), state.contrastBackground.color.get())
+            }
+        assertEquals("Nearest background passing AA:", result.first)
+        assertEquals(grey, result.second)
+        assertTrue(contrastRatio(grey, result.third) >= 4.5)
+    }
+
+    @Test
+    fun `a click on the suggestion swatch inspects it and changes no slot`() {
+        val result =
+            fx {
+                state.contrastText.color.set(grey)
+                state.contrastBackground.color.set(white)
+                val swatch = (root.lookup("#contrast-suggestion") as Parent).lookup(".swatch") as Swatch
+                val expected = swatch.tooltipText
+                click(swatch)
+                listOf(
+                    expected,
+                    ColorFormatter.hex(state.inspected.get()),
+                    state.contrastText.color.get(),
+                    state.contrastBackground.color.get(),
+                )
+            }
+        assertEquals(result[0], result[1])
+        assertEquals(grey, result[2])
+        assertEquals(white, result[3])
+    }
+
+    @Test
     fun `typing in the background field sets the background`() {
         val result =
             fx {
@@ -114,12 +155,14 @@ class ContrastPaneUiTest {
             state.contrastText.color.set(black)
             state.contrastBackground.color.set(white)
         }
-        val before = fx { ratio() }
+        fx { state.contrastText.color.set(grey) }
+        val before = fx { ratio() to suggestionTitle() }
         val after =
             fx {
                 pane.dispose()
                 state.contrastText.color.set(white)
-                ratio()
+                state.edit(state.contrastBackground)
+                ratio() to suggestionTitle()
             }
         assertEquals(before, after)
     }

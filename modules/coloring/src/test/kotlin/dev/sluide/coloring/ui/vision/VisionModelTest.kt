@@ -17,7 +17,7 @@ class VisionModelTest {
 
     @Test
     fun `there are five rows in order starting with normal vision`() {
-        val rows = visionRows(red, darkGreen, true)
+        val rows = visionRows(red, darkGreen)
 
         assertEquals(
             listOf(
@@ -37,33 +37,33 @@ class VisionModelTest {
 
     @Test
     fun `the normal row shows the inputs and the other rows the simulation`() {
-        val rows = visionRows(red, darkGreen, true)
+        val rows = visionRows(red, darkGreen)
 
-        assertEquals(red, rows[0].current)
         assertEquals(red, rows[0].text)
         assertEquals(darkGreen, rows[0].background)
-        assertEquals(simulate(red, Deficiency.DEUTERANOPIA), rows[2].current)
+        assertEquals(simulate(red, Deficiency.DEUTERANOPIA), rows[2].text)
         assertEquals(simulate(darkGreen, Deficiency.DEUTERANOPIA), rows[2].background)
     }
 
     @Test
-    fun `the roles of the pair follow currentIsText`() {
-        val asText = visionRows(red, darkGreen, true)[1]
-        val asBackground = visionRows(red, darkGreen, false)[1]
+    fun `swapping the pair swaps text and background of every row`() {
+        val normal = visionRows(red, darkGreen)
+        val swapped = visionRows(darkGreen, red)
 
-        assertEquals(asText.text, asBackground.background)
-        assertEquals(asText.background, asBackground.text)
-        assertEquals(asText.current, asBackground.current)
+        normal.zip(swapped).forEach { (n, s) ->
+            assertEquals(n.text, s.background)
+            assertEquals(n.background, s.text)
+        }
     }
 
     @Test
     fun `the ratio text of a row is the truncated WCAG ratio`() {
-        assertEquals("21.00 : 1", visionRows(white, black, false)[0].ratioText)
+        assertEquals("21.00 : 1", visionRows(white, black)[0].ratioText)
     }
 
     @Test
     fun `a pair that passes normally but fails for protanopia gets a warning`() {
-        val rows = visionRows(red, darkGreen, true)
+        val rows = visionRows(red, darkGreen)
 
         assertEquals("4.77 : 1", rows[0].ratioText)
         assertEquals(listOf(true, false, true, true, true), rows.map { it.passes })
@@ -75,12 +75,12 @@ class VisionModelTest {
 
     @Test
     fun `no warning when every row passes`() {
-        assertNull(warning(visionRows(black, white, true)))
+        assertNull(warning(visionRows(black, white)))
     }
 
     @Test
     fun `no warning when the pair already fails with normal vision`() {
-        val rows = visionRows(red, CssColor.fromRgb8(0, 50, 0), true)
+        val rows = visionRows(red, CssColor.fromRgb8(0, 50, 0))
 
         assertFalse(rows[0].passes)
         assertNull(warning(rows))
@@ -88,7 +88,7 @@ class VisionModelTest {
 
     @Test
     fun `several failing deficiencies are listed with and before the last`() {
-        val rows = visionRows(red, darkGreen, true).map { if (it.deficiency == null) it else it.copy(passes = false) }
+        val rows = visionRows(red, darkGreen).map { if (it.deficiency == null) it else it.copy(passes = false) }
 
         assertEquals(
             "The pair loses contrast for people with protanopia, deuteranopia, tritanopia and achromatopsia; " +
@@ -99,13 +99,12 @@ class VisionModelTest {
 
     @Test
     fun `a translucent pair is composited before it is simulated`() {
-        val rows = visionRows(CssColor.srgb(1.0, 0.0, 0.0, 0.5), white, true)
+        val rows = visionRows(CssColor.srgb(1.0, 0.0, 0.0, 0.5), white)
 
         val gray = rows[4]
         assertEquals("#ffffff", cssText(gray.background))
         assertEquals(1.0, gray.text.alpha, 1e-9)
         assertEquals("#a6a6a6", cssText(gray.text))
         assertEquals("2.43 : 1", gray.ratioText)
-        assertEquals(0.5, gray.current.alpha, 1e-9)
     }
 }

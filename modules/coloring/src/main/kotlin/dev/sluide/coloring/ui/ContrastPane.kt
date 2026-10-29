@@ -1,6 +1,7 @@
 package dev.sluide.coloring.ui
 
 import dev.sluide.coloring.color.CssColor
+import dev.sluide.coloring.ui.contrast.ContrastRole
 import dev.sluide.coloring.ui.contrast.ContrastSummary
 import dev.sluide.coloring.ui.contrast.contrastView
 import javafx.geometry.Insets
@@ -16,7 +17,6 @@ import javafx.scene.layout.BorderStroke
 import javafx.scene.layout.BorderStrokeStyle
 import javafx.scene.layout.BorderWidths
 import javafx.scene.layout.FlowPane
-import javafx.scene.layout.HBox
 import javafx.scene.layout.VBox
 import javafx.scene.text.Font
 import javafx.scene.text.FontWeight
@@ -26,13 +26,14 @@ import org.kordamp.ikonli.materialdesign2.MaterialDesignS
 
 /**
  * The contrast of the Text slot against the Background slot, by WCAG 2 and APCA. The decisions are made by
- * [contrastView]; this pane shows them and writes the user's changes back to the window's state.
+ * [contrastView]; this pane shows them and writes the user's changes back to the window's state. The nearest passing
+ * color changes the Background while that slot is the one being edited, otherwise the Text.
  */
 internal class ContrastPane(
     private val state: ColoringState,
 ) {
-    private val textSlot = SlotView(state.contrastText, state)
-    private val backgroundSlot = SlotView(state.contrastBackground, state).apply { field.id = "contrast-second" }
+    private val textSlot = SlotView(state.contrastText, state).apply { field.id = "contrast-text" }
+    private val backgroundSlot = SlotView(state.contrastBackground, state).apply { field.id = "contrast-background" }
 
     private val sampleBox =
         VBox(6.0).apply {
@@ -56,7 +57,11 @@ internal class ContrastPane(
     private val apcaLabel = Label().apply { styleClass += "contrast-apca" }
     private val apcaNote = Label("APCA (WCAG 3 draft), informational").apply { styleClass += "contrast-muted" }
 
-    private val suggestionBox = HBox(8.0).apply { alignment = Pos.CENTER_LEFT }
+    private val suggestionBox =
+        FlowPane(8.0, 6.0).apply {
+            id = "contrast-suggestion"
+            alignment = Pos.CENTER_LEFT
+        }
     private val suggestionSwatches = mutableListOf<Swatch>()
 
     private val subscriptions = mutableListOf<Subscription>()
@@ -65,7 +70,9 @@ internal class ContrastPane(
         VBox(
             10.0,
             Label("Contrast").apply { styleClass += "coloring-section-title" },
-            slotsRow(),
+            textSlot.node,
+            backgroundRow(),
+            swapButton(),
             sampleBox.apply { children += listOf(normalSample, largeSample, uiSample) },
             Label("WCAG 2").apply { styleClass += "coloring-section-title" },
             ratioLabel,
@@ -91,25 +98,30 @@ internal class ContrastPane(
             }
         subscriptions += state.contrastText.color.subscribe { _ -> refresh() }
         subscriptions += state.contrastBackground.color.subscribe { _ -> refresh() }
+        subscriptions += state.editing.subscribe { _ -> refresh() }
     }
 
-    private fun slotsRow() =
+    private fun backgroundRow() =
         FlowPane(
             8.0,
             6.0,
-            textSlot.node,
             backgroundSlot.node,
-            Button("Swap", FontIcon(MaterialDesignS.SWAP_HORIZONTAL)).apply {
-                id = "contrast-swap"
-                setOnAction {
-                    val oldText = text()
-                    text(background())
-                    background(oldText)
-                }
-            },
             Button("White").apply { setOnAction { background(CssColor.srgb(1.0, 1.0, 1.0)) } },
             Button("Black").apply { setOnAction { background(CssColor.srgb(0.0, 0.0, 0.0)) } },
         ).apply { alignment = Pos.CENTER_LEFT }
+
+    private fun swapButton() =
+        Button("Swap", FontIcon(MaterialDesignS.SWAP_VERTICAL)).apply {
+            id = "contrast-swap"
+            setOnAction {
+                val oldText = text()
+                text(background())
+                background(oldText)
+            }
+        }
+
+    private fun adjusted(): ContrastRole =
+        if (state.editing.value === state.contrastBackground) ContrastRole.BACKGROUND else ContrastRole.TEXT
 
     private fun text(): CssColor = state.contrastText.color.get()
 
@@ -120,8 +132,8 @@ internal class ContrastPane(
     private fun background(color: CssColor) = state.contrastBackground.color.set(color)
 
     private fun refresh() {
-        // R2 of ADR 0111 reworks the model's signature; until then the Text slot is the text color.
-        val s = contrastView(text(), background(), true)
+        val adjust = adjusted()
+        val s = contrastView(text(), background(), adjust)
         val text = s.text.toFxColor()
         sampleBox.background = Background(BackgroundFill(s.sampleBackground.toFxColor(), null, null))
         normalSample.textFill = text
@@ -137,10 +149,13 @@ internal class ContrastPane(
             },
         )
         apcaLabel.text = s.apcaText
-        showSuggestion(s)
+        showSuggestion(s, adjust)
     }
 
-    private fun showSuggestion(s: ContrastSummary) {
+    private fun showSuggestion(
+        s: ContrastSummary,
+        adjust: ContrastRole,
+    ) {
         suggestionSwatches.forEach { it.dispose() }
         suggestionSwatches.clear()
         suggestionBox.children.clear()
@@ -157,7 +172,7 @@ internal class ContrastPane(
                 Label(suggestion.colorText),
                 Button("Use").apply {
                     id = "contrast-use"
-                    setOnAction { text(color) }
+                    setOnAction { if (adjust == ContrastRole.TEXT) text(color) else background(color) }
                 },
             )
     }

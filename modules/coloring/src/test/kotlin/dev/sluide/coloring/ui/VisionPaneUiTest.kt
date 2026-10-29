@@ -2,10 +2,12 @@ package dev.sluide.coloring.ui
 
 import dev.sluide.coloring.analysis.Deficiency
 import dev.sluide.coloring.analysis.simulate
+import dev.sluide.coloring.color.ColorFormatter
 import dev.sluide.coloring.color.CssColor
 import dev.sluide.coloring.color.cssText
 import javafx.scene.Scene
 import javafx.scene.control.Label
+import javafx.scene.control.TextField
 import javafx.scene.layout.StackPane
 import javafx.scene.paint.Paint
 import javafx.stage.Stage
@@ -17,6 +19,8 @@ import org.testfx.framework.junit5.Start
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /** Wiring of the Vision pane to the window's state; the rows themselves are tested in VisionModelTest. */
@@ -58,11 +62,34 @@ class VisionPaneUiTest {
     fun `changing the text color updates the normal and a simulated row`(robot: FxRobot) {
         robot.interact { state.contrastText.color.set(CssColor.fromRgb8(0, 0, 255)) }
 
-        assertEquals("#0000ff", swatches(robot)[0].tooltipText)
+        assertEquals("#0000ff", swatches(robot)[2].tooltipText)
         assertEquals(
             cssText(simulate(CssColor.fromRgb8(0, 0, 255), Deficiency.PROTANOPIA)),
-            cssTexts(robot)[1],
+            cssTexts(robot)[2],
         )
+    }
+
+    @Test
+    fun `the slot views select the shared Contrast slots for the Vision tab`(robot: FxRobot) {
+        robot.interact { click(swatches(robot)[1]) }
+
+        assertSame(state.contrastBackground, state.editing.get())
+        assertSame(state.contrastBackground, state.remembered[ColoringState.VISION])
+        assertNull(state.remembered[ColoringState.CONTRAST])
+    }
+
+    @Test
+    fun `a click on a simulated swatch inspects it and changes no slot`(robot: FxRobot) {
+        val text = state.contrastText.color.get()
+        val background = state.contrastBackground.color.get()
+        val simulatedBackground = swatches(robot)[5]
+        val expected = simulatedBackground.tooltipText
+
+        robot.interact { click(simulatedBackground) }
+
+        assertEquals(expected, ColorFormatter.hex(state.inspected.get()))
+        assertEquals(text, state.contrastText.color.get())
+        assertEquals(background, state.contrastBackground.color.get())
     }
 
     @Test
@@ -82,6 +109,7 @@ class VisionPaneUiTest {
     fun `after dispose nothing updates`(robot: FxRobot) {
         val before = cssTexts(robot)
         val sample = sampleColors(robot)
+        val slotText = robot.lookup("#vision-text").queryAs(TextField::class.java).text
 
         robot.interact {
             pane.dispose()
@@ -91,6 +119,7 @@ class VisionPaneUiTest {
 
         assertEquals(before, cssTexts(robot))
         assertEquals(sample, sampleColors(robot))
+        assertEquals(slotText, robot.lookup("#vision-text").queryAs(TextField::class.java).text)
     }
 
     @Test

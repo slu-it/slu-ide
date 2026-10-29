@@ -19,15 +19,27 @@ internal data class Badge(
     val pass: Boolean,
 )
 
-/** A text color that reaches the WCAG [level] (AA = 4.5, AAA = 7); [color] and [colorText] are `null` if none does. */
+/** Which color of the pair a suggestion changes; the other one stays fixed. */
+internal enum class ContrastRole(
+    val noun: String,
+) {
+    TEXT("text color"),
+    BACKGROUND("background"),
+}
+
+/**
+ * A color for the [role] that reaches the WCAG [level] (AA = 4.5, AAA = 7); [color] and [colorText] are `null` if
+ * none does.
+ */
 internal data class Suggestion(
+    val role: ContrastRole,
     val level: String,
     val target: Double,
     val color: CssColor?,
     val colorText: String?,
 ) {
     /** The line saying what is offered. */
-    val title: String get() = "Nearest text color passing $level:"
+    val title: String get() = "Nearest ${role.noun} passing $level:"
 
     /** The text shown when there is no such color. */
     val noneText: String get() = "No color with this hue reaches it"
@@ -55,14 +67,15 @@ internal fun ratioText(ratio: Double): String = String.format(Locale.ROOT, "%.2f
 /** The APCA value as "Lc 63.1": one decimal, the sign kept. */
 internal fun apcaText(lc: Double): String = String.format(Locale.ROOT, "Lc %.1f", lc)
 
-/** The contrast of [current] and [second], [current] being the text color if [currentIsText], else the background. */
+/**
+ * The contrast of [text] on [background]. The suggestion changes the color of the [adjust] role and keeps the other
+ * one fixed.
+ */
 internal fun contrastView(
-    current: CssColor,
-    second: CssColor,
-    currentIsText: Boolean,
+    text: CssColor,
+    background: CssColor,
+    adjust: ContrastRole,
 ): ContrastSummary {
-    val text = if (currentIsText) current else second
-    val background = if (currentIsText) second else current
     val ratio = contrastRatio(text, background)
     val v = wcagVerdicts(ratio)
     val target =
@@ -73,8 +86,8 @@ internal fun contrastView(
         }
     val suggestion =
         target?.let { (level, goal) ->
-            val color = suggest(text, background, goal)
-            Suggestion(level, goal, color, color?.let(::cssText))
+            val color = suggest(text, background, adjust, goal)
+            Suggestion(adjust, level, goal, color, color?.let(::cssText))
         }
     return ContrastSummary(
         text = text,
@@ -97,27 +110,34 @@ internal fun contrastView(
 private const val LIGHTNESS_STEP = 0.002
 
 /**
- * A text color near [text] that reaches [target] on [background] as an 8-bit sRGB color, so the color shown and
+ * A color near the [adjust] one of the pair that reaches [target] as an 8-bit sRGB color, so the color shown and
  * applied is exactly the one that passes. [nearestPassing] finds the exact lightness; rounding it to 8 bits can fall
- * just below the threshold, so the lightness is moved on, away from [text], until the rounded color passes.
+ * just below the threshold, so the lightness is moved on, away from the original, until the rounded color passes.
+ * The search measures the real pair (text over background) for either role, so translucent colors are handled.
  */
 internal fun suggest(
     text: CssColor,
     background: CssColor,
+    adjust: ContrastRole,
     target: Double,
 ): CssColor? {
-    val exact = nearestPassing(text, background, target) ?: return null
+    val changing = if (adjust == ContrastRole.TEXT) text else background
+
+    fun ratio(candidate: CssColor) =
+        if (adjust == ContrastRole.TEXT) contrastRatio(candidate, background) else contrastRatio(text, candidate)
+
+    val exact = nearestPassing(changing, target, ::ratio) ?: return null
 
     fun snap(c: CssColor) = c.toRgb8().let { CssColor.fromRgb8(it.r, it.g, it.b, it.a) }
-    snap(exact).takeIf { contrastRatio(it, background) >= target }?.let { return it }
+    snap(exact).takeIf { ratio(it) >= target }?.let { return it }
     val oklch = exact.to(ColorSpace.OKLCH)
-    val direction = if (oklch.c0 >= text.to(ColorSpace.OKLCH).c0) 1 else -1
+    val direction = if (oklch.c0 >= changing.to(ColorSpace.OKLCH).c0) 1 else -1
     val hue = if (oklch.isHueMissing) 0.0 else oklch.c2
     var l = oklch.c0
     while (l > 0.0 && l < 1.0) {
         l = (l + direction * LIGHTNESS_STEP).coerceIn(0.0, 1.0)
-        val candidate = snap(CssColor(ColorSpace.OKLCH, l, oklch.c1, hue, text.alpha).toSrgbGamut())
-        if (contrastRatio(candidate, background) >= target) return candidate
+        val candidate = snap(CssColor(ColorSpace.OKLCH, l, oklch.c1, hue, changing.alpha).toSrgbGamut())
+        if (ratio(candidate) >= target) return candidate
     }
     return null
 }

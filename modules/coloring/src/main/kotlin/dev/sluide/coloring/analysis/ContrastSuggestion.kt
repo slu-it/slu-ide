@@ -19,14 +19,24 @@ fun nearestPassing(
     foreground: CssColor,
     background: CssColor,
     target: Double = 4.5,
+): CssColor? = nearestPassing(foreground, target) { contrastRatio(it, background) }
+
+/**
+ * [nearestPassing] for a color whose contrast is measured by [ratio], so that the real pair is tested even when the
+ * color is the background of a translucent text: `nearestPassing(background, target) { contrastRatio(text, it) }`.
+ */
+internal fun nearestPassing(
+    foreground: CssColor,
+    target: Double,
+    ratio: (CssColor) -> Double,
 ): CssColor? {
-    if (contrastRatio(foreground, background) >= target) return foreground
+    if (ratio(foreground) >= target) return foreground
     val origin = foreground.to(ColorSpace.OKLCH)
     val hue = if (origin.isHueMissing) 0.0 else origin.c2
 
     fun candidate(l: Double) = CssColor(ColorSpace.OKLCH, l, origin.c1, hue, foreground.alpha).toSrgbGamut()
 
-    fun passes(l: Double) = contrastRatio(candidate(l), background) >= target
+    fun passes(l: Double) = ratio(candidate(l)) >= target
 
     fun search(direction: Int): Double? {
         // The end of the scan (white or black) is the best candidate; if it fails, no lightness in this direction passes.

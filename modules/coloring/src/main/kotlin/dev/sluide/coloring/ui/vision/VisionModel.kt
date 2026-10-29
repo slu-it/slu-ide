@@ -16,7 +16,6 @@ internal data class VisionRow(
     val deficiency: Deficiency?,
     val label: String,
     val description: String,
-    val current: CssColor,
     val text: CssColor,
     val background: CssColor,
     val ratioText: String,
@@ -33,27 +32,25 @@ private val ROWS: List<Triple<Deficiency?, String, String>> =
     )
 
 /**
- * The five rows for [current] and [second]; [currentIsText] says which of the two is the text of the pair. The pair is
- * composited first (background over white, text over that background), as a viewer sees the pixels, then simulated;
- * [VisionRow.text] and [VisionRow.background] are therefore opaque. [VisionRow.current] keeps its alpha.
+ * The five rows for the pair [text] on [background]. The pair is composited first (background over white, text over
+ * that background), as a viewer sees the pixels, then simulated; [VisionRow.text] and [VisionRow.background] are
+ * therefore opaque.
  */
 internal fun visionRows(
-    current: CssColor,
-    second: CssColor,
-    currentIsText: Boolean,
+    text: CssColor,
+    background: CssColor,
 ): List<VisionRow> {
-    val background = flatten(if (currentIsText) second else current, WHITE)
-    val text = flatten(if (currentIsText) current else second, background)
+    val flatBackground = flatten(background, WHITE)
+    val flatText = flatten(text, flatBackground)
     return ROWS.map { (deficiency, label, description) ->
         fun see(color: CssColor) = if (deficiency == null) color else simulate(color, deficiency)
-        val seenText = see(text)
-        val seenBackground = see(background)
+        val seenText = see(flatText)
+        val seenBackground = see(flatBackground)
         val ratio = contrastRatio(seenText, seenBackground)
         VisionRow(
             deficiency,
             label,
             description,
-            see(current),
             seenText,
             seenBackground,
             ratioText(ratio),

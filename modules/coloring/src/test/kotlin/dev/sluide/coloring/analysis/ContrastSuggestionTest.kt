@@ -74,4 +74,11 @@ class ContrastSuggestionTest {
     fun `an impossible target gives null`() {
         assertNull(nearestPassing(lightGray, white, 22.0))
     }
+
+    @Test
+    fun `a ratio function tests the real pair, so a translucent text passes on the found background`() {
+        val text = CssColor.srgb(1.0, 1.0, 1.0, 0.5)
+        val found = assertNotNull(nearestPassing(CssColor.fromRgb8(0x4d, 0x4d, 0x4d), 4.5) { contrastRatio(text, it) })
+        assertTrue(contrastRatio(text, found) >= 4.5)
+    }
 }

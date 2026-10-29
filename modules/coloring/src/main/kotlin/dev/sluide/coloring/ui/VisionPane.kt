@@ -14,26 +14,37 @@ import javafx.scene.control.Label
 import javafx.scene.control.Tooltip
 import javafx.scene.layout.Background
 import javafx.scene.layout.BackgroundFill
-import javafx.scene.layout.GridPane
+import javafx.scene.layout.FlowPane
+import javafx.scene.layout.HBox
 import javafx.scene.layout.StackPane
 import javafx.scene.layout.VBox
 
-/** The Contrast pair (Text and Background) as people with color vision deficiencies see them. */
+/**
+ * The Contrast pair (Text and Background) as people with color vision deficiencies see them. The slot views at the top
+ * select the shared Contrast slots; the Vision tab remembers its own choice of them.
+ */
 internal class VisionPane(
     private val state: ColoringState,
 ) {
+    private val textSlot = SlotView(state.contrastText, state, ColoringState.VISION).apply { field.id = "vision-text" }
+    private val backgroundSlot =
+        SlotView(state.contrastBackground, state, ColoringState.VISION).apply { field.id = "vision-background" }
+
     /** The nodes of one row; their colors and texts are updated in place. */
     private class RowView(
-        val color: SimpleObjectProperty<CssColor>,
-        val swatch: Swatch,
-        val css: Label,
+        val text: SimpleObjectProperty<CssColor>,
+        val background: SimpleObjectProperty<CssColor>,
+        val textSwatch: Swatch,
+        val backgroundSwatch: Swatch,
+        val textCss: Label,
+        val backgroundCss: Label,
         val sample: StackPane,
         val aa: Label,
         val ratio: Label,
         val badge: Label,
     )
 
-    private val grid = GridPane().apply { styleClass += "vision-grid" }
+    private val rowsBox = VBox(10.0).apply { styleClass += "vision-grid" }
     private val warningLabel =
         Label().apply {
             styleClass += "vision-warning"
@@ -47,8 +58,8 @@ internal class VisionPane(
     val node: Node
 
     init {
-        val initial = visionRows(state.contrastText.color.value, state.contrastBackground.color.value, true)
-        views = initial.mapIndexed { index, row -> build(index, row) }
+        val initial = visionRows(state.contrastText.color.value, state.contrastBackground.color.value)
+        views = initial.map(::build)
         val intro =
             Label(
                 "How people with color-vision deficiencies see these colors " +
@@ -61,8 +72,10 @@ internal class VisionPane(
             VBox(
                 6.0,
                 Label("Vision").apply { styleClass += "coloring-section-title" },
+                textSlot.node,
+                backgroundSlot.node,
                 intro,
-                grid,
+                rowsBox,
                 warningLabel,
             ).apply {
                 styleClass += "vision-pane"
@@ -73,13 +86,13 @@ internal class VisionPane(
         state.contrastBackground.color.addListener(listener)
     }
 
-    private fun build(
-        index: Int,
-        row: VisionRow,
-    ): RowView {
-        val color = SimpleObjectProperty(row.current)
-        val swatch = Swatch.of(color, state, size = 36.0)
-        val css = Label().apply { styleClass += "vision-css" }
+    private fun build(row: VisionRow): RowView {
+        val text = SimpleObjectProperty(row.text)
+        val background = SimpleObjectProperty(row.background)
+        val textSwatch = Swatch.of(text, state, size = 28.0)
+        val backgroundSwatch = Swatch.of(background, state, size = 28.0)
+        val textCss = Label().apply { styleClass += "vision-css" }
+        val backgroundCss = Label().apply { styleClass += "vision-css" }
         val aa = Label("Aa").apply { styleClass += "vision-sample-text" }
         val sample = StackPane(aa).apply { styleClass += "vision-sample" }
         val ratio = Label()
@@ -89,18 +102,29 @@ internal class VisionPane(
                 styleClass += "vision-row-label"
                 tooltip = Tooltip(row.description)
             }
-        grid.add(label, 0, index)
-        grid.add(VBox(2.0, swatch, css).apply { alignment = Pos.CENTER_LEFT }, 1, index)
-        grid.add(sample, 2, index)
-        grid.add(VBox(2.0, ratio, badge), 3, index)
-        return RowView(color, swatch, css, sample, aa, ratio, badge)
+        rowsBox.children +=
+            VBox(
+                4.0,
+                label,
+                FlowPane(
+                    12.0,
+                    6.0,
+                    sample,
+                    HBox(4.0, textSwatch, textCss).apply { alignment = Pos.CENTER_LEFT },
+                    HBox(4.0, backgroundSwatch, backgroundCss).apply { alignment = Pos.CENTER_LEFT },
+                    HBox(8.0, ratio, badge).apply { alignment = Pos.CENTER_LEFT },
+                ).apply { alignment = Pos.CENTER_LEFT },
+            )
+        return RowView(text, background, textSwatch, backgroundSwatch, textCss, backgroundCss, sample, aa, ratio, badge)
     }
 
     private fun update() {
-        val rows = visionRows(state.contrastText.color.value, state.contrastBackground.color.value, true)
+        val rows = visionRows(state.contrastText.color.value, state.contrastBackground.color.value)
         rows.zip(views).forEach { (row, view) ->
-            view.color.set(row.current)
-            view.css.text = cssText(row.current)
+            view.text.set(row.text)
+            view.background.set(row.background)
+            view.textCss.text = cssText(row.text)
+            view.backgroundCss.text = cssText(row.background)
             view.sample.background = Background(BackgroundFill(row.background.toFxColor(), null, null))
             view.aa.textFill = row.text.toFxColor()
             view.ratio.text = row.ratioText
@@ -114,10 +138,15 @@ internal class VisionPane(
         warningLabel.isManaged = text != null
     }
 
-    /** Releases the listeners on the window's state and the swatches'. */
+    /** Releases the listeners on the window's state, the slot views and the swatches. */
     fun dispose() {
         state.contrastText.color.removeListener(listener)
         state.contrastBackground.color.removeListener(listener)
-        views.forEach { it.swatch.dispose() }
+        textSlot.dispose()
+        backgroundSlot.dispose()
+        views.forEach {
+            it.textSwatch.dispose()
+            it.backgroundSwatch.dispose()
+        }
     }
 }
