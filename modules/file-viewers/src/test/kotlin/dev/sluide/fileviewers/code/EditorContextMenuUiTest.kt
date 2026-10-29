@@ -243,6 +243,7 @@ class EditorContextMenuUiTest {
         )
         val copy = menu.items.single { it.text == "Copy" }
         assertTrue(copy.isDisable, "nothing selected")
+        assertTrue(menu.items.single { it.text == "Undo" }.isDisable, "nothing to undo in a file just opened")
         assertEquals(
             KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
             menu.items.single { it.text == "Redo" }.accelerator,
