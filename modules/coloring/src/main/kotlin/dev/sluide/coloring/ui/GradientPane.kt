@@ -26,6 +26,7 @@ import javafx.scene.control.ToggleGroup
 import javafx.scene.control.Tooltip
 import javafx.scene.input.Clipboard
 import javafx.scene.input.ClipboardContent
+import javafx.scene.layout.FlowPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
 import javafx.scene.layout.VBox
@@ -94,7 +95,7 @@ internal class GradientPane(
         val angleRow =
             HBox(8.0, Label("Angle"), angle.also { HBox.setHgrow(it, Priority.ALWAYS) }, angleField, Label("deg"))
         val stopRow = HBox(8.0, selectedSwatch, stopField.node.also { HBox.setHgrow(it, Priority.ALWAYS) })
-        val stopButtons = HBox(6.0, addButton, removeButton, setCurrentButton, useButton)
+        val stopButtons = FlowPane(6.0, 6.0, addButton, removeButton, setCurrentButton, useButton)
         copyButton.tooltip = Tooltip("Copy the CSS")
         val outRow = HBox(6.0, cssField.also { HBox.setHgrow(it, Priority.ALWAYS) }, copyButton)
         node =

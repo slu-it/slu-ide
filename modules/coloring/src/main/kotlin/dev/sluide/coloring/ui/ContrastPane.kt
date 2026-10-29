@@ -130,8 +130,9 @@ internal class ContrastPane(
         ).apply { alignment = Pos.CENTER_LEFT }
 
     private fun secondRow() =
-        HBox(
+        FlowPane(
             8.0,
+            6.0,
             Label("Second color:"),
             secondSwatch,
             secondField.node,
