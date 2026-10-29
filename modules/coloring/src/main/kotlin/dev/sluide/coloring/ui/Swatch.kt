@@ -63,7 +63,7 @@ internal class Swatch(
     }
 
     companion object {
-        private val CHECKER =
+        internal val CHECKER =
             ImagePattern(
                 WritableImage(2, 2).also { image ->
                     val writer = image.pixelWriter

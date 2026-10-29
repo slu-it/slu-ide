@@ -35,7 +35,19 @@ and a copy button per row. A "≈" marks a text that is the gamut-mapped color o
 only for an exact named color.
 
 ### Picker
-(described with its implementation)
+The picker sets the current color in two modes, switched by the Square | Wheel buttons (Square by default), with an
+alpha slider below both.
+
+- **Square**: saturation (left to right) and value (bottom to top) for the current hue, and a vertical hue strip
+  beside it.
+- **Wheel**: a disc where the angle is the hue and the distance from the center the saturation, with a vertical value
+  slider beside it. A drag outside the disc clamps to the rim.
+- **Alpha**: a slider on a checkerboard from transparent to the opaque current color.
+
+Pressing and dragging set the color live and stay inside the control. The picker keeps its own hue, saturation, value
+and alpha, so the hue does not jump when the color becomes gray or black while dragging, and a gray or black color set
+from elsewhere keeps the last hue. The color it sets is in HSV (`hsv()` coordinates); a color set from elsewhere is
+gamut-mapped into sRGB first if needed.
 
 ### Saved colors
 The section at the bottom of the left column keeps colors you save explicitly with the Save button (star icon; it is

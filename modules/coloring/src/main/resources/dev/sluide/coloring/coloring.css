@@ -74,3 +74,12 @@
         -fx-text-fill: #fbbf24;
     }
 }
+
+/* Picker */
+/* White ring with a dark halo, so the marker shows on light and on dark colors. */
+.picker-marker {
+    -fx-fill: transparent;
+    -fx-stroke: white;
+    -fx-stroke-width: 2;
+    -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.85), 2, 0.8, 0, 0);
+}
