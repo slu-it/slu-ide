@@ -95,7 +95,15 @@ The gradient belongs to the tab, not to the window: closing the tab drops it, an
 current and second color.
 
 ## Vision
-(described with its implementation)
+Shows how people with color-vision deficiencies see the current color and the contrast pair. The simulation applies
+the Machado et al. 2009 matrices at full severity on linear sRGB (protanopia, deuteranopia, tritanopia) and maps the
+luminance to a gray for achromatopsia. One row each for normal vision, protanopia, deuteranopia, tritanopia and
+achromatopsia (a tooltip on the label describes the deficiency). Columns: the simulated current color as a swatch
+(a click makes it the current color) with its CSS text; the simulated pair as an "Aa" sample (roles as in Contrast:
+`currentIsText`); its WCAG ratio, truncated to two decimals, with a Pass AA / Fail AA badge. When the pair passes AA
+with normal vision but fails under a deficiency, a line below the grid names the deficiencies and asks for a bigger lightness difference.
+A translucent pair is composited first (background over white, text over that background) and simulated afterwards,
+as a viewer sees the pixels; the swatch keeps its alpha. The pane follows the current color, the second color and the text/background roles.
 
 ## In the code editor
 (described with its implementation)

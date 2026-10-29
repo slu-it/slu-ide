@@ -121,6 +121,33 @@
     -fx-effect: dropshadow(gaussian, rgba(0, 0, 0, 0.85), 2, 0.8, 0, 0);
 }
 
+/* Vision */
+.vision-grid {
+    -fx-hgap: 12;
+    -fx-vgap: 8;
+}
+
+.vision-sample {
+    -fx-min-width: 64;
+    -fx-pref-width: 64;
+    -fx-min-height: 36;
+    -fx-border-color: rgba(128, 128, 128, 0.5);
+}
+
+.vision-sample-text {
+    -fx-font-size: 18;
+    -fx-font-weight: bold;
+}
+
+.vision-css {
+    -fx-font-family: monospace;
+    -fx-font-size: 10;
+}
+
+.vision-warning {
+    -fx-text-fill: #b45309;
+}
+
 @media (prefers-color-scheme: dark) {
     .contrast-badge.badge-pass {
         -fx-background-color: #1f3a28;
@@ -130,5 +157,9 @@
     .contrast-badge.badge-fail {
         -fx-background-color: #4a2025;
         -fx-text-fill: #ff7b72;
+    }
+
+    .vision-warning {
+        -fx-text-fill: #fbbf24;
     }
 }
