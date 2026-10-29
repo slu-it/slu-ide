@@ -7,6 +7,7 @@ import dev.sluide.coloring.ui.vision.visionRows
 import dev.sluide.coloring.ui.vision.warning
 import javafx.beans.property.SimpleObjectProperty
 import javafx.beans.value.ChangeListener
+import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Label
@@ -63,7 +64,10 @@ internal class VisionPane(
                 intro,
                 grid,
                 warningLabel,
-            ).apply { styleClass += "vision-pane" }
+            ).apply {
+                styleClass += "vision-pane"
+                padding = Insets(12.0)
+            }
         update()
         state.current.addListener(listener)
         state.second.addListener(listener)
