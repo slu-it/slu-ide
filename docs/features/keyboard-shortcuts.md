@@ -18,7 +18,7 @@ Accelerators of the menu bar ([open-folder.md](open-folder.md), [settings.md](se
 | Shortcut+O | File → Open Folder… |
 | Shortcut+S | File → Save |
 | Shortcut+Alt+S | File → Save All |
-| Shortcut+W | File → Close Tab (file and diff tabs, not terminals) |
+| Shortcut+W | File → Close Tab (file, diff and tool tabs such as Coloring, not terminals) |
 | Shortcut+, | File → Settings… |
 | Shortcut+Shift+D | View → Show Changes (side-by-side diff of the current file) |
 | Alt+F1 (Option+F1 on macOS) | View → Select Opened File (reveals the selected tab's file in the explorer and focuses it; not while a terminal has the focus, it sends Alt+F1 to the shell; many Linux desktops (GNOME, KDE, Xfce) grab Alt+F1 themselves, so it may never reach the app there) |

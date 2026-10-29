@@ -192,6 +192,7 @@ updated when the summary or keywords no longer fit.
 | [http-client-env-editor.md](features/http-client-env-editor.md) | Visual editor for the HTTP client environment files | `http-client.env.json`, private env file, tree table, locks |
 | [gradle.md](features/gradle.md) | Gradle view: task tree and task runs in an embedded terminal | `build.gradle.kts`, wrapper, task tree, run tasks, argument history, trust |
 | [shell-scripts.md](features/shell-scripts.md) | Shell scripts run from their tab or the explorer | `.sh`, Run, Shortcut+Enter, argument history, make executable |
+| [coloring.md](features/coloring.md) | Coloring tool: a tab of the Tools menu for colors in CSS notations | Tools menu, Coloring, color picker, contrast, harmonies, gradient, color vision |
 
 ## Ideas
 Explored but not decided or built; options and trade-offs, no commitment.
