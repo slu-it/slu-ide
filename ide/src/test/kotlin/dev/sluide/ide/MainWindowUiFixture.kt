@@ -1,6 +1,8 @@
 package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.coloring.Coloring
+import dev.sluide.coloring.SavedColors
 import dev.sluide.commandruns.ArgumentHistories
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.dockersandbox.DockerSandbox
@@ -200,6 +202,9 @@ abstract class MainWindowUiFixture {
     /** The TODO panels of the windows a test created, the main window's first; closed after it. */
     internal val todoPanels = mutableListOf<TodoPanel>()
 
+    /** The Coloring tools of the windows created by [mainWindow]. */
+    internal val colorings = mutableListOf<Coloring>()
+
     /** The application-wide TODO store, in the test's project data and shared data file. */
     internal val todos by lazy { Todos(projectData) }
     internal val todoPanel get() = todoPanels.first()
@@ -270,6 +275,7 @@ abstract class MainWindowUiFixture {
             projectData,
             TodoPanel(todos).also(todoPanels::add),
             fontSettings,
+            Coloring(SavedColors(projectData)).also(colorings::add),
         )
     }
 

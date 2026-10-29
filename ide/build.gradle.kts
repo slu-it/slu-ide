@@ -51,6 +51,8 @@ dependencies {
     implementation(project(":modules:shell-scripts"))
     // The TODO panel at the right of every window; TodoPanel is a window bean, Todos a singleton (ADR 0102).
     implementation(project(":modules:todos"))
+    // The Coloring tool: a tab opened from the Tools menu, one per window (ADR 0109, ADR 0110).
+    implementation(project(":modules:coloring"))
     // The explorer's Run item has a Material Design play icon, like the HTTP client's Run (ADR 0012).
     implementation(libs.ikonli.javafx)
     implementation(libs.ikonli.materialdesign2)

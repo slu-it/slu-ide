@@ -1,6 +1,8 @@
 package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.coloring.Coloring
+import dev.sluide.coloring.SavedColors
 import dev.sluide.commandruns.ArgumentHistories
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.dockersandbox.DockerSandbox
@@ -138,6 +140,7 @@ class SpringWiringTest {
                         LegacyTrustDecisions::class.java,
                         ScratchFiles::class.java,
                         Todos::class.java,
+                        SavedColors::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")
@@ -163,6 +166,7 @@ class SpringWiringTest {
                         ProjectTrust::class.java,
                         BackgroundTasks::class.java,
                         TodoPanel::class.java,
+                        Coloring::class.java,
                     )
                 val scoped =
                     context.beanFactory.beanDefinitionNames.filter {

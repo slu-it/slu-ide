@@ -1,6 +1,7 @@
 package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.coloring.Coloring
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
@@ -96,6 +97,7 @@ class MainWindow(
     private val projectData: ProjectDataStore,
     todoPanel: TodoPanel,
     fontSettings: FontSettings,
+    coloring: Coloring,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
     internal var openWebPage: (URI) -> Unit = systemBrowser::open
@@ -168,9 +170,16 @@ class MainWindow(
     /** The explorer's Run for files their view can run, e.g. shell scripts (ADR 0089). */
     private val scriptRuns = WindowScriptRuns(fileViewers::viewerFor, { editorArea.open(it) }, editorArea::viewOf)
 
-    /** The Terminal and Docker Sandbox menus and the tabs they open. */
+    /** The Terminal, Docker Sandbox and Tools menus and the tabs they open. */
     internal val tools =
-        WindowTools(projectService, terminals, dockerSandbox, editorArea, showError = { s, m -> showError(s, m) })
+        WindowTools(
+            projectService,
+            terminals,
+            dockerSandbox,
+            editorArea,
+            coloring,
+            showError = { s, m -> showError(s, m) },
+        )
 
     fun show(stage: Stage) {
         themedWindows.install()
@@ -197,6 +206,7 @@ class MainWindow(
                             gitLog.gitMenu(),
                             tools.terminalMenu(stage),
                             tools.dockerSandboxMenu(stage),
+                            tools.toolsMenu(),
                         ),
                         trust.bar,
                     )

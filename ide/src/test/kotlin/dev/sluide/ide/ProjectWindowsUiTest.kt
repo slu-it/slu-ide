@@ -1,6 +1,8 @@
 package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.coloring.Coloring
+import dev.sluide.coloring.SavedColors
 import dev.sluide.commandruns.ArgumentHistories
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.dockersandbox.DockerSandbox
@@ -135,6 +137,7 @@ class ProjectWindowsUiTest {
                 register(GitTrustCheck::class.java)
                 register(ArgumentHistories::class.java)
                 register(Todos::class.java)
+                registerBean(SavedColors::class.java, Supplier { SavedColors(projectData) })
                 register(GitLog::class.java)
                 register(GitBranches::class.java)
                 register(GitCommits::class.java)
@@ -167,6 +170,7 @@ class ProjectWindowsUiTest {
                     ProjectTrust::class.java,
                     BackgroundTasks::class.java,
                     TodoPanel::class.java,
+                    Coloring::class.java,
                 )
                 refresh()
             }

@@ -1,6 +1,8 @@
 package dev.sluide.ide
 
+import dev.sluide.coloring.color.CssColor
 import javafx.event.Event
+import javafx.scene.control.MenuBar
 import javafx.scene.control.TreeCell
 import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.KeyCode
@@ -161,5 +163,32 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
 
         assertFalse(menu.isDisable)
         assertEquals(listOf(false, true), menu.items.map { it.isDisable })
+    }
+
+    @Test
+    fun `Tools - Coloring opens one Coloring tab, and show opens it again once it is closed`(robot: FxRobot) {
+        val menus =
+            robot
+                .lookup(".menu-bar")
+                .queryAs(MenuBar::class.java)
+                .menus
+                .map { it.text }
+        assertEquals(listOf("Docker Sandbox", "Tools"), menus.takeLast(2))
+
+        val coloringItem = menu(robot, "Tools").items.single()
+        assertEquals("Coloring", coloringItem.text)
+        robot.interact { coloringItem.fire() }
+        robot.interact { coloringItem.fire() }
+
+        assertEquals(listOf("Coloring"), tabTitles(robot))
+        assertEquals("Color tools", checkNotNull(editorArea.selectedTab).tooltip)
+
+        robot.interact { editorArea.closeAll() }
+        assertEquals(emptyList(), tabTitles(robot))
+        val red = CssColor.fromRgb8(255, 0, 0)
+        robot.interact { colorings.single().show(red) }
+
+        assertEquals(listOf("Coloring"), tabTitles(robot))
+        assertEquals("Color tools", checkNotNull(editorArea.selectedTab).tooltip)
     }
 }
