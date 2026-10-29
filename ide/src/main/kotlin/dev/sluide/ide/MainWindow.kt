@@ -10,6 +10,7 @@ import dev.sluide.fileexplorer.ExplorerBar
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileexplorer.FolderAction
 import dev.sluide.fileexplorer.FolderActionResult
+import dev.sluide.fileviewers.CodeEditorExtensions
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.IgnoreRuleEffects
 import dev.sluide.git.GitRemotes
@@ -97,7 +98,7 @@ class MainWindow(
     private val projectData: ProjectDataStore,
     todoPanel: TodoPanel,
     fontSettings: FontSettings,
-    coloring: Coloring,
+    private val coloring: Coloring,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
     internal var openWebPage: (URI) -> Unit = systemBrowser::open
@@ -273,6 +274,13 @@ class MainWindow(
         // Views that run commands (shell scripts) run them in the window's terminals and list them among its
         // background tasks (ADR 0088, ADR 0089).
         editorArea.windowServices.register(CommandRunSession::class.java, commandRuns)
+        // Code editors show the colors of style, markup and script files as swatches and open them in Coloring (ADR 0108, ADR 0109).
+        editorArea.windowServices.register(
+            CodeEditorExtensions::class.java,
+            CodeEditorExtensions().apply {
+                add(coloring.editorExtension)
+            },
+        )
         gradleSession.reviewTrust = { trust.review(stage) }
         // It warns about private environment files that git would commit.
         httpSession.wouldCommit = { gitStatus.snapshot.get().wouldCommit(it) }

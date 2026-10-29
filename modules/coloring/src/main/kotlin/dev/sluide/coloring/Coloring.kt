@@ -1,10 +1,12 @@
 package dev.sluide.coloring
 
 import dev.sluide.coloring.color.CssColor
+import dev.sluide.coloring.editor.ColorEditorExtension
 import dev.sluide.coloring.ui.ColoringState
 import dev.sluide.coloring.ui.ColoringTab
 import dev.sluide.coloring.ui.ColoringView
 import dev.sluide.editorarea.EditorTab
+import dev.sluide.fileviewers.CodeEditorExtension
 import javafx.beans.property.ObjectProperty
 import javafx.beans.property.SimpleObjectProperty
 import org.springframework.context.annotation.Scope
@@ -32,6 +34,9 @@ class Coloring(
 
     /** A new Coloring tab on [state]. */
     fun createTab(): EditorTab = ColoringTab(ColoringView(state, savedColors, projectFolder))
+
+    /** Extends the window's code editors with color swatches and "Open in Coloring" (ADR 0108, ADR 0109). */
+    val editorExtension: CodeEditorExtension = ColorEditorExtension(::show)
 
     /** Makes [color] current and shows the tab (from the editor's swatches). */
     fun show(color: CssColor) {

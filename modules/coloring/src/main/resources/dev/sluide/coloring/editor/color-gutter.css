@@ -1,0 +1,5 @@
+/* The swatches in the gutter of code editors; they live in the editor's scene, so they bring their own style. */
+.color-gutter-swatch {
+    -fx-border-color: -fx-box-border;
+    -fx-border-width: 1px;
+}

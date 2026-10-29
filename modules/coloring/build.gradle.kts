@@ -22,6 +22,8 @@ dependencies {
     implementation(libs.ikonli.javafx)
     implementation(libs.ikonli.materialdesign2)
 
+    // Tests find the code area of a code editor, to open its context menu.
+    testImplementation(libs.richtextfx)
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
 }

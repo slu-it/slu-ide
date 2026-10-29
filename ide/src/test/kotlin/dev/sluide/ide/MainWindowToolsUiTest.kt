@@ -2,12 +2,15 @@ package dev.sluide.ide
 
 import dev.sluide.coloring.color.CssColor
 import javafx.event.Event
+import javafx.scene.Node
 import javafx.scene.control.MenuBar
 import javafx.scene.control.TreeCell
 import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
+import javafx.scene.input.MouseButton
+import javafx.scene.input.MouseEvent
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -20,6 +23,7 @@ import java.util.concurrent.CompletableFuture
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
 import kotlin.io.path.name
+import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -189,6 +193,44 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
         robot.interact { colorings.single().show(red) }
 
         assertEquals(listOf("Coloring"), tabTitles(robot))
+        assertEquals("Color tools", checkNotNull(editorArea.selectedTab).tooltip)
+    }
+
+    @Test
+    fun `clicking the color swatch in the gutter of a style file opens the Coloring tab`(robot: FxRobot) {
+        val file = project.resolve("main.css").apply { writeText("a { color: #ff0000; }\n") }
+        robot.interact { editorArea.open(file) }
+        eventually(robot) { assertEquals(1, robot.lookup(".color-gutter-swatch").queryAllAs(Node::class.java).size) }
+        assertEquals(listOf("main.css"), tabTitles(robot))
+
+        val swatch = robot.lookup(".color-gutter-swatch").queryAs(Node::class.java)
+        robot.interact {
+            Event.fireEvent(
+                swatch,
+                MouseEvent(
+                    MouseEvent.MOUSE_CLICKED,
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0,
+                    MouseButton.PRIMARY,
+                    1,
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    null,
+                ),
+            )
+        }
+
+        assertEquals(listOf("main.css", "Coloring"), tabTitles(robot))
         assertEquals("Color tools", checkNotNull(editorArea.selectedTab).tooltip)
     }
 }
