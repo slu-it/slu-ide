@@ -25,7 +25,13 @@ tabs at the right.
 (described with its implementation)
 
 ### Saved colors
-(described with its implementation)
+The section at the bottom of the left column keeps colors you save explicitly with the Save button (star icon; it is
+disabled while the current color is already saved). Nothing is saved automatically, there is no history. The colors are
+stored per project in the project data (field `colors`), or in `shared.json` in a window without a folder. A color is
+saved once: the same 8-bit color in another notation counts as saved. Click a swatch to make it the current color;
+right-click it and choose Remove to delete it. All windows of a project show the same saved colors and follow changes
+made in another window. If the colors cannot be written, a muted message under the swatches says so and the log has
+the reason.
 
 ## Contrast
 (described with its implementation)

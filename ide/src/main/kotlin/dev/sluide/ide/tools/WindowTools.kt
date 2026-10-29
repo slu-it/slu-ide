@@ -39,7 +39,7 @@ internal class WindowTools(
 
     init {
         coloring.showTab = { toolsMenu.open(coloringTool) }
-        coloring.projectFolder = { projectService.projectFolder.get() }
+        coloring.projectFolder.bind(projectService.projectFolder)
     }
 
     /** The Tools menu: Coloring. */

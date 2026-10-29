@@ -3,6 +3,7 @@ package dev.sluide.coloring.ui
 import dev.sluide.coloring.SavedColors
 import dev.sluide.coloring.color.CssColor
 import dev.sluide.projectdata.ProjectDataStore
+import javafx.beans.property.SimpleObjectProperty
 import javafx.event.Event
 import javafx.scene.Parent
 import javafx.scene.Scene
@@ -11,6 +12,7 @@ import javafx.scene.input.MouseEvent
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.api.io.TempDir
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
@@ -22,13 +24,16 @@ import kotlin.test.assertEquals
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
 class ColoringViewUiTest {
+    @TempDir
+    lateinit var dir: Path
+
     private val state = ColoringState()
     private lateinit var view: ColoringView
 
     @Start
     fun start(stage: Stage) {
         view =
-            ColoringView(state, savedColors = SavedColors(unusedStore()), projectFolder = { null })
+            ColoringView(state, savedColors = SavedColors(store()), projectFolder = SimpleObjectProperty(null))
         stage.scene = Scene(view.node as Parent, 900.0, 600.0)
         stage.show()
     }
@@ -92,12 +97,5 @@ class ColoringViewUiTest {
         ),
     )
 
-    private fun unusedStore() =
-        ProjectDataStore(
-            Path
-                .of("unused-projects"),
-            Path
-                .of("unused-shared.json"),
-            emptyList(),
-        )
+    private fun store() = ProjectDataStore(dir.resolve("projects"), dir.resolve("shared.json"), emptyList())
 }

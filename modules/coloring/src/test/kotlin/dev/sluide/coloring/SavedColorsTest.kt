@@ -135,10 +135,16 @@ class SavedColorsTest {
     @Test
     fun `listeners are called once per change and not for refusals`() {
         var calls = 0
-        val subscription = colors.onChanged { calls++ }
+        var lastChanged: Path? = null
+        val subscription =
+            colors.onChanged { changed ->
+                calls++
+                lastChanged = changed
+            }
 
         colors.save(folder, red)
         assertEquals(1, calls)
+        assertEquals(folder.toAbsolutePath().normalize(), lastChanged)
         colors.save(folder, red)
         colors.remove(folder, blue)
         assertEquals(1, calls)

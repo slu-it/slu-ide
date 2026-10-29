@@ -16,3 +16,8 @@
 .coloring-section-title {
     -fx-font-weight: bold;
 }
+
+/* Saved colors */
+.coloring-muted {
+    -fx-text-fill: -fx-mid-text-color;
+}

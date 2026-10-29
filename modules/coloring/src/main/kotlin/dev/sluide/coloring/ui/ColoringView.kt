@@ -2,6 +2,7 @@ package dev.sluide.coloring.ui
 
 import dev.sluide.coloring.SavedColors
 import javafx.application.Platform
+import javafx.beans.value.ObservableValue
 import javafx.geometry.Insets
 import javafx.scene.Node
 import javafx.scene.control.ScrollPane
@@ -20,7 +21,7 @@ import java.nio.file.Path
 internal class ColoringView(
     state: ColoringState,
     savedColors: SavedColors,
-    projectFolder: () -> Path?,
+    projectFolder: ObservableValue<Path?>,
 ) {
     private val input = InputSection(state)
     private val picker = PickerSection(state)

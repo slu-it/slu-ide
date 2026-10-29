@@ -2,13 +2,18 @@ package dev.sluide.coloring
 
 import dev.sluide.coloring.color.CssColor
 import dev.sluide.projectdata.ProjectDataStore
+import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class ColoringTest {
-    private val coloring =
-        Coloring(SavedColors(ProjectDataStore(Path.of("unused-projects"), Path.of("unused-shared.json"), emptyList())))
+    @TempDir
+    lateinit var dir: Path
+
+    private val coloring by lazy {
+        Coloring(SavedColors(ProjectDataStore(dir.resolve("projects"), dir.resolve("shared.json"), emptyList())))
+    }
 
     @Test
     fun `show makes the color current and shows the tab`() {

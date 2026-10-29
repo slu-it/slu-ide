@@ -25,8 +25,8 @@ import java.util.concurrent.CopyOnWriteArrayList
 class SavedColors(
     private val store: ProjectDataStore,
 ) {
-    private val listeners = CopyOnWriteArrayList<() -> Unit>()
-    private var warned = false
+    private val listeners = CopyOnWriteArrayList<(Path?) -> Unit>()
+    private val warned = mutableSetOf<Path?>()
 
     /** The colors saved for [folder] (`null`: the shared file), in order; entries that cannot be parsed are skipped. */
     fun saved(folder: Path?): List<CssColor> = rawEntries(folder).mapNotNull(::parse)
@@ -35,7 +35,7 @@ class SavedColors(
     fun isSaved(
         folder: Path?,
         color: CssColor,
-    ): Boolean = saved(folder).any { same(it, color) }
+    ): Boolean = containsColor(saved(folder), color)
 
     /** Appends [color] unless the same 8-bit color is saved; `false` if it was not added or the store refused. */
     fun save(
@@ -64,8 +64,11 @@ class SavedColors(
         }
     }
 
-    /** Calls [listener] after every saved change, for every window, on the thread of the change. */
-    fun onChanged(listener: () -> Unit): Subscription {
+    /**
+     * Calls [listener] after every saved change, for every window, on the thread of the change, with the folder that
+     * changed (`toAbsolutePath().normalize()`; `null` for the shared file).
+     */
+    fun onChanged(listener: (Path?) -> Unit): Subscription {
         listeners.add(listener)
         return Subscription { listeners.remove(listener) }
     }
@@ -84,7 +87,7 @@ class SavedColors(
     private fun same(
         a: CssColor,
         b: CssColor,
-    ) = a.toRgb8() == b.toRgb8()
+    ) = containsColor(listOf(a), b)
 
     /** Applies [change] to the `saved` array in one store write; notifies on success. */
     private fun write(
@@ -108,22 +111,32 @@ class SavedColors(
             }
         }
         val written = if (folder == null) store.updateShared(edit) else store.update(folder, edit)
-        if (wrongType) warnOnce()
+        if (wrongType) warnOnce(folder)
         if (wrongType || unchanged) return false
-        if (written) listeners.forEach { it() }
+        if (written) normalized(folder).let { changed -> listeners.forEach { it(changed) } }
         return written
     }
 
-    private fun warnOnce() {
-        if (warned) return
-        warned = true
+    private fun normalized(folder: Path?) = folder?.toAbsolutePath()?.normalize()
+
+    private fun warnOnce(folder: Path?) {
+        if (!warned.add(normalized(folder))) return
         System
             .getLogger(SavedColors::class.java.name)
-            .log(System.Logger.Level.WARNING, "Saved colors not written: field '$FIELD' has an unexpected type")
+            .log(
+                System.Logger.Level.WARNING,
+                "Saved colors of ${folder ?: "the shared file"} not written: field '$FIELD' has an unexpected type",
+            )
     }
 
-    private companion object {
-        const val FIELD = "colors"
-        const val SAVED = "saved"
+    companion object {
+        private const val FIELD = "colors"
+        private const val SAVED = "saved"
+
+        /** Whether [colors] holds a color denoting the same 8-bit color as [color]. */
+        internal fun containsColor(
+            colors: List<CssColor>,
+            color: CssColor,
+        ): Boolean = colors.any { it.toRgb8() == color.toRgb8() }
     }
 }
