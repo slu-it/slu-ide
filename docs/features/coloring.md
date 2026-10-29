@@ -17,7 +17,15 @@ tabs at the right.
   again, they are as they were.
 
 ## Current color
-(described with its implementation: input, picker, formats, saved colors)
+
+### Input and formats
+(described with its implementation)
+
+### Picker
+(described with its implementation)
+
+### Saved colors
+(described with its implementation)
 
 ## Contrast
 (described with its implementation)
