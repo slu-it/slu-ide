@@ -66,7 +66,7 @@ updated when the summary or keywords no longer fit.
 | [0044](adr/0044-git-log-compare.md) | Compare with Current as a log mode; diff with the working tree | compare, `GitLogFilter.excluded`, `--left-right`, Compare with Local, working tree | |
 | [0045](adr/0045-git-log-navigation.md) | One revision resolver for hash links and Go to Hash/Branch/Tag | revision resolver, `cat-file --batch-check`, hash links, `LinkText`, Shortcut+G, `loadUntil` | |
 | [0046](adr/0046-git-log-file-history.md) | File history as `History:` tabs in the git log area | file history, `--follow`, renames, Show History | |
-| [0047](adr/0047-module-dependencies-and-shared-modules.md) | Acyclic module dependencies; shared pieces in small modules | module dependencies, foundation modules, `ide` callbacks, `file-icons` | amended by 0069, 0071; see 0055 |
+| [0047](adr/0047-module-dependencies-and-shared-modules.md) | Acyclic module dependencies; shared pieces in small modules | module dependencies, foundation modules, `ide` callbacks, `file-icons` | amended by 0069, 0071, 0109; see 0055 |
 | [0048](adr/0048-commit-tab.md) | Commit tab in the git log area | Commit tab, Shortcut+K, `git commit --only`, Amend, unversioned files | |
 | [0049](adr/0049-push.md) | Non-modal Push dialog, force only with lease | Push dialog, Shortcut+Shift+K, `--force-with-lease`, push target, main/master | see 0078 |
 | [0050](adr/0050-focus-when-a-file-tab-is-shown.md) | One focus rule for shown file tabs | focus, `FileView.focus()`, `focusText()`, tab selection | amends 0033 |
@@ -87,7 +87,7 @@ updated when the summary or keywords no longer fit.
 | [0065](adr/0065-xml-preview.md) | XML preview on shared fold parts, StAX with XXE off | XML preview, StAX, XXE, `fold-tree.js`, `FoldState`, `data-path` | see 0064 |
 | [0066](adr/0066-scratch-files.md) | Scratch files in `~/.sluide/scratches`, shown as an explorer root | scratch files, `ExplorerRoot`, Shortcut+Shift+N, type picker | |
 | [0067](adr/0067-feature-settings-in-their-module.md) | A feature's settings and pages live in its module | settings, `SettingsPage`, `SettingsStore`, module placement | amends 0008 |
-| [0068](adr/0068-window-parts-in-ide.md) | A window's integration of a feature is an `internal` window part | window parts, `MainWindow`, `WindowGitLog`, `WindowTools`, menu bar | |
+| [0068](adr/0068-window-parts-in-ide.md) | A window's integration of a feature is an `internal` window part | window parts, `MainWindow`, `WindowGitLog`, `WindowTools`, menu bar | amended by 0110 |
 | [0069](adr/0069-previews-module.md) | WebView previews live in the `previews` module | `previews` module, `dev.sluide.previews`, `PreviewFileView`, `file-viewers` API, `ide` beans | amends 0047, 0055; see 0017 |
 | [0070](adr/0070-window-services.md) | `WindowServices`: registry of window-scoped services for file views | `WindowServices`, `windowService`, `FileViewHost`, `EditorArea` | amends 0026; amended by 0076 |
 | [0071](adr/0071-editor-area-module.md) | The tab module is `editor-area`, not `editor` | `editor-area`, `dev.sluide.editorarea`, tabs, naming | amends 0047 |
@@ -127,6 +127,9 @@ updated when the summary or keywords no longer fit.
 | [0105](adr/0105-git-log-merge.md) | Merge a branch into the current one from the log; merges in progress (also from a terminal or `git pull`) continued or aborted from the bar | `GitMerges`, merge, `GitPendingMerge`, `MergeOptions`, fast-forward, squash, `--autostash`, `merge.ff`, `merge.autoStash`, `merge.suppressDest`, octopus | amends 0042; amended by 0107; see 0063 |
 | [0106](adr/0106-git-log-pull.md) | Pull a remote branch into the current one as the log's fetch, then a merge or a fork-point rebase, chosen in a dialog | `GitPulls`, pull, Pull dialog, fork point, `ORIG_HEAD`, `--autostash`, upstream, `pull.rebase`, header button, Push dialog | amends 0061, 0063; see 0043, 0049, 0105 |
 | [0107](adr/0107-git-log-stashes.md) | Stashes in the branches pane with Pop/Apply/Drop, Stash Changes dialog (Git menu, Commit tab), conflicts outside an operation marked resolved from the bar | `GitStashes`, stash, pop, apply, drop, `GitPendingConflicts`, Mark Resolved, `stash@{n}`, `--include-untracked`, `--pathspec-from-file` | amends 0042, 0105; see 0040, 0048, 0106 |
+| [0108](adr/0108-code-editor-extensions-and-context-menu.md) | Window service through which features add gutter columns and context-menu items to every code editor; the code editor's context menu | `CodeEditorExtensions`, `CodeEditorExtension`, `ExtensibleCodeEditor`, `EditorMenuTarget`, context menu, right-click moves caret, `ChangeMarkerFollower` | see 0070, 0080, 0022 |
+| [0109](adr/0109-coloring-tool.md) | Coloring tool in its own editor-family module with pure-Kotlin color math; saved colors per project; color detection in style and markup files | `coloring`, `Coloring`, `SavedColors`, CSS Color 4, OKLCH, gamut mapping, WCAG, APCA, color-vision deficiency, `color-mix()` | amends 0047; see 0090, 0101, 0108, 0110 |
+| [0110](adr/0110-tools-menu.md) | Tools menu after Docker Sandbox; a window tool opens as one tab per window, not restored | Tools menu, `WindowTool`, `ToolsMenu`, `WindowTools`, tool tabs | amends 0068; see 0109 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features

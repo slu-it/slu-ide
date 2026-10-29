@@ -1,6 +1,6 @@
 # 0068. Window parts in ide
 
-- Status: accepted
+- Status: accepted; amended by [0110](0110-tools-menu.md) (`WindowTools` gets the Tools menu)
 - Date: 2026-10-21
 
 ## Context
