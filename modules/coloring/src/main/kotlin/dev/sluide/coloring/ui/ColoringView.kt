@@ -107,7 +107,7 @@ internal class ColoringView(
     }
 
     private companion object {
-        const val COLUMN_WIDTH = 380.0
-        const val INSPECTOR_WIDTH = 320.0
+        const val COLUMN_WIDTH = 340.0
+        const val INSPECTOR_WIDTH = 380.0
     }
 }
