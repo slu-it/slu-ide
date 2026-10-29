@@ -15,6 +15,7 @@ import javafx.scene.input.KeyCombination
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
+import javafx.scene.text.Font
 import org.fxmisc.richtext.CodeArea
 
 private val log = System.getLogger(EditorContextMenu::class.java.name)
@@ -46,6 +47,12 @@ internal class EditorContextMenu(
     private val menu =
         ContextMenu(*base.toTypedArray()).apply {
             styleClass += "code-editor-context-menu"
+            // The popup inherits the editor font of the tab's content; a menu reads in the interface font.
+            style =
+                Font.getDefault().let {
+                    "-fx-font-family: \"${it.family}\"; -fx-font-size: ${it.size}px; " +
+                        "-fx-font-weight: normal; -fx-font-style: normal;"
+                }
             setOnShowing { rebuild() }
         }
 

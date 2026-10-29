@@ -20,6 +20,7 @@ import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.input.PickResult
 import javafx.scene.layout.StackPane
+import javafx.scene.text.Font
 import javafx.stage.Stage
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
@@ -246,6 +247,14 @@ class EditorContextMenuUiTest {
             KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
             menu.items.single { it.text == "Redo" }.accelerator,
         )
+
+        robot.interact { menu.hide() }
+        // As the editor area sets the editor font; the menu still reads in the interface font.
+        robot.interact { container.style = "-fx-font-family: \"Monospaced\"; -fx-font-style: italic;" }
+        requestMenu(view, robot)
+        val label = robot.lookup(".code-editor-context-menu .label").queryAs(Label::class.java)
+        assertEquals(Font.getDefault().family, label.font.family)
+        assertEquals("Regular", label.font.style)
 
         robot.interact { menu.items.single { it.text == "Select All" }.fire() }
         assertEquals(view.area.length, view.area.selection.length)
