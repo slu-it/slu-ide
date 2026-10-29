@@ -79,6 +79,7 @@ class GitStatusServiceRunsTest {
     @AfterEach
     fun close() {
         service.close()
+        service.awaitClosed(5.seconds)
         watcher.close()
     }
 
@@ -237,7 +238,11 @@ class GitStatusServiceRunsTest {
             ) {
                 dispatched += it
             }
-        closing += gated
+        closing +=
+            AutoCloseable {
+                gated.close()
+                gated.awaitClosed(5.seconds)
+            }
         closing += trust
         return gated to trust
     }

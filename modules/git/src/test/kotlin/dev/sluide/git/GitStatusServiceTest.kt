@@ -25,6 +25,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.test.fail
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 /** Runs the real git in a temporary repository; skipped if git is not installed. */
 class GitStatusServiceTest {
@@ -60,6 +61,7 @@ class GitStatusServiceTest {
     @AfterEach
     fun close() {
         service.close()
+        service.awaitClosed(5.seconds)
         watcher.close()
     }
 

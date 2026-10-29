@@ -21,6 +21,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.test.fail
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 /** [GitStatusService.ignoreRulesAsync] with the real git in a temporary repository; skipped without git. */
 class GitStatusServiceIgnoreRulesTest {
@@ -61,6 +62,7 @@ class GitStatusServiceIgnoreRulesTest {
     @AfterEach
     fun close() {
         service.close()
+        service.awaitClosed(5.seconds)
         watcher.close()
     }
 

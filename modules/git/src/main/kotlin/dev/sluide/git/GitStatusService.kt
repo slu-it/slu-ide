@@ -564,6 +564,15 @@ class GitStatusService(
         diffExecutor.shutdownNow()
     }
 
+    /** Waits up to [timeout] for the threads that [close] stopped to end: tests delete the folders git runs in next. */
+    internal fun awaitClosed(timeout: Duration) {
+        val millis = timeout.inWholeMilliseconds
+        check(
+            executor.awaitTermination(millis, TimeUnit.MILLISECONDS) &&
+                diffExecutor.awaitTermination(millis, TimeUnit.MILLISECONDS),
+        ) { "The git status threads still run $timeout after close" }
+    }
+
     private companion object {
         const val MAX_LOGGED_PATHS = 5
     }

@@ -28,6 +28,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.test.fail
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Which changes of `.git` make [GitStatusService] run git's trust check, count [GitStatusService.gitFolderChanged] and
@@ -112,6 +113,7 @@ class GitStatusServiceCascadeTest {
         GitStatusLog.sink = previousSink
         GitStatusLog.warningSink = previousWarningSink
         service.close()
+        service.awaitClosed(5.seconds)
         trust.close()
         watcher.close()
     }
