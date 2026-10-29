@@ -126,10 +126,12 @@
 
 /*
  * Dark theme: the colour scheme comes from the window, see ThemedWindows in the settings module. Single classes only
- * (see above); plain text comes first, so the token colours below win.
+ * (see above). Plain text is RichTextFX's TextExt, a type selector: unlike `.text` it does not reach the labels of
+ * controls and popups (context menu, diff toolbar), whose styleable parents the code views are; it is less
+ * specific than the token classes below, which therefore win.
  */
 @media (prefers-color-scheme: dark) {
-    .text {
+    TextExt {
         -fx-fill: #a9b7c6;
     }
 

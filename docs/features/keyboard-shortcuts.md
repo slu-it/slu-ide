@@ -50,6 +50,8 @@ no find, replace or go to line, and Tab indents instead of moving the focus.
 | Escape | Close the find bar |
 | Shortcut+G | Go to line (`line[:column]`) |
 | Shortcut+Z / Shortcut+Shift+Z | Undo / redo |
+| Shortcut+X / C / V / A | Cut / copy / paste / select all (RichTextFX; also shown in the context menu) |
+| Menu key, Shift+F10 | Context menu at the caret |
 
 ## Side-by-side diff
 [git-diff.md](git-diff.md)

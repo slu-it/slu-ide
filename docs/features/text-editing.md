@@ -14,7 +14,7 @@ and saving), [ADR 0022](../adr/0022-editor-key-bindings.md) (keys) and
   file's line endings are kept (LF, CRLF or CR; a file with mixed endings is written with the ending of most of its
   lines). Nothing else is changed (no trimmed whitespace, no added final newline). If saving fails, an error says why
   and the tab keeps its unsaved changes.
-- Undo (Ctrl+Z) and redo (Ctrl+Shift+Z) cover the text only; typing without a pause of half a second is one step.
+- Undo (Ctrl+Z) and redo (Ctrl+Shift+Z), also in the context menu (below), cover the text only; typing without a pause of half a second is one step.
 - Highlighting follows typing once it pauses (150 ms, 600 ms for very large files), computed in the background.
 - Editing keys act while the text has the focus; Shortcut is Ctrl, Cmd on macOS. Each command is one undo step (Enter
   and a Tab within a line merge with the typing around them, like typed characters). Keys that change the text do nothing in a
@@ -35,6 +35,17 @@ and saving), [ADR 0022](../adr/0022-editor-key-bindings.md) (keys) and
   | Shortcut+G | Asks for `line` or `line:column` (1-based; shows the caret's position) and moves the caret there, scrolling it into view. Numbers beyond the text go to its last line or the line's end; other input does nothing. |
 
   A selection that ends at the start of a line does not touch that line.
+- Context menu ([ADR 0108](../adr/0108-code-editor-extensions-and-context-menu.md)), in every code editor: code and
+  plain text, the sources of previews, `.http`, Gradle, shell script, `.env` and `.gitignore` views. Items: **Undo**,
+  **Redo** | **Cut**, **Copy**, **Paste**, **Select All**, each showing its keys (which keep working as before, once),
+  then, after a separator, the items of window features for the caret's line and column (`CodeEditorExtensions`; no
+  separator without such items). The menu is built anew each time it shows: Undo and Redo need history and an editable
+  text, Cut a selection in an editable text, Copy a selection, Paste text on the clipboard and an editable text,
+  Select All some text; read-only views (invalid encoding) can only copy and select. A right-click (Ctrl+click on
+  macOS) outside the selection first moves the caret there, inside the selection it keeps the selection; in the gutter
+  (line numbers, markers, columns) it neither moves the caret nor opens the menu. The Menu key
+  and Shift+F10 open the menu below the caret (JavaFX on Linux turns neither into a context-menu request, so the
+  editor binds them itself). Editors in dialogs (`CodeEditors.text`, `TextAreaEditor`) have no context menu.
 - Indentation: tabs or spaces and the size come from `.editorconfig` (`indent_style`, `indent_size`, `tab_width`),
   each value not set there from the file's own indentation, else the language's default: tabs for Makefiles (recipe
   lines must start with one), 4 spaces for everything else. They are read when the file is opened, and again when
@@ -122,7 +133,7 @@ and saving), [ADR 0022](../adr/0022-editor-key-bindings.md) (keys) and
   - `file-viewers`: `EditableFileView` (`dirty`, `save()`, `showChanges(diff)`), `CodeView` (editable RichTextFX
     area with plain-text undo, banners styled by `code-view.css` (`generated-banner` for generated files,
     `encoding-banner` for Windows-1252 ones, whose encoding `FileEncoding` keeps), highlighting in the background with
-    `changedSpanRange` from `StyleRanges.kt`, line numbers and change markers in its `Gutter`); `EditorKeys.kt` (the
+    `changedSpanRange` from `StyleRanges.kt`, line numbers and change markers in its `Gutter`); `EditorContextMenu` (the context menu, `menuStates`); `EditorKeys.kt` (the
     editing keys as a wellbehavedfx `InputMap`, `applyEdit`, `applyEdits`), `FindBar` (matches overlaid on the token
     styles), `GoToLine` (dialog replaceable in tests); the viewers pass their `CommentSyntax` to the view.
   - `editor-area`: `EditorArea.save()`, `saveAll()`, `confirmCloseAll()`, `confirmSave` and `showError` (replaceable in

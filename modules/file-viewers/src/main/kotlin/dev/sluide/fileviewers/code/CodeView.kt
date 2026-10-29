@@ -93,6 +93,7 @@ internal class CodeView(
     /** What features of the window see of the view and add to it (ADR 0108), from the first [host] that has them. */
     val extensible = ExtensibleCodeView(this, area, initialFile)
     private val extensions = CodeViewExtensions(extensible)
+    private val contextMenu = EditorContextMenu(area, extensible::contextMenuItems)
 
     /** Shows the changes when a change marker is clicked; the first one with [extensions] extends the view. */
     override var host: FileViewHost? = null
@@ -453,6 +454,7 @@ internal class CodeView(
         highlighting.dispose()
         findBar.dispose()
         extensions.dispose()
+        contextMenu.dispose()
     }
 
     override fun focusText() = area.requestFocus()

@@ -1,6 +1,7 @@
 package dev.sluide.fileviewers.languages
 
 import dev.sluide.fileviewers.FileView
+import dev.sluide.fileviewers.code.CodeView
 import javafx.application.ColorScheme
 import javafx.scene.Scene
 import javafx.scene.layout.StackPane
@@ -57,7 +58,8 @@ class PythonFileViewerUiTest {
     @Test
     fun `token colours follow the colour scheme of the window`(robot: FxRobot) {
         val file = dir.resolve("main.py").apply { writeText("def main():\n    pass\n") }
-        robot.interact { container.children.setAll(PythonFileViewer().open(file).node) }
+        val view = WaitForAsyncUtils.asyncFx<CodeView> { PythonFileViewer().open(file) as CodeView }.get()
+        robot.interact { container.children.setAll(view.node) }
 
         fun keywordFill(scheme: ColorScheme): Paint {
             robot.interact { container.scene.preferences.colorScheme = scheme }
@@ -70,7 +72,31 @@ class PythonFileViewerUiTest {
 
         assertEquals(Color.web("#0033b3"), keywordFill(ColorScheme.LIGHT))
         assertEquals(Color.web("#cc7832"), keywordFill(ColorScheme.DARK))
+        val plain =
+            robot
+                .from(view.area)
+                .lookup(".text")
+                .queryAllAs(Text::class.java)
+                .first { "main" in it.text }
+        assertEquals(Color.web("#a9b7c6"), plain.fill, "plain text")
+
+        // The code view's dark text colour must not reach the labels of its popups (styleable parent: the area).
+        val menu = checkNotNull(view.area.contextMenu)
+        robot.interact {
+            menu.show(view.area, 100.0, 100.0)
+            menu.scene.preferences.colorScheme = ColorScheme.DARK
+            menu.scene.root.applyCss()
+        }
+        val labels =
+            menu.scene.root
+                .lookupAll(".text")
+                .filterIsInstance<Text>()
+        assertTrue(labels.any { it.text == "Undo" }, "${labels.map { it.text }}")
+        assertTrue(labels.none { it.fill == Color.web("#a9b7c6") }, "${labels.map { "${it.text}: ${it.fill}" }}")
+        robot.interact { menu.hide() }
+
         assertEquals(Color.web("#0033b3"), keywordFill(ColorScheme.LIGHT))
+        robot.interact { view.dispose() }
     }
 
     @Test

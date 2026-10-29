@@ -210,7 +210,8 @@ the Bicep graph and `BicepParamFileViewer`.
     gets a host whose window has the service; later hosts change nothing, and editors without a host (`CodeEditors.text`
     in dialogs) are never extended. The `ExtensibleCodeEditor` it gets has the gutter columns, the `file` (following
     moves), `lineCount`, `lineText(line)`, `shownLines` with `onShownLinesChanged`, and `addContextMenuItems` for the
-    code editor's context menu (items for an `EditorMenuTarget`, line and column; the menu is not built yet). The
+    code editor's context menu (asked each time it shows, for the caret's `EditorMenuTarget`, line and column; shown
+    after the editing items and a separator, [text-editing.md](text-editing.md); a provider that throws is logged). The
     `AutoCloseable` it returns, if any, is closed when the view is disposed; an extension that throws is logged and the
     others still run.
   - Viewers that show files as text implement `SourceFileViewer` (`sourceHighlighter`) to get change markers and

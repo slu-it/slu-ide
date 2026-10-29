@@ -5,6 +5,7 @@ import javafx.geometry.Pos
 import javafx.scene.Cursor
 import javafx.scene.Node
 import javafx.scene.control.Label
+import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.HBox
@@ -19,7 +20,7 @@ import java.util.function.IntFunction
  * The column left of the text of [area], one row per paragraph: the line number (style class `lineno`, like
  * RichTextFX's `LineNumberFactory`), a thin [change marker][markers] (style class [MARKER_STYLE] plus the
  * [LineMarker.styleClass]; clicking it calls [onMarkerClicked] while [markersClickable]) and the nodes of further
- * [columns][addColumn], e.g. icons to run something.
+ * [columns][addColumn], e.g. icons to run something. The code editor's context menu is not shown over the gutter.
  *
  * The rows are created by the area's paragraph graphic factory, again for a paragraph whenever its index changes. The
  * factory is replaced, so that the area creates all rows again, only when the markers, the number of digits of the
@@ -95,6 +96,8 @@ internal class Gutter(
                     *columns.mapNotNull { it(paragraph) }.toTypedArray(),
                 ).apply {
                     styleClass += GUTTER_STYLE
+                    // The editor's context menu is for the text; nodes of columns may still show menus of their own.
+                    addEventHandler(ContextMenuEvent.CONTEXT_MENU_REQUESTED) { it.consume() }
                 }
             }
     }
