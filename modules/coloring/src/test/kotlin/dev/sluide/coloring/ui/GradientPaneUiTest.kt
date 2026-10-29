@@ -5,11 +5,14 @@ import dev.sluide.coloring.analysis.GradientStop
 import dev.sluide.coloring.analysis.GradientType
 import dev.sluide.coloring.analysis.MixSpace
 import dev.sluide.coloring.color.CssColor
+import dev.sluide.coloring.color.toRgb8
 import dev.sluide.coloring.ui.gradient.GradientPreview
 import javafx.event.Event
+import javafx.scene.Node
 import javafx.scene.Parent
 import javafx.scene.Scene
 import javafx.scene.control.Button
+import javafx.scene.control.Label
 import javafx.scene.control.TextField
 import javafx.scene.control.ToggleButton
 import javafx.scene.input.Clipboard
@@ -79,26 +82,7 @@ class GradientPaneUiTest {
         val field = find<TextField>("gradient-stop-text")
         robot.interact {
             pane.stopsBar.handle(1).fireEvent(
-                MouseEvent(
-                    MouseEvent.MOUSE_PRESSED,
-                    5.0,
-                    5.0,
-                    5.0,
-                    5.0,
-                    MouseButton.PRIMARY,
-                    1,
-                    false,
-                    false,
-                    false,
-                    false,
-                    true,
-                    false,
-                    false,
-                    true,
-                    false,
-                    false,
-                    null,
-                ),
+                mouse(MouseEvent.MOUSE_PRESSED, pane.stopsBar.handle(1), 5.0, 5.0),
             )
         }
         assertEquals("#8b5cf6", field.text)
@@ -111,6 +95,44 @@ class GradientPaneUiTest {
         // The left column edits the same stop.
         robot.interact { state.editingColor.set(CssColor.fromRgb8(0, 255, 0)) }
         assertEquals("linear-gradient(in oklch 90deg, #3b82f6 0%, #00ff00 100%)", css())
+    }
+
+    @Test
+    fun `a click on the preview inspects the color there and changes no slot`(robot: FxRobot) {
+        val preview = root.lookup(".gradient-preview") as GradientPreview
+        val before = state.gradientStop.color.value
+        // Linear 90deg: the left edge is the first stop, the right edge the last (a click past the edge clamps).
+        robot.interact { preview.fireEvent(click(preview, 0.0, 100.0)) }
+        assertEquals(CssColor.fromRgb8(0x3b, 0x82, 0xf6).toRgb8(), state.inspected.get().toRgb8())
+        robot.interact { preview.fireEvent(click(preview, preview.width + 5, 100.0)) }
+        assertEquals(
+            state.gradient.value.stops
+                .last()
+                .color
+                .toRgb8(),
+            state.inspected.get().toRgb8(),
+        )
+        assertEquals(before, state.gradientStop.color.value)
+        val shown = state.inspected.get()
+        robot.interact { preview.fireEvent(click(preview, preview.width / 2, 100.0, still = false)) }
+        assertEquals(shown, state.inspected.get(), "a click that ended a drag does not inspect")
+        assertSame(state.contrastText, state.editing.get())
+    }
+
+    @Test
+    fun `adding a stop edits it and labels it, removing keeps the edited stop`(robot: FxRobot) {
+        val info = find<Label>("gradient-stop-info")
+        assertEquals("Stop 1 of 2", info.text)
+        robot.interact { find<Button>("gradient-add").fire() }
+        assertSame(state.gradientStop, state.editing.get())
+        assertEquals("Stop 2 of 3", info.text)
+
+        // Edit the new stop through the left column.
+        robot.interact { state.editingColor.set(CssColor.fromRgb8(255, 0, 0)) }
+        assertTrue(css().contains("#ff0000 50%"), css())
+
+        robot.interact { find<Button>("gradient-remove").fire() }
+        assertEquals("Stop 2 of 2", info.text)
     }
 
     @Test
@@ -136,29 +158,7 @@ class GradientPaneUiTest {
         sceneX: Double,
     ) {
         fun fire(type: javafx.event.EventType<MouseEvent>) =
-            Event.fireEvent(
-                handle,
-                MouseEvent(
-                    type,
-                    sceneX,
-                    5.0,
-                    sceneX,
-                    5.0,
-                    MouseButton.PRIMARY,
-                    1,
-                    false,
-                    false,
-                    false,
-                    false,
-                    true,
-                    false,
-                    false,
-                    true,
-                    false,
-                    false,
-                    null,
-                ),
-            )
+            Event.fireEvent(handle, mouse(type, handle, handle.sceneToLocal(sceneX, 5.0).x, 5.0))
         fire(MouseEvent.MOUSE_PRESSED)
         fire(MouseEvent.MOUSE_DRAGGED)
     }
@@ -240,4 +240,46 @@ class GradientPaneUiTest {
         assertEquals(20.0, preview.renderedGradient?.angleDeg)
         assertTrue(preview.conicRenderings - before <= 2, "drawn ${preview.conicRenderings - before} times")
     }
+
+    /**
+     * A primary-button mouse event of [type] at ([x], [y]) in [target]'s coordinates; an event fired without a source
+     * is re-based from scene coordinates. [still] is false for a click that ended a drag.
+     */
+    private fun mouse(
+        type: javafx.event.EventType<MouseEvent>,
+        target: Node,
+        x: Double,
+        y: Double,
+        still: Boolean = true,
+    ): MouseEvent {
+        val scene = target.localToScene(x, y)
+        val screen = target.localToScreen(x, y)
+        return MouseEvent(
+            type,
+            scene.x,
+            scene.y,
+            screen.x,
+            screen.y,
+            MouseButton.PRIMARY,
+            1,
+            false,
+            false,
+            false,
+            false,
+            true,
+            false,
+            false,
+            true,
+            false,
+            still,
+            null,
+        )
+    }
+
+    private fun click(
+        preview: Node,
+        x: Double,
+        y: Double,
+        still: Boolean = true,
+    ) = mouse(MouseEvent.MOUSE_CLICKED, preview, x, y, still)
 }

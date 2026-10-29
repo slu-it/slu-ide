@@ -4,17 +4,19 @@ import dev.sluide.coloring.analysis.Gradient
 import dev.sluide.coloring.analysis.GradientType
 import dev.sluide.coloring.analysis.MixSpace
 import dev.sluide.coloring.analysis.addStop
+import dev.sluide.coloring.analysis.colorAt
 import dev.sluide.coloring.analysis.css
+import dev.sluide.coloring.analysis.gradientT
 import dev.sluide.coloring.analysis.moveStop
 import dev.sluide.coloring.analysis.removeStop
 import dev.sluide.coloring.ui.gradient.GradientPreview
 import dev.sluide.coloring.ui.gradient.StopsBar
 import javafx.css.PseudoClass
 import javafx.geometry.Insets
+import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Button
 import javafx.scene.control.Label
-import javafx.scene.control.ScrollPane
 import javafx.scene.control.Slider
 import javafx.scene.control.TextField
 import javafx.scene.control.Toggle
@@ -23,6 +25,8 @@ import javafx.scene.control.ToggleGroup
 import javafx.scene.control.Tooltip
 import javafx.scene.input.Clipboard
 import javafx.scene.input.ClipboardContent
+import javafx.scene.input.MouseButton
+import javafx.scene.input.MouseEvent
 import javafx.scene.layout.FlowPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
@@ -34,8 +38,9 @@ import kotlin.math.roundToInt
 
 /**
  * A CSS gradient builder on the window's gradient ([ColoringState.gradient]), which outlives the tab. The selected
- * stop is the Gradient slot (ADR 0111): selecting a stop edits it in the left column. The decisions are in
- * `analysis/Gradients.kt`; this class connects them to the controls.
+ * stop is the Gradient slot (ADR 0111): selecting or adding a stop edits it in the left column. A click on the
+ * preview shows the color there in the inspector and changes no slot. The decisions are in `analysis/Gradients.kt`;
+ * this class connects them to the controls.
  */
 internal class GradientPane(
     private val state: ColoringState,
@@ -49,12 +54,13 @@ internal class GradientPane(
     private val bar =
         StopsBar(onSelect = { i ->
             state.selectedStop.set(i)
-            state.edit(state.gradientStop, ColoringState.GRADIENT)
+            editStop()
         }, onMove = { p ->
             moveStop(gradient, selected, p).let { (g, i) -> apply(g, i) }
         })
     private val stopSlot =
         SlotView(state.gradientStop, state, ColoringState.GRADIENT).apply { field.id = "gradient-stop-text" }
+    private val stopInfo = Label().apply { id = "gradient-stop-info" }
     private val types = ToggleGroup()
     private val spaces = ToggleGroup()
     private val angle = Slider(0.0, 360.0, gradient.angleDeg)
@@ -84,26 +90,27 @@ internal class GradientPane(
         val spaceRow = HBox(4.0).apply { children += segmented(spaces, SPACES.map { it to it.label }) }
         val angleRow =
             HBox(8.0, Label("Angle"), angle.also { HBox.setHgrow(it, Priority.ALWAYS) }, angleField, Label("deg"))
-        val stopRow = stopSlot.node
+        val stopRow = FlowPane(12.0, 4.0, stopSlot.node, stopInfo).apply { alignment = Pos.CENTER_LEFT }
         val stopButtons = FlowPane(6.0, 6.0, addButton, removeButton)
         copyButton.tooltip = Tooltip("Copy the CSS")
         val outRow = HBox(6.0, cssField.also { HBox.setHgrow(it, Priority.ALWAYS) }, copyButton)
         node =
-            ScrollPane(
-                VBox(
-                    10.0,
-                    preview,
-                    bar,
-                    FlowPane(16.0, 8.0, typeRow, HBox(8.0, Label("Interpolation"), spaceRow)),
-                    angleRow,
-                    stopRow,
-                    stopButtons,
-                    outRow,
-                ).apply {
-                    styleClass += "gradient-pane"
-                    padding = Insets(12.0)
-                },
-            ).apply { isFitToWidth = true }
+            VBox(
+                10.0,
+                preview,
+                bar,
+                FlowPane(16.0, 8.0, typeRow, HBox(8.0, Label("Interpolation"), spaceRow)),
+                angleRow,
+                stopRow,
+                stopButtons,
+                outRow,
+            ).apply {
+                styleClass += "gradient-pane"
+                padding = Insets(12.0)
+            }
+        preview.addEventHandler(MouseEvent.MOUSE_CLICKED) { e ->
+            if (e.button == MouseButton.PRIMARY && e.isStillSincePress) inspectAt(e.x, e.y)
+        }
 
         types.selectedToggleProperty().subscribe { _, t -> if (!updating) onType(t) }
         spaces.selectedToggleProperty().subscribe { _, t -> if (!updating) onSpace(t) }
@@ -111,8 +118,14 @@ internal class GradientPane(
             if (!updating) apply(gradient.copy(angleDeg = v.toDouble().roundToInt().toDouble()))
         }
         angleField.textProperty().subscribe { text -> if (!updating) onAngleText(text) }
-        addButton.setOnAction { addStop(gradient).let { (g, i) -> apply(g, i) } }
-        removeButton.setOnAction { apply(removeStop(gradient, selected), selected) }
+        addButton.setOnAction {
+            addStop(gradient).let { (g, i) -> apply(g, i) }
+            editStop()
+        }
+        removeButton.setOnAction {
+            apply(removeStop(gradient, selected), selected)
+            editStop()
+        }
         copyButton.setOnAction {
             Clipboard.getSystemClipboard().setContent(ClipboardContent().apply { putString(css(gradient)) })
         }
@@ -129,6 +142,17 @@ internal class GradientPane(
         subscriptions.forEach(Subscription::unsubscribe)
         stopSlot.dispose()
         preview.dispose()
+    }
+
+    /** Edits the selected stop in the left column. */
+    private fun editStop() = state.edit(state.gradientStop, ColoringState.GRADIENT)
+
+    private fun inspectAt(
+        x: Double,
+        y: Double,
+    ) {
+        val t = gradientT(gradient, x, y, preview.width, preview.height)
+        state.inspect(colorAt(gradient, t))
     }
 
     private fun apply(
@@ -171,6 +195,7 @@ internal class GradientPane(
             cssField.text = css(gradient)
             preview.gradient = gradient
             bar.show(gradient, selected)
+            stopInfo.text = "Stop ${selected + 1} of ${gradient.stops.size}"
             types.toggles.first { it.userData == gradient.type }.isSelected = true
             val space = gradient.space ?: MixSpace.SRGB
             spaces.toggles.first { it.userData == space }.isSelected = true
