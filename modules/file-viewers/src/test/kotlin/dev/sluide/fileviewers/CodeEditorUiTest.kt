@@ -173,7 +173,7 @@ class CodeEditorUiTest {
     fun `shows added gutter columns`(robot: FxRobot) {
         val editor = open(dir.resolve("a.json").apply { writeText("{\n}\n") }, robot)
 
-        robot.interact { editor.addGutterColumn { line -> if (line == 1) Label("run") else null } }
+        robot.interact { editor.addGutterColumn(16.0) { line -> if (line == 1) Label("run") else null } }
 
         val labels = robot.lookup(".gutter .label").queryAllAs(Label::class.java)
         assertEquals(listOf("run"), labels.filterNot { "lineno" in it.styleClass }.map { it.text })

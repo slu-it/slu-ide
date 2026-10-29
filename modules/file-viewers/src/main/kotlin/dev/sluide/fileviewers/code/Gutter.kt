@@ -10,6 +10,7 @@ import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Region
+import javafx.scene.layout.StackPane
 import javafx.scene.text.Font
 import javafx.scene.text.FontPosture
 import org.fxmisc.richtext.CodeArea
@@ -31,7 +32,7 @@ internal class Gutter(
     /** Called with the paragraph whose change marker was clicked. */
     private val onMarkerClicked: (paragraph: Int) -> Unit = {},
 ) {
-    private val columns = mutableListOf<(Int) -> Node?>()
+    private val columns = mutableListOf<Pair<Double, (Int) -> Node?>>()
     private var digits = 0
 
     /** The change marker of each line; lines beyond the list have none. */
@@ -57,9 +58,15 @@ internal class Gutter(
         refresh()
     }
 
-    /** Adds a column right of the marker; [column] gives the node of a paragraph's row, or `null` for none. */
-    fun addColumn(column: (paragraph: Int) -> Node?) {
-        columns += column
+    /**
+     * Adds a column [width] wide right of the marker; [column] gives the node of a paragraph's row, or `null` for none.
+     * Every row has the column's cell, so a row without a node is as wide as one with.
+     */
+    fun addColumn(
+        width: Double,
+        column: (paragraph: Int) -> Node?,
+    ) {
+        columns += width to column
         refresh()
     }
 
@@ -93,7 +100,7 @@ internal class Gutter(
                 HBox(
                     lineNumber(paragraph, digits),
                     marker,
-                    *columns.mapNotNull { it(paragraph) }.toTypedArray(),
+                    *columns.map { (width, column) -> cell(width, column(paragraph)) }.toTypedArray(),
                 ).apply {
                     styleClass += GUTTER_STYLE
                     // The editor's context menu is for the text; nodes of columns may still show menus of their own.
@@ -111,6 +118,20 @@ internal class Gutter(
         padding = LINE_NUMBER_PADDING
         alignment = Pos.TOP_RIGHT
         styleClass += "lineno"
+    }
+
+    /** The cell of a column in a row: [width] wide and as high as the row, [node] centered in it if there is one. */
+    private fun cell(
+        width: Double,
+        node: Node?,
+    ) = StackPane().apply {
+        setMinWidth(width)
+        setPrefWidth(width)
+        setMaxWidth(width)
+        maxHeight = Double.MAX_VALUE
+        // Not pressed into the text: the caret stays where it is, beside a node of a column too.
+        addEventHandler(MouseEvent.MOUSE_PRESSED) { it.consume() }
+        if (node != null) children += node
     }
 
     private fun digitsOf(count: Int) = maxOf(1, count).toString().length

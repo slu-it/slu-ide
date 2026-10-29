@@ -13,6 +13,7 @@ import javafx.scene.Scene
 import javafx.scene.control.Label
 import javafx.scene.control.Tooltip
 import javafx.scene.layout.HBox
+import javafx.scene.layout.Pane
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
@@ -96,13 +97,17 @@ class GitignoreFileViewUiTest {
             .lookup(".${Gutter.GUTTER_STYLE}")
             .queryAllAs(HBox::class.java)
             .mapNotNull { row ->
-                val dot = row.children.firstOrNull { "ignore-rule-dot" in it.styleClass } ?: return@mapNotNull null
+                val dot =
+                    row.children
+                        .filterIsInstance<Pane>()
+                        .flatMap { it.children }
+                        .firstOrNull { "ignore-rule-mark" in it.styleClass } ?: return@mapNotNull null
                 (row.children.first() as Label).text.trim() to dot
             }.toMap()
     }
 
     private fun kinds(robot: FxRobot) =
-        dotNodes(robot).mapValues { (_, dot) -> dot.styleClass.single { it != "ignore-rule-dot" } }
+        dotNodes(robot).mapValues { (_, dot) -> dot.styleClass.single { it != "ignore-rule-mark" } }
 
     @Test
     fun `dots show the effect of each pattern line, none for comments and blanks`(robot: FxRobot) {

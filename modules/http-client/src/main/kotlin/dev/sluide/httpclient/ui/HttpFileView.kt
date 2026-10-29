@@ -195,7 +195,7 @@ internal class HttpFileView(
     init {
         // Invalidations only: the text is built once typing pauses, not on every key.
         editor.textProperty.addListener(InvalidationListener { reparse.playFromStart() })
-        editor.addGutterColumn { paragraph -> if (paragraph in requestLines) runIcon(paragraph) else null }
+        editor.addGutterColumn(RUN_ICON_COLUMN, ::runColumn)
         isRunning.addListener { _, _, running -> cancelButton.isDisable = !running }
         updateRunnable()
         refreshEnvironments()
@@ -450,6 +450,8 @@ internal class HttpFileView(
             Tooltip(if (runnable) "Run the request at the caret ($RUN_KEY_TEXT)" else "Requests run in an IDE window")
     }
 
+    private fun runColumn(paragraph: Int): Node? = if (paragraph in requestLines) runIcon(paragraph) else null
+
     private fun runIcon(paragraph: Int): Node =
         FontIcon(MaterialDesignP.PLAY).apply {
             styleClass += "http-run-icon"
@@ -477,6 +479,9 @@ internal class HttpFileView(
         val RUN_KEY = KeyCodeCombination(KeyCode.ENTER, KeyCombination.SHORTCUT_DOWN)
         val RUN_KEY_TEXT: String = RUN_KEY.displayText
         val REPARSE_PAUSE: JavaDuration = JavaDuration.ofMillis(300)
+
+        /** The width of the gutter column of the run icons. */
+        const val RUN_ICON_COLUMN = 16.0
 
         fun requestLines(text: String): Set<Int> =
             HttpFileParser

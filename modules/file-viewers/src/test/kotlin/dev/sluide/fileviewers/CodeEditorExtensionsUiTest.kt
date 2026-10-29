@@ -108,7 +108,7 @@ class CodeEditorExtensionsUiTest {
         val editor = extended.single()
 
         robot.interact {
-            editor.addGutterColumn { line -> Label("c$line").apply { styleClass += "extension-column" } }
+            editor.addGutterColumn(30.0) { line -> Label("c$line").apply { styleClass += "extension-column" } }
         }
 
         val labels = robot.lookup(".extension-column").queryAllAs(Label::class.java).map { it.text }

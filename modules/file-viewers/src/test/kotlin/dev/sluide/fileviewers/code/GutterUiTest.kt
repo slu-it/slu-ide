@@ -27,6 +27,7 @@ import java.nio.file.Path
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotSame
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -316,14 +317,67 @@ class GutterUiTest {
     fun `further columns show their node of each row, asked again on refresh`(robot: FxRobot) {
         val view = open("a\nb\nc", robot)
         var mark = "▶"
-        robot.interact { view.addGutterColumn { paragraph -> if (paragraph == 1) Label(mark) else null } }
+        robot.interact { view.addGutterColumn(20.0) { paragraph -> if (paragraph == 1) Label(mark) else null } }
 
         fun shown(): Map<String, List<String>> =
-            rows(robot).mapValues { (_, row) -> row.children.drop(2).map { (it as Label).text } }
+            rows(robot).mapValues { (_, row) ->
+                row.children.drop(2).flatMap { cell -> (cell as StackPane).children.map { (it as Label).text } }
+            }
         assertEquals(mapOf("1" to emptyList(), "2" to listOf("▶"), "3" to emptyList()), shown())
 
         mark = "■"
         robot.interact { view.refreshGutter() }
         assertEquals(listOf("■"), shown().getValue("2"))
+    }
+
+    @Test
+    fun `a row without a node in a column is as wide as one with, so the text stays aligned`(robot: FxRobot) {
+        val view = open("a\nb\nc", robot)
+        robot.interact { view.addGutterColumn(20.0) { paragraph -> if (paragraph == 1) Label("▶") else null } }
+
+        val widths = rows(robot).mapValues { (_, row) -> row.width }
+        assertEquals(1, widths.values.toSet().size, "$widths")
+        val cells =
+            rows(robot).values.map { row ->
+                row.children
+                    .last()
+                    .layoutBounds.width
+            }
+        assertEquals(listOf(20.0, 20.0, 20.0), cells)
+    }
+
+    @Test
+    fun `a press in the cell of a column is consumed, so the caret stays where it is`(robot: FxRobot) {
+        val view = open("a\nb\nc", robot)
+        robot.interact { view.addGutterColumn(20.0) { paragraph -> if (paragraph == 1) Label("▶") else null } }
+        val empty = rows(robot).getValue("1").children.last()
+
+        var reachedRow = false
+        empty.parent.addEventHandler(MouseEvent.MOUSE_PRESSED) { reachedRow = true }
+        robot.interact {
+            val press =
+                MouseEvent(
+                    MouseEvent.MOUSE_PRESSED,
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0,
+                    MouseButton.PRIMARY,
+                    1,
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    null,
+                )
+            Event.fireEvent(empty, press)
+        }
+        assertFalse(reachedRow, "a press the cell does not consume goes on to the area")
     }
 }

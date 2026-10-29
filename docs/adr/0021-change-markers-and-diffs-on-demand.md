@@ -25,8 +25,9 @@ history.
     work inside `@media`, unlike descendant selectors, [ADR 0009](0009-themes.md)).
   - The area creates a paragraph's graphic again whenever its index changes, so the numbers follow edits. The factory
     is replaced (all visible rows created again) only when the markers, the digit count or a column change.
-  - A column hook, the public interface `GutterColumns` (`addGutterColumn((paragraph) -> Node?)`,
-    `refreshGutter()`) that code views implement, lets other modules add columns, e.g. run icons for HTTP requests.
+  - A column hook, the public interface `GutterColumns` (`addGutterColumn(width, (paragraph) -> Node?)`,
+    `refreshGutter()`) that code views implement, lets other modules add columns, e.g. run icons for HTTP requests; every row gets a cell of the
+    column's fixed width, empty without a node, so the text stays aligned.
     `refreshGutter()` creates the visible rows again: RichTextFX only creates a paragraph's graphic anew through the
     factory, so rows are not refreshed one by one.
 - **Markers follow unsaved edits.** The diff describes the file on disk. Each text change becomes a `LineEdit` (whole

@@ -310,7 +310,10 @@ internal class CodeView(
      */
     override fun showChanges(diff: TextDiff?) = changeMarkers.show(diff)
 
-    override fun addGutterColumn(column: (paragraph: Int) -> Node?) = gutter.addColumn(column)
+    override fun addGutterColumn(
+        width: Double,
+        column: (paragraph: Int) -> Node?,
+    ) = gutter.addColumn(width, column)
 
     override fun refreshGutter() = gutter.refresh()
 

@@ -145,7 +145,10 @@ internal class EnvFileView(
         source.dispose()
     }
 
-    override fun addGutterColumn(column: (paragraph: Int) -> Node?) = source.addGutterColumn(column)
+    override fun addGutterColumn(
+        width: Double,
+        column: (paragraph: Int) -> Node?,
+    ) = source.addGutterColumn(width, column)
 
     override fun refreshGutter() = source.refreshGutter()
 

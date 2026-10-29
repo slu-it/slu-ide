@@ -143,7 +143,10 @@ class CodeViewExtensionsTest {
 
         override fun addContextMenuItems(items: (EditorMenuTarget) -> List<MenuItem>) {}
 
-        override fun addGutterColumn(column: (paragraph: Int) -> Node?) {}
+        override fun addGutterColumn(
+            width: Double,
+            column: (paragraph: Int) -> Node?,
+        ) {}
 
         override fun refreshGutter() {}
     }

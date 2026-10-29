@@ -13,9 +13,7 @@ import dev.sluide.textediting.IndentStyle
 import javafx.application.Platform
 import javafx.scene.Node
 import javafx.scene.control.Tooltip
-import javafx.scene.input.MouseEvent
 import javafx.scene.layout.Region
-import javafx.scene.layout.StackPane
 import java.nio.file.Path
 
 /**
@@ -48,7 +46,7 @@ internal class GitignoreFileView(
         )
 
     init {
-        source.addGutterColumn(::column)
+        source.addGutterColumn(CELL, ::column)
         source.savedTextProperty.addListener { _, _, _ -> tracker.lookUp() }
         source.area.textProperty().addListener { _, _, _ -> tracker.recompute() }
     }
@@ -84,7 +82,10 @@ internal class GitignoreFileView(
 
     override fun focus() = source.focus()
 
-    override fun addGutterColumn(column: (paragraph: Int) -> Node?) = source.addGutterColumn(column)
+    override fun addGutterColumn(
+        width: Double,
+        column: (paragraph: Int) -> Node?,
+    ) = source.addGutterColumn(width, column)
 
     override fun refreshGutter() = source.refreshGutter()
 
@@ -101,34 +102,19 @@ internal class GitignoreFileView(
         source.dispose()
     }
 
-    /** The dot of a line; a blank cell of the same width for other lines while the effects are known, so the text stays aligned. */
+    /** The dot of a line, none for other lines; the gutter column's width keeps the text aligned. */
     private fun column(paragraph: Int): Node? {
         if (!tracker.isKnown) return null
-        val dot = tracker.dotOf(paragraph) ?: return cell()
-        return cell().apply {
-            styleClass += "ignore-rule-dot"
+        val dot = tracker.dotOf(paragraph) ?: return null
+        return Region().apply {
+            styleClass += "ignore-rule-mark"
             styleClass += dot.kind.styleClass
-            children +=
-                Region().apply {
-                    styleClass += "ignore-rule-mark"
-                    styleClass += dot.kind.styleClass
-                    setMinSize(MARK, MARK)
-                    setPrefSize(MARK, MARK)
-                    setMaxSize(MARK, MARK)
-                }
+            setMinSize(MARK, MARK)
+            setPrefSize(MARK, MARK)
+            setMaxSize(MARK, MARK)
             Tooltip.install(this, Tooltip(dot.tooltip))
-            // Not pressed into the text: the caret stays where it is.
-            addEventHandler(MouseEvent.MOUSE_PRESSED) { it.consume() }
         }
     }
-
-    private fun cell() =
-        StackPane().apply {
-            setMinWidth(CELL)
-            setPrefWidth(CELL)
-            setMaxWidth(CELL)
-            maxHeight = Double.MAX_VALUE
-        }
 
     private companion object {
         const val MARK = 7.0
