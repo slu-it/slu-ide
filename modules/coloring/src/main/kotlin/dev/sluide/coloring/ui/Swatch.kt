@@ -81,14 +81,14 @@ internal class Swatch(
                 false,
             )
 
-        /** A swatch of a changing [color]; a primary click makes it the current color of [state]. */
+        /** A swatch of a changing [color]; a primary click shows it in the inspector of [state]. */
         fun of(
             color: ObservableValue<CssColor>,
             state: ColoringState,
             size: Double = 24.0,
-        ) = Swatch(color, size) { state.current.set(it) }
+        ) = Swatch(color, size) { state.inspect(it) }
 
-        /** A swatch of a fixed [color]; a primary click makes it the current color of [state]. */
+        /** A swatch of a fixed [color]; a primary click shows it in the inspector of [state]. */
         fun of(
             color: CssColor,
             state: ColoringState,

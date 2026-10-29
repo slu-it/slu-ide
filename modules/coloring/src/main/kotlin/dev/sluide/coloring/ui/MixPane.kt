@@ -23,7 +23,7 @@ import javafx.scene.layout.VBox
 import javafx.util.StringConverter
 import javafx.util.Subscription
 
-/** The mix of the current color with a second color, and the current color at an opacity over a background. */
+/** The mix of Color 1 with Color 2, and a color at an opacity over a background (Mix slots, ADR 0111). */
 internal class MixPane(
     private val state: ColoringState,
 ) {
@@ -45,15 +45,16 @@ internal class MixPane(
                     override fun fromString(text: String?) = MixSpace.entries.firstOrNull { it.css == text }
                 }
         }
-    private val secondField = ColorField(state.second)
+    private val mix1Slot = SlotView(state.mix1, state)
+    private val mix2Slot = SlotView(state.mix2, state)
 
     /** The text field of the second color. */
-    internal val secondText: TextField get() = secondField.node
+    internal val secondText: TextField get() = mix2Slot.field
 
-    private val result = SimpleObjectProperty(state.current.value)
+    private val result = SimpleObjectProperty(state.mix1.color.value)
     private val mixCss = readOnlyText()
     private val resultCss = readOnlyText()
-    private val stripColors = List(STRIP_STEPS) { SimpleObjectProperty(state.current.value) }
+    private val stripColors = List(STRIP_STEPS) { SimpleObjectProperty(state.mix1.color.value) }
     private val strip = HBox(4.0, *stripColors.map { swatch(it) }.toTypedArray())
 
     /** The nine swatches of the strip. */
@@ -65,15 +66,15 @@ internal class MixPane(
     /** The CSS text of the mix result now shown. */
     internal val resultCssText: String get() = resultCss.text
 
-    /** The opacity of the current color over the background, in percent. */
+    /** The opacity of the flat color over the background, in percent. */
     internal val opacitySlider = Slider(0.0, 100.0, 50.0)
-    private val background = SimpleObjectProperty(CssColor.srgb(1.0, 1.0, 1.0))
-    private val backgroundField = ColorField(background)
+    private val flatColorSlot = SlotView(state.flatColor, state)
+    private val flatBackgroundSlot = SlotView(state.flatBackground, state)
 
     /** The text field of the background color. */
-    internal val backgroundText: TextField get() = backgroundField.node
+    internal val backgroundText: TextField get() = flatBackgroundSlot.field
 
-    private val flattened = SimpleObjectProperty(state.current.value)
+    private val flattened = SimpleObjectProperty(state.flatColor.color.value)
     private val flattenedCss = readOnlyText()
 
     /** The flattened color's CSS text now shown. */
@@ -83,19 +84,19 @@ internal class MixPane(
         VBox(
             12.0,
             title("Mix"),
-            line(swatch(state.current), Label("+"), swatch(state.second), secondField.node, Label("in"), space),
+            line(mix1Slot.node, Label("+"), mix2Slot.node, Label("in"), space),
             line(Label("Amount of second color"), amount, percentLabel(amount)),
             line(swatch(result, RESULT_SIZE), mixCss, copyButton("Copy color-mix()") { mixCss.text }),
             line(Label("Result"), resultCss, copyButton { resultCss.text }),
             strip,
             title("Opacity over a background"),
             line(
-                Label("Current color at"),
+                flatColorSlot.node,
+                Label("at"),
                 opacitySlider,
                 percentLabel(opacitySlider),
                 Label("opacity over"),
-                swatch(background),
-                backgroundField.node,
+                flatBackgroundSlot.node,
             ),
             line(swatch(flattened, RESULT_SIZE), flattenedCss, copyButton { flattenedCss.text }),
         ).apply { padding = Insets(12.0) }
@@ -103,7 +104,7 @@ internal class MixPane(
     init {
         val refresh = Runnable { recompute() }
         subscriptions +=
-            listOf(state.current, state.second, background).map { it.subscribe(refresh) } +
+            listOf(state.mix1, state.mix2, state.flatColor, state.flatBackground).map { it.color.subscribe(refresh) } +
             listOf(amount.valueProperty(), space.valueProperty(), opacitySlider.valueProperty()).map {
                 it.subscribe(refresh)
             }
@@ -111,17 +112,19 @@ internal class MixPane(
     }
 
     private fun recompute() {
-        val current = state.current.value
-        val second = state.second.value
+        val first = state.mix1.color.value
+        val second = state.mix2.color.value
         val p = Math.round(amount.value).toDouble()
         val s = space.value
-        result.set(mixColor(current, second, p, s))
-        mixCss.text = colorMixText(current, second, p, s)
+        result.set(mixColor(first, second, p, s))
+        mixCss.text = colorMixText(first, second, p, s)
         resultCss.text = cssText(result.value)
-        mixSteps(current, second, s).forEachIndexed { i, c -> stripColors[i].set(c) }
+        mixSteps(first, second, s).forEachIndexed { i, c -> stripColors[i].set(c) }
         val o = Math.round(opacitySlider.value).toDouble()
-        flattened.set(flattenedOver(current, o, background.value))
-        flattenedCss.text = flattenText(current, o, background.value)
+        val flat = state.flatColor.color.value
+        val background = state.flatBackground.color.value
+        flattened.set(flattenedOver(flat, o, background))
+        flattenedCss.text = flattenText(flat, o, background)
     }
 
     private fun swatch(
@@ -148,8 +151,7 @@ internal class MixPane(
     fun dispose() {
         subscriptions.forEach(Subscription::unsubscribe)
         subscriptions.clear()
-        secondField.dispose()
-        backgroundField.dispose()
+        listOf(mix1Slot, mix2Slot, flatColorSlot, flatBackgroundSlot).forEach(SlotView::dispose)
         swatches.forEach(Swatch::dispose)
         swatches.clear()
     }

@@ -6,7 +6,6 @@ import dev.sluide.projectdata.ProjectDataStore
 import javafx.beans.property.SimpleObjectProperty
 import javafx.scene.Parent
 import javafx.scene.Scene
-import javafx.scene.control.Button
 import javafx.scene.control.ContextMenu
 import javafx.scene.control.Label
 import javafx.scene.input.ContextMenuEvent
@@ -24,7 +23,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
-/** The wiring of the saved-colors section to the store and the state; the logic is in SavedColorsTest. Needs a display. */
+/** The wiring of the saved-colors list to the store and the state; the logic is in SavedColorsTest. Needs a display. */
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
 class PaletteSectionUiTest {
@@ -53,27 +52,16 @@ class PaletteSectionUiTest {
     private fun swatches(robot: FxRobot) = robot.lookup(".swatch").queryAll<Swatch>().toList()
 
     @Test
-    fun `Save adds a swatch of the current color and disables itself`(robot: FxRobot) {
-        val save = robot.lookup("#coloring-save-color").queryAs(Button::class.java)
-
-        robot.interact { save.fire() }
-
-        assertEquals(listOf(state.current.get()), savedColors.saved(folder))
-        assertEquals(1, swatches(robot).size)
-        assertTrue(save.isDisable)
-
-        robot.interact { state.current.set(red) }
-        assertFalse(save.isDisable)
-    }
-
-    @Test
-    fun `clicking a saved swatch makes it the current color`(robot: FxRobot) {
-        robot.interact { savedColors.save(folder, red) }
+    fun `clicking a saved swatch writes it into the slot being edited`(robot: FxRobot) {
+        robot.interact {
+            savedColors.save(folder, red)
+            state.edit(state.mix2)
+        }
         val swatch = swatches(robot).single()
 
         robot.interact { click(swatch) }
 
-        assertEquals(red, state.current.get())
+        assertEquals(red, state.mix2.color.get())
     }
 
     @Test
@@ -81,16 +69,33 @@ class PaletteSectionUiTest {
         robot.interact { savedColors.save(folder, red) }
         val swatch = swatches(robot).single()
 
-        robot.interact {
-            swatch.fireEvent(
-                ContextMenuEvent(ContextMenuEvent.CONTEXT_MENU_REQUESTED, 0.0, 0.0, 0.0, 0.0, false, null),
-            )
-        }
-        val menu = ContextMenu.getWindows().filterIsInstance<ContextMenu>().single { it.isShowing }
-        robot.interact { menu.items.single { it.text == "Remove" }.fire() }
+        robot.interact { remove(swatch) }
 
         assertEquals(emptyList(), savedColors.saved(folder))
         assertEquals(0, swatches(robot).size)
+    }
+
+    @Test
+    fun `a refused Remove is shown`(robot: FxRobot) {
+        robot.interact { savedColors.save(folder, red) }
+        val swatch = swatches(robot).single()
+        val message =
+            robot.lookup(".coloring-muted").queryAllAs(Label::class.java).single { it.text.startsWith("The saved") }
+        assertFalse(message.isVisible)
+        // Broken behind the section's back: the store does not tell the section, so the swatch stays.
+        store.update(folder) { it.put("colors", "oops") }
+
+        robot.interact { remove(swatch) }
+
+        assertTrue(message.isVisible)
+    }
+
+    /** Opens the swatch's context menu and chooses Remove; run it on the FX thread. */
+    private fun remove(swatch: Swatch) {
+        swatch.fireEvent(ContextMenuEvent(ContextMenuEvent.CONTEXT_MENU_REQUESTED, 0.0, 0.0, 0.0, 0.0, false, null))
+        val menu = ContextMenu.getWindows().filterIsInstance<ContextMenu>().single { it.isShowing }
+        menu.items.single { it.text == "Remove" }.fire()
+        menu.hide()
     }
 
     @Test
@@ -115,34 +120,11 @@ class PaletteSectionUiTest {
     }
 
     @Test
-    fun `a refused save is shown`(robot: FxRobot) {
-        store.update(folder) { it.put("colors", "oops") }
-        val message =
-            robot
-                .lookup(
-                    ".coloring-muted",
-                ).queryAllAs(Label::class.java)
-                .single { it.text.startsWith("The saved") }
-        assertFalse(message.isVisible)
-
-        robot.interact { robot.lookup("#coloring-save-color").queryAs(Button::class.java).fire() }
-
-        assertTrue(message.isVisible)
-    }
-
-    @Test
     fun `a disposed section no longer reacts`(robot: FxRobot) {
-        val save = robot.lookup("#coloring-save-color").queryAs(Button::class.java)
-        robot.interact { save.fire() }
-        assertTrue(save.isDisable)
         robot.interact { section.dispose() }
 
-        robot.interact {
-            savedColors.save(folder, red)
-            state.current.set(red)
-        }
+        robot.interact { savedColors.save(folder, red) }
 
-        assertEquals(1, swatches(robot).size)
-        assertTrue(save.isDisable)
+        assertEquals(0, swatches(robot).size)
     }
 }

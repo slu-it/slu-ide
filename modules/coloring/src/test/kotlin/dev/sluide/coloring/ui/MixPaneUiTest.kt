@@ -30,31 +30,31 @@ class MixPaneUiTest {
 
     @Test
     fun `moving the slider updates the color-mix text`(robot: FxRobot) {
-        assertEquals("color-mix(in oklch, #3b82f6 50%, #ffffff 50%)", pane.mixCssText)
+        assertEquals("color-mix(in oklch, #3b82f6 50%, #ef4444 50%)", pane.mixCssText)
 
         robot.interact { pane.amount.value = 25.0 }
 
-        assertEquals("color-mix(in oklch, #3b82f6 75%, #ffffff 25%)", pane.mixCssText)
+        assertEquals("color-mix(in oklch, #3b82f6 75%, #ef4444 25%)", pane.mixCssText)
     }
 
     @Test
     fun `choosing a space changes the color-mix text`(robot: FxRobot) {
         robot.interact { pane.space.value = MixSpace.SRGB }
 
-        assertEquals("color-mix(in srgb, #3b82f6 50%, #ffffff 50%)", pane.mixCssText)
+        assertEquals("color-mix(in srgb, #3b82f6 50%, #ef4444 50%)", pane.mixCssText)
     }
 
     @Test
     fun `typing a second color changes the mix`(robot: FxRobot) {
         robot.interact { pane.secondText.text = "#000000" }
 
-        assertEquals(CssColor.fromRgb8(0, 0, 0), state.second.value)
+        assertEquals(CssColor.fromRgb8(0, 0, 0), state.mix2.color.value)
         assertEquals("color-mix(in oklch, #3b82f6 50%, #000000 50%)", pane.mixCssText)
     }
 
     @Test
     fun `the opacity and the background change the flattened color`(robot: FxRobot) {
-        robot.interact { state.current.set(CssColor.fromRgb8(0, 0, 0)) }
+        robot.interact { state.flatColor.color.set(CssColor.fromRgb8(0, 0, 0)) }
         robot.interact { pane.opacitySlider.value = 50.0 }
         assertEquals("#808080", pane.flattenedCssText)
 
@@ -64,13 +64,13 @@ class MixPaneUiTest {
     }
 
     @Test
-    fun `clicking a strip swatch makes it the current color`(robot: FxRobot) {
+    fun `clicking a strip swatch inspects its color`(robot: FxRobot) {
         val swatch = pane.stripSwatches[0]
         val tip = swatch.tooltipText
 
         robot.interact { click(swatch) }
 
-        assertEquals(tip, ColorFormatter.hex(state.current.get()))
+        assertEquals(tip, ColorFormatter.hex(state.inspected.get()))
     }
 
     @Test
@@ -78,7 +78,7 @@ class MixPaneUiTest {
         val before = pane.mixCssText
         robot.interact { pane.dispose() }
 
-        robot.interact { state.current.set(CssColor.fromRgb8(1, 2, 3)) }
+        robot.interact { state.mix1.color.set(CssColor.fromRgb8(1, 2, 3)) }
 
         assertEquals(before, pane.mixCssText)
     }

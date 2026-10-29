@@ -25,6 +25,7 @@ import org.testfx.framework.junit5.Start
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -54,27 +55,27 @@ class GradientPaneUiTest {
     private fun css() = find<TextField>("gradient-css").text
 
     @Test
-    fun `starts with the current color to the second color, linear 90deg in oklch`() {
-        assertEquals("linear-gradient(in oklch 90deg, #3b82f6 0%, #ffffff 100%)", css())
+    fun `starts with the window gradient, blue to violet, linear 90deg in oklch`() {
+        assertEquals("linear-gradient(in oklch 90deg, #3b82f6 0%, #8b5cf6 100%)", css())
     }
 
     @Test
     fun `changing the type updates the css`(robot: FxRobot) {
         robot.interact { find<ToggleButton>("gradient-conic").fire() }
-        assertEquals("conic-gradient(from 90deg in oklch, #3b82f6 0%, #ffffff 100%)", css())
+        assertEquals("conic-gradient(from 90deg in oklch, #3b82f6 0%, #8b5cf6 100%)", css())
         robot.interact { find<ToggleButton>("gradient-radial").fire() }
-        assertEquals("radial-gradient(circle in oklch, #3b82f6 0%, #ffffff 100%)", css())
+        assertEquals("radial-gradient(circle in oklch, #3b82f6 0%, #8b5cf6 100%)", css())
     }
 
     @Test
     fun `typing in the stop field updates the css`(robot: FxRobot) {
         val field = find<TextField>("gradient-stop-text")
         robot.interact { field.text = "red" }
-        assertEquals("linear-gradient(in oklch 90deg, #ff0000 0%, #ffffff 100%)", css())
+        assertEquals("linear-gradient(in oklch 90deg, #ff0000 0%, #8b5cf6 100%)", css())
     }
 
     @Test
-    fun `the stop field follows the selected stop and edits only that one`(robot: FxRobot) {
+    fun `the stop slot follows the selected stop and edits only that one`(robot: FxRobot) {
         val field = find<TextField>("gradient-stop-text")
         robot.interact {
             pane.stopsBar.handle(1).fireEvent(
@@ -100,11 +101,16 @@ class GradientPaneUiTest {
                 ),
             )
         }
-        assertEquals("#ffffff", field.text)
+        assertEquals("#8b5cf6", field.text)
+        assertSame(state.gradientStop, state.editing.get(), "selecting a stop edits its slot")
 
         robot.interact { field.text = "red" }
 
         assertEquals("linear-gradient(in oklch 90deg, #3b82f6 0%, #ff0000 100%)", css())
+
+        // The left column edits the same stop.
+        robot.interact { state.editingColor.set(CssColor.fromRgb8(0, 255, 0)) }
+        assertEquals("linear-gradient(in oklch 90deg, #3b82f6 0%, #00ff00 100%)", css())
     }
 
     @Test
@@ -114,17 +120,15 @@ class GradientPaneUiTest {
     }
 
     @Test
-    fun `after dispose a change of the current color has no effect`(robot: FxRobot) {
-        val setCurrent = find<Button>("gradient-set-current")
-        robot.interact { state.current.set(CssColor.fromRgb8(1, 2, 3)) }
-        assertFalse(setCurrent.isDisable, "enabled while the current color differs from the stop")
+    fun `after dispose a change of the gradient has no effect`(robot: FxRobot) {
+        val before = css()
 
         robot.interact {
             pane.dispose()
-            state.current.set(CssColor.fromRgb8(0x3b, 0x82, 0xf6))
+            state.gradientStop.color.set(CssColor.fromRgb8(255, 0, 0))
         }
-        // The button would be disabled again (the stop already has that color) if the pane still listened.
-        assertFalse(setCurrent.isDisable)
+
+        assertEquals(before, css())
     }
 
     private fun drag(
@@ -166,14 +170,14 @@ class GradientPaneUiTest {
             val mid = bar.localToScene(bar.width / 2, 0.0).x
             drag(bar.handle(0), mid)
         }
-        assertEquals("linear-gradient(in oklch 90deg, #3b82f6 50%, #ffffff 100%)", css())
+        assertEquals("linear-gradient(in oklch 90deg, #3b82f6 50%, #8b5cf6 100%)", css())
 
         robot.interact { drag(bar.handle(0), bar.localToScene(bar.width + 40, 0.0).x) }
         // Blue went past white to 100 % and is still the selected stop, so it can be dragged back out.
-        assertEquals("linear-gradient(in oklch 90deg, #ffffff 100%, #3b82f6 100%)", css())
+        assertEquals("linear-gradient(in oklch 90deg, #8b5cf6 100%, #3b82f6 100%)", css())
         assertEquals("#3b82f6", find<TextField>("gradient-stop-text").text)
         robot.interact { drag(bar.handle(1), bar.localToScene(bar.width / 2, 0.0).x) }
-        assertEquals("linear-gradient(in oklch 90deg, #3b82f6 50%, #ffffff 100%)", css())
+        assertEquals("linear-gradient(in oklch 90deg, #3b82f6 50%, #8b5cf6 100%)", css())
     }
 
     @Test
@@ -193,30 +197,20 @@ class GradientPaneUiTest {
     @Test
     fun `an interpolation toggle changes the space and srgb leaves it out`(robot: FxRobot) {
         robot.interact { find<ToggleButton>("gradient-oklab").fire() }
-        assertEquals("linear-gradient(in oklab 90deg, #3b82f6 0%, #ffffff 100%)", css())
+        assertEquals("linear-gradient(in oklab 90deg, #3b82f6 0%, #8b5cf6 100%)", css())
         robot.interact { find<ToggleButton>("gradient-srgb").fire() }
-        assertEquals("linear-gradient(90deg, #3b82f6 0%, #ffffff 100%)", css())
+        assertEquals("linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%)", css())
     }
 
     @Test
     fun `the angle field sets the angle and marks bad input`(robot: FxRobot) {
         val field = find<TextField>("gradient-angle")
         robot.interact { field.text = "45" }
-        assertEquals("linear-gradient(in oklch 45deg, #3b82f6 0%, #ffffff 100%)", css())
+        assertEquals("linear-gradient(in oklch 45deg, #3b82f6 0%, #8b5cf6 100%)", css())
 
         robot.interact { field.text = "400" }
-        assertEquals("linear-gradient(in oklch 45deg, #3b82f6 0%, #ffffff 100%)", css())
+        assertEquals("linear-gradient(in oklch 45deg, #3b82f6 0%, #8b5cf6 100%)", css())
         assertTrue(field.pseudoClassStates.any { it.pseudoClassName == "invalid" })
-    }
-
-    @Test
-    fun `use stop as current and set to current color go through the state`(robot: FxRobot) {
-        robot.interact { find<Button>("gradient-use").fire() }
-        assertEquals(CssColor.fromRgb8(0x3b, 0x82, 0xf6), state.current.get())
-
-        robot.interact { state.current.set(CssColor.fromRgb8(255, 0, 0)) }
-        robot.interact { find<Button>("gradient-set-current").fire() }
-        assertEquals("linear-gradient(in oklch 90deg, #ff0000 0%, #ffffff 100%)", css())
     }
 
     @Test

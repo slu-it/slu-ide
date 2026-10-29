@@ -8,8 +8,6 @@ import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Button
 import javafx.scene.control.Label
-import javafx.scene.control.ToggleButton
-import javafx.scene.control.ToggleGroup
 import javafx.scene.control.Tooltip
 import javafx.scene.layout.Background
 import javafx.scene.layout.BackgroundFill
@@ -27,16 +25,14 @@ import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignS
 
 /**
- * The contrast of the current color against a second color, by WCAG 2 and APCA. The decisions are made by
+ * The contrast of the Text slot against the Background slot, by WCAG 2 and APCA. The decisions are made by
  * [contrastView]; this pane shows them and writes the user's changes back to the window's state.
  */
 internal class ContrastPane(
     private val state: ColoringState,
 ) {
-    private val textRole = ToggleButton("Text")
-    private val backgroundRole = ToggleButton("Background")
-    private val secondField = ColorField(state.second, columns = 10).apply { node.id = "contrast-second" }
-    private val secondSwatch = Swatch.of(state.second, state)
+    private val textSlot = SlotView(state.contrastText, state)
+    private val backgroundSlot = SlotView(state.contrastBackground, state).apply { field.id = "contrast-second" }
 
     private val sampleBox =
         VBox(6.0).apply {
@@ -69,8 +65,7 @@ internal class ContrastPane(
         VBox(
             10.0,
             Label("Contrast").apply { styleClass += "coloring-section-title" },
-            roleRow(),
-            secondRow(),
+            slotsRow(),
             sampleBox.apply { children += listOf(normalSample, largeSample, uiSample) },
             Label("WCAG 2").apply { styleClass += "coloring-section-title" },
             ratioLabel,
@@ -94,54 +89,39 @@ internal class ContrastPane(
                 isWrapText = true
                 maxWidth = 320.0
             }
-        val group = ToggleGroup()
-        textRole.toggleGroup = group
-        backgroundRole.toggleGroup = group
-        // A click on the selected toggle would clear the selection; the state decides, so the pane restores it.
-        subscriptions +=
-            group.selectedToggleProperty().subscribe { t -> if (t == null) showRole(state.currentIsText.get()) }
-        textRole.setOnAction { state.currentIsText.set(true) }
-        backgroundRole.setOnAction { state.currentIsText.set(false) }
-        subscriptions += state.currentIsText.subscribe { isText -> showRole(isText) }
-
-        subscriptions += state.current.subscribe { _ -> refresh() }
-        subscriptions += state.second.subscribe { _ -> refresh() }
-        subscriptions += state.currentIsText.subscribe { _ -> refresh() }
+        subscriptions += state.contrastText.color.subscribe { _ -> refresh() }
+        subscriptions += state.contrastBackground.color.subscribe { _ -> refresh() }
     }
 
-    private fun showRole(isText: Boolean) {
-        textRole.isSelected = isText
-        backgroundRole.isSelected = !isText
-    }
-
-    private fun roleRow() =
-        HBox(
-            8.0,
-            Label("Current is:"),
-            HBox(textRole, backgroundRole),
-            Button("Swap", FontIcon(MaterialDesignS.SWAP_HORIZONTAL)).apply {
-                id = "contrast-swap"
-                setOnAction {
-                    val first = state.current.get()
-                    state.current.set(state.second.get())
-                    state.second.set(first)
-                }
-            },
-        ).apply { alignment = Pos.CENTER_LEFT }
-
-    private fun secondRow() =
+    private fun slotsRow() =
         FlowPane(
             8.0,
             6.0,
-            Label("Second color:"),
-            secondSwatch,
-            secondField.node,
-            Button("White").apply { setOnAction { state.second.set(CssColor.srgb(1.0, 1.0, 1.0)) } },
-            Button("Black").apply { setOnAction { state.second.set(CssColor.srgb(0.0, 0.0, 0.0)) } },
+            textSlot.node,
+            backgroundSlot.node,
+            Button("Swap", FontIcon(MaterialDesignS.SWAP_HORIZONTAL)).apply {
+                id = "contrast-swap"
+                setOnAction {
+                    val oldText = text()
+                    text(background())
+                    background(oldText)
+                }
+            },
+            Button("White").apply { setOnAction { background(CssColor.srgb(1.0, 1.0, 1.0)) } },
+            Button("Black").apply { setOnAction { background(CssColor.srgb(0.0, 0.0, 0.0)) } },
         ).apply { alignment = Pos.CENTER_LEFT }
 
+    private fun text(): CssColor = state.contrastText.color.get()
+
+    private fun text(color: CssColor) = state.contrastText.color.set(color)
+
+    private fun background(): CssColor = state.contrastBackground.color.get()
+
+    private fun background(color: CssColor) = state.contrastBackground.color.set(color)
+
     private fun refresh() {
-        val s = contrastView(state.current.get(), state.second.get(), state.currentIsText.get())
+        // R2 of ADR 0111 reworks the model's signature; until then the Text slot is the text color.
+        val s = contrastView(text(), background(), true)
         val text = s.text.toFxColor()
         sampleBox.background = Background(BackgroundFill(s.sampleBackground.toFxColor(), null, null))
         normalSample.textFill = text
@@ -177,9 +157,7 @@ internal class ContrastPane(
                 Label(suggestion.colorText),
                 Button("Use").apply {
                     id = "contrast-use"
-                    setOnAction {
-                        if (state.currentIsText.get()) state.current.set(color) else state.second.set(color)
-                    }
+                    setOnAction { text(color) }
                 },
             )
     }
@@ -188,8 +166,8 @@ internal class ContrastPane(
     fun dispose() {
         subscriptions.forEach { it.unsubscribe() }
         subscriptions.clear()
-        secondField.dispose()
-        secondSwatch.dispose()
+        textSlot.dispose()
+        backgroundSlot.dispose()
         suggestionSwatches.forEach { it.dispose() }
         suggestionSwatches.clear()
     }

@@ -16,14 +16,14 @@ import javafx.scene.layout.VBox
 import javafx.util.Subscription
 
 /**
- * The color picker for the current color: a saturation/value square with a hue strip, or a hue/saturation wheel with a
- * value slider (switched by the toggle buttons at the top), and an alpha slider below. The picker keeps its own hue,
+ * The color picker for the slot being edited: a saturation/value square with a hue strip, or a hue/saturation wheel
+ * with a value slider (switched by the toggle buttons at the top), and an alpha slider below. The picker keeps its own hue,
  * saturation, value and alpha ([PickerModel]); it writes HSV colors to the state and follows colors set from outside.
  */
 internal class PickerSection(
     private val state: ColoringState,
 ) {
-    private val model = PickerModel(state.current.get()) { state.current.set(it) }
+    private val model = PickerModel(state.editingColor.get()) { state.editingColor.set(it) }
     internal val square = SquarePicker(model)
     internal val wheel = WheelPicker(model)
 
@@ -65,7 +65,7 @@ internal class PickerSection(
             squareAlpha.update()
             wheelAlpha.update()
         }
-        stateSubscription = state.current.subscribe { color -> model.external(color) }
+        stateSubscription = state.editingColor.subscribe { color -> model.external(color) }
     }
 
     /** Releases the listeners on the window's state. */

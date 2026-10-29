@@ -1,9 +1,11 @@
 package dev.sluide.coloring.ui
 
 import dev.sluide.coloring.color.ColorFormat
+import dev.sluide.coloring.color.CssColor
 import dev.sluide.coloring.color.FormatGroup
 import dev.sluide.coloring.color.FormattedColor
 import dev.sluide.coloring.color.formatGroups
+import javafx.beans.value.ObservableValue
 import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Label
@@ -14,9 +16,9 @@ import javafx.scene.layout.Priority
 import javafx.scene.layout.VBox
 import javafx.util.Subscription
 
-/** The current color in the CSS notations and the design tool notations, each with a copy button. */
+/** [color] in the CSS notations and the design tool notations, each with a copy button. */
 internal class FormatsSection(
-    private val state: ColoringState,
+    color: ObservableValue<CssColor>,
 ) {
     private class Row(
         val text: TextField,
@@ -31,7 +33,7 @@ internal class FormatsSection(
     val node: Node = column
 
     init {
-        subscription = state.current.subscribe { color -> refresh(formatGroups(color)) }
+        subscription = color.subscribe { c -> refresh(formatGroups(c)) }
     }
 
     private fun refresh(groups: List<FormatGroup>) {
@@ -87,7 +89,7 @@ internal class FormatsSection(
         rows = built
     }
 
-    /** Releases the listeners on the window's state. */
+    /** Stops following the color. */
     fun dispose() = subscription.unsubscribe()
 
     private companion object {

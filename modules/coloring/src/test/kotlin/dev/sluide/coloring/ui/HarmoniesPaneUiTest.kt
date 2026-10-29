@@ -31,22 +31,24 @@ class HarmoniesPaneUiTest {
     }
 
     @Test
-    fun `the source step mark moves with the current color`(robot: FxRobot) {
+    fun `the source step mark moves with the base color`(robot: FxRobot) {
         val before = pane.sourceCells.single()
 
-        robot.interact { state.current.set(CssColor.fromRgb8(10, 10, 10)) }
+        robot.interact { state.base.color.set(CssColor.fromRgb8(10, 10, 10)) }
 
         assertNotSame(before, pane.sourceCells.single())
     }
 
     @Test
-    fun `clicking a harmony swatch makes its color current`(robot: FxRobot) {
+    fun `clicking a harmony swatch inspects its color and leaves the base`(robot: FxRobot) {
+        val base = state.base.color.get()
         val harmonySwatch = pane.harmonySwatches[1]
         val tip = harmonySwatch.tooltipText
 
         robot.interact { click(harmonySwatch) }
 
-        assertEquals(tip, ColorFormatter.hex(state.current.get()))
+        assertEquals(tip, ColorFormatter.hex(state.inspected.get()))
+        assertEquals(base, state.base.color.get())
     }
 
     @Test
@@ -54,7 +56,7 @@ class HarmoniesPaneUiTest {
         val before = pane.shownShades
         robot.interact { pane.dispose() }
 
-        robot.interact { state.current.set(CssColor.fromRgb8(1, 2, 3)) }
+        robot.interact { state.base.color.set(CssColor.fromRgb8(1, 2, 3)) }
 
         assertEquals(before, pane.shownShades)
     }

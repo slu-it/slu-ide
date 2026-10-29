@@ -1,17 +1,14 @@
 package dev.sluide.coloring.ui
 
 import dev.sluide.coloring.analysis.Gradient
-import dev.sluide.coloring.analysis.GradientStop
 import dev.sluide.coloring.analysis.GradientType
 import dev.sluide.coloring.analysis.MixSpace
 import dev.sluide.coloring.analysis.addStop
 import dev.sluide.coloring.analysis.css
 import dev.sluide.coloring.analysis.moveStop
 import dev.sluide.coloring.analysis.removeStop
-import dev.sluide.coloring.analysis.setStopColor
 import dev.sluide.coloring.ui.gradient.GradientPreview
 import dev.sluide.coloring.ui.gradient.StopsBar
-import javafx.beans.property.SimpleObjectProperty
 import javafx.css.PseudoClass
 import javafx.geometry.Insets
 import javafx.scene.Node
@@ -36,31 +33,28 @@ import org.kordamp.ikonli.materialdesign2.MaterialDesignC
 import kotlin.math.roundToInt
 
 /**
- * A CSS gradient builder: it starts from the current color to the second color and is edited here. The gradient
- * belongs to the pane, so it starts again when the tab is opened anew. The decisions are in `analysis/Gradients.kt`;
- * this class connects them to the controls.
+ * A CSS gradient builder on the window's gradient ([ColoringState.gradient]), which outlives the tab. The selected
+ * stop is the Gradient slot (ADR 0111): selecting a stop edits it in the left column. The decisions are in
+ * `analysis/Gradients.kt`; this class connects them to the controls.
  */
 internal class GradientPane(
     private val state: ColoringState,
     conicThrottleMillis: Double = 50.0,
 ) {
-    private var gradient =
-        Gradient(
-            GradientType.LINEAR,
-            90.0,
-            listOf(GradientStop(state.current.get(), 0.0), GradientStop(state.second.get(), 1.0)),
-            MixSpace.OKLCH,
-        )
-    private var selected = 0
+    private val gradient: Gradient get() = state.gradient.value
+    private val selected: Int get() = state.selectedStop.get().coerceIn(0, gradient.stops.lastIndex)
     private var updating = false
 
     private val preview = GradientPreview(conicThrottleMillis)
     private val bar =
-        StopsBar(onSelect = { apply(gradient, it) }, onMove = { p ->
+        StopsBar(onSelect = { i ->
+            state.selectedStop.set(i)
+            state.edit(state.gradientStop, ColoringState.GRADIENT)
+        }, onMove = { p ->
             moveStop(gradient, selected, p).let { (g, i) -> apply(g, i) }
         })
-    private val selectedColor = SimpleObjectProperty(gradient.stops[0].color)
-    private val selectedSwatch = Swatch.of(selectedColor, state)
+    private val stopSlot =
+        SlotView(state.gradientStop, state, ColoringState.GRADIENT).apply { field.id = "gradient-stop-text" }
     private val types = ToggleGroup()
     private val spaces = ToggleGroup()
     private val angle = Slider(0.0, 360.0, gradient.angleDeg)
@@ -70,19 +64,15 @@ internal class GradientPane(
             styleClass += "coloring-input"
             prefColumnCount = 4
         }
-    private val stopField =
-        ColorField(selectedColor, promptText = "Color of the stop").apply { node.id = "gradient-stop-text" }
     private val addButton = Button("Add stop").apply { id = "gradient-add" }
     private val removeButton = Button("Remove stop").apply { id = "gradient-remove" }
-    private val setCurrentButton = Button("Set to current color").apply { id = "gradient-set-current" }
-    private val useButton = Button("Use stop as current").apply { id = "gradient-use" }
     private val cssField =
         TextField().apply {
             id = "gradient-css"
             isEditable = false
         }
     private val copyButton = Button(null, FontIcon(MaterialDesignC.CONTENT_COPY)).apply { id = "gradient-copy" }
-    private val currentSubscription: Subscription
+    private val subscriptions: List<Subscription>
 
     val node: Node
 
@@ -94,8 +84,8 @@ internal class GradientPane(
         val spaceRow = HBox(4.0).apply { children += segmented(spaces, SPACES.map { it to it.label }) }
         val angleRow =
             HBox(8.0, Label("Angle"), angle.also { HBox.setHgrow(it, Priority.ALWAYS) }, angleField, Label("deg"))
-        val stopRow = HBox(8.0, selectedSwatch, stopField.node.also { HBox.setHgrow(it, Priority.ALWAYS) })
-        val stopButtons = FlowPane(6.0, 6.0, addButton, removeButton, setCurrentButton, useButton)
+        val stopRow = stopSlot.node
+        val stopButtons = FlowPane(6.0, 6.0, addButton, removeButton)
         copyButton.tooltip = Tooltip("Copy the CSS")
         val outRow = HBox(6.0, cssField.also { HBox.setHgrow(it, Priority.ALWAYS) }, copyButton)
         node =
@@ -121,34 +111,30 @@ internal class GradientPane(
             if (!updating) apply(gradient.copy(angleDeg = v.toDouble().roundToInt().toDouble()))
         }
         angleField.textProperty().subscribe { text -> if (!updating) onAngleText(text) }
-        selectedColor.subscribe { c -> if (!updating) apply(setStopColor(gradient, selected, c)) }
         addButton.setOnAction { addStop(gradient).let { (g, i) -> apply(g, i) } }
         removeButton.setOnAction { apply(removeStop(gradient, selected), selected) }
-        setCurrentButton.setOnAction { apply(setStopColor(gradient, selected, state.current.get())) }
-        useButton.setOnAction { state.current.set(gradient.stops[selected].color) }
         copyButton.setOnAction {
             Clipboard.getSystemClipboard().setContent(ClipboardContent().apply { putString(css(gradient)) })
         }
-        currentSubscription = state.current.subscribe { _ -> updateSetCurrent() }
-        refresh()
+        // The gradient also changes from outside: through the stop's slot in the left column.
+        subscriptions =
+            listOf(
+                state.gradient.subscribe { _ -> refresh() },
+                state.selectedStop.subscribe { _ -> refresh() },
+            )
     }
 
     /** Releases the listeners on the window's state and disposes the swatches. */
     fun dispose() {
-        currentSubscription.unsubscribe()
-        stopField.dispose()
-        selectedSwatch.dispose()
+        subscriptions.forEach(Subscription::unsubscribe)
+        stopSlot.dispose()
         preview.dispose()
     }
 
     private fun apply(
         g: Gradient,
         sel: Int = selected,
-    ) {
-        gradient = g
-        selected = sel.coerceIn(0, g.stops.lastIndex)
-        refresh()
-    }
+    ) = state.setGradient(g, sel)
 
     private fun onType(toggle: Toggle?) {
         val type = toggle?.userData as? GradientType
@@ -181,11 +167,10 @@ internal class GradientPane(
     private fun refresh() {
         updating = true
         try {
-            val color = gradient.stops[selected].color
+            val gradient = gradient
             cssField.text = css(gradient)
             preview.gradient = gradient
             bar.show(gradient, selected)
-            selectedColor.set(color)
             types.toggles.first { it.userData == gradient.type }.isSelected = true
             val space = gradient.space ?: MixSpace.SRGB
             spaces.toggles.first { it.userData == space }.isSelected = true
@@ -197,14 +182,9 @@ internal class GradientPane(
                 angleField.pseudoClassStateChanged(INVALID, false)
             }
             removeButton.isDisable = gradient.stops.size <= 2
-            updateSetCurrent()
         } finally {
             updating = false
         }
-    }
-
-    private fun updateSetCurrent() {
-        setCurrentButton.isDisable = gradient.stops[selected].color == state.current.get()
     }
 
     private fun <T> segmented(

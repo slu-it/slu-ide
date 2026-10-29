@@ -16,7 +16,7 @@ import javafx.scene.control.TextField
 import javafx.scene.layout.HBox
 import javafx.scene.layout.VBox
 
-/** Shades, tints and color harmonies of the current color. */
+/** Shades, tints and color harmonies of the Base slot. */
 internal class HarmoniesPane(
     private val state: ColoringState,
 ) {
@@ -24,7 +24,7 @@ internal class HarmoniesPane(
     private inner class Slot(
         size: Double,
     ) {
-        val color = SimpleObjectProperty(state.current.value)
+        val color = SimpleObjectProperty(state.base.color.value)
         val swatch = Swatch.of(color, state, size)
         val caption = Label().apply { styleClass += "coloring-caption" }
         val cell =
@@ -48,7 +48,7 @@ internal class HarmoniesPane(
     /** The shades now shown. */
     internal val shownShades: List<Shade> get() = shown
 
-    /** The shade cells marked as the current color. */
+    /** The shade cells marked as the base color. */
     internal val sourceCells: List<Node> get() = shadeSlots.map { it.cell }.filter { "shade-source" in it.styleClass }
 
     val node: Node =
@@ -72,7 +72,7 @@ internal class HarmoniesPane(
             ),
         ).apply { padding = Insets(12.0) }
 
-    private val subscription = state.current.subscribe { color -> show(color) }
+    private val subscription = state.base.color.subscribe { color -> show(color) }
 
     private fun show(color: CssColor) {
         shown = shades(color)
@@ -94,7 +94,7 @@ internal class HarmoniesPane(
         }
     }
 
-    /** The swatches of the harmony rows, current color first in each row. */
+    /** The swatches of the harmony rows, base color first in each row. */
     internal val harmonySwatches: List<Swatch> get() = harmonySlots.flatten().map { it.swatch }
 
     /** Releases the listeners on the window's state. */

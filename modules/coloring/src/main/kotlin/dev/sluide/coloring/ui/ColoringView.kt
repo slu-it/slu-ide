@@ -13,10 +13,10 @@ import javafx.scene.layout.VBox
 import java.nio.file.Path
 
 /**
- * The content of the Coloring tab: the current color's sections in a column at the left, the tools that compare or
- * derive colors in tabs at the right. The colors live in the window's state, which outlives the tab: every section and
- * pane releases its listeners and bindings on it in `dispose()`, and [dispose] calls them all, so a new section must
- * be added there.
+ * The content of the Coloring tab (ADR 0111): at the left the picker for the slot being edited, in the center the
+ * tools that compare or derive colors in tabs, at the right the inspector. Switching the tool tab edits the slot that
+ * tab remembers. The colors live in the window's state, which outlives the tab: every section and pane releases its
+ * listeners and bindings on it in `dispose()`, and [dispose] calls them all, so a new section must be added there.
  */
 internal class ColoringView(
     state: ColoringState,
@@ -25,23 +25,26 @@ internal class ColoringView(
 ) {
     private val input = InputSection(state)
     private val picker = PickerSection(state)
-    private val formats = FormatsSection(state)
     private val palette = PaletteSection(state, savedColors, projectFolder)
+    private val inspector = InspectorSection(state, savedColors, projectFolder)
     private val contrast = ContrastPane(state)
     private val harmonies = HarmoniesPane(state)
     private val mix = MixPane(state)
     private val gradient = GradientPane(state)
     private val vision = VisionPane(state)
 
-    /** The tool tabs at the right, in order. */
+    /** The tool tabs in the center, in order. */
     val toolTabs: TabPane =
         TabPane(
-            tool("Contrast", contrast.node),
-            tool("Shades & Harmonies", harmonies.node),
-            tool("Mix", mix.node),
-            tool("Gradient", gradient.node),
-            tool("Vision", vision.node),
+            tool(ColoringState.CONTRAST, contrast.node),
+            tool(ColoringState.HARMONIES, harmonies.node),
+            tool(ColoringState.MIX, mix.node),
+            tool(ColoringState.GRADIENT, gradient.node),
+            tool(ColoringState.VISION, vision.node),
         ).apply { tabClosingPolicy = TabPane.TabClosingPolicy.UNAVAILABLE }
+
+    private val tabSubscription =
+        toolTabs.selectionModel.selectedItemProperty().subscribe { tab -> tab?.let { state.editIn(it.text) } }
 
     val node: Node =
         BorderPane().apply {
@@ -49,29 +52,30 @@ internal class ColoringView(
             stylesheets +=
                 checkNotNull(ColoringView::class.java.getResource("/dev/sluide/coloring/coloring.css"))
                     .toExternalForm()
-            left =
-                ScrollPane(
-                    VBox(
-                        12.0,
-                        input.node,
-                        picker.node,
-                        formats.node,
-                        palette.node,
-                    ).apply {
-                        styleClass += "coloring-column"
-                        padding = Insets(12.0)
-                    },
-                ).apply {
-                    isFitToWidth = true
-                    hbarPolicy = ScrollPane.ScrollBarPolicy.NEVER
-                    prefWidth = COLUMN_WIDTH
-                    minWidth = COLUMN_WIDTH
-                    maxWidth = COLUMN_WIDTH
-                }
+            left = column("coloring-left", COLUMN_WIDTH, input.node, picker.node, palette.node)
             center = toolTabs
+            right = column("coloring-right", INSPECTOR_WIDTH, inspector.node)
             // Focus goes to the color input field when the tab is shown, as in a terminal.
             sceneProperty().subscribe { scene -> if (scene != null) Platform.runLater(::focus) }
         }
+
+    private fun column(
+        id: String,
+        width: Double,
+        vararg content: Node,
+    ) = ScrollPane(
+        VBox(12.0, *content).apply {
+            styleClass += "coloring-column"
+            padding = Insets(12.0)
+        },
+    ).apply {
+        this.id = id
+        isFitToWidth = true
+        hbarPolicy = ScrollPane.ScrollBarPolicy.NEVER
+        prefWidth = width
+        minWidth = width
+        maxWidth = width
+    }
 
     private fun tool(
         title: String,
@@ -83,10 +87,11 @@ internal class ColoringView(
 
     /** Releases the listeners of all sections and panes on the window's state. */
     fun dispose() {
+        tabSubscription.unsubscribe()
         input.dispose()
         picker.dispose()
-        formats.dispose()
         palette.dispose()
+        inspector.dispose()
         contrast.dispose()
         harmonies.dispose()
         mix.dispose()
@@ -96,5 +101,6 @@ internal class ColoringView(
 
     private companion object {
         const val COLUMN_WIDTH = 380.0
+        const val INSPECTOR_WIDTH = 320.0
     }
 }

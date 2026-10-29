@@ -28,8 +28,8 @@ class VisionPaneUiTest {
 
     @Start
     fun start(stage: Stage) {
-        state.current.set(CssColor.fromRgb8(255, 0, 0))
-        state.second.set(CssColor.fromRgb8(0, 20, 0))
+        state.contrastText.color.set(CssColor.fromRgb8(255, 0, 0))
+        state.contrastBackground.color.set(CssColor.fromRgb8(0, 20, 0))
         pane = VisionPane(state)
         stage.scene = Scene(StackPane(pane.node), 460.0, 520.0)
         stage.show()
@@ -55,8 +55,8 @@ class VisionPaneUiTest {
     private fun cssTexts(robot: FxRobot) = robot.lookup(".vision-css").queryAllAs(Label::class.java).map { it.text }
 
     @Test
-    fun `changing the current color updates the normal and a simulated row`(robot: FxRobot) {
-        robot.interact { state.current.set(CssColor.fromRgb8(0, 0, 255)) }
+    fun `changing the text color updates the normal and a simulated row`(robot: FxRobot) {
+        robot.interact { state.contrastText.color.set(CssColor.fromRgb8(0, 0, 255)) }
 
         assertEquals("#0000ff", swatches(robot)[0].tooltipText)
         assertEquals(
@@ -66,10 +66,14 @@ class VisionPaneUiTest {
     }
 
     @Test
-    fun `switching the roles swaps the colors of the sample`(robot: FxRobot) {
+    fun `swapping the pair swaps the colors of the sample`(robot: FxRobot) {
         val before = sampleColors(robot)
 
-        robot.interact { state.currentIsText.set(false) }
+        robot.interact {
+            val text = state.contrastText.color.get()
+            state.contrastText.color.set(state.contrastBackground.color.get())
+            state.contrastBackground.color.set(text)
+        }
 
         assertEquals(before.reversed(), sampleColors(robot))
     }
@@ -81,8 +85,8 @@ class VisionPaneUiTest {
 
         robot.interact {
             pane.dispose()
-            state.current.set(CssColor.fromRgb8(0, 0, 255))
-            state.currentIsText.set(false)
+            state.contrastText.color.set(CssColor.fromRgb8(0, 0, 255))
+            state.contrastBackground.color.set(CssColor.fromRgb8(255, 255, 255))
         }
 
         assertEquals(before, cssTexts(robot))
@@ -93,8 +97,8 @@ class VisionPaneUiTest {
     fun `the warning shows for a pair that loses contrast and hides for a passing one`(robot: FxRobot) {
         assertTrue(warningLabel(robot).isVisible)
 
-        robot.interact { state.second.set(CssColor.fromRgb8(255, 255, 255)) }
-        robot.interact { state.current.set(CssColor.fromRgb8(0, 0, 0)) }
+        robot.interact { state.contrastBackground.color.set(CssColor.fromRgb8(255, 255, 255)) }
+        robot.interact { state.contrastText.color.set(CssColor.fromRgb8(0, 0, 0)) }
 
         assertFalse(warningLabel(robot).isVisible)
     }

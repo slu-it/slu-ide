@@ -18,7 +18,7 @@ import javafx.scene.layout.GridPane
 import javafx.scene.layout.StackPane
 import javafx.scene.layout.VBox
 
-/** The current color and the contrast pair as people with color vision deficiencies see them. */
+/** The Contrast pair (Text and Background) as people with color vision deficiencies see them. */
 internal class VisionPane(
     private val state: ColoringState,
 ) {
@@ -47,7 +47,7 @@ internal class VisionPane(
     val node: Node
 
     init {
-        val initial = visionRows(state.current.value, state.second.value, state.currentIsText.value)
+        val initial = visionRows(state.contrastText.color.value, state.contrastBackground.color.value, true)
         views = initial.mapIndexed { index, row -> build(index, row) }
         val intro =
             Label(
@@ -69,9 +69,8 @@ internal class VisionPane(
                 padding = Insets(12.0)
             }
         update()
-        state.current.addListener(listener)
-        state.second.addListener(listener)
-        state.currentIsText.addListener(listener)
+        state.contrastText.color.addListener(listener)
+        state.contrastBackground.color.addListener(listener)
     }
 
     private fun build(
@@ -98,7 +97,7 @@ internal class VisionPane(
     }
 
     private fun update() {
-        val rows = visionRows(state.current.value, state.second.value, state.currentIsText.value)
+        val rows = visionRows(state.contrastText.color.value, state.contrastBackground.color.value, true)
         rows.zip(views).forEach { (row, view) ->
             view.color.set(row.current)
             view.css.text = cssText(row.current)
@@ -117,9 +116,8 @@ internal class VisionPane(
 
     /** Releases the listeners on the window's state and the swatches'. */
     fun dispose() {
-        state.current.removeListener(listener)
-        state.second.removeListener(listener)
-        state.currentIsText.removeListener(listener)
+        state.contrastText.color.removeListener(listener)
+        state.contrastBackground.color.removeListener(listener)
         views.forEach { it.swatch.dispose() }
     }
 }

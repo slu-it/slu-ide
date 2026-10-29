@@ -2,13 +2,11 @@ package dev.sluide.coloring.ui
 
 import dev.sluide.coloring.analysis.contrastRatio
 import dev.sluide.coloring.color.CssColor
-import dev.sluide.coloring.ui.contrast.contrastView
 import javafx.scene.Parent
 import javafx.scene.Scene
 import javafx.scene.control.ButtonBase
 import javafx.scene.control.Label
 import javafx.scene.control.TextField
-import javafx.scene.control.ToggleButton
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -19,7 +17,6 @@ import java.util.concurrent.Callable
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
 /** The wiring of the Contrast pane to the window's state; the decisions are in ContrastModelTest. Needs a display. */
@@ -49,20 +46,14 @@ class ContrastPaneUiTest {
     private fun button(text: String) =
         root.lookupAll(".button").filterIsInstance<ButtonBase>().first { it.text == text }
 
-    private fun toggle(text: String) =
-        root.lookupAll(".toggle-button").filterIsInstance<ToggleButton>().first {
-            it.text ==
-                text
-        }
-
     private fun field() = root.lookup("#contrast-second") as TextField
 
     @Test
-    fun `the ratio follows the current color`() {
+    fun `the ratio follows the text color`() {
         val text =
             fx {
-                state.current.set(black)
-                state.second.set(white)
+                state.contrastText.color.set(black)
+                state.contrastBackground.color.set(white)
                 ratio()
             }
         assertEquals("21.00 : 1", text)
@@ -72,11 +63,11 @@ class ContrastPaneUiTest {
     fun `swap exchanges the colors exactly`() {
         val precise = CssColor.srgb(0.123456, 0.5, 0.7)
         fx {
-            state.current.set(precise)
-            state.second.set(white)
+            state.contrastText.color.set(precise)
+            state.contrastBackground.color.set(white)
             button("Swap").fire()
         }
-        val result = fx { state.current.get() to state.second.get() }
+        val result = fx { state.contrastText.color.get() to state.contrastBackground.color.get() }
         assertEquals(white, result.first)
         assertEquals(precise, result.second)
     }
@@ -85,62 +76,33 @@ class ContrastPaneUiTest {
     fun `use applies the suggestion to the text color`() {
         val result =
             fx {
-                state.current.set(grey)
-                state.second.set(white)
+                state.contrastText.color.set(grey)
+                state.contrastBackground.color.set(white)
                 button("Use").fire()
-                state.current.get() to state.second.get()
+                state.contrastText.color.get() to state.contrastBackground.color.get()
             }
         assertEquals(white, result.second)
         assertTrue(contrastRatio(result.first, white) >= 4.5)
     }
 
     @Test
-    fun `use in the background role sets the second color exactly to the suggestion`() {
-        val suggestion = assertNotNull(contrastView(white, grey, currentIsText = false).suggestion?.color)
-        val result =
-            fx {
-                state.currentIsText.set(false)
-                state.current.set(white)
-                state.second.set(grey)
-                button("Use").fire()
-                state.current.get() to state.second.get()
-            }
-        assertEquals(white, result.first)
-        assertEquals(suggestion, result.second)
-        assertTrue(contrastRatio(result.second, white) >= 4.5)
-    }
-
-    @Test
-    fun `the role toggle sets currentIsText`() {
-        val result =
-            fx {
-                toggle("Background").fire()
-                val afterBackground = state.currentIsText.get()
-                toggle("Text").fire()
-                afterBackground to state.currentIsText.get()
-            }
-        assertEquals(false, result.first)
-        assertEquals(true, result.second)
-    }
-
-    @Test
-    fun `typing in the field sets the second color`() {
+    fun `typing in the background field sets the background`() {
         val result =
             fx {
                 field().text = "#ff0000"
-                state.second.get()
+                state.contrastBackground.color.get()
             }
         assertEquals(CssColor.fromRgb8(255, 0, 0), result)
     }
 
     @Test
-    fun `the White and Black buttons set the second color`() {
+    fun `the White and Black buttons set the background`() {
         val result =
             fx {
                 button("Black").fire()
-                val afterBlack = state.second.get()
+                val afterBlack = state.contrastBackground.color.get()
                 button("White").fire()
-                afterBlack to state.second.get()
+                afterBlack to state.contrastBackground.color.get()
             }
         assertEquals(black, result.first)
         assertEquals(white, result.second)
@@ -149,14 +111,14 @@ class ContrastPaneUiTest {
     @Test
     fun `a disposed pane no longer follows the state`() {
         fx {
-            state.current.set(black)
-            state.second.set(white)
+            state.contrastText.color.set(black)
+            state.contrastBackground.color.set(white)
         }
         val before = fx { ratio() }
         val after =
             fx {
                 pane.dispose()
-                state.current.set(white)
+                state.contrastText.color.set(white)
                 ratio()
             }
         assertEquals(before, after)

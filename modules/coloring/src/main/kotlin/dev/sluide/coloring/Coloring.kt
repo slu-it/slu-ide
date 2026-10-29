@@ -29,7 +29,7 @@ class Coloring(
     /** Shows the Coloring tab of the window (opening it if needed); set by ide. */
     var showTab: () -> Unit = {}
 
-    /** The current color and the second color of the window's tool; outlives the tab. */
+    /** The color slots, the gradient and the inspected color of the window's tool; outlives the tab. */
     internal val state = ColoringState()
 
     /** A new Coloring tab on [state]. */
@@ -38,9 +38,12 @@ class Coloring(
     /** Extends the window's code editors with color swatches and "Open in Coloring" (ADR 0108, ADR 0109). */
     val editorExtension: CodeEditorExtension = ColorEditorExtension(::show)
 
-    /** Makes [color] current and shows the tab (from the editor's swatches). */
+    /**
+     * Shows [color] in the inspector of the tab, opening it if needed (from the editor's swatches); no slot changes
+     * (ADR 0111). The color is inspected after the tab is shown, as a new tab switches to the slot of its tool tab.
+     */
     fun show(color: CssColor) {
-        state.current.set(color)
         showTab()
+        state.inspect(color)
     }
 }

@@ -32,17 +32,19 @@ class PickerSectionUiTest {
 
     @Start
     fun start(stage: Stage) {
+        // The picker starts on the blue of the Base slot.
+        state.edit(state.base)
         picker = PickerSection(state)
         stage.scene = Scene(picker.node as Parent, 320.0, 400.0)
         stage.show()
     }
 
     @Test
-    fun `pressing the square sets saturation and value of the current color`(robot: FxRobot) {
+    fun `pressing the square sets saturation and value of the slot being edited`(robot: FxRobot) {
         robot.interact { press(picker.square.area, 110.0, 90.0) }
 
         robot.interact {
-            val c = state.current.get()
+            val c = state.editingColor.get()
             assertEquals(ColorSpace.HSV, c.space)
             assertEquals(50.0, c.c1, 1e-6)
             assertEquals(50.0, c.c2, 1e-6)
@@ -51,25 +53,25 @@ class PickerSectionUiTest {
 
     @Test
     fun `only the primary button sets the color`(robot: FxRobot) {
-        val before = state.current.get()
+        val before = state.editingColor.get()
 
         robot.interact { press(picker.square.area, 110.0, 90.0, MouseButton.SECONDARY) }
 
-        assertEquals(before, state.current.get())
+        assertEquals(before, state.editingColor.get())
     }
 
     @Test
     fun `pressing the hue strip sets the hue`(robot: FxRobot) {
         robot.interact { press(picker.square.strip, 10.0, 90.0) }
 
-        assertEquals(180.0, state.current.get().c0, 1e-6)
+        assertEquals(180.0, state.editingColor.get().c0, 1e-6)
     }
 
     @Test
     fun `pressing the alpha slider sets the alpha`(robot: FxRobot) {
         robot.interact { press(picker.squareAlpha.node, 124.0, 8.0) }
 
-        assertEquals(0.5, state.current.get().alpha, 1e-6)
+        assertEquals(0.5, state.editingColor.get().alpha, 1e-6)
     }
 
     @Test
@@ -97,7 +99,7 @@ class PickerSectionUiTest {
         robot.interact { press(picker.wheel.area, 100.0, 0.0) }
 
         robot.interact {
-            val c = state.current.get()
+            val c = state.editingColor.get()
             assertEquals(90.0, c.c0, 1e-6)
             assertEquals(100.0, c.c1, 1e-6)
         }
@@ -108,7 +110,7 @@ class PickerSectionUiTest {
         robot.interact { picker.modeButtons[1].fire() }
         robot.interact { press(picker.wheel.slider, 10.0, 50.0) }
 
-        assertEquals(75.0, state.current.get().c2, 1e-6)
+        assertEquals(75.0, state.editingColor.get().c2, 1e-6)
     }
 
     @Test
@@ -116,12 +118,12 @@ class PickerSectionUiTest {
         robot.interact { picker.modeButtons[1].fire() }
         robot.interact { press(picker.wheelAlpha.node, 114.0, 8.0) }
 
-        assertEquals(0.5, state.current.get().alpha, 1e-6)
+        assertEquals(0.5, state.editingColor.get().alpha, 1e-6)
     }
 
     @Test
     fun `a color set from outside moves the marker and the alpha thumb`(robot: FxRobot) {
-        robot.interact { state.current.set(CssColor.srgb(0.0, 1.0, 0.0, 0.25)) }
+        robot.interact { state.editingColor.set(CssColor.srgb(0.0, 1.0, 0.0, 0.25)) }
 
         robot.interact {
             assertEquals(220.0, picker.square.markerPosition.x, 1e-6)
@@ -133,11 +135,11 @@ class PickerSectionUiTest {
     @Test
     fun `a disposed picker no longer follows the color`(robot: FxRobot) {
         robot.interact { picker.dispose() }
-        robot.interact { state.current.set(CssColor.srgb(0.0, 1.0, 0.0)) }
+        robot.interact { state.editingColor.set(CssColor.srgb(0.0, 1.0, 0.0)) }
         robot.interact { press(picker.square.area, 0.0, 0.0) }
 
         // The hue stayed the one of the blue it started with, so the press emitted blue's hue, not green's.
-        robot.interact { assertEquals(217.0, state.current.get().c0, 1.0) }
+        robot.interact { assertEquals(217.0, state.editingColor.get().c0, 1.0) }
     }
 
     private fun press(

@@ -22,6 +22,21 @@
     -fx-font-weight: bold;
 }
 
+/* Slots (ADR 0111): the slot the left column edits has an accent ring, drawn as a background so the layout stays. */
+.color-slot {
+    -fx-padding: 3 5 3 5;
+    -fx-background-radius: 5;
+}
+
+.color-slot:editing {
+    -fx-background-color: #2563eb, -fx-background;
+    -fx-background-insets: 0, 2;
+}
+
+.coloring-editing {
+    -fx-font-weight: bold;
+}
+
 /* Saved colors */
 .coloring-muted {
     -fx-opacity: 0.7;
@@ -165,6 +180,10 @@
     .coloring-note,
     .coloring-approximate {
         -fx-text-fill: #fbbf24;
+    }
+
+    .color-slot:editing {
+        -fx-background-color: #60a5fa, -fx-background;
     }
 }
 

@@ -2,6 +2,7 @@ package dev.sluide.coloring.ui
 
 import dev.sluide.coloring.color.CssColor
 import dev.sluide.coloring.color.CssColorParser
+import javafx.beans.property.SimpleObjectProperty
 import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.Label
@@ -22,13 +23,12 @@ import kotlin.test.assertTrue
 @Tag("ui")
 @ExtendWith(ApplicationExtension::class)
 class FormatsSectionUiTest {
-    private val state = ColoringState()
+    private val color = SimpleObjectProperty(CssColor.fromRgb8(59, 130, 246))
     private lateinit var formats: FormatsSection
 
     @Start
     fun start(stage: Stage) {
-        formats = FormatsSection(state)
-        state.current.set(CssColor.fromRgb8(59, 130, 246))
+        formats = FormatsSection(color)
         stage.scene = Scene(VBox(formats.node), 340.0, 700.0)
         stage.show()
     }
@@ -54,10 +54,10 @@ class FormatsSectionUiTest {
     fun `the name row appears only for an exact named color`(robot: FxRobot) {
         assertTrue("Name" !in labels(robot))
 
-        robot.interact { state.current.set(CssColor.fromRgb8(255, 0, 0)) }
+        robot.interact { color.set(CssColor.fromRgb8(255, 0, 0)) }
         assertTrue("Name" in labels(robot))
 
-        robot.interact { state.current.set(CssColor.fromRgb8(59, 130, 246)) }
+        robot.interact { color.set(CssColor.fromRgb8(59, 130, 246)) }
         assertTrue("Name" !in labels(robot))
     }
 
@@ -65,10 +65,10 @@ class FormatsSectionUiTest {
     fun `the approximate marker shows for a color outside sRGB only`(robot: FxRobot) {
         assertEquals(0, visibleMarkers(robot))
 
-        robot.interact { state.current.set(checkNotNull(CssColorParser.parse("oklch(0.7 0.35 150)"))) }
+        robot.interact { color.set(checkNotNull(CssColorParser.parse("oklch(0.7 0.35 150)"))) }
         assertTrue(visibleMarkers(robot) > 0)
 
-        robot.interact { state.current.set(CssColor.fromRgb8(59, 130, 246)) }
+        robot.interact { color.set(CssColor.fromRgb8(59, 130, 246)) }
         assertEquals(0, visibleMarkers(robot))
     }
 
@@ -76,7 +76,7 @@ class FormatsSectionUiTest {
     fun `after dispose an external change no longer updates the rows`(robot: FxRobot) {
         robot.interact {
             formats.dispose()
-            state.current.set(CssColor.fromRgb8(0, 255, 0))
+            color.set(CssColor.fromRgb8(0, 255, 0))
         }
 
         assertEquals("#3b82f6", robot.lookup(".coloring-format-text").queryAs(TextField::class.java).text)
