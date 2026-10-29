@@ -8,16 +8,20 @@ import javafx.scene.Parent
 import javafx.scene.Scene
 import javafx.scene.control.TextField
 import javafx.scene.input.MouseButton
+import javafx.scene.paint.Color
+import javafx.scene.paint.Paint
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.io.TempDir
+import org.kordamp.ikonli.javafx.FontIcon
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 
 /** The Coloring view needs a scene for its tabs and the swatch's mouse handling. Needs a display. */
@@ -76,6 +80,18 @@ class ColoringViewUiTest {
 
         assertEquals("#00ff00", followed.tooltipText)
         assertEquals("#ffffff", disposed.tooltipText)
+    }
+
+    @Test
+    fun `the copy icons take the text colour, also on a dark base`(robot: FxRobot) {
+        // Dark like the dark theme, which re-tints Modena's base colour: an icon left black would vanish.
+        robot.interact { view.node.scene.stylesheets += "data:text/css,.root { -fx-base: %232b2b2b; }" }
+
+        robot.interact {
+            val icons = robot.lookup(".coloring-copy .ikonli-font-icon").queryAll<FontIcon>()
+            assertTrue(icons.isNotEmpty())
+            icons.forEach { assertNotEquals<Paint>(Color.BLACK, it.iconColor) }
+        }
     }
 
     private fun store() = ProjectDataStore(dir.resolve("projects"), dir.resolve("shared.json"), emptyList())

@@ -3,6 +3,11 @@
     -fx-background-color: -fx-background;
 }
 
+/* Ikonli icons default to black, which vanishes on the dark theme's buttons. */
+.coloring .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
 .coloring-column {
     -fx-background-color: transparent;
 }
