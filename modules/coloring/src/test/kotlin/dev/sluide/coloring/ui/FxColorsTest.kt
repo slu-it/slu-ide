@@ -1,9 +1,15 @@
 package dev.sluide.coloring.ui
 
+import dev.sluide.coloring.analysis.Gradient
+import dev.sluide.coloring.analysis.GradientStop
+import dev.sluide.coloring.analysis.GradientType
+import dev.sluide.coloring.analysis.MixSpace
+import dev.sluide.coloring.analysis.colorAt
 import dev.sluide.coloring.color.ColorSpace
 import dev.sluide.coloring.color.CssColor
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotEquals
 
 class FxColorsTest {
     @Test
@@ -27,5 +33,25 @@ class FxColorsTest {
 
         assertEquals(true, listOf(vivid.red, vivid.green, vivid.blue).all { it in 0.0..1.0 })
         assertEquals(true, vivid.green > vivid.red && vivid.green > vivid.blue)
+    }
+
+    @Test
+    fun `in a gradient a color outside sRGB is clipped per channel as browsers paint it`() {
+        // Blue to yellow in OKLCH one step of 31 from blue: the blue channel is above 1 and clips to 255.
+        val gradient =
+            Gradient(
+                GradientType.LINEAR,
+                90.0,
+                listOf(
+                    GradientStop(CssColor.fromRgb8(0, 0, 255), 0.0),
+                    GradientStop(CssColor.fromRgb8(255, 255, 0), 1.0),
+                ),
+                MixSpace.OKLCH,
+            )
+        val color = colorAt(gradient, 1.0 / 31)
+
+        assertEquals(0xff002aff.toInt(), color.toArgbClipped())
+        assertEquals(1.0, color.toFxColorClipped().blue)
+        assertNotEquals(color.toFxColor(), color.toFxColorClipped())
     }
 }

@@ -87,6 +87,18 @@
     -fx-text-fill: #7f1d1d;
 }
 
+/* Gradient */
+.gradient-stop-handle {
+    -fx-border-color: -fx-box-border;
+    -fx-border-width: 1;
+    -fx-cursor: hand;
+}
+
+.gradient-stop-handle:selected {
+    -fx-border-color: -fx-focus-color;
+    -fx-border-width: 2;
+}
+
 @media (prefers-color-scheme: dark) {
     .coloring-input:invalid {
         -fx-border-color: #ef5350;
