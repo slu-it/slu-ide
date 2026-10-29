@@ -209,6 +209,9 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     context menu sets the Branch filter to exactly the selected branches (Shift/Ctrl select several), as if checked in
     its popup. Enter on a folder opens or closes it. "Copy Name" copies the short names, one per line; both are
     disabled without a branch selected.
+  - **Stashes** ([ADR 0107](../adr/0107-git-log-stashes.md), [stash.md](stash.md)): a group "Stashes" after Tags
+    while there are stashes, one node per stash by its message, newest first; its own menu pops, applies, drops and
+    copies a stash and opens Stash Changes…; a stash neither navigates nor filters the log.
 - **Go to Hash/Branch/Tag** ([ADR 0045](../adr/0045-git-log-navigation.md)): Shortcut+G in the log body (table,
   changed files, details, filter bar, branches pane) or "Go to Hash/Branch/Tag…" at the end of the table's context menu
   opens a popup at the top of the commit table, as in IntelliJ: a field ("Hash, branch or tag"), focused, and below it
@@ -287,7 +290,8 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     possible, local changes in the way without the stash) open "Merge Failed" with git's message. Conflicts open "Merge
     Stopped" ("Merge of main into feature stopped with conflicts in:", the paths, git's message under Show Details;
     Resolve the default, Abort Merge aborts without asking) and leave a bar (below) to continue or abort. A squash with
-    conflicts leaves them without a merge in progress ("… with conflicts in 2 files; resolve them, then commit.").
+    conflicts leaves them without a merge in progress ("… with conflicts in 2 files; resolve them, then commit."); the
+    bar then offers Mark Resolved (below).
     Ignored files in the way are not checked, as for a rebase.
   - **Pull** ([ADR 0106](../adr/0106-git-log-pull.md)): after Merge, "Pull 'origin/main' into 'feature'…" ("Pull into
     Current Branch…" otherwise), enabled for exactly one remote branch of a configured remote (not `<remote>/HEAD`),
@@ -388,6 +392,10 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     files have conflicts." with Continue, Skip and Abort. Continue works as for a cherry-pick (marker check, only
     unmerged paths staged) and keeps the prepared message; if nothing is left to commit it skips the commit. Skip and
     Abort ask first (Skip drops the commit's changes; Abort puts the branch back to where it was).
+    Files with conflicts while nothing else is in progress (a squash, a stash pop or apply, local changes a merge or
+    pull could not restore; [ADR 0107](../adr/0107-git-log-stashes.md)) show "2 files have conflicts." with **Mark
+    Resolved**, which checks them as Continue does and stages exactly them ("Marked 2 files resolved."); until then
+    nothing that git would refuse with unmerged files starts.
     **Abort** asks first ("Abort the cherry-pick of 1a2b3c4d? Its changes are undone, also what was done to resolve its
     conflicts.", Abort Cherry-Pick or Cancel, the default), then goes back to before it ("Aborted the cherry-pick of
     1a2b3c4d."); Abort Cherry-Pick in the dialog right after the stop does not ask, as nothing is resolved yet.
@@ -431,8 +439,9 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
     (the changes stay; an editor whose file the operation changed offers Reload or Keep mine) and Cancel (the operation
     does not run). Asked for checkouts (also of a new branch), Cherry-Pick, Revert, Rebase, Merge, a hard reset, Skip,
     Abort and Continue (which stages the files from disk), and Pull, with "Cherry-Pick Anyway", "Revert Anyway", "Rebase
-    Anyway", "Merge Anyway", "Pull Anyway", "Reset Anyway", "Skip Anyway", "Abort Anyway" and "Continue Anyway"; not for
-    soft and mixed resets or branch and tag operations.
+    Anyway", "Merge Anyway", "Pull Anyway", "Reset Anyway", "Skip Anyway", "Abort Anyway" and "Continue Anyway"; also
+    for stashing, popping, applying and Mark Resolved ("Stash Anyway", "Pop Anyway", "Apply Anyway", "Mark Resolved
+    Anyway", [stash.md](stash.md)); not for soft and mixed resets, dropping a stash or branch and tag operations.
 - **Fetch** ([ADR 0043](../adr/0043-git-log-fetch.md)): the down arrow in the header ("Fetch All Remotes", also while
   the log is collapsed) fetches every remote but those with `remote.<name>.skipFetchAll`, one after the other; Fetch in
   the branches pane's context menu (after Delete and a separator) on a remote, a folder of a remote or a remote branch
@@ -553,4 +562,5 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
   branches after a fetch, pulling several branches at once, pushing tags; for cherry-pick and revert several commits at
   once, a merge tool or three-way view, `-x` and edited messages; `reset --keep`; rebasing with `--onto`, interactively,
   a branch other than the current one, or onto a tag or commit; merging tags or commits, octopus merges, `--no-commit`
-  or strategies; continuing or aborting octopus merges and sequences from the bar.
+  or strategies; continuing or aborting octopus merges and sequences from the bar; for stashes keep-index, `--index`,
+  a branch from a stash, showing a stash's changes, dropping all and stashing parts of files.

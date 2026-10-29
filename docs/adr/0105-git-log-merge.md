@@ -1,6 +1,7 @@
 # 0105. Git log merges a branch into the current one; a merge in progress is continued or aborted
 
-- Status: accepted; amends [0042](0042-git-log-commit-operations.md) (merges are continued and aborted from the bar)
+- Status: accepted; amends [0042](0042-git-log-commit-operations.md) (merges are continued and aborted from the bar);
+  amended by [0107](0107-git-log-stashes.md) (a squash's conflicts are marked resolved from the bar)
 - Date: 2026-10-28
 
 ## Context
@@ -66,8 +67,9 @@ message; `main` and `master` by default). Git 2.53 behaves as follows (checked i
   writes files; not cancellable. Hooks and the rest of the configuration apply.
 - **What it gave** is read, not parsed from git's messages (as ADR 0063): a merge in progress afterwards is a stop
   (`GitMergeResult.Stopped` with git's message), none after git succeeded is done (`Done`: fast-forward if the new
-  `HEAD` is the merged commit; squashed if a squash exited with 0, or with 1 leaving conflicts, and wrote
-  `SQUASH_MSG` anew, not one an earlier squash left, then also with the conflicts it left), none
+  `HEAD` is the merged commit; squashed if a squash exited with 0, or with 1 leaving conflicts, then also with the
+  conflicts it left; since [ADR 0107](0107-git-log-stashes.md) none can be there before, as unmerged files refuse the
+  merge before git runs), none
   after a failure is a failure with git's message. `Done` also tells `stashKept`: `refs/stash` (`git rev-parse -q
   --verify`) differs from before the command, which only git storing an autostash it could not apply does; read for
   merge, Continue and Abort alike. The header says "Fast-forwarded feature to main.", "Merged main into feature.",
@@ -102,8 +104,9 @@ message; `main` and `master` by default). Git 2.53 behaves as follows (checked i
   whatever the configuration; a merge that stops is finished from the bar, also one from a terminal or `git pull`.
 - Local changes survive a merge by default; when git cannot apply them back, the header says where they are, and the
   files show the conflicts of applying them, which the user resolves (the stash entry stays until dropped).
-- A squash that conflicts leaves its conflicts without a merge in progress: no bar, and the Commit tab stays blocked
-  until the files are staged in a terminal (`git add`), as for any unmerged path outside an operation.
+- A squash that conflicts leaves its conflicts without a merge in progress; since [ADR 0107](0107-git-log-stashes.md)
+  the bar shows them ("2 files have conflicts.") with Mark Resolved, which checks and stages them, as for any unmerged
+  path outside an operation (before, the Commit tab stayed blocked until they were staged in a terminal).
 - An edited message is committed as UTF-8 by the merge itself, but if the merge stops and is continued, `git merge
   --continue` commits `MERGE_MSG` under the user's `i18n.commitEncoding`: with another encoding configured (e.g.
   ISO-8859-1), an edited non-ASCII message gets the wrong encoding header. Continue does not force UTF-8, as the

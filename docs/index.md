@@ -61,7 +61,7 @@ updated when the summary or keywords no longer fit.
 | [0039](adr/0039-git-log-filters.md) | Git log filters through git's own commit limiting | filters, `--grep`, `--author`, path filter, branch filter, first parent, regex | |
 | [0040](adr/0040-git-log-branches-pane.md) | Branches pane: tree of refs left of the commits | branches pane, local branches, remote branches, tags, Branch filter | |
 | [0041](adr/0041-git-write-operations.md) | Checkout, new branch/tag, rename and delete from the git log | `GitBranches`, checkout, new branch, tag, delete, `sluide-git-write` | amended by 0062; see 0078 |
-| [0042](adr/0042-git-log-commit-operations.md) | Cherry-pick, revert and reset with a conflict bar | `GitCommits`, cherry-pick, revert, reset, conflicts, Continue/Abort | amended by 0063, 0105 |
+| [0042](adr/0042-git-log-commit-operations.md) | Cherry-pick, revert and reset with a conflict bar | `GitCommits`, cherry-pick, revert, reset, conflicts, Continue/Abort | amended by 0063, 0105, 0107 |
 | [0043](adr/0043-git-log-fetch.md) | Fetch per remote, never interactive, cancellable | `GitRemotes`, fetch, `--prune`, `GIT_TERMINAL_PROMPT`, ssh BatchMode | |
 | [0044](adr/0044-git-log-compare.md) | Compare with Current as a log mode; diff with the working tree | compare, `GitLogFilter.excluded`, `--left-right`, Compare with Local, working tree | |
 | [0045](adr/0045-git-log-navigation.md) | One revision resolver for hash links and Go to Hash/Branch/Tag | revision resolver, `cat-file --batch-check`, hash links, `LinkText`, Shortcut+G, `loadUntil` | |
@@ -124,8 +124,9 @@ updated when the summary or keywords no longer fit.
 | [0102](adr/0102-todo-panel.md) | The TODO panel: Shared and Project cards with native Markdown, collapsed at the right of the window | TODOs, `todos`, `TodoPanel`, `Todos`, native Markdown, Alt+6, Shared/Project | see 0101, 0073, 0068; amended by 0103 |
 | [0103](adr/0103-todo-folders.md) | TODO folders: one level, mixed with TODOs in the same `todos` array, stored collapse (also of cards), drag with an insertion line | TODO folders, `TodoFolder`, `TodoPlace`, `dropTarget`, `ItemDrag`, collapsed, expanded, Keep TODOs | amends 0102; see 0073 |
 | [0104](adr/0104-collapsible-file-explorer.md) | The explorer column collapses to a stripe at the left like the TODO panel, expanded by default, background tasks included | collapse explorer, `ExplorerPanel`, `WindowExplorer`, stripe, Alt+1, View → Explorer | see 0102, 0068, 0095, 0061 |
-| [0105](adr/0105-git-log-merge.md) | Merge a branch into the current one from the log; merges in progress (also from a terminal or `git pull`) continued or aborted from the bar | `GitMerges`, merge, `GitPendingMerge`, `MergeOptions`, fast-forward, squash, `--autostash`, `merge.ff`, `merge.autoStash`, `merge.suppressDest`, octopus | amends 0042; see 0063 |
+| [0105](adr/0105-git-log-merge.md) | Merge a branch into the current one from the log; merges in progress (also from a terminal or `git pull`) continued or aborted from the bar | `GitMerges`, merge, `GitPendingMerge`, `MergeOptions`, fast-forward, squash, `--autostash`, `merge.ff`, `merge.autoStash`, `merge.suppressDest`, octopus | amends 0042; amended by 0107; see 0063 |
 | [0106](adr/0106-git-log-pull.md) | Pull a remote branch into the current one as the log's fetch, then a merge or a fork-point rebase, chosen in a dialog | `GitPulls`, pull, Pull dialog, fork point, `ORIG_HEAD`, `--autostash`, upstream, `pull.rebase`, header button, Push dialog | amends 0061, 0063; see 0043, 0049, 0105 |
+| [0107](adr/0107-git-log-stashes.md) | Stashes in the branches pane with Pop/Apply/Drop, Stash Changes dialog (Git menu, Commit tab), conflicts outside an operation marked resolved from the bar | `GitStashes`, stash, pop, apply, drop, `GitPendingConflicts`, Mark Resolved, `stash@{n}`, `--include-untracked`, `--pathspec-from-file` | amends 0042, 0105; see 0040, 0048, 0106 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
@@ -174,9 +175,10 @@ updated when the summary or keywords no longer fit.
 | [git-status.md](features/git-status.md) | Git status colours and bubbles in the explorer | status colours, unversioned, modified, ignored, folder bubbles |
 | [gitignore-line-effects.md](features/gitignore-line-effects.md) | Gutter dots showing which `.gitignore` lines have an effect | `.gitignore`, gutter dots, tracked-only matches, tooltips |
 | [git-diff.md](features/git-diff.md) | Change markers in the gutter and a side-by-side diff against `HEAD` | change markers, Show Changes, Shortcut+Shift+D, changed words |
-| [git-log.md](features/git-log.md) | Git log area: commits, graph, details, filters, branch and commit operations | Alt+9, commit graph, filters, branches pane, checkout, cherry-pick, rebase, merge, fetch, pull |
+| [git-log.md](features/git-log.md) | Git log area: commits, graph, details, filters, branch and commit operations | Alt+9, commit graph, filters, branches pane, checkout, cherry-pick, rebase, merge, fetch, pull, stash, Mark Resolved |
 | [file-history.md](features/file-history.md) | A file's history as a tab in the git log area | Show History, `History:` tab, renames, Compare with Local |
-| [commit-and-push.md](features/commit-and-push.md) | Commit tab and Push dialog | Commit (Shortcut+K), Amend, Push (Shortcut+Shift+K), Force Push, Commit and Push, Pull after a rejection |
+| [commit-and-push.md](features/commit-and-push.md) | Commit tab and Push dialog | Commit (Shortcut+K), Amend, Push (Shortcut+Shift+K), Force Push, Commit and Push, Pull after a rejection, Stash Checked Files |
+| [stash.md](features/stash.md) | Stashes in the git log: Stashes group, Stash Changes dialog, Git menu, Commit tab, conflicts and Mark Resolved | stash, pop, apply, drop, Pop Latest Stash, Stash Checked Files, Mark Resolved |
 
 ### Tools
 | Feature | Summary | Keywords |

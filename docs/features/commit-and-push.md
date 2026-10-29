@@ -36,8 +36,9 @@ changes are read and committed by `GitCommits.commitChanges` and `commit` in `mo
   - **Amend:** ticked while the message is empty, it fills in the message of `HEAD`; unticked, that message goes again
     if it was not changed. "This commit is already pushed: amending it needs a force push." shows while Amend is
     ticked and `HEAD` is on its upstream. Disabled before the first commit;
-  - what keeps git from committing, e.g. "A merge is in progress; continue or abort it in the log first." or "1 file has
-    conflicts; resolve it first.";
+  - what keeps git from committing, e.g. "A merge is in progress; continue or abort it in the log first." or "Files
+    have conflicts; mark them resolved in the log first." while files have conflicts outside an operation
+    ([stash.md](stash.md));
   - **Commit**, enabled with a message that is not blank, at least one checked file (or Amend, which then only changes
     the message), nothing in progress, no conflicts and no other operation running;
   - "2 of 5 files selected", or "Nothing to commit." without changes.
@@ -51,6 +52,10 @@ changes are read and committed by `GitCommits.commitChanges` and `commit` in `mo
   read when it is shown again. It reads again when the window's git status changes (files saved or changed on disk),
   on Refresh and when `.git` changes. While reading, the tree stays. "Loading…", "No changes." and "The changes could
   not be read." show in the tree; a read that fails with a tree shown says so in the header.
+- **Stash Checked Files…** (after Commit and Push…, [ADR 0107](../adr/0107-git-log-stashes.md)) is enabled with at least
+  one checked file while no operation runs and nothing blocks committing: the Stash Changes dialog ("Stash 3 checked
+  files of 'feature'", a message, no untracked checkbox) stashes exactly the checked files, a renamed file with its old
+  path, unversioned ones included ([stash.md](stash.md)); the tab reads its changes again afterwards.
 - **Commit and Push…** (right of Commit, Shortcut+Alt+K in the tab, enabled like Commit) commits, and once the commit
   is made opens the Push dialog; a failed or cancelled commit does not.
 

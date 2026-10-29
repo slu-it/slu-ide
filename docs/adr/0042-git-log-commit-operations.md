@@ -1,7 +1,8 @@
 # 0042. Git log cherry-picks, reverts and resets through the git CLI, conflicts left for the user
 
 - Status: accepted; partly superseded by [0063](0063-git-log-rebase.md) (rebases are continued, skipped and aborted
-  from the bar); amended by [0105](0105-git-log-merge.md) (merges are continued and aborted from the bar)
+  from the bar); amended by [0105](0105-git-log-merge.md) (merges are continued and aborted from the bar) and
+  [0107](0107-git-log-stashes.md) (unmerged paths outside an operation show in the bar, Mark Resolved)
 - Date: 2026-10-16
 
 ## Context
