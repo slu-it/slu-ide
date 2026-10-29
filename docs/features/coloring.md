@@ -69,15 +69,24 @@ project, disabled while it is already saved; **Use for <tab> › <slot>** writes
 while the slot has that color.
 
 ## Contrast
-The pane compares the Text slot with the Background slot; Swap exchanges their colors, White and Black set the
-background. A sample shows the background with normal (16 px) and large (24 px bold) text and a 1 px outlined UI element
-in the text color.
+Top to bottom: the Text slot, the Background slot with White and Black (they set the background), Swap (exchanges the
+two colors), then a sample: the background with normal (16 px) and large (24 px bold) text and a 1 px outlined UI
+element in the text color.
 
-WCAG 2 shows the ratio truncated to two decimals and never rounded up (4.4999 is "4.49 : 1", as WCAG demands), and Pass or Fail for AA normal (4.5), AA large (3), AAA normal (7), AAA large (4.5) and UI components (3); the unrounded ratio is compared. APCA shows "Lc 63.1" with its sign, informational only (a WCAG 3 draft); its tooltip gives rough guidance (75 body text, 60 content text, 45 large or bold, 30 non-text).
+WCAG 2 shows the ratio truncated to two decimals and never rounded up (4.4999 is "4.49 : 1", as WCAG demands), and Pass
+or Fail for AA normal (4.5), AA large (3), AAA normal (7), AAA large (4.5) and UI components (3); the unrounded ratio is
+compared. APCA shows "Lc 63.1" with its sign, informational only (a WCAG 3 draft); its tooltip gives rough guidance (75
+body text, 60 content text, 45 large or bold, 30 non-text).
 
-If AA normal fails, the pane offers the nearest text color passing AA, found by changing the OKLCH lightness while keeping the hue (chroma may shrink to stay in sRGB); if only AAA fails, the nearest one passing AAA. "Use" writes it into the Text slot. If no lightness reaches it, the pane says so.
+If AA normal fails, the pane offers the nearest color passing AA (if only AAA fails, the nearest passing AAA) for the
+slot being edited: a new background while the Background slot is edited ("Nearest background passing AA:"), a new text
+color otherwise. It changes the OKLCH lightness and keeps the hue (chroma may shrink to stay in sRGB) and the other
+slot; a translucent color is measured as it is composited. A click on its swatch shows it in the inspector; "Use"
+writes it into that slot. If no lightness reaches it, the pane says so.
 
 ## Shades & Harmonies
+The Base slot is at the top; the shades and harmonies below follow it and wrap in a narrow column.
+
 - **Shades**: eleven steps, 50 to 950, Tailwind-like: each step has a fixed OKLCH lightness and keeps the hue of the
   Base slot; chroma follows a bell curve around the middle steps, gamut-mapped to sRGB. The step nearest in
   lightness is the base color itself, exact, and is underlined. A click on a step shows it in the inspector.
@@ -89,19 +98,24 @@ If AA normal fails, the pane offers the nearest text color passing AA, found by 
   gray.
 
 ## Mix
-- **Mix**: the slots Color 1 and Color 2 are mixed with the slider "Amount of second color" (0 to 100 %, default 50) in
+Two sections, one below the other.
+
+- **Mix**: the slots Color 1 and Color 2 are mixed with the slider "Amount of Color 2" (0 to 100 %, default 50) in
   sRGB, Oklab or OKLCH (default). The result swatch shows the mix, with the CSS `color-mix(in oklch, <color 1> 50%,
   <color 2> 50%)` and the result's color, each with a copy button. Both percentages are always written. The strip below
   shows the mixes at 10 % to 90 % in the chosen space. A click on a result or strip swatch shows it in the inspector.
-- **Opacity over a background**: the slot Color at the slider's opacity (0 to 100 %, multiplied with its own
-  alpha) over the slot Background (default white) is flattened to one color, composited on the
-  sRGB components as browsers do; it is solid only over an opaque background. Useful for the solid color of a
-  translucent overlay. The mix shown is that of the colors as the emitted CSS text reads them (8-bit hex, rounded
-  `oklch()`), so it equals what a browser renders for the `color-mix()` text.
+- **Opacity over a background**: the slot Color at the slider "Opacity" (0 to 100 %, multiplied with its own alpha)
+  over the slot Background (default white) is flattened to one color, composited on the sRGB components as browsers
+  do; it is solid only over an opaque background. Useful for the solid color of a translucent overlay. A click on the
+  result shows it in the inspector.
+
+The mix shown is that of the colors as the emitted CSS text reads them (8-bit hex, rounded `oklch()`), so it equals
+what a browser renders for the `color-mix()` text.
 
 ## Gradient
 A CSS gradient builder. It starts as a linear gradient at 90deg from #3b82f6 to #8b5cf6, interpolated in OKLCH, and is
-shown large on a checkerboard.
+shown large on a checkerboard. A click on the preview shows the color at that point in the inspector (along the
+gradient line, by the distance from the center, or by the angle from the start angle); it changes no slot.
 
 - **Type:** Linear, Radial (a circle to the farthest corner) or Conic. The angle (slider and number field, 0 to 360)
   is the direction of a linear gradient (0deg points up, 90deg to the right, so the corners lie on 0 % and 100 %) or
@@ -112,37 +126,39 @@ shown large on a checkerboard.
   interpolates lightness and chroma and turns the hue along the shorter arc, so the middle stays colorful. The preview
   is drawn from the interpolated colors, so it shows the chosen space, and colors outside sRGB are clipped per channel,
   as browsers paint gradients.
-- **Stops:** a bar under the preview has a handle per stop. Click one to select it and edit it as the slot
-  Stop, drag it to move it (it may pass the other stops; two at one position make a sharp edge). The selected stop's
-  color is edited in the slot's field, in any notation (`:invalid` while the text is not a color: the stop keeps its
-  last valid color and the mark stays until the text is corrected or Escape restores the stop's text), or in the left
-  column. **Add stop** inserts a stop in the middle of the widest
-  gap with the interpolated color there; **Remove stop** removes the selected one (two stay).
+- **Stops:** a bar under the preview has a handle per stop. Click one to select it and edit it as the slot Stop
+  ("Stop 2 of 3" beside it says which), drag it to move it (it may pass the other stops; two at one position make a
+  sharp edge). The selected stop's color is edited in the slot's field, in any notation (`:invalid` while the text is
+  not a color: the stop keeps its last valid color and the mark stays until the text is corrected or Escape restores
+  the stop's text), or in the left column. **Add stop** inserts a stop in the middle of the widest gap with the
+  interpolated color there, selects it and edits it; **Remove stop** removes the selected one (two stay).
 - **Output:** the CSS in a read-only field, for example `linear-gradient(in oklch 90deg, #3b82f6 0%, #8b5cf6 100%)`,
   with a button that copies it to the clipboard.
 
 The gradient belongs to the window, like the slots: it outlives the tab.
 
 ## Vision
-Shows how people with color-vision deficiencies see the Contrast pair (it edits the Contrast slots). The simulation
-applies the Machado et al. 2009 matrices at full severity on linear sRGB (protanopia, deuteranopia, tritanopia) and maps
-the luminance to a gray for achromatopsia. One row each for normal vision, protanopia, deuteranopia, tritanopia and
-achromatopsia (a tooltip on the label describes the deficiency). Columns: the simulated text color as a swatch (a click
-shows it in the inspector) with its CSS text; the simulated pair as an "Aa" sample; its WCAG ratio, truncated to two
-decimals, with a Pass AA / Fail AA badge. When the pair passes AA with normal vision but fails under a deficiency, a
-line below the grid names the deficiencies and asks for a bigger lightness difference. A translucent pair is composited
-first (background over white, text over that background) and simulated afterwards, as a viewer sees the pixels; the
-swatch keeps its alpha. The pane follows both slots.
+Shows how people with color-vision deficiencies see the Contrast pair. The Text and Background slots at the top are the
+Contrast tab's (editing them here changes them there too); the Vision tab remembers which of them it edits. The
+simulation applies the Machado et al. 2009 matrices at full severity on linear sRGB (protanopia, deuteranopia,
+tritanopia) and maps the luminance to a gray for achromatopsia.
+
+One row each for normal vision, protanopia, deuteranopia, tritanopia and achromatopsia (a tooltip on the label
+describes the deficiency): the simulated pair as an "Aa" sample, the simulated text and background as swatches with
+their CSS texts (a click shows one in the inspector), and the WCAG ratio, truncated to two decimals, with a Pass AA /
+Fail AA badge. A translucent pair is composited first (background over white, text over that background) and simulated
+afterwards, as a viewer sees the pixels, so the simulated colors are opaque. When the pair passes AA with normal vision
+but fails under a deficiency, a line below names the deficiencies and asks for a bigger lightness difference.
 
 ## In the code editor
 Code editors of the window (also those embedded in other views) show the colors written in style files (`.css`, `.scss`,
 `.sass`, `.less`), markup (`.html`, `.htm`, `.xhtml`, `.svg`, `.xml`), scripts (`.js`, `.mjs`, `.cjs`, `.ts`, `.mts`,
 `.cts`, `.jsx`, `.tsx`) and components (`.vue`, `.svelte`); other files show none, and a file renamed to or away from
 such a type follows. A line with colors gets a small swatch (on a checkerboard, so that alpha shows) in the gutter,
-right of the line numbers and change markers. It shows the first color of the line; its tooltip lists the color texts of
-the line (ten at most, then "…and N more"). A click on the swatch shows that color in the Coloring tool's inspector (no
-slot changes) and shows its tab; it does not move the caret. Edited rows update at once, and only the lines on screen
-are looked at.
+right of the line numbers and change markers. It shows the first color of the line; its tooltip lists the color texts
+of the line (ten at most, then "…and N more"). A click on the swatch shows that color in the Coloring tool's
+inspector (no slot changes) and shows its tab; it does not move the caret. Edited rows update at once, and only the
+lines on screen are looked at.
 
 The editor's context menu has "Open "#3b82f6" in Coloring" after the editing items for a caret on or just after a
 color (disabled, "Open in Coloring", elsewhere in these files); it shows that color in the tool's inspector.
