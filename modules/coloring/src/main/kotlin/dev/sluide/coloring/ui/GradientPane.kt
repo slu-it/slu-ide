@@ -104,7 +104,7 @@ internal class GradientPane(
                     10.0,
                     preview,
                     bar,
-                    HBox(16.0, typeRow, Label("Interpolation"), spaceRow),
+                    FlowPane(16.0, 8.0, typeRow, HBox(8.0, Label("Interpolation"), spaceRow)),
                     angleRow,
                     stopRow,
                     stopButtons,
