@@ -52,7 +52,6 @@ the log's bar. Git commands, threads and the question about unsaved editors are 
   stages exactly those files, nothing else: "Marked 2 files resolved.". Until then merges, rebases, cherry-picks, pulls,
   stashing and committing are refused ("2 files have conflicts; resolve them and mark them resolved first."; the Commit
   tab: "Files have conflicts; mark them resolved in the log first.").
-- **Not noticed at once:** a `git stash drop` in a terminal (of other than the only stash) shows after the next refresh
-  or change in `.git`; a stash or pop in a terminal shows at once.
+- **Terminal:** a stash, pop or drop in a terminal shows at once (`.git` and `.git/refs` are watched).
 - **Not offered:** keep-index, `--index`, a branch from a stash, showing a stash's changes, dropping all stashes,
   stashing parts of files.

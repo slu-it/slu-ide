@@ -1,7 +1,8 @@
 # 0107. Git log stashes local changes, pops, applies and drops stashes, and marks conflicts resolved from the bar
 
 - Status: accepted; amends [0105](0105-git-log-merge.md) (a squash's conflicts are marked resolved from the bar) and
-  [0042](0042-git-log-commit-operations.md) (unmerged paths outside an operation show in the bar)
+  [0042](0042-git-log-commit-operations.md) (unmerged paths outside an operation show in the bar) and
+  [0062](0062-git-concurrency.md) and [0013](0013-git-status.md) (`.git/refs` is watched too)
 - Date: 2026-10-28
 
 ## Context
@@ -110,8 +111,11 @@ tests, `GitStashesTest`):
   chooses again.
 - A non-ASCII stash message cannot be given in a POSIX locale (git offers no other way); the dialog's push fails with
   the message why, and stashing without a message works.
-- A `git stash drop` in a terminal (of other than the only stash) is not noticed until the next refresh or change of
-  `.git`, as new branches are not (ADR 0040); watching `.git/refs` would be a change of ADR 0062's watch.
+- A `git stash drop` in a terminal shows at once: `GitStatusService` watches `.git/refs` itself as well as `.git`
+  (amends ADR 0062 and 0013; added 2026-10-29), without subfolders, so on Linux a `git branch x` in a terminal
+  (`refs/heads/x`) still counts only with the next change noticed in either; macOS's polling watch reports `refs/heads`
+  when its time changes, so there it counts at once. Dropping any stash rewrites `refs/stash` (a new inode, so the
+  state stamp differs); one more folder watched costs one more watch key per window.
 - Unmerged paths now always show in the bar and keep merges, rebases, picks, pulls and edits of commit messages from
   starting, also those a terminal left; Mark Resolved or a reset is the way out.
 - Not offered: `--keep-index`, `--index`, `git stash branch`, showing a stash or its diff, clearing all stashes, partial

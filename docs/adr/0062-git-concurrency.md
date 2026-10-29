@@ -208,3 +208,7 @@ Rejected:
   [ADR 0013](0013-git-status.md) and [ADR 0035](0035-git-log-area.md) (what a change of `.git` refreshes),
   [ADR 0041](0041-git-write-operations.md) (the refresh after an operation) and
   [ADR 0053](0053-project-trust.md) (when the trust check runs again).
+
+Note 2026-10-29: `.git/refs` itself is watched as well, so that a `git stash drop` in a terminal, which changes only
+`refs/stash`, is noticed ([ADR 0107](0107-git-log-stashes.md)); on Linux refs further below (`refs/heads/x`) still count
+with the next batch, macOS's polling watch reports `refs/heads` itself when its time changes.

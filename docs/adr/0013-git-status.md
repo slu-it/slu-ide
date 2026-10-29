@@ -67,3 +67,6 @@ Note 2026-10-19: a change noticed directly in `.git` runs `git status` only if a
 the refs read (`HEAD`, index, refs, configuration, …; not objects or reflogs) changed, and a git write of the window
 holds refreshes until its end, then runs one ([ADR 0062](0062-git-concurrency.md), partly superseding this). Changes
 only below `.git/refs/` are counted with the next batch of `.git`.
+
+Note 2026-10-29: `.git/refs` itself is watched too, for `refs/stash` ([ADR 0107](0107-git-log-stashes.md)); on Linux
+changes further below count with the next batch.

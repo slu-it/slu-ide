@@ -173,6 +173,22 @@ class GitStatusServiceTest {
     }
 
     @Test
+    fun `a stash dropped in a terminal counts as a change of git's state`() {
+        repeat(2) { n ->
+            repo.resolve("tracked.kt").writeText("val a = ${n + 2}\n")
+            git("stash", "-q")
+        }
+        service.open(repo)
+        awaitSnapshot { it.root != null }
+        val before = service.gitFolderChanged.get()
+
+        // Changes only `refs/stash` and its reflog, nothing directly in `.git`.
+        git("stash", "drop", "-q", "stash@{1}")
+
+        await("The dropped stash was not noticed") { service.gitFolderChanged.get() > before }
+    }
+
+    @Test
     fun `refresh picks up changes in the working tree`() {
         service.open(repo)
         awaitSnapshot { it.root != null }

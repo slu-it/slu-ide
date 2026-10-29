@@ -124,14 +124,14 @@ in `modules/git`, the changes are made by `GitBranches`, `GitCommits`, `GitRebas
   match the filters." when filters are set and nothing passes; "The git log could not be read." if git fails or takes
   longer than 10 s, also for an invalid regex (with rows already shown, they stay and the message appears in the
   header).
-- **Refresh:** the Refresh button, and changes directly in `.git` (commits, checkouts, staging, fetches, merges,
-  rebases) reload the first page and the refs; while collapsed the log only notes it and reloads on the next expand.
+- **Refresh:** the Refresh button, and changes directly in `.git` or `.git/refs` (commits, checkouts, staging, fetches,
+  merges, rebases, stashes) reload the first page and the refs; while collapsed the log only notes it and reloads on the next expand.
   Changes of `.git` that change nothing the log reads (new objects, reflogs) do not reload it
   ([ADR 0062](../adr/0062-git-concurrency.md)). Selected commits stay selected if they are still in the first page; the
   details and changed files of a commit that stays selected are not read again (a commit cannot change them; after a
   failure they are), only its refs are shown anew; links to commits its message names stay as read. A new
-  branch or tag alone (`git branch x`, `git tag x` in a terminal) is noticed with the next change directly in `.git`
-  (Refresh shows it at once). A reload stops the git of a page still loading, and selecting another commit stops the reads of the one
+  branch or tag alone (`git branch x`, `git tag x` in a terminal) is noticed on Linux with the next change in `.git` or
+  `.git/refs`, on macOS at once (Refresh shows it at once). A reload stops the git of a page still loading, and selecting another commit stops the reads of the one
   before.
 - **Filters** ([ADR 0039](../adr/0039-git-log-filters.md)): a bar above the commit table (not above the changed files
   and details), as in IntelliJ. Git itself filters, so a filtered log still loads in pages. Changing a filter reloads

@@ -18,8 +18,9 @@
   that order; an untracked folder gets only red. Ignored files do not mark their parent folders. Clean files and
   folders are not coloured.
 - Updates by themselves: after changes in a folder the explorer has loaded, after F5/Refresh, and after changes of
-  entries directly in `.git` such as `index` and `HEAD` (`git add`, commits, checkouts in a terminal or another tool;
-  subfolders like `.git/refs/` are not watched). A `.git` file (worktrees, submodules) is not watched, so such
+  entries directly in `.git` such as `index` and `HEAD` (`git add`, commits, checkouts in a terminal or another tool)
+  or directly in `.git/refs` (`refs/stash`: a `git stash drop`); deeper folders like `.git/refs/heads/` are not
+  watched (on macOS, whose watch polls, a change of `refs/heads` itself is noticed too). A `.git` file (worktrees, submodules) is not watched, so such
   repositories update only on explorer changes and F5. `git status` runs in the background; the markers change when
   it is done.
 - A change in `.git` runs anything only if it changed what the status, the log and the refs read (`HEAD`, the index,
@@ -31,10 +32,11 @@
   resets it to the empty snapshot; after that it is replaced only when something changed. If `git status` fails or
   takes longer than 10 s, the previous snapshot stays (e.g. markers remain after `rm -rf .git` until the folder is
   opened again).
-- `GitStatusService.gitFolderChanged` counts the changes noticed directly in `.git` that changed what the status, the
+- `GitStatusService.gitFolderChanged` counts the changes noticed in `.git` that changed what the status, the
   log and the refs read, and each operation of the git log once at its end (on the JavaFX thread), and
   `GitStatusService.root` is the followed repository root; the git log uses both ([git-log.md](git-log.md)). Changes
-  only below `.git/refs/` (e.g. `git branch x`) are counted with the next change noticed directly in `.git`.
+  only further below `.git/refs/` (e.g. `git branch x`) are counted, on Linux, with the next change noticed in `.git`
+  or `.git/refs`; on macOS at once.
 - Modified files get change markers and a diff against `HEAD` ([git-diff.md](git-diff.md));
   `GitStatusService.diffAsync(file, done)` reads it on a thread of its own (ADR 0062).
 - The window title shows the checked-out ref: `slu-ide [master] – Thoreau v0.1.0` on a branch,

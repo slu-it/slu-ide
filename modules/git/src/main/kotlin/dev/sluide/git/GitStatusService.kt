@@ -175,7 +175,7 @@ class GitStatusService(
      * [diffAsync] runs no git (ADR 0053).
      */
     @Volatile private var confirmedChanges = 0L
-    private var gitWatch: AutoCloseable? = null
+    private var gitWatches: List<AutoCloseable> = emptyList()
 
     /** Whether the open folder is a git repository that is followed. */
     val active: Boolean get() = target != null
@@ -193,15 +193,15 @@ class GitStatusService(
      * Counted are batches of changes in `.git` that changed its stamp of the state (ADR 0062): `HEAD`, the index, the
      * refs (loose and packed), `FETCH_HEAD`, `ORIG_HEAD`, a merge, cherry-pick, revert or rebase, the configuration, so
      * commits, checkouts, staging, fetches, new branches and tags; and every [gitChanged]. The watch only sees entries
-     * directly in `.git`, so a change only below it (e.g. `git branch x`) counts with the next batch. Nothing is
-     * noticed in a repository with a `.git` file (worktrees, submodules), which is not watched.
+     * directly in `.git` and `.git/refs` (`refs/stash`), so on Linux a change only further below (e.g. `git branch x`)
+     * counts with the next batch; macOS's polling watch also reports a subfolder whose time changed (`refs/heads`).
+     * Nothing is noticed in a repository with a `.git` file (worktrees, submodules), which is not watched.
      */
     val gitFolderChanged: ReadOnlyLongProperty = _gitFolderChanged.readOnlyProperty
 
     /** Follows the repository at [folder], if git is available and it has `.git`; `null` follows nothing. */
     fun open(folder: Path?) {
-        gitWatch?.close()
-        gitWatch = null
+        closeGitWatches()
         val root = folder?.toAbsolutePath()?.normalize()?.takeIf { git.available && Files.exists(it.resolve(".git")) }
         target = root?.let { Target(it, gitChanges.get(), forcedChanges.get()) }
         hold = null
@@ -511,19 +511,28 @@ class GitStatusService(
 
     private fun watchGitFolder(root: Path) {
         val gitFolder = root.resolve(".git")
-        // A .git file (worktrees, submodules) cannot be watched; the handle then does nothing.
-        gitWatch =
-            fileWatcher.watch(gitFolder) { changed ->
-                if (target?.root != root) return@watch
-                logChanges(root, gitFolder, changed)
-                // Reported itself when events were lost or it was deleted: watch it anew if it is there.
-                if (gitFolder in changed && Files.isDirectory(gitFolder)) {
-                    gitWatch?.close()
-                    watchGitFolder(root)
+        // `refs/` too: dropping a stash other than the only one changes nothing else that is watched, only `refs/stash`
+        // (ADR 0107). A .git file (worktrees, submodules) cannot be watched; the handles then do nothing.
+        val folders = listOf(gitFolder, gitFolder.resolve("refs"))
+        gitWatches =
+            folders.map { folder ->
+                fileWatcher.watch(folder) { changed ->
+                    if (target?.root != root) return@watch
+                    logChanges(root, gitFolder, changed)
+                    // Reported itself when events were lost or it was deleted: watch both anew if `.git` is there.
+                    if (folder in changed && Files.isDirectory(gitFolder)) {
+                        closeGitWatches()
+                        watchGitFolder(root)
+                    }
+                    gitChanges.incrementAndGet()
+                    schedule()
                 }
-                gitChanges.incrementAndGet()
-                schedule()
             }
+    }
+
+    private fun closeGitWatches() {
+        gitWatches.forEach(AutoCloseable::close)
+        gitWatches = emptyList()
     }
 
     /** Logs a batch of changes in `.git` on the executor: the listener runs on the JavaFX thread. */
@@ -557,7 +566,7 @@ class GitStatusService(
     private fun millisSince(start: Long) = (System.nanoTime() - start) / 1_000_000
 
     override fun close() {
-        gitWatch?.close()
+        closeGitWatches()
         target = null
         hold = null
         executor.shutdownNow()
