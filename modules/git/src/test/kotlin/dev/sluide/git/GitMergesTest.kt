@@ -75,7 +75,8 @@ class GitMergesTest {
 
     private fun rev(revision: String) = git("rev-parse", revision)
 
-    private fun message() = git("log", "-1", "--format=%B")
+    // As GitCliLog reads it: else git converts it to i18n.commitEncoding where iconv can (macOS: also "–" to "-").
+    private fun message() = git("log", "-1", "--encoding=UTF-8", "--format=%B")
 
     private fun file(name: String = "file.txt") = repo.resolve(name).readText()
 
