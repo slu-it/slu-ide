@@ -13,6 +13,7 @@ import javafx.beans.property.SimpleBooleanProperty
 import javafx.geometry.Orientation
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
+import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.control.SplitPane
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
@@ -190,7 +191,10 @@ internal class WindowGitLog(
             setOnAction { gitLogView.expanded.set(!gitLogView.expanded.get()) }
         }
 
-    /** The Git menu: Commit…, Push… and Pull…, disabled while the git log has no repository open. */
+    /**
+     * The Git menu: Commit…, Push…, Pull…, Stash Changes… and Pop Latest Stash, disabled while the git log has no
+     * repository open.
+     */
     fun gitMenu(): Menu {
         // The Commit tab of the git log area, on IntelliJ's shortcut (ADR 0048).
         val commit =
@@ -212,7 +216,18 @@ internal class WindowGitLog(
                 disableProperty().bind(gitLogOpen.not())
                 setOnAction { gitLogView.showPull() }
             }
-        return Menu("Git", null, commit, push, pull)
+        // Stashes (ADR 0107); no shortcuts. Pop reads the stashes first, also with the log collapsed.
+        val stash =
+            MenuItem("Stash Changes…").apply {
+                disableProperty().bind(gitLogOpen.not())
+                setOnAction { gitLogView.showStashChanges() }
+            }
+        val popLatest =
+            MenuItem("Pop Latest Stash").apply {
+                disableProperty().bind(gitLogOpen.not())
+                setOnAction { gitLogView.popLatestStash() }
+            }
+        return Menu("Git", null, commit, push, pull, SeparatorMenuItem(), stash, popLatest)
     }
 
     /** Closes the repository in the git log; called when the window is closed. */

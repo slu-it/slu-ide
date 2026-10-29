@@ -5,6 +5,7 @@ import dev.sluide.ide.git.GIT_OFF
 import dev.sluide.projecttrust.ProjectTrustState
 import javafx.scene.control.Button
 import javafx.scene.control.Label
+import javafx.scene.control.SeparatorMenuItem
 import javafx.stage.Stage
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import org.junit.jupiter.api.Tag
@@ -138,7 +139,8 @@ class MainWindowTrustUiTest : MainWindowUiFixture() {
 
         eventually(robot) {
             assertTrue(mainWindow.trust.bar.isVisible)
-            assertTrue(menu(robot, "Git").items.all { it.isDisable }, "Commit…, Push… and Pull…")
+            val items = menu(robot, "Git").items.filterNot { it is SeparatorMenuItem }
+            assertTrue(items.all { it.isDisable }, items.joinToString { it.text })
             assertTrue(robot.lookup(".git-log-status").queryAll<Label>().any { it.text == GIT_OFF })
         }
     }

@@ -13,6 +13,7 @@ import dev.sluide.ide.git.WorkingTreeDiffTab
 import dev.sluide.projecttrust.ProjectTrustState
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSpec
+import javafx.application.Platform
 import javafx.beans.property.SimpleStringProperty
 import javafx.event.Event
 import javafx.geometry.Orientation
@@ -427,6 +428,8 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         assertTrue(menu(robot, "Git").items.single { it.text == "Commit…" }.isDisable)
         assertTrue(menu(robot, "Git").items.single { it.text == "Push…" }.isDisable)
         assertTrue(menu(robot, "Git").items.single { it.text == "Pull…" }.isDisable)
+        assertTrue(menu(robot, "Git").items.single { it.text == "Stash Changes…" }.isDisable)
+        assertTrue(menu(robot, "Git").items.single { it.text == "Pop Latest Stash" }.isDisable)
     }
 
     @Test
@@ -447,7 +450,14 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         assertTrue(commitItem.isDisable, "no folder, no git log")
         val pushItem = menu(robot, "Git").items.single { it.text == "Push…" }
         val pullItem = menu(robot, "Git").items.single { it.text == "Pull…" }
-        assertEquals(listOf("Commit…", "Push…", "Pull…"), menu(robot, "Git").items.map { it.text })
+        val stashItem = menu(robot, "Git").items.single { it.text == "Stash Changes…" }
+        val popItem = menu(robot, "Git").items.single { it.text == "Pop Latest Stash" }
+        assertEquals(
+            listOf("Commit…", "Push…", "Pull…", null, "Stash Changes…", "Pop Latest Stash"),
+            menu(robot, "Git").items.map { it.text },
+        )
+        assertEquals(listOf(null, null), listOf(stashItem.accelerator, popItem.accelerator))
+        assertTrue(stashItem.isDisable && popItem.isDisable, "no folder, no git log")
         assertNull(pullItem.accelerator)
         assertTrue(pullItem.isDisable, "no folder, no git log")
         val pushAccelerator = pushItem.accelerator as KeyCodeCombination
@@ -463,6 +473,7 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         eventually(robot) { assertFalse(commitItem.isDisable) }
         assertFalse(pushItem.isDisable)
         assertFalse(pullItem.isDisable)
+        assertFalse(stashItem.isDisable || popItem.isDisable)
         robot.interact { commitItem.fire() }
 
         eventually(robot) {
@@ -501,6 +512,20 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         eventually(robot) {
             val texts = robot.lookup(".git-log-status").queryAll<Label>().map { it.text }
             assertTrue("The repository has no remotes to pull from." in texts, texts.toString())
+        }
+
+        // The stash items reach the git log, which reads the stashes with the real git.
+        robot.interact { popItem.fire() }
+        eventually(robot) {
+            val texts = robot.lookup(".git-log-status").queryAll<Label>().map { it.text }
+            assertTrue("No stashes to pop." in texts, texts.toString())
+        }
+        robot.interact { Platform.runLater { stashItem.fire() } }
+        eventually(robot) {
+            assertTrue(Window.getWindows().any { it is Stage && it.isShowing && it.title == "Stash Changes" })
+        }
+        robot.interact {
+            Window.getWindows().filter { it is Stage && it.title == "Stash Changes" }.forEach { it.hide() }
         }
     }
 
