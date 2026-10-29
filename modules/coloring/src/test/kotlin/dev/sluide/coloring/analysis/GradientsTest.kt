@@ -206,4 +206,44 @@ class GradientsTest {
         // 4 real stops and 2 samples in each of the 2 segments with a width.
         assertEquals(8, stops.size)
     }
+
+    private fun t(
+        g: Gradient,
+        x: Double,
+        y: Double,
+    ) = gradientT(g, x, y, 200.0, 100.0)
+
+    @Test
+    fun `linear position runs along the gradient line`() {
+        val to90 = gradient(angle = 90.0)
+        assertEquals(0.0, t(to90, 0.0, 30.0), 1e-9)
+        assertEquals(0.5, t(to90, 100.0, 80.0), 1e-9)
+        assertEquals(1.0, t(to90, 200.0, 0.0), 1e-9)
+        val up = gradient(angle = 0.0)
+        assertEquals(1.0, t(up, 50.0, 0.0), 1e-9)
+        assertEquals(0.0, t(up, 50.0, 100.0), 1e-9)
+        // At 45deg the corners lie on the 0% and 100% lines.
+        val diagonal = gradient(angle = 45.0)
+        assertEquals(0.0, t(diagonal, 0.0, 100.0), 1e-9)
+        assertEquals(1.0, t(diagonal, 200.0, 0.0), 1e-9)
+        assertEquals(0.5, t(diagonal, 100.0, 50.0), 1e-9)
+    }
+
+    @Test
+    fun `radial position is the distance from the center relative to the farthest corner`() {
+        val radial = gradient(type = GradientType.RADIAL)
+        assertEquals(0.0, t(radial, 100.0, 50.0), 1e-9)
+        assertEquals(1.0, t(radial, 0.0, 0.0), 1e-9)
+        assertEquals(50.0 / hypot(100.0, 50.0), t(radial, 100.0, 0.0), 1e-9)
+    }
+
+    @Test
+    fun `conic position counts clockwise from the start angle`() {
+        val conic = gradient(type = GradientType.CONIC, angle = 0.0)
+        assertEquals(0.0, t(conic, 100.0, 0.0), 1e-9)
+        assertEquals(0.25, t(conic, 200.0, 50.0), 1e-9)
+        assertEquals(0.5, t(conic, 100.0, 100.0), 1e-9)
+        assertEquals(0.75, t(conic, 0.0, 50.0), 1e-9)
+        assertEquals(0.25, t(conic.copy(angleDeg = 90.0), 100.0, 100.0), 1e-9)
+    }
 }

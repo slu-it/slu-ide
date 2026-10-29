@@ -4,7 +4,10 @@ import dev.sluide.coloring.color.CssColor
 import java.math.BigDecimal
 import java.math.RoundingMode
 import kotlin.math.abs
+import kotlin.math.atan2
 import kotlin.math.cos
+import kotlin.math.floor
+import kotlin.math.hypot
 import kotlin.math.sin
 
 /** The CSS gradient functions the builder writes. */
@@ -100,6 +103,41 @@ fun linearEndpoints(
     val cx = width / 2
     val cy = height / 2
     return Point(cx - dx * half, cy - dy * half) to Point(cx + dx * half, cy + dy * half)
+}
+
+/**
+ * The position 0..1 of the point ([x], [y]) in a [width] x [height] box along [gradient], as the preview draws it:
+ * linear, the projection on the gradient line (not clamped); radial, the distance from the center relative to the
+ * farthest corner; conic, the angle clockwise from up, minus the start angle, as a share of the full turn.
+ */
+fun gradientT(
+    gradient: Gradient,
+    x: Double,
+    y: Double,
+    width: Double,
+    height: Double,
+): Double {
+    val cx = width / 2
+    val cy = height / 2
+    return when (gradient.type) {
+        GradientType.LINEAR -> {
+            val (from, to) = linearEndpoints(gradient.angleDeg, width, height)
+            val dx = to.x - from.x
+            val dy = to.y - from.y
+            val len2 = dx * dx + dy * dy
+            if (len2 <= 0.0) 0.0 else ((x - from.x) * dx + (y - from.y) * dy) / len2
+        }
+
+        GradientType.RADIAL -> {
+            val radius = hypot(cx, cy)
+            if (radius <= 0.0) 0.0 else hypot(x - cx, y - cy) / radius
+        }
+
+        GradientType.CONIC -> {
+            val turns = (Math.toDegrees(atan2(x - cx, -(y - cy))) - gradient.angleDeg) / 360
+            turns - floor(turns)
+        }
+    }
 }
 
 /** [gradient] with a stop at the middle of its widest gap, in the interpolated color, and the new stop's index. */
