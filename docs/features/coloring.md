@@ -66,7 +66,14 @@ WCAG 2 shows the ratio truncated to two decimals and never rounded up (4.4999 is
 If AA normal fails, the pane offers the nearest text color passing AA, found by changing the OKLCH lightness while keeping the hue (chroma may shrink to stay in sRGB); if only AAA fails, the nearest one passing AAA. "Use" sets it as the text color, whichever of current and second that is. If no lightness reaches it, the pane says so.
 
 ## Shades & Harmonies
-(described with its implementation)
+- **Shades**: eleven steps, 50 to 950, Tailwind-like: each step has a fixed OKLCH lightness and keeps the hue of the
+  current color; chroma follows a bell curve around the middle steps, gamut-mapped to sRGB. The step nearest in
+  lightness is the current color itself, exact, and is underlined. A click on a step makes it the current color.
+- **Copy as CSS variables** copies one `--color-50: #f0f6ff;` line per step; the field next to the button changes the
+  prefix (`color`).
+- **Harmonies**: Complementary (+180), Analogous (-30, +30), Triadic (+120, +240) and Split complementary (+150, +210),
+  hue rotations in OKLCH with lightness and chroma kept. Each row starts with the current color; the text below a
+  swatch is its CSS color. A click makes a swatch current. A gray has no hue, so all its harmonies are the gray.
 
 ## Mix
 (described with its implementation)

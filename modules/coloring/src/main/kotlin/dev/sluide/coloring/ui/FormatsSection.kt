@@ -6,18 +6,13 @@ import dev.sluide.coloring.color.FormattedColor
 import dev.sluide.coloring.color.formatGroups
 import javafx.geometry.Pos
 import javafx.scene.Node
-import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.scene.control.TextField
 import javafx.scene.control.Tooltip
-import javafx.scene.input.Clipboard
-import javafx.scene.input.ClipboardContent
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
 import javafx.scene.layout.VBox
 import javafx.util.Subscription
-import org.kordamp.ikonli.javafx.FontIcon
-import org.kordamp.ikonli.materialdesign2.MaterialDesignC
 
 /** The current color in the CSS notations and the design tool notations, each with a copy button. */
 internal class FormatsSection(
@@ -74,15 +69,7 @@ internal class FormatsSection(
                         tooltip = Tooltip("Outside sRGB: mapped into the gamut")
                         styleClass += "coloring-approximate"
                     }
-                val copy =
-                    Button().apply {
-                        graphic = FontIcon(MaterialDesignC.CONTENT_COPY)
-                        tooltip = Tooltip("Copy")
-                        styleClass += "coloring-copy"
-                        setOnAction {
-                            Clipboard.getSystemClipboard().setContent(ClipboardContent().apply { putString(text.text) })
-                        }
-                    }
+                val copy = copyButton { text.text }
                 val label =
                     Label(entry.format.label).apply {
                         styleClass += "coloring-format-label"

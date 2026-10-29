@@ -99,17 +99,19 @@
     -fx-border-width: 2;
 }
 
-@media (prefers-color-scheme: dark) {
-    .coloring-input:invalid {
-        -fx-border-color: #ef5350;
-        -fx-focus-color: #ef5350;
-        -fx-faint-focus-color: #ef535033;
-    }
+/* Shades & Harmonies */
+.coloring-caption {
+    -fx-font-size: 0.85em;
+    -fx-opacity: 0.7;
+}
 
-    .coloring-note,
-    .coloring-approximate {
-        -fx-text-fill: #fbbf24;
-    }
+.coloring-cell {
+    -fx-padding: 2;
+}
+
+.shade-source {
+    -fx-border-color: transparent transparent -fx-focus-color transparent;
+    -fx-border-width: 0 0 2 0;
 }
 
 /* Picker */
@@ -146,6 +148,19 @@
 
 .vision-warning {
     -fx-text-fill: #b45309;
+}
+
+@media (prefers-color-scheme: dark) {
+    .coloring-input:invalid {
+        -fx-border-color: #ef5350;
+        -fx-focus-color: #ef5350;
+        -fx-faint-focus-color: #ef535033;
+    }
+
+    .coloring-note,
+    .coloring-approximate {
+        -fx-text-fill: #fbbf24;
+    }
 }
 
 @media (prefers-color-scheme: dark) {
