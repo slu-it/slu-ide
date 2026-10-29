@@ -17,6 +17,7 @@ import dev.sluide.gitlog.operations.AbortMerge
 import dev.sluide.gitlog.operations.AbortPick
 import dev.sluide.gitlog.operations.AbortRebase
 import dev.sluide.gitlog.operations.CheckReword
+import dev.sluide.gitlog.operations.CheckedFiles
 import dev.sluide.gitlog.operations.CommitChanges
 import dev.sluide.gitlog.operations.CreateBranch
 import dev.sluide.gitlog.operations.CreateTag
@@ -30,6 +31,7 @@ import dev.sluide.gitlog.operations.NewBranchDialog
 import dev.sluide.gitlog.operations.NewTagDialog
 import dev.sluide.gitlog.operations.PickCommit
 import dev.sluide.gitlog.operations.PreparePull
+import dev.sluide.gitlog.operations.PrepareStash
 import dev.sluide.gitlog.operations.PullBranch
 import dev.sluide.gitlog.operations.PullDialog
 import dev.sluide.gitlog.operations.PullPrompt
@@ -45,6 +47,7 @@ import dev.sluide.gitlog.operations.ResetBranch
 import dev.sluide.gitlog.operations.ResetDialog
 import dev.sluide.gitlog.operations.RewordCommit
 import dev.sluide.gitlog.operations.RewordDialog
+import dev.sluide.gitlog.operations.StashDialog
 import dev.sluide.gitlog.operations.abortButton
 import dev.sluide.gitlog.operations.deleteQuestion
 import dev.sluide.gitlog.operations.deleteRefsConfirmation
@@ -66,6 +69,7 @@ import dev.sluide.gitlog.operations.remoteOfBranch
 import dev.sluide.gitlog.operations.resetDescription
 import dev.sluide.gitlog.operations.resetTitle
 import dev.sluide.gitlog.operations.startedInPush
+import dev.sluide.gitlog.operations.stashConflictsDialog
 import dev.sluide.gitlog.push.PushDialog
 import dev.sluide.gitlog.push.PushReader
 import javafx.beans.property.ReadOnlyBooleanProperty
@@ -180,6 +184,24 @@ internal class RefActions(
         start(PreparePull(preselected, fromPush))
     }
 
+    /**
+     * Reads the current branch and asks with the Stash Changes dialog (ADR 0107) how to stash the local changes, or
+     * only the Commit tab's [checked] files. Nothing while an operation runs; the header says why nothing can be
+     * stashed.
+     */
+    fun showStashChanges(checked: CheckedFiles? = null) {
+        if (writer.running.get()) return
+        start(PrepareStash(checked))
+    }
+
+    /** Asks [confirmation]'s question (Cancel the default) and starts its operation once confirmed. */
+    fun confirmAndStart(confirmation: RefConfirmation) {
+        if (writer.running.get()) return
+        if (refConfirmation(window(), confirmation).showAndWait().orElse(ButtonType.CANCEL) == confirmation.button) {
+            start(confirmation.confirmed)
+        }
+    }
+
     /** Asks how to pull as [prompt] offers it and pulls. */
     private fun pull(prompt: PullPrompt) {
         val owner = pushDialog?.stage?.takeIf { prompt.fromPush && it.isShowing } ?: window()
@@ -287,6 +309,15 @@ internal class RefActions(
             pull(prompt)
             return
         }
+        outcome.next?.let { next ->
+            start(next)
+            return
+        }
+        outcome.stashPrompt?.let { prompt ->
+            StashDialog(window(), prompt).showAndWait().orElse(null)?.let { start(it) }
+            return
+        }
+        outcome.stashConflicts?.let { conflict -> stashConflictsDialog(window(), conflict).showAndWait() }
         outcome.reword?.let { prompt ->
             val message = RewordDialog(window(), prompt).showAndWait().orElse(null) ?: return
             start(RewordCommit(prompt.branch, prompt.commit, message))

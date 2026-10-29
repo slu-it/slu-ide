@@ -267,6 +267,16 @@ internal const val IN_PROGRESS_UNREADABLE =
 /** Why nothing was done: the unmerged paths could not be read or checked. */
 internal const val CONFLICTS_UNREADABLE = "The conflicted files could not be read."
 
+/** "1 file has conflicts", "2 files have conflicts". */
+internal fun conflictCount(count: Int): String =
+    if (count ==
+        1
+    ) {
+        "1 file has conflicts"
+    } else {
+        "$count files have conflicts"
+    }
+
 /** Why nothing is started while git is in the middle of [busy]. */
 internal fun busyMessage(busy: GitInProgress): String =
     when (busy) {
@@ -280,6 +290,11 @@ internal fun busyMessage(busy: GitInProgress): String =
 
         is GitPendingMerge -> {
             "A merge is in progress; finish or abort it first."
+        }
+
+        is GitPendingConflicts -> {
+            val them = if (busy.conflicts.size == 1) "it" else "them"
+            "${conflictCount(busy.conflicts.size)}; resolve $them and mark $them resolved first."
         }
 
         is GitPendingOperation -> {

@@ -7,6 +7,7 @@ import dev.sluide.gitlog.data.BranchGroup
 import dev.sluide.gitlog.data.BranchLeaf
 import dev.sluide.gitlog.data.BranchNode
 import dev.sluide.gitlog.data.BranchRemote
+import dev.sluide.gitlog.data.BranchStash
 import dev.sluide.gitlog.data.REMOTE
 
 /** What the branches pane can do with its selection (ADR 0041); `null` (or empty) where it cannot. */
@@ -184,7 +185,7 @@ private fun remoteOf(
                 (node.ref.shortName.takeIf { node.ref.kind == GitRefKind.REMOTE_BRANCH } ?: return null) to false
             }
 
-            is BranchGroup -> {
+            is BranchGroup, is BranchStash -> {
                 return null
             }
         }

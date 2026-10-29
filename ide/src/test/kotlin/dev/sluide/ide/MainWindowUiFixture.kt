@@ -22,6 +22,7 @@ import dev.sluide.git.GitPush
 import dev.sluide.git.GitRebases
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitRewords
+import dev.sluide.git.GitStashes
 import dev.sluide.git.GitStatusService
 import dev.sluide.git.GitTrustCheck
 import dev.sluide.git.RemoteSourceCache
@@ -249,6 +250,7 @@ abstract class MainWindowUiFixture {
                 GitRewords(git),
                 GitRemotes(git),
                 GitPush(git),
+                GitStashes(git),
                 tasks,
             ).also(gitLogViews::add),
             fileViewers,

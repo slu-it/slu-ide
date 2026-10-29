@@ -18,7 +18,9 @@ import java.nio.file.Path
  * ADR 0042), a rebase ([rebaseStopped], ADR 0063) or a merge ([mergeStopped], ADR 0105), the message of a commit to
  * edit ([reword], ADR 0100), what to ask before a pull ([pull], ADR 0106), and the question above git's message in the
  * error dialog if it is not the operation's ([failure], e.g. naming the remotes that could not be fetched, ADR 0043),
- * and whether it was [cancelled] before it was done (a fetch, commit or push).
+ * and whether it was [cancelled] before it was done (a fetch, commit or push). For stashes (ADR 0107): what the Stash
+ * Changes dialog asks ([stashPrompt]), the conflicts a pop or apply gave ([stashConflicts]) and the operation to start
+ * next, asking about unsaved editors first ([next]: the pop of the stash Pop Latest Stash read).
  */
 internal data class RefOutcome(
     val result: GitResult,
@@ -33,6 +35,9 @@ internal data class RefOutcome(
     val pull: PullPrompt? = null,
     val failure: String? = null,
     val cancelled: Boolean = false,
+    val stashPrompt: StashPrompt? = null,
+    val stashConflicts: StashConflict? = null,
+    val next: RefOperation? = null,
 )
 
 /**

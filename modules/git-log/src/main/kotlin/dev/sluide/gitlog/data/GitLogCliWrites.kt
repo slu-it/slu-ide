@@ -14,6 +14,7 @@ import dev.sluide.git.GitRemoteDeletion
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitResetMode
 import dev.sluide.git.GitRewords
+import dev.sluide.git.GitStashes
 import dev.sluide.git.GitUncheckedConflict
 import java.nio.file.Path
 
@@ -27,7 +28,9 @@ internal class GitLogCliWrites(
     private val rewords: GitRewords,
     private val gitRemotes: GitRemotes,
     private val gitPush: GitPush,
-) : GitLogWrites {
+    stashes: GitStashes,
+) : GitLogWrites,
+    StashWrites by GitStashWrites(stashes) {
     override fun canPass(argument: String) = branches.canPass(argument)
 
     override fun switchBranch(

@@ -215,12 +215,17 @@ class GitMergesTest {
         val result = merge(GitMergeMode.SQUASH)
 
         assertEquals(GitMergeResult.Done(head(), squashed = true, conflicts = listOf("file.txt")), result)
-        assertNull(pending())
+        assertEquals(GitPendingConflicts(listOf("file.txt")), pending(), "no merge in progress, only its conflicts")
+        assertEquals(
+            GitMergeResult.Failed("1 file has conflicts; resolve it and mark it resolved first."),
+            merge(GitMergeMode.SQUASH),
+        )
 
-        // The SQUASH_MSG it left does not make git's refusal of the next squash one.
+        // Git refusing the next squash (exit 2, staged changes in the way) is no squash.
+        git("add", "file.txt")
         val again = merge(GitMergeMode.SQUASH)
         assertIs<GitMergeResult.Failed>(again)
-        assertTrue("unmerged" in again.message, again.message)
+        assertTrue("overwritten" in again.message, again.message)
     }
 
     @Test
@@ -448,7 +453,11 @@ class GitMergesTest {
         assertEquals(1, git("stash", "list").lines().size)
         assertEquals("UU other.txt", git("status", "--porcelain", "--untracked-files=no"))
         assertTrue(file("other.txt").startsWith("<<<<<<< "), file("other.txt"))
-        assertNull(pending(), "no merge in progress, only the conflicts of applying the stash")
+        assertEquals(
+            GitPendingConflicts(listOf("other.txt")),
+            pending(),
+            "no merge in progress, only the conflicts of applying the stash",
+        )
     }
 
     private companion object {

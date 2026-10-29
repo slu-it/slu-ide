@@ -11,6 +11,7 @@ import dev.sluide.git.GitPush
 import dev.sluide.git.GitRebases
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitRewords
+import dev.sluide.git.GitStashes
 import dev.sluide.gitlog.actions.RefActions
 import dev.sluide.gitlog.area.AreaTabs
 import dev.sluide.gitlog.area.CommitDiffs
@@ -37,6 +38,7 @@ import dev.sluide.gitlog.filter.FilterSources
 import dev.sluide.gitlog.operations.Fetch
 import dev.sluide.gitlog.operations.PULL_WAITS
 import dev.sluide.gitlog.operations.PendingBar
+import dev.sluide.gitlog.operations.PopLatestStash
 import dev.sluide.gitlog.table.CommitTable
 import dev.sluide.gitlog.ui.GIT_LOG_CSS
 import dev.sluide.gitlog.ui.SharedSplit
@@ -80,7 +82,8 @@ import java.util.concurrent.CompletableFuture
  * (ADR 0046). [showCommit] opens the Commit tab, right of the Log, to commit chosen files; its draft stays while it is
  * closed, until another folder (ADR 0048); [workingTreeChanged] has it read the changes again. [showPush] (and Push in
  * the header, Commit and Push in the Commit tab) opens the Push dialog, which pushes the current branch (ADR 0049);
- * [showPull] (and Pull in the header) the Pull dialog (ADR 0106).
+ * [showPull] (and Pull in the header) the Pull dialog (ADR 0106); [showStashChanges] and [popLatestStash] stash and pop
+ * (ADR 0107), whose stashes the branches pane shows.
  *
  * [source] reads the commits, refs, details, changed files and diffs on the thread `sluide-git-log` (a history, the
  * Commit tab and the Push dialog on threads of their own); [writes] changes the repository on the thread
@@ -108,11 +111,22 @@ class GitLogView internal constructor(
         gitRewords: GitRewords,
         gitRemotes: GitRemotes,
         gitPush: GitPush,
+        gitStashes: GitStashes,
         tasks: BackgroundTasks,
     ) : this(
-        GitLogCliSource(gitLog, gitRemotes, gitCommits, gitPush),
+        GitLogCliSource(gitLog, gitRemotes, gitCommits, gitPush, gitStashes),
         Platform::runLater,
-        GitLogCliWrites(gitBranches, gitCommits, gitRebases, gitMerges, gitPulls, gitRewords, gitRemotes, gitPush),
+        GitLogCliWrites(
+            gitBranches,
+            gitCommits,
+            gitRebases,
+            gitMerges,
+            gitPulls,
+            gitRewords,
+            gitRemotes,
+            gitPush,
+            gitStashes,
+        ),
         tasks,
     )
 
@@ -351,6 +365,7 @@ class GitLogView internal constructor(
             }
             goToCommit = { hash -> navigation.goToCommit(hash, hash.take(SHORT_HASH)) }
             commit = { operation -> actions.start(operation) }
+            stash = actions::showStashChanges
             openFile = { file -> onOpenFile(file) }
         }
 
@@ -414,7 +429,7 @@ class GitLogView internal constructor(
 
                 else -> {
                     readers.refsRead()
-                    branchesPane.show(pages.refs)
+                    branchesPane.show(pages.refs, pages.stashes)
                     compareBar.update()
                     pendingBar.show(pages.pending, pages.refs)
                     noRemotes.set(pages.remotes?.isEmpty() == true)
@@ -467,6 +482,22 @@ class GitLogView internal constructor(
      */
     fun showPull(preselected: String? = null) {
         if (actions.running.get()) status.tell(PULL_WAITS) else actions.showPull(preselected)
+    }
+
+    /**
+     * Opens the Stash Changes dialog (ADR 0107) once it has read the current branch; the header says why if nothing can
+     * be stashed now, also that an operation runs. Nothing without a repository.
+     */
+    fun showStashChanges() {
+        if (actions.running.get()) status.tell(PULL_WAITS) else actions.showStashChanges()
+    }
+
+    /**
+     * Pops the newest stash (ADR 0107), read first, after the question about unsaved editors; "No stashes to pop."
+     * without one. Works with the log collapsed. Nothing without a repository.
+     */
+    fun popLatestStash() {
+        if (actions.running.get()) status.tell(PULL_WAITS) else actions.start(PopLatestStash)
     }
 
     /**

@@ -3,6 +3,7 @@ package dev.sluide.git.cli
 import dev.sluide.git.GitCancellation
 import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitOperation
+import dev.sluide.git.GitPendingConflicts
 import dev.sluide.git.GitPendingOperation
 import dev.sluide.git.GitPendingPick
 import dev.sluide.git.GitPick
@@ -115,8 +116,8 @@ internal fun GitCli.mergeTree(
  * What git is in the middle of in the repository at [root] (ADR 0042): a rebase (`rebase-merge`, `rebase-apply`;
  * [pendingRebase], ADR 0063), `git am` (`rebase-apply/applying`), a merge (`MERGE_HEAD`; [pendingMerge], ADR 0105) or a
  * cherry-pick or revert sequence (`sequencer`), found at their `git rev-parse --git-path` (per worktree), else a single
- * cherry-pick or revert (`CHERRY_PICK_HEAD`, `REVERT_HEAD`) with the paths still unmerged; `null` for nothing. A
- * failure if git is not available or fails.
+ * cherry-pick or revert (`CHERRY_PICK_HEAD`, `REVERT_HEAD`) with the paths still unmerged, else unmerged paths alone
+ * ([GitPendingConflicts], ADR 0107); `null` for nothing. A failure if git is not available or fails.
  */
 internal fun GitCli.inProgress(
     root: Path,
@@ -148,12 +149,15 @@ internal fun GitCli.inProgress(
             else -> null
         }
     if (operation != null) return Result.success(GitPendingOperation(operation))
-    val (kind, commit) =
+    val pick =
         commitOfRevision(root, "CHERRY_PICK_HEAD", cancellation = cancellation)?.let { GitPick.CHERRY_PICK to it }
             ?: commitOfRevision(root, "REVERT_HEAD", cancellation = cancellation)?.let { GitPick.REVERT to it }
-            ?: return Result.success(null)
     val conflicts = unmergedPaths(root, cancellation = cancellation) ?: return unreadable
-    return Result.success(GitPendingPick(kind, commit, conflicts))
+    return when {
+        pick != null -> Result.success(GitPendingPick(pick.first, pick.second, conflicts))
+        conflicts.isNotEmpty() -> Result.success(GitPendingConflicts(conflicts))
+        else -> Result.success(null)
+    }
 }
 
 /** A cherry-pick or a revert sequence, as the first instruction of its [todo] file says. */

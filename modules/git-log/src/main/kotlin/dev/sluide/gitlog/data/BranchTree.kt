@@ -3,6 +3,7 @@ package dev.sluide.gitlog.data
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
+import dev.sluide.git.GitStash
 
 /**
  * A node of the branches pane's tree (ADR 0040). [path] identifies it across rebuilds, e.g. to keep it collapsed:
@@ -51,20 +52,36 @@ internal data class BranchLeaf(
     val current: Boolean = false,
 ) : BranchNode
 
+/**
+ * A stash below Stashes (ADR 0107), named by its message as git lists it; no ref, so it neither navigates nor filters
+ * the log (stash commits are not in it).
+ */
+internal data class BranchStash(
+    val stash: GitStash,
+) : BranchNode {
+    override val name: String get() = stash.message
+    override val path: String get() = "$STASHES/${stash.commit}"
+}
+
 internal const val LOCAL = "Local"
 internal const val REMOTE = "Remote"
 internal const val TAGS = "Tags"
+internal const val STASHES = "Stashes"
 
 /**
  * The tree of the branches pane for [refs], as IntelliJ shows it (ADR 0040): `HEAD (Current Branch)` (or `HEAD
  * (detached at <short hash>)`), then the groups Local, Remote (one node per remote) and Tags, each left out when it
- * would be empty. Names with `/` are grouped into folders; a folder holding only one folder and no branches is one node
- * (`team/feature`). In every node its folders come first, then its branches, each by name, ignoring case first.
+ * would be empty, and the [stashes] in their order (newest first) in Stashes (ADR 0107), left out without any. Names
+ * with `/` are grouped into folders; a folder holding only one folder and no branches is one node (`team/feature`). In
+ * every node its folders come first, then its branches, each by name, ignoring case first.
  *
  * A remote is the first segment of a remote branch's name, so remote names with a `/` are split wrongly; a remote
  * branch without a `/` (git-svn's `refs/remotes/trunk`) is a leaf directly below Remote.
  */
-internal fun branchNodes(refs: GitRefs): List<BranchNode> {
+internal fun branchNodes(
+    refs: GitRefs,
+    stashes: List<GitStash> = emptyList(),
+): List<BranchNode> {
     val head =
         refs.refs.firstOrNull { it.kind == GitRefKind.HEAD }?.let { ref ->
             val name =
@@ -91,12 +108,14 @@ internal fun branchNodes(refs: GitRefs): List<BranchNode> {
             plain.map { BranchLeaf(it.shortName, "$REMOTE/${it.shortName}", it) }.sortedWith(BY_NAME)
     val remote = BranchGroup(REMOTE, remoteNodes)
     val tag = BranchGroup(TAGS, folderTree(TAGS, tags.map { it.shortName to it }))
-    return listOfNotNull(head) + listOf(local, remote, tag).filter { it.children.isNotEmpty() }
+    val stash = BranchGroup(STASHES, stashes.map(::BranchStash))
+    return listOfNotNull(head) + listOf(local, remote, tag, stash).filter { it.children.isNotEmpty() }
 }
 
 /**
- * The nodes of [nodes] whose leaves' short names (`feature/a`, `origin/main`, `v1.0`, `HEAD`) contain [text], ignoring
- * case, with the parents they are in; parents without such leaves are left out. A blank text keeps everything.
+ * The nodes of [nodes] whose leaves' short names (`feature/a`, `origin/main`, `v1.0`, `HEAD`) or stashes' messages
+ * contain [text], ignoring case, with the parents they are in; parents without such leaves are left out. A blank text
+ * keeps everything.
  */
 internal fun filterBranches(
     nodes: List<BranchNode>,
@@ -113,6 +132,10 @@ private fun BranchNode.filtered(text: String): BranchNode? =
             takeIf { ref.shortName.contains(text, ignoreCase = true) }
         }
 
+        is BranchStash -> {
+            takeIf { stash.message.contains(text, ignoreCase = true) }
+        }
+
         is BranchParent -> {
             val kept = children.mapNotNull { it.filtered(text) }
             if (kept.isEmpty()) {
@@ -127,11 +150,12 @@ private fun BranchNode.filtered(text: String): BranchNode? =
         }
     }
 
-/** The leaves below (and including) [nodes], in tree order. */
+/** The leaves below (and including) [nodes], in tree order; not the stashes. */
 internal fun branchLeaves(nodes: List<BranchNode>): List<BranchLeaf> =
     nodes.flatMap { node ->
         when (node) {
             is BranchLeaf -> listOf(node)
+            is BranchStash -> emptyList()
             is BranchParent -> branchLeaves(node.children)
         }
     }

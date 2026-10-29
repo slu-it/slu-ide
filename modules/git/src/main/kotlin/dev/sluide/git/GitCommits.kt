@@ -69,9 +69,10 @@ class GitCommits(
     /**
      * What can be committed in the repository at [root] (ADR 0048): the tracked changes against `HEAD` (renames
      * included; with no commit yet, every file in the index as added), the untracked files that are not ignored (each
-     * one, also inside untracked folders; a nested repository is listed as its folder with a trailing `/`, and committing
-     * it records a submodule entry without a `.gitmodules`), what git is in the middle of with the unmerged paths, and whether `HEAD` is
-     * already on the current branch's upstream. `null` if git fails.
+     * one, also inside untracked folders; a nested repository is listed as its folder with a trailing `/`, and
+     * committing it records a submodule entry without a `.gitmodules`), what git is in the middle of (also unmerged
+     * paths alone, [GitPendingConflicts]), and whether `HEAD` is already on the current branch's upstream. `null` if
+     * git fails.
      */
     fun commitChanges(root: Path): GitCommitChanges? {
         val unborn = git.isHeadUnborn(root) ?: return null
@@ -84,8 +85,7 @@ class GitCommits(
             } ?: return null
         val untracked = git.untrackedPaths(root) ?: return null
         val busy = git.inProgress(root).getOrElse { return null }
-        val conflicts = git.unmergedPaths(root) ?: return null
-        return GitCommitChanges(files, untracked, busy, conflicts, head != null && isPushed(root, head))
+        return GitCommitChanges(files, untracked, busy, head != null && isPushed(root, head))
     }
 
     /** Whether [head] is `@{upstream}` of the current branch or an ancestor of it; false without a branch or upstream. */
@@ -104,8 +104,8 @@ class GitCommits(
     /**
      * Commits the checked tracked changes [files] and [untracked] files with [message], or with [amend] amends `HEAD`
      * (ADR 0048). Refused without running git when the message is blank, nothing is checked and it is no amend, an
-     * amend has no commit to amend, git is in the middle of anything ([inProgress], or that cannot be read) or paths
-     * are unmerged. Checked untracked files are staged first (`git --literal-pathspecs add`), then
+     * amend has no commit to amend, git is in the middle of anything ([inProgress], or that cannot be read; also
+     * unmerged paths). Checked untracked files are staged first (`git --literal-pathspecs add`), then
      * `git --literal-pathspecs commit --only [--amend] --cleanup=whitespace -F -` commits exactly the checked paths
      * from the working tree (a renamed file with both of its paths, so the deletion goes along) and leaves everything
      * else staged or modified as it was; without paths an amend only changes the message and keeps the tree. The
@@ -141,9 +141,8 @@ class GitCommits(
         val unborn = git.isHeadUnborn(root) ?: return refused("HEAD could not be read.")
         if (amend && unborn) return refused("There is no commit to amend.")
         val busy = git.inProgress(root).getOrElse { return refused(IN_PROGRESS_UNREADABLE) }
+        // Unmerged paths count as in progress (GitPendingConflicts); any after this read, git refuses itself.
         if (busy != null) return refused(busyMessage(busy))
-        val unmerged = git.unmergedPaths(root) ?: return refused(CONFLICTS_UNREADABLE)
-        if (unmerged.isNotEmpty()) return refused("Resolve the conflicts first.")
         val list =
             try {
                 Files.createTempFile("sluide-commit-", ".paths")

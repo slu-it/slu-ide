@@ -679,7 +679,7 @@ class GitLogPushUiTest : GitLogWritesUiFixture() {
 
     private fun startCommit(robot: FxRobot) {
         outgoing = { _, _ -> twoCommits }
-        commitChanges = GitCommitChanges(listOf(readme), emptyList(), null, emptyList(), false)
+        commitChanges = GitCommitChanges(listOf(readme), emptyList(), null, false)
         robot.interact {
             view.open(repo)
             view.showCommit()

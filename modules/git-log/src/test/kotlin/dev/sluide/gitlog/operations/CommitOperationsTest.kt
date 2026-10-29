@@ -2,6 +2,7 @@ package dev.sluide.gitlog.operations
 
 import dev.sluide.git.GitConflictReason
 import dev.sluide.git.GitOperation
+import dev.sluide.git.GitPendingConflicts
 import dev.sluide.git.GitPendingMerge
 import dev.sluide.git.GitPendingOperation
 import dev.sluide.git.GitPendingPick
@@ -360,6 +361,16 @@ class CommitOperationsTest {
                 GitPendingOperation(GitOperation.REVERT_SEQUENCE),
                 GitPendingOperation(GitOperation.SEQUENCE),
             ).map { busyResetWarning(it, GitResetMode.HARD) },
+        )
+        assertEquals(
+            listOf(
+                "2 files have conflicts; resetting replaces them with the commit's version.",
+                "1 file has conflicts; resetting keeps them as they are on disk, no longer marked as conflicts.",
+            ),
+            listOf(
+                busyResetWarning(GitPendingConflicts(listOf("a", "b")), GitResetMode.HARD),
+                busyResetWarning(GitPendingConflicts(listOf("a")), GitResetMode.MIXED),
+            ),
         )
         assertEquals(emptyList(), writes.calls)
     }

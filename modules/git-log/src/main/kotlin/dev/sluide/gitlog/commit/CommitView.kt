@@ -3,6 +3,7 @@ package dev.sluide.gitlog.commit
 import dev.sluide.git.GitChangedFile
 import dev.sluide.gitlog.data.ChangeFile
 import dev.sluide.gitlog.data.changeTree
+import dev.sluide.gitlog.operations.CheckedFiles
 import dev.sluide.gitlog.operations.CommitChanges
 import dev.sluide.gitlog.ui.SHOW_DIFF
 import dev.sluide.gitlog.ui.SharedSplit
@@ -54,6 +55,9 @@ internal class CommitView(
 ) : BorderPane() {
     /** Commits (or amends) as the tab says; the operation runs elsewhere, [committed] tells its success. */
     var commit: (CommitChanges) -> Unit = {}
+
+    /** Asks how to stash the checked files (ADR 0107). */
+    var stash: (CheckedFiles) -> Unit = {}
 
     /** Shows how a file differs from `HEAD` (the commit's hash, `null` without one). */
     var showDiff: (GitChangedFile, String?) -> Unit = { _, _ -> }
@@ -183,8 +187,24 @@ internal class CommitView(
             disableProperty().bind(commitDisabled)
         }
 
+    /** Stashes the checked files (ADR 0107), once asked with the Stash Changes dialog. */
+    internal val stashButton =
+        Button("Stash Checked Files…").apply {
+            styleClass += "git-commit-stash-button"
+            setOnAction { stashChecked() }
+            disableProperty().bind(
+                Bindings.createBooleanBinding(
+                    { !canStashChecked(checkedCount.get(), blocked.get(), running.get()) },
+                    checkedCount,
+                    blocked,
+                    running,
+                ),
+            )
+        }
+
     /** The buttons below the message. */
-    internal val buttons = HBox(commitButton, commitAndPushButton).apply { styleClass += "git-commit-buttons" }
+    internal val buttons =
+        HBox(commitButton, commitAndPushButton, stashButton).apply { styleClass += "git-commit-buttons" }
 
     /** "2 of 5 files selected", or "Nothing to commit." */
     internal val summary = Label().apply { styleClass += "git-commit-summary" }
@@ -262,7 +282,7 @@ internal class CommitView(
         // No commit to amend anymore (e.g. `git checkout --orphan`): Amend would enable Commit with nothing checked.
         if (snapshot.head == null) amendBox.isSelected = false
         headPushed.set(changes.headPushed)
-        val reason = commitBlocked(changes.inProgress, changes.conflicts)
+        val reason = commitBlocked(changes.inProgress)
         blockedNote.text = reason.orEmpty()
         blocked.set(reason != null)
         val files = changes.files to changes.untracked
@@ -340,6 +360,15 @@ internal class CommitView(
         val files = changes.files.filter { checks.isChecked(it.path) }
         val untracked = changes.untracked.filter(checks::isChecked)
         commit(CommitChanges(messageArea.text, files, untracked, amendBox.isSelected, push))
+    }
+
+    /** Hands the checked files to [stash], a renamed file with both of its paths, as [commitNow] commits them. */
+    private fun stashChecked() {
+        if (stashButton.isDisabled) return
+        val changes = reader.snapshot?.changes ?: return
+        val files = changes.files.filter { checks.isChecked(it.path) }
+        val untracked = changes.untracked.filter(checks::isChecked)
+        stash(CheckedFiles(stashPaths(files, untracked), untracked.isNotEmpty(), files.size + untracked.size))
     }
 
     /** The selected file, as git names it (an untracked one as added); `null` for none, a folder or a group. */

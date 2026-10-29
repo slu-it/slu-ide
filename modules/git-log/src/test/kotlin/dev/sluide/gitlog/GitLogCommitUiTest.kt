@@ -4,6 +4,7 @@ import dev.sluide.git.GitChange
 import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommitChanges
 import dev.sluide.git.GitFileDiff
+import dev.sluide.git.GitPendingConflicts
 import dev.sluide.git.GitPendingMerge
 import dev.sluide.git.GitResult
 import dev.sluide.gitlog.area.AreaTab
@@ -11,6 +12,7 @@ import dev.sluide.gitlog.commit.CheckState
 import dev.sluide.gitlog.commit.CommitEntryNode
 import dev.sluide.gitlog.commit.CommitGroupNode
 import dev.sluide.gitlog.commit.CommitNode
+import dev.sluide.gitlog.operations.STASH_BUTTON
 import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.Node
@@ -62,7 +64,7 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
         files: List<GitChangedFile> = tracked,
         untracked: List<String> = listOf("notes.txt", "tmp/scratch.txt"),
         headPushed: Boolean = false,
-    ) = GitCommitChanges(files, untracked, null, emptyList(), headPushed)
+    ) = GitCommitChanges(files, untracked, null, headPushed)
 
     /** The tree as lines: indented by depth, `[x]`, `[-]` or `[ ]`, the name (a group's with its count). */
     private val initialTree =
@@ -362,10 +364,13 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
         eventually { assertTrue(commitView().blockedNote.isVisible) }
         assertEquals("A merge is in progress; continue or abort it in the log first.", commitView().blockedNote.text)
         assertTrue(commitDisabled(), "a merge in progress")
-        commitChanges = changes().copy(conflicts = listOf("README.md"))
+        commitChanges = changes().copy(inProgress = GitPendingConflicts(listOf("README.md")))
         robot.interact { view.workingTreeChanged() }
-        eventually { assertEquals("1 file has conflicts; resolve it first.", commitView().blockedNote.text) }
+        eventually {
+            assertEquals("Files have conflicts; mark them resolved in the log first.", commitView().blockedNote.text)
+        }
         assertTrue(commitDisabled(), "conflicts")
+        assertTrue(commitView().stashButton.isDisabled, "git refuses a stash with conflicts too")
         commitChanges = changes()
         robot.interact { view.workingTreeChanged() }
         eventually { assertFalse(commitView().blockedNote.isVisible) }
@@ -404,6 +409,29 @@ class GitLogCommitUiTest : GitLogWritesUiFixture() {
         assertEquals("", area.text)
         assertFalse(commitView().amendBox.isSelected)
         eventually { assertTrue(commitReads.size >= 2) }
+    }
+
+    @Test
+    fun `Stash Checked Files stashes exactly the checked files, a rename with both paths, unversioned ones too`(
+        robot: FxRobot,
+    ) {
+        showCommit(robot)
+        clickCheck(robot, "Util.kt")
+        clickCheck(robot, "notes.txt")
+        assertFalse(commitView().stashButton.isDisabled)
+
+        robot.interact { Platform.runLater { commitView().stashButton.fire() } }
+        val dialog = awaitDialog(robot)
+        assertEquals("Stash 4 checked files of 'main'", dialog.headerText)
+        assertFalse((dialog.lookup(".git-stash-untracked") as CheckBox).isVisible)
+        press(robot, dialog, STASH_BUTTON)
+
+        eventually { assertEquals("Stashed local changes as stash@{0}.", status(robot)) }
+        assertEquals(
+            listOf("stash sources", "stash push -u src/main/App.kt README.md docs/new.md docs/old.md notes.txt"),
+            writes.stash.calls,
+        )
+        assertEquals(listOf("Stash"), fileChanges)
     }
 
     @Test

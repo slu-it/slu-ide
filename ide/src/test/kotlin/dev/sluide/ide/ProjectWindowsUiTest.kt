@@ -20,6 +20,7 @@ import dev.sluide.git.GitPush
 import dev.sluide.git.GitRebases
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitRewords
+import dev.sluide.git.GitStashes
 import dev.sluide.git.GitStatusService
 import dev.sluide.git.GitTrustCheck
 import dev.sluide.git.RemoteSourceCache
@@ -143,6 +144,7 @@ class ProjectWindowsUiTest {
                 register(GitRewords::class.java)
                 register(GitRemotes::class.java)
                 register(GitPush::class.java)
+                register(GitStashes::class.java)
                 registerBean(
                     RemoteSourceCache::class.java,
                     Supplier { RemoteSourceCache(getBean(GitCli::class.java), dir.resolve("cache/git")) },

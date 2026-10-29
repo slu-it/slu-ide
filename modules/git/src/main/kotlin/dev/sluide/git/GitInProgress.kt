@@ -44,6 +44,15 @@ data class GitPendingMerge(
     val conflicts: List<String>,
 ) : GitInProgress
 
+/**
+ * Files with conflicts while git is in the middle of nothing else (ADR 0107): left by a stash pop or apply, a squash
+ * merge or an autostash git could not apply without conflicts. [conflicts] are the unmerged paths, never empty; they
+ * are marked resolved by staging them.
+ */
+data class GitPendingConflicts(
+    val conflicts: List<String>,
+) : GitInProgress
+
 /** Another [operation] in progress, which Thoreau leaves to the terminal. */
 data class GitPendingOperation(
     val operation: GitOperation,

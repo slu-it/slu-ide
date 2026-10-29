@@ -16,6 +16,7 @@ import dev.sluide.gitlog.data.SHORT_HASH
 import dev.sluide.gitlog.history.FileHistory
 import dev.sluide.gitlog.history.FileHistoryKey
 import dev.sluide.gitlog.history.FileHistoryView
+import dev.sluide.gitlog.operations.CheckedFiles
 import dev.sluide.gitlog.operations.CommitChanges
 import dev.sluide.gitlog.ui.contains
 import javafx.beans.property.BooleanProperty
@@ -66,6 +67,9 @@ internal class AreaTabs(
 
     /** Commits chosen files from the Commit tab (ADR 0048); set by the view. */
     var commit: (CommitChanges) -> Unit = {}
+
+    /** Asks how to stash the Commit tab's checked files (ADR 0107); set by the view. */
+    var stash: (CheckedFiles) -> Unit = {}
 
     /** Opens a file of the working tree; set by the view. */
     var openFile: (Path) -> Unit = {}
@@ -227,6 +231,7 @@ internal class AreaTabs(
         val view =
             CommitView(reader, running).apply {
                 commit = { operation -> this@AreaTabs.commit(operation) }
+                stash = { checked -> this@AreaTabs.stash(checked) }
                 showDiff = { file, head -> diffs.showHeadDiff(root, commitExecutor, file, head) }
                 openFile = { file -> diffs.localFile(file)?.let(this@AreaTabs.openFile) }
                 exists = { file -> diffs.localFile(file)?.let(fileExists) == true }

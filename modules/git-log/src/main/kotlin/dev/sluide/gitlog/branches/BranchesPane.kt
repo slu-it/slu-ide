@@ -3,12 +3,14 @@ package dev.sluide.gitlog.branches
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
+import dev.sluide.git.GitStash
 import dev.sluide.gitlog.data.BranchFolder
 import dev.sluide.gitlog.data.BranchGroup
 import dev.sluide.gitlog.data.BranchLeaf
 import dev.sluide.gitlog.data.BranchNode
 import dev.sluide.gitlog.data.BranchParent
 import dev.sluide.gitlog.data.BranchRemote
+import dev.sluide.gitlog.data.BranchStash
 import dev.sluide.gitlog.data.TAGS
 import dev.sluide.gitlog.data.branchNodes
 import dev.sluide.gitlog.data.filterBranches
@@ -41,6 +43,7 @@ import javafx.scene.layout.StackPane
 import javafx.util.Duration
 import org.kordamp.ikonli.Ikon
 import org.kordamp.ikonli.javafx.FontIcon
+import org.kordamp.ikonli.materialdesign2.MaterialDesignA
 import org.kordamp.ikonli.materialdesign2.MaterialDesignF
 import org.kordamp.ikonli.materialdesign2.MaterialDesignM
 import org.kordamp.ikonli.materialdesign2.MaterialDesignT
@@ -127,6 +130,7 @@ internal class BranchesPane : BorderPane() {
             { refs },
             ::actions,
             { commands },
+            { stashActions(selectedNodes(), writing.get(), busy.get()) },
             { filterSelected() },
             ::copyNames,
             { renameSelected() },
@@ -166,6 +170,9 @@ internal class BranchesPane : BorderPane() {
 
     /** The refs shown; `null` before they are read, or if they could not be. */
     private var refs: GitRefs? = null
+
+    /** The stashes shown; `null` before they are read, or if they could not be. */
+    private var stashes: List<GitStash>? = null
 
     /** Whether refs were [shown][show] since the last [reset]. */
     private var loaded = false
@@ -231,12 +238,19 @@ internal class BranchesPane : BorderPane() {
         if (!loaded) updatePlaceholder(emptyList())
     }
 
-    /** Shows the tree of [refs] (`null`: they could not be read), keeping the selection and collapsed nodes. */
-    fun show(refs: GitRefs?) {
-        if (loaded && refs == this.refs) return
+    /**
+     * Shows the tree of [refs] (`null`: they could not be read) with the [stashes] (ADR 0107), keeping the selection
+     * and collapsed nodes.
+     */
+    fun show(
+        refs: GitRefs?,
+        stashes: List<GitStash>? = null,
+    ) {
+        if (loaded && refs == this.refs && stashes == this.stashes) return
         loaded = true
         this.refs = refs
-        nodes = refs?.let(::branchNodes).orEmpty()
+        this.stashes = stashes
+        nodes = refs?.let { branchNodes(it, stashes.orEmpty()) }.orEmpty()
         rebuild(top = null)
     }
 
@@ -246,6 +260,7 @@ internal class BranchesPane : BorderPane() {
         loaded = false
         waiting = ""
         refs = null
+        stashes = null
         nodes = emptyList()
         collapsed.clear()
         collapsed += TAGS
@@ -279,7 +294,7 @@ internal class BranchesPane : BorderPane() {
     private fun rebuild(top: Int?) {
         val shown = filterBranches(nodes, search.text)
         val before = selectedRef
-        val keep = selectedBranches.map { it.ref.name }
+        val keep = selectedNodes().mapNotNull(::keyOf)
         val scrollTo = top ?: firstVisibleRow()
         rebuilding = true
         try {
@@ -303,7 +318,7 @@ internal class BranchesPane : BorderPane() {
         updatePlaceholder(shown)
     }
 
-    /** The tree item of [node] with everything below it; the items of leaves go into [leaves] by refname. */
+    /** The tree item of [node] with everything below it; the items of leaves go into [leaves] by [keyOf]. */
     private fun item(
         node: BranchNode,
         leaves: MutableMap<String, TreeItem<BranchNode>>,
@@ -320,10 +335,18 @@ internal class BranchesPane : BorderPane() {
                     }
                 }
 
-                is BranchLeaf -> {
-                    leaves[node.ref.name] = this
+                is BranchLeaf, is BranchStash -> {
+                    keyOf(node)?.let { leaves[it] = this }
                 }
             }
+        }
+
+    /** What keeps a leaf selected across rebuilds: a ref's name, a stash's commit; `null` for parents. */
+    private fun keyOf(node: BranchNode): String? =
+        when (node) {
+            is BranchLeaf -> node.ref.name
+            is BranchStash -> "stash ${node.stash.commit}"
+            is BranchParent -> null
         }
 
     private fun firstVisibleRow(): Int? = (tree.lookup(".virtual-flow") as? VirtualFlow<*>)?.firstVisibleCell?.index
@@ -439,6 +462,11 @@ internal class BranchesPane : BorderPane() {
                         name.styleClass += "git-branch-current"
                     }
                     tooltip = Tooltip(item.ref.name)
+                }
+
+                is BranchStash -> {
+                    showIcon(MaterialDesignA.ARCHIVE_OUTLINE, "git-stash-icon")
+                    tooltip = Tooltip(stashTooltip(item.stash))
                 }
             }
             graphic = box

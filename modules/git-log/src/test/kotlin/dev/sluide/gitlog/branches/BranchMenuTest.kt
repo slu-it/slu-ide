@@ -3,9 +3,12 @@ package dev.sluide.gitlog.branches
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
+import dev.sluide.git.GitStash
+import dev.sluide.gitlog.data.BranchGroup
 import dev.sluide.gitlog.data.BranchNode
 import dev.sluide.gitlog.data.branchNodes
 import dev.sluide.gitlog.data.findNode
+import dev.sluide.gitlog.operations.BranchActions
 import dev.sluide.gitlog.operations.CheckoutBranch
 import dev.sluide.gitlog.operations.RebaseBranch
 import kotlin.test.Test
@@ -87,6 +90,29 @@ class BranchMenuTest {
         assertNotNull(actions.checkout)
         assertNotNull(actions.rename)
         assertNotNull(actions.compare)
+    }
+
+    @Test
+    fun `a stash is popped, applied and dropped alone, not while writing, and only dropped while busy`() {
+        val stash = GitStash(0, "c0", 0, "On main: message")
+        val nodes = branchNodes(refs, listOf(stash, stash.copy(index = 1, commit = "c1")))
+        val leaf = listOf(assertNotNull(findNode(nodes, "Stashes/c0")))
+        val group = listOf(assertNotNull(findNode(nodes, "Stashes")))
+
+        assertEquals(StashActions(stash, stash, stash, stash, stashChanges = true), stashActions(leaf, false, false))
+        assertEquals(StashActions(drop = stash, copy = stash), stashActions(leaf, writing = false, busy = true))
+        assertEquals(StashActions(copy = stash), stashActions(leaf, writing = true, busy = false))
+        assertEquals(StashActions(stashChanges = true), stashActions(group, false, false))
+        val both = (group.single() as BranchGroup).children
+        assertEquals(StashActions(stashChanges = true), stashActions(both, false, false), "not several")
+        assertEquals(StashActions(), stashActions(selected(refs, "Local/feature"), false, false))
+        assertEquals(StashActions(), stashActions(leaf + selected(refs, "Local/feature"), false, false))
+        assertTrue(isStashSelection(leaf + group))
+        assertFalse(isStashSelection(emptyList()))
+
+        // No ref action for a stash: as for a group.
+        val refActions = menuActions(leaf, refs, emptyList(), writing = false, busy = false)
+        assertEquals(BranchActions(null, null, null, emptyList()), refActions)
     }
 
     @Test

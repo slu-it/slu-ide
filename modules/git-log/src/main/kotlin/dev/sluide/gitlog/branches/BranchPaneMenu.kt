@@ -15,13 +15,15 @@ import javafx.scene.control.SeparatorMenuItem
 /**
  * The context menu of the branches pane (ADRs 0040, 0041): its items act on the [selection] of the tree of [refs] as
  * [actions] allow ([menuActions]) through the [commands]; [filter], [copyNames], [rename] and [delete] are the pane's,
- * which its keys share. [update] follows the selection and state.
+ * which its keys share. For a selection of stashes and the Stashes group only, the menu holds the [stash] items
+ * instead (ADR 0107), acting as [stashActions] allow. [update] follows the selection and state.
  */
 internal class BranchPaneMenu(
     private val selection: () -> List<BranchNode>,
     private val refs: () -> GitRefs?,
     private val actions: () -> BranchActions,
     private val commands: () -> BranchCommands,
+    stashActions: () -> StashActions,
     filter: () -> Unit,
     copyNames: () -> Unit,
     rename: () -> Unit,
@@ -63,8 +65,12 @@ internal class BranchPaneMenu(
             setOnAction { actions().workingTreeDiff?.let(commands().showWorkingTreeDiff) }
         }
 
-    val contextMenu =
-        ContextMenu(
+    /** The items for stashes (ADR 0107). */
+    val stash = StashMenuItems(stashActions, commands)
+
+    /** The items for branches, remotes, tags and their groups. */
+    private val refItems =
+        listOf(
             filterItem,
             SeparatorMenuItem(),
             copyNameItem,
@@ -83,9 +89,14 @@ internal class BranchPaneMenu(
             fetchItem,
         )
 
+    val contextMenu = ContextMenu(*refItems.toTypedArray())
+
     /** Names and enables the items for the selection now. */
     fun update() {
         val selected = selection()
+        val shown = if (isStashSelection(selected)) stash.items else refItems
+        if (contextMenu.items != shown) contextMenu.items.setAll(shown)
+        stash.update()
         val count = selected.count { it is BranchLeaf }
         filterItem.text = if (count > 1) "Filter Log by $count Branches" else FILTER_ONE
         filterItem.isDisable = count == 0

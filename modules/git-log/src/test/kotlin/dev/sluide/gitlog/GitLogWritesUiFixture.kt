@@ -15,6 +15,7 @@ import dev.sluide.git.GitPushTarget
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
+import dev.sluide.git.GitStash
 import dev.sluide.git.GitTreePath
 import dev.sluide.gitlog.data.BranchNode
 import dev.sluide.gitlog.data.FakeWrites
@@ -91,7 +92,7 @@ abstract class GitLogWritesUiFixture {
 
     /** What can be committed, as the source reads it (ADR 0048); `null` when it cannot be read. */
     @Volatile
-    internal var commitChanges: GitCommitChanges? = GitCommitChanges(emptyList(), emptyList(), null, emptyList(), false)
+    internal var commitChanges: GitCommitChanges? = GitCommitChanges(emptyList(), emptyList(), null, false)
 
     /** The commit `HEAD` points at, as the source reads it. */
     @Volatile
@@ -148,6 +149,10 @@ abstract class GitLogWritesUiFixture {
 
     internal val writes = FakeWrites()
 
+    /** The stashes the source reads with every first page (ADR 0107). */
+    @Volatile
+    internal var currentStashes: List<GitStash>? = emptyList()
+
     /** The answers of [GitLogView.beforeFileChange], one per call; `true` once they are used up. */
     internal val beforeFileChange = ArrayDeque<Boolean>()
 
@@ -198,6 +203,11 @@ abstract class GitLogWritesUiFixture {
                     root: Path,
                     cancellation: GitCancellation?,
                 ) = currentRemotes
+
+                override fun stashes(
+                    root: Path,
+                    cancellation: GitCancellation?,
+                ) = currentStashes
 
                 override fun details(
                     root: Path,

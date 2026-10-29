@@ -19,6 +19,8 @@ import dev.sluide.git.GitPushTarget
 import dev.sluide.git.GitRefs
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitRevisionResolution
+import dev.sluide.git.GitStash
+import dev.sluide.git.GitStashes
 import dev.sluide.git.GitTreePath
 import dev.sluide.git.GitWorkingTreeChanges
 import java.nio.file.Path
@@ -61,6 +63,12 @@ internal interface GitLogSource {
         root: Path,
         cancellation: GitCancellation? = null,
     ): GitInProgress? = null
+
+    /** The stashes, newest first (ADR 0107); `null` on failure (or if not known). */
+    fun stashes(
+        root: Path,
+        cancellation: GitCancellation? = null,
+    ): List<GitStash>? = null
 
     /** The names of all remotes (`git remote`, ADR 0043); `null` on failure (or if not known). */
     fun remotes(
@@ -199,6 +207,7 @@ internal class GitLogCliSource(
     private val gitRemotes: GitRemotes,
     private val gitCommits: GitCommits,
     private val gitPush: GitPush,
+    private val gitStashes: GitStashes,
 ) : GitLogSource {
     override fun page(
         root: Path,
@@ -232,6 +241,11 @@ internal class GitLogCliSource(
         root: Path,
         cancellation: GitCancellation?,
     ) = gitRemotes.names(root, cancellation = cancellation)
+
+    override fun stashes(
+        root: Path,
+        cancellation: GitCancellation?,
+    ) = gitStashes.list(root, cancellation)
 
     override fun details(
         root: Path,

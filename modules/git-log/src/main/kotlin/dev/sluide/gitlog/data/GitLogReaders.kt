@@ -32,6 +32,7 @@ internal class GitLogReaders(
             tasks,
             loadPending = source::pending,
             loadRemotes = source::remotes,
+            loadStashes = source::stashes,
             loadCounts = source::comparisonCounts,
         )
 

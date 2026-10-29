@@ -3,6 +3,7 @@ package dev.sluide.gitlog
 import dev.sluide.gitlog.data.BranchLeaf
 import dev.sluide.gitlog.data.BranchNode
 import dev.sluide.gitlog.data.BranchParent
+import dev.sluide.gitlog.data.BranchStash
 import dev.sluide.gitlog.data.ChangeFile
 import dev.sluide.gitlog.data.ChangeFolder
 import dev.sluide.gitlog.data.ChangeNode
@@ -116,7 +117,7 @@ internal fun GitLogViewUiFixture.branchLines(): List<String> {
                         if (child.isExpanded) lines(child, "$indent  ") else emptyList()
                 }
 
-                is BranchLeaf -> {
+                is BranchLeaf, is BranchStash -> {
                     listOf("$indent${node.name}")
                 }
             }

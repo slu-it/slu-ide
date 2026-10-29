@@ -24,10 +24,11 @@ import dev.sluide.git.GitUncheckedConflict
 import java.nio.file.Path
 
 /**
- * How the git log changes a repository (ADRs 0041, 0042, 0043, 0049, 0063, 0078, 0105, 0106); [GitLogCliWrites] in the
- * application, a fake in tests. Called off the FX thread, except [canPass].
+ * How the git log changes a repository (ADRs 0041, 0042, 0043, 0049, 0063, 0078, 0105, 0106), with its stashes
+ * ([StashWrites], ADR 0107); [GitLogCliWrites] in the application, a fake in tests. Called off the FX thread, except
+ * [canPass].
  */
-internal interface GitLogWrites {
+internal interface GitLogWrites : StashWrites {
     /** Whether [argument] can be passed to git unchanged in the JVM's locale. */
     fun canPass(argument: String): Boolean
 

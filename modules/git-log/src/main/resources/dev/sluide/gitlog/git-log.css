@@ -661,6 +661,12 @@
     -fx-icon-size: 14;
 }
 
+/* Sized like the other icons of the branches pane; without it a reused cell keeps whatever size it had. */
+.git-stash-icon {
+    -fx-icon-color: -fx-text-background-color;
+    -fx-icon-size: 14;
+}
+
 .git-branch-name {
     -fx-text-fill: -fx-text-background-color;
     -fx-padding: 0 0 0 4;

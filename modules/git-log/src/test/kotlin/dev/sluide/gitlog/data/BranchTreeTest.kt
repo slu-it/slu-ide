@@ -3,6 +3,7 @@ package dev.sluide.gitlog.data
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
+import dev.sluide.git.GitStash
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -32,6 +33,7 @@ class BranchTreeTest {
             when (node) {
                 is BranchParent -> listOf("$indent${node.name}/") + lines(node.children, "$indent  ")
                 is BranchLeaf -> listOf("$indent${node.name}${if (node.current) " *" else ""}")
+                is BranchStash -> listOf("$indent${node.name} (${node.stash.name})")
             }
         }
 
@@ -203,6 +205,41 @@ class BranchTreeTest {
         assertEquals(listOf("HEAD (Current Branch) *"), lines(filterBranches(nodes, "head")))
         assertTrue(filterBranches(nodes, "nothing").isEmpty())
         assertEquals(nodes, filterBranches(nodes, "  "))
+    }
+
+    @Test
+    fun `the stashes come last, newest first, by their message, filtered by it, and are no leaves`() {
+        val stashes =
+            listOf(
+                GitStash(0, "c0", 0, "On feature: Löst den Fehler"),
+                GitStash(1, "c1", 0, "WIP on main: 1a2b3c4 Base"),
+            )
+        val refs = GitRefs(listOf(head, tag("v1"), local("main")), "refs/heads/main")
+        val nodes = branchNodes(refs, stashes)
+
+        assertEquals(
+            listOf(
+                "HEAD (Current Branch) *",
+                "Local/",
+                "  main *",
+                "Tags/",
+                "  v1",
+                "Stashes/",
+                "  On feature: Löst den Fehler (stash@{0})",
+                "  WIP on main: 1a2b3c4 Base (stash@{1})",
+            ),
+            lines(nodes),
+        )
+        assertEquals(
+            listOf("Stashes/", "  On feature: Löst den Fehler (stash@{0})"),
+            lines(filterBranches(nodes, "lÖST")),
+        )
+        assertEquals(
+            listOf("Stashes/", "  WIP on main: 1a2b3c4 Base (stash@{1})"),
+            lines(filterBranches(nodes, "1a2b")),
+        )
+        assertEquals(listOf("HEAD", "refs/heads/main", "refs/tags/v1"), branchLeaves(nodes).map { it.ref.name })
+        assertEquals(lines(branchNodes(refs)), lines(branchNodes(refs, emptyList())), "no group without stashes")
     }
 
     @Test

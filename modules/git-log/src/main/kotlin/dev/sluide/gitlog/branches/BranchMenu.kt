@@ -3,6 +3,7 @@ package dev.sluide.gitlog.branches
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
+import dev.sluide.git.GitStash
 import dev.sluide.gitlog.actions.RefActions
 import dev.sluide.gitlog.area.CommitDiffs
 import dev.sluide.gitlog.area.CompareBar
@@ -15,9 +16,11 @@ import dev.sluide.gitlog.data.TAGS
 import dev.sluide.gitlog.filter.FilterBar
 import dev.sluide.gitlog.operations.BranchActions
 import dev.sluide.gitlog.operations.Fetch
+import dev.sluide.gitlog.operations.PopStash
 import dev.sluide.gitlog.operations.RefOperation
 import dev.sluide.gitlog.operations.RemoteBranch
 import dev.sluide.gitlog.operations.branchActions
+import dev.sluide.gitlog.operations.dropConfirmation
 import dev.sluide.gitlog.operations.mergeText
 import dev.sluide.gitlog.operations.pullText
 import dev.sluide.gitlog.operations.rebaseText
@@ -64,6 +67,15 @@ internal class BranchCommands {
 
     /** Opens the Pull dialog with the given remote branch chosen (ADR 0106). */
     var pull: (GitRef) -> Unit = {}
+
+    /** Pops the given stash, or applies it if not `pop` (ADR 0107). */
+    var popStash: (GitStash, pop: Boolean) -> Unit = { _, _ -> }
+
+    /** Asks whether to drop the given stash and drops it. */
+    var dropStash: (GitStash) -> Unit = {}
+
+    /** Asks how to stash the local changes and stashes them. */
+    var stashChanges: () -> Unit = {}
 }
 
 /** The [BranchCommands] that start [actions], compare through [compareBar], show [diffs] and filter [filterBar]. */
@@ -90,6 +102,9 @@ internal fun branchCommands(
         rebase = { operation -> actions.start(operation) }
         merge = actions::merge
         pull = { ref -> actions.showPull(ref.name) }
+        popStash = { stash, pop -> actions.start(PopStash(stash, pop)) }
+        dropStash = { stash -> actions.confirmAndStart(dropConfirmation(stash)) }
+        stashChanges = { actions.showStashChanges() }
     }
 
 /**

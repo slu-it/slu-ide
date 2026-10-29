@@ -181,7 +181,7 @@ class GitCommitChangesTest {
     }
 
     @Test
-    fun `refuses unmerged paths when nothing is in progress`() {
+    fun `refuses unmerged paths when nothing else is in progress`() {
         base()
         write("a.txt", "stashed\n")
         git("stash", "push", "-q")
@@ -189,12 +189,11 @@ class GitCommitChangesTest {
         git("commit", "-q", "-am", "Other")
         process("stash", "pop")
         val changes = assertNotNull(commits.commitChanges(repo))
-        assertNull(changes.inProgress)
-        assertEquals(listOf("a.txt"), changes.conflicts)
+        assertEquals(GitPendingConflicts(listOf("a.txt")), changes.inProgress)
 
         val outcome = changed("a.txt")
 
-        assertEquals(GitResult(false, "Resolve the conflicts first."), outcome.result)
+        assertEquals(GitResult(false, "1 file has conflicts; resolve it and mark it resolved first."), outcome.result)
     }
 
     @Test
@@ -413,8 +412,9 @@ class GitCommitChangesTest {
     fun `refuses during a merge and with conflicts`() {
         conflictingMerge()
         val changes = assertNotNull(commits.commitChanges(repo))
-        assertEquals(git("rev-parse", "other"), assertIs<GitPendingMerge>(changes.inProgress).heads.single())
-        assertEquals(listOf("a.txt"), changes.conflicts)
+        val merge = assertIs<GitPendingMerge>(changes.inProgress)
+        assertEquals(git("rev-parse", "other"), merge.heads.single())
+        assertEquals(listOf("a.txt"), merge.conflicts)
 
         val outcome = changed("a.txt")
 
@@ -454,7 +454,6 @@ class GitCommitChangesTest {
         )
         assertEquals(listOf("sub/deep.txt"), changes.untracked)
         assertNull(changes.inProgress)
-        assertEquals(emptyList(), changes.conflicts)
     }
 
     @Test

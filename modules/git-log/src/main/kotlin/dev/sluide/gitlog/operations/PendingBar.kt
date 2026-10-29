@@ -1,6 +1,7 @@
 package dev.sluide.gitlog.operations
 
 import dev.sluide.git.GitInProgress
+import dev.sluide.git.GitPendingConflicts
 import dev.sluide.git.GitPendingMerge
 import dev.sluide.git.GitPendingOperation
 import dev.sluide.git.GitPendingPick
@@ -20,9 +21,10 @@ import javafx.stage.Window
 
 /**
  * The bar of what git is in the middle of (ADR 0042), below the filter bar: a cherry-pick, revert, rebase (ADR 0063) or
- * merge (ADR 0105) to continue or abort, or an octopus merge, `git am` or sequence left to the terminal; hidden while
- * there is nothing. The buttons are disabled while a write [running]; they hand their operations to [start], Abort
- * after the confirmation, which is shown on the [window].
+ * merge (ADR 0105) to continue or abort, files with conflicts outside an operation to mark resolved (ADR 0107), or an
+ * octopus merge, `git am` or sequence left to the terminal; hidden while there is nothing. The buttons are disabled
+ * while a write [running]; they hand their operations to [start], Abort after the confirmation, which is shown on the
+ * [window].
  */
 internal class PendingBar(
     private val running: ObservableBooleanValue,
@@ -94,6 +96,15 @@ internal class PendingBar(
             disableProperty().bind(running)
         }
 
+    /** Stages the files with conflicts while nothing else is in progress (ADR 0107); for those only. */
+    internal val markResolvedButton =
+        Button("Mark Resolved").apply {
+            styleClass += "git-log-pending-mark-resolved"
+            minWidth = USE_PREF_SIZE
+            setOnAction { start(MarkResolved()) }
+            disableProperty().bind(running)
+        }
+
     init {
         children.addAll(
             label,
@@ -101,6 +112,7 @@ internal class PendingBar(
             continueButton,
             skipButton,
             abortButton,
+            markResolvedButton,
         )
         styleClass += "git-log-pending"
         alignment = Pos.CENTER_LEFT
@@ -110,7 +122,8 @@ internal class PendingBar(
 
     /**
      * Shows what git is in the middle of ([inProgress]), with Continue and Abort for a single cherry-pick or revert, a
-     * rebase (which also has Skip) or a merge of one commit only; hides the bar for `null`. [refs] are the ones read
+     * rebase (which also has Skip) or a merge of one commit only, Mark Resolved for files with conflicts outside an
+     * operation; hides the bar for `null`. [refs] are the ones read
      * with it, which name the branches of a merge.
      */
     fun show(
@@ -129,6 +142,7 @@ internal class PendingBar(
                 is GitPendingOperation -> operationText(inProgress.operation)
                 is GitPendingRebase -> pendingRebaseText(inProgress)
                 is GitPendingMerge -> pendingMergeText(inProgress)
+                is GitPendingConflicts -> pendingConflictsText(inProgress)
                 null -> ""
             }
         label.tooltip.text = label.text
@@ -140,6 +154,8 @@ internal class PendingBar(
         }
         skipButton.isVisible = pending is GitPendingRebase
         skipButton.isManaged = pending is GitPendingRebase
+        markResolvedButton.isVisible = inProgress is GitPendingConflicts
+        markResolvedButton.isManaged = inProgress is GitPendingConflicts
     }
 
     /** Skips the commit the [pending] rebase stopped at once confirmed; Cancel is the default. */

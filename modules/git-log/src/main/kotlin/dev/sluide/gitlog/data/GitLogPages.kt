@@ -10,6 +10,7 @@ import dev.sluide.git.GitLogPage
 import dev.sluide.git.GitRef
 import dev.sluide.git.GitRefKind
 import dev.sluide.git.GitRefs
+import dev.sluide.git.GitStash
 import javafx.beans.property.ReadOnlyObjectProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.collections.FXCollections
@@ -115,7 +116,8 @@ internal data class GitLogRow(
  * the commit graph; a further page continues the graph of the rows before it, a reload starts it again. The refs are
  * read with [loadRefs] right after every first page and given to the rows of all pages until the next reload; if they
  * cannot be read, the rows have none. With the refs, [loadPending] reads what git is in the middle of ([pending],
- * ADR 0042) and [loadRemotes] the names of the remotes ([remotes], ADR 0043); a failed first page forgets both.
+ * ADR 0042), [loadRemotes] the names of the remotes ([remotes], ADR 0043) and [loadStashes] the stashes ([stashes],
+ * ADR 0107); a failed first page forgets them.
  *
  * Only the commits that pass the [filter] are loaded (ADR 0039). If its text could be a hash, [loadHashMatch] is asked
  * right after the refs for the commit it names, which then is the first row, and not repeated in any page. Under a
@@ -150,6 +152,7 @@ internal class GitLogPages(
     private val seekLimit: Int = SEEK_LIMIT,
     private val loadPending: (Path, GitCancellation) -> GitInProgress? = { _, _ -> null },
     private val loadRemotes: (Path, GitCancellation) -> List<String>? = { _, _ -> null },
+    private val loadStashes: (Path, GitCancellation) -> List<GitStash>? = { _, _ -> null },
     private val loadCounts: (Path, String, GitLogFilter, GitCancellation) -> GitComparisonCounts? =
         { _, _, _, _ -> null },
 ) {
@@ -186,6 +189,10 @@ internal class GitLogPages(
      * read.
      */
     var remotes: List<String>? = null
+        private set
+
+    /** The stashes (ADR 0107), read with the last first page; `null` as [remotes]. */
+    var stashes: List<GitStash>? = null
         private set
 
     /** The commits read from git for the rows, which may have one more: the commit the text names as a hash. */
@@ -284,6 +291,7 @@ internal class GitLogPages(
         refs = null
         pending = null
         remotes = null
+        stashes = null
         loaded = 0
         hashRow = null
         complete = false
@@ -406,6 +414,7 @@ internal class GitLogPages(
                 // Keeps the rows there are; no more pages until the next reload. What was in progress may be over.
                 this.pending = null
                 this.remotes = null
+                this.stashes = null
                 _state.set(GitLogState.FAILED)
                 continueSeek()
                 return@start
@@ -426,6 +435,7 @@ internal class GitLogPages(
             this.refs = refs
             this.pending = first.pending
             this.remotes = first.remotes
+            this.stashes = first.stashes
             this.counts = first.counts
             hashRow = match?.hash
             rows.setAll(layOut(listOfNotNull(match) + page.commits.filter { it.hash != match?.hash }))
@@ -470,6 +480,7 @@ internal class GitLogPages(
         val pending: GitInProgress? = null,
         val remotes: List<String>? = null,
         val counts: GitComparisonCounts? = null,
+        val stashes: List<GitStash>? = null,
     )
 
     /**
@@ -537,6 +548,7 @@ internal class GitLogPages(
         val refs = read { loadRefs(root, token) }
         val pending = read { loadPending(root, token) }
         val remotes = read { loadRemotes(root, token) }
+        val stashes = read { loadStashes(root, token) }
         val counts = compared?.let { read { loadCounts(root, it.ref.name, barFilter, token) } }
         val match =
             if (compared == null &&
@@ -546,7 +558,7 @@ internal class GitLogPages(
             } else {
                 null
             }
-        return FirstPage(page, refs, match, pending, remotes, counts)
+        return FirstPage(page, refs, match, pending, remotes, counts, stashes)
     }
 
     companion object {

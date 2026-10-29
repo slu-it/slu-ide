@@ -5,7 +5,6 @@ import dev.sluide.git.cli.StashTip
 import dev.sluide.git.cli.canPassArgument
 import dev.sluide.git.cli.commitOfRevision
 import dev.sluide.git.cli.currentBranch
-import dev.sluide.git.cli.gitPaths
 import dev.sluide.git.cli.headCommit
 import dev.sluide.git.cli.inProgress
 import dev.sluide.git.cli.isAncestor
@@ -19,7 +18,6 @@ import org.springframework.stereotype.Component
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.Path
-import java.nio.file.attribute.FileTime
 
 /**
  * Merges a branch into the current one, and continues or aborts a merge in progress, also one started in a terminal or
@@ -106,8 +104,8 @@ class GitMerges(
 
     /**
      * Runs the `git merge` of [arguments] in [mode], merging the commit [theirs]; what it gave, read afterwards. A
-     * squash is done if git exited with 0, or with 1 leaving conflicts, and wrote `SQUASH_MSG` anew: one left from an
-     * earlier squash does not make a refusal (exit 128, e.g. for unmerged files) a squash.
+     * squash is done if git exited with 0, or with 1 leaving conflicts: none were there before, as unmerged files
+     * refuse the merge before git runs (ADR 0107); git's own refusals exit with other values.
      */
     private fun run(
         root: Path,
@@ -117,13 +115,12 @@ class GitMerges(
     ): GitMergeResult {
         val before = git.headCommit(root)
         val stash = git.stashTip(root)
-        val squashMessage = git.gitPaths(root, listOf("SQUASH_MSG"))?.single()
-        val squashBefore = squashMessage?.let(::stamp)
         val (result, exit) =
             git.writeWithExit(root, arguments, timeout = GitCli.CHECKOUT_TIMEOUT, writesFiles = true)
         val after = git.inProgress(root).getOrNull()
-        val squashAfter = squashMessage?.let(::stamp)
-        if (after == null && mode == GitMergeMode.SQUASH && squashAfter != null && squashAfter != squashBefore) {
+        // A squash's conflicts leave nothing in progress but the conflicts themselves (ADR 0107).
+        val nothingElse = after == null || after is GitPendingConflicts
+        if (nothingElse && mode == GitMergeMode.SQUASH) {
             val left = git.unmergedPaths(root).orEmpty()
             if (exit == 0 || (exit == 1 && left.isNotEmpty())) {
                 val kept = stashKept(stash, git.stashTip(root))
@@ -190,17 +187,6 @@ class GitMerges(
     }
 
     private fun refused(message: String) = Result.failure<GitPendingMerge>(IllegalStateException(message))
-
-    /**
-     * When [file] was last written and its bytes (as ISO-8859-1, which maps every byte, as git writes it in the log
-     * output encoding); `null` if there is none (or it cannot be read).
-     */
-    private fun stamp(file: Path): Pair<FileTime, String>? =
-        try {
-            Files.getLastModifiedTime(file) to String(Files.readAllBytes(file), Charsets.ISO_8859_1)
-        } catch (_: IOException) {
-            null
-        }
 
     /**
      * What a merge command that gave [result] left, git being in the middle of [after] then: a merge still in progress

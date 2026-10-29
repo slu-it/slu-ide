@@ -32,9 +32,12 @@ import java.util.concurrent.TimeUnit
 /**
  * A fake of the git log's write side: records every call as a line (`switch main`, `branch -d a b`) and answers with
  * [result] for it; [notDeleted] tells which branches `deleteBranches` leaves. Calls wait for [gate] while it is not
- * `null`, and record the thread they run on.
+ * `null`, and record the thread they run on. The stash writes are [stash]'s.
  */
-internal class FakeWrites : GitLogWrites {
+internal class FakeWrites(
+    val stash: FakeStashWrites = FakeStashWrites(),
+) : GitLogWrites,
+    StashWrites by stash {
     val calls = CopyOnWriteArrayList<String>()
     val threads = CopyOnWriteArrayList<String>()
 

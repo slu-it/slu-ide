@@ -1,7 +1,10 @@
 package dev.sluide.gitlog.commit
 
+import dev.sluide.git.GitChange
+import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommitChanges
 import dev.sluide.git.GitInProgress
+import dev.sluide.git.GitPendingConflicts
 import dev.sluide.git.GitPendingMerge
 import dev.sluide.git.GitPendingOperation
 import dev.sluide.git.GitPendingPick
@@ -172,13 +175,10 @@ internal fun commitSummary(
     }
 
 /**
- * Why nothing can be committed while git is in the middle of [inProgress] or paths have [conflicts], in the wording of
- * the backend's refusals (ADR 0042); `null` if neither.
+ * Why nothing can be committed while git is in the middle of [inProgress] (also files with conflicts alone), in the
+ * wording of the backend's refusals (ADR 0042); `null` if nothing.
  */
-internal fun commitBlocked(
-    inProgress: GitInProgress?,
-    conflicts: List<String>,
-): String? =
+internal fun commitBlocked(inProgress: GitInProgress?): String? =
     when (inProgress) {
         is GitPendingPick -> {
             val commit = inProgress.commit.take(SHORT_HASH)
@@ -197,12 +197,12 @@ internal fun commitBlocked(
             "A merge is in progress; continue or abort it in the log first."
         }
 
+        is GitPendingConflicts -> {
+            "Files have conflicts; mark them resolved in the log first."
+        }
+
         null -> {
-            when (conflicts.size) {
-                0 -> null
-                1 -> "1 file has conflicts; resolve it first."
-                else -> "${conflicts.size} files have conflicts; resolve them first."
-            }
+            null
         }
     }
 
@@ -217,3 +217,26 @@ internal fun canCommit(
     blocked: Boolean,
     running: Boolean,
 ): Boolean = message.isNotBlank() && (checked > 0 || amend) && !blocked && !running
+
+/**
+ * Whether Stash Checked Files… can run (ADR 0107): at least one file [checked], nothing [blocked] committing (git
+ * refuses a stash as well then) and no other operation [running].
+ */
+internal fun canStashChecked(
+    checked: Int,
+    blocked: Boolean,
+    running: Boolean,
+): Boolean = checked > 0 && !blocked && !running
+
+/**
+ * The paths Stash Checked Files… gives git for the checked tracked [files] and [untracked] files: a renamed file with
+ * both of its paths, so that the deletion of the old one is stashed too, as a commit takes them (ADR 0048).
+ */
+internal fun stashPaths(
+    files: List<GitChangedFile>,
+    untracked: List<String>,
+): List<String> =
+    files
+        .flatMap { file -> listOfNotNull(file.path, file.oldPath.takeIf { file.change == GitChange.RENAMED }) }
+        .plus(untracked)
+        .distinct()

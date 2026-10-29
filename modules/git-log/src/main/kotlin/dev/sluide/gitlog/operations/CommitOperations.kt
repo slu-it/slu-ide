@@ -3,6 +3,7 @@ package dev.sluide.gitlog.operations
 import dev.sluide.git.GitConflictReason
 import dev.sluide.git.GitInProgress
 import dev.sluide.git.GitOperation
+import dev.sluide.git.GitPendingConflicts
 import dev.sluide.git.GitPendingMerge
 import dev.sluide.git.GitPendingOperation
 import dev.sluide.git.GitPendingPick
@@ -14,6 +15,7 @@ import dev.sluide.git.GitResult
 import dev.sluide.git.GitUncheckedConflict
 import dev.sluide.gitlog.data.GitLogWrites
 import dev.sluide.gitlog.data.SHORT_HASH
+import javafx.scene.control.ButtonType
 import java.nio.file.Path
 
 /**
@@ -159,33 +161,46 @@ internal data class ContinuePick(
 
 /**
  * The question before committing the conflicted [files] that cannot be checked as they are on disk; [next] runs once
- * confirmed.
+ * confirmed. Marking them resolved (ADR 0107) asks its own [question] with its own [button], and the files are
+ * [staged] rather than committed.
  */
 internal fun uncheckedConfirmation(
     title: String,
     files: List<GitUncheckedConflict>,
     next: RefOperation,
+    question: String = UNCHECKED_QUESTION,
+    button: ButtonType = COMMIT_AS_ON_DISK_BUTTON,
+    staged: Boolean = false,
 ) = RefConfirmation(
     title,
-    "These conflicted files cannot be checked for conflict markers. Commit them as they are on disk?",
-    COMMIT_AS_ON_DISK_BUTTON,
+    question,
+    button,
     next,
-    files.joinToString("\n") { "${it.path} \u2014 ${reasonText(it.reason)}" },
+    files.joinToString("\n") { "${it.path} \u2014 ${reasonText(it.reason, if (staged) "staged" else "committed")}" },
 )
+
+private const val UNCHECKED_QUESTION =
+    "These conflicted files cannot be checked for conflict markers. Commit them as they are on disk?"
 
 /** What continuing gave when conflict markers are left in [paths]: a failure, nothing done. */
 internal fun markersLeftOutcome(paths: List<String>) =
     RefOutcome(GitResult(false, "Conflict markers are left in: ${paths.joinToString(", ")}"), null)
 
-/** Why a conflicted file is committed as it is on disk, after its path in the confirmation. */
-internal fun reasonText(reason: GitConflictReason): String =
+/**
+ * Why a conflicted file is taken as it is on disk, after its path in the confirmation; what is then done with it is
+ * [done] ("committed", or "staged" for Mark Resolved).
+ */
+internal fun reasonText(
+    reason: GitConflictReason,
+    done: String = "committed",
+): String =
     when (reason) {
-        GitConflictReason.BINARY -> "binary, the version on disk will be committed"
-        GitConflictReason.TOO_LARGE -> "too large to check, the version on disk will be committed"
-        GitConflictReason.DELETED_ON_ONE_SIDE -> "deleted on one side, the file on disk will be committed"
-        GitConflictReason.DELETED_ON_DISK -> "deleted on disk, the deletion will be committed"
-        GitConflictReason.SUBMODULE -> "submodule, the commit checked out in it will be committed"
-        GitConflictReason.SYMLINK -> "symbolic link, the link on disk will be committed"
+        GitConflictReason.BINARY -> "binary, the version on disk will be $done"
+        GitConflictReason.TOO_LARGE -> "too large to check, the version on disk will be $done"
+        GitConflictReason.DELETED_ON_ONE_SIDE -> "deleted on one side, the file on disk will be $done"
+        GitConflictReason.DELETED_ON_DISK -> "deleted on disk, the deletion will be $done"
+        GitConflictReason.SUBMODULE -> "submodule, the commit checked out in it will be $done"
+        GitConflictReason.SYMLINK -> "symbolic link, the link on disk will be $done"
     }
 
 /** The commit of the cherry-pick or revert ([kind]) in progress, read again; `null` if there is none of that kind. */
@@ -357,6 +372,16 @@ internal fun busyResetWarning(
 
         is GitPendingMerge -> {
             "A merge is in progress; resetting abandons it."
+        }
+
+        is GitPendingConflicts -> {
+            val files = if (busy.conflicts.size == 1) "1 file has" else "${busy.conflicts.size} files have"
+            // A soft reset is refused with unmerged paths before this is asked.
+            if (mode == GitResetMode.HARD) {
+                "$files conflicts; resetting replaces them with the commit's version."
+            } else {
+                "$files conflicts; resetting keeps them as they are on disk, no longer marked as conflicts."
+            }
         }
 
         is GitPendingOperation -> {

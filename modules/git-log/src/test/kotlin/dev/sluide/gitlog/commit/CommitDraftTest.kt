@@ -1,6 +1,9 @@
 package dev.sluide.gitlog.commit
 
+import dev.sluide.git.GitChange
+import dev.sluide.git.GitChangedFile
 import dev.sluide.git.GitCommitChanges
+import dev.sluide.git.GitPendingConflicts
 import dev.sluide.git.GitPendingMerge
 import dev.sluide.git.GitPendingPick
 import dev.sluide.git.GitPendingRebase
@@ -68,21 +71,23 @@ class CommitDraftTest {
 
     @Test
     fun `what git is in the middle of or conflicts block committing`() {
-        assertNull(commitBlocked(null, emptyList()))
+        assertNull(commitBlocked(null))
         assertEquals(
             "A merge is in progress; continue or abort it in the log first.",
-            commitBlocked(GitPendingMerge(listOf("h1"), null, listOf("a")), listOf("a")),
+            commitBlocked(GitPendingMerge(listOf("h1"), null, listOf("a"))),
         )
         assertEquals(
             "A rebase is in progress; continue or abort it in the log first.",
-            commitBlocked(GitPendingRebase("main", null, null, null, null, emptyList()), emptyList()),
+            commitBlocked(GitPendingRebase("main", null, null, null, null, emptyList())),
         )
         assertEquals(
             "Cherry-pick of 1a2b3c4d is in progress; continue or abort it in the log first.",
-            commitBlocked(GitPendingPick(GitPick.CHERRY_PICK, "1a2b3c4d5e6f", listOf("a")), listOf("a")),
+            commitBlocked(GitPendingPick(GitPick.CHERRY_PICK, "1a2b3c4d5e6f", listOf("a"))),
         )
-        assertEquals("1 file has conflicts; resolve it first.", commitBlocked(null, listOf("a")))
-        assertEquals("2 files have conflicts; resolve them first.", commitBlocked(null, listOf("a", "b")))
+        assertEquals(
+            "Files have conflicts; mark them resolved in the log first.",
+            commitBlocked(GitPendingConflicts(listOf("a"))),
+        )
     }
 
     @Test
@@ -93,6 +98,22 @@ class CommitDraftTest {
         assertTrue(canCommit("m", 0, amend = true, blocked = false, running = false))
         assertFalse(canCommit("m", 1, amend = false, blocked = true, running = false))
         assertFalse(canCommit("m", 1, amend = false, blocked = false, running = true))
+    }
+
+    @Test
+    fun `Stash Checked Files needs a checked file, nothing blocking, no running write, and both paths of a rename`() {
+        assertTrue(canStashChecked(1, blocked = false, running = false))
+        assertFalse(canStashChecked(0, blocked = false, running = false))
+        assertFalse(canStashChecked(2, blocked = true, running = false), "git refuses with conflicts")
+        assertFalse(canStashChecked(2, blocked = false, running = true))
+
+        val files =
+            listOf(
+                GitChangedFile(GitChange.RENAMED, "new.txt", "old.txt"),
+                GitChangedFile(GitChange.COPIED, "copy.txt", "source.txt"),
+                GitChangedFile(GitChange.MODIFIED, "a.txt"),
+            )
+        assertEquals(listOf("new.txt", "old.txt", "copy.txt", "a.txt", "u.txt"), stashPaths(files, listOf("u.txt")))
     }
 
     @Test
@@ -190,6 +211,5 @@ class CommitDraftTest {
         assertEquals(0, handled, "the message in flight is dropped")
     }
 
-    private fun changes(untracked: Int) =
-        GitCommitChanges(emptyList(), (1..untracked).map { "u$it" }, null, emptyList(), false)
+    private fun changes(untracked: Int) = GitCommitChanges(emptyList(), (1..untracked).map { "u$it" }, null, false)
 }
