@@ -1,0 +1,18 @@
+/* The Coloring tool (ADR 0109). Borders use Modena's looked-up colors, so dark mode follows the theme. */
+.coloring {
+    -fx-background-color: -fx-background;
+}
+
+.coloring-column {
+    -fx-background-color: transparent;
+}
+
+.swatch {
+    -fx-border-color: -fx-box-border;
+    -fx-border-width: 1;
+    -fx-cursor: hand;
+}
+
+.coloring-section-title {
+    -fx-font-weight: bold;
+}

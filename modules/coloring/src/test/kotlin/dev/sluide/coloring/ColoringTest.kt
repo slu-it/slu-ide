@@ -1,0 +1,24 @@
+package dev.sluide.coloring
+
+import dev.sluide.coloring.color.CssColor
+import dev.sluide.projectdata.ProjectDataStore
+import java.nio.file.Path
+import kotlin.test.Test
+import kotlin.test.assertEquals
+
+class ColoringTest {
+    private val coloring =
+        Coloring(SavedColors(ProjectDataStore(Path.of("unused-projects"), Path.of("unused-shared.json"), emptyList())))
+
+    @Test
+    fun `show makes the color current and shows the tab`() {
+        var shown = 0
+        coloring.showTab = { shown++ }
+        val red = CssColor.fromRgb8(255, 0, 0)
+
+        coloring.show(red)
+
+        assertEquals(red, coloring.state.current.get())
+        assertEquals(1, shown)
+    }
+}
