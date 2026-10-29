@@ -4,12 +4,10 @@ import dev.sluide.coloring.SavedColors
 import dev.sluide.coloring.color.CssColor
 import dev.sluide.projectdata.ProjectDataStore
 import javafx.beans.property.SimpleObjectProperty
-import javafx.event.Event
 import javafx.scene.Parent
 import javafx.scene.Scene
 import javafx.scene.control.TextField
 import javafx.scene.input.MouseButton
-import javafx.scene.input.MouseEvent
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -79,33 +77,6 @@ class ColoringViewUiTest {
         assertEquals("#00ff00", followed.tooltipText)
         assertEquals("#ffffff", disposed.tooltipText)
     }
-
-    private fun click(
-        swatch: Swatch,
-        button: MouseButton,
-    ) = Event.fireEvent(
-        swatch,
-        MouseEvent(
-            MouseEvent.MOUSE_CLICKED,
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            button,
-            1,
-            false,
-            false,
-            false,
-            false,
-            button == MouseButton.PRIMARY,
-            false,
-            button == MouseButton.SECONDARY,
-            true,
-            false,
-            false,
-            null,
-        ),
-    )
 
     private fun store() = ProjectDataStore(dir.resolve("projects"), dir.resolve("shared.json"), emptyList())
 }

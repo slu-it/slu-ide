@@ -5,28 +5,30 @@ import javafx.scene.Node
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 
-/** Fires a primary `MOUSE_CLICKED` on [target]; run it on the FX thread (`robot.interact`). */
-internal fun clickPrimary(target: Node) =
-    Event.fireEvent(
-        target,
-        MouseEvent(
-            MouseEvent.MOUSE_CLICKED,
-            1.0,
-            1.0,
-            1.0,
-            1.0,
-            MouseButton.PRIMARY,
-            1,
-            false,
-            false,
-            false,
-            false,
-            true,
-            false,
-            false,
-            true,
-            false,
-            false,
-            null,
-        ),
-    )
+/** Fires a `MOUSE_CLICKED` of [button] on [target]; run it on the FX thread (`robot.interact`). */
+internal fun click(
+    target: Node,
+    button: MouseButton = MouseButton.PRIMARY,
+) = Event.fireEvent(
+    target,
+    MouseEvent(
+        MouseEvent.MOUSE_CLICKED,
+        1.0,
+        1.0,
+        1.0,
+        1.0,
+        button,
+        1,
+        false,
+        false,
+        false,
+        false,
+        button == MouseButton.PRIMARY,
+        false,
+        button == MouseButton.SECONDARY,
+        true,
+        false,
+        false,
+        null,
+    ),
+)

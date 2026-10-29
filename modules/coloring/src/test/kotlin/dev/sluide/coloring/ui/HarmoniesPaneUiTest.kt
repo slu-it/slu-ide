@@ -44,7 +44,7 @@ class HarmoniesPaneUiTest {
         val harmonySwatch = pane.harmonySwatches[1]
         val tip = harmonySwatch.tooltipText
 
-        robot.interact { clickPrimary(harmonySwatch) }
+        robot.interact { click(harmonySwatch) }
 
         assertEquals(tip, ColorFormatter.hex(state.current.get()))
     }

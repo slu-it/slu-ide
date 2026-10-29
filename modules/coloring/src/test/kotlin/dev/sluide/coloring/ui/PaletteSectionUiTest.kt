@@ -10,8 +10,6 @@ import javafx.scene.control.Button
 import javafx.scene.control.ContextMenu
 import javafx.scene.control.Label
 import javafx.scene.input.ContextMenuEvent
-import javafx.scene.input.MouseButton
-import javafx.scene.input.MouseEvent
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -73,7 +71,7 @@ class PaletteSectionUiTest {
         robot.interact { savedColors.save(folder, red) }
         val swatch = swatches(robot).single()
 
-        robot.interact { swatch.fireEvent(click()) }
+        robot.interact { click(swatch) }
 
         assertEquals(red, state.current.get())
     }
@@ -147,26 +145,4 @@ class PaletteSectionUiTest {
         assertEquals(1, swatches(robot).size)
         assertTrue(save.isDisable)
     }
-
-    private fun click() =
-        MouseEvent(
-            MouseEvent.MOUSE_CLICKED,
-            0.0,
-            0.0,
-            0.0,
-            0.0,
-            MouseButton.PRIMARY,
-            1,
-            false,
-            false,
-            false,
-            false,
-            true,
-            false,
-            false,
-            true,
-            false,
-            false,
-            null,
-        )
 }

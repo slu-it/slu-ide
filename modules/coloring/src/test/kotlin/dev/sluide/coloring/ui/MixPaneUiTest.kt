@@ -68,7 +68,7 @@ class MixPaneUiTest {
         val swatch = pane.stripSwatches[0]
         val tip = swatch.tooltipText
 
-        robot.interact { clickPrimary(swatch) }
+        robot.interact { click(swatch) }
 
         assertEquals(tip, ColorFormatter.hex(state.current.get()))
     }
