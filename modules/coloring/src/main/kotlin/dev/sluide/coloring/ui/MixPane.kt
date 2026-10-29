@@ -17,6 +17,7 @@ import javafx.scene.control.ChoiceBox
 import javafx.scene.control.Label
 import javafx.scene.control.Slider
 import javafx.scene.control.TextField
+import javafx.scene.layout.FlowPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
 import javafx.scene.layout.VBox
@@ -55,7 +56,7 @@ internal class MixPane(
     private val mixCss = readOnlyText()
     private val resultCss = readOnlyText()
     private val stripColors = List(STRIP_STEPS) { SimpleObjectProperty(state.mix1.color.value) }
-    private val strip = HBox(4.0, *stripColors.map { swatch(it) }.toTypedArray())
+    private val strip = FlowPane(4.0, 4.0, *stripColors.map { swatch(it) }.toTypedArray())
 
     /** The nine swatches of the strip. */
     internal val stripSwatches: List<Swatch> get() = strip.children.filterIsInstance<Swatch>()
@@ -82,22 +83,19 @@ internal class MixPane(
 
     val node: Node =
         VBox(
-            12.0,
+            10.0,
             title("Mix"),
-            line(mix1Slot.node, Label("+"), mix2Slot.node, Label("in"), space),
-            line(Label("Amount of second color"), amount, percentLabel(amount)),
+            mix1Slot.node,
+            mix2Slot.node,
+            line(Label("in"), space),
+            line(Label("Amount of Color 2"), amount, percentLabel(amount)),
             line(swatch(result, RESULT_SIZE), mixCss, copyButton("Copy color-mix()") { mixCss.text }),
             line(Label("Result"), resultCss, copyButton { resultCss.text }),
             strip,
             title("Opacity over a background"),
-            line(
-                flatColorSlot.node,
-                Label("at"),
-                opacitySlider,
-                percentLabel(opacitySlider),
-                Label("opacity over"),
-                flatBackgroundSlot.node,
-            ),
+            flatColorSlot.node,
+            flatBackgroundSlot.node,
+            line(Label("Opacity"), opacitySlider, percentLabel(opacitySlider)),
             line(swatch(flattened, RESULT_SIZE), flattenedCss, copyButton { flattenedCss.text }),
         ).apply { padding = Insets(12.0) }
 
@@ -142,10 +140,15 @@ internal class MixPane(
             isEditable = false
             styleClass += "coloring-format-text"
             prefColumnCount = TEXT_COLUMNS
+            minWidth = 0.0
             HBox.setHgrow(this, Priority.ALWAYS)
         }
 
-    private fun line(vararg nodes: Node) = HBox(6.0, *nodes).apply { alignment = Pos.CENTER_LEFT }
+    private fun line(vararg nodes: Node) =
+        HBox(6.0, *nodes).apply {
+            alignment = Pos.CENTER_LEFT
+            nodes.filterIsInstance<Slider>().forEach { HBox.setHgrow(it, Priority.ALWAYS) }
+        }
 
     /** Releases the listeners on the window's state. */
     fun dispose() {
@@ -159,6 +162,6 @@ internal class MixPane(
     private companion object {
         const val STRIP_STEPS = 9
         const val RESULT_SIZE = 36.0
-        const val TEXT_COLUMNS = 36
+        const val TEXT_COLUMNS = 20
     }
 }

@@ -13,7 +13,9 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNotSame
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /** The wiring of the Shades & Harmonies pane to the window's state; needs swatches in a scene. */
@@ -22,11 +24,13 @@ import kotlin.test.assertTrue
 class HarmoniesPaneUiTest {
     private val state = ColoringState()
     private lateinit var pane: HarmoniesPane
+    private lateinit var stage: Stage
 
     @Start
     fun start(stage: Stage) {
+        this.stage = stage
         pane = HarmoniesPane(state)
-        stage.scene = Scene(pane.node as Parent, 700.0, 500.0)
+        stage.scene = Scene(pane.node as Parent, NARROW, 500.0)
         stage.show()
     }
 
@@ -37,6 +41,20 @@ class HarmoniesPaneUiTest {
         robot.interact { state.base.color.set(CssColor.fromRgb8(10, 10, 10)) }
 
         assertNotSame(before, pane.sourceCells.single())
+    }
+
+    @Test
+    fun `focusing the Base slot field selects the base slot`(robot: FxRobot) {
+        robot.interact { pane.prefixField.requestFocus() }
+        robot.interact { state.edit(state.contrastText, ColoringState.CONTRAST) }
+
+        robot.interact { pane.baseText.requestFocus() }
+        assertSame(state.base, state.editing.value)
+    }
+
+    @Test
+    fun `at a narrow width no control reaches past the right edge`(robot: FxRobot) {
+        assertEquals(emptyList(), narrowOffenders(robot, stage.scene.root, NARROW))
     }
 
     @Test
@@ -54,11 +72,18 @@ class HarmoniesPaneUiTest {
     @Test
     fun `after dispose a state change no longer updates the shades`(robot: FxRobot) {
         val before = pane.shownShades
+        robot.interact { state.edit(state.contrastText, ColoringState.CONTRAST) }
         robot.interact { pane.dispose() }
 
         robot.interact { state.base.color.set(CssColor.fromRgb8(1, 2, 3)) }
 
         assertEquals(before, pane.shownShades)
+        // The Base slot view released its listener on the state too.
+        robot.interact { state.edit(state.base, ColoringState.HARMONIES) }
+        assertFalse(
+            pane.baseText.parent.pseudoClassStates
+                .any { it.pseudoClassName == "editing" },
+        )
     }
 
     @Test

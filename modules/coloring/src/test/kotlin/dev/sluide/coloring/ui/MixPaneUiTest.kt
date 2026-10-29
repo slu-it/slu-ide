@@ -20,11 +20,13 @@ import kotlin.test.assertEquals
 class MixPaneUiTest {
     private val state = ColoringState()
     private lateinit var pane: MixPane
+    private lateinit var stage: Stage
 
     @Start
     fun start(stage: Stage) {
+        this.stage = stage
         pane = MixPane(state)
-        stage.scene = Scene(pane.node as Parent, 800.0, 500.0)
+        stage.scene = Scene(pane.node as Parent, NARROW, 500.0)
         stage.show()
     }
 
@@ -42,6 +44,11 @@ class MixPaneUiTest {
         robot.interact { pane.space.value = MixSpace.SRGB }
 
         assertEquals("color-mix(in srgb, #3b82f6 50%, #ef4444 50%)", pane.mixCssText)
+    }
+
+    @Test
+    fun `at a narrow width no control reaches past the right edge`(robot: FxRobot) {
+        assertEquals(emptyList(), narrowOffenders(robot, stage.scene.root, NARROW))
     }
 
     @Test

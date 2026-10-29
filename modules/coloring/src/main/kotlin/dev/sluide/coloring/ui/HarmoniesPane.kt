@@ -13,10 +13,11 @@ import javafx.scene.Node
 import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.scene.control.TextField
+import javafx.scene.layout.FlowPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.VBox
 
-/** Shades, tints and color harmonies of the Base slot. */
+/** Shades, tints and color harmonies of the Base slot; its slot is edited at the top of the pane (ADR 0111). */
 internal class HarmoniesPane(
     private val state: ColoringState,
 ) {
@@ -37,6 +38,11 @@ internal class HarmoniesPane(
     private val shadeSlots = List(SHADE_COUNT) { Slot(SIZE) }
     private val harmonySlots = HARMONY_ROWS.map { (_, count) -> List(count + 1) { Slot(SIZE) } }
 
+    private val baseSlot = SlotView(state.base, state)
+
+    /** The text field of the Base slot. */
+    internal val baseText: TextField get() = baseSlot.field
+
     /** The field of the variable prefix. */
     internal val prefixField = TextField("color").apply { prefColumnCount = 8 }
 
@@ -54,8 +60,9 @@ internal class HarmoniesPane(
     val node: Node =
         VBox(
             10.0,
+            baseSlot.node,
             Label("Shades").apply { styleClass += "coloring-section-title" },
-            HBox(6.0, *shadeSlots.map { it.cell }.toTypedArray()),
+            FlowPane(6.0, 6.0, *shadeSlots.map { it.cell }.toTypedArray()),
             HBox(
                 6.0,
                 copyButton,
@@ -67,7 +74,7 @@ internal class HarmoniesPane(
                 10.0,
                 *HARMONY_ROWS
                     .mapIndexed { i, (title, _) ->
-                        VBox(4.0, Label(title), HBox(6.0, *harmonySlots[i].map { it.cell }.toTypedArray()))
+                        VBox(4.0, Label(title), FlowPane(6.0, 6.0, *harmonySlots[i].map { it.cell }.toTypedArray()))
                     }.toTypedArray(),
             ),
         ).apply { padding = Insets(12.0) }
@@ -100,6 +107,7 @@ internal class HarmoniesPane(
     /** Releases the listeners on the window's state. */
     fun dispose() {
         subscription.unsubscribe()
+        baseSlot.dispose()
         (shadeSlots + harmonySlots.flatten()).forEach { it.swatch.dispose() }
     }
 
