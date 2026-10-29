@@ -25,8 +25,8 @@ names only, and knows none of the CSS Color 4 spaces (`lab`, `lch`, `oklab`, `ok
   formula and constants (0.0.98G-4g) are reimplemented; no APCA code is copied.
 - **Saved colors** are explicit (a Save button), with no automatic history, and per project: the top-level field
   `colors` in the project's data file ([ADR 0090](0090-per-project-metadata-store.md)), or in `shared.json`
-  ([ADR 0101](0101-shared-data-file.md)) for a window without a folder. Entries are color texts as typed; unknown
-  content is kept.
+  ([ADR 0101](0101-shared-data-file.md)) for a window without a folder. Entries are CSS texts
+  (`cssText`: hex, or `oklch()` outside sRGB); unknown content is kept.
 - **Detection in source text** is by file type, for style and markup files only (CSS, SCSS, Sass, Less, HTML, XML, SVG,
   Vue, Svelte, JavaScript and TypeScript with JSX/TSX), with context rules against false hits: hex only where a value
   can be (not in id selectors, entities or private fields; in scripts only in strings), functions only with literal
