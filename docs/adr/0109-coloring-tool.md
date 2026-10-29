@@ -1,6 +1,6 @@
 # 0109. Coloring tool: own color math in the coloring module, saved colors per project
 
-- Status: accepted; amends [0047](0047-module-dependencies-and-shared-modules.md) (`coloring` joins the editor family)
+- Status: accepted; amends [0047](0047-module-dependencies-and-shared-modules.md) (`coloring` joins the editor family); amended by [0111](0111-coloring-slots-and-inspector.md)
 - Date: 2026-10-29
 
 ## Context
