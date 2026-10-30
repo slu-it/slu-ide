@@ -7,6 +7,7 @@ internal object DataFormats {
             JsonFormat,
             YamlFormat,
             TomlFormat,
+            PropertiesFormat,
             CsvFormat,
             TsvFormat,
         )
