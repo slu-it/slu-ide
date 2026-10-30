@@ -135,6 +135,7 @@ updated when the summary or keywords no longer fit.
 | [0113](adr/0113-comparing-two-files.md) | Compare Files for two selected files: git's `--no-index` diff on snapshots, upper file left, Swap Sides inverts the hunks | compare files, `GitFileComparison`, `--no-index`, `FileComparisonTab`, `compareFiles`, Swap Sides, `onSwap`, `Shortcut+Shift+D` | amends 0073, 0044; see 0015, 0019 |
 | [0114](adr/0114-generated-scratch-files.md) | Generated scratch files: a picker of pure generators creates prefilled scratch files | generated scratch files, `ScratchGenerator`, `GeneratorContext`, `GeneratorPicker`, `FilterPicker`, Shortcut+Shift+G, UUID, password | amends 0066 |
 | [0115](adr/0115-converting-tool.md) | Converting tool: a format picker per side with Detect, format families as an extension point, a data tree between JSON/YAML/TOML/properties/CSV, YAML 1.2, Spring properties dialect, best effort with notes | `converting`, `Converting`, `FormatFamily`, JSON, YAML, TOML, properties, CSV, TSV, detection, Spring Boot, Infer types, Convert to | amends 0047; see 0079, 0110, 0112 |
+| [0116](adr/0116-curl-and-http-requests.md) | cURL and `.http` requests: the HTTP client's requests family for the Converting tool, shell-aware cURL mapping with notes, Copy as cURL resolving variables (private values only when confirmed), Paste cURL as Request | cURL, `curl`, `RequestFamily`, `CurlRequest`, POSIX, cmd, PowerShell, Copy as cURL, Paste cURL as Request, private values | see 0025-0028, 0108, 0115 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
@@ -194,7 +195,7 @@ updated when the summary or keywords no longer fit.
 |---|---|---|
 | [terminal.md](features/terminal.md) | Shell terminals as editor tabs; one-command terminals in other views | New Terminal, Ctrl+Shift+T, shell, scrollback, embedded terminal |
 | [docker-sandbox.md](features/docker-sandbox.md) | Claude Code or an environment in a Docker sandbox terminal | `sbx`, Claude Code, `sbxenv.yaml`, Docker Sandbox menu |
-| [http-client.md](features/http-client.md) | `.http` request files run from the editor | `.http`, `.rest`, variables, environments, OAuth2, response pane, New HTTP Client Setup |
+| [http-client.md](features/http-client.md) | `.http` request files run from the editor; Copy as cURL, Paste cURL as Request | `.http`, `.rest`, variables, environments, OAuth2, response pane, New HTTP Client Setup, cURL |
 | [http-client-env-editor.md](features/http-client-env-editor.md) | Visual editor for the HTTP client environment files | `http-client.env.json`, private env file, tree table, locks |
 | [gradle.md](features/gradle.md) | Gradle view: task tree and task runs in an embedded terminal | `build.gradle.kts`, wrapper, task tree, run tasks, argument history, trust |
 | [shell-scripts.md](features/shell-scripts.md) | Shell scripts run from their tab or the explorer | `.sh`, Run, Shortcut+Enter, argument history, make executable |

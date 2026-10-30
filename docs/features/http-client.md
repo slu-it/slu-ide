@@ -3,7 +3,8 @@
 **Module:** `modules/http-client` (package `dev.sluide.httpclient`). Decisions: [ADR 0025](../adr/0025-http-client.md)
 (format, variables), [ADR 0026](../adr/0026-http-client-window-session.md) (window session, view),
 [ADR 0027](../adr/0027-http-client-sending.md) (sending), [ADR 0028](../adr/0028-http-client-secrets.md) (secrets),
-[ADR 0056](../adr/0056-http-client-setup-from-the-explorer.md) (setup).
+[ADR 0056](../adr/0056-http-client-setup-from-the-explorer.md) (setup),
+[ADR 0116](../adr/0116-curl-and-http-requests.md) (cURL).
 
 Requests are written in `.http` (or `.rest`) files, in the format of IntelliJ's HTTP client, and run from the editor.
 
@@ -115,8 +116,24 @@ Content-Type: image/png
   Failures (unresolved variables, refused connections, timeouts) take the place of the body.
 - Cookies are kept per window (Clear Cookies forgets them); redirects are followed unless `@no-redirect`.
 
+## cURL
+Decisions: [ADR 0116](../adr/0116-curl-and-http-requests.md).
+- **Copy as cURL** in the editor's context menu copies the request at the clicked line as a POSIX `curl` command, with
+  its variables resolved against the chosen environment, the file's `@variables` and the dynamic variables;
+  `{{$auth.token(…)}}` and variables without a value stay as written (the message names the latter and what the
+  command leaves out), body files get absolute paths, and `-k` is added when the environment's `SSLConfiguration`
+  turns off `verifyHostCertificate`. If the request uses values of `http-client.private.env.json`, a dialog asks
+  whether to include them or keep them as `{{name}}` (Cancel copies nothing and is the default).
+- **Paste cURL as Request** (enabled when the clipboard holds a `curl` command) inserts the command(s) as requests
+  after the request at the clicked line, separated by `###`, as one undoable edit. A body line that a `.http` file
+  would read as syntax (`< file`, `###`, `> {% … %}`) is refused with a message naming the line.
+- The **Converting** tool (Tools → Converting) converts between cURL (POSIX, cmd or PowerShell: read from all three,
+  the Shell option picks the output) and HTTP requests, keeping `{{variables}}` as written. What has no counterpart is
+  listed below the result: `-k` (configure TLS in the environment's `SSLConfiguration`), curl without `-L` (written as
+  `# @no-redirect`), `@variables`, scripts and options like `--proxy`.
+
 ## Not supported
 JavaScript handlers and pre-request scripts (`> {% … %}`, `< {% … %}`; skipped with a note), `>>` saving responses,
-`import`/`run`, response history, running all requests, WebSocket, GraphQL and gRPC requests, cURL conversion,
+`import`/`run`, response history, running all requests, WebSocket, GraphQL and gRPC requests,
 `$shared` environments, `.env` files, Authorization Code/Device/Implicit grants, Kerberos/NTLM and AWS auth, proxy
 settings of our own (the JDK's system properties apply).
