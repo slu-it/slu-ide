@@ -11,7 +11,6 @@ import dev.sluide.git.cli.comparisonCounts
 import dev.sluide.git.cli.configValues
 import dev.sluide.git.cli.currentBranch
 import dev.sluide.git.cli.diffBlobs
-import dev.sluide.git.cli.diffFiles
 import dev.sluide.git.cli.fileHistory
 import dev.sluide.git.cli.filteredBlob
 import dev.sluide.git.cli.headCommit
@@ -41,8 +40,6 @@ import java.nio.file.Files
 import java.nio.file.InvalidPathException
 import java.nio.file.LinkOption
 import java.nio.file.Path
-import kotlin.io.path.deleteIfExists
-import kotlin.io.path.writeBytes
 
 /**
  * The commits of a repository (ADR 0035): those of all local branches, remote-tracking branches, tags and `HEAD`, in
@@ -434,10 +431,22 @@ class GitLog(
         val currentText = decodeTextLeniently(current)
         val hunks =
             when {
-                originalObject == null -> wholeFile(lineCount(currentText), added = true)
-                deleted -> wholeFile(lineCount(originalText), added = false)
-                originalBytes.contentEquals(current) -> emptyList()
-                else -> diffTexts(root, originalBytes, current) ?: return null
+                originalObject == null -> {
+                    wholeFile(lineCount(currentText), added = true)
+                }
+
+                deleted -> {
+                    wholeFile(lineCount(originalText), added = false)
+                }
+
+                originalBytes.contentEquals(current) -> {
+                    emptyList()
+                }
+
+                else -> {
+                    val algorithm = git.configValues(root, "diff.algorithm")?.lastOrNull()
+                    git.diffTexts(originalBytes, current, algorithm, temporaryFolder) ?: return null
+                }
             }
         return GitFileDiff.Text(originalText, currentText, hunks)
     }
@@ -491,41 +500,6 @@ class GitLog(
         }
     }
 
-    /**
-     * Git's hunks from [original] to [current]: both written to temporary files with plain names and compared as they
-     * are with `git diff --no-index` (ADR 0044), so no repository path goes on the command line, with the repository's
-     * `diff.algorithm`; `null` on failure. The temporary folder is deleted afterwards.
-     */
-    private fun diffTexts(
-        root: Path,
-        original: ByteArray,
-        current: ByteArray,
-    ): List<GitHunk>? {
-        val algorithm = git.configValues(root, "diff.algorithm")?.lastOrNull()
-        val folder =
-            try {
-                temporaryFolder?.let { Files.createTempDirectory(it, "sluide-diff") }
-                    ?: Files.createTempDirectory("sluide-diff")
-            } catch (_: IOException) {
-                return null
-            }
-        val files = listOf("original", "current", "attributes").map(folder::resolve)
-        return try {
-            files[0].writeBytes(original)
-            files[1].writeBytes(current)
-            git.diffFiles(folder, "original", "current", algorithm)?.let(GitDiffParser::parse)
-        } catch (_: IOException) {
-            null
-        } finally {
-            try {
-                files.forEach { it.deleteIfExists() }
-                folder.deleteIfExists()
-            } catch (_: IOException) {
-                // Left in the temporary folder.
-            }
-        }
-    }
-
     private fun requireHash(hash: String) = require(HASH.matches(hash)) { "not a commit hash: $hash" }
 
     /** One hunk of all [lines] of a file added or deleted as a whole; none for an empty file. */
@@ -543,12 +517,6 @@ class GitLog(
     private fun lineCount(text: String): Int =
         if (text.isEmpty()) 0 else text.count { it == '\n' } + if (text.endsWith('\n')) 0 else 1
 
-    /** Git's own test: a NUL byte in the first 8000 bytes. */
-    private fun isBinary(bytes: ByteArray): Boolean {
-        for (index in 0 until minOf(bytes.size, BINARY_SAMPLE)) if (bytes[index] == 0.toByte()) return true
-        return false
-    }
-
     private companion object {
         val HASH = Regex("[0-9a-fA-F]{40}|[0-9a-fA-F]{64}")
 
@@ -559,10 +527,6 @@ class GitLog(
 
         /** Stands for a working-tree file above the size limit; compared by identity. */
         val TOO_LARGE = ByteArray(0)
-
-        const val MAX_BLOB_SIZE = 5L * 1024 * 1024
-
-        const val BINARY_SAMPLE = 8000
     }
 }
 
