@@ -134,6 +134,14 @@ class JsonFormatTest {
         assertEquals(listOf("3 NaNs or infinities written as strings"), written.notes)
     }
 
+    @Test
+    fun `a tree deeper than Jackson writes fails instead of throwing`() {
+        val root = JsonNodeFactory.instance.arrayNode()
+        (1..2000).fold(root) { parent, _ -> parent.addArray() }
+
+        assertTrue(JsonFormat.write(DataContent(listOf(root)), OptionValues()) is WriteResult.Failed)
+    }
+
     @ParameterizedTest
     @CsvSource(
         delimiter = '|',

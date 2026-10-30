@@ -98,18 +98,23 @@ internal object JsonFormat : DataFormat {
             notes +=
                 counted(nonFinite.count, "NaN or infinity written as a string", "NaNs or infinities written as strings")
         }
-        val text =
-            if (options.flag(DataOptions.compact)) {
-                mapper.writeValueAsString(root)
-            } else {
-                mapper
-                    .writer()
-                    .with(
-                        prettyPrinter(options.choice(DataOptions.indent).toInt()),
-                    ).writeValueAsString(root) +
-                    "\n"
-            }
-        return WriteResult.Written(text, notes)
+        return try {
+            val text =
+                if (options.flag(DataOptions.compact)) {
+                    mapper.writeValueAsString(root)
+                } else {
+                    mapper
+                        .writer()
+                        .with(
+                            prettyPrinter(options.choice(DataOptions.indent).toInt()),
+                        ).writeValueAsString(root) +
+                        "\n"
+                }
+            WriteResult.Written(text, notes)
+        } catch (e: JacksonException) {
+            // Jackson limits what it writes, e.g. the nesting depth.
+            WriteResult.Failed(sentence(e.originalMessage))
+        }
     }
 
     private fun prettyPrinter(indent: Int): DefaultPrettyPrinter {
