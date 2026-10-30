@@ -46,7 +46,7 @@ class YamlFormatTest {
             "true|true", "True|true", "FALSE|false",
             "yes|\"yes\"", "no|\"no\"", "on|\"on\"", "off|\"off\"", "y|\"y\"", "NO|\"NO\"",
             "~|null", "null|null", "Null|null", "NULL|null", "''|null",
-            "12|12", "-3|-3", "+7|7", "0o17|15", "0x1F|31", "0123|123",
+            "12|12", "-3|-3", "+7|7", "0o17|15", "0x1F|31", "0|0", "0644|420", "-012|-10", "089|\"089\"", "0.5|0.5",
             "12345678901234567890|12345678901234567890",
             "1.0|1.0", "1.50|1.50", ".5|0.5", "1e3|1E+3",
             "12:30|\"12:30\"", "2024-01-01|\"2024-01-01\"", "1_000|\"1_000\"", "0b11|\"0b11\"",
@@ -58,6 +58,13 @@ class YamlFormatTest {
         json: String,
     ) {
         assertEquals("""{"v":$json}""", toJson("v: $yaml"))
+    }
+
+    @Test
+    fun `integers with a leading zero are counted in a note`() {
+        val read = read("mode: 0644\nother: 0755\nzip: 089\nzero: 0")
+
+        assertEquals(listOf("2 numbers with a leading zero read as octal"), read.notes)
     }
 
     @Test

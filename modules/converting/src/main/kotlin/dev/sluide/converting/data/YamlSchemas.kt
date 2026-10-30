@@ -8,10 +8,18 @@ import java.util.regex.Pattern
 private object CoreSchema {
     val bool: Pattern = Pattern.compile("^(?:true|True|TRUE|false|False|FALSE)$")
     val nullValue: Pattern = Pattern.compile("^(?:~|null|Null|NULL|)$")
-    val int: Pattern = Pattern.compile("^(?:[-+]?[0-9]+|0o[0-7]+|0x[0-9a-fA-F]+)$")
+
+    /**
+     * Unlike the core schema, a leading zero means octal (`0644`), as in YAML 1.1, go-yaml and Spring Boot; with digits
+     * 8 or 9 (`089`) it is no number.
+     */
+    val int: Pattern = Pattern.compile("^(?:[-+]?(?:0|[1-9][0-9]*)|[-+]?0[0-7]+|0o[0-7]+|0x[0-9a-fA-F]+)$")
+
+    /** Only with a point or an exponent: integers are [int]s, and `089` stays a string. */
     val float: Pattern =
         Pattern.compile(
-            "^(?:[-+]?(?:\\.[0-9]+|[0-9]+(?:\\.[0-9]*)?)(?:[eE][-+]?[0-9]+)?|[-+]?\\.(?:inf|Inf|INF)|\\.(?:nan|NaN|NAN))$",
+            "^(?:(?=[^.eE]*[.eE])[-+]?(?:\\.[0-9]+|[0-9]+(?:\\.[0-9]*)?)(?:[eE][-+]?[0-9]+)?" +
+                "|[-+]?\\.(?:inf|Inf|INF)|\\.(?:nan|NaN|NAN))$",
         )
     val merge: Pattern = Pattern.compile("^<<$")
 
@@ -21,7 +29,7 @@ private object CoreSchema {
 
 /**
  * Resolves plain scalars by the YAML 1.2 core schema: only `true` and `false` are booleans (so `on:` stays a key and
- * `NO` a string), no timestamps, no sexagesimal numbers; `<<` stays a merge key.
+ * `NO` a string), no timestamps, no sexagesimal numbers; `<<` stays a merge key. Leading zeros mean octal ([CoreSchema.int]).
  */
 internal class CoreSchemaResolver : Resolver() {
     override fun addImplicitResolvers() {

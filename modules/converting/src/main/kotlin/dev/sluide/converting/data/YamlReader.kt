@@ -50,6 +50,15 @@ internal class YamlReader(
             val notes =
                 buildList {
                     if (comments > 0) add(counted(comments, "comment dropped", "comments dropped"))
+                    if (converter.octals > 0) {
+                        add(
+                            counted(
+                                converter.octals,
+                                "number with a leading zero read as octal",
+                                "numbers with a leading zero read as octal",
+                            ),
+                        )
+                    }
                     converter.droppedTags.forEach { (tag, count) ->
                         add(if (count == 1) "Tag $tag dropped" else "Tag $tag dropped $count times")
                     }
@@ -94,6 +103,7 @@ internal class YamlReader(
 
     private inner class Converter {
         val droppedTags = LinkedHashMap<String, Int>()
+        var octals = 0
         private val nodes = JsonNodeFactory.instance
         private val path: MutableSet<Node> = Collections.newSetFromMap(IdentityHashMap())
         private var count = 0
@@ -220,6 +230,7 @@ internal class YamlReader(
                 when {
                     digits.startsWith("0o") -> digits.substring(2).toBigIntegerOrNull(8)
                     digits.startsWith("0x") -> digits.substring(2).toBigIntegerOrNull(16)
+                    digits.length > 1 && digits.startsWith("0") -> digits.toBigIntegerOrNull(8)?.also { octals++ }
                     else -> digits.toBigIntegerOrNull()
                 } ?: return null
             return integerNode(if (negative) value.negate() else value)
