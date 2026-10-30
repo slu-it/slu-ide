@@ -7,4 +7,8 @@ internal object DataOptions {
     val indent = ConversionOption.Choice("indent", "Indent", listOf("2", "4"), "2")
     val sortKeys = ConversionOption.Toggle("sortKeys", "Sort keys", false)
     val compact = ConversionOption.Toggle("compact", "Compact", false)
+    val inferTypes = ConversionOption.Toggle("inferTypes", "Infer types", true)
+    val escapeNonAscii = ConversionOption.Toggle("escapeNonAscii", "Escape non-ASCII", true)
+    val csvHeader = ConversionOption.Toggle("csvHeader", "First row is header", true)
+    val csvDelimiter = ConversionOption.Choice("csvDelimiter", "Delimiter", listOf(",", ";"), ",")
 }
