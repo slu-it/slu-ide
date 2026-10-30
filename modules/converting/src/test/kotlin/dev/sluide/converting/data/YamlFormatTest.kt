@@ -184,9 +184,22 @@ class YamlFormatTest {
 
     @Test
     fun `an alias to its own anchor fails`() {
-        val failed = YamlFormat.read("a: &x\n  - *x", OptionValues())
+        assertEquals(
+            ReadResult.Failed("An alias refers to its own anchor", 3),
+            YamlFormat.read("a: &x\n  - *x", OptionValues()),
+        )
+    }
 
-        assertTrue(failed is ReadResult.Failed, failed.toString())
+    @Test
+    fun `aliases that nest deeper than the limit fail`() {
+        val levels =
+            (1..6).joinToString("\n", prefix = "a0: &a0 ${"[".repeat(100)}1${"]".repeat(100)}\n") { level ->
+                "a$level: &a$level ${"[".repeat(100)}*a${level - 1}${"]".repeat(100)}"
+            }
+
+        val failed = YamlFormat.read(levels, OptionValues())
+
+        assertEquals("The YAML is nested deeper than 500 levels", (failed as ReadResult.Failed).message)
     }
 
     @Test
@@ -340,6 +353,22 @@ class YamlFormatTest {
         val written = YamlFormat.write(DataContent(listOf(tree("""{"a":1}"""), tree("[2]"), tree("3"))), OptionValues())
 
         assertEquals(WriteResult.Written("a: 1\n---\n- 2\n---\n3\n", emptyList()), written)
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        delimiter = ';',
+        value = [
+            "2;- |-NL  aNL  bNL- x: |NL    cNL  z:NL    - 1NL",
+            "4;- |-NL  aNL  bNL- x: |NL      cNL  z:NL    - 1NL",
+        ],
+    )
+    fun `a list at the root starts at the left margin, block content included`(
+        indent: String,
+        yaml: String,
+    ) {
+        // NL stands for a line break.
+        assertEquals(yaml.replace("NL", "\n"), write(tree("""["a\nb",{"x":"c\n","z":[1]}]"""), indent = indent))
     }
 
     @Test
