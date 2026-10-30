@@ -56,6 +56,7 @@ interface FormatFamily<T : Any> {
         options: OptionValues,
     ): ReadResult<T>
 
+    /** Writes [content] as [format]; it leaves [content] unchanged, as one read content is written in several formats. */
     fun write(
         content: T,
         format: TextFormat,
