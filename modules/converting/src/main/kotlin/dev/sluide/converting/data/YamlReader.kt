@@ -187,6 +187,8 @@ internal class YamlReader(
 
         private fun scalar(node: ScalarNode): JsonNode {
             val text = node.value
+            val number = node.tag == Tag.INT || node.tag == Tag.FLOAT
+            if (number && tooLongForNumber(text)) return StringNode.valueOf(text)
             return when (node.tag) {
                 Tag.STR, Tag.MERGE -> {
                     StringNode.valueOf(text)

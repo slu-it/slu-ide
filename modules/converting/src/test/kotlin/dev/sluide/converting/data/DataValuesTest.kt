@@ -51,11 +51,21 @@ class DataValuesTest {
     @ValueSource(
         strings = [
             "", "0123", "00", "+1", "-0", "1e3", "1E-3", "1.", ".5", "1.5e3", "0x1F", "1_000", "True", "TRUE", "yes",
-            "null", "~", " 1", "1 ", "12:30", "2024-01-01", "NaN", "Infinity", "abc",
+            "null", "~", " 1", "1 ", "12:30", "2024-01-01", "NaN", "Infinity", "abc", "-0.0", "-0.000",
         ],
     )
     fun `everything else stays text`(text: String) {
         assertEquals(StringNode.valueOf(text), inferScalar(text))
+    }
+
+    @Test
+    fun `numbers of more than 1000 digits stay text`() {
+        val digits = "1".repeat(1000)
+
+        assertEquals(BigIntegerNode.valueOf(BigInteger(digits)), inferScalar(digits))
+        assertEquals(StringNode.valueOf("${digits}2"), inferScalar("${digits}2"))
+        assertEquals(StringNode.valueOf("0.$digits"), inferScalar("0.$digits"))
+        assertEquals(DecimalNode.valueOf(BigDecimal("-0.${digits.drop(1)}")), inferScalar("-0.${digits.drop(1)}"))
     }
 
     @Test

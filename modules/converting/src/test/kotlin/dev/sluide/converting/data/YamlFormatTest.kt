@@ -17,6 +17,7 @@ import tools.jackson.databind.JsonNode
 import tools.jackson.databind.json.JsonMapper
 import tools.jackson.databind.node.DoubleNode
 import tools.jackson.databind.node.JsonNodeFactory
+import tools.jackson.databind.node.StringNode
 
 class YamlFormatTest {
     companion object {
@@ -58,6 +59,18 @@ class YamlFormatTest {
         json: String,
     ) {
         assertEquals("""{"v":$json}""", toJson("v: $yaml"))
+    }
+
+    @Test
+    fun `numbers of more than 1000 digits stay strings`() {
+        val digits = "7".repeat(1001)
+
+        val document = documents("[$digits, -$digits, 1.$digits, 0x$digits]").single()
+
+        assertEquals(
+            listOf(digits, "-$digits", "1.$digits", "0x$digits").map(StringNode::valueOf),
+            (0..3).map { document[it] },
+        )
     }
 
     @Test

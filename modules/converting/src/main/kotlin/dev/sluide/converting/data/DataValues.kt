@@ -16,20 +16,49 @@ private val nodes = JsonNodeFactory.instance
 private val integer = Regex("0|-?[1-9][0-9]*")
 private val decimal = Regex("-?(?:0|[1-9][0-9]*)\\.[0-9]+")
 
+/**
+ * Numbers with more digits stay text: parsing them takes quadratic time, and Jackson refuses longer ones
+ * (`StreamReadConstraints.maxNumberLength`).
+ */
+internal const val MAX_NUMBER_DIGITS = 1000
+
+/** Whether [text] has too many digits to be read as a number ([MAX_NUMBER_DIGITS]). */
+internal fun tooLongForNumber(text: String) =
+    text.length > MAX_NUMBER_DIGITS && text.count(Char::isDigit) > MAX_NUMBER_DIGITS
+
 private val keyOrder: Comparator<String> = String.CASE_INSENSITIVE_ORDER.then(naturalOrder())
 
 /**
  * The node of a value written as text, for formats whose values are strings ("Infer types"): integers and decimals
- * (exact) and `true`/`false`. Leading zeros (`0123`), a leading `+`, `-0`, exponents (`1e3`) and everything else stay
- * text, so that nothing is changed by reading it as a number.
+ * (exact) and `true`/`false`. Leading zeros (`0123`), a leading `+`, `-0` and `-0.0`, exponents (`1e3`), numbers of
+ * more than [MAX_NUMBER_DIGITS] digits and everything else stay text, so that nothing is changed by reading it as a
+ * number.
  */
 internal fun inferScalar(text: String): JsonNode =
     when {
-        text == "true" -> BooleanNode.TRUE
-        text == "false" -> BooleanNode.FALSE
-        integer.matches(text) -> integerNode(BigInteger(text))
-        decimal.matches(text) -> DecimalNode.valueOf(BigDecimal(text))
-        else -> StringNode.valueOf(text)
+        text == "true" -> {
+            BooleanNode.TRUE
+        }
+
+        text == "false" -> {
+            BooleanNode.FALSE
+        }
+
+        tooLongForNumber(text) -> {
+            StringNode.valueOf(text)
+        }
+
+        integer.matches(text) -> {
+            integerNode(BigInteger(text))
+        }
+
+        decimal.matches(text) && !(text.startsWith("-") && BigDecimal(text).signum() == 0) -> {
+            DecimalNode.valueOf(BigDecimal(text))
+        }
+
+        else -> {
+            StringNode.valueOf(text)
+        }
     }
 
 /** The node Jackson reads an integer as: an int node if it fits, else a long node, else a big integer node. */
