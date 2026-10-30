@@ -63,7 +63,7 @@ updated when the summary or keywords no longer fit.
 | [0041](adr/0041-git-write-operations.md) | Checkout, new branch/tag, rename and delete from the git log | `GitBranches`, checkout, new branch, tag, delete, `sluide-git-write` | amended by 0062; see 0078 |
 | [0042](adr/0042-git-log-commit-operations.md) | Cherry-pick, revert and reset with a conflict bar | `GitCommits`, cherry-pick, revert, reset, conflicts, Continue/Abort | amended by 0063, 0105, 0107 |
 | [0043](adr/0043-git-log-fetch.md) | Fetch per remote, never interactive, cancellable | `GitRemotes`, fetch, `--prune`, `GIT_TERMINAL_PROMPT`, ssh BatchMode | |
-| [0044](adr/0044-git-log-compare.md) | Compare with Current as a log mode; diff with the working tree | compare, `GitLogFilter.excluded`, `--left-right`, Compare with Local, working tree | |
+| [0044](adr/0044-git-log-compare.md) | Compare with Current as a log mode; diff with the working tree | compare, `GitLogFilter.excluded`, `--left-right`, Compare with Local, working tree | amended by 0113 |
 | [0045](adr/0045-git-log-navigation.md) | One revision resolver for hash links and Go to Hash/Branch/Tag | revision resolver, `cat-file --batch-check`, hash links, `LinkText`, Shortcut+G, `loadUntil` | |
 | [0046](adr/0046-git-log-file-history.md) | File history as `History:` tabs in the git log area | file history, `--follow`, renames, Show History | |
 | [0047](adr/0047-module-dependencies-and-shared-modules.md) | Acyclic module dependencies; shared pieces in small modules | module dependencies, foundation modules, `ide` callbacks, `file-icons` | amended by 0069, 0071, 0109, 0112; see 0055 |
@@ -92,7 +92,7 @@ updated when the summary or keywords no longer fit.
 | [0070](adr/0070-window-services.md) | `WindowServices`: registry of window-scoped services for file views | `WindowServices`, `windowService`, `FileViewHost`, `EditorArea` | amends 0026; amended by 0076 |
 | [0071](adr/0071-editor-area-module.md) | The tab module is `editor-area`, not `editor` | `editor-area`, `dev.sluide.editorarea`, tabs, naming | amends 0047 |
 | [0072](adr/0072-csv-table-header-guess-and-state.md) | CSV table: guessed header, kept sort/filter state, comparison search | CSV, TSV, header guess, sort, column search | |
-| [0073](adr/0073-explorer-multi-selection-and-moving.md) | Explorer multi-selection, multi-delete and moving by mouse drag | multi-selection, delete, drag move, GTK drag and drop, name clashes | amends 0024; amended by 0092 |
+| [0073](adr/0073-explorer-multi-selection-and-moving.md) | Explorer multi-selection, multi-delete and moving by mouse drag | multi-selection, delete, drag move, GTK drag and drop, name clashes | amends 0024; amended by 0092, 0113 |
 | [0074](adr/0074-path-matched-file-viewers.md) | `PathFileViewer` claims files by folder path | `PathFileViewer`, `NameMatch.PATH`, path match, `.github/workflows`, workflows | amends 0029; amended by 0079 |
 | [0075](adr/0075-github-actions-workflow-graph.md) | Workflow graph via GitHub's own parser in a hidden WebEngine | GitHub Actions, workflow graph, `@actions/workflow-parser`, `github-actions`, `uses:` | amends 0017; amended by 0076, 0077 |
 | [0076](adr/0076-cache-of-remote-action-sources.md) | Remote `uses:` read from a git cache of shallow bare repositories | `RemoteSourceCache`, `~/.sluide/cache/git`, Fetch References, GHES, `RemoteSources` | amends 0070, 0075; see 0053 |
@@ -132,6 +132,7 @@ updated when the summary or keywords no longer fit.
 | [0110](adr/0110-tools-menu.md) | Tools menu after Docker Sandbox; a window tool opens as one tab per window, not restored | Tools menu, `WindowTool`, `ToolsMenu`, `WindowTools`, tool tabs | amends 0068; see 0109, 0112 |
 | [0111](adr/0111-coloring-slots-and-inspector.md) | Coloring tool: color slots per tab, the picker column at the right edits the slot being edited, an inspector at the left shows clicked colors | color slots, `ColorSlot`, context picker, inspector, "Use for", `ColoringState` | amends 0109 |
 | [0112](adr/0112-codecs-tool.md) | Codecs tool: two editable sides (the last edited is the source), detection only suggests, one codec at a time with options, binary results as a hex dump, nothing stored | `codecs`, `Codecs`, Base64, Base32, Base58, Ascii85, hex, URL encoding, HTML entities, JSON/Java escapes, Unicode escapes, JWT, hash, HMAC, gzip, `EditorMenuTarget.selectedText` | amends 0047, 0108; see 0110 |
+| [0113](adr/0113-comparing-two-files.md) | Compare Files for two selected files: git's `--no-index` diff on snapshots, upper file left, Swap Sides inverts the hunks | compare files, `GitFileComparison`, `--no-index`, `FileComparisonTab`, `compareFiles`, Swap Sides, `onSwap` | amends 0073, 0044; see 0015, 0019 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
@@ -160,6 +161,7 @@ updated when the summary or keywords no longer fit.
 | [editor-tabs.md](features/editor-tabs.md) | Tab area for files and other `EditorTab`s | tabs, unsaved ●, close confirmation, tab menu, reordering, `onFileClosed`, activity marker |
 | [text-editing.md](features/text-editing.md) | Editing, saving and editor keys for code and text | save, Save All, changes on disk, line endings, indentation, find/replace, go to line, encoding, Windows-1252 |
 | [file-viewers.md](features/file-viewers.md) | The `FileViewer` extension point, code viewers and supported languages | `FileViewer`, `FileView`, `CodeFileViewer`, languages, syntax highlighting, `SourceSplit`, `RunnableFileViewer`, `closeWarning`, `CodeEditors.text`, `TextEditor` |
+| [file-comparison.md](features/file-comparison.md) | Two files from the explorer side by side in a read-only tab | Compare Files, compare two files, `GitFileComparison`, `FileComparisonTab`, Swap Sides, `--no-index`, diff |
 | [env-files.md](features/env-files.md) | `.env` files with masked values | `.env`, masking, Show values, placeholder files |
 
 ### Previews

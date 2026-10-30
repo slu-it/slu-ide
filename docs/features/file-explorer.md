@@ -117,6 +117,9 @@
     (`file-action-icon`), in both themes. The window adds **Run** (play icon) for files whose
     viewer can run them, e.g. shell scripts: it opens the file's tab and runs it there
     ([shell-scripts.md](shell-scripts.md)).
+  - Compare Files follows, only while the window sets `compareFiles`: enabled for exactly two regular files, which it
+    passes in tree order (the upper row first, however they were selected); the window shows them side by side
+    ([file-comparison.md](file-comparison.md), [ADR 0113](../adr/0113-comparing-two-files.md)).
   - Cut, Copy and Paste follow, in a group of their own, showing their keys (Shortcut+X / C / V); see Copy, cut and
     paste below. Copy is enabled for at least one target (also a top-level folder), Cut when all targets can be changed
     (as Delete), Paste when the clipboard holds files and there is one folder to paste into: the clicked folder, the

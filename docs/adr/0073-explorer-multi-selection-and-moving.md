@@ -1,7 +1,8 @@
 # 0073. Multi-selection and moving entries in the explorer
 
-- Status: accepted; its rejection of Cut/Copy/Paste is superseded by
-  [0092](0092-explorer-copy-cut-paste.md) (files come in and go out over the clipboard)
+- Status: accepted; amended by [0113](0113-comparing-two-files.md) (Compare Files for two targets); its rejection of
+  Cut/Copy/Paste is superseded by [0092](0092-explorer-copy-cut-paste.md) (files come in and go out over the
+  clipboard)
 - Date: 2026-10-21
 
 ## Context

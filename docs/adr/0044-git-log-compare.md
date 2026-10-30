@@ -1,6 +1,6 @@
 # 0044. Git log compare: a range as a log mode, the working tree in a window of its own
 
-- Status: accepted
+- Status: accepted; amended by [0113](0113-comparing-two-files.md) (its `--no-index` text diff is shared)
 - Date: 2026-10-17
 
 ## Context
