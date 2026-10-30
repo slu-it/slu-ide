@@ -42,6 +42,17 @@ class DataFamilyTest {
     }
 
     @Test
+    fun `a leading byte order mark is left out, error offsets still count it`() {
+        assertEquals(
+            ReadResult.Read(DataContent(listOf(JsonNodeFactory.instance.objectNode().put("a", 1))), emptyList()),
+            family.read("\uFEFF{\"a\": 1}", JsonFormat, OptionValues()),
+        )
+        assertEquals(JsonFormat, family.detect("\uFEFF{\"a\": 1}").first().format)
+        assertEquals(6, (family.read("\uFEFF{\"a\" 1}", JsonFormat, OptionValues()) as ReadResult.Failed).offset)
+        assertEquals(emptyList<FormatMatch>(), family.detect("\uFEFF\n"))
+    }
+
+    @Test
     fun `blank text matches no format`() {
         assertEquals(emptyList<FormatMatch>(), family.detect(" \n"))
     }

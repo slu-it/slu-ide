@@ -20,14 +20,16 @@ internal class DataFamily(
     override val name = "Data"
     override val formats: List<TextFormat> get() = dataFormats
 
-    override fun detect(text: String): List<FormatMatch> =
-        if (text.isBlank()) {
+    override fun detect(text: String): List<FormatMatch> {
+        val content = withoutBom(text)
+        return if (content.isBlank()) {
             emptyList()
         } else {
             dataFormats
-                .mapNotNull { format -> guarded({ null }) { format.detect(text) }?.let { FormatMatch(format, it) } }
+                .mapNotNull { format -> guarded({ null }) { format.detect(content) }?.let { FormatMatch(format, it) } }
                 .sortedByDescending(FormatMatch::score)
         }
+    }
 
     override fun readOptions(format: TextFormat): List<ConversionOption> = dataFormat(format).readOptions
 
@@ -39,11 +41,11 @@ internal class DataFamily(
         options: OptionValues,
     ): ReadResult<DataContent> {
         val dataFormat = dataFormat(format)
-        return if (text.isBlank()) {
-            ReadResult.Read(DataContent(emptyList()), emptyList())
-        } else {
-            guarded({ ReadResult.Failed(it, null) }) { dataFormat.read(text, options) }
-        }
+        val content = withoutBom(text)
+        if (content.isBlank()) return ReadResult.Read(DataContent(emptyList()), emptyList())
+        val read = guarded({ ReadResult.Failed(it, null) }) { dataFormat.read(content, options) }
+        val offset = (read as? ReadResult.Failed)?.offset ?: return read
+        return read.copy(offset = offset + text.length - content.length)
     }
 
     override fun write(
@@ -63,6 +65,9 @@ internal class DataFamily(
         requireNotNull(
             dataFormats.firstOrNull { it.id == format.id },
         ) { "${format.id} is not a format of the $name family" }
+
+    /** A byte order mark is no content; editors keep it when a file has one. Offsets still count it. */
+    private fun withoutBom(text: String) = text.removePrefix("\uFEFF")
 
     /** Families never throw: a format's unforeseen exception becomes [failed] with its message. */
     private inline fun <R> guarded(
