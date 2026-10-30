@@ -177,7 +177,23 @@ class YamlFormatTest {
                 "a$level: &a$level [${(1..9).joinToString { "*a${level - 1}" }}]"
             }
 
-        assertTrue(YamlFormat.read(bomb, OptionValues()) is ReadResult.Failed)
+        assertEquals(
+            ReadResult.Failed("The YAML expands to more than 100000 values", null),
+            YamlFormat.read(bomb, OptionValues()),
+        )
+    }
+
+    @Test
+    fun `many merges of the same defaults read`() {
+        val yaml =
+            (1..60).joinToString("\n", prefix = ".defaults: &defaults\n  image: alpine\n  tags: [docker]\n") { job ->
+                "job$job:\n  <<: *defaults\n  script: [make $job]"
+            }
+
+        val document = documents(yaml).single()
+
+        assertEquals(61, document.size())
+        assertEquals("""{"image":"alpine","tags":["docker"],"script":["make 60"]}""", document["job60"].toString())
     }
 
     @Test

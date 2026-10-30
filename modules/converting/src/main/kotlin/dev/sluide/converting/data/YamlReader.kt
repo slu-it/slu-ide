@@ -251,8 +251,11 @@ internal class YamlReader(
     }
 
     companion object {
-        /** Values in the result beyond which reading fails: aliases can expand a short text enormously. */
-        const val MAX_NODES = 1_000_000
+        /**
+         * Values in the result beyond which reading fails: aliases can expand a short text enormously (an 822-byte bomb
+         * gave 19.5 MB of JSON at 1 000 000). This, not SnakeYAML's alias count, bounds the expansion.
+         */
+        const val MAX_NODES = 100_000
 
         /** Nesting beyond this fails, as Jackson's own limit would when writing the tree. */
         const val MAX_DEPTH = 500
@@ -263,7 +266,8 @@ internal class YamlReader(
             val options =
                 LoaderOptions().apply {
                     setProcessComments(processComments)
-                    maxAliasesForCollections = 50
+                    // GitLab CI and Compose files merge `<<: *defaults` in every job; MAX_NODES bounds the expansion.
+                    maxAliasesForCollections = 10_000
                     nestingDepthLimit = MAX_DEPTH
                     codePointLimit = 3 * 1024 * 1024
                 }
