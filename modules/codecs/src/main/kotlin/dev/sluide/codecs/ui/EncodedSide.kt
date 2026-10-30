@@ -19,7 +19,11 @@ import org.kordamp.ikonli.materialdesign2.MaterialDesignI
 internal class EncodedSide(
     private val model: ConversionModel,
 ) {
-    private val area = PasteAwareTextArea().apply { promptText = "Encoded" }
+    private val area =
+        PasteAwareTextArea().apply {
+            promptText = "Encoded"
+            isWrapText = true
+        }
     private val hashRows = HashRows(model)
     private val title = Label().apply { styleClass += "codecs-side-title" }
     private val status = StatusLabel(::select)
