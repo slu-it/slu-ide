@@ -6,5 +6,7 @@ internal object DataFormats {
         listOf(
             JsonFormat,
             YamlFormat,
+            CsvFormat,
+            TsvFormat,
         )
 }

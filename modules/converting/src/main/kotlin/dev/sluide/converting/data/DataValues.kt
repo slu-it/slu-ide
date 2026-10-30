@@ -26,7 +26,7 @@ internal const val MAX_NUMBER_DIGITS = 1000
 internal fun tooLongForNumber(text: String) =
     text.length > MAX_NUMBER_DIGITS && text.count(Char::isDigit) > MAX_NUMBER_DIGITS
 
-private val keyOrder: Comparator<String> = String.CASE_INSENSITIVE_ORDER.then(naturalOrder())
+internal val keyOrder: Comparator<String> = String.CASE_INSENSITIVE_ORDER.then(naturalOrder())
 
 /**
  * The node of a value written as text, for formats whose values are strings ("Infer types"): integers and decimals
