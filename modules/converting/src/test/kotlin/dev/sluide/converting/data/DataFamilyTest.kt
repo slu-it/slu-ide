@@ -97,6 +97,25 @@ class DataFamilyTest {
         )
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = ["toml", "properties"])
+    fun `data nested deeper than 500 levels is refused before it reaches a writer`(id: String) {
+        val format = family.formats.single { it.id == id }
+        val text = "a" + ".a".repeat(50_000) + " = 1"
+
+        assertEquals(
+            ReadResult.Failed("Nested more than 500 levels deep", null),
+            family.read(text, format, OptionValues()),
+        )
+    }
+
+    @Test
+    fun `data nested exactly 500 levels deep is read`() {
+        val format = family.formats.single { it.id == "properties" }
+
+        assertTrue(family.read("a" + ".a".repeat(499) + " = 1", format, OptionValues()) is ReadResult.Read)
+    }
+
     @Test
     fun `detection lists every format that reads the text, surest first`() {
         assertEquals(

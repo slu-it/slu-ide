@@ -95,3 +95,18 @@ internal fun counted(
     one: String,
     many: String,
 ): String = "$count ${if (count == 1) one else many}"
+
+/** Whether [node] has containers nested more than [limit] levels deep; iterative, as a deep tree breaks recursion. */
+internal fun isNestedBeyond(
+    node: JsonNode,
+    limit: Int,
+): Boolean {
+    val pending = ArrayDeque<Pair<JsonNode, Int>>()
+    pending.addLast(node to 0)
+    while (pending.isNotEmpty()) {
+        val (current, depth) = pending.removeLast()
+        if (depth > limit) return true
+        current.forEach { pending.addLast(it to depth + 1) }
+    }
+    return false
+}

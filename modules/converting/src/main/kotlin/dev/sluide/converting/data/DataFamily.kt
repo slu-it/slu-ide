@@ -44,6 +44,9 @@ internal class DataFamily(
         val content = withoutBom(text)
         if (content.isBlank()) return ReadResult.Read(DataContent(emptyList()), emptyList())
         val read = guarded({ ReadResult.Failed(it, null) }) { dataFormat.read(content, options) }
+        if (read is ReadResult.Read && read.content.documents.any { isNestedBeyond(it, YamlReader.MAX_DEPTH) }) {
+            return ReadResult.Failed("Nested more than ${YamlReader.MAX_DEPTH} levels deep", null)
+        }
         val offset = (read as? ReadResult.Failed)?.offset ?: return read
         return read.copy(offset = offset + text.length - content.length)
     }
