@@ -49,7 +49,10 @@ internal class YamlReader(
             val comments = countComments(text)
             val notes =
                 buildList {
-                    if (comments > 0) add(counted(comments, "comment dropped", "comments dropped"))
+                    when {
+                        comments == null -> if (seemsCommented(text)) add("Comments dropped")
+                        comments > 0 -> add(counted(comments, "comment dropped", "comments dropped"))
+                    }
                     if (converter.octals > 0) {
                         add(
                             counted(
@@ -82,8 +85,11 @@ internal class YamlReader(
             root.scalarStyle == DumperOptions.ScalarStyle.PLAIN &&
             root.anchor == null
 
-    /** The comments of [text]; SnakeYAML reads them on a second pass only, as it composes no graph with them. */
-    private fun countComments(text: String): Int =
+    /**
+     * The comments of [text]; SnakeYAML reads them on a second pass only, as it composes no graph with them. `null` if
+     * that pass fails (SnakeYAML's comment support rejects some valid YAML, e.g. comments in flow collections).
+     */
+    private fun countComments(text: String): Int? =
         if ('#' !in text) {
             0
         } else {
@@ -92,9 +98,13 @@ internal class YamlReader(
                     it is CommentEvent && it.commentType != CommentType.BLANK_LINE
                 }
             } catch (_: YAMLException) {
-                0
+                null
             }
         }
+
+    /** Whether [text] seems to have a comment: a `#` at the start of a line or after a blank. */
+    private fun seemsCommented(text: String) =
+        text.lineSequence().any { it.trimStart().startsWith("#") } || " #" in text || "\t#" in text
 
     private class Failure(
         override val message: String,

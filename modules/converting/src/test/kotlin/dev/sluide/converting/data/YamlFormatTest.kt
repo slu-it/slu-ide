@@ -150,6 +150,12 @@ class YamlFormatTest {
     }
 
     @ParameterizedTest
+    @ValueSource(strings = ["? # c\n  a\n: b", "a: &x # c\n  b: 1\nc: *x # d", "a: !Ref # c\n  x"])
+    fun `comments SnakeYAML cannot count are still noted`(yaml: String) {
+        assertTrue("Comments dropped" in read(yaml).notes, read(yaml).notes.toString())
+    }
+
+    @ParameterizedTest
     @CsvSource(
         delimiter = '|',
         value = [
