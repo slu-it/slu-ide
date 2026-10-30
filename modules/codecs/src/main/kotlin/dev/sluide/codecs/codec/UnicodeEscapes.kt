@@ -9,21 +9,24 @@ enum class UnicodeForm(
     U_PLUS("U+X"),
 }
 
-/** Unicode escapes in the three common notations; decoding accepts all of them in one text. */
+/**
+ * Unicode escapes in the three common notations; decoding accepts all of them in one text.
+ *
+ * `U+` escapes have no end marker, so in that form one space is written after an escape when the next character is a
+ * hex digit or a space (or any character with [allCharacters]); decoding drops one space after every `U+` escape.
+ */
 internal class UnicodeEscapes(
     private val form: UnicodeForm = UnicodeForm.BACKSLASH_U,
     private val allCharacters: Boolean = false,
 ) : TextCodec {
     override fun encode(text: String): Decoded<String> {
         val out = StringBuilder()
-        var previousEscaped = false
         var i = 0
         while (i < text.length) {
             val cp = text.codePointAt(i)
             i += Character.charCount(cp)
             if (cp <= 127 && !allCharacters) {
                 out.append(cp.toChar())
-                previousEscaped = false
                 continue
             }
             when (form) {
@@ -36,11 +39,12 @@ internal class UnicodeEscapes(
                 }
 
                 UnicodeForm.U_PLUS -> {
-                    if (allCharacters && previousEscaped) out.append(' ')
                     out.append("U+%04X".format(cp))
+                    if (i < text.length && (allCharacters || text[i] == ' ' || hexValue(text[i]) >= 0)) {
+                        out.append(' ')
+                    }
                 }
             }
-            previousEscaped = true
         }
         return Decoded.Value(out.toString())
     }
@@ -51,7 +55,7 @@ internal class UnicodeEscapes(
         var afterUPlus = false
         while (i < text.length) {
             val c = text[i]
-            if (afterUPlus && c == ' ' && hexRun(text, i + 3, 4, 6) > 0 && text.startsWith("U+", i + 1)) {
+            if (afterUPlus && c == ' ') {
                 i++
                 afterUPlus = false
                 continue
@@ -61,7 +65,7 @@ internal class UnicodeEscapes(
                 val digits = hexRun(text, i + 3, 1, 6)
                 val close = i + 3 + digits
                 if (digits > 0 && text.startsWith("}", close)) {
-                    val cp = text.substring(i + 3, close).toInt(16)
+                    val cp = checkNotNull(hexNumber(text, i + 3, close)) { "hexRun counted only hex digits" }
                     if (cp > MAX_CODE_POINT) return tooLarge(i)
                     out.appendCodePoint(cp)
                     i = close + 1
@@ -70,27 +74,14 @@ internal class UnicodeEscapes(
             } else if (c == '\\' && text.startsWith("u", i + 1)) {
                 val unit = hex4(text, i + 2, text.length)
                 if (unit != null) {
-                    var length = 6
-                    val low =
-                        if (unit in 0xD800..0xDBFF &&
-                            text.startsWith("\\u", i + 6)
-                        ) {
-                            hex4(text, i + 8, text.length)
-                        } else {
-                            null
-                        }
                     out.append(unit.toChar())
-                    if (low != null && low in 0xDC00..0xDFFF) {
-                        out.append(low.toChar())
-                        length = 12
-                    }
-                    i += length
+                    i += 6
                     continue
                 }
             } else if (c == 'U' && text.startsWith("+", i + 1)) {
                 val digits = hexRun(text, i + 2, 4, 6)
                 if (digits > 0) {
-                    val cp = text.substring(i + 2, i + 2 + digits).toInt(16)
+                    val cp = checkNotNull(hexNumber(text, i + 2, i + 2 + digits)) { "hexRun counted only hex digits" }
                     if (cp > MAX_CODE_POINT) return tooLarge(i)
                     out.appendCodePoint(cp)
                     i += 2 + digits
@@ -114,7 +105,7 @@ internal class UnicodeEscapes(
         max: Int,
     ): Int {
         var n = 0
-        while (n < max && from + n < text.length && Character.digit(text[from + n], 16) >= 0) n++
+        while (n < max && from + n < text.length && hexValue(text[from + n]) >= 0) n++
         return if (n >= min) n else 0
     }
 
