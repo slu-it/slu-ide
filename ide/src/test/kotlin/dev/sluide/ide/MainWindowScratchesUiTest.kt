@@ -4,6 +4,8 @@ import dev.sluide.fileicons.FileIcon
 import dev.sluide.scratches.SCRATCH_TYPES
 import dev.sluide.scratches.ScratchType
 import javafx.scene.Node
+import javafx.scene.control.Label
+import javafx.scene.control.ListCell
 import javafx.scene.control.ListView
 import javafx.scene.control.TreeCell
 import javafx.scene.control.TreeItem
@@ -135,7 +137,7 @@ class MainWindowScratchesUiTest : MainWindowUiFixture() {
 
         val list = shownPickerList()
         try {
-            robot.interact { assertEquals(kotlin, list.selectionModel.selectedItem) }
+            eventually(robot) { assertEquals(listOf("Kotlin", ".kt"), selectedRowLabels(list)) }
         } finally {
             robot.interact { list.scene.window.hide() }
         }
@@ -152,6 +154,20 @@ class MainWindowScratchesUiTest : MainWindowUiFixture() {
                     .mapNotNull { it.scene.root.lookup(".scratch-picker-list") as? ListView<*> }
                     .single()
             }.get()
+
+    /** The texts of the labels in the selected row of a picker's [list]; on the FX thread. */
+    private fun selectedRowLabels(list: ListView<*>): List<String> =
+        list
+            .lookupAll(".list-cell")
+            .filterIsInstance<ListCell<*>>()
+            .filter { it.isSelected }
+            .flatMap { cell ->
+                cell.graphic
+                    ?.lookupAll(".label")
+                    .orEmpty()
+                    .filterIsInstance<Label>()
+                    .map { it.text }
+            }
 
     @Test
     fun `a scratch file that cannot be created shows an error and opens nothing`(robot: FxRobot) {

@@ -1,4 +1,4 @@
-/* The New Scratch File popup; colours from Modena's looked-up colours, so light and dark themes both apply (ADR 0009). */
+/* The New Scratch File and New Generated Scratch File popups; colours from Modena's looked-up colours, so light and dark themes both apply (ADR 0009). */
 .scratch-picker {
     -fx-spacing: 6;
     -fx-padding: 8;
@@ -18,4 +18,16 @@
 
 .scratch-picker-extension {
     -fx-opacity: 0.55;
+}
+
+/* Group headers of the generated scratch file picker: small, bold and dimmed, never striped like odd rows. */
+.scratch-picker-list .list-cell:header {
+    -fx-background: -fx-control-inner-background;
+    -fx-background-color: -fx-background;
+}
+
+.scratch-picker-header {
+    -fx-font-size: 0.85em;
+    -fx-font-weight: bold;
+    -fx-opacity: 0.6;
 }

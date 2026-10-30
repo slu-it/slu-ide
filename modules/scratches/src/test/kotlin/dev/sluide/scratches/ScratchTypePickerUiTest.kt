@@ -1,5 +1,6 @@
 package dev.sluide.scratches
 
+import dev.sluide.scratches.picker.PickerRow
 import javafx.event.Event
 import javafx.scene.Scene
 import javafx.scene.control.ListCell
@@ -53,7 +54,7 @@ class ScratchTypePickerUiTest {
         robot.interact { picker.show(stage, preselected) { picked = it } }
     }
 
-    private fun names() = picker.list.items.map { it.name }
+    private fun names() = picker.list.items.map { (it as PickerRow.Entry).item.name }
 
     private fun key(
         robot: FxRobot,
@@ -73,8 +74,10 @@ class ScratchTypePickerUiTest {
         open(robot)
         assertTrue(picker.isShowing)
         assertTrue(picker.field.isFocused)
+        // The popup keeps its width; the field spans it inside the padding.
+        assertTrue(picker.field.width > 300, "field width ${picker.field.width}")
         assertEquals(SCRATCH_TYPES.size, picker.list.items.size)
-        assertEquals(markdown, picker.list.selectionModel.selectedItem)
+        assertEquals(markdown, picker.selected)
         val icons = robot.lookup(".ikonli-font-icon").queryAllAs(FontIcon::class.java)
         assertTrue(icons.isNotEmpty())
         assertTrue(icons.all { it.iconSize == 16 }, "icon sizes ${icons.map { it.iconSize }}")
@@ -83,7 +86,7 @@ class ScratchTypePickerUiTest {
     @Test
     fun `selects the first type without a preselection`(robot: FxRobot) {
         open(robot, null)
-        assertEquals(SCRATCH_TYPES.first(), picker.list.selectionModel.selectedItem)
+        assertEquals(SCRATCH_TYPES.first(), picker.selected)
     }
 
     @Test
@@ -91,7 +94,7 @@ class ScratchTypePickerUiTest {
         open(robot)
         robot.interact { picker.field.text = "KOT" }
         assertEquals(listOf("Kotlin", "Kotlin Script"), names())
-        assertEquals("Kotlin", picker.list.selectionModel.selectedItem.name)
+        assertEquals("Kotlin", picker.selected?.name)
     }
 
     @Test
@@ -140,7 +143,7 @@ class ScratchTypePickerUiTest {
             robot
                 .lookup(".list-cell")
                 .queryAllAs(ListCell::class.java)
-                .first { (it.item as? ScratchType)?.extension == "kt" }
+                .first { ((it.item as? PickerRow.Entry<*>)?.item as? ScratchType)?.extension == "kt" }
         robot.interact {
             Event.fireEvent(
                 cell,
