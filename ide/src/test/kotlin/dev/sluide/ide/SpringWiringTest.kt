@@ -18,6 +18,7 @@ import dev.sluide.fileviewers.languages.PythonFileViewer
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCommits
+import dev.sluide.git.GitFileComparison
 import dev.sluide.git.GitLog
 import dev.sluide.git.GitMerges
 import dev.sluide.git.GitPulls
@@ -110,6 +111,7 @@ class SpringWiringTest {
                         GitCli::class.java,
                         GitStatusService::class.java,
                         GitLog::class.java,
+                        GitFileComparison::class.java,
                         GitBranches::class.java,
                         GitCommits::class.java,
                         GitRebases::class.java,

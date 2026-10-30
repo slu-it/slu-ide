@@ -14,6 +14,7 @@ import dev.sluide.fileexplorer.FolderActionResult
 import dev.sluide.fileviewers.CodeEditorExtensions
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.IgnoreRuleEffects
+import dev.sluide.git.GitFileComparison
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitStatusService
 import dev.sluide.git.GitTrustCheck
@@ -23,6 +24,7 @@ import dev.sluide.gitlog.GitLogView
 import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpClientSetup
+import dev.sluide.ide.compare.WindowFileComparison
 import dev.sluide.ide.explorer.WindowExplorer
 import dev.sluide.ide.git.WindowGitLog
 import dev.sluide.ide.git.ignoreRuleEffects
@@ -101,6 +103,7 @@ class MainWindow(
     fontSettings: FontSettings,
     private val coloring: Coloring,
     private val codecs: Codecs,
+    gitFileComparison: GitFileComparison,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
     internal var openWebPage: (URI) -> Unit = systemBrowser::open
@@ -185,6 +188,17 @@ class MainWindow(
             showError = { s, m -> showError(s, m) },
         )
 
+    /** Compare Files of the explorer: two files side by side in a read-only tab (ADR 0113). */
+    private val comparisons =
+        WindowFileComparison(
+            editorArea,
+            fileViewers,
+            gitFileComparison,
+            projectFolder = { folder },
+            // The editor area's hook shows the message on this window's stage, set in show.
+            showError = { editorArea.showError(it) },
+        )
+
     fun show(stage: Stage) {
         themedWindows.install()
         val explorerBar =
@@ -247,6 +261,8 @@ class MainWindow(
         fileExplorer.fileActions = listOf(scriptRuns.action)
         // A context menu's Open in Terminal opens a terminal tab in the folder (ADR 0093).
         fileExplorer.openInTerminal = { tools.openTerminal(stage, it) }
+        // A context menu's Compare Files shows the two files side by side (ADR 0113).
+        fileExplorer.compareFiles = comparisons::compare
         // Git status markers, if git is installed and the folder is a repository (ADR 0013).
         fileExplorer.markers = { path, directory -> gitStatus.snapshot.get().markers(path, directory) }
         // Not for the log file growing inside the folder: the status's own log lines would trigger the next refresh.
@@ -434,6 +450,7 @@ class MainWindow(
 
     /** Closes all tabs (ending their terminals) and stops watching the folder; called when the window is closed. */
     fun dispose() {
+        comparisons.dispose()
         editorArea.closeAll()
         fileExplorer.open(null)
         gitStatus.open(null)

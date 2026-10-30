@@ -1,8 +1,10 @@
 package dev.sluide.ide
 
 import dev.sluide.coloring.color.CssColor
+import dev.sluide.ide.compare.FileComparisonTab
 import javafx.event.Event
 import javafx.scene.Node
+import javafx.scene.control.Button
 import javafx.scene.control.MenuBar
 import javafx.scene.control.MenuItem
 import javafx.scene.control.TextArea
@@ -22,7 +24,10 @@ import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Path
+import java.util.concurrent.Callable
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.TimeUnit
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
 import kotlin.io.path.name
@@ -78,6 +83,71 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
 
         assertEquals(listOf("Terminal 1"), tabTitles(robot))
         assertEquals("Terminal in $sub", checkNotNull(editorArea.selectedTab).tooltip)
+    }
+
+    @Test
+    fun `Compare Files in the explorer opens one comparison tab per pair, left the upper file`(robot: FxRobot) {
+        val a = project.resolve("a.txt").apply { writeText("one\ntwo\n") }
+        val b = project.resolve("b.txt").apply { writeText("one\n2\n") }
+        robot.interact { projectService.open(project) }
+        val cell =
+            robot
+                .lookup(".tree-cell")
+                .queryAllAs(TreeCell::class.java)
+                .single { (it.item as? Path)?.name == "b.txt" }
+        robot.interact {
+            fileExplorer.selectionModel.clearSelection()
+            fileExplorer.root.children
+                .single { it.value == project }
+                .children
+                .filter { it.value == a || it.value == b }
+                .sortedByDescending { it.value.name }
+                .forEach { fileExplorer.selectionModel.select(it) }
+            Event.fireEvent(
+                cell,
+                ContextMenuEvent(ContextMenuEvent.CONTEXT_MENU_REQUESTED, 1.0, 1.0, 1.0, 1.0, false, null),
+            )
+        }
+        val item = fileExplorer.contextMenu.items.single { it.text == "Compare Files" }
+        robot.interact { fileExplorer.contextMenu.hide() }
+
+        fun <T> onFx(read: () -> T): T = WaitForAsyncUtils.asyncFx(Callable { read() }).get()
+
+        fun comparisonTabs() = onFx { editorArea.tabs.filterIsInstance<FileComparisonTab>() }
+
+        fun waitUntil(condition: () -> Boolean) = WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { onFx(condition) }
+
+        val errors = CopyOnWriteArrayList<String>()
+        mainWindow.showError = { _, message -> errors += message }
+        robot.interact { item.fire() }
+        waitUntil { errors.isNotEmpty() || editorArea.tabs.any { it is FileComparisonTab } }
+        assertEquals(emptyList(), errors)
+
+        val tab = comparisonTabs().single()
+        assertEquals("a.txt ↔ b.txt", onFx { tab.title.value })
+        assertEquals("one\ntwo\n", onFx { tab.comparison.leftText })
+        assertEquals(tab, onFx { editorArea.selectedTab })
+
+        // Swap Sides shows the swapped comparison in a new view, which can swap back.
+        fun swap() = robot.interact { (tab.content.lookup(".diff-swap") as Button).fire() }
+        swap()
+        assertEquals("b.txt ↔ a.txt", onFx { tab.title.value })
+        assertEquals("one\n2\n", onFx { tab.comparison.leftText })
+        swap()
+        assertEquals("a.txt ↔ b.txt", onFx { tab.title.value })
+        swap()
+
+        // Comparing again reads the files again and keeps the tab's sides.
+        val swapped = onFx { tab.comparison }
+        robot.interact { item.fire() }
+        waitUntil { tab.comparison !== swapped }
+        assertEquals(1, comparisonTabs().size)
+        assertEquals("b.txt ↔ a.txt", onFx { tab.title.value })
+        assertEquals("one\n2\n", onFx { tab.comparison.leftText })
+
+        swap()
+        assertEquals("a.txt ↔ b.txt", onFx { tab.title.value })
+        assertEquals("one\ntwo\n", onFx { tab.comparison.leftText })
     }
 
     @Test

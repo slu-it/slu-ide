@@ -16,6 +16,7 @@ import dev.sluide.fileviewers.FileViewers
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCommits
+import dev.sluide.git.GitFileComparison
 import dev.sluide.git.GitLog
 import dev.sluide.git.GitMerges
 import dev.sluide.git.GitPulls
@@ -140,6 +141,7 @@ class ProjectWindowsUiTest {
                 register(Todos::class.java)
                 registerBean(SavedColors::class.java, Supplier { SavedColors(projectData) })
                 register(GitLog::class.java)
+                register(GitFileComparison::class.java)
                 register(GitBranches::class.java)
                 register(GitCommits::class.java)
                 register(GitRebases::class.java)
