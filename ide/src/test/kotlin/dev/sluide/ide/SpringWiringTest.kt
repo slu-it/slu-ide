@@ -1,6 +1,7 @@
 package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.codecs.Codecs
 import dev.sluide.coloring.Coloring
 import dev.sluide.coloring.SavedColors
 import dev.sluide.commandruns.ArgumentHistories
@@ -167,6 +168,7 @@ class SpringWiringTest {
                         BackgroundTasks::class.java,
                         TodoPanel::class.java,
                         Coloring::class.java,
+                        Codecs::class.java,
                     )
                 val scoped =
                     context.beanFactory.beanDefinitionNames.filter {

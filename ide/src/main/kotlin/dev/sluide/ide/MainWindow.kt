@@ -1,6 +1,7 @@
 package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.codecs.Codecs
 import dev.sluide.coloring.Coloring
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.dockersandbox.DockerSandbox
@@ -99,6 +100,7 @@ class MainWindow(
     todoPanel: TodoPanel,
     fontSettings: FontSettings,
     private val coloring: Coloring,
+    private val codecs: Codecs,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
     internal var openWebPage: (URI) -> Unit = systemBrowser::open
@@ -179,6 +181,7 @@ class MainWindow(
             dockerSandbox,
             editorArea,
             coloring,
+            codecs,
             showError = { s, m -> showError(s, m) },
         )
 
@@ -274,11 +277,13 @@ class MainWindow(
         // Views that run commands (shell scripts) run them in the window's terminals and list them among its
         // background tasks (ADR 0088, ADR 0089).
         editorArea.windowServices.register(CommandRunSession::class.java, commandRuns)
-        // Code editors show the colors of style, markup and script files as swatches and open them in Coloring (ADR 0108, ADR 0109).
+        // Code editors show the colors of style, markup and script files as swatches and open them in Coloring (ADR 0108,
+        // ADR 0109), and open a selection in Codecs (ADR 0112).
         editorArea.windowServices.register(
             CodeEditorExtensions::class.java,
             CodeEditorExtensions().apply {
                 add(coloring.editorExtension)
+                add(codecs.editorExtension)
             },
         )
         gradleSession.reviewTrust = { trust.review(stage) }

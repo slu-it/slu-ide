@@ -1,6 +1,7 @@
 package dev.sluide.ide
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.codecs.Codecs
 import dev.sluide.coloring.Coloring
 import dev.sluide.coloring.SavedColors
 import dev.sluide.commandruns.ArgumentHistories
@@ -276,6 +277,7 @@ abstract class MainWindowUiFixture {
             TodoPanel(todos).also(todoPanels::add),
             fontSettings,
             Coloring(SavedColors(projectData)).also(colorings::add),
+            Codecs(),
         )
     }
 

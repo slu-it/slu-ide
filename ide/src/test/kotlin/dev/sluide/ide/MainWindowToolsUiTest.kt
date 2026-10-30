@@ -4,6 +4,8 @@ import dev.sluide.coloring.color.CssColor
 import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.control.MenuBar
+import javafx.scene.control.MenuItem
+import javafx.scene.control.TextArea
 import javafx.scene.control.TreeCell
 import javafx.scene.input.ContextMenuEvent
 import javafx.scene.input.KeyCode
@@ -12,6 +14,7 @@ import javafx.scene.input.KeyCombination
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.stage.Stage
+import org.fxmisc.richtext.CodeArea
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.api.FxRobot
@@ -179,8 +182,7 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
                 .map { it.text }
         assertEquals(listOf("Docker Sandbox", "Tools"), menus.takeLast(2))
 
-        val coloringItem = menu(robot, "Tools").items.single()
-        assertEquals("Coloring", coloringItem.text)
+        val coloringItem = menu(robot, "Tools").items.single { it.text == "Coloring" }
         robot.interact { coloringItem.fire() }
         robot.interact { coloringItem.fire() }
 
@@ -232,5 +234,41 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
 
         assertEquals(listOf("main.css", "Coloring"), tabTitles(robot))
         assertEquals("Color tools", checkNotNull(editorArea.selectedTab).tooltip)
+    }
+
+    @Test
+    fun `Tools - Codecs opens one Codecs tab`(robot: FxRobot) {
+        val codecsItem = menu(robot, "Tools").items.single { it.text == "Codecs" }
+        robot.interact { codecsItem.fire() }
+        robot.interact { codecsItem.fire() }
+
+        assertEquals(listOf("Codecs"), tabTitles(robot))
+        assertEquals("Encode and decode text", checkNotNull(editorArea.selectedTab).tooltip)
+    }
+
+    @Test
+    fun `Open Selection in Codecs in a code editor's context menu opens the Codecs tab with the selection`(
+        robot: FxRobot,
+    ) {
+        val file = project.resolve("notes.txt").apply { writeText("aGVsbG8gd29ybGQ=\n") }
+        robot.interact { editorArea.open(file) }
+        eventually(robot) { assertEquals(1, robot.lookup(".code-area").queryAllAs(CodeArea::class.java).size) }
+        val area = robot.lookup(".code-area").queryAs(CodeArea::class.java)
+
+        val item =
+            WaitForAsyncUtils
+                .asyncFx<MenuItem> {
+                    area.selectRange(0, 16)
+                    val menu = checkNotNull(area.contextMenu)
+                    val at = area.localToScreen(5.0, 5.0)
+                    menu.show(area, at.x, at.y)
+                    menu.items.single { it.text == "Open Selection in Codecs" }.also { menu.hide() }
+                }.get()
+        assertFalse(item.isDisable)
+        robot.interact { item.fire() }
+
+        assertEquals(listOf("notes.txt", "Codecs"), tabTitles(robot))
+        val text = robot.lookup(".text-area").queryAllAs(TextArea::class.java).first { it.promptText == "Text" }
+        assertEquals("hello world", WaitForAsyncUtils.asyncFx<String> { text.text }.get())
     }
 }

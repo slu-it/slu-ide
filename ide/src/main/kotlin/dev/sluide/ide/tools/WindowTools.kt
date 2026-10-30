@@ -1,5 +1,6 @@
 package dev.sluide.ide.tools
 
+import dev.sluide.codecs.Codecs
 import dev.sluide.coloring.Coloring
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.dockersandbox.SandboxAction
@@ -19,7 +20,8 @@ import java.nio.file.Path
 
 /**
  * The tools of one window: the Terminal and Docker Sandbox menus with the terminal tabs they open in the
- * [editorArea], and the Tools menu with the Coloring tab (ADR 0110). [showError] shows why a tool cannot be started. Used on the JavaFX thread.
+ * [editorArea], and the Tools menu with the Coloring and Codecs tabs (ADR 0110, ADR 0112). [showError] shows why a
+ * tool cannot be started. Used on the JavaFX thread.
  */
 internal class WindowTools(
     private val projectService: ProjectService,
@@ -28,21 +30,26 @@ internal class WindowTools(
     private val dockerSandbox: DockerSandbox,
     private val editorArea: EditorArea,
     coloring: Coloring,
+    codecs: Codecs,
     private val showError: (Stage, String) -> Unit,
 ) {
     /** The Coloring tool of the Tools menu. */
     internal val coloringTool = WindowTool("Coloring", coloring::createTab)
 
+    /** The Codecs tool of the Tools menu. */
+    internal val codecsTool = WindowTool("Codecs", codecs::createTab)
+
     /** The Tools menu logic; tests choose tools through it. */
     internal val toolsMenu =
-        ToolsMenu({ editorArea.tabs }, editorArea::open, editorArea::select, listOf(coloringTool))
+        ToolsMenu({ editorArea.tabs }, editorArea::open, editorArea::select, listOf(coloringTool, codecsTool))
 
     init {
         coloring.showTab = { toolsMenu.open(coloringTool) }
+        codecs.showTab = { toolsMenu.open(codecsTool) }
         coloring.projectFolder.bind(projectService.projectFolder)
     }
 
-    /** The Tools menu: Coloring. */
+    /** The Tools menu: Coloring, Codecs. */
     fun toolsMenu(): Menu = toolsMenu.menu()
 
     /** The Terminal menu: New Terminal. */
