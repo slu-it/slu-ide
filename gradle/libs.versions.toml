@@ -39,6 +39,9 @@ jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 ec4j-core = { module = "org.ec4j.core:ec4j-core", version.ref = "ec4j" }
 # Version from the Spring Boot BOM (Jackson 3).
 jackson-databind = { module = "tools.jackson.core:jackson-databind" }
+# Versions from the Spring Boot BOM (Jackson 3).
+jackson-dataformat-toml = { module = "tools.jackson.dataformat:jackson-dataformat-toml" }
+jackson-dataformat-csv = { module = "tools.jackson.dataformat:jackson-dataformat-csv" }
 # Version from the Spring Boot BOM.
 snakeyaml = { module = "org.yaml:snakeyaml" }
 
