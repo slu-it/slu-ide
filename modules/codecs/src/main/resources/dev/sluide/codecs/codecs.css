@@ -1,0 +1,66 @@
+/* The Codecs tool (ADR 0112). Colors are Modena's looked-up ones, so dark mode follows the theme. */
+.codecs {
+    -fx-background-color: -fx-background;
+}
+
+.codecs .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.codecs .text-area, .codecs-hash-value {
+    -fx-font-family: "monospace";
+}
+
+.codecs-group {
+    -fx-font-size: 0.8em;
+    -fx-font-weight: bold;
+    -fx-opacity: 0.7;
+    -fx-padding: 8 4 2 4;
+}
+
+.codecs-codec {
+    -fx-alignment: center-left;
+    -fx-background-color: transparent;
+}
+
+.codecs-codec:selected {
+    -fx-background-color: -fx-selection-bar;
+    -fx-text-fill: -fx-selection-bar-text;
+}
+
+.codecs-side-title {
+    -fx-font-weight: bold;
+}
+
+.codecs-status {
+    -fx-opacity: 0.7;
+    -fx-min-height: 1.4em;
+}
+
+.codecs-status.codecs-error {
+    -fx-opacity: 1;
+    -fx-text-fill: #d32f2f;
+}
+
+.codecs-status.codecs-warning {
+    -fx-opacity: 1;
+    -fx-text-fill: #b45309;
+}
+
+.codecs-hint {
+    -fx-padding: 4;
+    -fx-border-color: -fx-box-border;
+    -fx-border-radius: 3;
+}
+
+.codecs-copy {
+    -fx-padding: 2 5 2 5;
+}
+
+.codecs-hash-rows {
+    -fx-background-color: transparent;
+}
+
+.codecs-hash-rows > .viewport {
+    -fx-background-color: transparent;
+}
