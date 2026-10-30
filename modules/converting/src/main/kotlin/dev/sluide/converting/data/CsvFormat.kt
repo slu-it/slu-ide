@@ -323,7 +323,7 @@ internal class CsvTable(
     val errorOffset: Int?,
 ) {
     companion object {
-        /** The delimiter, `,` or `;`, that gives the same number (at least 2) of columns in each of the first 20 records. */
+        /** The delimiter, `,` or `;`, that gives the same number (≥ 2) of columns in each of the first 20 records. */
         fun guessDelimiter(
             text: String,
             start: Int,

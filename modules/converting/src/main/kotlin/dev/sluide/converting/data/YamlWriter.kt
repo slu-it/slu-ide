@@ -96,7 +96,7 @@ internal object YamlWriter {
             }
         }
 
-    /** A decimal without a point or exponent (`!!float 1` read from YAML) would read back as an integer: write it so. */
+    /** A decimal without a point or exponent (`!!float 1` from YAML) would read back as an integer: write it so. */
     private fun decimal(text: String) =
         scalar(if (text.any { it == '.' || it == 'e' || it == 'E' }) Tag.FLOAT else Tag.INT, text)
 

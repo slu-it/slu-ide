@@ -29,7 +29,8 @@ private object CoreSchema {
 
 /**
  * Resolves plain scalars by the YAML 1.2 core schema: only `true` and `false` are booleans (so `on:` stays a key and
- * `NO` a string), no timestamps, no sexagesimal numbers; `<<` stays a merge key. Leading zeros mean octal ([CoreSchema.int]).
+ * `NO` a string), no timestamps, no sexagesimal numbers; `<<` stays a merge key. Leading zeros mean octal
+ * ([CoreSchema.int]).
  */
 internal class CoreSchemaResolver : Resolver() {
     override fun addImplicitResolvers() {

@@ -69,7 +69,7 @@ internal fun integerNode(value: BigInteger): JsonNode =
         else -> BigIntegerNode.valueOf(value)
     }
 
-/** A copy of [node] with the keys of every object sorted case-insensitively, then naturally; arrays keep their order. */
+/** A copy of [node] with every object's keys sorted case-insensitively, then naturally; arrays keep their order. */
 internal fun sortKeys(node: JsonNode): JsonNode =
     when {
         node.isObject -> {
