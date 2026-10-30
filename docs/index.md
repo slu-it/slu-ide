@@ -134,6 +134,7 @@ updated when the summary or keywords no longer fit.
 | [0112](adr/0112-codecs-tool.md) | Codecs tool: two editable sides (the last edited is the source), detection only suggests, one codec at a time with options, binary results as a hex dump, nothing stored | `codecs`, `Codecs`, Base64, Base32, Base58, Ascii85, hex, URL encoding, HTML entities, JSON/Java escapes, Unicode escapes, JWT, hash, HMAC, gzip, `EditorMenuTarget.selectedText` | amends 0047, 0108; see 0110 |
 | [0113](adr/0113-comparing-two-files.md) | Compare Files for two selected files: git's `--no-index` diff on snapshots, upper file left, Swap Sides inverts the hunks | compare files, `GitFileComparison`, `--no-index`, `FileComparisonTab`, `compareFiles`, Swap Sides, `onSwap`, `Shortcut+Shift+D` | amends 0073, 0044; see 0015, 0019 |
 | [0114](adr/0114-generated-scratch-files.md) | Generated scratch files: a picker of pure generators creates prefilled scratch files | generated scratch files, `ScratchGenerator`, `GeneratorContext`, `GeneratorPicker`, `FilterPicker`, Shortcut+Shift+G, UUID, password | amends 0066 |
+| [0115](adr/0115-converting-tool.md) | Converting tool: a format picker per side with Detect, format families as an extension point, a data tree between JSON/YAML/TOML/properties/CSV, YAML 1.2, Spring properties dialect, best effort with notes | `converting`, `Converting`, `FormatFamily`, JSON, YAML, TOML, properties, CSV, TSV, detection, Spring Boot, Infer types, Convert to | amends 0047; see 0079, 0110, 0112 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
@@ -209,3 +210,4 @@ Explored but not decided or built; options and trade-offs, no commitment.
 | [windows-support.md](ideas/windows-support.md) | What Windows support would take, in three scopes | Windows, CI runners, packaging, paths, file locking |
 | [headless-ui-tests.md](ideas/headless-ui-tests.md) | Spike of UI tests on JavaFX's headless platform; not adopted | headless, JavaFX 27, Xvfb, parallel forks |
 | [scratch-generators.md](ideas/scratch-generators.md) | Scratch generators left out of the first version: test data, keys, UUID v3/v5 | test data, IBAN, Lorem Ipsum, key pairs, certificate, BouncyCastle, UUID v5, insert at caret |
+| [converting-formats.md](ideas/converting-formats.md) | Formats left out of the first Converting tool: XML, .env, INI, HCL, query strings, Markdown tables, JSON to code | XML, `.env`, environment variables, relaxed binding, INI, HCL, JSON5, query string, Markdown table, JSON Schema |
