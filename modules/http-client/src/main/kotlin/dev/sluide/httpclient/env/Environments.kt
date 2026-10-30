@@ -52,6 +52,15 @@ internal data class Environments(
             return Environments(environments, problems)
         }
 
+        /**
+         * The values of environment [name] in the private file of [files] alone, `null` if it has none: the values that
+         * Copy as cURL leaves out unless asked (ADR 0116).
+         */
+        fun privateValues(
+            files: EnvironmentFiles,
+            name: String,
+        ): ObjectNode? = files.private?.let { read(it, mutableListOf()) }?.get(name) as? ObjectNode
+
         private fun read(
             file: Path,
             problems: MutableList<String>,

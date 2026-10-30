@@ -6,13 +6,20 @@ import dev.sluide.fileviewers.WindowServices
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpFileViewer
 import dev.sluide.httpclient.auth.TokenEndpoint
+import dev.sluide.httpclient.curl.PrivateValuesAnswer
+import dev.sluide.httpclient.curl.privateValuesQuestion
 import dev.sluide.httpclient.send.TestServer
 import javafx.event.Event
 import javafx.event.EventType
 import javafx.scene.Node
 import javafx.scene.Scene
+import javafx.scene.control.Button
+import javafx.scene.control.ButtonType
 import javafx.scene.control.Menu
+import javafx.scene.control.MenuItem
 import javafx.scene.control.TextField
+import javafx.scene.input.Clipboard
+import javafx.scene.input.ClipboardContent
 import javafx.scene.input.KeyCode
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
@@ -642,5 +649,130 @@ class HttpFileViewUiTest {
         assertEquals("Failed", view.response.status.text)
         assertEquals("There is no request at line 4", view.response.error.text)
         assertTrue(view.cancelButton.isDisable)
+    }
+
+    private fun <T> fx(read: () -> T): T = WaitForAsyncUtils.asyncFx<T>(read).get()
+
+    /** The item [text] of the editor's context menu opened with the caret on [line]. */
+    private fun menuItem(
+        robot: FxRobot,
+        line: Int,
+        text: String,
+    ): MenuItem =
+        fx {
+            val area = robot.area()
+            area.moveTo(line, 0)
+            val menu = checkNotNull(area.contextMenu)
+            val at = area.localToScreen(5.0, 5.0)
+            menu.show(area, at.x, at.y)
+            val item = menu.items.single { it.text == text }
+            menu.hide()
+            item
+        }
+
+    private fun clipboard(): String? = fx { Clipboard.getSystemClipboard().string }
+
+    private fun putOnClipboard(text: String) =
+        fx { Clipboard.getSystemClipboard().setContent(ClipboardContent().apply { putString(text) }) }
+
+    @Test
+    fun `Copy as cURL copies the request of the line resolved against the chosen environment`(robot: FxRobot) {
+        dir.resolve("http-client.env.json").writeText("""{"dev": {"host": "https://dev.example.com"}}""")
+        val view = openHosted("GET https://a\n\n###\nGET {{host}}/users\nX-Id: {{\$random.integer(7, 8)}}\n", robot)
+        awaitEnvironments(view, "No environment", "dev")
+        robot.interact { view.environments.value = "dev" }
+        putOnClipboard("before")
+
+        val copy = menuItem(robot, 3, CurlActions.COPY)
+        robot.interact { copy.fire() }
+
+        // The environment files are read in the background.
+        WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { clipboard() != "before" }
+        assertEquals("curl https://dev.example.com/users \\\n  -L \\\n  -H 'X-Id: 7'", clipboard())
+        assertEquals("Copied as cURL", fx { view.message.text })
+    }
+
+    @Test
+    fun `Copy as cURL asks before it copies private values`(robot: FxRobot) {
+        dir.resolve("http-client.env.json").writeText("""{"dev": {}}""")
+        dir.resolve("http-client.private.env.json").writeText("""{"dev": {"token": "s3cret"}}""")
+        val view = openHosted("GET https://x\nX-Token: {{token}}\n", robot)
+        awaitEnvironments(view, "No environment", "dev")
+        robot.interact { view.environments.value = "dev" }
+        val copy = menuItem(robot, 0, CurlActions.COPY)
+
+        for ((answer, copied) in listOf(
+            PrivateValuesAnswer.CANCEL to null,
+            PrivateValuesAnswer.KEEP to "{{token}}",
+            PrivateValuesAnswer.INCLUDE to "s3cret",
+        )) {
+            putOnClipboard("before")
+            val asked = CountDownLatch(1)
+            var names: List<String> = emptyList()
+            robot.interact {
+                view.askPrivateValues = { _, it ->
+                    names = it
+                    asked.countDown()
+                    answer
+                }
+                copy.fire()
+            }
+            // The question comes after the environment files were read in the background.
+            assertTrue(asked.await(10, TimeUnit.SECONDS))
+            WaitForAsyncUtils.waitForFxEvents()
+
+            assertEquals(listOf("token"), names)
+            val expected = copied?.let { "curl https://x \\\n  -L \\\n  -H 'X-Token: $it'" } ?: "before"
+            assertEquals(expected, clipboard(), answer.name)
+        }
+    }
+
+    @Test
+    fun `the private values dialog has Cancel as its default button`() {
+        val buttons =
+            fx {
+                val dialog = privateValuesDialog(null, listOf("token"))
+                listOf(ButtonType.CANCEL, INCLUDE_BUTTON, KEEP_BUTTON).map {
+                    (dialog.dialogPane.lookupButton(it) as Button).isDefaultButton
+                } + (dialog.contentText == privateValuesQuestion(listOf("token")))
+            }
+
+        assertEquals(listOf(true, false, false, true), buttons)
+    }
+
+    @Test
+    fun `Paste cURL as Request inserts the clipboard's command after the request of the line, undoable`(
+        robot: FxRobot,
+    ) {
+        val text = "GET https://a\n\n###\nGET https://b\n"
+        openHosted(text, robot)
+        putOnClipboard("no curl")
+        val disabled = menuItem(robot, 0, CurlActions.PASTE)
+        assertTrue(fx { disabled.isDisable })
+
+        putOnClipboard("curl -L https://n -H 'A: b'")
+        val paste = menuItem(robot, 0, CurlActions.PASTE)
+        assertFalse(fx { paste.isDisable })
+        robot.interact { paste.fire() }
+
+        assertEquals("GET https://a\n\n###\nGET https://n\nA: b\n\n###\nGET https://b\n", fx { robot.area().text })
+        assertEquals(3, fx { robot.area().currentParagraph })
+        robot.interact { robot.area().undo() }
+        assertEquals(text, fx { robot.area().text })
+    }
+
+    @Test
+    fun `Paste cURL as Request shows why a command cannot be pasted`(robot: FxRobot) {
+        val view = openHosted("GET https://a\n", robot)
+        putOnClipboard("curl --data-raw '< /home/me/.ssh/id_rsa' https://x")
+
+        val paste = menuItem(robot, 0, CurlActions.PASTE)
+        robot.interact { paste.fire() }
+
+        assertEquals("GET https://a\n", fx { robot.area().text })
+        assertEquals(
+            "Could not paste cURL: Line 1 of the body starts with '<', which a .http file reads as a file to include",
+            fx { view.message.tooltip.text },
+        )
     }
 }

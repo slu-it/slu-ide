@@ -7,6 +7,7 @@ import dev.sluide.textediting.CommentSyntax
 import javafx.beans.value.ObservableValue
 import javafx.collections.ListChangeListener
 import javafx.scene.Node
+import javafx.scene.control.MenuItem
 import javafx.util.Subscription
 import org.fxmisc.flowless.VirtualizedScrollPane
 import org.fxmisc.richtext.CodeArea
@@ -66,6 +67,13 @@ interface CodeEditor :
 
     /** Moves the caret to the start of [line] (0-based, kept within the text) and scrolls that line to the top. */
     fun showLineAtTop(line: Int)
+
+    /**
+     * Adds items of the view that embeds this editor to its context menu, in the order added together with those of
+     * the window's [CodeEditorExtensions]: [items] is asked each time the menu shows, for where it was opened
+     * (ADR 0108, 0116).
+     */
+    fun addContextMenuItems(items: (EditorMenuTarget) -> List<MenuItem>)
 }
 
 /** A read-only text with line numbers, highlighted like code views, e.g. the body of an HTTP response. */
@@ -227,4 +235,7 @@ private class CodeViewEditor(
         view.area.moveTo(shown, 0)
         view.area.showParagraphAtTop(shown)
     }
+
+    override fun addContextMenuItems(items: (EditorMenuTarget) -> List<MenuItem>) =
+        view.extensible.addContextMenuItems(items)
 }

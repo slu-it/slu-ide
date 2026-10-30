@@ -17,13 +17,15 @@ internal class UnresolvedVariablesException(
  * 3. the in-file `@variables` (the last definition wins).
  *
  * Text values of the environment and of in-file variables may use variables themselves; cycles are reported as
- * unresolved.
+ * unresolved. Names for which [kept] is true stay as written without counting as unresolved, e.g. private values
+ * left out of a copied cURL command (ADR 0116).
  */
 internal class VariableResolver(
     private val environment: Environment?,
     fileVariables: List<FileVariable>,
     private val dynamic: DynamicVariables = DynamicVariables(),
     private val auth: (id: String, idToken: Boolean) -> String? = { _, _ -> null },
+    private val kept: (name: String) -> Boolean = { false },
 ) {
     /** A text with the variables that could be replaced replaced, the others as written, and their names. */
     data class Partial(
@@ -82,6 +84,7 @@ internal class VariableResolver(
     ): String? {
         val name = ref.name
         if (name.startsWith("$")) return dynamic(name, emptyList(), name, unresolved)
+        if (kept(name)) return ref.raw
         val node = environmentNode(ref)
         val text =
             when {

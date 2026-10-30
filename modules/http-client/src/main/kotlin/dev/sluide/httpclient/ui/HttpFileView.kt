@@ -4,6 +4,7 @@ import dev.sluide.fileviewers.CodeEditor
 import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.httpclient.HttpClientSession
+import dev.sluide.httpclient.curl.PrivateValuesAnswer
 import dev.sluide.httpclient.env.Environment
 import dev.sluide.httpclient.env.EnvironmentFiles
 import dev.sluide.httpclient.env.Environments
@@ -38,6 +39,7 @@ import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
+import javafx.stage.Window
 import javafx.util.Duration
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignC
@@ -192,10 +194,20 @@ internal class HttpFileView(
             }
         }
 
+    /** Asks whether Copy as cURL puts private values in; replaced in tests. */
+    internal var askPrivateValues: (Window?, List<String>) -> PrivateValuesAnswer = ::askToIncludePrivateValues
+
+    /** Copy as cURL and Paste cURL as Request in the editor's context menu. */
+    private val curl =
+        CurlActions(editor, { file }, { session }, { host?.projectFolder }, ::showMessage) { owner, names ->
+            askPrivateValues(owner, names)
+        }
+
     init {
         // Invalidations only: the text is built once typing pauses, not on every key.
         editor.textProperty.addListener(InvalidationListener { reparse.playFromStart() })
         editor.addGutterColumn(RUN_ICON_COLUMN, ::runColumn)
+        editor.addContextMenuItems(curl::items)
         isRunning.addListener { _, _, running -> cancelButton.isDisable = !running }
         updateRunnable()
         refreshEnvironments()
