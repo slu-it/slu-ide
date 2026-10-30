@@ -11,6 +11,8 @@ diffs ([git-diff.md](git-diff.md)).
 - Select two files in the explorer and choose **Compare Files** in the context menu
   ([file-explorer.md](file-explorer.md)). It is enabled for exactly two regular files; they may lie anywhere the
   explorer shows (project, Scratches), in different repositories or in none.
+- Shortcut+Shift+D in the explorer does the same for two selected files; it is the key of View → Show Changes, which
+  keeps working for every other selection.
 - The upper file in the tree goes on the left, the lower one on the right, whatever order they were selected in.
 - The tab is titled `a.txt ↔ b.txt`; for two files of the same name `name (dirA ↔ dirB)`, with their folders' names.
   Its tooltip, "Comparing <path> and <path>", shows both full paths without telling the sides. Above each side

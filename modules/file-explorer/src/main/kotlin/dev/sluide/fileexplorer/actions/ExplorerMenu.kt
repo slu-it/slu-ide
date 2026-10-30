@@ -1,5 +1,6 @@
 package dev.sluide.fileexplorer.actions
 
+import dev.sluide.fileexplorer.COMPARE_KEYS
 import dev.sluide.fileexplorer.COPY_KEYS
 import dev.sluide.fileexplorer.CUT_KEYS
 import dev.sluide.fileexplorer.FileAction
@@ -65,9 +66,15 @@ internal fun menuState(
         cut = targets.isNotEmpty() && targets.all { it.canChange },
         copy = targets.isNotEmpty(),
         paste = canPaste,
-        compare = targets.size == 2 && targets.all { it.isRegularFile },
+        compare = comparePair(targets) { it.isRegularFile } != null,
     )
 }
+
+/** The two [items] to compare, in order: exactly two entries that are all regular files ([isRegularFile]), else `null`. */
+internal fun <T> comparePair(
+    items: List<T>,
+    isRegularFile: (T) -> Boolean,
+): Pair<T, T>? = if (items.size == 2 && items.all(isRegularFile)) items[0] to items[1] else null
 
 /**
  * Shows [keys] in a menu item without being an accelerator: it matches no key. A control's context menu puts the
@@ -147,11 +154,9 @@ internal class ExplorerMenuHost(
 internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
     val open = MenuItem("Open").apply { setOnAction { host.openFiles(host.targets()) } }
     val compare =
-        MenuItem("Compare Files").apply {
-            setOnAction {
-                val targets = host.targets()
-                if (targets.size == 2) host.compareFiles(targets[0].value, targets[1].value)
-            }
+        shortcutItem("Compare Files", COMPARE_KEYS) {
+            val targets = host.targets()
+            if (targets.size == 2) host.compareFiles(targets[0].value, targets[1].value)
         }
     val newFile = MenuItem("New File…").apply { setOnAction { host.create(host.targets().singleOrNull(), false) } }
     val newFolder = MenuItem("New Folder…").apply { setOnAction { host.create(host.targets().singleOrNull(), true) } }

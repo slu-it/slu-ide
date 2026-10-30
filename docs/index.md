@@ -132,7 +132,7 @@ updated when the summary or keywords no longer fit.
 | [0110](adr/0110-tools-menu.md) | Tools menu after Docker Sandbox; a window tool opens as one tab per window, not restored | Tools menu, `WindowTool`, `ToolsMenu`, `WindowTools`, tool tabs | amends 0068; see 0109, 0112 |
 | [0111](adr/0111-coloring-slots-and-inspector.md) | Coloring tool: color slots per tab, the picker column at the right edits the slot being edited, an inspector at the left shows clicked colors | color slots, `ColorSlot`, context picker, inspector, "Use for", `ColoringState` | amends 0109 |
 | [0112](adr/0112-codecs-tool.md) | Codecs tool: two editable sides (the last edited is the source), detection only suggests, one codec at a time with options, binary results as a hex dump, nothing stored | `codecs`, `Codecs`, Base64, Base32, Base58, Ascii85, hex, URL encoding, HTML entities, JSON/Java escapes, Unicode escapes, JWT, hash, HMAC, gzip, `EditorMenuTarget.selectedText` | amends 0047, 0108; see 0110 |
-| [0113](adr/0113-comparing-two-files.md) | Compare Files for two selected files: git's `--no-index` diff on snapshots, upper file left, Swap Sides inverts the hunks | compare files, `GitFileComparison`, `--no-index`, `FileComparisonTab`, `compareFiles`, Swap Sides, `onSwap` | amends 0073, 0044; see 0015, 0019 |
+| [0113](adr/0113-comparing-two-files.md) | Compare Files for two selected files: git's `--no-index` diff on snapshots, upper file left, Swap Sides inverts the hunks | compare files, `GitFileComparison`, `--no-index`, `FileComparisonTab`, `compareFiles`, Swap Sides, `onSwap`, `Shortcut+Shift+D` | amends 0073, 0044; see 0015, 0019 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
@@ -161,7 +161,7 @@ updated when the summary or keywords no longer fit.
 | [editor-tabs.md](features/editor-tabs.md) | Tab area for files and other `EditorTab`s | tabs, unsaved ●, close confirmation, tab menu, reordering, `onFileClosed`, activity marker |
 | [text-editing.md](features/text-editing.md) | Editing, saving and editor keys for code and text | save, Save All, changes on disk, line endings, indentation, find/replace, go to line, encoding, Windows-1252 |
 | [file-viewers.md](features/file-viewers.md) | The `FileViewer` extension point, code viewers and supported languages | `FileViewer`, `FileView`, `CodeFileViewer`, languages, syntax highlighting, `SourceSplit`, `RunnableFileViewer`, `closeWarning`, `CodeEditors.text`, `TextEditor` |
-| [file-comparison.md](features/file-comparison.md) | Two files from the explorer side by side in a read-only tab | Compare Files, compare two files, `GitFileComparison`, `FileComparisonTab`, Swap Sides, `--no-index`, diff |
+| [file-comparison.md](features/file-comparison.md) | Two files from the explorer side by side in a read-only tab | Compare Files, compare two files, `GitFileComparison`, `FileComparisonTab`, Swap Sides, `--no-index`, diff, `Shortcut+Shift+D` |
 | [env-files.md](features/env-files.md) | `.env` files with masked values | `.env`, masking, Show values, placeholder files |
 
 ### Previews

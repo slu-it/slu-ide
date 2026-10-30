@@ -15,6 +15,7 @@ import dev.sluide.fileexplorer.actions.askToCopy
 import dev.sluide.fileexplorer.actions.askToDelete
 import dev.sluide.fileexplorer.actions.askToMove
 import dev.sluide.fileexplorer.actions.buildExplorerMenu
+import dev.sluide.fileexplorer.actions.comparePair
 import dev.sluide.fileexplorer.tree.EXPAND_DELAY
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import dev.sluide.fileexplorer.tree.PathCell
@@ -308,6 +309,12 @@ class FileExplorerView(
                 cut = copies::cut,
                 paste = copies::paste,
                 cancelCut = copies::cancelCut,
+                compare = { items ->
+                    val hook = compareFiles
+                    val pair = comparePair(items) { Files.isRegularFile(it.value) }
+                    if (hook != null && pair != null) hook(pair.first.value, pair.second.value)
+                    hook != null && pair != null
+                },
             ),
         )
         contextMenu =

@@ -119,7 +119,8 @@
     ([shell-scripts.md](shell-scripts.md)).
   - Compare Files follows, only while the window sets `compareFiles`: enabled for exactly two regular files, which it
     passes in tree order (the upper row first, however they were selected); the window shows them side by side
-    ([file-comparison.md](file-comparison.md), [ADR 0113](../adr/0113-comparing-two-files.md)).
+    ([file-comparison.md](file-comparison.md), [ADR 0113](../adr/0113-comparing-two-files.md)). The item shows
+    Shortcut+Shift+D, which in the explorer compares two selected files and is otherwise left to View → Show Changes.
   - Cut, Copy and Paste follow, in a group of their own, showing their keys (Shortcut+X / C / V); see Copy, cut and
     paste below. Copy is enabled for at least one target (also a top-level folder), Cut when all targets can be changed
     (as Delete), Paste when the clipboard holds files and there is one folder to paste into: the clicked folder, the

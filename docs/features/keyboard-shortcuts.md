@@ -20,7 +20,7 @@ Accelerators of the menu bar ([open-folder.md](open-folder.md), [settings.md](se
 | Shortcut+Alt+S | File → Save All |
 | Shortcut+W | File → Close Tab (file, diff and tool tabs such as Coloring, not terminals) |
 | Shortcut+, | File → Settings… |
-| Shortcut+Shift+D | View → Show Changes (side-by-side diff of the current file) |
+| Shortcut+Shift+D | View → Show Changes (side-by-side diff of the current file); in the explorer with two files selected, Compare Files |
 | Alt+F1 (Option+F1 on macOS) | View → Select Opened File (reveals the selected tab's file in the explorer and focuses it; not while a terminal has the focus, it sends Alt+F1 to the shell; many Linux desktops (GNOME, KDE, Xfce) grab Alt+F1 themselves, so it may never reach the app there) |
 | Alt+1 (Cmd+1 on macOS) | View → Explorer (expand or collapse the explorer column; not while a terminal has the focus on Linux and Windows) |
 | Alt+9 (Cmd+9 on macOS) | View → Git Log (expand or collapse) |
@@ -127,6 +127,7 @@ All previews and images zoom, only while the rendered view has the focus, not in
 | Shortcut+X | Cut the selected entries (dimmed until pasted) |
 | Shortcut+V | Paste into the selected folder, the folder of the selected file, or the project folder: copies, or moves cut entries |
 | Escape | Cancel a cut (when no drag runs) |
+| Shortcut+Shift+D | Compare the two selected files side by side (exactly two files; otherwise View → Show Changes) |
 | Drag entries onto a folder or the empty area | Move them (after a confirmation) |
 | Option+drag (macOS) / Ctrl+drag (Windows, Linux) entries onto a folder or the empty area | Copy them instead of moving (after a confirmation) |
 | Escape while dragging entries | Cancel the drag |

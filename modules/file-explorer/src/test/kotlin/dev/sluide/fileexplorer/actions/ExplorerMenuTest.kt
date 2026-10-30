@@ -156,7 +156,9 @@ class ExplorerMenuTest {
         folders: Int,
         expected: Boolean,
     ) {
-        assertEquals(expected, state(*Array(files) { file }, *Array(folders) { folder }).compare)
+        val targets = listOf(*Array(files) { file }, *Array(folders) { folder })
+        assertEquals(expected, state(*targets.toTypedArray()).compare)
+        assertEquals(expected, comparePair(targets) { it.isRegularFile } != null)
     }
 
     @Test

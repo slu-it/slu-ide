@@ -97,10 +97,11 @@ abstract class FileExplorerViewUiFixture {
         return item
     }
 
-    /** Presses [code] on the view, with the shortcut key (Cmd on macOS, else Ctrl) if [shortcut]. */
+    /** Presses [code] on the view, with the shortcut key (Cmd on macOS, else Ctrl) if [shortcut], with Shift if [shift]. */
     protected fun pressKey(
         code: KeyCode,
         shortcut: Boolean = false,
+        shift: Boolean = false,
     ) {
         val mac = System.getProperty("os.name").lowercase().contains("mac")
         Event.fireEvent(
@@ -110,7 +111,7 @@ abstract class FileExplorerViewUiFixture {
                 "",
                 "",
                 code,
-                false,
+                shift,
                 shortcut && !mac,
                 false,
                 shortcut && mac,

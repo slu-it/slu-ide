@@ -19,6 +19,9 @@ whether the tab follows changes on disk, and what the right side is.
   two regular files (anywhere: project, Scratches, other repositories or none). It is the only item that needs exactly
   two targets; the explorer only passes the files on (`FileExplorerView.compareFiles`, hidden while `null`). No
   file chooser, tab-menu or clipboard comparison for now.
+- **Shortcut+Shift+D in the focused explorer** compares the two selected files: it is the key of Show Changes, a diff of
+  what has the focus. The explorer takes it only for exactly two files, so Show Changes keeps working otherwise;
+  Shortcut+D stays Duplicate in the editor.
 - **The upper file in the tree goes left.** The explorer does not keep a reliable selection order, and tree order gives
   the same result however the files were clicked. A **Swap Sides** button on the diff's toolbar
   (`DiffFileView.onSwap`, shown while set) flips them.

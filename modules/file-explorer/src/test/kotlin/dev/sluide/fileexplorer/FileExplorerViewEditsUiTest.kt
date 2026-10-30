@@ -327,7 +327,7 @@ class FileExplorerViewEditsUiTest : FileExplorerViewUiFixture() {
     }
 
     @Test
-    fun `Compare Files gives the hook the two selected files, the upper one first`(robot: FxRobot) {
+    fun `Compare Files and Shortcut+Shift+D give the hook the two selected files, the upper one first`(robot: FxRobot) {
         val upper = project.resolve("a.txt").createFile()
         val lower = project.resolve("b.txt").createFile()
         robot.interact { view.open(project) }
@@ -349,6 +349,27 @@ class FileExplorerViewEditsUiTest : FileExplorerViewUiFixture() {
         assertFalse(enabled.isDisable)
         robot.interact { enabled.fire() }
         assertEquals(listOf(upper to lower), compared)
+        assertEquals(COMPARE_KEYS.displayText, enabled.accelerator.displayText)
+
+        // The keys: consumed for two files, so Show Changes does not also run; left alone otherwise.
+        compared.clear()
+        var reached = 0
+        view.scene.accelerators[COMPARE_KEYS] = Runnable { reached++ }
+        robot.interact { pressKey(KeyCode.D, shortcut = true, shift = true) }
+        assertEquals(listOf(upper to lower), compared)
+        assertEquals(0, reached, "consumed")
+        robot.interact { view.selectionModel.clearAndSelect(1) }
+        robot.interact { pressKey(KeyCode.D, shortcut = true, shift = true) }
+        assertEquals(1, compared.size)
+        assertEquals(1, reached, "one file is left to Show Changes")
+        robot.interact {
+            view.selectionModel.select(2)
+            view.compareFiles = null
+            pressKey(KeyCode.D, shortcut = true, shift = true)
+        }
+        assertEquals(1, compared.size)
+        assertEquals(2, reached, "without the hook, left to Show Changes")
+        robot.interact { view.scene.accelerators.remove(COMPARE_KEYS) }
     }
 
     @Test
