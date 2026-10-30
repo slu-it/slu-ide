@@ -18,6 +18,8 @@ dependencies {
     implementation(libs.spring.context)
     // Pretty-prints the header and payload of JWTs.
     implementation(libs.jackson.databind)
+    // Decodes HTML5 named character references (all of them, as browsers do).
+    implementation(libs.jsoup)
 
     implementation(libs.ikonli.javafx)
     implementation(libs.ikonli.materialdesign2)
