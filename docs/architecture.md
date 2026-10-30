@@ -27,6 +27,7 @@ assembled from Gradle modules.
 | `gradle` | feature | Gradle builds: finding the wrapper or a global `gradle` (`detect`), the bundled init script and the task model it reads (`tasks`), the project trust check (`trust`), the window's `GradleSession` (task lists per build, load claims, stale marks) and the Gradle view of build files with its task tree, its jobs (`GradleJob`) and `BuildTasks` (`view`); runs go through `command-runs`. | [0085](adr/0085-gradle-integration.md), [0088](adr/0088-shared-command-runs.md) |
 | `shell-scripts` | feature | Shell scripts that run from their view: `ShellScriptFileViewer` (`.sh`, `.bash`, `.zsh`, `.ksh` and shell shebangs; a `RunnableFileViewer`), the view with Run and Source \| Split \| Output, the questions before a run (`ScriptRunFlow`: stop, unsaved changes, execute permission), the command line and the job's texts; runs go through `command-runs`. | [0089](adr/0089-running-shell-scripts.md), [0091](adr/0091-argument-history-of-runs.md) |
 | `coloring` | feature | The Coloring tool: a tab opened from the Tools menu (`Coloring`, one per window, with the current and second color of the window), the CSS color math it works on (`CssColor`, parser, formats, gamut mapping, named colors), and the gutter swatches and menu item it adds to the code editors. | [0109](adr/0109-coloring-tool.md), [0110](adr/0110-tools-menu.md) |
+| `codecs` | feature | The Codecs tool: a tab opened from the Tools menu (`Codecs`, one per window) that encodes and decodes text in two editable sides (Base64 and other byte codecs, escapes, JWT, hashes), the pure-Kotlin codecs, and "Open Selection in Codecs" in the code editors. | [0112](adr/0112-codecs-tool.md), [0110](adr/0110-tools-menu.md) |
 | `git` | feature | Git status, diffs, the log's reads and the write operations, behind `GitCli`; the cache of remote repositories to read single files at a ref (`RemoteSourceCache`). | [0013](adr/0013-git-status.md), [0015](adr/0015-git-diff.md), [0041](adr/0041-git-write-operations.md), [0076](adr/0076-cache-of-remote-action-sources.md) |
 | `git-log` | feature | The git area under the editor (user-facing name "Git Log"): log and graph, branches pane, file history, compare, the Commit tab and the Push dialog, and the write operations; `gitlog.data` is the model and reading layer. | [0035](adr/0035-git-log-area.md), [0048](adr/0048-commit-tab.md), [0049](adr/0049-push.md) |
 | `file-explorer` | feature | The file tree of the open folder with file operations. | [0024](adr/0024-file-operations-in-the-explorer.md) |
@@ -43,7 +44,7 @@ assembled from Gradle modules.
 | `ide` | app | Launcher, Spring Boot configuration, main window and its window parts; wires the modules together. | [0002](adr/0002-spring-inside-javafx.md), [0068](adr/0068-window-parts-in-ide.md) |
 
 Feature modules are one IDE capability each. The editor family (`editor-area`, `file-viewers`, `previews`, `terminal`,
-`docker-sandbox`, `http-client`, `github-actions`, `command-runs`, `gradle`, `shell-scripts`, `coloring`: what is shown as editor tabs
+`docker-sandbox`, `http-client`, `github-actions`, `command-runs`, `gradle`, `shell-scripts`, `coloring`, `codecs`: what is shown as editor tabs
 or file views) is one capability family, and so are `git` and `git-log` ([ADR 0047](adr/0047-module-dependencies-and-shared-modules.md), amended by
 [ADR 0071](adr/0071-editor-area-module.md) and [ADR 0069](adr/0069-previews-module.md)). A member of a family that
 has no UI of its own may be a plain library without Spring beans (`github-actions`, which `previews` shows). Foundation
@@ -116,6 +117,8 @@ Every edge between modules, as in the `build.gradle.kts` files
 | `coloring` | `editor-area` | `api` | The Coloring tool is an `EditorTab` that `Coloring.createTab()` returns for the window's `EditorArea`. | [0109](adr/0109-coloring-tool.md), [0110](adr/0110-tools-menu.md) |
 | `coloring` | `file-viewers` | `api` | It extends the code editors with gutter swatches and a menu item. | [0108](adr/0108-code-editor-extensions-and-context-menu.md) |
 | `coloring` | `project-data` | `api` | Saved colors live in the project data and take the `ProjectDataStore`. | [0090](adr/0090-per-project-metadata-store.md), [0109](adr/0109-coloring-tool.md) |
+| `codecs` | `editor-area` | `api` | The Codecs tool is an `EditorTab` that `Codecs.createTab()` returns for the window's `EditorArea`. | [0110](adr/0110-tools-menu.md), [0112](adr/0112-codecs-tool.md) |
+| `codecs` | `file-viewers` | `api` | It adds "Open Selection in Codecs" to the code editors' context menu. | [0108](adr/0108-code-editor-extensions-and-context-menu.md), [0112](adr/0112-codecs-tool.md) |
 | `project-trust` | `project-data` | `api` | `TrustedProjects` keeps the `trust` field in the project's data and takes the `ProjectDataStore`; `LegacyTrustDecisions` migrates `project-trust.properties`. | [0090](adr/0090-per-project-metadata-store.md) |
 | `project-trust` | `background-tasks` | `api` | The trust checks run on `NamedThreads` and as `BackgroundTasks`; `ProjectTrust`'s constructor takes the registry. | [0060](adr/0060-logging-conventions.md), [0061](adr/0061-background-tasks.md) |
 | `file-explorer` | `file-watcher` | `api` | Loaded folders are watched; `FileExplorerView` takes the `FileWatcher`. | [0006](adr/0006-file-watching.md) |
@@ -132,6 +135,7 @@ Every edge between modules, as in the `build.gradle.kts` files
 | `ide` | `scratches` | `implementation` | `WindowScratches` gives the explorer the scratches folder as an `ExplorerRoot`, adds File → New Scratch File…, deletes empty scratches when closed, and keeps scratch-only changes from refreshing the git status. | [0066](adr/0066-scratch-files.md) |
 | `ide` | `todos` | `implementation` | `WindowTodos` puts the window's `TodoPanel` at the right end of the main split, adds View → TODOs (Alt+6), gives the panel the editor area for files, the system browser for links and a Markdown code editor in the editor font for the dialog; `TodoPanel` is a window bean and `Todos` a singleton, named in the window tests' bean lists. | [0102](adr/0102-todo-panel.md) |
 | `ide` | `coloring` | `implementation` | `Coloring` is a window bean and `SavedColors` a singleton, both named in the window tests' bean lists; `WindowTools` builds the Tools menu (`ToolsMenu`) with the Coloring tab and gives `Coloring` the project folder and the way to show its tab. | [0109](adr/0109-coloring-tool.md), [0110](adr/0110-tools-menu.md) |
+| `ide` | `codecs` | `implementation` | `Codecs` is a window bean, named in the window tests' bean lists; `WindowTools` adds its tab to the Tools menu and gives it the way to show its tab; `MainWindow` registers its code editor extension. | [0110](adr/0110-tools-menu.md), [0112](adr/0112-codecs-tool.md) |
 
 `NamedThreads` and `BackgroundTasks` are two things of `background-tasks`: every consumer above uses `NamedThreads`,
 and `git`, `git-log`, `project-trust`, `http-client` and `command-runs` also register tasks. Their constructors expose the registry
@@ -166,7 +170,7 @@ Shared build configuration (JDK toolchain, test setup, Spring BOM) is in the roo
    instead ([ADR 0034](adr/0034-project-picker.md)).
 4. Each window gets its own instances of the beans with `@Scope("window")` (`WindowScope`, [ADR 0014](adr/0014-project-windows.md)):
    `MainWindow`, `ProjectService`, `FileExplorerView`, `EditorArea`, `Terminals`, `DockerSandbox`, `GitStatusService`,
-   `GitLogView`, `HttpClientSession`, `CommandRunSession`, `GradleSession`, `ProjectTrust`, `BackgroundTasks`, `TodoPanel`, `Coloring`. `MainWindow` coordinates; the integration of each
+   `GitLogView`, `HttpClientSession`, `CommandRunSession`, `GradleSession`, `ProjectTrust`, `BackgroundTasks`, `TodoPanel`, `Coloring`, `Codecs`. `MainWindow` coordinates; the integration of each
    feature is a window part class in `ide` ([ADR 0068](adr/0068-window-parts-in-ide.md)).
    They are created when the window opens and destroyed (`close()`) when it closes. Singletons must not depend on
    them.

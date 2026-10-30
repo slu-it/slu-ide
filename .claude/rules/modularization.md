@@ -15,7 +15,7 @@ paths:
   `project-data`).
   Unrelated feature modules do not depend on each other; `ide` wires them through callbacks. The editor family
   (`editor-area`, `file-viewers`, `previews`, `terminal`, `docker-sandbox`, `http-client`, `github-actions`,
-  `command-runs`, `gradle`, `shell-scripts`, `coloring`: what is shown as editor tabs or file views) counts as one capability
+  `command-runs`, `gradle`, `shell-scripts`, `coloring`, `codecs`: what is shown as editor tabs or file views) counts as one capability
   family.
 - When two modules need the same piece of a third, extract it into a small module instead of depending on the whole
   feature module.
