@@ -6,8 +6,8 @@ import javafx.scene.layout.VBox
 import javafx.util.Subscription
 
 /**
- * The head of the left column: which slot it edits ("Editing: <tab> › <slot>"), the input field for that slot's color
- * in any CSS notation and a large preview (ADR 0111).
+ * The head of the picker column: which slot it edits ("Editing: <tab> › <slot>"), the input field for that slot's
+ * color in any CSS notation and a large preview (ADR 0111).
  */
 internal class InputSection(
     state: ColoringState,

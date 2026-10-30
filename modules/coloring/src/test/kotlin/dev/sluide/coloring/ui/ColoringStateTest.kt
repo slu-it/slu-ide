@@ -134,7 +134,7 @@ class ColoringStateTest {
     }
 
     @Test
-    fun `editing the stop slot through the left column writes the gradient`() {
+    fun `editing the stop slot through the picker column writes the gradient`() {
         state.edit(state.gradientStop)
 
         state.editingColor.set(green)

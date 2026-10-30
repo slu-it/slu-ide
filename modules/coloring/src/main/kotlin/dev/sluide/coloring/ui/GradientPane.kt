@@ -38,7 +38,7 @@ import kotlin.math.roundToInt
 
 /**
  * A CSS gradient builder on the window's gradient ([ColoringState.gradient]), which outlives the tab. The selected
- * stop is the Gradient slot (ADR 0111): selecting or adding a stop edits it in the left column. A click on the
+ * stop is the Gradient slot (ADR 0111): selecting or adding a stop edits it in the picker column. A click on the
  * preview shows the color there in the inspector and changes no slot. The decisions are in `analysis/Gradients.kt`;
  * this class connects them to the controls.
  */
@@ -129,7 +129,7 @@ internal class GradientPane(
         copyButton.setOnAction {
             Clipboard.getSystemClipboard().setContent(ClipboardContent().apply { putString(css(gradient)) })
         }
-        // The gradient also changes from outside: through the stop's slot in the left column.
+        // The gradient also changes from outside: through the stop's slot in the picker column.
         subscriptions =
             listOf(
                 state.gradient.subscribe { _ -> refresh() },
@@ -144,7 +144,7 @@ internal class GradientPane(
         preview.dispose()
     }
 
-    /** Edits the selected stop in the left column. */
+    /** Edits the selected stop in the picker column. */
     private fun editStop() = state.edit(state.gradientStop, ColoringState.GRADIENT)
 
     private fun inspectAt(

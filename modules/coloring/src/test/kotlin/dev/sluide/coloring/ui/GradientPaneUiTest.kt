@@ -92,7 +92,7 @@ class GradientPaneUiTest {
 
         assertEquals("linear-gradient(in oklch 90deg, #3b82f6 0%, #ff0000 100%)", css())
 
-        // The left column edits the same stop.
+        // The picker column edits the same stop.
         robot.interact { state.editingColor.set(CssColor.fromRgb8(0, 255, 0)) }
         assertEquals("linear-gradient(in oklch 90deg, #3b82f6 0%, #00ff00 100%)", css())
     }
@@ -127,7 +127,7 @@ class GradientPaneUiTest {
         assertSame(state.gradientStop, state.editing.get())
         assertEquals("Stop 2 of 3", info.text)
 
-        // Edit the new stop through the left column.
+        // Edit the new stop through the picker column.
         robot.interact { state.editingColor.set(CssColor.fromRgb8(255, 0, 0)) }
         assertTrue(css().contains("#ff0000 50%"), css())
 

@@ -66,12 +66,14 @@ class ColoringViewUiTest {
     }
 
     @Test
-    fun `the left column, the tool tabs and the inspector are the three columns`() {
+    fun `the inspector, the tool tabs and the picker column are the three columns`() {
         val root = view.node as BorderPane
         assertEquals("coloring-left", root.left.id)
+        assertNotNull(root.left.lookup("#coloring-use-for"))
         assertSame(view.toolTabs, root.center)
         assertEquals("coloring-right", root.right.id)
-        assertNotNull(root.right.lookup("#coloring-use-for"))
+        assertNotNull(root.right.lookup(".coloring-input"))
+        assertEquals(listOf(root.right, root.center, root.left), root.children, "Tab goes from the picker on")
         assertTrue(view.toolTabs.tabs.all { (it.content as? ScrollPane)?.isFitToWidth == true }, "tool tabs scroll")
     }
 
@@ -101,7 +103,7 @@ class ColoringViewUiTest {
             robot.lookup(".coloring-cell .swatch").queryAllAs(Swatch::class.java).first {
                 it.tooltipText != ColorFormatter.hex(state.base.color.get())
             }
-        val inspector = (view.node as BorderPane).right as Parent
+        val inspector = (view.node as BorderPane).left as Parent
         val useFor = inspector.lookup("#coloring-use-for") as Button
 
         robot.interact { click(shade) }

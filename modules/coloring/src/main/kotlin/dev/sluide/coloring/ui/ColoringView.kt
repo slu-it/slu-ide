@@ -13,8 +13,8 @@ import javafx.scene.layout.VBox
 import java.nio.file.Path
 
 /**
- * The content of the Coloring tab (ADR 0111): at the left the picker for the slot being edited, in the center the
- * tools that compare or derive colors in tabs, at the right the inspector. Switching the tool tab edits the slot that
+ * The content of the Coloring tab (ADR 0111): at the left the inspector, in the center the tools that compare or
+ * derive colors in tabs, at the right the picker for the slot being edited. Switching the tool tab edits the slot that
  * tab remembers. The colors live in the window's state, which outlives the tab: every section and pane releases its
  * listeners and bindings on it in `dispose()`, and [dispose] calls them all, so a new section must be added there.
  */
@@ -52,9 +52,11 @@ internal class ColoringView(
             stylesheets +=
                 checkNotNull(ColoringView::class.java.getResource("/dev/sluide/coloring/coloring.css"))
                     .toExternalForm()
-            left = column("coloring-left", COLUMN_WIDTH, input.node, picker.node, palette.node)
+            // Tab follows the order the children are added: from the input field through the picker to the tool
+            // tabs and then the inspector, not out of the view.
+            right = column("coloring-right", PICKER_WIDTH, input.node, picker.node, palette.node)
             center = toolTabs
-            right = column("coloring-right", INSPECTOR_WIDTH, inspector.node)
+            left = column("coloring-left", INSPECTOR_WIDTH, inspector.node)
             // Focus goes to the color input field when the tab is shown, as in a terminal.
             sceneProperty().subscribe { scene -> if (scene != null) Platform.runLater(::focus) }
         }
@@ -89,7 +91,7 @@ internal class ColoringView(
         },
     )
 
-    /** Gives the focus to the first input of the tool: the color input field. */
+    /** Gives the focus to the color input field at the head of the picker column. */
     fun focus() = input.focus()
 
     /** Releases the listeners of all sections and panes on the window's state. */
@@ -107,7 +109,7 @@ internal class ColoringView(
     }
 
     private companion object {
-        const val COLUMN_WIDTH = 340.0
+        const val PICKER_WIDTH = 340.0
         const val INSPECTOR_WIDTH = 380.0
     }
 }

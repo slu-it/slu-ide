@@ -24,7 +24,7 @@ import java.nio.file.Path
 import java.util.Locale
 
 /**
- * The inspector at the right of the Coloring tab (ADR 0111): the inspected color large, its gamut note, its nearest
+ * The inspector at the left of the Coloring tab (ADR 0111): the inspected color large, its gamut note, its nearest
  * name (a click inspects the named color), its formats, Save, and "Use for <slot>", which writes it into the slot
  * being edited.
  */

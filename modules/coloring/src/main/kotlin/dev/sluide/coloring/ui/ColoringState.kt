@@ -14,7 +14,7 @@ import javafx.util.Subscription
 
 /**
  * The colors the Coloring tool of one window works on (ADR 0111): the slots of the tool tabs, the gradient, the slot
- * the left column edits and the color the inspector shows. Outlives the tab. Used on the JavaFX thread.
+ * the picker column edits and the color the inspector shows. Outlives the tab. Used on the JavaFX thread.
  */
 internal class ColoringState {
     val contrastText = ColorSlot(CONTRAST, "Text", CssColor.fromRgb8(0x1e, 0x29, 0x3b))
@@ -50,7 +50,7 @@ internal class ColoringState {
      */
     val gradientStop = ColorSlot(GRADIENT, "Stop", gradient.value.stops[0].color)
 
-    /** The slot the left column edits. */
+    /** The slot the picker column edits. */
     val editing: ObjectProperty<ColorSlot> = SimpleObjectProperty(contrastText)
 
     /** The color of [editing]: reads and writes that slot's color, and follows a switch of the slot. */
@@ -94,7 +94,7 @@ internal class ColoringState {
     fun inspect(color: CssColor) = inspected.set(color)
 
     /**
-     * Edits [slot] in the left column and remembers it for the tool tab [tab]; the inspector shows the slot's color
+     * Edits [slot] in the picker column and remembers it for the tool tab [tab]; the inspector shows the slot's color
      * again, also when [slot] was already being edited.
      */
     fun edit(

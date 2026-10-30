@@ -130,7 +130,7 @@ updated when the summary or keywords no longer fit.
 | [0108](adr/0108-code-editor-extensions-and-context-menu.md) | Window service through which features add gutter columns and context-menu items to every code editor; the code editor's context menu | `CodeEditorExtensions`, `CodeEditorExtension`, `ExtensibleCodeEditor`, `EditorMenuTarget`, context menu, right-click moves caret, `ChangeMarkerFollower` | see 0070, 0080, 0022 |
 | [0109](adr/0109-coloring-tool.md) | Coloring tool in its own editor-family module with pure-Kotlin color math; saved colors per project; color detection in style and markup files | `coloring`, `Coloring`, `SavedColors`, CSS Color 4, OKLCH, gamut mapping, WCAG, APCA, color-vision deficiency, `color-mix()` | amends 0047; amended by 0111; see 0090, 0101, 0108, 0110 |
 | [0110](adr/0110-tools-menu.md) | Tools menu after Docker Sandbox; a window tool opens as one tab per window, not restored | Tools menu, `WindowTool`, `ToolsMenu`, `WindowTools`, tool tabs | amends 0068; see 0109 |
-| [0111](adr/0111-coloring-slots-and-inspector.md) | Coloring tool: color slots per tab, the left column picks the slot being edited, an inspector at the right shows clicked colors | color slots, `ColorSlot`, context picker, inspector, "Use for", `ColoringState` | amends 0109 |
+| [0111](adr/0111-coloring-slots-and-inspector.md) | Coloring tool: color slots per tab, the picker column at the right edits the slot being edited, an inspector at the left shows clicked colors | color slots, `ColorSlot`, context picker, inspector, "Use for", `ColoringState` | amends 0109 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features

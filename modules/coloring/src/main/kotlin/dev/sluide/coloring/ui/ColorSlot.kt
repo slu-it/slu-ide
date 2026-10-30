@@ -4,7 +4,9 @@ import dev.sluide.coloring.color.CssColor
 import javafx.beans.property.ObjectProperty
 import javafx.beans.property.SimpleObjectProperty
 
-/** A named color a tab of the Coloring tool works on; the left column edits it while it is [ColoringState.editing]. */
+/**
+ * A named color a tab of the Coloring tool works on; the picker column edits it while it is [ColoringState.editing].
+ */
 internal class ColorSlot(
     val tab: String,
     val label: String,

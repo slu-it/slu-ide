@@ -13,7 +13,7 @@ import javafx.util.Subscription
 
 /**
  * A slot of a tool tab: its label, a swatch and a field of its color (ADR 0111). A click on the swatch (which also
- * focuses the field), a press in the field or the focus in it make it the slot the left column edits, remembered for
+ * focuses the field), a press in the field or the focus in it make it the slot the picker column edits, remembered for
  * the tool tab [tab]; while it is, the node is marked `:editing`.
  */
 internal class SlotView(

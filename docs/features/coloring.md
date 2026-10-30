@@ -6,14 +6,14 @@
 
 The Coloring tool works with colors in all CSS notations: it compares colors, derives shades, harmonies, mixes and
 gradients, shows how people with color vision deficiencies see them, and shows any color in each notation. It is a tab
-of the editor area with three columns: the picker for the slot being edited at the left, the tools in tabs in the
-center (each scrolls when it is taller than the window) and the inspector at the right.
+of the editor area with three columns: the inspector at the left, the tools in tabs in the center (each scrolls when
+it is taller than the window) and the picker for the slot being edited at the right.
 
 ## Slots
 Each tool tab names the colors it works on, its **slots**: Contrast has Text and Background (Vision shows the same
 pair), Shades & Harmonies has Base, Mix has Color 1 and Color 2 and, for the opacity, Color and Background, Gradient
 has the selected stop. A slot shows its label, a swatch and a field. A click on the swatch, a press in the field or the
-focus in it makes it the slot being edited, marked with an accent ring; the left column then edits it. Each tool tab
+focus in it makes it the slot being edited, marked with an accent ring; the picker column then edits it. Each tool tab
 remembers the slot last edited in it, so switching tabs edits that slot (at first the tab's first slot).
 
 ## Opening
@@ -23,7 +23,7 @@ remembers the slot last edited in it, so switching tabs edits that slot (at firs
 - The slots and the gradient belong to the window, not to the tab: when the tab is closed and opened again, they are
   as they were.
 
-## Left column: the slot being edited
+## Picker column (right): the slot being edited
 
 ### Input
 "Editing: <tab> › <slot>" at the top names the slot being edited. The field below reads any CSS color notation as you
@@ -50,7 +50,7 @@ from elsewhere keeps the last hue. The color it sets is in HSV (`hsv()` coordina
 gamut-mapped into sRGB first if needed.
 
 ### Saved colors
-The section at the bottom of the left column lists the colors saved with the inspector's Save button. Nothing is saved
+The section at the bottom of the picker column lists the colors saved with the inspector's Save button. Nothing is saved
 automatically, there is no history. The colors are stored per project in the project data (field `colors`), or in
 `shared.json` in a window without a folder. A color is saved once: the same 8-bit color in another notation counts as
 saved. Click a swatch to write it into the slot being edited; right-click it and choose Remove to delete it. All windows
@@ -58,7 +58,7 @@ of a project show the same saved colors and follow changes made in another windo
 muted message says so and the log has the reason.
 
 ## Inspector
-The column at the right shows one color: a click on a derived swatch (a shade, a harmony, a mix, a suggestion, a
+The column at the left shows one color: a click on a derived swatch (a shade, a harmony, a mix, a suggestion, a
 simulated color) shows it here and changes no slot; otherwise it follows the slot being edited. It has a large preview,
 a note when the color lies outside sRGB and is shown mapped into the gamut, and "Name: x" for an exact named color or
 "Nearest name: x" for the closest by deltaE OK (the distance in the tooltip); a click on the name shows that named color
@@ -130,7 +130,7 @@ gradient line, by the distance from the center, or by the angle from the start a
   ("Stop 2 of 3" beside it says which), drag it to move it (it may pass the other stops; two at one position make a
   sharp edge). The selected stop's color is edited in the slot's field, in any notation (`:invalid` while the text is
   not a color: the stop keeps its last valid color and the mark stays until the text is corrected or Escape restores
-  the stop's text), or in the left column. **Add stop** inserts a stop in the middle of the widest gap with the
+  the stop's text), or in the picker column. **Add stop** inserts a stop in the middle of the widest gap with the
   interpolated color there, selects it and edits it; **Remove stop** removes the selected one (two stay).
 - **Output:** the CSS in a read-only field, for example `linear-gradient(in oklch 90deg, #3b82f6 0%, #8b5cf6 100%)`,
   with a button that copies it to the clipboard.
