@@ -87,10 +87,14 @@ fun <T : Any> FormatFamily<T>.convert(
     options: OptionValues,
 ): ConversionResult =
     when (val read = read(text, from, options)) {
-        is ReadResult.Failed -> ConversionResult.ReadFailed(read.message, read.offset)
-        is ReadResult.Read ->
+        is ReadResult.Failed -> {
+            ConversionResult.ReadFailed(read.message, read.offset)
+        }
+
+        is ReadResult.Read -> {
             when (val written = write(read.content, to, options)) {
                 is WriteResult.Failed -> ConversionResult.WriteFailed(written.message)
                 is WriteResult.Written -> ConversionResult.Converted(written.text, read.notes + written.notes)
             }
+        }
     }
