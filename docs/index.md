@@ -85,7 +85,7 @@ updated when the summary or keywords no longer fit.
 | [0063](adr/0063-git-log-rebase.md) | Rebase the current branch onto another, with Continue/Skip/Abort | `GitRebases`, rebase, `GitPendingRebase`, pending bar, conflicts | amends 0042; amended by 0106 |
 | [0064](adr/0064-json-preview.md) | JSON Source/Split/Preview with a foldable tree | JSON preview, Jackson, folds, JSON Pointer, `Preview.folds` | |
 | [0065](adr/0065-xml-preview.md) | XML preview on shared fold parts, StAX with XXE off | XML preview, StAX, XXE, `fold-tree.js`, `FoldState`, `data-path` | see 0064 |
-| [0066](adr/0066-scratch-files.md) | Scratch files in `~/.sluide/scratches`, shown as an explorer root | scratch files, `ExplorerRoot`, Shortcut+Shift+N, type picker | |
+| [0066](adr/0066-scratch-files.md) | Scratch files in `~/.sluide/scratches`, shown as an explorer root | scratch files, `ExplorerRoot`, Shortcut+Shift+N, type picker | amended by 0114 |
 | [0067](adr/0067-feature-settings-in-their-module.md) | A feature's settings and pages live in its module | settings, `SettingsPage`, `SettingsStore`, module placement | amends 0008 |
 | [0068](adr/0068-window-parts-in-ide.md) | A window's integration of a feature is an `internal` window part | window parts, `MainWindow`, `WindowGitLog`, `WindowTools`, menu bar | amended by 0110 |
 | [0069](adr/0069-previews-module.md) | WebView previews live in the `previews` module | `previews` module, `dev.sluide.previews`, `PreviewFileView`, `file-viewers` API, `ide` beans | amends 0047, 0055; see 0017 |
@@ -133,6 +133,7 @@ updated when the summary or keywords no longer fit.
 | [0111](adr/0111-coloring-slots-and-inspector.md) | Coloring tool: color slots per tab, the picker column at the right edits the slot being edited, an inspector at the left shows clicked colors | color slots, `ColorSlot`, context picker, inspector, "Use for", `ColoringState` | amends 0109 |
 | [0112](adr/0112-codecs-tool.md) | Codecs tool: two editable sides (the last edited is the source), detection only suggests, one codec at a time with options, binary results as a hex dump, nothing stored | `codecs`, `Codecs`, Base64, Base32, Base58, Ascii85, hex, URL encoding, HTML entities, JSON/Java escapes, Unicode escapes, JWT, hash, HMAC, gzip, `EditorMenuTarget.selectedText` | amends 0047, 0108; see 0110 |
 | [0113](adr/0113-comparing-two-files.md) | Compare Files for two selected files: git's `--no-index` diff on snapshots, upper file left, Swap Sides inverts the hunks | compare files, `GitFileComparison`, `--no-index`, `FileComparisonTab`, `compareFiles`, Swap Sides, `onSwap`, `Shortcut+Shift+D` | amends 0073, 0044; see 0015, 0019 |
+| [0114](adr/0114-generated-scratch-files.md) | Generated scratch files: a picker of pure generators creates prefilled scratch files | generated scratch files, `ScratchGenerator`, `GeneratorContext`, `GeneratorPicker`, `FilterPicker`, Shortcut+Shift+G, UUID, password | amends 0066 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
@@ -152,7 +153,7 @@ updated when the summary or keywords no longer fit.
 | Feature | Summary | Keywords |
 |---|---|---|
 | [file-explorer.md](features/file-explorer.md) | Project tree with file operations, multi-selection and moves | tree, New File, Rename F2, Delete, drag move, copy/paste, compact folders, Select Opened File, Reveal, Open in Terminal, collapse, stripe, Alt+1 |
-| [scratch-files.md](features/scratch-files.md) | Scratch files of any type under the explorer's Scratches root | New Scratch File, Shortcut+Shift+N, `~/.sluide/scratches`, type picker |
+| [scratch-files.md](features/scratch-files.md) | Scratch files of any type under the explorer's Scratches root, also generated ones | New Scratch File, Shortcut+Shift+N, `~/.sluide/scratches`, type picker, generated scratch files, Shortcut+Shift+G, UUID, ULID, password |
 | [file-watching.md](features/file-watching.md) | `FileWatcher` reports folder changes to explorer, editor and git | `FileWatcher`, watches, combined events, macOS polling |
 
 ### Editor
@@ -207,3 +208,4 @@ Explored but not decided or built; options and trade-offs, no commitment.
 | [code-navigation.md](ideas/code-navigation.md) | Go to Definition, Kotlin first; resolver options compared | Go to Definition, tree-sitter, name index, ctags, LSP, kotlin-lsp |
 | [windows-support.md](ideas/windows-support.md) | What Windows support would take, in three scopes | Windows, CI runners, packaging, paths, file locking |
 | [headless-ui-tests.md](ideas/headless-ui-tests.md) | Spike of UI tests on JavaFX's headless platform; not adopted | headless, JavaFX 27, Xvfb, parallel forks |
+| [scratch-generators.md](ideas/scratch-generators.md) | Scratch generators left out of the first version: test data, keys, UUID v3/v5 | test data, IBAN, Lorem Ipsum, key pairs, certificate, BouncyCastle, UUID v5, insert at caret |

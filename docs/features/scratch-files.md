@@ -17,6 +17,8 @@ Files for notes and experiments outside the project, shared by all project windo
   …, always the lowest free number; another window creating one at the same moment gets the next.
 - The new file is shown in the explorer (the Scratches node expanded, the file selected) and opened in a tab with the
   focus in it. If it cannot be created (e.g. the folder is not writable), an error says so and nothing opens.
+- **Generated:** File → New Generated Scratch File… creates a scratch file with values in it, see
+  [Generated scratch files](#generated-scratch-files).
 - **Where:** `~/.sluide/scratches`, one folder for all windows, created when a window opens a project.
 - **The Scratches node:** every window's explorer shows the folder as a second top-level node "Scratches" below the
   project, collapsed until opened, with the full path as its tooltip ([file-explorer.md](file-explorer.md)). Files in
@@ -38,3 +40,33 @@ Files for notes and experiments outside the project, shared by all project windo
   `.editorconfig` is looked up from the scratches folder upwards, not from the project. Renaming or deleting a scratch
   in one window closes its clean tabs in other windows instead of following the rename; tabs with unsaved changes there
   show the file deleted.
+
+## Generated scratch files
+[ADR 0114](../adr/0114-generated-scratch-files.md)
+
+- **Create:** File → New Generated Scratch File… (Ctrl+Shift+G, Cmd+Shift+G on macOS; also from a terminal tab) shows
+  the generator picker, a popup like the type picker: a filter field above one list of generators under the headers
+  UUIDs, IDs, Secrets and Time, each row with the generator's name and the dimmed name of the file it creates
+  (`uuid-v7.txt`).
+  - Typing filters by name, group title or file name, ignoring case; a header shows only while its group has
+    matches. Up and Down move the selection and skip the headers; Enter or a click on an entry picks it, a click on a
+    header does nothing. Escape or a click elsewhere closes the picker without creating anything.
+  - The generator picked last is selected when the picker opens again (until the app ends), else the first entry.
+- **The file:** a new scratch file named `<name>.<ext>`, then `<name>_1.<ext>`, `<name>_2.<ext>` …, the lowest free
+  number as for other scratches, e.g. `uuid-v7.txt`, `password-20-alphanumeric.txt`, `bytes-32-base64url.txt`,
+  `time.txt`. It holds the generated text, is shown in the explorer and opened in a tab with the focus; errors as for
+  New Scratch File. Since it has content, closing its tab keeps it. There are no count or format options, and nothing
+  is inserted at the editor's caret.
+- **Values:** every list holds 50 values, one per line. UUID v1, v6 and v7, ULID, ObjectId and Snowflake IDs strictly
+  increase within a file. Random values come from `SecureRandom`.
+- **Catalogue:**
+  - **UUIDs:** UUID v1 (time, random node: a random multicast node, never the MAC address), v4 (random), v6 (time,
+    sortable), v7 (Unix time, sortable).
+  - **IDs:** ULID, NanoID (21 characters), KSUID, MongoDB ObjectId, Snowflake ID (Twitter's layout).
+  - **Secrets:** Password with 12, 16, 20, 32 or 64 characters, each from letters, digits and the symbols
+    `!#$%&*+-.:;=?@^_~`, from letters and digits, or digits only; every class of the set occurs at least once. Random
+    bytes, 16, 24, 32 or 64 of them, as hex, Base64 or Base64URL without padding.
+  - **Time:** Current Time (all formats), one file with labelled lines: epoch seconds and milliseconds, ISO-8601 in
+    UTC, local and with the zone, RFC 1123, local date-time, SQL timestamp in UTC, date, ISO week date, ordinal date.
+- Not offered (yet): UUID v3/v5, key pairs and certificates, test data such as names or IBANs
+  ([scratch-generators.md](../ideas/scratch-generators.md)).

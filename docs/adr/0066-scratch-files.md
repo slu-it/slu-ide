@@ -1,6 +1,6 @@
 # 0066. Scratch files
 
-- Status: accepted
+- Status: accepted; amended by [0114](0114-generated-scratch-files.md)
 - Date: 2026-10-21
 
 ## Context
