@@ -30,7 +30,7 @@ a scalar are settled.
 - **Highlighted in-memory editors** (`CodeEditors.text`) on both sides, highlighted per format; a read error marks its
   position in the source and the status line jumps there.
 - **A data tree between data formats**: Jackson's `JsonNode`, a list of documents for multi-document YAML, with
-  numbers kept exact (`BigDecimal`, `BigInteger`). JSON, TOML and CSV are read and written with Jackson's data formats;
+  numbers kept exact (`BigDecimal`, `BigInteger`). JSON and TOML are read and written with Jackson's data formats; CSV and TSV by own code (char offsets for errors, delimiter guess);
   YAML is read and written with SnakeYAML (as the YAML preview, [ADR 0079](0079-yaml-preview.md)); properties are read and written by own code for the Spring Boot dialect and line numbers.
 - **YAML 1.2 core schema** on reading: only `true` and `false` are booleans, so GitHub Actions' `on:` stays a key and
   `NO` a string. Writing quotes what a YAML 1.1 reader would take for something else (`yes`, `off`, `~`, `0123`,
