@@ -20,6 +20,14 @@ interface DiffFileView : FileView {
         set(_) {}
 
     /**
+     * Swaps the two sides, e.g. of a comparison of two files; offered as a button in the view while set. Set by
+     * whoever shows the view.
+     */
+    var onSwap: (() -> Unit)?
+        get() = null
+        set(_) {}
+
+    /**
      * Jumps to the change at [line] of the file (0-based), e.g. the one a change marker on that line stands for: the
      * change the line is in, else lines removed right above it, else the next change, else the last one.
      */

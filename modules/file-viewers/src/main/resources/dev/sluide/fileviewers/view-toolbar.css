@@ -11,13 +11,13 @@
     -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
 }
 
-.diff-nav, .diff-back {
+.diff-nav, .diff-back, .diff-swap {
     -fx-padding: 2 10 2 10;
     -fx-font-size: 0.9em;
     -fx-background-radius: 0;
 }
 
-.diff-nav .ikonli-font-icon, .diff-back .ikonli-font-icon {
+.diff-nav .ikonli-font-icon, .diff-back .ikonli-font-icon, .diff-swap .ikonli-font-icon {
     -fx-icon-color: -fx-text-base-color;
 }
 

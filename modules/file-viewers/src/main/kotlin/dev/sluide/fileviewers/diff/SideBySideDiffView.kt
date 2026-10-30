@@ -32,6 +32,7 @@ import org.kordamp.ikonli.Ikon
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignA
 import org.kordamp.ikonli.materialdesign2.MaterialDesignP
+import org.kordamp.ikonli.materialdesign2.MaterialDesignS
 import org.reactfx.value.Var
 import java.nio.file.Path
 import java.util.function.IntFunction
@@ -60,7 +61,7 @@ internal sealed interface CurrentText {
  *
  * A toolbar above both sides jumps to the first, previous, next and last change, seen from the caret (F7 and
  * Shift+F7 for next and previous), and tells which change the caret is in. While [onBack] is set, an Edit button on
- * it and Escape go back.
+ * it and Escape go back. While [onSwap] is set, a Swap Sides button before the navigation buttons calls it.
  */
 internal class SideBySideDiffView(
     private val current: CurrentText,
@@ -100,6 +101,21 @@ internal class SideBySideDiffView(
             backButton.isVisible = value != null
         }
 
+    private val swapButton =
+        Button("Swap Sides", FontIcon(MaterialDesignS.SWAP_HORIZONTAL)).apply {
+            styleClass += "diff-swap"
+            tooltip = Tooltip("Swap the left and right side")
+            isVisible = false
+            managedProperty().bind(visibleProperty())
+            setOnAction { onSwap?.invoke() }
+        }
+
+    override var onSwap: (() -> Unit)? = null
+        set(value) {
+            field = value
+            swapButton.isVisible = value != null
+        }
+
     private val root =
         BorderPane(SplitPane(left.box, right.box)).apply {
             styleClass += "diff-view"
@@ -114,6 +130,7 @@ internal class SideBySideDiffView(
                     backButton,
                     counter,
                     Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
+                    swapButton,
                     firstButton,
                     previousButton,
                     nextButton,

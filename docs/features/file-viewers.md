@@ -180,8 +180,9 @@ the Bicep graph and `BicepParamFileViewer`.
   `REMOVED` (grey, left only), `MODIFIED` (blue, both sides) or `ADDED` (green, right only), coloured on the line and
   its number (`diff-*` classes in `syntax.css`). Filler rows keep both sides aligned, line numbers are the real ones,
   and both sides scroll together. `show(diff)` re-reads the file with a new diff, `jumpToChangeAt(line)` jumps to the
-  change at a line of the file, and while `onBack` is set, an Edit button and Escape go back. Used for git diffs on
-  demand ([git-diff.md](git-diff.md)).
+  change at a line of the file, and while `onBack` is set, an Edit button and Escape go back. While `onSwap` is set,
+  a Swap Sides button (right side, before the change navigation) calls it. Used for git diffs on demand
+  ([git-diff.md](git-diff.md)).
 - Views set no font of their own: they inherit the editor font that `EditorArea` sets on their node
   ([settings.md](settings.md)). `syntax.css` makes the RichTextFX code area inherit it too, since RichTextFX's own
   stylesheet sets a monospace family on `.code-area`.

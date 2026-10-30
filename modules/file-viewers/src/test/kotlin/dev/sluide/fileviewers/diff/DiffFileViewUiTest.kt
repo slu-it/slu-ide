@@ -199,6 +199,30 @@ class DiffFileViewUiTest {
     }
 
     @Test
+    fun `Swap Sides is offered while onSwap is set and calls it`(robot: FxRobot) {
+        val file = dir.resolve("Main.kt").apply { writeText("val one = 1\n") }
+        val view = openDiff(file, diff)
+        robot.interact { container.children.setAll(view.node) }
+        val swap = robot.lookup(".diff-swap").queryAs(Button::class.java)
+
+        fun state(): Pair<Boolean, Boolean> {
+            var result = false to false
+            robot.interact { result = swap.isVisible to swap.isManaged }
+            return result
+        }
+        assertEquals(false to false, state())
+
+        var swaps = 0
+        robot.interact { view.onSwap = { swaps++ } }
+        assertEquals(true to true, state())
+        robot.interact { swap.fire() }
+        assertEquals(1, swaps)
+
+        robot.interact { view.onSwap = null }
+        assertEquals(false to false, state())
+    }
+
+    @Test
     fun `jumps to the change at a line of the file`(robot: FxRobot) {
         val file =
             dir.resolve("Main.kt").apply {
