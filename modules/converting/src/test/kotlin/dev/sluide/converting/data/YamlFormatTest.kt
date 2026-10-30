@@ -9,13 +9,34 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.CsvSource
+import org.junit.jupiter.params.provider.MethodSource
 import org.junit.jupiter.params.provider.ValueSource
 import tools.jackson.databind.JsonNode
+import tools.jackson.databind.json.JsonMapper
 import tools.jackson.databind.node.DoubleNode
 import tools.jackson.databind.node.JsonNodeFactory
 
 class YamlFormatTest {
+    companion object {
+        private val multiLineStrings =
+            listOf("a\nb", "a\nb\n", "a\n\n", " lead\nx", " a\n\n b\n", "\nx", "\n\nx\n", "tab\tx\n  y\n", "a\n b\n  c")
+
+        @JvmStatic
+        fun multiLineCases(): List<Arguments> {
+            val mapper = JsonMapper.builder().build()
+            return listOf("2", "4").flatMap { indent ->
+                multiLineStrings.flatMap { text ->
+                    val string = mapper.writeValueAsString(text)
+                    listOf("{\"v\":$string}", "[$string]", "{\"v\":[$string]}", "[{$string:[$string]}]").map {
+                        Arguments.of(indent, it)
+                    }
+                }
+            }
+        }
+    }
+
     private val family = DataFamily()
 
     @ParameterizedTest
@@ -215,20 +236,48 @@ class YamlFormatTest {
     @CsvSource(
         delimiter = ';',
         value = [
-            "a\\nb;v: |-\\n  a\\n  b\\n",
-            "a\\nb\\n;v: |\\n  a\\n  b\\n",
-            "a\\n\\n;v: |+\\n  a\\n\\n",
-            "' a\\nb';v: |2-\\n   a\\n  b\\n",
+            "aNLb;v: |-NL  aNL  bNL",
+            "aNLbNL;v: |NL  aNL  bNL",
+            "aNLNL;v: |+NL  aNLNL",
+            "' aNLb';v: \" a\\nb\"NL",
+            "NLx;v: \"\\nx\"NL",
         ],
     )
-    fun `multi-line strings are written as literal blocks`(
+    fun `multi-line strings are written as literal blocks unless they start with a space or a line break`(
         text: String,
         yaml: String,
     ) {
-        val node = JsonNodeFactory.instance.objectNode().put("v", text.replace("\\n", "\n"))
+        // NL stands for a line break; `\n` in the expected YAML is an escape in a double-quoted string.
+        assertEquals(
+            yaml.replace("NL", "\n"),
+            write(JsonNodeFactory.instance.objectNode().put("v", text.replace("NL", "\n"))),
+        )
+    }
 
-        assertEquals(yaml.replace("\\n", "\n"), write(node))
-        assertEquals(node, documents(write(node)).single())
+    @ParameterizedTest
+    @MethodSource("multiLineCases")
+    fun `multi-line strings read back the same in mappings, lists and lists in mappings at both indents`(
+        indent: String,
+        json: String,
+    ) {
+        val node = tree(json)
+
+        assertEquals(node, documents(write(node, indent = indent)).single(), write(node, indent = indent))
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["\u0085", "\u2028", "\u2029"])
+    fun `strings and keys with Unicode line breaks are double-quoted and read back the same`(lineBreak: String) {
+        val node =
+            JsonNodeFactory.instance
+                .objectNode()
+                .put("v", "a${lineBreak}b")
+                .put("k${lineBreak}k", "x")
+
+        val yaml = write(node)
+
+        assertTrue(lineBreak !in yaml && "v: \"a\\" in yaml && "? \"k\\" in yaml, yaml)
+        assertEquals(node, documents(yaml).single())
     }
 
     @ParameterizedTest

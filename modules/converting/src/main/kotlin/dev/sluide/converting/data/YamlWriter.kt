@@ -114,11 +114,21 @@ internal object YamlWriter {
     private fun scalar(
         tag: Tag,
         text: String,
-    ) = ScalarNode(
-        tag,
-        text,
-        null,
-        null,
-        if (tag == Tag.STR && '\n' in text) DumperOptions.ScalarStyle.LITERAL else DumperOptions.ScalarStyle.PLAIN,
-    )
+    ) = ScalarNode(tag, text, null, null, if (tag == Tag.STR) style(text) else DumperOptions.ScalarStyle.PLAIN)
+
+    /**
+     * Multi-line strings as literal blocks, except those starting with a space or a line break: their block needs an
+     * indentation indicator, which SnakeYAML gets wrong for list items at indent 4. Strings with Unicode line breaks
+     * are double-quoted, which escapes them; plain or in a block they would read back as spaces or other breaks.
+     */
+    private fun style(text: String): DumperOptions.ScalarStyle =
+        when {
+            text.any { it in UNICODE_BREAKS } -> DumperOptions.ScalarStyle.DOUBLE_QUOTED
+            '\n' !in text -> DumperOptions.ScalarStyle.PLAIN
+            text.startsWith(' ') || text.startsWith('\n') -> DumperOptions.ScalarStyle.DOUBLE_QUOTED
+            else -> DumperOptions.ScalarStyle.LITERAL
+        }
+
+    /** NEL, LINE SEPARATOR and PARAGRAPH SEPARATOR. */
+    private const val UNICODE_BREAKS = "\u0085\u2028\u2029"
 }
