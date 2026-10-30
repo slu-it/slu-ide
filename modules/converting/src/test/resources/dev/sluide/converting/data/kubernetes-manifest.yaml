@@ -1,0 +1,42 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders
+  labels:
+    app: orders
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: orders
+  template:
+    metadata:
+      labels:
+        app: orders
+    spec:
+      containers:
+        - name: orders
+          image: registry.example.com/orders:1.2.0
+          ports:
+            - containerPort: 8080
+          env:
+            - name: JAVA_OPTS
+              value: "-Xmx512m"
+            - name: ENABLED
+              value: "true"
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders
+spec:
+  selector:
+    app: orders
+  ports:
+    - port: 80
+      targetPort: 8080

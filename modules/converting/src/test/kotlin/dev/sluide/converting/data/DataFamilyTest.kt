@@ -9,6 +9,7 @@ import dev.sluide.converting.TextFormat
 import dev.sluide.converting.WriteResult
 import dev.sluide.converting.convert
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
@@ -71,6 +72,66 @@ class DataFamilyTest {
             ConversionResult.WriteFailed("Cannot hold it"),
             anyFamily.convert("[1]", JsonFormat, unwritable, OptionValues()),
         )
+    }
+
+    @Test
+    fun `several YAML documents with comments become a JSON array with notes from reading and writing`() {
+        assertEquals(
+            ConversionResult.Converted(
+                "[{\"a\":1},{\"b\":2}]",
+                listOf("1 comment dropped", "2 documents written as an array"),
+            ),
+            family.convert("a: 1 # one\n---\nb: 2\n", YamlFormat, JsonFormat, OptionValues().with("compact", true)),
+        )
+    }
+
+    @Test
+    fun `detection lists every format that reads the text, surest first`() {
+        assertEquals(
+            listOf(JsonFormat to 100, YamlFormat to 30),
+            family.detect("{\"a\": [1, 2]}").map {
+                it.format to
+                    it.score
+            },
+        )
+        assertEquals(listOf(YamlFormat to 80), family.detect("a:\n  - 1").map { it.format to it.score })
+        assertEquals(listOf(JsonFormat to 20, YamlFormat to 10), family.detect("42").map { it.format to it.score })
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = ["spring-application.yml", "github-workflow.yml", "kubernetes-manifest.yaml", "anchors.yaml"],
+    )
+    fun `YAML converted to JSON and back reads as the same documents`(resource: String) {
+        val yaml = checkNotNull(javaClass.getResource(resource)).readText()
+        val original = (family.read(yaml, YamlFormat, OptionValues()) as ReadResult.Read).content
+
+        val json = (family.convert(yaml, YamlFormat, JsonFormat, OptionValues()) as ConversionResult.Converted).text
+        val asJson = (family.read(json, JsonFormat, OptionValues()) as ReadResult.Read).content
+        val documents = if (original.documents.size > 1) asJson.documents.single().toList() else asJson.documents
+        val backToYaml = (family.write(DataContent(documents), YamlFormat, OptionValues()) as WriteResult.Written).text
+
+        assertEquals(original, (family.read(backToYaml, YamlFormat, OptionValues()) as ReadResult.Read).content)
+    }
+
+    @Test
+    fun `a GitHub workflow keeps its on key and its on-off strings`() {
+        val yaml = checkNotNull(javaClass.getResource("github-workflow.yml")).readText()
+
+        val workflow = (family.read(yaml, YamlFormat, OptionValues()) as ReadResult.Read).content.documents.single()
+        val written =
+            (
+                family.write(
+                    DataContent(listOf(workflow)),
+                    YamlFormat,
+                    OptionValues(),
+                ) as WriteResult.Written
+            ).text
+
+        assertEquals(listOf("push", "pull_request"), workflow["on"].properties().map { it.key })
+        assertEquals("off", workflow["env"]["FEATURE"].asString())
+        assertTrue(written.startsWith("name: Build\n'on':\n"), written)
+        assertTrue("FEATURE: 'off'" in written, written)
     }
 
     @Test

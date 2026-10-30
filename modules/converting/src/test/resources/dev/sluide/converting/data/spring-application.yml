@@ -1,0 +1,46 @@
+# Shared settings
+spring:
+  application:
+    name: orders
+  datasource:
+    url: jdbc:postgresql://localhost:5432/orders
+    username: ${DB_USER:orders}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 10
+      connection-timeout: 30000
+  jpa:
+    open-in-view: false
+server:
+  port: 8080
+  shutdown: graceful
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+logging:
+  level:
+    root: INFO
+    com.example.orders: DEBUG
+orders:
+  retry-delay: 1.50
+  max-total: 12345678901234567890
+  zip-code: '01234'
+  description: |
+    Takes orders.
+    Ships them.
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+  datasource:
+    url: jdbc:postgresql://db.internal:5432/orders
+server:
+  port: 443
+  ssl:
+    enabled: true
+logging:
+  level:
+    root: WARN

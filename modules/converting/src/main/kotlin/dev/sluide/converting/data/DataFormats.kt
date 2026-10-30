@@ -5,5 +5,6 @@ internal object DataFormats {
     val all: List<DataFormat> =
         listOf(
             JsonFormat,
+            YamlFormat,
         )
 }
