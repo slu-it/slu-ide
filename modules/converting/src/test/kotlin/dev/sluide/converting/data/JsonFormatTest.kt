@@ -71,6 +71,13 @@ class JsonFormatTest {
         assertEquals(offset, failed.offset)
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = ["{\"a\": 1e99999999999}", "[1e-99999999999]", "{\"a\": 1E2147483648}"])
+    fun `a number out of range fails instead of throwing`(text: String) {
+        assertEquals(ReadResult.Failed("A number is out of range", null), JsonFormat.read(text, OptionValues()))
+        assertEquals(null, JsonFormat.detect(text))
+    }
+
     @Test
     fun `numbers are kept exact`() {
         val text = """{"a":1.0,"b":12345678901234567890123,"c":1.50,"d":-0.000001,"e":1E+3}"""

@@ -15,6 +15,7 @@ import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.context.annotation.AnnotationConfigApplicationContext
+import tools.jackson.databind.node.JsonNodeFactory
 
 class DataFamilyTest {
     private val family = DataFamily()
@@ -141,6 +142,34 @@ class DataFamilyTest {
         val failed = anyFamily.convert("{\"a\" 1}", JsonFormat, JsonFormat, OptionValues())
 
         assertEquals(5, (failed as ConversionResult.ReadFailed).offset)
+    }
+
+    @Test
+    fun `an exception of a format becomes a failure and no match`() {
+        val throwing =
+            object : DataFormat by JsonFormat {
+                override val id = "throwing"
+
+                override fun detect(text: String): Int = error("detect broke")
+
+                override fun read(
+                    text: String,
+                    options: OptionValues,
+                ): ReadResult<DataContent> = error("read broke")
+
+                override fun write(
+                    content: DataContent,
+                    options: OptionValues,
+                ): WriteResult = throw IndexOutOfBoundsException("write broke")
+            }
+        val family = DataFamily(listOf(JsonFormat, throwing))
+
+        assertEquals(listOf<TextFormat>(JsonFormat), family.detect("[1]").map { it.format })
+        assertEquals(ReadResult.Failed("Read broke", null), family.read("[1]", throwing, OptionValues()))
+        assertEquals(
+            WriteResult.Failed("Write broke"),
+            family.write(DataContent(listOf(JsonNodeFactory.instance.arrayNode())), throwing, OptionValues()),
+        )
     }
 
     @Test

@@ -59,15 +59,11 @@ internal object JsonFormat : DataFormat {
             val node: JsonNode? = mapper.readTree(text)
             val documents = if (node == null || node.isMissingNode) emptyList() else listOf(node)
             val comments = JsonText.countComments(text)
-            val notes =
-                if (comments >
-                    0
-                ) {
-                    listOf(counted(comments, "comment dropped", "comments dropped"))
-                } else {
-                    emptyList()
-                }
+            val notes = buildList { if (comments > 0) add(counted(comments, "comment dropped", "comments dropped")) }
             ReadResult.Read(DataContent(documents), notes)
+        } catch (_: NumberFormatException) {
+            // Jackson parses `1e99999999999` lazily into a BigDecimal, which cannot hold the exponent.
+            ReadResult.Failed("A number is out of range", null)
         } catch (e: JacksonException) {
             val offset =
                 e.location

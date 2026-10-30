@@ -35,6 +35,9 @@ sealed interface WriteResult {
 /**
  * Formats that convert into each other through a model [T]; formats of different families never meet (ADR 0115).
  * Families are Spring beans; implementations are stateless and thread-safe, as everything is called off the FX thread.
+ * They never throw for any text or content: what cannot be read or written is a [ReadResult.Failed] or
+ * [WriteResult.Failed], a text no format reads has no [FormatMatch]. Only a [TextFormat] of another family is refused
+ * with an [IllegalArgumentException].
  */
 interface FormatFamily<T : Any> {
     val name: String

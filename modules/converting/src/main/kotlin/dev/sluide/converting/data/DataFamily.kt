@@ -25,7 +25,7 @@ internal class DataFamily(
             emptyList()
         } else {
             dataFormats
-                .mapNotNull { format -> format.detect(text)?.let { FormatMatch(format, it) } }
+                .mapNotNull { format -> guarded({ null }) { format.detect(text) }?.let { FormatMatch(format, it) } }
                 .sortedByDescending(FormatMatch::score)
         }
 
@@ -40,12 +40,9 @@ internal class DataFamily(
     ): ReadResult<DataContent> {
         val dataFormat = dataFormat(format)
         return if (text.isBlank()) {
-            ReadResult.Read(
-                DataContent(emptyList()),
-                emptyList(),
-            )
+            ReadResult.Read(DataContent(emptyList()), emptyList())
         } else {
-            dataFormat.read(text, options)
+            guarded({ ReadResult.Failed(it, null) }) { dataFormat.read(text, options) }
         }
     }
 
@@ -56,12 +53,9 @@ internal class DataFamily(
     ): WriteResult {
         val dataFormat = dataFormat(format)
         return if (content.documents.isEmpty()) {
-            WriteResult.Written(
-                "",
-                emptyList(),
-            )
+            WriteResult.Written("", emptyList())
         } else {
-            dataFormat.write(content, options)
+            guarded({ WriteResult.Failed(it) }) { dataFormat.write(content, options) }
         }
     }
 
@@ -69,4 +63,15 @@ internal class DataFamily(
         requireNotNull(
             dataFormats.firstOrNull { it.id == format.id },
         ) { "${format.id} is not a format of the $name family" }
+
+    /** Families never throw: a format's unforeseen exception becomes [failed] with its message. */
+    private inline fun <R> guarded(
+        failed: (String) -> R,
+        call: () -> R,
+    ): R =
+        try {
+            call()
+        } catch (e: RuntimeException) {
+            failed(sentence(e.message))
+        }
 }
