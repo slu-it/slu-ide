@@ -135,6 +135,7 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         assertEquals(
             listOf(
                 "New Scratch File… shortcut+shift+N",
+                "New Generated Scratch File… shortcut+shift+G",
                 "-",
                 "Open Folder… shortcut+O",
                 "Open Project…",
@@ -159,8 +160,7 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
 
     @Test
     fun `offers File - Open Project after Open Folder, which shows the project picker`(robot: FxRobot) {
-        val openProject = menu(robot, "File").items[3]
-        assertEquals("Open Project…", openProject.text)
+        val openProject = fileMenuItem(robot, "Open Project…")
         // The fixture's windows know no window: closing the picker would end the application.
         projectWindows.exit = {}
 

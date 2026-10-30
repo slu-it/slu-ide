@@ -15,6 +15,7 @@ Accelerators of the menu bar ([open-folder.md](open-folder.md), [settings.md](se
 | Keys | Action |
 |---|---|
 | Shortcut+Shift+N | File → New Scratch File… |
+| Shortcut+Shift+G | File → New Generated Scratch File… |
 | Shortcut+O | File → Open Folder… |
 | Shortcut+S | File → Save |
 | Shortcut+Alt+S | File → Save All |
@@ -220,6 +221,8 @@ File does not react to it while a terminal has the focus.
 |---|---|
 | Up / Down in the scratch type picker | Choose the type |
 | Enter / Escape in the scratch type picker | Create the scratch file / cancel |
+| Up / Down in the generated scratch file picker | Choose the generator (the group headers are skipped) |
+| Enter / Escape in the generated scratch file picker | Create the generated scratch file / cancel |
 | Enter in the project picker | Open the project |
 | Delete or Backspace in the project picker | Remove the project from the list |
 | Escape in the project picker | Cancel |

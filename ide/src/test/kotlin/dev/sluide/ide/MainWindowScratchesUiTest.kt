@@ -1,7 +1,11 @@
 package dev.sluide.ide
 
 import dev.sluide.fileicons.FileIcon
+import dev.sluide.scratches.GENERATED_VALUES
+import dev.sluide.scratches.GeneratorGroup
+import dev.sluide.scratches.SCRATCH_GENERATORS
 import dev.sluide.scratches.SCRATCH_TYPES
+import dev.sluide.scratches.ScratchGenerator
 import dev.sluide.scratches.ScratchType
 import javafx.scene.Node
 import javafx.scene.control.Label
@@ -10,6 +14,8 @@ import javafx.scene.control.ListView
 import javafx.scene.control.TreeCell
 import javafx.scene.control.TreeItem
 import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyCodeCombination
+import javafx.scene.input.KeyCombination
 import javafx.scene.layout.HBox
 import javafx.stage.PopupWindow
 import javafx.stage.Stage
@@ -23,6 +29,7 @@ import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.UUID
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
 import kotlin.io.path.createSymbolicLinkPointingTo
@@ -116,6 +123,40 @@ class MainWindowScratchesUiTest : MainWindowUiFixture() {
         assertEquals(listOf(null, kotlin), preselected)
     }
 
+    @Test
+    fun `a generated scratch file is created, shown and opened, its generator preselected next time`(robot: FxRobot) {
+        openProject(robot)
+        val generator = SCRATCH_GENERATORS.single { it.baseName == "uuid-v7" }
+        val ask = mainWindow.scratches.askGenerator
+        mainWindow.scratches.askGenerator = { _, onPick -> onPick(generator) }
+        val item = fileMenuItem(robot, "New Generated Scratch File…")
+        assertEquals(
+            KeyCodeCombination(KeyCode.G, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN),
+            item.accelerator,
+        )
+
+        robot.interact { item.fire() }
+
+        val file = scratchFiles.folder.resolve("uuid-v7.txt")
+        val lines = Files.readAllLines(file)
+        assertEquals(GENERATED_VALUES, lines.size)
+        assertTrue(lines.all { UUID.fromString(it).version() == 7 }, "lines: $lines")
+        assertEquals(listOf("uuid-v7.txt"), tabTitles(robot))
+        assertEquals(file, editorArea.selectedPath)
+        eventually(robot) { assertSame<Node?>(shownArea(robot), stage.scene.focusOwner) }
+        assertEquals(file, fileExplorer.selectionModel.selectedItem?.value)
+
+        mainWindow.scratches.askGenerator = ask
+        robot.interact { item.fire() }
+
+        val list = shownPickerList()
+        try {
+            eventually(robot) { assertEquals(listOf(generator.name, generator.fileName), selectedRowLabels(list)) }
+        } finally {
+            robot.interact { list.scene.window.hide() }
+        }
+    }
+
     // Real key input on purpose (unlike docs/testing.md advises): only real input sends the KEY_TYPED of the picking
     // Enter that must not reach the newly focused editor.
     @Test
@@ -170,7 +211,7 @@ class MainWindowScratchesUiTest : MainWindowUiFixture() {
             }
 
     @Test
-    fun `a scratch file that cannot be created shows an error and opens nothing`(robot: FxRobot) {
+    fun `a scratch file that cannot be created or generated shows an error and opens nothing`(robot: FxRobot) {
         openProject(robot)
         val errors = mutableListOf<String>()
         mainWindow.showError = { _, message -> errors += message }
@@ -181,6 +222,15 @@ class MainWindowScratchesUiTest : MainWindowUiFixture() {
         newScratchFile(robot)
 
         assertEquals(listOf("The scratch file cannot be created. ${scratchFiles.folder} is in the way."), errors)
+        assertEquals(emptyList(), tabTitles(robot))
+
+        errors.clear()
+        val broken = ScratchGenerator(GeneratorGroup.IDS, "Broken", "broken") { error("no entropy") }
+        mainWindow.scratches.askGenerator = { _, onPick -> onPick(broken) }
+
+        robot.interact { fileMenuItem(robot, "New Generated Scratch File…").fire() }
+
+        assertEquals(listOf("The content cannot be generated. no entropy"), errors)
         assertEquals(emptyList(), tabTitles(robot))
     }
 

@@ -5,7 +5,10 @@ import dev.sluide.fileexplorer.ExplorerRoot
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileexplorer.FolderIcons
 import dev.sluide.fileicons.FileIcon
+import dev.sluide.scratches.GeneratorContext
+import dev.sluide.scratches.GeneratorPicker
 import dev.sluide.scratches.ScratchFiles
+import dev.sluide.scratches.ScratchGenerator
 import dev.sluide.scratches.ScratchType
 import dev.sluide.scratches.ScratchTypePicker
 import javafx.scene.control.MenuItem
@@ -27,8 +30,9 @@ internal const val SCRATCHES_LABEL = "Scratches"
 
 /**
  * The scratch files in one window (ADR 0066): the shared scratches folder as a second top-level node of the
- * [fileExplorer], File → New Scratch File… with its type picker, and the deletion of empty scratch files when their
- * last tab closes, unless another window has them open ([isOpenElsewhere]). Used on the JavaFX thread.
+ * [fileExplorer], File → New Scratch File… with its type picker, File → New Generated Scratch File… with its generator
+ * picker (ADR 0114), and the deletion of empty scratch files when their last tab closes, unless another window has
+ * them open ([isOpenElsewhere]). Used on the JavaFX thread.
  */
 internal class WindowScratches(
     private val scratchFiles: ScratchFiles,
@@ -46,6 +50,17 @@ internal class WindowScratches(
      */
     internal var askType: (Stage, (ScratchType) -> Unit) -> Unit = { stage, onPick ->
         picker.show(stage, scratchFiles.lastType, onPick)
+    }
+
+    /** The window's generator picker, made when it is first shown. */
+    private val generatorPicker by lazy { GeneratorPicker() }
+
+    /**
+     * Asks for the generator of a new scratch file, with the last one chosen preselected, and passes the choice on;
+     * nothing if the user closes the picker. Shows the generator picker; tests replace it.
+     */
+    internal var askGenerator: (Stage, (ScratchGenerator) -> Unit) -> Unit = { stage, onPick ->
+        generatorPicker.show(stage, scratchFiles.lastGenerator, onPick)
     }
 
     /** The extra top-level nodes of the explorer: the scratches folder, created if missing; none if that fails. */
@@ -79,18 +94,54 @@ internal class WindowScratches(
 
     /** Asks for the type, creates the file, shows it in the explorer and opens it in the editor with the focus. */
     fun newScratchFile(stage: Stage) {
-        askType(stage) { type ->
-            val path =
-                try {
-                    scratchFiles.create(type)
-                } catch (e: IOException) {
-                    log.log(System.Logger.Level.WARNING, "Cannot create a scratch file in ${scratchFiles.folder}", e)
-                    showError(stage, "The scratch file cannot be created. ${reason(e)}")
-                    return@askType
-                }
-            fileExplorer.reveal(path)
-            editorArea.open(path)
+        askType(stage) { type -> createAndOpen(stage) { scratchFiles.create(type) } }
+    }
+
+    /** File → New Generated Scratch File… on Shortcut+Shift+G (ADR 0114); like [menuItem], it works from a terminal. */
+    fun generatedMenuItem(stage: Stage): MenuItem =
+        MenuItem("New Generated Scratch File…").apply {
+            accelerator = KeyCodeCombination(KeyCode.G, KeyCombination.SHORTCUT_DOWN, KeyCombination.SHIFT_DOWN)
+            setOnAction { newGeneratedScratchFile(stage) }
         }
+
+    /**
+     * Asks for the generator, generates the content (on this thread, it is tiny), creates the file with it, remembers
+     * the generator for the next ask, shows the file in the explorer and opens it in the editor with the focus. A
+     * generator that throws gets an error message and no file.
+     */
+    fun newGeneratedScratchFile(stage: Stage) {
+        askGenerator(stage) { generator ->
+            val content =
+                try {
+                    generator.generate(GeneratorContext())
+                } catch (e: RuntimeException) {
+                    log.log(System.Logger.Level.ERROR, "The generator ${generator.name} failed", e)
+                    showError(stage, "The content cannot be generated. ${e.message ?: e.toString()}")
+                    return@askGenerator
+                }
+            createAndOpen(stage) {
+                scratchFiles
+                    .create(generator.baseName, generator.extension, content)
+                    .also { scratchFiles.lastGenerator = generator }
+            }
+        }
+    }
+
+    /** Creates a scratch file by [create], reveals and opens it; an error message if that throws an IOException. */
+    private fun createAndOpen(
+        stage: Stage,
+        create: () -> Path,
+    ) {
+        val path =
+            try {
+                create()
+            } catch (e: IOException) {
+                log.log(System.Logger.Level.WARNING, "Cannot create a scratch file in ${scratchFiles.folder}", e)
+                showError(stage, "The scratch file cannot be created. ${reason(e)}")
+                return
+            }
+        fileExplorer.reveal(path)
+        editorArea.open(path)
     }
 
     /**

@@ -390,7 +390,14 @@ class MainWindow(
                 accelerator = KeyCodeCombination(KeyCode.COMMA, KeyCombination.SHORTCUT_DOWN)
                 setOnAction { showSettings(stage) }
             }
-        val opening = arrayOf(scratches.menuItem(stage), SeparatorMenuItem(), openFolder, openProject)
+        val opening =
+            arrayOf(
+                scratches.menuItem(stage),
+                scratches.generatedMenuItem(stage),
+                SeparatorMenuItem(),
+                openFolder,
+                openProject,
+            )
         return Menu(
             "File",
             null,
