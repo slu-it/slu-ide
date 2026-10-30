@@ -18,6 +18,9 @@ dependencies {
     // Deliberate module API dependency: .http files are shown in the file viewers' code views, with their syntax
     // highlighters for request bodies and scripts.
     api(project(":modules:file-viewers"))
+    // Contributes the requests family (cURL <-> .http request) to the Converting tool; both modules are in the editor
+    // family (ADR 0115, 0116).
+    implementation(project(":modules:converting"))
     implementation(libs.spring.context)
     implementation(libs.jackson.databind)
     // Toolbar and gutter icons: Material Design Icons, like the file explorer's (ADR 0012).
