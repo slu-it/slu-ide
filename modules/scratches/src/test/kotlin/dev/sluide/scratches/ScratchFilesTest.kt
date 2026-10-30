@@ -76,6 +76,17 @@ class ScratchFilesTest {
     }
 
     @Test
+    fun `create with a base name numbers like the types and writes the content as UTF-8`() {
+        val files = scratches()
+        val first = files.create("x", "txt", "a\nä€\n")
+        assertEquals("x.txt", first.fileName.toString())
+        assertEquals("a\nä€\n", Files.readString(first, Charsets.UTF_8))
+        assertEquals("x_1.txt", files.create("x", "txt").fileName.toString())
+        assertEquals(0L, Files.size(files.folder.resolve("x_1.txt")))
+        assertEquals("scratch.txt", files.create(ScratchType("Plain Text", "txt")).fileName.toString())
+    }
+
+    @Test
     fun `contains is true strictly below the folder`() {
         val files = scratches()
         assertTrue(files.contains(files.folder.resolve("a.txt")))

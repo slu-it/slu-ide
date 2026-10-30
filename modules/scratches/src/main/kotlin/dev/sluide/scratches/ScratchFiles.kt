@@ -3,6 +3,7 @@ package dev.sluide.scratches
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import java.io.IOException
+import java.nio.ByteBuffer
 import java.nio.file.FileAlreadyExistsException
 import java.nio.file.Files
 import java.nio.file.LinkOption
@@ -47,7 +48,8 @@ val SCRATCH_TYPES: List<ScratchType> =
 
 /**
  * The scratch files in one folder shared by all project windows (`~/.sluide/scratches`): new files named by the lowest
- * free number, and the deletion of empty ones. Plain file IO on the calling thread; the files are tiny.
+ * free number, empty or generated (ADR 0114), and the deletion of empty ones. Plain file IO on the calling thread;
+ * the files are tiny.
  */
 @Component
 class ScratchFiles(
@@ -63,28 +65,57 @@ class ScratchFiles(
     @Volatile
     var lastType: ScratchType? = null
 
+    /**
+     * The generator chosen last in this run of the app, preselected by the generator picker; in memory only. Set by
+     * the caller that generated and created the file (ADR 0114).
+     */
+    @Volatile
+    var lastGenerator: ScratchGenerator? = null
+
     /** Creates the folder (and parents) if missing. Throws IOException. */
     fun ensureFolder() {
         Files.createDirectories(folder)
     }
 
+    /** Creates an empty new file `scratch.<ext>`, `scratch_<n>.<ext>`, ... of [type] (see below). Sets [lastType]. */
+    fun create(type: ScratchType): Path = create("scratch", type.extension).also { lastType = type }
+
     /**
-     * Creates an empty new file `scratch.<ext>`, else `scratch_<n>.<ext>` with the lowest free n >= 1, with CREATE_NEW;
-     * a name taken meanwhile (another window was faster, or a case-insensitive twin) tries the next. Sets [lastType].
+     * Creates a new file `<baseName>.<extension>`, else `<baseName>_<n>.<extension>` with the lowest free n >= 1, with
+     * CREATE_NEW, and writes [content] to it as UTF-8 through the channel that created it; a name taken meanwhile
+     * (another window was faster, or a case-insensitive twin) tries the next. A file whose writing fails is deleted
+     * again before the exception is thrown.
      */
-    fun create(type: ScratchType): Path {
+    fun create(
+        baseName: String,
+        extension: String,
+        content: String = "",
+    ): Path {
         ensureFolder()
         var number = 0
         while (true) {
-            val name = if (number == 0) "scratch.${type.extension}" else "scratch_$number.${type.extension}"
+            val name = if (number == 0) "$baseName.$extension" else "${baseName}_$number.$extension"
             val path = folder.resolve(name)
+            val channel =
+                try {
+                    Files.newByteChannel(path, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE)
+                } catch (_: FileAlreadyExistsException) {
+                    number++
+                    continue
+                }
             try {
-                Files.newByteChannel(path, StandardOpenOption.CREATE_NEW, StandardOpenOption.WRITE).close()
-            } catch (_: FileAlreadyExistsException) {
-                number++
-                continue
+                channel.use {
+                    val bytes = ByteBuffer.wrap(content.toByteArray(Charsets.UTF_8))
+                    while (bytes.hasRemaining()) it.write(bytes)
+                }
+            } catch (e: IOException) {
+                try {
+                    Files.deleteIfExists(path)
+                } catch (suppressed: IOException) {
+                    e.addSuppressed(suppressed)
+                }
+                throw e
             }
-            lastType = type
             return path
         }
     }
