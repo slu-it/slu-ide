@@ -84,7 +84,7 @@ internal class EditorContextMenu(
         copy.isDisable = !states.copy
         paste.isDisable = !states.paste
         selectAll.isDisable = !states.selectAll
-        val target = EditorMenuTarget(area.currentParagraph, area.caretColumn)
+        val target = EditorMenuTarget(area.currentParagraph, area.caretColumn, area.selectedText)
         val extra = contributed().flatMap { provider -> itemsOf(provider, target) }
         menu.items.setAll(base)
         if (extra.isNotEmpty()) menu.items += listOf(SeparatorMenuItem()) + extra

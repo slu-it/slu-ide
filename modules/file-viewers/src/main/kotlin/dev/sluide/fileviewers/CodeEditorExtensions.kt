@@ -61,8 +61,12 @@ interface ExtensibleCodeEditor : GutterColumns {
     fun addContextMenuItems(items: (EditorMenuTarget) -> List<MenuItem>)
 }
 
-/** Where a context menu was opened: 0-based line and column of the caret (moved to a right-click position first). */
+/**
+ * Where a context menu was opened: 0-based line and column of the caret (moved to a right-click position first), and
+ * the selected text, empty without a selection (ADR 0112).
+ */
 data class EditorMenuTarget(
     val line: Int,
     val column: Int,
+    val selectedText: String = "",
 )

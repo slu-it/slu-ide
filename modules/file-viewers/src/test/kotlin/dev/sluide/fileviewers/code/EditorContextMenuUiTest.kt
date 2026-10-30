@@ -283,7 +283,9 @@ class EditorContextMenuUiTest {
     }
 
     @Test
-    fun `items of extensions come after a separator, for the caret, without those of a failing one`(robot: FxRobot) {
+    fun `items of extensions come after a separator, for the caret and selection, without those of a failing one`(
+        robot: FxRobot,
+    ) {
         val targets = mutableListOf<EditorMenuTarget>()
         val extensions =
             CodeEditorExtensions().apply {
@@ -297,11 +299,12 @@ class EditorContextMenuUiTest {
                 }
             }
         val view = open(robot, host = host(extensions))
-        robot.interact { view.area.moveTo(1, 3) }
+        // The caret ends at line 1, column 3.
+        robot.interact { view.area.selectRange(0, 6, 1, 3) }
 
         requestMenu(view, robot)
 
-        assertEquals(listOf(EditorMenuTarget(1, 3)), targets)
+        assertEquals(listOf(EditorMenuTarget(1, 3, "beta\ngam")), targets)
         val items = view.menu.items
         assertEquals("Extension Item", items.last().text)
         assertIs<SeparatorMenuItem>(items[items.size - 2])
