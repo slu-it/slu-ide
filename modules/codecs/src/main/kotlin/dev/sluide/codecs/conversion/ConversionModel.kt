@@ -38,7 +38,10 @@ internal class ConversionModel(
 
     private var detectionHint: Hint? = null
     private var compressionHint: Hint? = null
-    private var fileName: String? = null
+
+    /** The name of the file opened last, until the text or the encoded side is edited, opened or cleared. */
+    var fileName: String? = null
+        private set
 
     val hint: Hint? get() = chooseHint(detectionHint, compressionHint)
 

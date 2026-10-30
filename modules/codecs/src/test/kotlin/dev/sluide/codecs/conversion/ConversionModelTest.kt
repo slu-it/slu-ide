@@ -277,6 +277,35 @@ class ConversionModelTest {
     }
 
     @Test
+    fun `fileName is kept for the file's bytes as text and ends with any other edit`(
+        @TempDir dir: Path,
+    ) {
+        val file = dir.resolve("a.bin")
+        Files.write(file, byteArrayOf(0, 1, 2, 3))
+        model.openFile(file)
+        assertEquals("a.bin", model.fileName)
+        model.editBytesAsText()
+        assertEquals("a.bin", model.fileName)
+        use(CodecId.HEX)
+        assertEquals("a.bin", model.fileName)
+
+        model.editEncoded("00")
+        assertNull(model.fileName)
+
+        model.openFile(file)
+        model.editText("x")
+        assertNull(model.fileName)
+
+        model.openFile(file)
+        model.open("plain words")
+        assertNull(model.fileName)
+
+        model.openFile(file)
+        model.clear(Side.TEXT)
+        assertNull(model.fileName)
+    }
+
+    @Test
     fun `openFile shows binary data as bytes and a data URI takes the kind as MIME`(
         @TempDir dir: Path,
     ) {
