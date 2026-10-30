@@ -36,6 +36,8 @@ internal data class MenuState(
     val cut: Boolean,
     val copy: Boolean,
     val paste: Boolean,
+    /** Compare Files: exactly two regular files. */
+    val compare: Boolean,
 )
 
 /**
@@ -63,6 +65,7 @@ internal fun menuState(
         cut = targets.isNotEmpty() && targets.all { it.canChange },
         copy = targets.isNotEmpty(),
         paste = canPaste,
+        compare = targets.size == 2 && targets.all { it.isRegularFile },
     )
 }
 
@@ -111,6 +114,10 @@ internal class ExplorerMenuHost(
     val historyOffered: () -> Boolean,
     val canShowHistory: (Path) -> Boolean,
     val showHistory: (Path) -> Unit,
+    /** Whether Compare Files is offered at all. */
+    val compareOffered: () -> Boolean,
+    /** Compares two files, the upper one in the tree first. */
+    val compareFiles: (upper: Path, lower: Path) -> Unit,
     val openFiles: (List<FileTreeItem>) -> Unit,
     val create: (target: FileTreeItem?, folder: Boolean) -> Unit,
     val runFolderAction: (FolderAction, FileTreeItem?) -> Unit,
@@ -139,6 +146,13 @@ internal class ExplorerMenuHost(
  */
 internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
     val open = MenuItem("Open").apply { setOnAction { host.openFiles(host.targets()) } }
+    val compare =
+        MenuItem("Compare Files").apply {
+            setOnAction {
+                val targets = host.targets()
+                if (targets.size == 2) host.compareFiles(targets[0].value, targets[1].value)
+            }
+        }
     val newFile = MenuItem("New File…").apply { setOnAction { host.create(host.targets().singleOrNull(), false) } }
     val newFolder = MenuItem("New Folder…").apply { setOnAction { host.create(host.targets().singleOrNull(), true) } }
     val rename = MenuItem("Rename…").apply { setOnAction { host.targets().singleOrNull()?.let(host.rename) } }
@@ -167,6 +181,7 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
     val fileActionItems = mutableListOf<MenuItem>()
     return ContextMenu(
         open,
+        compare,
         SeparatorMenuItem(),
         cut,
         copy,
@@ -212,6 +227,8 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
             }
             items.addAll(items.indexOf(newFolder) + 1, actionItems)
             open.isDisable = !state.open
+            compare.isVisible = host.compareOffered()
+            compare.isDisable = !state.compare
             newFile.isDisable = !state.create
             newFolder.isDisable = !state.create
             rename.isDisable = !state.rename

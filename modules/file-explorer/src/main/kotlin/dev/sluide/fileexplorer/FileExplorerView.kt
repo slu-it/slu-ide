@@ -118,6 +118,12 @@ class FileExplorerView(
      */
     var openInTerminal: ((Path) -> Unit)? = null
 
+    /**
+     * Compares two files, the upper one in the tree first (ADR 0113); `null` leaves Compare Files out of the context menu.
+     * Set by the window.
+     */
+    var compareFiles: ((upper: Path, lower: Path) -> Unit)? = null
+
     /** Actions on a folder, listed in the context menu after New Folder…. Set by the window. */
     var folderActions: List<FolderAction> = emptyList()
 
@@ -315,6 +321,8 @@ class FileExplorerView(
                     historyOffered = { showHistory != null },
                     canShowHistory = { canShowHistory(it) },
                     showHistory = { showHistory?.invoke(it) },
+                    compareOffered = { compareFiles != null },
+                    compareFiles = { upper, lower -> compareFiles?.invoke(upper, lower) },
                     openFiles = { openFiles(it) },
                     create = { target, folder -> create(target, folder) },
                     runFolderAction = { action, target -> runFolderAction(action, target) },

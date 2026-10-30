@@ -5,6 +5,8 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
 import javafx.scene.input.KeyEvent
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -39,6 +41,7 @@ class ExplorerMenuTest {
                 cut = true,
                 copy = true,
                 paste = false,
+                compare = false,
             ),
             state(file),
         )
@@ -59,6 +62,7 @@ class ExplorerMenuTest {
                 cut = true,
                 copy = true,
                 paste = false,
+                compare = false,
             ),
             state(folder),
         )
@@ -79,6 +83,7 @@ class ExplorerMenuTest {
                 cut = false,
                 copy = true,
                 paste = false,
+                compare = false,
             ),
             state(topLevel),
         )
@@ -99,6 +104,7 @@ class ExplorerMenuTest {
                 cut = false,
                 copy = false,
                 paste = false,
+                compare = false,
             ),
             state(),
         )
@@ -120,6 +126,7 @@ class ExplorerMenuTest {
                 cut = true,
                 copy = true,
                 paste = false,
+                compare = false,
             ),
             state(file, folder),
         )
@@ -136,9 +143,20 @@ class ExplorerMenuTest {
                 cut = true,
                 copy = true,
                 paste = false,
+                compare = false,
             ),
             state(folder, folder),
         )
+    }
+
+    @ParameterizedTest
+    @CsvSource("2,0,true", "1,1,false", "3,0,false", "1,0,false", "0,0,false")
+    fun `Compare needs exactly two regular files`(
+        files: Int,
+        folders: Int,
+        expected: Boolean,
+    ) {
+        assertEquals(expected, state(*Array(files) { file }, *Array(folders) { folder }).compare)
     }
 
     @Test

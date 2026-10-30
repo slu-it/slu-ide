@@ -327,6 +327,31 @@ class FileExplorerViewEditsUiTest : FileExplorerViewUiFixture() {
     }
 
     @Test
+    fun `Compare Files gives the hook the two selected files, the upper one first`(robot: FxRobot) {
+        val upper = project.resolve("a.txt").createFile()
+        val lower = project.resolve("b.txt").createFile()
+        robot.interact { view.open(project) }
+        assertFalse(menuItemFor(robot, cellNamed(robot, "a.txt"), "Compare Files").isVisible)
+        val compared = mutableListOf<Pair<Path, Path>>()
+        view.compareFiles = { first, second -> compared.add(first to second) }
+
+        robot.interact { view.selectionModel.clearAndSelect(1) }
+        val item = menuItemFor(robot, cellNamed(robot, "a.txt"), "Compare Files")
+        assertTrue(item.isVisible)
+        assertTrue(item.isDisable)
+
+        robot.interact {
+            view.selectionModel.clearSelection()
+            view.selectionModel.select(2)
+            view.selectionModel.select(1)
+        }
+        val enabled = menuItemFor(robot, cellNamed(robot, "b.txt"), "Compare Files")
+        assertFalse(enabled.isDisable)
+        robot.interact { enabled.fire() }
+        assertEquals(listOf(upper to lower), compared)
+    }
+
+    @Test
     fun `Open in file manager shows an error if the command cannot start`(robot: FxRobot) {
         val sub = project.resolve("sub").createDirectories()
         robot.interact { view.open(project) }
