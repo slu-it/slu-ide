@@ -7,6 +7,7 @@ import dev.sluide.coloring.SavedColors
 import dev.sluide.commandruns.ArgumentHistories
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.converting.Converting
+import dev.sluide.converting.FormatFamily
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
 import dev.sluide.fileexplorer.ExplorerClipboard
@@ -209,6 +210,9 @@ abstract class MainWindowUiFixture {
     /** The Coloring tools of the windows created by [mainWindow]. */
     internal val colorings = mutableListOf<Coloring>()
 
+    /** The format families of the Converting tools [mainWindow] creates; set before [startView]. */
+    internal var convertingFamilies: List<FormatFamily<*>> = emptyList()
+
     /** The Converting tools of the windows created by [mainWindow]; closed after the test. */
     internal val convertings = mutableListOf<Converting>()
 
@@ -284,7 +288,7 @@ abstract class MainWindowUiFixture {
             fontSettings,
             Coloring(SavedColors(projectData)).also(colorings::add),
             Codecs(),
-            Converting(emptyList(), fontSettings).also(convertings::add),
+            Converting(convertingFamilies, fontSettings).also(convertings::add),
             GitFileComparison(git),
         )
     }

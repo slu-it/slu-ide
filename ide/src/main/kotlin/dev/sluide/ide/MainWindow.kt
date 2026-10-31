@@ -26,6 +26,7 @@ import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpClientSetup
 import dev.sluide.ide.compare.WindowFileComparison
+import dev.sluide.ide.conversions.WindowConversions
 import dev.sluide.ide.explorer.WindowExplorer
 import dev.sluide.ide.git.WindowGitLog
 import dev.sluide.ide.git.ignoreRuleEffects
@@ -69,6 +70,9 @@ import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.net.URI
 import java.nio.file.Path
+import dev.sluide.ide.conversions.askToConvertSaved as askToConvertSavedDialog
+import dev.sluide.ide.conversions.askToOverwrite as askToOverwriteDialog
+import dev.sluide.ide.conversions.showConversionNotes as showConversionNotesDialog
 
 /**
  * The main IDE window: menu bar on top, file explorer on the left, open files and terminals in tabs on the right, and
@@ -129,6 +133,21 @@ class MainWindow(
     internal var confirmCloseWindow: (Stage, List<String>) -> Boolean = { stage, warnings ->
         askToClose(stage, "Close Window", "Close this window anyway?", warnings)
     }
+
+    /** Asks whether to replace a file with a conversion; tests replace it, since it blocks. */
+    internal var askToOverwrite: (Stage?, Path) -> Boolean = { stage, file -> askToOverwriteDialog(stage, file) }
+
+    /** Asks whether to convert the saved file of a tab with unsaved changes; tests replace it, since it blocks. */
+    internal var askToConvertSaved: (Stage?, Path) -> Boolean = { stage, file -> askToConvertSavedDialog(stage, file) }
+
+    /** Tells what a conversion could not keep and waits until it is closed; tests replace it, since it blocks. */
+    internal var showConversionNotes: (
+        Stage?,
+        String,
+    ) -> Unit = { stage, message -> showConversionNotesDialog(stage, message) }
+
+    /** The window's stage, once it is shown. */
+    private var shownStage: Stage? = null
 
     /** The project folder of this window; `null` until a folder is opened in it. */
     val folder: Path? get() = projectService.projectFolder.get()
@@ -202,7 +221,22 @@ class MainWindow(
             showError = { editorArea.showError(it) },
         )
 
+    /** Convert to of the explorer: a data file converted beside itself, shown and opened (ADR 0115). */
+    private val conversions =
+        WindowConversions(
+            targets = converting::conversionTargets,
+            convert = converting::convertFile,
+            reveal = { fileExplorer.reveal(it) },
+            open = { editorArea.open(it) },
+            askToOverwrite = { askToOverwrite(shownStage, it) },
+            hasUnsavedChanges = { editorArea.dirtyUnder(it).isNotEmpty() },
+            askToConvertSaved = { askToConvertSaved(shownStage, it) },
+            showError = { editorArea.showError(it) },
+            showNotes = { showConversionNotes(shownStage, it) },
+        )
+
     fun show(stage: Stage) {
+        shownStage = stage
         themedWindows.install()
         val explorerBar =
             ExplorerBar(
@@ -268,6 +302,9 @@ class MainWindow(
         converting.openScratch = { extension, text -> scratches.openText(stage, extension, text) }
         // A context menu's Compare Files shows the two files side by side (ADR 0113).
         fileExplorer.compareFiles = comparisons::compare
+        // A context menu's Convert to writes a data file in another format beside it (ADR 0115).
+        fileExplorer.conversionTargets = conversions::targetNames
+        fileExplorer.convertFile = conversions::convert
         // Git status markers, if git is installed and the folder is a repository (ADR 0013).
         fileExplorer.markers = { path, directory -> gitStatus.snapshot.get().markers(path, directory) }
         // Not for the log file growing inside the folder: the status's own log lines would trigger the next refresh.
@@ -465,6 +502,7 @@ class MainWindow(
     /** Closes all tabs (ending their terminals) and stops watching the folder; called when the window is closed. */
     fun dispose() {
         comparisons.dispose()
+        conversions.dispose()
         editorArea.closeAll()
         fileExplorer.open(null)
         gitStatus.open(null)

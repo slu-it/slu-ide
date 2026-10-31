@@ -1,5 +1,12 @@
 package dev.sluide.ide
 
+import dev.sluide.converting.ConversionOption
+import dev.sluide.converting.FormatFamily
+import dev.sluide.converting.FormatMatch
+import dev.sluide.converting.OptionValues
+import dev.sluide.converting.ReadResult
+import dev.sluide.converting.TextFormat
+import dev.sluide.converting.WriteResult
 import dev.sluide.fileexplorer.ExplorerBar
 import dev.sluide.ide.explorer.ExplorerPanel
 import javafx.event.Event
@@ -17,7 +24,10 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
+import java.nio.file.Files
+import java.nio.file.Path
 import kotlin.io.path.createFile
+import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -29,7 +39,10 @@ import kotlin.test.assertTrue
 @ExtendWith(ApplicationExtension::class)
 class MainWindowExplorerUiTest : MainWindowUiFixture() {
     @Start
-    fun start(stage: Stage) = startView(stage)
+    fun start(stage: Stage) {
+        convertingFamilies = listOf(ShoutingFamily)
+        startView(stage)
+    }
 
     private val panel: ExplorerPanel get() = mainWindow.explorer.panel
 
@@ -223,4 +236,90 @@ class MainWindowExplorerUiTest : MainWindowUiFixture() {
             }
         }
     }
+
+    @Test
+    fun `the explorer's Convert to hooks offer the formats of the file and write, show and open the converted file`(
+        robot: FxRobot,
+    ) {
+        val source = project.resolve("a.low").apply { writeText("hello") }
+        project.resolve("b.txt").createFile()
+        robot.interact { projectService.open(project) }
+        val offer = checkNotNull(fileExplorer.conversionTargets)
+
+        assertEquals(listOf("LOUD"), offer(source))
+        assertEquals(emptyList(), offer(project.resolve("b.txt")))
+
+        robot.interact { checkNotNull(fileExplorer.convertFile)(source, "LOUD") }
+
+        val converted = project.resolve("a.loud")
+        eventually(robot) { assertEquals(converted, editorArea.selectedPath) }
+        assertEquals("HELLO", converted.readText())
+        assertEquals(converted, onFx(robot) { fileExplorer.selectionModel.selectedItem?.value })
+    }
+
+    @Test
+    fun `Convert to asks first when a tab holds unsaved changes of the file, Cancel converts nothing`(robot: FxRobot) {
+        val source = project.resolve("a.low").apply { writeText("hello") }
+        robot.interact { projectService.open(project) }
+        robot.interact { editorArea.open(source) }
+        eventually(robot) { assertEquals(source, editorArea.selectedPath) }
+        val area = robot.lookup(".code-area").queryAs(org.fxmisc.richtext.CodeArea::class.java)
+        robot.interact { area.appendText(" more") }
+        val asked = mutableListOf<Path>()
+        mainWindow.askToConvertSaved = { _, file ->
+            asked.add(file)
+            false
+        }
+
+        robot.interact { checkNotNull(fileExplorer.convertFile)(source, "LOUD") }
+
+        assertEquals(listOf(source), asked)
+        assertFalse(Files.exists(project.resolve("a.loud")))
+    }
+}
+
+/** A format with its own extension and text: `low` text converts to `loud` text in capitals. */
+private class ShoutFormat(
+    override val id: String,
+    override val name: String,
+) : TextFormat {
+    override val language: String? = null
+    override val extensions = listOf(id)
+}
+
+/** A family converting files, so that the window's Converting offers "Convert to" (the real data family is internal). */
+private object ShoutingFamily : FormatFamily<String> {
+    private val low = ShoutFormat("low", "LOW")
+    private val loud = ShoutFormat("loud", "LOUD")
+    override val name = "Shouting"
+    override val formats = listOf(low, loud)
+    override val convertsFiles = true
+
+    override fun detect(text: String) = emptyList<FormatMatch>()
+
+    override fun readOptions(format: TextFormat) = emptyList<ConversionOption>()
+
+    override fun writeOptions(format: TextFormat) = emptyList<ConversionOption>()
+
+    override fun read(
+        text: String,
+        format: TextFormat,
+        options: OptionValues,
+    ): ReadResult<String> = ReadResult.Read(text, emptyList())
+
+    override fun write(
+        content: String,
+        format: TextFormat,
+        options: OptionValues,
+    ): WriteResult =
+        WriteResult.Written(
+            if (format.id ==
+                "loud"
+            ) {
+                content.uppercase()
+            } else {
+                content.lowercase()
+            },
+            emptyList(),
+        )
 }
