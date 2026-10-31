@@ -19,7 +19,8 @@ a scalar are settled.
 - **Format families as an extension point.** A `FormatFamily` (Spring bean) owns formats that convert into each other:
   it detects its formats in a text, reads a text into its own model and writes the model in any of its formats, with
   options. Formats of different families never meet. The data family (JSON, YAML, TOML, properties, CSV, TSV) is built
-  in; other modules contribute families (the HTTP client's requests: [ADR 0116](0116-curl-and-http-requests.md)).
+  in; other modules contribute families (the HTTP client's requests: [ADR 0116](0116-curl-and-http-requests.md)). A
+  family opts into the explorer's "Convert to" with `convertsFiles` (the data family does, requests do not).
 - **Two editable sides, a format picker on each**: like Codecs, the side edited last is the source and the other side
   follows it; a Swap button exchanges the sides. Each picker offers **Detect** and the formats; Detect shows what it
   found ("Detect: YAML"), choosing a format pins it. A pinned format that fails while another one reads the text gets a
@@ -58,9 +59,10 @@ a scalar are settled.
   CSV delimiter and header row, plus the family's own.
 - **Off the FX thread**: detection and conversion run after a short debounce on a background thread, the latest edit
   wins; files up to 1 MiB, as in Codecs.
-- **Entry points**: Tools → Converting; "Open Selection in Converting" (the whole file without a selection, its format
-  pinned from the extension); the explorer's "Convert to ▸" on a file of a data format, which writes the converted file
-  beside it (asking before overwriting) and opens it; "Open as Scratch", Open File… and Save as… on each side.
+- **Entry points**: Tools → Converting; "Open Selection in Converting" (the whole file without a selection, its
+  format pinned from the extension); the explorer's "Convert to ▸" on a file of a data format, which writes the
+  converted file beside it (asking before overwriting, and before converting a file with unsaved changes, as the saved
+  file is used) and opens it; "Open as Scratch", Open File… and Save as… on each side.
 
 ## Consequences
 - Comments never survive a conversion; keeping them would need own readers and writers with comment slots for every

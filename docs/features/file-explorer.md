@@ -121,6 +121,9 @@
     passes in tree order (the upper row first, however they were selected); the window shows them side by side
     ([file-comparison.md](file-comparison.md), [ADR 0113](../adr/0113-comparing-two-files.md)). The item shows
     Shortcut+Shift+D, which in the explorer compares two selected files and is otherwise left to View → Show Changes.
+  - Convert to ▸ follows, a submenu shown only for exactly one regular file for which the window's `conversionTargets`
+    hook returns format names (the data formats other than the file's own); choosing one calls `convertFile(file, name)`
+    ([converting.md](converting.md), [ADR 0115](../adr/0115-converting-tool.md)).
   - Cut, Copy and Paste follow, in a group of their own, showing their keys (Shortcut+X / C / V); see Copy, cut and
     paste below. Copy is enabled for at least one target (also a top-level folder), Cut when all targets can be changed
     (as Delete), Paste when the clipboard holds files and there is one folder to paste into: the clicked folder, the

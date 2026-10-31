@@ -12,6 +12,25 @@ menu, a highlighted editor and a status line.
 ## Opening
 - **Tools → Converting** opens the tab. There is one Converting tab per window: choosing the item again selects the
   open tab.
+- **Open Selection in Converting** in the context menu of every code editor puts the selection on the left side as the
+  source; without a selection the item reads **Open in Converting** and takes the whole text. The source is pinned to
+  the format of the file's extension (detected for an unknown one) and the tab is shown. Text over 1 MiB disables the
+  item ("larger than 1 MiB"). Code: `OpenInConvertingExtension` in `editor`, registered by `ide` after Codecs' item.
+- **Convert to ▸** in the explorer's context menu of a single file of a data format (JSON, YAML, TOML, properties, CSV,
+  TSV; not requests) lists the other data formats. It converts the file in the background with the window's current
+  options and writes the result beside it: same base name, the target's first extension (`.yaml`, but `.yml` when the
+  folder has `.yml` files and no `.yaml` file). The file is written through a temporary file and moved over the target;
+  a new file gets the usual mode, a replaced file keeps its permissions. If the target exists (a dangling symbolic
+  link counts), a question asks before replacing it (Cancel is the default); a folder of that name is an error. The
+  conversion reads the file on disk: if a tab has unsaved changes of it, a question first says so (Convert Saved File
+  or Cancel). The new file is revealed in the explorer and opened. A conversion that dropped something (comments,
+  nulls) tells what in an information dialog after the file is opened; a failure (a read error with line and column,
+  a file over 1 MiB or not UTF-8, a shape the target cannot hold) is shown as an error and writes nothing.
+  `Converting.conversionTargets` and `Converting.convertFile` do the work; `ide` (`dev.sluide.ide.conversions`:
+  `WindowConversions`) writes and opens; the explorer only has the callbacks `conversionTargets` and `convertFile`.
+- **File → Open as Scratch** on a side (shown once `ide` sets `openScratch`) creates the scratch file
+  `converted.<extension of the side's format>` with its text, shows it in the explorer and opens it
+  ([scratch-files.md](scratch-files.md)).
 - Shortcut+W closes the tab. Texts, formats and options belong to the window: when the tab is closed and opened again,
   they are as they were. Nothing is stored, as configs hold secrets; after a restart the tool starts empty.
 
