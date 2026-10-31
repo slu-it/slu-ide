@@ -22,20 +22,28 @@ a scalar are settled.
   in; other modules contribute families (the HTTP client's requests: [ADR 0116](0116-curl-and-http-requests.md)).
 - **Two editable sides, a format picker on each**: like Codecs, the side edited last is the source and the other side
   follows it; a Swap button exchanges the sides. Each picker offers **Detect** and the formats; Detect shows what it
-  found ("Detect: YAML"), choosing a format pins it. A pinned format that fails while another one reads the text gets
-  a hint offering to switch. Detection scores every format that reads the text; ties go to the side's previous format,
-  then the last pinned one. The target picker disables formats that cannot hold the source (a top-level array in TOML)
-  with the reason. When detection lands on the target's format, the target switches to the last other format; the
-  same format on both sides is allowed when chosen, so the tool also formats.
+  found ("Detect: YAML"), choosing a format pins it. A pinned format that fails while another one reads the text gets a
+  hint offering to switch. Detection scores every format that reads the text; ties go to the side's previous format,
+  then the last pinned one, then the family order (data first). A side shows a format the tool suggested without pinning
+  it, so a side that becomes the source detects unless the user pinned it. The target picker disables formats that
+  cannot hold the source (a top-level array in TOML) with the reason. When detection lands on the target's format, the
+  target switches to the last other format; the same format on both sides is allowed when chosen, so the tool also
+  formats.
 - **Highlighted in-memory editors** (`CodeEditors.text`) on both sides, highlighted per format; a read error marks its
   position in the source and the status line jumps there.
 - **A data tree between data formats**: Jackson's `JsonNode`, a list of documents for multi-document YAML, with
-  numbers kept exact (`BigDecimal`, `BigInteger`). JSON and TOML are read and written with Jackson's data formats; CSV and TSV by own code (char offsets for errors, delimiter guess);
-  YAML is read and written with SnakeYAML (as the YAML preview, [ADR 0079](0079-yaml-preview.md)); properties are read and written by own code for the Spring Boot dialect and line numbers.
+  numbers kept exact (`BigDecimal`, `BigInteger`). JSON is read and written with Jackson, TOML read with Jackson's TOML
+  module (masking 19-digit integers, which jackson-dataformat-toml 3.1.5 reads wrongly) and written by own code in the
+  shape people write it; CSV and TSV by own code (char offsets for errors, delimiter guess); YAML is read and written
+  with SnakeYAML (as the YAML preview, [ADR 0079](0079-yaml-preview.md)); properties by own code for the Spring Boot
+  dialect and line numbers. Data nested deeper than 500 levels, YAML aliases expanding to more than 100 000 values and
+  numbers of more than 1 000 digits (kept as text) are bounded.
 - **YAML 1.2 core schema** on reading: only `true` and `false` are booleans, so GitHub Actions' `on:` stays a key and
-  `NO` a string. Writing quotes what a YAML 1.1 reader would take for something else (`yes`, `off`, `~`, `0123`,
-  dates). Anchors and aliases are expanded (bounded against alias bombs), `<<` merges resolved, custom tags (`!Ref`)
-  keep their value with a note, `!!binary` becomes Base64 text.
+  `NO` a string. One exception: an unquoted integer with a leading zero (`0644`) is octal, with a note, as Kubernetes,
+  Docker Compose and Spring Boot read it; `089` stays a string. Empty documents between `---` are left out. Writing
+  quotes what a YAML 1.1 reader would take for something else (`yes`, `off`, `~`, `0123`, dates). Anchors and aliases
+  are expanded (bounded against alias bombs), `<<` merges resolved, custom tags (`!Ref`) keep their value with a note,
+  `!!binary` becomes Base64 text.
 - **Spring Boot's properties dialect**: dots nest, `a[0]` indexes lists, `[a.b]` keeps a dotted key part, `#---`
   separates documents like YAML's `---`, `${…}` is plain text. A key with both a value and children is an error at its
   line. Values are strings; "Infer types" (on by default, also for CSV) makes integers, decimals and booleans of them,

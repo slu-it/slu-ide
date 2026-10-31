@@ -1,6 +1,6 @@
 # 0047. Module dependencies and shared modules
 
-- Status: accepted; amended by [0109](0109-coloring-tool.md) (`coloring` joins the editor family)
+- Status: accepted; amended by [0109](0109-coloring-tool.md) (`coloring` joins the editor family), [0112](0112-codecs-tool.md) (`codecs`) and [0115](0115-converting-tool.md) (`converting`)
 - Date: 2026-10-17
 
 ## Context
