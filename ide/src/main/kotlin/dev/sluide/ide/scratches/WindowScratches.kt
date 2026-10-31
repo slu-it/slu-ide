@@ -127,6 +127,18 @@ internal class WindowScratches(
         }
     }
 
+    /**
+     * Creates the scratch file `converted.<extension>` with [text] (Converting's "Open as Scratch", ADR 0115), shows it
+     * in the explorer and opens it in the editor; an error message if that fails.
+     */
+    fun openText(
+        stage: Stage,
+        extension: String,
+        text: String,
+    ) {
+        createAndOpen(stage) { scratchFiles.create("converted", extension, text) }
+    }
+
     /** Creates a scratch file by [create], reveals and opens it; an error message if that throws an IOException. */
     private fun createAndOpen(
         stage: Stage,

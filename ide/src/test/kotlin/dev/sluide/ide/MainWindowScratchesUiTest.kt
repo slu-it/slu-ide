@@ -124,6 +124,25 @@ class MainWindowScratchesUiTest : MainWindowUiFixture() {
     }
 
     @Test
+    fun `Converting's Open as Scratch creates converted scratch files with the text, shows and opens them`(
+        robot: FxRobot,
+    ) {
+        openProject(robot)
+        val openScratch = checkNotNull(convertings.single().openScratch)
+
+        robot.interact { openScratch("yaml", "a: 1\n") }
+        val first = scratchFiles.folder.resolve("converted.yaml")
+        assertEquals("a: 1\n", Files.readString(first))
+        assertEquals(first, editorArea.selectedPath)
+        eventually(robot) { assertEquals(first, fileExplorer.selectionModel.selectedItem?.value) }
+
+        robot.interact { openScratch("yaml", "b: 2\n") }
+
+        assertEquals("b: 2\n", Files.readString(scratchFiles.folder.resolve("converted_1.yaml")))
+        assertEquals(listOf("converted.yaml", "converted_1.yaml"), tabTitles(robot))
+    }
+
+    @Test
     fun `a generated scratch file is created, shown and opened, its generator preselected next time`(robot: FxRobot) {
         openProject(robot)
         val generator = SCRATCH_GENERATORS.single { it.baseName == "uuid-v7" }

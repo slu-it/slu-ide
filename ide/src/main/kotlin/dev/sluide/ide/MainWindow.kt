@@ -264,6 +264,8 @@ class MainWindow(
         fileExplorer.fileActions = listOf(scriptRuns.action)
         // A context menu's Open in Terminal opens a terminal tab in the folder (ADR 0093).
         fileExplorer.openInTerminal = { tools.openTerminal(stage, it) }
+        // The Converting tool's sides open their text as a scratch file (ADR 0115).
+        converting.openScratch = { extension, text -> scratches.openText(stage, extension, text) }
         // A context menu's Compare Files shows the two files side by side (ADR 0113).
         fileExplorer.compareFiles = comparisons::compare
         // Git status markers, if git is installed and the folder is a repository (ADR 0013).
