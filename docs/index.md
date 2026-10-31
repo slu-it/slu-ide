@@ -201,6 +201,7 @@ updated when the summary or keywords no longer fit.
 | [shell-scripts.md](features/shell-scripts.md) | Shell scripts run from their tab or the explorer | `.sh`, Run, Shortcut+Enter, argument history, make executable |
 | [coloring.md](features/coloring.md) | Coloring tool: a tab of the Tools menu for colors in CSS notations | Tools menu, Coloring, color picker, contrast, harmonies, gradient, color vision |
 | [codecs.md](features/codecs.md) | Codecs tool: a tab of the Tools menu that encodes and decodes text in two editable sides | Tools menu, Codecs, Base64, hex, URL encoding, HTML entities, escapes, JWT, hash, HMAC, gzip, hex dump, Open Selection in Codecs |
+| [converting.md](features/converting.md) | Converting tool: a tab of the Tools menu that converts between JSON, YAML, TOML, properties, CSV and TSV in two editable sides with a format picker each | Tools menu, Converting, JSON, YAML, TOML, properties, Spring Boot, CSV, TSV, Detect, Swap, YAML 1.2, octal, quoting, Infer types, Sort keys, Save as |
 
 ## Ideas
 Explored but not decided or built; options and trade-offs, no commitment.
