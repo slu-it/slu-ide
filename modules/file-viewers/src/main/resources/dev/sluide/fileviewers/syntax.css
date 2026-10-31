@@ -124,6 +124,13 @@
     -rtfx-background-color: #c9ced6;
 }
 
+/* A character marked as an error (TextEditor.markError), in both themes. */
+.text-error {
+    -rtfx-underline-color: #e53935;
+    -rtfx-underline-width: 1.5;
+    -rtfx-underline-wave-radius: 2;
+}
+
 /*
  * Dark theme: the colour scheme comes from the window, see ThemedWindows in the settings module. Single classes only
  * (see above). Plain text is RichTextFX's TextExt, a type selector: unlike `.text` it does not reach the labels of

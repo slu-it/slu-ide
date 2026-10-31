@@ -109,6 +109,28 @@ interface TextEditor {
 
     /** Gives the text area the keyboard focus. */
     fun focus()
+
+    /**
+     * Replaces the whole text, as one undo step; the caret keeps its offset (or goes to the end) and the first shown
+     * line stays at the top. Call on the FX thread.
+     */
+    fun replaceText(text: String)
+
+    /** Highlights the text (plain without one); setting another one highlights it again. Use on the FX thread. */
+    var highlighter: SyntaxHighlighter?
+
+    /**
+     * Selects the character at [offset] (kept within the text), or places the caret at the end when [offset] is
+     * there, scrolls it into view and focuses the editor. Call on the FX thread.
+     */
+    fun select(offset: Int)
+
+    /**
+     * Marks the character at [offset] as an error with a wavy red underline over its highlighting (the last character
+     * when [offset] is at or past the end, the one before a line break); `null` removes the mark, as does the next
+     * edit. Call on the FX thread.
+     */
+    fun markError(offset: Int?)
 }
 
 /** Creates [CodeEditor]s and [CodeDisplay]s. */
@@ -148,6 +170,18 @@ private class AreaTextEditor(
     override val textProperty: ObservableValue<String> get() = editor.textProperty
 
     override fun focus() = editor.focus()
+
+    override fun replaceText(text: String) = editor.replaceText(text)
+
+    override var highlighter: SyntaxHighlighter?
+        get() = editor.highlighter
+        set(value) {
+            editor.highlighter = value
+        }
+
+    override fun select(offset: Int) = editor.select(offset)
+
+    override fun markError(offset: Int?) = editor.markError(offset)
 }
 
 private class AreaDisplay : CodeDisplay {

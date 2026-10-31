@@ -204,7 +204,11 @@ the Bicep graph and `BicepParamFileViewer`.
     (scrolling, resizing, shown again, a shown line edited) and `showLineAtTop`. `CodeEditors.display()` creates a
     read-only highlighted `CodeDisplay` (texts over 1 MiB stay plain). `CodeEditors.text(text, highlighter,
     lineComment, blockComment)` creates a file-less `TextEditor` (`node`, `text`, `textProperty`, `focus`) for fields of
-    dialogs: wrapped lines, no gutter, the editing keys, plain-text undo and background highlighting of code views. Its font is inherited from its `node`: the caller binds the
+    dialogs and tools: wrapped lines, no gutter, the editing keys, plain-text undo and background highlighting of code
+    views. `replaceText` sets a new text as one undo step (caret offset and top line kept), setting `highlighter`
+    highlights again at once, `select(offset)` selects a character, scrolls to it and focuses, `markError(offset)`
+    underlines a character in red over its highlighting until `markError(null)` or the next edit (the Converting
+    tool's sides, [converting.md](converting.md)). Its font is inherited from its `node`: the caller binds the
     node's style to `FontSettings.font(FontArea.EDITOR)` (`FontSpec::toCss`) if it should have the editor font.
   - `CodeEditorExtensions` (`CodeEditorExtensions.kt`) is a window service that extends every code editor of the
     window, whichever view embeds it ([ADR 0108](../adr/0108-code-editor-extensions-and-context-menu.md)). Each
