@@ -6,6 +6,8 @@ import dev.sluide.coloring.Coloring
 import dev.sluide.coloring.SavedColors
 import dev.sluide.commandruns.ArgumentHistories
 import dev.sluide.commandruns.CommandRunSession
+import dev.sluide.converting.Converting
+import dev.sluide.converting.FormatFamily
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
 import dev.sluide.fileexplorer.ExplorerClipboard
@@ -62,11 +64,14 @@ import dev.sluide.terminal.settings.TerminalScrollSettings
 import dev.sluide.todos.TodoPanel
 import dev.sluide.todos.Todos
 import org.junit.jupiter.api.io.TempDir
+import org.springframework.beans.factory.config.DependencyDescriptor
 import org.springframework.boot.WebApplicationType
 import org.springframework.boot.builder.SpringApplicationBuilder
+import org.springframework.core.MethodParameter
 import java.nio.file.Path
 import kotlin.io.path.writeText
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
@@ -171,6 +176,7 @@ class SpringWiringTest {
                         TodoPanel::class.java,
                         Coloring::class.java,
                         Codecs::class.java,
+                        Converting::class.java,
                     )
                 val scoped =
                     context.beanFactory.beanDefinitionNames.filter {
@@ -180,6 +186,18 @@ class SpringWiringTest {
                     windowTypes.map { context.getBeanNamesForType(it).single() }.toSet(),
                     scoped.toSet(),
                 )
+                // The Converting tool gets the format families of all modules through its generic list parameter.
+                val familiesParameter =
+                    MethodParameter(
+                        Converting::class.java.getConstructor(List::class.java, FontSettings::class.java),
+                        0,
+                    )
+                val families =
+                    context.autowireCapableBeanFactory.resolveDependency(
+                        DependencyDescriptor(familiesParameter, true),
+                        null,
+                    )
+                assertContains((families as List<*>).map { (it as FormatFamily<*>).name }, "Data")
                 // Needs no JavaFX toolkit, so the viewer chain can be created for real.
                 val viewers = context.getBean(FileViewers::class.java).viewers
                 assertEquals(context.getBeansOfType(FileViewer::class.java).size, viewers.size, "all viewers are asked")

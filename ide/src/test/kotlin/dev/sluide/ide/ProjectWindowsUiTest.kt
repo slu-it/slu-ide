@@ -6,6 +6,7 @@ import dev.sluide.coloring.Coloring
 import dev.sluide.coloring.SavedColors
 import dev.sluide.commandruns.ArgumentHistories
 import dev.sluide.commandruns.CommandRunSession
+import dev.sluide.converting.Converting
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
 import dev.sluide.fileexplorer.ExplorerClipboard
@@ -175,6 +176,7 @@ class ProjectWindowsUiTest {
                     TodoPanel::class.java,
                     Coloring::class.java,
                     Codecs::class.java,
+                    Converting::class.java,
                 )
                 refresh()
             }

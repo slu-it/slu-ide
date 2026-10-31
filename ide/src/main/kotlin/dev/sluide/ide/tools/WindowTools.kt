@@ -2,6 +2,7 @@ package dev.sluide.ide.tools
 
 import dev.sluide.codecs.Codecs
 import dev.sluide.coloring.Coloring
+import dev.sluide.converting.Converting
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.dockersandbox.SandboxAction
 import dev.sluide.dockersandbox.SandboxNotAllowedException
@@ -20,8 +21,8 @@ import java.nio.file.Path
 
 /**
  * The tools of one window: the Terminal and Docker Sandbox menus with the terminal tabs they open in the
- * [editorArea], and the Tools menu with the Coloring and Codecs tabs (ADR 0110, ADR 0112). [showError] shows why a
- * tool cannot be started. Used on the JavaFX thread.
+ * [editorArea], and the Tools menu with the Coloring, Codecs and Converting tabs (ADR 0110, ADR 0112, ADR 0115).
+ * [showError] shows why a tool cannot be started. Used on the JavaFX thread.
  */
 internal class WindowTools(
     private val projectService: ProjectService,
@@ -31,6 +32,7 @@ internal class WindowTools(
     private val editorArea: EditorArea,
     coloring: Coloring,
     codecs: Codecs,
+    converting: Converting,
     private val showError: (Stage, String) -> Unit,
 ) {
     /** The Coloring tool of the Tools menu. */
@@ -39,17 +41,26 @@ internal class WindowTools(
     /** The Codecs tool of the Tools menu. */
     internal val codecsTool = WindowTool("Codecs", codecs::createTab)
 
+    /** The Converting tool of the Tools menu. */
+    internal val convertingTool = WindowTool("Converting", converting::createTab)
+
     /** The Tools menu logic; tests choose tools through it. */
     internal val toolsMenu =
-        ToolsMenu({ editorArea.tabs }, editorArea::open, editorArea::select, listOf(coloringTool, codecsTool))
+        ToolsMenu(
+            { editorArea.tabs },
+            editorArea::open,
+            editorArea::select,
+            listOf(coloringTool, codecsTool, convertingTool),
+        )
 
     init {
         coloring.showTab = { toolsMenu.open(coloringTool) }
         codecs.showTab = { toolsMenu.open(codecsTool) }
+        converting.showTab = { toolsMenu.open(convertingTool) }
         coloring.projectFolder.bind(projectService.projectFolder)
     }
 
-    /** The Tools menu: Coloring, Codecs. */
+    /** The Tools menu: Coloring, Codecs, Converting. */
     fun toolsMenu(): Menu = toolsMenu.menu()
 
     /** The Terminal menu: New Terminal. */

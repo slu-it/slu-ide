@@ -55,6 +55,8 @@ dependencies {
     implementation(project(":modules:coloring"))
     // The Codecs tool: a tab opened from the Tools menu, one per window (ADR 0110, ADR 0112).
     implementation(project(":modules:codecs"))
+    // The Converting tool: a tab opened from the Tools menu, one per window (ADR 0110, ADR 0115).
+    implementation(project(":modules:converting"))
     // The explorer's Run item has a Material Design play icon, like the HTTP client's Run (ADR 0012).
     implementation(libs.ikonli.javafx)
     implementation(libs.ikonli.materialdesign2)

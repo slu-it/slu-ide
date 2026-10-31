@@ -6,6 +6,7 @@ import dev.sluide.coloring.Coloring
 import dev.sluide.coloring.SavedColors
 import dev.sluide.commandruns.ArgumentHistories
 import dev.sluide.commandruns.CommandRunSession
+import dev.sluide.converting.Converting
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
 import dev.sluide.fileexplorer.ExplorerClipboard
@@ -183,6 +184,7 @@ abstract class MainWindowUiFixture {
         commandRunSessions.forEach(CommandRunSession::close)
         backgroundTasks.forEach(BackgroundTasks::close)
         todoPanels.forEach(TodoPanel::close)
+        convertings.forEach(Converting::close)
     }
 
     /** The git log views of the windows a test created, the main window's first; closed after it. */
@@ -206,6 +208,9 @@ abstract class MainWindowUiFixture {
 
     /** The Coloring tools of the windows created by [mainWindow]. */
     internal val colorings = mutableListOf<Coloring>()
+
+    /** The Converting tools of the windows created by [mainWindow]; closed after the test. */
+    internal val convertings = mutableListOf<Converting>()
 
     /** The application-wide TODO store, in the test's project data and shared data file. */
     internal val todos by lazy { Todos(projectData) }
@@ -279,6 +284,7 @@ abstract class MainWindowUiFixture {
             fontSettings,
             Coloring(SavedColors(projectData)).also(colorings::add),
             Codecs(),
+            Converting(emptyList(), fontSettings).also(convertings::add),
             GitFileComparison(git),
         )
     }

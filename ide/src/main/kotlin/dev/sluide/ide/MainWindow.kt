@@ -4,6 +4,7 @@ import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.codecs.Codecs
 import dev.sluide.coloring.Coloring
 import dev.sluide.commandruns.CommandRunSession
+import dev.sluide.converting.Converting
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
 import dev.sluide.editorarea.askToClose
@@ -103,6 +104,7 @@ class MainWindow(
     fontSettings: FontSettings,
     private val coloring: Coloring,
     private val codecs: Codecs,
+    converting: Converting,
     gitFileComparison: GitFileComparison,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
@@ -185,6 +187,7 @@ class MainWindow(
             editorArea,
             coloring,
             codecs,
+            converting,
             showError = { s, m -> showError(s, m) },
         )
 

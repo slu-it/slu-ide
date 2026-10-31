@@ -307,13 +307,27 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `Tools - Codecs opens one Codecs tab`(robot: FxRobot) {
-        val codecsItem = menu(robot, "Tools").items.single { it.text == "Codecs" }
+    fun `Tools - Codecs and Converting open one tab each, and Converting shows its tab when text is opened`(
+        robot: FxRobot,
+    ) {
+        val tools = menu(robot, "Tools").items
+        assertEquals(listOf("Coloring", "Codecs", "Converting"), tools.map { it.text })
+        val codecsItem = tools.single { it.text == "Codecs" }
         robot.interact { codecsItem.fire() }
         robot.interact { codecsItem.fire() }
 
         assertEquals(listOf("Codecs"), tabTitles(robot))
         assertEquals("Encode and decode text", checkNotNull(editorArea.selectedTab).tooltip)
+
+        val convertingItem = tools.single { it.text == "Converting" }
+        robot.interact { convertingItem.fire() }
+        robot.interact { convertingItem.fire() }
+        assertEquals(listOf("Codecs", "Converting"), tabTitles(robot))
+        assertEquals("Convert between data formats", checkNotNull(editorArea.selectedTab).tooltip)
+
+        robot.interact { editorArea.closeAll() }
+        robot.interact { convertings.single().open("{}", "json") }
+        assertEquals(listOf("Converting"), tabTitles(robot))
     }
 
     @Test
