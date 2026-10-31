@@ -8,6 +8,7 @@ import dev.sluide.fileexplorer.FolderAction
 import dev.sluide.fileexplorer.PASTE_KEYS
 import dev.sluide.fileexplorer.tree.FileTreeItem
 import javafx.scene.control.ContextMenu
+import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
 import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.input.KeyCombination
@@ -109,6 +110,19 @@ internal fun fileActionsFor(
     return actions.filter { it.appliesTo(file) }
 }
 
+/**
+ * The format names the "Convert to" submenu lists for [targets]: what [offer] says for the target if it is exactly one
+ * regular file ([isRegularFile]); none without [offer] or for anything else.
+ */
+internal fun conversionTargetsFor(
+    targets: List<Path>,
+    isRegularFile: (Path) -> Boolean,
+    offer: ((Path) -> List<String>)?,
+): List<String> {
+    val file = targets.singleOrNull()?.takeIf(isRegularFile) ?: return emptyList()
+    return offer?.invoke(file).orEmpty()
+}
+
 /** What [buildExplorerMenu] needs from the explorer; read when the menu opens or an item runs. */
 internal class ExplorerMenuHost(
     /** The entries the menu was opened for, in row order; empty for the empty area. */
@@ -125,6 +139,10 @@ internal class ExplorerMenuHost(
     val compareOffered: () -> Boolean,
     /** Compares two files, the upper one in the tree first. */
     val compareFiles: (upper: Path, lower: Path) -> Unit,
+    /** The format names "Convert to" offers for a file; null (no hook) or empty hides the submenu. */
+    val conversionTargets: () -> ((Path) -> List<String>)?,
+    /** Converts a file to the format of this name. */
+    val convertFile: (Path, String) -> Unit,
     val openFiles: (List<FileTreeItem>) -> Unit,
     val create: (target: FileTreeItem?, folder: Boolean) -> Unit,
     val runFolderAction: (FolderAction, FileTreeItem?) -> Unit,
@@ -158,6 +176,7 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
             val targets = host.targets()
             if (targets.size == 2) host.compareFiles(targets[0].value, targets[1].value)
         }
+    val convert = Menu("Convert to")
     val newFile = MenuItem("New File…").apply { setOnAction { host.create(host.targets().singleOrNull(), false) } }
     val newFolder = MenuItem("New Folder…").apply { setOnAction { host.create(host.targets().singleOrNull(), true) } }
     val rename = MenuItem("Rename…").apply { setOnAction { host.targets().singleOrNull()?.let(host.rename) } }
@@ -187,6 +206,7 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
     return ContextMenu(
         open,
         compare,
+        convert,
         SeparatorMenuItem(),
         cut,
         copy,
@@ -231,6 +251,13 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
                 }
             }
             items.addAll(items.indexOf(newFolder) + 1, actionItems)
+            val formats = conversionTargetsFor(paths, Files::isRegularFile, host.conversionTargets())
+            convert.items.setAll(
+                formats.map { format ->
+                    MenuItem(format).apply { setOnAction { host.convertFile(paths.single(), format) } }
+                },
+            )
+            convert.isVisible = formats.isNotEmpty()
             open.isDisable = !state.open
             compare.isVisible = host.compareOffered()
             compare.isDisable = !state.compare

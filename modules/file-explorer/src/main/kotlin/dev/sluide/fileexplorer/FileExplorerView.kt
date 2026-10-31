@@ -125,6 +125,15 @@ class FileExplorerView(
      */
     var compareFiles: ((upper: Path, lower: Path) -> Unit)? = null
 
+    /**
+     * The names of the formats "Convert to" offers for a file (ADR 0115); `null`, or an empty list for the file, leaves
+     * the submenu out of the context menu. Set by the window.
+     */
+    var conversionTargets: ((Path) -> List<String>)? = null
+
+    /** Converts a file to the format of the given name, one of [conversionTargets]. Set by the window. */
+    var convertFile: ((Path, String) -> Unit)? = null
+
     /** Actions on a folder, listed in the context menu after New Folder…. Set by the window. */
     var folderActions: List<FolderAction> = emptyList()
 
@@ -330,6 +339,8 @@ class FileExplorerView(
                     showHistory = { showHistory?.invoke(it) },
                     compareOffered = { compareFiles != null },
                     compareFiles = { upper, lower -> compareFiles?.invoke(upper, lower) },
+                    conversionTargets = { conversionTargets },
+                    convertFile = { file, format -> convertFile?.invoke(file, format) },
                     openFiles = { openFiles(it) },
                     create = { target, folder -> create(target, folder) },
                     runFolderAction = { action, target -> runFolderAction(action, target) },

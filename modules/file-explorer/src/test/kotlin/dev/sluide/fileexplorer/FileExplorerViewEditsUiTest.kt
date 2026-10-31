@@ -10,6 +10,7 @@ import javafx.application.Platform
 import javafx.css.PseudoClass
 import javafx.event.Event
 import javafx.scene.control.Button
+import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
 import javafx.scene.input.Clipboard
 import javafx.scene.input.DataFormat
@@ -324,6 +325,27 @@ class FileExplorerViewEditsUiTest : FileExplorerViewUiFixture() {
 
         robot.interact { view.selectionModel.selectIndices(1, 2) }
         assertTrue(menuItemFor(robot, view, "Open in Terminal", keyboard = true).isDisable)
+    }
+
+    @Test
+    fun `Convert to lists the formats the hook offers for a file and gives it the file and the chosen format`(
+        robot: FxRobot,
+    ) {
+        val json = project.resolve("a.json").createFile()
+        project.resolve("b.txt").createFile()
+        robot.interact { view.open(project) }
+        assertFalse(menuItemFor(robot, cellNamed(robot, "a.json"), "Convert to").isVisible)
+        val converted = mutableListOf<Pair<Path, String>>()
+        view.conversionTargets = { file -> if (file == json) listOf("YAML", "TOML") else emptyList() }
+        view.convertFile = { file, format -> converted.add(file to format) }
+
+        assertFalse(menuItemFor(robot, cellNamed(robot, "b.txt"), "Convert to").isVisible)
+        val submenu = menuItemFor(robot, cellNamed(robot, "a.json"), "Convert to") as Menu
+        assertTrue(submenu.isVisible)
+        assertEquals(listOf("YAML", "TOML"), submenu.items.map { it.text })
+        robot.interact { submenu.items.last().fire() }
+
+        assertEquals(listOf(json to "TOML"), converted)
     }
 
     @Test

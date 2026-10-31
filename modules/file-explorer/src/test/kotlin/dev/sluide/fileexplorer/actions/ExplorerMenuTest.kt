@@ -162,6 +162,19 @@ class ExplorerMenuTest {
     }
 
     @Test
+    fun `Convert to lists the offered formats for exactly one regular file`() {
+        val a = Path.of("a.json")
+        val offer: (Path) -> List<String> = { listOf("YAML", "TOML") }
+
+        assertEquals(listOf("YAML", "TOML"), conversionTargetsFor(listOf(a), { true }, offer))
+        assertEquals(emptyList(), conversionTargetsFor(listOf(a), { false }, offer))
+        assertEquals(emptyList(), conversionTargetsFor(listOf(a, a), { true }, offer))
+        assertEquals(emptyList(), conversionTargetsFor(emptyList(), { true }, offer))
+        assertEquals(emptyList(), conversionTargetsFor(listOf(a), { true }, null))
+        assertEquals(emptyList(), conversionTargetsFor(listOf(a), { true }) { emptyList() })
+    }
+
+    @Test
     fun `Delete needs every target to be changeable`() {
         assertEquals(false, state(file, topLevel).delete)
         assertEquals(false, state(file, busy).delete)
