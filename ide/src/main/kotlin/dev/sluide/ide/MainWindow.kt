@@ -104,7 +104,7 @@ class MainWindow(
     fontSettings: FontSettings,
     private val coloring: Coloring,
     private val codecs: Codecs,
-    converting: Converting,
+    private val converting: Converting,
     gitFileComparison: GitFileComparison,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
@@ -297,12 +297,14 @@ class MainWindow(
         // background tasks (ADR 0088, ADR 0089).
         editorArea.windowServices.register(CommandRunSession::class.java, commandRuns)
         // Code editors show the colors of style, markup and script files as swatches and open them in Coloring (ADR 0108,
-        // ADR 0109), and open a selection in Codecs (ADR 0112).
+        // ADR 0109), open a selection in Codecs (ADR 0112) and
+        // a selection or a whole file in Converting (ADR 0115).
         editorArea.windowServices.register(
             CodeEditorExtensions::class.java,
             CodeEditorExtensions().apply {
                 add(coloring.editorExtension)
                 add(codecs.editorExtension)
+                add(converting.editorExtension)
             },
         )
         gradleSession.reviewTrust = { trust.review(stage) }

@@ -355,4 +355,53 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
         val text = robot.lookup(".text-area").queryAllAs(TextArea::class.java).first { it.promptText == "Text" }
         assertEquals("hello world", WaitForAsyncUtils.asyncFx<String> { text.text }.get())
     }
+
+    @Test
+    fun `Open Selection in Converting follows Codecs' item in a code editor's context menu and opens the tab`(
+        robot: FxRobot,
+    ) {
+        val file = project.resolve("data.json").apply { writeText("{\"a\": 1}\n") }
+        robot.interact { editorArea.open(file) }
+        eventually(robot) { assertEquals(1, robot.lookup(".code-area").queryAllAs(CodeArea::class.java).size) }
+        val area = robot.lookup(".code-area").queryAs(CodeArea::class.java)
+
+        val items =
+            WaitForAsyncUtils
+                .asyncFx<List<MenuItem>> {
+                    area.selectRange(0, 3)
+                    val menu = checkNotNull(area.contextMenu)
+                    val at = area.localToScreen(5.0, 5.0)
+                    menu.show(area, at.x, at.y)
+                    menu.items.toList().also { menu.hide() }
+                }.get()
+        val texts = items.map { it.text }
+        assertTrue(
+            texts.indexOf("Open Selection in Codecs") in 0 until texts.indexOf("Open Selection in Converting"),
+            "items: $texts",
+        )
+        robot.interact { items.single { it.text == "Open Selection in Converting" }.fire() }
+
+        assertEquals(listOf("data.json", "Converting"), tabTitles(robot))
+    }
+
+    @Test
+    fun `Open in Converting without a selection is in the context menu of a code editor`(robot: FxRobot) {
+        val file = project.resolve("data.json").apply { writeText("{\"a\": 1}\n") }
+        robot.interact { editorArea.open(file) }
+        eventually(robot) { assertEquals(1, robot.lookup(".code-area").queryAllAs(CodeArea::class.java).size) }
+        val area = robot.lookup(".code-area").queryAs(CodeArea::class.java)
+
+        val item =
+            WaitForAsyncUtils
+                .asyncFx<MenuItem> {
+                    area.deselect()
+                    val menu = checkNotNull(area.contextMenu)
+                    val at = area.localToScreen(5.0, 5.0)
+                    menu.show(area, at.x, at.y)
+                    menu.items.single { it.text == "Open in Converting" }.also { menu.hide() }
+                }.get()
+        robot.interact { item.fire() }
+
+        assertEquals(listOf("data.json", "Converting"), tabTitles(robot))
+    }
 }

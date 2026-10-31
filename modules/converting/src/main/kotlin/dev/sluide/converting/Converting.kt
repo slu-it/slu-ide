@@ -1,10 +1,12 @@
 package dev.sluide.converting
 
+import dev.sluide.converting.editor.OpenInConvertingExtension
 import dev.sluide.converting.model.ConvertingModel
 import dev.sluide.converting.model.ConvertingScheduler
 import dev.sluide.converting.ui.ConvertingTab
 import dev.sluide.converting.ui.ConvertingView
 import dev.sluide.editorarea.EditorTab
+import dev.sluide.fileviewers.CodeEditorExtension
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontSpec
@@ -49,6 +51,9 @@ class Converting internal constructor(
     /** A new Converting tab on [model]. */
     fun createTab(): EditorTab =
         ConvertingTab(ConvertingView(model, editorCss, ::chooseFile, ::chooseSaveFile, openScratch))
+
+    /** Extends the window's code editors with "Open Selection in Converting" and "Open in Converting" (ADR 0115). */
+    val editorExtension: CodeEditorExtension = OpenInConvertingExtension(::open)
 
     /**
      * Puts [text] on the left side as the source, pinned to the format of [extension] (with or without the dot) or
