@@ -30,6 +30,9 @@ internal class ConvertingModel(
     private val families = Families(families)
     private val texts = EnumMap<Side, String>(Side.entries.associateWith { "" })
 
+    /** The format families, in the order of the format pickers. */
+    val allFamilies: List<FormatFamily<*>> get() = families.all
+
     /** The user's picks; the model never pins a format itself. */
     private val picks = EnumMap<Side, Pick>(Side.entries.associateWith { Pick.Detect })
 

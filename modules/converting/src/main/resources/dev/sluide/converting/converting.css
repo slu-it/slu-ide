@@ -1,0 +1,44 @@
+/*
+ * The Converting tool (ADR 0115). Colors are Modena's looked-up ones, so dark mode follows the theme; the error and
+ * warning colors are looked-up colors of the tool, redefined for the dark theme below.
+ */
+.converting {
+    -fx-background-color: -fx-background;
+    -converting-error: #d32f2f;
+    -converting-warning: #b45309;
+}
+
+.converting .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
+/* The button's label only: its menu's items would inherit the weight. */
+.converting-picker > .label {
+    -fx-font-weight: bold;
+}
+
+.converting-picker-header {
+    -fx-font-size: 0.8em;
+    -fx-font-weight: bold;
+}
+
+.converting-status {
+    -fx-opacity: 0.7;
+    -fx-min-height: 1.4em;
+}
+
+.converting-status.converting-error {
+    -fx-opacity: 1;
+    -fx-text-fill: -converting-error;
+}
+
+.converting-hint-text {
+    -fx-text-fill: -converting-warning;
+}
+
+@media (prefers-color-scheme: dark) {
+    .converting {
+        -converting-error: #ef5350;
+        -converting-warning: #fbbf24;
+    }
+}
