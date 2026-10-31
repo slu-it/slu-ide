@@ -7,10 +7,14 @@ import dev.sluide.converting.OptionValues
 import dev.sluide.converting.ReadResult
 import dev.sluide.converting.TextFormat
 import dev.sluide.converting.WriteResult
+import org.springframework.core.Ordered
+import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 
 /** The built-in family of data formats, converting through a tree of [DataContent] documents (ADR 0115). */
 @Component
+// The built-in family comes first: in the format pickers and when detection scores of two families tie.
+@Order(Ordered.HIGHEST_PRECEDENCE)
 internal class DataFamily(
     private val dataFormats: List<DataFormat>,
 ) : FormatFamily<DataContent> {

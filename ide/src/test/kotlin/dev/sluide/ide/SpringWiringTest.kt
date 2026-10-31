@@ -71,7 +71,6 @@ import org.springframework.core.MethodParameter
 import java.nio.file.Path
 import kotlin.io.path.writeText
 import kotlin.test.Test
-import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 
@@ -197,7 +196,11 @@ class SpringWiringTest {
                         DependencyDescriptor(familiesParameter, true),
                         null,
                     )
-                assertContains((families as List<*>).map { (it as FormatFamily<*>).name }, "Data")
+                assertEquals(
+                    "Data",
+                    (families as List<*>).map { (it as FormatFamily<*>).name }.first(),
+                    "the built-in family first",
+                )
                 // Needs no JavaFX toolkit, so the viewer chain can be created for real.
                 val viewers = context.getBean(FileViewers::class.java).viewers
                 assertEquals(context.getBeansOfType(FileViewer::class.java).size, viewers.size, "all viewers are asked")
