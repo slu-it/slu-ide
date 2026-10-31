@@ -3,6 +3,7 @@ package dev.sluide.converting
 import dev.sluide.converting.editor.OpenInConvertingExtension
 import dev.sluide.converting.model.ConvertingModel
 import dev.sluide.converting.model.ConvertingScheduler
+import dev.sluide.converting.model.FileConverter
 import dev.sluide.converting.ui.ConvertingTab
 import dev.sluide.converting.ui.ConvertingView
 import dev.sluide.editorarea.EditorTab
@@ -46,6 +47,8 @@ class Converting internal constructor(
     /** The two sides and the options of the window's tool; outlives the tab. */
     internal val model = ConvertingModel(families, dispatch, scheduler = scheduler)
 
+    private val fileConverter = FileConverter(families)
+
     private val editorCss = fontSettings.font(FontArea.EDITOR).map(FontSpec::toCss)
 
     /** A new Converting tab on [model]. */
@@ -66,6 +69,20 @@ class Converting internal constructor(
         model.open(text, extension?.let(model::formatOf))
         showTab()
     }
+
+    /**
+     * The formats the explorer's "Convert to" offers for [file]: the other formats of the family of its extension's
+     * format, none for a family that does not convert files (requests) or an unknown extension.
+     */
+    fun conversionTargets(file: Path): List<TextFormat> = fileConverter.targets(file)
+
+    /**
+     * Converts [file] (up to 1 MiB of UTF-8) to [target] with the window's current options; callable off the FX thread.
+     */
+    fun convertFile(
+        file: Path,
+        target: TextFormat,
+    ): FileConversion = fileConverter.convert(file, target, model.options)
 
     /** Stops the conversions; called when the window closes. */
     override fun close() = model.dispose()

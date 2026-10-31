@@ -5,11 +5,6 @@ import dev.sluide.converting.FormatFamily
 import dev.sluide.converting.OptionValues
 import dev.sluide.converting.TextFormat
 import dev.sluide.converting.WriteResult
-import java.io.IOException
-import java.nio.charset.CharacterCodingException
-import java.nio.file.AccessDeniedException
-import java.nio.file.Files
-import java.nio.file.NoSuchFileException
 import java.nio.file.Path
 import java.util.EnumMap
 import kotlin.time.Duration
@@ -44,6 +39,8 @@ internal class ConvertingModel(
         private set
     val target: Side get() = source.other
 
+    // Volatile: Convert to in the explorer reads the options on a background thread.
+    @Volatile
     var options: OptionValues = OptionValues()
         private set
     var hint: Hint? = null
@@ -171,19 +168,7 @@ internal class ConvertingModel(
     ): String? {
         if (disposed) return null
         val name = file.fileName?.toString() ?: file.toString()
-        val text =
-            try {
-                if (Files.size(file) > MAX_FILE_SIZE) return "$name is larger than 1 MiB"
-                Files.readString(file)
-            } catch (_: NoSuchFileException) {
-                return "Cannot read $name: file not found"
-            } catch (_: AccessDeniedException) {
-                return "Cannot read $name: access denied"
-            } catch (_: CharacterCodingException) {
-                return "Cannot read $name: not UTF-8 text"
-            } catch (e: IOException) {
-                return "Cannot read $name: ${e.message ?: e.javaClass.simpleName}"
-            }
+        val text = readSmallText(file).getOrElse { return it.message }
         val extension = name.substringAfterLast('.', "")
         load(side, text, extension.takeIf { it.isNotEmpty() }?.let(families::formatOf), baseName(name))
         return null

@@ -23,6 +23,7 @@ internal class DataFamily(
 
     override val name = "Data"
     override val formats: List<TextFormat> get() = dataFormats
+    override val convertsFiles = true
 
     override fun detect(text: String): List<FormatMatch> {
         val content = withoutBom(text)

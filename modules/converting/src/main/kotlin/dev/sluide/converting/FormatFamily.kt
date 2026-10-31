@@ -43,6 +43,9 @@ interface FormatFamily<T : Any> {
     val name: String
     val formats: List<TextFormat>
 
+    /** Whether the explorer's "Convert to" offers this family's formats for files; the data family does (ADR 0115). */
+    val convertsFiles: Boolean get() = false
+
     /** Every format of this family that reads [text], with its score, surest first; blank text matches none. */
     fun detect(text: String): List<FormatMatch>
 
