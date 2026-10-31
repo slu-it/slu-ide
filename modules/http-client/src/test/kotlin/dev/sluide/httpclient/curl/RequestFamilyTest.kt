@@ -8,6 +8,7 @@ import dev.sluide.converting.ReadResult
 import dev.sluide.converting.TextFormat
 import dev.sluide.converting.WriteResult
 import dev.sluide.converting.convert
+import dev.sluide.httpclient.ui.HttpSyntaxHighlighter
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
@@ -16,6 +17,7 @@ import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
 
 class RequestFamilyTest {
     private val family = RequestFamily()
@@ -41,6 +43,11 @@ class RequestFamilyTest {
         assertEquals(listOf("POSIX", "cmd", "PowerShell"), RequestFamily.SHELL.choices)
         assertEquals(emptyList(), family.writeOptions(HttpRequestFormat))
         assertEquals(emptyList(), family.readOptions(CurlFormat))
+    }
+
+    @Test
+    fun `http requests are highlighted as in the editor of http files`() {
+        assertIs<HttpSyntaxHighlighter>(HttpRequestFormat.highlighter)
     }
 
     @ParameterizedTest

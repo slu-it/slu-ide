@@ -7,6 +7,8 @@ import dev.sluide.converting.OptionValues
 import dev.sluide.converting.ReadResult
 import dev.sluide.converting.TextFormat
 import dev.sluide.converting.WriteResult
+import dev.sluide.fileviewers.SyntaxHighlighter
+import dev.sluide.httpclient.ui.HttpSyntaxHighlighter
 import org.springframework.stereotype.Component
 
 /** `curl` commands for a POSIX shell, Windows cmd or PowerShell. */
@@ -23,6 +25,9 @@ internal object HttpRequestFormat : TextFormat {
     override val name = "HTTP request"
     override val language = "http"
     override val extensions = listOf("http", "rest")
+
+    /** The `.http` editor's own highlighter, which `Highlighters.forLanguage` does not know. */
+    override val highlighter: SyntaxHighlighter = HttpSyntaxHighlighter()
 }
 
 /**
