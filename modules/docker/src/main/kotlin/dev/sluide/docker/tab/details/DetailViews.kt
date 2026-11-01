@@ -36,7 +36,10 @@ import java.net.URI
 internal class ActionBar {
     val node = FlowPane().apply { styleClass += "docker-actions" }
 
+    /** Shows the buttons of [actions]; without any the bar takes no space (compose projects, empty selection). */
     fun show(actions: List<RowAction>) {
+        node.isVisible = actions.isNotEmpty()
+        node.isManaged = actions.isNotEmpty()
         node.children.setAll(
             actions.map { action ->
                 Button(action.title).apply {

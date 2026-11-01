@@ -9,6 +9,7 @@ import dev.sluide.docker.model.ContainerDetails
 import dev.sluide.docker.model.ContainerState
 import dev.sluide.docker.model.DockerEvent
 import dev.sluide.docker.model.container
+import dev.sluide.docker.tab.details.ActionBar
 import dev.sluide.docker.tab.details.StreamView
 import dev.sluide.docker.tab.details.StreamViews
 import dev.sluide.docker.tab.tree.ResourceKey
@@ -253,6 +254,21 @@ class DockerTabUiTest {
         assertEquals(emptyList(), narrow.outside, "buttons outside the header")
         assertEquals(emptyList(), narrow.narrowButtons, "truncated buttons")
         assertEquals(emptyList(), narrow.narrowLabels, "truncated labels")
+    }
+
+    @Test
+    fun `a header without actions leaves no empty button row`() {
+        val (without, with) =
+            onFx {
+                val bar = ActionBar()
+                bar.show(emptyList())
+                val without = bar.node.isManaged
+                bar.show(listOf(RowAction("Remove", true) {}))
+                without to bar.node.isManaged
+            }
+
+        assertFalse(without, "an empty bar takes no space")
+        assertTrue(with, "a bar with buttons is laid out")
     }
 
     @Test
