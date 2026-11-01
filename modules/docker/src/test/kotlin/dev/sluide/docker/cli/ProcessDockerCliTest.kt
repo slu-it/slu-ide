@@ -63,7 +63,7 @@ class ProcessDockerCliTest {
                     echo ${'$'}${'$'} > "${'$'}STUB/pid"; exec sleep 30 ;;
                   "logs "*)
                     case "${'$'}*" in
-                      *many*) seq 1 5000; echo ${'$'}${'$'} > "${'$'}STUB/pid"; exec sleep 30 ;;
+                      *many*) echo ${'$'}${'$'} > "${'$'}STUB/pid"; seq 1 5000; exec sleep 30 ;;
                       *) echo "2026-11-01T13:44:26Z out"; echo "2026-11-01T13:44:27Z err" >&2 ;;
                     esac ;;
                   "network inspect") echo "slow" ; echo ${'$'}${'$'} > "${'$'}STUB/pid"; exec sleep 30 ;;

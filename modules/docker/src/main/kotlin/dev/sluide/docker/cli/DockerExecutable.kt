@@ -139,16 +139,8 @@ internal fun parseLookup(
 ): ShellLookup {
     val lines = output.lines()
     val separator = lines.indexOfFirst { it.trim() == ENVIRONMENT_SEPARATOR }
-    val before =
-        (
-            if (separator <
-                0
-            ) {
-                lines
-            } else {
-                lines.subList(0, separator)
-            }
-        ).map { it.trim() }.filter { it.isNotEmpty() }
+    val commandLines = if (separator < 0) lines else lines.subList(0, separator)
+    val before = commandLines.map { it.trim() }.filter { it.isNotEmpty() }
     val environment =
         if (separator < 0) {
             null
@@ -156,11 +148,8 @@ internal fun parseLookup(
             val captured = linkedMapOf<String, String>()
             for (line in lines.subList(separator + 1, lines.size)) {
                 val variable = line.substringBefore('=', "")
-                if (variable in CAPTURED_VARIABLES &&
-                    variable !in captured
-                ) {
-                    captured[variable] = line.substringAfter('=')
-                }
+                val wanted = variable in CAPTURED_VARIABLES && variable !in captured
+                if (wanted) captured[variable] = line.substringAfter('=')
             }
             captured
         }
@@ -188,14 +177,8 @@ internal fun resolution(
     isExecutable: (Path) -> Boolean,
 ): DockerLookup {
     val captured = lookup?.environment
-    val merged =
-        if (captured ==
-            null
-        ) {
-            environment
-        } else {
-            environment - CAPTURED_VARIABLES.toSet() + captured.filterValues { it.isNotEmpty() }
-        }
+    val fromShell = captured?.filterValues { it.isNotEmpty() }
+    val merged = if (fromShell == null) environment else environment - CAPTURED_VARIABLES.toSet() + fromShell
     val plainName = '/' !in value && '\\' !in value && !value.startsWith("~")
     if (!plainName) {
         val path = pathOf(value, environment["HOME"])

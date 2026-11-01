@@ -64,12 +64,7 @@ internal fun JsonNode.scalarText(): String? = if (isValueNode) asString() else n
  */
 internal fun JsonNode.labels(vararg names: String): Map<String, String> {
     val node = field(*names) ?: return emptyMap()
-    if (node.isObject) {
-        return node.properties().associate { (key, value) ->
-            key to
-                (value.scalarText() ?: value.toString())
-        }
-    }
+    if (node.isObject) return node.properties().associate { (key, value) -> key to labelValue(value) }
     val text = node.scalarText()?.takeIf { it.isNotBlank() } ?: return emptyMap()
     val labels = linkedMapOf<String, String>()
     var last: String? = null
@@ -109,3 +104,6 @@ internal fun JsonNode.command(vararg names: String): List<String> {
         listOfNotNull(node.scalarText()?.ifBlank { null })
     }
 }
+
+/** A label's value: its text, or the JSON of a value that is no text (an unexpected shape). */
+private fun labelValue(value: JsonNode): String = value.scalarText() ?: value.toString()

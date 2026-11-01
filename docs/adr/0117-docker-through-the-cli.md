@@ -28,10 +28,11 @@ milliseconds with a large `.zshrc`) and mixes the startup files' output into the
   shell's `PATH`, `DOCKER_HOST`, `DOCKER_CONTEXT`, `DOCKER_CONFIG`, `DOCKER_CERT_PATH`, `DOCKER_TLS_VERIFY`,
   `CONTAINER_HOST`, `CONTAINER_CONNECTION` and `XDG_RUNTIME_DIR`: the shell's non-empty values, and those it does not
   set are removed (an inherited, stale `DOCKER_HOST` must not win). An alias or function (zsh's `command -v` prints
-  those too) counts as not found, with a message asking for the full path; other output (csh's error) as not found. If the shell does not answer, a name is looked up
-  on the IDE's own `PATH`. ADR 0087 still holds for what the user runs and sees (Compose commands, builds): those go
-  through `CommandRunner` in an embedded terminal. Of ADR 0087's rejected option (capturing the environment once) only
-  the variables above are taken, and only for the frequent background calls.
+  those too) counts as not found, with a message asking for the full path; other output (csh's error) as not found.
+  If the shell does not answer, a name is looked up on the IDE's own `PATH`. ADR 0087 still holds for what the user
+  runs and sees (Compose commands, builds): those go through `CommandRunner` in an embedded terminal. Of ADR 0087's
+  rejected option (capturing the environment once) only the variables above are taken, and only for the frequent
+  background calls.
 - **`DockerSession`, a window bean**, holds the resolved CLI, the engine state (`Idle`, `Checking`, `Available`,
   `Unavailable`, `NotFound`) and observable lists of the four kinds. One shared `docker events` stream runs while
   anything subscribes (the tab, later Compose views). Events are routed to the lists they change (`reloadsFor`; exec
