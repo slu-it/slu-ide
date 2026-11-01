@@ -5,7 +5,9 @@ import dev.sluide.docker.tab.onFx
 import javafx.application.Platform
 import javafx.scene.Scene
 import javafx.scene.control.DialogPane
+import javafx.scene.control.Labeled
 import javafx.scene.input.Clipboard
+import javafx.scene.layout.Region
 import javafx.stage.Stage
 import javafx.stage.Window
 import org.junit.jupiter.api.Tag
@@ -76,6 +78,25 @@ class RunDialogUiTest {
 
         assertEquals(listOf(""), onFx { form.ports.values() })
         assertTrue(onFx { form.valid.get() }, "an empty row is ignored")
+    }
+
+    @Test
+    fun `a volume row in a narrow form leaves the labels and its buttons whole`() {
+        val truncated =
+            onFx {
+                form.volumes.addButton.fire()
+                val root = form.node as Region
+                root.applyCss()
+                root.resize(NARROW, root.height)
+                root.layout()
+                listOf(".label", ".button", ".check-box")
+                    .flatMap { root.lookupAll(it) }
+                    .filterIsInstance<Labeled>()
+                    .filter { it.isVisible && !it.text.isNullOrEmpty() && it.isTextTruncated }
+                    .map { it.text }
+            }
+
+        assertEquals(emptyList<String>(), truncated)
     }
 
     @Test
@@ -181,5 +202,10 @@ class RunDialogUiTest {
         onFx { pane.button("Cancel").fire() }
 
         assertNull(result.get(5, TimeUnit.SECONDS))
+    }
+
+    private companion object {
+        /** About the width of the dialog's form at its default size. */
+        const val NARROW = 650.0
     }
 }

@@ -14,6 +14,7 @@ import javafx.scene.input.ClipboardContent
 import javafx.scene.layout.GridPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
+import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
 import java.nio.file.Path
 
@@ -96,7 +97,13 @@ internal class RunForm(
                     label: String,
                     field: javafx.scene.Node,
                 ) {
-                    add(Label(label).apply { GridPane.setValignment(this, javafx.geometry.VPos.TOP) }, 0, row)
+                    // Labels keep their width; a wide row (a volume) shrinks its fields instead.
+                    val title =
+                        Label(label).apply {
+                            minWidth = Region.USE_PREF_SIZE
+                            GridPane.setValignment(this, javafx.geometry.VPos.TOP)
+                        }
+                    add(title, 0, row)
                     add(field, 1, row++)
                     GridPane.setHgrow(field, Priority.ALWAYS)
                 }
