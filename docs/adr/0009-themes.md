@@ -34,3 +34,7 @@ does not depend on `settings`.
   specificity; `syntax.css` therefore uses single classes, which is safe as it is only added to code views.
   `PythonFileViewerUiTest` checks that the token colours switch.
 - Theme changes apply live to all open windows; the system theme follows OS changes while the IDE runs.
+- In dark, text inputs (`.text-input`: text fields, text areas, editable combo boxes, spinners) get their own fill
+  (`#36393b`) and a border lighter than it, since a field in the pane colour with Modena's darker border is hard to
+  see as one. Code editors (`.code-area`) and the Fonts page's editor preview keep the pane colour; `ThemeUiTest`
+  checks both.

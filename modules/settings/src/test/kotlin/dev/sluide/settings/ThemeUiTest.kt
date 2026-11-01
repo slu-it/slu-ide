@@ -4,10 +4,13 @@ import javafx.application.ColorScheme
 import javafx.beans.property.SimpleObjectProperty
 import javafx.scene.Scene
 import javafx.scene.control.Label
+import javafx.scene.control.TextArea
 import javafx.scene.control.TextField
+import javafx.scene.layout.BackgroundFill
 import javafx.scene.layout.Region
 import javafx.scene.layout.StackPane
 import javafx.scene.paint.Color
+import javafx.scene.paint.LinearGradient
 import javafx.scene.text.Text
 import javafx.stage.Stage
 import org.junit.jupiter.api.AfterEach
@@ -96,6 +99,36 @@ class ThemeUiTest {
     }
 
     @Test
+    fun `dark text inputs are brighter than the panes and have a lighter edge, the editor preview is not`(
+        robot: FxRobot,
+    ) {
+        install(robot)
+        robot.interact { settings.apply(Theme.DARK) }
+        val pane = Color.web("#2b2b2b")
+        val field = TextField()
+        val area = TextArea()
+        val editorPreview = TextArea().apply { styleClass += "editor-preview" }
+        lateinit var fieldFill: Color
+        lateinit var fieldEdge: Color
+        lateinit var areaFill: Color
+        lateinit var previewFill: Color
+        robot.interact {
+            (stage.scene.root as StackPane).children.addAll(field, area, editorPreview)
+            listOf(field, area, editorPreview).forEach { it.applyCss() }
+            fieldFill = layer(field) { last() }
+            fieldEdge = layer(field) { first() }
+            areaFill = layer(area.lookup(".content") as Region) { last() }
+            previewFill = layer(editorPreview.lookup(".content") as Region) { last() }
+        }
+
+        // A field in the pane colour, with Modena's border darker than it, is hard to see as one.
+        assertTrue(fieldFill.brightness > pane.brightness + 0.03, "a text field stands out, was $fieldFill")
+        assertTrue(areaFill.brightness > pane.brightness + 0.03, "a text area stands out, was $areaFill")
+        assertTrue(fieldEdge.brightness > fieldFill.brightness, "the edge is lighter than the fill, was $fieldEdge")
+        assertEquals(pane, previewFill, "the Fonts page's editor preview keeps the editor's colour")
+    }
+
+    @Test
     fun `a window that was open before the install is themed when it gets a new scene`(robot: FxRobot) {
         install(robot)
         robot.interact { settings.apply(Theme.DARK) }
@@ -115,4 +148,22 @@ class ThemeUiTest {
         assertEquals(ColorScheme.DARK, stage.scene.preferences.colorScheme)
         assertTrue((stage.scene.root as Region).isDark())
     }
+
+    /**
+     * The colour of the background layer of [region] that [pick] chooses: a solid colour, or the last stop of a gradient
+     * (Modena paints a text input's edge and fill as gradients).
+     */
+    private fun layer(
+        region: Region,
+        pick: List<BackgroundFill>.() -> BackgroundFill,
+    ): Color =
+        when (
+            val paint =
+                region.background.fills
+                    .pick()
+                    .fill
+        ) {
+            is LinearGradient -> paint.stops.last().color
+            else -> paint as Color
+        }
 }

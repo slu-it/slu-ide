@@ -13,9 +13,20 @@
         -fx-selection-bar-non-focused: #464a4d;
     }
 
-    /* Modena's prompt text is darker than the field, barely readable on a dark one: a grey dimmer than the text instead
-       (about 4:1 against the field). */
+    /* Text fields and areas get a fill a little brighter than the panes (#2b2b2b) and an edge lighter than that fill,
+       so they read as inputs; Modena's own border is darker than the pane and vanishes. Code editors (.code-area) are
+       no text inputs and keep the pane colour. Modena's prompt text is darker than the field, barely readable on a
+       dark one: a grey dimmer than the text instead (about 4:1 against the field). Single class only: JavaFX applies
+       descendant selectors in a media block whatever the colour scheme (ADR 0009). */
     .text-input {
-        -fx-prompt-text-fill: #8c8c8c;
+        -fx-control-inner-background: #36393b;
+        -fx-text-box-border: #5b5e61;
+        -fx-prompt-text-fill: #969696;
+    }
+
+    /* The Fonts page's editor preview stands for the code editor, so it keeps the editor's colour (after .text-input,
+       same specificity). */
+    .editor-preview {
+        -fx-control-inner-background: #2b2b2b;
     }
 }

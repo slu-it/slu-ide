@@ -958,6 +958,14 @@
         -git-warning: #e8a040;
     }
 
+    /* The filter and branch search fields are drawn by their box, which is no text input: the dark input colours of
+       theme.css (settings) for it too; keep them in sync. */
+    .git-filter-search,
+    .git-branches-search {
+        -fx-control-inner-background: #36393b;
+        -fx-text-box-border: #5b5e61;
+    }
+
     .git-push {
         -git-warning: #e8a040;
     }

@@ -211,6 +211,7 @@ class FontsPage(
             }
             """.trimIndent(),
         ).apply {
+            styleClass += "editor-preview"
             isEditable = false
             isFocusTraversable = false
             prefRowCount = 4
