@@ -24,7 +24,7 @@ enum class ContainerState {
     ;
 
     companion object {
-        /** The state for the CLI's word: Docker's (`running`, `exited`, …) or Podman's (also `stopped`, `configured`). */
+        /** The state for the CLI's word: Docker's (`running`, `exited`, …) or Podman's (`stopped`, `configured`). */
         fun of(text: String?): ContainerState =
             when (text?.trim()?.lowercase()) {
                 "created", "configured", "initialized" -> CREATED

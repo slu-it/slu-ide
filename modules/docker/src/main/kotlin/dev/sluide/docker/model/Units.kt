@@ -39,7 +39,7 @@ fun parseSize(text: String?): Long? {
     return (match.groupValues[1].toDouble() * factor).roundToLong()
 }
 
-/** Both sizes of a pair such as `10.84MiB / 11.84GiB` (memory) or `1.17kB / 126B` (network, block IO); 0 if unreadable. */
+/** Both sizes of a pair such as `10.84MiB / 11.84GiB` (memory) or `1.17kB / 126B` (network, IO); 0 if unreadable. */
 fun parseSizePair(text: String?): Pair<Long, Long> {
     val parts = text?.split("/") ?: return 0L to 0L
     if (parts.size != 2) return 0L to 0L

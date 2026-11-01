@@ -34,8 +34,8 @@ private const val ENVIRONMENT_SEPARATOR = "--sluide-environment--"
 /**
  * The CLI to run: an absolute path and the environment to run it with.
  *
- * @property flavor a guess from the executable's name (`podman…`); [EngineInfo.flavor][dev.sluide.docker.model.EngineInfo]
- *   tells for sure.
+ * @property flavor a guess from the executable's name (`podman…`); the engine's
+ *   [EngineInfo.flavor][dev.sluide.docker.model.EngineInfo] tells for sure.
  */
 data class ResolvedDocker(
     val executable: Path,

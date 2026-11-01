@@ -8,6 +8,9 @@ import dev.sluide.commandruns.ArgumentHistories
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.converting.Converting
 import dev.sluide.converting.FormatFamily
+import dev.sluide.docker.DockerSession
+import dev.sluide.docker.settings.DockerSettings
+import dev.sluide.docker.settings.DockerSettingsPage
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
 import dev.sluide.fileexplorer.ExplorerClipboard
@@ -148,6 +151,8 @@ class SpringWiringTest {
                         ScratchFiles::class.java,
                         Todos::class.java,
                         SavedColors::class.java,
+                        DockerSettings::class.java,
+                        DockerSettingsPage::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")
@@ -176,6 +181,7 @@ class SpringWiringTest {
                         Coloring::class.java,
                         Codecs::class.java,
                         Converting::class.java,
+                        DockerSession::class.java,
                     )
                 val scoped =
                     context.beanFactory.beanDefinitionNames.filter {

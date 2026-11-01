@@ -12,7 +12,8 @@ enum class EngineFlavor {
  * @property flavor the CLI: [EngineFlavor.PODMAN] for `podman` (also behind a `docker` alias script), else Docker.
  * @property serverVersion the version of the engine (for Podman without a server part, the client's).
  * @property clientVersion the version of the CLI.
- * @property platform the engine's product name if it tells one, e.g. "Docker Engine - Community", "Docker Desktop 4.40.0".
+ * @property platform the engine's product name if it tells one, e.g. "Docker Engine - Community",
+ *   "Docker Desktop 4.40.0".
  * @property context the current Docker context (`docker context show`); `null` for Podman or when it cannot be read.
  */
 data class EngineInfo(
