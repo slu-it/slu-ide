@@ -25,9 +25,19 @@
     -fx-background-insets: 0;
 }
 
-.compose-options, .compose-env-header, .compose-variable-row, .compose-variables-header {
+.compose-env-header, .compose-variable-row, .compose-variables-header, .compose-project {
     -fx-padding: 2 6 2 6;
     -fx-spacing: 6;
+}
+
+.compose-project {
+    -fx-padding: 0;
+}
+
+.compose-options {
+    -fx-padding: 2 6 2 6;
+    -fx-hgap: 8;
+    -fx-vgap: 2;
 }
 
 .compose-note, .compose-override-note, .compose-services-note {

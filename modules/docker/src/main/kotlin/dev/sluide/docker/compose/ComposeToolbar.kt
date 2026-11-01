@@ -11,6 +11,7 @@ import javafx.scene.control.Separator
 import javafx.scene.control.SplitMenuButton
 import javafx.scene.control.TextField
 import javafx.scene.control.Tooltip
+import javafx.scene.layout.FlowPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
@@ -74,7 +75,17 @@ internal class ComposeToolbar {
                 alignment = Pos.CENTER_LEFT
             },
             note,
-            HBox(profiles, buildFlag, forceRecreate, removeOrphans, Label("Project:"), projectName).apply {
+            // Wraps in a narrow pane instead of cutting the flags.
+            FlowPane(
+                profiles,
+                buildFlag,
+                forceRecreate,
+                removeOrphans,
+                HBox(Label("Project:").apply { minWidth = Region.USE_PREF_SIZE }, projectName).apply {
+                    styleClass += "compose-project"
+                    alignment = Pos.CENTER_LEFT
+                },
+            ).apply {
                 styleClass += "compose-options"
                 alignment = Pos.CENTER_LEFT
             },
@@ -170,6 +181,7 @@ internal class ComposeToolbar {
         tooltip: String,
     ) = CheckBox(text).apply {
         styleClass += "compose-flag"
+        minWidth = Region.USE_PREF_SIZE
         this.tooltip = Tooltip(tooltip)
     }
 
