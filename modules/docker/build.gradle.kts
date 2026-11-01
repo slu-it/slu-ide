@@ -18,9 +18,13 @@ dependencies {
     // Deliberate module API dependency: the Docker tab is shown as an EditorTab, opened from the Services menu
     // (ADR 0110, ADR 0118).
     api(project(":modules:editor-area"))
-    // Deliberate module dependency: the Inspect tabs show the JSON in a read-only, highlighted CodeDisplay
-    // (CodeEditors, Highlighters).
-    implementation(project(":modules:file-viewers"))
+    // Deliberate module API dependency: the Inspect tabs show the JSON in a read-only, highlighted CodeDisplay
+    // (CodeEditors, Highlighters), and ComposeFileViewer is a public SourceFileViewer, NamedFileViewer and
+    // RunnableFileViewer showing a CodeEditor with a gutter column (ADR 0119).
+    api(project(":modules:file-viewers"))
+    // Deliberate module dependency: Compose commands run with a CommandRunner in a RunPane, through the window's
+    // CommandRunSession, like shell scripts (ADR 0088, ADR 0119).
+    implementation(project(":modules:command-runs"))
     // Deliberate module API dependency: DockerSettings stores the executable with SettingsStore and adds a
     // SettingsPage (ADR 0067).
     api(project(":modules:settings"))
