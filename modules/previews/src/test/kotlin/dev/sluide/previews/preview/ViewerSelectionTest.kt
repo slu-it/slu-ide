@@ -121,12 +121,11 @@ class ViewerSelectionTest {
 
     @Test
     fun `names like Dockerfile dot something open by their extension if a viewer takes it`() {
+        // Dockerfile.dev itself is the docker module's (DockerfileBuildViewerTest, SpringWiringTest).
         val expected =
             mapOf(
                 "Dockerfile.md" to "MarkdownFileViewer",
                 "Caddyfile.json" to "JsonFileViewer",
-                "Dockerfile.dev" to "DockerfileFileViewer",
-                "Dockerfile.prod" to "DockerfileFileViewer",
                 "Caddyfile.dev" to "CaddyfileFileViewer",
                 "Dockerfile.dockerignore" to "IgnoreFileViewer",
                 "Dockerfile.dev.dockerignore" to "IgnoreFileViewer",

@@ -25,6 +25,14 @@ class FileViewers(
                 put(viewer, viewer.fileNamePatterns.map { Regex(it.pattern, it.options + RegexOption.IGNORE_CASE) })
             }
         }
+    private val weakMatches =
+        IdentityHashMap<NamedFileViewer, FileMatch>().apply {
+            for (viewer in specific.filterIsInstance<NamedFileViewer>()) {
+                if (viewer.weakFileNamePatterns.isEmpty()) continue
+                val extensions = (viewer as? ExtensionFileViewer)?.fileExtensions.orEmpty()
+                put(viewer, FileMatch(extensions, namePatterns = viewer.weakFileNamePatterns))
+            }
+        }
     private val shebangViewers = specific.filter { it !is PathFileViewer }.filterIsInstance<ShebangViewer>()
 
     val viewers: List<FileViewer> = specific + fallback
@@ -34,8 +42,9 @@ class FileViewers(
      * viewers that can open it, the one its name matches best ([NameMatch]: path, then exact name, then extension,
      * then a code viewer's name pattern; a [PathFileViewer] takes part only if [PathFileViewer.matchesPath] accepts the file
      * (ADR 0074); a [NamedFileViewer] listing the file's name or matching one of its
-     * [NamedFileViewer.fileNamePatterns] counts as an exact name, other viewers than
-     * [CodeFileViewer]s as matching the extension), the first of equals; for a text file without an extension, else
+     * [NamedFileViewer.fileNamePatterns] counts as an exact name, one matching one of its
+     * [NamedFileViewer.weakFileNamePatterns] (and not its extensions) as a code viewer's name pattern, other viewers
+     * than [CodeFileViewer]s as matching the extension), the first of equals; for a text file without an extension, else
      * the first [ShebangViewer] that opens the interpreter its shebang names (the file is read once for this;
      * [PathFileViewer]s are left out of this step); else
      * [DefaultTextFileViewer] if it can. A viewer that opens the file by its name thus always wins over one that would
@@ -49,7 +58,7 @@ class FileViewers(
                     viewer is PathFileViewer -> NameMatch.PATH
                     viewer is NamedFileViewer && viewer.names(file) -> NameMatch.NAME
                     viewer is CodeFileViewer -> viewer.nameMatch(file) ?: NameMatch.EXTENSION
-                    else -> NameMatch.EXTENSION
+                    else -> weakMatches[viewer]?.nameMatch(file) ?: NameMatch.EXTENSION
                 }
             }?.let { return it }
         if (file.extension.isNotEmpty() || shebangViewers.isEmpty()) return fallback.takeIf { it.canOpen(file) }
@@ -137,6 +146,10 @@ class FileViewers(
 
             viewer is CodeFileViewer -> {
                 viewer.nameMatch(name)
+            }
+
+            viewer in weakMatches -> {
+                weakMatches[viewer]?.nameMatch(name)
             }
 
             viewer is ExtensionFileViewer -> {

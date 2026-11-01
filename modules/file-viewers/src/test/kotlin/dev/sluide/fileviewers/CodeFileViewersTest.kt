@@ -14,7 +14,6 @@ import dev.sluide.fileviewers.languages.CppFileViewer
 import dev.sluide.fileviewers.languages.CssFileViewer
 import dev.sluide.fileviewers.languages.DFileViewer
 import dev.sluide.fileviewers.languages.DartFileViewer
-import dev.sluide.fileviewers.languages.DockerfileFileViewer
 import dev.sluide.fileviewers.languages.DtdFileViewer
 import dev.sluide.fileviewers.languages.FortranFileViewer
 import dev.sluide.fileviewers.languages.GitBlameIgnoreRevsFileViewer
@@ -144,8 +143,6 @@ class CodeFileViewersTest {
             // Scripts to run (.sh and the like) are the shell-scripts module's.
             ShellFileViewer() to listOf(".bashrc", ".bash_profile", ".zshrc", ".profile"),
             PowerShellFileViewer() to listOf("build.ps1", "Tools.psm1", "Tools.psd1"),
-            DockerfileFileViewer() to
-                listOf("Dockerfile", "Containerfile", "Dockerfile.dev", "dockerfile.prod.local", "app.Dockerfile"),
             MakefileFileViewer() to listOf("Makefile", "GNUmakefile", "rules.mk"),
             IniFileViewer() to listOf("php.ini"),
             ConfigFileViewer() to
@@ -191,6 +188,12 @@ class CodeFileViewersTest {
 
     private val others =
         listOf(
+            // Dockerfiles are the docker module's (DockerfileBuildViewerTest).
+            "Dockerfile",
+            "Containerfile",
+            "Dockerfile.dev",
+            "dockerfile.prod.local",
+            "app.Dockerfile",
             "notes.txt",
             "README",
             "py",

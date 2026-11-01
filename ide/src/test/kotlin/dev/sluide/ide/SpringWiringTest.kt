@@ -11,6 +11,8 @@ import dev.sluide.converting.FormatFamily
 import dev.sluide.docker.Docker
 import dev.sluide.docker.DockerSession
 import dev.sluide.docker.compose.ComposeFileViewer
+import dev.sluide.docker.dockerfile.DockerBuildStore
+import dev.sluide.docker.dockerfile.DockerfileBuildViewer
 import dev.sluide.docker.settings.DockerSettings
 import dev.sluide.docker.settings.DockerSettingsPage
 import dev.sluide.dockersandbox.DockerSandbox
@@ -21,6 +23,7 @@ import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.FileViewers
+import dev.sluide.fileviewers.languages.IgnoreFileViewer
 import dev.sluide.fileviewers.languages.PythonFileViewer
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitBranches
@@ -157,6 +160,8 @@ class SpringWiringTest {
                         DockerSettings::class.java,
                         DockerSettingsPage::class.java,
                         ComposeFileViewer::class.java,
+                        DockerfileBuildViewer::class.java,
+                        DockerBuildStore::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")
@@ -231,6 +236,19 @@ class SpringWiringTest {
                 for (name in compose + "other.yml") dir.resolve(name).writeText("services: {}\n")
                 for (name in compose) assertIs<ComposeFileViewer>(fileViewers.viewerFor(dir.resolve(name)), name)
                 assertIs<YamlFileViewer>(fileViewers.viewerFor(dir.resolve("other.yml")))
+                // Dockerfiles get the Build view; Dockerfile.<x> loses to the viewer for .x.
+                val dockerfiles = listOf("Dockerfile", "Containerfile", "Dockerfile.dev", "app.Dockerfile")
+                for (name in dockerfiles + "Dockerfile.md" + "Dockerfile.dockerignore") {
+                    dir.resolve(name).writeText("FROM alpine\n")
+                }
+                for (name in dockerfiles) {
+                    assertIs<DockerfileBuildViewer>(
+                        fileViewers.viewerFor(dir.resolve(name)),
+                        name,
+                    )
+                }
+                assertIs<MarkdownFileViewer>(fileViewers.viewerFor(dir.resolve("Dockerfile.md")))
+                assertIs<IgnoreFileViewer>(fileViewers.viewerFor(dir.resolve("Dockerfile.dockerignore")))
             }
     }
 }

@@ -39,6 +39,9 @@ object Highlighters {
     /** Shell scripts (`sh`, `bash`, `zsh`, …). */
     val shell: SyntaxHighlighter = RSyntaxHighlighter.shell
 
+    /** Dockerfiles and Containerfiles. */
+    val dockerfile: SyntaxHighlighter = RSyntaxHighlighter.dockerfile
+
     /** IntelliJ's cookie jar (`http-client.cookies`): its header line as a comment. */
     val cookies: SyntaxHighlighter = RSyntaxHighlighter.cookies
 

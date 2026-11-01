@@ -36,6 +36,14 @@ interface NamedFileViewer : FileViewer {
      * patterns they beat the viewers for the extension.
      */
     val fileNamePatterns: List<Regex> get() = emptyList()
+
+    /**
+     * Whole-name patterns (case-insensitive) that rank like a code viewer's name patterns: below the viewers for the
+     * extension (and, for an [ExtensionFileViewer], below its own [ExtensionFileViewer.fileExtensions]), so that a broad
+     * family such as `dockerfile\..+` leaves `Dockerfile.md` to the viewer for `.md` ([NameMatch]). Like the other
+     * names they only rank the viewer; [canOpen] must accept those files.
+     */
+    val weakFileNamePatterns: List<Regex> get() = emptyList()
 }
 
 /**

@@ -3,7 +3,6 @@ package dev.sluide.fileviewers
 import dev.sluide.fileviewers.code.CodeFileViewer
 import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
 import dev.sluide.fileviewers.languages.CaddyfileFileViewer
-import dev.sluide.fileviewers.languages.DockerfileFileViewer
 import dev.sluide.fileviewers.languages.IgnoreFileViewer
 import dev.sluide.fileviewers.languages.KotlinFileViewer
 import dev.sluide.fileviewers.languages.PythonFileViewer
@@ -80,9 +79,25 @@ class FileViewersTest {
         }
     }
 
+    /**
+     * A viewer of another module for Dockerfiles, as the docker module's: exact names, the extension `dockerfile`, and
+     * `dockerfile.<anything>` as a weak pattern, leaving `.dockerignore` files out.
+     */
+    private class DockerfileStub :
+        ExtensionsStub(setOf("dockerfile")),
+        NamedFileViewer {
+        override val fileNames = setOf("Dockerfile", "Containerfile")
+        override val weakFileNamePatterns = listOf(Regex("""dockerfile\..+"""))
+
+        override fun canOpen(file: Path) =
+            file.name.lowercase() in setOf("dockerfile", "containerfile") ||
+                file.extension.lowercase() == "dockerfile" ||
+                (weakFileNamePatterns.single().matches(file.name.lowercase()) && !file.name.endsWith(".dockerignore"))
+    }
+
     @Test
     fun `names like Dockerfile dot something open by their extension if a viewer of another kind takes it`() {
-        val dockerfile = DockerfileFileViewer()
+        val dockerfile = DockerfileStub()
         val caddyfile = CaddyfileFileViewer()
         val ignore = IgnoreFileViewer()
         val markdown = ExtensionsStub(setOf("md"))
@@ -103,6 +118,30 @@ class FileViewersTest {
             for ((name, viewer) in expected) {
                 val file = dir.resolve(name).apply { writeText("x\n") }
                 assertSame(viewer, FileViewers(order, fallback).viewerFor(file), name)
+            }
+        }
+    }
+
+    @Test
+    fun `a named viewer's weak name patterns rank below extensions also by the name alone`() {
+        val dockerfile = DockerfileStub()
+        val markdown = ExtensionsStub(setOf("md"))
+        val ignore = IgnoreFileViewer()
+        val viewers = listOf(dockerfile, markdown, ignore)
+        val expected =
+            mapOf(
+                "Dockerfile" to dockerfile,
+                "app.Dockerfile" to dockerfile,
+                "Dockerfile.dev" to dockerfile,
+                "DOCKERFILE.prod.local" to dockerfile,
+                "Dockerfile.md" to markdown,
+                "Dockerfile.dockerignore" to ignore,
+            )
+
+        for (order in listOf(viewers, viewers.reversed())) {
+            for ((name, viewer) in expected) {
+                // None of these files exists.
+                assertSame(viewer, FileViewers(order, fallback).viewerByName(dir.resolve(name), ""), name)
             }
         }
     }

@@ -13,7 +13,6 @@ import dev.sluide.fileviewers.languages.CppFileViewer
 import dev.sluide.fileviewers.languages.CssFileViewer
 import dev.sluide.fileviewers.languages.DFileViewer
 import dev.sluide.fileviewers.languages.DartFileViewer
-import dev.sluide.fileviewers.languages.DockerfileFileViewer
 import dev.sluide.fileviewers.languages.DtdFileViewer
 import dev.sluide.fileviewers.languages.FortranFileViewer
 import dev.sluide.fileviewers.languages.GitBlameIgnoreRevsFileViewer
@@ -122,7 +121,6 @@ class ViewerCommentSyntaxTest {
                 SqlFileViewer() to CommentSyntax.SQL,
                 ShellFileViewer() to CommentSyntax.HASH,
                 PowerShellFileViewer() to CommentSyntax.POWERSHELL,
-                DockerfileFileViewer() to CommentSyntax.HASH,
                 MakefileFileViewer() to CommentSyntax.HASH,
                 IniFileViewer() to CommentSyntax.SEMICOLON,
                 ConfigFileViewer() to CommentSyntax.HASH,
