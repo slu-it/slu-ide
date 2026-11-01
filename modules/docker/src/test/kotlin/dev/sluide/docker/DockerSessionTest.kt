@@ -351,7 +351,7 @@ class DockerSessionTest {
     }
 
     @Test
-    fun `cancelling without interrupting lets the action finish, and a finished action cannot be cancelled`() {
+    fun `cancelling without interrupting lets the action finish, also through a later interrupting cancel`() {
         session.subscribe()
         val running = CountDownLatch(1)
         val release = CountDownLatch(1)
@@ -365,6 +365,8 @@ class DockerSessionTest {
             }
         assertTrue(running.await(5, TimeUnit.SECONDS))
         assertTrue(future.cancel(false))
+        // Answers true like the JDK, but must not interrupt the action the first cancel let run.
+        future.cancel(true)
         release.countDown()
 
         assertEquals("stopped", finished.get(5, TimeUnit.SECONDS), "not interrupted")

@@ -431,9 +431,14 @@ private class ActionFuture<T> : CompletableFuture<T>() {
         thread = null
     }
 
+    /**
+     * Only the call that cancels interrupts: the JDK's `cancel` also answers true for a future cancelled before, and an
+     * action left running by `cancel(false)` must not be interrupted by a later `cancel(true)`.
+     */
     override fun cancel(mayInterruptIfRunning: Boolean): Boolean {
+        val wasDone = isDone
         val cancelled = super.cancel(mayInterruptIfRunning)
-        if (cancelled && mayInterruptIfRunning) {
+        if (!wasDone && cancelled && mayInterruptIfRunning) {
             synchronized(this) { thread?.interrupt() }
         }
         return cancelled
