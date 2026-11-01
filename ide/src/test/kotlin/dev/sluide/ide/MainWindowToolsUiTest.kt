@@ -250,7 +250,7 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
                 .queryAs(MenuBar::class.java)
                 .menus
                 .map { it.text }
-        assertEquals(listOf("Docker Sandbox", "Tools"), menus.takeLast(2))
+        assertEquals(listOf("Docker Sandbox", "Tools", "Services"), menus.takeLast(3))
 
         val coloringItem = menu(robot, "Tools").items.single { it.text == "Coloring" }
         robot.interact { coloringItem.fire() }
@@ -266,6 +266,21 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
 
         assertEquals(listOf("Coloring"), tabTitles(robot))
         assertEquals("Color tools", checkNotNull(editorArea.selectedTab).tooltip)
+    }
+
+    @Test
+    fun `Services - Docker opens one Docker tab on Alt+8, and a second choice selects it`(robot: FxRobot) {
+        val docker = menu(robot, "Services").items.single()
+        assertEquals("Docker", docker.text)
+        val accelerator = docker.accelerator as KeyCodeCombination
+        assertEquals(KeyCode.DIGIT8, accelerator.code)
+
+        robot.interact { docker.fire() }
+        robot.interact { editorArea.open(project.resolve("notes.txt").apply { writeText("x") }) }
+        robot.interact { docker.fire() }
+
+        assertEquals(listOf("Docker", "notes.txt"), tabTitles(robot))
+        assertEquals("Containers, images, volumes and networks", checkNotNull(editorArea.selectedTab).tooltip)
     }
 
     @Test

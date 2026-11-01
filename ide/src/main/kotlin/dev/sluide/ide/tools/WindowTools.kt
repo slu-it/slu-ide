@@ -3,11 +3,13 @@ package dev.sluide.ide.tools
 import dev.sluide.codecs.Codecs
 import dev.sluide.coloring.Coloring
 import dev.sluide.converting.Converting
+import dev.sluide.docker.Docker
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.dockersandbox.SandboxAction
 import dev.sluide.dockersandbox.SandboxNotAllowedException
 import dev.sluide.editorarea.EditorArea
 import dev.sluide.ide.ProjectService
+import dev.sluide.ide.isMac
 import dev.sluide.terminal.TerminalStartException
 import dev.sluide.terminal.Terminals
 import javafx.application.Platform
@@ -17,12 +19,14 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
 import javafx.stage.Stage
+import java.net.URI
 import java.nio.file.Path
 
 /**
  * The tools of one window: the Terminal and Docker Sandbox menus with the terminal tabs they open in the
- * [editorArea], and the Tools menu with the Coloring, Codecs and Converting tabs (ADR 0110, ADR 0112, ADR 0115).
- * [showError] shows why a tool cannot be started. Used on the JavaFX thread.
+ * [editorArea], the Tools menu with the Coloring, Codecs and Converting tabs (ADR 0110, ADR 0112, ADR 0115) and the
+ * Services menu with the Docker tab (ADR 0118). [showError] shows why a tool cannot be started. Used on the JavaFX
+ * thread.
  */
 internal class WindowTools(
     private val projectService: ProjectService,
@@ -33,6 +37,9 @@ internal class WindowTools(
     coloring: Coloring,
     codecs: Codecs,
     converting: Converting,
+    docker: Docker,
+    /** Opens a web page in the system browser. */
+    openWebPage: (URI) -> Unit,
     private val showError: (Stage, String) -> Unit,
 ) {
     /** The Coloring tool of the Tools menu. */
@@ -53,15 +60,34 @@ internal class WindowTools(
             listOf(coloringTool, codecsTool, convertingTool),
         )
 
+    /** The Docker tool of the Services menu, on IntelliJ's key for its Services tool window. */
+    internal val dockerTool =
+        WindowTool(
+            "Docker",
+            docker::createTab,
+            KeyCodeCombination(KeyCode.DIGIT8, if (isMac) KeyCombination.SHORTCUT_DOWN else KeyCombination.ALT_DOWN),
+        )
+
+    /** The Services menu logic; tests choose tools through it. */
+    internal val servicesMenu =
+        ToolsMenu({ editorArea.tabs }, editorArea::open, editorArea::select, listOf(dockerTool), "Services")
+
     init {
         coloring.showTab = { toolsMenu.open(coloringTool) }
         codecs.showTab = { toolsMenu.open(codecsTool) }
         converting.showTab = { toolsMenu.open(convertingTool) }
         coloring.projectFolder.bind(projectService.projectFolder)
+        docker.showTab = { servicesMenu.open(dockerTool) }
+        docker.openTab = { editorArea.open(it) }
+        docker.openUrl = openWebPage
+        docker.projectFolder.bind(projectService.projectFolder)
     }
 
     /** The Tools menu: Coloring, Codecs, Converting. */
     fun toolsMenu(): Menu = toolsMenu.menu()
+
+    /** The Services menu: Docker. */
+    fun servicesMenu(): Menu = servicesMenu.menu()
 
     /** The Terminal menu: New Terminal. */
     fun terminalMenu(stage: Stage): Menu {

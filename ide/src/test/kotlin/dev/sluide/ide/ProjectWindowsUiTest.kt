@@ -7,6 +7,9 @@ import dev.sluide.coloring.SavedColors
 import dev.sluide.commandruns.ArgumentHistories
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.converting.Converting
+import dev.sluide.docker.Docker
+import dev.sluide.docker.DockerSession
+import dev.sluide.docker.settings.DockerSettings
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
 import dev.sluide.fileexplorer.ExplorerClipboard
@@ -152,6 +155,7 @@ class ProjectWindowsUiTest {
                 register(GitRemotes::class.java)
                 register(GitPush::class.java)
                 register(GitStashes::class.java)
+                register(DockerSettings::class.java)
                 registerBean(
                     RemoteSourceCache::class.java,
                     Supplier { RemoteSourceCache(getBean(GitCli::class.java), dir.resolve("cache/git")) },
@@ -177,6 +181,8 @@ class ProjectWindowsUiTest {
                     Coloring::class.java,
                     Codecs::class.java,
                     Converting::class.java,
+                    DockerSession::class.java,
+                    Docker::class.java,
                 )
                 refresh()
             }

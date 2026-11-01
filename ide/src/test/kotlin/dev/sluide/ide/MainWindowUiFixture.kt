@@ -8,6 +8,9 @@ import dev.sluide.commandruns.ArgumentHistories
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.converting.Converting
 import dev.sluide.converting.FormatFamily
+import dev.sluide.docker.Docker
+import dev.sluide.docker.DockerSession
+import dev.sluide.docker.settings.DockerSettings
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
 import dev.sluide.fileexplorer.ExplorerClipboard
@@ -186,6 +189,7 @@ abstract class MainWindowUiFixture {
         backgroundTasks.forEach(BackgroundTasks::close)
         todoPanels.forEach(TodoPanel::close)
         convertings.forEach(Converting::close)
+        dockerSessions.forEach(DockerSession::close)
     }
 
     /** The git log views of the windows a test created, the main window's first; closed after it. */
@@ -215,6 +219,19 @@ abstract class MainWindowUiFixture {
 
     /** The Converting tools of the windows created by [mainWindow]; closed after the test. */
     internal val convertings = mutableListOf<Converting>()
+
+    /** The Docker sessions of the windows created by [mainWindow]; closed after the test. */
+    internal val dockerSessions = mutableListOf<DockerSession>()
+
+    /**
+     * The Docker settings of the windows: an executable that does not exist, so that a Docker tab shows its note and
+     * never reaches an engine of the machine.
+     */
+    private val dockerSettings by lazy {
+        val store = SettingsStore(settingsDir.resolve("docker.properties"))
+        store.update(mapOf("docker.executable" to settingsDir.resolve("no-docker").toString()))
+        DockerSettings(store)
+    }
 
     /** The application-wide TODO store, in the test's project data and shared data file. */
     internal val todos by lazy { Todos(projectData) }
@@ -249,6 +266,7 @@ abstract class MainWindowUiFixture {
     ): MainWindow {
         val tasks = BackgroundTasks().also(backgroundTasks::add)
         val commandRuns = CommandRunSession(terminals, tasks, argumentHistories).also(commandRunSessions::add)
+        val dockerSession = DockerSession(dockerSettings).also(dockerSessions::add)
         return MainWindow(
             projectService,
             fileExplorer,
@@ -290,6 +308,8 @@ abstract class MainWindowUiFixture {
             Codecs(),
             Converting(convertingFamilies, fontSettings).also(convertings::add),
             GitFileComparison(git),
+            Docker(dockerSession, terminals, tasks),
+            dockerSession,
         )
     }
 

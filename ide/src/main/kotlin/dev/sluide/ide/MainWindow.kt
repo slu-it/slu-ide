@@ -5,6 +5,8 @@ import dev.sluide.codecs.Codecs
 import dev.sluide.coloring.Coloring
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.converting.Converting
+import dev.sluide.docker.Docker
+import dev.sluide.docker.DockerSession
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
 import dev.sluide.editorarea.askToClose
@@ -110,6 +112,8 @@ class MainWindow(
     private val codecs: Codecs,
     private val converting: Converting,
     gitFileComparison: GitFileComparison,
+    docker: Docker,
+    private val dockerSession: DockerSession,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
     internal var openWebPage: (URI) -> Unit = systemBrowser::open
@@ -197,7 +201,7 @@ class MainWindow(
     /** The explorer's Run for files their view can run, e.g. shell scripts (ADR 0089). */
     private val scriptRuns = WindowScriptRuns(fileViewers::viewerFor, { editorArea.open(it) }, editorArea::viewOf)
 
-    /** The Terminal, Docker Sandbox and Tools menus and the tabs they open. */
+    /** The Terminal, Docker Sandbox, Tools and Services menus and the tabs they open. */
     internal val tools =
         WindowTools(
             projectService,
@@ -207,6 +211,8 @@ class MainWindow(
             coloring,
             codecs,
             converting,
+            docker,
+            openWebPage = { openWebPage(it) },
             showError = { s, m -> showError(s, m) },
         )
 
@@ -262,6 +268,7 @@ class MainWindow(
                             tools.terminalMenu(stage),
                             tools.dockerSandboxMenu(stage),
                             tools.toolsMenu(),
+                            tools.servicesMenu(),
                         ),
                         trust.bar,
                     )
@@ -335,6 +342,8 @@ class MainWindow(
         // Views that run commands (shell scripts) run them in the window's terminals and list them among its
         // background tasks (ADR 0088, ADR 0089).
         editorArea.windowServices.register(CommandRunSession::class.java, commandRuns)
+        // Views of Compose files and Dockerfiles share the window's engine state, lists and events stream (ADR 0117).
+        editorArea.windowServices.register(DockerSession::class.java, dockerSession)
         // Code editors show the colors of style, markup and script files as swatches and open them in Coloring (ADR 0108,
         // ADR 0109), open a selection in Codecs (ADR 0112) and
         // a selection or a whole file in Converting (ADR 0115).
