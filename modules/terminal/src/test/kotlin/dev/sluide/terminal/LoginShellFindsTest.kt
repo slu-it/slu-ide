@@ -16,10 +16,14 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
-/** `sometool` is looked up by a login shell whose `.profile`, in a test home folder, sets the `PATH`. */
+/**
+ * `sometool` is looked up by a login shell whose `.profile`, in a test home folder, sets the `PATH`; scripts run by
+ * [loginShellPrints] see that shell's environment.
+ */
 class LoginShellFindsTest {
     @TempDir
     lateinit var root: Path
@@ -127,5 +131,40 @@ class LoginShellFindsTest {
                 }
             }
         }
+    }
+
+    @Test
+    fun `a script prints what the interactive login shell sees, without the noise of its startup files`() {
+        val interactive = home.resolve(".shrc")
+        home.resolve(".profile").writeText("ENV=\"$interactive\"\nexport ENV\necho profile noise\n")
+        interactive.writeText(
+            "PATH=\"$bin\"\nexport PATH\nDOCKER_HOST=unix:///tmp/d.sock\nexport DOCKER_HOST\necho rc noise\n",
+        )
+        stubTool()
+
+        val printed = loginShellPrints("command -v sometool\nprintf 'host=%s\\n' \"\$DOCKER_HOST\"", environment)
+
+        assertEquals("$bin/sometool\nhost=unix:///tmp/d.sock\n", printed)
+    }
+
+    @Test
+    fun `a script whose last line has no newline and that fails still returns its output`() {
+        assertEquals("partial", loginShellPrints("printf partial\nfalse", environment))
+        assertEquals("", loginShellPrints("command -v sometool", environment), "nothing found prints nothing")
+    }
+
+    @Test
+    fun `a script in a shell that cannot be started or hangs prints nothing`() {
+        assertNull(loginShellPrints("echo hi", environment + ("SHELL" to root.resolve("no-such-shell").toString())))
+        home.resolve(".profile").writeText("/bin/sleep 30\n")
+        assertNull(loginShellPrints("echo hi", environment, timeout = 1.seconds))
+    }
+
+    @Test
+    fun `the output lies between the begin marker's line end and the end marker's line`() {
+        assertEquals("a\nb", between("noise\nB\na\nb\nE\nmore", "B", "E"))
+        assertEquals("a", between("noise without newline B\na\nE", "B", "E"))
+        assertNull(between("B\na", "B", "E"), "no end marker")
+        assertNull(between("a\nE", "B", "E"), "no begin marker")
     }
 }
