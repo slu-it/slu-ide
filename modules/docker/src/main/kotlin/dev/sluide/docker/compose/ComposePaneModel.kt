@@ -57,11 +57,12 @@ internal interface ComposeHost {
 
 /**
  * The state behind one Compose pane, without controls (ADR 0084, ADR 0119): the [options] of the file (loaded from the
- * [store], saved to it once [debounce] passed after a change, and on [close]), its resolved [config] (read with `docker compose config` through the [session] on attach,
- * after saves, after changes of the project name or environment once [debounce] passed, and when the engine becomes
- * available; results of older loads are dropped), the [services] with their containers, whether the [commandsEnabled]
- * and the commands of the buttons. It subscribes to the [session] until [close]d. FX thread; results of the work the
- * session runs elsewhere come back through [fx], the debounce runs on the [scheduler].
+ * [store], saved to it once [debounce] passed after a change, and on [close]), its resolved [config] (read with `docker
+ * compose config` through the [session] on attach, after saves, after changes of the project name or environment once
+ * [debounce] passed, and when the engine becomes available; results of older loads are dropped), the [services] with
+ * their containers, whether the [commandsEnabled] and the commands of the buttons. It subscribes to the [session] until
+ * [close]d. FX thread; results of the work the session runs elsewhere come back through [fx], the debounce runs on the
+ * [scheduler].
  */
 internal class ComposePaneModel(
     private val session: DockerSession,
