@@ -2,13 +2,20 @@ package dev.sluide.docker
 
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.docker.cli.FakeDockerCli
+import dev.sluide.docker.run.DockerRunStore
+import dev.sluide.docker.run.RunOptions
 import dev.sluide.docker.tab.FAKE_ENVIRONMENT
+import dev.sluide.docker.tab.awaitTrue
 import dev.sluide.docker.tab.fakeSession
+import dev.sluide.docker.tab.network
+import dev.sluide.docker.tab.volume
 import dev.sluide.editorarea.EditorTab
+import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.terminal.TerminalStartException
 import javafx.beans.property.SimpleStringProperty
 import javafx.beans.value.ObservableValue
 import javafx.scene.Node
+import org.junit.jupiter.api.io.TempDir
 import java.io.IOException
 import java.nio.file.Path
 import kotlin.test.AfterTest
@@ -25,21 +32,32 @@ class DockerTest {
         override val content: Node get() = error("not shown")
     }
 
-    private val session = fakeSession(FakeDockerCli())
+    @TempDir
+    lateinit var dir: Path
+
+    private val cli = FakeDockerCli()
+    private val session = fakeSession(cli)
+    private val data by lazy { ProjectDataStore(dir.resolve("projects"), dir.resolve("shared.json"), emptyList()) }
+    private val questions = mutableListOf<Triple<RunOptions, List<String>, List<String>>>()
+    private var answer: (RunOptions) -> RunOptions? = { it }
     private val started = mutableListOf<List<Any>>()
     private val opened = mutableListOf<String>()
     private var failure: TerminalStartException? = null
     private var tabsShown = 0
     private val home = Path.of("/home/me")
-    private val docker =
+    private val docker by lazy {
         Docker(session, BackgroundTasks.forTests(), { folder, name, command, environment ->
             failure?.let { throw it }
             started += listOf(folder, name, command, environment)
             FakeTab(name)
-        }, home).apply {
+        }, home, DockerRunStore(data), fx = { it.run() }, askRun = { _, initial, networks, volumes ->
+            questions += Triple(initial, networks, volumes)
+            answer(initial)
+        }).apply {
             openTab = { opened += it.title.value }
             showTab = { tabsShown++ }
         }
+    }
 
     @AfterTest
     fun close() = session.close()
@@ -73,5 +91,20 @@ class DockerTest {
 
         assertEquals(emptyList(), opened)
         assertEquals(2, tabsShown)
+    }
+
+    @Test
+    fun `runImage asks with the session's networks and volumes, runs detached through the session`() {
+        cli.networks = listOf(network("bridge"), network("shop"))
+        cli.volumes = listOf(volume("data", inUse = false))
+        session.refresh()
+        answer = { it.copy(name = "web") }
+
+        docker.runImage("nginx:1")
+
+        assertEquals(Triple(RunOptions("nginx:1"), listOf("bridge", "shop"), listOf("data")), questions.single())
+        // The run happens on the session's own thread; that it ends in the Docker tab is DockerTabUiTest's check.
+        awaitTrue("the run") { cli.runCalls.isNotEmpty() }
+        assertEquals(listOf(listOf("run", "-d", "--name", "web", "nginx:1")), cli.runCalls.toList())
     }
 }

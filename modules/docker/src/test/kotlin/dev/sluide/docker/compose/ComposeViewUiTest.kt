@@ -11,6 +11,7 @@ import dev.sluide.docker.cli.FakeDockerCli
 import dev.sluide.docker.cli.ResolvedDocker
 import dev.sluide.docker.events.ManualScheduler
 import dev.sluide.docker.model.container
+import dev.sluide.docker.run.DockerRunStore
 import dev.sluide.docker.settings.DockerSettings
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.SplitMode
@@ -114,7 +115,13 @@ class ComposeViewUiTest {
     private var tabShown = 0
 
     private val docker by lazy {
-        Docker(session, BackgroundTasks.forTests(), { _, _, _, _ -> error("no terminal tabs here") }, support).apply {
+        Docker(
+            session,
+            BackgroundTasks.forTests(),
+            { _, _, _, _ -> error("no terminal tabs here") },
+            support,
+            DockerRunStore(ProjectDataStore(dir.resolve("projects"), dir.resolve("shared.json"), emptyList())),
+        ).apply {
             showTab = { tabShown++ }
         }
     }

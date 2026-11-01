@@ -9,6 +9,7 @@ import dev.sluide.docker.model.ResourceKind
 import dev.sluide.docker.model.container
 import dev.sluide.docker.tab.tree.ContainerRow
 import dev.sluide.docker.tab.tree.GroupRow
+import dev.sluide.docker.tab.tree.ImageRow
 import dev.sluide.docker.tab.tree.NetworkRow
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
@@ -81,7 +82,8 @@ class TabActionsTest {
     private val model = DockerTabModel(session, fx)
     private val containerActions = ContainerActions(model, dialogs) { id, name -> shells += "$id $name" }
     private val resourceActions = ResourceActions(model, dialogs, tasks)
-    private val actions = RowActions(containerActions, resourceActions)
+    private val runs = mutableListOf<String>()
+    private val actions = RowActions(containerActions, resourceActions) { runs += it }
 
     @AfterTest
     fun close() {
@@ -255,6 +257,18 @@ class TabActionsTest {
         actions.of(GroupRow(ResourceKind.NETWORK, 2)).first().run()
 
         fx.runUntil { "createVolume cache" in cli.calls && "createNetwork backend driver=overlay" in cli.calls }
+    }
+
+    @Test
+    fun `an image offers Run before Remove, and Run hands its reference to the Run dialog`() {
+        val tagged = cli.images.first()
+        val untagged = cli.images.last()
+
+        assertEquals(listOf("Run…", "Remove"), actions.of(ImageRow(tagged)).map { it.title })
+        actions.of(ImageRow(tagged)).first().run()
+        actions.of(ImageRow(untagged)).first().run()
+
+        assertEquals(listOf("nginx:1.27", untagged.id), runs)
     }
 
     @Test

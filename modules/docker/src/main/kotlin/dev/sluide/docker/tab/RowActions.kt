@@ -17,13 +17,15 @@ internal data class RowAction(
 )
 
 /**
- * The actions of each kind of row: the container commands, Remove for images, volumes and networks, and the group
- * actions (Pull…, Create…, Prune…; a prune is disabled while it would remove nothing). Compose projects have none in
- * this round.
+ * The actions of each kind of row: the container commands, Run… and Remove for images, Remove for volumes and
+ * networks, and the group actions (Pull…, Create…, Prune…; a prune is disabled while it would remove nothing).
+ * Compose projects have none in this round.
  */
 internal class RowActions(
     private val containers: ContainerActions,
     private val resources: ResourceActions,
+    /** Run… for an image reference: opens the Run Container dialog. */
+    private val runImage: (String) -> Unit,
 ) {
     fun of(row: TreeRow?): List<RowAction> =
         when (row) {
@@ -36,7 +38,10 @@ internal class RowActions(
             }
 
             is ImageRow -> {
-                listOf(RowAction("Remove", true) { resources.removeImage(row.image) })
+                listOf(
+                    RowAction("Run…", true) { runImage(row.image.reference) },
+                    RowAction("Remove", true) { resources.removeImage(row.image) },
+                )
             }
 
             is VolumeRow -> {

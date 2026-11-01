@@ -1,6 +1,14 @@
 package dev.sluide.docker
 
+import dev.sluide.backgroundtasks.BackgroundTask
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.docker.cli.DockerCli
+import dev.sluide.docker.cli.ResolvedDocker
+import dev.sluide.docker.run.DockerRunStore
+import dev.sluide.docker.run.ImageRunner
+import dev.sluide.docker.run.RunHost
+import dev.sluide.docker.run.RunOptions
+import dev.sluide.docker.run.askRunDialog
 import dev.sluide.docker.tab.ContainerActions
 import dev.sluide.docker.tab.DockerDialogs
 import dev.sluide.docker.tab.DockerTab
@@ -23,6 +31,7 @@ import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.net.URI
 import java.nio.file.Path
+import java.util.concurrent.CompletableFuture
 
 /**
  * The Docker tool of one window (ADR 0118): creates the Docker tab of the Services menu, shows a container in it
@@ -39,19 +48,32 @@ class Docker internal constructor(
     private val openTerminal: (Path, String, String, Map<String, String>) -> EditorTab,
     /** The folder of shells while no project is open. */
     private val home: Path,
+    /** Remembers the last Run values per image repository. */
+    private val runStore: DockerRunStore,
     /** The dialogs of the tab's actions over the window it is in. */
     private val dialogs: (owner: () -> Window?) -> DockerDialogs = ::FxDockerDialogs,
     /** The Logs and Stats views of a tab. */
     private val streamViews: StreamViews = StreamViews(),
     /** Hands results of background work to the FX thread. */
     private val fx: (Runnable) -> Unit = Platform::runLater,
+    /** Shows the Run Container dialog: owner, initial values, network and volume names; `null` if cancelled. */
+    private val askRun: (
+        (owner: () -> Window?, initial: RunOptions, networks: List<String>, volumes: List<String>) -> RunOptions?
+    )? =
+        null,
 ) {
     @Autowired
-    constructor(session: DockerSession, terminals: Terminals, backgroundTasks: BackgroundTasks) : this(
+    constructor(
+        session: DockerSession,
+        terminals: Terminals,
+        backgroundTasks: BackgroundTasks,
+        runStore: DockerRunStore,
+    ) : this(
         session,
         backgroundTasks,
         { folder, name, command, environment -> terminals.open(folder, name, command, environment) },
         Path.of(System.getProperty("user.home")),
+        runStore,
     )
 
     /** Opens or selects the window's Docker tab; set by ide. */
@@ -59,6 +81,9 @@ class Docker internal constructor(
 
     /** Shows a tab in the window's editor area, e.g. a container's shell; set by ide. */
     var openTab: (EditorTab) -> Unit = {}
+
+    /** The window this tool belongs to, the owner of its dialogs; set by ide. */
+    var window: () -> Window? = { null }
 
     /** Opens a web page (a container's published port) in the system browser; set by ide. */
     var openUrl: (URI) -> Unit = {}
@@ -78,6 +103,7 @@ class Docker internal constructor(
             RowActions(
                 ContainerActions(model, askers, ::openShell),
                 ResourceActions(model, askers, backgroundTasks),
+                ::runImage,
             )
         view = DockerTabView(model, actions, streamViews) { openUrl(it) }
         lateinit var created: DockerTab
@@ -131,8 +157,58 @@ class Docker internal constructor(
      * Opens the Run dialog for the image [reference] (`name:tag`, or an image id), prefilled with the values last used
      * for its repository; the Build side of a Dockerfile calls it after a build. FX thread.
      */
-    fun runImage(reference: String) {
-        // The Run dialog comes with round 3's run package; until then this does nothing.
+    fun runImage(reference: String) = imageRunner.run(reference)
+
+    private val imageRunner = ImageRunner(RunHostOf(), runStore)
+
+    /** What [ImageRunner] needs, from this window. */
+    private inner class RunHostOf : RunHost {
+        override val projectFolder: Path? get() = this@Docker.projectFolder.get()
+        override val home: Path get() = this@Docker.home
+        override val docker: ResolvedDocker? get() = session.docker
+        override val networks: List<String> get() = session.networks.map { it.name }
+        override val volumes: List<String> get() = session.volumes.map { it.name }
+
+        override fun ask(initial: RunOptions): RunOptions? {
+            val owner = {
+                window() ?: tab
+                    ?.view
+                    ?.node
+                    ?.scene
+                    ?.window
+            }
+            val executable = docker?.executable?.fileName?.toString() ?: "docker"
+            val seam = askRun ?: return askRunDialog(owner, initial, networks, volumes, executable, projectFolder, home)
+            return seam(owner, initial, networks, volumes)
+        }
+
+        override fun submit(
+            name: String,
+            action: (DockerCli) -> String,
+        ): CompletableFuture<String> = session.submit(name, action)
+
+        override fun startTask(
+            name: String,
+            cancel: () -> Unit,
+        ): BackgroundTask = backgroundTasks.start(name, cancel)
+
+        override fun openTerminal(
+            folder: Path,
+            name: String,
+            command: String,
+            environment: Map<String, String>,
+        ): EditorTab = this@Docker.openTerminal(folder, name, command, environment)
+
+        override fun openTab(tab: EditorTab) = this@Docker.openTab(tab)
+
+        override fun showContainer(
+            id: String,
+            logs: Boolean,
+        ) = this@Docker.showContainer(id, logs)
+
+        override fun showError(message: String) = this@Docker.showError(message)
+
+        override fun onFx(action: Runnable) = fx(action)
     }
 
     private fun showError(message: String) {

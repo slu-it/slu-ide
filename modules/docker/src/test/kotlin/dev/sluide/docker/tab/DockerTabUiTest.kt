@@ -9,12 +9,15 @@ import dev.sluide.docker.model.ContainerDetails
 import dev.sluide.docker.model.ContainerState
 import dev.sluide.docker.model.DockerEvent
 import dev.sluide.docker.model.container
+import dev.sluide.docker.run.DockerRunStore
+import dev.sluide.docker.run.RunOptions
 import dev.sluide.docker.tab.details.ActionBar
 import dev.sluide.docker.tab.details.StreamView
 import dev.sluide.docker.tab.details.StreamViews
 import dev.sluide.docker.tab.tree.ResourceKey
 import dev.sluide.docker.tab.tree.TreeRow
 import dev.sluide.editorarea.EditorTab
+import dev.sluide.projectdata.ProjectDataStore
 import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.Parent
@@ -30,9 +33,11 @@ import javafx.scene.layout.GridPane
 import javafx.scene.layout.Region
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
+import javafx.stage.Window
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.api.io.TempDir
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
@@ -70,12 +75,19 @@ class DockerTabUiTest {
         }
     }
 
+    @TempDir
+    lateinit var runData: Path
+
     private val cli = FakeDockerCli()
     private val scheduler = ManualScheduler()
     private val session = fakeSession(cli, scheduler)
     private val logs = RecordingView()
     private val web = container("web", image = "nginx:1.27")
     private val old = container("old", state = ContainerState.EXITED)
+    private val runQuestions = CopyOnWriteArrayList<String>()
+    private val runOwners = CopyOnWriteArrayList<Window?>()
+
+    @Volatile private var runAnswer: (RunOptions) -> RunOptions? = { null }
     private lateinit var docker: Docker
     private lateinit var tab: EditorTab
     private var disposed = false
@@ -116,7 +128,15 @@ class DockerTabUiTest {
                 BackgroundTasks.forTests(),
                 { _, _, _, _ -> error("no shells here") },
                 Path.of("/home/me"),
+                DockerRunStore(
+                    ProjectDataStore(runData.resolve("projects"), runData.resolve("shared.json"), emptyList()),
+                ),
                 streamViews = StreamViews(logs = { logs }, stats = { RecordingView() }),
+                askRun = { owner, initial, _, _ ->
+                    runOwners += owner()
+                    runQuestions += initial.image
+                    runAnswer(initial)
+                },
             )
         tab = docker.createTab()
         stage.scene = Scene(tab.content as Parent, 1000.0, 700.0)
@@ -192,6 +212,59 @@ class DockerTabUiTest {
         robot.interact { stop.fire() }
 
         awaitTrue("the stop") { "act STOP ${web.id}" in cli.calls }
+    }
+
+    @Test
+    fun `an image's Run button opens the Run dialog for its reference`(robot: FxRobot) {
+        select(robot, 1, "nginx:1.27")
+
+        val run =
+            onFx { robot.lookup(".docker-actions .button").queryAllAs(Button::class.java).single { it.text == "Run…" } }
+        robot.interact { run.fire() }
+
+        assertEquals(listOf("nginx:1.27"), runQuestions.toList())
+    }
+
+    @Test
+    fun `a detached run from the dialog ends with the new container shown, not with an error`(robot: FxRobot) {
+        cli.runOutput = web.id
+        runAnswer = { it }
+
+        robot.interact { docker.runImage("nginx:1.27") }
+
+        awaitTrue("the container selected") {
+            onFx {
+                tree(robot)
+                    .selectionModel.selectedItem
+                    ?.value
+                    ?.key == ResourceKey.ContainerKey(web.id)
+            }
+        }
+        assertEquals(listOf(listOf("run", "-d", "nginx:1.27")), cli.runCalls.toList())
+        assertEquals("", onFx { robot.lookup(".docker-error-text").queryAs(Label::class.java).text })
+    }
+
+    @Test
+    fun `the Run dialog is owned by the window set for the tool, else by the tab's window`(robot: FxRobot) {
+        val other = onFx { Stage() }
+        robot.interact { docker.runImage("nginx:1.27") }
+        docker.window = { other }
+        robot.interact { docker.runImage("nginx:1.27") }
+
+        assertSame(onFx { (tab.content as Parent).scene.window }, runOwners[0], "the tab's window without one set")
+        assertSame(other, runOwners[1], "the tool's window first")
+    }
+
+    @Test
+    fun `a failing run shows the CLI's message in the error bar`(robot: FxRobot) {
+        cli.failing = { if (it.startsWith("run")) DockerException("port is already allocated") else null }
+        runAnswer = { it }
+
+        robot.interact { docker.runImage("nginx:1.27") }
+
+        awaitTrue("the error") {
+            onFx { robot.lookup(".docker-error-text").queryAs(Label::class.java).text == "port is already allocated" }
+        }
     }
 
     /** The layout facts of the shown container's details header and Overview. */

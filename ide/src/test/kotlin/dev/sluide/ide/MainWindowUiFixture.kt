@@ -10,6 +10,7 @@ import dev.sluide.converting.Converting
 import dev.sluide.converting.FormatFamily
 import dev.sluide.docker.Docker
 import dev.sluide.docker.DockerSession
+import dev.sluide.docker.run.DockerRunStore
 import dev.sluide.docker.settings.DockerSettings
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
@@ -311,7 +312,7 @@ abstract class MainWindowUiFixture {
             Codecs(),
             Converting(convertingFamilies, fontSettings).also(convertings::add),
             GitFileComparison(git),
-            Docker(dockerSession, terminals, tasks).also(dockers::add),
+            Docker(dockerSession, terminals, tasks, DockerRunStore(projectData)).also(dockers::add),
             dockerSession,
         )
     }

@@ -9,6 +9,7 @@ import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.converting.Converting
 import dev.sluide.docker.Docker
 import dev.sluide.docker.DockerSession
+import dev.sluide.docker.run.DockerRunStore
 import dev.sluide.docker.settings.DockerSettings
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.editorarea.EditorArea
@@ -156,6 +157,7 @@ class ProjectWindowsUiTest {
                 register(GitPush::class.java)
                 register(GitStashes::class.java)
                 register(DockerSettings::class.java)
+                register(DockerRunStore::class.java)
                 registerBean(
                     RemoteSourceCache::class.java,
                     Supplier { RemoteSourceCache(getBean(GitCli::class.java), dir.resolve("cache/git")) },
