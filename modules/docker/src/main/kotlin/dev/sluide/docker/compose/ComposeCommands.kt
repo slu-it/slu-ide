@@ -18,9 +18,9 @@ private const val SHELL_SCRIPT = "command -v bash >/dev/null 2>&1 && exec bash |
  * paths, project and profile names must be valid names (see [isValidProjectName], [isValidProfileName]) and services
  * must not start with `-`; otherwise [IllegalArgumentException]. [ComposeStore.load] already drops invalid values.
  *
- * Which base which verb gets: Up, Build and Pull with the chosen profiles (`baseArgs`); [downArgs] with every profile
- * (`--profile '*'`), as a project-wide Down must also remove the containers of a profile that was chosen at Up and
- * unchosen since; the listing (`config`) with every profile (`allProfiles = true`) to see all services; the verbs of
+ * Which base which verb gets: Up, Build, Pull and a project-wide Restart with the chosen profiles (`baseArgs`);
+ * [downArgs] with every profile (`--profile '*'`), as a project-wide Down must also remove the containers of a profile
+ * that was chosen at Up and unchosen since; the listing (`config`) with every profile (`allProfiles = true`) to see all services; the verbs of
  * single services (`upService`, start, stop, restart, logs, shell) work whatever profiles are chosen, because compose
  * enables the profile of a service named on the command line, so they take `baseArgs` too.
  */

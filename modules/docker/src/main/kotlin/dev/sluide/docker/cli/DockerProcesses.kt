@@ -74,11 +74,12 @@ internal class DockerProcesses(
         val started = System.nanoTime()
         val process = start(arguments, mergeErrors = onLine != null, name, workingDir, extraEnvironment)
         val errors = ByteArrayOutputStream()
+        val readsErrors = onLine == null
         val errorReader =
-            if (onLine ==
-                null
-            ) {
-                NamedThreads.virtual("$name-stderr") { keep(process.errorStream, errors, errorLimit) }
+            if (readsErrors) {
+                NamedThreads.virtual(
+                    "$name-stderr",
+                ) { keep(process.errorStream, errors, errorLimit) }
             } else {
                 null
             }
