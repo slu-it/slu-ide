@@ -1,0 +1,17 @@
+/*
+ * The Run Container dialog (ADR 0118): the message that replaces the command preview. Colours as the Docker tab's error
+ * bar, with a dark rule using a single-class selector (ADR 0009).
+ */
+.docker-run-error {
+    -fx-text-fill: #8a1c1c;
+}
+
+.docker-row-detail {
+    -fx-text-fill: derive(-fx-text-base-color, 45%);
+}
+
+@media (prefers-color-scheme: dark) {
+    .docker-run-error {
+        -fx-text-fill: #f2b8b8;
+    }
+}
