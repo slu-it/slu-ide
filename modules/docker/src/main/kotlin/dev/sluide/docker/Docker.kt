@@ -127,6 +127,14 @@ class Docker internal constructor(
         }
     }
 
+    /**
+     * Opens the Run dialog for the image [reference] (`name:tag`, or an image id), prefilled with the values last used
+     * for its repository; the Build side of a Dockerfile calls it after a build. FX thread.
+     */
+    fun runImage(reference: String) {
+        // The Run dialog comes with round 3's run package; until then this does nothing.
+    }
+
     private fun showError(message: String) {
         if (tab == null) showTab()
         tab?.view?.showError(message)
