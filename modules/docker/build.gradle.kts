@@ -27,6 +27,9 @@ dependencies {
     // Deliberate module API dependency: the session's loads and actions run on logged threads (ADR 0060), and Docker
     // takes the window's BackgroundTasks for its long operations (pull, prune, remove image, create; ADR 0061).
     api(project(":modules:background-tasks"))
+    // Deliberate module API dependency: ComposeStore keeps the Compose options of each file in the project data
+    // (ProjectDataStore, ADR 0090).
+    api(project(":modules:project-data"))
     implementation(libs.spring.context)
     // Reads the JSON the docker and podman CLIs print.
     implementation(libs.jackson.databind)
