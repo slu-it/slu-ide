@@ -1,0 +1,4 @@
+{"CreatedAt":"2026-11-01 13:08:13.735294125 +0000 UTC","Driver":"bridge","ID":"0e4b20ebc5dbe89b0fba8aa60301b3df5109d9e9def7f69118899ffcbe6d6726","IPv4":"true","IPv6":"false","Internal":"false","Labels":"","Name":"bridge","Scope":"local"}
+{"CreatedAt":"2026-10-12 17:39:04.693253959 +0000 UTC","Driver":"host","ID":"64b0d9808f5adf084e60216ab04949bd43859021d96cd19b17b3fe84ad78cc6b","IPv4":"true","IPv6":"false","Internal":"false","Labels":"","Name":"host","Scope":"local"}
+{"CreatedAt":"2026-10-12 17:39:04.692548834 +0000 UTC","Driver":"null","ID":"1ca315f1b371c734a58978108152805e711d259a9687d47231c0c6f870894193","IPv4":"true","IPv6":"false","Internal":"false","Labels":"","Name":"none","Scope":"local"}
+{"CreatedAt":"2026-11-01 13:44:03.355846108 +0000 UTC","Driver":"bridge","ID":"ad2d8dfd26ff1c04e49819f54f62f226240baabb39bd8c28642281acf8f476d3","IPv4":"true","IPv6":"false","Internal":"false","Labels":"","Name":"sluidefx-net","Scope":"local"}

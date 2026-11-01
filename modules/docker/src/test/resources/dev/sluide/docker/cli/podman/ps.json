@@ -1,0 +1,56 @@
+[
+  {
+    "AutoRemove": false,
+    "Command": ["nginx", "-g", "daemon off;"],
+    "CreatedAt": "2 minutes ago",
+    "Created": 1700000000,
+    "Exited": false,
+    "ExitedAt": -62135596800,
+    "ExitCode": 0,
+    "Id": "8f2e6c1d4b3a29180716253443526170819a8b7c6d5e4f30211203f4e5d6c7b8",
+    "Image": "docker.io/library/nginx:1.27",
+    "ImageID": "3b25b682ea82b2db3cc4fd48db818be788ee3f902ac7378090cf2624ec2442df",
+    "IsInfra": false,
+    "Labels": {
+      "com.docker.compose.project": "shop",
+      "com.docker.compose.service": "web",
+      "com.docker.compose.project.working_dir": "/home/me/shop"
+    },
+    "Mounts": ["/usr/share/nginx/html"],
+    "Names": ["shop_web_1"],
+    "Namespaces": {},
+    "Networks": ["shop_default"],
+    "Pid": 4242,
+    "Pod": "",
+    "PodName": "",
+    "Ports": [
+      {"host_ip": "", "container_port": 80, "host_port": 8080, "range": 1, "protocol": "tcp"},
+      {"host_ip": "127.0.0.1", "container_port": 9000, "host_port": 9000, "range": 2, "protocol": "udp"}
+    ],
+    "Restarts": 0,
+    "Size": null,
+    "StartedAt": 1700000005,
+    "State": "running",
+    "Status": "Up 2 minutes"
+  },
+  {
+    "AutoRemove": false,
+    "Command": ["true"],
+    "CreatedAt": "3 hours ago",
+    "Created": 1699990000,
+    "Exited": true,
+    "ExitedAt": 1699990010,
+    "ExitCode": 3,
+    "Id": "1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f809",
+    "Image": "docker.io/library/alpine:latest",
+    "ImageID": "05455a08881ea9cf0e752bc48e61bbd71a34c029bb13df01e40e3e70e0d007bd",
+    "IsInfra": false,
+    "Labels": null,
+    "Mounts": [],
+    "Names": ["lonely"],
+    "Networks": [],
+    "Ports": null,
+    "State": "exited",
+    "Status": "Exited (3) 3 hours ago"
+  }
+]

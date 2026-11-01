@@ -1,0 +1,320 @@
+[
+    {
+        "Id": "e0d50c8aebff1cec6bd7e7d294d46111fccc94bba16bde24da0de25b4a8c3181",
+        "Created": "2026-11-01T13:44:03.407165858Z",
+        "Path": "docker-entrypoint.sh",
+        "Args": [
+            "sh",
+            "-c",
+            "while true; do echo \"line $(date +%s)\"; echo err >&2; sleep 1; done"
+        ],
+        "State": {
+            "Status": "running",
+            "Running": true,
+            "Paused": false,
+            "Restarting": false,
+            "OOMKilled": false,
+            "Dead": false,
+            "Pid": 3471,
+            "ExitCode": 0,
+            "Error": "",
+            "StartedAt": "2026-11-01T13:44:03.42134665Z",
+            "FinishedAt": "0001-01-01T00:00:00Z",
+            "Health": {
+                "Status": "healthy",
+                "FailingStreak": 0,
+                "Log": [
+                    {
+                        "Start": "2026-11-01T13:44:05.488396984Z",
+                        "End": "2026-11-01T13:44:05.519377734Z",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2026-11-01T13:44:07.522991777Z",
+                        "End": "2026-11-01T13:44:07.55545536Z",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2026-11-01T13:44:09.559049486Z",
+                        "End": "2026-11-01T13:44:09.593454486Z",
+                        "ExitCode": 0,
+                        "Output": ""
+                    },
+                    {
+                        "Start": "2026-11-01T13:44:11.594489904Z",
+                        "End": "2026-11-01T13:44:11.624733196Z",
+                        "ExitCode": 0,
+                        "Output": ""
+                    }
+                ]
+            }
+        },
+        "Image": "sha256:a54fb4422b18f05dd3107c36f39d67b26334fda7ec89f4126052b45e228e2f15",
+        "ResolvConfPath": "/var/lib/docker/containers/e0d50c8aebff1cec6bd7e7d294d46111fccc94bba16bde24da0de25b4a8c3181/resolv.conf",
+        "HostnamePath": "/var/lib/docker/containers/e0d50c8aebff1cec6bd7e7d294d46111fccc94bba16bde24da0de25b4a8c3181/hostname",
+        "HostsPath": "/var/lib/docker/containers/e0d50c8aebff1cec6bd7e7d294d46111fccc94bba16bde24da0de25b4a8c3181/hosts",
+        "LogPath": "/var/lib/docker/containers/e0d50c8aebff1cec6bd7e7d294d46111fccc94bba16bde24da0de25b4a8c3181/e0d50c8aebff1cec6bd7e7d294d46111fccc94bba16bde24da0de25b4a8c3181-json.log",
+        "Name": "/sluidefx-web-1",
+        "RestartCount": 0,
+        "Driver": "overlayfs",
+        "Platform": "linux",
+        "MountLabel": "",
+        "ProcessLabel": "",
+        "AppArmorProfile": "",
+        "ExecIDs": null,
+        "HostConfig": {
+            "Binds": [
+                "sluidefx-data:/data"
+            ],
+            "ContainerIDFile": "",
+            "LogConfig": {
+                "Type": "json-file",
+                "Config": {}
+            },
+            "NetworkMode": "sluidefx-net",
+            "PortBindings": {
+                "443/tcp": [
+                    {
+                        "HostIp": "",
+                        "HostPort": "18443"
+                    }
+                ],
+                "80/tcp": [
+                    {
+                        "HostIp": "127.0.0.1",
+                        "HostPort": "18080"
+                    }
+                ]
+            },
+            "RestartPolicy": {
+                "Name": "no",
+                "MaximumRetryCount": 0
+            },
+            "AutoRemove": false,
+            "VolumeDriver": "",
+            "VolumesFrom": null,
+            "ConsoleSize": [
+                0,
+                0
+            ],
+            "CapAdd": null,
+            "CapDrop": null,
+            "CgroupnsMode": "private",
+            "Dns": null,
+            "DnsOptions": [],
+            "DnsSearch": [],
+            "ExtraHosts": null,
+            "GroupAdd": null,
+            "IpcMode": "private",
+            "Cgroup": "",
+            "Links": null,
+            "OomScoreAdj": 0,
+            "PidMode": "",
+            "Privileged": false,
+            "PublishAllPorts": false,
+            "ReadonlyRootfs": false,
+            "SecurityOpt": null,
+            "UTSMode": "",
+            "UsernsMode": "",
+            "ShmSize": 67108864,
+            "Runtime": "runc",
+            "Isolation": "",
+            "CpuShares": 0,
+            "Memory": 0,
+            "NanoCpus": 0,
+            "CgroupParent": "",
+            "BlkioWeight": 0,
+            "BlkioWeightDevice": [],
+            "BlkioDeviceReadBps": [],
+            "BlkioDeviceWriteBps": [],
+            "BlkioDeviceReadIOps": [],
+            "BlkioDeviceWriteIOps": [],
+            "CpuPeriod": 0,
+            "CpuQuota": 0,
+            "CpuRealtimePeriod": 0,
+            "CpuRealtimeRuntime": 0,
+            "CpusetCpus": "",
+            "CpusetMems": "",
+            "Devices": [],
+            "DeviceCgroupRules": null,
+            "DeviceRequests": null,
+            "MemoryReservation": 0,
+            "MemorySwap": 0,
+            "MemorySwappiness": null,
+            "OomKillDisable": null,
+            "PidsLimit": null,
+            "Ulimits": null,
+            "CpuCount": 0,
+            "CpuPercent": 0,
+            "IOMaximumIOps": 0,
+            "IOMaximumBandwidth": 0,
+            "MaskedPaths": [
+                "/proc/acpi",
+                "/proc/asound",
+                "/proc/interrupts",
+                "/proc/kcore",
+                "/proc/keys",
+                "/proc/latency_stats",
+                "/proc/sched_debug",
+                "/proc/scsi",
+                "/proc/timer_list",
+                "/proc/timer_stats",
+                "/sys/devices/virtual/powercap",
+                "/sys/firmware"
+            ],
+            "ReadonlyPaths": [
+                "/proc/bus",
+                "/proc/fs",
+                "/proc/irq",
+                "/proc/sys",
+                "/proc/sysrq-trigger"
+            ]
+        },
+        "Storage": {
+            "RootFS": {
+                "Snapshot": {
+                    "Name": "overlayfs"
+                }
+            }
+        },
+        "Mounts": [
+            {
+                "Type": "volume",
+                "Name": "sluidefx-data",
+                "Source": "/var/lib/docker/volumes/sluidefx-data/_data",
+                "Destination": "/data",
+                "Driver": "local",
+                "Mode": "z",
+                "RW": true,
+                "Propagation": ""
+            },
+            {
+                "Type": "volume",
+                "Name": "d2097bae9c8cd083314999fca3448fa0f5537efe2dffb949c07d1241952c3598",
+                "Source": "/var/lib/docker/volumes/d2097bae9c8cd083314999fca3448fa0f5537efe2dffb949c07d1241952c3598/_data",
+                "Destination": "/data2",
+                "Driver": "local",
+                "Mode": "",
+                "RW": true,
+                "Propagation": ""
+            }
+        ],
+        "Config": {
+            "Hostname": "e0d50c8aebff",
+            "Domainname": "",
+            "User": "",
+            "AttachStdin": false,
+            "AttachStdout": false,
+            "AttachStderr": false,
+            "ExposedPorts": {
+                "443/tcp": {},
+                "80/tcp": {}
+            },
+            "Tty": false,
+            "OpenStdin": false,
+            "StdinOnce": false,
+            "Env": [
+                "GREETING=hello",
+                "SECRET_TOKEN=abc123",
+                "EMPTY=",
+                "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
+                "_BASH_VERSION=5.2.37",
+                "_BASH_BASELINE=5.2.37",
+                "_BASH_BASELINE_PATCH=37",
+                "_BASH_LATEST_PATCH=37"
+            ],
+            "Cmd": [
+                "sh",
+                "-c",
+                "while true; do echo \"line $(date +%s)\"; echo err >&2; sleep 1; done"
+            ],
+            "Healthcheck": {
+                "Test": [
+                    "CMD-SHELL",
+                    "true"
+                ],
+                "Interval": 2000000000
+            },
+            "Image": "bash:5.2",
+            "Volumes": {
+                "/data2": {}
+            },
+            "WorkingDir": "/",
+            "Entrypoint": [
+                "docker-entrypoint.sh"
+            ],
+            "Labels": {
+                "com.docker.compose.container-number": "1",
+                "com.docker.compose.project": "sluidefx",
+                "com.docker.compose.project.working_dir": "/home/agent/sluidefx",
+                "com.docker.compose.service": "web"
+            }
+        },
+        "NetworkSettings": {
+            "SandboxID": "652237dba14d8eeb01837b9dd6c878e805d9c5c94476d8b9a1a612e98bda55e8",
+            "SandboxKey": "/var/run/docker/netns/652237dba14d",
+            "Ports": {
+                "443/tcp": [
+                    {
+                        "HostIp": "0.0.0.0",
+                        "HostPort": "18443"
+                    },
+                    {
+                        "HostIp": "::",
+                        "HostPort": "18443"
+                    }
+                ],
+                "80/tcp": [
+                    {
+                        "HostIp": "127.0.0.1",
+                        "HostPort": "18080"
+                    }
+                ]
+            },
+            "Networks": {
+                "sluidefx-net": {
+                    "IPAMConfig": null,
+                    "Links": null,
+                    "Aliases": null,
+                    "DriverOpts": null,
+                    "GwPriority": 0,
+                    "NetworkID": "ad2d8dfd26ff1c04e49819f54f62f226240baabb39bd8c28642281acf8f476d3",
+                    "EndpointID": "95c6942c4d8019b135e43abdc42f75fb1c2f900330d7d46d6aab4b60867d668f",
+                    "Gateway": "172.19.0.1",
+                    "IPAddress": "172.19.0.2",
+                    "MacAddress": "e6:4e:60:c2:3e:56",
+                    "IPPrefixLen": 16,
+                    "IPv6Gateway": "",
+                    "GlobalIPv6Address": "",
+                    "GlobalIPv6PrefixLen": 0,
+                    "DNSNames": [
+                        "sluidefx-web-1",
+                        "e0d50c8aebff"
+                    ]
+                }
+            }
+        },
+        "ImageManifestDescriptor": {
+            "mediaType": "application/vnd.oci.image.manifest.v1+json",
+            "digest": "sha256:65e3d5d08e0d36546c357d981baadef652455ffe81aa79af82b8340e056e6c14",
+            "size": 1516,
+            "annotations": {
+                "com.docker.official-images.bashbrew.arch": "arm64v8",
+                "org.opencontainers.image.base.digest": "sha256:2e1a7aa4cbc4e9e5222bb4c24a839aa1a6170ea5492d644777ce7b178824e44f",
+                "org.opencontainers.image.base.name": "alpine:3.22",
+                "org.opencontainers.image.created": "2026-09-17T21:13:11Z",
+                "org.opencontainers.image.revision": "9fc164bd1a8e4bfe16c517623ce935dc821bbb08",
+                "org.opencontainers.image.source": "https://github.com/tianon/docker-bash.git#9fc164bd1a8e4bfe16c517623ce935dc821bbb08:5.2",
+                "org.opencontainers.image.url": "https://hub.docker.com/_/bash",
+                "org.opencontainers.image.version": "5.2.37"
+            },
+            "platform": {
+                "architecture": "arm64",
+                "os": "linux",
+                "variant": "v8"
+            }
+        }
+    }
+]

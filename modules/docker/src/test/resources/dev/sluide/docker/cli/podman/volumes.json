@@ -1,0 +1,24 @@
+[
+  {
+    "Name": "shop_data",
+    "Driver": "local",
+    "Mountpoint": "/home/me/.local/share/containers/storage/volumes/shop_data/_data",
+    "CreatedAt": "2023-11-14T22:13:20.123456789+01:00",
+    "Labels": {"com.docker.compose.project": "shop"},
+    "Scope": "local",
+    "Options": {},
+    "MountCount": 0,
+    "NeedsCopyUp": true,
+    "NeedsChown": true
+  },
+  {
+    "Name": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "Driver": "local",
+    "Mountpoint": "/home/me/.local/share/containers/storage/volumes/e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855/_data",
+    "CreatedAt": "2023-11-14T22:13:21+01:00",
+    "Labels": {},
+    "Scope": "local",
+    "Options": {},
+    "Anonymous": true
+  }
+]

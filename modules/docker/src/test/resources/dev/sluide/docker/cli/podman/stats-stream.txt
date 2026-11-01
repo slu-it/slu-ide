@@ -1,0 +1,28 @@
+[
+ {
+  "id": "8f2e6c1d4b3a",
+  "name": "shop_web_1",
+  "cpu_time": "120ms",
+  "cpu_percent": "1.50%",
+  "avg_cpu": "1.20%",
+  "mem_usage": "15.2MB / 8.25GB",
+  "mem_percent": "0.18%",
+  "net_io": "1.2kB / 648B",
+  "block_io": "4.1MB / 0B",
+  "pids": "3"
+ }
+]
+[
+ {
+  "id": "8f2e6c1d4b3a",
+  "name": "shop_web_1",
+  "cpu_time": "125ms",
+  "cpu_percent": "0.25%",
+  "avg_cpu": "1.10%",
+  "mem_usage": "15.3MB / 8.25GB",
+  "mem_percent": "0.19%",
+  "net_io": "1.3kB / 700B",
+  "block_io": "4.1MB / 0B",
+  "pids": "3"
+ }
+]

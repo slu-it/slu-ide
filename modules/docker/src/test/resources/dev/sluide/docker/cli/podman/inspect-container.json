@@ -1,0 +1,42 @@
+[
+  {
+    "Id": "8f2e6c1d4b3a29180716253443526170819a8b7c6d5e4f30211203f4e5d6c7b8",
+    "Created": "2023-11-14T22:13:19.987654321+01:00",
+    "Path": "/docker-entrypoint.sh",
+    "Args": ["nginx", "-g", "daemon off;"],
+    "State": {
+      "OciVersion": "1.1.0",
+      "Status": "exited",
+      "Running": false,
+      "Paused": false,
+      "Restarting": false,
+      "OOMKilled": false,
+      "Dead": false,
+      "Pid": 0,
+      "ExitCode": 137,
+      "Error": "",
+      "StartedAt": "2023-11-14T22:13:20.123456789+01:00",
+      "FinishedAt": "2023-11-14T23:00:00+01:00",
+      "Healthcheck": {"Status": "unhealthy", "FailingStreak": 3, "Log": null}
+    },
+    "Image": "3b25b682ea82b2db3cc4fd48db818be788ee3f902ac7378090cf2624ec2442df",
+    "ImageName": "docker.io/library/nginx:1.27",
+    "Name": "shop_web_1",
+    "RestartCount": 2,
+    "Mounts": [
+      {"Type": "volume", "Name": "shop_data", "Source": "/home/me/.local/share/containers/storage/volumes/shop_data/_data", "Destination": "/usr/share/nginx/html", "Driver": "local", "Mode": "", "Options": ["nosuid"], "RW": false, "Propagation": "rprivate"}
+    ],
+    "NetworkSettings": {
+      "Ports": {"80/tcp": [{"HostIp": "", "HostPort": "8080"}]},
+      "Networks": {"shop_default": {"IPAddress": "10.89.0.2", "Aliases": ["web", "8f2e6c1d4b3a"]}}
+    },
+    "Config": {
+      "Hostname": "8f2e6c1d4b3a",
+      "Env": ["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "NGINX_VERSION=1.27.2", "container=podman"],
+      "Cmd": ["nginx", "-g", "daemon off;"],
+      "Image": "docker.io/library/nginx:1.27",
+      "Labels": {"com.docker.compose.project": "shop", "com.docker.compose.service": "web"},
+      "Entrypoint": "/docker-entrypoint.sh"
+    }
+  }
+]

@@ -1,0 +1,33 @@
+[
+  {
+    "Id": "3b25b682ea82b2db3cc4fd48db818be788ee3f902ac7378090cf2624ec2442df",
+    "ParentId": "",
+    "RepoTags": ["docker.io/library/nginx:1.27", "localhost:5000/team/nginx:latest"],
+    "RepoDigests": ["docker.io/library/nginx@sha256:0a399eb16751829e1af26fea27b20c3ec28d7ab1fb72182879dcae1cca21206a"],
+    "Size": 191720123,
+    "SharedSize": 0,
+    "VirtualSize": 191720123,
+    "Labels": {"maintainer": "NGINX Docker Maintainers"},
+    "Containers": 1,
+    "Names": ["docker.io/library/nginx:1.27", "localhost:5000/team/nginx:latest"],
+    "Digest": "sha256:0a399eb16751829e1af26fea27b20c3ec28d7ab1fb72182879dcae1cca21206a",
+    "History": ["docker.io/library/nginx:1.27"],
+    "Created": 1699000000,
+    "CreatedAt": "2023-11-03T08:26:40Z",
+    "Dangling": false
+  },
+  {
+    "Id": "9d3c5e1f2a4b6c8d0e1f2a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f",
+    "ParentId": "",
+    "RepoTags": null,
+    "RepoDigests": null,
+    "Size": 7800000,
+    "Labels": null,
+    "Containers": 0,
+    "Names": null,
+    "Digest": "sha256:9d3c5e1f2a4b6c8d0e1f2a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5d6e7f",
+    "Created": 1698000000,
+    "CreatedAt": "2023-10-22T18:40:00Z",
+    "Dangling": true
+  }
+]

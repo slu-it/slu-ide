@@ -1,0 +1,2 @@
+{"Availability":"N/A","Driver":"local","Group":"N/A","Labels":"com.docker.volume.anonymous=","Links":"N/A","Mountpoint":"/var/lib/docker/volumes/d2097bae9c8cd083314999fca3448fa0f5537efe2dffb949c07d1241952c3598/_data","Name":"d2097bae9c8cd083314999fca3448fa0f5537efe2dffb949c07d1241952c3598","Scope":"local","Size":"N/A","Status":"N/A"}
+{"Availability":"N/A","Driver":"local","Group":"N/A","Labels":"sluidefx=1","Links":"N/A","Mountpoint":"/var/lib/docker/volumes/sluidefx-data/_data","Name":"sluidefx-data","Scope":"local","Size":"N/A","Status":"N/A"}

@@ -1,0 +1,13 @@
+[
+    {
+        "CreatedAt": "2026-11-01T13:44:03Z",
+        "Driver": "local",
+        "Labels": {
+            "sluidefx": "1"
+        },
+        "Mountpoint": "/var/lib/docker/volumes/sluidefx-data/_data",
+        "Name": "sluidefx-data",
+        "Options": null,
+        "Scope": "local"
+    }
+]
