@@ -333,7 +333,8 @@ class DockerSessionTest {
             session.submit("pull") {
                 running.countDown()
                 try {
-                    Thread.sleep(60_000)
+                    // Blocks like a pull that never ends, until the thread is interrupted.
+                    CountDownLatch(1).await()
                     "pulled"
                 } catch (_: InterruptedException) {
                     interrupted.complete(true)
