@@ -35,8 +35,8 @@ Dockerfiles open as source beside a Build pane that builds the image and then of
        (`docker history`), so they are no place for secrets (use `--secret` mounts for those).
      - **Flags:** `--no-cache`, `--pull`.
      - **Platform:** empty (the engine's), `linux/amd64`, `linux/arm64`, or any `os/arch[/variant]` typed in.
-  3. **Command:** a read-only, selectable line with the exact command Build runs, or the problem with the options
-     ("✖ Not a valid tag: …", "✖ The context folder does not exist: …").
+  3. **Command:** a read-only, selectable field (wrapped, three lines high) with the exact command Build runs, or the
+     problem with the options ("✖ Not a valid tag: …", "✖ The context folder does not exist: …").
   4. **Output:** the status line with **Stop** and **Rerun**, and the terminal of the last build (no arguments row).
 - The stages and ARGs follow the editor's text 300 ms after typing pauses, so the Target list and the Build args follow
   edits without a save.

@@ -59,6 +59,9 @@
 
 .docker-build-preview {
     -fx-font-family: monospace;
+}
+
+.docker-build-preview .content {
     -fx-background-color: derive(-fx-control-inner-background, -3%);
 }
 

@@ -7,7 +7,7 @@ import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.scene.control.ScrollPane
 import javafx.scene.control.SplitPane
-import javafx.scene.control.TextField
+import javafx.scene.control.TextArea
 import javafx.scene.control.Tooltip
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
@@ -41,11 +41,13 @@ internal class BuildPane {
 
     val form = BuildForm()
 
-    /** The command line Build runs, selectable, or the problem with the options. */
+    /** The command line Build runs, selectable and wrapped, or the problem with the options. */
     val preview =
-        TextField().apply {
+        TextArea().apply {
             styleClass += "docker-build-preview"
             isEditable = false
+            isWrapText = true
+            prefRowCount = PREVIEW_ROWS
             maxWidth = Double.MAX_VALUE
         }
 
@@ -137,5 +139,6 @@ internal class BuildPane {
         const val NOT_IN_WINDOW = "Builds run in an IDE window."
         const val PROBLEM = "docker-build-problem"
         const val DIVIDER = 0.6
+        const val PREVIEW_ROWS = 3
     }
 }
