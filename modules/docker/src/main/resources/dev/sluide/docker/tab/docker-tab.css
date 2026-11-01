@@ -85,6 +85,10 @@
 
 .docker-details-header {
     -fx-padding: 6 8 6 8;
+    -fx-spacing: 4;
+}
+
+.docker-details-titleline {
     -fx-spacing: 8;
     -fx-alignment: center-left;
 }
@@ -95,7 +99,8 @@
 }
 
 .docker-actions {
-    -fx-spacing: 4;
+    -fx-hgap: 4;
+    -fx-vgap: 4;
 }
 
 .docker-overview {

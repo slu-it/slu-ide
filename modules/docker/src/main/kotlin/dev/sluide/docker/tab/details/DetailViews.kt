@@ -22,21 +22,25 @@ import javafx.scene.control.TitledPane
 import javafx.scene.control.Tooltip
 import javafx.scene.input.Clipboard
 import javafx.scene.input.ClipboardContent
+import javafx.scene.layout.ColumnConstraints
+import javafx.scene.layout.FlowPane
 import javafx.scene.layout.GridPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
+import javafx.scene.layout.Region
 import javafx.scene.layout.StackPane
 import javafx.scene.layout.VBox
 import java.net.URI
 
-/** The buttons of a details header, one per [RowAction]. */
+/** The buttons of a details header, one per [RowAction]; they never shrink, they wrap when the bar is narrow. */
 internal class ActionBar {
-    val node = HBox().apply { styleClass += "docker-actions" }
+    val node = FlowPane().apply { styleClass += "docker-actions" }
 
     fun show(actions: List<RowAction>) {
         node.children.setAll(
             actions.map { action ->
                 Button(action.title).apply {
+                    minWidth = Region.USE_PREF_SIZE
                     isDisable = !action.enabled
                     setOnAction { action.run() }
                 }
@@ -45,20 +49,38 @@ internal class ActionBar {
     }
 }
 
-/** A details header: title, a dimmed subtitle and the [actions] at the right. */
+/** A details header: the title and a dimmed subtitle, and below them the [actions], which wrap when narrow. */
 internal class DetailsHeader {
     val title = Label().apply { styleClass += "docker-details-title" }
     val subtitle = Label().apply { styleClass += "docker-details-state" }
     val actions = ActionBar()
-    private val spacer = StackPane().apply { HBox.setHgrow(this, Priority.ALWAYS) }
-    val node = HBox(title, subtitle, spacer, actions.node).apply { styleClass += "docker-details-header" }
+    private val titleLine =
+        HBox(title, subtitle).apply {
+            styleClass += "docker-details-titleline"
+            minWidth = TITLE_MIN
+        }
+    val node = VBox(titleLine, actions.node).apply { styleClass += "docker-details-header" }
+
+    private companion object {
+        const val TITLE_MIN = 120.0
+    }
 }
 
 /** An Overview: label and values per row; links open through [openUrl], collapsible rows fold. */
 internal class OverviewView(
     private val openUrl: (URI) -> Unit,
 ) {
-    private val grid = GridPane().apply { styleClass += "docker-overview" }
+    private val grid =
+        GridPane().apply {
+            styleClass += "docker-overview"
+            columnConstraints.setAll(
+                ColumnConstraints().apply {
+                    minWidth = Region.USE_PREF_SIZE
+                    hgrow = Priority.NEVER
+                },
+                ColumnConstraints().apply { hgrow = Priority.ALWAYS },
+            )
+        }
     private val note = Label().apply { styleClass += "docker-placeholder" }
     private val holder = StackPane(grid)
     val node: Node = ScrollPane(holder).apply { isFitToWidth = true }
@@ -72,7 +94,11 @@ internal class OverviewView(
         shownRows = rows
         grid.children.clear()
         rows.forEachIndexed { index, row ->
-            val label = Label(row.label).apply { styleClass += "docker-overview-label" }
+            val label =
+                Label(row.label).apply {
+                    styleClass += "docker-overview-label"
+                    minWidth = Region.USE_PREF_SIZE
+                }
             GridPane.setValignment(label, VPos.TOP)
             val values = VBox(2.0, *row.values.map(::valueNode).toTypedArray())
             val content: Node =

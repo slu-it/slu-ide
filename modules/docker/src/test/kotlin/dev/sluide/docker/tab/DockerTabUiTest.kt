@@ -20,11 +20,13 @@ import javafx.scene.Parent
 import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.Label
+import javafx.scene.control.SplitPane
 import javafx.scene.control.TabPane
 import javafx.scene.control.TreeView
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.layout.GridPane
+import javafx.scene.layout.Region
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
 import org.junit.jupiter.api.AfterEach
@@ -189,6 +191,68 @@ class DockerTabUiTest {
         robot.interact { stop.fire() }
 
         awaitTrue("the stop") { "act STOP ${web.id}" in cli.calls }
+    }
+
+    /** The layout facts of the shown container's details header and Overview. */
+    private class HeaderLayout(
+        val detailsWidth: Double,
+        val buttonCount: Int,
+        val labelCount: Int,
+        val rows: Set<Double>,
+        val outside: List<String>,
+        val narrowButtons: List<String>,
+        val narrowLabels: List<String>,
+    )
+
+    private fun headerLayout(robot: FxRobot): HeaderLayout =
+        onFx {
+            (tab.content as Parent).layout()
+            val header = robot.lookup(".docker-details-header").queryAs(Region::class.java)
+            val top = header.localToScene(header.boundsInLocal)
+            val tabs =
+                robot.lookup(".tab-pane").queryAllAs(TabPane::class.java).first {
+                    it.tabs.any { t ->
+                        t.text ==
+                            "Logs"
+                    }
+                }
+            val tabsTop = tabs.localToScene(tabs.boundsInLocal).minY
+            val buttons = robot.lookup(".docker-actions .button").queryAllAs(Button::class.java).toList()
+            val labels = robot.lookup(".docker-overview-label").queryAllAs(Label::class.java).toList()
+            val split = robot.lookup(".split-pane").queryAs(SplitPane::class.java)
+            HeaderLayout(
+                split.items[1].layoutBounds.width,
+                buttons.size,
+                labels.size,
+                buttons.map { it.localToScene(it.boundsInLocal).minY }.toSet(),
+                buttons
+                    .filter {
+                        val box = it.localToScene(it.boundsInLocal)
+                        box.minX < top.minX || box.maxX > top.maxX || box.minY < top.minY || box.maxY > tabsTop
+                    }.map { it.text },
+                buttons.filter { it.width < it.prefWidth(-1.0) - 0.5 }.map { it.text },
+                labels.filter { it.width < it.prefWidth(-1.0) - 0.5 }.map { it.text },
+            )
+        }
+
+    @Test
+    fun `the details buttons share a row when wide and wrap, whole, when narrow`(robot: FxRobot) {
+        select(robot, 0, "web")
+        awaitTrue("the overview") { "nginx:1.27" in overviewTexts(robot) }
+
+        val wide = headerLayout(robot)
+        assertTrue(wide.buttonCount > 0 && wide.labelCount > 0, "buttons and labels shown")
+        assertEquals(1, wide.rows.size, "all buttons in one row: ${wide.rows}")
+        assertEquals(emptyList(), wide.outside, "buttons outside the header")
+
+        val split = onFx { robot.lookup(".split-pane").queryAs(SplitPane::class.java) }
+        robot.interact { split.setDividerPositions(0.6) }
+        val narrow = headerLayout(robot)
+        assertTrue(narrow.detailsWidth < 450, "the details pane is narrow: ${narrow.detailsWidth}")
+        assertTrue(narrow.rows.size > 1, "the buttons wrapped: ${narrow.rows}")
+        assertEquals(emptyList(), narrow.outside, "buttons outside the header")
+        assertEquals(emptyList(), narrow.narrowButtons, "truncated buttons")
+        assertEquals(emptyList(), narrow.narrowLabels, "truncated labels")
     }
 
     @Test
