@@ -12,12 +12,16 @@ import dev.sluide.docker.model.Network
 import dev.sluide.docker.model.Volume
 import javafx.beans.property.SimpleStringProperty
 import java.nio.file.Path
+import java.util.concurrent.CancellationException
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.TimeUnit
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
@@ -317,6 +321,56 @@ class DockerSessionTest {
 
         assertTrue("act STOP web" in cli.calls)
         assertEquals("volume is in use", failure.cause?.message)
+    }
+
+    @Test
+    fun `cancelling an action's future interrupts its thread and completes it as cancelled`() {
+        session.subscribe()
+        val running = CountDownLatch(1)
+        val interrupted = CompletableFuture<Boolean>()
+
+        val future =
+            session.submit("pull") {
+                running.countDown()
+                try {
+                    Thread.sleep(60_000)
+                    "pulled"
+                } catch (_: InterruptedException) {
+                    interrupted.complete(true)
+                    throw DockerException("docker pull was interrupted")
+                }
+            }
+        assertTrue(running.await(5, TimeUnit.SECONDS))
+
+        assertTrue(future.cancel(true))
+
+        assertTrue(future.isCancelled)
+        assertFailsWith<CancellationException> { future.get(5, TimeUnit.SECONDS) }
+        assertTrue(interrupted.get(5, TimeUnit.SECONDS), "the action's thread was interrupted")
+    }
+
+    @Test
+    fun `cancelling without interrupting lets the action finish, and a finished action cannot be cancelled`() {
+        session.subscribe()
+        val running = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        val finished = CompletableFuture<String>()
+
+        val future =
+            session.submit("stop") {
+                running.countDown()
+                release.await(5, TimeUnit.SECONDS)
+                "stopped".also { finished.complete(it) }
+            }
+        assertTrue(running.await(5, TimeUnit.SECONDS))
+        assertTrue(future.cancel(false))
+        release.countDown()
+
+        assertEquals("stopped", finished.get(5, TimeUnit.SECONDS), "not interrupted")
+        assertTrue(future.isCancelled)
+        val done = session.submit("start") { "started" }
+        assertEquals("started", done.get(5, TimeUnit.SECONDS))
+        assertFalse(done.cancel(true))
     }
 
     @Test

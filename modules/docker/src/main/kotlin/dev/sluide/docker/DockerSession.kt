@@ -171,25 +171,34 @@ class DockerSession internal constructor(
      * views (start, remove, pull, …). The future completes there, with the result or the failure: a [DockerException]
      * from the CLI, or one saying that Docker is not available when the CLI has not been found (yet). The CLI logs its
      * commands and failures; the caller shows them. The lists follow through the events stream.
+     *
+     * Cancelling: `cancel(true)` on the returned future (not on a stage derived from it) completes it as cancelled at
+     * once and interrupts the action's thread if the action runs; an action not started yet does not start. A blocking
+     * [DockerCli] call then ends: [DockerCli.pull] and the other calls kill their CLI and throw, which is dropped, as
+     * the future is already cancelled. `cancel(false)` only completes the future as cancelled and lets the action run
+     * to its end. Once the action has ended, cancelling does nothing.
      */
     fun <T> submit(
         name: String,
         action: (DockerCli) -> T,
     ): CompletableFuture<T> {
-        val future = CompletableFuture<T>()
+        val future = ActionFuture<T>()
         val cli = connection?.cli
         if (cli == null || closed) {
             future.completeExceptionally(DockerException("Docker is not available"))
             return future
         }
         NamedThreads.virtual("docker-$name") {
+            if (!future.started(Thread.currentThread())) return@virtual
             try {
                 future.complete(action(cli))
             } catch (e: DockerException) {
                 future.completeExceptionally(e)
             } catch (t: Throwable) {
-                log.log(System.Logger.Level.ERROR, "Docker action $name failed", t)
+                if (!future.isCancelled) log.log(System.Logger.Level.ERROR, "Docker action $name failed", t)
                 future.completeExceptionally(t)
+            } finally {
+                future.ended()
             }
         }
         return future
@@ -401,6 +410,33 @@ class DockerSession internal constructor(
                 }
             open?.close()
         }
+    }
+}
+
+/** The future of [DockerSession.submit]: `cancel(true)` interrupts the action's thread while the action runs. */
+private class ActionFuture<T> : CompletableFuture<T>() {
+    private var thread: Thread? = null
+
+    /** The action starts on [thread]; `false` if the future was cancelled before, then it must not start. */
+    @Synchronized
+    fun started(thread: Thread): Boolean {
+        if (isCancelled) return false
+        this.thread = thread
+        return true
+    }
+
+    /** The action ended; a later cancel must not interrupt its thread. */
+    @Synchronized
+    fun ended() {
+        thread = null
+    }
+
+    override fun cancel(mayInterruptIfRunning: Boolean): Boolean {
+        val cancelled = super.cancel(mayInterruptIfRunning)
+        if (cancelled && mayInterruptIfRunning) {
+            synchronized(this) { thread?.interrupt() }
+        }
+        return cancelled
     }
 }
 
