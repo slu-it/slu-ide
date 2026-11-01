@@ -106,7 +106,7 @@ updated when the summary or keywords no longer fit.
 | [0084](adr/0084-testability-logic-out-of-controls.md) | Controls are thin adapters; test each behavior at the lowest level | testability, pure functions, host interface, UI test level, wiring test | |
 | [0085](adr/0085-gradle-integration.md) | Gradle integration: wrapper detection, trust, task tree, runs | `gradle` module, `gradlew`, `GradleTrustCheck`, init script, `GradleSession` | amended by 0087, 0088 |
 | [0086](adr/0086-embedded-command-terminals.md) | Other views embed one-command terminals | `Terminals.embed`, `EmbeddedTerminal`, exit code, Ctrl+C | amends 0007; amended by 0087, 0088 |
-| [0087](adr/0087-commands-in-an-interactive-login-shell.md) | Commands run in an interactive login shell (`$SHELL -l -i -c`) | login shell, `.zshrc`, `loginShellFinds`, SDKMAN, nvm | amends 0010, 0085, 0086 |
+| [0087](adr/0087-commands-in-an-interactive-login-shell.md) | Commands run in an interactive login shell (`$SHELL -l -i -c`) | login shell, `.zshrc`, `loginShellFinds`, SDKMAN, nvm | amends 0010, 0085, 0086; amended by 0117 |
 | [0088](adr/0088-shared-command-runs.md) | Shared run machinery in module `command-runs` | `command-runs`, `RunJob`, `RunPane`, `CommandRunner`, `CommandRunSession`, `ShellWords` | amends 0085, 0086; amended by 0091 |
 | [0089](adr/0089-running-shell-scripts.md) | Module `shell-scripts` runs scripts as files in the login shell | `.sh`, Run, Shortcut+Enter, `ShellScriptFileViewer`, `ShellFileViewer`, `RunnableFileView`, chmod | amended by 0091 |
 | [0090](adr/0090-per-project-metadata-store.md) | One JSON file per project in `~/.sluide/projects` | `project-data`, `~/.sluide/projects`, `shared.json`, `LegacyProjectData`, migration | amends 0034, 0053; amended by 0101 |
@@ -136,6 +136,7 @@ updated when the summary or keywords no longer fit.
 | [0114](adr/0114-generated-scratch-files.md) | Generated scratch files: a picker of pure generators creates prefilled scratch files | generated scratch files, `ScratchGenerator`, `GeneratorContext`, `GeneratorPicker`, `FilterPicker`, Shortcut+Shift+G, UUID, password | amends 0066 |
 | [0115](adr/0115-converting-tool.md) | Converting tool: a format picker per side with Detect, format families as an extension point, a data tree between JSON/YAML/TOML/properties/CSV, YAML 1.2, Spring properties dialect, best effort with notes | `converting`, `Converting`, `FormatFamily`, JSON, YAML, TOML, properties, CSV, TSV, detection, Spring Boot, Infer types, Convert to | amends 0047; see 0079, 0110, 0112 |
 | [0116](adr/0116-curl-and-http-requests.md) | cURL and `.http` requests: the HTTP client's requests family for the Converting tool, shell-aware cURL mapping with notes, Copy as cURL resolving variables (private values only when confirmed), Paste cURL as Request | cURL, `curl`, `RequestFamily`, `CurlRequest`, POSIX, cmd, PowerShell, Copy as cURL, Paste cURL as Request, private values | see 0025-0028, 0108, 0115 |
+| [0117](adr/0117-docker-through-the-cli.md) | Docker via its JSON CLI, resolved once through the login shell; window `DockerSession`, shared events | `docker`, `DockerSession`, `DockerCli`, Podman, `docker events`, login shell, `docker.executable`, debounce | amends 0087; see 0010, 0060, 0070 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features

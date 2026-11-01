@@ -31,6 +31,11 @@
   too far, e.g. with a Magic Trackpad on macOS. Only macOS tells trackpads apart (a Magic Mouse counts as one); on
   Linux and Windows touchpads use the Mouse wheel speed. Open terminals follow at once; details in
   [terminal.md](terminal.md).
+- Docker: the Executable of the Docker CLI (`docker.executable`, default `docker`): `docker`, `podman`, or the full
+  path of either. A name is found through the login shell like in a terminal; an alias or function there needs the
+  full path. Lives in the `docker` module (`DockerSettings`, `DockerSettingsPage` with `DockerSettingsPageModel`,
+  package `dev.sluide.docker.settings`); a window that uses Docker connects again when it changes
+  ([ADR 0117](../adr/0117-docker-through-the-cli.md)).
 - Structure: `FontSpec`, `FontStyle`, `FontArea` (values), `SettingsStore` (properties file), `FontSettings` (Spring
   bean, properties per area), `SettingsPage`/`SettingsPages` (pages as beans), `SettingsDialog`, `FontsPage` with
   `FontsPageModel` (drafts), `Theme`, `ThemeSettings` (Spring bean, theme and colour scheme), `ThemedWindows` (applies

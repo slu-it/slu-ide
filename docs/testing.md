@@ -29,6 +29,12 @@ Subagents verify with subsets; the full `./gradlew build` is the main session's 
 ./gradlew :ide:uiTest --tests 'MainWindow*' -q                        # UI test classes by pattern
 ```
 
+Tests against a real external tool are opt-in, so that the build does not depend on what runs on the machine.
+`RealEngineSmokeTest` (module `docker`) runs the Docker CLI against the local engine only with
+`SLUIDE_DOCKER_SMOKE=1` set, and still skips itself when `docker` is missing, the engine does not answer or no small
+image (`bash`, `debian`, `alpine`, `busybox`) is present; it creates and removes one container of its own:
+`SLUIDE_DOCKER_SMOKE=1 ./gradlew :modules:docker:test --tests 'RealEngineSmokeTest' -q`.
+
 ## Display handling
 - **Linux without `DISPLAY` and without `CI`:** `uiTest` is *skipped* (not failed), so a headless sandbox stays usable.
   Skipped is not verified: run `.claude/scripts/setup-display.sh`, `export DISPLAY=:99`, then the `uiTest` classes

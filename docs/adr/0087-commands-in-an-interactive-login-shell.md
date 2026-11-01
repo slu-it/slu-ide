@@ -1,6 +1,7 @@
 # 0087. Commands run in an interactive login shell
 
-- Status: accepted
+- Status: accepted; amended by [0117](0117-docker-through-the-cli.md) (the Docker tab's background calls run the CLI
+  directly with an environment captured once per window)
 - Date: 2026-10-24
 
 ## Context

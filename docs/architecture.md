@@ -29,6 +29,7 @@ assembled from Gradle modules.
 | `coloring` | feature | The Coloring tool: a tab opened from the Tools menu (`Coloring`, one per window, with the current and second color of the window), the CSS color math it works on (`CssColor`, parser, formats, gamut mapping, named colors), and the gutter swatches and menu item it adds to the code editors. | [0109](adr/0109-coloring-tool.md), [0110](adr/0110-tools-menu.md) |
 | `codecs` | feature | The Codecs tool: a tab opened from the Tools menu (`Codecs`, one per window) that encodes and decodes text in two editable sides (Base64 and other byte codecs, escapes, JWT, hashes), the pure-Kotlin codecs, and "Open Selection in Codecs" in the code editors. | [0112](adr/0112-codecs-tool.md), [0110](adr/0110-tools-menu.md) |
 | `converting` | feature | The Converting tool: a tab opened from the Tools menu (`Converting`, one per window) that converts text between formats in two editable sides with a format picker each; the `FormatFamily` extension point and the data family (JSON, YAML, TOML, Spring Boot properties, CSV, TSV), the FX-free model, "Open in Converting" in the code editors and the files behind the explorer's "Convert to". | [0115](adr/0115-converting-tool.md), [0116](adr/0116-curl-and-http-requests.md), [0110](adr/0110-tools-menu.md) |
+| `docker` | feature | Docker and Podman through their CLI (`cli`: `DockerCli`, `ProcessDockerCli`, `DockerExecutable`, which looks the executable and its environment up once in the login shell), the normalised model with the container tree and prune previews (`model`), event routing and the reload debounce (`events`), the window's `DockerSession` (engine state, the four lists, one shared events stream with retries) and Settings → Docker (`settings`). | [0117](adr/0117-docker-through-the-cli.md) |
 | `git` | feature | Git status, diffs, the log's reads and the write operations, behind `GitCli`; the cache of remote repositories to read single files at a ref (`RemoteSourceCache`). | [0013](adr/0013-git-status.md), [0015](adr/0015-git-diff.md), [0041](adr/0041-git-write-operations.md), [0076](adr/0076-cache-of-remote-action-sources.md) |
 | `git-log` | feature | The git area under the editor (user-facing name "Git Log"): log and graph, branches pane, file history, compare, the Commit tab and the Push dialog, and the write operations; `gitlog.data` is the model and reading layer. | [0035](adr/0035-git-log-area.md), [0048](adr/0048-commit-tab.md), [0049](adr/0049-push.md) |
 | `file-explorer` | feature | The file tree of the open folder with file operations. | [0024](adr/0024-file-operations-in-the-explorer.md) |
@@ -46,7 +47,7 @@ assembled from Gradle modules.
 
 Feature modules are one IDE capability each. The editor family (`editor-area`, `file-viewers`, `previews`, `terminal`,
 `docker-sandbox`, `http-client`, `github-actions`, `command-runs`, `gradle`, `shell-scripts`, `coloring`, `codecs`,
-`converting`: what is shown as editor tabs or file views) is one capability family, and so are `git` and `git-log` ([ADR 0047](adr/0047-module-dependencies-and-shared-modules.md), amended by
+`converting`, `docker`: what is shown as editor tabs or file views) is one capability family, and so are `git` and `git-log` ([ADR 0047](adr/0047-module-dependencies-and-shared-modules.md), amended by
 [ADR 0071](adr/0071-editor-area-module.md) and [ADR 0069](adr/0069-previews-module.md)). A member of a family that
 has no UI of its own may be a plain library without Spring beans (`github-actions`, which `previews` shows). Foundation
 modules are small and meant for sharing; they may be plain libraries without Spring beans.
@@ -124,6 +125,9 @@ Every edge between modules, as in the `build.gradle.kts` files
 | `converting` | `editor-area` | `api` | The Converting tool is an `EditorTab` that `Converting.createTab()` returns for the window's `EditorArea`. | [0110](adr/0110-tools-menu.md), [0115](adr/0115-converting-tool.md) |
 | `converting` | `file-viewers` | `api` | Both sides are in-memory code editors (`CodeEditors.text`) highlighted per format (`TextFormat.highlighter`); it adds "Open in Converting" to the code editors' context menu. | [0108](adr/0108-code-editor-extensions-and-context-menu.md), [0115](adr/0115-converting-tool.md) |
 | `converting` | `settings` | `api` | The sides use the editor font (`FontSettings`, a parameter of the public `Converting` constructor). | [0115](adr/0115-converting-tool.md) |
+| `docker` | `terminal` | `implementation` | The executable and its environment are looked up in the login shell (`loginShellPrints`); no terminal type is part of its API. | [0087](adr/0087-commands-in-an-interactive-login-shell.md), [0117](adr/0117-docker-through-the-cli.md) |
+| `docker` | `settings` | `api` | `DockerSettings` stores the executable (`docker.executable`) with `SettingsStore`, which it takes, and `DockerSettingsPage` is a `SettingsPage`. | [0067](adr/0067-feature-settings-in-their-module.md), [0117](adr/0117-docker-through-the-cli.md) |
+| `docker` | `background-tasks` | `implementation` | `DockerSession` loads on a `NamedThreads` thread and runs actions and stream openings on named virtual threads. | [0060](adr/0060-logging-conventions.md), [0117](adr/0117-docker-through-the-cli.md) |
 | `project-trust` | `project-data` | `api` | `TrustedProjects` keeps the `trust` field in the project's data and takes the `ProjectDataStore`; `LegacyTrustDecisions` migrates `project-trust.properties`. | [0090](adr/0090-per-project-metadata-store.md) |
 | `project-trust` | `background-tasks` | `api` | The trust checks run on `NamedThreads` and as `BackgroundTasks`; `ProjectTrust`'s constructor takes the registry. | [0060](adr/0060-logging-conventions.md), [0061](adr/0061-background-tasks.md) |
 | `file-explorer` | `file-watcher` | `api` | Loaded folders are watched; `FileExplorerView` takes the `FileWatcher`. | [0006](adr/0006-file-watching.md) |
@@ -142,6 +146,7 @@ Every edge between modules, as in the `build.gradle.kts` files
 | `ide` | `coloring` | `implementation` | `Coloring` is a window bean and `SavedColors` a singleton, both named in the window tests' bean lists; `WindowTools` builds the Tools menu (`ToolsMenu`) with the Coloring tab and gives `Coloring` the project folder and the way to show its tab. | [0109](adr/0109-coloring-tool.md), [0110](adr/0110-tools-menu.md) |
 | `ide` | `codecs` | `implementation` | `Codecs` is a window bean, named in the window tests' bean lists; `WindowTools` adds its tab to the Tools menu and gives it the way to show its tab; `MainWindow` registers its code editor extension. | [0110](adr/0110-tools-menu.md), [0112](adr/0112-codecs-tool.md) |
 | `ide` | `converting` | `implementation` | `Converting` is a window bean, named in the window tests' bean lists; `WindowTools` adds its tab to the Tools menu and gives it the way to show its tab; `MainWindow` registers its code editor extension and wires Open as Scratch and the explorer's "Convert to". | [0110](adr/0110-tools-menu.md), [0115](adr/0115-converting-tool.md) |
+| `ide` | `docker` | `implementation` | `DockerSession` is a window bean and `DockerSettings` and `DockerSettingsPage` are singletons, found by component scan; `SpringWiringTest` names them. | [0117](adr/0117-docker-through-the-cli.md) |
 
 `NamedThreads` and `BackgroundTasks` are two things of `background-tasks`: every consumer above uses `NamedThreads`,
 and `git`, `git-log`, `project-trust`, `http-client` and `command-runs` also register tasks. Their constructors expose the registry
@@ -176,7 +181,7 @@ Shared build configuration (JDK toolchain, test setup, Spring BOM) is in the roo
    instead ([ADR 0034](adr/0034-project-picker.md)).
 4. Each window gets its own instances of the beans with `@Scope("window")` (`WindowScope`, [ADR 0014](adr/0014-project-windows.md)):
    `MainWindow`, `ProjectService`, `FileExplorerView`, `EditorArea`, `Terminals`, `DockerSandbox`, `GitStatusService`,
-   `GitLogView`, `HttpClientSession`, `CommandRunSession`, `GradleSession`, `ProjectTrust`, `BackgroundTasks`, `TodoPanel`, `Coloring`, `Codecs`, `Converting`. `MainWindow` coordinates; the integration of each
+   `GitLogView`, `HttpClientSession`, `CommandRunSession`, `GradleSession`, `ProjectTrust`, `BackgroundTasks`, `TodoPanel`, `Coloring`, `Codecs`, `Converting`, `DockerSession`. `MainWindow` coordinates; the integration of each
    feature is a window part class in `ide` ([ADR 0068](adr/0068-window-parts-in-ide.md)).
    They are created when the window opens and destroyed (`close()`) when it closes. Singletons must not depend on
    them.
