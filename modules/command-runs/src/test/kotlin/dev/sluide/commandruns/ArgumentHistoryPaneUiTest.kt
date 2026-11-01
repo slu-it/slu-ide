@@ -291,4 +291,19 @@ class ArgumentHistoryPaneUiTest {
             assertTrue(pane.status in (rows[2] as HBox).children)
         }
     }
+
+    @Test
+    fun `a run pane without arguments has no arguments row and no history`(robot: FxRobot) {
+        robot.interact {
+            val without = RunPane("", "", showsArguments = false)
+            val with = RunPane("", "")
+
+            assertFalse(without.argumentsRow.isVisible)
+            assertFalse(without.argumentsRow.isManaged)
+            val bar = { pane: RunPane -> (pane.node.top as VBox).children }
+            assertFalse(without.history.node in bar(without))
+            assertTrue(with.history.node in bar(with))
+            assertTrue(with.argumentsRow.isManaged)
+        }
+    }
 }

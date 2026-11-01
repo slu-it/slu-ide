@@ -16,11 +16,13 @@ import javafx.scene.layout.VBox
 /**
  * The run pane of a view that runs commands (ADR 0088): the labelled arguments of every run ([argumentsPrompt] is an
  * example in the empty field), the history of past arguments (ADR 0091), the status line with Stop and Rerun, and the
- * terminal of the current or last run ([placeholder] before the first). FX thread.
+ * terminal of the current or last run ([placeholder] before the first). With [showsArguments] `false` the arguments
+ * row and the history are left out (not shown, not managed), for views whose runs are started by buttons. FX thread.
  */
 class RunPane(
     argumentsPrompt: String,
     placeholder: String,
+    showsArguments: Boolean = true,
 ) {
     /** Options added to every run of the view, e.g. `--info -x test`. */
     val arguments =
@@ -64,21 +66,30 @@ class RunPane(
 
     private val slot = StackPane(placeholderLabel).apply { styleClass += "run-terminal-slot" }
 
+    /** The row of the arguments label and field; not shown without [showsArguments]. */
+    internal val argumentsRow =
+        HBox(argumentsLabel, arguments).apply {
+            styleClass += "run-row"
+            alignment = Pos.CENTER_LEFT
+            isVisible = showsArguments
+            isManaged = showsArguments
+        }
+
     val node =
         BorderPane(slot).apply {
             styleClass += "run-pane"
             top =
-                VBox(
-                    HBox(argumentsLabel, arguments).apply {
-                        styleClass += "run-row"
-                        alignment = Pos.CENTER_LEFT
-                    },
-                    history.node,
-                    HBox(status, stop, rerun).apply {
-                        styleClass += "run-row"
-                        alignment = Pos.CENTER_LEFT
-                    },
-                ).apply { styleClass += "run-bar" }
+                VBox().apply {
+                    styleClass += "run-bar"
+                    children += argumentsRow
+                    // The history shows itself once a runner attaches one, so it is left out of the scene instead.
+                    if (showsArguments) children += history.node
+                    children +=
+                        HBox(status, stop, rerun).apply {
+                            styleClass += "run-row"
+                            alignment = Pos.CENTER_LEFT
+                        }
+                }
             minHeight = 0.0
             stylesheets += checkNotNull(RunPane::class.java.getResource(CSS)).toExternalForm()
         }
