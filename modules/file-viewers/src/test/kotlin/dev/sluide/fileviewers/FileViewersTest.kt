@@ -311,6 +311,57 @@ class FileViewersTest {
         assertTrue(viewers.showsDiffs(json))
     }
 
+    /** A viewer of another module for compose files: a name pattern, like `docker-compose.<env>.yml`. */
+    private open class ComposeStub : NamedFileViewer {
+        override val fileNames = setOf("compose.yaml")
+        override val fileNamePatterns = listOf(Regex("docker-compose\\.[a-z]+\\.ya?ml"))
+
+        override fun canOpen(file: Path) =
+            file.name in fileNames || fileNamePatterns.any { it.matches(file.name.lowercase()) }
+
+        override fun open(file: Path): FileView = error("not needed")
+    }
+
+    @Test
+    fun `a named viewer wins over a viewer for the extension for its name patterns, ignoring case`() {
+        val compose = ComposeStub()
+        val yaml = ExtensionsStub(setOf("yml", "yaml"))
+        val matching = listOf("docker-compose.prod.yml", "Docker-Compose.DEV.yaml")
+        val other = listOf("my-docker-compose.prod.yml", "docker-compose.prod.yml.bak", "a.yml")
+        val files = (matching + other).associateWith { dir.resolve(it).apply { writeText("a: 1") } }
+
+        for (order in listOf(listOf(compose, yaml), listOf(yaml, compose))) {
+            val viewers = FileViewers(order, fallback)
+            matching.forEach {
+                assertSame(compose, viewers.viewerFor(files.getValue(it)), it)
+                assertSame(compose, viewers.viewerByName(Path.of(it), ""), it)
+            }
+            other.filter { it.endsWith("yml") }.forEach {
+                assertSame(yaml, viewers.viewerFor(files.getValue(it)), it)
+                assertSame(yaml, viewers.viewerByName(Path.of(it), ""), it)
+            }
+            assertSame(fallback, viewers.viewerByName(Path.of("docker-compose.prod.yml.bak"), ""))
+        }
+    }
+
+    @Test
+    fun `a path viewer wins over a named viewer`() {
+        val workflow = WorkflowStub()
+        val compose = ComposeStub()
+        val at =
+            dir
+                .resolve(".github/workflows")
+                .createDirectories()
+                .resolve("docker-compose.prod.yml")
+                .apply { writeText("on: push") }
+
+        for (order in listOf(listOf(workflow, compose), listOf(compose, workflow))) {
+            val viewers = FileViewers(order, fallback)
+            assertSame(workflow, viewers.viewerFor(at))
+            assertSame(workflow, viewers.viewerByName(Path.of(".github/workflows/docker-compose.prod.yml"), ""))
+        }
+    }
+
     /** A source viewer of another module for shell scripts, like the shell-scripts module's. */
     private class ScriptSourceStub :
         ExtensionsStub(setOf("sh", "bash", "zsh", "ksh")),

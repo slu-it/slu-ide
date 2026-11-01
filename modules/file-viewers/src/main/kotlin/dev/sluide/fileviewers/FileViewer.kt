@@ -22,11 +22,20 @@ interface FileViewer {
 }
 
 /**
- * A viewer for exact file names (case-insensitive), preferred like a code viewer's name match over viewers for the
- * extension (ADR 0029, ADR 0057). [fileNames] only ranks the viewer; [canOpen] must still accept those files.
+ * A viewer for exact file names or families of names (case-insensitive), preferred like a code viewer's name match over
+ * viewers for the extension (ADR 0029, ADR 0057). [fileNames] and [fileNamePatterns] only rank the viewer; [canOpen]
+ * must accept those files and should accept no others, or `FileViewers.viewerFor` ranks the extra files like an
+ * extension match while picking by name (`viewerByName`) skips them.
  */
 interface NamedFileViewer : FileViewer {
     val fileNames: Set<String>
+
+    /**
+     * Whole-name patterns (case-insensitive, the entire file name must match) that count like the exact [fileNames],
+     * for families of names such as `docker-compose.<env>.yml`. Keep them narrow: unlike a code viewer's name
+     * patterns they beat the viewers for the extension.
+     */
+    val fileNamePatterns: List<Regex> get() = emptyList()
 }
 
 /**

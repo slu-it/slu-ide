@@ -224,8 +224,9 @@ the Bicep graph and `BicepParamFileViewer`.
   - Viewers that show files as text implement `SourceFileViewer` (`sourceHighlighter`) to get change markers and
     highlighted diffs. Viewers for extensions implement `ExtensionFileViewer` (`fileExtensions`, lower case, no dot)
     and viewers for exact names `NamedFileViewer` (`fileNames`), so that `FileViewers` also picks them by the name
-    alone, e.g. for a commit's version of a file. Viewers for a location implement `PathFileViewer`
-    (`matchesPath`, helper `isInFolders(file, ".github", "workflows")`): they beat every name match but take part only
+    alone, e.g. for a commit's version of a file; `fileNamePatterns` (whole-name, case-insensitive regexes) count
+    like exact names, for families such as `docker-compose.<env>.yml`, so keep them narrow. Viewers for a location
+    implement `PathFileViewer` (`matchesPath`, helper `isInFolders(file, ".github", "workflows")`): they beat every name match but take part only
     at their paths, looked at without the disk, also for a diff's relative name; the type of file stays with
     `canOpen`/`fileExtensions` ([ADR 0074](../adr/0074-path-matched-file-viewers.md)). Viewers that also open
     extensionless scripts by their shebang implement `ShebangViewer` (`opensInterpreter(interpreter)`, asked only when

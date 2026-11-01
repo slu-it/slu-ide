@@ -6,6 +6,7 @@ import dev.sluide.fileviewers.diff.SideBySideDiffView
 import org.springframework.stereotype.Component
 import java.io.IOException
 import java.nio.file.Path
+import java.util.IdentityHashMap
 import kotlin.io.path.extension
 
 /**
@@ -18,6 +19,12 @@ class FileViewers(
     private val fallback: DefaultTextFileViewer,
 ) {
     private val specific = viewers.filterNot { it === fallback }
+    private val namePatterns =
+        IdentityHashMap<NamedFileViewer, List<Regex>>().apply {
+            for (viewer in specific.filterIsInstance<NamedFileViewer>()) {
+                put(viewer, viewer.fileNamePatterns.map { Regex(it.pattern, it.options + RegexOption.IGNORE_CASE) })
+            }
+        }
     private val shebangViewers = specific.filter { it !is PathFileViewer }.filterIsInstance<ShebangViewer>()
 
     val viewers: List<FileViewer> = specific + fallback
@@ -25,8 +32,9 @@ class FileViewers(
     /**
      * The viewer to show [file] with, or `null` if none can, in which case the file is not opened: of the specific
      * viewers that can open it, the one its name matches best ([NameMatch]: path, then exact name, then extension,
-     * then name pattern; a [PathFileViewer] takes part only if [PathFileViewer.matchesPath] accepts the file
-     * (ADR 0074); a [NamedFileViewer] listing the file's name counts as an exact name, other viewers than
+     * then a code viewer's name pattern; a [PathFileViewer] takes part only if [PathFileViewer.matchesPath] accepts the file
+     * (ADR 0074); a [NamedFileViewer] listing the file's name or matching one of its
+     * [NamedFileViewer.fileNamePatterns] counts as an exact name, other viewers than
      * [CodeFileViewer]s as matching the extension), the first of equals; for a text file without an extension, else
      * the first [ShebangViewer] that opens the interpreter its shebang names (the file is read once for this;
      * [PathFileViewer]s are left out of this step); else
@@ -143,10 +151,14 @@ class FileViewers(
     /** Whether the extension of [file] is one of the [ExtensionFileViewer.fileExtensions]. */
     private fun ExtensionFileViewer.takes(file: Path): Boolean = file.extension.lowercase() in fileExtensions
 
-    /** Whether the name of [file] is one of the [NamedFileViewer.fileNames], ignoring case. */
+    /**
+     * Whether the name of [file] is one of the [NamedFileViewer.fileNames] or matches one of its
+     * [NamedFileViewer.fileNamePatterns], ignoring case.
+     */
     private fun NamedFileViewer.names(file: Path): Boolean {
         val name = file.fileName?.toString() ?: return false
-        return fileNames.any { it.equals(name, ignoreCase = true) }
+        return fileNames.any { it.equals(name, ignoreCase = true) } ||
+            namePatterns[this].orEmpty().any { it.matches(name) }
     }
 
     /** Whether files shown by [viewer] have diffs ([openDiff]) and change markers: those shown as text. */
