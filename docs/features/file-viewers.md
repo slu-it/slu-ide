@@ -35,7 +35,8 @@ the Bicep graph and `BicepParamFileViewer`.
 - `FileViewers` asks every specific `FileViewer` bean whether it can open a file. Of those that agree it takes the one
   whose name match is strongest (`NameMatch`): the file's path (a `PathFileViewer`, e.g. YAML files in
   `.github/workflows`, which takes part only at its paths), an exact file name (or a `NamedFileViewer`'s name pattern,
-  e.g. compose files), then the extension, then a code viewer's name pattern; viewers
+  e.g. compose files), then the extension, then a code viewer's name pattern (or a `NamedFileViewer`'s weak name
+  pattern, e.g. `Dockerfile.<x>`); viewers
   other than `CodeFileViewer`s (previews, images, `.http`) count as extension matches, and Spring's bean order only
   decides between equals. So `Dockerfile.md` is Markdown, `Caddyfile.json` and `.env.json` are JSON,
   `Dockerfile.dev` is a Dockerfile and `Dockerfile.dockerignore` an ignore file, whatever the order of the viewers.
@@ -131,7 +132,7 @@ the Bicep graph and `BicepParamFileViewer`.
   | `SqlFileViewer` | `.sql` | keywords of current dialects (`LIMIT`, `OFFSET`, `RETURNING`, `TRUE`, `IF`, window clauses, …), common data types as `type` and functions (`COUNT`, `coalesce`) as `builtin`, each in upper and lower case; the `.` of `a.id` as `operator`. Known gap: mixed case (`Limit`) only for words the lexer knows (`Select`) |
   | `ShellFileViewer` | the startup files `.bashrc`, `.bash_profile`, `.zshrc`, `.zprofile`, `.profile` (scripts to run, `.sh`, `.bash`, `.zsh`, `.ksh` and shebangs `sh`, `bash`, `zsh`, `dash`, `ksh`, are `ShellScriptFileViewer`'s with the same highlighting, [shell-scripts.md](shell-scripts.md)) | variables (`$NAME`, `${1:-x}`, the `NAME` of `NAME=`) as `annotation`, also in strings; the shebang as `comment`; `function` keyword; `local`, `declare`, `source`, … builtins. Known gap: here-document content is lexed as code |
   | `PowerShellFileViewer` | `.ps1`, `.psm1`, `.psd1`; shebang `pwsh` | variables (`$name`, `$env:PATH`, `${x}`) outside strings as `annotation`; `$true`/`$false`/`$null` keywords in any case; `[string]`, `[int[]]` as `type`, `[CmdletBinding()]` as `annotation`, indexes (`$arr[i]`) plain. Known gap: here-string content is lexed as code |
-  | `DockerfileFileViewer` | `Dockerfile`, `Containerfile`, `Dockerfile.*` (not `*.dockerignore`), `*.Dockerfile` | `HEALTHCHECK`, `SHELL` and the `AS` of a build stage (when `AS name` ends the line) as `keyword`; `$VAR`/`${VAR}` outside strings as `annotation`. Known gap: heredocs (`RUN <<EOF`) are plain |
+  | `DockerfileBuildViewer` (module `docker`, with the Build view, [dockerfile.md](dockerfile.md)) | `Dockerfile`, `Containerfile`, `Dockerfile.*` (not `*.dockerignore`; a weak pattern, below extensions), `*.Dockerfile` | highlighter `Highlighters.dockerfile`: `HEALTHCHECK`, `SHELL` and the `AS` of a build stage (when `AS name` ends the line) as `keyword`; `$VAR`/`${VAR}` outside strings as `annotation`. Known gap: heredocs (`RUN <<EOF`) are plain |
   | `MakefileFileViewer` | `Makefile`, `GNUmakefile`, `.mk` | targets (also `%.o:`) as `type`; `include`, `export`, `override`, `vpath`, … keywords; `$(VAR)`, `${VAR}` and `$@`, `$<`, `$^`, … as `annotation`. Indented with tabs unless `.editorconfig` or the text say otherwise ([text-editing.md](text-editing.md)) |
   | `IniFileViewer` | `.ini` | sections as `type`; keys as `property` (before the first `=` that is no `>=`, `<=`, `!=`, `~=`, `==`, or before a `:` on lines without `=`); `;` and `#` comments. Shortcut+/ with `;`. Known gap: a `#` or `;` inside a value starts a comment |
   | `ConfigFileViewer` | `.cfg`, `.conf`, `.npmrc`, `.editorconfig`, `.gitconfig`, `.gitmodules` | as INI; Shortcut+/ with `#`. nginx-style `.conf` files are read as INI too |
@@ -228,7 +229,10 @@ the Bicep graph and `BicepParamFileViewer`.
     and viewers for exact names `NamedFileViewer` (`fileNames`), so that `FileViewers` also picks them by the name
     alone, e.g. for a commit's version of a file; `fileNamePatterns` (whole-name, case-insensitive regexes) count
     like exact names, for families such as `docker-compose.<env>.yml` (`ComposeFileViewer`,
-    [ADR 0119](../adr/0119-compose-files.md)), so keep them narrow. Viewers for a location
+    [ADR 0119](../adr/0119-compose-files.md)), so keep them narrow; `weakFileNamePatterns` rank like a code viewer's
+    name patterns, below the viewers for an extension (and below the viewer's own `fileExtensions`), for broad families
+    such as `dockerfile\..+`, which leaves `Dockerfile.md` to Markdown (`DockerfileBuildViewer`,
+    [dockerfile.md](dockerfile.md)). Viewers for a location
     implement `PathFileViewer` (`matchesPath`, helper `isInFolders(file, ".github", "workflows")`): they beat every name match but take part only
     at their paths, looked at without the disk, also for a diff's relative name; the type of file stays with
     `canOpen`/`fileExtensions` ([ADR 0074](../adr/0074-path-matched-file-viewers.md)). Viewers that also open
