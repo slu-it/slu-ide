@@ -56,6 +56,7 @@ class ProcessDockerCliTest {
                   "volume ls") case "${'$'}*" in *dangling*) echo sluidefx-data ;; *) cat "${'$'}STUB/volumes.jsonl" ;; esac ;;
                   "stop "*) echo "Error response from daemon: No such container: ${'$'}2" >&2; exit 1 ;;
                   "pull slow"*) echo "Pulling"; echo ${'$'}${'$'} > "${'$'}STUB/pid"; exec sleep 30 ;;
+                  "run "*) case "${'$'}*" in *fail*) echo "boom" >&2; exit 1 ;; *noid*) echo "Unable to find image" >&2 ;; *) echo "Unable to find image" >&2; echo "  id-from-stub  " ;; esac ;;
                   "pull "*) echo "5.2: Pulling from library/bash"; echo "Digest: sha256:abc" >&2; echo "Status: Downloaded newer image" ;;
                   "events "*)
                     echo '{"Type":"container","Action":"start","Actor":{"ID":"abc","Attributes":{"name":"web"}}}'
@@ -169,6 +170,61 @@ class ProcessDockerCliTest {
 
         assertEquals("service \"web\" depends on undefined service \"nope\"", failure.message)
         assertEquals(1, failure.exitCode)
+    }
+
+    @Test
+    fun `run starts a container and returns its trimmed id, with values inline`() {
+        val id = cli().run(listOf("run", "-d", "-e", "A=b c", "bash:5.2"))
+
+        assertEquals("id-from-stub", id)
+        assertEquals(listOf("run -d -e A=b c bash:5.2"), calls())
+    }
+
+    @Test
+    fun `run keeps the variable values out of the IDE log, also when it fails`() {
+        val lines = CopyOnWriteArrayList<String>()
+        val logger =
+            java.util.logging.Logger
+                .getLogger("dev.sluide.docker.cli.DockerProcesses")
+        val handler =
+            object : java.util.logging.Handler() {
+                override fun publish(record: java.util.logging.LogRecord) {
+                    lines += record.message
+                }
+
+                override fun flush() {}
+
+                override fun close() {}
+            }
+        val level = logger.level
+        logger.level = java.util.logging.Level.ALL
+        logger.addHandler(handler)
+        try {
+            cli().run(listOf("run", "-d", "-e", "TOKEN=s3cret", "bash:5.2"))
+            assertFailsWith<DockerException> { cli().run(listOf("run", "-d", "-e", "TOKEN=s3cret", "fail")) }
+        } finally {
+            logger.removeHandler(handler)
+            logger.level = level
+        }
+
+        assertTrue(lines.any { "-e TOKEN=••••" in it }, "the run is logged with a masked value: $lines")
+        assertTrue(lines.none { "s3cret" in it }, lines.toString())
+    }
+
+    @Test
+    fun `run refuses arguments that do not start with run or are not detached, before starting anything`() {
+        assertFailsWith<DockerException> { cli().run(listOf("rm", "-f", "abc")) }
+        assertFailsWith<DockerException> { cli().run(emptyList()) }
+        assertFailsWith<IllegalArgumentException> { cli().run(listOf("run", "bash:5.2")) }
+
+        assertEquals(emptyList(), calls(), "nothing was started")
+    }
+
+    @Test
+    fun `run that prints no container id fails`() {
+        val failure = assertFailsWith<DockerException> { cli().run(listOf("run", "-d", "noid")) }
+
+        assertEquals("The engine printed no container id", failure.message)
     }
 
     @Test

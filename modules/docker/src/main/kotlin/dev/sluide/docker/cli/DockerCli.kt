@@ -127,6 +127,16 @@ interface DockerCli {
         driver: String?,
     )
 
+    /**
+     * Starts a detached container: `docker <args>` where [args] start with `run` and contain `-d`, as
+     * [dev.sluide.docker.run.runArgs] builds them, variables inline as `-e NAME=value`; returns the new container's
+     * id, trimmed. The CLI runs with its resolved environment only. Throws [DockerException] with the CLI's message
+     * when it fails, when [args] do not start with `run` or when it prints no id; throws [IllegalArgumentException]
+     * without `-d`, as the call has no time limit (the engine may pull the image first; interrupting the calling
+     * thread kills the CLI) and an attached container would never end it.
+     */
+    fun run(args: List<String>): String
+
     /** Streams the engine's events from now on (`events`); never ends by itself while the engine runs. */
     fun events(
         onEvent: (DockerEvent) -> Unit,

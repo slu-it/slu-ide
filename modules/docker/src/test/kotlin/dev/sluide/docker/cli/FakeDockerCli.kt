@@ -177,6 +177,18 @@ class FakeDockerCli : DockerCli {
         return composeConfigOutput
     }
 
+    /** What [run] answers: the new container's id. */
+    @Volatile var runOutput = "0123456789ab"
+
+    /** The arguments of every [run] call. */
+    val runCalls: MutableList<List<String>> = CopyOnWriteArrayList()
+
+    override fun run(args: List<String>): String {
+        runCalls += args
+        record(args.joinToString(" "))
+        return runOutput
+    }
+
     override fun events(
         onEvent: (DockerEvent) -> Unit,
         onEnd: (Throwable?) -> Unit,

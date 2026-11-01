@@ -54,6 +54,8 @@ internal class DockerProcesses(
      * With [workingDir] the CLI runs there, with [extraEnvironment] laid over the environment. With [onErrors] (not
      * with [onLine]) standard error of a successful run, up to its first 64 KB and cut at a line end, is given to it.
      *
+     * [display] is how the arguments are written to the log, e.g. with secrets masked.
+     *
      * @throws DockerException when the CLI cannot start, exits non-zero, takes too long or the thread is interrupted;
      *   what [onLine] throws is passed on.
      */
@@ -65,11 +67,12 @@ internal class DockerProcesses(
         workingDir: Path? = null,
         extraEnvironment: Map<String, String> = emptyMap(),
         onErrors: ((String) -> Unit)? = null,
+        display: List<String> = arguments,
     ): String {
         val errorLimit = if (onErrors != null) CAPTURED_ERROR_BYTES else ERROR_BYTES
         val number = commandNumbers.incrementAndGet()
         val name = "$program#$number"
-        val shown = arguments.joinToString(" ").take(300)
+        val shown = display.joinToString(" ").take(300)
         log.log(level(kind), "$name start [${Thread.currentThread().name}] $shown")
         val started = System.nanoTime()
         val process = start(arguments, mergeErrors = onLine != null, name, workingDir, extraEnvironment)

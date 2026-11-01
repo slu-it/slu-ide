@@ -154,6 +154,18 @@ internal class ProcessDockerCli(
         write(*(listOf("network", "create") + options + positional(name)).toTypedArray())
     }
 
+    override fun run(args: List<String>): String {
+        if (args.firstOrNull() != "run") throw DockerException("Not a run command: ${args.firstOrNull().orEmpty()}")
+        require("-d" in args) { "Only detached runs are supported" }
+        val id =
+            processes
+                .run(args, CommandKind.WRITE, Duration.INFINITE, display = masked(args))
+                .lines()
+                .lastOrNull { it.isNotBlank() }
+                ?.trim()
+        return id ?: throw DockerException("The engine printed no container id")
+    }
+
     override fun events(
         onEvent: (DockerEvent) -> Unit,
         onEnd: (Throwable?) -> Unit,
@@ -273,3 +285,9 @@ private fun positional(value: String): String {
     if (value.isBlank() || value.startsWith("-")) throw DockerException("Not a valid name or id: \"$value\"")
     return value
 }
+
+/** [args] for the log: the value of every `-e NAME=value` is masked. */
+private fun masked(args: List<String>): List<String> =
+    args.mapIndexed { index, arg ->
+        if (index > 0 && args[index - 1] == "-e" && '=' in arg) arg.substringBefore('=') + "=••••" else arg
+    }
