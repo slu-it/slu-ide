@@ -1,0 +1,132 @@
+/*
+ * The Docker tab (ADR 0118): header, error bar, resource tree and details. Colours are Modena's looked-up ones apart
+ * from the state dots and the error bar, which have dark rules with single-class selectors (ADR 0009).
+ */
+.docker-tab {
+    -fx-background-color: -fx-background;
+}
+
+.docker-header {
+    -fx-padding: 3 6 3 6;
+    -fx-spacing: 8;
+    -fx-alignment: center-left;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
+}
+
+.docker-title {
+    -fx-font-weight: bold;
+}
+
+.docker-engine, .docker-row-detail, .docker-details-state {
+    -fx-text-fill: derive(-fx-text-base-color, 45%);
+}
+
+.tree-cell:selected .docker-row-detail {
+    -fx-text-fill: derive(-fx-selection-bar-text, -15%);
+}
+
+.docker-error-bar {
+    -fx-padding: 4 6 4 8;
+    -fx-spacing: 8;
+    -fx-alignment: center-left;
+    -fx-background-color: #fde7e7;
+}
+
+.docker-error-text {
+    -fx-text-fill: #8a1c1c;
+}
+
+.docker-note {
+    -fx-padding: 16;
+    -fx-spacing: 8;
+}
+
+.docker-filter-bar {
+    -fx-padding: 3 6 3 6;
+}
+
+.docker-row {
+    -fx-spacing: 6;
+    -fx-alignment: center-left;
+}
+
+.docker-group {
+    -fx-font-weight: bold;
+}
+
+.docker-project-local {
+    -fx-font-weight: bold;
+}
+
+.docker-state-dot {
+    -fx-min-width: 8;
+    -fx-min-height: 8;
+    -fx-max-width: 8;
+    -fx-max-height: 8;
+    -fx-background-radius: 4;
+}
+
+.docker-state-running {
+    -fx-background-color: #2e9d48;
+}
+
+.docker-state-paused {
+    -fx-background-color: #d39a12;
+}
+
+.docker-state-restarting {
+    -fx-background-color: #2f7fd1;
+}
+
+.docker-state-stopped {
+    -fx-background-color: #9a9a9a;
+}
+
+.docker-details-header {
+    -fx-padding: 6 8 6 8;
+    -fx-spacing: 8;
+    -fx-alignment: center-left;
+}
+
+.docker-details-title {
+    -fx-font-weight: bold;
+    -fx-font-size: 1.1em;
+}
+
+.docker-actions {
+    -fx-spacing: 4;
+}
+
+.docker-overview {
+    -fx-padding: 8;
+    -fx-hgap: 16;
+    -fx-vgap: 4;
+}
+
+.docker-overview-label {
+    -fx-text-fill: derive(-fx-text-base-color, 35%);
+}
+
+.docker-overview .hyperlink {
+    -fx-padding: 0;
+}
+
+.docker-placeholder {
+    -fx-padding: 16;
+    -fx-text-fill: derive(-fx-text-base-color, 45%);
+}
+
+.docker-env-bar {
+    -fx-padding: 4 8 4 8;
+}
+
+@media (prefers-color-scheme: dark) {
+    .docker-error-bar {
+        -fx-background-color: #4a2323;
+    }
+
+    .docker-error-text {
+        -fx-text-fill: #f2b8b8;
+    }
+}

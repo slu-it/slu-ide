@@ -11,14 +11,22 @@ javafx {
 }
 
 dependencies {
-    // Deliberate module dependency: the docker executable and its environment are looked up in the login shell
-    // (loginShellPrints, ADR 0087, ADR 0117); no terminal type is part of this module's API.
-    implementation(project(":modules:terminal"))
+    // Deliberate module API dependency: the docker executable and its environment are looked up in the login shell
+    // (loginShellPrints, ADR 0087, ADR 0117), and Docker takes the window's Terminals to open container shells as
+    // terminal tabs (ADR 0118).
+    api(project(":modules:terminal"))
+    // Deliberate module API dependency: the Docker tab is shown as an EditorTab, opened from the Services menu
+    // (ADR 0110, ADR 0118).
+    api(project(":modules:editor-area"))
+    // Deliberate module dependency: the Inspect tabs show the JSON in a read-only, highlighted CodeDisplay
+    // (CodeEditors, Highlighters).
+    implementation(project(":modules:file-viewers"))
     // Deliberate module API dependency: DockerSettings stores the executable with SettingsStore and adds a
     // SettingsPage (ADR 0067).
     api(project(":modules:settings"))
-    // Deliberate module dependency: the session's loads and actions run on logged threads (ADR 0060).
-    implementation(project(":modules:background-tasks"))
+    // Deliberate module API dependency: the session's loads and actions run on logged threads (ADR 0060), and Docker
+    // takes the window's BackgroundTasks for its long operations (pull, prune, remove image, create; ADR 0061).
+    api(project(":modules:background-tasks"))
     implementation(libs.spring.context)
     // Reads the JSON the docker and podman CLIs print.
     implementation(libs.jackson.databind)
