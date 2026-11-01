@@ -57,6 +57,8 @@ dependencies {
     implementation(project(":modules:codecs"))
     // The Converting tool: a tab opened from the Tools menu, one per window (ADR 0110, ADR 0115).
     implementation(project(":modules:converting"))
+    // Docker through its CLI: the window's DockerSession and the Docker settings page (ADR 0117).
+    implementation(project(":modules:docker"))
     // The explorer's Run item has a Material Design play icon, like the HTTP client's Run (ADR 0012).
     implementation(libs.ikonli.javafx)
     implementation(libs.ikonli.materialdesign2)
