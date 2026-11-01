@@ -41,8 +41,11 @@ fun loginShellRunning(
 class Terminals(
     private val fontSettings: FontSettings,
     private val scrollSettings: TerminalScrollSettings,
-    /** The environment of the started shells; its `SHELL` is the user's shell. */
-    private val environment: Map<String, String>,
+    /**
+     * The environment shells and commands start with; its `SHELL` is the user's shell, so the merged map of a caller
+     * picks the shell too. Callers that add variables pass `environment + extra` to [open] or [embed].
+     */
+    val environment: Map<String, String>,
 ) : AutoCloseable {
     @Autowired
     constructor(fontSettings: FontSettings, scrollSettings: TerminalScrollSettings) : this(
