@@ -62,6 +62,7 @@ milliseconds with a large `.zshrc`) and mixes the startup files' output into the
 - A changed `.zshrc` (another `DOCKER_HOST`) counts for the Docker tab only after a Refresh with another setting or in
   a new window; Compose and build runs see it at once.
 - Docker before 23 prints no JSON for `--format json` and is not supported.
+- `docker stats` rounds its counters to three significant digits, so they move in steps (above 1 GB in steps of 10 MB); rates are averaged over the last 60 samples (about a minute), which keeps the error of one step small, but a rate below one step per minute still reads 0 or one step.
 - Amends [ADR 0087](0087-commands-in-an-interactive-login-shell.md): its rule (a login shell per command) stays for
   what the user runs; the Docker tab's frequent background calls capture the shell's environment once instead.
 - New module `docker` in the editor family; see [ADR 0010](0010-docker-sandbox.md) (`sbx`, separate),
