@@ -2,7 +2,8 @@
 
 **Modules:** `modules/docker` (package `dev.sluide.docker`: the window bean `Docker` and `DockerSession`; the CLI in
 `cli`, the model in `model`, event routing in `events`, the tab in `tab` with the tree in `tab.tree`, the details in
-`tab.details`, the Logs and Stats views in `tab.logs` and `tab.stats`, Settings → Docker in `settings`); menu in `ide`
+`tab.details`, the Logs and Stats views in `tab.logs` and `tab.stats`, the Run Container dialog and the last values
+per repository in `run`, Settings → Docker in `settings`); menu in `ide`
 (`ToolsMenu`, `WindowTools`); decisions in [ADR 0117](../adr/0117-docker-through-the-cli.md) and
 [ADR 0118](../adr/0118-services-menu.md)
 
@@ -88,11 +89,13 @@ details tab or another row stops them. They keep streaming while the Docker tab 
 tab, so switching editor tabs keeps the log lines and the 60 samples.
 
 ## Images, volumes and networks
-Each has an **Overview** and **Inspect**, and **Remove** in the header and the row's context menu. Selecting a group
+Each has an **Overview** and **Inspect**, and **Remove** (images also **Run…**, first) in the header and the row's
+context menu. Selecting a group
 shows its actions; they are also in the group row's context menu.
 
 - **Images:** the Overview shows reference, id, digest, size, created and the containers created from it. Remove asks
-  first; when stopped containers use the image, the question offers to force it. **Pull…** asks for `name:tag` and
+  first; when stopped containers use the image, the question offers to force it. **Run…** opens the
+  [Run Container](#run-container) dialog. **Pull…** asks for `name:tag` and
   pulls it as a background task whose name shows the CLI's progress; its ✕ cancels the pull. **Prune Dangling
   Images…** lists the dangling images it would remove (disabled when there are none).
 - **Volumes:** name, driver, mountpoint, the containers using it (or whether any does), labels. Remove asks first.
@@ -105,6 +108,44 @@ shows its actions; they are also in the group row's context menu.
 
 Pulls, prunes, removing an image, volume or network and creating one run as rows of the window's background tasks; the
 lists follow through the events.
+
+### Run Container
+**Run…** on an image (header button and context menu, before Remove) opens a modal dialog over the window; other views
+call `Docker.runImage(reference)` to open it too. Fields:
+
+- **Image:** the reference, read-only. **Name:** optional; letters, digits, `_`, `.`, `-`, starting with a letter or
+  digit.
+- **Ports:** one row each, `[host-ip:]host-port:container-port[/tcp|udp]` or just a container port (1-65535); + and −
+  add and remove rows.
+- **Environment:** name and value rows. Values are shown as typed, not masked.
+- **Volumes:** source, target and *read-only*. The source is an absolute host path (**Choose…** picks a folder), a path
+  starting with `./` (the project folder; home without a project) or `~/` (home), resolved when the command is built, or
+  a volume name; the dropdown lists the engine's volumes. The target is an absolute path in the container.
+- **Network:** the engine's networks, `(default)` first. **Command:** the arguments after the image, split like shell
+  words (quotes group). **Detached** (on) and **Remove when stopped** (`--rm`, off).
+
+A read-only **command preview** follows the input: `docker run [-d] [--rm] [--name n] [-p spec]… [-e NAME=value]…
+[-v src:target[:ro]]… [--network net] image [command]`, with each variable value masked as `-e 'NAME=••••'`; a note
+under it says the values are hidden. Invalid input shows its message in the preview's place and disables Run (and
+Copy). **Copy** puts a self-contained command line on the clipboard instead, with the real values, `-e 'NAME=value'`,
+and every word shell-quoted, so it also works pasted into a terminal.
+
+**Detached** runs through the CLI as the background task "Run <image>", with the variables inline as `-e NAME=value`
+(the CLI runs the engine command directly; no terminal shows it; the values are passed as arguments to the CLI and
+masked in Thoreau's log) and the CLI's own environment untouched; when the
+container is created the Docker tab shows it with its Logs tab, and a failure (port taken, name in use, image missing)
+shows the CLI's message in the error bar. **Attached** (Detached off) opens a terminal tab "<image> (run)" in the project
+folder (home without a project) that runs the command. Its variables travel in the terminal's environment as
+`SLUIDE_RUN_ENV_0`, `SLUIDE_RUN_ENV_1`, … and the command line has `-e "NAME=$SLUIDE_RUN_ENV_0"`: the shell expands them
+after its start files ran, so a container variable such as `PATH`, `JAVA_HOME` or `DOCKER_HOST` neither changes the CLI
+nor gets overridden, and the values do not show in the terminal. Without a reachable engine the dialog still opens; Run
+then reports "Docker is not available".
+
+The values are **remembered per image repository** (the reference without tag and digest, so `nginx:1` and `nginx:2`
+share them, and `registry:5000/app:1.0` is `registry:5000/app`) when Run is pressed, not on Cancel: in the project's
+data (field `dockerRuns`), outside a project in the shared file. Only values that differ from the defaults are kept,
+variable values included, in plain text like the rest of that file. Untagged images (named by id) are run by id and not
+remembered. The dialog opens prefilled with them and always shows the reference that was asked for.
 
 ## Settings and Podman
 - **Settings → Docker** sets the executable: `docker` (the default), `podman`, or the full path of either. It is looked
