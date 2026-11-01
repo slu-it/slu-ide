@@ -49,9 +49,8 @@ class CommandRunner<J : RunJob>(
     private var disposed = false
 
     /** Starts the terminal of a run in a folder; tests put a fake in its place. */
-    internal var embed: (folder: Path, command: String) -> EmbeddedTerminal = { folder, command ->
-        session.terminals.embed(folder, command)
-    }
+    internal var embed: (folder: Path, command: String, environment: Map<String, String>) -> EmbeddedTerminal =
+        { folder, command, environment -> session.terminals.embed(folder, command, environment) }
 
     /** The last started job that is [rerunnable], for Rerun. */
     var last: J? = null
@@ -91,13 +90,16 @@ class CommandRunner<J : RunJob>(
      * Starts [job] with the command line [command] (whose [IllegalArgumentException] the status line shows) and calls
      * [ended] with its outcome. While another job runs, asks first ([replaceRunning]). The new terminal leaves the
      * focus where it is. Only a run that started ([StartResult.STARTED]) records its [arguments] in the history, not
-     * one cancelled by the question or that failed to start.
+     * one cancelled by the question or that failed to start. The run's terminal starts with the terminals' environment
+     * plus [environment], whose variables override (`SHELL`, which picks the shell, too); they are not part of the
+     * command line, so their values do not show in the terminal.
      */
     fun start(
         job: J,
         command: () -> String,
         ended: (RunState) -> Unit = {},
         arguments: String? = null,
+        environment: Map<String, String> = emptyMap(),
     ): StartResult {
         if (disposed) return StartResult.CANCELLED
         if (!replaceRunning(job)) return StartResult.CANCELLED
@@ -109,7 +111,7 @@ class CommandRunner<J : RunJob>(
             }
         val next =
             try {
-                embed(folder(), line)
+                embed(folder(), line, session.terminals.environment + environment)
             } catch (e: TerminalStartException) {
                 return failedToStart(e.message ?: "The command could not be started")
             }

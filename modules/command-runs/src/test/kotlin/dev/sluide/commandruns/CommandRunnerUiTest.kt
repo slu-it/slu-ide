@@ -16,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.io.TempDir
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
+import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -58,9 +59,16 @@ class CommandRunnerUiTest {
         ArgumentHistories(ProjectDataStore(dir.resolve("projects"), dir.resolve("outside.json"), emptyList()), settings)
     }
 
+    /** The terminals' environment: a shell that exists everywhere, and two variables for the runs to keep or override. */
+    private val baseEnvironment = mapOf("SHELL" to "/bin/sh", "KEEP" to "base", "OVER" to "base")
+
     private val session by lazy {
         CommandRunSession(
-            Terminals(FontSettings(settings, FontSettings.systemDefaults()), TerminalScrollSettings(settings)),
+            Terminals(
+                FontSettings(settings, FontSettings.systemDefaults()),
+                TerminalScrollSettings(settings),
+                baseEnvironment,
+            ),
             BackgroundTasks.forTests(),
             histories,
         )
@@ -75,7 +83,7 @@ class CommandRunnerUiTest {
             var questions = 0
             val pane = RunPane("Arguments", "Output")
             val runner = CommandRunner<Job>(session, pane, { dir }, { _, _ -> true.also { questions++ } })
-            runner.embed = { _, _ -> LateTerminal() }
+            runner.embed = { _, _, _ -> LateTerminal() }
             val ended = mutableListOf<RunState>()
             runner.start(Job("test"), command = { "test" }, ended = { ended += it })
 
@@ -90,6 +98,42 @@ class CommandRunnerUiTest {
     }
 
     @Test
+    fun `a run starts with the terminals' environment plus its own variables, which override`(robot: FxRobot) {
+        robot.interact {
+            val pane = RunPane("", "")
+            val runner = CommandRunner<Job>(session, pane, { dir }, { _, _ -> true })
+            val seen = mutableListOf<Map<String, String>>()
+            runner.embed = { _, _, environment -> LateTerminal().also { seen += environment } }
+            val extra = mapOf("OVER" to "extra", "EXTRA_VAR" to "1")
+
+            runner.start(Job("a"), command = { "a" })
+            runner.start(Job("b"), command = { "b" }, environment = extra)
+
+            assertEquals(baseEnvironment, seen[0])
+            assertEquals(mapOf("SHELL" to "/bin/sh", "KEEP" to "base", "OVER" to "extra", "EXTRA_VAR" to "1"), seen[1])
+            runner.dispose()
+        }
+    }
+
+    @Test
+    fun `the variables of a run reach the process of its real terminal`(robot: FxRobot) {
+        val out = dir.resolve("seen.txt")
+        val runner = CommandRunner<Job>(session, RunPane("", ""), { dir }, { _, _ -> true })
+        robot.interact {
+            val command = { "printf '%s' \"\$KEEP-\$OVER-\$EXTRA_VAR\" > '$out'" }
+            runner.start(Job("real"), command = command, environment = mapOf("OVER" to "extra", "EXTRA_VAR" to "1"))
+        }
+
+        val deadline = System.nanoTime() + 20_000_000_000L
+        while (!Files.exists(out) && System.nanoTime() < deadline) Thread.sleep(50)
+        // The file is created by the shell's redirection, a moment before the text is in it.
+        while (Files.exists(out) && Files.readString(out).isEmpty() && System.nanoTime() < deadline) Thread.sleep(50)
+
+        assertEquals("base-extra-1", Files.readString(out))
+        robot.interact { runner.dispose() }
+    }
+
+    @Test
     fun `only a run that started records its arguments, which the pane shows until the runner is disposed`(
         robot: FxRobot,
     ) {
@@ -98,7 +142,7 @@ class CommandRunnerUiTest {
             var stop = false
             val pane = RunPane("", "")
             val runner = CommandRunner<Job>(session, pane, { dir }, { _, _ -> stop }, history = history)
-            runner.embed = { _, _ -> LateTerminal() }
+            runner.embed = { _, _, _ -> LateTerminal() }
 
             assertEquals(StartResult.STARTED, runner.start(Job("a"), command = { "a" }, arguments = "-x"))
             assertEquals(listOf("-x"), history.entries)
