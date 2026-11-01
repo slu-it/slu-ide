@@ -194,6 +194,33 @@ class TabActionsTest {
     }
 
     @Test
+    fun `cancelling the Pull task interrupts the pull and reports no error`() {
+        val pulling = CountDownLatch(1)
+        val interrupted = CountDownLatch(1)
+        cli.failing = { call ->
+            if (call.startsWith("pull")) {
+                pulling.countDown()
+                try {
+                    Thread.sleep(5_000) // Stands for the CLI's pull until the cancel interrupts it.
+                } catch (e: InterruptedException) {
+                    interrupted.countDown()
+                    throw DockerException("pull interrupted")
+                }
+            }
+            null
+        }
+
+        resourceActions.pull()
+        assertTrue(pulling.await(5, TimeUnit.SECONDS))
+        tasks.shown.single().cancel()
+
+        assertTrue(interrupted.await(5, TimeUnit.SECONDS))
+        awaitTask("cancelled after")
+        fx.drain()
+        assertEquals(null, model.error.get())
+    }
+
+    @Test
     fun `a failed task ends as failed and shows in the error bar`() {
         cli.failing = { if (it == "createVolume cache") DockerException("volume exists") else null }
 
