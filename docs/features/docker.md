@@ -74,8 +74,9 @@ environment the Docker CLI was found with.
   restart (seen as its list entry changing).
 - **Stats:** live CPU, memory, network and block IO, with sparklines of the last 60 samples. Network and block IO are
   shown as rates averaged over those samples, so the rate and its sparkline lag by up to about a minute: a burst stays
-  visible for about 60 s and its value tapers off. `docker stats` rounds its counters to three significant digits, so they move in steps (above 1 GB in steps of 10 MB); rates are averaged over the last 60 samples (about a minute), which keeps the error of one step small, but a rate below one step per minute still reads 0 or one step. A stopped container shows "Not running" with
-  its last values greyed; a stream that ends while the container runs shows "Stream ended", and the stats start again
+  visible for about 60 s and its value tapers off. `docker stats` rounds its counters to three significant digits, so
+  they move in steps (above 1 GB in steps of 10 MB); the average keeps the error of one step small, but a rate below
+  one step per minute still reads 0 or one step. A stopped container shows "Not running" with its last values greyed; a stream that ends while the container runs shows "Stream ended", and the stats start again
   when it is (re)started.
 - **Environment:** the variables as a Name | Value table, values masked (`••••••`) until **Show values** is on; Copy in
   a row's context menu copies `NAME=value`.
