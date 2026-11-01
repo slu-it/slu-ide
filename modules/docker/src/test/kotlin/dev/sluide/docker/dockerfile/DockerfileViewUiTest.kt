@@ -19,7 +19,10 @@ import dev.sluide.terminal.settings.TerminalScrollSettings
 import javafx.application.Platform
 import javafx.beans.property.SimpleStringProperty
 import javafx.scene.Scene
+import javafx.scene.control.ListCell
+import javafx.scene.control.skin.ComboBoxListViewSkin
 import javafx.scene.layout.StackPane
+import javafx.scene.text.Text
 import javafx.stage.Stage
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Tag
@@ -209,12 +212,28 @@ class DockerfileViewUiTest {
     fun `a new stage in the source shows in the Target combo after the reparse pause`(robot: FxRobot) {
         val view = open(robot)
         ready(robot, view)
-        assertEquals(listOf(BuildForm.LAST_STAGE, "base"), view.pane.form.target.items)
+        val target = view.pane.form.target
+        assertEquals(listOf(BuildForm.LAST_STAGE, "base"), target.items)
 
         robot.interact { view.replaceText(DOCKERFILE + "FROM base AS test\n") }
 
-        eventually(robot) {
-            assertEquals(listOf(BuildForm.LAST_STAGE, "base", "test"), view.pane.form.target.items)
+        eventually(robot) { assertEquals(listOf(BuildForm.LAST_STAGE, "base", "test"), target.items) }
+
+        // A chosen stage renamed in the source stays chosen and shown, marked missing, not the stage now in its place.
+        robot.interact { target.value = "base" }
+        robot.interact { view.replaceText((DOCKERFILE + "FROM base AS test\n").replace("AS base", "AS basex")) }
+
+        eventually(robot) { assertEquals(listOf(BuildForm.LAST_STAGE, "basex", "test", "base"), target.items) }
+        robot.interact {
+            assertEquals("base", target.selectionModel.selectedItem)
+            // The drawn text follows only in a layout pass.
+            target.applyCss()
+            target.layout()
+            val display = (target.skin as ComboBoxListViewSkin<*>).displayNode as ListCell<*>
+            // The drawn text: the cell's text property can be right while the text it shows is still the old one.
+            val shown = (display.lookup(".text") as Text).text
+            assertEquals("base", shown, "the combo shows the chosen stage")
+            assertTrue("docker-build-missing" in target.styleClass, "marked missing")
         }
     }
 

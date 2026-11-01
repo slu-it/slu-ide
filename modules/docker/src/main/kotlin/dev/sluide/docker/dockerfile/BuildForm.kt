@@ -148,7 +148,11 @@ internal class BuildForm {
     ) {
         val missing = isMissingTarget(chosen, stages)
         val items = listOf(LAST_STAGE) + stages + listOfNotNull(chosen.takeIf { missing })
-        if (target.items != items) target.items.setAll(items)
+        if (target.items != items) {
+            // Replaced items keep the selected index, and the combo would go on showing the stage now at that place.
+            target.value = null
+            target.items.setAll(items)
+        }
         target.value = chosen.ifEmpty { LAST_STAGE }.let { value -> items.firstOrNull { it.equals(value, true) } }
         target.styleClass.remove(MISSING)
         if (missing) {
