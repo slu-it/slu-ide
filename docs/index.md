@@ -48,7 +48,7 @@ updated when the summary or keywords no longer fit.
 | [0026](adr/0026-http-client-window-session.md) | Per-window `HttpClientSession`; public code editor API of `file-viewers` | `HttpClientSession`, `windowService`, `CodeEditors`, `CodeEditor`, `SourceFileViewer` | amended by 0070 |
 | [0027](adr/0027-http-client-sending.md) | Requests on the JDK `HttpClient` off the FX thread | JDK `HttpClient`, headers, redirects, timeouts, cookies, Basic/Digest, proxy | |
 | [0028](adr/0028-http-client-secrets.md) | Secrets only from env files; OAuth2 tokens and certificates per window | secrets, private env file, OAuth2, tokens, client certificates, trust-all | |
-| [0029](adr/0029-file-name-and-shebang-matching.md) | Viewers match by exact name, extension, pattern, then shebang | name matching, extension, shebang, `NameMatch`, line rules | amends 0004; amended by 0031, 0074 |
+| [0029](adr/0029-file-name-and-shebang-matching.md) | Viewers match by exact name, extension, pattern, then shebang | name matching, extension, shebang, `NameMatch`, line rules | amends 0004; amended by 0031, 0074, 0119 |
 | [0030](adr/0030-masking-env-values.md) | `.env` values masked by a style overlay, text untouched | `.env`, masking, `masked` style, Show values | |
 | [0031](adr/0031-own-tokenizers.md) | Own `SyntaxHighlighter`s for TOML, Bicep and KQL | tokenizers, TOML, Bicep, KQL, `SyntaxHighlighter` | amends 0005, 0029; amended by 0097 |
 | [0032](adr/0032-product-name-thoreau.md) | Users see the name Thoreau; the technical name `sluide` stays | Thoreau, `sluide`, naming, bundle identifier, `~/.sluide` | |
@@ -98,7 +98,7 @@ updated when the summary or keywords no longer fit.
 | [0076](adr/0076-cache-of-remote-action-sources.md) | Remote `uses:` read from a git cache of shallow bare repositories | `RemoteSourceCache`, `~/.sluide/cache/git`, Fetch References, GHES, `RemoteSources` | amends 0070, 0075; see 0053 |
 | [0077](adr/0077-graph-nodes-open-their-source.md) | Workflow graph boxes open their source | `WorkflowGraph.locations`, `SourceLocation`, `openNode`, `FileView.showLine` | amends 0075 |
 | [0078](adr/0078-deleting-remote-branches-and-tags.md) | Delete remote branches and remote tags from the git log | remote delete, `git push :<ref>`, `--force-with-lease`, protected main/master | see 0041, 0049 |
-| [0079](adr/0079-yaml-preview.md) | YAML preview on the fold parts from SnakeYAML events | YAML preview, SnakeYAML, Copy Formatted, anchors, `---` documents | amends 0074; see 0064, 0065 |
+| [0079](adr/0079-yaml-preview.md) | YAML preview on the fold parts from SnakeYAML events | YAML preview, SnakeYAML, Copy Formatted, anchors, `---` documents | amends 0074; amended by 0119; see 0064, 0065 |
 | [0080](adr/0080-gitignore-line-effects.md) | Gutter dots for `.gitignore` lines from `git check-ignore -v` | `.gitignore`, `check-ignore`, gutter dots, `IgnoreRuleEffects`, `GitignoreFileView` | |
 | [0081](adr/0081-parallel-ui-tests-on-a-display-pool.md) | Modules' `uiTest` tasks run in parallel on a display pool | `uiTest`, `DisplayService`, `sluide.uiDisplays`, Xvfb, `full-build.sh` | amended by 0082 |
 | [0082](adr/0082-split-ui-tests-of-long-modules.md) | Long modules' UI tests split into two parts | `uiTestSplits`, `uiTestPart1`, `uiTestPart2`, git-log, previews | amends 0081 |
@@ -138,6 +138,7 @@ updated when the summary or keywords no longer fit.
 | [0116](adr/0116-curl-and-http-requests.md) | cURL and `.http` requests: the HTTP client's requests family for the Converting tool, shell-aware cURL mapping with notes, Copy as cURL resolving variables (private values only when confirmed), Paste cURL as Request | cURL, `curl`, `RequestFamily`, `CurlRequest`, POSIX, cmd, PowerShell, Copy as cURL, Paste cURL as Request, private values | see 0025-0028, 0108, 0115 |
 | [0117](adr/0117-docker-through-the-cli.md) | Docker via its JSON CLI, resolved once through the login shell; window `DockerSession`, shared events | `docker`, `DockerSession`, `DockerCli`, Podman, `docker events`, login shell, `docker.executable`, debounce | amends 0087; see 0010, 0060, 0070 |
 | [0118](adr/0118-services-menu.md) | Services menu after Tools for tools that manage external services; the Docker tab first, on Alt+8; window tools may have accelerators | Services menu, Docker tab, `Docker`, Alt+8, `WindowTool` accelerator, `ToolsMenu` title, `TreeSync`, `DockerTabModel` | amends 0110; see 0061, 0070, 0084, 0117 |
+| [0119](adr/0119-compose-files.md) | Compose files as runnable views in `docker`: Source \| Split \| Compose, named viewer patterns beat extensions, options per file, always `-f` with the override added back, env precedence, no trust check | Compose, `ComposeFileViewer`, `ComposeView`, `ComposePaneModel`, `fileNamePatterns`, override file, profiles, `--env-file`, unresolved variables, gutter ▶ | amends 0029, 0079; see 0070, 0084, 0088, 0089, 0090, 0117, 0118 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
@@ -205,6 +206,7 @@ updated when the summary or keywords no longer fit.
 | [codecs.md](features/codecs.md) | Codecs tool: a tab of the Tools menu that encodes and decodes text in two editable sides | Tools menu, Codecs, Base64, hex, URL encoding, HTML entities, escapes, JWT, hash, HMAC, gzip, hex dump, Open Selection in Codecs |
 | [converting.md](features/converting.md) | Converting tool: a tab of the Tools menu that converts between JSON, YAML, TOML, properties, CSV and TSV in two editable sides with a format picker each | Tools menu, Converting, JSON, YAML, TOML, properties, Spring Boot, CSV, TSV, Detect, Swap, YAML 1.2, octal, quoting, Infer types, Sort keys, Save as |
 | [docker.md](features/docker.md) | Docker tab: a tab of the Services menu with containers by Compose project, images, volumes and networks, their details (Overview, Logs, Stats, Environment, Inspect) and actions | Services menu, Docker, Podman, containers, Compose, images, volumes, networks, Shell, logs, stats, Pull, Prune, F5, Alt+8 |
+| [docker-compose.md](features/docker-compose.md) | Compose files: Source \| Split \| Compose with Up/Down/Build/Pull/Restart, profiles and flags, live services with per-service actions, environment, Output; gutter ▶ per service | Compose, `compose.yaml`, `docker-compose.yml`, Up, Down, Detached, profiles, services, env files, variables, unresolved variables, gutter ▶, explorer Run |
 
 ## Ideas
 Explored but not decided or built; options and trade-offs, no commitment.

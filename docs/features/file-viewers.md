@@ -34,7 +34,8 @@ the Bicep graph and `BicepParamFileViewer`.
   ([editor-tabs.md](editor-tabs.md)).
 - `FileViewers` asks every specific `FileViewer` bean whether it can open a file. Of those that agree it takes the one
   whose name match is strongest (`NameMatch`): the file's path (a `PathFileViewer`, e.g. YAML files in
-  `.github/workflows`, which takes part only at its paths), an exact file name, then the extension, then a name pattern; viewers
+  `.github/workflows`, which takes part only at its paths), an exact file name (or a `NamedFileViewer`'s name pattern,
+  e.g. compose files), then the extension, then a code viewer's name pattern; viewers
   other than `CodeFileViewer`s (previews, images, `.http`) count as extension matches, and Spring's bean order only
   decides between equals. So `Dockerfile.md` is Markdown, `Caddyfile.json` and `.env.json` are JSON,
   `Dockerfile.dev` is a Dockerfile and `Dockerfile.dockerignore` an ignore file, whatever the order of the viewers.
@@ -164,7 +165,8 @@ the Bicep graph and `BicepParamFileViewer`.
   `Pipfile.lock`, [json-preview.md](json-preview.md)), XML (`XmlFileViewer`, `.xml`, `.xsd`, `.xsl`, `.xslt`, `.fxml`, `.iml`,
   `.plist`, .NET project files, `.xaml`, `.resx`, `.nuspec`, `.wsdl`, `.config` with XML text,
   [xml-preview.md](xml-preview.md)),
-  YAML (`YamlFileViewer`, `.yml`, `.yaml`, [yaml-preview.md](yaml-preview.md)),
+  YAML (`YamlFileViewer`, `.yml`, `.yaml`, [yaml-preview.md](yaml-preview.md); compose files go to the Compose view,
+  [docker-compose.md](docker-compose.md)),
   PEM certificates and keys (`PemFileViewer`, `.pem`, `.crt`, `.cer`, `.key`, only with PEM text) and
   the resource graph of Bicep files (`BicepFileViewer`, `.bicep`) in [previews.md](previews.md). Their diffs are highlighted like their source.
   A preview that answers `Preview.outline` with headings (Markdown) gets a table-of-contents button in the toolbar.
@@ -225,7 +227,8 @@ the Bicep graph and `BicepParamFileViewer`.
     highlighted diffs. Viewers for extensions implement `ExtensionFileViewer` (`fileExtensions`, lower case, no dot)
     and viewers for exact names `NamedFileViewer` (`fileNames`), so that `FileViewers` also picks them by the name
     alone, e.g. for a commit's version of a file; `fileNamePatterns` (whole-name, case-insensitive regexes) count
-    like exact names, for families such as `docker-compose.<env>.yml`, so keep them narrow. Viewers for a location
+    like exact names, for families such as `docker-compose.<env>.yml` (`ComposeFileViewer`,
+    [ADR 0119](../adr/0119-compose-files.md)), so keep them narrow. Viewers for a location
     implement `PathFileViewer` (`matchesPath`, helper `isInFolders(file, ".github", "workflows")`): they beat every name match but take part only
     at their paths, looked at without the disk, also for a diff's relative name; the type of file stays with
     `canOpen`/`fileExtensions` ([ADR 0074](../adr/0074-path-matched-file-viewers.md)). Viewers that also open

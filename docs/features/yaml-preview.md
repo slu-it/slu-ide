@@ -7,7 +7,8 @@ YAML files show their highlighted source with a formatted, foldable view beside 
 [XML](xml-preview.md).
 
 - **Files:** `.yml` and `.yaml`. GitHub Actions workflows (directly in `.github/workflows`) keep their
-  [graph view](github-actions-graph.md).
+  [graph view](github-actions-graph.md); compose files (`compose.yaml`, `docker-compose.yml`, `compose.<part>.yaml`, …)
+  open in the [Compose view](docker-compose.md) instead ([ADR 0119](../adr/0119-compose-files.md)).
 - **Modes:** the toolbar's **Source**, **Split** and **Preview**. A file opens in **Split**, the focus in the source
   so it can be edited at once ([ADR 0050](../adr/0050-focus-when-a-file-tab-is-shown.md)).
 - **Zoom:** the formatted view zooms as a document: [previews.md](previews.md#zooming-documents).

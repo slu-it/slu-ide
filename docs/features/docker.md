@@ -13,8 +13,8 @@ engine the user's terminal reaches (Docker Desktop, Colima, OrbStack, Rancher De
 ## Opening
 - **Services → Docker** (Alt+8, Cmd+8 on macOS) opens the tab. There is one Docker tab per window: choosing the item
   again selects the open tab. Shortcut+W closes it; it is not restored after a restart.
-- Other views open it with a container selected (round 2's Compose view, "Logs" of a service selects the container's
-  Logs tab).
+- Other views open it with a container selected: "Logs" of a service in the [Compose view](docker-compose.md) selects
+  the container's Logs tab.
 
 ## Layout
 - **Header:** "Docker", the engine (flavor and server version, and the current Docker context, e.g.
@@ -100,8 +100,8 @@ shows its actions; they are also in the group row's context menu.
 - **Networks:** name, id, driver, scope, the containers connected, labels. Remove asks first and is disabled for the
   engine's own networks (`bridge`, `host`, `none`, `podman`). **Create Network…** asks for a name and a driver
   (bridge, the default, overlay or macvlan); **Prune Unused Networks…** lists the unused networks.
-- **Compose projects:** an overview of the working folder and the containers with their states; project actions come
-  with the Compose view.
+- **Compose projects:** an overview of the working folder and the containers with their states; the project's
+  commands are in the [Compose view](docker-compose.md) of its file.
 
 Pulls, prunes, removing an image, volume or network and creating one run as rows of the window's background tasks; the
 lists follow through the events.
