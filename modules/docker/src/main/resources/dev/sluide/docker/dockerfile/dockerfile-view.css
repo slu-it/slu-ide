@@ -1,0 +1,82 @@
+/*
+ * The view of Dockerfiles (DockerfileView): the mode buttons above the source and the Build pane, whose Output is the
+ * RunPane styled by run-pane.css of the command-runs module. Looks like the Compose view (compose-view.css). Colours
+ * are Modena's looked-up ones apart from the problem line and the missing target, which have dark rules with
+ * single-class selectors (ADR 0009).
+ */
+.dockerfile-view-toolbar, .docker-build-toolbar {
+    -fx-padding: 2 6 2 6;
+    -fx-spacing: 4;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
+}
+
+.dockerfile-view-toolbar .toggle-button {
+    -fx-font-size: 0.9em;
+    -fx-padding: 1 8 1 8;
+}
+
+.docker-build-toolbar .button {
+    -fx-font-size: 0.9em;
+}
+
+.dockerfile-view .split-pane {
+    -fx-padding: 0;
+    -fx-background-insets: 0;
+}
+
+.docker-build-note {
+    -fx-padding: 2 8 2 8;
+    -fx-text-fill: derive(-fx-text-base-color, 35%);
+}
+
+.docker-build-details-box {
+    -fx-padding: 4 6 4 6;
+    -fx-spacing: 6;
+}
+
+.docker-build-form {
+    -fx-hgap: 8;
+    -fx-vgap: 4;
+}
+
+.docker-build-row, .docker-build-arg-row {
+    -fx-spacing: 6;
+    -fx-alignment: center-left;
+}
+
+.docker-build-args {
+    -fx-spacing: 2;
+}
+
+.docker-build-arg-name {
+    -fx-font-family: monospace;
+}
+
+.docker-build-args-placeholder {
+    -fx-text-fill: derive(-fx-text-base-color, 50%);
+}
+
+.docker-build-preview {
+    -fx-font-family: monospace;
+    -fx-background-color: derive(-fx-control-inner-background, -3%);
+}
+
+.docker-build-problem {
+    -fx-text-fill: #c62828;
+}
+
+.docker-build-missing {
+    -fx-border-color: #d39a12;
+    -fx-border-width: 1;
+}
+
+@media (prefers-color-scheme: dark) {
+    .docker-build-problem {
+        -fx-text-fill: #ef6c6c;
+    }
+
+    .docker-build-missing {
+        -fx-border-color: #e0a040;
+    }
+}

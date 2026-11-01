@@ -1,9 +1,12 @@
 package dev.sluide.docker.dockerfile
 
+import dev.sluide.docker.settings.DockerSettings
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.ExtensionFileViewer
 import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewers
+import dev.sluide.projectdata.ProjectDataStore
+import dev.sluide.settings.SettingsStore
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
@@ -25,7 +28,12 @@ class DockerfileBuildViewerTest {
     @TempDir
     lateinit var dir: Path
 
-    private val viewer by lazy { DockerfileBuildViewer() }
+    private val viewer by lazy {
+        DockerfileBuildViewer(
+            DockerBuildStore(ProjectDataStore(dir.resolve("projects"), dir.resolve("shared.json"), emptyList())),
+            DockerSettings(SettingsStore(dir.resolve("settings.properties"))),
+        )
+    }
     private val fallback = DefaultTextFileViewer()
 
     /** A viewer of the previews module for files with the [fileExtensions], like the Markdown and YAML previews. */
