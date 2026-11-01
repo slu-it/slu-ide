@@ -120,11 +120,36 @@ object ComposeCommands {
             }
         }
 
-    /** The command line for the login shell: [executable] and every one of [args] in single quotes. */
+    /**
+     * The environment of a compose run in the terminal: the value of each of [environment]'s variables, in order, under
+     * a private name (`SLUIDE_COMPOSE_ENV_0`, …) that [commandLine] hands on under the real name. The login shell's
+     * start files run before the command and could set the real names over the table's values; the private names they
+     * leave alone.
+     */
+    fun terminalEnvironment(environment: Map<String, String>): Map<String, String> =
+        environment.values.withIndex().associate { (index, value) -> terminalVariable(index) to value }
+
+    /**
+     * The command line for the login shell: [executable] and every one of [args] in single quotes. With [variables]
+     * (the names of [terminalEnvironment]'s map, in its order, each a valid variable name) it starts with
+     * `env "NAME=$SLUIDE_COMPOSE_ENV_0" …`, so compose gets them under their names while their values stay out of the
+     * command line.
+     */
     fun commandLine(
         executable: String,
         args: List<String>,
-    ): String = (listOf(executable) + args).joinToString(" ") { shellQuoted(it) }
+        variables: Collection<String> = emptyList(),
+    ): String {
+        val assignments =
+            variables.mapIndexed { index, name ->
+                require(isValidVariableName(name)) { "Not a valid variable name: \"$name\"" }
+                "\"$name=\$${terminalVariable(index)}\""
+            }
+        val words = (listOf(executable) + args).map { shellQuoted(it) }
+        return (if (assignments.isEmpty()) words else listOf("env") + assignments + words).joinToString(" ")
+    }
+
+    private fun terminalVariable(index: Int) = "SLUIDE_COMPOSE_ENV_$index"
 
     private fun upFlags(
         options: ComposeOptions,

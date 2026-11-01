@@ -59,9 +59,11 @@ Compose files open as YAML source beside a Compose pane that starts, stops and w
   is done, so the question about unresolved variables is about the current file; meanwhile the toolbar says "Up waits
   for the configuration…".
 - Every command runs in the compose file's folder as `<docker> compose -f <file> [-f <override>] [-p <name>]
-  [--env-file <f>]… [--profile <p>]… <verb>` in the user's login shell, with the Environment table's variables in the
-  process environment (not in the command line). `<docker>` is the executable the Docker session found
-  ([settings.md](settings.md)).
+  [--env-file <f>]… [--profile <p>]… <verb>` in the user's login shell. `<docker>` is the executable the Docker
+  session found ([settings.md](settings.md)). With variables in the Environment table the line starts with
+  `env "NAME=$SLUIDE_COMPOSE_ENV_0" …`: the values go into the terminal under private names, and the shell hands them
+  to compose under their own names after its start files ran, so a `.zshrc` that sets the same name does not win and
+  the values never show in the terminal.
 - Profiles: Up, Build, Pull and Restart use the chosen ones; Down uses every profile, so it also removes services of
   profiles chosen earlier; a single service's commands work whatever is chosen.
 - Variables: the Environment table beats the env files, which beat the `.env`.

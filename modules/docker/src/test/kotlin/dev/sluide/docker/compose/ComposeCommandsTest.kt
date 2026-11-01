@@ -164,6 +164,23 @@ class ComposeCommandsTest {
     }
 
     @Test
+    fun `in the terminal the variables go under private names that the command line hands on by name`() {
+        val environment = mapOf("A" to "it's \$(secret)", "B" to "x y")
+
+        val line = ComposeCommands.commandLine("/usr/bin/docker", listOf("compose", "up"), environment.keys)
+
+        assertEquals(
+            "env \"A=\$SLUIDE_COMPOSE_ENV_0\" \"B=\$SLUIDE_COMPOSE_ENV_1\" '/usr/bin/docker' 'compose' 'up'",
+            line,
+        )
+        assertEquals(
+            mapOf("SLUIDE_COMPOSE_ENV_0" to "it's \$(secret)", "SLUIDE_COMPOSE_ENV_1" to "x y"),
+            ComposeCommands.terminalEnvironment(environment),
+        )
+        assertFailsWith<IllegalArgumentException> { ComposeCommands.commandLine("docker", emptyList(), listOf("a b")) }
+    }
+
+    @Test
     fun `a project-wide down uses every profile, whatever was chosen`() {
         val options = ComposeOptions(profiles = setOf("debug"), projectName = "demo")
 

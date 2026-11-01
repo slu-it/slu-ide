@@ -44,7 +44,10 @@ file is picked up only while no `-f` is given.
   which beat the `.env`. No env files configured means compose's default, the `.env` beside the file; a configured
   list passes one `--env-file` per entry (adding the first one keeps an existing `.env` in the list), and an explicit
   empty list passes `--env-file /dev/null`, so nothing is read. Variables never go into the command line, so their
-  values do not show in the terminal. Compose's stderr warnings of `config` give the unresolved variables, shown as a
+  values do not show in the terminal: they go into the terminal's environment under private names
+  (`SLUIDE_COMPOSE_ENV_<i>`), and the line starts with `env "NAME=$SLUIDE_COMPOSE_ENV_<i>" …`, which the login shell
+  expands after its start files ran (amended in round 3, ADR 0120: under their own names, a start file could set the
+  same name over the table's value). Compose's stderr warnings of `config` give the unresolved variables, shown as a
   warning line and asked about before every Up.
 - **Configuration loading:** `docker compose config --format json` through `DockerSession.submit` on attach, after
   each save or reload from disk, after changes of the project name or environment (300 ms debounce) and when the

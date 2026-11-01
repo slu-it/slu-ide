@@ -208,29 +208,25 @@ class ComposePaneModelTest {
         model.restart()
         model.down(removeVolumes = false)
 
-        val docker = "'/usr/bin/docker' "
+        // The variable's value goes under its private name, handed on by name in front of the command.
+        fun line(args: List<String>) = ComposeCommands.commandLine("/usr/bin/docker", args, listOf("A"))
+        val docker = "env \"A=\$SLUIDE_COMPOSE_ENV_0\" '/usr/bin/docker' "
         assertEquals(
             listOf(
-                "up" to ComposeCommands.commandLine("/usr/bin/docker", base + listOf("up", "-d", "--force-recreate")),
+                "up" to line(base + listOf("up", "-d", "--force-recreate")),
                 "up web" to
-                    ComposeCommands.commandLine(
-                        "/usr/bin/docker",
-                        base + listOf("up", "-d", "--force-recreate", "web"),
-                    ),
-                "build" to ComposeCommands.commandLine("/usr/bin/docker", base + "build"),
-                "pull" to ComposeCommands.commandLine("/usr/bin/docker", base + "pull"),
-                "restart" to ComposeCommands.commandLine("/usr/bin/docker", base + "restart"),
+                    line(base + listOf("up", "-d", "--force-recreate", "web")),
+                "build" to line(base + "build"),
+                "pull" to line(base + "pull"),
+                "restart" to line(base + "restart"),
                 "down" to
-                    ComposeCommands.commandLine(
-                        "/usr/bin/docker",
-                        ComposeCommands.downArgs(file, null, model.options.get(), removeVolumes = false),
-                    ),
+                    line(ComposeCommands.downArgs(file, null, model.options.get(), removeVolumes = false)),
             ),
             host.started.map { it.first.label to it.second },
         )
         assertTrue(host.started.all { it.second.startsWith(docker) })
         assertTrue("'--profile' '*'" in host.started.last().second, "down with every profile")
-        assertEquals(setOf(mapOf("A" to "1")), host.started.map { it.third }.toSet())
+        assertEquals(setOf(mapOf("SLUIDE_COMPOSE_ENV_0" to "1")), host.started.map { it.third }.toSet())
     }
 
     @Test

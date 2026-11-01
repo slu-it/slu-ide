@@ -358,11 +358,12 @@ internal class ComposePaneModel(
         again: () -> Unit,
         args: () -> List<String>,
     ) {
+        val environment = ComposeCommands.environment(options.get())
         val started =
             host.start(
                 job,
-                { ComposeCommands.commandLine(executable(), args()) },
-                ComposeCommands.environment(options.get()),
+                { ComposeCommands.commandLine(executable(), args(), environment.keys) },
+                ComposeCommands.terminalEnvironment(environment),
             )
         if (started) lastRun = again
     }
