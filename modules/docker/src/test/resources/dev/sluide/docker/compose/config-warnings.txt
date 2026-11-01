@@ -1,0 +1,2 @@
+time="2026-11-01T15:29:15Z" level=warning msg="The \"GREETING\" variable is not set. Defaulting to a blank string."
+time="2026-11-01T15:29:15Z" level=warning msg="/project/compose.yaml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"

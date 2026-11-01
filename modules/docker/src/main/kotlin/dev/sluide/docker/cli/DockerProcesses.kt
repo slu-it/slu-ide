@@ -17,6 +17,9 @@ private val log = System.getLogger("dev.sluide.docker.cli.DockerProcesses")
 /** How much of standard error is kept for messages and the log. */
 private const val ERROR_BYTES = 4096
 
+/** How much of standard error [DockerProcesses.run] keeps with `onErrors`: compose warns once per use of a variable. */
+internal const val CAPTURED_ERROR_BYTES = 64 * 1024
+
 /** How long a finished command waits for the rest of its output. */
 private const val DRAIN_MILLIS = 5_000L
 
@@ -48,6 +51,9 @@ internal class DockerProcesses(
      * also while waiting for progress. When the call does not end normally (timeout, interrupt, [onLine] throws), the
      * CLI is killed.
      *
+     * With [workingDir] the CLI runs there, with [extraEnvironment] laid over the environment. With [onErrors] (not
+     * with [onLine]) standard error of a successful run, up to its first 64 KB and cut at a line end, is given to it.
+     *
      * @throws DockerException when the CLI cannot start, exits non-zero, takes too long or the thread is interrupted;
      *   what [onLine] throws is passed on.
      */
@@ -56,16 +62,26 @@ internal class DockerProcesses(
         kind: CommandKind,
         timeout: Duration,
         onLine: ((String) -> Unit)? = null,
+        workingDir: Path? = null,
+        extraEnvironment: Map<String, String> = emptyMap(),
+        onErrors: ((String) -> Unit)? = null,
     ): String {
+        val errorLimit = if (onErrors != null) CAPTURED_ERROR_BYTES else ERROR_BYTES
         val number = commandNumbers.incrementAndGet()
         val name = "$program#$number"
         val shown = arguments.joinToString(" ").take(300)
         log.log(level(kind), "$name start [${Thread.currentThread().name}] $shown")
         val started = System.nanoTime()
-        val process = start(arguments, mergeErrors = onLine != null, name)
+        val process = start(arguments, mergeErrors = onLine != null, name, workingDir, extraEnvironment)
         val errors = ByteArrayOutputStream()
         val errorReader =
-            if (onLine == null) NamedThreads.virtual("$name-stderr") { keep(process.errorStream, errors) } else null
+            if (onLine ==
+                null
+            ) {
+                NamedThreads.virtual("$name-stderr") { keep(process.errorStream, errors, errorLimit) }
+            } else {
+                null
+            }
         val output = StringBuilder()
         val lastLines = ArrayDeque<String>()
         val progress = if (onLine != null) LinkedBlockingQueue<Any>() else null
@@ -136,6 +152,7 @@ internal class DockerProcesses(
             throw DockerException(message, exit)
         }
         log.log(level(kind), "$name exit 0 in $millis ms, ${text.length} chars")
+        if (onErrors != null && onLine == null) onErrors(wholeLines(errorText(errors), errors.size() >= errorLimit))
         return text
     }
 
@@ -159,7 +176,7 @@ internal class DockerProcesses(
         val shown = arguments.joinToString(" ").take(300)
         log.log(System.Logger.Level.INFO, "$name stream start $shown")
         val started = System.nanoTime()
-        val process = start(arguments, mergeErrors, name)
+        val process = start(arguments, mergeErrors, name, null, emptyMap())
         // Set once, by whoever comes first: close() or the end of the stream; only that one acts.
         val done = AtomicBoolean()
         val open = { !done.get() }
@@ -170,7 +187,7 @@ internal class DockerProcesses(
             } else {
                 NamedThreads.virtual(
                     "$name-stderr",
-                ) { keep(process.errorStream, errors) }
+                ) { keep(process.errorStream, errors, ERROR_BYTES) }
             }
         // A platform thread: the stream may read for as long as the window is open.
         Thread.ofPlatform().daemon().name("$name-stream").start {
@@ -215,6 +232,8 @@ internal class DockerProcesses(
         arguments: List<String>,
         mergeErrors: Boolean,
         name: String,
+        workingDir: Path?,
+        extraEnvironment: Map<String, String>,
     ): Process =
         try {
             ProcessBuilder(listOf(executable.toString()) + arguments)
@@ -223,7 +242,12 @@ internal class DockerProcesses(
                 .apply {
                     environment().clear()
                     environment().putAll(this@DockerProcesses.environment)
+                    environment().putAll(extraEnvironment)
+                    workingDir?.let { directory(it.toFile()) }
                 }.start()
+        } catch (e: IllegalArgumentException) {
+            // ProcessBuilder refuses environment names with '=' and values with NUL.
+            throw DockerException("Invalid environment for $executable: ${e.message}", cause = e)
         } catch (e: IOException) {
             log.log(System.Logger.Level.WARNING, "$name cannot start $executable: ${e.message}")
             throw DockerException("Cannot run $executable: ${e.message}", cause = e)
@@ -237,10 +261,17 @@ internal class DockerProcesses(
     }
 }
 
-/** Reads [input] to its end, keeping the first [ERROR_BYTES] in [target]. */
+/** [text] without its last, probably cut line if [capped]. */
+private fun wholeLines(
+    text: String,
+    capped: Boolean,
+): String = if (capped) text.substring(0, text.lastIndexOf('\n') + 1) else text
+
+/** Reads [input] to its end, keeping the first [limit] bytes in [target]. */
 private fun keep(
     input: InputStream,
     target: ByteArrayOutputStream,
+    limit: Int,
 ) {
     try {
         input.use {
@@ -250,7 +281,7 @@ private fun keep(
                 if (read < 0) break
                 synchronized(
                     target,
-                ) { target.write(buffer, 0, minOf(read, (ERROR_BYTES - target.size()).coerceAtLeast(0))) }
+                ) { target.write(buffer, 0, minOf(read, (limit - target.size()).coerceAtLeast(0))) }
             }
         }
     } catch (_: IOException) {

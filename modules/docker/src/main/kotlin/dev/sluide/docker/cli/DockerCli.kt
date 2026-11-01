@@ -10,6 +10,7 @@ import dev.sluide.docker.model.Network
 import dev.sluide.docker.model.ResourceKind
 import dev.sluide.docker.model.StatsSample
 import dev.sluide.docker.model.Volume
+import java.nio.file.Path
 
 /**
  * A failure of the docker (or podman) CLI: its standard error, trimmed, or a clear text if it printed none.
@@ -21,6 +22,18 @@ class DockerException(
     val exitCode: Int? = null,
     cause: Throwable? = null,
 ) : RuntimeException(message, cause)
+
+/**
+ * What `docker compose config --format json` printed.
+ *
+ * @property json standard output: the resolved project as JSON.
+ * @property warnings standard error of the successful run (compose's warnings, one per line; at most 64 KB, cut at
+ *   a line end).
+ */
+data class ComposeConfigOutput(
+    val json: String,
+    val warnings: String,
+)
 
 /**
  * The container engine as its CLI shows it (ADR 0117): Docker or Podman, whichever executable the settings name.
@@ -137,4 +150,18 @@ interface DockerCli {
         onSample: (StatsSample) -> Unit,
         onEnd: (Throwable?) -> Unit,
     ): AutoCloseable
+
+    /**
+     * Runs `docker compose <composeArgs> config --format json` in [workingDir] (the compose file's folder) and returns
+     * its output. [composeArgs] are the arguments after the executable, as [dev.sluide.docker.compose.ComposeCommands]
+     * `baseArgs` builds them (starting with `compose`); they are the caller's own flags, so they are not refused for
+     * starting with `-`, which is why the caller must put only validated values in (files as absolute paths, checked
+     * names). [environment] is laid over the resolved environment of the CLI (the Environment table's variables).
+     * Throws [DockerException] with the CLI's standard error when it exits non-zero (a broken compose file).
+     */
+    fun composeConfig(
+        workingDir: Path,
+        composeArgs: List<String>,
+        environment: Map<String, String>,
+    ): ComposeConfigOutput
 }

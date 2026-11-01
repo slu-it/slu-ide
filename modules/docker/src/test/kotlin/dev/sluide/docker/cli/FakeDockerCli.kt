@@ -11,6 +11,7 @@ import dev.sluide.docker.model.Network
 import dev.sluide.docker.model.ResourceKind
 import dev.sluide.docker.model.StatsSample
 import dev.sluide.docker.model.Volume
+import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
 
 /**
@@ -34,6 +35,12 @@ class FakeDockerCli : DockerCli {
 
     /** What [inspect] answers. */
     @Volatile var inspectJson: (ResourceKind, String) -> String = { _, id -> "{\n  \"Id\": \"$id\"\n}" }
+
+    /** What [composeConfig] answers. */
+    @Volatile var composeConfigOutput = ComposeConfigOutput("{}", "")
+
+    /** The arguments of every [composeConfig] call: the folder, the compose arguments and the environment. */
+    val composeConfigCalls: MutableList<Triple<Path, List<String>, Map<String, String>>> = CopyOnWriteArrayList()
 
     /** What [pull] reports as progress. */
     @Volatile var pullProgress: List<String> = listOf("Pulling", "Done")
@@ -159,6 +166,16 @@ class FakeDockerCli : DockerCli {
         name: String,
         driver: String?,
     ) = record("createNetwork $name driver=$driver")
+
+    override fun composeConfig(
+        workingDir: Path,
+        composeArgs: List<String>,
+        environment: Map<String, String>,
+    ): ComposeConfigOutput {
+        composeConfigCalls += Triple(workingDir, composeArgs, environment)
+        record("composeConfig ${composeArgs.joinToString(" ")}")
+        return composeConfigOutput
+    }
 
     override fun events(
         onEvent: (DockerEvent) -> Unit,

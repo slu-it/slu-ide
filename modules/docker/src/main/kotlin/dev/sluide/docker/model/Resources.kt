@@ -11,6 +11,9 @@ const val COMPOSE_SERVICE_LABEL = "com.docker.compose.service"
 /** The label Compose puts on its containers: the folder the project was started from. */
 const val COMPOSE_WORKING_DIR_LABEL = "com.docker.compose.project.working_dir"
 
+/** The label Compose puts on its containers: `True` for a one-off container (`compose run`), else `False`. */
+const val COMPOSE_ONEOFF_LABEL = "com.docker.compose.oneoff"
+
 /** The state of a container, normalised over Docker's and Podman's words for it. */
 enum class ContainerState {
     CREATED,
@@ -83,6 +86,9 @@ data class Container(
 
     /** Its Compose service, from its label. */
     val composeService: String? get() = labels[COMPOSE_SERVICE_LABEL]?.takeIf { it.isNotBlank() }
+
+    /** Whether it is a one-off container of `compose run`, not a replica of its service. */
+    val composeOneOff: Boolean get() = labels[COMPOSE_ONEOFF_LABEL]?.trim().equals("true", ignoreCase = true)
 
     /** The folder its Compose project was started from, from its label. */
     val composeWorkingDir: String? get() = labels[COMPOSE_WORKING_DIR_LABEL]?.takeIf { it.isNotBlank() }

@@ -1,5 +1,8 @@
 package dev.sluide.docker.cli
 
+import dev.sluide.docker.compose.ComposeCommands
+import dev.sluide.docker.compose.ComposeOptions
+import dev.sluide.docker.compose.parseComposeConfig
 import dev.sluide.docker.model.ContainerAction
 import dev.sluide.docker.model.DockerEvent
 import dev.sluide.docker.model.ResourceKind
@@ -83,6 +86,25 @@ class RealEngineSmokeTest {
         }
         assertTrue(cli.containers().none { it.name == name })
         assertEquals(emptyList(), ends, "a closed stream reports no end")
+    }
+
+    @Test
+    fun `compose config of the real CLI lists the services of every profile`(
+        @org.junit.jupiter.api.io.TempDir folder: Path,
+    ) {
+        val file = folder.resolve("compose.yaml")
+        Files.writeString(
+            file,
+            "name: sluide-smoke\nservices:\n  web:\n    image: nginx\n    environment:\n      - A=\${A}\n" +
+                "  tool:\n    image: busybox\n    profiles: [tools]\n",
+        )
+        val args = ComposeCommands.baseArgs(file, null, ComposeOptions(), allProfiles = true)
+
+        val config = parseComposeConfig(cli.composeConfig(folder, args, emptyMap()))
+
+        assertEquals("sluide-smoke", config.name)
+        assertEquals(listOf("tool", "web"), config.services.map { it.name })
+        assertEquals(setOf("A"), config.unresolvedVariables)
     }
 
     /**

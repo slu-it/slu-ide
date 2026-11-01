@@ -13,6 +13,7 @@ import dev.sluide.docker.model.StatsSample
 import dev.sluide.docker.model.Volume
 import tools.jackson.core.JacksonException
 import java.io.Reader
+import java.nio.file.Path
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
@@ -200,6 +201,24 @@ internal class ProcessDockerCli(
             },
             onEnd = onEnd,
         )
+
+    override fun composeConfig(
+        workingDir: Path,
+        composeArgs: List<String>,
+        environment: Map<String, String>,
+    ): ComposeConfigOutput {
+        var warnings = ""
+        val json =
+            processes.run(
+                composeArgs + listOf("config", "--format", "json"),
+                CommandKind.READ,
+                readTimeout,
+                workingDir = workingDir,
+                extraEnvironment = environment,
+                onErrors = { warnings = it },
+            )
+        return ComposeConfigOutput(json, warnings)
+    }
 
     private fun read(vararg arguments: String) = processes.run(arguments.toList(), CommandKind.READ, readTimeout)
 

@@ -7,6 +7,7 @@ internal fun container(
     project: String? = null,
     service: String? = null,
     workingDir: String? = null,
+    oneOff: Boolean = false,
     image: String = "bash:5.2",
     imageId: String? = null,
     state: ContainerState = ContainerState.RUNNING,
@@ -26,6 +27,7 @@ internal fun container(
                 project?.let { put(COMPOSE_PROJECT_LABEL, it) }
                 service?.let { put(COMPOSE_SERVICE_LABEL, it) }
                 workingDir?.let { put(COMPOSE_WORKING_DIR_LABEL, it) }
+                if (oneOff) put(COMPOSE_ONEOFF_LABEL, "True")
             },
         createdAt = null,
         volumes = volumes,

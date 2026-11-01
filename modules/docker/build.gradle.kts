@@ -31,6 +31,9 @@ dependencies {
     // (ProjectDataStore, ADR 0090).
     api(project(":modules:project-data"))
     implementation(libs.spring.context)
+    // Finds the line of each service in a Compose file from the YAML node marks (serviceLines), as the YAML preview
+    // reads YAML (ADR 0079).
+    implementation(libs.snakeyaml)
     // Reads the JSON the docker and podman CLIs print.
     implementation(libs.jackson.databind)
 

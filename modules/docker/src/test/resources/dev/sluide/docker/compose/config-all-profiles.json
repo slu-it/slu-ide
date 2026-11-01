@@ -1,0 +1,122 @@
+{
+  "name": "demo",
+  "networks": {
+    "default": {
+      "name": "demo_default",
+      "ipam": {}
+    }
+  },
+  "services": {
+    "app": {
+      "build": {
+        "context": "/project/app",
+        "dockerfile": "Dockerfile"
+      },
+      "command": null,
+      "depends_on": {
+        "db": {
+          "condition": "service_started",
+          "required": true
+        }
+      },
+      "entrypoint": null,
+      "networks": {
+        "default": null
+      }
+    },
+    "db": {
+      "command": null,
+      "entrypoint": null,
+      "image": "postgres:17",
+      "networks": {
+        "default": null
+      },
+      "ports": [
+        {
+          "mode": "ingress",
+          "target": 5432,
+          "protocol": "tcp"
+        }
+      ],
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "data",
+          "target": "/var/lib/postgresql/data",
+          "volume": {}
+        }
+      ]
+    },
+    "debug": {
+      "profiles": [
+        "debug",
+        "tools"
+      ],
+      "command": null,
+      "entrypoint": null,
+      "image": "busybox",
+      "networks": {
+        "default": null
+      }
+    },
+    "web": {
+      "command": null,
+      "depends_on": {
+        "db": {
+          "condition": "service_started",
+          "required": true
+        }
+      },
+      "entrypoint": null,
+      "environment": {
+        "GREETING": "",
+        "OTHER": "x"
+      },
+      "image": "nginx:1.27",
+      "networks": {
+        "default": null
+      },
+      "ports": [
+        {
+          "mode": "ingress",
+          "target": 80,
+          "published": "8080",
+          "protocol": "tcp"
+        },
+        {
+          "mode": "ingress",
+          "host_ip": "127.0.0.1",
+          "target": 443,
+          "published": "8443",
+          "protocol": "tcp"
+        },
+        {
+          "mode": "ingress",
+          "target": 53,
+          "published": "5353",
+          "protocol": "udp"
+        }
+      ],
+      "restart": "unless-stopped"
+    },
+    "worker": {
+      "profiles": [
+        "jobs"
+      ],
+      "command": null,
+      "entrypoint": null,
+      "image": "busybox",
+      "networks": {
+        "default": null
+      }
+    }
+  },
+  "volumes": {
+    "data": {
+      "name": "demo_data"
+    }
+  },
+  "x-common": {
+    "restart": "unless-stopped"
+  }
+}

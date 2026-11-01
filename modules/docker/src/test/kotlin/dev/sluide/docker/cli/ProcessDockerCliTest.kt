@@ -66,6 +66,13 @@ class ProcessDockerCliTest {
                       *many*) echo ${'$'}${'$'} > "${'$'}STUB/pid"; seq 1 5000; exec sleep 30 ;;
                       *) echo "2026-11-01T13:44:26Z out"; echo "2026-11-01T13:44:27Z err" >&2 ;;
                     esac ;;
+                  "compose "*)
+                    case "${'$'}*" in
+                      *manywarn*) echo "{}"; cat "${'$'}STUB/warnings.txt" >&2 ;;
+                      *broken*) echo "service \"web\" depends on undefined service \"nope\"" >&2; exit 1 ;;
+                      *) echo "{\"cwd\":\"${'$'}(pwd)\",\"var\":\"${'$'}SLUIDE_VAR\",\"keep\":\"${'$'}STUB\"}"
+                         echo "time=\"t\" level=warning msg=\"careful\"" >&2 ;;
+                    esac ;;
                   "network inspect") echo "slow" ; echo ${'$'}${'$'} > "${'$'}STUB/pid"; exec sleep 30 ;;
                   *) ;;
                 esac
@@ -108,6 +115,60 @@ class ProcessDockerCliTest {
             ),
             calls(),
         )
+    }
+
+    @Test
+    fun `compose config runs in the folder, adds the variables to the environment and returns both outputs`() {
+        val folder = dir.resolve("project").also { Files.createDirectories(it) }
+
+        val output =
+            cli().composeConfig(
+                folder,
+                listOf("compose", "-f", "/x/-weird.yaml", "--profile", "*"),
+                mapOf("SLUIDE_VAR" to "a b"),
+            )
+
+        assertEquals(
+            """{"cwd":"${folder.toRealPath()}","var":"a b","keep":"$dir"}""",
+            output.json.trim(),
+            "the resolved environment stays, the variable is added",
+        )
+        assertEquals("""time="t" level=warning msg="careful"""", output.warnings.trim())
+        assertEquals(listOf("compose -f /x/-weird.yaml --profile * config --format json"), calls())
+    }
+
+    private fun warningLines(count: Int) =
+        (1..count).joinToString("") { """time="t" level=warning msg="The \"V$it\" variable is not set."""" + "\n" }
+
+    @Test
+    fun `compose config keeps long warning output whole, up to a larger cap cut at a line end`() {
+        dir.resolve("warnings.txt").writeText(warningLines(1000))
+        val all = cli().composeConfig(dir, listOf("compose", "-f", "/x/manywarn.yaml"), emptyMap()).warnings
+        assertEquals(1000, all.lines().count { it.isNotEmpty() }, "far more than the 4 KB of other commands")
+
+        dir.resolve("warnings.txt").writeText(warningLines(5000))
+        val capped = cli().composeConfig(dir, listOf("compose", "-f", "/x/manywarn.yaml"), emptyMap()).warnings
+
+        assertTrue(capped.length in 32_000..CAPTURED_ERROR_BYTES, "capped at ${capped.length}")
+        assertTrue(capped.endsWith("\n"), "the cut line is dropped")
+        assertTrue(capped.lines().filter { it.isNotEmpty() }.all { it.endsWith("variable is not set.\"") })
+    }
+
+    @Test
+    fun `compose config with an environment a process cannot get fails as a DockerException`() {
+        assertFailsWith<DockerException> { cli().composeConfig(dir, listOf("compose"), mapOf("A=B" to "x")) }
+        assertFailsWith<DockerException> { cli().composeConfig(dir, listOf("compose"), mapOf("A" to "x\u0000y")) }
+    }
+
+    @Test
+    fun `compose config failing throws the CLI's error`() {
+        val failure =
+            assertFailsWith<DockerException> {
+                cli().composeConfig(dir, listOf("compose", "-f", "/x/broken.yaml"), emptyMap())
+            }
+
+        assertEquals("service \"web\" depends on undefined service \"nope\"", failure.message)
+        assertEquals(1, failure.exitCode)
     }
 
     @Test
