@@ -30,6 +30,7 @@ class SlotViewUiTest {
     fun start(stage: Stage) {
         text = SlotView(state.contrastText, state)
         background = SlotView(state.contrastBackground, state, tab = ColoringState.VISION)
+        alignLabels(text, background)
         stage.scene = Scene(VBox(text.node, background.node), 340.0, 120.0)
         stage.show()
     }
@@ -84,6 +85,19 @@ class SlotViewUiTest {
 
         assertEquals(pref, width, 0.5)
         assertTrue(width < 340.0, "narrower than the row")
+    }
+
+    @Test
+    fun `aligned labels keep the fields in line, also after the font grows`(robot: FxRobot) {
+        val (textX, backgroundX) = slotFieldXs(robot, text.node.parent)
+        assertEquals(textX, backgroundX, 0.5)
+
+        robot.interact { text.node.parent.style = "-fx-font-size: 24px;" }
+
+        val (largerText, largerBackground) = slotFieldXs(robot, text.node.parent)
+        assertEquals(largerText, largerBackground, 0.5)
+        assertTrue(largerBackground > backgroundX, "the labels grew with the font")
+        assertEquals(emptyList(), narrowOffenders(robot, text.node.parent, 340.0).filter { "Label" in it })
     }
 
     @Test

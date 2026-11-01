@@ -1,5 +1,7 @@
 package dev.sluide.coloring.ui
 
+import javafx.beans.Observable
+import javafx.beans.binding.Bindings
 import javafx.css.PseudoClass
 import javafx.geometry.Pos
 import javafx.scene.Node
@@ -9,6 +11,7 @@ import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Region
+import javafx.scene.text.Text
 import javafx.util.Subscription
 
 /**
@@ -36,8 +39,11 @@ internal class SlotView(
             field.requestFocus()
         }
 
+    /** The slot's name in front of the swatch; [alignLabels] gives the labels of slots shown together one width. */
+    internal val label = Label(slot.label)
+
     val node: Node =
-        HBox(6.0, Label(slot.label), swatch, field).apply {
+        HBox(6.0, label, swatch, field).apply {
             styleClass += "color-slot"
             alignment = Pos.CENTER_LEFT
             // The ring of the slot being edited hugs the slot, also where its row is wider.
@@ -71,3 +77,27 @@ internal class SlotView(
         val EDITING: PseudoClass = PseudoClass.getPseudoClass("editing")
     }
 }
+
+/**
+ * Gives the labels of [slots] the width of the widest, so that their swatches and fields line up when the slots are
+ * shown one below the other. Each slot stays its own row, so the ring of the slot being edited keeps hugging it. The
+ * width follows the labels' texts and fonts.
+ */
+internal fun alignLabels(vararg slots: SlotView) {
+    val labels = slots.map { it.label }
+    val width =
+        Bindings.createDoubleBinding(
+            { labels.maxOf { textWidth(it) } },
+            *labels
+                .flatMap { listOf<Observable>(it.textProperty(), it.fontProperty(), it.paddingProperty()) }
+                .toTypedArray(),
+        )
+    labels.forEach {
+        it.minWidthProperty().bind(width)
+        it.prefWidthProperty().bind(width)
+    }
+}
+
+private fun textWidth(label: Label): Double =
+    Math.ceil(Text(label.text).apply { font = label.font }.layoutBounds.width) +
+        label.padding.left + label.padding.right

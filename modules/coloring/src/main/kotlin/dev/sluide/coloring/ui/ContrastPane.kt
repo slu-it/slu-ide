@@ -87,6 +87,7 @@ internal class ContrastPane(
         }
 
     init {
+        alignLabels(textSlot, backgroundSlot)
         apcaLabel.tooltip =
             Tooltip(
                 "APCA lightness contrast, rough guidance: Lc 75 or more for body text, 60 for content text, " +

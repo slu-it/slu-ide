@@ -58,6 +58,7 @@ internal class VisionPane(
     val node: Node
 
     init {
+        alignLabels(textSlot, backgroundSlot)
         val initial = visionRows(state.contrastText.color.value, state.contrastBackground.color.value)
         views = initial.map(::build)
         val intro =

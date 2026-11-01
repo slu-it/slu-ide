@@ -70,6 +70,13 @@ class VisionPaneUiTest {
     }
 
     @Test
+    fun `the fields of Text and Background line up`(robot: FxRobot) {
+        val (text, background) = slotFieldXs(robot, pane.node)
+
+        assertEquals(text, background, 0.5)
+    }
+
+    @Test
     fun `the slot views select the shared Contrast slots for the Vision tab`(robot: FxRobot) {
         robot.interact { click(swatches(robot)[1]) }
 

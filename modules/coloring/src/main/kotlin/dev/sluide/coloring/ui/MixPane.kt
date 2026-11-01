@@ -100,6 +100,7 @@ internal class MixPane(
         ).apply { padding = Insets(12.0) }
 
     init {
+        alignLabels(flatColorSlot, flatBackgroundSlot)
         val refresh = Runnable { recompute() }
         subscriptions +=
             listOf(state.mix1, state.mix2, state.flatColor, state.flatBackground).map { it.color.subscribe(refresh) } +

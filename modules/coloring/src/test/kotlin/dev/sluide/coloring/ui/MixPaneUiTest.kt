@@ -52,6 +52,13 @@ class MixPaneUiTest {
     }
 
     @Test
+    fun `the fields of Color and Background line up`(robot: FxRobot) {
+        val (_, _, color, background) = slotFieldXs(robot, pane.node)
+
+        assertEquals(color, background, 0.5)
+    }
+
+    @Test
     fun `typing a second color changes the mix`(robot: FxRobot) {
         robot.interact { pane.secondText.text = "#000000" }
 
