@@ -82,6 +82,7 @@ internal class ComposePaneModel(
     private val servicesWrapper = ReadOnlyObjectWrapper<List<ServiceState>>(emptyList())
     private val enabledWrapper = ReadOnlyBooleanWrapper(false)
     private val overrideWrapper = ReadOnlyObjectWrapper<Path?>(overrideFor(file()))
+    private val engineWrapper = ReadOnlyObjectWrapper(session.state.get())
     private val defaultEnvWrapper = ReadOnlyBooleanWrapper(defaultEnvFile(file()) != null)
 
     /** What is stored for the file; changed with [update]. */
@@ -89,8 +90,11 @@ internal class ComposePaneModel(
 
     val config: ReadOnlyObjectProperty<ConfigLoad> = configWrapper.readOnlyProperty
 
-    /** The engine's state, as the session has it. */
-    val engine: ReadOnlyObjectProperty<EngineState> get() = session.state
+    /**
+     * The engine's state, as the session has it, until [close]: the window's session outlives the view, so the pane
+     * follows this copy and nothing of a closed view stays reachable from the session.
+     */
+    val engine: ReadOnlyObjectProperty<EngineState> = engineWrapper.readOnlyProperty
 
     /** The service names in the order of the file, set by the view from the source ([serviceLines]). */
     val order = SimpleObjectProperty<List<String>>(emptyList())
@@ -425,6 +429,7 @@ internal class ComposePaneModel(
 
     private fun engineChanged(state: EngineState) {
         if (closed) return
+        engineWrapper.set(state)
         updateEnabled()
         when (state) {
             is EngineState.Available -> {

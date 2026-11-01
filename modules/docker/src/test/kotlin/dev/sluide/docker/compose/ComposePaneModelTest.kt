@@ -191,6 +191,23 @@ class ComposePaneModelTest {
     }
 
     @Test
+    fun `a closed model no longer follows the window's engine`() {
+        cli.failing = { if (it == "engine") DockerException("Cannot connect to the Docker daemon") else null }
+        val session = session()
+        // Another view keeps the session retrying.
+        opened += session.subscribe()
+        val model = model(session)
+        assertIs<EngineState.Unavailable>(model.engine.get())
+
+        model.close()
+        cli.failing = { null }
+        sessionScheduler.advance(2_000.milliseconds)
+
+        assertIs<EngineState.Available>(session.state.get())
+        assertIs<EngineState.Unavailable>(model.engine.get())
+    }
+
+    @Test
     fun `the buttons start their commands with the options and the environment`() {
         val model = loaded()
         model.update {
