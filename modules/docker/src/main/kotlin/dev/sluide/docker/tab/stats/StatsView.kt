@@ -35,7 +35,7 @@ private sealed interface StatsEvent {
  *
  * A container that does not run shows "Not running" and opens no stream; the stream starts when it runs. When it
  * stops, the last values stay, greyed, under the note. [handOff] brings samples to the FX thread, [nanoTime] stamps
- * their arrival (the rates are counted over the time between samples).
+ * their arrival (the rates are averaged over the last 60 samples, see [StatsHistory]).
  */
 internal class StatsView(
     private val session: DockerSession,
