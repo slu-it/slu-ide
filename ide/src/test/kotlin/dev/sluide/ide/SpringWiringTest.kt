@@ -10,6 +10,7 @@ import dev.sluide.converting.Converting
 import dev.sluide.converting.FormatFamily
 import dev.sluide.docker.Docker
 import dev.sluide.docker.DockerSession
+import dev.sluide.docker.compose.ComposeFileViewer
 import dev.sluide.docker.settings.DockerSettings
 import dev.sluide.docker.settings.DockerSettingsPage
 import dev.sluide.dockersandbox.DockerSandbox
@@ -46,6 +47,7 @@ import dev.sluide.httpclient.HttpEnvironmentFileViewer
 import dev.sluide.httpclient.HttpFileViewer
 import dev.sluide.previews.json.JsonFileViewer
 import dev.sluide.previews.markdown.MarkdownFileViewer
+import dev.sluide.previews.yaml.YamlFileViewer
 import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.projects.LegacyRecentProjects
 import dev.sluide.projects.ProjectPicker
@@ -154,6 +156,7 @@ class SpringWiringTest {
                         SavedColors::class.java,
                         DockerSettings::class.java,
                         DockerSettingsPage::class.java,
+                        ComposeFileViewer::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")
@@ -221,6 +224,13 @@ class SpringWiringTest {
                 assertIs<HttpEnvironmentFileViewer>(fileViewers.viewerFor(dir.resolve("http-client.env.json")))
                 assertIs<HttpEnvironmentFileViewer>(fileViewers.viewerFor(dir.resolve("http-client.private.env.json")))
                 assertIs<JsonFileViewer>(fileViewers.viewerFor(dir.resolve("other.json")))
+                // Compose files get the Compose view by name and name pattern, other YAML files the YAML preview
+                // (ADR 0119).
+                val compose =
+                    listOf("compose.yaml", "docker-compose.yml", "docker-compose.prod.yml", "compose.override.yaml")
+                for (name in compose + "other.yml") dir.resolve(name).writeText("services: {}\n")
+                for (name in compose) assertIs<ComposeFileViewer>(fileViewers.viewerFor(dir.resolve(name)), name)
+                assertIs<YamlFileViewer>(fileViewers.viewerFor(dir.resolve("other.yml")))
             }
     }
 }

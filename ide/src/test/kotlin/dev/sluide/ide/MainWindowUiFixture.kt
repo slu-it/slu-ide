@@ -223,6 +223,9 @@ abstract class MainWindowUiFixture {
     /** The Docker sessions of the windows created by [mainWindow]; closed after the test. */
     internal val dockerSessions = mutableListOf<DockerSession>()
 
+    /** The Docker tools of the windows created by [mainWindow]. */
+    internal val dockers = mutableListOf<Docker>()
+
     /**
      * The Docker settings of the windows: an executable that does not exist, so that a Docker tab shows its note and
      * never reaches an engine of the machine.
@@ -308,7 +311,7 @@ abstract class MainWindowUiFixture {
             Codecs(),
             Converting(convertingFamilies, fontSettings).also(convertings::add),
             GitFileComparison(git),
-            Docker(dockerSession, terminals, tasks),
+            Docker(dockerSession, terminals, tasks).also(dockers::add),
             dockerSession,
         )
     }

@@ -3,6 +3,8 @@ package dev.sluide.ide
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.backgroundtasks.BackgroundTasksView
 import dev.sluide.commandruns.CommandRunSession
+import dev.sluide.docker.Docker
+import dev.sluide.docker.DockerSession
 import dev.sluide.fileexplorer.ExplorerBar
 import dev.sluide.fileexplorer.ExplorerClipboard
 import dev.sluide.fileexplorer.FileExplorerView
@@ -71,6 +73,9 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         assertSame(backgroundTasks.single(), editorArea.windowServices.get(BackgroundTasks::class.java))
         assertIs<WindowWorkflowSources>(editorArea.windowServices.get(RemoteSources::class.java))
         assertIs<IgnoreRuleEffects>(editorArea.windowServices.get(IgnoreRuleEffects::class.java))
+        // Compose views reach the engine and the Docker tab through these (ADR 0117, ADR 0119).
+        assertSame(dockerSessions.single(), editorArea.windowServices.get(DockerSession::class.java))
+        assertSame(dockers.single(), editorArea.windowServices.get(Docker::class.java))
 
         val opened = mutableListOf<URI>()
         mainWindow.openWebPage = { opened += it }

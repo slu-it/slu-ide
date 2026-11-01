@@ -112,7 +112,7 @@ class MainWindow(
     private val codecs: Codecs,
     private val converting: Converting,
     gitFileComparison: GitFileComparison,
-    docker: Docker,
+    private val docker: Docker,
     private val dockerSession: DockerSession,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
@@ -342,8 +342,10 @@ class MainWindow(
         // Views that run commands (shell scripts) run them in the window's terminals and list them among its
         // background tasks (ADR 0088, ADR 0089).
         editorArea.windowServices.register(CommandRunSession::class.java, commandRuns)
-        // Views of Compose files and Dockerfiles share the window's engine state, lists and events stream (ADR 0117).
+        // Views of Compose files and Dockerfiles share the window's engine state, lists and events stream (ADR 0117);
+        // Compose views show a service's logs in the Docker tab and open shells in its containers (ADR 0119).
         editorArea.windowServices.register(DockerSession::class.java, dockerSession)
+        editorArea.windowServices.register(Docker::class.java, docker)
         // Code editors show the colors of style, markup and script files as swatches and open them in Coloring (ADR 0108,
         // ADR 0109), open a selection in Codecs (ADR 0112) and
         // a selection or a whole file in Converting (ADR 0115).
