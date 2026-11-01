@@ -1,0 +1,133 @@
+/*
+ * The view of compose files (ComposeView, ADR 0119): the mode buttons above the source and the Compose pane, whose
+ * Output is the RunPane styled by run-pane.css of the command-runs module. Colours are Modena's looked-up ones apart
+ * from the gutter's ▶, the state dots, the warning and the error lines, which have dark rules with single-class
+ * selectors (ADR 0009).
+ */
+.compose-view-toolbar, .compose-toolbar {
+    -fx-padding: 2 6 2 6;
+    -fx-spacing: 4;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
+}
+
+.compose-view-toolbar .toggle-button {
+    -fx-font-size: 0.9em;
+    -fx-padding: 1 8 1 8;
+}
+
+.compose-toolbar .button, .compose-toolbar .split-menu-button, .compose-service-action {
+    -fx-font-size: 0.9em;
+}
+
+.compose-view .split-pane {
+    -fx-padding: 0;
+    -fx-background-insets: 0;
+}
+
+.compose-options, .compose-env-header, .compose-variable-row, .compose-variables-header {
+    -fx-padding: 2 6 2 6;
+    -fx-spacing: 6;
+}
+
+.compose-note, .compose-override-note, .compose-services-note {
+    -fx-padding: 2 8 2 8;
+    -fx-text-fill: derive(-fx-text-base-color, 35%);
+}
+
+.compose-services-box {
+    -fx-padding: 2 0 2 0;
+}
+
+.compose-service-row {
+    -fx-padding: 2 6 2 8;
+    -fx-spacing: 6;
+}
+
+.compose-service-name {
+    -fx-font-weight: bold;
+}
+
+.compose-service-summary, .compose-service-ports {
+    -fx-text-fill: derive(-fx-text-base-color, 25%);
+}
+
+.compose-service-profiles, .compose-column-label {
+    -fx-text-fill: derive(-fx-text-base-color, 50%);
+}
+
+.compose-service-action {
+    -fx-padding: 1 6 1 6;
+}
+
+.compose-environment-box {
+    -fx-spacing: 2;
+}
+
+.compose-invalid {
+    -fx-border-color: #d32f2f;
+    -fx-border-width: 1;
+}
+
+.compose-run-icon {
+    -fx-min-width: 14;
+    -fx-min-height: 14;
+    -fx-max-width: 14;
+    -fx-max-height: 14;
+}
+
+.compose-run-triangle {
+    -fx-fill: #2e8b57;
+}
+
+.compose-unresolved {
+    -fx-padding: 2 6 2 6;
+    -fx-text-fill: #9a6200;
+}
+
+.compose-error {
+    -fx-padding: 2 8 2 8;
+    -fx-text-fill: #c62828;
+}
+
+.docker-state-dot {
+    -fx-min-width: 8;
+    -fx-min-height: 8;
+    -fx-max-width: 8;
+    -fx-max-height: 8;
+    -fx-background-radius: 4;
+}
+
+.docker-state-running {
+    -fx-background-color: #2e9d48;
+}
+
+.docker-state-paused {
+    -fx-background-color: #d39a12;
+}
+
+.docker-state-restarting {
+    -fx-background-color: #2f7fd1;
+}
+
+.docker-state-stopped {
+    -fx-background-color: #9a9a9a;
+}
+
+@media (prefers-color-scheme: dark) {
+    .compose-run-triangle {
+        -fx-fill: #5cc08a;
+    }
+
+    .compose-unresolved {
+        -fx-text-fill: #e0a040;
+    }
+
+    .compose-error {
+        -fx-text-fill: #ef6c6c;
+    }
+
+    .compose-invalid {
+        -fx-border-color: #ef6c6c;
+    }
+}
