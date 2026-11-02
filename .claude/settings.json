@@ -21,7 +21,11 @@
       "Bash(.claude/scripts/full-build.sh*)",
       "Bash(.claude/scripts/check-unused-imports.sh*)",
       "Bash(.claude/scripts/check-tests.sh*)",
-      "Bash(.claude/scripts/test-times.sh*)"
+      "Bash(.claude/scripts/test-times.sh*)",
+      "Bash(.claude/scripts/verify.sh*)",
+      "Bash(.claude/scripts/related-tests.sh*)",
+      "Bash(.claude/scripts/worktree-check.sh*)",
+      "Bash(.claude/scripts/merge-package.sh*)"
     ]
   },
   "hooks": {
