@@ -21,8 +21,19 @@ internal class FakeCursor(
     override var reExecuted = false
     override var closed = false
     val sizes = mutableListOf<Int>()
+    val derived = mutableListOf<FakeCursor>()
+    val lastCaps = mutableListOf<Int>()
+
+    /** Pages are not answered until the test completes the future (they are queued here, with their index). */
+    var manual = false
+    val pending = mutableListOf<Pair<Int, CompletableFuture<Page>>>()
+
+    /** Pages fail with this. */
+    var failure: Throwable? = null
 
     fun firstPage(): Page = pageAt(0)
+
+    fun pageOf(index: Int): Page = pageAt(index)
 
     private fun pageAt(index: Int): Page {
         val from = index * pageSize
@@ -32,16 +43,24 @@ internal class FakeCursor(
 
     override fun page(index: Int): CompletableFuture<Page> {
         asked += index
+        failure?.let { return CompletableFuture.failedFuture(it) }
+        if (manual) return CompletableFuture<Page>().also { pending += index to it }
         return CompletableFuture.completedFuture(pageAt(index))
     }
 
-    override fun lastPage(cap: Int): CompletableFuture<Page> = page((rows.size - 1) / pageSize)
+    override fun lastPage(cap: Int): CompletableFuture<Page> {
+        lastCaps += cap
+        return page((rows.size - 1) / pageSize)
+    }
 
     override fun fetchAll(cap: Int): CompletableFuture<List<List<Any?>>> = CompletableFuture.completedFuture(rows)
 
     override fun withPageSize(size: Int): RowCursor {
         sizes += size
-        return FakeCursor(columns, rows, size)
+        return FakeCursor(columns, rows, size).also {
+            it.failure = failure
+            derived += it
+        }
     }
 
     override fun close() {
@@ -56,11 +75,16 @@ internal class ExecutingSession(
 ) : FakeSession(config) {
     val executed = mutableListOf<Pair<String, Int>>()
 
+    /** Statements are not answered until the test completes the future (queued here). */
+    var defer = false
+    val deferred = mutableListOf<CompletableFuture<StatementOutcome>>()
+
     override fun execute(
         sql: String,
         pageSize: Int,
     ): CompletableFuture<StatementOutcome> {
         executed += sql to pageSize
+        if (defer) return CompletableFuture<StatementOutcome>().also { deferred += it }
         return CompletableFuture.completedFuture(answer(sql))
     }
 }

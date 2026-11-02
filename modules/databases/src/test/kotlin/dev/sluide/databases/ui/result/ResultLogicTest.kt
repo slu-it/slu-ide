@@ -52,6 +52,16 @@ class ResultLogicTest {
     }
 
     @Test
+    fun `sortOf reads exactly the header-click forms`() {
+        val cols = listOf(column("id"), column("name"))
+        val kind = DatabaseKind.POSTGRESQL
+        assertEquals(1 to false, ResultTabsLogic.sortOf(kind, " \"name\" DESC ", cols))
+        assertEquals(0 to true, ResultTabsLogic.sortOf(kind, ResultTabsLogic.nextOrderBy(kind, "", "id"), cols))
+        assertNull(ResultTabsLogic.sortOf(kind, "\"id\" ASC, \"name\"", cols))
+        assertNull(ResultTabsLogic.sortOf(kind, "", cols))
+    }
+
+    @Test
     fun `page size field`() {
         assertEquals(500, ResultTabsLogic.parsePageSize(" ", 500))
         assertEquals(100, ResultTabsLogic.parsePageSize("100", 500))
@@ -102,6 +112,8 @@ class ResultLogicTest {
         assertEquals("a\tc\n1\t\n2\tz", GridText.copyText(cols, rows, cells, true))
         assertEquals("\"x\ty\"", GridText.copyText(cols, rows, listOf(0 to 1), false))
         assertEquals("", GridText.copyText(cols, rows, emptyList(), true))
+        // a moved column: c is shown before a
+        assertEquals("c\ta\n\t1\nz\t2", GridText.copyText(cols, rows, cells, true, listOf(2, 1, 0)))
     }
 
     @Test

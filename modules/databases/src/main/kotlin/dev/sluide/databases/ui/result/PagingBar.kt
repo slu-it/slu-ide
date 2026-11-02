@@ -13,6 +13,11 @@ import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
 import org.kordamp.ikonli.javafx.FontIcon
 
+private const val RELOAD_TIP = "Reload"
+
+/** Why Reload is off in a console tab whose statement is not a plain query. */
+internal const val RELOAD_OFF_TIP = "Reload is off for statements that change data"
+
 /** What the buttons of the [PagingBar] do. */
 internal class PagingActions(
     val first: () -> Unit,
@@ -78,12 +83,15 @@ internal class PagingBar(
         busy: Boolean,
         status: String,
         error: Boolean,
+        reloadAllowed: Boolean = true,
     ) {
+        pageField.isDisable = busy
         first.isDisable = busy || state?.canFirst != true
         previous.isDisable = busy || state?.canPrevious != true
         next.isDisable = busy || state?.canNext != true
         last.isDisable = busy || state?.canLast != true
-        reload.isDisable = busy
+        reload.isDisable = busy || !reloadAllowed
+        reload.tooltip.text = if (reloadAllowed) RELOAD_TIP else RELOAD_OFF_TIP
         label.text = state?.label ?: ""
         this.status.text = status
         this.status.styleClass.remove("result-error")

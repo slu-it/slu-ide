@@ -18,6 +18,7 @@ import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
 import javafx.scene.input.KeyEvent
+import java.util.IdentityHashMap
 
 private const val SAMPLE_ROWS = 50
 
@@ -37,7 +38,8 @@ internal class ResultGrid(
 
     private var columns: List<ColumnInfo> = emptyList()
     private var firstRow = 0
-    private var dataColumns: List<TableColumn<List<Any?>, Any?>> = emptyList()
+    private val dataIndex = IdentityHashMap<TableColumn<*, *>, Int>()
+    private var numbersColumn: TableColumn<List<Any?>, Any?>? = null
     private var headers: List<Label> = emptyList()
     private var sortColumn = -1
     private var ascending = true
@@ -72,10 +74,11 @@ internal class ResultGrid(
     ) {
         columns = newColumns
         sortColumn = -1
+        dataIndex.clear()
         val numbers = TableColumn<List<Any?>, Any?>("#")
         numbers.isSortable = false
         numbers.isReorderable = false
-        numbers.prefWidth = GridText.rowNumberWidth(100_000)
+        numbersColumn = numbers
         numbers.setCellValueFactory { SimpleObjectProperty(it.value) }
         numbers.setCellFactory { RowNumberCell() }
         val built = mutableListOf<TableColumn<List<Any?>, Any?>>()
@@ -85,26 +88,28 @@ internal class ResultGrid(
             column.isSortable = false
             column.setCellValueFactory { SimpleObjectProperty(it.value[i]) }
             column.setCellFactory { ValueCell() }
+            dataIndex[column] = i
             val texts = sample.rows.take(SAMPLE_ROWS).map { CellFormat.display(it[i]) }
             column.prefWidth = GridText.columnWidth(info.label, texts)
             val header = Label(info.label)
             header.tooltip = Tooltip(info.typeName)
             header.prefWidthProperty().bind(column.widthProperty().subtract(16))
-            header.setOnMouseClicked { headerClicked(i) }
+            header.setOnMouseClicked { if (it.isStillSincePress) headerClicked(i) }
             column.graphic = header
             labels += header
             built += column
         }
         headers = labels
-        dataColumns = built
         table.columns.setAll(listOf(numbers) + built)
+        markSort()
         showPage(sample)
     }
 
     fun showPage(page: Page) {
         firstRow = page.firstRow
-        sortColumn = -1
+        if (onServerSort == null) sortColumn = -1
         markSort()
+        numbersColumn?.prefWidth = GridText.rowNumberWidth(page.firstRow + page.rows.size)
         replaceRows(page.rows)
         table.scrollTo(0)
         table.refresh()
@@ -119,12 +124,20 @@ internal class ResultGrid(
     private fun headerClicked(index: Int) {
         val server = onServerSort
         if (server != null) {
+            // The view sets the ORDER BY and, once the data is loaded, the arrow ([setServerSort]).
             server(columns[index])
             return
         }
         ascending = if (sortColumn == index) !ascending else true
         sortColumn = index
         replaceRows(table.items.sortedWith(ClientSort.comparator(index, ascending)))
+        markSort()
+    }
+
+    /** The arrow of a data tab: the column the ORDER BY sorts by, if it is exactly one column's sort (null: none). */
+    fun setServerSort(sort: Pair<Int, Boolean>?) {
+        sortColumn = sort?.first ?: -1
+        ascending = sort?.second ?: true
         markSort()
     }
 
@@ -144,16 +157,19 @@ internal class ResultGrid(
     /** The selected cells as (row, data column) pairs; the row-number column is left out. */
     fun selectedCells(): List<Pair<Int, Int>> =
         table.selectionModel.selectedCells.mapNotNull { pos ->
-            val c = dataColumns.indexOfFirst { it === pos.tableColumn }
-            if (c < 0) null else pos.row to c
+            val c = dataIndex[pos.tableColumn]
+            if (c == null) null else pos.row to c
         }
 
     /** The selected cells as TSV (see [GridText.copyText]). */
-    fun copyText(withHeader: Boolean): String = GridText.copyText(columns, table.items, selectedCells(), withHeader)
+    fun copyText(withHeader: Boolean): String {
+        val visible = table.columns.mapNotNull { dataIndex[it] }
+        return GridText.copyText(columns, table.items, selectedCells(), withHeader, visible)
+    }
 
     fun copy(withHeader: Boolean) {
         val text = copyText(withHeader)
-        if (text.isNotEmpty() || withHeader) clipboard(text)
+        if (text.isNotEmpty()) clipboard(text)
     }
 
     private inner class RowNumberCell : TableCell<List<Any?>, Any?>() {

@@ -54,6 +54,20 @@ internal object ResultTabsLogic {
         return if (current.trim() == ascending) TableDataQuery.orderBy(kind, column, false) else ascending
     }
 
+    /** The column (index, ascending) the text is exactly the [nextOrderBy] form of, else null. */
+    fun sortOf(
+        kind: DatabaseKind,
+        orderBy: String,
+        columns: List<ColumnInfo>,
+    ): Pair<Int, Boolean>? {
+        val text = orderBy.trim()
+        for ((i, column) in columns.withIndex()) {
+            if (text == TableDataQuery.orderBy(kind, column.name, true)) return i to true
+            if (text == TableDataQuery.orderBy(kind, column.name, false)) return i to false
+        }
+        return null
+    }
+
     /** The page size typed in the field: blank = [default]; a number is limited to 10..10000; else null (invalid). */
     fun parsePageSize(
         text: String,

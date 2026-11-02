@@ -224,6 +224,7 @@ File does not react to it while a terminal has the focus.
 | Shortcut+Alt+E in a console | Query history of the connection; Enter inserts the entry, Escape closes |
 | Ctrl+Space in a console | Completion (also opens by itself after `.` or two letters); Up / Down choose, Enter or Tab insert, Escape closes |
 | Shortcut+C in a result grid | Copy the selected cells as tab-separated text |
+| Shortcut+C in the Output list | Copy the selected lines |
 | Enter or F2 in an editable result grid | Edit the cell; Enter keeps the value, Escape drops it |
 | Shift+Enter in a result grid | Open the cell in the value viewer |
 | Shortcut+Enter in an editable result grid | Submit the edits |

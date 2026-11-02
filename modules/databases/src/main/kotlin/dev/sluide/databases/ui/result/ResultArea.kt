@@ -116,14 +116,17 @@ class ResultArea(
     }
 
     private fun closeOthers(keep: ResultTab) {
-        for (other in resultTabs().filter { it !== keep }) {
+        for (other in resultTabs().filter { it !== keep && !it.pinned }) {
             other.view.close()
             tabs.tabs.remove(other)
         }
     }
 
-    /** Closes every tab's cursor (console closed or disconnected). */
+    /**
+     * Closes every tab's cursor (console closed or disconnected). The tabs stay: the pages fetched are still viewable,
+     * and [show], [openData] and Reload work again after a reconnect.
+     */
     fun close() {
-        resultTabs().forEach { it.view.close() }
+        resultTabs().forEach { it.view.closeCursor() }
     }
 }

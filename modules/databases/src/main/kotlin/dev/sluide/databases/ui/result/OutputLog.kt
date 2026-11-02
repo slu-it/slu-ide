@@ -44,9 +44,9 @@ internal class OutputLog(
 
     fun copy() {
         val text =
-            list.selectionModel.selectedItems
-                .sortedBy { lines.indexOf(it) }
-                .joinToString("\n") { it.text }
+            list.selectionModel.selectedIndices
+                .sorted()
+                .joinToString("\n") { lines[it].text }
         if (text.isNotEmpty()) clipboard(text)
     }
 

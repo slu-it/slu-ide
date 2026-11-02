@@ -32,10 +32,12 @@ internal object GridText {
         rows: List<List<Any?>>,
         cells: List<Pair<Int, Int>>,
         withHeader: Boolean,
+        /** The data columns in the order they are shown (a moved column), default: by index. */
+        columnOrder: List<Int>? = null,
     ): String {
         if (cells.isEmpty()) return ""
         val rowIndexes = cells.map { it.first }.distinct().sorted()
-        val columnIndexes = cells.map { it.second }.distinct().sorted()
+        val columnIndexes = cells.map { it.second }.distinct().sortedBy { columnOrder?.indexOf(it) ?: it }
         val lines = mutableListOf<String>()
         if (withHeader) lines += columnIndexes.joinToString("\t") { field(columns[it].label) }
         for (r in rowIndexes) lines += columnIndexes.joinToString("\t") { field(CellFormat.full(rows[r][it])) }

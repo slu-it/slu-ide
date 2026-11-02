@@ -7,6 +7,7 @@ import dev.sluide.databases.session.ColumnInfo
 import dev.sluide.databases.session.Page
 import dev.sluide.databases.session.RowCursor
 import dev.sluide.databases.session.StatementOutcome
+import dev.sluide.databases.sql.SqlSplitter
 import dev.sluide.databases.ui.ConnectionEntry
 import javafx.geometry.Insets
 import javafx.geometry.Pos
@@ -51,7 +52,10 @@ internal class ResultView(
     private val whereField = TextField().apply { promptText = "WHERE" }
     private val orderByField = TextField().apply { promptText = "ORDER BY" }
     private val grid =
-        ResultGrid(host::copyToClipboard, onServerSort = dataRef?.let { ref -> { c -> sortOnServer(ref, c) } })
+        ResultGrid(
+            host::copyToClipboard,
+            onServerSort = if (dataRef == null) null else { column -> sortOnServer(dataRef, column) },
+        )
     private val bar =
         PagingBar(
             PagingActions(
@@ -64,6 +68,10 @@ internal class ResultView(
             ),
         )
 
+    /**
+     * Counts the contents and requests of this view: a page, reload or resize answer that finds a newer number was
+     * superseded (by a load, a close or another request) and is dropped; a superseded reload closes its cursor.
+     */
     private var generation = 0
     private var cursor: RowCursor? = null
     private var page: Page? = null
@@ -134,13 +142,19 @@ internal class ResultView(
         busy = false
         statusError = false
         onColumns(rows.columns)
+        bar.pageField.text = rows.cursor.pageSize.toString()
+        bar.pageField.promptText = host.pageSize().toString()
         grid.setColumns(rows.columns, rows.firstPage)
-        show(rows.firstPage)
+        if (dataRef != null) grid.setServerSort(ResultTabsLogic.sortOf(dataRef.kind, orderByField.text, rows.columns))
+        show(rows.firstPage, fill = false)
     }
 
-    private fun show(newPage: Page) {
+    private fun show(
+        newPage: Page,
+        fill: Boolean = true,
+    ) {
         page = newPage
-        grid.showPage(newPage)
+        if (fill) grid.showPage(newPage)
         busy = false
         statusError = false
         val c = cursor
@@ -157,8 +171,26 @@ internal class ResultView(
             } else {
                 PageState(c.pageSize, p.index, p.rows.size, p.last, c.knownRowCount, c.capped)
             }
-        bar.update(state, busy, status, statusError)
+        whereField.isDisable = busy
+        orderByField.isDisable = busy
+        bar.update(
+            state,
+            busy,
+            if (busy) "Loading…" else status,
+            statusError && !busy,
+            reloadAllowed(),
+        )
     }
+
+    /** A console tab does not run again what changes data; a data tab only ever runs its SELECT. */
+    private fun reloadAllowed(): Boolean =
+        dataRef != null ||
+            SqlSplitter.isQuery(
+                sql,
+                host.entry.config
+                    .get()
+                    .kind,
+            )
 
     private fun fail(
         message: String,
@@ -171,17 +203,33 @@ internal class ResultView(
         refreshBar()
     }
 
-    private fun fetch(future: CompletableFuture<Page>?) {
+    /** Shows the page [future] gives; [adopt] becomes the cursor only once it did (a new page size). */
+    private fun fetch(
+        future: CompletableFuture<Page>?,
+        adopt: RowCursor? = null,
+    ) {
         if (future == null || closed) return
-        val mine = generation
+        val mine = ++generation
         busy = true
         refreshBar()
         future.whenComplete { result, error ->
             host.fx {
                 if (mine != generation) return@fx
-                if (error != null) fail("Page failed: ${message(error)}") else show(result)
+                if (error != null) {
+                    fail("Page failed: ${message(error)}")
+                    showPageSize()
+                } else {
+                    if (adopt != null) cursor = adopt
+                    showPageSize()
+                    show(result)
+                }
             }
         }
+    }
+
+    /** The field shows the page size of the cursor in use. */
+    private fun showPageSize() {
+        cursor?.let { bar.pageField.text = it.pageSize.toString() }
     }
 
     private fun message(error: Throwable): String {
@@ -195,12 +243,13 @@ internal class ResultView(
         if (size == null) {
             status = "Page size must be a number"
             statusError = true
+            showPageSize()
             refreshBar()
             return
         }
         if (c == null) return
-        cursor = c.withPageSize(size)
-        fetch(cursor?.page(0))
+        val resized = c.withPageSize(size)
+        fetch(resized.page(0), adopt = resized)
     }
 
     private fun currentSql(): String =
@@ -255,7 +304,12 @@ internal class ResultView(
         }
     }
 
-    /** Closes the cursor; later answers are ignored. */
+    /** Closes the cursor (the pages fetched stay viewable); a later load or reload opens it again. */
+    fun closeCursor() {
+        cursor?.close()
+    }
+
+    /** The tab is gone: closes the cursor; later answers are ignored. */
     fun close() {
         closed = true
         generation++
