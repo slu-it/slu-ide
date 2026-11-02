@@ -50,6 +50,39 @@ class TreeSyncTest {
     }
 
     @Test
+    fun `inserting and removing edit the child list instead of replacing it`() {
+        sync.update(listOf(node("b"), node("c")))
+        val changes = mutableListOf<String>()
+        sync.root.children.addListener(
+            javafx.collections.ListChangeListener { c ->
+                while (c.next()) {
+                    changes +=
+                        if (c.wasReplaced()) {
+                            "replaced"
+                        } else if (c.wasAdded()) {
+                            "added"
+                        } else {
+                            "removed"
+                        }
+                }
+            },
+        )
+        sync.update(listOf(node("a"), node("b"), node("c")))
+        sync.update(listOf(node("a"), node("c")))
+        assertEquals(listOf("added", "removed"), changes)
+        assertEquals(listOf("a", "c"), values())
+    }
+
+    @Test
+    fun `a value the comparison calls the same is not replaced`() {
+        val lenient = TreeSync<String, String>(isSame = { _, _ -> true })
+        lenient.update(listOf(SyncNode("a", "1")))
+        lenient.update(listOf(SyncNode("a", "2")))
+        assertEquals("1", checkNotNull(lenient.itemOf("a")).value)
+        assertEquals("a", lenient.keyOf(checkNotNull(lenient.itemOf("a"))))
+    }
+
+    @Test
     fun `an item moves with its key when the order changes`() {
         sync.update(listOf(node("a"), node("b")))
         val b = checkNotNull(sync.itemOf("b"))

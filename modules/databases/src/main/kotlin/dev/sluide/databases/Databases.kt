@@ -107,9 +107,7 @@ class Databases internal constructor(
             // The consoles over their results (middle).
             workspace = PlaceholderPanes::workspace,
             // The object tree (right).
-            tree = { entry ->
-                ObjectTreeView(entry, model(), entry.metadata, { ext, text -> openScratch(ext, text) }).node
-            },
+            tree = { entry -> objectTree(entry).node },
         )
 
     // Copies of the settings that worker threads read per statement; updated on the FX thread.
@@ -170,6 +168,10 @@ class Databases internal constructor(
             model = it
             it.load(projectFolder.get())
         }
+
+    /** The object tree of [entry]; Show DDL opens its scratch through the current [openScratch], alerts sit on [window]. */
+    internal fun objectTree(entry: ConnectionEntry): ObjectTreeView =
+        ObjectTreeView(entry, model(), entry.metadata, { ext, text -> openScratch(ext, text) }, { window() })
 
     private fun owner(): Window? =
         window() ?: tab

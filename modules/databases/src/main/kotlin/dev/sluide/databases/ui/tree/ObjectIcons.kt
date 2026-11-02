@@ -1,11 +1,10 @@
 package dev.sluide.databases.ui.tree
 
 import dev.sluide.databases.meta.ObjectKind
-import org.kordamp.ikonli.javafx.FontIcon
 
-/** The Material Design 2 icon of each kind of tree node. */
+/** The Material Design 2 icon literal of each kind of tree node. */
 internal object ObjectIcons {
-    fun literal(kind: ObjectKind?): String =
+    fun literal(kind: ObjectKind): String =
         when (kind) {
             ObjectKind.SCHEMA -> "mdi2d-database-outline"
             ObjectKind.GROUP -> "mdi2f-folder-outline"
@@ -26,8 +25,5 @@ internal object ObjectIcons {
             ObjectKind.DOMAIN -> "mdi2s-shape-outline"
             ObjectKind.COMPOSITE_TYPE -> "mdi2c-cube-outline"
             ObjectKind.EVENT -> "mdi2c-calendar-clock"
-            null -> "mdi2c-circle-small"
         }
-
-    fun icon(kind: ObjectKind?): FontIcon = FontIcon(literal(kind)).apply { styleClass += "databases-tree-icon" }
 }

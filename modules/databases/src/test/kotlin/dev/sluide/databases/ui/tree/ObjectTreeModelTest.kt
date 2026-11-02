@@ -22,11 +22,11 @@ class ObjectTreeModelTest {
 
     @Test
     fun `schemas show a Loading row until loaded, then groups and objects with their keys`() {
-        val loading = ObjectTreeModel.nodes(Load.Loaded(listOf("public"))) { Load.Loading }
+        val loading = nodes(listOf("public")) { Load.Loading }
         assertEquals(listOf(LoadingRow), loading.single().children.map { it.value })
 
         val groups = listOf(DbObject(ObjectKind.GROUP, "public", "tables", children = listOf(table("id"))))
-        val loaded = ObjectTreeModel.nodes(Load.Loaded(listOf("public"))) { Load.Loaded(groups) }
+        val loaded = nodes(listOf("public"), expanded = { true }) { Load.Loaded(groups) }
         val tables = loaded.single().children.single()
         assertTrue(tables.expanded)
         val orders = tables.children.single()
@@ -38,8 +38,62 @@ class ObjectTreeModelTest {
     }
 
     @Test
+    fun `a table gets one placeholder child until its key is expanded`() {
+        val groups = listOf(DbObject(ObjectKind.GROUP, "public", "tables", children = listOf(table("id"), table())))
+        val collapsed =
+            nodes(listOf("public")) { Load.Loaded(groups) }
+                .single()
+                .children
+                .single()
+                .children
+        assertEquals(listOf<TreeRow>(LoadingRow), collapsed[0].children.map { it.value })
+        // No columns: no arrow.
+        assertEquals(emptyList(), collapsed[1].children)
+        val open = nodes(listOf("public"), expanded = { it.kind == ObjectKind.TABLE }) { Load.Loaded(groups) }
+        assertEquals(
+            "id",
+            (
+                open
+                    .single()
+                    .children
+                    .single()
+                    .children[0]
+                    .children
+                    .single()
+                    .value as ObjectRow
+            ).obj.name,
+        )
+    }
+
+    @Test
+    fun `a failed schema list keeps the last schemas and adds the error as a last row`() {
+        val kept = nodes(listOf("a", "b"), error = "down") { Load.Loading }
+        assertEquals(listOf("a", "b"), kept.take(2).map { (it.value as ObjectRow).obj.name })
+        assertEquals(ErrorRow("down"), kept.last().value)
+        assertEquals(3, kept.size)
+        assertEquals(listOf<TreeRow>(LoadingRow), nodes(null) { Load.Loading }.map { it.value })
+    }
+
+    @Test
+    fun `rows are the same when their objects are equal, objects with children by identity`() {
+        val a = ObjectRow(table("id"))
+        val equalCopy = ObjectRow(table("id"))
+        assertFalse(ObjectTreeModel.sameRow(a, equalCopy))
+        assertTrue(ObjectTreeModel.sameRow(a, a))
+        assertTrue(ObjectTreeModel.sameRow(ObjectRow(column("id")), ObjectRow(column("id"))))
+        assertFalse(ObjectTreeModel.sameRow(ObjectRow(column("id")), ObjectRow(column("x"))))
+    }
+
+    private fun nodes(
+        names: List<String>?,
+        error: String? = null,
+        expanded: (NodeKey) -> Boolean = { false },
+        load: (String) -> Load<List<DbObject>>,
+    ) = ObjectTreeModel.nodes(names, error, load, expanded)
+
+    @Test
     fun `failures show one error row and overloads get different keys`() {
-        val failed = ObjectTreeModel.nodes(Load.Loaded(listOf("public"))) { Load.Failed("nope") }
+        val failed = nodes(listOf("public")) { Load.Failed("nope") }
         assertEquals(
             ErrorRow("nope"),
             failed
@@ -48,14 +102,14 @@ class ObjectTreeModelTest {
                 .single()
                 .value,
         )
-        assertEquals(ErrorRow("down"), ObjectTreeModel.nodes(Load.Failed("down")) { Load.Loading }.single().value)
+        assertEquals(ErrorRow("down"), nodes(null, error = "down") { Load.Loading }.single().value)
 
         val overloads =
             listOf(
                 DbObject(ObjectKind.FUNCTION, "public", "f", ref = "integer"),
                 DbObject(ObjectKind.FUNCTION, "public", "f", ref = "text"),
             )
-        val nodes = ObjectTreeModel.nodes(Load.Loaded(listOf("public"))) { Load.Loaded(overloads) }
+        val nodes = nodes(listOf("public")) { Load.Loaded(overloads) }
         assertEquals(
             2,
             nodes
@@ -121,6 +175,15 @@ class ObjectTreeModelTest {
         assertEquals(
             "\"public\".\"f\"",
             ObjectTreeModel.qualifiedName(pg, DbObject(ObjectKind.FUNCTION, "public", "f")),
+        )
+        // A PostgreSQL index lives in the schema; MariaDB's belongs to its table.
+        val index = DbObject(ObjectKind.INDEX, "public", "orders_idx", table = "orders")
+        assertEquals("\"public\".\"orders_idx\"", ObjectTreeModel.qualifiedName(pg, index))
+        assertEquals("`orders_idx`", ObjectTreeModel.qualifiedName(DatabaseKind.MARIADB, index))
+        // Overloads: the identity arguments.
+        assertEquals(
+            "\"public\".\"f\"(integer, text)",
+            ObjectTreeModel.qualifiedName(pg, DbObject(ObjectKind.FUNCTION, "public", "f", ref = "integer, text")),
         )
     }
 

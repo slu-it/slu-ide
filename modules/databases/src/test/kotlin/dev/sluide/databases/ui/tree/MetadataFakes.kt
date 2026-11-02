@@ -49,6 +49,7 @@ internal class FakeIntrospector : Introspector {
     var schemaNames = listOf("public", "sales")
     var contents = mutableMapOf<String, List<DbObject>>()
     var ddlText = "CREATE TABLE t ();\n"
+    var ddlFailure: Throwable? = null
     var failure: Throwable? = null
     val calls = mutableListOf<String>()
 
@@ -75,6 +76,7 @@ internal class FakeIntrospector : Introspector {
         obj: DbObject,
     ): String {
         calls += "ddl ${obj.name}"
+        ddlFailure?.let { throw it }
         return ddlText
     }
 

@@ -13,12 +13,13 @@ internal class SyncNode<K, V>(
 
 /**
  * Keeps the [TreeItem]s below [root] in step with the [SyncNode]s of each reload: an item whose key is still there
- * stays the same object (so it keeps its expansion, and the tree view its selection), only its value changes; new
- * keys get new items, gone keys lose theirs. A child list that did not change is not touched. Works without the
- * toolkit.
+ * stays the same object (so it keeps its expansion), only its value changes (when [isSame] says it differs); new keys
+ * get new items, gone keys lose theirs. A child list is edited in place with removes and inserts, never replaced as a
+ * whole, so the tree view keeps its selection and a list that did not change fires nothing. Works without the toolkit.
  */
 internal class TreeSync<K : Any, V : Any>(
     val root: TreeItem<V> = TreeItem(),
+    private val isSame: (V, V) -> Boolean = { a, b -> a == b },
 ) {
     private var items = HashMap<K, TreeItem<V>>()
     private var keys = IdentityHashMap<TreeItem<V>, K>()
@@ -34,6 +35,9 @@ internal class TreeSync<K : Any, V : Any>(
     /** The item of [key] since the last [update], `null` if it has none. */
     fun itemOf(key: K): TreeItem<V>? = items[key]
 
+    /** The key of [item] since the last [update], `null` if it is not one of ours. */
+    fun keyOf(item: TreeItem<V>): K? = keys[item]
+
     private fun sync(
         parent: TreeItem<V>,
         nodes: List<SyncNode<K, V>>,
@@ -43,17 +47,28 @@ internal class TreeSync<K : Any, V : Any>(
         val wanted =
             nodes.map { node ->
                 val item = existing[node.key] ?: TreeItem(node.value).apply { isExpanded = node.expanded }
-                if (item.value != node.value) item.value = node.value
+                if (!isSame(item.value, node.value)) item.value = node.value
                 items[node.key] = item
                 keys[item] = node.key
                 sync(item, node.children, previousKeys)
                 item
             }
-        if (!sameItems(parent.children, wanted)) parent.children.setAll(wanted)
+        edit(parent.children, wanted)
     }
 
-    private fun sameItems(
-        current: List<TreeItem<V>>,
+    private fun edit(
+        current: MutableList<TreeItem<V>>,
         wanted: List<TreeItem<V>>,
-    ) = current.size == wanted.size && current.indices.all { current[it] === wanted[it] }
+    ) {
+        if (current.size == wanted.size && current.indices.all { current[it] === wanted[it] }) return
+        val keep = IdentityHashMap<TreeItem<V>, Boolean>().apply { wanted.forEach { put(it, true) } }
+        val gone = current.filter { it !in keep }
+        if (gone.isNotEmpty()) current.removeAll(gone.toSet())
+        wanted.forEachIndexed { index, item ->
+            if (index < current.size && current[index] === item) return@forEachIndexed
+            val at = current.indexOf(item)
+            if (at >= 0) current.removeAt(at)
+            current.add(index, item)
+        }
+    }
 }

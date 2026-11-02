@@ -25,6 +25,9 @@ class MetadataCache internal constructor(
     private val fx: (Runnable) -> Unit = Platform::runLater,
     private val introspector: (DatabaseKind) -> Introspector = { Introspector.of(it) },
     private val defaultSchemaQuery: (Connection, DatabaseKind) -> String? = ::queryDefaultSchema,
+    /** How long the catalog leaves a failed load alone before a miss tries it again. */
+    private val failureTtlMillis: Long = 30_000,
+    private val clock: () -> Long = System::currentTimeMillis,
 ) {
     private data class SchemasKey(
         val includeSystem: Boolean,
@@ -44,8 +47,9 @@ class MetadataCache internal constructor(
     private val results = HashMap<Any, Any>()
     private val inFlight = HashMap<Any, CompletableFuture<*>>()
 
-    /** Keys whose last load failed: the catalog does not retry them on every keystroke, only after a refresh. */
-    private val failed = HashSet<Any>()
+    /** When each key's last load failed: the catalog does not retry it on every keystroke, only after the TTL. */
+    private val failed = HashMap<Any, Long>()
+    private var defaultLoading = false
     private val listeners = ArrayList<() -> Unit>()
     private val defaultSchemaWrapper = ReadOnlyStringWrapper("")
 
@@ -55,6 +59,7 @@ class MetadataCache internal constructor(
     init {
         entry.session.addListener { _, _, session ->
             clear()
+            defaultLoading = false
             defaultSchemaWrapper.set("")
             if (session != null) loadDefaultSchema()
         }
@@ -83,8 +88,11 @@ class MetadataCache internal constructor(
         table: String,
     ): CompletableFuture<List<String>> = cached(PrimaryKeyKey(schema, table)) { i, c -> i.primaryKey(c, schema, table) }
 
-    /** Drops everything cached (Refresh); a new session drops it too. */
-    fun refresh() = clear()
+    /** Drops everything cached (Refresh); a new session drops it too. Looks for the default schema again if it is unknown. */
+    fun refresh() {
+        clear()
+        if (defaultSchemaWrapper.get().isEmpty()) loadDefaultSchema()
+    }
 
     /** Non-blocking view for completion: returns what is cached; a miss starts a load, and [onLoaded] fires after it. */
     val catalog: CompletionCatalog =
@@ -112,17 +120,27 @@ class MetadataCache internal constructor(
             private fun tableObjects(schema: String?): List<DbObject> {
                 val name = schema ?: defaultSchema ?: return emptyList()
                 val objects = cachedOrLoad<List<DbObject>>(SchemaKey(name)) { schema(name) } ?: return emptyList()
-                return objects
-                    .flatMap {
-                        if (it.kind ==
-                            ObjectKind.GROUP
-                        ) {
-                            it.children
-                        } else {
-                            listOf(it)
-                        }
-                    }.filter { it.kind in TABLE_LIKE }
+                return tablesIn(objects)
             }
+
+            /** Tables, views and materialized views, also in groups, and a table's partitions. */
+            private fun tablesIn(objects: List<DbObject>): List<DbObject> =
+                objects.flatMap { obj ->
+                    when {
+                        obj.kind == ObjectKind.GROUP -> {
+                            tablesIn(obj.children)
+                        }
+
+                        obj.kind in TABLE_LIKE -> {
+                            listOf(obj) +
+                                tablesIn(obj.children.filter { it.kind == ObjectKind.GROUP && it.name == "partitions" })
+                        }
+
+                        else -> {
+                            emptyList()
+                        }
+                    }
+                }
         }
 
     /** Fires (FX thread) when a load finished, so an open completion popup can refresh. */
@@ -137,7 +155,9 @@ class MetadataCache internal constructor(
         load: () -> CompletableFuture<*>,
     ): T? {
         results[key]?.let { return it as T }
-        if (key !in failed && key !in inFlight) load().exceptionally { null }
+        val failedAt = failed[key]
+        if (failedAt != null && clock() - failedAt < failureTtlMillis) return null
+        if (key !in inFlight) load().exceptionally { null }
         return null
     }
 
@@ -155,7 +175,12 @@ class MetadataCache internal constructor(
             val current = started == generation
             if (current) {
                 inFlight.remove(key)
-                if (error == null) results[key] = value as Any else failed += key
+                if (error == null) {
+                    results[key] = value as Any
+                    failed.remove(key)
+                } else {
+                    failed[key] = clock()
+                }
             }
             if (error == null) out.complete(value) else out.completeExceptionally(error)
             if (error == null && current) fireLoaded()
@@ -173,7 +198,7 @@ class MetadataCache internal constructor(
             done(null, IllegalStateException("Not connected"))
             return
         }
-        val kind = entry.config.get().kind
+        val kind = session.config.kind
         val raw =
             try {
                 session.withMetadata { work(introspector(kind), it) }
@@ -186,9 +211,13 @@ class MetadataCache internal constructor(
 
     private fun loadDefaultSchema() {
         val session = entry.session.get() ?: return
-        val kind = entry.config.get().kind
+        if (defaultLoading) return
+        defaultLoading = true
+        val kind = session.config.kind
         start({ _, c -> defaultSchemaQuery(c, kind) }) { value, error ->
-            if (error == null && entry.session.get() === session) {
+            if (entry.session.get() !== session) return@start
+            defaultLoading = false
+            if (error == null) {
                 defaultSchemaWrapper.set(value.orEmpty())
                 fireLoaded()
             }

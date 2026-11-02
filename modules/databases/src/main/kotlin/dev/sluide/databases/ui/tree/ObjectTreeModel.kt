@@ -51,47 +51,68 @@ internal enum class NodeAction { OPEN_DATA, SHOW_DDL, COPY_NAME, COPY_QUALIFIED_
 internal object ObjectTreeModel {
     private val TABLE_LIKE = setOf(ObjectKind.TABLE, ObjectKind.VIEW, ObjectKind.MATERIALIZED_VIEW)
 
-    /** The rows below the hidden root: one per schema, each with its loaded objects or a Loading or Error row. */
+    /**
+     * The rows below the hidden root: one per schema of [names], each with its loaded objects or a Loading or Error
+     * row. Before the first list there is a Loading row (or the [error]); a failed reload keeps the last [names] and
+     * adds the [error] as a last row. A table's columns and the other children of a table-like object become items
+     * only once its key is [expanded]; until then it has one placeholder child, so it shows an arrow.
+     */
     fun nodes(
-        schemas: Load<List<String>>,
+        names: List<String>?,
+        error: String?,
         schemaLoad: (String) -> Load<List<DbObject>>,
-    ): List<SyncNode<NodeKey, TreeRow>> =
-        when (schemas) {
-            is Load.Loading -> {
-                listOf(placeholder(null, LoadingRow))
+        expanded: (NodeKey) -> Boolean,
+    ): List<SyncNode<NodeKey, TreeRow>> {
+        if (names == null) return listOf(placeholder(null, error?.let(::ErrorRow) ?: LoadingRow))
+        val schemas =
+            names.map { name ->
+                val obj = DbObject(ObjectKind.SCHEMA, name, name)
+                val key = schemaKey(name)
+                val children =
+                    when (val load = schemaLoad(name)) {
+                        is Load.Loading -> listOf(placeholder(key, LoadingRow))
+                        is Load.Failed -> listOf(placeholder(key, ErrorRow(load.message)))
+                        is Load.Loaded -> objectNodes(key, load.value, expanded)
+                    }
+                SyncNode(key, ObjectRow(obj), children)
             }
-
-            is Load.Failed -> {
-                listOf(placeholder(null, ErrorRow(schemas.message)))
-            }
-
-            is Load.Loaded -> {
-                schemas.value.map { name ->
-                    val obj = DbObject(ObjectKind.SCHEMA, name, name)
-                    val key = schemaKey(name)
-                    val children =
-                        when (val load = schemaLoad(name)) {
-                            is Load.Loading -> listOf(placeholder(key, LoadingRow))
-                            is Load.Failed -> listOf(placeholder(key, ErrorRow(load.message)))
-                            is Load.Loaded -> objectNodes(key, load.value)
-                        }
-                    SyncNode(key, ObjectRow(obj), children)
-                }
-            }
-        }
+        return if (error == null) schemas else schemas + placeholder(null, ErrorRow(error))
+    }
 
     fun schemaKey(name: String) = NodeKey(null, ObjectKind.SCHEMA, name, null, name, "")
 
     private fun objectNodes(
         parent: NodeKey,
         objects: List<DbObject>,
+        expanded: (NodeKey) -> Boolean,
     ): List<SyncNode<NodeKey, TreeRow>> =
         objects.map { obj ->
             val key = NodeKey(parent, obj.kind, obj.schema, obj.table, obj.name, obj.ref)
             // A schema opens with its tables visible.
-            val expanded = obj.kind == ObjectKind.GROUP && parent.kind == ObjectKind.SCHEMA && obj.name == "tables"
-            SyncNode(key, ObjectRow(obj), objectNodes(key, obj.children), expanded)
+            val isOpen = obj.kind == ObjectKind.GROUP && parent.kind == ObjectKind.SCHEMA && obj.name == "tables"
+            val children =
+                when {
+                    obj.kind !in TABLE_LIKE -> objectNodes(key, obj.children, expanded)
+                    obj.children.isEmpty() -> emptyList()
+                    expanded(key) -> objectNodes(key, obj.children, expanded)
+                    else -> listOf(placeholder(key, LoadingRow))
+                }
+            SyncNode(key, ObjectRow(obj), children, isOpen)
         }
+
+    /** Whether the item showing [old] needs [new] as its value: objects with children are compared by identity. */
+    fun sameRow(
+        old: TreeRow,
+        new: TreeRow,
+    ): Boolean =
+        if (old is ObjectRow && new is ObjectRow && (old.obj.children.isNotEmpty() || new.obj.children.isNotEmpty())) {
+            old.obj === new.obj
+        } else {
+            old == new
+        }
+
+    /** Whether the children of [row] are built when it is first expanded. */
+    fun loadsChildrenOnExpand(row: TreeRow) = row is ObjectRow && row.obj.kind in TABLE_LIKE
 
     private fun placeholder(
         parent: NodeKey?,
@@ -152,7 +173,17 @@ internal object ObjectTreeModel {
                 SqlNames.qualified(kind, obj.schema, obj.table) + "." + SqlNames.quote(kind, obj.name)
             }
 
-            // Keys, indexes, checks and triggers belong to a table and are named without a qualifier.
+            // PostgreSQL indexes live in the schema's namespace.
+            obj.kind == ObjectKind.INDEX && kind == DatabaseKind.POSTGRESQL -> {
+                SqlNames.qualified(kind, obj.schema, obj.name)
+            }
+
+            // An overloaded routine is told apart by its identity arguments.
+            obj.ref.isNotEmpty() && (obj.kind == ObjectKind.FUNCTION || obj.kind == ObjectKind.PROCEDURE) -> {
+                SqlNames.qualified(kind, obj.schema, obj.name) + "(" + obj.ref + ")"
+            }
+
+            // Keys, checks and triggers belong to a table and are named without a qualifier.
             obj.table != null -> {
                 SqlNames.quote(kind, obj.name)
             }

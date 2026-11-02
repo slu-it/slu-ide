@@ -1,6 +1,6 @@
 /*
  * The object tree of the Databases tab (ADR 0121). Colours are Modena's looked-up ones apart from the error text,
- * which has a dark rule with a single-class selector (ADR 0009).
+ * which has a dark rule and a lighter colour for the selected row, all with single-class selectors (ADR 0009).
  */
 .databases-tree-toolbar {
     -fx-padding: 3 6 3 6;
@@ -25,11 +25,7 @@
 }
 
 .databases-tree-detail, .databases-tree-loading {
-    -fx-text-fill: derive(-fx-text-base-color, 45%);
-}
-
-.tree-cell:selected .databases-tree-detail, .tree-cell:selected .databases-tree-loading {
-    -fx-text-fill: derive(-fx-selection-bar-text, -15%);
+    -fx-opacity: 0.7;
 }
 
 .databases-tree-group {
@@ -40,8 +36,16 @@
     -fx-text-fill: #8a1c1c;
 }
 
+.databases-tree-error-selected {
+    -fx-text-fill: #ffd9d6;
+}
+
 @media (prefers-color-scheme: dark) {
     .databases-tree-error {
         -fx-text-fill: #f28b82;
+    }
+
+    .databases-tree-error-selected {
+        -fx-text-fill: #ffb4ab;
     }
 }

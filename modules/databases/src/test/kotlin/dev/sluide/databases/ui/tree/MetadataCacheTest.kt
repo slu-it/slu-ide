@@ -43,8 +43,81 @@ class MetadataCacheTest {
             )
         session = MetadataSession(config)
         entry.connected(session)
-        cache = MetadataCache(entry, { it.run() }, { introspector }, { _, _ -> "public" })
+        cache =
+            MetadataCache(entry, { it.run() }, { kind ->
+                kinds += kind
+                introspector
+            }, { _, _ -> defaultResult() }, 1_000, { now })
         session.runAll()
+    }
+
+    private var now = 0L
+    private var defaultResult: () -> String? = { "public" }
+    private val kinds = mutableListOf<DatabaseKind>()
+
+    @Test
+    fun `the introspector follows the session's database kind`() {
+        val maria = MetadataSession(config.copy(kind = DatabaseKind.MARIADB))
+        entry.connected(maria)
+        cache.schema("public")
+        maria.runAll()
+        assertEquals(DatabaseKind.MARIADB, kinds.last())
+    }
+
+    @Test
+    fun `a failed catalog miss is tried again after the delay`() {
+        introspector.failure = SQLException("down")
+        cache.catalog.tables("public")
+        session.runAll()
+        now = 999
+        cache.catalog.tables("public")
+        assertTrue(session.queue.isEmpty())
+        now = 1_000
+        cache.catalog.tables("public")
+        assertEquals(1, session.queue.size)
+    }
+
+    @Test
+    fun `refresh looks for the default schema again only while it is unknown`() {
+        defaultResult = { throw SQLException("busy") }
+        val next = MetadataSession(config)
+        entry.connected(next)
+        next.runAll()
+        assertEquals("", cache.defaultSchema.get())
+        defaultResult = { "public" }
+        cache.refresh()
+        assertEquals(1, next.queue.size)
+        cache.refresh()
+        assertEquals(1, next.queue.size)
+        next.runAll()
+        assertEquals("public", cache.defaultSchema.get())
+        cache.refresh()
+        assertTrue(next.queue.isEmpty())
+    }
+
+    @Test
+    fun `the catalog offers a table's partitions`() {
+        val partitioned =
+            DbObject(
+                ObjectKind.TABLE,
+                "public",
+                "events",
+                children =
+                    listOf(
+                        DbObject(ObjectKind.COLUMN, "public", "id", table = "events"),
+                        DbObject(
+                            ObjectKind.GROUP,
+                            "public",
+                            "partitions",
+                            children = listOf(DbObject(ObjectKind.TABLE, "public", "events_2025")),
+                        ),
+                    ),
+            )
+        introspector.contents["public"] =
+            listOf(DbObject(ObjectKind.GROUP, "public", "tables", children = listOf(partitioned)))
+        cache.catalog.tables("public")
+        session.runAll()
+        assertEquals(listOf("events", "events_2025"), cache.catalog.tables("public"))
     }
 
     @Test
@@ -164,7 +237,7 @@ class MetadataCacheTest {
     }
 
     @Test
-    fun `the catalog does not retry a failed load until refresh`() {
+    fun `the catalog does not retry a failed load before the delay, and refresh clears it`() {
         introspector.failure = SQLException("down")
         cache.catalog.tables("public")
         session.runAll()

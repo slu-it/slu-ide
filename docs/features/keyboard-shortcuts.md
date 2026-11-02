@@ -231,7 +231,7 @@ File does not react to it while a terminal has the focus.
 | Shortcut+Enter in an editable result grid | Submit the edits |
 | Enter in the WHERE, ORDER BY or page size field | Reload the data with it |
 | F5 in the object tree | Refresh the tree (expansion is kept) |
-| Enter in the object tree | Open the data of a table or view; expand or collapse other nodes |
+| Enter or double-click in the object tree | Open the data of a table or view; expand or collapse other nodes |
 
 ## Settings
 [settings.md](settings.md)
