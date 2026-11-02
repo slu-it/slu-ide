@@ -47,6 +47,10 @@ Tests against a real external tool are opt-in, so that the build does not depend
 `SLUIDE_DOCKER_SMOKE=1` set, and still skips itself when `docker` is missing, the engine does not answer or no small
 image (`bash`, `debian`, `alpine`, `busybox`) is present; it creates and removes one container of its own:
 `SLUIDE_DOCKER_SMOKE=1 ./gradlew :modules:docker:test --tests 'RealEngineSmokeTest' -q`.
+`RealDatabaseSmokeTest` (module `databases`) runs the JDBC sessions against PostgreSQL 17 and MariaDB 11 only with
+`SLUIDE_DB_SMOKE=1` set, and skips itself when `docker` or the image (`postgres:17-alpine`, `mariadb:11`) is missing;
+its fixture `RealDatabases` starts one container per kind on a 127.0.0.1 port and stops it afterwards:
+`SLUIDE_DB_SMOKE=1 ./gradlew :modules:databases:test --tests 'RealDatabaseSmokeTest' -q`.
 
 ## Display handling
 - **Linux without `DISPLAY` and without `CI`:** `uiTest` is *skipped* (not failed), so a headless sandbox stays usable.
