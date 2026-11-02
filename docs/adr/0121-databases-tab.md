@@ -90,7 +90,11 @@ statements that run for minutes, transactions that must not be lost silently, an
   `idle_in_transaction_session_timeout` ends the connection, which closes the session with an error. MariaDB cancels
   a streamed result's unread rest before the next statement.
 - A transaction the user opens in Auto mode (`BEGIN` …) is respected: a query then runs inside it without a cursor
-  transaction of its own, and the open transaction counts as pending for disconnect and window close.
+  transaction of its own, and the open transaction counts as pending for disconnect and window close. PostgreSQL
+  then loads the query's result at once, so it is limited to the fetch-all cap.
+- The idle metadata connection is the first one network or server idle timeouts end; it reconnects by itself (the
+  session keeps the password in memory while connected), so a broken tree refresh never closes the session and its
+  transaction.
 - Out of scope, kept in `docs/ideas/databases-later.md`: keychain storage, SSH tunnels, connections from Docker
   containers, Explain plan, query parameters, other DBMSs, `DELIMITER`, diagrams, DDL editing, dumps, multiple
   result sets per statement, per-console sessions.
