@@ -22,7 +22,20 @@ enabled by `junit-platform.properties` in file-watcher's test resources; every o
 
 ## Running a subset
 Subagents verify with subsets; the full `./gradlew build` is the main session's final gate (delegate skill).
+`.claude/scripts/verify.sh` does a subset in one call: `spotlessApply`, compiles all main and test code, runs the
+targets and prints a short digest (compile errors, counts per task, failures with their `dev.sluide` frames,
+`check-tests.sh` findings), the full log in `build/verify/verify.log`. Targets are test class names or globs (sent to
+`test` or `uiTest` by `@Tag("ui")`; a name that exists in two modules runs in both), `:module` paths for a module's
+unit tests, and `--changed` for the unit tests of every module changed against master plus the related test classes.
+It sets up the display (`--display N`), uses `--no-daemon` in worktrees and ends with `verify: OK`, `FAILED` (also
+when a named class has no result) or `INCOMPLETE` (UI tests not run); `OK (compiled only, no tests run)` when
+`--changed` found nothing to test. `--no-format` leaves the sources alone (reviewers). Gradle arguments after `--`
+must not skip test tasks (`-x`): old passing results of the skipped classes would count.
+`.claude/scripts/related-tests.sh [files]` lists the test classes that reference the types declared in the given (by
+default: the changed) files, per module and task.
 ```bash
+.claude/scripts/verify.sh --changed GitLogWritesRefsUiTest            # what an implementer runs
+.claude/scripts/verify.sh 'MainWindow*' :modules:git                  # a pattern and one module's unit tests
 ./gradlew testClasses -q                                              # compile all main and test code
 ./gradlew :modules:git-log:test -q                                    # unit tests of one module
 ./gradlew :modules:git-log:uiTest --tests 'GitLogWritesRefsUiTest' -q # one UI test class (needs DISPLAY)
@@ -37,11 +50,11 @@ image (`bash`, `debian`, `alpine`, `busybox`) is present; it creates and removes
 
 ## Display handling
 - **Linux without `DISPLAY` and without `CI`:** `uiTest` is *skipped* (not failed), so a headless sandbox stays usable.
-  Skipped is not verified: run `.claude/scripts/setup-display.sh`, `export DISPLAY=:99`, then the `uiTest` classes
-  you need ("Running a subset"); only the main session's final gate runs all of them, with
-  `.claude/scripts/full-build.sh`. It sets up (and if needed repairs) displays `:99` upwards first,
-  `SLUIDE_UI_DISPLAYS` of them (default 8, about 9.5 GB in use at peak; set it lower on a smaller machine), and
-  passes them to Gradle as the pool. `DISPLAY=:99` is enough for single classes.
+  Skipped is not verified: `verify.sh --display N` sets up the display itself; by hand, run
+  `.claude/scripts/setup-display.sh`, `export DISPLAY=:99`, then the `uiTest` classes you need ("Running a subset");
+  only the main session's final gate runs all of them, with `.claude/scripts/full-build.sh`. It sets up (and if needed
+  repairs) displays `:99` upwards first, `SLUIDE_UI_DISPLAYS` of them (default 8, about 9.5 GB in use at peak; set it
+  lower on a smaller machine), and passes them to Gradle as the pool. `DISPLAY=:99` is enough for single classes.
 - **CI:** `CI` is always set, so a missing display fails loudly. The Linux job runs Gradle under `xvfb-run -a`;
   the macOS jobs of CI and release skip `uiTest` (about 30 minutes there). The *macOS UI tests* workflow
   (`.github/workflows/macos-ui-tests.yml`, started by hand) runs them on the native macOS display.

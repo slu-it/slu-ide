@@ -15,8 +15,9 @@ new ones too (ADR 0032).
   docs index check; refuses while another Gradle build runs in the tree). Unit tests in `test`, TestFX UI tests in
   `uiTest`, which needs a display; `-q` prints only errors and failed tests with their exception, so read the output in
   full instead of tailing
-- Subset of tests: `docs/testing.md`, "Running a subset"; subagents never run the full build, the main session does
-  after the last review
+- Subset of tests: `.claude/scripts/verify.sh <TestClass|:module|--changed>` (format, compile, run, short failure
+  digest; `docs/testing.md`, "Running a subset"); subagents never run the full build, the main session does after
+  the last review
 - Format Kotlin: `./gradlew spotlessApply` (ktlint via Spotless, rules in `.editorconfig`); `build` fails on violations
 - Fat jar: `./gradlew :ide:bootJar` (JavaFX natives are included for the build platform only)
 - Check the docs index: `.claude/scripts/check-docs-index.sh`
