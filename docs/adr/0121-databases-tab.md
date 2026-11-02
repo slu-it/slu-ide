@@ -47,7 +47,9 @@ statements that run for minutes, transactions that must not be lost silently, an
   transaction is pending until Commit or Roll Back once it wrote something: PostgreSQL is asked after each statement
   (`txid_current_if_assigned()`), so writes hidden in functions count too; on MariaDB every statement that is not a
   plain query (`isQuery`: no DML in a `WITH`, no `SELECT … INTO`, no `FOR UPDATE`, no `EXPLAIN ANALYZE`) counts. Leaving
-  Manual mode, disconnecting or closing the window with a pending transaction asks Commit / Roll Back / Cancel.
+  Manual mode or disconnecting with a pending transaction asks Commit / Roll Back / Cancel; closing the window (or
+  opening a folder in a window without one) lists the connections whose transactions would be rolled back and asks
+  once.
 - Read-only connections set JDBC `readOnly`: the server refuses changes; the grid is not editable.
 
 **Results and paging**
