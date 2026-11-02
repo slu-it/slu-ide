@@ -23,6 +23,10 @@
         </triggeringPolicy>
     </appender>
 
+    <!-- MariaDB Connector/J logs every server error at WARN, also our own cancels, and the messages can hold data
+         values; the Databases tab shows errors itself (ADR 0121, safety rules: no values in logs). -->
+    <logger name="org.mariadb.jdbc.message.server.ErrorPacket" level="ERROR"/>
+
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
         <appender-ref ref="FILE"/>
