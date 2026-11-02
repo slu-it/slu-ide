@@ -43,7 +43,8 @@ Sonnet does well with a precise brief and guesses without one. Every implementer
    The implementer runs only those, its own and the touched modules' unit tests. Tests that depend on the OS
    (files, processes, timing, encodings): point at `docs/testing.md`, "Portability".
 5. Docs to update: feature page, ADR, `docs/index.md`; `docs/features/keyboard-shortcuts.md` when key bindings change.
-6. Docs to read (so the agent skips the index), with sections where useful.
+6. Docs to read (so the agent skips the index), with sections where useful; for UI work the matching sections of
+   `docs/ui-conventions.md`.
 7. Base: master, or the worktree and the commit to rebase onto.
 8. For large files, the classes or line ranges that matter, so the agent reads ranges instead of whole files.
 

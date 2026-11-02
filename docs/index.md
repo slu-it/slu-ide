@@ -16,6 +16,7 @@ updated when the summary or keywords no longer fit.
 |---|---|---|
 | [architecture.md](architecture.md) | Modules, their dependency rules, runtime startup, CI and releases | module table, dependencies, Gradle modules, startup, CI, release |
 | [testing.md](testing.md) | Unit vs. UI tests, running a subset, displays, portability for macOS/x64 CI, running the app headless | `uiTest`, TestFX, `@Tag("ui")`, `--tests`, Xvfb, display pool, portability, macOS, `run-app.sh`, screenshot, dark theme |
+| [ui-conventions.md](ui-conventions.md) | Conventions new UI follows: view modes, toolbars, tool tabs, menus, run panes, dialogs, storage, background work, theming | Source/Split, `SourceSplit`, toolbar, `WindowTool`, Tools menu, Services menu, `FileAction`, dialog, unsaved changes, `ProjectDataStore`, `shared.json`, `BackgroundTasks`, dark theme, `theme.css` |
 
 ## Decisions (ADRs)
 | ADR | Decision | Keywords | Related |

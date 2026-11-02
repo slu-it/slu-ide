@@ -13,7 +13,8 @@ Enter plan mode (`EnterPlanMode`) unless the session already is in it. Nothing b
 user approves.
 
 ## 2. Orient
-- Read the `docs/index.md` rows that match and only the ADRs and feature pages they point to.
+- Read `docs/ui-conventions.md` (and `.claude/rules/safety.md` when the feature touches files, runs commands or
+  handles secrets), then the `docs/index.md` rows that match and only the ADRs and feature pages they point to.
 - Wide research goes to `explorer`, with numbered questions, what the answer feeds into and how thorough to be;
   read the few files that matter yourself.
 - Look for what can be reused: a similar view, tool, dialog or runner the feature should behave like (the user often
