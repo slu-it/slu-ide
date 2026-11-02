@@ -91,6 +91,9 @@ Hand back to the implementer only when the failure turns out to be a design prob
   including one applying review fixes, before starting the next package.
 - Packages are pairwise disjoint on files; `docs/index.md`, README and `docs/architecture.md` go into a final
   package that collects each package's "index drift" notes. Freeze shared constructor signatures up front.
+- When several packages add entries to the same registry or list (file types, menus, a doc table), the brief names
+  each package's anchor ("right after the Bicep rows"), so the inserts don't touch. Rebase conflicts that remain in
+  imports or such lists are resolved by keeping both sides, dropping exact duplicates.
 - Worktrees (`isolation: "worktree"`) start at the session's first commit, not current master. The implementer
   definition makes the agent reset or rebase onto master and check its diff; name the master commit in the brief.
 - Each agent gets its own Xvfb display (`.claude/scripts/setup-display.sh 10N`) and its own scratchpad subfolder,

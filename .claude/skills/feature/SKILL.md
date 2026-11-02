@@ -50,7 +50,9 @@ Then `ExitPlanMode`.
 
 ## 6. Round note
 After approval, write one project memory note for the round: the plan file path, the decisions, and a progress line
-updated after each package, so a later session can continue. When the round is done:
+updated after each package, so a later session can continue. A session that resumes a round first checks in
+`git log` which packages have landed (the note can lag behind), and does not ask again what the note or the plan
+file already decided. When the round is done:
 - lessons for agents go into `.claude/agents/`, `.claude/skills/` or `docs/testing.md`, not into memory;
 - open or unverified items go into the `open-follow-ups` memory note;
 - delete the round note and its `MEMORY.md` line. ADRs, feature pages, the plan file and git keep the rest.
