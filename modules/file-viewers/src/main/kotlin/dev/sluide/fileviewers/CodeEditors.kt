@@ -6,7 +6,9 @@ import dev.sluide.fileviewers.code.codeStyleSpans
 import dev.sluide.textediting.CommentSyntax
 import javafx.beans.value.ObservableValue
 import javafx.collections.ListChangeListener
+import javafx.geometry.Bounds
 import javafx.scene.Node
+import javafx.scene.control.IndexRange
 import javafx.scene.control.MenuItem
 import javafx.util.Subscription
 import org.fxmisc.flowless.VirtualizedScrollPane
@@ -131,6 +133,37 @@ interface TextEditor {
      * edit. Call on the FX thread.
      */
     fun markError(offset: Int?)
+
+    /** The selected range [start, end); empty at the caret when nothing is selected. Call on the FX thread. */
+    val selection: IndexRange
+
+    /** The caret's offset in [text]. Call on the FX thread. */
+    val caretOffset: Int
+
+    /** The caret offset as it moves; listeners run on the FX thread. One [replace] may fire it twice. */
+    val caretOffsetProperty: ObservableValue<Int>
+
+    /**
+     * The caret's bounds on screen (for placing a popup below it), or null when the editor is not really shown (not in
+     * a showing window, it or an ancestor invisible) or the caret is scrolled away. Call on the FX thread.
+     */
+    fun caretScreenBounds(): Bounds?
+
+    /**
+     * Replaces [start, end) with [text] as one undo step and puts the caret after the inserted text; no focus change.
+     * Out-of-range bounds are clamped and a reversed range becomes an insert at [start]. Call on the FX thread.
+     */
+    fun replace(
+        start: Int,
+        end: Int,
+        text: String,
+    )
+
+    /** Selects [start, end) (kept within the text) and scrolls it into view; no focus change. Call on the FX thread. */
+    fun selectRange(
+        start: Int,
+        end: Int,
+    )
 }
 
 /** Creates [CodeEditor]s and [CodeDisplay]s. */
@@ -182,6 +215,23 @@ private class AreaTextEditor(
     override fun select(offset: Int) = editor.select(offset)
 
     override fun markError(offset: Int?) = editor.markError(offset)
+
+    override val selection: IndexRange get() = editor.selection
+    override val caretOffset: Int get() = editor.caretOffset
+    override val caretOffsetProperty: ObservableValue<Int> get() = editor.caretOffsetProperty
+
+    override fun caretScreenBounds(): Bounds? = editor.caretScreenBounds()
+
+    override fun replace(
+        start: Int,
+        end: Int,
+        text: String,
+    ) = editor.replace(start, end, text)
+
+    override fun selectRange(
+        start: Int,
+        end: Int,
+    ) = editor.selectRange(start, end)
 }
 
 private class AreaDisplay : CodeDisplay {

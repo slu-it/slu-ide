@@ -211,7 +211,10 @@ the Bicep graph and `BicepParamFileViewer`.
     views. `replaceText` sets a new text as one undo step (caret offset and top line kept), setting `highlighter`
     highlights again at once, `select(offset)` selects a character, scrolls to it and focuses, `markError(offset)`
     underlines a character in red over its highlighting until `markError(null)` or the next edit (the Converting
-    tool's sides, [converting.md](converting.md)). Its font is inherited from its `node`: the caller binds the
+    tool's sides, [converting.md](converting.md)). `selection`, `caretOffset`, `caretOffsetProperty` and
+    `caretScreenBounds()` (null while not shown) read the caret for placing a popup, `replace(start, end, text)`
+    replaces a range as one undo step with the caret after it and `selectRange(start, end)` selects and scrolls,
+    neither taking the focus (the Databases consoles). Its font is inherited from its `node`: the caller binds the
     node's style to `FontSettings.font(FontArea.EDITOR)` (`FontSpec::toCss`) if it should have the editor font.
   - `CodeEditorExtensions` (`CodeEditorExtensions.kt`) is a window service that extends every code editor of the
     window, whichever view embeds it ([ADR 0108](../adr/0108-code-editor-extensions-and-context-menu.md)). Each

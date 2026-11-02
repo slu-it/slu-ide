@@ -20,6 +20,8 @@ import java.time.Duration
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 /**
@@ -196,6 +198,79 @@ class TextAreaEditorUiTest {
             editor.area.insertText(3, "x")
         }
         assertEquals(emptyList(), fx { errorChars(editor) }, "an edit removes the mark")
+    }
+
+    @Test
+    fun `selection, caret offset and its property follow selectRange`(robot: FxRobot) {
+        val editor = open(robot, "hello world")
+        val seen = mutableListOf<Int>()
+        robot.interact { editor.caretOffsetProperty.addListener { _, _, offset -> seen += offset } }
+
+        robot.interact { editor.selectRange(2, 5) }
+
+        assertEquals(2, fx { editor.selection.start })
+        assertEquals(5, fx { editor.selection.end })
+        assertEquals(5, fx { editor.caretOffset })
+        assertTrue(5 in seen, "the property reported the caret move: $seen")
+    }
+
+    @Test
+    fun `selectRange keeps the range within the text`(robot: FxRobot) {
+        val editor = open(robot, "hello world")
+
+        robot.interact { editor.selectRange(3, 99) }
+
+        assertEquals(3, fx { editor.selection.start })
+        assertEquals(11, fx { editor.selection.end })
+    }
+
+    @Test
+    fun `selectRange scrolls the range into view`(robot: FxRobot) {
+        val editor = open(robot, (1..100).joinToString("\n") { "line $it" })
+        val end = editor.text.length
+
+        robot.interact { editor.selectRange(end - 3, end) }
+
+        assertTrue(fx { editor.area.lastVisibleParToAllParIndex() } >= 99, "the last line is shown")
+    }
+
+    @Test
+    fun `replace puts the caret after a text of another length and each edit is its own undo step`(robot: FxRobot) {
+        val editor = open(robot, "hello world")
+        robot.interact { editor.area.insertText(0, "a") }
+
+        robot.interact { editor.replace(1, 6, "hi") }
+
+        assertEquals("ahi world", fx { editor.text })
+        assertEquals(3, fx { editor.caretOffset })
+
+        robot.interact { editor.area.insertText(3, "b") }
+        robot.interact { editor.area.undo() }
+        assertEquals("ahi world", fx { editor.text }, "typing after the replacement is its own step")
+        robot.interact { editor.area.undo() }
+        assertEquals("ahello world", fx { editor.text }, "the replacement is one step")
+        robot.interact { editor.area.undo() }
+        assertEquals("hello world", fx { editor.text }, "typing before it is its own step")
+    }
+
+    @Test
+    fun `replace keeps the range within the text and inserts for a reversed one`(robot: FxRobot) {
+        val editor = open(robot, "hello")
+
+        robot.interact { editor.replace(5, 99, "!") }
+        assertEquals("hello!", fx { editor.text })
+
+        robot.interact { editor.replace(3, 1, "-") }
+        assertEquals("hel-lo!", fx { editor.text })
+        assertEquals(4, fx { editor.caretOffset })
+    }
+
+    @Test
+    fun `caret screen bounds exist once shown and not before the editor is in a scene`(robot: FxRobot) {
+        val editor = open(robot, "hello")
+        val detached = fx { TextAreaEditor("x", null) }
+        assertNull(fx { detached.caretScreenBounds() })
+        assertNotNull(fx { editor.caretScreenBounds() })
     }
 
     /** The characters styled as an error; RichTextFX gives a line break the style of the character before it. */

@@ -5,7 +5,9 @@ import dev.sluide.textediting.CommentSyntax
 import dev.sluide.textediting.IndentStyle
 import javafx.application.Platform
 import javafx.beans.value.ObservableValue
+import javafx.geometry.Bounds
 import javafx.scene.Node
+import javafx.scene.control.IndexRange
 import org.fxmisc.flowless.VirtualizedScrollPane
 import org.fxmisc.richtext.CodeArea
 import org.fxmisc.richtext.model.StyleSpans
@@ -41,6 +43,51 @@ internal class TextAreaEditor(
     val text: String get() = area.text
 
     val textProperty: ObservableValue<String> get() = area.textProperty()
+
+    val selection: IndexRange get() = area.selection
+
+    val caretOffset: Int get() = area.caretPosition
+
+    val caretOffsetProperty: ObservableValue<Int> get() = area.caretPositionProperty()
+
+    /**
+     * The caret's bounds on screen, or null when the editor is not really shown (not in a showing window, or it or an
+     * ancestor invisible) or the caret is scrolled away.
+     */
+    fun caretScreenBounds(): Bounds? {
+        if (area.scene?.window?.isShowing != true) return null
+        if (generateSequence<Node>(area) { it.parent }.any { !it.isVisible }) return null
+        // Fresh cells, e.g. right after a replace.
+        area.layout()
+        return area.caretBounds.orElse(null)
+    }
+
+    /**
+     * Replaces [start, end) in one undo step and puts the caret after the inserted text; no focus change.
+     * Out-of-range bounds are clamped and a reversed range inserts at [start].
+     */
+    fun replace(
+        start: Int,
+        end: Int,
+        text: String,
+    ) {
+        val from = start.coerceIn(0, area.length)
+        val to = end.coerceIn(from, area.length)
+        area.undoManager.preventMerge()
+        area.replaceText(from, to, text)
+        area.undoManager.preventMerge()
+        area.moveTo(from + text.length)
+    }
+
+    /** Selects [start, end) (kept within the text) and scrolls it into view; no focus change. */
+    fun selectRange(
+        start: Int,
+        end: Int,
+    ) {
+        val from = start.coerceIn(0, area.length)
+        area.selectRange(from, end.coerceIn(from, area.length))
+        area.requestFollowCaret()
+    }
 
     /** The offset of the character marked as an error, see [markError]. */
     private var errorAt: Int? = null
