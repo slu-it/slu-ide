@@ -6,8 +6,9 @@
 #
 # Afterwards:
 #   export DISPLAY=:99
-#   java -Dprism.order=sw -jar ide/build/libs/ide-*.jar &
+#   .claude/scripts/run-app.sh <project-folder>   # starts the real app (builds the jar if needed)
 #   import -window root shot.png        # screenshot; xdotool for clicks and keys
+# Also creates an empty ~/.zshrc if missing (zsh's new-user menu would hang TerminalUiTest's real-shell test).
 # Without a window manager dialogs get no keyboard focus: focus them via `xdotool windowfocus <id>`.
 set -euo pipefail
 
@@ -57,5 +58,8 @@ else
   answers || { echo "Xvfb failed to start on :${display_number}" >&2; exit 1; }
   echo "Started Xvfb on :${display_number}"
 fi
+
+# TerminalUiTest's real-shell test hangs on zsh's new-user menu without a ~/.zshrc.
+[ -e "$HOME/.zshrc" ] || touch "$HOME/.zshrc"
 
 echo "export DISPLAY=:${display_number}"
