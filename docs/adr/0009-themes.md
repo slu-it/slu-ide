@@ -10,7 +10,7 @@ does not depend on `settings`.
 
 ## Decision
 - `ThemeSettings` (in `modules/settings`, stored as `theme` in `settings.properties`, see [ADR 0008](0008-settings.md))
-  holds Light, Dark or System (default) and the resulting `ColorScheme`; System follows
+  holds Light, Dark (default) or System and the resulting `ColorScheme`; System follows
   `Platform.getPreferences().colorSchemeProperty()`, which is read lazily because it may only be used on the FX thread
   and Spring creates the bean on the launcher thread.
 - `ThemedWindows` sets `Scene.getPreferences().colorScheme` (JavaFX 25+) on every window in `Window.getWindows()`,
@@ -38,3 +38,8 @@ does not depend on `settings`.
   (`#36393b`) and a border lighter than it, since a field in the pane colour with Modena's darker border is hard to
   see as one. Code editors (`.code-area`) and the Fonts page's editor preview keep the pane colour; `ThemeUiTest`
   checks both.
+
+## Amendment 2026-11-02: Dark is the default
+A missing or unknown stored theme now means Dark, not System. The user works mostly in Dark, and Dark is where visual
+problems hide, so a fresh install and every sandbox check should see it. System stays selectable and still follows the
+operating system, falling back to Light when the OS reports nothing. A stored value is always honoured.

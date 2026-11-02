@@ -14,7 +14,7 @@
   to the defaults; one unusable value of a font discards that area's whole font (family, size and style); a scroll
   speed that is not a multiple of 5 from 10 to 200 means 100 %. A file that cannot be read at all counts as no
   settings and is not overwritten.
-- Display → Appearance: the theme, Light, Dark or System (default; follows the operating system's light or dark mode,
+- Display → Appearance: the theme, Light, Dark (default) or System (follows the operating system's light or dark mode,
   also while the IDE runs). It applies to all windows, menus and dialogs, including syntax colours; the terminal stays
   dark. In the dark theme, text fields and areas are a little brighter than the panes and have a lighter edge, so they read as inputs (code editors keep the pane colour), and their placeholder text is lighter than the field, so it stays readable.
   See [ADR 0009](../adr/0009-themes.md).
