@@ -13,3 +13,5 @@ paths:
 - No Java sources. No wildcard imports. Avoid `!!`; model absence with nullable types.
 - Public API gets KDoc when the intent is not obvious from the name; do not comment what the code already says.
 - Gradle Kotlin DSL: take versions from the version catalog (`libs.*`), never inline.
+- Inside `X().apply { ... }`, a name the receiver also has (`width`, `text`, `id`) resolves to the receiver's
+  property, not to an outer parameter or variable; name parameters so they cannot be shadowed.
