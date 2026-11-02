@@ -30,11 +30,14 @@ Check, most important first:
 4. Portability: CI also runs on macOS and on slower x64 runners. Check tests and OS-facing code against
    `docs/testing.md`, "Portability" (linked temp folders, 3 cores, stack depth, time limits, git encodings, file
    watcher polling).
-5. Docs: `docs/index.md`, ADRs and feature pages updated when needed. A diff that adds, changes or removes a key
+5. Safety and UI conventions: `.claude/rules/safety.md` (overwrites, unsaved content, confirmations with Cancel as
+   default, project trust for what runs without a click, quoting, secrets in logs and UI, no network on open) and
+   `docs/ui-conventions.md` for new UI.
+6. Docs: `docs/index.md`, ADRs and feature pages updated when needed. A diff that adds, changes or removes a key
    binding (`accelerator`, `KeyCodeCombination`, `KeyCharacterCombination`, `InputMap`, a `KeyCode` handler) must
    update `docs/features/keyboard-shortcuts.md`, and the keys must not clash with another binding in the same
    context.
-6. Commit hygiene: one logical step, no Claude attribution or session links.
+7. Commit hygiene: one logical step, no Claude attribution or session links.
 
 Label every finding:
 - **Blocker**: wrong behavior, data loss, a threading or contract violation, a missing test of new behavior or a
