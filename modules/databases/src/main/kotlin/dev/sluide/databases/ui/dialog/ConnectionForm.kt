@@ -45,7 +45,7 @@ data class ConnectionForm(
             trimmed.isEmpty() -> "Enter a name."
             clash -> "A connection named '$trimmed' exists."
             custom == null && host.isBlank() -> "Enter a host."
-            port == null || port !in 1..65535 -> "The port must be a number from 1 to 65535."
+            custom == null && (port == null || port !in 1..65535) -> "The port must be a number from 1 to 65535."
             custom != null && !custom.trim().startsWith(prefix) -> "The URL must start with $prefix."
             keys.any { it.isEmpty() } -> "A driver property has no key."
             keys.distinct().size != keys.size -> "A driver property key appears twice."

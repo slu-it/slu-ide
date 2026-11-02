@@ -59,6 +59,7 @@ class ConnectionFormTest {
     fun `a custom URL needs no host but the prefix of the kind`() {
         val base = form().copy(host = "")
         assertNull(base.copy(customUrl = "jdbc:postgresql://x/y").validation())
+        assertNull(base.copy(customUrl = "jdbc:postgresql://x/y", portText = "").validation(), "no port check either")
         assertEquals(
             "The URL must start with jdbc:postgresql:.",
             base.copy(customUrl = "jdbc:mariadb://x").validation(),

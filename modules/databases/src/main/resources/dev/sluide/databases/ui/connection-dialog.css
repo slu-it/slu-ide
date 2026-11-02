@@ -1,0 +1,14 @@
+/* The connection dialog uses Modena's looked-up colours; only the error text has colours of its own. */
+.connection-error {
+    -fx-text-fill: #cf222e;
+}
+
+.connection-hint {
+    -fx-opacity: 0.7;
+}
+
+@media (prefers-color-scheme: dark) {
+    .connection-error {
+        -fx-text-fill: #ff7b72;
+    }
+}
