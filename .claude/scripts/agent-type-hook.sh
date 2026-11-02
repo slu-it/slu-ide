@@ -4,7 +4,7 @@
 type="$(jq -r '.tool_input.subagent_type // empty' 2>/dev/null || true)"
 case "$type" in
   Explore | Plan)
-    echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"The built-in Explore and Plan agents run on the main model (Opus). Use the `explorer` agent (Haiku) for searches, and plan in the main session (delegate skill)."}}'
+    echo '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"The built-in Explore and Plan agents run on the main model (Opus). Use the `explorer` agent (Sonnet) for research, and plan in the main session (delegate skill)."}}'
     ;;
 esac
 exit 0

@@ -9,9 +9,10 @@ description: Use before handing implementation work in Thoreau to subagents, esp
 - One file, a few lines: do it yourself, no subagent.
 - Otherwise the main session plans and writes the brief, `implementer` (Sonnet) builds and writes its tests,
   `reviewer` (Opus) checks every change before it is merged or reported done.
-- Searches across the code go to `explorer` (Haiku); keep file dumps out of the main context. The built-in `Explore`
-  and `Plan` agents run on the main model and are refused by a hook (`.claude/scripts/agent-type-hook.sh`): plan in
-  the main session.
+- Research across the code goes to `explorer` (Sonnet): its brief states numbered questions, what the answer feeds
+  into (the plan, a brief, a bug hunt) and how thorough to be. Keep file dumps out of the main context. The built-in
+  `Explore` and `Plan` agents run on the main model and are refused by a hook (`.claude/scripts/agent-type-hook.sh`):
+  plan in the main session.
 - Subagents do not spawn further agents.
 
 ## Packages and model

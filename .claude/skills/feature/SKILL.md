@@ -14,7 +14,8 @@ user approves.
 
 ## 2. Orient
 - Read the `docs/index.md` rows that match and only the ADRs and feature pages they point to.
-- Wide searches go to `explorer`; read the few files that matter yourself.
+- Wide research goes to `explorer`, with numbered questions, what the answer feeds into and how thorough to be;
+  read the few files that matter yourself.
 - Look for what can be reused: a similar view, tool, dialog or runner the feature should behave like (the user often
   says "like the shell scripts" or "like the Codecs tool"; read that one).
 

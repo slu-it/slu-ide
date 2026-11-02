@@ -43,7 +43,7 @@ new ones too (ADR 0032).
 - Git: commit finished steps without asking; never push. The user pushes.
 
 ## Delegation
-- `explorer` (Haiku) searches, `implementer` (Sonnet) works from detailed briefs and writes its tests, `reviewer`
+- `explorer` (Sonnet) researches, `implementer` (Sonnet) works from detailed briefs and writes its tests, `reviewer`
   (Opus) checks every change before it is merged or reported done. Subagents do not spawn further agents. The
   built-in `Explore` and `Plan` agents run on the main model and are refused by a hook: search with `explorer`, plan
   in the main session.
