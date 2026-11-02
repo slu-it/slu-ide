@@ -1,0 +1,52 @@
+/*
+ * Result area under a console (ResultArea): Output, the paging toolbar and the grid. Colours are looked-up ones
+ * (-fx-background, -fx-text-base-color, derive) except the error red, which has a dark counterpart below.
+ */
+
+.result-toolbar {
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
+}
+
+.result-filter {
+    -fx-background-color: derive(-fx-background, 4%);
+}
+
+.result-button {
+    -fx-padding: 2 8 2 8;
+    -fx-background-radius: 0;
+}
+
+.result-button .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.result-page-label, .result-status {
+    -fx-padding: 0 8 0 4;
+    -fx-font-size: 0.9em;
+    -fx-text-fill: derive(-fx-text-base-color, 30%);
+}
+
+.result-error {
+    -fx-text-fill: #c62828;
+}
+
+@media (prefers-color-scheme: dark) {
+    .result-error {
+        -fx-text-fill: #ef5350;
+    }
+}
+
+.result-grid .row-number {
+    -fx-opacity: 0.55;
+    -fx-alignment: CENTER-RIGHT;
+}
+
+.result-grid .null-cell {
+    -fx-opacity: 0.5;
+    -fx-font-style: italic;
+}
+
+.result-output .list-cell {
+    -fx-font-family: monospace;
+}
