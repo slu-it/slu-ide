@@ -1,0 +1,10 @@
+/* The Databases tab uses Modena's looked-up colours only, so it needs no dark rules. */
+.databases-placeholder {
+    -fx-opacity: 0.7;
+    -fx-padding: 16;
+}
+
+.databases-card-name {
+    -fx-font-size: 1.25em;
+    -fx-font-weight: bold;
+}
