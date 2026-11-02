@@ -21,12 +21,12 @@ class AppearancePageModelTest {
 
     @Test
     fun `the edit stays a draft until applied`() {
-        model.draft.set(Theme.DARK)
-        assertEquals(Theme.SYSTEM, settings.theme.get())
+        model.draft.set(Theme.LIGHT)
+        assertEquals(Theme.DARK, settings.theme.get())
 
         model.apply()
 
-        assertEquals(Theme.DARK, settings.theme.get())
+        assertEquals(Theme.LIGHT, settings.theme.get())
     }
 
     @Test
@@ -35,7 +35,7 @@ class AppearancePageModelTest {
 
         model.load()
 
-        assertEquals(Theme.SYSTEM, model.draft.get())
-        assertEquals(Theme.SYSTEM, settings.theme.get())
+        assertEquals(Theme.DARK, model.draft.get())
+        assertEquals(Theme.DARK, settings.theme.get())
     }
 }

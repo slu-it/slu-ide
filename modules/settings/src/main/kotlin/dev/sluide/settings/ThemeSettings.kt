@@ -14,7 +14,7 @@ private const val KEY = "theme"
 
 /**
  * The [Theme] of the IDE. Windows follow [colorScheme]; the settings dialog changes the theme with [apply], which also
- * stores it in the [SettingsStore]. A missing or unknown stored theme means [Theme.SYSTEM].
+ * stores it in the [SettingsStore]. A missing or unknown stored theme means [Theme.DARK].
  */
 @Component
 class ThemeSettings(
@@ -25,7 +25,7 @@ class ThemeSettings(
     @Autowired
     constructor(store: SettingsStore) : this(store, { Platform.getPreferences().colorSchemeProperty() })
 
-    private val wrapper = ReadOnlyObjectWrapper(read(store.load()) ?: Theme.SYSTEM)
+    private val wrapper = ReadOnlyObjectWrapper(read(store.load()) ?: Theme.DARK)
 
     /** The chosen theme. */
     val theme: ReadOnlyObjectProperty<Theme> = wrapper.readOnlyProperty

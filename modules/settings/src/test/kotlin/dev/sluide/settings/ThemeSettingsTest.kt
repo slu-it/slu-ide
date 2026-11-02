@@ -21,8 +21,8 @@ class ThemeSettingsTest {
     private fun settings() = ThemeSettings(SettingsStore(file), { system })
 
     @Test
-    fun `without a settings file the system theme is used`() {
-        assertEquals(Theme.SYSTEM, settings().theme.get())
+    fun `without a settings file the dark theme is used`() {
+        assertEquals(Theme.DARK, settings().theme.get())
     }
 
     @Test
@@ -35,16 +35,17 @@ class ThemeSettingsTest {
     }
 
     @Test
-    fun `an unknown stored theme falls back to the system theme`() {
+    fun `an unknown stored theme falls back to the dark theme`() {
         file.parent.createDirectories()
         file.writeText("theme=PURPLE\n")
 
-        assertEquals(Theme.SYSTEM, settings().theme.get())
+        assertEquals(Theme.DARK, settings().theme.get())
     }
 
     @Test
     fun `the system theme follows the operating system`() {
         val settings = settings()
+        settings.apply(Theme.SYSTEM)
         assertEquals(ColorScheme.LIGHT, settings.colorScheme.get())
 
         system.set(ColorScheme.DARK)
@@ -56,7 +57,6 @@ class ThemeSettingsTest {
     fun `light and dark ignore the operating system`() {
         val settings = settings()
 
-        settings.apply(Theme.DARK)
         assertEquals(ColorScheme.DARK, settings.colorScheme.get())
 
         settings.apply(Theme.LIGHT)
@@ -70,10 +70,10 @@ class ThemeSettingsTest {
         val seen = mutableListOf<ColorScheme>()
         settings.colorScheme.subscribe { scheme -> seen += scheme }
 
-        settings.apply(Theme.DARK)
+        settings.apply(Theme.LIGHT)
 
-        assertEquals(listOf(ColorScheme.LIGHT, ColorScheme.DARK), seen)
-        assertTrue("theme=DARK" in file.readText())
-        assertEquals(Theme.DARK, settings().theme.get())
+        assertEquals(listOf(ColorScheme.DARK, ColorScheme.LIGHT), seen)
+        assertTrue("theme=LIGHT" in file.readText())
+        assertEquals(Theme.LIGHT, settings().theme.get())
     }
 }

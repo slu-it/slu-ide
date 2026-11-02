@@ -64,8 +64,9 @@ class ThemeUiTest {
     fun `the dark theme darkens open windows and windows opened later, with readable placeholder text`(robot: FxRobot) {
         install(robot)
         val root = stage.scene.root as Region
+        robot.interact { settings.apply(Theme.LIGHT) }
         assertEquals(ColorScheme.LIGHT, stage.scene.preferences.colorScheme)
-        assertTrue(!root.isDark(), "light by default")
+        assertTrue(!root.isDark(), "light when chosen")
 
         robot.interact { settings.apply(Theme.DARK) }
         assertEquals(ColorScheme.DARK, stage.scene.preferences.colorScheme)

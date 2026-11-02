@@ -48,7 +48,7 @@ class SettingsStoreTest {
         assertEquals(emptyMap(), SettingsStore(file).load())
         assertEquals(TestFonts.defaults[FontArea.EDITOR], TestFonts.settings(file).font(FontArea.EDITOR).get())
         assertEquals(
-            Theme.SYSTEM,
+            Theme.DARK,
             ThemeSettings(SettingsStore(file), { SimpleObjectProperty(ColorScheme.LIGHT) }).theme.get(),
         )
     }
@@ -95,9 +95,9 @@ class SettingsStoreTest {
         val themes = ThemeSettings(SettingsStore(file), { SimpleObjectProperty(ColorScheme.LIGHT) })
 
         assertFailsWith<IOException> { fonts.apply(mapOf(FontArea.EDITOR to FontSpec("Serif", 20.0))) }
-        assertFailsWith<IOException> { themes.apply(Theme.DARK) }
+        assertFailsWith<IOException> { themes.apply(Theme.LIGHT) }
 
         assertEquals(TestFonts.defaults[FontArea.EDITOR], fonts.font(FontArea.EDITOR).get())
-        assertEquals(Theme.SYSTEM, themes.theme.get())
+        assertEquals(Theme.DARK, themes.theme.get())
     }
 }
