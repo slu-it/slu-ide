@@ -41,6 +41,24 @@ class JdbcValuesTest {
     }
 
     @Test
+    fun `a PostgreSQL bit column is read as text, MariaDB's BIT as the driver's boolean`() {
+        val resultSet =
+            java.lang.reflect.Proxy.newProxyInstance(
+                javaClass.classLoader,
+                arrayOf(java.sql.ResultSet::class.java),
+            ) { _, method, _ ->
+                when (method.name) {
+                    "getString" -> "1"
+                    "getObject" -> true
+                    else -> throw UnsupportedOperationException(method.name)
+                }
+            } as java.sql.ResultSet
+
+        assertEquals(listOf<Any?>("1"), JdbcValues.row(resultSet, listOf(column("bit", Types.BIT))))
+        assertEquals(listOf<Any?>(true), JdbcValues.row(resultSet, listOf(column("BIT", Types.BIT))))
+    }
+
+    @Test
     fun `temporal columns are read as java time, PostgreSQL's timestamptz with its offset`() {
         assertEquals(OffsetDateTime::class.java, JdbcValues.temporalClass(column("timestamptz", Types.TIMESTAMP)))
         assertEquals(LocalDateTime::class.java, JdbcValues.temporalClass(column("timestamp", Types.TIMESTAMP)))

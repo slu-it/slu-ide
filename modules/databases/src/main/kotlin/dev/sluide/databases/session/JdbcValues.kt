@@ -69,6 +69,9 @@ internal object JdbcValues {
         index: Int,
         column: ColumnInfo,
     ): Any? {
+        // PostgreSQL's bit(1) would arrive as a Boolean, bit(n) as text; both are text ("1"/"0"). Case-sensitive:
+        // MariaDB's BIT stays a boolean.
+        if (column.typeName == "bit") return resultSet.getString(index)
         val temporal = temporalClass(column)
         val raw =
             try {

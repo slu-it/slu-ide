@@ -250,7 +250,7 @@ class RealDatabaseSmokeTest {
                     "SELECT '{\"a\": 1}'::json, '{\"a\": 1}'::jsonb, '\\x0102'::bytea, " +
                         "timestamptz '2026-11-02 10:00:00+01', ARRAY[1, 2], ARRAY['a', NULL], " +
                         "'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'::uuid, 1.50::numeric, interval '1 day', " +
-                        "date '2026-11-02', timestamp '2026-11-02 10:00', NULL::text",
+                        "date '2026-11-02', timestamp '2026-11-02 10:00', NULL::text, B'1'::bit(1), B'101'::bit(3)",
                 ).firstPage.rows
                 .single()
 
@@ -266,6 +266,8 @@ class RealDatabaseSmokeTest {
         assertEquals(LocalDate.of(2026, 11, 2), row[9])
         assertEquals(LocalDateTime.of(2026, 11, 2, 10, 0), row[10])
         assertEquals(null, row[11])
+        assertEquals("1", row[12])
+        assertEquals("101", row[13])
     }
 
     @Test
