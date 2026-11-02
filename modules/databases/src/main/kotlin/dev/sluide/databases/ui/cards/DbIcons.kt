@@ -1,10 +1,7 @@
 package dev.sluide.databases.ui.cards
 
 import dev.sluide.databases.connect.DatabaseKind
-import javafx.scene.layout.Background
-import javafx.scene.layout.BackgroundFill
 import javafx.scene.layout.Region
-import javafx.scene.paint.Color
 import javafx.scene.shape.SVGPath
 
 /**
@@ -15,32 +12,24 @@ import javafx.scene.shape.SVGPath
  * `https://raw.githubusercontent.com/simple-icons/simple-icons/14.0.0/icons/<name>.svg`; sha256 of the downloaded files:
  * postgresql.svg `c8ccadbd88c9312c2ad3734c4861b31d3485ce179ee91d64793143f83cfa745c`,
  * mariadb.svg `477435746bb2024048c7b71529f615fb70d7e679618f37bac49f78fd07e67dfe`.
- * The colours are fixed brand-like tones that read on both themes.
+ * The colours come from `cards.css` (`db-logo-postgresql`, `db-logo-mariadb`).
  */
 internal object DbIcons {
     const val SIZE = 16.0
 
-    private val postgres = Color.web("#4169E1")
-    private val maria = Color.web("#C0765A")
+    private val paths = DatabaseKind.entries.associateWith { kind -> lazy { pathData(kind.name.lowercase()) } }
 
     private fun pathData(name: String): String =
         checkNotNull(DbIcons::class.java.getResource("$name.path")).readText().trim()
 
     /** A new logo node of [kind], [SIZE] px square. */
-    fun logo(kind: DatabaseKind): Region {
-        val (file, color) =
-            when (kind) {
-                DatabaseKind.POSTGRESQL -> "postgresql" to postgres
-                DatabaseKind.MARIADB -> "mariadb" to maria
-            }
-        return Region().apply {
-            styleClass += "db-logo"
-            shape = SVGPath().apply { content = pathData(file) }
+    fun logo(kind: DatabaseKind): Region =
+        Region().apply {
+            styleClass += listOf("db-logo", "db-logo-${kind.name.lowercase()}")
+            shape = SVGPath().apply { content = checkNotNull(paths[kind]).value }
             isScaleShape = true
             setMinSize(SIZE, SIZE)
             setPrefSize(SIZE, SIZE)
             setMaxSize(SIZE, SIZE)
-            background = Background(BackgroundFill(color, null, null))
         }
-    }
 }

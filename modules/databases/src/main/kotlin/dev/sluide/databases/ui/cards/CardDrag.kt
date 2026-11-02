@@ -4,9 +4,7 @@ import javafx.animation.Animation
 import javafx.animation.KeyFrame
 import javafx.animation.Timeline
 import javafx.event.EventHandler
-import javafx.scene.Node
 import javafx.scene.Scene
-import javafx.scene.control.ButtonBase
 import javafx.scene.control.ScrollPane
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
@@ -30,7 +28,7 @@ private const val LINE_HEIGHT = 2.0
  * pointer grab on Linux, ADR 0073), like the TODO cards' drag (ADR 0103) but flat. The dragged card follows the
  * pointer; [line], an unmanaged child of a parent of [scroll], shows where it lands ([dropIndex]). On release [move]
  * gets the card's index and its index after removal, unless that is where it is. Escape cancels; near the edges the
- * scroll pane scrolls; presses on buttons are not drags.
+ * scroll pane scrolls. A press on a card button never reaches the card (the button consumes it), so it is no drag.
  */
 internal class CardDrag(
     private val scroll: ScrollPane,
@@ -82,7 +80,7 @@ internal class CardDrag(
     /** Makes [card] start drags of itself. */
     fun attach(card: Region) {
         card.addEventHandler(MouseEvent.MOUSE_PRESSED) { event ->
-            if (event.button == MouseButton.PRIMARY && !onButton(event.target)) {
+            if (event.button == MouseButton.PRIMARY) {
                 press = Press(event.sceneY, box.sceneToLocal(0.0, event.sceneY).y)
             }
         }
@@ -98,9 +96,6 @@ internal class CardDrag(
             if (current?.node === card && current.to != current.from) move(current.from, current.to)
         }
     }
-
-    private fun onButton(target: Any?): Boolean =
-        generateSequence(target as? Node) { it.parent }.any { it is ButtonBase }
 
     private fun start(
         card: Region,

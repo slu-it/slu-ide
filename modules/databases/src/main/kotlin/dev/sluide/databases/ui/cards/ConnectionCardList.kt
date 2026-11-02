@@ -4,6 +4,7 @@ import dev.sluide.databases.connect.DatabaseKind
 import dev.sluide.databases.ui.ConnectionEntry
 import dev.sluide.databases.ui.ConnectionStatus
 import dev.sluide.databases.ui.DatabasesTabModel
+import javafx.beans.value.ChangeListener
 import javafx.collections.ListChangeListener
 import javafx.geometry.Insets
 import javafx.geometry.Pos
@@ -28,8 +29,9 @@ import org.kordamp.ikonli.materialdesign2.MaterialDesignP
  * The left pane of the Databases tab (ADR 0121): a "+" menu to add a PostgreSQL or MariaDB connection above a scrolling
  * column of [ConnectionCard]s in the model's order. A click selects a card ([DatabasesTabModel.selected]), a double
  * click connects a disconnected one, dragging reorders ([CardDrag]). The column takes the focus: Up and Down move the
- * selection, Enter connects the selected disconnected card, Delete asks to delete it. Stops following the model when it
- * leaves its scene.
+ * selection, Enter connects the selected disconnected card, Delete or Shortcut+Backspace asks to delete it. Follows
+ * the model only while in a scene (the editor area takes it out whenever another tab is selected) and rebuilds the
+ * cards, their states and the selection on every return.
  */
 internal class ConnectionCardList(
     private val model: DatabasesTabModel,
@@ -59,7 +61,8 @@ internal class ConnectionCardList(
     private val cards = HashMap<ConnectionEntry, ConnectionCard>()
 
     private val listListener = ListChangeListener<ConnectionEntry> { sync() }
-    private val selection = model.selected.subscribe { entry -> highlight(entry) }
+    private val selectionListener = ChangeListener<ConnectionEntry?> { _, _, entry -> highlight(entry) }
+    private var attached = false
 
     val node: Node
 
@@ -75,7 +78,6 @@ internal class ConnectionCardList(
             ).apply {
                 styleClass += "db-card-add"
                 tooltip = Tooltip("Add Connection")
-                isFocusTraversable = false
             }
         val body = StackPane(scroll, line, hint)
         VBox.setVgrow(body, Priority.ALWAYS)
@@ -87,28 +89,33 @@ internal class ConnectionCardList(
                 stylesheets += checkNotNull(ConnectionCardList::class.java.getResource("cards.css")).toExternalForm()
             }
         box.addEventHandler(KeyEvent.KEY_PRESSED, ::onKey)
+        // The model outlives the tab, and the editor area takes the content out of its scene whenever another tab is
+        // selected: follow the model only while in a scene, and catch up completely on every return.
+        node.sceneProperty().addListener { _, _, scene -> if (scene != null) attach() else detach() }
+        if (node.scene != null) attach()
+    }
+
+    private fun attach() {
+        if (attached) return
+        attached = true
         model.connections.addListener(listListener)
-        // The model outlives the tab: a closed tab's list stops following it.
-        var shown = false
-        node.sceneProperty().addListener { _, _, scene ->
-            if (scene != null) {
-                shown = true
-            } else if (shown) {
-                dispose()
-            }
-        }
+        model.selected.addListener(selectionListener)
         sync()
     }
 
-    private fun dispose() {
-        selection.unsubscribe()
+    private fun detach() {
+        if (!attached) return
+        attached = false
+        model.selected.removeListener(selectionListener)
         model.connections.removeListener(listListener)
         drag.cancel()
         cards.values.forEach(ConnectionCard::dispose)
         cards.clear()
     }
 
+    /** Rebuilds the cards from the model: the entries, their states and the selection. */
     private fun sync() {
+        drag.cancel()
         val entries = model.connections.toList()
         cards.keys.filter { it !in entries }.forEach { cards.remove(it)?.dispose() }
         box.children.setAll(entries.map { cards.getOrPut(it) { newCard(it) } })
@@ -158,7 +165,9 @@ internal class ConnectionCardList(
                 if (selected != null && canConnect(selected)) model.connect(selected)
             }
 
-            KeyCode.DELETE -> {
+            KeyCode.DELETE, KeyCode.BACK_SPACE -> {
+                // Backspace only with Shortcut (the Mac's Delete key).
+                if (event.code == KeyCode.BACK_SPACE && !event.isShortcutDown) return
                 if (selected != null) model.delete(selected)
             }
 

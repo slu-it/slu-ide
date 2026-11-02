@@ -1,10 +1,16 @@
 package dev.sluide.databases.ui
 
+import dev.sluide.databases.Databases
 import dev.sluide.databases.DatabasesPanes
 import dev.sluide.databases.connect.ConnectionConfig
 import dev.sluide.databases.connect.DatabaseKind
+import dev.sluide.databases.session.DbSession
 import dev.sluide.databases.session.SessionEvent
+import dev.sluide.databases.settings.DatabasesSettings
+import dev.sluide.databases.sql.QueryHistory
+import dev.sluide.settings.SettingsStore
 import javafx.scene.Node
+import javafx.scene.Parent
 import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.Label
@@ -127,5 +133,43 @@ class DatabasesTabViewUiTest {
         robot.interact { view.dispose() }
         robot.interact { f.model.selected.set(shop) }
         assertTrue(nodes().first == null, "a disposed view no longer follows the model")
+    }
+
+    @Test
+    fun `the bean's tab shows a card per connection`(robot: FxRobot) {
+        val f = ModelFixture(dir)
+        val project = dir.resolve("project").createDirectories()
+        f.store.save(
+            project,
+            listOf(
+                ConnectionConfig("a", "alpha", DatabaseKind.POSTGRESQL),
+                ConnectionConfig("b", "beta", DatabaseKind.MARIADB),
+            ),
+        )
+        val databases =
+            Databases(
+                f.store,
+                f.passwords,
+                QueryHistory(),
+                DatabasesSettings(SettingsStore(dir.resolve("settings.properties"))),
+                f.tasks,
+                { FakeDialogs() },
+                { _, _ -> error("not connected") },
+                { it.run() },
+                { config, _, _, _, _, _ -> FakeSession(config) as DbSession },
+            )
+        databases.projectFolder.set(project)
+        robot.interact {
+            val tab = databases.createTab()
+            stage.scene = Scene(tab.content as Parent, 1000.0, 500.0)
+            stage.show()
+        }
+        val names =
+            fx(robot) {
+                stage.scene.root
+                    .lookupAll(".db-card .db-card-name")
+                    .map { (it as Label).text }
+            }
+        assertEquals(listOf("alpha", "beta"), names)
     }
 }

@@ -1,9 +1,7 @@
 package dev.sluide.databases.ui
 
 import dev.sluide.databases.DatabasesPanes
-import dev.sluide.databases.connect.DatabaseKind
 import javafx.beans.InvalidationListener
-import javafx.beans.binding.Bindings
 import javafx.beans.value.ChangeListener
 import javafx.geometry.Insets
 import javafx.geometry.Orientation
@@ -11,13 +9,7 @@ import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Button
 import javafx.scene.control.Label
-import javafx.scene.control.ListCell
-import javafx.scene.control.ListView
-import javafx.scene.control.MenuButton
-import javafx.scene.control.MenuItem
 import javafx.scene.control.SplitPane
-import javafx.scene.layout.HBox
-import javafx.scene.layout.Priority
 import javafx.scene.layout.StackPane
 import javafx.scene.layout.VBox
 

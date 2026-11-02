@@ -104,7 +104,7 @@ internal class ConnectionCard(
 
     private val refresh = InvalidationListener { refresh() }
 
-    /** The context menu's items for the current state. */
+    /** The context menu, rebuilt with every state change (an empty menu would not show). */
     internal val contextMenu = ContextMenu()
 
     init {
@@ -122,7 +122,6 @@ internal class ConnectionCard(
         body.minWidth = 0.0
         children.addAll(stripe, body)
         listOf(entry.config, entry.status, entry.error, entry.pendingTransaction).forEach { it.addListener(refresh) }
-        contextMenu.setOnShowing { buildMenu() }
         setOnContextMenuRequested {
             contextMenu.show(this, it.screenX, it.screenY)
             it.consume()
@@ -156,6 +155,7 @@ internal class ConnectionCard(
             if (state.connecting) {
                 ProgressIndicator().apply {
                     styleClass += "db-card-progress"
+                    setMinSize(12.0, 12.0)
                     setPrefSize(12.0, 12.0)
                     setMaxSize(12.0, 12.0)
                 }
@@ -171,7 +171,7 @@ internal class ConnectionCard(
         errorLine.isManaged = error.isNotEmpty()
         errorTooltip.text = error
         errorLine.tooltip = if (error.isEmpty()) null else errorTooltip
-        if (error.isEmpty()) Tooltip.uninstall(this, errorTooltip) else Tooltip.install(this, errorTooltip)
+        buildMenu()
     }
 
     private fun buildMenu() {

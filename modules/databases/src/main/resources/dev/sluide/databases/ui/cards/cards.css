@@ -1,6 +1,6 @@
 /*
- * The connection cards use Modena's looked-up colours (selection, text, accent); only the status dots have colours of
- * their own, with a lighter variant for the dark theme.
+ * The connection cards use Modena's looked-up colours (selection, text, accent, icons); the status dots, the logos and
+ * the error text have colours of their own, each with a variant in the dark block.
  */
 .db-card-list {
     -fx-background-color: transparent;
@@ -72,6 +72,14 @@
     -fx-background-color: -fx-accent;
 }
 
+.db-logo-postgresql {
+    -fx-background-color: #4169e1;
+}
+
+.db-logo-mariadb {
+    -fx-background-color: #c0765a;
+}
+
 .db-dot-disconnected {
     -fx-fill: #8a8f98;
 }
@@ -89,6 +97,18 @@
 }
 
 @media (prefers-color-scheme: dark) {
+    .db-logo-postgresql {
+        -fx-background-color: #6d8cf0;
+    }
+
+    .db-logo-mariadb {
+        -fx-background-color: #d9937a;
+    }
+
+    .db-dot-disconnected {
+        -fx-fill: #adb5bd;
+    }
+
     .db-card-error {
         -fx-text-fill: #ff8787;
     }
