@@ -30,6 +30,7 @@ Accelerators of the menu bar ([open-folder.md](open-folder.md), [settings.md](se
 | Shortcut+K | Git → Commit… |
 | Shortcut+Shift+K | Git → Push… |
 | Shortcut+Shift+T | Terminal → New Terminal |
+| Alt+7 (Cmd+7 on macOS) | Services → Databases (opens the Databases tab or selects it; not while a terminal has the focus on Linux and Windows) |
 | Alt+8 (Cmd+8 on macOS) | Services → Docker (opens the Docker tab or selects it; not while a terminal has the focus on Linux and Windows) |
 
 ## Code editor
@@ -145,7 +146,7 @@ All previews and images zoom, only while the rendered view has the focus, not in
 | Shortcut+Shift+V | Paste |
 
 All other keys the terminal translates go to the shell. On Linux and Windows these include Ctrl+O, Ctrl+S, Ctrl+W,
-Ctrl+K, Alt+1, Alt+9, Alt+6 and Alt+8, which then do not reach their menu items; Shortcut+Shift+letter, Ctrl+, and Ctrl+Alt+S still do, and
+Ctrl+K, Alt+1, Alt+9, Alt+6, Alt+7 and Alt+8, which then do not reach their menu items; Shortcut+Shift+letter, Ctrl+, and Ctrl+Alt+S still do, and
 on macOS every Cmd shortcut does, so Cmd+W closes the terminal tab (asking first while programs run), and a tab
 running a command only once it has exited ([terminal.md](terminal.md)). Alt+F1 (Option+F1 on macOS) goes to the shell on all platforms, so View → Select Opened
 File does not react to it while a terminal has the focus.

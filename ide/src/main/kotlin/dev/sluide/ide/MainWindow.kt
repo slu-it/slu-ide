@@ -5,6 +5,7 @@ import dev.sluide.codecs.Codecs
 import dev.sluide.coloring.Coloring
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.converting.Converting
+import dev.sluide.databases.Databases
 import dev.sluide.docker.Docker
 import dev.sluide.docker.DockerSession
 import dev.sluide.dockersandbox.DockerSandbox
@@ -114,6 +115,7 @@ class MainWindow(
     gitFileComparison: GitFileComparison,
     private val docker: Docker,
     private val dockerSession: DockerSession,
+    private val databases: Databases,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
     internal var openWebPage: (URI) -> Unit = systemBrowser::open
@@ -136,6 +138,24 @@ class MainWindow(
      */
     internal var confirmCloseWindow: (Stage, List<String>) -> Boolean = { stage, warnings ->
         askToClose(stage, "Close Window", "Close this window anyway?", warnings)
+    }
+
+    /**
+     * The database connections that would lose work when the window closes (ADR 0121); tests replace it, since a
+     * connection needs a server.
+     */
+    internal var databaseWarnings: () -> List<String> = { databases.closeWarnings() }
+
+    /** Closes the window's database connections once it closes; tests replace it to see that it is called. */
+    internal var disconnectDatabases: () -> Unit = { databases.disconnectAll() }
+
+    /**
+     * Asked before a folder opens in this window while its shared database connections have work, which opening loses
+     * as it closes their sessions, with the [databaseWarnings]; returns whether to open it. Tests replace it, since it
+     * blocks.
+     */
+    internal var confirmOpenFolder: (Stage?, List<String>) -> Boolean = { stage, warnings ->
+        askToOpenFolder(stage, warnings)
     }
 
     /** Asks whether to replace a file with a conversion; tests replace it, since it blocks. */
@@ -212,6 +232,7 @@ class MainWindow(
             codecs,
             converting,
             docker,
+            databases,
             openWebPage = { openWebPage(it) },
             showError = { s, m -> showError(s, m) },
         )
@@ -309,6 +330,9 @@ class MainWindow(
         converting.openScratch = { extension, text -> scratches.openText(stage, extension, text) }
         // The Docker tool's Run dialog is owned by this window.
         docker.window = { stage }
+        // The Databases tool's dialogs are owned by this window; its Show DDL opens a scratch file (ADR 0121).
+        databases.window = { stage }
+        databases.openScratch = { extension, text -> scratches.openText(stage, extension, text) }
         // A context menu's Compare Files shows the two files side by side (ADR 0113).
         fileExplorer.compareFiles = comparisons::compare
         // A context menu's Convert to writes a data file in another format beside it (ADR 0115).
@@ -399,15 +423,20 @@ class MainWindow(
             folder?.let { recentProjects.opened(it) }
         }
 
-        // Closing the window first asks to save its unsaved files, then, as it ends its terminals and commands, asks
-        // once, listing all of them. Quitting on macOS (Cmd+Q) asks every window to close the same way.
+        // Closing the window first asks to save its unsaved files, then, as it ends its terminals and commands and
+        // disconnects its databases, asks once, listing all of them. Quitting on macOS (Cmd+Q) asks every window to
+        // close the same way.
         stage.setOnCloseRequest { event ->
             if (!editorArea.confirmCloseAll()) {
                 event.consume()
                 return@setOnCloseRequest
             }
-            val warnings = editorArea.tabs.mapNotNull { it.closeWarning }
-            if (warnings.isNotEmpty() && !confirmCloseWindow(stage, warnings)) event.consume()
+            val warnings = editorArea.tabs.mapNotNull { it.closeWarning } + databaseWarnings()
+            if (warnings.isNotEmpty() && !confirmCloseWindow(stage, warnings)) {
+                event.consume()
+                return@setOnCloseRequest
+            }
+            disconnectDatabases()
         }
 
         stage.scene = Scene(root, 1000.0, 700.0)
@@ -506,10 +535,17 @@ class MainWindow(
 
     /**
      * Opens [folder] in this window if it has no folder yet; otherwise in another window ([ProjectWindows.open]),
-     * which is brought to the front if it already shows [folder].
+     * which is brought to the front if it already shows [folder]. Opening it here closes the shared database
+     * connections of the window, so it asks first while they have work ([confirmOpenFolder]).
      */
     internal fun openFolder(folder: Path) {
-        if (this.folder == null) projectService.open(folder) else projectWindows.open(folder)
+        if (this.folder != null) {
+            projectWindows.open(folder)
+            return
+        }
+        val warnings = databaseWarnings()
+        if (warnings.isNotEmpty() && !confirmOpenFolder(shownStage, warnings)) return
+        projectService.open(folder)
     }
 
     /** Closes all tabs (ending their terminals) and stops watching the folder; called when the window is closed. */

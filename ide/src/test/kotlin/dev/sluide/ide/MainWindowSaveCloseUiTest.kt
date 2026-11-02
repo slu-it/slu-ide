@@ -100,7 +100,9 @@ class MainWindowSaveCloseUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `closing the window asks once while tabs run something, Cancel keeps it open`(robot: FxRobot) {
+    fun `closing the window asks once while tabs run something or databases have work, Cancel keeps it open`(
+        robot: FxRobot,
+    ) {
         robot.interact { projectService.open(project) }
         robot.interact { editorArea.open(terminals.open(project, "Job 1", "sleep 300")) }
         robot.interact { editorArea.open(terminals.open(project, "Job 2", "sleep 300")) }
@@ -110,16 +112,30 @@ class MainWindowSaveCloseUiTest : MainWindowUiFixture() {
             asked += warnings
             answer
         }
+        mainWindow.databaseWarnings = { listOf("orders-dev: uncommitted transaction") }
+        var disconnects = 0
+        mainWindow.disconnectDatabases = { disconnects++ }
 
         robot.interact { requestClose() }
-        assertEquals(listOf(listOf("Job 1 is still running: sleep 300", "Job 2 is still running: sleep 300")), asked)
+        assertEquals(
+            listOf(
+                listOf(
+                    "Job 1 is still running: sleep 300",
+                    "Job 2 is still running: sleep 300",
+                    "orders-dev: uncommitted transaction",
+                ),
+            ),
+            asked,
+        )
         assertTrue(stage.isShowing)
         assertEquals(2, terminals.openCount)
+        assertEquals(0, disconnects)
 
         answer = true
         robot.interact { requestClose() }
         assertEquals(2, asked.size)
         assertFalse(stage.isShowing)
+        assertEquals(1, disconnects)
     }
 
     @Test
@@ -208,12 +224,15 @@ class MainWindowSaveCloseUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `closing the window does not ask when nothing runs`(robot: FxRobot) {
+    fun `closing the window does not ask when nothing runs, and disconnects the databases`(robot: FxRobot) {
         robot.interact { projectService.open(project) }
         mainWindow.confirmCloseWindow = { _, _ -> error("must not ask") }
+        var disconnects = 0
+        mainWindow.disconnectDatabases = { disconnects++ }
 
         robot.interact { requestClose() }
 
         assertFalse(stage.isShowing)
+        assertEquals(1, disconnects)
     }
 }

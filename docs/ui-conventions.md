@@ -31,10 +31,11 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   (`.preview-toolbar`): no new colours, small padding.
 
 ## Tool and service tabs
-- Tools menu (Coloring, Codecs, Converting) and Services menu (Docker) after Docker Sandbox in the menu bar
-  (ADR 0110, 0118). A tool is a `WindowTool` in `ide` (`ide/.../tools/ToolsMenu.kt`), not a module API.
+- Tools menu (Coloring, Codecs, Converting) and Services menu (Docker, Databases) after Docker Sandbox in the menu bar
+  (ADR 0110, 0118, 0121). A tool is a `WindowTool` in `ide` (`ide/.../tools/ToolsMenu.kt`), not a module API.
 - One tab per window: the menu selects the open tab or creates one. Closes with Shortcut+W without a question and is
-  not restored after a restart. Tools have no key binding; a service may get an Alt+N panel key (Docker: Alt+8).
+  not restored after a restart. Tools have no key binding; a service may get an Alt+N panel key (Docker: Alt+8,
+  Databases: Alt+7).
 - The module exposes a window bean with `createTab()` and callbacks that `ide` sets (`showTab`, `openTab`,
   `openScratch`, ...) in `WindowTools` or `MainWindow`; a callback left unset fails silently, so the wiring gets a
   test.

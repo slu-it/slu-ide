@@ -8,6 +8,11 @@ import dev.sluide.commandruns.ArgumentHistories
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.converting.Converting
 import dev.sluide.converting.FormatFamily
+import dev.sluide.databases.Databases
+import dev.sluide.databases.connect.ConnectionStore
+import dev.sluide.databases.connect.PasswordCache
+import dev.sluide.databases.settings.DatabasesSettings
+import dev.sluide.databases.sql.QueryHistory
 import dev.sluide.docker.Docker
 import dev.sluide.docker.DockerSession
 import dev.sluide.docker.run.DockerRunStore
@@ -227,6 +232,9 @@ abstract class MainWindowUiFixture {
     /** The Docker tools of the windows created by [mainWindow]. */
     internal val dockers = mutableListOf<Docker>()
 
+    /** The Databases tools of the windows created by [mainWindow]. */
+    internal val databases = mutableListOf<Databases>()
+
     /**
      * The Docker settings of the windows: an executable that does not exist, so that a Docker tab shows its note and
      * never reaches an engine of the machine.
@@ -314,6 +322,13 @@ abstract class MainWindowUiFixture {
             GitFileComparison(git),
             Docker(dockerSession, terminals, tasks, DockerRunStore(projectData)).also(dockers::add),
             dockerSession,
+            Databases(
+                ConnectionStore(projectData),
+                PasswordCache(),
+                QueryHistory(),
+                DatabasesSettings(SettingsStore(settingsDir.resolve("settings.properties"))),
+                tasks,
+            ).also(databases::add),
         )
     }
 

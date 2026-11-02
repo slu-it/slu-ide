@@ -85,6 +85,37 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         assertNull(editorArea.projectFolder())
         robot.interact { projectService.open(project) }
         assertEquals(project, editorArea.projectFolder())
+        // The Databases tool shows the project's connections and owns its dialogs by this window (ADR 0121).
+        assertEquals(project, databases.single().projectFolder.get())
+        assertSame(stage, databases.single().window())
+    }
+
+    @Test
+    fun `opening a folder in this window asks first while its shared databases have work, not in another window`(
+        robot: FxRobot,
+    ) {
+        mainWindow.databaseWarnings = { listOf("orders-dev: uncommitted transaction (rolled back)") }
+        val asked = mutableListOf<List<String>>()
+        var answer = false
+        mainWindow.confirmOpenFolder = { _, warnings ->
+            asked += warnings
+            answer
+        }
+
+        robot.interact { mainWindow.openFolder(project) }
+        assertNull(editorArea.projectFolder())
+        assertNull(databases.single().projectFolder.get())
+
+        answer = true
+        robot.interact { mainWindow.openFolder(project) }
+        assertEquals(project, editorArea.projectFolder())
+        assertEquals(List(2) { listOf("orders-dev: uncommitted transaction (rolled back)") }, asked)
+
+        // Another folder opens in another window: this one keeps its connections, so nothing is asked.
+        mainWindow.confirmOpenFolder = { _, _ -> error("must not ask") }
+        robot.interact { mainWindow.openFolder(otherProject) }
+        assertEquals(listOf(otherProject), openedElsewhere)
+        assertEquals(project, editorArea.projectFolder())
     }
 
     @Test

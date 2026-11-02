@@ -68,15 +68,19 @@ internal fun overwriteConfirmation(
     file: Path,
 ): Alert = confirmation(owner, overwriteQuestion(file), REPLACE_BUTTON)
 
-/** A dialog asking [question] with [confirm] and Cancel, not shown yet. Cancel is the default button and has the focus. */
+/**
+ * A dialog titled [title] asking [question] with [confirm] and Cancel, not shown yet. Cancel is the default button and
+ * has the focus.
+ */
 internal fun confirmation(
     owner: Window?,
     question: String,
     confirm: ButtonType,
+    title: String = "Convert",
 ): Alert =
     Alert(Alert.AlertType.CONFIRMATION, question, confirm, ButtonType.CANCEL).apply {
         owner?.let(::initOwner)
-        title = "Convert"
+        this.title = title
         headerText = null
         dialogPane.minHeight = Region.USE_PREF_SIZE
         val cancel = dialogPane.lookupButton(ButtonType.CANCEL) as Button

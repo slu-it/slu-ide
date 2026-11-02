@@ -11,7 +11,11 @@
   ([project-picker.md](project-picker.md)); the chosen one opens in a new window, or its window comes to the front.
 - One project folder per window:
   - in a window without a folder, the chosen folder opens in that window (windows Thoreau opens itself always have
-    one: it starts with the project picker instead of an empty window);
+    one: it starts with the project picker instead of an empty window). Its Databases tab then shows the project's
+    connections instead of the shared ones, so the shared connections are disconnected; while one of them has an
+    uncommitted transaction, a running statement or unsubmitted edits, it first asks "Opening the folder disconnects
+    these databases:", listing them, with Open and Cancel (the default), and Cancel keeps the window as it is
+    ([ADR 0121](../adr/0121-databases-tab.md); tests replace the dialog via `MainWindow.confirmOpenFolder`);
   - otherwise it opens in a new window, placed 30 px below and right of the current one. The current window and its
     tabs stay as they are;
   - if a window already shows the folder, that window comes to the front instead.
@@ -25,11 +29,12 @@
 - Every window has its own explorer, editor area, terminals, Docker sandboxes and git status (Spring scope `window`).
 - Closing a window with unsaved files first asks to save them: Save, Don't Save or Cancel
   ([text-editing.md](text-editing.md)); Cancel keeps the window.
-- Closing a window while its tabs still run something (terminal programs, Docker sandboxes and other commands) asks
-  once, listing them: "Close this window anyway?". Cancel keeps the window; Close ends them. Without running tabs it
-  closes right away. Closing the last window shows the project picker ([project-picker.md](project-picker.md)); Thoreau
-  quits only when the picker is closed with no window open. Tests replace the dialog via
-  `MainWindow.confirmCloseWindow`.
+- Closing a window while its tabs still run something (terminal programs, Docker sandboxes and other commands) or its
+  database connections have work (an uncommitted transaction, which is rolled back, a running statement or
+  unsubmitted edits; ADR 0121) asks once, listing them: "Close this window anyway?". Cancel keeps the window; Close
+  ends them and disconnects the databases. Without either it closes right away. Closing the last window shows the
+  project picker ([project-picker.md](project-picker.md)); Thoreau quits only when the picker is closed with no window
+  open. Tests replace the dialog via `MainWindow.confirmCloseWindow`.
 - Command line: `Thoreau [folder…]` (or `java -jar ide-*.jar [folder…]`) opens the given folders at startup, the
   first in the startup window and every other one in a new window, like Open Folder, without showing the project
   picker. Relative paths resolve against the working directory. Arguments that are not folders are reported on stderr (`Thoreau: not a folder, ignored: …`)

@@ -1,10 +1,13 @@
 package dev.sluide.ide
 
 import dev.sluide.coloring.color.CssColor
+import dev.sluide.editorarea.EditorTab
 import dev.sluide.ide.compare.FileComparisonTab
+import javafx.beans.property.SimpleStringProperty
 import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.control.Button
+import javafx.scene.control.Label
 import javafx.scene.control.MenuBar
 import javafx.scene.control.MenuItem
 import javafx.scene.control.TextArea
@@ -269,11 +272,22 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `Services - Docker opens one Docker tab on Alt+8, and a second choice selects it`(robot: FxRobot) {
-        val docker = menu(robot, "Services").items.single()
-        assertEquals("Docker", docker.text)
-        val accelerator = docker.accelerator as KeyCodeCombination
-        assertEquals(KeyCode.DIGIT8, accelerator.code)
+    fun `Services - Docker and Databases open one tab each on Alt+8 and Alt+7, and a second choice selects it`(
+        robot: FxRobot,
+    ) {
+        val (docker, databases) = menu(robot, "Services").items
+        assertEquals(listOf("Docker", "Databases"), menu(robot, "Services").items.map { it.text })
+        assertEquals(KeyCode.DIGIT8, (docker.accelerator as KeyCodeCombination).code)
+        val databasesKey = databases.accelerator as KeyCodeCombination
+        assertEquals(KeyCode.DIGIT7, databasesKey.code)
+        assertEquals(
+            if (isMac) KeyCombination.ModifierValue.DOWN else KeyCombination.ModifierValue.UP,
+            databasesKey.shortcut,
+        )
+        assertEquals(
+            if (isMac) KeyCombination.ModifierValue.UP else KeyCombination.ModifierValue.DOWN,
+            databasesKey.alt,
+        )
 
         robot.interact { docker.fire() }
         robot.interact { editorArea.open(project.resolve("notes.txt").apply { writeText("x") }) }
@@ -281,6 +295,25 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
 
         assertEquals(listOf("Docker", "notes.txt"), tabTitles(robot))
         assertEquals("Containers, images, volumes and networks", checkNotNull(editorArea.selectedTab).tooltip)
+
+        robot.interact { databases.fire() }
+        robot.interact { editorArea.select(editorArea.tabs.first()) }
+        robot.interact { this.databases.single().showTab() }
+
+        assertEquals(listOf("Docker", "notes.txt", "Databases"), tabTitles(robot))
+        assertEquals("Database connections, consoles and object trees", checkNotNull(editorArea.selectedTab).tooltip)
+
+        // Its own tabs open in the editor area.
+        robot.interact {
+            this.databases.single().openTab(
+                object : EditorTab {
+                    override val title = SimpleStringProperty("Results")
+                    override val tooltip = "Results"
+                    override val content = Label()
+                },
+            )
+        }
+        assertEquals(listOf("Docker", "notes.txt", "Databases", "Results"), tabTitles(robot))
     }
 
     @Test

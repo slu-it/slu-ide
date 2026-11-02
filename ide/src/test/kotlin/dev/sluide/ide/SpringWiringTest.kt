@@ -8,6 +8,12 @@ import dev.sluide.commandruns.ArgumentHistories
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.converting.Converting
 import dev.sluide.converting.FormatFamily
+import dev.sluide.databases.Databases
+import dev.sluide.databases.connect.ConnectionStore
+import dev.sluide.databases.connect.PasswordCache
+import dev.sluide.databases.settings.DatabasesSettings
+import dev.sluide.databases.settings.DatabasesSettingsPage
+import dev.sluide.databases.sql.QueryHistory
 import dev.sluide.docker.Docker
 import dev.sluide.docker.DockerSession
 import dev.sluide.docker.compose.ComposeFileViewer
@@ -162,6 +168,12 @@ class SpringWiringTest {
                         ComposeFileViewer::class.java,
                         DockerfileBuildViewer::class.java,
                         DockerBuildStore::class.java,
+                        ConnectionStore::class.java,
+                        PasswordCache::class.java,
+                        QueryHistory::class.java,
+                        DatabasesSettings::class.java,
+                        DatabasesSettingsPage::class.java,
+                        Databases::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")
@@ -192,6 +204,7 @@ class SpringWiringTest {
                         Converting::class.java,
                         DockerSession::class.java,
                         Docker::class.java,
+                        Databases::class.java,
                     )
                 val scoped =
                     context.beanFactory.beanDefinitionNames.filter {

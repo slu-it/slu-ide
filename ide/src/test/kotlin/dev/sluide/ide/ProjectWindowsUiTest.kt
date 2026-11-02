@@ -7,6 +7,11 @@ import dev.sluide.coloring.SavedColors
 import dev.sluide.commandruns.ArgumentHistories
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.converting.Converting
+import dev.sluide.databases.Databases
+import dev.sluide.databases.connect.ConnectionStore
+import dev.sluide.databases.connect.PasswordCache
+import dev.sluide.databases.settings.DatabasesSettings
+import dev.sluide.databases.sql.QueryHistory
 import dev.sluide.docker.Docker
 import dev.sluide.docker.DockerSession
 import dev.sluide.docker.run.DockerRunStore
@@ -158,6 +163,10 @@ class ProjectWindowsUiTest {
                 register(GitStashes::class.java)
                 register(DockerSettings::class.java)
                 register(DockerRunStore::class.java)
+                register(ConnectionStore::class.java)
+                register(PasswordCache::class.java)
+                register(QueryHistory::class.java)
+                register(DatabasesSettings::class.java)
                 registerBean(
                     RemoteSourceCache::class.java,
                     Supplier { RemoteSourceCache(getBean(GitCli::class.java), dir.resolve("cache/git")) },
@@ -185,6 +194,7 @@ class ProjectWindowsUiTest {
                     Converting::class.java,
                     DockerSession::class.java,
                     Docker::class.java,
+                    Databases::class.java,
                 )
                 refresh()
             }

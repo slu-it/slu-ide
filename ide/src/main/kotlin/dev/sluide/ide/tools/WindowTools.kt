@@ -3,6 +3,7 @@ package dev.sluide.ide.tools
 import dev.sluide.codecs.Codecs
 import dev.sluide.coloring.Coloring
 import dev.sluide.converting.Converting
+import dev.sluide.databases.Databases
 import dev.sluide.docker.Docker
 import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.dockersandbox.SandboxAction
@@ -25,7 +26,7 @@ import java.nio.file.Path
 /**
  * The tools of one window: the Terminal and Docker Sandbox menus with the terminal tabs they open in the
  * [editorArea], the Tools menu with the Coloring, Codecs and Converting tabs (ADR 0110, ADR 0112, ADR 0115) and the
- * Services menu with the Docker tab (ADR 0118). [showError] shows why a tool cannot be started. Used on the JavaFX
+ * Services menu with the Docker and Databases tabs (ADR 0118, ADR 0121). [showError] shows why a tool cannot be started. Used on the JavaFX
  * thread.
  */
 internal class WindowTools(
@@ -38,6 +39,7 @@ internal class WindowTools(
     codecs: Codecs,
     converting: Converting,
     docker: Docker,
+    databases: Databases,
     /** Opens a web page in the system browser. */
     openWebPage: (URI) -> Unit,
     private val showError: (Stage, String) -> Unit,
@@ -68,9 +70,23 @@ internal class WindowTools(
             KeyCodeCombination(KeyCode.DIGIT8, if (isMac) KeyCombination.SHORTCUT_DOWN else KeyCombination.ALT_DOWN),
         )
 
+    /** The Databases tool of the Services menu, on the key next to Docker's. */
+    internal val databasesTool =
+        WindowTool(
+            "Databases",
+            databases::createTab,
+            KeyCodeCombination(KeyCode.DIGIT7, if (isMac) KeyCombination.SHORTCUT_DOWN else KeyCombination.ALT_DOWN),
+        )
+
     /** The Services menu logic; tests choose tools through it. */
     internal val servicesMenu =
-        ToolsMenu({ editorArea.tabs }, editorArea::open, editorArea::select, listOf(dockerTool), "Services")
+        ToolsMenu(
+            { editorArea.tabs },
+            editorArea::open,
+            editorArea::select,
+            listOf(dockerTool, databasesTool),
+            "Services",
+        )
 
     init {
         coloring.showTab = { toolsMenu.open(coloringTool) }
@@ -81,12 +97,15 @@ internal class WindowTools(
         docker.openTab = { editorArea.open(it) }
         docker.openUrl = openWebPage
         docker.projectFolder.bind(projectService.projectFolder)
+        databases.showTab = { servicesMenu.open(databasesTool) }
+        databases.openTab = { editorArea.open(it) }
+        databases.projectFolder.bind(projectService.projectFolder)
     }
 
     /** The Tools menu: Coloring, Codecs, Converting. */
     fun toolsMenu(): Menu = toolsMenu.menu()
 
-    /** The Services menu: Docker. */
+    /** The Services menu: Docker, Databases. */
     fun servicesMenu(): Menu = servicesMenu.menu()
 
     /** The Terminal menu: New Terminal. */
