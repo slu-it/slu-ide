@@ -69,6 +69,9 @@ statements that run for minutes, transactions that must not be lost silently, an
   is not supported. Completion of keywords, schemas, tables and columns comes from the metadata cache.
 
 **Tree**
+- PostgreSQL partitions are not listed among the tables; a partitioned table shows them in its own "partitions"
+  group. Table DDL includes what replaying it needs: `PARTITION BY`/`PARTITION OF`, `CREATE FOREIGN TABLE`, and the
+  sequences the table's columns own (as pg_dump does).
 - Built from catalog queries per kind (`Introspector`), loaded per schema on expand, synced by key so expansion and
   selection survive a refresh. System schemas are hidden unless Show System Schemas (stored per connection). Show
   DDL opens a `.sql` scratch file ([ADR 0066](0066-scratch-files.md)): PostgreSQL's DDL is assembled from the
