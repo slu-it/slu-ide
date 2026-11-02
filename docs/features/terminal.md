@@ -38,8 +38,8 @@
   macOS, where Option types characters. Ctrl+Shift+letter and Cmd shortcuts are not sent to the shell, so menu
   shortcuts with them keep working (New Terminal, and on macOS all menu shortcuts except Option+F1), and so does Ctrl+, (Settings).
   Menu shortcuts that the terminal sends to the shell do not reach the menu: on Linux, Ctrl+O sends ^O to the shell
-  instead of opening File → Open Folder, Ctrl+W goes to the shell instead of closing the tab (on macOS Cmd+W finds
-  File → Close Tab disabled for terminals and leaves the tab open), Ctrl+K sends ^K instead of opening
+  instead of opening File → Open Folder, Ctrl+W goes to the shell instead of closing the tab (on macOS Cmd+W closes
+  the terminal tab, asking first while programs run, and a tab running a command only once it has exited), Ctrl+K sends ^K instead of opening
   Git → Commit…, and Alt+F1 (Option+F1 on macOS too) is sent to the shell as the xterm sequence for Alt+F1 instead of choosing View → Select Opened File, while a terminal has the focus; use the menu or click outside the terminal first.
 - Scrollback: the mouse wheel scrolls through the history (the last 5000 lines, JediTerm's default; older lines are
   dropped). Typing or pasting scrolls back down. Full-screen programs scroll themselves: the wheel is reported to them

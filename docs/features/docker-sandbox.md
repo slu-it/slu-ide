@@ -19,7 +19,8 @@
 - If the shell itself cannot be started, an error dialog says so ("Claude Code cannot be started. /bin/nosh could not
   be started in …") and no tab opens; the failed start uses up no number.
 - Closing a tab while `sbx` still runs (×, middle click, context menu) asks first; Cancel keeps the sandbox running.
-  After it has ended, the tab closes without asking. Closing the window asks once for all its running tabs, like for
+  After it has ended, the tab closes without asking, and Shortcut+W closes it too; while the sandbox runs, File →
+  Close Tab is disabled. Closing the window asks once for all its running tabs, like for
   every terminal.
 - Sandboxes run **only in folders below the user's home folder**: never in the home folder itself, a folder above it
   or outside it. Folders are compared by their real paths, so symbolic links and `..` do not get around this.

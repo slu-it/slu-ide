@@ -27,7 +27,6 @@ internal class FileComparisonTab(
     override val tooltip = comparison.tooltip()
 
     override val usesEditorFont = true
-    override val closableByShortcut = true
 
     private val holder = StackPane(view.node)
 

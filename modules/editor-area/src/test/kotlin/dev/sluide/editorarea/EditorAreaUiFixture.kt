@@ -15,6 +15,7 @@ import javafx.application.Platform
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleObjectProperty
 import javafx.beans.property.SimpleStringProperty
+import javafx.beans.value.ObservableValue
 import javafx.event.Event
 import javafx.event.EventType
 import javafx.scene.Node
@@ -331,10 +332,12 @@ abstract class EditorAreaUiFixture {
     internal class WarningTab(
         name: String,
         override var closeWarning: String?,
+        private val closable: ObservableValue<Boolean>? = null,
     ) : EditorTab {
         override val title = SimpleStringProperty(name)
         override val tooltip = name
         override val content = Label(name)
+        override val closableByShortcut: ObservableValue<Boolean> get() = closable ?: super.closableByShortcut
     }
 
     /** Opens [files], edits each and records what [EditorArea.confirmSave] is asked, answering [answer]. */

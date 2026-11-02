@@ -20,7 +20,7 @@ Accelerators of the menu bar ([open-folder.md](open-folder.md), [settings.md](se
 | Shortcut+O | File → Open Folder… |
 | Shortcut+S | File → Save |
 | Shortcut+Alt+S | File → Save All |
-| Shortcut+W | File → Close Tab (file, diff and tool tabs such as Coloring, not terminals) |
+| Shortcut+W | File → Close Tab (file, diff, tool and terminal tabs; a command tab once its command has exited) |
 | Shortcut+, | File → Settings… |
 | Shortcut+Shift+D | View → Show Changes (side-by-side diff of the current file); in the explorer with two files selected, Compare Files |
 | Alt+F1 (Option+F1 on macOS) | View → Select Opened File (reveals the selected tab's file in the explorer and focuses it; not while a terminal has the focus, it sends Alt+F1 to the shell; many Linux desktops (GNOME, KDE, Xfce) grab Alt+F1 themselves, so it may never reach the app there) |
@@ -146,8 +146,8 @@ All previews and images zoom, only while the rendered view has the focus, not in
 
 All other keys the terminal translates go to the shell. On Linux and Windows these include Ctrl+O, Ctrl+S, Ctrl+W,
 Ctrl+K, Alt+1, Alt+9, Alt+6 and Alt+8, which then do not reach their menu items; Shortcut+Shift+letter, Ctrl+, and Ctrl+Alt+S still do, and
-on macOS every Cmd shortcut does, but Cmd+W leaves a terminal tab open: File → Close Tab is disabled for terminals
-([terminal.md](terminal.md)). Alt+F1 (Option+F1 on macOS) goes to the shell on all platforms, so View → Select Opened
+on macOS every Cmd shortcut does, so Cmd+W closes the terminal tab (asking first while programs run), and a tab
+running a command only once it has exited ([terminal.md](terminal.md)). Alt+F1 (Option+F1 on macOS) goes to the shell on all platforms, so View → Select Opened
 File does not react to it while a terminal has the focus.
 
 ## Git log

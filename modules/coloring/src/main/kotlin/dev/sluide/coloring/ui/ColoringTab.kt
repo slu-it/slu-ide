@@ -15,7 +15,6 @@ internal class ColoringTab(
         }
     override val tooltip: String = "Color tools"
     override val content: Node get() = view.node
-    override val closableByShortcut: Boolean = true
 
     override fun dispose() = view.dispose()
 }

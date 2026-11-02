@@ -15,7 +15,6 @@ internal class ConvertingTab(
         }
     override val tooltip: String = "Convert between data formats"
     override val content: Node get() = view.node
-    override val closableByShortcut: Boolean = true
 
     override fun dispose() = view.dispose()
 }

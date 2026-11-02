@@ -60,7 +60,7 @@ A button is disabled while its action runs; a failure goes to the error bar.
 
 **Shell** opens a normal terminal tab named `<container> (shell)`, in the project folder (the home folder without
 one), running `docker exec -it <id>` with bash if the container has it, else sh, in the login shell, with the
-environment the Docker CLI was found with.
+environment the Docker CLI was found with. Shortcut+W closes the tab only after the command has exited.
 
 - **Overview:** image, state and status, health, created and started (relative, the time in the tooltip), ports
   (published TCP ports are links that open `http://localhost:<port>` in the browser, or the address they are
@@ -135,7 +135,7 @@ and every word shell-quoted, so it also works pasted into a terminal.
 masked in Thoreau's log) and the CLI's own environment untouched; when the
 container is created the Docker tab shows it with its Logs tab, and a failure (port taken, name in use, image missing)
 shows the CLI's message in the error bar. **Attached** (Detached off) opens a terminal tab "<image> (run)" in the project
-folder (home without a project) that runs the command. Its variables travel in the terminal's environment as
+folder (home without a project) that runs the command; Shortcut+W closes it only after the command has exited. Its variables travel in the terminal's environment as
 `SLUIDE_RUN_ENV_0`, `SLUIDE_RUN_ENV_1`, … and the command line has `-e "NAME=$SLUIDE_RUN_ENV_0"`: the shell expands them
 after its start files ran, so a container variable such as `PATH`, `JAVA_HOME` or `DOCKER_HOST` neither changes the CLI
 nor gets overridden, and the values do not show in the terminal. Without a reachable engine the dialog still opens; Run

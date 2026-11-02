@@ -63,7 +63,7 @@ class MainWindowSaveCloseUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `the close shortcut closes a file tab, and a terminal tab stays open`(robot: FxRobot) {
+    fun `the close shortcut closes file and terminal tabs, command tabs only once they have exited`(robot: FxRobot) {
         val a = project.resolve("a.txt").apply { writeText("a") }
         robot.interact {
             projectService.open(project)
@@ -73,14 +73,30 @@ class MainWindowSaveCloseUiTest : MainWindowUiFixture() {
         robot.interact { pressShortcut(shownArea(robot), KeyCode.W) }
         assertEquals(emptyList(), tabTitles(robot))
 
+        // The key is pressed on the scene root: on Linux a focused terminal sends Ctrl+W to the shell.
         robot.interact { editorArea.open(terminals.open(project, "Job", "sleep 300")) }
-        val terminal = checkNotNull(editorArea.selectedTab).content
         assertTrue(fileMenuItem(robot, "Close Tab").isDisable)
-        robot.interact { pressShortcut(terminal, KeyCode.W) }
-        // Outside the terminal the key reaches the menu item, which is disabled.
         robot.interact { pressShortcut(stage.scene.root, KeyCode.W) }
-        assertTrue(fileMenuItem(robot, "Close Tab").isDisable)
-        assertEquals(1, tabTitles(robot).size)
+        assertEquals(listOf("Job"), tabTitles(robot))
+
+        robot.interact { editorArea.open(terminals.open(project, "Quick", "true")) }
+        eventually(robot) {
+            assertEquals(listOf("Job", "Quick (exited)"), tabTitles(robot))
+            assertFalse(fileMenuItem(robot, "Close Tab").isDisable)
+        }
+        robot.interact { pressShortcut(stage.scene.root, KeyCode.W) }
+        assertEquals(listOf("Job"), tabTitles(robot))
+
+        editorArea.confirmClose = { true }
+        robot.interact { editorArea.open(terminals.open(project)) }
+        assertFalse(fileMenuItem(robot, "Close Tab").isDisable)
+        // Ctrl+W elsewhere is the shell's (delete word); Cmd+W on macOS is no key for the shell.
+        if (!System.getProperty("os.name").startsWith("Mac")) {
+            robot.interact { pressShortcut(checkNotNull(editorArea.selectedTab).content, KeyCode.W) }
+            assertEquals(listOf("Job", "Terminal 1"), tabTitles(robot))
+        }
+        robot.interact { pressShortcut(stage.scene.root, KeyCode.W) }
+        assertEquals(listOf("Job"), tabTitles(robot))
     }
 
     @Test

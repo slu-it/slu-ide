@@ -3,6 +3,7 @@ package dev.sluide.editorarea
 import dev.sluide.fileviewers.LineChange
 import dev.sluide.fileviewers.TextDiff
 import dev.sluide.fileviewers.ViewActivity
+import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleStringProperty
 import javafx.scene.Node
 import javafx.scene.control.Button
@@ -183,9 +184,10 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
     }
 
     @Test
-    fun `canCloseSelected follows the selection, and a tab not closable by shortcut stays`(robot: FxRobot) {
+    fun `canCloseSelected follows the selection and the selected tab's closability`(robot: FxRobot) {
         val a = textFile("a.txt")
-        val terminal = WarningTab("Terminal 1", null)
+        val closable = SimpleBooleanProperty(false)
+        val terminal = WarningTab("Terminal 1", null, closable)
         assertFalse(editor.canCloseSelected.value)
         open(robot, a)
         assertTrue(editor.canCloseSelected.value)
@@ -195,8 +197,13 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         robot.interact { editor.closeSelected() }
         assertEquals(listOf("a.txt", "Terminal 1"), tabTitles(robot))
 
-        robot.interact { click(tabLabel(robot, "a.txt")) }
-        assertTrue(editor.canCloseSelected.value)
+        // Observed, so that a binding that only reads the value when asked would not pass.
+        val observed = SimpleBooleanProperty()
+        observed.bind(editor.canCloseSelected)
+        robot.interact { closable.set(true) }
+        assertTrue(observed.value)
+        robot.interact { editor.closeSelected() }
+        assertEquals(listOf("a.txt"), tabTitles(robot))
     }
 
     @Test

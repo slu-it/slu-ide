@@ -15,7 +15,6 @@ internal class CodecsTab(
         }
     override val tooltip: String = "Encode and decode text"
     override val content: Node get() = view.node
-    override val closableByShortcut: Boolean = true
 
     override fun dispose() = view.dispose()
 }

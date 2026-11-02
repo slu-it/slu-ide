@@ -434,8 +434,8 @@ class MainWindow(
                 accelerator = KeyCodeCombination(KeyCode.S, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN)
                 setOnAction { editorArea.saveAll() }
             }
-        // Only file and diff tabs close; a terminal keeps Ctrl+W for the shell, and Cmd+W on macOS finds the item
-        // disabled.
+        // Terminals close too, command tabs only once they have exited (`EditorTab.closableByShortcut`); on Linux
+        // and Windows a focused terminal keeps Ctrl+W for the shell.
         val closeTab =
             MenuItem("Close Tab").apply {
                 accelerator = KeyCodeCombination(KeyCode.W, KeyCombination.SHORTCUT_DOWN)

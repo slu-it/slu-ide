@@ -16,7 +16,6 @@ internal class DockerTab(
         }
     override val tooltip: String = "Containers, images, volumes and networks"
     override val content: Node get() = view.node
-    override val closableByShortcut: Boolean = true
 
     override fun dispose() {
         view.dispose()

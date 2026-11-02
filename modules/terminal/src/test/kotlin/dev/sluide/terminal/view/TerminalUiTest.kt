@@ -440,10 +440,13 @@ class TerminalUiTest {
         }
 
         assertEquals("Job 1 is still running: sleep 300", job.closeWarning)
+        assertFalse(job.closableByShortcut.value)
         eventually {
             assertTrue(quick.view.exited.get())
             assertEquals(null, quick.closeWarning)
+            assertTrue(quick.closableByShortcut.value)
         }
+        assertFalse(job.closableByShortcut.value)
     }
 
     @Test
@@ -523,6 +526,7 @@ class TerminalUiTest {
     @Test
     fun `the tab shows when the shell exits, closing it ends the shell`(robot: FxRobot) {
         val first = open(robot)
+        assertTrue(first.closableByShortcut.value, "a plain terminal tab closes by shortcut")
         type(robot, first.view, "exit")
         eventually { assertEquals("Terminal 1 (exited)", first.title.value) }
 

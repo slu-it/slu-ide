@@ -190,7 +190,7 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
         press(KeyCode.ENTER)
         eventually(robot) { assertTrue(editorArea.selectedTab is CommitDiffTab) }
         val tab = editorArea.selectedTab as CommitDiffTab
-        assertTrue(tab.closableByShortcut)
+        assertTrue(tab.closableByShortcut.value)
         assertEquals("tracked.md (${changed.take(8)})", tab.title.value)
         assertEquals("tracked.md at ${changed.take(8)}", tab.tooltip)
         val areas =
@@ -256,7 +256,7 @@ class MainWindowGitUiTest : MainWindowUiFixture() {
 
         robot.interact { assertTrue(gitLogView.onShowWorkingTreeDiff(diff)) }
         val tab = editorArea.selectedTab as WorkingTreeDiffTab
-        assertTrue(tab.closableByShortcut)
+        assertTrue(tab.closableByShortcut.value)
         assertEquals("tracked.md (feature ↔ Working Tree)", tab.title.value)
         assertEquals("tracked.md: feature (1a2b3c4d) ↔ Working Tree", tab.tooltip)
         assertEquals(listOf("one\ntwo", "one\nTWO"), areas())

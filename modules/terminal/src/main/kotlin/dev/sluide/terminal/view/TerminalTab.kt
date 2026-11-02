@@ -29,6 +29,10 @@ internal class TerminalTab(
     override val closeWarning: String?
         get() = closeWarning(name, command, view.session.isAlive) { view.session.runningPrograms() }
 
+    /** A running command would be hung up on, so a command tab can only be closed by shortcut once it has ended. */
+    override val closableByShortcut: ObservableValue<Boolean> =
+        if (command == null) super.closableByShortcut else view.exited
+
     override fun dispose() {
         view.dispose()
         onDisposed(this)

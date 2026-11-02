@@ -297,7 +297,7 @@ class EditorArea(
 
     /** Whether [closeSelected] does something. */
     val canCloseSelected: ObservableValue<Boolean> =
-        editorTabs.selected.map { it?.closableByShortcut ?: false }.orElse(false)
+        editorTabs.selected.flatMap { it?.closableByShortcut }.orElse(false)
 
     /**
      * Shows the diff of the selected file ([diffOf]) side by side over its editor, or the editor again while the diff
@@ -428,7 +428,7 @@ class EditorArea(
 
     /** Closes the selected tab if it is closable by shortcut, asking as the tab strip does. FX thread. */
     fun closeSelected() {
-        val tab = editorTabs.selected.get()?.takeIf { it.closableByShortcut } ?: return
+        val tab = editorTabs.selected.get()?.takeIf { it.closableByShortcut.value } ?: return
         if (confirmClosing(listOf(tab))) editorTabs.close(tab)
     }
 
