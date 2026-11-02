@@ -154,58 +154,8 @@ internal class DatabasesTabView(
     }
 }
 
-/** The panes until the cards, console and tree packages replace them. */
+/** The panes until the console and tree packages replace them. */
 internal object PlaceholderPanes {
-    /** A list of the cards' names, "+" to add one, and Connect, Disconnect and Edit below it. */
-    fun cards(model: DatabasesTabModel): Node {
-        val list =
-            ListView(model.connections).apply {
-                styleClass += "databases-cards"
-                setCellFactory {
-                    object : ListCell<ConnectionEntry>() {
-                        override fun updateItem(
-                            item: ConnectionEntry?,
-                            empty: Boolean,
-                        ) {
-                            super.updateItem(item, empty)
-                            textProperty().unbind()
-                            if (item == null || empty) {
-                                text = null
-                            } else {
-                                textProperty().bind(
-                                    Bindings.createStringBinding({ item.config.get().name }, item.config),
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        VBox.setVgrow(list, Priority.ALWAYS)
-        followSelection(list, model)
-        val add =
-            MenuButton(
-                "+",
-                null,
-                *DatabaseKind.entries
-                    .map { kind -> MenuItem(kind.label).apply { setOnAction { model.add(kind) } } }
-                    .toTypedArray(),
-            ).apply { styleClass += "databases-add" }
-
-        fun onSelected(action: (ConnectionEntry) -> Unit) = { model.selected.get()?.let(action) }
-        val connect = Button("Connect").apply { setOnAction { onSelected(model::connect)() } }
-        val disconnect = Button("Disconnect").apply { setOnAction { onSelected(model::disconnect)() } }
-        val edit = Button("Edit").apply { setOnAction { onSelected(model::edit)() } }
-        return VBox(
-            6.0,
-            HBox(add),
-            list,
-            HBox(6.0, connect, disconnect, edit),
-        ).apply {
-            padding = Insets(6.0)
-            minWidth = 0.0
-        }
-    }
-
     @Suppress("UNUSED_PARAMETER")
     fun workspace(entry: ConnectionEntry): Node =
         Label("Console (coming)").apply {
@@ -215,33 +165,4 @@ internal object PlaceholderPanes {
 
     fun tree(entry: ConnectionEntry): Node =
         Label("Objects of ${entry.config.get().name} (coming)").apply { styleClass += "databases-placeholder" }
-
-    private fun followSelection(
-        list: ListView<ConnectionEntry>,
-        model: DatabasesTabModel,
-    ) {
-        var syncing = false
-        list.selectionModel.selectedItemProperty().addListener { _, _, entry ->
-            if (syncing) return@addListener
-            syncing = true
-            model.selected.set(entry)
-            syncing = false
-        }
-        val subscription =
-            model.selected.subscribe { entry ->
-                if (syncing) return@subscribe
-                syncing = true
-                if (entry == null) list.selectionModel.clearSelection() else list.selectionModel.select(entry)
-                syncing = false
-            }
-        // The model outlives the tab: a closed tab's list stops following it.
-        var shown = false
-        list.sceneProperty().addListener { _, _, scene ->
-            if (scene != null) {
-                shown = true
-            } else if (shown) {
-                subscription.unsubscribe()
-            }
-        }
-    }
 }

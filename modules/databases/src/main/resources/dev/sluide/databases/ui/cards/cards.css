@@ -1,0 +1,107 @@
+/*
+ * The connection cards use Modena's looked-up colours (selection, text, accent); only the status dots have colours of
+ * their own, with a lighter variant for the dark theme.
+ */
+.db-card-list {
+    -fx-background-color: transparent;
+}
+
+.db-card-scroll,
+.db-card-scroll > .viewport {
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+    -fx-padding: 0;
+}
+
+.db-card {
+    -fx-background-color: -fx-control-inner-background;
+    -fx-border-color: -fx-box-border;
+    -fx-border-radius: 3;
+    -fx-background-radius: 3;
+}
+
+.db-card.selected {
+    -fx-background-color: -fx-selection-bar-non-focused;
+}
+
+.db-card-list:focused .db-card.selected {
+    -fx-background-color: -fx-selection-bar;
+}
+
+.db-card.dragging {
+    -fx-opacity: 0.7;
+}
+
+.db-card-name {
+    -fx-font-weight: bold;
+}
+
+.db-card-address {
+    -fx-opacity: 0.7;
+}
+
+.db-card-error {
+    -fx-opacity: 0.85;
+    -fx-text-fill: #c0392b;
+}
+
+.db-card-hint {
+    -fx-opacity: 0.7;
+    -fx-padding: 8;
+}
+
+.db-card-button {
+    -fx-background-color: transparent;
+    -fx-padding: 2;
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.db-card-button:hover {
+    -fx-background-color: derive(-fx-base, 20%);
+}
+
+.db-card-button:disabled {
+    -fx-opacity: 0.35;
+}
+
+.db-card-add .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.db-card-drop-line {
+    -fx-background-color: -fx-accent;
+}
+
+.db-dot-disconnected {
+    -fx-fill: #8a8f98;
+}
+
+.db-dot-connected {
+    -fx-fill: #2f9e44;
+}
+
+.db-dot-pending {
+    -fx-fill: #e8590c;
+}
+
+.db-dot-error {
+    -fx-fill: #e03131;
+}
+
+@media (prefers-color-scheme: dark) {
+    .db-card-error {
+        -fx-text-fill: #ff8787;
+    }
+
+    .db-dot-connected {
+        -fx-fill: #51cf66;
+    }
+
+    .db-dot-pending {
+        -fx-fill: #ff922b;
+    }
+
+    .db-dot-error {
+        -fx-fill: #ff6b6b;
+    }
+}

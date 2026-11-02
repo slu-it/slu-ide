@@ -19,6 +19,7 @@ import dev.sluide.databases.ui.DatabasesTabModel
 import dev.sluide.databases.ui.DatabasesTabView
 import dev.sluide.databases.ui.FxDatabaseDialogs
 import dev.sluide.databases.ui.PlaceholderPanes
+import dev.sluide.databases.ui.cards.ConnectionCardList
 import dev.sluide.databases.ui.dialog.ConnectionTester
 import dev.sluide.editorarea.EditorTab
 import javafx.application.Platform
@@ -101,7 +102,7 @@ class Databases internal constructor(
     internal var panes: DatabasesPanes =
         DatabasesPanes(
             // The connection cards (left).
-            cards = PlaceholderPanes::cards,
+            cards = { model -> ConnectionCardList(model).node },
             // The consoles over their results (middle).
             workspace = PlaceholderPanes::workspace,
             // The object tree (right).

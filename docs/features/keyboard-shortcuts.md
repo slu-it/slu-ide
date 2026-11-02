@@ -217,6 +217,7 @@ File does not react to it while a terminal has the focus.
 | Up / Down on the connection cards | Select the previous / next connection |
 | Enter on a connection card | Connect the selected connection (when it is not connected) |
 | Delete on a connection card | Delete the connection (asks; Cancel is the default button) |
+| Escape while dragging a connection card | Cancel the drag (a double click on a disconnected card connects it) |
 | Shortcut+Enter in a console | Run the selection, the only statement, or choose in a popup: the statement at the caret or all statements |
 | Enter / Escape in the statement chooser | Run the chosen entry / close |
 | Shortcut+F2 in a console | Cancel the running statement |
