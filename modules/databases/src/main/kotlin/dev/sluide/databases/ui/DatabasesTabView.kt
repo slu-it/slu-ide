@@ -154,7 +154,4 @@ internal object PlaceholderPanes {
             styleClass +=
                 "databases-placeholder"
         }
-
-    fun tree(entry: ConnectionEntry): Node =
-        Label("Objects of ${entry.config.get().name} (coming)").apply { styleClass += "databases-placeholder" }
 }

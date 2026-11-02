@@ -21,6 +21,7 @@ import dev.sluide.databases.ui.FxDatabaseDialogs
 import dev.sluide.databases.ui.PlaceholderPanes
 import dev.sluide.databases.ui.cards.ConnectionCardList
 import dev.sluide.databases.ui.dialog.ConnectionTester
+import dev.sluide.databases.ui.tree.ObjectTreeView
 import dev.sluide.editorarea.EditorTab
 import javafx.application.Platform
 import javafx.beans.InvalidationListener
@@ -106,7 +107,9 @@ class Databases internal constructor(
             // The consoles over their results (middle).
             workspace = PlaceholderPanes::workspace,
             // The object tree (right).
-            tree = PlaceholderPanes::tree,
+            tree = { entry ->
+                ObjectTreeView(entry, model(), entry.metadata, { ext, text -> openScratch(ext, text) }).node
+            },
         )
 
     // Copies of the settings that worker threads read per statement; updated on the FX thread.
