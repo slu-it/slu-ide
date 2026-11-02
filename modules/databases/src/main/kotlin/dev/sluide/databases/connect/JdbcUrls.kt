@@ -27,6 +27,9 @@ object JdbcUrls {
      * Read-only is PostgreSQL only: `readOnly=true` with `readOnlyMode=always`, so it also holds in auto-commit.
      * MariaDB's connector has no such property; there `Connection.setReadOnly(true)` does it.
      *
+     * MariaDB always gets `useAliasAsName=false`, so the metadata names the real column and table, not the aliases,
+     * and `yearIsDateType=false`, so a `YEAR` column is a number.
+     *
      * MariaDB's connector has no "prefer": PREFER maps to `disable` there, REQUIRE to `trust` (encrypted, certificate
      * not checked).
      */
@@ -66,6 +69,10 @@ object JdbcUrls {
                 generated["database"] = config.database
             }
             generated["connectionAttributes"] = "program_name:Thoreau"
+            // Keeps ResultSetMetaData.getTableName the real table, not the alias the query gives it (editability).
+            generated["useAliasAsName"] = "false"
+            // A YEAR column arrives as a SMALLINT (a number), not as a java.sql.Date.
+            generated["yearIsDateType"] = "false"
         }
         generated.forEach { (key, value) -> result.setProperty(key, value) }
         val ignoreCase = config.kind == DatabaseKind.MARIADB

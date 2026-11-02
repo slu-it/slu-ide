@@ -63,6 +63,15 @@ class JdbcUrlsTest {
 
         assertEquals("/ca.pem", props.getProperty("serverSslCert"))
         assertEquals("program_name:Thoreau", props.getProperty("connectionAttributes"))
+        assertEquals("false", props.getProperty("useAliasAsName"))
+        assertEquals("false", props.getProperty("yearIsDateType"))
+        assertEquals(
+            "false",
+            JdbcUrls
+                .properties(maria.copy(driverProperties = mapOf("useAliasAsName" to "true")), null)
+                .getProperty("useAliasAsName"),
+        )
+        assertNull(JdbcUrls.properties(pg, null).getProperty("useAliasAsName"))
         assertNull(props.getProperty("password"))
         assertNull(JdbcUrls.properties(maria.copy(readOnly = true), null).getProperty("readOnly"))
     }
