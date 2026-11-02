@@ -43,14 +43,18 @@ statements that run for minutes, transactions that must not be lost silently, an
   executor; nothing touches JDBC on the FX thread. Connecting is a cancellable background task (ADR 0061).
 - One statement at a time per connection. Cancel calls `Statement.cancel()`; the statement timeout is
   `setQueryTimeout`.
-- Commit mode Auto or Manual per console session (starting from the connection's setting). In Manual mode every
-  statement that is not a plain query (`isQuery`) marks the transaction pending until Commit or Roll Back. Leaving
+- Commit mode Auto or Manual per console session (starting from the connection's setting). In Manual mode the
+  transaction is pending until Commit or Roll Back once it wrote something: PostgreSQL is asked after each statement
+  (`txid_current_if_assigned()`), so writes hidden in functions count too; on MariaDB every statement that is not a
+  plain query (`isQuery`: no DML in a `WITH`, no `SELECT … INTO`, no `FOR UPDATE`, no `EXPLAIN ANALYZE`) counts. Leaving
   Manual mode, disconnecting or closing the window with a pending transaction asks Commit / Roll Back / Cancel.
 - Read-only connections set JDBC `readOnly`: the server refuses changes; the grid is not editable.
 
 **Results and paging**
 - A query's rows are read page by page (default 500) from an open cursor. PostgreSQL only streams with auto-commit
-  off, so in Auto mode a query runs in a read-only transaction that ends when its cursor closes. A cursor closes when
+  off, so in Auto mode a query runs in a transaction that is committed when its cursor closes (not read-only and not
+  rolled back: `SELECT nextval(…)` or a writing function keep their effect as under auto-commit; `FOR UPDATE` locks
+  last until the cursor closes). A cursor closes when
   the session runs its next statement or the result closes; pages already fetched stay viewable, and moving past
   them re-executes the query and skips the rows already shown (said in the status line). Last and exports stop at the
   fetch-all cap. Values are copied into plain JDK types right away.
