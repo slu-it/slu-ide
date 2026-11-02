@@ -209,6 +209,28 @@ File does not react to it while a terminal has the focus.
 | F5 | Refresh: reload the engine's containers, images, volumes and networks |
 | Shortcut+C in the log list | Copy the selected lines (select several with Shift- or Ctrl-click; also Copy in its context menu); there is no Shortcut+F, the Filter field narrows the lines |
 
+## Databases tab
+[databases.md](databases.md)
+
+| Keys | Action |
+|---|---|
+| Up / Down on the connection cards | Select the previous / next connection |
+| Enter on a connection card | Connect the selected connection (when it is not connected) |
+| Delete on a connection card | Delete the connection (asks; Cancel is the default button) |
+| Shortcut+Enter in a console | Run the selection, the only statement, or choose in a popup: the statement at the caret or all statements |
+| Enter / Escape in the statement chooser | Run the chosen entry / close |
+| Shortcut+F2 in a console | Cancel the running statement |
+| Shortcut+Alt+Shift+Enter in a console | Commit (Manual mode) |
+| Shortcut+Alt+E in a console | Query history of the connection; Enter inserts the entry, Escape closes |
+| Ctrl+Space in a console | Completion (also opens by itself after `.` or two letters); Up / Down choose, Enter or Tab insert, Escape closes |
+| Shortcut+C in a result grid | Copy the selected cells as tab-separated text |
+| Enter or F2 in an editable result grid | Edit the cell; Enter keeps the value, Escape drops it |
+| Shift+Enter in a result grid | Open the cell in the value viewer |
+| Shortcut+Enter in an editable result grid | Submit the edits |
+| Enter in the WHERE, ORDER BY or page size field | Reload the data with it |
+| F5 in the object tree | Refresh the tree (expansion is kept) |
+| Enter in the object tree | Open the data of a table or view; expand or collapse other nodes |
+
 ## Settings
 [settings.md](settings.md)
 
