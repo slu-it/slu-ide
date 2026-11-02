@@ -95,23 +95,49 @@ A behavior is tested once, at the lowest level that can see it
   ApplicationExtension only finds `@Start` on the test class itself, so each topic class declares `@Start` and calls
   the fixture's `startView`. Read the fixture and the one topic class you work on; add new tests to the matching topic
   class, or a new one when a topic grows past about 800 lines.
+- Drags inside one window use plain mouse events (`TabStrip`, the explorer), not `startDragAndDrop`: on Linux, GTK's
+  drag loop leaves a pointer grab, so a dialog opened after a platform drop gets keys but no clicks. UI tests with a
+  seam instead of the dialog never see this; check anything that opens a dialog after a gesture in the real app.
+
+## Portability: CI runs Linux x64 and macOS
+The sandbox is Linux on ARM with fast cores; CI (`.github/workflows/ci.yml`) runs the full `build` on slower x64 Linux
+runners and `build -x uiTest` on macOS, and the user only sees those failures after pushing. Every case below broke
+CI once.
+- **Linked temp folders:** on macOS `/var/folders/...` is a link to `/private/var/folders/...`. When the code resolves
+  links (the file watcher reports real paths), compare against `tempDir.toRealPath()`.
+- **Few cores:** the macOS runner has 3 cores, so the common `ForkJoinPool` has 2 threads. Code that must not stall
+  never waits on `Process.onExit()` or other default async completions (git cancel once hung until its timeout).
+  Reproduce with `-XX:ActiveProcessorCount=3`.
+- **Stack depth:** x64 runners overflowed a recursion of 1000 levels that passes here. Keep nesting caps modest
+  (previews use 200-250) and try a deep case with `-Xss512k`.
+- **Time limits:** runners are 4-9 times slower than the sandbox. A performance test asserts how time grows (e.g. 2x
+  input, at most ~3x time) or keeps a margin of 10x over the local time.
+- **Git encodings:** git converts commit messages to `i18n.commitEncoding` differently per OS (iconv). Tests read
+  messages with `--encoding=UTF-8`, as the app does.
+- **File watching:** the macOS JDK polls (every 2 s, by path, mtime per entry): late events, no events for a folder
+  deleted and recreated in between. Tests with a real `FileWatcher` hold under that or are skipped on macOS with an
+  `os.name` assumption and a reason.
 
 ## Running and screenshotting the real app (headless Linux sandbox)
 ```bash
-.claude/scripts/setup-display.sh          # installs Xvfb + GTK libs + xdotool/ImageMagick, starts display :99
-export DISPLAY=:99
-./gradlew :ide:bootJar
-java -Dprism.order=sw -jar ide/build/libs/ide-0.1.0-SNAPSHOT.jar <folder> &   # not ide-*.jar: that also matches -plain.jar
-import -window root shot.png              # screenshot
-xdotool key ctrl+o                         # drive the UI
+.claude/scripts/run-app.sh <folder>                 # dark theme on display :99; prints pid=, display=, home=, log=
+.claude/scripts/run-app.sh --theme light --display 102 <folder>
+DISPLAY=:99 import -window root <scratchpad>/shot.png   # screenshot, then look at it with Read
+DISPLAY=:99 xdotool key ctrl+o                      # drive the UI
+.claude/scripts/run-app.sh --stop <pid>
 ```
-- There is no window manager: dialogs get no keyboard focus until you run `xdotool windowfocus <id>`
-  (find the id with `xdotool search --name '<title>'`) and appear partly off-screen.
-- Without a window manager, popups (menus, dropdowns, context menus) close as soon as the mouse is over them, and
-  context menus never appear. Start one to test them: `apt-get install -y openbox` once, then `openbox &`.
-- Pass the project folder as an argument (above) instead of driving the GTK folder chooser, which opens in its
-  "Recent" view. Files in the explorer open with a double-click (`xdotool mousemove X Y click --repeat 2 1`).
+- The script builds `:ide:bootJar` when the sources are newer, sets up the display (`setup-display.sh`) and openbox,
+  and starts the app with a throwaway `user.home` holding only the theme: settings, projects and scratches start
+  empty, git and shells still use the real `HOME`. A folder with a build tool therefore asks "Trust Folder?" on
+  every start: answer it with `xdotool` (or check the dialog itself).
+- Check UI work in the dark theme (the default); add `--theme light` when theme CSS or colours changed.
+- Pass the project folder as an argument instead of driving the GTK folder chooser, which opens in its "Recent" view.
+  Files in the explorer open with a double-click (`xdotool mousemove X Y click --repeat 2 1`).
+- Without a window manager, dialogs get no keyboard focus and popups close at once; the script starts openbox. If a
+  dialog still has no focus: `xdotool windowfocus <id>` (id from `xdotool search --name '<title>'`).
 - `setup-display.sh` only reports a display as running if it answers (`xdpyinfo`, with a timeout). One that does not
   (Xvfb gone with its `/tmp/.X99-lock` and `/tmp/.X11-unix/X99` left over, or hung) is stopped, cleaned up and started
   again, so rerunning the script is the fix whenever UI tests fail with "Unable to open DISPLAY".
-- Stop Xvfb when done; never claim the UI was verified unless you actually ran it.
+- The sandbox's `xclip`/`xsel` are shims for the host clipboard, not the X clipboard: to see what the app copied,
+  paste it into an editor tab of the app.
+- Never claim the UI was verified unless you actually ran it.

@@ -21,3 +21,5 @@ Details: `docs/testing.md` ("Choosing the test level"), ADR 0084.
   `interact` already waits for FX events.
 - A test must fail without its code: for wiring, races and negative checks, break the code once and see it fail.
 - Deleting a test: open the test that keeps it covered first. Remove the imports a deletion leaves behind.
+- CI also runs on macOS and slower x64 runners: tests touching files, processes, timing, recursion or git
+  encodings follow `docs/testing.md`, "Portability" (linked temp folders, 3 cores, stack, time limits, polling watcher).
