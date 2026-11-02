@@ -99,7 +99,14 @@ class Databases internal constructor(
 
     /** The UI packages plug in here before [createTab] is called; defaults are placeholders. */
     internal var panes: DatabasesPanes =
-        DatabasesPanes(PlaceholderPanes::cards, PlaceholderPanes::workspace, PlaceholderPanes::tree)
+        DatabasesPanes(
+            // The connection cards (left).
+            cards = PlaceholderPanes::cards,
+            // The consoles over their results (middle).
+            workspace = PlaceholderPanes::workspace,
+            // The object tree (right).
+            tree = PlaceholderPanes::tree,
+        )
 
     // Copies of the settings that worker threads read per statement; updated on the FX thread.
     @Volatile private var timeoutSeconds = settings.statementTimeoutSeconds.get()
