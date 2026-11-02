@@ -59,6 +59,8 @@ dependencies {
     implementation(project(":modules:converting"))
     // Docker through its CLI: the window's DockerSession and the Docker settings page (ADR 0117).
     implementation(project(":modules:docker"))
+    // The Databases tab of the Services menu: JDBC connections, consoles, results and the object tree (ADR 0121).
+    implementation(project(":modules:databases"))
     // The explorer's Run item has a Material Design play icon, like the HTTP client's Run (ADR 0012).
     implementation(libs.ikonli.javafx)
     implementation(libs.ikonli.materialdesign2)

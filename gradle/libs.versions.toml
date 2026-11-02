@@ -43,6 +43,9 @@ jackson-databind = { module = "tools.jackson.core:jackson-databind" }
 jackson-dataformat-toml = { module = "tools.jackson.dataformat:jackson-dataformat-toml" }
 # Version from the Spring Boot BOM.
 snakeyaml = { module = "org.yaml:snakeyaml" }
+# JDBC drivers of the Databases tab; versions from the Spring Boot BOM.
+postgresql = { module = "org.postgresql:postgresql" }
+mariadb-java-client = { module = "org.mariadb.jdbc:mariadb-java-client" }
 
 [bundles]
 commonmark = [
