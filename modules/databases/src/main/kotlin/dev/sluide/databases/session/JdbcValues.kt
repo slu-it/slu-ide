@@ -77,7 +77,9 @@ internal object JdbcValues {
                 // Values the driver cannot map (PostgreSQL money, MariaDB zero dates) are shown as the server sends them.
                 return resultSet.getString(index)
             }
-        return plain(raw)
+        // PGobject's subclasses (PGInterval, geometric types) format their value themselves ("1 days"); the server's
+        // text is what psql shows ("1 day").
+        return if (raw is PGobject) resultSet.getString(index) else plain(raw)
     }
 
     /** The `java.time` class a temporal column is read as; PostgreSQL reports `timestamptz` as TIMESTAMP. */
