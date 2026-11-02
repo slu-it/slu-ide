@@ -55,9 +55,9 @@ internal object MariaQueries {
         """select ROUTINE_NAME as name, ROUTINE_TYPE as kind, DTD_IDENTIFIER as result
            from information_schema.ROUTINES where ROUTINE_SCHEMA = ?"""
 
-    /** Rows: routine, ord, type. */
+    /** Rows: routine, rtype (FUNCTION/PROCEDURE), ord, type. */
     const val PARAMETERS =
-        """select SPECIFIC_NAME as routine, ORDINAL_POSITION as ord, DTD_IDENTIFIER as type
+        """select SPECIFIC_NAME as routine, ROUTINE_TYPE as rtype, ORDINAL_POSITION as ord, DTD_IDENTIFIER as type
            from information_schema.PARAMETERS
            where SPECIFIC_SCHEMA = ? and ORDINAL_POSITION > 0 order by SPECIFIC_NAME, ORDINAL_POSITION"""
 

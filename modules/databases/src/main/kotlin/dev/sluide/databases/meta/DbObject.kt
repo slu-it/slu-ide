@@ -64,7 +64,10 @@ interface Introspector {
         schema: String,
     ): List<DbObject>
 
-    /** The DDL of [obj] as SQL text; every statement ends with `;` and a newline. */
+    /**
+     * The DDL of [obj] as SQL text; every statement ends with `;` and a newline. An object dropped since the tree was
+     * loaded gives `""` for every kind, never broken DDL.
+     */
     fun ddl(
         connection: Connection,
         obj: DbObject,

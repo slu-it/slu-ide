@@ -5,6 +5,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class PgTreeTest {
     private fun rel(
@@ -64,8 +65,7 @@ class PgTreeTest {
                     mapOf(
                         "tbl" to "order",
                         "name" to "trg",
-                        "def" to
-                            "CREATE TRIGGER trg BEFORE INSERT OR UPDATE ON public.\"order\" FOR EACH ROW",
+                        "tgtype" to 2 + 4 + 16,
                     ),
                 ),
             routines =
@@ -110,7 +110,7 @@ class PgTreeTest {
     @Test
     fun `table kinds table partitioned and foreign all count as tables`() {
         assertEquals(listOf("customer", "order", "remote"), group("tables").children.map { it.name })
-        assert(group("tables").children.all { it.kind == ObjectKind.TABLE })
+        assertTrue(group("tables").children.all { it.kind == ObjectKind.TABLE })
     }
 
     @Test
@@ -122,7 +122,7 @@ class PgTreeTest {
         )
         val keys = order.children.single { it.name == "keys" }
         assertEquals(listOf(ObjectKind.PRIMARY_KEY, ObjectKind.UNIQUE), keys.children.map { it.kind })
-        assert(
+        assertTrue(
             group("tables")
                 .children
                 .single { it.name == "customer" }
@@ -179,5 +179,116 @@ class PgTreeTest {
     ) {
         val names = listOf("sales", "pg_toast", "public", "pg_temp_3", "pg_catalog", "information_schema")
         assertEquals(expected.split(";"), filterSchemas(DatabaseKind.POSTGRESQL, names, includeSystem))
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "22,before insert or update",
+        "5,after insert",
+        "8,after delete",
+        "64,instead of",
+        "10,before delete",
+        "37,after insert or truncate",
+    )
+    fun `trigger detail comes from the tgtype bits`(
+        tgtype: Int,
+        expected: String,
+    ) {
+        assertEquals(expected, pgTriggerDetail(tgtype))
+    }
+
+    @Test
+    fun `partitions are nested under their parent as its last group and not listed as tables`() {
+        fun rel(
+            name: String,
+            vararg extra: Pair<String, Any?>,
+        ): Row = mapOf("name" to name, "kind" to "r") + extra
+        val parts = { n: String ->
+            arrayOf(
+                "ispart" to true,
+                "pschema" to "s",
+                "parent" to n,
+                "bound" to "FOR VALUES IN (1)",
+            )
+        }
+        val rows =
+            PgSchemaRows(
+                relations =
+                    listOf(
+                        rel("m", "kind" to "p", "partkey" to "LIST (a)"),
+                        rel("m2", *parts("m")),
+                        rel("m1", *parts("m")),
+                        rel("far", "ispart" to true, "pschema" to "other", "parent" to "x"),
+                        rel("plain"),
+                    ),
+                columns = listOf(mapOf("tbl" to "m1", "name" to "a", "type" to "integer", "notnull" to false)),
+                indexes = listOf(mapOf("tbl" to "m1", "name" to "m1_idx", "uniq" to false, "cols" to "a")),
+            )
+        val tables = pgSchemaTree("s", rows).single { it.name == "tables" }.children
+        assertEquals(listOf("far", "m", "plain"), tables.map { it.name })
+        val m = tables.single { it.name == "m" }
+        assertEquals("LIST (a)", m.detail)
+        assertEquals(listOf("partitions"), m.children.map { it.name })
+        val partitions = m.children.single().children
+        assertEquals(listOf("m1", "m2"), partitions.map { it.name })
+        assertEquals("FOR VALUES IN (1)", partitions[0].detail)
+        assertEquals(listOf("a", "indexes"), partitions[0].children.map { it.name })
+    }
+
+    @Test
+    fun `materialized views get an indexes group and exclusion constraints show as keys`() {
+        val rows =
+            PgSchemaRows(
+                relations = listOf(rel("mv", "m"), rel("t", "r")),
+                columns = listOf(mapOf("tbl" to "mv", "name" to "a", "type" to "integer")),
+                indexes = listOf(mapOf("tbl" to "mv", "name" to "mv_idx", "uniq" to true, "cols" to "a")),
+                constraints =
+                    listOf(
+                        mapOf(
+                            "tbl" to "t",
+                            "name" to "no_overlap",
+                            "type" to "x",
+                            "def" to "EXCLUDE USING gist (d WITH &&)",
+                        ),
+                    ),
+            )
+        val tree = pgSchemaTree("s", rows)
+        val mv = tree.single { it.name == "materialized views" }.children.single()
+        assertEquals(listOf("a", "indexes"), mv.children.map { it.name })
+        val key =
+            tree
+                .single { it.name == "tables" }
+                .children
+                .single()
+                .children
+                .single()
+                .children
+                .single()
+        assertEquals(ObjectKind.UNIQUE, key.kind)
+        assertEquals("EXCLUDE USING gist (d WITH &&)", key.detail)
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "s,'(a * 2)',,generated always as ((a * 2))",
+        "v,'(a * 2)',,generated always as ((a * 2)) virtual",
+        ",,d,generated by default as identity",
+        ",,a,generated always as identity",
+    )
+    fun `column detail of generated and identity columns`(
+        generated: String?,
+        dflt: String?,
+        identity: String?,
+        expected: String,
+    ) {
+        val row =
+            mapOf(
+                "type" to "integer",
+                "notnull" to false,
+                "dflt" to dflt,
+                "generated" to generated,
+                "identity" to identity,
+            )
+        assertEquals("integer $expected", pgColumnDetail(row))
     }
 }

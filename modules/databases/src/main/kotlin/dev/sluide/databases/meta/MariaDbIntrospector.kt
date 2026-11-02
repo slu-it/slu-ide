@@ -3,6 +3,8 @@ package dev.sluide.databases.meta
 import dev.sluide.databases.connect.DatabaseKind
 import dev.sluide.databases.sql.SqlNames
 import java.sql.Connection
+import java.sql.ResultSet
+import java.sql.SQLException
 
 /** A `SHOW CREATE` statement and the result column that holds the DDL. */
 internal data class ShowCreate(
@@ -32,6 +34,9 @@ internal fun mariaShowCreate(obj: DbObject): ShowCreate {
         else -> show("TABLE", name(obj.schema, obj.table ?: obj.name), "Create Table")
     }
 }
+
+/** MariaDB error codes for "table/routine/trigger/event does not exist". */
+private val missingObjectErrors = setOf(1146, 1305, 1360, 1539)
 
 /** Introspection of a MariaDB database (a "schema" here) through `information_schema` (ADR 0121). */
 internal object MariaDbIntrospector : Introspector {
@@ -72,14 +77,23 @@ internal object MariaDbIntrospector : Introspector {
     ): String {
         val show = mariaShowCreate(obj)
         // The statement text is built from quoted names; SHOW takes no bind parameters.
-        return connection.createStatement().use { st ->
-            st.executeQuery(show.sql).use { rs ->
-                val labels = (1..rs.metaData.columnCount).map { rs.metaData.getColumnLabel(it) }
-                // A column node of a view gets SHOW CREATE TABLE, which answers "Create View".
-                val label = labels.firstOrNull { it == show.column } ?: labels.firstOrNull { it.startsWith("Create ") }
-                if (label != null && rs.next()) rs.getString(label)?.let { withSemicolon(it) }.orEmpty() else ""
-            }
+        return try {
+            connection.createStatement().use { st -> st.executeQuery(show.sql).use { rs -> readDdl(rs, show.column) } }
+        } catch (e: SQLException) {
+            // The object was dropped since the tree was loaded.
+            if (e.errorCode in missingObjectErrors) "" else throw e
         }
+    }
+
+    private fun readDdl(
+        rs: ResultSet,
+        column: String,
+    ): String {
+        val labels = (1..rs.metaData.columnCount).map { rs.metaData.getColumnLabel(it) }
+        // A column node of a view gets SHOW CREATE TABLE, which answers "Create View".
+        val label = labels.firstOrNull { it == column } ?: labels.firstOrNull { it.startsWith("Create") }
+        if (label == null || !rs.next()) return ""
+        return rs.getString(label)?.let { withSemicolon(it) }.orEmpty()
     }
 
     override fun primaryKey(

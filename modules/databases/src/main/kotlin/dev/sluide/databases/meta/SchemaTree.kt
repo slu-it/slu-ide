@@ -13,6 +13,8 @@ internal class SchemaLeaves(
     val routines: List<DbObject> = emptyList(),
     val types: List<DbObject> = emptyList(),
     val events: List<DbObject> = emptyList(),
+    /** Partition name to its parent table, for partitions shown under the parent, not in the tables list. */
+    val partitionParents: Map<String, String> = emptyMap(),
 )
 
 internal fun group(
@@ -37,32 +39,39 @@ internal fun buildSchemaTree(
 
     fun relation(r: DbObject): DbObject {
         val cols = columnsOf[r.name].orEmpty()
-        if (r.kind != ObjectKind.TABLE) return if (cols.isEmpty()) r else r.copy(children = cols)
+        if (r.kind != ObjectKind.TABLE && r.kind != ObjectKind.MATERIALIZED_VIEW) {
+            return if (cols.isEmpty()) r else r.copy(children = cols)
+        }
         val own = objectsOf[r.name].orEmpty()
 
         fun of(vararg kinds: ObjectKind) = own.filter { it.kind in kinds }.sortedBy { it.name }
-        val keys = of(ObjectKind.PRIMARY_KEY).plus(of(ObjectKind.UNIQUE))
+        val partitions =
+            leaves.relations
+                .filter { leaves.partitionParents[it.name] == r.name }
+                .sortedBy { it.name }
+                .map(::relation)
         val subgroups =
             listOfNotNull(
-                group(schema, "keys", keys),
+                group(schema, "keys", of(ObjectKind.PRIMARY_KEY) + of(ObjectKind.UNIQUE)),
                 group(schema, "foreign keys", of(ObjectKind.FOREIGN_KEY)),
                 group(schema, "indexes", of(ObjectKind.INDEX)),
                 group(schema, "checks", of(ObjectKind.CHECK)),
                 group(schema, "triggers", of(ObjectKind.TRIGGER)),
+                group(schema, "partitions", partitions),
             )
         return r.copy(children = cols + subgroups)
     }
 
     fun relations(kind: ObjectKind) =
         leaves.relations
-            .filter { it.kind == kind }
+            .filter { it.kind == kind && it.name !in leaves.partitionParents }
             .sortedBy { it.name }
             .map(::relation)
     return listOfNotNull(
         group(schema, "tables", relations(ObjectKind.TABLE)),
         group(schema, "views", relations(ObjectKind.VIEW)),
         group(schema, "materialized views", relations(ObjectKind.MATERIALIZED_VIEW)),
-        group(schema, "routines", leaves.routines.sortedWith(compareBy({ it.name }, { it.ref }))),
+        group(schema, "routines", leaves.routines.sortedWith(compareBy({ it.name }, { it.ref }, { it.kind }))),
         group(schema, "sequences", relations(ObjectKind.SEQUENCE)),
         group(schema, "types", leaves.types.sortedBy { it.name }),
         group(schema, "events", leaves.events.sortedBy { it.name }),

@@ -1,14 +1,35 @@
 package dev.sluide.databases.meta
 
-/** The `pg_catalog` queries; each takes the schema name as its first bind parameter unless noted. */
+/**
+ * The `pg_catalog` queries; each takes the schema name as its first bind parameter unless noted. The table-scoped ones
+ * (relations, columns, constraints, indexes, triggers, owned sequences) take the table name twice more: `null` for all
+ * tables, a name for just that table (what Show DDL needs).
+ */
 internal object PgQueries {
     const val SCHEMAS = "select nspname as name from pg_namespace where has_schema_privilege(oid, 'USAGE')"
 
-    /** Rows: name, kind (relkind). */
+    /**
+     * Rows: name, kind (relkind), ispart, partkey (partitioned tables), bound (partitions), pschema and parent (of a
+     * partition), fserver and foptions (foreign tables).
+     */
     const val RELATIONS =
-        """select c.relname as name, c.relkind::text as kind
-           from pg_class c join pg_namespace n on n.oid = c.relnamespace
+        """select c.relname as name, c.relkind::text as kind, c.relispartition as ispart,
+                  case when c.relkind = 'p' then pg_get_partkeydef(c.oid) end as partkey,
+                  case when c.relispartition then pg_get_expr(c.relpartbound, c.oid) end as bound,
+                  pn.nspname as pschema, pc.relname as parent,
+                  fs.srvname as fserver,
+                  (select string_agg(quote_ident(substr(o, 1, strpos(o, '=') - 1)) || ' '
+                                     || quote_literal(substr(o, strpos(o, '=') + 1)), ', ')
+                     from unnest(ft.ftoptions) as o) as foptions
+           from pg_class c
+             join pg_namespace n on n.oid = c.relnamespace
+             left join pg_inherits inh on inh.inhrelid = c.oid and c.relispartition
+             left join pg_class pc on pc.oid = inh.inhparent
+             left join pg_namespace pn on pn.oid = pc.relnamespace
+             left join pg_foreign_table ft on ft.ftrelid = c.oid
+             left join pg_foreign_server fs on fs.oid = ft.ftserver
            where n.nspname = ? and c.relkind in ('r', 'p', 'f', 'v', 'm', 'S')
+             and (?::text is null or c.relname = ?)
            order by c.relname"""
 
     /** Rows: tbl, name, type, notnull, dflt, identity, generated, ordinal. */
@@ -21,6 +42,7 @@ internal object PgQueries {
              join pg_namespace n on n.oid = c.relnamespace
              left join pg_attrdef d on d.adrelid = a.attrelid and d.adnum = a.attnum
            where n.nspname = ? and c.relkind in ('r', 'p', 'f', 'v', 'm') and a.attnum > 0 and not a.attisdropped
+             and (?::text is null or c.relname = ?)
            order by c.relname, a.attnum"""
 
     /** Rows: tbl, name, type (p/u/f/c), def, cols, fschema, ftable, fcols. */
@@ -39,7 +61,7 @@ internal object PgQueries {
              join pg_namespace n on n.oid = c.relnamespace
              left join pg_class fc on fc.oid = con.confrelid
              left join pg_namespace fn on fn.oid = fc.relnamespace
-           where n.nspname = ? and con.contype in ('p', 'u', 'f', 'c')
+           where n.nspname = ? and con.contype in ('p', 'u', 'f', 'c', 'x') and (?::text is null or c.relname = ?)
            order by c.relname, con.conname"""
 
     /** Rows: tbl, name, uniq, cols, def, backs (the index backs a primary key or unique constraint). */
@@ -54,17 +76,33 @@ internal object PgQueries {
              join pg_class i on i.oid = x.indexrelid
              join pg_class t on t.oid = x.indrelid
              join pg_namespace n on n.oid = t.relnamespace
-           where n.nspname = ?
+           where n.nspname = ? and (?::text is null or t.relname = ?)
            order by t.relname, i.relname"""
 
-    /** Rows: tbl, name, def. */
+    /** Rows: tbl, name, def, tgtype (the trigger's bit mask). */
     const val TRIGGERS =
-        """select c.relname as tbl, t.tgname as name, pg_get_triggerdef(t.oid, true) as def
+        """select c.relname as tbl, t.tgname as name, pg_get_triggerdef(t.oid, true) as def, t.tgtype::int as tgtype
            from pg_trigger t
              join pg_class c on c.oid = t.tgrelid
              join pg_namespace n on n.oid = c.relnamespace
-           where n.nspname = ? and not t.tgisinternal
+           where n.nspname = ? and not t.tgisinternal and (?::text is null or c.relname = ?)
            order by c.relname, t.tgname"""
+
+    /** Rows: tbl, col, seqschema, seq and the sequence's `pg_sequences` columns, for sequences owned by a column. */
+    const val OWNED_SEQUENCES =
+        """select c.relname as tbl, a.attname as col, sn.nspname as seqschema, s.relname as seq,
+                  ps.data_type::text as type, ps.start_value, ps.min_value, ps.max_value, ps.increment_by,
+                  ps.cycle, ps.cache_size
+           from pg_depend d
+             join pg_class s on s.oid = d.objid and s.relkind = 'S'
+             join pg_namespace sn on sn.oid = s.relnamespace
+             join pg_class c on c.oid = d.refobjid
+             join pg_namespace n on n.oid = c.relnamespace
+             join pg_attribute a on a.attrelid = c.oid and a.attnum = d.refobjsubid
+             left join pg_sequences ps on ps.schemaname = sn.nspname and ps.sequencename = s.relname
+           where d.classid = 'pg_class'::regclass and d.refclassid = 'pg_class'::regclass and d.deptype = 'a'
+             and d.refobjsubid > 0 and n.nspname = ? and (?::text is null or c.relname = ?)
+           order by c.relname, s.relname"""
 
     /** Rows: name, kind (prokind), ident (identity arguments), types, result. */
     const val ROUTINES =
@@ -116,7 +154,7 @@ internal object PgQueries {
            from pg_sequences where schemaname = ? and sequencename = ?"""
 
     const val ENUM_LABELS =
-        """select e.enumlabel as label
+        """select quote_literal(e.enumlabel) as label
            from pg_enum e join pg_type t on t.oid = e.enumtypid join pg_namespace n on n.oid = t.typnamespace
            where n.nspname = ? and t.typname = ? order by e.enumsortorder"""
 
@@ -130,7 +168,7 @@ internal object PgQueries {
            from pg_constraint con
              join pg_type t on t.oid = con.contypid
              join pg_namespace n on n.oid = t.typnamespace
-           where n.nspname = ? and t.typname = ? order by con.conname"""
+           where n.nspname = ? and t.typname = ? and con.contype <> 'n' order by con.conname"""
 
     const val COMPOSITE_ATTRIBUTES =
         """select a.attname as name, format_type(a.atttypid, a.atttypmod) as type

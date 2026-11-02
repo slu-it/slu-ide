@@ -19,7 +19,8 @@ internal fun mariaColumnDetail(row: Row): String =
     buildList {
         add(row.text("type"))
         if (row.text("nullable").equals("NO", ignoreCase = true)) add("not null")
-        row.str("dflt")?.let { add("default $it") }
+        // MariaDB reports a missing default of a nullable column as the text NULL.
+        row.str("dflt")?.takeIf { it != "NULL" }?.let { add("default $it") }
         row.text("extra").takeIf { it.isNotBlank() }?.let { add(it.lowercase()) }
     }.joinToString(" ")
 
@@ -78,10 +79,15 @@ private fun mariaRoutines(
     schema: String,
     rows: MariaSchemaRows,
 ): List<DbObject> {
-    val params = rows.parameters.groupBy { it.text("routine") }
+    val params = rows.parameters.groupBy { it.text("routine") to it.text("rtype") }
     return rows.routines.map {
         val name = it.text("name")
-        val types = params[name].orEmpty().sortedBy { p -> p.int("ord") }.joinToString(", ") { p -> p.text("type") }
+        val types =
+            params[name to it.text("kind")]
+                .orEmpty()
+                .sortedBy { p ->
+                    p.int("ord")
+                }.joinToString(", ") { p -> p.text("type") }
         val isProcedure = it.text("kind") == "PROCEDURE"
         DbObject(
             if (isProcedure) ObjectKind.PROCEDURE else ObjectKind.FUNCTION,

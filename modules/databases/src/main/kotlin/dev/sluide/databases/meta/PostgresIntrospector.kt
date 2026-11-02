@@ -15,23 +15,38 @@ internal object PostgresIntrospector : Introspector {
             includeSystem,
         )
 
+    /** The table-level rows of [schema]: all tables, or only [table] (no routines and types then). */
     private fun loadRows(
         connection: Connection,
         schema: String,
+        table: String?,
     ) = PgSchemaRows(
-        relations = connection.rows(PgQueries.RELATIONS, schema),
-        columns = connection.rows(PgQueries.COLUMNS, schema),
-        constraints = connection.rows(PgQueries.CONSTRAINTS, schema),
-        indexes = connection.rows(PgQueries.INDEXES, schema),
-        triggers = connection.rows(PgQueries.TRIGGERS, schema),
-        routines = connection.rows(PgQueries.ROUTINES, schema),
-        types = connection.rows(PgQueries.TYPES, schema),
+        relations = connection.rows(PgQueries.RELATIONS, schema, table, table),
+        columns = connection.rows(PgQueries.COLUMNS, schema, table, table),
+        constraints = connection.rows(PgQueries.CONSTRAINTS, schema, table, table),
+        indexes = connection.rows(PgQueries.INDEXES, schema, table, table),
+        triggers = connection.rows(PgQueries.TRIGGERS, schema, table, table),
+        ownedSequences = connection.rows(PgQueries.OWNED_SEQUENCES, schema, table, table),
     )
 
     override fun schema(
         connection: Connection,
         schema: String,
-    ): List<DbObject> = pgSchemaTree(schema, loadRows(connection, schema))
+    ): List<DbObject> {
+        val rows = loadRows(connection, schema, null)
+        return pgSchemaTree(
+            schema,
+            PgSchemaRows(
+                relations = rows.relations,
+                columns = rows.columns,
+                constraints = rows.constraints,
+                indexes = rows.indexes,
+                triggers = rows.triggers,
+                routines = connection.rows(PgQueries.ROUTINES, schema),
+                types = connection.rows(PgQueries.TYPES, schema),
+            ),
+        )
+    }
 
     override fun ddl(
         connection: Connection,
@@ -46,11 +61,18 @@ internal object PostgresIntrospector : Introspector {
         ) = connection.rows(sql, *params).firstOrNull()
         return when (obj.kind) {
             ObjectKind.TABLE -> {
-                pgTableDdl(schema, name, loadRows(connection, schema))
+                pgTableDdl(schema, name, loadRows(connection, schema, name))
             }
 
             ObjectKind.VIEW, ObjectKind.MATERIALIZED_VIEW -> {
-                pgViewDdl(obj, one(PgQueries.VIEW_DEF, schema, name)?.text("def").orEmpty())
+                val definition = one(PgQueries.VIEW_DEF, schema, name)?.text("def").orEmpty()
+                val rows =
+                    if (obj.kind == ObjectKind.MATERIALIZED_VIEW) {
+                        PgSchemaRows(indexes = connection.rows(PgQueries.INDEXES, schema, name, name))
+                    } else {
+                        PgSchemaRows()
+                    }
+                pgViewDdl(obj, definition, rows)
             }
 
             ObjectKind.FUNCTION, ObjectKind.PROCEDURE -> {
@@ -58,7 +80,7 @@ internal object PostgresIntrospector : Introspector {
             }
 
             ObjectKind.SEQUENCE -> {
-                one(PgQueries.SEQUENCE_DEF, schema, name)?.let { pgSequenceDdl(obj, it) }.orEmpty()
+                one(PgQueries.SEQUENCE_DEF, schema, name)?.let { pgSequenceDdl(obj.schema, name, it) }.orEmpty()
             }
 
             ObjectKind.ENUM -> {
@@ -78,7 +100,8 @@ internal object PostgresIntrospector : Introspector {
             }
 
             else -> {
-                pgTableChildDdl(obj, loadRows(connection, schema)).orEmpty()
+                val table = obj.table ?: return ""
+                pgTableChildDdl(obj, loadRows(connection, schema, table)).orEmpty()
             }
         }
     }

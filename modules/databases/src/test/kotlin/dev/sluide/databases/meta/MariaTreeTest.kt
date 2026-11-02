@@ -49,6 +49,7 @@ class MariaTreeTest {
                         "dflt" to "0",
                         "extra" to "",
                     ),
+                    mapOf("tbl" to "order", "name" to "note", "type" to "text", "nullable" to "YES", "dflt" to "NULL"),
                 ),
             constraints =
                 listOf(
@@ -82,15 +83,13 @@ class MariaTreeTest {
                 listOf(
                     mapOf("name" to "f", "kind" to "FUNCTION", "result" to "int(11)"),
                     mapOf("name" to "p", "kind" to "PROCEDURE", "result" to null),
+                    mapOf("name" to "f", "kind" to "PROCEDURE", "result" to null),
                 ),
             parameters =
                 listOf(
-                    mapOf("routine" to "f", "ord" to 1, "type" to "int(11)"),
-                    mapOf(
-                        "routine" to "f",
-                        "ord" to 2,
-                        "type" to "text",
-                    ),
+                    mapOf("routine" to "f", "rtype" to "FUNCTION", "ord" to 1, "type" to "int(11)"),
+                    mapOf("routine" to "f", "rtype" to "FUNCTION", "ord" to 2, "type" to "text"),
+                    mapOf("routine" to "f", "rtype" to "PROCEDURE", "ord" to 1, "type" to "varchar(5)"),
                 ),
             events = listOf(mapOf("name" to "nightly", "status" to "ENABLED")),
         )
@@ -107,13 +106,14 @@ class MariaTreeTest {
     fun `table children and their details`() {
         val order = tree.first().children.single { it.name == "order" }
         assertEquals(
-            listOf("id", "qty", "keys", "foreign keys", "indexes", "checks", "triggers"),
+            listOf("id", "qty", "note", "keys", "foreign keys", "indexes", "checks", "triggers"),
             order.children.map {
                 it.name
             },
         )
         assertEquals("int(11) not null auto_increment", order.children[0].detail)
         assertEquals("int(11) default 0", order.children[1].detail)
+        assertEquals("text", order.children[2].detail)
         val fk =
             order.children
                 .single { it.name == "foreign keys" }
@@ -135,8 +135,11 @@ class MariaTreeTest {
     @Test
     fun `routines show parameter types and result`() {
         val routines = tree.single { it.name == "routines" }.children
-        assertEquals(listOf("(int(11), text) → int(11)", "()"), routines.map { it.detail })
-        assertEquals(ObjectKind.PROCEDURE, routines[1].kind)
+        assertEquals(listOf("(int(11), text) → int(11)", "(varchar(5))", "()"), routines.map { it.detail })
+        assertEquals(
+            listOf(ObjectKind.FUNCTION, ObjectKind.PROCEDURE, ObjectKind.PROCEDURE),
+            routines.map { it.kind },
+        )
     }
 
     @ParameterizedTest

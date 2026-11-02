@@ -133,6 +133,30 @@ class IntrospectionSmokeTest {
             )
             val routines = tree.group("routines").children
             assertEquals(listOf("f", "f", "p", "touch"), routines.map { it.name })
+            val tables = tree.group("tables").children
+            assertEquals(listOf("bookings", "customer", "ext", "measurements", "orders"), tables.map { it.name })
+            val measurements = tables.single { it.name == "measurements" }
+            assertEquals("RANGE (logdate)", measurements.detail)
+            assertEquals(listOf("logdate", "value", "partitions"), measurements.children.map { it.name })
+            val partitions = measurements.child("partitions").children
+            assertEquals(listOf("measurements_2024", "measurements_2025"), partitions.map { it.name })
+            assertTrue(partitions.all { it.detail.startsWith("FOR VALUES FROM") && it.children.size == 2 })
+            val bookingKeys = tables.single { it.name == "bookings" }.child("keys").children
+            assertEquals(listOf(ObjectKind.PRIMARY_KEY, ObjectKind.UNIQUE), bookingKeys.map { it.kind })
+            assertTrue(bookingKeys[1].detail.startsWith("EXCLUDE USING gist"), bookingKeys[1].detail)
+            assertEquals("foreign, server files", tables.single { it.name == "ext" }.detail)
+            assertEquals("tsrange not null", tables.single { it.name == "bookings" }.child("during").detail)
+            assertEquals("text", orders.child("note").detail)
+            assertEquals(
+                "indexes",
+                tree
+                    .group("materialized views")
+                    .children
+                    .single()
+                    .children
+                    .last()
+                    .name,
+            )
             assertEquals(listOf("a integer", "a text"), routines.take(2).map { it.ref })
             assertEquals("(integer) → integer", routines[0].detail)
             assertEquals(ObjectKind.PROCEDURE, routines[2].kind)
@@ -157,21 +181,37 @@ class IntrospectionSmokeTest {
                 assertTrue(ddl.contains(obj.name), "${obj.kind} ${obj.name}: $ddl")
             }
             val tables = tree.group("tables").children
-            val customer = i.ddl(c, tables.single { it.name == "customer" })
-            val orders = i.ddl(c, tables.single { it.name == "orders" })
-            val touch = i.ddl(c, tree.group("routines").children.single { it.name == "touch" })
-            // serial's default refers to its sequence, which is a node of its own
-            val serial = i.ddl(c, tree.group("sequences").child("customer_id_seq"))
+
+            fun table(name: String) = tables.single { it.name == name }
+            val measurements = table("measurements")
+            val replay =
+                listOf(
+                    i.ddl(c, table("customer")),
+                    i.ddl(c, tree.group("routines").children.single { it.name == "touch" }),
+                    i.ddl(c, table("orders")),
+                    i.ddl(c, table("bookings")),
+                    i.ddl(c, measurements),
+                ) +
+                    measurements.child("partitions").children.map { i.ddl(c, it) } +
+                    listOf(i.ddl(c, table("ext")), i.ddl(c, tree.group("materialized views").children.single()))
+            assertTrue(i.ddl(c, table("customer")).startsWith("CREATE SEQUENCE \"demo\".\"customer_id_seq\""))
+            assertTrue(i.ddl(c, measurements).contains("PARTITION BY RANGE (logdate)"))
+            assertTrue(i.ddl(c, table("ext")).contains("SERVER \"files\""))
             c.createStatement().use { st ->
                 st.execute("drop schema if exists scratch cascade")
                 st.execute("create schema scratch")
-                listOf(serial, customer, touch, orders).forEach { st.execute(it.replace("demo", "scratch")) }
+                replay.forEach { st.execute(it.replace("demo", "scratch")) }
             }
             val copy = i.schema(c, "scratch").group("tables")
-            assertEquals(listOf("customer", "orders"), copy.children.map { it.name })
+            assertEquals(tables.map { it.name }, copy.children.map { it.name })
+            assertEquals(table("orders").children.map { it.name }, copy.child("orders").children.map { it.name })
             assertEquals(
-                tables.single { it.name == "orders" }.children.map { it.name },
-                copy.child("orders").children.map { it.name },
+                measurements.child("partitions").children.map { it.name },
+                copy
+                    .child("measurements")
+                    .child("partitions")
+                    .children
+                    .map { it.name },
             )
             val overloads =
                 tree
@@ -182,6 +222,16 @@ class IntrospectionSmokeTest {
             assertTrue(overloads[0].contains("integer") && overloads[1].contains("text"), overloads.toString())
             val view = i.ddl(c, tree.group("views").children.single())
             assertTrue(view.startsWith("CREATE OR REPLACE VIEW \"demo\".\"open_orders\" AS"), view)
+        }
+
+    @Test
+    fun `postgresql ddl of dropped objects is empty`() =
+        withDemo(DatabaseKind.POSTGRESQL) { c, i ->
+            val skipped = setOf(ObjectKind.SCHEMA, ObjectKind.GROUP, ObjectKind.EVENT)
+            ObjectKind.entries.filter { it !in skipped }.forEach {
+                val dropped = DbObject(it, "demo", "dropped", table = "dropped_table", ref = "a integer")
+                assertEquals("", i.ddl(c, dropped), "$it")
+            }
         }
 
     @Test
@@ -241,7 +291,14 @@ class IntrospectionSmokeTest {
                     .children
                     .map { it.kind },
             )
-            assertEquals(listOf("f", "p"), tree.group("routines").children.map { it.name })
+            val routines = tree.group("routines").children
+            assertEquals(listOf("f", "f", "p"), routines.map { it.name })
+            assertEquals(
+                listOf(ObjectKind.FUNCTION, ObjectKind.PROCEDURE, ObjectKind.PROCEDURE),
+                routines.map { it.kind },
+            )
+            assertEquals("(text)", routines[1].detail)
+            assertEquals("varchar(50)", orders.child("note").detail)
             assertEquals("(int(11)) → int(11)", tree.group("routines").children[0].detail)
             assertEquals(
                 "nightly",
@@ -268,6 +325,20 @@ class IntrospectionSmokeTest {
         }
 
     @Test
+    fun `mariadb ddl of dropped objects is empty`() =
+        withDemo(DatabaseKind.MARIADB) { c, i ->
+            listOf(
+                ObjectKind.TABLE,
+                ObjectKind.VIEW,
+                ObjectKind.FUNCTION,
+                ObjectKind.PROCEDURE,
+                ObjectKind.TRIGGER,
+                ObjectKind.EVENT,
+                ObjectKind.SEQUENCE,
+            ).forEach { assertEquals("", i.ddl(c, DbObject(it, "demo", "dropped")), "$it") }
+        }
+
+    @Test
     fun `mariadb primary keys`() =
         withDemo(DatabaseKind.MARIADB) { c, i ->
             assertEquals(listOf("id"), i.primaryKey(c, "demo", "orders"))
@@ -288,10 +359,22 @@ class IntrospectionSmokeTest {
                      qty int not null default 1 check (qty > 0),
                      note text)""",
                 "create index orders_note_idx on demo.orders(note)",
+                "create table demo.bookings(id serial primary key, during tsrange not null, " +
+                    "exclude using gist (during with &&))",
+                "create table demo.measurements(logdate date not null, value int) partition by range (logdate)",
+                "create table demo.measurements_2024 partition of demo.measurements " +
+                    "for values from ('2024-01-01') to ('2025-01-01')",
+                "create table demo.measurements_2025 partition of demo.measurements " +
+                    "for values from ('2025-01-01') to ('2026-01-01')",
+                "create extension if not exists file_fdw",
+                "create server if not exists files foreign data wrapper file_fdw",
+                "create foreign table demo.ext(a int, b text) server files " +
+                    "options (filename '/etc/hostname', format 'text')",
                 "create function demo.touch() returns trigger language plpgsql as 'begin return new; end'",
                 "create trigger orders_touch before insert on demo.orders for each row execute function demo.touch()",
                 "create view demo.open_orders as select id, qty from demo.orders",
                 "create materialized view demo.order_sums as select customer_id, sum(qty) as q from demo.orders group by 1",
+                "create index order_sums_idx on demo.order_sums(customer_id)",
                 "create function demo.f(a int) returns int language sql as 'select a'",
                 "create function demo.f(a text) returns text language sql as 'select a'",
                 "create procedure demo.p(x int) language sql as 'select 1'",
@@ -313,6 +396,7 @@ class IntrospectionSmokeTest {
                 "create trigger demo.orders_bi before insert on demo.orders for each row set new.qty = coalesce(new.qty, 1)",
                 "create view demo.open_orders as select id, qty from demo.orders",
                 "create function demo.f(a int) returns int deterministic return a",
+                "create procedure demo.f(in y text) select y",
                 "create procedure demo.p(in x int) select x",
                 "create sequence demo.seq1",
                 "create event demo.nightly on schedule every 1 day do select 1",
