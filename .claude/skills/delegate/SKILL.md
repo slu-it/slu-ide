@@ -38,18 +38,23 @@ Sonnet does well with a precise brief and guesses without one. Every implementer
 4. Tests to add or change, with the level per behavior (`docs/testing.md`, "Choosing the test level"): unit, naming
    the function or class to extract when the logic sits in a control, or `@Tag("ui")` with the reason it needs a
    scene, plus the one wiring test an extraction keeps. Name the existing test classes that already cover
-   neighbouring behavior, to extend rather than duplicate. Then the test classes to run, by class name: the related
-   UI test classes and, when an API changes, unit tests of dependent modules (e.g. `:ide`'s `SpringWiringTest`).
-   The implementer runs only those, its own and the touched modules' unit tests. Tests that depend on the OS
+   neighbouring behavior, to extend rather than duplicate. Then the test classes to run, by class name:
+   `verify.sh --changed` already runs the touched modules' unit tests and every class
+   `.claude/scripts/related-tests.sh` finds for the changed files, so name only what that word search misses (a
+   behavior tested through another class, `:ide`'s `SpringWiringTest` when an API changes). Run
+   `related-tests.sh <files the package will change>` while planning: more than 12 UI classes means the
+   implementer must name classes instead of using `--changed`; say which. Tests that depend on the OS
    (files, processes, timing, encodings): point at `docs/testing.md`, "Portability".
 5. Docs to update: feature page, ADR, `docs/index.md`; `docs/features/keyboard-shortcuts.md` when key bindings change.
 6. Docs to read (so the agent skips the index), with sections where useful; for UI work the matching sections of
    `docs/ui-conventions.md`.
-7. Base: master, or the worktree and the commit to rebase onto.
+7. Base: the master commit (for `worktree-check.sh start`) and the agent's display (`:111` upwards; the final gate's
+   pool is `:99` to `:106`), or the worktree and the commit to rebase onto.
 8. For large files, the classes or line ranges that matter, so the agent reads ranges instead of whole files.
 
-The sandbox rules every implementer needs (worktree base and diff check, `--no-daemon`, no `pgrep -f` loops,
-MainWindow bean lists) are in `.claude/agents/implementer.md`; briefs need not repeat them.
+The sandbox rules every implementer needs (`worktree-check.sh` start and report, `verify.sh`, `--no-daemon`, no
+`pgrep -f` loops, MainWindow bean lists) are in `.claude/agents/implementer.md`; briefs need not repeat them, only
+name the master commit and the display (item 7).
 
 ## Review loop
 The reviewer labels each finding Blocker, Should or Nit (definitions in `.claude/agents/reviewer.md`).
@@ -76,10 +81,11 @@ Once the reviewer reports no Blockers and no agent runs Gradle in the main tree 
 `uiTest`), refuses while another Gradle build runs in the tree, then runs `./gradlew build -q`,
 `.claude/scripts/check-docs-index.sh` and `check-unused-imports.sh`. Never start the gate while an implementer still
 edits or builds in the main tree: both share `build/`, and classes vanish under running tests (fake
-`NoClassDefFoundError`). It fixes failures itself instead of starting another implementer round: rerun the failing
-class with `--tests`, fix the cause (never by weakening the test), fold the fix into the matching commit (`fixup!` +
-autosquash). A fix that touches production code gets a short reviewer pass on that diff; then run the gate again.
-Hand back to the implementer only when the failure turns out to be a design problem, not a local fix.
+`NoClassDefFoundError`). It fixes failures itself instead of starting another implementer round: rerun the failing class
+with `.claude/scripts/verify.sh <Class>` (digest instead of full stack traces), fix the cause (never by weakening the
+test), fold the fix into the matching commit (`fixup!` + autosquash). A fix that touches production code gets a short
+reviewer pass on that diff; then run the gate again. Hand back to the implementer only when the failure turns out to be
+a design problem, not a local fix.
 - "Unable to open DISPLAY": a display broke during the run; rerun the script once, which repairs it. If it fails the
   same way again, investigate (`pgrep -a Xvfb`, `xdpyinfo -display :99`).
 - A uiTest that dies within a second with a `Build_gradle$DisplayService` cast error: `./gradlew --stop`, then rerun
@@ -97,15 +103,21 @@ Hand back to the implementer only when the failure turns out to be a design prob
   imports or such lists are resolved by keeping both sides, dropping exact duplicates.
 - Worktrees (`isolation: "worktree"`) start at the session's first commit, not current master. The implementer
   definition makes the agent reset or rebase onto master and check its diff; name the master commit in the brief.
-- Each agent gets its own Xvfb display (`.claude/scripts/setup-display.sh 10N`) and its own scratchpad subfolder,
+- Each agent gets its own Xvfb display (`:111` upwards, above the final gate's pool) and its own scratchpad subfolder,
   and kills only processes it started.
 
 ## Merge gate (per package, on master)
-1. Check `git diff master...<branch> --stat` (three dots: from the merge base): only the package's files (a stale
-   tree once silently reverted master's newest commits).
-2. In the worktree: `git rebase master`; when master moved since the agent's last test run, compile there
-   (`./gradlew --no-daemon :<module>:testClasses -q`); on master: `git merge --ff-only <branch>`.
-3. The final gate on master (above). With `DISPLAY` set, `build` already includes `uiTest`.
-4. Only after the review is through (no Blockers or Shoulds left) and the gate is green: `git worktree remove --force
-   <path>` and delete the branch; merged worktrees are not removed automatically. An agent whose worktree is gone
-   cannot be resumed with SendMessage, so removing it early turns a small fix into a new agent with a new brief.
+1. `.claude/scripts/merge-package.sh <worktree, branch or agent id> --expect <the package's paths>`, one call per
+   package (several in one Bash call are fine). It refuses while the worktree is dirty or Gradle runs in it, prints the
+   commits and the three-dot stat, stops on files outside `--expect` (a stale tree once silently reverted master's
+   newest commits), rebases when master moved and then compiles the touched modules, and fast-forwards master. Exit 1 is
+   a check that failed: unexpected files, or a compile error after the rebase (the branch is reset to its pre-rebase
+   head; the fix goes back to the implementer, who runs `worktree-check.sh start` again first). Exit 3 is a rebase
+   conflict, already aborted: run `git -C <worktree> rebase master` yourself, resolve (keep both sides of lists and
+   imports), `--continue`, compile there (`./gradlew --no-daemon <:module>:testClasses -q`; the script won't, since it
+   did not rebase), then run the script again.
+2. The final gate on master (above). With `DISPLAY` set, `build` already includes `uiTest`.
+3. Only after the review is through (no Blockers or Shoulds left) and the gate is green:
+   `merge-package.sh --remove <worktree>` (refuses unmerged branches); merged worktrees are not removed
+   automatically. An agent whose worktree is gone cannot be resumed with SendMessage, so removing it early turns a
+   small fix into a new agent with a new brief.

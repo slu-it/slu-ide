@@ -19,23 +19,29 @@ update and docs to read.
    the test level"). Before adding a test, grep for an existing one of the same behavior and extend it. A new
    `@Tag("ui")` test needs a reason a unit test cannot cover it; say it in the report. When logic moves out of a view,
    keep one UI test of the wiring. For wiring, races and negative checks, break the code once and see the test fail.
-   Run `.claude/scripts/check-tests.sh` on the test files you touched and fix the findings in code you wrote.
-   Verify narrowly (commands: `docs/testing.md`, "Running a subset"): `spotlessApply`, `./gradlew testClasses -q`
-   (everything compiles), the unit `test` task of each module you touched, and `uiTest --tests` for the UI test
-   classes the brief names plus the ones you wrote. Never run `./gradlew build` or an unfiltered `uiTest`: the main
-   session runs the full build after the last review. Report the exact commands and their real result; a skipped
-   `uiTest` (no `DISPLAY`) is not a pass.
+   Verify narrowly with one call: `.claude/scripts/verify.sh --display <N> --changed <the test classes the brief names
+   and the ones you wrote>`, N being the display your brief gives you (shell state does not survive between calls, and
+   without `--display` you land on `:99`, the main session's gate display). It formats, compiles all main and test
+   code, runs the unit tests of every module you touched, the related test classes and the named ones (test or uiTest by
+   `@Tag("ui")`, display included), and prints a short digest: compile errors, counts per task, failures with their
+   `dev.sluide` frames, `check-tests.sh` findings on the test files you changed (fix those in code you wrote). Don't
+   parse `build/test-results` yourself; open `build/verify/verify.log` only when the digest doesn't explain a failure.
+   `--changed` refuses when it would run more than 12 UI test classes: then drop `--changed` and name the classes plus a
+   `:module` target for each module you touched. Never run `./gradlew build` or an unfiltered `uiTest`: the main session
+   runs the full build after the last review. Report the command and its last line; `verify: INCOMPLETE` (UI tests not
+   run) is not a pass.
 6. Update `docs/` and `docs/index.md` when behavior, structure or decisions change. A new, changed or removed key
    binding (accelerator, key combination, `InputMap` entry, key handler) also goes into
    `docs/features/keyboard-shortcuts.md` (`.claude/rules/key-bindings.md`); check there first that the keys are free.
 
 Sandbox rules:
-- In a worktree (`.claude/worktrees/...`), before the first edit: `git reset --hard master` (no commits yet) or
-  `git rebase master`, then `git merge-base --is-ancestor master HEAD`. Before reporting,
-  `git diff master...HEAD --stat` (three dots) must list only the files you meant to change; a stale tree once
-  reverted master's newest commits.
-- In a worktree, run Gradle as `./gradlew --no-daemon ...`. A uiTest that dies within a second with a
-  `Build_gradle$DisplayService` cast error: `./gradlew --stop`, then rerun.
+- In a worktree (`.claude/worktrees/...`), before the first edit: `.claude/scripts/worktree-check.sh start <master
+  commit from the brief>` (fast-forwards or rebases onto master and checks it; on a conflict, exit 3, it has aborted
+  the rebase: stop and report). Before reporting:
+  `.claude/scripts/worktree-check.sh report`; its three-dot stat must list only the files you meant to change (a stale
+  tree once reverted master's newest commits). Put its `branch:` and `worktree:` lines into your report.
+- In a worktree, Gradle you run yourself needs `./gradlew --no-daemon ...` (`verify.sh` does it, and retries the
+  `Build_gradle$DisplayService` cast error after `./gradlew --stop`).
 - Never `pkill -f` (it kills its own shell, exit 144) and never wait with `while pgrep -f ...` (it matches itself and
   never ends). Find PIDs with `ps -eo pid,args | grep '[p]attern'` and kill only processes you started.
 - A new dependency of `MainWindow` also goes into the explicit bean lists of `ProjectWindowsUiTest` and

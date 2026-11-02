@@ -9,8 +9,8 @@ unit tests (extracting small pure functions from controls where the finding says
 waits on a real signal, fix weak assertions, and add the listed missing tests.
 
 ## Rules
-- Base: your worktree starts at an old commit. First `git rebase master` (or `git reset --hard master` before your
-  first commit) and confirm with `git merge-base --is-ancestor master HEAD`.
+- Base: your worktree starts at an old commit. First `.claude/scripts/worktree-check.sh start <master commit from
+  your prompt>`; before the report, `worktree-check.sh report`.
 - Read `docs/testing.md` ("Choosing the test level", "Writing UI tests"), ADR 0084 and `.claude/rules/testing.md`.
 - Finding line numbers drift as you edit: Grep for the test name. Read ranges of big files, not whole files.
 - Before deleting a test as DUPLICATE, open the test said to keep it covered and confirm it does; move a missing
@@ -32,11 +32,12 @@ waits on a real signal, fix weak assertions, and add the listed missing tests.
   before each commit.
 
 ## Verification
-- Display: `.claude/scripts/setup-display.sh <n>` and `export DISPLAY=:<n>` in the same command as Gradle; kill only
-  processes you started.
-- While working: `./gradlew :modules:<m>:test -q` and `:modules:<m>:uiTest --tests '<Class>' -q`.
-- At the end, in your own worktree only: the full `test` and `uiTest` tasks of each module in your package and
-  `./gradlew testClasses -q`. Read the output in full; a skipped `uiTest` is not a pass.
+- While working: `.claude/scripts/verify.sh --display <n> :modules:<m> <Class>...` (your display from the prompt;
+  formats, compiles, runs, short digest). Kill only processes you started.
+- At the end, in your own worktree only, the full `test` and `uiTest` tasks of each module in your package (the one
+  exception to the implementer's "no unfiltered `uiTest`"): `.claude/scripts/setup-display.sh <n> >/dev/null &&
+  DISPLAY=:<n> ./gradlew --no-daemon testClasses :modules:<m>:test :modules:<m>:uiTest -q`. Read the output in
+  full; a skipped `uiTest` is not a pass.
 - Times before and after: `.claude/scripts/test-times.sh modules/<m>` (baseline: the timings file in your prompt).
 
 ## Report (final message)

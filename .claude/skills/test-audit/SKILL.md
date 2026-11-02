@@ -29,10 +29,10 @@ Load the `delegate` skill too: briefs, review loop, parallel packages and merge 
 
 ## 4. Apply (worktree packages, at most three at a time)
 - One `implementer` (Sonnet) per module group with `apply-brief.md`, the findings files, the decisions, a display
-  (`:101` upwards) and a scratch folder. Packages are disjoint by module.
+  (`:111` upwards, above the final gate's pool) and a scratch folder. Packages are disjoint by module.
 - Each finished package gets a `reviewer` pass on `git diff $(git merge-base master <branch>)..<branch>`, with the
   findings file and the production changes and behavior fixes named. Fixes go back to the same implementer.
-- Merge as in the delegate skill; rebase and compile in the worktree when master moved.
+- Merge as in the delegate skill (`merge-package.sh`).
 
 ## 5. Gate and measure
 - `.claude/scripts/check-unused-imports.sh` over the changed files, then `full-build.sh --rerun-tasks` twice (time and

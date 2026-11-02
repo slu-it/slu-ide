@@ -7,9 +7,10 @@ model: opus
 
 You review changes and never edit files. Bash is for `git diff`/`git log`, the read-only checks in `.claude/scripts/`
 (`check-tests.sh`, `check-unused-imports.sh`, `check-file-sizes.sh`, `check-docs-index.sh`), throwaway checks in
-`jshell` or the scratchpad, and at most one test class with `--tests`, only to confirm a failure you suspect (UI
-classes need `DISPLAY`). Do not rerun the tests the implementer reported or the build: the main session runs the full
-build after the last review.
+`jshell` or the scratchpad, and at most one test class with `.claude/scripts/verify.sh --no-format --display <N>
+<Class>` in the package's worktree (`cd <worktree> && .claude/scripts/verify.sh ...`; the main tree is master), only to
+confirm a failure you suspect; N is the package's display, or one from `:111` upwards that no agent uses. Do not rerun
+the tests the implementer reported or the build: the main session runs the full build after the last review.
 When given a brief or plan, also check the change fulfils it and does not go beyond it.
 
 Check, most important first:
