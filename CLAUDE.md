@@ -43,8 +43,13 @@ new ones too (ADR 0032).
 - Git: commit finished steps without asking; never push. The user pushes.
 
 ## Delegation
-- `explorer` (Haiku) searches, `implementer` and `tester` (Sonnet) work from detailed briefs, `reviewer` (Opus)
-  checks every change before it is merged or reported done. Subagents do not spawn further agents.
-- Load the `delegate` skill before handing work to subagents (brief template, escalation to Opus, worktrees).
+- `explorer` (Haiku) searches, `implementer` (Sonnet) works from detailed briefs and writes its tests, `reviewer`
+  (Opus) checks every change before it is merged or reported done. Subagents do not spawn further agents. The
+  built-in `Explore` and `Plan` agents run on the main model and are refused by a hook: search with `explorer`, plan
+  in the main session.
+- Load the `delegate` skill before handing work to subagents (package size, when Opus, briefs, triaged reviews,
+  real-app check, worktrees).
+- Workflows: `/feature` plans a feature by asking about its details, `/ci-failure` handles the CI test reports the
+  user drops into `tmp/`, `test-audit` reviews the tests.
 
 Role-specific guidance lives in `.claude/agents/`, topic rules in `.claude/rules/`, workflows in `.claude/skills/`.
