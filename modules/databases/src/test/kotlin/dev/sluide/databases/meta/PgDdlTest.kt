@@ -129,15 +129,80 @@ class PgDdlTest {
                         ),
                     ),
                 columns = listOf(mapOf("tbl" to "m", "name" to "d", "type" to "integer", "notnull" to true)),
-                indexes = listOf(mapOf("tbl" to "m1", "name" to "m1_idx", "backs" to false, "def" to "CREATE INDEX x")),
+                constraints =
+                    listOf(
+                        mapOf(
+                            "tbl" to "m1",
+                            "name" to "inherited_chk",
+                            "type" to "c",
+                            "def" to "CHECK (d > 0)",
+                            "local" to false,
+                        ),
+                        mapOf(
+                            "tbl" to "m1",
+                            "name" to "local_chk",
+                            "type" to "c",
+                            "def" to "CHECK (d < 9)",
+                            "local" to true,
+                        ),
+                    ),
+                indexes =
+                    listOf(
+                        mapOf(
+                            "tbl" to "m1",
+                            "name" to "inherited_idx",
+                            "backs" to false,
+                            "inherited" to true,
+                            "def" to "CREATE INDEX a",
+                        ),
+                        mapOf(
+                            "tbl" to "m1",
+                            "name" to "local_idx",
+                            "backs" to false,
+                            "inherited" to false,
+                            "def" to "CREATE INDEX b",
+                        ),
+                    ),
+                triggers =
+                    listOf(
+                        mapOf("tbl" to "m1", "name" to "t1", "inherited" to true, "def" to "CREATE TRIGGER t1"),
+                        mapOf("tbl" to "m1", "name" to "t2", "inherited" to false, "def" to "CREATE TRIGGER t2"),
+                    ),
             )
         assertEquals(
             "CREATE TABLE \"s\".\"m\" (\n    \"d\" integer NOT NULL\n)\nPARTITION BY RANGE (d);\n",
             pgTableDdl("s", "m", rows),
         )
         assertEquals(
-            "CREATE TABLE \"s\".\"m1\" PARTITION OF \"s\".\"m\" FOR VALUES FROM (1) TO (10);\n",
+            "CREATE TABLE \"s\".\"m1\" PARTITION OF \"s\".\"m\" FOR VALUES FROM (1) TO (10);\n\n" +
+                "ALTER TABLE \"s\".\"m1\" ADD CONSTRAINT \"local_chk\" CHECK (d < 9);\n\n" +
+                "CREATE INDEX b;\n\nCREATE TRIGGER t2;\n",
             pgTableDdl("s", "m1", rows),
+        )
+    }
+
+    @Test
+    fun `a foreign partition is a foreign table partition of its parent`() {
+        val rows =
+            PgSchemaRows(
+                relations =
+                    listOf(
+                        mapOf(
+                            "name" to "f1",
+                            "kind" to "f",
+                            "ispart" to true,
+                            "pschema" to "s",
+                            "parent" to "m",
+                            "bound" to "FOR VALUES IN (1)",
+                            "fserver" to "files",
+                            "foptions" to "filename '/x'",
+                        ),
+                    ),
+            )
+        assertEquals(
+            "CREATE FOREIGN TABLE \"s\".\"f1\" PARTITION OF \"s\".\"m\" FOR VALUES IN (1)\n" +
+                "SERVER \"files\"\nOPTIONS (filename '/x');\n",
+            pgTableDdl("s", "f1", rows),
         )
     }
 

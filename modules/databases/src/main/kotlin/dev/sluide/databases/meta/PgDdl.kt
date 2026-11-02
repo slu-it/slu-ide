@@ -30,13 +30,15 @@ private fun constraintClause(row: Row) = "CONSTRAINT ${q(row.text("name"))} ${ro
 private fun indexDefs(
     table: String,
     rows: PgSchemaRows,
-): List<String> = rows.indexes.filter { it.text("tbl") == table && !it.flag("backs") }.map { it.text("def") }
+): List<String> =
+    rows.indexes.filter { it.text("tbl") == table && !it.flag("backs") && !it.flag("inherited") }.map { it.text("def") }
 
 /**
  * The DDL of a table: the sequences its columns own, `CREATE TABLE` (a partitioned table with `PARTITION BY`, a
- * partition as `PARTITION OF` its parent, a foreign table as `CREATE FOREIGN TABLE … SERVER`), `ALTER SEQUENCE …
- * OWNED BY`, then `CREATE INDEX` for indexes that back no constraint and the triggers. A partition leaves out what
- * its parent's indexes, triggers and constraints give it. Empty when the table is gone.
+ * partition as `PARTITION OF` its parent, a foreign table or foreign partition as `CREATE FOREIGN TABLE … SERVER`),
+ * `ALTER SEQUENCE … OWNED BY`, then `CREATE INDEX` for indexes that back no constraint and the triggers. A partition
+ * leaves out the indexes, constraints and triggers it inherits from its parent and keeps its own: local constraints
+ * as `ALTER TABLE … ADD CONSTRAINT`. Empty when the table is gone.
  */
 internal fun pgTableDdl(
     schema: String,
@@ -47,23 +49,24 @@ internal fun pgTableDdl(
     val name = qualified(schema, table)
     val partition = rel.flag("ispart")
     val partKey = rel.str("partkey")?.let { "\nPARTITION BY $it" }.orEmpty()
+    val foreign = rel.text("kind") == "f"
+    val server =
+        if (foreign) {
+            "\nSERVER ${q(rel.text("fserver"))}" + rel.str("foptions")?.let { "\nOPTIONS ($it)" }.orEmpty()
+        } else {
+            ""
+        }
     val create =
         if (partition) {
             val parent = qualified(rel.str("pschema"), rel.text("parent"))
-            "CREATE TABLE $name PARTITION OF $parent ${rel.text("bound")}$partKey"
+            "CREATE ${if (foreign) "FOREIGN TABLE" else "TABLE"} $name PARTITION OF $parent " +
+                "${rel.text("bound")}$partKey$server"
         } else {
             val lines =
                 rows.columns.filter { it.text("tbl") == table }.map { pgColumnLine(it) } +
                     rows.constraints.filter { it.text("tbl") == table }.map { constraintClause(it) }
             val body = if (lines.isEmpty()) "()" else "(\n" + lines.joinToString(",\n") { "    $it" } + "\n)"
-            val foreign = rel.text("kind") == "f"
-            val tail =
-                if (foreign) {
-                    "\nSERVER ${q(rel.text("fserver"))}" + rel.str("foptions")?.let { "\nOPTIONS ($it)" }.orEmpty()
-                } else {
-                    partKey
-                }
-            "CREATE ${if (foreign) "FOREIGN TABLE" else "TABLE"} $name $body$tail"
+            "CREATE ${if (foreign) "FOREIGN TABLE" else "TABLE"} $name $body${server.ifEmpty { partKey }}"
         }
     val owned = if (partition) emptyList() else rows.ownedSequences.filter { it.text("tbl") == table }
     val sequences = owned.map { pgSequenceDdl(it.text("seqschema"), it.text("seq"), it) }
@@ -71,10 +74,21 @@ internal fun pgTableDdl(
         owned.map {
             "ALTER SEQUENCE ${qualified(it.text("seqschema"), it.text("seq"))} OWNED BY $name.${q(it.text("col"))}"
         }
-    val indexes = if (partition) emptyList() else indexDefs(table, rows)
+    val localConstraints =
+        if (partition) {
+            rows.constraints
+                .filter { it.text("tbl") == table && it.flag("local") }
+                .map { "ALTER TABLE $name ADD ${constraintClause(it)}" }
+        } else {
+            emptyList()
+        }
     val triggers =
-        if (partition) emptyList() else rows.triggers.filter { it.text("tbl") == table }.map { it.text("def") }
-    return (sequences + create + ownedBy + indexes + triggers).joinToString("\n") { withSemicolon(it) }
+        rows.triggers
+            .filter { it.text("tbl") == table && !(partition && it.flag("inherited")) }
+            .map { it.text("def") }
+    return (sequences + create + ownedBy + localConstraints + indexDefs(table, rows) + triggers).joinToString("\n") {
+        withSemicolon(it)
+    }
 }
 
 /** The DDL of a column, key, index, check or trigger [obj] from the table's rows; `null` for other kinds. */

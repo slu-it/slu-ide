@@ -20,13 +20,15 @@ internal object PostgresIntrospector : Introspector {
         connection: Connection,
         schema: String,
         table: String?,
+        owned: Boolean = false,
     ) = PgSchemaRows(
         relations = connection.rows(PgQueries.RELATIONS, schema, table, table),
         columns = connection.rows(PgQueries.COLUMNS, schema, table, table),
         constraints = connection.rows(PgQueries.CONSTRAINTS, schema, table, table),
         indexes = connection.rows(PgQueries.INDEXES, schema, table, table),
         triggers = connection.rows(PgQueries.TRIGGERS, schema, table, table),
-        ownedSequences = connection.rows(PgQueries.OWNED_SEQUENCES, schema, table, table),
+        ownedSequences =
+            if (owned) connection.rows(PgQueries.OWNED_SEQUENCES, schema, table, table) else emptyList(),
     )
 
     override fun schema(
@@ -61,7 +63,7 @@ internal object PostgresIntrospector : Introspector {
         ) = connection.rows(sql, *params).firstOrNull()
         return when (obj.kind) {
             ObjectKind.TABLE -> {
-                pgTableDdl(schema, name, loadRows(connection, schema, name))
+                pgTableDdl(schema, name, loadRows(connection, schema, name, owned = true))
             }
 
             ObjectKind.VIEW, ObjectKind.MATERIALIZED_VIEW -> {

@@ -45,10 +45,10 @@ internal object PgQueries {
              and (?::text is null or c.relname = ?)
            order by c.relname, a.attnum"""
 
-    /** Rows: tbl, name, type (p/u/f/c), def, cols, fschema, ftable, fcols. */
+    /** Rows: tbl, name, type (p/u/f/c/x), def, local (not inherited), cols, fschema, ftable, fcols. */
     const val CONSTRAINTS =
         """select c.relname as tbl, con.conname as name, con.contype::text as type,
-                  pg_get_constraintdef(con.oid, true) as def,
+                  pg_get_constraintdef(con.oid, true) as def, con.conislocal as local,
                   (select string_agg(a.attname, ', ' order by k.ord)
                      from unnest(con.conkey) with ordinality as k(attnum, ord)
                      join pg_attribute a on a.attrelid = con.conrelid and a.attnum = k.attnum) as cols,
@@ -64,12 +64,16 @@ internal object PgQueries {
            where n.nspname = ? and con.contype in ('p', 'u', 'f', 'c', 'x') and (?::text is null or c.relname = ?)
            order by c.relname, con.conname"""
 
-    /** Rows: tbl, name, uniq, cols, def, backs (the index backs a primary key or unique constraint). */
+    /**
+     * Rows: tbl, name, uniq, cols, def, backs (the index backs a primary key or unique constraint), inherited (it
+     * belongs to a partitioned parent's index).
+     */
     const val INDEXES =
         """select t.relname as tbl, i.relname as name, x.indisunique as uniq,
                   (select string_agg(pg_get_indexdef(x.indexrelid, k, true), ', ' order by k)
                      from generate_series(1, x.indnkeyatts::int) as k) as cols,
                   pg_get_indexdef(x.indexrelid) as def,
+                  exists (select 1 from pg_inherits ih where ih.inhrelid = x.indexrelid) as inherited,
                   exists (select 1 from pg_constraint con
                           where con.conindid = x.indexrelid and con.contype in ('p', 'u', 'x')) as backs
            from pg_index x
@@ -79,9 +83,10 @@ internal object PgQueries {
            where n.nspname = ? and (?::text is null or t.relname = ?)
            order by t.relname, i.relname"""
 
-    /** Rows: tbl, name, def, tgtype (the trigger's bit mask). */
+    /** Rows: tbl, name, def, tgtype (the trigger's bit mask), inherited (cloned from a partitioned parent). */
     const val TRIGGERS =
-        """select c.relname as tbl, t.tgname as name, pg_get_triggerdef(t.oid, true) as def, t.tgtype::int as tgtype
+        """select c.relname as tbl, t.tgname as name, pg_get_triggerdef(t.oid, true) as def, t.tgtype::int as tgtype,
+                  t.tgparentid <> 0 as inherited
            from pg_trigger t
              join pg_class c on c.oid = t.tgrelid
              join pg_namespace n on n.oid = c.relnamespace

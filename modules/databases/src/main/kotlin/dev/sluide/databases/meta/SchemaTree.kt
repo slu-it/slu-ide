@@ -37,6 +37,11 @@ internal fun buildSchemaTree(
     val columnsOf = leaves.columns.groupBy { it.table }
     val objectsOf = leaves.tableObjects.groupBy { it.table }
 
+    val partitionsOf =
+        leaves.relations
+            .filter { it.name in leaves.partitionParents }
+            .groupBy { leaves.partitionParents.getValue(it.name) }
+
     fun relation(r: DbObject): DbObject {
         val cols = columnsOf[r.name].orEmpty()
         if (r.kind != ObjectKind.TABLE && r.kind != ObjectKind.MATERIALIZED_VIEW) {
@@ -46,8 +51,8 @@ internal fun buildSchemaTree(
 
         fun of(vararg kinds: ObjectKind) = own.filter { it.kind in kinds }.sortedBy { it.name }
         val partitions =
-            leaves.relations
-                .filter { leaves.partitionParents[it.name] == r.name }
+            partitionsOf[r.name]
+                .orEmpty()
                 .sortedBy { it.name }
                 .map(::relation)
         val subgroups =

@@ -139,8 +139,12 @@ class IntrospectionSmokeTest {
             assertEquals("RANGE (logdate)", measurements.detail)
             assertEquals(listOf("logdate", "value", "partitions"), measurements.children.map { it.name })
             val partitions = measurements.child("partitions").children
-            assertEquals(listOf("measurements_2024", "measurements_2025"), partitions.map { it.name })
-            assertTrue(partitions.all { it.detail.startsWith("FOR VALUES FROM") && it.children.size == 2 })
+            assertEquals(
+                listOf("measurements_2024", "measurements_2025", "measurements_ext"),
+                partitions.map { it.name },
+            )
+            assertTrue(partitions.all { it.detail.startsWith("FOR VALUES FROM") && it.children.size >= 2 })
+            assertEquals(listOf("logdate", "value", "indexes", "checks"), partitions[0].children.map { it.name })
             val bookingKeys = tables.single { it.name == "bookings" }.child("keys").children
             assertEquals(listOf(ObjectKind.PRIMARY_KEY, ObjectKind.UNIQUE), bookingKeys.map { it.kind })
             assertTrue(bookingKeys[1].detail.startsWith("EXCLUDE USING gist"), bookingKeys[1].detail)
@@ -196,6 +200,10 @@ class IntrospectionSmokeTest {
                     listOf(i.ddl(c, table("ext")), i.ddl(c, tree.group("materialized views").children.single()))
             assertTrue(i.ddl(c, table("customer")).startsWith("CREATE SEQUENCE \"demo\".\"customer_id_seq\""))
             assertTrue(i.ddl(c, measurements).contains("PARTITION BY RANGE (logdate)"))
+            val p2024 = i.ddl(c, measurements.child("partitions").child("measurements_2024"))
+            assertTrue("m24_value_idx" in p2024 && "m24_value_pos" in p2024 && "FOREIGN" !in p2024, p2024)
+            val pExt = i.ddl(c, measurements.child("partitions").child("measurements_ext"))
+            assertTrue(pExt.startsWith("CREATE FOREIGN TABLE") && "PARTITION OF" in pExt, pExt)
             assertTrue(i.ddl(c, table("ext")).contains("SERVER \"files\""))
             c.createStatement().use { st ->
                 st.execute("drop schema if exists scratch cascade")
@@ -366,8 +374,13 @@ class IntrospectionSmokeTest {
                     "for values from ('2024-01-01') to ('2025-01-01')",
                 "create table demo.measurements_2025 partition of demo.measurements " +
                     "for values from ('2025-01-01') to ('2026-01-01')",
+                "create index m24_value_idx on demo.measurements_2024(value)",
+                "alter table demo.measurements_2024 add constraint m24_value_pos check (value > 0)",
                 "create extension if not exists file_fdw",
                 "create server if not exists files foreign data wrapper file_fdw",
+                "create foreign table demo.measurements_ext partition of demo.measurements " +
+                    "for values from ('2026-01-01') to ('2027-01-01') server files " +
+                    "options (filename '/etc/hostname', format 'text')",
                 "create foreign table demo.ext(a int, b text) server files " +
                     "options (filename '/etc/hostname', format 'text')",
                 "create function demo.touch() returns trigger language plpgsql as 'begin return new; end'",
