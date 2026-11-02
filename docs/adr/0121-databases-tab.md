@@ -85,8 +85,12 @@ statements that run for minutes, transactions that must not be lost silently, an
   MariaDB containers.
 - The embeddable `TextEditor` of `file-viewers` gains caret, selection and range replacement for the consoles.
 - The fat jar grows by about 2 MB of drivers.
-- Holding a cursor open keeps a read transaction open on PostgreSQL in Auto mode until the next statement; MariaDB
-  reads or skips the rest of a streamed result before the next statement.
+- Holding a cursor open keeps a transaction open on PostgreSQL in Auto mode until the next statement ("idle in
+  transaction"): it holds `AccessShareLock`s that block other sessions' DDL, holds back vacuum, and a server with
+  `idle_in_transaction_session_timeout` ends the connection, which closes the session with an error. MariaDB cancels
+  a streamed result's unread rest before the next statement.
+- A transaction the user opens in Auto mode (`BEGIN` …) is respected: a query then runs inside it without a cursor
+  transaction of its own, and the open transaction counts as pending for disconnect and window close.
 - Out of scope, kept in `docs/ideas/databases-later.md`: keychain storage, SSH tunnels, connections from Docker
   containers, Explain plan, query parameters, other DBMSs, `DELIMITER`, diagrams, DDL editing, dumps, multiple
   result sets per statement, per-console sessions.
