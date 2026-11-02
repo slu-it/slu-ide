@@ -28,8 +28,13 @@ object SqlSplitter {
     internal fun pieces(
         sql: String,
         kind: DatabaseKind,
+    ): List<Pair<Int, Int>> = pieces(sql, SqlLexer.regions(sql, kind))
+
+    /** [pieces] for the already lexed [regions] of [sql]. */
+    internal fun pieces(
+        sql: String,
+        regions: List<Region>,
     ): List<Pair<Int, Int>> {
-        val regions = SqlLexer.regions(sql, kind)
         val out = mutableListOf<Pair<Int, Int>>()
         var rp = 0
         var pieceStart = 0
@@ -86,9 +91,18 @@ object SqlSplitter {
         val words = codeWords(sql, kind)
         val first = words.firstOrNull()?.word ?: return false
         return when (first) {
-            "values", "table", "show", "describe", "desc" -> true
-            "select" -> !intoOrLocks(words)
-            "with" -> words.none { it.word in CHANGES } && !intoOrLocks(words)
+            "values", "table", "show", "describe", "desc" -> {
+                true
+            }
+
+            "select" -> {
+                !intoOrLocks(words)
+            }
+
+            "with" -> {
+                words.none { it.word in CHANGES } && !intoOrLocks(words)
+            }
+
             "explain" -> {
                 val rest = words.drop(1)
                 val starter = rest.indexOfFirst { it.depth == 0 && it.word in STARTERS }
@@ -96,7 +110,9 @@ object SqlSplitter {
                 head.none { it.word == "analyze" || it.word == "analyse" }
             }
 
-            else -> false
+            else -> {
+                false
+            }
         }
     }
 
@@ -129,7 +145,9 @@ object SqlSplitter {
         while (i < sql.length) {
             val c = sql[i]
             when {
-                r < regions.size && regions[r].start == i -> i = regions[r++].end
+                r < regions.size && regions[r].start == i -> {
+                    i = regions[r++].end
+                }
 
                 kind == DatabaseKind.MARIADB && c == '/' && SqlLexer.executableCommentEnd(sql, i) > 0 -> {
                     i = SqlLexer.executableCommentEnd(sql, i)
@@ -152,7 +170,9 @@ object SqlSplitter {
                     i = j
                 }
 
-                else -> i++
+                else -> {
+                    i++
+                }
             }
         }
         return out
