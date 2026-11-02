@@ -74,7 +74,10 @@ internal object MariaDbIntrospector : Introspector {
         // The statement text is built from quoted names; SHOW takes no bind parameters.
         return connection.createStatement().use { st ->
             st.executeQuery(show.sql).use { rs ->
-                if (rs.next()) rs.getString(show.column)?.let { withSemicolon(it) }.orEmpty() else ""
+                val labels = (1..rs.metaData.columnCount).map { rs.metaData.getColumnLabel(it) }
+                // A column node of a view gets SHOW CREATE TABLE, which answers "Create View".
+                val label = labels.firstOrNull { it == show.column } ?: labels.firstOrNull { it.startsWith("Create ") }
+                if (label != null && rs.next()) rs.getString(label)?.let { withSemicolon(it) }.orEmpty() else ""
             }
         }
     }
