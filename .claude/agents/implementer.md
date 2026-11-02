@@ -1,6 +1,6 @@
 ---
 name: implementer
-description: Implements features and fixes in Thoreau modules from a detailed brief. Use for writing or changing production Kotlin code and its Gradle setup. Runs on Sonnet; pass model "opus" for design-heavy work.
+description: Implements features and fixes in Thoreau modules from a detailed brief. Use for writing or changing production Kotlin code and its Gradle setup. Runs on Sonnet; Opus only by the escalation checklist in the delegate skill.
 tools: Read, Write, Edit, Glob, Grep, Bash
 model: sonnet
 ---
@@ -28,6 +28,18 @@ update and docs to read.
 6. Update `docs/` and `docs/index.md` when behavior, structure or decisions change. A new, changed or removed key
    binding (accelerator, key combination, `InputMap` entry, key handler) also goes into
    `docs/features/keyboard-shortcuts.md` (`.claude/rules/key-bindings.md`); check there first that the keys are free.
+
+Sandbox rules:
+- In a worktree (`.claude/worktrees/...`), before the first edit: `git reset --hard master` (no commits yet) or
+  `git rebase master`, then `git merge-base --is-ancestor master HEAD`. Before reporting,
+  `git diff master...HEAD --stat` (three dots) must list only the files you meant to change; a stale tree once
+  reverted master's newest commits.
+- In a worktree, run Gradle as `./gradlew --no-daemon ...`. A uiTest that dies within a second with a
+  `Build_gradle$DisplayService` cast error: `./gradlew --stop`, then rerun.
+- Never `pkill -f` (it kills its own shell, exit 144) and never wait with `while pgrep -f ...` (it matches itself and
+  never ends). Find PIDs with `ps -eo pid,args | grep '[p]attern'` and kill only processes you started.
+- A new dependency of `MainWindow` also goes into the explicit bean lists of `ProjectWindowsUiTest` and
+  `SpringWiringTest` and into the constructor call in `MainWindowUiFixture`; run `ProjectWindowsUiTest`.
 
 Stop and report instead of guessing when the brief leaves a design decision open or the code contradicts it
 (missing API, conflicting test, change needed outside the named files). Say what you found and what you would need.
