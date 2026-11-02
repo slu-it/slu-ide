@@ -5,6 +5,8 @@ import dev.sluide.databases.connect.CommitMode
 import dev.sluide.databases.connect.ConnectionConfig
 import dev.sluide.databases.session.DbSession
 import dev.sluide.databases.session.SessionEvent
+import dev.sluide.databases.ui.tree.MetadataCache
+import dev.sluide.databases.ui.tree.WorkspaceActions
 import javafx.beans.property.ReadOnlyBooleanProperty
 import javafx.beans.property.ReadOnlyBooleanWrapper
 import javafx.beans.property.ReadOnlyObjectProperty
@@ -54,6 +56,12 @@ class ConnectionEntry internal constructor(
 
     /** Set by the results package: whether there are unsubmitted grid edits. */
     var unsubmittedEdits: () -> Boolean = { false }
+
+    /** What the tree asks of the middle pane; set by the workspace when it is created. */
+    var workspaceActions: WorkspaceActions? = null
+
+    /** The catalog of this connection for the tree and the completion; created on first use, survives reconnects. */
+    val metadata: MetadataCache by lazy { MetadataCache(this) }
 
     /** The middle pane while connected, created on the first connect it is shown for; kept for the window lifetime. */
     internal var workspaceNode: Node? = null
