@@ -16,7 +16,7 @@ import java.sql.Connection
 import java.util.concurrent.CompletableFuture
 
 /** A session whose state the test sets and whose calls it records; commit and rollback complete when the test says. */
-internal class FakeSession(
+internal open class FakeSession(
     override val config: ConnectionConfig,
 ) : DbSession {
     override var commitMode: CommitMode = config.commitMode
