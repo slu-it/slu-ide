@@ -145,13 +145,3 @@ internal class DatabasesTabView(
         node.widthProperty().addListener(listener)
     }
 }
-
-/** The panes until the console and tree packages replace them. */
-internal object PlaceholderPanes {
-    @Suppress("UNUSED_PARAMETER")
-    fun workspace(entry: ConnectionEntry): Node =
-        Label("Console (coming)").apply {
-            styleClass +=
-                "databases-placeholder"
-        }
-}

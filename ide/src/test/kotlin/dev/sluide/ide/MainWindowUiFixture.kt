@@ -328,6 +328,7 @@ abstract class MainWindowUiFixture {
                 QueryHistory(),
                 DatabasesSettings(SettingsStore(settingsDir.resolve("settings.properties"))),
                 tasks,
+                fontSettings,
             ).also(databases::add),
         )
     }

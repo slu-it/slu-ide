@@ -18,16 +18,21 @@ import dev.sluide.databases.ui.DatabasesTab
 import dev.sluide.databases.ui.DatabasesTabModel
 import dev.sluide.databases.ui.DatabasesTabView
 import dev.sluide.databases.ui.FxDatabaseDialogs
-import dev.sluide.databases.ui.PlaceholderPanes
 import dev.sluide.databases.ui.cards.ConnectionCardList
+import dev.sluide.databases.ui.console.ConnectionWorkspace
 import dev.sluide.databases.ui.dialog.ConnectionTester
 import dev.sluide.databases.ui.tree.ObjectTreeView
 import dev.sluide.editorarea.EditorTab
+import dev.sluide.settings.FontArea
+import dev.sluide.settings.FontSettings
+import dev.sluide.settings.FontSpec
 import javafx.application.Platform
 import javafx.beans.InvalidationListener
 import javafx.beans.WeakInvalidationListener
 import javafx.beans.property.ObjectProperty
 import javafx.beans.property.SimpleObjectProperty
+import javafx.beans.property.SimpleStringProperty
+import javafx.beans.value.ObservableValue
 import javafx.scene.Node
 import javafx.stage.Window
 import org.springframework.beans.factory.annotation.Autowired
@@ -74,6 +79,8 @@ class Databases internal constructor(
     private val fx: (Runnable) -> Unit = Platform::runLater,
     /** Opens a session ([DbSessions.open]). */
     private val sessions: SessionOpener = SessionOpener(DbSessions::open),
+    /** The editor font's CSS, bound to the consoles' editors. */
+    private val editorCss: ObservableValue<String> = SimpleStringProperty(""),
 ) {
     @Autowired
     constructor(
@@ -82,7 +89,16 @@ class Databases internal constructor(
         history: QueryHistory,
         settings: DatabasesSettings,
         backgroundTasks: BackgroundTasks,
-    ) : this(store, passwords, history, settings, backgroundTasks, ::FxDatabaseDialogs)
+        fontSettings: FontSettings,
+    ) : this(
+        store,
+        passwords,
+        history,
+        settings,
+        backgroundTasks,
+        ::FxDatabaseDialogs,
+        editorCss = fontSettings.font(FontArea.EDITOR).map(FontSpec::toCss),
+    )
 
     /** Opens or selects the window's Databases tab; set by ide. */
     var showTab: () -> Unit = {}
@@ -105,7 +121,7 @@ class Databases internal constructor(
             // The connection cards (left).
             cards = { model -> ConnectionCardList(model).node },
             // The consoles over their results (middle).
-            workspace = PlaceholderPanes::workspace,
+            workspace = { entry -> connectionWorkspace(entry).node },
             // The object tree (right).
             tree = { entry -> objectTree(entry).node },
         )
@@ -172,6 +188,18 @@ class Databases internal constructor(
     /** The object tree of [entry]; Show DDL opens its scratch through the current [openScratch], alerts sit on [window]. */
     internal fun objectTree(entry: ConnectionEntry): ObjectTreeView =
         ObjectTreeView(entry, model(), entry.metadata, { ext, text -> openScratch(ext, text) }, { window() })
+
+    /** The consoles of [entry] over their results; the limits are read per statement. */
+    private fun connectionWorkspace(entry: ConnectionEntry) =
+        ConnectionWorkspace(
+            entry,
+            model(),
+            history,
+            { settings.pageSize.get() },
+            { settings.fetchAllCap.get() },
+            editorCss,
+            { window() },
+        )
 
     private fun owner(): Window? =
         window() ?: tab

@@ -14,6 +14,7 @@ import javafx.scene.Parent
 import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.Label
+import javafx.scene.control.TabPane
 import javafx.scene.layout.Region
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
@@ -171,5 +172,37 @@ class DatabasesTabViewUiTest {
                     .map { (it as Label).text }
             }
         assertEquals(listOf("alpha", "beta"), names)
+    }
+
+    @Test
+    fun `the bean's workspace shows a console for a connected entry`(robot: FxRobot) {
+        val f = ModelFixture(dir)
+        val project = dir.resolve("project").createDirectories()
+        f.store.save(project, listOf(ConnectionConfig("a", "alpha", DatabaseKind.POSTGRESQL)))
+        val databases =
+            Databases(
+                f.store,
+                f.passwords,
+                QueryHistory(),
+                DatabasesSettings(SettingsStore(dir.resolve("settings.properties"))),
+                f.tasks,
+                { FakeDialogs() },
+                { _, _ -> error("not connected") },
+                { it.run() },
+                { config, _, _, _, _, _ -> FakeSession(config) as DbSession },
+            )
+        databases.projectFolder.set(project)
+        robot.interact {
+            val tab = databases.createTab()
+            stage.scene = Scene(tab.content as Parent, 1000.0, 500.0)
+            stage.show()
+            val entry = databases.model().connections.single()
+            databases.model().selected.set(entry)
+            entry.connected(FakeSession(entry.config.get()))
+        }
+        val tabs = fx(robot) { stage.scene.root.lookupAll(".console-tabs") }
+        assertEquals(1, tabs.size)
+        val title = fx(robot) { (tabs.single() as TabPane).tabs.first().text }
+        assertEquals("Console", title)
     }
 }
