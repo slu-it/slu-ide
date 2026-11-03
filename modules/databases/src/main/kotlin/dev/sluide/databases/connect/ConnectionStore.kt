@@ -32,15 +32,16 @@ private val KNOWN_KEYS =
         "driverProperties",
         "color",
         "showSystemSchemas",
+        "password",
     )
 
 /**
  * The connections of a project, kept in its project data (ADR 0090) or, without a project, in the shared file, as
  * `databases: {"connections": [...]}` in their order. Only values that differ from the [ConnectionConfig] defaults are
- * written (`id`, `name` and `kind` always); enums by name; never a password. Unknown keys of the `databases` object and
- * of a connection (matched by `id`) survive a rewrite. An entry that cannot be read (unknown kind, no id or name) is
- * skipped on load and kept unchanged, after the others, on save. A small synchronized JSON file: called on any thread.
- * Never throws: failures are logged.
+ * written (`id`, `name` and `kind` always); enums by name; a password only encrypted (`password`, ADR 0122). Unknown
+ * keys of the `databases` object and of a connection (matched by `id`) survive a rewrite. An entry that cannot be read
+ * (unknown kind, no id or name) is skipped on load and kept unchanged, after the others, on save. A small synchronized
+ * JSON file: called on any thread. Never throws: failures are logged.
  */
 @Component
 class ConnectionStore(
@@ -133,6 +134,7 @@ internal fun write(config: ConnectionConfig): ObjectNode {
     }
     if (config.color != d.color) node.put("color", config.color.name)
     if (config.showSystemSchemas != d.showSystemSchemas) node.put("showSystemSchemas", config.showSystemSchemas)
+    config.savedPassword?.let { node.put("password", it) }
     return node
 }
 
@@ -162,6 +164,7 @@ internal fun read(node: ObjectNode): ConnectionConfig? {
                 ?.toMap() ?: emptyMap(),
         color = enumOf<CardColor>(node.get("color")) ?: d.color,
         showSystemSchemas = bool(node.get("showSystemSchemas")) ?: d.showSystemSchemas,
+        savedPassword = text(node.get("password")),
     )
 }
 

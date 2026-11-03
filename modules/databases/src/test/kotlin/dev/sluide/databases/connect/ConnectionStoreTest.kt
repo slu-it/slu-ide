@@ -35,6 +35,7 @@ class ConnectionStoreTest {
             driverProperties = mapOf("connectTimeout" to "5000"),
             color = CardColor.RED,
             showSystemSchemas = true,
+            savedPassword = "v1:c2VjcmV0",
         )
     private val minimal = ConnectionConfig("b", "Local", DatabaseKind.POSTGRESQL)
 
@@ -55,14 +56,14 @@ class ConnectionStoreTest {
     }
 
     @Test
-    fun `defaults are not written and no password is`() {
+    fun `defaults are not written, and a password only as its saved value`() {
         store.save(projectFolder, listOf(minimal))
 
         val json = data.read(projectFolder)!!.get("databases").toString()
         assertEquals("""{"connections":[{"id":"b","name":"Local","kind":"POSTGRESQL"}]}""", json)
         store.save(projectFolder, listOf(full))
         val fullJson = data.read(projectFolder)!!.get("databases").toString()
-        assertEquals(false, fullJson.contains("password", ignoreCase = true))
+        assertEquals(true, fullJson.contains("\"password\":\"v1:c2VjcmV0\""), fullJson)
         assertEquals(true, fullJson.contains("\"sslMode\":\"VERIFY_FULL\""))
     }
 

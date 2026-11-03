@@ -40,8 +40,8 @@ enum class SslMode { DISABLE, PREFER, REQUIRE, VERIFY_CA, VERIFY_FULL }
 enum class CardColor { NONE, RED, ORANGE, YELLOW, GREEN, BLUE, PURPLE }
 
 /**
- * One connection of a project, as stored in the project data (field `databases`, ADR 0121). It never holds the
- * password: passwords live in memory only until the app restarts (`PasswordCache`).
+ * One connection of a project, as stored in the project data (field `databases`, ADR 0121). A typed password lives in
+ * memory until the app restarts (`PasswordCache`); a saved one only encrypted, in [savedPassword] (ADR 0122).
  */
 data class ConnectionConfig(
     /** Stable identity across renames and reorders (a random UUID). */
@@ -67,4 +67,6 @@ data class ConnectionConfig(
     val color: CardColor = CardColor.NONE,
     /** Whether the tree shows the system schemas of this connection. */
     val showSystemSchemas: Boolean = false,
+    /** The password encrypted by `Secrets` (`v1:…`, ADR 0122), stored as `"password"`; `null` when none is saved. */
+    val savedPassword: String? = null,
 )
