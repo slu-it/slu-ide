@@ -198,6 +198,8 @@ class ConnectionWorkspaceUiTest {
 
     @Test
     fun `the bottom follows the selected console`(robot: FxRobot) {
+        // The first console shows its results from the start, before any console is added or selected.
+        assertSame(console(0).results.node, fx(robot) { bottom() })
         robot.interact { workspace.addButton.fire() }
         assertSame(console(1).results.node, fx(robot) { bottom() })
         robot.interact { workspace.tabs.selectionModel.select(console(0).tab) }

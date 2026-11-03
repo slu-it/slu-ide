@@ -99,8 +99,11 @@ class ConnectionWorkspace internal constructor(
     private val selected: Console? get() = consoles.firstOrNull { it.tab === tabs.selectionModel.selectedItem }
 
     init {
-        add()
+        // The first console's tab is selected while it is added, before anything listens; showResults() places its
+        // results, the listener follows later switches.
         tabs.selectionModel.selectedItemProperty().addListener { _, _, _ -> showResults() }
+        add()
+        showResults()
         entry.workspaceActions =
             object : WorkspaceActions {
                 override fun openData(ref: TableRef) {
