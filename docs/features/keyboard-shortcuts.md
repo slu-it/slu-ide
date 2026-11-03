@@ -228,7 +228,7 @@ File does not react to it while a terminal has the focus.
 | Shortcut+C in the Output list | Copy the selected lines |
 | Enter or F2 in an editable result grid | Edit the cell; Enter keeps the value, Escape drops it |
 | Shift+Enter in a result grid | Open the cell in the value viewer |
-| Shortcut+Enter in an editable result grid | Submit the edits |
+| Shortcut+Enter in an editable result grid | Submit the edits (also in an open cell editor, whose text is taken first) |
 | Enter in the WHERE, ORDER BY or page size field | Reload the data with it |
 | F5 in the object tree | Refresh the tree (expansion is kept) |
 | Enter or double-click in the object tree | Open the data of a table or view; expand or collapse other nodes |

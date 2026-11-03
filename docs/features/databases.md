@@ -109,13 +109,18 @@ connected; otherwise the middle says "Not connected" with a Connect button and t
   read-only, and the statement was a query. Otherwise a lock icon names the reason.
 - Enter, F2 or a double click edits a cell (Enter keeps, Escape drops); typed text is read by the column's type.
   Add Row, Delete Rows, Set NULL and Revert are in the toolbar and the context menu. Changed cells, added and deleted
-  rows are tinted until submitted.
+  rows are tinted until submitted. An empty cell of an added row is left out of the INSERT, so the column gets its
+  default; Set NULL stores an explicit NULL.
 - **Submit** (Shortcut+Enter in the grid) sends the changes as UPDATE, INSERT and DELETE statements keyed by the
   primary key: in Auto mode as one transaction (asking first when rows are deleted, since that is permanent); in Manual
   mode or inside a `BEGIN` as part of the open transaction, through a savepoint, so a failed submit leaves it as it
   was. Every UPDATE and DELETE must hit exactly one row, else nothing is changed and the error says the row was changed
-  by someone else. The result is reloaded afterwards, on the page it showed.
-- While edits are pending, paging, Reload, sorting and the filters are off; closing the tab asks.
+  by someone else. An open cell editor's text is taken first (one that does not parse stops the submit). Deletes that
+  would be committed at once without the question, because the user's transaction ended meanwhile, are refused
+  ("submit again"). The result is reloaded afterwards, on the page it showed and with its client sort.
+- While edits are pending, paging, Reload, sorting and the filters are off; closing the tab or its console asks, and
+  is refused while a submit runs. The window's close question names a running submit as "submit running (may still
+  commit)".
 
 ## Object tree (right)
 - The selected connection's schemas (MariaDB: databases); PostgreSQL shows the connected database only. System
