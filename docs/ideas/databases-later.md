@@ -4,8 +4,6 @@
 nothing decided or built. Each needs a decision of its own before it is built.
 
 ## Connections
-- **Safe password storage:** the macOS Keychain (`security`), the Linux Secret Service (`secret-tool`) or an own
-  encrypted store, per connection opt-in ("Save password"). Today passwords live in memory until the app quits.
 - **SSH tunnels** to reach databases behind a bastion host.
 - **Add from Docker:** offer running postgres, mariadb and mysql containers from the Docker tab as new connections, with
   host, port, user and database prefilled from their ports and environment.

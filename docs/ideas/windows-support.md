@@ -53,6 +53,8 @@ Thoreau. Open question: is the ongoing cost of a third OS worth it?
 ### Tests
 - About 43 test classes use symlinks, POSIX permissions or `/bin`/`sh`. Each needs a portable variant or
   `@DisabledOnOs(OS.WINDOWS)`.
+- Saved secrets ([ADR 0122](../adr/0122-saved-secrets.md)) have no key store on Windows: DPAPI or the Credential
+  Manager as another `KeyBackend` ([secrets-later.md](secrets-later.md)); until then Save password is disabled there.
 
 ## Ongoing cost (the impact to weigh)
 

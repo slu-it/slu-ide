@@ -56,6 +56,12 @@ for any of this: the named functions are patterns to copy (most are `private` or
   that the shell expands (ADR 0120). Copying something that includes private values asks first (ADR 0116).
 - Tools don't store pasted text (Codecs, Converting). Values remembered in `~/.sluide/projects` are plain text
   (owner-only only because `JsonFiles` writes through `createTempFile`); the feature page says they are plain text.
+- A secret that is stored at all is opt-in per value ("Save password") and goes through `Secrets` (module `secrets`,
+  ADR 0122): AES-GCM encrypted with a context naming where it belongs, one key in the OS store. The key is read only
+  off the FX thread (a Keychain prompt can block), only "missing" creates a key, an unreadable value counts as nothing
+  saved, and a disabled Save box (no store, access denied) neither saves nor removes what is saved (databases'
+  `EntrySessions`, http-client's `SslContexts`). A module that saves values lists them for Settings → Secrets as a
+  `SavedSecretSource` unless they are managed where they are used.
 
 ## Network
 - Fetching from remotes, registries or the web is an explicit action (ADR 0043, 0076): no background fetch.
