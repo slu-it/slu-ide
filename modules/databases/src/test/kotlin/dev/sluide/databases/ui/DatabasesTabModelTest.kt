@@ -206,6 +206,8 @@ class DatabasesTabModelTest {
         assertEquals(listOf("encrypt id1 pw"), f.saved.calls)
         assertEquals(FakeSavedPasswords.value("id1", "pw"), stored()[2].savedPassword)
         assertEquals("pw", String(checkNotNull(f.passwords.get(project, "id1"))))
+        assertEquals(2, f.zeroed.size, "the dialog's password and the copy that was encrypted")
+        assertTrue(f.zeroed.all { array -> array.all { it == '\u0000' } })
     }
 
     @Test
