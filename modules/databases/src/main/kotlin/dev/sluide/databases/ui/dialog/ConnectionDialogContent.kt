@@ -31,6 +31,7 @@ import javafx.scene.control.cell.TextFieldTableCell
 import javafx.scene.layout.GridPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
+import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
 import javafx.scene.shape.Circle
 import javafx.stage.FileChooser
@@ -204,7 +205,12 @@ internal class ConnectionDialogContent(
                     tab("General", generalGrid()),
                     tab("Options", optionsBox()),
                     tab("Advanced", advancedBox()),
-                ).apply { tabs.forEach { it.isClosable = false } },
+                ).apply {
+                    tabs.forEach { it.isClosable = false }
+                    // A VBox in a dialog gives its children only their minimum height when the window is sized before
+                    // the content's preferred height is known; the tabs then vanish (seen on Linux).
+                    minHeight = Region.USE_PREF_SIZE
+                },
                 HBox(8.0, testButton, testResultLabel).apply {
                     alignment = Pos.CENTER_LEFT
                     HBox.setHgrow(testResultLabel, Priority.ALWAYS)

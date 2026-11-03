@@ -5,6 +5,7 @@ import javafx.application.Platform
 import javafx.scene.control.ButtonBar.ButtonData
 import javafx.scene.control.ButtonType
 import javafx.scene.control.Dialog
+import javafx.scene.layout.Region
 import javafx.stage.Window
 import java.util.concurrent.CompletableFuture
 
@@ -50,6 +51,8 @@ object ConnectionDialog {
                 title = if (isNew) "Add ${initial.kind.label} Connection" else "Edit Connection '${initial.name}'"
                 headerText = null
                 dialogPane.content = content.node
+                dialogPane.minHeight = Region.USE_PREF_SIZE
+                isResizable = true
                 dialogPane.buttonTypes.addAll(okType, ButtonType.CANCEL)
                 dialogPane.lookupButton(okType).disableProperty().bind(content.problem.isNotNull)
                 setResultConverter {
