@@ -41,11 +41,7 @@
 }
 
 .gradle-task-description {
-    -fx-text-fill: derive(-fx-text-base-color, 45%);
-}
-
-.tree-cell:selected .gradle-task-description {
-    -fx-text-fill: derive(-fx-selection-bar-text, -15%);
+    -fx-opacity: 0.65;
 }
 
 .gradle-group {

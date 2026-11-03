@@ -24,7 +24,7 @@
 .diff-counter {
     -fx-padding: 0 4 0 4;
     -fx-font-size: 0.9em;
-    -fx-text-fill: derive(-fx-text-base-color, 30%);
+    -fx-opacity: 0.75;
 }
 
 .diff-view .split-pane {

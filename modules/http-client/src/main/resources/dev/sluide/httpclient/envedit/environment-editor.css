@@ -50,8 +50,9 @@
     -fx-spacing: 4;
 }
 
-.env-undefined, .env-summary, .env-not-applicable .env-value {
-    -fx-text-fill: derive(-fx-text-base-color, 45%);
+/* Values in not-applicable cells are muted by the cell's opacity. */
+.env-undefined, .env-summary {
+    -fx-opacity: 0.65;
 }
 
 .env-null {
@@ -59,7 +60,7 @@
 }
 
 .env-masked {
-    -fx-text-fill: derive(-fx-text-base-color, 25%);
+    -fx-opacity: 0.8;
 }
 
 /* Values the form does not edit: of environments that are no objects, of mixed rows, not applicable ones. */
@@ -68,7 +69,7 @@
 }
 
 .env-readonly .column-header .label {
-    -fx-text-fill: derive(-fx-text-base-color, 45%);
+    -fx-opacity: 0.65;
 }
 
 /* The lock of a value's file: open for the public file, closed for the private one. */
@@ -80,11 +81,13 @@
 
 .env-lock-icon {
     -fx-icon-size: 13;
-    -fx-icon-color: derive(-fx-text-base-color, 45%);
+    -fx-icon-color: -fx-text-base-color;
+    -fx-opacity: 0.65;
 }
 
 .env-lock-icon-private {
     -fx-icon-color: #b26a00;
+    -fx-opacity: 1;
 }
 
 .env-lock:disabled {

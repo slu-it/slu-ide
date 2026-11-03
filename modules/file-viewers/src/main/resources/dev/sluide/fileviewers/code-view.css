@@ -53,11 +53,12 @@
 .find-counter {
     -fx-padding: 0 6 0 6;
     -fx-font-size: 0.9em;
-    -fx-text-fill: derive(-fx-text-base-color, 30%);
+    -fx-opacity: 0.75;
 }
 
 .find-counter:error {
     -fx-text-fill: #c62828;
+    -fx-opacity: 1;
 }
 
 /* Matches of the find bar in the text, over the token styles; the selected one stronger. */

@@ -33,17 +33,18 @@
 .preview-copy-message {
     -fx-padding: 0 8 0 4;
     -fx-font-size: 0.9em;
-    -fx-text-fill: derive(-fx-text-base-color, 30%);
+    -fx-opacity: 0.75;
 }
 
 .preview-copy-message:error {
     -fx-text-fill: #c62828;
+    -fx-opacity: 1;
 }
 
 .zoom-level {
     -fx-padding: 0 4 0 4;
     -fx-font-size: 0.9em;
-    -fx-text-fill: derive(-fx-text-base-color, 30%);
+    -fx-opacity: 0.75;
 }
 
 .preview-view .split-pane {
@@ -81,7 +82,7 @@
 .image-status {
     -fx-padding: 2 8 2 8;
     -fx-font-size: 0.9em;
-    -fx-text-fill: derive(-fx-text-base-color, 30%);
+    -fx-opacity: 0.75;
 }
 
 /* Over a preview whose page navigated on its own (PreviewFileView.stop). */

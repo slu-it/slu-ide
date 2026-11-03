@@ -13,9 +13,9 @@
     -fx-padding: 8 0 0 0;
 }
 
-.fonts-page .preview-caption,
-.appearance-page .preview-caption {
-    -fx-text-fill: derive(-fx-text-base-color, 40%);
+/* Captions and hints of every page (feature modules' pages use the class too). */
+.settings-page .preview-caption {
+    -fx-opacity: 0.7;
 }
 
 /* The terminal's background; keep in sync with TerminalColors in the terminal module. */
