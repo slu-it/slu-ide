@@ -252,8 +252,8 @@ internal class ObjectTreeView(
         action: () -> Unit,
     ) = MenuItem(title).apply { setOnAction { action() } }
 
+    /** The items are built when the cell shows its row; the database kind is read when an item is chosen. */
     private fun menuFor(obj: DbObject): List<MenuItem> {
-        val kind = databaseKind()
         val actions =
             ObjectTreeModel.actions(obj.kind).map { action ->
                 when (action) {
@@ -270,12 +270,16 @@ internal class ObjectTreeView(
                     }
 
                     NodeAction.COPY_QUALIFIED_NAME -> {
-                        menuItem("Copy Qualified Name") { copyToClipboard(ObjectTreeModel.qualifiedName(kind, obj)) }
+                        menuItem(
+                            "Copy Qualified Name",
+                        ) { copyToClipboard(ObjectTreeModel.qualifiedName(databaseKind(), obj)) }
                     }
 
                     NodeAction.GENERATE_SELECT -> {
                         menuItem("Generate SELECT") {
-                            entry.workspaceActions?.insertIntoConsole(ObjectTreeModel.generateSelect(kind, obj))
+                            entry.workspaceActions?.insertIntoConsole(
+                                ObjectTreeModel.generateSelect(databaseKind(), obj),
+                            )
                         }
                     }
                 }
@@ -302,10 +306,9 @@ internal class ObjectTreeView(
         private val label = Label()
         private val detail = Label().apply { styleClass += "databases-tree-detail" }
         private val box = HBox(label, detail).apply { styleClass += "databases-tree-row" }
-        private val menu =
-            ContextMenu().apply {
-                setOnShowing { (item as? ObjectRow)?.let { items.setAll(menuFor(it.obj)) } }
-            }
+
+        // Filled in updateItem: JavaFX never shows an empty ContextMenu, so filling it on showing never runs.
+        private val menu = ContextMenu()
 
         init {
             // The tree view's own double click expands a table; a table opens its data instead.
@@ -360,6 +363,7 @@ internal class ObjectTreeView(
                 box.children.setAll(icon, label, detail)
             }
             graphic = box
+            if (row is ObjectRow) menu.items.setAll(menuFor(row.obj))
             contextMenu = menu.takeIf { row is ObjectRow }
             restyle()
         }

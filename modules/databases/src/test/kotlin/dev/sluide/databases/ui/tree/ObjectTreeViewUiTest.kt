@@ -26,7 +26,6 @@ import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
-import javafx.stage.WindowEvent
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.api.io.TempDir
@@ -167,8 +166,8 @@ class ObjectTreeViewUiTest {
         }
 
         fun menuItems(item: TreeItem<TreeRow>): List<MenuItem> {
+            // The items as JavaFX sees them before showing: it never shows an empty menu.
             val menu = checkNotNull(cellOf(item).contextMenu)
-            menu.onShowing.handle(WindowEvent(menu, WindowEvent.WINDOW_SHOWING))
             return menu.items
         }
 
