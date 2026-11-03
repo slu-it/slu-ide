@@ -118,6 +118,8 @@ internal class ConsoleToolbar(
         toggleGroup = group
         userData = mode
         isFocusTraversable = false
+        // Keeps "Auto" and "Manual" readable when the middle pane is narrow.
+        minWidth = Region.USE_PREF_SIZE
         styleClass += "console-mode-button"
     }
 

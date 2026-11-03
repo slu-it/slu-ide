@@ -41,7 +41,12 @@ internal class PagingBar(
     private val next = iconButton("mdi2c-chevron-right", "Next Page", actions.next)
     private val last = iconButton("mdi2p-page-last", "Last Page", actions.last)
     private val reload = iconButton("mdi2r-refresh", "Reload", actions.reload)
-    private val label = Label().apply { styleClass += "result-page-label" }
+    private val label =
+        Label().apply {
+            styleClass += "result-page-label"
+            // "1001–1234 of 1234" stays readable; the status at the end gives way first.
+            minWidth = Region.USE_PREF_SIZE
+        }
     val pageField =
         TextField().apply {
             promptText = "500"

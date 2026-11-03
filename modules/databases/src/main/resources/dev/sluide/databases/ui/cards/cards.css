@@ -53,6 +53,10 @@
 .db-card-button {
     -fx-background-color: transparent;
     -fx-padding: 2;
+}
+
+/* The icon colour is a property of the FontIcon inside the button, not of the button. */
+.db-card-button .ikonli-font-icon {
     -fx-icon-color: -fx-text-base-color;
 }
 

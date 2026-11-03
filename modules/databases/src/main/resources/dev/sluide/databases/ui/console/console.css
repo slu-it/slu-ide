@@ -12,6 +12,12 @@
     -fx-background-radius: 0;
 }
 
+/* The chosen commit mode stands out; Modena's pressed look alone is hard to tell apart in the dark theme. */
+.console-mode-button:selected {
+    -fx-background-color: -fx-accent;
+    -fx-text-fill: -fx-selection-bar-text;
+}
+
 .console-toolbar .ikonli-font-icon {
     -fx-icon-color: -fx-text-base-color;
 }
