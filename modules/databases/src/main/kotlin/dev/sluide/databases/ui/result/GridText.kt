@@ -44,6 +44,21 @@ internal object GridText {
         return lines.joinToString("\n")
     }
 
+    /**
+     * The rectangle of [cells] (row, column) as columns and rows of values, for export: rows ascending, columns in
+     * [columnOrder] (default: by index).
+     */
+    fun rectangle(
+        columns: List<ColumnInfo>,
+        rows: List<List<Any?>>,
+        cells: List<Pair<Int, Int>>,
+        columnOrder: List<Int>? = null,
+    ): Pair<List<ColumnInfo>, List<List<Any?>>> {
+        val rowIndexes = cells.map { it.first }.distinct().sorted()
+        val columnIndexes = cells.map { it.second }.distinct().sortedBy { columnOrder?.indexOf(it) ?: it }
+        return columnIndexes.map { columns[it] } to rowIndexes.map { r -> columnIndexes.map { rows[r][it] } }
+    }
+
     private fun field(text: String): String =
         if (text.any { it == '\t' || it == '\n' || it == '\r' || it == '"' }) {
             "\"" + text.replace("\"", "\"\"") + "\""

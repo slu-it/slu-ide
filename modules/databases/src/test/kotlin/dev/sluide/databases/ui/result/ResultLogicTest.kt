@@ -29,6 +29,36 @@ class ResultLogicTest {
     }
 
     @Test
+    fun `a tab with pending edits is not replaced`() {
+        val tabs = listOf(TabInfo(false, false, pendingEdits = true), TabInfo(false, false))
+        assertEquals(1, ResultTabsLogic.replaceIndex(tabs))
+        assertNull(ResultTabsLogic.replaceIndex(listOf(TabInfo(false, false, pendingEdits = true))))
+    }
+
+    @Test
+    fun `values are recognised as json or xml`() {
+        assertEquals("json", ValueLanguage.of("""{"a": [1, 2]}"""))
+        assertEquals("json", ValueLanguage.of("  [1,2] "))
+        assertNull(ValueLanguage.of("{not json"))
+        assertNull(ValueLanguage.of("""{"a":1} trailing"""))
+        assertNull(ValueLanguage.of("12"))
+        assertEquals("xml", ValueLanguage.of("<a><b/></a>"))
+        assertNull(ValueLanguage.of("<a><b></a>"))
+        assertNull(ValueLanguage.of("a < b"))
+        // an external entity is neither resolved nor an error that escapes
+        assertNull(ValueLanguage.of("<!DOCTYPE a [<!ENTITY x SYSTEM \"file:///etc/passwd\">]><a>&x;</a>"))
+    }
+
+    @Test
+    fun `the selection rectangle gives columns and rows in the shown order`() {
+        val cols = listOf(column("a"), column("b"), column("c"))
+        val rows = listOf(listOf<Any?>(1, 2, 3), listOf<Any?>(4, 5, 6))
+        val (c, r) = GridText.rectangle(cols, rows, listOf(1 to 0, 0 to 2), listOf(2, 1, 0))
+        assertEquals(listOf("c", "a"), c.map { it.name })
+        assertEquals(listOf(listOf<Any?>(3, 1), listOf<Any?>(6, 4)), r)
+    }
+
+    @Test
     fun `title is the single table else Result`() {
         assertEquals("users", ResultTabsLogic.title(listOf(column("a", "users"), column("b", "users"))))
         assertEquals("Result", ResultTabsLogic.title(listOf(column("a", "users"), column("b", "orders"))))

@@ -9,6 +9,8 @@ internal data class TabInfo(
     val pinned: Boolean,
     /** A data tab (opened from the tree); never replaced by a console result. */
     val data: Boolean,
+    /** Unsubmitted edits: the tab is not replaced, a new result gets a tab of its own. */
+    val pendingEdits: Boolean = false,
 )
 
 /** The decisions of the result area that need no controls: which tab a result replaces, titles, the status text. */
@@ -18,14 +20,24 @@ internal object ResultTabsLogic {
     private const val MIN_PAGE_SIZE = 10
     private const val MAX_PAGE_SIZE = 10_000
 
-    /** The index (among the result tabs, Output not counted) of the first unpinned console tab, else null: add one. */
-    fun replaceIndex(tabs: List<TabInfo>): Int? = tabs.indexOfFirst { !it.pinned && !it.data }.takeIf { it >= 0 }
+    /** The index (among the result tabs, Output not counted) of the first unpinned console tab without pending edits, else null: add one. */
+    fun replaceIndex(tabs: List<TabInfo>): Int? =
+        tabs.indexOfFirst { !it.pinned && !it.data && !it.pendingEdits }.takeIf {
+            it >=
+                0
+        }
 
     /** The one table all columns come from, else "Result". */
     fun title(columns: List<ColumnInfo>): String {
         val tables = columns.map { it.table }.toSet()
         return tables.singleOrNull() ?: DEFAULT_TITLE
     }
+
+    /** The tooltip of what is off while edits are pending. */
+    const val PENDING_TIP = "Submit or revert the edits first"
+
+    /** The tooltip of what is off while the grid shows the transposed rows. */
+    const val TRANSPOSED_TIP = "Turn Transpose off first"
 
     fun pinLabel(pinned: Boolean): String = if (pinned) "Unpin Tab" else "Pin Tab"
 
