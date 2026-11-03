@@ -39,9 +39,14 @@ would need its own "Always Allow" after each update.
 - Other systems: no store (`NoBackend`, "not supported on this system").
 
 **Missing, denied, failed**
-- A new key is created only when the store says the item does not exist (macOS `errSecItemNotFound`; secret-tool exit
-  1 with empty stdout and stderr), and only to encrypt; decrypting never creates one. A duplicate on create (another
-  Thoreau process was first) reads the store again. A key is never created over an existing one.
+- A new key is created only when the store says the item does not exist (macOS `errSecItemNotFound`; secret-tool:
+  `lookup` exits 1 with empty stdout and stderr and an empty `search` confirms nothing is stored), and only to encrypt;
+  decrypting never creates one. A dismissed unlock prompt prints nothing either, so the empty `lookup` is followed by
+  `search`, which lists a locked item without unlocking it: a listed item is Denied ("Secret Service locked"), never
+  Missing. `clear` of a locked item also exits 1 silently, so `delete` is confirmed by `search` too. A duplicate on
+  create (another Thoreau process was first) reads the store again. A key is never created over an existing one,
+  except in a race: two processes that both find the item missing store at the same moment and the later key replaces
+  the first (accepted limit for secret-tool, which has no atomic create; no lock file).
 - Deny or Cancel on the store's prompt makes the denial sticky: the store is not asked again until a restart or
   Settings → Secrets → Try Again. Saved secrets are then asked for as without them, and saving is disabled with the
   reason. Any other read error, and a store call that throws, fails only that call. Failures are logged once with

@@ -66,7 +66,13 @@ class SecretToolBackendTest {
     }
 
     @ParameterizedTest
-    @CsvSource("error, boom: it broke", "silent, secret-tool failed (exit 3)")
+    @CsvSource(
+        "error, boom: it broke",
+        "silent, secret-tool failed (exit 3)",
+        "nodbus, Cannot autolaunch D-Bus without X11 \$DISPLAY",
+        "stdout1, secret-tool failed (exit 1)",
+        "other1, Operation was cancelled",
+    )
     fun `other errors fail the read`(
         mode: String,
         reason: String,
@@ -74,13 +80,6 @@ class SecretToolBackendTest {
         val backend = backend()
         mode(mode)
         assertEquals(KeyRead.Failed(reason), backend.read())
-    }
-
-    @Test
-    fun `a dismissed prompt is denied`() {
-        val backend = backend()
-        mode("dismissed")
-        assertEquals(KeyRead.Denied("Secret Service access denied"), backend.read())
     }
 
     @ParameterizedTest
@@ -99,7 +98,11 @@ class SecretToolBackendTest {
         assertArrayEquals(before, key)
         assertEquals(encoded, Files.readString(file("store")))
         assertEquals(
-            listOf("lookup application test", "store --label=Thoreau Safe Storage application test"),
+            listOf(
+                "lookup application test",
+                "search application test",
+                "store --label=Thoreau Safe Storage application test",
+            ),
             argvLog(),
         )
         assertTrue(argvLog().none { it.contains(encoded) })
@@ -115,10 +118,20 @@ class SecretToolBackendTest {
     }
 
     @Test
-    fun `creating fails when the lookup is denied or fails`() {
+    fun `an item in a locked collection is denied not missing`() {
         val backend = backend()
-        mode("dismissed")
-        assertEquals(KeyCreate.Failed("Secret Service access denied"), backend.create(key))
+        stored(encoded)
+        Files.writeString(file("locked"), "")
+        assertEquals(KeyRead.Denied("Secret Service locked"), backend.read())
+        assertEquals(KeyCreate.Failed("Secret Service locked"), backend.create(key))
+        assertTrue(argvLog().none { it.startsWith("store") })
+    }
+
+    @Test
+    fun `creating fails when the lookup fails`() {
+        val backend = backend()
+        mode("nodbus")
+        assertEquals(KeyCreate.Failed("Cannot autolaunch D-Bus without X11 \$DISPLAY"), backend.create(key))
         mode("error")
         assertEquals(KeyCreate.Failed("boom: it broke"), backend.create(key))
         assertTrue(argvLog().none { it.startsWith("store") })
@@ -136,10 +149,19 @@ class SecretToolBackendTest {
     }
 
     @Test
+    fun `deleting an item the locked collection keeps fails`() {
+        val backend = backend()
+        stored(encoded)
+        Files.writeString(file("locked"), "")
+        assertFalse(backend.delete())
+    }
+
+    @Test
     fun `a tool that does not answer fails the call and is stopped`() {
-        val backend = backend(Duration.ofMillis(300))
+        val backend = backend(Duration.ofSeconds(3))
         mode("sleep")
         assertEquals(KeyRead.Failed("the Secret Service did not answer"), backend.read())
+        // the pid is the script's background sleep, a descendant of the process that timed out
         val handle = ProcessHandle.of(Files.readString(file("pid")).trim().toLong())
         val deadline = System.currentTimeMillis() + 10_000
         while (handle.isPresent && handle.get().isAlive && System.currentTimeMillis() < deadline) Thread.sleep(50)
@@ -154,15 +176,21 @@ class SecretToolBackendTest {
             d=${'$'}(dirname "${'$'}0")
             echo "${'$'}*" >> "${'$'}d/argv.log"
             case "${'$'}(cat "${'$'}d/mode")" in
-              sleep) echo ${'$'}${'$'} > "${'$'}d/pid"; exec sleep 30 ;;
+              sleep) sleep 30 & echo ${'$'}! > "${'$'}d/pid"; wait ;;
               error) echo "boom: it broke" >&2; echo "second line" >&2; exit 2 ;;
               silent) exit 3 ;;
-              dismissed) echo "Prompt was Dismissed by the user" >&2; exit 1 ;;
+              nodbus) echo "Cannot autolaunch D-Bus without X11 \${'$'}DISPLAY" >&2; exit 1 ;;
+              stdout1) echo "junk"; exit 1 ;;
+              other1) echo "Operation was cancelled" >&2; exit 1 ;;
             esac
             case "${'$'}1" in
-              lookup) if [ -f "${'$'}d/store" ]; then cat "${'$'}d/store"; echo; exit 0; else exit 1; fi ;;
+              lookup) if [ -f "${'$'}d/store" ] && [ ! -f "${'$'}d/locked" ]; then cat "${'$'}d/store"; echo; exit 0; else exit 1; fi ;;
+              search) if [ -f "${'$'}d/store" ]; then echo "[/1]"; echo "label = x"; fi; exit 0 ;;
               store) cat > "${'$'}d/store"; exit 0 ;;
-              clear) rm -f "${'$'}d/store"; exit 0 ;;
+              clear)
+                if [ -f "${'$'}d/locked" ]; then exit 1; fi
+                if [ -f "${'$'}d/store" ]; then rm -f "${'$'}d/store"; exit 0; fi
+                exit 1 ;;
             esac
             exit 9
             """.trimIndent() + "\n"

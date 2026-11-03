@@ -10,9 +10,17 @@ import java.util.concurrent.TimeUnit
 /**
  * The key in the Secret Service through `secret-tool` (libsecret-tools; ADR 0122): an item with [label] and
  * [attributes], `secret-tool lookup`, `store --label` and `clear` run as [command], found on [path]. The key goes
- * through stdin and stdout as base64, never into the arguments or the environment. Exit 1 with empty stdout and
- * stderr is [KeyRead.Missing]; each call ends after [timeout] (an unlock prompt may be open). Without the command,
- * [unavailableReason] is "needs secret-tool". Tests pass their own attributes, or a fake command on their own [path].
+ * through stdin and stdout as base64, never into the arguments or the environment. A dismissed unlock prompt prints
+ * nothing, exactly like a missing item (exit 1, empty stdout and stderr), so such a lookup is followed by `search`,
+ * which lists the item without unlocking it: an item found is [KeyRead.Denied] ("Secret Service locked"), nothing
+ * found is [KeyRead.Missing], the only case that leads to a new key. `clear` of a locked item also exits 1 without
+ * a message, so `delete` confirms with `search`. Each call ends after [timeout] (an unlock prompt may be open).
+ * Without the command, [unavailableReason] is "needs secret-tool". Tests pass their own attributes, or a fake command
+ * on their own [path].
+ *
+ * Accepted limit: two Thoreau processes that find the item missing at the same moment can both store a key, and the
+ * later one replaces the first (no lock file; ADR 0122). The stdin copy of the base64 key inside the process stream
+ * buffer cannot be zeroed; it is short-lived and holds the same data as the pipe.
  */
 internal class SecretToolBackend(
     private val attributes: Map<String, String> = mapOf("application" to "sluide", "name" to "safe-storage"),
@@ -41,10 +49,7 @@ internal class SecretToolBackend(
 
     private fun readResult(done: Outcome.Done): KeyRead {
         if (done.exit == 0) return decode(done.stdout)
-        if (done.exit == 1 && done.stdout.isEmpty() && done.stderr.isBlank()) return KeyRead.Missing
-        if (done.stderr.contains("dismiss", ignoreCase = true) || done.stderr.contains("cancel", ignoreCase = true)) {
-            return KeyRead.Denied("Secret Service access denied")
-        }
+        if (done.exit == 1 && done.stdout.isEmpty() && done.stderr.isBlank()) return missingOrLocked()
         return KeyRead.Failed(failureReason(done))
     }
 
@@ -98,6 +103,27 @@ internal class SecretToolBackend(
         }
     }
 
+    /**
+     * A lookup in a locked collection whose unlock failed looks like a missing item (exit 1, no output); `search`
+     * lists the item without unlocking, so only an empty search is [KeyRead.Missing].
+     */
+    private fun missingOrLocked(): KeyRead =
+        when (val search = run(listOf("search") + attributeArguments(), null)) {
+            is Outcome.Failed -> {
+                KeyRead.Failed(search.reason)
+            }
+
+            is Outcome.Done -> {
+                val found = search.stdout.isNotEmpty()
+                search.stdout.fill(0)
+                when {
+                    search.exit != 0 -> KeyRead.Failed(failureReason(search))
+                    found -> KeyRead.Denied("Secret Service locked")
+                    else -> KeyRead.Missing
+                }
+            }
+        }
+
     override fun delete(): Boolean =
         when (val outcome = run(listOf("clear") + attributeArguments(), null)) {
             is Outcome.Failed -> {
@@ -106,7 +132,24 @@ internal class SecretToolBackend(
 
             is Outcome.Done -> {
                 outcome.stdout.fill(0)
-                outcome.exit == 0
+                when {
+                    outcome.exit == 0 -> true
+                    outcome.exit == 1 && outcome.stderr.isBlank() -> nothingLeft()
+                    else -> false
+                }
+            }
+        }
+
+    private fun nothingLeft(): Boolean =
+        when (val search = run(listOf("search") + attributeArguments(), null)) {
+            is Outcome.Failed -> {
+                false
+            }
+
+            is Outcome.Done -> {
+                val empty = search.stdout.isEmpty()
+                search.stdout.fill(0)
+                search.exit == 0 && empty
             }
         }
 
@@ -146,40 +189,63 @@ internal class SecretToolBackend(
         stdin: ByteArray?,
     ): Outcome {
         val tool = executable ?: return Outcome.Failed("needs secret-tool")
+        var process: Process? = null
         try {
-            val process = ProcessBuilder(listOf(tool.path) + arguments).start()
-            val out = Collector(process.inputStream)
-            val err = Collector(process.errorStream)
+            val started = ProcessBuilder(listOf(tool.path) + arguments).start()
+            process = started
+            val out = Collector(started.inputStream)
+            val err = Collector(started.errorStream)
             out.start()
             err.start()
             try {
-                process.outputStream.use { if (stdin != null) it.write(stdin) }
+                started.outputStream.use {
+                    if (stdin != null) it.write(stdin)
+                    it.flush()
+                }
             } catch (_: IOException) {
                 // the tool may exit without reading; its exit code tells
             }
-            if (!process.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
-                process.descendants().forEach { it.destroyForcibly() }
-                process.destroyForcibly()
+            if (!started.waitFor(timeout.toMillis(), TimeUnit.MILLISECONDS)) {
+                kill(started)
                 out.abandon()
                 err.abandon()
                 return Outcome.Failed("the Secret Service did not answer")
             }
             out.join(READER_JOIN_MS)
             err.join(READER_JOIN_MS)
-            return Outcome.Done(process.exitValue(), out.bytes(), String(err.bytes(), Charsets.UTF_8))
+            val stdout = out.bytes()
+            val stderr = err.bytes()
+            if (stdout == null || stderr == null) {
+                stdout?.fill(0)
+                kill(started)
+                out.abandon()
+                err.abandon()
+                return Outcome.Failed("secret-tool output could not be read")
+            }
+            return Outcome.Done(started.exitValue(), stdout, String(stderr, Charsets.UTF_8))
         } catch (e: InterruptedException) {
+            process?.let { kill(it) }
             Thread.currentThread().interrupt()
             return Outcome.Failed("interrupted")
         } catch (e: Exception) {
+            process?.let { kill(it) }
             return Outcome.Failed(e.message?.take(MAX_REASON) ?: "secret-tool failed")
         }
     }
 
-    /** Reads a stream to its end on its own thread, so neither pipe fills up while the other is waited on. */
+    private fun kill(process: Process) {
+        process.descendants().forEach { it.destroyForcibly() }
+        process.destroyForcibly()
+    }
+
+    /**
+     * Reads a stream to its end on its own thread, so neither pipe fills up while the other is waited on. [bytes] is
+     * `null` while the thread runs or when reading threw: that is never to be taken for empty output.
+     */
     private class Collector(
         private val stream: InputStream,
     ) : Thread("secret-tool-output") {
-        @Volatile private var data = ByteArray(0)
+        @Volatile private var data: ByteArray? = null
 
         init {
             isDaemon = true
@@ -189,11 +255,11 @@ internal class SecretToolBackend(
             try {
                 data = stream.readAllBytes()
             } catch (_: IOException) {
-                // closed on abandon
+                // data stays null
             }
         }
 
-        fun bytes(): ByteArray = data
+        fun bytes(): ByteArray? = if (isAlive) null else data
 
         fun abandon() {
             try {
