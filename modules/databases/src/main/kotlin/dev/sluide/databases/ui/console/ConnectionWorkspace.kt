@@ -60,6 +60,8 @@ class ConnectionWorkspace internal constructor(
     private val catalog: CompletionCatalog = entry.metadata.catalog,
     /** Subscribes to finished catalog loads. */
     private val onCatalogLoaded: (() -> Unit) -> Subscription = { entry.metadata.onLoaded(it) },
+    /** Opens an export as a new scratch file (extension without dot, text); the results' "Open as Scratch File". */
+    private val openScratch: (extension: String, text: String) -> Unit = { _, _ -> },
 ) {
     internal val consoles = mutableListOf<Console>()
     private var counter = 0
@@ -120,7 +122,7 @@ class ConnectionWorkspace internal constructor(
     internal fun add(): Console {
         counter++
         val title = if (counter == 1) "Console" else "Console $counter"
-        val results = ResultArea(entry, pageSize, fetchAllCap, fx)
+        val results = ResultArea(entry, pageSize, fetchAllCap, fx, openScratch = openScratch)
         val pane = ConsolePane(entry, model, history, pageSize, editorCss, results, fx, gate)
         val completion =
             CompletionPopup(pane, entry.config.get().kind, catalog, onCatalogLoaded)

@@ -62,6 +62,7 @@ class ConnectionWorkspaceUiTest {
     private val stopAsked = mutableListOf<String>()
     private val pending = mutableSetOf<Int>()
     private val submitting = mutableSetOf<Int>()
+    private val scratches = mutableListOf<Pair<String, String>>()
 
     @Start
     fun start(stage: Stage) {
@@ -86,6 +87,7 @@ class ConnectionWorkspaceUiTest {
                     stop
                 },
                 { area -> workspace.consoles.indexOfFirst { it.results === area } in submitting },
+                openScratch = { extension, text -> scratches += extension to text },
             )
         stage.scene = Scene(workspace.node as Parent, 900.0, 600.0)
         stage.show()
@@ -114,6 +116,15 @@ class ConnectionWorkspaceUiTest {
     private fun console(index: Int = 0) = workspace.consoles[index]
 
     private fun bottom() = (workspace.node.items[1] as StackPane).children.single()
+
+    @Test
+    fun `the results of every console open their exports as scratch files of the workspace`(robot: FxRobot) {
+        robot.interact {
+            workspace.addButton.fire()
+            workspace.consoles.forEach { it.results.openScratch("csv", "a,b") }
+        }
+        assertEquals(listOf("csv" to "a,b", "csv" to "a,b"), scratches)
+    }
 
     @Test
     fun `Shortcut+Enter in the editor runs through the session`(robot: FxRobot) {

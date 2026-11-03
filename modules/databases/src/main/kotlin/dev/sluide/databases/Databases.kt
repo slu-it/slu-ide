@@ -199,6 +199,7 @@ class Databases internal constructor(
             { settings.fetchAllCap.get() },
             editorCss,
             { window() },
+            openScratch = { extension, text -> openScratch(extension, text) },
         )
 
     private fun owner(): Window? =

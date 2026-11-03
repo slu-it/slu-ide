@@ -31,8 +31,8 @@ class ResultArea(
     private val fx: (Runnable) -> Unit = Platform::runLater,
     private val clock: () -> LocalTime = LocalTime::now,
     private val clipboard: (String) -> Unit = ::systemClipboard,
-    /** Opens text as a new scratch file with the extension (no dot). */
-    private val openScratch: (extension: String, text: String) -> Unit = { _, _ -> },
+    /** Opens text as a new scratch file with the extension (no dot); internal for the workspace's wiring test. */
+    internal val openScratch: (extension: String, text: String) -> Unit = { _, _ -> },
 ) {
     /** Asks whether the unsubmitted edits of the tab with this title may be dropped; tests replace it. */
     internal var confirmDiscard: (String) -> Boolean = { EditQuestions.discard(tabs.scene?.window, it) }
