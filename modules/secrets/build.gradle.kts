@@ -18,4 +18,6 @@ dependencies {
     implementation(libs.spring.context)
     // The macOS Keychain backend calls Security.framework through JNA (ADR 0122); the same version pty4j brings.
     implementation(libs.jna)
+    // CoreFoundation helpers (CFString, CFData, CFDictionary) for that backend, so only Security is mapped by hand.
+    implementation(libs.jna.platform)
 }
