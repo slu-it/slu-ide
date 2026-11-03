@@ -128,7 +128,8 @@ class DatabasesTabModel internal constructor(
         // The current value: a connect may have saved one while the dialog was open.
         val saved = if (keep) entry.config.get().savedPassword else null
         if (!keep) entry.savedRejected = false
-        entry.saveGeneration++
+        // A removal or a typed password to save outdates earlier work; a plain rename does not.
+        if (!keep || (reason == null && edit.savePassword && edit.password != null)) entry.saveGeneration++
         entry.setConfig(edit.config.copy(id = old.id, savedPassword = saved))
         save()
         savePassword(entry, edit, canSave = reason == null)
@@ -335,8 +336,8 @@ class DatabasesTabModel internal constructor(
     }
 
     /**
-     * Connects [entry] unless it is connecting or connected: with the cached password, else the one asked (whose
-     * Cancel does nothing), as a cancellable background task.
+     * Connects [entry] unless it is connecting or connected: with the cached password, else the saved one (unless it
+     * failed a login), else the one asked (whose Cancel does nothing), as a cancellable background task.
      */
     fun connect(entry: ConnectionEntry) = sessions.connect(entry)
 

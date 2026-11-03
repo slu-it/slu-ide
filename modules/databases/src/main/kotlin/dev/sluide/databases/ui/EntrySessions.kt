@@ -142,8 +142,9 @@ internal class EntrySessions(
     }
 
     /**
-     * The saved password did not decrypt: an [unreadable] one is removed (unless it was replaced meanwhile), one
-     * without a key kept; this attempt ends quietly and the password is asked. Nothing more after a cancel.
+     * The saved password did not decrypt: an [unreadable] one is removed (unless it was replaced, or a new one is
+     * being saved, meanwhile), one without a key kept; this attempt ends quietly and the password is asked. Nothing
+     * more after a cancel.
      */
     private fun savedUnusable(
         entry: ConnectionEntry,
@@ -155,7 +156,8 @@ internal class EntrySessions(
             attempt.task.failed("cancelled")
             return
         }
-        if (unreadable && entry.config.get().savedPassword == saved) setSaved(entry, null)
+        val unchanged = entry.saveGeneration == attempt.saveGeneration && entry.config.get().savedPassword == saved
+        if (unreadable && unchanged) setSaved(entry, null)
         attempt.task.close()
         entry.attempt = null
         entry.ended(null)

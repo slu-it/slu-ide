@@ -85,8 +85,9 @@ class ConnectionEntry internal constructor(
     internal var ending = false
 
     /**
-     * Counts the changes of the saved password (set, removed, edit OK, delete): work that captured it before applies
-     * its result only while it is unchanged, so a late encrypt never overwrites a newer decision.
+     * Counts the changes of the saved password (set, removed, an edit that removes it or saves a typed one, delete):
+     * work that captured it before applies its result only while it is unchanged, so a late encrypt never overwrites a
+     * newer decision.
      */
     internal var saveGeneration = 0
 

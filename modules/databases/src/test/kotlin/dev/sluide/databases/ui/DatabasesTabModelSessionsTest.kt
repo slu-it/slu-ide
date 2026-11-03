@@ -676,11 +676,13 @@ class DatabasesTabModelSessionsTest {
         assertTrue(f.zeroed.all { array -> array.all { it == '\u0000' } })
     }
 
-    @Test
-    fun `a password saved in the dialog while a prompted login without Save runs survives that login`() {
+    @ParameterizedTest
+    @CsvSource("true", "false")
+    fun `a password saved in the dialog while a prompted login runs survives that login`(save: Boolean) {
         withSaved(FakeSavedPasswords.value("o", "old"))
         entry.savedRejected = true
         f.dialogs.password = "typed".toCharArray()
+        f.dialogs.save = save
         f.model.connect(entry)
 
         f.dialogs.edit = { ConnectionEdit(it, "new".toCharArray(), savePassword = true) }
@@ -689,5 +691,22 @@ class DatabasesTabModelSessionsTest {
 
         assertEquals(ConnectionStatus.CONNECTED, entry.status.get())
         assertEquals(FakeSavedPasswords.value("o", "new"), storedValue())
+        assertEquals(listOf("encrypt o new"), f.saved.calls)
+        // The dialog's password and its copy to encrypt, the prompt's answer and, with Save, its stale copy to save.
+        assertEquals(if (save) 4 else 3, f.zeroed.size)
+        assertTrue(f.zeroed.all { array -> array.all { it == '\u0000' } })
+    }
+
+    @Test
+    fun `an unreadable saved password is not removed when a new one was saved during the decrypt`() {
+        withSaved("v1:elsewhere:x")
+        f.dialogs.edit = { ConnectionEdit(it, "new".toCharArray(), savePassword = true) }
+        f.saved.duringDecrypt = { f.model.edit(entry) }
+
+        f.model.connect(entry)
+        f.runWorkers()
+
+        assertEquals(FakeSavedPasswords.value("o", "new"), storedValue())
+        assertEquals(listOf("password orders-dev"), f.dialogs.asked.filter { it.startsWith("password") })
     }
 }
