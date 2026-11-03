@@ -106,6 +106,14 @@ internal class CompletionPopup(
             return true
         }
         val plain = !event.isShortcutDown && !event.isAltDown && !event.isControlDown && !event.isShiftDown
+        // A console key such as Shortcut+Enter (Run) closes the popup and goes on to the console.
+        // Shift alone is typing (capitals), not a console key. AltGr (Ctrl+Alt on Windows) and macOS Option letters
+        // also close it; the characters they type mostly end the word anyway.
+        val consoleKey = event.isShortcutDown || event.isControlDown || event.isAltDown
+        if (popup.isShowing && consoleKey && !event.code.isModifierKey) {
+            hide()
+            pending = null
+        }
         if (!popup.isShowing || !plain) return false
         when (event.code) {
             KeyCode.UP -> {

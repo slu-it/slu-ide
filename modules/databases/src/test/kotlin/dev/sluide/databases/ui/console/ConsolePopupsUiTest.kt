@@ -185,6 +185,29 @@ class ConsolePopupsUiTest {
     }
 
     @Test
+    fun `Shortcut+Enter closes an open popup and leaves the text to the run`(robot: FxRobot) {
+        place(robot, "select * from us")
+        robot.interact { fire(KeyCode.SPACE, ctrl = true) }
+        assertTrue(fx(robot) { popups().isNotEmpty() })
+        robot.interact { fire(KeyCode.ENTER, shortcut = true) }
+        assertTrue(fx(robot) { popups().isEmpty() })
+        assertEquals("select * from us", fx(robot) { editor.text })
+        // The key went on to the console: the statement ran.
+        assertEquals(listOf("select * from us"), fake.executed.map { it.first })
+    }
+
+    @Test
+    fun `Shift while typing capitals keeps the popup open`(robot: FxRobot) {
+        place(robot, "select * from us")
+        robot.interact { fire(KeyCode.SPACE, ctrl = true) }
+        // Shift+E types a capital; the popup stays.
+        robot.interact {
+            Event.fireEvent(editor.node, KeyEvent(KeyEvent.KEY_PRESSED, "", "", KeyCode.E, true, false, false, false))
+        }
+        assertTrue(fx(robot) { popups().isNotEmpty() })
+    }
+
+    @Test
     fun `typing a dot after an alias opens the popup by itself with its columns`(robot: FxRobot) {
         place(robot, "select * from users u where u")
         type(robot, ".")
