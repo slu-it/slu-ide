@@ -225,3 +225,7 @@ internal fun findRow(
     }
     return null
 }
+
+/** The node as [TreeSync] input: groups and Compose projects start expanded. */
+internal fun TreeNode.toSyncNode(): SyncNode<ResourceKey, TreeRow> =
+    SyncNode(row.key, row, children.map { it.toSyncNode() }, row is GroupRow || row is ProjectRow)

@@ -31,7 +31,7 @@ internal class ResourceTreePane(
             HBox.setHgrow(this, Priority.ALWAYS)
         }
 
-    private val sync = TreeSync()
+    private val sync = TreeSync<ResourceKey, TreeRow>()
 
     val tree =
         TreeView(sync.root).apply {
@@ -50,7 +50,7 @@ internal class ResourceTreePane(
         model.tree.subscribe { nodes ->
             syncing = true
             try {
-                sync.update(nodes)
+                sync.update(nodes.map { it.toSyncNode() })
                 showSelection()
             } finally {
                 syncing = false

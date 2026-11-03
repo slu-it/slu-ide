@@ -1,72 +1,92 @@
 package dev.sluide.docker.tab.tree
 
-import dev.sluide.docker.model.Container
-import dev.sluide.docker.model.ContainerState
-import dev.sluide.docker.model.container
-import javafx.collections.ListChangeListener
-import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 class TreeSyncTest {
-    private val sync = TreeSync()
+    private val sync = TreeSync<String, String>()
 
-    private fun show(vararg containers: Container) =
-        sync.update(resourceTree(Resources(containers = containers.toList()), Path.of("/p"), ""))
+    private fun node(
+        key: String,
+        value: String = key,
+        expanded: Boolean = false,
+        vararg children: SyncNode<String, String>,
+    ) = SyncNode(key, value, children.toList(), expanded)
 
-    private val web = container("web-1", project = "shop", service = "web")
-    private val db = container("db-1", project = "shop", service = "db")
-    private val solo = container("solo")
+    private fun values() = sync.root.children.map { it.value }
 
     @Test
-    fun `a reload keeps the items of kept resources with their expansion and updates their values`() {
-        show(web, db, solo)
-        val project = checkNotNull(sync.itemOf(ResourceKey.Project("shop")))
-        val webItem = checkNotNull(sync.itemOf(ResourceKey.ContainerKey(web.id)))
-        assertTrue(project.isExpanded, "projects start expanded")
-        project.isExpanded = false
-
-        val stopped = web.copy(state = ContainerState.EXITED, status = "Exited (0)")
-        show(stopped, db, solo)
-
-        assertSame(project, sync.itemOf(ResourceKey.Project("shop")))
-        assertFalse(project.isExpanded)
-        assertSame(webItem, sync.itemOf(ResourceKey.ContainerKey(web.id)))
-        assertEquals(stopped, (webItem.value as ContainerRow).container)
+    fun `an item whose key stays is the same object with the new value and keeps its expansion`() {
+        sync.update(listOf(node("a", "A", false, node("a1"))))
+        val a = checkNotNull(sync.itemOf("a"))
+        a.isExpanded = true
+        sync.update(listOf(node("a", "A2", false, node("a1"), node("a2"))))
+        assertSame(a, sync.itemOf("a"))
+        assertEquals("A2", a.value)
+        assertTrue(a.isExpanded)
+        assertEquals(listOf("a1", "a2"), a.children.map { it.value })
     }
 
     @Test
-    fun `items of gone resources are removed, new ones added in the tree's order`() {
-        show(web, solo)
-        val containers = sync.root.children.first()
-
-        show(db, web)
-
-        assertNull(sync.itemOf(ResourceKey.ContainerKey(solo.id)))
-        assertNotNull(sync.itemOf(ResourceKey.ContainerKey(db.id)))
-        val shop = containers.children.single()
-        assertEquals(listOf("db-1", "web-1"), shop.children.map { it.value.label })
+    fun `new keys get items, expanded only if the node says so, and gone keys lose theirs`() {
+        sync.update(listOf(node("a"), node("b", expanded = true)))
+        assertTrue(checkNotNull(sync.itemOf("b")).isExpanded)
+        assertEquals(false, checkNotNull(sync.itemOf("a")).isExpanded)
+        sync.update(listOf(node("b"), node("c")))
+        assertEquals(listOf("b", "c"), values())
+        assertNull(sync.itemOf("a"))
     }
 
     @Test
-    fun `a reload that changes nothing does not touch the child lists`() {
-        show(web, db, solo)
+    fun `an unchanged reload does not touch the child lists`() {
+        sync.update(listOf(node("a"), node("b")))
         var changes = 0
-        val listener = ListChangeListener<Any> { changes++ }
-        sync.root.children.addListener(listener)
-        sync.root.children.forEach { it.children.addListener(listener) }
-        sync.root.children
-            .first()
-            .children
-            .forEach { it.children.addListener(listener) }
-
-        show(web, db, solo)
-
+        sync.root.children.addListener(javafx.collections.ListChangeListener { changes++ })
+        sync.update(listOf(node("a"), node("b")))
         assertEquals(0, changes)
+    }
+
+    @Test
+    fun `inserting and removing edit the child list instead of replacing it`() {
+        sync.update(listOf(node("b"), node("c")))
+        val changes = mutableListOf<String>()
+        sync.root.children.addListener(
+            javafx.collections.ListChangeListener { c ->
+                while (c.next()) {
+                    changes +=
+                        if (c.wasReplaced()) {
+                            "replaced"
+                        } else if (c.wasAdded()) {
+                            "added"
+                        } else {
+                            "removed"
+                        }
+                }
+            },
+        )
+        sync.update(listOf(node("a"), node("b"), node("c")))
+        sync.update(listOf(node("a"), node("c")))
+        assertEquals(listOf("added", "removed"), changes)
+        assertEquals(listOf("a", "c"), values())
+    }
+
+    @Test
+    fun `a value the comparison calls the same is not replaced`() {
+        val lenient = TreeSync<String, String>(isSame = { _, _ -> true })
+        lenient.update(listOf(SyncNode("a", "1")))
+        lenient.update(listOf(SyncNode("a", "2")))
+        assertEquals("1", checkNotNull(lenient.itemOf("a")).value)
+        assertEquals("a", lenient.keyOf(checkNotNull(lenient.itemOf("a"))))
+    }
+
+    @Test
+    fun `an item moves with its key when the order changes`() {
+        sync.update(listOf(node("a"), node("b")))
+        val b = checkNotNull(sync.itemOf("b"))
+        sync.update(listOf(node("b"), node("a")))
+        assertSame(b, sync.root.children.first())
     }
 }

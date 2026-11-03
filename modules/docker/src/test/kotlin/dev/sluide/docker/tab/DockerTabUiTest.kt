@@ -203,6 +203,28 @@ class DockerTabUiTest {
     }
 
     @Test
+    fun `a reload that adds a container next to the selected one does not disturb the selection`(robot: FxRobot) {
+        select(robot, 0, "web")
+        val tree = tree(robot)
+        val selected = onFx { tree.selectionModel.selectedItem }
+        val selectionChanges = CopyOnWriteArrayList<Any?>()
+        onFx { tree.selectionModel.selectedItemProperty().addListener { _, _, item -> selectionChanges += item } }
+
+        cli.containers = listOf(web, old, container("extra"))
+        reload(robot)
+
+        awaitTrue("the new container") {
+            onFx {
+                tree.root.children[0]
+                    .children.size == 3
+            }
+        }
+        assertSame(selected, onFx { tree.selectionModel.selectedItem })
+        // The selected item must never leave the selection, not even for a moment: a replaced child list drops it.
+        assertEquals(emptyList(), selectionChanges.toList())
+    }
+
+    @Test
     fun `selecting a container shows its Overview, and its Stop button stops it`(robot: FxRobot) {
         select(robot, 0, "web")
 

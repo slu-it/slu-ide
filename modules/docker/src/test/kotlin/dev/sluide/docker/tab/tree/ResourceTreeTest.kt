@@ -109,7 +109,7 @@ class ResourceTreeTest {
         val rows = tree[1].children.map { it.row }
         assertEquals(listOf("shop/api:<none> cccccccccccc", "shop/web:<none> cccccccccccc"), rows.map { it.label })
         assertEquals(2, rows.map { it.key }.toSet().size)
-        val sync = TreeSync().apply { update(tree) }
+        val sync = TreeSync<ResourceKey, TreeRow>().apply { update(tree.map { it.toSyncNode() }) }
         assertEquals(
             2,
             sync.root.children[1]
@@ -127,5 +127,18 @@ class ResourceTreeTest {
         assertEquals(ResourceKey.ImageKey("nginx:1.27"), findRow(tree, ResourceKey.ImageKey("nginx:1.27"))?.key)
         assertEquals("sha256:" + "b".repeat(64), (tree[1].children.last().row as ImageRow).key.reference)
         assertEquals(null, findRow(tree, ResourceKey.VolumeKey("gone")))
+    }
+
+    @Test
+    fun `toSyncNode keys by row key and starts groups and projects expanded, containers not`() {
+        val node = resourceTree(resources, folder, "")[0].toSyncNode()
+        val project = node.children.first { it.key is ResourceKey.Project }
+        val container = project.children.first()
+
+        assertEquals(ResourceKey.Group(ResourceKind.CONTAINER), node.key)
+        assertEquals(true, node.expanded)
+        assertEquals(true, project.expanded)
+        assertEquals(false, container.expanded)
+        assertEquals(container.value.key, container.key)
     }
 }

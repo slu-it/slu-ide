@@ -16,6 +16,8 @@ internal class SyncNode<K, V>(
  * stays the same object (so it keeps its expansion), only its value changes (when [isSame] says it differs); new keys
  * get new items, gone keys lose theirs. A child list is edited in place with removes and inserts, never replaced as a
  * whole, so the tree view keeps its selection and a list that did not change fires nothing. Works without the toolkit.
+ *
+ * Copy of `dev.sluide.docker.tab.tree.TreeSync`; keep the two in sync.
  */
 internal class TreeSync<K : Any, V : Any>(
     val root: TreeItem<V> = TreeItem(),
