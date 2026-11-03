@@ -124,7 +124,7 @@ class MainWindowScratchesUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `Converting's and Databases' Open as Scratch create converted scratch files with the text, shown and opened`(
+    fun `Converting's and Databases' Open as Scratch create named scratch files with the text, shown and opened`(
         robot: FxRobot,
     ) {
         openProject(robot)
@@ -142,9 +142,13 @@ class MainWindowScratchesUiTest : MainWindowUiFixture() {
         assertEquals(listOf("converted.yaml", "converted_1.yaml"), tabTitles(robot))
 
         // The Databases tool's Show DDL goes the same way (ADR 0121).
-        robot.interact { databases.single().openScratch("sql", "CREATE TABLE t (id int);\n") }
-        assertEquals("CREATE TABLE t (id int);\n", Files.readString(scratchFiles.folder.resolve("converted.sql")))
-        assertEquals(scratchFiles.folder.resolve("converted.sql"), editorArea.selectedPath)
+        robot.interact { databases.single().openScratch("orders", "sql", "CREATE TABLE t (id int);\n") }
+        assertEquals("CREATE TABLE t (id int);\n", Files.readString(scratchFiles.folder.resolve("orders.sql")))
+        assertEquals(scratchFiles.folder.resolve("orders.sql"), editorArea.selectedPath)
+
+        // A name from the database is made safe for a file name.
+        robot.interact { databases.single().openScratch("a/b:c", "sql", "x") }
+        assertEquals("x", Files.readString(scratchFiles.folder.resolve("a_b_c.sql")))
     }
 
     @Test

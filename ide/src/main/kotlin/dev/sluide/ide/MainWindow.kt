@@ -327,12 +327,12 @@ class MainWindow(
         // A context menu's Open in Terminal opens a terminal tab in the folder (ADR 0093).
         fileExplorer.openInTerminal = { tools.openTerminal(stage, it) }
         // The Converting tool's sides open their text as a scratch file (ADR 0115).
-        converting.openScratch = { extension, text -> scratches.openText(stage, extension, text) }
+        converting.openScratch = { extension, text -> scratches.openText(stage, "converted", extension, text) }
         // The Docker tool's Run dialog is owned by this window.
         docker.window = { stage }
         // The Databases tool's dialogs are owned by this window; its Show DDL opens a scratch file (ADR 0121).
         databases.window = { stage }
-        databases.openScratch = { extension, text -> scratches.openText(stage, extension, text) }
+        databases.openScratch = { baseName, extension, text -> scratches.openText(stage, baseName, extension, text) }
         // A context menu's Compare Files shows the two files side by side (ADR 0113).
         fileExplorer.compareFiles = comparisons::compare
         // A context menu's Convert to writes a data file in another format beside it (ADR 0115).

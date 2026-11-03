@@ -83,7 +83,7 @@ class ResultEditingUiTest : ResultEditingUiFixture() {
     }
 
     @Test
-    fun `Open All as Scratch File CSV builds the text on the export executor and hands it to openScratch`(
+    fun `Open All as Scratch File CSV builds the text off FX and hands it to openScratch named after the table`(
         robot: FxRobot,
     ) {
         showRows(robot)
@@ -96,19 +96,32 @@ class ResultEditingUiTest : ResultEditingUiFixture() {
                         task.run()
                     }.start()
                 }
-            val menu =
-                tab()
-                    .content
-                    .lookupAll(".menu-button")
-                    .filterIsInstance<MenuButton>()
-                    .first()
-            val openAll = menu.items.first { it.text == "Open All as Scratch File" } as Menu
-            openAll.items.first { it.text == "CSV" }.fire()
         }
+
+        fun openAllAsCsv() {
+            robot.interact {
+                val menu =
+                    tab()
+                        .content
+                        .lookupAll(".menu-button")
+                        .filterIsInstance<MenuButton>()
+                        .first()
+                val openAll = menu.items.first { it.text == "Open All as Scratch File" } as Menu
+                openAll.items.first { it.text == "CSV" }.fire()
+            }
+        }
+        openAllAsCsv()
         waitUntil(robot) { scratch.isNotEmpty() }
         assertEquals(listOf(false), onFx.toList(), "built once on the executor (the rows were cached), off FX")
-        assertEquals(listOf("csv"), scratch.map { it.first })
-        assertTrue(scratch.single().second.startsWith("id,name\r\n1,a\r\n"), scratch.single().second)
+        assertEquals(listOf("users" to "csv"), scratch.map { it.first to it.second })
+        assertTrue(scratch.single().third.startsWith("id,name\r\n1,a\r\n"), scratch.single().third)
+
+        // A result of several tables has no table to name the file after.
+        scratch.clear()
+        showRows(robot, listOf(column("id", "users"), column("total", "orders")))
+        openAllAsCsv()
+        waitUntil(robot) { scratch.isNotEmpty() }
+        assertEquals(listOf("result" to "csv"), scratch.map { it.first to it.second })
     }
 
     @Test

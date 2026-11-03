@@ -95,14 +95,15 @@ abstract class ResultEditingUiFixture {
     internal val rejecting = EditingSession(config, { 0 })
     internal var lastCursor = FakeCursor(emptyList(), emptyList())
     internal val entry = ConnectionEntry(config, "k").apply { connected(fake) }
-    internal val scratch = mutableListOf<Pair<String, String>>()
+    internal val scratch = mutableListOf<Triple<String, String, String>>()
     internal lateinit var area: ResultArea
     internal val mac = System.getProperty("os.name").lowercase().contains("mac")
 
     internal val columns = listOf(column("id", "users", "int4"), column("name", "users"))
 
     internal fun startArea(stage: Stage) {
-        area = ResultArea(entry, { 2 }, { 100 }, clipboard = {}, openScratch = { ext, text -> scratch += ext to text })
+        val record: (String, String, String) -> Unit = { name, ext, text -> scratch += Triple(name, ext, text) }
+        area = ResultArea(entry, { 2 }, { 100 }, clipboard = {}, openScratch = record)
         area.primaryKeyLookup = { _, _ -> CompletableFuture.completedFuture(listOf("id")) }
         stage.scene = Scene(area.node as Parent, 700.0, 400.0)
         stage.show()

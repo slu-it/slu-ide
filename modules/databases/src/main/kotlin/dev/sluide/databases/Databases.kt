@@ -109,8 +109,8 @@ class Databases internal constructor(
     /** The window this tool belongs to, the owner of its dialogs; set by ide. */
     var window: () -> Window? = { null }
 
-    /** Opens text as a new scratch file with the extension, e.g. a table's DDL as `sql`; set by ide. */
-    var openScratch: (extension: String, text: String) -> Unit = { _, _ -> }
+    /** Opens text as a new scratch file named baseName with the extension, e.g. `orders` and `sql`; set by ide. */
+    var openScratch: (baseName: String, extension: String, text: String) -> Unit = { _, _, _ -> }
 
     /** The window's project folder, whose connections the tab shows (`null`: the shared ones). Bound by ide. */
     val projectFolder: ObjectProperty<Path?> = SimpleObjectProperty()
@@ -187,7 +187,13 @@ class Databases internal constructor(
 
     /** The object tree of [entry]; Show DDL opens its scratch through the current [openScratch], alerts sit on [window]. */
     internal fun objectTree(entry: ConnectionEntry): ObjectTreeView =
-        ObjectTreeView(entry, model(), entry.metadata, { ext, text -> openScratch(ext, text) }, { window() })
+        ObjectTreeView(
+            entry,
+            model(),
+            entry.metadata,
+            { name, ext, text -> openScratch(name, ext, text) },
+            { window() },
+        )
 
     /** The consoles of [entry] over their results; the limits are read per statement. */
     private fun connectionWorkspace(entry: ConnectionEntry) =
@@ -199,7 +205,7 @@ class Databases internal constructor(
             { settings.fetchAllCap.get() },
             editorCss,
             { window() },
-            openScratch = { extension, text -> openScratch(extension, text) },
+            openScratch = { name, extension, text -> openScratch(name, extension, text) },
         )
 
     private fun owner(): Window? =

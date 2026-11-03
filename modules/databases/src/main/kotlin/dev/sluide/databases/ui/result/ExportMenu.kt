@@ -31,8 +31,9 @@ internal interface ExportHost {
 
     fun copyToClipboard(text: String)
 
-    /** Opens [text] as a new scratch file with [extension] (no dot). */
+    /** Opens [text] as a new scratch file named [baseName] with [extension] (no dot). */
     fun openScratch(
+        baseName: String,
         extension: String,
         text: String,
     )
@@ -44,6 +45,9 @@ internal interface ExportSource {
 
     /** The one table the result comes from (qualified, for SQL INSERTs), else null. */
     val tableName: String?
+
+    /** The plain name of that table (no schema, unquoted; the scratch file's name), else null. */
+    val tableBaseName: String?
 
     /** Whether the grid shows the transposed rows (its selection is no result of the table). */
     val transposed: Boolean
@@ -79,18 +83,18 @@ internal class ExportMenu(
     /** "Copy Selection as" and "Copy All as", new ones on every call (a menu item has one parent). */
     fun copyMenus(): List<Menu> =
         listOf(
-            menu("Copy Selection as", selection = true) { _, text -> host.copyToClipboard(text) },
-            menu("Copy All as", selection = false) { _, text -> host.copyToClipboard(text) },
+            menu("Copy Selection as", selection = true) { _, text, _ -> host.copyToClipboard(text) },
+            menu("Copy All as", selection = false) { _, text, _ -> host.copyToClipboard(text) },
         )
 
     /** All rows as a scratch file, one entry per format. */
     fun scratchMenu(title: String): Menu =
-        menu(title, selection = false) { format, text -> host.openScratch(format.extension, text) }
+        menu(title, selection = false) { format, text, baseName -> host.openScratch(baseName, format.extension, text) }
 
     private fun menu(
         title: String,
         selection: Boolean,
-        deliver: (ExportFormat, String) -> Unit,
+        deliver: (ExportFormat, String, String) -> Unit,
     ): Menu {
         val formats =
             ExportFormat.entries.map { format ->
@@ -118,17 +122,18 @@ internal class ExportMenu(
 
     private fun selected(
         format: ExportFormat,
-        deliver: (ExportFormat, String) -> Unit,
+        deliver: (ExportFormat, String, String) -> Unit,
     ) {
         val (columns, rows) = source.selection() ?: return
         if (format == ExportFormat.SQL_INSERT && source.transposed) return
         val (kind, table) = target()
-        deliver(format, ResultExport.write(format, kind, columns, rows, table))
+        val baseName = source.tableBaseName ?: "result"
+        deliver(format, ResultExport.write(format, kind, columns, rows, table), baseName)
     }
 
     private fun all(
         format: ExportFormat,
-        deliver: (ExportFormat, String) -> Unit,
+        deliver: (ExportFormat, String, String) -> Unit,
     ) {
         val cursor = source.cursor
         if (cursor == null) {
@@ -137,6 +142,8 @@ internal class ExportMenu(
         }
         source.say("Exporting…", false)
         val (kind, table) = target()
+        // Read now: a run may replace the result meanwhile, and the rows belong to this one.
+        val baseName = source.tableBaseName ?: "result"
         val columns = cursor.columns
         cursor
             .fetchAll(host.fetchAllCap())
@@ -152,7 +159,7 @@ internal class ExportMenu(
                         return@fx
                     }
                     val (count, text) = result
-                    deliver(format, text)
+                    deliver(format, text, baseName)
                     source.say(
                         if (cursor.capped) "Exported the first $count rows (limit reached)" else "Exported $count rows",
                         false,

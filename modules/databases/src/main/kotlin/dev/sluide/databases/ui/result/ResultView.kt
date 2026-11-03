@@ -73,6 +73,7 @@ internal class ResultView(
             override val columns: List<ColumnInfo> get() = currentColumns
             override val cursor: RowCursor? get() = this@ResultView.cursor
             override val tableName: String? get() = editing.tableName
+            override val tableBaseName: String? get() = editing.tableBaseName
             override val transposed: Boolean get() = this@ResultView.transposed
             override val busy: Boolean get() = this@ResultView.busy
             override val isQuery: Boolean get() = reloadAllowed()

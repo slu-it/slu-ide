@@ -13,6 +13,22 @@ import java.nio.file.StandardOpenOption
 
 private val log = System.getLogger(ScratchFiles::class.java.name)
 
+private const val MAX_BASE_NAME = 60
+
+/**
+ * A file-name-safe base name from [name] (a database object's name, say): `/ \ : * ? " < > |` and control characters
+ * become `_`, leading dots and trailing dots and spaces are dropped, at most 60 code points stay (a surrogate pair is
+ * never split); `scratch` when nothing is left.
+ */
+fun safeBaseName(name: String): String =
+    name
+        .map { if (it.code < 0x20 || it.code == 0x7F || it in "/\\:*?\"<>|") '_' else it }
+        .joinToString("")
+        .trimStart('.')
+        .let { it.substring(0, it.offsetByCodePoints(0, minOf(it.codePointCount(0, it.length), MAX_BASE_NAME))) }
+        .trimEnd('.', ' ')
+        .ifEmpty { "scratch" }
+
 /** A kind of scratch file offered by the picker: its shown [name] and the [extension] of new files (without dot). */
 data class ScratchType(
     val name: String,

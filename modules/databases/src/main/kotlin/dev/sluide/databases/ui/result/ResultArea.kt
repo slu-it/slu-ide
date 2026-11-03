@@ -31,8 +31,11 @@ class ResultArea(
     private val fx: (Runnable) -> Unit = Platform::runLater,
     private val clock: () -> LocalTime = LocalTime::now,
     private val clipboard: (String) -> Unit = ::systemClipboard,
-    /** Opens text as a new scratch file with the extension (no dot); internal for the workspace's wiring test. */
-    internal val openScratch: (extension: String, text: String) -> Unit = { _, _ -> },
+    /**
+     * Opens text as a new scratch file named baseName with the extension (no dot); internal for the workspace's
+     * wiring test.
+     */
+    internal val openScratch: (baseName: String, extension: String, text: String) -> Unit = { _, _, _ -> },
 ) {
     /** Asks whether the unsubmitted edits of the tab with this title may be dropped; tests replace it. */
     internal var confirmDiscard: (String) -> Boolean = { EditQuestions.discard(tabs.scene?.window, it) }
@@ -79,9 +82,10 @@ class ResultArea(
             override fun copyToClipboard(text: String) = clipboard(text)
 
             override fun openScratch(
+                baseName: String,
                 extension: String,
                 text: String,
-            ) = this@ResultArea.openScratch(extension, text)
+            ) = this@ResultArea.openScratch(baseName, extension, text)
 
             override fun primaryKey(
                 session: DbSession,

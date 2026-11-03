@@ -82,7 +82,7 @@ class ObjectTreeViewUiTest {
         val session: MetadataSession
         val entry: ConnectionEntry
         val actions = Actions()
-        val scratch = mutableListOf<Pair<String, String>>()
+        val scratch = mutableListOf<Triple<String, String, String>>()
         val copied = mutableListOf<String>()
         val infos = mutableListOf<Pair<String, String>>()
         val errors = mutableListOf<Pair<String, String>>()
@@ -111,11 +111,9 @@ class ObjectTreeViewUiTest {
                 entry.connected(session)
                 entry.workspaceActions = actions
                 val cache = MetadataCache(entry, { it.run() }, { introspector }, { _, _ -> "public" })
-                view =
-                    ObjectTreeView(entry, f.model, cache, { ext, text -> scratch += ext to text }, { null }, {
-                        copied +=
-                            it
-                    })
+                val record: (String, String, String) -> Unit = { name, ext, text -> scratch += Triple(name, ext, text) }
+                val copy: (String) -> Unit = { copied += it }
+                view = ObjectTreeView(entry, f.model, cache, record, { null }, copy)
                 view.showInfo = { title, message -> infos += title to message }
                 view.showError = { title, message -> errors += title to message }
                 stage.scene = Scene(view.node, 400.0, 500.0)
@@ -309,7 +307,7 @@ class ObjectTreeViewUiTest {
         assertEquals(listOf("orders", "\"public\".\"orders\""), t.copied)
         fire("Show DDL")
         t.fx { t.session.runAll() }
-        assertEquals(listOf("sql" to "CREATE TABLE t ();\n"), t.scratch)
+        assertEquals(listOf(Triple("orders", "sql", "CREATE TABLE t ();\n")), t.scratch)
         fire("Generate SELECT")
         assertEquals(listOf("SELECT \"id\" FROM \"public\".\"orders\";"), t.actions.inserted)
     }
@@ -549,12 +547,12 @@ class ObjectTreeViewUiTest {
                 { c, _, _, _, _, _ -> MetadataSession(c) },
             )
         val entry = ConnectionEntry(ConnectionConfig("o", "orders", DatabaseKind.POSTGRESQL), "|o")
-        val received = mutableListOf<Pair<String, String>>()
+        val received = mutableListOf<Triple<String, String, String>>()
         val view = AtomicReference<ObjectTreeView>()
         robot.interact { view.set(databases.objectTree(entry)) }
         // Set after the tree was built: the tree reads it when it needs it.
-        databases.openScratch = { ext, text -> received += ext to text }
-        view.get().openScratch("sql", "SELECT 1;")
-        assertEquals(listOf("sql" to "SELECT 1;"), received)
+        databases.openScratch = { name, ext, text -> received += Triple(name, ext, text) }
+        view.get().openScratch("orders", "sql", "SELECT 1;")
+        assertEquals(listOf(Triple("orders", "sql", "SELECT 1;")), received)
     }
 }

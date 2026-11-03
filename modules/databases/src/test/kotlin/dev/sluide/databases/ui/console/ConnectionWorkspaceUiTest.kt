@@ -62,7 +62,7 @@ class ConnectionWorkspaceUiTest {
     private val stopAsked = mutableListOf<String>()
     private val pending = mutableSetOf<Int>()
     private val submitting = mutableSetOf<Int>()
-    private val scratches = mutableListOf<Pair<String, String>>()
+    private val scratches = mutableListOf<Triple<String, String, String>>()
 
     @Start
     fun start(stage: Stage) {
@@ -87,7 +87,7 @@ class ConnectionWorkspaceUiTest {
                     stop
                 },
                 { area -> workspace.consoles.indexOfFirst { it.results === area } in submitting },
-                openScratch = { extension, text -> scratches += extension to text },
+                openScratch = { name, extension, text -> scratches += Triple(name, extension, text) },
             )
         stage.scene = Scene(workspace.node as Parent, 900.0, 600.0)
         stage.show()
@@ -121,9 +121,9 @@ class ConnectionWorkspaceUiTest {
     fun `the results of every console open their exports as scratch files of the workspace`(robot: FxRobot) {
         robot.interact {
             workspace.addButton.fire()
-            workspace.consoles.forEach { it.results.openScratch("csv", "a,b") }
+            workspace.consoles.forEach { it.results.openScratch("result", "csv", "a,b") }
         }
-        assertEquals(listOf("csv" to "a,b", "csv" to "a,b"), scratches)
+        assertEquals(List(2) { Triple("result", "csv", "a,b") }, scratches)
     }
 
     @Test

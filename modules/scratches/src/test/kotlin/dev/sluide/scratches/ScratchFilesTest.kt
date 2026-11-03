@@ -2,6 +2,8 @@ package dev.sluide.scratches
 
 import org.junit.jupiter.api.Assumptions
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import java.io.IOException
 import java.nio.file.FileSystems
 import java.nio.file.Files
@@ -22,6 +24,34 @@ class ScratchFilesTest {
     private val markdown = ScratchType("Markdown", "md")
 
     private fun scratches() = ScratchFiles(temp.resolve("scratches"))
+
+    @ParameterizedTest
+    @CsvSource(
+        "orders, orders",
+        "a/b\\c:d*e?f<g>h|i, a_b_c_d_e_f_g_h_i",
+        "'say \"hi\"', say _hi_",
+        "..hidden, hidden",
+        "'name. . ', name",
+        "..., scratch",
+        "'', scratch",
+        "'   ', scratch",
+    )
+    fun `safeBaseName cleans names for files`(
+        input: String,
+        expected: String,
+    ) {
+        assertEquals(expected, safeBaseName(input))
+    }
+
+    @Test
+    fun `safeBaseName replaces control characters and caps the length`() {
+        assertEquals("a_b_c", safeBaseName("a\nb\u0000c"))
+        assertEquals("a".repeat(60), safeBaseName("a".repeat(150)))
+        assertEquals("a".repeat(59), safeBaseName("a".repeat(59) + " ".repeat(10) + "b"))
+        // A surrogate pair at the cap stays whole or goes whole.
+        assertEquals("a".repeat(59) + "\uD83D\uDE00", safeBaseName("a".repeat(59) + "\uD83D\uDE00\uD83D\uDE00"))
+        assertEquals("a".repeat(60), safeBaseName("a".repeat(60) + "\uD83D\uDE00"))
+    }
 
     @Test
     fun `types are unique by name and extension`() {

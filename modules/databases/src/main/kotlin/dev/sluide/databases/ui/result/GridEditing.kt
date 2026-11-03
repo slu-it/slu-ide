@@ -135,6 +135,9 @@ internal class GridEditing(
     /** The qualified table the result comes from, else null. */
     val tableName: String? get() = tableRef?.qualified
 
+    /** The plain name of that table, else null. */
+    val tableBaseName: String? get() = tableRef?.table
+
     init {
         grid.marks = this
         grid.contextMenu.items += SeparatorMenuItem()

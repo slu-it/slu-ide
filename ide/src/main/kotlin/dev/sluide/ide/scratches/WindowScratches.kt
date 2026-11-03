@@ -11,6 +11,7 @@ import dev.sluide.scratches.ScratchFiles
 import dev.sluide.scratches.ScratchGenerator
 import dev.sluide.scratches.ScratchType
 import dev.sluide.scratches.ScratchTypePicker
+import dev.sluide.scratches.safeBaseName
 import javafx.scene.control.MenuItem
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
@@ -128,15 +129,17 @@ internal class WindowScratches(
     }
 
     /**
-     * Creates the scratch file `converted.<extension>` with [text] (Converting's "Open as Scratch", ADR 0115), shows it
-     * in the explorer and opens it in the editor; an error message if that fails.
+     * Creates the scratch file `<baseName>.<extension>` with [text] (Converting's "Open as Scratch", ADR 0115, and the
+     * Databases tab's DDL and exports), shows it in the explorer and opens it in the editor; an error message if that
+     * fails. [baseName] is cleaned by [safeBaseName].
      */
     fun openText(
         stage: Stage,
+        baseName: String,
         extension: String,
         text: String,
     ) {
-        createAndOpen(stage) { scratchFiles.create("converted", extension, text) }
+        createAndOpen(stage) { scratchFiles.create(safeBaseName(baseName), extension, text) }
     }
 
     /** Creates a scratch file by [create], reveals and opens it; an error message if that throws an IOException. */

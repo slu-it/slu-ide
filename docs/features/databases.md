@@ -99,7 +99,8 @@ connected; otherwise the middle says "Not connected" with a Connect button and t
   Shortcut+C copies the selected cells as tab-separated text; the context menu also copies with the header.
 - **Table data tabs** (from the tree) have WHERE and ORDER BY fields; Enter reloads with them.
 - **Export:** copy the selection or all rows, or open all rows as a scratch file, as CSV, TSV, JSON, SQL INSERTs or a
-  Markdown table. SQL INSERTs for MariaDB assume backslash escapes (not `NO_BACKSLASH_ESCAPES`).
+  Markdown table. The scratch file is named after the table (`orders.csv`), `result.<ext>` when the result has no single
+  table. SQL INSERTs for MariaDB assume backslash escapes (not `NO_BACKSLASH_ESCAPES`).
 - **Value viewer** (Shift+Enter): the whole cell in an editor, highlighted as JSON or XML when it is one; editable when
   the result is.
 - **Transpose** shows one row per column of the current page; paging and editing are off while it is on.
@@ -131,9 +132,9 @@ connected; otherwise the middle says "Not connected" with a Connect button and t
   table lists its partitions under "Partitions".
 - **Refresh** (F5) reloads; expansion and selection stay. Collapse All folds everything.
 - **Enter or double-click** on a table or view opens its data in a table data tab.
-- **Context menu:** Open Data, Show DDL (opens the definition as a `.sql` scratch file: PostgreSQL's is built from the
-  catalog, including partitioning, foreign tables and owned sequences; MariaDB's comes from `SHOW CREATE`), Copy Name,
-  Copy Qualified Name, Generate SELECT (inserts a SELECT of the columns into the console) and Refresh.
+- **Context menu:** Open Data, Show DDL (opens the definition as a scratch file named after the object,
+  `orders.sql`: PostgreSQL's is built from the catalog, including partitioning, foreign tables and owned sequences;
+  MariaDB's comes from `SHOW CREATE`), Copy Name, Copy Qualified Name, Generate SELECT (inserts a SELECT of the columns into the console) and Refresh.
 
 ## Settings
 Settings → Databases: rows per result page (500), the most rows Last and export fetch (100,000) and the statement

@@ -60,8 +60,8 @@ class ConnectionWorkspace internal constructor(
     private val catalog: CompletionCatalog = entry.metadata.catalog,
     /** Subscribes to finished catalog loads. */
     private val onCatalogLoaded: (() -> Unit) -> Subscription = { entry.metadata.onLoaded(it) },
-    /** Opens an export as a new scratch file (extension without dot, text); the results' "Open as Scratch File". */
-    private val openScratch: (extension: String, text: String) -> Unit = { _, _ -> },
+    /** Opens an export as a new scratch file (base name, extension without dot, text): "Open as Scratch File". */
+    private val openScratch: (baseName: String, extension: String, text: String) -> Unit = { _, _, _ -> },
 ) {
     internal val consoles = mutableListOf<Console>()
     private var counter = 0

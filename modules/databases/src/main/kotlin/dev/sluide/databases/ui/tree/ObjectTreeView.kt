@@ -41,7 +41,7 @@ internal class ObjectTreeView(
     private val entry: ConnectionEntry,
     private val model: DatabasesTabModel,
     private val cache: MetadataCache,
-    internal val openScratch: (extension: String, text: String) -> Unit,
+    internal val openScratch: (baseName: String, extension: String, text: String) -> Unit,
     private val window: () -> Window? = { null },
     private val copyToClipboard: (String) -> Unit = ::copyToSystemClipboard,
 ) {
@@ -229,7 +229,7 @@ internal class ObjectTreeView(
             when {
                 error != null -> showError(DDL_TITLE, ObjectTreeModel.errorMessage(error))
                 ddl.isBlank() -> showInfo(DDL_TITLE, "${obj.name} no longer exists. Refresh the tree.")
-                else -> openScratch("sql", ddl)
+                else -> openScratch(obj.name, "sql", ddl)
             }
         }
     }
