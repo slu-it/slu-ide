@@ -325,6 +325,36 @@ class ConnectionCardListUiTest {
     }
 
     @Test
+    fun `a saved password shows a key icon and Forget Saved Password, which forgets it`(robot: FxRobot) {
+        show(robot)
+        val card = cards(robot)[0]
+
+        fun key() = fx(robot) { card.lookup(".db-card-key")?.takeIf { it.isVisible } }
+
+        fun menu() = fx(robot) { card.contextMenu.items.map { it.text } }
+        assertEquals(null, key())
+        assertEquals(listOf("Connect", "Edit…", "Duplicate", null, "Delete…"), menu())
+
+        robot.interact { f.model.setSavedPassword(card.entry, "v1:x") }
+        assertTrue(key() != null, "the key icon shows")
+        assertEquals(listOf("Connect", "Edit…", "Duplicate", "Forget Saved Password", null, "Delete…"), menu())
+
+        robot.interact {
+            card.contextMenu.items
+                .first { it.text == "Forget Saved Password" }
+                .fire()
+        }
+        assertEquals(
+            null,
+            card.entry.config
+                .get()
+                .savedPassword,
+        )
+        assertEquals(null, key())
+        assertEquals(listOf("Connect", "Edit…", "Duplicate", null, "Delete…"), menu())
+    }
+
+    @Test
     fun `dragging a card below another ends in a move`(robot: FxRobot) {
         show(robot)
         val (alpha, _, gamma) = cards(robot)

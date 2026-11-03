@@ -45,8 +45,9 @@ object ConnectionDialog {
         isNew: Boolean,
         existingNames: Set<String>,
         tester: ConnectionTester,
+        saveReason: String? = null,
     ): ConnectionEdit? {
-        val content = ConnectionDialogContent(initial, isNew, existingNames, tester)
+        val content = ConnectionDialogContent(initial, isNew, existingNames, tester, saveReason)
         val okType = ButtonType(if (isNew) "Add" else "Save", ButtonData.OK_DONE)
         val dialog =
             Dialog<ConnectionEdit>().apply {

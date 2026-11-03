@@ -36,6 +36,12 @@
     -fx-font-weight: bold;
 }
 
+.db-card-key {
+    -fx-icon-color: -fx-text-base-color;
+    -fx-icon-size: 12;
+    -fx-opacity: 0.7;
+}
+
 .db-card-address {
     -fx-opacity: 0.7;
 }

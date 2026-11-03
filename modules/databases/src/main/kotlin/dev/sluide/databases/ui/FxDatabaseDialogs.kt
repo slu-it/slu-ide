@@ -10,6 +10,7 @@ import javafx.scene.control.Alert
 import javafx.scene.control.Button
 import javafx.scene.control.ButtonBar.ButtonData
 import javafx.scene.control.ButtonType
+import javafx.scene.control.CheckBox
 import javafx.scene.control.Dialog
 import javafx.scene.control.Label
 import javafx.scene.control.PasswordField
@@ -26,36 +27,29 @@ internal class FxDatabaseDialogs(
         existingNames: Set<String>,
         tester: ConnectionTester,
         saveReason: String?,
-    ): ConnectionEdit? = ConnectionDialog.show(owner(), initial, isNew, existingNames, tester)
+    ): ConnectionEdit? = ConnectionDialog.show(owner(), initial, isNew, existingNames, tester, saveReason)
 
     override fun askPassword(
         config: ConnectionConfig,
         saveReason: String?,
         saveChecked: Boolean,
     ): PasswordAnswer? {
-        val field = PasswordField().apply { styleClass += "database-password" }
+        val prompt = PasswordPrompt(config, saveReason, saveChecked)
         val connect = ButtonType("Connect", ButtonData.OK_DONE)
         val dialog =
-            Dialog<CharArray?>().apply {
+            Dialog<PasswordAnswer?>().apply {
                 owner()?.let(::initOwner)
                 title = "Connect to ${config.name}"
                 headerText = null
-                dialogPane.content =
-                    VBox(
-                        8.0,
-                        Label(JdbcUrls.display(config)),
-                        field,
-                        Label("The password is kept in memory until the app quits."),
-                    )
+                dialogPane.content = prompt.node
                 dialogPane.buttonTypes.setAll(connect, ButtonType.CANCEL)
                 setResultConverter { button ->
-                    val password = if (button == connect) field.text.toCharArray() else null
-                    field.clear()
-                    password
+                    val answer = prompt.answer()
+                    answer.takeIf { button == connect }
                 }
-                setOnShown { Platform.runLater(field::requestFocus) }
+                setOnShown { Platform.runLater(prompt.field::requestFocus) }
             }
-        return dialog.showAndWait().orElse(null)?.let { PasswordAnswer(it, save = false) }
+        return dialog.showAndWait().orElse(null)
     }
 
     override fun confirmDelete(name: String): Boolean {
@@ -123,4 +117,39 @@ internal fun cancelFirst(alert: Alert) {
     cancel.isDefaultButton = true
     // Later, since the dialog focuses a button of its own once shown.
     alert.setOnShown { Platform.runLater(cancel::requestFocus) }
+}
+
+/** The content of the connect prompt: the address, the password field, the Save password box and the hint. */
+internal class PasswordPrompt(
+    config: ConnectionConfig,
+    saveReason: String?,
+    saveChecked: Boolean,
+) {
+    val field = PasswordField().apply { styleClass += "database-password" }
+    val saveBox =
+        CheckBox(savePasswordLabel(saveReason)).apply {
+            id = "savePasswordBox"
+            isSelected = saveChecked
+            isDisable = saveReason != null
+        }
+    val node =
+        VBox(
+            8.0,
+            Label(JdbcUrls.display(config)),
+            field,
+            saveBox,
+            Label(PASSWORD_PROMPT_HINT).apply { styleClass += "connection-hint" },
+        ).apply {
+            stylesheets +=
+                PasswordPrompt::class.java
+                    .getResource("/dev/sluide/databases/ui/connection-dialog.css")!!
+                    .toExternalForm()
+        }
+
+    /** The password typed and the box's state; clears the field. */
+    fun answer(): PasswordAnswer {
+        val password = field.text.toCharArray()
+        field.clear()
+        return PasswordAnswer(password, save = saveBox.isSelected)
+    }
 }

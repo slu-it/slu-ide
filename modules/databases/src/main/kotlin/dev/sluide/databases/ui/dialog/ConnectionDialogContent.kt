@@ -6,6 +6,8 @@ import dev.sluide.databases.connect.ConnectionConfig
 import dev.sluide.databases.connect.DatabaseKind
 import dev.sluide.databases.connect.SslMode
 import dev.sluide.databases.ui.color
+import dev.sluide.databases.ui.passwordPromptText
+import dev.sluide.databases.ui.savePasswordLabel
 import javafx.application.Platform
 import javafx.beans.property.SimpleStringProperty
 import javafx.collections.FXCollections
@@ -56,6 +58,7 @@ internal class ConnectionDialogContent(
     isNew: Boolean,
     existingNames: Set<String>,
     private val tester: ConnectionTester,
+    saveReason: String? = null,
 ) {
     private var base = ConnectionForm.of(initial, isNew, existingNames)
     private val hasSavedPassword = initial.savedPassword != null
@@ -81,7 +84,13 @@ internal class ConnectionDialogContent(
     val passwordField =
         PasswordField().apply {
             id = "passwordField"
-            promptText = "Asked on connect when empty"
+            promptText = passwordPromptText(hasSavedPassword)
+        }
+    val savePasswordBox =
+        CheckBox(savePasswordLabel(saveReason)).apply {
+            id = "savePasswordBox"
+            isSelected = hasSavedPassword
+            isDisable = saveReason != null
         }
 
     val readOnlyBox =
@@ -238,7 +247,7 @@ internal class ConnectionDialogContent(
     fun edit(): ConnectionEdit? {
         val form = readForm()
         if (form.validation() != null) return null
-        return ConnectionEdit(form.toConfig(), password(), savePassword = hasSavedPassword)
+        return ConnectionEdit(form.toConfig(), password(), savePassword = savePasswordBox.isSelected)
     }
 
     private fun password(): CharArray? = passwordField.text.takeIf { it.isNotEmpty() }?.toCharArray()
@@ -327,6 +336,7 @@ internal class ConnectionDialogContent(
             "Database" to databaseField,
             "User" to userField,
             "Password" to passwordField,
+            "" to savePasswordBox,
         )
 
     private fun optionsBox(): Node {

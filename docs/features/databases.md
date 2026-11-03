@@ -30,8 +30,8 @@ connected; otherwise the middle says "Not connected" with a Connect button and t
   orange: an uncommitted transaction; red: the last connect failed, with the error in a third line), the name in bold,
   `user@host:port/database` and three buttons: Connect, Disconnect and Edit. A colour chosen in the dialog shows as a
   stripe on the left.
-- **Context menu:** Connect or Disconnect, Edit…, Duplicate ("name (copy)"), Delete… (asks; Cancel is the default; the
-  database itself is not touched).
+- **Context menu:** Connect or Disconnect, Edit…, Duplicate ("name (copy)"), Forget Saved Password (only
+  when saved), Delete… (asks; Cancel is the default; the database itself is not touched).
 - **Keys:** Up/Down select, Enter connects, Delete or Shortcut+Backspace deletes; a double click on a disconnected card
   connects it.
 - **Reorder** by dragging a card (an insertion line shows where it goes; Escape cancels). The order is stored.
@@ -39,7 +39,13 @@ connected; otherwise the middle says "Not connected" with a Connect button and t
 
 ## The connection dialog
 - **General:** Name (unique in the project), Type, Host, Port (the type's default), Database, User and Password. The
-  password field is never filled in; a password typed there is used for Test Connection and the next connect.
+  password field is never filled in; a password typed there is used for Test Connection and the next connect. With
+  the field empty, Test Connection uses the in-memory password, else the saved one (and fails with "The saved password
+  could not be read…" when it is unreadable or the key is missing). The prompt text reads "Saved; type to replace"
+  while a password is saved. A **Save password** box under it saves the typed password encrypted, right away; it
+  starts checked while a password is saved. With the field empty, checked keeps the saved one, unchecked removes it.
+  When there is no key store or access is denied, the box is disabled with the reason (e.g. "Keychain access denied")
+  and keeps what is saved; this holds in the connect prompt too.
 - **Options:** Read-only (the server refuses changes; results cannot be edited), the commit mode the consoles start in
   (Auto or Manual), the SSL mode (Disable, Prefer, Require, Verify CA, Verify Full; on MariaDB Prefer connects without
   TLS and Require encrypts without checking the certificate), an optional CA file, and the card colour.
@@ -48,11 +54,18 @@ connected; otherwise the middle says "Not connected" with a Connect button and t
 - **Test Connection** connects once and shows the server's product and version, or the error.
 
 ## Passwords and storage
-- **Passwords are never stored.** The first connect asks for the password (an empty one is allowed); it is then kept
-  in memory until Thoreau quits. A failed login forgets it, so the next connect asks again.
+- **Passwords are saved only on request.** The connect prompt asks for the password (an empty one is allowed) and
+  keeps it in memory until Thoreau quits; its **Save password** box (disabled with the reason when saving is not
+  possible) saves it encrypted in the project data after a successful login. The key is in the Keychain / Secret
+  Service ([secrets](secrets.md)). A rejected saved password brings the prompt back with Save checked. A failed login
+  forgets the in-memory password, so the next connect asks again. When the password cannot be encrypted, a "Password
+  not saved" error says why and the password stays in memory.
+- A card with a saved password shows a small key icon next to its name (tooltip "Password saved"). **Forget Saved
+  Password** in its context menu (only while one is saved; no question) removes it and forgets the one in memory, so
+  the next connect asks. Duplicate copies the saved password (none if it cannot be encrypted again).
 - The connections themselves are stored per project in `~/.sluide/projects/<uuid>.json` (field `databases`, only the
   values that differ from the defaults), or in `~/.sluide/shared.json` for a window without a project. They are plain
-  text: host, port, database, user name, options and driver properties.
+  text: host, port, database, user name, options and driver properties; a saved password is stored encrypted.
 - Console texts, results and the query history are not stored.
 
 ## Consoles (middle, top)

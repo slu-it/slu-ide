@@ -5,6 +5,7 @@ import dev.sluide.databases.connect.CommitMode
 import dev.sluide.databases.connect.ConnectionConfig
 import dev.sluide.databases.connect.DatabaseKind
 import dev.sluide.databases.connect.SslMode
+import dev.sluide.databases.ui.PasswordPrompt
 import javafx.application.Platform
 import javafx.scene.Scene
 import javafx.scene.control.ButtonBar.ButtonData
@@ -62,9 +63,11 @@ class ConnectionDialogUiTest {
         robot: FxRobot,
         names: Set<String> = setOf("Local"),
         isNew: Boolean = false,
+        config: ConnectionConfig = initial,
+        saveReason: String? = null,
     ) {
         robot.interact {
-            content = ConnectionDialogContent(initial, isNew, names, tester)
+            content = ConnectionDialogContent(config, isNew, names, tester, saveReason)
             stage.scene = Scene(content.node)
             stage.show()
         }
@@ -149,6 +152,52 @@ class ConnectionDialogUiTest {
         }
         assertEquals(full, fx(robot) { content.edit()?.config })
         assertNull(fx(robot) { content.problem.get() })
+    }
+
+    @Test
+    fun `the Save password box follows the saved password and the reason`(robot: FxRobot) {
+        show(robot)
+        assertFalse(fx(robot) { content.savePasswordBox.isSelected })
+        assertEquals("Asked on connect when empty", fx(robot) { content.passwordField.promptText })
+        assertEquals(false, fx(robot) { content.edit() }?.savePassword)
+
+        show(robot, config = initial.copy(savedPassword = "v1:x"))
+        assertTrue(fx(robot) { content.savePasswordBox.isSelected })
+        assertEquals("Saved; type to replace", fx(robot) { content.passwordField.promptText })
+        assertEquals(true, fx(robot) { content.edit() }?.savePassword)
+        robot.interact { content.savePasswordBox.isSelected = false }
+        assertEquals(false, fx(robot) { content.edit() }?.savePassword)
+
+        show(robot, config = initial.copy(savedPassword = "v1:x"), saveReason = "no key store")
+        assertTrue(fx(robot) { content.savePasswordBox.isDisable })
+        assertEquals("Save password (no key store)", fx(robot) { content.savePasswordBox.text })
+    }
+
+    @Test
+    fun `the connect prompt shows Save password and answers with its state`(robot: FxRobot) {
+        val prompt = fx(robot) { PasswordPrompt(initial, "no key store", true) }
+        assertTrue(fx(robot) { prompt.saveBox.isSelected && prompt.saveBox.isDisable })
+        assertEquals("Save password (no key store)", fx(robot) { prompt.saveBox.text })
+
+        val plain = fx(robot) { PasswordPrompt(initial, null, false) }
+        assertFalse(fx(robot) { plain.saveBox.isSelected || plain.saveBox.isDisable })
+        val unticked =
+            fx(robot) {
+                plain.field.text = "pw"
+                plain.answer()
+            }
+        assertFalse(unticked.save)
+        assertContentEquals("pw".toCharArray(), unticked.password)
+        assertEquals("", fx(robot) { plain.field.text })
+
+        val ticked =
+            fx(robot) {
+                plain.field.text = "pw2"
+                plain.saveBox.isSelected = true
+                plain.answer()
+            }
+        assertTrue(ticked.save)
+        assertEquals("", fx(robot) { plain.field.text })
     }
 
     @Test

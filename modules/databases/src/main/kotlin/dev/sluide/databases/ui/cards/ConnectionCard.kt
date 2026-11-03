@@ -26,6 +26,7 @@ import javafx.scene.layout.VBox
 import javafx.scene.paint.Color
 import javafx.scene.shape.Circle
 import org.kordamp.ikonli.javafx.FontIcon
+import org.kordamp.ikonli.materialdesign2.MaterialDesignK
 import org.kordamp.ikonli.materialdesign2.MaterialDesignP
 
 /** The colour of a card's status dot. */
@@ -83,6 +84,11 @@ internal class ConnectionCard(
             setPrefSize(12.0, 12.0)
             setMaxSize(12.0, 12.0)
         }
+    private val keyIcon =
+        FontIcon(MaterialDesignK.KEY_VARIANT).apply {
+            styleClass += "db-card-key"
+            Tooltip.install(this, Tooltip("Password saved"))
+        }
     private val name = Label().apply { styleClass += "db-card-name" }
     private val address =
         Label().apply {
@@ -111,7 +117,7 @@ internal class ConnectionCard(
         styleClass += "db-card"
         HBox.setHgrow(address, Priority.ALWAYS)
         address.maxWidth = Double.MAX_VALUE
-        val titleRow = HBox(6.0, logoSlot, dotSlot, name).apply { alignment = Pos.CENTER_LEFT }
+        val titleRow = HBox(6.0, logoSlot, dotSlot, name, keyIcon).apply { alignment = Pos.CENTER_LEFT }
         val addressRow =
             HBox(4.0, address, connectButton, disconnectButton, editButton).apply {
                 alignment =
@@ -147,6 +153,8 @@ internal class ConnectionCard(
         val config = entry.config.get()
         val state = cardState(entry.status.get(), entry.pendingTransaction.get())
         name.text = config.name
+        keyIcon.isVisible = config.savedPassword != null
+        keyIcon.isManaged = config.savedPassword != null
         address.text = JdbcUrls.display(config)
         logoSlot.children.setAll(DbIcons.logo(config.kind))
         val paint = color(config.color)
@@ -181,6 +189,9 @@ internal class ConnectionCard(
         if (state.canDisconnect) items += MenuItem("Disconnect").apply { setOnAction { model.disconnect(entry) } }
         items += MenuItem("Edit…").apply { setOnAction { model.edit(entry) } }
         items += MenuItem("Duplicate").apply { setOnAction { model.duplicate(entry) } }
+        if (entry.config.get().savedPassword != null) {
+            items += MenuItem("Forget Saved Password").apply { setOnAction { model.forgetSavedPassword(entry) } }
+        }
         items += SeparatorMenuItem()
         items += MenuItem("Delete…").apply { setOnAction { model.delete(entry) } }
         contextMenu.items.setAll(items)
