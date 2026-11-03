@@ -106,6 +106,8 @@ A behavior is tested once, at the lowest level that can see it
   `EditorAreaUiFixture`.
 - Assert the state a view starts in, before the test changes anything: a view whose tests all add a second item
   first can hide that the first one never shows (the Databases console's results).
+- Don't call a `ContextMenu`'s `onShowing` by hand in a test: JavaFX never shows an empty context menu, so a menu
+  filled only on showing never opens in the app (the Databases object tree). Read its `items` as the app would.
 - `lookup(...).queryAllAs(...)` returns nodes in no particular order; sort (e.g. by `TreeCell.index`) before asserting.
 - Native dialogs (`DirectoryChooser`) cannot be driven by TestFX; test the logic behind them (`ProjectService`).
 - Large UI test subjects are split by topic: an abstract `<Subject>UiFixture` (fake sources, `@AfterEach`, helpers)
