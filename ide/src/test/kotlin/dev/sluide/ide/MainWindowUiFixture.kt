@@ -45,6 +45,7 @@ import dev.sluide.git.cli.GitCli
 import dev.sluide.gitlog.GitLogView
 import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
+import dev.sluide.httpclient.send.SavedPassphrases
 import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.projects.ProjectPicker
 import dev.sluide.projects.RecentProjects
@@ -134,6 +135,9 @@ abstract class MainWindowUiFixture {
         ProjectDataStore(settingsDir.resolve("projects"), settingsDir.resolve("shared.json"), emptyList())
     }
     internal val recentProjects by lazy { RecentProjects(projectData) }
+
+    /** Saved passphrases in the test's shared data; creating `Secrets` does not touch the secret store. */
+    internal val savedPassphrases by lazy { SavedPassphrases(projectData, Secrets()) }
 
     /** The run-argument histories, a singleton bean in the application, in the test's project data. */
     private val argumentHistories by lazy {
@@ -304,7 +308,7 @@ abstract class MainWindowUiFixture {
             SettingsPages(listOf(FontsPage(fontSettings))),
             ThemedWindows(ThemeSettings(SettingsStore(settingsDir.resolve("settings.properties")))),
             projectWindows,
-            HttpClientSession(tasks).also(httpSessions::add),
+            HttpClientSession(tasks, savedPassphrases).also(httpSessions::add),
             recentProjects,
             projectTrust,
             tasks,

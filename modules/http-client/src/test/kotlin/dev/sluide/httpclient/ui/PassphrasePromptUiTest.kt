@@ -1,9 +1,12 @@
 package dev.sluide.httpclient.ui
 
 import dev.sluide.httpclient.env.SslConfig
+import dev.sluide.httpclient.send.PassphraseAnswer
 import javafx.scene.Scene
+import javafx.scene.control.Alert
 import javafx.scene.control.Button
 import javafx.scene.control.ButtonType
+import javafx.scene.control.CheckBox
 import javafx.scene.control.DialogPane
 import javafx.scene.control.PasswordField
 import javafx.scene.layout.StackPane
@@ -45,8 +48,15 @@ class PassphrasePromptUiTest {
     }
 
     /** Asks on a worker thread, as the request runner does. */
-    private fun askInBackground(prompt: PassphrasePrompt = PassphrasePrompt()) =
-        CompletableFuture.supplyAsync { prompt.ask(config) }
+    private fun askInBackground(
+        prompt: PassphrasePrompt = PassphrasePrompt(),
+        saveReason: String? = null,
+        saveChecked: Boolean = false,
+    ) = CompletableFuture.supplyAsync { prompt.ask(config, saveReason, saveChecked) }
+
+    private fun FxRobot.saveBox() = lookup(".http-save-passphrase").queryAs(CheckBox::class.java)
+
+    private fun FxRobot.ok(dialog: DialogPane) = interact { (dialog.lookupButton(ButtonType.OK) as Button).fire() }
 
     private fun FxRobot.dialog(): DialogPane {
         WaitForAsyncUtils.waitFor(
@@ -58,19 +68,47 @@ class PassphrasePromptUiTest {
 
     @Test
     fun `the dialog answers the waiting worker`(robot: FxRobot) {
-        val answer = askInBackground()
+        val answer = askInBackground(saveChecked = true)
 
         val dialog = robot.dialog()
         assertEquals("Passphrase for client.key", dialog.headerText)
         assertFalse(answer.isDone)
+        val box = robot.saveBox()
+        assertEquals("Save passphrase", box.text)
+        assertTrue(box.isSelected && !box.isDisabled)
         val field = robot.lookup(".http-passphrase").queryAs(PasswordField::class.java)
-        robot.interact {
-            field.text = "secret"
-            (dialog.lookupButton(ButtonType.OK) as Button).fire()
-        }
+        robot.interact { field.text = "secret" }
+        robot.ok(dialog)
 
-        assertContentEquals("secret".toCharArray(), answer.get(10, TimeUnit.SECONDS))
+        val result: PassphraseAnswer? = answer.get(10, TimeUnit.SECONDS)
+        assertContentEquals("secret".toCharArray(), result?.passphrase)
+        assertEquals(true, result?.save)
         assertEquals("", field.text, "the field forgets the passphrase")
+    }
+
+    @Test
+    fun `an unchecked Save passphrase answers not to save`(robot: FxRobot) {
+        val answer = askInBackground(saveChecked = true)
+
+        val dialog = robot.dialog()
+        robot.interact { robot.saveBox().isSelected = false }
+        robot.ok(dialog)
+
+        assertEquals(false, answer.get(10, TimeUnit.SECONDS)?.save)
+    }
+
+    @Test
+    fun `Save passphrase is disabled with the reason`(robot: FxRobot) {
+        val answer = askInBackground(saveReason = "needs secret-tool")
+
+        val dialog = robot.dialog()
+        val box = robot.saveBox()
+        assertEquals("Save passphrase (needs secret-tool)", box.text)
+        assertTrue(box.isDisabled)
+        assertFalse(box.isSelected)
+        robot.ok(dialog)
+
+        assertEquals(false, answer.get(10, TimeUnit.SECONDS)?.save)
     }
 
     @Test
@@ -87,12 +125,14 @@ class PassphrasePromptUiTest {
     fun `never waits on the FX thread`() {
         val asked = CountDownLatch(1)
         val prompt =
-            PassphrasePrompt(dialog = {
+            PassphrasePrompt(dialog = { _, _, _ ->
                 asked.countDown()
                 error("not shown")
             })
 
-        assertNull(WaitForAsyncUtils.asyncFx<CharArray?> { prompt.ask(config) }.get(10, TimeUnit.SECONDS))
+        assertNull(
+            WaitForAsyncUtils.asyncFx<PassphraseAnswer?> { prompt.ask(config, null, false) }.get(10, TimeUnit.SECONDS),
+        )
         assertEquals(1, asked.count)
     }
 
@@ -101,7 +141,7 @@ class PassphrasePromptUiTest {
         val worker =
             Thread.ofVirtual().start {
                 try {
-                    PassphrasePrompt().ask(config)
+                    PassphrasePrompt().ask(config, null, false)
                 } catch (_: InterruptedException) {
                 }
             }
@@ -113,5 +153,16 @@ class PassphrasePromptUiTest {
         WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) {
             robot.lookup(".http-passphrase").tryQuery<PasswordField>().isEmpty
         }
+    }
+
+    @Test
+    fun `the not-saved alert names the reason`() {
+        val alert =
+            WaitForAsyncUtils
+                .asyncFx<Alert> { PassphrasePrompt.notSavedAlert("needs secret-tool") }
+                .get(10, TimeUnit.SECONDS)
+
+        assertEquals("Passphrase not saved", alert.title)
+        assertEquals("The passphrase stays in memory until the window closes: needs secret-tool.", alert.contentText)
     }
 }

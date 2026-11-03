@@ -6,8 +6,11 @@ import dev.sluide.httpclient.auth.OAuth2Client
 import dev.sluide.httpclient.auth.OAuth2TokenCache
 import dev.sluide.httpclient.env.SslConfig
 import dev.sluide.httpclient.send.HttpClients
+import dev.sluide.httpclient.send.PassphraseAnswer
+import dev.sluide.httpclient.send.PassphraseStore
 import dev.sluide.httpclient.send.RequestExecutor
 import dev.sluide.httpclient.send.RequestRunner
+import dev.sluide.httpclient.send.SavedPassphrases
 import dev.sluide.httpclient.send.SslContexts
 import dev.sluide.httpclient.ui.PassphrasePrompt
 import javafx.application.Platform
@@ -24,7 +27,7 @@ private val log = System.getLogger(HttpClientSession::class.java.name)
  * What the HTTP client keeps per IDE window (ADR 0026): the HTTP clients with their cookie jar, the OAuth2 tokens,
  * the client certificates with their passphrases and the environment chosen for each `.http` file. Views of `.http`
  * files find it through `FileViewHost.windowService`. Everything is in memory only and ends with the window
- * ([close]).
+ * ([close]), except the passphrases the user saves (ADR 0122), which go to the app-wide [SavedPassphrases].
  *
  * Results of requests reach the views through [dispatch] (`Platform.runLater`, replaced in tests).
  */
@@ -33,22 +36,35 @@ private val log = System.getLogger(HttpClientSession::class.java.name)
 @Scope("window")
 class HttpClientSession internal constructor(
     tasks: BackgroundTasks,
-    private val dispatch: (Runnable) -> Unit,
+    private val dispatch: (Runnable) -> Unit = Platform::runLater,
+    savedPassphrases: PassphraseStore? = null,
 ) : AutoCloseable {
     /** Requests and token requests are tasks of the window's [tasks] (ADR 0061). */
     @Autowired
-    constructor(tasks: BackgroundTasks) : this(tasks, Platform::runLater)
+    constructor(tasks: BackgroundTasks, savedPassphrases: SavedPassphrases) :
+        this(tasks, Platform::runLater, savedPassphrases.asPassphraseStore())
 
     internal val clients = HttpClients()
     internal val executor = RequestExecutor(clients, tasks, dispatch = dispatch)
 
     /**
-     * Asks for the passphrase of a client certificate's key; `null` if the user cancelled. Called on a worker thread,
-     * which waits for the answer.
+     * Asks for the passphrase of a client certificate's key, with why it cannot be saved and whether "Save passphrase"
+     * starts checked; `null` if the user cancelled. Called on a worker thread, which waits for the answer.
      */
-    internal var passphrasePrompt: (SslConfig) -> CharArray? = PassphrasePrompt()::ask
+    internal var passphrasePrompt: (SslConfig, String?, Boolean) -> PassphraseAnswer? = PassphrasePrompt()::ask
 
-    internal val sslContexts = SslContexts(passphrase = { passphrasePrompt(it) }, discarded = clients::evict)
+    /** Tells the user why a passphrase they asked to save was not saved. Called on a worker thread. */
+    internal var passphraseNotSaved: (String) -> Unit = { reason ->
+        dispatch { PassphrasePrompt.notSavedAlert(reason).show() }
+    }
+
+    internal val sslContexts =
+        SslContexts(
+            passphrase = { config, saveReason, saveChecked -> passphrasePrompt(config, saveReason, saveChecked) },
+            discarded = clients::evict,
+            saved = savedPassphrases,
+            notSaved = { passphraseNotSaved(it) },
+        )
     internal val tokens = OAuth2TokenCache(OAuth2Client(clients), sslContexts, tasks)
     internal val runner = RequestRunner(executor, tokens, sslContexts)
 

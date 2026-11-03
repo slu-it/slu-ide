@@ -54,6 +54,7 @@ import dev.sluide.gradle.view.GradleKotlinFileViewer
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpEnvironmentFileViewer
 import dev.sluide.httpclient.HttpFileViewer
+import dev.sluide.httpclient.send.SavedPassphrases
 import dev.sluide.previews.json.JsonFileViewer
 import dev.sluide.previews.markdown.MarkdownFileViewer
 import dev.sluide.previews.yaml.YamlFileViewer
@@ -148,6 +149,7 @@ class SpringWiringTest {
                         HttpClientSession::class.java,
                         HttpFileViewer::class.java,
                         HttpEnvironmentFileViewer::class.java,
+                        SavedPassphrases::class.java,
                         ProjectDataStore::class.java,
                         RecentProjects::class.java,
                         LegacyRecentProjects::class.java,

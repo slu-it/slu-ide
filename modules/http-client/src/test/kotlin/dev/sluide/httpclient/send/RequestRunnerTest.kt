@@ -40,7 +40,12 @@ class RequestRunnerTest {
     /** The passphrase prompt; runs on the executor thread. */
     @Volatile
     private var prompt: () -> CharArray? = { "secret".toCharArray() }
-    private val sslContexts = SslContexts({ prompt() }, TlsServer.trustedCa(), clients::evict)
+    private val sslContexts =
+        SslContexts(
+            { _, _, _ -> prompt()?.let { PassphraseAnswer(it, save = false) } },
+            TlsServer.trustedCa(),
+            clients::evict,
+        )
     private val tokens = OAuth2TokenCache(OAuth2Client(clients), sslContexts, tasks)
     private val runner = RequestRunner(executor, tokens, sslContexts)
     private val dev = oauthEnvironment(endpoint.url)

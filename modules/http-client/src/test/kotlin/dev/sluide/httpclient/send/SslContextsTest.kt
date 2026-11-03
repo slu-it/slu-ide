@@ -5,8 +5,12 @@ import dev.sluide.httpclient.env.SslConfig.CertificateFile
 import dev.sluide.httpclient.env.SslConfig.CertificateFormat
 import dev.sluide.httpclient.send.TlsServer.Companion.fixture
 import dev.sluide.httpclient.send.TlsServer.Companion.trustedCa
+import dev.sluide.secrets.Decrypted
+import dev.sluide.secrets.Encrypted
 import org.junit.jupiter.api.assertTimeoutPreemptively
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import java.io.IOException
 import java.net.URI
 import java.net.http.HttpClient
@@ -80,6 +84,74 @@ class SslContextsTest {
         val response = clients.client(key).send(request, HttpResponse.BodyHandlers.ofString())
         assertEquals(200, response.statusCode())
         return response.body()
+    }
+
+    private fun answer(
+        text: String,
+        save: Boolean = false,
+    ) = PassphraseAnswer(text.toCharArray(), save)
+
+    /** What the prompt was asked with: why saving is unavailable and whether "Save passphrase" starts checked. */
+    private data class Asked(
+        val saveReason: String?,
+        val saveChecked: Boolean,
+    )
+
+    /** Saved passphrases in memory; [load] answers [noKey] instead of the value when set. */
+    private class FakeStore(
+        var value: String? = null,
+    ) : PassphraseStore {
+        var reason: String? = null
+        var noKey: String? = null
+        var failure: String? = null
+        val loads = CopyOnWriteArrayList<List<Path>>()
+        val saved = CopyOnWriteArrayList<String>()
+        val removed = CopyOnWriteArrayList<List<Path>>()
+
+        override fun unavailableReason() = reason
+
+        override fun load(files: List<Path>): Decrypted? {
+            loads += files
+            noKey?.let { return Decrypted.NoKey(it) }
+            return value?.let { Decrypted.Plain(it.toCharArray()) }
+        }
+
+        override fun save(
+            files: List<Path>,
+            passphrase: CharArray,
+        ): Encrypted {
+            saved += String(passphrase)
+            failure?.let { return Encrypted.Failed(it) }
+            value = String(passphrase)
+            return Encrypted.Value("v1:saved")
+        }
+
+        override fun remove(files: List<Path>) {
+            removed += files
+            value = null
+        }
+    }
+
+    private val encrypted = config("client.pem", "client-encrypted.key")
+    private val encryptedFiles = listOf(fixture("client.pem"), fixture("client-encrypted.key"))
+
+    /** Contexts with [store] whose prompt records how it was asked and gives the [answers] in turn. */
+    private fun contexts(
+        store: FakeStore?,
+        asked: MutableList<Asked>,
+        vararg answers: PassphraseAnswer,
+        notSaved: (String) -> Unit = {},
+    ): SslContexts {
+        val queue = ArrayDeque(answers.toList())
+        return SslContexts(
+            passphrase = { _, reason, checked ->
+                asked += Asked(reason, checked)
+                queue.removeFirst()
+            },
+            trustStore = trustedCa(),
+            saved = store,
+            notSaved = notSaved,
+        )
     }
 
     private fun failure(
@@ -175,9 +247,9 @@ class SslContextsTest {
         var asked = 0
         val contexts =
             SslContexts(
-                passphrase = {
+                passphrase = { _, _, _ ->
                     asked++
-                    "secret".toCharArray()
+                    answer("secret")
                 },
                 trustStore = trustedCa(),
             )
@@ -201,7 +273,7 @@ class SslContextsTest {
     @Test
     fun `asks again after a wrong passphrase`() {
         val answers = ArrayDeque(listOf("wrong", "secret"))
-        val contexts = SslContexts(passphrase = { answers.removeFirst().toCharArray() }, trustStore = trustedCa())
+        val contexts = SslContexts(passphrase = { _, _, _ -> answer(answers.removeFirst()) }, trustStore = trustedCa())
         val config = config("client.p12", passphrase = true)
 
         assertFailsWith<SslConfigException> { contexts.context(config) }
@@ -239,9 +311,9 @@ class SslContextsTest {
     fun `keeps a right passphrase when something else fails`() {
         var asked = 0
         val contexts =
-            SslContexts({
+            SslContexts({ _, _, _ ->
                 asked++
-                "secret".toCharArray()
+                answer("secret")
             }, trustedCa())
         // The server certificate does not belong to the client key.
         val config = config("server.pem", "client-encrypted.key")
@@ -260,10 +332,10 @@ class SslContextsTest {
         val prompting = CountDownLatch(1)
         val answer = CountDownLatch(1)
         val contexts =
-            SslContexts({
+            SslContexts({ _, _, _ ->
                 prompting.countDown()
                 answer.await()
-                "secret".toCharArray()
+                answer("secret")
             }, trustedCa())
         val pending = CompletableFuture.supplyAsync { contexts.context(config("client.pem", "client-encrypted.key")) }
         assertTrue(prompting.await(5, TimeUnit.SECONDS))
@@ -302,5 +374,179 @@ class SslContextsTest {
 
         assertNotSame(client, clients.client(key))
         assertTrue(client.isTerminated || client.awaitTermination(Duration.ofSeconds(5)))
+    }
+
+    @Test
+    fun `uses a saved passphrase without asking`() {
+        val store = FakeStore("secret")
+        val asked = mutableListOf<Asked>()
+        val contexts = contexts(store, asked)
+
+        assertEquals("CN=SluIde Test Client", get(contexts.context(encrypted)))
+
+        assertEquals(listOf(encryptedFiles), store.loads.toList())
+        assertEquals(emptyList<Asked>(), asked)
+        assertEquals(emptyList<String>(), store.saved.toList())
+    }
+
+    @Test
+    fun `asks with Save passphrase checked only when a saved one exists`() {
+        val asked = mutableListOf<Asked>()
+        contexts(FakeStore(), asked, answer("secret")).context(encrypted)
+        contexts(FakeStore("secret").apply { noKey = "Keychain access denied" }, asked, answer("secret", save = true))
+            .context(encrypted)
+        contexts(FakeStore().apply { reason = "needs secret-tool" }, asked, answer("secret")).context(encrypted)
+        contexts(null, asked, answer("secret")).context(encrypted)
+
+        assertEquals(
+            listOf(
+                Asked(null, false),
+                Asked(null, true),
+                Asked("needs secret-tool", false),
+                Asked("not supported", false),
+            ),
+            asked,
+        )
+    }
+
+    @Test
+    fun `saves a prompted passphrase only after it worked`() {
+        val store = FakeStore()
+        val contexts = contexts(store, mutableListOf(), answer("wrong", save = true), answer("secret", save = true))
+
+        assertFailsWith<SslConfigException> { contexts.context(encrypted) }
+        assertEquals(emptyList<String>(), store.saved.toList())
+        contexts.context(encrypted)
+
+        assertEquals(listOf("secret"), store.saved.toList())
+    }
+
+    @Test
+    fun `tells why a passphrase was not saved`() {
+        val store = FakeStore().apply { failure = "needs secret-tool" }
+        val reasons = mutableListOf<String>()
+        val contexts = contexts(store, mutableListOf(), answer("secret", save = true), notSaved = reasons::add)
+
+        contexts.context(encrypted)
+
+        assertEquals(listOf("needs secret-tool"), reasons)
+    }
+
+    @Test
+    fun `removes the saved passphrase when Save passphrase was unchecked`() {
+        val store = FakeStore("old").apply { noKey = "the secret store failed" }
+        val contexts = contexts(store, mutableListOf(), answer("secret", save = false))
+
+        contexts.context(encrypted)
+
+        assertEquals(listOf(encryptedFiles), store.removed.toList())
+        assertEquals(emptyList<String>(), store.saved.toList())
+    }
+
+    @Test
+    fun `a rejected saved passphrase is not loaded again and stays until a prompted one is saved`() {
+        val store = FakeStore("old")
+        val asked = mutableListOf<Asked>()
+        val contexts = contexts(store, asked, answer("wrong", save = true), answer("secret", save = true))
+
+        assertFailsWith<SslConfigException> { contexts.context(encrypted) }
+        assertFailsWith<SslConfigException> { contexts.context(encrypted) }
+        assertEquals("old", store.value)
+        contexts.context(encrypted)
+
+        assertEquals(1, store.loads.size)
+        assertEquals(listOf(Asked(null, true), Asked(null, true)), asked)
+        assertEquals("secret", store.value)
+        assertEquals(emptyList<List<Path>>(), store.removed.toList())
+    }
+
+    @Test
+    fun `clear loads a rejected saved passphrase again`() {
+        val store = FakeStore("old")
+        val contexts = contexts(store, mutableListOf(), answer("wrong"))
+        assertFailsWith<SslConfigException> { contexts.context(encrypted) }
+        assertFailsWith<SslConfigException> { contexts.context(encrypted) }
+        assertEquals(1, store.loads.size)
+
+        store.value = "secret"
+        contexts.clear()
+        contexts.context(encrypted)
+
+        assertEquals(2, store.loads.size)
+    }
+
+    @Test
+    fun `keeps a saved passphrase when the box was disabled`() {
+        val store =
+            FakeStore("old").apply {
+                noKey = "Keychain access denied"
+                reason = "Keychain access denied"
+            }
+        val asked = mutableListOf<Asked>()
+        val reasons = mutableListOf<String>()
+        val contexts = contexts(store, asked, answer("secret", save = true), notSaved = reasons::add)
+
+        contexts.context(encrypted)
+
+        assertEquals(listOf(Asked("Keychain access denied", true)), asked)
+        assertEquals(emptyList<String>(), store.saved.toList())
+        assertEquals(emptyList<List<Path>>(), store.removed.toList())
+        assertEquals(emptyList<String>(), reasons)
+    }
+
+    @Test
+    fun `an unreadable saved passphrase counts as none`() {
+        val asked = mutableListOf<Asked>()
+        val store =
+            object : PassphraseStore by FakeStore() {
+                override fun load(files: List<Path>) = Decrypted.Unreadable
+            }
+
+        SslContexts({ _, reason, checked ->
+            asked += Asked(reason, checked)
+            answer("secret")
+        }, trustedCa(), saved = store).context(encrypted)
+
+        assertEquals(listOf(Asked(null, false)), asked)
+    }
+
+    /**
+     * A passphrase in memory that is the saved one (loaded, or saved after the prompt) and is rejected once the PKCS#12
+     * file changed counts as a rejected saved one: it is not loaded again, and the prompt starts checked.
+     */
+    @ParameterizedTest
+    @ValueSource(booleans = [true, false])
+    fun `a rejected passphrase in memory that is the saved one is not loaded again`(loaded: Boolean) {
+        val file = fixture("client.p12").copyTo(folder.resolve("client.p12"))
+        val config = config(null, passphrase = true).copy(clientCertificate = CertificateFile(file, null))
+        val store = FakeStore(if (loaded) "secret" else null)
+        val asked = mutableListOf<Asked>()
+        val first = if (loaded) arrayOf() else arrayOf(answer("secret", save = true))
+        val contexts = contexts(store, asked, *first, answer("wrong"))
+        contexts.context(config)
+        asked.clear()
+
+        file.writeBytes(byteArrayOf(1, 2, 3))
+        file.setLastModifiedTime(FileTime.from(Instant.now().plusSeconds(10)))
+        assertFailsWith<SslConfigException> { contexts.context(config) }
+        assertFailsWith<SslConfigException> { contexts.context(config) }
+
+        assertEquals(1, store.loads.size, "loaded only for the first context")
+        assertEquals(listOf(Asked(null, true)), asked)
+    }
+
+    @Test
+    fun `does not tell about a failed save after the window closed`() {
+        val reasons = mutableListOf<String>()
+        lateinit var contexts: SslContexts
+        contexts =
+            SslContexts({ _, _, _ ->
+                contexts.clear()
+                answer("secret", save = true)
+            }, trustedCa(), saved = FakeStore().apply { failure = "needs secret-tool" }, notSaved = reasons::add)
+
+        contexts.context(encrypted)
+
+        assertEquals(emptyList<String>(), reasons)
     }
 }

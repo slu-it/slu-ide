@@ -42,6 +42,7 @@ import dev.sluide.git.cli.GitCli
 import dev.sluide.gitlog.GitLogView
 import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
+import dev.sluide.httpclient.send.SavedPassphrases
 import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.projects.ProjectPicker
 import dev.sluide.projects.RecentProjects
@@ -49,6 +50,7 @@ import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.projecttrust.TrustedProjects
 import dev.sluide.scratches.SCRATCH_TYPES
 import dev.sluide.scratches.ScratchFiles
+import dev.sluide.secrets.Secrets
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.SettingsStore
@@ -167,6 +169,8 @@ class ProjectWindowsUiTest {
                 register(PasswordCache::class.java)
                 register(QueryHistory::class.java)
                 register(DatabasesSettings::class.java)
+                register(Secrets::class.java)
+                register(SavedPassphrases::class.java)
                 registerBean(
                     RemoteSourceCache::class.java,
                     Supplier { RemoteSourceCache(getBean(GitCli::class.java), dir.resolve("cache/git")) },
