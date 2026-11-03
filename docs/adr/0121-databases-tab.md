@@ -62,7 +62,10 @@ statements that run for minutes, transactions that must not be lost silently, an
   fetch-all cap. Values are copied into plain JDK types right away.
 - Editing is offered when a result comes from one table whose primary-key columns are all present. Submit sends the
   UPDATE/INSERT/DELETE statements with bind parameters in one batch on the session connection: committed together in
-  Auto mode, part of the transaction in Manual mode. Generated SQL quotes identifiers (`SqlNames`).
+  Auto mode (asking first when rows are deleted, since that is permanent), part of the transaction in Manual mode or
+  inside a user's `BEGIN` (through a savepoint, so a failed submit leaves the transaction as it was). Every UPDATE and
+  DELETE must hit exactly one row, else the whole submit is undone. The result is reloaded after a submit. Results of
+  statements that change data are never editable. Generated SQL quotes identifiers (`SqlNames`).
 
 **Consoles**
 - Console tabs per connection sharing the session; each has its own result tabs (unpinned ones are replaced by the
