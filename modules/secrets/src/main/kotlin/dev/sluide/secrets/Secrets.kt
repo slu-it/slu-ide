@@ -43,6 +43,10 @@ class Secrets internal constructor(
     val storeName: String?
         get() = backend.storeName.takeUnless { backend is NoBackend }
 
+    /** The user denied access or the store is locked; cleared by [tryAgain] and [forgetAll]. */
+    val accessDenied: Boolean
+        get() = deniedReason != null
+
     /** Why nothing can be saved, e.g. "needs secret-tool" or the denied access; `null` when saving may work. */
     fun saveUnavailableReason(): String? = deniedReason ?: backend.unavailableReason()
 

@@ -14,7 +14,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
 
 class SecretsTest {
-    private val backend = FakeBackend()
+    private val backend = FakeKeyBackend()
     private val zeroed = mutableListOf<ByteArray>()
     private val secrets = Secrets(backend, SecureRandom()).also { it.onZeroed = zeroed::add }
     private val context = "databases/1/password"
@@ -98,7 +98,7 @@ class SecretsTest {
 
     @Test
     fun `decrypting never creates a key`() {
-        val value = Secrets(FakeBackend(), SecureRandom()).encryptText("secret")
+        val value = Secrets(FakeKeyBackend(), SecureRandom()).encryptText("secret")
 
         assertEquals(Decrypted.Unreadable, secrets.decrypt(value, context))
         assertEquals(1, backend.reads)
@@ -108,7 +108,7 @@ class SecretsTest {
 
     @Test
     fun `a value of another key or context is unreadable`() {
-        val value = Secrets(FakeBackend(), SecureRandom()).encryptText("secret")
+        val value = Secrets(FakeKeyBackend(), SecureRandom()).encryptText("secret")
         backend.stored = ByteArray(32)
 
         assertEquals(Decrypted.Unreadable, secrets.decrypt(value, context))
@@ -278,49 +278,4 @@ class SecretsTest {
         assertInstanceOf<Encrypted.Value>(encrypt(plain.toCharArray(), context)).text
 
     private fun validValue() = SecretCipher(SecureRandom()).encrypt(ByteArray(32) { 5 }, "x".toCharArray(), context)
-
-    /** An in-memory store that counts the calls that would reach the OS store and keeps the arrays it exchanged. */
-    private class FakeBackend : KeyBackend {
-        var stored: ByteArray? = null
-        var unavailable: String? = null
-        var deleted = true
-        var onRead: (() -> KeyRead)? = null
-        var onCreate: ((ByteArray) -> KeyCreate)? = null
-        var onDelete: (() -> Boolean)? = null
-
-        /** The arrays returned by [read] (owned by the caller) and those given to [create], not copies. */
-        val found = mutableListOf<ByteArray>()
-        val handed = mutableListOf<ByteArray>()
-
-        @Volatile var reads = 0
-
-        var creates = 0
-        var deletes = 0
-        val calls get() = reads + creates + deletes
-
-        override val storeName = "Fake Store"
-
-        override fun unavailableReason() = unavailable
-
-        override fun read(): KeyRead {
-            synchronized(this) { reads++ }
-            onRead?.let { return it() }
-            return stored?.let { KeyRead.Found(it.copyOf().also(found::add)) } ?: KeyRead.Missing
-        }
-
-        override fun create(key: ByteArray): KeyCreate {
-            creates++
-            handed += key
-            onCreate?.let { return it(key) }
-            stored = key.copyOf()
-            return KeyCreate.Created
-        }
-
-        override fun delete(): Boolean {
-            deletes++
-            onDelete?.let { return it() }
-            if (deleted) stored = null
-            return deleted
-        }
-    }
 }

@@ -66,6 +66,7 @@ import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.projecttrust.TrustedProjects
 import dev.sluide.scratches.ScratchFiles
 import dev.sluide.secrets.Secrets
+import dev.sluide.secrets.settings.SecretsSettingsPage
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.SettingsStore
@@ -176,6 +177,7 @@ class SpringWiringTest {
                         DatabasesSettingsPage::class.java,
                         Databases::class.java,
                         Secrets::class.java,
+                        SecretsSettingsPage::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")

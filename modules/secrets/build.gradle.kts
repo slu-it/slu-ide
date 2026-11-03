@@ -20,4 +20,11 @@ dependencies {
     implementation(libs.jna)
     // CoreFoundation helpers (CFString, CFData, CFDictionary) for that backend, so only Security is mapped by hand.
     implementation(libs.jna.platform)
+
+    // Forget All runs on a NamedThreads thread (ADR 0060).
+    implementation(project(":modules:background-tasks"))
+
+    // The Settings → Secrets page has a TestFX wiring test.
+    testImplementation(libs.testfx.core)
+    testImplementation(libs.testfx.junit5)
 }

@@ -205,6 +205,7 @@ updated when the summary or keywords no longer fit.
 | [http-client.md](features/http-client.md) | `.http` request files run from the editor; Copy as cURL, Paste cURL as Request | `.http`, `.rest`, variables, environments, OAuth2, response pane, New HTTP Client Setup, cURL |
 | [http-client-env-editor.md](features/http-client-env-editor.md) | Visual editor for the HTTP client environment files | `http-client.env.json`, private env file, tree table, locks |
 | [gradle.md](features/gradle.md) | Gradle view: task tree and task runs in an embedded terminal | `build.gradle.kts`, wrapper, task tree, run tasks, argument history, trust |
+| [secrets.md](features/secrets.md) | Saved database passwords and HTTP client passphrases, encrypted with one key in the OS secret store; Settings → Secrets | saved secrets, Save password, Save passphrase, Keychain, Secret Service, `secret-tool`, Settings → Secrets, Forget All Saved Secrets |
 | [shell-scripts.md](features/shell-scripts.md) | Shell scripts run from their tab or the explorer | `.sh`, Run, Shortcut+Enter, argument history, make executable |
 | [coloring.md](features/coloring.md) | Coloring tool: a tab of the Tools menu for colors in CSS notations | Tools menu, Coloring, color picker, contrast, harmonies, gradient, color vision |
 | [codecs.md](features/codecs.md) | Codecs tool: a tab of the Tools menu that encodes and decodes text in two editable sides | Tools menu, Codecs, Base64, hex, URL encoding, HTML entities, escapes, JWT, hash, HMAC, gzip, hex dump, Open Selection in Codecs |
