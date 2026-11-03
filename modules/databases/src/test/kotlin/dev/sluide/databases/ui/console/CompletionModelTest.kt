@@ -97,4 +97,10 @@ class CompletionModelTest {
         assertFalse(CompletionModel.isTypedChar("abc", "ab", 2))
         assertFalse(CompletionModel.isTypedChar("ab", "a.b", 0))
     }
+
+    @Test
+    fun `nothing counts as typed while text is selected`() {
+        assertTrue(CompletionModel.isTypedChar("ab", "a.b", 2, selectionLength = 0))
+        assertFalse(CompletionModel.isTypedChar("ab", "a.b", 2, selectionLength = 1))
+    }
 }

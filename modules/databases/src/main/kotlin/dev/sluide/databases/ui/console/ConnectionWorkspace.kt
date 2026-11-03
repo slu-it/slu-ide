@@ -163,12 +163,9 @@ class ConnectionWorkspace internal constructor(
     private fun insert(text: String) {
         val console = selected ?: return
         val editor = console.pane.editor
-        val content = editor.text
-        val caret = editor.caretOffset.coerceIn(0, content.length)
-        val lineStart = content.lastIndexOf('\n', caret - 1) + 1
-        val lineEnd = content.indexOf('\n', caret).let { if (it < 0) content.length else it }
-        val empty = content.substring(lineStart, lineEnd).isBlank()
-        if (empty) editor.replace(caret, caret, text) else editor.replace(lineEnd, lineEnd, "\n$text")
+        val caret = editor.caretOffset.coerceIn(0, editor.text.length)
+        val edit = HistoryFilter.insertion(editor.text, caret, caret, caret, text)
+        editor.replace(edit.start, edit.end, edit.text)
         editor.selectRange(editor.caretOffset, editor.caretOffset)
         editor.focus()
     }

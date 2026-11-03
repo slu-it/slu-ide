@@ -65,7 +65,11 @@ internal class HistoryPopup(
                 }
             }
             addEventHandler(MouseEvent.MOUSE_CLICKED) { event ->
-                if (event.button == MouseButton.PRIMARY) selectionModel.selectedItem?.let(::insert)
+                if (event.button == MouseButton.PRIMARY &&
+                    onFilledCell(event)
+                ) {
+                    selectionModel.selectedItem?.let(::insert)
+                }
             }
         }
 

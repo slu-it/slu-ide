@@ -74,14 +74,15 @@ internal class CompletionModel {
     companion object {
         /**
          * Whether the change from [old] to [new] is a single character typed at [caret] (the caret right behind it),
-         * as opposed to a paste, a deletion or a completion.
+         * as opposed to a paste, a deletion or a completion; never while text is [selectionLength] selected.
          */
         fun isTypedChar(
             old: String,
             new: String,
             caret: Int,
+            selectionLength: Int = 0,
         ): Boolean {
-            if (new.length != old.length + 1 || caret < 1 || caret > new.length) return false
+            if (selectionLength > 0 || new.length != old.length + 1 || caret < 1 || caret > new.length) return false
             return new.regionMatches(0, old, 0, caret - 1) &&
                 new.regionMatches(caret, old, caret - 1, old.length - caret + 1)
         }

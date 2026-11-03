@@ -5,6 +5,7 @@ import dev.sluide.databases.sql.Completion
 import dev.sluide.databases.sql.CompletionCatalog
 import dev.sluide.databases.sql.CompletionKind
 import dev.sluide.databases.sql.SqlCompletion
+import javafx.scene.Node
 import javafx.scene.control.ListCell
 import javafx.scene.control.ListView
 import javafx.scene.input.KeyCode
@@ -20,6 +21,10 @@ import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignF
 import org.kordamp.ikonli.materialdesign2.MaterialDesignK
 import org.kordamp.ikonli.materialdesign2.MaterialDesignT
+
+/** Whether [event] hit a cell with an item, not the empty space of a list (copy of the guard in [StatementChooser]). */
+internal fun onFilledCell(event: MouseEvent): Boolean =
+    generateSequence(event.target as? Node) { it.parent }.any { it is ListCell<*> && !it.isEmpty }
 
 /**
  * The completion popup of a console (ADR 0121): opens with Ctrl+Space and by itself after a typed `.` or word, below
@@ -41,6 +46,14 @@ internal class CompletionPopup(
     private var current = editor.text
     private var typed = false
     private var inserting = false
+
+    /** The text and caret the open popup was computed for, so an unchanged state is not computed twice. */
+    private var version = 0
+    private var computedVersion = -1
+    private var computedCaret = -1
+
+    /** The caret of an opening that found nothing; a finished catalog load there tries again. */
+    private var pending: Int? = null
     private var focusWatch: Subscription? = null
 
     val list: ListView<Completion> =
@@ -49,8 +62,9 @@ internal class CompletionPopup(
             isFocusTraversable = false
             prefWidth = 320.0
             setCellFactory { CompletionCell() }
+            stylesheets += checkNotNull(CompletionPopup::class.java.getResource("console.css")).toExternalForm()
             addEventHandler(MouseEvent.MOUSE_CLICKED) { event ->
-                if (event.button == MouseButton.PRIMARY && selectionModel.selectedIndex >= 0) {
+                if (event.button == MouseButton.PRIMARY && onFilledCell(event) && selectionModel.selectedIndex >= 0) {
                     model.select(selectionModel.selectedIndex)
                     insert()
                 }
@@ -61,14 +75,14 @@ internal class CompletionPopup(
         Popup().apply {
             isAutoHide = true
             content += list
-            setOnHidden { model.close() }
+            setOnHidden { cleanup() }
         }
 
     private val subscriptions: List<Subscription> =
         listOf(
-            editor.textProperty.subscribe { new -> onText(new) },
+            editor.textProperty.subscribe { old, new -> onText(old, new) },
             editor.caretOffsetProperty.subscribe { _ -> onCaret() },
-            onLoaded { if (model.isOpen) recompute(opening = false) },
+            onLoaded(::loaded),
         )
 
     init {
@@ -117,6 +131,7 @@ internal class CompletionPopup(
 
             KeyCode.ESCAPE -> {
                 hide()
+                pending = null
                 return true
             }
 
@@ -128,33 +143,69 @@ internal class CompletionPopup(
         return true
     }
 
-    private fun onText(new: String) {
-        before = current
+    private fun onText(
+        old: String,
+        new: String,
+    ) {
+        if (inserting) return
+        before = old
         current = new
-        typed = new.length == before.length + 1
-        onCaret()
+        version++
+        // One character more also counts as typed when it is an undo of a one-character deletion; harmless.
+        typed = new.length == old.length + 1
+        pending = null
+        changed()
     }
 
     private fun onCaret() {
         if (inserting) return
+        if (pending != null && pending != editor.caretOffset) pending = null
+        changed()
+        // Whatever moves the caret later (Escape, arrows, clicks) must not count as the typing before it.
+        typed = false
+    }
+
+    /** Looks at the editor after a text or caret change: refreshes an open popup, or opens it after a typed char. */
+    private fun changed() {
         val caret = editor.caretOffset
         if (popup.isShowing) {
-            recompute(opening = false)
-        } else if (typed && CompletionModel.isTypedChar(before, current, caret)) {
+            if (version != computedVersion || caret != computedCaret) recompute(opening = false)
+            if (popup.isShowing) {
+                // Typing into an open popup is not a new typing for later caret moves (Escape, then Left and Right).
+                typed = false
+                return
+            }
+        }
+        // Closed, or just closed by this change (a typed `.` ends the word): a typed character may open it.
+        if (typed && CompletionModel.isTypedChar(before, current, caret, editor.selection.length)) {
             typed = false
-            val auto = editor.selection.length == 0 && SqlCompletion.shouldAutoOpen(current, caret, kind)
-            if (auto) recompute(opening = true)
+            if (SqlCompletion.shouldAutoOpen(current, caret, kind)) recompute(opening = true)
         }
     }
 
+    private fun loaded() {
+        val waiting = pending
+        if (model.isOpen) {
+            recompute(opening = false)
+        } else if (waiting != null && waiting == editor.caretOffset && editorHasFocus()) {
+            recompute(opening = true)
+        }
+    }
+
+    private fun editorHasFocus(): Boolean = insideEditor(pane.node.scene?.focusOwner, editor.node)
+
     private fun recompute(opening: Boolean) {
-        val text = editor.text
         val caret = editor.caretOffset
-        val result = SqlCompletion.candidates(text, caret, kind, catalog)
+        computedVersion = version
+        computedCaret = caret
+        val result = SqlCompletion.candidates(editor.text, caret, kind, catalog)
         if (!model.update(result, caret, opening)) {
             hide()
+            // Nothing yet, maybe because the catalog is still loading: open when it has loaded and the caret is here.
+            pending = if (opening) caret else null
             return
         }
+        pending = null
         list.items.setAll(model.items)
         list.prefHeight = minOf(model.items.size, ROWS) * ROW + 2.0
         syncSelection()
@@ -178,10 +229,15 @@ internal class CompletionPopup(
     }
 
     private fun hide() {
+        cleanup()
+        popup.hide()
+    }
+
+    /** What closing means, whether through [hide] or the popup's own auto-hide. */
+    private fun cleanup() {
         model.close()
         focusWatch?.unsubscribe()
         focusWatch = null
-        popup.hide()
     }
 
     private fun syncSelection() {
