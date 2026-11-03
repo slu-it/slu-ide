@@ -3,6 +3,8 @@ package dev.sluide.databases.session
 import dev.sluide.databases.RealDatabases
 import dev.sluide.databases.connect.CommitMode
 import dev.sluide.databases.connect.DatabaseKind
+import dev.sluide.databases.result.BoundStatement
+import dev.sluide.databases.ui.result.EditSubmitter
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.TestInstance
@@ -202,6 +204,42 @@ class RealDatabaseSmokeTest {
         assertEquals(42, (session.single("SELECT 42") as Number).toInt())
         assertTrue(rows.cursor.closed)
         assertEquals(43, (session.single("SELECT 43") as Number).toInt())
+    }
+
+    @ParameterizedTest
+    @EnumSource(DatabaseKind::class)
+    fun `an edit submit inside a BEGIN of the user keeps the transaction and rolls back with it`(kind: DatabaseKind) {
+        val table = "smoke_edit_${kind.name.lowercase()}"
+        val session = open(kind)
+        session.updated("CREATE TABLE $table (id INT PRIMARY KEY)")
+
+        session.run("BEGIN")
+        val insert = BoundStatement("INSERT INTO $table (id) VALUES (?)", listOf(1), listOf(null))
+        session
+            .withSession(
+                changes = true,
+            ) { EditSubmitter.submit(it, listOf(insert), autoCommitUserIdle = false) }
+            .await()
+        assertTrue(session.pendingTransaction)
+        assertEquals(1L, (session.single("SELECT count(*) FROM $table") as Number).toLong())
+
+        val conflict = BoundStatement("UPDATE $table SET id = ? WHERE id = ?", listOf(5, 99), listOf(null, null), true)
+        val failed =
+            runCatching {
+                session
+                    .withSession(changes = true) {
+                        EditSubmitter.submit(it, listOf(insert.copy(params = listOf(2)), conflict), false)
+                    }.await()
+            }
+        assertTrue(failed.isFailure)
+        assertEquals(
+            1L,
+            (session.single("SELECT count(*) FROM $table") as Number).toLong(),
+            "only the failed submit is undone",
+        )
+        session.run("ROLLBACK")
+
+        assertEquals(0L, (session.single("SELECT count(*) FROM $table") as Number).toLong())
     }
 
     @ParameterizedTest
