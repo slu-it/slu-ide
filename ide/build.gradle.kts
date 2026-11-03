@@ -61,6 +61,8 @@ dependencies {
     implementation(project(":modules:docker"))
     // The Databases tab of the Services menu: JDBC connections, consoles, results and the object tree (ADR 0121).
     implementation(project(":modules:databases"))
+    // Saved secrets: values encrypted with one key in the OS secret store; Secrets is a singleton (ADR 0122).
+    implementation(project(":modules:secrets"))
     // The explorer's Run item has a Material Design play icon, like the HTTP client's Run (ADR 0012).
     implementation(libs.ikonli.javafx)
     implementation(libs.ikonli.materialdesign2)

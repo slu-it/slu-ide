@@ -65,6 +65,7 @@ import dev.sluide.projecttrust.LegacyTrustDecisions
 import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.projecttrust.TrustedProjects
 import dev.sluide.scratches.ScratchFiles
+import dev.sluide.secrets.Secrets
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.SettingsStore
@@ -174,6 +175,7 @@ class SpringWiringTest {
                         DatabasesSettings::class.java,
                         DatabasesSettingsPage::class.java,
                         Databases::class.java,
+                        Secrets::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")
@@ -182,6 +184,8 @@ class SpringWiringTest {
                 // reads or writes ~/.sluide here (the migration runs on the store's first access).
                 context.getBean(RecentProjects::class.java)
                 context.getBean(TrustedProjects::class.java)
+                // Two constructors: Spring takes the @Autowired one; creating it does not touch the secret store.
+                context.getBean(Secrets::class.java)
                 // Every window has its own instance of these (ADR 0014).
                 val windowTypes =
                     listOf(

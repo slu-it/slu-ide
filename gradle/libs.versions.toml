@@ -8,6 +8,8 @@ testfx = "4.0.18"
 richtextfx = "0.11.7"
 rsyntaxtextarea = "4.0.1"
 pty4j = "0.14.0"
+# The JNA that pty4j resolves, so the app carries one copy.
+jna = "5.19.1"
 jediterm = "3.76"
 ikonli = "12.4.0"
 commonmark = "0.30.0"
@@ -26,6 +28,7 @@ junit-jupiter-params = { module = "org.junit.jupiter:junit-jupiter-params" }
 richtextfx = { module = "org.fxmisc.richtext:richtextfx", version.ref = "richtextfx" }
 rsyntaxtextarea = { module = "com.fifesoft:rsyntaxtextarea", version.ref = "rsyntaxtextarea" }
 pty4j = { module = "org.jetbrains.pty4j:pty4j", version.ref = "pty4j" }
+jna = { module = "net.java.dev.jna:jna", version.ref = "jna" }
 jediterm-core = { module = "org.jetbrains.jediterm:jediterm-core", version.ref = "jediterm" }
 ikonli-javafx = { module = "org.kordamp.ikonli:ikonli-javafx", version.ref = "ikonli" }
 ikonli-materialdesign2 = { module = "org.kordamp.ikonli:ikonli-materialdesign2-pack", version.ref = "ikonli" }
