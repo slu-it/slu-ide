@@ -1,6 +1,6 @@
 # 0121. Databases tab: JDBC connections, consoles, results and object tree in the Services menu
 
-- Status: accepted; see [0118](0118-services-menu.md), [0110](0110-tools-menu.md), [0103](0103-todo-folders.md)
+- Status: accepted, amended by [0122](0122-saved-secrets.md); see [0118](0118-services-menu.md), [0110](0110-tools-menu.md), [0103](0103-todo-folders.md)
 - Date: 2026-11-02
 
 ## Context
@@ -26,9 +26,17 @@ statements that run for minutes, transactions that must not be lost silently, an
 - Only the project's connection list is stored, in its order, in the project data's top-level field `databases`
   ([ADR 0090](0090-per-project-metadata-store.md)); without a project in the shared data file. Console texts, results
   and query history live until the window closes (history: until the app restarts) and are never written.
-- Passwords are never stored. They are asked on the first connect (or taken from the connection dialog) and kept in
-  memory by a singleton `PasswordCache` keyed by project folder and connection id until the app restarts; a failed
-  login forgets the password. Safe storage (keychain) is an idea for later (`docs/ideas/databases-later.md`).
+- ~~Passwords are never stored.~~ (amended by [ADR 0122](0122-saved-secrets.md)) They are asked on the first connect
+  (or taken from the connection dialog) and kept in memory by a singleton `PasswordCache` keyed by project folder and
+  connection id until the app restarts; a failed login forgets the password.
+- Since ADR 0122 a password can be saved, off by default: encrypted by `Secrets` for `databases/<id>/password` and
+  stored as `password` in the connection entry. Connecting takes the in-memory password, else the saved one (decrypted
+  on the worker, inside the connecting task), else asks; a prompted password with Save checked is saved once its login
+  succeeds, unchecked removes the saved one. While saving is unavailable (box disabled) neither happens. An
+  unreadable saved value is removed, one without a key kept; a later decision (edit, forget) wins over a late encrypt.
+- A saved password that fails a login stays, but the next connect asks (Save checked) until a new password logs in.
+  The connection dialog saves a typed password at once (encrypted on a worker) and removes it when unchecked;
+  duplicating encrypts it again for the copy; Forget Saved Password removes it without a question.
 - Settings → Databases: default page size (500), fetch-all cap (100,000), statement timeout (none).
 
 **Drivers**
