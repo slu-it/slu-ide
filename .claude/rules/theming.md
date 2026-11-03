@@ -17,7 +17,8 @@ JavaFX stylesheet and follows this rule.
 - Every hard-coded colour gets its dark counterpart in an `@media (prefers-color-scheme: dark)` block. JavaFX applies
   descendant selectors inside a media block whatever the scheme, so dark rules use single-class selectors, and the
   light rules they override use the same specificity.
-- Icons take their colour from the stylesheet (`-fx-icon-color: -fx-text-base-color`), not from Kotlin.
+- Icons take their colour from the stylesheet (`-fx-icon-color: -fx-text-base-color`), not from Kotlin. The property
+  belongs to the `FontIcon`: select `.my-button .ikonli-font-icon`, not the button, or the icon stays black in dark.
 - Text inputs: `theme.css`'s `.text-input` fill and border; a control drawing its own input box copies the values
   with a "keep in sync" comment, as `git-log.css` does. Change both together.
 - Check the result in the real app in the dark theme (`.claude/scripts/run-app.sh`), and in light when colours

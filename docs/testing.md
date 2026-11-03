@@ -104,6 +104,8 @@ A behavior is tested once, at the lowest level that can see it
 - To test real mouse handling (e.g. a press that must not reach a parent), fire `MouseEvent`s at the node with
   `Event.fireEvent` instead of calling `Button.fire()`, which skips the mouse handlers. Example: `fireMouse` in
   `EditorAreaUiFixture`.
+- Assert the state a view starts in, before the test changes anything: a view whose tests all add a second item
+  first can hide that the first one never shows (the Databases console's results).
 - `lookup(...).queryAllAs(...)` returns nodes in no particular order; sort (e.g. by `TreeCell.index`) before asserting.
 - Native dialogs (`DirectoryChooser`) cannot be driven by TestFX; test the logic behind them (`ProjectService`).
 - Large UI test subjects are split by topic: an abstract `<Subject>UiFixture` (fake sources, `@AfterEach`, helpers)

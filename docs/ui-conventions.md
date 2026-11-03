@@ -41,6 +41,9 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   test.
 - State lives in the window and outlives the tab; anything stored is opt-in per tool and never holds pasted secrets
   (Codecs and Converting store nothing).
+- A tab's content leaves the scene whenever another tab is selected (`EditorArea` shows only the selected content):
+  a view that unsubscribes when its scene becomes `null` subscribes again and catches up when it is back
+  (`ConnectionCardList`), or never unsubscribes on scene loss at all.
 
 ## Context menus and entry points
 - Explorer: `FileAction(label, icon, appliesTo, perform)` items appear only for a single file they apply to, after
@@ -69,6 +72,9 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   and make Cancel the default button.
 - Tests replace dialogs through an overridable function property (`askUnsaved`) or an FX-free dialogs interface
   (`DockerDialogs`), per ADR 0084.
+- A dialog with larger content (a `TabPane`, a table) sets `minHeight = Region.USE_PREF_SIZE` on that content and the
+  dialog pane: on Linux the window can be sized before the content's preferred height is known, and a `VBox` then
+  shrinks it to nothing (the connection dialog of the Databases tab showed only its buttons).
 
 ## Storing state
 | What | Where | API |
