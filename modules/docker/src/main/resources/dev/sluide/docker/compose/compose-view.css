@@ -42,7 +42,7 @@
 
 .compose-note, .compose-override-note, .compose-services-note {
     -fx-padding: 2 8 2 8;
-    -fx-text-fill: derive(-fx-text-base-color, 35%);
+    -fx-opacity: 0.75;
 }
 
 .compose-services-box {
@@ -59,11 +59,11 @@
 }
 
 .compose-service-summary, .compose-service-ports {
-    -fx-text-fill: derive(-fx-text-base-color, 25%);
+    -fx-opacity: 0.8;
 }
 
 .compose-service-profiles, .compose-column-label {
-    -fx-text-fill: derive(-fx-text-base-color, 50%);
+    -fx-opacity: 0.6;
 }
 
 .compose-service-action {

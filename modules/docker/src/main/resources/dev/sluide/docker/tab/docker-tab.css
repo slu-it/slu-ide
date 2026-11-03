@@ -19,11 +19,7 @@
 }
 
 .docker-engine, .docker-row-detail, .docker-details-state {
-    -fx-text-fill: derive(-fx-text-base-color, 45%);
-}
-
-.tree-cell:selected .docker-row-detail {
-    -fx-text-fill: derive(-fx-selection-bar-text, -15%);
+    -fx-opacity: 0.65;
 }
 
 .docker-error-bar {
@@ -110,7 +106,7 @@
 }
 
 .docker-overview-label {
-    -fx-text-fill: derive(-fx-text-base-color, 35%);
+    -fx-opacity: 0.75;
 }
 
 .docker-overview .hyperlink {
@@ -119,7 +115,7 @@
 
 .docker-placeholder {
     -fx-padding: 16;
-    -fx-text-fill: derive(-fx-text-base-color, 45%);
+    -fx-opacity: 0.65;
 }
 
 .docker-env-bar {

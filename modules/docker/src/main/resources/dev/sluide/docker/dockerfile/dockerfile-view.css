@@ -27,7 +27,7 @@
 
 .docker-build-note {
     -fx-padding: 2 8 2 8;
-    -fx-text-fill: derive(-fx-text-base-color, 35%);
+    -fx-opacity: 0.75;
 }
 
 .docker-build-details-box {
@@ -54,7 +54,7 @@
 }
 
 .docker-build-args-placeholder {
-    -fx-text-fill: derive(-fx-text-base-color, 50%);
+    -fx-opacity: 0.6;
 }
 
 .docker-build-preview {

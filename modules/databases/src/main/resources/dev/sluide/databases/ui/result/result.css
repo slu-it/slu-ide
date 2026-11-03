@@ -25,11 +25,15 @@
 .result-page-label, .result-status {
     -fx-padding: 0 8 0 4;
     -fx-font-size: 0.9em;
-    -fx-text-fill: derive(-fx-text-base-color, 30%);
+    -fx-opacity: 0.75;
 }
 
 .result-error {
     -fx-text-fill: #c62828;
+}
+
+.result-status.result-error {
+    -fx-opacity: 1;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -97,5 +101,6 @@
 }
 
 .result-lock .ikonli-font-icon {
-    -fx-icon-color: derive(-fx-text-base-color, 30%);
+    -fx-icon-color: -fx-text-base-color;
+    -fx-opacity: 0.75;
 }

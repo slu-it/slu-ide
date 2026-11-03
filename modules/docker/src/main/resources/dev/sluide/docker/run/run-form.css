@@ -7,7 +7,7 @@
 }
 
 .docker-row-detail {
-    -fx-text-fill: derive(-fx-text-base-color, 45%);
+    -fx-opacity: 0.65;
 }
 
 @media (prefers-color-scheme: dark) {
