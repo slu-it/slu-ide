@@ -4,7 +4,8 @@ import dev.sluide.databases.RealDatabases
 import dev.sluide.databases.connect.CommitMode
 import dev.sluide.databases.connect.DatabaseKind
 import dev.sluide.databases.result.BoundStatement
-import dev.sluide.databases.ui.result.EditSubmitter
+import dev.sluide.databases.result.EditSubmitter
+import dev.sluide.databases.result.StatementKind
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.TestInstance
@@ -214,7 +215,7 @@ class RealDatabaseSmokeTest {
         session.updated("CREATE TABLE $table (id INT PRIMARY KEY)")
 
         session.run("BEGIN")
-        val insert = BoundStatement("INSERT INTO $table (id) VALUES (?)", listOf(1), listOf(null))
+        val insert = BoundStatement("INSERT INTO $table (id) VALUES (?)", listOf(1), listOf(null), StatementKind.INSERT)
         session
             .withSession(
                 changes = true,
@@ -223,7 +224,13 @@ class RealDatabaseSmokeTest {
         assertTrue(session.pendingTransaction)
         assertEquals(1L, (session.single("SELECT count(*) FROM $table") as Number).toLong())
 
-        val conflict = BoundStatement("UPDATE $table SET id = ? WHERE id = ?", listOf(5, 99), listOf(null, null), true)
+        val conflict =
+            BoundStatement(
+                "UPDATE $table SET id = ? WHERE id = ?",
+                listOf(5, 99),
+                listOf(null, null),
+                StatementKind.UPDATE,
+            )
         val failed =
             runCatching {
                 session
@@ -240,6 +247,32 @@ class RealDatabaseSmokeTest {
         session.run("ROLLBACK")
 
         assertEquals(0L, (session.single("SELECT count(*) FROM $table") as Number).toLong())
+    }
+
+    @ParameterizedTest
+    @EnumSource(DatabaseKind::class)
+    fun `an edit submit in idle AUTO mode right after a live cursor commits and restores auto-commit`(
+        kind: DatabaseKind,
+    ) {
+        val table = "smoke_idle_edit_${kind.name.lowercase()}"
+        val session = open(kind)
+        session.updated("CREATE TABLE $table (id INT PRIMARY KEY)")
+        val rows = session.rows(numbers(kind, 1234))
+        assertFalse(rows.cursor.closed, "the cursor is live (on PostgreSQL in a transaction of its own)")
+
+        val insert = BoundStatement("INSERT INTO $table (id) VALUES (?)", listOf(1), listOf(null), StatementKind.INSERT)
+        val autoCommit =
+            session
+                .withSession(changes = true) {
+                    EditSubmitter.submit(it, listOf(insert), autoCommitUserIdle = true)
+                    it.autoCommit
+                }.await()
+
+        assertTrue(autoCommit, "auto-commit is on again")
+        assertFalse(session.pendingTransaction)
+        val other = open(kind)
+        assertEquals(1L, (other.single("SELECT count(*) FROM $table") as Number).toLong(), "committed")
+        session.updated("DROP TABLE $table")
     }
 
     @ParameterizedTest

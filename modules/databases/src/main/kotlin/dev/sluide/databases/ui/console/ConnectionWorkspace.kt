@@ -52,6 +52,8 @@ class ConnectionWorkspace internal constructor(
     private val pendingEdits: (ResultArea) -> Boolean = { it.pendingEdits },
     /** Asks "Stop the running statements of <console>?" with the console's title; true to close it. */
     private val confirmStop: (String) -> Boolean = { askStop(window(), it) },
+    /** Whether a console's results run a submit of edits. */
+    private val submitRunning: (ResultArea) -> Boolean = { it.submitRunning },
 ) {
     internal val consoles = mutableListOf<Console>()
     private var counter = 0
@@ -104,6 +106,7 @@ class ConnectionWorkspace internal constructor(
                 override fun insertIntoConsole(text: String) = insert(text)
             }
         entry.unsubmittedEdits = { consoles.any { pendingEdits(it.results) } }
+        entry.submitRunning = { consoles.any { submitRunning(it.results) } }
         entry.session.addListener { _, _, session -> if (session == null) consoles.forEach { it.results.close() } }
     }
 
@@ -116,6 +119,12 @@ class ConnectionWorkspace internal constructor(
         val tab = Tab(title, pane.node)
         val console = Console(tab, pane, results)
         tab.setOnCloseRequest { event ->
+            // As a result tab: its outcome decides whether edits are left to discard, so closing waits for it.
+            if (submitRunning(results)) {
+                event.consume()
+                results.log(SUBMIT_RUNNING, error = true)
+                return@setOnCloseRequest
+            }
             val keepRunning = pane.running && !confirmStop(title)
             if (keepRunning || (pendingEdits(results) && !confirmDiscard())) event.consume()
         }
@@ -155,6 +164,7 @@ class ConnectionWorkspace internal constructor(
 
     private companion object {
         const val MAX_DIVIDER = 0.8
+        const val SUBMIT_RUNNING = "A submit is running; close the console when it has ended"
     }
 }
 

@@ -21,6 +21,7 @@ internal open class FakeSession(
 ) : DbSession {
     override var commitMode: CommitMode = config.commitMode
     override var pendingTransaction = false
+    override var statementTimeoutSeconds = 0
     override var running = false
     override var closed = false
 

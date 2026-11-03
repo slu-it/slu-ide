@@ -72,6 +72,9 @@ internal class ResultGrid(
     private var sortColumn = -1
     private var ascending = true
 
+    /** Takes the text of the open cell editor (see [commitOpenEditor]); null while none is open. */
+    private var openEditor: (() -> String?)? = null
+
     init {
         table.styleClass += "result-grid"
         table.selectionModel.isCellSelectionEnabled = true
@@ -208,10 +211,32 @@ internal class ResultGrid(
             server(columns[index])
             return
         }
-        ascending = if (sortColumn == index) !ascending else true
+        sortOnClient(index, if (sortColumn == index) !ascending else true)
+    }
+
+    /** The client sort of the rows shown as (data column, ascending), null when unsorted or sorted on the server. */
+    val clientSort: Pair<Int, Boolean>?
+        get() = if (onServerSort == null && sortColumn >= 0) sortColumn to ascending else null
+
+    /** Sorts the rows shown by data column [index] (a grid that sorts on the client). */
+    fun sortOnClient(
+        index: Int,
+        ascendingOrder: Boolean,
+    ) {
+        if (onServerSort != null || index !in columns.indices) return
+        ascending = ascendingOrder
         sortColumn = index
-        replaceRows(table.items.sortedWith(ClientSort.comparator(index, ascending)))
+        replaceRows(table.items.sortedWith(ClientSort.comparator(index, ascendingOrder)))
         markSort()
+    }
+
+    /**
+     * Hands the text of an open cell editor to [onCellEdit] as Enter does: null when none is open or the text was
+     * taken (the editor closes), else the error message (the editor stays open).
+     */
+    fun commitOpenEditor(): String? {
+        if (table.editingCell == null) openEditor = null
+        return openEditor?.invoke()
     }
 
     /** The arrow of a data tab: the column the ORDER BY sorts by, if it is exactly one column's sort (null: none). */
@@ -296,10 +321,14 @@ internal class ResultGrid(
             super.startEdit()
             if (!isEditing) return
             val field = TextField(CellFormat.full(item))
-            field.setOnAction {
-                val column = dataIndex[tableColumn] ?: return@setOnAction
-                if (onCellEdit?.invoke(index, column, field.text) == null) cancelEdit()
+            val commit = {
+                val column = dataIndex[tableColumn]
+                val message = if (column == null) null else onCellEdit?.invoke(index, column, field.text)
+                if (message == null) cancelEdit()
+                message
             }
+            openEditor = commit
+            field.setOnAction { commit() }
             field.setOnKeyPressed {
                 if (it.code == KeyCode.ESCAPE) {
                     cancelEdit()
@@ -313,6 +342,7 @@ internal class ResultGrid(
         }
 
         override fun cancelEdit() {
+            openEditor = null
             super.cancelEdit()
             graphic = null
             text = if (isEmpty) null else CellFormat.display(item)

@@ -1,6 +1,5 @@
 package dev.sluide.databases.ui.result
 
-import dev.sluide.databases.connect.CommitMode
 import dev.sluide.databases.result.CellFormat
 import dev.sluide.databases.result.DataEdits
 import dev.sluide.databases.result.Editabilities
@@ -49,8 +48,9 @@ internal interface EditingView {
 /**
  * Editing, the value viewer and the toolbar buttons for them, for one result view (ADR 0121, "Editing"). Editability
  * is worked out after each load: one table, a primary key in the result, a connection that is not read-only. The
- * [DataEdits] are created at the first edit from the rows shown and dropped when nothing is pending, so they always
- * match the grid's row order; every edit is mirrored into the grid's rows, which [marks] paints.
+ * [DataEdits] are created at the first edit that changes a value, from the rows shown, and dropped when nothing is
+ * pending; sorting is off only while they exist, so they always match the grid's row order. Every edit is mirrored
+ * into the grid's rows, which [marks] paints. Submit is [GridSubmit].
  */
 internal class GridEditing(
     private val host: ResultHost,
@@ -72,14 +72,35 @@ internal class GridEditing(
     private var verdict: Editability? = null
     private var tableRef: TableRef? = null
     private var token = 0
+
+    /** Counts the rows shown (loads and pages): a value viewer opened on older rows does not apply its text. */
+    private var shown = 0
     private var transposed = false
-    private var submitting = false
+
+    private val submitFlow =
+        GridSubmit(
+            host,
+            view,
+            object : SubmitSource {
+                override val edits: DataEdits? get() = this@GridEditing.edits
+                override val tableName: String? get() = this@GridEditing.tableName
+
+                override fun commitEditor(): String? = grid.commitOpenEditor()
+
+                override fun runningChanged() = refreshControls()
+
+                override fun submitted() {
+                    this@GridEditing.edits = null
+                    refreshControls()
+                }
+            },
+        ) { count, table -> confirmDelete(count, table) }
 
     private val addRow = button("mdi2t-table-row-plus-after", "Add Row") { addRow() }
     private val delete = button("mdi2t-table-row-remove", "Delete Rows") { deleteSelected() }
     private val setNull = button("mdi2n-null", "Set NULL") { setSelectedNull() }
     private val revert = button("mdi2u-undo", "Revert") { revertSelected() }
-    private val submit = button("mdi2c-check-bold", "Submit (Shortcut+Enter)") { submit() }
+    private val submit = button("mdi2c-check-bold", "Submit (Shortcut+Enter)") { submitFlow.submit() }
     private val lock =
         Label().apply {
             graphic = FontIcon("mdi2l-lock-outline")
@@ -95,7 +116,7 @@ internal class GridEditing(
             item("Delete Rows") { deleteSelected() },
             item("Set NULL") { setSelectedNull() },
             item("Revert") { revertSelected() },
-            item("Submit") { submit() },
+            item("Submit") { submitFlow.submit() },
         )
 
     /** The value viewer's context-menu item. */
@@ -104,7 +125,10 @@ internal class GridEditing(
     val editable: Boolean get() = verdict is Editability.Editable && !transposed
 
     /** A page or reload loads, or a submit runs: nothing is edited meanwhile. */
-    private val locked: Boolean get() = view.busy || submitting
+    private val locked: Boolean get() = view.busy || submitFlow.running
+
+    /** Whether a submit runs: the tab is not closed meanwhile. */
+    val submitRunning: Boolean get() = submitFlow.running
 
     val pending: Boolean get() = edits?.pending == true
 
@@ -119,18 +143,21 @@ internal class GridEditing(
         grid.contextMenu.items += openValue
         grid.table.selectionModel.selectedCells
             .addListener(InvalidationListener { refreshControls() })
+        grid.table.editingCellProperty().addListener(InvalidationListener { refreshControls() })
         val submitKey = KeyCodeCombination(KeyCode.ENTER, KeyCombination.SHORTCUT_DOWN)
         val valueKey = KeyCodeCombination(KeyCode.ENTER, KeyCombination.SHIFT_DOWN)
         val editEnter = KeyCodeCombination(KeyCode.ENTER)
         val editF2 = KeyCodeCombination(KeyCode.F2)
         grid.table.addEventFilter(KeyEvent.KEY_PRESSED) { event ->
+            // Submit also from an open cell editor: it takes the editor's text first.
+            if (submitKey.match(event) && editable) {
+                submitFlow.submit()
+                event.consume()
+                return@addEventFilter
+            }
             if (grid.table.editingCell != null) return@addEventFilter
             val handled =
                 when {
-                    submitKey.match(event) -> {
-                        editable.also { if (it) submit() }
-                    }
-
                     valueKey.match(event) -> {
                         true.also { openValue() }
                     }
@@ -181,6 +208,7 @@ internal class GridEditing(
     /** New content: works out the editability of [columns] (the key is read on the metadata connection). */
     fun onLoad(columns: List<ColumnInfo>) {
         val mine = ++token
+        shown++
         edits = null
         transposed = false
         verdict = null
@@ -228,6 +256,7 @@ internal class GridEditing(
     /** Another page is shown: edits belonged to the old rows. */
     fun onPage() {
         edits = null
+        shown++
         refreshControls()
     }
 
@@ -250,6 +279,8 @@ internal class GridEditing(
 
     /** The lock changed (a load started or ended): the actions and the cells follow it. */
     fun refreshControls() {
+        // Edits without a change must not keep the rows' order: they would key later edits on other rows.
+        if (edits?.pending == false) edits = null
         grid.onCellEdit = if (editable && !locked) ::commitCell else null
         val on = editable
         val readOnly = verdict as? Editability.ReadOnly
@@ -266,7 +297,7 @@ internal class GridEditing(
         delete.isDisable = !rows
         setNull.isDisable = !rows
         revert.isDisable = !rows || edits == null
-        submit.isDisable = locked || !pending
+        submit.isDisable = locked || !(pending || grid.table.editingCell != null)
         val disabled = listOf(addRow.isDisable, delete.isDisable, setNull.isDisable, revert.isDisable, submit.isDisable)
         menuItems.forEachIndexed { i, menuItem ->
             menuItem.isVisible = on
@@ -297,13 +328,13 @@ internal class GridEditing(
         return message
     }
 
+    /** The edits are created only once a value really changes (see [refreshControls]). */
     private fun setCell(
         row: Int,
         column: Int,
         text: String,
     ): String? {
-        val data = ensureEdits()
-        if (data.isDeleted(row)) return "Row ${row + 1} is deleted"
+        if (edits?.isDeleted(row) == true) return "Row ${row + 1} is deleted"
         if (text == CellFormat.full(grid.rows[row][column])) return null
         val value =
             try {
@@ -311,6 +342,7 @@ internal class GridEditing(
             } catch (e: IllegalArgumentException) {
                 return e.message ?: "Not a valid value"
             }
+        val data = ensureEdits()
         data.edit(row, column, value)
         grid.setCell(row, column, data.value(row, column))
         grid.refresh()
@@ -383,76 +415,24 @@ internal class GridEditing(
                 CellFormat.full(grid.rows[row][column]),
                 editable && !locked && !deleted(row),
             )
+        val before = shown
         val text = showValue(request) ?: return
-        if (request.editable && !locked) commitCell(row, column, text)
-    }
-
-    // Submit
-
-    private fun submit() {
-        val data = edits ?: return
-        if (!data.pending || locked) return
-        val session = host.entry.session.get()
-        if (session == null) {
-            view.say("Not connected", true)
+        if (!request.editable) return
+        // The dialog runs a nested event loop: a load or another page may have replaced the rows meanwhile.
+        if (before != shown || !editable || locked || deleted(row)) {
+            view.say(VALUE_NOT_APPLIED, true)
             return
         }
-        val statements =
-            try {
-                data.statements()
-            } catch (e: IllegalStateException) {
-                fail(e.message ?: "The edits cannot be submitted")
-                return
-            }
-        val deletes = statements.count { it.sql.startsWith("DELETE") }
-        if (deletes > 0 && idle(session) && !confirmDelete(deletes, tableName ?: "the table")) return
-        val manual = session.commitMode == CommitMode.MANUAL
-        submitting = true
-        refreshControls()
-        session
-            .withSession(changes = true) { conn -> EditSubmitter.submit(conn, statements, idle(session)) }
-            .whenComplete { _, error ->
-                host.fx {
-                    submitting = false
-                    if (error != null) {
-                        fail(message(error))
-                    } else {
-                        succeeded(data, statements.size, manual)
-                    }
-                }
-            }
-    }
-
-    /** Auto mode without a transaction of the user: a submit commits at once (decided on the session's thread). */
-    private fun idle(session: DbSession): Boolean = session.commitMode == CommitMode.AUTO && !session.pendingTransaction
-
-    /** The data is loaded again, so that what the database computed shows (also the page the cursor cached). */
-    private fun succeeded(
-        data: DataEdits,
-        count: Int,
-        manual: Boolean,
-    ) {
-        val needsRefresh = data.accepted().needsRefresh
-        edits = null
-        val text =
-            "Submitted $count ${if (count == 1) "change" else "changes"}" + if (manual) " (not committed yet)" else ""
-        host.log(text, false)
-        refreshControls()
-        view.reload(if (needsRefresh) "Reloaded to show values the database filled in" else text)
-    }
-
-    private fun fail(text: String) {
-        host.log("Submit failed: $text", true)
-        view.say(text, true)
-        refreshControls()
+        commitCell(row, column, text)
     }
 
     private fun message(error: Throwable): String {
-        val cause = if (error is CompletionException && error.cause != null) error.cause!! else error
+        val cause = (error as? CompletionException)?.cause ?: error
         return cause.message ?: cause.javaClass.simpleName
     }
 
     private companion object {
         const val STATEMENT_CHANGED_DATA = "The statement changed data; run a SELECT to edit"
+        const val VALUE_NOT_APPLIED = "The result changed; the value was not applied"
     }
 }

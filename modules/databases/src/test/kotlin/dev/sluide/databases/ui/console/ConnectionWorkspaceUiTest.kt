@@ -61,6 +61,7 @@ class ConnectionWorkspaceUiTest {
     private var stop = true
     private val stopAsked = mutableListOf<String>()
     private val pending = mutableSetOf<Int>()
+    private val submitting = mutableSetOf<Int>()
 
     @Start
     fun start(stage: Stage) {
@@ -84,6 +85,7 @@ class ConnectionWorkspaceUiTest {
                     stopAsked += it
                     stop
                 },
+                { area -> workspace.consoles.indexOfFirst { it.results === area } in submitting },
             )
         stage.scene = Scene(workspace.node as Parent, 900.0, 600.0)
         stage.show()
@@ -203,6 +205,23 @@ class ConnectionWorkspaceUiTest {
         robot.interact { requestClose(console(1)) }
         assertEquals(2, asked)
         assertTrue(fx(robot) { workspace.consoles.size == 1 })
+    }
+
+    @Test
+    fun `closing a console while a submit runs is refused without a question and says why`(robot: FxRobot) {
+        robot.interact { workspace.addButton.fire() }
+        pending += 1
+        submitting += 1
+        assertTrue(entry.unsubmittedEdits() && entry.submitRunning())
+        robot.interact { requestClose(console(1)) }
+        assertTrue(fx(robot) { console(1).tab.tabPane != null })
+        assertEquals(0, asked)
+        assertEquals(listOf<String>(), stopAsked)
+        val output = fx(robot) { ((console(1).results.node as TabPane).tabs[0].content as ListView<*>).items.toList() }
+        assertTrue(output.any { it.toString().contains("A submit is running; close the console when it has ended") })
+        submitting.clear()
+        robot.interact { requestClose(console(1)) }
+        assertEquals(1, asked, "afterwards the edits are asked about as before")
     }
 
     private fun requestClose(console: Console) {

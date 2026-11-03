@@ -13,6 +13,7 @@ import javafx.scene.input.Clipboard
 import javafx.scene.input.ClipboardContent
 import java.time.LocalTime
 import java.util.concurrent.CompletableFuture
+import java.util.concurrent.Executor
 
 private fun systemClipboard(text: String) {
     Clipboard.getSystemClipboard().setContent(ClipboardContent().apply { putString(text) })
@@ -35,6 +36,9 @@ class ResultArea(
 ) {
     /** Asks whether the unsubmitted edits of the tab with this title may be dropped; tests replace it. */
     internal var confirmDiscard: (String) -> Boolean = { EditQuestions.discard(tabs.scene?.window, it) }
+
+    /** Builds the text of an export of all rows; tests replace it. */
+    internal var exportExecutor: Executor = EXPORT_THREAD
 
     /** The primary key of a table, read on the metadata connection; tests replace it. */
     internal var primaryKeyLookup: (DbSession, TableRef) -> CompletableFuture<List<String>> = { session, ref ->
@@ -63,6 +67,8 @@ class ResultArea(
 
             override fun fx(action: Runnable) = this@ResultArea.fx.invoke(action)
 
+            override fun exportExecutor(): Executor = this@ResultArea.exportExecutor
+
             override fun logOutcome(outcome: StatementOutcome) = output.add(OutputText.line(clock(), outcome))
 
             override fun log(
@@ -90,6 +96,9 @@ class ResultArea(
 
     /** Whether any tab has unsubmitted edits. */
     val pendingEdits: Boolean get() = resultTabs().any { it.view.pendingEdits }
+
+    /** Whether a tab's submit runs: its edits are still pending and may yet be committed. */
+    val submitRunning: Boolean get() = resultTabs().any { it.view.submitRunning }
 
     private fun resultTabs(): List<ResultTab> = tabs.tabs.filterIsInstance<ResultTab>()
 

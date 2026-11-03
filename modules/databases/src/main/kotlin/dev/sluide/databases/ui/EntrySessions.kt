@@ -11,6 +11,7 @@ import java.util.concurrent.CompletableFuture
 
 private const val RUNNING_REASON = "A statement is running."
 private const val EDITS_REASON = "There are unsubmitted edits."
+private const val SUBMIT_REASON = "A submit of edits is running; it may still commit."
 
 /**
  * The sessions of the [entries] of a [DatabasesTabModel] (ADR 0121): connecting as a cancellable background task,
@@ -239,7 +240,8 @@ internal class EntrySessions(
 
     /**
      * What closing the session of [entry] loses: "<name>: uncommitted transaction (rolled back), statement running
-     * (cancelled), unsubmitted edits (lost)", or `null` if nothing.
+     * (cancelled), unsubmitted edits (lost)", or `null` if nothing. Edits being submitted are "submit running (may
+     * still commit)": the outcome is not known.
      */
     fun closeWarning(entry: ConnectionEntry): String? {
         val session = entry.session.get() ?: return null
@@ -247,7 +249,11 @@ internal class EntrySessions(
             listOfNotNull(
                 "uncommitted transaction (rolled back)".takeIf { session.pendingTransaction },
                 "statement running (cancelled)".takeIf { session.running },
-                "unsubmitted edits (lost)".takeIf { entry.unsubmittedEdits() },
+                if (entry.submitRunning()) {
+                    "submit running (may still commit)"
+                } else {
+                    "unsubmitted edits (lost)".takeIf { entry.unsubmittedEdits() }
+                },
             )
         return if (parts.isEmpty()) null else "${entry.config.get().name}: ${parts.joinToString(", ")}"
     }
@@ -317,6 +323,6 @@ internal class EntrySessions(
     ): List<String> =
         listOfNotNull(
             RUNNING_REASON.takeIf { session.running },
-            EDITS_REASON.takeIf { entry.unsubmittedEdits() },
+            if (entry.submitRunning()) SUBMIT_REASON else EDITS_REASON.takeIf { entry.unsubmittedEdits() },
         )
 }

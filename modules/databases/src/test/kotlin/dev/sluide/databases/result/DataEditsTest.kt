@@ -41,13 +41,13 @@ class DataEditsTest {
                     "UPDATE \"s\".\"t\" SET \"id\" = ?, \"name\" = ? WHERE \"id\" = ?",
                     listOf(10L, "A", 1L),
                     listOf(null, Types.OTHER, null),
-                    true,
+                    StatementKind.UPDATE,
                 ),
                 BoundStatement(
                     "UPDATE \"s\".\"t\" SET \"note\" = ? WHERE \"id\" = ?",
                     listOf("n", 2L),
                     listOf(Types.OTHER, null),
-                    true,
+                    StatementKind.UPDATE,
                 ),
             ),
             e.statements(),
@@ -87,8 +87,8 @@ class DataEditsTest {
         assertTrue(e.isDeleted(0))
         assertEquals(
             listOf(
-                BoundStatement("DELETE FROM `s`.`t` WHERE `id` = ?", listOf(1L), listOf(null), true),
-                BoundStatement("DELETE FROM `s`.`t` WHERE `id` = ?", listOf(3L), listOf(null), true),
+                BoundStatement("DELETE FROM `s`.`t` WHERE `id` = ?", listOf(1L), listOf(null), StatementKind.DELETE),
+                BoundStatement("DELETE FROM `s`.`t` WHERE `id` = ?", listOf(3L), listOf(null), StatementKind.DELETE),
             ),
             e.statements(),
         )
@@ -110,7 +110,7 @@ class DataEditsTest {
                     "DELETE FROM \"t\" WHERE \"id\" = ? AND \"name\" = ?",
                     listOf(2L, "b"),
                     listOf(null, Types.OTHER),
-                    true,
+                    StatementKind.DELETE,
                 ),
             ),
             e.statements(),
@@ -133,6 +133,7 @@ class DataEditsTest {
                     "INSERT INTO \"s\".\"t\" (\"name\", \"note\") VALUES (?, ?)",
                     listOf("n", null),
                     listOf(Types.OTHER, null),
+                    StatementKind.INSERT,
                 ),
             ),
             e.statements(),
@@ -242,6 +243,10 @@ class DataEditsTest {
         e.deleteRows(listOf(1))
         e.edit(e.addRow(), 1, "n")
         assertEquals(listOf(true, true, false), e.statements().map { it.expectOneRow })
+        assertEquals(
+            listOf(StatementKind.DELETE, StatementKind.UPDATE, StatementKind.INSERT),
+            e.statements().map { it.kind },
+        )
     }
 
     @Test

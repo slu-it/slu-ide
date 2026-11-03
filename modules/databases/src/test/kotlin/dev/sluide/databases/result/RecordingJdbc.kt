@@ -1,4 +1,4 @@
-package dev.sluide.databases.ui.result
+package dev.sluide.databases.result
 
 import java.lang.reflect.Proxy
 import java.sql.Connection
@@ -11,12 +11,14 @@ import java.util.concurrent.CopyOnWriteArrayList
 /**
  * A connection (JDK proxy) that records what is done to it in [log] (`autoCommit=false`, `prepare UPDATE …`,
  * `setObject 1=x type=1111`, `execute UPDATE …`, `commit`, `rollback`, `setSavepoint`, `rollback savepoint`, `release
- * savepoint`). [counts] gives the update count of each prepared SQL (default 1); [failOn] makes the SQL throw.
+ * savepoint`, `timeout 5`). [counts] gives the update count of each prepared SQL (default 1); [failOn] makes the SQL
+ * throw; [failAutoCommitOn] makes `setAutoCommit(true)` throw.
  */
 internal class RecordingJdbc(
     startAutoCommit: Boolean = true,
     private val counts: (String) -> Int = { 1 },
     private val failOn: (String) -> Boolean = { false },
+    private val failAutoCommitOn: Boolean = false,
 ) {
     val log = CopyOnWriteArrayList<String>()
     private var autoCommit = startAutoCommit
@@ -29,8 +31,9 @@ internal class RecordingJdbc(
                 }
 
                 "setAutoCommit" -> {
-                    autoCommit = args[0] as Boolean
                     log += "autoCommit=${args[0]}"
+                    if (failAutoCommitOn && args[0] == true) throw SQLException("connection broken", "08006")
+                    autoCommit = args[0] as Boolean
                 }
 
                 "commit" -> {
@@ -75,6 +78,10 @@ internal class RecordingJdbc(
                     false
                 }
 
+                "setQueryTimeout" -> {
+                    log += "timeout ${args[0]}"
+                }
+
                 "close" -> {}
 
                 else -> {
@@ -86,6 +93,10 @@ internal class RecordingJdbc(
     private fun statement(sql: String): PreparedStatement =
         proxy { method, args ->
             when (method) {
+                "setQueryTimeout" -> {
+                    log += "timeout ${args[0]}"
+                }
+
                 "setObject" -> {
                     log += "setObject ${args[0]}=${args[1]}" + if (args.size > 2) " type=${args[2]}" else ""
                 }

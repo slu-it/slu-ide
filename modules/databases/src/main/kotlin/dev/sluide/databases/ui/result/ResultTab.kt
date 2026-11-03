@@ -8,7 +8,8 @@ import org.kordamp.ikonli.javafx.FontIcon
 
 /**
  * A closable tab of the result area: a console result or, with [ref], the data tab of a table. A pinned tab shows a
- * pin and is not replaced by the next result.
+ * pin and is not replaced by the next result. Closing asks before unsubmitted edits are discarded and is refused while
+ * a submit runs.
  */
 internal class ResultTab(
     host: ResultHost,
@@ -27,7 +28,15 @@ internal class ResultTab(
     init {
         content = view.node
         isClosable = true
-        setOnCloseRequest { if (view.pendingEdits && !confirmDiscard(text)) it.consume() }
+        setOnCloseRequest {
+            if (view.submitRunning) {
+                // Its outcome decides whether edits are left to discard: closing waits for it.
+                it.consume()
+                view.say(ResultTabsLogic.SUBMIT_RUNNING, true)
+            } else if (view.pendingEdits && !confirmDiscard(text)) {
+                it.consume()
+            }
+        }
         setOnClosed { view.close() }
         val pin = MenuItem(ResultTabsLogic.pinLabel(false)).apply { setOnAction { setPinned(!pinned) } }
         val others = MenuItem("Close Other Result Tabs").apply { setOnAction { closeOthers(this@ResultTab) } }

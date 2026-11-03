@@ -11,15 +11,20 @@ import java.sql.Types
  * infers it from the column, so jsonb, enum, inet, interval, xml, arrays and `char(n)` accept text); MariaDB gets
  * null throughout.
  *
- * [expectOneRow] is set on UPDATE and DELETE: the submit must roll the batch back unless each of them affected exactly
+ * [expectOneRow] holds for UPDATE and DELETE: the submit must roll the batch back unless each of them affected exactly
  * one row (a key that matches nothing or several rows means the data changed under the grid).
  */
 data class BoundStatement(
     val sql: String,
     val params: List<Any?>,
     val types: List<Int?>,
-    val expectOneRow: Boolean = false,
-)
+    val kind: StatementKind,
+) {
+    val expectOneRow: Boolean get() = kind != StatementKind.INSERT
+}
+
+/** What a [BoundStatement] does. */
+enum class StatementKind { UPDATE, INSERT, DELETE }
 
 /**
  * What [DataEdits.accepted] leaves: the new [rows], and [needsRefresh] when a row without a key value (an added row
@@ -138,14 +143,19 @@ class DataEdits(
             val keyValues = keyIndexes.map { original[it] }
             check(keyValues.none { it == null }) { "Row ${rows.indexOf(r) + 1} has no key value" }
             if (r.deleted) {
-                deletes += bound(kind, "DELETE FROM $table WHERE $where", keyValues, expectOneRow = true)
+                deletes += bound(kind, "DELETE FROM $table WHERE $where", keyValues, StatementKind.DELETE)
                 continue
             }
             val changed = columns.indices.filter { !same(original[it], r.values[it]) }
             if (changed.isEmpty()) continue
             val set = changed.joinToString(", ") { "${SqlNames.quote(kind, columns[it].name)} = ?" }
             updates +=
-                bound(kind, "UPDATE $table SET $set WHERE $where", changed.map { r.values[it] } + keyValues, true)
+                bound(
+                    kind,
+                    "UPDATE $table SET $set WHERE $where",
+                    changed.map { r.values[it] } + keyValues,
+                    StatementKind.UPDATE,
+                )
         }
         return deletes + updates + inserts
     }
@@ -154,10 +164,10 @@ class DataEdits(
         kind: DatabaseKind,
         sql: String,
         params: List<Any?>,
-        expectOneRow: Boolean = false,
+        statementKind: StatementKind,
     ): BoundStatement {
         val types = params.map { if (kind == DatabaseKind.POSTGRESQL && it is String) Types.OTHER else null }
-        return BoundStatement(sql, params, types, expectOneRow)
+        return BoundStatement(sql, params, types, statementKind)
     }
 
     private fun insert(
@@ -175,11 +185,12 @@ class DataEdits(
                 } else {
                     "INSERT INTO $table DEFAULT VALUES"
                 }
-            return bound(kind, sql, emptyList())
+            return bound(kind, sql, emptyList(), StatementKind.INSERT)
         }
         val names = given.joinToString(", ") { SqlNames.quote(kind, columns[it].name) }
         val marks = given.joinToString(", ") { "?" }
-        return bound(kind, "INSERT INTO $table ($names) VALUES ($marks)", given.map { r.values[it] })
+        val sql = "INSERT INTO $table ($names) VALUES ($marks)"
+        return bound(kind, sql, given.map { r.values[it] }, StatementKind.INSERT)
     }
 
     /**

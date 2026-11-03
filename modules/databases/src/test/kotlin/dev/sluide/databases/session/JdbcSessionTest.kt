@@ -108,6 +108,7 @@ class JdbcSessionTest {
 
         val expected = if (seconds > 0) listOf("session: queryTimeout=7") else emptyList()
         assertEquals(expected, db.log.filter { "queryTimeout" in it })
+        assertEquals(seconds, session.statementTimeoutSeconds, "what withSession work (edit submits) sets")
     }
 
     @Test

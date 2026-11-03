@@ -20,12 +20,12 @@ internal object ResultTabsLogic {
     private const val MIN_PAGE_SIZE = 10
     private const val MAX_PAGE_SIZE = 10_000
 
-    /** The index (among the result tabs, Output not counted) of the first unpinned console tab without pending edits, else null: add one. */
+    /**
+     * The index (among the result tabs, Output not counted) of the first unpinned console tab without pending edits,
+     * else null: add one.
+     */
     fun replaceIndex(tabs: List<TabInfo>): Int? =
-        tabs.indexOfFirst { !it.pinned && !it.data && !it.pendingEdits }.takeIf {
-            it >=
-                0
-        }
+        tabs.indexOfFirst { !it.pinned && !it.data && !it.pendingEdits }.takeIf { it >= 0 }
 
     /** The one table all columns come from, else "Result". */
     fun title(columns: List<ColumnInfo>): String {
@@ -35,6 +35,9 @@ internal object ResultTabsLogic {
 
     /** The tooltip of what is off while edits are pending. */
     const val PENDING_TIP = "Submit or revert the edits first"
+
+    /** The status when a tab is closed while its submit runs (closing is refused until it ends). */
+    const val SUBMIT_RUNNING = "A submit is running; close the tab when it has ended"
 
     /** The tooltip of what is off while the grid shows the transposed rows. */
     const val TRANSPOSED_TIP = "Turn Transpose off first"

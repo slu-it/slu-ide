@@ -410,7 +410,7 @@ class DatabasesTabModelSessionsTest {
     }
 
     @Test
-    fun `close warnings name each connection with a pending transaction, a running statement or unsubmitted edits`() {
+    fun `close warnings name each connection with a pending transaction, a running statement, edits or a submit`() {
         f.store.save(
             project,
             listOf(orders, orders.copy(id = "b", name = "billing"), orders.copy(id = "c", name = "c")),
@@ -425,11 +425,14 @@ class DatabasesTabModelSessionsTest {
         a.pendingTransaction = true
         b.running = true
         second.unsubmittedEdits = { true }
+        third.unsubmittedEdits = { true }
+        third.submitRunning = { true }
 
         assertEquals(
             listOf(
                 "orders-dev: uncommitted transaction (rolled back)",
                 "billing: statement running (cancelled), unsubmitted edits (lost)",
+                "c: submit running (may still commit)",
             ),
             f.model.closeWarnings(),
         )

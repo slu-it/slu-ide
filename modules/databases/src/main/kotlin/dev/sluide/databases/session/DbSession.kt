@@ -19,6 +19,12 @@ interface DbSession : AutoCloseable {
     val running: Boolean
     val closed: Boolean
 
+    /**
+     * The statement timeout setting in seconds (0: none), read when asked. `withSession` work sets it on its own
+     * statements (edit submits), since only [execute] applies it.
+     */
+    val statementTimeoutSeconds: Int
+
     /** Switching MANUAL→AUTO commits a pending transaction (JDBC semantics); the UI asks before. */
     fun setCommitMode(mode: CommitMode): CompletableFuture<Unit>
 

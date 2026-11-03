@@ -1,6 +1,5 @@
-package dev.sluide.databases.ui.result
+package dev.sluide.databases.result
 
-import dev.sluide.databases.result.BoundStatement
 import java.sql.SQLException
 import java.sql.Types
 import kotlin.test.Test
@@ -10,8 +9,13 @@ import kotlin.test.assertTrue
 
 class EditSubmitterTest {
     private val update =
-        BoundStatement("UPDATE t SET a = ? WHERE id = ?", listOf("x", 1L), listOf(Types.OTHER, null), true)
-    private val insert = BoundStatement("INSERT INTO t (a) VALUES (?)", listOf("y"), listOf(null))
+        BoundStatement(
+            "UPDATE t SET a = ? WHERE id = ?",
+            listOf("x", 1L),
+            listOf(Types.OTHER, null),
+            StatementKind.UPDATE,
+        )
+    private val insert = BoundStatement("INSERT INTO t (a) VALUES (?)", listOf("y"), listOf(null), StatementKind.INSERT)
 
     @Test
     fun `own transaction commits and restores auto-commit`() {
@@ -42,6 +46,33 @@ class EditSubmitterTest {
         assertEquals("boom", error.message)
         assertEquals(listOf("rollback", "autoCommit=true"), jdbc.log.takeLast(2))
         assertTrue("commit" !in jdbc.log)
+    }
+
+    @Test
+    fun `a failure to restore auto-commit does not hide the error of the submit`() {
+        val jdbc = RecordingJdbc(startAutoCommit = true, failOn = { it == insert.sql }, failAutoCommitOn = true)
+        val error =
+            assertFailsWith<SQLException> { EditSubmitter.submit(jdbc.connection, listOf(update, insert), true) }
+        assertEquals("boom", error.message)
+        assertEquals(listOf("connection broken"), error.suppressed.map { it.message })
+    }
+
+    @Test
+    fun `a failure to restore auto-commit after the commit does not fail the submit`() {
+        val jdbc = RecordingJdbc(startAutoCommit = true, failAutoCommitOn = true)
+        EditSubmitter.submit(jdbc.connection, listOf(update), autoCommitUserIdle = true)
+        assertEquals(listOf("commit", "autoCommit=true"), jdbc.log.takeLast(2))
+    }
+
+    @Test
+    fun `every statement gets the statement timeout`() {
+        val jdbc = RecordingJdbc(startAutoCommit = true)
+        EditSubmitter.submit(jdbc.connection, listOf(update), autoCommitUserIdle = false, timeoutSeconds = 7)
+        assertEquals(
+            listOf("timeout 7", "sql SAVEPOINT db_edit", "prepare ${update.sql}", "timeout 7"),
+            jdbc.log.take(4),
+        )
+        assertEquals(listOf("timeout 7", "sql RELEASE SAVEPOINT db_edit"), jdbc.log.takeLast(2))
     }
 
     @Test

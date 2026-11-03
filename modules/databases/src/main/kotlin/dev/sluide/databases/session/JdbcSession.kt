@@ -63,6 +63,8 @@ internal class JdbcSession(
 
     override val closed get() = closing.get()
 
+    override val statementTimeoutSeconds: Int get() = timeoutSeconds()
+
     private val transactions =
         SessionTransactions(
             session,

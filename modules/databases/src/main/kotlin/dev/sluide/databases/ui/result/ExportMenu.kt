@@ -1,5 +1,7 @@
 package dev.sluide.databases.ui.result
 
+import dev.sluide.backgroundtasks.NamedThreads
+import dev.sluide.databases.connect.DatabaseKind
 import dev.sluide.databases.result.ExportFormat
 import dev.sluide.databases.result.ResultExport
 import dev.sluide.databases.session.ColumnInfo
@@ -10,6 +12,10 @@ import javafx.scene.control.MenuButton
 import javafx.scene.control.MenuItem
 import javafx.scene.control.Tooltip
 import org.kordamp.ikonli.javafx.FontIcon
+import java.util.concurrent.Executor
+
+/** Builds the export texts of all rows; its thread ends when idle. */
+internal val EXPORT_THREAD: Executor = NamedThreads.single("sluide-db-export")
 
 /** What the export menu needs of the area the result sits in. */
 internal interface ExportHost {
@@ -19,6 +25,9 @@ internal interface ExportHost {
 
     /** Runs [action] on the FX thread. */
     fun fx(action: Runnable)
+
+    /** Where the text of all rows is built, off the FX thread. */
+    fun exportExecutor(): Executor
 
     fun copyToClipboard(text: String)
 
@@ -52,7 +61,7 @@ internal interface ExportSource {
 /**
  * The export and copy actions of a result: the toolbar's [button], and [copyMenus] and [scratchMenu] for the grid's
  * context menu. Copy and Open as Scratch File work on the selection or on all rows (read again from the cursor, at
- * most the fetch cap; the text is built on the thread of the session, off the FX thread).
+ * most the fetch cap; the text is built on the host's export executor, off the FX thread).
  */
 internal class ExportMenu(
     private val host: ExportHost,
@@ -101,20 +110,11 @@ internal class ExportMenu(
         }
     }
 
-    private fun write(
-        format: ExportFormat,
-        columns: List<ColumnInfo>,
-        rows: List<List<Any?>>,
-    ): String =
-        ResultExport.write(
-            format,
-            host.entry.config
-                .get()
-                .kind,
-            columns,
-            rows,
-            source.tableName ?: "result",
-        )
+    /** The database kind and the INSERT target, read on the FX thread. */
+    private fun target(): Pair<DatabaseKind, String> =
+        host.entry.config
+            .get()
+            .kind to (source.tableName ?: "result")
 
     private fun selected(
         format: ExportFormat,
@@ -122,7 +122,8 @@ internal class ExportMenu(
     ) {
         val (columns, rows) = source.selection() ?: return
         if (format == ExportFormat.SQL_INSERT && source.transposed) return
-        deliver(format, write(format, columns, rows))
+        val (kind, table) = target()
+        deliver(format, ResultExport.write(format, kind, columns, rows, table))
     }
 
     private fun all(
@@ -135,10 +136,15 @@ internal class ExportMenu(
             return
         }
         source.say("Exporting…", false)
+        val (kind, table) = target()
+        val columns = cursor.columns
         cursor
             .fetchAll(host.fetchAllCap())
-            .thenApply { rows -> rows.size to write(format, cursor.columns, rows) }
-            .whenComplete { result, error ->
+            // Async also when the rows are cached and the future is complete: the text is never built on FX.
+            .thenApplyAsync(
+                { rows -> rows.size to ResultExport.write(format, kind, columns, rows, table) },
+                host.exportExecutor(),
+            ).whenComplete { result, error ->
                 host.fx {
                     if (error != null) {
                         val cause = error.cause ?: error

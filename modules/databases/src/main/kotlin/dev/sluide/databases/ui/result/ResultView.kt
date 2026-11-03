@@ -10,7 +10,6 @@ import dev.sluide.databases.session.Page
 import dev.sluide.databases.session.RowCursor
 import dev.sluide.databases.session.StatementOutcome
 import dev.sluide.databases.sql.SqlSplitter
-import dev.sluide.databases.ui.ConnectionEntry
 import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.control.Label
@@ -94,7 +93,7 @@ internal class ResultView(
             }
 
             override fun reload(note: String) {
-                this@ResultView.reload(note)
+                this@ResultView.reload(note, keepView = true)
             }
         }
     private val editing: GridEditing = GridEditing(host, grid, viewControls, host::primaryKey)
@@ -103,6 +102,12 @@ internal class ResultView(
 
     /** Set by an edit submit that reloads: the status after the new load. */
     private var afterLoad: String? = null
+
+    /** What a reload after a submit shows again: the page index and the client sort of the grid. */
+    private data class Shown(
+        val pageIndex: Int,
+        val sort: Pair<Int, Boolean>?,
+    )
 
     /**
      * Counts the contents and requests of this view: a page, reload or resize answer that finds a newer number was
@@ -121,6 +126,15 @@ internal class ResultView(
 
     /** Unsubmitted edits: the tab is kept, and paging, sorting, Reload and the filter are off. */
     val pendingEdits: Boolean get() = editing.pending
+
+    /** A submit of the edits runs: the tab is not closed until it ends. */
+    val submitRunning: Boolean get() = editing.submitRunning
+
+    /** A line in the status of the toolbar, red when [error]. */
+    fun say(
+        text: String,
+        error: Boolean,
+    ) = viewControls.say(text, error)
 
     /** The editing controller (tests replace its value viewer). */
     internal val gridEditing: GridEditing get() = editing
@@ -290,10 +304,14 @@ internal class ResultView(
         refreshBar()
     }
 
-    /** Shows the page [future] gives; [adopt] becomes the cursor only once it did (a new page size). */
+    /**
+     * Shows the page [future] gives; [adopt] becomes the cursor only once it did (a new page size); [then] runs after
+     * the page is shown.
+     */
     private fun fetch(
         future: CompletableFuture<Page>?,
         adopt: RowCursor? = null,
+        then: ((Page) -> Unit)? = null,
     ) {
         if (future == null || closed) return
         val mine = ++generation
@@ -309,6 +327,7 @@ internal class ResultView(
                     if (adopt != null) cursor = adopt
                     showPageSize()
                     show(result)
+                    then?.invoke(result)
                 }
             }
         }
@@ -356,10 +375,17 @@ internal class ResultView(
         reload()
     }
 
-    /** Runs the statement again (a data tab: its SELECT with the WHERE and ORDER BY of the fields). */
-    fun reload(note: String? = null) {
+    /**
+     * Runs the statement again (a data tab: its SELECT with the WHERE and ORDER BY of the fields). [keepView] (after a
+     * submit) shows the page index shown before again, and the client sort.
+     */
+    fun reload(
+        note: String? = null,
+        keepView: Boolean = false,
+    ) {
         if (closed || pendingEdits || transposed || !reloadAllowed()) return
         afterLoad = note
+        val before = if (keepView) Shown(page?.index ?: 0, grid.clientSort) else null
         val session = host.entry.session.get()
         if (session == null) {
             fail("Not connected")
@@ -383,11 +409,48 @@ internal class ResultView(
                 }
                 host.logOutcome(outcome)
                 when (outcome) {
-                    is StatementOutcome.Rows -> load(outcome)
-                    is StatementOutcome.Failed -> fail(outcome.message, logIt = false)
-                    is StatementOutcome.Cancelled -> fail("Cancelled", logIt = false)
-                    is StatementOutcome.Updated -> fail("Not a query", logIt = false)
+                    is StatementOutcome.Rows -> {
+                        load(outcome)
+                        if (before != null) restore(before, note)
+                    }
+
+                    is StatementOutcome.Failed -> {
+                        fail(outcome.message, logIt = false)
+                    }
+
+                    is StatementOutcome.Cancelled -> {
+                        fail("Cancelled", logIt = false)
+                    }
+
+                    is StatementOutcome.Updated -> {
+                        fail("Not a query", logIt = false)
+                    }
                 }
+            }
+        }
+    }
+
+    /**
+     * Goes back to [before]'s page (the last one when it now lies beyond the end, as after deleting the rows of the
+     * last page) and its client sort; [note] stays the status.
+     */
+    private fun restore(
+        before: Shown,
+        note: String?,
+    ) {
+        val sort = { before.sort?.let { (column, ascending) -> grid.sortOnClient(column, ascending) } }
+        val c = cursor
+        if (before.pageIndex == 0 || c == null) {
+            sort()
+            return
+        }
+        afterLoad = note
+        fetch(c.page(before.pageIndex)) { shownPage ->
+            if (shownPage.rows.isEmpty()) {
+                afterLoad = note
+                fetch(c.lastPage(host.fetchAllCap())) { sort() }
+            } else {
+                sort()
             }
         }
     }

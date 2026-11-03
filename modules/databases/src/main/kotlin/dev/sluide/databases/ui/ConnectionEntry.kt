@@ -54,8 +54,11 @@ class ConnectionEntry internal constructor(
     /** The session's commit mode; the config's while not connected. */
     val commitMode: ReadOnlyObjectProperty<CommitMode> = commitModeWrapper.readOnlyProperty
 
-    /** Set by the results package: whether there are unsubmitted grid edits. */
+    /** Set by the results package: whether there are unsubmitted grid edits (also while they are being submitted). */
     var unsubmittedEdits: () -> Boolean = { false }
+
+    /** Set by the results package: whether a submit of grid edits runs (it may still commit). */
+    var submitRunning: () -> Boolean = { false }
 
     /** What the tree asks of the middle pane; set by the workspace when it is created. */
     var workspaceActions: WorkspaceActions? = null
