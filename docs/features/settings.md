@@ -36,6 +36,11 @@
   full path. Lives in the `docker` module (`DockerSettings`, `DockerSettingsPage` with `DockerSettingsPageModel`,
   package `dev.sluide.docker.settings`); a window that uses Docker connects again when it changes
   ([ADR 0117](../adr/0117-docker-through-the-cli.md)).
+- Databases: rows per result page (`databases.pageSize`, default 500, 10 to 10,000), the most rows Last and export
+  fetch (`databases.fetchAllCap`, default 100,000, 1,000 to 10,000,000) and the statement timeout in seconds
+  (`databases.statementTimeoutSeconds`, default 0 for none, up to 86,400). They apply at once. Lives in the
+  `databases` module (`DatabasesSettings`, `DatabasesSettingsPage` with `DatabasesSettingsPageModel`, package
+  `dev.sluide.databases.settings`; [ADR 0121](../adr/0121-databases-tab.md)).
 - Structure: `FontSpec`, `FontStyle`, `FontArea` (values), `SettingsStore` (properties file), `FontSettings` (Spring
   bean, properties per area), `SettingsPage`/`SettingsPages` (pages as beans), `SettingsDialog`, `FontsPage` with
   `FontsPageModel` (drafts), `Theme`, `ThemeSettings` (Spring bean, theme and colour scheme), `ThemedWindows` (applies
