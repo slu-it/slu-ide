@@ -380,6 +380,36 @@ class DatabasesTabModelSessionsTest {
     }
 
     @Test
+    fun `commit and rollback with a callback report the outcome there instead of the dialog`() {
+        val session = f.connected(entry)
+        val done = mutableListOf<Throwable?>()
+
+        f.model.commit(entry) {
+            done += it
+            true
+        }
+        val failure = SQLException("could not serialize access")
+        session.ends = failure
+        f.model.rollback(entry) {
+            done += it
+            true
+        }
+
+        assertEquals(listOf<Throwable?>(null, failure), done)
+        assertEquals(emptyList<Pair<String, String>>(), f.dialogs.errors)
+    }
+
+    @Test
+    fun `a failure the callback did not handle still shows the error dialog`() {
+        val session = f.connected(entry)
+        session.ends = SQLException("gone")
+
+        f.model.commit(entry) { false }
+
+        assertEquals("Commit failed" to "orders-dev: gone", f.dialogs.errors.single())
+    }
+
+    @Test
     fun `close warnings name each connection with a pending transaction, a running statement or unsubmitted edits`() {
         f.store.save(
             project,

@@ -4,17 +4,24 @@ import dev.sluide.databases.connect.CommitMode
 import dev.sluide.databases.connect.ConnectionConfig
 import dev.sluide.databases.connect.DatabaseKind
 import dev.sluide.databases.result.TableRef
+import dev.sluide.databases.session.ColumnInfo
+import dev.sluide.databases.session.StatementOutcome
 import dev.sluide.databases.sql.QueryHistory
 import dev.sluide.databases.ui.ConnectionEntry
 import dev.sluide.databases.ui.ModelFixture
 import dev.sluide.databases.ui.result.ExecutingSession
+import dev.sluide.databases.ui.result.FakeCursor
+import dev.sluide.databases.ui.result.OutputLine
 import javafx.beans.property.SimpleStringProperty
 import javafx.event.Event
 import javafx.scene.Parent
 import javafx.scene.Scene
+import javafx.scene.control.ListView
 import javafx.scene.control.TabPane
+import javafx.scene.control.TextField
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
+import javafx.scene.layout.Pane
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
@@ -51,6 +58,8 @@ class ConnectionWorkspaceUiTest {
     private val mac = System.getProperty("os.name").lowercase().contains("mac")
     private var discard = true
     private var asked = 0
+    private var stop = true
+    private val stopAsked = mutableListOf<String>()
     private val pending = mutableSetOf<Int>()
 
     @Start
@@ -71,6 +80,10 @@ class ConnectionWorkspaceUiTest {
                     discard
                 },
                 { area -> workspace.consoles.indexOfFirst { it.results === area } in pending },
+                {
+                    stopAsked += it
+                    stop
+                },
             )
         stage.scene = Scene(workspace.node as Parent, 900.0, 600.0)
         stage.show()
@@ -158,10 +171,10 @@ class ConnectionWorkspaceUiTest {
     }
 
     @Test
-    fun `consoles are added with the plus tab and the last one cannot be closed`(robot: FxRobot) {
+    fun `consoles are added with the New Console button and the last one cannot be closed`(robot: FxRobot) {
         assertEquals(listOf("Console"), fx(robot) { workspace.consoles.map { it.tab.text } })
         assertFalse(fx(robot) { console().tab.isClosable })
-        robot.interact { workspace.tabs.selectionModel.select(workspace.tabs.tabs.last()) }
+        robot.interact { workspace.addButton.fire() }
         assertEquals(listOf("Console", "Console 2"), fx(robot) { workspace.consoles.map { it.tab.text } })
         assertSame(console(1).tab, fx(robot) { workspace.tabs.selectionModel.selectedItem })
         assertTrue(fx(robot) { workspace.consoles.all { it.tab.isClosable } })
@@ -172,7 +185,7 @@ class ConnectionWorkspaceUiTest {
 
     @Test
     fun `the bottom follows the selected console`(robot: FxRobot) {
-        robot.interact { workspace.tabs.selectionModel.select(workspace.tabs.tabs.last()) }
+        robot.interact { workspace.addButton.fire() }
         assertSame(console(1).results.node, fx(robot) { bottom() })
         robot.interact { workspace.tabs.selectionModel.select(console(0).tab) }
         assertSame(console(0).results.node, fx(robot) { bottom() })
@@ -180,7 +193,7 @@ class ConnectionWorkspaceUiTest {
 
     @Test
     fun `closing a console with pending edits asks, and Cancel keeps it`(robot: FxRobot) {
-        robot.interact { workspace.tabs.selectionModel.select(workspace.tabs.tabs.last()) }
+        robot.interact { workspace.addButton.fire() }
         pending += 1
         discard = false
         robot.interact { requestClose(console(1)) }
@@ -269,7 +282,7 @@ class ConnectionWorkspaceUiTest {
 
     @Test
     fun `workspaceActions openData reaches the selected console's results`(robot: FxRobot) {
-        robot.interact { workspace.tabs.selectionModel.select(workspace.tabs.tabs.last()) }
+        robot.interact { workspace.addButton.fire() }
         robot.interact {
             entry.workspaceActions!!.openData(TableRef(DatabaseKind.POSTGRESQL, "public", "users"))
         }
@@ -295,6 +308,155 @@ class ConnectionWorkspaceUiTest {
             entry.workspaceActions!!.insertIntoConsole("x")
         }
         assertEquals("x", fx(robot) { console().pane.editor.text })
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun output(console: Console) =
+        ((console.results.node as TabPane).tabs[0].content as ListView<OutputLine>).items.map {
+            it.text.substringAfter(" ").trim() to
+                it.error
+        }
+
+    private val columns = listOf(ColumnInfo("id", "id", "int4", 4, null, null, false, false))
+
+    private fun showRows(console: Console): FakeCursor {
+        val cursor = FakeCursor(columns, listOf(listOf<Any?>(1)))
+        console.results.show(StatementOutcome.Rows("select 1", 1, columns, cursor, cursor.firstPage()))
+        return cursor
+    }
+
+    @Test
+    fun `Commit logs Committed and Roll Back logs Rolled back`(robot: FxRobot) {
+        fake.pendingTransaction = true
+        robot.interact {
+            entry.setPending(true)
+            console()
+                .pane.bar.commit
+                .fire()
+            console()
+                .pane.bar.rollback
+                .fire()
+        }
+        assertEquals(listOf("Committed" to false, "Rolled back" to false), fx(robot) { output(console()) })
+    }
+
+    @Test
+    fun `a failed Commit logs the error in red and no Committed`(robot: FxRobot) {
+        fake.pendingTransaction = true
+        fake.ends = java.sql.SQLException("could not serialize")
+        robot.interact {
+            entry.setPending(true)
+            console()
+                .pane.bar.commit
+                .fire()
+        }
+        assertEquals(listOf("could not serialize" to true), fx(robot) { output(console()) })
+    }
+
+    @Test
+    fun `a disconnect closes the cursors of every console, the tabs stay`(robot: FxRobot) {
+        robot.interact { workspace.addButton.fire() }
+        val cursors = fx(robot) { workspace.consoles.map { showRows(it) } }
+        robot.interact { entry.ended(null) }
+        assertTrue(cursors.all { it.closed })
+        assertEquals(2, fx(robot) { workspace.consoles.size })
+    }
+
+    @Test
+    fun `closing a console closes its results`(robot: FxRobot) {
+        robot.interact { workspace.addButton.fire() }
+        val cursor = fx(robot) { showRows(console(1)) }
+        robot.interact { requestClose(console(1)) }
+        assertTrue(cursor.closed)
+    }
+
+    @Test
+    fun `closing a console that runs asks, Cancel keeps it and the sequence`(robot: FxRobot) {
+        robot.interact { workspace.addButton.fire() }
+        fake.defer = true
+        robot.interact {
+            console(1).pane.editor.replaceText("select 1")
+            console(1).pane.run()
+        }
+        stop = false
+        robot.interact { requestClose(console(1)) }
+        assertEquals(listOf("Console 2"), stopAsked)
+        assertEquals(2, fx(robot) { workspace.consoles.size })
+        stop = true
+        robot.interact { requestClose(console(1)) }
+        assertEquals(1, fx(robot) { workspace.consoles.size })
+        assertEquals(listOf("cancel"), fake.calls)
+        assertEquals(listOf("Console 2", "Console 2"), stopAsked)
+    }
+
+    @Test
+    fun `another console cannot run while one does`(robot: FxRobot) {
+        robot.interact { workspace.addButton.fire() }
+        fake.defer = true
+        robot.interact {
+            console(0).pane.editor.replaceText("select 1")
+            console(1).pane.editor.replaceText("select 2")
+            console(0).pane.run()
+            console(1).pane.run()
+        }
+        assertEquals(listOf("select 1"), fake.executed.map { it.first })
+        assertTrue(
+            fx(robot) {
+                console(1)
+                    .pane.bar.run.isDisable
+            },
+        )
+    }
+
+    @Test
+    fun `Shortcut+F2 cancels`(robot: FxRobot) {
+        robot.interact { key(console().pane.editor.node, KeyCode.F2, shortcut = true) }
+        assertEquals(listOf("cancel"), fake.calls)
+    }
+
+    @Test
+    fun `Shortcut+Alt+Shift+Enter commits only with a pending transaction`(robot: FxRobot) {
+        robot.interact { key(console().pane.editor.node, KeyCode.ENTER, shortcut = true, alt = true, shift = true) }
+        assertTrue(fake.calls.isEmpty())
+        fake.pendingTransaction = true
+        robot.interact {
+            entry.setPending(true)
+            key(console().pane.editor.node, KeyCode.ENTER, shortcut = true, alt = true, shift = true)
+        }
+        assertEquals(listOf("commit"), fake.calls)
+        assertTrue(fake.executed.isEmpty(), "not taken for Run")
+    }
+
+    @Test
+    fun `Shortcut+Alt+E shows the history`(robot: FxRobot) {
+        var shown = 0
+        robot.interact {
+            console().pane.showHistory = { shown++ }
+            key(console().pane.editor.node, KeyCode.E, shortcut = true, alt = true)
+        }
+        assertEquals(1, shown)
+    }
+
+    @Test
+    fun `keys outside the editor, in the toolbar, do not run`(robot: FxRobot) {
+        robot.interact {
+            console().pane.editor.replaceText("select 1")
+            key(console().pane.bar.node, KeyCode.ENTER, shortcut = true)
+        }
+        assertTrue(fake.executed.isEmpty())
+    }
+
+    @Test
+    fun `only nodes inside the editor that are not text fields count as the editor`(robot: FxRobot) {
+        val field = TextField()
+        val inner = Pane()
+        val root = Pane(inner, Pane(field))
+        robot.interact {
+            assertTrue(insideEditor(inner, root))
+            assertFalse(insideEditor(field, root), "a text field, like a find bar field")
+            assertFalse(insideEditor(Pane(), root))
+            assertFalse(insideEditor(null, root))
+        }
     }
 
     @Test

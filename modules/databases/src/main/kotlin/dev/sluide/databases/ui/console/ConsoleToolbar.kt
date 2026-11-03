@@ -3,6 +3,7 @@ package dev.sluide.databases.ui.console
 import dev.sluide.databases.connect.CommitMode
 import dev.sluide.databases.ui.ConnectionEntry
 import dev.sluide.databases.ui.DatabasesTabModel
+import javafx.beans.InvalidationListener
 import javafx.beans.binding.Bindings
 import javafx.geometry.Orientation
 import javafx.geometry.Pos
@@ -37,6 +38,7 @@ internal class ConsoleToolbar(
     private val entry: ConnectionEntry,
     private val model: DatabasesTabModel,
     actions: ConsoleActions,
+    private val gate: RunGate = RunGate(),
 ) {
     private fun icon(
         ikon: Ikon,
@@ -71,6 +73,8 @@ internal class ConsoleToolbar(
             run,
             cancel,
             separator(),
+            // The mode toggle sits with the transaction buttons: mode controls belong to the transaction; the far-right
+            // rule of docs/ui-conventions.md is for view-mode toggles.
             HBox(auto, manual).apply { styleClass += "console-mode" },
             commit,
             rollback,
@@ -84,16 +88,17 @@ internal class ConsoleToolbar(
         }
 
     private var syncing = false
+    private val modeListener = InvalidationListener { sync() }
 
     init {
-        run.disableProperty().bind(entry.running)
+        run.disableProperty().bind(entry.running.or(gate.busy))
         cancel.disableProperty().bind(entry.running.not())
         commit.disableProperty().bind(entry.pendingTransaction.not())
         rollback.disableProperty().bind(entry.pendingTransaction.not())
         schema.visibleProperty().bind(Bindings.isNotEmpty(entry.metadata.defaultSchema))
         sync()
-        entry.commitMode.addListener { _, _, _ -> sync() }
-        group.selectedToggleProperty().addListener { _, old, selected ->
+        entry.commitMode.addListener(modeListener)
+        group.selectedToggleProperty().addListener { _, _, selected ->
             if (syncing) return@addListener
             if (selected == null) {
                 // A click on the selected button deselects it: keep the mode.
@@ -117,6 +122,14 @@ internal class ConsoleToolbar(
     }
 
     private fun separator() = Separator(Orientation.VERTICAL)
+
+    /** The console is closed: lets go of the entry's properties, which outlive it. */
+    fun dispose() {
+        entry.commitMode.removeListener(modeListener)
+        listOf(run, cancel, commit, rollback).forEach { it.disableProperty().unbind() }
+        schema.textProperty().unbind()
+        schema.visibleProperty().unbind()
+    }
 
     /** Shows the entry's commit mode in the toggle. */
     private fun sync() {

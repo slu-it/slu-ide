@@ -4,6 +4,7 @@ import dev.sluide.databases.session.StatementOutcome
 import dev.sluide.databases.sql.QueryHistory
 import dev.sluide.databases.sql.RunChoice
 import dev.sluide.databases.sql.SqlStatement
+import dev.sluide.databases.ui.ConnectFailures
 import dev.sluide.databases.ui.ConnectionEntry
 import dev.sluide.databases.ui.DatabasesTabModel
 import dev.sluide.databases.ui.result.ResultArea
@@ -11,7 +12,6 @@ import dev.sluide.fileviewers.CodeEditors
 import dev.sluide.fileviewers.Highlighters
 import dev.sluide.fileviewers.TextEditor
 import javafx.application.Platform
-import javafx.beans.value.ChangeListener
 import javafx.beans.value.ObservableValue
 import javafx.scene.Node
 import javafx.scene.control.TextInputControl
@@ -20,6 +20,15 @@ import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
 import javafx.scene.input.KeyEvent
 import javafx.scene.layout.BorderPane
+
+/** Whether [target] is in the editor's text under [editorNode], not e.g. a field of a find bar. */
+internal fun insideEditor(
+    target: Any?,
+    editorNode: Node,
+): Boolean {
+    if (target !is Node || target is TextInputControl) return false
+    return generateSequence(target) { it.parent }.any { it === editorNode }
+}
 
 /**
  * One console (ADR 0121): a toolbar over an SQL [editor]. Run, Cancel, Commit and History work from the toolbar and
@@ -34,6 +43,7 @@ class ConsolePane internal constructor(
     editorCss: ObservableValue<String>,
     private val results: ResultArea,
     fx: (Runnable) -> Unit = Platform::runLater,
+    gate: RunGate = RunGate(),
 ) {
     val editor: TextEditor =
         CodeEditors.text("", Highlighters.forLanguage("sql"), "--", "/*" to "*/").also {
@@ -58,7 +68,7 @@ class ConsolePane internal constructor(
                 override val selectionEnd get() = editor.selection.end
                 override val caret get() = editor.caretOffset
 
-                override fun markError(offset: Int) = editor.markError(offset)
+                override fun markError(offset: Int?) = editor.markError(offset)
             },
             object : RunTarget {
                 override fun show(
@@ -75,6 +85,7 @@ class ConsolePane internal constructor(
             pageSize,
             fx,
             ::choose,
+            gate,
         )
 
     private val toolbar =
@@ -88,6 +99,7 @@ class ConsolePane internal constructor(
                 rollback = ::rollback,
                 history = { showHistory() },
             ),
+            gate,
         )
 
     val node: Node =
@@ -121,31 +133,35 @@ class ConsolePane internal constructor(
     internal var chooser: StatementChooser? = null
         private set
 
-    private var ending: (() -> Unit)? = null
+    private fun commit() = end("Committed") { done -> model.commit(entry, done) }
 
-    private fun commit() = end("Committed") { model.commit(entry) }
+    private fun rollback() = end("Rolled back") { done -> model.rollback(entry, done) }
 
-    private fun rollback() = end("Rolled back") { model.rollback(entry) }
-
-    /** Runs [action]; the transaction is over once `pendingTransaction` turns false, then [done] is logged. */
+    /** Runs [action]; its outcome is logged: [done] on success, the error in red on failure. */
     private fun end(
         done: String,
-        action: () -> Unit,
-    ) {
-        val property = entry.pendingTransaction
-        ending?.invoke()
-        lateinit var listener: ChangeListener<Boolean>
-        listener =
-            ChangeListener { _, _, pending ->
-                if (!pending) {
-                    property.removeListener(listener)
-                    ending = null
-                    results.log(done, false)
-                }
-            }
-        ending = { property.removeListener(listener) }
-        property.addListener(listener)
-        action()
+        action: ((Throwable?) -> Boolean) -> Unit,
+    ) = action { error ->
+        // Once disposed the results are gone: a failure falls back to the model's error dialog.
+        if (disposed) {
+            false
+        } else {
+            if (error == null) results.log(done, false) else results.log(ConnectFailures.futureMessage(error), true)
+            true
+        }
+    }
+
+    private var disposed = false
+
+    /** Whether a run sequence of this console is under way. */
+    internal val running: Boolean get() = runner.running
+
+    /** The console is closed: stops its run sequence and lets go of the entry's properties. */
+    internal fun dispose() {
+        disposed = true
+        runner.stop()
+        chooser?.popup?.hide()
+        toolbar.dispose()
     }
 
     private fun ownKeys(event: KeyEvent): Boolean {
@@ -159,11 +175,7 @@ class ConsolePane internal constructor(
         return true
     }
 
-    /** Whether [target] is the editor's text, not e.g. a field of its find bar. */
-    private fun inEditor(target: Any?): Boolean {
-        if (target !is Node || target is TextInputControl) return false
-        return generateSequence(target) { it.parent }.any { it === editor.node }
-    }
+    private fun inEditor(target: Any?): Boolean = insideEditor(target, editor.node)
 
     private companion object {
         val RUN = KeyCodeCombination(KeyCode.ENTER, KeyCombination.SHORTCUT_DOWN)

@@ -10,15 +10,20 @@ import dev.sluide.databases.ui.tree.WorkspaceActions
 import javafx.application.Platform
 import javafx.beans.value.ObservableValue
 import javafx.geometry.Orientation
+import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Alert
+import javafx.scene.control.Button
 import javafx.scene.control.ButtonBar.ButtonData
 import javafx.scene.control.ButtonType
 import javafx.scene.control.SplitPane
 import javafx.scene.control.Tab
 import javafx.scene.control.TabPane
+import javafx.scene.control.Tooltip
 import javafx.scene.layout.StackPane
 import javafx.stage.Window
+import org.kordamp.ikonli.javafx.FontIcon
+import org.kordamp.ikonli.materialdesign2.MaterialDesignP
 
 /** One console of a workspace: its tab, editor pane and result area. */
 internal class Console(
@@ -28,8 +33,9 @@ internal class Console(
 )
 
 /**
- * The middle pane of a connected card (ADR 0121): console tabs over the selected console's result area. Consoles and
- * their text live as long as the window; a disconnect only closes the cursors of their results.
+ * The middle pane of a connected card (ADR 0121): console tabs over the selected console's result area. A "+" button
+ * over the tab header adds a console. Consoles and their text live as long as the window; a disconnect only closes the
+ * cursors of their results, closing a console disposes it.
  */
 class ConnectionWorkspace internal constructor(
     private val entry: ConnectionEntry,
@@ -44,23 +50,37 @@ class ConnectionWorkspace internal constructor(
     private val confirmDiscard: () -> Boolean = { askDiscard(window()) },
     /** Whether a console's results have unsubmitted edits. */
     private val pendingEdits: (ResultArea) -> Boolean = { it.pendingEdits },
+    /** Asks "Stop the running statements of <console>?" with the console's title; true to close it. */
+    private val confirmStop: (String) -> Boolean = { askStop(window(), it) },
 ) {
     internal val consoles = mutableListOf<Console>()
     private var counter = 0
 
-    /** A console tab is being closed: the pane may then select "+", which must not add a console. */
-    private var closing = false
+    /** Shared by the consoles, so that only one runs statements on the connection at a time. */
+    private val gate = RunGate()
 
-    private val plus = Tab("+").apply { isClosable = false }
     internal val tabs =
-        TabPane(plus).apply {
+        TabPane().apply {
             tabClosingPolicy = TabPane.TabClosingPolicy.ALL_TABS
             styleClass += "console-tabs"
+            stylesheets += checkNotNull(ConnectionWorkspace::class.java.getResource("console.css")).toExternalForm()
         }
+
+    /** The "+" over the right end of the tab header; the header keeps room for it (console.css). */
+    internal val addButton =
+        Button().apply {
+            graphic = FontIcon(MaterialDesignP.PLUS)
+            tooltip = Tooltip("New Console")
+            isFocusTraversable = false
+            styleClass += "console-add"
+            StackPane.setAlignment(this, Pos.TOP_RIGHT)
+            setOnAction { add() }
+        }
+
     private val bottom = StackPane()
 
     val node: SplitPane =
-        SplitPane(tabs, bottom).apply {
+        SplitPane(StackPane(tabs, addButton), bottom).apply {
             orientation = Orientation.VERTICAL
             styleClass += "console-workspace"
             setDividerPositions(0.45)
@@ -69,15 +89,8 @@ class ConnectionWorkspace internal constructor(
     private val selected: Console? get() = consoles.firstOrNull { it.tab === tabs.selectionModel.selectedItem }
 
     init {
-        SplitPane.setResizableWithParent(tabs, true)
         add()
-        tabs.selectionModel.selectedItemProperty().addListener { _, _, tab ->
-            when {
-                tab === plus && closing -> consoles.lastOrNull()?.let { tabs.selectionModel.select(it.tab) }
-                tab === plus -> add()
-                else -> showResults()
-            }
-        }
+        tabs.selectionModel.selectedItemProperty().addListener { _, _, _ -> showResults() }
         entry.workspaceActions =
             object : WorkspaceActions {
                 override fun openData(ref: TableRef) {
@@ -99,21 +112,22 @@ class ConnectionWorkspace internal constructor(
         counter++
         val title = if (counter == 1) "Console" else "Console $counter"
         val results = ResultArea(entry, pageSize, fetchAllCap, fx)
-        val pane = ConsolePane(entry, model, history, pageSize, editorCss, results, fx)
+        val pane = ConsolePane(entry, model, history, pageSize, editorCss, results, fx, gate)
         val tab = Tab(title, pane.node)
         val console = Console(tab, pane, results)
         tab.setOnCloseRequest { event ->
-            if (pendingEdits(results) && !confirmDiscard()) event.consume() else closing = true
+            val keepRunning = pane.running && !confirmStop(title)
+            if (keepRunning || (pendingEdits(results) && !confirmDiscard())) event.consume()
         }
         tab.setOnClosed {
-            closing = false
-            results.close()
+            pane.dispose()
+            results.dispose()
             consoles.remove(console)
             updateClosable()
             showResults()
         }
         consoles += console
-        tabs.tabs.add(tabs.tabs.size - 1, tab)
+        tabs.tabs.add(tab)
         updateClosable()
         tabs.selectionModel.select(tab)
         return console
@@ -144,14 +158,26 @@ class ConnectionWorkspace internal constructor(
     }
 }
 
-private fun askDiscard(owner: Window?): Boolean {
-    val discard = ButtonType("Discard", ButtonData.OK_DONE)
+private fun askDiscard(owner: Window?): Boolean = ask(owner, "Discard the unsubmitted edits?", "Discard")
+
+private fun askStop(
+    owner: Window?,
+    console: String,
+): Boolean = ask(owner, "Stop the running statements of $console?", "Stop")
+
+/** A question with [yes] and Cancel, the default button; true for [yes]. */
+private fun ask(
+    owner: Window?,
+    text: String,
+    yes: String,
+): Boolean {
+    val button = ButtonType(yes, ButtonData.OK_DONE)
     val alert =
-        Alert(Alert.AlertType.CONFIRMATION, "Discard the unsubmitted edits?", discard, ButtonType.CANCEL).apply {
+        Alert(Alert.AlertType.CONFIRMATION, text, button, ButtonType.CANCEL).apply {
             owner?.let(::initOwner)
             title = "Close Console"
             headerText = null
             cancelFirst(this)
         }
-    return alert.showAndWait().orElse(ButtonType.CANCEL) == discard
+    return alert.showAndWait().orElse(ButtonType.CANCEL) == button
 }

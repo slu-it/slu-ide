@@ -165,9 +165,17 @@ class DatabasesTabModel internal constructor(
         mode: CommitMode,
     ) = sessions.setCommitMode(entry, mode)
 
-    fun commit(entry: ConnectionEntry) = sessions.commit(entry)
+    /** Commits [entry]'s transaction; [onDone] (FX thread) gets the failure or `null`; true means it reported the failure, else the error dialog shows. */
+    fun commit(
+        entry: ConnectionEntry,
+        onDone: ((Throwable?) -> Boolean)? = null,
+    ) = sessions.commit(entry, onDone)
 
-    fun rollback(entry: ConnectionEntry) = sessions.rollback(entry)
+    /** Rolls back [entry]'s transaction, like [commit]. */
+    fun rollback(
+        entry: ConnectionEntry,
+        onDone: ((Throwable?) -> Boolean)? = null,
+    ) = sessions.rollback(entry, onDone)
 
     /** One line per connection with a pending transaction, a running statement or unsubmitted edits. */
     internal fun closeWarnings(): List<String> = entries.mapNotNull(sessions::closeWarning)

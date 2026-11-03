@@ -2,12 +2,14 @@ package dev.sluide.databases.ui.console
 
 import dev.sluide.databases.connect.ConnectionConfig
 import dev.sluide.databases.connect.DatabaseKind
+import dev.sluide.databases.session.ColumnInfo
 import dev.sluide.databases.session.StatementOutcome
 import dev.sluide.databases.sql.QueryHistory
 import dev.sluide.databases.sql.RunChoice
 import dev.sluide.databases.sql.SqlStatement
 import dev.sluide.databases.ui.ConnectionEntry
 import dev.sluide.databases.ui.result.ExecutingSession
+import dev.sluide.databases.ui.result.FakeCursor
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -20,7 +22,7 @@ class ConsoleRunnerTest {
     private val history = QueryHistory()
     private val shown = mutableListOf<Pair<String, Boolean>>()
     private val logged = mutableListOf<Pair<String, Boolean>>()
-    private val marks = mutableListOf<Int>()
+    private val marks = mutableListOf<Int?>()
     private val offered = mutableListOf<RunChoice.Choose>()
     private var pick: ((RunChoice.Choose, (List<SqlStatement>) -> Unit) -> Unit)? = null
 
@@ -31,7 +33,7 @@ class ConsoleRunnerTest {
             override var selectionEnd = 0
             override var caret = 0
 
-            override fun markError(offset: Int) {
+            override fun markError(offset: Int?) {
                 marks += offset
             }
         }
@@ -163,7 +165,7 @@ class ConsoleRunnerTest {
         pick = { choice, then -> then(listOf(choice.atCaret)) }
         fake.answer = { failed(it, position = 7) }
         runner.run()
-        assertEquals(listOf(10 + 7), marks)
+        assertEquals(listOf(null, 10 + 7), marks)
     }
 
     @Test
@@ -173,7 +175,7 @@ class ConsoleRunnerTest {
         runner.run()
         editor.text = "select y"
         fake.deferred[0].complete(failed("select x", position = 7))
-        assertTrue(marks.isEmpty())
+        assertEquals(listOf<Int?>(null), marks)
     }
 
     @Test
@@ -190,4 +192,120 @@ class ConsoleRunnerTest {
         runner.cancel()
         assertEquals(listOf("cancel"), fake.calls)
     }
+
+    @Test
+    fun `stop sends no further statement and cancels the one in flight`() {
+        editor.text = "a; b; c"
+        selectAll()
+        fake.defer = true
+        runner.run()
+        runner.stop()
+        assertEquals(listOf("cancel"), fake.calls)
+        val columns = listOf(ColumnInfo("id", "id", "int4", 4, null, null, false, false))
+        val cursor = FakeCursor(columns, listOf(listOf<Any?>(1)))
+        fake.deferred[0].complete(StatementOutcome.Rows("a", 1, columns, cursor, cursor.firstPage()))
+        assertEquals(1, fake.executed.size)
+        assertTrue(shown.isEmpty(), "the answer of a stopped run is ignored")
+        assertTrue(cursor.closed, "and its cursor is closed")
+        assertTrue(!runner.running)
+    }
+
+    @Test
+    fun `the gate is released when showing an outcome throws`() {
+        val gate = RunGate()
+        val throwing =
+            object : RunTarget {
+                override fun show(
+                    outcome: StatementOutcome,
+                    replaceUnpinned: Boolean,
+                ): Unit = error("boom")
+
+                override fun log(
+                    text: String,
+                    error: Boolean,
+                ) {
+                    logged += text to error
+                }
+            }
+        val broken = ConsoleRunner(entry, editor, throwing, history, { 50 }, { it.run() }, { _, _ -> }, gate)
+        editor.text = "select 1"
+        broken.run()
+        assertTrue(!gate.busy.get())
+        assertTrue(!broken.running)
+        assertEquals(listOf("boom" to true), logged)
+    }
+
+    @Test
+    fun `stop without a run does nothing`() {
+        runner.stop()
+        assertTrue(fake.calls.isEmpty())
+    }
+
+    @Test
+    fun `a second run while one is under way does not execute`() {
+        editor.text = "select 1"
+        fake.defer = true
+        runner.run()
+        runner.run()
+        assertEquals(1, fake.executed.size)
+    }
+
+    @Test
+    fun `a run of another console with the same gate waits`() {
+        val gate = RunGate()
+        val first = ConsoleRunner(entry, editor, nullTarget(), history, { 50 }, { it.run() }, { _, _ -> }, gate)
+        val second = ConsoleRunner(entry, editor, nullTarget(), history, { 50 }, { it.run() }, { _, _ -> }, gate)
+        editor.text = "select 1"
+        fake.defer = true
+        first.run()
+        second.run()
+        assertEquals(1, fake.executed.size)
+    }
+
+    @Test
+    fun `a run waits while the entry says a statement runs`() {
+        editor.text = "select 1"
+        entry.setRunning(true)
+        runner.run()
+        assertTrue(fake.executed.isEmpty())
+    }
+
+    @Test
+    fun `a failed future (disconnect) logs the error, the statements not run, and allows the next run`() {
+        editor.text = "a; b; c"
+        selectAll()
+        fake.defer = true
+        runner.run()
+        fake.deferred[0].completeExceptionally(java.sql.SQLException("closed"))
+        assertEquals(listOf("closed" to true, "Stopped: 2 statements not run" to false), logged)
+        assertTrue(!runner.running)
+        fake.defer = false
+        runner.run()
+        assertEquals(4, fake.executed.size)
+    }
+
+    @Test
+    fun `the session ending between statements stops the sequence`() {
+        editor.text = "a; b"
+        selectAll()
+        fake.defer = true
+        runner.run()
+        entry.ended(null)
+        fake.deferred[0].complete(StatementOutcome.Updated("a", 1, 0))
+        assertEquals(1, fake.executed.size)
+        assertEquals(listOf("Not connected" to true, "Stopped: 1 statement not run" to false), logged)
+    }
+
+    private fun nullTarget() =
+        object : RunTarget {
+            override fun show(
+                outcome: StatementOutcome,
+                replaceUnpinned: Boolean,
+            ) {}
+
+            override fun log(
+                text: String,
+                error: Boolean,
+            ) {}
+        }
 }

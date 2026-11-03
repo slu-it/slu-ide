@@ -129,4 +129,9 @@ class ResultArea(
     fun close() {
         resultTabs().forEach { it.view.closeCursor() }
     }
+
+    /** The console is gone: closes every result view (cursor and pending answers), unlike [close]. */
+    fun dispose() {
+        resultTabs().forEach { it.view.close() }
+    }
 }

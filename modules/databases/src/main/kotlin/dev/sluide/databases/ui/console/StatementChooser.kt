@@ -3,9 +3,11 @@ package dev.sluide.databases.ui.console
 import dev.sluide.databases.sql.RunChoice
 import dev.sluide.databases.sql.SqlStatement
 import javafx.scene.Node
+import javafx.scene.control.ListCell
 import javafx.scene.control.ListView
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
+import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.stage.Popup
 
@@ -72,7 +74,14 @@ internal class StatementChooser(
                     else -> {}
                 }
             }
-            addEventHandler(MouseEvent.MOUSE_CLICKED) { if (selectionModel.selectedIndex >= 0) choose() }
+            addEventHandler(MouseEvent.MOUSE_CLICKED) { event ->
+                val onCell =
+                    generateSequence(event.target as? Node) { it.parent }.any {
+                        it is ListCell<*> &&
+                            !it.isEmpty
+                    }
+                if (event.button == MouseButton.PRIMARY && onCell && selectionModel.selectedIndex >= 0) choose()
+            }
         }
 
     val popup: Popup =

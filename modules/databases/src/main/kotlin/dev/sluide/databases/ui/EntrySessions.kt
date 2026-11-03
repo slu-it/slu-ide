@@ -271,28 +271,40 @@ internal class EntrySessions(
         after(entry, session, switched, "Commit mode not changed")
     }
 
-    fun commit(entry: ConnectionEntry) {
+    fun commit(
+        entry: ConnectionEntry,
+        onDone: ((Throwable?) -> Boolean)? = null,
+    ) {
         val session = entry.session.get() ?: return
-        after(entry, session, session.commit(), "Commit failed")
+        after(entry, session, session.commit(), "Commit failed", onDone)
     }
 
-    fun rollback(entry: ConnectionEntry) {
+    fun rollback(
+        entry: ConnectionEntry,
+        onDone: ((Throwable?) -> Boolean)? = null,
+    ) {
         val session = entry.session.get() ?: return
-        after(entry, session, session.rollback(), "Roll back failed")
+        after(entry, session, session.rollback(), "Roll back failed", onDone)
     }
 
-    /** Once [work] is done: the entry shows the session's commit mode; a failure is shown with [title]. */
+    /**
+     * Once [work] is done: the entry shows the session's commit mode; a failure is shown with [title] unless [onDone]
+     * handled it: it gets the failure (or `null`) and returns whether it reported it itself. [onDone] is not called
+     * when the entry has another session by then.
+     */
     private fun after(
         entry: ConnectionEntry,
         session: DbSession,
         work: CompletableFuture<Unit>,
         title: String,
+        onDone: ((Throwable?) -> Boolean)? = null,
     ) {
         work.whenComplete { _, error ->
             fx {
                 if (entry.session.get() !== session) return@fx
                 entry.setCommitMode(session.commitMode)
-                if (error != null && !session.closed) {
+                val handled = onDone?.invoke(error) ?: false
+                if (!handled && error != null && !session.closed) {
                     dialogs.showError(title, "${entry.config.get().name}: ${ConnectFailures.futureMessage(error)}")
                 }
             }
