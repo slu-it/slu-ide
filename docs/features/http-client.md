@@ -101,6 +101,15 @@ Content-Type: image/png
   configuration of the chosen environment, or clears all; the result shows next to the toolbar buttons.
 - Client certificates (`SSLConfiguration`, private file only): PEM, PKCS#12 or DER; a passphrase is asked for once per
   window. `"verifyHostCertificate": false` trusts any server certificate for that environment.
+- **Save passphrase** in the passphrase dialog (off by default) saves the passphrase encrypted, so it is not asked for
+  again after the window closes or the app restarts ([secrets.md](secrets.md)). It is stored in
+  `~/.sluide/shared.json` for the pair of certificate and key files, and only once a request worked with it; if saving
+  fails, a message says why and the passphrase stays in memory for the window. The box starts checked when a
+  passphrase is saved (one that can no longer be decrypted counts as none and is removed). When nothing can be saved
+  it is disabled with the reason (e.g. "needs secret-tool"), and a saved passphrase is then kept as it is; otherwise
+  unchecking it removes the saved one. A saved passphrase that the key rejects is not tried again in that window: the
+  dialog opens instead, and the saved one is replaced when the new one is saved. Saved passphrases are listed by key
+  file on Settings → Secrets, where they can be removed.
 
 ## Running and the response
 - Run the request at the caret with **Run** or Shortcut+Enter in the text (Ctrl+Enter, Cmd+Enter on macOS), or any

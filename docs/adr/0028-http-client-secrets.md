@@ -1,6 +1,6 @@
 # 0028. HTTP client: tokens, certificates and other secrets
 
-- Status: accepted
+- Status: accepted; amended by [0122](0122-saved-secrets.md) (certificate passphrases can be saved)
 - Date: 2026-10-15
 
 ## Context
@@ -11,7 +11,8 @@ from `Security.Auth` configurations. Thoreau has no secret store of its own and 
 ## Decision
 - **Where secrets come from:** only the environment files. Private values win over public ones key by key, so a
   `Client Secret` can live in the private file under the same `Security.Auth.<id>` as the public configuration.
-  `SSLConfiguration` is read from the private file only. Nothing is ever written to disk.
+  `SSLConfiguration` is read from the private file only. Nothing is ever written to disk, except certificate
+  passphrases the user chooses to save (below).
 - **Private file not ignored:** when the window's folder is a git repository and git would commit the private file
   (it is in the repository and not ignored), the view shows a warning above the editor (`HttpClientSession.wouldCommit`,
   set by `MainWindow` from the git status, asked again whenever the git status changes). The git status is only
@@ -38,12 +39,21 @@ from `Security.Auth` configurations. Thoreau has no secret store of its own and 
   dialog shown with `Platform.runLater` while the worker thread waits (the FX thread never waits for it); Cancel
   fails the request. A rejected passphrase is forgotten and asked for again next time. Passphrases are zeroed when the
   window closes; a changed certificate file makes a new context, whose old clients are stopped.
+- **Saved passphrases** (amendment by [ADR 0122](0122-saved-secrets.md)): the dialog has "Save passphrase", off by
+  default, checked when one is saved, disabled with the reason when nothing can be saved (a saved one is then kept
+  as it is, whatever the box shows). A passphrase is saved
+  encrypted (`SavedPassphrases`, `Secrets`) in the shared data `~/.sluide/shared.json`, field `httpClient`, per pair of
+  normalized absolute certificate and key paths, and only after the context was created with it; unchecking removes
+  it. Order: in memory, else saved (decrypted on the request's worker), else the dialog. A rejected saved passphrase is
+  not used again in that window: the dialog opens with the box checked, and the saved value stays until a new one is
+  saved. An unreadable value is removed and counts as nothing saved. Saved passphrases are listed and removed on Settings → Secrets.
 - **`verifyHostCertificate: false`** trusts every server certificate and skips host name verification for the
   requests and token requests of that environment only; other environments keep the JDK's checks.
 
 ## Consequences
 - Tokens and passphrases are lost when the window closes, and never reach the disk or the log (`OAuth2Config.toString`
-  leaves the secrets out).
+  leaves the secrets out); the exception is a passphrase saved with "Save passphrase", which reaches the disk only
+  encrypted (ADR 0122).
 - The git warning depends on the git status being current; it is re-checked whenever the environment files are read
   (each run, opening the environment list).
 - Added to [../index.md](../index.md).
