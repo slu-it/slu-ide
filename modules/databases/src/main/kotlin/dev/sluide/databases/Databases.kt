@@ -5,7 +5,10 @@ import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.databases.connect.ConnectionConfig
 import dev.sluide.databases.connect.ConnectionStore
 import dev.sluide.databases.connect.JdbcUrls
+import dev.sluide.databases.connect.NoSavedPasswords
 import dev.sluide.databases.connect.PasswordCache
+import dev.sluide.databases.connect.SavedPasswords
+import dev.sluide.databases.connect.SecretsPasswords
 import dev.sluide.databases.session.DbSession
 import dev.sluide.databases.session.DbSessions
 import dev.sluide.databases.settings.DatabasesSettings
@@ -23,6 +26,7 @@ import dev.sluide.databases.ui.console.ConnectionWorkspace
 import dev.sluide.databases.ui.dialog.ConnectionTester
 import dev.sluide.databases.ui.tree.ObjectTreeView
 import dev.sluide.editorarea.EditorTab
+import dev.sluide.secrets.Secrets
 import dev.sluide.settings.FontArea
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontSpec
@@ -81,6 +85,8 @@ class Databases internal constructor(
     private val sessions: SessionOpener = SessionOpener(DbSessions::open),
     /** The editor font's CSS, bound to the consoles' editors. */
     private val editorCss: ObservableValue<String> = SimpleStringProperty(""),
+    /** The saved connection passwords (ADR 0122). */
+    private val savedPasswords: SavedPasswords = NoSavedPasswords,
 ) {
     @Autowired
     constructor(
@@ -90,6 +96,7 @@ class Databases internal constructor(
         settings: DatabasesSettings,
         backgroundTasks: BackgroundTasks,
         fontSettings: FontSettings,
+        secrets: Secrets,
     ) : this(
         store,
         passwords,
@@ -98,6 +105,7 @@ class Databases internal constructor(
         backgroundTasks,
         ::FxDatabaseDialogs,
         editorCss = fontSettings.font(FontArea.EDITOR).map(FontSpec::toCss),
+        savedPasswords = SecretsPasswords(secrets),
     )
 
     /** Opens or selects the window's Databases tab; set by ide. */
@@ -180,6 +188,7 @@ class Databases internal constructor(
             tester(),
             ::openSession,
             fx = fx,
+            savedPasswords = savedPasswords,
         ).also {
             model = it
             it.load(projectFolder.get())

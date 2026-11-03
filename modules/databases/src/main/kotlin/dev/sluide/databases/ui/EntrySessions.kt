@@ -4,19 +4,27 @@ import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.databases.connect.CommitMode
 import dev.sluide.databases.connect.ConnectionConfig
 import dev.sluide.databases.connect.PasswordCache
+import dev.sluide.databases.connect.SavedPasswords
 import dev.sluide.databases.session.DbSession
 import dev.sluide.databases.session.SessionEvent
+import dev.sluide.secrets.Decrypted
+import dev.sluide.secrets.Encrypted
 import java.nio.file.Path
 import java.util.concurrent.CompletableFuture
 
 private const val RUNNING_REASON = "A statement is running."
 private const val EDITS_REASON = "There are unsubmitted edits."
 private const val SUBMIT_REASON = "A submit of edits is running; it may still commit."
+private const val CONNECT_THREAD = "sluide-db-connect"
+
+/** The thread that encrypts or decrypts a saved password (may wait for a Keychain prompt). */
+internal const val SECRET_THREAD = "sluide-db-secret"
 
 /**
  * The sessions of the [entries] of a [DatabasesTabModel] (ADR 0121): connecting as a cancellable background task,
- * session events mirrored to the entries, disconnecting with its questions, commit, rollback and the commit mode.
- * Nothing here logs a password, a URL or a user. FX thread; results of other threads come back through [fx].
+ * session events mirrored to the entries, disconnecting with its questions, commit, rollback and the commit mode,
+ * and the saved passwords' part of connecting (ADR 0122). Nothing here logs a password, a value, a URL or a user. FX
+ * thread; results of other threads come back through [fx].
  */
 internal class EntrySessions(
     private val passwords: PasswordCache,
@@ -29,32 +37,151 @@ internal class EntrySessions(
     private val folder: () -> Path?,
     /** The model's cards; a session whose card is gone is closed. */
     private val entries: List<ConnectionEntry>,
+    /** The saved passwords (ADR 0122). */
+    private val savedPasswords: SavedPasswords,
+    /** Sets the saved password (`null`: none) on the entry's current config and saves the list. */
+    private val setSaved: (ConnectionEntry, String?) -> Unit,
+    /** Called with every password array after it was zeroed; tests check that copies do not stay in memory. */
+    private val zeroed: (CharArray) -> Unit = {},
 ) {
+    /**
+     * Connects [entry] with the in-memory password, else the saved one (decrypted on the worker, inside the task),
+     * else the one asked. Nothing while it is connecting or connected.
+     */
     fun connect(entry: ConnectionEntry) {
         val status = entry.status.get()
         if (status == ConnectionStatus.CONNECTING || status == ConnectionStatus.CONNECTED) return
         val config = entry.config.get()
         val folder = folder()
-        val password =
-            passwords.get(folder, config.id)
-                ?: dialogs.askPassword(config)?.also { passwords.put(folder, config.id, it) }
-                ?: return
+        val cached = passwords.get(folder, config.id)
+        val saved = config.savedPassword
+        when {
+            cached != null -> start(entry, config, folder, cached, Source.MEMORY)
+            saved != null && !entry.savedRejected -> startSaved(entry, config, folder, saved)
+            else -> ask(entry, config, folder)
+        }
+    }
+
+    private fun ask(
+        entry: ConnectionEntry,
+        config: ConnectionConfig,
+        folder: Path?,
+    ) {
+        val reason = savedPasswords.unavailableReason()
+        val answer = dialogs.askPassword(config, reason, config.savedPassword != null) ?: return
+        passwords.put(folder, config.id, answer.password)
+        val source =
+            when {
+                // The box was disabled: whatever it showed, the saved value stays as it is.
+                reason != null -> Source.PROMPT_KEEP
+
+                answer.save -> Source.PROMPT_SAVE
+
+                else -> Source.PROMPT
+            }
+        start(entry, config, folder, answer.password, source)
+    }
+
+    private fun begin(
+        entry: ConnectionEntry,
+        config: ConnectionConfig,
+    ): ConnectAttempt {
         lateinit var attempt: ConnectAttempt
-        attempt = ConnectAttempt(tasks.start("Connecting to ${config.name}") { cancelConnect(entry, attempt) })
+        val task = tasks.start("Connecting to ${config.name}") { cancelConnect(entry, attempt) }
+        attempt = ConnectAttempt(task, entry.saveGeneration)
         entry.attempt = attempt
         entry.connecting()
-        startWorker("sluide-db-connect") {
-            val used = password.takeIf { it.isNotEmpty() }
-            try {
-                val session = openSession(config, used)
-                fx { arrived(entry, attempt, session) }
-            } catch (e: Throwable) {
-                val message = ConnectFailures.message(e, config, used)
-                val auth = ConnectFailures.isAuthFailure(e, config.kind)
-                fx { failed(entry, attempt, folder, config, message, auth) }
-            } finally {
-                password.fill('\u0000')
+        return attempt
+    }
+
+    private fun start(
+        entry: ConnectionEntry,
+        config: ConnectionConfig,
+        folder: Path?,
+        password: CharArray,
+        source: Source,
+    ) {
+        val attempt = begin(entry, config)
+        startWorker(CONNECT_THREAD) { open(entry, attempt, folder, config, password, source) }
+    }
+
+    /** Connects with the [saved] password, decrypted on the worker; without one that decrypts, asks. */
+    private fun startSaved(
+        entry: ConnectionEntry,
+        config: ConnectionConfig,
+        folder: Path?,
+        saved: String,
+    ) {
+        val attempt = begin(entry, config)
+        startWorker(CONNECT_THREAD) {
+            val decrypted =
+                try {
+                    savedPasswords.decrypt(config.id, saved)
+                } catch (e: RuntimeException) {
+                    Decrypted.NoKey("the saved password could not be read (${e.javaClass.name})")
+                }
+            when (decrypted) {
+                is Decrypted.Plain -> {
+                    if (attempt.cancelled) {
+                        zero(decrypted.value)
+                        fx { attempt.task.failed("cancelled") }
+                    } else {
+                        open(entry, attempt, folder, config, decrypted.value, Source.SAVED)
+                    }
+                }
+
+                Decrypted.Unreadable -> {
+                    fx { savedUnusable(entry, attempt, saved, unreadable = true) }
+                }
+
+                is Decrypted.NoKey -> {
+                    fx { savedUnusable(entry, attempt, saved, unreadable = false) }
+                }
             }
+        }
+    }
+
+    /**
+     * The saved password did not decrypt: an [unreadable] one is removed (unless it was replaced meanwhile), one
+     * without a key kept; this attempt ends quietly and the password is asked. Nothing more after a cancel.
+     */
+    private fun savedUnusable(
+        entry: ConnectionEntry,
+        attempt: ConnectAttempt,
+        saved: String,
+        unreadable: Boolean,
+    ) {
+        if (attempt.cancelled || entry.attempt !== attempt || entry !in entries) {
+            attempt.task.failed("cancelled")
+            return
+        }
+        if (unreadable && entry.config.get().savedPassword == saved) setSaved(entry, null)
+        attempt.task.close()
+        entry.attempt = null
+        entry.ended(null)
+        ask(entry, entry.config.get(), folder())
+    }
+
+    /** Opens the session on the worker and zeroes [password]; a prompted one to save goes on as a copy. */
+    private fun open(
+        entry: ConnectionEntry,
+        attempt: ConnectAttempt,
+        folder: Path?,
+        config: ConnectionConfig,
+        password: CharArray,
+        source: Source,
+    ) {
+        val used = password.takeIf { it.isNotEmpty() }
+        try {
+            val session = openSession(config, used)
+            val toSave = if (source == Source.PROMPT_SAVE) password.copyOf() else null
+            fx { arrived(entry, attempt, session, source, toSave) }
+        } catch (e: Throwable) {
+            val message = ConnectFailures.message(e, config, used)
+            val auth = ConnectFailures.isAuthFailure(e, config.kind)
+            fx { failed(entry, attempt, folder, config, message, auth, source) }
+        } finally {
+            zero(password)
         }
     }
 
@@ -62,8 +189,11 @@ internal class EntrySessions(
         entry: ConnectionEntry,
         attempt: ConnectAttempt,
         session: DbSession,
+        source: Source,
+        toSave: CharArray?,
     ) {
         if (attempt.cancelled || entry.attempt !== attempt || entry !in entries) {
+            toSave?.let(::zero)
             session.close()
             attempt.task.failed("cancelled")
             return
@@ -74,6 +204,14 @@ internal class EntrySessions(
         entry.listener = listener
         session.addListener(listener)
         entry.connected(session)
+        entry.savedRejected = false
+        // Not over a decision taken while connecting (edit, forget, another save).
+        val unchanged = entry.saveGeneration == attempt.saveGeneration
+        if (toSave != null) {
+            if (unchanged) saveLater(entry, toSave, attempt.saveGeneration) else zero(toSave)
+        } else if (source == Source.PROMPT && unchanged && entry.config.get().savedPassword != null) {
+            setSaved(entry, null)
+        }
         // A session that broke before the listener was added sends no Closed to it.
         if (session.closed) entry.ended("The connection was closed.")
     }
@@ -85,13 +223,73 @@ internal class EntrySessions(
         config: ConnectionConfig,
         message: String,
         authFailure: Boolean,
+        source: Source,
     ) {
-        if (authFailure) passwords.forget(folder, config.id)
+        if (authFailure) {
+            // A rejected saved password stays saved, but the next connect asks.
+            if (source == Source.SAVED) entry.savedRejected = true else passwords.forget(folder, config.id)
+        }
         attempt.task.failed("could not connect")
         if (attempt.cancelled || entry.attempt !== attempt) return
         entry.attempt = null
         entry.ended(message)
     }
+
+    /**
+     * Encrypts [plain] on a worker and zeroes it; then sets it on the entry's current config and clears
+     * [ConnectionEntry.savedRejected], or says why it was not saved. Nothing once the entry is gone or its saved
+     * password changed since [generation].
+     */
+    fun saveLater(
+        entry: ConnectionEntry,
+        plain: CharArray,
+        generation: Int = entry.saveGeneration,
+    ) {
+        val id = entry.config.get().id
+        startWorker(SECRET_THREAD) {
+            val result =
+                try {
+                    savedPasswords.encrypt(id, plain)
+                } catch (e: RuntimeException) {
+                    Encrypted.Failed("the password could not be encrypted (${e.javaClass.name})")
+                } finally {
+                    zero(plain)
+                }
+            fx { stored(entry, generation, result) }
+        }
+    }
+
+    private fun stored(
+        entry: ConnectionEntry,
+        generation: Int,
+        result: Encrypted,
+    ) {
+        if (entry !in entries || entry.saveGeneration != generation) return
+        when (result) {
+            is Encrypted.Value -> {
+                setSaved(entry, result.text)
+                entry.savedRejected = false
+            }
+
+            is Encrypted.Failed -> {
+                dialogs.showError(
+                    "Password not saved",
+                    "The password stays in memory until Thoreau quits: ${result.reason}.",
+                )
+            }
+        }
+    }
+
+    private fun zero(array: CharArray) {
+        array.fill('\u0000')
+        zeroed(array)
+    }
+
+    /**
+     * Where the password of a connect came from. After the login, a prompted one with Save checked is saved, one with
+     * Save unchecked removes the saved value, and one asked with the box disabled leaves it alone.
+     */
+    private enum class Source { MEMORY, SAVED, PROMPT, PROMPT_SAVE, PROMPT_KEEP }
 
     private fun cancelConnect(
         entry: ConnectionEntry,

@@ -9,6 +9,7 @@ import dev.sluide.databases.session.DbSession
 import dev.sluide.databases.settings.DatabasesSettings
 import dev.sluide.databases.sql.QueryHistory
 import dev.sluide.databases.ui.FakeDialogs
+import dev.sluide.databases.ui.FakeSavedPasswords
 import dev.sluide.databases.ui.FakeSession
 import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.settings.SettingsStore
@@ -44,6 +45,9 @@ class DatabasesTest {
     /** The limits each opened session was given: timeout and cap suppliers. */
     private val opened = mutableListOf<Pair<() -> Int, () -> Int>>()
 
+    private val dialogs = FakeDialogs()
+    private val saved = FakeSavedPasswords()
+
     private val databases by lazy {
         Databases(
             store,
@@ -51,13 +55,14 @@ class DatabasesTest {
             QueryHistory(),
             settings,
             BackgroundTasks.forTests(),
-            { FakeDialogs() },
+            { dialogs },
             { c, p -> connect(c, p) },
             { it.run() },
             { c, _, _, _, timeout, cap ->
                 opened += timeout to cap
                 FakeSession(c) as DbSession
             },
+            savedPasswords = saved,
         )
     }
 
@@ -105,6 +110,15 @@ class DatabasesTest {
 
         assertEquals(listOf("project db"), model.connections.map { it.config.get().name })
         assertEquals(project, model.folder)
+    }
+
+    @Test
+    fun `the connections' dialogs get the saved passwords`() {
+        saved.reason = "needs secret-tool"
+
+        databases.model().add(DatabaseKind.POSTGRESQL)
+
+        assertEquals("needs secret-tool", dialogs.editSaveReason)
     }
 
     @Test

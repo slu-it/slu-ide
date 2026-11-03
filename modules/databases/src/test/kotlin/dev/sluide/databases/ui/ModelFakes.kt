@@ -5,12 +5,15 @@ import dev.sluide.databases.connect.CommitMode
 import dev.sluide.databases.connect.ConnectionConfig
 import dev.sluide.databases.connect.ConnectionStore
 import dev.sluide.databases.connect.PasswordCache
+import dev.sluide.databases.connect.SavedPasswords
 import dev.sluide.databases.session.DbSession
 import dev.sluide.databases.session.SessionEvent
 import dev.sluide.databases.session.StatementOutcome
 import dev.sluide.databases.ui.dialog.ConnectionEdit
 import dev.sluide.databases.ui.dialog.ConnectionTester
 import dev.sluide.projectdata.ProjectDataStore
+import dev.sluide.secrets.Decrypted
+import dev.sluide.secrets.Encrypted
 import java.nio.file.Path
 import java.sql.Connection
 import java.util.concurrent.CompletableFuture
@@ -98,7 +101,17 @@ internal open class FakeSession(
 internal class FakeDialogs : DatabaseDialogs {
     val asked = mutableListOf<String>()
     var edit: (ConnectionConfig) -> ConnectionEdit? = { null }
+
+    /** The Test Connection and the Save password reason of the last edit dialog. */
+    var tester: ConnectionTester? = null
+    var editSaveReason: String? = null
     var password: CharArray? = null
+
+    /** Whether the prompt's Save password box is checked in the answer. */
+    var save = false
+
+    /** What each prompt was shown with: the Save password reason and whether the box started checked. */
+    val prompts = mutableListOf<Pair<String?, Boolean>>()
     var delete = true
     var transactionEnd: TransactionEnd? = null
     var disconnect = true
@@ -109,14 +122,22 @@ internal class FakeDialogs : DatabaseDialogs {
         isNew: Boolean,
         existingNames: Set<String>,
         tester: ConnectionTester,
+        saveReason: String?,
     ): ConnectionEdit? {
         asked += "edit ${initial.name} new=$isNew names=${existingNames.sorted()}"
+        this.tester = tester
+        editSaveReason = saveReason
         return edit(initial)
     }
 
-    override fun askPassword(config: ConnectionConfig): CharArray? {
+    override fun askPassword(
+        config: ConnectionConfig,
+        saveReason: String?,
+        saveChecked: Boolean,
+    ): PasswordAnswer? {
         asked += "password ${config.name}"
-        return password?.copyOf()
+        prompts += saveReason to saveChecked
+        return password?.copyOf()?.let { PasswordAnswer(it, save) }
     }
 
     override fun confirmDelete(name: String): Boolean {
@@ -146,6 +167,62 @@ internal class FakeDialogs : DatabaseDialogs {
 }
 
 /**
+ * Saved passwords without a key store: encrypt gives `v1:<id>:<password>`, which decrypt maps back for the same id
+ * (another id or any other text is unreadable). Records the calls and the plain arrays it handed out.
+ */
+internal class FakeSavedPasswords : SavedPasswords {
+    var reason: String? = null
+
+    /** Makes encrypt fail with this reason. */
+    var encryptFails: String? = null
+
+    /** Makes decrypt answer NoKey with this reason. */
+    var noKey: String? = null
+
+    /** Runs inside decrypt, before it returns, e.g. to cancel the connect meanwhile. */
+    var duringDecrypt: () -> Unit = {}
+
+    /** The calls, in order: "encrypt <id> <password>", "decrypt <id> <value>". */
+    val calls = mutableListOf<String>()
+
+    /** The arrays decrypt returned; the caller must have zeroed them. */
+    val handedOut = mutableListOf<CharArray>()
+
+    override fun unavailableReason(): String? = reason
+
+    override fun encrypt(
+        id: String,
+        password: CharArray,
+    ): Encrypted {
+        calls += "encrypt $id ${String(password)}"
+        return encryptFails?.let(Encrypted::Failed) ?: Encrypted.Value(value(id, String(password)))
+    }
+
+    override fun decrypt(
+        id: String,
+        value: String,
+    ): Decrypted {
+        calls += "decrypt $id $value"
+        duringDecrypt()
+        noKey?.let { return Decrypted.NoKey(it) }
+        val prefix = "v1:$id:"
+        if (!value.startsWith(prefix)) return Decrypted.Unreadable
+        return Decrypted.Plain(value.removePrefix(prefix).toCharArray().also(handedOut::add))
+    }
+
+    /** Whether every array decrypt handed out was zeroed. */
+    fun allZeroed() = handedOut.all { array -> array.all { it == '\u0000' } }
+
+    companion object {
+        /** The value encrypt gives for [password] of connection [id]. */
+        fun value(
+            id: String,
+            password: String,
+        ) = "v1:$id:$password"
+    }
+}
+
+/**
  * A [DatabasesTabModel] over a real [ConnectionStore] in [dir], fake dialogs and sessions: connects run when the test
  * calls [runWorkers], FX work runs at once.
  */
@@ -158,13 +235,24 @@ internal class ModelFixture(
     val taskLines = mutableListOf<String>()
     val tasks = BackgroundTasks.forTests { taskLines += it }
     val dialogs = FakeDialogs()
+    val saved = FakeSavedPasswords()
     val sessions = mutableListOf<FakeSession>()
+
+    /** The passwords Test Connection got (as strings, `null` for none), and the arrays themselves. */
+    val testedWith = mutableListOf<String?>()
+    val testArrays = mutableListOf<CharArray>()
 
     /** The passwords sessions were opened with (as strings, `null` for none). */
     val openedWith = mutableListOf<String?>()
 
     /** Makes the next connect fail. */
     var connectFailure: Throwable? = null
+
+    /** Runs while a session opens, e.g. to cancel the connect meanwhile. */
+    var duringOpen: () -> Unit = {}
+
+    /** The password arrays the model zeroed. */
+    val zeroed = mutableListOf<CharArray>()
     private val workers = mutableListOf<Runnable>()
     private var ids = 0
 
@@ -174,22 +262,34 @@ internal class ModelFixture(
             passwords,
             tasks,
             dialogs,
-            { _, _ -> CompletableFuture.completedFuture("Test 1") },
+            { _, password ->
+                testedWith += password?.let(::String)
+                password?.let(testArrays::add)
+                CompletableFuture.completedFuture("Test 1")
+            },
             { config, password ->
                 openedWith += password?.let(::String)
+                duringOpen()
                 connectFailure?.let { throw it }
                 FakeSession(config).also(sessions::add)
             },
             { _, work -> workers += work },
             { it.run() },
             { "id${++ids}" },
-        )
+            saved,
+        ).also { model -> model.onZeroed = { zeroed += it } }
 
+    /** Runs the queued workers, and those they queue in turn, until none is left. */
     fun runWorkers() {
-        val pending = workers.toList()
-        workers.clear()
-        pending.forEach(Runnable::run)
+        while (workers.isNotEmpty()) {
+            val pending = workers.toList()
+            workers.clear()
+            pending.forEach(Runnable::run)
+        }
     }
+
+    /** Whether a worker waits to run. */
+    fun workersPending() = workers.isNotEmpty()
 
     /** Connects [entry] with a cached password and returns its session. */
     fun connected(entry: ConnectionEntry): FakeSession {

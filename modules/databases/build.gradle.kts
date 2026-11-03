@@ -26,6 +26,9 @@ dependencies {
     // Deliberate module API dependency: ConnectionStore keeps the project's connections in the project data
     // (ProjectDataStore, ADR 0090).
     api(project(":modules:project-data"))
+    // Deliberate module API dependency: saved passwords are encrypted by Secrets, which the Databases bean's
+    // constructor takes (ADR 0122).
+    api(project(":modules:secrets"))
     implementation(libs.spring.context)
     // Reads and writes the connections in the project data's JSON tree.
     implementation(libs.jackson.databind)

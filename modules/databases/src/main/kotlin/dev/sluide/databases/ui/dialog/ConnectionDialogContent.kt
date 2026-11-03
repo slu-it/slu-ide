@@ -58,6 +58,7 @@ internal class ConnectionDialogContent(
     private val tester: ConnectionTester,
 ) {
     private var base = ConnectionForm.of(initial, isNew, existingNames)
+    private val hasSavedPassword = initial.savedPassword != null
     private var currentKind = initial.kind
     private var updating = true
     private var testRun = 0
@@ -237,7 +238,7 @@ internal class ConnectionDialogContent(
     fun edit(): ConnectionEdit? {
         val form = readForm()
         if (form.validation() != null) return null
-        return ConnectionEdit(form.toConfig(), password())
+        return ConnectionEdit(form.toConfig(), password(), savePassword = hasSavedPassword)
     }
 
     private fun password(): CharArray? = passwordField.text.takeIf { it.isNotEmpty() }?.toCharArray()

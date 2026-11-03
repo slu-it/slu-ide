@@ -25,9 +25,14 @@ internal class FxDatabaseDialogs(
         isNew: Boolean,
         existingNames: Set<String>,
         tester: ConnectionTester,
+        saveReason: String?,
     ): ConnectionEdit? = ConnectionDialog.show(owner(), initial, isNew, existingNames, tester)
 
-    override fun askPassword(config: ConnectionConfig): CharArray? {
+    override fun askPassword(
+        config: ConnectionConfig,
+        saveReason: String?,
+        saveChecked: Boolean,
+    ): PasswordAnswer? {
         val field = PasswordField().apply { styleClass += "database-password" }
         val connect = ButtonType("Connect", ButtonData.OK_DONE)
         val dialog =
@@ -50,7 +55,7 @@ internal class FxDatabaseDialogs(
                 }
                 setOnShown { Platform.runLater(field::requestFocus) }
             }
-        return dialog.showAndWait().orElse(null)
+        return dialog.showAndWait().orElse(null)?.let { PasswordAnswer(it, save = false) }
     }
 
     override fun confirmDelete(name: String): Boolean {

@@ -22,12 +22,15 @@ fun interface ConnectionTester {
 }
 
 /**
- * What the dialog returns. [password] is the one typed for this session (`null` when left empty); it goes into the
- * in-memory password cache and is never stored. `equals` compares the array by identity.
+ * What the dialog returns. [password] is the one typed (`null` when left empty); it goes into the in-memory password
+ * cache. [savePassword]: true with a [password] saves that one (encrypted, ADR 0122), true without one keeps the saved
+ * one, false removes it. When the dialog was shown with a `saveReason` (the box disabled), [savePassword] is ignored and
+ * the saved value kept. `equals` compares the array by identity.
  */
 data class ConnectionEdit(
     val config: ConnectionConfig,
     val password: CharArray?,
+    val savePassword: Boolean,
 )
 
 /** The modal Add/Edit connection dialog (ADR 0121); its content is [ConnectionDialogContent]. */

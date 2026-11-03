@@ -179,7 +179,7 @@ class ConnectionCardListUiTest {
         robot.interact { f.model.move(0, 2) }
         assertEquals(listOf("beta", "gamma", "alpha"), names(robot))
 
-        f.dialogs.edit = { ConnectionEdit(it.copy(name = "renamed"), "pw".toCharArray()) }
+        f.dialogs.edit = { ConnectionEdit(it.copy(name = "renamed"), "pw".toCharArray(), savePassword = false) }
         robot.interact { f.model.edit(f.model.connections[0]) }
         assertEquals(listOf("renamed", "gamma", "alpha"), names(robot))
 
@@ -192,7 +192,7 @@ class ConnectionCardListUiTest {
         show(robot)
         robot.interact { wrapper.children.clear() }
 
-        f.dialogs.edit = { ConnectionEdit(it.copy(name = "delta"), "pw".toCharArray()) }
+        f.dialogs.edit = { ConnectionEdit(it.copy(name = "delta"), "pw".toCharArray(), savePassword = false) }
         robot.interact { f.model.add(DatabaseKind.POSTGRESQL) }
         f.passwords.put(f.model.folder, "a", "pw".toCharArray())
         robot.interact { f.model.connect(f.model.connections[0]) }

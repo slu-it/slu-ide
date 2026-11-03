@@ -4,6 +4,7 @@ import dev.sluide.databases.connect.CommitMode
 import dev.sluide.databases.connect.ConnectionConfig
 import dev.sluide.databases.connect.DatabaseKind
 import dev.sluide.databases.session.SessionEvent
+import dev.sluide.databases.ui.dialog.ConnectionEdit
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
@@ -18,7 +19,10 @@ import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
-/** The session side of [DatabasesTabModel] ([EntrySessions]): connect, events, disconnect, transactions, close. */
+/**
+ * The session side of [DatabasesTabModel] ([EntrySessions]): connect (with saved passwords), events, disconnect,
+ * transactions, close.
+ */
 class DatabasesTabModelSessionsTest {
     @TempDir
     lateinit var dir: Path
@@ -461,5 +465,229 @@ class DatabasesTabModelSessionsTest {
             },
         )
         assertEquals(listOf(), f.model.closeWarnings())
+    }
+
+    /** Stores orders with the saved password [password] (`null`: none) and makes it the entry. */
+    private fun withSaved(value: String?) {
+        f.store.save(project, listOf(orders.copy(savedPassword = value)))
+        f.model.load(project)
+        entry = f.model.connections.single()
+    }
+
+    private fun storedValue() =
+        f.store
+            .load(project)
+            .single()
+            .savedPassword
+
+    @Test
+    fun `connect uses the saved password inside the connecting task without asking, a cached one wins`() {
+        withSaved(FakeSavedPasswords.value("o", "stored"))
+        f.passwords.put(project, "o", "cached".toCharArray())
+        f.model.connect(entry)
+        f.runWorkers()
+        assertEquals(listOf<String?>("cached"), f.openedWith)
+        assertEquals(listOf(), f.saved.calls)
+
+        f.model.disconnect(entry)
+        f.passwords.forget(project, "o")
+        f.model.connect(entry)
+        assertTrue(f.taskLines.last().endsWith(" started: Connecting to orders-dev"), f.taskLines.last())
+        assertEquals(listOf(), f.saved.calls, "decrypted on the worker")
+        f.runWorkers()
+
+        assertEquals(listOf("decrypt o v1:o:stored"), f.saved.calls)
+        assertEquals(listOf<String?>("cached", "stored"), f.openedWith)
+        assertEquals(listOf(), f.dialogs.asked)
+        assertEquals(ConnectionStatus.CONNECTED, entry.status.get())
+        assertTrue(f.saved.allZeroed())
+        assertNull(f.passwords.get(project, "o"), "a saved password is not kept in memory")
+    }
+
+    @Test
+    fun `an unreadable saved password is removed, and the password asked`() {
+        withSaved("v1:elsewhere:x")
+
+        f.model.connect(entry)
+        f.runWorkers()
+
+        assertEquals(listOf("password orders-dev"), f.dialogs.asked)
+        assertEquals(listOf<Pair<String?, Boolean>>(null to false), f.dialogs.prompts)
+        assertNull(storedValue())
+        assertNull(entry.config.get().savedPassword)
+        assertEquals(ConnectionStatus.DISCONNECTED, entry.status.get())
+        assertTrue(f.taskLines.last().contains("finished"), f.taskLines.last())
+        assertEquals(listOf(), f.openedWith)
+    }
+
+    @Test
+    fun `without a key the saved password is kept, and the password asked with Save checked`() {
+        val value = FakeSavedPasswords.value("o", "stored")
+        withSaved(value)
+        f.saved.noKey = "Keychain access denied"
+        f.saved.reason = "Keychain access denied"
+
+        f.model.connect(entry)
+        f.runWorkers()
+
+        assertEquals(listOf<Pair<String?, Boolean>>("Keychain access denied" to true), f.dialogs.prompts)
+        assertEquals(value, storedValue())
+        assertEquals(ConnectionStatus.DISCONNECTED, entry.status.get(), "the prompt was cancelled")
+        assertEquals(listOf(), f.openedWith)
+    }
+
+    @Test
+    fun `cancelling while the saved password is decrypted neither asks nor connects`() {
+        withSaved(FakeSavedPasswords.value("o", "stored"))
+        f.saved.duringDecrypt = {
+            f.tasks.shown
+                .single()
+                .cancel()
+        }
+
+        f.model.connect(entry)
+        f.runWorkers()
+
+        assertEquals(listOf(), f.dialogs.asked)
+        assertEquals(listOf(), f.openedWith)
+        assertEquals(ConnectionStatus.DISCONNECTED, entry.status.get())
+        assertTrue(f.saved.allZeroed())
+        assertTrue(f.taskLines.last().contains("cancelled after"), f.taskLines.last())
+    }
+
+    @Test
+    fun `a prompted password with Save checked is saved once the login succeeded, not after a failed one`() {
+        f.dialogs.password = "typed".toCharArray()
+        f.dialogs.save = true
+        f.connectFailure = SQLException("password authentication failed", "28P01")
+
+        f.model.connect(entry)
+        f.runWorkers()
+        assertEquals(listOf(), f.saved.calls)
+        assertNull(storedValue())
+
+        f.connectFailure = null
+        f.model.connect(entry)
+        f.runWorkers()
+
+        assertEquals(listOf("encrypt o typed"), f.saved.calls)
+        assertEquals(FakeSavedPasswords.value("o", "typed"), storedValue())
+        assertEquals(FakeSavedPasswords.value("o", "typed"), entry.config.get().savedPassword)
+        assertEquals(listOf(), f.dialogs.errors)
+    }
+
+    @Test
+    fun `a password that cannot be saved stays in memory, and the dialog says why`() {
+        f.saved.encryptFails = "needs secret-tool"
+        f.dialogs.password = "typed".toCharArray()
+        f.dialogs.save = true
+
+        f.model.connect(entry)
+        f.runWorkers()
+
+        assertEquals(
+            listOf("Password not saved" to "The password stays in memory until Thoreau quits: needs secret-tool."),
+            f.dialogs.errors,
+        )
+        assertEquals(ConnectionStatus.CONNECTED, entry.status.get())
+        assertEquals("typed", String(checkNotNull(f.passwords.get(project, "o"))))
+        assertNull(storedValue())
+    }
+
+    @ParameterizedTest
+    @CsvSource("true", "false")
+    fun `a rejected saved password stays until a new one logs in, replaced when Save is checked, else removed`(
+        save: Boolean,
+    ) {
+        val old = FakeSavedPasswords.value("o", "old")
+        withSaved(old)
+        f.connectFailure = SQLException("password authentication failed", "28P01")
+        f.model.connect(entry)
+        f.runWorkers()
+        assertEquals(ConnectionStatus.ERROR, entry.status.get())
+        assertEquals(old, storedValue())
+
+        f.connectFailure = SQLException("password authentication failed", "28P01")
+        f.dialogs.password = "new".toCharArray()
+        f.dialogs.save = save
+        f.model.connect(entry)
+        f.runWorkers()
+        assertEquals(listOf<Pair<String?, Boolean>>(null to true), f.dialogs.prompts)
+        assertEquals(1, f.saved.calls.count { it.startsWith("decrypt") }, "the rejected one is not used again")
+        assertEquals(old, storedValue(), "kept after a failed login")
+
+        f.connectFailure = null
+        f.model.connect(entry)
+        f.runWorkers()
+
+        assertEquals(listOf<String?>("old", "new", "new"), f.openedWith)
+        assertEquals(if (save) FakeSavedPasswords.value("o", "new") else null, storedValue())
+        assertFalse(entry.savedRejected)
+    }
+
+    @ParameterizedTest
+    @CsvSource("true", "false")
+    fun `with the Save box disabled a prompted login neither saves nor removes the saved password`(save: Boolean) {
+        val value = FakeSavedPasswords.value("o", "stored")
+        withSaved(value)
+        f.saved.noKey = "Keychain access denied"
+        f.saved.reason = "Keychain access denied"
+        f.dialogs.password = "typed".toCharArray()
+        f.dialogs.save = save
+
+        f.model.connect(entry)
+        f.runWorkers()
+
+        assertEquals(ConnectionStatus.CONNECTED, entry.status.get())
+        assertEquals(value, storedValue())
+        assertEquals(listOf(), f.saved.calls.filter { it.startsWith("encrypt") })
+        assertEquals(listOf(), f.dialogs.errors)
+    }
+
+    @Test
+    fun `an unreadable saved password that was replaced during the decrypt stays`() {
+        withSaved("v1:elsewhere:x")
+        val replaced = FakeSavedPasswords.value("o", "new")
+        f.saved.duringDecrypt = { f.model.setSavedPassword(entry, replaced) }
+
+        f.model.connect(entry)
+        f.runWorkers()
+
+        assertEquals(replaced, storedValue())
+        assertEquals(listOf("password orders-dev"), f.dialogs.asked)
+    }
+
+    @Test
+    fun `a password to save is zeroed when the connect was cancelled after the login`() {
+        f.dialogs.password = "typed".toCharArray()
+        f.dialogs.save = true
+        f.duringOpen = {
+            f.tasks.shown
+                .single()
+                .cancel()
+        }
+
+        f.model.connect(entry)
+        f.runWorkers()
+
+        assertEquals(listOf("close"), f.sessions.single().calls)
+        assertEquals(listOf(), f.saved.calls)
+        assertEquals(2, f.zeroed.size, "the prompt's answer and the copy to save")
+        assertTrue(f.zeroed.all { array -> array.all { it == '\u0000' } })
+    }
+
+    @Test
+    fun `a password saved in the dialog while a prompted login without Save runs survives that login`() {
+        withSaved(FakeSavedPasswords.value("o", "old"))
+        entry.savedRejected = true
+        f.dialogs.password = "typed".toCharArray()
+        f.model.connect(entry)
+
+        f.dialogs.edit = { ConnectionEdit(it, "new".toCharArray(), savePassword = true) }
+        f.model.edit(entry)
+        f.runWorkers()
+
+        assertEquals(ConnectionStatus.CONNECTED, entry.status.get())
+        assertEquals(FakeSavedPasswords.value("o", "new"), storedValue())
     }
 }

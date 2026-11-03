@@ -5,15 +5,24 @@ import dev.sluide.databases.connect.DatabaseKind
 import dev.sluide.databases.ui.dialog.ConnectionEdit
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import java.nio.file.Path
+import java.util.concurrent.ExecutionException
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertSame
+import kotlin.test.assertTrue
 
-/** The list side of [DatabasesTabModel]: loading, adding, editing, copying, deleting and moving, always saved. */
+/**
+ * The list side of [DatabasesTabModel]: loading, adding, editing, copying, deleting and moving, always saved; the saved
+ * passwords of the dialogs, copies and Test Connection.
+ */
 class DatabasesTabModelTest {
     @TempDir
     lateinit var dir: Path
@@ -56,7 +65,8 @@ class DatabasesTabModelTest {
 
     @Test
     fun `add opens the dialog for a new connection, appends, selects and saves it, and caches its password`() {
-        f.dialogs.edit = { ConnectionEdit(it.copy(name = "reports", host = "db"), "pw".toCharArray()) }
+        f.dialogs.edit =
+            { ConnectionEdit(it.copy(name = "reports", host = "db"), "pw".toCharArray(), savePassword = false) }
 
         f.model.add(DatabaseKind.POSTGRESQL)
 
@@ -79,7 +89,7 @@ class DatabasesTabModelTest {
     fun `edit replaces the config and keeps the id, a connected entry keeps its session`() {
         val entry = f.model.connections[0]
         val session = f.connected(entry)
-        f.dialogs.edit = { ConnectionEdit(it.copy(id = "other", name = "orders"), null) }
+        f.dialogs.edit = { ConnectionEdit(it.copy(id = "other", name = "orders"), null, savePassword = false) }
 
         f.model.edit(entry)
 
@@ -166,7 +176,7 @@ class DatabasesTabModelTest {
         dir.resolve("shared.json").writeText("not json")
         f.model.load(null)
 
-        f.dialogs.edit = { ConnectionEdit(it.copy(name = "local"), null) }
+        f.dialogs.edit = { ConnectionEdit(it.copy(name = "local"), null, savePassword = false) }
         f.model.add(DatabaseKind.MARIADB)
 
         assertEquals(listOf("local"), names())
@@ -176,5 +186,202 @@ class DatabasesTabModelTest {
                 .single()
                 .first,
         )
+    }
+
+    /** Stores orders with the saved password [password] and returns its entry. */
+    private fun savedOrders(password: String): ConnectionEntry {
+        f.store.save(project, listOf(orders.copy(savedPassword = FakeSavedPasswords.value("o", password)), shop))
+        f.model.load(project)
+        return f.model.connections[0]
+    }
+
+    @Test
+    fun `add with Save password encrypts the typed one for the new id once the dialog closed`() {
+        f.dialogs.edit = { ConnectionEdit(it.copy(name = "reports"), "pw".toCharArray(), savePassword = true) }
+
+        f.model.add(DatabaseKind.POSTGRESQL)
+        assertNull(stored()[2].savedPassword)
+        f.runWorkers()
+
+        assertEquals(listOf("encrypt id1 pw"), f.saved.calls)
+        assertEquals(FakeSavedPasswords.value("id1", "pw"), stored()[2].savedPassword)
+        assertEquals("pw", String(checkNotNull(f.passwords.get(project, "id1"))))
+    }
+
+    @Test
+    fun `edit keeps the saved password, replaces it with a typed one once encrypted, and unchecked removes it`() {
+        val entry = savedOrders("old")
+        val old = FakeSavedPasswords.value("o", "old")
+        // The dialog's config never carries the saved value.
+        f.dialogs.edit = { ConnectionEdit(it.copy(name = "orders", savedPassword = null), null, savePassword = true) }
+        f.model.edit(entry)
+        assertEquals(orders.copy(name = "orders", savedPassword = old), stored()[0])
+
+        entry.savedRejected = true
+        f.dialogs.edit = { ConnectionEdit(it.copy(savedPassword = null), "new".toCharArray(), savePassword = true) }
+        f.model.edit(entry)
+        assertEquals(old, stored()[0].savedPassword, "until the worker encrypted the new one")
+        assertEquals("new", String(checkNotNull(f.passwords.get(project, "o"))))
+        f.runWorkers()
+        assertEquals(FakeSavedPasswords.value("o", "new"), stored()[0].savedPassword)
+        assertFalse(entry.savedRejected)
+
+        entry.savedRejected = true
+        f.dialogs.edit = { ConnectionEdit(it, null, savePassword = false) }
+        f.model.edit(entry)
+        assertNull(stored()[0].savedPassword)
+        assertFalse(entry.savedRejected)
+        assertFalse(f.workersPending())
+    }
+
+    @Test
+    fun `duplicate encrypts the saved password again for the copy's id, a failure leaves the copy without one`() {
+        val entry = savedOrders("pw")
+
+        f.model.duplicate(entry)
+        assertNull(stored()[1].savedPassword)
+        f.runWorkers()
+
+        assertEquals(listOf("decrypt o v1:o:pw", "encrypt id1 pw"), f.saved.calls)
+        assertEquals(FakeSavedPasswords.value("id1", "pw"), stored()[1].savedPassword)
+        assertTrue(f.saved.allZeroed())
+
+        f.saved.encryptFails = "Keychain access denied"
+        f.model.duplicate(entry)
+        f.runWorkers()
+
+        assertEquals("orders-dev (copy 2)", stored()[1].name)
+        assertNull(stored()[1].savedPassword)
+        assertEquals(listOf(), f.dialogs.errors)
+
+        f.saved.duringDecrypt = { throw IllegalStateException("the store failed") }
+        f.model.duplicate(entry)
+        f.runWorkers()
+        assertEquals("orders-dev (copy 3)", stored()[1].name)
+        assertNull(stored()[1].savedPassword)
+    }
+
+    @Test
+    fun `a copy that got its own saved password keeps it when the copied one arrives`() {
+        f.model.duplicate(savedOrders("pw"))
+        val copy = f.model.connections[1]
+
+        f.model.setSavedPassword(copy, "v1:own")
+        f.runWorkers()
+
+        assertEquals("v1:own", stored()[1].savedPassword)
+    }
+
+    @Test
+    fun `forgetting the saved password removes it and the one in memory without a question`() {
+        val entry = savedOrders("pw")
+        f.passwords.put(project, "o", "pw".toCharArray())
+        entry.savedRejected = true
+
+        f.model.forgetSavedPassword(entry)
+
+        assertNull(stored()[0].savedPassword)
+        assertNull(f.passwords.get(project, "o"))
+        assertFalse(entry.savedRejected)
+        assertEquals(listOf(), f.dialogs.asked)
+    }
+
+    @Test
+    fun `Test Connection with an empty field uses the in-memory password, else the saved one, else none`() {
+        val entry = savedOrders("stored")
+        f.model.edit(entry)
+        val tester = checkNotNull(f.dialogs.tester)
+        val config = entry.config.get()
+
+        assertEquals("Test 1", tester.test(config, "typed".toCharArray()).get())
+        f.passwords.put(project, "o", "cached".toCharArray())
+        assertEquals("Test 1", tester.test(config, null).get())
+        assertTrue(f.testArrays.last().all { it == '\u0000' }, "the in-memory copy is zeroed")
+
+        f.passwords.forget(project, "o")
+        val saved = tester.test(config, null)
+        assertFalse(saved.isDone, "decrypted on a worker")
+        f.runWorkers()
+        assertEquals("Test 1", saved.get())
+        assertTrue(f.saved.allZeroed())
+
+        f.model.add(DatabaseKind.POSTGRESQL)
+        assertEquals("Test 1", checkNotNull(f.dialogs.tester).test(config, null).get())
+
+        assertEquals(listOf("typed", "cached", "stored", null), f.testedWith)
+    }
+
+    @ParameterizedTest
+    @CsvSource(
+        "v1:elsewhere:x,,it was saved with another key",
+        "v1:o:stored,Keychain access denied,Keychain access denied",
+    )
+    fun `Test Connection with an empty field fails when the saved password cannot be read`(
+        value: String,
+        noKey: String?,
+        reason: String,
+    ) {
+        f.store.save(project, listOf(orders.copy(savedPassword = value)))
+        f.model.load(project)
+        f.saved.noKey = noKey
+        f.model.edit(f.model.connections[0])
+
+        val test = checkNotNull(f.dialogs.tester).test(orders, null)
+        f.runWorkers()
+
+        val error = assertFailsWith<ExecutionException> { test.get() }
+        assertEquals("The saved password could not be read: $reason", ConnectFailures.futureMessage(error))
+        assertEquals(listOf(), f.testedWith)
+    }
+
+    @Test
+    fun `while nothing can be saved, edit OK keeps the saved password and a typed one only goes into memory`() {
+        val entry = savedOrders("old")
+        f.saved.reason = "needs secret-tool"
+
+        f.dialogs.edit = { ConnectionEdit(it, null, savePassword = false) }
+        f.model.edit(entry)
+        assertEquals("needs secret-tool", f.dialogs.editSaveReason)
+        assertEquals(FakeSavedPasswords.value("o", "old"), stored()[0].savedPassword)
+
+        f.dialogs.edit = { ConnectionEdit(it, "new".toCharArray(), savePassword = true) }
+        f.model.edit(entry)
+        f.runWorkers()
+        assertEquals(FakeSavedPasswords.value("o", "old"), stored()[0].savedPassword)
+        assertEquals(listOf(), f.saved.calls)
+        assertEquals("new", String(checkNotNull(f.passwords.get(project, "o"))))
+    }
+
+    @Test
+    fun `forgetting or unchecking while a typed password is encrypted wins over the late value`() {
+        val entry = savedOrders("old")
+        val typed = { cfg: ConnectionConfig -> ConnectionEdit(cfg, "new".toCharArray(), savePassword = true) }
+
+        f.dialogs.edit = typed
+        f.model.edit(entry)
+        f.model.forgetSavedPassword(entry)
+        f.runWorkers()
+        assertNull(stored()[0].savedPassword, "forgotten")
+
+        f.model.edit(entry)
+        f.dialogs.edit = { ConnectionEdit(it, null, savePassword = false) }
+        f.model.edit(entry)
+        f.runWorkers()
+        assertNull(stored()[0].savedPassword, "unchecked")
+        assertEquals(2, f.saved.calls.size, "both were encrypted, neither applied")
+    }
+
+    @Test
+    fun `a password that cannot be saved for a connection gone meanwhile says nothing`() {
+        val entry = f.model.connections[0]
+        f.saved.encryptFails = "needs secret-tool"
+        f.dialogs.edit = { ConnectionEdit(it, "new".toCharArray(), savePassword = true) }
+        f.model.edit(entry)
+
+        f.model.load(project)
+        f.runWorkers()
+
+        assertEquals(listOf("encrypt o new"), f.saved.calls)
+        assertEquals(listOf(), f.dialogs.errors)
     }
 }

@@ -75,8 +75,20 @@ class ConnectionEntry internal constructor(
     /** The connect in progress; `null` when none or once it was cancelled. */
     internal var attempt: ConnectAttempt? = null
 
+    /**
+     * Whether the saved password failed a login (in memory only): the next connect asks instead, with Save checked.
+     * The saved value stays until a password logs in or Save is unchecked.
+     */
+    internal var savedRejected = false
+
     /** Whether a disconnect waits for its Commit or Roll Back; the status stays CONNECTED meanwhile. */
     internal var ending = false
+
+    /**
+     * Counts the changes of the saved password (set, removed, edit OK, delete): work that captured it before applies
+     * its result only while it is unchanged, so a late encrypt never overwrites a newer decision.
+     */
+    internal var saveGeneration = 0
 
     /** The listener on [session], so that events of an older session are told apart. */
     internal var listener: ((SessionEvent) -> Unit)? = null
@@ -118,9 +130,14 @@ class ConnectionEntry internal constructor(
     internal fun setCommitMode(value: CommitMode) = commitModeWrapper.set(value)
 }
 
-/** One connect of an entry: its background task, and whether it was cancelled (a late session is then closed). */
+/**
+ * One connect of an entry: its background task, the entry's [ConnectionEntry.saveGeneration] when it started, and
+ * whether it was cancelled (a late session is then closed; set on the FX thread, read by the worker too).
+ */
 internal class ConnectAttempt(
     val task: BackgroundTask,
+    val saveGeneration: Int,
 ) {
+    @Volatile
     var cancelled = false
 }

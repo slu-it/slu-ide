@@ -51,6 +51,7 @@ import dev.sluide.projects.RecentProjects
 import dev.sluide.projecttrust.ProjectTrust
 import dev.sluide.projecttrust.TrustedProjects
 import dev.sluide.scratches.ScratchFiles
+import dev.sluide.secrets.Secrets
 import dev.sluide.settings.FontSettings
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.SettingsStore
@@ -329,6 +330,8 @@ abstract class MainWindowUiFixture {
                 DatabasesSettings(SettingsStore(settingsDir.resolve("settings.properties"))),
                 tasks,
                 fontSettings,
+                // Creating it touches no secret store; nothing here saves a password.
+                Secrets(),
             ).also(databases::add),
         )
     }
