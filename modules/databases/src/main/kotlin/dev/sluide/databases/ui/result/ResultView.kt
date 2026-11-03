@@ -22,6 +22,11 @@ import javafx.scene.layout.VBox
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionException
 
+private const val ORDER_BY_PROMPT = "ORDER BY"
+
+/** The id of the ORDER BY field (its prompt shows the default order once known). */
+internal const val ORDER_BY_ID = "result-order-by"
+
 /** What a result view needs from the area it sits in. */
 internal interface ResultHost : ExportHost {
     fun pageSize(): Int
@@ -50,7 +55,14 @@ internal class ResultView(
     private val onColumns: (List<ColumnInfo>) -> Unit,
 ) {
     private val whereField = TextField().apply { promptText = "WHERE" }
-    private val orderByField = TextField().apply { promptText = "ORDER BY" }
+    private val orderByField =
+        TextField().apply {
+            promptText = ORDER_BY_PROMPT
+            id = ORDER_BY_ID
+        }
+
+    /** The primary key of a data tab's table once looked up (empty: none or unreadable); null before. */
+    private var keyColumns: List<String>? = null
     private val grid =
         ResultGrid(
             host::copyToClipboard,
@@ -363,7 +375,7 @@ internal class ResultView(
         if (dataRef !=
             null
         ) {
-            TableDataQuery.select(dataRef, whereText, orderByText)
+            TableDataQuery.select(dataRef, whereText, orderByText, keyColumns.orEmpty())
         } else {
             sql
         }
@@ -392,8 +404,50 @@ internal class ResultView(
             fail("Not connected")
             return
         }
+        if (dataRef != null && keyColumns == null) {
+            val mine = ++generation
+            busy = true
+            refreshBar()
+            lookupKey(session, dataRef).whenComplete { key, error ->
+                host.fx {
+                    if (mine != generation) return@fx
+                    val columns = if (error != null) emptyList() else key
+                    keyColumns = columns
+                    if (error != null) {
+                        host.log("Rows are unsorted: the primary key could not be read: ${message(error)}", true)
+                    }
+                    if (columns.isNotEmpty()) {
+                        orderByField.promptText = TableDataQuery.defaultOrderText(dataRef.kind, columns)
+                    }
+                    run(session, before, note)
+                }
+            }
+            return
+        }
+        run(session, before, note)
+    }
+
+    private fun lookupKey(
+        session: DbSession,
+        ref: TableRef,
+    ): CompletableFuture<List<String>> =
+        try {
+            host.primaryKey(session, ref)
+        } catch (e: RuntimeException) {
+            CompletableFuture.failedFuture(e)
+        }
+
+    private fun run(
+        session: DbSession,
+        before: Shown?,
+        note: String?,
+    ) {
         val statement = currentSql()
-        if (statement.isBlank()) return
+        if (statement.isBlank()) {
+            busy = false
+            refreshBar()
+            return
+        }
         val size = ResultTabsLogic.parsePageSize(bar.pageField.text, host.pageSize()) ?: host.pageSize()
         val mine = ++generation
         busy = true

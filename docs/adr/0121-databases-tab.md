@@ -71,7 +71,8 @@ statements that run for minutes, transactions that must not be lost silently, an
   `withSession` work is not a cancellable run); known limit: a submit waiting on a lock ends only by the timeout or a
   disconnect, and its result tab and console cannot be closed until then. The result is reloaded after a submit and
   returns to the page that was shown (the last one if it is gone) with its client sort. Results of statements that
-  change data are never editable. Generated SQL quotes identifiers (`SqlNames`).
+  change data are never editable. A data tab with an empty ORDER BY field sorts by the table's primary key (looked up
+  before the first load), so edited rows keep their place. Generated SQL quotes identifiers (`SqlNames`).
 
 **Consoles**
 - Console tabs per connection sharing the session; each has its own result tabs (unpinned ones are replaced by the

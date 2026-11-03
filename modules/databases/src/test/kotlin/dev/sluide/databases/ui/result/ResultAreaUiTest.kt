@@ -26,6 +26,7 @@ import org.junit.jupiter.api.extension.ExtendWith
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -104,6 +105,8 @@ class ResultAreaUiTest {
         .lookupAll(".text-field")
         .filterIsInstance<TextField>()
         .first { it.promptText == prompt }
+
+    private fun orderField(tab: Tab) = tab.content.lookup("#$ORDER_BY_ID") as TextField
 
     private fun pageField(tab: Tab) =
         tab.content.lookupAll(".text-field").filterIsInstance<TextField>().first {
@@ -273,7 +276,7 @@ class ResultAreaUiTest {
         fake.defer = true
         robot.interact { area.openData(ref) }
         val tab = resultTab(1)
-        assertTrue(fx(robot) { field(tab, "WHERE").isDisable && field(tab, "ORDER BY").isDisable })
+        assertTrue(fx(robot) { field(tab, "WHERE").isDisable && orderField(tab).isDisable })
         assertTrue(fx(robot) { pageField(tab).isDisable })
         fake.deferred.single().complete(rows("select"))
         robot.interact { }
@@ -355,7 +358,7 @@ class ResultAreaUiTest {
 
         fun header() = gridOf(tab).columns[1].graphic as Label
         robot.interact { click(header()) }
-        assertEquals("\"id\" ASC", fx(robot) { field(tab, "ORDER BY").text })
+        assertEquals("\"id\" ASC", fx(robot) { orderField(tab).text })
         assertTrue(
             fake.executed
                 .last()
@@ -364,7 +367,7 @@ class ResultAreaUiTest {
         )
         assertEquals("id ▲", fx(robot) { header().text })
         robot.interact { click(header()) }
-        assertEquals("\"id\" DESC", fx(robot) { field(tab, "ORDER BY").text })
+        assertEquals("\"id\" DESC", fx(robot) { orderField(tab).text })
         assertTrue(
             fake.executed
                 .last()
@@ -373,8 +376,8 @@ class ResultAreaUiTest {
         )
         assertEquals("id ▼", fx(robot) { header().text })
         robot.interact {
-            field(tab, "ORDER BY").text = "\"id\" DESC, \"name\""
-            field(tab, "ORDER BY").onAction.handle(javafx.event.ActionEvent())
+            orderField(tab).text = "\"id\" DESC, \"name\""
+            orderField(tab).onAction.handle(javafx.event.ActionEvent())
         }
         assertEquals("id", fx(robot) { header().text }, "no arrow for an ORDER BY that is not one column's sort")
     }
@@ -394,7 +397,7 @@ class ResultAreaUiTest {
         assertEquals(2, fake.executed.last().second)
         robot.interact {
             field(resultTab(1), "WHERE").text = "id > 1"
-            val order = field(resultTab(1), "ORDER BY")
+            val order = orderField(resultTab(1))
             order.text = "id DESC"
             order.onAction.handle(javafx.event.ActionEvent())
         }
@@ -404,6 +407,66 @@ class ResultAreaUiTest {
         )
         robot.interact { area.openData(ref) }
         assertEquals(listOf("Output", "users"), tabTexts(robot))
+    }
+
+    @Test
+    fun `openData sorts by the primary key while ORDER BY is empty and shows it as the prompt`(robot: FxRobot) {
+        val ref = TableRef(DatabaseKind.POSTGRESQL, "public", "users")
+        fake.answer = { rows(it) }
+        var lookups = 0
+        area.primaryKeyLookup = { _, _ ->
+            lookups++
+            CompletableFuture.completedFuture(listOf("id", "name"))
+        }
+        robot.interact { area.openData(ref) }
+        val expected = "SELECT * FROM \"public\".\"users\"\nORDER BY \"id\", \"name\"\n"
+        assertEquals(expected, fake.executed.last().first)
+        robot.interact { orderField(resultTab(1)).onAction.handle(javafx.event.ActionEvent()) }
+        assertEquals(expected, fake.executed.last().first)
+        // one lookup for the ORDER BY key, one per load for the editing check; a reload does not look the key up again
+        assertEquals(3, lookups, "a reload reuses the key")
+        assertEquals("\"id\", \"name\"", fx(robot) { orderField(resultTab(1)).promptText })
+        assertEquals("", fx(robot) { orderField(resultTab(1)).text })
+    }
+
+    @Test
+    fun `openData without a primary key or with a failed lookup has no ORDER BY`(robot: FxRobot) {
+        val ref = TableRef(DatabaseKind.POSTGRESQL, "public", "users")
+        fake.answer = { rows(it) }
+        area.primaryKeyLookup = { _, _ -> CompletableFuture.completedFuture(emptyList()) }
+        robot.interact { area.openData(ref) }
+        assertEquals(
+            "SELECT * FROM \"public\".\"users\"",
+            fake.executed
+                .last()
+                .first
+                .trim(),
+        )
+        assertEquals("ORDER BY", fx(robot) { orderField(resultTab(1)).promptText })
+        area.primaryKeyLookup = { _, _ -> CompletableFuture.failedFuture(IllegalStateException("no")) }
+        robot.interact { area.openData(TableRef(DatabaseKind.POSTGRESQL, "public", "other")) }
+        assertEquals(
+            "SELECT * FROM \"public\".\"other\"",
+            fake.executed
+                .last()
+                .first
+                .trim(),
+        )
+        assertTrue(output(robot).any { "primary key could not be read" in it.text })
+    }
+
+    @Test
+    fun `a key lookup that completes after the tab was disposed runs no query`(robot: FxRobot) {
+        val ref = TableRef(DatabaseKind.POSTGRESQL, "public", "users")
+        fake.answer = { rows(it) }
+        val pending = CompletableFuture<List<String>>()
+        area.primaryKeyLookup = { _, _ -> pending }
+        robot.interact { area.openData(ref) }
+        assertEquals(0, fake.executed.size)
+        robot.interact { area.dispose() }
+        pending.complete(listOf("id"))
+        robot.interact { }
+        assertEquals(0, fake.executed.size, "the stale completion runs no query")
     }
 
     @Test

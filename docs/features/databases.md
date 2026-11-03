@@ -98,6 +98,8 @@ connected; otherwise the middle says "Not connected" with a Connect button and t
   as hex. Clicking a header sorts the page (console results) or adds an ORDER BY and reloads (table data).
   Shortcut+C copies the selected cells as tab-separated text; the context menu also copies with the header.
 - **Table data tabs** (from the tree) have WHERE and ORDER BY fields; Enter reloads with them.
+  While the ORDER BY field is empty the rows are sorted by the primary key (shown greyed in the field), so an edited
+  row keeps its place after a reload; a table without a key (or an unreadable one) is unsorted.
 - **Export:** copy the selection or all rows, or open all rows as a scratch file, as CSV, TSV, JSON, SQL INSERTs or a
   Markdown table. The scratch file is named after the table (`orders.csv`), `result.<ext>` when the result has no single
   table. SQL INSERTs for MariaDB assume backslash escapes (not `NO_BACKSLASH_ESCAPES`).

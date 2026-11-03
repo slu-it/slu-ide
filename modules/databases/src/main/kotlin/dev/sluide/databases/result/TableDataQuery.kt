@@ -18,21 +18,33 @@ object TableDataQuery {
     /**
      * `SELECT * FROM <qualified> [WHERE (<where>)] [ORDER BY <orderBy>]`, each clause on its own line and the closing
      * parenthesis too, so that a trailing `-- comment` in the input cannot swallow what follows. [where] and
-     * [orderBy] are the user's SQL text without a trailing `;`; blank = left out. The last clause ends with a line
-     * break, so text appended to the query (LIMIT, OFFSET) starts on a new line.
+     * [orderBy] are the user's SQL text without a trailing `;`; blank = left out. A blank [orderBy] sorts by
+     * [defaultOrder] (the primary key columns) when that is not empty. The last clause ends with a line break, so text
+     * appended to the query (LIMIT, OFFSET) starts on a new line.
      */
     fun select(
         ref: TableRef,
         where: String,
         orderBy: String,
+        defaultOrder: List<String> = emptyList(),
     ): String {
         val sb = StringBuilder("SELECT * FROM ").append(ref.qualified)
         val w = clean(where)
         if (w.isNotEmpty()) sb.append("\nWHERE (").append(w).append("\n)")
         val o = clean(orderBy)
-        if (o.isNotEmpty()) sb.append("\nORDER BY ").append(o).append('\n')
+        if (o.isNotEmpty()) {
+            sb.append("\nORDER BY ").append(o).append('\n')
+        } else if (defaultOrder.isNotEmpty()) {
+            sb.append("\nORDER BY ").append(defaultOrderText(ref.kind, defaultOrder)).append('\n')
+        }
         return sb.toString()
     }
+
+    /** The default order (the primary key columns) as SQL: quoted, comma-separated; also the prompt of the field. */
+    fun defaultOrderText(
+        kind: DatabaseKind,
+        keyColumns: List<String>,
+    ): String = keyColumns.joinToString(", ") { SqlNames.quote(kind, it) }
 
     private fun clean(text: String): String {
         var t = text.trim()

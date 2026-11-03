@@ -38,4 +38,21 @@ class TableDataQueryTest {
         assertEquals("\"na\"\"me\" ASC", TableDataQuery.orderBy(DatabaseKind.POSTGRESQL, "na\"me", true))
         assertEquals("`name` DESC", TableDataQuery.orderBy(DatabaseKind.MARIADB, "name", false))
     }
+
+    @Test
+    fun `default order applies only while order by is blank`() {
+        assertEquals(
+            "SELECT * FROM \"public\".\"users\"\nORDER BY \"a\", \"b\"\n",
+            TableDataQuery.select(pg, "", " ; ", listOf("a", "b")),
+        )
+        assertEquals("SELECT * FROM `us``ers`\nORDER BY `id`\n", TableDataQuery.select(maria, "", "", listOf("id")))
+        assertEquals("SELECT * FROM `us``ers`\nORDER BY x\n", TableDataQuery.select(maria, "", "x", listOf("id")))
+        assertEquals("SELECT * FROM \"public\".\"users\"", TableDataQuery.select(pg, "", "", emptyList()))
+    }
+
+    @Test
+    fun `default order text quotes the key columns`() {
+        assertEquals("\"a\"\"b\", \"c\"", TableDataQuery.defaultOrderText(DatabaseKind.POSTGRESQL, listOf("a\"b", "c")))
+        assertEquals("`id`", TableDataQuery.defaultOrderText(DatabaseKind.MARIADB, listOf("id")))
+    }
 }
