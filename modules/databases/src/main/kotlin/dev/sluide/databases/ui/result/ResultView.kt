@@ -3,7 +3,9 @@ package dev.sluide.databases.ui.result
 import dev.sluide.databases.result.PageState
 import dev.sluide.databases.result.TableDataQuery
 import dev.sluide.databases.result.TableRef
+import dev.sluide.databases.result.Transpose
 import dev.sluide.databases.session.ColumnInfo
+import dev.sluide.databases.session.DbSession
 import dev.sluide.databases.session.Page
 import dev.sluide.databases.session.RowCursor
 import dev.sluide.databases.session.StatementOutcome
@@ -12,7 +14,9 @@ import dev.sluide.databases.ui.ConnectionEntry
 import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.control.Label
+import javafx.scene.control.Menu
 import javafx.scene.control.TextField
+import javafx.scene.control.Tooltip
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
 import javafx.scene.layout.VBox
@@ -20,15 +24,8 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CompletionException
 
 /** What a result view needs from the area it sits in. */
-internal interface ResultHost {
-    val entry: ConnectionEntry
-
+internal interface ResultHost : ExportHost {
     fun pageSize(): Int
-
-    fun fetchAllCap(): Int
-
-    /** Runs [action] on the FX thread. */
-    fun fx(action: Runnable)
 
     fun logOutcome(outcome: StatementOutcome)
 
@@ -37,7 +34,11 @@ internal interface ResultHost {
         error: Boolean,
     )
 
-    fun copyToClipboard(text: String)
+    /** The primary key columns of [ref] (empty: none), read on the metadata connection. */
+    fun primaryKey(
+        session: DbSession,
+        ref: TableRef,
+    ): CompletableFuture<List<String>>
 }
 
 /**
@@ -68,6 +69,41 @@ internal class ResultView(
             ),
         )
 
+    private val viewControls =
+        object : EditingView, ExportSource {
+            override val columns: List<ColumnInfo> get() = currentColumns
+            override val cursor: RowCursor? get() = this@ResultView.cursor
+            override val tableName: String? get() = editing.tableName
+            override val transposed: Boolean get() = this@ResultView.transposed
+            override val busy: Boolean get() = this@ResultView.busy
+            override val isQuery: Boolean get() = reloadAllowed()
+
+            override fun selection(): Pair<List<ColumnInfo>, List<List<Any?>>>? = grid.selectionRectangle()
+
+            override fun say(
+                text: String,
+                error: Boolean,
+            ) {
+                status = text
+                statusError = error
+                refreshBar()
+            }
+
+            override fun editsChanged() {
+                refreshBar()
+            }
+
+            override fun reload(note: String) {
+                this@ResultView.reload(note)
+            }
+        }
+    private val editing: GridEditing = GridEditing(host, grid, viewControls, host::primaryKey)
+    private val export = ExportMenu(host, viewControls)
+    private val transpose = TransposeToggle(::setTransposed)
+
+    /** Set by an edit submit that reloads: the status after the new load. */
+    private var afterLoad: String? = null
+
     /**
      * Counts the contents and requests of this view: a page, reload or resize answer that finds a newer number was
      * superseded (by a load, a close or another request) and is dropped; a superseded reload closes its cursor.
@@ -78,9 +114,16 @@ internal class ResultView(
     private var sql = ""
     private var millis = 0L
     private var busy = false
+    private var transposed = false
     private var status = ""
     private var statusError = false
     private var closed = false
+
+    /** Unsubmitted edits: the tab is kept, and paging, sorting, Reload and the filter are off. */
+    val pendingEdits: Boolean get() = editing.pending
+
+    /** The editing controller (tests replace its value viewer). */
+    internal val gridEditing: GridEditing get() = editing
 
     val node =
         VBox().apply {
@@ -91,7 +134,7 @@ internal class ResultView(
             VBox.setVgrow(grid.table, Priority.ALWAYS)
         }
 
-    /** The grid, for the editing and viewing extensions of the next package. */
+    /** The grid, for tests. */
     internal val resultGrid: ResultGrid get() = grid
 
     internal val pagingBar: PagingBar get() = bar
@@ -124,7 +167,33 @@ internal class ResultView(
     }
 
     init {
+        editing.actions.forEach(bar::addAction)
+        bar.addAction(transpose.node)
+        bar.addAction(export.button)
+        grid.contextMenu.items += Menu("Copy as").apply { items.setAll(export.copyMenus()) }
+        grid.contextMenu.items += export.scratchMenu("Open as Scratch File")
         refreshBar()
+    }
+
+    private fun setTransposed(on: Boolean) {
+        transposed = on
+        editing.setTransposed(on)
+        refreshBar()
+        val shown = page ?: return
+        if (on) {
+            val (columns, rows) = Transpose.of(currentColumns, grid.rows)
+            // The columns are the rows of the page: numbered as in the row-number column of the page.
+            val numbered =
+                columns.mapIndexed { i, column ->
+                    if (i == 0) column else column.copy(name = "${shown.firstRow + i}", label = "${shown.firstRow + i}")
+                }
+            grid.setColumns(numbered, Page(0, 0, rows, true))
+        } else {
+            grid.setColumns(currentColumns, shown)
+            if (dataRef != null) {
+                grid.setServerSort(ResultTabsLogic.sortOf(dataRef.kind, orderByField.text, currentColumns))
+            }
+        }
     }
 
     /** Shows [rows] (the cursor of the previous content is closed). */
@@ -140,11 +209,14 @@ internal class ResultView(
         sql = rows.sql
         millis = rows.millis
         busy = false
+        transposed = false
         statusError = false
         onColumns(rows.columns)
         bar.pageField.text = rows.cursor.pageSize.toString()
         bar.pageField.promptText = host.pageSize().toString()
+        transpose.reset()
         grid.setColumns(rows.columns, rows.firstPage)
+        editing.onLoad(rows.columns)
         if (dataRef != null) grid.setServerSort(ResultTabsLogic.sortOf(dataRef.kind, orderByField.text, rows.columns))
         show(rows.firstPage, fill = false)
     }
@@ -158,7 +230,9 @@ internal class ResultView(
         busy = false
         statusError = false
         val c = cursor
-        status = ResultTabsLogic.status(millis, c?.reExecuted == true, c?.capped == true)
+        status = afterLoad ?: ResultTabsLogic.status(millis, c?.reExecuted == true, c?.capped == true)
+        afterLoad = null
+        editing.onPage()
         refreshBar()
     }
 
@@ -171,14 +245,26 @@ internal class ResultView(
             } else {
                 PageState(c.pageSize, p.index, p.rows.size, p.last, c.knownRowCount, c.capped)
             }
-        whereField.isDisable = busy
-        orderByField.isDisable = busy
+        val pending = editing.pending
+        val lockTip =
+            when {
+                pending -> ResultTabsLogic.PENDING_TIP
+                transposed -> ResultTabsLogic.TRANSPOSED_TIP
+                else -> null
+            }
+        for (field in listOf(whereField, orderByField)) {
+            field.isDisable = busy || lockTip != null
+            field.tooltip = lockTip?.let { Tooltip(it) }
+        }
+        transpose.lock(pending)
+        editing.refreshControls()
         bar.update(
             state,
             busy,
             if (busy) "Loading…" else status,
             statusError && !busy,
             reloadAllowed(),
+            lockTip,
         )
     }
 
@@ -197,6 +283,7 @@ internal class ResultView(
         logIt: Boolean = true,
     ) {
         busy = false
+        afterLoad = null
         status = message
         statusError = true
         if (logIt) host.log(message, true)
@@ -270,8 +357,9 @@ internal class ResultView(
     }
 
     /** Runs the statement again (a data tab: its SELECT with the WHERE and ORDER BY of the fields). */
-    fun reload() {
-        if (closed) return
+    fun reload(note: String? = null) {
+        if (closed || pendingEdits || transposed || !reloadAllowed()) return
+        afterLoad = note
         val session = host.entry.session.get()
         if (session == null) {
             fail("Not connected")

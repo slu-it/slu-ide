@@ -31,7 +31,7 @@ internal class PagingActions(
 
 /**
  * The toolbar above the grid: paging buttons, the page label, the page size field, Reload, a spacer and the status.
- * The next package adds its buttons with [addAction], which places them before the spacer.
+ * More buttons are added with [addAction], which places them before the spacer.
  */
 internal class PagingBar(
     actions: PagingActions,
@@ -84,14 +84,32 @@ internal class PagingBar(
         status: String,
         error: Boolean,
         reloadAllowed: Boolean = true,
+        /** Paging, page size and Reload are off with this tooltip (pending edits, a transposed grid); null: on. */
+        lockTip: String? = null,
     ) {
-        pageField.isDisable = busy
-        first.isDisable = busy || state?.canFirst != true
-        previous.isDisable = busy || state?.canPrevious != true
-        next.isDisable = busy || state?.canNext != true
-        last.isDisable = busy || state?.canLast != true
-        reload.isDisable = busy || !reloadAllowed
-        reload.tooltip.text = if (reloadAllowed) RELOAD_TIP else RELOAD_OFF_TIP
+        val locked = lockTip != null
+        val off = busy || locked
+        pageField.isDisable = off
+        pageField.tooltip.text = lockTip ?: "Rows per page"
+        for ((button, tip) in listOf(
+            first to "First Page",
+            previous to "Previous Page",
+            next to "Next Page",
+            last to "Last Page",
+        )) {
+            button.tooltip.text = lockTip ?: tip
+        }
+        first.isDisable = off || state?.canFirst != true
+        previous.isDisable = off || state?.canPrevious != true
+        next.isDisable = off || state?.canNext != true
+        last.isDisable = off || state?.canLast != true
+        reload.isDisable = off || !reloadAllowed
+        reload.tooltip.text =
+            when {
+                lockTip != null -> lockTip
+                reloadAllowed -> RELOAD_TIP
+                else -> RELOAD_OFF_TIP
+            }
         label.text = state?.label ?: ""
         this.status.text = status
         this.status.styleClass.remove("result-error")

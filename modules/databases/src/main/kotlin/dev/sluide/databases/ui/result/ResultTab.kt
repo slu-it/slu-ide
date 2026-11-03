@@ -14,17 +14,20 @@ internal class ResultTab(
     host: ResultHost,
     val ref: TableRef?,
     private val closeOthers: (ResultTab) -> Unit,
+    /** Asks whether the unsubmitted edits of the tab with this title may be dropped. */
+    confirmDiscard: (String) -> Boolean,
 ) : Tab(ref?.table ?: ResultTabsLogic.DEFAULT_TITLE) {
     val view = ResultView(host, ref) { columns -> if (ref == null) text = ResultTabsLogic.title(columns) }
 
     var pinned = false
         private set
 
-    val info: TabInfo get() = TabInfo(pinned, ref != null)
+    val info: TabInfo get() = TabInfo(pinned, ref != null, view.pendingEdits)
 
     init {
         content = view.node
         isClosable = true
+        setOnCloseRequest { if (view.pendingEdits && !confirmDiscard(text)) it.consume() }
         setOnClosed { view.close() }
         val pin = MenuItem(ResultTabsLogic.pinLabel(false)).apply { setOnAction { setPinned(!pinned) } }
         val others = MenuItem("Close Other Result Tabs").apply { setOnAction { closeOthers(this@ResultTab) } }

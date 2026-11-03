@@ -1,6 +1,7 @@
 /*
  * Result area under a console (ResultArea): Output, the paging toolbar and the grid. Colours are looked-up ones
- * (-fx-background, -fx-text-base-color, derive) except the error red, which has a dark counterpart below.
+ * (-fx-background, -fx-text-base-color, derive) except the error red and the marks of edited cells, which have dark
+ * counterparts below.
  */
 
 .result-toolbar {
@@ -49,4 +50,51 @@
 
 .result-output .list-cell {
     -fx-font-family: monospace;
+}
+
+/*
+ * Unsubmitted edits of an editable result: the grid's cells carry one class each (deleted, added, changed; the later
+ * rule wins). Single-class selectors, so the dark rules, which come later in the media block, win over the light
+ * ones of the same specificity. A selected cell keeps the selection colour.
+ */
+.db-cell-deleted {
+    -fx-background-color: #f8d7d7;
+}
+
+.db-cell-added {
+    -fx-background-color: #d7f0d7;
+}
+
+.db-cell-changed {
+    -fx-background-color: #fff3c4;
+}
+
+@media (prefers-color-scheme: dark) {
+    .db-cell-deleted {
+        -fx-background-color: #5a2323;
+    }
+
+    .db-cell-added {
+        -fx-background-color: #1f4a28;
+    }
+
+    .db-cell-changed {
+        -fx-background-color: #5c4a10;
+    }
+}
+
+.db-cell-deleted .text {
+    -fx-strikethrough: true;
+}
+
+.db-cell-deleted:selected, .db-cell-added:selected, .db-cell-changed:selected {
+    -fx-background-color: -fx-selection-bar;
+}
+
+.result-lock {
+    -fx-padding: 0 6 0 6;
+}
+
+.result-lock .ikonli-font-icon {
+    -fx-icon-color: derive(-fx-text-base-color, 30%);
 }

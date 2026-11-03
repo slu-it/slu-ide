@@ -1,6 +1,8 @@
 package dev.sluide.databases.ui.result
 
+import dev.sluide.databases.meta.Introspector
 import dev.sluide.databases.result.TableRef
+import dev.sluide.databases.session.DbSession
 import dev.sluide.databases.session.StatementOutcome
 import dev.sluide.databases.ui.ConnectionEntry
 import javafx.application.Platform
@@ -10,6 +12,7 @@ import javafx.scene.control.TabPane
 import javafx.scene.input.Clipboard
 import javafx.scene.input.ClipboardContent
 import java.time.LocalTime
+import java.util.concurrent.CompletableFuture
 
 private fun systemClipboard(text: String) {
     Clipboard.getSystemClipboard().setContent(ClipboardContent().apply { putString(text) })
@@ -27,7 +30,17 @@ class ResultArea(
     private val fx: (Runnable) -> Unit = Platform::runLater,
     private val clock: () -> LocalTime = LocalTime::now,
     private val clipboard: (String) -> Unit = ::systemClipboard,
+    /** Opens text as a new scratch file with the extension (no dot). */
+    private val openScratch: (extension: String, text: String) -> Unit = { _, _ -> },
 ) {
+    /** Asks whether the unsubmitted edits of the tab with this title may be dropped; tests replace it. */
+    internal var confirmDiscard: (String) -> Boolean = { EditQuestions.discard(tabs.scene?.window, it) }
+
+    /** The primary key of a table, read on the metadata connection; tests replace it. */
+    internal var primaryKeyLookup: (DbSession, TableRef) -> CompletableFuture<List<String>> = { session, ref ->
+        session.withMetadata { Introspector.of(ref.kind).primaryKey(it, ref.schema, ref.table) }
+    }
+
     private val output = OutputLog(clipboard)
     private val outputTab =
         Tab(ResultTabsLogic.OUTPUT_TITLE, output.list).apply {
@@ -58,6 +71,16 @@ class ResultArea(
             ) = this@ResultArea.log(text, error)
 
             override fun copyToClipboard(text: String) = clipboard(text)
+
+            override fun openScratch(
+                extension: String,
+                text: String,
+            ) = this@ResultArea.openScratch(extension, text)
+
+            override fun primaryKey(
+                session: DbSession,
+                ref: TableRef,
+            ) = primaryKeyLookup(session, ref)
         }
 
     val node: Node =
@@ -65,8 +88,8 @@ class ResultArea(
             it.stylesheets += checkNotNull(ResultArea::class.java.getResource("result.css")).toExternalForm()
         }
 
-    /** Whether any tab has unsubmitted edits (the editing package fills it in). */
-    val pendingEdits: Boolean get() = false
+    /** Whether any tab has unsubmitted edits. */
+    val pendingEdits: Boolean get() = resultTabs().any { it.view.pendingEdits }
 
     private fun resultTabs(): List<ResultTab> = tabs.tabs.filterIsInstance<ResultTab>()
 
@@ -110,13 +133,13 @@ class ResultArea(
     }
 
     private fun newTab(ref: TableRef?): ResultTab {
-        val tab = ResultTab(host, ref, ::closeOthers)
+        val tab = ResultTab(host, ref, ::closeOthers) { confirmDiscard(it) }
         tabs.tabs += tab
         return tab
     }
 
     private fun closeOthers(keep: ResultTab) {
-        for (other in resultTabs().filter { it !== keep && !it.pinned }) {
+        for (other in resultTabs().filter { it !== keep && !it.pinned && !it.view.pendingEdits }) {
             other.view.close()
             tabs.tabs.remove(other)
         }
