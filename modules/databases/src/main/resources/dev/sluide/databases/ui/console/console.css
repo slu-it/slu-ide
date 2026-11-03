@@ -35,3 +35,36 @@
 .console-add .ikonli-font-icon {
     -fx-icon-color: -fx-text-base-color;
 }
+
+/* The completion and history popups (CompletionPopup, HistoryPopup). */
+.completion-list {
+    -fx-border-color: -fx-box-border;
+}
+
+.completion-list .list-cell {
+    -fx-padding: 2 8 2 6;
+    -fx-graphic-text-gap: 6;
+}
+
+.completion-icon {
+    -fx-icon-size: 14;
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.history-popup {
+    -fx-background-color: -fx-background;
+    -fx-border-color: -fx-box-border;
+}
+
+.history-filter {
+    -fx-background-radius: 0;
+}
+
+.history-list .list-cell {
+    -fx-padding: 2 8 2 8;
+}
+
+.history-empty {
+    -fx-padding: 8 12 8 12;
+    -fx-opacity: 0.6;
+}

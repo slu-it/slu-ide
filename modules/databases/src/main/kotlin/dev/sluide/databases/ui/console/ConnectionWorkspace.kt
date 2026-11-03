@@ -1,6 +1,7 @@
 package dev.sluide.databases.ui.console
 
 import dev.sluide.databases.result.TableRef
+import dev.sluide.databases.sql.CompletionCatalog
 import dev.sluide.databases.sql.QueryHistory
 import dev.sluide.databases.ui.ConnectionEntry
 import dev.sluide.databases.ui.DatabasesTabModel
@@ -22,6 +23,7 @@ import javafx.scene.control.TabPane
 import javafx.scene.control.Tooltip
 import javafx.scene.layout.StackPane
 import javafx.stage.Window
+import javafx.util.Subscription
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignP
 
@@ -54,6 +56,10 @@ class ConnectionWorkspace internal constructor(
     private val confirmStop: (String) -> Boolean = { askStop(window(), it) },
     /** Whether a console's results run a submit of edits. */
     private val submitRunning: (ResultArea) -> Boolean = { it.submitRunning },
+    /** The names completion offers; the connection's metadata cache unless a test passes another. */
+    private val catalog: CompletionCatalog = entry.metadata.catalog,
+    /** Subscribes to finished catalog loads. */
+    private val onCatalogLoaded: (() -> Unit) -> Subscription = { entry.metadata.onLoaded(it) },
 ) {
     internal val consoles = mutableListOf<Console>()
     private var counter = 0
@@ -116,6 +122,9 @@ class ConnectionWorkspace internal constructor(
         val title = if (counter == 1) "Console" else "Console $counter"
         val results = ResultArea(entry, pageSize, fetchAllCap, fx)
         val pane = ConsolePane(entry, model, history, pageSize, editorCss, results, fx, gate)
+        val completion =
+            CompletionPopup(pane, entry.config.get().kind, catalog, onCatalogLoaded)
+        val historyPopup = HistoryPopup(pane, history, entry.historyKey)
         val tab = Tab(title, pane.node)
         val console = Console(tab, pane, results)
         tab.setOnCloseRequest { event ->
@@ -129,6 +138,8 @@ class ConnectionWorkspace internal constructor(
             if (keepRunning || (pendingEdits(results) && !confirmDiscard())) event.consume()
         }
         tab.setOnClosed {
+            completion.dispose()
+            historyPopup.dispose()
             pane.dispose()
             results.dispose()
             consoles.remove(console)

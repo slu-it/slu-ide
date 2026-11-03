@@ -222,8 +222,8 @@ File does not react to it while a terminal has the focus.
 | Enter / Escape in the statement chooser | Run the chosen entry / close |
 | Shortcut+F2 in a console | Cancel the running statement |
 | Shortcut+Alt+Shift+Enter in a console | Commit (Manual mode) |
-| Shortcut+Alt+E in a console | Query history of the connection; Enter inserts the entry, Escape closes |
-| Ctrl+Space in a console | Completion (also opens by itself after `.` or two letters); Up / Down choose, Enter or Tab insert, Escape closes |
+| Shortcut+Alt+E in a console | Query history of the connection with a filter field; Down moves into the list, Enter inserts the entry (on a new line when the caret line has text), Escape closes |
+| Ctrl+Space in a console | Completion (literal Ctrl on every platform; also opens by itself after a typed `.` or two letters); Up / Down choose, PageUp / PageDown page, Enter or Tab insert, Escape closes |
 | Shortcut+C in a result grid | Copy the selected cells as tab-separated text |
 | Shortcut+C in the Output list | Copy the selected lines |
 | Enter or F2 in an editable result grid | Edit the cell; Enter keeps the value, Escape drops it |
