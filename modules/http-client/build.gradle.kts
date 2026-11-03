@@ -21,6 +21,13 @@ dependencies {
     // Contributes the requests family (cURL <-> .http request) to the Converting tool; both modules are in the editor
     // family (ADR 0115, 0116).
     implementation(project(":modules:converting"))
+    // Certificate passphrases can be saved encrypted with the one key of the saved secrets, and are listed on
+    // Settings -> Secrets through its SavedSecretSource API (ADR 0122); api: the public SavedPassphrases takes Secrets
+    // and implements SavedSecretSource.
+    api(project(":modules:secrets"))
+    // Saved passphrases are stored in the shared data file, ~/.sluide/shared.json (ADR 0101, 0122); api: the public
+    // SavedPassphrases takes the ProjectDataStore.
+    api(project(":modules:project-data"))
     implementation(libs.spring.context)
     implementation(libs.jackson.databind)
     // Toolbar and gutter icons: Material Design Icons, like the file explorer's (ADR 0012).
