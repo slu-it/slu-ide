@@ -44,6 +44,7 @@ assembled from Gradle modules.
 | `project-trust` | foundation | Whether the tools of an opened folder may run what it defines: the `ProjectTrustCheck` extension point, the combined decision and its storage. | [0053](adr/0053-project-trust.md) |
 | `background-tasks` | foundation | Per-window background tasks (registry and indicator) and logged named threads (`NamedThreads`). | [0060](adr/0060-logging-conventions.md), [0061](adr/0061-background-tasks.md) |
 | `project-data` | foundation | Per-project metadata, one JSON file per project in `~/.sluide/projects` (`ProjectDataStore`), with per-file data in it or, for files outside any project, in the shared data file `~/.sluide/shared.json`, which modules can also use for their own top-level fields (`readShared`/`updateShared`); the migration of old properties files (`LegacyProjectData`) and of `outside-projects.json`. | [0090](adr/0090-per-project-metadata-store.md), [0101](adr/0101-shared-data-file.md) |
+| `secrets` | foundation | Saved secrets: `Secrets` encrypts values (AES-256-GCM, `SecretCipher`) with one random key kept in the OS secret store (`KeyBackend`: macOS Keychain, Linux `secret-tool`); features store the encrypted text in their own JSON. | [0122](adr/0122-saved-secrets.md) |
 | `ide` | app | Launcher, Spring Boot configuration, main window and its window parts; wires the modules together. | [0002](adr/0002-spring-inside-javafx.md), [0068](adr/0068-window-parts-in-ide.md) |
 
 Feature modules are one IDE capability each. The editor family (`editor-area`, `file-viewers`, `previews`, `terminal`,
@@ -58,7 +59,7 @@ modules are small and meant for sharing; they may be plain libraries without Spr
 - Modules may depend on other modules ([ADR 0047](adr/0047-module-dependencies-and-shared-modules.md)), without cycles
   (Gradle refuses cycles anyway), but only on a module of the same capability family (`git-log` -> `git`) or on a small
   foundation module meant for sharing (`settings`, `file-watcher`, `text-editing`, `file-icons`, `project-trust`,
-  `background-tasks`, `project-data`).
+  `background-tasks`, `project-data`, `secrets`).
   Unrelated feature modules do not depend on each other: `ide` wires them through callbacks (`git-log` with `editor-area`
   and `file-viewers`, `git` with the explorer's markers). When two modules need the same piece of a third, it is
   extracted into a small module rather than depending on the whole feature module. The families are defined under
@@ -140,6 +141,7 @@ Every edge between modules, as in the `build.gradle.kts` files
 | `databases` | `project-data` | `api` | `ConnectionStore` keeps the project's connections in its project data (field `databases`); `api`: its constructor takes the store. | [0090](adr/0090-per-project-metadata-store.md), [0121](adr/0121-databases-tab.md) |
 | `project-trust` | `project-data` | `api` | `TrustedProjects` keeps the `trust` field in the project's data and takes the `ProjectDataStore`; `LegacyTrustDecisions` migrates `project-trust.properties`. | [0090](adr/0090-per-project-metadata-store.md) |
 | `project-trust` | `background-tasks` | `api` | The trust checks run on `NamedThreads` and as `BackgroundTasks`; `ProjectTrust`'s constructor takes the registry. | [0060](adr/0060-logging-conventions.md), [0061](adr/0061-background-tasks.md) |
+| `secrets` | `settings` | `api` | The Settings → Secrets page is a public `SettingsPage` bean. | [0067](adr/0067-feature-settings-in-their-module.md), [0122](adr/0122-saved-secrets.md) |
 | `file-explorer` | `file-watcher` | `api` | Loaded folders are watched; `FileExplorerView` takes the `FileWatcher`. | [0006](adr/0006-file-watching.md) |
 | `file-explorer` | `settings` | `api` | Uses the configured fonts; `FileExplorerView` takes `FontSettings`. `ExplorerSettings` stores Compact Middle Folders (`explorer.compactFolders`) with `SettingsStore`, which it takes. | [0008](adr/0008-settings.md), [0067](adr/0067-feature-settings-in-their-module.md), [0096](adr/0096-compact-middle-folders.md) |
 | `file-explorer` | `file-icons` | `api` | Shows files with the file-type icons (`FileIcon`/`fileIconFor`, `FontIcon.show`, `FILE_ICONS_CSS`); `ExplorerRoot.folderIcons` takes `FileIcon`s, so `ide` needs no dependency of its own. | [0012](adr/0012-file-icons.md) |
@@ -147,6 +149,7 @@ Every edge between modules, as in the `build.gradle.kts` files
 | `scratches` | `file-icons` | `implementation` | The type picker shows each type with its file-type icon. | [0066](adr/0066-scratch-files.md) |
 | `ide` | every module but `file-icons` and `text-editing` | `implementation` | Wires the modules together; those two arrive through `api` edges. | [0002](adr/0002-spring-inside-javafx.md), [0068](adr/0068-window-parts-in-ide.md) |
 | `ide` | `previews` | `implementation` | For the Spring beans only: the previews are `FileViewer`s found by component scan, `ide` imports nothing from them. | [0069](adr/0069-previews-module.md) |
+| `ide` | `secrets` | `implementation` | For the Spring bean only: `Secrets` is a singleton found by component scan and named in `SpringWiringTest`; the features that save secrets inject it. | [0122](adr/0122-saved-secrets.md) |
 | `ide` | `background-tasks` | `implementation` | `MainWindow` shows the window's `BackgroundTasks` as a `BackgroundTasksView` under the file explorer and hands the registry to file views through `FileViewHost.windowService`. `WindowFileComparison` and `WindowConversions` run their work on `NamedThreads`. | [0061](adr/0061-background-tasks.md) |
 | `ide` | `github-actions` | `implementation` | `WindowWorkflowSources` implements `RemoteSources` over `git`'s `RemoteSourceCache` (hosts chosen from the project's origin) and `MainWindow` registers it as a window service. | [0070](adr/0070-window-services.md), [0076](adr/0076-cache-of-remote-action-sources.md) |
 | `ide` | `command-runs` | `implementation` | `CommandRunSession` is a window bean, created per window, which `GradleSession` takes; `MainWindow` registers it as a window service for the views that run commands (shell scripts); the window tests create it and name it in their bean lists. | [0088](adr/0088-shared-command-runs.md) |
