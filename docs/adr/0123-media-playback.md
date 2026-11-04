@@ -26,10 +26,14 @@ already in the app, because `javafx.web` requires it: the platform jars carry `l
     time); one after loading is logged and ignored. Accepted limit: a playback's own error that does not halt its
     player is not shown either.
   - At the end the player would stay `PLAYING` and not play again, so it is stopped there and shown as `ENDED` at the
-    total time. Play starts again from 0:00. A seek after the end is applied once the player has paused, because a
-    stopped player ignores seeks.
+    total time (not while looping: JavaFX calls the end handler before each repetition too). Play starts again from
+    0:00. A seek after the end is applied once the player has paused, because a stopped player ignores seeks.
   - JavaFX tells `currentTime` listeners only while playing: after a seek before the first play the time moves later
     without an event, so a seek shows its (clamped) target at once.
+  - On macOS JavaFX hands a rate straight to AVPlayer, where a rate above 0 starts playback that JavaFX does not
+    notice (it stays `READY`, reports no time). A bound rate did that on open: every file played with the Play button
+    showing. AVPlayer's play also resets the rate to 1. So the speed reaches the player only while it plays, and again
+    at every start.
 - **One playback at a time, app-wide:** `PlaybackCoordinator` (singleton) pauses the previously started playback when
   another one starts, in any window.
 - **Volume and mute** are user-wide, in the field `media` of `shared.json` ([ADR 0101](0101-shared-data-file.md)),

@@ -99,7 +99,9 @@ class JavaFxPlayback(
             if (player.status != MediaPlayer.Status.UNKNOWN) totalDurationWrapper.set(duration ?: Duration.UNKNOWN)
         }
         player.setOnEndOfMedia {
-            // Only called without repetition. A stopped player starts from the beginning on play.
+            // Also called before every repetition while looping, and the player rewinds by itself then.
+            if (player.cycleCount == MediaPlayer.INDEFINITE) return@setOnEndOfMedia
+            // A stopped player starts from the beginning on play.
             ended = true
             pendingSeek = null
             currentTimeWrapper.set(
@@ -108,16 +110,36 @@ class JavaFxPlayback(
             statusWrapper.set(PlaybackStatus.ENDED)
             player.stop()
         }
-        player.statusProperty().addListener { _, _, _ -> updateStatus() }
+        // macOS: the rewind of a repetition plays anew, at rate 1, while the status stays PLAYING.
+        player.setOnRepeat { if (player.status == MediaPlayer.Status.PLAYING) applyRate(player) }
+        player.statusProperty().addListener { _, _, status ->
+            if (status == MediaPlayer.Status.PLAYING) applyRate(player)
+            updateStatus()
+        }
         player.currentTimeProperty().addListener { _, _, time ->
             if (!ended && pendingSeek == null) currentTimeWrapper.set(time)
         }
         player.volumeProperty().bind(volume)
         player.muteProperty().bind(muted)
-        player.rateProperty().bind(rate)
+        // Not bound: see applyRate.
+        rate.addListener { _, _, _ -> if (player.status == MediaPlayer.Status.PLAYING) applyRate(player) }
         player.cycleCount = cycles(loop.get())
         loop.addListener { _, _, on -> player.cycleCount = cycles(on) }
         updateStatus()
+    }
+
+    /**
+     * Gives the player the speed, only while it plays. On macOS JavaFX hands a rate straight to AVPlayer, where any
+     * rate above 0 starts playback JavaFX knows nothing of (it stays READY or PAUSED and reports no time): a bound rate
+     * started every file on open. And AVPlayer's play resets the rate to 1 while the player's property keeps the old
+     * value, so a speed other than 1 is set again at every start (via 1, as setting an unchanged value does nothing).
+     * PLAYING arrives later than play: a pause in between would get the rate after it (on macOS, play on hidden), which
+     * no caller does, as the controls and the coordinator see READY or PAUSED until then.
+     */
+    private fun applyRate(player: MediaPlayer) {
+        val wanted = rate.get()
+        if (player.rate == wanted && wanted != 1.0) player.rate = 1.0
+        player.rate = wanted
     }
 
     private fun updateStatus() {
@@ -233,7 +255,6 @@ class JavaFxPlayback(
         player?.let {
             it.volumeProperty().unbind()
             it.muteProperty().unbind()
-            it.rateProperty().unbind()
             it.dispose()
         }
     }

@@ -85,6 +85,60 @@ class JavaFxPlaybackUiTest {
     }
 
     @Test
+    fun `the speed reaches the player only while it plays, at every start`(robot: FxRobot) {
+        // On macOS a rate given to the player while it does not play starts AVPlayer behind JavaFX's back, and
+        // AVPlayer's play resets the rate to 1.
+        val loaded = load(robot, writeSineWav(dir.resolve("short.wav"), seconds = 0.5))
+        val player = checkNotNull(loaded.mediaPlayer)
+        val set = CopyOnWriteArrayList<Pair<Double, MediaPlayer.Status>>()
+        val ended = CopyOnWriteArrayList<PlaybackStatus>()
+        robot.interact {
+            player.rateProperty().addListener { _, _, rate -> set.add(rate.toDouble() to player.status) }
+            loaded.status.addListener { _, _, status -> if (status == PlaybackStatus.ENDED) ended.add(status) }
+            loaded.rate.set(1.5)
+        }
+        fx { assertEquals(1.0, player.rate) }
+
+        robot.interact { loaded.play() }
+        until("ended once") { ended.size == 1 }
+        robot.interact { loaded.play() }
+        until("ended twice") { ended.size == 2 }
+
+        assertEquals(listOf(MediaPlayer.Status.PLAYING), set.map { it.second }.distinct(), "set while: $set")
+        assertEquals(2, set.count { it.first == 1.5 }, "rates set: $set")
+    }
+
+    @Test
+    fun `loops until loop is turned off and takes a speed while playing only`(robot: FxRobot) {
+        // On Linux CI the null ALSA device is unclocked: each pass of the file takes almost no time.
+        val loaded = load(robot, writeSineWav(dir.resolve("short.wav"), seconds = 0.5))
+        val player = checkNotNull(loaded.mediaPlayer)
+        val seen = CopyOnWriteArrayList<PlaybackStatus>()
+        val rates = CopyOnWriteArrayList<Double>()
+        robot.interact {
+            loaded.status.addListener { _, _, status -> seen.add(status) }
+            player.rateProperty().addListener { _, _, rate -> rates.add(rate.toDouble()) }
+            loaded.loop.set(true)
+            loaded.play()
+        }
+
+        until("repeated") { player.currentCount >= 2 }
+        // Read in the same step: a repetition would set the speed too, but only later.
+        val atOnce = fx { loaded.rate.set(2.0).let { player.rate } }
+        assertEquals(2.0, atOnce)
+        // macOS rewinds a repetition at rate 1: every repetition sets the speed again.
+        val before = rates.size
+        until("set again by a repetition") { rates.drop(before).contains(2.0) }
+        fx { assertEquals(PlaybackStatus.PLAYING, loaded.status.get(), "seen: $seen") }
+        robot.interact { loaded.loop.set(false) }
+        until("ended") { loaded.status.get() == PlaybackStatus.ENDED }
+        robot.interact { loaded.rate.set(0.75) }
+
+        fx { assertEquals(2.0, player.rate) }
+        assertEquals(listOf(PlaybackStatus.PLAYING, PlaybackStatus.ENDED), seen)
+    }
+
+    @Test
     fun `garbage named mp3 fails with a reason and leaves a loaded playback alone`(robot: FxRobot) {
         val wav = load(robot, writeSineWav(dir.resolve("sine.wav")))
 
