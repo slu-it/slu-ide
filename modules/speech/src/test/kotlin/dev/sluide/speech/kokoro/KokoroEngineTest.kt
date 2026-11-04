@@ -8,6 +8,7 @@ import dev.sluide.speech.install.KokoroVariant
 import dev.sluide.speech.install.KokoroVoicesFile
 import dev.sluide.speech.install.ModelStore
 import dev.sluide.speech.settings.SpeechSettings
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.io.TempDir
 import java.io.RandomAccessFile
 import java.nio.file.Files
@@ -29,6 +30,7 @@ class KokoroEngineTest {
         val calls: MutableList<Int>,
         val concurrent: AtomicInteger,
         val maxConcurrent: AtomicInteger,
+        val speeds: MutableList<Float>,
         val onRun: () -> Unit,
     ) : KokoroModel {
         @Volatile var closed = false
@@ -43,6 +45,7 @@ class KokoroEngineTest {
             try {
                 onRun()
                 calls.add(ids.size)
+                speeds.add(speed)
                 Thread.sleep(5) // keeps the call open so that an unserialized second call would overlap
                 return FloatArray(ids.size * 100) { 0.5f } to FloatArray(ids.size + 2) { 1f }
             } finally {
@@ -57,6 +60,9 @@ class KokoroEngineTest {
 
     private val calls = CopyOnWriteArrayList<Int>()
     private val models = CopyOnWriteArrayList<FakeModel>()
+    private val speeds = CopyOnWriteArrayList<Float>()
+    private val styleCalls = CopyOnWriteArrayList<Pair<String, Int>>()
+    private val created = CopyOnWriteArrayList<KokoroEngine>()
     private val concurrent = AtomicInteger()
     private val maxConcurrent = AtomicInteger()
     private var onRun: () -> Unit = {}
@@ -87,24 +93,27 @@ class KokoroEngineTest {
     private fun engine(
         espeakFound: Boolean = true,
         idleMillis: Long = 60_000,
+        configuredPath: () -> String = { if (espeakFound) espeak.toString() else "" },
     ): KokoroEngine {
         val locator =
-            EspeakLocator(
-                configuredPath = { if (espeakFound) espeak.toString() else "" },
-                loginShellLookup = { null },
-                fallbackDirs = emptyList(),
-            )
+            EspeakLocator(configuredPath = configuredPath, loginShellLookup = { null }, fallbackDirs = emptyList())
         val tokenizer = KokoroTokenizer({ word, _ -> word.lowercase().filter { it.isLetter() } }, KokoroVocab.load())
         return KokoroEngine(
             settings,
             store,
             locator,
             tokenizer,
-            { StyleSource { _, _ -> FloatArray(256) } },
-            { file -> FakeModel(file, calls, concurrent, maxConcurrent) { onRun() }.also { models.add(it) } },
+            { StyleSource { id, count -> styleCalls.add(id to count).let { FloatArray(256) } } },
+            { file -> FakeModel(file, calls, concurrent, maxConcurrent, speeds) { onRun() }.also { models.add(it) } },
             scheduler,
             idleMillis,
-        )
+        ).also { created.add(it) }
+    }
+
+    @AfterEach
+    fun tearDown() {
+        created.forEach { it.destroy() }
+        scheduler.shutdownNow()
     }
 
     private val voice = KokoroVoices.all.first()
@@ -136,7 +145,7 @@ class KokoroEngineTest {
         assertEquals("The Kokoro voice model is not installed.", e.message)
         install()
         val e2 = assertFailsWith<SpeechException> { engine(espeakFound = false).synthesize(chunk("hello"), voice, 1.0) }
-        assertEquals("espeak-ng not found.", e2.message)
+        assertEquals("espeak-ng not found. Install it or set its path in Settings → Speech.", e2.message)
     }
 
     @Test
@@ -235,5 +244,67 @@ class KokoroEngineTest {
         }
         assertEquals(1, maxConcurrent.get())
         assertEquals(4, calls.size)
+    }
+
+    @Test
+    fun `every piece gets the style row of its own token count, the voice and a clamped speed`() {
+        install()
+        val text = List(200) { "hello" }.joinToString(" ")
+        val voice = KokoroVoices.all.first { it.id == "bm_george" }
+        val engine = engine()
+        engine.synthesize(chunk(text), voice, 5.0)
+        engine.synthesize(chunk("hello"), voice, 0.1)
+        engine.synthesize(chunk("hello"), voice, 1.25)
+        assertEquals(calls.toList(), styleCalls.map { it.second })
+        assertTrue(styleCalls.all { it.first == "bm_george" })
+        assertEquals(calls.size - 2, speeds.count { it == 2.0f })
+        assertEquals(listOf(0.5f, 1.25f), speeds.takeLast(2))
+    }
+
+    @Test
+    fun `a change of the espeak path is seen by every problems call`() {
+        install()
+        val first = dir.resolve("first").also { Files.createDirectories(it) }
+        val second = dir.resolve("second").also { Files.createDirectories(it) }
+        val a =
+            first
+                .resolve("espeak-ng")
+                .also {
+                    Files.writeString(it, "#!/bin/sh\n")
+                }.also { it.toFile().setExecutable(true) }
+        val b =
+            second
+                .resolve("espeak-ng")
+                .also {
+                    Files.writeString(it, "#!/bin/sh\n")
+                }.also { it.toFile().setExecutable(true) }
+        val engine = engine(configuredPath = settings::currentEspeakPath)
+        assertEquals(1, engine.problems().size)
+        settings.apply(a.toString(), KokoroVariant.FP32)
+        assertEquals(emptyList(), engine.problems())
+        settings.apply(dir.resolve("gone").toString(), KokoroVariant.FP32)
+        assertEquals(1, engine.problems().size)
+        settings.apply(b.toString(), KokoroVariant.FP32)
+        assertEquals(emptyList(), engine.problems())
+    }
+
+    @Test
+    fun `problems looks again after espeak was installed`() {
+        install()
+        val late = dir.resolve("late-espeak")
+        val lateEngine = engine(configuredPath = { late.toString() })
+        assertEquals(1, lateEngine.problems().size)
+        Files.writeString(late, "#!/bin/sh\n")
+        late.toFile().setExecutable(true)
+        assertEquals(emptyList(), lateEngine.problems())
+    }
+
+    @Test
+    fun `synthesize after destroy fails without loading a model`() {
+        install()
+        val engine = engine()
+        engine.destroy()
+        assertFailsWith<SpeechException> { engine.synthesize(chunk("hello"), voice, 1.0) }
+        assertTrue(models.isEmpty())
     }
 }

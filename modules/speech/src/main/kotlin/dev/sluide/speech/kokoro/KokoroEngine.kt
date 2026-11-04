@@ -18,6 +18,7 @@ import org.springframework.stereotype.Component
 import java.nio.file.Path
 import java.util.concurrent.ScheduledExecutorService
 import java.util.concurrent.ScheduledFuture
+import java.util.concurrent.ScheduledThreadPoolExecutor
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
 
@@ -56,7 +57,7 @@ class KokoroEngine internal constructor(
         KokoroTokenizer(Espeak(locator::locate)::phonemes, KokoroVocab.load()),
         ::NpzVoices,
         ::KokoroSession,
-        NamedThreads.scheduled("kokoro-idle"),
+        (NamedThreads.scheduled("kokoro-idle") as ScheduledThreadPoolExecutor).also { it.removeOnCancelPolicy = true },
         IDLE_UNLOAD_MILLIS,
     )
 
@@ -66,9 +67,11 @@ class KokoroEngine internal constructor(
     private var styles: StyleSource? = null
     private var idleTask: ScheduledFuture<*>? = null
 
+    @Volatile private var destroyed = false
+
     init {
         // The property changes on the FX thread; invalidate() never blocks.
-        settings.espeakPath.addListener { _ -> locator.invalidate() }
+        settings.espeakPath.addListener { _, _, _ -> locator.invalidate() }
     }
 
     override val id: String = KokoroVoices.ENGINE_ID
@@ -77,6 +80,7 @@ class KokoroEngine internal constructor(
 
     override fun problems(): List<SetupProblem> {
         val problems = ArrayList<SetupProblem>()
+        if (destroyed) throw SpeechException("The Kokoro engine is shutting down.")
         val variant = settings.currentVariant()
         if (!store.installed(variant)) {
             problems.add(SetupProblem.ModelMissing(id, variant.name, store.missingBytes(variant)))
@@ -98,7 +102,7 @@ class KokoroEngine internal constructor(
         try {
             return synthesizeLocked(chunk, voice, speed.toFloat().coerceIn(0.5f, 2.0f))
         } finally {
-            scheduleUnload()
+            if (destroyed) unloadLocked() else scheduleUnload()
             lock.unlock()
         }
     }
@@ -108,11 +112,12 @@ class KokoroEngine internal constructor(
         voice: Voice,
         speed: Float,
     ): SynthesizedChunk {
+        if (destroyed) throw SpeechException("The Kokoro engine is shutting down.")
         val variant = settings.currentVariant()
         if (!store.installed(variant)) throw SpeechException("The Kokoro voice model is not installed.")
         if (locator.locate() == null) {
             locator.invalidate()
-            throw SpeechException("espeak-ng not found.")
+            throw SpeechException("espeak-ng not found. Install it or set its path in Settings → Speech.")
         }
         val pieces = tokenizer.split(tokenizer.tokenize(chunk, voice.language), KokoroTokenizer.MAX_TOKENS)
         val samples = ArrayList<FloatArray>()
@@ -158,12 +163,21 @@ class KokoroEngine internal constructor(
         unloadLocked()
         try {
             val loaded = modelFactory(store.modelFile(variant))
+            val source =
+                try {
+                    voicesFactory(store.voicesFile())
+                } catch (e: Throwable) {
+                    loaded.close()
+                    throw e
+                }
             model = loaded
             loadedVariant = variant
-            styles = voicesFactory(store.voicesFile())
+            styles = source
             return loaded
         } catch (e: OrtException) {
             throw SpeechException("Kokoro failed: ${e.message}", e)
+        } catch (e: LinkageError) {
+            throw SpeechException("ONNX Runtime cannot be loaded on this system: ${e.message}", e)
         }
     }
 
@@ -196,6 +210,7 @@ class KokoroEngine internal constructor(
     }
 
     override fun destroy() {
+        destroyed = true
         scheduler.shutdownNow()
         lock.lock()
         try {

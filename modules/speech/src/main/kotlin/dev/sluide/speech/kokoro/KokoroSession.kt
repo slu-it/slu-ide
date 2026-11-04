@@ -34,9 +34,11 @@ internal class KokoroSession(
     private val durationName: String
 
     init {
-        val options = OrtSession.SessionOptions()
-        options.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
-        session = env.createSession(modelFile.toString(), options)
+        session =
+            OrtSession.SessionOptions().use { options ->
+                options.setOptimizationLevel(OrtSession.SessionOptions.OptLevel.ALL_OPT)
+                env.createSession(modelFile.toString(), options)
+            }
         try {
             val inputs = session.inputNames
             val outputs = session.outputNames

@@ -51,6 +51,10 @@ image (`bash`, `debian`, `alpine`, `busybox`) is present; it creates and removes
 `SLUIDE_DB_SMOKE=1` set, and skips itself when `docker` or the image (`postgres:17-alpine`, `mariadb:11`) is missing;
 its fixture `RealDatabases` starts one container per kind on a 127.0.0.1 port and stops it afterwards:
 `SLUIDE_DB_SMOKE=1 ./gradlew :modules:databases:test --tests 'RealDatabaseSmokeTest' -q`.
+`KokoroEngineRealTest` (module `speech`) synthesizes one sentence with the real Kokoro model only with
+`SLUIDE_KOKORO_SMOKE=1` set, and skips itself when the model files are not in `~/.sluide/models/kokoro-v1.0/` (or
+`SLUIDE_KOKORO_MODEL_DIR`) or espeak-ng is missing; `SLUIDE_KOKORO_WAV=<file>` also writes the audio:
+`SLUIDE_KOKORO_SMOKE=1 ./gradlew :modules:speech:test --tests 'KokoroEngineRealTest' -q`.
 
 ## Display handling
 - **Linux without `DISPLAY` and without `CI`:** `uiTest` is *skipped* (not failed), so a headless sandbox stays usable.

@@ -2,7 +2,9 @@ package dev.sluide.speech.kokoro
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class KokoroVocabTest {
     private val vocab = KokoroVocab.load()
@@ -34,5 +36,16 @@ class KokoroVocabTest {
     fun `unknown characters have no id`() {
         assertNull(vocab.id('g'))
         assertNull(vocab.id('7'))
+    }
+
+    @Test
+    fun `matches compares the entries with the model's vocab`() {
+        val own = KokoroVocab.load()
+        val entries = HashMap<String, Long>()
+        for (c in Char.MIN_VALUE..Char.MAX_VALUE) own.id(c)?.let { entries[c.toString()] = it }
+        assertTrue(own.matches(entries))
+        assertFalse(own.matches(entries + (";" to 99L)))
+        assertFalse(own.matches(entries + ("§" to 300L)))
+        assertFalse(own.matches(entries - ";"))
     }
 }
