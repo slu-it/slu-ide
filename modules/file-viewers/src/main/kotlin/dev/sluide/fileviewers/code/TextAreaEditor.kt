@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers.code
 
+import dev.sluide.fileviewers.StyledRange
 import dev.sluide.fileviewers.SyntaxHighlighter
 import dev.sluide.textediting.CommentSyntax
 import dev.sluide.textediting.IndentStyle
@@ -12,6 +13,7 @@ import org.fxmisc.flowless.VirtualizedScrollPane
 import org.fxmisc.richtext.CodeArea
 import org.fxmisc.richtext.model.StyleSpans
 import org.fxmisc.richtext.model.StyleSpansBuilder
+import org.fxmisc.richtext.model.TwoDimensional.Bias
 import org.fxmisc.richtext.util.UndoUtils
 import org.fxmisc.wellbehaved.event.Nodes
 import java.time.Duration
@@ -92,6 +94,9 @@ internal class TextAreaEditor(
     /** The offset of the character marked as an error, see [markError]. */
     private var errorAt: Int? = null
 
+    /** The ranges of the current overlay, within the text when set; see [overlay]. */
+    private var overlayed: List<StyledRange> = emptyList()
+
     init {
         area.isWrapText = true
         // The default undo manager would also undo highlighting.
@@ -113,7 +118,7 @@ internal class TextAreaEditor(
             field = value
             highlighting.dispose()
             highlighting = backgroundHighlighting(value)
-            if (area.length > 0) area.setStyleSpans(0, withError(plainSpans(area.length)))
+            if (area.length > 0) area.setStyleSpans(0, withMarks(plainSpans(area.length)))
             highlight(area.text)
         }
 
@@ -128,6 +133,7 @@ internal class TextAreaEditor(
      * line stays at the top, so a text that changes around the caret does not jump.
      */
     fun replaceText(text: String) {
+        overlay(emptyList())
         if (text == area.text) return
         val caret = area.caretPosition
         val top = if (area.visibleParagraphs.isEmpty()) -1 else area.firstVisibleParToAllParIndex()
@@ -161,9 +167,60 @@ internal class TextAreaEditor(
         errorAt = at
         if (area.length == 0) return
         val styled = area.getStyleSpans(0, area.length)
-        val wanted = withError(styled.mapStyles { style -> style.filterNot { it == ERROR } })
+        val wanted = withMarks(styled.mapStyles { style -> style.filterNot { it == ERROR } })
         val range = changedSpanRange(styled, wanted) ?: return
         area.setStyleSpans(range.first, wanted.subView(range.first, range.last + 1))
+    }
+
+    /** Whether the user can change the text. */
+    var editable: Boolean
+        get() = area.isEditable
+        set(value) {
+            area.isEditable = value
+        }
+
+    /**
+     * Replaces the overlay by [ranges] (clamped to the text; empty ones dropped), restyling only the span from the
+     * first to the last character the old or the new overlay touches.
+     */
+    fun overlay(ranges: List<StyledRange>) {
+        val length = area.length
+        val wanted =
+            ranges
+                .map { StyledRange(it.start.coerceIn(0, length), it.end.coerceIn(0, length), it.styleClass) }
+                .filter { it.start < it.end }
+        val old = overlayed.filter { it.start < length }
+        overlayed = wanted
+        val touched = old + wanted
+        if (touched.isEmpty()) return
+        val from = touched.minOf { it.start }
+        val to = minOf(touched.maxOf { it.end }, length)
+        if (from >= to) return
+        val classes = touched.map { it.styleClass }.toSet()
+        val styled = area.getStyleSpans(from, to)
+        val bare = styled.mapStyles { style -> style.filterNot { it in classes } }
+        val changed = withOverlay(bare, wanted, from)
+        val range = changedSpanRange(styled, changed) ?: return
+        area.setStyleSpans(from + range.first, changed.subView(range.first, range.last + 1))
+    }
+
+    /** Scrolls [start, end) into view; caret, selection and focus stay. */
+    fun reveal(
+        start: Int,
+        end: Int,
+    ) {
+        if (area.length == 0) return
+        val from = start.coerceIn(0, area.length)
+        val to = end.coerceIn(from, area.length)
+        area.showParagraphInViewport(area.offsetToPosition(from, Bias.Forward).major)
+        area.layout()
+        val shown = area.getCharacterBoundsOnScreen(from, maxOf(to, from + 1).coerceAtMost(area.length)).orElse(null)
+        val bounds = shown?.let { area.screenToLocal(it) } ?: return
+        if (bounds.minY < 0) {
+            area.scrollYBy(bounds.minY)
+        } else if (bounds.maxY > area.height) {
+            area.scrollYBy(bounds.maxY - area.height)
+        }
     }
 
     /** [at], or the nearest character before it that is no line break (if there is one). */
@@ -177,17 +234,33 @@ internal class TextAreaEditor(
     }
 
     private fun backgroundHighlighting(highlighter: SyntaxHighlighter?) =
-        BackgroundHighlighting(area, highlighter, highlightPause, dispatch) { _, spans -> withError(spans) }
+        BackgroundHighlighting(area, highlighter, highlightPause, dispatch) { _, spans -> withMarks(spans) }
 
     private fun highlight(text: String) {
         val highlighter = highlighter ?: return
-        if (text.isNotEmpty()) area.setStyleSpans(0, withError(codeStyleSpans(text, highlighter)))
+        if (text.isNotEmpty()) area.setStyleSpans(0, withMarks(codeStyleSpans(text, highlighter)))
     }
 
-    /** [spans] with the error style on the marked character. */
-    private fun withError(spans: StyleSpans<Collection<String>>): StyleSpans<Collection<String>> {
-        val at = errorAt?.takeIf { it < spans.length() } ?: return spans
-        return overlayRanges(spans, listOf(at..at)) { ERROR_STYLE }
+    /** [spans] of the whole text with the error style on the marked character and the overlay on its ranges. */
+    private fun withMarks(spans: StyleSpans<Collection<String>>): StyleSpans<Collection<String>> {
+        val at = errorAt?.takeIf { it < spans.length() }
+        val marked = if (at == null) spans else overlayRanges(spans, listOf(at..at)) { ERROR_STYLE }
+        return withOverlay(marked, overlayed, 0)
+    }
+
+    /** [spans], which start at [offset] of the text, with each of [ranges] (text offsets) added where it lies in them. */
+    private fun withOverlay(
+        spans: StyleSpans<Collection<String>>,
+        ranges: List<StyledRange>,
+        offset: Int,
+    ): StyleSpans<Collection<String>> {
+        var result = spans
+        for (range in ranges) {
+            val from = maxOf(range.start - offset, 0)
+            val to = minOf(range.end - offset, spans.length())
+            if (from < to) result = overlayRanges(result, listOf(from until to)) { listOf(range.styleClass) }
+        }
+        return result
     }
 
     private fun plainSpans(length: Int): StyleSpans<Collection<String>> =

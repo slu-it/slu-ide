@@ -134,6 +134,22 @@ interface TextEditor {
      */
     fun markError(offset: Int?)
 
+    /** Whether the user can change the text; false = read-only (caret moves, selection and copy still work). FX thread. */
+    var editable: Boolean
+
+    /**
+     * Overlays style classes on character ranges, drawn over the highlighter's styles (and the error mark); replaces
+     * the previous overlay; an empty list removes it. Ranges are clamped to the text; overlapping ranges add both
+     * classes. Kept until the next [overlay] call or [replaceText] (which clears it). Call on the FX thread.
+     */
+    fun overlay(ranges: List<StyledRange>)
+
+    /** Scrolls [start, end) into view without moving the caret or the selection and without focusing. FX thread. */
+    fun reveal(
+        start: Int,
+        end: Int,
+    )
+
     /** The selected range [start, end); empty at the caret when nothing is selected. Call on the FX thread. */
     val selection: IndexRange
 
@@ -165,6 +181,13 @@ interface TextEditor {
         end: Int,
     )
 }
+
+/** A character range [start, end) to which [styleClass] is added, see [TextEditor.overlay]. */
+data class StyledRange(
+    val start: Int,
+    val end: Int,
+    val styleClass: String,
+)
 
 /** Creates [CodeEditor]s and [CodeDisplay]s. */
 object CodeEditors {
@@ -215,6 +238,19 @@ private class AreaTextEditor(
     override fun select(offset: Int) = editor.select(offset)
 
     override fun markError(offset: Int?) = editor.markError(offset)
+
+    override var editable: Boolean
+        get() = editor.editable
+        set(value) {
+            editor.editable = value
+        }
+
+    override fun overlay(ranges: List<StyledRange>) = editor.overlay(ranges)
+
+    override fun reveal(
+        start: Int,
+        end: Int,
+    ) = editor.reveal(start, end)
 
     override val selection: IndexRange get() = editor.selection
     override val caretOffset: Int get() = editor.caretOffset

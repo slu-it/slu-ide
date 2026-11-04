@@ -2,10 +2,13 @@ package dev.sluide.fileviewers.code
 
 import dev.sluide.fileviewers.CodeEditors
 import dev.sluide.fileviewers.Highlighters
+import dev.sluide.fileviewers.StyledRange
 import dev.sluide.fileviewers.TextEditor
 import dev.sluide.fileviewers.press
+import javafx.event.Event
 import javafx.scene.Scene
 import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyEvent
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
 import org.fxmisc.flowless.VirtualizedScrollPane
@@ -201,6 +204,71 @@ class TextAreaEditorUiTest {
     }
 
     @Test
+    fun `an overlay adds classes over the highlighting, a new one replaces it and the error mark coexists`(
+        robot: FxRobot,
+    ) {
+        val editor = open(robot, "# Title\nsome words here\n")
+        WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) { fx { editor.area.getStyleOfChar(2).isNotEmpty() } }
+        val before = fx { editor.area.getStyleOfChar(2).toSet() }
+
+        robot.interact { editor.overlay(listOf(StyledRange(0, 7, "soft"), StyledRange(2, 4, "strong"))) }
+        assertEquals(before + "soft" + "strong", fx { editor.area.getStyleOfChar(2).toSet() })
+        assertEquals(setOf("soft"), fx { editor.area.getStyleOfChar(5).toSet() - before })
+        assertEquals(false, fx { "soft" in editor.area.getStyleOfChar(9) })
+
+        robot.interact { editor.markError(3) }
+        assertEquals(listOf(3), fx { errorChars(editor) })
+        assertTrue(fx { "strong" in editor.area.getStyleOfChar(3) }, "error mark keeps the overlay")
+
+        robot.interact { editor.overlay(listOf(StyledRange(8, 12, "soft"), StyledRange(-5, 0, "gone"))) }
+        assertEquals(false, fx { "soft" in editor.area.getStyleOfChar(2) || "strong" in editor.area.getStyleOfChar(2) })
+        assertTrue(fx { "soft" in editor.area.getStyleOfChar(9) })
+        assertEquals(listOf(3), fx { errorChars(editor) }, "the error mark stays")
+
+        // The highlighting arrives after an edit and keeps the overlay.
+        robot.interact { editor.area.insertText(editor.area.length, "# h") }
+        WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) {
+            fx { editor.area.getStyleOfChar(editor.area.length - 1).isNotEmpty() }
+        }
+        assertTrue(fx { "soft" in editor.area.getStyleOfChar(9) }, "kept by the background highlighting")
+
+        robot.interact { editor.replaceText("# Other\n") }
+        assertEquals(false, fx { (0 until editor.area.length).any { "soft" in editor.area.getStyleOfChar(it) } })
+    }
+
+    @Test
+    fun `a read-only editor refuses typing but lets the caret move`(robot: FxRobot) {
+        val editor = open(robot, "abc")
+        robot.interact {
+            editor.focus()
+            editor.area.moveTo(3)
+            editor.editable = false
+        }
+        robot.typeChar(editor, "x")
+        assertEquals("abc", fx { editor.text })
+        robot.press(editor.area, KeyCode.LEFT)
+        assertEquals(2, fx { editor.caretOffset })
+
+        robot.interact { editor.editable = true }
+        robot.typeChar(editor, "x")
+        assertEquals("abxc", fx { editor.text })
+    }
+
+    @Test
+    fun `reveal scrolls a range far below into view and leaves the caret and the selection`(robot: FxRobot) {
+        val editor = open(robot, (1..100).joinToString("\n") { "line $it" })
+        robot.interact { editor.selectRange(2, 4) }
+        robot.interact { editor.area.showParagraphAtTop(0) }
+        val end = editor.text.length
+
+        robot.interact { editor.reveal(end - 3, end) }
+
+        assertTrue(fx { editor.area.lastVisibleParToAllParIndex() } >= 99, "the last line is shown")
+        assertEquals(2, fx { editor.selection.start })
+        assertEquals(4, fx { editor.caretOffset })
+    }
+
+    @Test
     fun `selection, caret offset and its property follow selectRange`(robot: FxRobot) {
         val editor = open(robot, "hello world")
         val seen = mutableListOf<Int>()
@@ -278,6 +346,17 @@ class TextAreaEditorUiTest {
         editor.area.let { area ->
             (0 until area.length).filter { area.text[it] != '\n' && "text-error" in area.getStyleOfChar(it) }
         }
+
+    /** Types [text] into the editor as a key-typed event, not synthetic OS input. */
+    private fun FxRobot.typeChar(
+        editor: TextAreaEditor,
+        text: String,
+    ) = interact {
+        Event.fireEvent(
+            editor.area,
+            KeyEvent(KeyEvent.KEY_TYPED, text, "", KeyCode.UNDEFINED, false, false, false, false),
+        )
+    }
 
     private fun <T> fx(block: () -> T): T = WaitForAsyncUtils.asyncFx(block).get()
 }
