@@ -25,7 +25,8 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   Images and diagrams keep their zoom with Fit on the left. Controls that only make sense for one side hide while it
   is hidden.
 - Toolbar controls are not focus-traversable. Icon-only buttons get a tooltip; one with a key binding says it:
-  `"Zoom In (Shortcut++)"`.
+  `"Zoom In (Shortcut++)"`. A `Slider` still takes the focus on a click (its behaviour asks for it regardless) and
+  then eats the arrow keys: hand the focus back to the view (`MediaControlBar.install`).
 - Icons: Ikonli Material Design 2 `FontIcon` (ADR 0012), coloured by the stylesheet with
   `-fx-icon-color: -fx-text-base-color` so they follow the theme. Style the toolbar like `preview-view.css`
   (`.preview-toolbar`): no new colours, small padding.

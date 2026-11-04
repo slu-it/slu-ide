@@ -28,6 +28,8 @@ already in the app, because `javafx.web` requires it: the platform jars carry `l
   - At the end the player would stay `PLAYING` and not play again, so it is stopped there and shown as `ENDED` at the
     total time. Play starts again from 0:00. A seek after the end is applied once the player has paused, because a
     stopped player ignores seeks.
+  - JavaFX tells `currentTime` listeners only while playing: after a seek before the first play the time moves later
+    without an event, so a seek shows its (clamped) target at once.
 - **One playback at a time, app-wide:** `PlaybackCoordinator` (singleton) pauses the previously started playback when
   another one starts, in any window.
 - **Volume and mute** are user-wide, in the field `media` of `shared.json` ([ADR 0101](0101-shared-data-file.md)),
