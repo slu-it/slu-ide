@@ -38,6 +38,8 @@ dependencies {
     implementation(libs.ikonli.javafx)
     implementation(libs.ikonli.materialdesign2)
 
+    // The UI tests read the styles of the editor's text area.
+    testImplementation(libs.richtextfx)
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
 }

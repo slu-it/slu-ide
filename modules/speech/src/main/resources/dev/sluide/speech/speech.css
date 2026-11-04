@@ -1,0 +1,59 @@
+/*
+ * Read Aloud tab (ReadAloudView): the setup notice and the toolbar use Modena's looked-up colours; the toolbar looks
+ * like .preview-toolbar in preview-view.css. The sentence and word highlight are text backgrounds of the editor
+ * (the overlay of TextEditor), soft for the sentence, stronger for the word, with a dark counterpart.
+ */
+
+.speech-toolbar {
+    -fx-padding: 2 6 2 6;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
+}
+
+.speech-button {
+    -fx-padding: 2 10 2 10;
+    -fx-background-radius: 0;
+}
+
+.speech-button .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.speech-status {
+    -fx-padding: 0 8 0 8;
+    -fx-font-size: 0.9em;
+    -fx-opacity: 0.75;
+}
+
+.speech-voice-heading {
+    -fx-font-weight: bold;
+    -fx-opacity: 0.75;
+}
+
+.speech-notice {
+    -fx-background-color: #e3eefc;
+    -fx-border-color: transparent transparent #a9c4ec transparent;
+}
+
+.speech-sentence {
+    -rtfx-background-color: #dbe8fb;
+}
+
+.speech-word {
+    -rtfx-background-color: #9cc2f5;
+}
+
+@media (prefers-color-scheme: dark) {
+    .speech-notice {
+        -fx-background-color: #263a57;
+        -fx-border-color: transparent transparent #35598c transparent;
+    }
+
+    .speech-sentence {
+        -rtfx-background-color: #2f4361;
+    }
+
+    .speech-word {
+        -rtfx-background-color: #3f6aa8;
+    }
+}

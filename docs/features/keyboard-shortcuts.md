@@ -91,6 +91,17 @@ View-local keys of an audio or video tab, while the view has the focus; ignored 
 | Up / Down | Volume +10 % / −10 % |
 | M | Mute / unmute |
 
+## Read Aloud tab
+View-local keys of the Read Aloud tab's text, while it has the focus ([ADR 0124](../adr/0124-read-aloud-speech.md)).
+While a reading is preparing, speaking or paused the text is read-only.
+
+| Keys | Action |
+|---|---|
+| Shortcut+Enter (text editable) | Read from the sentence at the caret |
+| Space (while reading) | Pause / resume |
+| Escape (while reading) | Stop; the text is editable again |
+| Double-click on the text (while reading) | Jump: restart the reading at that sentence |
+
 ## HTTP client
 [http-client.md](http-client.md), [http-client-env-editor.md](http-client-env-editor.md)
 
