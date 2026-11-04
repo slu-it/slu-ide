@@ -9,7 +9,8 @@ enum class Gender { FEMALE, MALE }
  * @property id the engine's own voice id (`af_heart`), unique within the engine.
  * @property name the name shown to the user (`Heart`).
  * @property language the BCP 47 tag of the spoken language (`en-US`, `en-GB`); the picker groups by it.
- * @property grade the published quality grade (`A`, `B-`), or null when the engine grades none; best first.
+ * @property grade the quality grade the engine's publisher gives the voice (`A` best, then `B-` and lower), or null
+ *   when the engine has no grades; the picker lists the best grade first.
  * @property engineId the [SpeechEngine.id] that speaks this voice.
  */
 data class Voice(
@@ -75,9 +76,18 @@ sealed interface SetupProblem {
     ) : SetupProblem
 }
 
+/** A setup or synthesis failure of a [SpeechEngine]; [message] is readable for the user and shown as is. */
+class SpeechException(
+    message: String,
+    cause: Throwable? = null,
+) : Exception(message, cause)
+
 /**
  * Turns text into speech for the languages of its [voices]. One implementation per engine and model (Kokoro for
  * English; later Piper for German or a server), so the reading session stays engine-neutral (ADR 0124).
+ *
+ * Implementations are thread-safe: [problems] and [synthesize] may be called concurrently from several threads
+ * (several windows read at once). An implementation may serialize the calls internally.
  */
 interface SpeechEngine {
     /** Unique among the engines; [Voice.engineId] refers to it. */
@@ -91,9 +101,13 @@ interface SpeechEngine {
 
     /**
      * Synthesizes [chunk] with [voice] at [speed] (1.0 = normal). Blocking: call it off the FX thread. Splits the
-     * chunk internally when it exceeds the model's limit. Throws [InterruptedException] when the calling thread is
-     * interrupted between steps.
+     * chunk internally when it exceeds the model's limit.
+     *
+     * Throws [SpeechException] for setup or synthesis failures, with a message for the user, and
+     * [InterruptedException] when the calling thread is interrupted between steps. Any other exception is a bug, but
+     * callers treat it as a failure too.
      */
+    @Throws(InterruptedException::class, SpeechException::class)
     fun synthesize(
         chunk: SpeechChunk,
         voice: Voice,
