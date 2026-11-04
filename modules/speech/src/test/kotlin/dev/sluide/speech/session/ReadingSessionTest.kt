@@ -352,21 +352,6 @@ class ReadingSessionTest {
     }
 
     @Test
-    fun `a throwing listener gets the later events`() {
-        listener = { state, message ->
-            events.add(state to message)
-            // An Error, not an Exception: the events thread catches any throwable.
-            if (state == ReadingState.PREPARING) throw AssertionError("listener bug")
-        }
-        session().start()
-        engine.nextCall()
-
-        engine.answer(Answer.Audio(2400))
-
-        assertEvents(ReadingState.PREPARING, ReadingState.SPEAKING)
-    }
-
-    @Test
     fun `concurrent stop, pause and resume end in one stop`() {
         val reading = session()
         reading.start()

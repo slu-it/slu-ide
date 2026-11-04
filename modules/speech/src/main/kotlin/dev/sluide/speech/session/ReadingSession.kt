@@ -168,7 +168,8 @@ class ReadingSession internal constructor(
 
     /**
      * After the end: interrupts both threads (the calling one too, which is ending) and wakes blocked sink calls. The
-     * player closes the sink; if its loop never ran, it is closed here.
+     * player closes the sink (its task runs even after shutdownNow and sees the end); without a player (stop before
+     * start) it is closed here. The queue check is only defensive.
      */
     private fun release() {
         val (synthesizing, playing) = core.lock.withLock { synthesisThread to playerThread }
