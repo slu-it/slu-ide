@@ -41,6 +41,11 @@
   (`databases.statementTimeoutSeconds`, default 0 for none, up to 86,400). They apply at once. Lives in the
   `databases` module (`DatabasesSettings`, `DatabasesSettingsPage` with `DatabasesSettingsPageModel`, package
   `dev.sluide.databases.settings`; [ADR 0121](../adr/0121-databases-tab.md)).
+- Speech: the optional path of espeak-ng (`speech.espeak`, empty finds it on the login shell's PATH) and the Kokoro voice
+  model per variant (fp32, fp16, int8) with its status, Download and Delete, and the variant in use
+  (`speech.kokoro.variant`). Lives in the `speech` module (`SpeechSettings`, `SpeechSettingsPage` with
+  `SpeechSettingsPageModel`, package `dev.sluide.speech.settings`; [read-aloud.md](read-aloud.md),
+  [ADR 0124](../adr/0124-read-aloud-speech.md)).
 - Secrets: the secret store, saved passphrases with Remove and Forget All Saved Secrets. Lives in the `secrets` module
   (`SecretsSettingsPage` with `SecretsSettingsPageModel`; [secrets.md](secrets.md)).
 - Structure: `FontSpec`, `FontStyle`, `FontArea` (values), `SettingsStore` (properties file), `FontSettings` (Spring

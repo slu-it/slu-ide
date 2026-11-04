@@ -27,7 +27,8 @@ Space, Left/Right, Up/Down and M, while the view has the focus ([keyboard-shortc
 There are no global bindings. Clicking anywhere in the view focuses it, so the keys work again.
 
 ## One playback at a time
-Starting playback pauses the one started before, in every window (`PlaybackCoordinator`).
+Starting playback pauses the one started before, in every window (`PlaybackCoordinator`). A Read Aloud reading takes
+part: starting it pauses a playing medium and the other way round ([read-aloud.md](read-aloud.md)).
 
 ## Background play
 A playing tab keeps playing when another tab is selected, and shows the running marker on its tab while it plays

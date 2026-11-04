@@ -32,7 +32,7 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   (`.preview-toolbar`): no new colours, small padding.
 
 ## Tool and service tabs
-- Tools menu (Coloring, Codecs, Converting) and Services menu (Docker, Databases) after Docker Sandbox in the menu bar
+- Tools menu (Coloring, Codecs, Converting, Read Aloud) and Services menu (Docker, Databases) after Docker Sandbox in the menu bar
   (ADR 0110, 0118, 0121). A tool is a `WindowTool` in `ide` (`ide/.../tools/ToolsMenu.kt`), not a module API.
 - One tab per window: the menu selects the open tab or creates one. Closes with Shortcut+W without a question and is
   not restored after a restart. Tools have no key binding; a service may get an Alt+N panel key (Docker: Alt+8,
@@ -50,8 +50,9 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
 - Explorer: `FileAction(label, icon, appliesTo, perform)` items appear only for a single file they apply to, after
   Open, and are never shown disabled (Run, ADR 0089). Folder actions use `FolderAction` (ADR 0056). Convert to ▸ is
   its own submenu hook (ADR 0115), shown the same way: only for a file it applies to.
-- Editor: extensions add items after a separator through `CodeEditorExtension` (ADR 0108). For new items (only
-  Converting does it so far): "Open Selection in X" with a selection and "Open in X" without; when an item cannot
+- Editor: extensions add items after a separator through `CodeEditorExtension` (ADR 0108). For new items (Converting does it 
+  so far): "Open Selection in X" with a selection and "Open in X" without (Read Aloud: "Read Selection Aloud" and "Read
+  Aloud"); when an item cannot
   act, disable it with the reason in the label ("(larger than 1 MiB)").
 - Opening something at a place: `FileViewHost.openFile(file, line)` / `FileView.showLine(line)` (ADR 0077).
   Generated text the user may keep opens as a scratch file (ADR 0066, 0114).
