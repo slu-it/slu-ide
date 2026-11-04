@@ -116,12 +116,14 @@ class SpeechSettingsPageUiTest {
     @Test
     fun `the download button starts a download and becomes Cancel, which stops it`(robot: FxRobot) {
         var label = ""
+        var state: InstallState? = null
         robot.interact {
             page.node
             page.downloadButtons.getValue(KokoroVariant.FP32).fire()
             label = page.downloadButtons.getValue(KokoroVariant.FP32).text
+            state = installer.state(KokoroVariant.FP32).get()
         }
-        assertEquals(InstallState.Downloading(0.0), installer.state(KokoroVariant.FP32).get())
+        assertEquals(InstallState.Downloading(0.0), state)
         assertEquals("Cancel", label)
 
         robot.interact { page.downloadButtons.getValue(KokoroVariant.FP32).fire() }

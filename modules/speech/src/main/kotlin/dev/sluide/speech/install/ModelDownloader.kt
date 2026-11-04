@@ -53,6 +53,8 @@ class ModelDownloader internal constructor(
      * Downloads what [v] is missing (the voices file too). [progress] gets 0..1 over all bytes, on the calling thread,
      * at most every 1 %.
      *
+     * [cancelled] is also called from the stall watchdog's thread, so it must be thread-safe.
+     *
      * @throws CancellationException when [cancelled] returns true; nothing half-written is left.
      * @throws SpeechException on a network or checksum failure, or a stall; its message is readable.
      */
