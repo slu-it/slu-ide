@@ -1,6 +1,7 @@
 package dev.sluide.speech
 
 import dev.sluide.backgroundtasks.NamedThreads
+import dev.sluide.media.PlaybackSpeeds
 import dev.sluide.projectdata.ProjectDataStore
 import org.springframework.beans.factory.DisposableBean
 import org.springframework.beans.factory.annotation.Autowired
@@ -17,9 +18,9 @@ import java.util.concurrent.atomic.AtomicReference
  * [writeDelay] of each other end in one write of the latest values. When the app quits ([destroy]) a pending write is
  * done at once, and so is every later save.
  *
- * A missing or invalid value reads as its default (no voice, 1.0); a speed outside the media player's speeds (0.5
- * to 2.0) is invalid. Other fields of `speech` stay as they are; a `speech` that is
- * no JSON object is not ours to keep and is replaced.
+ * A missing or invalid value reads as its default (no voice, 1.0); a speed outside [PlaybackSpeeds] (0.5 to 2.0) is
+ * invalid. Other fields of `speech` stay as they are; a `speech` that is no JSON object is not ours to keep and is
+ * replaced.
  */
 @Component
 class SpeechPreferences internal constructor(
@@ -129,9 +130,8 @@ class SpeechPreferences internal constructor(
         const val VOICE = "voice"
         const val SPEED = "speed"
 
-        // The bounds of the media player's speeds (MediaControlActions.SPEEDS, internal to media).
-        const val MIN_SPEED = 0.5
-        const val MAX_SPEED = 2.0
+        val MIN_SPEED = PlaybackSpeeds.ALL.min()
+        val MAX_SPEED = PlaybackSpeeds.ALL.max()
         val DEFAULT = Values(null, 1.0)
     }
 }

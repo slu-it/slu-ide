@@ -143,7 +143,7 @@ class MediaControlBar(
     private fun buildSpeedMenu() {
         val group = ToggleGroup()
         val items =
-            MediaControlActions.SPEEDS.map { rate ->
+            PlaybackSpeeds.ALL.map { rate ->
                 RadioMenuItem(MediaControlActions.speedLabel(rate)).apply {
                     toggleGroup = group
                     setOnAction { playback.rate.set(rate) }
@@ -154,7 +154,7 @@ class MediaControlBar(
         fun show() {
             val rate = playback.rate.get()
             speed.text = MediaControlActions.speedLabel(rate)
-            items.forEachIndexed { i, item -> item.isSelected = abs(MediaControlActions.SPEEDS[i] - rate) < 1e-9 }
+            items.forEachIndexed { i, item -> item.isSelected = abs(PlaybackSpeeds.ALL[i] - rate) < 1e-9 }
         }
         playback.rate.addListener { _, _, _ -> show() }
         show()

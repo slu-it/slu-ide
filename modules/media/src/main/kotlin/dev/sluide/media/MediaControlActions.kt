@@ -62,7 +62,6 @@ internal class MediaControlActions(
 
     companion object {
         const val SKIP_SECONDS = 10.0
-        val SPEEDS = listOf(0.5, 0.75, 1.0, 1.25, 1.5, 2.0)
 
         /** `1×`, `0.75×`, `1.25×`. */
         fun speedLabel(rate: Double): String {

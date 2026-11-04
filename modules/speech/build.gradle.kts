@@ -17,7 +17,7 @@ dependencies {
     // context menu as a CodeEditorExtension (ADR 0108, ADR 0124).
     api(project(":modules:file-viewers"))
     // Deliberate module dependency: one playback app-wide with the media player (PlaybackCoordinator), and the same
-    // speeds (MediaControlActions.SPEEDS) (ADR 0123, ADR 0124).
+    // speeds (PlaybackSpeeds) (ADR 0123, ADR 0124).
     implementation(project(":modules:media"))
     // Deliberate module dependency: espeak-ng is looked up through the login shell (loginShellPrints, ADR 0124).
     implementation(project(":modules:terminal"))
