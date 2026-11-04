@@ -14,6 +14,7 @@ import javafx.scene.control.ProgressBar
 import javafx.scene.control.RadioButton
 import javafx.scene.control.TextField
 import javafx.scene.control.ToggleGroup
+import javafx.scene.control.Tooltip
 import javafx.scene.layout.GridPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
@@ -80,7 +81,12 @@ class SpeechSettingsPage internal constructor(
             }
         model.variant.subscribe { selected -> radio.isSelected = selected == v }
         radios[v] = radio
-        val status = Label()
+        val status =
+            Label().apply {
+                isWrapText = true
+                prefWidth = 240.0
+                maxHeight = 60.0
+            }
         val bar = ProgressBar(0.0)
         val download = Button("Download")
         val delete = Button("Delete").apply { setOnAction { model.delete(v) } }
@@ -91,6 +97,8 @@ class SpeechSettingsPage internal constructor(
         deleteButtons[v] = delete
         installer.state(v).subscribe { state ->
             status.text = SpeechSettingsPageModel.statusText(state)
+            // A long failure message is wrapped and clipped by the label; the tooltip has all of it.
+            status.tooltip = if (state is InstallState.Failed) Tooltip(state.message) else null
             val downloading = state is InstallState.Downloading
             bar.isVisible = downloading
             bar.isManaged = downloading
@@ -101,7 +109,6 @@ class SpeechSettingsPage internal constructor(
         }
         return HBox(8.0, radio, status, bar, download, delete).apply {
             styleClass += "speech-model-row"
-            status.minWidth = 120.0
         }
     }
 

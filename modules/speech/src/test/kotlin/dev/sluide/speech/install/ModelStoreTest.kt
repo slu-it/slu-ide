@@ -60,4 +60,20 @@ class ModelStoreTest {
         store.delete(KokoroVariant.INT8)
         assertFalse(store.voicesFile().exists())
     }
+
+    @Test
+    fun `keeping the voices file and stale part files while a download runs, removing them otherwise`() {
+        install(KokoroVariant.FP32)
+        installVoices()
+        val part = dir.resolve("voices-v1.0.bin-123.part")
+        part.toFile().writeText("x")
+
+        store.delete(KokoroVariant.FP32, keepVoices = true)
+        assertTrue(store.voicesFile().exists())
+        assertTrue(part.exists())
+
+        store.delete(KokoroVariant.FP32)
+        assertFalse(store.voicesFile().exists())
+        assertFalse(part.exists())
+    }
 }

@@ -54,6 +54,8 @@ class ModelInstallerTest {
         val tasks = BackgroundTasks.forTests { log += it }
         work = { _, progress, _ ->
             progress(0.4)
+            sparse(store.voicesFile(), KokoroVoicesFile.BYTES)
+            sparse(store.modelFile(KokoroVariant.FP32), KokoroVariant.FP32.bytes)
             assertEquals(InstallState.Downloading(0.4), installer.state(KokoroVariant.FP32).get())
         }
 
@@ -112,5 +114,29 @@ class ModelInstallerTest {
 
         assertEquals(InstallState.NotInstalled, installer.state(KokoroVariant.FP32).get())
         assertEquals(InstallState.Installed, installer.state(KokoroVariant.FP16).get())
+    }
+
+    @Test
+    fun `a delete during another download keeps the voices file and both end in the state on disk`() {
+        sparse(store.voicesFile(), KokoroVoicesFile.BYTES)
+        sparse(store.modelFile(KokoroVariant.FP32), KokoroVariant.FP32.bytes)
+        work = { v, _, _ -> sparse(store.modelFile(v), v.bytes) }
+        installer.download(KokoroVariant.FP16, null)
+        installer.delete(KokoroVariant.FP32)
+
+        // The delete runs while the download is under way.
+        queued.removeLast().run()
+        assertTrue(store.voicesFile().toFile().exists(), "the download relies on it")
+        assertEquals(InstallState.NotInstalled, installer.state(KokoroVariant.FP32).get())
+
+        runQueued()
+        assertEquals(InstallState.Installed, installer.state(KokoroVariant.FP16).get())
+    }
+
+    @Test
+    fun `a download that did not leave the files ends not installed`() {
+        installer.download(KokoroVariant.FP32, null)
+        runQueued()
+        assertEquals(InstallState.NotInstalled, installer.state(KokoroVariant.FP32).get())
     }
 }

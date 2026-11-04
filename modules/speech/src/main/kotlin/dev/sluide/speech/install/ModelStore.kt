@@ -28,10 +28,20 @@ class ModelStore(
         (if (hasSize(modelFile(v), v.bytes)) 0 else v.bytes) +
             (if (hasSize(voicesFile(), KokoroVoicesFile.BYTES)) 0 else KokoroVoicesFile.BYTES)
 
-    /** Deletes the model of [v], and the voices file when no variant is installed any more; blocking. */
-    fun delete(v: KokoroVariant) {
+    /**
+     * Deletes the model of [v]; blocking. When no variant is installed any more, the voices file and stale `*.part`
+     * files go too, unless [keepVoices]: a download is running and may rely on them.
+     */
+    fun delete(
+        v: KokoroVariant,
+        keepVoices: Boolean = false,
+    ) {
         Files.deleteIfExists(modelFile(v))
-        if (KokoroVariant.entries.none { hasSize(modelFile(it), it.bytes) }) Files.deleteIfExists(voicesFile())
+        if (keepVoices || KokoroVariant.entries.any { hasSize(modelFile(it), it.bytes) }) return
+        Files.deleteIfExists(voicesFile())
+        if (Files.isDirectory(root)) {
+            Files.newDirectoryStream(root, "*.part").use { parts -> parts.forEach(Files::deleteIfExists) }
+        }
     }
 
     private fun hasSize(

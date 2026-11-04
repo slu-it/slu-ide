@@ -20,9 +20,14 @@ private const val VARIANT_KEY = "speech.kokoro.variant"
 class SpeechSettings(
     private val store: SettingsStore,
 ) {
-    private val stored = store.load()
-    private val espeakWrapper = ReadOnlyStringWrapper(readEspeak(stored))
-    private val variantWrapper = ReadOnlyObjectWrapper(readVariant(stored))
+    private val espeakWrapper: ReadOnlyStringWrapper
+    private val variantWrapper: ReadOnlyObjectWrapper<KokoroVariant>
+
+    init {
+        val stored = store.load()
+        espeakWrapper = ReadOnlyStringWrapper(readEspeak(stored))
+        variantWrapper = ReadOnlyObjectWrapper(readVariant(stored))
+    }
 
     @Volatile private var espeak = espeakWrapper.get()
 
