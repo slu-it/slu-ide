@@ -97,6 +97,47 @@ val platform: String =
         "$osName-$archName"
     }
 
+// The ONNX Runtime jar of the speech module holds the natives of all platforms (about 50 MB); like the JavaFX natives,
+// the fat jar keeps only the build platform's folder (ADR 0124). The module's own tests keep using the full jar. Other
+// platforms (e.g. Windows) keep all natives.
+val onnxRuntime =
+    configurations.create("onnxRuntime") {
+        isCanBeConsumed = false
+        isTransitive = false
+    }
+
+dependencies { onnxRuntime(libs.onnxruntime) }
+
+val onnxJars: FileCollection = onnxRuntime.incoming.files
+
+val onnxNativeFolder: String? =
+    mapOf("linux-x64" to "linux-x64", "linux-aarch64" to "linux-aarch64", "mac-aarch64" to "osx-aarch64")[platform]
+
+if (onnxNativeFolder != null) {
+    val onnxRuntimeForPlatform =
+        tasks.register<Jar>("onnxRuntimeForPlatform") {
+            description = "The ONNX Runtime jar with the natives of the build platform only."
+            val jars = onnxJars
+            // The original file name, so that the fat jar lists the same library.
+            archiveFileName = provider { jars.singleFile.name }
+            destinationDirectory = layout.buildDirectory.dir("onnxruntime")
+            from({ zipTree(jars.singleFile) }) {
+                // Natives of other platforms, and the debug symbols (.dSYM) of the macOS ones.
+                exclude("ai/onnxruntime/native/*/**")
+                exclude("META-INF/MANIFEST.MF")
+            }
+            from({ zipTree(jars.singleFile) }) {
+                include("ai/onnxruntime/native/$onnxNativeFolder/**")
+                exclude("**/*.dSYM/**")
+            }
+        }
+    tasks.bootJar {
+        val original = onnxJars.files
+        val bootClasspath = classpath ?: files()
+        setClasspath(files(bootClasspath.filter { file -> file !in original }, onnxRuntimeForPlatform))
+    }
+}
+
 // Native app with its own Java runtime (docs/adr/0011-native-app-packaging.md): `jpackageImage` builds Thoreau.app on
 // macOS (a launcher folder on Linux), `jpackageDmg` a disk image with it (macOS only). jpackage cannot cross-build,
 // so like the fat jar it is made on each platform for that platform.
