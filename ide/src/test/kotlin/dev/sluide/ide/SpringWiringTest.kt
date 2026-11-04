@@ -55,6 +55,8 @@ import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpEnvironmentFileViewer
 import dev.sluide.httpclient.HttpFileViewer
 import dev.sluide.httpclient.send.SavedPassphrases
+import dev.sluide.media.MediaPreferences
+import dev.sluide.media.PlaybackCoordinator
 import dev.sluide.previews.json.JsonFileViewer
 import dev.sluide.previews.markdown.MarkdownFileViewer
 import dev.sluide.previews.yaml.YamlFileViewer
@@ -180,6 +182,8 @@ class SpringWiringTest {
                         Databases::class.java,
                         Secrets::class.java,
                         SecretsSettingsPage::class.java,
+                        MediaPreferences::class.java,
+                        PlaybackCoordinator::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")
@@ -190,6 +194,8 @@ class SpringWiringTest {
                 context.getBean(TrustedProjects::class.java)
                 // Two constructors: Spring takes the @Autowired one; creating it does not touch the secret store.
                 context.getBean(Secrets::class.java)
+                // Two constructors as well; creating it reads nothing (shared.json is read on first use).
+                context.getBean(MediaPreferences::class.java)
                 // Every window has its own instance of these (ADR 0014).
                 val windowTypes =
                     listOf(
