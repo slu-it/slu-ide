@@ -1,0 +1,6 @@
+/* Media view (MediaFileView): the status line below the control bar. Only looked-up colours. */
+.media-status {
+    -fx-padding: 2 8 2 8;
+    -fx-font-size: 0.9em;
+    -fx-opacity: 0.75;
+}

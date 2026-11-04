@@ -55,6 +55,7 @@ import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.HttpEnvironmentFileViewer
 import dev.sluide.httpclient.HttpFileViewer
 import dev.sluide.httpclient.send.SavedPassphrases
+import dev.sluide.media.MediaFileViewer
 import dev.sluide.media.MediaPreferences
 import dev.sluide.media.PlaybackCoordinator
 import dev.sluide.previews.json.JsonFileViewer
@@ -184,6 +185,7 @@ class SpringWiringTest {
                         SecretsSettingsPage::class.java,
                         MediaPreferences::class.java,
                         PlaybackCoordinator::class.java,
+                        MediaFileViewer::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")
