@@ -150,7 +150,10 @@ CI once.
   clock: a file "plays" to its end within milliseconds, so the UI tests check states, not positions or timing.
   There are no ffmpeg libraries here, so only WAV and AIFF load; the tests generate a sine WAV (`writeSineWav`).
   To play media in the real app in the sandbox, start it with the same `ALSA_CONFIG_PATH`
-  ([ADR 0123](adr/0123-media-playback.md)).
+  ([ADR 0123](adr/0123-media-playback.md)). A Read Aloud reading on the null device advances sentence by sentence
+  (the sentence highlight shows), but its played-frames count jumps per write, so the word highlight cannot be seen
+  there. For a real reading, link `~/.sluide/models/kokoro-v1.0` into the throwaway home `run-app.sh` prints
+  (espeak-ng is installed with apt): Download in the tab then finds the files and the notice goes away.
 
 ## Running and screenshotting the real app (headless Linux sandbox)
 ```bash
