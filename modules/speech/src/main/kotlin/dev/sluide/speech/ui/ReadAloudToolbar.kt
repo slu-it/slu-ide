@@ -18,7 +18,6 @@ import javafx.scene.layout.Region
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignP
 import org.kordamp.ikonli.materialdesign2.MaterialDesignS
-import java.util.Locale
 import kotlin.math.abs
 
 /** A row of the voice picker: a language heading, which cannot be chosen, or a voice. */
@@ -51,9 +50,6 @@ internal fun languageName(language: String): String =
 internal fun voiceLabel(voice: Voice): String =
     listOfNotNull(voice.name, if (voice.gender == Gender.FEMALE) "female" else "male", voice.grade).joinToString(" · ")
 
-/** `1×`, `0.75×`. */
-internal fun speedLabel(speed: Double): String = "${"%.2f".format(Locale.ROOT, speed).trimEnd('0').trimEnd('.')}×"
-
 /**
  * The toolbar of the Read Aloud tab: Play/Pause and Stop, the voice picker, the speed menu, and the status text at the
  * right. It forwards the user's choices to [model] and shows what [show] is given.
@@ -73,7 +69,7 @@ internal class ReadAloudToolbar(
             id = "speech-stop"
             styleClass += "speech-button"
             isFocusTraversable = false
-            tooltip = Tooltip("Stop (Esc)")
+            tooltip = Tooltip("Stop (Escape)")
             setOnAction { model.stop() }
         }
     private val voice =
@@ -91,7 +87,7 @@ internal class ReadAloudToolbar(
     private val speedItems =
         ToggleGroup().let { group ->
             PlaybackSpeeds.ALL.map { rate ->
-                RadioMenuItem(speedLabel(rate)).apply {
+                RadioMenuItem(PlaybackSpeeds.label(rate)).apply {
                     toggleGroup = group
                     setOnAction { model.setSpeed(rate) }
                 }
@@ -103,6 +99,7 @@ internal class ReadAloudToolbar(
             styleClass += "speech-status"
         }
     private var mode = PlayMode.PLAY
+    private var shownMode: PlayMode? = null
     private var updating = false
 
     val node: HBox =
@@ -136,18 +133,21 @@ internal class ReadAloudToolbar(
 
     fun show(ui: ReadAloudUi) {
         mode = ui.playMode
-        val (icon, tip) =
-            when (ui.playMode) {
-                PlayMode.PLAY -> MaterialDesignP.PLAY to "Play (Shortcut+Enter)"
-                PlayMode.PAUSE -> MaterialDesignP.PAUSE to "Pause (Space)"
-                PlayMode.RESUME -> MaterialDesignP.PLAY to "Resume (Space)"
-            }
-        play.graphic = FontIcon(icon)
-        play.tooltip = Tooltip(tip)
+        if (shownMode != ui.playMode) {
+            shownMode = ui.playMode
+            val (icon, tip) =
+                when (ui.playMode) {
+                    PlayMode.PLAY -> MaterialDesignP.PLAY to "Play (Shortcut+Enter)"
+                    PlayMode.PAUSE -> MaterialDesignP.PAUSE to "Pause (Space)"
+                    PlayMode.RESUME -> MaterialDesignP.PLAY to "Resume (Space)"
+                }
+            play.graphic = FontIcon(icon)
+            play.tooltip = Tooltip(tip)
+        }
         play.isDisable = !ui.playEnabled
         stop.isDisable = !ui.stopEnabled
         status.text = ui.status
-        speed.text = speedLabel(ui.speed)
+        speed.text = PlaybackSpeeds.label(ui.speed)
         PlaybackSpeeds.ALL.forEachIndexed { i, rate -> speedItems[i].isSelected = abs(rate - ui.speed) < 1e-9 }
         updating = true
         try {

@@ -11,13 +11,12 @@ import dev.sluide.speech.engine.Voice
 import dev.sluide.speech.install.InstallState
 import dev.sluide.speech.install.KokoroVariant
 import dev.sluide.speech.install.ModelInstaller
+import dev.sluide.speech.kokoro.KokoroVoices
 import dev.sluide.speech.session.ReadingPosition
 import dev.sluide.speech.session.ReadingSession
 import dev.sluide.speech.session.ReadingState
 import javafx.beans.value.ObservableValue
 import java.util.concurrent.Executor
-
-private const val KOKORO = "kokoro"
 
 /** A [Reading] over a [ReadingSession]. */
 private class SessionReading(
@@ -107,5 +106,11 @@ internal class LiveReadAloudHost(
         variant(problem)?.let(installer::state)
 
     private fun variant(problem: SetupProblem.ModelMissing): KokoroVariant? =
-        if (problem.engineId == KOKORO) KokoroVariant.entries.firstOrNull { it.name == problem.variant } else null
+        if (problem.engineId ==
+            KokoroVoices.ENGINE_ID
+        ) {
+            KokoroVariant.entries.firstOrNull { it.name == problem.variant }
+        } else {
+            null
+        }
 }

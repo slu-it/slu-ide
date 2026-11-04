@@ -385,4 +385,59 @@ class ReadAloudModelTest {
         assertEquals(emptyList(), host.events)
         assertNull(model.installState())
     }
+
+    @Test
+    fun `Check Again while a start waits for its check does not drop the start`() {
+        host.holdChecks = true
+        model.read(text, markdown = false)
+
+        model.checkAgain()
+        host.held.forEach { it(emptyList()) }
+
+        assertEquals(1, host.readings.size)
+        assertEquals("Preparing…", model.ui.status)
+    }
+
+    @Test
+    fun `an offset at the end of a sentence belongs to that sentence`() {
+        speaking()
+
+        model.jumpTo(4)
+
+        assertEquals(0, host.reading.startChunk)
+    }
+
+    @Test
+    fun `a restart while paused stays paused`() {
+        speaking()
+        host.reading.emit(ReadingState.PAUSED)
+
+        model.setSpeed(1.5)
+
+        assertEquals(listOf("start", "pause"), host.reading.calls)
+        host.reading.emit(ReadingState.PAUSED)
+        assertEquals("Paused", model.ui.status)
+    }
+
+    @Test
+    fun `choosing the voice or speed already selected does not restart`() {
+        speaking()
+
+        model.setVoice(HEART)
+        model.setSpeed(1.0)
+
+        assertEquals(1, host.readings.size)
+        assertEquals(emptyList(), host.saved)
+    }
+
+    @Test
+    fun `typing makes the text plain again`() {
+        model.read("# Hi there. Bye", markdown = true)
+        host.reading.emit(ReadingState.STOPPED)
+        model.textEdited("# Hi there. Bye!")
+
+        model.play(0)
+
+        assertEquals("# Hi there. Bye!", host.reading.chunks.joinToString(" ") { it.text })
+    }
 }

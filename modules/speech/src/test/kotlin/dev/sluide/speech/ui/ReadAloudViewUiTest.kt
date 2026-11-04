@@ -1,5 +1,6 @@
 package dev.sluide.speech.ui
 
+import dev.sluide.fileviewers.ViewActivity
 import dev.sluide.speech.install.InstallState
 import dev.sluide.speech.session.ReadingPosition
 import dev.sluide.speech.session.ReadingState
@@ -216,5 +217,84 @@ class ReadAloudViewUiTest {
         robot.interact { (node("speech-check-again") as Button).fire() }
         assertFalse(fx { view.node.lookup(".speech-notice").isVisible })
         assertTrue(host.readings.isEmpty(), "nothing starts from the notice")
+    }
+
+    @Test
+    fun `text typed into the editor is what Play reads`(robot: FxRobot) {
+        robot.interact { area.replaceText("Typed text.") }
+
+        robot.interact { (node("speech-play") as Button).fire() }
+
+        assertEquals(
+            "Typed text.",
+            host.reading.chunks
+                .single()
+                .text,
+        )
+    }
+
+    @Test
+    fun `Play and Shortcut+Enter start at the sentence of the caret`(robot: FxRobot) {
+        robot.interact {
+            area.replaceText("One. Two. Three.")
+            area.moveTo(6)
+            (node("speech-play") as Button).fire()
+        }
+        assertEquals(1, host.reading.startChunk)
+        robot.interact { model.stop() }
+
+        robot.interact { area.moveTo(11) }
+        key(KeyCode.ENTER, shortcut = true)
+
+        assertEquals(2, host.reading.startChunk)
+    }
+
+    @Test
+    fun `a double-click on the last word of a sentence jumps to that sentence`(robot: FxRobot) {
+        robot.interact { model.read("# Title\n\nHello", markdown = true) }
+        host.reading.emit(ReadingState.SPEAKING)
+        WaitForAsyncUtils.waitForFxEvents()
+        // What the double-click does: it selects the word and leaves the caret at its end.
+        robot.interact { area.selectRange(2, 7) }
+
+        robot.interact {
+            Event.fireEvent(
+                area,
+                MouseEvent(
+                    MouseEvent.MOUSE_CLICKED,
+                    0.0,
+                    0.0,
+                    0.0,
+                    0.0,
+                    MouseButton.PRIMARY,
+                    2,
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    false,
+                    false,
+                    true,
+                    false,
+                    false,
+                    null,
+                ),
+            )
+        }
+
+        assertEquals(0, host.reading.startChunk)
+    }
+
+    @Test
+    fun `the tab shows the reading as its activity`(robot: FxRobot) {
+        val tab = ReadAloudTab(model, view)
+        assertEquals(ViewActivity.NONE, fx { tab.activity.value })
+
+        speaking(robot)
+        assertEquals(ViewActivity.RUNNING, fx { tab.activity.value })
+
+        robot.interact { model.stop() }
+        assertEquals(ViewActivity.NONE, fx { tab.activity.value })
     }
 }

@@ -50,7 +50,8 @@
   `EditorArea.confirmClose`. The dialog ("Close this tab anyway?" / "Close these tabs anyway?", Close and Cancel) is
   `askToClose`, which the main window uses for "Close this window anyway?" too.
 - One tab per file: the file name as title, the full path as tooltip. Clicking a tab selects it.
-- A file tab shows what its view is doing (`FileView.activity`) as a marker before its title: a small spinner while it
+- A tab shows what it is doing as a marker before its title (`EditorTab.activity`, none by default; a file tab takes
+  its view's `FileView.activity`, the Read Aloud tab shows its reading): a small spinner while it
   runs something (`ViewActivity.RUNNING`, style class `tab-activity-running`) and a red dot after it failed
   (`FAILED`, `tab-activity-failed`, lighter in the dark theme); nothing for `NONE`. The view decides how long a
   failure shows (e.g. until its tab is shown again); the tab only displays it.

@@ -59,8 +59,14 @@ internal class ReadAloudModel(
     private var position: ReadingPosition? = null
     private var polling: AutoCloseable? = null
 
-    /** Counts the starts and checks; the answer of an older one is dropped. */
+    /** Counts the starts; the answer of an older start's check is dropped. */
     private var requests = 0
+
+    /** Counts Check Again calls; the answer of an older one is dropped. */
+    private var checks = 0
+
+    /** Whether a start is waiting for its setup check; Check Again leaves the notice alone then. */
+    private var starting = false
 
     /** Called after [ui] changed, on the FX thread. */
     var onChange: () -> Unit = {}
@@ -114,6 +120,7 @@ internal class ReadAloudModel(
     }
 
     fun setVoice(voice: Voice) {
+        if (voice == this.voice) return
         this.voice = voice
         host.savePreferences(voice, speed)
         restartAtCurrent()
@@ -121,6 +128,7 @@ internal class ReadAloudModel(
     }
 
     fun setSpeed(speed: Double) {
+        if (speed == this.speed) return
         this.speed = speed
         voice?.let { host.savePreferences(it, speed) }
         restartAtCurrent()
@@ -131,6 +139,7 @@ internal class ReadAloudModel(
     fun textEdited(text: String) {
         if (reading() || text == this.text) return
         this.text = text
+        markdown = false
         if (phase == Phase.FINISHED || phase == Phase.FAILED) {
             phase = Phase.IDLE
             failure = null
@@ -141,9 +150,10 @@ internal class ReadAloudModel(
     /** Looks for setup problems again; nothing starts. */
     fun checkAgain() {
         val voice = voice ?: return
-        val request = ++requests
+        if (starting) return
+        val check = ++checks
         host.checkProblems(voice) { problems ->
-            if (request != requests) return@checkProblems
+            if (check != checks || starting) return@checkProblems
             notice = problems
             publish()
         }
@@ -168,11 +178,13 @@ internal class ReadAloudModel(
         val voice = voice ?: return
         stopRun()
         val request = ++requests
+        starting = true
         phase = Phase.PREPARING
         failure = null
         publish()
         host.checkProblems(voice) { problems ->
             if (request != requests) return@checkProblems
+            starting = false
             notice = problems
             if (problems.isEmpty()) {
                 launchAt(shownOffset)
@@ -271,6 +283,7 @@ internal class ReadAloudModel(
     /** Stops the running reading, if any, and drops the answers of pending starts. */
     private fun stopRun() {
         requests++
+        starting = false
         run?.let {
             it.reading.stop()
             finish(it)
@@ -294,10 +307,13 @@ internal class ReadAloudModel(
         run: Run,
         chunk: Int,
     ) {
+        val wasPaused = phase == Phase.PAUSED
         run.reading.stop()
         finish(run)
         requests++
         launch(Run(run.spoken, run.chunks, chunk))
+        // The new reading holds its start until resumed: a paused reading stays paused.
+        if (wasPaused) this.run?.reading?.pause()
     }
 
     private fun chunkAt(
@@ -306,7 +322,8 @@ internal class ReadAloudModel(
         shownOffset: Int,
     ): Int {
         val offset = spoken.spokenOffset(shownOffset.coerceAtLeast(0))
-        return chunks.indexOfFirst { it.end > offset }.coerceAtLeast(0)
+        if (offset >= spoken.text.length) return 0
+        return chunks.indexOfFirst { it.end >= offset }.coerceAtLeast(0)
     }
 
     private fun publish() {

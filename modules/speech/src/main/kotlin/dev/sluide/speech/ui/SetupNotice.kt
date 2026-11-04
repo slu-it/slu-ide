@@ -47,7 +47,7 @@ internal class SetupNotice(
     private fun row(problem: SetupProblem): HBox =
         when (problem) {
             is SetupProblem.ModelMissing -> modelRow(problem)
-            is SetupProblem.ToolMissing -> textRow(problem.hint)
+            is SetupProblem.ToolMissing -> textRow("${problem.tool} not found: ${problem.hint.replace("`", "")}")
             is SetupProblem.Broken -> textRow(problem.message)
         }
 
@@ -75,12 +75,18 @@ internal class SetupNotice(
             row.children.setAll(
                 when (current) {
                     is InstallState.Downloading -> downloading(current.progress)
-                    is InstallState.Failed -> listOf(label(current.message), download())
-                    else -> listOf(label(message), download())
+
+                    is InstallState.Failed -> listOf(label(current.message), download(problem))
+
+                    // Installed already (another window downloaded it): the check below clears the notice.
+                    is InstallState.Installed -> listOf(label("Kokoro voice model installed."))
+
+                    else -> listOf(label(message), download(problem))
                 },
             )
         }
         render(state?.value)
+        if (state?.value is InstallState.Installed) model.checkAgain()
         var last = state?.value
         subscription =
             state?.subscribe { now ->
@@ -92,8 +98,8 @@ internal class SetupNotice(
         return row
     }
 
-    private fun download() =
-        Button("Download").apply {
+    private fun download(problem: SetupProblem.ModelMissing) =
+        Button("Download (${formatMegabytes(problem.bytes)})").apply {
             id = "speech-download"
             isFocusTraversable = false
             setOnAction { model.download() }

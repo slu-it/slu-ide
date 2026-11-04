@@ -1,7 +1,6 @@
 package dev.sluide.media
 
 import javafx.util.Duration
-import java.util.Locale
 
 /**
  * What the control bar's buttons and keys do to a [Playback] (ADR 0123); no controls, so it needs no toolkit.
@@ -64,10 +63,7 @@ internal class MediaControlActions(
         const val SKIP_SECONDS = 10.0
 
         /** `1×`, `0.75×`, `1.25×`. */
-        fun speedLabel(rate: Double): String {
-            val text = "%.2f".format(Locale.ROOT, rate).trimEnd('0').trimEnd('.')
-            return "$text×"
-        }
+        fun speedLabel(rate: Double): String = PlaybackSpeeds.label(rate)
     }
 }
 

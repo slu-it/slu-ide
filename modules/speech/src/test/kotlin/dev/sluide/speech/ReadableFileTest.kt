@@ -27,6 +27,13 @@ class ReadableFileTest {
     }
 
     @Test
+    fun `a file of exactly 1 MiB is read`() {
+        val exact = Files.write(dir.resolve("exact.txt"), ByteArray(MAX_READ_BYTES) { 'a'.code.toByte() })
+
+        assertEquals(MAX_READ_BYTES, (readableFile(exact) as ReadableFile.Text).text.length)
+    }
+
+    @Test
     fun `a file that is not UTF-8 is refused`() {
         val latin = Files.write(dir.resolve("l.txt"), byteArrayOf(0x41, 0xE9.toByte(), 0x42))
 
@@ -37,6 +44,6 @@ class ReadableFileTest {
     fun `a missing file gives a readable message`() {
         val result = readableFile(dir.resolve("none.txt"))
 
-        assertEquals(true, (result as ReadableFile.Unreadable).message.startsWith("none.txt cannot be read"))
+        assertEquals(ReadableFile.Unreadable("none.txt cannot be read: no such file"), result)
     }
 }

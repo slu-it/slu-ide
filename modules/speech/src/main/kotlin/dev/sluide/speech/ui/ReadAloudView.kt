@@ -52,7 +52,8 @@ internal class ReadAloudView(
         editor.textProperty.subscribe { text -> model.textEdited(text) }
         editor.node.addEventFilter(KeyEvent.KEY_PRESSED, ::onKey)
         editor.node.addEventFilter(MouseEvent.MOUSE_CLICKED) { event ->
-            if (event.clickCount == 2 && !model.ui.editable) model.jumpTo(editor.caretOffset)
+            // The double-click selected the word under it; its start is in the sentence also for its last word.
+            if (event.clickCount == 2 && !model.ui.editable) model.jumpTo(editor.selection.start)
         }
         model.onChange = installed
         refresh()
