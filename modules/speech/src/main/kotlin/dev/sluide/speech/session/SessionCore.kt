@@ -24,13 +24,14 @@ internal class PieceAudio(
  * change, the flags of the session, the synthesized audio not yet taken by the player, the measurements for
  * [StartRule], and the pieces placed in the sink for [positionAt].
  *
- * Synthesis stops ahead while more than [lookaheadSeconds] are synthesized but not played, unless the reading still
- * waits for the start rule (it would never start). Played frames come from [playedFrames] and change without a signal,
- * so that wait polls every [pollNanos].
+ * Synthesis stops ahead while more audio is synthesized but not played than [lookaheadSeconds], or than the start rule
+ * needs if that is more ([maxBufferSeconds] at most): otherwise a reading on a slow machine would never start.
+ * Played frames come from [playedFrames] and change without a signal, so that wait polls every [pollNanos].
  */
 internal class SessionCore(
     val pieces: List<Piece>,
     private val lookaheadSeconds: Double,
+    private val maxBufferSeconds: Double,
     private val pollNanos: Long,
     private val playedFrames: () -> Long,
 ) {
@@ -74,18 +75,32 @@ internal class SessionCore(
             unsynthesizedChars = unsynthesizedChars,
             synthesizedChars = synthesizedChars,
             synthesisSeconds = synthesisNanos / 1e9,
-            audioSeconds = if (sampleRate == 0) 0.0 else audioFrames.toDouble() / sampleRate,
+            audioSeconds = audioSeconds(),
             synthesisDone = synthesisDone,
+            maxBufferSeconds = maxBufferSeconds,
         )
 
     /** Waits while the lookahead is full; false once the reading ended. */
     fun awaitRoom(): Boolean =
         lock.withLock {
-            while (!ended && unplayedSeconds() > lookaheadSeconds && (playing || canStart())) {
-                changed.awaitNanos(pollNanos)
-            }
+            while (!ended && unplayedSeconds() > lookaheadLimit()) changed.awaitNanos(pollNanos)
             !ended
         }
+
+    /** The lookahead, raised to what the start rule needs; under [lock]. */
+    private fun lookaheadLimit(): Double =
+        maxOf(
+            lookaheadSeconds,
+            StartRule.neededSeconds(
+                unsynthesizedChars,
+                synthesizedChars,
+                synthesisNanos / 1e9,
+                audioSeconds(),
+                maxBufferSeconds,
+            ),
+        )
+
+    private fun audioSeconds(): Double = if (sampleRate == 0) 0.0 else audioFrames.toDouble() / sampleRate
 
     /** Adds the audio of piece [index], synthesized in [nanos]; false once the reading ended. */
     fun add(

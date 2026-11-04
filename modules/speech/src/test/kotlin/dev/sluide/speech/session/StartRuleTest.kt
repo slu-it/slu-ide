@@ -25,8 +25,8 @@ class StartRuleTest {
         "12, 100, 100, 20, 10, false, true",
         // Nothing left to synthesize: buffered audio reaches the end.
         "1, 0, 100, 20, 10, false, true",
-        // A huge rate needs the whole rest buffered many times over.
-        "1000, 1000, 10, 10000, 1, false, false",
+        // A huge rate needs the whole rest buffered many times over, or the cap of 300 s.
+        "200, 1000, 10, 10000, 1, false, false",
     )
     fun `starts once the buffer reaches the end without a gap`(
         buffered: Double,
@@ -48,6 +48,24 @@ class StartRuleTest {
             )
 
         assertEquals(expected, actual)
+    }
+
+    @Test
+    fun `the buffer asked for is capped`() {
+        // r = 10000: the gap-free buffer would be 1.2 × 9999 × 100 s.
+        assertEquals(StartRule.MAX_BUFFER_SECONDS, StartRule.neededSeconds(1000, 10, 10000.0, 1.0))
+        assertTrue(StartRule.canStart(StartRule.MAX_BUFFER_SECONDS, 1000, 10, 10000.0, 1.0, false))
+        assertFalse(StartRule.canStart(299.9, 1000, 10, 10000.0, 1.0, false))
+        assertEquals(2.0, StartRule.neededSeconds(1000, 10, 10000.0, 1.0, maxBufferSeconds = 2.0))
+        assertTrue(StartRule.canStart(2.0, 1000, 10, 10000.0, 1.0, false, maxBufferSeconds = 2.0))
+    }
+
+    @Test
+    fun `the buffer needed is none when synthesis keeps up, and the cap without a rate`() {
+        assertEquals(0.0, StartRule.neededSeconds(1000, 100, 1.0, 1.0))
+        // r = 2, 10 s left: 1.2 × 1 × 10 s.
+        assertEquals(12.0, StartRule.neededSeconds(100, 100, 20.0, 10.0), 1e-9)
+        assertEquals(StartRule.MAX_BUFFER_SECONDS, StartRule.neededSeconds(100, 0, 0.0, 0.0))
     }
 
     @Test

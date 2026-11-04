@@ -35,6 +35,8 @@ internal class PlayerLoop(
         } catch (e: Throwable) {
             control.failed(e)
         } finally {
+            // The end interrupts this thread too; closing the sink is no wait to cut short.
+            Thread.interrupted()
             control.closeSink()
         }
     }

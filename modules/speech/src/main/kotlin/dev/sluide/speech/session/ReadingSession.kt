@@ -1,5 +1,6 @@
 package dev.sluide.speech.session
 
+import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.media.Pausable
 import dev.sluide.speech.audio.AudioSink
 import dev.sluide.speech.engine.SpeechChunk
@@ -8,7 +9,7 @@ import dev.sluide.speech.engine.SpeechException
 import dev.sluide.speech.engine.Voice
 import dev.sluide.speech.text.Sentences
 import java.time.Duration
-import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.withLock
 
@@ -18,7 +19,9 @@ private val log = System.getLogger(ReadingSession::class.java.name)
  * One reading (ADR 0124): reads [chunks] from [startChunk] on, the first of them split by
  * [Sentences.splitForFastStart] for fast first audio. A synthesis thread (`sluide-speech-synth`) synthesizes the pieces
  * ahead with [engine]; a player thread (`sluide-speech-play`) plays them through [sink] once [StartRule] allows, and
- * closes the sink at the end. Both are platform daemon threads: the engine's native calls would pin a virtual thread.
+ * closes the sink at the end. Both are [NamedThreads] (platform daemon threads, failures logged, ADR 0060): the
+ * engine's native calls would pin a virtual thread. Until the start, the buffer asked for by [StartRule] is capped at
+ * [StartRule.MAX_BUFFER_SECONDS]; while playing, synthesis keeps [LOOKAHEAD_SECONDS] ahead, or that buffer if more.
  *
  * [listener] gets every state change in order, on a thread of its own (`sluide-speech-events`), the error text with
  * [ReadingState.FAILED]; nothing after a final state. A [SpeechException] fails the reading with its message, any
@@ -36,8 +39,9 @@ class ReadingSession internal constructor(
     private val sink: AudioSink,
     private val listener: (ReadingState, String?) -> Unit,
     nanoTime: () -> Long,
-    private val newThread: (name: String, task: Runnable) -> Thread,
+    private val newExecutor: (name: String) -> ExecutorService,
     lookaheadSeconds: Double,
+    maxBufferSeconds: Double,
     pollInterval: Duration,
 ) : Pausable {
     constructor(
@@ -57,18 +61,23 @@ class ReadingSession internal constructor(
         sink,
         listener,
         System::nanoTime,
-        ::platformThread,
+        NamedThreads::single,
         LOOKAHEAD_SECONDS,
+        StartRule.MAX_BUFFER_SECONDS,
         POLL_INTERVAL,
     )
 
     private val core =
-        SessionCore(pieces(chunks, startChunk), lookaheadSeconds, pollInterval.toNanos()) { sink.playedFrames }
+        SessionCore(pieces(chunks, startChunk), lookaheadSeconds, maxBufferSeconds, pollInterval.toNanos()) {
+            sink.playedFrames
+        }
     private val synthesis = SynthesisLoop(core, engine, voice, speed, nanoTime, ::failed)
     private val player = PlayerLoop(core, sink, Control())
-    private val threads = mutableListOf<Thread>()
-    private val events = LinkedBlockingQueue<Pair<ReadingState, String?>>()
-    private var eventThread: Thread? = null
+    private var synthesisThread: ExecutorService? = null
+    private var playerThread: ExecutorService? = null
+
+    /** Delivers the events in order; its thread starts with the first event and ends after the final one. */
+    private val events = newExecutor(EVENT_THREAD)
     private val sinkClosed = AtomicBoolean()
 
     @Volatile
@@ -86,9 +95,9 @@ class ReadingSession internal constructor(
             if (core.started || core.ended) return
             core.started = true
             emit(ReadingState.PREPARING)
-            threads += newThread(SYNTHESIS_THREAD, synthesis)
-            threads += newThread(PLAYER_THREAD, player)
-            threads.forEach { it.start() }
+            // Shut down at once: each thread ends after its loop, and shutdownNow() still interrupts it.
+            synthesisThread = newExecutor(SYNTHESIS_THREAD).apply { execute(synthesis) }.apply { shutdown() }
+            playerThread = newExecutor(PLAYER_THREAD).apply { execute(player) }.apply { shutdown() }
         }
     }
 
@@ -157,12 +166,16 @@ class ReadingSession internal constructor(
             true
         }
 
-    /** After the end: wakes blocked sink calls, interrupts the other threads; the player closes the sink. */
+    /**
+     * After the end: interrupts both threads (the calling one too, which is ending) and wakes blocked sink calls. The
+     * player closes the sink; if its loop never ran, it is closed here.
+     */
     private fun release() {
-        val running = core.lock.withLock { threads.toList() }
-        running.filter { it !== Thread.currentThread() }.forEach { it.interrupt() }
+        val (synthesizing, playing) = core.lock.withLock { synthesisThread to playerThread }
+        synthesizing?.shutdownNow()
+        val playerNeverRan = playing == null || playing.shutdownNow().isNotEmpty()
         sink.flush()
-        if (running.isEmpty()) closeSink()
+        if (playerNeverRan) closeSink()
     }
 
     private fun closeSink() {
@@ -175,19 +188,18 @@ class ReadingSession internal constructor(
         message: String? = null,
     ) {
         current = state
-        events.add(state to message)
-        if (eventThread == null) eventThread = newThread(EVENT_THREAD, Runnable { deliverEvents() }).also { it.start() }
+        events.execute { deliver(state, message) }
+        if (state in FINAL) events.shutdown()
     }
 
-    private fun deliverEvents() {
-        while (true) {
-            val (state, message) = events.take()
-            try {
-                listener(state, message)
-            } catch (e: Exception) {
-                log.log(System.Logger.Level.ERROR, "Reading listener failed", e)
-            }
-            if (state in FINAL) return
+    private fun deliver(
+        state: ReadingState,
+        message: String?,
+    ) {
+        try {
+            listener(state, message)
+        } catch (e: Throwable) {
+            log.log(System.Logger.Level.ERROR, "Reading listener failed", e)
         }
     }
 
@@ -228,10 +240,5 @@ class ReadingSession internal constructor(
             return Sentences.splitForFastStart(chunks[startChunk]).map { Piece(it, startChunk) } +
                 (startChunk + 1 until chunks.size).map { Piece(chunks[it], it) }
         }
-
-        private fun platformThread(
-            name: String,
-            task: Runnable,
-        ): Thread = Thread(task, name).apply { isDaemon = true }
     }
 }

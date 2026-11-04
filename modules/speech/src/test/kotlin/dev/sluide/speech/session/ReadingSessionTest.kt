@@ -1,5 +1,6 @@
 package dev.sluide.speech.session
 
+import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.speech.engine.SpeechChunk
 import dev.sluide.speech.engine.SpeechException
 import dev.sluide.speech.engine.WordTiming
@@ -9,6 +10,7 @@ import org.junit.jupiter.api.Timeout
 import java.time.Duration
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CyclicBarrier
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
@@ -25,7 +27,12 @@ class ReadingSessionTest {
     private val engine = FakeEngine(clock)
     private val sink = FakeSink()
     private val events = LinkedBlockingQueue<Pair<ReadingState, String?>>()
-    private val threads = CopyOnWriteArrayList<Thread>()
+    private val executors = CopyOnWriteArrayList<Pair<String, ExecutorService>>()
+    private val listenerThreads = CopyOnWriteArrayList<Thread>()
+    private var listener: (ReadingState, String?) -> Unit = { state, message ->
+        listenerThreads += Thread.currentThread()
+        events.add(state to message)
+    }
     private var session: ReadingSession? = null
 
     private val first = chunk(0, "One.")
@@ -35,13 +42,14 @@ class ReadingSessionTest {
     @AfterEach
     fun tearDown() {
         session?.stop()
-        threads.forEach { it.join(TimeUnit.SECONDS.toMillis(WAIT_SECONDS)) }
+        executors.forEach { it.second.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS) }
     }
 
     private fun session(
         chunks: List<SpeechChunk> = listOf(first, second, third),
         startChunk: Int = 0,
         lookaheadSeconds: Double = 120.0,
+        maxBufferSeconds: Double = StartRule.MAX_BUFFER_SECONDS,
     ) = ReadingSession(
         engine,
         VOICE,
@@ -49,10 +57,11 @@ class ReadingSessionTest {
         chunks,
         startChunk,
         sink,
-        { state, message -> events.add(state to message) },
+        { state, message -> listener(state, message) },
         clock::get,
-        { name, task -> Thread(task, name).apply { isDaemon = true }.also(threads::add) },
+        { name -> NamedThreads.single(name).also { executors += name to it } },
         lookaheadSeconds,
+        maxBufferSeconds,
         Duration.ofMillis(5),
     ).also { session = it }
 
@@ -65,8 +74,9 @@ class ReadingSessionTest {
 
     /** Waits until every thread of the session ended: no listener call can come after. */
     private fun awaitThreadsEnded() {
-        threads.forEach { it.join(TimeUnit.SECONDS.toMillis(WAIT_SECONDS)) }
-        assertTrue(threads.none { it.isAlive }, "threads still running")
+        executors.forEach { (name, executor) ->
+            assertTrue(executor.awaitTermination(WAIT_SECONDS, TimeUnit.SECONDS), "$name still running")
+        }
     }
 
     @Test
@@ -88,8 +98,11 @@ class ReadingSessionTest {
         engine.answer(Answer.Audio(2400, words = listOf(WordTiming(head.start, head.start + 4, 0, 1200))))
         assertEvents(ReadingState.SPEAKING)
         assertEquals(tail, engine.nextCall())
-        // An underrun: the first piece has played, the next is not there yet; the reading keeps speaking.
+        // An underrun: the first piece has played, the next is not there yet. The reading keeps speaking, at the end
+        // of the first piece.
+        eventually("the first piece written") { sink.written.get() == 2400L }
         sink.playedFrames = 2400
+        assertEquals(ReadingPosition(1, 5, long.end, null, null), reading.position())
         assertEquals(ReadingState.SPEAKING, reading.state)
         engine.answer(Answer.Audio(2400, words = listOf(WordTiming(tail.start, tail.start + 3, 0, 2400))))
         assertEquals(third, engine.nextCall())
@@ -102,9 +115,11 @@ class ReadingSessionTest {
         assertEquals(ReadingPosition(1, 5, long.end, tail.start, tail.start + 3), reading.position())
         sink.playedFrames = 4801
         assertEquals(ReadingPosition(2, third.start, third.end, null, null), reading.position())
-        assertTrue(engine.threads.all { it.name == ReadingSession.SYNTHESIS_THREAD })
-        assertEquals(ReadingSession.PLAYER_THREAD, sink.openThread?.name)
-        assertTrue(threads.none { it.isVirtual } && threads.all { it.isDaemon })
+        val synthesis = engine.threads.toSet()
+        assertEquals(listOf(ReadingSession.SYNTHESIS_THREAD), synthesis.map { it.name })
+        val player = requireNotNull(sink.openThread)
+        assertEquals(ReadingSession.PLAYER_THREAD, player.name)
+        assertTrue((synthesis + player).none { it.isVirtual } && (synthesis + player).all { it.isDaemon })
 
         sink.releaseDrain()
 
@@ -114,6 +129,7 @@ class ReadingSessionTest {
         assertNull(reading.position())
         awaitThreadsEnded()
         assertTrue(events.isEmpty())
+        assertEquals(setOf(ReadingSession.EVENT_THREAD), listenerThreads.map { it.name }.toSet())
     }
 
     @Test
@@ -214,7 +230,10 @@ class ReadingSessionTest {
         assertNull(reading.position())
         awaitThreadsEnded()
         assertEquals(listOf(ReadingState.STOPPED to null), events.toList())
-        assertEquals(listOf("open $RATE", "start", "flush", "close"), sink.calls)
+        // stop() flushes on its caller while the player closes the sink: in either order.
+        assertEquals(listOf("open $RATE", "start"), sink.calls.take(2))
+        assertEquals(setOf("flush", "close"), sink.calls.drop(2).toSet())
+        assertEquals(4, sink.calls.size)
     }
 
     @Test
@@ -226,7 +245,7 @@ class ReadingSessionTest {
 
         assertEvents(ReadingState.STOPPED)
         sink.awaitClosed()
-        assertEquals(listOf(ReadingSession.EVENT_THREAD), threads.map { it.name })
+        assertEquals(listOf(ReadingSession.EVENT_THREAD), executors.map { it.first })
         assertTrue(engine.calls.isEmpty())
     }
 
@@ -305,6 +324,46 @@ class ReadingSessionTest {
 
         assertEquals(chunks[1], engine.nextCall())
         assertEvents(ReadingState.PREPARING)
+    }
+
+    @Test
+    fun `on a slow machine the buffer before the start and the lookahead are capped`() {
+        val chunks = (0 until 5).map { chunk(it * 101, "x".repeat(100)) }
+        val reading = session(chunks, lookaheadSeconds = 1.0, maxBufferSeconds = 2.0)
+        reading.start()
+        assertEvents(ReadingState.PREPARING)
+        engine.nextCall()
+
+        // r = 10: a gap-free start would need 43 s buffered after the first second, the cap asks 2 s.
+        engine.answer(Answer.Audio(RATE, seconds = 10.0))
+        engine.nextCall()
+        engine.answer(Answer.Audio(RATE, seconds = 10.0))
+        assertEvents(ReadingState.SPEAKING)
+        // 2 s unplayed is within the capped lookahead of 2 s; 3 s is not.
+        engine.nextCall()
+        engine.answer(Answer.Audio(RATE, seconds = 10.0))
+        // No signal for "synthesis waits": give it time to go on wrongly.
+        Thread.sleep(100)
+        assertTrue(engine.calls.isEmpty())
+
+        sink.playedFrames = RATE.toLong()
+
+        assertEquals(chunks[3], engine.nextCall())
+    }
+
+    @Test
+    fun `a throwing listener gets the later events`() {
+        listener = { state, message ->
+            events.add(state to message)
+            // An Error, not an Exception: the events thread catches any throwable.
+            if (state == ReadingState.PREPARING) throw AssertionError("listener bug")
+        }
+        session().start()
+        engine.nextCall()
+
+        engine.answer(Answer.Audio(2400))
+
+        assertEvents(ReadingState.PREPARING, ReadingState.SPEAKING)
     }
 
     @Test
