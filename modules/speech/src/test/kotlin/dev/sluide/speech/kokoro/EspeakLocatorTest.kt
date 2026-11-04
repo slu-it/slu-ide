@@ -4,11 +4,15 @@ import org.junit.jupiter.api.io.TempDir
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.attribute.PosixFilePermissions
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.io.path.createDirectories
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class EspeakLocatorTest {
     @TempDir
@@ -111,5 +115,37 @@ class EspeakLocatorTest {
         assertNull(locator.locate())
         assertNull(locator.locate())
         assertEquals(1, lookups)
+    }
+
+    @Test
+    fun `invalidate does not wait for a running lookup and the lookup result is then not kept`() {
+        val first = file("a/espeak-ng", executable = true)
+        val second = file("b/espeak-ng", executable = true)
+        val started = CountDownLatch(1)
+        val release = CountDownLatch(1)
+        var lookups = 0
+        val locator =
+            EspeakLocator({ "" }, {
+                val n = ++lookups
+                if (n == 1) {
+                    started.countDown()
+                    release.await(10, TimeUnit.SECONDS)
+                }
+                (if (n == 1) first else second).toString()
+            }, emptyList())
+        val running = Executors.newSingleThreadExecutor()
+        try {
+            val result = running.submit<Path?> { locator.locate() }
+            assertTrue(started.await(10, TimeUnit.SECONDS))
+            // would hang here (until the lookup ends) if invalidate took the lock of the running locate
+            val invalidated = Executors.newSingleThreadExecutor().submit { locator.invalidate() }
+            invalidated.get(5, TimeUnit.SECONDS)
+            release.countDown()
+            assertEquals(first, result.get(10, TimeUnit.SECONDS))
+            assertEquals(second, locator.locate())
+        } finally {
+            release.countDown()
+            running.shutdownNow()
+        }
     }
 }

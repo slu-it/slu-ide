@@ -101,11 +101,7 @@ object Sentences {
         var wordStart = runStart
         while (wordStart > sentenceStart && !text[wordStart - 1].isWhitespace()) wordStart--
         val word = text.substring(wordStart, runStart).trimStart(*OPENERS)
-        return when {
-            word.length == 1 && word[0].isUpperCase() -> word != "I"
-            word in NUMBERED -> nextChar?.isDigit() == true
-            else -> word.lowercase() in ABBREVIATIONS
-        }
+        return Abbreviations.isAbbreviation(word, nextChar)
     }
 
     /** The end of a clause mark at [index] (`,` `;` `:` before a space, `—`, or ` – `), or null. */
@@ -136,7 +132,4 @@ object Sentences {
     private const val TERMINALS = ".!?…"
     private const val CLOSERS = "\"”’')]"
     private val OPENERS = charArrayOf('"', '“', '‘', '\'', '(', '[')
-    private val NUMBERED = setOf("No", "no", "Fig", "fig")
-    private val ABBREVIATIONS =
-        setOf("mr", "mrs", "ms", "dr", "prof", "st", "jr", "sr", "vs", "etc", "e.g", "i.e", "approx", "cf")
 }

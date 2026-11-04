@@ -4,8 +4,9 @@ package dev.sluide.speech.kokoro
  * Turns espeak-ng IPA (`--ipa --tie=^`) into Kokoro's phoneme alphabet; a port of misaki's `EspeakFallback`
  * (`misaki/espeak.py`). Filtering to the vocabulary is the tokenizer's job.
  *
- * misaki applies the table first and the British `e^ə` rule afterwards, so the table's `e → A` has already turned
- * `e^ə` into `A^ə` and that rule never matches. This port keeps misaki's order and so its output.
+ * Deliberate deviation: for British, `e^ə → ɛː` runs before the table. misaki applies it after the table, whose
+ * `e → A` has already turned `e^ə` into `A^ə`, so the rule never matches there. Kokoro's British voices are trained
+ * on `ɛː`, and here every word goes through this conversion, so the rule has to take effect.
  */
 internal object EspeakToKokoro {
     private const val SYLLABIC = '̩'
@@ -42,11 +43,12 @@ internal object EspeakToKokoro {
         british: Boolean,
     ): String {
         var ps = ipa.trim()
+        if (british) ps = ps.replace("e^ə", "ɛː")
         for ((old, new) in table) ps = ps.replace(old, new)
         ps = syllabicMark.replace(ps, "ᵊ\$1").replace(SYLLABIC.toString(), "")
         ps =
             if (british) {
-                ps.replace("e^ə", "ɛː").replace("iə", "ɪə").replace("ə^ʊ", "Q")
+                ps.replace("iə", "ɪə").replace("ə^ʊ", "Q")
             } else {
                 ps
                     .replace("o^ʊ", "O")

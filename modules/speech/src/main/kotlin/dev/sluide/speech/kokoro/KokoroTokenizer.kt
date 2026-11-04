@@ -1,6 +1,7 @@
 package dev.sluide.speech.kokoro
 
 import dev.sluide.speech.engine.SpeechChunk
+import dev.sluide.speech.text.Abbreviations
 
 /**
  * Where a word is in [TokenizedChunk.ids]: [start] to [end] are `SpokenText` offsets (ends exclusive), the tokens
@@ -57,7 +58,8 @@ internal class KokoroTokenizer(
         val words = ArrayList<WordSpan>()
         var previousEnd = -1
         var pendingSpace = false
-        for (piece in pieces(chunk.text)) {
+        val pieces = pieces(chunk.text)
+        for ((index, piece) in pieces.withIndex()) {
             if (previousEnd >= 0 && piece.start > previousEnd) pendingSpace = true
             previousEnd = piece.end
             val tokens: List<Long> =
@@ -67,7 +69,9 @@ internal class KokoroTokenizer(
                     }
 
                     is Piece.Word -> {
-                        phonemes(chunk.text.substring(piece.start, piece.end), language).mapNotNull { vocab.id(it) }
+                        val word = chunk.text.substring(piece.start, piece.end)
+                        val nextIsWord = pieces.getOrNull(index + 1) is Piece.Word
+                        wordPhonemes(word, nextIsWord, language).mapNotNull { vocab.id(it) }
                     }
                 }
             if (tokens.isNotEmpty() && pendingSpace) {
@@ -83,9 +87,22 @@ internal class KokoroTokenizer(
         return TokenizedChunk(ids.toLongArray(), words)
     }
 
+    /** espeak spells the article "a" as the letter; function words are spoken without stress. */
+    private fun wordPhonemes(
+        word: String,
+        nextIsWord: Boolean,
+        language: String,
+    ): String =
+        when {
+            FunctionWords.isArticleA(word, nextIsWord) -> "ɐ"
+            FunctionWords.isUnstressed(word) -> phonemes(word, language).filter { it != 'ˈ' && it != 'ˌ' }
+            else -> phonemes(word, language)
+        }
+
     /**
-     * Cuts [tokenized] into pieces of at most [max] tokens, at the last sentence end, else clause end, else space, else
-     * (inside one very long word) after [max] tokens. Space tokens at the ends of a piece are dropped.
+     * Cuts [tokenized] into pieces of at most [max] tokens, at the last sentence end, else clause end, else a space
+     * between words (espeak puts spaces inside the phonemes of one word, e.g. a number), else outside a word after at
+     * most [max] tokens (inside only for one very long word). Space tokens at the ends of a piece are dropped.
      */
     fun split(
         tokenized: TokenizedChunk,
@@ -104,7 +121,7 @@ internal class KokoroTokenizer(
             cuts.add(
                 cutAfter(ids, insideWord, start, limit, sentenceIds)
                     ?: cutAfter(ids, insideWord, start, limit, clauseIds)
-                    ?: lastSpace(ids, start, limit)
+                    ?: lastSpace(ids, insideWord, start, limit)
                     ?: wordBoundary(continuing, start, limit),
             )
         }
@@ -125,11 +142,12 @@ internal class KokoroTokenizer(
 
     private fun lastSpace(
         ids: LongArray,
+        insideWord: BooleanArray,
         start: Int,
         limit: Int,
     ): Int? {
         val space = spaceId ?: return null
-        for (p in limit downTo start + 1) if (ids[p] == space) return p
+        for (p in limit downTo start + 1) if (ids[p] == space && !insideWord[p]) return p
         return null
     }
 
@@ -167,6 +185,7 @@ internal class KokoroTokenizer(
 
     private fun pieces(text: String): List<Piece> {
         val result = ArrayList<Piece>()
+        val state = ScanState()
         var i = 0
         while (i < text.length) {
             if (text[i].isWhitespace()) {
@@ -175,7 +194,7 @@ internal class KokoroTokenizer(
             }
             var runEnd = i
             while (runEnd < text.length && !text[runEnd].isWhitespace()) runEnd++
-            scanRun(text, i, runEnd, result)
+            scanRun(text, i, runEnd, result, state)
             i = runEnd
         }
         return result
@@ -186,13 +205,15 @@ internal class KokoroTokenizer(
         runStart: Int,
         runEnd: Int,
         out: MutableList<Piece>,
+        state: ScanState,
     ) {
         var j = runStart
         while (j < runEnd) {
             val c = text[j]
             when (kind(c)) {
                 Kind.WORD -> {
-                    val end = wordEnd(text, j, runStart, runEnd)
+                    var end = wordEnd(text, j, runStart, runEnd, state)
+                    if (keepsFinalDot(text, j, end, runEnd)) end++
                     out.add(Piece.Word(j, end))
                     j = end
                 }
@@ -213,6 +234,9 @@ internal class KokoroTokenizer(
                         }
                         j += dots
                     } else {
+                        // a quote with no word before it opens, any other closes
+                        val opens = j == runStart || kind(text[j - 1]) != Kind.WORD
+                        state.openSingleQuote = opens
                         out.add(Piece.Punct(j, j + 1, '"'))
                         j++
                     }
@@ -227,6 +251,7 @@ internal class KokoroTokenizer(
         from: Int,
         runStart: Int,
         runEnd: Int,
+        state: ScanState,
     ): Int {
         var k = from
         while (k < runEnd) {
@@ -240,17 +265,58 @@ internal class KokoroTokenizer(
                         kind(text[k + 1]) == Kind.WORD
                     ) {
                         k++
+                    } else if (isPossessiveApostrophe(text, k, runEnd, state)) {
+                        return k + 1
                     } else {
                         return k
                     }
                 }
 
                 Kind.PUNCT -> {
-                    return k
+                    // thousands separators and times: 1,000,000 and 3:30
+                    if (text[k] in ",:" && k > from && text[k - 1].isDigit() && k + 1 < runEnd &&
+                        text[k + 1].isDigit()
+                    ) {
+                        k++
+                    } else {
+                        return k
+                    }
                 }
             }
         }
         return k
+    }
+
+    /** `Smiths'`: an apostrophe after an s that ends the word, when no single quote is open. */
+    private fun isPossessiveApostrophe(
+        text: String,
+        k: Int,
+        runEnd: Int,
+        state: ScanState,
+    ): Boolean =
+        text[k] in "'’" && !state.openSingleQuote && k > 0 && text[k - 1] in "sS" &&
+            (k + 1 == runEnd || kind(text[k + 1]) == Kind.PUNCT)
+
+    /**
+     * Whether the period after the word [from] to [end] stays in the word: a known abbreviation or initials, with more
+     * text after it in the chunk (at the end of the chunk it is the sentence end).
+     */
+    private fun keepsFinalDot(
+        text: String,
+        from: Int,
+        end: Int,
+        runEnd: Int,
+    ): Boolean {
+        if (end + 1 != runEnd || text[end] != '.') return false
+        var next = runEnd
+        while (next < text.length && text[next].isWhitespace()) next++
+        if (next >= text.length) return false
+        val word = text.substring(from, end)
+        return Abbreviations.isAbbreviation(word, text[next]) || Abbreviations.isInitials(word)
+    }
+
+    private class ScanState {
+        var openSingleQuote = false
     }
 
     private enum class Kind { WORD, PUNCT, AMBIGUOUS }

@@ -1,5 +1,6 @@
 package dev.sluide.speech.kokoro
 
+import dev.sluide.speech.engine.SpeechChunk
 import dev.sluide.speech.engine.SpeechException
 import org.junit.jupiter.api.Assumptions.assumeTrue
 import java.nio.file.Files
@@ -149,9 +150,14 @@ class EspeakTest {
         assertEquals(4, peak.get())
     }
 
-    private fun realExecutable(): Path? {
+    /** The installed espeak-ng; with [exact] only when it is version 1.52, the one the IPA fixtures come from. */
+    private fun realExecutable(exact: Boolean = false): Path? {
         val found = EspeakLocator({ "" }, loginShellLookup = { null }).locate()
         assumeTrue(found != null, "espeak-ng is not installed")
+        if (exact) {
+            val version = ProcessRunner.Default.run(listOf(found.toString(), "--version"), "", 5.seconds).stdout
+            assumeTrue("1.52" in version, "the IPA fixtures are from espeak-ng 1.52, found: ${version.trim()}")
+        }
         return found
     }
 
@@ -165,11 +171,16 @@ class EspeakTest {
             Triple("the", "en-US", "ðˈə"),
             Triple("1984", "en-US", "nˈa^ɪntiːnhˈʌndɹɪd ˈe^ɪɾi fˈɔː^ɹ"),
             Triple("don't", "en-US", "dˈo^ʊnt"),
+            Triple("3:30", "en-US", "θɹˈiː θˈɜːɾi"),
+            Triple("1,5", "en-US", "wˈʌn fˈa^ɪv"),
+            Triple("\$1,000,000", "en-US", "dˈɑːlɚ wˈʌn mˈɪli^ən"),
+            Triple("Dr.", "en-US", "dˈɑːktɚ"),
+            Triple("Smiths'", "en-US", "smˈɪθs"),
         )
 
     @Test
     fun `real espeak-ng prints the recorded IPA`() {
-        val real = realExecutable() ?: return
+        val real = realExecutable(exact = true) ?: return
         for ((word, language, ipa) in recorded) {
             val voice = if (language == "en-GB") "en-gb" else "en-us"
             val result =
@@ -192,7 +203,7 @@ class EspeakTest {
 
     @Test
     fun `real espeak-ng phonemes are converted`() {
-        val real = realExecutable() ?: return
+        val real = realExecutable(exact = true) ?: return
         val espeak = Espeak({ real })
         for ((word, language, ipa) in recorded) {
             assertEquals(
@@ -202,5 +213,19 @@ class EspeakTest {
             )
         }
         assertTrue(Files.isExecutable(real))
+    }
+
+    @Test
+    fun `real espeak-ng speaks numbers and abbreviations as one word each`() {
+        val real = realExecutable() ?: return
+        val espeak = Espeak({ real })
+        val tokenizer = KokoroTokenizer(espeak::phonemes, KokoroVocab.load())
+        val text = "Dr. Smith paid \$1,000,000 at 3:30 for the Smiths' house."
+        val tokenized = tokenizer.tokenize(SpeechChunk(0, text.length, 0, text.length, text), "en-US")
+        assertEquals(
+            listOf("Dr.", "Smith", "paid", "\$1,000,000", "at", "3:30", "for", "the", "Smiths'", "house"),
+            tokenized.words.map { text.substring(it.start, it.end) },
+        )
+        assertTrue(tokenized.words.all { it.endToken > it.firstToken })
     }
 }

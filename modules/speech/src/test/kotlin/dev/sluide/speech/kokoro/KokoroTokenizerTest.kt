@@ -67,9 +67,9 @@ class KokoroTokenizerTest {
 
     @Test
     fun `punctuation inside a run splits the word without a space`() {
-        val t = tokenize("a,b(c)d")
-        assertEquals("a,b(c)d", decode(t.ids))
-        assertEquals(listOf("a", "b", "c", "d"), t.words.map { "a,b(c)d".substring(it.start, it.end) })
+        val t = tokenize("x,b(c)d")
+        assertEquals("x,b(c)d", decode(t.ids))
+        assertEquals(listOf("x", "b", "c", "d"), t.words.map { "x,b(c)d".substring(it.start, it.end) })
     }
 
     @Test
@@ -82,18 +82,18 @@ class KokoroTokenizerTest {
 
     @Test
     fun `curly quotes and parentheses are punctuation`() {
-        assertEquals("“a” (b)", decode(tokenize("“a” (b)").ids))
+        assertEquals("“x” (b)", decode(tokenize("“x” (b)").ids))
     }
 
     @Test
     fun `dashes`() {
-        assertEquals("a — b", decode(tokenize("a – b").ids))
-        assertEquals("a—b", decode(tokenize("a—b").ids))
-        assertEquals("a—b", decode(tokenize("a–b").ids))
-        val text = "a well-known b"
+        assertEquals("x — b", decode(tokenize("x – b").ids))
+        assertEquals("x—b", decode(tokenize("x—b").ids))
+        assertEquals("x—b", decode(tokenize("x–b").ids))
+        val text = "x well-known b"
         val t = tokenize(text)
         assertEquals("well-known", text.substring(t.words[1].start, t.words[1].end))
-        assertEquals("a wellknown b", decode(t.ids))
+        assertEquals("x wellknown b", decode(t.ids))
     }
 
     @Test
@@ -108,21 +108,21 @@ class KokoroTokenizerTest {
     fun `dots inside numbers and abbreviations stay in the word`() {
         val text = "pi 3.14 in the U.S. now"
         val t = tokenize(text)
-        assertEquals(listOf("pi", "3.14", "in", "the", "U.S", "now"), t.words.map { text.substring(it.start, it.end) })
-        assertEquals("pi aaa in the us. now", decode(t.ids))
+        assertEquals(listOf("pi", "3.14", "in", "the", "U.S.", "now"), t.words.map { text.substring(it.start, it.end) })
+        assertEquals("pi aaa in the us now", decode(t.ids))
     }
 
     @Test
     fun `symbols and digit runs are words`() {
-        val text = "a # @ & / * 1984"
+        val text = "x # @ & / * 1984"
         val t = tokenize(text)
-        assertEquals(listOf("a", "#", "@", "&", "/", "*", "1984"), t.words.map { text.substring(it.start, it.end) })
+        assertEquals(listOf("x", "#", "@", "&", "/", "*", "1984"), t.words.map { text.substring(it.start, it.end) })
     }
 
     @Test
     fun `a word without phonemes keeps a span with an empty token range and no extra space`() {
-        val t = tokenize("a gg b")
-        assertEquals("a b", decode(t.ids))
+        val t = tokenize("x gg b")
+        assertEquals("x b", decode(t.ids))
         assertEquals(listOf(listOf(0, 1, 0, 1), listOf(2, 4, 1, 1), listOf(5, 6, 2, 3)), spans(t))
     }
 
@@ -212,5 +212,93 @@ class KokoroTokenizerTest {
                 )
             }
         }
+    }
+
+    private fun words(
+        text: String,
+        t: TokenizedChunk = tokenize(text),
+    ) = t.words.map { text.substring(it.start, it.end) }
+
+    @Test
+    fun `known abbreviations and initials keep their period in the word when text follows`() {
+        val text = "Dr. Smith of the U.S. met J. Doe, etc. and left."
+        val t = tokenize(text)
+        assertEquals(
+            listOf("Dr.", "Smith", "of", "the", "U.S.", "met", "J.", "Doe", "etc.", "and", "left"),
+            words(text, t),
+        )
+        assertEquals("dr smith of the us met j doe, etc and left.", decode(t.ids))
+    }
+
+    @Test
+    fun `a period at the end of the chunk is a token even after an abbreviation or initial`() {
+        assertEquals("so etc.", decode(tokenize("so etc.").ids))
+        assertEquals("vitamin x.", decode(tokenize("vitamin X.").ids))
+        assertEquals("us.", decode(tokenize("U.S.").ids))
+    }
+
+    @Test
+    fun `thousands separators and times stay in the word`() {
+        val text = "\$1,000,000 at 3:30 or 1,5"
+        assertEquals(listOf("\$1,000,000", "at", "3:30", "or", "1,5"), words(text))
+    }
+
+    @Test
+    fun `comma and colon without digits on both sides still split`() {
+        assertEquals(listOf("x", "y"), words("x,y"))
+        assertEquals(listOf("1", "2"), words("1, 2"))
+        assertEquals(listOf("x", "1"), words("x:1"))
+        assertEquals(listOf("5"), words("5:"))
+    }
+
+    @Test
+    fun `a plural possessive keeps its apostrophe, a quoted word keeps its quotes`() {
+        val possessive = "the Smiths' house"
+        val t = tokenize(possessive)
+        assertEquals(listOf("the", "Smiths'", "house"), words(possessive, t))
+        assertEquals("the smiths house", decode(t.ids))
+        assertEquals("\"cats\" ran", decode(tokenize("'cats' ran").ids))
+        assertEquals("\"cats\" ran", decode(tokenize("‘cats’ ran").ids))
+    }
+
+    @Test
+    fun `the article a is a schwa and function words lose their stress`() {
+        val stressed = KokoroTokenizer({ w, _ -> "ˈ" + w.lowercase() + "ˌ" }, vocab)
+
+        fun run(text: String) = decode(stressed.tokenize(chunk(text), "en-US").ids)
+        assertEquals("ɐ ˈcatˌ", run("a cat"))
+        assertEquals("ɐ ˈcatˌ", run("A cat"))
+        assertEquals("ˈcatˌ ˈaˌ.", run("cat A."))
+        assertEquals("the ˈcatˌ of ˈdoˌ", run("The cat of do"))
+        assertEquals("ˈitˌ", run("IT"))
+        assertEquals("it ˈnˌ", run("it n"))
+    }
+
+    @Test
+    fun `an unstressed function word keeps its span and chunk offsets`() {
+        val t = tokenizer.tokenize(chunk("a cat", start = 7), "en-US")
+        assertEquals(listOf(listOf(7, 8, 0, 1), listOf(9, 12, 2, 5)), spans(t))
+    }
+
+    private val numberTokenizer =
+        KokoroTokenizer({ w, _ -> if (w == "2024") "tu θWzənd" else w.lowercase() }, vocab)
+
+    @Test
+    fun `a space inside the phonemes of one word is no place to cut`() {
+        val text = "aa bb 2024"
+        val whole = numberTokenizer.tokenize(chunk(text), "en-US")
+        assertEquals("aa bb tu θWzənd", decode(whole.ids))
+        val parts = numberTokenizer.split(whole, max = 10)
+        assertEquals(listOf("aa bb", "tu θWzənd"), parts.map { decode(it.ids) })
+        assertEquals(listOf(listOf(6, 10, 0, 9)), spans(parts[1]))
+    }
+
+    @Test
+    fun `exactly the maximum is one piece, one more is two`() {
+        val exact = tokenize("aa bb cc")
+        assertEquals(8, exact.ids.size)
+        assertSame(exact, tokenizer.split(exact, 8).single())
+        val over = tokenizer.split(tokenize("aa bb cc"), 7)
+        assertEquals(listOf("aa bb", "cc"), over.map { decode(it.ids) })
     }
 }

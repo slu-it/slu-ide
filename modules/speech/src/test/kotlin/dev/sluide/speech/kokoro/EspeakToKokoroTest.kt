@@ -63,9 +63,10 @@ class EspeakToKokoroTest {
     }
 
     @Test
-    fun `british e tie schwa is already A when the rule runs, as in misaki`() {
-        // misaki applies the table (e -> A) before the British e^ə -> ɛː rule, so that rule never matches
-        assertEquals("Aə", EspeakToKokoro.convert("e^ə", british = true))
+    fun `british e tie schwa becomes the long open e, american does not`() {
+        // deliberately unlike misaki's fallback, where e -> A runs first and the rule never matches
+        assertEquals("ɛː", EspeakToKokoro.convert("e^ə", british = true))
+        assertEquals("Aə", EspeakToKokoro.convert("e^ə", british = false))
     }
 
     @Test
