@@ -10,10 +10,17 @@ import kotlin.concurrent.withLock
 
 /**
  * An [AudioSink] on the default javax.sound output: 16-bit signed little-endian mono PCM through a [SourceDataLine]
- * with a buffer of about [BUFFER_SECONDS], so pause and stop take effect quickly. Thread-safe; [write] and [drain]
- * block outside the lock, so [pause], [flush] and [close] from another thread wake them.
+ * with a buffer of about [BUFFER_SECONDS], so pause and stop take effect quickly. Thread-safe; [open], [write] and
+ * [drain] block outside the lock, so [pause], [flush] and [close] from another thread neither wait for them nor miss
+ * waking them.
+ *
+ * [openLine] opens a line for a format with a buffer of the given bytes; tests replace it with a fake line.
  */
-class JavaSoundSink : AudioSink {
+class JavaSoundSink internal constructor(
+    private val openLine: (format: AudioFormat, bufferBytes: Int) -> SourceDataLine,
+) : AudioSink {
+    constructor() : this(::openDefaultLine)
+
     private val lock = ReentrantLock()
     private val changed = lock.newCondition()
 
@@ -25,6 +32,12 @@ class JavaSoundSink : AudioSink {
 
     @Volatile
     private var closed = false
+
+    /** [open] is opening a line, outside the lock. */
+    private var opening = false
+
+    /** Counts pauses, so that a drain cut short by a pause drains again even when started again meanwhile. */
+    private var pauses = 0
 
     /** Counts flushes, so that a write or drain started before one returns. */
     private var flushes = 0
@@ -39,20 +52,31 @@ class JavaSoundSink : AudioSink {
 
     override fun open(sampleRate: Int) {
         lock.withLock {
-            check(line == null && !closed) { "The sink is open or closed already" }
-            val format = AudioFormat(sampleRate.toFloat(), 16, 1, true, false)
-            val bufferBytes = (sampleRate * BUFFER_SECONDS).toInt() * format.frameSize
-            line =
-                try {
-                    AudioSystem.getSourceDataLine(format).apply { open(format, bufferBytes) }
-                } catch (e: LineUnavailableException) {
-                    throw noOutput(e)
-                } catch (e: IllegalArgumentException) {
-                    throw noOutput(e)
-                } catch (e: SecurityException) {
-                    throw noOutput(e)
-                }
+            check(line == null && !opening && !closed) { "The sink is open or closed already" }
+            opening = true
         }
+        val format = AudioFormat(sampleRate.toFloat(), 16, 1, true, false)
+        val opened =
+            try {
+                openLine(format, (sampleRate * BUFFER_SECONDS).toInt() * format.frameSize)
+            } catch (e: Exception) {
+                lock.withLock { opening = false }
+                throw when (e) {
+                    is LineUnavailableException, is IllegalArgumentException, is SecurityException -> noOutput(e)
+                    else -> e
+                }
+            }
+        val kept =
+            lock.withLock {
+                opening = false
+                if (!closed) {
+                    line = opened
+                    if (running) opened.start()
+                }
+                !closed
+            }
+        // Closed while opening: the line was never ours to use.
+        if (!kept) opened.close()
     }
 
     override fun write(samples: FloatArray) {
@@ -92,6 +116,7 @@ class JavaSoundSink : AudioSink {
     override fun pause() {
         lock.withLock {
             running = false
+            pauses++
             line?.stop()
             changed.signalAll()
         }
@@ -118,6 +143,7 @@ class JavaSoundSink : AudioSink {
     override fun drain() {
         val flushesAtStart = lock.withLock { flushes }
         while (true) {
+            var pausesBefore = 0
             val target =
                 lock.withLock {
                     val current = line
@@ -126,12 +152,13 @@ class JavaSoundSink : AudioSink {
                         if (!awaitChange()) return
                         null
                     } else {
+                        pausesBefore = pauses
                         current
                     }
                 } ?: continue
             target.drain()
             // A pause stops the line and ends its drain early: wait for the start and drain the rest.
-            lock.withLock { if (running || closed || flushes != flushesAtStart) return }
+            lock.withLock { if (closed || flushes != flushesAtStart || (running && pauses == pausesBefore)) return }
         }
     }
 
@@ -161,5 +188,10 @@ class JavaSoundSink : AudioSink {
     private companion object {
         const val BUFFER_SECONDS = 0.3
         const val FRAME_BYTES = 2
+
+        fun openDefaultLine(
+            format: AudioFormat,
+            bufferBytes: Int,
+        ): SourceDataLine = AudioSystem.getSourceDataLine(format).apply { open(format, bufferBytes) }
     }
 }
