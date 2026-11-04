@@ -47,7 +47,7 @@ class EspeakToKokoroTest {
     }
 
     @ParameterizedTest(name = "british {0} -> {1}")
-    @CsvSource("iə, ɪə", "ə^ʊ, Q", "ɜː, ɜː", "ɑː, ɑː", "ɪə, ɪə", "o^ʊ, ɔʊ", "o, ɔ", "ɾ, T", "ʔ, t")
+    @CsvSource("iə, ɪə", "i^ə, ɪə", "ə^ʊ, Q", "ɜː, ɜː", "ɑː, ɑː", "ɪə, ɪə", "o^ʊ, ɔʊ", "o, ɔ", "ɾ, T", "ʔ, t")
     fun `british branch keeps the long mark`(
         ipa: String,
         expected: String,

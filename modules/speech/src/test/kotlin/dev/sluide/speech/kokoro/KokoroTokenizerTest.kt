@@ -249,6 +249,9 @@ class KokoroTokenizerTest {
         assertEquals(listOf("1", "2"), words("1, 2"))
         assertEquals(listOf("x", "1"), words("x:1"))
         assertEquals(listOf("5"), words("5:"))
+        assertEquals(listOf("3:30"), words("3:30"))
+        assertEquals(listOf("16", "9"), words("16:9"))
+        assertEquals(listOf("3", "300"), words("3:300"))
     }
 
     @Test
@@ -257,6 +260,8 @@ class KokoroTokenizerTest {
         val t = tokenize(possessive)
         assertEquals(listOf("the", "Smiths'", "house"), words(possessive, t))
         assertEquals("the smiths house", decode(t.ids))
+        assertEquals("the smiths.", decode(tokenize("the Smiths'.").ids))
+        assertEquals("the smiths…", decode(tokenize("the Smiths'...").ids))
         assertEquals("\"cats\" ran", decode(tokenize("'cats' ran").ids))
         assertEquals("\"cats\" ran", decode(tokenize("‘cats’ ran").ids))
     }
@@ -269,13 +274,16 @@ class KokoroTokenizerTest {
         assertEquals("ɐ ˈcatˌ", run("a cat"))
         assertEquals("ɐ ˈcatˌ", run("A cat"))
         assertEquals("ˈcatˌ ˈaˌ.", run("cat A."))
+        assertEquals("ˈplanˌ ˈaˌ ˈcatˌ", run("plan A cat"))
+        assertEquals("\"ɐ ˈcatˌ", run("\"A cat"))
+        assertEquals("ˈcatˌ, ɐ ˈcatˌ", run("cat, A cat"))
         assertEquals("the ˈcatˌ of ˈdoˌ", run("The cat of do"))
         assertEquals("ˈitˌ", run("IT"))
         assertEquals("it ˈnˌ", run("it n"))
     }
 
     @Test
-    fun `an unstressed function word keeps its span and chunk offsets`() {
+    fun `the article a keeps its span and chunk offsets`() {
         val t = tokenizer.tokenize(chunk("a cat", start = 7), "en-US")
         assertEquals(listOf(listOf(7, 8, 0, 1), listOf(9, 12, 2, 5)), spans(t))
     }

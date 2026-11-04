@@ -34,11 +34,15 @@ internal object FunctionWords {
             "then",
         )
 
-    /** "a", and "A" when a word follows (otherwise it is a letter, as in "vitamin A."). */
+    /**
+     * "a", and "A" when it starts the chunk or follows punctuation and a word follows it; elsewhere it is a letter
+     * ("Grade A students", "plan A or B", "vitamin A.").
+     */
     fun isArticleA(
         word: String,
+        previousIsWord: Boolean,
         nextIsWord: Boolean,
-    ): Boolean = word == "a" || (word == "A" && nextIsWord)
+    ): Boolean = word == "a" || (word == "A" && !previousIsWord && nextIsWord)
 
     /** [word] in lower case or with a capital first letter; shouted "IT" or "AS" stay as they are. */
     fun isUnstressed(word: String): Boolean {

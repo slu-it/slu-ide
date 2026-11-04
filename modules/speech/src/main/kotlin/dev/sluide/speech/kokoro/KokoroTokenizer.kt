@@ -24,6 +24,8 @@ internal class TokenizedChunk(
  * Turns a [SpeechChunk] into Kokoro token ids the way misaki does: the words get their phonemes from [phonemes]
  * (espeak plus [EspeakToKokoro]), the punctuation of Kokoro's vocabulary becomes tokens, a space token goes between
  * pieces that had whitespace between them. Characters the [vocab] lacks are dropped.
+ *
+ * Known limit: a leading elision apostrophe (`'90s`, `'n'`) is read as an opening quote.
  */
 internal class KokoroTokenizer(
     private val phonemes: (word: String, language: String) -> String,
@@ -70,8 +72,9 @@ internal class KokoroTokenizer(
 
                     is Piece.Word -> {
                         val word = chunk.text.substring(piece.start, piece.end)
+                        val previousIsWord = pieces.getOrNull(index - 1) is Piece.Word
                         val nextIsWord = pieces.getOrNull(index + 1) is Piece.Word
-                        wordPhonemes(word, nextIsWord, language).mapNotNull { vocab.id(it) }
+                        wordPhonemes(word, previousIsWord, nextIsWord, language).mapNotNull { vocab.id(it) }
                     }
                 }
             if (tokens.isNotEmpty() && pendingSpace) {
@@ -90,11 +93,12 @@ internal class KokoroTokenizer(
     /** espeak spells the article "a" as the letter; function words are spoken without stress. */
     private fun wordPhonemes(
         word: String,
+        previousIsWord: Boolean,
         nextIsWord: Boolean,
         language: String,
     ): String =
         when {
-            FunctionWords.isArticleA(word, nextIsWord) -> "ɐ"
+            FunctionWords.isArticleA(word, previousIsWord, nextIsWord) -> "ɐ"
             FunctionWords.isUnstressed(word) -> phonemes(word, language).filter { it != 'ˈ' && it != 'ˌ' }
             else -> phonemes(word, language)
         }
@@ -273,10 +277,8 @@ internal class KokoroTokenizer(
                 }
 
                 Kind.PUNCT -> {
-                    // thousands separators and times: 1,000,000 and 3:30
-                    if (text[k] in ",:" && k > from && text[k - 1].isDigit() && k + 1 < runEnd &&
-                        text[k + 1].isDigit()
-                    ) {
+                    // thousands separators and times: 1,000,000 and 3:30 (exactly two digits after the colon, not 16:9)
+                    if (digitSeparator(text, k, from, runEnd)) {
                         k++
                     } else {
                         return k
@@ -287,6 +289,20 @@ internal class KokoroTokenizer(
         return k
     }
 
+    private fun digitSeparator(
+        text: String,
+        k: Int,
+        from: Int,
+        runEnd: Int,
+    ): Boolean {
+        if (k <= from || !text[k - 1].isDigit() || k + 1 >= runEnd || !text[k + 1].isDigit()) return false
+        return when (text[k]) {
+            ',' -> true
+            ':' -> k + 2 < runEnd && text[k + 2].isDigit() && (k + 3 >= runEnd || !text[k + 3].isDigit())
+            else -> false
+        }
+    }
+
     /** `Smiths'`: an apostrophe after an s that ends the word, when no single quote is open. */
     private fun isPossessiveApostrophe(
         text: String,
@@ -295,7 +311,7 @@ internal class KokoroTokenizer(
         state: ScanState,
     ): Boolean =
         text[k] in "'’" && !state.openSingleQuote && k > 0 && text[k - 1] in "sS" &&
-            (k + 1 == runEnd || kind(text[k + 1]) == Kind.PUNCT)
+            (k + 1 == runEnd || kind(text[k + 1]) != Kind.WORD)
 
     /**
      * Whether the period after the word [from] to [end] stays in the word: a known abbreviation or initials, with more

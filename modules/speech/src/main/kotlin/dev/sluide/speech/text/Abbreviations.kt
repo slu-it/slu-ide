@@ -21,6 +21,9 @@ internal object Abbreviations {
             else -> word.lowercase() in WORDS
         }
 
-    /** Whether [word] is several initials joined by periods (`U.S`, `U.K`), without the final period. */
+    /**
+     * Whether [word] is several initials joined by periods (`U.S`, `U.K`), without the final period. Only the Kokoro
+     * tokenizer uses it; [Sentences] still ends a sentence after "U.S.".
+     */
     fun isInitials(word: String): Boolean = INITIALS.matches(word)
 }
