@@ -156,6 +156,8 @@ the Bicep graph and `BicepParamFileViewer`.
 
 - `ImageFileViewer` shows image files (png, jpg, gif, webp, bmp, ico up to 50 MB), although they are binary
   ([previews.md](previews.md)). It reads and base64-encodes the whole file on the JavaFX thread.
+- `MediaFileViewer` (module `media`) plays audio (mp3, wav, aif, aiff, m4a) and video (mp4, m4v) files of any size;
+  its view keeps playing in the background and shows the activity marker ([media-player.md](media-player.md)).
 - Images and the SVG, Mermaid and Bicep previews zoom: toolbar, Shortcut + `+`/`-`/`0`/`9`, Shortcut+wheel, pinch
   (`ZoomControls`, [previews.md](previews.md), [ADR 0033](../adr/0033-zooming-images-and-diagrams.md)). Every other
   preview zooms as a document, without Fit ([ADR 0083](../adr/0083-zooming-document-previews.md)).
@@ -281,4 +283,4 @@ the Bicep graph and `BicepParamFileViewer`.
   `ssh-config` `sshconfig` `ssh_config` `sshd_config`; `caddyfile` `caddy`; `mermaid` `mmd`; `bicep` `bicepparam`; `hcl`
   `terraform` `tf` `tfvars`; `dotenv` `env`; `toml`.
 - Not yet implemented: encodings other than UTF-8 and Windows-1252, and views of binary files other than images
-  (`.xlsx`, `.pptx`, SQLite).
+  and audio or video (`.xlsx`, `.pptx`, SQLite).

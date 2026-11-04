@@ -100,5 +100,6 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   block with single-class selectors (`.css` rules: `.claude/rules/theming.md`).
 - Text inputs use `theme.css`'s `.text-input` fill and border; a control that draws its own input box copies those
   values with a "keep in sync" comment (`git-log.css`). Code editors keep the pane colour. The terminal is dark in
-  every theme. WebView pages follow the scene's scheme through a `dark` body class (ADR 0016).
+  every theme, and the video area of the media view is black in every theme. WebView pages follow the scene's scheme
+  through a `dark` body class (ADR 0016).
 - Check new UI in the real app in dark (`testing.md`, `run-app.sh`), and in light too when colours changed.

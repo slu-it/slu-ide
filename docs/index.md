@@ -15,7 +15,7 @@ updated when the summary or keywords no longer fit.
 | Document | Summary | Keywords |
 |---|---|---|
 | [architecture.md](architecture.md) | Modules, their dependency rules, runtime startup, CI and releases | module table, dependencies, Gradle modules, startup, CI, release |
-| [testing.md](testing.md) | Unit vs. UI tests, running a subset, displays, portability for macOS/x64 CI, running the app headless | `uiTest`, TestFX, `@Tag("ui")`, `--tests`, `verify.sh`, `related-tests.sh`, Xvfb, display pool, portability, macOS, `run-app.sh`, screenshot, dark theme |
+| [testing.md](testing.md) | Unit vs. UI tests, running a subset, displays, portability for macOS/x64 CI, running the app headless | `uiTest`, TestFX, `@Tag("ui")`, `--tests`, `verify.sh`, `related-tests.sh`, Xvfb, display pool, portability, macOS, `run-app.sh`, screenshot, dark theme, media playback, ALSA |
 | [ui-conventions.md](ui-conventions.md) | Conventions new UI follows: view modes, toolbars, tool tabs, menus, run panes, dialogs, storage, background work, theming | Source/Split, `SourceSplit`, toolbar, `WindowTool`, Tools menu, Services menu, `FileAction`, dialog, unsaved changes, `ProjectDataStore`, `shared.json`, `BackgroundTasks`, dark theme, `theme.css` |
 
 ## Decisions (ADRs)
@@ -143,6 +143,7 @@ updated when the summary or keywords no longer fit.
 | [0120](adr/0120-dockerfile-build-and-run-dialog.md) | Dockerfile Build view and Run Container dialog in `docker`; weak name patterns rank below extensions; build args, run and compose variables under private names the shell expands | Dockerfile, `DockerfileBuildViewer`, Build, `weakFileNamePatterns`, Run Container, `runImage`, `dockerBuild`, `dockerRuns`, `SLUIDE_BUILD_ARG`, `SLUIDE_RUN_ENV`, `SLUIDE_COMPOSE_ENV` | amends 0029, 0119; see 0084, 0088, 0117 |
 | [0121](adr/0121-databases-tab.md) | Databases tab in the Services menu: JDBC cards, consoles, paged results, object tree; passwords only in memory | `databases`, `Databases`, Alt+7, JDBC, PostgreSQL, MariaDB, `DbSession`, `PasswordCache`, `ConnectionStore`, paging, saved passwords | see 0118, 0110, 0103; amended by 0122 |
 | [0122](adr/0122-saved-secrets.md) | Saved secrets: values AES-GCM encrypted inside the JSON files, one random key in the OS secret store (macOS Keychain via JNA, Linux `secret-tool`); missing vs denied, unreadable values count as nothing saved | secrets, `Secrets`, `SecretCipher`, AES-GCM, Keychain, Secret Service, `secret-tool`, saved passwords, safe storage, `KeyBackend` | amends 0121, 0028; see 0011 |
+| [0123](adr/0123-media-playback.md) | Audio and video play in file views with JavaFX Media in module media | media, audio, video, JavaFX Media, ALSA, ffmpeg, `PlaybackCoordinator`, `MediaPreferences` | see 0069, 0101 |
 | [template](adr/template.md) | Template for new ADRs | template | |
 
 ## Features
@@ -180,6 +181,7 @@ updated when the summary or keywords no longer fit.
 | [previews.md](features/previews.md) | Rendered previews beside the source and how they zoom | HTML, SVG, CSV, notebooks, Mermaid, PEM, Bicep graph, zoom |
 | [markdown-preview.md](features/markdown-preview.md) | Markdown source beside a sanitised rendered preview | Markdown, KaTeX, Mermaid, Source/Split/Preview, table of contents, scroll sync |
 | [markdown-export.md](features/markdown-export.md) | Markdown exported as self-contained HTML | Export → HTML, self-contained, `<name>.css`, light/dark |
+| [media-player.md](features/media-player.md) | Audio and video files play in a tab with controls, one at a time, in the background | `MediaFileViewer`, mp3, wav, mp4, volume, mute, `PlaybackCoordinator`, ffmpeg |
 | [json-preview.md](features/json-preview.md) | Formatted, foldable view of JSON | `.json`, `.jsonc`, folds, Collapse All, Copy Formatted |
 | [xml-preview.md](features/xml-preview.md) | Formatted, foldable view of XML | `.xml`, `.xsd`, `.fxml`, folds, Copy Formatted |
 | [yaml-preview.md](features/yaml-preview.md) | Formatted, foldable view of YAML | `.yml`, `.yaml`, anchors, `---` documents, Copy Formatted |
@@ -227,4 +229,5 @@ Explored but not decided or built; options and trade-offs, no commitment.
 | [converting-formats.md](ideas/converting-formats.md) | Formats left out of the first Converting tool: XML, .env, INI, HCL, query strings, Markdown tables, JSON to code | XML, `.env`, environment variables, relaxed binding, INI, HCL, JSON5, query string, Markdown table, JSON Schema |
 | [docker-later.md](ideas/docker-later.md) | Docker features left for later: push and login, remote contexts, container files, Start Docker, Shortcut+Enter, Dockerfile gutter, extra compose files | Docker, push, registry login, contexts, `docker cp`, Start Docker, compose `-f`, Open Compose File |
 | [databases-later.md](ideas/databases-later.md) | Database features left for later: SSH tunnels, connections from Docker, explain plan, parameters, more DBMSs, DDL editing | SSH tunnel, Add from Docker, Explain, query parameters, MySQL, SQLite, `DELIMITER`, schema diagram |
+| [media-formats.md](ideas/media-formats.md) | Media player ideas left for later: OGG/FLAC via ffmpeg, waveform, remembered position, audio-only mp4 | OGG, FLAC, ffmpeg, transcode, waveform, resume position, audio-only mp4, `videoSize` |
 | [secrets-later.md](ideas/secrets-later.md) | Saved-secrets features left for later: Windows key store, more secrets, key rotation, JVM attach hardening, Developer ID signing | Windows, DPAPI, Credential Manager, OAuth client secrets, key rotation, `DisableAttachMechanism`, Developer ID |

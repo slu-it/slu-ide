@@ -80,6 +80,17 @@ All previews and images zoom, only while the rendered view has the focus, not in
 | Shortcut+mouse wheel, pinch | Zoom |
 | Enter / Escape in the table of contents | Jump to the heading / close it |
 
+## Media player
+View-local keys of an audio or video tab, while the view has the focus; ignored while the file loads or failed
+([media-player.md](media-player.md), [ADR 0123](../adr/0123-media-playback.md)).
+
+| Keys | Action |
+|---|---|
+| Space | Play / pause |
+| Left / Right | Back / ahead 10 seconds |
+| Up / Down | Volume +10 % / −10 % |
+| M | Mute / unmute |
+
 ## HTTP client
 [http-client.md](http-client.md), [http-client-env-editor.md](http-client-env-editor.md)
 

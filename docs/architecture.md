@@ -19,6 +19,7 @@ assembled from Gradle modules.
 | `editor-area` | feature | Tabs of the editor area: `EditorTab`s, opening and saving files, asking `FileViewers` for the view of a file. | [0071](adr/0071-editor-area-module.md), [0004](adr/0004-file-viewer-selection.md) |
 | `file-viewers` | feature | Views of files: code views with highlighting, keys and find, change markers and side-by-side diffs, language viewers, `.env`, the Bicep graph and parameter files, own tokenizers for TOML, Bicep and KQL. | [0004](adr/0004-file-viewer-selection.md), [0005](adr/0005-syntax-highlighting.md), [0031](adr/0031-own-tokenizers.md), [0069](adr/0069-previews-module.md) |
 | `previews` | feature | The `javafx.web` WebView previews of Markdown, HTML, SVG and images, JSON, XML, YAML, CSV and cookie jars, notebooks, Mermaid, PEM, Bicep and GitHub Actions workflows, with their exports. | [0069](adr/0069-previews-module.md), [0075](adr/0075-github-actions-workflow-graph.md) |
+| `media` | feature | Audio and video files in file views with JavaFX Media: the `MediaFileViewer` and its view (stage, control bar, status line), the `Playback` engine (`JavaFxPlayback`), playback math, the app-wide one-at-a-time `PlaybackCoordinator` and the stored volume and mute (`MediaPreferences`). | [0123](adr/0123-media-playback.md) |
 | `terminal` | feature | Shells in editor tabs, and one-command terminals embedded in other modules' views. | [0007](adr/0007-terminal.md), [0086](adr/0086-embedded-command-terminals.md) |
 | `docker-sandbox` | feature | `sbx` (Docker sandboxes) in terminal tabs. | [0010](adr/0010-docker-sandbox.md) |
 | `http-client` | feature | `.http` files: requests run from the editor with environments and auth. | [0025](adr/0025-http-client.md), [0026](adr/0026-http-client-window-session.md) |
@@ -49,7 +50,7 @@ assembled from Gradle modules.
 
 Feature modules are one IDE capability each. The editor family (`editor-area`, `file-viewers`, `previews`, `terminal`,
 `docker-sandbox`, `http-client`, `github-actions`, `command-runs`, `gradle`, `shell-scripts`, `coloring`, `codecs`,
-`converting`, `docker`, `databases`: what is shown as editor tabs or file views) is one capability family, and so are `git` and `git-log` ([ADR 0047](adr/0047-module-dependencies-and-shared-modules.md), amended by
+`converting`, `docker`, `databases`, `media`: what is shown as editor tabs or file views) is one capability family, and so are `git` and `git-log` ([ADR 0047](adr/0047-module-dependencies-and-shared-modules.md), amended by
 [ADR 0071](adr/0071-editor-area-module.md) and [ADR 0069](adr/0069-previews-module.md)). A member of a family that
 has no UI of its own may be a plain library without Spring beans (`github-actions`, which `previews` shows). Foundation
 modules are small and meant for sharing; they may be plain libraries without Spring beans.
@@ -112,6 +113,9 @@ Every edge between modules, as in the `build.gradle.kts` files
 | `http-client` | `secrets` | `api` | Client certificate passphrases can be saved encrypted with `Secrets` (`SavedPassphrases`), which also contributes them to Settings → Secrets as a `SavedSecretSource`; `api`: the public `SavedPassphrases` takes `Secrets` and implements `SavedSecretSource`. | [0028](adr/0028-http-client-secrets.md), [0122](adr/0122-saved-secrets.md) |
 | `http-client` | `project-data` | `api` | `SavedPassphrases` keeps the saved passphrases in the shared data file (field `httpClient`) through the `ProjectDataStore`; `api`: its public constructor takes the store. | [0101](adr/0101-shared-data-file.md), [0122](adr/0122-saved-secrets.md) |
 | `http-client` | `converting` | `implementation` | It contributes the requests family (`RequestFamily`, a `FormatFamily` bean: cURL and HTTP requests) to the Converting tool; both are in the editor family. | [0115](adr/0115-converting-tool.md), [0116](adr/0116-curl-and-http-requests.md) |
+| `media` | `file-viewers` | `api` | `MediaFileViewer` is a `FileViewer`; its view is a `FileView`. | [0123](adr/0123-media-playback.md) |
+| `media` | `project-data` | `api` | `MediaPreferences` keeps volume and mute in the shared data file (field `media`) and takes the `ProjectDataStore`. | [0101](adr/0101-shared-data-file.md), [0123](adr/0123-media-playback.md) |
+| `media` | `background-tasks` | `implementation` | The preferences are written on a logged `NamedThreads` thread. | [0060](adr/0060-logging-conventions.md), [0123](adr/0123-media-playback.md) |
 | `git` | `file-watcher` | `api` | The `.git` folder is watched to refresh the status; `GitStatusService` takes the `FileWatcher`. | [0013](adr/0013-git-status.md) |
 | `git` | `project-trust` | `api` | Git runs only in trusted folders; `GitTrustCheck` is the `ProjectTrustCheck` for a repository's own configuration and hooks; `GitStatusService` takes `ProjectTrust`. | [0053](adr/0053-project-trust.md) |
 | `git` | `background-tasks` | `api` | The status thread runs on `NamedThreads`; `GitStatusService` registers its work as `BackgroundTasks`, given by its constructor. | [0060](adr/0060-logging-conventions.md), [0061](adr/0061-background-tasks.md) |
