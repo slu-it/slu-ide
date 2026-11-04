@@ -1,0 +1,22 @@
+/*
+ * Control bar of the media view (MediaControlBar). Only looked-up colours, so no dark rules are needed.
+ */
+.media-controls {
+    -fx-padding: 2 6 2 6;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: derive(-fx-background, -12%) transparent transparent transparent;
+}
+
+.media-button, .media-speed {
+    -fx-padding: 2 8 2 8;
+    -fx-background-radius: 0;
+}
+
+.media-button .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.media-time {
+    -fx-font-size: 0.9em;
+    -fx-text-fill: -fx-text-base-color;
+}
