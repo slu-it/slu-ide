@@ -17,7 +17,6 @@ import java.nio.file.Path
 import kotlin.io.path.fileSize
 import kotlin.io.path.name
 import kotlin.math.max
-import kotlin.math.min
 
 /**
  * The center of the media view: the video, or cover art with the tags for audio, or a notice while the player failed
