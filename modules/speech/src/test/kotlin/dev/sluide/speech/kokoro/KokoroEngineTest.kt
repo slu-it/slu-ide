@@ -70,11 +70,13 @@ class KokoroEngineTest {
 
     private val settings by lazy { SpeechSettings(SettingsStore(dir.resolve("settings.properties"))) }
     private val store by lazy { ModelStore(dir.resolve("models")) }
-    private val espeak: Path by lazy {
-        dir.resolve("espeak-ng").also {
-            Files.writeString(it, "#!/bin/sh\n")
-            it.toFile().setExecutable(true)
-        }
+    private val espeak: Path by lazy { fakeEspeak(dir.resolve("espeak-ng")) }
+
+    private fun fakeEspeak(file: Path): Path {
+        Files.createDirectories(file.parent)
+        Files.writeString(file, "#!/bin/sh\n")
+        file.toFile().setExecutable(true)
+        return file
     }
 
     private fun sparse(
@@ -94,6 +96,8 @@ class KokoroEngineTest {
         espeakFound: Boolean = true,
         idleMillis: Long = 60_000,
         configuredPath: () -> String = { if (espeakFound) espeak.toString() else "" },
+        modelFactory: ((Path) -> KokoroModel)? = null,
+        voicesFactory: ((Path) -> StyleSource)? = null,
     ): KokoroEngine {
         val locator =
             EspeakLocator(configuredPath = configuredPath, loginShellLookup = { null }, fallbackDirs = emptyList())
@@ -103,8 +107,11 @@ class KokoroEngineTest {
             store,
             locator,
             tokenizer,
-            { StyleSource { id, count -> styleCalls.add(id to count).let { FloatArray(256) } } },
-            { file -> FakeModel(file, calls, concurrent, maxConcurrent, speeds) { onRun() }.also { models.add(it) } },
+            voicesFactory ?: { StyleSource { id, count -> styleCalls.add(id to count).let { FloatArray(256) } } },
+            modelFactory
+                ?: { file ->
+                    FakeModel(file, calls, concurrent, maxConcurrent, speeds) { onRun() }.also { models.add(it) }
+                },
             scheduler,
             idleMillis,
         ).also { created.add(it) }
@@ -264,20 +271,8 @@ class KokoroEngineTest {
     @Test
     fun `a change of the espeak path is seen by every problems call`() {
         install()
-        val first = dir.resolve("first").also { Files.createDirectories(it) }
-        val second = dir.resolve("second").also { Files.createDirectories(it) }
-        val a =
-            first
-                .resolve("espeak-ng")
-                .also {
-                    Files.writeString(it, "#!/bin/sh\n")
-                }.also { it.toFile().setExecutable(true) }
-        val b =
-            second
-                .resolve("espeak-ng")
-                .also {
-                    Files.writeString(it, "#!/bin/sh\n")
-                }.also { it.toFile().setExecutable(true) }
+        val a = fakeEspeak(dir.resolve("first/espeak-ng"))
+        val b = fakeEspeak(dir.resolve("second/espeak-ng"))
         val engine = engine(configuredPath = settings::currentEspeakPath)
         assertEquals(1, engine.problems().size)
         settings.apply(a.toString(), KokoroVariant.FP32)
@@ -294,8 +289,7 @@ class KokoroEngineTest {
         val late = dir.resolve("late-espeak")
         val lateEngine = engine(configuredPath = { late.toString() })
         assertEquals(1, lateEngine.problems().size)
-        Files.writeString(late, "#!/bin/sh\n")
-        late.toFile().setExecutable(true)
+        fakeEspeak(late)
         assertEquals(emptyList(), lateEngine.problems())
     }
 
@@ -306,5 +300,29 @@ class KokoroEngineTest {
         engine.destroy()
         assertFailsWith<SpeechException> { engine.synthesize(chunk("hello"), voice, 1.0) }
         assertTrue(models.isEmpty())
+    }
+
+    @Test
+    fun `problems after destroy reports the shutdown instead of throwing`() {
+        val engine = engine()
+        engine.destroy()
+        assertEquals(listOf(SetupProblem.Broken("The Kokoro engine is shutting down.")), engine.problems())
+    }
+
+    @Test
+    fun `a native library that cannot load is a readable failure`() {
+        install()
+        val engine = engine(modelFactory = { throw UnsatisfiedLinkError("no onnxruntime4j_jni") })
+        val e = assertFailsWith<SpeechException> { engine.synthesize(chunk("hello"), voice, 1.0) }
+        assertEquals("ONNX Runtime cannot be loaded on this system: no onnxruntime4j_jni", e.message)
+    }
+
+    @Test
+    fun `a voices file that fails to open closes the model that was just loaded`() {
+        install()
+        val engine = engine(voicesFactory = { throw SpeechException("The Kokoro voices file cannot be read: x") })
+        assertFailsWith<SpeechException> { engine.synthesize(chunk("hello"), voice, 1.0) }
+        assertEquals(1, models.size)
+        assertTrue(models[0].closed)
     }
 }

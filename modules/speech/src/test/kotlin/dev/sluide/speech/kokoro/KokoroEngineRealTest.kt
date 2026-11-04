@@ -17,8 +17,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 /**
- * Runs the real model; skipped unless `SLUIDE_KOKORO_SMOKE=1` is set and the model files are in `~/.sluide/models/kokoro-v1.0/` (or the folder in
- * `SLUIDE_KOKORO_MODEL_DIR`) and espeak-ng is found. `SLUIDE_KOKORO_WAV` names a file to write the audio to.
+ * Runs the real model; skipped unless `SLUIDE_KOKORO_SMOKE=1` is set, the model files are in
+ * `~/.sluide/models/kokoro-v1.0/` (or the folder in `SLUIDE_KOKORO_MODEL_DIR`) and espeak-ng is found. `SLUIDE_KOKORO_WAV` names a file to write the audio to.
  */
 class KokoroEngineRealTest {
     @TempDir

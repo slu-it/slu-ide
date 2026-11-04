@@ -79,8 +79,8 @@ class KokoroEngine internal constructor(
     override val voices: List<Voice> = KokoroVoices.all
 
     override fun problems(): List<SetupProblem> {
+        if (destroyed) return listOf(SetupProblem.Broken("The Kokoro engine is shutting down."))
         val problems = ArrayList<SetupProblem>()
-        if (destroyed) throw SpeechException("The Kokoro engine is shutting down.")
         val variant = settings.currentVariant()
         if (!store.installed(variant)) {
             problems.add(SetupProblem.ModelMissing(id, variant.name, store.missingBytes(variant)))
@@ -102,6 +102,7 @@ class KokoroEngine internal constructor(
         try {
             return synthesizeLocked(chunk, voice, speed.toFloat().coerceIn(0.5f, 2.0f))
         } finally {
+            // destroy() may have run during the synthesis: it found no session to close yet, so close it here
             if (destroyed) unloadLocked() else scheduleUnload()
             lock.unlock()
         }
