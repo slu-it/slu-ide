@@ -28,10 +28,27 @@ class SpokenText(
         }
     }
 
-    /** The exclusive end in the shown text of a spoken range ending (exclusive) at [spokenEnd]; 0 for 0. */
+    /**
+     * The exclusive end in the shown text of a spoken range ending (exclusive) at [spokenEnd]: the end of its last
+     * source char. An empty range at 0 ends where it starts, at `sourceOffset(0)`.
+     */
     fun sourceEnd(spokenEnd: Int): Int {
         require(spokenEnd in 0..text.length) { "Spoken end $spokenEnd outside 0..${text.length}" }
-        return if (spokenEnd == 0) 0 else sourceOffset(spokenEnd - 1) + 1
+        return if (spokenEnd == 0) sourceOffset(0) else sourceOffset(spokenEnd - 1) + 1
+    }
+
+    /**
+     * The first spoken offset whose source offset is at or after [sourceOffset], or the text's length when there is
+     * none; for a caret or a click in the shown text. Source offsets never decrease along the spoken text.
+     */
+    fun spokenOffset(sourceOffset: Int): Int {
+        var low = 0
+        var high = text.length
+        while (low < high) {
+            val middle = (low + high) ushr 1
+            if (sourceOffsets[middle] < sourceOffset) low = middle + 1 else high = middle
+        }
+        return low
     }
 }
 

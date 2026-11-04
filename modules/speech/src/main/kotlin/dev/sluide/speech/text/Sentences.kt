@@ -8,24 +8,51 @@ object Sentences {
      * The chunks of [spoken], one per sentence, trimmed, in order, covering every spoken non-whitespace char once.
      * A sentence ends after `.`, `!`, `?` or `…` (runs included) and any closing quotes or brackets, when whitespace
      * or the end follows, and at every hard break (`"\n"`, which belongs to no chunk). Abbreviations, single
-     * initials (not `I`) and an ellipsis before a lowercase word end none. If the first sentence is longer than
-     * [firstChunkMaxChars], it is split in two for fast first audio, at its first clause mark from 20 chars on, else
-     * at its last space before [firstChunkMaxChars]; both chunks keep the sentence's range.
+     * initials (not `I`) and an ellipsis before a lowercase word end none.
      */
-    fun chunks(
-        spoken: SpokenText,
-        firstChunkMaxChars: Int = 120,
-    ): List<SpeechChunk> {
+    fun chunks(spoken: SpokenText): List<SpeechChunk> {
         val text = spoken.text
-        val sentences = mutableListOf<IntRange>()
+        val chunks = mutableListOf<SpeechChunk>()
         var start = 0
-        for (end in text.indices.filter { text[it] == '\n' } + text.length) {
-            sentences += sentencesIn(text, start, end)
+        while (start <= text.length) {
+            val end = text.indexOf('\n', start).let { if (it < 0) text.length else it }
+            for (sentence in sentencesIn(text, start, end)) {
+                val sentenceEnd = sentence.last + 1
+                chunks +=
+                    SpeechChunk(sentence.first, sentenceEnd, sentence.first, sentenceEnd, text.substring(sentence))
+            }
             start = end + 1
         }
-        val chunks = sentences.map { SpeechChunk(it.first, it.last + 1, it.first, it.last + 1, text.substring(it)) }
-        val first = chunks.firstOrNull() ?: return chunks
-        return splitFirst(text, first, firstChunkMaxChars) + chunks.drop(1)
+        return chunks
+    }
+
+    /**
+     * [chunk] split in two for fast first audio when it is longer than [maxChars]: after its first clause mark
+     * (`,` `;` `:` before a space, `—`, or ` – `) from 20 chars on and before [maxChars], else at its last space before
+     * [maxChars]. Both pieces keep the chunk's sentence range. A chunk within [maxChars], or one without a place to
+     * split, comes back alone. The reading applies it to the chunk it starts at.
+     */
+    fun splitForFastStart(
+        chunk: SpeechChunk,
+        maxChars: Int = 120,
+    ): List<SpeechChunk> {
+        val text = chunk.text
+        if (text.length <= maxChars) return listOf(chunk)
+        val split =
+            (CLAUSE_MIN_CHARS until maxChars).firstNotNullOfOrNull { clauseMarkEnd(text, it) }
+                ?: (maxChars - 1 downTo 1).firstOrNull { text[it] == ' ' }
+                ?: return listOf(chunk)
+        val head = trimmed(text, 0, split) ?: return listOf(chunk)
+        val tail = trimmed(text, split, text.length) ?: return listOf(chunk)
+        return listOf(head, tail).map {
+            SpeechChunk(
+                chunk.start + it.first,
+                chunk.start + it.last + 1,
+                chunk.sentenceStart,
+                chunk.sentenceEnd,
+                text.substring(it),
+            )
+        }
     }
 
     /** The trimmed, non-empty sentences of [text] from [start] to [end], which holds no hard break. */
@@ -66,39 +93,18 @@ object Sentences {
     ): Boolean {
         if (after >= end) return false
         val run = text.substring(runStart, runEnd)
-        val nextWord = text.substring(after, end).trimStart()
-        if ('…' in run || run.startsWith("..")) return nextWord.firstOrNull()?.isLowerCase() == true
+        var next = after
+        while (next < end && text[next].isWhitespace()) next++
+        val nextChar = if (next < end) text[next] else null
+        if ('…' in run || run.startsWith("..")) return nextChar?.isLowerCase() == true
         if (run != "." || after != runEnd) return false
         var wordStart = runStart
         while (wordStart > sentenceStart && !text[wordStart - 1].isWhitespace()) wordStart--
         val word = text.substring(wordStart, runStart).trimStart(*OPENERS)
         return when {
             word.length == 1 && word[0].isUpperCase() -> word != "I"
-            word in NUMBERED -> nextWord.firstOrNull()?.isDigit() == true
+            word in NUMBERED -> nextChar?.isDigit() == true
             else -> word.lowercase() in ABBREVIATIONS
-        }
-    }
-
-    /** [first] split in two when longer than [maxChars], both keeping its sentence range; else just [first]. */
-    private fun splitFirst(
-        text: String,
-        first: SpeechChunk,
-        maxChars: Int,
-    ): List<SpeechChunk> {
-        if (first.end - first.start <= maxChars) return listOf(first)
-        val split =
-            (first.start + CLAUSE_MIN_CHARS until first.start + maxChars).firstNotNullOfOrNull {
-                clauseMarkEnd(
-                    text,
-                    it,
-                )
-            }
-                ?: (first.start + maxChars - 1 downTo first.start + 1).firstOrNull { text[it] == ' ' }
-                ?: return listOf(first)
-        val head = trimmed(text, first.start, split) ?: return listOf(first)
-        val tail = trimmed(text, split, first.end) ?: return listOf(first)
-        return listOf(head, tail).map {
-            SpeechChunk(it.first, it.last + 1, first.sentenceStart, first.sentenceEnd, text.substring(it))
         }
     }
 

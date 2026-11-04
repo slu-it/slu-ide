@@ -54,6 +54,31 @@ class SpeechTextTest {
     }
 
     @Test
+    fun `an empty range at the start ends where the first spoken char comes from`() {
+        val spoken = markdown("## Title")
+
+        assertEquals(3, spoken.sourceOffset(0))
+        assertEquals(3, spoken.sourceEnd(0))
+    }
+
+    @Test
+    fun `maps a shown offset to the first spoken char at or after it`() {
+        val shown = "# A **bold** word\n\n`x`"
+        val spoken = markdown(shown)
+
+        assertEquals("A bold word\nx", spoken.text)
+        assertEquals(0, spoken.spokenOffset(0))
+        assertEquals(0, spoken.spokenOffset(2))
+        assertEquals(2, spoken.spokenOffset(shown.indexOf("**")))
+        assertEquals(2, spoken.spokenOffset(shown.indexOf("bold")))
+        assertEquals(6, spoken.spokenOffset(shown.indexOf("** word")))
+        assertEquals(12, spoken.spokenOffset(shown.indexOf('`')))
+        assertEquals(13, spoken.spokenOffset(shown.length - 1))
+        assertEquals(13, spoken.spokenOffset(shown.length))
+        assertEquals(0, SpeechText.prepare("", markdown = true).spokenOffset(0))
+    }
+
+    @Test
     fun `skips front matter`() {
         val shown = "---\ntitle: Notes\n---\nHello world."
         val spoken = markdown(shown)
@@ -96,6 +121,31 @@ class SpeechTextTest {
     }
 
     @Test
+    fun `reads the text beside a comment on its first or last line`() {
+        assertEquals("Hello there", markdown("<!-- note --> Hello there").text)
+
+        val shown = "<!--\nx\n--> Visible"
+        val spoken = markdown(shown)
+        assertEquals("Visible", spoken.text)
+        assertEquals("Visible", shownOf(shown, spoken, "Visible"))
+    }
+
+    @Test
+    fun `an unclosed comment skips the rest`() {
+        assertEquals("Before", markdown("Before\n<!-- open\nnever closed").text)
+    }
+
+    @Test
+    fun `skips a byte order mark, also before front matter`() {
+        val shown = "﻿---\ntitle: x\n---\nText"
+        val spoken = markdown(shown)
+
+        assertEquals("Text", spoken.text)
+        assertEquals("Text", shownOf(shown, spoken, "Text"))
+        assertEquals("Text", SpeechText.prepare("﻿Text", markdown = false).text)
+    }
+
+    @Test
     fun `removes heading markers and ends a sentence at a heading`() {
         val shown = "# Title #\nText\n## Sub heading\nMore"
         val spoken = markdown(shown)
@@ -113,6 +163,24 @@ class SpeechTextTest {
     fun `removes setext underlines and rules`() {
         assertEquals("Title\nText\nMore", markdown("Title\n=====\nText\n\n***\nMore").text)
         assertEquals("Sub\nText", markdown("Sub\n---\nText").text)
+        assertEquals("A\nB", markdown("A\n\n- - -\n_ _ _\nB").text)
+    }
+
+    @Test
+    fun `reads a very long rule and delimiter row without overflowing the stack`() {
+        assertEquals("A\nB", markdown("A\n\n${"-".repeat(100_000)}\nB").text)
+
+        val cells = 5000
+        val table = "${"| a ".repeat(cells)}|\n${"|---".repeat(cells)}|\n"
+        assertEquals(List(cells) { "a" }.joinToString(", "), markdown(table).text)
+    }
+
+    @Test
+    fun `reads deeply nested links without overflowing the stack`() {
+        val depth = 5000
+        val shown = "[".repeat(depth) + "deep" + "](x)".repeat(depth)
+
+        assertEquals("deep", markdown(shown).text)
     }
 
     @ParameterizedTest
@@ -194,6 +262,21 @@ class SpeechTextTest {
     }
 
     @Test
+    fun `a definition label does not reach across lines`() {
+        assertEquals("[not\nA label]: here", markdown("[not\n\nA label]: here").text)
+        assertEquals("[open and", markdown("[open and\n\n[x]: y").text)
+    }
+
+    @Test
+    fun `reads footnote texts without their labels and skips footnote markers`() {
+        val shown = "A claim[^1] here.\n\n[^1]: The source."
+        val spoken = markdown(shown)
+
+        assertEquals("A claim here.\nThe source.", spoken.text)
+        assertEquals("The source.", shownOf(shown, spoken, "The source."))
+    }
+
+    @Test
     fun `removes list bullets and task boxes and ends a sentence at each item`() {
         val shown = "Items:\n- one\n* [ ] two\n+ [x] three\n1. four\n2) five\n   goes on"
         val spoken = markdown(shown)
@@ -235,6 +318,11 @@ class SpeechTextTest {
     @Test
     fun `a pipe without a delimiter row is no table`() {
         assertEquals("a | b", markdown("a | b").text)
+    }
+
+    @Test
+    fun `a backslash at the end of a table row keeps the last cell`() {
+        assertEquals("a, b\\", markdown("a | b\\\n-|-").text)
     }
 
     @Test

@@ -3,8 +3,8 @@ package dev.sluide.speech.text
 /**
  * The block level of [SpeechText.prepare] for Markdown: scans [shown] line by line, skips what is not read (front
  * matter, code blocks, HTML comments, reference definitions, rules, table delimiter rows), strips the block markers
- * (headings, quotes, list bullets and task boxes, table pipes) and hands the text of each block to [MarkdownInline].
- * Every block boundary is a hard break.
+ * (headings, quotes, list bullets and task boxes, footnote labels, table pipes) and hands the text of each block to
+ * [MarkdownInline]. Every block boundary is a hard break. Every search stays within its line, so the scan is linear.
  */
 internal class MarkdownSpeech(
     private val shown: String,
@@ -30,7 +30,7 @@ internal class MarkdownSpeech(
         val start = afterQuotes(line.start, line.end)
         val end = line.end
         if (skippedInBlock(start, end)) return
-        if (shown.substring(start, end).isBlank()) {
+        if (isBlank(start, end)) {
             flush(line.start)
             previousBlank = true
             inTable = false
@@ -52,9 +52,9 @@ internal class MarkdownSpeech(
                 flush(text)
             }
 
-            shown.startsWith("<!--", text) -> {
+            shown.startsWith("<!--", text) && find("-->", text + COMMENT_OPEN, end) < 0 -> {
                 flush(text)
-                inComment = shown.indexOf("-->", text + 4).let { it < 0 || it >= end }
+                inComment = true
             }
 
             heading(text, end) -> {
@@ -65,7 +65,11 @@ internal class MarkdownSpeech(
                 flush(text)
             }
 
-            REFERENCE_DEFINITION.matchesAt(shown, text) -> {
+            footnoteDefinition(text, end) -> {
+                inList = false
+            }
+
+            isReferenceDefinition(text, end) -> {
                 flush(text)
             }
 
@@ -73,11 +77,11 @@ internal class MarkdownSpeech(
                 Unit
             }
 
-            inTable && shown.indexOf('|', text).let { it in 0 until end } -> {
+            inTable && find("|", text, end) >= 0 -> {
                 tableRow(text, end)
             }
 
-            shown.indexOf('|', text).let { it in 0 until end } && isDelimiterRow(index + 1) -> {
+            find("|", text, end) >= 0 && isDelimiterRow(index + 1) -> {
                 tableRow(text, end)
                 inTable = true
             }
@@ -88,13 +92,15 @@ internal class MarkdownSpeech(
 
             else -> {
                 if (wasBlank && indent == 0) inList = false
-                paragraph.addRange(shown, text, end)
-                paragraph.add('\n', end)
+                paragraphLine(text, end)
             }
         }
     }
 
-    /** Inside a fenced code block or an HTML comment: the line is skipped, and the closing line ends the block. */
+    /**
+     * Inside a fenced code block or an HTML comment: the line is skipped, and the closing line ends the block. Text
+     * after a comment's `-->` is read.
+     */
     private fun skippedInBlock(
         start: Int,
         end: Int,
@@ -105,10 +111,22 @@ internal class MarkdownSpeech(
             return true
         }
         if (inComment) {
-            if (shown.indexOf("-->", start).let { it in 0 until end }) inComment = false
+            val close = find("-->", start, end)
+            if (close >= 0) {
+                inComment = false
+                if (!isBlank(close + COMMENT_CLOSE, end)) paragraphLine(close + COMMENT_CLOSE, end)
+            }
             return true
         }
         return false
+    }
+
+    private fun paragraphLine(
+        text: Int,
+        end: Int,
+    ) {
+        paragraph.addRange(shown, text, end)
+        paragraph.add('\n', end)
     }
 
     private fun opensFence(
@@ -119,7 +137,7 @@ internal class MarkdownSpeech(
         if (char != '`' && char != '~') return false
         val length = runLength(text, end, char)
         if (length < FENCE_LENGTH) return false
-        if (char == '`' && shown.indexOf('`', text + length).let { it in 0 until end }) return false
+        if (char == '`' && find("`", text + length, end) >= 0) return false
         fence = Fence(char, length)
         return true
     }
@@ -146,6 +164,43 @@ internal class MarkdownSpeech(
         return true
     }
 
+    /** `[^label]: text`: the label goes, the text is read as a block of its own. */
+    private fun footnoteDefinition(
+        text: Int,
+        end: Int,
+    ): Boolean {
+        if (!shown.startsWith("[^", text)) return false
+        val labelEnd = labelEnd(text, end) ?: return false
+        flush(text)
+        paragraphLine(firstNonSpace(labelEnd + 2, end), end)
+        return true
+    }
+
+    /** `[label]: destination` on one line. */
+    private fun isReferenceDefinition(
+        text: Int,
+        end: Int,
+    ): Boolean {
+        val labelEnd = labelEnd(text, end) ?: return false
+        return !isBlank(labelEnd + 2, end)
+    }
+
+    /** The index of the `]` of a definition label `[…]:` at [text] within the line, or null. */
+    private fun labelEnd(
+        text: Int,
+        end: Int,
+    ): Int? {
+        if (shown.getOrNull(text) != '[') return null
+        var index = text + 1
+        while (index < end && shown[index] != ']') {
+            if (shown[index] == '[') return null
+            if (shown[index] == '\\') index++
+            index++
+        }
+        if (index >= end || index == text + 1 || index + 1 >= end || shown[index + 1] != ':') return null
+        return index
+    }
+
     private fun listItem(
         text: Int,
         end: Int,
@@ -153,12 +208,13 @@ internal class MarkdownSpeech(
         val markerEnd = listMarkerEnd(text, end) ?: return false
         flush(text)
         var content = firstNonSpace(markerEnd, end)
-        if (TASK_BOX.matchesAt(shown, content)) {
+        if (content + TASK_BOX_LENGTH <= end && shown[content] == '[' && shown[content + 2] == ']' &&
+            shown[content + 1] in " xX"
+        ) {
             val afterBox = content + TASK_BOX_LENGTH
             if (afterBox >= end || shown[afterBox].isWhitespace()) content = firstNonSpace(afterBox, end)
         }
-        paragraph.addRange(shown, content, end)
-        paragraph.add('\n', end)
+        paragraphLine(content, end)
         return true
     }
 
@@ -174,10 +230,13 @@ internal class MarkdownSpeech(
                 }
 
                 in '0'..'9' -> {
-                    val digits = (text until end).takeWhile { shown[it].isDigit() }.size
-                    if (digits > MAX_ORDERED_DIGITS || text + digits >= end) return null
-                    if (shown[text + digits] != '.' && shown[text + digits] != ')') return null
-                    text + digits + 1
+                    var digitsEnd = text
+                    while (digitsEnd < end && digitsEnd - text <= MAX_ORDERED_DIGITS && shown[digitsEnd].isDigit()) {
+                        digitsEnd++
+                    }
+                    if (digitsEnd - text > MAX_ORDERED_DIGITS || digitsEnd >= end) return null
+                    if (shown[digitsEnd] != '.' && shown[digitsEnd] != ')') return null
+                    digitsEnd + 1
                 }
 
                 else -> {
@@ -197,48 +256,86 @@ internal class MarkdownSpeech(
         var separator = -1
         var index = cellStart
         while (index <= end) {
-            when {
-                index < end && shown[index] == '\\' -> {
-                    index += 2
-                    continue
-                }
-
-                index == end || shown[index] == '|' -> {
-                    var cellEnd = index
-                    while (cellEnd > cellStart && shown[cellEnd - 1].isWhitespace()) cellEnd--
-                    val cell = InlineText().apply { addRange(shown, firstNonSpace(cellStart, cellEnd), cellEnd) }
-                    if (!cell.isBlank()) {
-                        if (separator >= 0) {
-                            out.char(',', separator)
-                            out.space(separator)
-                        }
-                        MarkdownInline.emit(cell, out)
-                        separator = index
+            if (index < end && shown[index] == '\\') {
+                index = minOf(index + 2, end)
+                continue
+            }
+            if (index == end || shown[index] == '|') {
+                var cellEnd = index
+                while (cellEnd > cellStart && shown[cellEnd - 1].isWhitespace()) cellEnd--
+                val cell = InlineText().apply { addRange(shown, firstNonSpace(cellStart, cellEnd), cellEnd) }
+                if (!cell.isBlank()) {
+                    if (separator >= 0) {
+                        out.char(',', separator)
+                        out.space(separator)
                     }
-                    cellStart = index + 1
+                    MarkdownInline.emit(cell, out)
+                    separator = index
                 }
+                cellStart = index + 1
             }
             index++
         }
         out.paragraph(end)
     }
 
+    /** `| :--- | ---: |`: cells of dashes with optional alignment colons, at least one pipe. */
     private fun isDelimiterRow(index: Int): Boolean {
         val line = lines.getOrNull(index) ?: return false
-        val start = afterQuotes(line.start, line.end)
-        val row = shown.substring(start, line.end).trim()
-        return '|' in row && DELIMITER_ROW.matches(row)
+        var start = firstNonSpace(afterQuotes(line.start, line.end), line.end)
+        var end = line.end
+        while (end > start && shown[end - 1].isWhitespace()) end--
+        if (find("|", start, end) < 0) return false
+        if (shown[start] == '|') start++
+        if (end > start && shown[end - 1] == '|') end--
+        var cellStart = start
+        for (cellEnd in start..end) {
+            if (cellEnd < end && shown[cellEnd] != '|') continue
+            if (!isDelimiterCell(cellStart, cellEnd)) return false
+            cellStart = cellEnd + 1
+        }
+        return true
     }
 
+    private fun isDelimiterCell(
+        start: Int,
+        end: Int,
+    ): Boolean {
+        var from = firstNonSpace(start, end)
+        var to = end
+        while (to > from && shown[to - 1].isWhitespace()) to--
+        if (from < to && shown[from] == ':') from++
+        if (to > from && shown[to - 1] == ':') to--
+        return to > from && runLength(from, to, '-') == to - from
+    }
+
+    /** `===` or `---` (any length) under a paragraph. */
     private fun isSetextUnderline(
         text: Int,
         end: Int,
-    ): Boolean = SETEXT_UNDERLINE.matches(shown.substring(text, end))
+    ): Boolean {
+        val char = shown[text]
+        if (char != '=' && char != '-') return false
+        return isBlank(text + runLength(text, end, char), end)
+    }
 
+    /** A thematic break: three or more `-`, `*` or `_`, with spaces between them allowed. */
     private fun isRule(
         text: Int,
         end: Int,
-    ): Boolean = RULE.matches(shown.substring(text, end))
+    ): Boolean {
+        val char = shown[text]
+        if (char != '-' && char != '*' && char != '_') return false
+        var count = 0
+        for (index in text until end) {
+            when (shown[index]) {
+                char -> count++
+                ' ', '\t' -> Unit
+                else -> return false
+            }
+        }
+        return count >= RULE_MIN_LENGTH
+    }
 
     /** Resolves the gathered block text and ends it with a hard break at [source]. */
     private fun flush(source: Int) {
@@ -256,7 +353,12 @@ internal class MarkdownSpeech(
     private fun isLine(
         index: Int,
         text: String,
-    ): Boolean = shown.substring(lines[index].start, lines[index].end).trimEnd() == text
+    ): Boolean {
+        val line = lines[index]
+        return line.end - line.start >= text.length &&
+            shown.startsWith(text, line.start) &&
+            isBlank(line.start + text.length, line.end)
+    }
 
     /** Skips blockquote markers: up to 3 spaces, `>` and one optional space, repeated. */
     private fun afterQuotes(
@@ -297,6 +399,24 @@ internal class MarkdownSpeech(
         return index
     }
 
+    private fun isBlank(
+        start: Int,
+        end: Int,
+    ): Boolean {
+        for (index in start until end) if (!shown[index].isWhitespace()) return false
+        return true
+    }
+
+    /** The first index of [part] from [start] that ends by [end], or -1; never searches past the line. */
+    private fun find(
+        part: String,
+        start: Int,
+        end: Int,
+    ): Int {
+        for (index in start..end - part.length) if (shown.startsWith(part, index)) return index
+        return -1
+    }
+
     private fun runLength(
         start: Int,
         end: Int,
@@ -331,20 +451,19 @@ internal class MarkdownSpeech(
         const val CODE_INDENT = 4
         const val TAB_WIDTH = 4
         const val FENCE_LENGTH = 3
+        const val RULE_MIN_LENGTH = 3
         const val MAX_HEADING_LEVEL = 6
         const val MAX_ORDERED_DIGITS = 9
         const val TASK_BOX_LENGTH = 3
-        val TASK_BOX = Regex("""\[[ xX]]""")
-        val REFERENCE_DEFINITION = Regex("""\[[^\]]+]:\s*\S""")
-        val SETEXT_UNDERLINE = Regex("""(=+|-+)\s*""")
-        val RULE = Regex("""([-*_])(\s*\1){2,}\s*""")
-        val DELIMITER_ROW = Regex("""\|?\s*:?-+:?\s*(\|\s*:?-+:?\s*)*\|?""")
+        const val COMMENT_OPEN = 4
+        const val COMMENT_CLOSE = 3
+        const val BYTE_ORDER_MARK = '﻿'
 
-        /** The lines of [text] without their line breaks (`\n`, `\r\n`, `\r`). */
+        /** The lines of [text] without their line breaks (`\n`, `\r\n`, `\r`); a leading byte order mark is skipped. */
         fun lines(text: String): List<Line> {
             val lines = mutableListOf<Line>()
-            var start = 0
-            var index = 0
+            var start = if (text.startsWith(BYTE_ORDER_MARK)) 1 else 0
+            var index = start
             while (index < text.length) {
                 val char = text[index]
                 if (char == '\n' || char == '\r') {

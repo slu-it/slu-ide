@@ -4,9 +4,9 @@ package dev.sluide.speech.text
 object SpeechText {
     /**
      * The spoken form of [shown]. Whitespace runs collapse to one space, a blank line becomes a hard break (`"\n"`),
-     * leading and trailing whitespace go. With [markdown], the Markdown markup goes too: front matter, code blocks,
-     * HTML tags, heading, emphasis, list, quote and table markers, link targets and URLs; headings, list items and
-     * table rows end a sentence.
+     * leading and trailing whitespace and a byte order mark go. With [markdown], the Markdown markup goes too: front
+     * matter, code blocks, HTML tags and comments, heading, emphasis, list, quote, footnote and table markers, link
+     * targets and URLs; headings, list items and table rows end a sentence.
      */
     fun prepare(
         shown: String,
@@ -15,7 +15,7 @@ object SpeechText {
 
     private fun plain(shown: String): SpokenText {
         val out = SpokenTextBuilder()
-        var index = 0
+        var index = if (shown.startsWith('﻿')) 1 else 0
         while (index < shown.length) {
             if (!shown[index].isWhitespace()) {
                 out.char(shown[index], index)

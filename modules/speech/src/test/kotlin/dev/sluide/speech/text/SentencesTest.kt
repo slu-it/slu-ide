@@ -85,63 +85,82 @@ class SentencesTest {
     }
 
     @Test
-    fun `splits a long first sentence after its first clause mark from 20 chars on`() {
+    fun `keeps a long sentence whole`() {
+        val long = "A very long sentence, with clauses; and more of them: on and on until it ends at last."
+
+        assertEquals(listOf(long, "Next."), texts("$long Next."))
+    }
+
+    @Test
+    fun `splits a long chunk after its first clause mark from 20 chars on`() {
         val first = "Short, then a longer clause; and a third part: all of it more than forty chars."
-        val chunks = Sentences.chunks(spoken("$first Next."), firstChunkMaxChars = 40)
+        val chunks = Sentences.chunks(spoken("$first Next."))
+
+        val pieces = Sentences.splitForFastStart(chunks[0], maxChars = 40)
 
         assertEquals(
-            listOf("Short, then a longer clause;", "and a third part: all of it more than forty chars.", "Next."),
-            chunks.map { it.text },
+            listOf("Short, then a longer clause;", "and a third part: all of it more than forty chars."),
+            pieces.map { it.text },
         )
-        assertEquals(
-            listOf(0 to first.length, 0 to first.length),
-            chunks.take(2).map { it.sentenceStart to it.sentenceEnd },
-        )
-        assertEquals(29, chunks[1].start)
+        assertEquals(listOf(0 to first.length, 0 to first.length), pieces.map { it.sentenceStart to it.sentenceEnd })
+        assertEquals(listOf(0 to 28, 29 to first.length), pieces.map { it.start to it.end })
+    }
+
+    @Test
+    fun `splits a later chunk at its own offsets`() {
+        val spoken = spoken("First. Then a longer sentence, which goes on.")
+        val second = Sentences.chunks(spoken)[1]
+
+        val pieces = Sentences.splitForFastStart(second, maxChars = 30)
+
+        assertEquals(listOf("Then a longer sentence,", "which goes on."), pieces.map { it.text })
+        pieces.forEach { assertEquals(spoken.text.substring(it.start, it.end), it.text) }
+        assertTrue(pieces.all { it.sentenceStart == second.start && it.sentenceEnd == second.end })
     }
 
     @ParameterizedTest
     @ValueSource(strings = ["—", " –"])
     fun `a dash is a clause mark`(dash: String) {
-        val chunks =
-            Sentences.chunks(
-                spoken("A rather long beginning$dash then the rest of it."),
-                firstChunkMaxChars = 30,
-            )
-
-        assertEquals(listOf("A rather long beginning$dash", "then the rest of it."), chunks.map { it.text })
+        assertEquals(
+            listOf("A rather long beginning$dash", "then the rest of it."),
+            split("A rather long beginning$dash then the rest of it.", maxChars = 30),
+        )
     }
 
     @Test
-    fun `splits a long first sentence without a clause mark at its last space before the limit`() {
-        val chunks = Sentences.chunks(spoken("One two three four five six seven, eight."), firstChunkMaxChars = 20)
+    fun `splits a long chunk without a clause mark at its last space before the limit`() {
+        val pieces =
+            Sentences.splitForFastStart(
+                Sentences.chunks(spoken("One two three four five six seven, eight."))[0],
+                20,
+            )
 
-        assertEquals(listOf("One two three four", "five six seven, eight."), chunks.map { it.text })
-        assertTrue(chunks.all { it.sentenceStart == 0 && it.sentenceEnd == 41 })
+        assertEquals(listOf("One two three four", "five six seven, eight."), pieces.map { it.text })
+        assertTrue(pieces.all { it.sentenceStart == 0 && it.sentenceEnd == 41 })
     }
 
     @Test
     fun `a comma inside a number is no clause mark`() {
-        val chunks =
-            Sentences.chunks(
-                spoken("We counted up to exactly 1,000,000 of those things"),
-                firstChunkMaxChars = 40,
-            )
-
-        assertEquals(listOf("We counted up to exactly 1,000,000 of", "those things"), chunks.map { it.text })
+        assertEquals(
+            listOf("We counted up to exactly 1,000,000 of", "those things"),
+            split("We counted up to exactly 1,000,000 of those things", maxChars = 40),
+        )
     }
 
     @Test
-    fun `splits only the first sentence and keeps one within the limit whole`() {
-        val long = "This one is long enough, to be split if it came first."
-
-        assertEquals(listOf("Short.", long), texts("Short. $long", firstChunkMaxChars = 30))
-        assertEquals(listOf("Short."), texts("Short.", firstChunkMaxChars = 6))
+    fun `keeps a chunk within the limit or without a space whole`() {
+        assertEquals(listOf("Short."), split("Short.", maxChars = 6))
+        assertEquals(listOf("Supercalifragilistic"), split("Supercalifragilistic", maxChars = 5))
     }
 
     @Test
-    fun `keeps a long first word whole`() {
-        assertEquals(listOf("Supercalifragilistic"), texts("Supercalifragilistic", firstChunkMaxChars = 5))
+    fun `splits at 120 chars by default`() {
+        val words = (1..30).joinToString(" ") { "word" }
+        val chunk = Sentences.chunks(spoken(words))[0]
+
+        val within = chunk.copy(end = 120, text = words.take(120))
+        assertEquals(listOf(within), Sentences.splitForFastStart(within))
+        assertEquals(2, Sentences.splitForFastStart(chunk).size)
     }
 
     @ParameterizedTest
@@ -155,10 +174,10 @@ class SentencesTest {
             "Wait… What? Done.",
         ],
     )
-    fun `chunks cover every spoken non-whitespace char once, in order`(text: String) {
+    fun `chunks cover every spoken non-whitespace char once, in order, also when split`(text: String) {
         for (max in listOf(10, 30, 120)) {
             val spoken = spoken(text)
-            val chunks = Sentences.chunks(spoken, firstChunkMaxChars = max)
+            val chunks = Sentences.chunks(spoken).flatMap { Sentences.splitForFastStart(it, max) }
 
             assertEquals(
                 spoken.text.filterNot(Char::isWhitespace),
@@ -175,8 +194,11 @@ class SentencesTest {
 
     private fun spoken(text: String) = SpeechText.prepare(text, markdown = false)
 
-    private fun texts(
+    private fun texts(text: String) = Sentences.chunks(spoken(text)).map { it.text }
+
+    /** The pieces of the first chunk of [text]. */
+    private fun split(
         text: String,
-        firstChunkMaxChars: Int = 120,
-    ) = Sentences.chunks(spoken(text), firstChunkMaxChars).map { it.text }
+        maxChars: Int,
+    ) = Sentences.splitForFastStart(Sentences.chunks(spoken(text))[0], maxChars).map { it.text }
 }
