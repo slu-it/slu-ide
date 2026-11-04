@@ -199,13 +199,28 @@ class JavaFxPlayback(
     override fun seek(to: Duration) {
         val player = player ?: return
         if (disposed || statusWrapper.get() == PlaybackStatus.FAILED) return
+        // Clamped like JavaFX clamps a seek (start and stop time are never set: 0 and the length).
+        val total = totalDurationWrapper.get()
+        val target =
+            (
+                if (total.isUnknown ||
+                    total.isIndefinite
+                ) {
+                    to
+                } else {
+                    to.coerceAtMost(total)
+                }
+            ).coerceAtLeast(Duration.ZERO)
         if (!ended && pendingSeek == null) {
-            player.seek(to)
+            player.seek(target)
+            // JavaFX reports the time only while playing: after a seek before the first play its currentTime moves
+            // about a second later and no listener is told (seen in READY; PAUSED is inferred). Show the target.
+            currentTimeWrapper.set(target)
             return
         }
         ended = false
-        pendingSeek = to
-        currentTimeWrapper.set(to)
+        pendingSeek = target
+        currentTimeWrapper.set(target)
         player.pause()
         updateStatus()
     }

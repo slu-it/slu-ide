@@ -77,6 +77,14 @@ class JavaFxPlaybackUiTest {
     }
 
     @Test
+    fun `a seek before playing moves the current time`(robot: FxRobot) {
+        val loaded = load(robot, writeSineWav(dir.resolve("sine.wav")))
+        robot.interact { loaded.seek(Duration.seconds(0.5)) }
+        // JavaFX moves its player's time without telling listeners while not playing.
+        fx { assertEquals(0.5, loaded.currentTime.get().toSeconds(), 0.02) }
+    }
+
+    @Test
     fun `garbage named mp3 fails with a reason and leaves a loaded playback alone`(robot: FxRobot) {
         val wav = load(robot, writeSineWav(dir.resolve("sine.wav")))
 
