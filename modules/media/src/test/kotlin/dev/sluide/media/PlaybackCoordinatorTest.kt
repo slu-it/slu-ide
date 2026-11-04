@@ -66,4 +66,38 @@ class PlaybackCoordinatorTest {
 
         assertEquals(listOf("play", "pause"), first.calls)
     }
+
+    @Test
+    fun `any pausable takes part, not only media playbacks`() {
+        // A Read Aloud reading is a Pausable, not a Playback: the media player and a reading pause each other.
+        val reading = CountingPausable()
+        coordinator.started(reading)
+        val media = FakePlayback()
+        media.play()
+
+        coordinator.started(media)
+        coordinator.started(CountingPausable())
+
+        assertEquals(1, reading.pauses)
+        assertEquals(listOf("play", "pause"), media.calls)
+    }
+
+    @Test
+    fun `a disposed pausable is forgotten`() {
+        val reading = CountingPausable()
+        coordinator.started(reading)
+
+        coordinator.disposed(reading)
+        coordinator.started(FakePlayback())
+
+        assertEquals(0, reading.pauses)
+    }
+
+    private class CountingPausable : Pausable {
+        var pauses = 0
+
+        override fun pause() {
+            pauses++
+        }
+    }
 }

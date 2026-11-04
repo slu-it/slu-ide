@@ -13,10 +13,18 @@ import javafx.util.Duration
 enum class PlaybackStatus { LOADING, READY, PLAYING, PAUSED, ENDED, FAILED }
 
 /**
+ * Something playing sound that [PlaybackCoordinator] can pause when another playback starts: a media [Playback], or a
+ * reading of the Read Aloud tool (ADR 0123, ADR 0124). [pause] of something paused, ended or failed does nothing.
+ */
+interface Pausable {
+    fun pause()
+}
+
+/**
  * One file's player (ADR 0123); FX thread only. The views build on this interface, so tests drive them with a fake;
  * [JavaFxPlayback] is the real one.
  */
-interface Playback {
+interface Playback : Pausable {
     val status: ReadOnlyObjectProperty<PlaybackStatus>
     val currentTime: ReadOnlyObjectProperty<Duration>
 
@@ -44,8 +52,6 @@ interface Playback {
 
     /** Plays; from the beginning if [PlaybackStatus.ENDED]. */
     fun play()
-
-    fun pause()
 
     fun seek(to: Duration)
 
