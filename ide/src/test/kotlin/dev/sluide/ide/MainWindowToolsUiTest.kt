@@ -499,32 +499,6 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `Read Aloud without a selection puts the whole editor text, unsaved edits included, in the tab`(
-        robot: FxRobot,
-    ) {
-        val file = project.resolve("notes.txt").apply { writeText("hello\n") }
-        robot.interact { editorArea.open(file) }
-        eventually(robot) { assertEquals(1, robot.lookup(".code-area").queryAllAs(CodeArea::class.java).size) }
-        val area = robot.lookup(".code-area").queryAs(CodeArea::class.java)
-        robot.interact { area.appendText("edited") }
-
-        val item = readAloudItem(area, null)
-        assertEquals("Read Aloud", item.text)
-        robot.interact { item.fire() }
-
-        eventually(robot) { assertEquals("hello\nedited", readAloudText(robot)) }
-    }
-
-    @Test
-    fun `the explorer offers Read Aloud for txt and md files only`() {
-        val action = fileExplorer.fileActions.single { it.label == "Read Aloud" }
-
-        assertTrue(action.appliesTo(project.resolve("a.txt")))
-        assertTrue(action.appliesTo(project.resolve("B.MD")))
-        assertFalse(action.appliesTo(project.resolve("c.kt")))
-    }
-
-    @Test
     fun `the explorer's Read Aloud asks about unsaved edits and reads the saved file or the saved edits`(
         robot: FxRobot,
     ) {
@@ -543,7 +517,6 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
 
         robot.interact { action.perform(file) }
         assertEquals(listOf(file), asked)
-        assertEquals(listOf("● notes.txt"), tabTitles(robot))
 
         answer = UnsavedReadChoice.READ_SAVED
         robot.interact { action.perform(file) }

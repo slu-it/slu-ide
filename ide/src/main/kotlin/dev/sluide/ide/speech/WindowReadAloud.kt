@@ -12,14 +12,14 @@ import java.nio.file.Path
 /** The answer to the question asked while a file has unsaved changes. */
 internal enum class UnsavedReadChoice { SAVE_AND_READ, READ_SAVED, CANCEL }
 
-/** Whether the explorer offers Read Aloud for [file]: a `.txt` or `.md` file. */
+/** Whether the explorer offers Read Aloud for [file]: a `.txt`, `.md` or `.markdown` file. */
 internal fun canReadAloud(file: Path): Boolean {
     val name = file.fileName?.toString()?.lowercase() ?: return false
-    return name.endsWith(".txt") || name.endsWith(".md")
+    return name.endsWith(".txt") || name.endsWith(".md") || name.endsWith(".markdown")
 }
 
 /**
- * The explorer's Read Aloud for `.txt` and `.md` files (ADR 0124): reads the saved file in the Read Aloud tab. When
+ * The explorer's Read Aloud for `.txt`, `.md` and `.markdown` files (ADR 0124): reads the saved file in the Read Aloud tab. When
  * a tab of the file has unsaved changes, it asks first (ADR 0089).
  */
 internal class WindowReadAloud(

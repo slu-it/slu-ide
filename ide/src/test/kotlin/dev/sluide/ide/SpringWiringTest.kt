@@ -211,6 +211,12 @@ class SpringWiringTest {
                 context.getBean(Secrets::class.java)
                 // Two constructors as well; creating it reads nothing (shared.json is read on first use).
                 context.getBean(MediaPreferences::class.java)
+                // The cheap speech beans; KokoroEngine and the speech settings page are left out (they read the
+                // user's settings and the model), covered by the real-app check.
+                context.getBean(ModelStore::class.java)
+                context.getBean(ModelInstaller::class.java)
+                context.getBean(SpeechPreferences::class.java)
+                context.getBean(SpeechEngines::class.java)
                 // Every window has its own instance of these (ADR 0014).
                 val windowTypes =
                     listOf(

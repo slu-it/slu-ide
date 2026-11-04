@@ -133,6 +133,12 @@ if (onnxNativeFolder != null) {
         }
     tasks.bootJar {
         val original = onnxJars.files
+        val onNativeClasspath =
+            configurations.runtimeClasspath
+                .get()
+                .files
+                .any { it in original }
+        check(onNativeClasspath) { "onnxruntime is not on the runtime classpath as ${original.map { it.name }}" }
         val bootClasspath = classpath ?: files()
         setClasspath(files(bootClasspath.filter { file -> file !in original }, onnxRuntimeForPlatform))
     }

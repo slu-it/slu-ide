@@ -16,7 +16,7 @@ spoken strongly. English only for now.
 - **Read Selection Aloud** in the context menu of every code editor reads the selection; without a selection the item
   reads **Read Aloud** and takes the whole text, unsaved edits included. Text over 1 MiB disables the item ("larger
   than 1 MiB"). Code: `ReadAloudExtension`, registered by `ide` after Converting's item.
-- **Read Aloud** in the explorer's context menu of a single `.txt` or `.md` file reads the saved file. If a tab of it has
+- **Read Aloud** in the explorer's context menu of a single `.txt`, `.md` or `.markdown` file reads the saved file. If a tab of it has
   unsaved changes, a question says so ("Save and Read Aloud", "Read Saved Version" or Cancel). A file over 1 MiB or not
   UTF-8 is an error dialog. `ReadAloud.readFile` reads off the FX thread; `ide` (`WindowReadAloud`) asks and wires.
 - When text arrives from the editor or the explorer, it replaces the tab's text, the tab is shown and reading starts at

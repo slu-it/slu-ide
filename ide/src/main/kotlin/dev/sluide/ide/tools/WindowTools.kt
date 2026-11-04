@@ -26,9 +26,9 @@ import java.nio.file.Path
 
 /**
  * The tools of one window: the Terminal and Docker Sandbox menus with the terminal tabs they open in the
- * [editorArea], the Tools menu with the Coloring, Codecs, Converting and Read Aloud tabs (ADR 0110, ADR 0112, ADR 0115, ADR 0124) and the
- * Services menu with the Docker and Databases tabs (ADR 0118, ADR 0121). [showError] shows why a tool cannot be started. Used on the JavaFX
- * thread.
+ * [editorArea], the Tools menu with the Coloring, Codecs, Converting and Read Aloud tabs (ADR 0110, ADR 0112,
+ * ADR 0115, ADR 0124) and the Services menu with the Docker and Databases tabs (ADR 0118, ADR 0121). [showError]
+ * shows why a tool cannot be started. Used on the JavaFX thread.
  */
 internal class WindowTools(
     private val projectService: ProjectService,

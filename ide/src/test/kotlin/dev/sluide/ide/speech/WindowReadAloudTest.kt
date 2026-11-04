@@ -40,6 +40,7 @@ class WindowReadAloudTest {
         "a.txt,true",
         "A.TXT,true",
         "notes.md,true",
+        "notes.markdown,true",
         "README.MD,true",
         "a.kt,false",
         "txt,false",

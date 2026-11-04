@@ -342,7 +342,7 @@ class MainWindow(
                     HttpClientSetup.create(folder).let { FolderActionResult(it.example, it.note) }
                 },
             )
-        // A file's context menu runs it where its view can (ADR 0089).
+        // A file's context menu runs it where its view can (ADR 0089) and reads text and Markdown files aloud (ADR 0124).
         fileExplorer.fileActions = listOf(scriptRuns.action, readAloudFiles.action)
         // A context menu's Open in Terminal opens a terminal tab in the folder (ADR 0093).
         fileExplorer.openInTerminal = { tools.openTerminal(stage, it) }
