@@ -209,31 +209,102 @@ class TextAreaEditorUiTest {
     ) {
         val editor = open(robot, "# Title\nsome words here\n")
         WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) { fx { editor.area.getStyleOfChar(2).isNotEmpty() } }
-        val before = fx { editor.area.getStyleOfChar(2).toSet() }
+        val before = fx { editor.area.getStyleOfChar(2).toList() }
+        val before5 = fx { editor.area.getStyleOfChar(5).toList() }
 
         robot.interact { editor.overlay(listOf(StyledRange(0, 7, "soft"), StyledRange(2, 4, "strong"))) }
-        assertEquals(before + "soft" + "strong", fx { editor.area.getStyleOfChar(2).toSet() })
-        assertEquals(setOf("soft"), fx { editor.area.getStyleOfChar(5).toSet() - before })
+        assertEquals(before + "soft" + "strong", fx { editor.area.getStyleOfChar(2).toList() })
+        assertEquals(before5 + "soft", fx { editor.area.getStyleOfChar(5).toList() })
         assertEquals(false, fx { "soft" in editor.area.getStyleOfChar(9) })
 
         robot.interact { editor.markError(3) }
         assertEquals(listOf(3), fx { errorChars(editor) })
-        assertTrue(fx { "strong" in editor.area.getStyleOfChar(3) }, "error mark keeps the overlay")
+        assertEquals(
+            before + "text-error" + "soft" + "strong",
+            fx { editor.area.getStyleOfChar(3).toList() },
+            "the error mark keeps the overlay, each class once",
+        )
+        robot.interact { editor.markError(4) }
+        assertEquals(
+            before + "soft" + "strong",
+            fx { editor.area.getStyleOfChar(3).toList() }.let { it - "text-error" },
+        )
+        assertEquals(listOf(4), fx { errorChars(editor) })
+        robot.interact { editor.markError(3) }
 
-        robot.interact { editor.overlay(listOf(StyledRange(8, 12, "soft"), StyledRange(-5, 0, "gone"))) }
+        robot.interact { editor.overlay(listOf(StyledRange(8, 999, "soft"), StyledRange(-5, 0, "gone"))) }
         assertEquals(false, fx { "soft" in editor.area.getStyleOfChar(2) || "strong" in editor.area.getStyleOfChar(2) })
         assertTrue(fx { "soft" in editor.area.getStyleOfChar(9) })
         assertEquals(listOf(3), fx { errorChars(editor) }, "the error mark stays")
 
-        // The highlighting arrives after an edit and keeps the overlay.
-        robot.interact { editor.area.insertText(editor.area.length, "# h") }
-        WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) {
-            fx { editor.area.getStyleOfChar(editor.area.length - 1).isNotEmpty() }
-        }
-        assertTrue(fx { "soft" in editor.area.getStyleOfChar(9) }, "kept by the background highlighting")
+        assertTrue(
+            fx { "soft" in editor.area.getStyleOfChar(editor.area.length - 1) },
+            "a range past the end is clamped",
+        )
+
+        // The highlighting arrives later and keeps the overlay.
+        robot.interact { editor.highlighter = null }
+        robot.interact { editor.highlighter = Highlighters.markdown }
+        assertTrue(fx { "soft" in editor.area.getStyleOfChar(9) }, "kept when the highlighter changes")
 
         robot.interact { editor.replaceText("# Other\n") }
         assertEquals(false, fx { (0 until editor.area.length).any { "soft" in editor.area.getStyleOfChar(it) } })
+    }
+
+    @Test
+    fun `an edit drops the overlay, so a later one leaves nothing behind`(robot: FxRobot) {
+        val editor = open(robot, "abcdefgh")
+
+        robot.interact { editor.overlay(listOf(StyledRange(2, 4, "soft"))) }
+        robot.interact { editor.area.insertText(0, "xy") }
+        assertEquals(false, fx { (0 until editor.area.length).any { "soft" in editor.area.getStyleOfChar(it) } })
+
+        robot.interact { editor.overlay(listOf(StyledRange(0, 1, "soft"))) }
+        assertEquals(listOf(0), fx { (0 until editor.area.length).filter { "soft" in editor.area.getStyleOfChar(it) } })
+    }
+
+    @Test
+    fun `an overlay restyles only the old and the new span, not the whole text`(robot: FxRobot) {
+        val editor = open(robot, (1..200).joinToString("\n") { "line $it" })
+        robot.interact { editor.overlay(listOf(StyledRange(10, 14, "soft"))) }
+        val restyled = mutableListOf<Int>()
+        val subscription = fx { editor.area.richChanges().subscribe { restyled += it.insertionEnd - it.position } }
+
+        robot.interact { editor.overlay(listOf(StyledRange(20, 25, "soft"))) }
+        fx { subscription.unsubscribe() }
+
+        assertTrue(
+            restyled.isNotEmpty() && restyled.sum() <= 20,
+            "restyled $restyled characters of ${editor.text.length}",
+        )
+    }
+
+    @Test
+    fun `a highlighting computed before an overlay still shows the newer overlay`(robot: FxRobot) {
+        val pending = java.util.concurrent.LinkedBlockingQueue<Runnable>()
+        val editor =
+            WaitForAsyncUtils
+                .asyncFx<TextAreaEditor> {
+                    TextAreaEditor(
+                        "plain",
+                        Highlighters.markdown,
+                        highlightPause = Duration.ofMillis(20),
+                        dispatch = { pending.add(it) },
+                    )
+                }.get()
+        robot.interact { container.children.setAll(editor.node) }
+        robot.interact { editor.overlay(listOf(StyledRange(0, 2, "old"))) }
+        robot.interact { editor.area.insertText(5, "\n# Title") }
+        val highlighting = assertNotNull(pending.poll(5, TimeUnit.SECONDS), "the worker finished")
+
+        robot.interact { editor.overlay(listOf(StyledRange(3, 5, "new"))) }
+        robot.interact { highlighting.run() }
+
+        val text = fx { editor.text }
+        val classes = fx { (0 until editor.area.length).map { editor.area.getStyleOfChar(it).toList() } }
+        assertEquals(listOf(3, 4), classes.indices.filter { "new" in classes[it] && text[it] != '\n' })
+        assertEquals(false, classes.any { "old" in it })
+        assertTrue(classes.any { "text-error" !in it && it.size > 0 && "new" !in it }, "the highlighting applied")
     }
 
     @Test
@@ -259,13 +330,39 @@ class TextAreaEditorUiTest {
         val editor = open(robot, (1..100).joinToString("\n") { "line $it" })
         robot.interact { editor.selectRange(2, 4) }
         robot.interact { editor.area.showParagraphAtTop(0) }
-        val end = editor.text.length
+        val end = fx { editor.text.length }
 
         robot.interact { editor.reveal(end - 3, end) }
 
         assertTrue(fx { editor.area.lastVisibleParToAllParIndex() } >= 99, "the last line is shown")
         assertEquals(2, fx { editor.selection.start })
         assertEquals(4, fx { editor.caretOffset })
+    }
+
+    @Test
+    fun `reveal shows a word inside one wrapped paragraph taller than the viewport`(robot: FxRobot) {
+        val editor = open(robot, (1..400).joinToString(" ") { "word$it" })
+        val start = fx { editor.text.indexOf("word390") }
+
+        robot.interact { editor.reveal(start, start + 7) }
+
+        assertTrue(fx { shown(editor, start) }, "the word is in the viewport")
+        robot.interact { editor.reveal(0, 5) }
+        assertTrue(fx { shown(editor, 0) }, "and back to the first word")
+    }
+
+    @Test
+    fun `reveal shows the start and, when they fit, the end of a range over several paragraphs`(robot: FxRobot) {
+        val editor = open(robot, (1..100).joinToString("\n") { "line $it" })
+        val start = fx { editor.text.indexOf("line 60") }
+        val end = fx { editor.text.indexOf("line 63") }
+
+        robot.interact { editor.reveal(start, end) }
+        assertTrue(fx { shown(editor, start) && shown(editor, end - 2) }, "start and end are shown")
+
+        robot.interact { editor.area.showParagraphAtTop(0) }
+        robot.interact { editor.reveal(start, fx { editor.text.length }) }
+        assertTrue(fx { shown(editor, start) }, "the start of a range taller than the viewport is shown")
     }
 
     @Test
@@ -356,6 +453,21 @@ class TextAreaEditorUiTest {
             editor.area,
             KeyEvent(KeyEvent.KEY_TYPED, text, "", KeyCode.UNDEFINED, false, false, false, false),
         )
+    }
+
+    /** Whether the character at [offset] lies within the editor's viewport. */
+    private fun shown(
+        editor: TextAreaEditor,
+        offset: Int,
+    ): Boolean {
+        val bounds =
+            editor.area
+                .getCharacterBoundsOnScreen(
+                    offset,
+                    offset + 1,
+                ).orElse(null)
+                ?.let { editor.area.screenToLocal(it) }
+        return bounds != null && bounds.minY >= -3 && bounds.maxY <= editor.area.height + 3
     }
 
     private fun <T> fx(block: () -> T): T = WaitForAsyncUtils.asyncFx(block).get()

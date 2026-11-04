@@ -218,8 +218,8 @@ the Bicep graph and `BicepParamFileViewer`.
     replaces a range as one undo step with the caret after it and `selectRange(start, end)` selects and scrolls,
     neither taking the focus (the Databases consoles). `editable = false` makes it read-only, `overlay(ranges)`
     adds style classes (`StyledRange`) over the highlighting and the error mark, restyling only the changed span
-    (`replaceText` clears it), `reveal(start, end)` scrolls a range into view without moving the caret. Its font is inherited from its `node`: the caller binds the
-    node's style to `FontSettings.font(FontArea.EDITOR)` (`FontSpec::toCss`) if it should have the editor font.
+    (an edit or `replaceText` clears it), `reveal(start, end)` scrolls a range into view without moving the caret. Its
+    font is inherited from its `node`: the caller binds the node's style to `FontSettings.font(FontArea.EDITOR)` (`FontSpec::toCss`) if it should have the editor font.
   - `CodeEditorExtensions` (`CodeEditorExtensions.kt`) is a window service that extends every code editor of the
     window, whichever view embeds it ([ADR 0108](../adr/0108-code-editor-extensions-and-context-menu.md)). Each
     `CodeEditorExtension` added to it gets `extend(editor)` once per code view, on the FX thread, when the view first

@@ -140,11 +140,15 @@ interface TextEditor {
     /**
      * Overlays style classes on character ranges, drawn over the highlighter's styles (and the error mark); replaces
      * the previous overlay; an empty list removes it. Ranges are clamped to the text; overlapping ranges add both
-     * classes. Kept until the next [overlay] call or [replaceText] (which clears it). Call on the FX thread.
+     * classes. Kept until the next [overlay] call, an edit or [replaceText], which clear it. The class names must differ
+     * from the highlighter's and from `text-error`: they are removed by name. Call on the FX thread.
      */
     fun overlay(ranges: List<StyledRange>)
 
-    /** Scrolls [start, end) into view without moving the caret or the selection and without focusing. FX thread. */
+    /**
+     * Scrolls [start, end) into view without moving the caret or the selection and without focusing. The start is
+     * always shown, the end too when both fit the viewport. Call on the FX thread.
+     */
     fun reveal(
         start: Int,
         end: Int,

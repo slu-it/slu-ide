@@ -105,8 +105,11 @@ internal class TextAreaEditor(
         area.undoManager.forgetHistory()
         Nodes.addInputMap(area, editorKeys(area, { indentStyle }, comment))
         area.moveTo(0)
-        // An edit makes the marked error stale.
-        area.plainTextChanges().subscribe { markError(null) }
+        // An edit makes the marked error and the overlay's ranges stale.
+        area.plainTextChanges().subscribe {
+            markError(null)
+            dropOverlay()
+        }
     }
 
     private var highlighting = backgroundHighlighting(highlighter)
@@ -167,7 +170,7 @@ internal class TextAreaEditor(
         errorAt = at
         if (area.length == 0) return
         val styled = area.getStyleSpans(0, area.length)
-        val wanted = withMarks(styled.mapStyles { style -> style.filterNot { it == ERROR } })
+        val wanted = withMarks(styled.mapStyles { style -> style.filterNot { it == ERROR || it in overlayClasses() } })
         val range = changedSpanRange(styled, wanted) ?: return
         area.setStyleSpans(range.first, wanted.subView(range.first, range.last + 1))
     }
@@ -178,6 +181,19 @@ internal class TextAreaEditor(
         set(value) {
             area.isEditable = value
         }
+
+    private fun overlayClasses(): Set<String> = overlayed.mapTo(HashSet()) { it.styleClass }
+
+    /** Removes the overlay after an edit: its ranges no longer fit the text, so the classes go from all of it. */
+    private fun dropOverlay() {
+        val classes = overlayClasses()
+        overlayed = emptyList()
+        if (classes.isEmpty() || area.length == 0) return
+        val styled = area.getStyleSpans(0, area.length)
+        val bare = styled.mapStyles { style -> style.filterNot { it in classes } }
+        val range = changedSpanRange(styled, bare) ?: return
+        area.setStyleSpans(range.first, bare.subView(range.first, range.last + 1))
+    }
 
     /**
      * Replaces the overlay by [ranges] (clamped to the text; empty ones dropped), restyling only the span from the
@@ -204,7 +220,10 @@ internal class TextAreaEditor(
         area.setStyleSpans(from + range.first, changed.subView(range.first, range.last + 1))
     }
 
-    /** Scrolls [start, end) into view; caret, selection and focus stay. */
+    /**
+     * Scrolls [start, end) into view; caret, selection and focus stay. The start is always shown; the end too when
+     * both fit the viewport together.
+     */
     fun reveal(
         start: Int,
         end: Int,
@@ -214,13 +233,34 @@ internal class TextAreaEditor(
         val to = end.coerceIn(from, area.length)
         area.showParagraphInViewport(area.offsetToPosition(from, Bias.Forward).major)
         area.layout()
-        val shown = area.getCharacterBoundsOnScreen(from, maxOf(to, from + 1).coerceAtMost(area.length)).orElse(null)
-        val bounds = shown?.let { area.screenToLocal(it) } ?: return
-        if (bounds.minY < 0) {
-            area.scrollYBy(bounds.minY)
-        } else if (bounds.maxY > area.height) {
-            area.scrollYBy(bounds.maxY - area.height)
+        val first = charBounds(from) ?: return
+        if (first.minY < 0) {
+            area.scrollYBy(first.minY)
+        } else if (first.maxY > area.height) {
+            area.scrollYBy(first.maxY - area.height)
         }
+        // The last character that shows: a line break has no bounds.
+        var lastChar = to - 1
+        while (lastChar > from && area.text[lastChar] == '\n') lastChar--
+        if (lastChar <= from) return
+        area.layout()
+        // The end's paragraph is not laid out while it is far below: put the start at the top, where the end shows if
+        // anything shows it.
+        val last =
+            charBounds(lastChar) ?: run {
+                area.showParagraphAtTop(area.offsetToPosition(from, Bias.Forward).major)
+                area.layout()
+                return
+            }
+        val top = charBounds(from) ?: return
+        // As far down as the end needs, but never past where the start leaves the top.
+        if (last.maxY > area.height) area.scrollYBy(minOf(last.maxY - area.height, maxOf(top.minY, 0.0)))
+    }
+
+    /** The bounds of the character at [offset] (the last one at the end) in the area's coordinates, if laid out. */
+    private fun charBounds(offset: Int): Bounds? {
+        val at = offset.coerceIn(0, area.length - 1)
+        return area.getCharacterBoundsOnScreen(at, at + 1).orElse(null)?.let { area.screenToLocal(it) }
     }
 
     /** [at], or the nearest character before it that is no line break (if there is one). */
