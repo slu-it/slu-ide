@@ -61,9 +61,6 @@ internal class MediaControlActions(
 
     companion object {
         const val SKIP_SECONDS = 10.0
-
-        /** `1×`, `0.75×`, `1.25×`. */
-        fun speedLabel(rate: Double): String = PlaybackSpeeds.label(rate)
     }
 }
 

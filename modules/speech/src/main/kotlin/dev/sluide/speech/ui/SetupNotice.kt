@@ -47,7 +47,7 @@ internal class SetupNotice(
     private fun row(problem: SetupProblem): HBox =
         when (problem) {
             is SetupProblem.ModelMissing -> modelRow(problem)
-            is SetupProblem.ToolMissing -> textRow("${problem.tool} not found: ${problem.hint.replace("`", "")}")
+            is SetupProblem.ToolMissing -> textRow(toolMissingText(problem))
             is SetupProblem.Broken -> textRow(problem.message)
         }
 
@@ -99,7 +99,7 @@ internal class SetupNotice(
     }
 
     private fun download(problem: SetupProblem.ModelMissing) =
-        Button("Download (${formatMegabytes(problem.bytes)})").apply {
+        Button(downloadLabel(problem)).apply {
             id = "speech-download"
             isFocusTraversable = false
             setOnAction { model.download() }
@@ -117,3 +117,10 @@ internal class SetupNotice(
             },
         )
 }
+
+/** `espeak-ng not found: Install it with brew install espeak-ng ...`: the hint's backticks are dropped. */
+internal fun toolMissingText(problem: SetupProblem.ToolMissing): String =
+    "${problem.tool} not found: ${problem.hint.replace("`", "")}"
+
+/** `Download (326 MB)`. */
+internal fun downloadLabel(problem: SetupProblem.ModelMissing): String = "Download (${formatMegabytes(problem.bytes)})"

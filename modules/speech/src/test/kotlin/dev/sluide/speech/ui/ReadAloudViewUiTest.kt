@@ -1,6 +1,7 @@
 package dev.sluide.speech.ui
 
 import dev.sluide.fileviewers.ViewActivity
+import dev.sluide.speech.engine.SetupProblem
 import dev.sluide.speech.install.InstallState
 import dev.sluide.speech.session.ReadingPosition
 import dev.sluide.speech.session.ReadingState
@@ -16,6 +17,7 @@ import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.BorderPane
+import javafx.scene.layout.VBox
 import javafx.stage.Stage
 import org.fxmisc.richtext.GenericStyledArea
 import org.junit.jupiter.api.Tag
@@ -251,9 +253,15 @@ class ReadAloudViewUiTest {
 
     @Test
     fun `a double-click on the last word of a sentence jumps to that sentence`(robot: FxRobot) {
-        robot.interact { model.read("# Title\n\nHello", markdown = true) }
+        val markdown = "# Title\n\nHello"
+        robot.interact { model.read(markdown, markdown = true) }
+        host.reading.emit(ReadingState.STOPPED)
+        // Reading starts in "Hello", the second chunk; the double-click on "Title" must go back to the first.
+        robot.interact { model.play(markdown.indexOf("Hello")) }
         host.reading.emit(ReadingState.SPEAKING)
         WaitForAsyncUtils.waitForFxEvents()
+        assertEquals(1, host.reading.startChunk)
+        assertEquals(2, host.readings.size)
         // What the double-click does: it selects the word and leaves the caret at its end.
         robot.interact { area.selectRange(2, 7) }
 
@@ -283,6 +291,7 @@ class ReadAloudViewUiTest {
             )
         }
 
+        assertEquals(3, host.readings.size)
         assertEquals(0, host.reading.startChunk)
     }
 
@@ -296,5 +305,17 @@ class ReadAloudViewUiTest {
 
         robot.interact { model.stop() }
         assertEquals(ViewActivity.NONE, fx { tab.activity.value })
+    }
+
+    @Test
+    fun `a model already installed shows that and checks again, a tool row names the tool`(robot: FxRobot) {
+        host.problems = listOf(MODEL_MISSING, SetupProblem.ToolMissing("espeak-ng", "Install it with `brew`."))
+        host.state.set(InstallState.Installed)
+
+        robot.interact { model.read("Hi.", markdown = false) }
+
+        val texts = fx { (view.node.lookup(".speech-notice") as VBox).lookupAll(".label").map { (it as Label).text } }
+        assertEquals(listOf("Kokoro voice model installed.", "espeak-ng not found: Install it with brew."), texts)
+        assertEquals(2, host.checks, "the start's check and the one the installed row asked for")
     }
 }

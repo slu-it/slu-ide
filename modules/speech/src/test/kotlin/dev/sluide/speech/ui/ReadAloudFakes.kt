@@ -56,6 +56,7 @@ internal class FakeHost(
 ) : ReadAloudHost {
     var problems: List<SetupProblem> = emptyList()
     var holdChecks = false
+    var checks = 0
     val held = mutableListOf<(List<SetupProblem>) -> Unit>()
     val readings = mutableListOf<FakeReading>()
     val saved = mutableListOf<Pair<String, Double>>()
@@ -77,6 +78,7 @@ internal class FakeHost(
         voice: Voice,
         result: (List<SetupProblem>) -> Unit,
     ) {
+        checks++
         if (holdChecks) held += result else result(problems)
     }
 

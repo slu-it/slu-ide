@@ -105,12 +105,8 @@ internal class LiveReadAloudHost(
     override fun installState(problem: SetupProblem.ModelMissing): ObservableValue<InstallState>? =
         variant(problem)?.let(installer::state)
 
-    private fun variant(problem: SetupProblem.ModelMissing): KokoroVariant? =
-        if (problem.engineId ==
-            KokoroVoices.ENGINE_ID
-        ) {
-            KokoroVariant.entries.firstOrNull { it.name == problem.variant }
-        } else {
-            null
-        }
+    private fun variant(problem: SetupProblem.ModelMissing): KokoroVariant? {
+        val kokoro = problem.engineId == KokoroVoices.ENGINE_ID
+        return if (kokoro) KokoroVariant.entries.firstOrNull { it.name == problem.variant } else null
+    }
 }

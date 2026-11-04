@@ -64,13 +64,6 @@ internal class MediaControlActionsTest {
     }
 
     @ParameterizedTest
-    @CsvSource("0.5,0.5×", "1.0,1×", "0.75,0.75×", "1.25,1.25×", "2.0,2×")
-    fun `speed label`(
-        rate: Double,
-        label: String,
-    ) = assertEquals(label, MediaControlActions.speedLabel(rate))
-
-    @ParameterizedTest
     @CsvSource("SPACE,TOGGLE_PLAY", "LEFT,BACK", "RIGHT,AHEAD", "UP,VOLUME_UP", "DOWN,VOLUME_DOWN", "M,TOGGLE_MUTE")
     fun `keys map to actions`(
         code: KeyCode,

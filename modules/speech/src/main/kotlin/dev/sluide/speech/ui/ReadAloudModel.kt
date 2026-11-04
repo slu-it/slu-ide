@@ -322,6 +322,8 @@ internal class ReadAloudModel(
         shownOffset: Int,
     ): Int {
         val offset = spoken.spokenOffset(shownOffset.coerceAtLeast(0))
+        // A caret at the end (or past the last chunk) starts over at the first chunk; an offset at the end of a chunk
+        // still belongs to it, as a double-click on the last word of a sentence leaves the caret there.
         if (offset >= spoken.text.length) return 0
         return chunks.indexOfFirst { it.end >= offset }.coerceAtLeast(0)
     }
