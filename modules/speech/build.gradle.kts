@@ -41,15 +41,3 @@ dependencies {
     testImplementation(libs.testfx.core)
     testImplementation(libs.testfx.junit5)
 }
-
-// The tests play synthesized audio. On Linux without a sound card (CI runners, the sandbox) ALSA cannot open the
-// default device, so the tests get a null default device that discards the sound (docs/testing.md, "Media playback").
-// Machines with a sound card keep their own.
-val systemAlsaConfig = file("/usr/share/alsa/alsa.conf")
-val nullAlsaDevice = System.getProperty("os.name").lowercase().contains("linux") && !file("/dev/snd").exists()
-if (nullAlsaDevice && systemAlsaConfig.exists()) {
-    val nullDefault = file("src/test/alsa/null-default.conf")
-    tasks.withType<Test>().configureEach {
-        environment("ALSA_CONFIG_PATH", "$systemAlsaConfig:$nullDefault")
-    }
-}

@@ -98,6 +98,17 @@ val uiTestSplits =
         ":modules:previews" to "dev.sluide.previews.preview.*",
     )
 
+// Modules whose tests play sound: media (JavaFX Media, ADR 0123) and speech (its audio sink tests will open a
+// javax.sound line, ADR 0124). On Linux without a sound card (CI runners, the sandbox) ALSA cannot open the default
+// device, so their test tasks get a null default device that discards the sound (docs/testing.md, "Media playback").
+// Machines with a sound card keep their own.
+val nullAlsaProjects = setOf(":modules:media", ":modules:speech")
+val nullAlsaConfigPath: String? =
+    file("/usr/share/alsa/alsa.conf")
+        .takeIf { System.getProperty("os.name").lowercase().contains("linux") && !file("/dev/snd").exists() }
+        ?.takeIf { it.exists() }
+        ?.let { "$it:${file("gradle/alsa/null-default.conf")}" }
+
 // Shared configuration for every Kotlin module (modules/* and ide).
 subprojects {
     pluginManager.withPlugin("org.jetbrains.kotlin.jvm") {
@@ -140,6 +151,11 @@ subprojects {
                     exceptionFormat = org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
                 }
             }
+        }
+
+        val alsaConfigPath = nullAlsaConfigPath
+        if (project.path in nullAlsaProjects && alsaConfigPath != null) {
+            tasks.withType<Test>().configureEach { environment("ALSA_CONFIG_PATH", alsaConfigPath) }
         }
 
         val testSourceSet = extensions.getByType<SourceSetContainer>().named("test")

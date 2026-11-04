@@ -140,8 +140,9 @@ CI once.
   `os.name` assumption and a reason.
 - **Media playback:** JavaFX Media on Linux plays through ALSA, and CI runners and the sandbox have no sound card:
   every `MediaPlayer` then fails with "Could not create player!" ("Could not open audio device" with
-  `-Djfxmedia.loglevel=debug`). So `modules/media/build.gradle.kts` points the test tasks at a null default device
-  (`ALSA_CONFIG_PATH` with `src/test/alsa/null-default.conf`) when `/dev/snd` is missing. The null device has no
+  `-Djfxmedia.loglevel=debug`). So the root `build.gradle.kts` points the test tasks of the modules that play sound
+  (`nullAlsaProjects`: `media`, and `speech` for its audio sink) at a null default device (`ALSA_CONFIG_PATH` with
+  `gradle/alsa/null-default.conf`) when `/dev/snd` is missing. The null device has no
   clock: a file "plays" to its end within milliseconds, so the UI tests check states, not positions or timing.
   There are no ffmpeg libraries here, so only WAV and AIFF load; the tests generate a sine WAV (`writeSineWav`).
   To play media in the real app in the sandbox, start it with the same `ALSA_CONFIG_PATH`
