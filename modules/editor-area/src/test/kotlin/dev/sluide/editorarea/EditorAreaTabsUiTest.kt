@@ -4,6 +4,7 @@ import dev.sluide.fileviewers.LineChange
 import dev.sluide.fileviewers.TextDiff
 import dev.sluide.fileviewers.ViewActivity
 import javafx.beans.property.SimpleBooleanProperty
+import javafx.beans.property.SimpleObjectProperty
 import javafx.beans.property.SimpleStringProperty
 import javafx.scene.Node
 import javafx.scene.control.Button
@@ -406,6 +407,14 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         override val content = TextField()
     }
 
+    /** A tab that is no file but shows an activity, like a Read Aloud reading. */
+    private class BusyTab : EditorTab {
+        override val title = SimpleStringProperty("Busy tool")
+        override val tooltip = "Busy tool"
+        override val content = TextField()
+        override val activity = SimpleObjectProperty(ViewActivity.NONE)
+    }
+
     @Test
     fun `focusSelected focuses the area without tabs, a file's view, its diff while shown, or another tab's content`(
         robot: FxRobot,
@@ -464,6 +473,23 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         robot.interact { area.closeAll() }
         robot.interact { view.activity.set(ViewActivity.RUNNING) }
         assertEquals(emptyList(), markers(), "a closed tab's header no longer follows its view")
+    }
+
+    @Test
+    fun `a tab that is no file shows its activity as a marker too`(robot: FxRobot) {
+        val busy = BusyTab()
+        robot.interact { editor.open(busy) }
+        val header = tabLabel(robot, "Busy tool").parent
+
+        fun markers() =
+            header.childrenUnmodifiable
+                .takeWhile { it !is Label }
+                .flatMap { it.styleClass }
+                .filter { it.startsWith("tab-activity-") }
+        assertEquals(emptyList(), markers())
+
+        robot.interact { busy.activity.set(ViewActivity.RUNNING) }
+        assertEquals(listOf("tab-activity-running"), markers())
     }
 
     @Test

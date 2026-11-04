@@ -326,8 +326,8 @@ internal class TabStrip(
             if (tab is OpenFile) {
                 // A file tab follows its file when it is renamed.
                 subscriptions += tab.pathProperty.subscribe { _ -> tooltip.text = tab.tooltip }
-                subscriptions += tab.activity.subscribe(::showActivity)
             }
+            subscriptions += tab.activity.subscribe(::showActivity)
             // Pressing the close button must not select the tab first. Consuming the press on the button instead
             // would keep the button from arming, so it would never fire.
             setOnMousePressed { event ->

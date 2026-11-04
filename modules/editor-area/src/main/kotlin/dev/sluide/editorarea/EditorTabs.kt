@@ -48,6 +48,9 @@ interface EditorTab {
      */
     val closableByShortcut: ObservableValue<Boolean> get() = CLOSABLE
 
+    /** What the tab is doing, shown as a marker on its header (a reading running, ...); none by default. */
+    val activity: ObservableValue<ViewActivity> get() = NO_ACTIVITY
+
     /** Releases the tab's resources. Called once, when the tab is closed. */
     fun dispose() {}
 }
@@ -90,7 +93,7 @@ internal class OpenFile(
     override val closeWarning: String? get() = editor.closeWarning
 
     /** What the [editor] is doing, shown as a marker on the tab header. */
-    val activity: ObservableValue<ViewActivity> get() = editor.activity
+    override val activity: ObservableValue<ViewActivity> get() = editor.activity
 
     override val usesEditorFont = true
 
@@ -261,6 +264,9 @@ internal class EditorTabs {
         toClose.forEach { it.dispose() }
     }
 }
+
+/** The default [EditorTab.activity]. */
+private val NO_ACTIVITY: ObservableValue<ViewActivity> = ReadOnlyObjectWrapper(ViewActivity.NONE).readOnlyProperty
 
 /** The default [EditorTab.closableByShortcut]. */
 private val CLOSABLE: ObservableValue<Boolean> = ReadOnlyBooleanWrapper(true).readOnlyProperty
