@@ -11,6 +11,12 @@ internal class KokoroVocab(
 ) {
     fun id(c: Char): Long? = ids[c]
 
+    /** Whether [other] (the model's own vocab, by single-character key) has exactly these entries. */
+    fun matches(other: Map<String, Long>): Boolean {
+        val single = other.filterKeys { it.length == 1 }
+        return single.size == ids.size && ids.all { (c, id) -> single[c.toString()] == id }
+    }
+
     companion object {
         private const val RESOURCE = "kokoro-vocab.json"
 
