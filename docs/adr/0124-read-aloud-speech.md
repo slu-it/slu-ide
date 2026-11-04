@@ -42,13 +42,16 @@ Options compared for the first engine, all running the Kokoro-82M model:
   exact offset for every char by construction, including escapes and table cell separators.
 - **Sentence chunks:** `Sentences.chunks` splits the spoken text into sentences (with abbreviations, initials,
   decimals and ellipses before lowercase words that end none), the chunks a reading synthesizes one by one. A long
-  first sentence is split at its first clause, so the first audio comes fast.
+  sentence that a reading starts at is split at its first clause (`Sentences.splitForFastStart`), so the first
+  audio comes fast. The scanners are linear and without recursion, for texts up to the tool's 1 MiB.
 - **The model** is the kokoro-onnx GitHub release `model-files-v1.1`, the only source with published checksums and a
   `duration` output, pinned by URL and sha256 and stored in `~/.sluide/models/kokoro-v1.0/`. It is downloaded only on
   an explicit action (a Download button), so the rule "no background fetch" ([ADR 0043](0043-git-log-fetch.md)) holds
   and no exception is needed.
-- **espeak-ng** runs as a separate process found on the login shell's `PATH` or at a set path; it is never linked or
-  shipped.
+- **espeak-ng** runs as a separate process, found through the login shell (`command -v espeak-ng`), then in
+  `/opt/homebrew/bin`, `/usr/local/bin` and `/usr/bin`, or at a path set in Settings; it is never linked or shipped.
+- **Runs without a click:** nothing. espeak-ng runs only for a reading the user started; the model downloads only on
+  Download.
 - **Playback** goes through `javax.sound.sampled` (`SourceDataLine`): JavaFX Media plays files and URLs only and
   cannot play a growing PCM stream. [ADR 0123](0123-media-playback.md) rejected `javax.sound` only for decoding media
   files, which does not arise here. There is one playback app-wide, shared with the media player: starting a
