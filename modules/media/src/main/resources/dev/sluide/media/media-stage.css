@@ -1,0 +1,39 @@
+/*
+ * The media stage (ADR 0123). Only looked-up colours, so it needs no dark rules, except the video background: black in
+ * both themes, as in every video player, so the letterbox bars do not change with the theme.
+ */
+.media-stage {
+    -fx-background-color: -fx-background;
+}
+
+.media-stage-video {
+    -fx-background-color: black;
+}
+
+.media-stage-column {
+    -fx-alignment: center;
+    -fx-spacing: 8;
+    -fx-padding: 16;
+}
+
+.media-stage-icon {
+    -fx-icon-color: -fx-text-base-color;
+    -fx-opacity: 0.4;
+}
+
+.media-stage-title {
+    -fx-font-size: 1.5em;
+    -fx-font-weight: bold;
+    -fx-text-alignment: center;
+}
+
+.media-stage-artist,
+.media-stage-album,
+.media-stage-size {
+    -fx-opacity: 0.75;
+    -fx-text-alignment: center;
+}
+
+.media-stage-message {
+    -fx-text-alignment: center;
+}

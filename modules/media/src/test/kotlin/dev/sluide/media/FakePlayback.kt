@@ -12,16 +12,19 @@ import javafx.collections.FXCollections
 import javafx.collections.ObservableMap
 import javafx.geometry.Dimension2D
 import javafx.scene.Node
+import javafx.scene.media.MediaView
 import javafx.util.Duration
 
 /**
  * A [Playback] for tests without a player: every property is settable, and play, pause, seek and dispose are recorded
  * in [calls] (`"play"`, `"pause"`, `"seek 10000.0 ms"`, `"dispose"`). [play] and [pause] also set [status], as a
- * player would; [seek] sets [currentTime]. Needs no toolkit.
+ * player would; [seek] sets [currentTime]. Needs no toolkit, except with [withVideoNode]: then [createVideoNode]
+ * returns a new `MediaView`, which must be created on the FX thread. Without it, it returns `null`.
  */
 class FakePlayback(
     initialStatus: PlaybackStatus = PlaybackStatus.READY,
     total: Duration = Duration.minutes(3.0),
+    private val withVideoNode: Boolean = false,
 ) : Playback {
     override val status: ObjectProperty<PlaybackStatus> = SimpleObjectProperty(initialStatus)
     override val currentTime: ObjectProperty<Duration> = SimpleObjectProperty(Duration.ZERO)
@@ -55,5 +58,5 @@ class FakePlayback(
         calls += "dispose"
     }
 
-    override fun createVideoNode(): Node? = null
+    override fun createVideoNode(): Node? = if (withVideoNode) MediaView() else null
 }
