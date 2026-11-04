@@ -1,6 +1,6 @@
 # 0124. Read Aloud: local text-to-speech with Kokoro
 
-- Status: accepted; see [0123](0123-media-playback.md), [0110](0110-tools-menu.md), [0108](0108-code-editor-extensions-and-context-menu.md), [0003](0003-javafx-platform-jars.md), [0011](0011-native-app-packaging.md), [0043](0043-git-log-fetch.md), [0060](0060-logging-conventions.md), [0101](0101-shared-data-file.md)
+- Status: accepted; amends [0123](0123-media-playback.md); see [0110](0110-tools-menu.md), [0108](0108-code-editor-extensions-and-context-menu.md), [0003](0003-javafx-platform-jars.md), [0011](0011-native-app-packaging.md), [0043](0043-git-log-fetch.md), [0060](0060-logging-conventions.md), [0101](0101-shared-data-file.md)
 - Date: 2026-11-04
 
 ## Context
@@ -60,10 +60,10 @@ Options compared for the first engine, all running the Kokoro-82M model:
   (`command -v espeak-ng`), then in `/opt/homebrew/bin`, `/usr/local/bin`, `/opt/local/bin` and `/usr/bin`.
 - **One Kokoro session app-wide:** calls are serialized, the model loads on the first reading and is unloaded after
   5 minutes idle. Synthesis runs on platform threads, as native calls pin virtual threads.
-- **Start rule** (`StartRule`): playback starts once the buffered audio reaches the end without a gap, given the
-  measured synthesis rate and 1.2 times the audio still to make; the wait is capped at 300 s of buffered audio, which
-  is also the lookahead while playing (120 to 300 s depending on the rate). A machine too slow for a long text starts
-  anyway and pauses at gaps.
+- **Start rule** (`StartRule`): playback starts once the buffered audio reaches the end without a gap. With `r`
+  the measured synthesis seconds per audio second, the buffer needed is 1.2 × (r − 1) × the audio still to synthesize
+  (estimated per char), 0 when synthesis is faster than real time (`r ≤ 1`), capped at 300 s. A machine too slow for a
+  long text starts anyway and pauses at gaps.
 - **Playback** goes through `javax.sound.sampled` (`SourceDataLine`): JavaFX Media plays files and URLs only and
   cannot play a growing PCM stream. [ADR 0123](0123-media-playback.md) rejected `javax.sound` only for decoding media
   files, which does not arise here. There is one playback app-wide: `PlaybackCoordinator` takes a `Pausable`, which a
@@ -79,12 +79,12 @@ Options compared for the first engine, all running the Kokoro-82M model:
 - **Runs without a click:** nothing. espeak-ng runs only for a reading the user started; the model downloads only on
   Download.
 
-## Rejected
-- **sherpa-onnx:** natives only as GitHub release files, to be downloaded and pinned per platform by the build.
-- **Python sidecar:** gigabytes of dependencies, a Python toolchain and a process lifecycle.
-- **Kokoro-FastAPI in Docker:** a running Docker, a large image and a local HTTP endpoint (it stays possible as an
-  engine behind `SpeechEngine`, see [ideas](../ideas/speech.md)).
-- **JavaFX Media for playback:** cannot play a growing PCM stream.
+Rejected:
+- sherpa-onnx: natives only as GitHub release files, to be downloaded and pinned per platform by the build.
+- A Python sidecar: gigabytes of dependencies, a Python toolchain and a process lifecycle.
+- Kokoro-FastAPI in Docker: a running Docker, a large image and a local HTTP endpoint (it stays possible as an engine
+  behind `SpeechEngine`, see [ideas](../ideas/speech.md)).
+- JavaFX Media for playback: cannot play a growing PCM stream.
 
 ## Consequences
 - Reading aloud works offline once the model (326 MB in fp32, 164 MB fp16, 114 MB int8, plus 28 MB of voices) is downloaded and espeak-ng is installed; without them

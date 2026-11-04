@@ -41,7 +41,7 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   `openScratch`, ...) in `WindowTools` or `MainWindow`; a callback left unset fails silently, so the wiring gets a
   test.
 - State lives in the window and outlives the tab; anything stored is opt-in per tool and never holds pasted secrets
-  (Codecs and Converting store nothing).
+  (Codecs and Converting store nothing; Read Aloud stores the last voice and speed user-wide, not the text).
 - A tab's content leaves the scene whenever another tab is selected (`EditorArea` shows only the selected content):
   a view that unsubscribes when its scene becomes `null` subscribes again and catches up when it is back
   (`ConnectionCardList`), or never unsubscribes on scene loss at all.
@@ -50,10 +50,9 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
 - Explorer: `FileAction(label, icon, appliesTo, perform)` items appear only for a single file they apply to, after
   Open, and are never shown disabled (Run, ADR 0089). Folder actions use `FolderAction` (ADR 0056). Convert to ▸ is
   its own submenu hook (ADR 0115), shown the same way: only for a file it applies to.
-- Editor: extensions add items after a separator through `CodeEditorExtension` (ADR 0108). For new items (Converting does it 
-  so far): "Open Selection in X" with a selection and "Open in X" without (Read Aloud: "Read Selection Aloud" and "Read
-  Aloud"); when an item cannot
-  act, disable it with the reason in the label ("(larger than 1 MiB)").
+- Editor: extensions add items after a separator through `CodeEditorExtension` (ADR 0108). For new items (Converting:
+  "Open Selection in X" with a selection and "Open in X" without; Read Aloud: "Read Selection Aloud" and "Read Aloud"),
+  when an item cannot act, disable it with the reason in the label ("(larger than 1 MiB)").
 - Opening something at a place: `FileViewHost.openFile(file, line)` / `FileView.showLine(line)` (ADR 0077).
   Generated text the user may keep opens as a scratch file (ADR 0066, 0114).
 

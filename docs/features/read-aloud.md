@@ -45,15 +45,16 @@ Synthesis runs ahead of playback, one sentence chunk at a time. Playback starts 
 the end of the text without a gap, judged from the measured synthesis rate: at once when synthesis is faster than
 playing, later when it is slower (`StartRule`). At most 300 seconds are buffered before the start (and kept ahead
 while playing), so on a very slow machine a long reading starts anyway and may pause at gaps while it waits for the
-synthesis. The first chunk is kept short: a long first sentence is cut at its first clause, so the first audio comes
-fast.
+synthesis. The first chunk is kept short: when the sentence a reading starts at is longer than 120 characters, it is cut at its
+first clause mark (else at the last space before 120 characters), so the first audio comes fast.
 
 ## What is read
 - Plain text is read as it is, whitespace collapsed; a blank line is a pause.
-- Text from `.md` files (by file name) loses its Markdown markup: front matter, fenced and indented code, HTML tags and
+- Text from `.md` and `.markdown` files (by file name) loses its Markdown markup: front matter, fenced and indented code, HTML tags and
   comments, link targets and URLs are skipped; heading, emphasis, list, quote and table markers are removed; link text
   and image alt text are read.
-- Digits with separators (1,000,000, 3:30) and known abbreviations (Mr., Dr., e.g.) do not end a sentence.
+- Known abbreviations (Mr., Dr., e.g.), initials and decimals (3.14) do not end a sentence. Numbers with separators
+  (1,000,000, 3:30) are sounded as one word.
 - The highlight always maps back to the text as shown, Markdown included.
 
 ## Voices
@@ -65,7 +66,8 @@ at 1×. The last voice and speed are remembered user-wide in the field `speech` 
 ## Setup
 Reading needs the Kokoro model and the `espeak-ng` program. Without them the tab shows a notice above the toolbar, one
 row per problem. Nothing is downloaded or run without a click.
-- **Model:** the notice has **Download (326 MB)**, Settings → Speech has Download per variant. The variants: fp32
+- **Model:** the notice has a Download button that names what is still missing, the model and the voices file: "Download
+  (354 MB)" on a first install. Settings → Speech has Download per variant, with the variant's own size. The variants: fp32
   (default, 326 MB, best quality), fp16 (164 MB) and int8 (114 MB), plus the voices file (28 MB). They are stored in
   `~/.sluide/models/kokoro-v1.0/`. The download goes to `.part` files, is checked against a pinned sha256 (a mismatch
   deletes the part file and shows an error) and is moved into place atomically. Progress shows in the notice and as a
@@ -74,7 +76,8 @@ row per problem. Nothing is downloaded or run without a click.
   the default.
 - **espeak-ng** turns words into sounds. Install it with `brew install espeak-ng` (macOS) or `sudo apt install espeak-ng`
   (Debian/Ubuntu). Thoreau looks for it at the path set in Settings → Speech, then through the login shell
-  (`command -v espeak-ng`), then in `/opt/homebrew/bin`, `/usr/local/bin`, `/opt/local/bin` and `/usr/bin`. **Check
+  (`command -v espeak-ng`), then in `/opt/homebrew/bin`, `/usr/local/bin`, `/opt/local/bin` and `/usr/bin`; a wrong or
+  empty path falls back to the later steps. **Check
   Again** in the notice looks again after an install.
 - The model loads on the first reading, off the FX thread, and is unloaded after five minutes without a reading.
 
