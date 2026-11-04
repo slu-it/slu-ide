@@ -43,6 +43,8 @@ import dev.sluide.gitlog.GitLogView
 import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.send.SavedPassphrases
+import dev.sluide.ide.speech.NoSpeechEngine
+import dev.sluide.media.PlaybackCoordinator
 import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.projects.ProjectPicker
 import dev.sluide.projects.RecentProjects
@@ -57,6 +59,11 @@ import dev.sluide.settings.SettingsStore
 import dev.sluide.settings.ThemeSettings
 import dev.sluide.settings.ThemedWindows
 import dev.sluide.settings.pages.FontsPage
+import dev.sluide.speech.ReadAloud
+import dev.sluide.speech.SpeechPreferences
+import dev.sluide.speech.engine.SpeechEngines
+import dev.sluide.speech.install.ModelInstaller
+import dev.sluide.speech.install.ModelStore
 import dev.sluide.terminal.Terminals
 import dev.sluide.terminal.settings.TerminalScrollSettings
 import dev.sluide.todos.TodoPanel
@@ -170,6 +177,14 @@ class ProjectWindowsUiTest {
                 register(QueryHistory::class.java)
                 register(DatabasesSettings::class.java)
                 register(Secrets::class.java)
+                // Read Aloud with an engine that is never ready: no test synthesizes or opens a sound line.
+                register(PlaybackCoordinator::class.java)
+                registerBean(SpeechEngines::class.java, Supplier { SpeechEngines(listOf(NoSpeechEngine)) })
+                registerBean(SpeechPreferences::class.java, Supplier { SpeechPreferences(projectData) })
+                registerBean(
+                    ModelInstaller::class.java,
+                    Supplier { ModelInstaller(ModelStore(dir.resolve("models"))) },
+                )
                 register(SavedPassphrases::class.java)
                 registerBean(
                     RemoteSourceCache::class.java,
@@ -196,6 +211,7 @@ class ProjectWindowsUiTest {
                     Coloring::class.java,
                     Codecs::class.java,
                     Converting::class.java,
+                    ReadAloud::class.java,
                     DockerSession::class.java,
                     Docker::class.java,
                     Databases::class.java,

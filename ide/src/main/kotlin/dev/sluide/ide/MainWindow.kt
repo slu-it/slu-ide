@@ -16,6 +16,7 @@ import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileexplorer.FolderAction
 import dev.sluide.fileexplorer.FolderActionResult
 import dev.sluide.fileviewers.CodeEditorExtensions
+import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.IgnoreRuleEffects
 import dev.sluide.git.GitFileComparison
@@ -41,6 +42,9 @@ import dev.sluide.ide.github.WindowWorkflowSources
 import dev.sluide.ide.logging.currentLogFolder
 import dev.sluide.ide.scratches.WindowScratches
 import dev.sluide.ide.scripts.WindowScriptRuns
+import dev.sluide.ide.speech.UnsavedReadChoice
+import dev.sluide.ide.speech.WindowReadAloud
+import dev.sluide.ide.speech.askUnsavedRead
 import dev.sluide.ide.todos.WindowTodos
 import dev.sluide.ide.tools.WindowTools
 import dev.sluide.ide.trust.WindowTrust
@@ -52,6 +56,7 @@ import dev.sluide.settings.FontSettings
 import dev.sluide.settings.SettingsDialog
 import dev.sluide.settings.SettingsPages
 import dev.sluide.settings.ThemedWindows
+import dev.sluide.speech.ReadAloud
 import dev.sluide.terminal.Terminals
 import dev.sluide.todos.TodoPanel
 import javafx.beans.value.ObservableValue
@@ -112,6 +117,7 @@ class MainWindow(
     private val coloring: Coloring,
     private val codecs: Codecs,
     private val converting: Converting,
+    private val readAloud: ReadAloud,
     gitFileComparison: GitFileComparison,
     private val docker: Docker,
     private val dockerSession: DockerSession,
@@ -170,6 +176,9 @@ class MainWindow(
         String,
     ) -> Unit = { stage, message -> showConversionNotesDialog(stage, message) }
 
+    /** Asks what to do with the unsaved changes of a file the explorer reads aloud; tests replace it, since it blocks. */
+    internal var askUnsavedToRead: (Stage?, Path) -> UnsavedReadChoice = { stage, file -> askUnsavedRead(stage, file) }
+
     /** The window's stage, once it is shown. */
     private var shownStage: Stage? = null
 
@@ -221,6 +230,16 @@ class MainWindow(
     /** The explorer's Run for files their view can run, e.g. shell scripts (ADR 0089). */
     private val scriptRuns = WindowScriptRuns(fileViewers::viewerFor, { editorArea.open(it) }, editorArea::viewOf)
 
+    /** The explorer's Read Aloud for `.txt` and `.md` files (ADR 0124). */
+    private val readAloudFiles =
+        WindowReadAloud(
+            readAloud::readFile,
+            { (editorArea.viewOf(it) as? EditableFileView)?.dirty?.get() == true },
+            { editorArea.save(it) },
+            { askUnsavedToRead(shownStage, it) },
+            { editorArea.showError(it) },
+        )
+
     /** The Terminal, Docker Sandbox, Tools and Services menus and the tabs they open. */
     internal val tools =
         WindowTools(
@@ -231,6 +250,7 @@ class MainWindow(
             coloring,
             codecs,
             converting,
+            readAloud,
             docker,
             databases,
             openWebPage = { openWebPage(it) },
@@ -323,7 +343,7 @@ class MainWindow(
                 },
             )
         // A file's context menu runs it where its view can (ADR 0089).
-        fileExplorer.fileActions = listOf(scriptRuns.action)
+        fileExplorer.fileActions = listOf(scriptRuns.action, readAloudFiles.action)
         // A context menu's Open in Terminal opens a terminal tab in the folder (ADR 0093).
         fileExplorer.openInTerminal = { tools.openTerminal(stage, it) }
         // The Converting tool's sides open their text as a scratch file (ADR 0115).
@@ -381,6 +401,7 @@ class MainWindow(
                 add(coloring.editorExtension)
                 add(codecs.editorExtension)
                 add(converting.editorExtension)
+                add(readAloud.editorExtension)
             },
         )
         gradleSession.reviewTrust = { trust.review(stage) }

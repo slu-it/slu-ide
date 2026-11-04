@@ -46,6 +46,8 @@ import dev.sluide.gitlog.GitLogView
 import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.send.SavedPassphrases
+import dev.sluide.ide.speech.NoSpeechEngine
+import dev.sluide.media.PlaybackCoordinator
 import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.projects.ProjectPicker
 import dev.sluide.projects.RecentProjects
@@ -59,6 +61,11 @@ import dev.sluide.settings.SettingsStore
 import dev.sluide.settings.ThemeSettings
 import dev.sluide.settings.ThemedWindows
 import dev.sluide.settings.pages.FontsPage
+import dev.sluide.speech.ReadAloud
+import dev.sluide.speech.SpeechPreferences
+import dev.sluide.speech.engine.SpeechEngines
+import dev.sluide.speech.install.ModelInstaller
+import dev.sluide.speech.install.ModelStore
 import dev.sluide.terminal.Terminals
 import dev.sluide.terminal.settings.TerminalScrollSettings
 import dev.sluide.todos.TodoPanel
@@ -200,6 +207,7 @@ abstract class MainWindowUiFixture {
         backgroundTasks.forEach(BackgroundTasks::close)
         todoPanels.forEach(TodoPanel::close)
         convertings.forEach(Converting::close)
+        readAlouds.forEach(ReadAloud::close)
         dockerSessions.forEach(DockerSession::close)
     }
 
@@ -230,6 +238,9 @@ abstract class MainWindowUiFixture {
 
     /** The Converting tools of the windows created by [mainWindow]; closed after the test. */
     internal val convertings = mutableListOf<Converting>()
+
+    /** The Read Aloud tools of the windows created by [mainWindow]; closed after the test. */
+    internal val readAlouds = mutableListOf<ReadAloud>()
 
     /** The Docker sessions of the windows created by [mainWindow]; closed after the test. */
     internal val dockerSessions = mutableListOf<DockerSession>()
@@ -324,6 +335,15 @@ abstract class MainWindowUiFixture {
             Coloring(SavedColors(projectData)).also(colorings::add),
             Codecs(),
             Converting(convertingFamilies, fontSettings).also(convertings::add),
+            // An engine that is never ready: no test synthesizes or opens a sound line.
+            ReadAloud(
+                SpeechEngines(listOf(NoSpeechEngine)),
+                SpeechPreferences(projectData),
+                PlaybackCoordinator(),
+                ModelInstaller(ModelStore(settingsDir.resolve("models"))),
+                tasks,
+                fontSettings,
+            ).also(readAlouds::add),
             GitFileComparison(git),
             Docker(dockerSession, terminals, tasks, DockerRunStore(projectData)).also(dockers::add),
             dockerSession,

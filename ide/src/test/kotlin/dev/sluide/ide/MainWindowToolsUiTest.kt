@@ -3,6 +3,7 @@ package dev.sluide.ide
 import dev.sluide.coloring.color.CssColor
 import dev.sluide.editorarea.EditorTab
 import dev.sluide.ide.compare.FileComparisonTab
+import dev.sluide.ide.speech.UnsavedReadChoice
 import javafx.beans.property.SimpleStringProperty
 import javafx.event.Event
 import javafx.scene.Node
@@ -34,6 +35,7 @@ import java.util.concurrent.TimeUnit
 import kotlin.io.path.createDirectories
 import kotlin.io.path.createFile
 import kotlin.io.path.name
+import kotlin.io.path.readText
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -359,7 +361,7 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
         robot: FxRobot,
     ) {
         val tools = menu(robot, "Tools").items
-        assertEquals(listOf("Coloring", "Codecs", "Converting"), tools.map { it.text })
+        assertEquals(listOf("Coloring", "Codecs", "Converting", "Read Aloud"), tools.map { it.text })
         val codecsItem = tools.single { it.text == "Codecs" }
         robot.interact { codecsItem.fire() }
         robot.interact { codecsItem.fire() }
@@ -451,5 +453,106 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
         robot.interact { item.fire() }
 
         assertEquals(listOf("data.json", "Converting"), tabTitles(robot))
+    }
+
+    private fun readAloudText(robot: FxRobot): String {
+        val area = robot.lookup(".speech-view .code-area").queryAs(CodeArea::class.java)
+        return WaitForAsyncUtils.asyncFx<String> { area.text }.get()
+    }
+
+    private fun readAloudItem(
+        area: CodeArea,
+        selection: IntRange?,
+    ): MenuItem =
+        WaitForAsyncUtils
+            .asyncFx<MenuItem> {
+                if (selection == null) area.deselect() else area.selectRange(selection.first, selection.last + 1)
+                val menu = checkNotNull(area.contextMenu)
+                val at = area.localToScreen(5.0, 5.0)
+                menu.show(area, at.x, at.y)
+                menu.items.single { it.text?.endsWith("Aloud") == true }.also { menu.hide() }
+            }.get()
+
+    @Test
+    fun `Tools - Read Aloud opens its tab once`(robot: FxRobot) {
+        val item = menu(robot, "Tools").items.single { it.text == "Read Aloud" }
+        robot.interact { item.fire() }
+        robot.interact { item.fire() }
+
+        assertEquals(listOf("Read Aloud"), tabTitles(robot))
+        assertEquals("Read text aloud", checkNotNull(editorArea.selectedTab).tooltip)
+    }
+
+    @Test
+    fun `Read Selection Aloud puts the selection in the Read Aloud tab`(robot: FxRobot) {
+        val file = project.resolve("notes.txt").apply { writeText("hello world\nmore\n") }
+        robot.interact { editorArea.open(file) }
+        eventually(robot) { assertEquals(1, robot.lookup(".code-area").queryAllAs(CodeArea::class.java).size) }
+        val area = robot.lookup(".code-area").queryAs(CodeArea::class.java)
+
+        val item = readAloudItem(area, 0..4)
+        assertEquals("Read Selection Aloud", item.text)
+        robot.interact { item.fire() }
+
+        assertEquals(listOf("notes.txt", "Read Aloud"), tabTitles(robot))
+        eventually(robot) { assertEquals("hello", readAloudText(robot)) }
+    }
+
+    @Test
+    fun `Read Aloud without a selection puts the whole editor text, unsaved edits included, in the tab`(
+        robot: FxRobot,
+    ) {
+        val file = project.resolve("notes.txt").apply { writeText("hello\n") }
+        robot.interact { editorArea.open(file) }
+        eventually(robot) { assertEquals(1, robot.lookup(".code-area").queryAllAs(CodeArea::class.java).size) }
+        val area = robot.lookup(".code-area").queryAs(CodeArea::class.java)
+        robot.interact { area.appendText("edited") }
+
+        val item = readAloudItem(area, null)
+        assertEquals("Read Aloud", item.text)
+        robot.interact { item.fire() }
+
+        eventually(robot) { assertEquals("hello\nedited", readAloudText(robot)) }
+    }
+
+    @Test
+    fun `the explorer offers Read Aloud for txt and md files only`() {
+        val action = fileExplorer.fileActions.single { it.label == "Read Aloud" }
+
+        assertTrue(action.appliesTo(project.resolve("a.txt")))
+        assertTrue(action.appliesTo(project.resolve("B.MD")))
+        assertFalse(action.appliesTo(project.resolve("c.kt")))
+    }
+
+    @Test
+    fun `the explorer's Read Aloud asks about unsaved edits and reads the saved file or the saved edits`(
+        robot: FxRobot,
+    ) {
+        val file = project.resolve("notes.txt").apply { writeText("saved text") }
+        robot.interact { editorArea.open(file) }
+        eventually(robot) { assertEquals(file, editorArea.selectedPath) }
+        val area = robot.lookup(".code-area").queryAs(CodeArea::class.java)
+        robot.interact { area.appendText(" edited") }
+        val action = fileExplorer.fileActions.single { it.label == "Read Aloud" }
+        val asked = mutableListOf<Path>()
+        var answer = UnsavedReadChoice.CANCEL
+        mainWindow.askUnsavedToRead = { _, f ->
+            asked.add(f)
+            answer
+        }
+
+        robot.interact { action.perform(file) }
+        assertEquals(listOf(file), asked)
+        assertEquals(listOf("● notes.txt"), tabTitles(robot))
+
+        answer = UnsavedReadChoice.READ_SAVED
+        robot.interact { action.perform(file) }
+        eventually(robot) { assertEquals("saved text", readAloudText(robot)) }
+        assertEquals("saved text", file.readText())
+
+        answer = UnsavedReadChoice.SAVE_AND_READ
+        robot.interact { action.perform(file) }
+        eventually(robot) { assertEquals("saved text edited", readAloudText(robot)) }
+        assertEquals("saved text edited", file.readText())
     }
 }

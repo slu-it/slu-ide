@@ -79,6 +79,13 @@ import dev.sluide.settings.ThemedWindows
 import dev.sluide.settings.pages.AppearancePage
 import dev.sluide.settings.pages.FontsPage
 import dev.sluide.shellscripts.ShellScriptFileViewer
+import dev.sluide.speech.ReadAloud
+import dev.sluide.speech.SpeechPreferences
+import dev.sluide.speech.engine.SpeechEngines
+import dev.sluide.speech.install.ModelInstaller
+import dev.sluide.speech.install.ModelStore
+import dev.sluide.speech.kokoro.KokoroEngine
+import dev.sluide.speech.settings.SpeechSettingsPage
 import dev.sluide.terminal.Terminals
 import dev.sluide.terminal.settings.TerminalScrollPage
 import dev.sluide.terminal.settings.TerminalScrollSettings
@@ -186,6 +193,12 @@ class SpringWiringTest {
                         MediaPreferences::class.java,
                         PlaybackCoordinator::class.java,
                         MediaFileViewer::class.java,
+                        SpeechEngines::class.java,
+                        KokoroEngine::class.java,
+                        SpeechPreferences::class.java,
+                        ModelStore::class.java,
+                        ModelInstaller::class.java,
+                        SpeechSettingsPage::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")
@@ -218,6 +231,7 @@ class SpringWiringTest {
                         Coloring::class.java,
                         Codecs::class.java,
                         Converting::class.java,
+                        ReadAloud::class.java,
                         DockerSession::class.java,
                         Docker::class.java,
                         Databases::class.java,

@@ -64,6 +64,9 @@ dependencies {
     // Audio and video files play in a file view with JavaFX Media; MediaPreferences and PlaybackCoordinator are
     // singletons (ADR 0123).
     implementation(project(":modules:media"))
+    // The Read Aloud tool: a tab opened from the Tools menu, one per window; KokoroEngine and its settings page are found
+    // by component scan (ADR 0124).
+    implementation(project(":modules:speech"))
     // Saved secrets: values encrypted with one key in the OS secret store; Secrets is a singleton (ADR 0122).
     implementation(project(":modules:secrets"))
     // The explorer's Run item has a Material Design play icon, like the HTTP client's Run (ADR 0012).
