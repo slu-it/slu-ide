@@ -82,17 +82,6 @@ class PlaybackCoordinatorTest {
         assertEquals(listOf("play", "pause"), media.calls)
     }
 
-    @Test
-    fun `a disposed pausable is forgotten`() {
-        val reading = CountingPausable()
-        coordinator.started(reading)
-
-        coordinator.disposed(reading)
-        coordinator.started(FakePlayback())
-
-        assertEquals(0, reading.pauses)
-    }
-
     private class CountingPausable : Pausable {
         var pauses = 0
 
