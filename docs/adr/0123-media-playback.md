@@ -1,6 +1,6 @@
 # 0123. Media playback with JavaFX Media
 
-- Status: accepted
+- Status: accepted, amended by [0124](0124-read-aloud-speech.md)
 - Date: 2026-11-04
 
 ## Context
@@ -35,7 +35,9 @@ already in the app, because `javafx.web` requires it: the platform jars carry `l
     showing. AVPlayer's play also resets the rate to 1. So the speed reaches the player only while it plays, and again
     at every start.
 - **One playback at a time, app-wide:** `PlaybackCoordinator` (singleton) pauses the previously started playback when
-  another one starts, in any window.
+  another one starts, in any window. Amended by [0124](0124-read-aloud-speech.md): it takes a `Pausable`
+  (`Playback` extends it, and a Read Aloud reading takes part too); the speed list is `PlaybackSpeeds`, shared with
+  Read Aloud.
 - **Volume and mute** are user-wide, in the field `media` of `shared.json` ([ADR 0101](0101-shared-data-file.md)),
   through `MediaPreferences`: read once, written off the FX thread on a `NamedThreads` thread, rapid changes coalesced
   into one write. Position, speed and loop are not stored.
