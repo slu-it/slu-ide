@@ -338,6 +338,9 @@ class PreviewFileViewUiTest {
         fx {
             assertEquals(toolbar.children.indexOf(toc) + 1, toolbar.children.indexOf(box), "right after the TOC button")
             assertEquals(listOf<Node>(item), box.children.toList())
+            // A group of its own: set apart from the table of contents by a wider gap.
+            val gap = box.boundsInParent.minX - toc.boundsInParent.maxX
+            assertTrue(gap >= 12.0, "gap after the TOC button: $gap")
         }
         robot.interact { view.mode.value = PreviewMode.SOURCE }
         fx {
@@ -346,7 +349,7 @@ class PreviewFileViewUiTest {
         }
 
         robot.interact { handle.close() }
-        assertTrue(fx { box.children.isEmpty() })
+        assertTrue(fx { box.children.isEmpty() && !box.isManaged }, "no items, no gap")
 
         assertEquals(ViewActivity.NONE, fx { view.activity.value })
         val running = SimpleObjectProperty(ViewActivity.RUNNING)

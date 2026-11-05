@@ -65,12 +65,18 @@ internal class PreviewToolbar(
             }
         }
 
-    /** The items editor extensions added to the source ([contributed]), after the preview's own left controls. */
+    /**
+     * The items editor extensions added to the source ([contributed]), after the preview's own left controls. A group of
+     * its own, set apart by a wider gap; without items it takes no room.
+     */
     private val contributedBox =
         HBox().apply {
             styleClass += "preview-contributed"
             alignment = Pos.CENTER_LEFT
             Bindings.bindContent(children, contributed)
+            visibleProperty().bind(Bindings.isNotEmpty(children))
+            managedProperty().bind(visibleProperty())
+            HBox.setMargin(this, Insets(0.0, 0.0, 0.0, GROUP_GAP))
         }
 
     val node: Node
@@ -126,5 +132,10 @@ internal class PreviewToolbar(
                 styleClass += "preview-toolbar"
                 alignment = Pos.CENTER_RIGHT
             }
+    }
+
+    private companion object {
+        /** Between groups of left controls, e.g. the table of contents and Read Aloud; twice the gap within a group. */
+        const val GROUP_GAP = 12.0
     }
 }

@@ -26,6 +26,8 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   mode; other views that embed a code editor don't yet), a spacer, the preview's `actions` (e.g. the workflow's
   Fetch), Export (hidden in Source), document zoom (ADR 0083) and the
   mode toggles at the far right. Images and diagrams keep their zoom with Fit on the left.
+  The extensions' items are a group of their own: previews set them apart by a 12 px gap (twice the gap within a
+  group); without items the gap goes too.
   Controls that only make sense for one side hide while it is hidden; Soft Wrap hides while the source is hidden (the
   embedding view decides, the editor never sets its visibility). A code view of its own (not embedded) always shows
   its row: Soft Wrap, then the extensions' items.

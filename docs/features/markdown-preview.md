@@ -51,7 +51,7 @@
   in the view; Escape and the toggle give the focus back to the source (the preview in Preview mode). The preview shows
   the saved text, so with unsaved edits above a heading it may land a little off, as the scroll sync does.
 - Toolbar layout: the Soft Wrap toggle (first, hidden in Preview mode; [soft-wrap.md](soft-wrap.md)), the table of
-  contents toggle, then items that code editor extensions add to the source (such as
+  contents toggle, then, after a wider gap, items that code editor extensions add to the source (such as
   Read Aloud; shown in every mode), a spacer, Export and the zoom and mode toggles on the right. Export is hidden while
   only the source shows.
 - Export: the toolbar's export menu (on the right, before the zoom) writes the document as a self-contained
