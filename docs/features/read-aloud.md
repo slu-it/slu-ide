@@ -30,14 +30,17 @@ and **gender** (Female, Male) selectors, the **speed** (0.5 to 2×, the media pl
 status text: "Preparing…", "Sentence 3 of 40", "Paused", "Finished" or the error.
 - While idle the text is an editable plain text editor in the editor font: type or paste. **Play** starts at the
   sentence with the caret. While a reading is preparing, speaking or paused the text is locked (read-only; selecting and
-  moving the caret still work) and **Stop** unlocks it. The next Play starts at the caret's sentence again.
+  moving the caret still work) and **Stop** unlocks it. The next Play starts at the caret's sentence again. With a
+  selection, Play (button or Shortcut+Enter) reads only the selected text and stops at its end.
 - **Pause** keeps the position and the audio already made; **Resume** goes on.
 - The highlight scrolls the spoken word into view.
 - A double-click on a sentence while reading restarts the reading there.
 - Changing the voice or the speed while reading restarts the reading at the current sentence; a paused reading stays
   paused.
-- Keys, tab-local: Shortcut+Enter plays, Space pauses and resumes, Escape stops, see
+- Keys, tab-local: Shortcut+Enter plays (the selection, if there is one), Space pauses and resumes, Escape stops, see
   [keyboard-shortcuts.md](keyboard-shortcuts.md#read-aloud-tab).
+- A selection is prepared without its surroundings: inside a code fence it is read as prose, and partial emphasis
+  markers may remain. A double-click outside the selection being read does nothing.
 - A text without anything to speak (blank, or only Markdown markup) shows "Nothing to read.".
 
 ## Starting and buffering

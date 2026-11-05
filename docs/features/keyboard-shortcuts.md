@@ -98,7 +98,7 @@ While a reading is preparing, speaking or paused the text is read-only.
 
 | Keys | Action |
 |---|---|
-| Shortcut+Enter (text editable) | Read from the sentence at the caret |
+| Shortcut+Enter (text editable) | Read from the sentence at the caret, or only the selection if there is one |
 | Space (while reading) | Pause / resume |
 | Escape (while reading) | Stop; the text is editable again |
 | Double-click on the text (while reading) | Jump: restart the reading at that sentence |
