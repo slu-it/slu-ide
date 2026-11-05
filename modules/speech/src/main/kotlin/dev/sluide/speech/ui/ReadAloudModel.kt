@@ -15,11 +15,16 @@ import javafx.beans.value.ObservableValue
 
 private enum class Phase { IDLE, PREPARING, SPEAKING, PAUSED, FINISHED, FAILED }
 
-/** The reading in progress: its text and chunks; [chunk] is the one being read. */
+/**
+ * The reading in progress: its text and chunks; [chunk] is the one being read. The text is the shown text from [base] on,
+ * [length] chars of it (the selection, or everything): all offsets of [spoken] are relative to [base].
+ */
 private class Run(
     val spoken: SpokenText,
     val chunks: List<SpeechChunk>,
     var chunk: Int,
+    val base: Int,
+    val length: Int,
 ) {
     lateinit var reading: Reading
 
@@ -32,11 +37,16 @@ private class Run(
  * and what the view shows of it ([ui]). FX thread only; the view owns [onChange] until it is disposed. The model
  * outlives the tab: closing the tab calls [stop].
  *
+ * With [ownsText] (the tool tab) the model holds the text and [play] reads it. An editor holds its own text instead and
+ * calls [playText]; the model's [text] stays empty then, so [ownsText] = false makes Play enabled whenever a voice
+ * exists and the caller guards an empty text (reading a blank text still ends in "Nothing to read.").
+ *
  * While a reading is set up, running or paused the text is read-only. Only the events of the current reading count:
  * a stopped or replaced one may still report a state late.
  */
 internal class ReadAloudModel(
     private val host: ReadAloudHost,
+    private val ownsText: Boolean = true,
 ) {
     var text: String = ""
         private set
@@ -85,13 +95,30 @@ internal class ReadAloudModel(
         textVersion++
         phase = Phase.IDLE
         failure = null
-        if (text.isBlank()) publish() else begin(0)
+        if (text.isBlank()) publish() else begin(text, markdown, 0, null)
     }
 
-    /** Starts reading at the sentence of the shown offset [caret]; the first one if it is past the end. */
-    fun play(caret: Int) {
-        if (reading() || voice == null || text.isBlank()) return
-        begin(caret)
+    /**
+     * Starts reading the model's own text: from the sentence of the shown offset [caret] (the first one if it is past
+     * the end), or only [selection] (`start until end` in shown offsets; null or empty means none).
+     */
+    fun play(
+        caret: Int,
+        selection: IntRange? = null,
+    ) {
+        if (reading || voice == null || text.isBlank()) return
+        begin(text, markdown, caret, selection)
+    }
+
+    /** As [play] for a [text] the caller holds (an editor); leaves [ReadAloudModel.text] and its version alone. */
+    fun playText(
+        text: String,
+        markdown: Boolean,
+        caret: Int,
+        selection: IntRange? = null,
+    ) {
+        if (reading || voice == null) return
+        begin(text, markdown, caret, selection)
     }
 
     /** Pauses a preparing or speaking reading, resumes a paused one. */
@@ -99,24 +126,28 @@ internal class ReadAloudModel(
         val run = run ?: return
         if (phase == Phase.PAUSED) {
             run.reading.resume()
-        } else if (reading()) {
+        } else if (reading) {
             run.reading.pause()
         }
     }
 
     /** Ends a reading; the text is editable again. */
     fun stop() {
-        if (!reading()) return
+        if (!reading) return
         stopRun()
         phase = Phase.IDLE
         failure = null
         publish()
     }
 
-    /** Restarts the reading at the sentence of the shown offset [offset]; nothing when no reading runs. */
+    /**
+     * Restarts the reading at the sentence of the shown offset [offset]; nothing when no reading runs or [offset] is
+     * outside the text being read.
+     */
     fun jumpTo(offset: Int) {
         val run = run ?: return
-        restart(run, chunkAt(run.spoken, run.chunks, offset))
+        if (offset < run.base || offset >= run.base + run.length) return
+        restart(run, chunkAt(run.spoken, run.chunks, offset - run.base))
     }
 
     fun setVoice(voice: Voice) {
@@ -137,7 +168,7 @@ internal class ReadAloudModel(
 
     /** The user edited the text (only while it is editable). */
     fun textEdited(text: String) {
-        if (reading() || text == this.text) return
+        if (reading || text == this.text) return
         this.text = text
         markdown = false
         if (phase == Phase.FINISHED || phase == Phase.FAILED) {
@@ -172,10 +203,25 @@ internal class ReadAloudModel(
 
     private fun missingModel() = notice.filterIsInstance<SetupProblem.ModelMissing>().firstOrNull()
 
-    private fun reading() = phase == Phase.PREPARING || phase == Phase.SPEAKING || phase == Phase.PAUSED
+    /** Whether a reading is being prepared, spoken or paused. */
+    val reading: Boolean
+        get() = phase == Phase.PREPARING || phase == Phase.SPEAKING || phase == Phase.PAUSED
 
-    private fun begin(shownOffset: Int) {
+    private fun begin(
+        source: String,
+        markdown: Boolean,
+        caret: Int,
+        selection: IntRange?,
+    ) {
         val voice = voice ?: return
+        val selected =
+            selection
+                ?.let { it.first.coerceAtLeast(0)..it.last.coerceAtMost(source.length - 1) }
+                ?.takeUnless { it.isEmpty() }
+        val base = selected?.first ?: 0
+        val slice = if (selected == null) source else source.substring(selected)
+        // The whole selection is read, from its start; without one the reading starts at the caret's sentence.
+        val shownOffset = if (selected == null) caret else 0
         stopRun()
         val request = ++requests
         starting = true
@@ -187,7 +233,7 @@ internal class ReadAloudModel(
             starting = false
             notice = problems
             if (problems.isEmpty()) {
-                launchAt(shownOffset)
+                launchAt(slice, markdown, base, shownOffset)
             } else {
                 phase = Phase.IDLE
                 publish()
@@ -195,8 +241,13 @@ internal class ReadAloudModel(
         }
     }
 
-    private fun launchAt(shownOffset: Int) {
-        val spoken = SpeechText.prepare(text, markdown)
+    private fun launchAt(
+        slice: String,
+        markdown: Boolean,
+        base: Int,
+        shownOffset: Int,
+    ) {
+        val spoken = SpeechText.prepare(slice, markdown)
         val chunks = Sentences.chunks(spoken)
         if (chunks.isEmpty()) {
             phase = Phase.FAILED
@@ -204,7 +255,7 @@ internal class ReadAloudModel(
             publish()
             return
         }
-        launch(Run(spoken, chunks, chunkAt(spoken, chunks, shownOffset)))
+        launch(Run(spoken, chunks, chunkAt(spoken, chunks, shownOffset), base, slice.length))
     }
 
     private fun launch(run: Run) {
@@ -311,7 +362,7 @@ internal class ReadAloudModel(
         run.reading.stop()
         finish(run)
         requests++
-        launch(Run(run.spoken, run.chunks, chunk))
+        launch(Run(run.spoken, run.chunks, chunk, run.base, run.length))
         // The new reading holds its start until resumed: a paused reading stays paused.
         if (wasPaused) this.run?.reading?.pause()
     }
@@ -336,7 +387,7 @@ internal class ReadAloudModel(
     }
 
     private fun compute(): ReadAloudUi {
-        val reading = reading()
+        val reading = this.reading
         val ranges = highlight()
         return ReadAloudUi(
             textVersion = textVersion,
@@ -347,7 +398,7 @@ internal class ReadAloudModel(
                     Phase.PREPARING, Phase.SPEAKING -> PlayMode.PAUSE
                     else -> PlayMode.PLAY
                 },
-            playEnabled = if (reading) run != null else voice != null && text.isNotBlank(),
+            playEnabled = if (reading) run != null else voice != null && (!ownsText || text.isNotBlank()),
             stopEnabled = reading,
             status = status(),
             activity = if (reading) ViewActivity.RUNNING else ViewActivity.NONE,
@@ -365,13 +416,17 @@ internal class ReadAloudModel(
         val at = position ?: return emptyList()
         val spoken = run.spoken
         val sentence =
-            StyledRange(spoken.sourceOffset(at.sentenceStart), spoken.sourceEnd(at.sentenceEnd), SENTENCE_STYLE)
+            StyledRange(
+                run.base + spoken.sourceOffset(at.sentenceStart),
+                run.base + spoken.sourceEnd(at.sentenceEnd),
+                SENTENCE_STYLE,
+            )
         val wordStart = at.wordStart
         val wordEnd = at.wordEnd
         if (wordStart == null || wordEnd == null) return listOf(sentence)
         return listOf(
             sentence,
-            StyledRange(spoken.sourceOffset(wordStart), spoken.sourceEnd(wordEnd), WORD_STYLE),
+            StyledRange(run.base + spoken.sourceOffset(wordStart), run.base + spoken.sourceEnd(wordEnd), WORD_STYLE),
         )
     }
 

@@ -6,6 +6,8 @@ import dev.sluide.speech.engine.SetupProblem
 import dev.sluide.speech.session.ReadingPosition
 import dev.sluide.speech.session.ReadingState
 import dev.sluide.speech.text.SpeechText
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -439,5 +441,143 @@ class ReadAloudModelTest {
         model.play(0)
 
         assertEquals("# Hi there. Bye!", host.reading.chunks.joinToString(" ") { it.text })
+    }
+
+    @Test
+    fun `play with a selection reads only the selection from its start`() {
+        model.textEdited(text)
+
+        model.play(caret = 12, selection = 5 until 16)
+
+        assertEquals(listOf("Two.", "Three."), host.reading.chunks.map { it.text })
+        assertEquals(0, host.reading.startChunk)
+    }
+
+    @Test
+    fun `the reading stops at the end of the selection`() {
+        model.textEdited(text)
+
+        model.play(caret = 0, selection = 0 until 4)
+
+        assertEquals(listOf("One."), host.reading.chunks.map { it.text })
+    }
+
+    @Test
+    fun `an empty selection reads from the caret as without one`() {
+        model.textEdited(text)
+
+        model.play(caret = 6, selection = 6 until 6)
+
+        assertEquals(3, host.reading.chunks.size)
+        assertEquals(1, host.reading.startChunk)
+    }
+
+    @Test
+    fun `with a selection the overlay, reveal and sentence count use shown offsets`() {
+        model.textEdited(text)
+        model.play(caret = 0, selection = 5 until 16)
+        host.reading.emit(ReadingState.SPEAKING)
+        host.reading.position = position(1, 5, 11, 5..9)
+
+        host.pollTick?.run()
+
+        assertEquals(
+            listOf(StyledRange(10, 16, "speech-sentence"), StyledRange(10, 15, "speech-word")),
+            model.ui.overlay,
+        )
+        assertEquals(10..14, model.ui.reveal)
+        assertEquals("Sentence 2 of 2", model.ui.status)
+    }
+
+    @Test
+    fun `jumpTo inside the selection maps to its sentence, outside it does nothing`() {
+        model.textEdited(text)
+        model.play(caret = 0, selection = 5 until 16)
+        host.reading.emit(ReadingState.SPEAKING)
+
+        model.jumpTo(2)
+        model.jumpTo(17)
+        assertEquals(1, host.readings.size)
+
+        model.jumpTo(12)
+        assertEquals(2, host.readings.size)
+        assertEquals(1, host.reading.startChunk)
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["   ", "\n\n", "```\n```"])
+    fun `a blank selection has nothing to read`(selected: String) {
+        val shown = "One. $selected Two."
+
+        model.playText(shown, markdown = true, caret = 0, selection = 5 until 5 + selected.length)
+
+        assertTrue(host.readings.isEmpty())
+        assertEquals("Nothing to read.", model.ui.status)
+    }
+
+    @Test
+    fun `playText reads the given text and leaves the own text and version alone`() {
+        val version = model.ui.textVersion
+
+        model.playText("Hello. World.", markdown = false, caret = 7)
+
+        assertEquals(1, host.reading.startChunk)
+        assertEquals(listOf("Hello.", "World."), host.reading.chunks.map { it.text })
+        assertEquals("", model.text)
+        assertEquals(version, model.ui.textVersion)
+        assertTrue(model.reading)
+    }
+
+    @Test
+    fun `playText reads a Markdown selection of the shown text`() {
+        val markdown = "# Title\n\nHello **world**. Bye."
+
+        model.playText(markdown, markdown = true, caret = 0, selection = markdown.indexOf("Bye") until markdown.length)
+
+        assertEquals(listOf("Bye."), host.reading.chunks.map { it.text })
+    }
+
+    @Test
+    fun `without own text Play is enabled while idle and a blank text ends in Nothing to read`() {
+        val borrowing = ReadAloudModel(host, ownsText = false)
+        assertTrue(borrowing.ui.playEnabled)
+        assertFalse(model.ui.playEnabled)
+
+        borrowing.playText("  ", markdown = false, caret = 0)
+
+        assertEquals("Nothing to read.", borrowing.ui.status)
+        assertTrue(borrowing.ui.playEnabled)
+    }
+
+    @Test
+    fun `jumpTo the exclusive end of the selection does nothing`() {
+        model.textEdited(text)
+        model.play(caret = 0, selection = 0 until 5)
+        host.reading.emit(ReadingState.SPEAKING)
+
+        model.jumpTo(5)
+
+        assertEquals(1, host.readings.size)
+    }
+
+    @Test
+    fun `a Markdown selection maps its overlay through the source offsets`() {
+        val markdown = "# Title\n\nHello **world**. Bye."
+        val from = markdown.indexOf("**world**")
+        model.playText(markdown, markdown = true, caret = 0, selection = from until markdown.length)
+        host.reading.emit(ReadingState.SPEAKING)
+        host.reading.position = position(0, 0, 6, 0..4)
+
+        host.pollTick?.run()
+
+        val world = markdown.indexOf("world")
+        assertEquals(
+            world,
+            model.ui.overlay
+                .last()
+                .start,
+            "the word starts on w, not on the emphasis marker",
+        )
+        assertEquals(world until world + 5, model.ui.reveal)
     }
 }
