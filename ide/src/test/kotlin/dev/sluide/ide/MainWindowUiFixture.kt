@@ -13,6 +13,7 @@ import dev.sluide.databases.connect.ConnectionStore
 import dev.sluide.databases.connect.PasswordCache
 import dev.sluide.databases.settings.DatabasesSettings
 import dev.sluide.databases.sql.QueryHistory
+import dev.sluide.diagnostics.Diagnostics
 import dev.sluide.docker.Docker
 import dev.sluide.docker.DockerSession
 import dev.sluide.docker.run.DockerRunStore
@@ -376,6 +377,8 @@ abstract class MainWindowUiFixture {
                 // Creating it touches no secret store; nothing here saves a password.
                 Secrets(),
             ).also(databases::add),
+            // Only its folder and capturing flag are read; the tests replace the capture.
+            Diagnostics(),
         )
     }
 

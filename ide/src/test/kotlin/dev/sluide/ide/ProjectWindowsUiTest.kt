@@ -12,6 +12,7 @@ import dev.sluide.databases.connect.ConnectionStore
 import dev.sluide.databases.connect.PasswordCache
 import dev.sluide.databases.settings.DatabasesSettings
 import dev.sluide.databases.sql.QueryHistory
+import dev.sluide.diagnostics.Diagnostics
 import dev.sluide.docker.Docker
 import dev.sluide.docker.DockerSession
 import dev.sluide.docker.run.DockerRunStore
@@ -183,6 +184,7 @@ class ProjectWindowsUiTest {
                 register(QueryHistory::class.java)
                 register(DatabasesSettings::class.java)
                 register(Secrets::class.java)
+                register(Diagnostics::class.java)
                 // Read Aloud with an engine that is never ready: no test synthesizes or opens a sound line.
                 register(PlaybackCoordinator::class.java)
                 registerBean(SpeechEngines::class.java, Supplier { SpeechEngines(listOf(NoSpeechEngine)) })

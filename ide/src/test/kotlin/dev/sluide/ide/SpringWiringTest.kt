@@ -14,6 +14,7 @@ import dev.sluide.databases.connect.PasswordCache
 import dev.sluide.databases.settings.DatabasesSettings
 import dev.sluide.databases.settings.DatabasesSettingsPage
 import dev.sluide.databases.sql.QueryHistory
+import dev.sluide.diagnostics.Diagnostics
 import dev.sluide.docker.Docker
 import dev.sluide.docker.DockerSession
 import dev.sluide.docker.compose.ComposeFileViewer
@@ -196,6 +197,7 @@ class SpringWiringTest {
                         DatabasesSettingsPage::class.java,
                         Databases::class.java,
                         Secrets::class.java,
+                        Diagnostics::class.java,
                         SecretsSettingsPage::class.java,
                         MediaPreferences::class.java,
                         PlaybackCoordinator::class.java,

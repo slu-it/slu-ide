@@ -43,9 +43,12 @@ internal val currentLogFolder: LogFolderPaths by lazy {
     LogFolderPaths(chosen ?: logFolder(preferredLogFolder(), fallbackLogFolder()))
 }
 
+/** The log file `sluide.log` (named in `logback-spring.xml`) in the [currentLogFolder]. */
+internal val currentLogFile: Path get() = currentLogFolder.folder.resolve("sluide.log")
+
 /** A folder by its own path and its real path (if that could be resolved). */
 internal class LogFolderPaths(
-    folder: Path,
+    val folder: Path,
 ) {
     private val roots =
         listOfNotNull(

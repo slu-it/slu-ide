@@ -255,7 +255,7 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
                 .queryAs(MenuBar::class.java)
                 .menus
                 .map { it.text }
-        assertEquals(listOf("Docker Sandbox", "Tools", "Services"), menus.takeLast(3))
+        assertEquals(listOf("Docker Sandbox", "Tools", "Services", "Help"), menus.takeLast(4))
 
         val coloringItem = menu(robot, "Tools").items.single { it.text == "Coloring" }
         robot.interact { coloringItem.fire() }

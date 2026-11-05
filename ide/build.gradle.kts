@@ -61,6 +61,8 @@ dependencies {
     implementation(project(":modules:docker"))
     // The Databases tab of the Services menu: JDBC connections, consoles, results and the object tree (ADR 0121).
     implementation(project(":modules:databases"))
+    // The Help menu's Capture Diagnostics and the JFR ring buffer started with the app (ADR 0127).
+    implementation(project(":modules:diagnostics"))
     // Audio and video files play in a file view with JavaFX Media; MediaPreferences and PlaybackCoordinator are
     // singletons (ADR 0123).
     implementation(project(":modules:media"))

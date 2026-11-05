@@ -6,6 +6,7 @@ import dev.sluide.coloring.Coloring
 import dev.sluide.commandruns.CommandRunSession
 import dev.sluide.converting.Converting
 import dev.sluide.databases.Databases
+import dev.sluide.diagnostics.Diagnostics
 import dev.sluide.docker.Docker
 import dev.sluide.docker.DockerSession
 import dev.sluide.dockersandbox.DockerSandbox
@@ -43,6 +44,7 @@ import dev.sluide.ide.git.textDiff
 import dev.sluide.ide.git.wouldCommit
 import dev.sluide.ide.github.RemoteCache
 import dev.sluide.ide.github.WindowWorkflowSources
+import dev.sluide.ide.help.windowHelp
 import dev.sluide.ide.logging.currentLogFolder
 import dev.sluide.ide.scratches.WindowScratches
 import dev.sluide.ide.scripts.WindowScriptRuns
@@ -125,6 +127,7 @@ class MainWindow(
     private val docker: Docker,
     private val dockerSession: DockerSession,
     private val databases: Databases,
+    diagnostics: Diagnostics,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
     internal var openWebPage: (URI) -> Unit = systemBrowser::open
@@ -263,6 +266,9 @@ class MainWindow(
             showError = { s, m -> showError(s, m) },
         )
 
+    /** The Help menu: Capture Diagnostics, Reveal Diagnostics Folder, About Thoreau (ADR 0127). */
+    internal val help = windowHelp(diagnostics, backgroundTasks, editorArea) { s, m -> showError(s, m) }
+
     /** Compare Files of the explorer: two files side by side in a read-only tab (ADR 0113). */
     private val comparisons =
         WindowFileComparison(
@@ -316,6 +322,7 @@ class MainWindow(
                             tools.dockerSandboxMenu(stage),
                             tools.toolsMenu(),
                             tools.servicesMenu(),
+                            help.helpMenu(stage),
                         ),
                         trust.bar,
                     )
@@ -581,6 +588,7 @@ class MainWindow(
     fun dispose() {
         comparisons.dispose()
         conversions.dispose()
+        help.dispose()
         editorArea.closeAll()
         fileExplorer.open(null)
         gitStatus.open(null)
