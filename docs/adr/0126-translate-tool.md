@@ -25,7 +25,11 @@ models for 75 languages, 80 MB), fastText `lid.176` (Meta, CC-BY-SA, needs a rea
 ## Decision
 - **Engine:** Opus-MT on ONNX Runtime Java (as Kokoro, ADR 0124), behind an engine-neutral `TranslationEngine`.
   Offered: every language with single-target Opus-MT ONNX exports to or from English; a pair without a direct model
-  is chained through English (two models).
+  is chained through English (two models). The engine reads each model's SentencePiece Unigram tokenizer from its
+  `tokenizer.json` (unknown characters take the id of the `<unk>` token: the exports' `model.unk_id` 2 is ","), runs
+  Hugging Face's beam search over optimum's merged decoder with its key/value cache, splits sentences longer than
+  400 tokens at a clause, keeps at most two pair models loaded app-wide and unloads one after 5 minutes idle. The
+  multi-target en-zh, en-ar and en-vi get their target token first (`>>cmn_Hans<<`, `>>ara<<`, `>>vie<<`).
 - **Quality** per translation: Medium (int8, the default) and High (fp32), each its own download per pair model.
 - **Models** are pinned in a catalog resource (Hugging Face URL at a fixed commit, size, sha256 per file), downloaded
   through `local-models` (ADR 0125) on an explicit Download in the tab's notice, stored in
@@ -62,7 +66,8 @@ Rejected:
 - fastText detection: a second download and an own reader for a gain Lingua's small models already give.
 
 ## Consequences
-- Translation works offline once a pair's models (about 110 MB per direction in Medium) are downloaded.
+- Translation works offline once a pair's models are downloaded: about 115 MB per pair in Medium, about 440 MB in
+  High (64 pairs: 25 sources and 20 targets besides English).
 - The fat jar grows by 33 MB (102.7 to 135.7 MB): Lingua's small models 5.6 MB, its dependencies fastutil 23.4 MB,
   kotlin-reflect 3.6 MB, moshi and okio 0.4 MB; no new natives (ONNX Runtime is already in). Lingua uses only
   `Object2FloatMap` and `Object2FloatOpenHashMap` of fastutil, but `fastutil-core` (6 MB) lacks the latter; a filtered
