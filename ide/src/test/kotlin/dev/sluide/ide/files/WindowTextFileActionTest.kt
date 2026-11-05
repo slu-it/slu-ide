@@ -1,4 +1,4 @@
-package dev.sluide.ide.speech
+package dev.sluide.ide.files
 
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
@@ -6,7 +6,7 @@ import java.nio.file.Path
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-class WindowReadAloudTest {
+class WindowTextFileActionTest {
     private val file = Path.of("/p/notes.md")
     private val reads = mutableListOf<Path>()
     private val errors = mutableListOf<String>()
@@ -15,10 +15,11 @@ class WindowReadAloudTest {
 
     private fun readAloud(
         dirty: Boolean,
-        choice: UnsavedReadChoice = UnsavedReadChoice.CANCEL,
+        choice: UnsavedChoice = UnsavedChoice.CANCEL,
         saved: Boolean = true,
         readError: String? = null,
-    ) = WindowReadAloud(
+    ) = WindowTextFileAction(
+        TextToolLabels.READ_ALOUD,
         { f, onError ->
             reads.add(f)
             readError?.let(onError)
@@ -54,6 +55,26 @@ class WindowReadAloudTest {
     }
 
     @Test
+    fun `each tool names its action and reads through its own function`() {
+        val translated = mutableListOf<Path>()
+        val translate =
+            WindowTextFileAction(
+                TextToolLabels.TRANSLATE,
+                { f, _ -> translated.add(f) },
+                { false },
+                { true },
+                { UnsavedChoice.CANCEL },
+                {},
+            )
+
+        assertEquals("Read Aloud", readAloud(false).action.label)
+        assertEquals("Translate", translate.action.label)
+        translate.perform(file)
+        assertEquals(listOf(file), translated)
+        assertEquals(emptyList(), reads)
+    }
+
+    @Test
     fun `a clean file is read without a question`() {
         readAloud(dirty = false).perform(file)
 
@@ -63,7 +84,7 @@ class WindowReadAloudTest {
 
     @Test
     fun `Save and Read Aloud saves, then reads`() {
-        readAloud(dirty = true, UnsavedReadChoice.SAVE_AND_READ).perform(file)
+        readAloud(dirty = true, UnsavedChoice.SAVE_AND_USE).perform(file)
 
         assertEquals(listOf(file), saves)
         assertEquals(listOf(file), reads)
@@ -71,7 +92,7 @@ class WindowReadAloudTest {
 
     @Test
     fun `a failed save reads nothing`() {
-        readAloud(dirty = true, UnsavedReadChoice.SAVE_AND_READ, saved = false).perform(file)
+        readAloud(dirty = true, UnsavedChoice.SAVE_AND_USE, saved = false).perform(file)
 
         assertEquals(listOf(file), saves)
         assertEquals(emptyList(), reads)
@@ -79,7 +100,7 @@ class WindowReadAloudTest {
 
     @Test
     fun `Read Saved Version reads without saving`() {
-        readAloud(dirty = true, UnsavedReadChoice.READ_SAVED).perform(file)
+        readAloud(dirty = true, UnsavedChoice.USE_SAVED).perform(file)
 
         assertEquals(emptyList(), saves)
         assertEquals(listOf(file), reads)
@@ -87,7 +108,7 @@ class WindowReadAloudTest {
 
     @Test
     fun `Cancel neither saves nor reads`() {
-        readAloud(dirty = true, UnsavedReadChoice.CANCEL).perform(file)
+        readAloud(dirty = true, UnsavedChoice.CANCEL).perform(file)
 
         assertEquals(listOf(file), asked)
         assertEquals(emptyList(), saves)

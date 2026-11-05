@@ -32,6 +32,10 @@ import dev.sluide.httpclient.HttpClientSetup
 import dev.sluide.ide.compare.WindowFileComparison
 import dev.sluide.ide.conversions.WindowConversions
 import dev.sluide.ide.explorer.WindowExplorer
+import dev.sluide.ide.files.TextToolLabels
+import dev.sluide.ide.files.UnsavedChoice
+import dev.sluide.ide.files.WindowTextFileActions
+import dev.sluide.ide.files.askUnsaved
 import dev.sluide.ide.git.WindowGitLog
 import dev.sluide.ide.git.ignoreRuleEffects
 import dev.sluide.ide.git.markers
@@ -42,9 +46,6 @@ import dev.sluide.ide.github.WindowWorkflowSources
 import dev.sluide.ide.logging.currentLogFolder
 import dev.sluide.ide.scratches.WindowScratches
 import dev.sluide.ide.scripts.WindowScriptRuns
-import dev.sluide.ide.speech.UnsavedReadChoice
-import dev.sluide.ide.speech.WindowReadAloud
-import dev.sluide.ide.speech.askUnsavedRead
 import dev.sluide.ide.todos.WindowTodos
 import dev.sluide.ide.tools.WindowTools
 import dev.sluide.ide.trust.WindowTrust
@@ -59,6 +60,7 @@ import dev.sluide.settings.ThemedWindows
 import dev.sluide.speech.ReadAloud
 import dev.sluide.terminal.Terminals
 import dev.sluide.todos.TodoPanel
+import dev.sluide.translation.Translate
 import javafx.beans.value.ObservableValue
 import javafx.scene.Scene
 import javafx.scene.control.Alert
@@ -118,6 +120,7 @@ class MainWindow(
     private val codecs: Codecs,
     private val converting: Converting,
     private val readAloud: ReadAloud,
+    private val translate: Translate,
     gitFileComparison: GitFileComparison,
     private val docker: Docker,
     private val dockerSession: DockerSession,
@@ -176,8 +179,9 @@ class MainWindow(
         String,
     ) -> Unit = { stage, message -> showConversionNotesDialog(stage, message) }
 
-    /** Asks what to do with the unsaved changes of a file the explorer reads aloud; tests replace it, since it blocks. */
-    internal var askUnsavedToRead: (Stage?, Path) -> UnsavedReadChoice = { stage, file -> askUnsavedRead(stage, file) }
+    /** Asks what to do with the unsaved changes of a file the explorer reads aloud or translates; tests replace it. */
+    internal var askUnsavedChoice: (Stage?, TextToolLabels, Path) -> UnsavedChoice =
+        { stage, labels, file -> askUnsaved(stage, labels, file) }
 
     /** The window's stage, once it is shown. */
     private var shownStage: Stage? = null
@@ -230,13 +234,14 @@ class MainWindow(
     /** The explorer's Run for files their view can run, e.g. shell scripts (ADR 0089). */
     private val scriptRuns = WindowScriptRuns(fileViewers::viewerFor, { editorArea.open(it) }, editorArea::viewOf)
 
-    /** The explorer's Read Aloud for `.txt` and `.md` files (ADR 0124). */
-    private val readAloudFiles =
-        WindowReadAloud(
-            readAloud::readFile,
+    /** The explorer's Read Aloud and Translate for `.txt` and `.md` files (ADR 0124, ADR 0126). */
+    private val textFileActions =
+        WindowTextFileActions(
+            readAloud,
+            translate,
             { (editorArea.viewOf(it) as? EditableFileView)?.dirty?.get() == true },
             { editorArea.save(it) },
-            { askUnsavedToRead(shownStage, it) },
+            { labels, file -> askUnsavedChoice(shownStage, labels, file) },
             { editorArea.showError(it) },
         )
 
@@ -251,6 +256,7 @@ class MainWindow(
             codecs,
             converting,
             readAloud,
+            translate,
             docker,
             databases,
             openWebPage = { openWebPage(it) },
@@ -343,11 +349,12 @@ class MainWindow(
                 },
             )
         // A file's context menu runs it where its view can (ADR 0089) and reads text and Markdown files aloud (ADR 0124).
-        fileExplorer.fileActions = listOf(scriptRuns.action, readAloudFiles.action)
+        fileExplorer.fileActions = listOf(scriptRuns.action) + textFileActions.actions
         // A context menu's Open in Terminal opens a terminal tab in the folder (ADR 0093).
         fileExplorer.openInTerminal = { tools.openTerminal(stage, it) }
-        // The Converting tool's sides open their text as a scratch file (ADR 0115).
+        // The Converting and Translate tools' sides open their text as a scratch file (ADR 0115, ADR 0126).
         converting.openScratch = { extension, text -> scratches.openText(stage, "converted", extension, text) }
+        translate.openScratch = { text, extension -> scratches.openText(stage, "translation", extension, text) }
         // The Docker tool's Run dialog is owned by this window.
         docker.window = { stage }
         // The Databases tool's dialogs are owned by this window; its Show DDL opens a scratch file (ADR 0121).
@@ -402,6 +409,7 @@ class MainWindow(
                 add(codecs.editorExtension)
                 add(converting.editorExtension)
                 add(readAloud.editorExtension)
+                add(translate.editorExtension)
             },
         )
         gradleSession.reviewTrust = { trust.review(stage) }

@@ -14,6 +14,7 @@ import dev.sluide.ide.isMac
 import dev.sluide.speech.ReadAloud
 import dev.sluide.terminal.TerminalStartException
 import dev.sluide.terminal.Terminals
+import dev.sluide.translation.Translate
 import javafx.application.Platform
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
@@ -26,8 +27,8 @@ import java.nio.file.Path
 
 /**
  * The tools of one window: the Terminal and Docker Sandbox menus with the terminal tabs they open in the
- * [editorArea], the Tools menu with the Coloring, Codecs, Converting and Read Aloud tabs (ADR 0110, ADR 0112,
- * ADR 0115, ADR 0124) and the Services menu with the Docker and Databases tabs (ADR 0118, ADR 0121). [showError]
+ * [editorArea], the Tools menu with the Coloring, Codecs, Converting, Read Aloud and Translate tabs (ADR 0110,
+ * ADR 0112, ADR 0115, ADR 0124, ADR 0126) and the Services menu with the Docker and Databases tabs (ADR 0118, ADR 0121). [showError]
  * shows why a tool cannot be started. Used on the JavaFX thread.
  */
 internal class WindowTools(
@@ -40,6 +41,7 @@ internal class WindowTools(
     codecs: Codecs,
     converting: Converting,
     readAloud: ReadAloud,
+    translate: Translate,
     docker: Docker,
     databases: Databases,
     /** Opens a web page in the system browser. */
@@ -58,13 +60,16 @@ internal class WindowTools(
     /** The Read Aloud tool of the Tools menu. */
     internal val readAloudTool = WindowTool("Read Aloud", readAloud::createTab)
 
+    /** The Translate tool of the Tools menu. */
+    internal val translateTool = WindowTool("Translate", translate::createTab)
+
     /** The Tools menu logic; tests choose tools through it. */
     internal val toolsMenu =
         ToolsMenu(
             { editorArea.tabs },
             editorArea::open,
             editorArea::select,
-            listOf(coloringTool, codecsTool, convertingTool, readAloudTool),
+            listOf(coloringTool, codecsTool, convertingTool, readAloudTool, translateTool),
         )
 
     /** The Docker tool of the Services menu, on IntelliJ's key for its Services tool window. */
@@ -98,6 +103,7 @@ internal class WindowTools(
         codecs.showTab = { toolsMenu.open(codecsTool) }
         converting.showTab = { toolsMenu.open(convertingTool) }
         readAloud.showTab = { toolsMenu.open(readAloudTool) }
+        translate.showTab = { toolsMenu.open(translateTool) }
         coloring.projectFolder.bind(projectService.projectFolder)
         docker.showTab = { servicesMenu.open(dockerTool) }
         docker.openTab = { editorArea.open(it) }
@@ -108,7 +114,7 @@ internal class WindowTools(
         databases.projectFolder.bind(projectService.projectFolder)
     }
 
-    /** The Tools menu: Coloring, Codecs, Converting, Read Aloud. */
+    /** The Tools menu: Coloring, Codecs, Converting, Read Aloud, Translate. */
     fun toolsMenu(): Menu = toolsMenu.menu()
 
     /** The Services menu: Docker, Databases. */

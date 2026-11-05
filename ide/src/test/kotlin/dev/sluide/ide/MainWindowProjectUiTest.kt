@@ -65,7 +65,7 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         assertEquals(appTitle(), stage.title)
         assertEquals(0, robot.lookup(".tree-cell").queryAllAs(TreeCell::class.java).count { it.text != null })
         assertEquals(listOf("New HTTP Client Setup"), fileExplorer.folderActions.map { it.label })
-        assertEquals(listOf("Run", "Read Aloud"), fileExplorer.fileActions.map { it.label })
+        assertEquals(listOf("Run", "Read Aloud", "Translate"), fileExplorer.fileActions.map { it.label })
 
         assertSame(httpSessions.single(), editorArea.windowServices.get(HttpClientSession::class.java))
         assertSame(gradleSessions.single(), editorArea.windowServices.get(GradleSession::class.java))

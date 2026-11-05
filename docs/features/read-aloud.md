@@ -3,7 +3,7 @@
 **Modules:** `modules/speech` (package `dev.sluide.speech`: the window's `ReadAloud` bean, the engine API in `engine`,
 text preparation in `text`, the Kokoro engine in `kokoro`, the model download in `install`, playback in `audio`, the
 reading in `session`, Settings → Speech in `settings`, the tab in `ui`); menu and wiring in `ide` (`WindowTools`,
-`dev.sluide.ide.speech.WindowReadAloud`); decision in [ADR 0124](../adr/0124-read-aloud-speech.md)
+`dev.sluide.ide.files.WindowTextFileAction`); decision in [ADR 0124](../adr/0124-read-aloud-speech.md)
 
 The Read Aloud tool reads text aloud with a local voice: no cloud, no account. It is a tab of the editor area with a
 toolbar at the top and the text below. The text is highlighted while it is read: the sentence softly, the word being
@@ -18,7 +18,7 @@ spoken strongly. English only for now.
   than 1 MiB"). Code: `ReadAloudExtension`, registered by `ide` after Converting's item.
 - **Read Aloud** in the explorer's context menu of a single `.txt`, `.md` or `.markdown` file reads the saved file. If a tab of it has
   unsaved changes, a question says so ("Save and Read Aloud", "Read Saved Version" or Cancel). A file over 1 MiB or not
-  UTF-8 is an error dialog. `ReadAloud.readFile` reads off the FX thread; `ide` (`WindowReadAloud`) asks and wires.
+  UTF-8 is an error dialog. `ReadAloud.readFile` reads off the FX thread; `ide` (`WindowTextFileAction`) asks and wires.
 - When text arrives from the editor or the explorer, it replaces the tab's text, the tab is shown and reading starts at
   once; a running reading stops first. With setup problems (no model, no espeak-ng) the text is put in, nothing starts,
   and the notice shows what is missing.

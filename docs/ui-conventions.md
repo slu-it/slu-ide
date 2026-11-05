@@ -32,7 +32,7 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   (`.preview-toolbar`): no new colours, small padding.
 
 ## Tool and service tabs
-- Tools menu (Coloring, Codecs, Converting, Read Aloud) and Services menu (Docker, Databases) after Docker Sandbox in the menu bar
+- Tools menu (Coloring, Codecs, Converting, Read Aloud, Translate) and Services menu (Docker, Databases) after Docker Sandbox in the menu bar
   (ADR 0110, 0118, 0121). A tool is a `WindowTool` in `ide` (`ide/.../tools/ToolsMenu.kt`), not a module API.
 - One tab per window: the menu selects the open tab or creates one. Closes with Shortcut+W without a question and is
   not restored after a restart. Tools have no key binding; a service may get an Alt+N panel key (Docker: Alt+8,
@@ -41,7 +41,7 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   `openScratch`, ...) in `WindowTools` or `MainWindow`; a callback left unset fails silently, so the wiring gets a
   test.
 - State lives in the window and outlives the tab; anything stored is opt-in per tool and never holds pasted secrets
-  (Codecs and Converting store nothing; Read Aloud stores the last voice and speed user-wide, not the text).
+  (Codecs and Converting store nothing; Read Aloud stores the last voice and speed user-wide, Translate the last source, target and quality; neither the text).
 - A tab's content leaves the scene whenever another tab is selected (`EditorArea` shows only the selected content):
   a view that unsubscribes when its scene becomes `null` subscribes again and catches up when it is back
   (`ConnectionCardList`), or never unsubscribes on scene loss at all.
@@ -51,7 +51,7 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   Open, and are never shown disabled (Run, ADR 0089). Folder actions use `FolderAction` (ADR 0056). Convert to ▸ is
   its own submenu hook (ADR 0115), shown the same way: only for a file it applies to.
 - Editor: extensions add items after a separator through `CodeEditorExtension` (ADR 0108). For new items (Converting:
-  "Open Selection in X" with a selection and "Open in X" without; Read Aloud: "Read Selection Aloud" and "Read Aloud"),
+  "Open Selection in X" with a selection and "Open in X" without; Read Aloud: "Read Selection Aloud" and "Read Aloud"; Translate: "Translate Selection" and "Translate"),
   when an item cannot act, disable it with the reason in the label ("(larger than 1 MiB)").
 - Opening something at a place: `FileViewHost.openFile(file, line)` / `FileView.showLine(line)` (ADR 0077).
   Generated text the user may keep opens as a scratch file (ADR 0066, 0114).

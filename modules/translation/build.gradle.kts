@@ -21,8 +21,8 @@ dependencies {
     // Deliberate module dependency: model downloads are background tasks; translation runs on logged named threads
     // (ADR 0060, ADR 0061).
     implementation(project(":modules:background-tasks"))
-    // Deliberate module dependency: pinned model downloads, install states and idle-unloaded sessions (ADR 0125).
-    implementation(project(":modules:local-models"))
+    // Deliberate module API dependency: ModelInstaller and ModelSpecs are in its public API (ADR 0125).
+    api(project(":modules:local-models"))
     // Deliberate module dependency: the text is split into sentences with SentenceRanges.
     implementation(project(":modules:text-editing"))
     // Deliberate module dependency: the last languages and quality are kept in the shared data file (field

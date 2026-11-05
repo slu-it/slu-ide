@@ -44,6 +44,9 @@ import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.send.SavedPassphrases
 import dev.sluide.ide.speech.NoSpeechEngine
+import dev.sluide.ide.translation.NoLanguageDetector
+import dev.sluide.ide.translation.NoTranslationEngine
+import dev.sluide.ide.translation.noModelInstaller
 import dev.sluide.media.PlaybackCoordinator
 import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.projects.ProjectPicker
@@ -68,6 +71,9 @@ import dev.sluide.terminal.Terminals
 import dev.sluide.terminal.settings.TerminalScrollSettings
 import dev.sluide.todos.TodoPanel
 import dev.sluide.todos.Todos
+import dev.sluide.translation.Translate
+import dev.sluide.translation.TranslationPreferences
+import dev.sluide.translation.engine.LanguageDetector
 import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.control.Label
@@ -185,6 +191,16 @@ class ProjectWindowsUiTest {
                     ModelInstaller::class.java,
                     Supplier { ModelInstaller(ModelStore(dir.resolve("models"))) },
                 )
+                // Translate with an engine that has no route and an installer without files: nothing loads or downloads.
+                registerBean(NoTranslationEngine::class.java, Supplier { NoTranslationEngine })
+                registerBean(LanguageDetector::class.java, Supplier { NoLanguageDetector })
+                // Named, as its class has the simple name of the speech installer's.
+                registerBean(
+                    "pairModelInstaller",
+                    dev.sluide.localmodels.ModelInstaller::class.java,
+                    Supplier { noModelInstaller(dir.resolve("translation-models")) },
+                )
+                registerBean(TranslationPreferences::class.java, Supplier { TranslationPreferences(projectData) })
                 register(SavedPassphrases::class.java)
                 registerBean(
                     RemoteSourceCache::class.java,
@@ -212,6 +228,7 @@ class ProjectWindowsUiTest {
                     Codecs::class.java,
                     Converting::class.java,
                     ReadAloud::class.java,
+                    Translate::class.java,
                     DockerSession::class.java,
                     Docker::class.java,
                     Databases::class.java,

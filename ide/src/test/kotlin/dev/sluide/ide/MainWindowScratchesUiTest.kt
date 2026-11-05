@@ -124,7 +124,7 @@ class MainWindowScratchesUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `Converting's and Databases' Open as Scratch create named scratch files with the text, shown and opened`(
+    fun `Converting's, Translate's and Databases' Open as Scratch create scratch files with the text, opened`(
         robot: FxRobot,
     ) {
         openProject(robot)
@@ -140,6 +140,12 @@ class MainWindowScratchesUiTest : MainWindowUiFixture() {
 
         assertEquals("b: 2\n", Files.readString(scratchFiles.folder.resolve("converted_1.yaml")))
         assertEquals(listOf("converted.yaml", "converted_1.yaml"), tabTitles(robot))
+
+        // The Translate tool's sides go the same way, with the text first (ADR 0126).
+        robot.interact { translates.single().openScratch("hallo\n", "md") }
+        val translation = scratchFiles.folder.resolve("translation.md")
+        assertEquals("hallo\n", Files.readString(translation))
+        assertEquals(translation, editorArea.selectedPath)
 
         // The Databases tool's Show DDL goes the same way (ADR 0121).
         robot.interact { databases.single().openScratch("orders", "sql", "CREATE TABLE t (id int);\n") }

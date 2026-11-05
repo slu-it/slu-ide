@@ -18,6 +18,9 @@ import dev.sluide.translation.session.TranslateModel
 import dev.sluide.translation.ui.TranslateTab
 import dev.sluide.translation.ui.TranslateView
 import javafx.application.Platform
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.context.annotation.Scope
+import org.springframework.stereotype.Component
 import java.nio.file.Path
 
 /** How many bytes downloading [models] would still fetch (the engine's catalog); cheap, called on the FX thread. */
@@ -29,9 +32,10 @@ fun interface DownloadSizes {
  * The Translate tool of one window (ADR 0126): creates its tab and keeps the text, languages, quality and translation,
  * so that they outlive the tab (ADR 0110). The `ide` module sets [showTab] and [openScratch]. Closing it (with its
  * window) ends the translation work.
- *
- * Not yet a Spring bean: the wiring adds `@Component`, `@Scope("window")` and `@Autowired` on the second constructor.
  */
+@Component
+// One instance per IDE window (the "window" scope of the ide module, ADR 0014).
+@Scope("window")
 class Translate internal constructor(
     engine: TranslationEngine,
     detector: LanguageDetector,
@@ -40,6 +44,7 @@ class Translate internal constructor(
     fontSettings: FontSettings,
     private val dispatch: (Runnable) -> Unit,
 ) : AutoCloseable {
+    @Autowired
     constructor(
         engine: TranslationEngine,
         detector: LanguageDetector,

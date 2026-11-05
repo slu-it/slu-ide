@@ -91,6 +91,12 @@ import dev.sluide.terminal.settings.TerminalScrollPage
 import dev.sluide.terminal.settings.TerminalScrollSettings
 import dev.sluide.todos.TodoPanel
 import dev.sluide.todos.Todos
+import dev.sluide.translation.DownloadSizes
+import dev.sluide.translation.Translate
+import dev.sluide.translation.TranslationPreferences
+import dev.sluide.translation.engine.LanguageDetector
+import dev.sluide.translation.engine.TranslationEngine
+import dev.sluide.translation.opusmt.OpusMtEngine
 import org.junit.jupiter.api.io.TempDir
 import org.springframework.beans.factory.config.DependencyDescriptor
 import org.springframework.boot.WebApplicationType
@@ -199,6 +205,12 @@ class SpringWiringTest {
                         ModelStore::class.java,
                         ModelInstaller::class.java,
                         SpeechSettingsPage::class.java,
+                        OpusMtEngine::class.java,
+                        TranslationEngine::class.java,
+                        DownloadSizes::class.java,
+                        LanguageDetector::class.java,
+                        dev.sluide.localmodels.ModelInstaller::class.java,
+                        TranslationPreferences::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")
@@ -217,6 +229,11 @@ class SpringWiringTest {
                 context.getBean(ModelInstaller::class.java)
                 context.getBean(SpeechPreferences::class.java)
                 context.getBean(SpeechEngines::class.java)
+                // The translation beans are cheap: the engine loads a model on first use, Lingua on the first detection.
+                context.getBean(OpusMtEngine::class.java)
+                context.getBean(LanguageDetector::class.java)
+                context.getBean(dev.sluide.localmodels.ModelInstaller::class.java)
+                context.getBean(TranslationPreferences::class.java)
                 // Every window has its own instance of these (ADR 0014).
                 val windowTypes =
                     listOf(
@@ -238,6 +255,7 @@ class SpringWiringTest {
                         Codecs::class.java,
                         Converting::class.java,
                         ReadAloud::class.java,
+                        Translate::class.java,
                         DockerSession::class.java,
                         Docker::class.java,
                         Databases::class.java,

@@ -47,6 +47,9 @@ import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.send.SavedPassphrases
 import dev.sluide.ide.speech.NoSpeechEngine
+import dev.sluide.ide.translation.NoLanguageDetector
+import dev.sluide.ide.translation.NoTranslationEngine
+import dev.sluide.ide.translation.noModelInstaller
 import dev.sluide.media.PlaybackCoordinator
 import dev.sluide.projectdata.ProjectDataStore
 import dev.sluide.projects.ProjectPicker
@@ -70,6 +73,8 @@ import dev.sluide.terminal.Terminals
 import dev.sluide.terminal.settings.TerminalScrollSettings
 import dev.sluide.todos.TodoPanel
 import dev.sluide.todos.Todos
+import dev.sluide.translation.Translate
+import dev.sluide.translation.TranslationPreferences
 import javafx.application.Platform
 import javafx.event.Event
 import javafx.scene.Node
@@ -208,6 +213,7 @@ abstract class MainWindowUiFixture {
         todoPanels.forEach(TodoPanel::close)
         convertings.forEach(Converting::close)
         readAlouds.forEach(ReadAloud::close)
+        translates.forEach(Translate::close)
         dockerSessions.forEach(DockerSession::close)
     }
 
@@ -241,6 +247,9 @@ abstract class MainWindowUiFixture {
 
     /** The Read Aloud tools of the windows created by [mainWindow]; closed after the test. */
     internal val readAlouds = mutableListOf<ReadAloud>()
+
+    /** The Translate tools of the windows created by [mainWindow]; closed after the test. */
+    internal val translates = mutableListOf<Translate>()
 
     /** The Docker sessions of the windows created by [mainWindow]; closed after the test. */
     internal val dockerSessions = mutableListOf<DockerSession>()
@@ -344,6 +353,16 @@ abstract class MainWindowUiFixture {
                 tasks,
                 fontSettings,
             ).also(readAlouds::add),
+            // An engine without a route and an installer without files: no test loads or downloads a model.
+            Translate(
+                NoTranslationEngine,
+                NoLanguageDetector,
+                noModelInstaller(settingsDir.resolve("translation-models")),
+                NoTranslationEngine,
+                tasks,
+                TranslationPreferences(projectData),
+                fontSettings,
+            ).also(translates::add),
             GitFileComparison(git),
             Docker(dockerSession, terminals, tasks, DockerRunStore(projectData)).also(dockers::add),
             dockerSession,

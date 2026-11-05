@@ -3,7 +3,7 @@ package dev.sluide.ide
 import dev.sluide.coloring.color.CssColor
 import dev.sluide.editorarea.EditorTab
 import dev.sluide.ide.compare.FileComparisonTab
-import dev.sluide.ide.speech.UnsavedReadChoice
+import dev.sluide.ide.files.UnsavedChoice
 import javafx.beans.property.SimpleStringProperty
 import javafx.event.Event
 import javafx.scene.Node
@@ -361,7 +361,7 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
         robot: FxRobot,
     ) {
         val tools = menu(robot, "Tools").items
-        assertEquals(listOf("Coloring", "Codecs", "Converting", "Read Aloud"), tools.map { it.text })
+        assertEquals(listOf("Coloring", "Codecs", "Converting", "Read Aloud", "Translate"), tools.map { it.text })
         val codecsItem = tools.single { it.text == "Codecs" }
         robot.interact { codecsItem.fire() }
         robot.interact { codecsItem.fire() }
@@ -509,8 +509,8 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
         robot.interact { area.appendText(" edited") }
         val action = fileExplorer.fileActions.single { it.label == "Read Aloud" }
         val asked = mutableListOf<Path>()
-        var answer = UnsavedReadChoice.CANCEL
-        mainWindow.askUnsavedToRead = { _, f ->
+        var answer = UnsavedChoice.CANCEL
+        mainWindow.askUnsavedChoice = { _, _, f ->
             asked.add(f)
             answer
         }
@@ -518,14 +518,62 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
         robot.interact { action.perform(file) }
         assertEquals(listOf(file), asked)
 
-        answer = UnsavedReadChoice.READ_SAVED
+        answer = UnsavedChoice.USE_SAVED
         robot.interact { action.perform(file) }
         eventually(robot) { assertEquals("saved text", readAloudText(robot)) }
         assertEquals("saved text", file.readText())
 
-        answer = UnsavedReadChoice.SAVE_AND_READ
+        answer = UnsavedChoice.SAVE_AND_USE
         robot.interact { action.perform(file) }
         eventually(robot) { assertEquals("saved text edited", readAloudText(robot)) }
         assertEquals("saved text edited", file.readText())
+    }
+
+    private fun translateInput(robot: FxRobot): String {
+        val area = robot.lookup(".translate-view .code-area").queryAllAs(CodeArea::class.java).first()
+        return WaitForAsyncUtils.asyncFx<String> { area.text }.get()
+    }
+
+    @Test
+    fun `Translate Selection puts the selection in the Translate tab`(robot: FxRobot) {
+        val file = project.resolve("notes.txt").apply { writeText("hello world\nmore\n") }
+        robot.interact { editorArea.open(file) }
+        eventually(robot) { assertEquals(1, robot.lookup(".code-area").queryAllAs(CodeArea::class.java).size) }
+        val area = robot.lookup(".code-area").queryAs(CodeArea::class.java)
+
+        val item =
+            WaitForAsyncUtils
+                .asyncFx<MenuItem> {
+                    area.selectRange(0, 5)
+                    val menu = checkNotNull(area.contextMenu)
+                    val at = area.localToScreen(5.0, 5.0)
+                    menu.show(area, at.x, at.y)
+                    menu.items.single { it.text == "Translate Selection" }.also { menu.hide() }
+                }.get()
+        robot.interact { item.fire() }
+
+        assertEquals(listOf("notes.txt", "Translate"), tabTitles(robot))
+        eventually(robot) { assertEquals("hello", translateInput(robot)) }
+    }
+
+    @Test
+    fun `the explorer's Translate asks about unsaved edits and translates the saved file`(robot: FxRobot) {
+        val file = project.resolve("notes.md").apply { writeText("saved text") }
+        robot.interact { editorArea.open(file) }
+        eventually(robot) { assertEquals(file, editorArea.selectedPath) }
+        val area = robot.lookup(".code-area").queryAs(CodeArea::class.java)
+        robot.interact { area.appendText(" edited") }
+        val action = fileExplorer.fileActions.single { it.label == "Translate" }
+        val asked = mutableListOf<String>()
+        mainWindow.askUnsavedChoice = { _, labels, _ ->
+            asked.add(labels.action)
+            UnsavedChoice.USE_SAVED
+        }
+
+        robot.interact { action.perform(file) }
+
+        assertEquals(listOf("Translate"), asked)
+        eventually(robot) { assertEquals("saved text", translateInput(robot)) }
+        assertEquals("saved text", file.readText())
     }
 }
