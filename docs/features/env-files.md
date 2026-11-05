@@ -15,11 +15,12 @@
 - **Revealed:** the line with the caret, while the text has the focus and once the caret was placed (not right after
   opening), so editing is never blind; and the lines of the match the find bar selected. Other matches inside masked
   values stay hidden. Every edit is masked at once, not only after highlighting caught up.
-- **Show values** in the tab's toolbar shows all values. It is off whenever the file opens and never stored.
+- **Show values** on the right of the tab's toolbar shows all values. It is off whenever the file opens and never
+  stored. Soft Wrap ([soft-wrap.md](soft-wrap.md)) is on the left of the toolbar, which every `.env` file shows.
 - The text itself is untouched, only its styles change: copy, find, replace, save, undo and the unsaved-changes dot
   work on the real values. Selecting text reveals nothing.
 - Not masked: names ending in `.example`, `.sample` or `.template` (`.env.example`, `.env.local.example`), which have
-  no toolbar. Renaming a file to or from such a name switches masking.
+  no Show values. Renaming a file to or from such a name switches masking.
 - The side-by-side diff ([git-diff.md](git-diff.md)) shows the values unmasked.
 - Known gaps: continuation lines of multi-line values are highlighted as keys; the bars are square (RichTextFX has no
   background radius).

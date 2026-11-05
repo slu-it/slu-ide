@@ -54,6 +54,7 @@ no find, replace or go to line, and Tab indents instead of moving the focus.
 | Enter in the replace field | Replace the selected match |
 | Escape | Close the find bar |
 | Shortcut+G | Go to line (`line[:column]`) |
+| Shortcut+Alt+Z (Cmd+Option+Z on macOS) | Soft wrap on/off (all editors; [soft-wrap.md](soft-wrap.md)) |
 | Shortcut+Z / Shortcut+Shift+Z | Undo / redo |
 | Shortcut+X / C / V / A | Cut / copy / paste / select all (RichTextFX; also shown in the context menu) |
 | Menu key, Shift+F10 | Context menu at the caret |

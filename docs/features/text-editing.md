@@ -15,6 +15,8 @@ and saving), [ADR 0022](../adr/0022-editor-key-bindings.md) (keys) and
   lines). Nothing else is changed (no trimmed whitespace, no added final newline). If saving fails, an error says why
   and the tab keeps its unsaved changes.
 - Undo (Ctrl+Z) and redo (Ctrl+Shift+Z), also in the context menu (below), cover the text only; typing without a pause of half a second is one step.
+- Soft wrap: one user-wide switch wraps long lines at the visible edge in every editor of every window (toolbar
+  button, context menu, Shortcut+Alt+Z; off by default, remembered; [soft-wrap.md](soft-wrap.md)).
 - Highlighting follows typing once it pauses (150 ms, 600 ms for very large files), computed in the background.
 - Editing keys act while the text has the focus; Shortcut is Ctrl, Cmd on macOS. Each command is one undo step (Enter
   and a Tab within a line merge with the typing around them, like typed characters). Keys that change the text do nothing in a
@@ -37,8 +39,8 @@ and saving), [ADR 0022](../adr/0022-editor-key-bindings.md) (keys) and
   A selection that ends at the start of a line does not touch that line.
 - Context menu ([ADR 0108](../adr/0108-code-editor-extensions-and-context-menu.md)), in every code editor: code and
   plain text, the sources of previews, `.http`, Gradle, shell script, `.env` and `.gitignore` views. Items: **Undo**,
-  **Redo** | **Cut**, **Copy**, **Paste**, **Select All**, each showing its keys (which keep working as before, once),
-  then, after a separator, the items of window features for the caret's line and column (`CodeEditorExtensions`; no
+  **Redo** | **Cut**, **Copy**, **Paste**, **Select All**, each showing its keys (which keep working as before, once) |
+  **Soft Wrap** (a check item), then, after a separator, the items of window features for the caret's line and column (`CodeEditorExtensions`; no
   separator without such items). The menu is built anew each time it shows: Undo and Redo need history and an editable
   text, Cut a selection in an editable text, Copy a selection, Paste text on the clipboard and an editable text,
   Select All some text; read-only views (invalid encoding) can only copy and select. A right-click (Ctrl+click on

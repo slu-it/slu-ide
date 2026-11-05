@@ -173,7 +173,10 @@ the Bicep graph and `BicepParamFileViewer`.
   PEM certificates and keys (`PemFileViewer`, `.pem`, `.crt`, `.cer`, `.key`, only with PEM text) and
   the resource graph of Bicep files (`BicepFileViewer`, `.bicep`) in [previews.md](previews.md). Their diffs are highlighted like their source.
   A preview that answers `Preview.outline` with headings (Markdown) gets a table-of-contents button in the toolbar.
-- `EnvFileViewer` is a `CodeFileViewer` whose `EnvFileView` wraps the `CodeView` with a **Show values** toolbar and
+- Every code view wraps long lines while the user-wide **Soft Wrap** switch is on (toolbar button, context menu,
+  Shortcut+Alt+Z; [soft-wrap.md](soft-wrap.md), [ADR 0130](../adr/0130-soft-wrap.md)).
+- `EnvFileViewer` is a `CodeFileViewer` whose `EnvFileView` wraps the `CodeView` with a toolbar (Soft Wrap on the left,
+  **Show values** on the right) and
   masks the values: `CodeView.maskedRanges` adds the style class `masked` over the token styles, below the find bar's
   matches ([env-files.md](env-files.md), [ADR 0030](../adr/0030-masking-env-values.md)).
 - `MarkdownFileViewer` (`.md`, `.markdown`) is no code viewer: it shows the Markdown source, highlighted like the
@@ -236,11 +239,11 @@ the Bicep graph and `BicepParamFileViewer`.
     - `plainText` (a file without a language viewer, no highlighting), `text` (built on each call, so not per
       keystroke), `caretOffset`, `selection`, and `onTextChanged` for every change of the text, a reload included.
     - `addToolbarItems(nodes)`: the items go to `CodeEditor.toolbarItems` (read-only, in the order added) until their
-      handle is closed. A view of its own (`CodeFileViewer`s and `DefaultTextFileViewer`) shows them in a row at the
-      very top, above the find bar, hidden while there are none (`.code-editor-toolbar`, styled with the other views'
-      toolbars in `view-toolbar.css`). An embedded editor (`CodeEditors.open`) shows no row: the embedding view places
-      the items in its own toolbar. The `.env` and `.gitignore` views (`EnvFileView`, `GitignoreFileView`) embed their
-      `CodeView` without a row and do not show the items.
+      handle is closed. A view of its own (`CodeFileViewer`s, `DefaultTextFileViewer` and the `.gitignore` view)
+      always shows a row at the very top, above the find bar: Soft Wrap first, then the items (`.code-editor-toolbar`,
+      styled with the other views' toolbars in `view-toolbar.css`). An embedded editor (`CodeEditors.open`) shows no
+      row: the embedding view places the items in its own toolbar, after `CodeEditor.softWrapButton`. The `.env` view
+      (`EnvFileView`) embeds its `CodeView` without a row: its own toolbar has Soft Wrap but not the items.
     - `addBanner(node)` shows a banner above the text, below the find bar and the view's own banners, until closed.
     - `lock()` makes the text read-only until every lock is closed (closing one twice is harmless): typing, pasting,
       `replaceText` and the find bar's Replace and Replace All change nothing and `canReplaceText` is false, while

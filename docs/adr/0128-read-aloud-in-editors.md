@@ -1,6 +1,6 @@
 # 0128. Read Aloud inside the plain-text and Markdown editors
 
-- Status: accepted; amends [0108](0108-code-editor-extensions-and-context-menu.md), [0124](0124-read-aloud-speech.md); see [0110](0110-tools-menu.md), [0084](0084-testability-logic-out-of-controls.md), [0083](0083-zooming-document-previews.md)
+- Status: accepted; amends [0108](0108-code-editor-extensions-and-context-menu.md), [0124](0124-read-aloud-speech.md); amended by [0130](0130-soft-wrap.md); see [0110](0110-tools-menu.md), [0084](0084-testability-logic-out-of-controls.md), [0083](0083-zooming-document-previews.md)
 - Date: 2026-11-05
 
 ## Context
