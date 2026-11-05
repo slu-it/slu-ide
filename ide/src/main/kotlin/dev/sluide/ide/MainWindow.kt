@@ -38,6 +38,7 @@ import dev.sluide.ide.files.TextToolLabels
 import dev.sluide.ide.files.UnsavedChoice
 import dev.sluide.ide.files.WindowTextFileActions
 import dev.sluide.ide.files.askUnsaved
+import dev.sluide.ide.files.fileMenu
 import dev.sluide.ide.git.WindowGitLog
 import dev.sluide.ide.git.ignoreRuleEffects
 import dev.sluide.ide.git.markers
@@ -70,7 +71,6 @@ import javafx.scene.control.Alert
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuBar
 import javafx.scene.control.MenuItem
-import javafx.scene.control.SeparatorMenuItem
 import javafx.scene.control.SplitPane
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyCodeCombination
@@ -317,7 +317,13 @@ class MainWindow(
                 top =
                     VBox(
                         MenuBar(
-                            fileMenu(stage),
+                            fileMenu(
+                                editorArea,
+                                listOf(scratches.menuItem(stage), scratches.generatedMenuItem(stage)),
+                                chooseFolder = { chooseFolder(stage) },
+                                pickProject = projectWindows::pickProject,
+                                showSettings = { showSettings(stage) },
+                            ),
                             viewMenu(explorerBar.canSelectOpened),
                             gitLog.gitMenu(),
                             tools.terminalMenu(stage),
@@ -480,61 +486,6 @@ class MainWindow(
 
         stage.scene = Scene(root, 1000.0, 700.0)
         stage.show()
-    }
-
-    private fun fileMenu(stage: Stage): Menu {
-        val openFolder =
-            MenuItem("Open Folder…").apply {
-                accelerator = KeyCodeCombination(KeyCode.O, KeyCombination.SHORTCUT_DOWN)
-                setOnAction { chooseFolder(stage) }
-            }
-        // The project picker, to open a remembered project in another window (ADR 0034).
-        val openProject = MenuItem("Open Project…").apply { setOnAction { projectWindows.pickProject() } }
-        // Ctrl+S in a terminal goes to the shell, which consumes the key before the accelerator sees it; Cmd+S on
-        // macOS and Ctrl+Alt+S send nothing to the shell, so they save from a terminal too.
-        val save =
-            MenuItem("Save").apply {
-                accelerator = KeyCodeCombination(KeyCode.S, KeyCombination.SHORTCUT_DOWN)
-                setOnAction { editorArea.save() }
-            }
-        val saveAll =
-            MenuItem("Save All").apply {
-                accelerator = KeyCodeCombination(KeyCode.S, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN)
-                setOnAction { editorArea.saveAll() }
-            }
-        // Terminals close too, command tabs only once they have exited (`EditorTab.closableByShortcut`); on Linux
-        // and Windows a focused terminal keeps Ctrl+W for the shell.
-        val closeTab =
-            MenuItem("Close Tab").apply {
-                accelerator = KeyCodeCombination(KeyCode.W, KeyCombination.SHORTCUT_DOWN)
-                disableProperty().bind(editorArea.canCloseSelected.map { !it })
-                setOnAction { editorArea.closeSelected() }
-            }
-        val settings =
-            MenuItem("Settings…").apply {
-                accelerator = KeyCodeCombination(KeyCode.COMMA, KeyCombination.SHORTCUT_DOWN)
-                setOnAction { showSettings(stage) }
-            }
-        val opening =
-            arrayOf(
-                scratches.menuItem(stage),
-                scratches.generatedMenuItem(stage),
-                SeparatorMenuItem(),
-                openFolder,
-                openProject,
-            )
-        return Menu(
-            "File",
-            null,
-            *opening,
-            SeparatorMenuItem(),
-            save,
-            saveAll,
-            SeparatorMenuItem(),
-            closeTab,
-            SeparatorMenuItem(),
-            settings,
-        )
     }
 
     private val selectOpenedKey = KeyCodeCombination(KeyCode.F1, KeyCombination.ALT_DOWN)
