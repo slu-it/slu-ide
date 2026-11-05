@@ -42,3 +42,8 @@ with parts of speech, or phonemizing a whole sentence with its words mapped back
 ## Remembering the reading position after Stop
 Stop clears the highlight and the next Play starts at the caret. Remembering where the reading stopped (per tab text)
 would let Play continue there.
+
+## All Kokoro voices in a picker
+The tab offers four voices (accent and gender). Kokoro has 28 English voices with grades from A to F; a picker grouped by
+accent, with name, gender and grade, could offer them all. The first version listed them that way and was replaced by
+the two selectors for simplicity.

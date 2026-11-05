@@ -11,6 +11,7 @@ import javafx.beans.property.SimpleObjectProperty
 import javafx.beans.value.ObservableValue
 
 internal val HEART = Voice("af_heart", "Heart", "en-US", Gender.FEMALE, "A", "fake")
+internal val GEORGE = Voice("bm_george", "George", "en-GB", Gender.MALE, "C", "fake")
 internal val EMMA = Voice("bf_emma", "Emma", "en-GB", Gender.FEMALE, "B-", "fake")
 
 /** A reading the test drives: [emit] reports a state as the session's worker thread would, [at] sets the position. */
@@ -50,7 +51,7 @@ internal class FakeReading(
 
 /** A host without engine, sound or toolkit; a check answers at once with [problems] unless [holdChecks] is set. */
 internal class FakeHost(
-    override val voices: List<Voice> = listOf(HEART, EMMA),
+    override val voices: List<Voice> = listOf(HEART, EMMA, GEORGE),
     override val preferredVoiceId: String? = null,
     override val preferredSpeed: Double = 1.0,
 ) : ReadAloudHost {

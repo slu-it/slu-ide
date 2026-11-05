@@ -25,11 +25,6 @@
     -fx-opacity: 0.75;
 }
 
-.speech-voice-heading {
-    -fx-font-weight: bold;
-    -fx-opacity: 0.75;
-}
-
 .speech-notice {
     -fx-background-color: #e3eefc;
     -fx-border-color: transparent transparent #a9c4ec transparent;

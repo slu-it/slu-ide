@@ -98,18 +98,22 @@ class ReadAloudViewUiTest {
     }
 
     @Test
-    fun `the voice picker lists headings and voices, choosing one and a speed go to the model`(robot: FxRobot) {
-        @Suppress("UNCHECKED_CAST")
-        val voices = node("speech-voice") as ComboBox<VoiceItem>
-        assertEquals(
-            listOf("American English", "Heart", "British English", "Emma"),
-            fx { voices.items.map { (it as? VoiceItem.Heading)?.text ?: (it as VoiceItem.Entry).voice.name } },
-        )
+    fun `choosing an accent and a gender goes to the model, the selectors follow the voice, a speed too`(
+        robot: FxRobot,
+    ) {
+        val accent = node("speech-accent") as ComboBox<*>
+        val gender = node("speech-gender") as ComboBox<*>
+        assertEquals(listOf("en-US", "en-GB"), fx { accent.items.toList() })
+        assertEquals("American English", fx { accent.buttonCell.text })
 
-        robot.interact { voices.value = voices.items.last() }
+        robot.interact { accent.selectionModel.select(1) }
+        assertEquals("Female", fx { gender.buttonCell.text })
+        robot.interact { gender.selectionModel.select(1) }
         robot.interact { (node("speech-speed") as MenuButton).items[4].fire() }
 
-        assertEquals(listOf("bf_emma" to 1.0, "bf_emma" to 1.5), host.saved)
+        assertEquals(listOf("bf_emma" to 1.0, "bm_george" to 1.0, "bm_george" to 1.5), host.saved)
+        assertEquals("British English", fx { accent.buttonCell.text })
+        assertEquals("Male", fx { gender.buttonCell.text })
         assertEquals("1.5×", fx { (node("speech-speed") as MenuButton).text })
     }
 

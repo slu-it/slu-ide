@@ -2,7 +2,6 @@ package dev.sluide.speech.ui
 
 import dev.sluide.media.PlaybackSpeeds
 import dev.sluide.speech.engine.Gender
-import dev.sluide.speech.engine.Voice
 import javafx.geometry.Pos
 import javafx.scene.control.Button
 import javafx.scene.control.ComboBox
@@ -20,38 +19,8 @@ import org.kordamp.ikonli.materialdesign2.MaterialDesignP
 import org.kordamp.ikonli.materialdesign2.MaterialDesignS
 import kotlin.math.abs
 
-/** A row of the voice picker: a language heading, which cannot be chosen, or a voice. */
-internal sealed interface VoiceItem {
-    data class Heading(
-        val text: String,
-    ) : VoiceItem
-
-    data class Entry(
-        val voice: Voice,
-    ) : VoiceItem
-}
-
-/** The picker rows: [voices] under a heading per language, in their order. */
-internal fun voiceItems(voices: List<Voice>): List<VoiceItem> =
-    voices
-        .groupBy { it.language }
-        .flatMap { (language, group) ->
-            listOf(VoiceItem.Heading(languageName(language))) + group.map(VoiceItem::Entry)
-        }
-
-internal fun languageName(language: String): String =
-    when (language) {
-        "en-US" -> "American English"
-        "en-GB" -> "British English"
-        else -> language
-    }
-
-/** `Heart · female · A`. */
-internal fun voiceLabel(voice: Voice): String =
-    listOfNotNull(voice.name, if (voice.gender == Gender.FEMALE) "female" else "male", voice.grade).joinToString(" · ")
-
 /**
- * The toolbar of the Read Aloud tab: Play/Pause and Stop, the voice picker, the speed menu, and the status text at the
+ * The toolbar of the Read Aloud tab: Play/Pause and Stop, the accent and gender pickers, the speed menu, and the status text at the
  * right. It forwards the user's choices to [model] and shows what [show] is given.
  */
 internal class ReadAloudToolbar(
@@ -72,11 +41,22 @@ internal class ReadAloudToolbar(
             tooltip = Tooltip("Stop (Escape)")
             setOnAction { model.stop() }
         }
-    private val voice =
-        ComboBox<VoiceItem>().apply {
-            id = "speech-voice"
+    private val accent =
+        ComboBox<String>().apply {
+            id = "speech-accent"
             isFocusTraversable = false
-            items.setAll(voiceItems(model.voices))
+            tooltip = Tooltip("Accent")
+            setCellFactory { NamedCell(VoiceChoice::accentName) }
+            buttonCell = NamedCell(VoiceChoice::accentName)
+            items.setAll(VoiceChoice.accents(model.voices))
+        }
+    private val gender =
+        ComboBox<Gender>().apply {
+            id = "speech-gender"
+            isFocusTraversable = false
+            tooltip = Tooltip("Voice gender")
+            setCellFactory { NamedCell(VoiceChoice::genderName) }
+            buttonCell = NamedCell(VoiceChoice::genderName)
         }
     private val speed =
         MenuButton().apply {
@@ -107,7 +87,8 @@ internal class ReadAloudToolbar(
             6.0,
             play,
             stop,
-            voice,
+            accent,
+            gender,
             speed,
             Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
             status,
@@ -118,14 +99,18 @@ internal class ReadAloudToolbar(
 
     init {
         speed.items.addAll(speedItems)
-        voice.setCellFactory { VoiceCell() }
-        voice.buttonCell = VoiceCell()
-        voice.valueProperty().subscribe { _, item ->
-            if (updating) return@subscribe
-            when (item) {
-                is VoiceItem.Entry -> model.setVoice(item.voice)
-                else -> show(model.ui)
-            }
+        accent.valueProperty().subscribe { _, language ->
+            if (updating || language == null) return@subscribe
+            val voice = VoiceChoice.voiceFor(model.voices, language, model.ui.voice?.gender ?: Gender.FEMALE)
+            if (voice != null) model.setVoice(voice)
+            show(model.ui)
+        }
+        gender.valueProperty().subscribe { _, chosen ->
+            if (updating || chosen == null) return@subscribe
+            val language = accent.value ?: model.ui.voice?.language
+            val voice = language?.let { VoiceChoice.voiceFor(model.voices, it, chosen) }
+            if (voice != null) model.setVoice(voice)
+            show(model.ui)
         }
         play.setOnAction { if (mode == PlayMode.PLAY) model.play(caret()) else model.togglePause() }
         show(model.ui)
@@ -151,28 +136,24 @@ internal class ReadAloudToolbar(
         PlaybackSpeeds.ALL.forEachIndexed { i, rate -> speedItems[i].isSelected = abs(rate - ui.speed) < 1e-9 }
         updating = true
         try {
-            voice.value = voice.items.firstOrNull { it is VoiceItem.Entry && it.voice == ui.voice }
+            val shown = ui.voice
+            accent.value = shown?.language
+            gender.items.setAll(shown?.let { VoiceChoice.genders(model.voices, it.language) }.orEmpty())
+            gender.value = shown?.gender
         } finally {
             updating = false
         }
     }
 
-    private class VoiceCell : ListCell<VoiceItem>() {
+    private class NamedCell<T>(
+        private val name: (T) -> String,
+    ) : ListCell<T>() {
         override fun updateItem(
-            item: VoiceItem?,
+            item: T?,
             empty: Boolean,
         ) {
             super.updateItem(item, empty)
-            val heading = item is VoiceItem.Heading
-            isDisable = heading
-            styleClass.remove("speech-voice-heading")
-            if (heading) styleClass += "speech-voice-heading"
-            text =
-                when (item) {
-                    is VoiceItem.Heading -> item.text
-                    is VoiceItem.Entry -> voiceLabel(item.voice)
-                    null -> null
-                }
+            text = if (empty || item == null) null else name(item)
         }
     }
 }

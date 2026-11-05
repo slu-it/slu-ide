@@ -26,6 +26,10 @@ Options compared for the first engine, all running the Kokoro-82M model:
 
 ## Decision
 - **Engine:** ONNX Runtime Java (1.31.1) running Kokoro-82M, with phonemes from the `espeak-ng` CLI.
+- **Four voices:** the tab offers two selectors, accent (en-US, en-GB) and gender, as in the Python prototype. Each
+  combination is the best-graded Kokoro voice of that accent and gender, ties as in the prototype: `af_heart` (A),
+  `am_michael` (C+), `bf_emma` (B-), `bm_george` (C). The selectors are engine-neutral (they choose from
+  `SpeechEngines.voices` by language and gender); a remembered voice id that is not offered falls back to the first voice.
 - **Module** `speech` (package `dev.sluide.speech`), in the editor family: the tool is an editor tab
   ([ADR 0110](0110-tools-menu.md)) and adds "Read Aloud" to the code editors' context menu
   ([ADR 0108](0108-code-editor-extensions-and-context-menu.md)) and to the explorer for `.txt` and `.md` files.

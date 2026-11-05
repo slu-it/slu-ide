@@ -25,7 +25,7 @@ spoken strongly. English only for now.
 - Text, voice and speed belong to the window and survive closing the tab; closing the tab stops a reading.
 
 ## The tab
-The toolbar has, left to right: **Play/Pause** (one button), **Stop**, the **voice picker**, the **speed** (0.5 to 2×,
+The toolbar has, left to right: **Play/Pause** (one button), **Stop**, the **accent** (American or British English) and **gender** (Female, Male) selectors, the **speed** (0.5 to 2×,
 the media player's list) and, on the right, the status text: "Preparing…", "Sentence 3 of 40", "Paused", "Finished" or
 the error.
 - While idle the text is an editable plain text editor in the editor font: type or paste. **Play** starts at the
@@ -58,9 +58,19 @@ first clause mark (else at the last space before 120 characters), so the first a
 - The highlight always maps back to the text as shown, Markdown included.
 
 ## Voices
-All English Kokoro voices, in two groups, "American English" and "British English", best grade first. A label looks
-like "Heart · female · A": name, gender and the model's quality grade (A best, F worst). The default is Heart (`af_heart`)
-at 1×. The last voice and speed are remembered user-wide in the field `speech` of `~/.sluide/shared.json`
+Two selectors choose the voice: **accent** (American English, British English) and **gender** (Female, Male). Each
+combination is the best-graded Kokoro voice of that accent and gender (grade A best, F worst; ties as in the Python
+prototype):
+
+| Accent | Gender | Voice | Grade |
+|---|---|---|---|
+| American English | Female | Heart (`af_heart`, the default) | A |
+| American English | Male | Michael (`am_michael`) | C+ |
+| British English | Female | Emma (`bf_emma`) | B- |
+| British English | Male | George (`bm_george`) | C |
+
+The default speed is 1×. A remembered voice that is no longer offered (an older choice such as `af_bella`) falls back to
+Heart. The last voice and speed are remembered user-wide in the field `speech` of `~/.sluide/shared.json`
 ([ADR 0101](../adr/0101-shared-data-file.md)).
 
 ## Setup

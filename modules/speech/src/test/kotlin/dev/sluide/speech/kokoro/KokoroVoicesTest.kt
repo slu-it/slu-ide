@@ -9,61 +9,35 @@ class KokoroVoicesTest {
     private val all = KokoroVoices.all
 
     @Test
-    fun `has the 28 English voices with the default first`() {
-        assertEquals(28, all.size)
-        assertEquals(28, all.map { it.id }.toSet().size)
-        assertEquals("af_heart", all.first().id)
+    fun `offers one voice per accent and gender, the default first`() {
+        assertEquals(
+            listOf("af_heart", "am_michael", "bf_emma", "bm_george"),
+            all.map { it.id },
+        )
         assertTrue(all.all { it.engineId == "kokoro" })
     }
 
     @Test
-    fun `labels come from the id`() {
+    fun `the table is keyed by the language and gender of each voice`() {
+        assertEquals(4, KokoroVoices.BY_ACCENT_AND_GENDER.size)
+        KokoroVoices.BY_ACCENT_AND_GENDER.forEach { (key, voice) ->
+            assertEquals(key, voice.language to voice.gender)
+        }
+    }
+
+    @Test
+    fun `labels and grades`() {
         val heart = all.first()
         assertEquals("Heart", heart.name)
         assertEquals("en-US", heart.language)
         assertEquals(Gender.FEMALE, heart.gender)
-        assertEquals("A", heart.grade)
+        assertEquals(
+            listOf("A", "C+", "B-", "C"),
+            all.map { it.grade },
+        )
         val george = all.first { it.id == "bm_george" }
         assertEquals("George", george.name)
         assertEquals("en-GB", george.language)
         assertEquals(Gender.MALE, george.gender)
-        assertEquals("C", george.grade)
-    }
-
-    @Test
-    fun `American first, then British, each by grade and name`() {
-        assertEquals(
-            listOf(
-                "af_heart",
-                "af_bella",
-                "af_nicole",
-                "af_aoede",
-                "am_fenrir",
-                "af_kore",
-                "am_michael",
-                "am_puck",
-                "af_sarah",
-                "af_alloy",
-                "af_nova",
-                "af_sky",
-                "am_echo",
-                "am_eric",
-                "af_jessica",
-                "am_liam",
-                "am_onyx",
-                "af_river",
-                "am_santa",
-                "am_adam",
-                "bf_emma",
-                "bm_fable",
-                "bm_george",
-                "bf_isabella",
-                "bm_lewis",
-                "bf_alice",
-                "bm_daniel",
-                "bf_lily",
-            ),
-            all.map { it.id },
-        )
     }
 }
