@@ -140,7 +140,7 @@ internal class HttpFileView(
         }
 
     val toolbar =
-        HBox(runButton, cancelButton, environments, auth, clearCookies, message).apply {
+        HBox(editor.softWrapButton, runButton, cancelButton, environments, auth, clearCookies, message).apply {
             styleClass += "http-toolbar"
             alignment = Pos.CENTER_LEFT
             // The controls keep their size; the message after them is cut short when the view is narrow.

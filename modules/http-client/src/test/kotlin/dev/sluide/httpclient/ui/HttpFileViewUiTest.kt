@@ -18,6 +18,7 @@ import javafx.scene.control.ButtonType
 import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
 import javafx.scene.control.TextField
+import javafx.scene.control.ToggleButton
 import javafx.scene.input.Clipboard
 import javafx.scene.input.ClipboardContent
 import javafx.scene.input.KeyCode
@@ -45,6 +46,7 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -774,5 +776,17 @@ class HttpFileViewUiTest {
             "Could not paste cURL: Line 1 of the body starts with '<', which a .http file reads as a file to include",
             fx { view.message.tooltip.text },
         )
+    }
+
+    @Test
+    fun `the soft wrap button is first in the toolbar and wraps the editor`(robot: FxRobot) {
+        val view = openHosted("GET ${server.base}/echo\n", robot)
+        val button = view.toolbar.children.first()
+
+        assertIs<ToggleButton>(button)
+        assertTrue(button.isVisible)
+        assertFalse(robot.area().isWrapText)
+        robot.interact { button.fire() }
+        assertTrue(robot.area().isWrapText)
     }
 }

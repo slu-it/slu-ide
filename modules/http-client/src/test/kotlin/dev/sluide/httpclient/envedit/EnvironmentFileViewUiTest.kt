@@ -4,6 +4,7 @@ import javafx.event.ActionEvent
 import javafx.scene.control.Button
 import javafx.scene.control.CheckBox
 import javafx.scene.control.TextField
+import javafx.scene.control.ToggleButton
 import javafx.scene.layout.HBox
 import javafx.stage.Stage
 import org.fxmisc.richtext.CodeArea
@@ -234,5 +235,23 @@ internal class EnvironmentFileViewUiTest : EnvironmentFileViewUiFixture() {
         assertEquals(moved.resolveSibling("http-client.env.json"), view.otherFile)
         assertFalse(view.otherFile.exists())
         assertFalse(WaitForAsyncUtils.asyncFx<Boolean> { view.moved(dir.resolve("other.json")) }.get())
+    }
+
+    @Test
+    fun `the soft wrap button is first, follows the source side and wraps the editor`(robot: FxRobot) {
+        val view = open(robot, publicText, privateText)
+        val button = view.toolbar.children.first()
+        val (source, split, visual) = view.modeButtons
+
+        assertIs<ToggleButton>(button)
+        assertTrue(button.isVisible && button.isManaged)
+        robot.interact { visual.fire() }
+        assertFalse(button.isVisible || button.isManaged)
+        robot.interact { source.fire() }
+        assertTrue(button.isVisible && button.isManaged)
+        robot.interact { split.fire() }
+        assertFalse(robot.area().isWrapText)
+        robot.interact { button.fire() }
+        assertTrue(robot.area().isWrapText)
     }
 }

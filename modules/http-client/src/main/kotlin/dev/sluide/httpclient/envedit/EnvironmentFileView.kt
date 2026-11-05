@@ -105,6 +105,7 @@ internal class EnvironmentFileView(
 
     val toolbar =
         HBox(
+            editor.softWrapButton,
             addEnvironment,
             showValues,
             Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
@@ -218,6 +219,8 @@ internal class EnvironmentFileView(
     }
 
     private fun show(mode: EnvMode) {
+        editor.softWrapButton.isVisible = mode != EnvMode.VISUAL
+        editor.softWrapButton.isManaged = mode != EnvMode.VISUAL
         if (split.items.size == 2) dividerPosition = split.dividerPositions[0]
         when (mode) {
             EnvMode.SOURCE -> {
