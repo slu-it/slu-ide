@@ -1,0 +1,112 @@
+/*
+ * The Minesweeper tab. The pane, toolbar and cells use Modena's looked-up colours, so they follow the theme; the number
+ * colours, the flag and the hit cell are our own and have a dark counterpart in the media block below.
+ */
+.minesweeper {
+    -fx-background-color: -fx-background;
+}
+
+/* Like .preview-toolbar of previews; keep in sync. */
+.ms-toolbar {
+    -fx-padding: 2 6 2 6;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
+}
+
+.ms-toolbar .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.ms-status-bar {
+    -fx-padding: 2 8 2 8;
+}
+
+.ms-status {
+    -fx-opacity: 0.7;
+    -fx-min-height: 1.4em;
+}
+
+.ms-scroll, .ms-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+.ms-cell {
+    -fx-alignment: center;
+    -fx-font-weight: bold;
+}
+
+.ms-closed, .ms-flag {
+    -fx-background-color: derive(-fx-background, 14%);
+    -fx-border-color: derive(-fx-background, -30%);
+    -fx-border-width: 0.5;
+}
+
+.ms-opened, .ms-mine, .ms-wrong {
+    -fx-background-color: derive(-fx-background, -4%);
+    -fx-border-color: derive(-fx-background, -20%);
+    -fx-border-width: 0.5;
+}
+
+.ms-hit {
+    -fx-background-color: #e53935;
+    -fx-border-color: derive(-fx-background, -20%);
+    -fx-border-width: 0.5;
+}
+
+.ms-cursor {
+    -fx-border-color: -fx-accent;
+    -fx-border-width: 2;
+}
+
+.ms-mine-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.ms-hit-icon {
+    -fx-icon-color: white;
+}
+
+.ms-flag-icon {
+    -fx-icon-color: #d32f2f;
+}
+
+.ms-cross-icon {
+    -fx-icon-color: #212121;
+}
+
+.ms-n1 { -fx-text-fill: #1565c0; }
+.ms-n2 { -fx-text-fill: #2e7d32; }
+.ms-n3 { -fx-text-fill: #c62828; }
+.ms-n4 { -fx-text-fill: #283593; }
+.ms-n5 { -fx-text-fill: #8d4b12; }
+.ms-n6 { -fx-text-fill: #00838f; }
+.ms-n7 { -fx-text-fill: #212121; }
+.ms-n8 { -fx-text-fill: #757575; }
+
+.ms-overlay {
+    -fx-background-color: -fx-background;
+}
+
+.ms-paused-title {
+    -fx-font-size: 2em;
+    -fx-font-weight: bold;
+}
+
+.ms-paused-hint {
+    -fx-opacity: 0.7;
+}
+
+@media (prefers-color-scheme: dark) {
+    .ms-hit { -fx-background-color: #b71c1c; }
+    .ms-hit-icon { -fx-icon-color: white; }
+    .ms-flag-icon { -fx-icon-color: #ef5350; }
+    .ms-cross-icon { -fx-icon-color: #e0e0e0; }
+    .ms-n1 { -fx-text-fill: #64b5f6; }
+    .ms-n2 { -fx-text-fill: #81c784; }
+    .ms-n3 { -fx-text-fill: #e57373; }
+    .ms-n4 { -fx-text-fill: #9fa8da; }
+    .ms-n5 { -fx-text-fill: #ffb74d; }
+    .ms-n6 { -fx-text-fill: #4dd0e1; }
+    .ms-n7 { -fx-text-fill: #e0e0e0; }
+    .ms-n8 { -fx-text-fill: #9e9e9e; }
+}
