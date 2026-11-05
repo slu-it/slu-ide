@@ -30,6 +30,10 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
 - Icons: Ikonli Material Design 2 `FontIcon` (ADR 0012), coloured by the stylesheet with
   `-fx-icon-color: -fx-text-base-color` so they follow the theme. Style the toolbar like `preview-view.css`
   (`.preview-toolbar`): no new colours, small padding.
+  Icons in a control's context menu (`Control.contextMenu`) are the exception: that menu is shown relative to the
+  window, so only the scene root's stylesheets reach it, not the module's. Colour them inline by appending to the
+  icon's own style (a `FontIcon` keeps its glyph font there) with `-fx-icon-color: -fx-text-background-color`, which
+  also follows the highlighted item (`FILE_ACTION_ICON_STYLE` in the explorer's `ExplorerMenu.kt`).
 
 ## Tool and service tabs
 - Tools menu (Coloring, Codecs, Converting, Read Aloud, Translate) and Services menu (Docker, Databases) after Docker Sandbox in the menu bar
