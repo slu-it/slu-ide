@@ -47,6 +47,9 @@ Write the plan to the plan file plan mode names:
 - **Order**: what runs in parallel worktrees (at most three), what waits.
 - **Verification**: targeted tests per package, the final gate, the real-app check with `run-app.sh` in the dark
   theme, what cannot be checked in the sandbox.
+- **Network**: a feature that downloads (models, packages) names every host the sandbox must allow, redirect targets
+  included (Hugging Face files redirect to `us.aws.cdn.hf.co`), and asks the user once before the round starts. The
+  real-model or real-service check runs right after the engine package, before packages build on its assumptions.
 Then `ExitPlanMode`.
 
 ## 6. Round note

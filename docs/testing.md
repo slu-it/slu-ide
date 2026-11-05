@@ -158,6 +158,9 @@ CI once.
   (the sentence highlight shows), but its played-frames count jumps per write, so the word highlight cannot be seen
   there. For a real reading, link `~/.sluide/models/kokoro-v1.0` into the throwaway home `run-app.sh` prints
   (espeak-ng is installed with apt): Download in the tab then finds the files and the notice goes away.
+  For a real translation, link the pair folders of `~/.sluide/models/opus-mt/` (`de-en`, ...) into
+  `<home>/.sluide/models/opus-mt/`; a model the app downloads itself lands in the throwaway home and is gone after
+  `--stop`. The catalog's URLs and sha256 values download them by hand (`curl -L`, then `sha256sum`).
 
 ## Running and screenshotting the real app (headless Linux sandbox)
 ```bash
