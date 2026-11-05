@@ -113,8 +113,9 @@
     is at least one.
   - File actions (`FileAction`: label, optional icon, `appliesTo`, `perform`; set by the window as `fileActions`)
     follow Open. They are listed only when the menu is for exactly one regular file they apply to
-    (`fileActionsFor`), never disabled, and run on that file. Their icons take the colour of the menu's text
-    (`file-action-icon`), in both themes. The window adds **Run** (play icon) for files whose
+    (`fileActionsFor`), never disabled, and run on that file. Their icons take the colour of the menu's text,
+    in both themes and on the highlighted item (an inline style: the menu does not see the explorer's
+    stylesheets). The window adds **Run** (play icon) for files whose
     viewer can run them, e.g. shell scripts: it opens the file's tab and runs it there
     ([shell-scripts.md](shell-scripts.md)).
   - Compare Files follows, only while the window sets `compareFiles`: enabled for exactly two regular files, which it

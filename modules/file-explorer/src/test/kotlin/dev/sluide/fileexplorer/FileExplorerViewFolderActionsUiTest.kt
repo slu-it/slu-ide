@@ -6,12 +6,16 @@ import javafx.scene.control.Labeled
 import javafx.scene.control.MenuItem
 import javafx.scene.input.ContextMenuEvent
 import javafx.scene.layout.Region
+import javafx.scene.layout.StackPane
 import javafx.scene.paint.Color
 import javafx.scene.paint.Paint
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.kordamp.ikonli.javafx.FontIcon
+import org.kordamp.ikonli.materialdesign2.MaterialDesignP
 import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
@@ -34,8 +38,9 @@ import kotlin.test.assertTrue
 class FileExplorerViewFolderActionsUiTest : FileExplorerViewUiFixture() {
     private val ranOn = mutableListOf<Path>()
 
+    // Nested, as in the main window: the menu sees the view's stylesheets only when the view is the scene's root.
     @Start
-    fun start(stage: Stage) = startView(stage)
+    fun start(stage: Stage) = startView(stage, wrap = { StackPane(it) })
 
     private fun menuTexts(
         robot: FxRobot,
@@ -148,13 +153,18 @@ class FileExplorerViewFolderActionsUiTest : FileExplorerViewUiFixture() {
         assertEquals(listOf(project.resolve("run.txt")), performed)
     }
 
-    @Test
-    fun `the icon of a file action has the colour of the menu's text, also on a dark base`(robot: FxRobot) {
+    @ParameterizedTest(name = "dark = {0}")
+    @ValueSource(booleans = [false, true])
+    fun `the icon of a file action has the colour of the menu's text, also focused`(
+        dark: Boolean,
+        robot: FxRobot,
+    ) {
         project.resolve("run.txt").createFile()
         openProject(robot)
-        view.fileActions = listOf(FileAction("Run", { FontIcon() }, { true }) {})
-        // Dark like the dark theme, which re-tints Modena's base colour: an icon left black would vanish.
-        robot.interact { view.scene.stylesheets += "data:text/css,.root { -fx-base: %232b2b2b; }" }
+        view.fileActions = listOf(FileAction("Run", { FontIcon(MaterialDesignP.PLAY) }, { true }) {})
+        // Dark like the dark theme, which re-tints Modena's colours: an icon left black would vanish.
+        val darkCss = "data:text/css,.root { -fx-base: %233c3f41; -fx-background: %232b2b2b; }"
+        if (dark) robot.interact { view.scene.stylesheets += darkCss }
 
         robot.interact {
             val cell = cellNamed(robot, "run.txt")
@@ -163,12 +173,22 @@ class FileExplorerViewFolderActionsUiTest : FileExplorerViewUiFixture() {
                 ContextMenuEvent(ContextMenuEvent.CONTEXT_MENU_REQUESTED, 1.0, 1.0, 1.0, 1.0, false, null),
             )
         }
+        val icon = {
+            view.contextMenu.items
+                .single { it.text == "Run" }
+                .graphic as FontIcon
+        }
+        val label = { robot.lookup(".context-menu .label").queryAll<Labeled>().first { it.text == "Run" } }
         robot.interact {
-            val item = view.contextMenu.items.single { it.text == "Run" }
-            val icon = item.graphic as FontIcon
-            val label = robot.lookup(".context-menu .label").queryAll<Labeled>().first { it.text == "Run" }
-            assertEquals(label.textFill, icon.iconColor)
-            assertNotEquals<Paint>(Color.BLACK, icon.iconColor)
+            assertEquals(label().textFill, icon().iconColor)
+            // The glyph font stays (a replaced inline style showed an empty box in the label's font).
+            assertNotEquals(label().font.family, icon().font.family)
+            if (dark) assertNotEquals<Paint>(Color.BLACK, icon().iconColor)
+            label().parent.requestFocus()
+        }
+        robot.interact {
+            assertTrue(label().parent.isFocused)
+            assertEquals(label().textFill, icon().iconColor, "on the focused item")
             view.contextMenu.hide()
         }
     }

@@ -237,8 +237,11 @@ internal fun buildExplorerMenu(host: ExplorerMenuHost): ContextMenu {
             fileActionItems.clear()
             val paths = targets.map { it.value }
             fileActionsFor(paths, Files::isRegularFile, host.fileActions()).mapTo(fileActionItems) { action ->
-                // The icon takes the colour of the item's text (file-explorer.css), in both themes.
-                val icon = action.icon?.invoke()?.apply { styleClass += "file-action-icon" }
+                // The icon takes the colour of the item's text, in both themes and on the focused item. Inline: a
+                // Control's context menu is shown relative to the window, without owner node, so its styleable parent
+                // is the scene root and the view's stylesheets never reach it; Modena's text colour over -fx-background
+                // follows the focused item's highlight. Appended: an ikonli FontIcon keeps its glyph font inline.
+                val icon = action.icon?.invoke()?.apply { style = "$style $FILE_ACTION_ICON_STYLE".trim() }
                 MenuItem(action.label, icon).apply { setOnAction { action.perform(paths.single()) } }
             }
             items.addAll(items.indexOf(open) + 1, fileActionItems)
@@ -289,3 +292,9 @@ private fun shortcutItem(
         accelerator = ShownKeys(keys)
         setOnAction { action() }
     }
+
+/**
+ * The colour of a file action's icon: Modena's text colour over the item's background, the same as the item's text in
+ * Modena and the dark theme (`theme.css`).
+ */
+internal const val FILE_ACTION_ICON_STYLE = "-fx-icon-color: -fx-text-background-color;"
