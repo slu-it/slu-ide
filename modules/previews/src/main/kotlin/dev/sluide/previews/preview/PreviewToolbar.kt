@@ -37,6 +37,7 @@ internal class PreviewToolbar(
     folds: FoldControls?,
     copy: CopyFormattedControls?,
     webView: WebView,
+    softWrap: Node,
     contributed: ObservableList<Node> = FXCollections.emptyObservableList(),
 ) {
     val buttons =
@@ -80,31 +81,34 @@ internal class PreviewToolbar(
             it.visibleProperty().bind(mode.map { m -> m != PreviewMode.SOURCE })
             it.managedProperty().bind(it.visibleProperty())
         }
+        softWrap.visibleProperty().bind(mode.map { it != PreviewMode.PREVIEW })
+        softWrap.managedProperty().bind(softWrap.visibleProperty())
         val extras =
-            if (preview.offersScripts) {
-                listOf(
-                    ToggleButton("Scripts").apply {
-                        styleClass += "preview-scripts"
-                        tooltip = Tooltip("Run the page's scripts. They can read the files served with the page.")
-                        selectedProperty().bindBidirectional(scripts)
-                    },
-                    contributedBox,
-                )
-            } else if (toc != null) {
-                listOf(toc.button, contributedBox)
-            } else if (preview.zooms) {
-                listOf(zoom.node, contributedBox)
-            } else if (folds != null) {
-                folds.node.visibleProperty().bind(mode.map { it != PreviewMode.SOURCE })
-                folds.node.managedProperty().bind(folds.node.visibleProperty())
-                copy?.node?.let { copyNode ->
-                    copyNode.visibleProperty().bind(mode.map { it != PreviewMode.SOURCE })
-                    copyNode.managedProperty().bind(copyNode.visibleProperty())
+            listOf<Node>(softWrap) +
+                if (preview.offersScripts) {
+                    listOf(
+                        ToggleButton("Scripts").apply {
+                            styleClass += "preview-scripts"
+                            tooltip = Tooltip("Run the page's scripts. They can read the files served with the page.")
+                            selectedProperty().bindBidirectional(scripts)
+                        },
+                        contributedBox,
+                    )
+                } else if (toc != null) {
+                    listOf(toc.button, contributedBox)
+                } else if (preview.zooms) {
+                    listOf(zoom.node, contributedBox)
+                } else if (folds != null) {
+                    folds.node.visibleProperty().bind(mode.map { it != PreviewMode.SOURCE })
+                    folds.node.managedProperty().bind(folds.node.visibleProperty())
+                    copy?.node?.let { copyNode ->
+                        copyNode.visibleProperty().bind(mode.map { it != PreviewMode.SOURCE })
+                        copyNode.managedProperty().bind(copyNode.visibleProperty())
+                    }
+                    listOfNotNull(folds.node, copy?.node, contributedBox)
+                } else {
+                    listOf(contributedBox)
                 }
-                listOfNotNull(folds.node, copy?.node, contributedBox)
-            } else {
-                listOf(contributedBox)
-            }
         zoom.node.visibleProperty().bind(mode.map { it != PreviewMode.SOURCE })
         zoom.node.managedProperty().bind(zoom.node.visibleProperty())
         zoom.install(webView)

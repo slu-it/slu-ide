@@ -144,6 +144,23 @@ class PreviewFileViewUiTest {
     }
 
     @Test
+    fun `the soft wrap button comes first in the toolbar and hides in the preview`(robot: FxRobot) {
+        val (_, view) = show(robot, "# Title\n")
+        val toolbar = robot.lookup(".preview-toolbar").queryAs(HBox::class.java)
+        val button = view.source.softWrapButton
+
+        assertSame(button, toolbar.children.first())
+        assertTrue(button.isVisible && button.isManaged, "visible in Split")
+
+        robot.interact { robot.modeButton(PreviewMode.PREVIEW).fire() }
+        assertFalse(button.isVisible || button.isManaged, "hidden in Preview")
+
+        robot.interact { robot.modeButton(PreviewMode.SOURCE).fire() }
+        assertTrue(button.isVisible && button.isManaged, "visible in Source")
+        assertSame(button, toolbar.children.first())
+    }
+
+    @Test
     fun `reload updates source and preview`(robot: FxRobot) {
         val (file, view) = show(robot, "# Before\n")
 

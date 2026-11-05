@@ -262,17 +262,23 @@ class DocumentZoomUiTest {
 
     @Test
     fun `the left of the toolbar keeps the buttons of the preview`(robot: FxRobot) {
+        // Soft Wrap of the source comes first (ADR 0130), then the preview's own buttons.
         val json = showAtOnce(robot, kinds[0])
         val jsonChildren = fx { json.toolbar().children.toList() }
-        assertSame(json.folds!!.node, jsonChildren[0], "Collapse and Expand first")
-        assertSame(json.copyFormatted!!.node, jsonChildren[1], "then Copy Formatted")
+        assertSame(json.source.softWrapButton, jsonChildren[0], "Soft Wrap first")
+        assertSame(json.folds!!.node, jsonChildren[1], "then Collapse and Expand")
+        assertSame(json.copyFormatted!!.node, jsonChildren[2], "then Copy Formatted")
 
         val markdown = showAtOnce(robot, kinds[1])
-        assertSame(markdown.toc!!.button, fx { markdown.toolbar().children[0] }, "the table of contents first")
+        assertSame(
+            markdown.toc!!.button,
+            fx { markdown.toolbar().children[1] },
+            "the table of contents after Soft Wrap",
+        )
 
         val html = showAtOnce(robot, kinds[2])
-        val first = fx { html.toolbar().children[0] }
-        assertTrue(first is ToggleButton && first.text == "Scripts", "Scripts first")
+        val first = fx { html.toolbar().children[1] }
+        assertTrue(first is ToggleButton && first.text == "Scripts", "Scripts after Soft Wrap")
         assertFalse(html.scripts.get(), "scripts are off by default")
     }
 

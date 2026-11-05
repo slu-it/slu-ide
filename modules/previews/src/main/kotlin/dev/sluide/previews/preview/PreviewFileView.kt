@@ -236,6 +236,7 @@ internal class PreviewFileView(
             folds,
             copyFormatted,
             webView,
+            source.softWrapButton,
             source.toolbarItems,
         )
     private val buttons = toolbar.buttons
