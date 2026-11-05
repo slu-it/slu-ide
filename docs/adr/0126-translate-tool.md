@@ -30,9 +30,18 @@ models for 75 languages, 80 MB), fastText `lid.176` (Meta, CC-BY-SA, needs a rea
 - **Models** are pinned in a catalog resource (Hugging Face URL at a fixed commit, size, sha256 per file), downloaded
   through `local-models` (ADR 0125) on an explicit Download in the tab's notice, stored in
   `~/.sluide/models/opus-mt/<src>-<tgt>/`. After the download the translation starts by itself.
-- **Detection:** Lingua in low-accuracy mode over the whole text, limited to the offered languages it knows. The fat
-  jar keeps only its unigram, bigram and trigram models (about 5 MB of the 80 MB; the larger n-gram models are what
-  high-accuracy mode adds).
+- **Detection:** Lingua in low-accuracy mode over the first 10 000 characters, limited to the offered languages it
+  knows (by ISO 639-1 code; fewer than two known means no answer). Low-accuracy mode reads the unigram, bigram and
+  trigram models, never the quadri- and fivegrams (a test jar without them detects as before; trigrams alone were not
+  enough, Swedish came out empty). The fat jar therefore keeps those three per language: 5.6 MB instead of 80 MB
+  (`linguaSmallModels` in `ide/build.gradle.kts`, which jpackage inherits through `bootJar`). The answer is null when
+  Lingua finds nothing or when the runner-up's confidence is above 0.9 of the best one's (Lingua's values are relative,
+  the best is 1.0): "Guten Tag" 0.50, a German sentence 0.67, an English one 0.80, "The server" 0.92, "Hello world"
+  0.96. The rule is not a short-text guard: the ratio settles by language closeness, so close languages that are both
+  offered (Croatian and Bosnian, Indonesian and Malay, Bokmål and Danish near the edge) are never told apart,
+  however long the text. Building a detector is cheap; the models load on the first detection into Lingua's
+  JVM-wide static maps, shared by all detectors, and stay in memory for the session (40 languages: about 0.1 s and
+  27 MB of heap, later detections instant).
 - **Text:** sentences via `SentenceRanges` (`text-editing`), translated one by one with a per-window cache, so an edit
   retranslates only the changed sentences. With the Markdown toggle on (set from `.md`/`.markdown` file names),
   markup is kept verbatim and only the text is translated.
@@ -50,6 +59,9 @@ Rejected:
 
 ## Consequences
 - Translation works offline once a pair's models (about 110 MB per direction in Medium) are downloaded.
-- The app grows by Lingua and its small models (a few MB) and no new natives (ONNX Runtime is already in).
+- The fat jar grows by 33 MB (102.7 to 135.7 MB): Lingua's small models 5.6 MB, its dependencies fastutil 23.4 MB,
+  kotlin-reflect 3.6 MB, moshi and okio 0.4 MB; no new natives (ONNX Runtime is already in). Lingua uses only
+  `Object2FloatMap` and `Object2FloatOpenHashMap` of fastutil, but `fastutil-core` (6 MB) lacks the latter; a filtered
+  fastutil jar would save about 22 MB and is left undone.
 - Opus-MT translates sentence by sentence without context across sentences; quality is below commercial services.
 - The model attribution (OPUS-MT, CC-BY 4.0) is shown in Settings → Translation.

@@ -67,6 +67,7 @@ dependencies {
     // The Read Aloud tool: a tab opened from the Tools menu, one per window; KokoroEngine and its settings page are found
     // by component scan (ADR 0124).
     implementation(project(":modules:speech"))
+    implementation(project(":modules:translation"))
     // Saved secrets: values encrypted with one key in the OS secret store; Secrets is a singleton (ADR 0122).
     implementation(project(":modules:secrets"))
     // The explorer's Run item has a Material Design play icon, like the HTTP client's Run (ADR 0012).
@@ -142,6 +143,44 @@ if (onnxNativeFolder != null) {
         val bootClasspath = classpath ?: files()
         setClasspath(files(bootClasspath.filter { file -> file !in original }, onnxRuntimeForPlatform))
     }
+}
+
+// Lingua's jar holds five n-gram model files per language (about 80 MB); the translation module detects in
+// low-accuracy mode, which reads the uni-, bi- and trigrams only (5.6 MB), so the fat jar drops the quadri- and
+// fivegrams (ADR 0126). The module's own tests keep using the full jar.
+val lingua =
+    configurations.create("lingua") {
+        isCanBeConsumed = false
+        isTransitive = false
+    }
+
+dependencies { lingua(libs.lingua) }
+
+val linguaJars: FileCollection = lingua.incoming.files
+
+val linguaSmallModels =
+    tasks.register<Jar>("linguaSmallModels") {
+        description = "Lingua's jar without the quadrigram and fivegram models."
+        val jars = linguaJars
+        // The original file name, so that the fat jar lists the same library.
+        archiveFileName = provider { jars.singleFile.name }
+        destinationDirectory = layout.buildDirectory.dir("lingua")
+        from({ zipTree(jars.singleFile) }) {
+            exclude("language-models/*/quadrigrams.json", "language-models/*/fivegrams.json")
+            exclude("META-INF/MANIFEST.MF")
+        }
+    }
+
+tasks.bootJar {
+    val original = linguaJars.files
+    val onClasspath =
+        configurations.runtimeClasspath
+            .get()
+            .files
+            .any { it in original }
+    check(onClasspath) { "lingua is not on the runtime classpath as ${original.map { it.name }}" }
+    val bootClasspath = classpath ?: files()
+    setClasspath(files(bootClasspath.filter { file -> file !in original }, linguaSmallModels))
 }
 
 // Native app with its own Java runtime (docs/adr/0011-native-app-packaging.md): `jpackageImage` builds Thoreau.app on
