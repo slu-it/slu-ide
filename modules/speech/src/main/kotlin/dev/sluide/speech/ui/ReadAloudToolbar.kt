@@ -20,8 +20,8 @@ import org.kordamp.ikonli.materialdesign2.MaterialDesignS
 import kotlin.math.abs
 
 /**
- * The toolbar of the Read Aloud tab: Play/Pause and Stop, the accent and gender pickers, the speed menu, and the status text at the
- * right. It forwards the user's choices to [model] and shows what [show] is given.
+ * The toolbar of the Read Aloud tab: Play/Pause and Stop, the accent and gender pickers, the speed menu, and the status
+ * text at the right. It forwards the user's choices to [model] and shows what [show] is given.
  */
 internal class ReadAloudToolbar(
     private val model: ReadAloudModel,
@@ -138,7 +138,9 @@ internal class ReadAloudToolbar(
         try {
             val shown = ui.voice
             accent.value = shown?.language
-            gender.items.setAll(shown?.let { VoiceChoice.genders(model.voices, it.language) }.orEmpty())
+            // Replaced only when they differ: show() runs at least once per sentence, and an open list would reset.
+            val genders = shown?.let { VoiceChoice.genders(model.voices, it.language) }.orEmpty()
+            if (gender.items != genders) gender.items.setAll(genders)
             gender.value = shown?.gender
         } finally {
             updating = false

@@ -25,9 +25,9 @@ spoken strongly. English only for now.
 - Text, voice and speed belong to the window and survive closing the tab; closing the tab stops a reading.
 
 ## The tab
-The toolbar has, left to right: **Play/Pause** (one button), **Stop**, the **accent** (American or British English) and **gender** (Female, Male) selectors, the **speed** (0.5 to 2×,
-the media player's list) and, on the right, the status text: "Preparing…", "Sentence 3 of 40", "Paused", "Finished" or
-the error.
+The toolbar has, left to right: **Play/Pause** (one button), **Stop**, the **accent** (American or British English)
+and **gender** (Female, Male) selectors, the **speed** (0.5 to 2×, the media player's list) and, on the right, the
+status text: "Preparing…", "Sentence 3 of 40", "Paused", "Finished" or the error.
 - While idle the text is an editable plain text editor in the editor font: type or paste. **Play** starts at the
   sentence with the caret. While a reading is preparing, speaking or paused the text is locked (read-only; selecting and
   moving the caret still work) and **Stop** unlocks it. The next Play starts at the caret's sentence again.
