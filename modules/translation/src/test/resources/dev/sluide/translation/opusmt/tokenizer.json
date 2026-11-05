@@ -1,0 +1,59 @@
+{
+ "version": "1.0",
+ "truncation": null,
+ "padding": null,
+ "added_tokens": [
+  {"id": 0, "content": "</s>", "single_word": false, "lstrip": false, "rstrip": false, "normalized": false, "special": true},
+  {"id": 1, "content": "<unk>", "single_word": false, "lstrip": false, "rstrip": false, "normalized": false, "special": true},
+  {"id": 25, "content": "<pad>", "single_word": false, "lstrip": false, "rstrip": false, "normalized": false, "special": true}
+ ],
+ "normalizer": {"type": "Precompiled", "precompiled_charsmap": null},
+ "pre_tokenizer": {
+  "type": "Sequence",
+  "pretokenizers": [
+   {"type": "WhitespaceSplit"},
+   {"type": "Metaspace", "replacement": "▁", "add_prefix_space": true}
+  ]
+ },
+ "post_processor": {
+  "type": "TemplateProcessing",
+  "single": [{"Sequence": {"id": "A", "type_id": 0}}, {"SpecialToken": {"id": "</s>", "type_id": 0}}],
+  "pair": [],
+  "special_tokens": {"</s>": {"id": "</s>", "ids": [0], "tokens": ["</s>"]}}
+ },
+ "decoder": {"type": "Metaspace", "replacement": "▁", "add_prefix_space": true},
+ "model": {
+  "type": "Unigram",
+  "unk_id": 2,
+  "vocab": [
+   ["</s>", 0.0],
+   ["<unk>", 0.0],
+   [",", -3.0],
+   ["▁", -2.0],
+   ["▁Hello", -1.0],
+   ["▁world", -1.5],
+   [".", -2.0],
+   ["▁wor", -3.0],
+   ["ld", -3.0],
+   ["▁he", -2.5],
+   ["llo", -2.5],
+   ["▁hel", -1.0],
+   ["h", -4.0],
+   ["e", -4.0],
+   ["l", -4.0],
+   ["o", -4.0],
+   ["▁don", -2.0],
+   ["'t", -2.0],
+   ["'", -3.0],
+   ["!", -3.0],
+   ["a", -4.0],
+   ["b", -4.0],
+   ["▁ab", -3.5],
+   ["?", -3.0],
+   ["，", -3.0],
+   ["<pad>", 0.0],
+   [">>xx<<", 0.0]
+  ],
+  "byte_fallback": false
+ }
+}
