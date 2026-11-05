@@ -1,7 +1,7 @@
 package dev.sluide.speech.kokoro
 
 import ai.onnxruntime.OrtException
-import dev.sluide.backgroundtasks.NamedThreads
+import dev.sluide.localmodels.IdleSession
 import dev.sluide.speech.engine.SetupProblem
 import dev.sluide.speech.engine.SpeechChunk
 import dev.sluide.speech.engine.SpeechEngine
@@ -16,19 +16,17 @@ import org.springframework.beans.factory.DisposableBean
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
 import java.nio.file.Path
-import java.util.concurrent.ScheduledExecutorService
-import java.util.concurrent.ScheduledFuture
-import java.util.concurrent.ScheduledThreadPoolExecutor
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.locks.ReentrantLock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
 
 private const val SAMPLE_RATE = 24_000
-private const val IDLE_UNLOAD_MILLIS = 5L * 60 * 1000
+private val IDLE_UNLOAD = 5.minutes
+private const val SHUTTING_DOWN = "The Kokoro engine is shutting down."
 
 /**
- * Speaks English with Kokoro-82M through ONNX Runtime (ADR 0124). One model session app-wide: [synthesize] calls are
- * serialized, the session loads on the first call (on the caller's thread), is replaced when the settings name another
- * variant, and is closed five minutes after the last call and in [destroy].
+ * Speaks English with Kokoro-82M through ONNX Runtime (ADR 0124). One model session app-wide, an [IdleSession]
+ * (ADR 0125): [synthesize] calls are serialized, the session loads on the first call (on the caller's thread), is
+ * replaced when the settings name another variant, and is closed five minutes after the last call and in [destroy].
  *
  * Native calls pin virtual threads: callers use platform threads (the reading session does).
  */
@@ -40,8 +38,7 @@ class KokoroEngine internal constructor(
     private val tokenizer: KokoroTokenizer,
     private val voicesFactory: (Path) -> StyleSource,
     private val modelFactory: (Path) -> KokoroModel,
-    private val scheduler: ScheduledExecutorService,
-    private val idleMillis: Long,
+    idle: Duration,
 ) : SpeechEngine,
     DisposableBean {
     @Autowired
@@ -57,15 +54,10 @@ class KokoroEngine internal constructor(
         KokoroTokenizer(Espeak(locator::locate)::phonemes, KokoroVocab.load()),
         ::NpzVoices,
         ::KokoroSession,
-        (NamedThreads.scheduled("kokoro-idle") as ScheduledThreadPoolExecutor).also { it.removeOnCancelPolicy = true },
-        IDLE_UNLOAD_MILLIS,
+        IDLE_UNLOAD,
     )
 
-    private val lock = ReentrantLock()
-    private var model: KokoroModel? = null
-    private var loadedVariant: KokoroVariant? = null
-    private var styles: StyleSource? = null
-    private var idleTask: ScheduledFuture<*>? = null
+    private val session = IdleSession("kokoro-idle", idle) { LoadedKokoro() }
 
     @Volatile private var destroyed = false
 
@@ -79,7 +71,7 @@ class KokoroEngine internal constructor(
     override val voices: List<Voice> = KokoroVoices.all
 
     override fun problems(): List<SetupProblem> {
-        if (destroyed) return listOf(SetupProblem.Broken("The Kokoro engine is shutting down."))
+        if (destroyed) return listOf(SetupProblem.Broken(SHUTTING_DOWN))
         val problems = ArrayList<SetupProblem>()
         val variant = settings.currentVariant()
         if (!store.installed(variant)) {
@@ -98,22 +90,24 @@ class KokoroEngine internal constructor(
         voice: Voice,
         speed: Double,
     ): SynthesizedChunk {
-        lock.lockInterruptibly()
+        if (destroyed) throw SpeechException(SHUTTING_DOWN)
         try {
-            return synthesizeLocked(chunk, voice, speed.toFloat().coerceIn(0.5f, 2.0f))
-        } finally {
-            // destroy() may have run during the synthesis: it found no session to close yet, so close it here
-            if (destroyed) unloadLocked() else scheduleUnload()
-            lock.unlock()
+            return session.use { loaded ->
+                synthesizeLocked(loaded, chunk, voice, speed.toFloat().coerceIn(0.5f, 2.0f))
+            }
+        } catch (e: IllegalStateException) {
+            // destroy() closed the session between the check above and the use
+            if (destroyed) throw SpeechException(SHUTTING_DOWN, e)
+            throw e
         }
     }
 
     private fun synthesizeLocked(
+        loaded: LoadedKokoro,
         chunk: SpeechChunk,
         voice: Voice,
         speed: Float,
     ): SynthesizedChunk {
-        if (destroyed) throw SpeechException("The Kokoro engine is shutting down.")
         val variant = settings.currentVariant()
         if (!store.installed(variant)) throw SpeechException("The Kokoro voice model is not installed.")
         if (locator.locate() == null) {
@@ -130,7 +124,7 @@ class KokoroEngine internal constructor(
                 words.addAll(Timings.words(piece.words, FloatArray(2), 0, total))
                 continue
             }
-            val (waveform, durations) = runPiece(variant, piece, voice, speed)
+            val (waveform, durations) = runPiece(loaded, variant, piece, voice, speed)
             words.addAll(Timings.words(piece.words, durations, waveform.size, total))
             samples.add(waveform)
             total += waveform.size
@@ -145,79 +139,65 @@ class KokoroEngine internal constructor(
     }
 
     private fun runPiece(
+        loaded: LoadedKokoro,
         variant: KokoroVariant,
         piece: TokenizedChunk,
         voice: Voice,
         speed: Float,
     ): Pair<FloatArray, FloatArray> {
         try {
-            val loaded = ensureLoaded(variant)
-            val style = styles?.style(voice.id, piece.ids.size) ?: throw SpeechException("Kokoro is not loaded.")
-            return loaded.run(piece.ids, style, speed)
+            val (model, styles) = loaded.ensure(variant)
+            return model.run(piece.ids, styles.style(voice.id, piece.ids.size), speed)
         } catch (e: OrtException) {
             throw SpeechException("Kokoro failed: ${e.message}", e)
-        }
-    }
-
-    private fun ensureLoaded(variant: KokoroVariant): KokoroModel {
-        model?.let { if (loadedVariant == variant) return it }
-        unloadLocked()
-        try {
-            val loaded = modelFactory(store.modelFile(variant))
-            val source =
-                try {
-                    voicesFactory(store.voicesFile())
-                } catch (e: Throwable) {
-                    loaded.close()
-                    throw e
-                }
-            model = loaded
-            loadedVariant = variant
-            styles = source
-            return loaded
-        } catch (e: OrtException) {
-            throw SpeechException("Kokoro failed: ${e.message}", e)
-        } catch (e: LinkageError) {
-            throw SpeechException("ONNX Runtime cannot be loaded on this system: ${e.message}", e)
-        }
-    }
-
-    private fun unloadLocked() {
-        val old = model
-        model = null
-        loadedVariant = null
-        styles = null
-        old?.close()
-    }
-
-    private fun scheduleUnload() {
-        idleTask?.cancel(false)
-        idleTask =
-            try {
-                scheduler.schedule(::unloadIfIdle, idleMillis, TimeUnit.MILLISECONDS)
-            } catch (_: java.util.concurrent.RejectedExecutionException) {
-                null
-            }
-    }
-
-    private fun unloadIfIdle() {
-        // A running synthesis holds the lock; it reschedules the unload when it ends.
-        if (!lock.tryLock()) return
-        try {
-            unloadLocked()
-        } finally {
-            lock.unlock()
         }
     }
 
     override fun destroy() {
         destroyed = true
-        scheduler.shutdownNow()
-        lock.lock()
-        try {
-            unloadLocked()
-        } finally {
-            lock.unlock()
+        session.close()
+    }
+
+    /**
+     * The model and voices of the variant last asked for; another variant replaces them. The [session] creates it
+     * empty and closes it when idle; it is used under the session's lock only.
+     */
+    private inner class LoadedKokoro : AutoCloseable {
+        private var model: KokoroModel? = null
+        private var styles: StyleSource? = null
+        private var variant: KokoroVariant? = null
+
+        fun ensure(wanted: KokoroVariant): Pair<KokoroModel, StyleSource> {
+            val current = model
+            val currentStyles = styles
+            if (current != null && currentStyles != null && variant == wanted) return current to currentStyles
+            close()
+            try {
+                val loaded = modelFactory(store.modelFile(wanted))
+                val source =
+                    try {
+                        voicesFactory(store.voicesFile())
+                    } catch (e: Throwable) {
+                        loaded.close()
+                        throw e
+                    }
+                model = loaded
+                styles = source
+                variant = wanted
+                return loaded to source
+            } catch (e: OrtException) {
+                throw SpeechException("Kokoro failed: ${e.message}", e)
+            } catch (e: LinkageError) {
+                throw SpeechException("ONNX Runtime cannot be loaded on this system: ${e.message}", e)
+            }
+        }
+
+        override fun close() {
+            val old = model
+            model = null
+            styles = null
+            variant = null
+            old?.close()
         }
     }
 

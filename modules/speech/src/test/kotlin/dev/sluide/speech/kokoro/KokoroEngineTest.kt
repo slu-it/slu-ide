@@ -14,12 +14,11 @@ import java.io.RandomAccessFile
 import java.nio.file.Files
 import java.nio.file.Path
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.minutes
 
 class KokoroEngineTest {
     @TempDir
@@ -28,8 +27,6 @@ class KokoroEngineTest {
     private class FakeModel(
         val file: Path,
         val calls: MutableList<Int>,
-        val concurrent: AtomicInteger,
-        val maxConcurrent: AtomicInteger,
         val speeds: MutableList<Float>,
         val onRun: () -> Unit,
     ) : KokoroModel {
@@ -40,17 +37,10 @@ class KokoroEngineTest {
             style: FloatArray,
             speed: Float,
         ): Pair<FloatArray, FloatArray> {
-            val now = concurrent.incrementAndGet()
-            maxConcurrent.accumulateAndGet(now, ::maxOf)
-            try {
-                onRun()
-                calls.add(ids.size)
-                speeds.add(speed)
-                Thread.sleep(5) // keeps the call open so that an unserialized second call would overlap
-                return FloatArray(ids.size * 100) { 0.5f } to FloatArray(ids.size + 2) { 1f }
-            } finally {
-                concurrent.decrementAndGet()
-            }
+            onRun()
+            calls.add(ids.size)
+            speeds.add(speed)
+            return FloatArray(ids.size * 100) { 0.5f } to FloatArray(ids.size + 2) { 1f }
         }
 
         override fun close() {
@@ -63,10 +53,7 @@ class KokoroEngineTest {
     private val speeds = CopyOnWriteArrayList<Float>()
     private val styleCalls = CopyOnWriteArrayList<Pair<String, Int>>()
     private val created = CopyOnWriteArrayList<KokoroEngine>()
-    private val concurrent = AtomicInteger()
-    private val maxConcurrent = AtomicInteger()
     private var onRun: () -> Unit = {}
-    private val scheduler = Executors.newSingleThreadScheduledExecutor()
 
     private val settings by lazy { SpeechSettings(SettingsStore(dir.resolve("settings.properties"))) }
     private val store by lazy { ModelStore(dir.resolve("models")) }
@@ -94,7 +81,6 @@ class KokoroEngineTest {
 
     private fun engine(
         espeakFound: Boolean = true,
-        idleMillis: Long = 60_000,
         configuredPath: () -> String = { if (espeakFound) espeak.toString() else "" },
         modelFactory: ((Path) -> KokoroModel)? = null,
         voicesFactory: ((Path) -> StyleSource)? = null,
@@ -110,17 +96,16 @@ class KokoroEngineTest {
             voicesFactory ?: { StyleSource { id, count -> styleCalls.add(id to count).let { FloatArray(256) } } },
             modelFactory
                 ?: { file ->
-                    FakeModel(file, calls, concurrent, maxConcurrent, speeds) { onRun() }.also { models.add(it) }
+                    FakeModel(file, calls, speeds) { onRun() }.also { models.add(it) }
                 },
-            scheduler,
-            idleMillis,
+            // The idle unload and the serialization are IdleSession's, tested in local-models.
+            1.minutes,
         ).also { created.add(it) }
     }
 
     @AfterEach
     fun tearDown() {
         created.forEach { it.destroy() }
-        scheduler.shutdownNow()
     }
 
     private val voice = KokoroVoices.all.first()
@@ -218,39 +203,12 @@ class KokoroEngineTest {
     }
 
     @Test
-    fun `the model is unloaded after the idle time and loaded again on demand`() {
-        install()
-        val engine = engine(idleMillis = 50)
-        engine.synthesize(chunk("hello"), voice, 1.0)
-        val deadline = System.nanoTime() + 10_000_000_000L
-        while (!models[0].closed && System.nanoTime() < deadline) Thread.sleep(10)
-        assertTrue(models[0].closed)
-        engine.synthesize(chunk("hello"), voice, 1.0)
-        assertEquals(2, models.size)
-    }
-
-    @Test
     fun `destroy closes the model`() {
         install()
         val engine = engine()
         engine.synthesize(chunk("hello"), voice, 1.0)
         engine.destroy()
         assertTrue(models[0].closed)
-    }
-
-    @Test
-    fun `concurrent synthesize calls run one after the other`() {
-        install()
-        val engine = engine()
-        val pool = Executors.newFixedThreadPool(4)
-        try {
-            val futures = List(4) { pool.submit { engine.synthesize(chunk("hello"), voice, 1.0) } }
-            futures.forEach { it.get() }
-        } finally {
-            pool.shutdownNow()
-        }
-        assertEquals(1, maxConcurrent.get())
-        assertEquals(4, calls.size)
     }
 
     @Test
