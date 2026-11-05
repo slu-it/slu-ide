@@ -257,6 +257,8 @@ the Bicep graph and `BicepParamFileViewer`.
     - `addActivity(activity)` shows the activity on the view's tab (`FileView.activity`) while subscribed: RUNNING if
       any added one is, else FAILED if any is, else NONE. An embedded editor's `activity` shows on no tab by itself:
       as with `toolbarItems`, the embedding view shows it in its own `activity`, combined with what it does itself.
+    - `addStylesheet(url)` adds a stylesheet to the editor's text area (e.g. for the classes of an overlay) until its
+      handle is closed.
   - Viewers that show files as text implement `SourceFileViewer` (`sourceHighlighter`) to get change markers and
     highlighted diffs. Viewers for extensions implement `ExtensionFileViewer` (`fileExtensions`, lower case, no dot)
     and viewers for exact names `NamedFileViewer` (`fileNames`), so that `FileViewers` also picks them by the name

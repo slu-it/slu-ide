@@ -119,6 +119,12 @@ interface ExtensibleCodeEditor : GutterColumns {
         end: Int,
     ) {}
 
+    /**
+     * Adds the stylesheet at [url] (an external form) to the editor's text area, e.g. for the classes of [overlay];
+     * closing removes it.
+     */
+    fun addStylesheet(url: String): AutoCloseable = AutoCloseable {}
+
     /** Adds an event filter on the text area; unsubscribing removes it. */
     fun <T : Event> addEventFilter(
         type: EventType<T>,

@@ -393,4 +393,16 @@ class CodeEditorExtensionsUiTest {
 
         assertEquals(listOf(KeyCode.F7), seen)
     }
+
+    @Test
+    fun `a stylesheet is on the text area until its handle is closed`(robot: FxRobot) {
+        val view = shown(robot, DefaultTextFileViewer(), file("notes.txt"))
+        val url = file("extra.css", ".x {}").toUri().toString()
+        val handle = WaitForAsyncUtils.asyncFx<AutoCloseable> { view.extensible.addStylesheet(url) }.get()
+
+        assertTrue(url in view.area.stylesheets)
+
+        robot.interact { handle.close() }
+        assertFalse(url in view.area.stylesheets)
+    }
 }

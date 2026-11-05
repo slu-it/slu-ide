@@ -86,6 +86,11 @@ internal class ExtensibleCodeView(
         end: Int,
     ) = area.revealRange(start, end)
 
+    override fun addStylesheet(url: String): AutoCloseable {
+        area.stylesheets += url
+        return AutoCloseable { area.stylesheets -= url }
+    }
+
     override fun <T : Event> addEventFilter(
         type: EventType<T>,
         filter: EventHandler<in T>,
