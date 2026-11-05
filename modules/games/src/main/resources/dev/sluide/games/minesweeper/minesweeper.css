@@ -1,6 +1,7 @@
 /*
  * The Minesweeper tab. The pane, toolbar and cells use Modena's looked-up colours, so they follow the theme; the number
- * colours, the flag and the hit cell are our own and have a dark counterpart in the media block below.
+ * colours, the flag and the hit cell are our own and have a dark counterpart in the media block below. Closed cells
+ * are darker than opened ones in light and lighter (raised) in dark, so the two differ clearly in both themes.
  */
 .minesweeper {
     -fx-background-color: -fx-background;
@@ -36,13 +37,13 @@
 }
 
 .ms-closed, .ms-flag {
-    -fx-background-color: derive(-fx-background, 14%);
+    -fx-background-color: derive(-fx-background, -14%);
     -fx-border-color: derive(-fx-background, -30%);
     -fx-border-width: 0.5;
 }
 
 .ms-opened, .ms-mine, .ms-wrong {
-    -fx-background-color: derive(-fx-background, -4%);
+    -fx-background-color: derive(-fx-background, 8%);
     -fx-border-color: derive(-fx-background, -20%);
     -fx-border-width: 0.5;
 }
@@ -97,6 +98,8 @@
 }
 
 @media (prefers-color-scheme: dark) {
+    .ms-closed, .ms-flag { -fx-background-color: derive(-fx-background, 20%); }
+    .ms-opened, .ms-mine, .ms-wrong { -fx-background-color: derive(-fx-background, -10%); }
     .ms-hit { -fx-background-color: #b71c1c; }
     .ms-hit-icon { -fx-icon-color: white; }
     .ms-flag-icon { -fx-icon-color: #ef5350; }
