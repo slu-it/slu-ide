@@ -37,7 +37,7 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
 
 ## Tool and service tabs
 - Tools menu (Coloring, Codecs, Converting, Read Aloud, Translate) and Services menu (Docker, Databases) after Docker Sandbox in the menu bar
-  (ADR 0110, 0118, 0121). A tool is a `WindowTool` in `ide` (`ide/.../tools/ToolsMenu.kt`), not a module API.
+  (ADR 0110, 0118, 0121), then Help (Capture Diagnostics, Reveal Diagnostics Folder, About Thoreau; ADR 0127) last. A tool is a `WindowTool` in `ide` (`ide/.../tools/ToolsMenu.kt`), not a module API.
 - One tab per window: the menu selects the open tab or creates one. Closes with Shortcut+W without a question and is
   not restored after a restart. Tools have no key binding; a service may get an Alt+N panel key (Docker: Alt+8,
   Databases: Alt+7).
@@ -77,6 +77,7 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   and make Cancel the default button.
 - Tests replace dialogs through an overridable function property (`askUnsaved`) or an FX-free dialogs interface
   (`DockerDialogs`), per ADR 0084.
+- The About dialog (`aboutDialog`) uses the app title as its header text and a Copy button that keeps it open.
 - A dialog with larger content (a `TabPane`, a table) sets `minHeight = Region.USE_PREF_SIZE` on that content and the
   dialog pane: on Linux the window can be sized before the content's preferred height is known, and a `VBox` then
   shrinks it to nothing (the connection dialog of the Databases tab showed only its buttons).

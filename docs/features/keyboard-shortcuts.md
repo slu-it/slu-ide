@@ -32,6 +32,7 @@ Accelerators of the menu bar ([open-folder.md](open-folder.md), [settings.md](se
 | Shortcut+Shift+T | Terminal → New Terminal |
 | Alt+7 (Cmd+7 on macOS) | Services → Databases (opens the Databases tab or selects it; not while a terminal has the focus on Linux and Windows) |
 | Alt+8 (Cmd+8 on macOS) | Services → Docker (opens the Docker tab or selects it; not while a terminal has the focus on Linux and Windows) |
+| Shortcut+Alt+Shift+D | Help → Capture Diagnostics (disabled while a capture runs; [diagnostics.md](diagnostics.md)) |
 
 ## Code editor
 Code views and the editors built on them, e.g. `.http` files ([text-editing.md](text-editing.md),

@@ -169,6 +169,8 @@
     a web browser) or `java.awt.Desktop` (it would start AWT next to JavaFX on macOS). Known limitations: on macOS,
     `open` launches bundle folders (e.g. `Foo.app`, `Foo.xcodeproj`) instead of showing them. On Windows,
     `explorer.exe` misreads folder paths containing commas and opens a default location.
+  - The module's root package exposes `openInFileManager(folder)` and `fileManagerName` (`FileManager.kt`) for other parts
+    of the app: Help → Reveal Diagnostics Folder uses them.
   - On exactly one regular file the same item reads "Reveal in Finder" / "Reveal in Explorer" / "Reveal in File
     Manager" and shows the file selected in its folder ([ADR 0093](../adr/0093-explorer-open-in-terminal-and-reveal.md)):
     macOS `open -R <file>`; Windows `explorer.exe /select,<file>` (one argument; **untested on Windows**, the comma
