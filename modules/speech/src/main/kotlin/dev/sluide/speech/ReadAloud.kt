@@ -10,6 +10,8 @@ import dev.sluide.settings.FontSettings
 import dev.sluide.settings.FontSpec
 import dev.sluide.speech.audio.AudioSink
 import dev.sluide.speech.audio.JavaSoundSink
+import dev.sluide.speech.editor.EditorReading
+import dev.sluide.speech.editor.ReadAloudEditorControls
 import dev.sluide.speech.editor.ReadAloudExtension
 import dev.sluide.speech.engine.SpeechEngines
 import dev.sluide.speech.install.ModelInstaller
@@ -71,28 +73,43 @@ class ReadAloud internal constructor(
     /** Shows the Read Aloud tab of the window (opening it if needed); set by ide. */
     var showTab: () -> Unit = {}
 
-    private val model =
-        ReadAloudModel(
-            LiveReadAloudHost(
-                engines,
-                preferences,
-                coordinator,
-                installer,
-                { tasks },
-                sink,
-                dispatch,
-                poller,
-                NamedThreads.single("sluide-speech-check"),
-            ),
+    /** Shared by the tab's model and the editors' ones, so that starting a reading pauses the running one. */
+    private val host =
+        LiveReadAloudHost(
+            engines,
+            preferences,
+            coordinator,
+            installer,
+            { tasks },
+            sink,
+            dispatch,
+            poller,
+            NamedThreads.single("sluide-speech-check"),
         )
+
+    private val model = ReadAloudModel(host)
+    private val stylesheet =
+        checkNotNull(ReadAloud::class.java.getResource("/dev/sluide/speech/speech.css")).toExternalForm()
 
     private val editorCss = fontSettings.font(FontArea.EDITOR).map(FontSpec::toCss)
 
     /** A new Read Aloud tab on the window's text, voice and speed. */
     fun createTab(): EditorTab = ReadAloudTab(model, ReadAloudView(model, editorCss))
 
-    /** Extends the window's code editors with "Read Selection Aloud" and "Read Aloud" (ADR 0124). */
-    val editorExtension: CodeEditorExtension = ReadAloudExtension(::read)
+    /**
+     * Extends the window's code editors with "Read Selection Aloud" and "Read Aloud" (ADR 0124); plain-text and
+     * Markdown editors also get the controls and read in place.
+     */
+    val editorExtension: CodeEditorExtension =
+        ReadAloudExtension(::read) { editor ->
+            val editorModel = ReadAloudModel(host, ownsText = false)
+            EditorReading(
+                editorModel,
+                editor,
+                { play -> ReadAloudEditorControls(editorModel, play, stylesheet) },
+                stylesheet,
+            )
+        }
 
     /** Puts [text] in the tab, shows it and starts reading, or shows the setup notice when something is missing. */
     fun read(

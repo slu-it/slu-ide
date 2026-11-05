@@ -21,11 +21,13 @@ import kotlin.math.abs
 
 /**
  * The toolbar of the Read Aloud tab: Play/Pause and Stop, the accent and gender pickers, the speed menu, and the status
- * text at the right. It forwards the user's choices to [model] and shows what [show] is given.
+ * text at the right. With [embedded] (inside another toolbar) it has no bar background or padding of its own and the
+ * status follows the speed menu. It forwards the user's choices to [model] and shows what [show] is given.
  */
 internal class ReadAloudToolbar(
     private val model: ReadAloudModel,
     private val play: () -> Unit,
+    embedded: Boolean = false,
 ) {
     private val playButton =
         Button().apply {
@@ -83,17 +85,11 @@ internal class ReadAloudToolbar(
     private var updating = false
 
     val node: HBox =
-        HBox(
-            6.0,
-            playButton,
-            stop,
-            accent,
-            gender,
-            speed,
-            Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
-            status,
-        ).apply {
-            styleClass += "speech-toolbar"
+        HBox(6.0, playButton, stop, accent, gender, speed).apply {
+            // Inside another toolbar the status follows the speed menu: a growing spacer has no room there.
+            if (!embedded) children += Region().apply { HBox.setHgrow(this, Priority.ALWAYS) }
+            children += status
+            if (!embedded) styleClass += "speech-toolbar"
             alignment = Pos.CENTER_LEFT
         }
 

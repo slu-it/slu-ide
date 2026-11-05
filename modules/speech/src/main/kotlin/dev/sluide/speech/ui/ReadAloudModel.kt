@@ -56,7 +56,7 @@ internal class ReadAloudModel(
 
     val voices: List<Voice> = host.voices
 
-    var voice: Voice? = voices.firstOrNull { it.id == host.preferredVoiceId } ?: voices.firstOrNull()
+    var voice: Voice? = preferredVoice()
         private set
 
     var speed: Double = host.preferredSpeed
@@ -121,6 +121,14 @@ internal class ReadAloudModel(
         begin(text, markdown, caret, selection)
     }
 
+    /** Shows [message] as a failed status without reading (an editor's text is too large); ignored while reading. */
+    fun refuse(message: String) {
+        if (reading) return
+        phase = Phase.FAILED
+        failure = message
+        publish()
+    }
+
     /** Pauses a preparing or speaking reading, resumes a paused one. */
     fun togglePause() {
         val run = run ?: return
@@ -150,8 +158,18 @@ internal class ReadAloudModel(
         restart(run, chunkAt(run.spoken, run.chunks, offset - run.base))
     }
 
+    private fun preferredVoice() = voices.firstOrNull { it.id == host.preferredVoiceId } ?: voices.firstOrNull()
+
+    /** While idle, takes the voice and speed another model (an editor, the tab) may have chosen since. */
+    private fun takePreferences() {
+        if (reading) return
+        voice = preferredVoice()
+        speed = host.preferredSpeed
+    }
+
     fun setVoice(voice: Voice) {
-        if (voice == this.voice) return
+        takePreferences()
+        if (voice == this.voice) return publish()
         this.voice = voice
         host.savePreferences(voice, speed)
         restartAtCurrent()
@@ -159,7 +177,8 @@ internal class ReadAloudModel(
     }
 
     fun setSpeed(speed: Double) {
-        if (speed == this.speed) return
+        takePreferences()
+        if (speed == this.speed) return publish()
         this.speed = speed
         voice?.let { host.savePreferences(it, speed) }
         restartAtCurrent()
@@ -213,6 +232,7 @@ internal class ReadAloudModel(
         caret: Int,
         selection: IntRange?,
     ) {
+        takePreferences()
         val voice = voice ?: return
         val selected =
             selection
@@ -433,7 +453,7 @@ internal class ReadAloudModel(
     private fun status(): String =
         when (phase) {
             Phase.IDLE -> {
-                ""
+                if (notice.isEmpty()) "" else "Setup needed."
             }
 
             Phase.PREPARING -> {

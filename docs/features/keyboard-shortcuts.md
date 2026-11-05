@@ -103,6 +103,18 @@ While a reading is preparing, speaking or paused the text is read-only.
 | Escape (while reading) | Stop; the text is editable again |
 | Double-click on the text (while reading) | Jump: restart the reading at that sentence |
 
+## Read Aloud in plain-text and Markdown editors
+Editor-local keys of the text area of plain-text and Markdown editors, which have the Read Aloud controls themselves
+([read-aloud.md](read-aloud.md), "In the editor"). They are the tab's keys; a handled key is consumed. While reading
+with the focus in the text, Escape stops the reading; the find field's own Escape still closes the find bar.
+
+| Keys | Action |
+|---|---|
+| Shortcut+Enter (text editable) | Read from the sentence at the caret, or only the selection if there is one |
+| Space (while reading) | Pause / resume |
+| Escape (while reading) | Stop; the editor is editable again |
+| Double-click on the text (while reading) | Jump: restart the reading at that sentence |
+
 ## Translate tab
 View-local keys of the language pickers' popup (Source, Target) of the Translate tab, while its search field has the
 focus ([ADR 0126](../adr/0126-translate-tool.md)). Typing filters the list.

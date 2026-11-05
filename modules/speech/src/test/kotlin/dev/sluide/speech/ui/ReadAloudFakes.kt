@@ -52,8 +52,8 @@ internal class FakeReading(
 /** A host without engine, sound or toolkit; a check answers at once with [problems] unless [holdChecks] is set. */
 internal class FakeHost(
     override val voices: List<Voice> = listOf(HEART, EMMA, GEORGE),
-    override val preferredVoiceId: String? = null,
-    override val preferredSpeed: Double = 1.0,
+    override var preferredVoiceId: String? = null,
+    override var preferredSpeed: Double = 1.0,
 ) : ReadAloudHost {
     var problems: List<SetupProblem> = emptyList()
     var holdChecks = false
@@ -73,6 +73,8 @@ internal class FakeHost(
         speed: Double,
     ) {
         saved += voice.id to speed
+        preferredVoiceId = voice.id
+        preferredSpeed = speed
     }
 
     override fun checkProblems(

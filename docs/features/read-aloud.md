@@ -15,7 +15,9 @@ spoken strongly. English only for now.
   restart.
 - **Read Selection Aloud** in the context menu of every code editor reads the selection; without a selection the item
   reads **Read Aloud** and takes the whole text, unsaved edits included. Text over 1 MiB disables the item ("larger
-  than 1 MiB"). Code: `ReadAloudExtension`, registered by `ide` after Converting's item.
+  than 1 MiB"; the limit measures the selection when there is one). In plain-text and Markdown editors the items read
+  in place, see "In the editor": **Read Aloud** without a selection starts at the sentence at the caret (the
+  right-click position), not at the top; in the other editors they put the text in the tab. Code: `ReadAloudExtension`, registered by `ide` after Converting's item.
 - **Read Aloud** in the explorer's context menu of a single `.txt`, `.md` or `.markdown` file reads the saved file. If a tab of it has
   unsaved changes, a question says so ("Save and Read Aloud", "Read Saved Version" or Cancel). A file over 1 MiB or not
   UTF-8 is an error dialog. `ReadAloud.readFile` reads off the FX thread; `ide` (`WindowTextFileAction`) asks and wires.
@@ -98,6 +100,31 @@ row per problem. Nothing is downloaded or run without a click.
 The optional **espeak-ng** path (`speech.espeak`, empty finds it on the login shell's PATH), and per model variant its
 status, Download (Cancel while downloading) and Delete, and the variant in use (`speech.kokoro.variant`). Lives in the
 `speech` module (`SpeechSettings`, `SpeechSettingsPage`); see [settings.md](settings.md).
+
+## In the editor
+Plain-text editors (files without a language viewer, e.g. `.txt`) and Markdown editors (`.md`, `.markdown`) have the
+Read Aloud controls themselves, the tab's toolbar (`ReadAloudToolbar`, embedded): in a plain-text file's own toolbar row
+above the text, in a Markdown file's preview toolbar after the table of contents. Other editors only have the context
+menu items, which send the text to the tab. Code: `EditorReading` (one per extended editor, wired by
+`ReadAloudExtension`) and `EditorSurface`.
+- **Play** reads from the sentence of the caret, or only the selection, of the editor's current text, unsaved edits
+  included; a Markdown file (by its current name) is read as Markdown. Text over 1 MiB is not read: the status says
+  "The text is larger than 1 MiB."
+- While a reading is preparing, speaking or paused the editor is read-only (a lock: caret, selection, copy, find and
+  scrolling work). The sentence and word are highlighted in the source text and scrolled into view, and the editor's
+  tab shows the running marker. In Split view only the source is highlighted; the preview follows by scroll sync.
+- Keys: Shortcut+Enter plays while the text is editable; Space pauses or resumes and Escape stops while reading; a
+  double-click on the text while reading jumps to that sentence (as in the tab,
+  [keyboard-shortcuts.md](keyboard-shortcuts.md)).
+- The context menu items **Read Aloud** (from the sentence at the caret) and **Read Selection Aloud** read in place in
+  these editors, and are disabled while that editor is reading. The 1 MiB limit measures the selection when there is
+  one, else the whole text.
+- The setup notice (no model, no espeak-ng) shows as a banner above the text while something is missing. While idle
+  with setup problems the status next to Play also says "Setup needed.", in the tab and in editors alike; in a
+  Markdown preview, where the source and its banner are hidden, that is what shows.
+- A reload (the file changed on disk) stops the reading, since the highlight would no longer fit.
+- Each editor has its own reading. Voice and speed are the shared preferences: every Play (also the tab's) takes the
+  ones last chosen anywhere, and the toolbar shows them. Starting one reading pauses the running one (see below).
 
 ## One playback at a time
 Reading and the media player share one playback app-wide (`PlaybackCoordinator`): starting a reading pauses a playing

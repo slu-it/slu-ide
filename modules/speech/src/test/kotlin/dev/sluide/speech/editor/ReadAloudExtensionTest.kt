@@ -1,16 +1,13 @@
 package dev.sluide.speech.editor
 
 import dev.sluide.fileviewers.EditorMenuTarget
-import dev.sluide.fileviewers.ExtensibleCodeEditor
-import javafx.beans.property.SimpleObjectProperty
-import javafx.beans.value.ObservableValue
-import javafx.scene.Node
-import javafx.scene.control.MenuItem
-import javafx.util.Subscription
-import java.nio.file.Path
+import dev.sluide.speech.ui.FakeHost
+import dev.sluide.speech.ui.ReadAloudModel
+import javafx.scene.control.IndexRange
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -20,8 +17,8 @@ class ReadAloudExtensionTest {
     private fun editor(
         file: String,
         vararg lines: String,
-    ) = FakeEditor(Path.of(file), lines.toList()).also {
-        assertNull(ReadAloudExtension { text, markdown -> read += text to markdown }.extend(it))
+    ) = FakeCodeEditor(file, lines.toList()).also {
+        assertNull(ReadAloudExtension(read = { text, markdown -> read += text to markdown }).extend(it))
     }
 
     @Test
@@ -66,29 +63,74 @@ class ReadAloudExtensionTest {
         assertEquals("Read Selection Aloud (larger than 1 MiB)", tooBig.text)
     }
 
-    private class FakeEditor(
-        path: Path,
-        private val lines: List<String>,
-    ) : ExtensibleCodeEditor {
-        lateinit var items: (EditorMenuTarget) -> List<MenuItem>
+    private val host = FakeHost()
+    private val readings = mutableListOf<EditorReading>()
 
-        override val file: ObservableValue<Path> = SimpleObjectProperty(path)
-        override val lineCount get() = lines.size
-        override val shownLines: IntRange = IntRange.EMPTY
+    /** The extension with in-place reading on a [FakeHost]; [read] still collects what goes to the tool. */
+    private fun inPlace(
+        path: String,
+        text: String,
+        plainText: Boolean,
+    ): Pair<FakeCodeEditor, AutoCloseable?> {
+        val editor = FakeCodeEditor(path, text.split("\n"), plainText)
+        val handle =
+            ReadAloudExtension({ t, m -> read += t to m }) { e ->
+                EditorReading(ReadAloudModel(host, ownsText = false), e, { FakeControls() }, "speech.css")
+                    .also { readings += it }
+            }.extend(editor)
+        return editor to handle
+    }
 
-        override fun lineText(line: Int) = lines[line]
+    @Test
+    fun `plain-text and Markdown editors read in place, other editors send to the tool`() {
+        val (txt, txtHandle) = inPlace("/p/a.txt", "One. Two.", plainText = true)
+        val (md, mdHandle) = inPlace("/p/a.md", "One. Two.", plainText = false)
+        val (code, codeHandle) = inPlace("/p/a.py", "One. Two.", plainText = false)
 
-        override fun onShownLinesChanged(action: () -> Unit) = Subscription {}
+        assertNotNull(txtHandle)
+        assertNotNull(mdHandle)
+        assertNull(codeHandle)
+        assertEquals(2, readings.size)
 
-        override fun addContextMenuItems(items: (EditorMenuTarget) -> List<MenuItem>) {
-            this.items = items
-        }
+        txt.items(EditorMenuTarget(0, 0, "")).single().fire()
+        assertEquals(1, host.readings.size)
+        assertEquals(emptyList(), read)
+        code.items(EditorMenuTarget(0, 0, "")).single().fire()
+        assertEquals(listOf("One. Two." to false), read)
+        assertEquals(1, host.readings.size)
+        assertEquals("Read Aloud", md.items(EditorMenuTarget(0, 0, "")).single().text)
+    }
 
-        override fun addGutterColumn(
-            width: Double,
-            column: (paragraph: Int) -> Node?,
-        ) = Unit
+    @Test
+    fun `in place the selection item plays the editor's selection`() {
+        val (editor, _) = inPlace("/p/a.txt", "One. Two. Three.", plainText = true)
+        editor.selected = IndexRange(5, 9)
 
-        override fun refreshGutter() = Unit
+        val item = editor.items(EditorMenuTarget(0, 0, "Two.")).single()
+        item.fire()
+
+        assertEquals("Read Selection Aloud", item.text)
+        assertEquals(listOf("Two."), host.reading.chunks.map { it.text })
+    }
+
+    @Test
+    fun `in place the items are disabled while that editor is reading`() {
+        val (editor, _) = inPlace("/p/a.txt", "One. Two.", plainText = true)
+        assertFalse(editor.items(EditorMenuTarget(0, 0, "")).single().isDisable)
+
+        editor.items(EditorMenuTarget(0, 0, "")).single().fire()
+
+        assertTrue(editor.items(EditorMenuTarget(0, 0, "")).single().isDisable)
+        assertTrue(editor.items(EditorMenuTarget(0, 0, "One.")).single().isDisable)
+    }
+
+    @Test
+    fun `the handle of an in-place editor closes its reading`() {
+        val (editor, handle) = inPlace("/p/a.txt", "One.", plainText = true)
+        assertTrue(editor.open.isNotEmpty())
+
+        checkNotNull(handle).close()
+
+        assertEquals(emptySet(), editor.open)
     }
 }

@@ -66,7 +66,49 @@ class ReadAloudModelTest {
         assertEquals(listOf<SetupProblem>(MODEL_MISSING), model.ui.notice)
         assertTrue(model.ui.editable)
         assertEquals(PlayMode.PLAY, model.ui.playMode)
+        assertEquals("Setup needed.", model.ui.status)
+    }
+
+    @Test
+    fun `the status says setup is needed while idle with problems, and is empty again once they are gone`() {
+        host.problems = listOf(MODEL_MISSING)
+        model.playText("One.", markdown = false, caret = 0)
+        assertEquals("Setup needed.", model.ui.status)
+
+        host.problems = emptyList()
+        model.checkAgain()
         assertEquals("", model.ui.status)
+    }
+
+    @Test
+    fun `a model plays with the voice and speed another model on the host chose`() {
+        val other = ReadAloudModel(host, ownsText = false)
+        val shown = mutableListOf<ReadAloudUi>()
+        other.onChange = { shown += other.ui }
+        model.setVoice(GEORGE)
+        model.setSpeed(1.5)
+
+        other.playText("One.", markdown = false, caret = 0)
+
+        assertEquals(GEORGE, other.voice)
+        assertEquals(1.5, other.speed)
+        assertEquals(GEORGE, host.reading.voice)
+        assertEquals(1.5, host.reading.speed)
+        assertEquals(GEORGE, shown.last().voice)
+        assertEquals(1.5, shown.last().speed)
+    }
+
+    @Test
+    fun `an idle model that shows an outdated speed saves and plays the one picked there`() {
+        val other = ReadAloudModel(host, ownsText = false)
+        other.setSpeed(1.5)
+        host.saved.clear()
+
+        model.setSpeed(1.0)
+        model.playText("One.", markdown = false, caret = 0)
+
+        assertEquals(listOf(HEART.id to 1.0), host.saved)
+        assertEquals(1.0, host.reading.speed)
     }
 
     @Test
