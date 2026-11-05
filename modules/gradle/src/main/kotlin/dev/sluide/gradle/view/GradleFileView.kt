@@ -60,13 +60,17 @@ internal class GradleFileView(
 
     val split = SourceSplit(editor.node, gradlePane, "Gradle", "gradle-mode", SplitMode.SOURCE)
 
-    /** The mode buttons; hidden until Gradle is found. */
+    /** Soft Wrap (ADR 0130) and the mode buttons, which stay hidden until Gradle is found. */
     val toolbar =
-        HBox(Region().apply { HBox.setHgrow(this, Priority.ALWAYS) }, *split.modeButtons.toTypedArray()).apply {
+        HBox(
+            editor.softWrapButton,
+            Region().apply {
+                HBox.setHgrow(this, Priority.ALWAYS)
+            },
+            *split.modeButtons.toTypedArray(),
+        ).apply {
             styleClass += "gradle-toolbar"
             alignment = Pos.CENTER_LEFT
-            isVisible = false
-            isManaged = false
         }
 
     private val root =
@@ -107,12 +111,19 @@ internal class GradleFileView(
     val installation: GradleInstallation? get() = buildTasks?.installation
 
     init {
+        // Soft Wrap (ADR 0130) shows with the source side only.
+        editor.softWrapButton.visibleProperty().bind(split.mode.map { it != SplitMode.OTHER })
+        editor.softWrapButton.managedProperty().bind(editor.softWrapButton.visibleProperty())
         (editor.node as? Region)?.minWidth = 0.0
         // The editor font the tab gives its content is for the source; the Gradle side uses the UI font.
         Font.getDefault().let { font ->
             val css = "-fx-font-family: \"${font.family}\"; -fx-font-size: ${font.size}px;"
             gradlePane.style = css
             toolbar.style = css
+        }
+        split.modeButtons.forEach {
+            it.isVisible = false
+            it.isManaged = false
         }
         tasks.onRun = ::runTasks
         tasks.onRefresh = { buildTasks?.detect(reload = true) }
@@ -163,9 +174,11 @@ internal class GradleFileView(
 
     /** Shows the modes, in Split the first time, once Gradle is found; plain source without one. */
     private fun found(installation: GradleInstallation?) {
-        val before = toolbar.isVisible
-        toolbar.isVisible = installation != null
-        toolbar.isManaged = installation != null
+        val before = split.modeButtons.first().isVisible
+        split.modeButtons.forEach {
+            it.isVisible = installation != null
+            it.isManaged = installation != null
+        }
         if (installation == null) {
             split.mode.set(SplitMode.SOURCE)
         } else if (!before) {

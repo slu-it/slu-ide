@@ -4,6 +4,7 @@ import dev.sluide.fileviewers.SplitMode
 import dev.sluide.projecttrust.ProjectTrustState
 import dev.sluide.projecttrust.TrustFinding
 import javafx.scene.control.Button
+import javafx.scene.control.ToggleButton
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -38,7 +39,17 @@ class GradleFileViewLoadingUiTest : GradleFileViewUiFixture() {
         awaitTasks(robot, view)
         robot.interact {
             assertTrue(view.toolbar.isVisible)
+            assertTrue(view.split.modeButtons.all { it.isVisible && it.isManaged })
             assertEquals(SplitMode.SPLIT, view.split.mode.get())
+            val wrap = view.toolbar.children.first() as ToggleButton
+            assertEquals("soft-wrap-toggle", wrap.styleClass.last())
+            wrap.fire()
+            assertTrue(wrap.isSelected)
+            view.split.mode.set(SplitMode.OTHER)
+            assertFalse(wrap.isVisible)
+            assertFalse(wrap.isManaged)
+            view.split.mode.set(SplitMode.SPLIT)
+            assertTrue(wrap.isVisible)
             assertEquals(
                 listOf("fx (:)", ":app", ":app:core", ":lib"),
                 view.tasks.tree.root.children
@@ -92,7 +103,10 @@ class GradleFileViewLoadingUiTest : GradleFileViewUiFixture() {
 
         assertEquals(1, globalChecks.get())
         robot.interact {
-            assertFalse(view.toolbar.isVisible)
+            assertTrue(view.toolbar.isVisible, "the toolbar shows for Soft Wrap")
+            val wrap = view.toolbar.children.first()
+            assertTrue(wrap.isVisible && wrap.isManaged)
+            assertTrue(view.split.modeButtons.none { it.isVisible || it.isManaged })
             assertEquals(SplitMode.SOURCE, view.split.mode.get())
             assertNull(view.installation)
         }

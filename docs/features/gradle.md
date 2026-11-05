@@ -6,9 +6,10 @@ runs them. Decisions: [ADR 0085](../adr/0085-gradle-integration.md); the termina
 ## The view
 - Modes **Source | Split | Gradle**, top right; **Split** is the default: the source on the left, on the right the task
   tree above the run pane. The divider positions are kept while a side is hidden.
-- The modes appear only once a Gradle was found for the file; until then (and for good if there is none) the view
+- The mode buttons appear only once a Gradle was found for the file; until then (and for good if there is none) the view
   looks like plain source: Kotlin highlighting for `build.gradle.kts`, Groovy for `build.gradle`. Only these two names
   get the view; settings files and other `*.gradle(.kts)` scripts stay plain source.
+- The toolbar always shows, with [Soft Wrap](soft-wrap.md) as its first button (hidden while only the Gradle side shows); only the mode buttons wait for a Gradle to be found.
 - Shown again (tab selected), the view focuses the source, or the task tree while it is shown alone. Going to a line
   (e.g. from a search) while only the tasks show switches to Split first.
 - The Gradle side (filter, notes, tree, arguments, status) uses the UI font, not the editor font; the terminal keeps
