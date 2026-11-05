@@ -1,6 +1,6 @@
 # 0124. Read Aloud: local text-to-speech with Kokoro
 
-- Status: accepted; amends [0123](0123-media-playback.md); see [0110](0110-tools-menu.md), [0108](0108-code-editor-extensions-and-context-menu.md), [0003](0003-javafx-platform-jars.md), [0011](0011-native-app-packaging.md), [0043](0043-git-log-fetch.md), [0060](0060-logging-conventions.md), [0101](0101-shared-data-file.md)
+- Status: accepted; amended by [0128](0128-read-aloud-in-editors.md); amends [0123](0123-media-playback.md); see [0110](0110-tools-menu.md), [0108](0108-code-editor-extensions-and-context-menu.md), [0003](0003-javafx-platform-jars.md), [0011](0011-native-app-packaging.md), [0043](0043-git-log-fetch.md), [0060](0060-logging-conventions.md), [0101](0101-shared-data-file.md)
 - Date: 2026-11-04
 
 ## Context

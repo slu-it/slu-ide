@@ -15,6 +15,16 @@ Only English with Kokoro exists. Everything above `SpeechEngine` is engine-neutr
 Source code read as words: camelCase and snake_case split, comment markers dropped, symbols named or skipped. It needs
 the file's language to tell comments from code.
 
+## Highlight in the rendered Markdown preview
+Reading in a Markdown editor ([ADR 0128](../adr/0128-read-aloud-in-editors.md)) highlights the source only; in Split
+the preview follows by scroll sync. Highlighting in the rendered preview needs a mapping from source offsets to DOM
+nodes, which the sanitised HTML does not carry today.
+
+## Read Aloud in more editors
+Other views that embed a code editor (Compose, Dockerfile, Gradle, HTTP, the `.env` editor) would place
+`CodeEditor.toolbarItems` and forward `activity` to show the controls. Source code needs code-aware reading first (see
+above), so it is not offered there.
+
 ## Export to MP3 or WAV
 Save the synthesized audio as a file. WAV is easy (the samples are there); MP3 needs an encoder.
 

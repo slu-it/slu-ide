@@ -1,6 +1,6 @@
 # 0108. Code editor extensions and the code editor's context menu
 
-- Status: accepted
+- Status: accepted; amended by [0128](0128-read-aloud-in-editors.md)
 - Date: 2026-10-29
 
 ## Context
