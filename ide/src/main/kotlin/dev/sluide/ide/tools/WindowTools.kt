@@ -61,7 +61,7 @@ internal class WindowTools(
     internal val readAloudTool = WindowTool("Read Aloud", readAloud::createTab)
 
     /** The Translate tool of the Tools menu. */
-    internal val translateTool = WindowTool("Translate", translate::createTab)
+    internal val translateTool = WindowTool("Translate", translate::createTab, newTabEachTime = true)
 
     /** The Tools menu logic; tests choose tools through it. */
     internal val toolsMenu =
@@ -103,7 +103,7 @@ internal class WindowTools(
         codecs.showTab = { toolsMenu.open(codecsTool) }
         converting.showTab = { toolsMenu.open(convertingTool) }
         readAloud.showTab = { toolsMenu.open(readAloudTool) }
-        translate.showTab = { toolsMenu.open(translateTool) }
+        translate.openTab = { editorArea.open(it) }
         coloring.projectFolder.bind(projectService.projectFolder)
         docker.showTab = { servicesMenu.open(dockerTool) }
         docker.openTab = { editorArea.open(it) }

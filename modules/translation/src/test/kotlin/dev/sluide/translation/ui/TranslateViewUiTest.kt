@@ -271,6 +271,20 @@ class TranslateViewUiTest {
     }
 
     @Test
+    fun `disposing the tab disposes its view and calls onClose`(robot: FxRobot) {
+        var closed = 0
+        val tab = TranslateTab("Translate 7", view) { closed++ }
+        assertEquals("Translate 7", tab.title.value)
+
+        robot.interact { tab.dispose() }
+        robot.interact { model.chooseTarget(english) }
+        robot.interact { model.open("Hallo Welt.", markdown = false) }
+
+        assertEquals(1, closed)
+        assertEquals("", fx { right.text }, "the disposed view no longer follows the model")
+    }
+
+    @Test
     fun `a click picks only on an entry, not on the list itself`(robot: FxRobot) {
         robot.interact { node("translate-target", Button::class.java).fire() }
         val list = node("translate-target-list", javafx.scene.control.ListView::class.java)

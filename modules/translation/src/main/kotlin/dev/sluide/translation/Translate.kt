@@ -13,7 +13,6 @@ import dev.sluide.translation.engine.LanguageDetector
 import dev.sluide.translation.engine.PairModel
 import dev.sluide.translation.engine.TranslationEngine
 import dev.sluide.translation.session.InstallerModelInstalls
-import dev.sluide.translation.session.ModelInstalls
 import dev.sluide.translation.session.TranslateModel
 import dev.sluide.translation.ui.TranslateTab
 import dev.sluide.translation.ui.TranslateView
@@ -29,19 +28,28 @@ fun interface DownloadSizes {
 }
 
 /**
- * The Translate tool of one window (ADR 0126): creates its tab and keeps the text, languages, quality and translation,
- * so that they outlive the tab (ADR 0110). The `ide` module sets [showTab] and [openScratch]. Closing it (with its
- * window) ends the translation work.
+ * Builds a tab titled `title` for `model`: `openScratch` is the tool's callback for Open as Scratch, `onClose` must
+ * run when the tab is closed.
+ */
+internal typealias TabFactory = (
+    title: String,
+    model: TranslateModel,
+    openScratch: (text: String, extension: String) -> Unit,
+    onClose: () -> Unit,
+) -> EditorTab
+
+/**
+ * The Translate tool of one window (ADR 0126, ADR 0129): every [createTab] and [translate] opens a new tab
+ * "Translate 1", "Translate 2", … (numbers only increase) with a model of its own: text, languages, translation and
+ * sentence cache. Closing a tab ends its work and drops its text; closing the window ends all. The `ide` module sets
+ * [openTab] and [openScratch]. Used on the JavaFX thread.
  */
 @Component
 // One instance per IDE window (the "window" scope of the ide module, ADR 0014).
 @Scope("window")
 class Translate internal constructor(
-    engine: TranslationEngine,
-    detector: LanguageDetector,
-    installs: ModelInstalls,
-    preferences: TranslationPreferences,
-    fontSettings: FontSettings,
+    private val newModel: () -> TranslateModel,
+    private val newTab: TabFactory,
     private val dispatch: (Runnable) -> Unit,
 ) : AutoCloseable {
     @Autowired
@@ -54,39 +62,47 @@ class Translate internal constructor(
         preferences: TranslationPreferences,
         fontSettings: FontSettings,
     ) : this(
-        engine,
-        detector,
-        InstallerModelInstalls(installer, sizes::bytes, tasks),
-        preferences,
-        fontSettings,
+        InstallerModelInstalls(installer, sizes::bytes, tasks).let { installs ->
+            { TranslateModel(engine, detector, installs, preferences, Platform::runLater) }
+        },
+        realTabs(fontSettings),
         Platform::runLater,
     )
 
-    /** Shows the Translate tab of the window (opening it if needed); set by ide. */
-    var showTab: () -> Unit = {}
+    /** Opens a tab in the window's editor area; set by ide. */
+    var openTab: (EditorTab) -> Unit = {}
 
     /** Opens a new scratch file with a text and an extension (`md` or `txt`); set by ide. */
     var openScratch: (text: String, extension: String) -> Unit = { _, _ -> }
 
-    /** The text, languages and translation of the window's tool; outlives the tab. */
-    internal val model = TranslateModel(engine, detector, installs, preferences, dispatch)
+    private var counter = 0
+    private val open = mutableSetOf<TranslateModel>()
 
-    private val editorCss = fontSettings.font(FontArea.EDITOR).map(FontSpec::toCss)
+    private fun newTabAndModel(): Pair<EditorTab, TranslateModel> {
+        val model = newModel()
+        open += model
+        val tab =
+            newTab("Translate ${++counter}", model, { text, extension -> openScratch(text, extension) }) {
+                model.dispose()
+                open -= model
+            }
+        return tab to model
+    }
 
-    /** A new Translate tab on the window's model. */
-    fun createTab(): EditorTab =
-        TranslateTab(TranslateView(model, editorCss) { text, extension -> openScratch(text, extension) })
+    /** A new numbered Translate tab with a model of its own. */
+    fun createTab(): EditorTab = newTabAndModel().first
 
     /** Extends the window's code editors with "Translate Selection" and "Translate" (ADR 0126). */
     val editorExtension: CodeEditorExtension = TranslateExtension(::translate)
 
-    /** Puts [text] in the tab, shows it and translates at once (when a target is chosen and the models are in). */
+    /** Opens a new tab with [text] and translates at once (when a target is chosen and the models are in). */
     fun translate(
         text: String,
         markdown: Boolean,
     ) {
+        val (tab, model) = newTabAndModel()
         model.open(text, markdown)
-        showTab()
+        openTab(tab)
     }
 
     /**
@@ -110,6 +126,22 @@ class Translate internal constructor(
         }
     }
 
-    /** Ends the translation work; called when the window closes. */
-    override fun close() = model.dispose()
+    /** Ends the translation work of all open tabs; called when the window closes. */
+    override fun close() {
+        open.toList().forEach(TranslateModel::dispose)
+        open.clear()
+    }
+}
+
+/** The real tabs: a [TranslateView] in the editor font. */
+private fun realTabs(fontSettings: FontSettings): TabFactory {
+    val editorCss = fontSettings.font(FontArea.EDITOR).map(FontSpec::toCss)
+    return {
+        title,
+        model,
+        openScratch,
+        onClose,
+        ->
+        TranslateTab(title, TranslateView(model, editorCss, openScratch), onClose)
+    }
 }

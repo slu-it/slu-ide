@@ -6,17 +6,22 @@ import javafx.beans.value.ObservableValue
 import javafx.beans.value.ObservableValueBase
 import javafx.scene.Node
 
-/** The Translate tool shown as an editor tab. Closing it keeps the text, languages and translation (the model's). */
+/** One Translate tab titled [title]. Closing it ends its translation and drops its text ([onClose] ends the model). */
 internal class TranslateTab(
+    title: String,
     private val view: TranslateView,
+    private val onClose: () -> Unit,
 ) : EditorTab {
     override val title: ObservableValue<String> =
         object : ObservableValueBase<String>() {
-            override fun getValue() = "Translate"
+            override fun getValue() = title
         }
     override val tooltip: String = "Translate text"
     override val content: Node get() = view.node
     override val activity: ObservableValue<ViewActivity> get() = view.activity
 
-    override fun dispose() = view.dispose()
+    override fun dispose() {
+        view.dispose()
+        onClose()
+    }
 }

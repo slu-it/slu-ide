@@ -15,10 +15,11 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * The state behind one window's Translate tab (ADR 0126), without the toolkit (ADR 0084): the text, the languages,
- * quality and Markdown toggle, and what the translation shows. Every public call and [onChange] belong to the FX
- * thread. A run (detection, route, sentences) goes to [worker], a typing edit's after [delay]; its events come back
- * through [dispatch] (the FX thread in the app), and only the latest run's count. A new run cancels the one before:
+ * The state behind one Translate tab (ADR 0126, ADR 0129), without the toolkit (ADR 0084): the text, the languages,
+ * quality and Markdown toggle, and what the translation shows; the sentence cache is the tab's own. Every public call
+ * and [onChange] belong to the FX thread. A run (detection, route, sentences) goes to [worker], a typing edit's after
+ * [delay]; its events come back through [dispatch] (the FX thread in the app), and only the latest run's count. A new
+ * run cancels the one before:
  * the engine sees `cancelled()` between decoder steps. A run's progress is coalesced: at most one progress event waits
  * in [dispatch] at a time, and it applies the latest one, so a slow FX thread never queues stale copies of the output.
  *
@@ -26,9 +27,9 @@ import kotlin.time.Duration.Companion.seconds
  * The view replaces the translation's text only when [outputVersion] changed, so the caret and selection on the
  * read-only side survive the other changes.
  *
- * [worker] is this window's own platform thread by default (native ONNX calls); the engine serializes the calls per
- * model, so windows translate side by side. [dispose] cancels the run and the timer; the idle worker thread then ends
- * by itself. Source, target and quality are read from [preferences] at creation and saved on every change; a saved
+ * [worker] is this tab's own platform thread by default (native ONNX calls); the engine serializes the calls per
+ * model, so tabs and windows translate side by side. [dispose] cancels the run and the timer; the idle worker thread
+ * then ends by itself. Source, target and quality are read from [preferences] at creation and saved on every change; a saved
  * code the engine does not offer falls back to Detect or no target. The text is never stored.
  *
  * A text longer than [limit] chars is kept but not translated: the run and the timer are cancelled, the output is
@@ -172,8 +173,9 @@ internal class TranslateModel(
     fun languageName(code: String): String = (sources + targets).firstOrNull { it.code == code }?.name ?: code
 
     /**
-     * Cancels the run and the timer and drops results still to come; later calls do nothing. `Translate.close` calls it when
-     * the window scope ends: until then the timer thread and the installer's listeners keep the model alive.
+     * Cancels the run and the timer and drops results still to come; later calls do nothing. Closing the tab calls it
+     * (`Translate.close` for the tabs still open when the window scope ends): until then the timer thread and the
+     * installer's listeners keep the model alive.
      */
     fun dispose() {
         disposed = true

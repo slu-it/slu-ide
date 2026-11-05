@@ -357,7 +357,7 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `Tools - Codecs and Converting open one tab each, and Converting shows its tab when text is opened`(
+    fun `Tools - Codecs, Converting and Translate open tabs, and Converting shows its tab when text is opened`(
         robot: FxRobot,
     ) {
         val tools = menu(robot, "Tools").items
@@ -374,6 +374,11 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
         robot.interact { convertingItem.fire() }
         assertEquals(listOf("Codecs", "Converting"), tabTitles(robot))
         assertEquals("Convert between data formats", checkNotNull(editorArea.selectedTab).tooltip)
+
+        val translateItem = tools.single { it.text == "Translate" }
+        robot.interact { translateItem.fire() }
+        robot.interact { translateItem.fire() }
+        assertEquals(listOf("Codecs", "Converting", "Translate 1", "Translate 2"), tabTitles(robot))
 
         robot.interact { editorArea.closeAll() }
         robot.interact { convertings.single().open("{}", "json") }
@@ -541,21 +546,26 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
         assertEquals("saved text edited", file.readText())
     }
 
-    private fun translateInput(robot: FxRobot): String {
-        val area = robot.lookup(".translate-view .code-area").queryAllAs(CodeArea::class.java).first()
-        return WaitForAsyncUtils.asyncFx<String> { area.text }.get()
-    }
+    private fun translateInput(robot: FxRobot): String =
+        WaitForAsyncUtils
+            .asyncFx<String> {
+                robot
+                    .lookup(".translate-view .code-area")
+                    .queryAllAs(CodeArea::class.java)
+                    .first()
+                    .text
+            }.get()
 
     @Test
-    fun `Translate Selection puts the selection in the Translate tab`(robot: FxRobot) {
+    fun `Translate Selection opens a numbered Translate tab with the selection`(robot: FxRobot) {
         val file = project.resolve("notes.txt").apply { writeText("hello world\nmore\n") }
         robot.interact { editorArea.open(file) }
         eventually(robot) { assertEquals(1, robot.lookup(".code-area").queryAllAs(CodeArea::class.java).size) }
-        val area = robot.lookup(".code-area").queryAs(CodeArea::class.java)
 
         val item =
             WaitForAsyncUtils
                 .asyncFx<MenuItem> {
+                    val area = robot.lookup(".code-area").queryAs(CodeArea::class.java)
                     area.selectRange(0, 5)
                     val menu = checkNotNull(area.contextMenu)
                     val at = area.localToScreen(5.0, 5.0)
@@ -564,7 +574,7 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
                 }.get()
         robot.interact { item.fire() }
 
-        assertEquals(listOf("notes.txt", "Translate"), tabTitles(robot))
+        assertEquals(listOf("notes.txt", "Translate 1"), tabTitles(robot))
         eventually(robot) { assertEquals("hello", translateInput(robot)) }
     }
 
