@@ -4,6 +4,13 @@
  * (the overlay of TextEditor), soft for the sentence, stronger for the word, with a dark counterpart.
  */
 
+/* Embedded in a code view or a preview (ADR 0128), the controls and the notice would inherit the editor font. */
+.speech-controls, .speech-notice {
+    -fx-font-family: "System";
+    -fx-font-style: normal;
+    -fx-font-weight: normal;
+}
+
 .speech-toolbar {
     -fx-padding: 2 6 2 6;
     -fx-background-color: derive(-fx-background, 4%);

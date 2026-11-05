@@ -89,6 +89,7 @@ internal class ReadAloudToolbar(
             // Inside another toolbar the status follows the speed menu: a growing spacer has no room there.
             if (!embedded) children += Region().apply { HBox.setHgrow(this, Priority.ALWAYS) }
             children += status
+            styleClass += "speech-controls"
             if (!embedded) styleClass += "speech-toolbar"
             alignment = Pos.CENTER_LEFT
         }
