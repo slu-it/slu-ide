@@ -1,7 +1,7 @@
 package dev.sluide.speech.ui
 
+import dev.sluide.localmodels.InstallState
 import dev.sluide.speech.engine.SetupProblem
-import dev.sluide.speech.install.InstallState
 import dev.sluide.speech.install.formatMegabytes
 import javafx.geometry.Insets
 import javafx.geometry.Pos

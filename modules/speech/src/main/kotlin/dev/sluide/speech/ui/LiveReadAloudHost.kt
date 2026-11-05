@@ -1,6 +1,7 @@
 package dev.sluide.speech.ui
 
 import dev.sluide.backgroundtasks.BackgroundTasks
+import dev.sluide.localmodels.InstallState
 import dev.sluide.media.PlaybackCoordinator
 import dev.sluide.speech.SpeechPreferences
 import dev.sluide.speech.audio.AudioSink
@@ -8,7 +9,6 @@ import dev.sluide.speech.engine.SetupProblem
 import dev.sluide.speech.engine.SpeechChunk
 import dev.sluide.speech.engine.SpeechEngines
 import dev.sluide.speech.engine.Voice
-import dev.sluide.speech.install.InstallState
 import dev.sluide.speech.install.KokoroVariant
 import dev.sluide.speech.install.ModelInstaller
 import dev.sluide.speech.kokoro.KokoroVoices

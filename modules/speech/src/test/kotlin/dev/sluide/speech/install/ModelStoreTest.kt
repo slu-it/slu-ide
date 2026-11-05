@@ -1,9 +1,10 @@
 package dev.sluide.speech.install
 
+import dev.sluide.localmodels.ModelFile
 import org.junit.jupiter.api.io.TempDir
 import java.io.RandomAccessFile
+import java.net.URI
 import java.nio.file.Path
-import kotlin.io.path.exists
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -47,33 +48,29 @@ class ModelStoreTest {
     }
 
     @Test
-    fun `deleting keeps the voices file while another variant is installed`() {
-        install(KokoroVariant.FP32)
-        install(KokoroVariant.INT8)
-        installVoices()
-
-        store.delete(KokoroVariant.FP32)
-        assertFalse(store.modelFile(KokoroVariant.FP32).exists())
-        assertTrue(store.voicesFile().exists())
-        assertTrue(store.installed(KokoroVariant.INT8))
-
-        store.delete(KokoroVariant.INT8)
-        assertFalse(store.voicesFile().exists())
+    fun `a variant needs its model and the shared voices file from the pinned release, both in the root`() {
+        val release = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/"
+        val v = KokoroVariant.INT8
+        val voices = "voices-v1.0.bin"
+        assertEquals(
+            listOf(
+                ModelFile(v.fileName, URI(release + v.fileName), v.bytes, v.sha256),
+                ModelFile(voices, URI(release + voices), KokoroVoicesFile.BYTES, KokoroVoicesFile.SHA256),
+            ),
+            store.files(KokoroVariant.INT8),
+        )
+        assertEquals(dir, store.folder(KokoroVariant.INT8))
+        assertEquals("Downloading Kokoro model 35 %", store.taskName(KokoroVariant.INT8, 35))
     }
 
     @Test
-    fun `keeping the voices file and stale part files while a download runs, removing them otherwise`() {
+    fun `a delete keeps the voices file while another variant is installed or a download runs`() {
         install(KokoroVariant.FP32)
         installVoices()
-        val part = dir.resolve("voices-v1.0.bin-123.part")
-        part.toFile().writeText("x")
+        assertEquals(emptySet(), store.keptOnDelete(KokoroVariant.FP32, downloadsRunning = false))
+        assertEquals(setOf("voices-v1.0.bin"), store.keptOnDelete(KokoroVariant.FP32, downloadsRunning = true))
 
-        store.delete(KokoroVariant.FP32, keepVoices = true)
-        assertTrue(store.voicesFile().exists())
-        assertTrue(part.exists())
-
-        store.delete(KokoroVariant.FP32)
-        assertFalse(store.voicesFile().exists())
-        assertFalse(part.exists())
+        install(KokoroVariant.INT8)
+        assertEquals(setOf("voices-v1.0.bin"), store.keptOnDelete(KokoroVariant.FP32, downloadsRunning = false))
     }
 }

@@ -2,10 +2,10 @@ package dev.sluide.speech.ui
 
 import dev.sluide.fileviewers.StyledRange
 import dev.sluide.fileviewers.ViewActivity
+import dev.sluide.localmodels.InstallState
 import dev.sluide.speech.engine.SetupProblem
 import dev.sluide.speech.engine.SpeechChunk
 import dev.sluide.speech.engine.Voice
-import dev.sluide.speech.install.InstallState
 import dev.sluide.speech.session.ReadingPosition
 import dev.sluide.speech.session.ReadingState
 import dev.sluide.speech.text.Sentences

@@ -1,6 +1,6 @@
 package dev.sluide.speech.settings
 
-import dev.sluide.speech.install.InstallState
+import dev.sluide.localmodels.InstallState
 import dev.sluide.speech.install.KokoroVariant
 import dev.sluide.speech.install.ModelInstaller
 import dev.sluide.speech.install.formatMegabytes

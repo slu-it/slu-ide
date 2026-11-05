@@ -1,11 +1,12 @@
 package dev.sluide.speech.settings
 
+import dev.sluide.localmodels.InstallState
 import dev.sluide.settings.SettingsStore
-import dev.sluide.speech.install.InstallState
 import dev.sluide.speech.install.KokoroVariant
 import dev.sluide.speech.install.KokoroVoicesFile
 import dev.sluide.speech.install.ModelInstaller
 import dev.sluide.speech.install.ModelStore
+import dev.sluide.speech.install.fakeDownloader
 import javafx.application.Platform
 import javafx.scene.Scene
 import javafx.scene.layout.StackPane
@@ -54,7 +55,7 @@ class SpeechSettingsPageUiTest {
         sparse(store.modelFile(KokoroVariant.FP16), KokoroVariant.FP16.bytes)
         ModelInstaller(
             store,
-            { _, _, cancelled ->
+            fakeDownloader { _, _, cancelled ->
                 val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(10)
                 while (!cancelled() && System.nanoTime() < deadline) Thread.sleep(10)
                 if (cancelled()) {

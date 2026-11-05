@@ -1,11 +1,12 @@
 package dev.sluide.speech.settings
 
+import dev.sluide.localmodels.InstallState
 import dev.sluide.settings.SettingsStore
-import dev.sluide.speech.install.InstallState
 import dev.sluide.speech.install.KokoroVariant
 import dev.sluide.speech.install.KokoroVoicesFile
 import dev.sluide.speech.install.ModelInstaller
 import dev.sluide.speech.install.ModelStore
+import dev.sluide.speech.install.fakeDownloader
 import org.junit.jupiter.api.io.TempDir
 import java.io.RandomAccessFile
 import java.nio.file.Files
@@ -35,7 +36,7 @@ class SpeechSettingsPageModelTest {
             store.modelFile(KokoroVariant.FP32).toFile(),
             "rw",
         ).use { it.setLength(KokoroVariant.FP32.bytes) }
-        ModelInstaller(store, { _, _, _ -> }, { it.run() }, { it.run() })
+        ModelInstaller(store, fakeDownloader(), { it.run() }, { it.run() })
     }
     private val model by lazy { SpeechSettingsPageModel(settings, installer, dialogs) }
 
