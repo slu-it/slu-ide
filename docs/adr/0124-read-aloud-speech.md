@@ -77,6 +77,8 @@ Options compared for the first engine, all running the Kokoro-82M model:
   rule "no background fetch" ([ADR 0043](0043-git-log-fetch.md)) holds and needs no exception. It writes `.part` files,
   checks the sha256, moves them with `ATOMIC_MOVE`, shows a cancellable background task row
   ([ADR 0060](0060-logging-conventions.md)) and a watchdog ends it after 30 s without data.
+  - Amended by [ADR 0125](0125-local-models-module.md): the generic download, install states and idle session live in
+    the foundation module `local-models`; the Kokoro files, the shared voices file and the variant switch stay here.
 - **ONNX Runtime natives:** the fat jar and jpackage keep only the build platform's natives, as with JavaFX
   ([ADR 0003](0003-javafx-platform-jars.md), [ADR 0011](0011-native-app-packaging.md)).
 - **Remembered user-wide:** the last voice and speed, in the field `speech` of `shared.json`
