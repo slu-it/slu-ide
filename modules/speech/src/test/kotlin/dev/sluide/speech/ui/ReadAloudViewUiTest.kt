@@ -6,6 +6,7 @@ import dev.sluide.speech.engine.SetupProblem
 import dev.sluide.speech.session.ReadingPosition
 import dev.sluide.speech.session.ReadingState
 import javafx.event.Event
+import javafx.event.EventHandler
 import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.Button
@@ -65,8 +66,24 @@ class ReadAloudViewUiTest {
         shortcut: Boolean = false,
     ) = fx {
         val target = area
-        val event = KeyEvent(KeyEvent.KEY_PRESSED, "", "", code, false, shortcut, false, false)
+        val event =
+            KeyEvent(
+                KeyEvent.KEY_PRESSED,
+                "",
+                "",
+                code,
+                false,
+                shortcut && !SHORTCUT_IS_META,
+                false,
+                shortcut && SHORTCUT_IS_META,
+            )
+        // fireEvent dispatches a copy: a consumed key is one that no handler after the view's filter saw.
+        var reached = false
+        val probe = EventHandler<KeyEvent> { reached = true }
+        target.addEventHandler(KeyEvent.KEY_PRESSED, probe)
         Event.fireEvent(target, event)
+        target.removeEventHandler(KeyEvent.KEY_PRESSED, probe)
+        !reached
     }
 
     private fun speaking(robot: FxRobot) {
@@ -118,20 +135,12 @@ class ReadAloudViewUiTest {
     }
 
     @Test
-    fun `Shortcut+Enter plays while editable, Space and Escape pause and stop while reading`(robot: FxRobot) {
-        robot.interact { model.textEdited("One. Two. Three.") }
-        key(KeyCode.SPACE)
-        assertTrue(host.readings.isEmpty(), "Space does nothing to the reading while the text is editable")
-        key(KeyCode.ENTER, shortcut = true)
-        assertEquals(1, host.readings.size)
-        host.reading.emit(ReadingState.SPEAKING)
-        WaitForAsyncUtils.waitForFxEvents()
+    fun `Shortcut+Enter in the editor starts a reading and consumes the key`() {
+        // The key rules are in ReadingBindingTest; this checks the editor forwards them.
+        fx { model.textEdited("One. Two. Three.") }
 
-        key(KeyCode.SPACE)
-        assertEquals(listOf("start", "pause"), host.reading.calls)
-        key(KeyCode.ESCAPE)
-        assertTrue("stop" in host.reading.calls)
-        assertTrue(fx { (node("speech-stop") as Button).isDisabled })
+        assertTrue(key(KeyCode.ENTER, shortcut = true))
+        assertEquals(1, host.readings.size)
     }
 
     @Test
@@ -167,6 +176,24 @@ class ReadAloudViewUiTest {
 
         assertEquals(2, host.readings.size)
         assertEquals(2, host.reading.startChunk)
+    }
+
+    @Test
+    fun `Play with a selection reads only the selection`(robot: FxRobot) {
+        robot.interact { model.read("One. Two. Three.", markdown = false) }
+        host.reading.emit(ReadingState.STOPPED)
+        WaitForAsyncUtils.waitForFxEvents()
+        robot.interact {
+            area.selectRange(5, 9)
+            (node("speech-play") as Button).fire()
+        }
+        host.reading.emit(ReadingState.SPEAKING)
+        host.reading.position = ReadingPosition(0, 0, 4, 0, 3)
+        robot.interact { host.pollTick?.run() }
+
+        assertEquals(listOf("Two."), host.reading.chunks.map { it.text })
+        assertTrue(fx { "speech-sentence" in area.getStyleOfChar(6) })
+        assertFalse(fx { "speech-sentence" in area.getStyleOfChar(1) })
     }
 
     @Test
@@ -323,3 +350,5 @@ class ReadAloudViewUiTest {
         assertEquals(2, host.checks, "the start's check and the one the installed row asked for")
     }
 }
+
+private val SHORTCUT_IS_META = System.getProperty("os.name").startsWith("Mac")

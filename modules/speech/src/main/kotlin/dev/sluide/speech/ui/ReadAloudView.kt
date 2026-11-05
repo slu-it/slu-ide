@@ -1,13 +1,11 @@
 package dev.sluide.speech.ui
 
 import dev.sluide.fileviewers.CodeEditors
-import dev.sluide.fileviewers.StyledRange
 import dev.sluide.fileviewers.ViewActivity
 import dev.sluide.speech.engine.SetupProblem
 import javafx.beans.property.SimpleObjectProperty
 import javafx.beans.value.ObservableValue
 import javafx.scene.Node
-import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.BorderPane
@@ -19,14 +17,18 @@ import javafx.scene.layout.VBox
  * [dispose].
  *
  * Keys on the editor: while the text is locked, Space pauses or resumes and Escape stops; while it is editable,
- * Shortcut+Enter plays from the caret. A double-click on the locked text jumps to the sentence under it.
+ * Shortcut+Enter plays from the caret, or only the selection if there is one. A double-click on the locked text
+ * jumps to the sentence under it.
  */
 internal class ReadAloudView(
     private val model: ReadAloudModel,
     private val editorCss: ObservableValue<String>,
 ) {
     private val editor = CodeEditors.text(model.text, highlighter = null)
-    private val toolbar = ReadAloudToolbar(model) { editor.caretOffset }
+    private val surface = TextEditorSurface(editor)
+    private val playSelectionOrCaret = { model.play(surface.caretOffset, surface.selection) }
+    private val binding = ReadingBinding(model, surface, playSelectionOrCaret)
+    private val toolbar = ReadAloudToolbar(model, playSelectionOrCaret)
     private val notice = SetupNotice(model)
 
     /** What the reading is doing, for the tab header's marker. */
@@ -42,39 +44,18 @@ internal class ReadAloudView(
         }
 
     private var appliedVersion = model.ui.textVersion
-    private var appliedOverlay = emptyList<StyledRange>()
-    private var appliedReveal: IntRange? = null
     private var appliedNotice = emptyList<SetupProblem>()
     private val installed: () -> Unit = ::refresh
 
     init {
         editor.node.styleProperty().bind(editorCss)
         editor.textProperty.subscribe { text -> model.textEdited(text) }
-        editor.node.addEventFilter(KeyEvent.KEY_PRESSED, ::onKey)
+        editor.node.addEventFilter(KeyEvent.KEY_PRESSED) { event -> if (binding.onKey(event)) event.consume() }
         editor.node.addEventFilter(MouseEvent.MOUSE_CLICKED) { event ->
-            // The double-click selected the word under it; its start is in the sentence also for its last word.
-            if (event.clickCount == 2 && !model.ui.editable) model.jumpTo(editor.selection.start)
+            if (event.clickCount == 2) binding.onDoubleClick()
         }
         model.onChange = installed
         refresh()
-    }
-
-    private fun onKey(event: KeyEvent) {
-        val handled =
-            if (model.ui.editable) {
-                (event.code == KeyCode.ENTER && event.isShortcutDown).also { if (it) model.play(editor.caretOffset) }
-            } else if (event.isShortcutDown || event.isAltDown || event.isShiftDown) {
-                false
-            } else if (event.code == KeyCode.SPACE) {
-                model.togglePause()
-                true
-            } else if (event.code == KeyCode.ESCAPE) {
-                model.stop()
-                true
-            } else {
-                false
-            }
-        if (handled) event.consume()
     }
 
     private fun refresh() {
@@ -82,18 +63,9 @@ internal class ReadAloudView(
         if (ui.textVersion != appliedVersion) {
             appliedVersion = ui.textVersion
             editor.replaceText(model.text)
-            appliedOverlay = emptyList()
-            appliedReveal = null
+            binding.resetApplied()
         }
-        editor.editable = ui.editable
-        if (ui.overlay != appliedOverlay) {
-            appliedOverlay = ui.overlay
-            editor.overlay(ui.overlay)
-        }
-        if (ui.reveal != appliedReveal) {
-            appliedReveal = ui.reveal
-            ui.reveal?.let { editor.reveal(it.first, it.last + 1) }
-        }
+        binding.apply(ui)
         toolbar.show(ui)
         if (ui.notice != appliedNotice) {
             appliedNotice = ui.notice

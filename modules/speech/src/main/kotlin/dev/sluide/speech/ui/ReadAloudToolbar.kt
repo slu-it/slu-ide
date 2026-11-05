@@ -25,9 +25,9 @@ import kotlin.math.abs
  */
 internal class ReadAloudToolbar(
     private val model: ReadAloudModel,
-    private val caret: () -> Int,
+    private val play: () -> Unit,
 ) {
-    private val play =
+    private val playButton =
         Button().apply {
             id = "speech-play"
             styleClass += "speech-button"
@@ -85,7 +85,7 @@ internal class ReadAloudToolbar(
     val node: HBox =
         HBox(
             6.0,
-            play,
+            playButton,
             stop,
             accent,
             gender,
@@ -112,7 +112,7 @@ internal class ReadAloudToolbar(
             if (voice != null) model.setVoice(voice)
             show(model.ui)
         }
-        play.setOnAction { if (mode == PlayMode.PLAY) model.play(caret()) else model.togglePause() }
+        playButton.setOnAction { if (mode == PlayMode.PLAY) play() else model.togglePause() }
         show(model.ui)
     }
 
@@ -126,10 +126,10 @@ internal class ReadAloudToolbar(
                     PlayMode.PAUSE -> MaterialDesignP.PAUSE to "Pause (Space)"
                     PlayMode.RESUME -> MaterialDesignP.PLAY to "Resume (Space)"
                 }
-            play.graphic = FontIcon(icon)
-            play.tooltip = Tooltip(tip)
+            playButton.graphic = FontIcon(icon)
+            playButton.tooltip = Tooltip(tip)
         }
-        play.isDisable = !ui.playEnabled
+        playButton.isDisable = !ui.playEnabled
         stop.isDisable = !ui.stopEnabled
         status.text = ui.status
         speed.text = PlaybackSpeeds.label(ui.speed)
