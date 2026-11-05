@@ -46,6 +46,11 @@
   (`speech.kokoro.variant`). Lives in the `speech` module (`SpeechSettings`, `SpeechSettingsPage` with
   `SpeechSettingsPageModel`, package `dev.sluide.speech.settings`; [read-aloud.md](read-aloud.md),
   [ADR 0124](../adr/0124-read-aloud-speech.md)).
+- Translation: the downloaded translation models, one row per pair and quality with its size and Delete (after a
+  question, Cancel is the default), the total size on disk (shared files once) and the attributions of OPUS-MT and
+  Lingua. Nothing to apply. Lives in the `translation` module (`TranslationSettingsPage` with
+  `TranslationSettingsPageModel`, package `dev.sluide.translation.settings`; [translate.md](translate.md),
+  [ADR 0126](../adr/0126-translate-tool.md)).
 - Secrets: the secret store, saved passphrases with Remove and Forget All Saved Secrets. Lives in the `secrets` module
   (`SecretsSettingsPage` with `SecretsSettingsPageModel`; [secrets.md](secrets.md)).
 - Structure: `FontSpec`, `FontStyle`, `FontArea` (values), `SettingsStore` (properties file), `FontSettings` (Spring

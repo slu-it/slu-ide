@@ -71,6 +71,13 @@ class OpusMtEngine internal constructor(
 
     override val targets: List<Language> = OpusMtLanguages.targets(catalog)
 
+    /** Every pair model of the catalog, in catalog order, each pair in both qualities. */
+    val models: List<PairModel> =
+        catalog.pairs.keys.flatMap { pair -> Quality.entries.map { model(pair, it) } }
+
+    /** The English name of the language [code]; the code itself when it is unknown. */
+    fun languageName(code: String): String = OpusMtLanguages.name(code)
+
     override fun route(
         source: Language,
         target: Language,

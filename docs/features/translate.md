@@ -76,7 +76,8 @@ approximate). While downloading, the notice shows a progress bar, the percent an
 shows the download; after a failure it shows the message and **Download again**. When the models are installed the
 translation starts by itself.
 - Models are stored in `~/.sluide/models/opus-mt/<src>-<tgt>/` (shared files) with `medium/` and `high/` folders. Each
-  download goes to `.part` files and is checked against a pinned sha256.
+  download goes to `.part` files and is checked against a pinned sha256. Settings → Translation lists the downloaded
+  models with their size and Delete, the total and the attributions.
 - **The download the user clicks is the only network access of the tool.** Detection and translation run locally.
 
 ## Known limits

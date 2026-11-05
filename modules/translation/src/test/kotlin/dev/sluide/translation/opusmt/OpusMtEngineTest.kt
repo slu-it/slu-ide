@@ -203,6 +203,15 @@ class OpusMtEngineTest {
     }
 
     @Test
+    fun `models lists every catalog pair in both qualities and language names fall back to the code`() {
+        assertEquals(catalog.pairs.size * 2, engine.models.size)
+        assertEquals(listOf(Quality.MEDIUM, Quality.HIGH), engine.models.take(2).map { it.quality })
+        assertTrue(model("de-en") in engine.models && model("de-en", Quality.HIGH) in engine.models)
+        assertEquals("German", engine.languageName("de"))
+        assertEquals("xx", engine.languageName("xx"))
+    }
+
+    @Test
     fun `translating with a missing model fails readably without loading anything`() {
         install(model("de-en"))
         val error =
