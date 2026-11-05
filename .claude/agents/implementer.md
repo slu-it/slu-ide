@@ -46,6 +46,8 @@ Sandbox rules:
   never ends). Find PIDs with `ps -eo pid,args | grep '[p]attern'` and kill only processes you started.
 - A new dependency of `MainWindow` also goes into the explicit bean lists of `ProjectWindowsUiTest` and
   `SpringWiringTest` and into the constructor call in `MainWindowUiFixture`; run `ProjectWindowsUiTest`.
+- A new Spring bean in `dev.sluide.fileviewers` is also found by the previews' viewer scan (`AllViewers.kt`), which
+  has no beans from other modules: run `:modules:previews` tests too, and exclude the bean there if it needs one.
 
 Stop and report instead of guessing when the brief leaves a design decision open or the code contradicts it
 (missing API, conflicting test, change needed outside the named files). Say what you found and what you would need.
