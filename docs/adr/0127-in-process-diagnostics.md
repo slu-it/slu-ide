@@ -1,6 +1,6 @@
 # 0127. In-process diagnostics: an always-on JFR ring buffer and a sampled capture report
 
-- Status: proposed; see [0060](0060-logging-conventions.md), [0061](0061-background-tasks.md), [0051](0051-log-file.md)
+- Status: accepted; see [0060](0060-logging-conventions.md), [0061](0061-background-tasks.md), [0051](0051-log-file.md)
 - Date: 2026-11-05
 
 ## Context
