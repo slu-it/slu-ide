@@ -36,6 +36,7 @@ status text: "Preparing…", "Sentence 3 of 40", "Paused", "Finished" or the err
   selection, Play (button or Shortcut+Enter) reads only the selected text and stops at its end.
 - **Pause** keeps the position and the audio already made; **Resume** goes on.
 - The highlight scrolls the spoken word into view.
+- The highlight follows wrapped lines (soft wrap, [soft-wrap.md](soft-wrap.md)): the spoken word is revealed on a continuation line too, and a double-click there jumps to its sentence.
 - A double-click on a sentence while reading restarts the reading there.
 - Changing the voice or the speed while reading restarts the reading at the current sentence; a paused reading stays
   paused.

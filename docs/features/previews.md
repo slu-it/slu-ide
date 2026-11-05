@@ -19,7 +19,8 @@ JSON, XML and YAML files have a formatted, foldable preview ([JSON](json-preview
 ## Items from editor extensions
 Items that the window's code editor extensions add to a preview's source (`CodeEditor.toolbarItems`, e.g. Read Aloud)
 show in every preview's toolbar, on the left after the preview's own controls, in every mode, Source included. The tab
-marker shows the source's activity (`PreviewFileView.activity`).
+marker shows the source's activity (`PreviewFileView.activity`). Before all of these comes the Soft Wrap toggle, hidden
+in Preview mode ([soft-wrap.md](soft-wrap.md)).
 
 ## Folding (`FoldControls`)
 Previews with foldable sections (JSON, XML, YAML: [json-preview.md](json-preview.md),
