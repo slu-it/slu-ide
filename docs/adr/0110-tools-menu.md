@@ -1,6 +1,6 @@
 # 0110. Tools menu: window tools open as one tab per window
 
-- Status: accepted; amends [0068](0068-window-parts-in-ide.md) (`WindowTools` gets the Tools menu); amended by [0118](0118-services-menu.md), [0129](0129-translate-numbered-tabs.md)
+- Status: accepted; amends [0068](0068-window-parts-in-ide.md) (`WindowTools` gets the Tools menu); amended by [0118](0118-services-menu.md), [0129](0129-translate-numbered-tabs.md), [0131](0131-games-menu-minesweeper.md)
 - Date: 2026-10-29
 
 ## Context

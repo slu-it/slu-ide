@@ -279,6 +279,18 @@ File does not react to it while a terminal has the focus.
 | F5 in the object tree | Refresh the tree (expansion is kept) |
 | Enter or double-click in the object tree | Open the data of a table or view; expand or collapse other nodes |
 
+## Minesweeper
+[minesweeper.md](minesweeper.md). No menu key; the keys work while the board has the focus, and not with Shortcut, Alt or Ctrl.
+
+| Keys | Action |
+|---|---|
+| Arrow keys | Move the cursor cell |
+| Space, Enter | Open the cursor cell, or chord it on an opened number |
+| F | Flag or unflag the cursor cell |
+| F2 | New game |
+| P | Pause or resume |
+| Left, right, middle mouse button | Open or chord, flag, chord |
+
 ## Settings
 [settings.md](settings.md)
 

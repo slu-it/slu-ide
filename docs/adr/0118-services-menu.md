@@ -1,6 +1,6 @@
 # 0118. Services menu: window tools for external services, the Docker tab first
 
-- Status: accepted; amends [0110](0110-tools-menu.md) (tools may have accelerators; `ToolsMenu` is reused per menu)
+- Status: accepted; amends [0110](0110-tools-menu.md) (tools may have accelerators; `ToolsMenu` is reused per menu); amended by [0131](0131-games-menu-minesweeper.md)
 - Date: 2026-11-01
 
 ## Context

@@ -43,8 +43,8 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   also follows the highlighted item (`FILE_ACTION_ICON_STYLE` in the explorer's `ExplorerMenu.kt`).
 
 ## Tool and service tabs
-- Tools menu (Coloring, Codecs, Converting, Read Aloud, Translate) and Services menu (Docker, Databases) after Docker Sandbox in the menu bar
-  (ADR 0110, 0118, 0121), then Help (Capture Diagnostics, Reveal Diagnostics Folder, About Thoreau; ADR 0127) last. A tool is a `WindowTool` in `ide` (`ide/.../tools/ToolsMenu.kt`), not a module API.
+- Tools menu (Coloring, Codecs, Converting, Read Aloud, Translate), Services menu (Docker, Databases) and Games menu
+  (Minesweeper) after Docker Sandbox in the menu bar (ADR 0110, 0118, 0121, 0131), then Help (Capture Diagnostics, Reveal Diagnostics Folder, About Thoreau; ADR 0127) last. A tool is a `WindowTool` in `ide` (`ide/.../tools/ToolsMenu.kt`), not a module API.
 - One tab per window: the menu selects the open tab or creates one. Closes with Shortcut+W without a question and is
   not restored after a restart. Tools have no key binding; a service may get an Alt+N panel key (Docker: Alt+8,
   Databases: Alt+7).
