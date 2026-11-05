@@ -16,6 +16,7 @@ commonmark = "0.30.0"
 jsoup = "1.23.2"
 ec4j = "1.1.1"
 onnxruntime = "1.31.1"
+lingua = "1.2.2"
 
 [libraries]
 spring-boot-dependencies = { module = "org.springframework.boot:spring-boot-dependencies", version.ref = "spring-boot" }
@@ -42,8 +43,10 @@ commonmark-ext-autolink = { module = "org.commonmark:commonmark-ext-autolink", v
 commonmark-ext-heading-anchor = { module = "org.commonmark:commonmark-ext-heading-anchor", version.ref = "commonmark" }
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 ec4j-core = { module = "org.ec4j.core:ec4j-core", version.ref = "ec4j" }
-# Runs the Kokoro text-to-speech model of the speech module (ADR 0124).
+# Runs the Kokoro text-to-speech model of the speech module (ADR 0124) and the Opus-MT models of translation (ADR 0126).
 onnxruntime = { module = "com.microsoft.onnxruntime:onnxruntime", version.ref = "onnxruntime" }
+# Detects the language of the text to translate (ADR 0126); the fat jar keeps only its small models.
+lingua = { module = "com.github.pemistahl:lingua", version.ref = "lingua" }
 # Version from the Spring Boot BOM (Jackson 3).
 jackson-databind = { module = "tools.jackson.core:jackson-databind" }
 # Versions from the Spring Boot BOM (Jackson 3).
