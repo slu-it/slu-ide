@@ -20,6 +20,7 @@ import javafx.application.Platform
 import javafx.beans.property.SimpleStringProperty
 import javafx.scene.Scene
 import javafx.scene.control.ListCell
+import javafx.scene.control.ToggleButton
 import javafx.scene.control.skin.ComboBoxListViewSkin
 import javafx.scene.layout.StackPane
 import javafx.scene.text.Text
@@ -40,6 +41,7 @@ import kotlin.io.path.readLines
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /**
@@ -266,6 +268,23 @@ class DockerfileViewUiTest {
 
         assertEquals(listOf("build", "-f", file.toString()), args(loggedRun(robot)).take(3))
         assertEquals(SplitMode.SPLIT, view.split.mode.get())
+    }
+
+    @Test
+    fun `Soft Wrap is the first toolbar button, toggles, and hides while only the second side shows`(robot: FxRobot) {
+        val view = open(robot)
+        robot.interact {
+            val button = view.toolbar.children.first() as ToggleButton
+            assertEquals("soft-wrap-toggle", button.styleClass.last())
+            assertTrue(button.isVisible && button.isManaged)
+            button.fire()
+            assertTrue(button.isSelected)
+            view.split.mode.set(SplitMode.OTHER)
+            assertFalse(button.isVisible)
+            assertFalse(button.isManaged)
+            view.split.mode.set(SplitMode.SPLIT)
+            assertTrue(button.isVisible)
+        }
     }
 
     private companion object {

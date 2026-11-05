@@ -16,6 +16,7 @@ Dockerfiles open as source beside a Build pane that builds the image and then of
 - Highlighted as Dockerfile, also in diffs and Markdown code fences; Shortcut+/ comments with `#`.
 
 ## The view
+- [Soft Wrap](soft-wrap.md) is the first button of the toolbar, left of the modes, and hidden while only the Build pane shows.
 - The toolbar has the modes **Source | Split | Build**; the file opens in **Split**. Build is the pane:
   1. **Toolbar:** **Build** and **Run…**. Build is disabled while the engine is not available or the options are
      invalid; a note says why the engine is not ("Connecting to Docker…", "Docker is not reachable: …", or the message

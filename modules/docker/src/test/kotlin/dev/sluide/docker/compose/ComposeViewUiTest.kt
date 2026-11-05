@@ -27,6 +27,7 @@ import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.TextField
+import javafx.scene.control.ToggleButton
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.StackPane
@@ -47,6 +48,7 @@ import kotlin.io.path.readLines
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -384,4 +386,21 @@ class ComposeViewUiTest {
             true,
             null,
         ).copyFor(node, node)
+
+    @Test
+    fun `Soft Wrap is the first toolbar button, toggles, and hides while only the second side shows`(robot: FxRobot) {
+        val view = open(robot)
+        robot.interact {
+            val button = view.toolbar.children.first() as ToggleButton
+            assertEquals("soft-wrap-toggle", button.styleClass.last())
+            assertTrue(button.isVisible && button.isManaged)
+            button.fire()
+            assertTrue(button.isSelected)
+            view.split.mode.set(SplitMode.OTHER)
+            assertFalse(button.isVisible)
+            assertFalse(button.isManaged)
+            view.split.mode.set(SplitMode.SPLIT)
+            assertTrue(button.isVisible)
+        }
+    }
 }

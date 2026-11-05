@@ -15,6 +15,7 @@ Compose files open as YAML source beside a Compose pane that starts, stops and w
 - Highlighted as YAML; Shortcut+/ comments with `#`.
 
 ## The view
+- [Soft Wrap](soft-wrap.md) is the first button of the toolbar, left of the modes, and hidden while only the Compose pane shows.
 - The toolbar has the modes **Source | Split | Compose**; the file opens in **Split**. Compose is the pane:
   1. **Toolbar:** **Up** with **Detached** (on by default, stored per file), **Down** (its menu also has **Down and
      Remove Volumes…**), **Build**, **Pull**, **Restart**. They are disabled while the engine is not available or the
