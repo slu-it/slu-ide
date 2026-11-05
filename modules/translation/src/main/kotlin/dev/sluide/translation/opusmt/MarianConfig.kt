@@ -22,7 +22,17 @@ internal data class MarianConfig(
     val heads: Int,
     val headDim: Int,
 ) {
+    /**
+     * The length limit for a source of [sourceTokens] tokens (with `</s>`): [LENGTH_FACTOR] times the source, at least
+     * [MIN_OUTPUT] tokens, plus the start token, and never over [maxLength]. Marian's own decoder caps the output
+     * similarly (`max-length-factor 3`); without the cap an odd token can make the model repeat a piece up to
+     * [maxLength] (512 tokens, 12 s for one sentence in Medium).
+     */
+    fun maxLengthFor(sourceTokens: Int): Int = minOf(maxLength, maxOf(MIN_OUTPUT, LENGTH_FACTOR * sourceTokens) + 1)
+
     companion object {
+        const val LENGTH_FACTOR = 3
+        const val MIN_OUTPUT = 16
         private val mapper = JsonMapper.builder().build()
 
         fun load(

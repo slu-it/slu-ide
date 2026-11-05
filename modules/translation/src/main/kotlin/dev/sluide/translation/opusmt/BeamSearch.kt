@@ -33,10 +33,10 @@ internal class BeamSearch(
     private val lengthPenalty: Double = 1.0,
     private val renormalize: Boolean = false,
 ) {
-    constructor(config: MarianConfig) : this(
+    constructor(config: MarianConfig, maxLength: Int = config.maxLength) : this(
         config.numBeams,
         config.eosId,
-        config.maxLength,
+        maxLength,
         config.badWordIds,
         config.forcedEosId,
         config.lengthPenalty,

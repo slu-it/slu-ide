@@ -67,7 +67,8 @@ internal class MarianSession(
     }
 
     /**
-     * The target ids for the source [ids] (with `</s>`), `</s>` included when the search ended there. Polls
+     * The target ids for the source [ids] (with `</s>`), `</s>` included when the search ended there; at most
+     * [MarianConfig.maxLengthFor] long. Polls
      * [cancelled] before every decoder step and throws [java.util.concurrent.CancellationException].
      */
     fun translate(
@@ -77,7 +78,7 @@ internal class MarianSession(
         try {
             val (hidden, width) = encode(ids)
             return Decoding(ids.size, hidden, width).use { decoding ->
-                BeamSearch(config).search(config.decoderStartId, decoding, cancelled)
+                BeamSearch(config, config.maxLengthFor(ids.size)).search(config.decoderStartId, decoding, cancelled)
             }
         } catch (e: OrtException) {
             throw TranslationException("The translation model $label failed: ${e.message}", e)

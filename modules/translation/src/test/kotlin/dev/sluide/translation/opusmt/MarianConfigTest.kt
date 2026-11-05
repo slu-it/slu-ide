@@ -95,4 +95,14 @@ class MarianConfigTest {
         val error = assertFailsWith<IllegalArgumentException> { MarianConfig.parse(config(dModel = 500), generation) }
         assertTrue("500" in error.message.orEmpty(), error.message)
     }
+
+    @Test
+    fun `the length limit is three times the source, at least 16 tokens, plus the start token, within max_length`() {
+        val parsed = MarianConfig.parse(config(), generation)
+        assertEquals(17, parsed.maxLengthFor(1))
+        assertEquals(17, parsed.maxLengthFor(5))
+        assertEquals(31, parsed.maxLengthFor(10))
+        assertEquals(400, parsed.maxLengthFor(133))
+        assertEquals(400, parsed.maxLengthFor(400))
+    }
 }
