@@ -143,6 +143,7 @@ class ReportWriterTest {
         assertContains(text, "Sampling thread CPU: 40 ms")
         assertContains(text, "JavaFX latency:      median 3 ms, max 40 ms; 3 pings, all answered")
         assertContains(text, "Pulses per second:   Thoreau – project: 12.0")
+        assertContains(text, "(includes about 1/s from this capture's own progress row)")
         assertContains(text, "Heap:                used 512 MB, committed 1024 MB, max undefined")
         assertContains(
             text,
@@ -238,5 +239,30 @@ class ReportWriterTest {
             reportText(report.copy(fx = report.fx.copy(installedAfterNanos = 1_500_000_000))),
             "\n                     counters installed 1500 ms after the start (JavaFX thread busy)\n",
         )
+    }
+
+    @Test
+    fun `folds runs of identical frames, counts printed lines and shows the probe samples`() {
+        val recursion = StackTraceElement("javafx.scene.Parent", "updateBounds", "Parent.java", 1909)
+        val stack = listOf(frame) + List(9) { recursion } + moduleFrame
+        val hot = HotThread("busy", 1_000_000, 40, 10, listOf(FrequentStack(stack, 10, cut = true)), probeSamples = 3)
+        val text =
+            reportText(
+                report.copy(
+                    sampling =
+                        sampling.copy(
+                            hot = listOf(hot),
+                            finalDump = listOf(ThreadSnapshot(1, "busy", Thread.State.RUNNABLE, false, stack)),
+                        ),
+                ),
+            )
+
+        assertEquals(
+            2,
+            Regex("at javafx.scene.Parent.updateBounds\\(Parent.java:1909\\) \\(× 9\\)").findAll(text).count(),
+        )
+        assertFalse(text.contains("Parent.java:1909)\n"))
+        assertContains(text, "3 of 40 samples answering this capture's pings")
+        assertFalse(reportText(report).contains("answering this capture's pings"))
     }
 }

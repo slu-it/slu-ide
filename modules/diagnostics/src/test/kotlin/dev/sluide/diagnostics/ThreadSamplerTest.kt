@@ -2,6 +2,7 @@ package dev.sluide.diagnostics
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -217,6 +218,60 @@ class ThreadSamplerTest {
         assertEquals(HOT_STACK_DEPTH, hot.frames.size)
         assertTrue(hot.cut)
         assertEquals(listOf("deep"), result.deadlocked)
+    }
+
+    @Test
+    fun `a JavaFX thread sample in this capture's ping is no running stack`() {
+        val ping = StackTraceElement("dev.sluide.diagnostics.JavaFxProbe", "run", "FxProbe.kt", 1)
+        val recursion = List(60) { frame("layout") }
+        val source =
+            FakeSource(
+                cpu = ArrayDeque(listOf(mapOf(1L to 0L), mapOf(1L to 10L))),
+                dumps =
+                    ArrayDeque(
+                        listOf(
+                            listOf(thread(1, FX_THREAD, listOf(ping, frame("a")))),
+                            listOf(thread(1, FX_THREAD, recursion + frame("origin"))),
+                        ),
+                    ),
+            )
+        val sampler = ThreadSampler(source, excluded = 99, clock = clock())
+
+        sampler.begin()
+        sampler.sample()
+        val hot = sampler.end().hot.single()
+
+        assertEquals(2, hot.samples)
+        assertEquals(1, hot.probeSamples)
+        assertEquals(1, hot.active)
+        // The 60 identical frames are one line, so the origin below them stays in the 25-line budget.
+        assertTrue(
+            hot.stacks
+                .single()
+                .frames
+                .contains(frame("origin")),
+        )
+        assertFalse(hot.stacks.single().cut)
+    }
+
+    @Test
+    fun `a folding stack cut at the sampling depth is marked cut`() {
+        val deep = List(DUMP_DEPTH) { frame("layout") }
+        val source =
+            FakeSource(
+                cpu = ArrayDeque(listOf(emptyMap(), mapOf(1L to 10L))),
+                dumps = ArrayDeque(listOf(listOf(thread(1, "deep", deep)))),
+            )
+        val sampler = ThreadSampler(source, excluded = 99, clock = clock())
+
+        sampler.begin()
+        val hot = sampler.end().hot.single()
+
+        assertTrue(
+            hot.stacks
+                .single()
+                .cut,
+        )
     }
 
     @Test

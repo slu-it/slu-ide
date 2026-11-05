@@ -1,5 +1,6 @@
 package dev.sluide.diagnostics
 
+import dev.sluide.backgroundtasks.BackgroundTask
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.backgroundtasks.NamedThreads
 import javafx.application.Platform
@@ -25,6 +26,9 @@ internal const val TASK_NAME = "Capturing diagnostics…"
 
 /** Lines of the log file at the end of a report. */
 private const val LOG_LINES = 200
+
+/** How often the capture's row learns its progress. */
+private val PROGRESS_INTERVAL = Duration.ofSeconds(1)
 
 /** What [Diagnostics.captureNow] wrote: `report.txt`, and whether the sampling was cancelled. */
 internal data class Captured(
@@ -100,7 +104,7 @@ class Diagnostics internal constructor(
         try {
             executor.execute {
                 try {
-                    val captured = captureNow(info, logFile, stop)
+                    val captured = captureNow(info, logFile, stop, task)
                     if (captured.cancelled) task.close("cancelled") else task.close()
                     end { done(captured.report) }
                 } catch (t: Throwable) {
@@ -143,6 +147,7 @@ class Diagnostics internal constructor(
         info: List<Pair<String, String>>,
         logFile: Path?,
         stop: CountDownLatch,
+        task: BackgroundTask? = null,
     ): Captured {
         val started = System.nanoTime()
         val time = ZonedDateTime.now(clock)
@@ -152,7 +157,8 @@ class Diagnostics internal constructor(
         val sampler = ThreadSampler(source, Thread.currentThread().threadId())
         fx.begin()
         sampler.begin()
-        val cancelledAfter = sample(sampler, fx, stop)
+        val cancelledAfter = sample(sampler, fx, stop, task)
+        task?.progress(1.0)
         val responsiveness = fx.end()
         val sampling = sampler.end()
 
@@ -204,15 +210,22 @@ class Diagnostics internal constructor(
         sampler: ThreadSampler,
         fx: FxProbe,
         stop: CountDownLatch,
+        task: BackgroundTask?,
     ): Long? {
         val begin = System.nanoTime()
         val deadline = begin + window.toNanos()
         var nextPing = begin
         var nextSample = begin + interval.toNanos()
+        // Once a second, so the row's bar repaints about once a second instead of every frame.
+        var nextProgress = begin
         while (true) {
             var now = System.nanoTime()
             if (stop.count == 0L) return now - begin
             if (now >= deadline) return null
+            if (task != null && now >= nextProgress) {
+                task.progress((now - begin).toDouble() / window.toNanos())
+                nextProgress = next(nextProgress, PROGRESS_INTERVAL, now)
+            }
             if (now >= nextPing) {
                 fx.ping()
                 nextPing = next(nextPing, pingInterval, now)
@@ -222,7 +235,7 @@ class Diagnostics internal constructor(
                 nextSample = next(nextSample, interval, now)
             }
             now = System.nanoTime()
-            val wait = minOf(deadline, nextPing, nextSample) - now
+            val wait = minOf(deadline, nextPing, nextSample, if (task != null) nextProgress else deadline) - now
             if (wait > 0) stop.await(wait, TimeUnit.NANOSECONDS)
         }
     }

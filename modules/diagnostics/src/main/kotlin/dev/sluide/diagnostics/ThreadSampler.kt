@@ -82,6 +82,8 @@ internal data class HotThread(
     val nativeWaits: Int = 0,
     val nestedLoops: Int = 0,
     val waitStacks: List<FrequentStack> = emptyList(),
+    /** Samples of the JavaFX thread that ran this capture's own ping; they are in no stack. */
+    val probeSamples: Int = 0,
 )
 
 /** The change of one garbage collector over the window. */
@@ -114,11 +116,36 @@ internal data class SamplingResult(
     val finalDump: List<ThreadSnapshot>,
 )
 
-/** Frames per sample; the full dump at the end has as many. */
-internal const val DUMP_DEPTH = 40
+/**
+ * Frames per sample; the full dump at the end has as many. Deep enough to see below a recursion (a layout pass), which
+ * the report folds: its printed stacks have at most [DUMP_LINES] and [HOT_STACK_DEPTH] lines.
+ */
+internal const val DUMP_DEPTH = 100
 
-/** Frames of a hot stack: enough to see where it comes from, few enough that stacks differing deep down group. */
+/** Lines of a stack in the full dump of the report, a run of identical frames counting one. */
+internal const val DUMP_LINES = 40
+
+/**
+ * Lines of a hot stack, a run of identical frames counting one: enough to see where it comes from, few enough that
+ * stacks differing deep down group.
+ */
 internal const val HOT_STACK_DEPTH = 25
+
+/** The package of this module: a JavaFX-thread stack with a frame in it is the capture's own ping. */
+private const val PROBE_PACKAGE = "dev.sluide.diagnostics."
+
+/** The head of [frames] that prints as at most [lines] lines when runs of identical frames fold to one. */
+internal fun limitRuns(
+    frames: List<StackTraceElement>,
+    lines: Int,
+): List<StackTraceElement> {
+    var runs = 0
+    for (i in frames.indices) {
+        if (i == 0 || frames[i] != frames[i - 1]) runs++
+        if (runs > lines) return frames.subList(0, i)
+    }
+    return frames
+}
 
 /** Hottest threads whose stacks are listed (the JavaFX thread comes on top). */
 internal const val HOT_THREADS = 5
@@ -198,6 +225,7 @@ internal class ThreadSampler(
         var active = 0
         var nativeWaits = 0
         var nestedLoops = 0
+        var probeSamples = 0
         val stacks = HashMap<List<StackTraceElement>, Int>()
         val waitStacks = HashMap<List<StackTraceElement>, Int>()
         val cut = HashSet<List<StackTraceElement>>()
@@ -286,6 +314,10 @@ internal class ThreadSampler(
             val entry = seen.getOrPut(thread.id) { Seen(thread.name) }
             entry.name = thread.name
             entry.samples++
+            if (thread.name == FX_THREAD && thread.stack.any { it.className.startsWith(PROBE_PACKAGE) }) {
+                entry.probeSamples++
+                continue
+            }
             val counted =
                 when (sampleKind(thread)) {
                     SampleKind.ACTIVE -> entry.stacks.also { entry.active++ }
@@ -293,9 +325,9 @@ internal class ThreadSampler(
                     SampleKind.NESTED_LOOP -> entry.waitStacks.also { entry.nestedLoops++ }
                     SampleKind.WAITING -> continue
                 }
-            val frames = thread.stack.take(HOT_STACK_DEPTH)
+            val frames = limitRuns(thread.stack, HOT_STACK_DEPTH)
             counted.merge(frames, 1, Int::plus)
-            if (thread.stack.size > HOT_STACK_DEPTH) entry.cut += frames
+            if (thread.stack.size >= DUMP_DEPTH || thread.stack.size > frames.size) entry.cut += frames
         }
     }
 
@@ -324,6 +356,7 @@ internal class ThreadSampler(
                 nativeWaits = entry.nativeWaits,
                 nestedLoops = entry.nestedLoops,
                 waitStacks = entry.frequent(entry.waitStacks),
+                probeSamples = entry.probeSamples,
             )
         }
     }

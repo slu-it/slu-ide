@@ -167,6 +167,7 @@ private fun StringBuilder.fx(fx: FxResponsiveness) {
                 fx.windows.map { "${it.label}: ${format1(if (it.nanos <= 0) 0.0 else it.pulses * 1e9 / it.nanos)}" },
                 "",
             )
+            field("", "(includes about 1/s from this capture's own progress row)")
         }
     }
     // Counters installed this late say the JavaFX thread was busy when the capture began.
@@ -210,16 +211,21 @@ private fun StringBuilder.hotStacks(sampling: SamplingResult) {
         if (thread.nativeWaits > 0) {
             append("  in the native event loop or a selector wait in ${share(thread.nativeWaits, samples)}\n")
         }
-        if (thread.active + thread.nativeWaits + thread.nestedLoops == 0) append("  waiting in all $samples samples\n")
+        if (thread.probeSamples > 0) {
+            append("  ${thread.probeSamples} of $samples samples answering this capture's pings\n")
+        }
+        if (thread.active + thread.nativeWaits + thread.nestedLoops + thread.probeSamples == 0) {
+            append("  waiting in all $samples samples\n")
+        }
         for (stack in thread.stacks) {
             append("  ${stack.count} of $samples samples running or blocked:\n")
-            frames(stack.frames, stack.cut, HOT_STACK_DEPTH)
+            frames(stack.frames, stack.cut)
         }
         // A thread that used CPU while it seemed to wait in native code may work there: its native stacks show where.
         if (percent(thread.cpuNanos ?: 0, sampling.wallNanos) >= NATIVE_WORK_PERCENT) {
             for (stack in thread.waitStacks) {
                 append("  ${stack.count} of $samples samples in native code, with CPU used in the window:\n")
-                frames(stack.frames, stack.cut, HOT_STACK_DEPTH)
+                frames(stack.frames, stack.cut)
             }
         }
     }
@@ -240,22 +246,32 @@ private fun StringBuilder.threadDump(sampling: SamplingResult) {
             thread.lockOwner?.let { append(" held by \"").append(it).append('"') }
             append('\n')
         }
-        frames(thread.stack, thread.stack.size >= DUMP_DEPTH, DUMP_DEPTH)
+        val shown = limitRuns(thread.stack, DUMP_LINES)
+        frames(shown, thread.stack.size >= DUMP_DEPTH || shown.size < thread.stack.size)
     }
 }
 
+/** Prints [frames], a run of identical consecutive frames once with "(× n)"; [cut] says the stack went on. */
 private fun StringBuilder.frames(
     frames: List<StackTraceElement>,
     cut: Boolean,
-    depth: Int,
 ) {
     if (frames.isEmpty()) append("    (no Java frames)\n")
-    for (frame in frames) {
-        append(
-            "    at ",
-        ).append(frame.className).append('.').append(frame.methodName).append(where(frame))
+    var i = 0
+    while (i < frames.size) {
+        var end = i + 1
+        while (end < frames.size && frames[end] == frames[i]) end++
+        val frame = frames[i]
+        append("    at ")
+            .append(frame.className)
+            .append('.')
+            .append(frame.methodName)
+            .append(where(frame))
+        if (end - i > 1) append(" (× ").append(end - i).append(')')
+        append('\n')
+        i = end
     }
-    if (cut) append("    … (cut at $depth frames)\n")
+    if (cut) append("    … (cut)\n")
 }
 
 private fun StringBuilder.log(log: LogTail) {
@@ -280,10 +296,10 @@ private fun StringBuilder.log(log: LogTail) {
 /** Where a frame is, as in a stack trace, without the module and class loader `StackTraceElement` adds. */
 private fun where(frame: StackTraceElement) =
     when {
-        frame.isNativeMethod -> "(Native Method)\n"
-        frame.fileName == null -> "(Unknown Source)\n"
-        frame.lineNumber >= 0 -> "(${frame.fileName}:${frame.lineNumber})\n"
-        else -> "(${frame.fileName})\n"
+        frame.isNativeMethod -> "(Native Method)"
+        frame.fileName == null -> "(Unknown Source)"
+        frame.lineNumber >= 0 -> "(${frame.fileName}:${frame.lineNumber})"
+        else -> "(${frame.fileName})"
     }
 
 private fun duration(duration: Duration) =

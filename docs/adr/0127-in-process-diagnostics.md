@@ -52,7 +52,13 @@ A module `diagnostics` (bean `Diagnostics`, one per app) with two parts:
 
   The report is plain text about 120 columns wide, headed by the caller's lines (version, Java, JavaFX, OS, paths),
   the folder and whether JFR and `threads.txt` are in it, and written through a temp file. The sampling thread leaves
-  itself out of the threads and stacks.
+  itself out of the threads and stacks. JavaFX-thread samples that run the capture's own ping are counted apart
+  ("n of m samples answering this capture's pings"), not as running stacks. Runs of identical consecutive frames
+  print once with "(× n)" and the stack budget counts printed lines (samples take 100 frames), so the origin below a
+  recursion stays visible. Hot stacks are grouped by their folded head, so samples at different recursion depths count
+  as different stacks.
+- The capture's row is a determinate bar (`BackgroundTask.progress`) updated once a second, so the row causes about
+  one pulse per second instead of one per frame and "Pulses per second" stays meaningful; the report notes the 1/s.
 - **One capture at a time**, app-wide (`capturing`). A capture is a background task "Capturing diagnostics…"
   ([ADR 0061](0061-background-tasks.md)) of the window it was started in; its cancel stops the sampling early and the
   report is still written, with "Cancelled after N s" (a cancel after the sampling has ended changes nothing). Closing

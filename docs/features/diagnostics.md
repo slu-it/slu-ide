@@ -37,9 +37,11 @@ the end of the log and whatever paths and class names JFR events contain: look t
 
 ## Reading a report
 - **Hot threads:** the threads with the most CPU in the window, with their most frequent stacks; a thread busy in
-  native code shows as "in the native event loop" and is usually idle.
+  native code shows as "in the native event loop" and is usually idle. Runs of identical frames (a recursion) print once with "(× n)"; "n of m samples answering this
+  capture's pings" are the JavaFX thread running the capture itself, not app work.
 - **JavaFX responsiveness:** median and max latency of a ping to the JavaFX thread and the unanswered ones; layout
-  pulses per second per window show a window that relayouts all the time (an animation or a loop).
+  pulses per second per window show a window that relayouts all the time (an animation or a loop). The capture's own row in the background tasks adds about 1 per
+  second, which the report notes.
 - **Unattributed:** CPU that no listed thread accounts for: GC, the JIT compiler, JFR, other JVM threads. A large
   share points at memory pressure (see GC time) rather than at app code.
 - `ForkJoinPool-*` threads may run virtual threads; see `threads.txt` and the JFR file.

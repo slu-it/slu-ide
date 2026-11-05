@@ -172,6 +172,23 @@ class DiagnosticsTest {
     }
 
     @Test
+    fun `the capture's row reports its progress, determinate from the start`() {
+        val diagnostics = diagnostics()
+        var progress = -1.0
+        probe.onEnd = {
+            progress =
+                tasks.shown
+                    .single()
+                    .progressProperty
+                    .get()
+        }
+
+        diagnostics.start().get(60, TimeUnit.SECONDS)
+
+        assertTrue(progress in 0.0..1.0, "determinate, was $progress")
+    }
+
+    @Test
     fun `a cancel after the sampling has ended does not mark the capture cancelled`() {
         val diagnostics = diagnostics()
         probe.onEnd = { tasks.shown.single().cancel() }
