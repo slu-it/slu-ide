@@ -484,7 +484,9 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `Read Selection Aloud puts the selection in the Read Aloud tab`(robot: FxRobot) {
+    fun `Read Selection Aloud in a plain-text editor reads in place, without the Read Aloud tab`(robot: FxRobot) {
+        // Plain-text and Markdown editors read in place (ADR 0128); code editors send the text to the tab
+        // (ReadAloudExtensionTest). This fixture opens every file as plain text.
         val file = project.resolve("notes.txt").apply { writeText("hello world\nmore\n") }
         robot.interact { editorArea.open(file) }
         eventually(robot) { assertEquals(1, robot.lookup(".code-area").queryAllAs(CodeArea::class.java).size) }
@@ -494,8 +496,18 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
         assertEquals("Read Selection Aloud", item.text)
         robot.interact { item.fire() }
 
-        assertEquals(listOf("notes.txt", "Read Aloud"), tabTitles(robot))
-        eventually(robot) { assertEquals("hello", readAloudText(robot)) }
+        assertEquals(listOf("notes.txt"), tabTitles(robot))
+        assertEquals(1, robot.lookup("#speech-play").queryAll<Node>().size)
+        // The reading started in the editor: its status left idle (preparing, or the setup it lacks here).
+        eventually(robot) {
+            assertTrue(
+                robot
+                    .lookup("#speech-status")
+                    .queryAs(Label::class.java)
+                    .text
+                    .isNotEmpty(),
+            )
+        }
     }
 
     @Test
