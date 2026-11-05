@@ -3,7 +3,8 @@ package dev.sluide.speech.install
 import dev.sluide.backgroundtasks.BackgroundTask
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.backgroundtasks.NamedThreads
-import dev.sluide.speech.engine.SpeechException
+import dev.sluide.localmodels.ModelDownloadException
+import dev.sluide.localmodels.ModelDownloader
 import javafx.application.Platform
 import javafx.beans.property.ReadOnlyObjectProperty
 import javafx.beans.property.ReadOnlyObjectWrapper
@@ -64,21 +65,19 @@ class ModelInstaller internal constructor(
         downloads::close,
     )
 
-    /** The one HTTP client of the installer, created with the first download. */
+    /** The one downloader of the installer; its HTTP client is created with the first download. */
     private class Downloads(
         private val store: ModelStore,
     ) {
-        private val client = lazy { ModelDownloader.defaultHttpClient() }
+        private val downloader = ModelDownloader()
 
         fun download(
             v: KokoroVariant,
             progress: (Double) -> Unit,
             cancelled: () -> Boolean,
-        ) = ModelDownloader(store, client.value).download(v, progress, cancelled)
+        ) = downloader.download(kokoroFiles(v), store.root, progress, cancelled)
 
-        fun close() {
-            if (client.isInitialized()) client.value.shutdownNow()
-        }
+        fun close() = downloader.close()
     }
 
     private val states = KokoroVariant.entries.associateWith { ReadOnlyObjectWrapper<InstallState>(initial(it)) }
@@ -126,7 +125,7 @@ class ModelInstaller internal constructor(
             } catch (e: CancellationException) {
                 dispatch(Runnable { set(v, initial(v)) })
                 task?.failed(e)
-            } catch (e: SpeechException) {
+            } catch (e: ModelDownloadException) {
                 fail(v, task, e.message ?: "Download failed", e)
             } catch (e: Throwable) {
                 if (task == null) log.log(System.Logger.Level.ERROR, "Download of ${v.fileName} failed", e)
@@ -146,7 +145,7 @@ class ModelInstaller internal constructor(
     ) {
         dispatch(Runnable { set(v, InstallState.Failed(message)) })
         // A cancelled task counts the failure as cancelled; otherwise the user is told with the message.
-        if (error is SpeechException) task?.failed(message) else task?.failed(error)
+        if (error is ModelDownloadException) task?.failed(message) else task?.failed(error)
     }
 
     /** Stops the download of [v], if one runs; its state then goes back to what is on disk. */

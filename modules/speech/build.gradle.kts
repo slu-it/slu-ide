@@ -21,6 +21,10 @@ dependencies {
     implementation(project(":modules:media"))
     // Deliberate module dependency: espeak-ng is looked up through the login shell (loginShellPrints, ADR 0124).
     implementation(project(":modules:terminal"))
+    // Deliberate module API dependency: the Kokoro files download and their install states come from the shared
+    // local-models module (ModelSpecs, ModelInstaller, InstallState in the installer's API), and the session unloads
+    // when idle with its IdleSession (ADR 0125).
+    api(project(":modules:local-models"))
     // Deliberate module dependency: the model download is a background task; synthesis runs on logged named threads
     // (ADR 0060, ADR 0061).
     implementation(project(":modules:background-tasks"))

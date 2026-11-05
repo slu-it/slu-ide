@@ -1,7 +1,7 @@
 package dev.sluide.speech.install
 
 import dev.sluide.backgroundtasks.BackgroundTasks
-import dev.sluide.speech.engine.SpeechException
+import dev.sluide.localmodels.ModelDownloadException
 import org.junit.jupiter.api.io.TempDir
 import java.io.RandomAccessFile
 import java.nio.file.Path
@@ -95,7 +95,7 @@ class ModelInstallerTest {
     @Test
     fun `a failure shows its message and the task fails with it`() {
         val log = mutableListOf<String>()
-        work = { _, _, _ -> throw SpeechException("Download of x failed: checksum mismatch") }
+        work = { _, _, _ -> throw ModelDownloadException("Download of x failed: checksum mismatch") }
         installer.download(KokoroVariant.FP32, BackgroundTasks.forTests { log += it })
         runQueued()
 

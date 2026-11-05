@@ -1,6 +1,11 @@
 package dev.sluide.speech.install
 
+import dev.sluide.localmodels.ModelFile
+import java.net.URI
 import kotlin.math.roundToLong
+
+/** The release the files are published in. */
+private const val RELEASE = "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.1/"
 
 /** The Kokoro model files of the kokoro-onnx release `model-files-v1.1`, pinned by size and SHA-256 (ADR 0124). */
 enum class KokoroVariant(
@@ -36,18 +41,16 @@ object KokoroVoicesFile {
     const val SHA256 = "bca610b8308e8d99f32e6fe4197e7ec01679264efed0cac9140fe9c29f1fbf7d"
 }
 
-/** A file to download: its name in the release and in the store, its size and its SHA-256 (lower-case hex). */
-internal data class ModelFile(
-    val name: String,
-    val bytes: Long,
-    val sha256: String,
-)
-
-/** The files [variant] needs: its model and the voices file. */
+/** The files [variant] needs, by their names in the release and in the store: its model and the voices file. */
 internal fun kokoroFiles(variant: KokoroVariant): List<ModelFile> =
     listOf(
-        ModelFile(variant.fileName, variant.bytes, variant.sha256),
-        ModelFile(KokoroVoicesFile.FILE_NAME, KokoroVoicesFile.BYTES, KokoroVoicesFile.SHA256),
+        ModelFile(variant.fileName, URI(RELEASE + variant.fileName), variant.bytes, variant.sha256),
+        ModelFile(
+            KokoroVoicesFile.FILE_NAME,
+            URI(RELEASE + KokoroVoicesFile.FILE_NAME),
+            KokoroVoicesFile.BYTES,
+            KokoroVoicesFile.SHA256,
+        ),
     )
 
 /** [bytes] in decimal megabytes, rounded: `326 MB`. */
