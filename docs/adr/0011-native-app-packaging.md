@@ -41,4 +41,7 @@ Alternatives considered:
   `LANG`). Terminals and sandboxes run a login shell (`-l`), which loads the user's profile and with it the `PATH`.
 - A JDK module that jdeps does not see (used only via reflection) is missing from the runtime and fails at runtime;
   add it to the extra modules of the jpackage tasks.
+- jdeps stops on a jar whose module descriptor requires a module it cannot resolve (Lingua's requires `okio` and
+  `fastutil`, which are only automatic modules): `appModules` leaves such a jar out of the analysis but keeps it on
+  the class path, prints jdeps' error when it fails, and runs as part of `check`, so CI notices before packaging.
 - On Ubuntu's OpenJDK, jlink needs `objcopy` (package `binutils`); Temurin, used in CI, does not.

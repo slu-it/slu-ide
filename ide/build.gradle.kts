@@ -195,6 +195,9 @@ val jdkHome =
 val isMac = "mac" in System.getProperty("os.name").lowercase()
 
 // The JDK modules the code needs, so the bundled runtime contains only those. jdeps prints them on the last line.
+// Every jar is analysed except Lingua's: its module descriptor (in META-INF/versions/9) requires `okio`, which is only an
+// automatic module (a manifest name), so jdeps stops with "Module okio not found". Lingua stays on the class path, and
+// its descriptor requires no JDK module but java.base, which every runtime has.
 val appModulesFile = layout.buildDirectory.file("jpackage/modules.txt")
 val appModules =
     tasks.register<Exec>("appModules") {
@@ -212,11 +215,28 @@ val appModules =
                 javaVersion,
                 "--class-path",
                 jars.asPath,
-            ) + jars.map { it.path }
+            ) + jars.filterNot { it.name.startsWith("lingua-") }.map { it.path }
         }
         val output = appModulesFile
         doFirst { standardOutput = output.get().asFile.outputStream() }
+        // jdeps prints its errors to the output file too; without this the build only says "exit value 2".
+        isIgnoreExitValue = true
+        doLast {
+            if (executionResult.get().exitValue != 0) {
+                throw GradleException(
+                    "jdeps failed:\n" +
+                        output
+                            .get()
+                            .asFile
+                            .readText()
+                            .trim(),
+                )
+            }
+        }
     }
+
+// Packaging runs appModules only when building the app image; `check` runs it too, so CI notices a jar jdeps rejects.
+tasks.named("check") { dependsOn(appModules) }
 
 val jpackageInput =
     tasks.register<Sync>("jpackageInput") {
