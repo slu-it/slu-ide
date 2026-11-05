@@ -3,13 +3,16 @@ package dev.sluide.speech.text
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import java.lang.management.ManagementFactory
 import kotlin.test.assertTrue
 
 /**
  * Text up to the 1 MiB the tool accepts, in shapes that made a scanner quadratic: each one search from a line or a
  * mark to the end of the document or the paragraph. Asserts how the time grows (docs/testing.md, "Portability"):
  * four times the text takes about four times as long when linear, sixteen times when quadratic. The best of a few
- * runs after a warm-up keeps JIT and GC noise out; a generous cap catches a slow scanner that grows linearly.
+ * runs after a warm-up keeps JIT noise out, and the time is this thread's CPU time: the 1 MiB runs pause for young
+ * GCs the quarter runs mostly miss, longer with fewer GC threads (9x on the 3-core macOS runner). A generous cap
+ * catches a slow scanner that grows linearly.
  */
 class LargeTextTest {
     @ParameterizedTest(name = "{0}")
@@ -30,11 +33,13 @@ class LargeTextTest {
         assertTrue(ratio <= MAX_RATIO, "4x the text took ${"%.1f".format(ratio)}x the time")
     }
 
+    private val threads = ManagementFactory.getThreadMXBean()
+
     private fun bestOf(text: String): Long =
         (1..RUNS).minOf {
-            val start = System.nanoTime()
+            val start = threads.currentThreadCpuTime
             read(text)
-            System.nanoTime() - start
+            threads.currentThreadCpuTime - start
         }
 
     private fun read(text: String) {

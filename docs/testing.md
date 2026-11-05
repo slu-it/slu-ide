@@ -140,7 +140,10 @@ CI once.
 - **Stack depth:** x64 runners overflowed a recursion of 1000 levels that passes here. Keep nesting caps modest
   (previews use 200-250) and try a deep case with `-Xss512k`.
 - **Time limits:** runners are 4-9 times slower than the sandbox. A performance test asserts how time grows (e.g. 2x
-  input, at most ~3x time) or keeps a margin of 10x over the local time.
+  input, at most ~3x time) or keeps a margin of 10x over the local time. Measure the growth in the test thread's CPU
+  time (`ManagementFactory.getThreadMXBean().currentThreadCpuTime`), not `System.nanoTime()`: the larger input
+  triggers young GCs the smaller one misses, and their pauses grow with fewer GC threads (a linear scanner measured
+  9x for 4x the text on the 3-core macOS runner). Reproduce with `-XX:ActiveProcessorCount=3` and `-Xlog:gc`.
 - **Git encodings:** git converts commit messages to `i18n.commitEncoding` differently per OS (iconv). Tests read
   messages with `--encoding=UTF-8`, as the app does.
 - **File watching:** the macOS JDK polls (every 2 s, by path, mtime per entry): late events, no events for a folder
