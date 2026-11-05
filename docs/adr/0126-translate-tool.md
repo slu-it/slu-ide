@@ -45,6 +45,10 @@ models for 75 languages, 80 MB), fastText `lid.176` (Meta, CC-BY-SA, needs a rea
 - **Text:** sentences via `SentenceRanges` (`text-editing`), translated one by one with a per-window cache, so an edit
   retranslates only the changed sentences. With the Markdown toggle on (set from `.md`/`.markdown` file names),
   markup is kept verbatim and only the text is translated.
+  In Markdown mode a paragraph that wraps over lines (also in a list item or block quote) is one stretch, so a
+  sentence that wraps goes to the model whole; its line breaks become one space and the translated sentence stands on
+  one line, which renders the same. A hard line break (two spaces or a backslash) ends the paragraph and is kept.
+  Plain mode stays line by line.
 - **Typing** is debounced (1 s); other changes translate at once; a new run cancels the running one.
 - **Module** `translation` (package `dev.sluide.translation`), editor family, like `speech`.
 - **Remembered user-wide:** source, target and quality in the field `translation` of `shared.json` (ADR 0101); the text
