@@ -1,6 +1,6 @@
 # 0126. Translate: local translation with Opus-MT and language detection with Lingua
 
-- Status: accepted; see [0124](0124-read-aloud-speech.md), [0125](0125-local-models-module.md), [0110](0110-tools-menu.md), [0108](0108-code-editor-extensions-and-context-menu.md), [0043](0043-git-log-fetch.md), [0066](0066-scratch-files.md), [0101](0101-shared-data-file.md), [0003](0003-javafx-platform-jars.md)
+- Status: accepted; amended by [0129](0129-translate-numbered-tabs.md); see [0124](0124-read-aloud-speech.md), [0125](0125-local-models-module.md), [0110](0110-tools-menu.md), [0108](0108-code-editor-extensions-and-context-menu.md), [0043](0043-git-log-fetch.md), [0066](0066-scratch-files.md), [0101](0101-shared-data-file.md), [0003](0003-javafx-platform-jars.md)
 - Date: 2026-11-05
 
 ## Context

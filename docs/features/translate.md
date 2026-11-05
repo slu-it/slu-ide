@@ -2,27 +2,27 @@
 
 **Modules:** `modules/translation` (package `dev.sluide.translation`: the window's `Translate` bean, the engine API in
 `engine`, text segmentation in `text`, detection in `detect`, the tab's state in `session`, the tab in `ui`, the code
-editors' menu item in `editor`); menu and wiring in `ide`; decision in [ADR 0126](../adr/0126-translate-tool.md)
+editors' menu item in `editor`); menu and wiring in `ide`; decisions in [ADR 0126](../adr/0126-translate-tool.md), [ADR 0129](../adr/0129-translate-numbered-tabs.md)
 
 The Translate tool translates text with local models: no cloud, no account. It is a tab of the editor area with a
 toolbar at the top, the text to translate on the left (editable) and the translation on the right (read-only). Nothing
 is translated until a target language is chosen.
 
 ## Opening
-- **Tools → Translate** opens the tab, with the window's last text or empty. One tab per window: choosing the item again
-  selects the open tab. The tab has no key binding; Shortcut+W closes it, and it is not restored after a restart. The
-  focus goes to the left side.
+- **Tools → Translate** opens a new tab "Translate N", empty. N counts per window and is never reused, so choosing
+  the item again opens another tab. The tab has no key binding; Shortcut+W closes it, and it is not restored after a
+  restart. The focus goes to the left side.
 - **Translate Selection** in the context menu of every code editor translates the selection; without a selection the
   item reads **Translate** and takes the whole text, unsaved edits included. Text over 1 MiB disables the item
   ("larger than 1 MiB"). Code: `TranslateExtension`.
 - **Translate** in the explorer's context menu of a single `.txt`, `.md` or `.markdown` file translates the saved file.
   If a tab of it has unsaved changes, a question says so ("Save and Translate", "Translate Saved Version" or Cancel). A
   file over 1 MiB or not UTF-8 is an error dialog. `Translate.readFile` reads off the FX thread.
-- Text that arrives from an editor or the explorer replaces the tab's text and is translated at once (when a target is
+- Text that arrives from an editor or the explorer opens a new tab with it and is translated at once (when a target is
   chosen and the models are installed). The Markdown toggle is set from the file name: on for `.md` and `.markdown`,
   else off.
-- Text, languages, quality and the Markdown toggle belong to the window and survive closing the tab; closing the window
-  ends the work. The text itself is never stored.
+- Text, languages, quality and the Markdown toggle belong to the tab and end with it; a new tab starts with the last
+  chosen languages and quality. Closing the window ends all work. The text itself is never stored.
 
 ## The tab
 The toolbar has, left to right: **Source** ("Detect" first, shown as "Detect (German)" once detected, then the
@@ -36,7 +36,7 @@ file with the translation, `.md` when Markdown is on, else `.txt`, [ADR 0066](..
   selection and copy work. Its text is replaced only when the translation changes, so a selection survives status and
   download updates.
 - Typing is translated 1 s after the last edit. Changing the source, target, quality or the Markdown toggle translates
-  at once. A new translation cancels the running one. Unchanged sentences come from a per-window cache, so only edited
+  at once. A new translation cancels the running one. Unchanged sentences come from a per-tab cache, so only edited
   sentences are translated again.
 - Status: "Choose a target language", "Detecting…", "Translating 3 of 40…", "Translated", "Already German" (source and
   target are the same: the right side shows the input), "Language not detected. Choose the source.", "No translation
