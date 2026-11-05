@@ -15,21 +15,22 @@ import javafx.scene.control.Label
 import javafx.scene.control.Tooltip
 import javafx.scene.layout.HBox
 import javafx.scene.layout.VBox
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.stereotype.Component
 
 private const val DELETE_TITLE = "Delete"
 
 /**
  * Translation: the downloaded translation models with their size and Delete, the total size and the attributions.
  * Nothing to apply; the list follows the installer's states (a download that ends, a delete that completes).
- *
- * Not yet a Spring bean: the wiring adds `@Component`, `@Autowired` on the public constructor and the beans of
- * [OpusMtEngine] and `ModelInstaller<PairModel>`.
  */
+@Component
 class TranslationSettingsPage internal constructor(
     private val engine: OpusMtEngine,
     private val installer: ModelInstaller<PairModel>,
     dialogs: TranslationSettingsDialogs?,
 ) : SettingsPage {
+    @Autowired
     constructor(engine: OpusMtEngine, installer: ModelInstaller<PairModel>) : this(engine, installer, null)
 
     private val dialogs: TranslationSettingsDialogs = dialogs ?: FxDialogs { node.scene?.window }

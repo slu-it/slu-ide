@@ -97,6 +97,7 @@ import dev.sluide.translation.TranslationPreferences
 import dev.sluide.translation.engine.LanguageDetector
 import dev.sluide.translation.engine.TranslationEngine
 import dev.sluide.translation.opusmt.OpusMtEngine
+import dev.sluide.translation.settings.TranslationSettingsPage
 import org.junit.jupiter.api.io.TempDir
 import org.springframework.beans.factory.config.DependencyDescriptor
 import org.springframework.boot.WebApplicationType
@@ -211,6 +212,7 @@ class SpringWiringTest {
                         LanguageDetector::class.java,
                         dev.sluide.localmodels.ModelInstaller::class.java,
                         TranslationPreferences::class.java,
+                        TranslationSettingsPage::class.java,
                     )
                 for (type in types) {
                     assertEquals(1, context.getBeanNamesForType(type).size, "bean of type ${type.simpleName}")
