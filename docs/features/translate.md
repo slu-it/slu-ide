@@ -54,10 +54,13 @@ file with the translation, `.md` when Markdown is on, else `.txt`, [ADR 0066](..
   (two spaces or a backslash) ends the paragraph and is kept.
 
 ## Languages and quality
-Every language with single-target Opus-MT models (University of Helsinki, Hugging Face ONNX conversions) is offered: as
-a source when a model translates from it (or a direct pair exists), as a target when a model translates into it. A
-language pair without a direct model is translated through English (two models; the notice says so). TODO: the number
-of languages, filled in from the catalog.
+Every language with an Opus-MT model (University of Helsinki, Hugging Face ONNX conversions) to or from English is
+offered: as a source when a model translates from it into English, as a target when a model translates English into it.
+That is English plus 25 sources (Afrikaans, Arabic, Chinese, Czech, Danish, Dutch, Estonian, Finnish, French, German,
+Hindi, Hungarian, Indonesian, Italian, Japanese, Korean, Polish, Russian, Spanish, Swedish, Thai, Turkish, Ukrainian,
+Vietnamese, Xhosa) and 20 targets (the same without Estonian, Japanese, Korean, Polish, Thai and Turkish, plus Romanian).
+A pair with a direct model (such as German → French) uses it; any other pair is translated through English (two
+models; the notice says so). Chinese output is Simplified Chinese.
 - **Medium** (int8, the default) is smaller and faster; **High** (fp32) is more exact. Each quality of each model is its
   own download.
 - The last source, target and quality are remembered user-wide in the field `translation` of `~/.sluide/shared.json`
@@ -71,10 +74,10 @@ Languages Lingua does not know can only be picked by hand.
 ## Setup
 Each translation needs the models of its route. When one is missing the tab shows a notice above the toolbar and
 translates nothing: "German → English (Medium) is not installed", or through English "German → Swedish (Medium) needs
-German → English and English → Swedish", with **Download (220 MB)** (TODO: measured sizes from the catalog; they are
-approximate). While downloading, the notice shows a progress bar, the percent and **Cancel**, and a background task row
-shows the download; after a failure it shows the message and **Download again**. When the models are installed the
-translation starts by itself.
+German → English and English → Swedish", with **Download (221 MB)** (a pair's model is about 115 MB in Medium and
+about 440 MB in High). While downloading, the notice shows a progress bar, the percent and **Cancel**, and a background
+task row shows the download; after a failure it shows the message and **Download again**. When the models are
+installed the translation starts by itself.
 - Models are stored in `~/.sluide/models/opus-mt/<src>-<tgt>/` (shared files) with `medium/` and `high/` folders. Each
   download goes to `.part` files and is checked against a pinned sha256. Settings → Translation lists the downloaded
   models with their size and Delete, the total and the attributions.
