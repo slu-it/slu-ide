@@ -24,6 +24,7 @@ import dev.sluide.fileexplorer.ExplorerSettings
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
+import dev.sluide.fileviewers.SoftWrap
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCommits
@@ -189,6 +190,7 @@ class ProjectWindowsUiTest {
                 register(PlaybackCoordinator::class.java)
                 registerBean(SpeechEngines::class.java, Supplier { SpeechEngines(listOf(NoSpeechEngine)) })
                 registerBean(SpeechPreferences::class.java, Supplier { SpeechPreferences(projectData) })
+                registerBean(SoftWrap::class.java, Supplier { SoftWrap(projectData) })
                 registerBean(
                     ModelInstaller::class.java,
                     Supplier { ModelInstaller(ModelStore(dir.resolve("models"))) },

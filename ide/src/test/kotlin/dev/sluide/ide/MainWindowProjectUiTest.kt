@@ -9,6 +9,7 @@ import dev.sluide.fileexplorer.ExplorerBar
 import dev.sluide.fileexplorer.ExplorerClipboard
 import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.IgnoreRuleEffects
+import dev.sluide.fileviewers.SoftWrap
 import dev.sluide.githubactions.RemoteSources
 import dev.sluide.gradle.GradleSession
 import dev.sluide.httpclient.HttpClientSession
@@ -76,6 +77,8 @@ class MainWindowProjectUiTest : MainWindowUiFixture() {
         // Compose views reach the engine and the Docker tab through these (ADR 0117, ADR 0119).
         assertSame(dockerSessions.single(), editorArea.windowServices.get(DockerSession::class.java))
         assertSame(dockers.single(), editorArea.windowServices.get(Docker::class.java))
+        // Code editors wrap by the one switch of all windows (ADR 0130).
+        assertSame(softWrap, editorArea.windowServices.get(SoftWrap::class.java))
 
         val opened = mutableListOf<URI>()
         mainWindow.openWebPage = { opened += it }

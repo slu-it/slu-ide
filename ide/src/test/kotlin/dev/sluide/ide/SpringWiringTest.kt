@@ -30,6 +30,7 @@ import dev.sluide.fileexplorer.FileExplorerView
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.FileViewers
+import dev.sluide.fileviewers.SoftWrap
 import dev.sluide.fileviewers.languages.IgnoreFileViewer
 import dev.sluide.fileviewers.languages.PythonFileViewer
 import dev.sluide.filewatcher.FileWatcher
@@ -200,6 +201,7 @@ class SpringWiringTest {
                         Diagnostics::class.java,
                         SecretsSettingsPage::class.java,
                         MediaPreferences::class.java,
+                        SoftWrap::class.java,
                         PlaybackCoordinator::class.java,
                         MediaFileViewer::class.java,
                         SpeechEngines::class.java,
@@ -227,6 +229,7 @@ class SpringWiringTest {
                 context.getBean(Secrets::class.java)
                 // Two constructors as well; creating it reads nothing (shared.json is read on first use).
                 context.getBean(MediaPreferences::class.java)
+                context.getBean(SoftWrap::class.java)
                 // The cheap speech beans; KokoroEngine and the speech settings page are left out (they read the
                 // user's settings and the model), covered by the real-app check.
                 context.getBean(ModelStore::class.java)

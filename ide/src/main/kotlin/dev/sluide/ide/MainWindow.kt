@@ -20,6 +20,7 @@ import dev.sluide.fileviewers.CodeEditorExtensions
 import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.IgnoreRuleEffects
+import dev.sluide.fileviewers.SoftWrap
 import dev.sluide.git.GitFileComparison
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitStatusService
@@ -128,6 +129,7 @@ class MainWindow(
     private val dockerSession: DockerSession,
     private val databases: Databases,
     diagnostics: Diagnostics,
+    private val softWrap: SoftWrap,
 ) {
     /** Shows a web page in the system browser; tests replace it. */
     internal var openWebPage: (URI) -> Unit = systemBrowser::open
@@ -407,8 +409,8 @@ class MainWindow(
         editorArea.windowServices.register(DockerSession::class.java, dockerSession)
         editorArea.windowServices.register(Docker::class.java, docker)
         // Code editors show the colors of style, markup and script files as swatches and open them in Coloring (ADR 0108,
-        // ADR 0109), open a selection in Codecs (ADR 0112) and
-        // a selection or a whole file in Converting (ADR 0115).
+        // ADR 0109), open a selection in Codecs (ADR 0112) and a selection or a whole file in Converting (ADR 0115);
+        // they wrap long lines by one switch for all editors of all windows (ADR 0130).
         editorArea.windowServices.register(
             CodeEditorExtensions::class.java,
             CodeEditorExtensions().apply {
@@ -419,6 +421,7 @@ class MainWindow(
                 add(translate.editorExtension)
             },
         )
+        editorArea.windowServices.register(SoftWrap::class.java, softWrap)
         gradleSession.reviewTrust = { trust.review(stage) }
         // It warns about private environment files that git would commit.
         httpSession.wouldCommit = { gitStatus.snapshot.get().wouldCommit(it) }

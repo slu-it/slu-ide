@@ -27,6 +27,7 @@ import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.ExtensionFileViewer
 import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewers
+import dev.sluide.fileviewers.SoftWrap
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCommits
@@ -273,6 +274,9 @@ abstract class MainWindowUiFixture {
 
     /** The application-wide TODO store, in the test's project data and shared data file. */
     internal val todos by lazy { Todos(projectData) }
+
+    /** The editors' soft wrap switch, one for all windows as in the application. */
+    internal val softWrap by lazy { SoftWrap(projectData) }
     internal val todoPanel get() = todoPanels.first()
 
     internal fun startView(stage: Stage) {
@@ -379,6 +383,7 @@ abstract class MainWindowUiFixture {
             ).also(databases::add),
             // Only its folder and capturing flag are read; the tests replace the capture.
             Diagnostics(),
+            softWrap,
         )
     }
 
