@@ -16,6 +16,7 @@ Shell scripts open as source that can be run, with the output in a terminal besi
   has **Run** (play icon) on the left and the modes **Source | Split | Output** on the right. Output is the run pane:
   the arguments field (labelled "Arguments:"), the history of past arguments, the status line with **Stop** and
   **Rerun**, and the terminal of the last run.
+- [Soft Wrap](soft-wrap.md) is the first button of the toolbar, before Run, and hidden while only the output shows.
 - A run shows the output beside the source: Source switches to Split; Split and Output stay as they are.
 - Shown again (tab selected), the view focuses the source, or the arguments while the output is shown alone. Going to a
   line while only the output shows switches to Split first.

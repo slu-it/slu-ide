@@ -70,11 +70,17 @@ internal class ShellScriptView(
         }
 
     val toolbar =
-        HBox(runButton, Region().apply { HBox.setHgrow(this, Priority.ALWAYS) }, *split.modeButtons.toTypedArray())
-            .apply {
-                styleClass += "script-toolbar"
-                alignment = Pos.CENTER_LEFT
-            }
+        HBox(
+            editor.softWrapButton,
+            runButton,
+            Region().apply {
+                HBox.setHgrow(this, Priority.ALWAYS)
+            },
+            *split.modeButtons.toTypedArray(),
+        ).apply {
+            styleClass += "script-toolbar"
+            alignment = Pos.CENTER_LEFT
+        }
 
     private val root =
         BorderPane(split.node).apply {
@@ -156,6 +162,9 @@ internal class ShellScriptView(
         )
 
     init {
+        // Soft Wrap (ADR 0130) shows with the source side only.
+        editor.softWrapButton.visibleProperty().bind(split.mode.map { it != SplitMode.OTHER })
+        editor.softWrapButton.managedProperty().bind(editor.softWrapButton.visibleProperty())
         (editor.node as? Region)?.minWidth = 0.0
         // The editor font the tab gives its content is for the source; the toolbar and the run pane use the UI font.
         Font.getDefault().let { font ->

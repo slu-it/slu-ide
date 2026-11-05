@@ -15,6 +15,7 @@ import javafx.event.Event
 import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.ListView
+import javafx.scene.control.ToggleButton
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.layout.StackPane
@@ -362,6 +363,23 @@ class ShellScriptViewUiTest {
             // Shown again: the failure no longer marks the tab.
             view.focus()
             assertEquals(ViewActivity.NONE, view.activity.value)
+        }
+    }
+
+    @Test
+    fun `Soft Wrap is the first toolbar button, toggles, and hides while only the second side shows`(robot: FxRobot) {
+        val view = open(robot, script())
+        robot.interact {
+            val button = view.toolbar.children.first() as ToggleButton
+            assertEquals("soft-wrap-toggle", button.styleClass.last())
+            assertTrue(button.isVisible && button.isManaged)
+            button.fire()
+            assertTrue(button.isSelected)
+            view.split.mode.set(SplitMode.OTHER)
+            assertFalse(button.isVisible)
+            assertFalse(button.isManaged)
+            view.split.mode.set(SplitMode.SPLIT)
+            assertTrue(button.isVisible)
         }
     }
 }
