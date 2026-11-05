@@ -228,6 +228,11 @@ class DocumentZoomUiTest {
                 children.takeLast(modes).map { it is ToggleButton && it.styleClass.contains("preview-mode") },
             )
             for (action in view.actionButtons) assertTrue(children.indexOf(action) in 0 until index)
+            // Export follows the actions and sits directly before the zoom.
+            view.export?.let { export ->
+                assertEquals(index - 1, children.indexOf(export.button), "Export directly before the zoom")
+                for (action in view.actionButtons) assertTrue(children.indexOf(action) < index - 1)
+            }
         }
     }
 

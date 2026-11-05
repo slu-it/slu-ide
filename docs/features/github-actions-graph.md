@@ -24,7 +24,7 @@ and `github-actions` (model and drawing, `WorkflowGraphs`, the `RemoteSources` i
 - If the parser itself fails (it does not answer within 10 seconds, or cannot start), the preview says so and the
   text is tried once more right away, with a new parser engine; after that, edit the file or reopen it. Saving or
   reloading unchanged text does not try again.
-- **Export → Mermaid** (beside the zoom controls) writes `<name>.mmd` beside the workflow (`ci.yml` and `ci.yaml`
+- **Export → Mermaid** (right of Fetch, before the mode toggles) writes `<name>.mmd` beside the workflow (`ci.yml` and `ci.yaml`
   give `ci.mmd`), which GitHub ignores and Thoreau opens in its Mermaid viewer. It is the graph as shown, including
   remote references fetched or cached, the inputs in their boxes (other renderers draw the block without its frame),
   and without the box links. It asks before replacing an existing file, and the note line (GitHub's errors, left-out

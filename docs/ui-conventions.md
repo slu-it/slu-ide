@@ -20,10 +20,11 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   it was, clicking the selected one keeps it selected. The divider position survives hiding a side.
 
 ## Toolbars above views
-- Order from left to right: the view's own buttons (Run, Export, TOC, folds, Copy Formatted), a spacer, the
-  preview's `actions` (e.g. the workflow's Fetch), document zoom (ADR 0083) and the mode toggles at the far right.
-  Images and diagrams keep their zoom with Fit on the left. Controls that only make sense for one side hide while it
-  is hidden.
+- Order from left to right: the view's own left controls (Run, TOC, folds, Copy Formatted, Scripts or image zoom), the
+  items code editor extensions contribute (`CodeEditor.toolbarItems`, e.g. Read Aloud; previews place them, in every
+  mode; other views that embed a code editor don't yet), a spacer, the preview's `actions` (e.g. the workflow's Fetch), Export (hidden in Source), document zoom
+  (ADR 0083) and the mode toggles at the far right. Images and diagrams keep their zoom with Fit on the left.
+  Controls that only make sense for one side hide while it is hidden.
 - Toolbar controls are not focus-traversable. Icon-only buttons get a tooltip; one with a key binding says it:
   `"Zoom In (Shortcut++)"`. A `Slider` still takes the focus on a click (its behaviour asks for it regardless) and
   then eats the arrow keys: hand the focus back to the view (`MediaControlBar.install`).

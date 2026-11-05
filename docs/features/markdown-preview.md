@@ -50,7 +50,10 @@
   in Preview mode it scrolls to the heading. The overlay closes on choosing, Escape, the toggle and a click elsewhere
   in the view; Escape and the toggle give the focus back to the source (the preview in Preview mode). The preview shows
   the saved text, so with unsaved edits above a heading it may land a little off, as the scroll sync does.
-- Export: the toolbar's export menu (right of the table of contents toggle) writes the document as a self-contained
+- Toolbar layout: the table of contents toggle, then items that code editor extensions add to the source (such as
+  Read Aloud; shown in every mode), a spacer, Export and the zoom and mode toggles on the right. Export is hidden while
+  only the source shows.
+- Export: the toolbar's export menu (on the right, before the zoom) writes the document as a self-contained
   HTML file beside it: [markdown-export.md](markdown-export.md).
 - Known gaps: the diff of a modified file ([git-diff.md](git-diff.md)) has no preview, it is highlighted as Markdown.
   Scroll sync goes from source to preview only.

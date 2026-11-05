@@ -1,18 +1,26 @@
 package dev.sluide.previews.preview
 
+import dev.sluide.fileviewers.CodeEditorExtensions
+import dev.sluide.fileviewers.ExtensibleCodeEditor
 import dev.sluide.fileviewers.FileViewHost
+import dev.sluide.fileviewers.ViewActivity
+import dev.sluide.fileviewers.WindowServices
 import dev.sluide.previews.html.HtmlFileViewer
 import dev.sluide.previews.markdown.MarkdownFileViewer
 import javafx.application.ColorScheme
+import javafx.beans.property.SimpleObjectProperty
 import javafx.concurrent.Worker
 import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.Button
+import javafx.scene.control.Label
 import javafx.scene.control.SplitPane
 import javafx.scene.control.ToggleButton
+import javafx.scene.layout.HBox
 import javafx.scene.layout.StackPane
 import javafx.scene.web.WebEngine
 import javafx.stage.Stage
+import javafx.util.Subscription
 import org.fxmisc.richtext.CodeArea
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -95,6 +103,8 @@ class PreviewFileViewUiTest {
             }.get()
         return loads
     }
+
+    private fun <T> fx(block: () -> T): T = WaitForAsyncUtils.asyncFx<T> { block() }.get()
 
     private fun FxRobot.modeButton(mode: PreviewMode) =
         lookup(".preview-mode").queryAllAs(ToggleButton::class.java).single { it.text == mode.label }
@@ -271,6 +281,62 @@ class PreviewFileViewUiTest {
         )
         WaitForAsyncUtils.waitFor(5, TimeUnit.SECONDS) { view.script("window.fontsLoaded") != null }
         assertEquals(1, (view.script("window.fontsLoaded") as Number).toInt())
+    }
+
+    /** A host whose window has [extensions]. */
+    private fun extending(extensions: CodeEditorExtensions) =
+        object : FileViewHost {
+            private val services = WindowServices().apply { register(CodeEditorExtensions::class.java, extensions) }
+
+            override fun openFile(file: Path) = false
+
+            override fun openWebPage(uri: URI) {}
+
+            override fun <T : Any> windowService(type: Class<T>): T? = services.get(type)
+        }
+
+    @Test
+    fun `items and activity of the source's extensions show in the toolbar and on the tab`(robot: FxRobot) {
+        val (_, view) = show(robot, "# Hi\n")
+        val editors = mutableListOf<ExtensibleCodeEditor>()
+        robot.interact {
+            view.host =
+                extending(
+                    CodeEditorExtensions().apply {
+                        add {
+                            editors += it
+                            AutoCloseable {}
+                        }
+                    },
+                )
+        }
+        val editor = editors.single()
+        val toolbar = robot.lookup(".preview-toolbar").query<HBox>()
+        val item = Label("Read")
+        val handle = WaitForAsyncUtils.asyncFx<AutoCloseable> { editor.addToolbarItems(listOf(item)) }.get()
+        WaitForAsyncUtils.waitForFxEvents()
+
+        val toc = robot.lookup(".toc-button").query<Node>()
+        val box = robot.lookup(".preview-contributed").query<HBox>()
+        fx {
+            assertEquals(toolbar.children.indexOf(toc) + 1, toolbar.children.indexOf(box), "right after the TOC button")
+            assertEquals(listOf<Node>(item), box.children.toList())
+        }
+        robot.interact { view.mode.value = PreviewMode.SOURCE }
+        fx {
+            assertTrue(box.isVisible && box.isManaged && item.scene != null, "shown in Source too")
+            assertTrue(item.layoutBounds.width > 0.0, "laid out")
+        }
+
+        robot.interact { handle.close() }
+        assertTrue(fx { box.children.isEmpty() })
+
+        assertEquals(ViewActivity.NONE, fx { view.activity.value })
+        val running = SimpleObjectProperty(ViewActivity.RUNNING)
+        val subscription = WaitForAsyncUtils.asyncFx<Subscription> { editor.addActivity(running) }.get()
+        assertEquals(ViewActivity.RUNNING, fx { view.activity.value })
+        robot.interact { subscription.unsubscribe() }
+        assertEquals(ViewActivity.NONE, fx { view.activity.value })
     }
 
     /** Records what the view asks of the IDE. */

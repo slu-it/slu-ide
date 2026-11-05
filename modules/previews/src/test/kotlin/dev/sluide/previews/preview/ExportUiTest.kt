@@ -9,6 +9,7 @@ import dev.sluide.previews.table.CsvFileViewer
 import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.MenuButton
+import javafx.scene.layout.HBox
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
 import org.jsoup.Jsoup
@@ -82,26 +83,58 @@ class ExportUiTest {
         return reports
     }
 
+    private fun <T> fx(block: () -> T): T = WaitForAsyncUtils.asyncFx<T> { block() }.get()
+
+    private fun toolbarChildren(robot: FxRobot) =
+        fx {
+            robot
+                .lookup(".preview-toolbar")
+                .query<HBox>()
+                .children
+                .toList()
+        }
+
     @Test
-    fun `the Export button is as high as the buttons before it, with a gap to them`(robot: FxRobot) {
-        open(robot, "notes.md", "# Hi")
-        val toc = robot.lookup(".toc-button").query<Node>()
-        assertFitsAfter(robot, toc, toc)
-        open(robot, "logo.svg", LOGO)
-        val zoomOut = robot.lookup(".zoom-button").query<Node>()
-        assertFitsAfter(robot, robot.lookup(".zoom-controls").query(), zoomOut)
+    fun `Export is right of the TOC button and goes in Source`(robot: FxRobot) {
+        val view = open(robot, "notes.md", "# Hi")
+        val children = toolbarChildren(robot)
+        val export = robot.lookup(".preview-export").query<MenuButton>()
+        assertTrue(children.indexOf(robot.lookup(".toc-button").query<Node>()) < children.indexOf(export))
+        robot.interact { view.mode.value = PreviewMode.SOURCE }
+        assertTrue(fx { !export.isVisible && !export.isManaged }, "hidden in Source")
+        robot.interact { view.mode.value = PreviewMode.PREVIEW }
+        assertTrue(fx { export.isVisible && export.isManaged })
     }
 
-    /** Asserts that the Export button follows [before] with a gap and is as high as [sameHeight]. */
-    private fun assertFitsAfter(
+    @Test
+    fun `an SVG's Export follows its zoom controls, directly before the mode toggles`(robot: FxRobot) {
+        open(robot, "logo.svg", LOGO)
+        val children = toolbarChildren(robot)
+        val export = children.indexOf(robot.lookup(".preview-export").query<Node>())
+        assertTrue(children.indexOf(robot.lookup(".zoom-controls").query<Node>()) < export)
+        assertEquals(children.indexOf(robot.lookup(".preview-mode").query<Node>()) - 1, export)
+    }
+
+    @Test
+    fun `the Export button is as high as its neighbours, with a gap to the control after it`(robot: FxRobot) {
+        open(robot, "notes.md", "# Hi")
+        assertFits(robot, robot.lookup(".toc-button").query(), robot.lookup(".zoom-controls").query())
+        open(robot, "logo.svg", LOGO)
+        assertFits(robot, robot.lookup(".zoom-button").query(), robot.lookup(".preview-mode").query())
+    }
+
+    /** Asserts that the Export button is as high as [sameHeight] and has a gap before [after]. */
+    private fun assertFits(
         robot: FxRobot,
-        before: Node,
         sameHeight: Node,
+        after: Node,
     ) {
         WaitForAsyncUtils.waitForFxEvents()
         val export = robot.lookup(".preview-export").query<MenuButton>()
-        assertEquals(sameHeight.boundsInParent.height, export.boundsInParent.height, 0.5)
-        assertTrue(export.boundsInParent.minX - before.boundsInParent.maxX >= 6.0, "a gap before Export")
+        fx {
+            assertEquals(sameHeight.boundsInParent.height, export.boundsInParent.height, 0.5)
+            assertTrue(after.boundsInParent.minX - export.boundsInParent.maxX >= 6.0, "a gap after Export")
+        }
     }
 
     @Test

@@ -1,7 +1,10 @@
 package dev.sluide.previews.preview
 
+import javafx.beans.binding.Bindings
 import javafx.beans.property.BooleanProperty
 import javafx.beans.property.ObjectProperty
+import javafx.collections.FXCollections
+import javafx.collections.ObservableList
 import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.Node
@@ -17,10 +20,11 @@ import javafx.scene.web.WebView
 /**
  * The toolbar of a [PreviewFileView]: the mode buttons ([buttons], one per [PreviewMode], in [modes]) on the right and
  * on the left what the [preview] has: the scripts toggle, the table of contents' button, the zoom controls of an image
- * or diagram that [zooms][Preview.zooms], the fold controls, the Copy Formatted button, and the Export button. The
- * preview's own [actions][Preview.actions] are [actionButtons] before the mode buttons; every other preview has its
- * [zoom] controls (a document's, ADR 0083) between them and the mode buttons. Both show like the zoom controls on the
- * left only while the preview shows. Everything runs on the FX thread.
+ * or diagram that [zooms][Preview.zooms], the fold controls and the Copy Formatted button. Items the source's editor
+ * extensions add ([contributed]) sit right after them, in every mode. On the right, before the mode buttons, come the
+ * preview's own [actions][Preview.actions] ([actionButtons]), the Export button and, for every other preview, its
+ * [zoom] controls (a document's, ADR 0083). Actions, Export and zoom show like the zoom controls on the left only
+ * while the preview shows, so not in Source. Everything runs on the FX thread.
  */
 internal class PreviewToolbar(
     preview: Preview,
@@ -33,6 +37,7 @@ internal class PreviewToolbar(
     folds: FoldControls?,
     copy: CopyFormattedControls?,
     webView: WebView,
+    contributed: ObservableList<Node> = FXCollections.emptyObservableList(),
 ) {
     val buttons =
         PreviewMode.entries.map { mode ->
@@ -59,9 +64,22 @@ internal class PreviewToolbar(
             }
         }
 
+    /** The items editor extensions added to the source ([contributed]), after the preview's own left controls. */
+    private val contributedBox =
+        HBox().apply {
+            styleClass += "preview-contributed"
+            alignment = Pos.CENTER_LEFT
+            Bindings.bindContent(children, contributed)
+        }
+
     val node: Node
 
     init {
+        val spacer = Region().apply { HBox.setHgrow(this, Priority.ALWAYS) }
+        export?.button?.let {
+            it.visibleProperty().bind(mode.map { m -> m != PreviewMode.SOURCE })
+            it.managedProperty().bind(it.visibleProperty())
+        }
         val extras =
             if (preview.offersScripts) {
                 listOf(
@@ -70,12 +88,12 @@ internal class PreviewToolbar(
                         tooltip = Tooltip("Run the page's scripts. They can read the files served with the page.")
                         selectedProperty().bindBidirectional(scripts)
                     },
-                    Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
+                    contributedBox,
                 )
             } else if (toc != null) {
-                listOfNotNull(toc.button, export?.button, Region().apply { HBox.setHgrow(this, Priority.ALWAYS) })
+                listOf(toc.button, contributedBox)
             } else if (preview.zooms) {
-                listOfNotNull(zoom.node, export?.button, Region().apply { HBox.setHgrow(this, Priority.ALWAYS) })
+                listOf(zoom.node, contributedBox)
             } else if (folds != null) {
                 folds.node.visibleProperty().bind(mode.map { it != PreviewMode.SOURCE })
                 folds.node.managedProperty().bind(folds.node.visibleProperty())
@@ -83,14 +101,9 @@ internal class PreviewToolbar(
                     copyNode.visibleProperty().bind(mode.map { it != PreviewMode.SOURCE })
                     copyNode.managedProperty().bind(copyNode.visibleProperty())
                 }
-                listOfNotNull(
-                    folds.node,
-                    copy?.node,
-                    export?.button,
-                    Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
-                )
+                listOfNotNull(folds.node, copy?.node, contributedBox)
             } else {
-                emptyList()
+                listOf(contributedBox)
             }
         zoom.node.visibleProperty().bind(mode.map { it != PreviewMode.SOURCE })
         zoom.node.managedProperty().bind(zoom.node.visibleProperty())
@@ -103,8 +116,9 @@ internal class PreviewToolbar(
                 HBox.setMargin(zoom.node, Insets(0.0, 6.0, 0.0, 0.0))
                 listOf(zoom.node)
             }
+        val right = actionButtons + listOfNotNull(export?.button) + documentZoom + buttons
         node =
-            HBox(*(extras + actionButtons + documentZoom + buttons).toTypedArray()).apply {
+            HBox(*(extras + spacer + right).toTypedArray()).apply {
                 styleClass += "preview-toolbar"
                 alignment = Pos.CENTER_RIGHT
             }

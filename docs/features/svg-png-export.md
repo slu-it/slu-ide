@@ -3,7 +3,7 @@
 **Module:** `previews`: `SvgPngExport`, `WebViewSvgRasterizer`, `ExportControls` (toolbar of the SVG preview).
 Decision in [ADR 0059](../adr/0059-svg-export-as-png.md).
 
-- The **Export** menu beside the zoom controls of an SVG file has the items **PNG 100%**, **PNG 200%** and
+- The **Export** menu of an SVG file, after its zoom controls and before the mode toggles, has the items **PNG 100%**, **PNG 200%** and
   **PNG 300%**. Each writes one PNG beside the SVG: `logo.svg` gives `logo.png`, `logo@2x.png` or `logo@3x.png`, also
   for `Logo.SVG`.
 - **What is exported:** the saved file. Unsaved edits are not included.

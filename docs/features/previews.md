@@ -16,6 +16,11 @@ and never navigate the preview (`FileViewHost`, [file-viewers.md](file-viewers.m
 JSON, XML and YAML files have a formatted, foldable preview ([JSON](json-preview.md), [XML](xml-preview.md),
 [YAML](yaml-preview.md)).
 
+## Items from editor extensions
+Items that the window's code editor extensions add to a preview's source (`CodeEditor.toolbarItems`, e.g. Read Aloud)
+show in every preview's toolbar, on the left after the preview's own controls, in every mode, Source included. The tab
+marker shows the source's activity (`PreviewFileView.activity`).
+
 ## Folding (`FoldControls`)
 Previews with foldable sections (JSON, XML, YAML: [json-preview.md](json-preview.md),
 [xml-preview.md](xml-preview.md), [yaml-preview.md](yaml-preview.md)) have **Collapse All** and **Expand All** buttons on the left of the toolbar, only while the preview shows, not in
@@ -103,7 +108,7 @@ notebooks, PEM) zooms as a document: the whole page scales and reflows, as in a 
 - Opens in **Preview**: the image on a checkered background (transparency shows; light or dark with the theme),
   fitted to the view and zoomable (see above). Source is highlighted as XML.
 - The SVG is shown as an `<img>` (`data:` URI), so its scripts never run.
-- **Export** beside the zoom controls writes the SVG as a PNG at 100 %, 200 % or 300 % beside it:
+- **Export** (on the right, before the mode toggles) writes the SVG as a PNG at 100 %, 200 % or 300 % beside it:
   [svg-png-export.md](svg-png-export.md).
 
 ## Images (png, jpg/jpeg, gif, webp, bmp, ico) — `ImageFileViewer`

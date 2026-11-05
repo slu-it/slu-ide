@@ -225,8 +225,23 @@ internal class PreviewFileView(
     private var loading = false
 
     private val toolbar =
-        PreviewToolbar(preview, modes, mode, scripts, toc, export, zoom, folds, copyFormatted, webView)
+        PreviewToolbar(
+            preview,
+            modes,
+            mode,
+            scripts,
+            toc,
+            export,
+            zoom,
+            folds,
+            copyFormatted,
+            webView,
+            source.toolbarItems,
+        )
     private val buttons = toolbar.buttons
+
+    /** The source's activity: what the window's code editor extensions add to it. */
+    override val activity get() = source.activity
 
     /** The buttons of the preview's [actions][Preview.actions], shown while the preview shows. */
     val actionButtons get() = toolbar.actionButtons
