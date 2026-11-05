@@ -292,17 +292,55 @@ class CodeEditorExtensionsUiTest {
     }
 
     @Test
-    fun `a view of its own shows the toolbar items in a row while there are any, an embedded one does not`(
+    fun `with soft wrap, reveal shows a word deep inside one wrapped paragraph and an overlay stays on it`(
+        robot: FxRobot,
+    ) {
+        val view = shown(robot, DefaultTextFileViewer(), file("long.txt", (1..400).joinToString(" ") { "word$it" }))
+        robot.interact { view.softWrap.wrapping.set(true) }
+        assertTrue(view.area.isWrapText)
+        val start = view.area.text.indexOf("word390")
+
+        robot.interact {
+            view.extensible.overlay("word", listOf(StyledRange(start, start + 7, "layer-word")))
+            view.extensible.reveal(start, start + 7)
+        }
+
+        assertTrue(inViewport(view, start) && inViewport(view, start + 6), "the word is in the viewport")
+        assertFalse(inViewport(view, 0), "the paragraph is taller than the viewport")
+        assertEquals(listOf("layer-word"), view.area.getStyleOfChar(start + 3).toList())
+        assertTrue(view.area.getStyleOfChar(start - 1).isEmpty())
+        assertTrue(view.area.getStyleOfChar(start + 7).isEmpty())
+        robot.interact { view.extensible.reveal(0, 5) }
+        assertTrue(inViewport(view, 0), "and back to the first word")
+    }
+
+    /** Whether the character at [offset] of [view] is laid out within the viewport. */
+    private fun inViewport(
+        view: CodeView,
+        offset: Int,
+    ): Boolean =
+        WaitForAsyncUtils
+            .asyncFx<Boolean> {
+                val bounds =
+                    view.area
+                        .getCharacterBoundsOnScreen(offset, offset + 1)
+                        .orElse(null)
+                        ?.let { view.area.screenToLocal(it) }
+                bounds != null && bounds.minY >= -3 && bounds.maxY <= view.area.height + 3
+            }.get()
+
+    @Test
+    fun `a view of its own always shows a row of Soft Wrap and then the toolbar items, an embedded one none`(
         robot: FxRobot,
     ) {
         val view = shown(robot, DefaultTextFileViewer(), file("notes.txt"))
         val row = robot.lookup(".code-editor-toolbar").queryAs(HBox::class.java)
-        assertFalse(row.isVisible || row.isManaged, "hidden while empty")
+        assertTrue(row.isVisible && row.isManaged, "shown without items too")
+        assertEquals(listOf(view.softWrapButton), row.children.toList())
 
         val items = listOf(Label("a"), Label("b"))
         val handle = WaitForAsyncUtils.asyncFx<AutoCloseable> { view.extensible.addToolbarItems(items) }.get()
-        assertTrue(row.isVisible && row.isManaged)
-        assertEquals(items, row.children.toList())
+        assertEquals(listOf(view.softWrapButton) + items, row.children.toList())
         assertEquals(items, view.toolbarItems.toList())
         assertSame(row, ((view.node as BorderPane).top as VBox).children.first(), "at the very top")
 
@@ -310,7 +348,7 @@ class CodeEditorExtensionsUiTest {
             handle.close()
             handle.close()
         }
-        assertFalse(row.isVisible)
+        assertEquals(listOf(view.softWrapButton), row.children.toList())
         assertTrue(view.toolbarItems.isEmpty())
 
         val python = shown(robot, PythonFileViewer(), file("main.py"))

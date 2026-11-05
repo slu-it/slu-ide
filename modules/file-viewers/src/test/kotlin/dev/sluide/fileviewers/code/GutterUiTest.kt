@@ -6,6 +6,7 @@ import dev.sluide.fileviewers.TextDiff
 import dev.sluide.fileviewers.languages.PythonFileViewer
 import javafx.event.Event
 import javafx.event.EventType
+import javafx.geometry.Pos
 import javafx.scene.Cursor
 import javafx.scene.Scene
 import javafx.scene.control.Button
@@ -344,6 +345,22 @@ class GutterUiTest {
                     .layoutBounds.width
             }
         assertEquals(listOf(20.0, 20.0, 20.0), cells)
+    }
+
+    @Test
+    fun `in a wrapped row the node of a column sits at the top, beside the first line`(robot: FxRobot) {
+        val view = open((1..200).joinToString(" ") { "word$it" } + "\nb", robot)
+        robot.interact {
+            view.softWrap.wrapping.set(true)
+            view.addGutterColumn(20.0) { Label("▶") }
+        }
+
+        val row = rows(robot).getValue("1")
+        val cell = row.children.last() as StackPane
+        val node = cell.children.single()
+        assertTrue(cell.height > 3 * node.boundsInParent.height, "a tall row: ${cell.height}")
+        assertEquals(0.0, node.boundsInParent.minY, 1.0)
+        assertEquals(Pos.TOP_RIGHT, (row.children.first() as Label).alignment, "the line number at the top too")
     }
 
     @Test

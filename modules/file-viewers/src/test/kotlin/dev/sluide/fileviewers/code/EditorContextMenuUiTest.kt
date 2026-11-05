@@ -8,6 +8,7 @@ import dev.sluide.fileviewers.languages.PythonFileViewer
 import dev.sluide.fileviewers.press
 import javafx.event.Event
 import javafx.scene.Scene
+import javafx.scene.control.CheckMenuItem
 import javafx.scene.control.ContextMenu
 import javafx.scene.control.Label
 import javafx.scene.control.MenuItem
@@ -238,7 +239,7 @@ class EditorContextMenuUiTest {
         val menu = view.menu
         assertTrue(menu.isShowing)
         assertEquals(
-            listOf("Undo", "Redo", null, "Cut", "Copy", "Paste", "Select All"),
+            listOf("Undo", "Redo", null, "Cut", "Copy", "Paste", "Select All", null, "Soft Wrap"),
             menu.items.map { if (it is SeparatorMenuItem) null else it.text },
         )
         val copy = menu.items.single { it.text == "Copy" }
@@ -308,6 +309,25 @@ class EditorContextMenuUiTest {
         val items = view.menu.items
         assertEquals("Extension Item", items.last().text)
         assertIs<SeparatorMenuItem>(items[items.size - 2])
+    }
+
+    @Test
+    fun `the Soft Wrap item shows whether the view wraps and toggles it`(robot: FxRobot) {
+        val view = open(robot)
+        robot.interact { view.softWrap.wrapping.set(true) }
+
+        requestMenu(view, robot)
+        val item = view.menu.items.single { it.text == "Soft Wrap" } as CheckMenuItem
+        assertTrue(item.isSelected)
+        assertEquals(
+            KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN),
+            item.accelerator,
+        )
+
+        // As the menu does on a click: it toggles the item, which fire() alone does not.
+        robot.interact { item.isSelected = !item.isSelected }
+        assertFalse(view.area.isWrapText)
+        assertFalse(view.softWrap.wrapping.get())
     }
 
     @Test

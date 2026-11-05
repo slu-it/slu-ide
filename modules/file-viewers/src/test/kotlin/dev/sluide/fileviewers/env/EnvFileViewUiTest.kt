@@ -21,7 +21,7 @@ import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /** A `.env` file in a real [EnvFileView], with its values masked. Needs a display (`uiTest`). */
@@ -91,6 +91,10 @@ class EnvFileViewUiTest {
         val toggle = robot.lookup(".env-show-values").queryAs(ToggleButton::class.java)
         assertEquals("Show values", toggle.text)
         assertFalse(toggle.isSelected)
+        val wrap = view.source.softWrapButton
+        assertSame(toggle.parent, wrap.parent, "in the same toolbar")
+        assertEquals(0.0, wrap.boundsInParent.minX, 10.0, "Soft Wrap on the far left")
+        assertTrue(wrap.boundsInParent.maxX < toggle.boundsInParent.minX)
     }
 
     @Test
@@ -243,11 +247,13 @@ class EnvFileViewUiTest {
     }
 
     @Test
-    fun `placeholder files show their values and no toolbar`(robot: FxRobot) {
+    fun `placeholder files show their values and a toolbar with Soft Wrap, without Show values`(robot: FxRobot) {
         val view = open(robot, ".env.example")
 
         assertTrue(view.isShown(text.trimEnd()))
-        assertNull(robot.lookup(".env-show-values").tryQuery<ToggleButton>().orElse(null))
+        val wrap = view.source.softWrapButton
+        assertTrue(wrap.isVisible && wrap.scene != null, "the toolbar shows")
+        assertFalse(showValuesShown(robot))
     }
 
     @Test
@@ -257,12 +263,18 @@ class EnvFileViewUiTest {
         robot.interact { view.moved(dir.resolve(".env.sample")) }
 
         assertTrue(view.isShown(text.trimEnd()))
-        assertTrue(robot.lookup(".env-show-values").queryAll<ToggleButton>().isEmpty())
+        assertFalse(showValuesShown(robot))
 
         robot.interact { view.moved(dir.resolve(".env")) }
 
         assertTrue(view.isMasked("abc"))
         assertTrue(view.isMasked("\"s3cret\""))
-        assertEquals(1, robot.lookup(".env-show-values").queryAll<ToggleButton>().size)
+        assertTrue(showValuesShown(robot))
+    }
+
+    /** Whether Show values is in the toolbar and takes space in it. */
+    private fun showValuesShown(robot: FxRobot): Boolean {
+        val toggle = robot.lookup(".env-show-values").queryAs(ToggleButton::class.java)
+        return toggle.isVisible && toggle.isManaged
     }
 }

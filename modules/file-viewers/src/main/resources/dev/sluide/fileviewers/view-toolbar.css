@@ -1,7 +1,7 @@
 /*
  * Toolbars of the views of the core (not the previews): the diff view (SideBySideDiffView), with buttons that jump
  * between changes and one back to the editor, the .env view (EnvFileView), which has the previews' toolbar, and the
- * row of the extensions' toolbar items of a code view of its own (.code-editor-toolbar, ToolbarItems).
+ * row of Soft Wrap and the extensions' toolbar items of a code view of its own (.code-editor-toolbar, ToolbarItems).
  * preview-view.css in previews keeps its own copy of the .preview-toolbar block; keep the two in sync.
  */
 

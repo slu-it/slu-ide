@@ -26,6 +26,7 @@ import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 /** The editing keys of a real [CodeView], fired as key events at its area. Needs a display (`uiTest`). */
@@ -208,6 +209,23 @@ class EditorKeysUiTest {
 
         robot.press(view.area, KeyCode.UP, alt = true, shift = true)
         assertEquals("b\na\nc", view.area.text, "the first line does not move up")
+    }
+
+    @Test
+    fun `shortcut+alt+z turns soft wrap on and off without undoing and keeps the key event`(robot: FxRobot) {
+        val view = open("Main.kt", "a", robot)
+        robot.interact { view.area.insertText(1, "b") }
+        val reached = mutableListOf<KeyCode>()
+        robot.interact { container.addEventHandler(KeyEvent.KEY_PRESSED) { reached += it.code } }
+
+        robot.press(view.area, KeyCode.Z, shortcut = true, alt = true)
+        assertTrue(view.area.isWrapText)
+        assertTrue(view.softWrap.wrapping.get())
+        robot.press(view.area, KeyCode.Z, shortcut = true, alt = true)
+        assertFalse(view.area.isWrapText)
+
+        assertEquals("ab", view.area.text)
+        assertEquals(emptyList(), reached, "consumed")
     }
 
     @Test

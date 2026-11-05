@@ -1,8 +1,12 @@
 package dev.sluide.fileviewers
 
+import dev.sluide.projectdata.ProjectDataStore
 import javafx.scene.Scene
 import javafx.scene.control.Label
+import javafx.scene.control.ToggleButton
 import javafx.scene.input.KeyCode
+import javafx.scene.input.KeyCodeCombination
+import javafx.scene.input.KeyCombination
 import javafx.scene.layout.Region
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
@@ -15,7 +19,9 @@ import org.testfx.api.FxRobot
 import org.testfx.framework.junit5.ApplicationExtension
 import org.testfx.framework.junit5.Start
 import org.testfx.util.WaitForAsyncUtils
+import java.net.URI
 import java.nio.file.Path
+import java.time.Duration
 import kotlin.io.path.readText
 import kotlin.io.path.writeBytes
 import kotlin.io.path.writeText
@@ -178,6 +184,56 @@ class CodeEditorUiTest {
         val labels = robot.lookup(".gutter .label").queryAllAs(Label::class.java)
         assertEquals(listOf("run"), labels.filterNot { "lineno" in it.styleClass }.map { it.text })
     }
+
+    @Test
+    fun `the soft wrap button wraps, the editors of hosts sharing one switch follow each other until disposed`(
+        robot: FxRobot,
+    ) {
+        val first = open(dir.resolve("a.json").apply { writeText("{}\n") }, robot)
+        val button = first.softWrapButton as ToggleButton
+        assertFalse(button.isFocusTraversable, "a click leaves the focus where it was")
+        // Shortcut+Alt+Z as the platform writes it (Ctrl+Alt+Z, or with the macOS symbols).
+        val key = KeyCodeCombination(KeyCode.Z, KeyCombination.SHORTCUT_DOWN, KeyCombination.ALT_DOWN)
+        assertEquals("Soft Wrap (${key.displayText})", button.tooltip.text)
+        robot.interact { button.fire() }
+        assertTrue(first.area().isWrapText, "without a host, it wraps on its own")
+        robot.interact { button.fire() }
+        assertFalse(first.area().isWrapText)
+
+        val store = ProjectDataStore(dir.resolve("projects"), dir.resolve("shared.json"), emptyList())
+        // The writes are not this test's: they are dropped.
+        val softWrap = SoftWrap(store, Duration.ZERO) {}
+        val second = WaitForAsyncUtils.asyncFx<CodeEditor> { CodeEditors.open(dir.resolve("a.json"), null) }.get()
+        robot.interact {
+            first.host = host(softWrap)
+            second.host = host(softWrap)
+            button.fire()
+        }
+        assertTrue(softWrap.enabled.get())
+        assertTrue(second.area().isWrapText, "the other editor follows")
+        assertTrue((second.softWrapButton as ToggleButton).isSelected)
+
+        robot.interact {
+            second.dispose()
+            button.fire()
+        }
+        assertFalse(first.area().isWrapText)
+        assertTrue(second.area().isWrapText, "a closed editor no longer follows")
+    }
+
+    private fun CodeEditor.area() = node.lookup(".code-area") as CodeArea
+
+    /** A host of a window whose services hold [softWrap]. */
+    private fun host(softWrap: SoftWrap) =
+        object : FileViewHost {
+            private val services = WindowServices().apply { register(SoftWrap::class.java, softWrap) }
+
+            override fun openFile(file: Path) = false
+
+            override fun openWebPage(uri: URI) {}
+
+            override fun <T : Any> windowService(type: Class<T>): T? = services.get(type)
+        }
 
     private fun display(robot: FxRobot): CodeDisplay {
         val display = WaitForAsyncUtils.asyncFx<CodeDisplay> { CodeEditors.display() }.get()

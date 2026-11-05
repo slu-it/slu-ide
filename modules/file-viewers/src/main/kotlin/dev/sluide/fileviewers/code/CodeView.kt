@@ -72,7 +72,8 @@ import java.time.Duration
  *
  * Extensions (ADR 0108, [extensible]) add [toolbarItems], banners below the view's own, locks that make the text
  * read-only, overlay layers over all other styles and activities shown as the view's [activity]. A view with
- * [ownToolbar] (one of its own, not embedded) shows the toolbar items in a row at the very top while there are any.
+ * [ownToolbar] (one of its own, not embedded) always shows a row at the very top: the Soft Wrap toggle ([softWrap],
+ * ADR 0130), then the toolbar items. An embedding view places [softWrapButton] in its own toolbar.
  */
 internal class CodeView(
     initialFile: Path,
@@ -98,18 +99,25 @@ internal class CodeView(
     /** Line numbers, change markers ([showChanges]) and further columns ([addGutterColumn]). */
     private val gutter = Gutter(area) { line -> host?.showChanges(file, line) }
 
+    /** Whether long lines wrap, following the window's switch from the first [host] that has it (ADR 0130). */
+    val softWrap = SoftWrapToggle(area)
+
     /** Toolbar items, banners, locks, overlay layers and activities of the extensions. */
-    private val additions = CodeViewAdditions(area, ownToolbar, ::showEditable)
+    private val additions = CodeViewAdditions(area, ownToolbar, listOf(softWrap.button), ::showEditable)
 
     /** What features of the window see of the view and add to it (ADR 0108), from the first [host] that has them. */
     val extensible = ExtensibleCodeView(this, area, initialFile, additions, highlighter == null)
     private val extensions = CodeViewExtensions(extensible)
-    private val contextMenu = EditorContextMenu(area, extensible::contextMenuItems)
+    private val contextMenu = EditorContextMenu(area, extensible::contextMenuItems, listOf(softWrap.menuItem))
 
-    /** Shows the changes when a change marker is clicked; the first one with [extensions] extends the view. */
+    /**
+     * Shows the changes when a change marker is clicked; the first one with [extensions] extends the view, the first
+     * one with the soft wrap switch sets whether it wraps.
+     */
     override var host: FileViewHost? = null
         set(value) {
             field = value
+            softWrap.attach(value)
             extensions.attach(value)
         }
 
@@ -261,6 +269,7 @@ internal class CodeView(
         Nodes.addInputMap(area, editorKeys(area, { indentStyle }, comment))
         Nodes.addInputMap(area, findBar.keys)
         Nodes.addInputMap(area, goToLine.keys)
+        Nodes.addInputMap(area, softWrap.keys)
         // Following the caret keeps the area at the top when it is first laid out; without it, the source side of the
         // Markdown view (in a SplitPane) opened scrolled down.
         area.moveTo(0)
@@ -281,6 +290,9 @@ internal class CodeView(
 
     /** The extensions' toolbar items, read-only, in the order added; a view with its own toolbar shows them on top. */
     val toolbarItems: ObservableList<Node> get() = additions.toolbar.items
+
+    /** The Soft Wrap toggle; a view with its own toolbar shows it first, an embedding view places it. */
+    val softWrapButton: Node get() = softWrap.button
 
     override val activity: ObservableValue<ViewActivity> get() = additions.activities.activity
 
@@ -480,6 +492,7 @@ internal class CodeView(
         extensions.dispose()
         additions.dispose()
         contextMenu.dispose()
+        softWrap.dispose()
     }
 
     override fun focusText() = area.requestFocus()

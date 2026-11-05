@@ -2,10 +2,10 @@ package dev.sluide.fileviewers.code
 
 import dev.sluide.fileviewers.StyledRange
 import dev.sluide.fileviewers.ViewActivity
-import javafx.beans.binding.Bindings
 import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.beans.value.ObservableValue
 import javafx.collections.FXCollections
+import javafx.collections.ListChangeListener
 import javafx.collections.ObservableList
 import javafx.geometry.Pos
 import javafx.scene.Node
@@ -18,15 +18,16 @@ import org.fxmisc.richtext.model.StyleSpans
 /**
  * What the extensions of a code view (ADR 0108) add to it beside gutter columns and menu items: [toolbar] items,
  * [banners], edit [locks], [overlay layers][layers] over the styles of [area] and [activities]. [ownToolbar]: the view
- * stands alone and shows the toolbar items itself; an embedding view places them in its own toolbar. [lockChanged] is
- * called when the first lock is taken and when the last one is closed. FX thread.
+ * stands alone and shows the toolbar items itself, after its own [leading] controls; an embedding view places them in
+ * its own toolbar. [lockChanged] is called when the first lock is taken and when the last one is closed. FX thread.
  */
 internal class CodeViewAdditions(
     area: CodeArea,
     ownToolbar: Boolean,
+    leading: List<Node>,
     lockChanged: () -> Unit,
 ) {
-    val toolbar = ToolbarItems(ownToolbar)
+    val toolbar = ToolbarItems(ownToolbar, leading)
 
     /** The extensions' banners, below the find bar and the view's own banners. */
     val banners = VBox()
@@ -49,11 +50,12 @@ internal class CodeViewAdditions(
 }
 
 /**
- * The toolbar items of a code view, in the order added; with [ownRow], shown in [row] at the top of the view, which is
- * hidden and takes no space while there are none.
+ * The toolbar items of a code view, in the order added; with [ownRow], shown in [row] at the top of the view after the
+ * view's own [leading] controls (Soft Wrap, ADR 0130). The row always shows, without items too.
  */
 internal class ToolbarItems(
     ownRow: Boolean,
+    private val leading: List<Node> = emptyList(),
 ) {
     private val added = FXCollections.observableArrayList<Node>()
 
@@ -73,9 +75,8 @@ internal class ToolbarItems(
                         ToolbarItems::class.java.getResource("/dev/sluide/fileviewers/view-toolbar.css"),
                     ).toExternalForm()
                 alignment = Pos.CENTER_LEFT
-                Bindings.bindContent(children, added)
-                visibleProperty().bind(Bindings.isNotEmpty(added))
-                managedProperty().bind(visibleProperty())
+                children.setAll(leading + added)
+                added.addListener(ListChangeListener { children.setAll(leading + added) })
             }
         }
 

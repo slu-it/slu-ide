@@ -20,6 +20,8 @@ import javafx.scene.control.ToggleButton
 import javafx.scene.control.Tooltip
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
+import javafx.scene.layout.Priority
+import javafx.scene.layout.Region
 import org.fxmisc.richtext.model.TwoDimensional
 import org.reactfx.Subscription
 import org.springframework.stereotype.Component
@@ -47,7 +49,7 @@ class EnvFileViewer :
  * while the text has the focus, once the caret was placed (moved or typed at, so not the first line right after
  * opening), so that editing is never blind; and the lines of a find match the find bar selected. Every change of the
  * text is masked right away, not only once highlighting catches up. Placeholder files
- * ([EnvValues.masks], e.g. `.env.example`) are not masked and have no toolbar.
+ * ([EnvValues.masks], e.g. `.env.example`) are not masked and have no Show values. The toolbar starts with Soft Wrap.
  */
 internal class EnvFileView(
     file: Path,
@@ -67,20 +69,28 @@ internal class EnvFileView(
     var masks = EnvValues.masks(file.fileName.toString())
         private set
 
+    private val showValuesButton =
+        ToggleButton("Show values").apply {
+            styleClass += "env-show-values"
+            tooltip = Tooltip("Show the values of all lines, not only the one with the caret")
+            selectedProperty().bindBidirectional(showValues)
+            managedProperty().bind(visibleProperty())
+        }
+
+    /** Soft Wrap on the left (ADR 0130), Show values on the right while the file's values are masked. */
     private val toolbar =
         HBox(
-            ToggleButton("Show values").apply {
-                styleClass += "env-show-values"
-                tooltip = Tooltip("Show the values of all lines, not only the one with the caret")
-                selectedProperty().bindBidirectional(showValues)
-            },
+            source.softWrapButton,
+            Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
+            showValuesButton,
         ).apply {
             styleClass += "preview-toolbar"
-            alignment = Pos.CENTER_RIGHT
+            alignment = Pos.CENTER_LEFT
         }
 
     private val pane =
         BorderPane(source.node).apply {
+            top = toolbar
             stylesheets +=
                 checkNotNull(
                     EnvFileView::class.java.getResource("/dev/sluide/fileviewers/view-toolbar.css"),
@@ -116,7 +126,7 @@ internal class EnvFileView(
         // The focus within the window: masking again when the app loses the focus would add nothing.
         area.sceneProperty().flatMap { it.focusOwnerProperty() }.addListener { _, _, _ -> reveal() }
         showValues.addListener { _, _, _ -> source.restyleMasks() }
-        showToolbar()
+        updateShowValues()
         source.restyleMasks()
     }
 
@@ -156,13 +166,13 @@ internal class EnvFileView(
     override fun moved(to: Path): Boolean {
         source.moved(to)
         masks = EnvValues.masks(to.fileName.toString())
-        showToolbar()
+        updateShowValues()
         source.restyleMasks()
         return true
     }
 
-    private fun showToolbar() {
-        pane.top = if (masks) toolbar else null
+    private fun updateShowValues() {
+        showValuesButton.isVisible = masks
     }
 
     /** Masks and reveals the lines anew if the [revealedLines] changed. */

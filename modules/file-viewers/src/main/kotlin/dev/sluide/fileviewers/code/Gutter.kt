@@ -120,7 +120,10 @@ internal class Gutter(
         styleClass += "lineno"
     }
 
-    /** The cell of a column in a row: [width] wide and as high as the row, [node] centered in it if there is one. */
+    /**
+     * The cell of a column in a row: [width] wide and as high as the row, [node] in it if there is one, centered across
+     * and at the top, beside the first line of a wrapped row (ADR 0130).
+     */
     private fun cell(
         width: Double,
         node: Node?,
@@ -129,6 +132,7 @@ internal class Gutter(
         setPrefWidth(width)
         setMaxWidth(width)
         maxHeight = Double.MAX_VALUE
+        alignment = Pos.TOP_CENTER
         // Not pressed into the text: the caret stays where it is, beside a node of a column too.
         addEventHandler(MouseEvent.MOUSE_PRESSED) { it.consume() }
         if (node != null) children += node

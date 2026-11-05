@@ -31,8 +31,8 @@ internal class GitignoreFileView(
 ) : EditableFileView,
     TextEditableView,
     GutterColumns {
-    /** The text. */
-    val source = CodeView(file, highlighter, comment, defaultIndent, dispatch = dispatch)
+    /** The text, with a toolbar of its own: Soft Wrap, then the extensions' items (ADR 0130). */
+    val source = CodeView(file, highlighter, comment, defaultIndent, ownToolbar = true, dispatch = dispatch)
 
     private var disposed = false
 

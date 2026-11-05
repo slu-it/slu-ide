@@ -21,9 +21,10 @@ import org.fxmisc.richtext.CodeArea
 private val log = System.getLogger(EditorContextMenu::class.java.name)
 
 /**
- * The context menu of a code view's [area] (ADR 0108): Undo, Redo | Cut, Copy, Paste, Select All, then after a
- * separator the items that [contributed] (the extensions' providers) give for the caret. Built anew each time it shows,
- * with the items that cannot act disabled ([menuStates]); the [area] is not editable while its view is read-only.
+ * The context menu of a code view's [area] (ADR 0108): Undo, Redo | Cut, Copy, Paste, Select All | the view's own
+ * [viewItems] (Soft Wrap, ADR 0130), then after a separator the items that [contributed] (the extensions' providers)
+ * give for the caret. Built anew each time it shows, with the items that cannot act disabled ([menuStates]); the
+ * [area] is not editable while its view is read-only.
  *
  * RichTextFX shows it on a mouse request where the pointer is. A secondary press outside the selection first moves the
  * caret there; inside it keeps the selection. The Menu key and Shift+F10 ([MENU_KEYS]) show it at the caret, and so
@@ -33,6 +34,7 @@ private val log = System.getLogger(EditorContextMenu::class.java.name)
 internal class EditorContextMenu(
     private val area: CodeArea,
     private val contributed: () -> List<(EditorMenuTarget) -> List<MenuItem>>,
+    viewItems: List<MenuItem> = emptyList(),
     private val clipboardHasText: () -> Boolean = { Clipboard.getSystemClipboard().hasString() },
 ) {
     private val undo = item("Undo", KeyCode.Z) { area.undo() }
@@ -41,7 +43,9 @@ internal class EditorContextMenu(
     private val copy = item("Copy", KeyCode.C) { area.copy() }
     private val paste = item("Paste", KeyCode.V) { area.paste() }
     private val selectAll = item("Select All", KeyCode.A) { area.selectAll() }
-    private val base = listOf(undo, redo, SeparatorMenuItem(), cut, copy, paste, selectAll)
+    private val base =
+        listOf(undo, redo, SeparatorMenuItem(), cut, copy, paste, selectAll) +
+            (if (viewItems.isEmpty()) emptyList() else listOf(SeparatorMenuItem()) + viewItems)
 
     /** The menu, shown by RichTextFX through the area's `contextMenu`; never empty, which would keep it from showing. */
     private val menu =

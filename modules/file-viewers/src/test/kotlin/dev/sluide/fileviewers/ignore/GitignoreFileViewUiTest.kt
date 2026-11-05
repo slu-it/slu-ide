@@ -28,6 +28,7 @@ import java.nio.file.Path
 import kotlin.io.path.writeText
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /** The dots beside the lines of a `.gitignore` in a real view. Needs a display. */
@@ -111,13 +112,17 @@ class GitignoreFileViewUiTest {
 
     @Test
     fun `dots show the effect of each pattern line, none for comments and blanks`(robot: FxRobot) {
-        open(".gitignore", robot)
+        val view = open(".gitignore", robot) as GitignoreFileView
         assertEquals(
             mapOf("2" to "ignore-rule-active", "4" to "ignore-rule-tracked", "5" to "ignore-rule-none"),
             kinds(robot),
         )
         val tooltip = dotNodes(robot).getValue("2").properties["javafx.scene.control.Tooltip"] as Tooltip
         assertEquals("Ignores 1 path: build/", tooltip.text)
+
+        val row = robot.lookup(".code-editor-toolbar").queryAs(HBox::class.java)
+        assertTrue(row.isVisible, "a toolbar of its own")
+        assertSame(view.source.softWrapButton, row.children.first())
     }
 
     @Test

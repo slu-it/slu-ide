@@ -1,0 +1,15 @@
+/*
+ * The Soft Wrap toggle (SoftWrapToggle, ADR 0130), which views place in toolbars of their own and of other modules,
+ * so it carries its look: that of the previews' toolbar buttons (preview-view.css). No colours of its own: the icon
+ * takes the text colour of the theme.
+ */
+
+.soft-wrap-toggle {
+    -fx-padding: 2 10 2 10;
+    -fx-font-size: 0.9em;
+    -fx-background-radius: 0;
+}
+
+.soft-wrap-toggle .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}

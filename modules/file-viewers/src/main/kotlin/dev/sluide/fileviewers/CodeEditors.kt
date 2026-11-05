@@ -86,6 +86,13 @@ interface CodeEditor :
      * combined with what it does itself.
      */
     val toolbarItems: ObservableList<Node>
+
+    /**
+     * The Soft Wrap toggle of this editor (ADR 0130): pressed while its long lines wrap, which follows the window's
+     * [SoftWrap] once the editor has a [host]. An embedding view places it first in its own toolbar, before its own left
+     * controls, and hides it while the source side is hidden; the editor never sets its visibility.
+     */
+    val softWrapButton: Node
 }
 
 /** A read-only text with line numbers, highlighted like code views, e.g. the body of an HTTP response. */
@@ -342,6 +349,8 @@ private class CodeViewEditor(
     override val canReplaceText: Boolean get() = view.canReplaceText
 
     override val toolbarItems: ObservableList<Node> get() = view.toolbarItems
+
+    override val softWrapButton: Node get() = view.softWrapButton
 
     override fun replaceText(text: String): Boolean = view.replaceText(text)
 
