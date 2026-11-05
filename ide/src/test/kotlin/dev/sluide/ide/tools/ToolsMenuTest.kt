@@ -28,7 +28,8 @@ class ToolsMenuTest {
     private fun tool(
         name: String,
         accelerator: KeyCombination? = null,
-    ) = WindowTool(name, { FakeTab(name).also { created += name } }, accelerator)
+        newTabEachTime: Boolean = false,
+    ) = WindowTool(name, { FakeTab(name).also { created += name } }, accelerator, newTabEachTime)
 
     private fun menu(vararg tools: WindowTool) =
         ToolsMenu({
@@ -61,6 +62,19 @@ class ToolsMenuTest {
 
         assertEquals(listOf("Coloring"), created)
         assertEquals(1, open.size)
+        assertEquals(emptyList(), selected)
+    }
+
+    @Test
+    fun `a tool with a new tab each time creates and opens one on every choice`() {
+        val menu = menu(tool("Translate", newTabEachTime = true))
+
+        menu.open(menu.tools.single())
+        menu.open(menu.tools.single())
+
+        assertEquals(listOf("Translate", "Translate"), created)
+        assertEquals(2, open.size)
+        assertNotSame(open[0], open[1])
         assertEquals(emptyList(), selected)
     }
 

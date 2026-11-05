@@ -5,16 +5,21 @@ import javafx.scene.control.Menu
 import javafx.scene.control.MenuItem
 import javafx.scene.input.KeyCombination
 
-/** A tool of the Tools or Services menu (ADR 0110, ADR 0118): one tab per window, optionally on a key. */
+/**
+ * A tool of the Tools or Services menu (ADR 0110, ADR 0118): one tab per window, optionally on a key; with
+ * [newTabEachTime] every choice opens a new tab instead (ADR 0129).
+ */
 internal class WindowTool(
     val title: String,
     val createTab: () -> EditorTab,
     val accelerator: KeyCombination? = null,
+    val newTabEachTime: Boolean = false,
 )
 
 /**
  * A menu of window tools, such as Tools and Services: one item per [tools] entry. Choosing a tool opens its tab, or
- * selects the tab it opened before while that is still among the [tabs]. Used on the JavaFX thread.
+ * selects the tab it opened before while that is still among the [tabs]; a tool with `newTabEachTime` opens a new
+ * tab on every choice. Used on the JavaFX thread.
  */
 internal class ToolsMenu(
     private val tabs: () -> List<EditorTab>,
@@ -40,8 +45,15 @@ internal class ToolsMenu(
                 }.toTypedArray(),
         )
 
-    /** Selects the tab of [tool] while it is open, else creates, remembers and opens a new one. */
+    /**
+     * Selects the tab of [tool] while it is open, else creates, remembers and opens a new one; a tool with
+     * `newTabEachTime` always opens a new tab, which is not remembered.
+     */
     fun open(tool: WindowTool) {
+        if (tool.newTabEachTime) {
+            openTab(tool.createTab())
+            return
+        }
         val existing = remembered[tool]?.takeIf { it in tabs() }
         if (existing != null) {
             select(existing)
