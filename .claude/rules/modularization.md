@@ -12,10 +12,10 @@ paths:
   cycle (ADR 0047).
 - A module may depend on a module of its own capability family (`git-log` -> `git`) or on a small foundation module
   meant for sharing (`settings`, `file-watcher`, `text-editing`, `file-icons`, `project-trust`, `background-tasks`,
-  `project-data`, `secrets`).
+  `project-data`, `secrets`, `local-models`).
   Unrelated feature modules do not depend on each other; `ide` wires them through callbacks. The editor family
   (`editor-area`, `file-viewers`, `previews`, `terminal`, `docker-sandbox`, `http-client`, `github-actions`,
-  `command-runs`, `gradle`, `shell-scripts`, `coloring`, `codecs`, `converting`, `docker`, `databases`, `media`, `speech`: what is shown as editor tabs or file
+  `command-runs`, `gradle`, `shell-scripts`, `coloring`, `codecs`, `converting`, `docker`, `databases`, `media`, `speech`, `translation`: what is shown as editor tabs or file
   views) counts as one capability family.
 - When two modules need the same piece of a third, extract it into a small module instead of depending on the whole
   feature module.
