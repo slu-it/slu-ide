@@ -231,6 +231,32 @@ the Bicep graph and `BicepParamFileViewer`.
     `AutoCloseable` it returns, if any, is closed when the view is disposed; an extension that throws is logged and the
     others still run. The Coloring tool uses it for the color swatches in the gutter and the "Open in Coloring" menu
     item ([coloring.md](coloring.md)).
+    The editor also lets an extension see the text and add features of its own (each of these has a default in the
+    interface, so test fakes implement only what they use):
+    - `plainText` (a file without a language viewer, no highlighting), `text` (built on each call, so not per
+      keystroke), `caretOffset`, `selection`, and `onTextChanged` for every change of the text, a reload included.
+    - `addToolbarItems(nodes)`: the items go to `CodeEditor.toolbarItems` (read-only, in the order added) until their
+      handle is closed. A view of its own (`CodeFileViewer`s and `DefaultTextFileViewer`) shows them in a row at the
+      very top, above the find bar, hidden while there are none (`.code-editor-toolbar`, styled with the other views'
+      toolbars in `view-toolbar.css`). An embedded editor (`CodeEditors.open`) shows no row: the embedding view places
+      the items in its own toolbar. The `.env` and `.gitignore` views (`EnvFileView`, `GitignoreFileView`) embed their
+      `CodeView` without a row and do not show the items.
+    - `addBanner(node)` shows a banner above the text, below the find bar and the view's own banners, until closed.
+    - `lock()` makes the text read-only until every lock is closed (closing one twice is harmless): typing, pasting,
+      `replaceText` and the find bar's Replace and Replace All change nothing and `canReplaceText` is false, while
+      caret, selection, copy, find and scrolling work. Saving still works, and a change on disk still reloads the text.
+      Unlike a file shown read-only for its encoding, a lock shows no banner.
+    - `overlay(layer, ranges)` shows `StyledRange`s as a named layer over highlighting, masks and find matches,
+      replacing that layer's previous ranges (an empty list clears it); layers stay through background highlighting
+      and find updates, and any change of the text (an edit, a reload) clears them all. Ranges are clamped to the
+      text and overlapping ones add both classes; the class names must differ from the highlighter's and the find
+      bar's.
+    - `reveal(start, end)` scrolls a range into view without moving the caret or the selection and without focusing
+      (as `TextEditor.reveal`), `addEventFilter(type, filter)` adds an event filter on the text area until
+      unsubscribed.
+    - `addActivity(activity)` shows the activity on the view's tab (`FileView.activity`) while subscribed: RUNNING if
+      any added one is, else FAILED if any is, else NONE. An embedded editor's `activity` shows on no tab by itself:
+      as with `toolbarItems`, the embedding view shows it in its own `activity`, combined with what it does itself.
   - Viewers that show files as text implement `SourceFileViewer` (`sourceHighlighter`) to get change markers and
     highlighted diffs. Viewers for extensions implement `ExtensionFileViewer` (`fileExtensions`, lower case, no dot)
     and viewers for exact names `NamedFileViewer` (`fileNames`), so that `FileViewers` also picks them by the name
