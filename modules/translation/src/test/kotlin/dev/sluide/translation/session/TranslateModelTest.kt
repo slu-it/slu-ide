@@ -18,6 +18,7 @@ import java.util.concurrent.Executor
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -195,6 +196,19 @@ class TranslateModelTest {
             listOf("EINS. ZWEI.", "EINS.  ZWEI. ", "EINS. DREI. ZWEI. ", "EINS. DREI. ZWEI. VIER."),
             outputs,
         )
+    }
+
+    @Test
+    fun `detection reads only the sentences, not code, link targets or markup`() {
+        val model = model()
+        model.open(
+            "# Titel\n\nDas ist `code` mit [Link](https://example.com).\n\n```kotlin\nval x = 1\n```\n",
+            markdown = true,
+        )
+
+        val text = assertNotNull(detector.lastText)
+        assertTrue("Das ist" in text && "mit" in text && "Titel" in text, text)
+        assertFalse("example.com" in text || "val x" in text || "kotlin" in text || "#" in text || "`" in text, text)
     }
 
     @Test

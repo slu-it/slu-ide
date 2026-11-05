@@ -96,11 +96,16 @@ internal class FakeDetector(
     @Volatile
     var error: Exception? = null
 
+    /** The text of the last detection. */
+    @Volatile
+    var lastText: String? = null
+
     override fun detect(
         text: String,
         among: Collection<Language>,
     ): Language? {
         calls++
+        lastText = text
         error?.let { throw it }
         return answer
     }

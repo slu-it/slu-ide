@@ -34,7 +34,8 @@ models for 75 languages, 80 MB), fastText `lid.176` (Meta, CC-BY-SA, needs a rea
 - **Models** are pinned in a catalog resource (Hugging Face URL at a fixed commit, size, sha256 per file), downloaded
   through `local-models` (ADR 0125) on an explicit Download in the tab's notice, stored in
   `~/.sluide/models/opus-mt/<src>-<tgt>/`. After the download the translation starts by itself.
-- **Detection:** Lingua in low-accuracy mode over the first 10 000 characters, limited to the offered languages it
+- **Detection:** Lingua in low-accuracy mode over the first 10 000 characters of the sentences only; code, link
+  targets and markup are left out (with them a short German note was not detected). Limited to the offered languages it
   knows (by ISO 639-1 code; fewer than two known means no answer). Low-accuracy mode reads the unigram, bigram and
   trigram models, never the quadri- and fivegrams (a test jar without them detects as before; trigrams alone were not
   enough, Swedish came out empty). The fat jar therefore keeps those three per language: 5.6 MB instead of 80 MB

@@ -131,6 +131,16 @@ internal class TranslationRun(
         report(RunEvent.Done(source, output()))
     }
 
+    /**
+     * The sentences of the text, one per line, without what is kept verbatim (code, link targets, markup), which
+     * would only blur the detection (placeholders such as `{1}` have no letters and do not count).
+     */
+    private fun detectionText(): String =
+        TranslationText
+            .segments(request.text, request.markdown, Abbreviations.ENGLISH)
+            .filterIsInstance<Segment.Sentence>()
+            .joinToString("\n") { it.text }
+
     private fun source(): Language? =
         when (val choice = request.source) {
             is SourceChoice.Picked -> {
@@ -139,7 +149,7 @@ internal class TranslationRun(
 
             SourceChoice.Detect -> {
                 report(RunEvent.Detecting)
-                val detected = detector.detect(request.text, engine.sources)
+                val detected = detector.detect(detectionText(), engine.sources)
                 if (detected == null && !cancelled()) report(RunEvent.Undetected)
                 detected
             }
