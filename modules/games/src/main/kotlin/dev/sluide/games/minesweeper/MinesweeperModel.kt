@@ -76,10 +76,6 @@ internal class MinesweeperModel(
                     "Cleared in ${seconds(clock.elapsedMillis)}" + if (newBest) " — new best!" else ""
                 }
 
-                isManuallyPaused -> {
-                    "Paused — press P or click to resume"
-                }
-
                 else -> {
                     (choice as? SizeChoice.OfPreset)
                         ?.let { preferences.bestTime(it.preset) }

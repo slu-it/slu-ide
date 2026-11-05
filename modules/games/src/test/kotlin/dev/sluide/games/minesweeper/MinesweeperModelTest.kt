@@ -109,7 +109,8 @@ class MinesweeperModelTest {
         assertTrue(model.canPause)
         model.togglePause()
         assertTrue(model.isManuallyPaused)
-        assertEquals("Paused — press P or click to resume", model.statusText)
+        // The overlay says it; the status line keeps the normal text.
+        assertEquals("", model.statusText)
         model.togglePause()
         assertFalse(model.isPaused)
 
