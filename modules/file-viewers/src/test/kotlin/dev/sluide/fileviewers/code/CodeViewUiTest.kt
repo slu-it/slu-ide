@@ -8,7 +8,6 @@ import dev.sluide.fileviewers.languages.PythonFileViewer
 import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.Label
-import javafx.scene.layout.BorderPane
 import javafx.scene.layout.StackPane
 import javafx.scene.layout.VBox
 import javafx.scene.text.Font
@@ -558,7 +557,7 @@ class CodeViewUiTest {
                 "of editing this one.",
             generatedMessage(robot),
         )
-        assertSame(view.findBar.node, ((view.node as BorderPane).top as VBox).children.first(), "find bar on top")
+        assertSame(view.findBar.node, (view.findBar.node.parent as VBox).children.first(), "find bar above the banner")
 
         robot.interact { bannerButton(robot, "Dismiss").fire() }
         val folder = dir.resolve("crate").createDirectory()

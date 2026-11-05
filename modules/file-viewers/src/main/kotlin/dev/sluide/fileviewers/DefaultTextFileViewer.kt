@@ -13,5 +13,5 @@ import java.nio.file.Path
 class DefaultTextFileViewer : FileViewer {
     override fun canOpen(file: Path): Boolean = Files.isReadable(file) && isTextFile(file)
 
-    override fun open(file: Path): FileView = CodeView(file, null)
+    override fun open(file: Path): FileView = CodeView(file, null, ownToolbar = true)
 }

@@ -7,6 +7,7 @@ import dev.sluide.fileviewers.GutterColumns
 import dev.sluide.fileviewers.SyntaxHighlighter
 import dev.sluide.fileviewers.TextDiff
 import dev.sluide.fileviewers.TextEditableView
+import dev.sluide.fileviewers.ViewActivity
 import dev.sluide.textediting.CommentSyntax
 import dev.sluide.textediting.DiskChange
 import dev.sluide.textediting.IndentStyle
@@ -21,6 +22,8 @@ import javafx.beans.property.SimpleBooleanProperty
 import javafx.beans.property.SimpleObjectProperty
 import javafx.beans.property.SimpleStringProperty
 import javafx.beans.value.ObservableBooleanValue
+import javafx.beans.value.ObservableValue
+import javafx.collections.ObservableList
 import javafx.scene.Node
 import javafx.scene.control.Button
 import javafx.scene.layout.BorderPane
@@ -66,6 +69,10 @@ import java.time.Duration
  * Keys for editing ([editorKeys]) indent in the file's [indentStyle] (from `.editorconfig`, else detected, else
  * [defaultIndent]) and comment out lines with [comment]. [highlightPause] and [followPause] (find bar) are how long
  * typing pauses before the text is highlighted and the matches are found again; tests shorten them.
+ *
+ * Extensions (ADR 0108, [extensible]) add [toolbarItems], banners below the view's own, locks that make the text
+ * read-only, overlay layers over all other styles and activities shown as the view's [activity]. A view with
+ * [ownToolbar] (one of its own, not embedded) shows the toolbar items in a row at the very top while there are any.
  */
 internal class CodeView(
     initialFile: Path,
@@ -74,6 +81,7 @@ internal class CodeView(
     private val defaultIndent: IndentStyle = IndentStyle.DEFAULT,
     highlightPause: Duration = HIGHLIGHT_PAUSE,
     followPause: Duration = FOLLOW_PAUSE,
+    ownToolbar: Boolean = false,
     private val dispatch: (Runnable) -> Unit = Platform::runLater,
 ) : EditableFileView,
     TextEditableView,
@@ -90,8 +98,11 @@ internal class CodeView(
     /** Line numbers, change markers ([showChanges]) and further columns ([addGutterColumn]). */
     private val gutter = Gutter(area) { line -> host?.showChanges(file, line) }
 
+    /** Toolbar items, banners, locks, overlay layers and activities of the extensions. */
+    private val additions = CodeViewAdditions(area, ownToolbar, ::showEditable)
+
     /** What features of the window see of the view and add to it (ADR 0108), from the first [host] that has them. */
-    val extensible = ExtensibleCodeView(this, area, initialFile)
+    val extensible = ExtensibleCodeView(this, area, initialFile, additions, highlighter == null)
     private val extensions = CodeViewExtensions(extensible)
     private val contextMenu = EditorContextMenu(area, extensible::contextMenuItems)
 
@@ -117,7 +128,7 @@ internal class CodeView(
         BorderPane(pane).apply {
             // Unlike `code-view`, which the scroll panes of diff views have too.
             styleClass += "code-editor"
-            top = banners
+            top = VBox(*listOfNotNull(additions.toolbar.row, banners, additions.banners).toTypedArray())
             stylesheets +=
                 checkNotNull(CodeView::class.java.getResource("/dev/sluide/fileviewers/code-view.css")).toExternalForm()
         }
@@ -257,7 +268,7 @@ internal class CodeView(
         val pause = if (savedText.length > LARGE_TEXT) highlightPause.multipliedBy(4) else highlightPause
         highlighting =
             BackgroundHighlighting(area, highlighter, pause, dispatch) { text, spans ->
-                findBar.overlay(withMasks(text, spans))
+                additions.layers.applyTo(findBar.overlay(withMasks(text, spans)))
             }
         changeMarkers = ChangeMarkerFollower(area, gutter, undoManager, savedTextProperty) { conflictShown }
     }
@@ -266,7 +277,12 @@ internal class CodeView(
 
     override val text: String get() = area.text
 
-    override val canReplaceText: Boolean get() = !readOnly
+    override val canReplaceText: Boolean get() = !readOnly && !additions.locks.held
+
+    /** The extensions' toolbar items, read-only, in the order added; a view with its own toolbar shows them on top. */
+    val toolbarItems: ObservableList<Node> get() = additions.toolbar.items
+
+    override val activity: ObservableValue<ViewActivity> get() = additions.activities.activity
 
     override val dirty: ObservableBooleanValue =
         Bindings.not(undoManager.atMarkedPositionProperty()).or(keptMine).or(encoding.converting)
@@ -368,10 +384,10 @@ internal class CodeView(
      * a form beside the editor (ADR 0057), keeping caret and scroll position where possible. Unlike a reload, the
      * saved text stays, so the view becomes [dirty] (or clean, if [text] is the saved one). Does nothing if [text]
      * equals the current text. Returns `false` and changes nothing while the view is [readOnly], whose text cannot be
-     * saved.
+     * saved, or locked by an extension.
      */
     override fun replaceText(text: String): Boolean {
-        if (readOnly) return false
+        if (!canReplaceText) return false
         if (replaceMinimally(LineEnding.normalize(text))) {
             // Typing on would otherwise extend this change.
             undoManager.preventMerge()
@@ -413,8 +429,13 @@ internal class CodeView(
     }
 
     private fun showReadOnly(readOnly: Boolean) {
-        area.isEditable = !readOnly
         showBanner(invalidBanner, readOnly)
+        showEditable()
+    }
+
+    /** The text is editable unless shown [readOnly] or locked by an extension. */
+    private fun showEditable() {
+        area.isEditable = !readOnly && !additions.locks.held
     }
 
     private fun showEncoding() {
@@ -457,6 +478,7 @@ internal class CodeView(
         highlighting.dispose()
         findBar.dispose()
         extensions.dispose()
+        additions.dispose()
         contextMenu.dispose()
     }
 
@@ -474,7 +496,8 @@ internal class CodeView(
 
     private fun highlight(text: String) {
         if (text.isNotEmpty() && highlighter != null) {
-            area.setStyleSpans(0, findBar.overlay(withMasks(text, codeStyleSpans(text, highlighter))))
+            val spans = findBar.overlay(withMasks(text, codeStyleSpans(text, highlighter)))
+            area.setStyleSpans(0, additions.layers.applyTo(spans))
         }
     }
 
@@ -482,7 +505,8 @@ internal class CodeView(
     fun restyleMasks() {
         if (area.length == 0) return
         val styled = area.getStyleSpans(0, area.length)
-        val wanted = withMasks(area.text, styled.mapStyles { style -> if (MASKED in style) style - MASKED else style })
+        val unmasked = styled.mapStyles { style -> if (MASKED in style) style - MASKED else style }
+        val wanted = withMasks(area.text, unmasked)
         val range = changedSpanRange(styled, wanted) ?: return
         area.setStyleSpans(range.first, wanted.subView(range.first, range.last + 1))
     }

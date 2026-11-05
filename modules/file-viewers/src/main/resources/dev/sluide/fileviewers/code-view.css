@@ -1,9 +1,19 @@
 /*
  * Code views (CodeView) around their text area, which syntax.css styles: banners at the top, e.g. when the file
  * changed on disk while the view has unsaved changes, or for generated files like uv.lock and Windows-1252 files (an
- * informative blue), and the find bar above them, with the matches it marks in the text. Dark rules use single
- * classes, see syntax.css.
+ * informative blue), and the find bar above them, with the matches it marks in the text; a code view of its own also
+ * has a row of the toolbar items its extensions add, at the very top. Dark rules use single classes, see syntax.css.
  */
+
+/*
+ * The row of the extensions' toolbar items (ToolbarItems) of a code view that is not embedded is UI too;
+ * view-toolbar.css gives it the look of the other views' toolbars.
+ */
+.code-editor-toolbar {
+    -fx-font-family: "System";
+    -fx-font-style: normal;
+    -fx-font-weight: normal;
+}
 
 .editor-banner {
     /* The view inherits the editor font; banners are UI and use the system font in its size. */

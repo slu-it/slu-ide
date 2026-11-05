@@ -6,6 +6,7 @@ import dev.sluide.fileviewers.code.codeStyleSpans
 import dev.sluide.textediting.CommentSyntax
 import javafx.beans.value.ObservableValue
 import javafx.collections.ListChangeListener
+import javafx.collections.ObservableList
 import javafx.geometry.Bounds
 import javafx.scene.Node
 import javafx.scene.control.IndexRange
@@ -76,6 +77,15 @@ interface CodeEditor :
      * (ADR 0108, 0116).
      */
     fun addContextMenuItems(items: (EditorMenuTarget) -> List<MenuItem>)
+
+    /**
+     * The toolbar items the window's [CodeEditorExtensions] added ([ExtensibleCodeEditor.addToolbarItems]), read-only,
+     * in the order added; an item goes when its handle is closed. The embedding view places them in its own toolbar:
+     * this editor shows no toolbar. Likewise, the editor's [activity] (what its extensions add with
+     * [ExtensibleCodeEditor.addActivity]) shows on no tab by itself: the embedding view shows it in its own activity,
+     * combined with what it does itself.
+     */
+    val toolbarItems: ObservableList<Node>
 }
 
 /** A read-only text with line numbers, highlighted like code views, e.g. the body of an HTTP response. */
@@ -329,7 +339,9 @@ private class CodeViewEditor(
 
     override val caretLine: Int get() = view.area.currentParagraph
 
-    override val canReplaceText: Boolean get() = !view.readOnly
+    override val canReplaceText: Boolean get() = view.canReplaceText
+
+    override val toolbarItems: ObservableList<Node> get() = view.toolbarItems
 
     override fun replaceText(text: String): Boolean = view.replaceText(text)
 
@@ -349,10 +361,7 @@ private class CodeViewEditor(
 
     override fun onShownLinesChanged(action: () -> Unit): Subscription = view.area.onShownParagraphsChanged(action)
 
-    override fun onTextChanged(action: () -> Unit): Subscription {
-        val changes = view.area.plainTextChanges().subscribe { action() }
-        return Subscription { changes.unsubscribe() }
-    }
+    override fun onTextChanged(action: () -> Unit): Subscription = view.extensible.onTextChanged(action)
 
     override fun showLineAtTop(line: Int) {
         val shown = line.coerceIn(0, view.area.paragraphs.size - 1)

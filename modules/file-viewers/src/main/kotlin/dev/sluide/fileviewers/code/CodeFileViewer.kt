@@ -41,7 +41,7 @@ abstract class CodeFileViewer internal constructor(
 
     override fun opensInterpreter(interpreter: String): Boolean = match.matchesInterpreter(interpreter)
 
-    override fun open(file: Path): FileView = CodeView(file, highlighter, comment, defaultIndent)
+    override fun open(file: Path): FileView = CodeView(file, highlighter, comment, defaultIndent, ownToolbar = true)
 }
 
 /** The token style classes of [text] found by [highlighter], for a RichTextFX area. */
