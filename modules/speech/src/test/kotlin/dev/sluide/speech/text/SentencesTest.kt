@@ -7,73 +7,8 @@ import org.junit.jupiter.params.provider.ValueSource
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
+/** The sentence rules are tested in `SentenceRangesTest` (text-editing); this checks the chunk mapping. */
 class SentencesTest {
-    @Test
-    fun `ends a sentence after a period, exclamation or question mark before whitespace or the end`() {
-        assertEquals(listOf("One.", "Two!", "Three?", "Four"), texts("One. Two! Three? Four"))
-    }
-
-    @Test
-    fun `ends a sentence after a run of marks and an ellipsis`() {
-        assertEquals(listOf("Really?!", "Well...", "So…", "Yes."), texts("Really?! Well... So… Yes."))
-    }
-
-    @Test
-    fun `keeps closing quotes and brackets with the sentence`() {
-        assertEquals(
-            listOf("He said \"Go.\"", "(She left.)", "“Fine!”", "Ok.'", "[Done.]"),
-            texts("He said \"Go.\" (She left.) “Fine!” Ok.' [Done.]"),
-        )
-    }
-
-    @Test
-    fun `a mark before a non-space char ends no sentence`() {
-        assertEquals(listOf("Pi is 3.14 in v1.2.3.", "Next"), texts("Pi is 3.14 in v1.2.3. Next"))
-        assertEquals(listOf("See x.org?q=1 now."), texts("See x.org?q=1 now."))
-    }
-
-    @ParameterizedTest
-    @ValueSource(
-        strings = [
-            "Mr. Smith", "Mrs. Smith", "Ms. Smith", "Dr. Who", "Prof. X", "Main St. here", "Sam Jr. came",
-            "Sam Sr. came", "red vs. blue", "pens, etc. and more", "fruit, e.g. apples", "one, i.e. this",
-            "see No. 5", "in Fig. 3", "approx. ten", "cf. the other", "(e.g. this)", "J. R. R. Tolkien",
-        ],
-    )
-    fun `abbreviations and single initials end no sentence`(text: String) {
-        assertEquals(listOf("$text end."), texts("$text end."))
-    }
-
-    @Test
-    fun `No and Fig end a sentence unless a number follows`() {
-        assertEquals(listOf("I said no.", "Then"), texts("I said no. Then"))
-        assertEquals(listOf("A fig.", "Then"), texts("A fig. Then"))
-    }
-
-    @Test
-    fun `the word I ends a sentence`() {
-        assertEquals(listOf("So did I.", "Then"), texts("So did I. Then"))
-    }
-
-    @Test
-    fun `an ellipsis before a lowercase word ends no sentence`() {
-        assertEquals(listOf("Wait... what is it?", "Wait…", "Then"), texts("Wait... what is it? Wait… Then"))
-    }
-
-    @Test
-    fun `a hard break ends a sentence and belongs to no chunk`() {
-        val spoken = spoken("Title\n\nText without end\n\nMore. Text")
-
-        assertEquals(listOf("Title", "Text without end", "More.", "Text"), Sentences.chunks(spoken).map { it.text })
-        assertTrue(Sentences.chunks(spoken).none { '\n' in it.text })
-    }
-
-    @Test
-    fun `drops empty chunks`() {
-        assertEquals(emptyList(), texts(""))
-        assertEquals(listOf("A.", "B."), texts("A.\n\nB."))
-    }
-
     @Test
     fun `a chunk's range is its sentence and its text the spoken substring`() {
         val spoken = spoken("One two. Three!")
@@ -85,10 +20,11 @@ class SentencesTest {
     }
 
     @Test
-    fun `keeps a long sentence whole`() {
-        val long = "A very long sentence, with clauses; and more of them: on and on until it ends at last."
-
-        assertEquals(listOf(long, "Next."), texts("$long Next."))
+    fun `an abbreviation ends no chunk`() {
+        assertEquals(
+            listOf("Mr. Smith left.", "Then"),
+            Sentences.chunks(spoken("Mr. Smith left. Then")).map { it.text },
+        )
     }
 
     @Test
@@ -118,39 +54,11 @@ class SentencesTest {
         assertTrue(pieces.all { it.sentenceStart == second.start && it.sentenceEnd == second.end })
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = ["—", " –"])
-    fun `a dash is a clause mark`(dash: String) {
-        assertEquals(
-            listOf("A rather long beginning$dash", "then the rest of it."),
-            split("A rather long beginning$dash then the rest of it.", maxChars = 30),
-        )
-    }
-
     @Test
-    fun `splits a long chunk without a clause mark at its last space before the limit`() {
-        val pieces =
-            Sentences.splitForFastStart(
-                Sentences.chunks(spoken("One two three four five six seven, eight."))[0],
-                20,
-            )
+    fun `a chunk within the limit comes back alone`() {
+        val chunk = Sentences.chunks(spoken("Short."))[0]
 
-        assertEquals(listOf("One two three four", "five six seven, eight."), pieces.map { it.text })
-        assertTrue(pieces.all { it.sentenceStart == 0 && it.sentenceEnd == 41 })
-    }
-
-    @Test
-    fun `a comma inside a number is no clause mark`() {
-        assertEquals(
-            listOf("We counted up to exactly 1,000,000 of", "those things"),
-            split("We counted up to exactly 1,000,000 of those things", maxChars = 40),
-        )
-    }
-
-    @Test
-    fun `keeps a chunk within the limit or without a space whole`() {
-        assertEquals(listOf("Short."), split("Short.", maxChars = 6))
-        assertEquals(listOf("Supercalifragilistic"), split("Supercalifragilistic", maxChars = 5))
+        assertEquals(listOf(chunk), Sentences.splitForFastStart(chunk, maxChars = 6))
     }
 
     @Test
@@ -193,12 +101,4 @@ class SentencesTest {
     }
 
     private fun spoken(text: String) = SpeechText.prepare(text, markdown = false)
-
-    private fun texts(text: String) = Sentences.chunks(spoken(text)).map { it.text }
-
-    /** The pieces of the first chunk of [text]. */
-    private fun split(
-        text: String,
-        maxChars: Int,
-    ) = Sentences.splitForFastStart(Sentences.chunks(spoken(text))[0], maxChars).map { it.text }
 }

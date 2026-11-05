@@ -29,6 +29,8 @@ dependencies {
     // Deliberate module dependency: the last voice and speed are kept in the shared data file (field `speech`,
     // ADR 0101).
     implementation(project(":modules:project-data"))
+    // Deliberate module dependency: the sentence splitting of the spoken text is SentenceRanges (ADR 0124).
+    implementation(project(":modules:text-editing"))
     // Runs the Kokoro model; the fat jar keeps the build platform's natives only (ADR 0124).
     implementation(libs.onnxruntime)
     // Reads the Kokoro vocabulary (JSON).

@@ -47,7 +47,8 @@ Options compared for the first engine, all running the Kokoro-82M model:
 - **Sentence chunks:** `Sentences.chunks` splits the spoken text into sentences (with abbreviations, initials,
   decimals and ellipses before lowercase words that end none), the chunks a reading synthesizes one by one. A long
   sentence that a reading starts at is split at its first clause (`Sentences.splitForFastStart`), so the first
-  audio comes fast. The scanners are linear and without recursion, for texts up to the tool's 1 MiB.
+  audio comes fast. The splitting itself lives in `text-editing` (`SentenceRanges`, shared with translation);
+  `Sentences` maps its ranges to chunks. The scanners are linear and without recursion, for texts up to the tool's 1 MiB.
 - **Kokoro** runs through ONNX Runtime Java on the CPU. The model is the kokoro-onnx GitHub release
   `model-files-v1.1`, the only source with published checksums and a `duration` output, pinned by URL and sha256 (fp32
   `kokoro-v1.0.onnx` by default; fp16 and int8 selectable) and stored in `~/.sluide/models/kokoro-v1.0/`. Its duration

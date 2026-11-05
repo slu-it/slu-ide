@@ -1,29 +1,20 @@
 package dev.sluide.speech.text
 
-/** Words whose final period does not end a sentence; shared by [Sentences] and the Kokoro tokenizer. */
+import dev.sluide.textediting.Abbreviations as SharedAbbreviations
+
+/** English abbreviations and initials; used by the Kokoro tokenizer. Sentence splitting lives in `text-editing`. */
 internal object Abbreviations {
-    private val NUMBERED = setOf("No", "no", "Fig", "fig")
-    private val WORDS =
-        setOf("mr", "mrs", "ms", "dr", "prof", "st", "jr", "sr", "vs", "etc", "e.g", "i.e", "approx", "cf")
     private val INITIALS = Regex("(\\p{L}\\.)+\\p{L}")
 
-    /**
-     * Whether [word] (without its period) followed by `.` is an abbreviation: a known one, `No`/`Fig` before a number
-     * ([nextChar] is the next character after the whitespace, or null), or a single capital initial other than `I`.
-     */
+    /** Whether [word] followed by `.` is an English abbreviation, see [SharedAbbreviations.isAbbreviation]. */
     fun isAbbreviation(
         word: String,
         nextChar: Char?,
-    ): Boolean =
-        when {
-            word.length == 1 && word[0].isUpperCase() -> word != "I"
-            word in NUMBERED -> nextChar?.isDigit() == true
-            else -> word.lowercase() in WORDS
-        }
+    ): Boolean = SharedAbbreviations.isAbbreviation(word, nextChar)
 
     /**
      * Whether [word] is several initials joined by periods (`U.S`, `U.K`), without the final period. Only the Kokoro
-     * tokenizer uses it; [Sentences] still ends a sentence after "U.S.".
+     * tokenizer uses it; sentence splitting still ends a sentence after "U.S.".
      */
     fun isInitials(word: String): Boolean = INITIALS.matches(word)
 }
