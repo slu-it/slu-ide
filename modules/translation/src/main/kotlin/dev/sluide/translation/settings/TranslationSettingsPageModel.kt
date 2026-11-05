@@ -14,7 +14,7 @@ internal interface TranslationSettingsDialogs {
     fun confirmDelete(question: String): Boolean
 }
 
-/** One installed model on the page: its [label], and the [message] of a failed delete, if the last one failed. */
+/** One model on the page: its [label], and the [message] of a failed download or delete, if the last one failed. */
 internal data class ModelRow(
     val model: PairModel,
     val label: String,
@@ -34,14 +34,14 @@ internal class TranslationSettingsPageModel(
     fun installedModels(): List<PairModel> = engine.models.filter(engine::installed)
 
     /**
-     * The [installed] models, and those whose last delete failed (partly deleted, so no longer installed; their row
-     * shows the message and Delete to retry), by source name, target name, then Medium before High.
+     * The [installed] models, and those whose last download or delete failed (not complete on disk; their row shows
+     * the message and Delete to remove what is left), by source name, target name, then Medium before High.
      */
     fun rows(installed: List<PairModel> = installedModels()): List<ModelRow> =
         engine.models
             .filter { it in installed || failure(it) != null }
             .sortedWith(order)
-            .map { ModelRow(it, rowLabel(it), failure(it)) }
+            .map { ModelRow(it, if (it in installed) rowLabel(it) else incompleteLabel(it), failure(it)) }
 
     private fun failure(model: PairModel) = (installer.state(model).get() as? InstallState.Failed)?.message
 
@@ -68,6 +68,9 @@ internal class TranslationSettingsPageModel(
     private fun bytes(model: PairModel) = engine.files(model).sumOf { it.bytes }
 
     fun rowLabel(model: PairModel) = "${name(model)} · ${qualityName(model.quality)} · ${formatMegabytes(bytes(model))}"
+
+    /** A model that is not (or no longer) complete on disk, after a failed download or delete. */
+    fun incompleteLabel(model: PairModel) = "${name(model)} · ${qualityName(model.quality)} · incomplete"
 
     fun deleteQuestion(model: PairModel) =
         "Delete the ${name(model)} (${qualityName(model.quality)}) translation model? It must be downloaded again " +

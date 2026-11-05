@@ -123,7 +123,7 @@ class TranslationSettingsPageModelTest {
     }
 
     @Test
-    fun `a model whose delete failed after the first file stays listed with the message`() {
+    fun `a model whose delete failed after the first file stays listed as incomplete with the message`() {
         val medium = pair("de-en")
         install(medium)
         // A non-empty directory where the last file belongs cannot be deleted as a file, on any system.
@@ -137,6 +137,7 @@ class TranslationSettingsPageModelTest {
         assertFalse(engine.installed(medium))
         val row = model.rows().single()
         assertEquals(medium, row.model)
+        assertEquals("German → English · Medium · incomplete", row.label)
         assertTrue(row.message.orEmpty().startsWith("Cannot delete "), row.message)
     }
 }
