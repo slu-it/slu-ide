@@ -29,6 +29,8 @@ import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.SoftWrap
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.games.minesweeper.Minesweeper
+import dev.sluide.games.minesweeper.MinesweeperPreferences
 import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCommits
 import dev.sluide.git.GitFileComparison
@@ -262,6 +264,9 @@ abstract class MainWindowUiFixture {
     /** The Databases tools of the windows created by [mainWindow]. */
     internal val databases = mutableListOf<Databases>()
 
+    /** The Minesweeper games of the windows created by [mainWindow]. */
+    internal val minesweepers = mutableListOf<Minesweeper>()
+
     /**
      * The Docker settings of the windows: an executable that does not exist, so that a Docker tab shows its note and
      * never reaches an engine of the machine.
@@ -381,6 +386,7 @@ abstract class MainWindowUiFixture {
                 // Creating it touches no secret store; nothing here saves a password.
                 Secrets(),
             ).also(databases::add),
+            Minesweeper(MinesweeperPreferences(projectData)).also(minesweepers::add),
             // Only its folder and capturing flag are read; the tests replace the capture.
             Diagnostics(),
             softWrap,

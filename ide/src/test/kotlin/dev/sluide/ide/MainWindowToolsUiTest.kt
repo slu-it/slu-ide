@@ -255,7 +255,7 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
                 .queryAs(MenuBar::class.java)
                 .menus
                 .map { it.text }
-        assertEquals(listOf("Docker Sandbox", "Tools", "Services", "Help"), menus.takeLast(4))
+        assertEquals(listOf("Docker Sandbox", "Tools", "Services", "Games", "Help"), menus.takeLast(5))
 
         val coloringItem = menu(robot, "Tools").items.single { it.text == "Coloring" }
         robot.interact { coloringItem.fire() }
@@ -271,6 +271,27 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
 
         assertEquals(listOf("Coloring"), tabTitles(robot))
         assertEquals("Color tools", checkNotNull(editorArea.selectedTab).tooltip)
+    }
+
+    @Test
+    fun `Games - Minesweeper opens one tab, a second choice selects it, and show opens it again once closed`(
+        robot: FxRobot,
+    ) {
+        assertEquals(listOf("Minesweeper"), menu(robot, "Games").items.map { it.text })
+        val item = menu(robot, "Games").items.single()
+
+        robot.interact { item.fire() }
+        robot.interact { item.fire() }
+
+        assertEquals(listOf("Minesweeper"), tabTitles(robot))
+        assertEquals("Play Minesweeper while you wait", checkNotNull(editorArea.selectedTab).tooltip)
+
+        robot.interact { editorArea.closeAll() }
+        assertEquals(emptyList(), tabTitles(robot))
+        robot.interact { minesweepers.single().showTab() }
+
+        assertEquals(listOf("Minesweeper"), tabTitles(robot))
+        assertEquals("Play Minesweeper while you wait", checkNotNull(editorArea.selectedTab).tooltip)
     }
 
     @Test

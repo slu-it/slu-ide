@@ -9,6 +9,7 @@ import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.dockersandbox.SandboxAction
 import dev.sluide.dockersandbox.SandboxNotAllowedException
 import dev.sluide.editorarea.EditorArea
+import dev.sluide.games.minesweeper.Minesweeper
 import dev.sluide.ide.ProjectService
 import dev.sluide.ide.isMac
 import dev.sluide.speech.ReadAloud
@@ -28,8 +29,9 @@ import java.nio.file.Path
 /**
  * The tools of one window: the Terminal and Docker Sandbox menus with the terminal tabs they open in the
  * [editorArea], the Tools menu with the Coloring, Codecs, Converting, Read Aloud and Translate tabs (ADR 0110,
- * ADR 0112, ADR 0115, ADR 0124, ADR 0126) and the Services menu with the Docker and Databases tabs (ADR 0118, ADR 0121). [showError]
- * shows why a tool cannot be started. Used on the JavaFX thread.
+ * ADR 0112, ADR 0115, ADR 0124, ADR 0126), the Services menu with the Docker and Databases tabs (ADR 0118,
+ * ADR 0121) and the Games menu with the Minesweeper tab (ADR 0131). [showError] shows why a tool cannot be started.
+ * Used on the JavaFX thread.
  */
 internal class WindowTools(
     private val projectService: ProjectService,
@@ -44,6 +46,7 @@ internal class WindowTools(
     translate: Translate,
     docker: Docker,
     databases: Databases,
+    minesweeper: Minesweeper,
     /** Opens a web page in the system browser. */
     openWebPage: (URI) -> Unit,
     private val showError: (Stage, String) -> Unit,
@@ -98,6 +101,19 @@ internal class WindowTools(
             "Services",
         )
 
+    /** The Minesweeper tool of the Games menu; it has no key binding. */
+    internal val minesweeperTool = WindowTool("Minesweeper", minesweeper::createTab)
+
+    /** The Games menu logic; tests choose tools through it. */
+    internal val gamesMenu =
+        ToolsMenu(
+            { editorArea.tabs },
+            editorArea::open,
+            editorArea::select,
+            listOf(minesweeperTool),
+            "Games",
+        )
+
     init {
         coloring.showTab = { toolsMenu.open(coloringTool) }
         codecs.showTab = { toolsMenu.open(codecsTool) }
@@ -112,6 +128,7 @@ internal class WindowTools(
         databases.showTab = { servicesMenu.open(databasesTool) }
         databases.openTab = { editorArea.open(it) }
         databases.projectFolder.bind(projectService.projectFolder)
+        minesweeper.showTab = { gamesMenu.open(minesweeperTool) }
     }
 
     /** The Tools menu: Coloring, Codecs, Converting, Read Aloud, Translate. */
@@ -119,6 +136,9 @@ internal class WindowTools(
 
     /** The Services menu: Docker, Databases. */
     fun servicesMenu(): Menu = servicesMenu.menu()
+
+    /** The Games menu: Minesweeper. */
+    fun gamesMenu(): Menu = gamesMenu.menu()
 
     /** The Terminal menu: New Terminal. */
     fun terminalMenu(stage: Stage): Menu {

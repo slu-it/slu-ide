@@ -34,6 +34,8 @@ import dev.sluide.fileviewers.SoftWrap
 import dev.sluide.fileviewers.languages.IgnoreFileViewer
 import dev.sluide.fileviewers.languages.PythonFileViewer
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.games.minesweeper.Minesweeper
+import dev.sluide.games.minesweeper.MinesweeperPreferences
 import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCommits
 import dev.sluide.git.GitFileComparison
@@ -207,6 +209,7 @@ class SpringWiringTest {
                         SpeechEngines::class.java,
                         KokoroEngine::class.java,
                         SpeechPreferences::class.java,
+                        MinesweeperPreferences::class.java,
                         ModelStore::class.java,
                         ModelInstaller::class.java,
                         SpeechSettingsPage::class.java,
@@ -235,6 +238,7 @@ class SpringWiringTest {
                 context.getBean(ModelStore::class.java)
                 context.getBean(ModelInstaller::class.java)
                 context.getBean(SpeechPreferences::class.java)
+                context.getBean(MinesweeperPreferences::class.java)
                 context.getBean(SpeechEngines::class.java)
                 // The translation beans are cheap: the engine loads a model on first use, Lingua on the first detection.
                 context.getBean(OpusMtEngine::class.java)
@@ -266,6 +270,7 @@ class SpringWiringTest {
                         DockerSession::class.java,
                         Docker::class.java,
                         Databases::class.java,
+                        Minesweeper::class.java,
                     )
                 val scoped =
                     context.beanFactory.beanDefinitionNames.filter {

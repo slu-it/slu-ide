@@ -21,6 +21,7 @@ import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.IgnoreRuleEffects
 import dev.sluide.fileviewers.SoftWrap
+import dev.sluide.games.minesweeper.Minesweeper
 import dev.sluide.git.GitFileComparison
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitStatusService
@@ -128,6 +129,7 @@ class MainWindow(
     private val docker: Docker,
     private val dockerSession: DockerSession,
     private val databases: Databases,
+    private val minesweeper: Minesweeper,
     diagnostics: Diagnostics,
     private val softWrap: SoftWrap,
 ) {
@@ -264,6 +266,7 @@ class MainWindow(
             translate,
             docker,
             databases,
+            minesweeper,
             openWebPage = { openWebPage(it) },
             showError = { s, m -> showError(s, m) },
         )
@@ -330,6 +333,7 @@ class MainWindow(
                             tools.dockerSandboxMenu(stage),
                             tools.toolsMenu(),
                             tools.servicesMenu(),
+                            tools.gamesMenu(),
                             help.helpMenu(stage),
                         ),
                         trust.bar,

@@ -26,6 +26,8 @@ import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.SoftWrap
 import dev.sluide.filewatcher.FileWatcher
+import dev.sluide.games.minesweeper.Minesweeper
+import dev.sluide.games.minesweeper.MinesweeperPreferences
 import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCommits
 import dev.sluide.git.GitFileComparison
@@ -180,6 +182,7 @@ class ProjectWindowsUiTest {
                 register(GitStashes::class.java)
                 register(DockerSettings::class.java)
                 register(DockerRunStore::class.java)
+                register(MinesweeperPreferences::class.java)
                 register(ConnectionStore::class.java)
                 register(PasswordCache::class.java)
                 register(QueryHistory::class.java)
@@ -236,6 +239,7 @@ class ProjectWindowsUiTest {
                     DockerSession::class.java,
                     Docker::class.java,
                     Databases::class.java,
+                    Minesweeper::class.java,
                 )
                 refresh()
             }
