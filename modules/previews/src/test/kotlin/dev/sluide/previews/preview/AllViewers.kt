@@ -3,7 +3,10 @@ package dev.sluide.previews.preview
 import dev.sluide.fileviewers.DefaultTextFileViewer
 import dev.sluide.fileviewers.FileViewer
 import dev.sluide.fileviewers.FileViewers
+import dev.sluide.fileviewers.SoftWrap
 import org.springframework.context.annotation.AnnotationConfigApplicationContext
+import org.springframework.context.annotation.ClassPathBeanDefinitionScanner
+import org.springframework.core.type.filter.AssignableTypeFilter
 import java.nio.file.Path
 
 /** The packages whose viewers the application's component scan finds: those of the core and of the previews. */
@@ -14,7 +17,14 @@ private val VIEWER_PACKAGES = arrayOf("dev.sluide.fileviewers", "dev.sluide.prev
  * In the order Spring lists them, which may differ between builds.
  */
 internal val allViewers: List<FileViewer> by lazy {
-    AnnotationConfigApplicationContext(*VIEWER_PACKAGES).use { context ->
+    AnnotationConfigApplicationContext().use { context ->
+        // SoftWrap is the window's soft wrap switch, not a viewer, and it needs the project data store, which this
+        // scan does not have.
+        ClassPathBeanDefinitionScanner(context).apply {
+            addExcludeFilter(AssignableTypeFilter(SoftWrap::class.java))
+            scan(*VIEWER_PACKAGES)
+        }
+        context.refresh()
         context.getBeansOfType(FileViewer::class.java).values.toList()
     }
 }
