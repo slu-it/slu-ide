@@ -3,6 +3,7 @@ package dev.sluide.translation.text
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import org.junit.jupiter.params.provider.ValueSource
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -53,6 +54,14 @@ class PlaceholdersTest {
         assertEquals("Siehe A.", placeholders.restore("Siehe $mangled.", listOf("A")), form)
     }
 
+    // Only for the default: with the same opening and closing delimiter (`__1__2__`) a lost closer is ambiguous.
+    @Test
+    fun `a token that lost its closing delimiter is still found and the space after it stays`() {
+        val translated = "[1[2]bag [3 end"
+
+        assertEquals("ABbag C end", Placeholders.DEFAULT.restore(translated, listOf("A", "B", "C")))
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("candidates")
     fun `a token for a span that does not exist stays and token ten is not token one`(
@@ -93,14 +102,28 @@ class PlaceholdersTest {
         assertEquals(text, TranslationText.assemble(text, segments, placeholders) { it.text })
     }
 
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(
+        strings = [
+            "See [1](https://example.org/a) for details.",
+            "See the [docs][1] for details.",
+            "As shown in [1], the claim [2] holds.",
+            "Read [the [1] guide](guide.md) first.",
+            "See [1, 2] and array[1 here.",
+        ],
+    )
+    fun `Markdown and text that use the square form themselves come back verbatim`(text: String) {
+        for (markdown in listOf(false, true)) assertRoundTrip(text, markdown, Placeholders.SQUARE)
+    }
+
     @Test
     fun `restore with no spans returns the translation as is`() {
         assertEquals("a {1}", Placeholders.CURLY.restore("a {1}", emptyList()))
     }
 
     @Test
-    fun `the default is the curly form`() {
-        assertEquals("{1}", Placeholders.DEFAULT.token(0))
+    fun `the default is the square form`() {
+        assertEquals("[1]", Placeholders.DEFAULT.token(0))
     }
 
     companion object {
@@ -109,7 +132,7 @@ class PlaceholdersTest {
             listOf(
                 Arguments.of("curly", Placeholders.CURLY, "{1}", "{10}"),
                 Arguments.of("underscores", Placeholders.UNDERSCORES, "__1__", "__10__"),
-                Arguments.of("brackets", Placeholders.BRACKETS, "⟦1⟧", "⟦10⟧"),
+                Arguments.of("square", Placeholders.SQUARE, "[1]", "[10]"),
             )
     }
 }

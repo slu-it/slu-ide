@@ -81,7 +81,7 @@ class LargeTextTest {
                 shape("a URL with many trailing parentheses", Shape(")", "https://x.org/")),
                 shape("www. before a non-alphanumeric", Shape("www.!")),
                 shape("a wrapped paragraph", Shape("word word\n")),
-                shape("many token-like texts", Shape("{1} ")),
+                shape("many token-like texts", Shape("[1] ")),
                 shape("many at signs", Shape("a@")),
                 shape("a long local part", Shape("a", suffix = "a@")),
                 shape("abbreviations", Shape("Mr. ")),

@@ -133,7 +133,7 @@ internal class TranslationRun(
 
     /**
      * The sentences of the text, one per line, without what is kept verbatim (code, link targets, markup), which
-     * would only blur the detection (placeholders such as `{1}` have no letters and do not count).
+     * would only blur the detection (placeholders such as `[1]` have no letters and do not count).
      */
     private fun detectionText(): String =
         TranslationText

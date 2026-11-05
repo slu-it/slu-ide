@@ -55,6 +55,10 @@ its fixture `RealDatabases` starts one container per kind on a 127.0.0.1 port an
 `SLUIDE_KOKORO_SMOKE=1` set, and skips itself when the model files are not in `~/.sluide/models/kokoro-v1.0/` (or
 `SLUIDE_KOKORO_MODEL_DIR`) or espeak-ng is missing; `SLUIDE_KOKORO_WAV=<file>` also writes the audio:
 `SLUIDE_KOKORO_SMOKE=1 ./gradlew :modules:speech:test --tests 'KokoroEngineRealTest' -q`.
+`OpusMtEngineRealTest` (module `translation`) translates with the real Opus-MT models only with
+`SLUIDE_OPUSMT_SMOKE=1` set, and skips a case whose Medium models (de-en, en-de, en-sv, en-zh) are not in
+`~/.sluide/models/opus-mt/`; it checks the placeholder form against every probed pair and prints each translation with
+its time: `SLUIDE_OPUSMT_SMOKE=1 ./gradlew :modules:translation:test --tests 'OpusMtEngineRealTest' -i`.
 
 ## Display handling
 - **Linux without `DISPLAY` and without `CI`:** `uiTest` is *skipped* (not failed), so a headless sandbox stays usable.

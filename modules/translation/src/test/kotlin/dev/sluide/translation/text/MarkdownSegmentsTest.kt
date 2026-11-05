@@ -59,7 +59,7 @@ class MarkdownSegmentsTest {
         val text = "Read the [user guide](docs/guide.md \"The guide\") first."
         val segments = TranslationText.segments(text, true)
 
-        val result = TranslationText.assemble(text, segments) { "Lies zuerst den {1}Benutzerleitfaden{2}." }
+        val result = TranslationText.assemble(text, segments) { "Lies zuerst den [1]Benutzerleitfaden[2]." }
 
         assertEquals("Lies zuerst den [Benutzerleitfaden](docs/guide.md \"The guide\").", result)
     }
@@ -139,7 +139,7 @@ class MarkdownSegmentsTest {
 
     @Test
     fun `a sentence does not end inside inline code`() {
-        assertEquals(listOf("Run {1} now.", "Then stop."), sentences("Run `a. b` now. Then stop.", true))
+        assertEquals(listOf("Run [1] now.", "Then stop."), sentences("Run `a. b` now. Then stop.", true))
     }
 
     @Test
@@ -149,21 +149,21 @@ class MarkdownSegmentsTest {
         assertEquals(
             listOf(
                 "My Project",
-                "{1}{2}badge{3}{4}",
-                "A small tool for {1}.",
+                "[1][2]badge[3][4]",
+                "A small tool for [1].",
                 "It is fast.",
                 "Install",
-                "Run {1} and open {2}.",
-                "Install it with the {1}Gradle plugin{2}.",
+                "Run [1] and open [2].",
+                "Install it with the [1]Gradle plugin[2].",
                 "Usage",
                 "Name",
                 "Meaning",
                 "The input file",
                 "Quoted advice: stay calm.",
-                "See the {1}docs{2} or write to {3}.",
-                "A note.{1}",
+                "See the [1]docs[2] or write to [3].",
+                "A note.[1]",
                 "License",
-                "MIT, see {1}LICENSE{2}.",
+                "MIT, see [1]LICENSE[2].",
             ),
             sentences.filter { it.isNotBlank() },
         )
@@ -268,7 +268,7 @@ class MarkdownSegmentsTest {
                 Arguments.of(
                     "an autolink line is a paragraph",
                     "<https://example.com>\nis the home page.",
-                    listOf("{1} is the home page."),
+                    listOf("[1] is the home page."),
                 ),
                 Arguments.of(
                     "code inside a list item",
@@ -280,7 +280,7 @@ class MarkdownSegmentsTest {
                     "> - item\n>\n>       code here\n>\n> - Next.",
                     listOf("item", "Next."),
                 ),
-                Arguments.of("an inline tag line is a paragraph", "<b>Bold</b> text.", listOf("{1}Bold{2} text.")),
+                Arguments.of("an inline tag line is a paragraph", "<b>Bold</b> text.", listOf("[1]Bold[2] text.")),
                 Arguments.of(
                     "link reference definition",
                     "[id]: https://example.org \"Title\"\nText.",
@@ -324,52 +324,58 @@ class MarkdownSegmentsTest {
         @JvmStatic
         fun inlines() =
             listOf(
-                Arguments.of("inline code", "Use `foo()` here.", "Use {1} here.", listOf("`foo()`")),
-                Arguments.of("double backtick code", "Use ``a ` b`` here.", "Use {1} here.", listOf("``a ` b``")),
+                Arguments.of("inline code", "Use `foo()` here.", "Use [1] here.", listOf("`foo()`")),
+                Arguments.of("double backtick code", "Use ``a ` b`` here.", "Use [1] here.", listOf("``a ` b``")),
                 Arguments.of("unclosed backticks stay text", "Use `foo here.", "Use `foo here.", emptyList<String>()),
+                Arguments.of(
+                    "a token look-alike that ends in a link's closer is merged with it",
+                    "See [items \\[0](api.md) now.",
+                    "See [1]items \\[2] now.",
+                    listOf("[", "[0](api.md)"),
+                ),
                 Arguments.of(
                     "autolink",
                     "Go to <https://example.org/x> now.",
-                    "Go to {1} now.",
+                    "Go to [1] now.",
                     listOf("<https://example.org/x>"),
                 ),
-                Arguments.of("e-mail autolink", "Write <a@b.org> now.", "Write {1} now.", listOf("<a@b.org>")),
-                Arguments.of("inline HTML tags", "A <b>bold</b> word.", "A {1}bold{2} word.", listOf("<b>", "</b>")),
-                Arguments.of("inline comment", "A <!-- x --> word.", "A {1} word.", listOf("<!-- x -->")),
+                Arguments.of("e-mail autolink", "Write <a@b.org> now.", "Write [1] now.", listOf("<a@b.org>")),
+                Arguments.of("inline HTML tags", "A <b>bold</b> word.", "A [1]bold[2] word.", listOf("<b>", "</b>")),
+                Arguments.of("inline comment", "A <!-- x --> word.", "A [1] word.", listOf("<!-- x -->")),
                 Arguments.of(
                     "link",
                     "See [the docs](a/b.md) now.",
-                    "See {1}the docs{2} now.",
+                    "See [1]the docs[2] now.",
                     listOf("[", "](a/b.md)"),
                 ),
                 Arguments.of(
                     "link with a title",
                     "See [docs](a \"T (x)\") now.",
-                    "See {1}docs{2} now.",
+                    "See [1]docs[2] now.",
                     listOf("[", "](a \"T (x)\")"),
                 ),
                 Arguments.of(
                     "link with parentheses in the target",
                     "[w](https://x.org/a_(b))",
-                    "{1}w{2}",
+                    "[1]w[2]",
                     listOf("[", "](https://x.org/a_(b))"),
                 ),
                 Arguments.of(
                     "image",
                     "An ![alt text](img.png) here.",
-                    "An {1}alt text{2} here.",
+                    "An [1]alt text[2] here.",
                     listOf("![", "](img.png)"),
                 ),
                 Arguments.of(
                     "reference link",
                     "See [the docs][d] now.",
-                    "See {1}the docs{2} now.",
+                    "See [1]the docs[2] now.",
                     listOf("[", "][d]"),
                 ),
                 Arguments.of(
                     "image inside a link",
                     "[![alt](a.png)](b.html)",
-                    "{1}{2}alt{3}{4}",
+                    "[1][2]alt[3][4]",
                     listOf("[", "![", "](a.png)", "](b.html)"),
                 ),
                 Arguments.of(
@@ -378,7 +384,7 @@ class MarkdownSegmentsTest {
                     "See [docs] now.",
                     emptyList<String>(),
                 ),
-                Arguments.of("footnote reference", "A claim[^note] here.", "A claim{1} here.", listOf("[^note]")),
+                Arguments.of("footnote reference", "A claim[^note] here.", "A claim[1] here.", listOf("[^note]")),
                 Arguments.of(
                     "emphasis stays in the sentence",
                     "Is **very** _good_ ~~bad~~.",
@@ -394,13 +400,13 @@ class MarkdownSegmentsTest {
                 Arguments.of(
                     "a bare URL in a link text",
                     "[see https://a.org](https://a.org)",
-                    "{1}see {2}{3}",
+                    "[1]see [2][3]",
                     listOf("[", "https://a.org", "](https://a.org)"),
                 ),
                 Arguments.of(
                     "a link text wrapped from the line before",
                     "text](x.md) end.",
-                    "text{1} end.",
+                    "text[1] end.",
                     listOf("](x.md)"),
                 ),
             )

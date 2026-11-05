@@ -132,8 +132,9 @@ object TranslationText {
     }
 
     /**
-     * The spans (inline spans and text that looks like a token of [placeholders], so it comes back verbatim) and the
-     * line breaks of [stretch], sorted and disjoint; a line break that touches a span is part of the span.
+     * The spans (inline spans and text that looks like a token of [placeholders], so it comes back verbatim;
+     * overlapping ones merged) and the line breaks of [stretch], sorted and disjoint; a line break that touches a span
+     * is part of the span.
      */
     private fun edits(
         text: String,
@@ -144,9 +145,14 @@ object TranslationText {
         val start = stretch.range.first
         val end = stretch.range.last + 1
         val found = InlineSpans.find(text, start, end, markdown) + placeholders.occurrences(text, start, end)
+        // Overlapping spans are merged: a token look-alike can end inside a link's closer, as `\\[0](api.md)` does.
         val spans = ArrayList<IntRange>(found.size)
         for (span in found.sortedBy { it.first }) {
-            if (spans.isEmpty() || span.first > spans.last().last) spans += span
+            val previous = spans.lastOrNull()
+            when {
+                previous == null || span.first > previous.last -> spans += span
+                span.last > previous.last -> spans[spans.lastIndex] = previous.first..span.last
+            }
         }
         val edits = ArrayList<Edit>(spans.size + stretch.gaps.size)
         var span = 0

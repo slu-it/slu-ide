@@ -52,6 +52,9 @@ file with the translation, `.md` when Markdown is on, else `.txt`, [ADR 0066](..
   translated. A paragraph that wraps over several lines (also in a list item or block quote) is translated as a whole:
   its line breaks become one space and the translation stands on one line, which renders the same. A hard line break
   (two spaces or a backslash) ends the paragraph and is kept.
+- In both modes, what is kept verbatim inside a sentence (URLs and e-mail addresses; with Markdown also inline code,
+  link targets, tags and footnote references) reaches the model as `[1]`, `[2]`, ... and is put back in the
+  translation; one the model dropped is appended at the end of the sentence.
 
 ## Languages and quality
 Every language with an Opus-MT model (University of Helsinki, Hugging Face ONNX conversions) to or from English is
@@ -88,5 +91,6 @@ installed the translation starts by itself.
 - Close languages (Croatian and Bosnian, Indonesian and Malay, ...) are not told apart by the detection; choose the
   source by hand.
 - Only the languages Lingua knows are detected.
-- Sentences longer than the model's limit are split at a clause, else at a space.
+- Sentences longer than the model's limit are split at a clause, else at a space. A translation is at most three times
+  as long as its sentence (in model tokens), which stops a model that starts repeating itself.
 - Speed and macOS behaviour are verified by the user only. Tests use fakes.

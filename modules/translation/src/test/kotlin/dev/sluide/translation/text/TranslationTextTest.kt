@@ -44,7 +44,7 @@ class TranslationTextTest {
         val segments = TranslationText.segments(text, false).filterIsInstance<Segment.Sentence>()
 
         assertEquals(
-            listOf("See {1}, or {2}.", "Mail {1} now."),
+            listOf("See [1], or [2].", "Mail [1] now."),
             segments.map { it.text },
         )
         assertEquals(listOf("https://example.org/a?b=1", "www.example.com"), segments[0].spans)
@@ -60,7 +60,7 @@ class TranslationTextTest {
             } as Segment.Sentence
 
         assertEquals(listOf("https://en.wikipedia.org/wiki/Foo_(bar)"), segment.spans)
-        assertEquals("(see {1})", segment.text)
+        assertEquals("(see [1])", segment.text)
     }
 
     @ParameterizedTest
@@ -86,7 +86,7 @@ class TranslationTextTest {
         val text = "Open https://example.org now."
         val segments = TranslationText.segments(text, false)
 
-        val result = TranslationText.assemble(text, segments) { "Jetzt {1} oeffnen." }
+        val result = TranslationText.assemble(text, segments) { "Jetzt [1] oeffnen." }
 
         assertEquals("Jetzt https://example.org oeffnen.", result)
     }

@@ -22,7 +22,7 @@ class RandomRoundTripTest {
                         MAX_FRAGMENTS,
                     )
                 ).joinToString("") { FRAGMENTS[random.nextInt(FRAGMENTS.size)] }
-            for (placeholders in listOf(Placeholders.CURLY, Placeholders.UNDERSCORES, Placeholders.BRACKETS)) {
+            for (placeholders in listOf(Placeholders.CURLY, Placeholders.UNDERSCORES, Placeholders.SQUARE)) {
                 assertRoundTrip(text, markdown, placeholders)
             }
         }
@@ -45,8 +45,9 @@ class RandomRoundTripTest {
                 "| ",
                 "---",
                 "```",
+                "[1]",
+                "[2]",
                 "{1}",
-                "{2}",
                 "__1__",
                 "⟦1⟧",
                 "http://",

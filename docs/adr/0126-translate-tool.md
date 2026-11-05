@@ -27,9 +27,11 @@ models for 75 languages, 80 MB), fastText `lid.176` (Meta, CC-BY-SA, needs a rea
   Offered: every language with single-target Opus-MT ONNX exports to or from English; a pair without a direct model
   is chained through English (two models). The engine reads each model's SentencePiece Unigram tokenizer from its
   `tokenizer.json` (unknown characters take the id of the `<unk>` token: the exports' `model.unk_id` 2 is ","), runs
-  Hugging Face's beam search over optimum's merged decoder with its key/value cache, splits sentences longer than
-  400 tokens at a clause, keeps at most two pair models loaded app-wide and unloads one after 5 minutes idle. The
-  multi-target en-zh, en-ar and en-vi get their target token first (`>>cmn_Hans<<`, `>>ara<<`, `>>vie<<`).
+  Hugging Face's beam search over optimum's merged decoder with its key/value cache, caps the output at three times
+  the source length (at least 16 tokens; like Marian's own `max-length-factor`: an odd token made the model repeat
+  dashes up to the 512-token limit, 12 s for one sentence), splits sentences longer than 400 tokens at a clause,
+  keeps at most two pair models loaded app-wide and unloads one after 5 minutes idle. The multi-target en-zh, en-ar
+  and en-vi get their target token first (`>>cmn_Hans<<`, `>>ara<<`, `>>vie<<`).
 - **Quality** per translation: Medium (int8, the default) and High (fp32), each its own download per pair model.
 - **Models** are pinned in a catalog resource (Hugging Face URL at a fixed commit, size, sha256 per file), downloaded
   through `local-models` (ADR 0125) on an explicit Download in the tab's notice, stored in
@@ -49,7 +51,11 @@ models for 75 languages, 80 MB), fastText `lid.176` (Meta, CC-BY-SA, needs a rea
   27 MB of heap, later detections instant).
 - **Text:** sentences via `SentenceRanges` (`text-editing`), translated one by one with a per-window cache, so an edit
   retranslates only the changed sentences. With the Markdown toggle on (set from `.md`/`.markdown` file names),
-  markup is kept verbatim and only the text is translated.
+  markup is kept verbatim and only the text is translated. What is kept inside a sentence (inline code, link targets,
+  URLs, tags) travels as placeholders `[1]`, `[2]`, ...; the real-model test chose the form: `[1]` survived German,
+  English, Swedish and Chinese (direct and through English, also next to a link's text), `{1}` and `__1__` broke in
+  Chinese, `(1)` became "punkt 1" in Swedish, `⟦1⟧` was dropped. A token that lost its closing bracket (`[1[2]`, once
+  in Chinese) is still found. Text that looks like a token is protected as a span itself; overlapping spans merge.
   In Markdown mode a paragraph that wraps over lines (also in a list item or block quote) is one stretch, so a
   sentence that wraps goes to the model whole; its line breaks become one space and the translated sentence stands on
   one line, which renders the same. A hard line break (two spaces or a backslash) ends the paragraph and is kept.
