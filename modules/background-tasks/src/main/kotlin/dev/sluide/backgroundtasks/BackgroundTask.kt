@@ -2,6 +2,8 @@ package dev.sluide.backgroundtasks
 
 import javafx.beans.property.ReadOnlyBooleanProperty
 import javafx.beans.property.ReadOnlyBooleanWrapper
+import javafx.beans.property.ReadOnlyDoubleProperty
+import javafx.beans.property.ReadOnlyDoubleWrapper
 import javafx.beans.property.ReadOnlyStringProperty
 import javafx.beans.property.ReadOnlyStringWrapper
 import java.util.concurrent.CancellationException
@@ -24,6 +26,15 @@ class BackgroundTask internal constructor(
 
     /** The name shown; updated on the FX thread. */
     val name: ReadOnlyStringProperty = nameWrapper.readOnlyProperty
+
+    private val progressWrapper = ReadOnlyDoubleWrapper(INDETERMINATE)
+
+    /**
+     * How far the work is, 0 to 1, or -1 while it is not told ([progress]): then its row shows an indeterminate bar,
+     * which repaints every frame, while a determinate one repaints only when the value changes; updated on the FX
+     * thread.
+     */
+    val progressProperty: ReadOnlyDoubleProperty = progressWrapper.readOnlyProperty
 
     private val cancellableWrapper = ReadOnlyBooleanWrapper(onCancel != null)
 
@@ -63,6 +74,16 @@ class BackgroundTask internal constructor(
             currentName = name
         }
         tasks.onFxThread { nameWrapper.set(nameNow()) }
+    }
+
+    /**
+     * Tells how far the work is, [fraction] clamped to 0 to 1 (NaN is ignored); any thread. Without a call the row's
+     * bar is indeterminate. Not logged; nothing once the task has ended.
+     */
+    fun progress(fraction: Double) {
+        if (fraction.isNaN() || ended) return
+        val value = fraction.coerceIn(0.0, 1.0)
+        tasks.onFxThread { progressWrapper.set(value) }
     }
 
     /**
@@ -153,5 +174,9 @@ class BackgroundTask internal constructor(
             tasks.report(end.level, "task#$number ${end.text}", end.error)
         }
         tasks.ended(this)
+    }
+
+    private companion object {
+        const val INDETERMINATE = -1.0
     }
 }

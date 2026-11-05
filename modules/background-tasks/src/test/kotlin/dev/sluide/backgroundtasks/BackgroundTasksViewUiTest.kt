@@ -167,4 +167,16 @@ class BackgroundTasksViewUiTest {
         WaitForAsyncUtils.waitForFxEvents()
         assertEquals("Updating files…", rows(robot).single().name())
     }
+
+    @Test
+    fun `the row's bar follows the task's progress`(robot: FxRobot) {
+        val task = tasks.start("Capturing…")
+        elapse(robot)
+        val bar = rows(robot).single().children[1] as ProgressBar
+        robot.interact { assertTrue(bar.isIndeterminate) }
+
+        task.progress(0.4)
+        WaitForAsyncUtils.waitForFxEvents()
+        robot.interact { assertEquals(0.4, bar.progress, 1e-9) }
+    }
 }

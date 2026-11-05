@@ -186,6 +186,27 @@ class BackgroundTasksTest {
     }
 
     @Test
+    fun `progress is clamped, indeterminate until told and set on the FX thread`() {
+        val task = tasks.start("Capturing…")
+        assertEquals(-1.0, task.progressProperty.get())
+        task.progress(0.25)
+        assertEquals(-1.0, task.progressProperty.get(), "not before the FX thread")
+        runFx()
+        assertEquals(0.25, task.progressProperty.get())
+        task.progress(7.0)
+        runFx()
+        assertEquals(1.0, task.progressProperty.get())
+        task.progress(-3.0)
+        task.progress(Double.NaN)
+        runFx()
+        assertEquals(0.0, task.progressProperty.get())
+        task.close()
+        task.progress(0.5)
+        runFx()
+        assertEquals(0.0, task.progressProperty.get(), "nothing once ended")
+    }
+
+    @Test
     fun `rename logs only real changes and updates the name on the FX thread`() {
         val task = tasks.start("Checking out main…")
         task.rename("Checking out main…")

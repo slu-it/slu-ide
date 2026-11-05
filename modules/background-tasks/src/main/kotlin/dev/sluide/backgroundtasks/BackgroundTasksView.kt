@@ -82,6 +82,7 @@ class BackgroundTasksView(
 
         private val progress =
             ProgressBar(ProgressIndicator.INDETERMINATE_PROGRESS).apply {
+                progressProperty().bind(task.progressProperty)
                 prefWidth = PROGRESS_WIDTH
                 // Gives way in a narrow explorer, like the name.
                 minWidth = 0.0
@@ -115,7 +116,10 @@ class BackgroundTasksView(
                 alignment = Pos.CENTER_LEFT
             }
 
-        /** Lets go of the task's name; the progress bar stops when its row leaves the scene. */
-        fun dispose() = label.textProperty().unbind()
+        /** Lets go of the task's name and progress; an indeterminate bar stops when its row leaves the scene. */
+        fun dispose() {
+            label.textProperty().unbind()
+            progress.progressProperty().unbind()
+        }
     }
 }

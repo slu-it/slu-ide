@@ -81,7 +81,7 @@ updated when the summary or keywords no longer fit.
 | [0058](adr/0058-markdown-html-export.md) | Self-contained Markdown HTML export reusing the preview renderer | Markdown export, HTML, math, Mermaid, offscreen WebEngine, `<name>.css` | |
 | [0059](adr/0059-svg-export-as-png.md) | SVG to PNG at 100/200/300 % via a hidden WebView | SVG, PNG export, `FileExport`, Export menu, `@2x` | |
 | [0060](adr/0060-logging-conventions.md) | Logging conventions; every git command numbered | logging, log levels, `git#n`, stderr, FX watchdog | amends 0013; see 0051, 0061 |
-| [0061](adr/0061-background-tasks.md) | Per-window background-task registry shown under the explorer | `BackgroundTasks`, `background-tasks`, cancel, `withdrawCancel`, `BackgroundTasks.forTests` | amended by 0106 |
+| [0061](adr/0061-background-tasks.md) | Per-window background-task registry shown under the explorer | `BackgroundTasks`, `background-tasks`, cancel, `withdrawCancel`, `BackgroundTasks.forTests`, progress, `BackgroundTask.progress` | amended by 0106 |
 | [0062](adr/0062-git-concurrency.md) | Which git work runs in parallel and which is queued | git concurrency, threads, `sluide-git-diff`, `diffAsync`, `GitCancellation`, `.git` stamps, write holds | amends 0013, 0015, 0021, 0035, 0041, 0053 |
 | [0063](adr/0063-git-log-rebase.md) | Rebase the current branch onto another, with Continue/Skip/Abort | `GitRebases`, rebase, `GitPendingRebase`, pending bar, conflicts | amends 0042; amended by 0106 |
 | [0064](adr/0064-json-preview.md) | JSON Source/Split/Preview with a foldable tree | JSON preview, Jackson, folds, JSON Pointer, `Preview.folds` | |

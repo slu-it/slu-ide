@@ -8,7 +8,7 @@ explorer). Decision in [ADR 0061](../adr/0061-background-tasks.md).
   it and shows again on expand ([ADR 0104](../adr/0104-collapsible-file-explorer.md)); the tasks run on.
 - **When:** work appears once it has run for half a second; work that ends sooner never shows. A row leaves the list
   as soon as its work ends.
-- **A row:** the work's name (shortened with "…" if the explorer is narrow), a moving progress bar and, for work that
+- **A row:** the work's name (shortened with "…" if the explorer is narrow), a moving progress bar (filled to the work's fraction once it calls `BackgroundTask.progress`) and, for work that
   can be cancelled, ✕ ("Cancel"). Hovering over the name shows it in full with how long the work has been running.
 - **Cancel:** ✕ asks the work to stop; the row stays until it has stopped. Work that cannot be cancelled has no ✕;
   work that goes on to a part that must not be stopped loses its ✕ then (a pull once it has fetched).

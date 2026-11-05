@@ -20,7 +20,7 @@ buttons. Thoreau has no status bar.
   thread may start, rename and end a task; the list of shown tasks changes on the JavaFX thread only. The registry
   reaches file views through `FileViewHost.windowService` (`MainWindow` adds it to the editor area's window services).
 - **An inline list under the file explorer** (`BackgroundTasksView`): one row per task with its name, an indeterminate
-  progress bar and ✕ if the task can be cancelled. IntelliJ is the model for what is shown. The user chose a list that
+  progress bar (determinate once the work calls `BackgroundTask.progress(fraction)`, from any thread) and ✕ if the task can be cancelled. IntelliJ is the model for what is shown. The user chose a list that
   is always visible while something runs over IntelliJ's popup: there is no status bar to open it from, and a popup
   hides what it lists until it is opened.
 - **Only after 0.5 s:** a task becomes visible once it has run for 0.5 s, and never if it ends before. Most work ends
