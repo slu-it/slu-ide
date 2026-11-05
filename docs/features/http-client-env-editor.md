@@ -9,8 +9,8 @@ JSON source of the opened file on the left, a form of both files merged on the r
 JSON viewer. The names are matched ignoring case.
 
 ## The view
-- Toolbar: **+ Environment**, **Show values**, and **Source | Split | Visual** (Split when the file opens; the divider
-  stays where it was when switching back to Split).
+- Toolbar: the [Soft Wrap](soft-wrap.md) button first (hidden in Visual), **+ Environment**, **Show values**, and
+  **Source | Split | Visual** (Split when the file opens; the divider stays where it was when switching back to Split).
 - The source is the normal code editor: saving, undo, change markers and changes on disk as for any code file.
 - A warning row below the toolbar shows problems of the files (invalid JSON, values the form does not show), what the
   form could not do, and that git would commit the private file (not ignored), checked again on every git status

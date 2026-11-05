@@ -84,7 +84,7 @@ Content-Type: image/png
     }
   }
   ```
-- Choose the environment in the view's toolbar ("No environment" first); the choice is remembered per file in the
+- Choose the environment in the view's toolbar, after the [Soft Wrap](soft-wrap.md) button ("No environment" first); the choice is remembered per file in the
   window, and follows the file when it is renamed. The files are read again (in the background) on each run and when
   the list opens. Problems in them, and a private file that git would commit (not ignored), are shown in a warning row
   above the editor; the git check needs the window's folder to be the repository root and is repeated whenever the
