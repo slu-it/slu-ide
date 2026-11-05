@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers.code
 
+import dev.sluide.fileviewers.StyledRange
 import org.fxmisc.richtext.model.StyleSpans
 import org.fxmisc.richtext.model.StyleSpansBuilder
 import kotlin.test.Test
@@ -81,5 +82,41 @@ class StyleRangesTest {
         val spans = tokens(emptyList<String>() to 4)
         val styled = overlayRanges(spans, listOf(0..0, 1..3)) { index -> listOf(if (index == 0) "a" else "b") }
         assertEquals(listOf(listOf("a"), listOf("b"), listOf("b"), listOf("b")), styles(styled).map { it.toList() })
+    }
+
+    @Test
+    fun `styled ranges go over highlighting and find matches, overlapping ones add both, clamped to the spans`() {
+        // "def f" highlighted, with a find match on "f f".
+        val spans = tokens(listOf("keyword") to 2, listOf("keyword", "search-match") to 1, listOf("search-match") to 2)
+        val ranges =
+            listOf(StyledRange(1, 4, "sentence"), StyledRange(3, 99, "word"), StyledRange(-3, 1, "start"))
+
+        val styled = withStyledRanges(spans, ranges)
+
+        assertEquals(
+            listOf(
+                listOf("keyword", "start"),
+                listOf("keyword", "sentence"),
+                listOf("keyword", "search-match", "sentence"),
+                listOf("search-match", "sentence", "word"),
+                listOf("search-match", "word"),
+            ),
+            styles(styled).map { it.toList() },
+        )
+    }
+
+    @Test
+    fun `styled ranges replace the stripped classes, none clear them, offsets place them in spans of part of a text`() {
+        val spans = tokens(listOf("keyword", "old") to 2, listOf("old") to 2)
+
+        assertEquals(
+            listOf(listOf("keyword"), listOf("keyword"), emptyList(), emptyList()),
+            styles(withStyledRanges(spans, emptyList(), strip = setOf("old"))).map { it.toList() },
+        )
+        // The spans start at offset 10 of the text: the range 11..13 is their 1..3.
+        assertEquals(
+            listOf(listOf("keyword"), listOf("keyword", "new"), listOf("new"), emptyList()),
+            styles(withStyledRanges(spans, listOf(StyledRange(11, 13, "new")), 10, setOf("old"))).map { it.toList() },
+        )
     }
 }

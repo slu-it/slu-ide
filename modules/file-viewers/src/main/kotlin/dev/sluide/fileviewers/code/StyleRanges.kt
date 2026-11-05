@@ -1,5 +1,6 @@
 package dev.sluide.fileviewers.code
 
+import dev.sluide.fileviewers.StyledRange
 import org.fxmisc.richtext.model.StyleSpan
 import org.fxmisc.richtext.model.StyleSpans
 import org.fxmisc.richtext.model.StyleSpansBuilder
@@ -60,4 +61,24 @@ internal fun overlayRanges(
     }
     if (spans.length() > position) builder.add(emptyList(), spans.length() - position)
     return spans.overlay(builder.create()) { token, added -> if (added.isEmpty()) token else token + added }
+}
+
+/**
+ * [spans], which start at [offset] of the text, without the classes in [strip] and with the class of each of [ranges]
+ * (text offsets, end exclusive) added where it lies in them, in the order of [ranges]: overlapping ranges add both
+ * classes, the parts outside [spans] are dropped. Strips first, so ranges replace those whose classes are stripped.
+ */
+internal fun withStyledRanges(
+    spans: StyleSpans<Collection<String>>,
+    ranges: List<StyledRange>,
+    offset: Int = 0,
+    strip: Set<String> = emptySet(),
+): StyleSpans<Collection<String>> {
+    var result = if (strip.isEmpty()) spans else spans.mapStyles { style -> style.filterNot { it in strip } }
+    for (range in ranges) {
+        val from = maxOf(range.start - offset, 0)
+        val to = minOf(range.end - offset, spans.length())
+        if (from < to) result = overlayRanges(result, listOf(from until to)) { listOf(range.styleClass) }
+    }
+    return result
 }

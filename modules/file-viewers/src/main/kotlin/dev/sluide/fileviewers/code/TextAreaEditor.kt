@@ -13,7 +13,6 @@ import org.fxmisc.flowless.VirtualizedScrollPane
 import org.fxmisc.richtext.CodeArea
 import org.fxmisc.richtext.model.StyleSpans
 import org.fxmisc.richtext.model.StyleSpansBuilder
-import org.fxmisc.richtext.model.TwoDimensional.Bias
 import org.fxmisc.richtext.util.UndoUtils
 import org.fxmisc.wellbehaved.event.Nodes
 import java.time.Duration
@@ -215,7 +214,7 @@ internal class TextAreaEditor(
         val classes = touched.map { it.styleClass }.toSet()
         val styled = area.getStyleSpans(from, to)
         val bare = styled.mapStyles { style -> style.filterNot { it in classes } }
-        val changed = withOverlay(bare, wanted, from)
+        val changed = withStyledRanges(bare, wanted, from)
         val range = changedSpanRange(styled, changed) ?: return
         area.setStyleSpans(from + range.first, changed.subView(range.first, range.last + 1))
     }
@@ -227,41 +226,7 @@ internal class TextAreaEditor(
     fun reveal(
         start: Int,
         end: Int,
-    ) {
-        if (area.length == 0) return
-        val from = start.coerceIn(0, area.length)
-        val to = end.coerceIn(from, area.length)
-        area.showParagraphInViewport(area.offsetToPosition(from, Bias.Forward).major)
-        area.layout()
-        val first = charBounds(from) ?: return
-        if (first.minY < 0) {
-            area.scrollYBy(first.minY)
-        } else if (first.maxY > area.height) {
-            area.scrollYBy(first.maxY - area.height)
-        }
-        // The last character that shows: a line break has no bounds.
-        var lastChar = to - 1
-        while (lastChar > from && area.text[lastChar] == '\n') lastChar--
-        if (lastChar <= from) return
-        area.layout()
-        // The end's paragraph is not laid out while it is far below: put the start at the top, where the end shows if
-        // anything shows it.
-        val last =
-            charBounds(lastChar) ?: run {
-                area.showParagraphAtTop(area.offsetToPosition(from, Bias.Forward).major)
-                area.layout()
-                return
-            }
-        val top = charBounds(from) ?: return
-        // As far down as the end needs, but never past where the start leaves the top.
-        if (last.maxY > area.height) area.scrollYBy(minOf(last.maxY - area.height, maxOf(top.minY, 0.0)))
-    }
-
-    /** The bounds of the character at [offset] (the last one at the end) in the area's coordinates, if laid out. */
-    private fun charBounds(offset: Int): Bounds? {
-        val at = offset.coerceIn(0, area.length - 1)
-        return area.getCharacterBoundsOnScreen(at, at + 1).orElse(null)?.let { area.screenToLocal(it) }
-    }
+    ) = area.revealRange(start, end)
 
     /** [at], or the nearest character before it that is no line break (if there is one). */
     private fun visibleAt(
@@ -285,22 +250,7 @@ internal class TextAreaEditor(
     private fun withMarks(spans: StyleSpans<Collection<String>>): StyleSpans<Collection<String>> {
         val at = errorAt?.takeIf { it < spans.length() }
         val marked = if (at == null) spans else overlayRanges(spans, listOf(at..at)) { ERROR_STYLE }
-        return withOverlay(marked, overlayed, 0)
-    }
-
-    /** [spans], which start at [offset] of the text, with each of [ranges] (text offsets) added where it lies in them. */
-    private fun withOverlay(
-        spans: StyleSpans<Collection<String>>,
-        ranges: List<StyledRange>,
-        offset: Int,
-    ): StyleSpans<Collection<String>> {
-        var result = spans
-        for (range in ranges) {
-            val from = maxOf(range.start - offset, 0)
-            val to = minOf(range.end - offset, spans.length())
-            if (from < to) result = overlayRanges(result, listOf(from until to)) { listOf(range.styleClass) }
-        }
-        return result
+        return withStyledRanges(marked, overlayed)
     }
 
     private fun plainSpans(length: Int): StyleSpans<Collection<String>> =
