@@ -38,6 +38,7 @@ internal object TranslateStatus {
     const val DETECTING = "Detecting…"
     const val NOT_DETECTED = "Language not detected. Choose the source."
     const val TRANSLATED = "Translated"
+    const val TOO_LARGE = "Text larger than 1 MiB"
     const val FAILED = "Translation failed"
 
     fun translating(

@@ -2,6 +2,7 @@ package dev.sluide.translation.session
 
 import dev.sluide.localmodels.InstallState
 import dev.sluide.projectdata.ProjectDataStore
+import dev.sluide.translation.MAX_READ_BYTES
 import dev.sluide.translation.TranslationPreferences
 import dev.sluide.translation.engine.Language
 import dev.sluide.translation.engine.PairModel
@@ -50,8 +51,10 @@ class TranslateModelTest {
     private fun model(
         target: Language? = english,
         dispatch: (Runnable) -> Unit = Runnable::run,
+        limit: Int = MAX_READ_BYTES,
     ): TranslateModel {
-        val model = TranslateModel(engine, detector, installs, preferences(), dispatch, scheduler, worker)
+        val model =
+            TranslateModel(engine, detector, installs, preferences(), dispatch, scheduler, worker, limit = limit)
         target?.let(model::chooseTarget)
         model.onChange = {
             if (statuses.lastOrNull() != model.status) statuses += model.status
@@ -73,6 +76,45 @@ class TranslateModelTest {
         assertEquals(0, detector.calls)
         model.chooseTarget(english)
         assertEquals("EINS. ZWEI.", model.output)
+    }
+
+    @Test
+    fun `a text over the limit is not translated, whatever changes, until it is short enough`() {
+        val model = model(limit = 10)
+        model.open("Eins.", markdown = false)
+        assertEquals("EINS.", model.output)
+
+        model.edit("Eins. Zwei. Drei.")
+        assertEquals(TranslateStatus.TOO_LARGE, model.status)
+        assertEquals("", model.output)
+        assertFalse(model.running)
+        assertEquals(0, scheduler.waiting.size)
+
+        val before = engine.calls.size
+        model.chooseTarget(swedish)
+        model.chooseQuality(Quality.HIGH)
+        model.chooseMarkdown(true)
+        model.open("Eins. Zwei. Drei.", markdown = false)
+        assertEquals(TranslateStatus.TOO_LARGE, model.status)
+        assertEquals(before, engine.calls.size)
+
+        model.edit("Zwei.")
+        assertEquals("", model.status)
+        scheduler.fire()
+        assertEquals("ZWEI.", model.output)
+        assertEquals(TranslateStatus.TRANSLATED, model.status)
+    }
+
+    @Test
+    fun `an edit over the limit cancels the pending run`() {
+        val model = model(limit = 10)
+        model.edit("Eins.")
+        assertEquals(1, scheduler.waiting.size)
+
+        model.edit("Eins. Zwei. Drei.")
+
+        assertEquals(0, scheduler.waiting.size)
+        assertFalse(model.running)
     }
 
     @Test

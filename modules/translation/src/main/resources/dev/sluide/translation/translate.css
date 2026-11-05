@@ -1,0 +1,37 @@
+/*
+ * Translate tab (TranslateView): the toolbar and the setup notice use only Modena's looked-up colours (derive of
+ * -fx-background, -fx-text-base-color, -fx-box-border), so that they follow the light and the dark theme without a
+ * media query. The toolbar looks like .preview-toolbar in preview-view.css.
+ */
+
+.translate-toolbar {
+    -fx-padding: 2 6 2 6;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
+}
+
+.translate-button {
+    -fx-padding: 2 10 2 10;
+    -fx-background-radius: 0;
+}
+
+.translate-button .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.translate-status {
+    -fx-padding: 0 8 0 8;
+    -fx-font-size: 0.9em;
+    -fx-opacity: 0.75;
+}
+
+.translate-notice {
+    -fx-background-color: derive(-fx-background, -6%);
+    -fx-border-color: transparent transparent -fx-box-border transparent;
+}
+
+.translate-picker-popup {
+    -fx-background-color: -fx-background;
+    -fx-border-color: -fx-box-border;
+    -fx-padding: 4;
+}

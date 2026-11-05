@@ -2,6 +2,7 @@ package dev.sluide.translation.session
 
 import dev.sluide.backgroundtasks.NamedThreads
 import dev.sluide.localmodels.InstallState
+import dev.sluide.translation.MAX_READ_BYTES
 import dev.sluide.translation.TranslationPreferences
 import dev.sluide.translation.engine.Language
 import dev.sluide.translation.engine.LanguageDetector
@@ -29,6 +30,9 @@ import kotlin.time.Duration.Companion.seconds
  * model, so windows translate side by side. [dispose] cancels the run and the timer; the idle worker thread then ends
  * by itself. Source, target and quality are read from [preferences] at creation and saved on every change; a saved
  * code the engine does not offer falls back to Detect or no target. The text is never stored.
+ *
+ * A text longer than [limit] chars is kept but not translated: the run and the timer are cancelled, the output is
+ * cleared and the status says so, also after a change of target, quality or Markdown, until the text is short enough.
  */
 internal class TranslateModel(
     private val engine: TranslationEngine,
@@ -40,6 +44,7 @@ internal class TranslateModel(
     private val worker: Executor = NamedThreads.single("sluide-translate"),
     private val delay: Duration = 1.seconds,
     private val cache: SentenceCache = SentenceCache(),
+    private val limit: Int = MAX_READ_BYTES,
 ) {
     /** A started run; [cancelled] is read by the worker. */
     private class Run {
@@ -167,8 +172,8 @@ internal class TranslateModel(
     fun languageName(code: String): String = (sources + targets).firstOrNull { it.code == code }?.name ?: code
 
     /**
-     * Cancels the run and the timer and drops results still to come; later calls do nothing. The view calls it when its
-     * tab's window closes: until then the timer thread and the installer's listeners keep the model alive.
+     * Cancels the run and the timer and drops results still to come; later calls do nothing. `Translate.close` calls it when
+     * the window scope ends: until then the timer thread and the installer's listeners keep the model alive.
      */
     fun dispose() {
         disposed = true
@@ -194,6 +199,14 @@ internal class TranslateModel(
     private fun retranslate(delay: Duration = Duration.ZERO) {
         cancelRun()
         val target = target
+        if (text.length > limit) {
+            clearProblem()
+            running = false
+            output = ""
+            detected = null
+            status = TranslateStatus.TOO_LARGE
+            return
+        }
         if (target == null || text.isBlank()) {
             clearProblem()
             running = false
@@ -202,6 +215,7 @@ internal class TranslateModel(
             status = if (target == null) TranslateStatus.CHOOSE_TARGET else ""
             return
         }
+        if (status == TranslateStatus.TOO_LARGE) status = ""
         val run = Run()
         this.run = run
         running = true

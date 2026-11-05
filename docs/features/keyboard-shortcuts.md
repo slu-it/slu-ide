@@ -102,6 +102,16 @@ While a reading is preparing, speaking or paused the text is read-only.
 | Escape (while reading) | Stop; the text is editable again |
 | Double-click on the text (while reading) | Jump: restart the reading at that sentence |
 
+## Translate tab
+View-local keys of the language pickers' popup (Source, Target) of the Translate tab, while its search field has the
+focus ([ADR 0126](../adr/0126-translate-tool.md)). Typing filters the list.
+
+| Keys | Action |
+|---|---|
+| Enter | Pick the selected language (the first after typing; the current one when nothing was typed) |
+| Up / Down | Move the selection |
+| Escape | Close the popup without picking |
+
 ## HTTP client
 [http-client.md](http-client.md), [http-client-env-editor.md](http-client-env-editor.md)
 
