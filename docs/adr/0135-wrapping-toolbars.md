@@ -22,11 +22,17 @@ turns toggle buttons into menu items.
   `-fx-spacing` or `HBox(n)`) and `-fx-vgap` (default 2); margins are set with `WrappingToolbar.setMargin`.
 - **The trailing group stays top right.** Its nodes sit at the right end of the first row. The leading nodes fill the
   first row up to it and continue on further rows, left-aligned, at full width. Only when the trailing group alone is
-  wider than the toolbar does it wrap itself, each row right-aligned, and the leading nodes start on the row after it.
+  wider than the toolbar does it wrap itself, each row right-aligned, and the leading nodes then fill the free space
+  left of its last row (up to the group distance before that row's first node) and continue on the rows below.
   The groups are at least twice `hgap`, and at least 12 px, apart, so a toolbar with `hgap` 0 still parts them.
 - **Nodes are the units.** A node wraps as a whole, so a nested `HBox` (zoom −/100%/+, Read Aloud's controls) moves as
   a group. A node wider than the toolbar gets the toolbar's width, but not less than its minimum width; beyond that the
   view clips it, as before.
+- **Toggle groups are one unit.** Consecutive managed `ToggleButton`s of one non-null `ToggleGroup` in the same list
+  (the Source/Split/Preview and Source/Split/Output modes) wrap together and keep `hgap` between them. A unit wider than
+  the row keeps its nodes at their preferred widths and is clipped; the toolbar's minimum width stays the widest single
+  node's, so such a unit is clipped rather than forcing the split pane wider. Hidden (unmanaged) nodes between the
+  toggles of one group do not split them; a visible node of another kind does. Grouped `RadioButton`s merge too.
 - **Separators.** A `Separator` at a row's start or end takes no width and gets the pseudo-class `row-edge`, which the
   toolbar's user-agent stylesheet makes transparent (`-fx-opacity: 0`). Its `visible` and `managed` stay untouched,
   because views bind them (`managed` to `visible` is the common pattern) and a layout that set them would fight those

@@ -13,6 +13,7 @@ import javafx.geometry.Insets
 import javafx.geometry.Orientation
 import javafx.scene.Node
 import javafx.scene.control.Separator
+import javafx.scene.control.ToggleButton
 import javafx.scene.layout.Region
 
 /**
@@ -20,15 +21,20 @@ import javafx.scene.layout.Region
  * (ADR 0135). It replaces an `HBox` with a growing spacer: [leading] holds the nodes before the spacer, [trailing] the
  * nodes after it. The trailing nodes stay at the right end of the first row; the leading nodes fill the first row up
  * to them and continue on further rows, left-aligned. Only when the trailing nodes alone are wider than the toolbar do
- * they wrap themselves, right-aligned, and the leading nodes start on the row after them.
+ * they wrap themselves, right-aligned, and the leading nodes fill the free space left of their last row and continue
+ * below.
  *
  * Each node is a unit that wraps as a whole (a nested `HBox` moves as a group). Nodes on a row are [hgap] apart plus
  * their [margins][setMargin], as in an `HBox`; a node starting a row drops its left margin; the groups are at least
  * twice [hgap], and at least 12 px, apart (the group distance replaces the first trailing node's left margin). A node
- * belongs to at most one of [leading] and [trailing]: remove it from one before adding it to the other. A [Separator] at a row's start or end takes no space and gets
- * the pseudo-class `row-edge`, which hides it. Rows are [vgap] apart, as tall as their tallest node, and centre their
- * nodes. Unmanaged nodes are skipped. The minimum width is the widest node's, so the toolbar never forces a wide view.
- * FX thread.
+ * belongs to at most one of [leading] and [trailing]: remove it from one before adding it to the other. A [Separator]
+ * at a row's start or end takes no space and gets the pseudo-class `row-edge`, which hides it. Rows are [vgap] apart,
+ * as tall as their tallest node, and centre their nodes. Unmanaged nodes are skipped. Consecutive managed
+ * [ToggleButton]s of one non-null [ToggleGroup] in the same list (the Source/Split/Preview modes; grouped
+ * `RadioButton`s too) are one unit, also across unmanaged nodes between them (a hidden node does not split them): they
+ * wrap together, keep [hgap] between them and, in a row too narrow for them, their preferred widths, so the toolbar
+ * clips them. The minimum width is the widest single node's,
+ * so the toolbar never forces a wide view. FX thread.
  */
 class WrappingToolbar : Region() {
     /** The nodes at the left, before the old spacer; modifiable. */
@@ -91,11 +97,15 @@ class WrappingToolbar : Region() {
 
     override fun computeMinWidth(height: Double): Double =
         snappedLeftInset() + snappedRightInset() +
-            ((units(leading) + units(trailing)).maxOfOrNull { it.minWidth + it.rightMargin } ?: 0.0)
+            (
+                (leading + trailing).filter { it.isManaged }.maxOfOrNull { node ->
+                    snapSizeX(node.minWidth(-1.0)) + snapSpaceX((getMargin(node) ?: Insets.EMPTY).right)
+                } ?: 0.0
+            )
 
     override fun computePrefWidth(height: Double): Double =
         snappedLeftInset() + snappedRightInset() +
-            toolbarPrefWidth(units(leading), units(trailing), snapSpaceX(hgap), groupGap())
+            toolbarPrefWidth(units(groups(leading)), units(groups(trailing)), snapSpaceX(hgap), groupGap())
 
     override fun computeMinHeight(width: Double): Double = computePrefHeight(width)
 
@@ -139,10 +149,19 @@ class WrappingToolbar : Region() {
 
     /** The managed nodes with their places, and the height of each row, for an [available] content width. */
     private fun rowsFor(available: Double): LaidOut {
-        val leadingNodes = leading.filter { it.isManaged }
-        val trailingNodes = trailing.filter { it.isManaged }
-        val rows = toolbarRows(available, units(leading), units(trailing), snapSpaceX(hgap), groupGap())
-        val placed = leadingNodes.zip(rows.leading) + trailingNodes.zip(rows.trailing)
+        val leadingGroups = groups(leading)
+        val trailingGroups = groups(trailing)
+        val rows = toolbarRows(available, units(leadingGroups), units(trailingGroups), snapSpaceX(hgap), groupGap())
+        val placed =
+            (leadingGroups.zip(rows.leading) + trailingGroups.zip(rows.trailing)).flatMap { (group, place) ->
+                if (group.size == 1) {
+                    listOf(group.single() to place)
+                } else {
+                    group.zip(offsets(group)).map { (node, offset) ->
+                        node to place.copy(x = place.x + offset, width = snapSizeX(node.prefWidth(-1.0)))
+                    }
+                }
+            }
         val heights = DoubleArray(rows.count)
         for ((node, place) in placed) {
             if (!place.shown) continue
@@ -160,17 +179,36 @@ class WrappingToolbar : Region() {
         fun gaps() = if (heights.isEmpty()) 0.0 else snapSpaceY(vgap) * (heights.size - 1)
     }
 
-    private fun units(nodes: List<Node>): List<ToolbarUnit> =
-        nodes.filter { it.isManaged }.map { node ->
-            val margin = getMargin(node) ?: Insets.EMPTY
+    private fun units(groups: List<List<Node>>): List<ToolbarUnit> =
+        groups.map { group ->
+            val width = offsets(group).last() + snapSizeX(group.last().prefWidth(-1.0))
+            val first = getMargin(group.first()) ?: Insets.EMPTY
+            val last = getMargin(group.last()) ?: Insets.EMPTY
             ToolbarUnit(
-                prefWidth = snapSizeX(node.prefWidth(-1.0)),
-                minWidth = snapSizeX(node.minWidth(-1.0)),
-                leftMargin = snapSpaceX(margin.left),
-                rightMargin = snapSpaceX(margin.right),
-                separator = node is Separator,
+                prefWidth = width,
+                // A single node may shrink to its minimum. The nodes of a group are placed at their preferred widths
+                // (rowsFor), so the group's width is what they take.
+                minWidth = if (group.size == 1) snapSizeX(group.first().minWidth(-1.0)) else width,
+                leftMargin = snapSpaceX(first.left),
+                rightMargin = snapSpaceX(last.right),
+                separator = group.first() is Separator,
             )
         }
+
+    /** The x of each node of a [group] (one node: 0) from the first node's left edge. */
+    private fun offsets(group: List<Node>): List<Double> {
+        var end = 0.0
+        return group.mapIndexed { index, node ->
+            val margin = getMargin(node) ?: Insets.EMPTY
+            val x = if (index == 0) 0.0 else end + snapSpaceX(hgap) + snapSpaceX(margin.left)
+            end = x + snapSizeX(node.prefWidth(-1.0)) + snapSpaceX(margin.right)
+            x
+        }
+    }
+
+    /** The managed [nodes] as units: runs of toggle buttons of one group together, every other node alone. */
+    private fun groups(nodes: List<Node>): List<List<Node>> =
+        runs(nodes.filter { it.isManaged }) { (it as? ToggleButton)?.toggleGroup }
 
     private fun groupGap() = maxOf(2 * snapSpaceX(hgap), MIN_GROUP_DISTANCE)
 

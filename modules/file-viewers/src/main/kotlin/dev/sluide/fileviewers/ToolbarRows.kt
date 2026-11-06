@@ -34,7 +34,8 @@ internal data class ToolbarRows(
  * Lays out a toolbar's units in rows [available] wide (ADR 0135). The [trailing] units stay at the right end of the
  * first row; the [leading] units fill the first row from the left up to [groupGap] before them and continue on further
  * rows at full width. Only when the trailing units alone are wider than [available] do they wrap themselves, each of
- * their rows right-aligned, and the leading units start on the row after them. Units on a row are [hgap] apart (plus
+ * their rows right-aligned; the leading units then fill the free space left of the last of those rows, up to
+ * [groupGap] before its first unit, and continue on the rows below. Units on a row are [hgap] apart (plus
  * their margins, as in an `HBox`); a unit starting a row drops its left margin. A unit alone on a row and wider than it
  * gets the row's width, but not less than its minimum width.
  */
@@ -52,10 +53,11 @@ internal fun toolbarRows(
             place.copy(x = place.x + maxOf(0.0, available - right.rowEnds[place.row]))
         }
     val left =
-        when {
-            right.count == 0 -> flow(leading, available, available, firstMayStayEmpty = false, hgap)
-            right.count == 1 -> flow(leading, available - right.rowEnds[0] - groupGap, available, true, hgap)
-            else -> flow(leading, available, available, firstMayStayEmpty = false, hgap).shifted(right.count)
+        if (right.count == 0) {
+            flow(leading, available, available, firstMayStayEmpty = false, hgap)
+        } else {
+            val beside = available - right.rowEnds[right.count - 1] - groupGap
+            flow(leading, beside, available, firstMayStayEmpty = true, hgap).shifted(right.count - 1)
         }
     return ToolbarRows(left.places, trailingPlaces, maxOf(left.count, right.count))
 }
@@ -74,7 +76,9 @@ internal fun toolbarPrefWidth(
     return (left.rowEnds.firstOrNull() ?: 0.0) + gap + (right.rowEnds.firstOrNull() ?: 0.0)
 }
 
-/** Places per unit (rows counted from this group's first row), the used width per row and the rows with a shown unit. */
+/**
+ * Places per unit (rows counted from this group's first row), the used width per row and the rows with a shown unit.
+ */
 private class Flow(
     val places: List<UnitPlace>,
     val rowEnds: List<Double>,
@@ -146,4 +150,22 @@ private fun flow(
     if (members.isNotEmpty() || places.any { it.row == row }) closeRow()
     val count = places.filter { it.shown }.maxOfOrNull { it.row + 1 } ?: 0
     return Flow(places, rowEnds, count)
+}
+
+/**
+ * Splits [items] into runs of consecutive items with the same (identical) non-null [key]; an item with a null key is
+ * a run of its own. The toolbar merges the toggle buttons of one toggle group this way.
+ */
+internal fun <T> runs(
+    items: List<T>,
+    key: (T) -> Any?,
+): List<List<T>> {
+    val result = mutableListOf<MutableList<T>>()
+    var previous: Any? = null
+    for (item in items) {
+        val current = key(item)
+        if (current != null && current === previous) result.last() += item else result += mutableListOf(item)
+        previous = current
+    }
+    return result
 }

@@ -62,6 +62,19 @@ class ToolbarRowsTest {
         assertEquals(3, rows.count)
     }
 
+    @Test
+    fun `the leading units fill the free space left of the last trailing row when the trailing ones wrap`() {
+        val rows = rows(100.0, listOf(unit(30.0), unit(30.0), unit(30.0)), listOf(unit(60.0), unit(40.0)))
+
+        assertEquals(listOf(UnitPlace(0, 40.0, 60.0), UnitPlace(1, 60.0, 40.0)), rows.trailing)
+        assertEquals(
+            listOf(UnitPlace(1, 0.0, 30.0), UnitPlace(2, 0.0, 30.0), UnitPlace(2, 32.0, 30.0)),
+            rows.leading,
+            "one unit beside the last trailing row (40 wide, 12 apart), the rest below at full width",
+        )
+        assertEquals(3, rows.count)
+    }
+
     @ParameterizedTest
     @CsvSource(
         "40, 100", // shrunk to the toolbar's width
@@ -144,5 +157,18 @@ class ToolbarRowsTest {
 
         assertEquals(131.0, toolbarPrefWidth(leading, listOf(unit(20.0), unit(25.0)), 2.0, 12.0))
         assertEquals(72.0, toolbarPrefWidth(leading, emptyList(), 2.0, 12.0))
+    }
+
+    @Test
+    fun `runs merge consecutive items of one non-null key only`() {
+        val a = "a"
+        val b = "b"
+        val items = listOf(a to 1, a to 2, null to 3, null to 4, a to 5, b to 6, a to 7, b to 8, b to 9)
+
+        val runs = runs(items) { it.first }.map { run -> run.map { it.second } }
+
+        assertEquals(listOf(listOf(1, 2), listOf(3), listOf(4), listOf(5), listOf(6), listOf(7), listOf(8, 9)), runs)
+        assertEquals(emptyList(), runs(emptyList<Int>()) { it })
+        assertEquals(listOf(listOf(1)), runs(listOf(1)) { a }, "a single item")
     }
 }

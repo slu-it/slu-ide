@@ -24,7 +24,9 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   spacer: what came before the spacer goes into `leading`, what came after it into `trailing`; `hgap` (`-fx-hgap`)
   replaces `HBox(n)`/`-fx-spacing`, `WrappingToolbar.setMargin` replaces `HBox.setMargin`. In a narrow view the
   trailing controls stay at the right end of the first row and the leading ones wrap onto further rows; a nested
-  `HBox` wraps as one group. Docker logs keep their `ToolBar` with the » overflow.
+  `HBox` wraps as one group, and so do the toggle buttons of one `ToggleGroup` (the mode toggles). A wrapped
+  trailing group leaves its last row's free space to the leading controls. Docker logs keep their `ToolBar` with the »
+  overflow.
 - Order from left to right: Soft Wrap (`CodeEditor.softWrapButton`, ADR 0130) in a view that embeds a code editor,
   the view's own left controls (Run, TOC, folds, Copy Formatted, Scripts or image zoom), the
   items code editor extensions contribute (`CodeEditor.toolbarItems`, e.g. Read Aloud; previews place them, in every

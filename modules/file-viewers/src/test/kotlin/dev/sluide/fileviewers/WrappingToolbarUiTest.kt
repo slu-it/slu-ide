@@ -5,6 +5,8 @@ import javafx.geometry.Orientation
 import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.Separator
+import javafx.scene.control.ToggleButton
+import javafx.scene.control.ToggleGroup
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.Region
 import javafx.scene.layout.StackPane
@@ -173,5 +175,27 @@ class WrappingToolbarUiTest {
         show(robot, VBox(atEnd), 400.0)
         assertTrue(atEnd.pseudoClassStates.none { it.pseudoClassName == "row-edge" }, "cleared when removed")
         assertEquals(1.0, atEnd.opacity, "shown elsewhere")
+    }
+
+    @Test
+    fun `toggle buttons of one group wrap together, with margins and the hgap, and are not shrunk`(robot: FxRobot) {
+        val group = ToggleGroup()
+        val toggles = List(3) { ToggleButton("T$it").apply { toggleGroup = group } }
+        val separator = Separator(Orientation.VERTICAL)
+        val toolbar = toolbar(listOf(separator), toggles).apply { hgap = 2.0 }
+        robot.interact { WrappingToolbar.setMargin(toggles[1], Insets(0.0, 3.0, 0.0, 5.0)) }
+        show(robot, toolbar, 400.0)
+        val widths = toggles.map { it.width }
+        val total = widths.sum() + 2 * 2.0 + 5.0 + 3.0
+
+        show(robot, toolbar, 12.0 + total - widths.last() / 2)
+
+        assertEquals(1, toggles.map { it.layoutY }.distinct().size, "one row, though two would fit")
+        assertEquals(widths, toggles.map { it.width }, "not shrunk")
+        assertEquals(toggles[0].layoutX + widths[0] + 2.0 + 5.0, toggles[1].layoutX)
+        assertEquals(toggles[1].layoutX + widths[1] + 3.0 + 2.0, toggles[2].layoutX)
+
+        show(robot, toolbar, 12.0 + total / 2)
+        assertEquals(widths, toggles.map { it.width }, "not shrunk on a toolbar narrower than the group")
     }
 }
