@@ -2,6 +2,8 @@ package dev.sluide.games.minesweeper.ui
 
 import dev.sluide.fileviewers.FocusWhenShown
 import dev.sluide.fileviewers.WrappingToolbar
+import dev.sluide.games.common.ui.PauseOverlay
+import dev.sluide.games.common.ui.TabVisibility
 import dev.sluide.games.minesweeper.BoardSize
 import dev.sluide.games.minesweeper.MinesweeperModel
 import dev.sluide.games.minesweeper.Preset
@@ -9,10 +11,7 @@ import dev.sluide.games.minesweeper.SizeChoice
 import dev.sluide.games.minesweeper.keyAction
 import javafx.animation.KeyFrame
 import javafx.animation.Timeline
-import javafx.beans.InvalidationListener
-import javafx.geometry.Pos
 import javafx.scene.Node
-import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.ContentDisplay
 import javafx.scene.control.Label
@@ -28,8 +27,6 @@ import javafx.scene.input.MouseEvent
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
 import javafx.scene.layout.StackPane
-import javafx.scene.layout.VBox
-import javafx.stage.Stage
 import javafx.stage.Window
 import javafx.util.Duration
 import org.kordamp.ikonli.javafx.FontIcon
@@ -53,21 +50,12 @@ internal class MinesweeperView(
     private val counter = Label().apply { graphic = icon("mdi2b-bomb") }
     private val timer = Label().apply { graphic = icon("mdi2t-timer-outline") }
     private val status = Label().apply { styleClass += "ms-status" }
-    private val pausedHint = Label().apply { styleClass += "ms-paused-hint" }
-    internal val overlay =
-        VBox(
-            8.0,
-            Label("Paused").apply { styleClass += "ms-paused-title" },
-            pausedHint,
-        ).apply {
-            styleClass += "ms-overlay"
-            alignment = Pos.CENTER
-            isVisible = false
-            setOnMouseClicked {
-                if (model.isManuallyPaused) model.togglePause()
-                board.requestFocus()
-            }
+    private val pauseOverlay =
+        PauseOverlay {
+            if (model.isManuallyPaused) model.togglePause()
+            board.requestFocus()
         }
+    internal val overlay: Node get() = pauseOverlay.node
     private val ticker =
         Timeline(KeyFrame(Duration.millis(TICK_MILLIS), { refreshTimer() })).apply {
             cycleCount = Timeline.INDEFINITE
@@ -97,10 +85,7 @@ internal class MinesweeperView(
     private val focusBoard = FocusWhenShown()
 
     private val installed: () -> Unit = ::refresh
-    private val hiddenListener = InvalidationListener { updateHidden() }
-    private var observedScene: Scene? = null
-    private var observedWindow: Window? = null
-    private var disposed = false
+    private val visibility = TabVisibility(node) { model.hidden = it }
 
     init {
         board.setOnMousePressed(::mousePressed)
@@ -108,8 +93,6 @@ internal class MinesweeperView(
         model.onChange = installed
         // The editor area focuses the tab's content; the keys belong to the board.
         node.focusedProperty().addListener { _, _, focused -> if (focused) focusBoard.request(board) }
-        node.sceneProperty().addListener { _, _, scene -> observe(scene) }
-        observe(node.scene)
         refresh()
     }
 
@@ -193,9 +176,7 @@ internal class MinesweeperView(
         pauseButton.isSelected = model.isManuallyPaused
         pauseIcon.iconLiteral = if (model.isManuallyPaused) "mdi2p-play" else "mdi2p-pause"
         pauseTip.text = if (model.isManuallyPaused) "Resume (P)" else "Pause (P)"
-        overlay.isVisible = model.isPaused
-        pausedHint.text =
-            if (model.isManuallyPaused) "Press P or click to resume" else "Resumes when the tab is shown again"
+        pauseOverlay.show(model.isPaused, model.isManuallyPaused)
         refreshTimer()
         if (model.isTicking) ticker.play() else ticker.stop()
     }
@@ -204,40 +185,11 @@ internal class MinesweeperView(
         timer.text = model.timerText
     }
 
-    /** Follows the scene and its window: the game pauses while the tab's content cannot be seen. */
-    private fun observe(scene: Scene?) {
-        observedScene?.windowProperty()?.removeListener(hiddenListener)
-        observedScene = scene
-        scene?.windowProperty()?.addListener(hiddenListener)
-        updateHidden()
-    }
-
-    private fun updateHidden() {
-        if (disposed) return
-        val window = node.scene?.window
-        if (window !== observedWindow) {
-            unobserveWindow()
-            observedWindow = window
-            window?.showingProperty()?.addListener(hiddenListener)
-            (window as? Stage)?.iconifiedProperty()?.addListener(hiddenListener)
-        }
-        model.hidden = window == null || !window.isShowing || (window is Stage && window.isIconified)
-    }
-
-    private fun unobserveWindow() {
-        observedWindow?.showingProperty()?.removeListener(hiddenListener)
-        (observedWindow as? Stage)?.iconifiedProperty()?.removeListener(hiddenListener)
-        observedWindow = null
-    }
-
     /** The model stops notifying this view (unless a newer view has taken it over) and the game pauses. */
     fun dispose() {
-        disposed = true
         focusBoard.cancel()
         ticker.stop()
-        observedScene?.windowProperty()?.removeListener(hiddenListener)
-        observedScene = null
-        unobserveWindow()
+        visibility.dispose()
         if (model.onChange === installed) {
             model.onChange = {}
             model.hidden = true

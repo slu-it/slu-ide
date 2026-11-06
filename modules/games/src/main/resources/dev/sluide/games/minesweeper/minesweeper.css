@@ -84,19 +84,6 @@
 .ms-n7 { -fx-text-fill: #212121; }
 .ms-n8 { -fx-text-fill: #757575; }
 
-.ms-overlay {
-    -fx-background-color: -fx-background;
-}
-
-.ms-paused-title {
-    -fx-font-size: 2em;
-    -fx-font-weight: bold;
-}
-
-.ms-paused-hint {
-    -fx-opacity: 0.7;
-}
-
 @media (prefers-color-scheme: dark) {
     .ms-closed, .ms-flag { -fx-background-color: derive(-fx-background, 20%); }
     .ms-opened, .ms-mine, .ms-wrong { -fx-background-color: derive(-fx-background, -10%); }

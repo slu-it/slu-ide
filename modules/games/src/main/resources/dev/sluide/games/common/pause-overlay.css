@@ -1,0 +1,13 @@
+/* The "Paused" cover of the games (Minesweeper, Sudoku); uses the theme's looked-up colours. */
+.game-overlay {
+    -fx-background-color: -fx-background;
+}
+
+.game-paused-title {
+    -fx-font-size: 2em;
+    -fx-font-weight: bold;
+}
+
+.game-paused-hint {
+    -fx-opacity: 0.7;
+}
