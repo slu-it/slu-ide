@@ -1,7 +1,7 @@
 # Minesweeper
 
 **Modules:** `modules/games` (window bean `Minesweeper` in `dev.sluide.games`; package `dev.sluide.games.minesweeper`: the pure game in `MinesweeperGame`, the FX-free
-`MinesweeperModel`, `GameClock`, `MinesweeperPreferences`, UI in `ui`); menu in `ide` (`ToolsMenu`, `WindowTools`);
+`MinesweeperModel`, `MinesweeperPreferences`, UI in `ui`; the shared `GameClock` is in `dev.sluide.games.common`); menu in `ide` (`ToolsMenu`, `WindowTools`);
 decisions in [ADR 0131](../adr/0131-games-menu-minesweeper.md) and [ADR 0110](../adr/0110-tools-menu.md)
 
 A game to pass the time while a build runs. It is a tab of the editor area with a toolbar, the board and a status line.

@@ -1,5 +1,6 @@
 package dev.sluide.games.minesweeper
 
+import dev.sluide.games.common.GameClock
 import dev.sluide.projectdata.ProjectDataStore
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.io.TempDir

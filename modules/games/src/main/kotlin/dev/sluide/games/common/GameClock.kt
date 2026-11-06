@@ -1,4 +1,4 @@
-package dev.sluide.games.minesweeper
+package dev.sluide.games.common
 
 /**
  * Elapsed play time; ticks only while started, not stopped, not [hidden] and not [manuallyPaused]. FX thread.

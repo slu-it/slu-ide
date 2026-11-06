@@ -1,4 +1,4 @@
-package dev.sluide.games.minesweeper
+package dev.sluide.games.common
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
