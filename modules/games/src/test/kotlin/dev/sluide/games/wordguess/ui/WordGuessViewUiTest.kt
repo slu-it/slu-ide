@@ -61,6 +61,8 @@ class WordGuessViewUiTest {
         model = WordGuessModel(preferences, { if (it == Language.EN) english else german }, Random(1))
         view = WordGuessView(model)
         stage.scene = Scene(view.node as Parent, 600.0, 700.0)
+        // The primary stage is shared by the UI test classes; a size set by an earlier test would outlive the scene.
+        stage.sizeToScene()
         stage.show()
     }
 
