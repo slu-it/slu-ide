@@ -1,0 +1,107 @@
+/*
+ * The Word Guess tab. The pane, toolbar, empty tiles and unknown keys use Modena's looked-up colours, so they follow
+ * the theme; the result colours (green, amber) are our own and have a dark counterpart in the media block below, the
+ * absent colour is derived from the background. The state classes apply to tiles and keys alike.
+ */
+.wordguess {
+    -fx-background-color: -fx-background;
+}
+
+/* Like .preview-toolbar of previews; keep in sync. */
+.wg-toolbar {
+    -fx-padding: 2 6 2 6;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
+}
+
+.wg-toolbar .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.wg-status-bar {
+    -fx-padding: 2 8 2 8;
+}
+
+.wg-status {
+    -fx-opacity: 0.7;
+    -fx-min-height: 1.4em;
+}
+
+.wg-scroll, .wg-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+.wg-tile {
+    -fx-alignment: center;
+    -fx-font-weight: bold;
+}
+
+.wg-empty {
+    -fx-border-color: derive(-fx-background, -15%);
+    -fx-border-width: 1;
+}
+
+.wg-typed {
+    -fx-border-color: derive(-fx-background, -55%);
+    -fx-border-width: 2;
+}
+
+.wg-key {
+    -fx-padding: 0;
+    -fx-font-weight: bold;
+    -fx-background-radius: 4;
+    -fx-border-radius: 4;
+}
+
+/* Unknown keys keep Modena's button look with its hover and pressed feedback. */
+.wg-unknown {
+    -fx-text-fill: -fx-text-base-color;
+}
+
+.wg-key-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.wg-correct {
+    -fx-background-color: #2e7d32;
+    -fx-border-color: #2e7d32;
+    -fx-text-fill: white;
+}
+
+.wg-present {
+    -fx-background-color: #b58900;
+    -fx-border-color: #b58900;
+    -fx-text-fill: white;
+}
+
+.wg-absent {
+    -fx-background-color: derive(-fx-background, -45%);
+    -fx-border-color: derive(-fx-background, -45%);
+    -fx-text-fill: white;
+}
+
+/* Coloured keys have no Modena states left: dim them on hover and press. */
+.button.wg-correct:hover, .button.wg-present:hover, .button.wg-absent:hover {
+    -fx-opacity: 0.85;
+}
+
+.button.wg-correct:pressed, .button.wg-present:pressed, .button.wg-absent:pressed {
+    -fx-opacity: 0.7;
+}
+
+@media (prefers-color-scheme: dark) {
+    .wg-empty { -fx-border-color: derive(-fx-background, 25%); }
+    .wg-typed { -fx-border-color: derive(-fx-background, 70%); }
+    .wg-correct {
+        -fx-background-color: #3a6d3d;
+        -fx-border-color: #3a6d3d;
+    }
+    .wg-present {
+        -fx-background-color: #8d7a1f;
+        -fx-border-color: #8d7a1f;
+    }
+    .wg-absent {
+        -fx-background-color: derive(-fx-background, -30%);
+        -fx-border-color: derive(-fx-background, -30%);
+    }
+}
