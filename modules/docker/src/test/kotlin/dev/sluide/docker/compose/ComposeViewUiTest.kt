@@ -391,7 +391,7 @@ class ComposeViewUiTest {
     fun `Soft Wrap is the first toolbar button, toggles, and hides while only the second side shows`(robot: FxRobot) {
         val view = open(robot)
         robot.interact {
-            val button = view.toolbar.children.first() as ToggleButton
+            val button = view.toolbar.leading.first() as ToggleButton
             assertEquals("soft-wrap-toggle", button.styleClass.last())
             assertTrue(button.isVisible && button.isManaged)
             button.fire()

@@ -240,7 +240,7 @@ internal class EnvironmentFileViewUiTest : EnvironmentFileViewUiFixture() {
     @Test
     fun `the soft wrap button is first, follows the source side and wraps the editor`(robot: FxRobot) {
         val view = open(robot, publicText, privateText)
-        val button = view.toolbar.children.first()
+        val button = view.toolbar.leading.first()
         val (source, split, visual) = view.modeButtons
 
         assertIs<ToggleButton>(button)

@@ -6,9 +6,16 @@
  */
 .dockerfile-view-toolbar, .docker-build-toolbar {
     -fx-padding: 2 6 2 6;
-    -fx-spacing: 4;
     -fx-background-color: derive(-fx-background, 4%);
     -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
+}
+
+.dockerfile-view-toolbar {
+    -fx-hgap: 4;
+}
+
+.docker-build-toolbar {
+    -fx-spacing: 4;
 }
 
 .dockerfile-view-toolbar .toggle-button {

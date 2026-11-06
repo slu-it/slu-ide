@@ -13,10 +13,10 @@ import dev.sluide.fileviewers.SourceSplit
 import dev.sluide.fileviewers.SplitMode
 import dev.sluide.fileviewers.TextEditableView
 import dev.sluide.fileviewers.ViewActivity
+import dev.sluide.fileviewers.WrappingToolbar
 import javafx.application.Platform
 import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.beans.value.ObservableValue
-import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Alert
 import javafx.scene.control.Button
@@ -29,8 +29,6 @@ import javafx.scene.input.KeyCodeCombination
 import javafx.scene.input.KeyCombination
 import javafx.scene.input.KeyEvent
 import javafx.scene.layout.BorderPane
-import javafx.scene.layout.HBox
-import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
 import javafx.scene.text.Font
 import org.kordamp.ikonli.javafx.FontIcon
@@ -70,16 +68,10 @@ internal class ShellScriptView(
         }
 
     val toolbar =
-        HBox(
-            editor.softWrapButton,
-            runButton,
-            Region().apply {
-                HBox.setHgrow(this, Priority.ALWAYS)
-            },
-            *split.modeButtons.toTypedArray(),
-        ).apply {
+        WrappingToolbar().apply {
             styleClass += "script-toolbar"
-            alignment = Pos.CENTER_LEFT
+            leading.setAll(editor.softWrapButton, runButton)
+            trailing.setAll(split.modeButtons)
         }
 
     private val root =

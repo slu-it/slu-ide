@@ -41,7 +41,7 @@ class GradleFileViewLoadingUiTest : GradleFileViewUiFixture() {
             assertTrue(view.toolbar.isVisible)
             assertTrue(view.split.modeButtons.all { it.isVisible && it.isManaged })
             assertEquals(SplitMode.SPLIT, view.split.mode.get())
-            val wrap = view.toolbar.children.first() as ToggleButton
+            val wrap = view.toolbar.leading.first() as ToggleButton
             assertEquals("soft-wrap-toggle", wrap.styleClass.last())
             wrap.fire()
             assertTrue(wrap.isSelected)
@@ -104,7 +104,7 @@ class GradleFileViewLoadingUiTest : GradleFileViewUiFixture() {
         assertEquals(1, globalChecks.get())
         robot.interact {
             assertTrue(view.toolbar.isVisible, "the toolbar shows for Soft Wrap")
-            val wrap = view.toolbar.children.first()
+            val wrap = view.toolbar.leading.first()
             assertTrue(wrap.isVisible && wrap.isManaged)
             assertTrue(view.split.modeButtons.none { it.isVisible || it.isManaged })
             assertEquals(SplitMode.SOURCE, view.split.mode.get())

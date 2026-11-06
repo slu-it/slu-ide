@@ -5,7 +5,7 @@
 
 .script-toolbar {
     -fx-padding: 2 6 2 6;
-    -fx-spacing: 4;
+    -fx-hgap: 4;
     -fx-background-color: derive(-fx-background, 4%);
     -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
 }

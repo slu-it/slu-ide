@@ -4,13 +4,13 @@ import dev.sluide.fileviewers.CodeEditor
 import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.TextEditableView
+import dev.sluide.fileviewers.WrappingToolbar
 import dev.sluide.fileviewers.readTextFile
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.problemSummary
 import javafx.animation.PauseTransition
 import javafx.application.Platform
 import javafx.beans.property.SimpleObjectProperty
-import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Button
 import javafx.scene.control.Label
@@ -19,8 +19,6 @@ import javafx.scene.control.ToggleButton
 import javafx.scene.control.ToggleGroup
 import javafx.scene.control.Tooltip
 import javafx.scene.layout.BorderPane
-import javafx.scene.layout.HBox
-import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
 import javafx.util.Duration
@@ -104,15 +102,10 @@ internal class EnvironmentFileView(
         }
 
     val toolbar =
-        HBox(
-            editor.softWrapButton,
-            addEnvironment,
-            showValues,
-            Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
-            *modeButtons.toTypedArray(),
-        ).apply {
+        WrappingToolbar().apply {
             styleClass += "env-toolbar"
-            alignment = Pos.CENTER_LEFT
+            leading.setAll(editor.softWrapButton, addEnvironment, showValues)
+            trailing.setAll(modeButtons)
         }
 
     val split = SplitPane(editor.node, form.node)

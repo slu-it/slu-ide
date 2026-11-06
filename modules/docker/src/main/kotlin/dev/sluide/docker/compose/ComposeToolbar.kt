@@ -1,5 +1,6 @@
 package dev.sluide.docker.compose
 
+import dev.sluide.fileviewers.WrappingToolbar
 import javafx.geometry.Pos
 import javafx.scene.control.Button
 import javafx.scene.control.CheckBox
@@ -70,9 +71,17 @@ internal class ComposeToolbar {
 
     val node =
         VBox(
-            HBox(up, detached, Separator(javafx.geometry.Orientation.VERTICAL), down, build, pull, restart).apply {
+            WrappingToolbar().apply {
                 styleClass += "compose-toolbar"
-                alignment = Pos.CENTER_LEFT
+                leading.setAll(
+                    up,
+                    detached,
+                    Separator(javafx.geometry.Orientation.VERTICAL),
+                    down,
+                    build,
+                    pull,
+                    restart,
+                )
             },
             note,
             // Wraps in a narrow pane instead of cutting the flags.

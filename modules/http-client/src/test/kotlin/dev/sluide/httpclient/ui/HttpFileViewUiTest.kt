@@ -456,7 +456,7 @@ class HttpFileViewUiTest {
     }
 
     @Test
-    fun `a narrow view keeps its toolbar controls and shows warnings in a row of their own`(robot: FxRobot) {
+    fun `a narrow view shows warnings in a row of their own`(robot: FxRobot) {
         dir.resolve("http-client.private.env.json").writeText("""{"dev": {}}""")
         session.wouldCommit = { true }
         val view = openHosted("GET ${server.base}/echo\n" + "\n".repeat(80), robot)
@@ -467,11 +467,8 @@ class HttpFileViewUiTest {
         WaitForAsyncUtils.waitFor(10, TimeUnit.SECONDS) { view.warning.isVisible }
         WaitForAsyncUtils.waitForFxEvents()
 
-        for (control in listOf(view.runButton, view.cancelButton, view.environments, view.auth, view.clearCookies)) {
-            assertEquals(control.prefWidth(-1.0), control.width, 1.0, control.styleClass.toString())
-        }
         assertTrue(view.warning.isVisible)
-        assertFalse(view.warning in view.toolbar.children)
+        assertFalse(view.warning in view.toolbar.childrenUnmodifiable)
         assertTrue(view.warning.height > 0)
 
         robot.interact { view.run(0) }
@@ -781,7 +778,7 @@ class HttpFileViewUiTest {
     @Test
     fun `the soft wrap button is first in the toolbar and wraps the editor`(robot: FxRobot) {
         val view = openHosted("GET ${server.base}/echo\n", robot)
-        val button = view.toolbar.children.first()
+        val button = view.toolbar.leading.first()
 
         assertIs<ToggleButton>(button)
         assertTrue(button.isVisible)

@@ -3,6 +3,7 @@ package dev.sluide.httpclient.ui
 import dev.sluide.fileviewers.CodeEditor
 import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileViewHost
+import dev.sluide.fileviewers.WrappingToolbar
 import dev.sluide.httpclient.HttpClientSession
 import dev.sluide.httpclient.curl.PrivateValuesAnswer
 import dev.sluide.httpclient.env.Environment
@@ -16,7 +17,6 @@ import javafx.animation.PauseTransition
 import javafx.beans.InvalidationListener
 import javafx.beans.property.SimpleBooleanProperty
 import javafx.geometry.Orientation
-import javafx.geometry.Pos
 import javafx.scene.Cursor
 import javafx.scene.Node
 import javafx.scene.control.Button
@@ -36,7 +36,6 @@ import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.BorderPane
-import javafx.scene.layout.HBox
 import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
 import javafx.stage.Window
@@ -140,10 +139,11 @@ internal class HttpFileView(
         }
 
     val toolbar =
-        HBox(editor.softWrapButton, runButton, cancelButton, environments, auth, clearCookies, message).apply {
+        WrappingToolbar().apply {
             styleClass += "http-toolbar"
-            alignment = Pos.CENTER_LEFT
-            // The controls keep their size; the message after them is cut short when the view is narrow.
+            leading.setAll(editor.softWrapButton, runButton, cancelButton, environments, auth, clearCookies, message)
+            // The controls keep their size; the message wraps to a row of its own first and is cut short only when it
+            // is wider than a whole row.
             for (control in listOf(runButton, cancelButton, environments, auth, clearCookies)) {
                 control.minWidth = Region.USE_PREF_SIZE
             }

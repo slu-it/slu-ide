@@ -16,17 +16,15 @@ import dev.sluide.fileviewers.SourceSplit
 import dev.sluide.fileviewers.SplitMode
 import dev.sluide.fileviewers.TextEditableView
 import dev.sluide.fileviewers.ViewActivity
+import dev.sluide.fileviewers.WrappingToolbar
 import javafx.animation.PauseTransition
 import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.beans.value.ObservableValue
-import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Alert
 import javafx.scene.control.ButtonBar
 import javafx.scene.control.ButtonType
 import javafx.scene.layout.BorderPane
-import javafx.scene.layout.HBox
-import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
 import javafx.scene.text.Font
 import javafx.stage.DirectoryChooser
@@ -65,15 +63,10 @@ internal class DockerfileView(
     val split = SourceSplit(editor.node, pane.node, "Build", "dockerfile-mode", SplitMode.SPLIT)
 
     val toolbar =
-        HBox(
-            editor.softWrapButton,
-            Region().apply {
-                HBox.setHgrow(this, Priority.ALWAYS)
-            },
-            *split.modeButtons.toTypedArray(),
-        ).apply {
+        WrappingToolbar().apply {
             styleClass += "dockerfile-view-toolbar"
-            alignment = Pos.CENTER_LEFT
+            leading.setAll(editor.softWrapButton)
+            trailing.setAll(split.modeButtons)
         }
 
     private val root =

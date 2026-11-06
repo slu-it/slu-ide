@@ -14,11 +14,11 @@ import dev.sluide.fileviewers.SourceSplit
 import dev.sluide.fileviewers.SplitMode
 import dev.sluide.fileviewers.TextEditableView
 import dev.sluide.fileviewers.ViewActivity
+import dev.sluide.fileviewers.WrappingToolbar
 import javafx.animation.PauseTransition
 import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.beans.value.ChangeListener
 import javafx.beans.value.ObservableValue
-import javafx.geometry.Pos
 import javafx.scene.Cursor
 import javafx.scene.Node
 import javafx.scene.control.Alert
@@ -28,8 +28,6 @@ import javafx.scene.control.Tooltip
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.BorderPane
-import javafx.scene.layout.HBox
-import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
 import javafx.scene.layout.StackPane
 import javafx.scene.shape.Polygon
@@ -69,15 +67,10 @@ internal class ComposeView(
     val split = SourceSplit(editor.node, pane.node, "Compose", "compose-mode", SplitMode.SPLIT)
 
     val toolbar =
-        HBox(
-            editor.softWrapButton,
-            Region().apply {
-                HBox.setHgrow(this, Priority.ALWAYS)
-            },
-            *split.modeButtons.toTypedArray(),
-        ).apply {
+        WrappingToolbar().apply {
             styleClass += "compose-view-toolbar"
-            alignment = Pos.CENTER_LEFT
+            leading.setAll(editor.softWrapButton)
+            trailing.setAll(split.modeButtons)
         }
 
     private val root =
