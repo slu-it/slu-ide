@@ -9,7 +9,7 @@ import dev.sluide.dockersandbox.DockerSandbox
 import dev.sluide.dockersandbox.SandboxAction
 import dev.sluide.dockersandbox.SandboxNotAllowedException
 import dev.sluide.editorarea.EditorArea
-import dev.sluide.games.minesweeper.Minesweeper
+import dev.sluide.games.Minesweeper
 import dev.sluide.ide.ProjectService
 import dev.sluide.ide.isMac
 import dev.sluide.speech.ReadAloud

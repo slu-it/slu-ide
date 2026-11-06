@@ -1,6 +1,8 @@
-package dev.sluide.games.minesweeper
+package dev.sluide.games
 
 import dev.sluide.editorarea.EditorTab
+import dev.sluide.games.minesweeper.MinesweeperModel
+import dev.sluide.games.minesweeper.MinesweeperPreferences
 import dev.sluide.projectdata.ProjectDataStore
 import javafx.beans.value.ObservableValue
 import javafx.beans.value.ObservableValueBase

@@ -1,6 +1,8 @@
-package dev.sluide.games.minesweeper
+package dev.sluide.games
 
 import dev.sluide.editorarea.EditorTab
+import dev.sluide.games.minesweeper.MinesweeperModel
+import dev.sluide.games.minesweeper.MinesweeperPreferences
 import dev.sluide.games.minesweeper.ui.MinesweeperTab
 import dev.sluide.games.minesweeper.ui.MinesweeperView
 import org.springframework.beans.factory.annotation.Autowired

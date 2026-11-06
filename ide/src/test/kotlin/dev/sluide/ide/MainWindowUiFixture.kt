@@ -29,7 +29,7 @@ import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.SoftWrap
 import dev.sluide.filewatcher.FileWatcher
-import dev.sluide.games.minesweeper.Minesweeper
+import dev.sluide.games.Minesweeper
 import dev.sluide.games.minesweeper.MinesweeperPreferences
 import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCommits

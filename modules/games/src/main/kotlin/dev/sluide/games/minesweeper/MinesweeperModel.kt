@@ -5,7 +5,8 @@ import kotlin.random.Random
 
 /**
  * The game of one window: the board, the clock, the size choice and the cursor, and what the view shows of them.
- * Outlives the tab (it is owned by [Minesweeper]); the view that shows it owns [onChange] until it is disposed.
+ * Outlives the tab (it is owned by [dev.sluide.games.Minesweeper]); the view that shows it owns [onChange] until it
+ * is disposed.
  * FX thread. [gameFactory] makes the game of a new board (a test seam for fixed mines).
  */
 internal class MinesweeperModel(

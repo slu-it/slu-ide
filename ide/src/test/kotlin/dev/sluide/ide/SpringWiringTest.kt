@@ -34,7 +34,7 @@ import dev.sluide.fileviewers.SoftWrap
 import dev.sluide.fileviewers.languages.IgnoreFileViewer
 import dev.sluide.fileviewers.languages.PythonFileViewer
 import dev.sluide.filewatcher.FileWatcher
-import dev.sluide.games.minesweeper.Minesweeper
+import dev.sluide.games.Minesweeper
 import dev.sluide.games.minesweeper.MinesweeperPreferences
 import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCommits

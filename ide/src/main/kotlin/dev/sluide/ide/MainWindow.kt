@@ -21,7 +21,7 @@ import dev.sluide.fileviewers.EditableFileView
 import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.IgnoreRuleEffects
 import dev.sluide.fileviewers.SoftWrap
-import dev.sluide.games.minesweeper.Minesweeper
+import dev.sluide.games.Minesweeper
 import dev.sluide.git.GitFileComparison
 import dev.sluide.git.GitRemotes
 import dev.sluide.git.GitStatusService
