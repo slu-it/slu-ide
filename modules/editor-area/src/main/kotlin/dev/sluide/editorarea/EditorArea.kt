@@ -15,7 +15,6 @@ import javafx.beans.value.ObservableBooleanValue
 import javafx.beans.value.ObservableValue
 import javafx.collections.ListChangeListener
 import javafx.scene.layout.BorderPane
-import javafx.scene.layout.StackPane
 import org.springframework.context.annotation.Scope
 import org.springframework.stereotype.Component
 import java.io.IOException
@@ -40,7 +39,13 @@ class EditorArea(
     fontSettings: FontSettings,
 ) : BorderPane() {
     internal val editorTabs = EditorTabs()
-    internal val tabStrip = TabStrip(editorTabs, Side.LEFT, ::confirmClosing, ::selectChosen)
+    internal val tabStrip = TabStrip(editorTabs, Side.LEFT, ::confirmClosing, ::selectChosen, ::moveTab)
+    private val rightStrip = TabStrip(editorTabs, Side.RIGHT, ::confirmClosing, ::selectChosen, ::moveTab)
+    private val leftPane = SidePane(Side.LEFT, tabStrip, editorTabs, ::focusChosen)
+    private val rightPane = SidePane(Side.RIGHT, rightStrip, editorTabs, ::focusChosen)
+
+    /** The tab strip of [side]; the right one exists for the area's lifetime, but is shown only while it has tabs. */
+    internal fun stripOf(side: Side): TabStrip = if (side == Side.LEFT) tabStrip else rightStrip
 
     /**
      * Asked before tabs are closed from the UI if some of them have a [EditorTab.closeWarning]; returns whether to
@@ -139,21 +144,11 @@ class EditorArea(
         )
         styleClass += "editor-area"
         stylesheets += checkNotNull(EditorArea::class.java.getResource("editor.css")).toExternalForm()
-        val content = StackPane().apply { styleClass += "editor-content" }
-        top = tabStrip
-        center = content
-        editorTabs.selected.subscribe { selected ->
-            // Asked before the content changes: until then, a focus owner in the old content is still in the scene.
-            val owner = scene?.focusOwner
-            val focusHere = owner == null || owner.scene == null || owner.isInside(this@EditorArea)
-            content.children.setAll(listOfNotNull(selected?.content))
-            // A file tab shown in place of another (closed, replaced) takes the focus only if the area had it, e.g. not
-            // after its file was deleted from the file tree (ADR 0050). Opening and choosing a tab always focus it.
-            if (selected is OpenFile && focusHere) focus(selected)
-            if (selected != null && selected !is OpenFile && selected.focusOnShow && focusHere) {
-                selected.content.requestFocus()
+        center =
+            EditorSides(editorTabs, leftPane, rightPane) { tab ->
+                // The focus left with the right pane and has nowhere else to go, so tabs without focusOnShow get it too.
+                if (tab is OpenFile) focus(tab) else tab.content.requestFocus()
             }
-        }
     }
 
     /** Whether a [dev.sluide.fileviewers.FileViewer] can show [file], i.e. whether [open] would open it. */
@@ -376,6 +371,21 @@ class EditorArea(
      */
     private fun selectChosen(tab: EditorTab) {
         editorTabs.select(tab)
+        focusChosen(tab)
+    }
+
+    /** Moves [tab] to [side] at [index] (the context menu, a drop) and focuses it like a chosen tab. */
+    private fun moveTab(
+        tab: EditorTab,
+        side: Side,
+        index: Int,
+    ) {
+        editorTabs.moveTo(tab, side, index)
+        focusChosen(tab)
+    }
+
+    /** Focuses [tab] as when it is chosen: a file's view, other tabs only with [EditorTab.focusOnShow]. */
+    private fun focusChosen(tab: EditorTab) {
         if (tab is OpenFile) focus(tab) else focusIfOnShow(tab)
     }
 

@@ -180,7 +180,7 @@ updated when the summary or keywords no longer fit.
 ### Editor
 | Feature | Summary | Keywords |
 |---|---|---|
-| [editor-tabs.md](features/editor-tabs.md) | Tab area for files and other `EditorTab`s | tabs, unsaved ●, close confirmation, tab menu, reordering, `onFileClosed`, activity marker |
+| [editor-tabs.md](features/editor-tabs.md) | Tab area for files and other `EditorTab`s | tabs, unsaved ●, close confirmation, tab menu, reordering, split, side by side, Move to Right Side, Move to Left Side, `onFileClosed`, activity marker |
 | [text-editing.md](features/text-editing.md) | Editing, saving and editor keys for code and text | save, Save All, changes on disk, line endings, indentation, find/replace, go to line, encoding, Windows-1252 |
 | [soft-wrap.md](features/soft-wrap.md) | Soft wrap: long lines wrap at the visible edge in every file editor, by one user-wide switch | soft wrap, wrap, long lines, Shortcut+Alt+Z, Soft Wrap button, context menu, `SoftWrap`, shared.json |
 | [file-viewers.md](features/file-viewers.md) | The `FileViewer` extension point, code viewers and supported languages | `FileViewer`, `FileView`, `CodeFileViewer`, languages, syntax highlighting, `SourceSplit`, `RunnableFileViewer`, `closeWarning`, `CodeEditors.text`, `TextEditor`, `NamedFileViewer`, `weakFileNamePatterns`, `ExtensibleCodeEditor`, overlay, lock, toolbar items |

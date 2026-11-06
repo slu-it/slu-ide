@@ -27,6 +27,9 @@ import kotlin.math.abs
 
 private val SELECTED: PseudoClass = PseudoClass.getPseudoClass("selected")
 
+/** The style class of the selected header of the side that is not current while split. */
+private const val MUTED = "editor-tab-muted"
+
 /** How far the mouse has to move with the button down before a tab header is dragged. */
 private const val DRAG_THRESHOLD = 5.0
 
@@ -51,6 +54,8 @@ internal class TabStrip(
     private val confirmClose: (tabs: List<EditorTab>) -> Boolean = { true },
     /** Selects a tab the user chose, by a click on its header or in the overflow menu; the editor area focuses it. */
     private val choose: (EditorTab) -> Unit = editorTabs::select,
+    /** Moves a tab to a side at an index of that side's row, e.g. by the context menu; the area focuses it. */
+    private val moveTo: (EditorTab, Side, Int) -> Unit = { tab, to, index -> editorTabs.moveTo(tab, to, index) },
 ) : Region() {
     private val viewport = Pane().apply { styleClass += "tab-viewport" }
     private val viewportClip = Rectangle()
@@ -80,10 +85,33 @@ internal class TabStrip(
         viewport.clip = viewportClip
         children.addAll(viewport, scrollLeftButton, scrollRightButton, overflowMenu)
         editorTabs.tabsOf(side).subscribe(::rebuildHeaders)
-        editorTabs.selectedOf(side).subscribe { selected ->
-            headers.forEach { it.pseudoClassStateChanged(SELECTED, it.tab === selected) }
+        editorTabs.selectedOf(side).subscribe { _ ->
+            updateHeaderStates()
             revealSelected = true
             requestLayout()
+        }
+        editorTabs.current.subscribe { _ -> updateHeaderStates() }
+        editorTabs.split.subscribe { _ -> updateHeaderStates() }
+    }
+
+    private fun isInactive() = editorTabs.split.get() && editorTabs.current.get() != side
+
+    /**
+     * Marks the header of the side's selected tab: `:selected` on the current side (or without a split), the style
+     * class [MUTED] on the other one. A style class, not a descendant selector, so that its dark rule applies only in
+     * the dark theme (ADR 0009).
+     */
+    private fun updateHeaderStates() {
+        val selected = editorTabs.selectedOf(side).get()
+        val inactive = isInactive()
+        headers.forEach { header ->
+            val isSelected = header.tab === selected
+            header.pseudoClassStateChanged(SELECTED, isSelected && !inactive)
+            if (isSelected && inactive) {
+                if (MUTED !in header.styleClass) header.styleClass += MUTED
+            } else {
+                header.styleClass -= MUTED
+            }
         }
     }
 
@@ -99,7 +127,7 @@ internal class TabStrip(
         (old.values - headers.toSet()).forEach { it.dispose() }
         // The dragged tab was closed meanwhile, e.g. because its file was deleted.
         if (drag?.header?.let { it !in headers } == true) endDrag()
-        headers.forEach { it.pseudoClassStateChanged(SELECTED, it.tab === editorTabs.selectedOf(side).get()) }
+        updateHeaderStates()
         // Only when tabs were opened or closed: a moved tab keeps its header in the scene, so a drag in progress keeps
         // getting the mouse events. The order of the children does not matter, layoutChildren places them.
         if (viewport.children.size != headers.size || !viewport.children.containsAll(headers)) {
@@ -384,6 +412,10 @@ internal class TabStrip(
                 item("Close Tabs to the Left") { close(editorTabs.leftOf(tab)) { editorTabs.closeLeftOf(tab) } }
             val closeRight =
                 item("Close Tabs to the Right") { close(editorTabs.rightOf(tab)) { editorTabs.closeRightOf(tab) } }
+            val moveRight =
+                item("Move to Right Side") { moveTo(tab, Side.RIGHT, editorTabs.tabsOf(Side.RIGHT).size) }
+            val moveLeft =
+                item("Move to Left Side") { moveTo(tab, Side.LEFT, editorTabs.tabsOf(Side.LEFT).size) }
             val file = tab as? OpenFile
             val history = item("Show History") { file?.let { menuHooks.showHistory?.invoke(it.path) } }
             val select = item("Select in Explorer") { file?.let { menuHooks.selectInExplorer?.invoke(it.path) } }
@@ -399,6 +431,9 @@ internal class TabStrip(
             ).apply {
                 styleClass += "tab-context-menu"
                 setOnShowing {
+                    items.removeAll(listOf(moveRight, moveLeft))
+                    items.add(1, if (side == Side.LEFT) moveRight else moveLeft)
+                    moveRight.isDisable = !editorTabs.split.get() && editorTabs.tabsOf(Side.LEFT).size <= 1
                     val sideTabs = editorTabs.tabsOf(side)
                     val index = sideTabs.indexOf(tab)
                     closeOthers.isDisable = sideTabs.size <= 1

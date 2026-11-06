@@ -570,7 +570,14 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         assertTrue(shown)
         val items = menu.items.filterNot { it is SeparatorMenuItem }
         assertEquals(
-            listOf("Close", "Close Others", "Close Tabs to the Left", "Close Tabs to the Right", "Close All"),
+            listOf(
+                "Close",
+                "Move to Right Side",
+                "Close Others",
+                "Close Tabs to the Left",
+                "Close Tabs to the Right",
+                "Close All",
+            ),
             items.map { it.text },
         )
         assertTrue(items.none { it.isDisable })
@@ -595,7 +602,10 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
 
         val menu = editor.tabStrip.contextMenuOf(checkNotNull(editor.editorTabs.find(a)))
         val disabled = menu.items.filter { it !is SeparatorMenuItem && it.isDisable }.map { it.text }
-        assertEquals(listOf("Close Others", "Close Tabs to the Left", "Close Tabs to the Right"), disabled)
+        assertEquals(
+            listOf("Move to Right Side", "Close Others", "Close Tabs to the Left", "Close Tabs to the Right"),
+            disabled,
+        )
         robot.interact { menu.hide() }
     }
 
@@ -659,11 +669,11 @@ class EditorAreaTabsUiTest : EditorAreaUiFixture() {
         assertNull(forTerminal.named("Select in Explorer"), "not for tabs without a file")
 
         // One separator before the items offered, none without any.
-        assertEquals(10, forA.size)
+        assertEquals(11, forA.size)
         editor.tabMenu.showHistory = null
-        assertEquals(9, items("a.txt").size)
+        assertEquals(10, items("a.txt").size)
         editor.tabMenu.selectInExplorer = null
-        assertEquals(7, items("a.txt").size)
+        assertEquals(8, items("a.txt").size)
     }
 
     @Test

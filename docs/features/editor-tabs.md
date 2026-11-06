@@ -69,13 +69,25 @@
   Linux and Windows, Ctrl+W inside a focused terminal still goes to the shell. Closing the selected tab selects its
   right neighbour, or the left one if there is none.
 - Right-clicking a tab opens a context menu: Close, Close Others, Close Tabs to the Left, Close Tabs to the Right,
-  Close All. Entries that would close nothing are disabled. Close Others selects the clicked tab; closing to the
+  Close All, with Move to Right Side (left tabs) or Move to Left Side (right tabs) right after Close. Entries that
+  would close nothing are disabled. Close Others selects the clicked tab; closing to the
   left/right keeps the selection unless the selected tab was closed, then the clicked tab is selected. Tabs that show
   a file on disk have Show History at the end while the window offers it (`EditorArea.tabMenu.showHistory`, enabled by
   `canShowHistory`), which opens the file's history in the git log area ([file-history.md](file-history.md)). Select in Explorer follows
   it (`EditorArea.tabMenu.selectInExplorer`, enabled by `canSelectInExplorer`): it reveals that tab's file in the explorer and
   focuses it, not necessarily the selected tab's ([file-explorer.md](file-explorer.md)). `EditorArea.selectedFile` is
   the file of the selected tab (`null` for terminals, diffs and no tab) and follows renames.
+- Two sides ([ADR 0134](../adr/0134-split-editor-area.md)): Move to Right Side in a left tab's menu opens a right side
+  next to the left one, a horizontal split with its own tab row and content, the divider in the middle each time it
+  opens (not stored; a view wider than its side, e.g. a Markdown toolbar, is cut off at the side's right edge instead
+  of pushing the divider; the divider leaves each side at least 120 px), and moves the tab there, selected and focused like a chosen tab. Move to Left Side puts a right
+  tab at the end of the left row. The entry is disabled while there is no split and the left side has only this tab.
+  The right side disappears when its last tab is closed or moved left; if the left side loses its last tab, the right
+  tabs become the single area. Without a split the area looks as it always did. New tabs open on the left. The current
+  side is the one last pressed with the mouse or given the focus (the explorer taking the focus changes nothing); Save,
+  Close Tab, Show Changes and Select Opened File act on its selected tab. While split, the selected header of the other
+  side is drawn muted. Close Others, Close Tabs to the Left/Right and Close All act on the clicked tab's side. A moved
+  tab is not closed: it keeps its view, caret, undo history and file watch.
 - Every file view gets the editor area as its `FileViewHost` (`ViewHost`): `openFile` opens a file like the explorer
   does, `openFile(file, line)` then lets its view go to the line (`FileView.showLine`, as Go to Line moves the caret),
   `openWebPage` calls `EditorArea.openWebPage`, which the main window sets to the system browser
@@ -124,6 +136,6 @@
   into view. The selected tab is always scrolled into view when it changes.
 - Structure: `EditorTabs` (model: open tabs and the selection), `OpenFile` (a file's tab), `TabOverflow` (which tabs fit, scroll positions,
   where a dragged tab belongs),
-  `TabStrip` (header row and layout), styles in `editor.css`.
+  `TabStrip` (header row and layout), `EditorSides` (the split of the two `SidePane`s: a strip over its content), styles in `editor.css`.
 - Not yet implemented: other keyboard shortcuts for tabs (switching), dragging tabs into another window or out of the tab
   row, cancelling a drag with Escape.

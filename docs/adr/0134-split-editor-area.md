@@ -27,8 +27,8 @@ caret, undo history, diff, watch and font.
   `selected` is the current side's selected tab, so Save, Close Tab and Show Changes act on it. Selecting a tab makes
   its side current, and so do the close actions of a tab's context menu. Every operation updates the lists first,
   then `split`, the selections and `current`, and `selected` last, once, with its final value: the area swaps the
-  content and moves the focus on each change (ADR 0050: a tab shown in place of another takes the focus only if the
-  area had it). A side that takes the focus while an operation notifies its listeners does not become current
+  content and moves the focus on each change (ADR 0050: a tab shown in place of another takes the focus only if its
+  side had it). A side that takes the focus while an operation notifies its listeners does not become current
   (`makeCurrent` is ignored meanwhile), so it cannot undo the side the operation chose.
 - The right side exists only while it has tabs; when it loses its last one (closed, moved left), the left side becomes
   current. When the left side loses its last tab while the right side has tabs, the right side's tabs become the left

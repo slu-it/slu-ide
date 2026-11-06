@@ -56,9 +56,9 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
 - A game tab sets `EditorTab.focusOnShow`: the editor area focuses its content when it is opened or chosen (ADR 0050),
   and the view passes the focus on to its board or grid with `FocusWhenShown`, as that is in a scene only after the
   first layout.
-- A tab's content leaves the scene whenever another tab is selected (`EditorArea` shows only the selected content):
-  a view that unsubscribes when its scene becomes `null` subscribes again and catches up when it is back
-  (`ConnectionCardList`), or never unsubscribes on scene loss at all.
+- A tab's content leaves the scene whenever another tab is selected or it moves to the other side of the editor area
+  (`EditorArea` shows only the selected content): a view that unsubscribes when its scene becomes
+  `null` subscribes again and catches up when it is back (`ConnectionCardList`), or never unsubscribes on scene loss at all.
 
 ## Context menus and entry points
 - Explorer: `FileAction(label, icon, appliesTo, perform)` items appear only for a single file they apply to, after

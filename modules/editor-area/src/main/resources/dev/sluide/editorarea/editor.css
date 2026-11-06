@@ -54,3 +54,28 @@
 @media (prefers-color-scheme: dark) {
     .tab-activity-failed { -fx-fill: #ef6461; }
 }
+
+/* While the area is split, the selected header of the side that is not current is muted: no accent, and a colour
+   between the current side's selected header (the editor background) and the unselected headers (the strip's body).
+   The header gets a style class of its own instead of :selected: JavaFX applies descendant rules in @media blocks in
+   both themes, so dark rules must be single-class (ADR 0009). Like the selected header it keeps its colour under the
+   mouse (:hover outranks a single class); the colour is looked up, so the dark block only sets it on the class. */
+.editor-tab-muted {
+    -muted-tab-color: #f4f4f4;
+    -fx-background-color: -muted-tab-color;
+    -fx-border-color: -fx-box-border -fx-box-border transparent transparent;
+    -fx-border-width: 2 1 0 0;
+}
+
+.editor-tab-muted:hover { -fx-background-color: -muted-tab-color; }
+
+@media (prefers-color-scheme: dark) {
+    .editor-tab-muted { -muted-tab-color: #343638; }
+}
+
+/* The split pane of the editor area while only the left side is shown: no padding, border or background. */
+.split-pane.single-side {
+    -fx-padding: 0;
+    -fx-background-color: transparent;
+    -fx-background-insets: 0;
+}
