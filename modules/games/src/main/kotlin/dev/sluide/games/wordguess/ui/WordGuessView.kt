@@ -1,6 +1,7 @@
 package dev.sluide.games.wordguess.ui
 
 import dev.sluide.fileviewers.FocusWhenShown
+import dev.sluide.fileviewers.WrappingToolbar
 import dev.sluide.games.wordguess.KeyAction
 import dev.sluide.games.wordguess.Language
 import dev.sluide.games.wordguess.MIN_TILE
@@ -114,9 +115,10 @@ internal class WordGuessView(
                 grid.requestFocus()
             }
         }
-        return HBox(6.0, languageMenu, nextWordButton).apply {
+        return WrappingToolbar().apply {
+            hgap = 6.0
+            leading.setAll(languageMenu, nextWordButton)
             styleClass += "wg-toolbar"
-            alignment = Pos.CENTER_LEFT
         }
     }
 

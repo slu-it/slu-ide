@@ -3,13 +3,13 @@ package dev.sluide.codecs.ui
 import dev.sluide.codecs.codec.CodecId
 import dev.sluide.codecs.conversion.ConversionModel
 import dev.sluide.codecs.conversion.Side
+import dev.sluide.fileviewers.WrappingToolbar
 import javafx.geometry.Insets
 import javafx.geometry.Pos
 import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
-import javafx.scene.layout.Region
 import javafx.scene.layout.StackPane
 import javafx.scene.layout.VBox
 import org.kordamp.ikonli.javafx.FontIcon
@@ -39,13 +39,14 @@ internal class EncodedSide(
     val node: VBox =
         VBox(
             6.0,
-            HBox(
-                6.0,
-                title,
-                Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
-                Button("Copy").apply { setOnAction { copy() } },
-                Button("Clear").apply { setOnAction { model.clear(Side.ENCODED) } },
-            ).apply { alignment = Pos.CENTER_LEFT },
+            WrappingToolbar().apply {
+                hgap = 6.0
+                leading.setAll(title)
+                trailing.setAll(
+                    Button("Copy").apply { setOnAction { copy() } },
+                    Button("Clear").apply { setOnAction { model.clear(Side.ENCODED) } },
+                )
+            },
             StackPane(area, hashRows.node).apply { VBox.setVgrow(this, Priority.ALWAYS) },
             status,
             hintRow,

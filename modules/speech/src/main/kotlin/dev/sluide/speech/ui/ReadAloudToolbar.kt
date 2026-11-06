@@ -1,5 +1,6 @@
 package dev.sluide.speech.ui
 
+import dev.sluide.fileviewers.WrappingToolbar
 import dev.sluide.media.PlaybackSpeeds
 import dev.sluide.speech.engine.Gender
 import javafx.geometry.Pos
@@ -12,7 +13,6 @@ import javafx.scene.control.RadioMenuItem
 import javafx.scene.control.ToggleGroup
 import javafx.scene.control.Tooltip
 import javafx.scene.layout.HBox
-import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignP
@@ -84,14 +84,21 @@ internal class ReadAloudToolbar(
     private var shownMode: PlayMode? = null
     private var updating = false
 
-    val node: HBox =
-        HBox(6.0, playButton, stop, accent, gender, speed).apply {
-            // Inside another toolbar the status follows the speed menu: a growing spacer has no room there.
-            if (!embedded) children += Region().apply { HBox.setHgrow(this, Priority.ALWAYS) }
-            children += status
-            styleClass += "speech-controls"
-            if (!embedded) styleClass += "speech-toolbar"
-            alignment = Pos.CENTER_LEFT
+    val node: Region =
+        if (embedded) {
+            // Inside another toolbar the controls are one wrap unit; the status follows the speed menu.
+            HBox(6.0, playButton, stop, accent, gender, speed, status).apply {
+                styleClass += "speech-controls"
+                alignment = Pos.CENTER_LEFT
+            }
+        } else {
+            WrappingToolbar().apply {
+                hgap = 6.0
+                leading.setAll(playButton, stop, accent, gender, speed)
+                trailing.setAll(status)
+                styleClass += "speech-controls"
+                styleClass += "speech-toolbar"
+            }
         }
 
     init {

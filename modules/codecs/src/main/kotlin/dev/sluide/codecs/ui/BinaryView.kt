@@ -4,13 +4,11 @@ import dev.sluide.codecs.binary.HexDump
 import dev.sluide.codecs.conversion.ConversionModel
 import dev.sluide.codecs.conversion.Status
 import dev.sluide.codecs.conversion.TextContent
-import javafx.geometry.Pos
+import dev.sluide.fileviewers.WrappingToolbar
 import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.scene.control.TextArea
-import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
-import javafx.scene.layout.Region
 import javafx.scene.layout.VBox
 
 /** What the text side shows for binary data: what it is, Save as and Edit as Text, and the hex dump. */
@@ -25,19 +23,20 @@ internal class BinaryView(
     val node: VBox =
         VBox(
             6.0,
-            HBox(
-                8.0,
-                title,
-                Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
-                Button("Save as…").apply {
-                    id = "codecs-binary-save"
-                    setOnAction { save() }
-                },
-                Button("Edit as Text").apply {
-                    id = "codecs-binary-edit"
-                    setOnAction { model.editBytesAsText() }
-                },
-            ).apply { alignment = Pos.CENTER_LEFT },
+            WrappingToolbar().apply {
+                hgap = 8.0
+                leading.setAll(title)
+                trailing.setAll(
+                    Button("Save as…").apply {
+                        id = "codecs-binary-save"
+                        setOnAction { save() }
+                    },
+                    Button("Edit as Text").apply {
+                        id = "codecs-binary-edit"
+                        setOnAction { model.editBytesAsText() }
+                    },
+                )
+            },
             dump.also { VBox.setVgrow(it, Priority.ALWAYS) },
         ).apply { styleClass += "codecs-binary" }
 

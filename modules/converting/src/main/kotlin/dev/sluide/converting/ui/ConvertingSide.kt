@@ -6,6 +6,7 @@ import dev.sluide.converting.model.Side
 import dev.sluide.converting.model.Status
 import dev.sluide.converting.model.TargetChoice
 import dev.sluide.fileviewers.CodeEditors
+import dev.sluide.fileviewers.WrappingToolbar
 import javafx.beans.value.ObservableValue
 import javafx.geometry.Insets
 import javafx.geometry.Pos
@@ -122,7 +123,7 @@ internal class ConvertingSide(
         refresh()
     }
 
-    private fun header(): HBox {
+    private fun header(): WrappingToolbar {
         val fileItems =
             listOfNotNull(
                 MenuItem("Open File…").apply { setOnAction { openFile() } },
@@ -133,14 +134,15 @@ internal class ConvertingSide(
                     }
                 },
             )
-        return HBox(
-            6.0,
-            picker,
-            Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
-            copyButton,
-            Button("Clear").apply { setOnAction { model.edit(side, "") } },
-            MenuButton("File", null, *fileItems.toTypedArray()).apply { styleClass += "converting-file" },
-        ).apply { alignment = Pos.CENTER_LEFT }
+        return WrappingToolbar().apply {
+            hgap = 6.0
+            leading.setAll(picker)
+            trailing.setAll(
+                copyButton,
+                Button("Clear").apply { setOnAction { model.edit(side, "") } },
+                MenuButton("File", null, *fileItems.toTypedArray()).apply { styleClass += "converting-file" },
+            )
+        }
     }
 
     /** Opens the first of [files] on this side; an error shows in the status until the next change. */

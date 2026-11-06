@@ -1,10 +1,10 @@
 package dev.sluide.translation.ui
 
+import dev.sluide.fileviewers.WrappingToolbar
 import dev.sluide.translation.engine.Language
 import dev.sluide.translation.engine.Quality
 import dev.sluide.translation.session.SourceChoice
 import dev.sluide.translation.session.TranslateModel
-import javafx.geometry.Pos
 import javafx.scene.control.Button
 import javafx.scene.control.ComboBox
 import javafx.scene.control.Label
@@ -12,9 +12,6 @@ import javafx.scene.control.ToggleButton
 import javafx.scene.control.Tooltip
 import javafx.scene.input.Clipboard
 import javafx.scene.input.ClipboardContent
-import javafx.scene.layout.HBox
-import javafx.scene.layout.Priority
-import javafx.scene.layout.Region
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignC
 import org.kordamp.ikonli.materialdesign2.MaterialDesignF
@@ -97,20 +94,12 @@ internal class TranslateToolbar(
         }
     private var updating = false
 
-    val node: HBox =
-        HBox(
-            6.0,
-            source.node,
-            target.node,
-            quality,
-            markdown,
-            status,
-            Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
-            copy,
-            scratch,
-        ).apply {
+    val node: WrappingToolbar =
+        WrappingToolbar().apply {
+            hgap = 6.0
+            leading.setAll(source.node, target.node, quality, markdown, status)
+            trailing.setAll(copy, scratch)
             styleClass += "translate-toolbar"
-            alignment = Pos.CENTER_LEFT
         }
 
     /** Shows [model]'s state, with [statusText] as the status. */

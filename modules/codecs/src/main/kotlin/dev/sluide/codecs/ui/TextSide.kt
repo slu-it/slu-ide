@@ -6,15 +6,13 @@ import dev.sluide.codecs.conversion.ConversionModel
 import dev.sluide.codecs.conversion.Side
 import dev.sluide.codecs.conversion.Status
 import dev.sluide.codecs.conversion.TextContent
+import dev.sluide.fileviewers.WrappingToolbar
 import javafx.geometry.Insets
-import javafx.geometry.Pos
 import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.scene.control.TextArea
 import javafx.scene.input.TransferMode
-import javafx.scene.layout.HBox
 import javafx.scene.layout.Priority
-import javafx.scene.layout.Region
 import javafx.scene.layout.StackPane
 import javafx.scene.layout.VBox
 import javafx.stage.Window
@@ -70,15 +68,16 @@ internal class TextSide(
     }
 
     private fun header() =
-        HBox(
-            6.0,
-            Label("Text").apply { styleClass += "codecs-side-title" },
-            Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
-            Button("Open File…").apply { setOnAction { openFile() } },
-            saveButton,
-            Button("Copy").apply { setOnAction { copyText() } },
-            Button("Clear").apply { setOnAction { model.clear(Side.TEXT) } },
-        ).apply { alignment = Pos.CENTER_LEFT }
+        WrappingToolbar().apply {
+            hgap = 6.0
+            leading.setAll(Label("Text").apply { styleClass += "codecs-side-title" })
+            trailing.setAll(
+                Button("Open File…").apply { setOnAction { openFile() } },
+                saveButton,
+                Button("Copy").apply { setOnAction { copyText() } },
+                Button("Clear").apply { setOnAction { model.clear(Side.TEXT) } },
+            )
+        }
 
     /** Opens the first of [files]; an error shows in the status until the next change. */
     fun filesDropped(files: List<File>) {

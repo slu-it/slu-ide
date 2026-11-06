@@ -1,6 +1,7 @@
 package dev.sluide.games.minesweeper.ui
 
 import dev.sluide.fileviewers.FocusWhenShown
+import dev.sluide.fileviewers.WrappingToolbar
 import dev.sluide.games.minesweeper.BoardSize
 import dev.sluide.games.minesweeper.MinesweeperModel
 import dev.sluide.games.minesweeper.Preset
@@ -26,8 +27,6 @@ import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
 import javafx.scene.layout.BorderPane
 import javafx.scene.layout.HBox
-import javafx.scene.layout.Priority
-import javafx.scene.layout.Region
 import javafx.scene.layout.StackPane
 import javafx.scene.layout.VBox
 import javafx.stage.Stage
@@ -141,10 +140,11 @@ internal class MinesweeperView(
             setOnAction { model.togglePause() }
         }
         counter.contentDisplay = ContentDisplay.LEFT
-        val spacer = Region().apply { HBox.setHgrow(this, Priority.ALWAYS) }
-        return HBox(6.0, sizeMenu, newGame, pauseButton, spacer, counter, timer).apply {
+        return WrappingToolbar().apply {
+            hgap = 6.0
+            leading.setAll(sizeMenu, newGame, pauseButton)
+            trailing.setAll(counter, timer)
             styleClass += "ms-toolbar"
-            alignment = Pos.CENTER_LEFT
         }
     }
 
