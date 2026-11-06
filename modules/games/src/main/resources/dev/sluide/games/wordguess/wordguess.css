@@ -32,6 +32,7 @@
 }
 
 .wg-tile {
+    -fx-text-fill: -fx-text-base-color;
     -fx-alignment: center;
     -fx-font-weight: bold;
 }

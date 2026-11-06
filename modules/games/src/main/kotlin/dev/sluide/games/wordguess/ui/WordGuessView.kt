@@ -9,6 +9,7 @@ import dev.sluide.games.wordguess.WordGuessModel
 import dev.sluide.games.wordguess.keyAction
 import dev.sluide.games.wordguess.tileSize
 import dev.sluide.games.wordguess.typedLetter
+import javafx.application.Platform
 import javafx.geometry.Bounds
 import javafx.geometry.Insets
 import javafx.geometry.Pos
@@ -87,6 +88,13 @@ internal class WordGuessView(
         model.onChange = installed
         // The editor area focuses the tab's content; the keys belong to the grid.
         node.focusedProperty().addListener { _, _, focused -> if (focused) grid.requestFocus() }
+        // The editor area puts only the selected tab's content in the scene, so a scene means the tab was shown.
+        node.sceneProperty().addListener { _, _, scene -> if (scene != null) focusGridWhenShowing() }
+        // Consumed, or the scroll pane around the grid takes the focus afterwards.
+        grid.setOnMousePressed {
+            grid.requestFocus()
+            it.consume()
+        }
         resize(null)
         refresh()
     }
@@ -110,6 +118,10 @@ internal class WordGuessView(
             alignment = Pos.CENTER_LEFT
         }
     }
+
+    /** Later, so that it wins over a closing menu; not while the window is not showing. */
+    private fun focusGridWhenShowing() =
+        Platform.runLater { if (node.scene?.window?.isShowing == true) grid.requestFocus() }
 
     private fun type(letter: Char) {
         model.type(letter)

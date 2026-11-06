@@ -7,6 +7,7 @@ import dev.sluide.games.minesweeper.SizeChoice
 import dev.sluide.games.minesweeper.keyAction
 import javafx.animation.KeyFrame
 import javafx.animation.Timeline
+import javafx.application.Platform
 import javafx.beans.InvalidationListener
 import javafx.geometry.Pos
 import javafx.scene.Node
@@ -105,10 +106,18 @@ internal class MinesweeperView(
         model.onChange = installed
         // The editor area focuses the tab's content; the keys belong to the board.
         node.focusedProperty().addListener { _, _, focused -> if (focused) board.requestFocus() }
-        node.sceneProperty().addListener { _, _, scene -> observe(scene) }
+        node.sceneProperty().addListener { _, _, scene ->
+            observe(scene)
+            // The editor area puts only the selected tab's content in the scene, so a scene means the tab was shown.
+            if (scene != null) focusBoardWhenShowing()
+        }
         observe(node.scene)
         refresh()
     }
+
+    /** Later, so that it wins over a closing menu; not while the window is not showing. */
+    private fun focusBoardWhenShowing() =
+        Platform.runLater { if (node.scene?.window?.isShowing == true) board.requestFocus() }
 
     private fun toolbar(): Node {
         sizeMenu.apply {

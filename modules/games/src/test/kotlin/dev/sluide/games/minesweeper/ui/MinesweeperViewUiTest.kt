@@ -10,10 +10,12 @@ import javafx.event.Event
 import javafx.scene.Group
 import javafx.scene.Parent
 import javafx.scene.Scene
+import javafx.scene.control.TextField
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.input.MouseButton
 import javafx.scene.input.MouseEvent
+import javafx.scene.layout.VBox
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -145,6 +147,22 @@ class MinesweeperViewUiTest {
     @Test
     fun `focusing the tab content hands the focus to the board`(robot: FxRobot) {
         robot.interact { view.node.requestFocus() }
+
+        assertSame(view.board, fx { stage.scene.focusOwner })
+    }
+
+    @Test
+    fun `a view added to a showing scene takes the focus`(robot: FxRobot) {
+        val other = TextField()
+        val root = VBox(other)
+        robot.interact {
+            stage.scene.root = root
+            other.requestFocus()
+        }
+        assertSame(other, fx { stage.scene.focusOwner })
+
+        // The scene already has a focus owner, so only the view itself can take the focus.
+        robot.interact { root.children += view.node }
 
         assertSame(view.board, fx { stage.scene.focusOwner })
     }

@@ -10,9 +10,13 @@ import javafx.event.Event
 import javafx.scene.Parent
 import javafx.scene.Scene
 import javafx.scene.control.Label
+import javafx.scene.control.TextField
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
+import javafx.scene.input.MouseButton
+import javafx.scene.input.MouseEvent
 import javafx.scene.layout.HBox
+import javafx.scene.layout.VBox
 import javafx.stage.Stage
 import org.junit.jupiter.api.Tag
 import org.junit.jupiter.api.extension.ExtendWith
@@ -199,6 +203,48 @@ class WordGuessViewUiTest {
 
         robot.interact { view.node.requestFocus() }
 
+        assertSame(view.grid, fx { stage.scene.focusOwner })
+    }
+
+    @Test
+    fun `a view added to a showing scene takes the focus, and a click on a tile focuses the grid`(robot: FxRobot) {
+        val other = TextField()
+        robot.interact {
+            stage.scene.root = VBox(other)
+            other.requestFocus()
+        }
+        assertSame(other, fx { stage.scene.focusOwner })
+
+        robot.interact { stage.scene.root = view.node as Parent }
+        assertSame(view.grid, fx { stage.scene.focusOwner })
+
+        robot.interact { other.requestFocus() }
+        val tile = fx { tiles(0)[0] }
+        robot.interact {
+            Event.fireEvent(
+                tile,
+                MouseEvent(
+                    MouseEvent.MOUSE_PRESSED,
+                    1.0,
+                    1.0,
+                    1.0,
+                    1.0,
+                    MouseButton.PRIMARY,
+                    1,
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    false,
+                    false,
+                    false,
+                    false,
+                    true,
+                    null,
+                ),
+            )
+        }
         assertSame(view.grid, fx { stage.scene.focusOwner })
     }
 
