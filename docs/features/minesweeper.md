@@ -1,6 +1,6 @@
 # Minesweeper
 
-**Modules:** `modules/games` (package `dev.sluide.games.minesweeper`: the pure game in `MinesweeperGame`, the FX-free
+**Modules:** `modules/games` (window bean `Minesweeper` in `dev.sluide.games`; package `dev.sluide.games.minesweeper`: the pure game in `MinesweeperGame`, the FX-free
 `MinesweeperModel`, `GameClock`, `MinesweeperPreferences`, UI in `ui`); menu in `ide` (`ToolsMenu`, `WindowTools`);
 decisions in [ADR 0131](../adr/0131-games-menu-minesweeper.md) and [ADR 0110](../adr/0110-tools-menu.md)
 

@@ -291,6 +291,16 @@ File does not react to it while a terminal has the focus.
 | P | Pause or resume |
 | Left, right, middle mouse button | Open or chord, flag, chord |
 
+## Word Guess
+[word-guess.md](word-guess.md). No menu key; the keys work while the grid has the focus, and not with Shortcut, Ctrl or Meta. Letters are also typed with Alt/Option held (no Alt+letter binding exists, and some layouts type letters with it); Enter, Backspace and F2 act only without modifiers (Shift aside).
+
+| Keys | Action |
+|---|---|
+| Letters (language alphabet; Ä, Ö, Ü in German) | Type into the active row (`KEY_TYPED`) |
+| Backspace | Delete the last letter |
+| Enter | Submit the row; after the round, the next word |
+| F2 | Next word |
+
 ## Settings
 [settings.md](settings.md)
 

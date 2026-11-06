@@ -44,7 +44,7 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
 
 ## Tool and service tabs
 - Tools menu (Coloring, Codecs, Converting, Read Aloud, Translate), Services menu (Docker, Databases) and Games menu
-  (Minesweeper) after Docker Sandbox in the menu bar (ADR 0110, 0118, 0121, 0131), then Help (Capture Diagnostics, Reveal Diagnostics Folder, About Thoreau; ADR 0127) last. A tool is a `WindowTool` in `ide` (`ide/.../tools/ToolsMenu.kt`), not a module API.
+  (Minesweeper, Word Guess) after Docker Sandbox in the menu bar (ADR 0110, 0118, 0121, 0131, 0132), then Help (Capture Diagnostics, Reveal Diagnostics Folder, About Thoreau; ADR 0127) last. A tool is a `WindowTool` in `ide` (`ide/.../tools/ToolsMenu.kt`), not a module API.
 - One tab per window: the menu selects the open tab or creates one. Closes with Shortcut+W without a question and is
   not restored after a restart. Tools have no key binding; a service may get an Alt+N panel key (Docker: Alt+8,
   Databases: Alt+7).
@@ -52,7 +52,7 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   `openScratch`, ...) in `WindowTools` or `MainWindow`; a callback left unset fails silently, so the wiring gets a
   test.
 - State lives in the window and outlives the tab; anything stored is opt-in per tool and never holds pasted secrets
-  (Codecs and Converting store nothing; Read Aloud stores the last voice and speed user-wide, Translate the last source, target and quality; neither the text).
+  (Codecs and Converting store nothing; Read Aloud stores the last voice and speed user-wide, Translate the last source, target and quality; neither the text; Word Guess the last language).
 - A tab's content leaves the scene whenever another tab is selected (`EditorArea` shows only the selected content):
   a view that unsubscribes when its scene becomes `null` subscribes again and catches up when it is back
   (`ConnectionCardList`), or never unsubscribes on scene loss at all.

@@ -1,6 +1,6 @@
 # 0131. Games menu: Minesweeper as a window tool in the new `games` module
 
-- Status: accepted; amends [0110](0110-tools-menu.md) and [0118](0118-services-menu.md) (a Games menu after Services, a third `ToolsMenu`)
+- Status: accepted; amends [0110](0110-tools-menu.md) and [0118](0118-services-menu.md) (a Games menu after Services, a third `ToolsMenu`); amended by [0132](0132-word-guess.md) (package layout)
 - Date: 2026-11-05
 
 ## Context
