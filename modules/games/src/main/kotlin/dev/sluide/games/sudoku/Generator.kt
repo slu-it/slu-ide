@@ -2,7 +2,13 @@ package dev.sluide.games.sudoku
 
 import kotlin.random.Random
 
-data class Puzzle(val size: SudokuSize, val level: Level, val givens: Grid, val solution: Grid, val tier: Tier)
+data class Puzzle(
+    val size: SudokuSize,
+    val level: Level,
+    val givens: Grid,
+    val solution: Grid,
+    val tier: Tier,
+)
 
 /**
  * Generates puzzles with exactly one solution that never need guessing. 9×9 puzzles aim at the tier of the level with

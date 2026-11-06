@@ -5,7 +5,11 @@ package dev.sluide.games.sudoku
  * for a cell that is filled with an unknown digit (hand-built test states); [masks] holds per empty cell the bitmask of
  * its candidates (bit d = digit d) and 0 for filled cells.
  */
-internal class Candidates(val size: SudokuSize, val digits: IntArray, val masks: IntArray) {
+internal class Candidates(
+    val size: SudokuSize,
+    val digits: IntArray,
+    val masks: IntArray,
+) {
     fun hasCandidate(
         index: Int,
         digit: Int,

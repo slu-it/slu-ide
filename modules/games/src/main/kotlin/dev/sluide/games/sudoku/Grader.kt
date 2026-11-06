@@ -2,7 +2,11 @@ package dev.sluide.games.sudoku
 
 enum class Tier { T1, T2, T3, T4 }
 
-data class Deduction(val cell: Cell, val digit: Int, val tier: Tier)
+data class Deduction(
+    val cell: Cell,
+    val digit: Int,
+    val tier: Tier,
+)
 
 /** Grades puzzles by the human techniques they need: T1 singles, T2 locked candidates and pairs, T3 triples and X-Wing, T4 Swordfish and XY-Wing. */
 object Grader {
@@ -30,7 +34,10 @@ object Grader {
         }
     }
 
-    private class Step(val tier: Tier, val placement: Placement?)
+    private class Step(
+        val tier: Tier,
+        val placement: Placement?,
+    )
 
     /** Applies the easiest technique that makes progress (a placement or eliminations); null when stuck. */
     private fun Candidates.step(): Step? {

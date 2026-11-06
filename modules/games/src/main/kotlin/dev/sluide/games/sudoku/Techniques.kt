@@ -1,6 +1,9 @@
 package dev.sluide.games.sudoku
 
-internal class Placement(val index: Int, val digit: Int)
+internal class Placement(
+    val index: Int,
+    val digit: Int,
+)
 
 private fun bit(d: Int) = 1 shl d
 

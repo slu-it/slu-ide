@@ -17,7 +17,11 @@ object Solver {
     ): Grid = checkNotNull(Search(Grid.empty(size), random, 1).run().solution)
 
     /** Bitmask backtracking, always continuing with the most constrained cell. */
-    private class Search(grid: Grid, private val random: Random?, private val limit: Int) {
+    private class Search(
+        grid: Grid,
+        private val random: Random?,
+        private val limit: Int,
+    ) {
         private val size = grid.size
         private val digits = grid.digitsCopy()
         private val used = IntArray(3 * size.side)

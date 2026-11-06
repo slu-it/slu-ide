@@ -1,8 +1,16 @@
 package dev.sluide.games.sudoku
 
 /** Immutable; digits 1..side, 0 = empty. */
-class Grid private constructor(val size: SudokuSize, private val digits: IntArray) {
-    operator fun get(cell: Cell): Int = digits[cell.row * size.side + cell.col]
+class Grid private constructor(
+    val size: SudokuSize,
+    private val digits: IntArray,
+) {
+    private fun indexOf(cell: Cell): Int {
+        require(cell.row in 0 until size.side && cell.col in 0 until size.side) { "$cell is outside the grid" }
+        return cell.row * size.side + cell.col
+    }
+
+    operator fun get(cell: Cell): Int = digits[indexOf(cell)]
 
     fun with(
         cell: Cell,
@@ -10,7 +18,7 @@ class Grid private constructor(val size: SudokuSize, private val digits: IntArra
     ): Grid {
         require(digit in 0..size.side) { "digit $digit out of range" }
         val copy = digits.copyOf()
-        copy[cell.row * size.side + cell.col] = digit
+        copy[indexOf(cell)] = digit
         return Grid(size, copy)
     }
 
@@ -20,7 +28,7 @@ class Grid private constructor(val size: SudokuSize, private val digits: IntArra
 
     /** Empty for a filled cell; the digits not used by any peer otherwise. */
     fun candidates(cell: Cell): Set<Int> {
-        val i = cell.row * size.side + cell.col
+        val i = indexOf(cell)
         if (digits[i] != 0) return emptySet()
         var used = 0
         for (p in size.peerIdx[i]) used = used or (1 shl digits[p])
@@ -43,7 +51,8 @@ class Grid private constructor(val size: SudokuSize, private val digits: IntArra
 
     internal fun digitsCopy(): IntArray = digits.copyOf()
 
-    override fun equals(other: Any?): Boolean = other is Grid && other.size == size && other.digits.contentEquals(digits)
+    override fun equals(other: Any?): Boolean =
+        other is Grid && other.size == size && other.digits.contentEquals(digits)
 
     override fun hashCode(): Int = 31 * size.hashCode() + digits.contentHashCode()
 

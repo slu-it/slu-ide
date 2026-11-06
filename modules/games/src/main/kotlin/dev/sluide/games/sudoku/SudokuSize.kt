@@ -1,9 +1,17 @@
 package dev.sluide.games.sudoku
 
-data class Cell(val row: Int, val col: Int)
+data class Cell(
+    val row: Int,
+    val col: Int,
+)
 
 /** Grid size: [side]×[side] cells, boxes of [boxRows] rows × [boxCols] columns. */
-enum class SudokuSize(val side: Int, val boxRows: Int, val boxCols: Int, val label: String) {
+enum class SudokuSize(
+    val side: Int,
+    val boxRows: Int,
+    val boxCols: Int,
+    val label: String,
+) {
     FOUR(4, 2, 2, "4×4"),
     SIX(6, 2, 3, "6×6"),
     NINE(9, 3, 3, "9×9"),
@@ -39,7 +47,11 @@ enum class SudokuSize(val side: Int, val boxRows: Int, val boxCols: Int, val lab
     /** Per cell index the indexes of its peers. */
     internal val peerIdx: Array<IntArray> by lazy {
         Array(side * side) { i ->
-            cellUnits[i].flatMap { u -> unitIdx[u].asList() }.filter { it != i }.distinct().toIntArray()
+            cellUnits[i]
+                .flatMap { u -> unitIdx[u].asList() }
+                .filter { it != i }
+                .distinct()
+                .toIntArray()
         }
     }
 

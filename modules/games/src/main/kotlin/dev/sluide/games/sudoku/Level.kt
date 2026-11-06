@@ -1,6 +1,9 @@
 package dev.sluide.games.sudoku
 
-enum class Level(val label: String, val key: String) {
+enum class Level(
+    val label: String,
+    val key: String,
+) {
     EASY("Easy", "easy"),
     MEDIUM("Medium", "medium"),
     HARD("Hard", "hard"),
