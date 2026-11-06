@@ -3,10 +3,10 @@ package dev.sluide.databases.ui.console
 import dev.sluide.databases.connect.CommitMode
 import dev.sluide.databases.ui.ConnectionEntry
 import dev.sluide.databases.ui.DatabasesTabModel
+import dev.sluide.fileviewers.WrappingToolbar
 import javafx.beans.InvalidationListener
 import javafx.beans.binding.Bindings
 import javafx.geometry.Orientation
-import javafx.geometry.Pos
 import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.scene.control.Separator
@@ -14,7 +14,6 @@ import javafx.scene.control.ToggleButton
 import javafx.scene.control.ToggleGroup
 import javafx.scene.control.Tooltip
 import javafx.scene.layout.HBox
-import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
 import org.kordamp.ikonli.Ikon
 import org.kordamp.ikonli.javafx.FontIcon
@@ -67,24 +66,23 @@ internal class ConsoleToolbar(
             textProperty().bind(entry.metadata.defaultSchema)
         }
 
-    val node: HBox =
-        HBox(
-            4.0,
-            run,
-            cancel,
-            separator(),
-            // The mode toggle sits with the transaction buttons: mode controls belong to the transaction; the far-right
-            // rule of docs/ui-conventions.md is for view-mode toggles.
-            HBox(auto, manual).apply { styleClass += "console-mode" },
-            commit,
-            rollback,
-            separator(),
-            history,
-            Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
-            schema,
-        ).apply {
+    val node: WrappingToolbar =
+        WrappingToolbar().apply {
+            hgap = 4.0
             styleClass += "console-toolbar"
-            alignment = Pos.CENTER_LEFT
+            leading.setAll(
+                run,
+                cancel,
+                separator(),
+                // The mode toggle sits with the transaction buttons: mode controls belong to the transaction; the
+                // far-right rule of docs/ui-conventions.md is for view-mode toggles.
+                HBox(auto, manual).apply { styleClass += "console-mode" },
+                commit,
+                rollback,
+                separator(),
+                history,
+            )
+            trailing.setAll(schema)
         }
 
     private var syncing = false

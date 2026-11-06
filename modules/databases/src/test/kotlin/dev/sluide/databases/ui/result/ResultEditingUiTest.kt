@@ -24,6 +24,7 @@ import java.util.concurrent.Executor
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /**
@@ -51,6 +52,20 @@ class ResultEditingUiTest : ResultEditingUiFixture() {
         val lock = fx(robot) { tab().content.lookup(".result-lock") as Label }
         assertTrue(fx(robot) { lock.isVisible })
         assertEquals("The result comes from several tables or expressions", fx(robot) { lock.tooltip.text })
+    }
+
+    @Test
+    fun `added actions follow Reload in the leading group and the status stays trailing`(robot: FxRobot) {
+        showRows(robot)
+        val bar = fx(robot) { tab().view.pagingBar.node }
+        val leading = fx(robot) { bar.leading.toList() }
+        val reload = fx(robot) { button("Reload") }
+        val index = leading.indexOf(reload)
+        assertTrue(index >= 0)
+        val actions = leading.drop(index + 1)
+        assertEquals(8, actions.size, "six edit actions, transpose and export follow Reload")
+        assertSame(fx(robot) { button("Add Row") }, actions.first(), "the first edit action follows Reload")
+        assertEquals(listOf(true), fx(robot) { bar.trailing.map { "result-status" in it.styleClass } })
     }
 
     @Test

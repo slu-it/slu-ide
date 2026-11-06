@@ -1,15 +1,13 @@
 package dev.sluide.databases.ui.result
 
 import dev.sluide.databases.result.PageState
+import dev.sluide.fileviewers.WrappingToolbar
 import javafx.geometry.Insets
-import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Button
 import javafx.scene.control.Label
 import javafx.scene.control.TextField
 import javafx.scene.control.Tooltip
-import javafx.scene.layout.HBox
-import javafx.scene.layout.Priority
 import javafx.scene.layout.Region
 import org.kordamp.ikonli.javafx.FontIcon
 
@@ -30,8 +28,8 @@ internal class PagingActions(
 )
 
 /**
- * The toolbar above the grid: paging buttons, the page label, the page size field, Reload, a spacer and the status.
- * More buttons are added with [addAction], which places them before the spacer.
+ * The toolbar above the grid: paging buttons, the page label, the page size field, Reload, and, at the right end,
+ * the status. More buttons are added with [addAction], which places them after Reload.
  */
 internal class PagingBar(
     actions: PagingActions,
@@ -55,13 +53,14 @@ internal class PagingBar(
             tooltip = Tooltip("Rows per page")
             setOnAction { actions.pageSize(text) }
         }
-    private val spacer = Region().apply { HBox.setHgrow(this, Priority.ALWAYS) }
     private val status = Label().apply { styleClass += "result-status" }
 
     val node =
-        HBox(4.0, first, previous, next, last, label, pageField, reload, spacer, status).apply {
+        WrappingToolbar().apply {
+            hgap = 4.0
+            leading.setAll(first, previous, next, last, label, pageField, reload)
+            trailing.setAll(status)
             styleClass += "result-toolbar"
-            alignment = Pos.CENTER_LEFT
             padding = Insets(2.0, 6.0, 2.0, 6.0)
         }
 
@@ -77,9 +76,9 @@ internal class PagingBar(
         setOnAction { action() }
     }
 
-    /** Puts [item] after Reload, before the spacer. */
+    /** Puts [item] after the last leading node (Reload or an earlier action); the status stays trailing. */
     fun addAction(item: Node) {
-        node.children.add(node.children.indexOf(spacer), item)
+        node.leading.add(item)
     }
 
     /** [state] null: nothing loaded yet. While [busy] the buttons are disabled. */
