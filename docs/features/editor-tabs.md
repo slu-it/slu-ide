@@ -122,7 +122,7 @@
 - When the tabs do not fit, ‹ and › buttons appear. They scroll the tab row one tab at a time without changing the
   selection. A ▾ dropdown lists every tab that is cut off or out of view, and choosing one selects it and scrolls it
   into view. The selected tab is always scrolled into view when it changes.
-- Structure: `EditorTabs` (model: open tabs, `OpenFile` for files, and the selection), `TabOverflow` (which tabs fit, scroll positions,
+- Structure: `EditorTabs` (model: open tabs and the selection), `OpenFile` (a file's tab), `TabOverflow` (which tabs fit, scroll positions,
   where a dragged tab belongs),
   `TabStrip` (header row and layout), styles in `editor.css`.
 - Not yet implemented: other keyboard shortcuts for tabs (switching), dragging tabs into another window or out of the tab
