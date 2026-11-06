@@ -24,6 +24,13 @@
         -fx-prompt-text-fill: #969696;
     }
 
+    /* A menu takes Modena's -fx-color from the control that opened it: from a menu button still under the pointer
+       that is the hover colour, brighter than Modena's switch to a dark mark colour, so the check marks of radio and
+       check items and the submenu arrows turned dark on the dark menu. Menus work from the base colour instead. */
+    .context-menu {
+        -fx-color: -fx-base;
+    }
+
     /* The Fonts page's editor preview stands for the code editor, so it keeps the editor's colour (after .text-input,
        same specificity). */
     .editor-preview {
