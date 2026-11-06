@@ -5,6 +5,7 @@ import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.IgnoreFileEffects
 import dev.sluide.fileviewers.IgnoreLineEffect
 import dev.sluide.fileviewers.IgnoreRuleEffects
+import dev.sluide.fileviewers.WrappingToolbar
 import dev.sluide.fileviewers.code.CodeView
 import dev.sluide.fileviewers.code.Gutter
 import dev.sluide.fileviewers.languages.IgnoreFileViewer
@@ -120,9 +121,9 @@ class GitignoreFileViewUiTest {
         val tooltip = dotNodes(robot).getValue("2").properties["javafx.scene.control.Tooltip"] as Tooltip
         assertEquals("Ignores 1 path: build/", tooltip.text)
 
-        val row = robot.lookup(".code-editor-toolbar").queryAs(HBox::class.java)
+        val row = robot.lookup(".code-editor-toolbar").queryAs(WrappingToolbar::class.java)
         assertTrue(row.isVisible, "a toolbar of its own")
-        assertSame(view.source.softWrapButton, row.children.first())
+        assertSame(view.source.softWrapButton, row.leading.first())
     }
 
     @Test

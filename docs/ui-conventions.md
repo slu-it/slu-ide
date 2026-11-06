@@ -20,10 +20,15 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   it was, clicking the selected one keeps it selected. The divider position survives hiding a side.
 
 ## Toolbars above views
+- A toolbar at the top of an editor tab is a `WrappingToolbar` (`file-viewers`, ADR 0135), not an `HBox` with a
+  spacer: what came before the spacer goes into `leading`, what came after it into `trailing`; `hgap` (`-fx-hgap`)
+  replaces `HBox(n)`/`-fx-spacing`, `WrappingToolbar.setMargin` replaces `HBox.setMargin`. In a narrow view the
+  trailing controls stay at the right end of the first row and the leading ones wrap onto further rows; a nested
+  `HBox` wraps as one group. Docker logs keep their `ToolBar` with the » overflow.
 - Order from left to right: Soft Wrap (`CodeEditor.softWrapButton`, ADR 0130) in a view that embeds a code editor,
   the view's own left controls (Run, TOC, folds, Copy Formatted, Scripts or image zoom), the
   items code editor extensions contribute (`CodeEditor.toolbarItems`, e.g. Read Aloud; previews place them, in every
-  mode; other views that embed a code editor don't yet), a spacer, the preview's `actions` (e.g. the workflow's
+  mode; other views that embed a code editor don't yet); then, trailing, the preview's `actions` (e.g. the workflow's
   Fetch), Export (hidden in Source), document zoom (ADR 0083) and the
   mode toggles at the far right. Images and diagrams keep their zoom with Fit on the left.
   The extensions' items are a group of their own: previews set them apart by a 12 px gap (twice the gap within a

@@ -6,6 +6,7 @@ import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.GutterColumns
 import dev.sluide.fileviewers.SyntaxHighlighter
 import dev.sluide.fileviewers.TextDiff
+import dev.sluide.fileviewers.WrappingToolbar
 import dev.sluide.fileviewers.code.CodeFileViewer
 import dev.sluide.fileviewers.code.CodeView
 import dev.sluide.fileviewers.highlight.RSyntaxHighlighter
@@ -14,14 +15,10 @@ import dev.sluide.textediting.IndentStyle
 import javafx.application.Platform
 import javafx.beans.property.BooleanProperty
 import javafx.beans.property.SimpleBooleanProperty
-import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.ToggleButton
 import javafx.scene.control.Tooltip
 import javafx.scene.layout.BorderPane
-import javafx.scene.layout.HBox
-import javafx.scene.layout.Priority
-import javafx.scene.layout.Region
 import org.fxmisc.richtext.model.TwoDimensional
 import org.reactfx.Subscription
 import org.springframework.stereotype.Component
@@ -79,13 +76,10 @@ internal class EnvFileView(
 
     /** Soft Wrap on the left (ADR 0130), Show values on the right while the file's values are masked. */
     private val toolbar =
-        HBox(
-            source.softWrapButton,
-            Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
-            showValuesButton,
-        ).apply {
+        WrappingToolbar().apply {
             styleClass += "preview-toolbar"
-            alignment = Pos.CENTER_LEFT
+            leading += source.softWrapButton
+            trailing += showValuesButton
         }
 
     private val pane =

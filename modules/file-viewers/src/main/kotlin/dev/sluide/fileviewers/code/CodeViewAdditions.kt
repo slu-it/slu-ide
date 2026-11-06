@@ -2,14 +2,13 @@ package dev.sluide.fileviewers.code
 
 import dev.sluide.fileviewers.StyledRange
 import dev.sluide.fileviewers.ViewActivity
+import dev.sluide.fileviewers.WrappingToolbar
 import javafx.beans.property.ReadOnlyObjectWrapper
 import javafx.beans.value.ObservableValue
 import javafx.collections.FXCollections
 import javafx.collections.ListChangeListener
 import javafx.collections.ObservableList
-import javafx.geometry.Pos
 import javafx.scene.Node
-import javafx.scene.layout.HBox
 import javafx.scene.layout.VBox
 import javafx.util.Subscription
 import org.fxmisc.richtext.CodeArea
@@ -51,11 +50,11 @@ internal class CodeViewAdditions(
 
 /**
  * The toolbar items of a code view, in the order added; with [ownRow], shown in [row] at the top of the view after the
- * view's own [leading] controls (Soft Wrap, ADR 0130). The row always shows, without items too.
+ * view's [own] controls (Soft Wrap, ADR 0130). The row always shows, without items too.
  */
 internal class ToolbarItems(
     ownRow: Boolean,
-    private val leading: List<Node> = emptyList(),
+    private val own: List<Node> = emptyList(),
 ) {
     private val added = FXCollections.observableArrayList<Node>()
 
@@ -63,20 +62,19 @@ internal class ToolbarItems(
     val items: ObservableList<Node> = FXCollections.unmodifiableObservableList(added)
 
     /** The row showing the [items] in a view of its own; `null` in an embedded view. */
-    val row: HBox? =
+    val row: WrappingToolbar? =
         if (!ownRow) {
             null
         } else {
-            HBox().apply {
+            WrappingToolbar().apply {
                 styleClass += "code-editor-toolbar"
                 // The toolbar's look, shared with the core's other views; its font comes from code-view.css.
                 stylesheets +=
                     checkNotNull(
                         ToolbarItems::class.java.getResource("/dev/sluide/fileviewers/view-toolbar.css"),
                     ).toExternalForm()
-                alignment = Pos.CENTER_LEFT
-                children.setAll(leading + added)
-                added.addListener(ListChangeListener { children.setAll(leading + added) })
+                leading.setAll(own + added)
+                added.addListener(ListChangeListener { leading.setAll(own + added) })
             }
         }
 

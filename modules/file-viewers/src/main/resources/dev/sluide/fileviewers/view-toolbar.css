@@ -2,12 +2,13 @@
  * Toolbars of the views of the core (not the previews): the diff view (SideBySideDiffView), with buttons that jump
  * between changes and one back to the editor, the .env view (EnvFileView), which has the previews' toolbar, and the
  * row of Soft Wrap and the extensions' toolbar items of a code view of its own (.code-editor-toolbar, ToolbarItems).
+ * All three are WrappingToolbars (ADR 0135): -fx-hgap between nodes, rows -fx-vgap (default 2) apart.
  * preview-view.css in previews keeps its own copy of the .preview-toolbar block; keep the two in sync.
  */
 
 .preview-toolbar, .diff-toolbar, .code-editor-toolbar {
     -fx-padding: 2 6 2 6;
-    -fx-spacing: 0;
+    -fx-hgap: 0;
     -fx-background-color: derive(-fx-background, 4%);
     -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
 }

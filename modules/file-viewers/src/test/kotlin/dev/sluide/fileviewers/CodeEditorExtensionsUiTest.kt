@@ -11,7 +11,6 @@ import javafx.scene.control.Label
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.layout.BorderPane
-import javafx.scene.layout.HBox
 import javafx.scene.layout.StackPane
 import javafx.scene.layout.VBox
 import javafx.stage.Stage
@@ -334,13 +333,13 @@ class CodeEditorExtensionsUiTest {
         robot: FxRobot,
     ) {
         val view = shown(robot, DefaultTextFileViewer(), file("notes.txt"))
-        val row = robot.lookup(".code-editor-toolbar").queryAs(HBox::class.java)
+        val row = robot.lookup(".code-editor-toolbar").queryAs(WrappingToolbar::class.java)
         assertTrue(row.isVisible && row.isManaged, "shown without items too")
-        assertEquals(listOf(view.softWrapButton), row.children.toList())
+        assertEquals(listOf(view.softWrapButton), row.leading.toList())
 
         val items = listOf(Label("a"), Label("b"))
         val handle = WaitForAsyncUtils.asyncFx<AutoCloseable> { view.extensible.addToolbarItems(items) }.get()
-        assertEquals(listOf(view.softWrapButton) + items, row.children.toList())
+        assertEquals(listOf(view.softWrapButton) + items, row.leading.toList())
         assertEquals(items, view.toolbarItems.toList())
         assertSame(row, ((view.node as BorderPane).top as VBox).children.first(), "at the very top")
 
@@ -348,7 +347,7 @@ class CodeEditorExtensionsUiTest {
             handle.close()
             handle.close()
         }
-        assertEquals(listOf(view.softWrapButton), row.children.toList())
+        assertEquals(listOf(view.softWrapButton), row.leading.toList())
         assertTrue(view.toolbarItems.isEmpty())
 
         val python = shown(robot, PythonFileViewer(), file("main.py"))

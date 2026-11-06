@@ -5,6 +5,7 @@ import dev.sluide.fileviewers.DiffKind
 import dev.sluide.fileviewers.DiffRow
 import dev.sluide.fileviewers.SyntaxHighlighter
 import dev.sluide.fileviewers.TextDiff
+import dev.sluide.fileviewers.WrappingToolbar
 import dev.sluide.fileviewers.alignDiff
 import dev.sluide.fileviewers.code.codeStyleSpans
 import dev.sluide.fileviewers.code.overlayRanges
@@ -12,7 +13,6 @@ import dev.sluide.fileviewers.textLines
 import dev.sluide.textediting.decodeTextLeniently
 import javafx.application.Platform
 import javafx.beans.value.ChangeListener
-import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Button
 import javafx.scene.control.Label
@@ -21,9 +21,6 @@ import javafx.scene.control.Tooltip
 import javafx.scene.input.KeyCode
 import javafx.scene.input.KeyEvent
 import javafx.scene.layout.BorderPane
-import javafx.scene.layout.HBox
-import javafx.scene.layout.Priority
-import javafx.scene.layout.Region
 import org.fxmisc.flowless.VirtualizedScrollPane
 import org.fxmisc.richtext.CodeArea
 import org.fxmisc.richtext.model.StyleSpans
@@ -126,18 +123,10 @@ internal class SideBySideDiffView(
                     ).toExternalForm()
             }
             top =
-                HBox(
-                    backButton,
-                    counter,
-                    Region().apply { HBox.setHgrow(this, Priority.ALWAYS) },
-                    swapButton,
-                    firstButton,
-                    previousButton,
-                    nextButton,
-                    lastButton,
-                ).apply {
+                WrappingToolbar().apply {
                     styleClass += "diff-toolbar"
-                    alignment = Pos.CENTER_LEFT
+                    leading.setAll(backButton, counter)
+                    trailing.setAll(swapButton, firstButton, previousButton, nextButton, lastButton)
                 }
             addEventFilter(KeyEvent.KEY_PRESSED) { event ->
                 val back = onBack
