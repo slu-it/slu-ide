@@ -301,6 +301,16 @@ File does not react to it while a terminal has the focus.
 | Enter | Submit the row; after the round, the next word |
 | F2 | Next word |
 
+## Doubles
+[doubles.md](doubles.md). No menu key; the keys work while the board has the focus, and not with Shortcut, Ctrl, Meta or Alt.
+
+| Keys | Action |
+|---|---|
+| Arrow keys, W A S D | Move |
+| U, Backspace | Undo the last move |
+| F2 | New game |
+| Mouse drag, trackpad swipe (macOS) | Move |
+
 ## Settings
 [settings.md](settings.md)
 

@@ -1,7 +1,7 @@
 # Idea: Games, what is left for later
 
-**Status:** idea, collected 2026-11-05 while building Minesweeper ([ADR 0131](../adr/0131-games-menu-minesweeper.md)) and Word Guess
-([ADR 0132](../adr/0132-word-guess.md));
+**Status:** idea, collected 2026-11-05 while building Minesweeper ([ADR 0131](../adr/0131-games-menu-minesweeper.md)), Word Guess
+([ADR 0132](../adr/0132-word-guess.md)) and Doubles ([ADR 0136](../adr/0136-doubles.md));
 nothing decided or built. Each needs a decision of its own before it is built.
 
 - **Statistics per size**: games played, won, win rate and streaks next to the best times. Needs a stored record per
@@ -14,8 +14,11 @@ nothing decided or built. Each needs a decision of its own before it is built.
   played, win rate, guess distribution), a **daily word** (needs a calendar and a record per day), **more languages**
   (each needs allowed and answer lists with a usable license) and a **larger German answer list** (the news corpus
   yields few base forms, so it has 1,348 words against 1,868 in English).
-- **Further games** in the `games` module, one package each, as items of the Games menu (Minesweeper and Word Guess
-  exist; for example Solitaire, 2048, Sudoku).
+- **Doubles**: **resuming after a restart** (board and score stored in `shared.json`), **statistics** (games
+  played, highest tile, moves), **more than one undo step** (it would make the best score less meaningful) and a
+  **running game kept per size** (today a size change starts a new game).
+- **Further games** in the `games` module, one package each, as items of the Games menu (Minesweeper, Word Guess and Doubles
+  exist; for example Solitaire, Sudoku).
 - **The WebView variant**: a self-contained HTML, CSS and JS page in a WebView, portable to any web server and freer
   to style. Rejected for Minesweeper (it needs an exception to "Kotlin only", its logic is testable only through
   WebView UI tests); it could be reconsidered for a game that is mostly animation.
