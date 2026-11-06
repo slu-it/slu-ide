@@ -40,7 +40,7 @@ class EditorArea(
     fontSettings: FontSettings,
 ) : BorderPane() {
     internal val editorTabs = EditorTabs()
-    internal val tabStrip = TabStrip(editorTabs, ::confirmClosing, ::selectChosen)
+    internal val tabStrip = TabStrip(editorTabs, Side.LEFT, ::confirmClosing, ::selectChosen)
 
     /**
      * Asked before tabs are closed from the UI if some of them have a [EditorTab.closeWarning]; returns whether to

@@ -39,12 +39,14 @@ private const val ACTIVITY_MARKER = "tab-activity"
 private const val ACTIVITY_DOT_RADIUS = 3.5
 
 /**
- * The row of tab headers above the editor content. When the headers do not fit, arrow buttons scroll the row
- * one tab at a time and a dropdown lists the tabs that are not completely visible. Dragging a header moves its tab;
- * dragging it beyond the edge of a row that does not fit scrolls the row.
+ * The row of tab headers of one [side] above the editor content. When the headers do not fit, arrow buttons scroll the
+ * row one tab at a time and a dropdown lists the tabs that are not completely visible. Dragging a header moves its
+ * tab; dragging it beyond the edge of a row that does not fit scrolls the row.
  */
 internal class TabStrip(
     private val editorTabs: EditorTabs,
+    /** The side whose tabs the row shows. */
+    private val side: Side,
     /** Asked before tabs are closed, e.g. about unsaved changes or running programs; `true` closes them. */
     private val confirmClose: (tabs: List<EditorTab>) -> Boolean = { true },
     /** Selects a tab the user chose, by a click on its header or in the overflow menu; the editor area focuses it. */
@@ -77,8 +79,8 @@ internal class TabStrip(
         styleClass += "tab-strip"
         viewport.clip = viewportClip
         children.addAll(viewport, scrollLeftButton, scrollRightButton, overflowMenu)
-        editorTabs.tabs.subscribe(::rebuildHeaders)
-        editorTabs.selected.subscribe { selected ->
+        editorTabs.tabsOf(side).subscribe(::rebuildHeaders)
+        editorTabs.selectedOf(side).subscribe { selected ->
             headers.forEach { it.pseudoClassStateChanged(SELECTED, it.tab === selected) }
             revealSelected = true
             requestLayout()
@@ -93,11 +95,11 @@ internal class TabStrip(
 
     private fun rebuildHeaders() {
         val old = headers.associateBy { it.tab }
-        headers = editorTabs.tabs.map { old[it] ?: TabHeader(it) }
+        headers = editorTabs.tabsOf(side).map { old[it] ?: TabHeader(it) }
         (old.values - headers.toSet()).forEach { it.dispose() }
         // The dragged tab was closed meanwhile, e.g. because its file was deleted.
         if (drag?.header?.let { it !in headers } == true) endDrag()
-        headers.forEach { it.pseudoClassStateChanged(SELECTED, it.tab === editorTabs.selected.get()) }
+        headers.forEach { it.pseudoClassStateChanged(SELECTED, it.tab === editorTabs.selectedOf(side).get()) }
         // Only when tabs were opened or closed: a moved tab keeps its header in the scene, so a drag in progress keeps
         // getting the mouse events. The order of the children does not matter, layoutChildren places them.
         if (viewport.children.size != headers.size || !viewport.children.containsAll(headers)) {
@@ -156,7 +158,7 @@ internal class TabStrip(
         // While dragging, the row scrolls only beyond its edges; the dropped tab is revealed when the drag ends.
         if (revealSelected && drag == null) {
             revealSelected = false
-            val selected = headers.indexOfFirst { it.tab === editorTabs.selected.get() }
+            val selected = headers.indexOfFirst { it.tab === editorTabs.selectedOf(side).get() }
             if (selected >= 0) first = overflow.reveal(selected, first)
         }
         scrollLeftButton.isDisable = first == 0
@@ -208,7 +210,7 @@ internal class TabStrip(
         val widths = headerWidths()
         val overflow = TabOverflow(widths, viewport.width)
         val index = overflow.dropIndex(headers.indexOf(drag.header), dragLeft(widths, viewport.width))
-        if (index != editorTabs.tabs.indexOf(drag.header.tab)) editorTabs.move(drag.header.tab, index)
+        if (index != editorTabs.tabsOf(side).indexOf(drag.header.tab)) editorTabs.move(drag.header.tab, index)
         requestLayout()
     }
 
@@ -393,14 +395,15 @@ internal class TabStrip(
                 closeLeft,
                 closeRight,
                 SeparatorMenuItem(),
-                item("Close All") { close(editorTabs.tabs.toList()) { editorTabs.closeAll() } },
+                item("Close All") { close(editorTabs.tabsOf(side).toList()) { editorTabs.closeAll(side) } },
             ).apply {
                 styleClass += "tab-context-menu"
                 setOnShowing {
-                    val index = editorTabs.tabs.indexOf(tab)
-                    closeOthers.isDisable = editorTabs.tabs.size <= 1
+                    val sideTabs = editorTabs.tabsOf(side)
+                    val index = sideTabs.indexOf(tab)
+                    closeOthers.isDisable = sideTabs.size <= 1
                     closeLeft.isDisable = index <= 0
-                    closeRight.isDisable = index >= editorTabs.tabs.lastIndex
+                    closeRight.isDisable = index >= sideTabs.lastIndex
                     // Only for files, and only while the window offers it.
                     items.removeAll(fileItems)
                     if (file != null) {

@@ -61,6 +61,22 @@ class EditorAreaFileClosedUiTest : EditorAreaUiFixture() {
     }
 
     @Test
+    fun `moving a file tab to the other side and back keeps its watch and reports nothing`(robot: FxRobot) {
+        val a = textFile("a.txt")
+        val b = textFile("b.txt")
+        open(robot, a, b)
+        val tab = checkNotNull(editor.editorTabs.find(a))
+
+        for (side in listOf(Side.RIGHT, Side.LEFT)) {
+            robot.interact { editor.editorTabs.moveTo(tab, side, 0) }
+
+            assertEquals(side, editor.editorTabs.sideOf(tab))
+            assertEquals(2, editor.watchCount, "after the move to the $side side")
+        }
+        assertEquals(emptyList(), closed)
+    }
+
+    @Test
     fun `closing a tab that shows no file reports nothing`(robot: FxRobot) {
         val terminal = WarningTab("Terminal 1", null)
         robot.interact { editor.open(terminal) }
