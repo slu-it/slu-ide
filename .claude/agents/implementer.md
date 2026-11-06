@@ -54,4 +54,8 @@ Sandbox rules:
 Stop and report instead of guessing when the brief leaves a design decision open or the code contradicts it
 (missing API, conflicting test, change needed outside the named files). Say what you found and what you would need.
 
+Each commit compiles with its tests on its own (bisecting relies on it): a moved or renamed class takes every import
+it breaks, tests included, into the same commit, and a production fix found while writing tests goes into the commit
+that added that code (a `fixup!`), not into the test commit. Check with `git show --stat` before reporting.
+
 Report briefly: commits, build and test result, deviations from the brief. No code dumps.
