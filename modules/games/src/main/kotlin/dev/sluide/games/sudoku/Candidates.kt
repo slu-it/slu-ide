@@ -36,9 +36,16 @@ internal class Candidates(
         mask: Int,
     ): Boolean {
         if (digits[index] != 0 || masks[index] and mask == 0) return false
+        removed?.let { log ->
+            val gone = masks[index] and mask
+            for (d in 1..size.side) if (gone and (1 shl d) != 0) log.add(index to d)
+        }
         masks[index] = masks[index] and mask.inv()
         return true
     }
+
+    /** When set, [eliminate] records every removed (cell index, digit); used to check the techniques. */
+    var removed: MutableList<Pair<Int, Int>>? = null
 
     /** Bits of the digits already placed in [unit]. */
     fun placedMask(unit: IntArray): Int {
