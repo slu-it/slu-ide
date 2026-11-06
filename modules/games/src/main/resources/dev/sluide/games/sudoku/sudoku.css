@@ -1,0 +1,140 @@
+/*
+ * The Sudoku tab. Pane, toolbar and pad buttons use Modena's looked-up colours and follow the theme. The cell shades
+ * (selection, peers, same digit), the entry blue, the conflict red and the flash tints are our own and have a dark
+ * counterpart in the media block below. In that block the rules are single-class selectors, and they come after the
+ * ones they override, in the same order as the light rules.
+ */
+.sudoku {
+    -fx-background-color: -fx-background;
+}
+
+/* Like .dbl-toolbar of Doubles; keep in sync. */
+.sdk-toolbar {
+    -fx-padding: 2 6 2 6;
+    -fx-background-color: derive(-fx-background, 4%);
+    -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
+}
+
+.sdk-toolbar .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.sdk-pad .ikonli-font-icon {
+    -fx-icon-color: -fx-text-base-color;
+}
+
+.sdk-status-bar {
+    -fx-padding: 2 8 2 8;
+}
+
+.sdk-status {
+    -fx-opacity: 0.7;
+    -fx-min-height: 1.4em;
+}
+
+.sdk-scroll, .sdk-scroll > .viewport {
+    -fx-background-color: transparent;
+}
+
+.sdk-generating {
+    -fx-font-size: 1.4em;
+    -fx-opacity: 0.7;
+}
+
+/* The thick outer line; the lines between the boxes are the thick sides of the cells. */
+.sdk-board {
+    -fx-border-color: -fx-text-base-color;
+    -fx-border-width: 2;
+}
+
+.sdk-cell {
+    -fx-background-color: derive(-fx-background, 8%);
+    -fx-border-color: derive(-fx-background, -30%);
+    -fx-border-width: 0.5;
+}
+
+.sdk-box-right {
+    -fx-border-color: derive(-fx-background, -30%) -fx-text-base-color derive(-fx-background, -30%) derive(-fx-background, -30%);
+    -fx-border-width: 0.5 2 0.5 0.5;
+}
+
+.sdk-box-bottom {
+    -fx-border-color: derive(-fx-background, -30%) derive(-fx-background, -30%) -fx-text-base-color derive(-fx-background, -30%);
+    -fx-border-width: 0.5 0.5 2 0.5;
+}
+
+.sdk-box-right.sdk-box-bottom {
+    -fx-border-color: derive(-fx-background, -30%) -fx-text-base-color -fx-text-base-color derive(-fx-background, -30%);
+    -fx-border-width: 0.5 2 2 0.5;
+}
+
+.sdk-peer { -fx-background-color: #e3ecf7; }
+.sdk-same { -fx-background-color: #c5d9f1; }
+.sdk-selected { -fx-background-color: #a9c8f0; }
+.sdk-given.sdk-conflict { -fx-background-color: #f8c9c9; }
+
+.sdk-digit {
+    -fx-alignment: center;
+}
+
+.sdk-digit-given {
+    -fx-font-weight: bold;
+    -fx-text-fill: -fx-text-base-color;
+}
+
+.sdk-digit-entry { -fx-text-fill: #1565c0; }
+.sdk-digit-conflict { -fx-text-fill: #d32f2f; }
+
+.sdk-note {
+    -fx-opacity: 0.6;
+}
+
+.sdk-note-same {
+    -fx-opacity: 1;
+    -fx-font-weight: bold;
+}
+
+.sdk-flash { -fx-background-color: #43a047; }
+.sdk-flash-wrong { -fx-background-color: #e53935; }
+
+.sdk-pad-button {
+    -fx-padding: 0;
+}
+
+.sdk-pad-digit {
+    -fx-font-weight: bold;
+}
+
+.sdk-pad-remaining {
+    -fx-opacity: 0.6;
+}
+
+.sdk-pad-done .sdk-pad-digit, .sdk-pad-done .sdk-pad-remaining {
+    -fx-opacity: 0.35;
+}
+
+/* Notes mode: the digits are drawn small and italic like the notes in the cells. */
+.sdk-pad-notes .sdk-pad-digit {
+    -fx-font-size: 1.1em !important;
+    -fx-font-style: italic;
+    -fx-font-weight: normal;
+}
+
+.sdk-pad .toggle-button:selected {
+    -fx-background-color: -fx-accent;
+}
+
+.sdk-pad .toggle-button:selected .ikonli-font-icon {
+    -fx-icon-color: -fx-selection-bar-text;
+}
+
+@media (prefers-color-scheme: dark) {
+    .sdk-peer { -fx-background-color: #33414f; }
+    .sdk-same { -fx-background-color: #3f5a78; }
+    .sdk-selected { -fx-background-color: #4a6f99; }
+    .sdk-given.sdk-conflict { -fx-background-color: #6b2c2c; }
+    .sdk-digit-entry { -fx-text-fill: #64b5f6; }
+    .sdk-digit-conflict { -fx-text-fill: #ef5350; }
+    .sdk-flash { -fx-background-color: #66bb6a; }
+    .sdk-flash-wrong { -fx-background-color: #ef5350; }
+}
