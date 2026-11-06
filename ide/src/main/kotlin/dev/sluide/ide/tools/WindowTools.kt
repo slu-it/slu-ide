@@ -10,6 +10,7 @@ import dev.sluide.dockersandbox.SandboxAction
 import dev.sluide.dockersandbox.SandboxNotAllowedException
 import dev.sluide.editorarea.EditorArea
 import dev.sluide.games.Minesweeper
+import dev.sluide.games.WordGuess
 import dev.sluide.ide.ProjectService
 import dev.sluide.ide.isMac
 import dev.sluide.speech.ReadAloud
@@ -30,7 +31,8 @@ import java.nio.file.Path
  * The tools of one window: the Terminal and Docker Sandbox menus with the terminal tabs they open in the
  * [editorArea], the Tools menu with the Coloring, Codecs, Converting, Read Aloud and Translate tabs (ADR 0110,
  * ADR 0112, ADR 0115, ADR 0124, ADR 0126), the Services menu with the Docker and Databases tabs (ADR 0118,
- * ADR 0121) and the Games menu with the Minesweeper tab (ADR 0131). [showError] shows why a tool cannot be started.
+ * ADR 0121) and the Games menu with the Minesweeper and Word Guess tabs (ADR 0131, 0132). [showError] shows why a
+ * tool cannot be started.
  * Used on the JavaFX thread.
  */
 internal class WindowTools(
@@ -47,6 +49,7 @@ internal class WindowTools(
     docker: Docker,
     databases: Databases,
     minesweeper: Minesweeper,
+    wordGuess: WordGuess,
     /** Opens a web page in the system browser. */
     openWebPage: (URI) -> Unit,
     private val showError: (Stage, String) -> Unit,
@@ -104,13 +107,16 @@ internal class WindowTools(
     /** The Minesweeper tool of the Games menu; it has no key binding. */
     internal val minesweeperTool = WindowTool("Minesweeper", minesweeper::createTab)
 
+    /** The Word Guess tool of the Games menu; it has no key binding. */
+    internal val wordGuessTool = WindowTool("Word Guess", wordGuess::createTab)
+
     /** The Games menu logic; tests choose tools through it. */
     internal val gamesMenu =
         ToolsMenu(
             { editorArea.tabs },
             editorArea::open,
             editorArea::select,
-            listOf(minesweeperTool),
+            listOf(minesweeperTool, wordGuessTool),
             "Games",
         )
 
@@ -129,6 +135,7 @@ internal class WindowTools(
         databases.openTab = { editorArea.open(it) }
         databases.projectFolder.bind(projectService.projectFolder)
         minesweeper.showTab = { gamesMenu.open(minesweeperTool) }
+        wordGuess.showTab = { gamesMenu.open(wordGuessTool) }
     }
 
     /** The Tools menu: Coloring, Codecs, Converting, Read Aloud, Translate. */
@@ -137,7 +144,7 @@ internal class WindowTools(
     /** The Services menu: Docker, Databases. */
     fun servicesMenu(): Menu = servicesMenu.menu()
 
-    /** The Games menu: Minesweeper. */
+    /** The Games menu: Minesweeper and Word Guess. */
     fun gamesMenu(): Menu = gamesMenu.menu()
 
     /** The Terminal menu: New Terminal. */

@@ -274,11 +274,11 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
     }
 
     @Test
-    fun `Games - Minesweeper opens one tab, a second choice selects it, and show opens it again once closed`(
+    fun `Games - each item opens one tab, a second choice selects it, and show opens it again once closed`(
         robot: FxRobot,
     ) {
-        assertEquals(listOf("Minesweeper"), menu(robot, "Games").items.map { it.text })
-        val item = menu(robot, "Games").items.single()
+        assertEquals(listOf("Minesweeper", "Word Guess"), menu(robot, "Games").items.map { it.text })
+        val (item, wordGuessItem) = menu(robot, "Games").items
 
         robot.interact { item.fire() }
         robot.interact { item.fire() }
@@ -292,6 +292,17 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
 
         assertEquals(listOf("Minesweeper"), tabTitles(robot))
         assertEquals("Play Minesweeper while you wait", checkNotNull(editorArea.selectedTab).tooltip)
+
+        robot.interact { wordGuessItem.fire() }
+        robot.interact { wordGuessItem.fire() }
+
+        assertEquals(listOf("Minesweeper", "Word Guess"), tabTitles(robot))
+        assertEquals("Word Guess", checkNotNull(editorArea.selectedTab).title.value)
+
+        robot.interact { editorArea.closeAll() }
+        robot.interact { wordGuesses.single().showTab() }
+
+        assertEquals(listOf("Word Guess"), tabTitles(robot))
     }
 
     @Test

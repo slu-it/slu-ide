@@ -27,7 +27,9 @@ import dev.sluide.fileviewers.FileViewers
 import dev.sluide.fileviewers.SoftWrap
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.games.Minesweeper
+import dev.sluide.games.WordGuess
 import dev.sluide.games.minesweeper.MinesweeperPreferences
+import dev.sluide.games.wordguess.WordGuessPreferences
 import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCommits
 import dev.sluide.git.GitFileComparison
@@ -183,6 +185,7 @@ class ProjectWindowsUiTest {
                 register(DockerSettings::class.java)
                 register(DockerRunStore::class.java)
                 register(MinesweeperPreferences::class.java)
+                register(WordGuessPreferences::class.java)
                 register(ConnectionStore::class.java)
                 register(PasswordCache::class.java)
                 register(QueryHistory::class.java)
@@ -240,6 +243,7 @@ class ProjectWindowsUiTest {
                     Docker::class.java,
                     Databases::class.java,
                     Minesweeper::class.java,
+                    WordGuess::class.java,
                 )
                 refresh()
             }
