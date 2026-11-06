@@ -277,8 +277,11 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
     fun `Games - each item opens one tab, a second choice selects it, and show opens it again once closed`(
         robot: FxRobot,
     ) {
-        assertEquals(listOf("Minesweeper", "Word Guess", "Doubles"), menu(robot, "Games").items.map { it.text })
-        val (item, wordGuessItem, doublesItem) = menu(robot, "Games").items
+        assertEquals(
+            listOf("Minesweeper", "Word Guess", "Doubles", "Sudoku"),
+            menu(robot, "Games").items.map { it.text },
+        )
+        val (item, wordGuessItem, doublesItem, sudokuItem) = menu(robot, "Games").items
         robot.interact { robot.lookup(".tree-view").query<Node>().requestFocus() }
 
         robot.interact { item.fire() }
@@ -318,6 +321,17 @@ class MainWindowToolsUiTest : MainWindowUiFixture() {
         robot.interact { doublesGames.single().showTab() }
 
         assertEquals(listOf("Doubles"), tabTitles(robot))
+
+        robot.interact { sudokuItem.fire() }
+        robot.interact { sudokuItem.fire() }
+
+        assertEquals(listOf("Doubles", "Sudoku"), tabTitles(robot))
+        assertEquals("Sudoku", checkNotNull(editorArea.selectedTab).title.value)
+
+        robot.interact { editorArea.closeAll() }
+        robot.interact { sudokuGames.single().showTab() }
+
+        assertEquals(listOf("Sudoku"), tabTitles(robot))
     }
 
     private fun focusIsInSelectedTab(): Boolean {

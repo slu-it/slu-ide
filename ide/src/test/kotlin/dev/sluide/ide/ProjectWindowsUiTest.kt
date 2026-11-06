@@ -28,9 +28,11 @@ import dev.sluide.fileviewers.SoftWrap
 import dev.sluide.filewatcher.FileWatcher
 import dev.sluide.games.Doubles
 import dev.sluide.games.Minesweeper
+import dev.sluide.games.Sudoku
 import dev.sluide.games.WordGuess
 import dev.sluide.games.doubles.DoublesPreferences
 import dev.sluide.games.minesweeper.MinesweeperPreferences
+import dev.sluide.games.sudoku.SudokuPreferences
 import dev.sluide.games.wordguess.WordGuessPreferences
 import dev.sluide.git.GitBranches
 import dev.sluide.git.GitCommits
@@ -189,6 +191,7 @@ class ProjectWindowsUiTest {
                 register(MinesweeperPreferences::class.java)
                 register(WordGuessPreferences::class.java)
                 register(DoublesPreferences::class.java)
+                register(SudokuPreferences::class.java)
                 register(ConnectionStore::class.java)
                 register(PasswordCache::class.java)
                 register(QueryHistory::class.java)
@@ -248,6 +251,7 @@ class ProjectWindowsUiTest {
                     Minesweeper::class.java,
                     WordGuess::class.java,
                     Doubles::class.java,
+                    Sudoku::class.java,
                 )
                 refresh()
             }
