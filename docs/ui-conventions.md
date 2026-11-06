@@ -51,7 +51,7 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
 
 ## Tool and service tabs
 - Tools menu (Coloring, Codecs, Converting, Read Aloud, Translate), Services menu (Docker, Databases) and Games menu
-  (Minesweeper, Word Guess, Doubles) after Docker Sandbox in the menu bar (ADR 0110, 0118, 0121, 0131, 0132, 0136), then Help (Capture Diagnostics, Reveal Diagnostics Folder, About Thoreau; ADR 0127) last. A tool is a `WindowTool` in `ide` (`ide/.../tools/ToolsMenu.kt`), not a module API.
+  (Minesweeper, Word Guess, Doubles, Sudoku) after Docker Sandbox in the menu bar (ADR 0110, 0118, 0121, 0131, 0132, 0136, 0137), then Help (Capture Diagnostics, Reveal Diagnostics Folder, About Thoreau; ADR 0127) last. A tool is a `WindowTool` in `ide` (`ide/.../tools/ToolsMenu.kt`), not a module API.
 - One tab per window: the menu selects the open tab or creates one. Closes with Shortcut+W without a question and is
   not restored after a restart. Tools have no key binding; a service may get an Alt+N panel key (Docker: Alt+8,
   Databases: Alt+7).
@@ -59,7 +59,7 @@ Safety of file operations, runs, secrets and network: `.claude/rules/safety.md`.
   `openScratch`, ...) in `WindowTools` or `MainWindow`; a callback left unset fails silently, so the wiring gets a
   test.
 - State lives in the window and outlives the tab; anything stored is opt-in per tool and never holds pasted secrets
-  (Codecs and Converting store nothing; Read Aloud stores the last voice and speed user-wide, Translate the last source, target and quality; neither the text; Word Guess the last language; Doubles the last size and best scores).
+  (Codecs and Converting store nothing; Read Aloud stores the last voice and speed user-wide, Translate the last source, target and quality; neither the text; Word Guess the last language; Doubles the last size and best scores; Sudoku the last size and level and the best times).
 - A game tab sets `EditorTab.focusOnShow`: the editor area focuses its content when it is opened or chosen (ADR 0050),
   and the view passes the focus on to its board or grid with `FocusWhenShown`, as that is in a scene only after the
   first layout.

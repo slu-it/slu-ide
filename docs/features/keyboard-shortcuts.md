@@ -311,6 +311,22 @@ File does not react to it while a terminal has the focus.
 | F2 | New game |
 | Mouse drag, trackpad swipe (macOS) | Move |
 
+## Sudoku
+[sudoku.md](sudoku.md). No menu key; the keys work while the board has the focus, and not with Ctrl, Meta or Alt (with Shortcut only Z and Shift+Z count).
+
+| Keys | Action |
+|---|---|
+| Arrow keys, W A S D | Move the selection |
+| 1 to N | Place a digit (a note in Notes mode) |
+| Shift+digit | Toggle a note |
+| 0, Backspace, Delete | Erase the digit, or the notes of a cell without one |
+| N | Notes mode on or off |
+| H | Hint (+30 s) |
+| P | Pause or resume |
+| F2 | New game |
+| U, Shortcut+Z | Undo |
+| Shift+U, Shortcut+Shift+Z | Redo |
+
 ## Settings
 [settings.md](settings.md)
 
