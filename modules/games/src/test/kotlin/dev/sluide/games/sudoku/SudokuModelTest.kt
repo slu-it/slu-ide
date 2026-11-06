@@ -11,6 +11,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -262,6 +263,25 @@ class SudokuModelTest {
         fail = false
         model.newGame()
         assertNotNull(model.game)
+    }
+
+    @Test
+    fun `a prefetch that throws an error does not block New Game`() {
+        var calls = 0
+        val errorOnSecond: (SudokuSize, Level) -> Puzzle = { s, l ->
+            calls++
+            if (calls == 2) throw StackOverflowError() else generate(s, l)
+        }
+        val model = SudokuModel(preferences, errorOnSecond, queued, sync, GameClock { now })
+        model.ensureGame()
+        runQueued()
+        val first = model.game
+
+        model.newGame()
+        runQueued()
+
+        assertNotNull(model.game)
+        assertNotSame(first, model.game)
     }
 
     @Test

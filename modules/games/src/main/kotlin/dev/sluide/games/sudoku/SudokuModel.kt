@@ -325,7 +325,8 @@ internal class SudokuModel(
     ): Puzzle? =
         try {
             generate(s, l)
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
+            // Errors too (a deep recursion, say): without a result the model would wait for the generator forever.
             System
                 .getLogger(SudokuModel::class.java.name)
                 .log(System.Logger.Level.WARNING, "Sudoku puzzle generation failed", e)
