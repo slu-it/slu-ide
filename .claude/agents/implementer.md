@@ -29,7 +29,9 @@ update and docs to read.
    `--changed` refuses when it would run more than 12 UI test classes: then drop `--changed` and name the classes plus a
    `:module` target for each module you touched. Never run `./gradlew build` or an unfiltered `uiTest`: the main session
    runs the full build after the last review. Report the command and its last line; `verify: INCOMPLETE` (UI tests not
-   run) is not a pass.
+   run) is not a pass. Then run `.claude/scripts/check-unused-imports.sh` and remove what it lists in files you changed:
+   ktlint keeps imports that a removal left unused (e.g. `HBox`, `Priority` after dropping a spacer), but the full
+   build fails on them.
 6. Update `docs/` and `docs/index.md` when behavior, structure or decisions change. A new, changed or removed key
    binding (accelerator, key combination, `InputMap` entry, key handler) also goes into
    `docs/features/keyboard-shortcuts.md` (`.claude/rules/key-bindings.md`); check there first that the keys are free.
