@@ -12,6 +12,9 @@
   in the user's interactive login shell (`$SHELL -l -i -c`, the startup files of a terminal tab), so `sbx` must
   be on its `PATH`. When `sbx` ends, the tab shows
   "(exited)".
+- Copying in Claude Code puts the text on the system clipboard (OSC 52,
+  [ADR 0133](../adr/0133-terminal-osc-52-clipboard.md)). Claude Code takes the mouse, so to copy with Thoreau's own
+  selection, Shift+drag and then Ctrl+Shift+C (Cmd+Shift+C on macOS).
 - **Without `sbx` the whole menu is disabled.** Each window checks once, in the background when it opens, whether
   `command -v sbx` succeeds in the login shell; the menu stays disabled until that has found `sbx`. A shell that cannot
   be started or takes longer than 10 seconds counts as "not found". `sbx` installed while a window is open is picked

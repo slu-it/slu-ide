@@ -61,6 +61,10 @@
   still selects text; the right button always opens the context menu.
 - Copy and paste: dragging selects text. Ctrl+Shift+C / Ctrl+Shift+V (Cmd+Shift+C/V on macOS) or the context menu
   copy it and paste the clipboard. Pastes use bracketed paste when the shell asks for it.
+- Programs can put text on the clipboard with OSC 52 (e.g. Claude Code's copy, tmux, neovim, also over ssh); any
+  target means the system clipboard, payloads over 4 MiB of base64 are ignored. Programs can never read the clipboard:
+  OSC 52 queries are not answered. When a program takes the mouse, Shift+drag still selects text for Thoreau's own copy
+  ([ADR 0133](../adr/0133-terminal-osc-52-clipboard.md)).
 - Other modules can run a command in a terminal tab: `Terminals.open(folder, name, command)` runs it with
   `$SHELL -l -i -c` (an interactive login shell, so the same startup files as a tab apply, e.g. `.zshrc`;
   [ADR 0087](../adr/0087-commands-in-an-interactive-login-shell.md)) in a tab with the given name; the tab shows
@@ -80,6 +84,9 @@
   `TerminalTab` (`EditorTab`), `EmbeddedTerminal` with `EmbeddedTerminalView` (one-command terminal for another
   view), `TerminalView` (canvas, input, selection; JediTerm `TerminalDisplay`),
   `TerminalPainter` (`TerminalPainter.kt`: draws the canvas), `TerminalSession` (pty4j process and JediTerm emulator),
+  `Osc52Filter` (takes OSC 52 out of the output as it is read, before JediTerm; decoded by `clipboardText` in
+  `Osc52.kt`),
+  `copyToClipboard` (`ClipboardCopy.kt`, on the FX thread),
   `TerminalKeys` (key translation), `TerminalMouse` (mouse translation), `ScrollAccumulator` (scroll speeds, fractions
   of lines), `TerminalColors` (palette), `settings` package: `TerminalScrollSettings` (Spring bean, trackpad and wheel
   speed), `TerminalScrollPage` with `TerminalScrollPageModel` (Terminal → Scrolling,
