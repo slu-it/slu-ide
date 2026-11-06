@@ -1,6 +1,7 @@
 package dev.sluide.previews.preview
 
 import dev.sluide.fileviewers.FileView
+import dev.sluide.fileviewers.WrappingToolbar
 import dev.sluide.previews.html.HtmlFileViewer
 import dev.sluide.previews.json.JsonFileViewer
 import dev.sluide.previews.keyPress
@@ -16,7 +17,6 @@ import javafx.scene.Scene
 import javafx.scene.control.Button
 import javafx.scene.control.ToggleButton
 import javafx.scene.input.KeyCode
-import javafx.scene.layout.HBox
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
 import org.junit.jupiter.api.AfterEach
@@ -184,7 +184,7 @@ class DocumentZoomUiTest {
         assertEquals(scale, view.webZoom(), 1e-9)
     }
 
-    private fun PreviewFileView.toolbar() = fx { node.lookup(".preview-toolbar") as HBox }
+    private fun PreviewFileView.toolbar() = fx { node.lookup(".preview-toolbar") as WrappingToolbar }
 
     @Test
     fun `the controls show in Split and Preview, not in Source, as three buttons before the mode toggles`(
@@ -211,7 +211,7 @@ class DocumentZoomUiTest {
                 fx {
                     view
                         .toolbar()
-                        .children
+                        .let { it.leading + it.trailing }
                         .filterIsInstance<ToggleButton>()
                         .filter { it.text == "Fit" }
                 },
@@ -219,7 +219,7 @@ class DocumentZoomUiTest {
             assertZoom(view, 1.0, "100%")
 
             // After the action buttons and directly before the mode toggles.
-            val children = fx { view.toolbar().children.toList() }
+            val children = fx { view.toolbar().trailing.toList() }
             val modes = PreviewMode.entries.size
             val index = children.indexOf(view.zoom.node)
             assertEquals(children.size - modes - 1, index, "directly before the mode toggles")
@@ -264,20 +264,19 @@ class DocumentZoomUiTest {
     fun `the left of the toolbar keeps the buttons of the preview`(robot: FxRobot) {
         // Soft Wrap of the source comes first (ADR 0130), then the preview's own buttons.
         val json = showAtOnce(robot, kinds[0])
-        val jsonChildren = fx { json.toolbar().children.toList() }
+        val jsonChildren = fx { json.toolbar().leading.toList() }
         assertSame(json.source.softWrapButton, jsonChildren[0], "Soft Wrap first")
         assertSame(json.folds!!.node, jsonChildren[1], "then Collapse and Expand")
         assertSame(json.copyFormatted!!.node, jsonChildren[2], "then Copy Formatted")
 
         val markdown = showAtOnce(robot, kinds[1])
-        assertSame(
-            markdown.toc!!.button,
-            fx { markdown.toolbar().children[1] },
-            "the table of contents after Soft Wrap",
-        )
+        val markdownLeading = fx { markdown.toolbar().leading.toList() }
+        assertEquals(3, markdownLeading.size, "Soft Wrap, the table of contents and the contributed items")
+        assertSame(markdown.source.softWrapButton, markdownLeading[0], "Soft Wrap first")
+        assertSame(markdown.toc!!.button, markdownLeading[1], "the table of contents after Soft Wrap")
 
         val html = showAtOnce(robot, kinds[2])
-        val first = fx { html.toolbar().children[1] }
+        val first = fx { html.toolbar().leading[1] }
         assertTrue(first is ToggleButton && first.text == "Scripts", "Scripts after Soft Wrap")
         assertFalse(html.scripts.get(), "scripts are off by default")
     }

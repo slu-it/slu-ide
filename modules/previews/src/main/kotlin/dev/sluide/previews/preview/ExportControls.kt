@@ -2,6 +2,7 @@ package dev.sluide.previews.preview
 
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.backgroundtasks.NamedThreads
+import dev.sluide.fileviewers.WrappingToolbar
 import javafx.application.Platform
 import javafx.geometry.Insets
 import javafx.scene.control.Alert
@@ -11,7 +12,6 @@ import javafx.scene.control.ButtonType
 import javafx.scene.control.MenuButton
 import javafx.scene.control.MenuItem
 import javafx.scene.control.Tooltip
-import javafx.scene.layout.HBox
 import javafx.stage.Window
 import org.kordamp.ikonli.javafx.FontIcon
 import org.kordamp.ikonli.materialdesign2.MaterialDesignE
@@ -46,7 +46,7 @@ internal class ExportControls(
             // A click leaves the focus where it is.
             isFocusTraversable = false
             // Apart from the document zoom or the mode toggles after it in the toolbar.
-            HBox.setMargin(this, Insets(0.0, GAP, 0.0, 0.0))
+            WrappingToolbar.setMargin(this, Insets(0.0, GAP, 0.0, 0.0))
             items += exports.map { item -> MenuItem(item.label).apply { setOnAction { export(item) } } }
         }
 

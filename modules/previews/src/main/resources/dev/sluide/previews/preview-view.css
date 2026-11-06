@@ -13,7 +13,7 @@
 /* Keep in sync with view-toolbar.css in file-viewers, which styles the same toolbar for the .env view. */
 .preview-toolbar {
     -fx-padding: 2 6 2 6;
-    -fx-spacing: 0;
+    -fx-hgap: 0;
     -fx-background-color: derive(-fx-background, 4%);
     -fx-border-color: transparent transparent derive(-fx-background, -12%) transparent;
 }

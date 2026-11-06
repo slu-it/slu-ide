@@ -5,6 +5,7 @@ import dev.sluide.fileviewers.ExtensibleCodeEditor
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.ViewActivity
 import dev.sluide.fileviewers.WindowServices
+import dev.sluide.fileviewers.WrappingToolbar
 import dev.sluide.previews.html.HtmlFileViewer
 import dev.sluide.previews.markdown.MarkdownFileViewer
 import javafx.application.ColorScheme
@@ -146,10 +147,10 @@ class PreviewFileViewUiTest {
     @Test
     fun `the soft wrap button comes first in the toolbar and hides in the preview`(robot: FxRobot) {
         val (_, view) = show(robot, "# Title\n")
-        val toolbar = robot.lookup(".preview-toolbar").queryAs(HBox::class.java)
+        val toolbar = robot.lookup(".preview-toolbar").queryAs(WrappingToolbar::class.java)
         val button = view.source.softWrapButton
 
-        assertSame(button, toolbar.children.first())
+        assertSame(button, toolbar.leading.first())
         assertTrue(button.isVisible && button.isManaged, "visible in Split")
 
         robot.interact { robot.modeButton(PreviewMode.PREVIEW).fire() }
@@ -157,7 +158,7 @@ class PreviewFileViewUiTest {
 
         robot.interact { robot.modeButton(PreviewMode.SOURCE).fire() }
         assertTrue(button.isVisible && button.isManaged, "visible in Source")
-        assertSame(button, toolbar.children.first())
+        assertSame(button, toolbar.leading.first())
     }
 
     @Test
@@ -328,7 +329,7 @@ class PreviewFileViewUiTest {
                 )
         }
         val editor = editors.single()
-        val toolbar = robot.lookup(".preview-toolbar").query<HBox>()
+        val toolbar = robot.lookup(".preview-toolbar").query<WrappingToolbar>()
         val item = Label("Read")
         val handle = WaitForAsyncUtils.asyncFx<AutoCloseable> { editor.addToolbarItems(listOf(item)) }.get()
         WaitForAsyncUtils.waitForFxEvents()
@@ -336,7 +337,7 @@ class PreviewFileViewUiTest {
         val toc = robot.lookup(".toc-button").query<Node>()
         val box = robot.lookup(".preview-contributed").query<HBox>()
         fx {
-            assertEquals(toolbar.children.indexOf(toc) + 1, toolbar.children.indexOf(box), "right after the TOC button")
+            assertEquals(toolbar.leading.indexOf(toc) + 1, toolbar.leading.indexOf(box), "right after the TOC button")
             assertEquals(listOf<Node>(item), box.children.toList())
             // A group of its own: set apart from the table of contents by a wider gap.
             val gap = box.boundsInParent.minX - toc.boundsInParent.maxX

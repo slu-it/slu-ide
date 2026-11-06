@@ -52,8 +52,9 @@
   the saved text, so with unsaved edits above a heading it may land a little off, as the scroll sync does.
 - Toolbar layout: the Soft Wrap toggle (first, hidden in Preview mode; [soft-wrap.md](soft-wrap.md)), the table of
   contents toggle, then, after a wider gap, items that code editor extensions add to the source (such as
-  Read Aloud; shown in every mode), a spacer, Export and the zoom and mode toggles on the right. Export is hidden while
-  only the source shows.
+  Read Aloud; shown in every mode), Export and the zoom and mode toggles on the right. Export is hidden while
+  only the source shows. In a narrow view the toolbar wraps: the right group stays at the top right and the left
+  controls continue on rows below ([ADR 0135](../adr/0135-wrapping-toolbars.md)).
 - Export: the toolbar's export menu (on the right, before the zoom) writes the document as a self-contained
   HTML file beside it: [markdown-export.md](markdown-export.md).
 - Known gaps: the diff of a modified file ([git-diff.md](git-diff.md)) has no preview, it is highlighted as Markdown.

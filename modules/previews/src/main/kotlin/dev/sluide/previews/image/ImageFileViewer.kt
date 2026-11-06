@@ -3,16 +3,15 @@ package dev.sluide.previews.image
 import dev.sluide.fileviewers.ExtensionFileViewer
 import dev.sluide.fileviewers.FileView
 import dev.sluide.fileviewers.FocusWhenShown
+import dev.sluide.fileviewers.WrappingToolbar
 import dev.sluide.previews.preview.PageZoom
 import dev.sluide.previews.preview.ZoomControls
 import dev.sluide.previews.preview.isPageFromString
 import javafx.application.ColorScheme
 import javafx.concurrent.Worker
-import javafx.geometry.Pos
 import javafx.scene.Node
 import javafx.scene.control.Label
 import javafx.scene.layout.BorderPane
-import javafx.scene.layout.HBox
 import javafx.scene.web.WebView
 import netscape.javascript.JSObject
 import org.springframework.stereotype.Component
@@ -68,9 +67,9 @@ internal class ImageFileView(
     private val pane =
         BorderPane(webView).apply {
             top =
-                HBox(zoom.node).apply {
+                WrappingToolbar().apply {
                     styleClass += "preview-toolbar"
-                    alignment = Pos.CENTER_LEFT
+                    leading.setAll(zoom.node)
                 }
             bottom = status
             styleClass += "image-view"

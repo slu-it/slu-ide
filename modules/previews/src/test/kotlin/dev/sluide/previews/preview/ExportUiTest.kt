@@ -3,13 +3,13 @@ package dev.sluide.previews.preview
 import dev.sluide.backgroundtasks.BackgroundTasks
 import dev.sluide.fileviewers.FileViewHost
 import dev.sluide.fileviewers.WindowServices
+import dev.sluide.fileviewers.WrappingToolbar
 import dev.sluide.previews.image.SvgFileViewer
 import dev.sluide.previews.markdown.MarkdownFileViewer
 import dev.sluide.previews.table.CsvFileViewer
 import javafx.scene.Node
 import javafx.scene.Scene
 import javafx.scene.control.MenuButton
-import javafx.scene.layout.HBox
 import javafx.scene.layout.StackPane
 import javafx.stage.Stage
 import org.jsoup.Jsoup
@@ -89,9 +89,8 @@ class ExportUiTest {
         fx {
             robot
                 .lookup(".preview-toolbar")
-                .query<HBox>()
-                .children
-                .toList()
+                .query<WrappingToolbar>()
+                .let { it.leading + it.trailing }
         }
 
     @Test

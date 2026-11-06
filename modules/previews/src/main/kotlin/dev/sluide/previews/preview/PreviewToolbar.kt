@@ -1,5 +1,6 @@
 package dev.sluide.previews.preview
 
+import dev.sluide.fileviewers.WrappingToolbar
 import javafx.beans.binding.Bindings
 import javafx.beans.property.BooleanProperty
 import javafx.beans.property.ObjectProperty
@@ -13,8 +14,6 @@ import javafx.scene.control.ToggleButton
 import javafx.scene.control.ToggleGroup
 import javafx.scene.control.Tooltip
 import javafx.scene.layout.HBox
-import javafx.scene.layout.Priority
-import javafx.scene.layout.Region
 import javafx.scene.web.WebView
 
 /**
@@ -61,7 +60,7 @@ internal class PreviewToolbar(
                 visibleProperty().bind(mode.map { it != PreviewMode.SOURCE })
                 managedProperty().bind(visibleProperty())
                 setOnAction { action.run() }
-                HBox.setMargin(this, Insets(0.0, 6.0, 0.0, 0.0))
+                WrappingToolbar.setMargin(this, Insets(0.0, 6.0, 0.0, 0.0))
             }
         }
 
@@ -76,13 +75,12 @@ internal class PreviewToolbar(
             Bindings.bindContent(children, contributed)
             visibleProperty().bind(Bindings.isNotEmpty(children))
             managedProperty().bind(visibleProperty())
-            HBox.setMargin(this, Insets(0.0, 0.0, 0.0, GROUP_GAP))
+            WrappingToolbar.setMargin(this, Insets(0.0, 0.0, 0.0, GROUP_GAP))
         }
 
-    val node: Node
+    val node: WrappingToolbar
 
     init {
-        val spacer = Region().apply { HBox.setHgrow(this, Priority.ALWAYS) }
         export?.button?.let {
             it.visibleProperty().bind(mode.map { m -> m != PreviewMode.SOURCE })
             it.managedProperty().bind(it.visibleProperty())
@@ -123,14 +121,15 @@ internal class PreviewToolbar(
             if (preview.zooms) {
                 emptyList()
             } else {
-                HBox.setMargin(zoom.node, Insets(0.0, 6.0, 0.0, 0.0))
+                WrappingToolbar.setMargin(zoom.node, Insets(0.0, 6.0, 0.0, 0.0))
                 listOf(zoom.node)
             }
         val right = actionButtons + listOfNotNull(export?.button) + documentZoom + buttons
         node =
-            HBox(*(extras + spacer + right).toTypedArray()).apply {
+            WrappingToolbar().apply {
                 styleClass += "preview-toolbar"
-                alignment = Pos.CENTER_RIGHT
+                leading.setAll(extras)
+                trailing.setAll(right)
             }
     }
 
